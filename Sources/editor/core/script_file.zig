@@ -145,6 +145,136 @@ pub fn copyForTest(files: Files, map_path: []const u8, test_dir: []const u8, val
     return .copied;
 }
 
+/// The bare names of the `.lua` files beside the map `map_path` (engine or OS
+/// form), sorted, each without the extension: only files whose name before
+/// ".lua" passes `isBareName` (a file the game could be told to load), owned by
+/// `allocator` - free with `files.freeNames`. The Script dialog offers "None"
+/// and these. A folder that will not list gives an empty list.
+pub fn listBeside(files: Files, allocator: std.mem.Allocator, map_path: []const u8, out: *std.ArrayListUnmanaged([]u8)) Files.Error!void {
+    var directory: [files_mod.max_path]u8 = undefined;
+    const beside = directoryOf(map_path);
+    // The directory without its trailing separator (a root keeps its own), "."
+    // for a map named with no folder at all.
+    var dir_len = beside.len;
+    while (dir_len > 1 and (beside[dir_len - 1] == '/' or beside[dir_len - 1] == '\\')) dir_len -= 1;
+    if (dir_len > directory.len) return;
+    @memcpy(directory[0..dir_len], beside[0..dir_len]);
+    toOsSeparators(directory[0..dir_len]);
+    const dir_os: []const u8 = if (dir_len == 0) "." else directory[0..dir_len];
+    var raw: std.ArrayListUnmanaged([]u8) = .empty;
+    defer files_mod.freeNames(allocator, &raw);
+    try files.list(dir_os, lua_extension, allocator, &raw);
+    errdefer files_mod.freeNames(allocator, out);
+    for (raw.items) |file_name| {
+        const stem = file_name[0 .. file_name.len - lua_extension.len];
+        if (stem.len == 0 or !isBareName(stem)) continue;
+        const owned = allocator.dupe(u8, stem) catch return error.Failed;
+        out.append(allocator, owned) catch {
+            allocator.free(owned);
+            return error.Failed;
+        };
+    }
+}
+
+pub const lua_extension = ".lua";
+
+/// The script name a picked file gives: its own name without ".lua", when that
+/// passes `isBareName` and is not empty. `picked_path` is what the file dialog
+/// answered (an OS path). Null for anything else, which is refused.
+pub fn pickedName(picked_path: []const u8) ?[]const u8 {
+    const cut = std.mem.lastIndexOfAny(u8, picked_path, "/\\");
+    const file_name = if (cut) |c| picked_path[c + 1 ..] else picked_path;
+    if (file_name.len <= lua_extension.len or !std.ascii.eqlIgnoreCase(file_name[file_name.len - lua_extension.len ..], lua_extension)) return null;
+    const stem = file_name[0 .. file_name.len - lua_extension.len];
+    return if (isBareName(stem)) stem else null;
+}
+
+/// What "Choose other..." did with a picked file.
+pub const CopyIntoOutcome = enum {
+    /// The script is beside the map now (copied, or it already was that file).
+    copied,
+    /// A different file of that name is already beside the map: nothing was
+    /// copied, and the caller asks before calling again with `overwrite`.
+    exists,
+    /// The picked file's name is not a bare name plus ".lua".
+    not_a_bare_name,
+    /// The picked file is not there, or the disk refused.
+    failed,
+};
+
+/// "Choose other...": copies the picked file beside the map `map_path` under
+/// its own name (`pickedName`). The destination is the map's folder plus that
+/// validated name, never the picked path. When a different file is already
+/// there this is `.exists` unless `overwrite` says the person agreed.
+pub fn copyInto(files: Files, map_path: []const u8, picked_path: []const u8, overwrite: bool) CopyIntoOutcome {
+    const name = pickedName(picked_path) orelse return .not_a_bare_name;
+    var to_buffer: [files_mod.max_path]u8 = undefined;
+    const to = scriptPathBeside(&to_buffer, map_path, name) orelse return .not_a_bare_name;
+    if (!files.exists(picked_path)) return .failed;
+    if (sameFile(files, picked_path, to)) return .copied;
+    if (files.exists(to) and !overwrite) return .exists;
+    files.copy(picked_path, to) catch return .failed;
+    return .copied;
+}
+
+/// Save As of a shipped map (D-20): copies the script the map names from beside
+/// `from_map` to beside `to_map`, both engine or OS paths, `value` the map's
+/// script file as it holds it (`gameScriptName`). `.missing` when there is no
+/// such file beside the old map (nothing to ask about, nothing failed), and a
+/// copy onto itself - both maps in one folder - is `.copied`.
+pub fn copyAlong(files: Files, from_map: []const u8, to_map: []const u8, value: []const u8) CopyOutcome {
+    const name = gameScriptName(value) orelse return .not_a_bare_name;
+    var from_buffer: [files_mod.max_path]u8 = undefined;
+    var to_buffer: [files_mod.max_path]u8 = undefined;
+    const from = scriptPathBeside(&from_buffer, from_map, name) orelse return .not_a_bare_name;
+    const to = scriptPathBeside(&to_buffer, to_map, name) orelse return .not_a_bare_name;
+    if (!files.exists(from)) return .missing;
+    if (sameFile(files, from, to)) return .copied;
+    files.copy(from, to) catch return .failed;
+    return .copied;
+}
+
+fn isUnreserved(char: u8) bool {
+    return std.ascii.isAlphanumeric(char) or char == '-' or char == '.' or char == '_' or char == '~';
+}
+
+/// The URL that opens the script `value` (as the map holds it) beside `map_path`
+/// with the system's default editor (`SDL_OpenURL`): "file://" and the resolved
+/// absolute path of the file's folder (`Files.realPath`) and the validated name
+/// and ".lua", percent-encoded, in `buffer`. Built from nothing typed: the name
+/// is `gameScriptName`'s, one component of letters, digits and "_-.", and the
+/// folder is the map's own. Null for None or a name that fails the rule, a file
+/// that is not there (the caller warns) and a path that does not fit.
+pub fn openUrl(files: Files, buffer: []u8, map_path: []const u8, value: []const u8) ?[]const u8 {
+    const name = gameScriptName(value) orelse return null;
+    var path_buffer: [files_mod.max_path]u8 = undefined;
+    const script_path = scriptPathBeside(&path_buffer, map_path, name) orelse return null;
+    if (!files.exists(script_path)) return null;
+    var dir_buffer: [files_mod.max_path]u8 = undefined;
+    const script_dir = script_path[0 .. std.mem.lastIndexOfAny(u8, script_path, "/\\") orelse 0];
+    const real_dir = files.realPath(if (script_dir.len == 0) "." else script_dir, &dir_buffer) orelse return null;
+    var out: std.ArrayListUnmanaged(u8) = .initBuffer(buffer);
+    out.appendSliceBounded("file://") catch return null;
+    // A drive path ("C:\...") gets the slash a URL needs before it.
+    if (real_dir.len == 0 or (real_dir[0] != '/' and real_dir[0] != '\\')) out.appendBounded('/') catch return null;
+    for (real_dir, 0..) |char, index| {
+        const drive_colon = char == ':' and index == 1 and std.ascii.isAlphabetic(real_dir[0]);
+        if (char == '\\') {
+            out.appendBounded('/') catch return null;
+        } else if (char == '/' or isUnreserved(char) or drive_colon) {
+            out.appendBounded(char) catch return null;
+        } else {
+            var escape: [3]u8 = undefined;
+            _ = std.fmt.bufPrint(&escape, "%{X:0>2}", .{char}) catch return null;
+            out.appendSliceBounded(&escape) catch return null;
+        }
+    }
+    out.appendBounded('/') catch return null;
+    out.appendSliceBounded(name) catch return null;
+    out.appendSliceBounded(lua_extension) catch return null;
+    return out.items;
+}
+
 test "isBareName holds the rule NMapRecords::IsBareScriptName holds" {
     // The same cases map_file_test.cpp and editor_bridge_test.cpp give the C++ rule.
     const good = [_][]const u8{ "", "m2_script", "coldwinter", "a", "A-b_c.d", "script1", "x" ** 63 };
@@ -251,4 +381,114 @@ test "copyForTest reports a refusing disk, and leaves a script already in the te
         if (op.kind == .copy) copies += 1;
     }
     try std.testing.expectEqual(@as(usize, 1), copies); // the failed one; the same-file one never copied
+}
+
+test "listBeside offers the bare names of the .lua files beside the map, sorted" {
+    var fake = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake.deinit();
+    const files = fake.files();
+    try fake.write("/maps/mine/a.bzm", "map");
+    try fake.write("/maps/mine/zeta.lua", "1");
+    try fake.write("/maps/mine/Alpha.lua", "2");
+    try fake.write("/maps/mine/two words.lua", "3"); // a name the rule refuses is not offered
+    try fake.write("/maps/mine/x.lua.lua", "4");
+    try fake.write("/maps/mine/readme.txt", "5");
+    try fake.write("/maps/other/beta.lua", "6");
+    var names: std.ArrayListUnmanaged([]u8) = .empty;
+    defer files_mod.freeNames(std.testing.allocator, &names);
+    try listBeside(files, std.testing.allocator, "\\maps\\mine\\a.bzm", &names);
+    // "x.lua.lua" is the file "x.lua" plus the extension: its stem fails the rule.
+    try std.testing.expectEqual(@as(usize, 2), names.items.len);
+    try std.testing.expectEqualStrings("Alpha", names.items[0]);
+    try std.testing.expectEqualStrings("zeta", names.items[1]);
+}
+
+test "pickedName is the picked file's own name when it is a bare name plus .lua" {
+    try std.testing.expectEqualStrings("m2_script", pickedName("/home/u/Downloads/m2_script.lua").?);
+    try std.testing.expectEqualStrings("m2_script", pickedName("C:\\Users\\u\\m2_script.LUA").?);
+    try std.testing.expectEqualStrings("s", pickedName("s.lua").?);
+    for ([_][]const u8{ "/x/notes.txt", "/x/.lua", "/x/a b.lua", "/x/..lua", "/x/x.lua.lua", "/x/dir/", "" }) |picked| {
+        try std.testing.expect(pickedName(picked) == null);
+    }
+}
+
+test "copyInto puts a picked script beside the map, asks first when one is there, and refuses a bad name" {
+    var fake = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake.deinit();
+    const files = fake.files();
+    try fake.write("/dl/mine.lua", "new");
+    try fake.write("/dl/bad name.lua", "x");
+    try fake.write("/dl/notes.txt", "x");
+    const map = "/maps/mine/a.bzm";
+    try std.testing.expectEqual(CopyIntoOutcome.copied, copyInto(files, map, "/dl/mine.lua", false));
+    try std.testing.expectEqualStrings("new", fake.contents("/maps/mine/mine.lua").?);
+    // A different file of that name is there now: ask, do not copy.
+    try fake.write("/dl/mine.lua", "newer");
+    try std.testing.expectEqual(CopyIntoOutcome.exists, copyInto(files, map, "/dl/mine.lua", false));
+    try std.testing.expectEqualStrings("new", fake.contents("/maps/mine/mine.lua").?);
+    // Told to overwrite, it does.
+    try std.testing.expectEqual(CopyIntoOutcome.copied, copyInto(files, map, "/dl/mine.lua", true));
+    try std.testing.expectEqualStrings("newer", fake.contents("/maps/mine/mine.lua").?);
+    // A script already beside the map is chosen without a copy or a question.
+    try std.testing.expectEqual(CopyIntoOutcome.copied, copyInto(files, map, "/maps/mine/mine.lua", false));
+    // The name must be a bare name plus .lua; a missing file fails.
+    try std.testing.expectEqual(CopyIntoOutcome.not_a_bare_name, copyInto(files, map, "/dl/bad name.lua", true));
+    try std.testing.expectEqual(CopyIntoOutcome.not_a_bare_name, copyInto(files, map, "/dl/notes.txt", true));
+    try std.testing.expectEqual(CopyIntoOutcome.failed, copyInto(files, map, "/dl/gone.lua", true));
+    try std.testing.expect(fake.contents("/maps/mine/bad name.lua") == null);
+}
+
+test "copyAlong copies a script between the two maps' folders and reports a missing one without failing" {
+    var fake = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake.deinit();
+    const files = fake.files();
+    try fake.write("/game/Data/Maps/Multiplayer/coldwinter.lua", "shipped");
+    try std.testing.expectEqual(CopyOutcome.copied, copyAlong(files, "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "coldwinter"));
+    try std.testing.expectEqualStrings("shipped", fake.contents("/home/maps/coldwinter.lua").?);
+    // A value the shipped map holds as a folder path keeps its last component, as the game does.
+    try std.testing.expectEqual(CopyOutcome.copied, copyAlong(files, "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/other/mine.bzm", "maps\\coldwinter"));
+    try std.testing.expectEqualStrings("shipped", fake.contents("/home/other/coldwinter.lua").?);
+    // Nothing beside the old map: missing, nothing written.
+    const ops = fake.op_log.items.len;
+    try std.testing.expectEqual(CopyOutcome.missing, copyAlong(files, "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "absent"));
+    try std.testing.expectEqual(ops, fake.op_log.items.len);
+    // Both maps in one folder: nothing to copy.
+    try std.testing.expectEqual(CopyOutcome.copied, copyAlong(files, "/home/maps/a.bzm", "/home/maps/b.bzm", "coldwinter"));
+    // A name that builds no path copies nothing.
+    try std.testing.expectEqual(CopyOutcome.not_a_bare_name, copyAlong(files, "/game/a.bzm", "/home/b.bzm", "x.lua"));
+    try std.testing.expectEqual(CopyOutcome.not_a_bare_name, copyAlong(files, "/game/a.bzm", "/home/b.bzm", ""));
+}
+
+test "openUrl is file:// and the resolved folder and a validated name, and nothing else" {
+    var fake = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake.deinit();
+    const files = fake.files();
+    try fake.write("/home/me/My Maps/m2_script.lua", "x");
+    try fake.write("/home/me/My Maps/it's.lua", "x");
+    var buffer: [512]u8 = undefined;
+    if (builtin.os.tag != .windows) {
+        try std.testing.expectEqualStrings("file:///home/me/My%20Maps/m2_script.lua", openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "m2_script").?);
+        // A folder value keeps its last component; a drive-less engine path works too.
+        try std.testing.expectEqualStrings("file:///home/me/My%20Maps/m2_script.lua", openUrl(files, &buffer, "\\home\\me\\My Maps\\a.bzm", "maps\\m2_script").?);
+    }
+    // Every byte is unreserved, a slash, a percent escape or the drive's colon.
+    const url = openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "m2_script").?;
+    try std.testing.expect(std.mem.startsWith(u8, url, "file://"));
+    for (url["file://".len..]) |char| try std.testing.expect(isUnreserved(char) or char == '/' or char == '%' or char == ':');
+    // A file that is not there, None and a bad name give no URL - nothing to open.
+    try std.testing.expect(openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "absent") == null);
+    try std.testing.expect(openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "") == null);
+    try std.testing.expect(openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "x.lua") == null);
+    try std.testing.expect(openUrl(files, &buffer, "/home/me/My Maps/a.bzm", "..\\..\\etc") == null);
+    var tiny: [16]u8 = undefined;
+    try std.testing.expect(openUrl(files, &tiny, "/home/me/My Maps/a.bzm", "m2_script") == null);
+    // The real path is the fake's own (symlinks resolved): a link is followed for the folder only.
+    var linked = files_mod.FakeFiles.init(std.testing.allocator);
+    defer linked.deinit();
+    const link_list = [_]files_mod.FakeFiles.Link{.{ .from = "/home/me/maps", .to = "/mnt/disk/maps" }};
+    linked.links = &link_list;
+    try linked.write("/home/me/maps/s.lua", "x");
+    if (builtin.os.tag != .windows) {
+        try std.testing.expectEqualStrings("file:///mnt/disk/maps/s.lua", openUrl(linked.files(), &buffer, "/home/me/maps/a.bzm", "s").?);
+    }
 }
