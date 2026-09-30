@@ -2618,11 +2618,21 @@ pub const FakeBridge = struct {
     /// centre on the map when the put moves it; a name the map held twice when it
     /// was opened may be put back as often as it held it. Says why when not.
     fn areaPutAllowed(self: *FakeBridge, wanted: records.ScriptArea, replacing: ?usize) bool {
-        if (wanted.nameSlice().len == 0) {
+        // An area the map held at open, put back bit for bit (an undo), keeps
+        // whatever it held: only the name rule applies to it (WR-A04).
+        var opened_exact = false;
+        for (self.script_areas_at_open.items) |existing| {
+            const same_bits = std.mem.eql(u8, existing.nameSlice(), wanted.nameSlice()) and existing.shape == wanted.shape and
+                @as(u32, @bitCast(existing.cx)) == @as(u32, @bitCast(wanted.cx)) and @as(u32, @bitCast(existing.cy)) == @as(u32, @bitCast(wanted.cy)) and
+                @as(u32, @bitCast(existing.hx)) == @as(u32, @bitCast(wanted.hx)) and @as(u32, @bitCast(existing.hy)) == @as(u32, @bitCast(wanted.hy)) and
+                @as(u32, @bitCast(existing.r)) == @as(u32, @bitCast(wanted.r));
+            if (same_bits) opened_exact = true;
+        }
+        if (wanted.nameSlice().len == 0 and !opened_exact) {
             self.say("an area needs a name", .{});
             return false;
         }
-        if (wanted.hx < 0 or wanted.hy < 0 or wanted.r < 0) {
+        if (!opened_exact and (wanted.hx < 0 or wanted.hy < 0 or wanted.r < 0)) {
             self.say("an area's size is not negative", .{});
             return false;
         }
@@ -2642,7 +2652,7 @@ pub const FakeBridge = struct {
             }
         }
         const moved = if (replacing) |index| (self.script_areas.items[index].cx != wanted.cx or self.script_areas.items[index].cy != wanted.cy) else true;
-        if (moved and !self.onMapAt(wanted.cx, wanted.cy)) {
+        if (moved and !opened_exact and !self.onMapAt(wanted.cx, wanted.cy)) {
             self.say("the area's centre is not on the map", .{});
             return false;
         }

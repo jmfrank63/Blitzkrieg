@@ -250,14 +250,37 @@ bool OnTheMapInAIUnits( const SEditorSession &rSession, float fX, float fY )
 // negative, and a centre on the map when the put moves it. A name the file itself
 // held more than once when it was opened is allowed as often as the file held it,
 // so an undo can put such an area back beside its twin. Says why in szMessage.
+bool SameFloatBits( float fLeft, float fRight )
+{
+	return memcmp( &fLeft, &fRight, sizeof fLeft ) == 0;
+}
+
+// True when rArea is, bit for bit, an area the file held when it was opened.
+bool IsOpenedArea( const SEditorSession &rSession, const SScriptArea &rArea )
+{
+	for ( size_t i = 0; i < rSession.openedAreas.size(); ++i )
+	{
+		const SScriptArea &rOpened = rSession.openedAreas[i];
+		if ( rOpened.szName == rArea.szName && rOpened.eType == rArea.eType &&
+		     SameFloatBits( rOpened.center.x, rArea.center.x ) && SameFloatBits( rOpened.center.y, rArea.center.y ) &&
+		     SameFloatBits( rOpened.vAABBHalfSize.x, rArea.vAABBHalfSize.x ) && SameFloatBits( rOpened.vAABBHalfSize.y, rArea.vAABBHalfSize.y ) &&
+		     SameFloatBits( rOpened.fR, rArea.fR ) )
+			return true;
+	}
+	return false;
+}
+
 bool AreaPutAllowed( SEditorSession *pSession, const SScriptArea &rWanted, int nIgnoreIndex, const SScriptArea *pCurrent )
 {
-	if ( rWanted.szName.empty() )
+	// An area of the file's own, put back exactly (the undo of a delete or an
+	// edit), keeps whatever it held: only the name rule below applies to it.
+	const bool bOpened = IsOpenedArea( *pSession, rWanted );
+	if ( rWanted.szName.empty() && !bOpened )
 	{
 		pSession->szMessage = "an area needs a name";
 		return false;
 	}
-	if ( rWanted.vAABBHalfSize.x < 0.0f || rWanted.vAABBHalfSize.y < 0.0f || rWanted.fR < 0.0f )
+	if ( !bOpened && ( rWanted.vAABBHalfSize.x < 0.0f || rWanted.vAABBHalfSize.y < 0.0f || rWanted.fR < 0.0f ) )
 	{
 		pSession->szMessage = "an area's size is not negative";
 		return false;
@@ -277,7 +300,7 @@ bool AreaPutAllowed( SEditorSession *pSession, const SScriptArea &rWanted, int n
 		}
 	}
 	const bool bMoved = pCurrent == 0 || pCurrent->center.x != rWanted.center.x || pCurrent->center.y != rWanted.center.y;
-	if ( bMoved && !OnTheMapInAIUnits( *pSession, rWanted.center.x, rWanted.center.y ) )
+	if ( bMoved && !bOpened && !OnTheMapInAIUnits( *pSession, rWanted.center.x, rWanted.center.y ) )
 	{
 		pSession->szMessage = "the area's centre is not on the map";
 		return false;

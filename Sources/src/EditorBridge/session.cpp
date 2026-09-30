@@ -263,6 +263,7 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->openedAreaNames.clear();
 	for ( size_t i = 0; i < read.scriptAreas.size(); ++i )
 		++pSession->openedAreaNames[read.scriptAreas[i].szName];
+	pSession->openedAreas.assign( read.scriptAreas.begin(), read.scriptAreas.end() );
 	pSession->openedStartCommands.assign( read.startCommandsList.begin(), read.startCommandsList.end() );
 	pSession->openedReservePositions.assign( read.reservePositionsList.begin(), read.reservePositionsList.end() );
 	pSession->openedAISides = read.aiGeneralMapInfo.sidesInfo;

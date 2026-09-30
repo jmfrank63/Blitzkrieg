@@ -4778,6 +4778,39 @@ static void TestM2ScriptAreas( BkEditorSession *pSession, const std::string &szS
 			remove( OsPath( szOddAfter ).c_str() );
 		}
 		remove( OsPath( szOdd ).c_str() );
+		// WR-A04: a file area off the map with a negative size can be deleted
+		// and moved, and both undos (the exact record put back) go through.
+		{
+			const std::string szOffMap = szScratch + "\\areas-offmap.bzm";
+			CMapInfo offMap = original;
+			SScriptArea offArea;
+			offArea.eType = SScriptArea::EAT_RECTANGLE;
+			offArea.szName = "offmap";
+			offArea.center = CVec2( -50.0f, 1.0e6f );
+			offArea.vAABBHalfSize = CVec2( -3.0f, 4.0f );
+			offArea.fR = 0.0f;
+			NMapRecords::InsertScriptArea( &offMap, -1, offArea );
+			const int nOff = int( offMap.scriptAreas.size() ) - 1;
+			if ( Check( NMapFile::Write( szOffMap.c_str(), offMap, &szError ), szError.c_str() ) &&
+			     Check( BkEditorOpenMap( pSession, szOffMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			{
+				const std::string szOffBefore = szScratch + "\\areas-offmap-before.bzm", szOffAfter = szScratch + "\\areas-offmap-after.bzm";
+				Check( BkEditorSaveMap( pSession, szOffBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+				const BkEditorScriptAreaRecord fileOwn = AreaRecordOf( "offmap", 0, -50.0f, 1.0e6f, -3.0f, 4.0f, 0.0f );
+				Check( BkEditorDeleteScriptArea( pSession, nOff ) == BK_EDITOR_OK && BkEditorAddScriptArea( pSession, nOff, &fileOwn ) == BK_EDITOR_OK,
+				       NStr::Format( "the file's off-map area is deleted and put back, as an undo needs: %s", BkEditorLastMessage( pSession ) ) );
+				const BkEditorScriptAreaRecord onMap = AreaRecordOf( "offmap", 0, fMiddleX, fMiddleY, 3.0f, 4.0f, 0.0f );
+				Check( BkEditorSetScriptArea( pSession, nOff, &onMap ) == BK_EDITOR_OK && BkEditorSetScriptArea( pSession, nOff, &fileOwn ) == BK_EDITOR_OK,
+				       NStr::Format( "moved onto the map and set back exactly: %s", BkEditorLastMessage( pSession ) ) );
+				const BkEditorScriptAreaRecord newOdd = AreaRecordOf( "offmap2", 0, -50.0f, 1.0e6f, -3.0f, 4.0f, 0.0f );
+				Check( BkEditorAddScriptArea( pSession, -1, &newOdd ) == BK_EDITOR_REFUSED, "a NEW off-map area is still refused" );
+				if ( Check( BkEditorSaveMap( pSession, szOffAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+					Check( SameBytes( szOffBefore, szOffAfter ), "the off-map area map saves the same bytes after the edits and their put backs" );
+				remove( OsPath( szOffBefore ).c_str() );
+				remove( OsPath( szOffAfter ).c_str() );
+			}
+			remove( OsPath( szOffMap ).c_str() );
+		}
 		const std::string szLong = szScratch + "\\areas-long.bzm";
 		CMapInfo longName = original;
 		SScriptArea longArea = NMapGeometry::AreaFromVis( SScriptArea::EAT_CIRCLE, CVec2( fMiddleX, fMiddleY ), CVec2( fMiddleX + 40.0f, fMiddleY ), std::string( 70, 'n' ) );
