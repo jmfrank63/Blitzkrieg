@@ -2017,6 +2017,160 @@ BkEditorStatus BkEditorSetScriptFile( BkEditorSession *pSession, const BkEditorS
 }
 
 namespace {
+// A record the ABI takes as an area: present, its name terminated inside the
+// record, a type the file has and finite numbers. What is past this (an empty or
+// taken name, a centre off the map, a negative size) is a refusal decided once,
+// in session_records.cpp.
+bool AreaRecordWellFormed( const BkEditorScriptAreaRecord *pRecord )
+{
+	if ( pRecord == 0 || memchr( pRecord->name, 0, sizeof pRecord->name ) == 0 )
+		return false;
+	if ( pRecord->type != 0 && pRecord->type != 1 )
+		return false;
+	return std::isfinite( pRecord->cx ) && std::isfinite( pRecord->cy ) && std::isfinite( pRecord->hx ) &&
+	       std::isfinite( pRecord->hy ) && std::isfinite( pRecord->r );
+}
+
+SScriptArea AreaOf( const BkEditorScriptAreaRecord &rRecord )
+{
+	SScriptArea area;
+	area.eType = rRecord.type == 0 ? SScriptArea::EAT_RECTANGLE : SScriptArea::EAT_CIRCLE;
+	area.szName = rRecord.name;
+	area.center = CVec2( rRecord.cx, rRecord.cy );
+	area.vAABBHalfSize = CVec2( rRecord.hx, rRecord.hy );
+	area.fR = rRecord.r;
+	return area;
+}
+
+void FillAreaRecord( const SScriptArea &rArea, BkEditorScriptAreaRecord *pOut )
+{
+	memset( pOut, 0, sizeof *pOut );
+	const size_t nLength = Min( rArea.szName.size(), sizeof pOut->name - 1 );
+	memcpy( pOut->name, rArea.szName.c_str(), nLength );
+	pOut->type = int( rArea.eType );
+	pOut->cx = rArea.center.x;
+	pOut->cy = rArea.center.y;
+	pOut->hx = rArea.vAABBHalfSize.x;
+	pOut->hy = rArea.vAABBHalfSize.y;
+	pOut->r = rArea.fR;
+}
+}
+
+BkEditorStatus BkEditorScriptAreas( BkEditorSession *pSession, BkEditorScriptAreaRecord *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( pOut == 0 && nCapacity > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( ReadSessionScriptAreas( pSession, pOut, nCapacity, pnCount, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorAddScriptArea( BkEditorSession *pSession, int nIndex, const BkEditorScriptAreaRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !AreaRecordWellFormed( pRecord ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < -1 || nIndex > int( pSession->snapshot.scriptAreas.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( AddScriptAreaToSession( pSession, nIndex, *pRecord, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorSetScriptArea( BkEditorSession *pSession, int nIndex, const BkEditorScriptAreaRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !AreaRecordWellFormed( pRecord ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < 0 || nIndex >= int( pSession->snapshot.scriptAreas.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( SetScriptAreaInSession( pSession, nIndex, *pRecord, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorDeleteScriptArea( BkEditorSession *pSession, int nIndex )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < 0 || nIndex >= int( pSession->snapshot.scriptAreas.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( DeleteScriptAreaFromSession( pSession, nIndex, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorScriptAreaFromVis( BkEditorSession *pSession, int nType, float fX0, float fY0, float fX1, float fY1,
+                                          const char *pszName, BkEditorScriptAreaRecord *pOut )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 || pszName == 0 || strnlen( pszName, sizeof pOut->name ) >= sizeof pOut->name )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( ( nType != 0 && nType != 1 ) || !std::isfinite( fX0 ) || !std::isfinite( fY0 ) || !std::isfinite( fX1 ) || !std::isfinite( fY1 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		FillAreaRecord( NMapGeometry::AreaFromVis( nType, CVec2( fX0, fY0 ), CVec2( fX1, fY1 ), pszName ), pOut );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorScriptAreaMoved( BkEditorSession *pSession, const BkEditorScriptAreaRecord *pArea, float fX, float fY,
+                                        BkEditorScriptAreaRecord *pOut )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 || !AreaRecordWellFormed( pArea ) || !std::isfinite( fX ) || !std::isfinite( fY ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		FillAreaRecord( NMapGeometry::MoveArea( AreaOf( *pArea ), CVec2( fX, fY ) ), pOut );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorScriptAreaResized( BkEditorSession *pSession, const BkEditorScriptAreaRecord *pArea, float fX, float fY,
+                                          BkEditorScriptAreaRecord *pOut )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 || !AreaRecordWellFormed( pArea ) || !std::isfinite( fX ) || !std::isfinite( fY ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		FillAreaRecord( NMapGeometry::ResizeArea( AreaOf( *pArea ), CVec2( fX, fY ) ), pOut );
+		return BK_EDITOR_OK;
+	} );
+}
+
+namespace {
 // The most script IDs a caller may hand BkEditorSetGroup: one per script ID
 // there is, with room for a file's own duplicates. A larger count is a caller
 // bug, and keeps the vector the put builds bounded (T-04-09-03).

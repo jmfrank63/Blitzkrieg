@@ -253,6 +253,9 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->hiddenScriptIDs.clear();
 	pSession->hiddenLinkIDs.clear();
 	pSession->szScriptFileAtOpen = read.szScriptFile;
+	pSession->openedAreaNames.clear();
+	for ( size_t i = 0; i < read.scriptAreas.size(); ++i )
+		++pSession->openedAreaNames[read.scriptAreas[i].szName];
 	pSession->openedGroups.clear();
 	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = read.reinforcements.groups.begin(); it != read.reinforcements.groups.end(); ++it )
 		pSession->openedGroups[it->first] = it->second.ids;

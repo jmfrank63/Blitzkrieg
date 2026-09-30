@@ -220,5 +220,32 @@ bool TrenchPath( const STrenchPlanInput &rInput, const std::vector<CVec2> &rClic
 // an extent given - a piece outside [0, fMapWidth) x [0, fMapHeight) ("the
 // trench leaves the map").
 bool PlanEntrenchment( const STrenchPlanInput &rInput, const std::vector<CVec2> &rPointsVis, STrenchPlan *pPlan, std::string *pWhy );
+
+// ---------------------------------------------------------------------------
+// Script areas (04-10, D-21): the MFC editor's area tool, MapToolState.cpp
+// (OnLButtonUp: 188-274 the rectangle and circle a drag makes) and
+// TemplateEditorFrame1.cpp (CalculateAreasToAI, 3535-3555: the conversion the
+// save applied). A drag is world (Vis) units; an area is stored in map (AI) units
+// and the game reads it raw (CScripts::InitAreas, GetScriptAreaParams).
+//
+// The conversion rule, applied ONCE to a new or edited area and never to one the
+// map already holds: Vis2AI - times fAITileXCoeff1, plus 0.3, truncated - for the
+// centre, the half size and, through x alone, the radius.
+
+// A new area from a drag: a rectangle's centre is the middle of the two points and
+// its half size half the distance along each axis; a circle's centre is the first
+// point and its radius the (Euclidean) distance to the last. eType is
+// SScriptArea::EAT_RECTANGLE or EAT_CIRCLE. Every value comes back in AI units;
+// the unused one (a circle's half size, a rectangle's radius) is 0, as the MFC
+// editor's own record.
+SScriptArea AreaFromVis( int eType, const CVec2 &vFirstVis, const CVec2 &vLastVis, const std::string &szName );
+// The area moved so its centre is at vNewCentreVis (world units): the new centre
+// converted with the rule, size and name kept.
+SScriptArea MoveArea( const SScriptArea &rArea, const CVec2 &vNewCentreVis );
+// The area resized by dragging its corner (a rectangle) or edge (a circle) handle
+// to vHandleVis (world units): a rectangle's half size is the distance from its
+// centre to the handle along each axis, a circle's radius the distance to the
+// handle, converted with the rule; centre and name kept.
+SScriptArea ResizeArea( const SScriptArea &rArea, const CVec2 &vHandleVis );
 }
 #endif // __MAP_GEOMETRY_H__

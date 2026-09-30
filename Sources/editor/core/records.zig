@@ -21,6 +21,9 @@ pub const Kind = enum {
     group,
     /// The map's script file (04-10, D-20): one bare name, a singleton.
     script_file,
+    /// A script area (04-10, D-21): keyed by its index in the map's list, the
+    /// list the game's Lua finds by name.
+    script_area,
 };
 
 /// A world-unit point. The all-zero value is the file's VNULL3: "not set".
@@ -132,6 +135,44 @@ pub const ScriptFile = struct {
     }
 };
 
+/// BkEditorScriptAreaRecord's name capacity: 63 characters and the NUL.
+pub const area_name_capacity = 64;
+
+/// The file's own enum values (SScriptArea::EAreaTypes).
+pub const AreaShape = enum(i32) { rectangle = 0, circle = 1 };
+
+/// One script area as the file holds it, in MAP (AI) units - never world units:
+/// a rectangle has its centre (cx, cy) and half size (hx, hy), a circle its
+/// centre and radius r; the fields a shape does not use keep what the file had.
+/// A new or edited area is converted from a drag by the bridge (the MFC editor's
+/// truncation, once); the core only carries the result. `name` is non-empty and
+/// unique among the map's areas, case-sensitive, which the bridge enforces.
+pub const ScriptArea = struct {
+    name: [area_name_capacity]u8 = [_]u8{0} ** area_name_capacity,
+    shape: AreaShape = .rectangle,
+    cx: f32 = 0,
+    cy: f32 = 0,
+    hx: f32 = 0,
+    hy: f32 = 0,
+    r: f32 = 0,
+
+    pub fn nameSlice(self: *const ScriptArea) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    /// Copies `text`, cut to what the record holds.
+    pub fn setName(self: *ScriptArea, text: []const u8) void {
+        const len = @min(text.len, area_name_capacity - 1);
+        @memset(&self.name, 0);
+        @memcpy(self.name[0..len], text[0..len]);
+    }
+
+    pub fn eql(a: ScriptArea, b: ScriptArea) bool {
+        return std.mem.eql(u8, std.mem.sliceTo(&a.name, 0), std.mem.sliceTo(&b.name, 0)) and a.shape == b.shape and
+            a.cx == b.cx and a.cy == b.cy and a.hx == b.hx and a.hy == b.hy and a.r == b.r;
+    }
+};
+
 /// One whole record of some kind. The history owns the values it holds and
 /// frees them with `deinit`; the camera anchors and the script file own no
 /// memory, a group owns its script-ID list, and the three functions let the
@@ -140,10 +181,11 @@ pub const Value = union(Kind) {
     camera_anchors: CameraAnchors,
     group: Group,
     script_file: ScriptFile,
+    script_area: ScriptArea,
 
     pub fn deinit(self: *Value, allocator: std.mem.Allocator) void {
         switch (self.*) {
-            .camera_anchors, .script_file => {},
+            .camera_anchors, .script_file, .script_area => {},
             .group => |group| {
                 allocator.free(group.ids);
                 self.* = .{ .group = .{ .id = group.id } };
@@ -155,6 +197,7 @@ pub const Value = union(Kind) {
         return switch (self) {
             .camera_anchors => |anchors| .{ .camera_anchors = anchors },
             .script_file => |file| .{ .script_file = file },
+            .script_area => |area| .{ .script_area = area },
             .group => |group| .{ .group = .{ .id = group.id, .ids = try allocator.dupe(i32, group.ids) } },
         };
     }
@@ -165,6 +208,7 @@ pub const Value = union(Kind) {
             .camera_anchors => |left| left.eql(b.camera_anchors),
             .group => |left| left.eql(b.group),
             .script_file => |left| left.eql(b.script_file),
+            .script_area => |left| left.eql(b.script_area),
         };
     }
 };
@@ -252,4 +296,29 @@ test "a script file value compares by its text and never by the padding" {
     defer b.deinit(std.testing.allocator);
     try std.testing.expect(a.eql(b));
     try std.testing.expect(!a.eql(.{ .camera_anchors = .{} }));
+}
+
+test "a script area value compares by its name and numbers, and never by the padding" {
+    var first: ScriptArea = .{ .shape = .circle, .cx = 100, .cy = 120, .r = 10 };
+    first.setName("m2_area");
+    var second = first;
+    second.name[50] = 0; // past the NUL: not part of the value
+    try std.testing.expect(first.eql(second));
+    try std.testing.expectEqualStrings("m2_area", first.nameSlice());
+    second.r = 11;
+    try std.testing.expect(!first.eql(second));
+    second = first;
+    second.shape = .rectangle;
+    try std.testing.expect(!first.eql(second));
+    second = first;
+    second.setName("M2_AREA"); // names are case-sensitive
+    try std.testing.expect(!first.eql(second));
+    var long: ScriptArea = .{};
+    long.setName("n" ** 100);
+    try std.testing.expectEqual(@as(usize, area_name_capacity - 1), long.nameSlice().len);
+    const a: Value = .{ .script_area = first };
+    var b = try a.clone(std.testing.allocator);
+    defer b.deinit(std.testing.allocator);
+    try std.testing.expect(a.eql(b));
+    try std.testing.expect(!a.eql(.{ .script_file = .{} }));
 }

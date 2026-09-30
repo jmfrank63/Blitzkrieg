@@ -655,6 +655,87 @@ pub const Editor = struct {
         try self.editRecord(.script_file, 0, &value, 0);
     }
 
+    /// The map's script areas (D-21) in list order, owned by the caller (free
+    /// with the same allocator). Read one by one through the record path, so a
+    /// map whose area names the record cannot hold is Refused whole.
+    pub fn scriptAreas(self: *Editor, allocator: std.mem.Allocator) EditError![]records.ScriptArea {
+        var keys: []i32 = &.{};
+        try bridge_mod.check(self.bridge.recordKeys(.script_area, allocator, &keys));
+        defer allocator.free(keys);
+        const out = try allocator.alloc(records.ScriptArea, keys.len);
+        errdefer allocator.free(out);
+        for (keys, out) |key, *area| {
+            var value: records.Value = undefined;
+            try bridge_mod.check(self.bridge.readRecord(.script_area, key, allocator, &value));
+            area.* = value.script_area;
+        }
+        return out;
+    }
+
+    /// A new area appended to the map's list (D-21), one undo step (undo removes
+    /// it, redo puts it back at the same index). `area` is in AI units, made by
+    /// `scriptAreaFromVis`; the bridge refuses an empty or taken name, a centre
+    /// off the map and a negative size, and a refusal changes nothing. Returns
+    /// the index it took.
+    pub fn addScriptArea(self: *Editor, area: records.ScriptArea) EditError!usize {
+        var keys: []i32 = &.{};
+        try bridge_mod.check(self.bridge.recordKeys(.script_area, self.allocator, &keys));
+        const index = keys.len;
+        self.allocator.free(keys);
+        const value: records.Value = .{ .script_area = area };
+        try self.addRecord(.script_area, @intCast(index), &value);
+        return index;
+    }
+
+    /// Replaces area `index` (a move, a resize; D-21) through the generic record
+    /// command: within one gesture the edits are one undo step, and one that
+    /// returns the area to where the gesture began leaves none.
+    pub fn editScriptArea(self: *Editor, index: usize, area: records.ScriptArea, gesture: u32) EditError!void {
+        const value: records.Value = .{ .script_area = area };
+        try self.editRecord(.script_area, @intCast(index), &value, gesture);
+    }
+
+    /// Renames area `index`, one undo step; names are unique and non-empty
+    /// (Refused otherwise, nothing changed).
+    pub fn renameScriptArea(self: *Editor, index: usize, name: []const u8) EditError!void {
+        if (name.len >= records.area_name_capacity) {
+            self.setStatus("script area: ", "a name is 63 characters at most");
+            return error.Refused;
+        }
+        var value: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(.script_area, @intCast(index), self.allocator, &value));
+        var area = value.script_area;
+        area.setName(name);
+        try self.editScriptArea(index, area, 0);
+    }
+
+    /// Deletes area `index`; undo puts it back at its index. One undo step.
+    pub fn deleteScriptArea(self: *Editor, index: usize) EditError!void {
+        try self.deleteRecord(.script_area, @intCast(index));
+    }
+
+    /// The area a drag makes (D-21): world units in, AI units out, the MFC
+    /// truncation applied once, nothing changed in the map.
+    pub fn scriptAreaFromVis(self: *Editor, shape: records.AreaShape, wx0: f32, wy0: f32, wx1: f32, wy1: f32, name: []const u8) EditError!records.ScriptArea {
+        var area: records.ScriptArea = .{};
+        try self.noteOutcome(self.bridge.scriptAreaFromVis(shape, wx0, wy0, wx1, wy1, name, &area));
+        return area;
+    }
+
+    /// The area with its centre at the world point, size kept (D-21).
+    pub fn scriptAreaMoved(self: *Editor, area: records.ScriptArea, wx: f32, wy: f32) EditError!records.ScriptArea {
+        var out: records.ScriptArea = .{};
+        try self.noteOutcome(self.bridge.scriptAreaMoved(area, wx, wy, &out));
+        return out;
+    }
+
+    /// The area with its corner or edge handle at the world point (D-21).
+    pub fn scriptAreaResized(self: *Editor, area: records.ScriptArea, wx: f32, wy: f32) EditError!records.ScriptArea {
+        var out: records.ScriptArea = .{};
+        try self.noteOutcome(self.bridge.scriptAreaResized(area, wx, wy, &out));
+        return out;
+    }
+
     /// A record put in that was not there (D-02, 04-09): the kind from the
     /// value's tag, `key` its identity (a group ID). One undo step: undo
     /// removes the record, redo puts it back. The bridge refuses an insert
@@ -2125,6 +2206,172 @@ test "script file: a value read from the file is kept verbatim, and an undo puts
     try std.testing.expect(try editor.undo());
     try std.testing.expectEqualStrings("..\\odd name.lua", fake.script_file.nameSlice());
     try std.testing.expect(!editor.dirty());
+}
+
+test "script areas: add appends one step, undo removes, redo puts it back at its index" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    var existing: records.ScriptArea = .{ .shape = .circle, .cx = 40, .cy = 40, .r = 8 };
+    existing.setName("old");
+    try fake.addScriptAreaFixture(existing);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const generation = editor.record_generations.get(.script_area);
+    const area = try editor.scriptAreaFromVis(.rectangle, 100, 200, 300, 260, "m2_area");
+    // The MFC truncation, once: centre (200, 230) and half size (100, 30) times sqrt 2 plus 0.3, cut.
+    try std.testing.expectEqual(@as(f32, 283), area.cx);
+    try std.testing.expectEqual(@as(f32, 325), area.cy);
+    try std.testing.expectEqual(@as(f32, 141), area.hx);
+    try std.testing.expectEqual(@as(f32, 42), area.hy);
+    try std.testing.expectEqual(@as(usize, 1), fake.script_areas.items.len); // a conversion adds nothing
+    try std.testing.expectEqual(@as(usize, 1), try editor.addScriptArea(area));
+    try std.testing.expectEqual(@as(usize, 2), fake.script_areas.items.len);
+    try std.testing.expectEqualStrings("m2_area", fake.script_areas.items[1].nameSlice());
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expect(editor.record_generations.get(.script_area) != generation);
+    try std.testing.expect(editor.dirty());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 1), fake.script_areas.items.len);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqualStrings("m2_area", fake.script_areas.items[1].nameSlice());
+    const listed = try editor.scriptAreas(std.testing.allocator);
+    defer std.testing.allocator.free(listed);
+    try std.testing.expectEqual(@as(usize, 2), listed.len);
+    try std.testing.expectEqualStrings("old", listed[0].nameSlice());
+}
+
+test "script areas: an empty or taken name is Refused with the history unchanged, and names are case-sensitive" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var existing: records.ScriptArea = .{ .shape = .circle, .cx = 40, .cy = 40, .r = 8 };
+    existing.setName("zone");
+    try fake.addScriptAreaFixture(existing);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var same = existing;
+    try std.testing.expectError(error.Refused, editor.addScriptArea(same));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "zone") != null);
+    same.setName("");
+    try std.testing.expectError(error.Refused, editor.addScriptArea(same));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "needs a name") != null);
+    var off_map: records.ScriptArea = .{ .shape = .circle, .cx = -50, .cy = 10, .r = 8 };
+    off_map.setName("off");
+    try std.testing.expectError(error.Refused, editor.addScriptArea(off_map));
+    var negative: records.ScriptArea = .{ .shape = .circle, .cx = 10, .cy = 10, .r = -8 };
+    negative.setName("neg");
+    try std.testing.expectError(error.Refused, editor.addScriptArea(negative));
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(@as(usize, 1), fake.script_areas.items.len);
+    try std.testing.expect(!editor.dirty());
+    // Another case is another name.
+    same.setName("ZONE");
+    try std.testing.expectEqual(@as(usize, 1), try editor.addScriptArea(same));
+    // A rename onto a taken name is refused; onto a free one it is one step.
+    try std.testing.expectError(error.Refused, editor.renameScriptArea(1, "zone"));
+    try editor.renameScriptArea(1, "zone2");
+    try std.testing.expectEqualStrings("zone2", fake.script_areas.items[1].nameSlice());
+    try std.testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqualStrings("ZONE", fake.script_areas.items[1].nameSlice());
+    try std.testing.expectError(error.Refused, editor.renameScriptArea(1, ""));
+    try std.testing.expectError(error.Refused, editor.renameScriptArea(1, "n" ** 64));
+}
+
+test "script areas: a move and a resize are one undo step each within a gesture, and back at the start leaves none" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    var start: records.ScriptArea = .{ .shape = .rectangle, .cx = 100, .cy = 100, .hx = 30, .hy = 20 };
+    start.setName("box");
+    try fake.addScriptAreaFixture(start);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const gesture = editor.beginGesture();
+    const first = try editor.scriptAreaMoved(start, 80, 90);
+    try editor.editScriptArea(0, first, gesture);
+    const second = try editor.scriptAreaMoved(first, 90, 95);
+    try editor.editScriptArea(0, second, gesture);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(@as(f32, 127), fake.script_areas.items[0].cx); // 90 * sqrt 2 + 0.3, cut
+    try std.testing.expectEqual(@as(f32, 30), fake.script_areas.items[0].hx); // the size kept
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(fake.script_areas.items[0].eql(start));
+    try std.testing.expect(!editor.dirty());
+    // A resize: the handle at 40 world units right of the centre and 12 below it.
+    const resize_gesture = editor.beginGesture();
+    const centre_x = start.cx / 1.4142135;
+    const centre_y = start.cy / 1.4142135;
+    const bigger = try editor.scriptAreaResized(start, centre_x + 40, centre_y - 12);
+    try editor.editScriptArea(0, bigger, resize_gesture);
+    try std.testing.expectEqual(@as(f32, 56), fake.script_areas.items[0].hx);
+    try std.testing.expectEqual(@as(f32, 17), fake.script_areas.items[0].hy);
+    try std.testing.expectEqual(@as(f32, 100), fake.script_areas.items[0].cx);
+    // Dragged back to where it began within the gesture: no step at all.
+    try editor.editScriptArea(0, start, resize_gesture);
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try std.testing.expect(!editor.dirty());
+    // A circle resizes by its radius.
+    var ring: records.ScriptArea = .{ .shape = .circle, .cx = 200, .cy = 200, .r = 10 };
+    ring.setName("ring");
+    _ = try editor.addScriptArea(ring);
+    const wider = try editor.scriptAreaResized(ring, ring.cx / 1.4142135 + 30, ring.cy / 1.4142135 + 40);
+    try std.testing.expectEqual(@as(f32, 71), wider.r);
+}
+
+test "script areas: delete puts the area back at its index on undo, and everything undone is the map as it opened" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var first: records.ScriptArea = .{ .shape = .circle, .cx = 40, .cy = 40, .r = 8 };
+    first.setName("a");
+    var second: records.ScriptArea = .{ .shape = .rectangle, .cx = 60, .cy = 60, .hx = 5, .hy = 6 };
+    second.setName("b");
+    try fake.addScriptAreaFixture(first);
+    try fake.addScriptAreaFixture(second);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var third: records.ScriptArea = .{ .shape = .circle, .cx = 20, .cy = 20, .r = 3 };
+    third.setName("c");
+    _ = try editor.addScriptArea(third);
+    try editor.deleteScriptArea(0);
+    try std.testing.expectEqual(@as(usize, 2), fake.script_areas.items.len);
+    try std.testing.expectEqualStrings("b", fake.script_areas.items[0].nameSlice());
+    try editor.renameScriptArea(0, "b2");
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 3), fake.script_areas.items.len);
+    try std.testing.expectEqualStrings("a", fake.script_areas.items[0].nameSlice());
+    try std.testing.expectEqualStrings("b", fake.script_areas.items[1].nameSlice());
+    try std.testing.expect(try editor.redo());
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqualStrings("b2", fake.script_areas.items[0].nameSlice());
+    while (try editor.undo()) {}
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expectEqual(@as(usize, 2), fake.script_areas.items.len);
+    try std.testing.expect(fake.script_areas.items[0].eql(first) and fake.script_areas.items[1].eql(second));
+    // A delete past the end changes nothing.
+    try std.testing.expectError(error.Failed, editor.deleteScriptArea(5));
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+}
+
+test "script areas: a name the file held twice can be put back beside its twin, a third cannot" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var twin: records.ScriptArea = .{ .shape = .circle, .cx = 40, .cy = 40, .r = 8 };
+    twin.setName("twin");
+    var other_twin = twin;
+    other_twin.cx = 90;
+    try fake.addScriptAreaFixture(twin);
+    try fake.addScriptAreaFixture(other_twin);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.deleteScriptArea(0);
+    try std.testing.expect(try editor.undo()); // the put back of the file's own duplicate
+    try std.testing.expectEqual(@as(usize, 2), fake.script_areas.items.len);
+    var third = twin;
+    third.cx = 70;
+    try std.testing.expectError(error.Refused, editor.addScriptArea(third));
 }
 
 test "record edits of one gesture are one undo step, and one that returns to its start leaves none" {

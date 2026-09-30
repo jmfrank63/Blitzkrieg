@@ -1441,6 +1441,112 @@ static bool PutMobileScriptID( SLoadMapInfo *pMap, int nScriptID )
 	return NMapRecords::PutAIGeneralSide( pMap, put );
 }
 
+// One length the MFC way, written out here so the test states the rule in its own
+// arithmetic rather than through the function under test: Vis2AI's scaling by
+// 1 / fAITileXCoeff (sqrt 2 for the 32 sqrt 2 / 64 the coefficient is), then
+// int( x + 0.3f ).
+static float MfcLength( float fVis )
+{
+	return float( int( fVis * 1.41421356f + 0.3f ) );
+}
+
+// D-21's conversion (04-10): literal Vis drags give the AI values the truncation
+// rule computes, for both shapes, the two handle edits and the radius through x;
+// an area goes through InsertScriptArea, a write and a read; and the areas a
+// shipped map holds stay byte for byte where they were after an insert and an
+// erase.
+static void TestM2ScriptAreaConversion()
+{
+	// A rectangle dragged from (100, 200) to (300, 260), world units: the centre is
+	// (200, 230) and the half size (100, 30); in AI units 283, 325, 141 and 42 -
+	// hand-computed below AND asserted through the rule.
+	const SScriptArea rect = NMapGeometry::AreaFromVis( SScriptArea::EAT_RECTANGLE, CVec2( 100.0f, 200.0f ), CVec2( 300.0f, 260.0f ), "rect" );
+	Check( rect.eType == SScriptArea::EAT_RECTANGLE && rect.szName == "rect", "a rectangle drag makes a rectangle with the name" );
+	Check( rect.center.x == 283.0f && rect.center.y == 325.0f && rect.vAABBHalfSize.x == 141.0f && rect.vAABBHalfSize.y == 42.0f,
+	       NStr::Format( "the rectangle is centre (%.0f, %.0f) half size (%.0f, %.0f) in AI units", rect.center.x, rect.center.y, rect.vAABBHalfSize.x, rect.vAABBHalfSize.y ) );
+	Check( rect.center.x == MfcLength( 200.0f ) && rect.center.y == MfcLength( 230.0f ) &&
+	       rect.vAABBHalfSize.x == MfcLength( 100.0f ) && rect.vAABBHalfSize.y == MfcLength( 30.0f ) && rect.fR == 0.0f,
+	       "and equals the truncation rule's arithmetic, the radius left 0" );
+	// The drag's direction does not matter: half sizes are absolute values.
+	const SScriptArea rectBack = NMapGeometry::AreaFromVis( SScriptArea::EAT_RECTANGLE, CVec2( 300.0f, 260.0f ), CVec2( 100.0f, 200.0f ), "rect" );
+	Check( rectBack.center.x == rect.center.x && rectBack.center.y == rect.center.y && rectBack.vAABBHalfSize.x == rect.vAABBHalfSize.x &&
+	       rectBack.vAABBHalfSize.y == rect.vAABBHalfSize.y, "dragging the rectangle the other way makes the same area" );
+
+	// A circle from (50, 60) to (80, 100): centre the first point, radius the
+	// Euclidean distance 50 - converted through x.
+	const SScriptArea circle = NMapGeometry::AreaFromVis( SScriptArea::EAT_CIRCLE, CVec2( 50.0f, 60.0f ), CVec2( 80.0f, 100.0f ), "ring" );
+	Check( circle.eType == SScriptArea::EAT_CIRCLE && circle.szName == "ring", "a circle drag makes a circle with the name" );
+	Check( circle.center.x == 71.0f && circle.center.y == 85.0f && circle.fR == 71.0f,
+	       NStr::Format( "the circle is centre (%.0f, %.0f) radius %.0f in AI units", circle.center.x, circle.center.y, circle.fR ) );
+	Check( circle.center.x == MfcLength( 50.0f ) && circle.center.y == MfcLength( 60.0f ) && circle.fR == MfcLength( 50.0f ) &&
+	       circle.vAABBHalfSize.x == 0.0f && circle.vAABBHalfSize.y == 0.0f, "and equals the rule's arithmetic, the half size left 0" );
+
+	// The truncation and its 0.3: 0.35 world units is 0.495 AI units plus 0.3 = 0.795, which truncates to 0; 0.5 is 0.707 + 0.3 = 1.007 and gives 1.
+	const SScriptArea tiny = NMapGeometry::AreaFromVis( SScriptArea::EAT_CIRCLE, CVec2( 0.35f, 0.5f ), CVec2( 0.35f, 0.5f ), "tiny" );
+	Check( tiny.center.x == 0.0f && tiny.center.y == 1.0f && tiny.fR == 0.0f, "the centre truncates with Vis2AI's +0.3 (0.35 -> 0, 0.5 -> 1) and a zero drag has radius 0" );
+
+	// Moving keeps the size and name; the new centre takes the rule.
+	const SScriptArea moved = NMapGeometry::MoveArea( rect, CVec2( 10.0f, 20.0f ) );
+	Check( moved.center.x == MfcLength( 10.0f ) && moved.center.y == MfcLength( 20.0f ) && moved.vAABBHalfSize.x == rect.vAABBHalfSize.x &&
+	       moved.vAABBHalfSize.y == rect.vAABBHalfSize.y && moved.szName == rect.szName && moved.eType == rect.eType, "MoveArea moves the centre only" );
+	// Resizing: the handle's distance from the centre in world units (the stored
+	// centre brought back with AI2Vis), converted by the rule.
+	CVec2 vRectCentreVis;
+	AI2Vis( &vRectCentreVis, rect.center );
+	const SScriptArea resizedRect = NMapGeometry::ResizeArea( rect, CVec2( vRectCentreVis.x + 40.0f, vRectCentreVis.y - 12.0f ) );
+	Check( resizedRect.vAABBHalfSize.x == MfcLength( 40.0f ) && resizedRect.vAABBHalfSize.y == MfcLength( 12.0f ) &&
+	       resizedRect.center.x == rect.center.x && resizedRect.center.y == rect.center.y, "ResizeArea sets a rectangle's half size from the handle, the centre kept" );
+	CVec2 vCircleCentreVis;
+	AI2Vis( &vCircleCentreVis, circle.center );
+	const SScriptArea resizedCircle = NMapGeometry::ResizeArea( circle, CVec2( vCircleCentreVis.x + 30.0f, vCircleCentreVis.y + 40.0f ) );
+	Check( resizedCircle.fR == MfcLength( 50.0f ) && resizedCircle.center.x == circle.center.x && resizedCircle.vAABBHalfSize.x == 0.0f,
+	       "ResizeArea sets a circle's radius from the handle's distance, through x" );
+
+	// Through InsertScriptArea, a write and a read, the area comes back as it went in.
+	const std::string szCold = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	CMapInfo map;
+	std::string szError;
+	if ( ReadFresh( szCold, &map ) )
+	{
+		NMapRecords::InsertScriptArea( &map, -1, rect );
+		NMapRecords::InsertScriptArea( &map, -1, circle );
+		if ( Check( NMapFile::Write( M2_EDITED, map, &szError ), szError.c_str() ) )
+		{
+			CMapInfo reread;
+			if ( Check( NMapFile::Read( M2_EDITED, &reread, &szError ), szError.c_str() ) && Check( reread.scriptAreas.size() == map.scriptAreas.size(), "both areas are in the file" ) )
+			{
+				const SScriptArea &rRect = reread.scriptAreas[reread.scriptAreas.size() - 2];
+				const SScriptArea &rCircle = reread.scriptAreas.back();
+				Check( rRect.szName == "rect" && rRect.eType == SScriptArea::EAT_RECTANGLE && rRect.center.x == 283.0f && rRect.center.y == 325.0f &&
+				       rRect.vAABBHalfSize.x == 141.0f && rRect.vAABBHalfSize.y == 42.0f, "the rectangle reads back as stored" );
+				Check( rCircle.szName == "ring" && rCircle.eType == SScriptArea::EAT_CIRCLE && rCircle.center.x == 71.0f && rCircle.center.y == 85.0f && rCircle.fR == 71.0f,
+				       "the circle reads back as stored" );
+				std::string szWhere;
+				Check( NMapFile::AreEquivalent( map, reread, &szWhere ), szWhere.empty() ? "the map with both areas is equivalent" : ( "the areas differ at " + szWhere ).c_str() );
+			}
+		}
+	}
+
+	// A shipped map's own areas are untouched bytes after an insert and an erase.
+	const SM2Maps found = FindM2Maps();
+	if ( !found.szScriptAreas.empty() )
+	{
+		int nAt = 0;
+		RunM2Case( found.szScriptAreas, "an area inserted in and erased from a shipped map that holds areas",
+		           TMapOp(),
+		           [&]( SLoadMapInfo *p ) { nAt = int( p->scriptAreas.size() ); return NMapRecords::InsertScriptArea( p, -1, rect ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseScriptArea( p, nAt ); } );
+		RunM2Case( found.szScriptAreas, "an area inserted in front of a shipped map's areas and erased",
+		           TMapOp(),
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::InsertScriptArea( p, 0, circle ); },
+		           [&]( SLoadMapInfo *p ) { return NMapRecords::EraseScriptArea( p, 0 ); } );
+	}
+	else
+		printf( "map-file: no shipped map of the first 60 holds a script area; the byte-exact case ran on coldwinter only\n" );
+	RemoveM2Files();
+	printf( "map-file: M2 script areas ok\n" );
+}
+
 static void TestM2FindReferences()
 {
 	const char *pszCold = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
@@ -2675,6 +2781,7 @@ int main( int argc, char **argv )
 	TestPreprocessingChangesUnpaintedTiles();
 	TestCameraAnchorRecords();
 	TestM2RecordOps();
+	TestM2ScriptAreaConversion();
 	TestM2FindReferences();
 	TestM2CascadeKinds();
 	TestM2VsoBuilder();

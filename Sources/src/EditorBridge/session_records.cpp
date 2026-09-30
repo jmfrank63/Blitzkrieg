@@ -203,6 +203,172 @@ bool SetSessionScriptFile( SEditorSession *pSession, const char *pszName, bool *
 	return true;
 }
 
+// ---------------------------------------------------------------------------
+// Script areas (04-10, D-21).
+// ---------------------------------------------------------------------------
+
+namespace {
+void AreaToC( const SScriptArea &rArea, BkEditorScriptAreaRecord *pOut )
+{
+	memset( pOut, 0, sizeof *pOut );
+	memcpy( pOut->name, rArea.szName.c_str(), rArea.szName.size() );
+	pOut->type = int( rArea.eType );
+	pOut->cx = rArea.center.x;
+	pOut->cy = rArea.center.y;
+	pOut->hx = rArea.vAABBHalfSize.x;
+	pOut->hy = rArea.vAABBHalfSize.y;
+	pOut->r = rArea.fR;
+}
+
+// The record as the file's area: every field as given, so a read and a put of the
+// same record are exact and an undo puts back what an edit took out.
+SScriptArea AreaFromC( const BkEditorScriptAreaRecord &rRecord )
+{
+	SScriptArea area;
+	area.eType = rRecord.type == 0 ? SScriptArea::EAT_RECTANGLE : SScriptArea::EAT_CIRCLE;
+	area.szName = rRecord.name;
+	area.center = CVec2( rRecord.cx, rRecord.cy );
+	area.vAABBHalfSize = CVec2( rRecord.hx, rRecord.hy );
+	area.fR = rRecord.r;
+	return area;
+}
+
+// True when the point (map units) is on the map: tiles * 64 map units across, the
+// size OnTheMap measures in world units once converted.
+bool OnTheMapInAIUnits( const SEditorSession &rSession, float fX, float fY )
+{
+	const float fWidth = rSession.working.terrain.tiles.GetSizeX() * fWorldCellSize * fAITileXCoeff1;
+	const float fHeight = rSession.working.terrain.tiles.GetSizeY() * fWorldCellSize * fAITileYCoeff1;
+	return std::isfinite( fX ) && std::isfinite( fY ) && fX >= 0.0f && fY >= 0.0f && fX < fWidth && fY < fHeight;
+}
+
+// The put's rules (T-04-10-05, Pitfall 14): a name, unique among the areas but
+// the one being replaced (nIgnoreIndex, -1 for an add), a size that is not
+// negative, and a centre on the map when the put moves it. A name the file itself
+// held more than once when it was opened is allowed as often as the file held it,
+// so an undo can put such an area back beside its twin. Says why in szMessage.
+bool AreaPutAllowed( SEditorSession *pSession, const SScriptArea &rWanted, int nIgnoreIndex, const SScriptArea *pCurrent )
+{
+	if ( rWanted.szName.empty() )
+	{
+		pSession->szMessage = "an area needs a name";
+		return false;
+	}
+	if ( rWanted.vAABBHalfSize.x < 0.0f || rWanted.vAABBHalfSize.y < 0.0f || rWanted.fR < 0.0f )
+	{
+		pSession->szMessage = "an area's size is not negative";
+		return false;
+	}
+	if ( !NMapRecords::IsAreaNameFree( pSession->snapshot, rWanted.szName, nIgnoreIndex ) )
+	{
+		int nOthers = 0;
+		for ( size_t i = 0; i < pSession->snapshot.scriptAreas.size(); ++i )
+			if ( int( i ) != nIgnoreIndex && pSession->snapshot.scriptAreas[i].szName == rWanted.szName )
+				++nOthers;
+		std::unordered_map<std::string, int>::const_iterator itOpened = pSession->openedAreaNames.find( rWanted.szName );
+		const int nOpened = itOpened != pSession->openedAreaNames.end() ? itOpened->second : 0;
+		if ( nOthers + 1 > nOpened )
+		{
+			pSession->szMessage = "an area named " + rWanted.szName + " exists";
+			return false;
+		}
+	}
+	const bool bMoved = pCurrent == 0 || pCurrent->center.x != rWanted.center.x || pCurrent->center.y != rWanted.center.y;
+	if ( bMoved && !OnTheMapInAIUnits( *pSession, rWanted.center.x, rWanted.center.y ) )
+	{
+		pSession->szMessage = "the area's centre is not on the map";
+		return false;
+	}
+	return true;
+}
+}
+
+bool ReadSessionScriptAreas( SEditorSession *pSession, BkEditorScriptAreaRecord *pOut, int nCapacity, int *pnCount, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	const std::vector<SScriptArea> &rAreas = pSession->snapshot.scriptAreas;
+	*pnCount = int( rAreas.size() );
+	for ( size_t i = 0; i < rAreas.size(); ++i )
+		if ( rAreas[i].szName.size() >= sizeof pOut->name )
+		{
+			pSession->szMessage = NStr::Format( "script area %d's name is longer than the editor edits", int( i ) );
+			if ( pbRefused != 0 ) *pbRefused = true;
+			return false;
+		}
+	const int nWrite = Min( nCapacity, int( rAreas.size() ) );
+	for ( int i = 0; i < nWrite; ++i )
+		AreaToC( rAreas[i], &pOut[i] );
+	// A buffer too short is the sizing pass of a two-pass read, not a failure worth
+	// a message: *pnCount is the total and nothing was written past it.
+	if ( nCapacity < int( rAreas.size() ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	return true;
+}
+
+bool AddScriptAreaToSession( SEditorSession *pSession, int nIndex, const BkEditorScriptAreaRecord &rRecord, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	const SScriptArea wanted = AreaFromC( rRecord );
+	if ( !AreaPutAllowed( pSession, wanted, -1, 0 ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	// Both copies together; the engine holds no areas.
+	if ( !NMapRecords::InsertScriptArea( &pSession->snapshot, nIndex, wanted ) )
+		return false;
+	if ( !NMapRecords::InsertScriptArea( &pSession->working, nIndex, wanted ) )
+	{
+		NMapRecords::EraseScriptArea( &pSession->snapshot, nIndex < 0 ? int( pSession->snapshot.scriptAreas.size() ) - 1 : nIndex );
+		return false;
+	}
+	return true;
+}
+
+bool SetScriptAreaInSession( SEditorSession *pSession, int nIndex, const BkEditorScriptAreaRecord &rRecord, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( nIndex < 0 || nIndex >= int( pSession->snapshot.scriptAreas.size() ) )
+		return false;
+	const SScriptArea current = pSession->snapshot.scriptAreas[nIndex];
+	const SScriptArea wanted = AreaFromC( rRecord );
+	if ( !AreaPutAllowed( pSession, wanted, nIndex, &current ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( !NMapRecords::ReplaceScriptArea( &pSession->snapshot, nIndex, wanted ) )
+		return false;
+	if ( !NMapRecords::ReplaceScriptArea( &pSession->working, nIndex, wanted ) )
+	{
+		NMapRecords::ReplaceScriptArea( &pSession->snapshot, nIndex, current );
+		return false;
+	}
+	return true;
+}
+
+bool DeleteScriptAreaFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	SScriptArea erased;
+	if ( !NMapRecords::EraseScriptArea( &pSession->snapshot, nIndex, &erased ) )
+		return false;
+	if ( !NMapRecords::EraseScriptArea( &pSession->working, nIndex ) )
+	{
+		NMapRecords::InsertScriptArea( &pSession->snapshot, nIndex, erased );
+		return false;
+	}
+	return true;
+}
+
 bool GroundHeightInSession( SEditorSession *pSession, float fX, float fY, float *pfZ )
 {
 	if ( pSession == 0 || pfZ == 0 )
