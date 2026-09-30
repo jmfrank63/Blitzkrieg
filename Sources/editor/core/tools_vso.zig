@@ -293,8 +293,11 @@ pub const RoadsRivers = struct {
             },
             .right_press => |pointer| try self.rightPress(editor, pointer),
             .right_drag => |pointer| try self.rightDrag(editor, pointer),
+            // The MFC double click only finishes a line (WR-B07). With nothing
+            // being drawn it is the second click of a pair whose first press
+            // already selected the line or grabbed a point: that stays.
             .double_click => {
-                if (self.adding()) try self.finish(editor) else self.deselect();
+                if (self.adding()) try self.finish(editor);
             },
             .key => |key| switch (key) {
                 .enter, .space => {
@@ -836,6 +839,26 @@ test "the fake holds as many points as the tool draws, and names a line by its f
     defer view.deinit(testing.allocator);
     try testing.expect(std.mem.startsWith(u8, view.descSlice(), fake_mod.fake_season_folder ++ "Roads3D\\"));
     try testing.expect(std.mem.endsWith(u8, view.descSlice(), tool.desc()));
+}
+
+test "a double click on a selected road keeps it selected and what the first click grabbed (WR-B07)" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = roadTool();
+    defer tool.deinit(testing.allocator);
+    try drawnRoad(&editor, &tool);
+    // The pair's first click grabs control point 1; the second arrives as a double click.
+    try tool.handle(&editor, .{ .press = try at(&editor, 101, 100) });
+    try tool.handle(&editor, .{ .release = try at(&editor, 101, 100) });
+    const grabbed = tool.last_grab;
+    try tool.handle(&editor, .{ .double_click = try at(&editor, 101, 100) });
+    try testing.expect(tool.selected != null);
+    try testing.expectEqual(grabbed, tool.last_grab);
+    // Enter still deselects.
+    try tool.handle(&editor, .{ .key = .enter });
+    try testing.expect(tool.selected == null);
 }
 
 test "an undo that shifts the roads list keeps the tool on the road it had selected (WR-B02)" {
