@@ -27,7 +27,10 @@
 //!    same order as the real bridge, undone in reverse. A start command's
 //!    units are any known object (`markNonUnitFixture` makes one a building);
 //!    the action types are a built-in list unless a test replaces it or turns
-//!    it off (`no_action_list`); Reinforcement groups are
+//!    it off (`no_action_list`); a reserve position's roles come from a table a
+//!    test fills (`setRoleFixture`: name, role, and the weight or towing force
+//!    the MFC towing check reads; a name it does not list is role 0) and
+//!    `markSquadFixture` makes an object a squad; Reinforcement groups are
 //!    held (`groups`, 04-09) for the Group Manager's records only; a delete
 //!    never edits them (they name script IDs), and mobile script IDs are not
 //!    held. The fake words the delete's summary one change at a time where the
@@ -150,9 +153,22 @@ pub const FakeStartCommand = struct {
             a.number == b.number and std.mem.eql(i32, a.unitSlice(), b.unitSlice());
     }
 };
-/// A reserve position as far as a delete reads it: its artillery's and its
-/// truck's link IDs, 0 meaning none.
-pub const FakeReservePosition = struct { artillery: i32 = 0, truck: i32 = 0 };
+/// A reserve position: its artillery's and its truck's link IDs (0 meaning none)
+/// and its place - the record itself.
+pub const FakeReservePosition = records.ReservePosition;
+
+/// What the fake's object database says of one object type for a reserve position
+/// (04-11): the role BkEditorReserveRole answers and the number the MFC towing check
+/// reads (a gun's weight, a truck's towing force).
+pub const FakeRole = struct {
+    name: [bridge_mod.name_capacity]u8 = [_]u8{0} ** bridge_mod.name_capacity,
+    role: bridge_mod.ReserveRole = .none,
+    number: f32 = 0,
+
+    fn nameSlice(self: *const FakeRole) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+};
 /// What a delete did to one start command: its position when it was changed
 /// (an earlier erase had already shifted the later ones), the record as it
 /// was, whether the command went and whether its target was cleared. Undone
@@ -312,6 +328,11 @@ pub const FakeBridge = struct {
     non_units: std.ArrayListUnmanaged(i32) = .empty,
     /// The map's reserve positions, in file order. `addReservePositionFixture`.
     reserve_positions: std.ArrayListUnmanaged(FakeReservePosition) = .empty,
+    /// The positions as the map was opened (always accepted back), the role table
+    /// and the squads (04-11). Kept across a fake reopen.
+    reserve_positions_at_open: std.ArrayListUnmanaged(FakeReservePosition) = .empty,
+    roles: std.ArrayListUnmanaged(FakeRole) = .empty,
+    squads: std.ArrayListUnmanaged(i32) = .empty,
     tombstones: std.AutoHashMapUnmanaged(i32, Tombstone) = .empty,
     /// The season's road (0) and river (1) types. `addVsoDescriptorFixture`.
     vso_descriptors: [2]std.ArrayListUnmanaged(VsoDescriptor) = .{ .empty, .empty },
@@ -394,6 +415,9 @@ pub const FakeBridge = struct {
         self.action_list.deinit(self.allocator);
         self.non_units.deinit(self.allocator);
         self.reserve_positions.deinit(self.allocator);
+        self.reserve_positions_at_open.deinit(self.allocator);
+        self.roles.deinit(self.allocator);
+        self.squads.deinit(self.allocator);
         self.freeTombstones();
         self.tombstones.deinit(self.allocator);
         for (&self.vso_descriptors) |*list| list.deinit(self.allocator);
@@ -437,6 +461,25 @@ pub const FakeBridge = struct {
     /// link ID is refused as a unit.
     pub fn markNonUnitFixture(self: *FakeBridge, link_id: i32) !void {
         try self.non_units.append(self.allocator, link_id);
+    }
+
+    /// A reserve position in the map before it opens, with every field.
+    pub fn addReservePositionFixtureFull(self: *FakeBridge, position: FakeReservePosition) !void {
+        try self.reserve_positions.append(self.allocator, position);
+    }
+
+    /// What BkEditorReserveRole answers for an object type name, and the number the
+    /// towing check reads: a gun's weight or a truck's towing force.
+    pub fn setRoleFixture(self: *FakeBridge, name: []const u8, role: bridge_mod.ReserveRole, number: f32) !void {
+        var entry: FakeRole = .{ .role = role, .number = number };
+        const len = @min(name.len, entry.name.len - 1);
+        @memcpy(entry.name[0..len], name[0..len]);
+        try self.roles.append(self.allocator, entry);
+    }
+
+    /// Makes an object of the map a squad: a reserve position refuses it in either role.
+    pub fn markSquadFixture(self: *FakeBridge, link_id: i32) !void {
+        try self.squads.append(self.allocator, link_id);
     }
 
     /// A sound in the map before it opens, for a test to seed the list
@@ -697,6 +740,7 @@ pub const FakeBridge = struct {
         .scriptAreaMoved = scriptAreaMoved,
         .scriptAreaResized = scriptAreaResized,
         .actionCommands = actionCommands,
+        .reserveRole = reserveRole,
         .undoEdit = undoEdit,
         .redoEdit = redoEdit,
         .vsoDescriptors = vsoDescriptors,
@@ -1785,6 +1829,8 @@ pub const FakeBridge = struct {
         self.script_areas_at_open.appendSlice(self.allocator, self.script_areas.items) catch return .failed;
         self.start_commands_at_open.clearRetainingCapacity();
         self.start_commands_at_open.appendSlice(self.allocator, self.start_commands.items) catch return .failed;
+        self.reserve_positions_at_open.clearRetainingCapacity();
+        self.reserve_positions_at_open.appendSlice(self.allocator, self.reserve_positions.items) catch return .failed;
         if (self.tiles.len == 0) {
             self.tiles = self.allocator.alloc(u8, @intCast(self.info.width_tiles * self.info.height_tiles)) catch return .failed;
             @memset(self.tiles, 0);
@@ -2126,6 +2172,10 @@ pub const FakeBridge = struct {
                 if (key < 0 or key >= self.start_commands.items.len) return .bad_argument;
                 out.* = .{ .start_command = self.start_commands.items[@intCast(key)].toRecord(allocator) catch return .failed };
             },
+            .reserve_position => {
+                if (key < 0 or key >= self.reserve_positions.items.len) return .bad_argument;
+                out.* = .{ .reserve_position = self.reserve_positions.items[@intCast(key)] };
+            },
         }
         return .ok;
     }
@@ -2182,6 +2232,11 @@ pub const FakeBridge = struct {
                 for (keys, 0..) |*key_slot, index| key_slot.* = @intCast(index);
                 out.* = keys;
             },
+            .reserve_position => {
+                const keys = allocator.alloc(i32, self.reserve_positions.items.len) catch return .failed;
+                for (keys, 0..) |*key_slot, index| key_slot.* = @intCast(index);
+                out.* = keys;
+            },
             .group => {
                 const keys = allocator.alloc(i32, self.groups.count()) catch return .failed;
                 var index: usize = 0;
@@ -2218,6 +2273,13 @@ pub const FakeBridge = struct {
                 self.record(.record_put, key);
                 return .ok;
             },
+            .reserve_position => |position| {
+                if (key < 0 or key > self.reserve_positions.items.len) return .bad_argument;
+                if (!self.reservePositionAllowed(&position, null)) return .refused;
+                self.reserve_positions.insert(self.allocator, @intCast(key), position) catch return .failed;
+                self.record(.record_put, key);
+                return .ok;
+            },
             .group => |group| {
                 if (key < 0 or group.id != key) return .bad_argument;
                 if (self.groups.contains(key)) {
@@ -2246,6 +2308,12 @@ pub const FakeBridge = struct {
             .start_command => {
                 if (key < 0 or key >= self.start_commands.items.len) return .bad_argument;
                 _ = self.start_commands.orderedRemove(@intCast(key));
+                self.record(.record_put, key);
+                return .ok;
+            },
+            .reserve_position => {
+                if (key < 0 or key >= self.reserve_positions.items.len) return .bad_argument;
+                _ = self.reserve_positions.orderedRemove(@intCast(key));
                 self.record(.record_put, key);
                 return .ok;
             },
@@ -2331,6 +2399,13 @@ pub const FakeBridge = struct {
                 if (!self.startCommandAllowed(&wanted, &current)) return .refused;
                 self.start_commands.items[@intCast(key)] = wanted;
                 self.warnHeldUnit(&wanted);
+                self.record(.record_put, key);
+            },
+            .reserve_position => |wanted| {
+                if (key < 0 or key >= self.reserve_positions.items.len) return .bad_argument;
+                const current = self.reserve_positions.items[@intCast(key)];
+                if (!self.reservePositionAllowed(&wanted, &current)) return .refused;
+                self.reserve_positions.items[@intCast(key)] = wanted;
                 self.record(.record_put, key);
             },
             .script_file => |wanted| {
@@ -2442,6 +2517,101 @@ pub const FakeBridge = struct {
         const moved = if (replacing) |index| (self.script_areas.items[index].cx != wanted.cx or self.script_areas.items[index].cy != wanted.cy) else true;
         if (moved and !self.onMapAt(wanted.cx, wanted.cy)) {
             self.say("the area's centre is not on the map", .{});
+            return false;
+        }
+        return true;
+    }
+
+    fn roleOf(self: *const FakeBridge, name: []const u8) ?*const FakeRole {
+        for (self.roles.items) |*entry| {
+            if (std.mem.eql(u8, entry.nameSlice(), name)) return entry;
+        }
+        return null;
+    }
+
+    fn reserveRole(ptr: *anyopaque, name: []const u8, role: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        role.* = if (self.roleOf(name)) |entry| @intFromEnum(entry.role) else 0;
+        return .ok;
+    }
+
+    fn isSquad(self: *const FakeBridge, link_id: i32) bool {
+        return std.mem.indexOfScalar(i32, self.squads.items, link_id) != null;
+    }
+
+    /// True, with the reason said, when the object cannot be a gun (`gun`) or a
+    /// truck of a reserve position; else `entry` is its role.
+    fn refusesReserveObject(self: *FakeBridge, link_id: i32, gun: bool, entry: *?*const FakeRole) bool {
+        const who: []const u8 = if (gun) "artillery" else "truck";
+        const index = self.indexOf(link_id) orelse {
+            self.say("no object has link ID {d}", .{link_id});
+            return true;
+        };
+        const object = &self.objects_list.items[index];
+        if (self.isSquad(link_id)) {
+            self.say("object {d} ({s}) is a squad, and a squad cannot be {s}: a reserve position names a single unit", .{ link_id, object.nameSlice(), who });
+            return true;
+        }
+        const found = self.roleOf(object.nameSlice());
+        if (found == null or found.?.role == .none) {
+            self.say("object {d} ({s}) is not a vehicle or a gun, so it cannot be {s}", .{ link_id, object.nameSlice(), who });
+            return true;
+        }
+        entry.* = found;
+        const role = found.?.role;
+        if (gun and role != .self_propelled and role != .towed) {
+            self.say("object {d} ({s}) is not artillery: a reserve position holds a self-propelled or a towed gun", .{ link_id, object.nameSlice() });
+            return true;
+        }
+        if (!gun and role != .truck) {
+            self.say("object {d} ({s}) is not a truck that can tow", .{ link_id, object.nameSlice() });
+            return true;
+        }
+        return false;
+    }
+
+    /// The real bridge's ValidateReservePosition: what the put CHANGES is judged
+    /// against `current` (null for an add), and a position the map held when it was
+    /// opened is always accepted. Says why when it is not.
+    fn reservePositionAllowed(self: *FakeBridge, wanted: *const FakeReservePosition, current: ?*const FakeReservePosition) bool {
+        for (self.reserve_positions_at_open.items) |opened| {
+            if (opened.eql(wanted.*)) return true;
+        }
+        const roles_changed = current == null or current.?.artillery != wanted.artillery or current.?.truck != wanted.truck;
+        if (roles_changed) {
+            if (wanted.artillery <= 0) {
+                self.say("{s}", .{if (wanted.truck == 0) "a reserve position needs a gun" else "the gun's link ID is above 0: link ID 0 names no gun"});
+                return false;
+            }
+            if (wanted.truck < 0) {
+                self.say("a truck's link ID is above 0, or 0 for none", .{});
+                return false;
+            }
+            var gun: ?*const FakeRole = null;
+            if (self.refusesReserveObject(wanted.artillery, true, &gun)) return false;
+            if (wanted.truck == 0) {
+                if (gun.?.role == .towed) {
+                    self.say("a towed gun needs a truck", .{});
+                    return false;
+                }
+            } else {
+                if (gun.?.role != .towed) {
+                    self.say("a self-propelled gun takes no truck", .{});
+                    return false;
+                }
+                var truck: ?*const FakeRole = null;
+                if (self.refusesReserveObject(wanted.truck, false, &truck)) return false;
+                if (!(truck.?.number > gun.?.number)) {
+                    self.say("the truck {d} cannot tow the gun {d}: it pulls {d:.0} and the gun weighs {d:.0}", .{ wanted.truck, wanted.artillery, truck.?.number, gun.?.number });
+                    return false;
+                }
+            }
+        }
+        if (!std.math.isFinite(wanted.x) or !std.math.isFinite(wanted.y)) return false;
+        const moved = current == null or current.?.x != wanted.x or current.?.y != wanted.y;
+        if (moved and !self.onMapAt(wanted.x, wanted.y)) {
+            self.say("the reserve position is not on the map", .{});
             return false;
         }
         return true;

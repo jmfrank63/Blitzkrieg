@@ -49,6 +49,8 @@ comptime {
     // unit count - seven 4-byte fields; the action type's name and id.
     std.debug.assert(@sizeOf(c.BkEditorStartCommandRecord) == 7 * 4);
     std.debug.assert(@sizeOf(c.BkEditorActionCommand) == core.bridge.name_capacity + 4);
+    // The reserve position's record: gun, truck, x, y.
+    std.debug.assert(@sizeOf(c.BkEditorReservePositionRecord) == 4 * 4);
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -132,6 +134,7 @@ pub const RealBridge = struct {
         .scriptAreaMoved = vtableScriptAreaMoved,
         .scriptAreaResized = vtableScriptAreaResized,
         .actionCommands = vtableActionCommands,
+        .reserveRole = vtableReserveRole,
         .undoEdit = vtableUndoEdit,
         .redoEdit = vtableRedoEdit,
         .vsoDescriptors = vtableVsoDescriptors,
@@ -491,6 +494,28 @@ pub const RealBridge = struct {
         return .ok;
     }
 
+    /// BkEditorReserveRole (04-11): the object type's role in a reserve position.
+    fn vtableReserveRole(ptr: *anyopaque, name: []const u8, role: *i32) Status {
+        var buffer: [core.bridge.name_capacity]u8 = undefined;
+        const name_z = terminated(&buffer, name) orelse return .bad_argument;
+        var out: c_int = 0;
+        const result = status(c.BkEditorReserveRole(from(ptr).session, name_z, &out));
+        if (result == .ok) role.* = out;
+        return result;
+    }
+
+    fn toCReservePosition(position: record_types.ReservePosition) c.BkEditorReservePositionRecord {
+        return .{ .artillery_link_id = position.artillery, .truck_link_id = position.truck, .x = position.x, .y = position.y };
+    }
+
+    fn readReservePosition(self: *RealBridge, key: i32, out: *record_types.Value) Status {
+        var record: c.BkEditorReservePositionRecord = std.mem.zeroes(c.BkEditorReservePositionRecord);
+        const result = status(c.BkEditorReservePosition(self.session, key, &record));
+        if (result != .ok) return result;
+        out.* = .{ .reserve_position = .{ .artillery = record.artillery_link_id, .truck = record.truck_link_id, .x = record.x, .y = record.y } };
+        return .ok;
+    }
+
     fn toCStartCommand(command: record_types.StartCommand) c.BkEditorStartCommandRecord {
         return .{
             .cmd_type = command.cmd_type,
@@ -567,6 +592,7 @@ pub const RealBridge = struct {
             .group => return self.readGroup(key, allocator, out),
             .script_area => return self.readScriptArea(key, allocator, out),
             .start_command => return self.readStartCommand(key, allocator, out),
+            .reserve_position => return self.readReservePosition(key, out),
             .script_file => {
                 if (key != 0) return .bad_argument;
                 var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
@@ -600,6 +626,10 @@ pub const RealBridge = struct {
                 const record = toCStartCommand(command);
                 return status(c.BkEditorSetStartCommand(self.session, key, &record, command.units.ptr));
             },
+            .reserve_position => |position| {
+                const record = toCReservePosition(position);
+                return status(c.BkEditorSetReservePosition(self.session, key, &record));
+            },
             .script_file => |file| {
                 if (key != 0) return .bad_argument;
                 var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
@@ -626,6 +656,16 @@ pub const RealBridge = struct {
             .start_command => {
                 var count: c_int = 0;
                 const counted = status(c.BkEditorStartCommandCount(self.session, &count));
+                if (counted != .ok) return counted;
+                if (count < 0) return .failed;
+                const keys = allocator.alloc(i32, @intCast(count)) catch return .failed;
+                for (keys, 0..) |*key, index| key.* = @intCast(index);
+                out.* = keys;
+                return .ok;
+            },
+            .reserve_position => {
+                var count: c_int = 0;
+                const counted = status(c.BkEditorReservePositionCount(self.session, &count));
                 if (counted != .ok) return counted;
                 if (count < 0) return .failed;
                 const keys = allocator.alloc(i32, @intCast(count)) catch return .failed;
@@ -673,6 +713,10 @@ pub const RealBridge = struct {
                 const record = toCStartCommand(command);
                 return status(c.BkEditorAddStartCommand(self.session, key, &record, command.units.ptr));
             },
+            .reserve_position => |position| {
+                const record = toCReservePosition(position);
+                return status(c.BkEditorAddReservePosition(self.session, key, &record));
+            },
             .group => |group| {
                 if (group.id != key or key < 0) return .bad_argument;
                 var count: c_int = 0;
@@ -693,6 +737,7 @@ pub const RealBridge = struct {
             .camera_anchors, .script_file => return .bad_argument,
             .script_area => return status(c.BkEditorDeleteScriptArea(self.session, key)),
             .start_command => return status(c.BkEditorDeleteStartCommand(self.session, key)),
+            .reserve_position => return status(c.BkEditorDeleteReservePosition(self.session, key)),
             .group => return status(c.BkEditorDeleteGroup(self.session, key)),
         }
     }

@@ -7483,6 +7483,310 @@ static void TestM2StartCommands( BkEditorSession *pSession, const std::string &s
 	printf( "editor-bridge: M2 start commands ok\n" );
 }
 
+static std::vector<BkEditorCatalogueEntry> ReadCatalogueEntries( BkEditorSession *pSession )
+{
+	int nCount = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCount );
+	std::vector<BkEditorCatalogueEntry> entries( nCount > 0 ? nCount : 1 );
+	int nRead = 0;
+	if ( BkEditorCatalogue( pSession, &entries[0], nCount, &nRead ) != BK_EDITOR_OK )
+		nRead = 0;
+	entries.resize( nRead );
+	return entries;
+}
+
+// The first free spot for a unit of player 0, spiralling out from (fX, fY) map units
+// in steps of 120: the engine refuses a unit on another object.
+static bool PlaceUnitNear( BkEditorSession *pSession, const std::string &szName, float fX, float fY, int *pnLink )
+{
+	for ( int nRing = 0; nRing < 14; ++nRing )
+		for ( int nDx = -nRing; nDx <= nRing; ++nDx )
+			for ( int nDy = -nRing; nDy <= nRing; ++nDy )
+			{
+				if ( ( abs( nDx ) > abs( nDy ) ? abs( nDx ) : abs( nDy ) ) != nRing )
+					continue;
+				if ( BkEditorAddObject( pSession, szName.c_str(), fX + nDx * 120.0f, fY + nDy * 120.0f, 0, 0, pnLink ) == BK_EDITOR_OK )
+					return true;
+			}
+	return false;
+}
+
+static int ReserveRoleOfCatalogueName( BkEditorSession *pSession, const std::string &szName )
+{
+	int nRole = -1;
+	return BkEditorReserveRole( pSession, szName.c_str(), &nRole ) == BK_EDITOR_OK ? nRole : -1;
+}
+
+static bool SameReservePositionRecords( const BkEditorReservePositionRecord &rLeft, const BkEditorReservePositionRecord &rRight )
+{
+	return rLeft.artillery_link_id == rRight.artillery_link_id && rLeft.truck_link_id == rRight.truck_link_id && rLeft.x == rRight.x && rLeft.y == rRight.y;
+}
+
+static int ReservePositionCountOf( BkEditorSession *pSession )
+{
+	int nCount = -2;
+	if ( BkEditorReservePositionCount( pSession, &nCount ) != BK_EDITOR_OK )
+		return -1;
+	return nCount;
+}
+
+// D-18 on the real engine: the roles come from the object database's stats as the MFC
+// editor classifies them; a towed gun with the truck that can tow it, and a
+// self-propelled gun alone, add and save as the map NMapRecords builds; a towed gun
+// without a truck, a self-propelled gun with one, a truck that cannot tow the gun, a
+// squad or a non-unit in either role, link ID 0 as the gun, both 0 and a missing
+// object or place are refused and change nothing; a file's own odd position is
+// exempt; and everything deleted again saves the bytes it had.
+static void TestM2ReservePositions( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( !Check( pObjectsDB != 0, "the object database is there" ) )
+		return;
+
+	// The roles, read through BkEditorReserveRole over the catalogue.
+	int nRole = -2;
+	Check( BkEditorReserveRole( pSession, 0, &nRole ) == BK_EDITOR_BAD_ARGUMENT && BkEditorReserveRole( pSession, "x", 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null name or role is a bad argument" );
+	Check( BkEditorReserveRole( pSession, "No_Such_Object_At_All", &nRole ) == BK_EDITOR_OK && nRole == 0, "a name the database does not know is role 0" );
+	const std::vector<BkEditorCatalogueEntry> catalogue = ReadCatalogueEntries( pSession );
+	std::vector<std::string> towed, selfPropelled, trucks, squads, soldiers;
+	std::vector<const SMechUnitRPGStats*> towedStats, truckStats;
+	for ( size_t i = 0; i < catalogue.size(); ++i )
+	{
+		const std::string szName = catalogue[i].name;
+		if ( catalogue[i].game_type == SGVOGT_SQUAD && catalogue[i].placeable != 0 )
+			squads.push_back( szName );
+		if ( catalogue[i].game_type != SGVOGT_UNIT )
+			continue;
+		const int nThis = ReserveRoleOfCatalogueName( pSession, szName );
+		const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( szName.c_str() );
+		const SMechUnitRPGStats *pStats = pDesc != 0 ? dynamic_cast<const SMechUnitRPGStats*>( pObjectsDB->GetRPGStats( pDesc ) ) : 0;
+		if ( pDesc != 0 && pDesc->IsHuman() && catalogue[i].placeable == 0 )
+			soldiers.push_back( szName );
+		if ( catalogue[i].placeable == 0 )
+			continue;
+		if ( nThis == 1 )
+			selfPropelled.push_back( szName );
+		else if ( nThis == 2 && pStats != 0 )
+		{
+			towed.push_back( szName );
+			towedStats.push_back( pStats );
+		}
+		else if ( nThis == 3 && pStats != 0 )
+		{
+			trucks.push_back( szName );
+			truckStats.push_back( pStats );
+		}
+	}
+	printf( "editor-bridge: reserve roles: %d towed guns, %d self-propelled, %d trucks, %d squads, %d single soldiers\n", int( towed.size() ), int( selfPropelled.size() ), int( trucks.size() ), int( squads.size() ), int( soldiers.size() ) );
+	if ( !Check( !towed.empty() && !trucks.empty(), "the catalogue has a towed gun and a truck" ) )
+		return;
+	bool bSoldierRoleZero = true;
+	for ( size_t i = 0; i < soldiers.size() && i < 20; ++i )
+		bSoldierRoleZero = bSoldierRoleZero && ReserveRoleOfCatalogueName( pSession, soldiers[i] ) == 0;
+	Check( bSoldierRoleZero, "a single soldier is role 0" );
+	if ( !squads.empty() )
+		Check( ReserveRoleOfCatalogueName( pSession, squads[0] ) == 0, "a squad is role 0" );
+
+	// A gun and a truck that can tow it, and, where the stats offer one, a pair that cannot.
+	int nGoodGun = -1, nGoodTruck = -1, nBadGun = -1, nBadTruck = -1;
+	for ( size_t g = 0; g < towed.size(); ++g )
+		for ( size_t t = 0; t < trucks.size(); ++t )
+		{
+			if ( truckStats[t]->fTowingForce > towedStats[g]->fWeight )
+			{
+				if ( nGoodGun < 0 ) { nGoodGun = int( g ); nGoodTruck = int( t ); }
+			}
+			else if ( nBadGun < 0 )
+			{
+				nBadGun = int( g );
+				nBadTruck = int( t );
+			}
+		}
+	if ( !Check( nGoodGun >= 0, "some truck can tow some towed gun" ) )
+		return;
+
+	// Place them on coldwinter, apart, round the middle of the map (AI units).
+	const float fMiddleX = original.terrain.tiles.GetSizeX() * fWorldCellSize * fAITileXCoeff1 / 2.0f;
+	const float fMiddleY = original.terrain.tiles.GetSizeY() * fWorldCellSize * fAITileYCoeff1 / 2.0f;
+	int nGun = -1, nTruck = -1, nBadGunLink = -1, nBadTruckLink = -1, nSP = -1, nSquad = -1;
+	bool bPlaced = PlaceUnitNear( pSession, towed[nGoodGun], fMiddleX - 500.0f, fMiddleY - 500.0f, &nGun ) && PlaceUnitNear( pSession, trucks[nGoodTruck], fMiddleX + 500.0f, fMiddleY - 500.0f, &nTruck );
+	if ( !Check( bPlaced, "the towed gun and its truck are placed" ) )
+		return;
+	if ( nBadGun >= 0 )
+		Check( PlaceUnitNear( pSession, towed[nBadGun], fMiddleX - 500.0f, fMiddleY + 500.0f, &nBadGunLink ) && PlaceUnitNear( pSession, trucks[nBadTruck], fMiddleX + 500.0f, fMiddleY + 500.0f, &nBadTruckLink ), "the pair that cannot tow is placed" );
+	else
+		printf( "editor-bridge: noted: every truck of the catalogue can tow every towed gun, the towing refusal is not exercised\n" );
+	if ( !selfPropelled.empty() )
+		Check( PlaceUnitNear( pSession, selfPropelled[0], fMiddleX, fMiddleY + 800.0f, &nSP ), "a self-propelled gun is placed" );
+	else
+		printf( "editor-bridge: noted: the catalogue has no self-propelled gun, its cases are not exercised\n" );
+	if ( !squads.empty() )
+		Check( PlaceUnitNear( pSession, squads[0], fMiddleX, fMiddleY - 800.0f, &nSquad ), "a squad is placed" );
+	else
+		printf( "editor-bridge: noted: the catalogue has no squad, its refusal is not exercised\n" );
+
+	const std::string szPlaced = szScratch + "\\reserve-placed.bzm";
+	const std::string szEdited = szScratch + "\\reserve-edited.bzm";
+	const std::string szUndone = szScratch + "\\reserve-undone.bzm";
+	const std::string szRefused = szScratch + "\\reserve-refused.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szPlaced.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo placed;
+	if ( !Check( NMapFile::Read( szPlaced.c_str(), &placed, &szError ), szError.c_str() ) )
+		return;
+	const int nBefore = ReservePositionCountOf( pSession );
+	Check( nBefore == int( original.reservePositionsList.size() ), "the positions read as the file has them" );
+
+	// Argument checks.
+	const float fNaN = std::numeric_limits<float>::quiet_NaN();
+	BkEditorReservePositionRecord good = { nGun, nTruck, fMiddleX, fMiddleY };
+	BkEditorReservePositionRecord nanPlace = { nGun, nTruck, fNaN, 0.0f };
+	BkEditorReservePositionRecord unusedRecord;
+	Check( BkEditorAddReservePosition( pSession, -1, 0 ) == BK_EDITOR_BAD_ARGUMENT && BkEditorSetReservePosition( pSession, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null record is a bad argument" );
+	Check( BkEditorAddReservePosition( pSession, -1, &nanPlace ) == BK_EDITOR_BAD_ARGUMENT, "a NaN place is a bad argument" );
+	Check( BkEditorAddReservePosition( pSession, -2, &good ) == BK_EDITOR_BAD_ARGUMENT && BkEditorAddReservePosition( pSession, nBefore + 1, &good ) == BK_EDITOR_BAD_ARGUMENT, "an insert index out of range is a bad argument" );
+	Check( BkEditorSetReservePosition( pSession, nBefore, &good ) == BK_EDITOR_BAD_ARGUMENT && BkEditorDeleteReservePosition( pSession, nBefore ) == BK_EDITOR_BAD_ARGUMENT && BkEditorDeleteReservePosition( pSession, -1 ) == BK_EDITOR_BAD_ARGUMENT, "a set or delete index out of range is a bad argument" );
+	Check( BkEditorReservePosition( pSession, nBefore, &unusedRecord ) == BK_EDITOR_BAD_ARGUMENT && BkEditorReservePosition( pSession, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT && BkEditorReservePositionCount( pSession, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a read past the end or to nothing is a bad argument" );
+
+	// The towed gun with its truck: added, read back, saved as the expected map.
+	if ( !Check( BkEditorAddReservePosition( pSession, -1, &good ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo expected = placed;
+	Check( NMapRecords::InsertReservePosition( &expected, -1, SBattlePosition( nGun, nTruck, CVec2( fMiddleX, fMiddleY ) ) ), "the expected map takes the position" );
+	BkEditorReservePositionRecord read;
+	Check( ReservePositionCountOf( pSession ) == nBefore + 1 && BkEditorReservePosition( pSession, nBefore, &read ) == BK_EDITOR_OK && SameReservePositionRecords( read, good ), "the position reads back as it was given, appended" );
+	if ( nSP >= 0 )
+	{
+		BkEditorReservePositionRecord alone = { nSP, 0, fMiddleX + 40.0f, fMiddleY + 40.0f };
+		Check( BkEditorAddReservePosition( pSession, -1, &alone ) == BK_EDITOR_OK, ( std::string( "a self-propelled gun needs no truck: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		Check( NMapRecords::InsertReservePosition( &expected, -1, SBattlePosition( nSP, 0, CVec2( fMiddleX + 40.0f, fMiddleY + 40.0f ) ) ), "the expected map takes it too" );
+	}
+	CheckSavedEquals( pSession, szEdited, expected, "reserve positions added" );
+	// A set of the place moves it; a set back and a set to its own value are accepted.
+	BkEditorReservePositionRecord moved = good;
+	moved.x += 30.0f;
+	Check( BkEditorSetReservePosition( pSession, nBefore, &moved ) == BK_EDITOR_OK && BkEditorSetReservePosition( pSession, nBefore, &good ) == BK_EDITOR_OK && BkEditorSetReservePosition( pSession, nBefore, &good ) == BK_EDITOR_OK,
+	       "the place moves and goes back" );
+
+	// Refusals change nothing.
+	if ( !Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	BkEditorReservePositionRecord r = { nGun, 0, fMiddleX, fMiddleY };
+	Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "towed gun needs a truck" ) != std::string::npos, "a towed gun without a truck is refused, saying so" );
+	if ( nSP >= 0 )
+	{
+		r = BkEditorReservePositionRecord { nSP, nTruck, fMiddleX, fMiddleY };
+		Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "takes no truck" ) != std::string::npos, "a self-propelled gun with a truck is refused" );
+	}
+	if ( nBadGunLink >= 0 && nBadTruckLink >= 0 )
+	{
+		r = BkEditorReservePositionRecord { nBadGunLink, nBadTruckLink, fMiddleX, fMiddleY };
+		Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "cannot tow" ) != std::string::npos, "a truck that cannot tow the gun is refused, saying so" );
+	}
+	if ( nSquad >= 0 )
+	{
+		r = BkEditorReservePositionRecord { nSquad, nTruck, fMiddleX, fMiddleY };
+		Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "squad" ) != std::string::npos, "a squad as the gun is refused" );
+		r = BkEditorReservePositionRecord { nGun, nSquad, fMiddleX, fMiddleY };
+		Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "squad" ) != std::string::npos, "a squad as the truck is refused" );
+	}
+	std::vector<int> others;
+	int nNonUnit = -1;
+	PickCommandUnits( original, 1, &others, &nNonUnit );
+	if ( nNonUnit >= 0 )
+	{
+		r = BkEditorReservePositionRecord { nNonUnit, 0, fMiddleX, fMiddleY };
+		Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED, "a building or a tree as the gun is refused" );
+		r = BkEditorReservePositionRecord { nGun, nNonUnit, fMiddleX, fMiddleY };
+		Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED, "and as the truck" );
+	}
+	r = BkEditorReservePositionRecord { nTruck, 0, fMiddleX, fMiddleY };
+	Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED, "a truck as the gun is refused" );
+	r = BkEditorReservePositionRecord { nGun, nGun, fMiddleX, fMiddleY };
+	Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED, "and a gun as the truck" );
+	r = BkEditorReservePositionRecord { 0, nTruck, fMiddleX, fMiddleY };
+	Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED, "link ID 0 as the gun is refused" );
+	r = BkEditorReservePositionRecord { 0, 0, fMiddleX, fMiddleY };
+	Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "needs a gun" ) != std::string::npos, "a position with both link IDs 0 is refused" );
+	r = BkEditorReservePositionRecord { 999999, 0, fMiddleX, fMiddleY };
+	Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "999999" ) != std::string::npos, "a gun no object has is refused, naming it" );
+	r = BkEditorReservePositionRecord { nGun, 999999, fMiddleX, fMiddleY };
+	Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED, "so is a truck no object has" );
+	r = BkEditorReservePositionRecord { nGun, -1, fMiddleX, fMiddleY };
+	Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED, "and a negative truck" );
+	r = BkEditorReservePositionRecord { nGun, nTruck, -5.0f, fMiddleY };
+	Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "not on the map" ) != std::string::npos, "a place off the map is refused" );
+	r.x = 1.0e9f;
+	Check( BkEditorAddReservePosition( pSession, -1, &r ) == BK_EDITOR_REFUSED, "so is one far beyond the far edge" );
+	// A set that would break a rule is refused too (the gun swapped for a truck).
+	r = BkEditorReservePositionRecord { nTruck, nTruck, fMiddleX, fMiddleY };
+	Check( BkEditorSetReservePosition( pSession, nBefore, &r ) == BK_EDITOR_REFUSED, "a set that makes the truck the gun is refused" );
+	if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szEdited, szRefused ), "none of the refusals changed the map" );
+
+	// Deleted again, the map is the placed one; put back at their own indexes they are as they were.
+	const int nAdded = ReservePositionCountOf( pSession ) - nBefore;
+	for ( int i = 0; i < nAdded; ++i )
+		Check( BkEditorDeleteReservePosition( pSession, nBefore ) == BK_EDITOR_OK, "a position is deleted" );
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szPlaced, szUndone ), "add, edit and delete of reserve positions save the placed map byte for byte" );
+	Check( BkEditorAddReservePosition( pSession, nBefore, &good ) == BK_EDITOR_OK && BkEditorReservePosition( pSession, nBefore, &read ) == BK_EDITOR_OK && SameReservePositionRecords( read, good ), "a deleted position goes back at its own index" );
+	Check( BkEditorDeleteReservePosition( pSession, nBefore ) == BK_EDITOR_OK, "and is deleted once more" );
+
+	// Deleting the gun takes its position with it, and the restore brings it back (the cascade).
+	Check( BkEditorAddReservePosition( pSession, -1, &good ) == BK_EDITOR_OK, "the position is there again" );
+	{
+		const BkEditorStatus deleted = BkEditorDeleteObject( pSession, nGun );
+		const std::string szCascade = BkEditorLastMessage( pSession );
+		Check( deleted == BK_EDITOR_OK, ( "deleting the gun is accepted: " + szCascade ).c_str() );
+		Check( ReservePositionCountOf( pSession ) == nBefore, NStr::Format( "deleting the gun erases its position (%d positions, %d before)", ReservePositionCountOf( pSession ), nBefore ) );
+		Check( szCascade.find( "reserve position" ) != std::string::npos, ( "and says so: " + szCascade ).c_str() );
+		printf( "editor-bridge: deleting the gun says: %s\n", szCascade.c_str() );
+	}
+	Check( BkEditorRestoreObject( pSession, nGun ) == BK_EDITOR_OK && ReservePositionCountOf( pSession ) == nBefore + 1 && BkEditorReservePosition( pSession, nBefore, &read ) == BK_EDITOR_OK && SameReservePositionRecords( read, good ),
+	       "and the restore brings it back as it was" );
+	Check( BkEditorDeleteReservePosition( pSession, nBefore ) == BK_EDITOR_OK, "deleted for the next test" );
+
+	// A file's own odd position - a gun no object has - is exempt: deleted and put back, as an undo does.
+	{
+		const std::string szMap = szScratch + "\\reserve-odd.bzm";
+		CMapInfo odd = original;
+		Check( NMapRecords::InsertReservePosition( &odd, -1, SBattlePosition( 888888, 777777, CVec2( 10.0f, 10.0f ) ) ), "the odd position is laid over the map" );
+		if ( Check( NMapFile::Write( szMap.c_str(), odd, &szError ), szError.c_str() ) &&
+		     Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			const std::string szBefore = szScratch + "\\reserve-odd-before.bzm", szAfter = szScratch + "\\reserve-odd-after.bzm";
+			Check( BkEditorSaveMap( pSession, szBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			const int nOdd = ReservePositionCountOf( pSession ) - 1;
+			BkEditorReservePositionRecord oddRead;
+			if ( Check( nOdd >= 0 && BkEditorReservePosition( pSession, nOdd, &oddRead ) == BK_EDITOR_OK, "the odd position reads" ) )
+			{
+				Check( BkEditorDeleteReservePosition( pSession, nOdd ) == BK_EDITOR_OK && BkEditorAddReservePosition( pSession, nOdd, &oddRead ) == BK_EDITOR_OK, "the file's own odd position is deleted and put back, as an undo needs" );
+				BkEditorReservePositionRecord fresh = oddRead;
+				fresh.x = 20.0f;
+				Check( BkEditorAddReservePosition( pSession, -1, &fresh ) == BK_EDITOR_REFUSED, "but a new one like it is refused" );
+				Check( BkEditorSetReservePosition( pSession, nOdd, &fresh ) == BK_EDITOR_OK && BkEditorSetReservePosition( pSession, nOdd, &oddRead ) == BK_EDITOR_OK, "and moving only its place is accepted, and back" );
+			}
+			if ( Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+				Check( SameBytes( szBefore, szAfter ), "the odd map saves the same bytes after all of it" );
+			remove( OsPath( szBefore ).c_str() );
+			remove( OsPath( szAfter ).c_str() );
+		}
+		remove( OsPath( szMap ).c_str() );
+	}
+	remove( OsPath( szPlaced ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szRefused ).c_str() );
+	printf( "editor-bridge: M2 reserve positions ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -7651,6 +7955,7 @@ int main( int argc, char **argv )
 		TestM2Entrenchments( pSession, szScratch );
 		TestM2EntrenchmentDelete( pSession, szScratch );
 		TestM2StartCommands( pSession, szScratch );
+		TestM2ReservePositions( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

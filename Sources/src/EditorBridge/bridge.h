@@ -952,6 +952,57 @@ BkEditorStatus BkEditorSetStartCommand( BkEditorSession *session, int index, con
    range is BK_EDITOR_BAD_ARGUMENT. */
 BkEditorStatus BkEditorDeleteStartCommand( BkEditorSession *session, int index );
 
+/* Reserve positions (04-11, D-18): the map's reservePositionsList, where the game
+   puts an artillery unit when a mission starts (CAILogic::InitReservePositions,
+   which casts the link to a unit, so a squad or a non-unit would crash it). A
+   position names the gun (artillery_link_id) and, for a towed gun, the truck
+   that tows it (truck_link_id, 0 for none - never a reference), and a place
+   (x, y, MAP (AI) units). The index is the position's place in the list; a new
+   position appends (the MFC editor pushed it in front; the game keys them by
+   link ID, so the order does not matter). */
+
+/* What an object type can be in a reserve position, from its stats as the MFC
+   editor's ObjectPlacerState classifies them: 0 nothing, 1 a self-propelled
+   gun (a self-propelled or armoured unit, a super train, or an artillery piece
+   without crew places), 2 a towed gun (an artillery piece with crew places), 3 a
+   truck able to tow (a carrier or a tractor). A name the database does not know,
+   a squad and anything else is 0 with BK_EDITOR_OK. BK_EDITOR_BAD_ARGUMENT for
+   a null name or role. */
+BkEditorStatus BkEditorReserveRole( BkEditorSession *session, const char *object_name, int *out_role );
+
+typedef struct
+{
+	int artillery_link_id;
+	int truck_link_id;
+	float x, y;
+} BkEditorReservePositionRecord;
+
+/* How many reserve positions the snapshot holds. */
+BkEditorStatus BkEditorReservePositionCount( BkEditorSession *session, int *out_count );
+
+/* The position at index. An index out of range or a null out is
+   BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorReservePosition( BkEditorSession *session, int index, BkEditorReservePositionRecord *out );
+
+/* Inserts a position at index (0..count; -1 appends), both copies together, the
+   engine untouched. ValidateReservePosition's rules, each a BK_EDITOR_REFUSED
+   naming why with nothing changed: the gun a link ID above 0 naming a unit of the
+   map (a squad and any non-unit are refused, in either role) whose role is 1 or
+   2; a towed gun needs a truck ("a towed gun needs a truck"), a self-propelled
+   gun takes none; a truck a unit of role 3 that the MFC editor's towing check
+   passes (its towing force above the gun's weight); a position with both link IDs
+   0 and link ID 0 as the gun; x and y on the map. A position the file held when
+   it was opened is exempt, as for start commands. A null record, a non-finite
+   number or an index out of range is BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorAddReservePosition( BkEditorSession *session, int index, const BkEditorReservePositionRecord *record );
+
+/* Replaces the position at index by the same rules; only what the set changes is
+   judged (the gun and truck together, and the place). */
+BkEditorStatus BkEditorSetReservePosition( BkEditorSession *session, int index, const BkEditorReservePositionRecord *record );
+
+/* Removes the position at index. An index out of range is BK_EDITOR_BAD_ARGUMENT. */
+BkEditorStatus BkEditorDeleteReservePosition( BkEditorSession *session, int index );
+
 /* Reinforcement groups (04-09, D-16): the map's SReinforcementGroupInfo, keyed
    by group ID, each holding the script IDs of the objects the game holds back
    for it (an object of the map's objects list whose script ID a group holds is

@@ -371,6 +371,18 @@ bool ReadSessionStartCommand( SEditorSession *pSession, int nIndex, BkEditorStar
 bool AddStartCommandToSession( SEditorSession *pSession, int nIndex, const BkEditorStartCommandRecord &rRecord, const int *pUnits, bool *pbRefused );
 bool SetStartCommandInSession( SEditorSession *pSession, int nIndex, const BkEditorStartCommandRecord &rRecord, const int *pUnits, bool *pbRefused );
 bool DeleteStartCommandFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused );
+// Reserve positions (04-11, D-18): the MFC editor's role classification of an object
+// type (0 nothing, 1 self-propelled gun, 2 towed gun, 3 truck able to tow - from the
+// object's stats, never from a cast a missing stats class would make a guess of), and
+// the records through NMapRecords on both copies, the engine untouched. The reads
+// return false for an index out of range; Add, Set and Delete follow the rules
+// bridge.h documents (ValidateReservePosition holds them), nIndex -1 appends (Add
+// only).
+int ReserveRoleOfName( const char *pszName );
+bool ReadSessionReservePosition( SEditorSession *pSession, int nIndex, BkEditorReservePositionRecord *pOut );
+bool AddReservePositionToSession( SEditorSession *pSession, int nIndex, const BkEditorReservePositionRecord &rRecord, bool *pbRefused );
+bool SetReservePositionInSession( SEditorSession *pSession, int nIndex, const BkEditorReservePositionRecord &rRecord, bool *pbRefused );
+bool DeleteReservePositionFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused );
 // Reinforcement groups (04-09, D-16), through NMapRecords on both copies. The
 // two reads answer the total in *pnCount and return false when the buffer was
 // too short (nothing written past it); ReadSessionGroup also returns false
