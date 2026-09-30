@@ -6,6 +6,11 @@
 function Init()
 	-- The script ran.
 	Trace( 1 )
+	-- The area the scenario drew, found by its name: the call answers the centre x
+	-- and y, then two sizes, in map units as the map stores them.
+	local x, y, r = GetScriptAreaParams( "m2_area" )
+	Trace( x )
+	Trace( y )
 	-- Group 900 holds the script ID (4245) of the unit the scenario placed and
 	-- held back. LandReinforcement only queues it: the game lands one queued
 	-- unit at a time, every 200 game ticks (CScripts::LandSuspendedReiforcements),

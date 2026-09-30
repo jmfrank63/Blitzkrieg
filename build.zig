@@ -6294,9 +6294,55 @@ fn addMapEditor(
         "181:expect=groups_delta:0",
         "182:expect=undo_depth:11",
         "185:shot=m2_groups",
-        b.fmt("187:saveas={s}/m2.bzm", .{auto_m2_dir}),
-        "188:shot=m2_anchor",
-        "189:exit",
+        // 04-10: script areas (key 8) and the script file. A rectangle named
+        // m2_area is dragged, a circle named m2_ring after it (the drag's press,
+        // motions and release in separate frames); the map now holds two areas
+        // more. A click inside the rectangle selects it and a drag from its
+        // centre handle moves it (one undo step, undone by the key); Rename gives
+        // it m2_zone and the second undo takes that back. The map's script file is
+        // named m2_script (a predicate reads it back), the Script window is opened
+        // and everything is shot.
+        "186:tool=script_areas",
+        "187:do=area_shape:rect",
+        "188:do=area_name:m2_area",
+        "190:press=c120x120",
+        "191:drag=c190x160",
+        "192:drag=c260x200",
+        "193:release=c260x200",
+        "195:expect=area_named:m2_area",
+        "196:expect=areas_delta:1",
+        "197:expect=undo_depth:12",
+        "198:do=area_shape:circle",
+        "199:do=area_name:m2_ring",
+        "201:press=c-120x210",
+        "202:drag=c-90x225",
+        "203:release=c-60x240",
+        "205:expect=area_named:m2_ring",
+        "206:expect=areas_delta:2",
+        "207:expect=undo_depth:13",
+        "208:click=c190x160",
+        "210:press=c190x160",
+        "211:drag=c205x170",
+        "212:drag=c220x180",
+        "213:release=c220x180",
+        "215:expect=undo_depth:14",
+        "216:key=Z+ctrl",
+        "218:expect=undo_depth:13",
+        "219:do=area_rename:0:m2_zone",
+        "220:expect=area_named:m2_zone",
+        "221:expect=undo_depth:14",
+        "222:key=Z+ctrl",
+        "224:expect=area_named:m2_area",
+        "225:expect=undo_depth:13",
+        "226:do=script_file:m2_script",
+        "227:expect=script_file:m2_script",
+        "228:expect=undo_depth:14",
+        "229:do=script_dialog:1",
+        "232:shot=m2_areas",
+        "233:do=script_dialog:0",
+        b.fmt("235:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "236:shot=m2_anchor",
+        "237:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
     auto_m2_run.setCwd(b.path(stage_root));

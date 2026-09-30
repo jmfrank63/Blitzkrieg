@@ -11,6 +11,7 @@ const std = @import("std");
 const core = @import("editor_core");
 const panels = @import("panels.zig");
 const logic = @import("panels_logic.zig");
+const marker_logic = @import("marker_logic.zig");
 
 const State = panels.State;
 const records = core.records;
@@ -50,6 +51,10 @@ pub const command_table = [_]Entry{
     .{ .name = "group_select", .handler = groupSelect },
     .{ .name = "groups_window", .handler = groupsWindow },
     .{ .name = "script_file", .handler = scriptFile },
+    .{ .name = "area_shape", .handler = areaShape },
+    .{ .name = "area_name", .handler = areaName },
+    .{ .name = "area_rename", .handler = areaRename },
+    .{ .name = "area_delete", .handler = areaDelete },
     .{ .name = "script_dialog", .handler = scriptDialog },
     .{ .name = "script_open", .handler = scriptOpen },
     .{ .name = "script_copy_along_yes", .handler = scriptCopyAlongYes },
@@ -73,6 +78,8 @@ pub const predicate_table = [_]Entry{
     .{ .name = "groups_delta", .handler = groupsDelta },
     .{ .name = "hidden_count", .handler = hiddenCount },
     .{ .name = "script_file", .handler = scriptFileIs },
+    .{ .name = "areas_delta", .handler = areasDelta },
+    .{ .name = "area_named", .handler = areaNamed },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -491,6 +498,101 @@ pub fn setScriptFile(state: *State, name: []const u8) Outcome {
 fn scriptFile(state: *State, arg: []const u8) Outcome {
     if (arg.len == 0) return .bad_arg;
     return setScriptFile(state, if (std.mem.eql(u8, arg, "none")) "" else arg);
+}
+
+// ---------------------------------------------------------------------------
+// Script areas (04-10, D-21).
+// ---------------------------------------------------------------------------
+
+/// `area_shape:rect` or `:circle`: the shape the next drag of the Script Areas
+/// tool draws.
+fn areaShape(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "rect")) {
+        state.view.areas_tool.shape = .rectangle;
+    } else if (std.mem.eql(u8, arg, "circle")) {
+        state.view.areas_tool.shape = .circle;
+    } else return .bad_arg;
+    return .ok;
+}
+
+/// `area_name:m2_area`: the name the next area takes (the panel's name field).
+fn areaName(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0 or arg.len >= records.area_name_capacity) return .bad_arg;
+    state.view.areas_tool.setName(arg);
+    return .ok;
+}
+
+/// `index:name` - an area's index in the map's list, and a name.
+fn parseIndexedName(arg: []const u8) ?struct { index: usize, name: []const u8 } {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return null;
+    const index = std.fmt.parseInt(usize, arg[0..colon], 10) catch return null;
+    return .{ .index = index, .name = arg[colon + 1 ..] };
+}
+
+/// Renames area `index` to `name`, one undo step; the status line says why when
+/// the name is empty or taken. Public: the Script Areas panel's Rename calls it too.
+pub fn renameArea(state: *State, index: usize, name: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.editor.renameScriptArea(index, name));
+}
+
+/// `area_rename:0:m2_zone`.
+fn areaRename(state: *State, arg: []const u8) Outcome {
+    const parsed = parseIndexedName(arg) orelse return .bad_arg;
+    return renameArea(state, parsed.index, parsed.name);
+}
+
+/// Deletes area `index`, one undo step. Public for the panel.
+pub fn deleteArea(state: *State, index: usize) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const tool = &state.view.areas_tool;
+    if (tool.selected != null and tool.selected.? == index) tool.selected = null;
+    return resultOutcome(state, state.editor.deleteScriptArea(index));
+}
+
+/// `area_delete:0`.
+fn areaDelete(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    return deleteArea(state, index);
+}
+
+/// A click on the Script Areas list: the area is selected and the camera
+/// centres on it (AI units to world units, the camera's own). Public for the panel.
+pub fn gotoArea(state: *State, index: usize) Outcome {
+    state.refreshAreas();
+    if (index >= state.areas.items.len) return .refused;
+    const area = state.areas.items[index];
+    state.view.areas_tool.selected = index;
+    const world = marker_logic.aiToWorld(.{ .x = area.cx, .y = area.cy });
+    state.view.centreOn(state.real, world.x, world.y);
+    return .ok;
+}
+
+/// `expect=areas_delta:2`: the map holds that many areas more than at open.
+fn areasDelta(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(i64, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const now = state.editor.scriptAreas(state.allocator) catch return .refused;
+    defer state.allocator.free(now);
+    const delta = @as(i64, @intCast(now.len)) - @as(i64, @intCast(state.areas_at_open));
+    if (delta == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "areas_delta is {d}, not {d}", .{ delta, want }) catch "areas_delta differs");
+    return .refused;
+}
+
+/// `expect=area_named:m2_area`: an area of the map has that name.
+fn areaNamed(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const now = state.editor.scriptAreas(state.allocator) catch return .refused;
+    defer state.allocator.free(now);
+    for (now) |*area| {
+        if (std.mem.eql(u8, area.nameSlice(), arg)) return .ok;
+    }
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "no area is named {s}", .{arg}) catch "no area has that name");
+    return .refused;
 }
 
 /// `script_dialog:1` opens the Script dialog, `:0` closes it.

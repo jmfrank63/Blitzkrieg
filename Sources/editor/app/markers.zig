@@ -45,8 +45,118 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
     if (state.view.tool == .fence) drawFenceGhost(state, real);
     // So are the Entrenchment tool's preview and outlines (04-08).
     if (state.view.tool == .entrenchment) drawTrenchMarkers(state, real);
+    // D-21: the script areas, drawn where the map holds them; the active Script
+    // Areas tool adds its selection's handles and the drag's ghost.
+    if (marker_logic.visible(state.marker_set, .script_areas, active)) drawScriptAreaMarkers(state, real);
     // D-16: "Select objects" outlines the objects of a group's script IDs.
     if (state.group_marked != null and marker_logic.visible(state.marker_set, .groups, active)) drawGroupMarks(state, real);
+}
+
+fn areaColor() ig.ImU32 {
+    return color(0.25, 0.85, 1.0);
+}
+
+fn areaSelectedColor() ig.ImU32 {
+    return color(1.0, 0.95, 0.2);
+}
+
+/// The segments a circle is drawn with.
+const area_circle_segments = 40;
+
+/// One area's outline on the ground, from the record's AI units to world units
+/// to the screen: a rectangle's four corners, a circle's ring of points. A point
+/// that does not convert breaks the line there.
+fn drawAreaOutline(draw_list: *ig.ImDrawList, real: anytype, area: core.records.ScriptArea, outline_color: ig.ImU32, thickness: f32) void {
+    switch (area.shape) {
+        .rectangle => {
+            const corners = [4][2]f32{
+                .{ area.cx - area.hx, area.cy - area.hy },
+                .{ area.cx + area.hx, area.cy - area.hy },
+                .{ area.cx + area.hx, area.cy + area.hy },
+                .{ area.cx - area.hx, area.cy + area.hy },
+            };
+            var points: [4]ig.ImVec2 = undefined;
+            for (corners, &points) |corner, *point| {
+                const world = marker_logic.aiToWorld(.{ .x = corner[0], .y = corner[1] });
+                point.* = screenOf(real, world.x, world.y) orelse return;
+            }
+            ig.ImDrawList_AddPolyline(draw_list, &points, 4, outline_color, thickness, ig.ImDrawFlags_Closed);
+        },
+        .circle => {
+            var previous: ?ig.ImVec2 = null;
+            var first: ?ig.ImVec2 = null;
+            var step: usize = 0;
+            while (step < area_circle_segments) : (step += 1) {
+                const angle = @as(f32, @floatFromInt(step)) * 2.0 * std.math.pi / @as(f32, area_circle_segments);
+                const world = marker_logic.aiToWorld(.{ .x = area.cx + area.r * @cos(angle), .y = area.cy + area.r * @sin(angle) });
+                const here = screenOf(real, world.x, world.y);
+                if (first == null) first = here;
+                if (previous != null and here != null) ig.ImDrawList_AddLineEx(draw_list, previous.?, here.?, outline_color, thickness);
+                previous = here;
+            }
+            if (previous != null and first != null) ig.ImDrawList_AddLineEx(draw_list, previous.?, first.?, outline_color, thickness);
+        },
+    }
+}
+
+/// D-21: every script area outlined with its name beside the centre; the
+/// selected one in the selection colour with its handles while the Script Areas
+/// tool is active (a square at the centre moves it, a circle at the corner or
+/// edge resizes it, where `tools_ai.centreHandle` and `edgeHandle` say); and, while
+/// a drag is held, the shape it would make. Capped like every kind.
+fn drawScriptAreaMarkers(state: *State, real: anytype) void {
+    state.refreshAreas();
+    const draw_list = ig.igGetBackgroundDrawList();
+    const tool = &state.view.areas_tool;
+    const active = state.view.tool == .script_areas;
+    const limit = marker_logic.cap(.script_areas);
+    for (state.areas.items, 0..) |area, index| {
+        if (index >= limit) break;
+        const selected = active and tool.selected != null and tool.selected.? == index;
+        drawAreaOutline(draw_list, real, area, if (selected) areaSelectedColor() else areaColor(), if (selected) 3 else 2);
+        const world = marker_logic.aiToWorld(.{ .x = area.cx, .y = area.cy });
+        if (screenOf(real, world.x, world.y)) |at| {
+            var label: [core.records.area_name_capacity]u8 = undefined;
+            const name = area.nameSlice();
+            @memcpy(label[0..name.len], name);
+            ig.ImDrawList_AddTextEx(draw_list, .{ .x = at.x + 8, .y = at.y - 8 }, labelColor(), &label, &label[name.len]);
+        }
+        if (selected) {
+            const centre = core.tools_ai.centreHandle(area);
+            const edge = core.tools_ai.edgeHandle(area);
+            const centre_world = marker_logic.aiToWorld(.{ .x = centre[0], .y = centre[1] });
+            const edge_world = marker_logic.aiToWorld(.{ .x = edge[0], .y = edge[1] });
+            if (screenOf(real, centre_world.x, centre_world.y)) |at| drawSquare(draw_list, at, 6, areaSelectedColor(), true);
+            if (screenOf(real, edge_world.x, edge_world.y)) |at| ig.ImDrawList_AddCircleEx(draw_list, at, 6, areaSelectedColor(), 16, 2.5);
+        }
+    }
+    // The ghost of a drag in hand, in world units straight from the press and the pointer.
+    if (active and tool.dragging) {
+        const begin = tool.start orelse return;
+        const end = tool.current orelse return;
+        switch (tool.shape) {
+            .rectangle => {
+                const corners = [4][2]f32{ .{ begin[0], begin[1] }, .{ end[0], begin[1] }, .{ end[0], end[1] }, .{ begin[0], end[1] } };
+                var points: [4]ig.ImVec2 = undefined;
+                for (corners, &points) |corner, *point| point.* = screenOf(real, corner[0], corner[1]) orelse return;
+                ig.ImDrawList_AddPolyline(draw_list, &points, 4, areaSelectedColor(), 2, ig.ImDrawFlags_Closed);
+            },
+            .circle => {
+                const radius = std.math.hypot(end[0] - begin[0], end[1] - begin[1]);
+                var previous: ?ig.ImVec2 = null;
+                var first: ?ig.ImVec2 = null;
+                var step: usize = 0;
+                while (step < area_circle_segments) : (step += 1) {
+                    const angle = @as(f32, @floatFromInt(step)) * 2.0 * std.math.pi / @as(f32, area_circle_segments);
+                    const here = screenOf(real, begin[0] + radius * @cos(angle), begin[1] + radius * @sin(angle));
+                    if (first == null) first = here;
+                    if (previous != null and here != null) ig.ImDrawList_AddLineEx(draw_list, previous.?, here.?, areaSelectedColor(), 2);
+                    previous = here;
+                }
+                if (previous != null and first != null) ig.ImDrawList_AddLineEx(draw_list, previous.?, first.?, areaSelectedColor(), 2);
+            },
+        }
+    }
 }
 
 fn groupMarkColor() ig.ImU32 {
