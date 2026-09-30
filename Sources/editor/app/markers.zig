@@ -3,8 +3,9 @@
 //! over the markers and a marker sits under the cursor the way a click
 //! resolves (Pitfall 17: both use the z = 0 plane). View -> Markers switches
 //! each kind on or off (`State.marker_set`); the active tool's own kinds are
-//! always on (marker_logic.visible). This plan draws the camera anchors;
-//! later plans add their kind's function here and one call in `drawM2Markers`.
+//! always on (marker_logic.visible). 04-03 drew the camera anchors, 04-05 the
+//! roads and rivers; later plans add their kind's function here and one call
+//! in `drawM2Markers`.
 //!
 //! An item whose conversion fails (off the current view, no camera yet) is
 //! skipped alone, never the whole kind; every kind is capped
@@ -15,6 +16,7 @@ const imgui = @import("editor_imgui");
 const panels = @import("panels.zig");
 const marker_logic = @import("marker_logic.zig");
 const tool_registry = @import("tool_registry.zig");
+const core = @import("editor_core");
 
 const ig = imgui.c;
 const State = panels.State;
@@ -36,6 +38,117 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
     if (!panels.mapIsOpen(state.editor)) return;
     const active = tool_registry.entry(state.view.tool).marker_kinds;
     if (marker_logic.visible(state.marker_set, .camera_anchors, active)) drawCameraAnchors(state, real);
+    if (marker_logic.visible(state.marker_set, .roads_rivers, active)) drawRoadsRivers(state, real);
+}
+
+fn roadColor() ig.ImU32 {
+    return color(0.95, 0.75, 0.35);
+}
+
+fn riverColor() ig.ImU32 {
+    return color(0.35, 0.65, 1.0);
+}
+
+fn selectedColor() ig.ImU32 {
+    return color(0.2, 1.0, 0.2);
+}
+
+/// The MFC tool's control-point colour (CONTROL_POINT_COLOR, pinkish).
+fn controlColor() ig.ImU32 {
+    return color(1.0, 0.5, 0.5);
+}
+
+/// The MFC tool's key-point colour (KEY_POINT_COLOR, pale yellow).
+fn keyColor() ig.ImU32 {
+    return color(1.0, 1.0, 0.5);
+}
+
+fn screenOf(real: anytype, x: f32, y: f32) ?ig.ImVec2 {
+    const at = real.worldToScreen(x, y) orelse return null;
+    return .{ .x = at[0], .y = at[1] };
+}
+
+/// A polyline through world points, one segment at a time so a point that
+/// does not convert breaks the line there rather than dropping it.
+fn drawLine(draw_list: *ig.ImDrawList, real: anytype, points: []const core.records.Vec3, line_color: ig.ImU32, thickness: f32) void {
+    var previous: ?ig.ImVec2 = null;
+    for (points) |point| {
+        const here = screenOf(real, point.x, point.y);
+        if (previous != null and here != null) ig.ImDrawList_AddLineEx(draw_list, previous.?, here.?, line_color, thickness);
+        previous = here;
+    }
+}
+
+fn drawSquare(draw_list: *ig.ImDrawList, at: ig.ImVec2, half: f32, square_color: ig.ImU32, filled: bool) void {
+    const min: ig.ImVec2 = .{ .x = at.x - half, .y = at.y - half };
+    const max: ig.ImVec2 = .{ .x = at.x + half, .y = at.y + half };
+    if (filled) ig.ImDrawList_AddRectFilled(draw_list, min, max, square_color) else ig.ImDrawList_AddRectEx(draw_list, min, max, square_color, 0, 2, 0);
+}
+
+/// D-06 for roads and rivers (MFC CVSOState::Draw): every road's and river's
+/// centre line through its key points; for the selected one, the centre line
+/// in the selection colour, the control polyline with a square per control
+/// point (the one in hand filled) and a circle at each width handle, joined
+/// across the stripe; while drawing, the unfinished line and its last leg to
+/// the pointer.
+fn drawRoadsRivers(state: *State, real: anytype) void {
+    const draw_list = ig.igGetBackgroundDrawList();
+    state.refreshVsoLines();
+    const tool = &state.view.roads_rivers;
+    var start: usize = 0;
+    for (state.vso_line_ends.items, state.vso_line_kinds.items) |end, kind| {
+        drawLine(draw_list, real, state.vso_line_points.items[start..end], if (kind == .road) roadColor() else riverColor(), 1.5);
+        start = end;
+    }
+
+    if (tool.selectedView(state.editor)) |view| {
+        var centre: [256]core.records.Vec3 = undefined;
+        const key_count = @min(view.key_points.len, centre.len);
+        for (view.key_points[0..key_count], centre[0..key_count]) |key, *point| point.* = .{ .x = key.x, .y = key.y };
+        drawLine(draw_list, real, centre[0..key_count], selectedColor(), 3);
+        drawLine(draw_list, real, view.control_points, controlColor(), 1);
+        for (view.key_points[0..key_count], 0..) |key, index| {
+            const plus = screenOf(real, key.x + key.nx * key.width, key.y + key.ny * key.width) orelse continue;
+            const minus = screenOf(real, key.x - key.nx * key.width, key.y - key.ny * key.width) orelse continue;
+            ig.ImDrawList_AddLine(draw_list, plus, minus, keyColor());
+            const held = if (tool.grab) |grab| switch (grab) {
+                .width => |w| w.key == index,
+                .opacity => |o| o.key == index,
+                .control => false,
+            } else false;
+            if (held) {
+                ig.ImDrawList_AddCircleFilled(draw_list, plus, 5, keyColor(), 12);
+                ig.ImDrawList_AddCircleFilled(draw_list, minus, 5, keyColor(), 12);
+            } else {
+                ig.ImDrawList_AddCircle(draw_list, plus, 5, keyColor());
+                ig.ImDrawList_AddCircle(draw_list, minus, 5, keyColor());
+            }
+        }
+        const in_hand: ?usize = switch (tool.last_grab) {
+            .control => |control| control,
+            .none, .key => null,
+        };
+        for (view.control_points, 0..) |point, index| {
+            const at = screenOf(real, point.x, point.y) orelse continue;
+            const hot = (in_hand != null and in_hand.? == index) or (tool.hovered_control != null and tool.hovered_control.? == index);
+            drawSquare(draw_list, at, 5, controlColor(), hot);
+        }
+    }
+
+    if (tool.adding()) {
+        const pending = tool.pendingPoints();
+        drawLine(draw_list, real, pending, controlColor(), 2);
+        for (pending) |point| {
+            const at = screenOf(real, point.x, point.y) orelse continue;
+            drawSquare(draw_list, at, 5, controlColor(), true);
+        }
+        if (tool.cursor) |cursor| {
+            const last = pending[pending.len - 1];
+            const from = screenOf(real, last.x, last.y);
+            const to = screenOf(real, cursor[0], cursor[1]);
+            if (from != null and to != null) ig.ImDrawList_AddLine(draw_list, from.?, to.?, controlColor());
+        }
+    }
 }
 
 /// A small filled triangle at each set anchor with "N" (neutral) or "P<n>".

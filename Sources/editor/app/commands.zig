@@ -30,12 +30,18 @@ pub const command_table = [_]Entry{
     .{ .name = "camera_neutral", .handler = cameraNeutral },
     .{ .name = "camera_clear", .handler = cameraClear },
     .{ .name = "camera_goto", .handler = cameraGoto },
+    .{ .name = "vso_kind", .handler = vsoKind },
+    .{ .name = "vso_desc", .handler = vsoDesc },
+    .{ .name = "vso_width", .handler = vsoWidth },
+    .{ .name = "vso_opacity", .handler = vsoOpacity },
 };
 
 pub const predicate_table = [_]Entry{
     .{ .name = "anchor_set", .handler = anchorSet },
     .{ .name = "anchor_unset", .handler = anchorUnset },
     .{ .name = "undo_depth", .handler = undoDepth },
+    .{ .name = "vso_delta", .handler = vsoDelta },
+    .{ .name = "vso_points", .handler = vsoPoints },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -151,4 +157,98 @@ fn anchorUnset(state: *State, arg: []const u8) Outcome {
 fn undoDepth(state: *State, arg: []const u8) Outcome {
     const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
     return if (state.editor.history.undo_stack.items.len == want) .ok else .refused;
+}
+
+// ---------------------------------------------------------------------------
+// Roads & Rivers (04-05, D-08): the panel's controls, as commands.
+// ---------------------------------------------------------------------------
+
+fn parseKind(text: []const u8) ?core.bridge.VsoKind {
+    if (std.mem.eql(u8, text, "road")) return .road;
+    if (std.mem.eql(u8, text, "river")) return .river;
+    return null;
+}
+
+/// The Road / River switch: what a new line becomes. Switching drops the
+/// unfinished line and the selection, as the MFC editor's two tools did, and
+/// the type list follows the kind.
+pub fn setVsoKind(state: *State, kind: core.bridge.VsoKind) Outcome {
+    const tool = &state.view.roads_rivers;
+    if (tool.kind == kind) return .ok;
+    tool.kind = kind;
+    tool.reset();
+    state.refreshVsoTypes();
+    return .ok;
+}
+
+/// A type from the panel's list, by its index there.
+pub fn chooseVsoType(state: *State, index: usize) Outcome {
+    state.refreshVsoTypes();
+    if (index >= state.vso_types.len) return .bad_arg;
+    state.view.roads_rivers.setDesc(state.vso_types[index].nameSlice());
+    return .ok;
+}
+
+/// The panel's Delete: the whole selected road or river, one undo step.
+pub fn deleteSelectedVso(state: *State) Outcome {
+    const tool = &state.view.roads_rivers;
+    const selected = tool.selected orelse return .refused;
+    const result = state.editor.deleteVso(selected.kind, selected.index);
+    if (result) |_| tool.reset() else |_| {}
+    return resultOutcome(state, result);
+}
+
+fn vsoKind(state: *State, arg: []const u8) Outcome {
+    const kind = parseKind(arg) orelse return .bad_arg;
+    return setVsoKind(state, kind);
+}
+
+fn vsoDesc(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    return chooseVsoType(state, index);
+}
+
+/// The width spinner, 1..16 (the MFC tool's; w * fWorldCellSize / 2 world
+/// units).
+fn vsoWidth(state: *State, arg: []const u8) Outcome {
+    const width = std.fmt.parseInt(u8, arg, 10) catch return .bad_arg;
+    if (width < 1 or width > 16) return .bad_arg;
+    state.view.roads_rivers.width_tiles = @floatFromInt(width);
+    return .ok;
+}
+
+/// The opacity slider, 0..100 %.
+fn vsoOpacity(state: *State, arg: []const u8) Outcome {
+    const percent = std.fmt.parseInt(u8, arg, 10) catch return .bad_arg;
+    if (percent > 100) return .bad_arg;
+    state.view.roads_rivers.opacity = @as(f32, @floatFromInt(percent)) / 100.0;
+    return .ok;
+}
+
+/// `road:N` / `river:N`: the kind and a whole number (N may be negative).
+fn parseKindCount(arg: []const u8) ?struct { kind: core.bridge.VsoKind, count: i64 } {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return null;
+    const kind = parseKind(arg[0..colon]) orelse return null;
+    const count = std.fmt.parseInt(i64, arg[colon + 1 ..], 10) catch return null;
+    return .{ .kind = kind, .count = count };
+}
+
+/// `vso_delta:road:1`: the map holds one road more than when it opened.
+fn vsoDelta(state: *State, arg: []const u8) Outcome {
+    const want = parseKindCount(arg) orelse return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const now = state.editor.vsoCount(want.kind) catch return .refused;
+    const at_open = state.vso_count_at_open[@intFromEnum(want.kind)];
+    const delta = @as(i64, @intCast(now)) - @as(i64, @intCast(at_open));
+    return if (delta == want.count) .ok else .refused;
+}
+
+/// `vso_points:road:4`: the selected line is a road with 4 control points.
+fn vsoPoints(state: *State, arg: []const u8) Outcome {
+    const want = parseKindCount(arg) orelse return .bad_arg;
+    const tool = &state.view.roads_rivers;
+    const selected = tool.selected orelse return .refused;
+    if (selected.kind != want.kind) return .refused;
+    const view = tool.selectedView(state.editor) orelse return .refused;
+    return if (@as(i64, @intCast(view.control_points.len)) == want.count) .ok else .refused;
 }
