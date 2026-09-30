@@ -115,8 +115,8 @@ pub const CopyOutcome = enum {
 };
 
 /// True when `a` and `b` are the same file: the same text, or the same real
-/// path once both exist.
-fn sameFile(files: Files, a: []const u8, b: []const u8) bool {
+/// path once both exist. Public for Save As's copy-along question (04-13).
+pub fn sameFile(files: Files, a: []const u8, b: []const u8) bool {
     if (std.mem.eql(u8, a, b)) return true;
     var a_buffer: [files_mod.max_path]u8 = undefined;
     var b_buffer: [files_mod.max_path]u8 = undefined;
@@ -217,7 +217,7 @@ pub fn copyInto(files: Files, map_path: []const u8, picked_path: []const u8, ove
     return .copied;
 }
 
-/// Save As of a shipped map (D-20): copies the script the map names from beside
+/// Save As (D-20; any map since 04-13): copies the script the map names from beside
 /// `from_map` to beside `to_map`, both engine or OS paths, `value` the map's
 /// script file as it holds it (`gameScriptName`). `.missing` when there is no
 /// such file beside the old map (nothing to ask about, nothing failed), and a

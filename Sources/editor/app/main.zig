@@ -312,6 +312,10 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         const dir: []const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_DIR") catch default_auto_dir;
         const game_env: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_GAME") catch null;
         auto_runner = smoke.AutoRunner.init(&editor, &view, &real, &state, host.window, io, schedule, dir, game_env);
+        if (environ.getAlloc(gpa, "BK_EDITOR_AUTO_GAME_TRACE")) |trace| {
+            auto_runner.?.game_trace = trace.len != 0;
+            gpa.free(trace);
+        } else |_| {}
     }
 
     run(&host, &editor, &view, &real, &state, if (auto_runner) |*r| smoke.Driver{ .auto = r } else null, settings_path, !automated);

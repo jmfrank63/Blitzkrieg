@@ -462,6 +462,10 @@ pub const State = struct {
     script_generation_seen: ?u32 = null,
     script_pick: logic.PathText = .{},
     script_pick_active: bool = false,
+    /// The undo gesture of the Roads & Rivers width or opacity slider being
+    /// dragged (04-13): begun when the slider is taken hold of, so one drag
+    /// of it re-widths the selected line as one undo step.
+    vso_slider_gesture: u32 = 0,
     script_copy: ScriptCopyPending = .{},
     script_note: [200]u8 = undefined,
 
@@ -1321,10 +1325,12 @@ pub fn act(state: *State) bool {
             },
             .show_dialog => |kind| showDialog(state, kind),
             .act_on_path => |chosen| {
-                // D-20: a Save As of a shipped map may bring its script along, so
-                // where the map was is kept before the save moves the document.
+                // D-20: a Save As may bring the map's script along, so where the
+                // map was is kept before the save moves the document. 04-13: any
+                // map, not only a shipped one - a user map saved into another
+                // folder would leave its script behind just the same.
                 var came_from: logic.PathText = .{};
-                const bring_script = chosen.kind == .save_as and documentIsShipped(state);
+                const bring_script = chosen.kind == .save_as and state.editor.document.path.items.len > 0;
                 if (bring_script) came_from.set(state.editor.document.path.items);
                 const result = logic.actOnPath(state.editor, chosen.kind, chosen.path);
                 state.view.noteEditResult(state.editor, result);
@@ -1360,9 +1366,10 @@ fn scriptValue(state: *State, buffer: *[core.records.script_file_capacity]u8) ?[
     return commands.readScriptFile(state, buffer);
 }
 
-/// D-20, after a Save As of a shipped map: when the map names a script that is
-/// beside the old map, asks whether to copy it beside the new one (`from_map`
-/// is where the map was). The question is a modal whose two buttons are the
+/// D-20, after a Save As (of a shipped map or, since 04-13, a user map): when
+/// the map names a script that is beside the old map and the new map is in
+/// another folder, asks whether to copy it beside the new one (`from_map` is
+/// where the map was). The question is a modal whose two buttons are the
 /// commands `script_copy_along_yes` and `_no`.
 fn offerScriptCopyAlong(state: *State, from_map: []const u8) void {
     const files = state.editor.files orelse return;
@@ -1372,6 +1379,10 @@ fn offerScriptCopyAlong(state: *State, from_map: []const u8) void {
     var beside: [core.files.max_path]u8 = undefined;
     const path = core.script_file.scriptPathBeside(&beside, from_map, name) orelse return;
     if (!files.exists(path)) return;
+    // Both maps in one folder: the script is beside the new map already.
+    var beside_new: [core.files.max_path]u8 = undefined;
+    const new_path = core.script_file.scriptPathBeside(&beside_new, state.editor.document.path.items, name) orelse return;
+    if (core.script_file.sameFile(files, path, new_path)) return;
     const pending = &state.script_copy;
     pending.from.set(from_map);
     pending.to.set(state.editor.document.path.items);

@@ -161,6 +161,27 @@ pub const RoadsRivers = struct {
         self.selected = which;
     }
 
+    /// The panel's width slider moved (04-13; the MFC editor's
+    /// CVSOState::Update re-widthed the selected line in CW_ALL mode): with a
+    /// line selected and the width mode All, every key point of it takes the
+    /// panel's width, `width_tiles * fWorldCellSize / 2` world units. The moves
+    /// of one slider drag pass one `gesture` and are one undo step. Nothing
+    /// happens without a selection or in the other modes, which name a key
+    /// point that only a drag on the line gives.
+    pub fn applyPanelWidth(self: *RoadsRivers, editor: *Editor, gesture: u32) EditError!void {
+        if (self.width_mode != .all) return;
+        const selected = self.selected orelse return;
+        try editor.setVsoWidth(selected.kind, selected.index, 0, self.width_tiles * world_cell_size / 2.0, .all, gesture);
+    }
+
+    /// The panel's opacity slider moved: as `applyPanelWidth`, every key point
+    /// of the selected line takes the panel's opacity in the width mode All.
+    pub fn applyPanelOpacity(self: *RoadsRivers, editor: *Editor, gesture: u32) EditError!void {
+        if (self.width_mode != .all) return;
+        const selected = self.selected orelse return;
+        try editor.setVsoOpacity(selected.kind, selected.index, 0, self.opacity, .all, gesture);
+    }
+
     /// The selected line as the bridge holds it now, read again when a road
     /// or river changed since the last read; null (and deselected) when the
     /// selection no longer names one - an undo took it away.
@@ -743,6 +764,43 @@ test "a press near a width handle grabs it; the drag sets |shift . normal| per m
     try testing.expectEqual(@as(f32, 60), fake.vso(.road, 0).keys[2].width);
     _ = try editor.redo();
     try testing.expectEqual(@as(f32, 50), fake.vso(.road, 0).keys[2].width);
+}
+
+test "the panel's width and opacity re-width the selected line in mode All, one undo step per slider drag, nothing otherwise" {
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = roadTool();
+    defer tool.deinit(testing.allocator);
+    try drawnRoad(&editor, &tool);
+    const drawn = fake.vso(.road, 0).keys[1].width;
+    // Single mode: the slider is only what the next line takes.
+    tool.width_tiles = 6;
+    try tool.applyPanelWidth(&editor, editor.beginGesture());
+    try testing.expectEqual(drawn, fake.vso(.road, 0).keys[1].width);
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    // All mode: one slider drag through 5 and 6 tiles is one step, every key point.
+    tool.width_mode = .all;
+    const gesture = editor.beginGesture();
+    tool.width_tiles = 5;
+    try tool.applyPanelWidth(&editor, gesture);
+    tool.width_tiles = 6;
+    try tool.applyPanelWidth(&editor, gesture);
+    for (fake.vso(.road, 0).keySlice()) |key| try testing.expectApproxEqAbs(6 * world_cell_size / 2.0, key.width, 0.001);
+    try testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+    tool.opacity = 0.25;
+    try tool.applyPanelOpacity(&editor, editor.beginGesture());
+    for (fake.vso(.road, 0).keySlice()) |key| try testing.expectApproxEqAbs(@as(f32, 0.25), key.opacity, 0.0001);
+    try testing.expectEqual(@as(usize, 3), editor.history.undo_stack.items.len);
+    _ = try editor.undo();
+    try testing.expectEqual(@as(f32, 1), fake.vso(.road, 0).keys[0].opacity);
+    _ = try editor.undo();
+    try testing.expectEqual(drawn, fake.vso(.road, 0).keys[1].width);
+    // No selection: nothing.
+    tool.reset();
+    try tool.applyPanelWidth(&editor, editor.beginGesture());
+    try testing.expectEqual(drawn, fake.vso(.road, 0).keys[1].width);
 }
 
 test "a right-drag 50 pixels down on a point of the selected road takes 0.5 off its opacity, clamped, one step each" {

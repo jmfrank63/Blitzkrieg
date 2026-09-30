@@ -139,8 +139,8 @@ fn farthestPoint(editor: *core.editor.Editor, from: [2]f32) [2]f32 {
     return best;
 }
 
-/// A three-point line 500 world units long across (x, y), of the first type
-/// of `kind`, width 3, full opacity, through the core Editor. False after
+/// A three-point line 500 world units long along x across (x, y), of the first
+/// type of `kind`, width 3, full opacity, through the core Editor. False after
 /// printing why.
 fn addLine(gpa: std.mem.Allocator, editor: *core.editor.Editor, kind: core.bridge.VsoKind, x: f32, y: f32) bool {
     const types = editor.vsoDescriptors(kind, gpa) catch {
@@ -168,6 +168,34 @@ fn addBridge(editor: *core.editor.Editor, x: f32, y: f32) ?usize {
         std.debug.print("map-editor: {s} FAIL: the bridge across {d:.0},{d:.0} was not drawn: {s}\n", .{ label, x, y, editor.status() });
         return null;
     };
+}
+
+/// 04-13 (D-25.5, "the shot shows the road and the bridge"): the new road and
+/// the rotated bridge in the start view. The camera stands on `anchor`; on the
+/// game's 2:1 screen world +x runs down and to the right and +y up and to the
+/// right, so a point (+600, -100) from the anchor is on the open snow in the
+/// lower right of the 1440x900 shot, clear of the fences, the trench and the
+/// units the other segments put round the anchor. The road runs 500 units along
+/// x through that point; a W_WoodenBig_Heavy_01 bridge of 300 units is drawn
+/// along x on it and rotated to its _02 partner about the same centre, so it
+/// crosses the road along y. A few places are tried (the engine refuses a span
+/// on another object); the rotated bridge's index, or null after printing why.
+fn addRoadAndBridgeInView(gpa: std.mem.Allocator, editor: *core.editor.Editor, anchor: [2]f32) ?usize {
+    const offsets = [_][2]f32{ .{ 600, -100 }, .{ 600, -250 }, .{ 450, -250 }, .{ 700, 50 } };
+    for (offsets) |offset| {
+        const x = anchor[0] + offset[0];
+        const y = anchor[1] + offset[1];
+        const bridge = editor.drawBridge("W_WoodenBig_Heavy_01", x - 150, y, x + 150, y) catch continue;
+        editor.rotateBridge(bridge) catch {
+            _ = editor.undo() catch false;
+            continue;
+        };
+        if (!addLine(gpa, editor, .road, x, y)) return null;
+        std.debug.print("map-editor: {s}: drew bridge {d} across {d:.0},{d:.0} (anchor {d:.0},{d:.0} plus {d:.0},{d:.0}) and rotated it to W_WoodenBig_Heavy_02 across the new road, in the start view\n", .{ label, bridge, x, y, anchor[0], anchor[1], offset[0], offset[1] });
+        return bridge;
+    }
+    std.debug.print("map-editor: {s} FAIL: no rotated bridge near the anchor {d:.0},{d:.0} was drawn: {s}\n", .{ label, anchor[0], anchor[1], editor.status() });
+    return null;
 }
 
 /// 04-07 (D-14): a run of W_FactoryFence about 400 world units along x, in
@@ -469,24 +497,26 @@ fn addArea(editor: *core.editor.Editor, anchor: [2]f32) ?core.records.ScriptArea
 
 /// The edited run's own screenshot dump (BK_AUTO_UI's shot, written in the
 /// game's directory and swept afterwards), copied beside the report as
-/// `<log>.edited.rgba`: 04-13 looks at it. Best effort: no shot is not a
-/// failure of the scenario.
-fn keepEditedShot(gpa: std.mem.Allocator, io: std.Io, game_path: []const u8, log_path: []const u8) void {
-    const game_dir = std.fs.path.dirname(game_path) orelse return;
-    var dir = std.Io.Dir.cwd().openDir(io, game_dir, .{ .iterate = true }) catch return;
+/// `<log>.edited.rgba` (raw RGBA, its size in the game's file name, which the
+/// line printed here repeats): 04-13 looks at it. The kept path, in `buffer`,
+/// or null when there was no shot; best effort, and no shot is not a failure
+/// of the scenario.
+fn keepEditedShot(gpa: std.mem.Allocator, io: std.Io, game_path: []const u8, log_path: []const u8, buffer: []u8) ?[]const u8 {
+    const game_dir = std.fs.path.dirname(game_path) orelse return null;
+    var dir = std.Io.Dir.cwd().openDir(io, game_dir, .{ .iterate = true }) catch return null;
     defer dir.close(io);
     var it = dir.iterate();
     while (it.next(io) catch null) |entry| {
         if (entry.kind != .file) continue;
         if (!std.mem.startsWith(u8, entry.name, "autoshot_") or !std.mem.endsWith(u8, entry.name, ".rgba")) continue;
-        const bytes = dir.readFileAlloc(io, entry.name, gpa, .limited(64 << 20)) catch return;
+        const bytes = dir.readFileAlloc(io, entry.name, gpa, .limited(64 << 20)) catch return null;
         defer gpa.free(bytes);
-        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-        const kept = std.fmt.bufPrint(&path_buffer, "{s}.edited.rgba", .{log_path}) catch return;
-        std.Io.Dir.cwd().writeFile(io, .{ .sub_path = kept, .data = bytes }) catch return;
+        const kept = std.fmt.bufPrint(buffer, "{s}.edited.rgba", .{log_path}) catch return null;
+        std.Io.Dir.cwd().writeFile(io, .{ .sub_path = kept, .data = bytes }) catch return null;
         std.debug.print("map-editor: {s}: kept the edited game's shot {s} as {s}\n", .{ label, entry.name, kept });
-        return;
+        return kept;
     }
+    return null;
 }
 
 pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, log_path: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
@@ -548,21 +578,17 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     var anchor_z: f32 = 0;
     _ = editor.bridge.groundHeight(anchor_at[0], anchor_at[1], &anchor_z);
 
-    // 04-05 (D-07, D-09): a new road and a new river, drawn through the core
-    // Editor with the first type of each kind, on the spread point farthest
-    // from the anchor (the camera starts there, so neither is under it).
-    const lines_at = farthestPoint(editor, anchor_at);
-    if (!addLine(gpa, editor, .road, lines_at[0], lines_at[1] - 150)) return false;
-    if (!addLine(gpa, editor, .river, lines_at[0], lines_at[1] + 150)) return false;
+    // 04-05 (D-07, D-09) and 04-06 (D-10, D-11), placed by 04-13 where the
+    // game's shot frames them: the new road with a W_WoodenBig_Heavy bridge
+    // rotated to its _02 partner across it, in the start view.
+    const rotated = addRoadAndBridgeInView(gpa, editor, anchor_at) orelse return false;
 
-    // 04-06 (D-10..D-12): two W_WoodenBig_Heavy bridges on either side of the
-    // road and the river, the first rotated to its _02 partner, the second
-    // built during play (every span saved with HP -1).
-    const rotated = addBridge(editor, lines_at[0], lines_at[1] - 450) orelse return false;
-    editor.rotateBridge(rotated) catch {
-        std.debug.print("map-editor: {s} FAIL: bridge {d} would not rotate: {s}\n", .{ label, rotated, editor.status() });
-        return false;
-    };
+    // A new river, drawn through the core Editor with its first type, on the
+    // spread point farthest from the anchor, and 04-06's (D-12) second
+    // W_WoodenBig_Heavy bridge beside it, built during play (every span saved
+    // with HP -1).
+    const lines_at = farthestPoint(editor, anchor_at);
+    if (!addLine(gpa, editor, .river, lines_at[0], lines_at[1] + 150)) return false;
     const built = addBridge(editor, lines_at[0], lines_at[1] + 450) orelse return false;
     editor.toggleBridgeBuild(built) catch {
         std.debug.print("map-editor: {s} FAIL: bridge {d} would not toggle built during play: {s}\n", .{ label, built, editor.status() });
@@ -787,8 +813,56 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         std.debug.print("map-editor: {s} FAIL: the report {s} would not write: {s}\n", .{ label, log_path, @errorName(err) });
         return false;
     };
-    keepEditedShot(gpa, io, paths.game_path, log_path);
+    var shot_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const shot = keepEditedShot(gpa, io, paths.game_path, log_path, &shot_buffer) orelse "none kept";
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, startcmd launched {d} -> {d}, reserve applied {d} -> {d}, general side {d} parcels {d} -> {d}, script {s} ran, area {s} found)\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.?, base.startcmd_launched.?, edited_trace.startcmd_launched.?, base.reserve_applied.?, edited_trace.reserve_applied.?, parcel_side, parcels_before, parcels_after, script_name, area_name });
+    // 04-13: the PASS line names every D-25.5 check, each asserted above on the
+    // game's own report: the camera, the terrain counts, the bridges (one rotated,
+    // one built during play), the fences, the entrenchment, the group's held unit,
+    // the start command, the reserve position, the parcel, the script and its
+    // Init, the area's centre as Lua read it, the landed unit, a clean exit (the
+    // run above returns null otherwise) - and the path of the game's shot.
+    // Two parts: one format call takes at most 32 arguments.
+    var first_buffer: [512]u8 = undefined;
+    const first = std.fmt.bufPrint(&first_buffer, "camera at player 0's anchor {d:.0},{d:.0}, source=player; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d} (one rotated, one built during play), fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, startcmd launched {d} -> {d}, reserve applied {d} -> {d}", .{
+        camera.x,
+        camera.y,
+        baseline_camera.x,
+        baseline_camera.y,
+        base.roads.?,
+        edited_trace.roads.?,
+        base.rivers.?,
+        edited_trace.rivers.?,
+        base.bridges.?,
+        edited_trace.bridges.?,
+        fences,
+        base.entrenchments.?,
+        edited_trace.entrenchments.?,
+        held_group,
+        held_by_group.?,
+        base.startcmd_launched.?,
+        edited_trace.startcmd_launched.?,
+        base.reserve_applied.?,
+        edited_trace.reserve_applied.?,
+    }) catch "the counts did not fit";
+    std.debug.print("map-editor: {s} PASS ({s}, general side {d} parcels {d} -> {d} (parcel type={d} r={d:.0} dir={d}), script {s} ran (loaded=1 init=1), area {s} found at {d:.0},{d:.0} (lua {s},{s}), script group {d} landed one unit at count {d}, both games exited 0; shot {s})\n", .{
+        label,
+        first,
+        parcel_side,
+        parcels_before,
+        parcels_after,
+        seen_parcel.kind,
+        seen_parcel.r,
+        seen_parcel.dir,
+        script_name,
+        area_name,
+        seen_area.cx,
+        seen_area.cy,
+        lua[1].slice(),
+        lua[2].slice(),
+        held_script_id,
+        landed,
+        shot,
+    });
     return true;
 }
