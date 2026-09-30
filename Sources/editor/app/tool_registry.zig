@@ -14,7 +14,7 @@
 const std = @import("std");
 const marker_logic = @import("marker_logic.zig");
 
-pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas };
+pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas, start_target };
 
 pub const Entry = struct {
     id: ToolId,
@@ -25,6 +25,11 @@ pub const Entry = struct {
     /// camera and edit keys (W A S D Q E Z Y, Delete, Home, the arrows) are
     /// taken. Null for a tool with no key.
     shortcut: ?u8 = null,
+    /// Not listed in the Tools menu or the tool palette: a tool a panel or a menu
+    /// command puts in hand for a purpose (04-11's Start Target and Reserve
+    /// Positions), which `tool=<label>` and the panel still reach. Such a tool has
+    /// no shortcut.
+    hidden: bool = false,
     /// The tool receives right_press/right_drag/right_release.
     needs_right_button: bool = false,
     /// Ctrl+left is sent as the right button, in this tool only.
@@ -96,6 +101,16 @@ pub const entries = [_]Entry{
         .label = "script_areas",
         .shortcut = '8',
         .marker_kinds = marker_logic.MarkerSet.only(&.{.script_areas}),
+    },
+    // 04-11 (D-17): the start command's target click, entered from the Start
+    // Commands window's "Set target" button, left after one click. No shortcut (a
+    // digit would switch to it with no command chosen); left button only. Its
+    // markers are the red lines from the units to their targets.
+    .{
+        .id = .start_target,
+        .label = "start_target",
+        .hidden = true,
+        .marker_kinds = marker_logic.MarkerSet.only(&.{.start_commands}),
     },
 };
 
@@ -223,6 +238,15 @@ test "the Script Areas tool is key 8: left button and keys only, with the areas 
     try std.testing.expectEqual(@as(?ToolId, .script_areas), byLabel("script_areas"));
 }
 
+test "the Start Target tool has no key, takes the left button only, and shows the start commands' lines" {
+    const item = entry(.start_target);
+    try std.testing.expectEqual(@as(?u8, null), item.shortcut);
+    try std.testing.expect(item.hidden);
+    try std.testing.expect(!item.needs_right_button and !item.ctrl_click_is_right and !item.needs_double_click);
+    try std.testing.expect(item.marker_kinds.has(.start_commands));
+    try std.testing.expectEqual(@as(?ToolId, .start_target), byLabel("start_target"));
+}
+
 test "the M1 tools take no right button, double click or Ctrl-as-right, and carry no markers" {
     for (entries[0..3]) |item| {
         try std.testing.expect(!item.needs_right_button);
@@ -230,6 +254,13 @@ test "the M1 tools take no right button, double click or Ctrl-as-right, and carr
         try std.testing.expect(!item.needs_double_click);
         try std.testing.expect(item.marker_kinds.kinds.count() == 0);
     }
+}
+
+test "a hidden tool has no shortcut, and the tools of the palette are not hidden" {
+    for (entries) |item| {
+        if (item.hidden) try std.testing.expectEqual(@as(?u8, null), item.shortcut);
+    }
+    for (entries[0..8]) |item| try std.testing.expect(!item.hidden);
 }
 
 test "a tool label is a valid tool= word" {

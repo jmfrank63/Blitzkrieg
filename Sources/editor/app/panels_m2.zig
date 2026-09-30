@@ -642,3 +642,183 @@ pub fn drawScriptAreas(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.
         },
     }
 }
+
+/// What one frame of the Start Commands window asked for, run after the lists'
+/// loops: a command re-reads the rows the loops hold.
+const StartAction = union(enum) {
+    none,
+    choose: usize,
+    set_type: i32,
+    set_number: f32,
+    add_unit,
+    remove_unit: i32,
+    set_target,
+    delete,
+};
+
+/// What the Start Commands window says.
+pub const start_commands_help = "A start command orders its units when the mission starts. Select an object on the map and use Unit > Add start command, then Add selected unit for more units, pick the type, and Set target and click the map or a unit (red lines run from the units to the target). Delete removes the selected command.";
+
+/// The name of action type `id`, from the action list; "type <id>" when the list
+/// does not have it (a file's own odd command).
+fn actionName(state: *const State, id: i32, buffer: *[40:0]u8) [:0]const u8 {
+    for (state.startcmd_actions) |*item| {
+        if (item.id == id) return std.fmt.bufPrintZ(buffer, "{s}", .{item.nameSlice()}) catch "type";
+    }
+    return std.fmt.bufPrintZ(buffer, "type {d}", .{id}) catch "type";
+}
+
+/// The target of a command as words: its object, its point, or none.
+fn targetText(command: records.StartCommand, buffer: *[64:0]u8) [:0]const u8 {
+    if (command.link_id != 0) return std.fmt.bufPrintZ(buffer, "unit {d}", .{command.link_id}) catch "unit";
+    if (command.x != 0 or command.y != 0) return std.fmt.bufPrintZ(buffer, "point {d:.0}, {d:.0}", .{ command.x, command.y }) catch "point";
+    return "no target";
+}
+
+/// The object's name for a unit row, from the document.
+fn unitName(state: *const State, link_id: i32) []const u8 {
+    const object = state.editor.document.find(link_id) orelse return "not on the map";
+    return object.nameSlice();
+}
+
+/// D-17: the MFC Start Commands dialog as a floating window (Unit -> Start
+/// commands...) - the map's commands (type, unit count, target), and for the
+/// selected one the type list (from Data/Editor/actions.ini), the number, its units
+/// with Remove, Add selected unit, Set target and Delete; the explosion flag is
+/// shown and never edited. The Delete key deletes the selected command while the
+/// window is focused. Every control runs a named command (commands.zig), so
+/// BK_EDITOR_AUTO reaches it too.
+pub fn drawStartCommands(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    if (!state.startcmds_open) return;
+    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
+    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    const open = ig.igBegin("Start commands", &state.startcmds_open, ig.ImGuiWindowFlags_NoCollapse);
+    defer ig.igEnd();
+    if (!open) return;
+    if (!panels.mapIsOpen(state.editor)) {
+        panels.text("no map open");
+        return;
+    }
+    state.refreshStartActions();
+    state.refreshStartCommands();
+    var action: StartAction = .none;
+
+    if (state.startcmd_actions.len == 0) {
+        ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, .{ .x = 1, .y = 0.7, .z = 0.2, .w = 1 });
+        panels.text("the action list Data\\Editor\\actions.ini is not in the data: no start command can be made");
+        ig.igPopStyleColor();
+    }
+
+    ig.igSeparatorText("Commands");
+    const rows = state.startcmds;
+    if (rows.len == 0) {
+        panels.text("the map has no start commands");
+    } else if (ig.igBeginChild("startcmds-list", .{ .x = 0, .y = 130 }, ig.ImGuiChildFlags_Borders, 0)) {
+        for (rows, 0..) |command, index| {
+            ig.igPushIDInt(@intCast(index));
+            defer ig.igPopID();
+            var type_buffer: [40:0]u8 = undefined;
+            var target_buffer: [64:0]u8 = undefined;
+            var label: [160:0]u8 = undefined;
+            const label_text = std.fmt.bufPrintZ(&label, "{d}: {s}, {d} {s}, {s}", .{ index, actionName(state, command.cmd_type, &type_buffer), command.units.len, if (command.units.len == 1) "unit" else "units", targetText(command, &target_buffer) }) catch continue;
+            const selected = state.startcmd_selected != null and state.startcmd_selected.? == index;
+            if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) action = .{ .choose = index };
+        }
+    }
+    if (rows.len != 0) ig.igEndChild();
+
+    ig.igSeparatorText("Selected");
+    if (state.startcmd_selected != null and state.startcmd_selected.? < rows.len) {
+        const index = state.startcmd_selected.?;
+        const command = rows[index];
+        var title: [48:0]u8 = undefined;
+        panels.text(std.fmt.bufPrintZ(&title, "start command {d}", .{index}) catch "start command");
+        var type_buffer: [40:0]u8 = undefined;
+        if (ig.igBeginCombo("type", actionName(state, command.cmd_type, &type_buffer).ptr, 0)) {
+            for (state.startcmd_actions) |*item| {
+                ig.igPushIDInt(item.id);
+                defer ig.igPopID();
+                var item_label: [80:0]u8 = undefined;
+                const item_text = std.fmt.bufPrintZ(&item_label, "{s}", .{item.nameSlice()}) catch continue;
+                if (ig.igSelectableEx(item_text.ptr, item.id == command.cmd_type, 0, .{ .x = 0, .y = 0 })) action = .{ .set_type = item.id };
+            }
+            ig.igEndCombo();
+        }
+        // The number follows the selection and is not overwritten under the cursor.
+        if (state.startcmd_number_for == null or state.startcmd_number_for.? != index) {
+            state.startcmd_number_field = command.number;
+            state.startcmd_number_for = index;
+        }
+        ig.igPushItemWidth(120);
+        _ = ig.igInputFloatEx("number", &state.startcmd_number_field, 0, 0, "%.3f", 0);
+        ig.igPopItemWidth();
+        if (ig.igIsItemDeactivatedAfterEdit()) action = .{ .set_number = state.startcmd_number_field };
+
+        var target_buffer: [64:0]u8 = undefined;
+        var target_line: [96:0]u8 = undefined;
+        panels.text(std.fmt.bufPrintZ(&target_line, "target: {s}", .{targetText(command, &target_buffer)}) catch "target");
+        ig.igSameLine();
+        if (ig.igSmallButton("Set target")) action = .set_target;
+        var flag_line: [96:0]u8 = undefined;
+        panels.text(std.fmt.bufPrintZ(&flag_line, "from explosion: {s} (kept from the file)", .{if (command.from_explosion) "yes" else "no"}) catch "from explosion");
+
+        ig.igSeparatorText("Units");
+        if (ig.igBeginChild("startcmd-units", .{ .x = 0, .y = 90 }, ig.ImGuiChildFlags_Borders, 0)) {
+            for (command.units) |unit| {
+                ig.igPushIDInt(unit);
+                defer ig.igPopID();
+                var line: [128:0]u8 = undefined;
+                panels.text(std.fmt.bufPrintZ(&line, "{d}: {s}", .{ unit, unitName(state, unit) }) catch "unit");
+                ig.igSameLine();
+                if (ig.igSmallButton("Remove")) action = .{ .remove_unit = unit };
+            }
+        }
+        ig.igEndChild();
+        ig.igBeginDisabled(state.editor.selection == null);
+        if (ig.igButton("Add selected unit")) action = .add_unit;
+        ig.igEndDisabled();
+        ig.igSameLine();
+        if (ig.igButton("Delete")) action = .delete;
+    } else {
+        state.startcmd_number_for = null;
+        panels.text("none selected");
+    }
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text(start_commands_help);
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+
+    // The Delete key is this window's while it is focused: the claim keeps the map's
+    // Select tool from deleting the selected object with it (the other keys - undo,
+    // the camera - stay the view's).
+    if (ig.igIsWindowFocused(ig.ImGuiFocusedFlags_RootAndChildWindows) and !ig.igGetIO().*.WantTextInput) {
+        state.view.delete_claimed = true;
+        if (state.startcmd_selected != null and ig.igIsKeyPressedEx(ig.ImGuiKey_Delete, false)) action = .delete;
+    }
+
+    const selected = state.startcmd_selected;
+    switch (action) {
+        .none => {},
+        .choose => |index| state.startcmd_selected = index,
+        .set_type => |id| if (selected) |index| {
+            _ = commands.setStartCommandType(state, index, id);
+        },
+        .set_number => |number| if (selected) |index| {
+            _ = commands.setStartCommandNumber(state, index, number);
+            state.startcmd_number_for = null;
+        },
+        .add_unit => if (selected) |index| {
+            _ = commands.addSelectedUnitTo(state, index);
+        },
+        .remove_unit => |unit| if (selected) |index| {
+            _ = commands.removeUnitFrom(state, index, unit);
+        },
+        .set_target => if (selected) |index| {
+            _ = commands.beginTarget(state, index);
+        },
+        .delete => if (selected) |index| {
+            _ = commands.deleteStartCommandAt(state, index);
+        },
+    }
+}

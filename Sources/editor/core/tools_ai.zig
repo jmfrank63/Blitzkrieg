@@ -253,6 +253,68 @@ pub const ScriptAreas = struct {
     }
 };
 
+/// The Start Target tool (04-11, D-17), the MFC editor's start-command target click
+/// (ObjectPlacerState.cpp, OnLButtonUp with the start-command dialog open): entered
+/// from the Start Commands window's "Set target" button with the command's `index`,
+/// it takes ONE click and is left. A click on an object makes that object the
+/// target (`link_id`; a soldier already answers his squad) and keeps the point; a
+/// click on the ground sets the point - the map position with the MFC truncation -
+/// and clears `link_id` to 0. One undo step each. A click the bridge refuses leaves
+/// the tool active (the status says why; Escape leaves it); the app returns to the
+/// tool it came from once `done` is set.
+pub const StartTarget = struct {
+    /// The start command the click sets the target of.
+    index: ?usize = null,
+    /// Set once the tool has done its one click (or was cancelled): the app leaves it.
+    done: bool = false,
+
+    pub fn reset(self: *StartTarget) void {
+        self.index = null;
+        self.done = false;
+    }
+
+    pub fn handle(self: *StartTarget, editor: *Editor, event: Event) EditError!void {
+        switch (event) {
+            .release => |pointer| try self.click(editor, pointer),
+            .key => |key| if (key == .escape) {
+                self.done = true;
+            },
+            else => {},
+        }
+    }
+
+    fn click(self: *StartTarget, editor: *Editor, pointer: Pointer) EditError!void {
+        const index = self.index orelse {
+            editor.note("choose a start command and press Set target first");
+            self.done = true;
+            return;
+        };
+        try setTarget(editor, index, pointer);
+        self.done = true;
+    }
+
+    /// The command `index` with its target at the pointer: the object under it, or
+    /// else the ground point. One editStartCommand; Refused when the command is gone
+    /// or the bridge will not take it, and then nothing has changed.
+    pub fn setTarget(editor: *Editor, index: usize, pointer: Pointer) EditError!void {
+        const commands = try editor.startCommands(editor.allocator);
+        defer Editor.freeStartCommands(editor.allocator, commands);
+        if (index >= commands.len) {
+            editor.note("that start command is gone");
+            return error.Refused;
+        }
+        var command = commands[index];
+        if (pointer.object) |object| {
+            command.link_id = object;
+        } else {
+            command.link_id = 0;
+            command.x = records.truncateToAi(pointer.map_x);
+            command.y = records.truncateToAi(pointer.map_y);
+        }
+        try editor.editStartCommand(index, command, 0);
+    }
+};
+
 const testing = std.testing;
 const testFixture = editor_mod.testFixture;
 
@@ -467,6 +529,93 @@ test "Escape abandons a drag and the tool ignores the events it has no use for" 
     try testing.expectEqual(@as(usize, 0), fake.script_areas.items.len);
     const pointer = pointerAt(&fake, 100, 100);
     for ([_]Event{ .{ .right_press = pointer }, .{ .right_drag = pointer }, .{ .right_release = pointer }, .{ .double_click = pointer }, .{ .key = .enter }, .{ .key = .insert }, .{ .key = .space }, .{ .key = .rotate_left } }) |event| {
+        try tool.handle(&editor, event);
+    }
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+}
+
+fn targetPointer(fake: *const fake_mod.FakeBridge, x: f32, y: f32, object: ?i32) Pointer {
+    var pointer = pointerAt(fake, x, y);
+    pointer.object = object;
+    return pointer;
+}
+
+fn commandFake(allocator: std.mem.Allocator) !fake_mod.FakeBridge {
+    var fake = try testFixture(allocator);
+    errdefer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try fake.addStartCommandFixtureFull(.{ .cmd_type = 0, .link_id = 1, .x = 10, .y = 10, .units = &.{1} });
+    return fake;
+}
+
+test "Start Target: a click on the ground sets the point with the MFC cut and clears the target, one step, and the tool is done" {
+    var fake = try commandFake(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: StartTarget = .{ .index = 0 };
+    try tool.handle(&editor, .{ .press = targetPointer(&fake, 100, 60, null) });
+    try testing.expect(!tool.done); // the click is the release, as in the MFC editor
+    try tool.handle(&editor, .{ .release = targetPointer(&fake, 100, 60, null) });
+    try testing.expect(tool.done);
+    const command = fake.start_commands.items[0];
+    try testing.expectEqual(@as(i32, 0), command.target);
+    try testing.expectEqual(@as(f32, 141), command.x); // 100 * 1.4142 + 0.3, cut
+    try testing.expectEqual(@as(f32, 85), command.y); // 84.85 + 0.3
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(i32, 1), fake.start_commands.items[0].target);
+    try testing.expectEqual(@as(f32, 10), fake.start_commands.items[0].x);
+}
+
+test "Start Target: a click on an object makes it the target and keeps the point" {
+    var fake = try commandFake(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const second = try editor.addObject("T34", 60, 60, 0, 0);
+    var tool: StartTarget = .{ .index = 0 };
+    try tool.handle(&editor, .{ .release = targetPointer(&fake, 100, 60, second) });
+    const command = fake.start_commands.items[0];
+    try testing.expectEqual(second, command.target);
+    try testing.expectEqual(@as(f32, 10), command.x);
+    try testing.expectEqual(@as(f32, 10), command.y);
+    try testing.expect(tool.done);
+}
+
+test "Start Target: no command chosen, or one gone, is a note or a refusal and leaves the map alone" {
+    var fake = try commandFake(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var none: StartTarget = .{};
+    try none.handle(&editor, .{ .release = targetPointer(&fake, 100, 60, null) });
+    try testing.expect(none.done);
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "Set target") != null);
+    var gone: StartTarget = .{ .index = 5 };
+    try testing.expectError(error.Refused, gone.handle(&editor, .{ .release = targetPointer(&fake, 100, 60, null) }));
+    try testing.expect(!gone.done);
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try testing.expectEqual(@as(f32, 10), fake.start_commands.items[0].x);
+}
+
+test "Start Target: a point the bridge refuses leaves the tool active and the command as it was; Escape leaves it" {
+    var fake = try commandFake(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: StartTarget = .{ .index = 0 };
+    try testing.expectError(error.Refused, tool.handle(&editor, .{ .release = targetPointer(&fake, -500, 60, null) }));
+    try testing.expect(!tool.done);
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "not on the map") != null);
+    try tool.handle(&editor, .{ .key = .escape });
+    try testing.expect(tool.done);
+    tool.reset();
+    try testing.expect(!tool.done and tool.index == null);
+    // Other events are nobody's business.
+    const pointer = pointerAt(&fake, 100, 60);
+    for ([_]Event{ .{ .press = pointer }, .{ .drag = pointer }, .{ .right_press = pointer }, .{ .double_click = pointer }, .{ .key = .delete }, .{ .key = .enter } }) |event| {
         try tool.handle(&editor, event);
     }
     try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);

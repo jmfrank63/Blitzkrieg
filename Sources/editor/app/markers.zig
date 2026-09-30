@@ -48,6 +48,12 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
     // D-21: the script areas, drawn where the map holds them; the active Script
     // Areas tool adds its selection's handles and the drag's ghost.
     if (marker_logic.visible(state.marker_set, .script_areas, active)) drawScriptAreaMarkers(state, real);
+    // D-17: the red lines from each start command's units to its target. On
+    // whenever the kind is on in View -> Markers, the Start Target tool is in hand,
+    // or the Start Commands window has a command selected (the selected one is
+    // drawn thicker).
+    if (marker_logic.visible(state.marker_set, .start_commands, active) or (state.startcmds_open and state.startcmd_selected != null))
+        drawStartCommandLines(state, real);
     // D-16: "Select objects" outlines the objects of a group's script IDs.
     if (state.group_marked != null and marker_logic.visible(state.marker_set, .groups, active)) drawGroupMarks(state, real);
 }
@@ -156,6 +162,48 @@ fn drawScriptAreaMarkers(state: *State, real: anytype) void {
                 if (previous != null and first != null) ig.ImDrawList_AddLineEx(draw_list, previous.?, first.?, areaSelectedColor(), 2);
             },
         }
+    }
+}
+
+fn startLineColor() ig.ImU32 {
+    return color(1.0, 0.15, 0.1);
+}
+
+/// Where a start command's target is on the ground, in world units: its unit's
+/// position when it names one the document has, else its point (0,0 meaning none).
+/// Null for a command with no target.
+fn startTargetWorld(state: *State, command: core.records.StartCommand) ?marker_logic.Vec2 {
+    if (command.link_id != 0) {
+        const object = state.editor.document.find(command.link_id) orelse return null;
+        return marker_logic.aiToWorld(.{ .x = object.x, .y = object.y });
+    }
+    if (command.x == 0 and command.y == 0) return null;
+    return marker_logic.aiToWorld(.{ .x = command.x, .y = command.y });
+}
+
+/// D-17: a red line from every unit of every start command to its target, with a
+/// small square at the target. A unit the document does not have, a command with no
+/// target and a point that does not convert are skipped alone. Capped like every
+/// kind (marker_logic.cap counts the lines).
+fn drawStartCommandLines(state: *State, real: anytype) void {
+    state.refreshStartCommands();
+    const draw_list = ig.igGetBackgroundDrawList();
+    const limit = marker_logic.cap(.start_commands);
+    var drawn: usize = 0;
+    for (state.startcmds, 0..) |command, index| {
+        const target_world = startTargetWorld(state, command) orelse continue;
+        const target = screenOf(real, target_world.x, target_world.y) orelse continue;
+        const selected = state.startcmd_selected != null and state.startcmd_selected.? == index;
+        const thickness: f32 = if (selected) 3 else 1.5;
+        for (command.units) |unit| {
+            if (drawn >= limit) return;
+            const object = state.editor.document.find(unit) orelse continue;
+            const world = marker_logic.aiToWorld(.{ .x = object.x, .y = object.y });
+            const from = screenOf(real, world.x, world.y) orelse continue;
+            ig.ImDrawList_AddLineEx(draw_list, from, target, startLineColor(), thickness);
+            drawn += 1;
+        }
+        drawSquare(draw_list, target, if (selected) 5 else 3, startLineColor(), true);
     }
 }
 

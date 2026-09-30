@@ -488,6 +488,12 @@ pub const State = struct {
     startcmd_actions: []core.bridge.ActionCommand = &.{},
     startcmd_default_action: usize = 0,
     startcmd_actions_read: bool = false,
+    /// The Number field, following the selected command and not overwritten
+    /// under the cursor while it is typed in.
+    startcmd_number_field: f32 = 0,
+    startcmd_number_for: ?usize = null,
+    /// Where the StartTarget tool returns to after its one click.
+    startcmd_return_tool: tool_registry.ToolId = .select,
 
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
@@ -830,6 +836,7 @@ pub const State = struct {
         if (!mapIsOpen(self.editor)) return;
         self.startcmds = self.editor.startCommands(self.allocator) catch &.{};
         if (self.startcmd_selected != null and self.startcmd_selected.? >= self.startcmds.len) self.startcmd_selected = null;
+        self.startcmd_number_for = null;
     }
 
     /// The action types of Data/Editor/actions.ini, read once per map. A file that
@@ -1150,6 +1157,9 @@ pub fn draw(state: *State) void {
     pollScriptPick(state);
     panels_m2.drawScriptDialog(state, .{ .x = state.left_width + 60, .y = body_top + 80 }, .{ .x = 380, .y = 340 });
     panels_m2.drawScriptModals(state);
+    // A panel that uses Delete itself claims it again during its own draw.
+    state.view.delete_claimed = false;
+    panels_m2.drawStartCommands(state, .{ .x = state.left_width + 80, .y = body_top + 100 }, .{ .x = 420, .y = 520 });
     drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
     drawTestLaunchModals(state);
     drawUnsavedPrompt(state);
@@ -2030,6 +2040,7 @@ fn drawMenuBar(state: *State) f32 {
     }
     if (ig.igBeginMenu("Tools")) {
         for (&tool_registry.entries) |*item| {
+            if (item.hidden) continue;
             var shortcut_buffer: [2:0]u8 = undefined;
             const shortcut = tool_registry.shortcutText(item, &shortcut_buffer);
             if (ig.igMenuItemEx(item.label, if (shortcut.len == 0) null else shortcut.ptr, state.view.tool == item.id, true)) state.view.selectTool(editor, item.id);
@@ -2064,6 +2075,7 @@ fn drawUnitMenu(state: *State, map_open: bool) void {
     state.refreshStartActions();
     const can_add = map_open and state.editor.selection != null and state.startcmd_actions.len != 0;
     if (ig.igMenuItemEx("Add start command", null, false, can_add)) _ = commands.run(state, "startcmd_add", "");
+    if (ig.igMenuItemBoolPtr("Start commands...", null, &state.startcmds_open, map_open)) {}
 }
 
 /// Map > Player camera (D-22): the ground point under the screen's centre
@@ -2312,8 +2324,11 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
     // fifth tool did not fit the default panel width and was clipped).
     const style = ig.igGetStyle();
     const right_edge = ig.igGetCursorScreenPos().x + ig.igGetContentRegionAvail().x;
-    for (&tool_registry.entries, 0..) |*item, index| {
-        if (index != 0) {
+    var first_button = true;
+    for (&tool_registry.entries) |*item| {
+        if (item.hidden) continue;
+        defer first_button = false;
+        if (!first_button) {
             const width = ig.igCalcTextSize(item.label).x + 2 * style.*.FramePadding.x;
             if (ig.igGetItemRectMax().x + style.*.ItemSpacing.x + width <= right_edge) ig.igSameLine();
         }
