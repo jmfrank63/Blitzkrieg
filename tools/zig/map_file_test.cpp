@@ -2684,6 +2684,116 @@ static void TestM2TrenchProperties()
 		printf( "map-file: M2 trench properties ok (%d polylines)\n", nPolylines );
 }
 
+// D-19's store formulas (04-12): the MFC editor's AI general arithmetic as literal
+// cases, each computed by hand from StateAIGeneral.cpp's formulas (a point stored
+// relative to its parcel's centre and turned by minus the defence direction, the
+// direction an arrow handle gives, the radius with its floor of 256) - never through
+// the function under test - and a side holding those values through PutAIGeneralSide,
+// a write and a read.
+static bool Near( float fLeft, float fRight, float fTolerance )
+{
+	return std::fabs( fLeft - fRight ) <= fTolerance;
+}
+
+static void TestM2ParcelFormulas()
+{
+	// A click at world (283, 141) is AI (400, 199) (283 * sqrt 2 + 0.3 and 141 * sqrt 2 + 0.3,
+	// cut); the parcel's centre is (300, 150), so the offset is (100, 49).
+	const CVec2 vClick( 283.0f, 141.0f );
+	const CVec2 vCentre( 300.0f, 150.0f );
+	// Direction 0: no turn, the offset as it is.
+	const CVec2 vStraight = NMapGeometry::ParcelPointFromVis( vClick, vCentre, 0 );
+	Check( vStraight.x == 100.0f && vStraight.y == 49.0f, NStr::Format( "a point in a parcel of direction 0 is stored as the offset (100, 49), got (%.4f, %.4f)", vStraight.x, vStraight.y ) );
+	// Direction 16384 is an angle of 16384 * 2 pi / 65535 = 1.5708203: the offset turned by
+	// minus that, x' = x cos a + y sin a and y' = -x sin a + y cos a.
+	const CVec2 vQuarter = NMapGeometry::ParcelPointFromVis( vClick, vCentre, 16384 );
+	Check( Near( vQuarter.x, 48.9976f, 0.01f ) && Near( vQuarter.y, -100.0012f, 0.01f ),
+	       NStr::Format( "direction 16384 stores (48.9976, -100.0012), got (%.4f, %.4f)", vQuarter.x, vQuarter.y ) );
+	const CVec2 vEighth = NMapGeometry::ParcelPointFromVis( vClick, vCentre, 8192 );
+	Check( Near( vEighth.x, 105.3585f, 0.01f ) && Near( vEighth.y, -36.0637f, 0.01f ),
+	       NStr::Format( "direction 8192 stores (105.3585, -36.0637), got (%.4f, %.4f)", vEighth.x, vEighth.y ) );
+	// The click is cut before the centre is taken away, not after: (283.4, 141.4) is the same AI point.
+	const CVec2 vSame = NMapGeometry::ParcelPointFromVis( CVec2( 283.2f, 141.2f ), vCentre, 0 );
+	Check( vSame.x == 100.0f && vSame.y == 49.0f, "a click is truncated by Vis2AI before the centre is taken away" );
+
+	// The inverse for drawing: the stored point turned by the angle plus the centre, in world
+	// units (AI2Vis scales by sqrt 2 / 2).
+	const CVec2 vRel( 100.0f, 49.0f );
+	const CVec2 vDraw0 = NMapGeometry::ParcelPointToVis( vRel, vCentre, 0 );
+	Check( Near( vDraw0.x, 282.8427f, 0.01f ) && Near( vDraw0.y, 140.7142f, 0.01f ), NStr::Format( "a point drawn at direction 0 is at (282.8427, 140.7142), got (%.4f, %.4f)", vDraw0.x, vDraw0.y ) );
+	const CVec2 vDraw1 = NMapGeometry::ParcelPointToVis( vRel, vCentre, 16384 );
+	Check( Near( vDraw1.x, 177.4821f, 0.01f ) && Near( vDraw1.y, 176.7759f, 0.01f ), NStr::Format( "at direction 16384 it is at (177.4821, 176.7759), got (%.4f, %.4f)", vDraw1.x, vDraw1.y ) );
+	const CVec2 vDraw2 = NMapGeometry::ParcelPointToVis( vRel, vCentre, 8192 );
+	Check( Near( vDraw2.x, 237.6311f, 0.01f ) && Near( vDraw2.y, 180.5663f, 0.01f ), NStr::Format( "at direction 8192 it is at (237.6311, 180.5663), got (%.4f, %.4f)", vDraw2.x, vDraw2.y ) );
+	// Stored and drawn are inverses: the drawn point, stored again, is the point (up to the cut).
+	const CVec2 vBack = NMapGeometry::ParcelPointFromVis( vDraw2, vCentre, 8192 );
+	Check( Near( vBack.x, 100.0f, 1.6f ) && Near( vBack.y, 49.0f, 1.6f ), "a point drawn and clicked again is stored where it was (to the AI unit)" );
+
+	// The direction an arrow handle gives: the polar angle less a quarter turn, wrapped. The
+	// four quadrants, the four axes, and the wrap at 2 pi.
+	const CVec2 vOrigin( 1000.0f, 1000.0f );
+	struct SArrowCase { float dx, dy; int nDir; };
+	const SArrowCase arrows[] = {
+		{ 0.0f, 100.0f, 0 },        // straight up the y axis: polar pi / 2, no turn
+		{ 100.0f, 0.0f, 49151 },    // along x: polar 0, less pi / 2 is negative, plus 2 pi
+		{ 0.0f, -100.0f, 32767 },   // down: polar 3 pi / 2
+		{ -100.0f, 0.0f, 16383 },   // along -x: polar pi
+		{ 100.0f, 100.0f, 57343 },  // first quadrant
+		{ -100.0f, 100.0f, 8191 },  // second
+		{ -100.0f, -100.0f, 24575 },// third
+		{ 100.0f, -100.0f, 40959 }, // fourth
+		{ 0.01f, 1000.0f, 65534 },  // a hair before the wrap
+		{ -0.01f, 1000.0f, 0 },     // and just after it
+	};
+	for ( size_t i = 0; i < sizeof( arrows ) / sizeof( arrows[0] ); ++i )
+	{
+		const int nGot = NMapGeometry::DirectionFromArrow( vOrigin, CVec2( vOrigin.x + arrows[i].dx, vOrigin.y + arrows[i].dy ) );
+		Check( nGot == arrows[i].nDir, NStr::Format( "an arrow at (%g, %g) from the centre gives direction %d, got %d", arrows[i].dx, arrows[i].dy, arrows[i].nDir, nGot ) );
+	}
+	// An arrow on the centre has no direction, and the MFC's -1 polar angle gives one: within one of 38721.
+	const int nNone = NMapGeometry::DirectionFromArrow( vOrigin, vOrigin );
+	Check( std::abs( nNone - 38721 ) <= 1, NStr::Format( "an arrow on the centre gives 38721 (the polar angle -1), got %d", nNone ) );
+
+	// The radius: the distance, never below 256.
+	Check( NMapGeometry::RadiusFromArrow( vOrigin, CVec2( 1300.0f, 1400.0f ) ) == 500.0f, "an arrow 300 x 400 away gives radius 500" );
+	Check( NMapGeometry::RadiusFromArrow( vOrigin, CVec2( 1100.0f, 1000.0f ) ) == 256.0f, "an arrow nearer than 256 gives 256" );
+	Check( NMapGeometry::RadiusFromArrow( vOrigin, vOrigin ) == 256.0f, "an arrow on the centre gives 256" );
+	Check( NMapGeometry::RadiusFromArrow( vOrigin, CVec2( 1256.0f, 1000.0f ) ) == 256.0f, "and exactly 256 away stays 256" );
+	Check( Near( NMapGeometry::RadiusFromArrow( vOrigin, CVec2( 1257.0f, 1000.0f ) ), 257.0f, 0.001f ), "and 257 away is 257" );
+	Check( NMapGeometry::fParcelMinRadius == 256.0f && 4.0f * fWorldCellSize * fAITileXCoeff1 > 255.99f && 4.0f * fWorldCellSize * fAITileXCoeff1 < 256.01f,
+	       "the minimum radius is four map tiles: fWorldCellSize * 4 in AI units is 256" );
+
+	const TMapOp none;
+	// A side holding those values goes through PutAIGeneralSide, a write and a read, and comes
+	// back the same; put away again it saves the unedited bytes.
+	const std::string szCold = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	NMapRecords::SAIGeneralSidePut before;
+	RunM2Case( szCold, "AI general parcel with the formulas' values",
+	           none,
+	           [&]( SLoadMapInfo *p )
+	           {
+		           NMapRecords::GetAIGeneralSide( *p, 1, &before );
+		           NMapRecords::SAIGeneralSidePut put;
+		           put.nSideCount = Max( before.nSideCount, 2 );
+		           put.nSide = 1;
+		           put.info = before.info;
+		           SAIGeneralParcelInfo parcel;
+		           parcel.eType = SAIGeneralParcelInfo::EPATCH_REINFORCE;
+		           parcel.vCenter = vCentre;
+		           parcel.fRadius = NMapGeometry::RadiusFromArrow( vCentre, CVec2( 600.0f, 550.0f ) );
+		           parcel.wDefenceDirection = NMapGeometry::DirectionFromArrow( vCentre, CVec2( 600.0f, 550.0f ) );
+		           const CVec2 vPoint = NMapGeometry::ParcelPointFromVis( vClick, vCentre, parcel.wDefenceDirection );
+		           parcel.reinforcePoints.push_back( SAIGeneralParcelInfo::SReinforcePointInfo( vPoint, NMapGeometry::DirectionFromArrow( vPoint, CVec2( vPoint.x, vPoint.y + 90.0f ) ) ) );
+		           put.info.parcels.push_back( parcel );
+		           return NMapRecords::PutAIGeneralSide( p, put );
+	           },
+	           [&]( SLoadMapInfo *p ) { return NMapRecords::PutAIGeneralSide( p, before ); } );
+	// The radius is the distance (300 x 400 -> 500), the direction the arrow's.
+	Check( NMapGeometry::RadiusFromArrow( vCentre, CVec2( 600.0f, 550.0f ) ) == 500.0f, "the round trip's radius is the arrow's distance, 500" );
+	Check( NMapGeometry::DirectionFromArrow( vCentre, CVec2( 600.0f, 550.0f ) ) == 58823, "and its direction the arrow's, 58823" );
+	printf( "map-file: M2 parcel formulas ok\n" );
+}
+
 static void TestRoundTrip( const std::string &szPath )
 {
 	CMapInfo original;
@@ -2789,6 +2899,7 @@ int main( int argc, char **argv )
 	TestM2FencePlan();
 	TestM2TrenchOverlay();
 	TestM2TrenchProperties();
+	TestM2ParcelFormulas();
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );

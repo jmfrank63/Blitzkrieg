@@ -1612,7 +1612,7 @@ test "view: the registry's shortcuts still switch the M1 tools" {
     try testing.expectEqual(Tool.ai_general, rig.view.tool);
 }
 
-test "view: key 9 is the AI General tool: a click on open ground makes a parcel in one step" {
+test "view: key 9 is the AI General tool: a click on open ground makes a parcel, Enter switches it, Delete removes it, each one step" {
     const rig = try Rig.create();
     defer rig.destroy();
     rig.send(keyDown(sdl3.c.SDLK_9, 0, false));
@@ -1624,8 +1624,14 @@ test "view: key 9 is the AI General tool: a click on open ground makes a parcel 
     try testing.expectEqual(@as(usize, 1), rig.fake.ai_sides.items[0].parcels.len);
     try testing.expectEqual(@as(f32, 256), rig.fake.ai_sides.items[0].parcels[0].radius);
     try testing.expectEqual(depth + 1, rig.editor.history.undo_stack.items.len);
+    rig.send(keyDown(sdl3.c.SDLK_RETURN, 0, false));
+    try testing.expectEqual(core.records.ParcelKind.reinforce, rig.fake.ai_sides.items[0].parcels[0].kind);
+    try testing.expectEqual(depth + 2, rig.editor.history.undo_stack.items.len);
+    rig.send(keyDown(sdl3.c.SDLK_DELETE, 0, false));
+    try testing.expectEqual(@as(usize, 0), rig.fake.ai_sides.items[0].parcels.len);
+    try testing.expectEqual(depth + 3, rig.editor.history.undo_stack.items.len);
     rig.view.undo(&rig.editor);
-    try testing.expectEqual(@as(usize, 0), rig.fake.ai_sides.items.len);
+    try testing.expectEqual(@as(usize, 1), rig.fake.ai_sides.items[0].parcels.len);
 }
 
 test "view: Set target puts the Start Target tool in hand for one click, sets the point on the release and returns to the tool it came from" {

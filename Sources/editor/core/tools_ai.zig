@@ -436,51 +436,331 @@ pub const ReservePositions = struct {
     }
 };
 
+/// The MFC editor's AI general constants (StateAIGeneral.cpp), in MAP (AI) units: its
+/// world-unit handle sizes divided by fAITileXCoeff. A world cell, fWorldCellSize, is
+/// 64 AI units, so the handle radii come out as round numbers.
+pub const ai_cell: f32 = 64.0;
+/// Within this of a parcel's centre handle the press grabs it (PARCEL_CENTER_POINT_RADIUS).
+pub const parcel_centre_grab: f32 = ai_cell;
+/// Within this of a parcel's arrow handle (PARCEL_ARROW_POINT_RADIUS).
+pub const parcel_arrow_grab: f32 = ai_cell / 2.0;
+/// Within this of a reinforce point (POSITION_CENTER_POINT_RADIUS).
+pub const point_centre_grab: f32 = ai_cell / 1.5;
+/// Within this of a point's arrow handle (POSITION_ARROW_POINT_RADIUS).
+pub const point_arrow_grab: f32 = ai_cell / 2.0;
+/// How far a point's arrow handle is from the point (POSITION_POINT_RADIUS).
+pub const point_arrow_length: f32 = ai_cell * 1.5;
+/// How far the drawn arrow runs past a parcel's arrow handle (PARCEL_POINT_RADIUS_ARROW).
+pub const arrow_tail_length: f32 = ai_cell;
+
+const two_pi: f32 = 6.28318531; // FP_2PI, as the MFC editor's constant
+const quarter_turn: f32 = 1.57079633; // FP_PI2
+
+/// The MFC angle of a WORD direction: `dir * 2 pi / 0xFFFF`.
+pub fn directionAngle(dir: u16) f32 {
+    return @as(f32, @floatFromInt(dir)) * two_pi / 65535.0;
+}
+
+/// RotatePoint: the vector turned by `angle`.
+pub fn rotate(v: [2]f32, angle: f32) [2]f32 {
+    return .{ v[0] * @cos(angle) - v[1] * @sin(angle), v[0] * @sin(angle) + v[1] * @cos(angle) };
+}
+
+/// GetPolarAngle: 0..2 pi, -1 for no length.
+fn polarAngle(v: [2]f32) f32 {
+    if (v[0] == 0 and v[1] == 0) return -1;
+    if (v[0] == 0) return if (v[1] > 0) quarter_turn else 3.14159265 + quarter_turn;
+    const angle = std.math.atan(v[1] / v[0]);
+    if (v[0] > 0) return if (v[1] >= 0) angle else two_pi + angle;
+    return 3.14159265 + angle;
+}
+
+/// NMapGeometry::DirectionFromArrow: the direction an arrow handle at `arrow` gives
+/// about `centre` (AI units): the polar angle of the difference less a quarter turn,
+/// wrapped into 0..2 pi, as a WORD.
+pub fn directionFromArrow(centre: [2]f32, arrow: [2]f32) u16 {
+    var alpha = polarAngle(.{ arrow[0] - centre[0], arrow[1] - centre[1] }) - quarter_turn;
+    if (alpha < 0) alpha += two_pi;
+    const turned = alpha * 65535.0 / two_pi;
+    if (!(turned > 0)) return 0;
+    return if (turned >= 65535.0) 65535 else @intFromFloat(turned);
+}
+
+/// NMapGeometry::RadiusFromArrow: the distance from `centre` to `arrow`, never below
+/// the smallest parcel.
+pub fn radiusFromArrow(centre: [2]f32, arrow: [2]f32) f32 {
+    return @max(records.parcel_min_radius, std.math.hypot(arrow[0] - centre[0], arrow[1] - centre[1]));
+}
+
+/// NMapGeometry::ParcelPointFromVis, from a map point (AI units, not yet cut): the
+/// click cut as Vis2AI cuts it, less the parcel's centre, turned by minus the
+/// parcel's angle - what a reinforce point stores.
+pub fn pointFromMap(click: [2]f32, centre: [2]f32, dir: u16) [2]f32 {
+    const cut: [2]f32 = .{ records.truncateToAi(click[0]), records.truncateToAi(click[1]) };
+    return rotate(.{ cut[0] - centre[0], cut[1] - centre[1] }, -directionAngle(dir));
+}
+
+/// The inverse, for hit tests and drawing (NMapGeometry::ParcelPointToVis in AI
+/// units): a stored point turned by the parcel's angle plus its centre.
+pub fn pointToMap(point: [2]f32, centre: [2]f32, dir: u16) [2]f32 {
+    const turned = rotate(point, directionAngle(dir));
+    return .{ turned[0] + centre[0], turned[1] + centre[1] };
+}
+
+/// A parcel's centre handle, map units.
+pub fn parcelCentreHandle(parcel: records.Parcel) [2]f32 {
+    return .{ parcel.cx, parcel.cy };
+}
+
+/// A parcel's arrow handle: `radius` from its centre along its direction plus a
+/// quarter turn (the drawn line runs from the centre to it).
+pub fn parcelArrowHandle(parcel: records.Parcel) [2]f32 {
+    const angle = directionAngle(parcel.defence_dir) + quarter_turn;
+    return .{ parcel.cx + parcel.radius * @cos(angle), parcel.cy + parcel.radius * @sin(angle) };
+}
+
+/// A reinforce point's place on the map.
+pub fn pointCentreHandle(parcel: records.Parcel, point: records.ParcelPoint) [2]f32 {
+    return pointToMap(.{ point.x, point.y }, .{ parcel.cx, parcel.cy }, parcel.defence_dir);
+}
+
+/// A reinforce point's arrow handle: `point_arrow_length` from the point along its own
+/// direction plus a quarter turn, all turned with the parcel.
+pub fn pointArrowHandle(parcel: records.Parcel, point: records.ParcelPoint) [2]f32 {
+    const angle = directionAngle(point.dir) + quarter_turn;
+    const end: [2]f32 = .{ point.x + point_arrow_length * @cos(angle), point.y + point_arrow_length * @sin(angle) };
+    return pointToMap(end, .{ parcel.cx, parcel.cy }, parcel.defence_dir);
+}
+
+fn distance(a: [2]f32, b: [2]f32) f32 {
+    return std.math.hypot(a[0] - b[0], a[1] - b[1]);
+}
+
 /// The AI General tool (04-12, D-19), the MFC editor's AI general tab
 /// (StateAIGeneral.cpp, TabAIGeneralDialog.cpp): it edits ONE side at a time, `side`,
-/// set by the panel. A press outside every parcel of the side makes a defence
-/// parcel of radius 256 AI units (four map tiles, the MFC PARCEL_POINT_RADIUS) and
-/// direction 0 at the point, cut as Vis2AI cuts it; a side the map does not have is
-/// created, with every side below it empty, and undo takes them away again (the whole
-/// side is the record, with the side count).
+/// set by the panel.
+///
+///  - A press on a handle grabs it: a parcel's centre (within one world cell), its
+///    arrow (half a cell), a reinforce point (two thirds of a cell) or its arrow (half
+///    a cell) - points first, in list order, then the parcel, as the MFC editor tests.
+///    Dragging moves the centre (the points, stored relative to it, move with it), sets
+///    the radius (never below 256) and the defence direction from the arrow, moves the
+///    point, or sets its direction. The handle keeps the offset at which it was grabbed.
+///  - A press elsewhere inside a parcel adds a reinforce point there: stored relative to
+///    the parcel's centre and turned by minus its direction, direction 0. A press outside
+///    every parcel (at or beyond the radius) makes a defence parcel of radius 256 AI
+///    units (four map tiles, the MFC PARCEL_POINT_RADIUS) and direction 0. Either
+///    thing is grabbed at once with no offset, so the press-and-drag places it. A side
+///    the map does not have is created, with every side below it empty, and undo takes
+///    them away again (the whole side is the record, with the side count).
+///  - Enter, Insert and Space switch the selected parcel between defence and
+///    reinforce; Delete removes the selected point, else the selected parcel; Escape lets
+///    go of the selection. The selection is the last thing a press grabbed or made (or
+///    the panel's choice), kept after the release.
+///  - One undo step per click, drag or key.
 ///
 /// Parcels and points are MAP (AI) units, like every record the AI side keeps; the
-/// pointer's `map_x/map_y` is what the tool compares and stores.
+/// pointer's `map_x/map_y` is what the tool compares and stores. The formulas are
+/// NMapGeometry's (MapGeometry.h), repeated here, and tested against the same literals.
 pub const AIGeneral = struct {
     /// The side the tool edits, from the panel's radios.
     side: usize = 0,
-    /// The parcel the last click made or grabbed, for the panel and the keys.
+    /// The selection: a parcel of the side, and one of its points or none.
     selected_parcel: ?usize = null,
+    selected_point: ?usize = null,
+    /// The handle being dragged, and the gesture its edits merge under.
+    grab: ?Grab = null,
+    gesture: u32 = 0,
 
-    /// Forgets the selection, as a map change must; the side stays.
+    pub const Grab = struct {
+        parcel: usize,
+        point: ?usize,
+        arrow: bool,
+        /// The handle's place less the press's, map units.
+        offset: [2]f32,
+    };
+
+    pub const Hit = struct { parcel: usize, point: ?usize, arrow: bool, handle: [2]f32 };
+
+    /// Forgets the selection and any drag, as a map change must; the side stays.
     pub fn reset(self: *AIGeneral) void {
         self.selected_parcel = null;
+        self.selected_point = null;
+        self.grab = null;
+        self.gesture = 0;
+    }
+
+    /// The panel's list chose a parcel (or one of its points).
+    pub fn select(self: *AIGeneral, parcel: ?usize, point: ?usize) void {
+        self.selected_parcel = parcel;
+        self.selected_point = if (parcel == null) null else point;
     }
 
     pub fn handle(self: *AIGeneral, editor: *Editor, event: Event) EditError!void {
         switch (event) {
             .press => |pointer| try self.press(editor, pointer),
+            .drag => |pointer| try self.drag(editor, pointer),
+            .release => {
+                self.grab = null;
+                self.gesture = 0;
+            },
+            .key => |key| switch (key) {
+                .enter, .insert, .space => try self.switchType(editor),
+                .delete => try self.deleteSelected(editor),
+                .escape => self.reset(),
+                else => {},
+            },
             else => {},
         }
     }
 
-    /// Whether the map point is inside a parcel of the side: nearer its centre than its
-    /// radius (at the radius is outside), the MFC editor's test.
-    pub fn insideAnyParcel(side: records.AiSide, map_x: f32, map_y: f32) bool {
-        for (side.parcels) |parcel| {
-            if (std.math.hypot(map_x - parcel.cx, map_y - parcel.cy) < parcel.radius) return true;
+    /// The handle under the click, in the MFC editor's order: the first parcel that has
+    /// one, its points' arrows and centres in list order, then its own arrow and centre.
+    pub fn hitHandle(side: records.AiSide, click: [2]f32) ?Hit {
+        for (side.parcels, 0..) |parcel, parcel_index| {
+            for (parcel.points, 0..) |point, point_index| {
+                const arrow = pointArrowHandle(parcel, point);
+                if (distance(arrow, click) < point_arrow_grab) return .{ .parcel = parcel_index, .point = point_index, .arrow = true, .handle = arrow };
+                const centre = pointCentreHandle(parcel, point);
+                if (distance(centre, click) < point_centre_grab) return .{ .parcel = parcel_index, .point = point_index, .arrow = false, .handle = centre };
+            }
+            const arrow = parcelArrowHandle(parcel);
+            if (distance(arrow, click) < parcel_arrow_grab) return .{ .parcel = parcel_index, .point = null, .arrow = true, .handle = arrow };
+            const centre = parcelCentreHandle(parcel);
+            if (distance(centre, click) < parcel_centre_grab) return .{ .parcel = parcel_index, .point = null, .arrow = false, .handle = centre };
         }
-        return false;
+        return null;
+    }
+
+    /// The first parcel the click is inside: nearer its centre than its radius (at the
+    /// radius is outside), the MFC editor's test.
+    pub fn parcelContaining(side: records.AiSide, click: [2]f32) ?usize {
+        for (side.parcels, 0..) |parcel, index| {
+            if (distance(.{ parcel.cx, parcel.cy }, click) < parcel.radius) return index;
+        }
+        return null;
     }
 
     fn press(self: *AIGeneral, editor: *Editor, pointer: Pointer) EditError!void {
-        var side = try editor.aiSide(editor.allocator, self.side);
-        defer side.deinit(editor.allocator);
-        if (insideAnyParcel(side, pointer.map_x, pointer.map_y)) {
-            editor.note("a click inside a parcel adds a reinforce point");
+        const allocator = editor.allocator;
+        var side = try editor.aiSide(allocator, self.side);
+        defer side.deinit(allocator);
+        const click: [2]f32 = .{ pointer.map_x, pointer.map_y };
+        self.grab = null;
+        self.gesture = 0;
+        if (hitHandle(side, click)) |hit| {
+            self.selected_parcel = hit.parcel;
+            self.selected_point = hit.point;
+            self.grab = .{ .parcel = hit.parcel, .point = hit.point, .arrow = hit.arrow, .offset = .{ hit.handle[0] - click[0], hit.handle[1] - click[1] } };
+            self.gesture = editor.beginGesture();
             return;
         }
-        self.selected_parcel = try editor.addDefenceParcel(self.side, pointer.map_x, pointer.map_y);
+        const gesture = editor.beginGesture();
+        if (parcelContaining(side, click)) |parcel_index| {
+            const parcel = side.parcels[parcel_index];
+            const at = pointFromMap(click, .{ parcel.cx, parcel.cy }, parcel.defence_dir);
+            try side.appendPoint(allocator, parcel_index, .{ .x = at[0], .y = at[1], .dir = 0 });
+            try editor.editAiSide(self.side, side, gesture);
+            self.selected_parcel = parcel_index;
+            self.selected_point = side.parcels[parcel_index].points.len - 1;
+            self.grab = .{ .parcel = parcel_index, .point = self.selected_point, .arrow = false, .offset = .{ 0, 0 } };
+            self.gesture = gesture;
+            return;
+        }
+        const index = try editor.addDefenceParcelIn(self.side, click[0], click[1], gesture);
+        self.selected_parcel = index;
+        self.selected_point = null;
+        self.grab = .{ .parcel = index, .point = null, .arrow = false, .offset = .{ 0, 0 } };
+        self.gesture = gesture;
+    }
+
+    fn drag(self: *AIGeneral, editor: *Editor, pointer: Pointer) EditError!void {
+        const grab = self.grab orelse return;
+        const allocator = editor.allocator;
+        var side = try editor.aiSide(allocator, self.side);
+        defer side.deinit(allocator);
+        if (grab.parcel >= side.parcels.len) {
+            self.grab = null;
+            return;
+        }
+        const parcel = &side.parcelsMut()[grab.parcel];
+        const now: [2]f32 = .{
+            records.truncateToAi(pointer.map_x + grab.offset[0]),
+            records.truncateToAi(pointer.map_y + grab.offset[1]),
+        };
+        const centre: [2]f32 = .{ parcel.cx, parcel.cy };
+        if (grab.point) |point_index| {
+            if (point_index >= parcel.points.len) {
+                self.grab = null;
+                return;
+            }
+            const point = &side.pointsMut(grab.parcel)[point_index];
+            const relative = rotate(.{ now[0] - centre[0], now[1] - centre[1] }, -directionAngle(parcel.defence_dir));
+            if (grab.arrow) {
+                point.dir = directionFromArrow(.{ point.x, point.y }, relative);
+            } else {
+                point.x = relative[0];
+                point.y = relative[1];
+            }
+        } else if (grab.arrow) {
+            parcel.radius = radiusFromArrow(centre, now);
+            parcel.defence_dir = directionFromArrow(centre, now);
+        } else {
+            parcel.cx = now[0];
+            parcel.cy = now[1];
+        }
+        // A place the bridge will not take (a centre off the map) is skipped: the parcel
+        // stays at the last one it took and the drag goes on; the status line says why.
+        editor.editAiSide(self.side, side, self.gesture) catch |err| if (err != error.Refused) return err;
+    }
+
+    /// Enter, Insert, Space: the selected parcel is a defence parcel if it was anything
+    /// but one, else a reinforce parcel. One undo step.
+    pub fn switchType(self: *AIGeneral, editor: *Editor) EditError!void {
+        const allocator = editor.allocator;
+        var side = try editor.aiSide(allocator, self.side);
+        defer side.deinit(allocator);
+        const index = self.selected_parcel orelse {
+            editor.note("select a parcel first: click its centre or its arrow");
+            return;
+        };
+        if (index >= side.parcels.len) {
+            self.reset();
+            editor.note("that parcel is gone");
+            return;
+        }
+        const parcel = &side.parcelsMut()[index];
+        parcel.kind = if (parcel.kind == .defence) .reinforce else .defence;
+        try editor.editAiSide(self.side, side, 0);
+    }
+
+    /// Delete: the selected point, else the selected parcel with its points. One undo
+    /// step; the selection is let go of.
+    pub fn deleteSelected(self: *AIGeneral, editor: *Editor) EditError!void {
+        const allocator = editor.allocator;
+        var side = try editor.aiSide(allocator, self.side);
+        defer side.deinit(allocator);
+        const index = self.selected_parcel orelse {
+            editor.note("select a parcel or a point first");
+            return;
+        };
+        if (index >= side.parcels.len) {
+            self.reset();
+            editor.note("that parcel is gone");
+            return;
+        }
+        if (self.selected_point) |point_index| {
+            if (point_index < side.parcels[index].points.len) {
+                try side.removePoint(allocator, index, point_index);
+                self.selected_point = null;
+                try editor.editAiSide(self.side, side, 0);
+                return;
+            }
+            self.selected_point = null;
+        }
+        try side.removeParcel(allocator, index);
+        self.selected_parcel = null;
+        try editor.editAiSide(self.side, side, 0);
     }
 };
 
@@ -998,4 +1278,370 @@ test "AI General: a click off the map is Refused with nothing changed" {
     try testing.expectError(error.Refused, tool.handle(&editor, .{ .press = pointerAt(&fake, -50, 100) }));
     try testing.expectEqual(@as(usize, 0), fake.ai_sides.items.len);
     try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+}
+
+/// A pointer at a MAP (AI) point, for the AI General tool, whose handles are in AI units.
+fn pointerAtMap(fake: *const fake_mod.FakeBridge, x: f32, y: f32) Pointer {
+    return .{ .world_x = x / fake.map_per_world, .world_y = y / fake.map_per_world, .map_x = x, .map_y = y, .screen_x = x, .screen_y = y };
+}
+
+/// A fake holding one parcel on side 0 before it opens, with the points given.
+fn seedParcel(fake: *fake_mod.FakeBridge, parcel: records.Parcel) !void {
+    var side: records.AiSide = .{};
+    defer side.deinit(testing.allocator);
+    try side.appendParcel(testing.allocator, parcel);
+    try fake.addAiSideFixture(side);
+}
+
+fn expectNear(expected: f32, actual: f32, tolerance: f32) !void {
+    if (@abs(expected - actual) > tolerance) {
+        std.debug.print("expected {d}, found {d} (tolerance {d})\n", .{ expected, actual, tolerance });
+        return error.TestExpectedApproxEqAbs;
+    }
+}
+
+test "AI General: a click inside a parcel adds a reinforce point stored relative to the centre, turned by minus the direction" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try seedParcel(&fake, .{ .cx = 150, .cy = 150, .radius = 256, .defence_dir = 16384 });
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    const depth = editor.history.undo_stack.items.len;
+    // The click at (250, 200) is (100, 50) from the centre; the parcel is turned a quarter
+    // turn (16384 * 2 pi / 65535 = 1.5708203), so the store is the offset turned back:
+    // x' = x cos a + y sin a = 49.9976, y' = -x sin a + y cos a = -100.0012.
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 250, 200) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 250, 200) });
+    const points = fake.ai_sides.items[0].parcels[0].points;
+    try testing.expectEqual(@as(usize, 1), points.len);
+    try expectNear(49.9976, points[0].x, 0.01);
+    try expectNear(-100.0012, points[0].y, 0.01);
+    try testing.expectEqual(@as(u16, 0), points[0].dir);
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items[0].parcels.len); // no new parcel
+    try testing.expectEqual(@as(?usize, 0), tool.selected_parcel);
+    try testing.expectEqual(@as(?usize, 0), tool.selected_point);
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    // The point sits where it was clicked: stored and drawn are inverses.
+    const at = pointCentreHandle(fake.ai_sides.items[0].parcels[0], points[0]);
+    try expectNear(250, at[0], 0.01);
+    try expectNear(200, at[1], 0.01);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(usize, 0), fake.ai_sides.items[0].parcels[0].points.len);
+}
+
+test "AI General: a point in a parcel of direction 0 is the click less the centre, and the click is cut first" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try seedParcel(&fake, .{ .cx = 150, .cy = 150, .radius = 256 });
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 250.4, 200.4) }); // cut as int(v + 0.3): 250, 200
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 250.4, 200.4) });
+    const points = fake.ai_sides.items[0].parcels[0].points;
+    try testing.expectEqual(@as(usize, 1), points.len);
+    try testing.expectEqual(@as(f32, 100), points[0].x);
+    try testing.expectEqual(@as(f32, 50), points[0].y);
+}
+
+test "AI General: the press that adds a point goes on dragging it, in the same undo step" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try seedParcel(&fake, .{ .cx = 150, .cy = 150, .radius = 256, .defence_dir = 16384 });
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    const depth = editor.history.undo_stack.items.len;
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 250, 200) });
+    try tool.handle(&editor, .{ .drag = pointerAtMap(&fake, 260, 215) });
+    try tool.handle(&editor, .{ .drag = pointerAtMap(&fake, 270, 230) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 270, 230) });
+    // The new point followed the pointer to (270, 230): (120, 80) from the centre, turned back.
+    const points = fake.ai_sides.items[0].parcels[0].points;
+    try testing.expectEqual(@as(usize, 1), points.len);
+    try expectNear(79.9971, points[0].x, 0.01);
+    try expectNear(-120.0019, points[0].y, 0.01);
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(usize, 0), fake.ai_sides.items[0].parcels[0].points.len);
+}
+
+test "AI General: dragging the centre handle moves the parcel and its points move with it" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    var side: records.AiSide = .{};
+    defer side.deinit(testing.allocator);
+    try side.appendParcel(testing.allocator, .{ .cx = 150, .cy = 150, .radius = 256, .defence_dir = 8192 });
+    try side.appendPoint(testing.allocator, 0, .{ .x = 40, .y = 10, .dir = 7 });
+    try fake.addAiSideFixture(side);
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    const depth = editor.history.undo_stack.items.len;
+    const before = pointCentreHandle(fake.ai_sides.items[0].parcels[0], fake.ai_sides.items[0].parcels[0].points[0]);
+    // The grab is 30 short of the centre handle (within a world cell, 64): the offset is kept.
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 130, 140) });
+    try testing.expectEqual(@as(?usize, 0), tool.selected_parcel);
+    try testing.expectEqual(@as(?usize, null), tool.selected_point);
+    try tool.handle(&editor, .{ .drag = pointerAtMap(&fake, 160, 150) });
+    try tool.handle(&editor, .{ .drag = pointerAtMap(&fake, 180, 170) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 180, 170) });
+    const parcel = fake.ai_sides.items[0].parcels[0];
+    try testing.expectEqual(@as(f32, 200), parcel.cx); // 180 + 20
+    try testing.expectEqual(@as(f32, 180), parcel.cy); // 170 + 10
+    try testing.expectEqual(@as(f32, 256), parcel.radius);
+    try testing.expectEqual(@as(u16, 8192), parcel.defence_dir);
+    // The point is stored relative, so it did not change, and on the map it moved by the same 50, 30.
+    try testing.expectEqual(@as(f32, 40), parcel.points[0].x);
+    try testing.expectEqual(@as(f32, 10), parcel.points[0].y);
+    const after = pointCentreHandle(parcel, parcel.points[0]);
+    try expectNear(before[0] + 50, after[0], 0.01);
+    try expectNear(before[1] + 30, after[1], 0.01);
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len); // the whole drag is one step
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(f32, 150), fake.ai_sides.items[0].parcels[0].cx);
+}
+
+test "AI General: a press on a handle and no movement is no edit" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try seedParcel(&fake, .{ .cx = 150, .cy = 150, .radius = 256 });
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 150, 150) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 150, 150) });
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try testing.expectEqual(@as(?usize, 0), tool.selected_parcel);
+}
+
+test "AI General: dragging the arrow handle sets the radius, never below 256, and the direction" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try seedParcel(&fake, .{ .cx = 150, .cy = 150, .radius = 256 });
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    const depth = editor.history.undo_stack.items.len;
+    // The arrow handle of a parcel of direction 0 is 256 along +y from its centre.
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 150, 400) });
+    try testing.expect(tool.grab != null and tool.grab.?.arrow);
+    // To (450, 550): 300 x 400 from the centre, radius 500; polar angle atan(4/3) = 0.9273,
+    // less a quarter turn is negative, plus 2 pi: 5.6397 -> 58823.
+    try tool.handle(&editor, .{ .drag = pointerAtMap(&fake, 450, 544) }); // grabbed 6 short: offset +6
+    var parcel = fake.ai_sides.items[0].parcels[0];
+    try testing.expectEqual(@as(f32, 500), parcel.radius);
+    try testing.expectEqual(@as(u16, 58823), parcel.defence_dir);
+    try testing.expectEqual(@as(f32, 150), parcel.cx); // the centre did not move
+    // Nearer than 256: the radius stays 256, the direction follows the arrow (straight up +y: 0).
+    try tool.handle(&editor, .{ .drag = pointerAtMap(&fake, 150, 244) });
+    parcel = fake.ai_sides.items[0].parcels[0];
+    try testing.expectEqual(@as(f32, 256), parcel.radius);
+    try testing.expectEqual(@as(u16, 0), parcel.defence_dir);
+    try tool.handle(&editor, .{ .drag = pointerAtMap(&fake, 450, 544) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 450, 544) });
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    try testing.expect(try editor.undo());
+    parcel = fake.ai_sides.items[0].parcels[0];
+    try testing.expectEqual(@as(f32, 256), parcel.radius);
+    try testing.expectEqual(@as(u16, 0), parcel.defence_dir);
+}
+
+test "AI General: dragging a point handle moves the point, and its arrow sets its direction" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    var side: records.AiSide = .{};
+    defer side.deinit(testing.allocator);
+    try side.appendParcel(testing.allocator, .{ .cx = 150, .cy = 150, .radius = 256 });
+    try side.appendPoint(testing.allocator, 0, .{ .x = 100, .y = 50, .dir = 0 });
+    try fake.addAiSideFixture(side);
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    const depth = editor.history.undo_stack.items.len;
+    // The point is at (250, 200); a press on it grabs the point, not the parcel.
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 250, 200) });
+    try testing.expectEqual(@as(?usize, 0), tool.selected_point);
+    try tool.handle(&editor, .{ .drag = pointerAtMap(&fake, 270, 230) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 270, 230) });
+    var parcel = fake.ai_sides.items[0].parcels[0];
+    try testing.expectEqual(@as(f32, 120), parcel.points[0].x);
+    try testing.expectEqual(@as(f32, 80), parcel.points[0].y);
+    try testing.expectEqual(@as(f32, 150), parcel.cx);
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    // Its arrow handle is 96 from it along +y: (270, 326). Dragged to (370, 280) the arrow
+    // points (100, 50) from the point: polar 0.4636, less a quarter turn plus 2 pi -> 53987.
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 270, 326) });
+    try testing.expect(tool.grab != null and tool.grab.?.arrow and tool.grab.?.point != null);
+    try tool.handle(&editor, .{ .drag = pointerAtMap(&fake, 370, 280) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 370, 280) });
+    parcel = fake.ai_sides.items[0].parcels[0];
+    try testing.expectEqual(@as(u16, 53987), parcel.points[0].dir);
+    try testing.expectEqual(@as(f32, 120), parcel.points[0].x); // the place did not change
+    try testing.expectEqual(depth + 2, editor.history.undo_stack.items.len);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(u16, 0), fake.ai_sides.items[0].parcels[0].points[0].dir);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(f32, 100), fake.ai_sides.items[0].parcels[0].points[0].x);
+}
+
+test "AI General: Enter, Insert and Space switch the type, one undo step each" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try seedParcel(&fake, .{ .cx = 150, .cy = 150, .radius = 256 });
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 150, 150) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 150, 150) });
+    const depth = editor.history.undo_stack.items.len;
+    try tool.handle(&editor, .{ .key = .enter });
+    try testing.expectEqual(records.ParcelKind.reinforce, fake.ai_sides.items[0].parcels[0].kind);
+    try tool.handle(&editor, .{ .key = .insert });
+    try testing.expectEqual(records.ParcelKind.defence, fake.ai_sides.items[0].parcels[0].kind);
+    try tool.handle(&editor, .{ .key = .space });
+    try testing.expectEqual(records.ParcelKind.reinforce, fake.ai_sides.items[0].parcels[0].kind);
+    try testing.expectEqual(depth + 3, editor.history.undo_stack.items.len);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(records.ParcelKind.defence, fake.ai_sides.items[0].parcels[0].kind);
+    // A file's own odd type becomes a defence parcel.
+    fake.ai_sides.items[0].parcelsMut()[0].kind = @enumFromInt(0);
+    try tool.handle(&editor, .{ .key = .enter });
+    try testing.expectEqual(records.ParcelKind.defence, fake.ai_sides.items[0].parcels[0].kind);
+}
+
+test "AI General: Delete removes the selected point, else the selected parcel, one undo step each" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    var side: records.AiSide = .{};
+    defer side.deinit(testing.allocator);
+    try side.appendParcel(testing.allocator, .{ .cx = 150, .cy = 150, .radius = 256 });
+    try side.appendPoint(testing.allocator, 0, .{ .x = 100, .y = 50, .dir = 3 });
+    try side.appendPoint(testing.allocator, 0, .{ .x = -100, .y = 60, .dir = 4 });
+    try fake.addAiSideFixture(side);
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    // Nothing selected: a note, no command.
+    try tool.handle(&editor, .{ .key = .delete });
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try testing.expect(std.mem.indexOf(u8, editor.status(), "select") != null);
+    // The first point selected (a press on it), Delete takes it alone.
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 250, 200) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 250, 200) });
+    try tool.handle(&editor, .{ .key = .delete });
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items[0].parcels[0].points.len);
+    try testing.expectEqual(@as(f32, -100), fake.ai_sides.items[0].parcels[0].points[0].x);
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    // The parcel selected (its centre), Delete takes it and its points.
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 150, 150) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 150, 150) });
+    try tool.handle(&editor, .{ .key = .delete });
+    try testing.expectEqual(@as(usize, 0), fake.ai_sides.items[0].parcels.len);
+    try testing.expectEqual(@as(?usize, null), tool.selected_parcel);
+    try testing.expectEqual(@as(usize, 2), editor.history.undo_stack.items.len);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items[0].parcels.len);
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items[0].parcels[0].points.len);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(usize, 2), fake.ai_sides.items[0].parcels[0].points.len);
+    // The side is still there: deleting a parcel never drops the side.
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items.len);
+}
+
+test "AI General: a press at the radius is outside the parcel, one inside it adds a point" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try seedParcel(&fake, .{ .cx = 50, .cy = 50, .radius = 256 });
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 305, 50) }); // 255 away: inside
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 305, 50) });
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items[0].parcels.len);
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items[0].parcels[0].points.len);
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 306, 200) }); // hypot(256, 150) = 296.7: outside
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 306, 200) });
+    try testing.expectEqual(@as(usize, 2), fake.ai_sides.items[0].parcels.len);
+    try testing.expectEqual(@as(f32, 256), fake.ai_sides.items[0].parcels[1].radius);
+    // Exactly at the radius is outside too (the test is strictly nearer than the radius).
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 50, 306) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 50, 306) });
+    // (50, 306) is 256 from the first parcel's centre and on its arrow handle (direction 0): a grab, no new parcel.
+    try testing.expectEqual(@as(usize, 2), fake.ai_sides.items[0].parcels.len);
+    try testing.expect(tool.grab == null);
+    try testing.expectEqual(@as(?usize, 0), tool.selected_parcel);
+}
+
+test "AI General: a centre dragged off the map is skipped and the drag goes on" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try seedParcel(&fake, .{ .cx = 150, .cy = 150, .radius = 256 });
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    try tool.handle(&editor, .{ .press = pointerAtMap(&fake, 150, 150) });
+    try tool.handle(&editor, .{ .drag = pointerAtMap(&fake, -400, 150) }); // off the map: the bridge refuses, the tool goes on
+    try testing.expectEqual(@as(f32, 150), fake.ai_sides.items[0].parcels[0].cx);
+    try tool.handle(&editor, .{ .drag = pointerAtMap(&fake, 200, 160) });
+    try tool.handle(&editor, .{ .release = pointerAtMap(&fake, 200, 160) });
+    try testing.expectEqual(@as(f32, 200), fake.ai_sides.items[0].parcels[0].cx);
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+}
+
+test "AI General: the formulas give the MFC editor's literal values" {
+    // The same table as map_file_test.cpp's TestM2ParcelFormulas.
+    const arrows = [_]struct { dx: f32, dy: f32, dir: u16 }{
+        .{ .dx = 0, .dy = 100, .dir = 0 },
+        .{ .dx = 100, .dy = 0, .dir = 49151 },
+        .{ .dx = 0, .dy = -100, .dir = 32767 },
+        .{ .dx = -100, .dy = 0, .dir = 16383 },
+        .{ .dx = 100, .dy = 100, .dir = 57343 },
+        .{ .dx = -100, .dy = 100, .dir = 8191 },
+        .{ .dx = -100, .dy = -100, .dir = 24575 },
+        .{ .dx = 100, .dy = -100, .dir = 40959 },
+        .{ .dx = 0.01, .dy = 1000, .dir = 65534 },
+        .{ .dx = -0.01, .dy = 1000, .dir = 0 },
+    };
+    for (arrows) |arrow| {
+        try testing.expectEqual(arrow.dir, directionFromArrow(.{ 1000, 1000 }, .{ 1000 + arrow.dx, 1000 + arrow.dy }));
+    }
+    const none = directionFromArrow(.{ 1000, 1000 }, .{ 1000, 1000 });
+    try testing.expect(none >= 38720 and none <= 38722);
+    try testing.expectEqual(@as(f32, 500), radiusFromArrow(.{ 1000, 1000 }, .{ 1300, 1400 }));
+    try testing.expectEqual(@as(f32, 256), radiusFromArrow(.{ 1000, 1000 }, .{ 1100, 1000 }));
+    try testing.expectEqual(@as(f32, 256), radiusFromArrow(.{ 1000, 1000 }, .{ 1000, 1000 }));
+    try testing.expectEqual(@as(f32, 256), radiusFromArrow(.{ 1000, 1000 }, .{ 1256, 1000 }));
+    try expectNear(257, radiusFromArrow(.{ 1000, 1000 }, .{ 1257, 1000 }), 0.001);
+    // A point in a parcel: the store of a click at AI (400, 199) in a parcel at (300, 150).
+    const straight = pointFromMap(.{ 400.0, 199.0 }, .{ 300, 150 }, 0);
+    try testing.expectEqual(@as(f32, 100), straight[0]);
+    try testing.expectEqual(@as(f32, 49), straight[1]);
+    const quarter = pointFromMap(.{ 400.0, 199.0 }, .{ 300, 150 }, 16384);
+    try expectNear(48.9976, quarter[0], 0.01);
+    try expectNear(-100.0012, quarter[1], 0.01);
+    const eighth = pointFromMap(.{ 400.0, 199.0 }, .{ 300, 150 }, 8192);
+    try expectNear(105.3585, eighth[0], 0.01);
+    try expectNear(-36.0637, eighth[1], 0.01);
+    // Drawn: the stored point turned by the angle, plus the centre (map units here; the
+    // C++ literals are the same times sqrt 2 / 2 in world units).
+    const drawn = pointToMap(.{ 100, 49 }, .{ 300, 150 }, 16384);
+    try expectNear(177.4821 * 1.41421356, drawn[0], 0.02);
+    try expectNear(176.7759 * 1.41421356, drawn[1], 0.02);
+    // The click is cut before the centre is taken away.
+    const cut = pointFromMap(.{ 400.4, 199.4 }, .{ 300, 150 }, 0);
+    try testing.expectEqual(@as(f32, 100), cut[0]);
+    try testing.expectEqual(@as(f32, 49), cut[1]);
 }
