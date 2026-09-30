@@ -775,10 +775,6 @@ pub const State = struct {
         self.view.brush.tile = tile;
     }
 
-    /// Re-reads the camera anchors into `anchors` when the map's anchor
-    /// record moved since the last read (or no map is open: none). A read
-    /// that fails leaves them unset, which the panel and the markers show as
-    /// "unset" rather than as stale positions.
     /// The Roads & Rivers panel's types for the tool's kind: read once per
     /// map and kind. A tool with no type yet, or one the list does not hold,
     /// takes the first.
@@ -1072,6 +1068,10 @@ pub const State = struct {
         return count;
     }
 
+    /// Re-reads the camera anchors into `anchors` when the map's anchor
+    /// record moved since the last read (or no map is open: none). A read
+    /// that fails leaves them unset, which the panel and the markers show as
+    /// "unset" rather than as stale positions.
     pub fn refreshAnchors(self: *State) void {
         const generation = self.editor.record_generations.get(.camera_anchors);
         if (generation == self.anchors_generation_seen and mapIsOpen(self.editor)) return;
