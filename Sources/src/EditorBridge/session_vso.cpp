@@ -543,6 +543,16 @@ bool ReplaceVsoInSession( SEditorSession *pSession, int nKind, int nIndex, int *
 		pSession->szMessage = NStr::Format( "no %s %d", IsKind( nKind ) ? KindName( nKind ) : "road or river", nIndex );
 		return false;
 	}
+	// A record the file holds with fewer than 2 control or sampled points loads
+	// in the game (it reads only the points), but the builder's resample reads
+	// the second and the last-but-one control point unchecked (SampleCurve's
+	// asserts are compiled out): it is kept as read, never edited.
+	if ( !LongEnough( *pVso ) )
+	{
+		pSession->szMessage = NStr::Format( "%s %d has fewer than 2 control points; it is kept as read", KindName( nKind ), nIndex );
+		*pbRefused = true;
+		return false;
+	}
 	std::unique_ptr<SVsoEdit> edit( new SVsoEdit );
 	edit->nKind = nKind;
 	edit->nIndex = nIndex;

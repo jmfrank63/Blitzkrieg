@@ -5687,6 +5687,82 @@ static void TestM2RoadEdits( BkEditorSession *pSession, const std::string &szScr
 	printf( "editor-bridge: M2 road edits ok (%d edits)\n", int( tokens.size() ) );
 }
 
+// CR-A01 (04 review): a file road with fewer than 2 control points loads - the
+// game reads only its sampled points - but every resampling edit of it would
+// read past the control points (SampleCurve's asserts are compiled out). The
+// bridge keeps such a record as read: a move, a width, an opacity, an insert
+// and a point delete are refused, the record is unchanged and the map saves as
+// it was; deleting the whole record still works.
+static void TestM2ShortVsoKeptAsRead( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::vector<std::string> roads = VsoDescriptorNames( pSession, 0 );
+	// Not a railroad: the AI builds its railroad graph from the control points
+	// at open, so a railroad needs its two points in the game as well.
+	std::string szRoad;
+	for ( size_t i = 0; i < roads.size() && szRoad.empty(); ++i )
+		if ( roads[i].find( "rail" ) == std::string::npos )
+			szRoad = roads[i];
+	if ( !Check( !szRoad.empty(), "a road type that is not a railroad for the short-road test" ) )
+		return;
+	if ( !Check( AppendExpectedVso( &map, 0, szRoad, MiddleLine( map, 0.0f, -300.0f ), 3.0f, 1.0f ), "the short road builds" ) )
+		return;
+	const int nOne = int( map.terrain.roads3.size() ) - 1;
+	map.terrain.roads3.back().controlpoints.resize( 1 );
+	if ( !Check( AppendExpectedVso( &map, 0, szRoad, MiddleLine( map, 0.0f, 300.0f ), 3.0f, 1.0f ), "the empty road builds" ) )
+		return;
+	const int nNone = int( map.terrain.roads3.size() ) - 1;
+	map.terrain.roads3.back().controlpoints.clear();
+	const std::string szMap = szScratch + "\\short-roads.bzm";
+	const std::string szSaved = szScratch + "\\short-roads-saved.bzm";
+	const std::string szUnedited = szScratch + "\\short-roads-unedited.bzm";
+	if ( !Check( NMapFile::Write( szMap.c_str(), map, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const int indices[2] = { nOne, nNone };
+	for ( int n = 0; n < 2; ++n )
+	{
+		const int nIndex = indices[n];
+		const int nControls = n == 0 ? 1 : 0;
+		std::vector<BkEditorVec3> moved( 1 );
+		moved[0].x = map.terrain.roads3[nIndex].points[0].vPos.x + 40.0f;
+		moved[0].y = map.terrain.roads3[nIndex].points[0].vPos.y;
+		moved[0].z = 0.0f;
+		int nToken = -1;
+		const BkEditorStatus move = BkEditorMoveVsoPoints( pSession, 0, nIndex, nControls > 0 ? &moved[0] : 0, nControls, &nToken );
+		Check( move == BK_EDITOR_REFUSED && nToken == -1, NStr::Format( "a move of a road with %d control points is refused (%d): %s", nControls, int( move ), BkEditorLastMessage( pSession ) ) );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "kept as read" ) != std::string::npos, "and says it is kept as read" );
+		const BkEditorStatus width = BkEditorSetVsoWidth( pSession, 0, nIndex, 0, 90.0f, 0, &nToken );
+		Check( width == BK_EDITOR_REFUSED || width == BK_EDITOR_BAD_ARGUMENT, NStr::Format( "a width of a road with %d control points is refused (%d)", nControls, int( width ) ) );
+		const BkEditorStatus opacity = BkEditorSetVsoOpacity( pSession, 0, nIndex, 0, 0.5f, 2, &nToken );
+		Check( opacity == BK_EDITOR_REFUSED || opacity == BK_EDITOR_BAD_ARGUMENT, NStr::Format( "an opacity of a road with %d control points is refused (%d)", nControls, int( opacity ) ) );
+		const BkEditorStatus insert = BkEditorInsertVsoPoint( pSession, 0, nIndex, 0, &nToken );
+		Check( insert == BK_EDITOR_REFUSED || insert == BK_EDITOR_BAD_ARGUMENT, NStr::Format( "an insert into a road with %d control points is refused (%d)", nControls, int( insert ) ) );
+		const BkEditorStatus erase = BkEditorDeleteVsoPoint( pSession, 0, nIndex, 0, &nToken );
+		Check( erase == BK_EDITOR_REFUSED || erase == BK_EDITOR_BAD_ARGUMENT, NStr::Format( "a point delete of a road with %d control points is refused (%d)", nControls, int( erase ) ) );
+		BkEditorVsoInfo info;
+		Check( BkEditorVso( pSession, 0, nIndex, &info, 0, 0, 0, 0 ) != BK_EDITOR_FAILED && info.control_count == nControls,
+		       NStr::Format( "the road still has %d control points", nControls ) );
+	}
+	if ( Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szSaved ), "the refused edits of the short roads save the unedited file byte for byte" );
+	int nToken = -1;
+	if ( Check( BkEditorDeleteVso( pSession, 0, nNone, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	remove( OsPath( szMap ).c_str() );
+	remove( OsPath( szSaved ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	printf( "editor-bridge: M2 short roads kept as read ok\n" );
+}
+
 // ---------------------------------------------------------------------------
 // Bridges (04-06)
 // ---------------------------------------------------------------------------
@@ -8498,6 +8574,7 @@ int main( int argc, char **argv )
 		TestM2Roads( pSession, szScratch );
 		TestM2Rivers( pSession, szScratch );
 		TestM2RoadEdits( pSession, szScratch );
+		TestM2ShortVsoKeptAsRead( pSession, szScratch );
 		TestM2Bridges( pSession, szScratch );
 		TestM2BridgeDelete( pSession, szScratch );
 		TestM2BridgeRotateToggle( pSession, szScratch );
