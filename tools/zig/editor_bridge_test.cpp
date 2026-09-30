@@ -6573,6 +6573,32 @@ static void TestM2BridgeToggleSharedRefused( BkEditorSession *pSession, const st
 	printf( "editor-bridge: M2 bridge toggle of a shared span refused ok\n" );
 }
 
+// WR-A08 (04 review): the plan inputs now check every begin, line and end
+// index and every span's segments. Every shipped bridge type still plans: none
+// is refused for naming a span or segment it does not have.
+static void TestM2EveryBridgeTypePlans( BkEditorSession *pSession )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	int nCount = 0;
+	BkEditorBridgeDescriptors( pSession, 0, 0, &nCount );
+	std::vector<BkEditorBridgeDescriptor> descs( nCount > 0 ? nCount : 1 );
+	if ( !Check( nCount > 0 && BkEditorBridgeDescriptors( pSession, &descs[0], nCount, &nCount ) == BK_EDITOR_OK, "the bridge types read" ) )
+		return;
+	int nPlanned = 0;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		int nPieces = 0;
+		const BkEditorStatus status = BkEditorPlanBridge( pSession, descs[i].name, 1000.0f, 1000.0f, 1500.0f, 1000.0f, 0, 0, &nPieces );
+		const std::string szWhy = BkEditorLastMessage( pSession );
+		Check( szWhy.find( "does not have" ) == std::string::npos, NStr::Format( "bridge type %s plans (%d): %s", descs[i].name, int( status ), szWhy.c_str() ) );
+		if ( nPieces > 0 )
+			++nPlanned;
+	}
+	Check( nPlanned > 0, "at least one bridge type plans a horizontal drag" );
+	printf( "editor-bridge: every bridge type's plan inputs check out (%d types, %d planned a horizontal drag)\n", nCount, nPlanned );
+}
+
 // The screen box of a bridge (map-unit box from BkEditorBridges, grown by
 // half a tile in world units) with the camera on its centre, and a capture of
 // the frame. False when a corner does not convert.
@@ -8751,6 +8777,7 @@ int main( int argc, char **argv )
 		TestM2RoadEdits( pSession, szScratch );
 		TestM2ShortVsoKeptAsRead( pSession, szScratch );
 		TestM2Bridges( pSession, szScratch );
+		TestM2EveryBridgeTypePlans( pSession );
 		TestM2BridgeDelete( pSession, szScratch );
 		TestM2SharedBridgeLinksKeptAsRead( pSession, szScratch );
 		TestM2BridgeRotateToggle( pSession, szScratch );
