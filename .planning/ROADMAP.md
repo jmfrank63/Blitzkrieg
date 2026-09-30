@@ -288,7 +288,7 @@ Plans:
 **Goal:** Map Editor M2 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md` ("The editor set"): edit what M1 only preserves — roads and rivers, bridges (including rotating them, deferred from M1) and entrenchments, AI and unit groups (reinforcements, start commands, reserve positions, AI general data), scripts and script areas — with the same undo, save-preservation, test-in-game and CI standards as M1. Revisit free camera rotation (D-12, deferred with evidence in 03-06). Scope to be settled in discuss-phase; may split into several phases.
 **Requirements**: CONTEXT D-01..D-25 (04-CONTEXT.md) and the M2 rows of 04-PARITY.md
 **Depends on:** Phase 3
-**Plans:** 4/13 plans executed (D-24's eight split for one agent context each; executed one after another in the shared worktree)
+**Plans:** 5/13 plans executed (D-24's eight split for one agent context each; executed one after another in the shared worktree)
 
 Plans:
 **Wave 1**
@@ -309,7 +309,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 04-05-PLAN.md — roads and rivers: edit log, CVSOBuilder derive, river passability, MFC gestures, panel and markers
+- [x] 04-05-PLAN.md — roads and rivers: edit log, CVSOBuilder derive, river passability, MFC gestures, panel and markers
 
 **Wave 6** *(blocked on Wave 5 completion)*
 

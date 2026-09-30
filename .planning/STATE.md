@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 04-04-PLAN.md
-last_updated: "2026-09-29T23:37:09.809Z"
-state_head: 07c5d0f95666e0dcc65314a2d2b2b1c7204bdfd0
+stopped_at: Completed 04-05-PLAN.md
+last_updated: "2026-09-30T00:33:14.610Z"
+state_head: 807be9dd1628edff363b683bf2bf22d7cee7276a
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 32
-  completed_plans: 23
+  completed_plans: 24
   percent: 14
 current_phase_name: "Map editor M2: roads, rivers, bridges, AI groups, scripts"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-29T23:37:09.739Z
-**Stopped at:** Completed 04-04-PLAN.md
+**Last session:** 2026-09-30T00:33:14.543Z
+**Stopped at:** Completed 04-05-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -93,6 +93,7 @@ behavior needs the in-game rows).
 | Phase 04 P02 | 19 min | 3 tasks | 9 files |
 | Phase 04 P03 | 20min | 3 tasks | 13 files |
 | Phase 04 P04 | 20min | 3 tasks | 11 files |
+| Phase 04 P05 | 53min | 4 tasks | 24 files |
 
 ## Decisions
 
@@ -134,3 +135,6 @@ behavior needs the in-game rows).
 - [Phase 04]: 04-02: a delete edits the records naming the object (start-command units and targets, reserve positions) and refuses only for a bridge span, a trench piece and a vehicle holding a passenger; link ID 0 is never a reference — Matches the MFC editor's cascade with C3; refusals protect the game's loaders and M3's links
 - [Phase 04]: 04-03: tools get right-button, Ctrl-as-right and double click only when their registry entry asks; tool= uses the ToolId name; handlers return Outcome
 - [Phase 04]: 04-04: BK_MAP_TRACE names are double-quoted; --game-reads-it-m2 writes a combined baseline+edited report; the shared game-reads helpers live in game_reads_common.zig — Names may hold spaces; one game run prints one camera line, so a two-run comparison needs one file; game_reads_m2.zig cannot import the executable's root
+- [Phase ?]: 04-05: roads and rivers map saved nID to engine nID by a vector parallel to the saved list, not a map keyed by nID — survives repeated nIDs; 0 of 59 shipped maps repeat one
+- [Phase ?]: 04-05: an edit of an existing road hands CVSOBuilder::Update the record's own first width and opacity, not the panel's — an edit never depends on panel state
+- [Phase ?]: 04-05: BK_EDITOR_AUTO drags keep press, drag and release in one frame — the view's stale-gesture guard ends a gesture the real mouse does not hold
