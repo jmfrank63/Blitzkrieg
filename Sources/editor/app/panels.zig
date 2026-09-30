@@ -492,8 +492,15 @@ pub const State = struct {
     /// under the cursor while it is typed in.
     startcmd_number_field: f32 = 0,
     startcmd_number_for: ?usize = null,
-    /// Where the StartTarget tool returns to after its one click.
-    startcmd_return_tool: tool_registry.ToolId = .select,
+
+    /// 04-11 (D-18): the map's reserve positions (list order), read again when the
+    /// editor's `.reserve_position` record generation moves past
+    /// `reserve_generation_seen` - a delete or an undo of an object moves it too, since
+    /// its cascade erases and restores positions (`refreshReserve`); `reserve_at_open`
+    /// is for `reserve_delta`.
+    reserve_list: []core.records.ReservePosition = &.{},
+    reserve_generation_seen: ?u32 = null,
+    reserve_at_open: usize = 0,
 
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
@@ -567,6 +574,7 @@ pub const State = struct {
         self.areas.deinit(self.allocator);
         Editor.freeStartCommands(self.allocator, self.startcmds);
         self.allocator.free(self.startcmd_actions);
+        self.allocator.free(self.reserve_list);
         self.groups.deinit(self.allocator);
         self.groups_checked.deinit(self.allocator);
         self.hidden_wanted.deinit(self.allocator);
@@ -839,6 +847,21 @@ pub const State = struct {
         self.startcmd_number_for = null;
     }
 
+    /// The map's reserve positions, read again when the editor's `.reserve_position`
+    /// generation moved or a map opened (`mapOpened` resets the mark). A selection past
+    /// the new end is dropped.
+    pub fn refreshReserve(self: *State) void {
+        const generation = self.editor.record_generations.get(.reserve_position);
+        if (self.reserve_generation_seen != null and self.reserve_generation_seen.? == generation) return;
+        self.reserve_generation_seen = generation;
+        self.allocator.free(self.reserve_list);
+        self.reserve_list = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.reserve_list = self.editor.reservePositions(self.allocator) catch &.{};
+        const tool = &self.view.reserve_tool;
+        if (tool.selected != null and tool.selected.? >= self.reserve_list.len) tool.selected = null;
+    }
+
     /// The action types of Data/Editor/actions.ini, read once per map. A file that
     /// is missing leaves the list empty (the window says so and adding is off).
     pub fn refreshStartActions(self: *State) void {
@@ -1043,6 +1066,9 @@ pub const State = struct {
         self.refreshStartActions();
         self.refreshStartCommands();
         self.startcmds_at_open = self.startcmds.len;
+        self.reserve_generation_seen = null;
+        self.refreshReserve();
+        self.reserve_at_open = self.reserve_list.len;
         self.script_names_stale = true;
         self.script_generation_seen = null;
         self.script_pick_active = false;
@@ -1146,6 +1172,8 @@ pub fn draw(state: *State) void {
         panels_m2.drawEntrenchments(state, left_pos, left_size, cond)
     else if (state.view.tool == .script_areas)
         panels_m2.drawScriptAreas(state, left_pos, left_size, cond)
+    else if (state.view.tool == .reserve_positions)
+        panels_m2.drawReservePositions(state, left_pos, left_size, cond)
     else
         drawObjectPalette(state, left_pos, left_size, cond);
     const right_x = @max(size.x - state.right_width, state.left_width);
@@ -2076,6 +2104,8 @@ fn drawUnitMenu(state: *State, map_open: bool) void {
     const can_add = map_open and state.editor.selection != null and state.startcmd_actions.len != 0;
     if (ig.igMenuItemEx("Add start command", null, false, can_add)) _ = commands.run(state, "startcmd_add", "");
     if (ig.igMenuItemBoolPtr("Start commands...", null, &state.startcmds_open, map_open)) {}
+    ig.igSeparator();
+    if (ig.igMenuItemEx("Artillery positions mode", null, state.view.tool == .reserve_positions, map_open)) _ = commands.run(state, "reserve_mode", "");
 }
 
 /// Map > Player camera (D-22): the ground point under the screen's centre
