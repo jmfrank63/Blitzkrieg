@@ -12,8 +12,11 @@ const PaintCell = bridge_mod.PaintCell;
 /// world_x/world_y are the scene's units, for the camera; map_x/map_y the
 /// same point in the map's, which is what an object's position is in. The
 /// two differ by sqrt 2 (bridge.h, BkEditorScreenToWorld): a placer handed
-/// the world point put its object off the screen.
-pub const Pointer = struct { world_x: f32, world_y: f32, map_x: f32, map_y: f32, tile: ?[2]i32 = null, object: ?i32 = null };
+/// the world point put its object off the screen. screen_x/screen_y are the
+/// window pixels the point was resolved from (Editor.resolve), for gestures
+/// the MFC editor measures on screen: the Roads & Rivers opacity drag,
+/// 100 pixels to 1.0.
+pub const Pointer = struct { world_x: f32, world_y: f32, map_x: f32, map_y: f32, tile: ?[2]i32 = null, object: ?i32 = null, screen_x: f32 = 0, screen_y: f32 = 0 };
 /// `enter`, `insert`, `escape` and `space` are the MFC editor's keys for
 /// finishing, toggling and cancelling a gesture (04-03, C13); the M1 tools
 /// ignore them.

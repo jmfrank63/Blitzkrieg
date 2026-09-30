@@ -461,6 +461,266 @@ bool AddVsoToSession( SEditorSession *pSession, int nKind, const std::string &sz
 	return true;
 }
 
+namespace {
+// The width and opacity an edit of an existing record hands CVSOBuilder::Update.
+// With bKeepKeyPoints the key points keep their own; the width is then
+// smoothed between them, so only a non-key point's opacity takes the value.
+// The MFC tool hands it the panel's current values; the bridge hands it the
+// record's own first point's, so an edit never depends on what a panel shows
+// (a recorded parity deviation).
+float RecordWidth( const SVectorStripeObject &rVso )
+{
+	return rVso.points.empty() ? CVSOBuilder::DEFAULT_WIDTH : rVso.points[0].fWidth;
+}
+
+float RecordOpacity( const SVectorStripeObject &rVso )
+{
+	return rVso.points.empty() ? CVSOBuilder::DEFAULT_OPACITY : rVso.points[0].fOpacity;
+}
+
+// Resamples an edited record keeping its key points (Update( true ), the MFC
+// edit's call) and fits it to the ground.
+void ResampleKeepingKeys( SEditorSession *pSession, SVectorStripeObject *pVso )
+{
+	CVSOBuilder::Update( pVso, true, CVSOBuilder::DEFAULT_STEP, RecordWidth( *pVso ), RecordOpacity( *pVso ) );
+	CVSOBuilder::UpdateZ( pSession->working.terrain.altitudes, pVso );
+}
+
+// The MFC order after an insert or a delete of a control point
+// (VectorStripeObjectsState.cpp:534-545, 566-577): Update, the key points put
+// back from the backup (which the insert or delete already changed), Update
+// again, UpdateZ.
+void ResampleAroundBackup( SEditorSession *pSession, SVectorStripeObject *pVso, CVSOBuilder::SBackupKeyPoints *pBackup )
+{
+	const float fWidth = RecordWidth( *pVso );
+	const float fOpacity = RecordOpacity( *pVso );
+	CVSOBuilder::Update( pVso, true, CVSOBuilder::DEFAULT_STEP, fWidth, fOpacity );
+	pBackup->LoadKeyPoints( pVso );
+	CVSOBuilder::Update( pVso, true, CVSOBuilder::DEFAULT_STEP, fWidth, fOpacity );
+	CVSOBuilder::UpdateZ( pSession->working.terrain.altitudes, pVso );
+}
+
+// Two neighbouring control points closer than the builder's own minimum
+// would sample a degenerate curve: refused, where the MFC tool let it be.
+bool PointsApart( const std::vector<CVec3> &rPoints )
+{
+	for ( size_t i = 1; i < rPoints.size(); ++i )
+	{
+		const float fDx = rPoints[i].x - rPoints[i - 1].x, fDy = rPoints[i].y - rPoints[i - 1].y;
+		if ( fDx * fDx + fDy * fDy <= 2.0f * 2.0f )
+			return false;
+	}
+	return true;
+}
+
+// The sampled index of key point nKey, or -1.
+int KeyPointIndex( const SVectorStripeObject &rVso, int nKey )
+{
+	int nSeen = 0;
+	for ( size_t i = 0; i < rVso.points.size(); ++i )
+		if ( rVso.points[i].bKeyPoint && nSeen++ == nKey )
+			return int( i );
+	return -1;
+}
+
+// One edit of an existing record: the record as it is, changed by modify,
+// checked for the loaders' rule and put through the log. modify returns false
+// with the reason in szMessage and *pbRefused set for a refusal.
+template<class F>
+bool ReplaceVsoInSession( SEditorSession *pSession, int nKind, int nIndex, int *pnToken, bool *pbRefused, F modify )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	const SVectorStripeObject *pVso = SessionVso( *pSession, nKind, nIndex );
+	if ( pVso == 0 )
+	{
+		pSession->szMessage = NStr::Format( "no %s %d", IsKind( nKind ) ? KindName( nKind ) : "road or river", nIndex );
+		return false;
+	}
+	std::unique_ptr<SVsoEdit> edit( new SVsoEdit );
+	edit->nKind = nKind;
+	edit->nIndex = nIndex;
+	edit->bBefore = true;
+	edit->bAfter = true;
+	edit->before = *pVso;
+	edit->after = *pVso;
+	if ( !modify( &edit->after, pbRefused ) )
+		return false;
+	if ( !LongEnough( edit->after ) )
+	{
+		pSession->szMessage = NStr::Format( "that %s would be too short to load", KindName( nKind ) );
+		*pbRefused = true;
+		return false;
+	}
+	return ApplyAndLog( pSession, edit.release(), pnToken );
+}
+
+// The width modes, as BkEditorSetVsoWidth and BkEditorSetVsoOpacity take them.
+enum EWidthMode { WIDTH_SINGLE = 0, WIDTH_FROM_HERE = 1, WIDTH_ALL = 2 };
+}
+
+bool MoveVsoPointsInSession( SEditorSession *pSession, int nKind, int nIndex, const std::vector<CVec3> &rPoints, int *pnToken, bool *pbRefused )
+{
+	return ReplaceVsoInSession( pSession, nKind, nIndex, pnToken, pbRefused, [&]( SVectorStripeObject *pVso, bool *pbNo ) -> bool
+	{
+		if ( rPoints.size() != pVso->controlpoints.size() )
+		{
+			pSession->szMessage = "a move names every control point of the line";
+			return false;
+		}
+		for ( size_t i = 0; i < rPoints.size(); ++i )
+			if ( !OnTheMap( *pSession, rPoints[i].x, rPoints[i].y ) )
+			{
+				pSession->szMessage = NStr::Format( "point %d would be off the map", int( i ) );
+				*pbNo = true;
+				return false;
+			}
+		if ( !PointsApart( rPoints ) )
+		{
+			pSession->szMessage = "two neighbouring points would be closer than 2 units";
+			*pbNo = true;
+			return false;
+		}
+		pVso->controlpoints = rPoints;
+		ResampleKeepingKeys( pSession, pVso );
+		return true;
+	} );
+}
+
+bool SetVsoWidthInSession( SEditorSession *pSession, int nKind, int nIndex, int nKey, float fWidth, int nMode, int *pnToken, bool *pbRefused )
+{
+	return ReplaceVsoInSession( pSession, nKind, nIndex, pnToken, pbRefused, [&]( SVectorStripeObject *pVso, bool * ) -> bool
+	{
+		const int nAt = KeyPointIndex( *pVso, nKey );
+		if ( nAt < 0 )
+		{
+			pSession->szMessage = NStr::Format( "no key point %d", nKey );
+			return false;
+		}
+		// Single: that key point. From here on: it and every later key point.
+		// All: every point, as the MFC CW_ALL drag sets them.
+		for ( size_t i = 0; i < pVso->points.size(); ++i )
+		{
+			const bool bKey = pVso->points[i].bKeyPoint;
+			if ( ( nMode == WIDTH_SINGLE && int( i ) == nAt ) || ( nMode == WIDTH_FROM_HERE && bKey && int( i ) >= nAt ) || nMode == WIDTH_ALL )
+				pVso->points[i].fWidth = fWidth;
+		}
+		ResampleKeepingKeys( pSession, pVso );
+		return true;
+	} );
+}
+
+bool SetVsoOpacityInSession( SEditorSession *pSession, int nKind, int nIndex, int nKey, float fOpacity, int nMode, int *pnToken, bool *pbRefused )
+{
+	return ReplaceVsoInSession( pSession, nKind, nIndex, pnToken, pbRefused, [&]( SVectorStripeObject *pVso, bool * ) -> bool
+	{
+		const int nAt = KeyPointIndex( *pVso, nKey );
+		if ( nAt < 0 )
+		{
+			pSession->szMessage = NStr::Format( "no key point %d", nKey );
+			return false;
+		}
+		// The MFC right-drag sets the points' opacity and resamples nothing:
+		// single, the key point; all, every point. From here on: every point
+		// from that key point to the end.
+		for ( size_t i = 0; i < pVso->points.size(); ++i )
+			if ( ( nMode == WIDTH_SINGLE && int( i ) == nAt ) || ( nMode == WIDTH_FROM_HERE && int( i ) >= nAt ) || nMode == WIDTH_ALL )
+				pVso->points[i].fOpacity = fOpacity;
+		return true;
+	} );
+}
+
+bool InsertVsoPointInSession( SEditorSession *pSession, int nKind, int nIndex, int nControl, int *pnToken, bool *pbRefused )
+{
+	return ReplaceVsoInSession( pSession, nKind, nIndex, pnToken, pbRefused, [&]( SVectorStripeObject *pVso, bool * ) -> bool
+	{
+		const int nCount = int( pVso->controlpoints.size() );
+		if ( nControl < 0 || nControl >= nCount || nCount < 2 )
+		{
+			pSession->szMessage = NStr::Format( "no control point %d", nControl );
+			return false;
+		}
+		// The midpoint after the point, or before it when it is the last
+		// (MFC). Its key point takes the average of the two it lies between;
+		// the MFC tool gave it the panel's width and opacity.
+		const int nOther = nControl < nCount - 1 ? nControl + 1 : nControl - 1;
+		const int nAt = nControl < nCount - 1 ? nControl + 1 : nControl;
+		const int nKeyA = KeyPointIndex( *pVso, nControl ), nKeyB = KeyPointIndex( *pVso, nOther );
+		const float fWidth = nKeyA >= 0 && nKeyB >= 0 ? ( pVso->points[nKeyA].fWidth + pVso->points[nKeyB].fWidth ) / 2.0f : RecordWidth( *pVso );
+		const float fOpacity = nKeyA >= 0 && nKeyB >= 0 ? ( pVso->points[nKeyA].fOpacity + pVso->points[nKeyB].fOpacity ) / 2.0f : RecordOpacity( *pVso );
+		CVSOBuilder::SBackupKeyPoints backup;
+		backup.SaveKeyPoints( *pVso );
+		const CVec3 vMiddle = ( pVso->controlpoints[nControl] + pVso->controlpoints[nOther] ) / 2.0f;
+		pVso->controlpoints.insert( pVso->controlpoints.begin() + nAt, vMiddle );
+		backup.AddKeyPoint( nAt, fWidth, fOpacity );
+		ResampleAroundBackup( pSession, pVso, &backup );
+		return true;
+	} );
+}
+
+bool DeleteVsoPointInSession( SEditorSession *pSession, int nKind, int nIndex, int nControl, int *pnToken, bool *pbRefused )
+{
+	return ReplaceVsoInSession( pSession, nKind, nIndex, pnToken, pbRefused, [&]( SVectorStripeObject *pVso, bool *pbNo ) -> bool
+	{
+		const int nCount = int( pVso->controlpoints.size() );
+		if ( nControl < 0 || nControl >= nCount )
+		{
+			pSession->szMessage = NStr::Format( "no control point %d", nControl );
+			return false;
+		}
+		if ( nCount <= 2 )
+		{
+			pSession->szMessage = "a road needs at least 2 points";
+			*pbNo = true;
+			return false;
+		}
+		CVSOBuilder::SBackupKeyPoints backup;
+		backup.SaveKeyPoints( *pVso );
+		pVso->controlpoints.erase( pVso->controlpoints.begin() + nControl );
+		backup.RemoveKeyPoint( nControl );
+		ResampleAroundBackup( pSession, pVso, &backup );
+		return true;
+	} );
+}
+
+bool PickVsoInSession( SEditorSession *pSession, float fX, float fY, int nCycle, int *pnKind, int *pnIndex, bool *pbRefused )
+{
+	*pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	// The MFC selection's own hit test over both lists, roads first; a
+	// repeated right press walks through what overlaps (CVSOSelectState).
+	std::vector< std::pair<int, int> > hits;
+	const CVec3 vPoint( fX, fY, 0.0f );
+	for ( int nKind = 0; nKind < nKinds; ++nKind )
+	{
+		std::vector<int> indices;
+		CMapInfo::TerrainHitTest( pSession->snapshot.terrain, vPoint, nKind == 0 ? CMapInfo::THT_ROADS3D : CMapInfo::THT_RIVERS, &indices );
+		for ( size_t i = 0; i < indices.size(); ++i )
+			hits.push_back( std::make_pair( nKind, indices[i] ) );
+	}
+	if ( hits.empty() )
+	{
+		pSession->szMessage = "no road or river there";
+		*pbRefused = true;
+		return false;
+	}
+	const std::pair<int, int> &rHit = hits[nCycle % int( hits.size() )];
+	*pnKind = rHit.first;
+	*pnIndex = rHit.second;
+	return true;
+}
+
 bool DeleteVsoFromSession( SEditorSession *pSession, int nKind, int nIndex, int *pnToken, bool *pbRefused )
 {
 	*pbRefused = false;

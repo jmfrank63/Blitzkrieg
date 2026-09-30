@@ -138,6 +138,7 @@ pub fn ViewWith(comptime Input: type) type {
 
         pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
             self.brush.deinit(allocator);
+            self.roads_rivers.deinit(allocator);
             var keys = self.remembered.keyIterator();
             while (keys.next()) |key| allocator.free(key.*);
             self.remembered.deinit(allocator);
@@ -394,9 +395,14 @@ pub fn ViewWith(comptime Input: type) type {
             }
             const pointer = editor.resolve(motion.x, motion.y) catch {
                 self.hover = null;
+                if (self.tool == .roads_rivers) self.roads_rivers.hoverNone();
                 return;
             };
             self.hover = pointer;
+            // Plain motion: Roads & Rivers follows the pointer (the unfinished
+            // line's last leg, the control point Insert and Delete act on).
+            // Not an edit, so it goes around dispatch and its status handling.
+            if (self.tool == .roads_rivers and !self.left_button_down and !self.right_button_down) self.roads_rivers.hover(editor, pointer);
             if (self.right_button_down) {
                 // A right gesture (its own button, or Ctrl+left) drags as a
                 // right one; the left button's motion is then the same gesture.

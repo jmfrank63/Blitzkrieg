@@ -855,6 +855,43 @@ BkEditorStatus BkEditorVso( BkEditorSession *session, int kind, int index, BkEdi
    fewer than two sampled points). A refusal changes nothing. */
 BkEditorStatus BkEditorAddVso( BkEditorSession *session, int kind, const char *desc, const BkEditorVec3 *points, int count,
                                float width_tiles, float opacity, int *out_token, int *out_index );
+/* Edits of the road or river at index, each one edit with a token for
+   BkEditorUndoEdit (out_token may be null; -1 after a refusal). The record is
+   resampled by the bridge keeping its key points' widths and opacities
+   (CVSOBuilder::Update with key points kept, then UpdateZ); for a river the
+   AI's tiles follow (DeleteRiver with the record as it was, AddRiver with the
+   new one). Every entry: kind other than 0 or 1, index outside 0..count-1, a
+   non-finite value or a mode other than 0..2 is BK_EDITOR_BAD_ARGUMENT;
+   BK_EDITOR_REFUSED with no map open; a refusal changes nothing.
+
+   The mode of a width or opacity edit is the MFC editor's width mode: 0 the
+   key point alone, 1 it and every later one, 2 every point.
+
+   BkEditorMoveVsoPoints: the line's control points, count of them - exactly
+   the record's control count (else BK_EDITOR_BAD_ARGUMENT), world units, z
+   ignored. REFUSED when a point would be off the map or two neighbours closer
+   than 2 units.
+   BkEditorSetVsoWidth: the width of key point key (0..key_count-1), world
+   units from the centre line to the edge, above 0.
+   BkEditorSetVsoOpacity: the opacity 0..1 at key point key. Like the MFC
+   right-drag it resamples nothing: the key point (mode 0), every point from
+   it on (1), every point (2).
+   BkEditorInsertVsoPoint: the midpoint after control point control, or
+   before it when it is the last, with the average width and opacity of the
+   two key points it lies between.
+   BkEditorDeleteVsoPoint: removes control point control; REFUSED ("a road
+   needs at least 2 points") while only 2 remain. */
+BkEditorStatus BkEditorMoveVsoPoints( BkEditorSession *session, int kind, int index, const BkEditorVec3 *points, int count, int *out_token );
+BkEditorStatus BkEditorSetVsoWidth( BkEditorSession *session, int kind, int index, int key, float width_world, int mode, int *out_token );
+BkEditorStatus BkEditorSetVsoOpacity( BkEditorSession *session, int kind, int index, int key, float opacity, int mode, int *out_token );
+BkEditorStatus BkEditorInsertVsoPoint( BkEditorSession *session, int kind, int index, int control, int *out_token );
+BkEditorStatus BkEditorDeleteVsoPoint( BkEditorSession *session, int kind, int index, int control, int *out_token );
+/* The road or river under the world point (wx, wy), world units:
+   CMapInfo::TerrainHitTest over the roads, then the rivers. cycle (0 or more)
+   skips that many earlier hits, wrapping, so a repeated right press walks
+   through overlapping lines. BK_EDITOR_REFUSED when nothing is there;
+   *out_kind and *out_index are -1 then. */
+BkEditorStatus BkEditorPickVso( BkEditorSession *session, float wx, float wy, int cycle, int *out_kind, int *out_index );
 /* Deletes the road (kind 0) or river (kind 1) at index, the whole record, as
    one edit (out_token, may be null; -1 after a refusal). A river's tiles are
    unlocked in the AI first; undo puts the record back where it was and locks

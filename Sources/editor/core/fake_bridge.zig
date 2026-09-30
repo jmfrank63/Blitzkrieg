@@ -466,6 +466,12 @@ pub const FakeBridge = struct {
         .readVso = readVso,
         .addVso = addVso,
         .deleteVso = deleteVso,
+        .moveVsoPoints = moveVsoPoints,
+        .setVsoWidth = setVsoWidth,
+        .setVsoOpacity = setVsoOpacity,
+        .insertVsoPoint = insertVsoPoint,
+        .deleteVsoPoint = deleteVsoPoint,
+        .pickVso = pickVso,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a
@@ -613,6 +619,179 @@ pub const FakeBridge = struct {
         if (index < 0 or index >= list.len) return .bad_argument;
         const at: usize = @intCast(index);
         return self.logVsoEdit(.{ .kind = kind, .index = at, .before = list[at], .after = null }, token);
+    }
+
+    /// The record at `index`, or null (a caller bug: bad_argument).
+    fn vsoAt(self: *FakeBridge, kind: VsoKind, index: i32) ?FakeVso {
+        const list = self.vso_lists[@intFromEnum(kind)].items;
+        if (index < 0 or index >= list.len) return null;
+        return list[@intCast(index)];
+    }
+
+    fn logReplace(self: *FakeBridge, kind: VsoKind, index: i32, before: FakeVso, after: FakeVso, token: *i32) Status {
+        return self.logVsoEdit(.{ .kind = kind, .index = @intCast(index), .before = before, .after = after }, token);
+    }
+
+    fn moveVsoPoints(ptr: *anyopaque, kind: VsoKind, index: i32, points: []const records.Vec3, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        const before = self.vsoAt(kind, index) orelse return .bad_argument;
+        if (points.len != before.count) return .bad_argument;
+        for (points) |point| {
+            if (!finite(point)) return .bad_argument;
+        }
+        for (points, 0..) |point, at| {
+            if (!self.onMap(point.x, point.y)) {
+                self.say("point {d} would be off the map", .{at});
+                return .refused;
+            }
+            if (at > 0) {
+                const dx = point.x - points[at - 1].x;
+                const dy = point.y - points[at - 1].y;
+                if (dx * dx + dy * dy <= vso_min_point_distance * vso_min_point_distance) {
+                    self.say("two neighbouring points would be closer than 2 units", .{});
+                    return .refused;
+                }
+            }
+        }
+        var after = before;
+        for (points, 0..) |point, at| after.controls[at] = .{ .x = point.x, .y = point.y, .z = 0 };
+        after.renormal();
+        return self.logReplace(kind, index, before, after, token);
+    }
+
+    /// Whether key `at` is changed by an edit at `key` in `mode`.
+    fn inMode(mode: bridge_mod.VsoWidthMode, key: usize, at: usize) bool {
+        return switch (mode) {
+            .single => at == key,
+            .multi => at >= key,
+            .all => true,
+        };
+    }
+
+    fn setVsoWidth(ptr: *anyopaque, kind: VsoKind, index: i32, key: i32, width: f32, mode: bridge_mod.VsoWidthMode, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        const before = self.vsoAt(kind, index) orelse return .bad_argument;
+        if (key < 0 or key >= before.count or !std.math.isFinite(width) or width <= 0) return .bad_argument;
+        var after = before;
+        for (after.keys[0..after.count], 0..) |*item, at| {
+            if (inMode(mode, @intCast(key), at)) item.width = width;
+        }
+        return self.logReplace(kind, index, before, after, token);
+    }
+
+    fn setVsoOpacity(ptr: *anyopaque, kind: VsoKind, index: i32, key: i32, opacity: f32, mode: bridge_mod.VsoWidthMode, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        const before = self.vsoAt(kind, index) orelse return .bad_argument;
+        if (key < 0 or key >= before.count or !std.math.isFinite(opacity) or opacity < 0 or opacity > 1) return .bad_argument;
+        var after = before;
+        for (after.keys[0..after.count], 0..) |*item, at| {
+            if (inMode(mode, @intCast(key), at)) item.opacity = opacity;
+        }
+        return self.logReplace(kind, index, before, after, token);
+    }
+
+    fn insertVsoPoint(ptr: *anyopaque, kind: VsoKind, index: i32, control: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        const before = self.vsoAt(kind, index) orelse return .bad_argument;
+        if (control < 0 or control >= before.count) return .bad_argument;
+        if (before.count == max_vso_points) {
+            self.say("the fake holds at most {d} points per road", .{max_vso_points});
+            return .refused;
+        }
+        const c: usize = @intCast(control);
+        const other = if (c + 1 < before.count) c + 1 else c - 1;
+        const at = if (c + 1 < before.count) c + 1 else c;
+        var after = before;
+        var middle = before.controls[c];
+        middle.x = (before.controls[c].x + before.controls[other].x) / 2;
+        middle.y = (before.controls[c].y + before.controls[other].y) / 2;
+        var key = before.keys[c];
+        key.width = (before.keys[c].width + before.keys[other].width) / 2;
+        key.opacity = (before.keys[c].opacity + before.keys[other].opacity) / 2;
+        var move = after.count;
+        while (move > at) : (move -= 1) {
+            after.controls[move] = after.controls[move - 1];
+            after.keys[move] = after.keys[move - 1];
+        }
+        after.controls[at] = middle;
+        after.keys[at] = key;
+        after.count += 1;
+        after.renormal();
+        return self.logReplace(kind, index, before, after, token);
+    }
+
+    fn deleteVsoPoint(ptr: *anyopaque, kind: VsoKind, index: i32, control: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        const before = self.vsoAt(kind, index) orelse return .bad_argument;
+        if (control < 0 or control >= before.count) return .bad_argument;
+        if (before.count <= 2) {
+            self.say("a road needs at least 2 points", .{});
+            return .refused;
+        }
+        var after = before;
+        var at: usize = @intCast(control);
+        while (at + 1 < after.count) : (at += 1) {
+            after.controls[at] = after.controls[at + 1];
+            after.keys[at] = after.keys[at + 1];
+        }
+        after.count -= 1;
+        after.renormal();
+        return self.logReplace(kind, index, before, after, token);
+    }
+
+    /// The fake's hit test: within the wider of the two key widths of a
+    /// segment of the line, roads before rivers (the real one tests the
+    /// sampled stripe's bounding polygon).
+    fn pickVso(ptr: *anyopaque, wx: f32, wy: f32, cycle: i32, kind: *VsoKind, index: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        index.* = -1;
+        if (cycle < 0 or !std.math.isFinite(wx) or !std.math.isFinite(wy)) return .bad_argument;
+        var hits: [64]bridge_mod.VsoRef = undefined;
+        var count: usize = 0;
+        for ([_]VsoKind{ .road, .river }) |candidate_kind| {
+            for (self.vso_lists[@intFromEnum(candidate_kind)].items, 0..) |*item, at| {
+                if (count == hits.len) break;
+                if (!hitsLine(item, wx, wy)) continue;
+                hits[count] = .{ .kind = candidate_kind, .index = at };
+                count += 1;
+            }
+        }
+        if (count == 0) {
+            self.say("no road or river there", .{});
+            return .refused;
+        }
+        const hit = hits[@as(usize, @intCast(cycle)) % count];
+        kind.* = hit.kind;
+        index.* = @intCast(hit.index);
+        return .ok;
+    }
+
+    fn hitsLine(item: *const FakeVso, x: f32, y: f32) bool {
+        var at: usize = 0;
+        while (at + 1 < item.count) : (at += 1) {
+            const a = item.controls[at];
+            const b = item.controls[at + 1];
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const length2 = dx * dx + dy * dy;
+            const t = if (length2 > 0) std.math.clamp(((x - a.x) * dx + (y - a.y) * dy) / length2, 0, 1) else 0;
+            const px = a.x + t * dx - x;
+            const py = a.y + t * dy - y;
+            const reach = @max(item.keys[at].width, item.keys[at + 1].width);
+            if (px * px + py * py <= reach * reach) return true;
+        }
+        return false;
     }
 
     fn knownDescriptor(self: *const FakeBridge, kind: VsoKind, desc: []const u8) bool {
