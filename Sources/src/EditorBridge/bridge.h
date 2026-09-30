@@ -868,8 +868,8 @@ BkEditorStatus BkEditorDeleteScriptArea( BkEditorSession *session, int index );
    the first point, radius the distance to the last); name may be empty here.
    Moved: the area with its centre at world point (wx, wy). Resized: the area
    with its rectangle corner or circle edge at world point (wx, wy). A null
-   pointer, an unterminated name, a type other than 0 and 1 or a non-finite
-   number is BK_EDITOR_BAD_ARGUMENT. */
+   pointer, an unterminated name, a type other than 0 and 1, a non-finite
+   number or a world point beyond +-1e6 is BK_EDITOR_BAD_ARGUMENT. */
 BkEditorStatus BkEditorScriptAreaFromVis( BkEditorSession *session, int type, float wx0, float wy0, float wx1, float wy1,
                                           const char *name, BkEditorScriptAreaRecord *out );
 BkEditorStatus BkEditorScriptAreaMoved( BkEditorSession *session, const BkEditorScriptAreaRecord *area, float wx, float wy,
@@ -1274,7 +1274,7 @@ typedef struct { float x, y; int type; int dir; } BkEditorPlannedPiece;
    type (or whose stats lack a begin, middle or end span) and a drag along the
    other axis than the type's direction ("this bridge runs horizontally ...");
    BK_EDITOR_BAD_ARGUMENT for a null desc or out_count, a desc of 64
-   characters or more, a non-finite coordinate. */
+   characters or more, a non-finite coordinate or one beyond +-1e6. */
 BkEditorStatus BkEditorPlanBridge( BkEditorSession *session, const char *desc, float wx0, float wy0, float wx1, float wy1,
                                    BkEditorPlannedPiece *out, int capacity, int *out_count );
 /* Draws a bridge of type desc along the drag (WORLD units): the planned spans
@@ -1356,7 +1356,7 @@ BkEditorStatus BkEditorFenceDescriptors( BkEditorSession *session, BkEditorFence
    whose stats lack a centre segment in one of four directions) and a run with
    an end off the map ("the fence run leaves the map"); BK_EDITOR_BAD_ARGUMENT
    for a null desc or out_count, a desc of 64 characters or more, a
-   non-finite coordinate. */
+   non-finite coordinate or one beyond +-1e6. */
 BkEditorStatus BkEditorPlanFences( BkEditorSession *session, const char *desc, float wx0, float wy0, float wx1, float wy1, int ctrl,
                                    BkEditorPlannedPiece *out, int capacity, int *out_count );
 /* Places the planned fences as objects (HP 1, no script ID, player 0, fresh

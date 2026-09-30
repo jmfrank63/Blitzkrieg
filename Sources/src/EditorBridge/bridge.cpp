@@ -2022,6 +2022,18 @@ namespace {
 // record, a type the file has and finite numbers. What is past this (an empty or
 // taken name, a centre off the map, a negative size) is a refusal decided once,
 // in session_records.cpp.
+// A world coordinate a drag or an area gesture hands the ABI: finite and
+// within +-1e6 (a map is a few tens of thousands of world units across), so
+// every float-to-int conversion behind it (PlanBridge's span count, the
+// areas' Vis2AI, the fence tiles) is defined and gives the same answer on
+// every platform (WR-A09).
+const float fMaxGestureCoordinate = 1.0e6f;
+
+bool SaneCoordinate( float fValue )
+{
+	return std::isfinite( fValue ) && std::fabs( fValue ) <= fMaxGestureCoordinate;
+}
+
 bool AreaRecordWellFormed( const BkEditorScriptAreaRecord *pRecord )
 {
 	if ( pRecord == 0 || memchr( pRecord->name, 0, sizeof pRecord->name ) == 0 )
@@ -2140,7 +2152,7 @@ BkEditorStatus BkEditorScriptAreaFromVis( BkEditorSession *pSession, int nType, 
 	{
 		if ( pOut == 0 || pszName == 0 || strnlen( pszName, sizeof pOut->name ) >= sizeof pOut->name )
 			return BK_EDITOR_BAD_ARGUMENT;
-		if ( ( nType != 0 && nType != 1 ) || !std::isfinite( fX0 ) || !std::isfinite( fY0 ) || !std::isfinite( fX1 ) || !std::isfinite( fY1 ) )
+		if ( ( nType != 0 && nType != 1 ) || !SaneCoordinate( fX0 ) || !SaneCoordinate( fY0 ) || !SaneCoordinate( fX1 ) || !SaneCoordinate( fY1 ) )
 			return BK_EDITOR_BAD_ARGUMENT;
 		FillAreaRecord( NMapGeometry::AreaFromVis( nType, CVec2( fX0, fY0 ), CVec2( fX1, fY1 ), pszName ), pOut );
 		return BK_EDITOR_OK;
@@ -2152,7 +2164,7 @@ BkEditorStatus BkEditorScriptAreaMoved( BkEditorSession *pSession, const BkEdito
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		if ( pOut == 0 || !AreaRecordWellFormed( pArea ) || !std::isfinite( fX ) || !std::isfinite( fY ) )
+		if ( pOut == 0 || !AreaRecordWellFormed( pArea ) || !SaneCoordinate( fX ) || !SaneCoordinate( fY ) )
 			return BK_EDITOR_BAD_ARGUMENT;
 		FillAreaRecord( NMapGeometry::MoveArea( AreaOf( *pArea ), CVec2( fX, fY ) ), pOut );
 		return BK_EDITOR_OK;
@@ -2164,7 +2176,7 @@ BkEditorStatus BkEditorScriptAreaResized( BkEditorSession *pSession, const BkEdi
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		if ( pOut == 0 || !AreaRecordWellFormed( pArea ) || !std::isfinite( fX ) || !std::isfinite( fY ) )
+		if ( pOut == 0 || !AreaRecordWellFormed( pArea ) || !SaneCoordinate( fX ) || !SaneCoordinate( fY ) )
 			return BK_EDITOR_BAD_ARGUMENT;
 		FillAreaRecord( NMapGeometry::ResizeArea( AreaOf( *pArea ), CVec2( fX, fY ) ), pOut );
 		return BK_EDITOR_OK;
@@ -3065,7 +3077,7 @@ bool BridgeNameFits( const char *pszDesc )
 
 bool FiniteDrag( float fX0, float fY0, float fX1, float fY1 )
 {
-	return std::isfinite( fX0 ) && std::isfinite( fY0 ) && std::isfinite( fX1 ) && std::isfinite( fY1 );
+	return SaneCoordinate( fX0 ) && SaneCoordinate( fY0 ) && SaneCoordinate( fX1 ) && SaneCoordinate( fY1 );
 }
 }
 

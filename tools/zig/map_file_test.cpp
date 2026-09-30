@@ -1484,6 +1484,12 @@ static void TestM2ScriptAreaConversion()
 	// The truncation and its 0.3: 0.35 world units is 0.495 AI units plus 0.3 = 0.795, which truncates to 0; 0.5 is 0.707 + 0.3 = 1.007 and gives 1.
 	const SScriptArea tiny = NMapGeometry::AreaFromVis( SScriptArea::EAT_CIRCLE, CVec2( 0.35f, 0.5f ), CVec2( 0.35f, 0.5f ), "tiny" );
 	Check( tiny.center.x == 0.0f && tiny.center.y == 1.0f && tiny.fR == 0.0f, "the centre truncates with Vis2AI's +0.3 (0.35 -> 0, 0.5 -> 1) and a zero drag has radius 0" );
+	// WR-A09: a length out of int's range is clamped before the conversion, so it
+	// is the same on every platform (x86 gave INT_MIN, ARM64 INT_MAX).
+	const SScriptArea huge = NMapGeometry::AreaFromVis( SScriptArea::EAT_CIRCLE, CVec2( 0.0f, 0.0f ), CVec2( 1.0e30f, 0.0f ), "huge" );
+	Check( huge.fR == 1.0e9f, NStr::Format( "a radius past int's range is clamped to 1e9 AI units (%g)", huge.fR ) );
+	const SScriptArea hugeBack = NMapGeometry::AreaFromVis( SScriptArea::EAT_RECTANGLE, CVec2( -1.0e30f, 0.0f ), CVec2( -1.0e30f, 0.0f ), "hugeback" );
+	Check( hugeBack.center.x == -1.0e9f, NStr::Format( "a centre past int's range the other way is clamped to -1e9 (%g)", hugeBack.center.x ) );
 
 	// Moving keeps the size and name; the new centre takes the rule.
 	const SScriptArea moved = NMapGeometry::MoveArea( rect, CVec2( 10.0f, 20.0f ) );
@@ -2088,6 +2094,11 @@ static void TestM2BridgePlan()
 	zero.fSpanLength = std::numeric_limits<float>::quiet_NaN();
 	Check( !NMapGeometry::PlanBridge( zero, CVec2( 1000.0f, 800.0f ), CVec2( 1700.0f, 800.0f ), &spans, &szWhy ), "a NaN span length is refused" );
 	Check( !NMapGeometry::PlanBridge( horizontal, CVec2( 1000.0f, std::numeric_limits<float>::infinity() ), CVec2( 1700.0f, 800.0f ), &spans, &szWhy ), "a non-finite point is refused" );
+	// WR-A09: a span count out of int's range is refused before it is converted.
+	NMapGeometry::SBridgePlanInput tiny = horizontal;
+	tiny.fSpanLength = 1.0e-30f;
+	Check( !NMapGeometry::PlanBridge( tiny, CVec2( 1000.0f, 800.0f ), CVec2( 1700.0f, 800.0f ), &spans, &szWhy ), "a span length so small the count leaves int's range is refused" );
+	Check( !NMapGeometry::PlanBridge( horizontal, CVec2( -1.0e30f, 800.0f ), CVec2( 1.0e30f, 800.0f ), &spans, &szWhy ), "a drag so long the count leaves int's range is refused" );
 
 	// The partner names.
 	Check( NMapGeometry::BridgePartnerName( "W_WoodenBig_Heavy_01" ) == "W_WoodenBig_Heavy_02", "_01's partner is _02" );
