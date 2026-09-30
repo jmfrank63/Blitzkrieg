@@ -339,12 +339,18 @@ The deletion plan runs last and only after every PARITY row (M2's included) is c
 | A5 | Diplomacy length changes (players add/delete) are compatible with existing bridge validation (M1 assumed fixed size) | Plan 05-05 | Validation rewrite; caught by core tests early |
 | A6 | Unit creation records can reuse the M2 generic record path (`record_add`/`record_delete`) | Plan 05-05 | A bespoke record type; moderate |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All four questions are dispositioned inside their consuming plans; nothing remains open for planning or execution to answer up front. Each entry keeps the original question and names the disposition.
 
 1. **Wireframe/Depth-Complexity on GFXGPU** — do the renderer paths exist headless and on macOS Metal? Measure first in plan 05-06 (PARITY L3/L4 already say so).
+   *Resolution (05-06 Task 1):* measured before the menu ships by the engine-tier probe `TestM3LayerProbe` (per layer: does the call succeed headless, does the state read back, does a captured frame change). `BkEditorLayers` returns a per-layer availability mask from the probe's findings; unavailable layers are greyed out with the probe finding as tooltip — never silently no-op'd — and PARITY L3/L4 evidence cites the probe by name and result.
 2. **`CAIEditor` availability in the bridge session** — `UpdateAllHeights`/`ApplyPattern` live behind `IAIEditor`; confirm the editor-bridge session constructs it (MFC-only singleton today?). Decides whether Update Map's objects-Z pass is `pAIEditor`-driven or reimplemented in the bridge.
+   *Resolution (05-02, assumption A3):* 05-02 measures first whether the bridge session can construct IAIEditor headless; if it cannot, Update Map's objects-Z pass is reimplemented bridge-side over `CMapInfo::UpdateObjectsZ` / per-object `UpdateZ` (the VSO builder already exposes UpdateZ). The measurement and the choice land in the 05-02 SUMMARY and the code comments.
 3. **Progress-modal UX on macOS** — MFC pumps messages inside `Step()`; confirm the SDL app can repaint its ImGui modal from the C++ callback without re-entrancy (Pitfall 4). If not, a frozen-but-animated modal is the fallback (agent's discretion per CONTEXT).
+   *Resolution (05-08 Task 2):* if the platform pump proves safe from the C callback it is used; otherwise the accepted fallback ships — the modal's bar animates from the step counter the callback stores while the window stays frozen. D-03's main-thread mandate holds either way; the choice is documented in the 05-08 SUMMARY.
 4. **Composer data model width** — one generic "list + properties" widget vs five bespoke windows (agent's discretion); the round-trip gate is unaffected either way.
+   *Resolution (05-09, inherited by 05-10):* 05-09 decides for containers+graphs (the graphs canvas forces at least one bespoke window) and records the decision; 05-10 inherits it for fields+templates, with the Templates Composer keeping a bespoke layout where unavoidable (weights grid + unit-creation grid). Agent's discretion per CONTEXT; the round-trip gate is unaffected either way.
 
 ## Sources
 
