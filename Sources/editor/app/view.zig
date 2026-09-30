@@ -122,6 +122,8 @@ pub fn ViewWith(comptime Input: type) type {
         start_target_return: Tool = .select,
         /// 04-11: the Reserve Positions tool (D-18), Unit -> Artillery positions mode.
         reserve_tool: core.tools_ai.ReservePositions = .{},
+        /// 04-12: the AI General tool (D-19).
+        ai_tool: core.tools_ai.AIGeneral = .{},
         /// Set each frame by a panel that uses the Delete key itself (the Start
         /// Commands window while it is focused): the view then does not hand
         /// Delete or Backspace to the tool, which would delete the selected
@@ -291,6 +293,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.areas_tool.reset();
             self.start_target.reset();
             self.reserve_tool.reset();
+            self.ai_tool.reset();
             self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
             if (self.remembered.get(path)) |saved| {
                 self.camera_x = saved.camera_x;
@@ -340,6 +343,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.areas_tool.reset();
             self.start_target.reset();
             self.reserve_tool.reset();
+            self.ai_tool.reset();
         }
 
         /// Records `current_path`'s camera and zoom into `remembered`, if a map
@@ -749,6 +753,7 @@ pub fn ViewWith(comptime Input: type) type {
                 .script_areas => self.areas_tool.handle(editor, event),
                 .start_target => self.start_target.handle(editor, event),
                 .reserve_positions => self.reserve_tool.handle(editor, event),
+                .ai_general => self.ai_tool.handle(editor, event),
             };
             self.noteEditResult(editor, result);
             // The Start Target tool takes one click: back to the tool it came from.
@@ -1497,7 +1502,7 @@ test "view: the right button, a double click and the new keys reach no gesture i
         rig.send(mouseButton(button_right, false, 60, 40));
         rig.send(doubleClickDown(40, 40));
         rig.send(mouseButton(button_left, false, 40, 40)); // clicks 1 here: a plain release
-        for ([_]u32{ sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER, sdl3.c.SDLK_INSERT, sdl3.c.SDLK_ESCAPE, sdl3.c.SDLK_SPACE, sdl3.c.SDLK_9 }) |key| {
+        for ([_]u32{ sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER, sdl3.c.SDLK_INSERT, sdl3.c.SDLK_ESCAPE, sdl3.c.SDLK_SPACE, sdl3.c.SDLK_0 }) |key| {
             rig.send(keyDown(key, 0, false));
         }
         try testing.expectEqual(depth, rig.editor.history.undo_stack.items.len);
@@ -1593,14 +1598,34 @@ test "view: the registry's shortcuts still switch the M1 tools" {
     rig.send(keyDown(sdl3.c.SDLK_1, 0, false));
     try testing.expectEqual(Tool.select, rig.view.tool);
     // Keys the registry does not know change nothing (7 is the Entrenchment
-    // tool's since 04-08, 8 the Script Areas tool's since 04-10; 9 is nobody's).
-    rig.send(keyDown(sdl3.c.SDLK_9, 0, false));
+    // tool's since 04-08, 8 the Script Areas tool's since 04-10, 9 the AI General
+    // tool's since 04-12; 0 is nobody's).
+    rig.send(keyDown(sdl3.c.SDLK_0, 0, false));
     try testing.expectEqual(Tool.select, rig.view.tool);
     rig.send(keyDown(sdl3.c.SDLK_7, 0, false));
     try testing.expectEqual(Tool.entrenchment, rig.view.tool);
     // 8 is the Script Areas tool's since 04-10.
     rig.send(keyDown(sdl3.c.SDLK_8, 0, false));
     try testing.expectEqual(Tool.script_areas, rig.view.tool);
+    // 9 is the AI General tool's since 04-12.
+    rig.send(keyDown(sdl3.c.SDLK_9, 0, false));
+    try testing.expectEqual(Tool.ai_general, rig.view.tool);
+}
+
+test "view: key 9 is the AI General tool: a click on open ground makes a parcel in one step" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(keyDown(sdl3.c.SDLK_9, 0, false));
+    try testing.expectEqual(Tool.ai_general, rig.view.tool);
+    const depth = rig.editor.history.undo_stack.items.len;
+    rig.send(mouseButton(button_left, true, 100, 100));
+    rig.send(mouseButton(button_left, false, 100, 100));
+    try testing.expectEqual(@as(usize, 1), rig.fake.ai_sides.items.len);
+    try testing.expectEqual(@as(usize, 1), rig.fake.ai_sides.items[0].parcels.len);
+    try testing.expectEqual(@as(f32, 256), rig.fake.ai_sides.items[0].parcels[0].radius);
+    try testing.expectEqual(depth + 1, rig.editor.history.undo_stack.items.len);
+    rig.view.undo(&rig.editor);
+    try testing.expectEqual(@as(usize, 0), rig.fake.ai_sides.items.len);
 }
 
 test "view: Set target puts the Start Target tool in hand for one click, sets the point on the release and returns to the tool it came from" {

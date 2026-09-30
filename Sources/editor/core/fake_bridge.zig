@@ -32,8 +32,10 @@
 //!    the MFC towing check reads; a name it does not list is role 0) and
 //!    `markSquadFixture` makes an object a squad; Reinforcement groups are
 //!    held (`groups`, 04-09) for the Group Manager's records only; a delete
-//!    never edits them (they name script IDs), and mobile script IDs are not
-//!    held. The fake words the delete's summary one change at a time where the
+//!    never edits them (they name script IDs); the AI general's sides are held
+//!    whole (`ai_sides`, 04-12: the list's length is the side count, a put
+//!    resizes it as the real one does) and the fake does not exempt the parcels
+//!    the file held when it was opened, only the ones the side holds now. The fake words the delete's summary one change at a time where the
 //!    real one groups ("start commands 2 and 5");
 //!  - the ground is flat: `groundHeight` answers 0 on the map, where the real
 //!    one reads the terrain's altitudes;
@@ -333,6 +335,10 @@ pub const FakeBridge = struct {
     reserve_positions_at_open: std.ArrayListUnmanaged(FakeReservePosition) = .empty,
     roles: std.ArrayListUnmanaged(FakeRole) = .empty,
     squads: std.ArrayListUnmanaged(i32) = .empty,
+    /// The AI general's sides (04-12, D-19): the list's length is the side count. A
+    /// side owns its script IDs, parcels and points (`AiSide.deinit`); its `side_count`
+    /// field is unused here (the list's length is the count), its `side` is its index.
+    ai_sides: std.ArrayListUnmanaged(records.AiSide) = .empty,
     tombstones: std.AutoHashMapUnmanaged(i32, Tombstone) = .empty,
     /// The season's road (0) and river (1) types. `addVsoDescriptorFixture`.
     vso_descriptors: [2]std.ArrayListUnmanaged(VsoDescriptor) = .{ .empty, .empty },
@@ -418,6 +424,8 @@ pub const FakeBridge = struct {
         self.reserve_positions_at_open.deinit(self.allocator);
         self.roles.deinit(self.allocator);
         self.squads.deinit(self.allocator);
+        for (self.ai_sides.items) |*side| side.deinit(self.allocator);
+        self.ai_sides.deinit(self.allocator);
         self.freeTombstones();
         self.tombstones.deinit(self.allocator);
         for (&self.vso_descriptors) |*list| list.deinit(self.allocator);
@@ -480,6 +488,16 @@ pub const FakeBridge = struct {
     /// Makes an object of the map a squad: a reserve position refuses it in either role.
     pub fn markSquadFixture(self: *FakeBridge, link_id: i32) !void {
         try self.squads.append(self.allocator, link_id);
+    }
+
+    /// One side of the AI general in the map before it opens (04-12): appended to the
+    /// list, so the side count grows by one. The fake keeps a copy.
+    pub fn addAiSideFixture(self: *FakeBridge, side: records.AiSide) !void {
+        var stored = try side.clone(self.allocator);
+        errdefer stored.deinit(self.allocator);
+        stored.side = @intCast(self.ai_sides.items.len);
+        stored.side_count = 0;
+        try self.ai_sides.append(self.allocator, stored);
     }
 
     /// A sound in the map before it opens, for a test to seed the list
@@ -2176,7 +2194,100 @@ pub const FakeBridge = struct {
                 if (key < 0 or key >= self.reserve_positions.items.len) return .bad_argument;
                 out.* = .{ .reserve_position = self.reserve_positions.items[@intCast(key)] };
             },
+            .ai_side => {
+                if (key < 0 or key >= records.max_ai_sides) return .bad_argument;
+                const count: u32 = @intCast(self.ai_sides.items.len);
+                var side: records.AiSide = if (key < count) self.ai_sides.items[@intCast(key)].clone(allocator) catch return .failed else .{};
+                side.side = key;
+                side.side_count = count;
+                out.* = .{ .ai_side = side };
+            },
         }
+        return .ok;
+    }
+
+    /// The real bridge's ValidateAISide: what a put ADDS is judged - a parcel type 1 or
+    /// 2, a radius above 0, a centre on the map, finite numbers and mobile script IDs
+    /// 0..32000 that appear once; a parcel or ID the side holds now is exempt. (The real
+    /// bridge also exempts what the file held when it was opened; the fake keeps no such
+    /// copy.) Says why when it is not.
+    fn aiSideAllowed(self: *FakeBridge, current: records.AiSide, wanted: records.AiSide) bool {
+        for (wanted.parcels, 0..) |parcel, index| {
+            var held = false;
+            for (current.parcels) |existing| {
+                if (existing.eql(parcel)) held = true;
+            }
+            if (held) continue;
+            if (parcel.kind != .defence and parcel.kind != .reinforce) {
+                self.say("parcel {d} is of type {d}: a parcel is a defence (1) or a reinforce (2) parcel", .{ index, @intFromEnum(parcel.kind) });
+                return false;
+            }
+            if (!std.math.isFinite(parcel.radius) or !(parcel.radius > 0)) {
+                self.say("parcel {d} needs a radius above 0", .{index});
+                return false;
+            }
+            if (!std.math.isFinite(parcel.cx) or !std.math.isFinite(parcel.cy) or !self.onMapAt(parcel.cx, parcel.cy)) {
+                self.say("parcel {d} is not on the map", .{index});
+                return false;
+            }
+            for (parcel.points, 0..) |point, point_index| {
+                if (!std.math.isFinite(point.x) or !std.math.isFinite(point.y)) {
+                    self.say("point {d} of parcel {d} is not a number", .{ point_index, index });
+                    return false;
+                }
+            }
+        }
+        for (wanted.mobile_ids) |script_id| {
+            const in_wanted = std.mem.count(i32, wanted.mobile_ids, &.{script_id});
+            const in_current = std.mem.count(i32, current.mobile_ids, &.{script_id});
+            if (in_wanted <= in_current) continue;
+            if (script_id < records.min_script_id or script_id > records.max_script_id) {
+                self.say("a mobile script ID is 0..32000", .{});
+                return false;
+            }
+            if (in_wanted > 1) {
+                self.say("script ID {d} appears twice in the mobile list", .{script_id});
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// The real bridge's put of a side with the side count: resize the list (the sides
+    /// below a new one come out empty, a smaller count drops the sides above it), then
+    /// set the side when it is below the count.
+    fn putAiSide(self: *FakeBridge, key: i32, wanted: records.AiSide) Status {
+        if (key < 0 or key >= records.max_ai_sides or wanted.side != key) return .bad_argument;
+        if (wanted.side_count > records.max_ai_sides) return .bad_argument;
+        const count: usize = wanted.side_count;
+        if (key >= count and (wanted.parcels.len != 0 or wanted.mobile_ids.len != 0)) {
+            self.say("side {d} is not one of the map's {d} sides, so it holds nothing", .{ key, count });
+            return .refused;
+        }
+        var current: records.AiSide = .{};
+        if (key < self.ai_sides.items.len) current = self.ai_sides.items[@intCast(key)];
+        if (key < count and !self.aiSideAllowed(current, wanted)) return .refused;
+        var stored: records.AiSide = .{};
+        if (key < count) stored = wanted.clone(self.allocator) catch return .failed;
+        stored.side = key;
+        stored.side_count = 0;
+        // Room first, so once the list changes nothing can fail.
+        self.ai_sides.ensureTotalCapacity(self.allocator, count) catch {
+            stored.deinit(self.allocator);
+            return .failed;
+        };
+        while (self.ai_sides.items.len > count) {
+            var dropped = self.ai_sides.pop().?;
+            dropped.deinit(self.allocator);
+        }
+        while (self.ai_sides.items.len < count) {
+            self.ai_sides.appendAssumeCapacity(.{ .side = @intCast(self.ai_sides.items.len) });
+        }
+        if (key < count) {
+            self.ai_sides.items[@intCast(key)].deinit(self.allocator);
+            self.ai_sides.items[@intCast(key)] = stored;
+        }
+        self.record(.record_put, key);
         return .ok;
     }
 
@@ -2237,6 +2348,11 @@ pub const FakeBridge = struct {
                 for (keys, 0..) |*key_slot, index| key_slot.* = @intCast(index);
                 out.* = keys;
             },
+            .ai_side => {
+                const keys = allocator.alloc(i32, self.ai_sides.items.len) catch return .failed;
+                for (keys, 0..) |*key_slot, index| key_slot.* = @intCast(index);
+                out.* = keys;
+            },
             .group => {
                 const keys = allocator.alloc(i32, self.groups.count()) catch return .failed;
                 var index: usize = 0;
@@ -2253,7 +2369,7 @@ pub const FakeBridge = struct {
         const self = from(ptr);
         self.message_len = 0;
         switch (value.*) {
-            .camera_anchors, .script_file => return .bad_argument,
+            .camera_anchors, .script_file, .ai_side => return .bad_argument,
             .script_area => |area| {
                 if (key < 0 or key > self.script_areas.items.len) return .bad_argument;
                 if (!self.areaPutAllowed(area, null)) return .refused;
@@ -2298,7 +2414,7 @@ pub const FakeBridge = struct {
         const self = from(ptr);
         self.message_len = 0;
         switch (kind) {
-            .camera_anchors, .script_file => return .bad_argument,
+            .camera_anchors, .script_file, .ai_side => return .bad_argument,
             .script_area => {
                 if (key < 0 or key >= self.script_areas.items.len) return .bad_argument;
                 _ = self.script_areas.orderedRemove(@intCast(key));
@@ -2408,6 +2524,7 @@ pub const FakeBridge = struct {
                 self.reserve_positions.items[@intCast(key)] = wanted;
                 self.record(.record_put, key);
             },
+            .ai_side => |wanted| return self.putAiSide(key, wanted),
             .script_file => |wanted| {
                 if (key != 0) return .bad_argument;
                 // The real bridge's rule: None, a bare name, or the value the

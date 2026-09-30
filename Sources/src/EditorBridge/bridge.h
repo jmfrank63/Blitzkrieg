@@ -1003,6 +1003,69 @@ BkEditorStatus BkEditorSetReservePosition( BkEditorSession *session, int index, 
 /* Removes the position at index. An index out of range is BK_EDITOR_BAD_ARGUMENT. */
 BkEditorStatus BkEditorDeleteReservePosition( BkEditorSession *session, int index );
 
+/* The AI general (04-12, D-19): the map's SAIGeneralMapInfo, one side at a time. A side
+   holds the script IDs of its mobile reinforcement groups and its parcels; a parcel is a
+   circle (centre, radius, in MAP (AI) units) of type 1 (defence) or 2 (reinforce) with a
+   defence direction, and holds reinforce points STORED RELATIVE to the parcel centre and
+   rotated by minus the defence direction (the MFC editor's formula, NMapGeometry). The
+   game gives a general to sides 0 and 1 only, and never to the player's own. The
+   snapshot and the working copy change together and the engine is left alone. */
+
+typedef struct
+{
+	int side_count;  /* how many sides the map has (the size of sidesInfo) */
+	int mobile_count;
+	int parcel_count;
+	int point_count; /* over all the parcels of the side */
+} BkEditorAISideInfo;
+
+typedef struct
+{
+	int type;        /* 1 defence, 2 reinforce (the file's EPatchType) */
+	float cx, cy;    /* centre, AI units */
+	float radius;    /* AI units; the editor's default and minimum is 256 (4 map tiles) */
+	int defence_dir; /* 0..65535, a turn being 65535 (MFC scale) */
+	int first_point; /* this parcel's points are points[first_point .. first_point + point_count) */
+	int point_count;
+} BkEditorAIParcel;
+
+typedef struct
+{
+	float x, y; /* relative to the parcel centre, AI units, rotated by minus its direction */
+	int dir;    /* 0..65535 */
+} BkEditorAIPoint;
+
+/* Reads side `side`: *info always, then the mobile script IDs, the parcels and the
+   points, each up to its capacity (a capacity of 0 with a null array asks for the
+   count). The info holds the totals; an array smaller than its total is
+   BK_EDITOR_REFUSED after writing what fits, never past capacity - the sizing pass of a
+   two-pass read. A side at or above side_count reads empty, with the current side_count
+   (so the editor can tell how many sides an edit would add). BK_EDITOR_BAD_ARGUMENT for
+   a null info, a negative side or capacity, or a null array with a capacity above 0;
+   BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorAIGeneralSide( BkEditorSession *session, int side, BkEditorAISideInfo *info,
+                                      int *mobile, int mobile_capacity,
+                                      BkEditorAIParcel *parcels, int parcel_capacity,
+                                      BkEditorAIPoint *points, int point_capacity );
+
+/* A raw put of one whole side together with the side count, both copies: the sides are
+   resized to side_count (the lower ones the map lacked come out empty, which is how a
+   click on side 3 of a one-side map makes sides 1 and 2; a smaller count drops the sides
+   above it, which is how undo takes them away again), then side `side` is set when it is
+   below side_count. A side at or above side_count must be empty (BK_EDITOR_REFUSED).
+   BK_EDITOR_BAD_ARGUMENT for a negative or too large side (0..1023) or side_count
+   (0..1024), a negative count, a null array with a count above 0, a parcel's
+   point range outside the points array, or a direction outside 0..65535.
+   BK_EDITOR_REFUSED naming why, nothing changed, for what an edit ADDS: a type that is
+   not 1 or 2, a radius that is not above 0, a centre or radius that is not finite, a
+   centre off the map, a point that is not finite, a script ID outside 0..32000 or
+   twice. A parcel or script ID the side holds now, or held when the file was opened, is
+   exempt, so a file's own odd data can be put back by an undo. */
+BkEditorStatus BkEditorSetAIGeneralSide( BkEditorSession *session, int side, int side_count,
+                                         const int *mobile, int mobile_count,
+                                         const BkEditorAIParcel *parcels, int parcel_count,
+                                         const BkEditorAIPoint *points, int point_count );
+
 /* Reinforcement groups (04-09, D-16): the map's SReinforcementGroupInfo, keyed
    by group ID, each holding the script IDs of the objects the game holds back
    for it (an object of the map's objects list whose script ID a group holds is

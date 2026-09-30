@@ -1042,6 +1042,95 @@ pub const Editor = struct {
         try self.deleteRecord(.reserve_position, @intCast(index));
     }
 
+    /// How many sides the map's AI general has (D-19): the size of its side list. A
+    /// side at or above it reads empty, and an edit of one creates it and every side
+    /// below it, empty.
+    pub fn aiSideCount(self: *Editor) EditError!usize {
+        var keys: []i32 = &.{};
+        try bridge_mod.check(self.bridge.recordKeys(.ai_side, self.allocator, &keys));
+        defer self.allocator.free(keys);
+        return keys.len;
+    }
+
+    /// The AI general's side `side` (D-19) with the map's side count, owned by the
+    /// caller (`deinit` with the same allocator). A side the map does not have is empty.
+    pub fn aiSide(self: *Editor, allocator: std.mem.Allocator, side: usize) EditError!records.AiSide {
+        if (side >= records.max_ai_sides) return error.Failed;
+        var value: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(.ai_side, @intCast(side), allocator, &value));
+        return value.ai_side;
+    }
+
+    /// Replaces side `side` (and the side count) through the generic record command
+    /// with `value`, a whole side: within one gesture the edits are one undo step, and
+    /// undo puts the old side and the old side count back, so a side this edit created
+    /// is taken away again. `value.side` is set to `side`; its count must cover it.
+    pub fn editAiSide(self: *Editor, side: usize, value: records.AiSide, gesture: u32) EditError!void {
+        if (side >= records.max_ai_sides) return error.Failed;
+        var wanted = value;
+        wanted.side = @intCast(side);
+        wanted.ensureSideExists();
+        const record: records.Value = .{ .ai_side = wanted };
+        try self.editRecord(.ai_side, @intCast(side), &record, gesture);
+    }
+
+    /// The AI General tool's click on open ground (D-19, C2): a defence parcel of the
+    /// default radius (256 AI units, four map tiles) and direction 0 at the map point,
+    /// cut as Vis2AI cuts it, appended to side `side`. The side is created, with every
+    /// side below it empty, when the map lacks it. `gesture` joins the edit to a drag
+    /// (the tool keeps dragging the new parcel's centre), 0 for a step of its own.
+    /// Returns the new parcel's index.
+    pub fn addDefenceParcelIn(self: *Editor, side: usize, map_x: f32, map_y: f32, gesture: u32) EditError!usize {
+        var current = try self.aiSide(self.allocator, side);
+        defer current.deinit(self.allocator);
+        const index = current.parcels.len;
+        try current.appendParcel(self.allocator, .{
+            .kind = .defence,
+            .cx = records.truncateToAi(map_x),
+            .cy = records.truncateToAi(map_y),
+            .radius = records.parcel_min_radius,
+            .defence_dir = 0,
+        });
+        try self.editAiSide(side, current, gesture);
+        return index;
+    }
+
+    pub fn addDefenceParcel(self: *Editor, side: usize, map_x: f32, map_y: f32) EditError!usize {
+        return self.addDefenceParcelIn(side, map_x, map_y, 0);
+    }
+
+    /// The panel's Add: `id` joins side `side`'s mobile script IDs (0..32000). One
+    /// already there is a status note and records nothing; one outside the range is
+    /// Refused with a note. One undo step.
+    pub fn addMobileScriptID(self: *Editor, side: usize, id: i32) EditError!void {
+        if (id < records.min_script_id or id > records.max_script_id) {
+            self.note("a mobile script ID is 0..32000");
+            return error.Refused;
+        }
+        var current = try self.aiSide(self.allocator, side);
+        defer current.deinit(self.allocator);
+        if (current.hasMobile(id)) {
+            var buffer: [96]u8 = undefined;
+            self.note(std.fmt.bufPrint(&buffer, "script ID {d} is already a mobile ID of side {d}", .{ id, side }) catch "already a mobile script ID");
+            return;
+        }
+        try current.appendMobile(self.allocator, id);
+        try self.editAiSide(side, current, 0);
+    }
+
+    /// The panel's Remove: `id` leaves side `side`'s mobile script IDs. One that is not
+    /// there is a status note and records nothing. One undo step.
+    pub fn removeMobileScriptID(self: *Editor, side: usize, id: i32) EditError!void {
+        var current = try self.aiSide(self.allocator, side);
+        defer current.deinit(self.allocator);
+        if (!try current.removeMobile(self.allocator, id)) {
+            var buffer: [96]u8 = undefined;
+            self.note(std.fmt.bufPrint(&buffer, "script ID {d} is not a mobile ID of side {d}", .{ id, side }) catch "not a mobile script ID");
+            return;
+        }
+        try self.editAiSide(side, current, 0);
+    }
+
     /// An object's delete, restore or either's replay changes the start
     /// commands and the reserve positions that name it - the cascade - so the
     /// panels that list them read again.
@@ -3243,4 +3332,53 @@ test "deleting a gun erases its reserve position and the undo brings it back, bo
     try std.testing.expectEqual(@as(usize, 1), fake.reserve_positions.items.len);
     try std.testing.expect(editor.record_generations.get(.reserve_position) != generation);
     try std.testing.expectEqual(@as(f32, 70), fake.reserve_positions.items[0].x);
+}
+
+test "an AI parcel: addDefenceParcel is one step, creates the sides below, and undo restores the count exactly" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1;
+    try fake.addAiSideFixture(.{});
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const depth = editor.history.undo_stack.items.len;
+    const generation = editor.record_generations.get(.ai_side);
+    try std.testing.expectEqual(@as(usize, 0), try editor.addDefenceParcel(2, 100.4, 200.8));
+    try std.testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    try std.testing.expect(editor.record_generations.get(.ai_side) != generation);
+    try std.testing.expectEqual(@as(usize, 3), try editor.aiSideCount());
+    try std.testing.expectEqual(@as(usize, 0), fake.ai_sides.items[1].parcels.len); // created empty
+    const parcel = fake.ai_sides.items[2].parcels[0];
+    try std.testing.expectEqual(@as(f32, 100), parcel.cx); // 100.4 + 0.3 cut
+    try std.testing.expectEqual(@as(f32, 201), parcel.cy); // 200.8 + 0.3 cut
+    try std.testing.expectEqual(records.parcel_min_radius, parcel.radius);
+    // A second parcel on the same side is appended, a step of its own.
+    try std.testing.expectEqual(@as(usize, 1), try editor.addDefenceParcel(2, 220, 230));
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 1), fake.ai_sides.items[2].parcels.len);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 1), fake.ai_sides.items.len); // the count the map had
+    try std.testing.expect(try editor.redo());
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(usize, 2), fake.ai_sides.items[2].parcels.len);
+    // A side the record cannot hold is refused before the bridge.
+    try std.testing.expectError(error.Failed, editor.addDefenceParcel(records.max_ai_sides, 10, 10));
+}
+
+test "an AI side read past the count is empty with the count, and an off-map parcel is Refused unchanged" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1;
+    try fake.addAiSideFixture(.{});
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var side = try editor.aiSide(std.testing.allocator, 5);
+    defer side.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(u32, 1), side.side_count);
+    try std.testing.expectEqual(@as(i32, 5), side.side);
+    try std.testing.expectEqual(@as(usize, 0), side.parcels.len);
+    const depth = editor.history.undo_stack.items.len;
+    try std.testing.expectError(error.Refused, editor.addDefenceParcel(0, -10, 50));
+    try std.testing.expectEqual(depth, editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(@as(usize, 0), fake.ai_sides.items[0].parcels.len);
 }

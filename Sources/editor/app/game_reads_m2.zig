@@ -403,6 +403,52 @@ fn addScript(io: std.Io, editor: *core.editor.Editor, paths: *const common.TestP
     return true;
 }
 
+/// The side the AI general parcel goes on. The game gives a general to sides 0 and 1
+/// (CSupremeBeing::Init) and none to the player's own, which is 0 on these maps.
+const parcel_side: usize = 1;
+
+/// How many parcels the game reported for the general of `side` in a run: the
+/// `general side=N parcels=K` line, and 0 when it printed none (a side the map's
+/// list does not reach gets an empty general, which prints nothing).
+fn parcelsOfSide(trace: testlaunch.MapTraceSummary, side: i32) u32 {
+    for (trace.generals.slice()) |general| {
+        if (general.side == side) return general.parcels;
+    }
+    return 0;
+}
+
+/// 04-12 (D-19): a defence parcel on side 1 at direction 0, radius 256, at the point of
+/// the map farthest from the start camera (which stands on `anchor`), made the way the
+/// AI General tool makes one (`Editor.addDefenceParcel`: the side is created, with the
+/// sides below it empty, when the map lacks it). Returns what the editor stored, which
+/// the game must report back, or null after printing why.
+fn addParcel(editor: *core.editor.Editor, anchor: [2]f32) ?core.records.Parcel {
+    const at = farthestPoint(editor, anchor);
+    var map_x: f32 = 0;
+    var map_y: f32 = 0;
+    if (editor.bridge.worldToMap(at[0], at[1], &map_x, &map_y) != .ok) {
+        std.debug.print("map-editor: {s} FAIL: the point {d:.0},{d:.0} would not convert to map units: {s}\n", .{ label, at[0], at[1], editor.status() });
+        return null;
+    }
+    const index = editor.addDefenceParcel(parcel_side, map_x, map_y) catch {
+        std.debug.print("map-editor: {s} FAIL: the defence parcel on side {d} was not added: {s}\n", .{ label, parcel_side, editor.status() });
+        return null;
+    };
+    var side = editor.aiSide(editor.allocator, parcel_side) catch {
+        std.debug.print("map-editor: {s} FAIL: side {d} would not read back: {s}\n", .{ label, parcel_side, editor.status() });
+        return null;
+    };
+    defer side.deinit(editor.allocator);
+    if (index >= side.parcels.len) {
+        std.debug.print("map-editor: {s} FAIL: the parcel {d} is not in side {d}'s {d} parcels\n", .{ label, index, parcel_side, side.parcels.len });
+        return null;
+    }
+    var parcel = side.parcels[index];
+    parcel.points = &.{};
+    std.debug.print("map-editor: {s}: side {d} parcel {d}: defence at {d:.0},{d:.0} (map units), radius {d:.0}, direction {d} ({d} sides)\n", .{ label, parcel_side, index, parcel.cx, parcel.cy, parcel.radius, parcel.defence_dir, side.side_count });
+    return parcel;
+}
+
 /// 04-10 (D-21): a rectangle area named `m2_area` around the start camera (which
 /// stands on `anchor`), made the way the Script Areas tool makes one: a drag in
 /// world units through the bridge's conversion, then added. Its AI values, which
@@ -554,6 +600,10 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     // InitReservePositions applies every position whose gun is alive and reports how many.
     if (!addReserveGun(gpa, &rig, anchor_at)) return false;
 
+    // 04-12 (D-19): a defence parcel on side 1. The game's general of that side reports
+    // how many parcels it read and each one's centre, radius and direction.
+    const parcel = addParcel(editor, anchor_at) orelse return false;
+
     // 04-10 (D-20): the map's script, which lands group 900 and traces what the
     // game holds.
     if (!addScript(io, editor, &paths, log_path)) return false;
@@ -642,6 +692,28 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     }
     std.debug.print("map-editor: {s}: BK_MAP_TRACE reserve applied={d} (baseline {d})\n", .{ label, edited_trace.reserve_applied.?, base.reserve_applied.? });
 
+    // The game's general of side 1 read the new parcel (CGeneral::Init), one above the
+    // unedited map's, with the stored centre, radius 256 and direction 0.
+    const parcels_before = parcelsOfSide(base, parcel_side);
+    const parcels_after = parcelsOfSide(edited_trace, parcel_side);
+    if (parcels_after != parcels_before + 1) {
+        std.debug.print("map-editor: {s} FAIL: the general of side {d} read {d} parcels, not the baseline's {d} and one more (generals seen {d}); see {s}\n", .{ label, parcel_side, parcels_after, parcels_before, edited_trace.generals.seen, edited_log_path });
+        return false;
+    }
+    var reported_parcel: ?testlaunch.TraceParcel = null;
+    for (edited_trace.parcels.slice()) |item| {
+        if (item.side == parcel_side and @abs(item.cx - parcel.cx) <= 1 and @abs(item.cy - parcel.cy) <= 1) reported_parcel = item;
+    }
+    const seen_parcel = reported_parcel orelse {
+        std.debug.print("map-editor: {s} FAIL: the game reported no parcel of side {d} at {d:.0},{d:.0} (parcels seen {d}); see {s}\n", .{ label, parcel_side, parcel.cx, parcel.cy, edited_trace.parcels.seen, edited_log_path });
+        return false;
+    };
+    if (seen_parcel.kind != @intFromEnum(parcel.kind) or @abs(seen_parcel.r - parcel.radius) > 1 or seen_parcel.dir != parcel.defence_dir) {
+        std.debug.print("map-editor: {s} FAIL: the game's parcel is type {d} r={d:.0} dir={d}, not the stored type {d} r={d:.0} dir={d}; see {s}\n", .{ label, seen_parcel.kind, seen_parcel.r, seen_parcel.dir, @intFromEnum(parcel.kind), parcel.radius, parcel.defence_dir, edited_log_path });
+        return false;
+    }
+    std.debug.print("map-editor: {s}: BK_MAP_TRACE general side={d} parcels={d} (baseline {d}); parcel side={d} type={d} cx={d:.0} cy={d:.0} r={d:.0} dir={d}\n", .{ label, parcel_side, parcels_after, parcels_before, parcel_side, seen_parcel.kind, seen_parcel.cx, seen_parcel.cy, seen_parcel.r, seen_parcel.dir });
+
     // The game loaded and ran the script the map names (Scripts.cpp Load).
     const script = edited_trace.script orelse {
         std.debug.print("map-editor: {s} FAIL: the game printed no BK_MAP_TRACE script line; see {s}\n", .{ label, edited_log_path });
@@ -717,6 +789,6 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     };
     keepEditedShot(gpa, io, paths.game_path, log_path);
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, startcmd launched {d} -> {d}, reserve applied {d} -> {d}, script {s} ran, area {s} found)\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.?, base.startcmd_launched.?, edited_trace.startcmd_launched.?, base.reserve_applied.?, edited_trace.reserve_applied.?, script_name, area_name });
+    std.debug.print("map-editor: {s} PASS (camera at player 0's anchor {d:.0},{d:.0}; baseline {d:.0},{d:.0}; roads {d} -> {d}, rivers {d} -> {d}, bridges {d} -> {d}, fences +{d}, entrenchments {d} -> {d}, group {d} held {d}, startcmd launched {d} -> {d}, reserve applied {d} -> {d}, general side {d} parcels {d} -> {d}, script {s} ran, area {s} found)\n", .{ label, camera.x, camera.y, baseline_camera.x, baseline_camera.y, base.roads.?, edited_trace.roads.?, base.rivers.?, edited_trace.rivers.?, base.bridges.?, edited_trace.bridges.?, fences, base.entrenchments.?, edited_trace.entrenchments.?, held_group, held_by_group.?, base.startcmd_launched.?, edited_trace.startcmd_launched.?, base.reserve_applied.?, edited_trace.reserve_applied.?, parcel_side, parcels_before, parcels_after, script_name, area_name });
     return true;
 }

@@ -436,6 +436,54 @@ pub const ReservePositions = struct {
     }
 };
 
+/// The AI General tool (04-12, D-19), the MFC editor's AI general tab
+/// (StateAIGeneral.cpp, TabAIGeneralDialog.cpp): it edits ONE side at a time, `side`,
+/// set by the panel. A press outside every parcel of the side makes a defence
+/// parcel of radius 256 AI units (four map tiles, the MFC PARCEL_POINT_RADIUS) and
+/// direction 0 at the point, cut as Vis2AI cuts it; a side the map does not have is
+/// created, with every side below it empty, and undo takes them away again (the whole
+/// side is the record, with the side count).
+///
+/// Parcels and points are MAP (AI) units, like every record the AI side keeps; the
+/// pointer's `map_x/map_y` is what the tool compares and stores.
+pub const AIGeneral = struct {
+    /// The side the tool edits, from the panel's radios.
+    side: usize = 0,
+    /// The parcel the last click made or grabbed, for the panel and the keys.
+    selected_parcel: ?usize = null,
+
+    /// Forgets the selection, as a map change must; the side stays.
+    pub fn reset(self: *AIGeneral) void {
+        self.selected_parcel = null;
+    }
+
+    pub fn handle(self: *AIGeneral, editor: *Editor, event: Event) EditError!void {
+        switch (event) {
+            .press => |pointer| try self.press(editor, pointer),
+            else => {},
+        }
+    }
+
+    /// Whether the map point is inside a parcel of the side: nearer its centre than its
+    /// radius (at the radius is outside), the MFC editor's test.
+    pub fn insideAnyParcel(side: records.AiSide, map_x: f32, map_y: f32) bool {
+        for (side.parcels) |parcel| {
+            if (std.math.hypot(map_x - parcel.cx, map_y - parcel.cy) < parcel.radius) return true;
+        }
+        return false;
+    }
+
+    fn press(self: *AIGeneral, editor: *Editor, pointer: Pointer) EditError!void {
+        var side = try editor.aiSide(editor.allocator, self.side);
+        defer side.deinit(editor.allocator);
+        if (insideAnyParcel(side, pointer.map_x, pointer.map_y)) {
+            editor.note("a click inside a parcel adds a reinforce point");
+            return;
+        }
+        self.selected_parcel = try editor.addDefenceParcel(self.side, pointer.map_x, pointer.map_y);
+    }
+};
+
 const testing = std.testing;
 const testFixture = editor_mod.testFixture;
 
@@ -889,4 +937,65 @@ test "Reserve Positions: Delete removes the selected position as one step and un
     for ([_]Event{ .{ .press = pointer }, .{ .drag = pointer }, .{ .right_press = pointer }, .{ .double_click = pointer }, .{ .key = .space } }) |event| {
         try tool.handle(&editor, event);
     }
+}
+
+test "AI General: a click outside every parcel makes a defence parcel of radius 256, in one undo step" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 0 };
+    try tool.handle(&editor, .{ .press = pointerAt(&fake, 100, 200) });
+    try tool.handle(&editor, .{ .release = pointerAt(&fake, 100, 200) });
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items.len);
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items[0].parcels.len);
+    const parcel = fake.ai_sides.items[0].parcels[0];
+    try testing.expectEqual(records.ParcelKind.defence, parcel.kind);
+    try testing.expectEqual(@as(f32, 141), parcel.cx); // 141.42 + 0.3, cut
+    try testing.expectEqual(@as(f32, 283), parcel.cy); // 282.84 + 0.3, cut
+    try testing.expectEqual(@as(f32, 256), parcel.radius);
+    try testing.expectEqual(@as(u16, 0), parcel.defence_dir);
+    try testing.expectEqual(@as(usize, 0), parcel.points.len);
+    try testing.expectEqual(@as(?usize, 0), tool.selected_parcel);
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(usize, 0), fake.ai_sides.items.len);
+    try testing.expect(try editor.redo());
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items[0].parcels.len);
+}
+
+test "AI General: on a side beyond the count the count grows with empty sides below, and undo shrinks it back" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    try fake.addAiSideFixture(.{});
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{ .side = 3 };
+    try tool.handle(&editor, .{ .press = pointerAt(&fake, 100, 100) });
+    try testing.expectEqual(@as(usize, 4), fake.ai_sides.items.len);
+    try testing.expectEqual(@as(usize, 0), fake.ai_sides.items[1].parcels.len);
+    try testing.expectEqual(@as(usize, 0), fake.ai_sides.items[2].parcels.len);
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items[3].parcels.len);
+    try testing.expectEqual(@as(usize, 4), try editor.aiSideCount());
+    try testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try testing.expect(try editor.undo());
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items.len); // exactly the count it had
+    try testing.expectEqual(@as(usize, 1), try editor.aiSideCount());
+    try testing.expect(try editor.redo());
+    try testing.expectEqual(@as(usize, 4), fake.ai_sides.items.len);
+    try testing.expectEqual(@as(usize, 1), fake.ai_sides.items[3].parcels.len);
+}
+
+test "AI General: a click off the map is Refused with nothing changed" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    fake.map_per_world = 1.4142135;
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool: AIGeneral = .{};
+    try testing.expectError(error.Refused, tool.handle(&editor, .{ .press = pointerAt(&fake, -50, 100) }));
+    try testing.expectEqual(@as(usize, 0), fake.ai_sides.items.len);
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
 }

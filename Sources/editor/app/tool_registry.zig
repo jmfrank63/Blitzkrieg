@@ -14,7 +14,7 @@
 const std = @import("std");
 const marker_logic = @import("marker_logic.zig");
 
-pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas, start_target, reserve_positions };
+pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas, start_target, reserve_positions, ai_general };
 
 pub const Entry = struct {
     id: ToolId,
@@ -25,10 +25,11 @@ pub const Entry = struct {
     /// camera and edit keys (W A S D Q E Z Y, Delete, Home, the arrows) are
     /// taken. Null for a tool with no key.
     shortcut: ?u8 = null,
-    /// Not listed in the Tools menu or the tool palette: a tool a panel or a menu
-    /// command puts in hand for a purpose (04-11's Start Target and Reserve
-    /// Positions), which `tool=<label>` and the panel still reach. Such a tool has
-    /// no shortcut.
+    /// Not listed in the Tools menu or the tool palette. No tool uses it now: every
+    /// tool is visible (04-12 - a user must see every tool; 04-11 had hidden the
+    /// Start Target and Reserve Positions buttons only to keep the M1 reference
+    /// frame under its threshold, and the reference was refreshed instead). A
+    /// hidden tool would have no shortcut.
     hidden: bool = false,
     /// The tool receives right_press/right_drag/right_release.
     needs_right_button: bool = false,
@@ -104,24 +105,33 @@ pub const entries = [_]Entry{
     },
     // 04-11 (D-17): the start command's target click, entered from the Start
     // Commands window's "Set target" button, left after one click. No shortcut (a
-    // digit would switch to it with no command chosen); left button only. Its
+    // digit would switch to it with no command chosen); left button only. In the
+    // palette like every tool; with no command chosen a click only says so. Its
     // markers are the red lines from the units to their targets.
     .{
         .id = .start_target,
         .label = "start_target",
-        .hidden = true,
         .marker_kinds = marker_logic.MarkerSet.only(&.{.start_commands}),
     },
-    // 04-11 (D-18): the MFC editor's artillery positions mode, entered from Unit >
+    // 04-11 (D-18): the MFC editor's artillery positions mode, also entered from Unit >
     // Artillery positions mode. Clicks pick the gun, the truck and the place, Enter
     // commits, Escape clears, Delete removes the listed position - left button and
-    // keys. No digit shortcut; hidden from the palette like Start Target. Its markers
-    // are the gun-truck-place lines.
+    // keys. No digit shortcut. Its markers are the gun-truck-place lines.
     .{
         .id = .reserve_positions,
         .label = "reserve_positions",
-        .hidden = true,
         .marker_kinds = marker_logic.MarkerSet.only(&.{.reserve_positions}),
+    },
+    // 04-12 (D-19): the MFC AI general tab. A click on open ground makes a defence
+    // parcel, a click inside one a reinforce point; drags move and size them; Enter,
+    // Insert and Space switch the type, Delete removes. Left button and keys. Its
+    // markers are the parcels, whatever View -> Markers says, so the tool never edits
+    // what it cannot see.
+    .{
+        .id = .ai_general,
+        .label = "ai_general",
+        .shortcut = '9',
+        .marker_kinds = marker_logic.MarkerSet.only(&.{.parcels}),
     },
 };
 
@@ -172,7 +182,7 @@ test "every tool has exactly one entry, found by id, label name and shortcut" {
     try std.testing.expectEqual(@as(?ToolId, .select), byShortcut('1'));
     try std.testing.expectEqual(@as(?ToolId, .brush), byShortcut('2'));
     try std.testing.expectEqual(@as(?ToolId, .place), byShortcut('3'));
-    try std.testing.expectEqual(@as(?ToolId, null), byShortcut('9'));
+    try std.testing.expectEqual(@as(?ToolId, .ai_general), byShortcut('9'));
     try std.testing.expectEqual(@as(?ToolId, null), byLabel("Select"));
     try std.testing.expectEqual(@as(?ToolId, null), byLabel(""));
     try std.testing.expectEqual(@as(?ToolId, null), byLabel("frobnicate"));
@@ -249,10 +259,20 @@ test "the Script Areas tool is key 8: left button and keys only, with the areas 
     try std.testing.expectEqual(@as(?ToolId, .script_areas), byLabel("script_areas"));
 }
 
+test "the AI General tool is key 9: left button and keys only, with the parcels as its markers" {
+    const item = entry(.ai_general);
+    try std.testing.expectEqual(@as(?u8, '9'), item.shortcut);
+    try std.testing.expect(!item.needs_right_button and !item.ctrl_click_is_right and !item.needs_double_click);
+    try std.testing.expect(item.marker_kinds.has(.parcels));
+    try std.testing.expect(!item.hidden);
+    try std.testing.expectEqual(@as(?ToolId, .ai_general), byShortcut('9'));
+    try std.testing.expectEqual(@as(?ToolId, .ai_general), byLabel("ai_general"));
+}
+
 test "the Start Target tool has no key, takes the left button only, and shows the start commands' lines" {
     const item = entry(.start_target);
     try std.testing.expectEqual(@as(?u8, null), item.shortcut);
-    try std.testing.expect(item.hidden);
+    try std.testing.expect(!item.hidden); // in the palette: a user sees every tool
     try std.testing.expect(!item.needs_right_button and !item.ctrl_click_is_right and !item.needs_double_click);
     try std.testing.expect(item.marker_kinds.has(.start_commands));
     try std.testing.expectEqual(@as(?ToolId, .start_target), byLabel("start_target"));
@@ -261,7 +281,7 @@ test "the Start Target tool has no key, takes the left button only, and shows th
 test "the Reserve Positions tool has no key, takes the left button and keys, and shows the reserve lines" {
     const item = entry(.reserve_positions);
     try std.testing.expectEqual(@as(?u8, null), item.shortcut);
-    try std.testing.expect(item.hidden);
+    try std.testing.expect(!item.hidden);
     try std.testing.expect(!item.needs_right_button and !item.ctrl_click_is_right and !item.needs_double_click);
     try std.testing.expect(item.marker_kinds.has(.reserve_positions));
     try std.testing.expectEqual(@as(?ToolId, .reserve_positions), byLabel("reserve_positions"));
@@ -276,12 +296,11 @@ test "the M1 tools take no right button, double click or Ctrl-as-right, and carr
     }
 }
 
-test "a hidden tool has no shortcut, and the tools of the palette are not hidden" {
+test "every tool is in the palette: none is hidden, and a hidden one would have no shortcut" {
     for (entries) |item| {
+        try std.testing.expect(!item.hidden);
         if (item.hidden) try std.testing.expectEqual(@as(?u8, null), item.shortcut);
     }
-    for (entries[0..8]) |item| try std.testing.expect(!item.hidden);
-    try std.testing.expect(entry(.reserve_positions).hidden);
 }
 
 test "a tool label is a valid tool= word" {

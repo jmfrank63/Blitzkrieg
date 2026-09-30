@@ -68,6 +68,10 @@ struct SEditorSession
 	// not make an undo of a file's own odd record fail as a drift.
 	std::vector<SAIStartCommand> openedStartCommands;
 	std::vector<SBattlePosition> openedReservePositions;
+	// The AI general's sides as the file had them when the map was opened (04-12,
+	// D-19): a parcel or a mobile script ID of these is always accepted back by a
+	// put, however odd, so an undo of an edit of a file's own data cannot fail.
+	std::vector<SAIGeneralSideInfo> openedAISides;
 	// "Hide checked" (04-09, D-16): the script IDs the view holds back, sorted
 	// and unique, and the link IDs of the objects-list entries they name that
 	// are hidden now (their visuals at opacity 0, and picking skips them). A
@@ -383,6 +387,14 @@ bool ReadSessionReservePosition( SEditorSession *pSession, int nIndex, BkEditorR
 bool AddReservePositionToSession( SEditorSession *pSession, int nIndex, const BkEditorReservePositionRecord &rRecord, bool *pbRefused );
 bool SetReservePositionInSession( SEditorSession *pSession, int nIndex, const BkEditorReservePositionRecord &rRecord, bool *pbRefused );
 bool DeleteReservePositionFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused );
+// The AI general (04-12, D-19), one side at a time, through NMapRecords on both copies,
+// the engine untouched. The read writes the info always and each array up to its
+// capacity (the count is the total), and returns false when one was too short (a sizing
+// pass); a side at or above the side count reads empty with the current count. The put
+// follows the rules bridge.h documents (ValidateAISide holds them); *pbRefused tells a
+// rule break from a failure.
+bool ReadSessionAIGeneralSide( SEditorSession *pSession, int nSide, BkEditorAISideInfo *pInfo, int *pnMobile, int nMobileCap, BkEditorAIParcel *pParcels, int nParcelCap, BkEditorAIPoint *pPoints, int nPointCap );
+bool SetSessionAIGeneralSide( SEditorSession *pSession, int nSide, int nSideCount, const int *pnMobile, int nMobileCount, const BkEditorAIParcel *pParcels, int nParcelCount, const BkEditorAIPoint *pPoints, int nPointCount, bool *pbRefused );
 // Reinforcement groups (04-09, D-16), through NMapRecords on both copies. The
 // two reads answer the total in *pnCount and return false when the buffer was
 // too short (nothing written past it); ReadSessionGroup also returns false

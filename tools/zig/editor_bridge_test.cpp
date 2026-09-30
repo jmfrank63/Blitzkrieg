@@ -7787,6 +7787,282 @@ static void TestM2ReservePositions( BkEditorSession *pSession, const std::string
 	printf( "editor-bridge: M2 reserve positions ok\n" );
 }
 
+// The AI general (04-12, D-19): one side read in two passes. The sizing pass is
+// BK_EDITOR_REFUSED when the side holds anything (as a buffer too short is) and still
+// answers the counts; nothing is indexed before the counts are known.
+struct SAISideRead
+{
+	BkEditorAISideInfo info;
+	std::vector<int> mobile;
+	std::vector<BkEditorAIParcel> parcels;
+	std::vector<BkEditorAIPoint> points;
+};
+
+static bool ReadAISideOf( BkEditorSession *pSession, int nSide, SAISideRead *pRead )
+{
+	memset( &pRead->info, 0, sizeof pRead->info );
+	const BkEditorStatus sizing = BkEditorAIGeneralSide( pSession, nSide, &pRead->info, 0, 0, 0, 0, 0, 0 );
+	if ( sizing != BK_EDITOR_OK && sizing != BK_EDITOR_REFUSED )
+		return false;
+	const BkEditorAISideInfo counted = pRead->info;
+	if ( counted.mobile_count < 0 || counted.parcel_count < 0 || counted.point_count < 0 || counted.side_count < 0 )
+		return false;
+	pRead->mobile.assign( counted.mobile_count, 0 );
+	pRead->parcels.assign( counted.parcel_count, BkEditorAIParcel() );
+	pRead->points.assign( counted.point_count, BkEditorAIPoint() );
+	const BkEditorStatus read = BkEditorAIGeneralSide( pSession, nSide, &pRead->info,
+		pRead->mobile.empty() ? 0 : &pRead->mobile[0], counted.mobile_count,
+		pRead->parcels.empty() ? 0 : &pRead->parcels[0], counted.parcel_count,
+		pRead->points.empty() ? 0 : &pRead->points[0], counted.point_count );
+	return read == BK_EDITOR_OK && pRead->info.side_count == counted.side_count && pRead->info.parcel_count == counted.parcel_count;
+}
+
+static BkEditorStatus PutAISideOf( BkEditorSession *pSession, int nSide, int nSideCount, const SAISideRead &rSide )
+{
+	return BkEditorSetAIGeneralSide( pSession, nSide, nSideCount,
+		rSide.mobile.empty() ? 0 : &rSide.mobile[0], int( rSide.mobile.size() ),
+		rSide.parcels.empty() ? 0 : &rSide.parcels[0], int( rSide.parcels.size() ),
+		rSide.points.empty() ? 0 : &rSide.points[0], int( rSide.points.size() ) );
+}
+
+// The side as the map file holds it, in the record form the ABI has.
+static SAISideRead AISideOfMap( const CMapInfo &rMap, int nSide )
+{
+	SAISideRead side;
+	memset( &side.info, 0, sizeof side.info );
+	side.info.side_count = int( rMap.aiGeneralMapInfo.sidesInfo.size() );
+	if ( nSide < 0 || nSide >= side.info.side_count )
+		return side;
+	const SAIGeneralSideInfo &rInfo = rMap.aiGeneralMapInfo.sidesInfo[nSide];
+	side.mobile = rInfo.mobileScriptIDs;
+	for ( size_t i = 0; i < rInfo.parcels.size(); ++i )
+	{
+		const SAIGeneralParcelInfo &rParcel = rInfo.parcels[i];
+		BkEditorAIParcel parcel;
+		memset( &parcel, 0, sizeof parcel );
+		parcel.type = rParcel.eType;
+		parcel.cx = rParcel.vCenter.x;
+		parcel.cy = rParcel.vCenter.y;
+		parcel.radius = rParcel.fRadius;
+		parcel.defence_dir = int( rParcel.wDefenceDirection );
+		parcel.first_point = int( side.points.size() );
+		parcel.point_count = int( rParcel.reinforcePoints.size() );
+		for ( size_t j = 0; j < rParcel.reinforcePoints.size(); ++j )
+		{
+			BkEditorAIPoint point;
+			point.x = rParcel.reinforcePoints[j].vCenter.x;
+			point.y = rParcel.reinforcePoints[j].vCenter.y;
+			point.dir = int( rParcel.reinforcePoints[j].wDir );
+			side.points.push_back( point );
+		}
+		side.parcels.push_back( parcel );
+	}
+	return side;
+}
+
+static BkEditorAIParcel DefenceParcelAt( float fX, float fY )
+{
+	BkEditorAIParcel parcel;
+	memset( &parcel, 0, sizeof parcel );
+	parcel.type = SAIGeneralParcelInfo::EPATCH_DEFENCE;
+	parcel.cx = fX;
+	parcel.cy = fY;
+	parcel.radius = 256.0f;
+	return parcel;
+}
+
+// The map with `side` set, through the map tier's own put: what the saved file must equal.
+static void PutExpectedAISide( CMapInfo *pMap, int nSide, int nSideCount, const SAISideRead &rSide )
+{
+	NMapRecords::SAIGeneralSidePut put;
+	put.nSideCount = nSideCount;
+	put.nSide = nSide;
+	for ( size_t i = 0; i < rSide.mobile.size(); ++i )
+		put.info.mobileScriptIDs.push_back( rSide.mobile[i] );
+	for ( size_t i = 0; i < rSide.parcels.size(); ++i )
+	{
+		const BkEditorAIParcel &rParcel = rSide.parcels[i];
+		SAIGeneralParcelInfo parcel;
+		parcel.eType = rParcel.type;
+		parcel.vCenter = CVec2( rParcel.cx, rParcel.cy );
+		parcel.fRadius = rParcel.radius;
+		parcel.wDefenceDirection = WORD( rParcel.defence_dir );
+		for ( int j = 0; j < rParcel.point_count; ++j )
+		{
+			const BkEditorAIPoint &rPoint = rSide.points[rParcel.first_point + j];
+			parcel.reinforcePoints.push_back( SAIGeneralParcelInfo::SReinforcePointInfo( CVec2( rPoint.x, rPoint.y ), WORD( rPoint.dir ) ) );
+		}
+		put.info.parcels.push_back( parcel );
+	}
+	NMapRecords::PutAIGeneralSide( pMap, put );
+}
+
+static void TestM2AIGeneral( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const int nSides0 = int( original.aiGeneralMapInfo.sidesInfo.size() );
+	const float fMiddleX = original.terrain.tiles.GetSizeX() * fWorldCellSize * fAITileXCoeff1 / 2.0f;
+	const float fMiddleY = original.terrain.tiles.GetSizeY() * fWorldCellSize * fAITileYCoeff1 / 2.0f;
+	printf( "editor-bridge: ai general: the map has %d sides\n", nSides0 );
+
+	const std::string szUnedited = szScratch + "\\aigen-unedited.bzm";
+	const std::string szEdited = szScratch + "\\aigen-edited.bzm";
+	const std::string szUndone = szScratch + "\\aigen-undone.bzm";
+	const std::string szRefused = szScratch + "\\aigen-refused.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// Argument checks.
+	BkEditorAISideInfo info;
+	int nScratchInt = 0;
+	BkEditorAIParcel scratchParcel;
+	Check( BkEditorAIGeneralSide( pSession, 0, 0, 0, 0, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a read with no info is a bad argument" );
+	Check( BkEditorAIGeneralSide( pSession, -1, &info, 0, 0, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a negative side is a bad argument" );
+	Check( BkEditorAIGeneralSide( pSession, 0, &info, 0, 1, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT &&
+	       BkEditorAIGeneralSide( pSession, 0, &info, &nScratchInt, -1, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT &&
+	       BkEditorAIGeneralSide( pSession, 0, &info, 0, 0, 0, 1, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT &&
+	       BkEditorAIGeneralSide( pSession, 0, &info, 0, 0, &scratchParcel, -1, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a capacity with no array, or a negative one, is a bad argument" );
+
+	// A side at or above the count reads empty with the current count.
+	SAISideRead beyond;
+	Check( ReadAISideOf( pSession, nSides0 + 5, &beyond ) && beyond.info.side_count == nSides0 && beyond.parcels.empty() && beyond.mobile.empty() && beyond.points.empty(),
+	       "a side the map does not have reads empty, with the side count" );
+	// The sides the file has read as the map tier has them.
+	for ( int side = 0; side < nSides0; ++side )
+	{
+		SAISideRead held;
+		const SAISideRead expectedSide = AISideOfMap( original, side );
+		Check( ReadAISideOf( pSession, side, &held ) && held.parcels.size() == expectedSide.parcels.size() && held.mobile == expectedSide.mobile && held.points.size() == expectedSide.points.size(),
+		       NStr::Format( "side %d reads as the file has it", side ) );
+	}
+
+	// A defence parcel of radius 256 on side 1 (created with the sides below it when the map lacks them).
+	const int nSideA = 1;
+	const int nCountA = Max( nSides0, nSideA + 1 );
+	SAISideRead sideA;
+	ReadAISideOf( pSession, nSideA, &sideA );
+	const int nParcelsA = int( sideA.parcels.size() );
+	sideA.parcels.push_back( DefenceParcelAt( fMiddleX, fMiddleY ) );
+	sideA.parcels.back().first_point = int( sideA.points.size() );
+	SAISideRead sideABefore;
+	ReadAISideOf( pSession, nSideA, &sideABefore );
+	if ( !Check( PutAISideOf( pSession, nSideA, nCountA, sideA ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo expected = original;
+	PutExpectedAISide( &expected, nSideA, nCountA, sideA );
+	{
+		SAISideRead again;
+		Check( ReadAISideOf( pSession, nSideA, &again ) && again.info.side_count == nCountA && int( again.parcels.size() ) == nParcelsA + 1, "the parcel reads back on its side, and the side count is at least 2" );
+		if ( int( again.parcels.size() ) == nParcelsA + 1 )
+			Check( again.parcels[nParcelsA].type == 1 && again.parcels[nParcelsA].cx == fMiddleX && again.parcels[nParcelsA].cy == fMiddleY && again.parcels[nParcelsA].radius == 256.0f && again.parcels[nParcelsA].defence_dir == 0 && again.parcels[nParcelsA].point_count == 0,
+			       "the parcel is a defence parcel of radius 256 and direction 0, as it was given" );
+	}
+	CheckSavedEquals( pSession, szEdited, expected, "a defence parcel on side 1" );
+
+	// A side two above the current count: the sides between come out empty, and undo takes them all away.
+	const int nSideB = nCountA + 1;
+	const int nCountB = nSideB + 1;
+	SAISideRead sideB;
+	sideB.parcels.push_back( DefenceParcelAt( fMiddleX + 200.0f, fMiddleY + 200.0f ) );
+	if ( !Check( PutAISideOf( pSession, nSideB, nCountB, sideB ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	PutExpectedAISide( &expected, nSideB, nCountB, sideB );
+	{
+		SAISideRead between, top;
+		Check( ReadAISideOf( pSession, nCountA, &between ) && between.info.side_count == nCountB && between.parcels.empty() && between.mobile.empty(), "the side between comes out empty" );
+		Check( ReadAISideOf( pSession, nSideB, &top ) && top.parcels.size() == 1, "and the side asked for holds the parcel" );
+	}
+	CheckSavedEquals( pSession, szEdited, expected, "a parcel on a side two above the count" );
+
+	// Undo, as the core does: put each side back with the count it had.
+	SAISideRead emptySide;
+	Check( PutAISideOf( pSession, nSideB, nCountA, emptySide ) == BK_EDITOR_OK, "the created sides are put away with the old count" );
+	Check( PutAISideOf( pSession, nSideA, nSides0, sideABefore ) == BK_EDITOR_OK, "and the first side goes back with the count the map had" );
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), ( std::string( "undoing both saves the unedited map byte for byte (the side count restored): " ) + DescribeDifference( szUnedited, szUndone ) ).c_str() );
+
+	// Refusals change nothing.
+	const float fNaN = std::numeric_limits<float>::quiet_NaN();
+	SAISideRead base;
+	ReadAISideOf( pSession, nSideA, &base );
+	const int nCountBase = base.info.side_count;
+	if ( !Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	{
+		SAISideRead bad = base;
+		bad.parcels.push_back( DefenceParcelAt( fMiddleX, fMiddleY ) );
+		bad.parcels.back().first_point = int( bad.points.size() );
+		const int nLast = int( bad.parcels.size() ) - 1;
+		const int nCountForBad = Max( nCountBase, nSideA + 1 );
+		bad.parcels[nLast].type = 3;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "type 3" ) != std::string::npos, "a type 3 is refused, saying so" );
+		bad.parcels[nLast].type = 0;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED, "and so is type 0" );
+		bad.parcels[nLast].type = 1;
+		bad.parcels[nLast].defence_dir = 70000;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_BAD_ARGUMENT, "a direction of 70000 is a bad argument" );
+		bad.parcels[nLast].defence_dir = -1;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_BAD_ARGUMENT, "and so is a negative one" );
+		bad.parcels[nLast].defence_dir = 0;
+		bad.parcels[nLast].cx = fNaN;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED, "a NaN centre is refused" );
+		bad.parcels[nLast].cx = -5.0f;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "not on the map" ) != std::string::npos, "a centre off the map is refused, saying so" );
+		bad.parcels[nLast].cx = 1.0e9f;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED, "and so is one far beyond the far edge" );
+		bad.parcels[nLast].cx = fMiddleX;
+		bad.parcels[nLast].radius = 0.0f;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED, "a radius of 0 is refused" );
+		bad.parcels[nLast].radius = -4.0f;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED, "and a negative one" );
+		bad.parcels[nLast].radius = fNaN;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED, "and a NaN one" );
+		bad.parcels[nLast].radius = 256.0f;
+		bad.parcels[nLast].point_count = 1;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_BAD_ARGUMENT, "a point range outside the points array is a bad argument" );
+		bad.parcels[nLast].first_point = -1;
+		bad.parcels[nLast].point_count = 0;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_BAD_ARGUMENT, "and so is a negative first point" );
+		bad.parcels[nLast].first_point = int( bad.points.size() );
+		bad.points.push_back( BkEditorAIPoint() );
+		bad.points.back().x = fNaN;
+		bad.parcels[nLast].point_count = 1;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED, "a point that is not a number is refused" );
+		bad.points.back().x = 0.0f;
+		bad.points.back().dir = 70000;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_BAD_ARGUMENT, "a point direction of 70000 is a bad argument" );
+		bad = base;
+		bad.mobile.push_back( 32001 );
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED, "a mobile script ID above 32000 is refused" );
+		bad.mobile.back() = -1;
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED, "and -1" );
+		bad.mobile.back() = 4245;
+		bad.mobile.push_back( 4245 );
+		Check( PutAISideOf( pSession, nSideA, nCountForBad, bad ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "twice" ) != std::string::npos, "a script ID twice is refused, saying so" );
+		// A side at or above the count holds nothing; a side or count out of range is a caller bug.
+		bad = base;
+		bad.parcels.push_back( DefenceParcelAt( fMiddleX, fMiddleY ) );
+		Check( PutAISideOf( pSession, nCountBase + 2, nCountBase + 2, bad ) == BK_EDITOR_REFUSED, "a side at the count that holds a parcel is refused" );
+		Check( PutAISideOf( pSession, -1, nCountBase, base ) == BK_EDITOR_BAD_ARGUMENT && PutAISideOf( pSession, 1024, 1024, base ) == BK_EDITOR_BAD_ARGUMENT &&
+		       PutAISideOf( pSession, 0, 1025, base ) == BK_EDITOR_BAD_ARGUMENT && PutAISideOf( pSession, 0, -1, base ) == BK_EDITOR_BAD_ARGUMENT, "a side or a side count out of range is a bad argument" );
+		Check( BkEditorSetAIGeneralSide( pSession, 0, 2, 0, 1, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT && BkEditorSetAIGeneralSide( pSession, 0, 2, 0, 0, 0, 1, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT &&
+		       BkEditorSetAIGeneralSide( pSession, 0, 2, 0, -1, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "counts with no arrays, or negative counts, are bad arguments" );
+	}
+	if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szEdited, szRefused ), "none of the refusals changed the map" );
+
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szRefused ).c_str() );
+	printf( "editor-bridge: M2 ai general ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -7956,6 +8232,7 @@ int main( int argc, char **argv )
 		TestM2EntrenchmentDelete( pSession, szScratch );
 		TestM2StartCommands( pSession, szScratch );
 		TestM2ReservePositions( pSession, szScratch );
+		TestM2AIGeneral( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

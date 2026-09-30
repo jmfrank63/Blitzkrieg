@@ -51,6 +51,11 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorActionCommand) == core.bridge.name_capacity + 4);
     // The reserve position's record: gun, truck, x, y.
     std.debug.assert(@sizeOf(c.BkEditorReservePositionRecord) == 4 * 4);
+    // The AI general's records (04-12): four counts; a parcel's type, centre, radius,
+    // direction and point range; a point's place and direction.
+    std.debug.assert(@sizeOf(c.BkEditorAISideInfo) == 4 * 4);
+    std.debug.assert(@sizeOf(c.BkEditorAIParcel) == 7 * 4);
+    std.debug.assert(@sizeOf(c.BkEditorAIPoint) == 3 * 4);
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -555,6 +560,110 @@ pub const RealBridge = struct {
         return .ok;
     }
 
+    /// BkEditorAIGeneralSide as a core value (04-12): two passes - the sizing pass is
+    /// REFUSED when the side holds anything (as a buffer too short is) and still answers
+    /// the counts - the script IDs, parcels and points allocated with `allocator` (the
+    /// value owns them). A side the map does not have reads empty with the side count.
+    fn readAiSide(self: *RealBridge, key: i32, allocator: std.mem.Allocator, out: *record_types.Value) Status {
+        var info: c.BkEditorAISideInfo = std.mem.zeroes(c.BkEditorAISideInfo);
+        const sizing = status(c.BkEditorAIGeneralSide(self.session, key, &info, null, 0, null, 0, null, 0));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (info.side_count < 0 or info.mobile_count < 0 or info.parcel_count < 0 or info.point_count < 0) return .failed;
+        const counted = info;
+        const mobile = allocator.alloc(i32, @intCast(counted.mobile_count)) catch return .failed;
+        errdefer allocator.free(mobile);
+        const c_parcels = std.heap.page_allocator.alloc(c.BkEditorAIParcel, @intCast(counted.parcel_count)) catch return .failed;
+        defer std.heap.page_allocator.free(c_parcels);
+        const c_points = std.heap.page_allocator.alloc(c.BkEditorAIPoint, @intCast(counted.point_count)) catch return .failed;
+        defer std.heap.page_allocator.free(c_points);
+        if (mobile.len != 0 or c_parcels.len != 0 or c_points.len != 0) {
+            const read = status(c.BkEditorAIGeneralSide(
+                self.session,
+                key,
+                &info,
+                if (mobile.len != 0) mobile.ptr else null,
+                counted.mobile_count,
+                if (c_parcels.len != 0) c_parcels.ptr else null,
+                counted.parcel_count,
+                if (c_points.len != 0) c_points.ptr else null,
+                counted.point_count,
+            ));
+            if (read != .ok) return read;
+            if (info.mobile_count != counted.mobile_count or info.parcel_count != counted.parcel_count or info.point_count != counted.point_count) return .failed;
+        }
+        const parcels = allocator.alloc(record_types.Parcel, c_parcels.len) catch return .failed;
+        var done: usize = 0;
+        errdefer {
+            for (parcels[0..done]) |parcel| allocator.free(parcel.points);
+            allocator.free(parcels);
+        }
+        for (c_parcels, parcels) |source, *target| {
+            if (source.first_point < 0 or source.point_count < 0) return .failed;
+            const first: usize = @intCast(source.first_point);
+            const count: usize = @intCast(source.point_count);
+            if (first > c_points.len or count > c_points.len - first) return .failed;
+            if (source.defence_dir < 0 or source.defence_dir > 65535) return .failed;
+            const points = allocator.alloc(record_types.ParcelPoint, count) catch return .failed;
+            for (c_points[first .. first + count], points) |point, *slot| {
+                if (point.dir < 0 or point.dir > 65535) {
+                    allocator.free(points);
+                    return .failed;
+                }
+                slot.* = .{ .x = point.x, .y = point.y, .dir = @intCast(point.dir) };
+            }
+            target.* = .{
+                .kind = @enumFromInt(source.type),
+                .cx = source.cx,
+                .cy = source.cy,
+                .radius = source.radius,
+                .defence_dir = @intCast(source.defence_dir),
+                .points = points,
+            };
+            done += 1;
+        }
+        out.* = .{ .ai_side = .{ .side = key, .side_count = @intCast(counted.side_count), .mobile_ids = mobile, .parcels = parcels } };
+        return .ok;
+    }
+
+    /// BkEditorSetAIGeneralSide: the side flattened into the parcel and point arrays of
+    /// the ABI (points in parcel order, each parcel naming its range), the side count
+    /// with it.
+    fn putAiSide(self: *RealBridge, key: i32, side: record_types.AiSide) Status {
+        if (side.side != key or side.side_count > record_types.max_ai_sides) return .bad_argument;
+        const total_points = side.pointCount();
+        const c_parcels = std.heap.page_allocator.alloc(c.BkEditorAIParcel, side.parcels.len) catch return .failed;
+        defer std.heap.page_allocator.free(c_parcels);
+        const c_points = std.heap.page_allocator.alloc(c.BkEditorAIPoint, total_points) catch return .failed;
+        defer std.heap.page_allocator.free(c_points);
+        var first: usize = 0;
+        for (side.parcels, c_parcels) |parcel, *target| {
+            target.* = .{
+                .type = @intFromEnum(parcel.kind),
+                .cx = parcel.cx,
+                .cy = parcel.cy,
+                .radius = parcel.radius,
+                .defence_dir = parcel.defence_dir,
+                .first_point = @intCast(first),
+                .point_count = @intCast(parcel.points.len),
+            };
+            for (parcel.points, c_points[first .. first + parcel.points.len]) |point, *slot| {
+                slot.* = .{ .x = point.x, .y = point.y, .dir = point.dir };
+            }
+            first += parcel.points.len;
+        }
+        return status(c.BkEditorSetAIGeneralSide(
+            self.session,
+            key,
+            @intCast(side.side_count),
+            if (side.mobile_ids.len != 0) side.mobile_ids.ptr else null,
+            @intCast(side.mobile_ids.len),
+            if (c_parcels.len != 0) c_parcels.ptr else null,
+            @intCast(c_parcels.len),
+            if (c_points.len != 0) c_points.ptr else null,
+            @intCast(c_points.len),
+        ));
+    }
+
     /// BkEditorGroup as a core value: two-pass, the script IDs allocated with
     /// `allocator` (the value owns them). The total comes back in `count` even
     /// when the buffer was too short, and -1 for a group that is not there.
@@ -593,6 +702,7 @@ pub const RealBridge = struct {
             .script_area => return self.readScriptArea(key, allocator, out),
             .start_command => return self.readStartCommand(key, allocator, out),
             .reserve_position => return self.readReservePosition(key, out),
+            .ai_side => return self.readAiSide(key, allocator, out),
             .script_file => {
                 if (key != 0) return .bad_argument;
                 var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
@@ -630,6 +740,7 @@ pub const RealBridge = struct {
                 const record = toCReservePosition(position);
                 return status(c.BkEditorSetReservePosition(self.session, key, &record));
             },
+            .ai_side => |side| return self.putAiSide(key, side),
             .script_file => |file| {
                 if (key != 0) return .bad_argument;
                 var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
@@ -679,6 +790,17 @@ pub const RealBridge = struct {
                 out.* = keys;
                 return .ok;
             },
+            .ai_side => {
+                // The sides the map has: the side count from any side's read.
+                var info: c.BkEditorAISideInfo = std.mem.zeroes(c.BkEditorAISideInfo);
+                const counted = status(c.BkEditorAIGeneralSide(self.session, 0, &info, null, 0, null, 0, null, 0));
+                if (counted != .ok and counted != .refused) return counted;
+                if (info.side_count < 0) return .failed;
+                const keys = allocator.alloc(i32, @intCast(info.side_count)) catch return .failed;
+                for (keys, 0..) |*key, index| key.* = @intCast(index);
+                out.* = keys;
+                return .ok;
+            },
             .group => {
                 var count: c_int = 0;
                 const sizing = status(c.BkEditorGroupIDs(self.session, null, 0, &count));
@@ -704,7 +826,7 @@ pub const RealBridge = struct {
         const self = from(ptr);
         self.own_message = null;
         switch (value.*) {
-            .camera_anchors, .script_file => return .bad_argument,
+            .camera_anchors, .script_file, .ai_side => return .bad_argument,
             .script_area => |area| {
                 const record = toCScriptArea(area);
                 return status(c.BkEditorAddScriptArea(self.session, key, &record));
@@ -734,7 +856,7 @@ pub const RealBridge = struct {
     fn vtableRemoveRecord(ptr: *anyopaque, kind: record_types.Kind, key: i32) Status {
         const self = from(ptr);
         switch (kind) {
-            .camera_anchors, .script_file => return .bad_argument,
+            .camera_anchors, .script_file, .ai_side => return .bad_argument,
             .script_area => return status(c.BkEditorDeleteScriptArea(self.session, key)),
             .start_command => return status(c.BkEditorDeleteStartCommand(self.session, key)),
             .reserve_position => return status(c.BkEditorDeleteReservePosition(self.session, key)),
