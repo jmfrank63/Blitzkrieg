@@ -424,7 +424,10 @@ pub const sdl_button_rmask: u32 = 1 << (sdl_button_right - 1);
 /// them (view.zig hands over event.button's fields, not the whole SDL_Event).
 /// `clicks` is SDL's own click count: 1 for a single click, 2 for the second
 /// of a double click.
-pub const ButtonEvent = struct { button: u8, down: bool, clicks: u8 = 1 };
+/// `wants_double_click` is the active tool's registry entry
+/// (`needs_double_click`): a tool that has no use for a double click gets the
+/// second click of a fast pair as an ordinary press and release (WR-C03).
+pub const ButtonEvent = struct { button: u8, down: bool, clicks: u8 = 1, wants_double_click: bool = true };
 
 pub const EventKind = enum { press, release, right_press, right_release, double_click };
 
@@ -438,8 +441,9 @@ pub const EventKind = enum { press, release, right_press, right_release, double_
 pub fn kindOf(event: ButtonEvent) ?EventKind {
     switch (event.button) {
         sdl_button_left => {
-            if (event.down) return if (event.clicks == 2) .double_click else .press;
-            return if (event.clicks == 2) null else .release;
+            const double = event.clicks == 2 and event.wants_double_click;
+            if (event.down) return if (double) .double_click else .press;
+            return if (double) null else .release;
         },
         sdl_button_right => return if (event.down) .right_press else .right_release,
         else => return null,
@@ -545,6 +549,11 @@ test "kindOf: the second click of a double click is a double_click, its release 
     try std.testing.expectEqual(EventKind.release, kindOf(.{ .button = sdl_button_left, .down = false, .clicks = 3 }).?);
     // The right button has no double click of its own.
     try std.testing.expectEqual(EventKind.right_press, kindOf(.{ .button = sdl_button_right, .down = true, .clicks = 2 }).?);
+}
+
+test "kindOf: a tool with no use for a double click gets the second click of a fast pair as a press and a release (WR-C03)" {
+    try std.testing.expectEqual(EventKind.press, kindOf(.{ .button = sdl_button_left, .down = true, .clicks = 2, .wants_double_click = false }).?);
+    try std.testing.expectEqual(EventKind.release, kindOf(.{ .button = sdl_button_left, .down = false, .clicks = 2, .wants_double_click = false }).?);
 }
 
 test "staleGesture: a right gesture ends once the right button is no longer down, independently of left and middle" {

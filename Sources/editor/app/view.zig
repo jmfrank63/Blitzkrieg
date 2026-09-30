@@ -374,8 +374,8 @@ pub fn ViewWith(comptime Input: type) type {
                         self.handleMiddleButton(editor, button);
                         return;
                     }
-                    const kind = view_math.kindOf(.{ .button = button.button, .down = button.down, .clicks = button.clicks }) orelse return;
                     const spec = tool_registry.entry(self.tool);
+                    const kind = view_math.kindOf(.{ .button = button.button, .down = button.down, .clicks = button.clicks, .wants_double_click = spec.needs_double_click }) orelse return;
                     switch (kind) {
                         .press => {
                             // A press that cannot resolve starts no gesture: the
@@ -1506,7 +1506,7 @@ fn doubleClickDown(x: f32, y: f32) sdl3.c.SDL_Event {
     return event;
 }
 
-test "view: the right button, a double click and the new keys reach no gesture in tools that do not ask for them" {
+test "view: the right button and the new keys reach no gesture in tools that do not ask for them" {
     const rig = try Rig.create();
     defer rig.destroy();
     for ([_]Tool{ .select, .brush, .place }) |tool| {
@@ -1516,8 +1516,6 @@ test "view: the right button, a double click and the new keys reach no gesture i
         try testing.expect(!rig.view.hasActiveMouseGesture());
         rig.send(mouseMotion(60, 40, view_math.sdl_button_rmask));
         rig.send(mouseButton(button_right, false, 60, 40));
-        rig.send(doubleClickDown(40, 40));
-        rig.send(mouseButton(button_left, false, 40, 40)); // clicks 1 here: a plain release
         for ([_]u32{ sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER, sdl3.c.SDLK_INSERT, sdl3.c.SDLK_ESCAPE, sdl3.c.SDLK_SPACE, sdl3.c.SDLK_0 }) |key| {
             rig.send(keyDown(key, 0, false));
         }
@@ -1589,19 +1587,22 @@ test "view: Ctrl+left is only the right button in a tool that asks for it, so a 
     try testing.expect(!rig.view.hasActiveMouseGesture());
 }
 
-test "view: a second click of a double click opens no gesture and its release ends nothing" {
+test "view: in a tool with no use for a double click the second click of a fast pair is a click of its own (WR-C03)" {
     const rig = try Rig.create();
     defer rig.destroy();
     rig.send(mouseButton(button_left, true, 40, 40));
     rig.send(mouseButton(button_left, false, 40, 40));
+    // SDL's clicks 2 (within 500 ms and 32 px): a press and a release in Select,
+    // never swallowed.
     rig.send(doubleClickDown(40, 40));
-    try testing.expect(!rig.view.hasActiveMouseGesture());
+    try testing.expect(rig.view.hasActiveMouseGesture());
     var up = mouseButton(button_left, false, 40, 40);
     up.button.clicks = 2;
     rig.send(up);
     try testing.expect(!rig.view.hasActiveMouseGesture());
-    // The single click selected the tank; the double click did not deselect it.
+    // Both clicks selected the tank; nothing was deselected or moved.
     try testing.expectEqual(@as(?i32, 1), rig.editor.selection);
+    try testing.expectEqual(@as(usize, 0), rig.editor.history.undo_stack.items.len);
 }
 
 test "view: the registry's shortcuts still switch the M1 tools" {
