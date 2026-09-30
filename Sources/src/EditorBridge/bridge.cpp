@@ -2301,6 +2301,119 @@ BkEditorStatus BkEditorDeleteStartCommand( BkEditorSession *pSession, int nIndex
 	} );
 }
 
+// ---------------------------------------------------------------------------
+// Reserve positions (04-11, D-18).
+// ---------------------------------------------------------------------------
+
+BkEditorStatus BkEditorReserveRole( BkEditorSession *pSession, const char *pszName, int *pnRole )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pnRole == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		*pnRole = ReserveRoleOfName( pszName );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorReservePositionCount( BkEditorSession *pSession, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		*pnCount = int( pSession->snapshot.reservePositionsList.size() );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorReservePosition( BkEditorSession *pSession, int nIndex, BkEditorReservePositionRecord *pOut )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < 0 || nIndex >= int( pSession->snapshot.reservePositionsList.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		return ReadSessionReservePosition( pSession, nIndex, pOut ) ? BK_EDITOR_OK : BK_EDITOR_FAILED;
+	} );
+}
+
+namespace {
+bool ReservePositionRecordWellFormed( const BkEditorReservePositionRecord *pRecord )
+{
+	return pRecord != 0 && std::isfinite( pRecord->x ) && std::isfinite( pRecord->y );
+}
+}
+
+BkEditorStatus BkEditorAddReservePosition( BkEditorSession *pSession, int nIndex, const BkEditorReservePositionRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !ReservePositionRecordWellFormed( pRecord ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < -1 || nIndex > int( pSession->snapshot.reservePositionsList.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( AddReservePositionToSession( pSession, nIndex, *pRecord, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorSetReservePosition( BkEditorSession *pSession, int nIndex, const BkEditorReservePositionRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !ReservePositionRecordWellFormed( pRecord ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < 0 || nIndex >= int( pSession->snapshot.reservePositionsList.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( SetReservePositionInSession( pSession, nIndex, *pRecord, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorDeleteReservePosition( BkEditorSession *pSession, int nIndex )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < 0 || nIndex >= int( pSession->snapshot.reservePositionsList.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( DeleteReservePositionFromSession( pSession, nIndex, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
 namespace {
 // The most script IDs a caller may hand BkEditorSetGroup: one per script ID
 // there is, with room for a file's own duplicates. A larger count is a caller

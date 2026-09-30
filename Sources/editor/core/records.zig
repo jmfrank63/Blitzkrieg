@@ -27,6 +27,9 @@ pub const Kind = enum {
     /// A start command (04-11, D-17): keyed by its index in the map's list, the
     /// orders the game gives units when a mission starts.
     start_command,
+    /// An artillery reserve position (04-11, D-18): keyed by its index in the
+    /// map's list, where the game puts a gun (and the truck towing it) at the start.
+    reserve_position,
 };
 
 /// A world-unit point. The all-zero value is the file's VNULL3: "not set".
@@ -228,6 +231,22 @@ pub const StartCommand = struct {
     }
 };
 
+/// One artillery reserve position as the file holds it (D-18): the gun's link ID
+/// (`artillery`, above 0) and the truck's (`truck`, 0 for none - never a
+/// reference), and the place (x, y) in MAP (AI) units. The bridge checks the roles
+/// (a self-propelled or towed gun, a truck able to tow it) because that needs the
+/// object database; the core carries the record.
+pub const ReservePosition = struct {
+    artillery: i32 = 0,
+    truck: i32 = 0,
+    x: f32 = 0,
+    y: f32 = 0,
+
+    pub fn eql(a: ReservePosition, b: ReservePosition) bool {
+        return a.artillery == b.artillery and a.truck == b.truck and a.x == b.x and a.y == b.y;
+    }
+};
+
 /// One whole record of some kind. The history owns the values it holds and
 /// frees them with `deinit`; the camera anchors and the script file own no
 /// memory, a group owns its script-ID list and a start command its unit list,
@@ -239,10 +258,11 @@ pub const Value = union(Kind) {
     script_file: ScriptFile,
     script_area: ScriptArea,
     start_command: StartCommand,
+    reserve_position: ReservePosition,
 
     pub fn deinit(self: *Value, allocator: std.mem.Allocator) void {
         switch (self.*) {
-            .camera_anchors, .script_file, .script_area => {},
+            .camera_anchors, .script_file, .script_area, .reserve_position => {},
             .group => |group| {
                 allocator.free(group.ids);
                 self.* = .{ .group = .{ .id = group.id } };
@@ -261,6 +281,7 @@ pub const Value = union(Kind) {
             .camera_anchors => |anchors| .{ .camera_anchors = anchors },
             .script_file => |file| .{ .script_file = file },
             .script_area => |area| .{ .script_area = area },
+            .reserve_position => |position| .{ .reserve_position = position },
             .group => |group| .{ .group = .{ .id = group.id, .ids = try allocator.dupe(i32, group.ids) } },
             .start_command => |command| blk: {
                 var copy = command;
@@ -278,6 +299,7 @@ pub const Value = union(Kind) {
             .script_file => |left| left.eql(b.script_file),
             .script_area => |left| left.eql(b.script_area),
             .start_command => |left| left.eql(b.start_command),
+            .reserve_position => |left| left.eql(b.reserve_position),
         };
     }
 };
@@ -419,4 +441,17 @@ test "a start command value owns, clones, compares and frees its units" {
     try std.testing.expectEqual(action_stop, empty.start_command.cmd_type);
     empty_copy.deinit(allocator);
     empty.deinit(allocator);
+}
+
+test "a reserve position value compares by every field and is never another kind" {
+    const first: Value = .{ .reserve_position = .{ .artillery = 5, .truck = 6, .x = 100, .y = 200 } };
+    var copy = try first.clone(std.testing.allocator);
+    defer copy.deinit(std.testing.allocator);
+    try std.testing.expect(first.eql(copy));
+    copy.reserve_position.truck = 0;
+    try std.testing.expect(!first.eql(copy));
+    copy = first;
+    copy.reserve_position.x = 101;
+    try std.testing.expect(!first.eql(copy));
+    try std.testing.expect(!first.eql(.{ .script_area = .{} }));
 }

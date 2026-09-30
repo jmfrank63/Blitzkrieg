@@ -1013,3 +1013,241 @@ bool DeleteStartCommandFromSession( SEditorSession *pSession, int nIndex, bool *
 	}
 	return true;
 }
+
+// ---------------------------------------------------------------------------
+// Reserve positions (04-11, D-18).
+// ---------------------------------------------------------------------------
+
+namespace {
+// The stats of a mechanical unit by object name, or null: the object is not a
+// unit, the database does not know it, or its stats are not a mechanical unit's (a
+// soldier's). A dynamic_cast, as the MFC editor takes it: the typed stats lookup
+// casts without looking in a build with its asserts compiled out.
+const SMechUnitRPGStats* MechStatsOf( const char *pszName )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 || pszName == 0 )
+		return 0;
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( pszName );
+	if ( pDesc == 0 || pDesc->eGameType != SGVOGT_UNIT )
+		return 0;
+	return dynamic_cast<const SMechUnitRPGStats*>( pObjectsDB->GetRPGStats( pDesc ) );
+}
+
+// True for a squad: the soldiers of a formation are the game's to place, and a
+// reserve position casts its link to a unit.
+bool IsSquadName( const char *pszName )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	const SGDBObjectDesc *pDesc = pObjectsDB != 0 && pszName != 0 ? pObjectsDB->GetDesc( pszName ) : 0;
+	return pDesc != 0 && pDesc->eGameType == SGVOGT_SQUAD;
+}
+
+bool SameReservePosition( const SBattlePosition &rLeft, const SBattlePosition &rRight )
+{
+	return rLeft.nArtilleryLinkID == rRight.nArtilleryLinkID && rLeft.nTruckLinkID == rRight.nTruckLinkID && rLeft.vPos.x == rRight.vPos.x && rLeft.vPos.y == rRight.vPos.y;
+}
+
+bool IsOpenedReservePosition( const SEditorSession &rSession, const SBattlePosition &rPosition )
+{
+	for ( size_t i = 0; i < rSession.openedReservePositions.size(); ++i )
+		if ( SameReservePosition( rSession.openedReservePositions[i], rPosition ) )
+			return true;
+	return false;
+}
+
+SBattlePosition ReservePositionFromC( const BkEditorReservePositionRecord &rRecord )
+{
+	return SBattlePosition( rRecord.artillery_link_id, rRecord.truck_link_id, CVec2( rRecord.x, rRecord.y ) );
+}
+
+const SBattlePosition* ReservePositionAt( const CMapInfo &rMap, int nIndex )
+{
+	if ( nIndex < 0 || nIndex >= int( rMap.reservePositionsList.size() ) )
+		return 0;
+	SLoadMapInfo::TReservePositionsList::const_iterator it = rMap.reservePositionsList.begin();
+	std::advance( it, nIndex );
+	return &*it;
+}
+
+// Why the object of nLinkID cannot be a gun (bGun) or a truck: "" when it can, and
+// then *ppStats its mechanical stats and *pnRole its role. The messages name the
+// object and what is wrong, the way the MFC editor's click order silently ignored it.
+std::string WhyNotInReservePosition( const CMapInfo &rMap, int nLinkID, bool bGun, int *pnRole, const SMechUnitRPGStats **ppStats )
+{
+	const char *pszWho = bGun ? "artillery" : "truck";
+	const SMapObjectInfo *pObject = FindObjectByLink( rMap, nLinkID );
+	if ( pObject == 0 )
+		return NStr::Format( "no object has link ID %d", nLinkID );
+	if ( IsSquadName( pObject->szName.c_str() ) )
+		return NStr::Format( "object %d (%s) is a squad, and a squad cannot be %s: a reserve position names a single unit", nLinkID, pObject->szName.c_str(), pszWho );
+	const SMechUnitRPGStats *pStats = MechStatsOf( pObject->szName.c_str() );
+	if ( pStats == 0 )
+		return NStr::Format( "object %d (%s) is not a vehicle or a gun, so it cannot be %s", nLinkID, pObject->szName.c_str(), pszWho );
+	*pnRole = ReserveRoleOfName( pObject->szName.c_str() );
+	*ppStats = pStats;
+	if ( bGun && *pnRole != 1 && *pnRole != 2 )
+		return NStr::Format( "object %d (%s) is not artillery: a reserve position holds a self-propelled or a towed gun", nLinkID, pObject->szName.c_str() );
+	if ( !bGun && *pnRole != 3 )
+		return NStr::Format( "object %d (%s) is not a truck that can tow", nLinkID, pObject->szName.c_str() );
+	return "";
+}
+
+// T-04-11-01. What the put CHANGES is judged: the gun and the truck together when
+// either changes (the roles, the MFC towing check), the place when it moves - so a
+// file's own odd position can be moved and put back, and a position the map held when
+// it was opened is always accepted back (an undo of a delete). Says why in szMessage.
+bool ValidateReservePosition( SEditorSession *pSession, const SBattlePosition &rWanted, const SBattlePosition *pCurrent )
+{
+	if ( IsOpenedReservePosition( *pSession, rWanted ) )
+		return true;
+	const bool bRolesChanged = pCurrent == 0 || pCurrent->nArtilleryLinkID != rWanted.nArtilleryLinkID || pCurrent->nTruckLinkID != rWanted.nTruckLinkID;
+	if ( bRolesChanged )
+	{
+		if ( rWanted.nArtilleryLinkID <= 0 )
+		{
+			pSession->szMessage = rWanted.nTruckLinkID == 0 ? "a reserve position needs a gun" : "the gun's link ID is above 0: link ID 0 names no gun";
+			return false;
+		}
+		if ( rWanted.nTruckLinkID < 0 )
+		{
+			pSession->szMessage = "a truck's link ID is above 0, or 0 for none";
+			return false;
+		}
+		int nGunRole = 0;
+		const SMechUnitRPGStats *pGun = 0;
+		std::string szWhy = WhyNotInReservePosition( pSession->snapshot, rWanted.nArtilleryLinkID, true, &nGunRole, &pGun );
+		if ( !szWhy.empty() )
+		{
+			pSession->szMessage = szWhy;
+			return false;
+		}
+		if ( rWanted.nTruckLinkID == 0 )
+		{
+			if ( nGunRole == 2 )
+			{
+				pSession->szMessage = "a towed gun needs a truck";
+				return false;
+			}
+		}
+		else
+		{
+			if ( nGunRole != 2 )
+			{
+				pSession->szMessage = "a self-propelled gun takes no truck";
+				return false;
+			}
+			int nTruckRole = 0;
+			const SMechUnitRPGStats *pTruck = 0;
+			szWhy = WhyNotInReservePosition( pSession->snapshot, rWanted.nTruckLinkID, false, &nTruckRole, &pTruck );
+			if ( !szWhy.empty() )
+			{
+				pSession->szMessage = szWhy;
+				return false;
+			}
+			// The MFC editor's towing check (ObjectPlacerState.cpp): the truck pulls more
+			// than the gun weighs.
+			if ( !( pTruck->fTowingForce > pGun->fWeight ) )
+			{
+				pSession->szMessage = NStr::Format( "the truck %d cannot tow the gun %d: it pulls %.0f and the gun weighs %.0f", rWanted.nTruckLinkID, rWanted.nArtilleryLinkID, pTruck->fTowingForce, pGun->fWeight );
+				return false;
+			}
+		}
+	}
+	const bool bMoved = pCurrent == 0 || pCurrent->vPos.x != rWanted.vPos.x || pCurrent->vPos.y != rWanted.vPos.y;
+	if ( bMoved && !OnTheMapInAIUnits( *pSession, rWanted.vPos.x, rWanted.vPos.y ) )
+	{
+		pSession->szMessage = "the reserve position is not on the map";
+		return false;
+	}
+	return true;
+}
+}
+
+int ReserveRoleOfName( const char *pszName )
+{
+	const SMechUnitRPGStats *pStats = MechStatsOf( pszName );
+	if ( pStats == 0 )
+		return 0;
+	// The classes the MFC editor's click order (ObjectPlacerState.cpp) and its
+	// SaveReservePosition tell apart: a carrier or a tractor is a truck; an artillery
+	// piece with crew places is towed and one without sits on its own wheels or
+	// tracks; a self-propelled or armoured unit and a super train are guns that drive.
+	if ( pStats->type == RPG_TYPE_TRN_CARRIER || pStats->type == RPG_TYPE_TRN_TRACTOR )
+		return 3;
+	if ( IsArtillery( pStats->type ) )
+		return pStats->vPeoplePoints.empty() ? 1 : 2;
+	if ( IsSPG( pStats->type ) || IsArmor( pStats->type ) || pStats->type == RPG_TYPE_TRAIN_SUPER )
+		return 1;
+	return 0;
+}
+
+bool ReadSessionReservePosition( SEditorSession *pSession, int nIndex, BkEditorReservePositionRecord *pOut )
+{
+	const SBattlePosition *pPosition = ReservePositionAt( pSession->snapshot, nIndex );
+	if ( pPosition == 0 )
+		return false;
+	memset( pOut, 0, sizeof *pOut );
+	pOut->artillery_link_id = pPosition->nArtilleryLinkID;
+	pOut->truck_link_id = pPosition->nTruckLinkID;
+	pOut->x = pPosition->vPos.x;
+	pOut->y = pPosition->vPos.y;
+	return true;
+}
+
+bool AddReservePositionToSession( SEditorSession *pSession, int nIndex, const BkEditorReservePositionRecord &rRecord, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	const SBattlePosition wanted = ReservePositionFromC( rRecord );
+	if ( !ValidateReservePosition( pSession, wanted, 0 ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	// Both copies together; the engine holds no reserve positions until a mission starts.
+	if ( !NMapRecords::InsertReservePosition( &pSession->snapshot, nIndex, wanted ) )
+		return false;
+	if ( !NMapRecords::InsertReservePosition( &pSession->working, nIndex, wanted ) )
+	{
+		NMapRecords::EraseReservePosition( &pSession->snapshot, nIndex < 0 ? int( pSession->snapshot.reservePositionsList.size() ) - 1 : nIndex );
+		return false;
+	}
+	return true;
+}
+
+bool SetReservePositionInSession( SEditorSession *pSession, int nIndex, const BkEditorReservePositionRecord &rRecord, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	const SBattlePosition *pHeld = ReservePositionAt( pSession->snapshot, nIndex );
+	if ( pHeld == 0 )
+		return false;
+	const SBattlePosition current = *pHeld;
+	const SBattlePosition wanted = ReservePositionFromC( rRecord );
+	if ( !ValidateReservePosition( pSession, wanted, &current ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( !NMapRecords::ReplaceReservePosition( &pSession->snapshot, nIndex, wanted ) )
+		return false;
+	if ( !NMapRecords::ReplaceReservePosition( &pSession->working, nIndex, wanted ) )
+	{
+		NMapRecords::ReplaceReservePosition( &pSession->snapshot, nIndex, current );
+		return false;
+	}
+	return true;
+}
+
+bool DeleteReservePositionFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	SBattlePosition erased;
+	if ( !NMapRecords::EraseReservePosition( &pSession->snapshot, nIndex, &erased ) )
+		return false;
+	if ( !NMapRecords::EraseReservePosition( &pSession->working, nIndex ) )
+	{
+		NMapRecords::InsertReservePosition( &pSession->snapshot, nIndex, erased );
+		return false;
+	}
+	return true;
+}

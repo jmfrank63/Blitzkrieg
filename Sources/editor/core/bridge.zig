@@ -63,6 +63,9 @@ pub const ObjectRecord = struct {
     }
 };
 
+/// What BkEditorReserveRole answers (04-11, D-18).
+pub const ReserveRole = enum(i32) { none = 0, self_propelled = 1, towed = 2, truck = 3 };
+
 /// One action type of Data/Editor/actions.ini as BkEditorActionCommands lists
 /// it (04-11, D-17): its name and the id a start command stores.
 pub const ActionCommand = struct {
@@ -360,6 +363,11 @@ pub const Bridge = struct {
         /// entry a new command starts at. Refused, naming why, when the file is
         /// not in the data or lists nothing.
         actionCommands: *const fn (ptr: *anyopaque, allocator: std.mem.Allocator, out: *[]ActionCommand, default_index: *usize) Status,
+        /// BkEditorReserveRole (04-11, D-18): what an object type can be in a
+        /// reserve position - 0 nothing, 1 a self-propelled gun, 2 a towed gun,
+        /// 3 a truck able to tow - from its stats, as the MFC editor classifies
+        /// them. A name the database does not know, a squad and anything else is 0.
+        reserveRole: *const fn (ptr: *anyopaque, name: []const u8, role: *i32) Status,
         /// BkEditorUndoEdit / BkEditorRedoEdit: the bridge's edit log, the
         /// paints' order (newest first; redo in the order undone). A token
         /// out of order is refused.
@@ -490,6 +498,7 @@ pub const Bridge = struct {
     pub fn scriptAreaMoved(self: Bridge, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status { return self.vtable.scriptAreaMoved(self.ptr, area, wx, wy, out); }
     pub fn scriptAreaResized(self: Bridge, area: records.ScriptArea, wx: f32, wy: f32, out: *records.ScriptArea) Status { return self.vtable.scriptAreaResized(self.ptr, area, wx, wy, out); }
     pub fn actionCommands(self: Bridge, allocator: std.mem.Allocator, out: *[]ActionCommand, default_index: *usize) Status { return self.vtable.actionCommands(self.ptr, allocator, out, default_index); }
+    pub fn reserveRole(self: Bridge, name: []const u8, role: *i32) Status { return self.vtable.reserveRole(self.ptr, name, role); }
     pub fn undoEdit(self: Bridge, token: i32) Status { return self.vtable.undoEdit(self.ptr, token); }
     pub fn redoEdit(self: Bridge, token: i32) Status { return self.vtable.redoEdit(self.ptr, token); }
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }

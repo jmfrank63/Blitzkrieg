@@ -990,11 +990,64 @@ pub const Editor = struct {
         try self.editStartCommand(index, wanted, 0);
     }
 
+    /// What an object type can be in a reserve position (D-18): none, a
+    /// self-propelled gun, a towed gun or a truck able to tow, from the bridge's
+    /// object database. A name it does not know is none.
+    pub fn reserveRole(self: *Editor, name: []const u8) EditError!bridge_mod.ReserveRole {
+        var role: i32 = 0;
+        try self.noteOutcome(self.bridge.reserveRole(name, &role));
+        return std.enums.fromInt(bridge_mod.ReserveRole, role) orelse .none;
+    }
+
+    /// The map's reserve positions (D-18) in list order, owned by the caller (free
+    /// with the same allocator).
+    pub fn reservePositions(self: *Editor, allocator: std.mem.Allocator) EditError![]records.ReservePosition {
+        var keys: []i32 = &.{};
+        try bridge_mod.check(self.bridge.recordKeys(.reserve_position, allocator, &keys));
+        defer allocator.free(keys);
+        const out = try allocator.alloc(records.ReservePosition, keys.len);
+        errdefer allocator.free(out);
+        for (keys, out) |key, *position| {
+            var value: records.Value = undefined;
+            try bridge_mod.check(self.bridge.readRecord(.reserve_position, key, allocator, &value));
+            position.* = value.reserve_position;
+        }
+        return out;
+    }
+
+    /// A new reserve position appended to the list (D-18), one undo step (undo
+    /// removes it, redo puts it back at its index). The bridge refuses - naming why,
+    /// changing nothing - a squad or a non-unit in either role, a gun that is not
+    /// artillery, a towed gun with no truck, a truck that cannot tow the gun and a
+    /// place off the map. Returns the index it took.
+    pub fn addReservePosition(self: *Editor, position: records.ReservePosition) EditError!usize {
+        var keys: []i32 = &.{};
+        try bridge_mod.check(self.bridge.recordKeys(.reserve_position, self.allocator, &keys));
+        const index = keys.len;
+        self.allocator.free(keys);
+        const value: records.Value = .{ .reserve_position = position };
+        try self.addRecord(.reserve_position, @intCast(index), &value);
+        return index;
+    }
+
+    /// Replaces reserve position `index` through the generic record command; within
+    /// one gesture the edits are one undo step.
+    pub fn editReservePosition(self: *Editor, index: usize, position: records.ReservePosition, gesture: u32) EditError!void {
+        const value: records.Value = .{ .reserve_position = position };
+        try self.editRecord(.reserve_position, @intCast(index), &value, gesture);
+    }
+
+    /// Deletes reserve position `index`; undo puts it back at its index. One undo step.
+    pub fn deleteReservePosition(self: *Editor, index: usize) EditError!void {
+        try self.deleteRecord(.reserve_position, @intCast(index));
+    }
+
     /// An object's delete, restore or either's replay changes the start
-    /// commands (and, from 04-11 on, the reserve positions) that name it - the
-    /// cascade - so the panels that list them read again.
+    /// commands and the reserve positions that name it - the cascade - so the
+    /// panels that list them read again.
     fn bumpCascadeGenerations(self: *Editor) void {
         self.record_generations.set(.start_command, self.record_generations.get(.start_command) +% 1);
+        self.record_generations.set(.reserve_position, self.record_generations.get(.reserve_position) +% 1);
     }
 
     /// What a bridge-logged edit needs before its bridge call: room for its
@@ -3031,4 +3084,163 @@ test "a start command deleted and put back by undo keeps its flag, its target an
     try std.testing.expect(fake.start_commands.items[0].eql(&before));
     try std.testing.expect(try editor.redo());
     try std.testing.expectEqual(@as(usize, 0), fake.start_commands.items.len);
+}
+
+// -- 04-11: reserve positions (D-18) -------------------------------------------
+
+/// A fixture with a towed gun, a truck, a self-propelled gun and a heavy gun on the
+/// fake's role table (the fixture's own objects are a T34 and a bridge span).
+fn reserveFixture(allocator: std.mem.Allocator) !FakeBridge {
+    var fake = try testFixture(allocator);
+    errdefer fake.deinit();
+    try fake.setRoleFixture("Gun", .towed, 1000);
+    try fake.setRoleFixture("Truck", .truck, 2000);
+    try fake.setRoleFixture("Weak_Truck", .truck, 500);
+    try fake.setRoleFixture("Panzer", .self_propelled, 30000);
+    return fake;
+}
+
+fn placeNamed(editor: *Editor, name: []const u8, x: f32) !i32 {
+    return try editor.addObject(name, x, 100, 0, 0);
+}
+
+test "reserve role comes from the bridge's table" {
+    var fake = try reserveFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try std.testing.expectEqual(bridge_mod.ReserveRole.towed, try editor.reserveRole("Gun"));
+    try std.testing.expectEqual(bridge_mod.ReserveRole.truck, try editor.reserveRole("Truck"));
+    try std.testing.expectEqual(bridge_mod.ReserveRole.self_propelled, try editor.reserveRole("Panzer"));
+    try std.testing.expectEqual(bridge_mod.ReserveRole.none, try editor.reserveRole("T34"));
+    try std.testing.expectEqual(bridge_mod.ReserveRole.none, try editor.reserveRole("No_Such"));
+}
+
+test "a reserve position: a towed gun with its truck, one undo step each, appended, exact undo and redo" {
+    var fake = try reserveFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const gun = try placeNamed(&editor, "Gun", 60);
+    const truck = try placeNamed(&editor, "Truck", 90);
+    const panzer = try placeNamed(&editor, "Panzer", 120);
+    const depth = editor.history.undo_stack.items.len;
+    const generation = editor.record_generations.get(.reserve_position);
+    try std.testing.expectEqual(@as(usize, 0), try editor.addReservePosition(.{ .artillery = gun, .truck = truck, .x = 50, .y = 60 }));
+    try std.testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    try std.testing.expect(editor.record_generations.get(.reserve_position) != generation);
+    // A self-propelled gun needs no truck and is appended after the first.
+    try std.testing.expectEqual(@as(usize, 1), try editor.addReservePosition(.{ .artillery = panzer, .x = 70, .y = 80 }));
+    const listed = try editor.reservePositions(std.testing.allocator);
+    defer std.testing.allocator.free(listed);
+    try std.testing.expectEqual(@as(usize, 2), listed.len);
+    try std.testing.expectEqual(gun, listed[0].artillery);
+    try std.testing.expectEqual(truck, listed[0].truck);
+    try std.testing.expectEqual(panzer, listed[1].artillery);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 1), fake.reserve_positions.items.len);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 0), fake.reserve_positions.items.len);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(usize, 2), fake.reserve_positions.items.len);
+}
+
+test "reserve position refusals change nothing: the roles, the towing check, squads, non-units and the map edge" {
+    var fake = try reserveFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const gun = try placeNamed(&editor, "Gun", 60);
+    const truck = try placeNamed(&editor, "Truck", 90);
+    const weak = try placeNamed(&editor, "Weak_Truck", 100);
+    const panzer = try placeNamed(&editor, "Panzer", 120);
+    const squad = try placeNamed(&editor, "Gun", 130);
+    try fake.markSquadFixture(squad);
+    const depth = editor.history.undo_stack.items.len;
+    const generation = editor.record_generations.get(.reserve_position);
+    // A towed gun without a truck.
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = gun, .x = 50, .y = 60 }));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "towed gun needs a truck") != null);
+    // A self-propelled gun with a truck.
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = panzer, .truck = truck, .x = 50, .y = 60 }));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "takes no truck") != null);
+    // A truck that cannot tow the gun (500 against a weight of 1000).
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = gun, .truck = weak, .x = 50, .y = 60 }));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "cannot tow") != null);
+    // A squad in either role, a non-unit (the T34 has role 0), a truck as the gun, a gun as the truck.
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = squad, .truck = truck, .x = 50, .y = 60 }));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "squad") != null);
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = gun, .truck = squad, .x = 50, .y = 60 }));
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = 1, .x = 50, .y = 60 }));
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = truck, .x = 50, .y = 60 }));
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = gun, .truck = gun, .x = 50, .y = 60 }));
+    // Link ID 0 as the gun, both 0, a missing object, off the map.
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = 0, .truck = truck, .x = 50, .y = 60 }));
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = 0, .truck = 0, .x = 50, .y = 60 }));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "needs a gun") != null);
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = 9999, .x = 50, .y = 60 }));
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = panzer, .x = -5, .y = 60 }));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "not on the map") != null);
+    try std.testing.expectEqual(depth, editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(generation, editor.record_generations.get(.reserve_position));
+    try std.testing.expectEqual(@as(usize, 0), fake.reserve_positions.items.len);
+}
+
+test "reserve position: a move of the place is one undo step per gesture, and delete puts it back at its index" {
+    var fake = try reserveFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const panzer = try placeNamed(&editor, "Panzer", 120);
+    const other = try placeNamed(&editor, "Panzer", 150);
+    _ = try editor.addReservePosition(.{ .artillery = panzer, .x = 70, .y = 80 });
+    _ = try editor.addReservePosition(.{ .artillery = other, .x = 10, .y = 20 });
+    const gesture = editor.beginGesture();
+    try editor.editReservePosition(0, .{ .artillery = panzer, .x = 75, .y = 80 }, gesture);
+    try editor.editReservePosition(0, .{ .artillery = panzer, .x = 90, .y = 85 }, gesture);
+    try std.testing.expectEqual(@as(f32, 90), fake.reserve_positions.items[0].x);
+    const depth = editor.history.undo_stack.items.len;
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(f32, 70), fake.reserve_positions.items[0].x);
+    try std.testing.expectEqual(depth - 1, editor.history.undo_stack.items.len);
+    try editor.deleteReservePosition(0);
+    try std.testing.expectEqual(@as(usize, 1), fake.reserve_positions.items.len);
+    try std.testing.expectEqual(other, fake.reserve_positions.items[0].artillery);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(panzer, fake.reserve_positions.items[0].artillery);
+    try std.testing.expectEqual(other, fake.reserve_positions.items[1].artillery);
+}
+
+test "a file's own odd reserve position is accepted back by an undo, a new one like it is not" {
+    var fake = try reserveFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addReservePositionFixtureFull(.{ .artillery = 777, .truck = 0, .x = 5, .y = 5 });
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.deleteReservePosition(0);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(i32, 777), fake.reserve_positions.items[0].artillery);
+    try std.testing.expectError(error.Refused, editor.addReservePosition(.{ .artillery = 777, .truck = 0, .x = 6, .y = 5 }));
+    // Its place may move though its gun is not one the map has (the gun is unchanged).
+    try editor.editReservePosition(0, .{ .artillery = 777, .truck = 0, .x = 9, .y = 9 }, 0);
+    try std.testing.expectEqual(@as(f32, 9), fake.reserve_positions.items[0].x);
+}
+
+test "deleting a gun erases its reserve position and the undo brings it back, both generations moving" {
+    var fake = try reserveFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const panzer = try placeNamed(&editor, "Panzer", 120);
+    _ = try editor.addReservePosition(.{ .artillery = panzer, .x = 70, .y = 80 });
+    var generation = editor.record_generations.get(.reserve_position);
+    try editor.delete(panzer);
+    try std.testing.expectEqual(@as(usize, 0), fake.reserve_positions.items.len);
+    try std.testing.expect(editor.record_generations.get(.reserve_position) != generation);
+    generation = editor.record_generations.get(.reserve_position);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 1), fake.reserve_positions.items.len);
+    try std.testing.expect(editor.record_generations.get(.reserve_position) != generation);
+    try std.testing.expectEqual(@as(f32, 70), fake.reserve_positions.items[0].x);
 }
