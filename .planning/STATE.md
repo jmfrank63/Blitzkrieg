@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 04-08-PLAN.md
-last_updated: "2026-09-30T04:06:04.176Z"
-state_head: 4d8ea05659989df1510cf1cb3751558cd400e57c
+stopped_at: Completed 04-09-PLAN.md
+last_updated: "2026-09-30T05:12:15.566Z"
+state_head: f4db3f07397e5b86a8830510ba48fd8079d463cd
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 32
-  completed_plans: 27
+  completed_plans: 28
   percent: 14
 current_phase_name: "Map editor M2: roads, rivers, bridges, AI groups, scripts"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-30T04:06:04.111Z
-**Stopped at:** Completed 04-08-PLAN.md
+**Last session:** 2026-09-30T05:12:15.501Z
+**Stopped at:** Completed 04-09-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -97,6 +97,7 @@ behavior needs the in-game rows).
 | Phase 04 P06 | 50min | 4 tasks | 25 files |
 | Phase 04 P07 | 28min | 2 tasks | 23 files |
 | Phase 04 P08 | 2h01m | 3 tasks | 23 files |
+| Phase 04 P09 | 1h01m | 3 tasks | 21 files |
 
 ## Decisions
 
@@ -151,3 +152,6 @@ behavior needs the in-game rows).
 - [Phase ?]: 04-08: a bridge or entrenchment a unit is garrisoned in (nLinkWith) is refused whole before anything is taken out; moving units is M3
 - [Phase ?]: 04-08: the trench builder is pinned by properties over 500 fixed-seed polylines, identical on all CI platforms; the fireplace/line switcher is global over the trench, as in MFC
 - [Phase ?]: 04-08: mid-phase CI gate green on all six jobs (run 36663674380); narrow checkouts now carry road and river descriptors
+- [Phase ?]: 04-09: Hide checked takes the object out of the scene (the MFC editor's RemoveFromScene/AddToScene), not opacity 0: opacity left a tank's mesh shadow and health bar standing; the objects come back for the world's update and leave again
+- [Phase ?]: 04-09: a group put validates only what it adds (0..32000, once); what the file held when the map opened is exempt, so an undo can put a file's own odd data back (the session keeps openedGroups)
+- [Phase ?]: 04-09: the Group Manager is a floating window (Map -> Reinforcement groups...), every control a command; the generic record path now has record_add and record_delete with recordKeys/insertRecord/removeRecord
