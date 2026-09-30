@@ -29,6 +29,13 @@
 //!    where the real one groups ("start commands 2 and 5");
 //!  - the ground is flat: `groundHeight` answers 0 on the map, where the real
 //!    one reads the terrain's altitudes;
+//!  - roads and rivers are not sampled: a record's key points are its control
+//!    points (after the real builder's rule that drops a point within 2 units
+//!    of the one before), each with the drawn width and opacity and a normal
+//!    across its neighbours; "too short" is fewer than two such points (the
+//!    real one also refuses a line shorter than one 30-unit sampling step);
+//!    a record holds at most `max_vso_points` points; there is no engine to
+//!    redraw and no AI to lock river tiles in;
 //!  - `saveMap` never touches a real file on its own: the real
 //!    `BkEditorSaveMap`'s read-back verification (session.cpp,
 //!    `SaveSessionMap`) lives entirely inside the engine, invisible to this
@@ -44,13 +51,17 @@ const ObjectRecord = bridge_mod.ObjectRecord;
 const SoundRecord = bridge_mod.SoundRecord;
 const PaintCell = bridge_mod.PaintCell;
 const Bridge = bridge_mod.Bridge;
+const VsoKind = bridge_mod.VsoKind;
+const VsoDescriptor = bridge_mod.VsoDescriptor;
+const VsoKeyPoint = bridge_mod.VsoKeyPoint;
+const VsoView = bridge_mod.VsoView;
 
 /// World units per tile, standing in for the engine's own conversion.
 pub const tile_size: f32 = 32.0;
 /// How far from an object's centre a point still picks it.
 pub const pick_radius: f32 = 16.0;
 
-pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put };
+pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, vso_edit, undo_edit, redo_edit };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
 /// One start command as far as a delete reads it: up to eight units (link
@@ -92,6 +103,52 @@ const Tombstone = struct {
     changes: std.ArrayListUnmanaged(StartChange) = .empty,
     reserves: std.ArrayListUnmanaged(ReserveChange) = .empty,
 };
+/// The most control points a fake road or river holds.
+pub const max_vso_points = 32;
+/// CreateVSO's UniquePolygon distance (RMGC_MINIMAL_VIS_POINT_DISTANCE): a
+/// point this close to the one before it is dropped.
+pub const vso_min_point_distance: f32 = 2.0;
+
+/// A road or river as the fake keeps it: its type's bare name, the bridge's
+/// saved ID, and one key point per control point (see the header).
+pub const FakeVso = struct {
+    desc: VsoDescriptor = .{},
+    saved_id: i32 = 0,
+    controls: [max_vso_points]records.Vec3 = @splat(.{}),
+    keys: [max_vso_points]VsoKeyPoint = @splat(.{}),
+    count: usize = 0,
+
+    pub fn controlSlice(self: *const FakeVso) []const records.Vec3 {
+        return self.controls[0..self.count];
+    }
+
+    pub fn keySlice(self: *const FakeVso) []const VsoKeyPoint {
+        return self.keys[0..self.count];
+    }
+
+    /// Every key point's normal, from the control points around it: a unit
+    /// vector across the line, as the real sampler's normals are.
+    fn renormal(self: *FakeVso) void {
+        for (0..self.count) |index| {
+            const previous = self.controls[if (index == 0) 0 else index - 1];
+            const next = self.controls[@min(index + 1, self.count - 1)];
+            const dx = next.x - previous.x;
+            const dy = next.y - previous.y;
+            const length = @sqrt(dx * dx + dy * dy);
+            const key = &self.keys[index];
+            key.x = self.controls[index].x;
+            key.y = self.controls[index].y;
+            key.z = 0;
+            key.nx = if (length > 0) -dy / length else 0;
+            key.ny = if (length > 0) dx / length else 1;
+            key.nz = 0;
+        }
+    }
+};
+/// One logged road or river edit: the records before and after (either
+/// absent for an add or a delete) at a list position.
+const FakeVsoEdit = struct { kind: VsoKind, index: usize, before: ?FakeVso, after: ?FakeVso };
+
 /// A mutable empty slice to start from; Allocator.free ignores a zero length.
 var no_tiles: [0]u8 = .{};
 const PaintRecord = struct { cells: []PaintCell, before: []u8 };
@@ -119,6 +176,14 @@ pub const FakeBridge = struct {
     /// The map's reserve positions, in file order. `addReservePositionFixture`.
     reserve_positions: std.ArrayListUnmanaged(FakeReservePosition) = .empty,
     tombstones: std.AutoHashMapUnmanaged(i32, Tombstone) = .empty,
+    /// The season's road (0) and river (1) types. `addVsoDescriptorFixture`.
+    vso_descriptors: [2]std.ArrayListUnmanaged(VsoDescriptor) = .{ .empty, .empty },
+    /// The map's roads (0) and rivers (1), in list order. Kept across a reopen.
+    vso_lists: [2]std.ArrayListUnmanaged(FakeVso) = .{ .empty, .empty },
+    /// The edit log (BkEditorUndoEdit/RedoEdit): by token, and the two stacks.
+    vso_edits: std.ArrayListUnmanaged(FakeVsoEdit) = .empty,
+    applied_edits: std.ArrayListUnmanaged(i32) = .empty,
+    undone_edits: std.ArrayListUnmanaged(i32) = .empty,
     diplomacy_table: std.ArrayListUnmanaged(i32) = .empty,
     tiles: []u8 = &no_tiles,
     paints: std.ArrayListUnmanaged(PaintRecord) = .empty,
@@ -175,6 +240,11 @@ pub const FakeBridge = struct {
         self.reserve_positions.deinit(self.allocator);
         self.freeTombstones();
         self.tombstones.deinit(self.allocator);
+        for (&self.vso_descriptors) |*list| list.deinit(self.allocator);
+        for (&self.vso_lists) |*list| list.deinit(self.allocator);
+        self.vso_edits.deinit(self.allocator);
+        self.applied_edits.deinit(self.allocator);
+        self.undone_edits.deinit(self.allocator);
         self.diplomacy_table.deinit(self.allocator);
         self.calls.deinit(self.allocator);
         self.allocator.free(self.tiles);
@@ -214,6 +284,31 @@ pub const FakeBridge = struct {
     /// its delete is refused as the real bridge refuses one.
     pub fn addTrenchPieceFixture(self: *FakeBridge, link_id: i32, entrenchment: i32) !void {
         try self.trench_pieces.put(self.allocator, link_id, entrenchment);
+    }
+
+    /// A road (`.road`) or river (`.river`) type the season offers.
+    pub fn addVsoDescriptorFixture(self: *FakeBridge, kind: VsoKind, name: []const u8) !void {
+        var descriptor: VsoDescriptor = .{};
+        descriptor.setName(name);
+        try self.vso_descriptors[@intFromEnum(kind)].append(self.allocator, descriptor);
+    }
+
+    /// A road or river in the map before it opens, built as `addVso` builds
+    /// one; returns false when the fake's own rules refuse it.
+    pub fn addVsoFixture(self: *FakeBridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width: f32, opacity: f32) !bool {
+        var built: FakeVso = .{};
+        if (!self.buildVso(desc, points, width, opacity, &built)) return false;
+        try self.vso_lists[@intFromEnum(kind)].append(self.allocator, built);
+        return true;
+    }
+
+    /// The road or river at `index`, for a test to read.
+    pub fn vso(self: *const FakeBridge, kind: VsoKind, index: usize) *const FakeVso {
+        return &self.vso_lists[@intFromEnum(kind)].items[index];
+    }
+
+    pub fn vsoLen(self: *const FakeBridge, kind: VsoKind) usize {
+        return self.vso_lists[@intFromEnum(kind)].items.len;
     }
 
     /// The camera anchors the map holds before it opens.
@@ -270,6 +365,9 @@ pub const FakeBridge = struct {
         self.undone.clearRetainingCapacity();
         self.freeTombstones();
         self.tombstones.clearRetainingCapacity();
+        self.vso_edits.clearRetainingCapacity();
+        self.applied_edits.clearRetainingCapacity();
+        self.undone_edits.clearRetainingCapacity();
     }
 
     fn freeTombstones(self: *FakeBridge) void {
@@ -361,7 +459,186 @@ pub const FakeBridge = struct {
         .readRecord = readRecord,
         .putRecord = putRecord,
         .groundHeight = groundHeight,
+        .undoEdit = undoEdit,
+        .redoEdit = redoEdit,
+        .vsoDescriptors = vsoDescriptors,
+        .vsoCount = vsoCount,
+        .readVso = readVso,
+        .addVso = addVso,
     };
+
+    /// The real builder's rules the core sees, without the sampling: drops a
+    /// point within `vso_min_point_distance` of the one kept before it; "too
+    /// short" below two points; a width in world units at every key point.
+    fn buildVso(self: *FakeBridge, desc: []const u8, points: []const records.Vec3, width: f32, opacity: f32, out: *FakeVso) bool {
+        var vso_record: FakeVso = .{};
+        vso_record.desc.setName(desc);
+        for (points) |point| {
+            if (vso_record.count > 0) {
+                const last = vso_record.controls[vso_record.count - 1];
+                const dx = point.x - last.x;
+                const dy = point.y - last.y;
+                if (@sqrt(dx * dx + dy * dy) <= vso_min_point_distance) continue;
+            }
+            if (vso_record.count == max_vso_points) {
+                self.say("the fake holds at most {d} points per road", .{max_vso_points});
+                return false;
+            }
+            vso_record.controls[vso_record.count] = .{ .x = point.x, .y = point.y, .z = 0 };
+            vso_record.count += 1;
+        }
+        if (vso_record.count < 2) {
+            self.say("that road is too short: it needs two points at least 2 units apart", .{});
+            return false;
+        }
+        vso_record.renormal();
+        for (vso_record.keys[0..vso_record.count]) |*key| {
+            key.width = width;
+            key.opacity = opacity;
+        }
+        vso_record.saved_id = self.nextVsoId();
+        out.* = vso_record;
+        return true;
+    }
+
+    /// One above every saved ID of both lists, at least 1 (NextVsoID).
+    fn nextVsoId(self: *const FakeBridge) i32 {
+        var next: i32 = 1;
+        for (&self.vso_lists) |*list| {
+            for (list.items) |item| next = @max(next, item.saved_id + 1);
+        }
+        return next;
+    }
+
+    /// The one put an edit, its undo and its redo share (PutVso).
+    fn putVso(self: *FakeBridge, kind: VsoKind, index: usize, before: ?*const FakeVso, after: ?*const FakeVso) Status {
+        const list = &self.vso_lists[@intFromEnum(kind)];
+        if (before != null and after != null) {
+            if (index >= list.items.len) return .failed;
+            list.items[index] = after.?.*;
+        } else if (after) |record_after| {
+            if (index > list.items.len) return .failed;
+            list.insert(self.allocator, index, record_after.*) catch return .failed;
+        } else if (before != null) {
+            if (index >= list.items.len) return .failed;
+            _ = list.orderedRemove(index);
+        }
+        return .ok;
+    }
+
+    /// Puts an edit through and logs it, handing out its token.
+    fn logVsoEdit(self: *FakeBridge, edit: FakeVsoEdit, token: *i32) Status {
+        self.vso_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        self.applied_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        const put = self.putVso(edit.kind, edit.index, if (edit.before) |*b| b else null, if (edit.after) |*a| a else null);
+        if (put != .ok) return put;
+        self.vso_edits.appendAssumeCapacity(edit);
+        token.* = @intCast(self.vso_edits.items.len - 1);
+        self.applied_edits.appendAssumeCapacity(token.*);
+        self.undone_edits.clearRetainingCapacity();
+        self.record(.vso_edit, token.*);
+        return .ok;
+    }
+
+    fn undoEdit(ptr: *anyopaque, token: i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (self.applied_edits.items.len == 0 or self.applied_edits.items[self.applied_edits.items.len - 1] != token) {
+            self.say("edits are undone newest first", .{});
+            return .refused;
+        }
+        self.undone_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        const edit = &self.vso_edits.items[@intCast(token)];
+        const put = self.putVso(edit.kind, edit.index, if (edit.after) |*a| a else null, if (edit.before) |*b| b else null);
+        if (put != .ok) return put;
+        _ = self.applied_edits.pop();
+        self.undone_edits.appendAssumeCapacity(token);
+        self.record(.undo_edit, token);
+        return .ok;
+    }
+
+    fn redoEdit(ptr: *anyopaque, token: i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (self.undone_edits.items.len == 0 or self.undone_edits.items[self.undone_edits.items.len - 1] != token) {
+            self.say("edits are redone in the order they were undone", .{});
+            return .refused;
+        }
+        self.applied_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        const edit = &self.vso_edits.items[@intCast(token)];
+        const put = self.putVso(edit.kind, edit.index, if (edit.before) |*b| b else null, if (edit.after) |*a| a else null);
+        if (put != .ok) return put;
+        _ = self.undone_edits.pop();
+        self.applied_edits.appendAssumeCapacity(token);
+        self.record(.redo_edit, token);
+        return .ok;
+    }
+
+    fn vsoDescriptors(ptr: *anyopaque, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status {
+        const self = from(ptr);
+        const list = self.vso_descriptors[@intFromEnum(kind)].items;
+        total.* = list.len;
+        const count = @min(out.len, list.len);
+        @memcpy(out[0..count], list[0..count]);
+        return if (out.len >= list.len) .ok else .refused;
+    }
+
+    fn vsoCount(ptr: *anyopaque, kind: VsoKind, count: *usize) Status {
+        const self = from(ptr);
+        count.* = self.vso_lists[@intFromEnum(kind)].items.len;
+        return .ok;
+    }
+
+    fn readVso(ptr: *anyopaque, kind: VsoKind, index: i32, allocator: std.mem.Allocator, out: *VsoView) Status {
+        const self = from(ptr);
+        const list = self.vso_lists[@intFromEnum(kind)].items;
+        if (index < 0 or index >= list.len) return .bad_argument;
+        const item = &list[@intCast(index)];
+        const controls = allocator.dupe(records.Vec3, item.controlSlice()) catch return .failed;
+        const keys = allocator.dupe(VsoKeyPoint, item.keySlice()) catch {
+            allocator.free(controls);
+            return .failed;
+        };
+        out.* = .{ .saved_id = item.saved_id, .control_points = controls, .key_points = keys };
+        @memcpy(out.desc[0..item.desc.name.len], &item.desc.name);
+        return .ok;
+    }
+
+    fn knownDescriptor(self: *const FakeBridge, kind: VsoKind, desc: []const u8) bool {
+        for (self.vso_descriptors[@intFromEnum(kind)].items) |*item| {
+            if (std.mem.eql(u8, item.nameSlice(), desc)) return true;
+        }
+        return false;
+    }
+
+    fn addVso(ptr: *anyopaque, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        index.* = -1;
+        if (points.len > 1024) return .bad_argument;
+        if (!std.math.isFinite(width_tiles) or !std.math.isFinite(opacity) or width_tiles < 1 or width_tiles > 16 or opacity < 0 or opacity > 1) return .bad_argument;
+        for (points) |point| {
+            if (!finite(point)) return .bad_argument;
+        }
+        if (!self.knownDescriptor(kind, desc)) {
+            self.say("there is no {s} type \"{s}\" in this map's season", .{ kind.label(), desc });
+            return .refused;
+        }
+        for (points, 0..) |point, at| {
+            if (!self.onMap(point.x, point.y)) {
+                self.say("point {d} of the {s} is not on the map", .{ at, kind.label() });
+                return .refused;
+            }
+        }
+        var built: FakeVso = .{};
+        if (!self.buildVso(desc, points, width_tiles * tile_size / 2.0, opacity, &built)) return .refused;
+        const at = self.vso_lists[@intFromEnum(kind)].items.len;
+        const logged = self.logVsoEdit(.{ .kind = kind, .index = at, .before = null, .after = built }, token);
+        if (logged != .ok) return logged;
+        index.* = @intCast(at);
+        return .ok;
+    }
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
         const self = from(ptr);
@@ -867,6 +1144,9 @@ pub fn fixture(allocator: std.mem.Allocator) !FakeBridge {
     var mystery: ObjectRecord = .{ .link_id = 3, .x = 150, .y = 150, .dir = 0, .player = 1, .known = false };
     mystery.setName("No_Such_Object");
     try fake.addFixture(mystery, false);
+    try fake.addVsoDescriptorFixture(.road, "rail_road_grass");
+    try fake.addVsoDescriptorFixture(.road, "road_track");
+    try fake.addVsoDescriptorFixture(.river, "defaultriver");
     return fake;
 }
 

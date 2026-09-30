@@ -238,6 +238,9 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->paints.clear();
 	pSession->appliedPaints.clear();
 	pSession->undonePaints.clear();
+	ClearEditLog( pSession );
+	pSession->vsoEngineIDs[0].clear();
+	pSession->vsoEngineIDs[1].clear();
 	pSession->tombstones.clear();
 	pSession->nLinkIDFloor = NMapOverlay::NextLinkID( pSession->snapshot );
 	pSession->linkByAI.clear();
@@ -272,6 +275,9 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 		pTerrain->Load( pSession->szMapPath.c_str(), pSession->working.terrain );
 		pScene->SetTerrain( pTerrain );
 	}
+	// The engine's road and river nIDs, by list position: the terrain has just
+	// loaded both lists from the working copy, in file order.
+	ResetVsoEngineIDs( pSession );
 
 	// The map's season, before a single object is built: CreateMapObject
 	// hands the world's season to every map object, which picks its winter or
@@ -329,6 +335,9 @@ void CloseSessionMap( SEditorSession *pSession )
 	pSession->paints.clear();
 	pSession->appliedPaints.clear();
 	pSession->undonePaints.clear();
+	ClearEditLog( pSession );
+	pSession->vsoEngineIDs[0].clear();
+	pSession->vsoEngineIDs[1].clear();
 	pSession->tombstones.clear();
 	pSession->linkByAI.clear();
 	pSession->bMapOpen = false;
@@ -1058,7 +1067,6 @@ bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy 
 	return true;
 }
 
-namespace {
 // The engine's terrain, through the interface only Scene can hand out: a
 // dynamic_cast from ITerrain to its sibling ITerrainEditor would cross the
 // module boundary and come back null on the Itanium ABI.
@@ -1068,6 +1076,8 @@ ITerrainEditor* EngineTerrain()
 	ITerrain *pTerrain = pScene != 0 ? pScene->GetTerrain() : 0;
 	return pTerrain != 0 ? pTerrain->GetEditor() : 0;
 }
+
+namespace {
 
 // The overlay's regions are half-open patch rectangles (AffectedPatches, and
 // SPaintUndo after it); the engine's two region calls each take something

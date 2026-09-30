@@ -40,6 +40,16 @@ fn expectEngineMatches(real: *RealBridge) !void {
     }
 }
 
+/// The engine's roads and rivers agree with the map (BkEditorVsoMatchesEngine),
+/// or the test fails naming the first difference.
+fn expectVsoMatches(real: *RealBridge) !void {
+    const result = real.vsoMatchesEngine();
+    if (result != .ok) {
+        std.debug.print("map-editor-engine: the engine's roads and rivers do not match the map ({t}): {s}\n", .{ result, std.mem.span(c.BkEditorLastMessage(real.session)) });
+        return error.VsoDoesNotMatch;
+    }
+}
+
 fn engineTile(real: *RealBridge, x: c_int, y: c_int) !u8 {
     var tile: u8 = 0;
     if (c.BkEditorEngineTile(real.session, x, y, &tile) != c.BK_EDITOR_OK) {
@@ -285,6 +295,44 @@ test "the core drives the real bridge: every command, undone and redone" {
     try expectEngineMatches(&real);
     try expectDocumentIsBridge(&real, &editor);
     std.debug.print("map-editor-engine: M2 delete round trip ok\n", .{});
+
+    // M2 (04-05): a road drawn through the core Editor on the real engine -
+    // the bridge derives it, the engine draws it, undo and redo put the stored
+    // records back - and the engine's roads and rivers agree with the map
+    // after every step (BkEditorVsoMatchesEngine), as do its terrain and world.
+    const road_types = try editor.vsoDescriptors(.road, std.testing.allocator);
+    defer std.testing.allocator.free(road_types);
+    try std.testing.expect(road_types.len > 0);
+    const roads_at_open = try editor.vsoCount(.road);
+    const line = [_]core.records.Vec3{
+        .{ .x = middle_x - 300, .y = middle_y - 100 },
+        .{ .x = middle_x, .y = middle_y + 60 },
+        .{ .x = middle_x + 300, .y = middle_y - 40 },
+    };
+    try expectVsoMatches(&real);
+    const road = try editor.addVso(.road, road_types[0].nameSlice(), &line, 3, 1);
+    try std.testing.expectEqual(roads_at_open, road);
+    try std.testing.expectEqual(roads_at_open + 1, try editor.vsoCount(.road));
+    try expectEngineMatches(&real);
+    try expectVsoMatches(&real);
+    var view = try editor.readVso(.road, road);
+    defer view.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 3), view.control_points.len);
+    try std.testing.expectEqual(@as(usize, 3), view.key_points.len);
+    try std.testing.expectEqual(line[1].x, view.control_points[1].x);
+    _ = try editor.undo();
+    try std.testing.expectEqual(roads_at_open, try editor.vsoCount(.road));
+    try expectEngineMatches(&real);
+    try expectVsoMatches(&real);
+    _ = try editor.redo();
+    try std.testing.expectEqual(roads_at_open + 1, try editor.vsoCount(.road));
+    try expectEngineMatches(&real);
+    try expectVsoMatches(&real);
+    _ = try editor.undo();
+    try std.testing.expect(!editor.dirty());
+    try expectEngineMatches(&real);
+    try expectVsoMatches(&real);
+    std.debug.print("map-editor-engine: M2 road round trip ok\n", .{});
 
     std.debug.print("map-editor-engine: PASS ({d} objects)\n", .{objects_at_open});
 }
