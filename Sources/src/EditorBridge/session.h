@@ -62,6 +62,12 @@ struct SEditorSession
 	// A file may name two areas alike; an edit may not make a NEW duplicate, but an
 	// undo must be able to put an area of the file back beside its twin.
 	std::unordered_map<std::string, int> openedAreaNames;
+	// The start commands and reserve positions the file held when the map was
+	// opened (04-11, D-17, D-18). An add - the undo of a delete - may put back
+	// exactly one of these whatever it names, so the rules an edit is held to do
+	// not make an undo of a file's own odd record fail as a drift.
+	std::vector<SAIStartCommand> openedStartCommands;
+	std::vector<SBattlePosition> openedReservePositions;
 	// "Hide checked" (04-09, D-16): the script IDs the view holds back, sorted
 	// and unique, and the link IDs of the objects-list entries they name that
 	// are hidden now (their visuals at opacity 0, and picking skips them). A
@@ -348,6 +354,23 @@ bool ReadSessionScriptAreas( SEditorSession *pSession, BkEditorScriptAreaRecord 
 bool AddScriptAreaToSession( SEditorSession *pSession, int nIndex, const BkEditorScriptAreaRecord &rRecord, bool *pbRefused );
 bool SetScriptAreaInSession( SEditorSession *pSession, int nIndex, const BkEditorScriptAreaRecord &rRecord, bool *pbRefused );
 bool DeleteScriptAreaFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused );
+// Start commands (04-11, D-17), AI units, through NMapRecords on both copies, the
+// engine untouched. The reads answer the totals (*pnCount, pOut->unit_count) and
+// return false with *pbRefused when a buffer was too short (nothing written past
+// it). Add, Set and Delete follow the rules bridge.h documents; nIndex -1 appends
+// (Add only). LoadActionCommands reads Data/Editor/actions.ini the way the MFC
+// editor does (CAISCHelper::Initialize); false says why in *pszWhy.
+struct SActionCommandEntry
+{
+	std::string szName;
+	int nID;
+};
+bool LoadActionCommands( std::vector<SActionCommandEntry> *pOut, std::string *pszWhy );
+bool ReadSessionActionCommands( SEditorSession *pSession, BkEditorActionCommand *pOut, int nCapacity, int *pnCount, int *pnDefaultIndex, bool *pbRefused );
+bool ReadSessionStartCommand( SEditorSession *pSession, int nIndex, BkEditorStartCommandRecord *pOut, int *pUnits, int nUnitCapacity, bool *pbRefused );
+bool AddStartCommandToSession( SEditorSession *pSession, int nIndex, const BkEditorStartCommandRecord &rRecord, const int *pUnits, bool *pbRefused );
+bool SetStartCommandInSession( SEditorSession *pSession, int nIndex, const BkEditorStartCommandRecord &rRecord, const int *pUnits, bool *pbRefused );
+bool DeleteStartCommandFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused );
 // Reinforcement groups (04-09, D-16), through NMapRecords on both copies. The
 // two reads answer the total in *pnCount and return false when the buffer was
 // too short (nothing written past it); ReadSessionGroup also returns false

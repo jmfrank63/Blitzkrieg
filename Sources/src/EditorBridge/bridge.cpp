@@ -2170,6 +2170,137 @@ BkEditorStatus BkEditorScriptAreaResized( BkEditorSession *pSession, const BkEdi
 	} );
 }
 
+// ---------------------------------------------------------------------------
+// Start commands (04-11, D-17).
+// ---------------------------------------------------------------------------
+
+BkEditorStatus BkEditorActionCommands( BkEditorSession *pSession, BkEditorActionCommand *pOut, int nCapacity, int *pnCount, int *pnDefaultIndex )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || pnDefaultIndex == 0 || nCapacity < 0 || ( pOut == 0 && nCapacity > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( ReadSessionActionCommands( pSession, pOut, nCapacity, pnCount, pnDefaultIndex, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorStartCommandCount( BkEditorSession *pSession, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		*pnCount = int( pSession->snapshot.startCommandsList.size() );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorStartCommand( BkEditorSession *pSession, int nIndex, BkEditorStartCommandRecord *pOut, int *pUnits, int nUnitCapacity )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 || nUnitCapacity < 0 || ( pUnits == 0 && nUnitCapacity > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < 0 || nIndex >= int( pSession->snapshot.startCommandsList.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( ReadSessionStartCommand( pSession, nIndex, pOut, pUnits, nUnitCapacity, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+namespace {
+// The most units a command holds through the ABI: no shipped map comes near this.
+const int nMaxStartCommandUnitsInCall = 4096;
+
+// A record the ABI takes as a start command: present, a unit list that fits, the
+// explosion flag a bool and finite numbers. What is past this (no unit, an unknown
+// object or type, a point off the map) is a refusal decided once, in
+// session_records.cpp.
+bool StartCommandRecordWellFormed( const BkEditorStartCommandRecord *pRecord, const int *pUnits )
+{
+	if ( pRecord == 0 || pRecord->unit_count < 0 || pRecord->unit_count > nMaxStartCommandUnitsInCall )
+		return false;
+	if ( pRecord->unit_count > 0 && pUnits == 0 )
+		return false;
+	if ( pRecord->from_explosion != 0 && pRecord->from_explosion != 1 )
+		return false;
+	return std::isfinite( pRecord->x ) && std::isfinite( pRecord->y ) && std::isfinite( pRecord->number );
+}
+}
+
+BkEditorStatus BkEditorAddStartCommand( BkEditorSession *pSession, int nIndex, const BkEditorStartCommandRecord *pRecord, const int *pUnits )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !StartCommandRecordWellFormed( pRecord, pUnits ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < -1 || nIndex > int( pSession->snapshot.startCommandsList.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( AddStartCommandToSession( pSession, nIndex, *pRecord, pUnits, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorSetStartCommand( BkEditorSession *pSession, int nIndex, const BkEditorStartCommandRecord *pRecord, const int *pUnits )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !StartCommandRecordWellFormed( pRecord, pUnits ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < 0 || nIndex >= int( pSession->snapshot.startCommandsList.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( SetStartCommandInSession( pSession, nIndex, *pRecord, pUnits, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorDeleteStartCommand( BkEditorSession *pSession, int nIndex )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nIndex < 0 || nIndex >= int( pSession->snapshot.startCommandsList.size() ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( DeleteStartCommandFromSession( pSession, nIndex, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
 namespace {
 // The most script IDs a caller may hand BkEditorSetGroup: one per script ID
 // there is, with room for a file's own duplicates. A larger count is a caller

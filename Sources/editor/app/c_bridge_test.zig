@@ -88,6 +88,13 @@ fn expectDocumentIsBridge(real: *RealBridge, editor: *Editor) !void {
 /// The camera anchors read straight through the C ABI, not through
 /// RealBridge, for the same reason `expectDocumentIsBridge` reads raw
 /// records: an adapter conversion bug reaches the core and RealBridge alike.
+/// How many start commands the editor lists now (freed again).
+fn startCommandCount(editor: *Editor) !usize {
+    const listed = try editor.startCommands(std.testing.allocator);
+    defer Editor.freeStartCommands(std.testing.allocator, listed);
+    return listed.len;
+}
+
 fn rawAnchors(real: *RealBridge) !c.BkEditorCameraAnchorRecord {
     var record: c.BkEditorCameraAnchorRecord = std.mem.zeroes(c.BkEditorCameraAnchorRecord);
     try std.testing.expect(c.BkEditorCameraAnchors(real.session, &record) == c.BK_EDITOR_OK);
@@ -372,6 +379,56 @@ test "the core drives the real bridge: every command, undone and redone" {
     try expectEngineMatches(&real);
     try expectDocumentIsBridge(&real, &editor);
     std.debug.print("map-editor-engine: M2 delete round trip ok\n", .{});
+
+    // M2 (04-11): a start command end to end on the real engine. The first unit the
+    // bridge accepts (a building or a tree is refused, changing nothing) gets one of
+    // the default type; the raw read and the editor's list agree, undo, redo and undo
+    // walk it back and forth, and deleting the unit takes the command with it (the
+    // cascade moves the generation) while the undo of that delete brings it back.
+    const commands_at_open = try startCommandCount(&editor);
+    const commanded = pick: for (editor.document.objects.items) |candidate| {
+        if (!candidate.known or candidate.link_id <= 0) continue;
+        _ = editor.addStartCommand(candidate.link_id) catch |err| switch (err) {
+            error.Refused => continue,
+            else => return err,
+        };
+        break :pick candidate.link_id;
+    } else return error.NoUnitTakesAStartCommand;
+    {
+        var count: c_int = -1;
+        try std.testing.expect(c.BkEditorStartCommandCount(real.session, &count) == c.BK_EDITOR_OK);
+        try std.testing.expectEqual(@as(c_int, @intCast(commands_at_open + 1)), count);
+        var record: c.BkEditorStartCommandRecord = undefined;
+        var units: [4]c_int = @splat(-77);
+        try std.testing.expect(c.BkEditorStartCommand(real.session, @intCast(commands_at_open), &record, &units, 4) == c.BK_EDITOR_OK);
+        try std.testing.expectEqual(@as(c_int, 9), record.cmd_type);
+        try std.testing.expectEqual(@as(c_int, 1), record.unit_count);
+        try std.testing.expectEqual(@as(c_int, commanded), units[0]);
+        try std.testing.expectEqual(@as(c_int, 0), record.link_id);
+    }
+    try std.testing.expect(editor.dirty());
+    _ = try editor.undo();
+    try std.testing.expect(!editor.dirty());
+    _ = try editor.redo();
+    _ = try editor.undo();
+    try std.testing.expect(!editor.dirty());
+    _ = try editor.redo();
+    const generation_before_delete = editor.record_generations.get(.start_command);
+    editor.delete(commanded) catch |err| switch (err) {
+        error.Refused => {}, // a unit the map will not delete: the cascade is covered by the engine tier
+        else => return err,
+    };
+    if (editor.document.find(commanded) == null) {
+        try std.testing.expect(editor.record_generations.get(.start_command) != generation_before_delete);
+        try std.testing.expectEqual(commands_at_open, try startCommandCount(&editor));
+        _ = try editor.undo();
+        try std.testing.expectEqual(commands_at_open + 1, try startCommandCount(&editor));
+    }
+    _ = try editor.undo();
+    try std.testing.expect(!editor.dirty());
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    std.debug.print("map-editor-engine: M2 start command round trip ok\n", .{});
 
     // M2 (04-05): a road drawn through the core Editor on the real engine -
     // the bridge derives it, the engine draws it, undo and redo put the stored

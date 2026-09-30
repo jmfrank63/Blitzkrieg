@@ -24,6 +24,9 @@ pub const Kind = enum {
     /// A script area (04-10, D-21): keyed by its index in the map's list, the
     /// list the game's Lua finds by name.
     script_area,
+    /// A start command (04-11, D-17): keyed by its index in the map's list, the
+    /// orders the game gives units when a mission starts.
+    start_command,
 };
 
 /// A world-unit point. The all-zero value is the file's VNULL3: "not set".
@@ -173,15 +176,69 @@ pub const ScriptArea = struct {
     }
 };
 
+/// STOP, entry 9 of Data/Editor/actions.ini: the type a new start command
+/// starts as (CAISCHelper::DEFAULT_ACTION_COMMAND_INDEX; the bridge reports the
+/// default's real place in the list).
+pub const action_stop: i32 = 9;
+
+/// The MFC's rounding of one coordinate that is already in map (AI) units:
+/// Vis2AI cuts int(v + 0.3). A point clicked on the ground becomes a start
+/// command's target or a reserve position's place this way; `BkEditorWorldToMap`
+/// leaves the conversion to AI units unrounded, so the core applies the cut.
+/// A value that is not finite or too large for an integer is returned as it is.
+pub fn truncateToAi(value: f32) f32 {
+    if (!std.math.isFinite(value) or @abs(value) > 1.0e9) return value;
+    return @floatFromInt(@as(i32, @intFromFloat(value + 0.3)));
+}
+
+test "truncateToAi cuts int(v + 0.3), towards zero, as Vis2AI does" {
+    try std.testing.expectEqual(@as(f32, 141), truncateToAi(141.42));
+    try std.testing.expectEqual(@as(f32, 141), truncateToAi(140.75));
+    try std.testing.expectEqual(@as(f32, 140), truncateToAi(140.69));
+    try std.testing.expectEqual(@as(f32, 0), truncateToAi(0.25));
+    try std.testing.expectEqual(@as(f32, 0), truncateToAi(-0.25));
+    try std.testing.expect(std.math.isNan(truncateToAi(std.math.nan(f32))));
+    try std.testing.expectEqual(@as(f32, 2.0e9), truncateToAi(2.0e9));
+}
+
+/// One start command as the file holds it (D-17), positions in MAP (AI) units:
+/// the action `cmd_type` (an id of actions.ini), its target - the unit
+/// `link_id` (0: none, never a reference) or the point (x, y) - a `number`, the
+/// file's own `from_explosion` (never editable: a set keeps what the file has)
+/// and the `units` it orders, link IDs of the map's units and squads (a
+/// soldier stands for his squad). When it sits in a `Value` the slice is OWNED
+/// by that value (`Value.deinit` frees it); a bare `StartCommand` a caller
+/// builds borrows.
+pub const StartCommand = struct {
+    cmd_type: i32 = action_stop,
+    link_id: i32 = 0,
+    x: f32 = 0,
+    y: f32 = 0,
+    from_explosion: bool = false,
+    number: f32 = 0,
+    units: []const i32 = &.{},
+
+    pub fn has(self: StartCommand, link: i32) bool {
+        return std.mem.indexOfScalar(i32, self.units, link) != null;
+    }
+
+    pub fn eql(a: StartCommand, b: StartCommand) bool {
+        return a.cmd_type == b.cmd_type and a.link_id == b.link_id and a.x == b.x and a.y == b.y and
+            a.from_explosion == b.from_explosion and a.number == b.number and std.mem.eql(i32, a.units, b.units);
+    }
+};
+
 /// One whole record of some kind. The history owns the values it holds and
 /// frees them with `deinit`; the camera anchors and the script file own no
-/// memory, a group owns its script-ID list, and the three functions let the
-/// history free, copy and compare any value of any kind.
+/// memory, a group owns its script-ID list and a start command its unit list,
+/// and the three functions let the history free, copy and compare any value of
+/// any kind.
 pub const Value = union(Kind) {
     camera_anchors: CameraAnchors,
     group: Group,
     script_file: ScriptFile,
     script_area: ScriptArea,
+    start_command: StartCommand,
 
     pub fn deinit(self: *Value, allocator: std.mem.Allocator) void {
         switch (self.*) {
@@ -189,6 +246,12 @@ pub const Value = union(Kind) {
             .group => |group| {
                 allocator.free(group.ids);
                 self.* = .{ .group = .{ .id = group.id } };
+            },
+            .start_command => |command| {
+                allocator.free(command.units);
+                var emptied = command;
+                emptied.units = &.{};
+                self.* = .{ .start_command = emptied };
             },
         }
     }
@@ -199,6 +262,11 @@ pub const Value = union(Kind) {
             .script_file => |file| .{ .script_file = file },
             .script_area => |area| .{ .script_area = area },
             .group => |group| .{ .group = .{ .id = group.id, .ids = try allocator.dupe(i32, group.ids) } },
+            .start_command => |command| blk: {
+                var copy = command;
+                copy.units = try allocator.dupe(i32, command.units);
+                break :blk .{ .start_command = copy };
+            },
         };
     }
 
@@ -209,6 +277,7 @@ pub const Value = union(Kind) {
             .group => |left| left.eql(b.group),
             .script_file => |left| left.eql(b.script_file),
             .script_area => |left| left.eql(b.script_area),
+            .start_command => |left| left.eql(b.start_command),
         };
     }
 };
@@ -321,4 +390,33 @@ test "a script area value compares by its name and numbers, and never by the pad
     defer b.deinit(std.testing.allocator);
     try std.testing.expect(a.eql(b));
     try std.testing.expect(!a.eql(.{ .script_file = .{} }));
+}
+
+test "a start command value owns, clones, compares and frees its units" {
+    const allocator = std.testing.allocator;
+    var first: Value = .{ .start_command = .{ .cmd_type = 0, .link_id = 7, .x = 10, .y = 20, .number = 2.5, .units = try allocator.dupe(i32, &.{ 3, 4 }) } };
+    defer first.deinit(allocator);
+    var copy = try first.clone(allocator);
+    defer copy.deinit(allocator);
+    try std.testing.expect(first.eql(copy));
+    try std.testing.expect(first.start_command.units.ptr != copy.start_command.units.ptr);
+    try std.testing.expect(first.start_command.has(4));
+    try std.testing.expect(!first.start_command.has(0));
+    // The order of the units is part of the value: the file keeps it.
+    var reordered: Value = .{ .start_command = .{ .cmd_type = 0, .link_id = 7, .x = 10, .y = 20, .number = 2.5, .units = try allocator.dupe(i32, &.{ 4, 3 }) } };
+    defer reordered.deinit(allocator);
+    try std.testing.expect(!first.eql(reordered));
+    // Every field is part of it, the explosion flag too, and a command is never another kind.
+    var exploded = try first.clone(allocator);
+    defer exploded.deinit(allocator);
+    exploded.start_command.from_explosion = true;
+    try std.testing.expect(!first.eql(exploded));
+    try std.testing.expect(!first.eql(.{ .camera_anchors = .{} }));
+    // A command with no units is a value with nothing to free.
+    var empty: Value = .{ .start_command = .{} };
+    var empty_copy = try empty.clone(allocator);
+    try std.testing.expect(empty.eql(empty_copy));
+    try std.testing.expectEqual(action_stop, empty.start_command.cmd_type);
+    empty_copy.deinit(allocator);
+    empty.deinit(allocator);
 }

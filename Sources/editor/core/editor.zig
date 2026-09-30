@@ -408,6 +408,7 @@ pub const Editor = struct {
         try self.history.reserve(self.allocator);
         try self.noteOutcome(self.bridge.deleteObject(link_id));
         self.noteCascade();
+        self.bumpCascadeGenerations();
         const object = self.document.objects.orderedRemove(index);
         if (self.selection == link_id) self.selection = null;
         self.history.recordAssumeCapacity(self.allocator, .{ .delete = .{ .object = object, .index = index } }, 0);
@@ -839,6 +840,161 @@ pub const Editor = struct {
     /// undo puts both back. One undo step.
     pub fn deleteGroup(self: *Editor, group: i32) EditError!void {
         try self.deleteRecord(.group, group);
+    }
+
+    /// The action types start commands can carry (04-11, D-17), from
+    /// Data/Editor/actions.ini in the file's order, and the entry a new command
+    /// starts at (STOP). Owned by the caller: `freeActionList`. Refused, with the
+    /// reason in the status, when the file is missing - a start command cannot be
+    /// made then.
+    pub const ActionList = struct {
+        items: []bridge_mod.ActionCommand,
+        default_index: usize,
+
+        /// The entry whose id is `id`, or null.
+        pub fn find(self: ActionList, id: i32) ?*const bridge_mod.ActionCommand {
+            for (self.items) |*item| {
+                if (item.id == id) return item;
+            }
+            return null;
+        }
+
+        /// The entry named `name`, or null.
+        pub fn byName(self: ActionList, name: []const u8) ?*const bridge_mod.ActionCommand {
+            for (self.items) |*item| {
+                if (std.mem.eql(u8, item.nameSlice(), name)) return item;
+            }
+            return null;
+        }
+    };
+
+    pub fn actionCommands(self: *Editor, allocator: std.mem.Allocator) EditError!ActionList {
+        var items: []bridge_mod.ActionCommand = &.{};
+        var default_index: usize = 0;
+        try self.noteOutcome(self.bridge.actionCommands(allocator, &items, &default_index));
+        return .{ .items = items, .default_index = default_index };
+    }
+
+    pub fn freeActionList(allocator: std.mem.Allocator, list: ActionList) void {
+        allocator.free(list.items);
+    }
+
+    /// The map's start commands (D-17) in list order, each one's units owned by
+    /// the caller: `freeStartCommands` with the same allocator.
+    pub fn startCommands(self: *Editor, allocator: std.mem.Allocator) EditError![]records.StartCommand {
+        var keys: []i32 = &.{};
+        try bridge_mod.check(self.bridge.recordKeys(.start_command, allocator, &keys));
+        defer allocator.free(keys);
+        const out = try allocator.alloc(records.StartCommand, keys.len);
+        var filled: usize = 0;
+        errdefer {
+            for (out[0..filled]) |command| allocator.free(command.units);
+            allocator.free(out);
+        }
+        for (keys) |key| {
+            var value: records.Value = undefined;
+            try bridge_mod.check(self.bridge.readRecord(.start_command, key, allocator, &value));
+            out[filled] = value.start_command;
+            filled += 1;
+        }
+        return out;
+    }
+
+    pub fn freeStartCommands(allocator: std.mem.Allocator, commands: []records.StartCommand) void {
+        for (commands) |command| allocator.free(command.units);
+        allocator.free(commands);
+    }
+
+    /// Unit -> Add start command (D-17): a command for the unit `unit_link_id`
+    /// (a soldier's click already answers his squad's link ID), the type the
+    /// action list starts at (STOP), no target, appended; one undo step. Returns
+    /// the index it took. The bridge refuses a link ID that is not a unit or a
+    /// squad of the map, and says when the unit is one a group holds back.
+    pub fn addStartCommand(self: *Editor, unit_link_id: i32) EditError!usize {
+        const list = try self.actionCommands(self.allocator);
+        defer freeActionList(self.allocator, list);
+        if (list.items.len == 0) return error.Failed;
+        var keys: []i32 = &.{};
+        try bridge_mod.check(self.bridge.recordKeys(.start_command, self.allocator, &keys));
+        const index = keys.len;
+        self.allocator.free(keys);
+        const units = [_]i32{unit_link_id};
+        const value: records.Value = .{ .start_command = .{ .cmd_type = list.items[list.default_index].id, .units = &units } };
+        try self.addRecord(.start_command, @intCast(index), &value);
+        self.noteCascade();
+        return index;
+    }
+
+    /// Replaces start command `index` through the generic record command: a
+    /// type, a number, a target, its units. Within one gesture the edits are one
+    /// undo step. The record's `from_explosion` is ignored: the file's stays.
+    pub fn editStartCommand(self: *Editor, index: usize, command: records.StartCommand, gesture: u32) EditError!void {
+        // The flag is the file's (D-17): take it from the command as it is, so a
+        // value that changes nothing else is recognised as no edit, and what the
+        // history keeps is what the bridge holds.
+        var current: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(.start_command, @intCast(index), self.allocator, &current));
+        defer current.deinit(self.allocator);
+        var wanted = command;
+        wanted.from_explosion = current.start_command.from_explosion;
+        const value: records.Value = .{ .start_command = wanted };
+        try self.editRecord(.start_command, @intCast(index), &value, gesture);
+        self.noteCascade();
+    }
+
+    /// Deletes start command `index`; undo puts it back at its index, every
+    /// field as it was. One undo step.
+    pub fn deleteStartCommand(self: *Editor, index: usize) EditError!void {
+        try self.deleteRecord(.start_command, @intCast(index));
+    }
+
+    /// "Add selected unit": `link_id` joins command `index`'s units. One already
+    /// there is a status note and records nothing. One undo step.
+    pub fn addUnitToStartCommand(self: *Editor, index: usize, link_id: i32) EditError!void {
+        var current: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(.start_command, @intCast(index), self.allocator, &current));
+        defer current.deinit(self.allocator);
+        if (current.start_command.has(link_id)) {
+            var buffer: [96]u8 = undefined;
+            self.note(std.fmt.bufPrint(&buffer, "unit {d} is already in start command {d}", .{ link_id, index }) catch "already in the command");
+            return;
+        }
+        const units = try self.allocator.alloc(i32, current.start_command.units.len + 1);
+        defer self.allocator.free(units);
+        @memcpy(units[0..current.start_command.units.len], current.start_command.units);
+        units[current.start_command.units.len] = link_id;
+        var wanted = current.start_command;
+        wanted.units = units;
+        try self.editStartCommand(index, wanted, 0);
+    }
+
+    /// "Remove" on a unit of command `index`. Taking out the last unit deletes
+    /// the command, as one step, as the delete cascade would. A unit that is not
+    /// there is a status note and records nothing.
+    pub fn removeUnitFromStartCommand(self: *Editor, index: usize, link_id: i32) EditError!void {
+        var current: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(.start_command, @intCast(index), self.allocator, &current));
+        defer current.deinit(self.allocator);
+        const at = std.mem.indexOfScalar(i32, current.start_command.units, link_id) orelse {
+            var buffer: [96]u8 = undefined;
+            self.note(std.fmt.bufPrint(&buffer, "unit {d} is not in start command {d}", .{ link_id, index }) catch "not in the command");
+            return;
+        };
+        if (current.start_command.units.len == 1) return self.deleteStartCommand(index);
+        const units = try self.allocator.alloc(i32, current.start_command.units.len - 1);
+        defer self.allocator.free(units);
+        @memcpy(units[0..at], current.start_command.units[0..at]);
+        @memcpy(units[at..], current.start_command.units[at + 1 ..]);
+        var wanted = current.start_command;
+        wanted.units = units;
+        try self.editStartCommand(index, wanted, 0);
+    }
+
+    /// An object's delete, restore or either's replay changes the start
+    /// commands (and, from 04-11 on, the reserve positions) that name it - the
+    /// cascade - so the panels that list them read again.
+    fn bumpCascadeGenerations(self: *Editor) void {
+        self.record_generations.set(.start_command, self.record_generations.get(.start_command) +% 1);
     }
 
     /// What a bridge-logged edit needs before its bridge call: room for its
@@ -1331,6 +1487,7 @@ pub const Editor = struct {
         const index = self.document.indexOf(link_id) orelse return error.Failed;
         try self.noteOutcome(self.bridge.deleteObject(link_id));
         self.noteCascade();
+        self.bumpCascadeGenerations();
         _ = self.document.objects.orderedRemove(index);
         if (self.selection == link_id) self.selection = null;
     }
@@ -1340,6 +1497,7 @@ pub const Editor = struct {
     /// the document must not be able to miss it.
     fn restoreInto(self: *Editor, object: ObjectRecord, index: usize) EditError!void {
         try self.noteOutcome(self.bridge.restoreObject(object.link_id));
+        self.bumpCascadeGenerations();
         self.document.objects.insertAssumeCapacity(@min(index, self.document.objects.items.len), object);
     }
 
@@ -2678,4 +2836,199 @@ test "an allocation failure before the bridge call leaves the bridge, document a
     try std.testing.expect(fake.calls.items.len == 0 or fake.calls.items[fake.calls.items.len - 1].kind != .add);
     try std.testing.expectEqual(@as(usize, 3), editor.document.objects.items.len);
     try std.testing.expect(!editor.dirty());
+}
+
+// -- 04-11: start commands (D-17) ---------------------------------------------
+
+test "a start command: add is one step of STOP with no target, undo removes it, redo puts it back" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const generation = editor.record_generations.get(.start_command);
+    const index = try editor.addStartCommand(1);
+    try std.testing.expectEqual(@as(usize, 0), index);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expect(editor.record_generations.get(.start_command) != generation);
+    try std.testing.expectEqual(@as(usize, 1), fake.start_commands.items.len);
+    const command = fake.start_commands.items[0];
+    try std.testing.expectEqual(records.action_stop, command.cmd_type);
+    try std.testing.expectEqual(@as(i32, 0), command.target);
+    try std.testing.expect(!command.from_explosion);
+    try std.testing.expectEqualSlices(i32, &.{1}, command.units[0..command.unit_count]);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 0), fake.start_commands.items.len);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(usize, 1), fake.start_commands.items.len);
+    try std.testing.expect(fake.start_commands.items[0].eql(&command));
+    // The second is appended after the first.
+    try std.testing.expectEqual(@as(usize, 1), try editor.addStartCommand(1));
+}
+
+test "the action list comes from the bridge, STOP at the default, and a missing list refuses an add" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const list = try editor.actionCommands(std.testing.allocator);
+    defer Editor.freeActionList(std.testing.allocator, list);
+    try std.testing.expectEqualStrings("STOP", list.items[list.default_index].nameSlice());
+    try std.testing.expectEqual(@as(i32, 9), list.items[list.default_index].id);
+    try std.testing.expectEqual(@as(i32, 0), list.byName("MOVE_TO").?.id);
+    try std.testing.expect(list.find(9999) == null);
+    fake.no_action_list = true;
+    try std.testing.expectError(error.Refused, editor.actionCommands(std.testing.allocator));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "actions.ini") != null);
+    try std.testing.expectError(error.Refused, editor.addStartCommand(1));
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+}
+
+test "start command: a type, a number and a target edit in one gesture are one undo step and the flag stays" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addStartCommandFixtureFull(.{ .link_id = 0, .from_explosion = true, .units = &.{1} });
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const gesture = editor.beginGesture();
+    const listed = try editor.startCommands(std.testing.allocator);
+    defer Editor.freeStartCommands(std.testing.allocator, listed);
+    var command = listed[0];
+    command.cmd_type = 0;
+    try editor.editStartCommand(0, command, gesture);
+    command.number = 4.5;
+    command.x = 60;
+    command.y = 70;
+    command.from_explosion = false; // a set never changes it
+    try editor.editStartCommand(0, command, gesture);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    const stored = fake.start_commands.items[0];
+    try std.testing.expectEqual(@as(i32, 0), stored.cmd_type);
+    try std.testing.expectEqual(@as(f32, 4.5), stored.number);
+    try std.testing.expect(stored.from_explosion);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(records.action_stop, fake.start_commands.items[0].cmd_type);
+    try std.testing.expectEqual(@as(f32, 0), fake.start_commands.items[0].number);
+    try std.testing.expect(fake.start_commands.items[0].from_explosion);
+    // An edit that changes nothing records nothing.
+    const again = try editor.startCommands(std.testing.allocator);
+    defer Editor.freeStartCommands(std.testing.allocator, again);
+    var same = again[0];
+    const depth = editor.history.undo_stack.items.len;
+    try editor.editStartCommand(0, same, 0);
+    same.from_explosion = !same.from_explosion;
+    try editor.editStartCommand(0, same, 0);
+    try std.testing.expectEqual(depth, editor.history.undo_stack.items.len);
+}
+
+test "start command refusals leave the map, the history and the generation alone" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addStartCommandFixtureFull(.{ .units = &.{1} });
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const generation = editor.record_generations.get(.start_command);
+    const commands = try editor.startCommands(std.testing.allocator);
+    defer Editor.freeStartCommands(std.testing.allocator, commands);
+    var bad = commands[0];
+    bad.units = &.{};
+    try std.testing.expectError(error.Refused, editor.editStartCommand(0, bad, 0));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "at least one unit") != null);
+    bad.units = &.{0};
+    try std.testing.expectError(error.Refused, editor.editStartCommand(0, bad, 0));
+    bad.units = &.{99};
+    try std.testing.expectError(error.Refused, editor.editStartCommand(0, bad, 0));
+    bad.units = &.{ 1, 1 };
+    try std.testing.expectError(error.Refused, editor.editStartCommand(0, bad, 0));
+    bad = commands[0];
+    bad.cmd_type = 4242;
+    try std.testing.expectError(error.Refused, editor.editStartCommand(0, bad, 0));
+    bad = commands[0];
+    bad.link_id = 99;
+    try std.testing.expectError(error.Refused, editor.editStartCommand(0, bad, 0));
+    bad = commands[0];
+    bad.x = -3;
+    try std.testing.expectError(error.Refused, editor.editStartCommand(0, bad, 0));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "not on the map") != null);
+    try fake.markNonUnitFixture(2);
+    bad = commands[0];
+    bad.units = &.{2};
+    try std.testing.expectError(error.Refused, editor.editStartCommand(0, bad, 0));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "not a unit") != null);
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(generation, editor.record_generations.get(.start_command));
+    const unchanged = FakeStartCommand.fromRecord(commands[0]) orelse return error.TooManyUnits;
+    try std.testing.expect(fake.start_commands.items[0].eql(&unchanged));
+}
+
+test "start command units: Add selected unit skips a duplicate, Remove of the last unit deletes the command in one step" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const second = try editor.addObject("T34", 60, 60, 0, 0);
+    _ = try editor.addStartCommand(1);
+    const depth = editor.history.undo_stack.items.len;
+    try editor.addUnitToStartCommand(0, second);
+    try std.testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    try std.testing.expectEqualSlices(i32, &.{ 1, second }, fake.start_commands.items[0].units[0..fake.start_commands.items[0].unit_count]);
+    // A duplicate is a note and no step.
+    try editor.addUnitToStartCommand(0, second);
+    try std.testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "already in start command 0") != null);
+    // Remove one, then the last: the command goes as one step.
+    try editor.removeUnitFromStartCommand(0, 1);
+    try std.testing.expectEqualSlices(i32, &.{second}, fake.start_commands.items[0].units[0..fake.start_commands.items[0].unit_count]);
+    try editor.removeUnitFromStartCommand(0, 1); // not there: a note
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "not in start command 0") != null);
+    const before_last = editor.history.undo_stack.items.len;
+    try editor.removeUnitFromStartCommand(0, second);
+    try std.testing.expectEqual(@as(usize, 0), fake.start_commands.items.len);
+    try std.testing.expectEqual(before_last + 1, editor.history.undo_stack.items.len);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqualSlices(i32, &.{second}, fake.start_commands.items[0].units[0..fake.start_commands.items[0].unit_count]);
+}
+
+test "a unit a group holds back is accepted, and the status warns" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.setScriptID(1, 4245, 0);
+    const group = try editor.newGroup(0);
+    try editor.addScriptIDToGroup(group, 4245);
+    _ = try editor.addStartCommand(1);
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "held back by reinforcement group") != null);
+    try std.testing.expectEqual(@as(usize, 1), fake.start_commands.items.len);
+}
+
+test "deleting and restoring a unit move the start-command generation, both ways" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addStartCommandFixture(&.{ 1, 3 }, 0);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var generation = editor.record_generations.get(.start_command);
+    try editor.delete(1);
+    try std.testing.expect(editor.record_generations.get(.start_command) != generation);
+    generation = editor.record_generations.get(.start_command);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(editor.record_generations.get(.start_command) != generation);
+    generation = editor.record_generations.get(.start_command);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expect(editor.record_generations.get(.start_command) != generation);
+}
+
+test "a start command deleted and put back by undo keeps its flag, its target and every unit" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addStartCommandFixtureFull(.{ .cmd_type = 0, .link_id = 1, .x = 12, .y = 13, .from_explosion = true, .number = 2, .units = &.{ 1, 3 } });
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const before = fake.start_commands.items[0];
+    try editor.deleteStartCommand(0);
+    try std.testing.expectEqual(@as(usize, 0), fake.start_commands.items.len);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(fake.start_commands.items[0].eql(&before));
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(usize, 0), fake.start_commands.items.len);
 }

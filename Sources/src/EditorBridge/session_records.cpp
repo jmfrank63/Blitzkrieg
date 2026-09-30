@@ -9,6 +9,7 @@
 #include "StdAfx.h"
 #include <algorithm>
 #include <cmath>
+#include <iterator>
 #include "session.h"
 #include "world.h"
 #include "../AILogic/AILogic.h"
@@ -16,6 +17,8 @@
 #include "../MapFile/MapRecords.h"
 #include "../Formats/fmtTerrain.h"
 #include "../RandomMapGen/VSO_Types.h"
+#include "../Main/GameDB.h"
+#include "../Main/RPGStats.h"
 
 namespace {
 // The most anchors the ABI carries. A file with more is read-refused and
@@ -632,4 +635,381 @@ bool SetSessionHiddenScriptIDs( SEditorSession *pSession, const int *pIDs, int n
 bool IsHiddenLink( const SEditorSession &rSession, int nLinkID )
 {
 	return std::binary_search( rSession.hiddenLinkIDs.begin(), rSession.hiddenLinkIDs.end(), nLinkID );
+}
+
+// ---------------------------------------------------------------------------
+// Start commands (04-11, D-17).
+// ---------------------------------------------------------------------------
+
+namespace {
+// The most units a command holds through the ABI: no shipped map comes near this,
+// and a longer list is a caller's mistake.
+const int nMaxStartCommandUnits = 4096;
+
+// CAISCHelper::DEFAULT_ACTION_COMMAND_INDEX: the entry a new command starts at.
+const int nDefaultActionCommandIndex = 9;
+
+// The record of a link ID in whichever list holds it, or null. The first one, as
+// the game's link table would find it.
+const SMapObjectInfo* FindObjectByLink( const CMapInfo &rMap, int nLinkID )
+{
+	for ( size_t i = 0; i < rMap.objects.size(); ++i )
+		if ( rMap.objects[i].link.nLinkID == nLinkID )
+			return &rMap.objects[i];
+	for ( size_t i = 0; i < rMap.scenarioObjects.size(); ++i )
+		if ( rMap.scenarioObjects[i].link.nLinkID == nLinkID )
+			return &rMap.scenarioObjects[i];
+	return 0;
+}
+
+// "" when the link ID can be a unit of a start command: above 0, naming an object
+// of the map that is a unit or a squad the database knows. The game hands every
+// unit to a group command; a building or a tree there is not what it expects.
+std::string WhyNotAStartUnit( const CMapInfo &rMap, int nLinkID )
+{
+	if ( nLinkID <= 0 )
+		return "a start command's unit is a link ID above 0";
+	const SMapObjectInfo *pObject = FindObjectByLink( rMap, nLinkID );
+	if ( pObject == 0 )
+		return NStr::Format( "no object has link ID %d", nLinkID );
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	const SGDBObjectDesc *pDesc = pObjectsDB != 0 ? pObjectsDB->GetDesc( pObject->szName.c_str() ) : 0;
+	if ( pDesc == 0 )
+		return NStr::Format( "the object database does not know the type of object %d (%s)", nLinkID, pObject->szName.c_str() );
+	if ( pDesc->eGameType != SGVOGT_UNIT && pDesc->eGameType != SGVOGT_SQUAD )
+		return NStr::Format( "object %d (%s) is not a unit or a squad", nLinkID, pObject->szName.c_str() );
+	return "";
+}
+
+bool SameStartCommand( const SAIStartCommand &rLeft, const SAIStartCommand &rRight )
+{
+	return rLeft.cmdType == rRight.cmdType && rLeft.unitLinkIDs == rRight.unitLinkIDs && rLeft.linkID == rRight.linkID &&
+	       rLeft.vPos.x == rRight.vPos.x && rLeft.vPos.y == rRight.vPos.y && rLeft.fromExplosion == rRight.fromExplosion && rLeft.fNumber == rRight.fNumber;
+}
+
+bool IsOpenedStartCommand( const SEditorSession &rSession, const SAIStartCommand &rCommand )
+{
+	for ( size_t i = 0; i < rSession.openedStartCommands.size(); ++i )
+		if ( SameStartCommand( rSession.openedStartCommands[i], rCommand ) )
+			return true;
+	return false;
+}
+
+// The command as the file holds it. from_explosion of an add is the record's.
+SAIStartCommand StartCommandFromC( const BkEditorStartCommandRecord &rRecord, const int *pUnits )
+{
+	SAIStartCommand command;
+	command.cmdType = EActionCommand( rRecord.cmd_type );
+	command.unitLinkIDs.assign( pUnits, pUnits + rRecord.unit_count );
+	command.linkID = rRecord.link_id;
+	command.vPos = CVec2( rRecord.x, rRecord.y );
+	command.fromExplosion = rRecord.from_explosion != 0;
+	command.fNumber = rRecord.number;
+	return command;
+}
+
+void StartCommandToC( const SAIStartCommand &rCommand, BkEditorStartCommandRecord *pOut )
+{
+	memset( pOut, 0, sizeof *pOut );
+	pOut->cmd_type = int( rCommand.cmdType );
+	pOut->link_id = rCommand.linkID;
+	pOut->x = rCommand.vPos.x;
+	pOut->y = rCommand.vPos.y;
+	pOut->from_explosion = rCommand.fromExplosion ? 1 : 0;
+	pOut->number = rCommand.fNumber;
+	pOut->unit_count = int( rCommand.unitLinkIDs.size() );
+}
+
+// The command at nIndex of the snapshot's list, or null. The list is a std::list,
+// so this walks; a map holds a handful.
+const SAIStartCommand* StartCommandAt( const CMapInfo &rMap, int nIndex )
+{
+	if ( nIndex < 0 || nIndex >= int( rMap.startCommandsList.size() ) )
+		return 0;
+	SLoadMapInfo::TStartCommandsList::const_iterator it = rMap.startCommandsList.begin();
+	std::advance( it, nIndex );
+	return &*it;
+}
+
+// The message A3 asks for: a unit of the command that the game holds back for a
+// reinforcement group, whose start command it may not find when the mission starts.
+std::string HeldUnitWarning( const SEditorSession &rSession, const SAIStartCommand &rCommand )
+{
+	for ( size_t i = 0; i < rCommand.unitLinkIDs.size(); ++i )
+	{
+		const int nLinkID = rCommand.unitLinkIDs[i];
+		for ( size_t o = 0; o < rSession.snapshot.objects.size(); ++o )
+		{
+			const SMapObjectInfo &rObject = rSession.snapshot.objects[o];
+			if ( rObject.link.nLinkID != nLinkID || rObject.nScriptID < 0 )
+				continue;
+			for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = rSession.snapshot.reinforcements.groups.begin();
+			      it != rSession.snapshot.reinforcements.groups.end(); ++it )
+				if ( CountOf( it->second.ids, rObject.nScriptID ) != 0 )
+					return NStr::Format( "unit %d is held back by reinforcement group %d until a script brings it in; its start command may not find it", nLinkID, it->first );
+		}
+	}
+	return "";
+}
+
+// The put's rules (T-04-11-02, T-04-11-03): what the set or add CHANGES is judged, so
+// a file's own odd command can be edited and an undo can put one back. Says why in
+// szMessage.
+bool StartCommandAllowed( SEditorSession *pSession, const SAIStartCommand &rWanted, const SAIStartCommand *pCurrent )
+{
+	if ( IsOpenedStartCommand( *pSession, rWanted ) )
+		return true;
+	if ( rWanted.unitLinkIDs.empty() )
+	{
+		pSession->szMessage = "a start command needs at least one unit";
+		return false;
+	}
+	for ( size_t i = 0; i < rWanted.unitLinkIDs.size(); ++i )
+	{
+		const int nUnit = rWanted.unitLinkIDs[i];
+		const int nWanted = CountOf( rWanted.unitLinkIDs, nUnit );
+		const int nHeld = pCurrent != 0 ? CountOf( pCurrent->unitLinkIDs, nUnit ) : 0;
+		if ( nHeld != 0 && nWanted <= nHeld )
+			continue;
+		const std::string szWhy = WhyNotAStartUnit( pSession->snapshot, nUnit );
+		if ( !szWhy.empty() )
+		{
+			pSession->szMessage = szWhy;
+			return false;
+		}
+		if ( nWanted > 1 )
+		{
+			pSession->szMessage = NStr::Format( "unit %d is in the start command twice", nUnit );
+			return false;
+		}
+	}
+	if ( rWanted.linkID < 0 && ( pCurrent == 0 || pCurrent->linkID != rWanted.linkID ) )
+	{
+		pSession->szMessage = "a start command's target is a link ID above 0, or 0 for none";
+		return false;
+	}
+	if ( rWanted.linkID > 0 && ( pCurrent == 0 || pCurrent->linkID != rWanted.linkID ) && FindObjectByLink( pSession->snapshot, rWanted.linkID ) == 0 )
+	{
+		pSession->szMessage = NStr::Format( "the target object %d is not on the map", rWanted.linkID );
+		return false;
+	}
+	if ( pCurrent == 0 || pCurrent->cmdType != rWanted.cmdType )
+	{
+		std::vector<SActionCommandEntry> actions;
+		std::string szWhy;
+		if ( !LoadActionCommands( &actions, &szWhy ) )
+		{
+			pSession->szMessage = szWhy;
+			return false;
+		}
+		bool bListed = false;
+		for ( size_t i = 0; i < actions.size(); ++i )
+			bListed = bListed || actions[i].nID == int( rWanted.cmdType );
+		if ( !bListed )
+		{
+			pSession->szMessage = NStr::Format( "%d is not an action type Data\\Editor\\actions.ini lists", int( rWanted.cmdType ) );
+			return false;
+		}
+	}
+	const bool bMoved = pCurrent == 0 || pCurrent->vPos.x != rWanted.vPos.x || pCurrent->vPos.y != rWanted.vPos.y;
+	if ( bMoved && !OnTheMapInAIUnits( *pSession, rWanted.vPos.x, rWanted.vPos.y ) )
+	{
+		pSession->szMessage = "the start command's target point is not on the map";
+		return false;
+	}
+	return true;
+}
+}
+
+// The action types of an actions.ini text the way the MFC editor's table read them
+// (CIniFile::LoadTables, which CAISCHelper::Initialize goes through): lines trimmed,
+// ';' comments and blank lines skipped, the first row only, an entry with no value
+// dropped, a name listed again keeping its first place and taking its last value,
+// each value read as atoi does. The game's StreamIO port has no ini table to ask
+// (OpenIniDataTable answers nothing there), so the text is read here.
+static void ParseActionsIni( const std::string &szText, std::vector<SActionCommandEntry> *pOut )
+{
+	pOut->clear();
+	int nRows = 0;
+	size_t nAt = 0;
+	while ( nAt <= szText.size() )
+	{
+		size_t nEnd = szText.find( '\n', nAt );
+		if ( nEnd == std::string::npos )
+			nEnd = szText.size();
+		std::string szLine = szText.substr( nAt, nEnd - nAt );
+		nAt = nEnd + 1;
+		NStr::TrimBoth( szLine );
+		if ( szLine.empty() || szLine[0] == ';' )
+			continue;
+		if ( szLine[0] == '[' && szLine[szLine.size() - 1] == ']' )
+		{
+			++nRows;
+			continue;
+		}
+		if ( nRows != 1 )
+			continue;
+		const size_t nEquals = szLine.find( '=' );
+		if ( nEquals == std::string::npos )
+			continue;
+		std::string szName = szLine.substr( 0, nEquals ), szValue = szLine.substr( nEquals + 1 );
+		NStr::TrimBoth( szName );
+		NStr::TrimBoth( szValue );
+		if ( szName.empty() || szValue.empty() )
+			continue;
+		const int nID = atoi( szValue.c_str() );
+		size_t nKnown = 0;
+		while ( nKnown < pOut->size() && ( *pOut )[nKnown].szName != szName )
+			++nKnown;
+		if ( nKnown < pOut->size() )
+			( *pOut )[nKnown].nID = nID;
+		else
+		{
+			SActionCommandEntry entry;
+			entry.szName = szName;
+			entry.nID = nID;
+			pOut->push_back( entry );
+		}
+	}
+}
+
+bool LoadActionCommands( std::vector<SActionCommandEntry> *pOut, std::string *pszWhy )
+{
+	pOut->clear();
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( pStorage == 0 )
+	{
+		*pszWhy = "the engine is not started";
+		return false;
+	}
+	CPtr<IDataStream> pStream = pStorage->OpenStream( "editor\\actions.ini", STREAM_ACCESS_READ );
+	if ( pStream == 0 )
+	{
+		*pszWhy = "the action list Data\\Editor\\actions.ini is not in the data";
+		return false;
+	}
+	const int nSize = pStream->GetSize();
+	std::string szText;
+	if ( nSize > 0 )
+	{
+		szText.resize( nSize );
+		szText.resize( pStream->Read( &szText[0], nSize ) );
+	}
+	ParseActionsIni( szText, pOut );
+	if ( pOut->empty() )
+	{
+		*pszWhy = "Data\\Editor\\actions.ini lists no action types";
+		return false;
+	}
+	return true;
+}
+
+bool ReadSessionActionCommands( SEditorSession *pSession, BkEditorActionCommand *pOut, int nCapacity, int *pnCount, int *pnDefaultIndex, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	*pnCount = 0;
+	*pnDefaultIndex = 0;
+	std::vector<SActionCommandEntry> actions;
+	if ( !LoadActionCommands( &actions, &pSession->szMessage ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	*pnCount = int( actions.size() );
+	*pnDefaultIndex = int( actions.size() ) > nDefaultActionCommandIndex ? nDefaultActionCommandIndex : int( actions.size() ) - 1;
+	const int nWrite = Min( nCapacity, int( actions.size() ) );
+	for ( int i = 0; i < nWrite; ++i )
+	{
+		memset( &pOut[i], 0, sizeof pOut[i] );
+		const size_t nLength = Min( actions[i].szName.size(), sizeof pOut[i].name - 1 );
+		memcpy( pOut[i].name, actions[i].szName.c_str(), nLength );
+		pOut[i].id = actions[i].nID;
+	}
+	if ( nCapacity < int( actions.size() ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	return true;
+}
+
+bool ReadSessionStartCommand( SEditorSession *pSession, int nIndex, BkEditorStartCommandRecord *pOut, int *pUnits, int nUnitCapacity, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	const SAIStartCommand *pCommand = StartCommandAt( pSession->snapshot, nIndex );
+	if ( pCommand == 0 )
+		return false;
+	StartCommandToC( *pCommand, pOut );
+	const int nWrite = Min( nUnitCapacity, int( pCommand->unitLinkIDs.size() ) );
+	for ( int i = 0; i < nWrite; ++i )
+		pUnits[i] = pCommand->unitLinkIDs[i];
+	// A buffer too short is the sizing pass of a two-pass read, not a failure worth
+	// a message: pOut->unit_count is the total and nothing was written past it.
+	if ( nUnitCapacity < int( pCommand->unitLinkIDs.size() ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	return true;
+}
+
+bool AddStartCommandToSession( SEditorSession *pSession, int nIndex, const BkEditorStartCommandRecord &rRecord, const int *pUnits, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	const SAIStartCommand wanted = StartCommandFromC( rRecord, pUnits );
+	if ( !StartCommandAllowed( pSession, wanted, 0 ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	// Both copies together; the engine holds no start commands until a mission starts.
+	if ( !NMapRecords::InsertStartCommand( &pSession->snapshot, nIndex, wanted ) )
+		return false;
+	if ( !NMapRecords::InsertStartCommand( &pSession->working, nIndex, wanted ) )
+	{
+		NMapRecords::EraseStartCommand( &pSession->snapshot, nIndex < 0 ? int( pSession->snapshot.startCommandsList.size() ) - 1 : nIndex );
+		return false;
+	}
+	pSession->szMessage = HeldUnitWarning( *pSession, wanted );
+	return true;
+}
+
+bool SetStartCommandInSession( SEditorSession *pSession, int nIndex, const BkEditorStartCommandRecord &rRecord, const int *pUnits, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	const SAIStartCommand *pHeld = StartCommandAt( pSession->snapshot, nIndex );
+	if ( pHeld == 0 )
+		return false;
+	const SAIStartCommand current = *pHeld;
+	SAIStartCommand wanted = StartCommandFromC( rRecord, pUnits );
+	// D-17: the explosion flag is the file's; a set never changes it.
+	wanted.fromExplosion = current.fromExplosion;
+	if ( !StartCommandAllowed( pSession, wanted, &current ) )
+	{
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( !NMapRecords::ReplaceStartCommand( &pSession->snapshot, nIndex, wanted ) )
+		return false;
+	if ( !NMapRecords::ReplaceStartCommand( &pSession->working, nIndex, wanted ) )
+	{
+		NMapRecords::ReplaceStartCommand( &pSession->snapshot, nIndex, current );
+		return false;
+	}
+	pSession->szMessage = HeldUnitWarning( *pSession, wanted );
+	return true;
+}
+
+bool DeleteStartCommandFromSession( SEditorSession *pSession, int nIndex, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	SAIStartCommand erased;
+	if ( !NMapRecords::EraseStartCommand( &pSession->snapshot, nIndex, &erased ) )
+		return false;
+	if ( !NMapRecords::EraseStartCommand( &pSession->working, nIndex ) )
+	{
+		NMapRecords::InsertStartCommand( &pSession->snapshot, nIndex, erased );
+		return false;
+	}
+	return true;
 }

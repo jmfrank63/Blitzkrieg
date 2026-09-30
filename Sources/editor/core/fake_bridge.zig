@@ -21,9 +21,13 @@
 //!  - references are modelled only as far as a delete reads them: a bridge
 //!    span (`bridge_spans`, link ID to bridge index) and a trench piece
 //!    (`trench_pieces`, link ID to entrenchment index) refuse, and start
-//!    commands (`start_commands`, at most 8 units each) and reserve
-//!    positions (`reserve_positions`) are edited by the cascade in the same
-//!    order as the real bridge, undone in reverse. Reinforcement groups are
+//!    commands (`start_commands`, at most `max_command_units` units each,
+//!    every field of records.StartCommand, converted at the record calls) and
+//!    reserve positions (`reserve_positions`) are edited by the cascade in the
+//!    same order as the real bridge, undone in reverse. A start command's
+//!    units are any known object (`markNonUnitFixture` makes one a building);
+//!    the action types are a built-in list unless a test replaces it or turns
+//!    it off (`no_action_list`); Reinforcement groups are
 //!    held (`groups`, 04-09) for the Group Manager's records only; a delete
 //!    never edits them (they name script IDs), and mobile script IDs are not
 //!    held. The fake words the delete's summary one change at a time where the
@@ -74,12 +78,22 @@ pub const pick_radius: f32 = 16.0;
 pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
-/// One start command as far as a delete reads it: up to eight units (link
-/// IDs) and the target's link ID, 0 meaning none.
+/// The most units a fake start command holds (the real one holds as many as the
+/// ABI's 4096): a fixed capacity keeps the command a plain value, so a test can
+/// snapshot the list by copy.
+pub const max_command_units = 16;
+
+/// One start command: every field of records.StartCommand, the units in a fixed
+/// array (`target` is the record's `link_id`, 0 meaning none).
 pub const FakeStartCommand = struct {
-    units: [8]i32 = @splat(0),
+    units: [max_command_units]i32 = @splat(0),
     unit_count: usize = 0,
     target: i32 = 0,
+    cmd_type: i32 = records.action_stop,
+    x: f32 = 0,
+    y: f32 = 0,
+    from_explosion: bool = false,
+    number: f32 = 0,
 
     fn holds(self: *const FakeStartCommand, link_id: i32) bool {
         for (self.units[0..self.unit_count]) |unit| {
@@ -96,6 +110,44 @@ pub const FakeStartCommand = struct {
             kept += 1;
         }
         self.unit_count = kept;
+    }
+
+    pub fn unitSlice(self: *const FakeStartCommand) []const i32 {
+        return self.units[0..self.unit_count];
+    }
+
+    /// The record, its units allocated with `allocator` (the value owns them).
+    pub fn toRecord(self: *const FakeStartCommand, allocator: std.mem.Allocator) std.mem.Allocator.Error!records.StartCommand {
+        return .{
+            .cmd_type = self.cmd_type,
+            .link_id = self.target,
+            .x = self.x,
+            .y = self.y,
+            .from_explosion = self.from_explosion,
+            .number = self.number,
+            .units = try allocator.dupe(i32, self.unitSlice()),
+        };
+    }
+
+    /// Null when the record holds more units than the fake does.
+    pub fn fromRecord(value: records.StartCommand) ?FakeStartCommand {
+        if (value.units.len > max_command_units) return null;
+        var command: FakeStartCommand = .{
+            .target = value.link_id,
+            .cmd_type = value.cmd_type,
+            .x = value.x,
+            .y = value.y,
+            .from_explosion = value.from_explosion,
+            .number = value.number,
+            .unit_count = value.units.len,
+        };
+        @memcpy(command.units[0..value.units.len], value.units);
+        return command;
+    }
+
+    pub fn eql(a: *const FakeStartCommand, b: *const FakeStartCommand) bool {
+        return a.cmd_type == b.cmd_type and a.target == b.target and a.x == b.x and a.y == b.y and a.from_explosion == b.from_explosion and
+            a.number == b.number and std.mem.eql(i32, a.unitSlice(), b.unitSlice());
     }
 };
 /// A reserve position as far as a delete reads it: its artillery's and its
@@ -248,6 +300,16 @@ pub const FakeBridge = struct {
     trench_pieces: std.AutoHashMapUnmanaged(i32, i32) = .empty,
     /// The map's start commands, in file order. `addStartCommandFixture`.
     start_commands: std.ArrayListUnmanaged(FakeStartCommand) = .empty,
+    /// The start commands as the map was opened: a command of the file is always
+    /// accepted back (an undo of a delete). Kept across a fake reopen.
+    start_commands_at_open: std.ArrayListUnmanaged(FakeStartCommand) = .empty,
+    /// The action types the fake lists (04-11): empty means the built-in list
+    /// `default_actions`; `no_action_list` is the file missing.
+    action_list: std.ArrayListUnmanaged(bridge_mod.ActionCommand) = .empty,
+    no_action_list: bool = false,
+    /// Link IDs that are not units or squads (a building, a tree): a start
+    /// command may not name them. Every other known object is a unit.
+    non_units: std.ArrayListUnmanaged(i32) = .empty,
     /// The map's reserve positions, in file order. `addReservePositionFixture`.
     reserve_positions: std.ArrayListUnmanaged(FakeReservePosition) = .empty,
     tombstones: std.AutoHashMapUnmanaged(i32, Tombstone) = .empty,
@@ -328,6 +390,9 @@ pub const FakeBridge = struct {
         self.bridge_spans.deinit(self.allocator);
         self.trench_pieces.deinit(self.allocator);
         self.start_commands.deinit(self.allocator);
+        self.start_commands_at_open.deinit(self.allocator);
+        self.action_list.deinit(self.allocator);
+        self.non_units.deinit(self.allocator);
         self.reserve_positions.deinit(self.allocator);
         self.freeTombstones();
         self.tombstones.deinit(self.allocator);
@@ -361,6 +426,17 @@ pub const FakeBridge = struct {
         @memcpy(command.units[0..units.len], units);
         command.unit_count = units.len;
         try self.start_commands.append(self.allocator, command);
+    }
+
+    /// A start command in the map before it opens, with every field.
+    pub fn addStartCommandFixtureFull(self: *FakeBridge, command: records.StartCommand) !void {
+        try self.start_commands.append(self.allocator, FakeStartCommand.fromRecord(command) orelse return error.TooManyUnits);
+    }
+
+    /// Makes an object of the map a building or a tree for the start commands: its
+    /// link ID is refused as a unit.
+    pub fn markNonUnitFixture(self: *FakeBridge, link_id: i32) !void {
+        try self.non_units.append(self.allocator, link_id);
     }
 
     /// A sound in the map before it opens, for a test to seed the list
@@ -620,6 +696,7 @@ pub const FakeBridge = struct {
         .scriptAreaFromVis = scriptAreaFromVis,
         .scriptAreaMoved = scriptAreaMoved,
         .scriptAreaResized = scriptAreaResized,
+        .actionCommands = actionCommands,
         .undoEdit = undoEdit,
         .redoEdit = redoEdit,
         .vsoDescriptors = vsoDescriptors,
@@ -1706,6 +1783,8 @@ pub const FakeBridge = struct {
         self.script_file_at_open = self.script_file;
         self.script_areas_at_open.clearRetainingCapacity();
         self.script_areas_at_open.appendSlice(self.allocator, self.script_areas.items) catch return .failed;
+        self.start_commands_at_open.clearRetainingCapacity();
+        self.start_commands_at_open.appendSlice(self.allocator, self.start_commands.items) catch return .failed;
         if (self.tiles.len == 0) {
             self.tiles = self.allocator.alloc(u8, @intCast(self.info.width_tiles * self.info.height_tiles)) catch return .failed;
             @memset(self.tiles, 0);
@@ -2043,6 +2122,10 @@ pub const FakeBridge = struct {
                 if (key < 0 or key >= self.script_areas.items.len) return .bad_argument;
                 out.* = .{ .script_area = self.script_areas.items[@intCast(key)] };
             },
+            .start_command => {
+                if (key < 0 or key >= self.start_commands.items.len) return .bad_argument;
+                out.* = .{ .start_command = self.start_commands.items[@intCast(key)].toRecord(allocator) catch return .failed };
+            },
         }
         return .ok;
     }
@@ -2094,6 +2177,11 @@ pub const FakeBridge = struct {
                 for (keys, 0..) |*key_slot, index| key_slot.* = @intCast(index);
                 out.* = keys;
             },
+            .start_command => {
+                const keys = allocator.alloc(i32, self.start_commands.items.len) catch return .failed;
+                for (keys, 0..) |*key_slot, index| key_slot.* = @intCast(index);
+                out.* = keys;
+            },
             .group => {
                 const keys = allocator.alloc(i32, self.groups.count()) catch return .failed;
                 var index: usize = 0;
@@ -2115,6 +2203,18 @@ pub const FakeBridge = struct {
                 if (key < 0 or key > self.script_areas.items.len) return .bad_argument;
                 if (!self.areaPutAllowed(area, null)) return .refused;
                 self.script_areas.insert(self.allocator, @intCast(key), area) catch return .failed;
+                self.record(.record_put, key);
+                return .ok;
+            },
+            .start_command => |command| {
+                if (key < 0 or key > self.start_commands.items.len) return .bad_argument;
+                const wanted = FakeStartCommand.fromRecord(command) orelse {
+                    self.say("the fake holds at most {d} units per start command", .{max_command_units});
+                    return .refused;
+                };
+                if (!self.startCommandAllowed(&wanted, null)) return .refused;
+                self.start_commands.insert(self.allocator, @intCast(key), wanted) catch return .failed;
+                self.warnHeldUnit(&wanted);
                 self.record(.record_put, key);
                 return .ok;
             },
@@ -2140,6 +2240,12 @@ pub const FakeBridge = struct {
             .script_area => {
                 if (key < 0 or key >= self.script_areas.items.len) return .bad_argument;
                 _ = self.script_areas.orderedRemove(@intCast(key));
+                self.record(.record_put, key);
+                return .ok;
+            },
+            .start_command => {
+                if (key < 0 or key >= self.start_commands.items.len) return .bad_argument;
+                _ = self.start_commands.orderedRemove(@intCast(key));
                 self.record(.record_put, key);
                 return .ok;
             },
@@ -2211,6 +2317,20 @@ pub const FakeBridge = struct {
                 if (key < 0 or key >= self.script_areas.items.len) return .bad_argument;
                 if (!self.areaPutAllowed(wanted, @intCast(key))) return .refused;
                 self.script_areas.items[@intCast(key)] = wanted;
+                self.record(.record_put, key);
+            },
+            .start_command => |command| {
+                if (key < 0 or key >= self.start_commands.items.len) return .bad_argument;
+                var wanted = FakeStartCommand.fromRecord(command) orelse {
+                    self.say("the fake holds at most {d} units per start command", .{max_command_units});
+                    return .refused;
+                };
+                const current = self.start_commands.items[@intCast(key)];
+                // D-17: the explosion flag is the file's; a set never changes it.
+                wanted.from_explosion = current.from_explosion;
+                if (!self.startCommandAllowed(&wanted, &current)) return .refused;
+                self.start_commands.items[@intCast(key)] = wanted;
+                self.warnHeldUnit(&wanted);
                 self.record(.record_put, key);
             },
             .script_file => |wanted| {
@@ -2325,6 +2445,145 @@ pub const FakeBridge = struct {
             return false;
         }
         return true;
+    }
+
+    /// The built-in action types when a test seeds none: the first entries of
+    /// the real Data/Editor/actions.ini.
+    const default_actions = [_]struct { name: []const u8, id: i32 }{
+        .{ .name = "MOVE_TO", .id = 0 },
+        .{ .name = "ATTACK_UNIT", .id = 1 },
+        .{ .name = "ATTACK_OBJECT", .id = 2 },
+        .{ .name = "SWARM_TO", .id = 3 },
+        .{ .name = "LOAD", .id = 4 },
+        .{ .name = "UNLOAD", .id = 5 },
+        .{ .name = "ENTER", .id = 6 },
+        .{ .name = "LEAVE", .id = 7 },
+        .{ .name = "ROTATE_TO", .id = 8 },
+        .{ .name = "STOP", .id = 9 },
+        .{ .name = "PARADE", .id = 10 },
+    };
+
+    /// Whether the action type is one the list offers; the list missing refuses,
+    /// saying so.
+    fn actionListed(self: *FakeBridge, id: i32) bool {
+        if (self.no_action_list) {
+            self.say("the action list Data\\Editor\\actions.ini is not in the data", .{});
+            return false;
+        }
+        if (self.action_list.items.len == 0) {
+            for (default_actions) |item| {
+                if (item.id == id) return true;
+            }
+        } else {
+            for (self.action_list.items) |item| {
+                if (item.id == id) return true;
+            }
+        }
+        self.say("{d} is not an action type Data\\Editor\\actions.ini lists", .{id});
+        return false;
+    }
+
+    fn actionCommands(ptr: *anyopaque, allocator: std.mem.Allocator, out: *[]bridge_mod.ActionCommand, default_index: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (self.no_action_list) {
+            self.say("the action list Data\\Editor\\actions.ini is not in the data", .{});
+            return .refused;
+        }
+        const count = if (self.action_list.items.len == 0) default_actions.len else self.action_list.items.len;
+        const list = allocator.alloc(bridge_mod.ActionCommand, count) catch return .failed;
+        for (list, 0..) |*item, index| {
+            if (self.action_list.items.len == 0) {
+                item.* = .{ .id = default_actions[index].id };
+                item.setName(default_actions[index].name);
+            } else item.* = self.action_list.items[index];
+        }
+        out.* = list;
+        default_index.* = if (count > 9) 9 else count - 1;
+        return .ok;
+    }
+
+    fn isNonUnit(self: *const FakeBridge, link_id: i32) bool {
+        return std.mem.indexOfScalar(i32, self.non_units.items, link_id) != null;
+    }
+
+    /// True, with the reason said, when a link ID cannot be a unit of a start command.
+    fn refusesStartUnit(self: *FakeBridge, link_id: i32) bool {
+        if (link_id <= 0) {
+            self.say("a start command's unit is a link ID above 0", .{});
+            return true;
+        }
+        const index = self.indexOf(link_id) orelse {
+            self.say("no object has link ID {d}", .{link_id});
+            return true;
+        };
+        const object = &self.objects_list.items[index];
+        if (!object.known) {
+            self.say("the object database does not know the type of object {d} ({s})", .{ link_id, object.nameSlice() });
+            return true;
+        }
+        if (self.isNonUnit(link_id)) {
+            self.say("object {d} ({s}) is not a unit or a squad", .{ link_id, object.nameSlice() });
+            return true;
+        }
+        return false;
+    }
+
+    /// The real bridge's start-command rules: what the put CHANGES is judged
+    /// against `current` (null for an add), and a command the map held when it was
+    /// opened is always accepted. Says why when it is not.
+    fn startCommandAllowed(self: *FakeBridge, wanted: *const FakeStartCommand, current: ?*const FakeStartCommand) bool {
+        for (self.start_commands_at_open.items) |*opened| {
+            if (opened.eql(wanted)) return true;
+        }
+        if (wanted.unit_count == 0) {
+            self.say("a start command needs at least one unit", .{});
+            return false;
+        }
+        for (wanted.unitSlice()) |unit| {
+            const in_wanted = std.mem.count(i32, wanted.unitSlice(), &.{unit});
+            const held = if (current) |command| std.mem.count(i32, command.unitSlice(), &.{unit}) else 0;
+            if (held != 0 and in_wanted <= held) continue;
+            if (self.refusesStartUnit(unit)) return false;
+            if (in_wanted > 1) {
+                self.say("unit {d} is in the start command twice", .{unit});
+                return false;
+            }
+        }
+        const target_changed = current == null or current.?.target != wanted.target;
+        if (wanted.target < 0 and target_changed) {
+            self.say("a start command's target is a link ID above 0, or 0 for none", .{});
+            return false;
+        }
+        if (wanted.target > 0 and target_changed and self.indexOf(wanted.target) == null) {
+            self.say("the target object {d} is not on the map", .{wanted.target});
+            return false;
+        }
+        if ((current == null or current.?.cmd_type != wanted.cmd_type) and !self.actionListed(wanted.cmd_type)) return false;
+        if (!std.math.isFinite(wanted.x) or !std.math.isFinite(wanted.y) or !std.math.isFinite(wanted.number)) return false;
+        const moved = current == null or current.?.x != wanted.x or current.?.y != wanted.y;
+        if (moved and !self.onMapAt(wanted.x, wanted.y)) {
+            self.say("the start command's target point is not on the map", .{});
+            return false;
+        }
+        return true;
+    }
+
+    /// Assumption A3: a unit a reinforcement group holds back is no refusal, the
+    /// answer just says so.
+    fn warnHeldUnit(self: *FakeBridge, command: *const FakeStartCommand) void {
+        for (command.unitSlice()) |unit| {
+            const index = self.indexOf(unit) orelse continue;
+            const object = &self.objects_list.items[index];
+            if (object.scenario or object.script_id < 0) continue;
+            var groups = self.groups.iterator();
+            while (groups.next()) |entry| {
+                if (std.mem.indexOfScalar(i32, entry.value_ptr.*, object.script_id) != null) {
+                    self.say("unit {d} is held back by reinforcement group {d} until a script brings it in; its start command may not find it", .{ unit, entry.key_ptr.* });
+                    return;
+                }
+            }
+        }
     }
 
     fn finite(point: records.Vec3) bool {

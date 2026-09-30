@@ -45,6 +45,10 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorEntrenchmentInfo) == 3 * 4 + 4 * 4);
     std.debug.assert(@sizeOf(c.BkEditorScriptFileRecord) == core.records.script_file_capacity);
     std.debug.assert(@sizeOf(c.BkEditorScriptAreaRecord) == core.records.area_name_capacity + 4 + 5 * 4);
+    // The start command's record (04-11): type, target link, x, y, flag, number,
+    // unit count - seven 4-byte fields; the action type's name and id.
+    std.debug.assert(@sizeOf(c.BkEditorStartCommandRecord) == 7 * 4);
+    std.debug.assert(@sizeOf(c.BkEditorActionCommand) == core.bridge.name_capacity + 4);
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -127,6 +131,7 @@ pub const RealBridge = struct {
         .scriptAreaFromVis = vtableScriptAreaFromVis,
         .scriptAreaMoved = vtableScriptAreaMoved,
         .scriptAreaResized = vtableScriptAreaResized,
+        .actionCommands = vtableActionCommands,
         .undoEdit = vtableUndoEdit,
         .redoEdit = vtableRedoEdit,
         .vsoDescriptors = vtableVsoDescriptors,
@@ -460,6 +465,71 @@ pub const RealBridge = struct {
         return .ok;
     }
 
+    /// BkEditorActionCommands in two passes (04-11): the sizing pass is REFUSED
+    /// when the file lists anything (as a buffer too short is) and still answers
+    /// the total; a file that is not there is REFUSED with a total of 0.
+    fn vtableActionCommands(ptr: *anyopaque, allocator: std.mem.Allocator, out: *[]core.bridge.ActionCommand, default_index: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        var default_c: c_int = 0;
+        const sizing = status(c.BkEditorActionCommands(self.session, null, 0, &count, &default_c));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count <= 0) return if (sizing == .ok) .refused else sizing;
+        const all = allocator.alloc(c.BkEditorActionCommand, @intCast(count)) catch return .failed;
+        defer allocator.free(all);
+        var got: c_int = 0;
+        const read = status(c.BkEditorActionCommands(self.session, all.ptr, count, &got, &default_c));
+        if (read != .ok) return read;
+        if (got != count or default_c < 0 or default_c >= count) return .failed;
+        const list = allocator.alloc(core.bridge.ActionCommand, @intCast(count)) catch return .failed;
+        for (all, list) |item, *entry| {
+            entry.* = .{ .id = item.id };
+            entry.setName(std.mem.sliceTo(&item.name, 0));
+        }
+        out.* = list;
+        default_index.* = @intCast(default_c);
+        return .ok;
+    }
+
+    fn toCStartCommand(command: record_types.StartCommand) c.BkEditorStartCommandRecord {
+        return .{
+            .cmd_type = command.cmd_type,
+            .link_id = command.link_id,
+            .x = command.x,
+            .y = command.y,
+            .from_explosion = if (command.from_explosion) 1 else 0,
+            .number = command.number,
+            .unit_count = @intCast(command.units.len),
+        };
+    }
+
+    /// One start command by its index: two passes, the units allocated with
+    /// `allocator` (the value owns them). The sizing pass is REFUSED when the
+    /// command has units and still answers the count.
+    fn readStartCommand(self: *RealBridge, key: i32, allocator: std.mem.Allocator, out: *record_types.Value) Status {
+        var record: c.BkEditorStartCommandRecord = std.mem.zeroes(c.BkEditorStartCommandRecord);
+        const sizing = status(c.BkEditorStartCommand(self.session, key, &record, null, 0));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (record.unit_count < 0) return .failed;
+        const units = allocator.alloc(i32, @intCast(record.unit_count)) catch return .failed;
+        errdefer allocator.free(units);
+        if (units.len != 0) {
+            const read = status(c.BkEditorStartCommand(self.session, key, &record, units.ptr, record.unit_count));
+            if (read != .ok) return read;
+            if (@as(usize, @intCast(record.unit_count)) != units.len) return .failed;
+        }
+        out.* = .{ .start_command = .{
+            .cmd_type = record.cmd_type,
+            .link_id = record.link_id,
+            .x = record.x,
+            .y = record.y,
+            .from_explosion = record.from_explosion != 0,
+            .number = record.number,
+            .units = units,
+        } };
+        return .ok;
+    }
+
     /// BkEditorGroup as a core value: two-pass, the script IDs allocated with
     /// `allocator` (the value owns them). The total comes back in `count` even
     /// when the buffer was too short, and -1 for a group that is not there.
@@ -496,6 +566,7 @@ pub const RealBridge = struct {
             },
             .group => return self.readGroup(key, allocator, out),
             .script_area => return self.readScriptArea(key, allocator, out),
+            .start_command => return self.readStartCommand(key, allocator, out),
             .script_file => {
                 if (key != 0) return .bad_argument;
                 var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
@@ -525,6 +596,10 @@ pub const RealBridge = struct {
                 const record = toCScriptArea(area);
                 return status(c.BkEditorSetScriptArea(self.session, key, &record));
             },
+            .start_command => |command| {
+                const record = toCStartCommand(command);
+                return status(c.BkEditorSetStartCommand(self.session, key, &record, command.units.ptr));
+            },
             .script_file => |file| {
                 if (key != 0) return .bad_argument;
                 var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
@@ -542,6 +617,16 @@ pub const RealBridge = struct {
                 var count: c_int = 0;
                 const sizing = status(c.BkEditorScriptAreas(self.session, null, 0, &count));
                 if (sizing != .ok and sizing != .refused) return sizing;
+                if (count < 0) return .failed;
+                const keys = allocator.alloc(i32, @intCast(count)) catch return .failed;
+                for (keys, 0..) |*key, index| key.* = @intCast(index);
+                out.* = keys;
+                return .ok;
+            },
+            .start_command => {
+                var count: c_int = 0;
+                const counted = status(c.BkEditorStartCommandCount(self.session, &count));
+                if (counted != .ok) return counted;
                 if (count < 0) return .failed;
                 const keys = allocator.alloc(i32, @intCast(count)) catch return .failed;
                 for (keys, 0..) |*key, index| key.* = @intCast(index);
@@ -584,6 +669,10 @@ pub const RealBridge = struct {
                 const record = toCScriptArea(area);
                 return status(c.BkEditorAddScriptArea(self.session, key, &record));
             },
+            .start_command => |command| {
+                const record = toCStartCommand(command);
+                return status(c.BkEditorAddStartCommand(self.session, key, &record, command.units.ptr));
+            },
             .group => |group| {
                 if (group.id != key or key < 0) return .bad_argument;
                 var count: c_int = 0;
@@ -603,6 +692,7 @@ pub const RealBridge = struct {
         switch (kind) {
             .camera_anchors, .script_file => return .bad_argument,
             .script_area => return status(c.BkEditorDeleteScriptArea(self.session, key)),
+            .start_command => return status(c.BkEditorDeleteStartCommand(self.session, key)),
             .group => return status(c.BkEditorDeleteGroup(self.session, key)),
         }
     }

@@ -61,6 +61,7 @@ pub const command_table = [_]Entry{
     .{ .name = "script_copy_along_no", .handler = scriptCopyAlongNo },
     .{ .name = "script_overwrite_yes", .handler = scriptOverwriteYes },
     .{ .name = "script_overwrite_no", .handler = scriptOverwriteNo },
+    .{ .name = "startcmd_add", .handler = startcmdAdd },
 };
 
 pub const predicate_table = [_]Entry{
@@ -80,6 +81,7 @@ pub const predicate_table = [_]Entry{
     .{ .name = "script_file", .handler = scriptFileIs },
     .{ .name = "areas_delta", .handler = areasDelta },
     .{ .name = "area_named", .handler = areaNamed },
+    .{ .name = "startcmds_delta", .handler = startcmdsDelta },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -812,5 +814,48 @@ fn hiddenCount(state: *State, arg: []const u8) Outcome {
     if (state.hidden_object_count == want) return .ok;
     var buffer: [96]u8 = undefined;
     state.editor.note(std.fmt.bufPrint(&buffer, "hidden_count is {d}, not {d}", .{ state.hidden_object_count, want }) catch "hidden_count differs");
+    return .refused;
+}
+
+// ---------------------------------------------------------------------------
+// Start commands (04-11, D-17).
+// ---------------------------------------------------------------------------
+
+/// Unit -> Add start command: a command of the default type (STOP) for the
+/// selected unit, selected in the Start Commands window; one undo step. The status
+/// line says why when the selection is no unit, or warns of a held-back one.
+/// Public: the menu goes through the named command, which calls this.
+pub fn addStartCommandForSelection(state: *State) Outcome {
+    const editor = state.editor;
+    if (!panels.mapIsOpen(editor)) return .refused;
+    const link_id = editor.selection orelse {
+        editor.note("select a unit first");
+        return .refused;
+    };
+    const index = editor.addStartCommand(link_id) catch |err| {
+        state.view.noteEditResult(editor, err);
+        return .refused;
+    };
+    state.view.clearStatus();
+    state.startcmd_selected = index;
+    return .ok;
+}
+
+/// `do=startcmd_add`: Unit -> Add start command for the selected unit.
+fn startcmdAdd(state: *State, _: []const u8) Outcome {
+    return addStartCommandForSelection(state);
+}
+
+/// `expect=startcmds_delta:1`: the map holds that many start commands more than
+/// when it opened.
+fn startcmdsDelta(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(i64, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const now = state.editor.startCommands(state.allocator) catch return .refused;
+    defer core.editor.Editor.freeStartCommands(state.allocator, now);
+    const delta = @as(i64, @intCast(now.len)) - @as(i64, @intCast(state.startcmds_at_open));
+    if (delta == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "startcmds_delta is {d}, not {d}", .{ delta, want }) catch "startcmds_delta differs");
     return .refused;
 }

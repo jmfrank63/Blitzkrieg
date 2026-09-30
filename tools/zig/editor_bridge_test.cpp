@@ -7122,6 +7122,367 @@ static void TestM2EntrenchmentDelete( BkEditorSession *pSession, const std::stri
 	printf( "editor-bridge: M2 entrenchment delete ok\n" );
 }
 
+// ---------------------------------------------------------------------------
+// 04-11: start commands (D-17) and reserve positions (D-18).
+// ---------------------------------------------------------------------------
+
+// The link IDs of up to nWanted objects of the map's objects list that are units or
+// squads the database knows and that no other object shares, and one that is neither
+// (a building, a tree: -1 when the map has none). A start command may name a unit of
+// this kind and no other.
+static void PickCommandUnits( const CMapInfo &rMap, int nWanted, std::vector<int> *pUnits, int *pnNonUnit )
+{
+	pUnits->clear();
+	*pnNonUnit = -1;
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+		return;
+	for ( size_t i = 0; i < rMap.objects.size(); ++i )
+	{
+		const int nLink = rMap.objects[i].link.nLinkID;
+		if ( nLink <= 0 )
+			continue;
+		int nSharing = 0;
+		for ( size_t j = 0; j < rMap.objects.size(); ++j )
+			nSharing += rMap.objects[j].link.nLinkID == nLink ? 1 : 0;
+		for ( size_t j = 0; j < rMap.scenarioObjects.size(); ++j )
+			nSharing += rMap.scenarioObjects[j].link.nLinkID == nLink ? 1 : 0;
+		if ( nSharing != 1 )
+			continue;
+		const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( rMap.objects[i].szName.c_str() );
+		if ( pDesc == 0 )
+			continue;
+		const bool bUnit = pDesc->eGameType == SGVOGT_UNIT || pDesc->eGameType == SGVOGT_SQUAD;
+		if ( bUnit && int( pUnits->size() ) < nWanted )
+			pUnits->push_back( nLink );
+		else if ( !bUnit && *pnNonUnit < 0 )
+			*pnNonUnit = nLink;
+	}
+}
+
+static BkEditorStartCommandRecord StartRecordOf( int nType, int nTarget, float fX, float fY, int nExplosion, float fNumber, int nUnits )
+{
+	BkEditorStartCommandRecord record;
+	memset( &record, 0, sizeof record );
+	record.cmd_type = nType;
+	record.link_id = nTarget;
+	record.x = fX;
+	record.y = fY;
+	record.from_explosion = nExplosion;
+	record.number = fNumber;
+	record.unit_count = nUnits;
+	return record;
+}
+
+static int StartCommandCountOf( BkEditorSession *pSession )
+{
+	int nCount = -2;
+	if ( BkEditorStartCommandCount( pSession, &nCount ) != BK_EDITOR_OK )
+		return -1;
+	return nCount;
+}
+
+// One command and its units, two-pass; the sizing pass is REFUSED when the command
+// has units (a buffer too short is), and the count it leaves is the total.
+static bool ReadStartCommandOf( BkEditorSession *pSession, int nIndex, BkEditorStartCommandRecord *pRecord, std::vector<int> *pUnits, BkEditorStatus *pStatus = 0 )
+{
+	BkEditorStartCommandRecord probe;
+	memset( &probe, 0, sizeof probe );
+	probe.unit_count = -2;
+	BkEditorStatus status = BkEditorStartCommand( pSession, nIndex, &probe, 0, 0 );
+	if ( pStatus != 0 )
+		*pStatus = status;
+	if ( ( status != BK_EDITOR_OK && status != BK_EDITOR_REFUSED ) || probe.unit_count < 0 )
+		return false;
+	const int nUnits = probe.unit_count;
+	pUnits->assign( nUnits > 0 ? nUnits : 1, 0 );
+	status = BkEditorStartCommand( pSession, nIndex, pRecord, &( *pUnits )[0], nUnits );
+	if ( pStatus != 0 )
+		*pStatus = status;
+	if ( status != BK_EDITOR_OK || pRecord->unit_count != nUnits )
+		return false;
+	pUnits->resize( nUnits );
+	return true;
+}
+
+static SAIStartCommand StartCommandFrom( const BkEditorStartCommandRecord &rRecord, const std::vector<int> &rUnits )
+{
+	return SAIStartCommand( EActionCommand( rRecord.cmd_type ), rUnits, rRecord.link_id, CVec2( rRecord.x, rRecord.y ), rRecord.from_explosion != 0, rRecord.number );
+}
+
+static bool SameStartCommandValue( const SAIStartCommand &rLeft, const SAIStartCommand &rRight )
+{
+	return rLeft.cmdType == rRight.cmdType && rLeft.unitLinkIDs == rRight.unitLinkIDs && rLeft.linkID == rRight.linkID && rLeft.vPos.x == rRight.vPos.x &&
+	       rLeft.vPos.y == rRight.vPos.y && rLeft.fromExplosion == rRight.fromExplosion && rLeft.fNumber == rRight.fNumber;
+}
+
+// Every command the bridge reads is the file's, in order.
+static bool StartCommandsAreTheFiles( BkEditorSession *pSession, const CMapInfo &rMap )
+{
+	if ( StartCommandCountOf( pSession ) != int( rMap.startCommandsList.size() ) )
+		return false;
+	int nIndex = 0;
+	for ( SLoadMapInfo::TStartCommandsList::const_iterator it = rMap.startCommandsList.begin(); it != rMap.startCommandsList.end(); ++it, ++nIndex )
+	{
+		BkEditorStartCommandRecord record;
+		std::vector<int> units;
+		if ( !ReadStartCommandOf( pSession, nIndex, &record, &units ) || !SameStartCommandValue( StartCommandFrom( record, units ), *it ) )
+			return false;
+	}
+	return true;
+}
+
+// D-17 on the real engine: the action types list from Data/Editor/actions.ini with
+// STOP at the default; a command is added for a unit, edited (type, target, number)
+// and saved as the map NMapRecords builds; a set keeps the file's fromExplosion;
+// an empty unit list, a duplicate, a non-unit, link 0 and an unknown unit, target or
+// type are refused and change nothing; deleted and put back it is the same; a unit a
+// group holds back adds with a warning; and everything undone saves the unedited
+// bytes.
+static void TestM2StartCommands( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\startcmd-unedited.bzm";
+	const std::string szEdited = szScratch + "\\startcmd-edited.bzm";
+	const std::string szUndone = szScratch + "\\startcmd-undone.bzm";
+	const std::string szRefused = szScratch + "\\startcmd-refused.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The action types: two passes, STOP at the default entry.
+	int nActions = -2, nDefault = -2;
+	BkEditorStatus status = BkEditorActionCommands( pSession, 0, 0, &nActions, &nDefault );
+	if ( !Check( ( status == BK_EDITOR_OK || status == BK_EDITOR_REFUSED ) && nActions > 9, NStr::Format( "Data/Editor/actions.ini lists action types (%d, status %d): %s", nActions, int( status ), BkEditorLastMessage( pSession ) ) ) )
+		return;
+	std::vector<BkEditorActionCommand> actions( nActions );
+	int nRead = -2, nDefaultRead = -2;
+	if ( !Check( BkEditorActionCommands( pSession, &actions[0], nActions, &nRead, &nDefaultRead ) == BK_EDITOR_OK && nRead == nActions, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( nDefaultRead >= 0 && nDefaultRead < nActions && actions[nDefaultRead].id == 9 && std::string( actions[nDefaultRead].name ) == "STOP",
+	       NStr::Format( "the default action is STOP, entry 9 (entry %d is %s = %d)", nDefaultRead, nDefaultRead >= 0 && nDefaultRead < nActions ? actions[nDefaultRead].name : "?", nDefaultRead >= 0 && nDefaultRead < nActions ? actions[nDefaultRead].id : -1 ) );
+	Check( actions[0].id == 0 && std::string( actions[0].name ) == "MOVE_TO", "the first action is MOVE_TO = 0, in the file's order" );
+	std::vector<BkEditorActionCommand> tooShort( 2 );
+	Check( BkEditorActionCommands( pSession, &tooShort[0], 2, &nRead, &nDefaultRead ) == BK_EDITOR_REFUSED && nRead == nActions, "a capacity below the total is REFUSED with the total answered" );
+	Check( BkEditorActionCommands( pSession, 0, 0, 0, &nDefault ) == BK_EDITOR_BAD_ARGUMENT && BkEditorActionCommands( pSession, 0, 0, &nRead, 0 ) == BK_EDITOR_BAD_ARGUMENT &&
+	       BkEditorActionCommands( pSession, 0, -1, &nRead, &nDefault ) == BK_EDITOR_BAD_ARGUMENT, "a null count, a null default or a negative capacity is a bad argument" );
+	const int nStop = 9;
+	const int nMoveTo = 0;
+	Check( StartCommandsAreTheFiles( pSession, original ), "the start commands read as the file has them" );
+
+	// The units the test commands.
+	std::vector<int> units;
+	int nNonUnit = -1;
+	PickCommandUnits( original, 2, &units, &nNonUnit );
+	if ( !Check( units.size() == 2, "coldwinter has two units a start command may name" ) )
+		return;
+	const int nA = units[0], nB = units[1];
+	const int nBefore = StartCommandCountOf( pSession );
+	const float fMiddleX = original.terrain.tiles.GetSizeX() * fWorldCellSize * fAITileXCoeff1 / 2.0f;
+	const float fMiddleY = original.terrain.tiles.GetSizeY() * fWorldCellSize * fAITileYCoeff1 / 2.0f;
+
+	// Argument checks that need no map state.
+	BkEditorStartCommandRecord record = StartRecordOf( nStop, 0, 0, 0, 0, 0, 1 );
+	Check( BkEditorAddStartCommand( pSession, -1, 0, &nA ) == BK_EDITOR_BAD_ARGUMENT && BkEditorSetStartCommand( pSession, 0, 0, &nA ) == BK_EDITOR_BAD_ARGUMENT, "a null record is a bad argument" );
+	Check( BkEditorAddStartCommand( pSession, -1, &record, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a unit count with no units is a bad argument" );
+	BkEditorStartCommandRecord negativeCount = StartRecordOf( nStop, 0, 0, 0, 0, 0, -1 );
+	BkEditorStartCommandRecord hugeCount = StartRecordOf( nStop, 0, 0, 0, 0, 0, 1 << 20 );
+	Check( BkEditorAddStartCommand( pSession, -1, &negativeCount, &nA ) == BK_EDITOR_BAD_ARGUMENT && BkEditorAddStartCommand( pSession, -1, &hugeCount, &nA ) == BK_EDITOR_BAD_ARGUMENT, "a negative or absurd unit count is a bad argument" );
+	const float fNaN = std::numeric_limits<float>::quiet_NaN();
+	BkEditorStartCommandRecord nanRecord = StartRecordOf( nStop, 0, fNaN, 0, 0, 0, 1 );
+	BkEditorStartCommandRecord nanNumber = StartRecordOf( nStop, 0, 0, 0, 0, fNaN, 1 );
+	BkEditorStartCommandRecord badExplosion = StartRecordOf( nStop, 0, 0, 0, 2, 0, 1 );
+	Check( BkEditorAddStartCommand( pSession, -1, &nanRecord, &nA ) == BK_EDITOR_BAD_ARGUMENT && BkEditorAddStartCommand( pSession, -1, &nanNumber, &nA ) == BK_EDITOR_BAD_ARGUMENT &&
+	       BkEditorAddStartCommand( pSession, -1, &badExplosion, &nA ) == BK_EDITOR_BAD_ARGUMENT, "a NaN point or number and an explosion flag of 2 are bad arguments" );
+	Check( BkEditorAddStartCommand( pSession, -2, &record, &nA ) == BK_EDITOR_BAD_ARGUMENT && BkEditorAddStartCommand( pSession, nBefore + 1, &record, &nA ) == BK_EDITOR_BAD_ARGUMENT, "an insert index out of range is a bad argument" );
+	Check( BkEditorSetStartCommand( pSession, nBefore, &record, &nA ) == BK_EDITOR_BAD_ARGUMENT && BkEditorSetStartCommand( pSession, -1, &record, &nA ) == BK_EDITOR_BAD_ARGUMENT, "a set index out of range is a bad argument" );
+	Check( BkEditorDeleteStartCommand( pSession, nBefore ) == BK_EDITOR_BAD_ARGUMENT && BkEditorDeleteStartCommand( pSession, -1 ) == BK_EDITOR_BAD_ARGUMENT, "a delete index out of range is a bad argument" );
+	BkEditorStartCommandRecord unusedRecord;
+	Check( BkEditorStartCommand( pSession, nBefore, &unusedRecord, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT && BkEditorStartCommand( pSession, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT &&
+	       BkEditorStartCommand( pSession, nBefore == 0 ? -1 : 0, &unusedRecord, 0, -1 ) == BK_EDITOR_BAD_ARGUMENT, "a read past the end, to nothing or with a negative capacity is a bad argument" );
+
+	// An add: STOP for unit A, appended.
+	if ( !Check( BkEditorAddStartCommand( pSession, -1, &record, &nA ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( StartCommandCountOf( pSession ) == nBefore + 1, "the command is added" );
+	BkEditorStartCommandRecord readBack;
+	std::vector<int> readUnits;
+	if ( Check( ReadStartCommandOf( pSession, nBefore, &readBack, &readUnits ), "the new command reads back" ) )
+		Check( SameStartCommandValue( StartCommandFrom( readBack, readUnits ), StartCommandFrom( record, std::vector<int>( 1, nA ) ) ), "as it was given" );
+	// An edit: MOVE_TO, unit B as the target, two units, a number.
+	const int both[2] = { nA, nB };
+	BkEditorStartCommandRecord moved = StartRecordOf( nMoveTo, nB, fMiddleX, fMiddleY, 0, 3.5f, 2 );
+	if ( !Check( BkEditorSetStartCommand( pSession, nBefore, &moved, both ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo expected = original;
+	Check( NMapRecords::InsertStartCommand( &expected, -1, StartCommandFrom( moved, std::vector<int>( both, both + 2 ) ) ), "the expected map takes the command" );
+	CheckSavedEquals( pSession, szEdited, expected, "an added and edited start command" );
+	// The point target, and the target back to none.
+	BkEditorStartCommandRecord onPoint = StartRecordOf( nMoveTo, 0, fMiddleX + 40.0f, fMiddleY - 12.0f, 0, 0, 2 );
+	Check( BkEditorSetStartCommand( pSession, nBefore, &onPoint, both ) == BK_EDITOR_OK, "a point target is accepted" );
+	Check( BkEditorSetStartCommand( pSession, nBefore, &moved, both ) == BK_EDITOR_OK, "and the object target goes back" );
+	// A set to the very same value is accepted.
+	Check( BkEditorSetStartCommand( pSession, nBefore, &moved, both ) == BK_EDITOR_OK, "a set to the command's own value is accepted" );
+
+	// Refusals change nothing.
+	if ( !Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const BkEditorStartCommandRecord empty = StartRecordOf( nStop, 0, 0, 0, 0, 0, 0 );
+	Check( BkEditorAddStartCommand( pSession, -1, &empty, 0 ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "unit" ) != std::string::npos, "a command with no unit is refused, saying why" );
+	Check( BkEditorSetStartCommand( pSession, nBefore, &empty, 0 ) == BK_EDITOR_REFUSED, "so is setting the units to none" );
+	const int twice[2] = { nA, nA };
+	BkEditorStartCommandRecord dup = StartRecordOf( nStop, 0, 0, 0, 0, 0, 2 );
+	Check( BkEditorAddStartCommand( pSession, -1, &dup, twice ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "twice" ) != std::string::npos, "a unit twice is refused" );
+	const int zero = 0, negative = -3, missing = 999999;
+	Check( BkEditorAddStartCommand( pSession, -1, &record, &zero ) == BK_EDITOR_REFUSED, "link ID 0 as a unit is refused" );
+	Check( BkEditorAddStartCommand( pSession, -1, &record, &negative ) == BK_EDITOR_REFUSED, "so is a negative one" );
+	Check( BkEditorAddStartCommand( pSession, -1, &record, &missing ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "999999" ) != std::string::npos, "a unit no object has is refused, naming it" );
+	if ( nNonUnit >= 0 )
+		Check( BkEditorAddStartCommand( pSession, -1, &record, &nNonUnit ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "not a unit" ) != std::string::npos, "an object that is not a unit or a squad is refused" );
+	else
+		printf( "editor-bridge: noted: coldwinter has no shared-free non-unit object with a link ID, the non-unit refusal is not exercised\n" );
+	BkEditorStartCommandRecord missingTarget = StartRecordOf( nStop, 999999, 0, 0, 0, 0, 1 );
+	Check( BkEditorAddStartCommand( pSession, -1, &missingTarget, &nA ) == BK_EDITOR_REFUSED, "a target no object has is refused" );
+	BkEditorStartCommandRecord negativeTarget = StartRecordOf( nStop, -1, 0, 0, 0, 0, 1 );
+	Check( BkEditorAddStartCommand( pSession, -1, &negativeTarget, &nA ) == BK_EDITOR_REFUSED, "a negative target is refused" );
+	BkEditorStartCommandRecord unknownType = StartRecordOf( 12345, 0, 0, 0, 0, 0, 1 );
+	Check( BkEditorAddStartCommand( pSession, -1, &unknownType, &nA ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "12345" ) != std::string::npos, "an action type the list does not have is refused" );
+	Check( BkEditorSetStartCommand( pSession, nBefore, &unknownType, both ) == BK_EDITOR_REFUSED, "and so is setting one" );
+	BkEditorStartCommandRecord offMap = StartRecordOf( nMoveTo, 0, -5.0f, 10.0f, 0, 0, 1 );
+	Check( BkEditorAddStartCommand( pSession, -1, &offMap, &nA ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "not on the map" ) != std::string::npos, "a target point off the map is refused" );
+	offMap.x = 1.0e9f;
+	Check( BkEditorAddStartCommand( pSession, -1, &offMap, &nA ) == BK_EDITOR_REFUSED, "so is one far beyond the far edge" );
+	if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szEdited, szRefused ), "none of the refusals changed the map" );
+
+	// Deleted, the map is the unedited one; put back at its own index it is as it was.
+	Check( BkEditorDeleteStartCommand( pSession, nBefore ) == BK_EDITOR_OK, "the command is deleted" );
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), "add, edit and delete of a start command save the unedited file byte for byte" );
+	Check( BkEditorAddStartCommand( pSession, nBefore, &moved, both ) == BK_EDITOR_OK, "the deleted command goes back at its own index" );
+	if ( Check( ReadStartCommandOf( pSession, nBefore, &readBack, &readUnits ), "and reads back" ) )
+		Check( SameStartCommandValue( StartCommandFrom( readBack, readUnits ), StartCommandFrom( moved, std::vector<int>( both, both + 2 ) ) ), "as it was" );
+	Check( BkEditorDeleteStartCommand( pSession, nBefore ) == BK_EDITOR_OK, "and is deleted once more" );
+
+	// The file's own explosion flag: a set that passes 0 keeps 1, and an add that passes 1 stores 1.
+	{
+		const std::string szMap = szScratch + "\\startcmd-explosion.bzm";
+		CMapInfo scratch = original;
+		SAIStartCommand exploding;
+		exploding.unitLinkIDs.push_back( nA );
+		exploding.fromExplosion = true;
+		Check( NMapRecords::InsertStartCommand( &scratch, -1, exploding ), "the exploding command is laid over the map" );
+		if ( Check( NMapFile::Write( szMap.c_str(), scratch, &szError ), szError.c_str() ) &&
+		     Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			const int nExploding = StartCommandCountOf( pSession ) - 1;
+			const std::string szBefore = szScratch + "\\startcmd-explosion-before.bzm", szAfter = szScratch + "\\startcmd-explosion-after.bzm";
+			Check( BkEditorSaveMap( pSession, szBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			BkEditorStartCommandRecord read;
+			std::vector<int> readIDs;
+			if ( Check( nExploding >= 0 && ReadStartCommandOf( pSession, nExploding, &read, &readIDs ) && read.from_explosion == 1, "the file's explosion flag reads as 1" ) )
+			{
+				BkEditorStartCommandRecord changed = StartRecordOf( nMoveTo, 0, fMiddleX, fMiddleY, 0, 2.0f, 1 );
+				Check( BkEditorSetStartCommand( pSession, nExploding, &changed, &nA ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+				Check( ReadStartCommandOf( pSession, nExploding, &read, &readIDs ) && read.from_explosion == 1 && read.cmd_type == nMoveTo && read.number == 2.0f, "a set passing 0 keeps the explosion flag at 1" );
+				CMapInfo expectedExploding = scratch;
+				SAIStartCommand wanted = StartCommandFrom( changed, std::vector<int>( 1, nA ) );
+				wanted.fromExplosion = true;
+				Check( NMapRecords::ReplaceStartCommand( &expectedExploding, nExploding, wanted ), "the expected map replaces it" );
+				CheckSavedEquals( pSession, szAfter, expectedExploding, "the explosion flag stays in the file" );
+				// Delete and put back with the flag the read gave: an undo needs it back.
+				Check( BkEditorDeleteStartCommand( pSession, nExploding ) == BK_EDITOR_OK, "the exploding command is deleted" );
+				BkEditorStartCommandRecord again = StartRecordOf( nMoveTo, 0, fMiddleX, fMiddleY, 1, 2.0f, 1 );
+				Check( BkEditorAddStartCommand( pSession, nExploding, &again, &nA ) == BK_EDITOR_OK, "and put back with its flag" );
+				Check( ReadStartCommandOf( pSession, nExploding, &read, &readIDs ) && read.from_explosion == 1, "an add stores the flag it is given" );
+			}
+			remove( OsPath( szBefore ).c_str() );
+			remove( OsPath( szAfter ).c_str() );
+		}
+		remove( OsPath( szMap ).c_str() );
+	}
+
+	// A file's own odd command - a unit no object has, an action type nobody lists - is
+	// exempt: it can be deleted and put back, as an undo does, though a new one like it is refused.
+	{
+		const std::string szMap = szScratch + "\\startcmd-odd.bzm";
+		CMapInfo odd = original;
+		SAIStartCommand strange;
+		strange.cmdType = EActionCommand( 777 );
+		strange.unitLinkIDs.push_back( 888888 );
+		strange.linkID = 777777;
+		Check( NMapRecords::InsertStartCommand( &odd, -1, strange ), "the odd command is laid over the map" );
+		if ( Check( NMapFile::Write( szMap.c_str(), odd, &szError ), szError.c_str() ) &&
+		     Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			const std::string szBefore = szScratch + "\\startcmd-odd-before.bzm", szAfter = szScratch + "\\startcmd-odd-after.bzm";
+			Check( BkEditorSaveMap( pSession, szBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			const int nOdd = StartCommandCountOf( pSession ) - 1;
+			BkEditorStartCommandRecord read;
+			std::vector<int> readIDs;
+			if ( Check( nOdd >= 0 && ReadStartCommandOf( pSession, nOdd, &read, &readIDs ), "the odd command reads" ) )
+			{
+				Check( BkEditorDeleteStartCommand( pSession, nOdd ) == BK_EDITOR_OK && BkEditorAddStartCommand( pSession, nOdd, &read, &readIDs[0] ) == BK_EDITOR_OK,
+				       "the file's own odd command is deleted and put back, as an undo needs" );
+				BkEditorStartCommandRecord fresh = read;
+				fresh.number = 1.0f;
+				Check( BkEditorAddStartCommand( pSession, -1, &fresh, &readIDs[0] ) == BK_EDITOR_REFUSED, "but a new command like it is refused" );
+				Check( BkEditorSetStartCommand( pSession, nOdd, &fresh, &readIDs[0] ) == BK_EDITOR_OK, "and setting only its number is accepted (what the edit adds is what is judged)" );
+				Check( BkEditorSetStartCommand( pSession, nOdd, &read, &readIDs[0] ) == BK_EDITOR_OK, "and back" );
+			}
+			if ( Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+				Check( SameBytes( szBefore, szAfter ), "the odd map saves the same bytes after all of it" );
+			remove( OsPath( szBefore ).c_str() );
+			remove( OsPath( szAfter ).c_str() );
+		}
+		remove( OsPath( szMap ).c_str() );
+	}
+
+	// Assumption A3: a unit a reinforcement group holds back is not refused, and the answer says so.
+	{
+		const std::string szMap = szScratch + "\\startcmd-held.bzm";
+		CMapInfo held = original;
+		const int nScriptID = 77;
+		bool bFree = true;
+		for ( size_t i = 0; i < held.objects.size(); ++i )
+			bFree = bFree && held.objects[i].nScriptID != nScriptID;
+		Check( bFree, "no object of coldwinter carries script ID 77 already" );
+		Check( NMapRecords::SetObjectScriptID( &held, nA, nScriptID ), "unit A takes script ID 77" );
+		Check( NMapRecords::PutReinforcementGroup( &held, NMapRecords::FirstFreeGroupID( held, 5 ), std::vector<int>( 1, nScriptID ) ), "a group holds it" );
+		if ( Check( NMapFile::Write( szMap.c_str(), held, &szError ), szError.c_str() ) &&
+		     Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			Check( BkEditorAddStartCommand( pSession, -1, &record, &nA ) == BK_EDITOR_OK, "a command for a held-back unit is accepted" );
+			const std::string szMessage = BkEditorLastMessage( pSession );
+			Check( szMessage.find( "held back" ) != std::string::npos && szMessage.find( "reinforcement group" ) != std::string::npos, ( "and the answer warns: " + szMessage ).c_str() );
+			printf( "editor-bridge: held-back unit says: %s\n", szMessage.c_str() );
+			Check( BkEditorAddStartCommand( pSession, -1, &record, &nB ) == BK_EDITOR_OK && *BkEditorLastMessage( pSession ) == 0, "and one for a unit nobody holds says nothing" );
+		}
+		remove( OsPath( szMap ).c_str() );
+	}
+
+	// Back on coldwinter: a sizing pass and a capacity too short.
+	if ( Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( BkEditorAddStartCommand( pSession, -1, &moved, both ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		BkEditorStartCommandRecord probe;
+		int units2[2] = { -1, -1 };
+		const int nLast = StartCommandCountOf( pSession ) - 1;
+		Check( BkEditorStartCommand( pSession, nLast, &probe, 0, 0 ) == BK_EDITOR_REFUSED && probe.unit_count == 2, "the sizing pass of a command with units is REFUSED with its unit count" );
+		Check( BkEditorStartCommand( pSession, nLast, &probe, units2, 1 ) == BK_EDITOR_REFUSED && probe.unit_count == 2 && units2[0] == nA && units2[1] == -1, "a capacity below the count writes what fits and never past it" );
+		Check( BkEditorStartCommand( pSession, nLast, &probe, units2, 2 ) == BK_EDITOR_OK && units2[1] == nB, "and enough room reads both" );
+	}
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szRefused ).c_str() );
+	printf( "editor-bridge: M2 start commands ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -7289,6 +7650,7 @@ int main( int argc, char **argv )
 		TestM2Fences( pSession, szScratch );
 		TestM2Entrenchments( pSession, szScratch );
 		TestM2EntrenchmentDelete( pSession, szScratch );
+		TestM2StartCommands( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.
