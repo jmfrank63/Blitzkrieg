@@ -21,7 +21,7 @@ interfaces is.
 | Sub-project | Content | Status |
 |---|---|---|
 | **Map Editor M1** | core editing loop, macOS first | this document |
-| **Map Editor M2** | roads and rivers, bridges (with rotate and built during play), entrenchments, fences, script IDs and reinforcement groups, start commands, reserve positions, AI general, script file and script areas, camera anchors; see "M2 scope" | phase 4 |
+| **Map Editor M2** | roads and rivers, bridges (with rotate and built during play), entrenchments, fences, script IDs and reinforcement groups, start commands, reserve positions, AI general, script file and script areas, camera anchors; see "M2 scope" | done (phase 4, 2026-09-30; "Exit criteria for M2") |
 | Map Editor M3 | random map templates, minimap tools, parity; delete the MFC editor | later |
 | Resource Editor | `Sources/src/editor`, ~64k lines, 20+ sub-editors | own spec |
 | ELK | localisation kit, ~12k lines | own spec |
@@ -816,3 +816,81 @@ than theoretical: three of the six take it.
   test-map-files-all -Dtarget=aarch64-macos -Dcopy-data=false
   -Dtest-mode=run`, 2026-09-29: 1,755 of 1,755 maps round-tripped, 0 FAIL
   (03-15-SUMMARY.md).
+
+## Exit criteria for M2
+
+Phase 4's D-25. Every command below ran on 2026-09-30 on
+`feat/map-editor-m2`, on macOS arm64 with `-Dtarget=aarch64-macos
+-Dcopy-data=false -Dtest-mode=run`. The CI run ids are recorded in
+04-13-SUMMARY.md, not here (as decided in 03-15). The row-by-row evidence is in
+the phase's `04-PARITY.md`, copied into `05-PARITY.md`.
+
+1. **Core tier.** Every M2 command has a do/undo/redo round trip against the
+   fake bridge. The cascade delete restores every reference on undo. A refused
+   edit changes neither the document nor the history. **Met.**
+   - Command: `zig build test-editor-core`, 226 tests.
+   - It runs on all six CI targets.
+2. **Map-file tier.** For each M2 collection, overlay edits equal the
+   expected-value builder's map. An untouched collection stays byte-identical.
+   The cascade matches the builder. **Met.**
+   - Command: `zig build test-map-files` prints `map-file: M2 record ops ok
+     (87 cases)`, the other `M2 ... ok` lines and `map-file: PASS`.
+   - It runs on the five CI targets that build the engine C++.
+3. **Engine tier.** Every area is edited, saved, read back and compared with
+   the expected map through the real `ITerrainEditor` / `IAIEditor`, and the
+   engine state matches. That covers roads, rivers and their passability;
+   bridges drawn, rotated, toggled and deleted; entrenchments; fences; script
+   IDs and groups; start commands; reserve positions; AI parcels; script areas;
+   camera anchors. **Met.**
+   - Command: `zig build test-editor-bridge test-map-editor-engine`, which
+     prints `editor-bridge: PASS` and `map-editor-engine: PASS (260 objects)`
+     with every `M2 ... ok` line.
+   - It passes on macOS arm64 and Windows-MSVC. The other CI jobs do not
+     schedule it, so it never reports a pass it did not run.
+4. **Preservation.** **Met.**
+   - `zig build test-map-files-all`: 1,755 of 1,755 maps round-trip unchanged.
+   - `zig build test-map-files-m2-sweep`: one record edit of each M2
+     collection on every `Data/Maps` map, all undone, writes the unedited
+     bytes. It prints `map-file: M2 sweep 59 maps, 460 edits, all restored
+     byte-exact`.
+   - `zig build test-editor-bridge-m2-sweep` does the same through the
+     engine: bridges, fences and entrenchments drawn, shipped bridges and
+     entrenchments deleted, cascades, all undone. It prints `editor-bridge:
+     M2 sweep 57 maps, 238 edits, all restored byte-exact`.
+5. **Game reads it.** One map is edited through the editor. It gets a new
+   road, a river, two bridges (one rotated, one built during play), an
+   entrenchment, fences, group 900 holding a unit with script ID 4245, a
+   start command, a reserve position, a parcel on side 1, the area `m2_area`,
+   player 0's anchor and `m2_script` beside it. The game loads it under
+   `BK_AUTO_UI`, shoots and exits 0. **Met.**
+   - Command: `zig build map-editor-game-reads-it-m2`.
+   - `BK_MAP_TRACE` shows the camera at the anchor, the script loaded and
+     `Init` run, the area found at its stored centre by Lua, and the group's
+     unit landed.
+   - The shot shows the road and the rotated bridge.
+6. **Editor app.** `zig build map-editor-auto-m2` draws one of each, undoes
+   and redoes, saves, and compares all 16 shots against local references,
+   each under 0.03 %. It chooses the script beside the saved map and brings
+   it along a Save As. Test in game then runs that script, and the test game's
+   own trace says so. The scenario quits: `BK_EDITOR_AUTO: done (298
+   actions)`. **Met.**
+7. **CI.** All six jobs of "Cross-platform validation" are green on the
+   branch. The engine tier runs and passes on macos-platform and
+   windows-platform (`editor-bridge: PASS`, `map-editor-engine: PASS`). The
+   other four jobs do not schedule it, so none of them reports a pass it did
+   not run. **Met.**
+8. **Parity.** Every M2 row of `05-PARITY.md` is closed with evidence: M2, M6,
+   U1–U3, O16 references, O18 trench drawing, VO1–VO7, MT2, G1, AI1 and S4
+   bridge spans. VO3 now reads "built during play". **Met.**
+9. **Hand try, as amended.** Johannes ordered the phase to run without
+   questions, so an agent-run walk-through replaced his hand try (recorded in
+   04-01). **Met.**
+   - `zig build map-editor-auto-m2 map-editor-game-reads-it-m2 --release=fast`
+     passed on the release stage `zig-out/game/macos/arm64/release`.
+   - The executor looked at every M2 shot and the game's shot; the table is
+     in 04-13-SUMMARY.md.
+   - On win-home (Windows-MSVC) the non-GUI tiers pass, MapEditor and the
+     game build, and so does the release package build.
+   - An agent cannot observe three things: trackpad feel, the OS opening a
+     `.lua`, and the GPU look on Windows. They are listed in 04-13-SUMMARY.md
+     with the automated evidence that covers each.

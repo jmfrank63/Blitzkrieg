@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 04-12-PLAN.md
-last_updated: "2026-09-30T08:16:55.213Z"
-state_head: 21cd8bd971e511988f171f58bc69d93f5cab0c6f
+stopped_at: Completed 04-13-PLAN.md
+last_updated: "2026-09-30T09:37:25.073Z"
+state_head: 01d03487b84f88d99e1b06141b6b3aec520a53ad
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 32
-  completed_plans: 31
+  completed_plans: 32
   percent: 14
 current_phase_name: "Map editor M2: roads, rivers, bridges, AI groups, scripts"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-30T08:16:55.126Z
-**Stopped at:** Completed 04-12-PLAN.md
+**Last session:** 2026-09-30T09:37:25.007Z
+**Stopped at:** Completed 04-13-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -101,6 +101,7 @@ behavior needs the in-game rows).
 | Phase 04 P10 | 1h02m | 4 tasks | 30 files |
 | Phase 04 P11 | 1h20m | 4 tasks | 21 files |
 | Phase 04 P12 | 50m | 3 tasks | 23 files |
+| Phase 04 P13 | 85min | 4 tasks | 16 files |
 
 ## Decisions
 
@@ -166,3 +167,6 @@ behavior needs the in-game rows).
 - [Phase ?]: 04-11: reserve roles (self-propelled, towed, truck) are read from the stats with dynamic_cast, never the typed lookup (it static_casts with asserts compiled out); a self-propelled gun takes no truck and a truck must pull more than the gun weighs; a set never changes from_explosion
 - [Phase ?]: 04-11: Start Target and Reserve Positions are hidden registry tools (no palette button, menu entry or key) that click on the release; a panel that uses Delete claims it per frame (View.delete_claimed) instead of capturing the keyboard, so the Select tool cannot delete the selected unit as well
 - [Phase ?]: 04-12: a parcel's type is a non-exhaustive enum(i32); the AI side is put whole with the side count so undo restores the side count exactly; the AI General tool's keys act on the selection; every tool is in the palette (tools panel 228 px) and the local M1 reference was refreshed
+- [Phase ?]: Save As offers to bring the script along for any map whose script is beside it and the new folder differs (04-13)
+- [Phase ?]: In the width mode All the Roads & Rivers sliders re-width the selected line, one undo step per slider drag (04-13, MFC CW_ALL)
+- [Phase ?]: M2 exit met: M2 sweeps byte-exact (59 maps/460 edits, 57 maps/238 edits), CI 36692345194 green, win-home non-GUI tiers and release package green (04-13)
