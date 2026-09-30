@@ -2054,6 +2054,21 @@ BkEditorStatus BkEditorDeleteGroup( BkEditorSession *pSession, int nID )
 	} );
 }
 
+BkEditorStatus BkEditorSetHiddenScriptIDs( BkEditorSession *pSession, const int *pnScriptIDs, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( nCount < 0 || nCount > nMaxGroupPutCount || ( pnScriptIDs == 0 && nCount > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return SetSessionHiddenScriptIDs( pSession, pnScriptIDs, nCount ) ? BK_EDITOR_OK : BK_EDITOR_FAILED;
+	} );
+}
+
 BkEditorStatus BkEditorFirstFreeGroupID( BkEditorSession *pSession, int nFrom, int *pnID )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus

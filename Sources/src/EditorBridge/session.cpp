@@ -250,6 +250,8 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->nBridgeSpansInMap = 0;
 	pSession->nBridgeSpansPlaced = 0;
 	pSession->snapshot = read;
+	pSession->hiddenScriptIDs.clear();
+	pSession->hiddenLinkIDs.clear();
 	pSession->openedGroups.clear();
 	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = read.reinforcements.groups.begin(); it != read.reinforcements.groups.end(); ++it )
 		pSession->openedGroups[it->first] = it->second.ids;
@@ -359,11 +361,16 @@ void CloseSessionMap( SEditorSession *pSession )
 	pSession->vsoEngineIDs[1].clear();
 	pSession->tombstones.clear();
 	pSession->linkByAI.clear();
+	pSession->hiddenScriptIDs.clear();
+	pSession->hiddenLinkIDs.clear();
 	pSession->bMapOpen = false;
 }
 
 void UpdateSessionWorld( SEditorSession *pSession )
 {
+	// Hidden objects are in the scene for the world's update and out again
+	// after it (ApplyHiddenMarks, below).
+	ShowHiddenForUpdate( pSession );
 	if ( pSession->pWorld != 0 )
 		pSession->pWorld->UpdateNow();
 	pSession->linkByAI.clear();
@@ -371,6 +378,7 @@ void UpdateSessionWorld( SEditorSession *pSession )
 		pSession->linkByAI[it->second.GetPtr()] = it->first;
 	// After the update: a span the AI just built has its world object only now.
 	ApplyBridgeMarks( pSession );
+	ApplyHiddenMarks( pSession );
 }
 
 bool SaveSessionMap( SEditorSession *pSession, const char *pszPath )
@@ -582,6 +590,10 @@ bool SetSessionObjectScriptID( SEditorSession *pSession, int nLinkID, int nScrip
 		NMapRecords::SetObjectScriptID( &pSession->snapshot, nLinkID, nBefore );
 		return false;
 	}
+	// An object whose script ID a hidden group names is hidden now, one that
+	// left it is shown.
+	if ( !pSession->hiddenScriptIDs.empty() )
+		ApplyHiddenMarks( pSession );
 	return true;
 }
 
@@ -1096,6 +1108,10 @@ bool ObjectAt( SEditorSession *pSession, float sx, float sy, int *pnLinkID, bool
 			if ( IRefCount *pFormation = pAIEditor->GetFormationOfUnit( pMapObject->pAIObj ) )
 				it = pSession->linkByAI.find( pFormation );
 		if ( it == pSession->linkByAI.end() )
+			continue;
+		// An object "Hide checked" holds back is not there to be picked, whether
+		// or not the scene still finds its invisible visual (assumption A6).
+		if ( IsHiddenLink( *pSession, it->second ) )
 			continue;
 		*pnLinkID = it->second;
 		return true;

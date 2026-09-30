@@ -45,6 +45,35 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
     if (state.view.tool == .fence) drawFenceGhost(state, real);
     // So are the Entrenchment tool's preview and outlines (04-08).
     if (state.view.tool == .entrenchment) drawTrenchMarkers(state, real);
+    // D-16: "Select objects" outlines the objects of a group's script IDs.
+    if (state.group_marked != null and marker_logic.visible(state.marker_set, .groups, active)) drawGroupMarks(state, real);
+}
+
+fn groupMarkColor() ig.ImU32 {
+    return color(1.0, 0.2, 0.9);
+}
+
+/// D-16 "Select objects": a ring round every object of the map's objects list
+/// that carries a script ID of the marked group, with the group's ID beside
+/// it. Capped like every kind (marker_logic.cap).
+fn drawGroupMarks(state: *State, real: anytype) void {
+    const marked = state.group_marked orelse return;
+    const row = state.findGroup(marked) orelse return;
+    const draw_list = ig.igGetBackgroundDrawList();
+    const limit = marker_logic.cap(.groups);
+    var drawn: usize = 0;
+    var label: [16]u8 = undefined;
+    const label_text = std.fmt.bufPrint(&label, "G{d}", .{marked}) catch "G";
+    for (state.editor.document.objects.items) |object| {
+        if (drawn >= limit) break;
+        if (object.scenario or !row.has(object.script_id)) continue;
+        const world = marker_logic.aiToWorld(.{ .x = object.x, .y = object.y });
+        const at = real.worldToScreen(world.x, world.y) orelse continue;
+        const centre: ig.ImVec2 = .{ .x = at[0], .y = at[1] };
+        ig.ImDrawList_AddCircleEx(draw_list, centre, 18, groupMarkColor(), 24, 2.5);
+        ig.ImDrawList_AddTextEx(draw_list, .{ .x = centre.x + 20, .y = centre.y - 8 }, groupMarkColor(), label_text.ptr, label_text.ptr + label_text.len);
+        drawn += 1;
+    }
 }
 
 fn outlineColor() ig.ImU32 {

@@ -832,6 +832,20 @@ BkEditorStatus BkEditorDeleteGroup( BkEditorSession *session, int id );
    a null out_id. */
 BkEditorStatus BkEditorFirstFreeGroupID( BkEditorSession *session, int from, int *out_id );
 
+/* Hide checked (04-09, D-16): the view holds back every object of the map's
+   objects list (not the scenario objects, as the game) whose script ID is one
+   of script_ids[0..count-1], as the game holds them back for a reinforcement
+   group. They leave the scene - visual, shadow and icons, as the MFC editor's
+   own Hide checked took them out - and BkEditorObjectAt and BkEditorPickGroup
+   no longer answer them; count 0 shows everything, and the
+   set replaces the last one. An object with link ID 0 is not hidden (it names
+   no one object). Any integers are fine: one no object carries hides nothing.
+   This is a view setting, not an edit: it is never saved and never in any
+   history, and BkEditorOpenMap and BkEditorCloseMap forget it. A negative
+   count, or a null list with a count, is BK_EDITOR_BAD_ARGUMENT; so is a count
+   above 65536. BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorSetHiddenScriptIDs( BkEditorSession *session, const int *script_ids, int count );
+
 /* The edit log (04-05). An edit the bridge derives or compounds - a road or
    river edit now, bridges, fences and entrenchments later - hands out a token
    and keeps its own undo record: the records before and after, stored when

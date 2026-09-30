@@ -16,6 +16,12 @@ public:
 	// the way the game's main loop advances it (Main/iMainInternal.cpp:889-891),
 	// then the world reads what the AI has to tell it.
 	void UpdateNow();
+	// Hide checked (04-09, D-16), the MFC editor's own way (TemplateEditorFrame1
+	// .cpp, the group check boxes: RemoveFromScene and AddToScene): a hidden
+	// object leaves the scene - its visual, its shadow and its icons with it -
+	// and comes back whole. Both are no-ops for an object already out or in.
+	void HideMapObject( SMapObject *pMO ) { if ( pMO != 0 && pMO->pVisObj.GetPtr() != 0 && IsInScene( pMO ) ) RemoveFromScene( pMO ); }
+	void ShowMapObject( SMapObject *pMO ) { if ( pMO != 0 && pMO->pVisObj.GetPtr() != 0 && !IsInScene( pMO ) ) AddToScene( pMO ); }
 	// Every map object the world holds, for the engine tier's check that the
 	// picture and the session agree (WorldMatchesSession).
 	void GetObjects( std::vector<SMapObject*> *pObjects );

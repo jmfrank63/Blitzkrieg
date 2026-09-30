@@ -53,6 +53,12 @@ struct SEditorSession
 	// range), so an undo can put back what an edit took out; only what an edit
 	// ADDS is held to 0..32000, once.
 	std::unordered_map< int, std::vector<int> > openedGroups;
+	// "Hide checked" (04-09, D-16): the script IDs the view holds back, sorted
+	// and unique, and the link IDs of the objects-list entries they name that
+	// are hidden now (their visuals at opacity 0, and picking skips them). A
+	// view setting: never saved, never in any history, forgotten with the map.
+	std::vector<int> hiddenScriptIDs;
+	std::vector<int> hiddenLinkIDs;
 	// The link IDs named by CMapInfo::bridges, and the ones of those that got an
 	// engine object. A span is built only through the bridge it belongs to, so
 	// the two differing means a bridge in the file has a span the engine has not
@@ -329,6 +335,22 @@ bool ReadSessionGroup( SEditorSession *pSession, int nID, int *pOut, int nCapaci
 bool SetSessionGroup( SEditorSession *pSession, int nID, const int *pIDs, int nCount, bool *pbRefused );
 bool DeleteSessionGroup( SEditorSession *pSession, int nID, bool *pbRefused );
 int FirstFreeGroupIDInSession( SEditorSession *pSession, int nFrom );
+// Hide checked (04-09, D-16). SetSessionHiddenScriptIDs replaces the set (any
+// integers: one no object carries hides nothing) and applies it; the entries of
+// snapshot.objects whose script ID is in it - not scenarioObjects, matching the
+// game - and whose link ID is not 0 leave the scene, and the ones that were
+// hidden and no longer are come back. ApplyHiddenMarks
+// re-applies the set (UpdateSessionWorld and a script ID edit call it: a
+// restored object is hidden again, a newly scripted one hides). IsHiddenLink
+// is what picking asks.
+bool SetSessionHiddenScriptIDs( SEditorSession *pSession, const int *pIDs, int nCount );
+void ApplyHiddenMarks( SEditorSession *pSession );
+// Puts every hidden object back in the scene without forgetting which they
+// are: the world's update moves and re-textures objects the scene must hold,
+// so UpdateSessionWorld runs it between this and ApplyHiddenMarks.
+void ShowHiddenForUpdate( SEditorSession *pSession );
+bool IsHiddenLink( const SEditorSession &rSession, int nLinkID );
+
 // The terrain height at a world point, through CVSOBuilder::UpdateZ on the
 // working copy's altitudes. False with the reason in szMessage off the map.
 bool GroundHeightInSession( SEditorSession *pSession, float fX, float fY, float *pfZ );

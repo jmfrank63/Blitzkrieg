@@ -249,6 +249,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorSetGroup", [&] { return BkEditorSetGroup( 0, 0, &nInt, 1 ); } },
 		{ "BkEditorDeleteGroup", [&] { return BkEditorDeleteGroup( 0, 0 ); } },
 		{ "BkEditorFirstFreeGroupID", [&] { return BkEditorFirstFreeGroupID( 0, 0, &nInt ); } },
+		{ "BkEditorSetHiddenScriptIDs", [&] { return BkEditorSetHiddenScriptIDs( 0, &nInt, 1 ); } },
 		{ "BkEditorUndoEdit", [&] { return BkEditorUndoEdit( 0, 0 ); } },
 		{ "BkEditorRedoEdit", [&] { return BkEditorRedoEdit( 0, 0 ); } },
 		{ "BkEditorVsoDescriptors", [&] { return BkEditorVsoDescriptors( 0, 0, &vsoDescriptor, 1, &nInt ); } },
@@ -331,6 +332,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorSetGroup", [&] { return BkEditorSetGroup( pSession, 0, &nInt, 1 ); } },
 		{ "BkEditorDeleteGroup", [&] { return BkEditorDeleteGroup( pSession, 0 ); } },
 		{ "BkEditorFirstFreeGroupID", [&] { return BkEditorFirstFreeGroupID( pSession, 0, &nInt ); } },
+		{ "BkEditorSetHiddenScriptIDs", [&] { return BkEditorSetHiddenScriptIDs( pSession, &nInt, 1 ); } },
 		{ "BkEditorUndoEdit", [&] { return BkEditorUndoEdit( pSession, 0 ); } },
 		{ "BkEditorRedoEdit", [&] { return BkEditorRedoEdit( pSession, 0 ); } },
 		{ "BkEditorVsoDescriptors", [&] { return BkEditorVsoDescriptors( pSession, 0, &vsoDescriptor, 1, &nInt ); } },
@@ -4025,6 +4027,9 @@ static void TestM2ScriptIDs( BkEditorSession *pSession, const std::string &szScr
 	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 		return;
 
+	printf( "editor-bridge: coldwinter holds %d reinforcement groups; the first free group ID from 0 is %d, from 900 is %d\n",
+	        int( original.reinforcements.groups.size() ), NMapRecords::FirstFreeGroupID( original, 0 ), NMapRecords::FirstFreeGroupID( original, 900 ) );
+
 	// The first object of the map's objects list that the session edits: a link
 	// ID of its own, the engine holds it.
 	const std::vector<BkEditorObjectRecord> before = ReadObjectRecords( pSession );
@@ -4383,6 +4388,209 @@ static void TestM2Groups( BkEditorSession *pSession, const std::string &szScratc
 	remove( OsPath( szEdited ).c_str() );
 	remove( OsPath( szUndone ).c_str() );
 	printf( "editor-bridge: M2 groups ok\n" );
+}
+
+// D-16's Hide checked, on the real engine and the real pixels. One object a
+// click picks with the camera on it, given script ID 4243 and hidden by that
+// ID: the pixels of its screen box change (above 1 % of the box, against a
+// control pair of unchanged captures), a click on it no longer answers it;
+// unhidden it answers again and the box is drawn exactly as before (a shadow or
+// a health bar left behind would show here). Hiding is a view setting: the map
+// saves the same bytes hidden and shown, and a script ID that joins or leaves
+// the hidden set hides or shows the object at once.
+static bool FindPickableObject( BkEditorSession *pSession, int nGameType, const std::map<std::string, int> &rGameTypes, int nScreenWidth, int nScreenHeight,
+                                int *pnLink, int *pnScriptID, float *pfCameraX, float *pfCameraY )
+{
+	const std::vector<BkEditorObjectRecord> objects = ReadObjectRecords( pSession );
+	for ( size_t i = 0; i < objects.size(); ++i )
+	{
+		const BkEditorObjectRecord &rRecord = objects[i];
+		if ( rRecord.scenario != 0 || rRecord.link_id == 0 || rRecord.known == 0 )
+			continue;
+		if ( nGameType >= 0 )
+		{
+			const std::map<std::string, int>::const_iterator itType = rGameTypes.find( rRecord.name );
+			if ( itType == rGameTypes.end() || itType->second != nGameType )
+				continue;
+		}
+		int nSharing = 0;
+		for ( size_t j = 0; j < objects.size(); ++j )
+			nSharing += objects[j].link_id == rRecord.link_id ? 1 : 0;
+		BkEditorObjectState engineState;
+		if ( nSharing != 1 || BkEditorEngineObjectState( pSession, rRecord.link_id, &engineState ) != BK_EDITOR_OK )
+			continue;
+		CVec3 vAnchor;
+		AI2Vis( &vAnchor, engineState.x, engineState.y, 0.0f );
+		BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+		for ( int f = 0; f < 3; ++f )
+			BkEditorFrame( pSession );
+		int nPicked = -1;
+		if ( BkEditorObjectAt( pSession, nScreenWidth / 2.0f, nScreenHeight / 2.0f - PICK_RISE, &nPicked ) == BK_EDITOR_OK && nPicked == rRecord.link_id )
+		{
+			*pnLink = rRecord.link_id;
+			*pnScriptID = rRecord.script_id;
+			*pfCameraX = vAnchor.x;
+			*pfCameraY = vAnchor.y;
+			return true;
+		}
+	}
+	return false;
+}
+
+static void HideOneObject( BkEditorSession *pSession, const char *pszWhat, int nUnit, int nOriginal, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	const float fClickX = nScreenWidth / 2.0f, fClickY = nScreenHeight / 2.0f - PICK_RISE;
+	// The box round the click point, and the two captures of the unchanged view.
+	const int nHalf = 30;
+	const int nLeft = int( fClickX ) - nHalf, nRight = int( fClickX ) + nHalf, nTop = int( fClickY ) - nHalf, nBottom = int( fClickY ) + nHalf;
+	const int nBoxArea = ( nRight - nLeft ) * ( nBottom - nTop );
+	const std::string szShown = szScratch + NStr::Format( "/04-09-hide-%s-shown.tga", pszWhat ), szControl = szScratch + NStr::Format( "/04-09-hide-%s-control.tga", pszWhat );
+	const std::string szHidden = szScratch + NStr::Format( "/04-09-hide-%s-hidden.tga", pszWhat ), szBack = szScratch + NStr::Format( "/04-09-hide-%s-back.tga", pszWhat );
+	if ( !SaveFrame( pSession, szShown ) )
+		return;
+	for ( int f = 0; f < 3; ++f )
+		BkEditorFrame( pSession );
+	if ( !SaveFrame( pSession, szControl ) )
+		return;
+
+	// Script ID 4243 on the object, then hidden by that ID.
+	if ( !Check( BkEditorSetObjectScriptID( pSession, nUnit, 4243 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const int nHide = 4243;
+	if ( !Check( BkEditorSetHiddenScriptIDs( pSession, &nHide, 1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	for ( int f = 0; f < 3; ++f )
+		BkEditorFrame( pSession );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "with the " ) + pszWhat + " hidden: " + BkEditorLastMessage( pSession ) ).c_str() );
+	if ( !SaveFrame( pSession, szHidden ) )
+		return;
+	int nWidth = 0, nHeight = 0;
+	const std::vector<unsigned char> shown = ReadFramePixels( szShown, &nWidth, &nHeight );
+	const std::vector<unsigned char> control = ReadFramePixels( szControl, &nWidth, &nHeight );
+	const std::vector<unsigned char> hidden = ReadFramePixels( szHidden, &nWidth, &nHeight );
+	const int nNoise = ChangedPixels( shown, control, nWidth, nHeight, nLeft, nTop, nRight, nBottom );
+	const int nChangedByHide = ChangedPixels( shown, hidden, nWidth, nHeight, nLeft, nTop, nRight, nBottom );
+	printf( "editor-bridge: hiding the %s (object %d) changed %d of %d pixels of its box (%d between two unchanged captures)\n", pszWhat, nUnit, nChangedByHide, nBoxArea, nNoise );
+	Check( nChangedByHide > nBoxArea / 100 && nChangedByHide > nNoise * 4,
+	       NStr::Format( "hiding the %s changes %d of the %d pixels of its box, above 1%% and above the noise of %d", pszWhat, nChangedByHide, nBoxArea, nNoise ) );
+	int nPicked = -1;
+	const bool bAnswers = BkEditorObjectAt( pSession, fClickX, fClickY, &nPicked ) == BK_EDITOR_OK && nPicked == nUnit;
+	Check( !bAnswers, NStr::Format( "a click on the hidden %s no longer answers it", pszWhat ) );
+
+	// Hiding is not an edit: the map saves the same bytes hidden and shown.
+	const std::string szSavedHidden = szScratch + NStr::Format( "\\hide-%s-saved-hidden.bzm", pszWhat ), szSavedShown = szScratch + NStr::Format( "\\hide-%s-saved-shown.bzm", pszWhat );
+	const bool bSavedHidden = BkEditorSaveMap( pSession, szSavedHidden.c_str() ) == BK_EDITOR_OK;
+	Check( bSavedHidden, BkEditorLastMessage( pSession ) );
+
+	// Shown again: the object answers a click, and the box is drawn as before.
+	if ( !Check( BkEditorSetHiddenScriptIDs( pSession, 0, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	for ( int f = 0; f < 3; ++f )
+		BkEditorFrame( pSession );
+	nPicked = -1;
+	Check( BkEditorObjectAt( pSession, fClickX, fClickY, &nPicked ) == BK_EDITOR_OK && nPicked == nUnit, NStr::Format( "unhidden, a click on the %s answers it again", pszWhat ) );
+	if ( SaveFrame( pSession, szBack ) )
+	{
+		const std::vector<unsigned char> back = ReadFramePixels( szBack, &nWidth, &nHeight );
+		const int nChangedBack = ChangedPixels( hidden, back, nWidth, nHeight, nLeft, nTop, nRight, nBottom );
+		const int nOffFromShown = ChangedPixels( shown, back, nWidth, nHeight, nLeft, nTop, nRight, nBottom );
+		printf( "editor-bridge: unhiding the %s changed %d pixels of the box, %d from the first capture\n", pszWhat, nChangedBack, nOffFromShown );
+		Check( nChangedBack > nBoxArea / 100, NStr::Format( "unhiding the %s changes the box again", pszWhat ) );
+		Check( nOffFromShown <= Max( nBoxArea / 100, nNoise * 4 ), NStr::Format( "and the box is drawn as before (%d pixels differ from the first capture)", nOffFromShown ) );
+	}
+	if ( Check( BkEditorSaveMap( pSession, szSavedShown.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) && bSavedHidden )
+		Check( SameBytes( szSavedHidden, szSavedShown ), "the map saves the same bytes hidden and shown" );
+	remove( OsPath( szSavedHidden ).c_str() );
+	remove( OsPath( szSavedShown ).c_str() );
+
+	// A script ID that leaves the hidden set shows the object; one that joins it hides it.
+	Check( BkEditorSetHiddenScriptIDs( pSession, &nHide, 1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSetObjectScriptID( pSession, nUnit, nOriginal ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	for ( int f = 0; f < 3; ++f )
+		BkEditorFrame( pSession );
+	nPicked = -1;
+	Check( BkEditorObjectAt( pSession, fClickX, fClickY, &nPicked ) == BK_EDITOR_OK && nPicked == nUnit, NStr::Format( "a %s whose script ID left the hidden set is shown and picked", pszWhat ) );
+	Check( BkEditorSetObjectScriptID( pSession, nUnit, 4243 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	nPicked = -1;
+	Check( !( BkEditorObjectAt( pSession, fClickX, fClickY, &nPicked ) == BK_EDITOR_OK && nPicked == nUnit ), NStr::Format( "and one whose script ID joined it is hidden and not picked" ) );
+	Check( BkEditorSetObjectScriptID( pSession, nUnit, nOriginal ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSetHiddenScriptIDs( pSession, 0, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	for ( int f = 0; f < 3; ++f )
+		BkEditorFrame( pSession );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "with the " ) + pszWhat + " shown again: " + BkEditorLastMessage( pSession ) ).c_str() );
+}
+
+struct SHideKind
+{
+	int nGameType;          // -1: the first object that picks, whatever it is
+	const char *pszWhat;
+	bool bRequired;         // false: not finding one is a note, not a failure
+};
+
+// The kinds on one map: each measured by HideOneObject, then the map saves the
+// unedited file byte for byte again.
+static void HideKindsOnMap( BkEditorSession *pSession, const char *pszMap, const SHideKind *pKinds, int nKinds, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, pszMap, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\hide-unedited.bzm", szUndone = szScratch + "\\hide-undone.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The game type of every catalogue name: a static object, a mesh unit (a
+	// tank, game type 1) and a squad (15) are hidden differently by the engine
+	// (a sprite and its shadow, a mesh with a shadow pass and an icon, soldiers).
+	int nCatalogue = 0;
+	BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+	std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+	int nRead = 0;
+	BkEditorCatalogue( pSession, &catalogue[0], nCatalogue, &nRead );
+	std::map<std::string, int> gameTypes;
+	for ( int i = 0; i < nRead; ++i )
+		gameTypes[catalogue[i].name] = catalogue[i].game_type;
+
+	for ( int k = 0; k < nKinds; ++k )
+	{
+		int nUnit = -1, nOriginal = -1;
+		float fCameraX = 0.0f, fCameraY = 0.0f;
+		if ( !FindPickableObject( pSession, pKinds[k].nGameType, gameTypes, nScreenWidth, nScreenHeight, &nUnit, &nOriginal, &fCameraX, &fCameraY ) )
+		{
+			if ( pKinds[k].bRequired )
+				Check( false, NStr::Format( "%s has a %s a click picks with the camera on it", pszMap, pKinds[k].pszWhat ) );
+			else
+				printf( "editor-bridge: no %s of %s is picked by a click with the camera on it; not measured\n", pKinds[k].pszWhat, pszMap );
+			continue;
+		}
+		printf( "editor-bridge: hide test on the %s of %s, object %d (script ID %d), camera at %.0f,%.0f\n", pKinds[k].pszWhat, pszMap, nUnit, nOriginal, fCameraX, fCameraY );
+		HideOneObject( pSession, pKinds[k].pszWhat, nUnit, nOriginal, nScreenWidth, nScreenHeight, szScratch );
+	}
+
+	// With every script ID put back the map is the unedited file.
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szUndone ), NStr::Format( "with the script IDs put back %s saves the unedited file byte for byte", pszMap ) );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+}
+
+static void TestM2HideGroups( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	const SHideKind coldwinter[] = { { -1, "object", true }, { 1, "unit", true } };
+	HideKindsOnMap( pSession, SHIPPED_MAP, coldwinter, 2, nScreenWidth, nScreenHeight, szScratch );
+	// Coldwinter has no squad a click picks; the bridge map does have squads.
+	const SHideKind squads[] = { { 15, "squad", false } };
+	HideKindsOnMap( pSession, BRIDGE_MAP, squads, 1, nScreenWidth, nScreenHeight, szScratch );
+
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	// The argument checks.
+	const int nHide = 4243;
+	Check( BkEditorSetHiddenScriptIDs( pSession, &nHide, -1 ) == BK_EDITOR_BAD_ARGUMENT, "a negative count is a bad argument" );
+	Check( BkEditorSetHiddenScriptIDs( pSession, 0, 1 ) == BK_EDITOR_BAD_ARGUMENT, "a null list with a count is a bad argument" );
+	Check( BkEditorSetHiddenScriptIDs( pSession, &nHide, 1 << 20 ) == BK_EDITOR_BAD_ARGUMENT, "a count no map could need is a bad argument" );
+	const int nNobody[3] = { 32000, 31999, 32000 };
+	Check( BkEditorSetHiddenScriptIDs( pSession, nNobody, 3 ) == BK_EDITOR_OK, "IDs no object carries (one repeated) are fine" );
+	Check( BkEditorSetHiddenScriptIDs( pSession, 0, 0 ) == BK_EDITOR_OK, "and an empty set shows everything" );
+	printf( "editor-bridge: M2 hide checked ok\n" );
 }
 
 // D-04 (M2): deleting an object other records name is no longer refused; it
@@ -6652,6 +6860,7 @@ int main( int argc, char **argv )
 		TestM2CameraAnchors( pSession, szScratch );
 		TestM2ScriptIDs( pSession, szScratch );
 		TestM2Groups( pSession, szScratch );
+		TestM2HideGroups( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestM2PaletteFilter( pSession, szScratch );
 		TestM2CascadeDelete( pSession, szScratch, false );
 		TestM2CascadeDelete( pSession, szScratch, true );

@@ -223,6 +223,10 @@ pub const FakeBridge = struct {
     /// slice is owned here. Kept across a fake reopen like the sounds.
     /// `addGroupFixture` seeds it; `recordKeys` answers it sorted.
     groups: std.AutoHashMapUnmanaged(i32, []i32) = .empty,
+    /// The script IDs "Hide checked" holds back (04-09): objects of the
+    /// objects list (not scenario objects) carrying one are skipped by
+    /// `objectAt`. A view setting: forgotten by an open, as the real one.
+    hidden_script_ids: std.ArrayListUnmanaged(i32) = .empty,
     /// Bridge spans: link ID to the bridge that holds it. A span cannot be
     /// deleted singly (the game's loaders assert every link of a bridge).
     bridge_spans: std.AutoHashMapUnmanaged(i32, i32) = .empty,
@@ -305,6 +309,7 @@ pub const FakeBridge = struct {
         var group_values = self.groups.valueIterator();
         while (group_values.next()) |ids| self.allocator.free(ids.*);
         self.groups.deinit(self.allocator);
+        self.hidden_script_ids.deinit(self.allocator);
         self.bridge_spans.deinit(self.allocator);
         self.trench_pieces.deinit(self.allocator);
         self.start_commands.deinit(self.allocator);
@@ -582,6 +587,7 @@ pub const FakeBridge = struct {
         .insertRecord = insertRecord,
         .removeRecord = removeRecord,
         .firstFreeGroupID = firstFreeGroupID,
+        .setHiddenScriptIDs = setHiddenScriptIDs,
         .groundHeight = groundHeight,
         .setObjectScriptID = setObjectScriptID,
         .undoEdit = undoEdit,
@@ -1666,6 +1672,7 @@ pub const FakeBridge = struct {
         // What the real bridge forgets on an open: every tombstone and every
         // paint token of the map before.
         self.forgetHistory();
+        self.hidden_script_ids.clearRetainingCapacity();
         if (self.tiles.len == 0) {
             self.tiles = self.allocator.alloc(u8, @intCast(self.info.width_tiles * self.info.height_tiles)) catch return .failed;
             @memset(self.tiles, 0);
@@ -2149,6 +2156,14 @@ pub const FakeBridge = struct {
         return std.math.isFinite(point.x) and std.math.isFinite(point.y) and std.math.isFinite(point.z);
     }
 
+    fn setHiddenScriptIDs(ptr: *anyopaque, script_ids: []const i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        self.hidden_script_ids.clearRetainingCapacity();
+        self.hidden_script_ids.appendSlice(self.allocator, script_ids) catch return .failed;
+        return .ok;
+    }
+
     /// Flat ground: 0 on the map. A simplification listed in the header.
     fn groundHeight(ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status {
         const self = from(ptr);
@@ -2257,6 +2272,7 @@ pub const FakeBridge = struct {
             index -= 1;
             const object = self.objects_list.items[index];
             if (!object.known) continue; // never placed, so never drawn
+            if (!object.scenario and std.mem.indexOfScalar(i32, self.hidden_script_ids.items, object.script_id) != null) continue; // held back
             // The screen is the world here; the object is drawn at its map
             // position's world point.
             const x = object.x / self.map_per_world;

@@ -288,3 +288,121 @@ pub fn drawEntrenchments(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: i
         panels.text(text);
     }
 }
+
+/// What one frame of the Groups window asked for, run after every loop over the
+/// group rows: a command re-reads the rows and frees the slices a loop holds.
+const GroupAction = union(enum) {
+    none,
+    new,
+    delete,
+    add_id,
+    remove_id: i32,
+    select_objects,
+    choose: i32,
+    hide: struct { id: i32, on: bool },
+};
+
+/// What the Groups window says.
+pub const groups_help = "Hide checked holds a group's objects back in the view and from picking, as the game holds them for the group; Select objects outlines the objects that carry the group's script IDs and selects the first.";
+
+/// D-16: the MFC Group Manager (GroupManagerDialog) as a window opened from
+/// Map -> Reinforcement groups...: the groups by ID with a hide box each; New
+/// with an ID field (bumped to the first unused one at or above it, C9) and
+/// Delete; the selected group's script IDs with Remove each, a field and Add
+/// (a script ID already there is skipped); and Select objects. Every control
+/// runs a command (commands.zig), so BK_EDITOR_AUTO's `do=` reaches it too.
+pub fn drawGroups(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    if (!state.groups_open) return;
+    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
+    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    const open = ig.igBegin("Reinforcement groups", &state.groups_open, ig.ImGuiWindowFlags_NoCollapse);
+    defer ig.igEnd();
+    if (!open) return;
+    if (!panels.mapIsOpen(state.editor)) {
+        panels.text("no map open");
+        return;
+    }
+    state.refreshGroups();
+    var action: GroupAction = .none;
+
+    ig.igPushItemWidth(120);
+    _ = ig.igInputIntEx("ID", &state.group_new_from, 1, 10, 0);
+    ig.igPopItemWidth();
+    ig.igSameLine();
+    if (ig.igButton("New")) action = .new;
+    ig.igSameLine();
+    ig.igBeginDisabled(state.group_selected == null);
+    if (ig.igButton("Delete")) action = .delete;
+    ig.igEndDisabled();
+
+    ig.igSeparatorText("Groups");
+    const rows = state.groups.items;
+    if (rows.len == 0) {
+        panels.text("the map has no reinforcement groups");
+    } else if (ig.igBeginChild("groups-list", .{ .x = 0, .y = 150 }, ig.ImGuiChildFlags_Borders, 0)) {
+        for (rows) |row| {
+            ig.igPushIDInt(row.id);
+            defer ig.igPopID();
+            var checked = state.groupIsChecked(row.id);
+            if (ig.igCheckbox("hide", &checked)) action = .{ .hide = .{ .id = row.id, .on = checked } };
+            ig.igSameLine();
+            var label: [64:0]u8 = undefined;
+            const label_text = std.fmt.bufPrintZ(&label, "Group {d}: {d} script IDs", .{ row.id, row.ids.len }) catch continue;
+            const selected = state.group_selected != null and state.group_selected.? == row.id;
+            if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) action = .{ .choose = row.id };
+        }
+    }
+    if (rows.len != 0) ig.igEndChild();
+
+    ig.igSeparatorText("Script IDs");
+    const selected_row = if (state.group_selected) |id| state.findGroup(id) else null;
+    if (selected_row) |row| {
+        var title: [48:0]u8 = undefined;
+        panels.text(std.fmt.bufPrintZ(&title, "group {d}", .{row.id}) catch "group");
+        if (row.ids.len == 0) {
+            panels.text("no script IDs yet");
+        } else if (ig.igBeginChild("group-ids", .{ .x = 0, .y = 100 }, ig.ImGuiChildFlags_Borders, 0)) {
+            for (row.ids) |script_id| {
+                ig.igPushIDInt(script_id);
+                defer ig.igPopID();
+                var line: [24:0]u8 = undefined;
+                panels.text(std.fmt.bufPrintZ(&line, "{d}", .{script_id}) catch "?");
+                ig.igSameLine();
+                if (ig.igSmallButton("Remove")) action = .{ .remove_id = script_id };
+            }
+        }
+        if (row.ids.len != 0) ig.igEndChild();
+        ig.igPushItemWidth(120);
+        _ = ig.igInputIntEx("script ID", &state.group_script_field, 1, 10, 0);
+        ig.igPopItemWidth();
+        ig.igSameLine();
+        if (ig.igButton("Add")) action = .add_id;
+        if (ig.igButton("Select objects")) action = .select_objects;
+    } else {
+        panels.text("select a group");
+    }
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text(groups_help);
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+
+    switch (action) {
+        .none => {},
+        .new => _ = commands.newGroup(state, state.group_new_from),
+        .delete => if (state.group_selected) |id| {
+            _ = commands.deleteGroup(state, id);
+        },
+        .add_id => if (state.group_selected) |id| {
+            _ = commands.addGroupId(state, id, state.group_script_field);
+        },
+        .remove_id => |script_id| if (state.group_selected) |id| {
+            _ = commands.removeGroupId(state, id, script_id);
+        },
+        .select_objects => if (state.group_selected) |id| {
+            _ = commands.selectGroupObjects(state, id);
+        },
+        .choose => |id| state.group_selected = id,
+        .hide => |hide| _ = commands.hideGroup(state, hide.id, hide.on),
+    }
+}

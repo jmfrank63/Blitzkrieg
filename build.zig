@@ -6236,9 +6236,53 @@ fn addMapEditor(
         "136:expect=trench_delta:1",
         "137:expect=undo_depth:11",
         "139:shot=m2_trench",
-        b.fmt("140:saveas={s}/m2.bzm", .{auto_m2_dir}),
-        "141:shot=m2_anchor",
-        "142:exit",
+        // 04-09: script IDs and reinforcement groups (coldwinter holds no
+        // group, so New from 0 takes group 0). The Select tool clicks a tank of
+        // the rows below the fence; the script_id command gives it 4244 and the
+        // predicate reads it back; a new group takes 4244; Select objects
+        // outlines the tank (shot); hiding the group hides that one object (the
+        // status bar counts it, the Groups window is shot with the hidden tank);
+        // unhiding, Remove and Delete are each one step and are undone; three
+        // more undos walk everything back (group script ID, group, script ID),
+        // and the window is shot again.
+        "140:tool=select",
+        "141:click=c-200x150",
+        "143:do=script_id:4244",
+        "144:expect=script_id:4244",
+        "145:expect=undo_depth:12",
+        "146:do=group_new:0",
+        "147:expect=groups_delta:1",
+        "148:expect=undo_depth:13",
+        "149:do=group_add_id:0:4244",
+        "150:expect=group_has:0:4244",
+        "151:expect=undo_depth:14",
+        "152:do=group_select:0",
+        "154:shot=m2_groups_marked",
+        "155:do=group_hide:0:1",
+        "156:expect=hidden_count:1",
+        "157:do=groups_window:1",
+        "160:shot=m2_groups_hidden",
+        "161:do=group_hide:0:0",
+        "162:expect=hidden_count:0",
+        "163:do=group_remove_id:0:4244",
+        "164:expect=undo_depth:15",
+        "165:do=group_delete:0",
+        "166:expect=groups_delta:0",
+        "167:expect=undo_depth:16",
+        "168:key=Z+ctrl",
+        "170:expect=groups_delta:1",
+        "171:key=Z+ctrl",
+        "173:expect=group_has:0:4244",
+        "174:expect=undo_depth:14",
+        "175:key=Z+ctrl",
+        "177:key=Z+ctrl",
+        "179:key=Z+ctrl",
+        "181:expect=groups_delta:0",
+        "182:expect=undo_depth:11",
+        "185:shot=m2_groups",
+        b.fmt("187:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "188:shot=m2_anchor",
+        "189:exit",
     };
     const auto_m2_run = b.addRunArtifact(exe);
     auto_m2_run.setCwd(b.path(stage_root));
