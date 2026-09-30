@@ -50,6 +50,12 @@ pub const command_table = [_]Entry{
     .{ .name = "group_select", .handler = groupSelect },
     .{ .name = "groups_window", .handler = groupsWindow },
     .{ .name = "script_file", .handler = scriptFile },
+    .{ .name = "script_dialog", .handler = scriptDialog },
+    .{ .name = "script_open", .handler = scriptOpen },
+    .{ .name = "script_copy_along_yes", .handler = scriptCopyAlongYes },
+    .{ .name = "script_copy_along_no", .handler = scriptCopyAlongNo },
+    .{ .name = "script_overwrite_yes", .handler = scriptOverwriteYes },
+    .{ .name = "script_overwrite_no", .handler = scriptOverwriteNo },
 };
 
 pub const predicate_table = [_]Entry{
@@ -485,6 +491,47 @@ pub fn setScriptFile(state: *State, name: []const u8) Outcome {
 fn scriptFile(state: *State, arg: []const u8) Outcome {
     if (arg.len == 0) return .bad_arg;
     return setScriptFile(state, if (std.mem.eql(u8, arg, "none")) "" else arg);
+}
+
+/// `script_dialog:1` opens the Script dialog, `:0` closes it.
+fn scriptDialog(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "1")) {
+        state.script_open = true;
+    } else if (std.mem.eql(u8, arg, "0")) {
+        state.script_open = false;
+    } else return .bad_arg;
+    return .ok;
+}
+
+/// "Open script" (D-20): the map's script in the system's default editor;
+/// refused, with a status line, when the map names none or it is not there.
+fn scriptOpen(state: *State, _: []const u8) Outcome {
+    return if (panels.openScript(state)) .ok else .refused;
+}
+
+/// The two buttons of Save As's "Copy <name>.lua beside the new map?".
+fn scriptCopyAlongYes(state: *State, _: []const u8) Outcome {
+    return if (panels.answerScriptCopyAlong(state, true)) .ok else .refused;
+}
+
+fn scriptCopyAlongNo(state: *State, _: []const u8) Outcome {
+    return if (panels.answerScriptCopyAlong(state, false)) .ok else .refused;
+}
+
+/// The two buttons of Choose other's "Replace it?".
+fn scriptOverwriteYes(state: *State, _: []const u8) Outcome {
+    if (!state.script_pick_active) return .refused;
+    state.script_pick_active = false;
+    var picked: logic.PathText = .{};
+    picked.set(state.script_pick.slice());
+    panels.pickScript(state, picked.slice(), true);
+    return .ok;
+}
+
+fn scriptOverwriteNo(state: *State, _: []const u8) Outcome {
+    if (!state.script_pick_active) return .refused;
+    state.script_pick_active = false;
+    return .ok;
 }
 
 /// `expect=script_file:<name>` (`none` for no script): the map names it.

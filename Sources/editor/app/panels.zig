@@ -50,6 +50,13 @@ const map_filters = [_]sdl3.c.SDL_DialogFileFilter{
 /// (the editor quit with the dialog still up), and must find live memory.
 var dialog_slot: logic.PathSlot = .{};
 
+/// The Script dialog's own file dialog (04-10, D-20: Choose other...), a second
+/// slot for the same reason, and its filter.
+var script_slot: logic.PathSlot = .{};
+const script_filters = [_]sdl3.c.SDL_DialogFileFilter{
+    .{ .name = "Lua scripts (*.lua)", .pattern = "lua" },
+};
+
 /// The panels' layout, in screen pixels, for their first appearance.
 const layout = struct {
     const left_width: f32 = 280;
@@ -141,6 +148,20 @@ pub const GroupRow = struct {
 
     pub fn has(self: GroupRow, script_id: i32) bool {
         return std.mem.indexOfScalar(i32, self.ids, script_id) != null;
+    }
+};
+
+/// Save As of a shipped map that names a script beside it (D-20): the two map
+/// paths and the script's name, held while the question is on screen.
+pub const ScriptCopyPending = struct {
+    active: bool = false,
+    from: logic.PathText = .{},
+    to: logic.PathText = .{},
+    name_buffer: [core.records.script_file_capacity]u8 = undefined,
+    name_len: usize = 0,
+
+    pub fn name(self: *const ScriptCopyPending) []const u8 {
+        return self.name_buffer[0..self.name_len];
     }
 };
 
@@ -426,6 +447,22 @@ pub const State = struct {
     /// "Select objects": the group whose objects the markers outline.
     group_marked: ?i32 = null,
 
+    /// 04-10 (D-20): the Script dialog (Map -> Script...). `script_names` are the
+    /// bare names of the .lua files beside the map, read again when the dialog
+    /// opens, after a choice and when the script file record changes
+    /// (`refreshScriptNames`); a picked file waits in `script_pick` while the
+    /// overwrite question is asked, and `script_copy` is Save As's "Copy
+    /// <name>.lua beside the new map?" question.
+    script_open: bool = false,
+    script_open_seen: bool = false,
+    script_names: std.ArrayListUnmanaged([]u8) = .empty,
+    script_names_stale: bool = true,
+    script_generation_seen: ?u32 = null,
+    script_pick: logic.PathText = .{},
+    script_pick_active: bool = false,
+    script_copy: ScriptCopyPending = .{},
+    script_note: [200]u8 = undefined,
+
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
     actions: FileActions = .{ .dialog = &dialog_slot },
@@ -494,6 +531,7 @@ pub const State = struct {
         self.allocator.free(self.fence_types);
         self.allocator.free(self.trench_infos);
         self.freeGroups();
+        core.files.freeNames(self.allocator, &self.script_names);
         self.groups.deinit(self.allocator);
         self.groups_checked.deinit(self.allocator);
         self.hidden_wanted.deinit(self.allocator);
@@ -917,6 +955,10 @@ pub const State = struct {
         self.trench_player_chosen = false;
         // The bridge forgot the last map's hidden set on the open; so does the
         // panel's, and the groups are the new map's.
+        self.script_names_stale = true;
+        self.script_generation_seen = null;
+        self.script_pick_active = false;
+        self.script_copy.active = false;
         self.groups_checked.clearRetainingCapacity();
         self.hidden_sent.clearRetainingCapacity();
         self.hidden_object_count = 0;
@@ -1022,6 +1064,9 @@ pub fn draw(state: *State) void {
     panels_m2.drawCameraAnchors(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height }, .{ .x = state.right_width, .y = layout.anchors_height }, cond);
     drawSounds(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height + layout.anchors_height }, .{ .x = state.right_width, .y = @max(body_height - layout.properties_height - layout.players_height - layout.anchors_height, 100) }, cond);
     panels_m2.drawGroups(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 360, .y = 420 });
+    pollScriptPick(state);
+    panels_m2.drawScriptDialog(state, .{ .x = state.left_width + 60, .y = body_top + 80 }, .{ .x = 380, .y = 340 });
+    panels_m2.drawScriptModals(state);
     drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
     drawTestLaunchModals(state);
     drawUnsavedPrompt(state);
@@ -1094,6 +1139,11 @@ pub fn act(state: *State) bool {
             },
             .show_dialog => |kind| showDialog(state, kind),
             .act_on_path => |chosen| {
+                // D-20: a Save As of a shipped map may bring its script along, so
+                // where the map was is kept before the save moves the document.
+                var came_from: logic.PathText = .{};
+                const bring_script = chosen.kind == .save_as and documentIsShipped(state);
+                if (bring_script) came_from.set(state.editor.document.path.items);
                 const result = logic.actOnPath(state.editor, chosen.kind, chosen.path);
                 state.view.noteEditResult(state.editor, result);
                 if (chosen.kind == .open) {
@@ -1110,6 +1160,7 @@ pub fn act(state: *State) bool {
                     if (ok) {
                         pushRecentFromDocument(state);
                         deleteRecoveryIfActive(state);
+                        if (bring_script) offerScriptCopyAlong(state, came_from.slice());
                     }
                     state.actions.noteSaveOutcome(ok);
                 }
@@ -1118,6 +1169,148 @@ pub fn act(state: *State) bool {
             .switch_mod => |folder| performModSwitch(state, folder),
             .close => performClose(state),
         }
+    }
+}
+
+/// The script file's name as the map holds it, for the functions below; null
+/// with no map open or for a value the editor cannot read.
+fn scriptValue(state: *State, buffer: *[core.records.script_file_capacity]u8) ?[]const u8 {
+    return commands.readScriptFile(state, buffer);
+}
+
+/// D-20, after a Save As of a shipped map: when the map names a script that is
+/// beside the old map, asks whether to copy it beside the new one (`from_map`
+/// is where the map was). The question is a modal whose two buttons are the
+/// commands `script_copy_along_yes` and `_no`.
+fn offerScriptCopyAlong(state: *State, from_map: []const u8) void {
+    const files = state.editor.files orelse return;
+    var value_buffer: [core.records.script_file_capacity]u8 = undefined;
+    const value = scriptValue(state, &value_buffer) orelse return;
+    const name = core.script_file.gameScriptName(value) orelse return;
+    var beside: [core.files.max_path]u8 = undefined;
+    const path = core.script_file.scriptPathBeside(&beside, from_map, name) orelse return;
+    if (!files.exists(path)) return;
+    const pending = &state.script_copy;
+    pending.from.set(from_map);
+    pending.to.set(state.editor.document.path.items);
+    pending.name_len = @min(name.len, pending.name_buffer.len);
+    @memcpy(pending.name_buffer[0..pending.name_len], name[0..pending.name_len]);
+    pending.active = true;
+}
+
+/// The answer to that question (the modal's buttons and the two commands).
+pub fn answerScriptCopyAlong(state: *State, yes: bool) bool {
+    const pending = &state.script_copy;
+    if (!pending.active) return false;
+    pending.active = false;
+    if (!yes) return true;
+    const files = state.editor.files orelse return false;
+    var note: [200]u8 = undefined;
+    switch (core.script_file.copyAlong(files, pending.from.slice(), pending.to.slice(), pending.name())) {
+        .copied => state.view.setStatus("script: ", std.fmt.bufPrint(&note, "{s}.lua copied beside the new map", .{pending.name()}) catch "copied"),
+        .missing => state.view.setStatus("script: ", "the script is not beside the old map any more"),
+        .failed => state.view.setStatus("script: ", std.fmt.bufPrint(&note, "{s}.lua could not be copied: {s}", .{ pending.name(), files.lastError() }) catch "could not be copied"),
+        .not_a_bare_name => state.view.setStatus("script: ", "the script's name is not a plain name, so it was not copied"),
+    }
+    return true;
+}
+
+/// Re-reads the .lua files beside the map when the dialog has just opened, a
+/// choice was made or the script file record changed (an undo included).
+pub fn refreshScriptNames(state: *State) void {
+    const generation = state.editor.record_generations.get(.script_file);
+    const opened_now = state.script_open and !state.script_open_seen;
+    state.script_open_seen = state.script_open;
+    if (!opened_now and !state.script_names_stale and state.script_generation_seen == generation) return;
+    state.script_names_stale = false;
+    state.script_generation_seen = generation;
+    core.files.freeNames(state.allocator, &state.script_names);
+    const files = state.editor.files orelse return;
+    core.script_file.listBeside(files, state.allocator, state.editor.document.path.items, &state.script_names) catch {};
+}
+
+/// "Open script": the map's script in the system's default editor. The URL is
+/// built from the resolved folder and the validated name (`script_file.openUrl`),
+/// never from typed text; a script that is not there is a warning.
+pub fn openScript(state: *State) bool {
+    const files = state.editor.files orelse return false;
+    var value_buffer: [core.records.script_file_capacity]u8 = undefined;
+    const value = scriptValue(state, &value_buffer) orelse return false;
+    if (value.len == 0) {
+        state.view.setStatus("script: ", "the map names no script");
+        return false;
+    }
+    var url_buffer: [core.files.max_path + 64]u8 = undefined;
+    const url = core.script_file.openUrl(files, &url_buffer, state.editor.document.path.items, value) orelse {
+        state.view.setStatus("script: ", "the script file is not beside the map");
+        return false;
+    };
+    var z_buffer: [core.files.max_path + 65]u8 = undefined;
+    const url_z = std.fmt.bufPrintZ(&z_buffer, "{s}", .{url}) catch return false;
+    if (!state.os_dialogs) return true; // the scripted runs check the URL, not the desktop
+    if (panels_m2.openUrlWithSystem(url_z)) |reason| {
+        state.view.setStatus("script: ", reason);
+        return false;
+    }
+    return true;
+}
+
+/// "Choose other...": the Lua file dialog. Never opened for a map inside a
+/// game's data folder: the script is copied beside the map, and that folder is
+/// read-only (Save As into your maps folder first).
+pub fn chooseOtherScript(state: *State) void {
+    if (documentIsShipped(state)) {
+        state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first");
+        return;
+    }
+    if (!script_slot.request(.open)) return;
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+    var default_location: ?[*:0]const u8 = null;
+    if (dialogFolder(state, &folder_buffer)) |folder| {
+        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
+    }
+    if (!state.os_dialogs) return;
+    state.os_dialogs_opened += 1;
+    sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &script_slot, state.window, &script_filters, script_filters.len, default_location, false);
+}
+
+/// Each frame: what the Lua file dialog answered, once. A picked file goes beside
+/// the map and becomes the script; when a different file of that name is there the
+/// question is asked first (`script_pick`).
+fn pollScriptPick(state: *State) void {
+    const result = script_slot.take() orelse return;
+    switch (result) {
+        .cancelled => {},
+        .failed => |message| state.view.setStatus("the file dialog failed: ", message),
+        .path => |chosen| pickScript(state, chosen.path, false),
+    }
+}
+
+/// Copies the picked script beside the map and names it, or asks before it
+/// replaces one (`overwrite` is the answer to that question). Public: the
+/// overwrite question's button and the smoke call it.
+pub fn pickScript(state: *State, picked: []const u8, overwrite: bool) void {
+    const files = state.editor.files orelse return;
+    if (documentIsShipped(state)) {
+        state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first");
+        return;
+    }
+    const name = core.script_file.pickedName(picked) orelse {
+        state.view.setStatus("script: ", "choose a .lua file named with letters, digits, _ - and . only");
+        return;
+    };
+    switch (core.script_file.copyInto(files, state.editor.document.path.items, picked, overwrite)) {
+        .copied => {
+            state.script_names_stale = true;
+            _ = commands.setScriptFile(state, name);
+        },
+        .exists => {
+            state.script_pick.set(picked);
+            state.script_pick_active = true;
+        },
+        .not_a_bare_name => state.view.setStatus("script: ", "choose a .lua file named with letters, digits, _ - and . only"),
+        .failed => state.view.setStatus("script: ", std.fmt.bufPrint(&state.script_note, "{s} could not be copied beside the map: {s}", .{ name, files.lastError() }) catch "the script could not be copied"),
     }
 }
 
@@ -1790,6 +1983,8 @@ fn drawMapMenu(state: *State, map_open: bool) void {
     }
     // D-16: the Group Manager.
     if (ig.igMenuItemBoolPtr("Reinforcement groups...", null, &state.groups_open, map_open)) {}
+    // D-20: the map's script file.
+    if (ig.igMenuItemBoolPtr("Script...", null, &state.script_open, map_open)) {}
 }
 
 /// File > Open Recent (D-27): every entry's existence, checked once for the

@@ -41,6 +41,14 @@ pub const Files = struct {
         /// `os_path`'s canonical absolute path, symlinks resolved, in
         /// `buffer` - null when it does not exist or will not resolve.
         realPath: *const fn (ptr: *anyopaque, os_path: []const u8, buffer: []u8) ?[]const u8,
+        /// Appends to `out` the names (with the extension) of the files in the
+        /// directory `os_dir` whose names end in `extension` - ".lua", compared
+        /// without regard to case - then leaves `out` sorted byte-wise. Only
+        /// what is directly in the directory, never a folder and never what is
+        /// in one. Each name is owned by `allocator`; free them with
+        /// `freeNames`. A directory that does not exist or will not list adds
+        /// nothing and is no error: `Failed` is an allocation failure.
+        list: *const fn (ptr: *anyopaque, os_dir: []const u8, extension: []const u8, allocator: std.mem.Allocator, out: *std.ArrayListUnmanaged([]u8)) Error!void,
     };
 
     pub fn exists(self: Files, os_path: []const u8) bool {
@@ -64,7 +72,26 @@ pub const Files = struct {
     pub fn realPath(self: Files, os_path: []const u8, buffer: []u8) ?[]const u8 {
         return self.vtable.realPath(self.ptr, os_path, buffer);
     }
+    /// See `VTable.list`.
+    pub fn list(self: Files, os_dir: []const u8, extension: []const u8, allocator: std.mem.Allocator, out: *std.ArrayListUnmanaged([]u8)) Error!void {
+        return self.vtable.list(self.ptr, os_dir, extension, allocator, out);
+    }
 };
+
+/// Frees every name in `names` (the list `Files.list` fills) and the list.
+pub fn freeNames(allocator: std.mem.Allocator, names: *std.ArrayListUnmanaged([]u8)) void {
+    for (names.items) |name| allocator.free(name);
+    names.deinit(allocator);
+    names.* = .empty;
+}
+
+fn hasExtension(name: []const u8, extension: []const u8) bool {
+    return name.len > extension.len and std.ascii.eqlIgnoreCase(name[name.len - extension.len ..], extension);
+}
+
+fn nameLessThan(_: void, a: []u8, b: []u8) bool {
+    return std.mem.lessThan(u8, a, b);
+}
 
 /// `Files` over a real `std.Io.Dir` - callers pass `dir` explicitly (the
 /// process's current directory, `std.Io.Dir.cwd()`, matches where every
@@ -103,7 +130,25 @@ pub const StdFiles = struct {
         .lastError = lastErrorImpl,
         .isDataRoot = isDataRootImpl,
         .realPath = realPathImpl,
+        .list = listImpl,
     };
+
+    fn listImpl(ptr: *anyopaque, os_dir: []const u8, extension: []const u8, allocator: std.mem.Allocator, out: *std.ArrayListUnmanaged([]u8)) Files.Error!void {
+        const self = from(ptr);
+        var dir = self.dir.openDir(self.io, os_dir, .{ .iterate = true }) catch return;
+        defer dir.close(self.io);
+        var it = dir.iterate();
+        while (it.next(self.io) catch null) |entry| {
+            if (entry.kind == .directory) continue;
+            if (!hasExtension(entry.name, extension)) continue;
+            const owned = allocator.dupe(u8, entry.name) catch return error.Failed;
+            out.append(allocator, owned) catch {
+                allocator.free(owned);
+                return error.Failed;
+            };
+        }
+        std.mem.sort([]u8, out.items, {}, nameLessThan);
+    }
 
     fn isDataRootImpl(ptr: *anyopaque, os_dir: []const u8) bool {
         const self = from(ptr);
@@ -252,7 +297,30 @@ pub const FakeFiles = struct {
         .lastError = lastErrorImpl,
         .isDataRoot = isDataRootImpl,
         .realPath = realPathImpl,
+        .list = listImpl,
     };
+
+    /// The entries whose key is `os_dir` plus one separator plus a name with no
+    /// separator in it, the name ending in `extension`: the same files a real
+    /// directory would list (an entry deeper down is in a folder, not the
+    /// directory).
+    fn listImpl(ptr: *anyopaque, os_dir: []const u8, extension: []const u8, allocator: std.mem.Allocator, out: *std.ArrayListUnmanaged([]u8)) Files.Error!void {
+        const self = from(ptr);
+        const dir = std.mem.trimEnd(u8, os_dir, "/\\");
+        var it = self.entries.keyIterator();
+        while (it.next()) |key| {
+            if (key.len <= dir.len + 1 or !samePath(key.*[0..dir.len], dir)) continue;
+            if (key.*[dir.len] != '/' and key.*[dir.len] != '\\') continue;
+            const name = key.*[dir.len + 1 ..];
+            if (std.mem.indexOfAny(u8, name, "/\\") != null or !hasExtension(name, extension)) continue;
+            const owned = allocator.dupe(u8, name) catch return error.Failed;
+            out.append(allocator, owned) catch {
+                allocator.free(owned);
+                return error.Failed;
+            };
+        }
+        std.mem.sort([]u8, out.items, {}, nameLessThan);
+    }
 
     fn samePath(a: []const u8, b: []const u8) bool {
         if (a.len != b.len) return false;
@@ -446,4 +514,58 @@ test "FakeFiles: copy and rename move bytes between keys, fail_copy/fail_rename 
     files.delete("a.bzm");
     try std.testing.expect(!files.exists("a.bzm"));
     files.delete("never-there.bzm"); // a missing file is fine to delete
+}
+
+test "StdFiles list: the .lua files of one directory, sorted, no folders, none from below" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var std_files: StdFiles = .{ .io = std.testing.io, .dir = tmp.dir };
+    const files = std_files.files();
+    try tmp.dir.createDirPath(std.testing.io, "maps/inner.lua"); // a folder that looks like a script
+    try tmp.dir.createDirPath(std.testing.io, "maps/deeper");
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "maps/b.lua", .data = "1" });
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "maps/Ab.LUA", .data = "2" });
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "maps/a.lua", .data = "3" });
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "maps/notes.txt", .data = "4" });
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "maps/.lua", .data = "5" }); // no name before the extension
+    try tmp.dir.writeFile(std.testing.io, .{ .sub_path = "maps/deeper/c.lua", .data = "6" });
+    var names: std.ArrayListUnmanaged([]u8) = .empty;
+    defer freeNames(std.testing.allocator, &names);
+    try files.list("maps", ".lua", std.testing.allocator, &names);
+    try std.testing.expectEqual(@as(usize, 3), names.items.len);
+    try std.testing.expectEqualStrings("Ab.LUA", names.items[0]);
+    try std.testing.expectEqualStrings("a.lua", names.items[1]);
+    try std.testing.expectEqualStrings("b.lua", names.items[2]);
+    // A directory that is not there lists nothing and is no error.
+    var none: std.ArrayListUnmanaged([]u8) = .empty;
+    defer freeNames(std.testing.allocator, &none);
+    try files.list("no/such/dir", ".lua", std.testing.allocator, &none);
+    try std.testing.expectEqual(@as(usize, 0), none.items.len);
+}
+
+test "FakeFiles list: the same files a directory would list" {
+    var fake = FakeFiles.init(std.testing.allocator);
+    defer fake.deinit();
+    const files = fake.files();
+    try fake.write("/maps/mine/z.lua", "1");
+    try fake.write("/maps/mine/Ab.LUA", "2");
+    try fake.write("/maps/mine/readme.txt", "3");
+    try fake.write("/maps/mine/deeper/c.lua", "4");
+    try fake.write("/maps/minefield/d.lua", "5");
+    try fake.write("/maps/mine/.lua", "6");
+    var names: std.ArrayListUnmanaged([]u8) = .empty;
+    defer freeNames(std.testing.allocator, &names);
+    try files.list("/maps/mine", ".lua", std.testing.allocator, &names);
+    try std.testing.expectEqual(@as(usize, 2), names.items.len);
+    try std.testing.expectEqualStrings("Ab.LUA", names.items[0]);
+    try std.testing.expectEqualStrings("z.lua", names.items[1]);
+    // A trailing separator, and the other separator, name the same directory.
+    var again: std.ArrayListUnmanaged([]u8) = .empty;
+    defer freeNames(std.testing.allocator, &again);
+    try files.list("/maps/mine/", ".lua", std.testing.allocator, &again);
+    try std.testing.expectEqual(@as(usize, 2), again.items.len);
+    var missing: std.ArrayListUnmanaged([]u8) = .empty;
+    defer freeNames(std.testing.allocator, &missing);
+    try files.list("/nowhere", ".lua", std.testing.allocator, &missing);
+    try std.testing.expectEqual(@as(usize, 0), missing.items.len);
 }

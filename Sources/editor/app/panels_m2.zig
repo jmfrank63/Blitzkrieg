@@ -4,6 +4,7 @@
 //! Camera anchors panel; later plans add theirs here.
 const std = @import("std");
 const imgui = @import("editor_imgui");
+const sdl3 = @import("sdl3");
 const core = @import("editor_core");
 const panels = @import("panels.zig");
 const commands = @import("commands.zig");
@@ -405,4 +406,138 @@ pub fn drawGroups(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
         .choose => |id| state.group_selected = id,
         .hide => |hide| _ = commands.hideGroup(state, hide.id, hide.on),
     }
+}
+
+/// D-20: the Script dialog (Map -> Script...), the MFC map options' script
+/// field made a window. The current value shows verbatim (a shipped map may
+/// name a folder), a warning line says when its file is not beside the map, a
+/// list offers None and the .lua files beside the map, Choose other... copies a
+/// picked file beside the map (asking before it replaces one) and Open script
+/// hands the file to the system's editor. Every control runs a named command or
+/// a panels.zig function the commands call, so BK_EDITOR_AUTO reaches it too.
+pub fn drawScriptDialog(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    if (!state.script_open) {
+        state.script_open_seen = false;
+        return;
+    }
+    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
+    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    const open = ig.igBegin("Script", &state.script_open, ig.ImGuiWindowFlags_NoCollapse);
+    defer ig.igEnd();
+    if (!open) return;
+    if (!panels.mapIsOpen(state.editor)) {
+        panels.text("no map open");
+        return;
+    }
+    panels.refreshScriptNames(state);
+    var value_buffer: [records.script_file_capacity]u8 = undefined;
+    const value = commands.readScriptFile(state, &value_buffer);
+    var line: [128:0]u8 = undefined;
+    if (value) |text| {
+        panels.text(std.fmt.bufPrintZ(&line, "Script: {s}", .{if (text.len == 0) "None" else text}) catch "Script");
+        warnIfMissing(state, text);
+    } else {
+        panels.text("Script: too long for the editor to edit (kept as it is)");
+    }
+    ig.igSeparatorText("Beside the map");
+    var chosen: ?[]const u8 = null;
+    if (ig.igBeginChild("script-list", .{ .x = 0, .y = 150 }, ig.ImGuiChildFlags_Borders, 0)) {
+        const none_selected = value != null and value.?.len == 0;
+        if (ig.igSelectableEx("None", none_selected, 0, .{ .x = 0, .y = 0 })) chosen = "";
+        for (state.script_names.items) |name| {
+            var label: [80:0]u8 = undefined;
+            const label_text = std.fmt.bufPrintZ(&label, "{s}", .{name}) catch continue;
+            const selected = value != null and std.mem.eql(u8, value.?, name);
+            if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) chosen = name;
+        }
+    }
+    ig.igEndChild();
+    if (ig.igButton("Choose other...")) panels.chooseOtherScript(state);
+    ig.igSameLine();
+    ig.igBeginDisabled(value == null or value.?.len == 0);
+    if (ig.igButton("Open script")) _ = panels.openScript(state);
+    ig.igEndDisabled();
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text(script_help);
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+    // After the list: a choice re-reads the record.
+    if (chosen) |name| _ = commands.setScriptFile(state, name);
+}
+
+pub const script_help = "The game runs <name>.lua from the folder of the map. Choose other copies a file there; the test game gets a copy of it too.";
+
+/// A warning line when the named file is not beside the map (D-20): the game
+/// would run the map without it.
+fn warnIfMissing(state: *State, value: []const u8) void {
+    if (value.len == 0) return;
+    const files = state.editor.files orelse return;
+    const name = core.script_file.gameScriptName(value) orelse {
+        ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, .{ .x = 1, .y = 0.7, .z = 0.2, .w = 1 });
+        panels.text("warning: this name does not name a file the game can load");
+        ig.igPopStyleColor();
+        return;
+    };
+    var path_buffer: [core.files.max_path]u8 = undefined;
+    const path = core.script_file.scriptPathBeside(&path_buffer, state.editor.document.path.items, name) orelse return;
+    if (files.exists(path)) return;
+    var line: [160:0]u8 = undefined;
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, .{ .x = 1, .y = 0.7, .z = 0.2, .w = 1 });
+    panels.text(std.fmt.bufPrintZ(&line, "warning: {s}.lua is not beside the map", .{name}) catch "warning: the script is not beside the map");
+    ig.igPopStyleColor();
+}
+
+/// The two questions the script asks: Save As of a shipped map (bring the script
+/// along?) and Choose other (replace the file that is there?). Buttons are the
+/// commands `script_copy_along_yes`/`_no` and `script_overwrite_yes`/`_no`.
+pub fn drawScriptModals(state: *State) void {
+    const copy_id = "Save As##script-copy";
+    if (state.script_copy.active) {
+        if (!ig.igIsPopupOpen(copy_id, 0)) _ = ig.igOpenPopup(copy_id, 0);
+    }
+    if (ig.igBeginPopupModal(copy_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        var line: [160:0]u8 = undefined;
+        panels.text(std.fmt.bufPrintZ(&line, "Copy {s}.lua beside the new map?", .{state.script_copy.name()}) catch "Copy the script beside the new map?");
+        if (ig.igButton("Yes")) {
+            _ = commands.run(state, "script_copy_along_yes", "");
+            ig.igCloseCurrentPopup();
+        }
+        ig.igSameLine();
+        if (ig.igButton("No")) {
+            _ = commands.run(state, "script_copy_along_no", "");
+            ig.igCloseCurrentPopup();
+        }
+        if (!state.script_copy.active) ig.igCloseCurrentPopup();
+        ig.igEndPopup();
+    }
+    const overwrite_id = "Script##script-overwrite";
+    if (state.script_pick_active) {
+        if (!ig.igIsPopupOpen(overwrite_id, 0)) _ = ig.igOpenPopup(overwrite_id, 0);
+    }
+    if (ig.igBeginPopupModal(overwrite_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        var line: [200:0]u8 = undefined;
+        const name = core.script_file.pickedName(state.script_pick.slice()) orelse "the script";
+        panels.text(std.fmt.bufPrintZ(&line, "{s}.lua is already beside the map. Replace it?", .{name}) catch "Replace the script beside the map?");
+        if (ig.igButton("Replace")) {
+            _ = commands.run(state, "script_overwrite_yes", "");
+            ig.igCloseCurrentPopup();
+        }
+        ig.igSameLine();
+        if (ig.igButton("Cancel")) {
+            _ = commands.run(state, "script_overwrite_no", "");
+            ig.igCloseCurrentPopup();
+        }
+        if (!state.script_pick_active) ig.igCloseCurrentPopup();
+        ig.igEndPopup();
+    }
+}
+
+/// Hands `url` (built by `script_file.openUrl` from the resolved folder and a
+/// validated name, never from typed text) to the system to open with the default
+/// editor. Null on success, else why not.
+pub fn openUrlWithSystem(url: [:0]const u8) ?[]const u8 {
+    if (sdl3.c.SDL_OpenURL(url.ptr)) return null;
+    const reason = sdl3.c.SDL_GetError();
+    return if (reason != null) std.mem.span(reason) else "the system would not open the script";
 }
