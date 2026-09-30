@@ -1962,6 +1962,194 @@ BkEditorStatus BkEditorGroundHeight( BkEditorSession *pSession, float fX, float 
 	} );
 }
 
+// The edit log's undo and redo, by the token an edit handed out.
+BkEditorStatus BkEditorUndoEdit( BkEditorSession *pSession, int nToken )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( UndoEditInSession( pSession, nToken, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorRedoEdit( BkEditorSession *pSession, int nToken )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( RedoEditInSession( pSession, nToken, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+namespace {
+bool IsVsoKind( int nKind )
+{
+	return nKind == 0 || nKind == 1;
+}
+
+// A bounded copy into a fixed C field, always terminated.
+void CopyName( char *pOut, size_t nSize, const std::string &szName )
+{
+	const size_t nLen = Min( szName.size(), nSize - 1 );
+	memcpy( pOut, szName.c_str(), nLen );
+	pOut[nLen] = 0;
+}
+}
+
+BkEditorStatus BkEditorVsoDescriptors( BkEditorSession *pSession, int nKind, BkEditorVsoDescriptor *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) || !IsVsoKind( nKind ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		std::vector<std::string> names;
+		if ( !VsoDescriptors( pSession, nKind, &names ) )
+			return BK_EDITOR_FAILED;
+		*pnCount = int( names.size() );
+		for ( int i = 0; i < int( names.size() ) && i < nCapacity; ++i )
+			CopyName( pOut[i].name, sizeof pOut[i].name, names[i] );
+		return nCapacity >= int( names.size() ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorVsoCount( BkEditorSession *pSession, int nKind, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || !IsVsoKind( nKind ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		*pnCount = VsoCount( *pSession, nKind );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorVso( BkEditorSession *pSession, int nKind, int nIndex, BkEditorVsoInfo *pInfo,
+                            BkEditorVec3 *pControls, int nControlCap, BkEditorVsoKeyPoint *pKeys, int nKeyCap )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pInfo == 0 || !IsVsoKind( nKind ) || nControlCap < 0 || nKeyCap < 0 ||
+		     ( nControlCap > 0 && pControls == 0 ) || ( nKeyCap > 0 && pKeys == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		memset( pInfo, 0, sizeof *pInfo );
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		const SVectorStripeObject *pVso = SessionVso( *pSession, nKind, nIndex );
+		if ( pVso == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		pInfo->saved_id = pVso->nID;
+		CopyName( pInfo->desc, sizeof pInfo->desc, pVso->szDescName );
+		pInfo->control_count = int( pVso->controlpoints.size() );
+		int nKeys = 0;
+		for ( size_t i = 0; i < pVso->points.size(); ++i )
+			if ( pVso->points[i].bKeyPoint )
+				++nKeys;
+		pInfo->key_count = nKeys;
+		for ( int i = 0; i < pInfo->control_count && i < nControlCap; ++i )
+		{
+			pControls[i].x = pVso->controlpoints[i].x;
+			pControls[i].y = pVso->controlpoints[i].y;
+			pControls[i].z = pVso->controlpoints[i].z;
+		}
+		int nKey = 0;
+		for ( size_t i = 0; i < pVso->points.size() && nKey < nKeyCap; ++i )
+		{
+			const SVectorStripeObjectPoint &rPoint = pVso->points[i];
+			if ( !rPoint.bKeyPoint )
+				continue;
+			BkEditorVsoKeyPoint &rOut = pKeys[nKey++];
+			rOut.x = rPoint.vPos.x;
+			rOut.y = rPoint.vPos.y;
+			rOut.z = rPoint.vPos.z;
+			rOut.nx = rPoint.vNorm.x;
+			rOut.ny = rPoint.vNorm.y;
+			rOut.nz = rPoint.vNorm.z;
+			rOut.width = rPoint.fWidth;
+			rOut.opacity = rPoint.fOpacity;
+		}
+		return nControlCap >= pInfo->control_count && nKeyCap >= pInfo->key_count ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorAddVso( BkEditorSession *pSession, int nKind, const char *pszDesc, const BkEditorVec3 *pPoints, int nCount,
+                               float fWidthTiles, float fOpacity, int *pnToken, int *pnIndex )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	if ( pnIndex != 0 ) *pnIndex = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !IsVsoKind( nKind ) || pszDesc == 0 || nCount < 0 || nCount > 1024 || ( nCount > 0 && pPoints == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !std::isfinite( fWidthTiles ) || !std::isfinite( fOpacity ) || fWidthTiles < 1.0f || fWidthTiles > 16.0f || fOpacity < 0.0f || fOpacity > 1.0f )
+			return BK_EDITOR_BAD_ARGUMENT;
+		std::vector<CVec3> points( nCount );
+		for ( int i = 0; i < nCount; ++i )
+		{
+			if ( !std::isfinite( pPoints[i].x ) || !std::isfinite( pPoints[i].y ) || !std::isfinite( pPoints[i].z ) )
+				return BK_EDITOR_BAD_ARGUMENT;
+			points[i] = CVec3( pPoints[i].x, pPoints[i].y, pPoints[i].z );
+		}
+		if ( strnlen( pszDesc, 128 ) >= 128 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		int nToken = -1, nIndex = -1;
+		bool bRefused = false;
+		if ( !AddVsoToSession( pSession, nKind, pszDesc, points, fWidthTiles, fOpacity, &nToken, &nIndex, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 ) *pnToken = nToken;
+		if ( pnIndex != 0 ) *pnIndex = nIndex;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorVsoMatchesEngine( BkEditorSession *pSession )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		return VsoMatchesEngine( pSession ) ? BK_EDITOR_OK : BK_EDITOR_FAILED;
+	} );
+}
+
 BkEditorStatus BkEditorSaveMap( BkEditorSession *pSession, const char *pszPath )
 {
 	return Guarded( pSession, [pSession, pszPath]() -> BkEditorStatus

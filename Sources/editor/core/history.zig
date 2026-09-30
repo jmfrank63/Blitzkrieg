@@ -9,6 +9,9 @@ const records = @import("records.zig");
 
 pub const Pose = struct { x: f32, y: f32, dir: i32, player: i32 };
 
+/// What a bridge-logged edit changed, so a replay knows what to refresh.
+pub const EditScope = enum { vso, objects };
+
 pub const Command = union(enum) {
     /// One bridge token per paint call of the gesture, oldest first.
     paint: struct { tokens: std.ArrayListUnmanaged(i32) = .empty },
@@ -32,10 +35,19 @@ pub const Command = union(enum) {
     /// anchors). Undo and redo put `before` / `after` back through the same
     /// bridge call the edit used. The command owns both values.
     record_edit: struct { kind: records.Kind, key: i32, before: records.Value, after: records.Value },
+    /// An edit the bridge logs itself (BkEditorUndoEdit/RedoEdit, 04-05):
+    /// the bridge keeps the records before and after and hands out a token;
+    /// this keeps the tokens of one gesture, oldest first. `scope` says what
+    /// the core refreshes after a replay: `vso` bumps the road and river
+    /// generation, `objects` reloads the document's objects (the compound
+    /// edits of bridges, fences and entrenchments, which add and remove map
+    /// objects).
+    edit: struct { tokens: std.ArrayListUnmanaged(i32) = .empty, scope: EditScope },
 
     pub fn deinit(self: *Command, allocator: std.mem.Allocator) void {
         switch (self.*) {
             .paint => |*p| p.tokens.deinit(allocator),
+            .edit => |*e| e.tokens.deinit(allocator),
             .record_edit => |*e| {
                 e.before.deinit(allocator);
                 e.after.deinit(allocator);

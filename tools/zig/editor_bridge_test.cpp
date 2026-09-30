@@ -17,6 +17,7 @@
 #include "../../Sources/src/MapFile/MapRecords.h"
 #include "../../Sources/src/Formats/fmtTerrain.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
+#include "../../Sources/src/RandomMapGen/VSO_Types.h"
 #include "../../Sources/src/GFX/GFX.H"
 #include "../../Sources/src/Scene/Scene.h"
 #include "../../Sources/src/Scene/Terrain.h"
@@ -25,6 +26,7 @@
 #include "../../Sources/src/StreamIO/GeneratedData.h"
 #include "../../Sources/src/StreamIO/SeasonData.h"
 #include "../../Sources/src/StreamIO/ProfilePaths.h"
+#include <algorithm>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -165,6 +167,9 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 	BkEditorSoundRecord soundRecord; memset( &soundRecord, 0, sizeof soundRecord );
 	soundRecord.name[0] = 'x'; // SoundRecordWellFormed: non-empty, finite x/y/z (0 is finite)
 	BkEditorCameraAnchorRecord anchorRecord; memset( &anchorRecord, 0, sizeof anchorRecord );
+	BkEditorVsoDescriptor vsoDescriptor; memset( &vsoDescriptor, 0, sizeof vsoDescriptor );
+	BkEditorVsoInfo vsoInfo; memset( &vsoInfo, 0, sizeof vsoInfo );
+	BkEditorVec3 vsoPoint = { 10.0f, 10.0f, 0.0f };
 	BkEditorPaintCell cell = { 0, 0, 0 };
 	BkEditorView view; memset( &view, 0, sizeof view );
 	BkEditorPathSet paths; memset( &paths, 0, sizeof paths );
@@ -227,6 +232,13 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorCameraAnchors", [&] { return BkEditorCameraAnchors( 0, &anchorRecord ); } },
 		{ "BkEditorSetCameraAnchors", [&] { return BkEditorSetCameraAnchors( 0, &anchorRecord ); } },
 		{ "BkEditorGroundHeight", [&] { return BkEditorGroundHeight( 0, 0, 0, &fFloat ); } },
+		{ "BkEditorUndoEdit", [&] { return BkEditorUndoEdit( 0, 0 ); } },
+		{ "BkEditorRedoEdit", [&] { return BkEditorRedoEdit( 0, 0 ); } },
+		{ "BkEditorVsoDescriptors", [&] { return BkEditorVsoDescriptors( 0, 0, &vsoDescriptor, 1, &nInt ); } },
+		{ "BkEditorVsoCount", [&] { return BkEditorVsoCount( 0, 0, &nInt ); } },
+		{ "BkEditorVso", [&] { return BkEditorVso( 0, 0, 0, &vsoInfo, 0, 0, 0, 0 ); } },
+		{ "BkEditorAddVso", [&] { return BkEditorAddVso( 0, 0, "x", &vsoPoint, 1, 3.0f, 1.0f, &nInt, &nInt2 ); } },
+		{ "BkEditorVsoMatchesEngine", [&] { return BkEditorVsoMatchesEngine( 0 ); } },
 	};
 	int nNoSessionFailures = 0;
 	for ( const Call &c : noSession )
@@ -273,6 +285,13 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorCameraAnchors", [&] { return BkEditorCameraAnchors( pSession, &anchorRecord ); } },
 		{ "BkEditorSetCameraAnchors", [&] { return BkEditorSetCameraAnchors( pSession, &anchorRecord ); } },
 		{ "BkEditorGroundHeight", [&] { return BkEditorGroundHeight( pSession, 0, 0, &fFloat ); } },
+		{ "BkEditorUndoEdit", [&] { return BkEditorUndoEdit( pSession, 0 ); } },
+		{ "BkEditorRedoEdit", [&] { return BkEditorRedoEdit( pSession, 0 ); } },
+		{ "BkEditorVsoDescriptors", [&] { return BkEditorVsoDescriptors( pSession, 0, &vsoDescriptor, 1, &nInt ); } },
+		{ "BkEditorVsoCount", [&] { return BkEditorVsoCount( pSession, 0, &nInt ); } },
+		{ "BkEditorVso", [&] { return BkEditorVso( pSession, 0, 0, &vsoInfo, 0, 0, 0, 0 ); } },
+		{ "BkEditorAddVso", [&] { return BkEditorAddVso( pSession, 0, "x", &vsoPoint, 1, 3.0f, 1.0f, &nInt, &nInt2 ); } },
+		{ "BkEditorVsoMatchesEngine", [&] { return BkEditorVsoMatchesEngine( pSession ); } },
 		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( pSession, "zig-out/local-test/should-not-exist.bzm" ); } },
 	};
 	int nNoMapFailures = 0;
@@ -4031,6 +4050,214 @@ static void TestM2CascadeDelete( BkEditorSession *pSession, const std::string &s
 	printf( bAllKinds ? "editor-bridge: M2 cascade delete (all kinds) ok\n" : "editor-bridge: M2 cascade delete (start commands) ok\n" );
 }
 
+// ---------------------------------------------------------------------------
+// 04-05: roads and rivers.
+// ---------------------------------------------------------------------------
+
+// The bare descriptor names BkEditorVsoDescriptors lists.
+static std::vector<std::string> VsoDescriptorNames( BkEditorSession *pSession, int nKind )
+{
+	int nCount = 0;
+	BkEditorVsoDescriptors( pSession, nKind, 0, 0, &nCount );
+	std::vector<BkEditorVsoDescriptor> out( nCount > 0 ? nCount : 1 );
+	int nRead = 0;
+	std::vector<std::string> names;
+	if ( BkEditorVsoDescriptors( pSession, nKind, &out[0], nCount, &nRead ) != BK_EDITOR_OK )
+		return names;
+	for ( int i = 0; i < nRead; ++i )
+		names.push_back( out[i].name );
+	return names;
+}
+
+static int VsoCountOf( BkEditorSession *pSession, int nKind )
+{
+	int nCount = -1;
+	BkEditorVsoCount( pSession, nKind, &nCount );
+	return nCount;
+}
+
+// The bridge's add as plain calls on a map read from the file: the expected
+// record of an add (CreateVSO, Update( false ), UpdateZ, the road
+// passability fix, NextVsoID), appended with InsertVso.
+static bool AppendExpectedVso( CMapInfo *pMap, int nKind, const std::string &szName, const std::vector<CVec3> &rControls, float fWidthTiles, float fOpacity )
+{
+	SVectorStripeObject vso;
+	const std::string szDesc = pMap->szSeasonFolder + ( nKind == 0 ? "Roads3D\\" : "Rivers\\" ) + szName;
+	if ( !CVSOBuilder::CreateVSO( &vso, szDesc, rControls ) || vso.controlpoints.size() < 2 )
+		return false;
+	CVSOBuilder::Update( &vso, false, CVSOBuilder::DEFAULT_STEP, fWidthTiles * fWorldCellSize / 2.0f, fOpacity );
+	if ( vso.points.size() < 2 )
+		return false;
+	CVSOBuilder::UpdateZ( pMap->terrain.altitudes, &vso );
+	if ( nKind == 0 && vso.fPassability == 0 )
+		vso.fPassability = 1;
+	vso.nID = NMapRecords::NextVsoID( *pMap );
+	return NMapRecords::InsertVso( pMap, nKind == 0 ? NMapRecords::VSO_ROAD : NMapRecords::VSO_RIVER, -1, vso );
+}
+
+static bool VsoAgreesWithEngine( BkEditorSession *pSession, const char *pszWhen )
+{
+	const bool bOk = BkEditorVsoMatchesEngine( pSession ) == BK_EDITOR_OK;
+	Check( bOk, NStr::Format( "the engine's roads and rivers match the map %s: %s", pszWhen, BkEditorLastMessage( pSession ) ) );
+	return bOk;
+}
+
+// The saved map at szPath, read back, equals rExpected.
+static void CheckSavedEquals( BkEditorSession *pSession, const std::string &szPath, const CMapInfo &rExpected, const char *pszWhat )
+{
+	if ( !Check( BkEditorSaveMap( pSession, szPath.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo saved;
+	std::string szError;
+	if ( !Check( NMapFile::Read( szPath.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
+	std::string szWhere;
+	Check( NMapFile::AreEquivalent( rExpected, saved, &szWhere ), NStr::Format( "%s: the saved map differs from the expected one at %s", pszWhat, szWhere.c_str() ) );
+}
+
+// A few points across the middle of the map, world units: the M2 tests draw
+// there. z is left 0; the bridge fits every point to the ground.
+static std::vector<CVec3> MiddleLine( const CMapInfo &rMap, float fDx, float fDy )
+{
+	const float fX = rMap.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f + fDx;
+	const float fY = rMap.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f + fDy;
+	std::vector<CVec3> line;
+	line.push_back( CVec3( fX - 300.0f, fY - 100.0f, 0.0f ) );
+	line.push_back( CVec3( fX, fY + 60.0f, 0.0f ) );
+	line.push_back( CVec3( fX + 300.0f, fY - 40.0f, 0.0f ) );
+	return line;
+}
+
+static std::vector<BkEditorVec3> ToCPoints( const std::vector<CVec3> &rPoints )
+{
+	std::vector<BkEditorVec3> out;
+	for ( size_t i = 0; i < rPoints.size(); ++i )
+	{
+		BkEditorVec3 point = { rPoints[i].x, rPoints[i].y, rPoints[i].z };
+		out.push_back( point );
+	}
+	return out;
+}
+
+// D-07/D-03 on the real engine: a road drawn through the bridge is the record
+// the MFC tool's builder makes, saved as the expected map; undo gives back the
+// unedited file byte for byte and redo the edited one; the engine agrees after
+// every step; a road too short to load is refused and changes nothing.
+static void TestM2Roads( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	VsoAgreesWithEngine( pSession, "at open" );
+	Check( VsoCountOf( pSession, 0 ) == int( original.terrain.roads3.size() ), "the road count is the file's" );
+	Check( VsoCountOf( pSession, 1 ) == int( original.terrain.rivers.size() ), "the river count is the file's" );
+
+	const std::vector<std::string> roads = VsoDescriptorNames( pSession, 0 );
+	const std::vector<std::string> rivers = VsoDescriptorNames( pSession, 1 );
+	if ( !Check( !roads.empty() && !rivers.empty(), NStr::Format( "the season lists road and river types (%d, %d)", int( roads.size() ), int( rivers.size() ) ) ) )
+		return;
+	Check( std::is_sorted( roads.begin(), roads.end() ), "the road types are sorted" );
+	printf( "editor-bridge: %d road types (first %s), %d river types (first %s)\n", int( roads.size() ), roads[0].c_str(), int( rivers.size() ), rivers[0].c_str() );
+	{
+		// A read of the first road equals the file's record.
+		BkEditorVsoInfo info;
+		std::vector<BkEditorVec3> controls( 64 );
+		std::vector<BkEditorVsoKeyPoint> keys( 64 );
+		if ( Check( BkEditorVso( pSession, 0, 0, &info, &controls[0], 64, &keys[0], 64 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			const SVectorStripeObject &rFirst = original.terrain.roads3[0];
+			Check( info.saved_id == rFirst.nID && info.control_count == int( rFirst.controlpoints.size() ) && rFirst.szDescName == info.desc,
+			       "the first road reads as the file has it" );
+			Check( info.control_count > 0 && controls[0].x == rFirst.controlpoints[0].x && controls[0].y == rFirst.controlpoints[0].y, "and its first control point" );
+		}
+		BkEditorVsoInfo sized;
+		Check( BkEditorVso( pSession, 0, 0, &sized, 0, 0, 0, 0 ) == BK_EDITOR_REFUSED && sized.control_count == info.control_count,
+		       "a read with no buffers is refused with the counts filled" );
+		Check( BkEditorVso( pSession, 0, 999, &sized, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a road past the end is a bad argument" );
+		Check( BkEditorVso( pSession, 2, 0, &sized, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "kind 2 is a bad argument" );
+	}
+
+	const std::string szUnedited = szScratch + "\\roads-unedited.bzm";
+	const std::string szEdited = szScratch + "\\roads-edited.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// Draw a road.
+	const std::vector<CVec3> line = MiddleLine( original, 0.0f, 0.0f );
+	const std::vector<BkEditorVec3> cLine = ToCPoints( line );
+	int nToken = -1, nIndex = -1;
+	if ( !Check( BkEditorAddVso( pSession, 0, roads[0].c_str(), &cLine[0], int( cLine.size() ), 3.0f, 1.0f, &nToken, &nIndex ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( nToken >= 0 && nIndex == int( original.terrain.roads3.size() ), NStr::Format( "the road lands at the end of the list (token %d, index %d)", nToken, nIndex ) );
+	VsoAgreesWithEngine( pSession, "after a road was added" );
+	CMapInfo expected;
+	Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() );
+	Check( AppendExpectedVso( &expected, 0, roads[0], line, 3.0f, 1.0f ), "the expected road builds" );
+	{
+		BkEditorVsoInfo info;
+		std::vector<BkEditorVec3> controls( 8 );
+		std::vector<BkEditorVsoKeyPoint> keys( 8 );
+		if ( Check( BkEditorVso( pSession, 0, nIndex, &info, &controls[0], 8, &keys[0], 8 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			Check( info.saved_id == NMapRecords::NextVsoID( original ), NStr::Format( "the new road's nID is the bridge's own (%d)", info.saved_id ) );
+			Check( info.control_count == 3 && info.key_count == 3, "three control points and three key points" );
+			Check( std::fabs( keys[0].width - 3.0f * fWorldCellSize / 2.0f ) < 0.01f && keys[0].opacity == 1.0f, "width 3 and full opacity at the key points" );
+		}
+	}
+	CheckSavedEquals( pSession, szEdited, expected, "a new road" );
+
+	// Undo: the unedited file, byte for byte. Redo: the edited map again.
+	Check( BkEditorUndoEdit( pSession, nToken + 1 ) == BK_EDITOR_REFUSED, "undo of a token that is not the newest is refused" );
+	Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_REFUSED, "redo of an edit that was not undone is refused" );
+	if ( Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		VsoAgreesWithEngine( pSession, "after the road's undo" );
+		const std::string szUndone = szScratch + "\\roads-undone.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( SameBytes( szUnedited, szUndone ), "a road and its undo save the unedited file byte for byte" );
+		remove( OsPath( szUndone ).c_str() );
+	}
+	if ( Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		VsoAgreesWithEngine( pSession, "after the road's redo" );
+		CheckSavedEquals( pSession, szEdited, expected, "the road redone" );
+	}
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// Refusals change nothing.
+	const int nRoads = VsoCountOf( pSession, 0 );
+	std::vector<BkEditorVec3> one( 1, cLine[0] );
+	Check( BkEditorAddVso( pSession, 0, roads[0].c_str(), &one[0], 1, 3.0f, 1.0f, &nToken, &nIndex ) == BK_EDITOR_REFUSED, "a one-point road is refused" );
+	Check( std::string( BkEditorLastMessage( pSession ) ).find( "too short" ) != std::string::npos, NStr::Format( "and says it is too short (%s)", BkEditorLastMessage( pSession ) ) );
+	Check( nToken == -1 && nIndex == -1, "a refusal hands out no token" );
+	std::vector<BkEditorVec3> close( 2, cLine[0] );
+	close[1].x += 1.0f;
+	Check( BkEditorAddVso( pSession, 0, roads[0].c_str(), &close[0], 2, 3.0f, 1.0f, &nToken, &nIndex ) == BK_EDITOR_REFUSED, "two points 1 unit apart are refused" );
+	Check( BkEditorAddVso( pSession, 0, "no_such_road", &cLine[0], 3, 3.0f, 1.0f, &nToken, &nIndex ) == BK_EDITOR_REFUSED, "an unknown road type is refused" );
+	Check( BkEditorAddVso( pSession, 0, "..\\roads3d\\x", &cLine[0], 3, 3.0f, 1.0f, &nToken, &nIndex ) == BK_EDITOR_REFUSED, "a type name with a folder is refused" );
+	std::vector<BkEditorVec3> off = cLine;
+	off[2].x = -100.0f;
+	Check( BkEditorAddVso( pSession, 0, roads[0].c_str(), &off[0], 3, 3.0f, 1.0f, &nToken, &nIndex ) == BK_EDITOR_REFUSED, "a point off the map is refused" );
+	Check( BkEditorAddVso( pSession, 0, roads[0].c_str(), &cLine[0], 3, 17.0f, 1.0f, &nToken, &nIndex ) == BK_EDITOR_BAD_ARGUMENT, "width 17 is a bad argument" );
+	Check( BkEditorAddVso( pSession, 0, roads[0].c_str(), &cLine[0], 3, 3.0f, 1.5f, &nToken, &nIndex ) == BK_EDITOR_BAD_ARGUMENT, "opacity 1.5 is a bad argument" );
+	Check( BkEditorAddVso( pSession, 2, roads[0].c_str(), &cLine[0], 3, 3.0f, 1.0f, &nToken, &nIndex ) == BK_EDITOR_BAD_ARGUMENT, "kind 2 is a bad argument" );
+	std::vector<BkEditorVec3> nan = cLine;
+	nan[1].y = std::numeric_limits<float>::quiet_NaN();
+	Check( BkEditorAddVso( pSession, 0, roads[0].c_str(), &nan[0], 3, 3.0f, 1.0f, &nToken, &nIndex ) == BK_EDITOR_BAD_ARGUMENT, "a NaN point is a bad argument" );
+	Check( VsoCountOf( pSession, 0 ) == nRoads, "none of the refusals added a road" );
+	VsoAgreesWithEngine( pSession, "after the refusals" );
+	const std::string szRefused = szScratch + "\\roads-refused.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szRefused ), "and the map saves unedited byte for byte" );
+	remove( OsPath( szRefused ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	printf( "editor-bridge: M2 roads ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -4184,6 +4411,7 @@ int main( int argc, char **argv )
 		TestM2PaletteFilter( pSession, szScratch );
 		TestM2CascadeDelete( pSession, szScratch, false );
 		TestM2CascadeDelete( pSession, szScratch, true );
+		TestM2Roads( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

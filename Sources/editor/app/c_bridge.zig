@@ -15,6 +15,10 @@ const ObjectRecord = core.bridge.ObjectRecord;
 const SoundRecord = core.bridge.SoundRecord;
 const record_types = core.records;
 const PaintCell = core.bridge.PaintCell;
+const VsoKind = core.bridge.VsoKind;
+const VsoDescriptor = core.bridge.VsoDescriptor;
+const VsoKeyPoint = core.bridge.VsoKeyPoint;
+const VsoView = core.bridge.VsoView;
 
 comptime {
     // The core's PaintCell is handed to BkEditorPaint as it is.
@@ -27,6 +31,11 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorVec3) == 12);
     std.debug.assert(@sizeOf(c.BkEditorCameraAnchorRecord) == 12 + 4 + record_types.max_camera_players * 12);
     std.debug.assert(@typeInfo(@TypeOf(@as(c.BkEditorCameraAnchorRecord, undefined).players)).array.len == record_types.max_camera_players);
+    // The road and river records' C layouts (BkEditorVsoInfo is read field
+    // by field; the sizes are the ABI).
+    std.debug.assert(@sizeOf(c.BkEditorVsoDescriptor) == core.bridge.vso_name_capacity);
+    std.debug.assert(@sizeOf(c.BkEditorVsoKeyPoint) == 8 * 4);
+    std.debug.assert(@sizeOf(c.BkEditorVsoInfo) == 4 + core.bridge.vso_name_capacity + 4 + 4);
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -96,6 +105,12 @@ pub const RealBridge = struct {
         .readRecord = vtableReadRecord,
         .putRecord = vtablePutRecord,
         .groundHeight = vtableGroundHeight,
+        .undoEdit = vtableUndoEdit,
+        .redoEdit = vtableRedoEdit,
+        .vsoDescriptors = vtableVsoDescriptors,
+        .vsoCount = vtableVsoCount,
+        .readVso = vtableReadVso,
+        .addVso = vtableAddVso,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -358,6 +373,100 @@ pub const RealBridge = struct {
 
     fn vtableGroundHeight(ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status {
         return status(c.BkEditorGroundHeight(from(ptr).session, wx, wy, z));
+    }
+
+    fn vtableUndoEdit(ptr: *anyopaque, token: i32) Status {
+        return status(c.BkEditorUndoEdit(from(ptr).session, token));
+    }
+
+    fn vtableRedoEdit(ptr: *anyopaque, token: i32) Status {
+        return status(c.BkEditorRedoEdit(from(ptr).session, token));
+    }
+
+    fn kindInt(kind: VsoKind) c_int {
+        return @intFromEnum(kind);
+    }
+
+    /// BkEditorVsoDescriptors in two passes, like `vtableSounds`.
+    fn vtableVsoDescriptors(ptr: *anyopaque, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorVsoDescriptors(self.session, kindInt(kind), null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        const names = std.heap.page_allocator.alloc(c.BkEditorVsoDescriptor, total.*) catch return .failed;
+        defer std.heap.page_allocator.free(names);
+        var got: c_int = 0;
+        const read = status(c.BkEditorVsoDescriptors(self.session, kindInt(kind), names.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (names, out[0..names.len]) |name, *descriptor| descriptor.setName(std.mem.sliceTo(&name.name, 0));
+        return .ok;
+    }
+
+    fn vtableVsoCount(ptr: *anyopaque, kind: VsoKind, count: *usize) Status {
+        var value: c_int = 0;
+        const result = status(c.BkEditorVsoCount(from(ptr).session, kindInt(kind), &value));
+        if (result == .ok) count.* = if (value < 0) 0 else @intCast(value);
+        return result;
+    }
+
+    /// BkEditorVso in two passes: the counts, then the arrays, converted into
+    /// arrays the caller's allocator owns.
+    fn vtableReadVso(ptr: *anyopaque, kind: VsoKind, index: i32, allocator: std.mem.Allocator, out: *VsoView) Status {
+        const self = from(ptr);
+        var info: c.BkEditorVsoInfo = std.mem.zeroes(c.BkEditorVsoInfo);
+        const sizing = status(c.BkEditorVso(self.session, kindInt(kind), index, &info, null, 0, null, 0));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (info.control_count < 0 or info.key_count < 0) return .failed;
+        const control_count: usize = @intCast(info.control_count);
+        const key_count: usize = @intCast(info.key_count);
+        const c_controls = std.heap.page_allocator.alloc(c.BkEditorVec3, @max(control_count, 1)) catch return .failed;
+        defer std.heap.page_allocator.free(c_controls);
+        const c_keys = std.heap.page_allocator.alloc(c.BkEditorVsoKeyPoint, @max(key_count, 1)) catch return .failed;
+        defer std.heap.page_allocator.free(c_keys);
+        const read = status(c.BkEditorVso(self.session, kindInt(kind), index, &info, c_controls.ptr, @intCast(c_controls.len), c_keys.ptr, @intCast(c_keys.len)));
+        if (read != .ok) return read;
+        if (info.control_count != control_count or info.key_count != key_count) return .failed;
+        const controls = allocator.alloc(record_types.Vec3, control_count) catch return .failed;
+        const keys = allocator.alloc(VsoKeyPoint, key_count) catch {
+            allocator.free(controls);
+            return .failed;
+        };
+        for (controls, c_controls[0..control_count]) |*point, c_point| point.* = toVec3(c_point);
+        for (keys, c_keys[0..key_count]) |*key, c_key| key.* = .{
+            .x = c_key.x,
+            .y = c_key.y,
+            .z = c_key.z,
+            .nx = c_key.nx,
+            .ny = c_key.ny,
+            .nz = c_key.nz,
+            .width = c_key.width,
+            .opacity = c_key.opacity,
+        };
+        out.* = .{ .saved_id = info.saved_id, .control_points = controls, .key_points = keys };
+        const desc = std.mem.sliceTo(&info.desc, 0);
+        @memcpy(out.desc[0..desc.len], desc);
+        return .ok;
+    }
+
+    fn vtableAddVso(ptr: *anyopaque, kind: VsoKind, desc: []const u8, points: []const record_types.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status {
+        const self = from(ptr);
+        var desc_buffer: [core.bridge.vso_name_capacity]u8 = undefined;
+        const desc_z = terminated(&desc_buffer, desc) orelse return .bad_argument;
+        const count = std.math.cast(c_int, points.len) orelse return .bad_argument;
+        const c_points = std.heap.page_allocator.alloc(c.BkEditorVec3, @max(points.len, 1)) catch return .failed;
+        defer std.heap.page_allocator.free(c_points);
+        for (points, c_points[0..points.len]) |point, *c_point| c_point.* = toCVec3(point);
+        return status(c.BkEditorAddVso(self.session, kindInt(kind), desc_z, c_points.ptr, count, width_tiles, opacity, token, index));
+    }
+
+    /// The engine tier's road and river agreement check.
+    pub fn vsoMatchesEngine(self: *RealBridge) Status {
+        return status(c.BkEditorVsoMatchesEngine(self.session));
     }
 
     pub fn setCamera(self: *RealBridge, wx: f32, wy: f32) Status {

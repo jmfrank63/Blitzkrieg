@@ -107,6 +107,8 @@ pub fn ViewWith(comptime Input: type) type {
         brush: tools.Brush,
         placer: tools.Placer,
         selector: tools.Selector = .{},
+        /// 04-05: the Roads & Rivers tool (D-08).
+        roads_rivers: core.tools_vso.RoadsRivers = .{},
         hover: ?tools.Pointer = null,
 
         map: view_math.MapSize = .{},
@@ -228,6 +230,7 @@ pub fn ViewWith(comptime Input: type) type {
         /// chosen yet.
         pub fn showMap(self: *Self, real: anytype, path: []const u8, info: MapInfo, default_object: ?[]const u8) void {
             self.saveCurrentView();
+            self.roads_rivers.reset();
             self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
             if (self.remembered.get(path)) |saved| {
                 self.camera_x = saved.camera_x;
@@ -270,6 +273,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.brush.gesture = 0;
             self.brush.painted.clearRetainingCapacity();
             self.placer.name = "";
+            self.roads_rivers.reset();
         }
 
         /// Records `current_path`'s camera and zoom into `remembered`, if a map
@@ -659,6 +663,7 @@ pub fn ViewWith(comptime Input: type) type {
                 .select => self.selector.handle(editor, event),
                 .brush => self.brush.handle(editor, event),
                 .place => self.placer.handle(editor, event),
+                .roads_rivers => self.roads_rivers.handle(editor, event),
             };
             self.noteEditResult(editor, result);
         }
@@ -1361,13 +1366,63 @@ test "view: the right button, a double click and the new keys reach no gesture i
         rig.send(mouseButton(button_right, false, 60, 40));
         rig.send(doubleClickDown(40, 40));
         rig.send(mouseButton(button_left, false, 40, 40)); // clicks 1 here: a plain release
-        for ([_]u32{ sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER, sdl3.c.SDLK_INSERT, sdl3.c.SDLK_ESCAPE, sdl3.c.SDLK_SPACE, sdl3.c.SDLK_4, sdl3.c.SDLK_9 }) |key| {
+        for ([_]u32{ sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER, sdl3.c.SDLK_INSERT, sdl3.c.SDLK_ESCAPE, sdl3.c.SDLK_SPACE, sdl3.c.SDLK_8, sdl3.c.SDLK_9 }) |key| {
             rig.send(keyDown(key, 0, false));
         }
         try testing.expectEqual(depth, rig.editor.history.undo_stack.items.len);
         try testing.expectEqual(tool, rig.view.tool);
         try testing.expect(!rig.view.hasActiveMouseGesture());
     }
+}
+
+test "view: key 4 is Roads & Rivers; clicks, a right click and a double click draw a road as one step" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(keyDown(sdl3.c.SDLK_4, 0, false));
+    try testing.expectEqual(Tool.roads_rivers, rig.view.tool);
+    rig.view.roads_rivers.setDesc("road_track");
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    rig.send(mouseButton(button_left, true, 120, 40));
+    rig.send(mouseButton(button_left, false, 120, 40));
+    rig.send(mouseButton(button_left, true, 150, 150));
+    rig.send(mouseButton(button_left, false, 150, 150));
+    // The right button takes the last point back.
+    rig.send(mouseButton(button_right, true, 150, 150));
+    rig.send(mouseButton(button_right, false, 150, 150));
+    try testing.expectEqual(@as(usize, 2), rig.view.roads_rivers.pending_len);
+    rig.send(mouseButton(button_left, true, 200, 120));
+    rig.send(mouseButton(button_left, false, 200, 120));
+    rig.send(doubleClickDown(200, 120));
+    var up = mouseButton(button_left, false, 200, 120);
+    up.button.clicks = 2;
+    rig.send(up);
+    try testing.expectEqual(@as(usize, 1), rig.fake.vsoLen(.road));
+    try testing.expectEqual(@as(usize, 3), rig.fake.vso(.road, 0).count);
+    try testing.expectEqual(@as(f32, 200), rig.fake.vso(.road, 0).controls[2].x);
+    try testing.expectEqual(@as(usize, 1), rig.editor.history.undo_stack.items.len);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+}
+
+test "view: Ctrl+left is the right button in Roads & Rivers" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.view.selectTool(&rig.editor, .roads_rivers);
+    rig.view.roads_rivers.setDesc("road_track");
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    rig.send(mouseButton(button_left, true, 120, 40));
+    rig.send(mouseButton(button_left, false, 120, 40));
+    FakeInput.mod = sdl3.c.SDL_KMOD_CTRL;
+    rig.send(mouseButton(button_left, true, 120, 40));
+    try testing.expect(rig.view.right_button_down);
+    rig.send(mouseButton(button_left, false, 120, 40));
+    FakeInput.mod = 0;
+    try testing.expectEqual(@as(usize, 1), rig.view.roads_rivers.pending_len);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    rig.send(keyDown(sdl3.c.SDLK_ESCAPE, 0, false));
+    try testing.expectEqual(@as(usize, 0), rig.view.roads_rivers.pending_len);
+    try testing.expectEqual(@as(usize, 0), rig.editor.history.undo_stack.items.len);
 }
 
 test "view: Ctrl+left is only the right button in a tool that asks for it, so a select press is still a press" {

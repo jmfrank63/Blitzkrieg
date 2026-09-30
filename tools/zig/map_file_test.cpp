@@ -4,12 +4,15 @@
 #include <functional>
 #include <limits>
 #include <map>
+#include <set>
 #include "data_only_startup.h"
 #include "../../Sources/src/MapFile/MapFile.h"
 #include "../../Sources/src/MapFile/MapEquivalence.h"
 #include "../../Sources/src/MapFile/MapOverlay.h"
 #include "../../Sources/src/MapFile/MapRecords.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
+#include "../../Sources/src/RandomMapGen/VSO_Types.h"
+#include "../../Sources/src/Formats/fmtTerrain.h"
 
 static int g_nFailures = 0;
 
@@ -1697,6 +1700,173 @@ static void TestM2CascadeKinds()
 // save. A map that survives both has not been quietly normalised. The bytes of
 // the shipped file are deliberately not the yardstick: a rewrite is not
 // byte-identical with whatever tool wrote the original, only field-equivalent.
+// ---------------------------------------------------------------------------
+// 04-05: roads and rivers are derived by the MFC tool's own builder
+// (CVSOBuilder::CreateVSO, Update with DEFAULT_STEP, UpdateZ) - the same calls
+// the bridge makes, so this tier builds the expected record with them and
+// proves they are deterministic (D-03 stores the result, but a test that
+// rebuilds it must get the same record).
+// ---------------------------------------------------------------------------
+static bool SameVsoRecord( const SVectorStripeObject &rLeft, const SVectorStripeObject &rRight )
+{
+	if ( rLeft.szDescName != rRight.szDescName || rLeft.nID != rRight.nID || rLeft.fPassability != rRight.fPassability )
+		return false;
+	if ( rLeft.controlpoints.size() != rRight.controlpoints.size() || rLeft.points.size() != rRight.points.size() )
+		return false;
+	for ( size_t i = 0; i < rLeft.controlpoints.size(); ++i )
+		if ( !( rLeft.controlpoints[i] == rRight.controlpoints[i] ) )
+			return false;
+	for ( size_t i = 0; i < rLeft.points.size(); ++i )
+	{
+		const SVectorStripeObjectPoint &a = rLeft.points[i], &b = rRight.points[i];
+		if ( !( a.vPos == b.vPos ) || !( a.vNorm == b.vNorm ) || a.fRadius != b.fRadius || a.fWidth != b.fWidth ||
+		     a.bKeyPoint != b.bKeyPoint || a.fOpacity != b.fOpacity )
+			return false;
+	}
+	return true;
+}
+
+// The bridge's add, as plain calls: CreateVSO, Update( false ), UpdateZ, the
+// road passability fix and the bridge's own nID.
+static bool BuildTestVso( const CMapInfo &rMap, const std::string &szDesc, const std::vector<CVec3> &rControls,
+                          float fWidthTiles, float fOpacity, bool bRoad, SVectorStripeObject *pOut )
+{
+	SVectorStripeObject vso;
+	if ( !CVSOBuilder::CreateVSO( &vso, szDesc, rControls ) || vso.controlpoints.size() < 2 )
+		return false;
+	CVSOBuilder::Update( &vso, false, CVSOBuilder::DEFAULT_STEP, fWidthTiles * fWorldCellSize / 2.0f, fOpacity );
+	if ( vso.points.size() < 2 )
+		return false;
+	CVSOBuilder::UpdateZ( rMap.terrain.altitudes, &vso );
+	if ( bRoad && vso.fPassability == 0 )
+		vso.fPassability = 1;
+	vso.nID = NMapRecords::NextVsoID( rMap );
+	*pOut = vso;
+	return true;
+}
+
+static void TestM2VsoBuilder()
+{
+	const char *pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	CMapInfo map;
+	if ( !ReadFresh( pszMap, &map ) )
+		return;
+	if ( !Check( !map.terrain.roads3.empty(), "coldwinter has a road whose descriptor the builder can use" ) )
+		return;
+	const std::string szDesc = map.terrain.roads3[0].szDescName;
+	const float fMiddleX = map.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+	const float fMiddleY = map.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+	std::vector<CVec3> controls;
+	controls.push_back( CVec3( fMiddleX - 300.0f, fMiddleY - 100.0f, 0.0f ) );
+	controls.push_back( CVec3( fMiddleX, fMiddleY + 60.0f, 0.0f ) );
+	controls.push_back( CVec3( fMiddleX + 300.0f, fMiddleY - 40.0f, 0.0f ) );
+
+	// Deterministic: two builds from the same input are the same record.
+	SVectorStripeObject first, second;
+	if ( !Check( BuildTestVso( map, szDesc, controls, 3.0f, 1.0f, true, &first ), ( "the builder makes a road from " + szDesc ).c_str() ) )
+		return;
+	Check( BuildTestVso( map, szDesc, controls, 3.0f, 1.0f, true, &second ) && SameVsoRecord( first, second ), "two builds from the same input are the same record" );
+	Check( first.controlpoints.size() == 3, "the three control points are kept" );
+	int nKeys = 0;
+	for ( size_t i = 0; i < first.points.size(); ++i )
+		if ( first.points[i].bKeyPoint )
+			++nKeys;
+	Check( nKeys == 3, NStr::Format( "one key point per control point (%d)", nKeys ) );
+	Check( first.points.size() > 10, NStr::Format( "the road is sampled every 30 units (%d points)", int( first.points.size() ) ) );
+	Check( first.nID > 0 && first.nID == NMapRecords::NextVsoID( map ), "the new nID is the map's next free one" );
+	Check( std::fabs( first.points[0].fWidth - 3.0f * fWorldCellSize / 2.0f ) < 0.01f, "width 3 is 3 * fWorldCellSize / 2 world units" );
+
+	// Too short: one point, and two points 1 unit apart (UniquePolygon's 2).
+	SVectorStripeObject shortVso;
+	std::vector<CVec3> one( 1, controls[0] );
+	Check( !BuildTestVso( map, szDesc, one, 3.0f, 1.0f, true, &shortVso ), "a one-point road is refused" );
+	std::vector<CVec3> close;
+	close.push_back( controls[0] );
+	close.push_back( controls[0] + CVec3( 1.0f, 0.0f, 0.0f ) );
+	Check( !BuildTestVso( map, szDesc, close, 3.0f, 1.0f, true, &shortVso ), "two points 1 unit apart are refused" );
+	std::vector<CVec3> tiny;
+	tiny.push_back( controls[0] );
+	tiny.push_back( controls[0] + CVec3( 10.0f, 0.0f, 0.0f ) );
+	Check( !BuildTestVso( map, szDesc, tiny, 3.0f, 1.0f, true, &shortVso ), "a road shorter than one sampling step is refused" );
+
+	// Inserted with InsertVso and saved, it reads back as the map the same
+	// calls build.
+	CMapInfo edited;
+	if ( !ReadFresh( pszMap, &edited ) )
+		return;
+	Check( NMapRecords::InsertVso( &edited, NMapRecords::VSO_ROAD, -1, first ), "the new road inserts" );
+	std::string szError;
+	if ( Check( NMapFile::Write( M2_EDITED, edited, &szError ), szError.c_str() ) )
+	{
+		CMapInfo reread;
+		if ( Check( NMapFile::Read( M2_EDITED, &reread, &szError ), szError.c_str() ) )
+		{
+			std::string szWhere;
+			Check( NMapFile::AreEquivalent( edited, reread, &szWhere ), ( "the saved road differs at " + szWhere ).c_str() );
+			Check( reread.terrain.roads3.size() == map.terrain.roads3.size() + 1 && SameVsoRecord( reread.terrain.roads3.back(), first ),
+			       "the saved road is the built record" );
+		}
+	}
+
+	// Pitfall 2: a road whose descriptor has passability 0 reads back as 1, so
+	// an unfixed record fails the save's read-back; the bridge's fix makes it
+	// read back equal.
+	SVectorStripeObject zero = first;
+	zero.fPassability = 0;
+	CMapInfo unfixed;
+	if ( ReadFresh( pszMap, &unfixed ) && NMapRecords::InsertVso( &unfixed, NMapRecords::VSO_ROAD, -1, zero ) &&
+	     Check( NMapFile::Write( M2_EDITED, unfixed, &szError ), szError.c_str() ) )
+	{
+		CMapInfo reread;
+		std::string szWhere;
+		if ( Check( NMapFile::Read( M2_EDITED, &reread, &szError ), szError.c_str() ) )
+			Check( !NMapFile::AreEquivalent( unfixed, reread, &szWhere ) && szWhere.find( "Passability" ) != std::string::npos,
+			       ( "a road saved with passability 0 reads back different (at " + szWhere + ")" ).c_str() );
+	}
+	if ( zero.fPassability == 0 )
+		zero.fPassability = 1;
+	CMapInfo fixed;
+	if ( ReadFresh( pszMap, &fixed ) && NMapRecords::InsertVso( &fixed, NMapRecords::VSO_ROAD, -1, zero ) &&
+	     Check( NMapFile::Write( M2_EDITED, fixed, &szError ), szError.c_str() ) )
+	{
+		CMapInfo reread;
+		std::string szWhere;
+		if ( Check( NMapFile::Read( M2_EDITED, &reread, &szError ), szError.c_str() ) )
+			Check( NMapFile::AreEquivalent( fixed, reread, &szWhere ), ( "the fixed road reads back equal (differs at " + szWhere + ")" ).c_str() );
+	}
+
+	// How often the shipped maps repeat a road's or river's nID inside one
+	// list: the bridge maps saved to engine IDs by list position, and the
+	// engine removes by ID, so a shared ID would make an edit ambiguous.
+	std::vector<std::string> paths;
+	CollectMaps( "Data\\Maps", true, &paths );
+	int nRead = 0, nShared = 0;
+	for ( size_t i = 0; i < paths.size() && nRead < 60; ++i )
+	{
+		CMapInfo shipped;
+		if ( !NMapFile::Read( paths[i].c_str(), &shipped, &szError ) )
+			continue;
+		++nRead;
+		const TVSOList *lists[2] = { &shipped.terrain.roads3, &shipped.terrain.rivers };
+		bool bShared = false;
+		for ( int k = 0; k < 2 && !bShared; ++k )
+		{
+			std::set<int> ids;
+			for ( size_t j = 0; j < lists[k]->size(); ++j )
+				if ( !ids.insert( ( *lists[k] )[j].nID ).second )
+					bShared = true;
+		}
+		if ( bShared )
+		{
+			++nShared;
+			printf( "map-file: %s repeats a road or river nID\n", paths[i].c_str() );
+		}
+	}
+	printf( "map-file: %d of %d maps repeat a road or river nID within a list\n", nShared, nRead );
+	RemoveM2Files();
+	printf( "map-file: M2 vso builder ok\n" );
+}
+
 static void TestRoundTrip( const std::string &szPath )
 {
 	CMapInfo original;
@@ -1796,6 +1966,7 @@ int main( int argc, char **argv )
 	TestM2RecordOps();
 	TestM2FindReferences();
 	TestM2CascadeKinds();
+	TestM2VsoBuilder();
 	SweepMaps( bAll );
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );

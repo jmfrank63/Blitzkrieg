@@ -90,6 +90,73 @@ pub const SoundRecord = struct {
     }
 };
 
+/// Roads (the map's roads3) and rivers: the C ABI's kind 0 and 1.
+pub const VsoKind = enum(u8) {
+    road = 0,
+    river = 1,
+
+    pub fn label(self: VsoKind) []const u8 {
+        return switch (self) {
+            .road => "road",
+            .river => "river",
+        };
+    }
+};
+
+/// BkEditorVsoDescriptor's and BkEditorVsoInfo's name capacity.
+pub const vso_name_capacity = 128;
+
+/// A road or river type: the bare descriptor name (no folder, no extension)
+/// as BkEditorVsoDescriptors lists it.
+pub const VsoDescriptor = struct {
+    name: [vso_name_capacity]u8 = [_]u8{0} ** vso_name_capacity,
+
+    pub fn nameSlice(self: *const VsoDescriptor) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    pub fn setName(self: *VsoDescriptor, text: []const u8) void {
+        const len = @min(text.len, vso_name_capacity - 1);
+        @memset(&self.name, 0);
+        @memcpy(self.name[0..len], text[0..len]);
+    }
+};
+
+/// BkEditorVsoKeyPoint: a key point's sampled position (world units, z the
+/// ground's), its normal (a unit vector across the stripe), its width (world
+/// units, centre line to edge) and its opacity (0..1). The width handles sit
+/// at position +- normal * width.
+pub const VsoKeyPoint = struct {
+    x: f32 = 0,
+    y: f32 = 0,
+    z: f32 = 0,
+    nx: f32 = 0,
+    ny: f32 = 0,
+    nz: f32 = 0,
+    width: f32 = 0,
+    opacity: f32 = 0,
+};
+
+/// One road or river as BkEditorVso reads it: the nID the file holds, the
+/// descriptor's full saved name, and owned copies of its control points and
+/// key points (world units). `deinit` with the allocator `readVso` was given.
+pub const VsoView = struct {
+    saved_id: i32 = 0,
+    desc: [vso_name_capacity]u8 = [_]u8{0} ** vso_name_capacity,
+    control_points: []records.Vec3 = &.{},
+    key_points: []VsoKeyPoint = &.{},
+
+    pub fn descSlice(self: *const VsoView) []const u8 {
+        return std.mem.sliceTo(&self.desc, 0);
+    }
+
+    pub fn deinit(self: *VsoView, allocator: std.mem.Allocator) void {
+        allocator.free(self.control_points);
+        allocator.free(self.key_points);
+        self.* = .{};
+    }
+};
+
 pub const Bridge = struct {
     ptr: *anyopaque,
     vtable: *const VTable,
@@ -140,6 +207,26 @@ pub const Bridge = struct {
         /// BkEditorGroundHeight: the terrain height at a world point, world
         /// units in and out. Refused off the map.
         groundHeight: *const fn (ptr: *anyopaque, wx: f32, wy: f32, z: *f32) Status,
+        /// BkEditorUndoEdit / BkEditorRedoEdit: the bridge's edit log, the
+        /// paints' order (newest first; redo in the order undone). A token
+        /// out of order is refused.
+        undoEdit: *const fn (ptr: *anyopaque, token: i32) Status,
+        redoEdit: *const fn (ptr: *anyopaque, token: i32) Status,
+        /// BkEditorVsoDescriptors: the season's road or river types, bare
+        /// names, sorted. `total` is always the full count (two-pass, like
+        /// `sounds`).
+        vsoDescriptors: *const fn (ptr: *anyopaque, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status,
+        /// BkEditorVsoCount.
+        vsoCount: *const fn (ptr: *anyopaque, kind: VsoKind, count: *usize) Status,
+        /// BkEditorVso: the record at `index`, its point arrays allocated with
+        /// `allocator` into `out` (the caller deinits it on .ok only).
+        readVso: *const fn (ptr: *anyopaque, kind: VsoKind, index: i32, allocator: std.mem.Allocator, out: *VsoView) Status,
+        /// BkEditorAddVso: a road or river through `points` (world units, z
+        /// ignored), type `desc` (a bare name), `width_tiles` 1..16, `opacity`
+        /// 0..1; appended, `index` is where it landed, `token` names the edit
+        /// for undoEdit/redoEdit. Refused naming why: an unknown type, a point
+        /// off the map, a line too short to be a road.
+        addVso: *const fn (ptr: *anyopaque, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -168,6 +255,12 @@ pub const Bridge = struct {
     pub fn readRecord(self: Bridge, kind: records.Kind, key: i32, allocator: std.mem.Allocator, out: *records.Value) Status { return self.vtable.readRecord(self.ptr, kind, key, allocator, out); }
     pub fn putRecord(self: Bridge, key: i32, value: *const records.Value) Status { return self.vtable.putRecord(self.ptr, key, value); }
     pub fn groundHeight(self: Bridge, wx: f32, wy: f32, z: *f32) Status { return self.vtable.groundHeight(self.ptr, wx, wy, z); }
+    pub fn undoEdit(self: Bridge, token: i32) Status { return self.vtable.undoEdit(self.ptr, token); }
+    pub fn redoEdit(self: Bridge, token: i32) Status { return self.vtable.redoEdit(self.ptr, token); }
+    pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }
+    pub fn vsoCount(self: Bridge, kind: VsoKind, count: *usize) Status { return self.vtable.vsoCount(self.ptr, kind, count); }
+    pub fn readVso(self: Bridge, kind: VsoKind, index: i32, allocator: std.mem.Allocator, out: *VsoView) Status { return self.vtable.readVso(self.ptr, kind, index, allocator, out); }
+    pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 
 test "check turns a refusal into Refused and everything else into Failed" {

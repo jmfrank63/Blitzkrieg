@@ -781,6 +781,86 @@ BkEditorStatus BkEditorSetCameraAnchors( BkEditorSession *session, const BkEdito
    a null z is BK_EDITOR_BAD_ARGUMENT; BK_EDITOR_REFUSED with no map open. */
 BkEditorStatus BkEditorGroundHeight( BkEditorSession *session, float x, float y, float *z );
 
+/* The edit log (04-05). An edit the bridge derives or compounds - a road or
+   river edit now, bridges, fences and entrenchments later - hands out a token
+   and keeps its own undo record: the records before and after, stored when
+   the edit was made. BkEditorUndoEdit puts the before-state back and
+   BkEditorRedoEdit the after-state, from what was stored - nothing is derived
+   again (D-03). The order is the paints': undo takes only the newest applied
+   edit, redo only the most recently undone, and a new edit drops everything
+   undone; any other token is BK_EDITOR_REFUSED and changes nothing. A token is
+   valid until the next BkEditorOpenMap or BkEditorCloseMap, which forget the
+   log. BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorUndoEdit( BkEditorSession *session, int token );
+BkEditorStatus BkEditorRedoEdit( BkEditorSession *session, int token );
+
+/* Roads and rivers (D-07, D-08, D-09). kind 0 is a road (the map's roads3),
+   kind 1 a river; any other kind is BK_EDITOR_BAD_ARGUMENT. Every point is
+   WORLD (Vis) units; a width is world units (the tool's width w of 1..16 is
+   w * fWorldCellSize / 2, Formats/fmtTerrain.h); opacity is 0..1.
+
+   A road or river is edited as its control polyline and the width and
+   opacity at its key points (one key point per control point). The sampled
+   points are derived by the bridge, once per edit, with the MFC tool's own
+   code (CVSOBuilder::CreateVSO, Update with a 30-unit step, UpdateZ), and both
+   copies and the engine get exactly that record; the edit log keeps it.
+   Every edit redraws the stripe in the engine (Remove + Add); a river edit
+   also updates the AI's passability (IAIEditor::DeleteRiver with the record
+   as it was, AddRiver with the new one, undo and redo included). Roads never
+   touch the AI: the game works their passability out when it loads the map.
+   Altitudes and shades never change.
+
+   The saved nID of a new record is the bridge's own (one above every nID the
+   map uses), never the engine's random one; the bridge maps between the two. */
+typedef struct { char name[128]; } BkEditorVsoDescriptor;
+/* One record: saved_id is the nID the file holds; desc the descriptor's full
+   name as saved (the season folder, Roads3D\ or Rivers\, and the name);
+   control_count the control points; key_count the key points. */
+typedef struct { int saved_id; char desc[128]; int control_count; int key_count; } BkEditorVsoInfo;
+/* A key point: its sampled position (world units, z the ground's), its
+   normal (a unit vector across the stripe), its width (world units, from the
+   centre line to each edge) and its opacity (0..1). A width handle sits at
+   position +- normal * width. */
+typedef struct { float x, y, z, nx, ny, nz, width, opacity; } BkEditorVsoKeyPoint;
+
+/* The descriptors of a kind for the open map's season, as the MFC editor
+   lists them: the names in <season folder>Roads3D\ or Rivers\ with no folder
+   and no extension, sorted. out_count is always the total; a buffer too short
+   is BK_EDITOR_REFUSED with nothing written past capacity, and out may be null
+   when capacity is 0. BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorVsoDescriptors( BkEditorSession *session, int kind, BkEditorVsoDescriptor *out, int capacity, int *out_count );
+/* How many roads (kind 0) or rivers (kind 1) the map holds. */
+BkEditorStatus BkEditorVsoCount( BkEditorSession *session, int kind, int *out_count );
+/* The record at index (0..count-1, else BK_EDITOR_BAD_ARGUMENT), in two
+   passes like BkEditorObjects: info (never null) always gets the counts; the
+   control points go to controls and the key points to keys when their
+   capacities hold them, and a buffer too short for its count is
+   BK_EDITOR_REFUSED with nothing written past capacity. Either array may be
+   null with a capacity of 0. */
+BkEditorStatus BkEditorVso( BkEditorSession *session, int kind, int index, BkEditorVsoInfo *info,
+                            BkEditorVec3 *controls, int control_cap, BkEditorVsoKeyPoint *keys, int key_cap );
+/* Adds a road (kind 0) or river (kind 1) through count control points (world
+   units; z is ignored, every point is fitted to the ground), with the
+   descriptor desc (a bare name from BkEditorVsoDescriptors), width_tiles 1..16
+   and opacity 0..1 at every point. It is appended to the map's list; out_index
+   is where it landed, out_token names the edit for BkEditorUndoEdit and
+   BkEditorRedoEdit (either out may be null; both are -1 after a refusal).
+
+   BK_EDITOR_BAD_ARGUMENT: a null desc or points (with count > 0), a count below
+   0 or above 1024, width_tiles or opacity out of range, any non-finite value.
+   BK_EDITOR_REFUSED, naming the reason: no map open, a desc that is not a bare
+   name of this season's descriptors, a point off the map, and a line too short
+   to be a road - fewer than two points at least 2 units apart, or shorter than
+   one 30-unit sampling step (the game's loaders cannot take a record with
+   fewer than two sampled points). A refusal changes nothing. */
+BkEditorStatus BkEditorAddVso( BkEditorSession *session, int kind, const char *desc, const BkEditorVec3 *points, int count,
+                               float width_tiles, float opacity, int *out_token, int *out_index );
+/* For the engine tier: every road and river the map will save against the
+   engine's own, found through the bridge's ID map (never by nID), in control
+   points, sampled points, widths and opacities, and against the working copy.
+   BK_EDITOR_FAILED naming the first difference. */
+BkEditorStatus BkEditorVsoMatchesEngine( BkEditorSession *session );
+
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );

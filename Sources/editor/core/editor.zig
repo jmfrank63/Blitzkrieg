@@ -12,6 +12,9 @@ const EditError = bridge_mod.EditError;
 const ObjectRecord = bridge_mod.ObjectRecord;
 const SoundRecord = bridge_mod.SoundRecord;
 const PaintCell = bridge_mod.PaintCell;
+const VsoKind = bridge_mod.VsoKind;
+const VsoView = bridge_mod.VsoView;
+const VsoDescriptor = bridge_mod.VsoDescriptor;
 const FakeBridge = fake_mod.FakeBridge;
 const FakeStartCommand = fake_mod.FakeStartCommand;
 const FakeReservePosition = fake_mod.FakeReservePosition;
@@ -40,6 +43,11 @@ pub const Editor = struct {
     /// and by its undo and redo (`editRecord`, `replay`), so a panel or a
     /// marker layer knows to read the records again.
     record_generations: std.EnumArray(records.Kind, u32) = std.EnumArray(records.Kind, u32).initFill(0),
+    /// Bumped by every road and river edit, its undo and its redo, and by an
+    /// open or a close, so the Roads & Rivers panel and the markers know to
+    /// read the roads and rivers again (the bridge holds them; the core keeps
+    /// no mirror of their sampled points).
+    vso_generation: u32 = 0,
     /// null in a mode that never saves (a headless tier with no need to);
     /// `save` refuses with "saving needs a file system" rather than write
     /// unsafely when this is unset (D-19).
@@ -110,6 +118,13 @@ pub const Editor = struct {
         self.status_len = len;
     }
 
+    /// A note for the status bar that is not a bridge answer: a tool saying
+    /// why a gesture did nothing (a road finished with one point). The next
+    /// command's outcome replaces it.
+    pub fn note(self: *Editor, message: []const u8) void {
+        self.setStatus("", message);
+    }
+
     /// Copies `prefix` then `message` into the status buffer, truncating
     /// `message` (never `prefix`) to what is left of the buffer.
     fn setStatus(self: *Editor, prefix: []const u8, message: []const u8) void {
@@ -143,6 +158,7 @@ pub const Editor = struct {
         };
         self.history.clear(self.allocator);
         self.selection = null;
+        self.vso_generation +%= 1;
     }
 
     /// Forgets the open document: no path, no objects, nothing to undo or
@@ -162,6 +178,7 @@ pub const Editor = struct {
         self.document = .{};
         self.history.clear(self.allocator);
         self.selection = null;
+        self.vso_generation +%= 1;
     }
 
     /// The new path is copied before the bridge writes: once the file is
@@ -569,6 +586,110 @@ pub const Editor = struct {
         try self.editRecord(.camera_anchors, 0, &value, 0);
     }
 
+    /// What a bridge-logged edit needs before its bridge call: room for its
+    /// token in the entry it merges into, or history room and a one-token list
+    /// for a new entry. Everything that can fail happens here, so once the
+    /// bridge has committed, `commitEdit` cannot fail.
+    const PreparedEdit = struct { entry: ?*history_mod.Entry = null, tokens: std.ArrayListUnmanaged(i32) = .empty };
+
+    fn prepareEdit(self: *Editor, gesture: u32, scope: history_mod.EditScope) EditError!PreparedEdit {
+        if (self.mergeable(gesture, .edit)) |entry| {
+            if (entry.command.edit.scope == scope) {
+                try entry.command.edit.tokens.ensureUnusedCapacity(self.allocator, 1);
+                return .{ .entry = entry };
+            }
+        }
+        try self.history.reserve(self.allocator);
+        var prepared: PreparedEdit = .{};
+        try prepared.tokens.ensureUnusedCapacity(self.allocator, 1);
+        return prepared;
+    }
+
+    /// Records the bridge's token: appended to the gesture's entry (one undo
+    /// step per drag), or a new entry that takes `prepared.tokens` over.
+    fn commitEdit(self: *Editor, prepared: *PreparedEdit, token: i32, gesture: u32, scope: history_mod.EditScope) void {
+        if (prepared.entry) |entry| {
+            entry.command.edit.tokens.appendAssumeCapacity(token);
+            self.history.touchTop(self.allocator);
+        } else {
+            prepared.tokens.appendAssumeCapacity(token);
+            self.history.recordAssumeCapacity(self.allocator, .{ .edit = .{ .tokens = prepared.tokens, .scope = scope } }, gesture);
+            prepared.tokens = .empty;
+        }
+        self.bumpScope(scope);
+    }
+
+    fn bumpScope(self: *Editor, scope: history_mod.EditScope) void {
+        switch (scope) {
+            .vso => self.vso_generation +%= 1,
+            .objects => {},
+        }
+    }
+
+    /// Re-reads the document's objects from the bridge after a compound edit
+    /// that added or removed map objects (the `objects` scope). The path,
+    /// fields and diplomacy stay.
+    fn reloadObjects(self: *Editor) EditError!void {
+        var total: usize = 0;
+        var none: [0]ObjectRecord = .{};
+        const sizing = self.bridge.objects(&none, &total);
+        if (sizing != .ok and sizing != .refused) return error.Failed;
+        var objects: std.ArrayListUnmanaged(ObjectRecord) = .empty;
+        errdefer objects.deinit(self.allocator);
+        try objects.resize(self.allocator, total);
+        try bridge_mod.check(self.bridge.objects(objects.items, &total));
+        self.document.objects.deinit(self.allocator);
+        self.document.objects = objects;
+        if (self.selection) |link_id| {
+            if (self.document.find(link_id) == null) self.selection = null;
+        }
+    }
+
+    /// Draws a road or river (D-08) through `points` (world units; the
+    /// bridge fits them to the ground), of type `desc` (a bare name from
+    /// `vsoDescriptors`), `width_tiles` 1..16 and `opacity` 0..1 at every
+    /// point. One undo step. Returns where it landed in the bridge's list. A
+    /// refusal (too short, an unknown type, a point off the map) changes
+    /// nothing: not the bridge, not the history.
+    pub fn addVso(self: *Editor, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32) EditError!usize {
+        var prepared = try self.prepareEdit(0, .vso);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        var index: i32 = -1;
+        try self.noteOutcome(self.bridge.addVso(kind, desc, points, width_tiles, opacity, &token, &index));
+        self.commitEdit(&prepared, token, 0, .vso);
+        return if (index >= 0) @intCast(index) else 0;
+    }
+
+    /// How many roads or rivers the map holds. A read: the status line is
+    /// left alone.
+    pub fn vsoCount(self: *Editor, kind: VsoKind) EditError!usize {
+        var count: usize = 0;
+        try bridge_mod.check(self.bridge.vsoCount(kind, &count));
+        return count;
+    }
+
+    /// The road or river at `index`, its point arrays owned by the caller
+    /// (`deinit(editor.allocator)`). A read: the status line is left alone.
+    pub fn readVso(self: *Editor, kind: VsoKind, index: usize) EditError!VsoView {
+        var view: VsoView = .{};
+        try bridge_mod.check(self.bridge.readVso(kind, @intCast(index), self.allocator, &view));
+        return view;
+    }
+
+    /// The season's road or river types, sorted; the caller frees the slice
+    /// with `allocator`.
+    pub fn vsoDescriptors(self: *Editor, kind: VsoKind, allocator: std.mem.Allocator) EditError![]VsoDescriptor {
+        var total: usize = 0;
+        var none: [0]VsoDescriptor = .{};
+        const sizing = self.bridge.vsoDescriptors(kind, &none, &total);
+        if (sizing != .ok and sizing != .refused) return error.Failed;
+        const out = try allocator.alloc(VsoDescriptor, total);
+        errdefer allocator.free(out);
+        try bridge_mod.check(self.bridge.vsoDescriptors(kind, out, &total));
+        return out;
+    }
+
     fn applyPose(object: *ObjectRecord, pose: Pose) void {
         object.x = pose.x;
         object.y = pose.y;
@@ -631,6 +752,21 @@ pub const Editor = struct {
                 const value = if (forwards) &e.after else &e.before;
                 try self.noteOutcome(self.bridge.putRecord(e.key, value));
                 self.record_generations.set(e.kind, self.record_generations.get(e.kind) +% 1);
+            },
+            .edit => |e| {
+                if (forwards) {
+                    for (e.tokens.items) |token| try self.noteOutcome(self.bridge.redoEdit(token));
+                } else {
+                    var index = e.tokens.items.len;
+                    while (index != 0) {
+                        index -= 1;
+                        try self.noteOutcome(self.bridge.undoEdit(e.tokens.items[index]));
+                    }
+                }
+                switch (e.scope) {
+                    .vso => self.vso_generation +%= 1,
+                    .objects => try self.reloadObjects(),
+                }
             },
         }
     }

@@ -1,5 +1,6 @@
 #ifndef __EDITOR_BRIDGE_SESSION_H__
 #define __EDITOR_BRIDGE_SESSION_H__
+#include <memory>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -10,6 +11,21 @@
 class CEditorWorld;
 struct IObjectsDB;
 struct SGDBObjectDesc;
+interface ITerrainEditor;
+struct SEditorSession;
+
+// One entry of the session's edit log (04-05, research Pattern 3): an edit the
+// bridge derives or compounds keeps its own undo record here, next to the
+// engine state it must stay consistent with, and the core holds only its
+// token. Revert puts the state from before the edit back, Reapply the state
+// after it - both from what the record stored, never by running the edit's
+// function again (D-03). Each returns false with the reason in szMessage.
+struct IEditRecord
+{
+	virtual ~IEditRecord() {  }
+	virtual bool Revert( SEditorSession *pSession ) = 0;
+	virtual bool Reapply( SEditorSession *pSession ) = 0;
+};
 
 // One editing session.
 //
@@ -51,6 +67,21 @@ struct SEditorSession
 	std::vector<SPaintRecord> paints;
 	std::vector<int> appliedPaints;		// undo takes the back
 	std::vector<int> undonePaints;		// redo takes the back; a new paint clears it
+	// The edit log, by token (its index), the paints' stacks generalised: the
+	// roads and rivers (04-05) and, after them, the bridges, fences and
+	// entrenchments log their edits here. Undo takes the back of appliedEdits,
+	// redo the back of undoneEdits, and a new edit clears undoneEdits. Cleared
+	// whenever a map opens or closes, so a token is valid only for the map it
+	// was handed out on.
+	std::vector< std::unique_ptr<IEditRecord> > edits;
+	std::vector<int> appliedEdits;
+	std::vector<int> undoneEdits;
+	// Roads (0) and rivers (1): the engine's nID of each record of the saved
+	// list, by list position. The engine picks its own random nID for every
+	// AddRoad and AddRiver (TerrainEditor.cpp), so the saved nID (the bridge's,
+	// D-03) and the engine's differ after an edit; at open they are the file's,
+	// read from the engine's own list, which the terrain loaded in file order.
+	std::vector<int> vsoEngineIDs[2];
 	// Deleted objects, by link ID, for BkEditorRestoreObject: the snapshot's
 	// record and the working copy's, which differ in the frame index.
 	struct STombstone
@@ -273,5 +304,43 @@ bool SetSessionCameraAnchors( SEditorSession *pSession, const BkEditorCameraAnch
 // The terrain height at a world point, through CVSOBuilder::UpdateZ on the
 // working copy's altitudes. False with the reason in szMessage off the map.
 bool GroundHeightInSession( SEditorSession *pSession, float fX, float fY, float *pfZ );
+
+// The engine's terrain editor for the open map, or null (session.cpp).
+ITerrainEditor* EngineTerrain();
+
+// The edit log (session_vso.cpp). LogEdit takes the record, appends it,
+// clears the redo stack and hands out its token. Undo takes only the newest
+// applied edit, redo only the most recently undone: any other token is a
+// refusal. ClearEditLog forgets every edit (a map opened or closed).
+int LogEdit( SEditorSession *pSession, IEditRecord *pRecord );
+bool UndoEditInSession( SEditorSession *pSession, int nToken, bool *pbRefused );
+bool RedoEditInSession( SEditorSession *pSession, int nToken, bool *pbRefused );
+void ClearEditLog( SEditorSession *pSession );
+
+// Roads (kind 0, roads3) and rivers (kind 1), session_vso.cpp. Points are
+// world (Vis) units, widths world units, opacity 0..1.
+//
+// ResetVsoEngineIDs reads the engine's nIDs of both lists after the terrain
+// has loaded (list positions match the file's then); an open calls it, a
+// close empties both.
+void ResetVsoEngineIDs( SEditorSession *pSession );
+// How many records the saved list holds, -1 for a kind that is neither.
+int VsoCount( const SEditorSession &rSession, int nKind );
+// The record at nIndex of the saved list, or null.
+const SVectorStripeObject* SessionVso( const SEditorSession &rSession, int nKind, int nIndex );
+// The season's descriptors of a kind (the map's season folder + Roads3D\ or
+// Rivers\, as the MFC editor lists them): bare names, no extension, sorted.
+bool VsoDescriptors( SEditorSession *pSession, int nKind, std::vector<std::string> *pNames );
+// Adds a road or river drawn through the control points: derived once here
+// (CVSOBuilder), put into both copies and the engine, logged. pnIndex is where
+// it landed in the saved list. False with the reason in szMessage; pbRefused
+// tells a refusal (an unknown descriptor, a point off the map, too short)
+// from a failure. A refusal changes nothing.
+bool AddVsoToSession( SEditorSession *pSession, int nKind, const std::string &szDesc, const std::vector<CVec3> &rPoints,
+                      float fWidthTiles, float fOpacity, int *pnToken, int *pnIndex, bool *pbRefused );
+// Every saved record against the engine's, found through vsoEngineIDs (never
+// by nID): points, control points, widths and opacities. False naming the
+// first difference in szMessage.
+bool VsoMatchesEngine( SEditorSession *pSession );
 
 #endif // __EDITOR_BRIDGE_SESSION_H__

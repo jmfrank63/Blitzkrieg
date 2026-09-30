@@ -14,7 +14,7 @@
 const std = @import("std");
 const marker_logic = @import("marker_logic.zig");
 
-pub const ToolId = enum { select, brush, place };
+pub const ToolId = enum { select, brush, place, roads_rivers };
 
 pub const Entry = struct {
     id: ToolId,
@@ -41,6 +41,18 @@ pub const entries = [_]Entry{
     .{ .id = .select, .label = "Select", .shortcut = '1' },
     .{ .id = .brush, .label = "Brush", .shortcut = '2' },
     .{ .id = .place, .label = "Place", .shortcut = '3' },
+    // 04-05 (D-08): the MFC Roads and Rivers tabs as one tool. Right click
+    // takes a point back and right-drag sets opacity; Ctrl+click stands in
+    // for it on a one-button trackpad; a double click finishes a line.
+    .{
+        .id = .roads_rivers,
+        .label = "Roads & Rivers",
+        .shortcut = '4',
+        .needs_right_button = true,
+        .ctrl_click_is_right = true,
+        .needs_double_click = true,
+        .marker_kinds = marker_logic.MarkerSet.only(&.{.roads_rivers}),
+    },
 };
 
 comptime {
@@ -123,8 +135,17 @@ test "no registry shortcut is a letter or a key another part of the editor owns"
     }
 }
 
+test "the Roads & Rivers tool takes the right button, Ctrl-as-right and double click, with its markers" {
+    const item = entry(.roads_rivers);
+    try std.testing.expectEqual(@as(?u8, '4'), item.shortcut);
+    try std.testing.expect(item.needs_right_button and item.ctrl_click_is_right and item.needs_double_click);
+    try std.testing.expect(item.marker_kinds.has(.roads_rivers));
+    try std.testing.expectEqual(@as(?ToolId, .roads_rivers), byShortcut('4'));
+    try std.testing.expectEqual(@as(?ToolId, .roads_rivers), byLabel("roads_rivers"));
+}
+
 test "the M1 tools take no right button, double click or Ctrl-as-right, and carry no markers" {
-    for (entries) |item| {
+    for (entries[0..3]) |item| {
         try std.testing.expect(!item.needs_right_button);
         try std.testing.expect(!item.ctrl_click_is_right);
         try std.testing.expect(!item.needs_double_click);
