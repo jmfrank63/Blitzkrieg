@@ -307,11 +307,16 @@ pub const FakeFiles = struct {
     fn listImpl(ptr: *anyopaque, os_dir: []const u8, extension: []const u8, allocator: std.mem.Allocator, out: *std.ArrayListUnmanaged([]u8)) Files.Error!void {
         const self = from(ptr);
         const dir = std.mem.trimEnd(u8, os_dir, "/\\");
+        // "." is the working directory, as StdFiles lists it: the keys with no
+        // separator at all (WR-B06).
+        const cwd = std.mem.eql(u8, dir, ".");
         var it = self.entries.keyIterator();
         while (it.next()) |key| {
-            if (key.len <= dir.len + 1 or !samePath(key.*[0..dir.len], dir)) continue;
-            if (key.*[dir.len] != '/' and key.*[dir.len] != '\\') continue;
-            const name = key.*[dir.len + 1 ..];
+            const name = if (cwd) key.* else blk: {
+                if (key.len <= dir.len + 1 or !samePath(key.*[0..dir.len], dir)) continue;
+                if (key.*[dir.len] != '/' and key.*[dir.len] != '\\') continue;
+                break :blk key.*[dir.len + 1 ..];
+            };
             if (std.mem.indexOfAny(u8, name, "/\\") != null or !hasExtension(name, extension)) continue;
             const owned = allocator.dupe(u8, name) catch return error.Failed;
             out.append(allocator, owned) catch {

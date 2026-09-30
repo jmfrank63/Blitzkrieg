@@ -457,6 +457,20 @@ test "listBeside offers the bare names of the .lua files beside the map, sorted"
     try std.testing.expectEqualStrings("zeta", names.items[1]);
 }
 
+test "listBeside lists the working directory for a map named with no folder (WR-B06)" {
+    var fake = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake.deinit();
+    const files = fake.files();
+    try fake.write("here.lua", "1");
+    try fake.write("a.bzm", "map");
+    try fake.write("/elsewhere/there.lua", "2");
+    var names: std.ArrayListUnmanaged([]u8) = .empty;
+    defer files_mod.freeNames(std.testing.allocator, &names);
+    try listBeside(files, std.testing.allocator, "a.bzm", &names);
+    try std.testing.expectEqual(@as(usize, 1), names.items.len);
+    try std.testing.expectEqualStrings("here", names.items[0]);
+}
+
 test "pickedName is the picked file's own name when it is a bare name plus .lua" {
     try std.testing.expectEqualStrings("m2_script", pickedName("/home/u/Downloads/m2_script.lua").?);
     try std.testing.expectEqualStrings("m2_script", pickedName("C:\\Users\\u\\m2_script.LUA").?);

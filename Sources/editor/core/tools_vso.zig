@@ -823,6 +823,21 @@ test "a failed replay whose own unwinding fails refuses every further undo and r
     try testing.expect(!editor.replay_broken);
 }
 
+test "the fake holds as many points as the tool draws, and names a line by its full saved name (WR-B06)" {
+    try testing.expect(fake_mod.max_vso_points >= max_pending);
+    var fake = try editor_mod.testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var tool = roadTool();
+    defer tool.deinit(testing.allocator);
+    try drawnRoad(&editor, &tool);
+    var view = try editor.readVso(.road, 0);
+    defer view.deinit(testing.allocator);
+    try testing.expect(std.mem.startsWith(u8, view.descSlice(), fake_mod.fake_season_folder ++ "Roads3D\\"));
+    try testing.expect(std.mem.endsWith(u8, view.descSlice(), tool.desc()));
+}
+
 test "an undo that shifts the roads list keeps the tool on the road it had selected (WR-B02)" {
     var fake = try editor_mod.testFixture(testing.allocator);
     defer fake.deinit();

@@ -183,8 +183,13 @@ const Tombstone = struct {
     changes: std.ArrayListUnmanaged(StartChange) = .empty,
     reserves: std.ArrayListUnmanaged(ReserveChange) = .empty,
 };
-/// The most control points a fake road or river holds.
-pub const max_vso_points = 32;
+/// The most control points a fake road or river holds: as many as the Roads &
+/// Rivers tool draws (`tools_vso.max_pending`), so the tools' long-line paths
+/// run against the fake too (WR-B06; the real ABI takes 1024).
+pub const max_vso_points = 256;
+/// The season folder the fake's saved road and river names carry, as the
+/// real ones carry the map's (`readVso`'s full name).
+pub const fake_season_folder = "fake_season\\";
 /// CreateVSO's UniquePolygon distance (RMGC_MINIMAL_VIS_POINT_DISTANCE): a
 /// point this close to the one before it is dropped.
 pub const vso_min_point_distance: f32 = 2.0;
@@ -229,8 +234,10 @@ pub const FakeVso = struct {
 /// absent for an add or a delete) at a list position.
 const FakeVsoEdit = struct { kind: VsoKind, index: usize, before: ?FakeVso, after: ?FakeVso };
 
-/// The most spans a fake bridge holds.
-pub const max_bridge_spans = 32;
+/// The most spans a fake bridge (and pieces a fence run or a trench) holds:
+/// the real bridge's own most spans (nMaxBridgeSpans) and the Entrenchment
+/// tool's most points (WR-B06).
+pub const max_bridge_spans = 256;
 /// A bridge type the fake offers: what BkEditorBridgeDescriptors lists, and
 /// its line span's length in WORLD units (the real one reads the stats).
 pub const FakeBridgeType = struct { descriptor: BridgeDescriptor, span_length: f32 };
@@ -298,6 +305,10 @@ pub const FakeBridge = struct {
     /// slice is owned here. Kept across a fake reopen like the sounds.
     /// `addGroupFixture` seeds it; `recordKeys` answers it sorted.
     groups: std.AutoHashMapUnmanaged(i32, []i32) = .empty,
+    /// The groups as they were at the last open (owned copies): a put may keep
+    /// any script ID - as many times - as the group held then, as the real
+    /// GroupPutAllowed's openedGroups exemption (WR-B06).
+    groups_at_open: std.AutoHashMapUnmanaged(i32, []i32) = .empty,
     /// The map's script file (04-10, D-20) and the value it held when the map
     /// was opened, which a put may always bring back (an undo). Kept across a
     /// fake reopen like the groups. `setScriptFileFixture` seeds both.
@@ -422,6 +433,8 @@ pub const FakeBridge = struct {
         var group_values = self.groups.valueIterator();
         while (group_values.next()) |ids| self.allocator.free(ids.*);
         self.groups.deinit(self.allocator);
+        self.forgetGroupsAtOpen();
+        self.groups_at_open.deinit(self.allocator);
         self.hidden_script_ids.deinit(self.allocator);
         self.bridge_spans.deinit(self.allocator);
         self.trench_pieces.deinit(self.allocator);
@@ -945,7 +958,14 @@ pub const FakeBridge = struct {
             return .failed;
         };
         out.* = .{ .saved_id = item.saved_id, .control_points = controls, .key_points = keys };
-        @memcpy(out.desc[0..item.desc.name.len], &item.desc.name);
+        // The descriptor's full saved name, as the real bridge answers it: the
+        // season folder, Roads3D\ or Rivers\, and the bare name (WR-B06) -
+        // `vsoDescriptors` alone answers bare names.
+        _ = std.fmt.bufPrint(out.desc[0 .. out.desc.len - 1], "{s}{s}{s}", .{ fake_season_folder, if (kind == .road) "Roads3D\\" else "Rivers\\", item.desc.nameSlice() }) catch {
+            allocator.free(controls);
+            allocator.free(keys);
+            return .failed;
+        };
         return .ok;
     }
 
@@ -1861,6 +1881,15 @@ pub const FakeBridge = struct {
         self.hidden_script_ids.clearRetainingCapacity();
         self.script_file_at_open = self.script_file;
         self.camera_anchors_at_open = self.camera_anchors;
+        self.forgetGroupsAtOpen();
+        var group_entries = self.groups.iterator();
+        while (group_entries.next()) |entry| {
+            const owned = self.allocator.dupe(i32, entry.value_ptr.*) catch return .failed;
+            self.groups_at_open.put(self.allocator, entry.key_ptr.*, owned) catch {
+                self.allocator.free(owned);
+                return .failed;
+            };
+        }
         self.script_areas_at_open.clearRetainingCapacity();
         self.script_areas_at_open.appendSlice(self.allocator, self.script_areas.items) catch return .failed;
         self.start_commands_at_open.clearRetainingCapacity();
@@ -2323,15 +2352,21 @@ pub const FakeBridge = struct {
         return .ok;
     }
 
+    fn forgetGroupsAtOpen(self: *FakeBridge) void {
+        var values = self.groups_at_open.valueIterator();
+        while (values.next()) |ids| self.allocator.free(ids.*);
+        self.groups_at_open.clearRetainingCapacity();
+    }
+
     /// The real bridge's group rules: every ID a put adds is 0..32000 and
-    /// appears once; an ID the group holds now is exempt. (The real bridge
-    /// also exempts what the file held when it was opened, so an undo can put
-    /// odd data back after an edit took it out; the fake keeps no such copy.)
-    /// Says why when it is not.
-    fn groupPutAllowed(self: *FakeBridge, current: []const i32, wanted: []const i32) bool {
+    /// appears once; an ID the group holds now, or held when the map was
+    /// opened (so an undo can put odd data back after an edit took it out), is
+    /// exempt. Says why when it is not.
+    fn groupPutAllowed(self: *FakeBridge, id: i32, current: []const i32, wanted: []const i32) bool {
+        const opened: []const i32 = self.groups_at_open.get(id) orelse &.{};
         for (wanted) |script_id| {
             const in_wanted = std.mem.count(i32, wanted, &.{script_id});
-            const in_current = std.mem.count(i32, current, &.{script_id});
+            const in_current = @max(std.mem.count(i32, current, &.{script_id}), std.mem.count(i32, opened, &.{script_id}));
             if (in_wanted <= in_current) continue;
             if (script_id < records.min_script_id or script_id > records.max_script_id) {
                 self.say("a script ID in a group is 0..32000", .{});
@@ -2434,7 +2469,7 @@ pub const FakeBridge = struct {
                     self.say("there is already a reinforcement group {d}", .{key});
                     return .refused;
                 }
-                if (!self.groupPutAllowed(&.{}, group.ids)) return .refused;
+                if (!self.groupPutAllowed(key, &.{}, group.ids)) return .refused;
                 const stored = self.storeGroup(key, group.ids);
                 if (stored == .ok) self.record(.record_put, key);
                 return stored;
@@ -2525,7 +2560,7 @@ pub const FakeBridge = struct {
             .group => |group| {
                 if (key < 0 or group.id != key) return .bad_argument;
                 const current: []const i32 = self.groups.get(key) orelse &.{};
-                if (!self.groupPutAllowed(current, group.ids)) return .refused;
+                if (!self.groupPutAllowed(key, current, group.ids)) return .refused;
                 const stored = self.storeGroup(key, group.ids);
                 if (stored == .ok) self.record(.record_put, key);
                 return stored;
