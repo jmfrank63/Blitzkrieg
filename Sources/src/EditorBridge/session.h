@@ -62,6 +62,10 @@ struct SEditorSession
 	// A file may name two areas alike; an edit may not make a NEW duplicate, but an
 	// undo must be able to put an area of the file back beside its twin.
 	std::unordered_map<std::string, int> openedAreaNames;
+	// The script areas themselves as the file held them (WR-A04): one put back
+	// exactly - an undo of a delete or an edit - skips the size and centre rules,
+	// so a file's own odd area (off the map, a negative size) survives its undo.
+	std::vector<SScriptArea> openedAreas;
 	// The start commands and reserve positions the file held when the map was
 	// opened (04-11, D-17, D-18). An add - the undo of a delete - may put back
 	// exactly one of these whatever it names, so the rules an edit is held to do

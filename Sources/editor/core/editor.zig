@@ -2674,6 +2674,34 @@ test "script areas: a name the file held twice can be put back beside its twin, 
     try std.testing.expectError(error.Refused, editor.addScriptArea(third));
 }
 
+test "script areas: a file's own off-map, negative-size area can be deleted or moved and undone (WR-A04)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var odd: records.ScriptArea = .{ .shape = .rectangle, .cx = -50, .cy = 100000, .hx = -3, .hy = 4 };
+    odd.setName("odd");
+    try fake.addScriptAreaFixture(odd);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    // A delete, and its undo puts the file's own area back exactly.
+    try editor.deleteScriptArea(0);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 1), fake.script_areas.items.len);
+    try std.testing.expect(fake.script_areas.items[0].eql(odd));
+    // A move onto the map (the size made sane with it), and its undo sets the odd one back.
+    var moved = odd;
+    moved.cx = 10;
+    moved.cy = 10;
+    moved.hx = 3;
+    try editor.editScriptArea(0, moved, 0);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(fake.script_areas.items[0].eql(odd));
+    try std.testing.expect(!editor.dirty());
+    // A NEW area is still held to the rules.
+    var new_odd = odd;
+    new_odd.setName("new_odd");
+    try std.testing.expectError(error.Refused, editor.addScriptArea(new_odd));
+}
+
 test "record edits of one gesture are one undo step, and one that returns to its start leaves none" {
     var fake = try testFixture(std.testing.allocator);
     defer fake.deinit();
