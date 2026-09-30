@@ -593,6 +593,15 @@ bool SetSessionObjectScriptID( SEditorSession *pSession, int nLinkID, int nScrip
 		if ( pbRefused != 0 ) *pbRefused = true;
 		return false;
 	}
+	// An object the database does not know is written back exactly as it was
+	// read (the preservation invariant), so no edit reaches it - its script ID
+	// neither, as PlaceObjectInSession and DeleteObjectFromSession refuse.
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
 	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
 		return false;
 	// Both copies together; the snapshot first, and undone if the working copy

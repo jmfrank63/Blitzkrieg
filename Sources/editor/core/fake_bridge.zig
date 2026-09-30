@@ -1954,6 +1954,10 @@ pub const FakeBridge = struct {
             self.say("no object with that link ID", .{});
             return .refused;
         };
+        if (!self.objects_list.items[index].known) {
+            self.say("the object database does not know this object's type; it is kept as it is", .{});
+            return .refused;
+        }
         if (self.shared(link_id)) return .refused;
         self.objects_list.items[index].script_id = script_id;
         self.record(.script_id, link_id);

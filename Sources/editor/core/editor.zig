@@ -2770,6 +2770,18 @@ test "script ID: an equal value records nothing" {
     try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
 }
 
+test "script ID: an object whose type the database does not know is Refused and changes nothing (WR-A05)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const before = editor.document.find(3).?.script_id;
+    try std.testing.expectError(error.Refused, editor.setScriptID(3, 5, 0));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "does not know") != null);
+    try std.testing.expectEqual(before, editor.document.find(3).?.script_id);
+    try std.testing.expect(!editor.dirty());
+}
+
 test "script ID: a value out of range or an object that cannot take one is Refused and changes nothing" {
     var fake = try testFixture(std.testing.allocator);
     defer fake.deinit();
