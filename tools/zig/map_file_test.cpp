@@ -987,10 +987,13 @@ static void TestM2RecordOps()
 		const char *pszGood[] = { "m2_script", "Script.v2", "" };
 		for ( int i = 0; i < 3; ++i, ++g_nM2Cases )
 			Check( NMapRecords::IsBareScriptName( pszGood[i] ), ( std::string( "IsBareScriptName accepts \"" ) + pszGood[i] + "\"" ).c_str() );
-		const std::string bad[] = { "..", "a/b", "a\\b", "C:x", ".hidden", "x.lua", "X.LUA", "a..b", std::string( 64, 'a' ) };
-		for ( int i = 0; i < 9; ++i, ++g_nM2Cases )
+		const std::string bad[] = { "..", "a/b", "a\\b", "C:x", ".hidden", "x.lua", "X.LUA", "a..b", std::string( 64, 'a' ),
+		                            "CON", "nul", "Aux.x", "com1", "LPT9" };		// IN-B02: Windows device names
+		for ( int i = 0; i < 14; ++i, ++g_nM2Cases )
 			Check( !NMapRecords::IsBareScriptName( bad[i] ), ( "IsBareScriptName refuses \"" + bad[i] + "\"" ).c_str() );
 		Check( NMapRecords::IsBareScriptName( std::string( 63, 'a' ) ), "IsBareScriptName accepts 63 characters" );
+		Check( NMapRecords::IsBareScriptName( "console" ) && NMapRecords::IsBareScriptName( "com10" ) && NMapRecords::IsBareScriptName( "lpt" ),
+		       "IsBareScriptName accepts names that only start like a device" );
 		SLoadMapInfo *pNull = 0;
 		Check( !NMapRecords::PutScriptFile( pNull, "x" ), "PutScriptFile refuses a null map" );
 	}

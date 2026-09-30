@@ -118,10 +118,27 @@ bool PutScriptFile( SLoadMapInfo *pMap, const std::string &szName )
 	return true;
 }
 
+namespace {
+// A Windows device name (IN-B02): "<dir>\\CON.lua" is the console, not a file,
+// whatever follows the first dot. Case-insensitive, as Windows is.
+bool IsWindowsDeviceName( const std::string &szName )
+{
+	std::string szStem = szName.substr( 0, szName.find( '.' ) );
+	for ( size_t i = 0; i < szStem.size(); ++i )
+		if ( szStem[i] >= 'a' && szStem[i] <= 'z' )
+			szStem[i] = char( szStem[i] - 'a' + 'A' );
+	if ( szStem == "CON" || szStem == "PRN" || szStem == "AUX" || szStem == "NUL" )
+		return true;
+	return szStem.size() == 4 && ( szStem.compare( 0, 3, "COM" ) == 0 || szStem.compare( 0, 3, "LPT" ) == 0 ) && szStem[3] >= '1' && szStem[3] <= '9';
+}
+}
+
 bool IsBareScriptName( const std::string &szName )
 {
 	if ( szName.empty() )
 		return true;
+	if ( IsWindowsDeviceName( szName ) )
+		return false;
 	if ( szName.size() > 63 || szName[0] == '.' || szName.find( ".." ) != std::string::npos )
 		return false;
 	for ( size_t i = 0; i < szName.size(); ++i )
