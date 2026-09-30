@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 04-11-PLAN.md
-last_updated: "2026-09-30T07:26:51.721Z"
-state_head: c49e61b2c1d76b2b803e633cc412afa3d768724a
+stopped_at: Completed 04-12-PLAN.md
+last_updated: "2026-09-30T08:16:55.213Z"
+state_head: 21cd8bd971e511988f171f58bc69d93f5cab0c6f
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 32
-  completed_plans: 30
+  completed_plans: 31
   percent: 14
 current_phase_name: "Map editor M2: roads, rivers, bridges, AI groups, scripts"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-30T07:26:34.499Z
-**Stopped at:** Completed 04-11-PLAN.md
+**Last session:** 2026-09-30T08:16:55.126Z
+**Stopped at:** Completed 04-12-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -100,6 +100,7 @@ behavior needs the in-game rows).
 | Phase 04 P09 | 1h01m | 3 tasks | 21 files |
 | Phase 04 P10 | 1h02m | 4 tasks | 30 files |
 | Phase 04 P11 | 1h20m | 4 tasks | 21 files |
+| Phase 04 P12 | 50m | 3 tasks | 23 files |
 
 ## Decisions
 
@@ -164,3 +165,4 @@ behavior needs the in-game rows).
 - [Phase ?]: 04-11: start commands and reserve positions are judged on what a put changes, and a record the file held at open is always accepted back (openedStartCommands, openedReservePositions), so an undo of a delete of odd file data never drifts; a NEW start-command unit must be a unit or squad the database knows
 - [Phase ?]: 04-11: reserve roles (self-propelled, towed, truck) are read from the stats with dynamic_cast, never the typed lookup (it static_casts with asserts compiled out); a self-propelled gun takes no truck and a truck must pull more than the gun weighs; a set never changes from_explosion
 - [Phase ?]: 04-11: Start Target and Reserve Positions are hidden registry tools (no palette button, menu entry or key) that click on the release; a panel that uses Delete claims it per frame (View.delete_claimed) instead of capturing the keyboard, so the Select tool cannot delete the selected unit as well
+- [Phase ?]: 04-12: a parcel's type is a non-exhaustive enum(i32); the AI side is put whole with the side count so undo restores the side count exactly; the AI General tool's keys act on the selection; every tool is in the palette (tools panel 228 px) and the local M1 reference was refreshed
