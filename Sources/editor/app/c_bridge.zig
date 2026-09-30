@@ -36,6 +36,11 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorVsoDescriptor) == core.bridge.vso_name_capacity);
     std.debug.assert(@sizeOf(c.BkEditorVsoKeyPoint) == 8 * 4);
     std.debug.assert(@sizeOf(c.BkEditorVsoInfo) == 4 + core.bridge.vso_name_capacity + 4 + 4);
+    // The bridge records (04-06): read and written field by field; the sizes
+    // are the ABI.
+    std.debug.assert(@sizeOf(c.BkEditorBridgeDescriptor) == core.bridge.name_capacity + 3 * 4);
+    std.debug.assert(@sizeOf(c.BkEditorPlannedPiece) == 4 * 4);
+    std.debug.assert(@sizeOf(c.BkEditorBridgeInfo) == core.bridge.name_capacity + 4 + 4 * 4 + 4);
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -118,6 +123,10 @@ pub const RealBridge = struct {
         .insertVsoPoint = vtableInsertVsoPoint,
         .deleteVsoPoint = vtableDeleteVsoPoint,
         .pickVso = vtablePickVso,
+        .bridgeDescriptors = vtableBridgeDescriptors,
+        .planBridge = vtablePlanBridge,
+        .drawBridge = vtableDrawBridge,
+        .bridges = vtableBridges,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -505,6 +514,88 @@ pub const RealBridge = struct {
         const result = status(c.BkEditorPickVso(from(ptr).session, wx, wy, cycle, &c_kind, index));
         if (result == .ok) kind.* = std.enums.fromInt(VsoKind, c_kind) orelse return .failed;
         return result;
+    }
+
+    /// BkEditorBridgeDescriptors in two passes, like `vtableVsoDescriptors`.
+    fn vtableBridgeDescriptors(ptr: *anyopaque, out: []core.bridge.BridgeDescriptor, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorBridgeDescriptors(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        const raw = std.heap.page_allocator.alloc(c.BkEditorBridgeDescriptor, total.*) catch return .failed;
+        defer std.heap.page_allocator.free(raw);
+        var got: c_int = 0;
+        const read = status(c.BkEditorBridgeDescriptors(self.session, raw.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (raw, out[0..raw.len]) |item, *descriptor| {
+            descriptor.* = .{
+                .direction = if (item.direction == 0) .vertical else .horizontal,
+                .has_partner = item.has_partner != 0,
+                .build_during_play_allowed = item.build_during_play_allowed != 0,
+            };
+            descriptor.setName(std.mem.sliceTo(&item.name, 0));
+        }
+        return .ok;
+    }
+
+    /// BkEditorPlanBridge: `total` is always the planned count; the pieces
+    /// that fit `out` are converted.
+    fn vtablePlanBridge(ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, out: []core.bridge.PlannedPiece, total: *usize) Status {
+        const self = from(ptr);
+        var desc_buffer: [core.bridge.name_capacity]u8 = undefined;
+        const desc_z = terminated(&desc_buffer, desc) orelse return .bad_argument;
+        var raw: [256]c.BkEditorPlannedPiece = undefined;
+        const capacity = @min(out.len, raw.len);
+        var count: c_int = 0;
+        const result = status(c.BkEditorPlanBridge(self.session, desc_z, wx0, wy0, wx1, wy1, &raw, @intCast(capacity), &count));
+        total.* = if (count < 0) 0 else @intCast(count);
+        for (raw[0..@min(capacity, total.*)], out[0..@min(capacity, total.*)]) |piece, *planned| planned.* = .{ .x = piece.x, .y = piece.y, .type = piece.type, .dir = piece.dir };
+        // A plan longer than this adapter's own buffer but not the caller's
+        // is this adapter's shortfall, not the caller's.
+        if (result == .refused and total.* > capacity and capacity < out.len) return .failed;
+        return result;
+    }
+
+    fn vtableDrawBridge(ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, token: *i32, index: *i32) Status {
+        const self = from(ptr);
+        var desc_buffer: [core.bridge.name_capacity]u8 = undefined;
+        const desc_z = terminated(&desc_buffer, desc) orelse return .bad_argument;
+        return status(c.BkEditorDrawBridge(self.session, desc_z, wx0, wy0, wx1, wy1, token, index));
+    }
+
+    /// BkEditorBridges in two passes.
+    fn vtableBridges(ptr: *anyopaque, out: []core.bridge.BridgeInfo, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorBridges(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        const raw = std.heap.page_allocator.alloc(c.BkEditorBridgeInfo, total.*) catch return .failed;
+        defer std.heap.page_allocator.free(raw);
+        var got: c_int = 0;
+        const read = status(c.BkEditorBridges(self.session, raw.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (raw, out[0..raw.len]) |item, *info| {
+            info.* = .{
+                .span_count = item.span_count,
+                .min_x = item.min_x,
+                .min_y = item.min_y,
+                .max_x = item.max_x,
+                .max_y = item.max_y,
+                .built_during_play = item.built_during_play != 0,
+            };
+            info.setDesc(std.mem.sliceTo(&item.desc, 0));
+        }
+        return .ok;
     }
 
     /// The engine tier's road and river agreement check.

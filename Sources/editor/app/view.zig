@@ -109,6 +109,8 @@ pub fn ViewWith(comptime Input: type) type {
         selector: tools.Selector = .{},
         /// 04-05: the Roads & Rivers tool (D-08).
         roads_rivers: core.tools_vso.RoadsRivers = .{},
+        /// 04-06: the Bridge tool (D-10..D-12).
+        bridge_tool: core.tools_groups.BridgeTool = .{},
         hover: ?tools.Pointer = null,
 
         map: view_math.MapSize = .{},
@@ -248,6 +250,7 @@ pub fn ViewWith(comptime Input: type) type {
         pub fn showMap(self: *Self, real: anytype, path: []const u8, info: MapInfo, default_object: ?[]const u8) void {
             self.saveCurrentView();
             self.roads_rivers.reset();
+            self.bridge_tool.reset();
             self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
             if (self.remembered.get(path)) |saved| {
                 self.camera_x = saved.camera_x;
@@ -291,6 +294,7 @@ pub fn ViewWith(comptime Input: type) type {
             self.brush.painted.clearRetainingCapacity();
             self.placer.name = "";
             self.roads_rivers.reset();
+            self.bridge_tool.reset();
         }
 
         /// Records `current_path`'s camera and zoom into `remembered`, if a map
@@ -686,6 +690,7 @@ pub fn ViewWith(comptime Input: type) type {
                 .brush => self.brush.handle(editor, event),
                 .place => self.placer.handle(editor, event),
                 .roads_rivers => self.roads_rivers.handle(editor, event),
+                .bridge => self.bridge_tool.handle(editor, event),
             };
             self.noteEditResult(editor, result);
         }

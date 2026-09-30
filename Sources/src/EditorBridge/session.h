@@ -6,12 +6,14 @@
 #include <unordered_map>
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../MapFile/MapOverlay.h"
+#include "../MapFile/MapGeometry.h"
 #include "bridge.h"
 
 class CEditorWorld;
 struct IObjectsDB;
 struct SGDBObjectDesc;
 interface ITerrainEditor;
+interface IAIEditor;
 struct SEditorSession;
 
 // One entry of the session's edit log (04-05, research Pattern 3): an edit the
@@ -361,5 +363,67 @@ bool DeleteVsoFromSession( SEditorSession *pSession, int nKind, int nIndex, int 
 // by nID): points, control points, widths and opacities. False naming the
 // first difference in szMessage.
 bool VsoMatchesEngine( SEditorSession *pSession );
+
+// Places one object in the engine, as CTemplateEditorFrame::AddObjectByAI
+// does (session.cpp): the engine object, or null when the engine would not
+// take it (outside the map, or a type it cannot place).
+IRefCount* PlaceOneObject( const SMapObjectInfo &rObject, const SGDBObjectDesc *pDesc, IAIEditor *pAIEditor );
+// One bridge's spans into the engine, in the order rLinkIDs lists them, from
+// the working-copy records in rSpans (session.cpp): byLinkID gets each span
+// the engine took, futureBuildLinkIDs each span stored with negative HP.
+// Returns how many of rLinkIDs the engine took.
+int BuildOneBridge( SEditorSession *pSession, const std::vector<int> &rLinkIDs, const std::vector<SMapObjectInfo> &rSpans );
+
+// Bridges (session_groups.cpp, 04-06, D-10..D-12). A bridge is one entry of
+// CMapInfo::bridges (the link IDs of its spans, in order) plus its span
+// objects; every edit here changes both, in both copies and the engine, all or
+// nothing, and logs itself in the edit log (SGroupEdit). Drags are world (Vis)
+// units, span positions map (AI) units.
+//
+// A bridge type as the Bridge tool lists it: its name, direction (0 vertical,
+// 1 horizontal), whether its rotated variant (BridgePartnerName) is in the
+// object database, and whether it may be built during play (a WoodenBig_Heavy_
+// type, RoadDrawState.cpp:1253).
+struct SBridgeDescriptorInfo
+{
+	std::string szName;
+	int nDirection;
+	bool bHasPartner;
+	bool bBuildDuringPlay;
+	SBridgeDescriptorInfo() : nDirection( 0 ), bHasPartner( false ), bBuildDuringPlay( false ) {  }
+};
+// Every SGVOGT_BRIDGE type of the object database, sorted by name.
+bool BridgeDescriptorsInSession( SEditorSession *pSession, std::vector<SBridgeDescriptorInfo> *pOut );
+// A bridge type's plan inputs from its SBridgeRPGStats: the direction, the
+// first line span's length (world units) and the origin of the begin span
+// chosen with the seeded index (seed 0: the first begin). Refused (false, the
+// reason in szMessage) for a name that is not a bridge type and for stats
+// whose states, begins, lines or ends are empty (Pitfall 5: the index helpers
+// divide by those lists' sizes).
+bool BridgePlanInputFor( SEditorSession *pSession, const std::string &szDesc, NMapGeometry::SBridgePlanInput *pInput );
+// The spans a drag would place (NMapGeometry::PlanBridge), changing nothing.
+bool PlanBridgeInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast,
+                          std::vector<NMapGeometry::SPlannedPiece> *pSpans, bool *pbRefused );
+// Draws a bridge: the planned spans become objects (the snapshot holds the
+// packed type, the working copy and the engine a seeded concrete index; HP 1,
+// no script ID, player 0, direction 0, fresh link IDs) and a new bridges
+// entry at the end of the list, as one logged edit. pnIndex is the entry's
+// index. Refused, changing nothing, for a bad type, a drag along the wrong
+// axis, and a span the engine will not place (off the map).
+bool DrawBridgeInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast,
+                          int *pnToken, int *pnIndex, bool *pbRefused );
+// One bridges entry as the tools see it: the type (its first span's name),
+// the span count, the box of the spans' positions (map units; a span the map
+// does not hold is left out) and whether it is built during play (a span with
+// negative HP in the saved map).
+struct SBridgeInfo
+{
+	std::string szDesc;
+	int nSpans;
+	CVec2 vMin, vMax;
+	bool bBuiltDuringPlay;
+	SBridgeInfo() : nSpans( 0 ), vMin( VNULL2 ), vMax( VNULL2 ), bBuiltDuringPlay( false ) {  }
+};
+void ReadSessionBridges( const SEditorSession &rSession, std::vector<SBridgeInfo> *pOut );
 
 #endif // __EDITOR_BRIDGE_SESSION_H__

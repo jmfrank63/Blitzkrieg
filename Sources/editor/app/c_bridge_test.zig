@@ -334,5 +334,49 @@ test "the core drives the real bridge: every command, undone and redone" {
     try expectVsoMatches(&real);
     std.debug.print("map-editor-engine: M2 road round trip ok\n", .{});
 
+    // M2 (04-06): a W_WoodenBig_Heavy_01 bridge drawn through the core Editor
+    // on the real engine - the bridge plans its spans, adds them and the
+    // bridges entry as one step - then undone, redone and undone, with the
+    // engine, the world and the document agreeing with the map each time.
+    const bridge_types = try editor.bridgeDescriptors(std.testing.allocator);
+    defer std.testing.allocator.free(bridge_types);
+    const wooden = for (bridge_types) |*item| {
+        if (std.mem.eql(u8, item.nameSlice(), "W_WoodenBig_Heavy_01")) break item;
+    } else return error.NoWoodenBigHeavy;
+    try std.testing.expectEqual(core.bridge.BridgeDirection.horizontal, wooden.direction);
+    try std.testing.expect(wooden.has_partner and wooden.build_during_play_allowed);
+    const bridges_at_open = count: {
+        const at_open = try editor.bridges(std.testing.allocator);
+        defer std.testing.allocator.free(at_open);
+        break :count at_open.len;
+    };
+    const objects_before_bridge = editor.document.objects.items.len;
+    const entry = try editor.drawBridge("W_WoodenBig_Heavy_01", middle_x - 250, middle_y + 250, middle_x + 250, middle_y + 250);
+    try std.testing.expectEqual(bridges_at_open, entry);
+    const drawn = try editor.bridges(std.testing.allocator);
+    defer std.testing.allocator.free(drawn);
+    try std.testing.expectEqual(bridges_at_open + 1, drawn.len);
+    try std.testing.expectEqualStrings("W_WoodenBig_Heavy_01", drawn[entry].descSlice());
+    const spans: usize = @intCast(drawn[entry].span_count);
+    try std.testing.expect(spans >= 3);
+    try std.testing.expectEqual(objects_before_bridge + spans, editor.document.objects.items.len);
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    _ = try editor.undo();
+    try std.testing.expectEqual(objects_before_bridge, editor.document.objects.items.len);
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    _ = try editor.redo();
+    try std.testing.expectEqual(objects_before_bridge + spans, editor.document.objects.items.len);
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    _ = try editor.undo();
+    try std.testing.expect(!editor.dirty());
+    try expectEngineMatches(&real);
+    try expectDocumentIsBridge(&real, &editor);
+    try std.testing.expectError(error.Refused, editor.drawBridge("W_WoodenBig_Heavy_01", middle_x, middle_y - 250, middle_x, middle_y + 250));
+    try std.testing.expect(!editor.dirty());
+    std.debug.print("map-editor-engine: M2 bridge round trip ok ({d} spans)\n", .{spans});
+
     std.debug.print("map-editor-engine: PASS ({d} objects)\n", .{objects_at_open});
 }

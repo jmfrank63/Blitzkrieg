@@ -8,6 +8,7 @@ pub const history = @import("history.zig");
 pub const editor = @import("editor.zig");
 pub const tools = @import("tools.zig");
 pub const tools_vso = @import("tools_vso.zig");
+pub const tools_groups = @import("tools_groups.zig");
 pub const files = @import("files.zig");
 pub const settings = @import("settings.zig");
 pub const autosave = @import("autosave.zig");

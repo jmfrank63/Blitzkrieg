@@ -15,6 +15,9 @@
 #include "../../Sources/src/MapFile/MapEquivalence.h"
 #include "../../Sources/src/MapFile/MapOverlay.h"
 #include "../../Sources/src/MapFile/MapRecords.h"
+#include "../../Sources/src/MapFile/MapGeometry.h"
+#include "../../Sources/src/Main/GameDB.h"
+#include "../../Sources/src/Main/RPGStats.h"
 #include "../../Sources/src/Formats/fmtTerrain.h"
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 #include "../../Sources/src/RandomMapGen/VSO_Types.h"
@@ -171,6 +174,9 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 	BkEditorVsoDescriptor vsoDescriptor; memset( &vsoDescriptor, 0, sizeof vsoDescriptor );
 	BkEditorVsoInfo vsoInfo; memset( &vsoInfo, 0, sizeof vsoInfo );
 	BkEditorVec3 vsoPoint = { 10.0f, 10.0f, 0.0f };
+	BkEditorBridgeDescriptor bridgeDescriptor; memset( &bridgeDescriptor, 0, sizeof bridgeDescriptor );
+	BkEditorPlannedPiece plannedPiece; memset( &plannedPiece, 0, sizeof plannedPiece );
+	BkEditorBridgeInfo bridgeInfo; memset( &bridgeInfo, 0, sizeof bridgeInfo );
 	BkEditorPaintCell cell = { 0, 0, 0 };
 	BkEditorView view; memset( &view, 0, sizeof view );
 	BkEditorPathSet paths; memset( &paths, 0, sizeof paths );
@@ -247,6 +253,10 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorInsertVsoPoint", [&] { return BkEditorInsertVsoPoint( 0, 0, 0, 0, &nInt ); } },
 		{ "BkEditorDeleteVsoPoint", [&] { return BkEditorDeleteVsoPoint( 0, 0, 0, 0, &nInt ); } },
 		{ "BkEditorPickVso", [&] { return BkEditorPickVso( 0, 0, 0, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorBridgeDescriptors", [&] { return BkEditorBridgeDescriptors( 0, &bridgeDescriptor, 1, &nInt ); } },
+		{ "BkEditorPlanBridge", [&] { return BkEditorPlanBridge( 0, "x", 0, 0, 0, 0, &plannedPiece, 1, &nInt ); } },
+		{ "BkEditorDrawBridge", [&] { return BkEditorDrawBridge( 0, "x", 0, 0, 0, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorBridges", [&] { return BkEditorBridges( 0, &bridgeInfo, 1, &nInt ); } },
 	};
 	int nNoSessionFailures = 0;
 	for ( const Call &c : noSession )
@@ -307,6 +317,10 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorInsertVsoPoint", [&] { return BkEditorInsertVsoPoint( pSession, 0, 0, 0, &nInt ); } },
 		{ "BkEditorDeleteVsoPoint", [&] { return BkEditorDeleteVsoPoint( pSession, 0, 0, 0, &nInt ); } },
 		{ "BkEditorPickVso", [&] { return BkEditorPickVso( pSession, 0, 0, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorBridgeDescriptors", [&] { return BkEditorBridgeDescriptors( pSession, &bridgeDescriptor, 1, &nInt ); } },
+		{ "BkEditorPlanBridge", [&] { return BkEditorPlanBridge( pSession, "x", 0, 0, 0, 0, &plannedPiece, 1, &nInt ); } },
+		{ "BkEditorDrawBridge", [&] { return BkEditorDrawBridge( pSession, "x", 0, 0, 0, 0, &nInt, &nInt2 ); } },
+		{ "BkEditorBridges", [&] { return BkEditorBridges( pSession, &bridgeInfo, 1, &nInt ); } },
 		{ "BkEditorSaveMap", [&] { return BkEditorSaveMap( pSession, "zig-out/local-test/should-not-exist.bzm" ); } },
 	};
 	int nNoMapFailures = 0;
@@ -4614,6 +4628,229 @@ static void TestM2RoadEdits( BkEditorSession *pSession, const std::string &szScr
 	printf( "editor-bridge: M2 road edits ok (%d edits)\n", int( tokens.size() ) );
 }
 
+// ---------------------------------------------------------------------------
+// Bridges (04-06)
+// ---------------------------------------------------------------------------
+
+static const char *const WOODEN_BRIDGE = "W_WoodenBig_Heavy_01";
+static const char *const WOODEN_BRIDGE_ROTATED = "W_WoodenBig_Heavy_02";
+
+// The plan inputs of a bridge type from the object database's own stats, as
+// the bridge takes them (session_groups.cpp BridgePlanInputFor): the first
+// line span's length, the seeded (seed 0) begin span's origin.
+static bool PlanInputFromStats( const char *pszType, NMapGeometry::SBridgePlanInput *pInput )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	const SGDBObjectDesc *pDesc = pObjectsDB != 0 ? pObjectsDB->GetDesc( pszType ) : 0;
+	const SBridgeRPGStats *pStats = pDesc != 0 ? NGDB::GetRPGStats<SBridgeRPGStats>( pObjectsDB, pDesc ) : 0;
+	if ( pStats == 0 || pStats->states[0].begins.empty() || pStats->states[0].lines.empty() )
+		return false;
+	pInput->nDirection = pStats->direction == SBridgeRPGStats::HORIZONTAL ? NMapGeometry::BRIDGE_HORIZONTAL : NMapGeometry::BRIDGE_VERTICAL;
+	pInput->fSpanLength = pStats->GetSpanStats( pStats->states[0].lines[0] ).fLength * fWorldCellSize / 2.0f;
+	pInput->vBeginOrigin = pStats->GetOrigin( pStats->states[0].begins[0] );
+	return true;
+}
+
+// A planned bridge laid over a map the way the bridge lays it: one object per
+// span (the packed type, HP fHP, no script ID, player 0) with link IDs from
+// NextLinkID up, then the entry at nEntryIndex (-1 appends). The link IDs go to
+// pLinkIDs when given.
+static bool LayBridge( CMapInfo *pMap, const char *pszType, const std::vector<NMapGeometry::SPlannedPiece> &rPlan, float fHP, int nEntryIndex,
+                       std::vector<int> *pLinkIDs = 0 )
+{
+	std::vector<int> linkIDs;
+	for ( size_t i = 0; i < rPlan.size(); ++i )
+	{
+		NMapOverlay::SAddObject add;
+		add.szName = pszType;
+		add.vPos = rPlan[i].vPos;
+		add.nDir = rPlan[i].nDir;
+		add.nPlayer = 0;
+		add.nFrameIndex = rPlan[i].nPackedType;
+		add.fHP = fHP;
+		add.nScriptID = -1;
+		int nLinkID = -1;
+		if ( !NMapOverlay::AddObject( pMap, add, &nLinkID ) )
+			return false;
+		linkIDs.push_back( nLinkID );
+	}
+	if ( pLinkIDs != 0 )
+		*pLinkIDs = linkIDs;
+	return NMapRecords::InsertBridgeEntry( pMap, nEntryIndex, linkIDs );
+}
+
+static std::vector<BkEditorBridgeInfo> ReadBridges( BkEditorSession *pSession )
+{
+	int nCount = 0;
+	BkEditorBridges( pSession, 0, 0, &nCount );
+	std::vector<BkEditorBridgeInfo> out( nCount > 0 ? nCount : 1 );
+	if ( BkEditorBridges( pSession, &out[0], int( out.size() ), &nCount ) != BK_EDITOR_OK && nCount > 0 )
+		return std::vector<BkEditorBridgeInfo>();
+	out.resize( nCount );
+	return out;
+}
+
+// Every link of every bridges entry of the saved map at szPath is an object
+// the engine holds (the game's LoadBridges dereferences each one).
+static bool EveryBridgeLinkIsInTheEngine( BkEditorSession *pSession, const std::string &szPath, const char *pszWhen )
+{
+	CMapInfo saved;
+	std::string szError;
+	if ( !Check( BkEditorSaveMap( pSession, szPath.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) ||
+	     !Check( NMapFile::Read( szPath.c_str(), &saved, &szError ), szError.c_str() ) )
+		return false;
+	int nMissing = 0, nLinks = 0;
+	for ( size_t i = 0; i < saved.bridges.size(); ++i )
+		for ( size_t j = 0; j < saved.bridges[i].size(); ++j, ++nLinks )
+		{
+			BkEditorObjectState state;
+			if ( BkEditorEngineObjectState( pSession, saved.bridges[i][j], &state ) != BK_EDITOR_OK )
+				++nMissing;
+		}
+	remove( OsPath( szPath ).c_str() );
+	return Check( nMissing == 0, NStr::Format( "every bridge link names an engine object %s (%d of %d missing)", pszWhen, nMissing, nLinks ) );
+}
+
+static bool WorldAgrees( BkEditorSession *pSession, const char *pszWhen )
+{
+	return Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, NStr::Format( "the world matches the map %s: %s", pszWhen, BkEditorLastMessage( pSession ) ) );
+}
+
+// D-10/D-03/C6 on the real engine: a W_WoodenBig_Heavy_01 bridge dragged
+// across coldwinter is planned exactly as NMapGeometry::PlanBridge plans it
+// with the stats' own inputs, saved as the map the map-file tier's builder
+// makes, undone to the unedited bytes and redone; a drag along the wrong axis
+// and one off the map are refused with nothing changed.
+static void TestM2Bridges( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The types: every bridge of the object database, each _01 with its _02.
+	int nTypes = 0;
+	BkEditorBridgeDescriptors( pSession, 0, 0, &nTypes );
+	std::vector<BkEditorBridgeDescriptor> types( nTypes > 0 ? nTypes : 1 );
+	Check( BkEditorBridgeDescriptors( pSession, &types[0], int( types.size() ), &nTypes ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	bool bWooden = false;
+	int nWithPartner = 0, nBuildable = 0;
+	for ( int i = 0; i < nTypes; ++i )
+	{
+		nWithPartner += types[i].has_partner;
+		nBuildable += types[i].build_during_play_allowed;
+		if ( std::string( types[i].name ) == WOODEN_BRIDGE )
+			bWooden = types[i].direction == 1 && types[i].has_partner == 1 && types[i].build_during_play_allowed == 1;
+	}
+	printf( "editor-bridge: %d bridge types, %d with a rotated variant, %d buildable during play\n", nTypes, nWithPartner, nBuildable );
+	if ( !Check( bWooden, "W_WoodenBig_Heavy_01 is listed: horizontal, with a partner, buildable during play" ) )
+		return;
+
+	NMapGeometry::SBridgePlanInput input;
+	if ( !Check( PlanInputFromStats( WOODEN_BRIDGE, &input ), "W_WoodenBig_Heavy_01's stats give the plan inputs" ) )
+		return;
+	// The literals the map-file tier plans with (map_file_test.cpp) are these.
+	Check( input.nDirection == NMapGeometry::BRIDGE_HORIZONTAL && input.fSpanLength == 6.0f * fWorldCellSize / 2.0f &&
+	       input.vBeginOrigin.x == 320.0f && input.vBeginOrigin.y == 160.0f,
+	       NStr::Format( "the stats agree with the map-file tier's literals (L %g, origin %g, %g)", input.fSpanLength, input.vBeginOrigin.x, input.vBeginOrigin.y ) );
+
+	const float fMiddleX = original.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+	const float fMiddleY = original.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+	const CVec2 vFirst( fMiddleX - 250.0f, fMiddleY + 250.0f ), vLast( fMiddleX + 250.0f, fMiddleY + 250.0f );
+	std::vector<NMapGeometry::SPlannedPiece> plan;
+	if ( !Check( NMapGeometry::PlanBridge( input, vFirst, vLast, &plan, &szError ), szError.c_str() ) )
+		return;
+
+	// The ghost's plan is the function's.
+	{
+		int nPlanned = 0;
+		std::vector<BkEditorPlannedPiece> pieces( 64 );
+		Check( BkEditorPlanBridge( pSession, WOODEN_BRIDGE, vFirst.x, vFirst.y, vLast.x, vLast.y, &pieces[0], 64, &nPlanned ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		bool bSame = nPlanned == int( plan.size() );
+		for ( int i = 0; bSame && i < nPlanned; ++i )
+			bSame = pieces[i].x == plan[i].vPos.x && pieces[i].y == plan[i].vPos.y && pieces[i].type == plan[i].nPackedType && pieces[i].dir == plan[i].nDir;
+		Check( bSame, NStr::Format( "BkEditorPlanBridge plans what PlanBridge plans (%d spans)", nPlanned ) );
+		Check( BkEditorPlanBridge( pSession, WOODEN_BRIDGE, vFirst.x, vFirst.y, vLast.x, vLast.y, 0, 0, &nPlanned ) == BK_EDITOR_REFUSED && nPlanned == int( plan.size() ),
+		       "a plan with no buffer is refused with the count filled" );
+	}
+
+	const std::string szUnedited = szScratch + "\\bridges-unedited.bzm";
+	const std::string szEdited = szScratch + "\\bridges-edited.bzm";
+	const std::string szCheck = szScratch + "\\bridges-check.bzm";
+	if ( !Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const int nObjectsBefore = int( ReadObjectRecords( pSession ).size() );
+
+	int nToken = -1, nIndex = -1;
+	if ( !Check( BkEditorDrawBridge( pSession, WOODEN_BRIDGE, vFirst.x, vFirst.y, vLast.x, vLast.y, &nToken, &nIndex ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( nToken >= 0 && nIndex == int( original.bridges.size() ), NStr::Format( "the bridge's entry is appended (token %d, index %d)", nToken, nIndex ) );
+	Check( int( ReadObjectRecords( pSession ).size() ) == nObjectsBefore + int( plan.size() ), "one object per span" );
+	WorldAgrees( pSession, "after a bridge was drawn" );
+	EveryBridgeLinkIsInTheEngine( pSession, szCheck, "after a bridge was drawn" );
+	{
+		const std::vector<BkEditorBridgeInfo> infos = ReadBridges( pSession );
+		if ( Check( int( infos.size() ) == nIndex + 1, "BkEditorBridges lists the new entry" ) )
+		{
+			const BkEditorBridgeInfo &rInfo = infos[nIndex];
+			Check( std::string( rInfo.desc ) == WOODEN_BRIDGE && rInfo.span_count == int( plan.size() ) && rInfo.built_during_play == 0 &&
+			       rInfo.min_x == plan.front().vPos.x && rInfo.max_x == plan.back().vPos.x && rInfo.min_y == plan.front().vPos.y,
+			       "with its type, span count and box" );
+		}
+	}
+	CMapInfo expected;
+	Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() );
+	Check( LayBridge( &expected, WOODEN_BRIDGE, plan, 1.0f, -1 ), "the expected bridge lays over the file's map" );
+	CheckSavedEquals( pSession, szEdited, expected, "a new bridge" );
+
+	// Undo: the unedited bytes; redo: the expected map again.
+	if ( Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		WorldAgrees( pSession, "after the bridge's undo" );
+		Check( int( ReadObjectRecords( pSession ).size() ) == nObjectsBefore, "the undo takes every span out" );
+		const std::string szUndone = szScratch + "\\bridges-undone.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( SameBytes( szUnedited, szUndone ), "a bridge and its undo save the unedited file byte for byte" );
+		remove( OsPath( szUndone ).c_str() );
+	}
+	if ( Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		WorldAgrees( pSession, "after the bridge's redo" );
+		EveryBridgeLinkIsInTheEngine( pSession, szCheck, "after the bridge's redo" );
+		CheckSavedEquals( pSession, szEdited, expected, "the bridge redone" );
+	}
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// Refusals change nothing: the objects, the entries, the engine, the file.
+	const size_t nBridges = ReadBridges( pSession ).size();
+	nToken = nIndex = 7;
+	Check( BkEditorDrawBridge( pSession, WOODEN_BRIDGE, fMiddleX, fMiddleY - 250.0f, fMiddleX + 10.0f, fMiddleY + 250.0f, &nToken, &nIndex ) == BK_EDITOR_REFUSED,
+	       "a vertical drag of the horizontal _01 is refused" );
+	Check( std::string( BkEditorLastMessage( pSession ) ).find( "horizontally" ) != std::string::npos, NStr::Format( "and says so (%s)", BkEditorLastMessage( pSession ) ) );
+	Check( nToken == -1 && nIndex == -1, "a refusal hands out no token" );
+	const float fEdge = original.terrain.tiles.GetSizeX() * fWorldCellSize;
+	Check( BkEditorDrawBridge( pSession, WOODEN_BRIDGE, fEdge - 200.0f, fMiddleY, fEdge + 600.0f, fMiddleY, &nToken, &nIndex ) == BK_EDITOR_REFUSED,
+	       "a bridge running off the map's edge is refused" );
+	printf( "editor-bridge: off the edge: %s\n", BkEditorLastMessage( pSession ) );
+	Check( BkEditorDrawBridge( pSession, "no_such_bridge", vFirst.x, vFirst.y, vLast.x, vLast.y, &nToken, &nIndex ) == BK_EDITOR_REFUSED, "an unknown type is refused" );
+	Check( BkEditorDrawBridge( pSession, "10.5-cm_Flak38", vFirst.x, vFirst.y, vLast.x, vLast.y, &nToken, &nIndex ) == BK_EDITOR_REFUSED, "a type that is not a bridge is refused" );
+	Check( BkEditorDrawBridge( pSession, WOODEN_BRIDGE, std::numeric_limits<float>::quiet_NaN(), vFirst.y, vLast.x, vLast.y, &nToken, &nIndex ) == BK_EDITOR_BAD_ARGUMENT, "a NaN drag is a bad argument" );
+	Check( BkEditorDrawBridge( pSession, 0, vFirst.x, vFirst.y, vLast.x, vLast.y, &nToken, &nIndex ) == BK_EDITOR_BAD_ARGUMENT, "a null type is a bad argument" );
+	Check( ReadBridges( pSession ).size() == nBridges, "no refusal added an entry" );
+	Check( int( ReadObjectRecords( pSession ).size() ) == nObjectsBefore, "nor an object" );
+	WorldAgrees( pSession, "after the refusals" );
+	EveryBridgeLinkIsInTheEngine( pSession, szCheck, "after the refusals" );
+	const std::string szRefused = szScratch + "\\bridges-refused.bzm";
+	if ( Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( SameBytes( szUnedited, szRefused ), "and the map saves unedited byte for byte" );
+	remove( OsPath( szRefused ).c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	printf( "editor-bridge: M2 bridges draw ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -4770,6 +5007,7 @@ int main( int argc, char **argv )
 		TestM2Roads( pSession, szScratch );
 		TestM2Rivers( pSession, szScratch );
 		TestM2RoadEdits( pSession, szScratch );
+		TestM2Bridges( pSession, szScratch );
 		// The overlay reaches a present made straight through the engine, so the
 		// check after the stop below can tell a removed overlay from a present
 		// that never happened.

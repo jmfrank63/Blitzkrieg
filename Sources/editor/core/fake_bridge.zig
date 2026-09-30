@@ -55,13 +55,16 @@ const VsoKind = bridge_mod.VsoKind;
 const VsoDescriptor = bridge_mod.VsoDescriptor;
 const VsoKeyPoint = bridge_mod.VsoKeyPoint;
 const VsoView = bridge_mod.VsoView;
+const BridgeDescriptor = bridge_mod.BridgeDescriptor;
+const PlannedPiece = bridge_mod.PlannedPiece;
+const BridgeInfo = bridge_mod.BridgeInfo;
 
 /// World units per tile, standing in for the engine's own conversion.
 pub const tile_size: f32 = 32.0;
 /// How far from an object's centre a point still picks it.
 pub const pick_radius: f32 = 16.0;
 
-pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, vso_edit, undo_edit, redo_edit };
+pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, vso_edit, undo_edit, redo_edit, bridge_edit };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
 /// One start command as far as a delete reads it: up to eight units (link
@@ -149,6 +152,43 @@ pub const FakeVso = struct {
 /// absent for an add or a delete) at a list position.
 const FakeVsoEdit = struct { kind: VsoKind, index: usize, before: ?FakeVso, after: ?FakeVso };
 
+/// The most spans a fake bridge holds.
+pub const max_bridge_spans = 32;
+/// A bridge type the fake offers: what BkEditorBridgeDescriptors lists, and
+/// its line span's length in WORLD units (the real one reads the stats).
+pub const FakeBridgeType = struct { descriptor: BridgeDescriptor, span_length: f32 };
+/// One bridges entry: the link IDs of its spans, in order, and whether it is
+/// built during play (the real one keeps that as the spans' negative HP).
+pub const FakeBridgeEntry = struct {
+    links: [max_bridge_spans]i32 = @splat(0),
+    count: usize = 0,
+    built: bool = false,
+
+    pub fn linkSlice(self: *const FakeBridgeEntry) []const i32 {
+        return self.links[0..self.count];
+    }
+
+    fn holds(self: *const FakeBridgeEntry, link_id: i32) bool {
+        return std.mem.indexOfScalar(i32, self.linkSlice(), link_id) != null;
+    }
+};
+/// A bridge as the fake's edit log keeps it: its entry and where it sits,
+/// and its span objects with their places in the object list, in the order
+/// they go back (ascending place), as the real SBridgeGroup does.
+const FakeBridgeGroup = struct {
+    entry_index: usize = 0,
+    entry: FakeBridgeEntry = .{},
+    spans: [max_bridge_spans]ObjectRecord = @splat(.{}),
+    places: [max_bridge_spans]usize = @splat(0),
+    count: usize = 0,
+};
+/// One logged bridge edit: the group it takes out and the group it puts in
+/// (both for a rotate, at the same entry index).
+const FakeBridgeEdit = struct { before: ?FakeBridgeGroup, after: ?FakeBridgeGroup };
+/// The fake's edit log holds road and river edits and bridge edits alike,
+/// one token space, as the real session's does.
+const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit };
+
 /// A mutable empty slice to start from; Allocator.free ignores a zero length.
 var no_tiles: [0]u8 = .{};
 const PaintRecord = struct { cells: []PaintCell, before: []u8 };
@@ -181,7 +221,11 @@ pub const FakeBridge = struct {
     /// The map's roads (0) and rivers (1), in list order. Kept across a reopen.
     vso_lists: [2]std.ArrayListUnmanaged(FakeVso) = .{ .empty, .empty },
     /// The edit log (BkEditorUndoEdit/RedoEdit): by token, and the two stacks.
-    vso_edits: std.ArrayListUnmanaged(FakeVsoEdit) = .empty,
+    edits: std.ArrayListUnmanaged(FakeEdit) = .empty,
+    /// The bridge types (`addBridgeTypeFixture`) and the map's bridges entries
+    /// (`addBridgeEntryFixture`, and every drawn bridge), in list order.
+    bridge_types: std.ArrayListUnmanaged(FakeBridgeType) = .empty,
+    bridge_entries: std.ArrayListUnmanaged(FakeBridgeEntry) = .empty,
     applied_edits: std.ArrayListUnmanaged(i32) = .empty,
     undone_edits: std.ArrayListUnmanaged(i32) = .empty,
     diplomacy_table: std.ArrayListUnmanaged(i32) = .empty,
@@ -242,7 +286,9 @@ pub const FakeBridge = struct {
         self.tombstones.deinit(self.allocator);
         for (&self.vso_descriptors) |*list| list.deinit(self.allocator);
         for (&self.vso_lists) |*list| list.deinit(self.allocator);
-        self.vso_edits.deinit(self.allocator);
+        self.edits.deinit(self.allocator);
+        self.bridge_types.deinit(self.allocator);
+        self.bridge_entries.deinit(self.allocator);
         self.applied_edits.deinit(self.allocator);
         self.undone_edits.deinit(self.allocator);
         self.diplomacy_table.deinit(self.allocator);
@@ -300,6 +346,31 @@ pub const FakeBridge = struct {
         if (!self.buildVso(desc, points, width, opacity, &built)) return false;
         try self.vso_lists[@intFromEnum(kind)].append(self.allocator, built);
         return true;
+    }
+
+    /// A bridge type the object database offers, with its span length (world
+    /// units).
+    pub fn addBridgeTypeFixture(self: *FakeBridge, name: []const u8, direction: bridge_mod.BridgeDirection, has_partner: bool, span_length: f32) !void {
+        var descriptor: BridgeDescriptor = .{ .direction = direction, .has_partner = has_partner };
+        descriptor.setName(name);
+        descriptor.build_during_play_allowed = std.mem.indexOf(u8, name, "WoodenBig_Heavy_") != null;
+        try self.bridge_types.append(self.allocator, .{ .descriptor = descriptor, .span_length = span_length });
+    }
+
+    /// A bridges entry naming objects already in the map (`addFixture`).
+    pub fn addBridgeEntryFixture(self: *FakeBridge, links: []const i32) !void {
+        var entry: FakeBridgeEntry = .{ .count = links.len };
+        std.debug.assert(links.len <= max_bridge_spans);
+        @memcpy(entry.links[0..links.len], links);
+        try self.bridge_entries.append(self.allocator, entry);
+    }
+
+    pub fn bridgeCount(self: *const FakeBridge) usize {
+        return self.bridge_entries.items.len;
+    }
+
+    pub fn bridgeEntry(self: *const FakeBridge, index: usize) *const FakeBridgeEntry {
+        return &self.bridge_entries.items[index];
     }
 
     /// The road or river at `index`, for a test to read.
@@ -365,7 +436,7 @@ pub const FakeBridge = struct {
         self.undone.clearRetainingCapacity();
         self.freeTombstones();
         self.tombstones.clearRetainingCapacity();
-        self.vso_edits.clearRetainingCapacity();
+        self.edits.clearRetainingCapacity();
         self.applied_edits.clearRetainingCapacity();
         self.undone_edits.clearRetainingCapacity();
     }
@@ -472,6 +543,10 @@ pub const FakeBridge = struct {
         .insertVsoPoint = insertVsoPoint,
         .deleteVsoPoint = deleteVsoPoint,
         .pickVso = pickVso,
+        .bridgeDescriptors = bridgeDescriptors,
+        .planBridge = planBridge,
+        .drawBridge = drawBridge,
+        .bridges = bridges,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a
@@ -535,12 +610,12 @@ pub const FakeBridge = struct {
 
     /// Puts an edit through and logs it, handing out its token.
     fn logVsoEdit(self: *FakeBridge, edit: FakeVsoEdit, token: *i32) Status {
-        self.vso_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        self.edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
         self.applied_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
         const put = self.putVso(edit.kind, edit.index, if (edit.before) |*b| b else null, if (edit.after) |*a| a else null);
         if (put != .ok) return put;
-        self.vso_edits.appendAssumeCapacity(edit);
-        token.* = @intCast(self.vso_edits.items.len - 1);
+        self.edits.appendAssumeCapacity(.{ .vso = edit });
+        token.* = @intCast(self.edits.items.len - 1);
         self.applied_edits.appendAssumeCapacity(token.*);
         self.undone_edits.clearRetainingCapacity();
         self.record(.vso_edit, token.*);
@@ -555,8 +630,10 @@ pub const FakeBridge = struct {
             return .refused;
         }
         self.undone_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
-        const edit = &self.vso_edits.items[@intCast(token)];
-        const put = self.putVso(edit.kind, edit.index, if (edit.after) |*a| a else null, if (edit.before) |*b| b else null);
+        const put = switch (self.edits.items[@intCast(token)]) {
+            .vso => |*edit| self.putVso(edit.kind, edit.index, if (edit.after) |*a| a else null, if (edit.before) |*b| b else null),
+            .bridge => |*edit| self.putBridge(if (edit.after) |*a| a else null, if (edit.before) |*b| b else null),
+        };
         if (put != .ok) return put;
         _ = self.applied_edits.pop();
         self.undone_edits.appendAssumeCapacity(token);
@@ -572,8 +649,10 @@ pub const FakeBridge = struct {
             return .refused;
         }
         self.applied_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
-        const edit = &self.vso_edits.items[@intCast(token)];
-        const put = self.putVso(edit.kind, edit.index, if (edit.before) |*b| b else null, if (edit.after) |*a| a else null);
+        const put = switch (self.edits.items[@intCast(token)]) {
+            .vso => |*edit| self.putVso(edit.kind, edit.index, if (edit.before) |*b| b else null, if (edit.after) |*a| a else null),
+            .bridge => |*edit| self.putBridge(if (edit.before) |*b| b else null, if (edit.after) |*a| a else null),
+        };
         if (put != .ok) return put;
         _ = self.undone_edits.pop();
         self.applied_edits.appendAssumeCapacity(token);
@@ -830,6 +909,218 @@ pub const FakeBridge = struct {
         return .ok;
     }
 
+    /// The bridges entry naming the span, else a fixture span's bridge
+    /// (`addFixture(.., true)`), else null.
+    fn bridgeHolding(self: *const FakeBridge, link_id: i32) ?i32 {
+        for (self.bridge_entries.items, 0..) |*entry, index| {
+            if (entry.holds(link_id)) return @intCast(index);
+        }
+        return self.bridge_spans.get(link_id);
+    }
+
+    fn bridgeType(self: *const FakeBridge, name: []const u8) ?*const FakeBridgeType {
+        for (self.bridge_types.items) |*item| {
+            if (std.mem.eql(u8, item.descriptor.nameSlice(), name)) return item;
+        }
+        return null;
+    }
+
+    /// The real PlanBridge's rules the core can see, without the grid fit and
+    /// the truncation: the drag's longer axis must be the type's (a drag with
+    /// no length matches either), it is locked to that axis and ordered, and
+    /// n = int(run / span length) middle spans lie between a begin and an end
+    /// span at the drag's lower end + (i + 0.5) L and + n L. Positions are
+    /// MAP units; a span off the map is `off_map`.
+    const Plan = struct { pieces: [max_bridge_spans]PlannedPiece = undefined, count: usize = 0, off_map: bool = false };
+
+    fn planFor(self: *FakeBridge, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, plan: *Plan) Status {
+        if (desc.len == 0 or desc.len >= bridge_mod.name_capacity) return .bad_argument;
+        if (!std.math.isFinite(wx0) or !std.math.isFinite(wy0) or !std.math.isFinite(wx1) or !std.math.isFinite(wy1)) return .bad_argument;
+        const kind = self.bridgeType(desc) orelse {
+            self.say("\"{s}\" is not a bridge type", .{desc});
+            return .refused;
+        };
+        const horizontal = kind.descriptor.direction == .horizontal;
+        const dx = @abs(wx1 - wx0);
+        const dy = @abs(wy1 - wy0);
+        if (if (horizontal) dy > dx else dx > dy) {
+            if (horizontal) self.say("this bridge runs horizontally: drag it along the other axis or rotate the type", .{}) else self.say("this bridge runs vertically: drag it along the other axis or rotate the type", .{});
+            return .refused;
+        }
+        const start: [2]f32 = if (horizontal) .{ @min(wx0, wx1), wy0 } else .{ wx0, @min(wy0, wy1) };
+        const run = if (horizontal) dx else dy;
+        const parts: usize = @intFromFloat(@floor(run / kind.span_length));
+        if (parts + 2 > max_bridge_spans) {
+            self.say("the fake holds at most {d} spans per bridge", .{max_bridge_spans});
+            return .refused;
+        }
+        plan.* = .{};
+        var index: usize = 0;
+        while (index < parts + 2) : (index += 1) {
+            const along: f32 = if (index == 0) 0 else if (index == parts + 1) @as(f32, @floatFromInt(parts)) * kind.span_length else (@as(f32, @floatFromInt(index - 1)) + 0.5) * kind.span_length;
+            const world: [2]f32 = if (horizontal) .{ start[0] + along, start[1] } else .{ start[0], start[1] + along };
+            if (!self.onMap(world[0], world[1])) plan.off_map = true;
+            plan.pieces[index] = .{
+                .x = world[0] * self.map_per_world,
+                .y = world[1] * self.map_per_world,
+                .type = if (index == 0) 1 else if (index == parts + 1) 4 else 2,
+                .dir = 0,
+            };
+        }
+        plan.count = parts + 2;
+        return .ok;
+    }
+
+    fn bridgeDescriptors(ptr: *anyopaque, out: []BridgeDescriptor, total: *usize) Status {
+        const self = from(ptr);
+        total.* = self.bridge_types.items.len;
+        for (self.bridge_types.items[0..@min(out.len, self.bridge_types.items.len)], 0..) |item, index| out[index] = item.descriptor;
+        return if (out.len >= self.bridge_types.items.len) .ok else .refused;
+    }
+
+    fn planBridge(ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, out: []PlannedPiece, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        total.* = 0;
+        var plan: Plan = .{};
+        const planned = self.planFor(desc, wx0, wy0, wx1, wy1, &plan);
+        if (planned != .ok) return planned;
+        total.* = plan.count;
+        const count = @min(out.len, plan.count);
+        @memcpy(out[0..count], plan.pieces[0..count]);
+        return if (out.len >= plan.count) .ok else .refused;
+    }
+
+    fn drawBridge(ptr: *anyopaque, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, token: *i32, index: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        index.* = -1;
+        var plan: Plan = .{};
+        const planned = self.planFor(desc, wx0, wy0, wx1, wy1, &plan);
+        if (planned != .ok) return planned;
+        if (plan.off_map) {
+            self.say("the engine would not place the bridge's spans there (off the map?)", .{});
+            return .refused;
+        }
+        var group: FakeBridgeGroup = .{ .entry_index = self.bridge_entries.items.len, .count = plan.count };
+        var link_id = self.nextLinkId();
+        for (plan.pieces[0..plan.count], 0..) |piece, at| {
+            var span: ObjectRecord = .{ .link_id = link_id, .x = piece.x, .y = piece.y, .dir = 0, .player = 0 };
+            span.setName(desc);
+            group.spans[at] = span;
+            group.places[at] = std.math.maxInt(usize); // appended
+            group.entry.links[at] = link_id;
+            link_id += 1;
+        }
+        group.entry.count = plan.count;
+        const logged = self.logBridgeEdit(.{ .before = null, .after = group }, token);
+        if (logged != .ok) return logged;
+        index.* = @intCast(group.entry_index);
+        return .ok;
+    }
+
+    fn bridges(ptr: *anyopaque, out: []BridgeInfo, total: *usize) Status {
+        const self = from(ptr);
+        total.* = self.bridge_entries.items.len;
+        for (self.bridge_entries.items[0..@min(out.len, self.bridge_entries.items.len)], 0..) |*entry, at| {
+            var info: BridgeInfo = .{ .span_count = @intCast(entry.count), .built_during_play = entry.built };
+            var any = false;
+            for (entry.linkSlice()) |link| {
+                const place = self.indexOf(link) orelse continue;
+                const span = self.objects_list.items[place];
+                if (!any) {
+                    info.setDesc(span.nameSlice());
+                    info.min_x = span.x;
+                    info.max_x = span.x;
+                    info.min_y = span.y;
+                    info.max_y = span.y;
+                    any = true;
+                }
+                info.min_x = @min(info.min_x, span.x);
+                info.min_y = @min(info.min_y, span.y);
+                info.max_x = @max(info.max_x, span.x);
+                info.max_y = @max(info.max_y, span.y);
+            }
+            out[at] = info;
+        }
+        return if (out.len >= self.bridge_entries.items.len) .ok else .refused;
+    }
+
+    /// Puts a bridge edit through and logs it, handing out its token.
+    fn logBridgeEdit(self: *FakeBridge, edit: FakeBridgeEdit, token: *i32) Status {
+        self.edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        self.applied_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        var logged = edit;
+        const put = self.putBridge(if (logged.before) |*b| b else null, if (logged.after) |*a| a else null);
+        if (put != .ok) return put;
+        self.edits.appendAssumeCapacity(.{ .bridge = logged });
+        token.* = @intCast(self.edits.items.len - 1);
+        self.applied_edits.appendAssumeCapacity(token.*);
+        self.undone_edits.clearRetainingCapacity();
+        self.record(.bridge_edit, token.*);
+        return .ok;
+    }
+
+    /// The one put of a bridge edit, its undo and its redo: `out` taken out
+    /// (its span records and places captured into it), then `in` put in.
+    fn putBridge(self: *FakeBridge, out: ?*FakeBridgeGroup, in: ?*const FakeBridgeGroup) Status {
+        if (out) |group| {
+            const taken = self.removeBridgeGroup(group);
+            if (taken != .ok) return taken;
+        }
+        if (in) |group| {
+            const put = self.addBridgeGroup(group);
+            if (put != .ok) return put;
+        }
+        return .ok;
+    }
+
+    /// The entry first, then the spans in descending place (the real
+    /// RemoveGroup's order), their records and places kept for the way back.
+    fn removeBridgeGroup(self: *FakeBridge, group: *FakeBridgeGroup) Status {
+        if (group.entry_index >= self.bridge_entries.items.len) return .failed;
+        const entry = self.bridge_entries.items[group.entry_index];
+        if (!std.mem.eql(i32, entry.linkSlice(), group.entry.linkSlice())) return .failed;
+        group.entry = entry;
+        var count: usize = 0;
+        for (entry.linkSlice()) |link| {
+            const place = self.indexOf(link) orelse continue;
+            group.places[count] = place;
+            count += 1;
+        }
+        std.mem.sort(usize, group.places[0..count], {}, std.sort.asc(usize));
+        for (group.places[0..count], 0..) |place, at| group.spans[at] = self.objects_list.items[place];
+        group.count = count;
+        _ = self.bridge_entries.orderedRemove(group.entry_index);
+        var at = count;
+        while (at != 0) {
+            at -= 1;
+            _ = self.objects_list.orderedRemove(group.places[at]);
+        }
+        for (group.spans[0..count]) |span| self.link_floor = @max(self.link_floor, span.link_id + 1);
+        return .ok;
+    }
+
+    /// The spans back at their places, ascending, then the entry at its index.
+    fn addBridgeGroup(self: *FakeBridge, group: *const FakeBridgeGroup) Status {
+        if (group.entry_index > self.bridge_entries.items.len) return .failed;
+        for (group.spans[0..group.count]) |span| {
+            if (self.indexOf(span.link_id) != null) {
+                self.say("a span's link ID is in use again", .{});
+                return .refused;
+            }
+        }
+        self.objects_list.ensureUnusedCapacity(self.allocator, group.count) catch return .failed;
+        self.bridge_entries.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        for (group.spans[0..group.count], group.places[0..group.count]) |span, place| {
+            self.objects_list.insertAssumeCapacity(@min(place, self.objects_list.items.len), span);
+            self.link_floor = @max(self.link_floor, span.link_id + 1);
+        }
+        self.bridge_entries.insertAssumeCapacity(group.entry_index, group.entry);
+        return .ok;
+    }
+
     fn lastMessage(ptr: *anyopaque) []const u8 {
         const self = from(ptr);
         return self.message_buffer[0..self.message_len];
@@ -950,7 +1241,7 @@ pub const FakeBridge = struct {
             return .refused;
         }
         if (self.shared(link_id)) return .refused;
-        if (self.bridge_spans.get(link_id)) |bridge_index| {
+        if (self.bridgeHolding(link_id)) |bridge_index| {
             self.say("still referred to by bridge {d}", .{bridge_index});
             return .refused;
         }
@@ -1337,6 +1628,16 @@ pub fn fixture(allocator: std.mem.Allocator) !FakeBridge {
     try fake.addVsoDescriptorFixture(.road, "rail_road_grass");
     try fake.addVsoDescriptorFixture(.road, "road_track");
     try fake.addVsoDescriptorFixture(.river, "defaultriver");
+    // The span above is bridge 0's only span, as a shipped one-span bridge.
+    try fake.addBridgeEntryFixture(&.{2});
+    // Bridge types: a horizontal/vertical pair, a WoodenBig_Heavy_ pair (the
+    // only kind built during play), and one without a rotated variant. A span
+    // is one tile long.
+    try fake.addBridgeTypeFixture("W_Fake_Bridge_01", .horizontal, true, tile_size);
+    try fake.addBridgeTypeFixture("W_Fake_Bridge_02", .vertical, true, tile_size);
+    try fake.addBridgeTypeFixture("W_WoodenBig_Heavy_01", .horizontal, true, tile_size);
+    try fake.addBridgeTypeFixture("W_WoodenBig_Heavy_02", .vertical, true, tile_size);
+    try fake.addBridgeTypeFixture("Lonely_Bridge", .horizontal, false, tile_size);
     return fake;
 }
 

@@ -48,6 +48,10 @@ pub const Editor = struct {
     /// read the roads and rivers again (the bridge holds them; the core keeps
     /// no mirror of their sampled points).
     vso_generation: u32 = 0,
+    /// Bumped by every bridge edit, its undo and its redo, and by an open or
+    /// a close, so the Bridges panel and the markers read the bridges again
+    /// (04-06; the bridge holds them).
+    bridges_generation: u32 = 0,
     /// null in a mode that never saves (a headless tier with no need to);
     /// `save` refuses with "saving needs a file system" rather than write
     /// unsafely when this is unset (D-19).
@@ -159,6 +163,7 @@ pub const Editor = struct {
         self.history.clear(self.allocator);
         self.selection = null;
         self.vso_generation +%= 1;
+        self.bridges_generation +%= 1;
     }
 
     /// Forgets the open document: no path, no objects, nothing to undo or
@@ -179,6 +184,7 @@ pub const Editor = struct {
         self.history.clear(self.allocator);
         self.selection = null;
         self.vso_generation +%= 1;
+        self.bridges_generation +%= 1;
     }
 
     /// The new path is copied before the bridge writes: once the file is
@@ -622,7 +628,7 @@ pub const Editor = struct {
     fn bumpScope(self: *Editor, scope: history_mod.EditScope) void {
         switch (scope) {
             .vso => self.vso_generation +%= 1,
-            .objects => {},
+            .objects => self.bridges_generation +%= 1,
         }
     }
 
@@ -764,6 +770,67 @@ pub const Editor = struct {
         return out;
     }
 
+    /// Draws a bridge of type `desc` (a name from `bridgeDescriptors`) along
+    /// the drag from (wx0, wy0) to (wx1, wy1), WORLD units (D-10): the bridge
+    /// plans the spans, adds them and a new bridges entry as one undo step,
+    /// and the document's objects are read again (scope `objects`). Returns
+    /// the entry's index. A refusal (a drag along the other axis, a span off
+    /// the map, a bad type) changes nothing: not the bridge, not the history.
+    pub fn drawBridge(self: *Editor, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32) EditError!usize {
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        var index: i32 = -1;
+        try self.noteOutcome(self.bridge.drawBridge(desc, wx0, wy0, wx1, wy1, &token, &index));
+        self.commitEdit(&prepared, token, 0, .objects);
+        // The bridge has committed and the history holds the step: a failed
+        // re-read leaves the document short of the new spans, which the
+        // status line reports; the next open or undo reads it again.
+        try self.reloadObjects();
+        return if (index >= 0) @intCast(index) else 0;
+    }
+
+    /// The object database's bridge types, sorted; the caller frees the
+    /// slice with `allocator`. A read: the status line is left alone.
+    pub fn bridgeDescriptors(self: *Editor, allocator: std.mem.Allocator) EditError![]bridge_mod.BridgeDescriptor {
+        var total: usize = 0;
+        var none: [0]bridge_mod.BridgeDescriptor = .{};
+        const sizing = self.bridge.bridgeDescriptors(&none, &total);
+        if (sizing != .ok and sizing != .refused) return error.Failed;
+        const out = try allocator.alloc(bridge_mod.BridgeDescriptor, total);
+        errdefer allocator.free(out);
+        try bridge_mod.check(self.bridge.bridgeDescriptors(out, &total));
+        return out;
+    }
+
+    /// The spans a drag would place (MAP units), changing nothing - the
+    /// ghost. Writes at most `out.len` and returns how many the plan has;
+    /// null when the drag is refused, with the reason in `status()`.
+    pub fn planBridge(self: *Editor, desc: []const u8, wx0: f32, wy0: f32, wx1: f32, wy1: f32, out: []bridge_mod.PlannedPiece) EditError!?usize {
+        var total: usize = 0;
+        const result = self.bridge.planBridge(desc, wx0, wy0, wx1, wy1, out, &total);
+        if (result == .refused and total > out.len) return total;
+        if (result == .refused) {
+            self.noteOutcome(result) catch {};
+            return null;
+        }
+        try bridge_mod.check(result);
+        return total;
+    }
+
+    /// The map's bridges entries in list order; the caller frees the slice
+    /// with `allocator`. A read: the status line is left alone.
+    pub fn bridges(self: *Editor, allocator: std.mem.Allocator) EditError![]bridge_mod.BridgeInfo {
+        var total: usize = 0;
+        var none: [0]bridge_mod.BridgeInfo = .{};
+        const sizing = self.bridge.bridges(&none, &total);
+        if (sizing != .ok and sizing != .refused) return error.Failed;
+        const out = try allocator.alloc(bridge_mod.BridgeInfo, total);
+        errdefer allocator.free(out);
+        try bridge_mod.check(self.bridge.bridges(out, &total));
+        return out;
+    }
+
     fn applyPose(object: *ObjectRecord, pose: Pose) void {
         object.x = pose.x;
         object.y = pose.y;
@@ -839,7 +906,10 @@ pub const Editor = struct {
                 }
                 switch (e.scope) {
                     .vso => self.vso_generation +%= 1,
-                    .objects => try self.reloadObjects(),
+                    .objects => {
+                        self.bridges_generation +%= 1;
+                        try self.reloadObjects();
+                    },
                 }
             },
         }

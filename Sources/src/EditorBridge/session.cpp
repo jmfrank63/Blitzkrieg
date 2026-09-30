@@ -51,28 +51,6 @@ const char* WhyNotPlacedByPalette( int nGameType )
 	return 0;
 }
 
-namespace {
-
-// The snapshot keeps frame indices packed; the working copy is unpacked,
-// because unpacking picks a random visual variant per type and that choice must
-// never reach a file for an object the editor did not touch.
-void MakeWorkingCopy( SEditorSession *pSession )
-{
-	pSession->working = pSession->snapshot;
-	pSession->working.UnpackFrameIndices();
-	// A map saved without altitudes gets a flat sheet, as the MFC editor does:
-	// UpdateTerrainShades reads the altitudes and would divide by an empty one.
-	STerrainInfo &rTerrain = pSession->working.terrain;
-	if ( rTerrain.altitudes.GetSizeX() == 0 || rTerrain.altitudes.GetSizeY() == 0 )
-	{
-		rTerrain.altitudes.SetSizes( rTerrain.patches.GetSizeX() * 16 + 1, rTerrain.patches.GetSizeY() * 16 + 1 );
-		rTerrain.altitudes.SetZero();
-	}
-	CMapInfo::UpdateTerrainShades( &rTerrain,
-	                               CTRect<int>( 0, 0, rTerrain.altitudes.GetSizeX(), rTerrain.altitudes.GetSizeY() ),
-	                               CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( pSession->working.nSeason ) ) );
-}
-
 // Placing one object, as CTemplateEditorFrame::AddObjectByAI does it
 // (TemplateEditorFrame1.cpp:2778-2810). Everything after that line in the MFC
 // version is the editor's own bookkeeping - visual object, undo item, list
@@ -105,6 +83,28 @@ IRefCount* PlaceOneObject( const SMapObjectInfo &rObject, const SGDBObjectDesc *
 	if ( pAIObject != 0 && pDesc->eGameType == SGVOGT_BUILDING )
 		pAIEditor->SetPlayer( pAIObject, nPlayer );
 	return pAIObject;
+}
+
+namespace {
+
+// The snapshot keeps frame indices packed; the working copy is unpacked,
+// because unpacking picks a random visual variant per type and that choice must
+// never reach a file for an object the editor did not touch.
+void MakeWorkingCopy( SEditorSession *pSession )
+{
+	pSession->working = pSession->snapshot;
+	pSession->working.UnpackFrameIndices();
+	// A map saved without altitudes gets a flat sheet, as the MFC editor does:
+	// UpdateTerrainShades reads the altitudes and would divide by an empty one.
+	STerrainInfo &rTerrain = pSession->working.terrain;
+	if ( rTerrain.altitudes.GetSizeX() == 0 || rTerrain.altitudes.GetSizeY() == 0 )
+	{
+		rTerrain.altitudes.SetSizes( rTerrain.patches.GetSizeX() * 16 + 1, rTerrain.patches.GetSizeY() * 16 + 1 );
+		rTerrain.altitudes.SetZero();
+	}
+	CMapInfo::UpdateTerrainShades( &rTerrain,
+	                               CTRect<int>( 0, 0, rTerrain.altitudes.GetSizeX(), rTerrain.altitudes.GetSizeY() ),
+	                               CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( pSession->working.nSeason ) ) );
 }
 
 // One pass over objects or scenarioObjects.
@@ -152,44 +152,59 @@ void PlaceObjects( SEditorSession *pSession, const std::vector<SMapObjectInfo> &
 // scenarioObjects that PlaceObjects set aside. Building them here rather than
 // where they were found is what keeps a bridge's spans in the order the file
 // gives them.
-//
-// A span stored with negative HP is one the mission builds during play. The
-// engine will not take it that way, so - as the editor does - it is created at
-// full HP and its link ID listed; the snapshot still holds the negative value,
-// so what gets written back is unchanged.
-void BuildBridges( SEditorSession *pSession, const std::vector<SMapObjectInfo> &rSpans,
-                   IObjectsDB *pObjectsDB, IAIEditor *pAIEditor )
+void BuildBridges( SEditorSession *pSession, const std::vector<SMapObjectInfo> &rSpans )
 {
 	const std::vector< std::vector<int> > &rBridges = pSession->working.bridges;
 	for ( size_t nBridge = 0; nBridge < rBridges.size(); ++nBridge )
 	{
-		for ( size_t nSpan = 0; nSpan < rBridges[nBridge].size(); ++nSpan )
-		{
-			const int nLinkID = rBridges[nBridge][nSpan];
-			++pSession->nBridgeSpansInMap;
-			std::vector<SMapObjectInfo>::const_iterator it = rSpans.begin();
-			for ( ; it != rSpans.end(); ++it )
-				if ( it->link.nLinkID == nLinkID )
-					break;
-			if ( it == rSpans.end() )
-				continue;
-			SMapObjectInfo span = *it;
-			if ( span.fHP < 0 )
-			{
-				span.fHP = 1.0f;
-				pSession->futureBuildLinkIDs.push_back( nLinkID );
-			}
-			const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( span.szName.c_str() );
-			if ( pDesc == 0 )
-				continue;
-			if ( IRefCount *pAIObject = PlaceOneObject( span, pDesc, pAIEditor ) )
-			{
-				pSession->byLinkID[nLinkID] = pAIObject;
-				++pSession->nBridgeSpansPlaced;
-			}
-		}
+		pSession->nBridgeSpansInMap += int( rBridges[nBridge].size() );
+		pSession->nBridgeSpansPlaced += BuildOneBridge( pSession, rBridges[nBridge], rSpans );
 	}
 }
+}
+
+// One bridge's spans, in the order its entry lists them (BuildBridges' per
+// bridge part, 04-06: the Bridge tool builds a drawn, restored or rotated
+// bridge the same way). A span stored with negative HP is one the mission
+// builds during play. The engine will not take it that way, so - as the
+// editor does - it is created at full HP and its link ID listed; the snapshot
+// still holds the negative value, so what gets written back is unchanged. The
+// snapshot is asked as well as rSpans, because the working copy of a bridge
+// the Bridge tool toggled keeps HP 1.
+int BuildOneBridge( SEditorSession *pSession, const std::vector<int> &rLinkIDs, const std::vector<SMapObjectInfo> &rSpans )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	if ( pObjectsDB == 0 || pAIEditor == 0 )
+		return 0;
+	int nPlaced = 0;
+	for ( size_t nSpan = 0; nSpan < rLinkIDs.size(); ++nSpan )
+	{
+		const int nLinkID = rLinkIDs[nSpan];
+		std::vector<SMapObjectInfo>::const_iterator it = rSpans.begin();
+		for ( ; it != rSpans.end(); ++it )
+			if ( it->link.nLinkID == nLinkID )
+				break;
+		if ( it == rSpans.end() )
+			continue;
+		SMapObjectInfo span = *it;
+		const SMapObjectInfo *pSaved = FindSnapshotObject( *pSession, nLinkID );
+		if ( span.fHP < 0 || ( pSaved != 0 && pSaved->fHP < 0 ) )
+		{
+			span.fHP = 1.0f;
+			if ( std::find( pSession->futureBuildLinkIDs.begin(), pSession->futureBuildLinkIDs.end(), nLinkID ) == pSession->futureBuildLinkIDs.end() )
+				pSession->futureBuildLinkIDs.push_back( nLinkID );
+		}
+		const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( span.szName.c_str() );
+		if ( pDesc == 0 )
+			continue;
+		if ( IRefCount *pAIObject = PlaceOneObject( span, pDesc, pAIEditor ) )
+		{
+			pSession->byLinkID[nLinkID] = pAIObject;
+			++nPlaced;
+		}
+	}
+	return nPlaced;
 }
 
 bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
@@ -301,7 +316,7 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	std::vector<SMapObjectInfo> bridgeSpans;
 	PlaceObjects( pSession, pSession->working.objects, pObjectsDB, pAIEditor, &bridgeSpans );
 	PlaceObjects( pSession, pSession->working.scenarioObjects, pObjectsDB, pAIEditor, &bridgeSpans );
-	BuildBridges( pSession, bridgeSpans, pObjectsDB, pAIEditor );
+	BuildBridges( pSession, bridgeSpans );
 	// The AI has queued a notification for every object it took; one update
 	// turns them into map objects with visuals in the scene.
 	UpdateSessionWorld( pSession );
