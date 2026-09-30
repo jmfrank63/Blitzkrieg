@@ -25,8 +25,20 @@ pub const max_name = 63;
 /// at most 63 characters, so it can never name a path. The same rule as
 /// NMapRecords::IsBareScriptName (MapFile/MapRecords.cpp), reimplemented here so
 /// the core needs no bridge to judge a name; both are tested on the same cases.
+/// A Windows device name (IN-B02): `<dir>\\CON.lua` is the console, not a file,
+/// whatever follows the first dot. Case-insensitive, as Windows is.
+fn isWindowsDeviceName(name: []const u8) bool {
+    const stem = name[0 .. std.mem.indexOfScalar(u8, name, '.') orelse name.len];
+    for ([_][]const u8{ "CON", "PRN", "AUX", "NUL" }) |device| {
+        if (std.ascii.eqlIgnoreCase(stem, device)) return true;
+    }
+    if (stem.len != 4 or stem[3] < '1' or stem[3] > '9') return false;
+    return std.ascii.eqlIgnoreCase(stem[0..3], "COM") or std.ascii.eqlIgnoreCase(stem[0..3], "LPT");
+}
+
 pub fn isBareName(name: []const u8) bool {
     if (name.len == 0) return true;
+    if (isWindowsDeviceName(name)) return false;
     if (name.len > max_name or name[0] == '.') return false;
     if (std.mem.indexOf(u8, name, "..") != null) return false;
     for (name) |char| {
@@ -321,9 +333,9 @@ pub fn folderUrl(files: Files, buffer: []u8, map_path: []const u8, value: []cons
 
 test "isBareName holds the rule NMapRecords::IsBareScriptName holds" {
     // The same cases map_file_test.cpp and editor_bridge_test.cpp give the C++ rule.
-    const good = [_][]const u8{ "", "m2_script", "coldwinter", "a", "A-b_c.d", "script1", "x" ** 63 };
+    const good = [_][]const u8{ "", "m2_script", "coldwinter", "a", "A-b_c.d", "script1", "x" ** 63, "console", "com10", "lpt" };
     for (good) |name| try std.testing.expect(isBareName(name));
-    const bad = [_][]const u8{ "..\\x", "a/b", "x.lua", "x.LUA", "x.Lua", "..", ".hidden", "a b", "a:b", "dir\\name", "x" ** 64, "a..b", ".lua", "C:x", "na\u{e9}me", "a\x00b" };
+    const bad = [_][]const u8{ "..\\x", "a/b", "x.lua", "x.LUA", "x.Lua", "..", ".hidden", "a b", "a:b", "dir\\name", "x" ** 64, "a..b", ".lua", "C:x", "na\u{e9}me", "a\x00b", "CON", "nul", "Aux.x", "com1", "LPT9" };
     for (bad) |name| try std.testing.expect(!isBareName(name));
 }
 
