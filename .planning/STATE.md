@@ -1,14 +1,14 @@
 ---
 gsd_state_version: "1.0"
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 04-09-PLAN.md
-last_updated: "2026-09-30T05:12:15.566Z"
-state_head: f4db3f07397e5b86a8830510ba48fd8079d463cd
+stopped_at: Completed 04-10-PLAN.md
+last_updated: "2026-09-30T06:17:56.028Z"
+state_head: 7bd6314595c945e1f078485f5c6f18bfe67ce30b
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 32
-  completed_plans: 28
+  completed_plans: 29
   percent: 14
 current_phase_name: "Map editor M2: roads, rivers, bridges, AI groups, scripts"
 ---
@@ -56,8 +56,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-30T05:12:15.501Z
-**Stopped at:** Completed 04-09-PLAN.md
+**Last session:** 2026-09-30T06:17:55.961Z
+**Stopped at:** Completed 04-10-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -98,6 +98,7 @@ behavior needs the in-game rows).
 | Phase 04 P07 | 28min | 2 tasks | 23 files |
 | Phase 04 P08 | 2h01m | 3 tasks | 23 files |
 | Phase 04 P09 | 1h01m | 3 tasks | 21 files |
+| Phase 04 P10 | 1h02m | 4 tasks | 30 files |
 
 ## Decisions
 
@@ -155,3 +156,6 @@ behavior needs the in-game rows).
 - [Phase ?]: 04-09: Hide checked takes the object out of the scene (the MFC editor's RemoveFromScene/AddToScene), not opacity 0: opacity left a tank's mesh shadow and health bar standing; the objects come back for the world's update and leave again
 - [Phase ?]: 04-09: a group put validates only what it adds (0..32000, once); what the file held when the map opened is exempt, so an undo can put a file's own odd data back (the session keeps openedGroups)
 - [Phase ?]: 04-09: the Group Manager is a floating window (Map -> Reinforcement groups...), every control a command; the generic record path now has record_add and record_delete with recordKeys/insertRecord/removeRecord
+- [Phase ?]: 04-10: a script file put takes None, a bare name or exactly the value the file held at open (shipped maps hold a folder path); every copy, list and URL uses the last path component the game itself keeps (gameScriptName), so the fixed-folder-plus-validated-name mitigation holds
+- [Phase ?]: 04-10: a palette-placed object is linked with nothing (nLinkWith 0): the game lands a reinforcement only when it is 0, so an editor-placed unit in a group never landed; the group tools' spans, fences and trench pieces keep -1
+- [Phase ?]: 04-10: script areas are index-keyed records stored verbatim in AI units; the MFC Vis -> AI truncation lives once in NMapGeometry and the bridge answers drag, move and resize as pure calls; a name the file held twice can be put back as often as it held it
