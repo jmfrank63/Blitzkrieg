@@ -515,7 +515,15 @@ BkEditorStatus BkEditorWorldMatchesMap( BkEditorSession *session );
    a bridge span (6), a trench piece (4) and a fence (9) are 0 as well: each
    only makes sense inside its bridge, trench or fence run, which its own tool
    draws. */
-typedef struct { char name[64]; int game_type; int placeable; } BkEditorCatalogueEntry;
+/* One placeable-or-not object of the database. `path` is the object's
+   szPath - the lowercased folder path with its trailing separator
+   (GameDB.cpp lowercases at load) - which is what the object filters match
+   against, exactly the MFC editor's own argument to FilterName
+   (MiniMapTypes.cpp:205 passes pDesc->szPath; the palette list itself was
+   built from szPath, TabSimpleObjectsDialog.cpp:718). `name` (the key) is
+   what the palette places by. A path longer than the buffer is truncated
+   like a long name. */
+typedef struct { char name[64]; char path[128]; int game_type; int placeable; } BkEditorCatalogueEntry;
 BkEditorStatus BkEditorCatalogue( BkEditorSession *session, BkEditorCatalogueEntry *out, int capacity, int *out_count );
 
 /* D-29: the palette's own picture for one object - the icon.tga in its
@@ -1583,6 +1591,59 @@ BkEditorStatus BkEditorEntrenchments( BkEditorSession *session, BkEditorEntrench
    the editor could not put back (a link ID the map shares, a piece the engine
    never held): it is kept as read. */
 BkEditorStatus BkEditorDeleteEntrenchment( BkEditorSession *session, int index, int *out_token );
+
+/* Object filters (M3, D-31): the named conditions of folder words the
+   palette's quick toggles, its filter combo and the Filters Composer share,
+   and which later feed the Fields Composer's objects tab (05-10) and the
+   fire-range filter (05-06). Read from the shipped Data/Editor/filter.xml
+   through the engine's own data-tree reader - the MFC editor's exact
+   LoadDataResource call (TabSimpleObjectsDialog.cpp:225) - and merged with
+   the user file <UserRoot>mapeditor/filter.xml: a user filter replaces the
+   shipped one of the same byte-equal name, user-only names are appended, and
+   the shipped ones keep their presence. One filter is up to 8 word lists of
+   up to 8 words of up to 31 characters each (an object's folder path passes
+   when every word of some one list appears in it - the MFC editor's
+   SSimpleFilter::Check).
+
+   `user` is 1 when this entry came from the user file (or is overridden by
+   it) and is therefore a candidate for BkEditorSaveObjectFilters; a shipped
+   name the user has not touched is 0 and is not copied into the user file.
+
+   The answers come ordered by name (byte order), not file order, so a read
+   is order-stable across runs and platforms - the MFC editor's unordered_map
+   iterated in whatever order the bucket array gave. out_count is always the
+   total; a capacity below it is BK_EDITOR_REFUSED after writing what fits,
+   never past capacity; out may be null with capacity 0 to ask for the total
+   (that sizing pass is REFUSED when there are filters, as a short buffer
+   is). A malformed or unreadable file reads empty and never fails the call -
+   a broken filter file must not block the editor (the engine's own tree
+   reader throws into this side's catch). Filters are installation data, not
+   map data: no map need be open.
+
+   BK_EDITOR_BAD_ARGUMENT for a null out_count or a negative capacity. */
+#define BK_EDITOR_FILTER_MAX_LISTS 8
+#define BK_EDITOR_FILTER_MAX_WORDS 8
+#define BK_EDITOR_FILTER_WORD_LEN  32
+typedef struct { int word_count; char words[BK_EDITOR_FILTER_MAX_WORDS][BK_EDITOR_FILTER_WORD_LEN]; } BkEditorObjectFilterWords;
+typedef struct { char name[64]; int list_count; int user; BkEditorObjectFilterWords lists[BK_EDITOR_FILTER_MAX_LISTS]; } BkEditorObjectFilter;
+BkEditorStatus BkEditorObjectFilters( BkEditorSession *session, BkEditorObjectFilter *out, int capacity, int *out_count );
+
+/* Writes the given filters to <UserRoot>mapeditor/filter.xml in the shipped
+   file's own XML shape, through the engine's own data-tree writer (the same
+   reader reads both back). The caller decides what belongs in a user file:
+   the entries BkEditorObjectFilters answered with user 1, plus everything
+   authored or edited since - a shipped name the user has not modified is not
+   copied, so the shipped file keeps answering for it. The directory is
+   created when missing. count 0 (null filters) writes an empty filter set -
+   every filter was deleted. token outs do not apply: filters are not map
+   data and never enter the edit log.
+
+   BK_EDITOR_BAD_ARGUMENT for a negative count, null filters with a count, an
+   empty or unterminated name, a list_count outside 0..8, a word_count
+   outside 0..8, or a word not NUL-terminated within its 32 bytes.
+   BK_EDITOR_REFUSED naming why when the file cannot be written. Safe with no
+   map open; a refusal changes nothing (the file is written once, whole). */
+BkEditorStatus BkEditorSaveObjectFilters( BkEditorSession *session, const BkEditorObjectFilter *filters, int count );
 
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */

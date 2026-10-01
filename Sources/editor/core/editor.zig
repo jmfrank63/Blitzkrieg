@@ -7,6 +7,7 @@ const tools = @import("tools.zig");
 const files_mod = @import("files.zig");
 const shipped_mod = @import("shipped.zig");
 const records = @import("records.zig");
+const core_filters = @import("filters.zig");
 const Bridge = bridge_mod.Bridge;
 const EditError = bridge_mod.EditError;
 const ObjectRecord = bridge_mod.ObjectRecord;
@@ -61,6 +62,15 @@ pub const Editor = struct {
     /// undo and redo, and an open or a close, so whatever shows the terrain's
     /// heights (the minimap's gradient, the Heights panel) reads them again.
     altitudes_generation: u32 = 0,
+    /// The object filters (M3, D-31): the shipped Data/Editor/filter.xml
+    /// merged with the user <UserRoot>mapeditor/filter.xml, read through the
+    /// bridge once at startup (`loadFilters`). The Filters Composer's
+    /// New/Delete/Rename and word edits mutate this list in place - filters
+    /// are installation-level data, never map data, so no history and no
+    /// document dirtying - and `saveFilters` writes the user 1 entries back
+    /// through the bridge. Panels re-read when `filters_generation` moves.
+    filters: std.ArrayListUnmanaged(bridge_mod.ObjectFilter) = .empty,
+    filters_generation: u32 = 0,
     /// null in a mode that never saves (a headless tier with no need to);
     /// `save` refuses with "saving needs a file system" rather than write
     /// unsafely when this is unset (D-19).
@@ -88,6 +98,7 @@ pub const Editor = struct {
     pub fn deinit(self: *Editor) void {
         self.document.deinit(self.allocator);
         self.history.deinit(self.allocator);
+        self.filters.deinit(self.allocator);
         var backed_up_keys = self.backed_up.keyIterator();
         while (backed_up_keys.next()) |key| self.allocator.free(key.*);
         self.backed_up.deinit(self.allocator);
@@ -947,6 +958,136 @@ pub const Editor = struct {
 
     pub fn freeActionList(allocator: std.mem.Allocator, list: ActionList) void {
         allocator.free(list.items);
+    }
+
+    // -----------------------------------------------------------------
+    // Object filters (M3, D-31). Not map data: nothing here touches the
+    // document, the history or an open/close - filters gate the palette,
+    // the composer edits them session-wide, and save writes the user file.
+    // -----------------------------------------------------------------
+
+    /// Reads the merged filters through the bridge (shipped files + user
+    /// file, user wins by name). Replaces whatever this session held.
+    pub fn loadFilters(self: *Editor) EditError!void {
+        var filters: []bridge_mod.ObjectFilter = &.{};
+        try self.noteOutcome(self.bridge.objectFilters(self.allocator, &filters));
+        self.filters.deinit(self.allocator);
+        self.filters = .fromOwnedSlice(filters);
+        self.filters_generation +%= 1;
+    }
+
+    pub fn filtersSlice(self: *const Editor) []bridge_mod.ObjectFilter {
+        return self.filters.items;
+    }
+
+    fn findFilter(self: *Editor, name: []const u8) ?*bridge_mod.ObjectFilter {
+        for (self.filters.items) |*one| {
+            if (std.mem.eql(u8, one.nameSlice(), name)) return one;
+        }
+        return null;
+    }
+
+    fn filterNameTaken(self: *Editor, name: []const u8) bool {
+        return self.findFilter(name) != null;
+    }
+
+    /// The composer's New Filter: an empty user filter appended. Refused for
+    /// an invalid name (see filters.nameValid) or a taken one; a refusal
+    /// changes nothing.
+    pub fn filterNew(self: *Editor, name: []const u8) EditError!void {
+        if (!core_filters.nameValid(name)) {
+            self.setStatus("filters: ", "a filter name is 1..63 characters, no control characters, no |");
+            return error.Refused;
+        }
+        if (self.filterNameTaken(name)) {
+            self.setStatus("filters: ", "a filter named that already exists");
+            return error.Refused;
+        }
+        var filter: bridge_mod.ObjectFilter = .{};
+        filter.setName(name);
+        filter.user = 1;
+        try self.filters.append(self.allocator, filter);
+        self.filters_generation +%= 1;
+    }
+
+    /// The composer's Delete Filter: the named filter leaves the live list
+    /// (the next save no longer writes it, so a user-file override of a
+    /// shipped name disappears with it - exactly the MFC's erase). Refused
+    /// when there is none.
+    pub fn filterDelete(self: *Editor, name: []const u8) EditError!void {
+        for (self.filters.items, 0..) |*one, index| {
+            if (std.mem.eql(u8, one.nameSlice(), name)) {
+                _ = self.filters.orderedRemove(index);
+                self.filters_generation +%= 1;
+                return;
+            }
+        }
+        self.setStatus("filters: ", "no filter is named that");
+        return error.Refused;
+    }
+
+    /// The composer's Rename Filter. The renamed filter becomes user-owned
+    /// (it must be written or the rename is lost). Refused for an invalid or
+    /// taken new name or a missing old one.
+    pub fn filterRename(self: *Editor, old: []const u8, new: []const u8) EditError!void {
+        const filter = self.findFilter(old) orelse {
+            self.setStatus("filters: ", "no filter is named that");
+            return error.Refused;
+        };
+        if (!core_filters.nameValid(new)) {
+            self.setStatus("filters: ", "a filter name is 1..63 characters, no control characters, no |");
+            return error.Refused;
+        }
+        if (!std.mem.eql(u8, old, new) and self.filterNameTaken(new)) {
+            self.setStatus("filters: ", "a filter named that already exists");
+            return error.Refused;
+        }
+        filter.setName(new);
+        filter.user = 1;
+        self.filters_generation +%= 1;
+    }
+
+    /// The composer's word-list edit: the named filter's conditions are
+    /// replaced whole (the composer edits one list at a time; it sends the
+    /// full list it now wants). The filter becomes user-owned. Refused when
+    /// the filter does not exist or the lists do not fit the bridge's caps
+    /// (8 lists of 8 words of 31 characters) - the caps are the ABI's, and a
+    /// word list the file could not hold must not silently truncate.
+    pub fn filterPut(self: *Editor, updated_in: bridge_mod.ObjectFilter) EditError!void {
+        var updated = updated_in;
+        const name = updated.nameSlice();
+        const filter = self.findFilter(name) orelse {
+            self.setStatus("filters: ", "no filter is named that");
+            return error.Refused;
+        };
+        if (updated.list_count < 0 or updated.list_count > bridge_mod.filter_max_lists) {
+            self.setStatus("filters: ", "a filter carries at most 8 word lists");
+            return error.Refused;
+        }
+        for (updated.lists[0..@intCast(updated.list_count)]) |list| {
+            if (list.word_count < 0 or list.word_count > bridge_mod.filter_max_words) {
+                self.setStatus("filters: ", "a word list holds at most 8 words");
+                return error.Refused;
+            }
+        }
+        const index = (@intFromPtr(filter) - @intFromPtr(self.filters.items.ptr)) / @sizeOf(bridge_mod.ObjectFilter);
+        updated.user = 1;
+        self.filters.items[index] = updated;
+        self.filters_generation +%= 1;
+    }
+
+    /// Writes the user-owned filters through the bridge. Refused when the
+    /// bridge refuses (an unwritable user root names why); a refusal changes
+    /// nothing on disk.
+    pub fn saveFilters(self: *Editor) EditError!void {
+        var user: std.ArrayListUnmanaged(bridge_mod.ObjectFilter) = .empty;
+        defer user.deinit(self.allocator);
+        for (self.filters.items) |one| {
+            if (one.user == 1) user.append(self.allocator, one) catch return error.OutOfMemory;
+        }
+        try self.noteOutcome(self.bridge.saveObjectFilters(user.items));
+        // Entries written are user-file entries now; their user flag stands.
+        self.filters_generation +%= 1;
     }
 
     /// The map's start commands (D-17) in list order, each one's units owned by
@@ -3891,4 +4032,64 @@ test "new map refusals: sizes and season are caller bugs, nothing changes" {
     try std.testing.expectEqual(width_at_open, editor.document.info.width_tiles);
     try std.testing.expectEqualStrings("fixture.bzm", editor.document.path.items);
     try std.testing.expectEqual(@as(usize, 3), editor.document.objects.items.len);
+}
+
+test "filters: load merges through the bridge, the composer edits session-wide, save writes the user ones" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+
+    // The fake's two shipped fixtures answer as the merged list.
+    try editor.loadFilters();
+    try std.testing.expectEqual(@as(u32, 1), editor.filters_generation);
+    try std.testing.expectEqual(@as(usize, 2), editor.filtersSlice().len);
+    try std.testing.expectEqualStrings("Buildings", editor.filtersSlice()[0].nameSlice());
+    try std.testing.expectEqual(@as(c_int, 0), editor.filtersSlice()[0].user);
+
+    // New: an empty user filter. Invalid and taken names are refused, and a
+    // refusal leaves the list and its generation alone.
+    try std.testing.expectError(error.Refused, editor.filterNew("a|b"));
+    try std.testing.expectError(error.Refused, editor.filterNew("Buildings"));
+    const generation = editor.filters_generation;
+    try std.testing.expectEqual(@as(usize, 2), editor.filtersSlice().len);
+    try editor.filterNew("Mine Fields");
+    try std.testing.expectEqual(generation + 1, editor.filters_generation);
+    try std.testing.expectEqual(@as(usize, 3), editor.filtersSlice().len);
+    try std.testing.expectEqual(@as(c_int, 1), editor.filtersSlice()[2].user);
+    try std.testing.expectEqual(@as(c_int, 0), editor.filtersSlice()[2].list_count);
+
+    // Rename: the filter becomes user-owned under its new name.
+    try std.testing.expectError(error.Refused, editor.filterRename("No Such", "Other"));
+    try std.testing.expectError(error.Refused, editor.filterRename("Mine Fields", "Squads"));
+    try editor.filterRename("Mine Fields", "Flora");
+    try std.testing.expectEqualStrings("Flora", editor.filtersSlice()[2].nameSlice());
+    try std.testing.expectEqual(@as(c_int, 1), editor.filtersSlice()[2].user);
+
+    // Put: the composer's word-list edit replaces whole and marks user.
+    var edited = editor.filtersSlice()[0];
+    edited.lists[0].word_count = 2;
+    @memcpy(edited.lists[0].words[1][0.."terrain".len], "terrain");
+    try editor.filterPut(edited);
+    try std.testing.expectEqual(@as(c_int, 1), editor.filtersSlice()[0].user);
+    try std.testing.expectEqual(@as(c_int, 2), editor.filtersSlice()[0].lists[0].word_count);
+    var off: bridge_mod.ObjectFilter = .{};
+    off.setName("Off");
+    off.list_count = 9;
+    try std.testing.expectError(error.Refused, editor.filterPut(off));
+
+    // Save writes only the user ones; the fake answers the written set on
+    // the next read.
+    try editor.saveFilters();
+    try std.testing.expectEqual(@as(u32, 5), editor.filters_generation);
+    var reloaded: []bridge_mod.ObjectFilter = &.{};
+    try bridge_mod.check(fake.bridge().objectFilters(std.testing.allocator, &reloaded));
+    defer std.testing.allocator.free(reloaded);
+    try std.testing.expectEqual(@as(usize, 3), reloaded.len);
+
+    // Delete: the filter leaves the list (its user-file override with it).
+    try std.testing.expectError(error.Refused, editor.filterDelete("No Such"));
+    try editor.filterDelete("Flora");
+    try std.testing.expectEqual(@as(usize, 2), editor.filtersSlice().len);
+    try std.testing.expectEqual(@as(u32, 6), editor.filters_generation);
 }

@@ -47,11 +47,11 @@ const FixedPath = struct {
     buffer: [max_path]u8 = undefined,
     len: usize = 0,
 
-    fn slice(self: *const FixedPath) []const u8 {
+    pub fn slice(self: *const FixedPath) []const u8 {
         return self.buffer[0..self.len];
     }
 
-    fn set(self: *FixedPath, text: []const u8) void {
+    pub fn set(self: *FixedPath, text: []const u8) void {
         self.len = @min(text.len, self.buffer.len);
         @memcpy(self.buffer[0..self.len], text[0..self.len]);
     }
@@ -74,6 +74,26 @@ pub const Settings = struct {
     maps_folder_storage: FixedPath = .{},
     recent_storage: [recent_capacity]FixedPath = [_]FixedPath{.{}} ** recent_capacity,
     recent_count: usize = 0,
+
+    /// D-31 (M3): the palette's filter combo selection and the nine quick
+    /// toggles' assigned filter names (empty = an unset slot), persisted like
+    /// the MFC editor's dialog parameters. Names are the filters' own
+    /// (Data/Editor/filter.xml keys); a name no filter has any more simply
+    /// shows as an empty slot.
+    filter_active: FixedPath = .{},
+    filter_slots: [filter_slot_count]FixedPath = [_]FixedPath{.{}} ** filter_slot_count,
+
+    pub const filter_slot_count = 9;
+
+    pub fn filterSlot(self: *const Settings, index: usize) []const u8 {
+        if (index >= filter_slot_count) return "";
+        return self.filter_slots[index].slice();
+    }
+
+    pub fn setFilterSlot(self: *Settings, index: usize, name: []const u8) void {
+        if (index >= filter_slot_count) return;
+        self.filter_slots[index].set(name);
+    }
 
     /// Empty means "use the default maps folder" (D-25's hint text).
     pub fn mapsFolder(self: *const Settings) []const u8 {
@@ -169,6 +189,11 @@ fn applyKey(settings: *Settings, key: []const u8, value: []const u8) void {
         }
     } else if (std.mem.eql(u8, key, "maps_folder")) {
         settings.setMapsFolder(value);
+    } else if (std.mem.eql(u8, key, "filter_active")) {
+        settings.filter_active.set(value);
+    } else if (std.mem.startsWith(u8, key, "filter_slot_")) {
+        const index = std.fmt.parseInt(usize, key["filter_slot_".len..], 10) catch return;
+        settings.setFilterSlot(index, value);
     } else if (std.mem.eql(u8, key, "recent")) {
         if (settings.recent_count < recent_capacity) {
             settings.recent_storage[settings.recent_count].set(value);
@@ -213,6 +238,10 @@ pub fn format(self: *const Settings, writer: *std.Io.Writer) std.Io.Writer.Error
     try writer.print("instant_update={s}\n", .{if (self.instant_update) "on" else "off"});
     try writer.print("fit_to_grid={s}\n", .{if (self.fit_to_grid) "on" else "off"});
     if (self.mapsFolder().len != 0) try writer.print("maps_folder={s}\n", .{self.mapsFolder()});
+    if (self.filter_active.slice().len != 0) try writer.print("filter_active={s}\n", .{self.filter_active.slice()});
+    for (self.filter_slots, 0..) |slot, index| {
+        if (slot.slice().len != 0) try writer.print("filter_slot_{d}={s}\n", .{ index, slot.slice() });
+    }
     var i: usize = 0;
     while (i < self.recent_count) : (i += 1) try writer.print("recent={s}\n", .{self.recentAt(i)});
 }
@@ -267,6 +296,25 @@ test "default_format: bzm by default, xml reads, malformed keeps the default" {
     try std.testing.expectEqual(Format.bzm, parse("default_format=zip\n").default_format);
     try std.testing.expectEqualStrings(".xml", formatExtension(.xml));
     try std.testing.expectEqualStrings(".bzm", formatExtension(.bzm));
+}
+
+test "filter slots and the active filter persist, malformed indices are skipped" {
+    const read = parse("filter_active=Buildings\nfilter_slot_0=Buildings\nfilter_slot_8=Squads\nfilter_slot_9=Nope\nfilter_slot_x=Nope\n");
+    try std.testing.expectEqualStrings("Buildings", read.filter_active.slice());
+    try std.testing.expectEqualStrings("Buildings", read.filterSlot(0));
+    try std.testing.expectEqualStrings("Squads", read.filterSlot(8));
+    try std.testing.expectEqualStrings("", read.filterSlot(9));
+
+    var settings: Settings = .{};
+    settings.filter_active.set("Flora");
+    settings.setFilterSlot(3, "Obj Terrain");
+    var buffer: [512]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    const round_tripped = parse(writer.buffered());
+    try std.testing.expectEqualStrings("Flora", round_tripped.filter_active.slice());
+    try std.testing.expectEqualStrings("Obj Terrain", round_tripped.filterSlot(3));
+    try std.testing.expectEqualStrings("", round_tripped.filterSlot(0));
 }
 
 test "round trip: repeated 'recent' lines parse in file order, most recent first" {

@@ -5,6 +5,7 @@
 //! including x86_64-windows-gnu, where the engine C++ does not.
 const std = @import("std");
 const records = @import("records.zig");
+const core_filters = @import("filters.zig");
 
 pub const Status = enum(c_int) {
     ok = 0,
@@ -86,6 +87,61 @@ pub const ActionCommand = struct {
 /// BkEditorPaintCell, layout included: the adapter hands a slice of these
 /// straight to the C call.
 pub const PaintCell = extern struct { x: c_int, y: c_int, tile: u8 };
+
+/// BkEditorObjectFilter's word lists (M3, D-31), layout included.
+pub const filter_max_lists = 8;
+pub const filter_max_words = 8;
+pub const filter_word_capacity = 32;
+pub const ObjectFilterWords = extern struct {
+    word_count: c_int = 0,
+    words: [filter_max_words][filter_word_capacity]u8 = [_][filter_word_capacity]u8{[_]u8{0} ** filter_word_capacity} ** filter_max_words,
+};
+
+/// BkEditorObjectFilter (M3, D-31), layout included: one named object filter
+/// as the shipped Data/Editor/filter.xml and the user
+/// <UserRoot>mapeditor/filter.xml carry it, merged. `user` is 1 when the
+/// entry came from (or is overridden by) the user file and so belongs in the
+/// next `saveObjectFilters` - a shipped name the user has not touched is 0.
+pub const ObjectFilter = extern struct {
+    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    list_count: c_int = 0,
+    user: c_int = 0,
+    lists: [filter_max_lists]ObjectFilterWords = [_]ObjectFilterWords{.{}} ** filter_max_lists,
+
+    pub fn nameSlice(self: *const ObjectFilter) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    pub fn setName(self: *ObjectFilter, text: []const u8) void {
+        const len = @min(text.len, name_capacity - 1);
+        @memset(&self.name, 0);
+        @memcpy(self.name[0..len], text[0..len]);
+    }
+
+    /// Borrows this record as a `filters.Filter` for `matches`: every word
+    /// slice points into the record's own buffers, and the scratch holds the
+    /// slice arrays - both must outlive the returned Filter, which the
+    /// caller's cache (refreshed when `filters_generation` moves) provides.
+    pub fn view(self: *const ObjectFilter, scratch: *FilterView) core_filters.Filter {
+        const n_lists: usize = @min(@as(usize, @intCast(@max(self.list_count, 0))), filter_max_lists);
+        for (0..n_lists) |l| {
+            const word_count: usize = @min(@as(usize, @intCast(@max(self.lists[l].word_count, 0))), filter_max_words);
+            for (0..word_count) |w| {
+                scratch.words[l][w] = std.mem.sliceTo(&self.lists[l].words[w], 0);
+            }
+            scratch.lists[l] = scratch.words[l][0..word_count];
+        }
+        return .{ .name = self.nameSlice(), .lists = scratch.lists[0..n_lists] };
+    }
+};
+
+/// The per-`ObjectFilter.view` scratch: the word and word-list slices must
+/// outlive the returned Filter, so they live here (one per live view - the
+/// palette's is refreshed when `filters_generation` moves).
+pub const FilterView = struct {
+    words: [filter_max_lists][filter_max_words][]const u8 = undefined,
+    lists: [filter_max_lists]core_filters.WordList = undefined,
+};
 
 /// BkEditorAltitudeRegion (M3, D-19), layout included: terrain-VERTEX
 /// indices, half-open [x0, x1) x [y0, y1) - altitudes are indexed by terrain
@@ -592,6 +648,16 @@ pub const Bridge = struct {
         /// edit. Refused for one that holds units or has a piece the editor
         /// could not put back.
         deleteEntrenchment: *const fn (ptr: *anyopaque, index: i32, token: *i32) Status,
+        /// BkEditorObjectFilters (M3, D-31): the shipped filter.xml merged
+        /// with the user file, ordered by name, allocated with `allocator`
+        /// into `out` (the caller frees it on .ok only). Not map data: works
+        /// with no map open. Refused when a file holds more filters than the
+        /// first pass answered (two-pass).
+        objectFilters: *const fn (ptr: *anyopaque, allocator: std.mem.Allocator, out: *[]ObjectFilter) Status,
+        /// BkEditorSaveObjectFilters (M3, D-31): writes `filters` (the ones
+        /// authored or edited - `user` 1) to <UserRoot>mapeditor/filter.xml
+        /// in the shipped file's own XML shape. A refusal changes nothing.
+        saveObjectFilters: *const fn (ptr: *anyopaque, filters: []const ObjectFilter) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -668,6 +734,8 @@ pub const Bridge = struct {
     pub fn drawEntrenchment(self: Bridge, points: []const records.Vec3, player: i32, token: *i32, index: *i32) Status { return self.vtable.drawEntrenchment(self.ptr, points, player, token, index); }
     pub fn entrenchments(self: Bridge, out: []EntrenchmentInfo, total: *usize) Status { return self.vtable.entrenchments(self.ptr, out, total); }
     pub fn deleteEntrenchment(self: Bridge, index: i32, token: *i32) Status { return self.vtable.deleteEntrenchment(self.ptr, index, token); }
+    pub fn objectFilters(self: Bridge, allocator: std.mem.Allocator, out: *[]ObjectFilter) Status { return self.vtable.objectFilters(self.ptr, allocator, out); }
+    pub fn saveObjectFilters(self: Bridge, filters: []const ObjectFilter) Status { return self.vtable.saveObjectFilters(self.ptr, filters); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 
@@ -705,4 +773,12 @@ test "a heights stroke has the C struct's layout" {
     try std.testing.expectEqual(@as(usize, 28), @offsetOf(HeightsStrokeParams, "click_x"));
     try std.testing.expectEqual(@as(usize, 36), @offsetOf(HeightsStrokeParams, "stroke_start"));
     try std.testing.expectEqual(@as(usize, 40), @offsetOf(HeightsStrokeParams, "ctrl_held"));
+}
+
+test "an object filter has the C struct's layout" {
+    try std.testing.expectEqual(@as(usize, 4 + filter_max_words * filter_word_capacity), @sizeOf(ObjectFilterWords));
+    try std.testing.expectEqual(@as(usize, name_capacity + 4 + 4 + filter_max_lists * (4 + filter_max_words * filter_word_capacity)), @sizeOf(ObjectFilter));
+    try std.testing.expectEqual(@as(usize, name_capacity), @offsetOf(ObjectFilter, "list_count"));
+    try std.testing.expectEqual(@as(usize, name_capacity + 4), @offsetOf(ObjectFilter, "user"));
+    try std.testing.expectEqual(@as(usize, name_capacity + 8), @offsetOf(ObjectFilter, "lists"));
 }

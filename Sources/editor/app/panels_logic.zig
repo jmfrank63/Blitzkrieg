@@ -99,6 +99,59 @@ pub fn matchesFilter(name: []const u8, filter: []const u8) bool {
     return std.ascii.indexOfIgnoreCase(name, filter) != null;
 }
 
+/// The most object filters one palette frame can have active: the combo's
+/// plus the nine quick toggles.
+pub const max_active_filters = core.settings.Settings.filter_slot_count + 1;
+
+/// The palette's active object filters (M3, D-31) as indices into `filters`:
+/// the combo's filter first (when one is named), then every checked slot's
+/// in slot order. A name no filter carries any more, an empty slot and an
+/// unchecked slot contribute nothing, and a filter already collected (the
+/// combo naming a checked slot's own filter) is not collected twice. Returns
+/// how many of `out`'s entries were filled.
+pub fn collectActiveFilterIndices(
+    combo: []const u8,
+    slots: [core.settings.Settings.filter_slot_count][]const u8,
+    checked: [core.settings.Settings.filter_slot_count]bool,
+    filters: []const core.bridge.ObjectFilter,
+    out: *[max_active_filters]usize,
+) usize {
+    var count: usize = 0;
+    if (combo.len != 0) addNamedFilterIndex(combo, filters, out, &count);
+    for (slots, checked) |slot, is_checked| {
+        if (!is_checked or slot.len == 0) continue;
+        addNamedFilterIndex(slot, filters, out, &count);
+    }
+    return count;
+}
+
+fn addNamedFilterIndex(name: []const u8, filters: []const core.bridge.ObjectFilter, out: *[max_active_filters]usize, count: *usize) void {
+    for (filters, 0..) |*one, index| {
+        if (!std.mem.eql(u8, one.nameSlice(), name)) continue;
+        for (out[0..count.*]) |already| {
+            if (already == index) return;
+        }
+        if (count.* >= max_active_filters) return;
+        out[count.*] = index;
+        count.* += 1;
+        return;
+    }
+}
+
+/// The palette's two filter stages together (M3, D-31): the text filter (a
+/// case-insensitive substring over the object's name) is ANDed with the
+/// object filters, which match the object's folder path - the MFC editor's
+/// own FilterName argument (pDesc->szPath). With no active object filter
+/// every placeable object shows.
+pub fn paletteObjectVisible(name: []const u8, folder_path: []const u8, text_filter: []const u8, active_filters: []const core.filters.Filter) bool {
+    if (!matchesFilter(name, text_filter)) return false;
+    if (active_filters.len == 0) return true;
+    for (active_filters) |filter| {
+        if (filter.matches(folder_path)) return true;
+    }
+    return false;
+}
+
 /// SMapSoundInfo's timeRepeat/timeRepeatRandom are milliseconds
 /// (NTimer::STime); the Sounds panel shows them in seconds.
 pub fn msToSeconds(ms: i32) f32 {
@@ -1420,6 +1473,74 @@ test "the palette leaves out the types a map cannot hold and the pieces that nee
     try std.testing.expect(!isPlaceable(9));
     // A unit (1), a building (2) and the rest stay in the palette.
     for ([_]i32{ 1, 2, 3, 7, 8, 10, 15, 17 }) |game_type| try std.testing.expect(isPlaceable(game_type));
+}
+
+test "the palette's object filters: collection from the combo and the checked slots" {
+    var buildings = core.bridge.ObjectFilter{};
+    buildings.setName("Buildings");
+    var squads = core.bridge.ObjectFilter{};
+    squads.setName("Squads");
+    const filters = [_]core.bridge.ObjectFilter{ buildings, squads };
+
+    var slots: [core.settings.Settings.filter_slot_count][]const u8 = @splat("");
+    var checked: [core.settings.Settings.filter_slot_count]bool = @splat(false);
+    var out: [max_active_filters]usize = undefined;
+
+    // Nothing named, nothing checked: an empty active set - everything shows.
+    try std.testing.expectEqual(@as(usize, 0), collectActiveFilterIndices("", slots, checked, &filters, &out));
+    // The combo alone.
+    try std.testing.expectEqual(@as(usize, 1), collectActiveFilterIndices("Buildings", slots, checked, &filters, &out));
+    try std.testing.expectEqual(@as(usize, 0), out[0]);
+    // A checked slot adds its filter; an unchecked or unknown-named one adds
+    // nothing.
+    slots[0] = "Buildings";
+    checked[0] = true;
+    slots[2] = "Squads";
+    checked[2] = true;
+    slots[3] = "Gone";
+    checked[3] = true;
+    checked[4] = true; // slot 4 is empty
+    try std.testing.expectEqual(@as(usize, 2), collectActiveFilterIndices("", slots, checked, &filters, &out));
+    try std.testing.expectEqual(@as(usize, 0), out[0]);
+    try std.testing.expectEqual(@as(usize, 1), out[1]);
+    // An unchecked slot contributes nothing: unchecking Buildings leaves Squads.
+    checked[0] = false;
+    try std.testing.expectEqual(@as(usize, 1), collectActiveFilterIndices("", slots, checked, &filters, &out));
+    try std.testing.expectEqual(@as(usize, 1), out[0]);
+    checked[0] = true;
+    // The combo naming a checked slot's own filter is not collected twice.
+    try std.testing.expectEqual(@as(usize, 2), collectActiveFilterIndices("Squads", slots, checked, &filters, &out));
+    try std.testing.expectEqual(@as(usize, 1), out[0]);
+    try std.testing.expectEqual(@as(usize, 0), out[1]);
+}
+
+test "the palette's object filters gate the query: none active shows everything" {
+    var buildings = core.bridge.ObjectFilter{};
+    buildings.setName("Buildings");
+    buildings.list_count = 1;
+    buildings.lists[0].word_count = 1;
+    @memcpy(buildings.lists[0].words[0][0.."buildings".len], "buildings");
+    var squads = core.bridge.ObjectFilter{};
+    squads.setName("Squads");
+    squads.list_count = 1;
+    squads.lists[0].word_count = 1;
+    @memcpy(squads.lists[0].words[0][0.."squads".len], "squads");
+
+    // The records' borrowed views: the scratch must outlive the filters, as
+    // the palette's refreshed cache does.
+    var scratch: [2]core.bridge.FilterView = .{ .{}, .{} };
+    const active = [_]core.filters.Filter{ buildings.view(&scratch[0]), squads.view(&scratch[1]) };
+
+    // With none active, everything the text filter passes shows.
+    try std.testing.expect(paletteObjectVisible("10_5_cm_Flak38", "units\\technics\\", "", &.{}));
+    // A buildings-folder object passes; a units-folder one does not. The
+    // filters read the path; the text filter reads the name.
+    try std.testing.expect(paletteObjectVisible("A_Cisterns", "buildings\\africa\\summer\\a_cisterns\\", "", &active));
+    try std.testing.expect(paletteObjectVisible("gb_bren_43", "squads\\gb_bren_43\\", "", &active));
+    try std.testing.expect(!paletteObjectVisible("T34", "units\\technics\\ussr\\", "", &active));
+    // The text filter is ANDed on top.
+    try std.testing.expect(!paletteObjectVisible("A_Cisterns", "buildings\\africa\\summer\\a_cisterns\\", "t34", &active));
+    try std.testing.expect(paletteObjectVisible("A_Cisterns", "buildings\\africa\\summer\\a_cisterns\\", "cist", &active));
 }
 
 test "sound times: milliseconds to seconds and back, non-finite is 0" {

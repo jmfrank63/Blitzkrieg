@@ -32,9 +32,18 @@ pub const Filter = struct {
     /// one. The folder path is the object database's key (GameDB.cpp:523:
     /// the key IS the folder, e.g. "buildings\Africa\Summer\A_Cisterns").
     pub fn matches(self: Filter, folder_path: []const u8) bool {
-        _ = self;
-        _ = folder_path;
-        return false; // RED stub
+        if (self.lists.len == 0) return false;
+        for (self.lists) |list| {
+            var all = true;
+            for (list) |word| {
+                if (std.ascii.indexOfIgnoreCase(folder_path, word) == null) {
+                    all = false;
+                    break;
+                }
+            }
+            if (all) return true;
+        }
+        return false;
     }
 };
 
@@ -44,8 +53,36 @@ pub const Filter = struct {
 /// The result's filters borrow their slices from the inputs, so the inputs
 /// must outlive it; only the outer array is new (free it with `allocator`).
 pub fn merge(allocator: std.mem.Allocator, shipped: []const Filter, user: []const Filter) std.mem.Allocator.Error![]Filter {
-    _ = user;
-    return allocator.dupe(Filter, shipped); // RED stub: ignores user
+    var appended: usize = 0;
+    for (user) |one| {
+        if (findNamedConst(shipped, one.name) == null) appended += 1;
+    }
+    const out = try allocator.alloc(Filter, shipped.len + appended);
+    @memcpy(out[0..shipped.len], shipped);
+    var tail = shipped.len;
+    for (user) |one| {
+        if (findNamed(out[0..shipped.len], one.name)) |slot| {
+            slot.* = one;
+        } else {
+            out[tail] = one;
+            tail += 1;
+        }
+    }
+    return out;
+}
+
+fn findNamed(filters: []Filter, name: []const u8) ?*Filter {
+    for (filters) |*one| {
+        if (std.mem.eql(u8, one.name, name)) return one;
+    }
+    return null;
+}
+
+fn findNamedConst(filters: []const Filter, name: []const u8) ?usize {
+    for (filters, 0..) |one, index| {
+        if (std.mem.eql(u8, one.name, name)) return index;
+    }
+    return null;
 }
 
 /// A filter name the composer may create or rename to: 1..63 bytes, no
@@ -53,9 +90,15 @@ pub fn merge(allocator: std.mem.Allocator, shipped: []const Filter, user: []cons
 /// separator). Names are compared byte-exactly everywhere (the MFC's
 /// unordered_map key did).
 pub fn nameValid(name: []const u8) bool {
-    _ = name;
-    return false; // RED stub
+    if (name.len == 0 or name.len > max_name_len) return false;
+    for (name) |char| {
+        if (char < 0x20 or char == 0x7f or char == '|') return false;
+    }
+    return true;
 }
+
+/// A name's room: the bridge's fixed char[64] minus its NUL.
+pub const max_name_len = 64 - 1;
 
 test "matches mirrors the MFC's Check: OR of ANDs over folder words" {
     const buildings = Filter{ .name = "Buildings", .lists = &.{&.{"buildings"}} };

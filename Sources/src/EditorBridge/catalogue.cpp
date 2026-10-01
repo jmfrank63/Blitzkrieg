@@ -107,6 +107,12 @@ bool ReadCatalogue( SEditorSession *pSession, BkEditorCatalogueEntry *pOut, int 
 		const size_t nCopy = rszName.size() < sizeof pOut[i].name - 1 ? rszName.size() : sizeof pOut[i].name - 1;
 		memcpy( pOut[i].name, rszName.c_str(), nCopy );
 		pOut[i].name[nCopy] = 0;
+		// The folder path the object filters match against (D-31) - the MFC
+		// editor's FilterName argument. The loader lowercases szPath.
+		const std::string &rszPath = pDescs[i].szPath;
+		const size_t nPathCopy = rszPath.size() < sizeof pOut[i].path - 1 ? rszPath.size() : sizeof pOut[i].path - 1;
+		memcpy( pOut[i].path, rszPath.c_str(), nPathCopy );
+		pOut[i].path[nPathCopy] = 0;
 		pOut[i].game_type = int( pDescs[i].eGameType );
 		// The same three questions AddObjectToSession asks; the squad lookup is
 		// skipped (no database passed), since only an empty answer matters here.

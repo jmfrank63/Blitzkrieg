@@ -3810,6 +3810,7 @@ fn addEditorBridge(
             "Sources/src/EditorBridge/session_vso.cpp",
             "Sources/src/EditorBridge/session_groups.cpp",
             "Sources/src/EditorBridge/catalogue.cpp",
+            "Sources/src/EditorBridge/filters.cpp",
             "Sources/src/EditorBridge/world.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
