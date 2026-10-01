@@ -415,6 +415,11 @@ pub const FakeBridge = struct {
     /// no object z), so no fake behaviour keys off them yet.
     instant_update: bool = false,
     fit_to_grid: bool = true,
+    /// The object filters (M3, D-31): the user file's contents, saved whole
+    /// by `saveObjectFilters`; `objectFilters` merges them over the shipped
+    /// `default_filters` (user wins by name) the way the real bridge reads
+    /// its two files. Seeded empty - the two fixtures are always "shipped".
+    object_filters: std.ArrayListUnmanaged(bridge_mod.ObjectFilter) = .empty,
     paints: std.ArrayListUnmanaged(PaintRecord) = .empty,
     applied: std.ArrayListUnmanaged(i32) = .empty,
     undone: std.ArrayListUnmanaged(i32) = .empty,
@@ -457,6 +462,20 @@ pub const FakeBridge = struct {
             .info = .{ .width_tiles = width_tiles, .height_tiles = height_tiles, .player_count = players },
         };
     }
+
+    /// The fixture filters: the shipped file's own names and word lists
+    /// (one condition of one word each), user 0.
+    const default_filters = blk: {
+        var buildings = bridge_mod.ObjectFilter{};
+        buildings.setName("Buildings");
+        buildings.lists[0].word_count = 1;
+        @memcpy(buildings.lists[0].words[0][0.."buildings".len], "buildings");
+        var squads = bridge_mod.ObjectFilter{};
+        squads.setName("Squads");
+        squads.lists[0].word_count = 1;
+        @memcpy(squads.lists[0].words[0][0.."squads".len], "squads");
+        break :blk [_]bridge_mod.ObjectFilter{ buildings, squads };
+    };
 
     pub fn deinit(self: *FakeBridge) void {
         for (self.paints.items) |paint_record| {
@@ -505,6 +524,7 @@ pub const FakeBridge = struct {
         self.trench_entries.deinit(self.allocator);
         self.applied_edits.deinit(self.allocator);
         self.undone_edits.deinit(self.allocator);
+        self.object_filters.deinit(self.allocator);
         self.diplomacy_table.deinit(self.allocator);
         self.calls.deinit(self.allocator);
         self.allocator.free(self.tiles);
@@ -886,6 +906,8 @@ pub const FakeBridge = struct {
         .drawEntrenchment = drawEntrenchment,
         .entrenchments = entrenchments,
         .deleteEntrenchment = deleteEntrenchment,
+        .objectFilters = objectFilters,
+        .saveObjectFilters = saveObjectFilters,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a
@@ -3431,6 +3453,51 @@ pub const FakeBridge = struct {
         }
         out.* = list;
         default_index.* = if (count > 9) 9 else count - 1;
+        return .ok;
+    }
+
+    fn objectFilters(ptr: *anyopaque, allocator: std.mem.Allocator, out: *[]bridge_mod.ObjectFilter) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        // The merged read the real bridge answers: the shipped fixtures in
+        // their order, a user entry of the same name replacing one in place
+        // (with its user 1), user-only names appended in their save order.
+        var list: std.ArrayListUnmanaged(bridge_mod.ObjectFilter) = .empty;
+        for (default_filters) |shipped| {
+            const merged = self.findUserFilter(shipped.nameSlice()) orelse shipped;
+            list.append(allocator, merged) catch {
+                list.deinit(allocator);
+                return .failed;
+            };
+        }
+        for (self.object_filters.items) |one| {
+            var shipped = false;
+            for (default_filters) |d| {
+                if (std.mem.eql(u8, d.nameSlice(), one.nameSlice())) shipped = true;
+            }
+            if (!shipped) {
+                list.append(allocator, one) catch {
+                    list.deinit(allocator);
+                    return .failed;
+                };
+            }
+        }
+        out.* = list.toOwnedSlice(allocator) catch return .failed;
+        return .ok;
+    }
+
+    fn findUserFilter(self: *FakeBridge, name: []const u8) ?bridge_mod.ObjectFilter {
+        for (self.object_filters.items) |one| {
+            if (std.mem.eql(u8, one.nameSlice(), name)) return one;
+        }
+        return null;
+    }
+
+    fn saveObjectFilters(ptr: *anyopaque, filters: []const bridge_mod.ObjectFilter) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        self.object_filters.clearRetainingCapacity();
+        self.object_filters.appendSlice(self.allocator, filters) catch return .failed;
         return .ok;
     }
 

@@ -147,3 +147,139 @@ fn heightsGenerateIndex(which: core.bridge.HeightsGenerateType) usize {
         .dunes => 2,
     };
 }
+
+/// D-31 (PARITY O4): the Filters Composer (the MFC's CreateFilterDialog) as a
+/// dockable Tools window: the filters on the left (a `*` marks the ones a
+/// save would write), the selected filter's conditions on the right - each
+/// line one word list, words separated by spaces, committed on deactivate
+/// through `filter_words`. Add/Delete/Rename and Save are named commands,
+/// so BK_EDITOR_AUTO drives the composer without ImGui text entry.
+pub fn drawFiltersComposer(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    if (!state.filters_composer_open) return;
+    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
+    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    const open = ig.igBegin("Filters Composer", &state.filters_composer_open, ig.ImGuiWindowFlags_NoCollapse);
+    defer ig.igEnd();
+    if (!open) return;
+
+    // The palette's cache reads the same list; keep its generation stamp in
+    // step even when the palette itself is closed this frame.
+    if (state.filters_generation_seen != state.editor.filters_generation)
+        state.filters_generation_seen = state.editor.filters_generation;
+
+    const selected = std.mem.sliceTo(&state.filters_composer_selected, 0);
+
+    _ = ig.igBeginChild("filterslist", .{ .x = 170, .y = 0 }, ig.ImGuiChildFlags_Borders, 0);
+    for (state.editor.filtersSlice()) |*entry| {
+        const name = entry.nameSlice();
+        var row: [80:0]u8 = undefined;
+        const row_text = std.fmt.bufPrintZ(&row, "{s}{s}", .{ name, if (entry.user == 1) " *" else "" }) catch continue;
+        if (ig.igSelectableEx(row_text.ptr, std.mem.eql(u8, name, selected), 0, .{ .x = 0, .y = 0 })) {
+            selectComposerFilter(state, name);
+        }
+    }
+    ig.igEndChild();
+    ig.igSameLine();
+    _ = ig.igBeginGroup();
+
+    // The composer's controls (the MFC dialog's own buttons).
+    _ = ig.igInputTextWithHint("##newfilter", "new filter's name", &state.filter_new_edit, state.filter_new_edit.len + 1, 0);
+    ig.igSameLine();
+    if (ig.igSmallButton("Add")) {
+        _ = commands.run(state, "filter_new", std.mem.sliceTo(&state.filter_new_edit, 0));
+        state.filter_new_edit = [_:0]u8{0} ** 64;
+    }
+    if (ig.igSmallButton("Delete")) {
+        if (selected.len != 0) _ = commands.run(state, "filter_delete", selected);
+    }
+    ig.igSameLine();
+    if (ig.igSmallButton("Save")) _ = commands.run(state, "filters_save", "");
+
+    if (selected.len == 0) {
+        ig.igEndGroup();
+        return;
+    }
+    const filter_ptr = for (state.editor.filtersSlice()) |*entry| {
+        if (std.mem.eql(u8, entry.nameSlice(), selected)) break entry;
+    } else null;
+    if (filter_ptr == null) {
+        ig.igEndGroup();
+        return;
+    }
+    const filter = filter_ptr.?;
+
+    // Rename: the field starts empty; a committed edit carries both names.
+    var rename_buffer: [144:0]u8 = undefined;
+    _ = ig.igInputTextWithHint("##renamefilter", "rename to", &state.filter_rename_edit, state.filter_rename_edit.len + 1, 0);
+    ig.igSameLine();
+    if (ig.igSmallButton("Rename")) {
+        const arg = std.fmt.bufPrintZ(&rename_buffer, "{s}|{s}", .{ selected, std.mem.sliceTo(&state.filter_rename_edit, 0) }) catch "";
+        _ = commands.run(state, "filter_rename", arg);
+        state.filter_rename_edit = [_:0]u8{0} ** 64;
+    }
+
+    ig.igSeparatorText("Conditions");
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text("One line per condition: every word must appear in the object's folder path; any one matching line passes the object.");
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+
+    // The conditions' edit buffers reload when the selection or the
+    // generation moves; a deactivated edit commits through filter_words.
+    if (state.filters_composer_words_seen != state.editor.filters_generation) {
+        reloadComposerWords(state, filter);
+        state.filters_composer_words_seen = state.editor.filters_generation;
+    }
+    const list_count: usize = @intCast(@max(filter.list_count, 0));
+    var li: usize = 0;
+    while (li < list_count and li < core.bridge.filter_max_lists) : (li += 1) {
+        var label: [16:0]u8 = undefined;
+        const label_z = std.fmt.bufPrintZ(&label, "##cond{d}", .{li}) catch continue;
+        _ = ig.igInputTextWithHint(label_z.ptr, null, &state.filter_words_edit[li], state.filter_words_edit[li].len + 1, 0);
+        if (ig.igIsItemDeactivatedAfterEdit()) {
+            var arg: [300]u8 = undefined;
+            const arg_text = std.fmt.bufPrintZ(&arg, "{s}|{d}|{s}", .{ selected, li, std.mem.sliceTo(&state.filter_words_edit[li], 0) }) catch continue;
+            _ = commands.run(state, "filter_words", arg_text);
+        }
+    }
+    ig.igEndGroup();
+}
+
+/// Remembers the composer's selected filter and reloads its condition
+/// buffers.
+fn selectComposerFilter(state: *State, name: []const u8) void {
+    const len = @min(name.len, state.filters_composer_selected.len - 1);
+    @memcpy(state.filters_composer_selected[0..len], name[0..len]);
+    state.filters_composer_selected[len] = 0;
+    if (for (state.editor.filtersSlice()) |*entry| {
+        if (std.mem.eql(u8, entry.nameSlice(), name)) break entry;
+    } else null) |filter| {
+        reloadComposerWords(state, filter);
+        state.filters_composer_words_seen = state.editor.filters_generation;
+    }
+}
+
+/// Fills the composer's condition buffers from the filter: the words joined
+/// by single spaces (the words themselves never hold spaces - they are
+/// folder-name substrings).
+fn reloadComposerWords(state: *State, filter: *core.bridge.ObjectFilter) void {
+    const list_count: usize = @intCast(std.math.clamp(filter.list_count, 0, core.bridge.filter_max_lists));
+    for (0..core.bridge.filter_max_lists) |li| {
+        state.filter_words_edit[li] = [_:0]u8{0} ** 256;
+        if (li >= list_count) continue;
+        var len: usize = 0;
+        const buffer = &state.filter_words_edit[li];
+        for (filter.lists[li].words[0..@intCast(@max(filter.lists[li].word_count, 0))]) |word| {
+            const word_text = std.mem.sliceTo(&word, 0);
+            if (word_text.len == 0) continue;
+            if (len != 0 and len + 1 < buffer.len - 1) {
+                buffer[len] = ' ';
+                len += 1;
+            }
+            const room = @min(word_text.len, buffer.len - 1 - len);
+            @memcpy(buffer[len..][0..room], word_text[0..room]);
+            len += room;
+        }
+    }
+}

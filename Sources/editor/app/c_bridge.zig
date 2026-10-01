@@ -71,6 +71,13 @@ comptime {
     // unit count - seven 4-byte fields; the action type's name and id.
     std.debug.assert(@sizeOf(c.BkEditorStartCommandRecord) == 7 * 4);
     std.debug.assert(@sizeOf(c.BkEditorActionCommand) == core.bridge.name_capacity + 4);
+    // The object filters (M3, D-31): handed to BkEditorObjectFilters and
+    // BkEditorSaveObjectFilters as they are.
+    std.debug.assert(@sizeOf(c.BkEditorObjectFilterWords) == @sizeOf(core.bridge.ObjectFilterWords));
+    std.debug.assert(@sizeOf(c.BkEditorObjectFilter) == @sizeOf(core.bridge.ObjectFilter));
+    std.debug.assert(@offsetOf(c.BkEditorObjectFilter, "list_count") == @offsetOf(core.bridge.ObjectFilter, "list_count"));
+    std.debug.assert(@offsetOf(c.BkEditorObjectFilter, "user") == @offsetOf(core.bridge.ObjectFilter, "user"));
+    std.debug.assert(@offsetOf(c.BkEditorObjectFilter, "lists") == @offsetOf(core.bridge.ObjectFilter, "lists"));
     // The reserve position's record: gun, truck, x, y.
     std.debug.assert(@sizeOf(c.BkEditorReservePositionRecord) == 4 * 4);
     // The AI general's records (04-12): four counts; a parcel's type, centre, radius,
@@ -200,6 +207,8 @@ pub const RealBridge = struct {
         .drawEntrenchment = vtableDrawEntrenchment,
         .entrenchments = vtableEntrenchments,
         .deleteEntrenchment = vtableDeleteEntrenchment,
+        .objectFilters = vtableObjectFilters,
+        .saveObjectFilters = vtableSaveObjectFilters,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -529,6 +538,38 @@ pub const RealBridge = struct {
         out.* = list;
         default_index.* = @intCast(default_c);
         return .ok;
+    }
+
+    /// BkEditorObjectFilters in two passes (M3, D-31): the sizing pass is
+    /// REFUSED when there are filters and still answers the total, like the
+    /// action list's.
+    fn vtableObjectFilters(ptr: *anyopaque, allocator: std.mem.Allocator, out: *[]core.bridge.ObjectFilter) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorObjectFilters(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count <= 0) {
+            out.* = &.{};
+            return .ok;
+        }
+        const all = allocator.alloc(c.BkEditorObjectFilter, @intCast(count)) catch return .failed;
+        defer allocator.free(all);
+        var got: c_int = 0;
+        const read = status(c.BkEditorObjectFilters(self.session, all.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        const list = allocator.alloc(core.bridge.ObjectFilter, @intCast(count)) catch return .failed;
+        for (all, list) |item, *entry| entry.* = @bitCast(item);
+        out.* = list;
+        return .ok;
+    }
+
+    /// BkEditorSaveObjectFilters (M3, D-31): the slice is handed over as it
+    /// is (the layouts are asserted above).
+    fn vtableSaveObjectFilters(ptr: *anyopaque, filters: []const core.bridge.ObjectFilter) Status {
+        const self = from(ptr);
+        const c_filters = @as([*c]const c.BkEditorObjectFilter, @ptrCast(filters.ptr));
+        return status(c.BkEditorSaveObjectFilters(self.session, if (filters.len == 0) null else c_filters, @intCast(filters.len)));
     }
 
     /// BkEditorReserveRole (04-11): the object type's role in a reserve position.

@@ -3832,6 +3832,180 @@ static void TestM3TileInfo( BkEditorSession *pSession )
 	printf( "editor-bridge: M3 tile info ok\n" );
 }
 
+// The MFC editor's matcher (SSimpleFilter::Check with its caller's ToLower):
+// every word of some one condition list must appear in the lowercased folder.
+static bool FolderMatches( const BkEditorObjectFilter *pFilter, const char *pszFolder )
+{
+	if ( pFilter == 0 || pFilter->list_count == 0 )
+		return false;
+	std::string szFolder = pszFolder;
+	NStr::ToLower( szFolder );
+	for ( int i = 0; i < pFilter->list_count; ++i )
+	{
+		bool bAll = true;
+		for ( int w = 0; w < pFilter->lists[i].word_count && bAll; ++w )
+		{
+			if ( szFolder.find( pFilter->lists[i].words[w] ) == std::string::npos )
+				bAll = false;
+		}
+		if ( bAll )
+			return true;
+	}
+	return false;
+}
+
+static const BkEditorObjectFilter *pBuildingsOf( const std::vector<BkEditorObjectFilter> &rFilters )
+{
+	for ( const BkEditorObjectFilter &rFilter : rFilters )
+		if ( strcmp( rFilter.name, "Buildings" ) == 0 )
+			return &rFilter;
+	return 0;
+}
+
+// The object filters (M3, D-31): the shipped Data/Editor/filter.xml answers
+// through the engine's own reader, a user file written under a scratch user
+// root merges over it (user wins by name), and the catalogue's folder keys
+// filter as the MFC editor's matcher predicts. Filters are installation
+// data: the whole test runs with a map open or not, and the shipped file is
+// never written.
+static void TestM3Filters( BkEditorSession *pSession, const char *pszRoot, const std::string &szScratch )
+{
+	// Argument rules first: a null out_count and a negative capacity are
+	// BAD_ARGUMENT; a null buffer with capacity 0 sizes.
+	{
+		int nCount = -1;
+		Check( BkEditorObjectFilters( pSession, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "BkEditorObjectFilters with a null out_count is BAD_ARGUMENT" );
+		Check( BkEditorObjectFilters( pSession, 0, -1, &nCount ) == BK_EDITOR_BAD_ARGUMENT, "a negative capacity is BAD_ARGUMENT" );
+		Check( BkEditorObjectFilters( pSession, 0, 0, &nCount ) == BK_EDITOR_REFUSED && nCount > 0,
+		       NStr::Format( "the sizing pass is REFUSED with the total there (%d)", nCount ) );
+	}
+	std::vector<BkEditorObjectFilter> shipped;
+	{
+		int nTotal = 0;
+		if ( !Check( BkEditorObjectFilters( pSession, 0, 0, &nTotal ) == BK_EDITOR_REFUSED && nTotal > 0, "the filters size" ) )
+			return;
+		shipped.resize( size_t( nTotal ) );
+		int nRead = 0;
+		if ( !Check( BkEditorObjectFilters( pSession, &( shipped[0] ), nTotal, &nRead ) == BK_EDITOR_OK && nRead == nTotal,
+		             BkEditorLastMessage( pSession ) ) )
+			return;
+		Check( nRead >= 9, NStr::Format( "the shipped file holds its filters (%d read)", nRead ) );
+		// The MFC editor's own first entry: Buildings, one condition, the
+		// folder word "buildings", from the shipped file (user 0).
+		const BkEditorObjectFilter *pBuildings = 0;
+		for ( const BkEditorObjectFilter &rFilter : shipped )
+			if ( strcmp( rFilter.name, "Buildings" ) == 0 )
+				pBuildings = &rFilter;
+		if ( !Check( pBuildings != 0, "Buildings is among the shipped filters" ) )
+			return;
+		Check( pBuildings->user == 0, "a shipped filter answers user 0" );
+		Check( pBuildings->list_count >= 1 && pBuildings->lists[0].word_count >= 1 &&
+			       strcmp( pBuildings->lists[0].words[0], "buildings" ) == 0,
+		       "Buildings' condition is the folder word buildings" );
+		// Ordered by name: the read is stable across runs.
+		bool bOrdered = true;
+		for ( size_t i = 1; i < shipped.size(); ++i )
+			bOrdered = bOrdered && strcmp( shipped[i - 1].name, shipped[i].name ) < 0;
+		Check( bOrdered, "the read is ordered by name" );
+	}
+
+	// The user file: redirect the user root into the scratch, save a modified
+	// Buildings plus a new filter, and read the merge back. The shipped file
+	// is untouched; only what the caller marked user leaves the bridge.
+	const std::string szOriginalUser = NPlatform::Paths::UserRoot();
+	const std::string szScratchUser = ( std::filesystem::path( szScratch ) / "filters-user" ).string() + "/";
+	NPlatform::Paths::SetInjectedRootsForTest( pszRoot, szScratchUser.c_str() );
+	{
+		std::vector<BkEditorObjectFilter> user;
+		BkEditorObjectFilter editedBuildings = *pBuildingsOf( shipped );
+		editedBuildings.user = 1;
+		strcpy( editedBuildings.lists[0].words[1], "africa" );
+		editedBuildings.lists[0].word_count = 2;
+		user.push_back( editedBuildings );
+		BkEditorObjectFilter added;
+		memset( &added, 0, sizeof added );
+		strcpy( added.name, "Editor Test Filter" );
+		added.list_count = 1;
+		added.lists[0].word_count = 2;
+		strcpy( added.lists[0].words[0], "editor" );
+		strcpy( added.lists[0].words[1], "test" );
+		added.user = 1;
+		user.push_back( added );
+		Check( BkEditorSaveObjectFilters( pSession, &( user[0] ), int( user.size() ) ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		std::error_code error;
+		Check( std::filesystem::exists( std::filesystem::path( szScratchUser ) / "mapeditor" / "filter.xml", error ),
+		       "the user file exists under <user root>mapeditor" );
+
+		// The merge: the user's Buildings replaces the shipped one in place
+		// (user 1, the added word), the new filter is appended, and a shipped
+		// name the user has not touched still answers with user 0.
+		std::vector<BkEditorObjectFilter> merged;
+		int nTotal = 0;
+		Check( BkEditorObjectFilters( pSession, 0, 0, &nTotal ) == BK_EDITOR_REFUSED && nTotal == int( shipped.size() ) + 1,
+		       NStr::Format( "the merge is the shipped set plus the user-only one (%d)", nTotal ) );
+		merged.resize( size_t( nTotal ) );
+		int nRead = 0;
+		if ( !Check( BkEditorObjectFilters( pSession, &( merged[0] ), nTotal, &nRead ) == BK_EDITOR_OK && nRead == nTotal,
+		             BkEditorLastMessage( pSession ) ) )
+		{
+			NPlatform::Paths::SetInjectedRootsForTest( pszRoot, szOriginalUser.c_str() );
+			return;
+		}
+		const BkEditorObjectFilter *pMergedBuildings = 0, *pMergedNew = 0, *pShippedOnly = 0;
+		for ( const BkEditorObjectFilter &rFilter : merged )
+		{
+			if ( strcmp( rFilter.name, "Buildings" ) == 0 ) pMergedBuildings = &rFilter;
+			if ( strcmp( rFilter.name, "Editor Test Filter" ) == 0 ) pMergedNew = &rFilter;
+			if ( strcmp( rFilter.name, "Obj T Russian" ) == 0 ) pShippedOnly = &rFilter;
+		}
+		Check( pMergedBuildings != 0 && pMergedBuildings->user == 1 && pMergedBuildings->lists[0].word_count == 2 &&
+		       strcmp( pMergedBuildings->lists[0].words[1], "africa" ) == 0,
+		       "the user's Buildings overrides the shipped one" );
+		Check( pMergedNew != 0 && pMergedNew->user == 1 && pMergedNew->list_count == 1, "the user-only filter is appended" );
+		Check( pShippedOnly != 0 && pShippedOnly->user == 0 && pShippedOnly->list_count >= 1,
+		       "a shipped name the user has not touched keeps user 0" );
+
+		// The catalogue filters as the MFC matcher predicts: a
+		// buildings-folder key passes Buildings, a units-folder key does not,
+		// and the added africa word admits the African building folders.
+		{
+			int nCatalogue = 0;
+			Check( BkEditorCatalogue( pSession, 0, 0, &nCatalogue ) == BK_EDITOR_REFUSED && nCatalogue > 0, "the catalogue sizes" );
+			std::vector<BkEditorCatalogueEntry> entries = std::vector<BkEditorCatalogueEntry>( size_t( nCatalogue ) );
+			int nGot = 0;
+			Check( BkEditorCatalogue( pSession, &( entries[0] ), nCatalogue, &nGot ) == BK_EDITOR_OK && nGot == nCatalogue,
+			       BkEditorLastMessage( pSession ) );
+			const BkEditorCatalogueEntry *pBuilding = 0, *pUnit = 0;
+			for ( const BkEditorCatalogueEntry &rEntry : entries )
+			{
+				if ( pBuilding == 0 && _strnicmp( rEntry.path, "buildings", 9 ) == 0 && rEntry.placeable != 0 ) pBuilding = &rEntry;
+				if ( pUnit == 0 && _strnicmp( rEntry.path, "units", 5 ) == 0 && rEntry.placeable != 0 ) pUnit = &rEntry;
+			}
+			if ( !Check( pBuilding != 0 && pUnit != 0, "the catalogue has a buildings-folder and a units-folder object" ) )
+			{
+				NPlatform::Paths::SetInjectedRootsForTest( pszRoot, szOriginalUser.c_str() );
+				return;
+			}
+			Check( FolderMatches( pMergedBuildings, pBuilding->path ), "a buildings-folder object passes the merged Buildings" );
+			Check( !FolderMatches( pMergedBuildings, pUnit->path ), "a units-folder object does not" );
+		}
+
+		// A word that is not NUL-terminated within its 32 bytes is
+		// BAD_ARGUMENT, and the refusal wrote nothing (the file from the
+		// successful save above still reads back the same).
+		BkEditorObjectFilter bad = added;
+		memset( bad.lists[0].words[0], 'x', BK_EDITOR_FILTER_WORD_LEN );
+		Check( BkEditorSaveObjectFilters( pSession, &bad, 1 ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated word is BAD_ARGUMENT" );
+		Check( BkEditorSaveObjectFilters( pSession, 0, 1 ) == BK_EDITOR_BAD_ARGUMENT, "null filters with a count is BAD_ARGUMENT" );
+		Check( BkEditorSaveObjectFilters( pSession, 0, 0 ) == BK_EDITOR_OK, "count 0 writes the empty set" );
+		int nAfter = 0;
+		Check( BkEditorObjectFilters( pSession, 0, 0, &nAfter ) == BK_EDITOR_REFUSED && nAfter == int( shipped.size() ),
+		       NStr::Format( "the empty user file leaves the shipped set alone (%d)", nAfter ) );
+	}
+	NPlatform::Paths::SetInjectedRootsForTest( pszRoot, szOriginalUser.c_str() );
+	printf( "editor-bridge: M3 filters ok\n" );
+}
+
 static void TestTilesetTilesAllPaint( BkEditorSession *pSession )
 {
 	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
@@ -10052,6 +10226,7 @@ int main( int argc, char **argv )
 		TestM3Heights( pSession, szScratch );
 		TestM3UpdateMapAndFill( pSession, szScratch );
 		TestM3TileInfo( pSession );
+		TestM3Filters( pSession, pszRoot, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );

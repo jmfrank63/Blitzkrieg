@@ -104,6 +104,14 @@ pub const command_table = [_]Entry{
     .{ .name = "heights_mode", .handler = heightsMode },
     .{ .name = "heights_generate", .handler = heightsGenerate },
     .{ .name = "heights_set_zero", .handler = heightsSetZero },
+    .{ .name = "filter_select", .handler = filterSelect },
+    .{ .name = "filter_toggle", .handler = filterToggle },
+    .{ .name = "filter_assign", .handler = filterAssign },
+    .{ .name = "filter_new", .handler = filterNew },
+    .{ .name = "filter_delete", .handler = filterDelete },
+    .{ .name = "filter_rename", .handler = filterRename },
+    .{ .name = "filter_words", .handler = filterWords },
+    .{ .name = "filters_save", .handler = filtersSave },
 };
 
 pub const predicate_table = [_]Entry{
@@ -1780,4 +1788,186 @@ fn heightsSetZero(state: *State, arg: []const u8) Outcome {
     if (arg.len != 0) return .bad_arg;
     if (!panels.mapIsOpen(state.editor)) return .refused;
     return resultOutcome(state, state.editor.setZeroHeights());
+}
+
+// ---------------------------------------------------------------------------
+// Object filters (M3, D-31): the palette's quick toggles, the combo and the
+// Filters Composer. Filters are session data, never map data: nothing here
+// touches the history, and the palette's cache refreshes off
+// `filters_generation`.
+// ---------------------------------------------------------------------------
+
+fn findFilterByName(state: *State, name: []const u8) ?*core.bridge.ObjectFilter {
+    for (state.editor.filtersSlice()) |*entry| {
+        if (std.mem.eql(u8, entry.nameSlice(), name)) return entry;
+    }
+    return null;
+}
+
+/// `do=filter_select:<name>` - the palette's filter combo. Empty or `none`
+/// clears it; an unknown name is refused.
+fn filterSelect(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0 or std.mem.eql(u8, arg, "none")) {
+        state.settings.filter_active.set("");
+    } else {
+        if (findFilterByName(state, arg) == null) {
+            state.view.setStatus("filter: ", "no filter is named that");
+            return .refused;
+        }
+        state.settings.filter_active.set(arg);
+    }
+    state.settings_changed = true;
+    panels.refreshActiveFilters(state);
+    return .ok;
+}
+
+/// `do=filter_toggle:<slot 0..8>` - a quick toggle's gate, on or off.
+fn filterToggle(state: *State, arg: []const u8) Outcome {
+    const slot = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (slot >= core.settings.Settings.filter_slot_count) return .bad_arg;
+    state.filter_checked[slot] = !state.filter_checked[slot];
+    panels.refreshActiveFilters(state);
+    return .ok;
+}
+
+/// `do=filter_assign:<slot 0..8>` - Ctrl+click on a quick toggle: the combo's
+/// filter becomes the slot's name (persisted, like the MFC's UpdateCheck
+/// wrote the dialog parameter). Refused when the combo holds no filter or
+/// the slot is out of range; a refusal changes nothing.
+fn filterAssign(state: *State, arg: []const u8) Outcome {
+    const slot = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (slot >= core.settings.Settings.filter_slot_count) return .bad_arg;
+    const combo = state.settings.filter_active.slice();
+    if (combo.len == 0) {
+        state.view.setStatus("filter: ", "select a filter in the combo first, then Ctrl+click a toggle to assign it");
+        return .refused;
+    }
+    state.settings.setFilterSlot(slot, combo);
+    state.settings_changed = true;
+    panels.refreshActiveFilters(state);
+    return .ok;
+}
+
+/// `do=filter_new:<name>` - the Filters Composer's (and the palette popup's)
+/// New Filter: an empty user filter appended and selected.
+fn filterNew(state: *State, arg: []const u8) Outcome {
+    const outcome = resultOutcome(state, state.editor.filterNew(arg));
+    if (outcome == .ok) {
+        state.settings.filter_active.set(arg);
+        state.settings_changed = true;
+        panels.refreshActiveFilters(state);
+    }
+    return outcome;
+}
+
+/// `do=filter_delete:<name>` - the composer's Delete: the filter leaves the
+/// live list (its user-file override with it, on the next save). Deleting
+/// the combo's or a slot's filter clears those references.
+fn filterDelete(state: *State, arg: []const u8) Outcome {
+    const combo = state.settings.filter_active.slice();
+    const was_combo = std.mem.eql(u8, combo, arg);
+    var slot_was: [core.settings.Settings.filter_slot_count]bool = @splat(false);
+    for (0..core.settings.Settings.filter_slot_count) |i| {
+        slot_was[i] = std.mem.eql(u8, state.settings.filterSlot(i), arg);
+    }
+    const outcome = resultOutcome(state, state.editor.filterDelete(arg));
+    if (outcome == .ok) {
+        if (was_combo) {
+            state.settings.filter_active.set("");
+            state.settings_changed = true;
+        }
+        for (0..core.settings.Settings.filter_slot_count) |i| {
+            if (slot_was[i]) {
+                state.settings.setFilterSlot(i, "");
+                state.settings_changed = true;
+            }
+        }
+        panels.refreshActiveFilters(state);
+    }
+    return outcome;
+}
+
+/// `do=filter_rename:<old>|<new>` - the composer's Rename (the `|` is the
+/// separator; filter names reject it, so the pair is unambiguous).
+fn filterRename(state: *State, arg: []const u8) Outcome {
+    const bar = std.mem.indexOfScalar(u8, arg, '|') orelse return .bad_arg;
+    const old_name = arg[0..bar];
+    const new_name = arg[bar + 1 ..];
+    const combo = state.settings.filter_active.slice();
+    var slot_was: [core.settings.Settings.filter_slot_count]bool = @splat(false);
+    for (0..core.settings.Settings.filter_slot_count) |i| {
+        slot_was[i] = std.mem.eql(u8, state.settings.filterSlot(i), old_name);
+    }
+    const outcome = resultOutcome(state, state.editor.filterRename(old_name, new_name));
+    if (outcome == .ok) {
+        if (std.mem.eql(u8, combo, old_name)) {
+            state.settings.filter_active.set(new_name);
+            state.settings_changed = true;
+        }
+        for (0..core.settings.Settings.filter_slot_count) |i| {
+            if (slot_was[i]) {
+                state.settings.setFilterSlot(i, new_name);
+                state.settings_changed = true;
+            }
+        }
+        panels.refreshActiveFilters(state);
+    }
+    return outcome;
+}
+
+/// `do=filters_save` - the composer's Save: the user-owned filters are
+/// written to <UserRoot>mapeditor/filter.xml in the shipped file's own XML
+/// shape; a shipped name the user has not touched is not copied.
+fn filtersSave(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const outcome = resultOutcome(state, state.editor.saveFilters());
+    if (outcome == .ok) panels.refreshActiveFilters(state);
+    return outcome;
+}
+
+/// `do=filter_words:<name>|<list>|<words space separated>` - the composer's
+/// word-list edit: condition `list` of the named filter becomes exactly the
+/// words given (an empty word list empties the condition). The `|`-separated
+/// form never appears in a BK_EDITOR_AUTO frame (names reject `|`, words
+/// reject spaces); the composer's commit-on-deactivate is its caller. The
+/// other conditions stand.
+fn filterWords(state: *State, arg: []const u8) Outcome {
+    const name_end = std.mem.indexOfScalar(u8, arg, '|') orelse return .bad_arg;
+    const name = arg[0..name_end];
+    const rest = arg[name_end + 1 ..];
+    const list_end = std.mem.indexOfScalar(u8, rest, '|') orelse return .bad_arg;
+    const list_index = std.fmt.parseInt(usize, rest[0..list_end], 10) catch return .bad_arg;
+    if (list_index >= core.bridge.filter_max_lists) return .bad_arg;
+    const words_text = rest[list_end + 1 ..];
+    const filter = findFilterByName(state, name) orelse {
+        state.view.setStatus("filter: ", "no filter is named that");
+        return .refused;
+    };
+    var updated = filter.*;
+    updated.user = 1;
+    var words: [core.bridge.filter_max_words][]const u8 = undefined;
+    var count: usize = 0;
+    var it = std.mem.splitScalar(u8, words_text, ' ');
+    while (it.next()) |word| {
+        if (word.len == 0) continue;
+        if (count == core.bridge.filter_max_words) {
+            state.view.setStatus("filter: ", "a word list holds at most 8 words");
+            return .refused;
+        }
+        if (word.len >= core.bridge.filter_word_capacity) {
+            state.view.setStatus("filter: ", "a word is at most 31 characters");
+            return .refused;
+        }
+        words[count] = word;
+        count += 1;
+    }
+    for (words[0..count], 0..) |word, w| {
+        @memcpy(updated.lists[list_index].words[w][0..word.len], word);
+        updated.lists[list_index].words[w][word.len] = 0;
+    }
+    if (count < core.bridge.filter_max_words) {
+        @memset(&updated.lists[list_index].words[count], 0);
+    }
+    updated.lists[list_index].word_count = @intCast(count);
+    return resultOutcome(state, state.editor.filterPut(updated));
 }

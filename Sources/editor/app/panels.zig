@@ -299,6 +299,38 @@ pub const State = struct {
     catalogue_generation: u32 = 0,
     filter: [64:0]u8 = [_:0]u8{0} ** 64,
 
+    /// The object filters (M3, D-31): the palette's nine quick toggles. The
+    /// slots' assigned filter names and the combo's current one live in
+    /// `settings` (persisted, the MFC's own dialog parameters, edited there
+    /// live with `settings_changed`); `filter_checked[i]` is whether slot i's
+    /// gate is on - session UI state like the filter text field, never
+    /// persisted. The editor holds the filter list itself
+    /// (`editor.filters`); this cache mirrors the ACTIVE subset for the
+    /// palette's per-frame query, rebuilt whenever `filters_generation_seen`
+    /// differs from the editor's generation. `filters_composer_open` is the
+    /// Filters Composer window (drawn by panels_m3.zig);
+    /// `filters_composer_selected` is the filter its word-list editor shows.
+    filter_checked: [core.settings.Settings.filter_slot_count]bool = [_]bool{false} ** core.settings.Settings.filter_slot_count,
+    filters_generation_seen: u32 = 0,
+    filter_views: [logic.max_active_filters]core.bridge.FilterView = undefined,
+    active_filter_values: [logic.max_active_filters]core.filters.Filter = undefined,
+    active_filters: []const core.filters.Filter = &.{},
+    filters_composer_open: bool = false,
+    filters_composer_selected: [64:0]u8 = [_:0]u8{0} ** 64,
+    /// The composer's new-filter and rename name fields, and the words
+    /// editors' buffers
+    /// (one per condition line, reloaded when the selection or the generation
+    /// changes - the commit-on-deactivate rule needs the buffer to outlive
+    /// the edit).
+    filter_new_edit: [64:0]u8 = [_:0]u8{0} ** 64,
+    filter_rename_edit: [64:0]u8 = [_:0]u8{0} ** 64,
+    filter_words_edit: [core.bridge.filter_max_lists][256:0]u8 = [_][256:0]u8{[_:0]u8{0} ** 256} ** core.bridge.filter_max_lists,
+    filters_composer_words_seen: u32 = 0,
+    /// Set the frame the palette asks for the New Filter popup or the Delete
+    /// confirmation, so the modal opens once and names its filter.
+    filter_new_popup: bool = false,
+    filter_delete_popup: [64:0]u8 = [_:0]u8{0} ** 64,
+
     /// The catalogue's own sound entries (game type 100), sorted
     /// case-insensitively, for the Sounds panel's combo - slices into
     /// `catalogue`'s own name buffers (built and freed alongside it), never
@@ -610,6 +642,9 @@ pub const State = struct {
         // same installation the panels do.
         editor.setBaseRoot(std.mem.sliceTo(&state.paths.base_root, 0));
         state.loadCatalogue() catch view.setStatus("failed: ", "the object catalogue did not read");
+        // The object filters (M3, D-31): the session's one read; the palette
+        // re-reads when a generation moves (a composer save or edit).
+        editor.loadFilters() catch view.setStatus("failed: ", "the object filters did not read");
         state.mapOpened();
         return state;
     }
@@ -1297,6 +1332,7 @@ pub fn draw(state: *State) void {
     drawSounds(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height + layout.anchors_height }, .{ .x = state.right_width, .y = @max(body_height - layout.properties_height - layout.players_height - layout.anchors_height, 100) }, cond);
     panels_m2.drawGroups(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 360, .y = 420 });
     panels_m3.drawHeightsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 40 }, .{ .x = 300, .y = 420 });
+    panels_m3.drawFiltersComposer(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 420, .y = 380 });
     pollScriptPick(state);
     panels_m2.drawScriptDialog(state, .{ .x = state.left_width + 60, .y = body_top + 80 }, .{ .x = 380, .y = 340 });
     panels_m2.drawScriptModals(state);
@@ -2308,6 +2344,9 @@ fn drawMenuBar(state: *State) f32 {
         // the tool it drives - the tool is the gesture, the window the fields.
         ig.igSeparator();
         if (ig.igMenuItemBoolPtr("Heights...", null, &state.heights_open, true)) {}
+        // M3, D-31: the Filters Composer (the MFC's CreateFilterDialog), a
+        // Tools window like every composer (D-06).
+        if (ig.igMenuItemBoolPtr("Filters Composer...", null, &state.filters_composer_open, true)) {}
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("View")) {
@@ -2958,6 +2997,7 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
     if (!open) return;
     _ = ig.igInputTextWithHint("##filter", "filter", &state.filter, state.filter.len + 1, 0);
     const filter = std.mem.sliceTo(&state.filter, 0);
+    drawPaletteFilters(state);
     if (state.catalogue.len == 0) {
         text("the object catalogue is empty");
         return;
@@ -2969,7 +3009,7 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
         var end = start;
         var matches: usize = 0;
         while (end < state.order.len and state.catalogue[state.order[end]].game_type == game_type) : (end += 1) {
-            if (logic.matchesFilter(std.mem.sliceTo(&state.catalogue[state.order[end]].name, 0), filter)) matches += 1;
+            if (logic.paletteObjectVisible(std.mem.sliceTo(&state.catalogue[state.order[end]].name, 0), std.mem.sliceTo(&state.catalogue[state.order[end]].path, 0), filter, state.active_filters)) matches += 1;
         }
         defer start = end;
         if (matches == 0) continue;
@@ -2982,7 +3022,7 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
         for (state.order[start..end]) |index| {
             const entry = &state.catalogue[index];
             const name = std.mem.sliceTo(&entry.name, 0);
-            if (!logic.matchesFilter(name, filter)) continue;
+            if (!logic.paletteObjectVisible(name, std.mem.sliceTo(&entry.path, 0), filter, state.active_filters)) continue;
             ig.igPushIDInt(@intCast(index));
             defer ig.igPopID();
             // D-29: a picture per object, decoded by the engine on demand -
@@ -3002,6 +3042,120 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
     // Once per frame regardless of which groups are open, so a budget of
     // decodes/uploads still drains while nothing new is being requested.
     if (state.real.gpuDevice()) |device| state.pictures.pump(state.real, device, picture_pump_budget);
+}
+
+/// Rebuilds the palette's active-filter cache over the editor's current list
+/// (M3, D-31): called when `filters_generation` moves, and by the filter
+/// commands when the combo, a slot or its check changes. The borrowed views
+/// read the editor's own records; the scratch lives in State.
+pub fn refreshActiveFilters(state: *State) void {
+    var slots: [core.settings.Settings.filter_slot_count][]const u8 = undefined;
+    for (0..core.settings.Settings.filter_slot_count) |i| slots[i] = state.settings.filterSlot(i);
+    var indices: [logic.max_active_filters]usize = undefined;
+    const count = logic.collectActiveFilterIndices(state.settings.filter_active.slice(), slots, state.filter_checked, state.editor.filtersSlice(), &indices);
+    const filters = state.editor.filtersSlice();
+    for (0..count) |i| {
+        state.filter_views[i] = .{};
+        state.active_filter_values[i] = filters[indices[i]].view(&state.filter_views[i]);
+    }
+    state.active_filters = state.active_filter_values[0..count];
+    state.filters_generation_seen = state.editor.filters_generation;
+}
+
+/// The palette's filter row (M3, D-31): the nine quick toggles (three per
+/// line, the MFC's check row), the filter combo and New/Delete Filter -
+/// every control a named command, so BK_EDITOR_AUTO drives the same path.
+/// Ctrl+click on a toggle assigns the combo's filter to that slot (the MFC
+/// editor's UpdateCheck); a plain click toggles its gate.
+fn drawPaletteFilters(state: *State) void {
+    if (state.filters_generation_seen != state.editor.filters_generation) refreshActiveFilters(state);
+    const slot_count = core.settings.Settings.filter_slot_count;
+    var i: usize = 0;
+    while (i < slot_count) : (i += 1) {
+        var id_buffer: [32:0]u8 = undefined;
+        const label = std.fmt.bufPrintZ(&id_buffer, "##filterslot{d}", .{i}) catch continue;
+        const was = state.filter_checked[i];
+        var now = was;
+        if (ig.igCheckbox(label.ptr, &now)) {
+            var arg: [8:0]u8 = undefined;
+            const slot_arg = std.fmt.bufPrintZ(&arg, "{d}", .{i}) catch "";
+            const io = ig.igGetIO();
+            if (io.*.KeyCtrl or io.*.KeySuper) {
+                // The click was an assignment, not a toggle: the check is
+                // put back and the command decides whether it could assign.
+                _ = commands.run(state, "filter_assign", slot_arg);
+                state.filter_checked[i] = was;
+            } else {
+                _ = commands.run(state, "filter_toggle", slot_arg);
+            }
+        }
+        ig.igSameLine();
+        const slot_name = state.settings.filterSlot(i);
+        text(if (slot_name.len != 0) slot_name else "-");
+        if ((i + 1) % 3 != 0 and i + 1 < slot_count) ig.igSameLine();
+    }
+
+    const combo_name = state.settings.filter_active.slice();
+    var preview_buffer: [65:0]u8 = undefined;
+    const shown: [:0]const u8 = std.fmt.bufPrintZ(&preview_buffer, "{s}", .{if (combo_name.len != 0) combo_name else "(no filter)"}) catch "(no filter)";
+    if (ig.igBeginCombo("##filtercombo", shown.ptr, 0)) {
+        if (ig.igSelectableEx("(no filter)", combo_name.len == 0, 0, .{ .x = 0, .y = 0 })) {
+            _ = commands.run(state, "filter_select", "");
+        }
+        for (state.editor.filtersSlice()) |*entry| {
+            const name = entry.nameSlice();
+            var name_buffer: [65:0]u8 = undefined;
+            const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{name}) catch continue;
+            if (ig.igSelectableEx(name_z.ptr, std.mem.eql(u8, name, combo_name), 0, .{ .x = 0, .y = 0 })) {
+                _ = commands.run(state, "filter_select", name);
+            }
+        }
+        ig.igEndCombo();
+    }
+    ig.igSameLine();
+    if (ig.igSmallButton("New Filter")) state.filter_new_popup = true;
+    ig.igSameLine();
+    if (ig.igSmallButton("Delete Filter")) {
+        if (combo_name.len != 0) {
+            @memcpy(state.filter_delete_popup[0..combo_name.len], combo_name[0..combo_name.len]);
+            state.filter_delete_popup[combo_name.len] = 0;
+            _ = ig.igOpenPopup("Delete filter?", 0);
+        }
+    }
+    drawPaletteFilterPopups(state);
+}
+
+/// The palette's New Filter popup (the MFC's CreateFilterNameDialog, ImGui
+/// shaped) and the Delete confirmation (the MFC's own question).
+fn drawPaletteFilterPopups(state: *State) void {
+    if (state.filter_new_popup) {
+        state.filter_new_popup = false;
+        state.filter_new_edit = [_:0]u8{0} ** 64;
+        _ = ig.igOpenPopup("New filter", 0);
+    }
+    if (ig.igBeginPopupModal("New filter", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        _ = ig.igInputTextWithHint("##newfiltername", "name", &state.filter_new_edit, state.filter_new_edit.len + 1, 0);
+        if (ig.igButton("OK")) {
+            _ = commands.run(state, "filter_new", std.mem.sliceTo(&state.filter_new_edit, 0));
+            ig.igCloseCurrentPopup();
+        }
+        ig.igSameLine();
+        if (ig.igButton("Cancel")) ig.igCloseCurrentPopup();
+        ig.igEndPopup();
+    }
+    if (ig.igBeginPopupModal("Delete filter?", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        var buffer: [96]u8 = undefined;
+        const message = std.fmt.bufPrint(&buffer, "Do you really want to DELETE the filter \"{s}\"?", .{std.mem.sliceTo(&state.filter_delete_popup, 0)}) catch
+            "Do you really want to DELETE this filter?";
+        text(message);
+        if (ig.igButton("Delete")) {
+            _ = commands.run(state, "filter_delete", std.mem.sliceTo(&state.filter_delete_popup, 0));
+            ig.igCloseCurrentPopup();
+        }
+        ig.igSameLine();
+        if (ig.igButton("Cancel")) ig.igCloseCurrentPopup();
+        ig.igEndPopup();
+    }
 }
 
 /// Names decoded through the bridge per frame (Pictures.pump's budget).
