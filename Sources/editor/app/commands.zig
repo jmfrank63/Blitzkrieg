@@ -112,6 +112,12 @@ pub const command_table = [_]Entry{
     .{ .name = "filter_rename", .handler = filterRename },
     .{ .name = "filter_words", .handler = filterWords },
     .{ .name = "filters_save", .handler = filtersSave },
+    .{ .name = "fields_set", .handler = fieldsSet },
+    .{ .name = "fields_randomize", .handler = fieldsRandomize },
+    .{ .name = "fields_toggle", .handler = fieldsToggle },
+    .{ .name = "fields_apply", .handler = fieldsApply },
+    .{ .name = "fields_vertex_add", .handler = fieldsVertexAdd },
+    .{ .name = "fields_vertex_clear", .handler = fieldsVertexClear },
 };
 
 pub const predicate_table = [_]Entry{
@@ -1970,4 +1976,147 @@ fn filterWords(state: *State, arg: []const u8) Outcome {
     }
     updated.lists[list_index].word_count = @intCast(count);
     return resultOutcome(state, state.editor.filterPut(updated));
+}
+
+
+// ---------------------------------------------------------------------------
+// The Fields tool (M3, D-21): the panel's controls as named commands, so
+// BK_EDITOR_AUTO drives the same path. The polygon itself is the tool's
+// gesture (press/right/double-click, view.zig's handleFields) - the vertex
+// commands exist for scripts that name world points directly.
+// ---------------------------------------------------------------------------
+
+/// `do=fields_set:<storage-relative name>` - the field-set combo's choice.
+fn fieldsSet(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0 or arg.len >= core.bridge.field_set_name_capacity) return .bad_arg;
+    state.fields_set_name = [_:0]u8{0} ** core.bridge.field_set_name_capacity;
+    @memcpy(state.fields_set_name[0..arg.len], arg[0..arg.len]);
+    return .ok;
+}
+
+/// `do=fields_randomize:<min>:<width>:<dist>` - the MFC Randomize dialog's
+/// three numbers (min length cells >= 2, width 0..0.5, disturbance 0..1).
+fn fieldsRandomize(state: *State, arg: []const u8) Outcome {
+    var it = std.mem.splitScalar(u8, arg, ':');
+    const min_text = it.next() orelse return .bad_arg;
+    const width_text = it.next() orelse return .bad_arg;
+    const dist_text = it.next() orelse return .bad_arg;
+    const min_length = std.fmt.parseFloat(f32, min_text) catch return .bad_arg;
+    const width = std.fmt.parseFloat(f32, width_text) catch return .bad_arg;
+    const disturbance = std.fmt.parseFloat(f32, dist_text) catch return .bad_arg;
+    if (!std.math.isFinite(min_length) or !std.math.isFinite(width) or !std.math.isFinite(disturbance)) return .bad_arg;
+    if (min_length < 2 or width < 0 or width > 0.5 or disturbance < 0 or disturbance > 1) return .bad_arg;
+    state.fields_randomize = true;
+    state.fields_min_length = min_length;
+    state.fields_width = width;
+    state.fields_disturbance = disturbance;
+    return .ok;
+}
+
+/// `do=fields_toggle:<what>` - one of the dialog's checkboxes:
+/// randomize|terrain|objects|heights|update|passability|filter.
+fn fieldsToggle(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "randomize")) {
+        state.fields_randomize = !state.fields_randomize;
+    } else if (std.mem.eql(u8, arg, "terrain")) {
+        state.fields_fill_terrain = !state.fields_fill_terrain;
+    } else if (std.mem.eql(u8, arg, "objects")) {
+        state.fields_place_objects = !state.fields_place_objects;
+    } else if (std.mem.eql(u8, arg, "heights")) {
+        state.fields_modify_heights = !state.fields_modify_heights;
+    } else if (std.mem.eql(u8, arg, "update")) {
+        state.fields_update_after = !state.fields_update_after;
+    } else if (std.mem.eql(u8, arg, "passability")) {
+        state.fields_check_passability = !state.fields_check_passability;
+    } else if (std.mem.eql(u8, arg, "filter")) {
+        state.fields_filter_objects = !state.fields_filter_objects;
+    } else return .bad_arg;
+    return .ok;
+}
+
+/// `do=fields_apply` / `:yes` / `:passability` - the application over the
+/// tool's pending polygon. A season mismatch refuses with the two seasons
+/// named (the MFC's IDS_INVALID_FIELD_SEASON question), and `:yes` is the
+/// answer - the panel's popup sends it, exactly the heights confirmations'
+/// split. `:passability` runs the report over the polygon, changing nothing.
+fn fieldsApply(state: *State, arg: []const u8) Outcome {
+    const confirmed = std.mem.eql(u8, arg, "yes");
+    const passability_only = std.mem.eql(u8, arg, "passability");
+    if (arg.len != 0 and !confirmed and !passability_only) return .bad_arg;
+    const tool = &state.view.fields_tool;
+    var points: [core.tools_fields.max_points]core.bridge.FieldVec3 = undefined;
+    const count = tool.applyPoints(&points) orelse {
+        state.view.setStatus("fields: ", "the polygon is not closed: three points and a real area are needed");
+        return .refused;
+    };
+    const name = std.mem.sliceTo(&state.fields_set_name, 0);
+    if (name.len == 0) {
+        state.view.setStatus("fields: ", "no field set is chosen");
+        return .refused;
+    }
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+
+    // The season confirmation (the MFC's own flow, the dialog above the
+    // application): a mismatch asks, `yes` answers.
+    const season = state.editor.fieldSetSeason(name) catch |err| {
+        state.view.noteEditResult(state.editor, err);
+        return .refused;
+    };
+    const map_season = state.editor.document.info.season;
+    if (season != map_season and !confirmed and !passability_only) {
+        var buffer: [160]u8 = undefined;
+        const message = std.fmt.bufPrint(&buffer, "the field set's season ({d}) differs from the map's ({d}); apply anyway?", .{ season, map_season }) catch
+            "the field set's season differs from the map's";
+        state.view.setStatus("fields: ", message);
+        return .refused;
+    }
+
+    var params: core.bridge.FieldApplyParams = .{};
+    params.setFieldSet(name);
+    params.point_count = @intCast(count);
+    params.points = &points;
+    params.randomize = if (state.fields_randomize) 1 else 0;
+    params.min_length = state.fields_min_length;
+    params.width = state.fields_width;
+    params.disturbance = state.fields_disturbance;
+    params.fill_terrain = if (state.fields_fill_terrain) 1 else 0;
+    params.place_objects = if (state.fields_place_objects) 1 else 0;
+    params.modify_heights = if (state.fields_modify_heights) 1 else 0;
+    params.update_map_after = if (state.fields_update_after) 1 else 0;
+    params.check_passability_only = if (passability_only) 1 else 0;
+    params.can_add_object_filter = if (state.fields_filter_objects) 1 else 0;
+    if (state.fields_filter_objects) params.setFilter(state.settings.filter_active.slice());
+
+    var report: std.ArrayListUnmanaged(core.bridge.FieldObjectReport) = .empty;
+    const outcome = resultOutcome(state, state.editor.applyField(params, &report, state.allocator));
+    report.deinit(state.allocator);
+    if (outcome == .ok) {
+        // The MFC cleared the points on a successful place
+        // (StateTerrainFields.cpp:506-512); a report-only run keeps them.
+        if (!passability_only) tool.clear();
+        state.view.clearStatus();
+    }
+    return outcome;
+}
+
+/// `do=fields_vertex_add:<wx>:<wy>` - one polygon vertex at a world point,
+/// for scripts that name coordinates directly (the tool's own gesture is
+/// presses and drags).
+fn fieldsVertexAdd(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const wx = std.fmt.parseFloat(f32, arg[0..colon]) catch return .bad_arg;
+    const wy = std.fmt.parseFloat(f32, arg[colon + 1 ..]) catch return .bad_arg;
+    if (!std.math.isFinite(wx) or !std.math.isFinite(wy)) return .bad_arg;
+    if (!state.view.fields_tool.vertexAdd(wx, wy)) {
+        state.view.setStatus("fields: ", "the polygon holds 64 points at most");
+        return .refused;
+    }
+    return .ok;
+}
+
+/// `do=fields_vertex_clear` - the pending polygon goes.
+fn fieldsVertexClear(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    state.view.fields_tool.clear();
+    return .ok;
 }

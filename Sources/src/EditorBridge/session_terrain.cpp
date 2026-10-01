@@ -499,8 +499,8 @@ bool SetTerrainModesInSession( SEditorSession *pSession, int bInstantUpdate, int
 // refresh rewrote. The roads'/rivers'/sounds' z is NOT re-derived on the way
 // back: the map's own bytes are what undo owes, and a re-derivation is only
 // guaranteed to land on them when the map was saved by exactly that
-// derivation.
-namespace {
+// derivation. The capture and putback are shared with the fields composite
+// (session_fields.cpp), whose heights pass runs the same objects-Z refresh.
 void CaptureVsoZ( CMapInfo &rMap, SVsoZState *pState )
 {
 	pState->roads3 = rMap.terrain.roads3;
@@ -541,6 +541,8 @@ void PutVsoZBack( SEditorSession *pSession, const SVsoZState &rSnapshot, const S
 	for ( int nVSO = 0; nVSO < int( rEngineTerrain.rivers.size() ); ++nVSO )
 		pEngineTerrain->UpdateRiver( rEngineTerrain.rivers[nVSO].nID );
 }
+
+namespace {
 
 bool PutUpdateMapBack( SEditorSession *pSession, const SUpdateMapEdit &rEdit, bool bBefore )
 {
@@ -599,11 +601,14 @@ bool IsFitCandidate( const SGDBObjectDesc *pDesc, IObjectsDB *pObjectsDB, int nF
 // bridge session, so UpdateAllHeights and UpdateTerrain are the interface the
 // MFC calls, not a bridge-side reimplementation.
 bool UpdateMapInSession( SEditorSession *pSession, void (*pfnProgress)( int nStep, int nTotal, void *pUser ), void *pUser,
-                         bool *pbRefused, int *pnToken )
+                         bool *pbRefused, int *pnToken, IEditRecord **pNestedOut )
 {
-	*pnToken = -1;
+	if ( pnToken )
+		*pnToken = -1;
 	if ( pbRefused )
 		*pbRefused = false;
+	if ( pNestedOut )
+		*pNestedOut = 0;
 	if ( pSession == 0 || !pSession->bMapOpen )
 	{
 		if ( pSession )
@@ -771,6 +776,15 @@ bool UpdateMapInSession( SEditorSession *pSession, void (*pfnProgress)( int nSte
 	// progress bar was built over: TemplateEditorFrame1.cpp:5152).
 	if ( pfnProgress )
 		pfnProgress( ++nStep, nTotal, pUser );
+	// The fields application (D-21) nests this composite whole: handed out
+	// unlogged, it becomes part of ONE edit with the fill itself.
+	if ( pNestedOut )
+	{
+		*pNestedOut = edit.release();
+		return true;
+	}
+	if ( pnToken == 0 )
+		return false;
 	*pnToken = LogEdit( pSession, edit.release() );
 	return true;
 }

@@ -292,7 +292,7 @@ const FakeBridgeGroup = struct {
 const FakeBridgeEdit = struct { before: ?FakeBridgeGroup, after: ?FakeBridgeGroup };
 /// The fake's edit log holds road and river edits and bridge edits alike,
 /// one token space, as the real session's does.
-const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit, altitudes: FakeAltitudeEdit };
+const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit, altitudes: FakeAltitudeEdit, fields: void };
 /// A toggle of built during play: the entry and its flag before and after.
 const FakeBuildEdit = struct { index: usize, before: bool, after: bool };
 /// One altitude region edit (M3, D-19): the region and its heights before
@@ -415,6 +415,13 @@ pub const FakeBridge = struct {
     /// no object z), so no fake behaviour keys off them yet.
     instant_update: bool = false,
     fit_to_grid: bool = true,
+    /// The fields fixtures (M3, D-21): the season a fieldSetSeason ask
+    /// answers (the fixture set is a summer one) and the names listRmg
+    /// answers for the field sets folder.
+    field_set_season: i32 = 0,
+    field_set_names: []const []const u8 = &.{"scenarios/fieldsets/summer_basic"},
+    last_field_apply: ?bridge_mod.FieldApplyParams = null,
+    field_apply_refused: bool = false,
     /// The object filters (M3, D-31): the user file's contents, saved whole
     /// by `saveObjectFilters`; `objectFilters` merges them over the shipped
     /// `default_filters` (user wins by name) the way the real bridge reads
@@ -908,6 +915,9 @@ pub const FakeBridge = struct {
         .deleteEntrenchment = deleteEntrenchment,
         .objectFilters = objectFilters,
         .saveObjectFilters = saveObjectFilters,
+        .applyField = applyField,
+        .fieldSetSeason = fieldSetSeason,
+        .listRmg = listRmg,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a
@@ -996,6 +1006,7 @@ pub const FakeBridge = struct {
         }
         self.undone_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
         const put = switch (self.edits.items[@intCast(token)]) {
+            .fields => .ok,
             .vso => |*edit| self.putVso(edit.kind, edit.index, if (edit.after) |*a| a else null, if (edit.before) |*b| b else null),
             .bridge => |*edit| self.putBridge(if (edit.after) |*a| a else null, if (edit.before) |*b| b else null),
             .build => |edit| self.putBuild(edit.index, edit.before),
@@ -1021,6 +1032,7 @@ pub const FakeBridge = struct {
         }
         self.applied_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
         const put = switch (self.edits.items[@intCast(token)]) {
+            .fields => .ok,
             .vso => |*edit| self.putVso(edit.kind, edit.index, if (edit.before) |*b| b else null, if (edit.after) |*a| a else null),
             .bridge => |*edit| self.putBridge(if (edit.before) |*b| b else null, if (edit.after) |*a| a else null),
             .build => |edit| self.putBuild(edit.index, edit.after),
@@ -3498,6 +3510,60 @@ pub const FakeBridge = struct {
         self.message_len = 0;
         self.object_filters.clearRetainingCapacity();
         self.object_filters.appendSlice(self.allocator, filters) catch return .failed;
+        return .ok;
+    }
+
+    fn applyField(ptr: *anyopaque, params: bridge_mod.FieldApplyParams, report: []bridge_mod.FieldObjectReport, total: *usize, token: *i32) Status {
+        _ = report;
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        total.* = 0;
+        if (self.field_apply_refused or params.point_count < 3) {
+            self.say("the fields application is refused", .{});
+            return .refused;
+        }
+        self.last_field_apply = params;
+        // The simulated apply: one undoable edit of the log that changes
+        // nothing a caller can see (the fake holds no terrain fills). The
+        // documented simplification: the engine's tile, object and height
+        // fills are the real bridge's business; the fake proves the command
+        // shape - one token, the report path, the refusal path.
+        const edit = FakeEdit{ .fields = {} };
+        self.edits.append(self.allocator, edit) catch return .failed;
+        token.* = @intCast(self.edits.items.len - 1);
+        self.applied_edits.append(self.allocator, token.*) catch return .failed;
+        self.undone_edits.clearRetainingCapacity();
+        return .ok;
+    }
+
+    fn fieldSetSeason(ptr: *anyopaque, name: [*:0]const u8, season: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        const wanted = std.mem.span(name);
+        for (self.field_set_names) |known| {
+            if (std.mem.eql(u8, known, wanted)) {
+                season.* = self.field_set_season;
+                return .ok;
+            }
+        }
+        self.say("the field set \"{s}\" is not in the data", .{wanted});
+        return .refused;
+    }
+
+    fn listRmg(ptr: *anyopaque, kind: bridge_mod.RmgKind, out: []bridge_mod.RmgName, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        total.* = if (kind == .field_sets) self.field_set_names.len else 0;
+        if (out.len < total.*) return .refused;
+        if (kind == .field_sets) {
+            for (self.field_set_names, 0..) |name, i| {
+                var entry = bridge_mod.RmgName{};
+                const len = @min(name.len, entry.name.len - 1);
+                @memcpy(entry.name[0..len], name[0..len]);
+                out[i] = entry;
+            }
+        }
         return .ok;
     }
 

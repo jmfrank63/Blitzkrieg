@@ -78,6 +78,14 @@ comptime {
     std.debug.assert(@offsetOf(c.BkEditorObjectFilter, "list_count") == @offsetOf(core.bridge.ObjectFilter, "list_count"));
     std.debug.assert(@offsetOf(c.BkEditorObjectFilter, "user") == @offsetOf(core.bridge.ObjectFilter, "user"));
     std.debug.assert(@offsetOf(c.BkEditorObjectFilter, "lists") == @offsetOf(core.bridge.ObjectFilter, "lists"));
+    // The fields application (M3, D-21): handed to BkEditorApplyField as it
+    // is; the report and the RMG name read back field by field with sizes
+    // asserted.
+    std.debug.assert(@sizeOf(c.BkEditorFieldApplyParams) == @sizeOf(core.bridge.FieldApplyParams));
+    std.debug.assert(@offsetOf(c.BkEditorFieldApplyParams, "point_count") == @offsetOf(core.bridge.FieldApplyParams, "point_count"));
+    std.debug.assert(@offsetOf(c.BkEditorFieldApplyParams, "object_filter") == @offsetOf(core.bridge.FieldApplyParams, "object_filter"));
+    std.debug.assert(@sizeOf(c.BkEditorFieldObjectReport) == @sizeOf(core.bridge.FieldObjectReport));
+    std.debug.assert(@sizeOf(c.BkEditorRmgName) == @sizeOf(core.bridge.RmgName));
     // The reserve position's record: gun, truck, x, y.
     std.debug.assert(@sizeOf(c.BkEditorReservePositionRecord) == 4 * 4);
     // The AI general's records (04-12): four counts; a parcel's type, centre, radius,
@@ -209,6 +217,9 @@ pub const RealBridge = struct {
         .deleteEntrenchment = vtableDeleteEntrenchment,
         .objectFilters = vtableObjectFilters,
         .saveObjectFilters = vtableSaveObjectFilters,
+        .applyField = vtableApplyField,
+        .fieldSetSeason = vtableFieldSetSeason,
+        .listRmg = vtableListRmg,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -570,6 +581,51 @@ pub const RealBridge = struct {
         const self = from(ptr);
         const c_filters = @as([*c]const c.BkEditorObjectFilter, @ptrCast(filters.ptr));
         return status(c.BkEditorSaveObjectFilters(self.session, if (filters.len == 0) null else c_filters, @intCast(filters.len)));
+    }
+
+    /// BkEditorApplyField (M3, D-21): the params and the report slice are
+    /// handed over as they are (the layouts are asserted above); `total` is
+    /// always the full count.
+    fn vtableApplyField(ptr: *anyopaque, params: core.bridge.FieldApplyParams, report: []core.bridge.FieldObjectReport, total: *usize, token: *i32) Status {
+        const self = from(ptr);
+        var c_params: c.BkEditorFieldApplyParams = @bitCast(params);
+        var count: c_int = 0;
+        const c_report: [*c]c.BkEditorFieldObjectReport = if (report.len == 0) null else @ptrCast(report.ptr);
+        const result = status(c.BkEditorApplyField(self.session, &c_params, c_report, @intCast(report.len), &count, token));
+        if (result == .ok or result == .refused) total.* = @intCast(@max(count, 0));
+        return result;
+    }
+
+    /// BkEditorFieldSetSeason (M3, D-21).
+    fn vtableFieldSetSeason(ptr: *anyopaque, name: [*:0]const u8, season: *i32) Status {
+        const self = from(ptr);
+        var out: c_int = -1;
+        const result = status(c.BkEditorFieldSetSeason(self.session, name, &out));
+        if (result == .ok) season.* = out;
+        return result;
+    }
+
+    /// BkEditorListRmg (M3, D-08) in two passes: the sizing pass is REFUSED
+    /// when the folder lists anything, like the action list's.
+    fn vtableListRmg(ptr: *anyopaque, kind: core.bridge.RmgKind, out: []core.bridge.RmgName, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorListRmg(self.session, @intFromEnum(kind), null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        total.* = @intCast(@max(count, 0));
+        if (count <= 0) return .ok;
+        if (out.len < total.*) return .refused;
+        const all = std.heap.page_allocator.alloc(c.BkEditorRmgName, @intCast(count)) catch return .failed;
+        defer std.heap.page_allocator.free(all);
+        var got: c_int = 0;
+        const read = status(c.BkEditorListRmg(self.session, @intFromEnum(kind), all.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (all, 0..) |item, i| {
+            if (i >= out.len) break;
+            out[i] = @bitCast(item);
+        }
+        return .ok;
     }
 
     /// BkEditorReserveRole (04-11): the object type's role in a reserve position.

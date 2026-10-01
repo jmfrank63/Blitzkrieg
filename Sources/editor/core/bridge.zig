@@ -143,6 +143,72 @@ pub const FilterView = struct {
     lists: [filter_max_lists]core_filters.WordList = undefined,
 };
 
+/// BkEditorVec3 (the fields polygon's point), layout included. WORLD (Vis)
+/// units; the fill reads the terrain, so z is ignored.
+pub const FieldVec3 = extern struct { x: f32 = 0, y: f32 = 0, z: f32 = 0 };
+
+/// BkEditorFieldApplyParams (M3, D-21), layout included: one fields
+/// application. The rules are the C ABI's own; `points` borrows the
+/// caller's array for the duration of the call.
+pub const field_set_name_capacity = 192;
+pub const FieldApplyParams = extern struct {
+    field_set: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    point_count: c_int = 0,
+    points: ?[*]const FieldVec3 = null,
+    randomize: c_int = 0,
+    min_length: f32 = 2.0,
+    width: f32 = 0,
+    disturbance: f32 = 0,
+    fill_terrain: c_int = 1,
+    place_objects: c_int = 1,
+    modify_heights: c_int = 1,
+    update_map_after: c_int = 0,
+    check_passability_only: c_int = 0,
+    can_add_object_filter: c_int = 0,
+    object_filter: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+
+    pub fn fieldSetSlice(self: *const FieldApplyParams) []const u8 {
+        return std.mem.sliceTo(&self.field_set, 0);
+    }
+
+    pub fn setFieldSet(self: *FieldApplyParams, text: []const u8) void {
+        const len = @min(text.len, field_set_name_capacity - 1);
+        @memset(&self.field_set, 0);
+        @memcpy(self.field_set[0..len], text[0..len]);
+    }
+
+    pub fn setFilter(self: *FieldApplyParams, text: []const u8) void {
+        const len = @min(text.len, name_capacity - 1);
+        @memset(&self.object_filter, 0);
+        @memcpy(self.object_filter[0..len], text[0..len]);
+    }
+};
+
+/// BkEditorFieldObjectReport: one object the object shells produced and
+/// whether it was placed. x, y are AI (map) units.
+pub const FieldObjectReport = extern struct {
+    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    x: f32 = 0,
+    y: f32 = 0,
+    placed: c_int = 0,
+
+    pub fn nameSlice(self: *const FieldObjectReport) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+};
+
+/// BkEditorRmgName: one storage-relative RMG name.
+pub const RmgName = extern struct {
+    name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+
+    pub fn nameSlice(self: *const RmgName) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+};
+
+/// The RMG folder kinds BkEditorListRmg walks (D-08).
+pub const RmgKind = enum(c_int) { field_sets = 0, templates = 1, graphs = 2, containers = 3, settings = 4, chapters = 5 };
+
 /// BkEditorAltitudeRegion (M3, D-19), layout included: terrain-VERTEX
 /// indices, half-open [x0, x1) x [y0, y1) - altitudes are indexed by terrain
 /// vertex, one more per axis than the map's tiles.
@@ -658,6 +724,18 @@ pub const Bridge = struct {
         /// authored or edited - `user` 1) to <UserRoot>mapeditor/filter.xml
         /// in the shipped file's own XML shape. A refusal changes nothing.
         saveObjectFilters: *const fn (ptr: *anyopaque, filters: []const ObjectFilter) Status,
+        /// BkEditorApplyField (M3, D-21): the fields application as ONE edit
+        /// (`token`, -1 after a refusal). `report` is sized by the caller
+        /// from the first pass (`total` is always the full count); null with
+        /// `report.len == 0` sizes. `check_passability_only` writes the
+        /// report and changes nothing.
+        applyField: *const fn (ptr: *anyopaque, params: FieldApplyParams, report: []FieldObjectReport, total: *usize, token: *i32) Status,
+        /// BkEditorFieldSetSeason (M3, D-21): the set's season, for the
+        /// app's YES/NO confirmation before an apply.
+        fieldSetSeason: *const fn (ptr: *anyopaque, name: [*:0]const u8, season: *i32) Status,
+        /// BkEditorListRmg (M3, D-08): the storage folder's bare names,
+        /// sorted (two-pass, like `vsoDescriptors`).
+        listRmg: *const fn (ptr: *anyopaque, kind: RmgKind, out: []RmgName, total: *usize) Status,
     };
 
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
@@ -736,6 +814,9 @@ pub const Bridge = struct {
     pub fn deleteEntrenchment(self: Bridge, index: i32, token: *i32) Status { return self.vtable.deleteEntrenchment(self.ptr, index, token); }
     pub fn objectFilters(self: Bridge, allocator: std.mem.Allocator, out: *[]ObjectFilter) Status { return self.vtable.objectFilters(self.ptr, allocator, out); }
     pub fn saveObjectFilters(self: Bridge, filters: []const ObjectFilter) Status { return self.vtable.saveObjectFilters(self.ptr, filters); }
+    pub fn applyField(self: Bridge, params: FieldApplyParams, report: []FieldObjectReport, total: *usize, token: *i32) Status { return self.vtable.applyField(self.ptr, params, report, total, token); }
+    pub fn fieldSetSeason(self: Bridge, name: [*:0]const u8, season: *i32) Status { return self.vtable.fieldSetSeason(self.ptr, name, season); }
+    pub fn listRmg(self: Bridge, kind: RmgKind, out: []RmgName, total: *usize) Status { return self.vtable.listRmg(self.ptr, kind, out, total); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 

@@ -331,6 +331,22 @@ pub const State = struct {
     filter_new_popup: bool = false,
     filter_delete_popup: [64:0]u8 = [_:0]u8{0} ** 64,
 
+    fields_open: bool = false,
+    /// The Fields panel's state (M3, D-21): the chosen field set, the
+    /// dialog's checkboxes and the Randomize dialog's three numbers. The
+    /// polygon itself lives in the tool (`view.fields_tool`).
+    fields_set_name: [core.bridge.field_set_name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.field_set_name_capacity,
+    fields_randomize: bool = false,
+    fields_fill_terrain: bool = true,
+    fields_place_objects: bool = true,
+    fields_modify_heights: bool = true,
+    fields_update_after: bool = false,
+    fields_check_passability: bool = false,
+    fields_filter_objects: bool = false,
+    fields_min_length: f32 = 8,
+    fields_width: f32 = 0.3,
+    fields_disturbance: f32 = 0.3,
+
     /// The catalogue's own sound entries (game type 100), sorted
     /// case-insensitively, for the Sounds panel's combo - slices into
     /// `catalogue`'s own name buffers (built and freed alongside it), never
@@ -1333,6 +1349,7 @@ pub fn draw(state: *State) void {
     panels_m2.drawGroups(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 360, .y = 420 });
     panels_m3.drawHeightsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 40 }, .{ .x = 300, .y = 420 });
     panels_m3.drawFiltersComposer(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 420, .y = 380 });
+    panels_m3.drawFieldsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 80 }, .{ .x = 320, .y = 440 });
     pollScriptPick(state);
     panels_m2.drawScriptDialog(state, .{ .x = state.left_width + 60, .y = body_top + 80 }, .{ .x = 380, .y = 340 });
     panels_m2.drawScriptModals(state);
@@ -2347,6 +2364,8 @@ fn drawMenuBar(state: *State) f32 {
         // M3, D-31: the Filters Composer (the MFC's CreateFilterDialog), a
         // Tools window like every composer (D-06).
         if (ig.igMenuItemBoolPtr("Filters Composer...", null, &state.filters_composer_open, true)) {}
+        // M3, D-21: the Fields panel (the MFC's TabTerrainFieldsDialog).
+        if (ig.igMenuItemBoolPtr("Fields...", null, &state.fields_open, true)) {}
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("View")) {

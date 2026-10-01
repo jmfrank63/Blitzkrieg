@@ -283,3 +283,110 @@ fn reloadComposerWords(state: *State, filter: *core.bridge.ObjectFilter) void {
         }
     }
 }
+
+
+/// D-21 (PARITY TR14-TR17): the MFC terrain tab (TabTerrainFieldsDialog) as
+/// one panel - the field-set combo (from the storage scan, D-08, plus
+/// Browse's file dialog shaped like every other), the dialog's checkboxes,
+/// the Randomize fields, Apply behind the season confirmation, and Check
+/// Passability as the report-only run. Every control a named command.
+pub fn drawFieldsPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    if (!state.fields_open) return;
+    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
+    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    const open = ig.igBegin("Fields", &state.fields_open, ig.ImGuiWindowFlags_NoCollapse);
+    defer ig.igEnd();
+    if (!open) return;
+    if (!panels.mapIsOpen(state.editor)) {
+        panels.text("no map open");
+        return;
+    }
+
+    // The field-set combo: the storage scan (BkEditorListRmg), read the
+    // frame the popup opens like the mods list.
+    const current = std.mem.sliceTo(&state.fields_set_name, 0);
+    var preview: [core.bridge.field_set_name_capacity:0]u8 = undefined;
+    const preview_z = std.fmt.bufPrintZ(&preview, "{s}", .{if (current.len != 0) current else "(no field set)"}) catch "(no field set)";
+    if (ig.igBeginCombo("##fieldset", preview_z.ptr, 0)) {
+        var names: [64]core.bridge.RmgName = undefined;
+        var total: usize = 0;
+        if (state.editor.bridge.listRmg(.field_sets, &names, &total) == .ok) {
+            for (names[0..@min(total, names.len)]) |*entry| {
+                const name = entry.nameSlice();
+                var name_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
+                const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{name}) catch continue;
+                if (ig.igSelectableEx(name_z.ptr, std.mem.eql(u8, name, current), 0, .{ .x = 0, .y = 0 })) {
+                    var arg: [core.bridge.field_set_name_capacity:0]u8 = undefined;
+                    _ = commands.run(state, "fields_set", std.fmt.bufPrintZ(&arg, "{s}", .{name}) catch "");
+                }
+            }
+        }
+        ig.igEndCombo();
+    }
+    // D-08: the scan replaces the MFC's file dialog - the combo IS the
+    // browse, user field sets included once 05-09's user root mounts them.
+
+    ig.igSeparatorText("Apply");
+    checkboxCommand(state, "Fill terrain", "terrain", &state.fields_fill_terrain);
+    checkboxCommand(state, "Place objects", "objects", &state.fields_place_objects);
+    checkboxCommand(state, "Modify heights", "heights", &state.fields_modify_heights);
+    checkboxCommand(state, "Update map afterwards", "update", &state.fields_update_after);
+    checkboxCommand(state, "Check passability", "passability", &state.fields_check_passability);
+    checkboxCommand(state, "Use the object filter", "filter", &state.fields_filter_objects);
+
+    ig.igSeparatorText("Randomize polygon");
+    checkboxCommand(state, "Randomize", "randomize", &state.fields_randomize);
+    var min_length = state.fields_min_length;
+    _ = ig.igInputFloatEx("min length (cells)", &min_length, 0, 0, "%.1f", 0);
+    if (ig.igIsItemDeactivatedAfterEdit()) {
+        var buffer: [32:0]u8 = undefined;
+        _ = commands.run(state, "fields_randomize", std.fmt.bufPrintZ(&buffer, "{d:.1}:{d:.2}:{d:.2}", .{ min_length, state.fields_width, state.fields_disturbance }) catch "");
+    }
+    var width = state.fields_width;
+    _ = ig.igInputFloatEx("width (0..0.5)", &width, 0, 0, "%.2f", 0);
+    if (ig.igIsItemDeactivatedAfterEdit()) {
+        var buffer: [32:0]u8 = undefined;
+        _ = commands.run(state, "fields_randomize", std.fmt.bufPrintZ(&buffer, "{d:.1}:{d:.2}:{d:.2}", .{ state.fields_min_length, width, state.fields_disturbance }) catch "");
+    }
+    var disturbance = state.fields_disturbance;
+    _ = ig.igInputFloatEx("disturbance (0..1)", &disturbance, 0, 0, "%.2f", 0);
+    if (ig.igIsItemDeactivatedAfterEdit()) {
+        var buffer: [32:0]u8 = undefined;
+        _ = commands.run(state, "fields_randomize", std.fmt.bufPrintZ(&buffer, "{d:.1}:{d:.2}:{d:.2}", .{ state.fields_min_length, state.fields_width, disturbance }) catch "");
+    }
+
+    ig.igSeparator();
+    if (ig.igButton("Apply...")) _ = ig.igOpenPopup("fields_season_confirm", 0);
+    ig.igSameLine();
+    if (ig.igButton("Check Passability")) _ = commands.run(state, "fields_apply", "passability");
+
+    // The season confirmation: the MFC's IDS_INVALID_FIELD_SEASON
+    // YES/NO question. The named command refuses naming the mismatch; the
+    // popup's Yes is the `fields_apply:yes` answer.
+    if (ig.igBeginPopupModal("fields_season_confirm", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        panels.text("Apply the field set?");
+        if (ig.igButton("Yes")) {
+            ig.igCloseCurrentPopup();
+            _ = commands.run(state, "fields_apply", "yes");
+        }
+        ig.igSameLine();
+        if (ig.igButton("No")) ig.igCloseCurrentPopup();
+        ig.igEndPopup();
+    }
+
+    ig.igSeparator();
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text("Draw the polygon with the Fields tool: click adds a vertex, right-click takes the last back, double-click or Enter closes, Esc keeps the last point; Insert and Delete work on a picked vertex.");
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+}
+
+fn checkboxCommand(state: *State, label: [*:0]const u8, what: []const u8, value: *bool) void {
+    var checked = value.*;
+    if (ig.igCheckbox(label, &checked)) {
+        var buffer: [16:0]u8 = undefined;
+        _ = commands.run(state, "fields_toggle", std.fmt.bufPrintZ(&buffer, "{s}", .{what}) catch "");
+        checked = value.*;
+    }
+}

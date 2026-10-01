@@ -3878,3 +3878,101 @@ BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 	return BK_EDITOR_OK;
 }
 }
+
+// ---------------------------------------------------------------------------
+// The Fields tool (M3, D-21) and the RMG folder scan (D-08).
+// ---------------------------------------------------------------------------
+
+BkEditorStatus BkEditorApplyField( BkEditorSession *pSession, const BkEditorFieldApplyParams *pParams,
+                                   BkEditorFieldObjectReport *pOutReport, int nReportCapacity, int *pnReportCount,
+                                   int *pnToken )
+{
+	if ( pnToken != 0 ) *pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pParams == 0 || pnToken == 0 || pnReportCount == 0 || nReportCapacity < 0 || ( pOutReport == 0 && nReportCapacity > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		SFieldApply apply;
+		apply.szFieldSet = pParams->field_set;
+		const int nPoints = pParams->point_count;
+		if ( nPoints < 3 || nPoints > 64 || pParams->points == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		apply.points.resize( nPoints );
+		for ( int i = 0; i < nPoints; ++i )
+			apply.points[i] = CVec3( pParams->points[i].x, pParams->points[i].y, 0.0f );
+		apply.bRandomize = pParams->randomize != 0;
+		apply.fMinLength = pParams->min_length;
+		apply.fWidth = pParams->width;
+		apply.fDisturbance = pParams->disturbance;
+		apply.bFillTerrain = pParams->fill_terrain != 0;
+		apply.bPlaceObjects = pParams->place_objects != 0;
+		apply.bModifyHeights = pParams->modify_heights != 0;
+		apply.bUpdateMapAfter = pParams->update_map_after != 0;
+		apply.bCanAddObjectFilter = pParams->can_add_object_filter != 0;
+		apply.bCheckPassabilityOnly = pParams->check_passability_only != 0;
+		apply.szObjectFilter = pParams->object_filter;
+
+		std::vector<SFieldObjectReport> report;
+		bool bRefused = false;
+		int nToken = -1;
+		if ( !ApplyFieldInSession( pSession, apply, &report, &bRefused, &nToken ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		*pnReportCount = int( report.size() );
+		const int nWrite = Min( int( report.size() ), nReportCapacity );
+		for ( int i = 0; i < nWrite; ++i )
+		{
+			memset( &pOutReport[i], 0, sizeof pOutReport[i] );
+			const size_t nCopy = Min( report[i].szName.size(), sizeof pOutReport[i].name - 1 );
+			memcpy( pOutReport[i].name, report[i].szName.c_str(), nCopy );
+			pOutReport[i].x = report[i].fX;
+			pOutReport[i].y = report[i].fY;
+			pOutReport[i].placed = report[i].bPlaced ? 1 : 0;
+		}
+		if ( int( report.size() ) > nReportCapacity )
+			return BK_EDITOR_REFUSED;
+		*pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorFieldSetSeason( BkEditorSession *pSession, const char *pszName, int *pnSeason )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || *pszName == 0 || pnSeason == 0 || strnlen( pszName, 256 ) >= 256 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		int nSeason = -1;
+		bool bRefused = false;
+		if ( !FieldSetSeasonInSession( pSession, pszName, &nSeason, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		*pnSeason = nSeason;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorListRmg( BkEditorSession *pSession, int nKind, BkEditorRmgName *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( pOut == 0 && nCapacity > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		std::vector<std::string> names;
+		if ( !ListRmgFolder( pSession, nKind, &names ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		*pnCount = int( names.size() );
+		const int nWrite = Min( int( names.size() ), nCapacity );
+		for ( int i = 0; i < nWrite; ++i )
+		{
+			memset( &pOut[i], 0, sizeof pOut[i] );
+			const size_t nCopy = Min( names[i].size(), sizeof pOut[i].name - 1 );
+			memcpy( pOut[i].name, names[i].c_str(), nCopy );
+		}
+		if ( int( names.size() ) > nCapacity )
+		{
+			pSession->szMessage = NStr::Format( "the folder holds %d names and room was given for %d",
+				int( names.size() ), nCapacity );
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}

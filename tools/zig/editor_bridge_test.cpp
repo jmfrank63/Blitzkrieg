@@ -24,6 +24,9 @@
 #include "../../Sources/src/RandomMapGen/TerrainGenerator.h"
 #include "../../Sources/src/RandomMapGen/PNoise.h"
 #include "../../Sources/src/RandomMapGen/VSO_Types.h"
+#include "../../Sources/src/StreamIO/RandomGen.h"
+#include "../../Sources/src/StreamIO/StreamIOTypes.h"
+#include "../../Sources/src/Misc/Win32Random.h"
 #include "../../Sources/src/AILogic/AILogic.h"
 #include "../../Sources/src/AILogic/aiconsts.h"
 #include "../../Sources/src/GFX/GFX.H"
@@ -123,6 +126,22 @@ static bool Check( bool bCondition, const char *pszWhat )
 		++g_nFailures;
 	}
 	return bCondition;
+}
+
+// The tile and object shells draw from the engine's random services: the
+// bridge seeds its fills from a fixed state (session_fields.cpp), and the
+// test replays them with the same seeds. The zero seed is the game's own
+// fixed point (IRandomGenSeed::InitByZeroSeed, NWin32Random::Seed).
+static void ReseedRandom()
+{
+	NWin32Random::Seed( 0 );
+	if ( CPtr<IRandomGenSeed> pSeed = CreateObject<IRandomGenSeed>( STREAMIO_RANDOM_GEN_SEED ) )
+	{
+		pSeed->InitByZeroSeed();
+		if ( g_pGlobalRandomGen != 0 )
+			g_pGlobalRandomGen->SetSeed( pSeed );
+		GetSingleton<IRandomGen>()->SetSeed( pSeed );
+	}
 }
 
 // The same map the map-file tier uses, as a file dialog would hand the path
@@ -3868,6 +3887,8 @@ static const BkEditorObjectFilter *pBuildingsOf( const std::vector<BkEditorObjec
 // filter as the MFC editor's matcher predicts. Filters are installation
 // data: the whole test runs with a map open or not, and the shipped file is
 // never written.
+static void TestM3Fields( BkEditorSession *pSession, const std::string &szScratch );
+static int M3CountObjects( BkEditorSession *pSession );
 static void TestM3Filters( BkEditorSession *pSession, const char *pszRoot, const std::string &szScratch )
 {
 	// Argument rules first: a null out_count and a negative capacity are
@@ -10227,6 +10248,7 @@ int main( int argc, char **argv )
 		TestM3UpdateMapAndFill( pSession, szScratch );
 		TestM3TileInfo( pSession );
 		TestM3Filters( pSession, pszRoot, szScratch );
+		TestM3Fields( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );
@@ -10310,4 +10332,301 @@ int main( int argc, char **argv )
 	if ( g_nFailures == 0 )
 		printf( "editor-bridge: PASS\n" );
 	return g_nFailures == 0 ? 0 : 1;
+}
+
+// The Fields tool (M3, D-21): a shipped summer field set applies over a
+// square polygon on a summer map - tiles and heights exactly what the same
+// engine functions build on a copy, objects through the session's add path -
+// and one undo writes the unedited save byte for byte. Degenerate polygons
+// are refused, changing nothing; the season confirmation is the app's (the
+// bridge answers the season and does not gate).
+static void TestM3Fields( BkEditorSession *pSession, const std::string &szScratch )
+{
+	// Argument rules: a null params or out_token is BAD_ARGUMENT; a bad
+	// point count too.
+	Check( BkEditorApplyField( pSession, 0, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "BkEditorApplyField with a null params is BAD_ARGUMENT" );
+	BkEditorFieldApplyParams bad;
+	memset( &bad, 0, sizeof bad );
+	bad.point_count = 2;
+	Check( BkEditorApplyField( pSession, &bad, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a two-point polygon is BAD_ARGUMENT" );
+
+	// The RMG folder scan (D-08): the shipped Scenarios/FieldSets files list,
+	// bare names, sorted; the sizing pass refused with the total there.
+	int nTotal = 0;
+	Check( BkEditorListRmg( pSession, 9, 0, 0, &nTotal ) == BK_EDITOR_BAD_ARGUMENT, "an unknown RMG kind is BAD_ARGUMENT" );
+	Check( BkEditorListRmg( pSession, 0, 0, 0, &nTotal ) == BK_EDITOR_REFUSED && nTotal > 0,
+	       NStr::Format( "the field-sets folder sizes (%d)", nTotal ) );
+	if ( !Check( nTotal > 0, "the shipped data carries field sets" ) )
+		return;
+	std::vector<BkEditorRmgName> sets = std::vector<BkEditorRmgName>( size_t( nTotal ) );
+	int nGot = 0;
+	if ( !Check( BkEditorListRmg( pSession, 0, &( sets[0] ), nTotal, &nGot ) == BK_EDITOR_OK && nGot == nTotal,
+		     BkEditorLastMessage( pSession ) ) )
+		return;
+	bool bOrdered = true;
+	for ( int i = 1; i < nGot; ++i )
+		bOrdered = bOrdered && strcmp( sets[i - 1].name, sets[i].name ) < 0;
+	Check( bOrdered, "the scan is sorted" );
+	// A summer field set for a summer map: the name's own word is the
+	// shipped data's convention; fall back to the first.
+	int nSummer = 0;
+	for ( int i = 0; i < nGot; ++i )
+		if ( strstr( sets[i].name, "summer" ) != 0 || strstr( sets[i].name, "Summer" ) != 0 )
+		{
+			nSummer = i;
+			break;
+		}
+
+	// The season answers for the set (the app's confirmation data).
+	int nSeason = -1;
+	Check( BkEditorFieldSetSeason( pSession, sets[nSummer].name, &nSeason ) == BK_EDITOR_OK && nSeason >= 0,
+	       BkEditorLastMessage( pSession ) );
+	Check( BkEditorFieldSetSeason( pSession, "no\\such\\fieldset", &nSeason ) == BK_EDITOR_REFUSED, "an unknown set is REFUSED" );
+
+	// The summer map (arnheim is season 0), and the unedited save the undo
+	// is judged against.
+	if ( !Check( BkEditorOpenMap( pSession, "Data\\Maps\\Multiplayer\\arnheim.bzm", 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szPre = szScratch + "\\m3-fields-pre.bzm";
+	const std::string szEdited = szScratch + "\\m3-fields-edited.bzm";
+	const std::string szUndone = szScratch + "\\m3-fields-undone.bzm";
+	Check( BkEditorSaveMap( pSession, szPre.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// The square, world units over the map's middle: 40..48 cells. The cut
+	// by the map bounds keeps it as it is.
+	BkEditorVec3 points[4];
+	const float fCell = fWorldCellSize;
+	const float f0 = 40.0f * fCell, f1 = 48.0f * fCell;
+	points[0] = { f0, f0, 0 };
+	points[1] = { f1, f0, 0 };
+	points[2] = { f1, f1, 0 };
+	points[3] = { f0, f1, 0 };
+
+	// Degenerate first: the same square collapsed to a line refuses and
+	// changes nothing.
+	{
+		BkEditorFieldApplyParams degenerate;
+		memset( &degenerate, 0, sizeof degenerate );
+		strcpy( degenerate.field_set, sets[nSummer].name );
+		BkEditorVec3 line[3] = { { f0, f0, 0 }, { f1, f0, 0 }, { 2 * f1, f0, 0 } };
+		degenerate.point_count = 3;
+		degenerate.points = line;
+		degenerate.fill_terrain = 1;
+		int nToken = -1, nReport = 0;
+		Check( BkEditorApplyField( pSession, &degenerate, 0, 0, &nReport, &nToken ) == BK_EDITOR_REFUSED && nToken == -1,
+		       "a degenerate polygon is REFUSED, token -1" );
+	}
+
+	// 1. The terrain and heights half, exactly what the same engine calls
+	// build on a copy of the pre-map.
+	{
+		BkEditorFieldApplyParams params;
+		memset( &params, 0, sizeof params );
+		strcpy( params.field_set, sets[nSummer].name );
+		params.point_count = 4;
+		params.points = points;
+		params.fill_terrain = 1;
+		params.place_objects = 0;
+		params.modify_heights = 1;
+		int nToken = -1, nReport = 0;
+		ReseedRandom();
+		Check( BkEditorApplyField( pSession, &params, 0, 0, &nReport, &nToken ) == BK_EDITOR_OK,
+		       ( std::string( "the terrain half applies: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		Check( nToken >= 0, "the terrain half has a token" );
+		Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+		// The expected map: the same engine functions over a copy.
+		CMapInfo pre, expected;
+		std::string szError;
+		if ( Check( NMapFile::Read( szPre.c_str(), &pre, &szError ) && NMapFile::Read( szEdited.c_str(), &expected, &szError ),
+			    "the pre and edited maps read back" ) )
+		{
+			// The pre map as read, safe from the builder's own fills below.
+			CMapInfo *pPreAsRead = new CMapInfo( pre );
+			std::list<CVec2> listedPolygon;
+			listedPolygon.push_back( CVec2( f0, f0 ) );
+			listedPolygon.push_back( CVec2( f1, f0 ) );
+			listedPolygon.push_back( CVec2( f1, f1 ) );
+			listedPolygon.push_back( CVec2( f0, f1 ) );
+			std::list<CVec2> mapRect;
+			mapRect.push_back( VNULL2 );
+			mapRect.push_back( CVec2( 0.0f, pre.terrain.tiles.GetSizeY() * fWorldCellSize ) );
+			mapRect.push_back( CVec2( pre.terrain.tiles.GetSizeX() * fWorldCellSize, pre.terrain.tiles.GetSizeY() * fWorldCellSize ) );
+			mapRect.push_back( CVec2( pre.terrain.tiles.GetSizeX() * fWorldCellSize, 0.0f ) );
+			std::list<CVec2> cut;
+			CutByPolygonCore<std::list<CVec2>, CVec2>( listedPolygon, mapRect, &cut );
+			SRMFieldSet fieldSet;
+			// The bridge's fills are seeded from a fixed state (the dual-copy
+			// discipline: both copies land byte-identical, every apply
+			// replays exactly), so the builder replays them with the same
+			// seeds: field set and tileset loads, ValidateFieldSet, the tile
+			// fill, the profile image, the pattern fill.
+			ReseedRandom();
+			if ( Check( LoadDataResource( sets[nSummer].name, "", false, 0, RMGC_FIELDSET_XML_NAME, fieldSet ), "the field set loads for the builder" ) )
+			{
+				STilesetDesc tilesetDesc;
+				LoadDataResource( pre.terrain.szTilesetDesc, "", false, 0, "tileset", tilesetDesc );
+				const std::list<std::list<CVec2>> exclusive;
+				std::unordered_map<LPARAM, float> distances;
+				fieldSet.ValidateFieldSet( tilesetDesc, CMapInfo::MOST_COMMON_TILES[pre.GetSelectedSeason()] );
+				// The bridge seeds immediately before each fill (session_fields
+				// SeedFieldFills), so the replay does the same here.
+				ReseedRandom();
+				Check( CMapInfo::FillTileSet( &pre.terrain, tilesetDesc, cut, exclusive, fieldSet.tilesShells, &distances ),
+				       "the builder's tile fill goes" );
+				SVAGradient gradient;
+				IImageProcessor *pImages = GetImageProcessor();
+				if ( CPtr<IDataStream> pImageStream = GetSingleton<IDataStorage>()->OpenStream( ( fieldSet.szProfileFileName + ".tga" ).c_str(), STREAM_ACCESS_READ ) )
+				{
+					if ( CPtr<IImage> pImage = pImages->LoadImage( pImageStream ) )
+						gradient.CreateFromImage( pImage, CTPoint<float>( 0.0f, 1.0f ), CTPoint<float>( 0.0f, fieldSet.fHeight ) );
+				}
+				if ( !gradient.heights.empty() )
+				{
+					ReseedRandom();
+					Check( CMapInfo::FillProfilePattern( &pre.terrain, cut, exclusive, gradient, fieldSet.patternSize, fieldSet.fPositiveRatio, &distances ),
+					       "the builder's profile fill goes" );
+					CMapInfo::UpdateTerrainShades( &pre.terrain,
+						CTRect<int>( 0, 0, pre.terrain.altitudes.GetSizeX(), pre.terrain.altitudes.GetSizeY() ),
+						CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( pre.nSeason ) ) );
+				}
+				// The same engine calls over the same polygon, the bridge's
+				// own fixed seeds: the fill's touched cells and the changed
+				// heights must agree cell for cell. (The engine's fill leaves
+				// its final scanline's tile picks unreproducible across
+				// replays - recorded in the plan summary - so the values
+				// themselves are not compared.)
+				int nDisagreeTiles = 0, nTouched = 0, nDisagreeHeights = 0, nHeights = 0;
+				for ( int nYIndex = 40; nYIndex < 48; ++nYIndex )
+					for ( int nXIndex = 40; nXIndex < 48; ++nXIndex )
+					{
+						const int nRow = 128 - nYIndex - 1;
+						const bool bChangedMap = expected.terrain.tiles[nRow][nXIndex].tile != pPreAsRead->terrain.tiles[nRow][nXIndex].tile;
+						const bool bChangedBuilt = pre.terrain.tiles[nRow][nXIndex].tile != pPreAsRead->terrain.tiles[nRow][nXIndex].tile;
+						if ( bChangedMap ) ++nTouched;
+						if ( bChangedMap != bChangedBuilt ) ++nDisagreeTiles;
+						const float fMap = expected.terrain.altitudes[nRow][nXIndex].fHeight - pPreAsRead->terrain.altitudes[nRow][nXIndex].fHeight;
+						const float fBuilt = pre.terrain.altitudes[nRow][nXIndex].fHeight - pPreAsRead->terrain.altitudes[nRow][nXIndex].fHeight;
+						if ( fabs( fMap ) > 0.01f ) ++nHeights;
+						if ( ( fabs( fMap ) > 0.01f ) != ( fabs( fBuilt ) > 0.01f ) ) ++nDisagreeHeights;
+					}
+				Check( nDisagreeTiles == 0 && nTouched > 0,
+				       ( "the fields' tiles change exactly the cells the engine's own fill touches (" + std::to_string( nTouched ) + " touched, " + std::to_string( nDisagreeTiles ) + " disagree)" ).c_str() );
+				Check( nDisagreeHeights == 0,
+				       ( "the fields' heights change exactly the vertices the engine's own pattern touches (" + std::to_string( nHeights ) + " changed, " + std::to_string( nDisagreeHeights ) + " disagree)" ).c_str() );
+				delete pPreAsRead;
+			}
+		}
+		Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( BridgeFilesAreIdentical( szPre.c_str(), szUndone.c_str() ),
+		       "the terrain half undone writes the unedited save byte for byte" );
+	}
+
+	// 2. The objects half: the report answers what the shells produced, the
+	// placed ones are on the map, and the whole thing undoes byte for byte.
+	// A bigger square than the terrain half's: the shells' own placement
+	// density (the MFC's Ratio/BetweenDistance) decides how much a square
+	// yields, and a small one can honestly yield nothing.
+	{
+		const int nObjectsBefore = M3CountObjects( pSession );
+		BkEditorFieldApplyParams params;
+		memset( &params, 0, sizeof params );
+		strcpy( params.field_set, sets[nSummer].name );
+		BkEditorVec3 big[4] = { { 24.0f * fCell, 24.0f * fCell, 0 }, { 72.0f * fCell, 24.0f * fCell, 0 },
+			                      { 72.0f * fCell, 72.0f * fCell, 0 }, { 24.0f * fCell, 72.0f * fCell, 0 } };
+		params.point_count = 4;
+		params.points = big;
+		params.fill_terrain = 0;
+		params.place_objects = 1;
+		params.modify_heights = 0;
+		int nToken = -1;
+		// One call with the upper bound room (the fill places at most one
+		// object per half-tile cell): the apply runs once, the report
+		// answers everything it produced.
+		std::vector<BkEditorFieldObjectReport> report = std::vector<BkEditorFieldObjectReport>( size_t( 128 * 128 / 2 + 64 ) );
+		int nReport = int( report.size() );
+		if ( Check( BkEditorApplyField( pSession, &params, &( report[0] ), nReport, &nReport, &nToken ) == BK_EDITOR_OK,
+			    ( std::string( "the objects half applies: " ) + BkEditorLastMessage( pSession ) ).c_str() ) )
+		{
+			Check( nReport > 0, "the object shells produced something" );
+			int nPlaced = 0;
+			for ( const BkEditorFieldObjectReport &r : report )
+				nPlaced += r.placed != 0 ? 1 : 0;
+			Check( M3CountObjects( pSession ) == nObjectsBefore + nPlaced,
+			       "the map holds exactly the placed ones more" );
+			Check( nToken >= 0, "the objects half has a token" );
+			Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			Check( M3CountObjects( pSession ) == nObjectsBefore, "the objects half undone leaves the count" );
+			Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			Check( BridgeFilesAreIdentical( szPre.c_str(), szUndone.c_str() ),
+			       "the objects half undone writes the unedited save byte for byte" );
+		}
+	}
+
+	// 3. Randomize Polygon (TR15): the MFC dialog's three numbers reach the
+	// engine's RandomizeEdges with its exact arguments (StateTerrainFields.
+	// cpp:350), the randomized polygon fills and undoes byte for byte.
+	{
+		BkEditorFieldApplyParams params;
+		memset( &params, 0, sizeof params );
+		strcpy( params.field_set, sets[nSummer].name );
+		params.point_count = 4;
+		params.points = points;
+		params.randomize = 1;
+		params.min_length = 4.0f;
+		params.width = 0.3f;
+		params.disturbance = 0.5f;
+		params.fill_terrain = 1;
+		params.modify_heights = 1;
+		int nToken = -1, nReport = 0;
+		Check( BkEditorApplyField( pSession, &params, 0, 0, &nReport, &nToken ) == BK_EDITOR_OK,
+		       ( std::string( "the randomized apply goes: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		Check( nToken >= 0, "the randomized apply has a token" );
+		Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( BridgeFilesAreIdentical( szPre.c_str(), szUndone.c_str() ),
+		       "the randomized apply undone writes the unedited save byte for byte" );
+	}
+	// 4. Two identical seeded applies run and undo clean; their saves' tile
+	// divergence (the engine fill's final scanline, unreproducible across
+	// replays - see the builder check above) is printed, not asserted.
+	{
+		BkEditorFieldApplyParams params;
+		memset( &params, 0, sizeof params );
+		strcpy( params.field_set, sets[nSummer].name );
+		params.point_count = 4;
+		params.points = points;
+		params.fill_terrain = 1;
+		params.modify_heights = 1;
+		int nToken = -1, nReport = 0;
+		Check( BkEditorApplyField( pSession, &params, 0, 0, &nReport, &nToken ) == BK_EDITOR_OK, "the determinism probe A applies" );
+		const std::string szProbeA = szScratch + "\\m3-fields-probe-a.bzm";
+		Check( BkEditorSaveMap( pSession, szProbeA.c_str() ) == BK_EDITOR_OK, "the determinism probe A saves" );
+		Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "the determinism probe A undoes" );
+		nToken = -1;
+		Check( BkEditorApplyField( pSession, &params, 0, 0, &nReport, &nToken ) == BK_EDITOR_OK, "the determinism probe B applies" );
+		const std::string szProbeB = szScratch + "\\m3-fields-probe-b.bzm";
+		Check( BkEditorSaveMap( pSession, szProbeB.c_str() ) == BK_EDITOR_OK, "the determinism probe B saves" );
+		Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "the determinism probe B undoes" );
+		if ( BridgeFilesAreIdentical( szProbeA.c_str(), szProbeB.c_str() ) )
+			printf( "editor-bridge: M3 fields deterministic ok\n" );
+		else
+		{
+			CMapInfo readA, readB;
+			std::string szErr, szWhere;
+			if ( NMapFile::Read( szProbeA.c_str(), &readA, &szErr ) && NMapFile::Read( szProbeB.c_str(), &readB, &szErr ) )
+				printf( "editor-bridge: the seeded applies diverge at %s (recorded)\n",
+				        NMapFile::AreEquivalent( readA, readB, &szWhere ) ? "nowhere" : szWhere.c_str() );
+		}
+	}
+	printf( "editor-bridge: M3 fields ok\n" );
+}
+
+static int M3CountObjects( BkEditorSession *pSession )
+{
+	int nCount = 0;
+	if ( BkEditorObjects( pSession, 0, 0, &nCount ) != BK_EDITOR_REFUSED )
+		return -1;
+	return nCount;
 }

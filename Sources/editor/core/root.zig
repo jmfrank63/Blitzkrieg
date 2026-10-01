@@ -12,6 +12,7 @@ pub const tools_groups = @import("tools_groups.zig");
 pub const tools_ai = @import("tools_ai.zig");
 pub const tools_heights = @import("tools_heights.zig");
 pub const filters = @import("filters.zig");
+pub const tools_fields = @import("tools_fields.zig");
 pub const files = @import("files.zig");
 pub const settings = @import("settings.zig");
 pub const autosave = @import("autosave.zig");
