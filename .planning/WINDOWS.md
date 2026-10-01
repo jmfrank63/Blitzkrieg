@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 0
+open_count: 1
 waived_count: 0
 fixed_count: 3
-total_count: 3
-last_updated: 2026-09-29T10:08:34.712Z
+total_count: 4
+last_updated: 2026-10-01T20:30:49.716Z
 ---
 
 # Broken Windows Ledger
@@ -18,6 +18,7 @@ last_updated: 2026-09-29T10:08:34.712Z
 | 1 | 03 | deviation | Sources/editor/app/panels.zig |  | plan-5 carried: the status line is never cleared after a later success (Task 4) | fixed | fixed in 03-16 d421402a8: status messages carry their source; TestLaunchPrompt.noteLaunch clears a Test-in-game failure on a later start or modal failure (tests in test-map-editor-panels); lost-frame and dialog-busy messages also cleared by their own success | 2026-09-28T17:53:06.985Z | 2026-09-29T10:08:34.494Z |
 | 2 | 03 | unrun-verify | Sources/editor/app/view.zig |  | plan-5 carried: no test of view.zig's event-to-tool wiring beyond the routing function (Task 4) | fixed | fixed in 03-16 294bcdf74: View = ViewWith(SdlInput), bridge as anytype; 19 view.zig tests feed real SDL events through handleEvent/update against fake bridges, incl. D-15 per-map camera restore; run by test-map-editor-view and CI's unit tier | 2026-09-28T17:53:07.093Z | 2026-09-29T10:08:34.609Z |
 | 3 | 03 | deviation | Sources/editor/app/view_math.zig |  | plan-5 carried: the scroll-direction unit test restates its own constants; an engine-tier ScreenToWorld direction check would catch a sign error (Task 6) | fixed | fixed in 03-16 82a08a462: the direction tests assert literal camera positions (a notch up: 2000,2000 -> 1971.716,2028.284); view.zig's wheel tests do the same through SDL events; the engine tier's TestWorldToScreenRoundTrip already checks screen up is world (-x,+y) | 2026-09-28T17:53:07.199Z | 2026-09-29T10:08:34.712Z |
+| 4 | 05 | unmet-truth | Sources/src/EditorBridge/session_fields.cpp |  | The engine's field fill leaves its final scanline's tile picks unreproducible across seeded replays (recorded in 05-03-SUMMARY deviations; the touched-cell proof and the byte-exact undo proofs carry the contract) | open |  | 2026-10-01T20:30:49.716Z |  |
 
 ````json
 [
@@ -31,8 +32,7 @@ last_updated: 2026-09-29T10:08:34.712Z
     "status": "fixed",
     "reason": "fixed in 03-16 d421402a8: status messages carry their source; TestLaunchPrompt.noteLaunch clears a Test-in-game failure on a later start or modal failure (tests in test-map-editor-panels); lost-frame and dialog-busy messages also cleared by their own success",
     "recorded_at": "2026-09-28T17:53:06.985Z",
-    "resolved_at": "2026-09-29T10:08:34.494Z",
-    "milestone": null
+    "resolved_at": "2026-09-29T10:08:34.494Z"
   },
   {
     "id": 2,
@@ -44,8 +44,7 @@ last_updated: 2026-09-29T10:08:34.712Z
     "status": "fixed",
     "reason": "fixed in 03-16 294bcdf74: View = ViewWith(SdlInput), bridge as anytype; 19 view.zig tests feed real SDL events through handleEvent/update against fake bridges, incl. D-15 per-map camera restore; run by test-map-editor-view and CI's unit tier",
     "recorded_at": "2026-09-28T17:53:07.093Z",
-    "resolved_at": "2026-09-29T10:08:34.609Z",
-    "milestone": null
+    "resolved_at": "2026-09-29T10:08:34.609Z"
   },
   {
     "id": 3,
@@ -57,8 +56,19 @@ last_updated: 2026-09-29T10:08:34.712Z
     "status": "fixed",
     "reason": "fixed in 03-16 82a08a462: the direction tests assert literal camera positions (a notch up: 2000,2000 -> 1971.716,2028.284); view.zig's wheel tests do the same through SDL events; the engine tier's TestWorldToScreenRoundTrip already checks screen up is world (-x,+y)",
     "recorded_at": "2026-09-28T17:53:07.199Z",
-    "resolved_at": "2026-09-29T10:08:34.712Z",
-    "milestone": null
+    "resolved_at": "2026-09-29T10:08:34.712Z"
+  },
+  {
+    "id": 4,
+    "kind": "unmet-truth",
+    "phase": "05",
+    "file": "Sources/src/EditorBridge/session_fields.cpp",
+    "line": null,
+    "description": "The engine's field fill leaves its final scanline's tile picks unreproducible across seeded replays (recorded in 05-03-SUMMARY deviations; the touched-cell proof and the byte-exact undo proofs carry the contract)",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-01T20:30:49.716Z",
+    "resolved_at": null
   }
 ]
 ````
