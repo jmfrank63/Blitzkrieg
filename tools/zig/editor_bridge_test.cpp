@@ -3775,6 +3775,63 @@ static void TestPaintRefusesTileOutsideTileset( BkEditorSession *pSession ){
 // tile 1, which no shipped tileset has, is not among them. The count comes
 // first with no buffer, and a buffer one short is refused with nothing
 // written past it.
+// Tile properties (05-02, D-35/TR2): the describe surface answers the
+// terrain type's name and its variant count for EVERY tile the tileset
+// lists, tile 0 included - the MFC's `> 0` guard
+// (TabTileEditDialog.cpp:316) left its first tile without properties. A
+// tile the tileset does not list is refused; a null out is BAD_ARGUMENT.
+static void TestM3TileInfo( BkEditorSession *pSession )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) ) return;
+	std::vector<unsigned char> tiles;
+	{
+		int nTiles = 0;
+		Check( BkEditorTilesetTiles( pSession, 0, 0, &nTiles ) == BK_EDITOR_REFUSED && nTiles > 0, "the tile list sizes" );
+		tiles.resize( nTiles );
+		Check( BkEditorTilesetTiles( pSession, &( tiles[0] ), nTiles, &nTiles ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	}
+	// Tile 0 itself: offered, and described - a name, a variant count of at
+	// least one (the type lists the tile that names it), and the tileset's
+	// own description name.
+	{
+		bool bZeroOffered = false;
+		for ( size_t i = 0; i < tiles.size(); ++i ) bZeroOffered = bZeroOffered || tiles[i] == 0;
+		Check( bZeroOffered, "tile 0 is one the tileset offers" );
+		BkEditorTile info;
+		memset( &info, 0, sizeof info );
+		Check( BkEditorDescribeTile( pSession, 0, &info ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( info.terrain[0] != 0, "tile 0's terrain type has a name" );
+		Check( info.variant_count >= 1, "tile 0's terrain type counts its variants" );
+		Check( info.terrain_index >= 0, "tile 0 answers its terrain type's position" );
+	}
+	// Every offered tile answers; the variant count agrees with the type's
+	// own list, and every count is at least one.
+	{
+		bool bAll = true, bCounts = true;
+		for ( size_t i = 0; i < tiles.size() && bAll; ++i )
+		{
+			BkEditorTile info;
+			memset( &info, 0, sizeof info );
+			if ( BkEditorDescribeTile( pSession, tiles[i], &info ) != BK_EDITOR_OK || info.terrain[0] == 0 )
+				bAll = false;
+			else if ( info.variant_count < 1 )
+				bCounts = false;
+		}
+		Check( bAll, "every offered tile describes" );
+		Check( bCounts, "and every description counts at least one variant" );
+	}
+	// A tile no terrain type lists is REFUSED (tile 1 is in none of the
+	// shipped tilesets - the paint-refusal test's own finding), and a null
+	// out is BAD_ARGUMENT.
+	{
+		BkEditorTile info;
+		memset( &info, 0, sizeof info );
+		Check( BkEditorDescribeTile( pSession, 1, &info ) == BK_EDITOR_REFUSED, "tile 1, in no terrain type, is REFUSED" );
+		Check( BkEditorDescribeTile( pSession, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null out is BAD_ARGUMENT" );
+	}
+	printf( "editor-bridge: M3 tile info ok\n" );
+}
+
 static void TestTilesetTilesAllPaint( BkEditorSession *pSession )
 {
 	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
@@ -9994,6 +10051,7 @@ int main( int argc, char **argv )
 		TestM3NewMap( pSession, szScratch );
 		TestM3Heights( pSession, szScratch );
 		TestM3UpdateMapAndFill( pSession, szScratch );
+		TestM3TileInfo( pSession );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );

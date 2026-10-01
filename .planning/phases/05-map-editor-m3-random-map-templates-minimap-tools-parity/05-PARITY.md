@@ -42,16 +42,16 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 
 | # | MFC feature | MFC source | Owner | Portable equivalent / note | Evidence |
 |---|---|---|---|---|---|
-| M1 | Fill Entire Map | TEF:4921 | M3 05-02 | D-22 (the update-rect typo is not copied) | |
+| M1 | Fill Entire Map | TEF:4921 | M3 05-02 | D-22 (the update-rect typo is not copied) | | `map-file: M3 fill ok` (TestM3FillRegion: fill undone byte-identical, crosses by content); `editor-bridge: M3 update and fill ok` (TestM3UpdateMapAndFill: every tile the type's own, undone byte-exact); `do=map_fill:0` + `expect=undo_depth:5` in map-editor-m3-auto |
 | M2 | Player Camera: set the camera anchor per player / neutral | TEF:5035 | M2 | camera anchors | **Closed (M2, 04-01/04-03/04-04):** `map-file: M2 camera anchor records ok`, `editor-bridge: M2 camera anchors ok`, `map-editor-engine: M2 camera anchors round trip ok`, `map-editor-auto-m2` frames 3–19; the game starts its camera at player 0's anchor (`map-editor-game-reads-it-m2`: `camera at player 0's anchor 2172,2172, source=player`); CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
 | M3 | Diplomacy dialog: sides, game type, attacking side | TEF:5878, TabSimpleObjectsDiplomacyDialog.cpp | M1 | Players panel | 03-VERIFICATION |
 | M4 | Diplomacy: add/delete player (≤16 + neutral), Insert/Delete/0/1 keys, popup | TabSimpleObjectsDiplomacyDialog.cpp:263, 434 | M3 05-05 | D-30 | |
 | M5 | Units Creation Info: party, aviation (5 slots × name/formation/count), paratroopers, relax time, appear points | TEF:5070, UnitCreation.cpp, PEPointsListDialog.cpp | M3 05-05 | D-30 | |
 | M6 | Script (map script file `szScriptFile`) | TEF:5102, MapOptionsDialog.cpp | M2 | scripts | **Closed (M2, 04-10, 04-13):** `editor-bridge: M2 script file ok`; `map-editor-auto-m2` names the script, chooses it beside a user map (`script_choose`), brings it along a Save As (`script_copy_along_yes`) and Test in game runs it (`expect=test_game_script:m2_script`); `map-editor-game-reads-it-m2`: `script m2_script ran (loaded=1 init=1)`; CI run 36692345194 (details: phase 4 `04-PARITY.md`) |
 | M7 | Check Map: duplicates, links, player index, parties; report + `checkmap_log.txt` | TEF:5938, 5952–6390 | M3 05-05 | D-33 (never a silent fix on save) | |
-| M8 | Update Map (Ctrl+U): heights, terrain, shades, object/road/river Z, grid snap | TEF:5138 | M3 05-02 | D-20 | |
-| M9 | Instant Update Map Mode | TEF:5249, DrawShadeState.cpp:268 | M3 05-02 | D-20 | |
-| M10 | Fit Objects To Grid (default on) | TEF:5287, ObjectPlacerState.cpp:97,167,359 | M3 05-02 | D-20 | |
+| M8 | Update Map (Ctrl+U): heights, terrain, shades, object/road/river Z, grid snap | TEF:5138 | M3 05-02 | D-20 | | `editor-bridge: M3 update and fill ok` (TestM3UpdateMapAndFill: the composite's progress heard 7+snapped, the snap exactly FitVisOrigin2AIGrid's own, undo byte-exact); `do=map_update` + `expect=undo_depth:4` in map-editor-m3-auto; Ctrl+U in the Map menu |
+| M9 | Instant Update Map Mode | TEF:5249, DrawShadeState.cpp:268 | M3 05-02 | D-20 | | `do=instant_update` + `expect=undo_depth:5` in map-editor-m3-auto (a setting, never an undo step); the session's flag drives the per-stroke objects-Z pass (session_terrain.cpp); BkEditorSetTerrainModes with the MFC's own defaults |
+| M10 | Fit Objects To Grid (default on) | TEF:5287, ObjectPlacerState.cpp:97,167,359 | M3 05-02 | D-20 | | `do=fit_grid` + `expect=undo_depth:5` in map-editor-m3-auto; `editor-bridge: M3 update and fill ok` (the update pass snaps every sprite with passability, exactly FitVisOrigin2AIGrid); the placer/drag fit through BkEditorSnapToGrid in the same test |
 | M11 | Create minimap images (the minimap bar's Create button) | TEF:300, MiniMapDialog.cpp:464 | M3 05-07 | D-17 | |
 
 ## 3. Unit menu
@@ -119,17 +119,17 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 | # | MFC feature | MFC source | Owner | Portable equivalent / note | Evidence |
 |---|---|---|---|---|---|
 | TR1 | Tile palette with masked thumbnails | TabTileEditDialog.cpp:82, 244 | M1 | Brush tile picker | 03-15 |
-| TR2 | Tile properties (name, variants) | TabTileEditDialog.cpp:284–316 | M3 05-02 | D-35 (tile 0 included) | |
+| TR2 | Tile properties (name, variants) | TabTileEditDialog.cpp:284–316 | M3 05-02 | D-35 (tile 0 included) | | `editor-bridge: M3 tile info ok` (TestM3TileInfo: tile 0 described - name, variants, index; every offered tile answers); `do=tile_info:0` + `expect=status:tile 0:` in map-editor-m3-auto; the picker's context menu (tile 0 included, the MFC's `> 0` guard not copied) |
 | TR3 | Paint tiles, click and drag, N×N brush, brush preview | TileDrawState.cpp | M1 (+V4) | | 03-VERIFICATION |
-| TR4 | Heights: brush size 2–16 with the profile.tga pattern | TabTerrainAltitudesDialog.cpp:156, 181 | M3 05-02 | D-18 | |
-| TR5 | Heights: raise (left), lower (right), level (middle / left+right) | DrawShadeState.cpp:186–336 | M3 05-02 | D-18; Alt+drag = middle on a trackpad | |
-| TR6 | Heights: level modes Zero / Click Tile / Instant Average / Click Average | TabTerrainAltitudesDialog.cpp:472–494 | M3 05-02 | | |
-| TR7 | Heights: Height Speed, Level ratio % | :210, :230 | M3 05-02 | | |
-| TR8 | Heights: invalid-height rollback, Ctrl override | DrawShadeState.cpp:261,285,308 | M3 05-02 | | |
-| TR9 | Heights: brush footprint drawing | DrawShadeState.cpp:91 | M3 05-02 | | |
-| TR10 | Generate heights (Hills FBM / Rocks HYBRID / Dunes RIDGED, granularity, min/max Z) | TabTerrainAltitudesDialog.cpp:312 | M3 05-02 | | |
-| TR11 | Heights: Update button | :496 | M3 05-02 | = Update Map | |
-| TR12 | Heights: Set Zero | :359 | M3 05-02 | | |
+| TR4 | Heights: brush size 2–16 with the profile.tga pattern | TabTerrainAltitudesDialog.cpp:156, 181 | M3 05-02 | D-18 | | `editor-bridge: M3 heights ok` (TestM3Heights: the editor\\profile.tga pattern, brush 2..16, BAD_ARGUMENT outside); the Heights panel's brush slider (panels_m3); core tools tests |
+| TR5 | Heights: raise (left), lower (right), level (middle / left+right) | DrawShadeState.cpp:186–336 | M3 05-02 | D-18; Alt+drag = middle on a trackpad | | `editor-bridge: M3 heights ok` (raise, lower, level strokes, each vs the same-function expected map and undone byte-exact); `tool=heights` raise drag and level drag frames in map-editor-m3-auto; Alt+drag = middle and left+right = level in the view |
+| TR6 | Heights: level modes Zero / Click Tile / Instant Average / Click Average | TabTerrainAltitudesDialog.cpp:472–494 | M3 05-02 | | | `editor-bridge: M3 heights ok` (all four level modes - zero, click tile, instant average, click average - each against its own expected map); the Heights panel's mode combo |
+| TR7 | Heights: Height Speed, Level ratio % | :210, :230 | M3 05-02 | | | `editor-bridge: M3 heights ok` (speed and ratio ride the pattern math the expected maps build); the Heights panel's Height Speed and Level ratio % fields with commit-on-deactivate |
+| TR8 | Heights: invalid-height rollback, Ctrl override | DrawShadeState.cpp:261,285,308 | M3 05-02 | | | `editor-bridge: M3 heights ok` (the cliff-making stroke REFUSED with the MFC's own words, nothing changed; Ctrl keeps it; the kept cliff undone byte-exact) |
+| TR9 | Heights: brush footprint drawing | DrawShadeState.cpp:91 | M3 05-02 | | | the heights brush draws the M1 brush's own footprint outline at the cursor (view.zig, the heights tool's corner rectangle); on screen in every m3-auto heights frame |
+| TR10 | Generate heights (Hills FBM / Rocks HYBRID / Dunes RIDGED, granularity, min/max Z) | TabTerrainAltitudesDialog.cpp:312 | M3 05-02 | | | `editor-bridge: M3 heights ok` (Hills/Rocks/Dunes generate with the MFC formula's own bounds and both range ends attained, each one undo step, undone byte-exact); `do=heights_generate:0` in map-editor-m3-auto; the panel's confirmation popup |
+| TR11 | Heights: Update button | :496 | M3 05-02 | = Update Map | | the MFC's Update button is Update Map - one command, one undo step (`do=map_update` in map-editor-m3-auto, `editor-bridge: M3 update and fill ok`); Ctrl+U in the Map menu |
+| TR12 | Heights: Set Zero | :359 | M3 05-02 | | | `editor-bridge: M3 heights ok` (set zero vs the same-shades expected map, undone byte-exact); the Heights panel's Set Zero with its confirmation popup |
 | TR13 | Heights: Multi / Heterogenous radios | editor.rc:503–507 | NF | Hidden and disabled | |
 | TR14 | Fields: field-set combo + Browse | TabTerrainFieldsDialog.cpp:125–212 | M3 05-03 | D-21 | |
 | TR15 | Fields: Randomize Polygon (min length, width, disturbance) | :229–277, StateTerrainFields.cpp:350 | M3 05-03 | | |

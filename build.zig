@@ -6598,7 +6598,38 @@ fn addMapEditor(
         // Saved: the title names the file it became, clean of the star.
         "40:expect=title:m3.bzm",
         "42:expect=title:8x8",
-        "45:exit",
+        // The Heights tool (D-18) on the fresh 8x8: a raise drag is one undo
+        // step; a level drag (the mode is a named command, the gesture is
+        // the same left drag) is one more. Generate hills (TR10): one
+        // command, one undo step.
+        "50:tool=heights",
+        "52:press=c0x0",
+        "54:drag=c10x0",
+        "56:release=c10x0",
+        "58:expect=undo_depth:1",
+        "60:do=heights_mode:click_average",
+        "62:press=c-20x0",
+        "64:drag=c-40x0",
+        "66:release=c-40x0",
+        "68:expect=undo_depth:2",
+        "72:do=heights_generate:hills:0.3:-3:3",
+        "74:expect=undo_depth:3",
+        // Update Map (M8/D-20) and Fill Entire Map (M1/D-22): one explicit
+        // undoable command each - and the fill's tile 0 is answered by the
+        // tile properties (TR2) after it.
+        "78:do=map_update",
+        "80:expect=undo_depth:4",
+        "84:do=map_fill:0",
+        "86:expect=undo_depth:5",
+        // The two toggles (M9/M10): settings, never undo steps.
+        "90:do=instant_update",
+        "92:do=fit_grid",
+        "94:expect=undo_depth:5",
+        // Tile properties (TR2): tile 0 answers its name - the MFC's `> 0`
+        // guard is not copied.
+        "98:do=tile_info:0",
+        "100:expect=status:0:",
+        "110:exit",
     };
     const auto_m3_run = b.addRunArtifact(exe);
     auto_m3_run.setCwd(b.path(stage_root));

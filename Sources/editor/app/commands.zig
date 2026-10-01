@@ -38,6 +38,7 @@ pub const command_table = [_]Entry{
     .{ .name = "map_fill", .handler = mapFill },
     .{ .name = "instant_update", .handler = instantUpdate },
     .{ .name = "fit_grid", .handler = fitGrid },
+    .{ .name = "tile_info", .handler = tileInfo },
     .{ .name = "file_save_xml", .handler = fileSaveXml },
     .{ .name = "file_save_bzm", .handler = fileSaveBzm },
     .{ .name = "vso_kind", .handler = vsoKind },
@@ -274,7 +275,7 @@ const UpdateProgress = struct {
 /// whole composite as ONE undo step. The step count the bridge reported is
 /// kept on the State for the report modal the next frame renders (the
 /// update itself is synchronous; D-03's frozen-window model).
-fn mapUpdate(state: *State, arg: []const u8) Outcome {
+pub fn mapUpdate(state: *State, arg: []const u8) Outcome {
     if (arg.len != 0) return .bad_arg;
     if (!panels.documentLoaded(state.editor)) {
         state.editor.note("no map to update");
@@ -298,7 +299,7 @@ fn mapUpdate(state: *State, arg: []const u8) Outcome {
 /// means - a tile the map's tileset has no terrain type for is refused).
 /// The confirmation is the caller's: the menu asks first, a script has
 /// already said yes by naming the command.
-fn mapFill(state: *State, arg: []const u8) Outcome {
+pub fn mapFill(state: *State, arg: []const u8) Outcome {
     if (!panels.documentLoaded(state.editor)) {
         state.editor.note("no map to fill");
         return .refused;
@@ -321,7 +322,7 @@ fn mapFill(state: *State, arg: []const u8) Outcome {
 /// toggle, one way or the other, on the bridge session and in the settings
 /// (mapeditor.cfg carries it to the next start; the session keeps the live
 /// copy until the next call).
-fn instantUpdate(state: *State, arg: []const u8) Outcome {
+pub fn instantUpdate(state: *State, arg: []const u8) Outcome {
     if (arg.len != 0) return .bad_arg;
     const next = !state.settings.instant_update;
     state.editor.setTerrainModes(next, state.settings.fit_to_grid) catch |err| {
@@ -335,7 +336,7 @@ fn instantUpdate(state: *State, arg: []const u8) Outcome {
 
 /// `do=fit_grid` - Map > Fit Objects To Grid (M3, D-20): the toggle, as
 /// instant_update's. Default on, the MFC's own.
-fn fitGrid(state: *State, arg: []const u8) Outcome {
+pub fn fitGrid(state: *State, arg: []const u8) Outcome {
     if (arg.len != 0) return .bad_arg;
     const next = !state.settings.fit_to_grid;
     state.editor.setTerrainModes(state.settings.instant_update, next) catch |err| {
@@ -344,6 +345,30 @@ fn fitGrid(state: *State, arg: []const u8) Outcome {
     };
     state.settings.fit_to_grid = next;
     state.settings_changed = true;
+    return .ok;
+}
+
+/// `do=tile_info:NN` - the tile properties (M3, D-35/TR2): the tile's
+/// terrain type name and its variant count, read-only, into the status
+/// line - tile 0 included, which the MFC's own `> 0` guard
+/// (TabTileEditDialog.cpp:316) never answered. With no argument it is the
+/// brush tile. A tile the map's tileset does not list is refused, naming it.
+fn tileInfo(state: *State, arg: []const u8) Outcome {
+    var tile: u8 = state.view.brush.tile;
+    if (arg.len != 0) {
+        const parsed = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+        if (parsed < 0 or parsed > 255) return .bad_arg;
+        tile = @intCast(parsed);
+    }
+    const info = state.real.describeTile(tile) orelse {
+        state.editor.note("the map's tileset does not list that tile");
+        return .refused;
+    };
+    var line: [160]u8 = undefined;
+    const text = std.fmt.bufPrint(&line, "tile {d}: {s}, {d} variants", .{
+        tile, std.mem.sliceTo(&info.terrain, 0), info.variant_count,
+    }) catch "tile";
+    state.editor.note(text);
     return .ok;
 }
 

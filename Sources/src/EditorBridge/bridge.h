@@ -434,14 +434,20 @@ BkEditorStatus BkEditorTilesetTiles( BkEditorSession *session, unsigned char *ou
    tileset is the tileset's own name in the data storage
    (STerrainInfo::szTilesetDesc, e.g. "terrain\sets\2\tileset"): the same
    tile index in another tileset is another picture, so a caller keys a cache
-   of BkEditorTilePicture's pictures on it. Both strings are cut to fit and
+   of BkEditorTilePicture's pictures on it. variant_count is the terrain
+   type's own count of tiles (<tiles>, STileTypeDesc::tiles) - the tile
+   properties the MFC's palette context menu shows
+   (TabTileEditDialog.cpp:317-318). Both strings are cut to fit and
    always NUL-terminated.
 
    BK_EDITOR_BAD_ARGUMENT for a null out or a tile outside 0..255 (a paint
    cell's tile is an unsigned char). BK_EDITOR_REFUSED when no map is open, or
    for a tile no terrain type of the tileset lists - one BkEditorTilesetTiles
-   does not offer and BkEditorPaint refuses; out is zeroed then. */
-typedef struct { int terrain_index; char terrain[64]; char tileset[128]; } BkEditorTile;
+   does not offer and BkEditorPaint refuses; out is zeroed then. Every index
+   the tileset lists answers, tile 0 included: the MFC's `> 0` guard
+   (TabTileEditDialog.cpp:316), which left its first tile without properties,
+   is not copied. */
+typedef struct { int terrain_index; int variant_count; char terrain[64]; char tileset[128]; } BkEditorTile;
 BkEditorStatus BkEditorDescribeTile( BkEditorSession *session, int tile, BkEditorTile *out );
 
 /* One tile's picture, for the Brush's tile picker (03-15 gap fix): the tile's

@@ -2900,6 +2900,20 @@ fn drawTileCell(state: *State, entry: logic.TileEntry, cell_height: f32) void {
         text(logic.tileLabel(&label, entry));
         ig.igEndTooltip();
     }
+    // Tile properties (M3, D-35/TR2): the palette's context menu shows the
+    // read-only tile name and its terrain type's variant count - for every
+    // tile, tile 0 included (the MFC's `> 0` guard,
+    // TabTileEditDialog.cpp:316, is not copied).
+    if (ig.igBeginPopupContextItem()) {
+        if (state.real.describeTile(entry.tile)) |info| {
+            var line: [128]u8 = undefined;
+            text(std.fmt.bufPrint(&line, "{s}", .{std.mem.sliceTo(&info.terrain, 0)}) catch "?");
+            text(std.fmt.bufPrint(&line, "{d} variants", .{info.variant_count}) catch "? variants");
+        } else {
+            text("no properties");
+        }
+        ig.igEndPopup();
+    }
     // Requested only once the cell scrolls into view: a tileset's texture
     // is decoded once, and its tiles cost little, but there is no call for
     // pictures nobody looks at.
