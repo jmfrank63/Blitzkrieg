@@ -1,15 +1,15 @@
 ---
 gsd_state_version: "1.0"
-current_plan: "3 with Total Plans in Phase: 11"
+current_plan: 5
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 05-02-PLAN.md (heights/update/fill/tile-info)
-last_updated: "2026-10-01T09:43:57.347Z"
-state_head: 38bef047facffb01f20bc5e5711d5cf3e0397641
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-10-01T20:29:30.215Z"
+state_head: 9d7923d6567c21c785484bfaf7539ea54185c603
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 43
-  completed_plans: 34
+  completed_plans: 35
   percent: 0
 current_phase: 05
 current_phase_name: "Map editor M3: random map templates, minimap tools, full parity"
@@ -26,12 +26,12 @@ current_phase_name: "Map editor M3: random map templates, minimap tools, full pa
 
 ## Current Position
 
-Current Plan: 3 with Total Plans in Phase: 11
+Current Plan: 4
+Total Plans in Phase: 11
 Progress: [░░░░░░░░░░] 0%
 
-Phase 05 wave 2 done: 05-01 (foundations) and 05-02 (the terrain heart:
-Heights tool, Update Map, Fill Entire Map, tile properties) summarized; 05-03
-next in the wave order.
+Phase 05 wave 3: 05-03 (filters and fields) summarized; 05-04 next in the
+wave order.
 
 ## Current summary
 
@@ -67,8 +67,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-10-01T09:43:57.217Z
-**Stopped at:** Completed 05-02-PLAN.md (heights/update/fill/tile-info)
+**Last session:** 2026-10-01T20:28:44.306Z
+**Stopped at:** Completed 05-03-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -115,6 +115,8 @@ behavior needs the in-game rows).
 | Phase 04 P13 | 85min | 4 tasks | 16 files |
 | Phase 05 P01 | ~3h 30m | 3 tasks | 24 files |
 | Phase 05 P02 | ~6h (incl. interruption recovery) | 3 tasks | 25 files |
+| Phase 05 P03 | 2 waves (continuation) | 3 tasks | 27 files |
+| Phase 05 P03 | 2 waves (continuation) | 3 tasks | 27 files |
 
 ## Decisions
 

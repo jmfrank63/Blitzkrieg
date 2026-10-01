@@ -348,13 +348,13 @@ Plans:
 **Goal:** Map Editor M3 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md`: random map templates and generation from the editor, minimap tools, and every remaining feature of the MFC map editor (`Sources/src/MapEditor`) so the portable editor reaches full parity. When parity is shown by a feature-by-feature checklist against the MFC editor, delete the MFC map editor from the tree.
 **Requirements**: none mapped — CONTEXT D-01..D-40 (05-CONTEXT.md) are the requirements of record; 05-PARITY.md is the checklist of record (D-36) and 05-VALIDATION.md's D-40 exit criteria are the coverage contract
 **Depends on:** Phase 4
-**Plans:** 2/11 plans executed
+**Plans:** 3/11 plans executed
 
 Plans (per D-39; waves serialized — plans 2-8 all touch bridge.h/editor.zig/fake_bridge.zig/c_bridge.zig/commands.zig/build.zig, so the shared-worktree execution order is plan order; depends_on keeps D-39's logical structure):
 
 - [x] 05-01-PLAN.md — foundations: altitude region primitive (D-19), New Map (D-23), Save as XML/BZM (D-24), brush 1-16, status bar/title, map-editor-m3-auto step, PARITY anchor verification, spec D-19
 - [x] 05-02-PLAN.md — heights tool (D-18), Update Map / Instant Update / Fit To Grid (D-20), Fill Entire Map (D-22), tile properties (D-35)
-- [ ] 05-03-PLAN.md — object filters + Filters Composer (D-31), Fields tool (D-21), the shared RMG storage scan
+- [x] 05-03-PLAN.md — object filters + Filters Composer (D-31), Fields tool (D-21), the shared RMG storage scan
 - [ ] 05-04-PLAN.md — multi-selection (D-25), Properties panel (D-26), links (D-27), direction wheel (D-28), Damage tool (D-29)
 - [ ] 05-05-PLAN.md — players add/delete + Unit Creation Info (D-30), Check Map (D-33), the railroad <2-control-points game-loader guard (carried bug)
 - [ ] 05-06-PLAN.md — Layers menu and fire ranges (D-32), Wireframe/Depth-Complexity measured
