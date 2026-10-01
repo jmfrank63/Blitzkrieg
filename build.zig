@@ -6587,6 +6587,10 @@ fn addMapEditor(
         // Saved: the title names the file it became, clean of the star.
         "40:expect=title:m3.bzm",
         "42:expect=title:8x8",
+        // The new map's world replaces coldwinter's: the camera goes home
+        // (zoom 0, re-synced), so the scripted cells below name real cells
+        // of the 8x8 map.
+        "44:key=HOME",
         // The Heights tool (D-18) on the fresh 8x8: a raise drag is one undo
         // step; a level drag (the mode is a named command, the gesture is
         // the same left drag) is one more. Generate hills (TR10): one
@@ -6618,7 +6622,43 @@ fn addMapEditor(
         // guard is not copied.
         "98:do=tile_info:0",
         "100:expect=status:0:",
-        "110:exit",
+        // The object filters (D-31, O2/O3/O4): the combo selects a shipped
+        // filter (Data/Editor/filter.xml), the palette's count follows
+        // (predicate over the filtered catalogue); Ctrl+click's assign puts
+        // it in quick-toggle slot 0, unchecking and rechecking the slot
+        // gates and ungates the same rows; the composer opens and closes by
+        // its command.
+        "120:do=filter_select:Buildings",
+        "122:expect=palette_count:194",
+        "124:do=filter_assign:0",
+        "126:do=filter_select:none",
+        "128:expect=palette_count:1068",
+        "130:do=filter_toggle:0",
+        "132:expect=palette_count:194",
+        "134:do=filter_toggle:0",
+        "136:expect=palette_count:1068",
+        "138:do=filters_composer",
+        "140:do=filters_composer",
+        // The Fields tool (D-21, TR14-TR18): the field-set combo from the
+        // storage scan, a scripted polygon, one apply - one undo step - and
+        // undo back to the saved bytes (dirty 0). The vertices go through
+        // the vertex commands (world points): the synthetic pointer's
+        // ground answer barely moves per screen pixel at this zoom, so
+        // clicks would collapse into one deduped point. The save first
+        // marks the pre-fields document clean, the way the MFC's dialog
+        // flow ran on a saved map.
+        "150:do=file_save_bzm:../../local-test/map-editor-m3-auto/m3.bzm",
+        "152:do=fields_set:scenarios\\fieldsets\\summer\\field00",
+        "154:tool=fields",
+        "156:do=fields_vertex_add:64:64",
+        "158:do=fields_vertex_add:192:64",
+        "160:do=fields_vertex_add:192:192",
+        "162:do=fields_vertex_add:64:192",
+        "164:do=fields_apply",
+        "166:expect=dirty:1",
+        "168:key=Z+ctrl",
+        "170:expect=dirty:0",
+        "180:exit",
     };
     const auto_m3_run = b.addRunArtifact(exe);
     auto_m3_run.setCwd(b.path(stage_root));

@@ -112,6 +112,7 @@ pub const command_table = [_]Entry{
     .{ .name = "filter_rename", .handler = filterRename },
     .{ .name = "filter_words", .handler = filterWords },
     .{ .name = "filters_save", .handler = filtersSave },
+    .{ .name = "filters_composer", .handler = filtersComposer },
     .{ .name = "fields_set", .handler = fieldsSet },
     .{ .name = "fields_randomize", .handler = fieldsRandomize },
     .{ .name = "fields_toggle", .handler = fieldsToggle },
@@ -149,6 +150,8 @@ pub const predicate_table = [_]Entry{
     .{ .name = "mobile_has", .handler = mobileHas },
     .{ .name = "title", .handler = titleContains },
     .{ .name = "status", .handler = statusContains },
+    .{ .name = "palette_count", .handler = paletteCount },
+    .{ .name = "dirty", .handler = dirtyIs },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -302,7 +305,9 @@ pub fn mapUpdate(state: *State, arg: []const u8) Outcome {
     };
     state.update_steps = progress.steps;
     state.update_total = progress.total;
-    state.update_report_open = true;
+    // A scripted run must keep its viewport clickable: the report's steps
+    // are in the status line either way (the predicates read them).
+    if (!state.automated) state.update_report_open = true;
     state.view.clearStatus();
     return .ok;
 }
@@ -446,6 +451,33 @@ fn statusContains(state: *State, arg: []const u8) Outcome {
     var buffer: [1024]u8 = undefined;
     const line = panels.statusLine(state, &buffer);
     return if (std.mem.indexOf(u8, line, arg) != null) .ok else .refused;
+}
+
+/// `expect=palette_count:<n>` (M3, D-31): the object palette's visible row
+/// count - the same two-stage query the palette draws with (the text filter
+/// and the active object filters), so a filter_select/filter_toggle shows
+/// its gate in the scenario.
+fn paletteCount(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    const filter = std.mem.sliceTo(&state.filter, 0);
+    var count: usize = 0;
+    for (state.order) |index| {
+        const entry = &state.catalogue[index];
+        if (logic.paletteObjectVisible(std.mem.sliceTo(&entry.name, 0), std.mem.sliceTo(&entry.path, 0), filter, state.active_filters)) count += 1;
+    }
+    if (count == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "palette_count is {d}, not {d}", .{ count, want }) catch "palette_count differs");
+    return .refused;
+}
+
+/// `expect=dirty:<0|1>` (M3, D-21): whether the document holds unsaved
+/// edits - the fields apply is one undo step, and undoing it lands the
+/// document back on its saved bytes.
+fn dirtyIs(state: *State, arg: []const u8) Outcome {
+    const want = std.mem.eql(u8, arg, "1");
+    if (arg.len != 1 or (arg[0] != '0' and arg[0] != '1')) return .bad_arg;
+    return if (state.editor.dirty() == want) .ok else .refused;
 }
 
 fn anchorIsSet(state: *State, arg: []const u8) ?bool {
@@ -1931,6 +1963,14 @@ fn filtersSave(state: *State, arg: []const u8) Outcome {
     return outcome;
 }
 
+/// `do=filters_composer` - the Tools menu's Filters Composer checkbox as a
+/// command, so BK_EDITOR_AUTO opens and closes the window (D-31, O4).
+fn filtersComposer(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    state.filters_composer_open = !state.filters_composer_open;
+    return .ok;
+}
+
 /// `do=filter_words:<name>|<list>|<words space separated>` - the composer's
 /// word-list edit: condition `list` of the named filter becomes exactly the
 /// words given (an empty word list empties the condition). The `|`-separated
@@ -2040,13 +2080,14 @@ fn fieldsToggle(state: *State, arg: []const u8) Outcome {
 /// answer - the panel's popup sends it, exactly the heights confirmations'
 /// split. `:passability` runs the report over the polygon, changing nothing.
 fn fieldsApply(state: *State, arg: []const u8) Outcome {
+    var diag_buffer: [128]u8 = undefined;
     const confirmed = std.mem.eql(u8, arg, "yes");
     const passability_only = std.mem.eql(u8, arg, "passability");
     if (arg.len != 0 and !confirmed and !passability_only) return .bad_arg;
     const tool = &state.view.fields_tool;
     var points: [core.tools_fields.max_points]core.bridge.FieldVec3 = undefined;
     const count = tool.applyPoints(&points) orelse {
-        state.view.setStatus("fields: ", "the polygon is not closed: three points and a real area are needed");
+        state.view.setStatus("fields: ", std.fmt.bufPrint(&diag_buffer, "the polygon is not closed: {d} point(s), state {s}", .{ tool.points().len, @tagName(tool.state) }) catch "the polygon is not closed: three points and a real area are needed");
         return .refused;
     };
     const name = std.mem.sliceTo(&state.fields_set_name, 0);
@@ -2090,6 +2131,16 @@ fn fieldsApply(state: *State, arg: []const u8) Outcome {
     var report: std.ArrayListUnmanaged(core.bridge.FieldObjectReport) = .empty;
     const outcome = resultOutcome(state, state.editor.applyField(params, &report, state.allocator));
     report.deinit(state.allocator);
+    if (outcome != .ok) {
+        // Why the bridge refused: the polygon as the tool holds it.
+        var pts: [128]u8 = undefined;
+        var len: usize = 0;
+        for (tool.points(), 0..) |pt, i| {
+            const one = std.fmt.bufPrint(pts[len..], "{s}({d:.0},{d:.0})", .{ if (i != 0) " " else "", pt.x, pt.y }) catch break;
+            len += one.len;
+        }
+        state.editor.note(std.fmt.bufPrint(&diag_buffer, "fields polygon: {s}", .{pts[0..len]}) catch "fields polygon: ?");
+    }
     if (outcome == .ok) {
         // The MFC cleared the points on a successful place
         // (StateTerrainFields.cpp:506-512); a report-only run keeps them.

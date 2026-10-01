@@ -620,6 +620,10 @@ pub const State = struct {
     os_dialogs: bool = true,
     /// Real file dialogs asked of SDL so far; the smoke checks it stays 0.
     os_dialogs_opened: u32 = 0,
+    /// BK_EDITOR_AUTO drives this process: result popups that would block
+    /// the scripted viewport (the Update Map report) stay closed - the
+    /// report's steps still land in the status line the predicates read.
+    automated: bool = false,
     /// BK_EDITOR_AUTO's own `test` action (smoke.zig's `AutoRunner`): extra
     /// environment for the next `startTestGame` spawn - BK_AUTO_UI from
     /// BK_EDITOR_AUTO_GAME and BK_NO_HELP=1, so the child game runs and

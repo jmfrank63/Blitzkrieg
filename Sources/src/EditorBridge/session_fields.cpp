@@ -80,9 +80,14 @@ SMapObjectInfo* FindFieldObject( CMapInfo *pMap, int nLinkID )
 // The MFC's own closing rule (StateTerrainFields.cpp:176-185): dedupe the
 // points within POINT_RADIUS, then require more than two and an area beyond
 // one radius squared. Degenerate polygons never reach the engine.
-bool ValidFieldPolygon( std::vector<CVec3> *pPoints )
+bool ValidFieldPolygon( std::vector<CVec3> *pPoints, std::string *pDiag )
 {
 	UniquePolygon<std::vector<CVec3>, CVec3>( pPoints, fWorldCellSize / 4.0f );
+	if ( pDiag )
+	{
+		const float fSquare = pPoints->size() > 2 ? GetSignedPolygonSquare( *pPoints ) : 0.0f;
+		*pDiag = NStr::Format( "%d points after the dedupe, area %.1f", (int)pPoints->size(), fSquare );
+	}
 	if ( pPoints->size() <= 2 )
 		return false;
 	return fabs2( GetSignedPolygonSquare( *pPoints ) ) > fabs2( fWorldCellSize / 4.0f );
@@ -408,9 +413,10 @@ bool ApplyFieldInSession( SEditorSession *pSession, const SFieldApply &rApply,
 	// The MFC's own closing rule: degenerate polygons are refused before
 	// anything is loaded, changing nothing.
 	std::vector<CVec3> points = apply.points;
-	if ( !ValidFieldPolygon( &points ) )
+	std::string diag;
+	if ( !ValidFieldPolygon( &points, &diag ) )
 	{
-		pSession->szMessage = "the polygon is degenerate: three points and a real area are needed";
+		pSession->szMessage = "the polygon is degenerate: three points and a real area are needed (" + diag + ")";
 		if ( pbRefused )
 			*pbRefused = true;
 		return false;

@@ -303,6 +303,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         // synthetic press on a panel under the real cursor - the same two
         // rules --smoke already follows (main.zig's smokeRun).
         state.os_dialogs = false;
+        state.automated = true;
         imgui.c.bk_imgui_backend_use_global_mouse(false);
         var failure: auto_mod.Failure = .{};
         const schedule = auto_mod.parse(gpa, text, &failure) catch |err| {
