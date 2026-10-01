@@ -413,6 +413,23 @@ pub const Editor = struct {
         self.history.recordAssumeCapacity(self.allocator, .{ .paint = .{ .tokens = tokens } }, gesture);
     }
 
+    /// The placement rule's own answer (M3, D-20): where the fit would put
+    /// (x, y) for `name` - the input, when the session's Fit Objects To Grid
+    /// is off or the kind is one the rule does not fit. The tools snap the
+    /// positions they are about to add or drag with this, the way the MFC's
+    /// placer snaps before it edits: the map never holds a position the
+    /// caller did not mean, and undo replays raw.
+    pub fn snapToGrid(self: *Editor, name: []const u8, x: f32, y: f32) struct { x: f32, y: f32 } {
+        var name_z: [bridge_mod.name_capacity:0]u8 = undefined;
+        const len = @min(name.len, bridge_mod.name_capacity);
+        @memcpy(name_z[0..len], name[0..len]);
+        name_z[len] = 0;
+        var out_x = x;
+        var out_y = y;
+        _ = self.bridge.snapToGrid(@ptrCast(&name_z), x, y, &out_x, &out_y);
+        return .{ .x = out_x, .y = out_y };
+    }
+
     pub fn addObject(self: *Editor, name: []const u8, x: f32, y: f32, dir: i32, player: i32) EditError!i32 {
         try self.history.reserve(self.allocator);
         try self.document.objects.ensureUnusedCapacity(self.allocator, 1);
@@ -1386,6 +1403,46 @@ pub const Editor = struct {
         var token: i32 = -1;
         try self.noteOutcome(self.bridge.setZeroHeights(&token));
         self.commitEdit(&prepared, token, 0, .altitudes);
+    }
+
+    /// Update Map (M3, D-20): the whole composite as ONE undo step - the
+    /// engine's height and terrain updates, the full crosses and shades, the
+    /// VSO z refresh, the fit pass. `progress` (nullable, never called back
+    /// into the bridge) hears each of the MFC's own steps. The record moves
+    /// objects, so the objects scope reloads the document after a replay and
+    /// the altitudes generation moves too (the minimap's future key).
+    pub fn updateMap(self: *Editor, progress: ?bridge_mod.ProgressFn, user: ?*anyopaque) EditError!void {
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.updateMap(progress, user, &token));
+        self.commitEdit(&prepared, token, 0, .objects);
+        self.altitudes_generation +%= 1;
+        // The composite moves objects (the fit pass) - the document reads
+        // the map's objects again, exactly a trench edit's own reload.
+        try self.reloadObjectsAfterEdit();
+    }
+
+    /// Fill Entire Map (M3, D-22): every tile the type's own, one undo step -
+    /// one paint of the bridge's log, so its token is a PAINT token
+    /// (undoPaint/redoPaint), recorded exactly like a brush paint's.
+    pub fn fillEntireMap(self: *Editor, tile: u8) EditError!void {
+        try self.history.reserve(self.allocator);
+        var tokens: std.ArrayListUnmanaged(i32) = .empty;
+        try tokens.ensureUnusedCapacity(self.allocator, 1);
+        var token: i32 = -1;
+        self.noteOutcome(self.bridge.fillEntireMap(tile, &token)) catch |err| {
+            tokens.deinit(self.allocator);
+            return err;
+        };
+        tokens.appendAssumeCapacity(token);
+        self.history.recordAssumeCapacity(self.allocator, .{ .paint = .{ .tokens = tokens } }, 0);
+    }
+
+    /// The terrain-mode toggles (M3, D-20): a view setting on the bridge
+    /// session, never map data and never in the history.
+    pub fn setTerrainModes(self: *Editor, instant_update: bool, fit_to_grid: bool) EditError!void {
+        try self.noteOutcome(self.bridge.setTerrainModes(instant_update, fit_to_grid));
     }
 
     /// The terrain vertex heights (WORLD z units) over `region`, row-major

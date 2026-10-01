@@ -982,7 +982,7 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 	return true;
 }
 
-bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &vPos, int nDir, int nPlayer, bool *pbRefused )
+bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &vPosIn, int nDir, int nPlayer, bool *pbRefused )
 {
 	if ( pbRefused )
 		*pbRefused = false;
@@ -1017,6 +1017,7 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	}
 
 	const SMapObjectInfo before = *pObject;
+	CVec3 vPos = vPosIn;
 	IRefCount *pAIObject = itEngine->second;
 	const SEngineObjectState engineBefore = ReadEngine( pAIEditor, pAIObject );
 
@@ -1564,10 +1565,10 @@ bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::
 	return true;
 }
 
-namespace {
 // Puts one recorded region back into both copies and the engine, raw: no
 // preprocessing and no cross generation, so the engine lands on exactly the
-// tiles and crosses the record holds.
+// tiles and crosses the record holds. Declared in session.h since 05-02:
+// the Update Map composite's undo rides the same route.
 bool PutRegionBack( SEditorSession *pSession, const NMapOverlay::SPaintUndo &rRegion )
 {
 	ITerrainEditor *pEngineTerrain = EngineTerrain();
@@ -1583,7 +1584,6 @@ bool PutRegionBack( SEditorSession *pSession, const NMapOverlay::SPaintUndo &rRe
 	// The AI's passability follows the tiles.
 	pAIEditor->UpdateTerrain( RegionTiles( rRegion.rPatches ), pSession->working.terrain );
 	return true;
-}
 }
 
 bool UndoPaintInSession( SEditorSession *pSession, int nToken, bool *pbRefused )

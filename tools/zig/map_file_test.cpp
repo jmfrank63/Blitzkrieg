@@ -807,6 +807,134 @@ static void TestAltitudeRegion()
 	printf( "map-file: M3 altitude region ok\n" );
 }
 
+// Fill Entire Map's tile write, at the overlay level (05-02, D-22). The
+// session's FillEntireMapInSession rides NMapOverlay::Paint - the route this
+// test proves: the fill's expected value is the same Paint call on another
+// fresh read; the crosses it recomputes are the same UpdateTerrainCrosses
+// call on a copy carrying the same tiles; and the paint's own undo record
+// puts the fill back byte for byte.
+static void TestM3FillRegion()
+{
+	const char *const pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	std::string szError;
+	CMapInfo original;
+	if ( !Check( NMapFile::Read( pszMap, &original, &szError ), "read for the fill test" ) )
+		return;
+	const int nSizeX = original.terrain.tiles.GetSizeX(), nSizeY = original.terrain.tiles.GetSizeY();
+	if ( !Check( nSizeX > 0 && nSizeY > 0, "the map has tiles" ) )
+		return;
+	// A tile the map's tileset has a terrain type for by construction: one
+	// the map itself already carries.
+	const BYTE nFillTile = original.terrain.tiles[8][8].tile;
+
+	std::vector<NMapOverlay::SPaintCell> cells( size_t( nSizeX ) * size_t( nSizeY ) );
+	size_t nAt = 0;
+	for ( int nY = 0; nY < nSizeY; ++nY )
+		for ( int nX = 0; nX < nSizeX; ++nX, ++nAt )
+		{
+			cells[nAt].nX = nX;
+			cells[nAt].nY = nY;
+			cells[nAt].tile = nFillTile;
+			cells[nAt].noise = 0;
+		}
+
+	// The fill, and the same Paint on a copy as its expected value.
+	CMapInfo edited, expected;
+	if ( !Check( NMapFile::Read( pszMap, &edited, &szError ) && NMapFile::Read( pszMap, &expected, &szError ),
+		     "read the fill and its expected map" ) )
+		return;
+	NMapOverlay::SPaintUndo undo;
+	if ( !Check( NMapOverlay::Paint( &edited, cells, &undo ), "the whole-map paint is taken" ) )
+		return;
+	NMapOverlay::SPaintUndo expectedUndo;
+	Check( NMapOverlay::Paint( &expected, cells, &expectedUndo ), "the expected map takes the same paint" );
+	Check( undo.rPatches.minx == 0 && undo.rPatches.miny == 0 &&
+	       undo.rPatches.maxx == original.terrain.patches.GetSizeX() && undo.rPatches.maxy == original.terrain.patches.GetSizeY(),
+	       "the fill's region is the whole map in patch coordinates" );
+
+	bool bAll = true;
+	for ( int nY = 0; nY < nSizeY && bAll; ++nY )
+		for ( int nX = 0; nX < nSizeX && bAll; ++nX )
+			bAll = edited.terrain.tiles[nY][nX].tile == nFillTile;
+	Check( bAll, "every tile is the fill's terrain type" );
+
+	// The crosses: a copy carrying the same tiles, through the same
+	// UpdateTerrainCrosses the paint's preprocessing runs, lands on the same
+	// patches the fill holds. The rectangle is in PATCH coordinates - what
+	// UpdateTerrainCrosses iterates.
+	CMapInfo crossCopy;
+	if ( Check( NMapFile::Read( pszMap, &crossCopy, &szError ), "read the crosses copy" ) )
+	{
+		for ( int nY = 0; nY < nSizeY; ++nY )
+			for ( int nX = 0; nX < nSizeX; ++nX )
+				crossCopy.terrain.tiles[nY][nX] = edited.terrain.tiles[nY][nX];
+		Check( crossCopy.UpdateTerrainCrosses( CTRect<int>( 0, 0, crossCopy.terrain.patches.GetSizeX(), crossCopy.terrain.patches.GetSizeY() ) ),
+		       "the copy's crosses recompute" );
+		// Crosses compared by content, not by memcmp: a patch holds its
+		// crosses in std::vectors, whose own pointers the two builds did not
+		// share. A list is its element run; SCrossTileInfo is POD.
+		struct PatchCrossesEqual
+		{
+			static bool List( const std::vector<SCrossTileInfo> &a, const std::vector<SCrossTileInfo> &b )
+			{
+				if ( a.size() != b.size() ) return false;
+				for ( size_t i = 0; i < a.size(); ++i )
+					if ( memcmp( &a[i], &b[i], sizeof( SCrossTileInfo ) ) != 0 ) return false;
+				return true;
+			}
+			static bool Patch( const STerrainPatchInfo &a, const STerrainPatchInfo &b )
+			{
+				if ( a.nStartX != b.nStartX || a.nStartY != b.nStartY ) return false;
+				if ( !List( a.basecrosses, b.basecrosses ) || !List( a.noisecrosses, b.noisecrosses ) ) return false;
+				if ( a.layercrosses.size() != b.layercrosses.size() ) return false;
+				for ( size_t i = 0; i < a.layercrosses.size(); ++i )
+					if ( !List( a.layercrosses[i], b.layercrosses[i] ) ) return false;
+				// fMinHeight..fSubMaxHeight[3] are eight contiguous floats.
+				return memcmp( &a.fMinHeight, &b.fMinHeight, 8 * sizeof( float ) ) == 0;
+			}
+		};
+		bool bSame = true;
+		const int nPX = crossCopy.terrain.patches.GetSizeX(), nPY = crossCopy.terrain.patches.GetSizeY();
+		for ( int py = 0; py < nPY && bSame; ++py )
+			for ( int px = 0; px < nPX && bSame; ++px )
+				bSame = PatchCrossesEqual::Patch( crossCopy.terrain.patches[py][px], edited.terrain.patches[py][px] );
+		Check( bSame, "the fill's crosses are the same UpdateTerrainCrosses call's own" );
+	}
+
+	// Saved and compared against the expected map, then undone: the file the
+	// undo writes is the unedited one, byte for byte, from fresh reads.
+	const char *pszFilled = "zig-out\\local-test\\m3-fill-edited.bzm";
+	const char *pszUndone = "zig-out\\local-test\\m3-fill-undone.bzm";
+	const char *pszUnedited = "zig-out\\local-test\\m3-fill-unedited.bzm";
+	Check( NMapFile::Write( pszFilled, edited, &szError ), szError.c_str() );
+	CMapInfo reread;
+	if ( Check( NMapFile::Read( pszFilled, &reread, &szError ), szError.c_str() ) )
+	{
+		std::string szWhere;
+		Check( NMapFile::AreEquivalent( expected, reread, &szWhere ),
+		       szWhere.empty() ? "the saved fill equals the same-paint expected map"
+		                       : ( "the fill differs from its expected map at " + szWhere ).c_str() );
+		szWhere.clear();
+		Check( !NMapFile::AreEquivalent( original, reread, &szWhere ),
+		       "and the comparator sees the fill" );
+	}
+	NMapOverlay::UndoPaint( &edited, undo );
+	Check( NMapFile::Write( pszUndone, edited, &szError ), szError.c_str() );
+	CMapInfo unedited;
+	if ( Check( NMapFile::Read( pszMap, &unedited, &szError ), "read the unedited map" ) )
+	{
+		Check( NMapFile::Write( pszUnedited, unedited, &szError ), szError.c_str() );
+		if ( Check( FilesAreIdentical( pszUnedited, pszUndone ),
+		            "a fill undone writes the unedited file byte for byte" ) )
+		{
+			remove( "zig-out/local-test/m3-fill-edited.bzm" );
+			remove( "zig-out/local-test/m3-fill-undone.bzm" );
+			remove( "zig-out/local-test/m3-fill-unedited.bzm" );
+		}
+	}
+	printf( "map-file: M3 fill ok\n" );
+}
+
 // Walks a directory through a storage of its own, opened on the folder and
 // nothing else. The registered data storage will not do: it mounts the .pak
 // archives as pseudo-directories, so enumerating "Maps\\*.*" through it
@@ -3300,6 +3428,7 @@ int main( int argc, char **argv )
 	TestPreprocessingChangesUnpaintedTiles();
 	TestCameraAnchorRecords();
 	TestAltitudeRegion();
+	TestM3FillRegion();
 	TestM2RecordOps();
 	TestM2ScriptAreaConversion();
 	TestM2FindReferences();

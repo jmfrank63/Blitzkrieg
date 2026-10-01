@@ -170,6 +170,10 @@ pub const RealBridge = struct {
         .heightsStroke = vtableHeightsStroke,
         .generateHeights = vtableGenerateHeights,
         .setZeroHeights = vtableSetZeroHeights,
+        .updateMap = vtableUpdateMap,
+        .fillEntireMap = vtableFillEntireMap,
+        .setTerrainModes = vtableSetTerrainModes,
+        .snapToGrid = vtableSnapToGrid,
         .vsoDescriptors = vtableVsoDescriptors,
         .vsoCount = vtableVsoCount,
         .readVso = vtableReadVso,
@@ -1032,6 +1036,29 @@ pub const RealBridge = struct {
     /// BkEditorSetZeroHeights.
     fn vtableSetZeroHeights(ptr: *anyopaque, token: *i32) Status {
         return status(c.BkEditorSetZeroHeights(from(ptr).session, token));
+    }
+
+    /// BkEditorUpdateMap: the progress pointer is C ABI on both sides
+    /// (core.bridge.ProgressFn's callconv(.c) matches BkEditorProgressFn),
+    /// so it passes straight through with the caller's user pointer.
+    fn vtableUpdateMap(ptr: *anyopaque, progress: ?core.bridge.ProgressFn, user: ?*anyopaque, token: *i32) Status {
+        const c_progress: c.BkEditorProgressFn = if (progress) |report| @ptrCast(report) else null;
+        return status(c.BkEditorUpdateMap(from(ptr).session, c_progress, user, token));
+    }
+
+    /// BkEditorFillEntireMap.
+    fn vtableFillEntireMap(ptr: *anyopaque, tile: u8, token: *i32) Status {
+        return status(c.BkEditorFillEntireMap(from(ptr).session, @intCast(tile), token));
+    }
+
+    /// BkEditorSetTerrainModes.
+    fn vtableSetTerrainModes(ptr: *anyopaque, instant_update: bool, fit_to_grid: bool) Status {
+        return status(c.BkEditorSetTerrainModes(from(ptr).session, @intFromBool(instant_update), @intFromBool(fit_to_grid)));
+    }
+
+    /// BkEditorSnapToGrid.
+    fn vtableSnapToGrid(ptr: *anyopaque, name: [*:0]const u8, x: f32, y: f32, out_x: *f32, out_y: *f32) Status {
+        return status(c.BkEditorSnapToGrid(from(ptr).session, name, x, y, out_x, out_y));
     }
 
     fn kindInt(kind: VsoKind) c_int {

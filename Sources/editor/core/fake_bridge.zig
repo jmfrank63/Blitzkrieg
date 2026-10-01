@@ -95,7 +95,7 @@ pub const pick_radius: f32 = 16.0;
 /// so it uses a bound a test can compute. 16 tiles of height.
 pub const fake_height_limit: f32 = tile_size * 16.0;
 
-pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit, altitudes_edit, new_map, heights_stroke, heights_generate, heights_zero };
+pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit, altitudes_edit, new_map, heights_stroke, heights_generate, heights_zero, update_map, fill_map, terrain_modes };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
 /// The most units a fake start command holds (the real one holds as many as the
@@ -408,6 +408,13 @@ pub const FakeBridge = struct {
     click_tile_height: f32 = 0,
     click_average: f32 = 0,
     last_generate_type: bridge_mod.HeightsGenerateType = .hills,
+    /// The terrain-mode toggles (M3, D-20): set through setTerrainModes, the
+    /// defaults the MFC's own. The fake reads them back in its tests; the
+    /// per-stroke objects-Z pass and the fit snap they name are the real
+    /// bridge's business (the fake holds no engine, no object database and
+    /// no object z), so no fake behaviour keys off them yet.
+    instant_update: bool = false,
+    fit_to_grid: bool = true,
     paints: std.ArrayListUnmanaged(PaintRecord) = .empty,
     applied: std.ArrayListUnmanaged(i32) = .empty,
     undone: std.ArrayListUnmanaged(i32) = .empty,
@@ -849,6 +856,10 @@ pub const FakeBridge = struct {
         .heightsStroke = heightsStroke,
         .generateHeights = generateHeights,
         .setZeroHeights = setZeroHeights,
+        .updateMap = updateMap,
+        .fillEntireMap = fillEntireMap,
+        .setTerrainModes = setTerrainModes,
+        .snapToGrid = snapToGrid,
         .vsoDescriptors = vsoDescriptors,
         .vsoCount = vsoCount,
         .readVso = readVso,
@@ -1400,6 +1411,83 @@ pub const FakeBridge = struct {
         token.* = @intCast(self.edits.items.len - 1);
         self.applied_edits.appendAssumeCapacity(token.*);
         self.undone_edits.clearRetainingCapacity();
+    }
+
+    /// Update Map (M3, D-20): the fake's own simplification, listed in the
+    /// header - its map is already consistent (flat ground it keeps shaded
+    /// by construction, tiles and crosses always in step), so a fake update
+    /// changes no altitudes and no tiles; the logged edit is the whole sheet
+    /// with before equal to after, exactly as undoable as the real thing and
+    /// byte-neutral. The fit pass and the objects-Z refresh it names are the
+    /// real bridge's engine work, proven at the engine tier. Progress hears
+    /// the MFC's own count, seven fixed steps, once the work is done.
+    fn updateMap(ptr: *anyopaque, progress: ?bridge_mod.ProgressFn, user: ?*anyopaque, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        const started = self.ensureAltitudes();
+        if (started != .ok) return started;
+        const before = self.allocator.dupe(f32, self.altitudes_grid) catch return .failed;
+        const after = self.allocator.dupe(f32, self.altitudes_grid) catch {
+            self.allocator.free(before);
+            return .failed;
+        };
+        const region = AltitudeRegion{ .x0 = 0, .y0 = 0, .x1 = self.info.width_tiles + 1, .y1 = self.info.height_tiles + 1 };
+        self.logAltitudesEdit(region, before, after, token);
+        self.record(.update_map, token.*);
+        if (progress) |report| {
+            var step: c_int = 0;
+            while (step < 7) {
+                step += 1;
+                report(step, 7, user);
+            }
+        }
+        return .ok;
+    }
+
+    /// Fill Entire Map (M3, D-22): the fake's fill IS a whole-map paint of
+    /// the one tile - the real bridge's own shape (FillEntireMapInSession
+    /// rides PaintIntoSession too), so the fake gets the same paint token,
+    /// the same undoPaint/redoPaint route, and the paint path's own
+    /// refusals for free.
+    fn fillEntireMap(ptr: *anyopaque, tile_index: u8, token: *i32) Status {
+        const self = from(ptr);
+        const cells = self.allocator.alloc(bridge_mod.PaintCell, @intCast(self.info.width_tiles * self.info.height_tiles)) catch return .failed;
+        defer self.allocator.free(cells);
+        var index: usize = 0;
+        var y: i32 = 0;
+        while (y < self.info.height_tiles) : (y += 1) {
+            var x: i32 = 0;
+            while (x < self.info.width_tiles) : (x += 1) {
+                cells[index] = .{ .x = x, .y = y, .tile = tile_index };
+                index += 1;
+            }
+        }
+        return paint(ptr, cells, token);
+    }
+
+    /// The terrain-mode toggles (M3, D-20): a view setting on the fake, no
+    /// map data, no history - recorded so a test can see the call, changing
+    /// nothing else.
+    fn setTerrainModes(ptr: *anyopaque, instant_update: bool, fit_to_grid: bool) Status {
+        const self = from(ptr);
+        self.instant_update = instant_update;
+        self.fit_to_grid = fit_to_grid;
+        self.record(.terrain_modes, 0);
+        return .ok;
+    }
+
+    /// The map's own position for the link ID: the fake's record, read back.
+    /// BkEditorSnapToGrid (M3, D-20): the fake's database knows no origins,
+    /// so its answer is the input unchanged, whatever the toggles say - the
+    /// rule itself is proven at the engine tier, where the stats live.
+    fn snapToGrid(ptr: *anyopaque, name: [*:0]const u8, x: f32, y: f32, out_x: *f32, out_y: *f32) Status {
+        _ = name;
+        const self = from(ptr);
+        self.message_len = 0;
+        out_x.* = x;
+        out_y.* = y;
+        return .ok;
     }
 
     fn vsoDescriptors(ptr: *anyopaque, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status {

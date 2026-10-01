@@ -65,6 +65,12 @@ pub const Settings = struct {
     autosave_minutes: u32 = default_autosave_minutes,
     /// D-24 (M3): the default format of a never-saved map's Save As.
     default_format: Format = default_format,
+    /// D-20 (M3): the Map menu's two terrain toggles, persisted like the MFC
+    /// registry-backed checks. Defaults are the MFC's own: Instant Update
+    /// off, Fit Objects To Grid on. The bridge session holds the live copy
+    /// (its own defaults match); these are what a restart re-applies.
+    instant_update: bool = false,
+    fit_to_grid: bool = true,
     maps_folder_storage: FixedPath = .{},
     recent_storage: [recent_capacity]FixedPath = [_]FixedPath{.{}} ** recent_capacity,
     recent_count: usize = 0,
@@ -149,6 +155,18 @@ fn applyKey(settings: *Settings, key: []const u8, value: []const u8) void {
         } else if (std.mem.eql(u8, value, "xml")) {
             settings.default_format = .xml;
         }
+    } else if (std.mem.eql(u8, key, "instant_update")) {
+        if (std.mem.eql(u8, value, "on")) {
+            settings.instant_update = true;
+        } else if (std.mem.eql(u8, value, "off")) {
+            settings.instant_update = false;
+        }
+    } else if (std.mem.eql(u8, key, "fit_to_grid")) {
+        if (std.mem.eql(u8, value, "on")) {
+            settings.fit_to_grid = true;
+        } else if (std.mem.eql(u8, value, "off")) {
+            settings.fit_to_grid = false;
+        }
     } else if (std.mem.eql(u8, key, "maps_folder")) {
         settings.setMapsFolder(value);
     } else if (std.mem.eql(u8, key, "recent")) {
@@ -192,6 +210,8 @@ pub fn format(self: *const Settings, writer: *std.Io.Writer) std.Io.Writer.Error
     try writer.print("autosave={s}\n", .{if (self.autosave) "on" else "off"});
     try writer.print("autosave_minutes={d}\n", .{self.autosave_minutes});
     try writer.print("default_format={s}\n", .{@tagName(self.default_format)});
+    try writer.print("instant_update={s}\n", .{if (self.instant_update) "on" else "off"});
+    try writer.print("fit_to_grid={s}\n", .{if (self.fit_to_grid) "on" else "off"});
     if (self.mapsFolder().len != 0) try writer.print("maps_folder={s}\n", .{self.mapsFolder()});
     var i: usize = 0;
     while (i < self.recent_count) : (i += 1) try writer.print("recent={s}\n", .{self.recentAt(i)});
@@ -212,6 +232,8 @@ test "round trip: every field survives format then parse" {
     settings.autosave = false;
     settings.autosave_minutes = 10;
     settings.default_format = .xml;
+    settings.instant_update = true;
+    settings.fit_to_grid = false;
     settings.setMapsFolder("/Users/me/maps");
 
     var buffer: [1024]u8 = undefined;
@@ -223,7 +245,20 @@ test "round trip: every field survives format then parse" {
     try std.testing.expect(!round_tripped.autosave);
     try std.testing.expectEqual(@as(u32, 10), round_tripped.autosave_minutes);
     try std.testing.expectEqual(Format.xml, round_tripped.default_format);
+    try std.testing.expect(round_tripped.instant_update);
+    try std.testing.expect(!round_tripped.fit_to_grid);
     try std.testing.expectEqualStrings("/Users/me/maps", round_tripped.mapsFolder());
+}
+
+test "terrain toggles: the MFC's own defaults, on/off reads, malformed keeps the default" {
+    try std.testing.expect(!parse("").instant_update);
+    try std.testing.expect(parse("").fit_to_grid);
+    const flipped = parse("instant_update=on\nfit_to_grid=off\n");
+    try std.testing.expect(flipped.instant_update);
+    try std.testing.expect(!flipped.fit_to_grid);
+    const malformed = parse("instant_update=yes\nfit_to_grid=1\n");
+    try std.testing.expect(!malformed.instant_update);
+    try std.testing.expect(malformed.fit_to_grid);
 }
 
 test "default_format: bzm by default, xml reads, malformed keeps the default" {

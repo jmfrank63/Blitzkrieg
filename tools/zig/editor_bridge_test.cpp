@@ -2653,12 +2653,19 @@ static bool BridgeFilesAreIdentical( const char *pszLeft, const char *pszRight )
 		return false;
 	if ( left == right )
 		return true;
-	// Kept for whoever has to look: where the two files first differ.
+	// Kept for whoever has to look: where the two files first differ, with
+	// the bytes around it (printable as text when they are text - a BZM's
+	// sections name themselves, so the neighbourhood usually says which).
 	size_t i = 0;
 	while ( i < left.size() && i < right.size() && left[i] == right[i] )
 		++i;
 	printf( "editor-bridge: (identical? size %zu vs %zu, first difference at %zu: %02x vs %02x)\n",
 	        left.size(), right.size(), i, i < left.size() ? left[i] : 0, i < right.size() ? right[i] : 0 );
+	const size_t nFrom = i > 48 ? i - 48 : 0;
+	const size_t nTo = std::min( i + 48, std::min( left.size(), right.size() ) );
+	for ( size_t k = nFrom; k < nTo; ++k )
+		printf( "editor-bridge:   %8zu %02x %02x %c%c\n", k, left[k], right[k],
+	        ( left[k] >= 32 && left[k] < 127 ) ? left[k] : '.', ( right[k] >= 32 && right[k] < 127 ) ? right[k] : '.' );
 	return false;
 }
 
@@ -3427,6 +3434,309 @@ static void TestM3Heights( BkEditorSession *pSession, const std::string &szScrat
 	remove( szUndone.c_str() );
 	remove( szUnedited.c_str() );
 	printf( "editor-bridge: M3 heights ok\n" );
+}
+
+// The Update Map progress collector: a step counter and nothing else - no
+// bridge re-entry, exactly the rule the header states.
+struct M3UpdateProgress
+{
+	int nSteps;
+	int nTotal;
+	int nCalls;
+	static void Report( int nStep, int nTotal, void *pUser )
+	{
+		M3UpdateProgress *pSelf = static_cast<M3UpdateProgress *>( pUser );
+		++pSelf->nCalls;
+		pSelf->nSteps = nStep;
+		pSelf->nTotal = nTotal;
+	}
+};
+
+static BkEditorObjectRecord M3FindObject( BkEditorSession *pSession, int nLinkID )
+{
+	BkEditorObjectRecord record;
+	memset( &record, 0, sizeof record );
+	record.link_id = -1;
+	int nCount = 0;
+	if ( BkEditorObjects( pSession, 0, 0, &nCount ) != BK_EDITOR_REFUSED || nCount <= 0 ) return record;
+	std::vector<BkEditorObjectRecord> objects( nCount );
+	if ( BkEditorObjects( pSession, &( objects[0] ), nCount, &nCount ) != BK_EDITOR_OK ) return record;
+	for ( int i = 0; i < nCount; ++i )
+		if ( objects[i].link_id == nLinkID ) return objects[i];
+	return record;
+}
+
+// Update Map (M3, D-20) and Fill Entire Map (M3, D-22) at the engine tier.
+// The composite runs on a shipped map whose fit candidate - a sprite object
+// with passability, found by the test with the session's own predicate - has
+// been moved off the AI grid: Update Map snaps it exactly as
+// FitVisOrigin2AIGrid predicts, hears every step of the MFC's own progress
+// count, leaves the altitude sheet it was given and undoes byte-exact; the
+// fit toggle drives the move path by itself too. The fill makes every tile
+// the chosen terrain type's own - equivalent to a whole-map paint of the
+// same tile, which is the route it rides - and undoes byte-exact; a tile in
+// no terrain type is refused, a paint's own rule, changing nothing.
+static void TestM3UpdateMapAndFill( BkEditorSession *pSession, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) ) return;
+
+	// The toggles: a null session is NO_SESSION, and the pair set to the
+	// MFC's own defaults (Instant Update off, Fit on).
+	Check( BkEditorSetTerrainModes( 0, 1, 1 ) == BK_EDITOR_NO_SESSION, "the modes without a session are NO_SESSION" );
+	Check( BkEditorSetTerrainModes( pSession, 0, 1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// A fit candidate, by the session's own rule: a sprite (building, object
+	// or terraobj) whose stats give it passability.
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	int nCount = 0;
+	if ( !Check( BkEditorObjects( pSession, 0, 0, &nCount ) == BK_EDITOR_REFUSED && nCount > 0, "the object list sizes" ) ) return;
+	std::vector<BkEditorObjectRecord> objects( nCount );
+	if ( !Check( BkEditorObjects( pSession, &( objects[0] ), nCount, &nCount ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) ) return;
+	int nCandidate = -1;
+	float fOffX = 0.0f, fOffY = 0.0f;
+	for ( int i = 0; i < nCount && nCandidate < 0; ++i )
+	{
+		const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( objects[i].name );
+		if ( pDesc == 0 || pDesc->eVisType != SGVOT_SPRITE ) continue;
+		// Buildings and generic objects only: their stats are the base
+		// implementation, whose GetOrigin/GetPassability ignore the frame -
+		// safe to ask without one. (A terraobj's frame lives in the record
+		// the BkEditorObjects surface does not expose; the session's own fit
+		// pass reads it there.)
+		if ( pDesc->eGameType != SGVOGT_BUILDING && pDesc->eGameType != SGVOGT_OBJECT ) continue;
+		if ( objects[i].link_id <= 0 ) continue;
+		// The session's fit pass only looks at objects the engine holds
+		// (byLinkID); the read surface cannot see that, so the scan asks the
+		// same question the way a caller would.
+		{
+			BkEditorObjectState held;
+			memset( &held, 0, sizeof held );
+			if ( BkEditorEngineObjectState( pSession, objects[i].link_id, &held ) != BK_EDITOR_OK ) continue;
+		}
+		const SObjectBaseRPGStats *pRPG = static_cast<const SObjectBaseRPGStats *>( pObjectsDB->GetRPGStats( pDesc ) );
+		if ( pRPG == 0 || pRPG->GetPassability( -1 ).IsEmpty() ) continue;
+		nCandidate = objects[i].link_id;
+		fOffX = objects[i].x + 7.3f;
+		fOffY = objects[i].y + 3.9f;
+	}
+	if ( !Check( nCandidate > 0, "the shipped map holds a sprite object with passability to fit" ) ) return;
+
+	// Fit is ON (step above), so the move itself would snap; the off-grid
+	// start this test needs is made with it OFF.
+	Check( BkEditorSetTerrainModes( pSession, 0, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorMoveObject( pSession, nCandidate, fOffX, fOffY ) == BK_EDITOR_OK, "fit off, the candidate moves off the AI grid" );
+	{
+		const BkEditorObjectRecord moved = M3FindObject( pSession, nCandidate );
+		Check( moved.link_id == nCandidate && moved.x == fOffX && moved.y == fOffY,
+		       "the off-grid move is on the map exactly as asked" );
+	}
+	Check( BkEditorSetTerrainModes( pSession, 0, 1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	const std::string szPreUpdate = szScratch + "\\m3-update-pre.bzm";
+	const std::string szEdited = szScratch + "\\m3-update-edited.bzm";
+	const std::string szUndone = szScratch + "\\m3-update-undone.bzm";
+	Check( BkEditorSaveMap( pSession, szPreUpdate.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	M3UpdateProgress progress = { 0, 0, 0 };
+	int nUpdateToken = -1;
+	Check( BkEditorUpdateMap( pSession, &M3UpdateProgress::Report, &progress, &nUpdateToken ) == BK_EDITOR_OK,
+	       ( std::string( "the composite updates: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	Check( nUpdateToken >= 0, "the update has a token" );
+	Check( progress.nTotal >= 8 && progress.nSteps == progress.nTotal && progress.nCalls == progress.nTotal,
+	       ( std::string( "the progress heard every step of the MFC's own count (7 fixed + the snapped object): steps " )
+	         + std::to_string( progress.nSteps ) + ", total " + std::to_string( progress.nTotal )
+	         + ", calls " + std::to_string( progress.nCalls ) ).c_str() );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// The snap, exactly as the engine's own fit predicts: the map keeps the
+	// raw fitted float, from the same FitVisOrigin2AIGrid the session ran.
+	CVec3 vFitted( fOffX, fOffY, 0 );
+	{
+		const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( M3FindObject( pSession, nCandidate ).name );
+		if ( Check( pDesc != 0, "the candidate's descriptor is still there" ) )
+		{
+			const SObjectBaseRPGStats *pRPG = static_cast<const SObjectBaseRPGStats *>( pObjectsDB->GetRPGStats( pDesc ) );
+			FitVisOrigin2AIGrid( &vFitted, pRPG->GetOrigin( -1 ) );
+			const BkEditorObjectRecord after = M3FindObject( pSession, nCandidate );
+			Check( after.x == vFitted.x && after.y == vFitted.y,
+			       "the update snaps the candidate exactly as FitVisOrigin2AIGrid predicts" );
+		}
+	}
+
+	// The altitude sheet the composite was given is the altitude sheet it
+	// leaves: UpdateAllHeights is AI-side state the file never sees, and the
+	// shade recompute lands on the shades the shipped map already carried.
+	Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	{
+		CMapInfo before, after;
+		std::string szError;
+		if ( Check( NMapFile::Read( szPreUpdate.c_str(), &before, &szError ), szError.c_str() ) &&
+		     Check( NMapFile::Read( szEdited.c_str(), &after, &szError ), szError.c_str() ) )
+		{
+			const int nSizeX = before.terrain.altitudes.GetSizeX(), nSizeY = before.terrain.altitudes.GetSizeY();
+			Check( after.terrain.altitudes.GetSizeX() == nSizeX && after.terrain.altitudes.GetSizeY() == nSizeY,
+			       "the altitude sheet keeps its size over the update" );
+			bool bSame = true;
+			for ( int nY = 0; nY < nSizeY && bSame; ++nY )
+				for ( int nX = 0; nX < nSizeX && bSame; ++nX )
+					bSame = memcmp( &before.terrain.altitudes[nY][nX], &after.terrain.altitudes[nY][nX],
+						sizeof( SVertexAltitude ) ) == 0;
+			Check( bSame, "the update touches no altitude vertex the file can see" );
+		}
+	}
+
+	// Undo, newest first where there is one: the update's token puts the
+	// whole composite back - the object off the grid included - byte for byte.
+	Check( BkEditorUndoEdit( pSession, nUpdateToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	if ( Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( BridgeFilesAreIdentical( szPreUpdate.c_str(), szUndone.c_str() ),
+		       "the update undone writes the pre-update save byte for byte" );
+
+	// The toggle is the placer's own question (M3, D-20): the fit answered
+	// through BkEditorSnapToGrid for the candidate's type lands exactly where
+	// FitVisOrigin2AIGrid puts the point, a unit is left where it was, and
+	// with the toggle off nothing moves either. The bridge's add and place
+	// themselves stay raw - undo replays positions, it does not re-fit them.
+	{
+		const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( M3FindObject( pSession, nCandidate ).name );
+		const SObjectBaseRPGStats *pRPG = static_cast<const SObjectBaseRPGStats *>( pObjectsDB->GetRPGStats( pDesc ) );
+		CVec3 vAsk( fOffX + 0.5f, fOffY + 0.5f, 0 );
+		FitVisOrigin2AIGrid( &vAsk, pRPG->GetOrigin( -1 ) );
+		float fSnappedX = 0.0f, fSnappedY = 0.0f;
+		Check( BkEditorSnapToGrid( pSession, M3FindObject( pSession, nCandidate ).name, fOffX + 0.5f, fOffY + 0.5f, &fSnappedX, &fSnappedY ) == BK_EDITOR_OK,
+		       "the fit answers the placer's question" );
+		Check( fSnappedX == vAsk.x && fSnappedY == vAsk.y, "and lands exactly as FitVisOrigin2AIGrid predicts" );
+		Check( BkEditorSnapToGrid( pSession, "JS_2", fOffX + 0.5f, fOffY + 0.5f, &fSnappedX, &fSnappedY ) == BK_EDITOR_OK,
+		       "the fit answers for a unit too" );
+		Check( fSnappedX == fOffX + 0.5f && fSnappedY == fOffY + 0.5f, "and leaves the unit exactly as asked" );
+		Check( BkEditorSetTerrainModes( pSession, 0, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( BkEditorSnapToGrid( pSession, M3FindObject( pSession, nCandidate ).name, fOffX + 0.5f, fOffY + 0.5f, &fSnappedX, &fSnappedY ) == BK_EDITOR_OK,
+		       "with fit off the fit answers again" );
+		Check( fSnappedX == fOffX + 0.5f && fSnappedY == fOffY + 0.5f, "and leaves the point as asked" );
+		Check( BkEditorSnapToGrid( pSession, "No_Such_Object_Type", fOffX, fOffY, &fSnappedX, &fSnappedY ) == BK_EDITOR_REFUSED,
+		       "a type the database does not know is REFUSED" );
+		Check( BkEditorSnapToGrid( pSession, 0, fOffX, fOffY, &fSnappedX, &fSnappedY ) == BK_EDITOR_BAD_ARGUMENT,
+		       "a null name is BAD_ARGUMENT" );
+		Check( BkEditorSetTerrainModes( pSession, 0, 1 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	}
+
+	// Fill Entire Map (D-22), from a fresh open so the candidate's moves are
+	// out of the picture: every tile the terrain type's own, the crosses
+	// recomputed, undone byte-exact - and the filled map equivalent to a
+	// whole-map paint of the same tile, which is the route it rides.
+	const std::string szFillPre = szScratch + "\\m3-fill-pre.bzm";
+	const std::string szFilled = szScratch + "\\m3-fill-edited.bzm";
+	const std::string szFillUndone = szScratch + "\\m3-fill-undone.bzm";
+	const std::string szPainted = szScratch + "\\m3-fill-painted.bzm";
+	Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	std::vector<unsigned char> tiles;
+	{
+		int nTiles = 0;
+		Check( BkEditorTilesetTiles( pSession, 0, 0, &nTiles ) == BK_EDITOR_REFUSED && nTiles > 0, "the tile list sizes" );
+		tiles.resize( nTiles );
+		Check( BkEditorTilesetTiles( pSession, &( tiles[0] ), nTiles, &nTiles ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	}
+	const unsigned char nFillTile = tiles[0];
+	Check( BkEditorSaveMap( pSession, szFillPre.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	int nFillToken = -1;
+	Check( BkEditorFillEntireMap( pSession, nFillTile, &nFillToken ) == BK_EDITOR_OK,
+	       ( std::string( "the map fills: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	Check( nFillToken >= 0, "the fill has a token" );
+	Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	{
+		CMapInfo reread;
+		std::string szError;
+		if ( Check( BkEditorSaveMap( pSession, szFilled.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+		     Check( NMapFile::Read( szFilled.c_str(), &reread, &szError ), szError.c_str() ) )
+		{
+			bool bAll = true;
+			const int nSizeX = reread.terrain.tiles.GetSizeX(), nSizeY = reread.terrain.tiles.GetSizeY();
+			for ( int nY = 0; nY < nSizeY && bAll; ++nY )
+				for ( int nX = 0; nX < nSizeX && bAll; ++nX )
+					bAll = reread.terrain.tiles[nY][nX].tile == nFillTile;
+			Check( bAll, "every tile of the map is the fill's terrain type" );
+		}
+	}
+	// The whole-map paint of the same tile is the fill's expected value: a
+	// fresh open, the full map's cells through BkEditorPaint, and the two
+	// saves agree byte-level equivalence at the overlay's own compare.
+	{
+		Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		CMapInfo original;
+		std::string szError;
+		if ( Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		{
+			const int nSizeX = original.terrain.tiles.GetSizeX(), nSizeY = original.terrain.tiles.GetSizeY();
+			std::vector<BkEditorPaintCell> cells( size_t( nSizeX ) * size_t( nSizeY ) );
+			int nAt = 0;
+			for ( int nY = 0; nY < nSizeY; ++nY )
+				for ( int nX = 0; nX < nSizeX; ++nX )
+				{
+					cells[nAt].x = nX;
+					cells[nAt].y = nY;
+					cells[nAt].tile = nFillTile;
+					++nAt;
+				}
+			int nPaintToken = -1;
+			Check( BkEditorPaint( pSession, &( cells[0] ), nAt, &nPaintToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			CMapInfo painted, filled;
+			szError.clear();
+			if ( Check( BkEditorSaveMap( pSession, szPainted.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+			     Check( NMapFile::Read( szPainted.c_str(), &painted, &szError ), szError.c_str() ) )
+			{
+				szError.clear();
+				std::string szWhere;
+				if ( Check( NMapFile::Read( szFilled.c_str(), &filled, &szError ), szError.c_str() ) )
+					Check( NMapFile::AreEquivalent( painted, filled, &szWhere ),
+					       szWhere.empty() ? "the fill is what a whole-map paint of the tile writes"
+					                       : ( "the fill differs from the whole-map paint at " + szWhere ).c_str() );
+			}
+		}
+	}
+
+	// Undo, then the refusals: tile 1 is in no terrain type of the shipped
+	// mapset (the paint-refusal test's own finding), and off-range indexes
+	// are the caller's mistake. Each refusal changes nothing the save sees.
+	Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	{
+		int nToken = -1;
+		Check( BkEditorFillEntireMap( pSession, nFillTile, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		// The fill's token is a PAINT of the log - undoPaint's route, the
+		// same one a brush paint takes - not an edit token.
+		Check( BkEditorUndoPaint( pSession, nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( BkEditorTerrainMatchesEngine( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		if ( Check( BkEditorSaveMap( pSession, szFillUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( BridgeFilesAreIdentical( szFillPre.c_str(), szFillUndone.c_str() ),
+			       "the fill undone writes the pre-fill save byte for byte" );
+
+		int nRefused = -1;
+		Check( BkEditorFillEntireMap( pSession, 1, &nRefused ) == BK_EDITOR_REFUSED,
+		       "a tile in no terrain type is REFUSED" );
+		Check( BkEditorFillEntireMap( pSession, -1, &nRefused ) == BK_EDITOR_BAD_ARGUMENT, "tile -1 is BAD_ARGUMENT" );
+		Check( BkEditorFillEntireMap( pSession, 256, &nRefused ) == BK_EDITOR_BAD_ARGUMENT, "tile 256 is BAD_ARGUMENT" );
+		std::string szAfterRefusals = szScratch + "\\m3-fill-refused.bzm";
+		if ( Check( BkEditorSaveMap( pSession, szAfterRefusals.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( BridgeFilesAreIdentical( szFillPre.c_str(), szAfterRefusals.c_str() ),
+			       "and the refusals changed nothing the save sees" );
+		remove( szAfterRefusals.c_str() );
+	}
+	Check( BkEditorCloseMap( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	int nNoMap = -1;
+	M3UpdateProgress noMap = { 0, 0, 0 };
+	Check( BkEditorUpdateMap( pSession, &M3UpdateProgress::Report, &noMap, &nNoMap ) == BK_EDITOR_REFUSED,
+	       "an update with no map open is REFUSED" );
+	Check( BkEditorFillEntireMap( pSession, nFillTile, &nNoMap ) == BK_EDITOR_REFUSED,
+	       "a fill with no map open is REFUSED" );
+
+	remove( szPreUpdate.c_str() );
+	remove( szEdited.c_str() );
+	remove( szUndone.c_str() );
+	remove( szFillPre.c_str() );
+	remove( szFilled.c_str() );
+	remove( szFillUndone.c_str() );
+	remove( szPainted.c_str() );
+	printf( "editor-bridge: M3 update and fill ok\n" );
 }
 
 
@@ -9683,6 +9993,7 @@ int main( int argc, char **argv )
 		TestM3Altitudes( pSession, szScratch );
 		TestM3NewMap( pSession, szScratch );
 		TestM3Heights( pSession, szScratch );
+		TestM3UpdateMapAndFill( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );

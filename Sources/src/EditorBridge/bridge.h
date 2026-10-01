@@ -200,6 +200,19 @@ typedef struct
 
 BkEditorStatus BkEditorEngineObjectState( BkEditorSession *session, int link_id, BkEditorObjectState *out );
 
+/* The placement rule of the MFC's placer (ObjectPlacerState.cpp:355-365),
+   answered as a question so the caller snaps before it edits: where would
+   FitVisOrigin2AIGrid put (x, y) for the object type `name`? Fit Objects To
+   Grid off (the session's own flag) answers the input unchanged. So do the
+   kinds the rule does not fit - units and squads (the MFC excepts them), and
+   the segment-based kinds whose frame-less origin the base stats cannot
+   answer (fence, entrenchment, bridge, terraobj: their GetOrigin overrides
+   read a vector, and the MFC's own frame-less call reads beside it,
+   ObjectPlacerState.cpp:360) - the tools fit buildings and generic objects.
+   BK_EDITOR_REFUSED when the database does not know the name; either out
+   pointer may be null. */
+BkEditorStatus BkEditorSnapToGrid( BkEditorSession *session, const char *name, float x, float y, float *out_x, float *out_y );
+
 /* The map as the bridge holds it - the snapshot with the session's edits in
    it - one record per object, objects before scenario objects, in file order.
    Like BkEditorCatalogue, out_count is always the total, and a buffer too
@@ -374,6 +387,36 @@ BkEditorStatus BkEditorGenerateHeights( BkEditorSession *session, int type, floa
    of the log over the whole vertex sheet. The confirmation is the caller's.
    BK_EDITOR_REFUSED when no map is open; out_token as BkEditorHeightsStroke's. */
 BkEditorStatus BkEditorSetZeroHeights( BkEditorSession *session, int *out_token );
+
+/* Update Map (M3, D-20, Ctrl+U in the MFC editor): the OnButtonUpdate
+   composite - the session layer's UpdateMapInSession - as ONE undoable edit - the engine's own UpdateAllHeights and
+   UpdateTerrain, the full crosses and shades recompute, the roads'/rivers'/
+   sounds' z refresh, and when Fit Objects To Grid is on the snap of every
+   sprite object with passability. progress_fn (which may be null) is called
+   with (step, total, user) once per step - total is the MFC's own count,
+   7 + the snapped objects - and must not call back into this bridge. Undo
+   restores everything the composite captured, raw. BK_EDITOR_REFUSED when no
+   map is open or the tileset has no terrain types; out_token as
+   BkEditorHeightsStroke's. */
+typedef void (*BkEditorProgressFn)( int step, int total, void *user );
+BkEditorStatus BkEditorUpdateMap( BkEditorSession *session, BkEditorProgressFn progress_fn, void *user,
+                                  int *out_token );
+
+/* Fill Entire Map (M3, D-22): every tile becomes the terrain type tile_index's
+   own (what a paint of it writes), the crosses recomputed over the whole map -
+   ONE undoable paint of the log, the session layer's FillEntireMapInSession.
+   The confirmation is the caller's. A
+   tile_index the map's tileset has no terrain type for is BK_EDITOR_REFUSED
+   (a paint's own rule), changing nothing. The MFC's update-rect typo
+   (TemplateEditorFrame1.cpp:4951) is not copied: the region is the full map. */
+BkEditorStatus BkEditorFillEntireMap( BkEditorSession *session, int tile_index, int *out_token );
+
+/* The terrain-mode toggles (M3, D-20): Instant Update Map Mode (0/1 - off by
+   default, the MFC's own initial state) runs the objects-Z refresh over every
+   height stroke; Fit Objects To Grid (0/1 - ON by default, the MFC's own)
+   snaps non-unit objects on place and move. A view setting: no map data, no
+   history, kept until the next call. A null session is BK_EDITOR_NO_SESSION. */
+BkEditorStatus BkEditorSetTerrainModes( BkEditorSession *session, int instant_update, int fit_to_grid );
 
 /* The tiles BkEditorPaint takes on the open map: every index its tileset has a
    terrain type for, once each, ascending - what a brush's palette offers.

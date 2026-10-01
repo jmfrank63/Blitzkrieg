@@ -237,6 +237,15 @@ pub const State = struct {
     /// back into `settings` once editing is deactivated (not per keystroke).
     maps_folder_edit: [core.settings.max_path:0]u8 = [_:0]u8{0} ** core.settings.max_path,
 
+    /// Map > Update Map (M3, D-20): whether the report modal is still owed a
+    /// frame, and the step count the synchronous command collected (the
+    /// MFC's own total, 7 + the snapped objects). The composite itself runs
+    /// inside one command with the window frozen for its duration - D-03's
+    /// accepted model - and the modal renders after it returns.
+    update_report_open: bool = false,
+    update_steps: i32 = 0,
+    update_total: i32 = 0,
+
     /// File > Open Recent (D-27): whether each entry's file still exists,
     /// checked once (std.Io.Dir access) the frame the submenu newly opens
     /// and reused every frame it stays open - not once per entry per frame.
@@ -1243,6 +1252,7 @@ pub fn draw(state: *State) void {
     if (closeShortcutPressed() and mapIsOpen(state.editor)) state.actions.close_requested = true;
     if (newMapShortcutPressed()) openNewMapDialog(state);
     if (saveAsFormatShortcutPressed()) |which| requestSaveAsFormat(state, which);
+    if (updateMapShortcutPressed() and mapIsOpen(state.editor)) _ = commands.mapUpdate(state, "");
     const viewport = ig.igGetMainViewport();
     const size = viewport.*.Size;
     // Task 2, carried from plan 5: ImGuiCond_FirstUseEver only ever applies
@@ -1300,6 +1310,7 @@ pub fn draw(state: *State) void {
     drawSettingsWindow(state);
     drawNewMapDialog(state);
     drawRecoveryPrompt(state);
+    drawTerrainModals(state);
     updateTitle(state);
 }
 
@@ -1853,6 +1864,42 @@ fn removeRecoveryOffer(state: *State, index: usize) void {
 /// D-23: while the prompt asks (an Open, Quit or window close found the map
 /// dirty), a modal offers Save, Don't save or Cancel; the buttons only set
 /// what `act`'s next call to `next` picks up - no save happens here.
+/// Map menu's two terrain modals (M3, D-20/D-22): Fill Entire Map's
+/// confirmation (the command runs only on Fill), and Update Map's report of
+/// the step count the synchronous composite reported - rendered after the
+/// return, per D-03's model, since BkEditorUpdateMap runs to completion
+/// inside its command.
+fn drawTerrainModals(state: *State) void {
+    if (ig.igBeginPopupModal("Fill Entire Map", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        var line: [160]u8 = undefined;
+        var what: []const u8 = "the brush tile's terrain type";
+        if (logic.indexOfTile(state.tile_entries[0..state.tile_count], state.view.brush.tile)) |at| {
+            const terrain = state.tile_entries[at].terrain.slice();
+            if (terrain.len != 0) what = terrain;
+        }
+        text(std.fmt.bufPrint(&line, "Every tile of the map becomes terrain type {s}.", .{what}) catch "Every tile of the map becomes the brush tile's terrain type.");
+        text("The whole map is replaced - only undo takes it back.");
+        ig.igSeparator();
+        if (ig.igSmallButton("Fill")) {
+            _ = commands.mapFill(state, "");
+            ig.igCloseCurrentPopup();
+        }
+        ig.igSameLine();
+        if (ig.igSmallButton("Cancel")) ig.igCloseCurrentPopup();
+        ig.igEndPopup();
+    }
+    if (state.update_report_open) {
+        state.update_report_open = false;
+        _ = ig.igOpenPopup("Update Map", 0);
+    }
+    if (ig.igBeginPopupModal("Update Map", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        var line: [96]u8 = undefined;
+        text(std.fmt.bufPrint(&line, "The map is updated - {d} of {d} steps reported.", .{ state.update_steps, state.update_total }) catch "The map is updated.");
+        if (ig.igSmallButton("OK")) ig.igCloseCurrentPopup();
+        ig.igEndPopup();
+    }
+}
+
 fn drawUnsavedPrompt(state: *State) void {
     const popup_id = "Unsaved changes";
     if (state.actions.prompt.isAsking()) {
@@ -2317,6 +2364,17 @@ fn drawMapMenu(state: *State, map_open: bool) void {
     if (ig.igMenuItemBoolPtr("Reinforcement groups...", null, &state.groups_open, map_open)) {}
     // D-20: the map's script file.
     if (ig.igMenuItemBoolPtr("Script...", null, &state.script_open, map_open)) {}
+    // D-20/D-22 (M3): the terrain composite, the whole-map fill (its
+    // confirmation asks before the command runs) and the two toggles, whose
+    // live copy is the bridge session's and whose persisted copy is the
+    // settings'.
+    ig.igSeparator();
+    if (ig.igMenuItemEx("Update Map", update_shortcut_label, false, map_open)) _ = commands.mapUpdate(state, "");
+    if (ig.igMenuItemEx("Fill Entire Map...", null, false, map_open)) _ = ig.igOpenPopup("Fill Entire Map", 0);
+    var instant_on = state.settings.instant_update;
+    if (ig.igMenuItemBoolPtr("Instant Update Map Mode", null, &instant_on, map_open)) _ = commands.instantUpdate(state, "");
+    var fit_on = state.settings.fit_to_grid;
+    if (ig.igMenuItemBoolPtr("Fit Objects To Grid", null, &fit_on, map_open)) _ = commands.fitGrid(state, "");
 }
 
 /// File > Open Recent (D-27): every entry's existence, checked once for the
@@ -2496,6 +2554,7 @@ const close_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+W
 const new_map_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+N" else "Ctrl+N";
 const save_xml_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+Shift+X" else "Ctrl+Shift+X";
 const save_bzm_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+Shift+B" else "Ctrl+Shift+B";
+const update_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+U" else "Ctrl+U";
 
 /// Cmd+W or Ctrl+W this frame, not while a text field is being typed in
 /// (the same WantTextInput rule F5 follows), and not held down (a held W
@@ -2513,6 +2572,14 @@ fn newMapShortcutPressed() bool {
     if (io.*.WantTextInput) return false;
     if (!io.*.KeyCtrl and !io.*.KeySuper) return false;
     return ig.igIsKeyPressedEx(ig.ImGuiKey_N, false);
+}
+
+/// Map > Update Map (M3, D-20): Ctrl+U / Cmd+U, the MFC's own accelerator.
+fn updateMapShortcutPressed() bool {
+    const io = ig.igGetIO();
+    if (io.*.WantTextInput) return false;
+    if (!io.*.KeyCtrl and !io.*.KeySuper) return false;
+    return ig.igIsKeyPressedEx(ig.ImGuiKey_U, false);
 }
 
 /// File > Save as XML / Save as BZM (M3, D-24): Ctrl+Shift+X / Ctrl+Shift+B

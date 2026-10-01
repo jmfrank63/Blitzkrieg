@@ -635,6 +635,50 @@ BkEditorStatus BkEditorEngineObjectState( BkEditorSession *pSession, int nLinkID
 	} );
 }
 
+BkEditorStatus BkEditorSnapToGrid( BkEditorSession *pSession, const char *pszName, float fX, float fY, float *pfOutX, float *pfOutY )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+		if ( pObjectsDB == 0 )
+		{
+			pSession->szMessage = "the engine has no object database";
+			return BK_EDITOR_REFUSED;
+		}
+		// A name the database does not know is the caller's bug, toggle or
+		// no toggle - the question is checked before the fit is applied.
+		const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( pszName );
+		if ( pDesc == 0 )
+		{
+			pSession->szMessage = "the object database does not know that type";
+			return BK_EDITOR_REFUSED;
+		}
+		// The input is the answer unless the placement rule says otherwise,
+		// so a null out pointer with fit on still makes sense (nothing to
+		// read, nothing to change).
+		if ( pfOutX != 0 )
+			*pfOutX = fX;
+		if ( pfOutY != 0 )
+			*pfOutY = fY;
+		if ( !pSession->bFitToGrid )
+			return BK_EDITOR_OK;
+		if ( pDesc->eGameType != SGVOGT_BUILDING && pDesc->eGameType != SGVOGT_OBJECT )
+			return BK_EDITOR_OK;
+		const SObjectBaseRPGStats *pRPG = static_cast<const SObjectBaseRPGStats*>( pObjectsDB->GetRPGStats( pDesc ) );
+		if ( pRPG == 0 )
+			return BK_EDITOR_OK;
+		CVec3 vPos( fX, fY, 0 );
+		FitVisOrigin2AIGrid( &vPos, pRPG->GetOrigin( -1 ) );
+		if ( pfOutX != 0 )
+			*pfOutX = vPos.x;
+		if ( pfOutY != 0 )
+			*pfOutY = vPos.y;
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorObjects( BkEditorSession *pSession, BkEditorObjectRecord *pOut, int nCapacity, int *pnCount )
 {
 	if ( pnCount != 0 )
@@ -1047,6 +1091,49 @@ BkEditorStatus BkEditorSetZeroHeights( BkEditorSession *pSession, int *pnToken )
 			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
 		if ( pnToken != 0 )
 			*pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorUpdateMap( BkEditorSession *pSession, BkEditorProgressFn pfnProgress, void *pUser, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		bool bRefused = false;
+		int nToken = -1;
+		if ( !UpdateMapInSession( pSession, pfnProgress, pUser, &bRefused, &nToken ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 )
+			*pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorFillEntireMap( BkEditorSession *pSession, int nTileIndex, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( nTileIndex < 0 || nTileIndex > 255 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		int nToken = -1;
+		if ( !FillEntireMapInSession( pSession, nTileIndex, &bRefused, &nToken ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( pnToken != 0 )
+			*pnToken = nToken;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorSetTerrainModes( BkEditorSession *pSession, int bInstantUpdate, int bFitToGrid )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		SetTerrainModesInSession( pSession, bInstantUpdate, bFitToGrid );
 		return BK_EDITOR_OK;
 	} );
 }
