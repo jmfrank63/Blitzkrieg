@@ -159,6 +159,9 @@ pub const RealBridge = struct {
         .worldToTile = worldToTile,
         .worldToMap = worldToMap,
         .objectAt = objectAt,
+        .pickObjects = pickObjects,
+        .pickObjectsInTiles = pickObjectsInTiles,
+        .moveObjects = moveObjects,
         .sounds = vtableSounds,
         .addSound = vtableAddSound,
         .setSound = vtableSetSound,
@@ -355,6 +358,45 @@ pub const RealBridge = struct {
 
     fn objectAt(ptr: *anyopaque, sx: f32, sy: f32, link_id: *i32) Status {
         return status(c.BkEditorObjectAt(from(ptr).session, sx, sy, link_id));
+    }
+
+    /// BkEditorPickObjects in two passes, like `vtableSounds` (M3, D-25).
+    fn pickObjects(ptr: *anyopaque, sx0: f32, sy0: f32, sx1: f32, sy1: f32, out: []i32, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorPickObjects(self.session, sx0, sy0, sx1, sy1, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        var got: c_int = 0;
+        const read = status(c.BkEditorPickObjects(self.session, sx0, sy0, sx1, sy1, out.ptr, @intCast(out.len), &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        return .ok;
+    }
+
+    /// BkEditorPickObjectsInTiles, the same two passes.
+    fn pickObjectsInTiles(ptr: *anyopaque, tx0: i32, ty0: i32, tx1: i32, ty1: i32, out: []i32, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorPickObjectsInTiles(self.session, tx0, ty0, tx1, ty1, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        var got: c_int = 0;
+        const read = status(c.BkEditorPickObjectsInTiles(self.session, tx0, ty0, tx1, ty1, out.ptr, @intCast(out.len), &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        return .ok;
+    }
+
+    /// BkEditorMoveObjects (M3, D-25).
+    fn moveObjects(ptr: *anyopaque, link_ids: []const i32, dx: f32, dy: f32, token: *i32) Status {
+        return status(c.BkEditorMoveObjects(from(ptr).session, link_ids.ptr, @intCast(link_ids.len), dx, dy, token));
     }
 
     /// core.bridge.SoundRecord from a BkEditorSoundRecord - `toRecord`'s own

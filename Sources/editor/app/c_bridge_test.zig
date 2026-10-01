@@ -330,6 +330,43 @@ test "the core drives the real bridge: every command, undone and redone" {
     try expectDocumentIsBridge(&real, &editor);
     std.debug.print("map-editor-engine: M2 script id round trip ok\n", .{});
 
+    // M3 (D-25): the selection's group move end to end. Two movable objects
+    // selected as a set move by one batch call, the engine agrees, undo and
+    // redo walk both back and forth, and everything undone leaves the map as
+    // it opened - not dirty, engine in step.
+    const second = pick2: for (editor.document.objects.items) |candidate| {
+        if (!candidate.known or candidate.link_id == first.link_id or candidate.link_id == 0) continue;
+        editor.moveSelection(&.{candidate.link_id}, 64, 0, 0) catch |err| switch (err) {
+            error.Refused => continue,
+            else => return err,
+        };
+        // Undo the probe move: only the "does it move" question was asked.
+        _ = try editor.undo();
+        break :pick2 candidate;
+    } else return error.NoSecondObjectMoves;
+    const depth_at_multi = editor.history.undo_stack.items.len;
+    editor.selectOnly(first.link_id);
+    editor.selectionToggle(second.link_id);
+    try std.testing.expectEqual(@as(usize, 2), editor.selectionCount());
+    const members = try editor.selectionMembers(std.testing.allocator);
+    defer std.testing.allocator.free(members);
+    const before_a = editor.document.find(first.link_id).?.x;
+    const before_b = editor.document.find(second.link_id).?.x;
+    try editor.moveSelection(members, 128, 0, 0);
+    try expectEngineMatches(&real);
+    try std.testing.expectEqual(before_a + 128, editor.document.find(first.link_id).?.x);
+    try std.testing.expectEqual(before_b + 128, editor.document.find(second.link_id).?.x);
+    try std.testing.expectEqual(depth_at_multi + 1, editor.history.undo_stack.items.len);
+    _ = try editor.undo();
+    try expectEngineMatches(&real);
+    try std.testing.expectEqual(before_a, editor.document.find(first.link_id).?.x);
+    try std.testing.expectEqual(before_b, editor.document.find(second.link_id).?.x);
+    _ = try editor.redo();
+    try expectEngineMatches(&real);
+    try std.testing.expectEqual(before_a + 128, editor.document.find(first.link_id).?.x);
+    std.debug.print("map-editor-engine: M3 multi-select group move ok (links {d} and {d})\n", .{ first.link_id, second.link_id });
+    editor.clearSelection();
+
     // M2 (04-09): reinforcement groups through the generic record path on the
     // real engine (readGroup's two passes, insert refusing a taken ID, delete
     // and undo). Read back through the raw C ABI, not RealBridge.
@@ -337,12 +374,13 @@ test "the core drives the real bridge: every command, undone and redone" {
     const groups_sizing = c.BkEditorGroupIDs(real.session, null, 0, &groups_before);
     try std.testing.expect(groups_sizing == c.BK_EDITOR_OK or groups_sizing == c.BK_EDITOR_REFUSED);
     try std.testing.expect(groups_before >= 0);
+    const depth_at_groups = editor.history.undo_stack.items.len;
     const created = try editor.newGroup(0);
     try editor.addScriptIDToGroup(created, 5000);
     try editor.addScriptIDToGroup(created, 5001);
     try editor.removeScriptIDFromGroup(created, 5000);
     try editor.addScriptIDToGroup(created, 5001); // a duplicate: a note, no step
-    try std.testing.expectEqual(@as(usize, 4), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(depth_at_groups + 4, editor.history.undo_stack.items.len);
     {
         var ids: [4]c_int = @splat(-77);
         var count: c_int = -1;

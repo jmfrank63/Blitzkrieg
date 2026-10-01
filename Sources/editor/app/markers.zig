@@ -17,6 +17,7 @@ const panels = @import("panels.zig");
 const marker_logic = @import("marker_logic.zig");
 const tool_registry = @import("tool_registry.zig");
 const core = @import("editor_core");
+const panels_logic = @import("panels_logic.zig");
 const sdl3 = @import("sdl3");
 
 const ig = imgui.c;
@@ -40,7 +41,13 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
     const active = tool_registry.entry(state.view.tool).marker_kinds;
     if (marker_logic.visible(state.marker_set, .camera_anchors, active)) drawCameraAnchors(state, real);
     if (marker_logic.visible(state.marker_set, .roads_rivers, active)) drawRoadsRivers(state, real);
-    if (marker_logic.visible(state.marker_set, .selection_outline, active)) drawBridgeOutlines(state, real);
+    if (marker_logic.visible(state.marker_set, .selection_outline, active)) {
+        drawBridgeOutlines(state, real);
+        // M3 (D-25/PARITY L13): the selector layer's double circles around
+        // the whole selection, and the rubber band while a drag holds one.
+        drawSelectionCircles(state, real);
+        drawSelectionBand(state, real);
+    }
     // The Fence tool's ghost is its own and always on while it is active.
     if (state.view.tool == .fence) drawFenceGhost(state, real);
     // So are the Entrenchment tool's preview and outlines (04-08).
@@ -506,6 +513,53 @@ fn drawBridgeOutlines(state: *State, real: anytype) void {
         }
     }
     drawBridgeGhost(state, real, draw_list);
+}
+
+/// The selector layer's double circles (M3, D-25/PARITY L13): two concentric
+/// rings around every selected object, anchored at its map position through
+/// the world conversion - a squad shows on its record's own position, exactly
+/// where its soldiers stand. Capped like every kind, so a malformed map
+/// cannot draw thousands of shapes.
+fn drawSelectionCircles(state: *State, real: anytype) void {
+    const editor = state.editor;
+    if (editor.selectionCount() == 0) return;
+    const draw_list = ig.igGetBackgroundDrawList();
+    const selected_color = color(0.15, 0.9, 0.35);
+    const limit = marker_logic.cap(.selection_outline);
+    var walked: usize = 0;
+    for (editor.document.objects.items) |object| {
+        if (!editor.isSelected(object.link_id)) continue;
+        if (walked >= limit) return;
+        walked += 1;
+        const world = marker_logic.aiToWorld(.{ .x = object.x, .y = object.y });
+        if (screenOf(real, world.x, world.y)) |at| {
+            const radii = panels_logic.selectionCircles(.{ 16, 16 });
+            ig.ImDrawList_AddCircleEx(draw_list, at, radii[0], selected_color, 24, 1.5);
+            ig.ImDrawList_AddCircleEx(draw_list, at, radii[1], selected_color, 24, 1.0);
+        }
+    }
+}
+
+/// The rubber band (M3, D-25): a dashed rectangle from where the press
+/// started to where the pointer is now, on screen for the plain band - the
+/// view's own hover holds the moving end.
+fn drawSelectionBand(state: *State, real: anytype) void {
+    _ = real;
+    const band = state.view.selector.band orelse return;
+    const hover = state.view.hover orelse return;
+    const draw_list = ig.igGetBackgroundDrawList();
+    const left = @min(band.screen_x, hover.screen_x);
+    const right = @max(band.screen_x, hover.screen_x);
+    const top = @min(band.screen_y, hover.screen_y);
+    const bottom = @max(band.screen_y, hover.screen_y);
+    const band_color = if (band.ctrl) color(0.3, 0.7, 1.0) else color(0.95, 0.95, 0.4);
+    var corners: [4]ig.ImVec2 = .{
+        .{ .x = left, .y = top },
+        .{ .x = right, .y = top },
+        .{ .x = right, .y = bottom },
+        .{ .x = left, .y = bottom },
+    };
+    drawDashed(draw_list, &corners, band_color, 10, 1.5);
 }
 
 /// The ghost of the drag in hand (research Q2: drawn by the app from the

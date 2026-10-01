@@ -505,6 +505,24 @@ pub const Bridge = struct {
         /// object position's). BkEditorWorldToMap.
         worldToMap: *const fn (ptr: *anyopaque, wx: f32, wy: f32, mx: *f32, my: *f32) Status,
         objectAt: *const fn (ptr: *anyopaque, sx: f32, sy: f32, link_id: *i32) Status,
+        /// BkEditorPickObjects (M3, D-25): the rubber band's pick - the link
+        /// IDs of every object the screen rectangle (window pixels, corners
+        /// in any order) selects, soldiers answered by their squad's link,
+        /// bridges and entrenchments passed over. Two-pass like `sounds`
+        /// (`total` is always the full count; a short buffer is refused).
+        /// The order is the pick's own, which the Selector's cycle walks.
+        pickObjects: *const fn (ptr: *anyopaque, sx0: f32, sy0: f32, sx1: f32, sy1: f32, out: []i32, total: *usize) Status,
+        /// BkEditorPickObjectsInTiles (M3, D-25): the Ctrl band's pick - the
+        /// editable records whose tile position falls inside the rectangle
+        /// of tiles (`tile` units, as `worldToTile` answers them), bridges
+        /// and entrenchments passed over. Two-pass like `pickObjects`.
+        pickObjectsInTiles: *const fn (ptr: *anyopaque, tx0: i32, ty0: i32, tx1: i32, ty1: i32, out: []i32, total: *usize) Status,
+        /// BkEditorMoveObjects (M3, D-25): every member of `link_ids` moved
+        /// by one (dx, dy) delta in MAP units, ONE edit of the log (`token`
+        /// names it for undoEdit/redoEdit). A refusal (a member that cannot
+        /// be moved, a destination off the map) changes nothing and the
+        /// whole move is refused.
+        moveObjects: *const fn (ptr: *anyopaque, link_ids: []const i32, dx: f32, dy: f32, token: *i32) Status,
         /// BkEditorSounds. Like `objects`: `total` is always the full count,
         /// so a caller sizes `out` from a first sizing call the way
         /// `document.reload` does for `objects`.
@@ -757,6 +775,11 @@ pub const Bridge = struct {
     pub fn worldToTile(self: Bridge, wx: f32, wy: f32, tx: *i32, ty: *i32) Status { return self.vtable.worldToTile(self.ptr, wx, wy, tx, ty); }
     pub fn worldToMap(self: Bridge, wx: f32, wy: f32, mx: *f32, my: *f32) Status { return self.vtable.worldToMap(self.ptr, wx, wy, mx, my); }
     pub fn objectAt(self: Bridge, sx: f32, sy: f32, link_id: *i32) Status { return self.vtable.objectAt(self.ptr, sx, sy, link_id); }
+    /// Two-pass like `sounds`: a sizing call with an empty buffer puts the
+    /// total in `total`, a second call with room reads it.
+    pub fn pickObjects(self: Bridge, sx0: f32, sy0: f32, sx1: f32, sy1: f32, out: []i32, total: *usize) Status { return self.vtable.pickObjects(self.ptr, sx0, sy0, sx1, sy1, out, total); }
+    pub fn pickObjectsInTiles(self: Bridge, tx0: i32, ty0: i32, tx1: i32, ty1: i32, out: []i32, total: *usize) Status { return self.vtable.pickObjectsInTiles(self.ptr, tx0, ty0, tx1, ty1, out, total); }
+    pub fn moveObjects(self: Bridge, link_ids: []const i32, dx: f32, dy: f32, token: *i32) Status { return self.vtable.moveObjects(self.ptr, link_ids, dx, dy, token); }
     pub fn sounds(self: Bridge, out: []SoundRecord, total: *usize) Status { return self.vtable.sounds(self.ptr, out, total); }
     pub fn addSound(self: Bridge, index: i32, rec: SoundRecord) Status { return self.vtable.addSound(self.ptr, index, rec); }
     pub fn setSound(self: Bridge, index: i32, rec: SoundRecord) Status { return self.vtable.setSound(self.ptr, index, rec); }

@@ -192,6 +192,8 @@ pub const FakeRole = struct {
 /// in reverse.
 const StartChange = struct { position: usize, before: FakeStartCommand, unit_removed: bool, erased: bool, target_cleared: bool };
 const ReserveChange = struct { position: usize, before: FakeReservePosition };
+/// One soldier of a squad (M3, D-25): the member's link ID and the squad's.
+const FakeSquadMember = struct { member: i32, squad: i32 };
 const Tombstone = struct {
     record: ObjectRecord,
     index: usize,
@@ -292,7 +294,7 @@ const FakeBridgeGroup = struct {
 const FakeBridgeEdit = struct { before: ?FakeBridgeGroup, after: ?FakeBridgeGroup };
 /// The fake's edit log holds road and river edits and bridge edits alike,
 /// one token space, as the real session's does.
-const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit, altitudes: FakeAltitudeEdit, fields: void };
+const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit, altitudes: FakeAltitudeEdit, fields: void, move_objects: FakeMoveObjectsEdit };
 /// A toggle of built during play: the entry and its flag before and after.
 const FakeBuildEdit = struct { index: usize, before: bool, after: bool };
 /// One altitude region edit (M3, D-19): the region and its heights before
@@ -300,6 +302,15 @@ const FakeBuildEdit = struct { index: usize, before: bool, after: bool };
 /// fake keeps heights only, its ground being flat; the shades the real
 /// bridge recomputes are nothing the core can see.
 const FakeAltitudeEdit = struct { x0: i32, y0: i32, x1: i32, y1: i32, before: []f32, after: []f32 };
+
+/// One member of the batch move's edit (M3, D-25): its position before and
+/// after, map units.
+const FakeMovedMember = struct { link_id: i32, before_x: f32, before_y: f32, after_x: f32, after_y: f32 };
+
+/// The batch move's edit (M3, D-25): every member's position before and
+/// after, put back raw by undo and forward again by redo - the same record
+/// the real bridge's SMoveObjectsEdit keeps.
+const FakeMoveObjectsEdit = struct { moves: std.ArrayListUnmanaged(FakeMovedMember) = .empty };
 
 /// A mutable empty slice to start from; Allocator.free ignores a zero length.
 var no_tiles: [0]u8 = .{};
@@ -371,6 +382,10 @@ pub const FakeBridge = struct {
     reserve_positions_at_open: std.ArrayListUnmanaged(FakeReservePosition) = .empty,
     roles: std.ArrayListUnmanaged(FakeRole) = .empty,
     squads: std.ArrayListUnmanaged(i32) = .empty,
+    /// The soldiers of the map's squads (M3, D-25): member link -> squad
+    /// link. The real bridge answers a soldier's pick with his squad's link
+    /// ID; this list is what the fake answers from (addSquadMemberFixture).
+    squad_members: std.ArrayListUnmanaged(FakeSquadMember) = .empty,
     /// The AI general's sides (04-12, D-19): the list's length is the side count. A
     /// side owns its script IDs, parcels and points (`AiSide.deinit`); its `side_count`
     /// field is unused here (the list's length is the count), its `side` is its index.
@@ -512,16 +527,21 @@ pub const FakeBridge = struct {
         self.reserve_positions_at_open.deinit(self.allocator);
         self.roles.deinit(self.allocator);
         self.squads.deinit(self.allocator);
+        self.squad_members.deinit(self.allocator);
         for (self.ai_sides.items) |*side| side.deinit(self.allocator);
         self.ai_sides.deinit(self.allocator);
         self.freeTombstones();
         self.tombstones.deinit(self.allocator);
         for (&self.vso_descriptors) |*list| list.deinit(self.allocator);
         for (&self.vso_lists) |*list| list.deinit(self.allocator);
-        for (self.edits.items) |*edit| {
-            if (edit.* == .altitudes) {
-                self.allocator.free(edit.altitudes.before);
-                self.allocator.free(edit.altitudes.after);
+        for (self.edits.items) |*logged| {
+            switch (logged.*) {
+                .altitudes => |*edit| {
+                    self.allocator.free(edit.before);
+                    self.allocator.free(edit.after);
+                },
+                .move_objects => |*edit| edit.moves.deinit(self.allocator),
+                else => {},
             }
         }
         self.edits.deinit(self.allocator);
@@ -584,6 +604,21 @@ pub const FakeBridge = struct {
     /// Makes an object of the map a squad: a reserve position refuses it in either role.
     pub fn markSquadFixture(self: *FakeBridge, link_id: i32) !void {
         try self.squads.append(self.allocator, link_id);
+    }
+
+    /// One soldier of squad `squad_link` (M3, D-25): a pick that meets the
+    /// member answers the squad's link ID, as the real bridge answers it.
+    pub fn addSquadMemberFixture(self: *FakeBridge, member_link: i32, squad_link: i32) !void {
+        try self.squad_members.append(self.allocator, .{ .member = member_link, .squad = squad_link });
+    }
+
+    /// The link a pick answers for `link_id`: the squad's when the object is
+    /// a seeded member, its own otherwise.
+    fn pickLinkFor(self: *const FakeBridge, link_id: i32) i32 {
+        for (self.squad_members.items) |entry| {
+            if (entry.member == link_id) return entry.squad;
+        }
+        return link_id;
     }
 
     /// One side of the AI general in the map before it opens (04-12): appended to the
@@ -764,10 +799,14 @@ pub const FakeBridge = struct {
         self.undone.clearRetainingCapacity();
         self.freeTombstones();
         self.tombstones.clearRetainingCapacity();
-        for (self.edits.items) |*edit| {
-            if (edit.* == .altitudes) {
-                self.allocator.free(edit.altitudes.before);
-                self.allocator.free(edit.altitudes.after);
+        for (self.edits.items) |*logged| {
+            switch (logged.*) {
+                .altitudes => |*edit| {
+                    self.allocator.free(edit.before);
+                    self.allocator.free(edit.after);
+                },
+                .move_objects => |*edit| edit.moves.deinit(self.allocator),
+                else => {},
             }
         }
         self.edits.clearRetainingCapacity();
@@ -857,6 +896,9 @@ pub const FakeBridge = struct {
         .worldToTile = worldToTile,
         .worldToMap = worldToMap,
         .objectAt = objectAt,
+        .pickObjects = pickObjects,
+        .pickObjectsInTiles = pickObjectsInTiles,
+        .moveObjects = moveObjects,
         .sounds = sounds,
         .addSound = addSound,
         .setSound = setSound,
@@ -1011,6 +1053,10 @@ pub const FakeBridge = struct {
             .bridge => |*edit| self.putBridge(if (edit.after) |*a| a else null, if (edit.before) |*b| b else null),
             .build => |edit| self.putBuild(edit.index, edit.before),
             .altitudes => |*edit| self.putAltitudesGrid(.{ .x0 = edit.x0, .y0 = edit.y0, .x1 = edit.x1, .y1 = edit.y1 }, edit.before),
+            .move_objects => |*edit| blk: {
+                self.putMoves(edit.moves.items, true);
+                break :blk Status.ok;
+            },
         };
         if (put != .ok) return put;
         _ = self.applied_edits.pop();
@@ -1037,6 +1083,10 @@ pub const FakeBridge = struct {
             .bridge => |*edit| self.putBridge(if (edit.before) |*b| b else null, if (edit.after) |*a| a else null),
             .build => |edit| self.putBuild(edit.index, edit.after),
             .altitudes => |*edit| self.putAltitudesGrid(.{ .x0 = edit.x0, .y0 = edit.y0, .x1 = edit.x1, .y1 = edit.y1 }, edit.after),
+            .move_objects => |*edit| blk: {
+                self.putMoves(edit.moves.items, false);
+                break :blk Status.ok;
+            },
         };
         if (put != .ok) return put;
         _ = self.undone_edits.pop();
@@ -3776,11 +3826,159 @@ pub const FakeBridge = struct {
             const x = object.x / self.map_per_world;
             const y = object.y / self.map_per_world;
             if (@abs(x - sx) <= pick_radius and @abs(y - sy) <= pick_radius) {
-                link_id.* = object.link_id;
+                // A soldier answers his squad's link ID (M3, D-25), as the
+                // real bridge answers it.
+                link_id.* = self.pickLinkFor(object.link_id);
                 return .ok;
             }
         }
         return .refused;
+    }
+
+    /// The drawn world point of an object, the same point `objectAt` picks
+    /// by (the screen is the world here).
+    fn drawnAt(self: *const FakeBridge, object: ObjectRecord) [2]f32 {
+        return .{ object.x / self.map_per_world, object.y / self.map_per_world };
+    }
+
+    /// Whether a pick may name the record at all: the same rules `objectAt`
+    /// picks by, and - for the tile pick - not a bridge span or a trench
+    /// piece, which their groups edit (D-25), and no shared link ID, which
+    /// no edit may name.
+    fn pickable(self: *FakeBridge, object: ObjectRecord, tile_pick: bool) bool {
+        if (!object.known) return false;
+        if (!object.scenario and std.mem.indexOfScalar(i32, self.hidden_script_ids.items, object.script_id) != null) return false;
+        if (!tile_pick) return true;
+        if (self.bridgeHolding(object.link_id) != null) return false;
+        if (self.trench_pieces.contains(object.link_id)) return false;
+        return !self.shared(object.link_id);
+    }
+
+    fn pickObjects(ptr: *anyopaque, sx0: f32, sy0: f32, sx1: f32, sy1: f32, out: []i32, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        const left = @min(sx0, sx1);
+        const right = @max(sx0, sx1);
+        const top = @min(sy0, sy1);
+        const bottom = @max(sy0, sy1);
+        var links: std.ArrayListUnmanaged(i32) = .empty;
+        defer links.deinit(self.allocator);
+        // Topmost first, the drawn order `objectAt` picks in.
+        var index = self.objects_list.items.len;
+        while (index != 0) {
+            index -= 1;
+            const object = self.objects_list.items[index];
+            if (!self.pickable(object, false)) continue;
+            const at = self.drawnAt(object);
+            if (at[0] < left or at[0] > right or at[1] < top or at[1] > bottom) continue;
+            const link = self.pickLinkFor(object.link_id);
+            if (std.mem.indexOfScalar(i32, links.items, link) == null)
+                links.append(self.allocator, link) catch return .failed;
+        }
+        total.* = links.items.len;
+        if (out.len < total.*) return .refused;
+        @memcpy(out[0..total.*], links.items);
+        return .ok;
+    }
+
+    fn pickObjectsInTiles(ptr: *anyopaque, tx0: i32, ty0: i32, tx1: i32, ty1: i32, out: []i32, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        const left = @min(tx0, tx1);
+        const right = @max(tx0, tx1);
+        const top = @min(ty0, ty1);
+        const bottom = @max(ty0, ty1);
+        var links: std.ArrayListUnmanaged(i32) = .empty;
+        defer links.deinit(self.allocator);
+        for (self.objects_list.items) |object| {
+            if (!self.pickable(object, true)) continue;
+            // One tile is `tile_size` map units here, as `worldToTile` cuts
+            // the map (32); a record is inside when its map position is.
+            const tile_x = @divFloor(object.x, tile_size);
+            const tile_y = @divFloor(object.y, tile_size);
+            if (tile_x < @as(f32, @floatFromInt(left)) or tile_x > @as(f32, @floatFromInt(right))) continue;
+            if (tile_y < @as(f32, @floatFromInt(top)) or tile_y > @as(f32, @floatFromInt(bottom))) continue;
+            const link = self.pickLinkFor(object.link_id);
+            if (std.mem.indexOfScalar(i32, links.items, link) == null)
+                links.append(self.allocator, link) catch return .failed;
+        }
+        total.* = links.items.len;
+        if (out.len < total.*) return .refused;
+        @memcpy(out[0..total.*], links.items);
+        return .ok;
+    }
+
+    fn moveObjects(ptr: *anyopaque, link_ids: []const i32, dx: f32, dy: f32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        if (link_ids.len == 0) {
+            self.say("no objects to move", .{});
+            return .refused;
+        }
+        if (!std.math.isFinite(dx) or !std.math.isFinite(dy)) return .bad_argument;
+        // Everything checked first: one bad member refuses the whole move,
+        // and nothing is touched (the real bridge's rule).
+        var index_of: std.ArrayListUnmanaged(usize) = .empty;
+        defer index_of.deinit(self.allocator);
+        for (link_ids, 0..) |link_id, position| {
+            if (std.mem.indexOfScalar(i32, link_ids[0..position], link_id) != null) {
+                self.say("link ID {d} is named twice", .{link_id});
+                return .refused;
+            }
+            const index = self.indexOf(link_id) orelse {
+                self.say("no object with that link ID", .{});
+                return .refused;
+            };
+            if (self.shared(link_id)) return .refused;
+            const object = &self.objects_list.items[index];
+            if (!object.known) {
+                self.say("the object database does not know this object's type; it is kept as it is", .{});
+                return .refused;
+            }
+            if (!self.onMapAt(object.x + dx, object.y + dy)) {
+                self.say("object {d} would leave the map", .{link_id});
+                return .refused;
+            }
+            index_of.append(self.allocator, index) catch return .failed;
+        }
+        var edit: FakeMoveObjectsEdit = .{};
+        for (link_ids, index_of.items) |link_id, index| {
+            const object = &self.objects_list.items[index];
+            edit.moves.append(self.allocator, .{
+                .link_id = link_id,
+                .before_x = object.x,
+                .before_y = object.y,
+                .after_x = object.x + dx,
+                .after_y = object.y + dy,
+            }) catch {
+                edit.moves.deinit(self.allocator);
+                return .failed;
+            };
+            object.x += dx;
+            object.y += dy;
+        }
+        self.edits.append(self.allocator, .{ .move_objects = edit }) catch return .failed;
+        token.* = @intCast(self.edits.items.len - 1);
+        self.applied_edits.append(self.allocator, token.*) catch return .failed;
+        self.undone_edits.clearRetainingCapacity();
+        self.record(.vso_edit, token.*);
+        return .ok;
+    }
+
+    /// The batch move's undo and redo half: every member's position put back
+    /// raw, reverse order on the way back.
+    fn putMoves(self: *FakeBridge, moves: []const FakeMovedMember, back: bool) void {
+        var index: usize = moves.len;
+        while (index != 0) {
+            index -= 1;
+            const move = moves[index];
+            if (self.indexOf(move.link_id)) |object_index| {
+                const object = &self.objects_list.items[object_index];
+                object.x = if (back) move.before_x else move.after_x;
+                object.y = if (back) move.before_y else move.after_y;
+            }
+        }
     }
 };
 

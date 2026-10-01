@@ -179,6 +179,7 @@ pub fn ViewWith(comptime Input: type) type {
 
         pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
             self.brush.deinit(allocator);
+            self.selector.deinit(allocator);
             self.roads_rivers.deinit(allocator);
             var keys = self.remembered.keyIterator();
             while (keys.next()) |key| allocator.free(key.*);

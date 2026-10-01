@@ -275,6 +275,24 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 bool RestoreObjectInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused );
 bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy );
 
+// The batch move (M3, D-25, session.cpp): every member of `pnLinkIDs` moved
+// by one (fDx, fDy) delta in MAP units, as ONE edit of the log - `pnToken`
+// names it for undoEdit/redoEdit. One bad member (unknown or shared link ID,
+// an unknown type, a destination off the terrain) refuses the whole move and
+// nothing changes; so does an engine refusal part-way, which puts the members
+// that already moved back first.
+bool MoveObjectsInSession( SEditorSession *pSession, const int *pnLinkIDs, int nCount, float fDx, float fDy, bool *pbRefused, int *pnToken );
+
+// The multi-selection picks (M3, D-25, session.cpp): the link IDs of every
+// pickable object in a screen rectangle (the rubber band; the scene's own
+// rectangle pick) and in a rectangle of tiles (the Ctrl band; the engine's own
+// GetTileIndex of each record's drawn position decides). A soldier answers his
+// squad's link ID; bridges, entrenchments and objects held back by Hide
+// checked answer nothing. Both are two-pass reads: *pnCount is always the
+// total, and a buffer too short is refused with nothing written past capacity.
+bool PickObjectsInSession( SEditorSession *pSession, float fSx0, float fSy0, float fSx1, float fSy1, int *pnOut, int nCapacity, int *pnCount, bool *pbRefused );
+bool PickObjectsInTilesInSession( SEditorSession *pSession, int nTx0, int nTy0, int nTx1, int nTy1, int *pnOut, int nCapacity, int *pnCount, bool *pbRefused );
+
 // Fills pOut with the object database's descriptors and pnCount with how many
 // there are - always the database's count, not how many fitted. Returns false
 // when the buffer was too small, which the caller can tell from the count.
@@ -591,6 +609,25 @@ void UpdateObjectsZInSession( SEditorSession *pSession );
 struct SAltitudeEdit : public IEditRecord
 {
 	NMapOverlay::SAltitudeUndo before, after;
+
+	virtual bool Revert( SEditorSession *pSession );
+	virtual bool Reapply( SEditorSession *pSession );
+};
+
+// The batch move's edit of the log (M3, D-25, session.cpp): every member's
+// whole record before and after, put back raw - one drag gesture's calls
+// merge in the core, one undo step restores every member exactly, engine
+// included. A squad record moves whole, so its soldiers keep their offsets
+// by construction.
+struct SMoveObjectsEdit : public IEditRecord
+{
+	struct SMovedMember
+	{
+		int nLinkID;
+		SMapObjectInfo before, after;
+		SMovedMember() : nLinkID( -1 ) {  }
+	};
+	std::vector<SMovedMember> members;
 
 	virtual bool Revert( SEditorSession *pSession );
 	virtual bool Reapply( SEditorSession *pSession );

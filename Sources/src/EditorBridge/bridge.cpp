@@ -719,6 +719,29 @@ BkEditorStatus BkEditorMoveObject( BkEditorSession *pSession, int nLinkID, float
 	return Guarded( pSession, [=]() { return ChangeOneField( pSession, nLinkID, 0, x, y, 0 ); } );
 }
 
+BkEditorStatus BkEditorMoveObjects( BkEditorSession *pSession, const int *pnLinkIDs, int nCount, float fDx, float fDy, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnToken == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !std::isfinite( fDx ) || !std::isfinite( fDy ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		// A link ID named twice is the caller's bug - the move cannot say
+		// which copy it meant - and is answered before anything is looked up.
+		for ( int i = 0; i < nCount; ++i )
+			for ( int j = 0; j < i; ++j )
+				if ( pnLinkIDs[i] == pnLinkIDs[j] )
+					return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( MoveObjectsInSession( pSession, pnLinkIDs, nCount, fDx, fDy, &bRefused, pnToken ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
 BkEditorStatus BkEditorTurnObject( BkEditorSession *pSession, int nLinkID, int nDir )
 {
 	return Guarded( pSession, [=]() { return ChangeOneField( pSession, nLinkID, 1, 0.0f, 0.0f, nDir ); } );
@@ -2101,6 +2124,40 @@ BkEditorStatus BkEditorObjectAt( BkEditorSession *pSession, float sx, float sy, 
 		}
 		bool bRefused = false;
 		if ( ObjectAt( pSession, sx, sy, pnLinkID, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorPickObjects( BkEditorSession *pSession, float fSx0, float fSy0, float fSx1, float fSy1,
+                                    int *pnOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pnOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !std::isfinite( fSx0 ) || !std::isfinite( fSy0 ) || !std::isfinite( fSx1 ) || !std::isfinite( fSy1 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( PickObjectsInSession( pSession, fSx0, fSy0, fSx1, fSy1, pnOut, nCapacity, pnCount, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorPickObjectsInTiles( BkEditorSession *pSession, int nTx0, int nTy0, int nTx1, int nTy1,
+                                           int *pnOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pnOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( PickObjectsInTilesInSession( pSession, nTx0, nTy0, nTx1, nTy1, pnOut, nCapacity, pnCount, &bRefused ) )
 			return BK_EDITOR_OK;
 		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
 	} );

@@ -158,6 +158,21 @@ BkEditorStatus BkEditorAddObject( BkEditorSession *session, const char *name,
 BkEditorStatus BkEditorPlaceObject( BkEditorSession *session, int link_id,
                                     float x, float y, int dir, int player );
 BkEditorStatus BkEditorMoveObject( BkEditorSession *session, int link_id, float x, float y );
+/* The selection's group move (M3, D-25): every member of link_ids moved by
+   ONE (dx, dy) delta, in MAP units - the same units every object position is
+   in, and what the caller's drag pointer already answers - as ONE edit of the
+   log. *out_token names it for BkEditorUndoEdit/RedoEdit, so a drag gesture
+   (one call per frame, tokens merged by the caller) is one undo step, and its
+   undo puts every member's whole record back raw - positions, directions,
+   owners, the engine included. A squad member names the squad's own link ID
+   (BkEditorObjectAt's rule), and a squad record re-places whole, so the
+   soldiers keep their offsets by construction. BK_EDITOR_BAD_ARGUMENT for a
+   null array, a count below one, a non-finite delta or a link ID named twice;
+   BK_EDITOR_REFUSED, changing nothing, for a member that is an unknown type
+   or shares its link ID, or whose destination is off the map - one bad member
+   refuses the whole move (the M1 rule: the map never holds half a move). */
+BkEditorStatus BkEditorMoveObjects( BkEditorSession *session, const int *link_ids, int count,
+                                    float dx, float dy, int *out_token );
 BkEditorStatus BkEditorTurnObject( BkEditorSession *session, int link_id, int dir );
 BkEditorStatus BkEditorSetObjectPlayer( BkEditorSession *session, int link_id, int player );
 /* Deletes the object as the MFC editor's delete does (D-04): it also leaves
@@ -784,6 +799,31 @@ BkEditorStatus BkEditorCaptureFrame( BkEditorSession *session, const char *path_
    selects the whole squad (ObjectPlacerState.cpp:409). BK_EDITOR_REFUSED
    means nothing pickable is there. */
 BkEditorStatus BkEditorObjectAt( BkEditorSession *session, float sx, float sy, int *out_link_id );
+
+/* The rubber band's pick (M3, D-25): the link IDs of every object the
+   screen rectangle (window pixels, any two opposite corners, normalized
+   here) selects - the scene's own rectangle pick, then the same rules
+   BkEditorObjectAt picks by: a soldier answers his squad's link ID (so a
+   band over one soldier selects the whole squad), bridges and entrenchments
+   answer nothing (M2 edits them as wholes), objects held back by Hide
+   checked are not there, and duplicates are answered once. Two-pass, like
+   BkEditorObjects: *out_count is always the total, and a buffer too short
+   is BK_EDITOR_REFUSED with nothing written past capacity. The order is the
+   pick's own, which the Selector's cycle walks. */
+BkEditorStatus BkEditorPickObjects( BkEditorSession *session, float sx0, float sy0, float sx1, float sy1,
+                                    int *out_link_ids, int capacity, int *out_count );
+/* The Ctrl rubber band's pick (M3, D-25): the link IDs of every editable
+   record whose tile position falls inside the rectangle of tiles, bridges
+   and entrenchments passed over per D-25 - the game type is filtered at
+   pick time, where the engine can answer it. The tiles are the world-cell
+   tiles BkEditorWorldToTile answers (y measured from the terrain's far
+   edge), and a record is inside when the engine's own GetTileIndex of its
+   drawn position lands in the rectangle - the conversion is the engine's own
+   both ways. An object of a type the database does not know is passed over:
+   it is kept as it is and cannot be moved, so selecting it would promise an
+   edit the bridge refuses. Two-pass, like BkEditorPickObjects. */
+BkEditorStatus BkEditorPickObjectsInTiles( BkEditorSession *session, int tx0, int ty0, int tx1, int ty1,
+                                           int *out_link_ids, int capacity, int *out_count );
 
 /* A screen point to the world point under it, against the terrain the camera
    is looking at - so it wants a camera that has been placed. Composes with
