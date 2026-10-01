@@ -33,6 +33,12 @@ pub const Editor = struct {
     status_len: usize = 0,
     history: history_mod.History = .{},
     selection: ?i32 = null,
+    /// The selection's other members (M3, D-25): link IDs, the anchor
+    /// `selection` always among them when it is set - one map holds both, so
+    /// every single-selection reader keeps working and the Selector's set
+    /// semantics sit beside them. Plain click: set = {link}; Ctrl+click
+    /// toggles; a band replaces the whole set.
+    selection_set: std.AutoHashMapUnmanaged(i32, void) = .empty,
     next_gesture: u32 = 1,
     /// Bumped by every sound-list change - addSound, editSound, deleteSound,
     /// and their undo/redo alike (`replay`'s own three cases) - so the panel
@@ -99,10 +105,90 @@ pub const Editor = struct {
         self.document.deinit(self.allocator);
         self.history.deinit(self.allocator);
         self.filters.deinit(self.allocator);
+        self.selection_set.deinit(self.allocator);
         var backed_up_keys = self.backed_up.keyIterator();
         while (backed_up_keys.next()) |key| self.allocator.free(key.*);
         self.backed_up.deinit(self.allocator);
         self.* = undefined;
+    }
+
+    /// The selection set with the anchor, ascending - the order edits apply
+    /// in and tests read. Owned by the caller (`free` with the allocator).
+    pub fn selectionMembers(self: *Editor, allocator: std.mem.Allocator) EditError![]i32 {
+        var members: std.ArrayListUnmanaged(i32) = .empty;
+        errdefer members.deinit(allocator);
+        if (self.selection) |anchor| {
+            if (!self.selection_set.contains(anchor)) try members.append(allocator, anchor);
+        }
+        var it = self.selection_set.keyIterator();
+        while (it.next()) |key| try members.append(allocator, key.*);
+        std.mem.sort(i32, members.items, {}, std.sort.asc(i32));
+        return members.toOwnedSlice(allocator);
+    }
+
+    pub fn selectionCount(self: *const Editor) usize {
+        var count = self.selection_set.count();
+        if (self.selection) |anchor| {
+            if (!self.selection_set.contains(anchor)) count += 1;
+        }
+        return count;
+    }
+
+    pub fn isSelected(self: *const Editor, link_id: i32) bool {
+        return (self.selection != null and self.selection.? == link_id) or self.selection_set.contains(link_id);
+    }
+
+    /// The plain click: the set becomes exactly {link_id}.
+    pub fn selectOnly(self: *Editor, link_id: i32) void {
+        self.selection_set.clearRetainingCapacity();
+        self.selection = link_id;
+    }
+
+    /// The band's answer (M3, D-25): the selection becomes exactly `members`
+    /// (unique, as the picks answer them); empty clears it. The anchor is the
+    /// first member, so the properties panel shows the band's first object.
+    pub fn selectionReplace(self: *Editor, members: []const i32) void {
+        self.selection_set.clearRetainingCapacity();
+        self.selection = if (members.len > 0) members[0] else null;
+        for (members[if (members.len > 0) 1 else 0..]) |member| {
+            if (self.selection == member) continue;
+            self.selection_set.put(self.allocator, member, {}) catch return;
+        }
+    }
+
+    /// Everything selected goes (a press on empty ground, a right click
+    /// alone): anchor and set.
+    pub fn clearSelection(self: *Editor) void {
+        self.selection = null;
+        self.selection_set.clearRetainingCapacity();
+    }
+
+    /// Ctrl+click (M3, D-25): the clicked object's membership flips. The
+    /// anchor follows the click either way - a member toggled out leaves the
+    /// anchor with another member (the set is what stays selected), and the
+    /// last one out leaves nothing selected.
+    pub fn selectionToggle(self: *Editor, link_id: i32) void {
+        if (self.isSelected(link_id)) {
+            const was_anchor = self.selection == link_id;
+            _ = self.selection_set.remove(link_id);
+            if (was_anchor) {
+                self.selection = null;
+                var it = self.selection_set.keyIterator();
+                if (it.next()) |key| {
+                    self.selection = key.*;
+                    _ = self.selection_set.remove(key.*);
+                }
+            }
+        } else {
+            if (self.selection) |anchor| {
+                if (anchor != link_id) self.selection_set.put(self.allocator, anchor, {}) catch return;
+            }
+            self.selection = link_id;
+        }
+    }
+
+    fn clearSelectionSet(self: *Editor) void {
+        self.selection_set.clearRetainingCapacity();
     }
 
     /// Copies `root` (truncated to the buffer, which a real root never
@@ -189,6 +275,7 @@ pub const Editor = struct {
         self.history.clear(self.allocator);
         self.replay_broken = false;
         self.selection = null;
+        self.clearSelectionSet();
         self.bumpDocumentGenerations();
     }
 
@@ -217,6 +304,7 @@ pub const Editor = struct {
         self.history.clear(self.allocator);
         self.replay_broken = false;
         self.selection = null;
+        self.clearSelectionSet();
         self.bumpDocumentGenerations();
     }
 
@@ -249,6 +337,7 @@ pub const Editor = struct {
         self.history.clear(self.allocator);
         self.replay_broken = false;
         self.selection = null;
+        self.clearSelectionSet();
         self.bumpDocumentGenerations();
     }
 
@@ -486,7 +575,63 @@ pub const Editor = struct {
         self.bumpCascadeGenerations();
         const object = self.document.objects.orderedRemove(index);
         if (self.selection == link_id) self.selection = null;
+        _ = self.selection_set.remove(link_id);
         self.history.recordAssumeCapacity(self.allocator, .{ .delete = .{ .object = object, .index = index } }, 0);
+    }
+
+    /// The selection's delete-all (M3, D-25): every member through the M2
+    /// cascade, ONE undo step. A member's refused delete refuses the whole
+    // delete and changes nothing - the members are checked against the same
+    // refusals a single delete meets, before any of them goes (a span, a
+    // trench piece, an unknown type; a bridge or an entrenchment is not in a
+    // selection to begin with, the picks pass them over). The link IDs need
+    // not be sorted; the recorded order is the one given.
+    pub fn deleteMany(self: *Editor, link_ids: []const i32) EditError!void {
+        if (link_ids.len == 0) return;
+        // Check every member first (reserve included), so a refusal leaves
+        // nothing half-done.
+        for (link_ids, 0..) |link_id, i| {
+            if (std.mem.indexOfScalar(i32, link_ids[0..i], link_id) != null) return error.Failed;
+            if (self.document.indexOf(link_id) == null) return error.Failed;
+        }
+        try self.history.reserve(self.allocator);
+        var deleted: std.ArrayListUnmanaged(history_mod.DeletedRecord) = .empty;
+        errdefer deleted.deinit(self.allocator);
+        try deleted.ensureTotalCapacity(self.allocator, link_ids.len);
+        for (link_ids) |link_id| {
+            // The index at the member's own deletion: the earlier removals
+            // shifted the list, so it is read fresh each time.
+            const index = self.document.indexOf(link_id) orelse return error.Failed;
+            try self.noteOutcome(self.bridge.deleteObject(link_id));
+            const object = self.document.objects.orderedRemove(index);
+            deleted.appendAssumeCapacity(.{ .object = object, .index = index });
+            if (self.selection == link_id) self.selection = null;
+            _ = self.selection_set.remove(link_id);
+        }
+        self.noteCascade();
+        self.bumpCascadeGenerations();
+        self.history.recordAssumeCapacity(self.allocator, .{ .multi_delete = .{ .deleted = deleted } }, 0);
+    }
+
+    /// The selection's group move (M3, D-25): every member of `links` moved
+    /// by one (dx, dy) delta in MAP units through one BkEditorMoveObjects
+    /// call - one bridge edit per call, the calls of one drag (`gesture`)
+    /// merged into one undo step the way a paint's are. The document's own
+    /// copies move by the same delta here (the bridge moved whole records;
+    /// direction and owner came back as they were). A refusal - a member the
+    /// bridge cannot move, a destination off the map - changes nothing.
+    pub fn moveSelection(self: *Editor, links: []const i32, dx: f32, dy: f32, gesture: u32) EditError!void {
+        if (links.len == 0 or (dx == 0 and dy == 0)) return;
+        var prepared = try self.prepareEdit(gesture, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.moveObjects(links, dx, dy, &token));
+        self.commitEdit(&prepared, token, gesture, .objects);
+        for (links) |link_id| {
+            const object = self.document.find(link_id) orelse continue;
+            object.x += dx;
+            object.y += dy;
+        }
     }
 
     /// An object's script ID (D-15): -1 none, else 0..32000. The bridge
@@ -1410,6 +1555,16 @@ pub const Editor = struct {
         if (total < objects.items.len) objects.shrinkRetainingCapacity(total);
         self.document.objects.deinit(self.allocator);
         self.document.objects = objects;
+        // A compound edit that adds and removes map objects may have taken a
+        // selected one with it: the set is rebuilt from the fresh list, so
+        // it keeps exactly the members the document holds.
+        var kept: std.AutoHashMapUnmanaged(i32, void) = .empty;
+        kept.ensureTotalCapacity(self.allocator, @intCast(@min(objects.items.len, std.math.maxInt(i32)))) catch {};
+        for (objects.items) |object| {
+            if (self.selection_set.contains(object.link_id)) kept.putAssumeCapacity(object.link_id, {});
+        }
+        self.selection_set.deinit(self.allocator);
+        self.selection_set = kept;
         if (self.selection) |link_id| {
             if (self.document.find(link_id) == null) self.selection = null;
         }
@@ -1869,6 +2024,20 @@ pub const Editor = struct {
             },
             .add => |a| if (forwards) try self.restoreInto(a.object, a.index) else try self.removeFrom(a.object.link_id),
             .delete => |d| if (forwards) try self.removeFrom(d.object.link_id) else try self.restoreInto(d.object, d.index),
+            .multi_delete => |*d| {
+                if (forwards) {
+                    for (d.deleted.items) |record| try self.removeFrom(record.object.link_id);
+                } else {
+                    // Last deleted first, each at the index its own deletion
+                    // recorded: the exact reverse of the way they went.
+                    var i = d.deleted.items.len;
+                    while (i != 0) {
+                        i -= 1;
+                        const member = d.deleted.items[i];
+                        try self.restoreInto(member.object, member.index);
+                    }
+                }
+            },
             .place => |p| {
                 const pose = if (forwards) p.after else p.before;
                 try self.noteOutcome(self.bridge.placeObject(p.link_id, pose.x, pose.y, pose.dir, pose.player));
@@ -1956,6 +2125,7 @@ pub const Editor = struct {
         self.bumpCascadeGenerations();
         _ = self.document.objects.orderedRemove(index);
         if (self.selection == link_id) self.selection = null;
+        _ = self.selection_set.remove(link_id);
     }
 
     /// Needs one free slot in `document.objects`, which `undo` and `redo`

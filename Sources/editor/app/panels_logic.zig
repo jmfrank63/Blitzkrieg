@@ -547,6 +547,20 @@ pub fn objectLine(buffer: []u8, selected_count: usize, name: []const u8, script_
     return std.fmt.bufPrint(buffer, "Name: {s}, Script ID: {d}, Pos: [{d:.2}, {d:.2}]", .{ name, script_id, pos[0], pos[1] }) catch "Name: no selected";
 }
 
+/// The selector's double circles (M3, D-25/PARITY L13): the two concentric
+/// radii the selection layer draws around one selected object. The MFC's
+/// marker scales with the object's screen footprint and never vanishes on a
+/// small one, so the inner ring takes the footprint's half-diagonal (at
+/// least the minimum) and the outer rides 3 screen pixels past it - a fat
+/// enough pair to read as the MFC's at any zoom.
+pub fn selectionCircles(footprint: [2]f32) [2]f32 {
+    const half_diagonal = 0.5 * std.math.hypot(footprint[0], footprint[1]);
+    const inner: f32 = @max(half_diagonal + 2.0, selection_circle_min);
+    return .{ inner, inner + 3.0 };
+}
+
+pub const selection_circle_min: f32 = 6.0;
+
 const normalizeForCompare = core.shipped.normalizeForCompare;
 const isAbsolutePath = core.shipped.isAbsolutePath;
 
@@ -1720,6 +1734,17 @@ test "objectLine: one object, many objects, none (V6)" {
         "Name: T34, Script ID: 4244, Pos: [12.00, 40.50], Box: [2, 3]",
         objectLine(&buffer, 1, "T34", 4244, .{ 12.0, 40.5 }, .{ 2, 3 }),
     );
+}
+
+test "selection circles: the inner ring rides the footprint, the outer follows, a small object never vanishes" {
+    // A tiny object takes the minimum pair; the rings are 3 pixels apart.
+    const tiny = selectionCircles(.{ 2, 2 });
+    try std.testing.expectEqual(selection_circle_min, tiny[0]);
+    try std.testing.expectEqual(selection_circle_min + 3.0, tiny[1]);
+    // A bigger one rides the footprint's half-diagonal.
+    const big = selectionCircles(.{ 40, 30 });
+    try std.testing.expectApproxEqAbs(@as(f32, 0.5 * 50.0 + 2.0), big[0], 0.01);
+    try std.testing.expectApproxEqAbs(big[0] + 3.0, big[1], 0.001);
 }
 
 test "isShippedMap: Data and mods/*/data are shipped, relative or absolute, separators and case ignored" {

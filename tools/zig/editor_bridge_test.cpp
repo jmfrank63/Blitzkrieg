@@ -260,6 +260,9 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorScreenSize", [&] { return BkEditorScreenSize( 0, &nInt, &nInt2 ); } },
 		{ "BkEditorCaptureFrame", [&] { return BkEditorCaptureFrame( 0, "zig-out/local-test/should-not-exist.tga" ); } },
 		{ "BkEditorObjectAt", [&] { return BkEditorObjectAt( 0, 0, 0, &nInt ); } },
+		{ "BkEditorPickObjects", [&] { return BkEditorPickObjects( 0, 0, 0, 0, 0, &nInt, 1, &nInt2 ); } },
+		{ "BkEditorPickObjectsInTiles", [&] { return BkEditorPickObjectsInTiles( 0, 0, 0, 0, 0, &nInt, 1, &nInt2 ); } },
+		{ "BkEditorMoveObjects", [&] { return BkEditorMoveObjects( 0, &nInt, 1, 0.0f, 0.0f, &nInt2 ); } },
 		{ "BkEditorScreenToWorld", [&] { return BkEditorScreenToWorld( 0, 0, 0, &fFloat, &fFloat2 ); } },
 		{ "BkEditorWorldToScreen", [&] { return BkEditorWorldToScreen( 0, 0, 0, &fFloat, &fFloat2 ); } },
 		{ "BkEditorWorldToMap", [&] { return BkEditorWorldToMap( 0, 0, 0, &fFloat, &fFloat2 ); } },
@@ -325,6 +328,9 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorAddObject", [&] { return BkEditorAddObject( pSession, "x", 0, 0, 0, 0, &nInt ); } },
 		{ "BkEditorPlaceObject", [&] { return BkEditorPlaceObject( pSession, 0, 0, 0, 0, 0 ); } },
 		{ "BkEditorMoveObject", [&] { return BkEditorMoveObject( pSession, 0, 0, 0 ); } },
+		{ "BkEditorMoveObjects", [&] { return BkEditorMoveObjects( pSession, &nInt, 1, 0.0f, 0.0f, &nInt2 ); } },
+		{ "BkEditorPickObjects", [&] { return BkEditorPickObjects( pSession, 0, 0, 0, 0, &nInt, 1, &nInt2 ); } },
+		{ "BkEditorPickObjectsInTiles", [&] { return BkEditorPickObjectsInTiles( pSession, 0, 0, 0, 0, &nInt, 1, &nInt2 ); } },
 		{ "BkEditorTurnObject", [&] { return BkEditorTurnObject( pSession, 0, 0 ); } },
 		{ "BkEditorSetObjectPlayer", [&] { return BkEditorSetObjectPlayer( pSession, 0, 0 ); } },
 		{ "BkEditorDeleteObject", [&] { return BkEditorDeleteObject( pSession, 0 ); } },
@@ -3758,6 +3764,163 @@ static void TestM3UpdateMapAndFill( BkEditorSession *pSession, const std::string
 	printf( "editor-bridge: M3 update and fill ok\n" );
 }
 
+static bool SameBytes( const std::string &szLeft, const std::string &szRight );
+
+// M3 (D-25): the selection's batch move and delete-all, on the engine.
+// Three movable objects - one a squad, whose record moves whole so its
+// soldiers keep their offsets - move by one BkEditorMoveObjects call; the
+// saved map is the builder's (the same moves applied to a fresh read through
+// the overlay alone); the undo saves the unedited file byte for byte; a
+// member that would leave the map refuses the whole move and changes
+// nothing; and two deletes and their undo go through the cascade exactly.
+static void TestM3MultiSelect( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// Three movable members: probed one link at a time with a small batch
+	// move, exactly what a refusal means (a shared or unknown link ID, an
+	// unknown type, a destination off the map). The third is a squad when the
+	// map lets one move, so the squad-whole rule is in the batch.
+	int members[3] = { -1, -1, -1 };
+	int nFound = 0;
+	bool bSquadAmongThem = false;
+	int nSquadLink = -1;
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+		int nRead = 0;
+		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+		int nCatalogue = 0;
+		BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+		std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+		int nCatalogueRead = 0;
+		BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nCatalogueRead );
+		for ( int i = 0; i < nRead && nFound < 3; ++i )
+		{
+			const BkEditorObjectRecord &rRecord = records[size_t( i )];
+			if ( rRecord.link_id <= 0 || !rRecord.known )
+				continue;
+			bool bSquad = false;
+			for ( int j = 0; j < nCatalogueRead && !bSquad; ++j )
+				bSquad = catalogue[size_t( j )].game_type == 15 && rRecord.name == std::string( catalogue[size_t( j )].name );
+			int nToken = -1;
+			const int nProbe[1] = { rRecord.link_id };
+			if ( BkEditorMoveObjects( pSession, nProbe, 1, 32.0f, 0.0f, &nToken ) != BK_EDITOR_OK )
+				continue;
+			Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "the probe move undoes" );
+			if ( bSquad )
+			{
+				if ( nSquadLink >= 0 )
+					continue;
+				nSquadLink = rRecord.link_id;
+				bSquadAmongThem = true;
+			}
+			members[nFound++] = rRecord.link_id;
+		}
+	}
+	Check( nFound == 3, ( "three movable objects found (" + std::to_string( nFound ) + " tried)" ).c_str() );
+	printf( "editor-bridge: M3 multi-select members %d, %d, %d (squad: %s)\n", members[0], members[1], members[2], bSquadAmongThem ? "yes" : "no" );
+
+	// One batch move of the three: one token, one edit.
+	const float fDx = 197.0f, fDy = 131.0f;
+	const std::string szUnedited = szScratch + "\\m3-multi-unedited.bzm";
+	const std::string szEdited = szScratch + "\\m3-multi-edited.bzm";
+	const std::string szUndone = szScratch + "\\m3-multi-undone.bzm";
+	const std::string szRefused = szScratch + "\\m3-multi-refused.bzm";
+	Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	int nToken = -1;
+	if ( !Check( BkEditorMoveObjects( pSession, members, 3, fDx, fDy, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( nToken >= 0, "the batch move has a token" );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "the engine agrees after the move: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	if ( !Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The expected value: the same moves on a fresh read, through the
+	// overlay's own MoveObject - no engine involved.
+	CMapInfo expected, saved;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &expected, &szError ), szError.c_str() ) )
+		return;
+	NMapOverlay::SMoveObject move;
+	move.vPos.z = 0.0f;
+	for ( int i = 0; i < 3; ++i )
+	{
+		bool bFoundInExpected = false;
+		const std::vector<SMapObjectInfo> *lists[2] = { &original.objects, &original.scenarioObjects };
+		for ( int nList = 0; nList < 2 && !bFoundInExpected; ++nList )
+			for ( size_t j = 0; j < lists[nList]->size() && !bFoundInExpected; ++j )
+			{
+				const SMapObjectInfo &rObject = ( *lists[nList] )[j];
+				if ( rObject.link.nLinkID != members[i] )
+					continue;
+				bFoundInExpected = true;
+				move.nLinkID = members[i];
+				move.vPos.x = rObject.vPos.x + fDx;
+				move.vPos.y = rObject.vPos.y + fDy;
+				move.nDir = rObject.nDir;
+				move.nPlayer = rObject.nPlayer;
+			}
+		Check( bFoundInExpected, ( "member " + std::to_string( members[i] ) + " is in the map" ).c_str() );
+		Check( NMapOverlay::MoveObject( &expected, move ), "the builder moves the member" );
+	}
+	std::string szWhere;
+	if ( !Check( NMapFile::Read( szEdited.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
+	Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+	       szWhere.empty() ? "the batch move's save is the expected map" : ( "batch move differs at " + szWhere ).c_str() );
+
+	// The undo is the unedited file byte for byte, and the redo moves again.
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "the batch move undoes" );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "the engine agrees after the undo: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szUnedited, szUndone ), "the undone batch move saves the unedited file byte for byte" );
+	Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, "and redoes" );
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "and back once more" );
+
+	// One member that would leave the map refuses the whole move, whatever
+	// the other two asked for.
+	const int nBad[3] = { members[0], members[1], members[2] };
+	nToken = -1;
+	Check( BkEditorMoveObjects( pSession, nBad, 3, -100000.0f, 0.0f, &nToken ) == BK_EDITOR_REFUSED,
+	       "a member off the map refuses the whole move" );
+	Check( nToken == -1, "and hands out no token" );
+	Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szUnedited, szRefused ), "the refusal changed nothing: the map saves unedited byte for byte" );
+
+	// Two deletes and their undo, through the cascade - the two non-squad
+	// members, so the squad stays for the earlier tiers' expectations.
+	int nPair[2] = { -1, -1 };
+	{
+		int nAt = 0;
+		for ( int i = 0; i < 3 && nAt < 2; ++i )
+			if ( members[i] != nSquadLink )
+				nPair[nAt++] = members[i];
+	}
+	Check( nPair[0] > 0 && nPair[1] > 0, "two non-squad members to delete" );
+	Check( BkEditorDeleteObject( pSession, nPair[0] ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorDeleteObject( pSession, nPair[1] ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorRestoreObject( pSession, nPair[0] ) == BK_EDITOR_OK, "the first restore puts its object back" );
+	Check( BkEditorDeleteObject( pSession, nPair[0] ) == BK_EDITOR_OK, "and it deletes again (the two-delete walk)" );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "the engine agrees after the deletes: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	Check( BkEditorRestoreObject( pSession, nPair[1] ) == BK_EDITOR_OK, "the second restore puts its object back" );
+	Check( BkEditorRestoreObject( pSession, nPair[0] ) == BK_EDITOR_OK, "and the first" );
+	const std::string szRestored = szScratch + "\\m3-multi-restored.bzm";
+	Check( BkEditorSaveMap( pSession, szRestored.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szUnedited, szRestored ), "the deletes undone restore every reference: byte for byte" );
+
+	remove( szUnedited.c_str() );
+	remove( szEdited.c_str() );
+	remove( szUndone.c_str() );
+	remove( szRefused.c_str() );
+	remove( szRestored.c_str() );
+	printf( "editor-bridge: M3 multi-select ok\n" );
+}
 
 // A tile the map's tileset has no terrain type for is the caller's mistake:
 // BK_EDITOR_BAD_ARGUMENT, naming the tile, and nothing painted - not even the
@@ -10249,6 +10412,7 @@ int main( int argc, char **argv )
 		TestM3TileInfo( pSession );
 		TestM3Filters( pSession, pszRoot, szScratch );
 		TestM3Fields( pSession, szScratch );
+		TestM3MultiSelect( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );

@@ -9,6 +9,11 @@ const records = @import("records.zig");
 
 pub const Pose = struct { x: f32, y: f32, dir: i32, player: i32 };
 
+/// One member of a delete-all (M3, D-25): the record as it was and the index
+/// in the document's list it was removed from, so the undo puts it back
+/// exactly there.
+pub const DeletedRecord = struct { object: ObjectRecord, index: usize };
+
 /// What a bridge-logged edit changed, so a replay knows what to refresh.
 pub const EditScope = enum { vso, objects, altitudes };
 
@@ -19,6 +24,12 @@ pub const Command = union(enum) {
     add: struct { object: ObjectRecord, index: usize },
     place: struct { link_id: i32, before: Pose, after: Pose },
     delete: struct { object: ObjectRecord, index: usize },
+    /// The selection's delete-all (M3, D-25): every member through the M2
+    /// cascade, one undo step. `deleted` holds each member as it was with
+    /// the index it was removed at, in deletion order; undo restores them
+    /// last-deleted-first at their own recorded indices (the exact reverse
+    /// of the way they went), redo deletes them again in the recorded order.
+    multi_delete: struct { deleted: std.ArrayListUnmanaged(DeletedRecord) = .empty },
     diplomacy: struct { player: i32, before: i32, after: i32 },
     /// An object's script ID (D-15), -1 none; one entry per gesture, merged
     /// while the same object's value is typed.
@@ -58,6 +69,7 @@ pub const Command = union(enum) {
         switch (self.*) {
             .paint => |*p| p.tokens.deinit(allocator),
             .edit => |*e| e.tokens.deinit(allocator),
+            .multi_delete => |*d| d.deleted.deinit(allocator),
             .record_edit => |*e| {
                 e.before.deinit(allocator);
                 e.after.deinit(allocator);

@@ -80,7 +80,7 @@ pub fn cap(kind: MarkerKind) usize {
         .start_commands => 512,
         .reserve_positions => 256,
         .groups => 256,
-        .selection_outline => 1,
+        .selection_outline => 256, // the selector's double circles, one pair per selected object (M3, D-25)
     };
 }
 

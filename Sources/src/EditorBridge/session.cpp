@@ -1230,6 +1230,143 @@ bool RestoreObjectInSession( SEditorSession *pSession, int nLinkID, bool *pbRefu
 	return true;
 }
 
+// ---------------------------------------------------------------------------
+// The batch move (M3, D-25). One call, one edit of the log: every member's
+// whole record before and after, put back raw by Revert/Reapply the way the
+// Update Map composite puts its fit pass's moves back - so one drag gesture
+// (many calls, many tokens merged by the core) undoes as one step, and an
+// undo of it restores every member exactly, engine included.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+bool PutMembersBack( SEditorSession *pSession, const std::vector<SMoveObjectsEdit::SMovedMember> &rMembers )
+{
+	for ( size_t i = 0; i < rMembers.size(); ++i )
+	{
+		bool bRefused = false;
+		if ( !PlaceObjectInSession( pSession, rMembers[i].nLinkID, rMembers[i].before.vPos, rMembers[i].before.nDir, rMembers[i].before.nPlayer, &bRefused ) )
+			return false;
+	}
+	return true;
+}
+
+}
+
+bool SMoveObjectsEdit::Revert( SEditorSession *pSession )
+{
+	return PutMembersBack( pSession, members );
+}
+
+bool SMoveObjectsEdit::Reapply( SEditorSession *pSession )
+{
+	for ( size_t i = 0; i < members.size(); ++i )
+	{
+		bool bRefused = false;
+		if ( !PlaceObjectInSession( pSession, members[i].nLinkID, members[i].after.vPos, members[i].after.nDir, members[i].after.nPlayer, &bRefused ) )
+			return false;
+	}
+	return true;
+}
+
+bool MoveObjectsInSession( SEditorSession *pSession, const int *pnLinkIDs, int nCount, float fDx, float fDy, bool *pbRefused, int *pnToken )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		*pbRefused = true;
+		return false;
+	}
+	if ( pnLinkIDs == 0 || nCount <= 0 )
+	{
+		pSession->szMessage = "no objects to move";
+		*pbRefused = true;
+		return false;
+	}
+	// Before anything moves, every member is what an edit may reach and every
+	// destination is a place the engine would take - one bad member refuses
+	// the whole move and nothing is touched (the M1 rule: the map never holds
+	// half a move).
+	std::vector<SMoveObjectsEdit::SMovedMember> members;
+	members.reserve( nCount );
+	for ( int i = 0; i < nCount; ++i )
+	{
+		const int nLinkID = pnLinkIDs[i];
+		if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+		{
+			pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+			*pbRefused = true;
+			return false;
+		}
+		if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+			return false;
+		const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nLinkID );
+		if ( pRecord == 0 )
+		{
+			pSession->szMessage = "no object with that link ID";
+			*pbRefused = true;
+			return false;
+		}
+		for ( size_t j = 0; j < members.size(); ++j )
+			if ( members[j].nLinkID == nLinkID )
+			{
+				pSession->szMessage = NStr::Format( "link ID %d is named twice", nLinkID );
+				*pbRefused = true;
+				return false;
+			}
+		SMoveObjectsEdit::SMovedMember member;
+		member.nLinkID = nLinkID;
+		member.before = *pRecord;
+		member.after = *pRecord;
+		member.after.vPos.x += fDx;
+		member.after.vPos.y += fDy;
+		// The destination is checked with the engine's own partition, the same
+		// answer a single move's place gets from the engine's AddObject: off
+		// the terrain is refused.
+		CVec3 vWorld;
+		AI2Vis( &vWorld, member.after.vPos.x, member.after.vPos.y, 0.0f );
+		int nTileX = 0, nTileY = 0;
+		if ( !pEngineTerrain->GetTileIndex( vWorld, &nTileX, &nTileY ) )
+		{
+			pSession->szMessage = NStr::Format( "object %d would leave the map", nLinkID );
+			*pbRefused = true;
+			return false;
+		}
+		members.push_back( member );
+	}
+	for ( size_t i = 0; i < members.size(); ++i )
+	{
+		bool bRefused = false;
+		if ( !PlaceObjectInSession( pSession, members[i].nLinkID, members[i].after.vPos, members[i].after.nDir, members[i].after.nPlayer, &bRefused ) )
+		{
+			// The destinations were checked; an engine refusal here is the
+			// single-move path's own answer, and it has put nothing back.
+			// The members that already moved go back to their before records
+			// raw, so the refusal changes nothing.
+			for ( size_t j = 0; j < i; ++j )
+			{
+				bool bIgnored = false;
+				PlaceObjectInSession( pSession, members[j].nLinkID, members[j].before.vPos, members[j].before.nDir, members[j].before.nPlayer, &bIgnored );
+			}
+			*pbRefused = true;
+			return false;
+		}
+	}
+	SMoveObjectsEdit *pEdit = new SMoveObjectsEdit();
+	pEdit->members.swap( members );
+	*pnToken = LogEdit( pSession, pEdit );
+	return true;
+}
+
 bool ObjectAt( SEditorSession *pSession, float sx, float sy, int *pnLinkID, bool *pbRefused )
 {
 	*pbRefused = false;
@@ -1277,6 +1414,180 @@ bool ObjectAt( SEditorSession *pSession, float sx, float sy, int *pnLinkID, bool
 	pSession->szMessage = "nothing to pick there";
 	*pbRefused = true;
 	return false;
+}
+
+// ---------------------------------------------------------------------------
+// Multi-selection reads and the batch move (M3, D-25). A squad is one map
+// record: the map holds the squad, its soldiers are the engine's objects
+// beside it (see ObjectAt's note), so "a click on a squad member selects the
+// whole squad" is the pick answering the squad's own link ID, and a batch
+// move that moves the squad record once keeps every soldier's offset by
+// construction - the formation re-places whole.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// The one link ID a pick answers for the object a visual belongs to: the
+// object's own, or its squad's when the visual is a lone soldier's. A record
+// the session does not know, a bridge, an entrenchment, an object held back
+// by Hide checked (A6) and an object of a type the database does not know
+// answer nothing - the same rules ObjectAt picks by.
+bool PickableLink( SEditorSession *pSession, IVisObj *pVisObj, int *pnLinkID )
+{
+	if ( pSession->pWorld == 0 || !pSession->pWorld->IsExistByVis( pVisObj ) )
+		return false;
+	SMapObject *pMapObject = pSession->pWorld->FindByVis( pVisObj );
+	if ( pMapObject == 0 || pMapObject->pDesc == 0 || pMapObject->pAIObj == 0 )
+		return false;
+	const EObjGameType eType = pMapObject->pDesc->eGameType;
+	if ( eType == SGVOGT_BRIDGE || eType == SGVOGT_ENTRENCHMENT )
+		return false;
+	std::unordered_map<IRefCount*, int>::const_iterator it = pSession->linkByAI.find( pMapObject->pAIObj );
+	// A soldier is drawn and picked on his own, but the map holds his squad,
+	// as ObjectAt answers it (ObjectPlacerState.cpp:409).
+	if ( it == pSession->linkByAI.end() )
+	{
+		if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+			if ( IRefCount *pFormation = pAIEditor->GetFormationOfUnit( pMapObject->pAIObj ) )
+				it = pSession->linkByAI.find( pFormation );
+	}
+	if ( it == pSession->linkByAI.end() )
+		return false;
+	if ( IsHiddenLink( *pSession, it->second ) )
+		return false;
+	*pnLinkID = it->second;
+	return true;
+}
+
+// A game type the tile-rectangle pick passes over, per D-25: spans and
+// entrenchment pieces are their groups' business (M2). The screen pick runs
+// the same rule through PickableLink, which is where the MFC's pick leaves
+// them out too (TemplateEditorFrame1.cpp:3384-3400).
+bool NotAGroupPiece( const SGDBObjectDesc *pDesc )
+{
+	return pDesc != 0 && pDesc->eGameType != SGVOGT_BRIDGE && pDesc->eGameType != SGVOGT_ENTRENCHMENT;
+}
+
+// True when the tile-rectangle pick may name the record at all: the session
+// knows the type (an unknown object is kept as it is and cannot be moved),
+// the link ID is the record's own, and the kind is not a bridge or an
+// entrenchment.
+bool TilePickable( SEditorSession *pSession, const SMapObjectInfo &rObject )
+{
+	if ( rObject.link.nLinkID <= 0 )
+		return false;
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), rObject.link.nLinkID ) != pSession->unknownLinkIDs.end() )
+		return false;
+	if ( CountIn( pSession->snapshot, rObject.link.nLinkID ) > 1 )
+		return false;
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	return pObjectsDB != 0 && NotAGroupPiece( pObjectsDB->GetDesc( rObject.szName.c_str() ) );
+}
+
+// The answer a pick hands out: link IDs without duplicates, in the order the
+// pick found them (the MFC's m_pickedObjects keeps the pick's own order, which
+// the Selector's cycle walks). Two-pass: *pnCount is always the total.
+bool PickLinksOut( std::vector<int> &rLinks, int *pnOut, int nCapacity, int *pnCount, bool *pbRefused )
+{
+	*pbRefused = false;
+	*pnCount = int( rLinks.size() );
+	if ( nCapacity < rLinks.size() )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	for ( size_t i = 0; i < rLinks.size(); ++i )
+		pnOut[i] = rLinks[i];
+	return true;
+}
+
+void AddPickLink( std::vector<int> &rLinks, int nLinkID )
+{
+	if ( std::find( rLinks.begin(), rLinks.end(), nLinkID ) == rLinks.end() )
+		rLinks.push_back( nLinkID );
+}
+
+}
+
+// The screen-rectangle pick of the MFC's rubber band (ObjectPlacerState.cpp:920):
+// every pickable object whose visual meets the rectangle. The rectangle is in
+// screen units, normalized here, as the MFC normalizes its own.
+bool PickObjectsInSession( SEditorSession *pSession, float fSx0, float fSy0, float fSx1, float fSy1, int *pnOut, int nCapacity, int *pnCount, bool *pbRefused )
+{
+	*pbRefused = false;
+	*pnCount = 0;
+	if ( pSession == 0 || !pSession->bMapOpen || pSession->pWorld == 0 )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 )
+	{
+		pSession->szMessage = "there is no scene";
+		*pbRefused = true;
+		return false;
+	}
+	CTRect<float> rect( CVec2( Min( fSx0, fSx1 ), Min( fSy0, fSy1 ) ), CVec2( Max( fSx0, fSx1 ), Max( fSy0, fSy1 ) ) );
+	std::pair<IVisObj*, CVec2> *pObjects = 0;
+	int nNum = 0;
+	pScene->Pick( rect, &pObjects, &nNum, SGVOGT_UNKNOWN );
+	std::vector<int> links;
+	for ( int i = 0; i < nNum; ++i )
+	{
+		int nLinkID = -1;
+		if ( PickableLink( pSession, pObjects[i].first, &nLinkID ) )
+			AddPickLink( links, nLinkID );
+	}
+	return PickLinksOut( links, pnOut, nCapacity, pnCount, pbRefused );
+}
+
+// The tile-rectangle pick of the MFC's Ctrl rubber band (ObjectPlacerState.cpp:937-962):
+// every editable record whose tile position falls inside the rectangle of
+// tiles, bridges and entrenchments passed over. The tiles are the world-cell
+// tiles BkEditorWorldToTile answers (y measured from the terrain's far edge);
+// a record is inside when the engine's own GetTileIndex of its drawn position
+// lands in the rectangle, so the conversion is the engine's own both ways.
+bool PickObjectsInTilesInSession( SEditorSession *pSession, int nTx0, int nTy0, int nTx1, int nTy1, int *pnOut, int nCapacity, int *pnCount, bool *pbRefused )
+{
+	*pbRefused = false;
+	*pnCount = 0;
+	if ( pSession == 0 || !pSession->bMapOpen || pSession->pWorld == 0 )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "there is no terrain";
+		*pbRefused = true;
+		return false;
+	}
+	const int nLeft = Min( nTx0, nTx1 ), nRight = Max( nTx0, nTx1 );
+	const int nTop = Min( nTy0, nTy1 ), nBottom = Max( nTy0, nTy1 );
+	std::vector<int> links;
+	const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+	{
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+		{
+			const SMapObjectInfo &rObject = ( *lists[nList] )[i];
+			if ( !TilePickable( pSession, rObject ) )
+				continue;
+			CVec3 vWorld;
+			AI2Vis( &vWorld, rObject.vPos.x, rObject.vPos.y, 0.0f );
+			int nTileX = 0, nTileY = 0;
+			if ( !pEngineTerrain->GetTileIndex( vWorld, &nTileX, &nTileY ) )
+				continue;
+			if ( nTileX < nLeft || nTileX > nRight || nTileY < nTop || nTileY > nBottom )
+				continue;
+			AddPickLink( links, rObject.link.nLinkID );
+		}
+	}
+	return PickLinksOut( links, pnOut, nCapacity, pnCount, pbRefused );
 }
 
 bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy )
