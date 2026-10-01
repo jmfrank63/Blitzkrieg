@@ -2662,7 +2662,7 @@ static bool BridgeFilesAreIdentical( const char *pszLeft, const char *pszRight )
 	printf( "editor-bridge: (identical? size %zu vs %zu, first difference at %zu: %02x vs %02x)\n",
 	        left.size(), right.size(), i, i < left.size() ? left[i] : 0, i < right.size() ? right[i] : 0 );
 	const size_t nFrom = i > 48 ? i - 48 : 0;
-	const size_t nTo = std::min( i + 48, std::min( left.size(), right.size() ) );
+	const size_t nTo = Min( i + 48, Min( left.size(), right.size() ) );
 	for ( size_t k = nFrom; k < nTo; ++k )
 		printf( "editor-bridge:   %8zu %02x %02x %c%c\n", k, left[k], right[k],
 	        ( left[k] >= 32 && left[k] < 127 ) ? left[k] : '.', ( right[k] >= 32 && right[k] < 127 ) ? right[k] : '.' );
