@@ -486,6 +486,29 @@ bool GroundHeightInSession( SEditorSession *pSession, float fX, float fY, float 
 // BkEditorSetTerrainModes; the session reads them, nothing derives them.
 bool SetTerrainModesInSession( SEditorSession *pSession, int bInstantUpdate, int bFitToGrid );
 
+// Update Map (M3, D-20): the MFC's OnButtonUpdate composite
+// (TemplateEditorFrame1.cpp:5138-5231) as one edit of the log - the engine's
+// own UpdateAllHeights and UpdateTerrain, the full shade recompute on both
+// copies, the full crosses recompute, the roads'/rivers'/sounds' z refresh
+// and, when Fit To Grid is on, the snap of every sprite object with
+// non-empty passability. pfnProgress (which may be null) is called once per
+// step with the step number and the MFC's own total (7 fixed steps plus one
+// per snapped object); it must not call back into the bridge. Undo restores
+// everything the composite captured - altitudes, tiles and crosses, and every
+// moved object's position - raw.
+bool UpdateMapInSession( SEditorSession *pSession, void (*pfnProgress)( int nStep, int nTotal, void *pUser ), void *pUser,
+                         bool *pbRefused, int *pnToken );
+
+// Fill Entire Map (M3, D-22): the MFC's OnFillArea
+// (TemplateEditorFrame1.cpp:4921-4968) - every tile over patches*16 becomes
+// the terrain type nTileIndex's own tile (exactly what a paint of that type
+// writes, GetMapsIndex and all), the crosses recomputed over the whole map.
+// The MFC's update-rectangle typo (`terrainRect.maxx =- 1`,
+// TemplateEditorFrame1.cpp:4951-4952, which made its terrain update an empty
+// (0,0,-1,-1) rect) is NOT copied: this updates the full map. One paint of
+// the log; a refusal changes nothing.
+bool FillEntireMapInSession( SEditorSession *pSession, int nTileIndex, bool *pbRefused, int *pnToken );
+
 // Altitudes (M3, D-19). rHeights are the z values (world units) to write over
 // the edit rectangle, in terrain-VERTEX coordinates, row-major; the shade of
 // every vertex is the session's own business, exactly D-19's function: set
@@ -576,6 +599,41 @@ struct SAltitudeEdit : public IEditRecord
 // covering patches redrawn (session.cpp) - the MFC editor's own route through
 // GetTerrainInfo's const_cast (DrawShadeState.cpp:204).
 void PutEngineAltitudes( ITerrainEditor *pEngineTerrain, const NMapOverlay::SAltitudeUndo &rRegion );
+
+// The VSO state the objects-Z refresh rewrites (the roads' and rivers'
+// points, the sounds' z): captured whole, because the bytes undo owes are
+// the map's own, not what a re-derivation would produce again. The engine's
+// copy holds no sounds.
+struct SVsoZState
+{
+	TVSOList roads3, rivers;
+	std::vector<CVec3> soundPositions;
+};
+
+// The Update Map composite of the log (05-02, D-20): the altitudes (shades),
+// the tiles and crosses, every object position the fit pass moved, and the
+// VSO z refresh - all put back raw, both copies and the engine, so one undo
+// step restores the whole composite.
+struct SUpdateMapEdit : public IEditRecord
+{
+	NMapOverlay::SAltitudeUndo altitudesBefore, altitudesAfter;
+	NMapOverlay::SPaintUndo tilesBefore, tilesAfter;
+	std::vector<NMapOverlay::SMoveObject> movesBefore, movesAfter;
+	SVsoZState vsoSnapshotBefore, vsoSnapshotAfter;
+	SVsoZState vsoWorkingBefore, vsoWorkingAfter;
+	SVsoZState vsoEngineBefore, vsoEngineAfter;
+
+	virtual bool Revert( SEditorSession *pSession );
+	virtual bool Reapply( SEditorSession *pSession );
+};
+
+// Puts one recorded paint region back into both copies and the engine, raw
+// (session.cpp) - the paints' own undo route, shared with the composite.
+bool PutRegionBack( SEditorSession *pSession, const NMapOverlay::SPaintUndo &rRegion );
+
+// Puts one recorded altitude region back into both copies and the engine,
+// raw (session.cpp) - SAltitudeEdit's own route, shared with the composite.
+bool PutAltitudeEditBack( SEditorSession *pSession, const NMapOverlay::SAltitudeUndo &rRegion );
 
 // The engine's terrain editor for the open map, or null (session.cpp).
 ITerrainEditor* EngineTerrain();

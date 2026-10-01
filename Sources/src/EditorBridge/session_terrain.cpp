@@ -1,6 +1,8 @@
 // The terrain-editing heart of M3 (D-18/D-20/D-22): the Heights tool's stroke
-// machine, Generate heights, Set Zero, the Update Map composite, Fill Entire
-// Map and the terrain-mode toggles. Kept apart from session.cpp because it is
+// machine (ApplyHeightsStrokeInSession), Generate heights (GenerateHeights),
+// Set Zero (SetZeroHeights), the terrain-mode toggles (SetTerrainModesInSession),
+// the Update Map composite (UpdateMapInSession) and Fill Entire Map
+// (FillEntireMapInSession). Kept apart from session.cpp because it is
 // a machine of its own - the MFC's DrawShadeState.cpp and
 // TabTerrainAltitudesDialog.cpp with the MFC taken out - riding the D-19
 // altitude region primitive (ApplyAltitudesInSession) and the edit log
@@ -19,10 +21,12 @@
 // CVSOBuilder::UpdateZ, exactly the MFC's own route.
 #include "StdAfx.h"
 #include <cstring>
+#include <memory>
 #include "session.h"
 #include "world.h"
 #include "../MapFile/MapOverlay.h"
 #include "../AILogic/AILogic.h"
+#include "../Main/RPGStats.h"
 #include "../RandomMapGen/VA_Types.h"
 #include "../RandomMapGen/VSO_Types.h"
 #include "../RandomMapGen/TerrainGenerator.h"
@@ -486,5 +490,339 @@ bool SetTerrainModesInSession( SEditorSession *pSession, int bInstantUpdate, int
 		return false;
 	pSession->bInstantUpdate = ( bInstantUpdate != 0 );
 	pSession->bFitToGrid = ( bFitToGrid != 0 );
+	return true;
+}
+
+// The Update Map composite's undo/redo: everything UpdateMapInSession
+// captured, put back raw - the altitudes (with the shades), the tiles and
+// crosses, every object the fit pass moved, and the VSO z the objects-Z
+// refresh rewrote. The roads'/rivers'/sounds' z is NOT re-derived on the way
+// back: the map's own bytes are what undo owes, and a re-derivation is only
+// guaranteed to land on them when the map was saved by exactly that
+// derivation.
+namespace {
+void CaptureVsoZ( CMapInfo &rMap, SVsoZState *pState )
+{
+	pState->roads3 = rMap.terrain.roads3;
+	pState->rivers = rMap.terrain.rivers;
+	pState->soundPositions.resize( rMap.sounds.sounds.size() );
+	for ( size_t i = 0; i < rMap.sounds.sounds.size(); ++i )
+		pState->soundPositions[i] = rMap.sounds.sounds[i].vPos;
+}
+
+void CaptureEngineVsoZ( ITerrainEditor *pEngineTerrain, SVsoZState *pState )
+{
+	STerrainInfo &rEngine = const_cast<STerrainInfo&>( pEngineTerrain->GetTerrainInfo() );
+	pState->roads3 = rEngine.roads3;
+	pState->rivers = rEngine.rivers;
+	pState->soundPositions.clear();
+}
+
+void PutVsoZBack( SEditorSession *pSession, const SVsoZState &rSnapshot, const SVsoZState &rWorking, const SVsoZState &rEngine )
+{
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+		return;
+	pSession->snapshot.terrain.roads3 = rSnapshot.roads3;
+	pSession->snapshot.terrain.rivers = rSnapshot.rivers;
+	if ( pSession->snapshot.sounds.sounds.size() == rSnapshot.soundPositions.size() )
+		for ( size_t i = 0; i < rSnapshot.soundPositions.size(); ++i )
+			pSession->snapshot.sounds.sounds[i].vPos = rSnapshot.soundPositions[i];
+	pSession->working.terrain.roads3 = rWorking.roads3;
+	pSession->working.terrain.rivers = rWorking.rivers;
+	if ( pSession->working.sounds.sounds.size() == rWorking.soundPositions.size() )
+		for ( size_t i = 0; i < rWorking.soundPositions.size(); ++i )
+			pSession->working.sounds.sounds[i].vPos = rWorking.soundPositions[i];
+	STerrainInfo &rEngineTerrain = const_cast<STerrainInfo&>( pEngineTerrain->GetTerrainInfo() );
+	rEngineTerrain.roads3 = rEngine.roads3;
+	rEngineTerrain.rivers = rEngine.rivers;
+	for ( int nVSO = 0; nVSO < int( rEngineTerrain.roads3.size() ); ++nVSO )
+		pEngineTerrain->UpdateRoad( rEngineTerrain.roads3[nVSO].nID );
+	for ( int nVSO = 0; nVSO < int( rEngineTerrain.rivers.size() ); ++nVSO )
+		pEngineTerrain->UpdateRiver( rEngineTerrain.rivers[nVSO].nID );
+}
+
+bool PutUpdateMapBack( SEditorSession *pSession, const SUpdateMapEdit &rEdit, bool bBefore )
+{
+	if ( !PutAltitudeEditBack( pSession, bBefore ? rEdit.altitudesBefore : rEdit.altitudesAfter ) )
+		return false;
+	const NMapOverlay::SPaintUndo &rTiles = bBefore ? rEdit.tilesBefore : rEdit.tilesAfter;
+	if ( !rTiles.tiles.empty() && !PutRegionBack( pSession, rTiles ) )
+		return false;
+	const std::vector<NMapOverlay::SMoveObject> &rMoves = bBefore ? rEdit.movesBefore : rEdit.movesAfter;
+	for ( size_t i = 0; i < rMoves.size(); ++i )
+	{
+		bool bRefused = false;
+		if ( !PlaceObjectInSession( pSession, rMoves[i].nLinkID, rMoves[i].vPos, rMoves[i].nDir, rMoves[i].nPlayer, &bRefused ) )
+			return false;
+	}
+	PutVsoZBack( pSession, bBefore ? rEdit.vsoSnapshotBefore : rEdit.vsoSnapshotAfter,
+	             bBefore ? rEdit.vsoWorkingBefore : rEdit.vsoWorkingAfter,
+	             bBefore ? rEdit.vsoEngineBefore : rEdit.vsoEngineAfter );
+	return true;
+}
+}
+
+bool SUpdateMapEdit::Revert( SEditorSession *pSession )
+{
+	return PutUpdateMapBack( pSession, *this, true );
+}
+bool SUpdateMapEdit::Reapply( SEditorSession *pSession )
+{
+	return PutUpdateMapBack( pSession, *this, false );
+}
+
+// Whether the object is one the MFC's fit pass snaps (TemplateEditorFrame1.cpp:5186-5214):
+// a sprite (building, object or terraobj) whose stats give it passability.
+// The frame is the record's own - the MFC asks its live sprite, the record's
+// nFrameIndex is the variant the map stores. The base classes ignore it
+// (records default it to -1, fmtMap.cpp:20); only a terraobj reads it as its
+// segment index, so only a terraobj needs it non-negative.
+namespace {
+bool IsFitCandidate( const SGDBObjectDesc *pDesc, IObjectsDB *pObjectsDB, int nFrameIndex )
+{
+	if ( pDesc == 0 || pDesc->eVisType != SGVOT_SPRITE )
+		return false;
+	if ( pDesc->eGameType != SGVOGT_BUILDING && pDesc->eGameType != SGVOGT_OBJECT && pDesc->eGameType != SGVOGT_TERRAOBJ )
+		return false;
+	const SObjectBaseRPGStats *pRPG = static_cast<const SObjectBaseRPGStats*>( pObjectsDB->GetRPGStats( pDesc ) );
+	if ( pRPG == 0 )
+		return false;
+	if ( pDesc->eGameType == SGVOGT_TERRAOBJ && nFrameIndex < 0 )
+		return false;
+	return !pRPG->GetPassability( nFrameIndex ).IsEmpty();
+}
+}
+
+// Update Map (D-20): the MFC's OnButtonUpdate composite as one edit of the
+// log. The A3 measurement (the header's own note): IAIEditor IS live in the
+// bridge session, so UpdateAllHeights and UpdateTerrain are the interface the
+// MFC calls, not a bridge-side reimplementation.
+bool UpdateMapInSession( SEditorSession *pSession, void (*pfnProgress)( int nStep, int nTotal, void *pUser ), void *pUser,
+                         bool *pbRefused, int *pnToken )
+{
+	*pnToken = -1;
+	if ( pbRefused )
+		*pbRefused = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		if ( pSession )
+			pSession->szMessage = "no map is open";
+		if ( pbRefused )
+			*pbRefused = true;
+		return false;
+	}
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pEngineTerrain == 0 || pAIEditor == 0 || pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the engine is missing the terrain, the AI editor or the object database";
+		return false;
+	}
+	if ( !EnsureAltitudeSheet( pSession ) )
+		return false;
+	CMapInfo &rSnapshot = pSession->snapshot;
+	CMapInfo &rWorking = pSession->working;
+	const int nSizeX = rSnapshot.terrain.altitudes.GetSizeX();
+	const int nSizeY = rSnapshot.terrain.altitudes.GetSizeY();
+	const int nTilesX = rSnapshot.terrain.tiles.GetSizeX();
+	const int nTilesY = rSnapshot.terrain.tiles.GetSizeY();
+	const CTRect<int> rFullTiles( 0, 0, nTilesX, nTilesY );
+	const CTRect<int> rFullVertices( 0, 0, nSizeX, nSizeY );
+	const CTRect<int> rFullPatches( 0, 0, rSnapshot.terrain.patches.GetSizeX(), rSnapshot.terrain.patches.GetSizeY() );
+	const SGFXLightDirectional sunlight = CVertexAltitudeInfo::GetSunLight(
+		static_cast<CMapInfo::SEASON>( rWorking.nSeason ) );
+
+	// The MFC's own progress count (TemplateEditorFrame1.cpp:5152): seven
+	// fixed steps plus one per object the fit pass will look at.
+	std::vector<int> fitIDs;
+	if ( pSession->bFitToGrid )
+	{
+		// Both lists - the MFC's fit pass walks m_objectsAI, everything the
+		// map holds, not just the non-scenario half of it.
+		std::vector<SMapObjectInfo> *const lists[2] = { &rSnapshot.objects, &rSnapshot.scenarioObjects };
+		for ( int nList = 0; nList < 2; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size(); ++i )
+				if ( pSession->byLinkID.find( ( *lists[nList] )[i].link.nLinkID ) != pSession->byLinkID.end() &&
+				     IsFitCandidate( pObjectsDB->GetDesc( ( *lists[nList] )[i].szName.c_str() ), pObjectsDB,
+			                         ( *lists[nList] )[i].nFrameIndex ) )
+					fitIDs.push_back( ( *lists[nList] )[i].link.nLinkID );
+	}
+	const int nTotal = 7 + int( fitIDs.size() );
+	int nStep = 0;
+	if ( pfnProgress )
+		pfnProgress( ++nStep, nTotal, pUser );
+
+	// Everything the composite will touch, captured before anything moves:
+	// the altitudes (heights and shades), the tiles and crosses, and the fit
+	// candidates' records.
+	SUpdateMapEdit *pEdit = new SUpdateMapEdit();
+	std::unique_ptr<SUpdateMapEdit> edit( pEdit );
+	NMapOverlay::CaptureAltitudeRegion( rSnapshot, rFullVertices, &( pEdit->altitudesBefore ) );
+	NMapOverlay::CaptureRegion( rSnapshot, rFullPatches, &( pEdit->tilesBefore ) );
+	CaptureVsoZ( rSnapshot, &( pEdit->vsoSnapshotBefore ) );
+	CaptureVsoZ( rWorking, &( pEdit->vsoWorkingBefore ) );
+	CaptureEngineVsoZ( pEngineTerrain, &( pEdit->vsoEngineBefore ) );
+
+	// 1. The engine's own height update (CAIEditor::UpdateAllHeights ->
+	// CStaticMap::UpdateAllHeights, AIStaticMap.cpp:1134): AI-side state the
+	// file never sees.
+	pAIEditor->UpdateAllHeights();
+	if ( pfnProgress )
+		pfnProgress( ++nStep, nTotal, pUser );
+
+	// 2. The engine's own terrain update over the whole map.
+	pAIEditor->UpdateTerrain( rFullTiles, rWorking.terrain );
+	if ( pfnProgress )
+		pfnProgress( ++nStep, nTotal, pUser );
+
+	// 3. The crosses on both copies - the same UpdateTerrainCrosses the
+	// engine's Update runs, over the whole map, from the map's own tileset
+	// and crosset names (the overlay's own loading route). The rect is in
+	// PATCH coordinates - what UpdateTerrainCrosses iterates
+	// (MapInfo_StaticMethods.cpp:468) - so the full-map rectangle is the
+	// patches' full sheet, not the tiles'.
+	{
+		STilesetDesc tilesetDesc;
+		SCrossetDesc crossetDesc;
+		LoadDataResource( rSnapshot.terrain.szTilesetDesc, "", false, 0, "tileset", tilesetDesc );
+		LoadDataResource( rSnapshot.terrain.szCrossetDesc, "", false, 0, "crosset", crossetDesc );
+		if ( tilesetDesc.terrtypes.empty() )
+		{
+			pSession->szMessage = "the map's tileset has no terrain types";
+			if ( pbRefused )
+				*pbRefused = true;
+			return false;
+		}
+		if ( !CMapInfo::UpdateTerrainCrosses( &rSnapshot.terrain, rFullPatches, tilesetDesc, crossetDesc ) ||
+		     !CMapInfo::UpdateTerrainCrosses( &rWorking.terrain, rFullPatches, tilesetDesc, crossetDesc ) )
+		{
+			pSession->szMessage = "the crosses would not recompute";
+			return false;
+		}
+	}
+	if ( pfnProgress )
+		pfnProgress( ++nStep, nTotal, pUser );
+
+	// 4. The shades over the whole altitudes sheet, both copies, and the
+	// engine's own terrain redrawn over every patch - the MFC's own call,
+	// (0, 0, patches-1, patches-1), an inclusive rectangle
+	// (TemplateEditorFrame1.cpp:5175).
+	if ( !CMapInfo::UpdateTerrainShades( &rSnapshot.terrain, rFullVertices, sunlight ) ||
+	     !CMapInfo::UpdateTerrainShades( &rWorking.terrain, rFullVertices, sunlight ) )
+	{
+		pSession->szMessage = "the shades would not recompute";
+		return false;
+	}
+	pEngineTerrain->Update( CTRect<int>( 0, 0, rFullPatches.maxx - 1, rFullPatches.maxy - 1 ) );
+	if ( pfnProgress )
+		pfnProgress( ++nStep, nTotal, pUser );
+
+	// 5. The roads', rivers' and sounds' z back on the ground.
+	UpdateObjectsZInSession( pSession );
+	if ( pfnProgress )
+		pfnProgress( ++nStep, nTotal, pUser );
+
+	// 6. The fit pass (TemplateEditorFrame1.cpp:5186-5214): every sprite
+	// object with passability snaps to the AI grid around its own origin,
+	// through the same place/move path every other move takes. The step is
+	// announced at the top of each look, so a snap the engine refuses - the
+	// object keeps its position and the update goes on - still counted.
+	for ( size_t i = 0; i < fitIDs.size(); ++i )
+	{
+		if ( pfnProgress )
+			pfnProgress( ++nStep, nTotal, pUser );
+		const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, fitIDs[i] );
+		if ( pRecord != 0 )
+		{
+			CVec3 vPos = pRecord->vPos;
+			const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( pRecord->szName.c_str() );
+			const SObjectBaseRPGStats *pRPG = static_cast<const SObjectBaseRPGStats*>( pObjectsDB->GetRPGStats( pDesc ) );
+			// The record's own frame: a terraobj's segment index - IsFitCandidate
+			// let through only records the stats can answer for.
+			if ( pRPG != 0 )
+				FitVisOrigin2AIGrid( &vPos, pRPG->GetOrigin( pRecord->nFrameIndex ) );
+			NMapOverlay::SMoveObject before;
+			before.nLinkID = fitIDs[i];
+			before.vPos = pRecord->vPos;
+			before.nDir = pRecord->nDir;
+			before.nPlayer = pRecord->nPlayer;
+			bool bRefused = false;
+			if ( !PlaceObjectInSession( pSession, fitIDs[i], vPos, pRecord->nDir, pRecord->nPlayer, &bRefused ) )
+			{
+				// A snap the engine will not take is skipped, not the end of
+				// the update: the object keeps the position it had.
+				continue;
+			}
+			pEdit->movesBefore.push_back( before );
+			NMapOverlay::SMoveObject after = before;
+			after.vPos = vPos;
+			pEdit->movesAfter.push_back( after );
+		}
+	}
+
+	NMapOverlay::CaptureAltitudeRegion( rSnapshot, rFullVertices, &( pEdit->altitudesAfter ) );
+	NMapOverlay::CaptureRegion( rSnapshot, rFullPatches, &( pEdit->tilesAfter ) );
+	CaptureVsoZ( rSnapshot, &( pEdit->vsoSnapshotAfter ) );
+	CaptureVsoZ( rWorking, &( pEdit->vsoWorkingAfter ) );
+	CaptureEngineVsoZ( pEngineTerrain, &( pEdit->vsoEngineAfter ) );
+	// The composite's own commit - the MFC's 7th fixed step (the count its
+	// progress bar was built over: TemplateEditorFrame1.cpp:5152).
+	if ( pfnProgress )
+		pfnProgress( ++nStep, nTotal, pUser );
+	*pnToken = LogEdit( pSession, edit.release() );
+	return true;
+}
+
+// Fill Entire Map (D-22): every tile the terrain type's own, the crosses
+// recomputed over the whole map - one paint of the log, exactly what a
+// whole-map paint of that type is. The MFC's update-rect typo
+// (TemplateEditorFrame1.cpp:4951-4952, `terrainRect.maxx =- 1`, an empty
+// (0,0,-1,-1) rect by assignment-instead-of-subtraction) is NOT copied: the
+// region this touches is the full map.
+bool FillEntireMapInSession( SEditorSession *pSession, int nTileIndex, bool *pbRefused, int *pnToken )
+{
+	*pnToken = -1;
+	if ( pbRefused )
+		*pbRefused = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		if ( pSession )
+			pSession->szMessage = "no map is open";
+		if ( pbRefused )
+			*pbRefused = true;
+		return false;
+	}
+	std::vector<NMapOverlay::SPaintCell> cells;
+	const int nTilesX = pSession->snapshot.terrain.tiles.GetSizeX();
+	const int nTilesY = pSession->snapshot.terrain.tiles.GetSizeY();
+	cells.reserve( size_t( nTilesX ) * size_t( nTilesY ) );
+	for ( int nY = 0; nY < nTilesY; ++nY )
+		for ( int nX = 0; nX < nTilesX; ++nX )
+		{
+			NMapOverlay::SPaintCell cell;
+			cell.nX = nX;
+			cell.nY = nY;
+			cell.tile = nTileIndex;
+			cell.noise = 0;
+			cells.push_back( cell );
+		}
+	// The tile the paint rules know (a terrain type of the map's own tileset,
+	// whatever variant GetMapsIndex draws); a tile outside it is refused
+	// before anything is touched, exactly a paint's own rule.
+	bool bBadTile = false;
+	if ( !PaintTilesInTileset( pSession, cells, &bBadTile ) )
+	{
+		if ( pbRefused )
+			*pbRefused = true;
+		return false;
+	}
+	if ( !PaintIntoSession( pSession, cells, pnToken ) )
+	{
+		if ( pbRefused )
+			*pbRefused = true;
+		return false;
+	}
 	return true;
 }

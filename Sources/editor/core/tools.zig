@@ -156,7 +156,14 @@ pub const Placer = struct {
 
     pub fn handle(self: *Placer, editor: *Editor, event: Event) EditError!void {
         switch (event) {
-            .press => |pointer| editor.selection = try editor.addObject(self.name, pointer.map_x, pointer.map_y, self.dir, self.player),
+            .press => |pointer| {
+                // Fit Objects To Grid (M3, D-20): the MFC's placer asks the
+                // fit before it edits (ObjectPlacerState.cpp:355-365), and so
+                // does this - the map only ever holds a position someone
+                // meant, and undo replays it raw.
+                const where = editor.snapToGrid(self.name, pointer.map_x, pointer.map_y);
+                editor.selection = try editor.addObject(self.name, where.x, where.y, self.dir, self.player);
+            },
             .drag, .release, .key, .right_press, .right_drag, .right_release, .double_click => {},
         }
     }
@@ -185,9 +192,13 @@ pub const Selector = struct {
                 if (self.gesture == 0) return;
                 const link_id = editor.selection orelse return;
                 const object = editor.document.find(link_id) orelse return;
+                // The MFC's move path fits the object's own dragged position
+                // (ObjectPlacerState.cpp:165-171), not the pointer's: the ask
+                // is fitted, the map never sees the raw drag.
+                const where = editor.snapToGrid(object.nameSlice(), pointer.map_x + self.grab_x, pointer.map_y + self.grab_y);
                 const pose: editor_mod.Pose = .{
-                    .x = pointer.map_x + self.grab_x,
-                    .y = pointer.map_y + self.grab_y,
+                    .x = where.x,
+                    .y = where.y,
                     .dir = object.dir,
                     .player = object.player,
                 };

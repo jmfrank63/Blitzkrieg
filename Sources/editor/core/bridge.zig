@@ -124,6 +124,13 @@ pub const HeightsGenerateType = enum(c_int) { hills = 0, rocks = 3, dunes = 4 };
 /// What a heights stroke does (the buttons decide, the MFC's own precedence).
 pub const HeightsAction = enum(c_int) { raise = 0, lower = 1, level = 2 };
 
+/// Update Map's progress callback (BkEditorProgressFn): called once per step
+/// with the step number (from 1), the MFC's own total (7 + the snapped
+/// objects) and the caller's own pointer. Must not call back into the bridge.
+/// C ABI (`callconv(.c)`), so the pointer passes straight through
+/// c_bridge.zig to BkEditorUpdateMap.
+pub const ProgressFn = *const fn (step: c_int, total: c_int, user: ?*anyopaque) callconv(.c) void;
+
 /// What a level stroke moves the terrain toward (the MFC's LEVEL_TO_0..3,
 /// default LEVEL_TO_2 - instant average).
 pub const HeightsLevelMode = enum(c_int) { zero = 0, click_tile = 1, instant_average = 2, click_average = 3 };
@@ -480,6 +487,24 @@ pub const Bridge = struct {
         /// BkEditorSetZeroHeights (M3, D-18): every height to 0, shades
         /// recomputed, one edit. The confirmation is the caller's.
         setZeroHeights: *const fn (ptr: *anyopaque, token: *i32) Status,
+        /// BkEditorUpdateMap (M3, D-20): the OnButtonUpdate composite as one
+        /// edit - engine height/terrain updates, full crosses and shades,
+        /// the VSO z refresh, the fit pass. `progress` (nullable) is called
+        /// once per step with the MFC's own total and must not call back.
+        updateMap: *const fn (ptr: *anyopaque, progress: ?ProgressFn, user: ?*anyopaque, token: *i32) Status,
+        /// BkEditorFillEntireMap (M3, D-22): every tile becomes the type's
+        /// own, crosses recomputed over the whole map - one PAINT of the
+        /// log (the token names it for undoPaint/redoPaint, exactly a
+        /// brush paint's own). The confirmation is the caller's.
+        fillEntireMap: *const fn (ptr: *anyopaque, tile: u8, token: *i32) Status,
+        /// BkEditorSetTerrainModes (M3, D-20): the Instant Update and Fit To
+        /// Grid toggles. A view setting: no map data, no history.
+        setTerrainModes: *const fn (ptr: *anyopaque, instant_update: bool, fit_to_grid: bool) Status,
+        /// BkEditorSnapToGrid (M3, D-20): the MFC placer's own question -
+        /// where would the fit put (x, y) for this object type? The session's
+        /// fit flag decides; the kinds the rule does not fit answer the
+        /// input. A read: nothing is edited, nothing is recorded.
+        snapToGrid: *const fn (ptr: *anyopaque, name: [*:0]const u8, x: f32, y: f32, out_x: *f32, out_y: *f32) Status,
         /// BkEditorVsoDescriptors: the season's road or river types, bare
         /// names, sorted. `total` is always the full count (two-pass, like
         /// `sounds`).
@@ -614,6 +639,10 @@ pub const Bridge = struct {
     pub fn heightsStroke(self: Bridge, params: HeightsStrokeParams, token: *i32) Status { return self.vtable.heightsStroke(self.ptr, params, token); }
     pub fn generateHeights(self: Bridge, gen_type: HeightsGenerateType, granularity: f32, min_z: f32, max_z: f32, token: *i32) Status { return self.vtable.generateHeights(self.ptr, gen_type, granularity, min_z, max_z, token); }
     pub fn setZeroHeights(self: Bridge, token: *i32) Status { return self.vtable.setZeroHeights(self.ptr, token); }
+    pub fn updateMap(self: Bridge, progress: ?ProgressFn, user: ?*anyopaque, token: *i32) Status { return self.vtable.updateMap(self.ptr, progress, user, token); }
+    pub fn fillEntireMap(self: Bridge, tile: u8, token: *i32) Status { return self.vtable.fillEntireMap(self.ptr, tile, token); }
+    pub fn setTerrainModes(self: Bridge, instant_update: bool, fit_to_grid: bool) Status { return self.vtable.setTerrainModes(self.ptr, instant_update, fit_to_grid); }
+    pub fn snapToGrid(self: Bridge, name: [*:0]const u8, x: f32, y: f32, out_x: *f32, out_y: *f32) Status { return self.vtable.snapToGrid(self.ptr, name, x, y, out_x, out_y); }
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }
     pub fn vsoCount(self: Bridge, kind: VsoKind, count: *usize) Status { return self.vtable.vsoCount(self.ptr, kind, count); }
     pub fn readVso(self: Bridge, kind: VsoKind, index: i32, allocator: std.mem.Allocator, out: *VsoView) Status { return self.vtable.readVso(self.ptr, kind, index, allocator, out); }

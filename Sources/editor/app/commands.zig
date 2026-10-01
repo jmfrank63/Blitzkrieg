@@ -34,6 +34,10 @@ pub const command_table = [_]Entry{
     .{ .name = "camera_goto", .handler = cameraGoto },
     .{ .name = "map_new", .handler = mapNew },
     .{ .name = "brush_size", .handler = brushSize },
+    .{ .name = "map_update", .handler = mapUpdate },
+    .{ .name = "map_fill", .handler = mapFill },
+    .{ .name = "instant_update", .handler = instantUpdate },
+    .{ .name = "fit_grid", .handler = fitGrid },
     .{ .name = "file_save_xml", .handler = fileSaveXml },
     .{ .name = "file_save_bzm", .handler = fileSaveBzm },
     .{ .name = "vso_kind", .handler = vsoKind },
@@ -249,6 +253,97 @@ fn brushSize(state: *State, arg: []const u8) Outcome {
     const size = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
     if (size < 1 or size > 16) return .bad_arg;
     state.view.brush.size = size;
+    return .ok;
+}
+
+/// Update Map's progress collector (M3, D-20): the C ABI callback counts the
+/// steps as the bridge reports them - counter only, nothing is rendered and
+/// nothing re-enters the bridge from here.
+const UpdateProgress = struct {
+    steps: i32 = 0,
+    total: i32 = 0,
+
+    fn report(step: c_int, total: c_int, user: ?*anyopaque) callconv(.c) void {
+        const self: *UpdateProgress = @ptrCast(@alignCast(user.?));
+        self.steps = step;
+        self.total = total;
+    }
+};
+
+/// `do=map_update` - Map > Update Map (M3, D-20, the MFC's Ctrl+U): the
+/// whole composite as ONE undo step. The step count the bridge reported is
+/// kept on the State for the report modal the next frame renders (the
+/// update itself is synchronous; D-03's frozen-window model).
+fn mapUpdate(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    if (!panels.documentLoaded(state.editor)) {
+        state.editor.note("no map to update");
+        return .refused;
+    }
+    var progress = UpdateProgress{};
+    state.editor.updateMap(UpdateProgress.report, &progress) catch |err| {
+        state.view.noteEditResult(state.editor, err);
+        return .refused;
+    };
+    state.update_steps = progress.steps;
+    state.update_total = progress.total;
+    state.update_report_open = true;
+    state.view.clearStatus();
+    return .ok;
+}
+
+/// `do=map_fill[:NN]` - Map > Fill Entire Map (M3, D-22): every tile the
+/// terrain type's own, one undo step. With no argument the brush tile is
+/// filled (what the menu item means); `:NN` names the tile (what a script
+/// means - a tile the map's tileset has no terrain type for is refused).
+/// The confirmation is the caller's: the menu asks first, a script has
+/// already said yes by naming the command.
+fn mapFill(state: *State, arg: []const u8) Outcome {
+    if (!panels.documentLoaded(state.editor)) {
+        state.editor.note("no map to fill");
+        return .refused;
+    }
+    var tile: u8 = state.view.brush.tile;
+    if (arg.len != 0) {
+        const parsed = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+        if (parsed < 0 or parsed > 255) return .bad_arg;
+        tile = @intCast(parsed);
+    }
+    state.editor.fillEntireMap(tile) catch |err| {
+        state.view.noteEditResult(state.editor, err);
+        return .refused;
+    };
+    state.view.clearStatus();
+    return .ok;
+}
+
+/// `do=instant_update` - Map > Instant Update Map Mode (M3, D-20): the
+/// toggle, one way or the other, on the bridge session and in the settings
+/// (mapeditor.cfg carries it to the next start; the session keeps the live
+/// copy until the next call).
+fn instantUpdate(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const next = !state.settings.instant_update;
+    state.editor.setTerrainModes(next, state.settings.fit_to_grid) catch |err| {
+        state.view.noteEditResult(state.editor, err);
+        return .refused;
+    };
+    state.settings.instant_update = next;
+    state.settings_changed = true;
+    return .ok;
+}
+
+/// `do=fit_grid` - Map > Fit Objects To Grid (M3, D-20): the toggle, as
+/// instant_update's. Default on, the MFC's own.
+fn fitGrid(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const next = !state.settings.fit_to_grid;
+    state.editor.setTerrainModes(state.settings.instant_update, next) catch |err| {
+        state.view.noteEditResult(state.editor, err);
+        return .refused;
+    };
+    state.settings.fit_to_grid = next;
+    state.settings_changed = true;
     return .ok;
 }
 
