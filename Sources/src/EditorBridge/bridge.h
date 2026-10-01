@@ -1645,6 +1645,93 @@ BkEditorStatus BkEditorObjectFilters( BkEditorSession *session, BkEditorObjectFi
    map open; a refusal changes nothing (the file is written once, whole). */
 BkEditorStatus BkEditorSaveObjectFilters( BkEditorSession *session, const BkEditorObjectFilter *filters, int count );
 
+/* The Fields tool (M3, D-21): one application of a field set over a drawn
+   polygon as ONE undoable edit (out_token, -1 after a refusal). The MFC's
+   CFieldsState::PlaceField pipeline, in the session layer's
+   ApplyFieldInSession: the polygon (WORLD xy, z ignored; 3..64 points, the
+   MFC's own UniquePolygon+area closing rule refuses degenerate ones) is cut
+   by the map bounds, optionally randomized through the engine's own
+   RandomizeEdges with the MFC dialog's exact arguments (min_length in cells,
+   the MFC's own >= 2 rule; width 0..0.5; disturbance 0..1 - clamped here),
+   then the field set's tile shells (FillTileSet, both copies, the engine's
+   terrain redrawn over the covered patches), object shells (FillObjectSet
+   into a scratch summer map, each object placed through the session's add
+   path) and profile pattern (the set's own tga, FillProfilePattern, the
+   objects' z back on the ground, full shades) fill the map.
+
+   The season confirmation is the caller's - ask BkEditorFieldSetSeason,
+   compare with the map's season, show the YES/NO popup (the MFC's
+   IDS_INVALID_FIELD_SEASON flow); the bridge does not gate on season. The
+   flags mirror the dialog's checkboxes: fill_terrain, place_objects,
+   modify_heights, update_map_after (the whole Update Map composite runs
+   after, nested in this one edit - still one undo step);
+   check_passability_only reports what the object shells would place and
+   what the AI's passability would take, changing nothing (token -1, no
+   log entry); can_add_object_filter gates the placement by the object
+   filter named in object_filter (a name from BkEditorObjectFilters, the
+   D-31 filters matched against the objects' folder paths, the MFC's own
+   FilterName argument).
+
+   out_report (which may be null with capacity 0) answers every object the
+   object shells produced and whether it was placed; out_report_count is
+   always the total, a capacity below it is BK_EDITOR_REFUSED after writing
+   what fits. A refusal - no map, bad arguments, an unknown field set or
+   filter, a degenerate polygon - changes nothing; a mid-pipeline failure
+   puts the tiles, the altitudes and the objects already added back and is
+   BK_EDITOR_FAILED. Undo restores the whole composite raw, byte for byte.
+
+   BK_EDITOR_BAD_ARGUMENT for a null params or out_token, a null or
+   non-finite point, a name that is not a storage-relative bare name, or a
+   polygon outside 3..64 points. BK_EDITOR_REFUSED with no map open. */
+typedef struct {
+	char field_set[192];         /* storage-relative bare name, as BkEditorListRmg lists them */
+	int point_count;             /* 3..64 */
+	const BkEditorVec3 *points;  /* WORLD (Vis) units, z ignored */
+	int randomize;               /* 0/1: RandomizeEdges with the three below */
+	float min_length;            /* cells, the MFC's own >= 2 */
+	float width;                 /* 0..0.5 */
+	float disturbance;           /* 0..1 */
+	int fill_terrain;            /* 0/1 */
+	int place_objects;           /* 0/1 */
+	int modify_heights;          /* 0/1 */
+	int update_map_after;        /* 0/1 */
+	int check_passability_only;  /* 0/1: report only, nothing changes */
+	int can_add_object_filter;   /* 0/1: gate the placement by object_filter */
+	char object_filter[64];      /* a name from BkEditorObjectFilters, "" when unused */
+} BkEditorFieldApplyParams;
+
+typedef struct { char name[64]; float x, y; int placed; } BkEditorFieldObjectReport; /* x, y: AI (map) units */
+BkEditorStatus BkEditorApplyField( BkEditorSession *session, const BkEditorFieldApplyParams *params,
+                                   BkEditorFieldObjectReport *out_report, int report_capacity, int *out_report_count,
+                                   int *out_token );
+
+/* The field set's season (D-21): the loaded set's own
+   CMapInfo::GetSelectedSeason answer, which the app compares with the map's
+   season to show the YES/NO confirmation before applying. name is
+   storage-relative, like BkEditorListRmg lists them. A name that is not in
+   the data is BK_EDITOR_REFUSED; a null name or out_season is
+   BK_EDITOR_BAD_ARGUMENT. No map need be open. */
+BkEditorStatus BkEditorFieldSetSeason( BkEditorSession *session, const char *name, int *out_season );
+
+/* One storage-relative RMG name (a bare name with the folder it lists from,
+   no extension), as BkEditorListRmg answers and every composer entry takes. */
+typedef struct { char name[192]; } BkEditorRmgName;
+
+/* The RMG storage-folder scan (M3, D-08): the lists the Fields tool's
+   field-set combo, Create Random Map (05-08) and the composers (05-09/10)
+   share. kind: 0 field sets (Scenarios/FieldSets), 1 templates,
+   2 graphs, 3 containers, 4 settings, 5 chapters. The mounted storages'
+   folders are walked - the MFC editor read Editor\Default*.xml list files
+   instead, which are not shipped, so its composers opened empty (D-08).
+   Names are storage-relative (folder included, .xml stripped), lowercased,
+   sorted, deduped; a folder no storage carries is an empty list, not an
+   error. out_count is always the total; a capacity below it is
+   BK_EDITOR_REFUSED after writing what fits; out may be null with capacity
+   0 to ask for the total. Not map data: no map need be open.
+   BK_EDITOR_BAD_ARGUMENT for a null out_count, a negative capacity, or a
+   kind outside 0..5. */
+BkEditorStatus BkEditorListRmg( BkEditorSession *session, int kind, BkEditorRmgName *out, int capacity, int *out_count );
+
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );

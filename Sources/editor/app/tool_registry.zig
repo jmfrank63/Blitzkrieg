@@ -14,7 +14,7 @@
 const std = @import("std");
 const marker_logic = @import("marker_logic.zig");
 
-pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas, start_target, reserve_positions, ai_general, heights };
+pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas, start_target, reserve_positions, ai_general, heights, fields };
 
 pub const Entry = struct {
     id: ToolId,
@@ -144,6 +144,14 @@ pub const entries = [_]Entry{
         .id = .heights,
         .label = "Heights",
         .needs_right_button = true,
+    },
+    // M3, D-21 (PARITY TR18): the polygon keys need the right button (takes
+    // the last vertex back) and the double click (closes).
+    .{
+        .id = .fields,
+        .label = "Fields",
+        .needs_right_button = true,
+        .needs_double_click = true,
     },
 };
 

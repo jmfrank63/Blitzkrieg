@@ -2057,6 +2057,48 @@ pub const Editor = struct {
         try self.afterReplay(&entry.command);
         return true;
     }
+    // -----------------------------------------------------------------
+    // The Fields tool (M3, D-21). One application is one undoable command
+    // (gesture 0); the polygon keys live in tools_fields.Fields.
+    // -----------------------------------------------------------------
+
+    /// The fields application: ONE command (reserve, bridge, record - the
+    /// reserve-before-bridge rule), whatever mixture of tiles, objects,
+    /// heights and the nested update map it ran. `report` (nullable) is
+    /// filled with what the object shells produced; the buffer is one call's
+    /// upper bound (the fill places at most one object per half-tile cell),
+    /// so the bridge runs once.
+    pub fn applyField(self: *Editor, params: bridge_mod.FieldApplyParams, report: ?*std.ArrayListUnmanaged(bridge_mod.FieldObjectReport), allocator: std.mem.Allocator) EditError!void {
+        var prepared = try self.prepareEdit(0, .altitudes);
+        defer prepared.tokens.deinit(self.allocator);
+        var reports: []bridge_mod.FieldObjectReport = &.{};
+        if (report != null) {
+            const bound = @as(usize, @intCast(@max(self.document.info.width_tiles, 1))) *
+                @as(usize, @intCast(@max(self.document.info.height_tiles, 1))) / 2 + 64;
+            reports = allocator.alloc(bridge_mod.FieldObjectReport, bound) catch return error.OutOfMemory;
+        }
+        defer if (report != null) allocator.free(reports);
+        var total: usize = 0;
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.applyField(params, reports[0..], &total, &token));
+        if (report) |out| {
+            out.clearRetainingCapacity();
+            out.appendSlice(allocator, reports[0..@min(total, reports.len)]) catch return error.OutOfMemory;
+        }
+        self.commitEdit(&prepared, token, 0, .altitudes);
+        // The objects the fill may have added: the document's object list is
+        // stale until re-read (a failure here leaves the edit committed).
+        self.reloadObjectsAfterEdit() catch {};
+    }
+
+    /// The field set's season, for the YES/NO confirmation before an apply.
+    pub fn fieldSetSeason(self: *Editor, name: []const u8) EditError!i32 {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = std.fmt.bufPrintZ(&buffer, "{s}", .{name}) catch return error.Refused;
+        var season: i32 = -1;
+        try self.noteOutcome(self.bridge.fieldSetSeason(name_z, &season));
+        return season;
+    }
 };
 
 /// The same fixture fake_bridge.zig builds for its own tests, exposed here
@@ -4093,3 +4135,4 @@ test "filters: load merges through the bridge, the composer edits session-wide, 
     try std.testing.expectEqual(@as(usize, 2), editor.filtersSlice().len);
     try std.testing.expectEqual(@as(u32, 6), editor.filters_generation);
 }
+

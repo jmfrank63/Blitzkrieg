@@ -813,6 +813,7 @@ static void TestAltitudeRegion()
 // fresh read; the crosses it recomputes are the same UpdateTerrainCrosses
 // call on a copy carrying the same tiles; and the paint's own undo record
 // puts the fill back byte for byte.
+static void TestM3FieldRegion();
 static void TestM3FillRegion()
 {
 	const char *const pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
@@ -3429,6 +3430,7 @@ int main( int argc, char **argv )
 	TestCameraAnchorRecords();
 	TestAltitudeRegion();
 	TestM3FillRegion();
+	TestM3FieldRegion();
 	TestM2RecordOps();
 	TestM2ScriptAreaConversion();
 	TestM2FindReferences();
@@ -3443,4 +3445,82 @@ int main( int argc, char **argv )
 	if ( g_nFailures == 0 )
 		printf( "map-file: PASS\n" );
 	return g_nFailures == 0 ? 0 : 1;
+}
+
+// The Fields tool's region records (M3, D-21, D-40.8's map-file half): the
+// tile half of a fields application is one paint of the log - the region it
+// records (a field-shaped sub-rectangle of the map here, what the session's
+// composite captures) undoes byte-exact, read back fresh.
+static void TestM3FieldRegion()
+{
+	const char *const pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	std::string szError;
+	CMapInfo original;
+	if ( !Check( NMapFile::Read( pszMap, &original, &szError ), "read for the fields-region test" ) )
+		return;
+	const int nSizeX = original.terrain.tiles.GetSizeX(), nSizeY = original.terrain.tiles.GetSizeY();
+	if ( !Check( nSizeX > 8 && nSizeY > 8, "the map has tiles" ) )
+		return;
+	const BYTE nFieldTile = original.terrain.tiles[2][2].tile;
+
+	// A field-shaped region: a square sub-rectangle, what a polygon over the
+	// middle of the map covers.
+	std::vector<NMapOverlay::SPaintCell> cells;
+	for ( int nY = 4; nY < 8; ++nY )
+		for ( int nX = 4; nX < 8; ++nX )
+		{
+			NMapOverlay::SPaintCell cell;
+			cell.nX = nX;
+			cell.nY = nY;
+			cell.tile = nFieldTile;
+			cell.noise = 0;
+			cells.push_back( cell );
+		}
+
+	CMapInfo edited, expected;
+	if ( !Check( NMapFile::Read( pszMap, &edited, &szError ) && NMapFile::Read( pszMap, &expected, &szError ),
+		     "read the edit and its expected map" ) )
+		return;
+	NMapOverlay::SPaintUndo undo;
+	if ( !Check( NMapOverlay::Paint( &edited, cells, &undo ), "the field paint is taken" ) )
+		return;
+	NMapOverlay::SPaintUndo expectedUndo;
+	Check( NMapOverlay::Paint( &expected, cells, &expectedUndo ), "the expected map takes the same paint" );
+
+	// The region record: the paint's own patch rectangle covers the field.
+	// The record's region is in PATCH coordinates: a field over tiles 4..7
+	// lands in the first patch row/column.
+	bool bCovers = undo.rPatches.minx <= 4 / 16 && undo.rPatches.miny <= 4 / 16 && undo.rPatches.maxx >= 1 && undo.rPatches.maxy >= 1;
+	Check( bCovers, NStr::Format( "the record's region covers the field (%d %d %d %d)",
+		undo.rPatches.minx, undo.rPatches.miny, undo.rPatches.maxx, undo.rPatches.maxy ) );
+
+	// The tile half applied and undone, byte-identical on fresh reads.
+	const std::string szEdited = "fields-region-edited.bzm";
+	const std::string szUndone = "fields-region-undone.bzm";
+	const std::string szOriginalFile = "fields-region-original.bzm";
+	Check( NMapFile::Write( szEdited.c_str(), edited, &szError ), "the edited map writes" );
+	Check( NMapFile::Write( szOriginalFile.c_str(), original, &szError ), "the original map writes" );
+	NMapOverlay::UndoPaint( &edited, undo );
+	Check( NMapFile::Write( szUndone.c_str(), edited, &szError ), "the undone map writes" );
+	{
+		// Fresh reads of both files - the UNDONE one and the original - never
+		// copies (the padding rule).
+		CMapInfo readEdited, readOriginal;
+		if ( Check( NMapFile::Read( szUndone.c_str(), &readEdited, &szError ) && NMapFile::Read( szOriginalFile.c_str(), &readOriginal, &szError ),
+			    "both maps read back fresh" ) )
+		{
+			std::string szWhere;
+			Check( NMapFile::AreEquivalent( readOriginal, readEdited, &szWhere ),
+			     ( std::string( "the fields tile half undone is the original (" ) + szWhere + ")" ).c_str() );
+			bool bSame = readEdited.terrain.tiles.GetSizeX() == readOriginal.terrain.tiles.GetSizeX();
+			for ( int nY = 0; nY < nSizeY && bSame; ++nY )
+				for ( int nX = 0; nX < nSizeX && bSame; ++nX )
+					bSame = memcmp( &readEdited.terrain.tiles[nY][nX].tile, &readOriginal.terrain.tiles[nY][nX].tile, 1 ) == 0;
+			Check( bSame, "every tile is back" );
+		}
+		remove( szEdited.c_str() );
+		remove( szUndone.c_str() );
+		remove( szOriginalFile.c_str() );
+	}
+	printf( "map-file: M3 field region ok\n" );
 }

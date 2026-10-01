@@ -497,7 +497,7 @@ bool SetTerrainModesInSession( SEditorSession *pSession, int bInstantUpdate, int
 // everything the composite captured - altitudes, tiles and crosses, and every
 // moved object's position - raw.
 bool UpdateMapInSession( SEditorSession *pSession, void (*pfnProgress)( int nStep, int nTotal, void *pUser ), void *pUser,
-                         bool *pbRefused, int *pnToken );
+                         bool *pbRefused, int *pnToken, IEditRecord **pNestedOut = 0 );
 
 // Fill Entire Map (M3, D-22): the MFC's OnFillArea
 // (TemplateEditorFrame1.cpp:4921-4968) - every tile over patches*16 becomes
@@ -610,6 +610,13 @@ struct SVsoZState
 	std::vector<CVec3> soundPositions;
 };
 
+// The VSO-z capture and putback (session_terrain.cpp), shared by the Update
+// Map composite and the fields composite - the fields heights pass runs the
+// same objects-Z refresh over every road, river and sound.
+void CaptureVsoZ( CMapInfo &rMap, SVsoZState *pState );
+void CaptureEngineVsoZ( ITerrainEditor *pEngineTerrain, SVsoZState *pState );
+void PutVsoZBack( SEditorSession *pSession, const SVsoZState &rSnapshot, const SVsoZState &rWorking, const SVsoZState &rEngine );
+
 // The Update Map composite of the log (05-02, D-20): the altitudes (shades),
 // the tiles and crosses, every object position the fit pass moved, and the
 // VSO z refresh - all put back raw, both copies and the engine, so one undo
@@ -630,6 +637,84 @@ struct SUpdateMapEdit : public IEditRecord
 // Puts one recorded paint region back into both copies and the engine, raw
 // (session.cpp) - the paints' own undo route, shared with the composite.
 bool PutRegionBack( SEditorSession *pSession, const NMapOverlay::SPaintUndo &rRegion );
+
+// ---------------------------------------------------------------------------
+// The Fields tool (M3, D-21, session_fields.cpp): one application of a field
+// set over a drawn polygon as ONE edit of the log.
+// ---------------------------------------------------------------------------
+
+// One fields application. The polygon points are WORLD (Vis) units; z is
+// ignored (the fill reads the terrain). The randomize params are the MFC
+// dialog's own: min length in cells (>= 2, the dialog's edit rule), width
+// 0..0.5, disturbance 0..1 - clamped here before the engine's
+// RandomizeEdges sees them. The flags mirror the dialog's checkboxes; the
+// season confirmation is the caller's (the app's YES/NO popup), the bridge
+// does not gate on season - the MFC's dialog lived above PlaceField too.
+struct SFieldApply
+{
+	std::string szFieldSet;         // storage-relative, as BkEditorListRmg lists them
+	std::vector<CVec3> points;      // 3..64 after the MFC's own UniquePolygon+area rule
+	bool bRandomize;
+	float fMinLength;               // cells
+	float fWidth;                   // 0..0.5
+	float fDisturbance;             // 0..1
+	bool bFillTerrain;
+	bool bPlaceObjects;
+	bool bModifyHeights;
+	bool bUpdateMapAfter;
+	bool bCanAddObjectFilter;       // gate the adds by this named object filter
+	bool bCheckPassabilityOnly;     // report what would happen, change nothing
+	std::string szObjectFilter;     // a name from BkEditorObjectFilters ("" = none)
+
+	SFieldApply() : bRandomize( false ), fMinLength( 2.0f ), fWidth( 0.0f ), fDisturbance( 0.0f ),
+		bFillTerrain( true ), bPlaceObjects( true ), bModifyHeights( true ),
+		bUpdateMapAfter( false ), bCanAddObjectFilter( false ), bCheckPassabilityOnly( false ) {}
+};
+
+// One placed (or refused placement of a) field object in the report.
+struct SFieldObjectReport
+{
+	std::string szName;
+	float fX, fY;                   // AI (map) units, as FillObjectSet left them
+	bool bPlaced;                   // false: the passability or the filter held it back
+};
+
+// The composite edit: the tiles and crosses, the altitudes (shades), every
+// object the application added, and - when update_map_after - the whole
+// Update Map composite nested inside (one token, one undo step). Undo puts
+// the update back first, then removes the added objects, then the tiles and
+// the altitudes: the exact reverse of the apply.
+struct SFieldEdit : public IEditRecord
+{
+	NMapOverlay::SPaintUndo tilesBefore, tilesAfter;
+	NMapOverlay::SAltitudeUndo altitudesBefore, altitudesAfter;
+	SVsoZState vsoSnapshotBefore, vsoSnapshotAfter; // the heights pass's objects-Z refresh rewrites these
+	SVsoZState vsoWorkingBefore, vsoWorkingAfter;
+	SVsoZState vsoEngineBefore, vsoEngineAfter;
+	std::vector<SMapObjectInfo> addedRecords; // whole records, own link IDs; undo removes in reverse, redo re-adds them exact
+	std::unique_ptr<IEditRecord> updateMap; // the nested composite, when it ran
+
+	virtual bool Revert( SEditorSession *pSession );
+	virtual bool Reapply( SEditorSession *pSession );
+};
+
+// The application itself. The report (which may be null) answers every
+// object FillObjectSet produced and whether it was placed. A refusal changes
+// nothing; a mid-pipeline failure puts the before-captures and the objects
+// already added back and refuses.
+bool ApplyFieldInSession( SEditorSession *pSession, const SFieldApply &rApply,
+	std::vector<SFieldObjectReport> *pReport, bool *pbRefused, int *pnToken );
+
+// The field set's season, the CMapInfo::GetSelectedSeason answer for the
+// loaded set - the app compares it with the map's and shows the YES/NO
+// confirmation (the MFC's IDS_INVALID_FIELD_SEASON flow) before applying.
+bool FieldSetSeasonInSession( SEditorSession *pSession, const std::string &rszName, int *pnSeason, bool *pbRefused );
+
+// The RMG storage-folder scan (session_rmg.cpp, D-08): bare storage-relative
+// names, lowercased, .xml stripped, sorted, deduped. Kind: 0 field sets,
+// 1 templates, 2 graphs, 3 containers, 4 settings, 5 chapters. A missing
+// folder is an empty list, not an error.
+bool ListRmgFolder( SEditorSession *pSession, int nKind, std::vector<std::string> *pNames );
 
 // Puts one recorded altitude region back into both copies and the engine,
 // raw (session.cpp) - SAltitudeEdit's own route, shared with the composite.

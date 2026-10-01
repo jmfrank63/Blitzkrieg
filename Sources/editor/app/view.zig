@@ -129,6 +129,7 @@ pub fn ViewWith(comptime Input: type) type {
         /// button (and Alt+drag, and left+right held together) to it as the
         /// level gesture.
         heights_tool: core.tools_heights.Heights = .{},
+        fields_tool: core.tools_fields.Fields = .{},
         /// Set each frame by a panel that uses the Delete key itself (the Start
         /// Commands window while it is focused): the view then does not hand
         /// Delete or Backspace to the tool, which would delete the selected
@@ -865,6 +866,61 @@ pub fn ViewWith(comptime Input: type) type {
             if (result) |_| self.clearStatus() else |err| self.noteToolError(editor, err);
         }
 
+        /// The Fields tool's own pointer/keys (M3, D-21), the MFC editor's
+        /// CFieldsAddState/CFieldsSelectState/CFieldsEditState machine. The
+        /// world points come from the Pointer; z is the ground's business
+        /// (the drag keeps it there, CVSOBuilder::UpdateZ's rule).
+        fn handleFields(self: *Self, editor: *Editor, event: tools.Event) EditError!void {
+            _ = editor;
+            const tool = &self.fields_tool;
+            const radius: f32 = world_cell_size / 4.0;
+            switch (event) {
+                .press => |p| {
+                    if (tool.state == .select) {
+                        _ = tool.pick(p.world_x, p.world_y, radius);
+                        return;
+                    }
+                    if (tool.state == .add) _ = tool.vertexAdd(p.world_x, p.world_y);
+                },
+                .drag => |p| {
+                    switch (tool.state) {
+                        .add => {
+                            // The rubber point follows the cursor.
+                            if (tool.pending_len > 0) tool.pending_len -= 1;
+                            _ = tool.vertexAdd(p.world_x, p.world_y);
+                        },
+                        .edit => _ = tool.dragTo(p.world_x, p.world_y),
+                        .select => {},
+                    }
+                },
+                .release => {
+                    if (tool.state == .edit) tool.dragEnd();
+                },
+                .right_press => |p| {
+                    if (tool.state == .add) tool.vertexRelease(p.world_x, p.world_y);
+                },
+                .right_drag, .right_release => {},
+                .double_click => {
+                    if (tool.state == .add or tool.state == .select) _ = tool.tryClose();
+                },
+                .key => |key| switch (key) {
+                    .enter, .space => {
+                        if (tool.state == .add or tool.state == .select) _ = tool.tryClose();
+                    },
+                    .escape => {
+                        if (tool.state == .add) tool.escape() else tool.clear();
+                    },
+                    .insert => {
+                        if (tool.state == .edit) _ = tool.insertVertex();
+                    },
+                    .delete => {
+                        if (tool.state == .edit) _ = tool.deleteVertex();
+                    },
+                    else => {},
+                },
+            }
+        }
+
         fn dispatch(self: *Self, editor: *Editor, raw_event: tools.Event) void {
             // The modifier travels with the pointer (04-07): the Fence tool's
             // Ctrl flips a single fence. Read where the event is handled, so a
@@ -883,6 +939,7 @@ pub fn ViewWith(comptime Input: type) type {
                 .reserve_positions => self.reserve_tool.handle(editor, event),
                 .ai_general => self.ai_tool.handle(editor, event),
                 .heights => self.heights_tool.handle(editor, event),
+                .fields => handleFields(self, editor, event),
             };
             self.noteEditResult(editor, result);
             // The Start Target tool takes one click: back to the tool it came from.
