@@ -60,7 +60,7 @@ pub fn drawHeightsPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
 
     ig.igSeparatorText("Level to");
     const modes = [_][]const u8{ "Zero", "Click Tile", "Instant Average", "Click Average" };
-    if (ig.igBeginCombo("##level_mode", modes[@intCast(@intFromEnum(tool.level_mode))], 0)) {
+    if (ig.igBeginCombo("##level_mode", modes[@intCast(@intFromEnum(tool.level_mode))].ptr, 0)) {
         for (modes, 0..) |label, index| {
             if (ig.igSelectableEx(label.ptr, index == @intFromEnum(tool.level_mode), 0, .{ .x = 0, .y = 0 })) {
                 _ = commands.run(state, "heights_mode", logic.heights_mode_names[index]);
@@ -76,12 +76,12 @@ pub fn drawHeightsPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     const gen_types = [_][]const u8{ "Hills", "Rocks", "Dunes" };
     const gen_names = [_][]const u8{ "hills", "rocks", "dunes" };
     const gen_values = [_]core.bridge.HeightsGenerateType{ .hills, .rocks, .dunes };
-    var gen_type: usize = switch (state.heights_generate_type) {
+    const gen_type: usize = switch (state.heights_generate_type) {
         .hills => 0,
         .rocks => 1,
         .dunes => 2,
     };
-    if (ig.igBeginCombo("##generate_type", gen_types[gen_type], 0)) {
+    if (ig.igBeginCombo("##generate_type", gen_types[gen_type].ptr, 0)) {
         for (gen_types, 0..) |label, index| {
             if (ig.igSelectableEx(label.ptr, index == gen_type, 0, .{ .x = 0, .y = 0 })) {
                 state.heights_generate_type = gen_values[index];

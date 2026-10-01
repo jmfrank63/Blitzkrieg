@@ -1573,6 +1573,10 @@ BkEditorStatus BkEditorDescribeTile( BkEditorSession *pSession, int nTile, BkEdi
 			return BK_EDITOR_REFUSED;
 		}
 		pOut->terrain_index = nType;
+		// The terrain type's own variant count (D-35): what the MFC's tile
+		// properties dialog shows (TabTileEditDialog.cpp:318), for every
+		// tile the tileset lists, tile 0 included.
+		pOut->variant_count = int( rTileset.terrtypes[nType].tiles.size() );
 		CopyBoundedField( pOut->terrain, sizeof pOut->terrain, rTileset.terrtypes[nType].szName );
 		CopyBoundedField( pOut->tileset, sizeof pOut->tileset, pTerrain->GetTerrainInfo().szTilesetDesc );
 		return BK_EDITOR_OK;

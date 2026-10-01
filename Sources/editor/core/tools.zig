@@ -192,16 +192,22 @@ pub const Selector = struct {
                 if (self.gesture == 0) return;
                 const link_id = editor.selection orelse return;
                 const object = editor.document.find(link_id) orelse return;
-                // The MFC's move path fits the object's own dragged position
-                // (ObjectPlacerState.cpp:165-171), not the pointer's: the ask
-                // is fitted, the map never sees the raw drag.
-                const where = editor.snapToGrid(object.nameSlice(), pointer.map_x + self.grab_x, pointer.map_y + self.grab_y);
-                const pose: editor_mod.Pose = .{
-                    .x = where.x,
-                    .y = where.y,
+                // A selection click's own motion (the pointer settling on the
+                // cell it pressed) asks for exactly the pose the object
+                // already holds: that is no edit, fit or no fit, and this is
+                // the one place a mere click can be told from a drag.
+                const raw: editor_mod.Pose = .{
+                    .x = pointer.map_x + self.grab_x,
+                    .y = pointer.map_y + self.grab_y,
                     .dir = object.dir,
                     .player = object.player,
                 };
+                if (raw.x == object.x and raw.y == object.y) return;
+                // The MFC's move path fits the object's own dragged position
+                // (ObjectPlacerState.cpp:165-171), not the pointer's: the ask
+                // is fitted, the map never sees the raw drag.
+                const where = editor.snapToGrid(object.nameSlice(), raw.x, raw.y);
+                const pose: editor_mod.Pose = .{ .x = where.x, .y = where.y, .dir = raw.dir, .player = raw.player };
                 // A position the engine will not take is skipped: the object
                 // stays at the last one it took and the drag goes on. The
                 // status line says why.
