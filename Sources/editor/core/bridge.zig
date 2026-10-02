@@ -291,6 +291,22 @@ pub const ProgressFn = *const fn (step: c_int, total: c_int, user: ?*anyopaque) 
 /// default LEVEL_TO_2 - instant average).
 pub const HeightsLevelMode = enum(c_int) { zero = 0, click_tile = 1, instant_average = 2, click_average = 3 };
 
+/// BkEditorTileRegion (05-07, D-14), layout included: TILE coordinates,
+/// half-open [x0, x1) x [y0, y1), row 0 at the top of the map.
+pub const TileRegion = extern struct { x0: c_int, y0: c_int, x1: c_int, y1: c_int };
+
+/// BkEditorMinimapUnit (05-07, D-14), layout included: one marker of the MFC
+/// minimap - an AI-tile rectangle, half-open, two AI tiles per terrain tile,
+/// y up from the south edge - in a colour of the 17-colour player table
+/// (`color_index` 0..16); `squad` is 1 for a squad's own marker.
+pub const MinimapUnit = extern struct { link_id: c_int, x0: c_int, y0: c_int, x1: c_int, y1: c_int, color_index: c_int, squad: c_int };
+
+/// BkEditorMinimapArea (05-07, D-14), layout included: one fire-range area the
+/// AI shows. Centre and radii are AI units (64 per terrain tile, y up from the
+/// south edge); the angles are 0..65535 turns, equal for a full circle; `rgb`
+/// is 0x00RRGGBB.
+pub const MinimapArea = extern struct { kind: c_int, cx: f32, cy: f32, radius: f32, min_radius: f32, start_angle: c_int, finish_angle: c_int, rgb: c_uint };
+
 /// BkEditorNewMapParams (M3, D-23), layout included. Sizes are in PATCHES
 /// per axis (1..32), season 0..3 (Summer/Winter/Africa/Spring), and the mod
 /// folder is "" (keep the current mod), "none", or a bare folder name the
@@ -825,9 +841,33 @@ pub const Bridge = struct {
         /// BkEditorUnitCreationChoices: the names a unit-creation combo offers,
         /// two-pass like `listRmg`.
         unitCreationChoices: *const fn (ptr: *anyopaque, kind: UcChoice, out: []UcName, total: *usize) Status,
+        /// BkEditorTiles (05-07, D-14): the tile indices of `region`, row-major,
+        /// row 0 at the top. Two-pass like `altitudes`: `total` is always the
+        /// region's area and a buffer too short for it is refused.
+        tiles: *const fn (ptr: *anyopaque, region: TileRegion, out: []u8, total: *usize) Status,
+        /// BkEditorMinimapTileColors (05-07, D-14): one 0x00RRGGBB per tile index
+        /// of the open map's tileset (`total` is the tileset's tile count, at most
+        /// 256). Two-pass.
+        minimapTileColors: *const fn (ptr: *anyopaque, out: []u32, total: *usize) Status,
+        /// BkEditorMinimapUnits (05-07, D-14): the MFC minimap's object markers.
+        /// Two-pass.
+        minimapUnits: *const fn (ptr: *anyopaque, out: []MinimapUnit, total: *usize) Status,
+        /// BkEditorMinimapAreas (05-07, D-14): the fire-range areas the AI shows
+        /// now (none until a group shows them). Two-pass.
+        minimapAreas: *const fn (ptr: *anyopaque, out: []MinimapArea, total: *usize) Status,
+        /// BkEditorCreateMiniMapImage (05-07, D-17): the four minimap pictures
+        /// (DDS and TGA, 512 `_large` and 256) beside the SAVED map at `map_path`,
+        /// verified by size. Refused, naming why, for a path that is not a saved
+        /// user map; the document is never touched.
+        createMinimapImages: *const fn (ptr: *anyopaque, map_path: []const u8) Status,
     };
 
     pub fn addPlayer(self: Bridge, side: i32, token: *i32) Status { return self.vtable.addPlayer(self.ptr, side, token); }
+    pub fn tiles(self: Bridge, region: TileRegion, out: []u8, total: *usize) Status { return self.vtable.tiles(self.ptr, region, out, total); }
+    pub fn minimapTileColors(self: Bridge, out: []u32, total: *usize) Status { return self.vtable.minimapTileColors(self.ptr, out, total); }
+    pub fn minimapUnits(self: Bridge, out: []MinimapUnit, total: *usize) Status { return self.vtable.minimapUnits(self.ptr, out, total); }
+    pub fn minimapAreas(self: Bridge, out: []MinimapArea, total: *usize) Status { return self.vtable.minimapAreas(self.ptr, out, total); }
+    pub fn createMinimapImages(self: Bridge, map_path: []const u8) Status { return self.vtable.createMinimapImages(self.ptr, map_path); }
     pub fn deletePlayer(self: Bridge, player: i32, token: *i32) Status { return self.vtable.deletePlayer(self.ptr, player, token); }
     pub fn unitCreationChoices(self: Bridge, kind: UcChoice, out: []UcName, total: *usize) Status { return self.vtable.unitCreationChoices(self.ptr, kind, out, total); }
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }

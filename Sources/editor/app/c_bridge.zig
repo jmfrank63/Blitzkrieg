@@ -102,6 +102,19 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorUnitCreationRecord) == 4 + record_types.uc_name_capacity + record_types.uc_aircraft_slots * (record_types.uc_name_capacity + 8) +
         record_types.uc_name_capacity + 4 + 4 + 4 + record_types.max_appear_points * 12);
     std.debug.assert(@sizeOf(c.BkEditorUcName) == @sizeOf(core.bridge.UcName));
+    // The minimap's reads (05-07, D-14): a tile region and the unit and area
+    // records are handed to and filled by the bridge as they are.
+    std.debug.assert(@sizeOf(core.bridge.TileRegion) == @sizeOf(c.BkEditorTileRegion));
+    std.debug.assert(@sizeOf(core.bridge.TileRegion) == 16);
+    std.debug.assert(@sizeOf(core.bridge.MinimapUnit) == @sizeOf(c.BkEditorMinimapUnit));
+    std.debug.assert(@sizeOf(c.BkEditorMinimapUnit) == 7 * 4);
+    std.debug.assert(@offsetOf(core.bridge.MinimapUnit, "color_index") == @offsetOf(c.BkEditorMinimapUnit, "color_index"));
+    std.debug.assert(@offsetOf(core.bridge.MinimapUnit, "squad") == @offsetOf(c.BkEditorMinimapUnit, "squad"));
+    std.debug.assert(@sizeOf(core.bridge.MinimapArea) == @sizeOf(c.BkEditorMinimapArea));
+    std.debug.assert(@sizeOf(c.BkEditorMinimapArea) == 8 * 4);
+    std.debug.assert(@offsetOf(core.bridge.MinimapArea, "radius") == @offsetOf(c.BkEditorMinimapArea, "radius"));
+    std.debug.assert(@offsetOf(core.bridge.MinimapArea, "start_angle") == @offsetOf(c.BkEditorMinimapArea, "start_angle"));
+    std.debug.assert(@offsetOf(core.bridge.MinimapArea, "rgb") == @offsetOf(c.BkEditorMinimapArea, "rgb"));
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -240,6 +253,11 @@ pub const RealBridge = struct {
         .addPlayer = vtableAddPlayer,
         .deletePlayer = vtableDeletePlayer,
         .unitCreationChoices = vtableUnitCreationChoices,
+        .tiles = vtableTiles,
+        .minimapTileColors = vtableMinimapTileColors,
+        .minimapUnits = vtableMinimapUnits,
+        .minimapAreas = vtableMinimapAreas,
+        .createMinimapImages = vtableCreateMinimapImages,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -720,6 +738,92 @@ pub const RealBridge = struct {
             out[i] = @bitCast(item);
         }
         return .ok;
+    }
+
+    /// BkEditorTiles (05-07, D-14): two-pass, the read never past the total
+    /// the sizing call answered.
+    fn vtableTiles(ptr: *anyopaque, region: core.bridge.TileRegion, out: []u8, total: *usize) Status {
+        const self = from(ptr);
+        total.* = 0;
+        const c_region: c.BkEditorTileRegion = @bitCast(region);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorTiles(self.session, &c_region, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (sizing == .refused and count == 0) return .refused;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        var got: c_int = 0;
+        const read = status(c.BkEditorTiles(self.session, &c_region, out.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        return .ok;
+    }
+
+    /// BkEditorMinimapTileColors.
+    fn vtableMinimapTileColors(ptr: *anyopaque, out: []u32, total: *usize) Status {
+        const self = from(ptr);
+        total.* = 0;
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorMinimapTileColors(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (sizing == .refused and count == 0) return .refused;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        var got: c_int = 0;
+        const read = status(c.BkEditorMinimapTileColors(self.session, out.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        return .ok;
+    }
+
+    /// BkEditorMinimapUnits.
+    fn vtableMinimapUnits(ptr: *anyopaque, out: []core.bridge.MinimapUnit, total: *usize) Status {
+        const self = from(ptr);
+        total.* = 0;
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorMinimapUnits(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (sizing == .refused and count == 0) return .refused;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        var got: c_int = 0;
+        const read = status(c.BkEditorMinimapUnits(self.session, @ptrCast(out.ptr), count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        return .ok;
+    }
+
+    /// BkEditorMinimapAreas.
+    fn vtableMinimapAreas(ptr: *anyopaque, out: []core.bridge.MinimapArea, total: *usize) Status {
+        const self = from(ptr);
+        total.* = 0;
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorMinimapAreas(self.session, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (sizing == .refused and count == 0) return .refused;
+        if (count < 0) return .failed;
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        if (total.* == 0) return .ok;
+        var got: c_int = 0;
+        const read = status(c.BkEditorMinimapAreas(self.session, @ptrCast(out.ptr), count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        return .ok;
+    }
+
+    /// BkEditorCreateMiniMapImage (05-07, D-17): the path as an OS path.
+    fn vtableCreateMinimapImages(ptr: *anyopaque, map_path: []const u8) Status {
+        const self = from(ptr);
+        var buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+        const z = terminated(&buffer, map_path) orelse return .bad_argument;
+        return status(c.BkEditorCreateMiniMapImage(self.session, z));
     }
 
     /// BkEditorAddPlayer / BkEditorDeletePlayer (05-05, D-30).
@@ -1775,6 +1879,23 @@ pub const RealBridge = struct {
         var height: c_int = 0;
         const capacity = std.math.cast(c_int, buffer.len) orelse return null;
         if (c.BkEditorTilePicture(self.session, tile, buffer.ptr, capacity, max_side, &width, &height) != c.BK_EDITOR_OK) return null;
+        if (width <= 0 or height <= 0) return null;
+        const needed: usize = @as(usize, @intCast(width)) * @as(usize, @intCast(height)) * 4;
+        if (needed > buffer.len) return null;
+        return .{ .width = width, .height = height, .bytes = buffer[0..needed] };
+    }
+
+    /// 05-07, D-16: the map's own minimap picture (`<map>.tga`, else `<map>_h.dds`)
+    /// decoded by the engine, same contract as `tilePicture`: RGBA8 in the
+    /// caller's buffer, scaled down to `max_side` (8..2048) only when bigger. Null
+    /// when the map has none, it will not decode, or the buffer is too small.
+    pub fn minimapImage(self: *RealBridge, map_path: []const u8, buffer: []u8, max_side: i32) ?Picture {
+        var path_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+        const z = terminated(&path_buffer, map_path) orelse return null;
+        var width: c_int = 0;
+        var height: c_int = 0;
+        const capacity = std.math.cast(c_int, buffer.len) orelse return null;
+        if (c.BkEditorMinimapImage(self.session, z, buffer.ptr, capacity, max_side, &width, &height) != c.BK_EDITOR_OK) return null;
         if (width <= 0 or height <= 0) return null;
         const needed: usize = @as(usize, @intCast(width)) * @as(usize, @intCast(height)) * 4;
         if (needed > buffer.len) return null;

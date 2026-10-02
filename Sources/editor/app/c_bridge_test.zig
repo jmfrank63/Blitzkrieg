@@ -12,6 +12,7 @@ const c_bridge = @import("c_bridge.zig");
 const RealBridge = c_bridge.RealBridge;
 const c = c_bridge.c;
 const Editor = core.editor.Editor;
+const logic = @import("panels_logic.zig");
 
 // A test executable is a host too. On Windows it is entered like MapEditor,
 // through mainCRTStartup (crt.zig minimalFromPeb says why), so the C main
@@ -809,6 +810,81 @@ test "the core drives the real bridge: every command, undone and redone" {
         try expectEngineMatches(&real);
         try expectDocumentIsBridge(&real, &editor);
         std.debug.print("map-editor-engine: M3 altitudes round trip ok\n", .{});
+    }
+
+    // M3 (05-07, D-14/D-15/D-16): the minimap on the real engine. The reads
+    // come through the vtable the panel uses (two-pass, never past the count the
+    // sizing call gave), and a click moves the real camera by the MFC's rule: the
+    // picture's point to the world, plus the anchor's distance from what is under
+    // the screen's centre, held to the map.
+    {
+        const info = editor.document.info;
+        const width: usize = @intCast(info.width_tiles);
+        const height: usize = @intCast(info.height_tiles);
+        const bridge = editor.bridge;
+        var total: usize = 0;
+        const region: core.bridge.TileRegion = .{ .x0 = 0, .y0 = 0, .x1 = info.width_tiles, .y1 = info.height_tiles };
+        var none_tiles: [0]u8 = .{};
+        try std.testing.expectEqual(core.bridge.Status.refused, bridge.tiles(region, &none_tiles, &total));
+        try std.testing.expectEqual(width * height, total);
+        const tiles = try std.testing.allocator.alloc(u8, total);
+        defer std.testing.allocator.free(tiles);
+        try std.testing.expectEqual(core.bridge.Status.ok, bridge.tiles(region, tiles, &total));
+        var cell_y: usize = 0;
+        while (cell_y < height) : (cell_y += 41) {
+            var cell_x: usize = 0;
+            while (cell_x < width) : (cell_x += 37) {
+                try std.testing.expectEqual(try engineTile(&real, @intCast(cell_x), @intCast(cell_y)), tiles[cell_y * width + cell_x]);
+            }
+        }
+        var colors: [256]u32 = undefined;
+        try std.testing.expectEqual(core.bridge.Status.ok, bridge.minimapTileColors(&colors, &total));
+        try std.testing.expect(total > 0 and total <= 256);
+        for (tiles) |tile_index| try std.testing.expect(tile_index < total);
+        var none_units: [0]core.bridge.MinimapUnit = .{};
+        try std.testing.expectEqual(core.bridge.Status.refused, bridge.minimapUnits(&none_units, &total));
+        try std.testing.expect(total > 0);
+        const units = try std.testing.allocator.alloc(core.bridge.MinimapUnit, total);
+        defer std.testing.allocator.free(units);
+        const want_units = total;
+        try std.testing.expectEqual(core.bridge.Status.ok, bridge.minimapUnits(units, &total));
+        try std.testing.expectEqual(want_units, total);
+        var none_areas: [0]core.bridge.MinimapArea = .{};
+        try std.testing.expectEqual(core.bridge.Status.ok, bridge.minimapAreas(&none_areas, &total));
+        try std.testing.expectEqual(@as(usize, 0), total);
+
+        // Game mode's picture: coldwinter ships its _h.dds.
+        const buffer = try std.testing.allocator.alloc(u8, 1024 * 1024 * 4);
+        defer std.testing.allocator.free(buffer);
+        const picture = real.minimapImage(editor.document.path.items, buffer, 1024) orelse return error.NoMinimapPicture;
+        try std.testing.expect(picture.width > 0 and picture.height > 0);
+        try std.testing.expect(real.minimapImage("Data\\Maps\\Multiplayer\\no_such_map.bzm", buffer, 1024) == null);
+
+        // The click: two points of a 256 x 256 picture, the camera where the rule says.
+        const minimap_clicks = [2][2]f32{ .{ 60, 70 }, .{ 190, 40 } };
+        var previous: [2]f32 = .{ -1, -1 };
+        for (minimap_clicks) |click| {
+            const world = logic.minimapToWorld(click[0], click[1], 256, 256, info.width_tiles, info.height_tiles);
+            const screen = real.screenSize() orelse return error.NoScreen;
+            const view_before = real.viewState() orelse return error.NoView;
+            const centre = try editor.resolve(@as(f32, @floatFromInt(screen[0])) / 2.0, @as(f32, @floatFromInt(screen[1])) / 2.0);
+            const target = logic.minimapCameraTarget(world, .{ view_before.anchor_x, view_before.anchor_y }, .{ centre.world_x, centre.world_y }, .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles });
+            try std.testing.expectEqual(core.bridge.Status.ok, real.setCamera(target[0], target[1]));
+            // The projection follows the camera on the next frame the engine draws.
+            _ = c.BkEditorFrame(real.session);
+            const view_after = real.viewState() orelse return error.NoView;
+            // The point of the rule: the clicked point is now at the middle of the screen
+            // (to the projection's own rounding - the engine's anchor comes back a couple
+            // of world units off what was set), whatever the anchor and the centre were.
+            const centre_after = try editor.resolve(@as(f32, @floatFromInt(screen[0])) / 2.0, @as(f32, @floatFromInt(screen[1])) / 2.0);
+            std.debug.print("map-editor-engine: minimap click {d},{d}: world {d:.2},{d:.2}; camera set {d:.2},{d:.2}, the middle of the screen is now {d:.2},{d:.2}\n", .{ click[0], click[1], world[0], world[1], target[0], target[1], centre_after.world_x, centre_after.world_y });
+            try std.testing.expectApproxEqAbs(world[0], centre_after.world_x, 3.0);
+            try std.testing.expectApproxEqAbs(world[1], centre_after.world_y, 3.0);
+            try std.testing.expect(view_after.anchor_x != previous[0] or view_after.anchor_y != previous[1]);
+            previous = .{ view_after.anchor_x, view_after.anchor_y };
+        }
+        try std.testing.expect(!editor.dirty());
+        std.debug.print("map-editor-engine: M3 minimap reads and click round trip ok\n", .{});
     }
 
     std.debug.print("map-editor-engine: PASS ({d} objects)\n", .{objects_at_open});

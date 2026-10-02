@@ -13,6 +13,7 @@ const panels = @import("panels.zig");
 const logic = @import("panels_logic.zig");
 const marker_logic = @import("marker_logic.zig");
 const testlaunch = @import("testlaunch.zig");
+const minimap = @import("minimap.zig");
 
 const State = panels.State;
 const records = core.records;
@@ -141,6 +142,11 @@ pub const command_table = [_]Entry{
     .{ .name = "check_map_fix_all", .handler = checkMapFixAll },
     .{ .name = "check_jump", .handler = checkJump },
     .{ .name = "check_window", .handler = checkWindow },
+    // 05-07 (D-14..D-17): the Minimap panel and Create Minimap Images.
+    .{ .name = "minimap_toggle", .handler = minimapToggle },
+    .{ .name = "minimap_mode", .handler = minimapMode },
+    .{ .name = "minimap_click", .handler = minimapClick },
+    .{ .name = "minimap_create", .handler = minimapCreate },
     .{ .name = "undo", .handler = undoCommand },
     .{ .name = "redo", .handler = redoCommand },
 };
@@ -189,6 +195,10 @@ pub const predicate_table = [_]Entry{
     .{ .name = "unit_creation_is", .handler = unitCreationIs },
     .{ .name = "check_findings", .handler = checkFindingsIs },
     .{ .name = "check_log_has", .handler = checkLogHas },
+    .{ .name = "minimap_mode", .handler = minimapModeIs },
+    .{ .name = "minimap_visible", .handler = minimapVisibleIs },
+    .{ .name = "minimap_moved", .handler = minimapMovedIs },
+    .{ .name = "minimap_files", .handler = minimapFilesExist },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -2873,5 +2883,98 @@ fn undoCommand(state: *State, _: []const u8) Outcome {
 fn redoCommand(state: *State, _: []const u8) Outcome {
     if (!panels.mapIsOpen(state.editor) or !state.editor.history.canRedo()) return .refused;
     state.view.redo(state.editor);
+    return .ok;
+}
+
+// ---------------------------------------------------------------------------
+// The Minimap (05-07, D-14..D-17).
+// ---------------------------------------------------------------------------
+
+/// `do=minimap_toggle[:on|off]` - View > Minimap: the panel shown or hidden (no
+/// argument flips it). A window state, never an edit.
+fn minimapToggle(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) {
+        state.minimap.visible = !state.minimap.visible;
+    } else if (std.mem.eql(u8, arg, "on")) {
+        state.minimap.visible = true;
+    } else if (std.mem.eql(u8, arg, "off")) {
+        state.minimap.visible = false;
+    } else return .bad_arg;
+    return .ok;
+}
+
+/// `do=minimap_mode:<editor|game>` - the panel's Editor and Game buttons. Game
+/// is refused, saying how to get one, for a map with no picture of its own.
+fn minimapMode(state: *State, arg: []const u8) Outcome {
+    const mode = logic.MinimapMode.fromName(arg) orelse return .bad_arg;
+    if (!panels.documentLoaded(state.editor)) return .refused;
+    return if (minimap.setMode(state, mode)) .ok else .refused;
+}
+
+/// `do=minimap_click:<x>x<y>` - a click on the panel, as percents of the
+/// picture's width and height from its top-left (0..100): the camera moves the
+/// way the MFC's minimap click moved it. Refused while the panel is not shown
+/// (there is no picture to click on).
+fn minimapClick(state: *State, arg: []const u8) Outcome {
+    const at = logic.parseMinimapClick(arg) orelse return .bad_arg;
+    if (!minimap.clickPercent(state, at[0], at[1])) {
+        state.view.setStatus("minimap: ", "the minimap is not shown");
+        return .refused;
+    }
+    return .ok;
+}
+
+/// `do=minimap_create` - Map > Create Minimap Images (D-17): the four pictures
+/// beside the saved map. Never part of Save. A shipped or never-saved map goes
+/// through Save As first, and one with unsaved changes through Save (the MFC
+/// saved first too, TemplateEditorFrame1.cpp:300): the pictures are made once
+/// the save lands, so `ok` then means queued. Afterwards the panel shows them.
+pub fn minimapCreate(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    if (!panels.documentLoaded(state.editor)) {
+        state.view.setStatus("minimap: ", "no map is open");
+        return .refused;
+    }
+    if (panels.documentNeedsSaveAs(state) or state.editor.dirty()) {
+        state.minimap.create_pending = true;
+        state.actions.save_requested = true;
+        state.view.setStatus("minimap: ", "saving the map first");
+        return .ok;
+    }
+    return if (minimap.createNow(state)) .ok else .refused;
+}
+
+fn minimapModeIs(state: *State, arg: []const u8) Outcome {
+    const want = logic.MinimapMode.fromName(arg) orelse return .bad_arg;
+    return if (state.minimap.mode == want) .ok else .refused;
+}
+
+fn minimapVisibleIs(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 1 or (arg[0] != '0' and arg[0] != '1')) return .bad_arg;
+    return if (state.minimap.visible == (arg[0] == '1')) .ok else .refused;
+}
+
+/// `expect=minimap_moved[:0|1]` - the last minimap click did (1, the default) or
+/// did not (0) move the camera.
+fn minimapMovedIs(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0 and (arg.len != 1 or (arg[0] != '0' and arg[0] != '1'))) return .bad_arg;
+    const want = arg.len == 0 or arg[0] == '1';
+    return if (state.minimap.last_click_moved == want) .ok else .refused;
+}
+
+/// `expect=minimap_files` - Create Minimap Images' eight files (the four pictures,
+/// the DDS ones as the engine's `_c`/`_l`/`_h` trio) are beside the document's map.
+fn minimapFilesExist(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const files = state.editor.files orelse return .refused;
+    var os_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const path = core.files.osPathFromEngine(&os_buffer, state.editor.document.path.items) orelse return .refused;
+    const base = logic.minimapImageBase(path) orelse return .refused;
+    const suffixes = [_][]const u8{ "_large.tga", "_large_c.dds", "_large_l.dds", "_large_h.dds", ".tga", "_c.dds", "_l.dds", "_h.dds" };
+    var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    for (suffixes) |suffix| {
+        const name = std.fmt.bufPrint(&buffer, "{s}{s}", .{ base, suffix }) catch return .refused;
+        if (!files.exists(name)) return .refused;
+    }
     return .ok;
 }

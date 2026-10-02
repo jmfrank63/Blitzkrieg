@@ -463,6 +463,14 @@ pub const Editor = struct {
         return self.history.dirty();
     }
 
+    /// A counter that moves whenever the map's content may have changed (an
+    /// edit, a merge into one, an undo, a redo, an open, a new map, a close):
+    /// what the Minimap's texture keys its rebuild on (05-07, D-14). It says
+    /// nothing about which part changed.
+    pub fn mapRevision(self: *const Editor) u32 {
+        return self.history.revision;
+    }
+
     /// A fresh key for one press-drag-release. Never 0, which means "never merge".
     pub fn beginGesture(self: *Editor) u32 {
         const gesture = self.next_gesture;
@@ -2675,6 +2683,7 @@ pub const Editor = struct {
         self.replay(&entry.command, false) catch |err| return drifted(err);
         _ = self.history.undo_stack.pop();
         self.history.redo_stack.appendAssumeCapacity(entry);
+        self.history.revision +%= 1;
         try self.afterReplay(&entry.command);
         return true;
     }
@@ -2689,6 +2698,7 @@ pub const Editor = struct {
         self.replay(&entry.command, true) catch |err| return drifted(err);
         _ = self.history.redo_stack.pop();
         self.history.undo_stack.appendAssumeCapacity(entry);
+        self.history.revision +%= 1;
         try self.afterReplay(&entry.command);
         return true;
     }
@@ -5157,4 +5167,95 @@ test "fix all with nothing to fix records nothing; a refused fix is counted and 
 
 test "checks.zig is under the core's own tests" {
     _ = checks;
+}
+
+test "the map revision moves with every edit, undo, redo and open, and with nothing else" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try editor.open("fixture.bzm");
+    const opened = editor.mapRevision();
+    // A read, a status and a dirty question are no change.
+    _ = editor.dirty();
+    _ = editor.status();
+    try std.testing.expectEqual(opened, editor.mapRevision());
+    try editor.setMapType(3);
+    const edited = editor.mapRevision();
+    try std.testing.expect(edited != opened);
+    try std.testing.expect(try editor.undo());
+    const undone = editor.mapRevision();
+    try std.testing.expect(undone != edited);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expect(editor.mapRevision() != undone);
+    const redone = editor.mapRevision();
+    try editor.open("fixture.bzm");
+    try std.testing.expect(editor.mapRevision() != redone);
+}
+
+test "the minimap's reads are two-pass and answer the fake's map (05-07)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    const bridge = editor.bridge;
+    // No map open: the reads refuse.
+    var total: usize = 99;
+    var none: [0]u8 = .{};
+    try std.testing.expectEqual(bridge_mod.Status.refused, bridge.tiles(.{ .x0 = 0, .y0 = 0, .x1 = 2, .y1 = 2 }, &none, &total));
+    try editor.open("fixture.bzm");
+
+    // The tiles: the sizing pass answers the area, the read is the fake's own tiles.
+    const region: bridge_mod.TileRegion = .{ .x0 = 1, .y0 = 2, .x1 = 4, .y1 = 4 };
+    try std.testing.expectEqual(bridge_mod.Status.refused, bridge.tiles(region, &none, &total));
+    try std.testing.expectEqual(@as(usize, 6), total);
+    var tile_buffer: [6]u8 = undefined;
+    try std.testing.expectEqual(bridge_mod.Status.ok, bridge.tiles(region, &tile_buffer, &total));
+    try std.testing.expectEqual(fake.tile(1, 2), tile_buffer[0]);
+    try std.testing.expectEqual(fake.tile(3, 3), tile_buffer[5]);
+    var short: [2]u8 = undefined;
+    try std.testing.expectEqual(bridge_mod.Status.refused, bridge.tiles(region, &short, &total));
+    try std.testing.expectEqual(@as(usize, 6), total);
+    try std.testing.expectEqual(bridge_mod.Status.bad_argument, bridge.tiles(.{ .x0 = 3, .y0 = 0, .x1 = 3, .y1 = 2 }, &none, &total));
+    try std.testing.expectEqual(bridge_mod.Status.refused, bridge.tiles(.{ .x0 = 0, .y0 = 0, .x1 = 9, .y1 = 2 }, &none, &total));
+
+    // The colours: one per tile index, distinct.
+    var no_colors: [0]u32 = .{};
+    try std.testing.expectEqual(bridge_mod.Status.refused, bridge.minimapTileColors(&no_colors, &total));
+    try std.testing.expectEqual(FakeBridge.minimap_tile_count, total);
+    var colors: [FakeBridge.minimap_tile_count]u32 = undefined;
+    try std.testing.expectEqual(bridge_mod.Status.ok, bridge.minimapTileColors(&colors, &total));
+    try std.testing.expectEqual(FakeBridge.minimapColorOf(5), colors[5]);
+    try std.testing.expect(colors[1] != colors[2]);
+
+    // The markers: one per known object, five AI tiles square, the player's colour.
+    var no_units: [0]bridge_mod.MinimapUnit = .{};
+    try std.testing.expectEqual(bridge_mod.Status.refused, bridge.minimapUnits(&no_units, &total));
+    try std.testing.expect(total >= 1);
+    var units: [8]bridge_mod.MinimapUnit = undefined;
+    const want = total;
+    try std.testing.expectEqual(bridge_mod.Status.ok, bridge.minimapUnits(&units, &total));
+    try std.testing.expectEqual(want, total);
+    for (units[0..total]) |unit| {
+        try std.testing.expect(unit.x1 > unit.x0 and unit.y1 > unit.y0);
+        try std.testing.expect(unit.color_index >= 0 and unit.color_index <= 16);
+    }
+
+    // The areas: none until the fake's AI shows some.
+    var no_areas: [0]bridge_mod.MinimapArea = .{};
+    try std.testing.expectEqual(bridge_mod.Status.ok, bridge.minimapAreas(&no_areas, &total));
+    try std.testing.expectEqual(@as(usize, 0), total);
+    try fake.minimap_areas.append(std.testing.allocator, .{ .kind = 0, .cx = 100, .cy = 200, .radius = 300, .min_radius = 0, .start_angle = 65535, .finish_angle = 65535, .rgb = 0x88ff88 });
+    try std.testing.expectEqual(bridge_mod.Status.refused, bridge.minimapAreas(&no_areas, &total));
+    try std.testing.expectEqual(@as(usize, 1), total);
+    var areas: [1]bridge_mod.MinimapArea = undefined;
+    try std.testing.expectEqual(bridge_mod.Status.ok, bridge.minimapAreas(&areas, &total));
+    try std.testing.expectEqual(@as(f32, 300), areas[0].radius);
+
+    // Create Minimap Images: a full path of a map goes, a relative one and a
+    // non-map are not.
+    try std.testing.expectEqual(bridge_mod.Status.refused, bridge.createMinimapImages("Data\\Maps\\a.bzm"));
+    try std.testing.expectEqual(bridge_mod.Status.bad_argument, bridge.createMinimapImages("/maps/a.txt"));
+    try std.testing.expectEqual(bridge_mod.Status.ok, bridge.createMinimapImages("/maps/a.bzm"));
+    try std.testing.expectEqual(@as(u32, 1), fake.images_created);
 }
