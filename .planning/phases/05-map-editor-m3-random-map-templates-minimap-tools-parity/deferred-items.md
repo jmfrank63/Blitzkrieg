@@ -113,3 +113,28 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
   05-11's win-home run (no GUI over SSH); on Windows the m3-auto run's generated map and lists land in the
   profile's own `%APPDATA%\Nival\Blitzkrieg` (the macOS/Linux run redirects XDG_DATA_HOME to
   `zig-out/local-test/map-editor-m3-auto-user`).
+
+## From 05-09
+
+- **Browse takes one map file at a time.** The MFC's Add dialog took several (OFN_ALLOWMULTISELECT); the picker
+  inside the Add patches popup does multi-select over the storages' own list, and Browse (for a map outside them)
+  hands over the first file the dialog answers, as `PathSlot` does everywhere else.
+- **Check! reads every patch map.** A container's Check! loads each patch through the storages (the MFC did
+  too), so a 128-patch container takes a few seconds on the main thread with the window waiting. A dirty
+  rectangle or a background read is the next step if it bothers anyone; the findings are the same.
+- **The Save button of a shipped file asks for a name after the refusal, not before.** The bridge has no "is this
+  name the user's own" read, so a shipped container or graph is found out when Save is pressed (the bridge says
+  Save As and writes nothing, and the title says "(shipped, read-only)" from then on). A read of the owning layer
+  would let the button say so from Open.
+- **The composer files are single files.** The MFC composers kept a list file (Editor\Default*.xml) of
+  containers/graphs and saved them all together; the portable composers open and save one file each (D-08: the
+  lists are folder scans), with the undo of that file only.
+- **The user RMG root is below the mod layer.** A mod's own file of the same storage name shadows the user's
+  (D-09's wording); in practice a user file never has a shipped name, since Save As refuses one.
+- **Nothing in the composers names a script.** The templates' script field (05-10) is where the RELATIVE-script-path
+  ruling of 2026-10-03 applies; this plan baked no absolute script path anywhere, and a generated map still names
+  its script by the engine's absolute output path (WINDOWS.md entry 5).
+- **Windows / CI.** The new data-only step `test-rmg-composer-roundtrip` is not in `.github/workflows/cross-platform.yml`
+  yet (05-08's `test-rmg-determinism` is not either): it runs on macOS arm64 here, and wiring both into the five
+  engine-C++ targets is a workflow edit for the orchestrator. The composer frames of `map-editor-m3-auto` need a GUI
+  and wait for CI or a hand run on win-home, like every M3 scenario before them.

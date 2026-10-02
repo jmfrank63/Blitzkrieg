@@ -565,6 +565,15 @@ bool GetField( const char ( &rField )[N], std::string *pszOut )
 	return true;
 }
 
+// A stored name with no control character in it.
+bool IsPlainText( const std::string &rszText )
+{
+	for ( size_t i = 0; i < rszText.size(); ++i )
+		if ( ( unsigned char )rszText[i] < 0x20 )
+			return false;
+	return true;
+}
+
 // Which folder each composer record lives under.
 const char *RecordFolder( bool bGraph )
 {
@@ -1081,9 +1090,12 @@ bool WriteRmgGraphRecord( SEditorSession *pSession, const std::string &rszName, 
 			*pbRefused = true;
 			return false;
 		}
-		if ( !node.szContainerFileName.empty() && !NPlatform::Paths::IsRelativeDataName( node.szContainerFileName ) )
+		// A stored name is data, not a path this call opens: the shipped graphs hold
+		// some with their authors' drive in front (graph05's road_asphalt_ground), and
+		// every shipped file has to round-trip - the composer's Check! reports those.
+		if ( !IsPlainText( node.szContainerFileName ) )
 		{
-			pSession->szMessage = NStr::Format( "node %d: \"%s\" is not a name in the data", i, node.szContainerFileName.c_str() );
+			pSession->szMessage = NStr::Format( "node %d: the container name holds a control character", i );
 			*pbRefused = true;
 			return false;
 		}
@@ -1106,15 +1118,17 @@ bool WriteRmgGraphRecord( SEditorSession *pSession, const std::string &rszName, 
 			*pbRefused = true;
 			return false;
 		}
-		if ( rIn.type < 0 || rIn.type > 1 || rIn.parts < 0 || !std::isfinite( rIn.radius ) || !std::isfinite( rIn.min_length ) || !std::isfinite( rIn.distance ) || !std::isfinite( rIn.disturbance ) )
+		// The engine treats every type but road as a river, and some shipped links
+		// are typed 2: the bound only keeps the number sane.
+		if ( rIn.type < 0 || rIn.type > 255 || rIn.parts < 0 || !std::isfinite( rIn.radius ) || !std::isfinite( rIn.min_length ) || !std::isfinite( rIn.distance ) || !std::isfinite( rIn.disturbance ) )
 		{
-			pSession->szMessage = NStr::Format( "link %d has a type outside 0..1, a negative part count or a number that is not finite", i );
+			pSession->szMessage = NStr::Format( "link %d has a type outside 0..255, a negative part count or a number that is not finite", i );
 			*pbRefused = true;
 			return false;
 		}
-		if ( !link.szDescFileName.empty() && !NPlatform::Paths::IsRelativeDataName( link.szDescFileName ) )
+		if ( !IsPlainText( link.szDescFileName ) )
 		{
-			pSession->szMessage = NStr::Format( "link %d: \"%s\" is not a name in the data", i, link.szDescFileName.c_str() );
+			pSession->szMessage = NStr::Format( "link %d: the descriptor name holds a control character", i );
 			*pbRefused = true;
 			return false;
 		}
