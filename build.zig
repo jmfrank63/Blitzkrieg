@@ -3827,6 +3827,7 @@ fn addEditorBridge(
             "Sources/src/EditorBridge/filters.cpp",
             "Sources/src/EditorBridge/session_rmg.cpp",
             "Sources/src/EditorBridge/session_fields.cpp",
+            "Sources/src/EditorBridge/session_layers.cpp",
             "Sources/src/EditorBridge/world.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
@@ -5909,6 +5910,19 @@ fn addEditorBridgeTest(
     const step_m3_minimap = b.step("test-editor-bridge-m3-minimap", "Read the minimap's tiles, colours and markers and create its pictures through the engine and check them");
     step_m3_minimap.dependOn(&exe.step);
     if (test_mode == .run) step_m3_minimap.dependOn(&run_m3_minimap.step);
+
+    // 05-06: the Layers menu's probe (what each layer does in this renderer) and the
+    // layer entries through the engine, alone (the full tier above runs them too).
+    const run_m3_layers = b.addRunArtifact(exe);
+    run_m3_layers.setCwd(b.path(stage_root));
+    run_m3_layers.addArg(".");
+    run_m3_layers.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_layers.addArg("--m3-layers-only");
+    run_m3_layers.has_side_effects = true;
+    run_m3_layers.step.dependOn(&install_exe.step);
+    const step_m3_layers = b.step("test-editor-bridge-m3-layers", "Measure what each Layers menu toggle does in the renderer and drive them through the engine");
+    step_m3_layers.dependOn(&exe.step);
+    if (test_mode == .run) step_m3_layers.dependOn(&run_m3_layers.step);
 
     // 05-05: the fixture maps the Check Map scenario and the railroad guard's game
     // proof open. `--craft <kind> <file>` writes one under zig-out/local-test

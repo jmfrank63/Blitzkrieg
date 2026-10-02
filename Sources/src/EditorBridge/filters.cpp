@@ -202,6 +202,31 @@ static BkEditorStatus GuardedSession( SEditorSession *pSession, F body )
 	catch ( ... ) { pSession->szMessage = "the engine threw"; return BK_EDITOR_FAILED; }
 }
 
+// The fire-range layer's matcher (session_layers.cpp) needs the same filters
+// the palette lists, by name: the merged read BkEditorObjectFilters does, the
+// user file winning a byte-equal name.
+bool ReadObjectFilterLists( const std::string &rszName, std::vector< std::vector<std::string> > *pLists )
+{
+	pLists->clear();
+	TBkFilterMap user;
+	ReadUserFilterMap( UserFilterDir(), &user );
+	const auto iUser = user.find( rszName );
+	if ( iUser != user.end() )
+	{
+		for ( const TBkFilterWords &rWords : iUser->second.conditions )
+			pLists->push_back( std::vector<std::string>( rWords.begin(), rWords.end() ) );
+		return true;
+	}
+	TBkFilterMap shipped;
+	LoadDataResource( "editor\\filter", "", false, 0, "filters", shipped );
+	const auto iShipped = shipped.find( rszName );
+	if ( iShipped == shipped.end() )
+		return false;
+	for ( const TBkFilterWords &rWords : iShipped->second.conditions )
+		pLists->push_back( std::vector<std::string>( rWords.begin(), rWords.end() ) );
+	return true;
+}
+
 BkEditorStatus BkEditorObjectFilters( BkEditorSession *pSession, BkEditorObjectFilter *pOut, int nCapacity, int *pnCount )
 {
 	// bridge.cpp defines BkEditorSession as a plain SEditorSession subclass;

@@ -22,6 +22,10 @@ public:
 	// and comes back whole. Both are no-ops for an object already out or in.
 	void HideMapObject( SMapObject *pMO ) { if ( pMO != 0 && pMO->pVisObj.GetPtr() != 0 && IsInScene( pMO ) ) RemoveFromScene( pMO ); }
 	void ShowMapObject( SMapObject *pMO ) { if ( pMO != 0 && pMO->pVisObj.GetPtr() != 0 && !IsInScene( pMO ) ) AddToScene( pMO ); }
+	// The Layers menu's Units Passability (M3, D-32): CWorldBase::ToggleAIInfo is
+	// protected - the game's own caller is a subclass - so the bridge reaches it
+	// through the world it owns. Flips and answers the new state.
+	bool TogglePassability() { return ToggleAIInfo(); }
 	// Every map object the world holds, for the engine tier's check that the
 	// picture and the session agree (WorldMatchesSession).
 	void GetObjects( std::vector<SMapObject*> *pObjects );
