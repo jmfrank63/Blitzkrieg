@@ -7443,6 +7443,11 @@ fn addMapEditor(
     const game_reads_it_m3_run = b.addRunArtifact(exe);
     game_reads_it_m3_run.setCwd(b.path(stage_root));
     game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", b.pathFromRoot("zig-out/local-test/m3-short-railroad.bzm"), b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3.log") });
+    // The authored leg writes its template, graph, container and field set under the
+    // user RMG root and generates a map into the user maps folder: a scratch user root
+    // (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and Linux; on Windows the
+    // profile's is used and the same files are rewritten identically each run).
+    game_reads_it_m3_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3-user"));
     game_reads_it_m3_run.has_side_effects = true;
     game_reads_it_m3_run.step.dependOn(&install_exe.step);
     game_reads_it_m3_run.step.dependOn(&game_reads_it_m2_run.step);

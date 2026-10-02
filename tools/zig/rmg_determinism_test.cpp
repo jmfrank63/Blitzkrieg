@@ -15,6 +15,16 @@
 // two folders would differ in that one path and in nothing else. The copies are of the
 // files as the generator wrote them; the comparison reads them from disk.
 //
+// The authored leg (05-10, D-40.5): a template, a graph, a container and a field set
+// the composers wrote - through the same portable BkEditorRmgWrite* entries the
+// composers' Save uses, into the user RMG root, never touching a shipped file - are
+// generated from twice with the fixed seed and the two maps are byte identical. The
+// authored set is a copy of a shipped one under new names (the template keeps the
+// shipped header, diplomacy and units; its graph list and field list name the
+// authored graph and field set; the graph's nodes name authored copies of the
+// containers they held), and it is written again after each generation wipes the
+// scratch user folder.
+//
 // Needs a hidden SDL window and a GPU device, as the engine tier does, and skips
 // honestly where there is none.
 //
@@ -23,9 +33,11 @@
 #include <SDL3/SDL.h>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include "../../Sources/src/EditorBridge/bridge.h"
 #include "../../Sources/src/Platform/Paths.h"
+#include "rmg_record_io.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <crtdbg.h>
@@ -106,17 +118,74 @@ static std::vector<std::string> ListNames( BkEditorSession *pSession, int nKind 
 	return names;
 }
 
+// The authored set's names (all under the "user" folder of each kind).
+static const char *const g_pszAuthoredTemplate = "scenarios\\templates\\user\\authored_t";
+static const char *const g_pszAuthoredGraph = "scenarios\\graphs\\user\\authored_g";
+static const char *const g_pszAuthoredField = "scenarios\\fieldsets\\user\\authored_f";
+
+// Writes the authored template, graph, containers and field set under the user RMG
+// root, copied from the shipped template `szBase` (its first graph, its default
+// field set); the same files every time it is called.
+static bool AuthorSet( BkEditorSession *pSession, const std::string &szBase )
+{
+	STemplateBuf tpl;
+	if ( !Check( ReadTemplate( pSession, szBase, &tpl ), "the base template reads: " + std::string( BkEditorLastMessage( pSession ) ) ) )
+		return false;
+	if ( !Check( tpl.record.graph_count > 0 && tpl.record.field_count > 0, "the base template names a graph and a field set" ) )
+		return false;
+	SGraphBuf graph;
+	SFieldSetBuf field;
+	const int nDefault = tpl.record.default_field >= 0 && tpl.record.default_field < tpl.record.field_count ? tpl.record.default_field : 0;
+	if ( !Check( ReadGraph( pSession, tpl.record.graphs[0].name, &graph ), "the base graph reads: " + std::string( BkEditorLastMessage( pSession ) ) ) ||
+	     !Check( ReadFieldSet( pSession, tpl.record.fields[nDefault].name, &field ), "the base field set reads: " + std::string( BkEditorLastMessage( pSession ) ) ) )
+		return false;
+	// One authored copy of every distinct container the graph's nodes hold.
+	std::vector<std::string> held;
+	for ( int i = 0; i < graph.record.node_count; ++i )
+	{
+		const std::string szHeld = graph.record.nodes[i].container;
+		if ( szHeld.empty() )
+			continue;
+		size_t nAt = 0;
+		while ( nAt < held.size() && held[nAt] != szHeld )
+			++nAt;
+		if ( nAt == held.size() )
+			held.push_back( szHeld );
+		SContainerBuf container;
+		if ( !Check( ReadContainer( pSession, szHeld, &container ), szHeld + ": the base container reads" ) )
+			return false;
+		char szAuthored[96];
+		sprintf( szAuthored, "scenarios\\containers\\user\\authored_c%d", int( nAt ) );
+		if ( !Check( BkEditorRmgWriteContainer( pSession, szAuthored, &container.record ) == BK_EDITOR_OK, std::string( szAuthored ) + ": the container writes (" + BkEditorLastMessage( pSession ) + ")" ) )
+			return false;
+		strcpy( graph.record.nodes[i].container, szAuthored );
+	}
+	if ( !Check( BkEditorRmgWriteGraph( pSession, g_pszAuthoredGraph, &graph.record ) == BK_EDITOR_OK, std::string( "the graph writes (" ) + BkEditorLastMessage( pSession ) + ")" ) ||
+	     !Check( BkEditorRmgWriteFieldSet( pSession, g_pszAuthoredField, &field.record ) == BK_EDITOR_OK, std::string( "the field set writes (" ) + BkEditorLastMessage( pSession ) + ")" ) )
+		return false;
+	strcpy( tpl.record.graphs[0].name, g_pszAuthoredGraph );
+	tpl.record.graphs[0].weight = 1;
+	tpl.record.graph_count = 1;
+	strcpy( tpl.record.fields[0].name, g_pszAuthoredField );
+	tpl.record.fields[0].weight = 1;
+	tpl.record.field_count = 1;
+	tpl.record.default_field = 0;
+	return Check( BkEditorRmgWriteTemplate( pSession, g_pszAuthoredTemplate, &tpl.record ) == BK_EDITOR_OK, std::string( "the template writes (" ) + BkEditorLastMessage( pSession ) + ")" );
+}
+
 // One generation into the harness's user folder (the bridge builds its output folder
 // from the platform's user root, so the root is pointed at the scratch folder first),
 // the generated map copied to `szCopy` before the next generation replaces it.
 static bool Generate( BkEditorSession *pSession, const std::string &szBase, const std::filesystem::path &userFolder,
                       const BkEditorRmgGenerateParams &rParams, BkEditorRmgGenerateResult *pResult, const std::string &szWhat,
-                      const std::filesystem::path &szCopy )
+                      const std::filesystem::path &szCopy, const std::function<bool()> &prepare = std::function<bool()>() )
 {
 	std::error_code error;
 	std::filesystem::remove_all( userFolder, error );
 	const std::string szUser = userFolder.string() + "/";
 	NPlatform::Paths::SetInjectedRootsForTest( szBase.c_str(), szUser.c_str() );
+	if ( prepare && !Check( prepare(), szWhat + ": the authored files are written" ) )
+		return false;
 	const bool bOk = Check( BkEditorCreateRandomMap( pSession, &rParams, pResult ) == BK_EDITOR_OK, szWhat + ": generates (" + BkEditorLastMessage( pSession ) + ")" );
 	if ( !bOk )
 		return false;
@@ -284,6 +353,28 @@ int main( int argc, char **argv )
 					                                            : "the drawn seed regenerates another map: they differ at byte " + std::to_string( nDifference ) );
 				}
 			}
+			// 5. The authored set: a template, graph, container and field set written
+			// through the composers' I/O, generated from twice (the scratch folder is
+			// wiped and the set written again before each), byte identical.
+			{
+				BkEditorRmgGenerateParams authored = params;
+				strcpy( authored.template_name, g_pszAuthoredTemplate );
+				strcpy( authored.map_name, "rmg_determinism_authored" );
+				const std::function<bool()> author = [&]() { return AuthorSet( pSession, szTemplate ); };
+				BkEditorRmgGenerateResult authoredFirst, authoredSecond;
+				memset( &authoredFirst, 0, sizeof authoredFirst );
+				memset( &authoredSecond, 0, sizeof authoredSecond );
+				if ( Generate( pSession, szBase, user, authored, &authoredFirst, "the first generation from the authored set", root / "authored-first.bzm", author ) &&
+				     Generate( pSession, szBase, user, authored, &authoredSecond, "the second generation from the authored set", root / "authored-second.bzm", author ) )
+				{
+					const long long nDifference = FirstDifference( ( root / "authored-first.bzm" ).string(), ( root / "authored-second.bzm" ).string() );
+					Check( nDifference == -1, nDifference == -2 ? std::string( "the generated maps cannot be read" )
+					                                            : "the authored-set maps differ at byte " + std::to_string( nDifference ) );
+					if ( nDifference == -1 )
+						printf( "rmg-determinism: authored set byte identical ok (seed 424242, graph 0, angle 0)\n" );
+				}
+			}
+
 			std::error_code error;
 			if ( g_nFailures == 0 )
 				std::filesystem::remove_all( root, error );

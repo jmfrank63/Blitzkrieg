@@ -13,7 +13,14 @@
 //!     both records as read - is played by the real Game under BK_AUTO_UI: it must
 //!     load, run and exit 0 (a crash is a nonzero exit or a signal, and `runGame`
 //!     fails on both), and the game's own BK_MAP_TRACE must report the map's roads;
-//!  2. the regression guard: an ordinary shipped map still loads and exits 0.
+//!  2. the regression guard: an ordinary shipped map still loads and exits 0;
+//!  3. the authored leg (05-10, D-40.5): a template, graph, container and field set
+//!     authored through the core Editor's composer I/O (under the user RMG root,
+//!     never a shipped file) generate a map from a fixed seed, the editor opens it,
+//!     and the real Game loads its test copy and exits 0 with the roads the editor
+//!     counted. The user root is the build step's scratch XDG_DATA_HOME where the
+//!     platform honours it; on Windows it is the profile's, and the authored files
+//!     (names under `user\authored_*`) are rewritten identically on every run.
 //!
 //! The log path names a combined report (the traces of both runs); each run's own
 //! full log is `<log>.short-railroad.log` and `<log>.regular.log` beside it.
@@ -21,6 +28,7 @@ const std = @import("std");
 const core = @import("editor_core");
 const common = @import("game_reads_common.zig");
 const testlaunch = @import("testlaunch.zig");
+const panels_logic = @import("panels_logic.zig");
 
 const label = "game reads it M3";
 
@@ -64,6 +72,145 @@ fn appendTraceLines(gpa: std.mem.Allocator, out: *std.ArrayListUnmanaged(u8), he
 
 fn pathWithSuffix(gpa: std.mem.Allocator, log_path: []const u8, suffix: []const u8) ![]u8 {
     return std.fmt.allocPrint(gpa, "{s}{s}", .{ log_path, suffix });
+}
+
+const authored_template = "scenarios\\templates\\user\\authored_t";
+const authored_graph = "scenarios\\graphs\\user\\authored_g";
+const authored_field = "scenarios\\fieldsets\\user\\authored_f";
+
+/// The names one RMG folder lists, owned by the caller (null after printing why).
+fn listNames(gpa: std.mem.Allocator, editor: *core.editor.Editor, kind: core.bridge.RmgKind) ?[]core.bridge.RmgName {
+    var total: usize = 0;
+    _ = editor.bridge.listRmg(kind, &.{}, &total);
+    if (total == 0) return null;
+    const names = gpa.alloc(core.bridge.RmgName, total) catch return null;
+    var got: usize = 0;
+    _ = editor.bridge.listRmg(kind, names, &got);
+    if (got != total) {
+        gpa.free(names);
+        return null;
+    }
+    return names;
+}
+
+fn replaceName(gpa: std.mem.Allocator, slot: *[]u8, text: []const u8) !void {
+    const copy = try gpa.dupe(u8, text);
+    gpa.free(slot.*);
+    slot.* = copy;
+}
+
+/// Authors the set from the shipped template `base` through the Editor's composer
+/// I/O: its first graph, its default field set, an authored copy of every container
+/// the graph's nodes hold, and the template naming the authored graph and field set.
+fn authorSet(gpa: std.mem.Allocator, editor: *core.editor.Editor, base: []const u8) !void {
+    var tpl = try editor.readTemplate(base);
+    defer tpl.deinit(gpa);
+    if (tpl.graphs.items.len == 0 or tpl.fields.items.len == 0) return error.Refused;
+    const default_index: usize = if (tpl.default_field >= 0 and @as(usize, @intCast(tpl.default_field)) < tpl.fields.items.len) @intCast(tpl.default_field) else 0;
+    var graph = try editor.readGraph(tpl.graphs.items[0].name);
+    defer graph.deinit(gpa);
+    var field = try editor.readFieldSet(tpl.fields.items[default_index].name);
+    defer field.deinit(gpa);
+    var held: std.ArrayListUnmanaged([]u8) = .empty;
+    defer {
+        for (held.items) |name| gpa.free(name);
+        held.deinit(gpa);
+    }
+    for (graph.nodes.items) |*node| {
+        if (node.container.len == 0) continue;
+        var at: usize = 0;
+        while (at < held.items.len and !std.mem.eql(u8, held.items[at], node.container)) at += 1;
+        if (at == held.items.len) try held.append(gpa, try gpa.dupe(u8, node.container));
+        var container = try editor.readContainer(node.container);
+        defer container.deinit(gpa);
+        var name_buffer: [96]u8 = undefined;
+        const name = try std.fmt.bufPrint(&name_buffer, "scenarios\\containers\\user\\authored_c{d}", .{at});
+        try editor.writeContainer(name, &container);
+        try replaceName(gpa, &node.container, name);
+    }
+    try editor.writeGraph(authored_graph, &graph);
+    try editor.writeFieldSet(authored_field, &field);
+    for (tpl.graphs.items[1..]) |*entry| entry.deinit(gpa);
+    tpl.graphs.shrinkRetainingCapacity(1);
+    try replaceName(gpa, &tpl.graphs.items[0].name, authored_graph);
+    tpl.graphs.items[0].weight = 1;
+    for (tpl.fields.items[1..]) |*entry| entry.deinit(gpa);
+    tpl.fields.shrinkRetainingCapacity(1);
+    try replaceName(gpa, &tpl.fields.items[0].name, authored_field);
+    tpl.fields.items[0].weight = 1;
+    tpl.default_field = 0;
+    try editor.writeTemplate(authored_template, &tpl);
+}
+
+/// The authored leg: author, generate from the fixed seed, open the map, play its
+/// test copy. True when the game loaded it (its roads equal the editor's) and exited 0.
+fn authoredLeg(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, rig: *common.Rig, paths: *const common.TestPaths, log_path: []const u8) !?usize {
+    const editor = &rig.editor;
+    const base = "scenarios\\templates\\summer\\template02";
+    const contexts = listNames(gpa, editor, .chapters) orelse {
+        std.debug.print("map-editor: {s} FAIL: no chapters are listed\n", .{label});
+        return null;
+    };
+    defer gpa.free(contexts);
+    var context: ?[]const u8 = null;
+    for (contexts) |*entry| {
+        if (std.mem.endsWith(u8, entry.nameSlice(), "\\context")) {
+            context = entry.nameSlice();
+            break;
+        }
+    }
+    const chosen = context orelse {
+        std.debug.print("map-editor: {s} FAIL: no chapter context is listed\n", .{label});
+        return null;
+    };
+    authorSet(gpa, editor, base) catch |err| {
+        std.debug.print("map-editor: {s} FAIL: the authored set would not write ({s}): {s}\n", .{ label, @errorName(err), editor.status() });
+        return null;
+    };
+    var params: core.bridge.RmgGenerateParams = .{};
+    params.setTemplate(authored_template);
+    params.setContext(chosen);
+    params.setSetting("scenarios\\settings\\summer_france");
+    params.setMapName("m3_authored");
+    params.level = 0;
+    params.graph = 0;
+    params.angle = 0;
+    params.save_as_bzm = 1;
+    params.write_dds = 0;
+    params.overwrite = 1;
+    params.has_seed = 1;
+    params.seed = 424242;
+    var result: core.bridge.RmgGenerateResult = .{};
+    editor.createRandomMap(params, &result) catch {
+        std.debug.print("map-editor: {s} FAIL: the authored template would not generate: {s}\n", .{ label, editor.status() });
+        return null;
+    };
+    // The engine's own spelling of the OS path, as the File menu's open does.
+    var open_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+    const generated = panels_logic.enginePath(&open_buffer, result.mapPathSlice(), .open, .bzm) orelse {
+        std.debug.print("map-editor: {s} FAIL: the generated map's path is too long\n", .{label});
+        return null;
+    };
+    editor.open(generated) catch {
+        std.debug.print("map-editor: {s} FAIL: the generated map {s} did not open: {s}\n", .{ label, result.mapPathSlice(), editor.status() });
+        return null;
+    };
+    if (!rig.settle(label, 2)) return null;
+    const roads = editor.vsoCount(.road) catch 0;
+    if (!common.saveTestCopy(rig, label, "authored test copy", paths.test_path)) return null;
+    const authored_log_path = try pathWithSuffix(gpa, log_path, ".authored.log");
+    defer gpa.free(authored_log_path);
+    const played = play(gpa, io, environ, paths, "game on the authored map", authored_log_path) orelse return null;
+    defer gpa.free(played.log);
+    const traced = played.trace.roads orelse {
+        std.debug.print("map-editor: {s} FAIL: the game's BK_MAP_TRACE did not report the authored map's roads (it did not load the map?); see {s}\n", .{ label, authored_log_path });
+        return null;
+    };
+    if (traced != roads) {
+        std.debug.print("map-editor: {s} FAIL: the game loaded {d} roads of the authored map, the editor holds {d}; see {s}\n", .{ label, traced, roads, authored_log_path });
+        return null;
+    }
+    return traced;
 }
 
 /// The scenario. True when every check held; every failure prints `map-editor:
@@ -131,6 +278,9 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         return false;
     }
 
+    // 3. The authored set generates a map the game loads.
+    const authored_roads = (try authoredLeg(gpa, io, environ, &rig, &paths, log_path)) orelse return false;
+
     var report: std.ArrayListUnmanaged(u8) = .empty;
     defer report.deinit(gpa);
     try appendTraceLines(gpa, &report, "=== short railroad ===", crafted.log);
@@ -140,6 +290,7 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         return false;
     };
     common.deleteAutoshots(io, paths.game_path);
-    std.debug.print("map-editor: {s} PASS (short railroad loaded clean: {d} roads incl. {d} short, exit 0; the regular map still loads: {d} roads, exit 0)\n", .{ label, crafted_roads, short, regular_traced });
+    std.debug.print("map-editor: {s}: the authored set generated a map the game loaded clean: {d} roads, exit 0\n", .{ label, authored_roads });
+    std.debug.print("map-editor: {s} PASS (short railroad loaded clean: {d} roads incl. {d} short, exit 0; the regular map still loads: {d} roads, exit 0; the authored template's map loads: {d} roads, exit 0)\n", .{ label, crafted_roads, short, regular_traced, authored_roads });
     return true;
 }
