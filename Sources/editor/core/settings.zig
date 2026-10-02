@@ -14,6 +14,7 @@
 //! an error the caller has to handle.
 const std = @import("std");
 const builtin = @import("builtin");
+const layers_mod = @import("layers.zig");
 
 pub const min_scroll_speed: f32 = 0.25;
 pub const max_scroll_speed: f32 = 4.0;
@@ -71,6 +72,12 @@ pub const Settings = struct {
     /// (its own defaults match); these are what a restart re-applies.
     instant_update: bool = false,
     fit_to_grid: bool = true,
+    /// D-32 (M3): the Layers menu - which layers are shown and the fire-range
+    /// mode with its filter - remembered across restarts (`layers_bits`,
+    /// `fire_range_mode`, `fire_range_filter`). The editor holds the live
+    /// copy and re-applies it to the renderer after every open and new map;
+    /// these are what a restart starts it from.
+    layers: layers_mod.State = .{},
     maps_folder_storage: FixedPath = .{},
     recent_storage: [recent_capacity]FixedPath = [_]FixedPath{.{}} ** recent_capacity,
     recent_count: usize = 0,
@@ -187,6 +194,25 @@ fn applyKey(settings: *Settings, key: []const u8, value: []const u8) void {
         } else if (std.mem.eql(u8, value, "off")) {
             settings.fit_to_grid = false;
         }
+    } else if (std.mem.eql(u8, key, "layers_bits")) {
+        // D-32 (M3): the toggle layers' bits as one decimal number. A value
+        // that is not a number is skipped (the default stays); a number with
+        // bits past the fourteen layers, or the derived fire-range bit, loses
+        // them rather than failing the key.
+        const parsed = std.fmt.parseInt(u32, value, 10) catch return;
+        settings.layers.bits = parsed & layers_mod.all_bits & ~layers_mod.bit(.fire_ranges);
+    } else if (std.mem.eql(u8, key, "fire_range_mode")) {
+        if (std.mem.eql(u8, value, "off")) {
+            settings.layers.fire_mode = .off;
+        } else if (std.mem.eql(u8, value, "selected")) {
+            settings.layers.fire_mode = .selected;
+        } else if (std.mem.eql(u8, value, "filter")) {
+            settings.layers.fire_mode = .filter;
+        }
+    } else if (std.mem.eql(u8, key, "fire_range_filter")) {
+        const len = @min(value.len, layers_mod.max_filter_len);
+        @memcpy(settings.layers.fire_filter_buffer[0..len], value[0..len]);
+        settings.layers.fire_filter_len = len;
     } else if (std.mem.eql(u8, key, "maps_folder")) {
         settings.setMapsFolder(value);
     } else if (std.mem.eql(u8, key, "filter_active")) {
@@ -225,6 +251,10 @@ pub fn parse(text: []const u8) Settings {
         const value = std.mem.trim(u8, trimmed[eq + 1 ..], " \t");
         applyKey(&settings, key, value);
     }
+    // A filter mode with no filter named (a hand-edited file, or the filter key
+    // lost) shows nothing and cannot be sent; it reads as off.
+    if (settings.layers.fire_mode == .filter and settings.layers.fire_filter_len == 0) settings.layers.fire_mode = .off;
+    if (settings.layers.fire_mode != .filter) settings.layers.fire_filter_len = 0;
     return settings;
 }
 
@@ -237,6 +267,9 @@ pub fn format(self: *const Settings, writer: *std.Io.Writer) std.Io.Writer.Error
     try writer.print("default_format={s}\n", .{@tagName(self.default_format)});
     try writer.print("instant_update={s}\n", .{if (self.instant_update) "on" else "off"});
     try writer.print("fit_to_grid={s}\n", .{if (self.fit_to_grid) "on" else "off"});
+    try writer.print("layers_bits={d}\n", .{self.layers.bits & ~layers_mod.bit(.fire_ranges)});
+    try writer.print("fire_range_mode={s}\n", .{@tagName(self.layers.fire_mode)});
+    if (self.layers.fire_mode == .filter) try writer.print("fire_range_filter={s}\n", .{self.layers.fireFilter()});
     if (self.mapsFolder().len != 0) try writer.print("maps_folder={s}\n", .{self.mapsFolder()});
     if (self.filter_active.slice().len != 0) try writer.print("filter_active={s}\n", .{self.filter_active.slice()});
     for (self.filter_slots, 0..) |slot, index| {
@@ -288,6 +321,53 @@ test "terrain toggles: the MFC's own defaults, on/off reads, malformed keeps the
     const malformed = parse("instant_update=yes\nfit_to_grid=1\n");
     try std.testing.expect(!malformed.instant_update);
     try std.testing.expect(malformed.fit_to_grid);
+}
+
+test "layers: the MFC's own menu by default, the bits and the fire-range mode round trip" {
+    try std.testing.expectEqual(layers_mod.default_bits, parse("").layers.bits);
+    try std.testing.expectEqual(layers_mod.FireMode.off, parse("").layers.fire_mode);
+
+    var settings: Settings = .{};
+    settings.layers.set(.grid, true);
+    settings.layers.set(.terrain_noise, false);
+    settings.layers.set(.war_fog, true);
+    settings.layers.setFireRange(.filter, "Axis Units");
+    var buffer: [2048]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    const back = parse(writer.buffered());
+    try std.testing.expectEqual(settings.layers.bits, back.layers.bits);
+    try std.testing.expectEqual(layers_mod.FireMode.filter, back.layers.fire_mode);
+    try std.testing.expectEqualStrings("Axis Units", back.layers.fireFilter());
+    try std.testing.expect(back.layers.shown(.grid) and !back.layers.shown(.terrain_noise) and back.layers.shown(.war_fog));
+
+    // The selected mode needs no filter; a filter key beside another mode is dropped.
+    settings.layers.setFireRange(.selected, "");
+    var writer2: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer2);
+    const selected = parse(writer2.buffered());
+    try std.testing.expectEqual(layers_mod.FireMode.selected, selected.layers.fire_mode);
+    try std.testing.expectEqualStrings("", selected.layers.fireFilter());
+    try std.testing.expect(std.mem.indexOf(u8, writer2.buffered(), "fire_range_filter") == null);
+}
+
+test "layers: old files without the keys keep the defaults, malformed keys are skipped, stray bits are cut" {
+    const old = parse("scroll_speed=1.5\nautosave=on\n");
+    try std.testing.expectEqual(layers_mod.default_bits, old.layers.bits);
+    try std.testing.expectEqual(layers_mod.FireMode.off, old.layers.fire_mode);
+    const malformed = parse("layers_bits=lots\nfire_range_mode=everything\n");
+    try std.testing.expectEqual(layers_mod.default_bits, malformed.layers.bits);
+    try std.testing.expectEqual(layers_mod.FireMode.off, malformed.layers.fire_mode);
+    // Bits past the fourteen layers and the derived fire-range bit are cut.
+    const stray = parse("layers_bits=4294967295\n");
+    try std.testing.expectEqual(layers_mod.all_bits & ~layers_mod.bit(.fire_ranges), stray.layers.bits);
+    // A filter mode with no filter reads as off - it could not be sent.
+    const nameless = parse("fire_range_mode=filter\n");
+    try std.testing.expectEqual(layers_mod.FireMode.off, nameless.layers.fire_mode);
+    // A filter name beside the selected mode is not kept.
+    const stale = parse("fire_range_mode=selected\nfire_range_filter=Buildings\n");
+    try std.testing.expectEqual(layers_mod.FireMode.selected, stale.layers.fire_mode);
+    try std.testing.expectEqualStrings("", stale.layers.fireFilter());
 }
 
 test "default_format: bzm by default, xml reads, malformed keeps the default" {

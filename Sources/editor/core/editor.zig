@@ -9,6 +9,7 @@ const shipped_mod = @import("shipped.zig");
 const records = @import("records.zig");
 const core_filters = @import("filters.zig");
 const checks = @import("checks.zig");
+const layers_mod = @import("layers.zig");
 const Bridge = bridge_mod.Bridge;
 const EditError = bridge_mod.EditError;
 const ObjectRecord = bridge_mod.ObjectRecord;
@@ -82,6 +83,18 @@ pub const Editor = struct {
     /// through the bridge. Panels re-read when `filters_generation` moves.
     filters: std.ArrayListUnmanaged(bridge_mod.ObjectFilter) = .empty,
     filters_generation: u32 = 0,
+    /// The Layers menu (M3, D-32): what the renderer shows, remembered here
+    /// and re-applied to it after every open and new map (`applyLayers`) - the
+    /// MFC editor's check marks and the scene's own flags drifted apart across
+    /// an open. Renderer state: never in the document, the history or a save.
+    /// `layers_mask` is what the renderer can draw (the bridge's answer, read
+    /// at the first apply); `layers_generation` moves with every change so the
+    /// menu knows to redraw; `fire_sent_key` is what the bridge was last told
+    /// for the fire ranges (`syncFireRange` resends when it moves).
+    layers: layers_mod.State = .{},
+    layers_mask: u32 = layers_mod.all_bits,
+    layers_generation: u32 = 0,
+    fire_sent_key: ?u64 = null,
     /// null in a mode that never saves (a headless tier with no need to);
     /// `save` refuses with "saving needs a file system" rather than write
     /// unsafely when this is unset (D-19).
@@ -282,6 +295,7 @@ pub const Editor = struct {
         self.selection = null;
         self.clearSelectionSet();
         self.bumpDocumentGenerations();
+        self.applyLayers();
     }
 
     /// File -> New (M3, D-23): the engine builds the map of `params`
@@ -311,6 +325,7 @@ pub const Editor = struct {
         self.selection = null;
         self.clearSelectionSet();
         self.bumpDocumentGenerations();
+        self.applyLayers();
     }
 
     /// Every generation counter a panel or marker layer keys on moves: a new
@@ -2136,6 +2151,142 @@ pub const Editor = struct {
         };
         tokens.appendAssumeCapacity(token);
         self.history.recordAssumeCapacity(self.allocator, .{ .paint = .{ .tokens = tokens } }, 0);
+    }
+
+    // ------------------------------------------------------------------
+    // The Layers menu (M3, D-32). Renderer state: none of it is map data,
+    // none of it dirties the document or enters the history.
+    // ------------------------------------------------------------------
+
+    /// Whether the renderer can draw `layer` at all (the bridge's mask).
+    pub fn layerAvailable(self: *const Editor, layer: layers_mod.Layer) bool {
+        return self.layers_mask & layers_mod.bit(layer) != 0;
+    }
+
+    /// One toggle layer to a state, in the renderer and in what is remembered.
+    /// Refused (nothing changes) for the fire ranges - a mode, see
+    /// `setFireRange` - for a layer the renderer cannot draw, and with no map
+    /// open (the bridge's own refusal, message carried).
+    pub fn setLayer(self: *Editor, layer: layers_mod.Layer, shown: bool) EditError!void {
+        if (!layers_mod.isToggle(layer)) {
+            self.setStatus("layers: ", "the fire ranges are a mode, not a toggle");
+            return error.Refused;
+        }
+        if (!self.layerAvailable(layer)) {
+            self.setStatus("layers: ", "this renderer cannot draw that layer");
+            return error.Refused;
+        }
+        try self.noteOutcome(self.bridge.setLayerShow(@intFromEnum(layer), shown));
+        self.layers.set(layer, shown);
+        self.layers_generation +%= 1;
+    }
+
+    pub fn toggleLayer(self: *Editor, layer: layers_mod.Layer) EditError!void {
+        try self.setLayer(layer, !self.layers.shown(layer));
+    }
+
+    /// Unit Fire Ranges (TemplateEditorFrame1::ShowFireRange): off, the
+    /// selected units' ranges, or the ranges of every unit a named filter
+    /// passes. Nothing changes when the bridge refuses (an unknown filter name,
+    /// no map open).
+    pub fn setFireRange(self: *Editor, mode: layers_mod.FireMode, filter: []const u8) EditError!void {
+        var next = self.layers;
+        next.setFireRange(mode, filter);
+        try self.sendFireRange(&next, false);
+        self.layers = next;
+        self.layers_generation +%= 1;
+        self.fire_sent_key = self.fireKey();
+    }
+
+    /// Tells the bridge `state`'s fire-range mode with the selection it needs.
+    /// `quiet` leaves the status line alone on success (a per-frame resend must
+    /// not wipe the message of the edit before it).
+    fn sendFireRange(self: *Editor, state: *const layers_mod.State, quiet: bool) EditError!void {
+        var members: []i32 = &.{};
+        defer if (members.len != 0) self.allocator.free(members);
+        if (state.fire_mode == .selected) members = try self.selectionMembers(self.allocator);
+        const answer = self.bridge.setFireRangeMode(@intFromEnum(state.fire_mode), state.fireFilter(), members);
+        if (quiet and answer == .ok) return;
+        // A filter name the bridge does not know (one made in the composer and
+        // not saved yet, or deleted since) is a refusal like any other: the
+        // mode that showed stays, the status line says which name.
+        if (answer == .bad_argument and state.fire_mode == .filter) {
+            self.setStatus("fire range: ", self.bridge.lastMessage());
+            return error.Refused;
+        }
+        try self.noteOutcome(answer);
+    }
+
+    /// What decides which units' ranges show: the mode, the filter's name, and
+    /// - for the selected mode - the selection, for the filter mode the set of
+    /// objects (the history's revision moves with every change of the document).
+    /// Order-independent over the selection.
+    fn fireKey(self: *const Editor) u64 {
+        const mix = struct {
+            fn word(h: u64, w: u64) u64 {
+                return (h ^ w) *% 0x100000001b3;
+            }
+            fn scramble(w: u64) u64 {
+                var x = w +% 0x9e3779b97f4a7c15;
+                x = (x ^ (x >> 30)) *% 0xbf58476d1ce4e5b9;
+                x = (x ^ (x >> 27)) *% 0x94d049bb133111eb;
+                return x ^ (x >> 31);
+            }
+        };
+        var h = self.layers.hash();
+        h = mix.word(h, self.history.revision);
+        h = mix.word(h, self.document.objects.items.len);
+        if (self.layers.fire_mode == .selected) {
+            var acc: u64 = 0;
+            var it = self.selection_set.keyIterator();
+            while (it.next()) |key| acc +%= mix.scramble(@as(u32, @bitCast(key.*)));
+            if (self.selection) |anchor| {
+                if (!self.selection_set.contains(anchor)) acc +%= mix.scramble(@as(u32, @bitCast(anchor)));
+            }
+            h = mix.word(h, acc);
+        }
+        return h;
+    }
+
+    /// The per-frame call: while a fire-range mode is on, the bridge is told
+    /// again whenever what decides the ranges moved (the selection, an edit).
+    /// Cheap when nothing did.
+    pub fn syncFireRange(self: *Editor) void {
+        if (self.layers.fire_mode == .off or self.document.info.width_tiles == 0) return;
+        const key = self.fireKey();
+        if (self.fire_sent_key != null and self.fire_sent_key.? == key) return;
+        self.fire_sent_key = key;
+        self.sendFireRange(&self.layers, true) catch {};
+    }
+
+    /// After every open and new map: the renderer's state is put to what is
+    /// remembered - the MFC editor's desync fix. The bridge reads its own state
+    /// back (a map just built into the engine brings the renderer up as the
+    /// engine's own memory has it), only the layers that differ are sent, and
+    /// only those the renderer can draw. Best effort and quiet: a layer the
+    /// renderer would not take must not turn an open into an error or wipe the
+    /// open's own status.
+    pub fn applyLayers(self: *Editor) void {
+        var bits: u32 = 0;
+        var mask: u32 = 0;
+        if (self.bridge.layers(&bits, &mask) != .ok) return;
+        self.layers_mask = mask & layers_mod.all_bits;
+        const wanted = self.layers.bitsFor(mask);
+        for (std.enums.values(layers_mod.Layer)) |layer| {
+            if (!layers_mod.isToggle(layer) or mask & layers_mod.bit(layer) == 0) continue;
+            const want = wanted & layers_mod.bit(layer) != 0;
+            const have = bits & layers_mod.bit(layer) != 0;
+            if (want != have) _ = self.bridge.setLayerShow(@intFromEnum(layer), want);
+        }
+        self.layers_generation +%= 1;
+        // The AI forgot its groups with the map: the mode is asked again (the
+        // selection is empty after an open, so a selected mode shows nothing
+        // until something is selected).
+        self.fire_sent_key = null;
+        if (self.layers.fire_mode != .off) {
+            self.sendFireRange(&self.layers, true) catch {};
+            self.fire_sent_key = self.fireKey();
+        }
     }
 
     /// The terrain-mode toggles (M3, D-20): a view setting on the bridge
@@ -5259,3 +5410,187 @@ test "the minimap's reads are two-pass and answer the fake's map (05-07)" {
     try std.testing.expectEqual(bridge_mod.Status.ok, bridge.createMinimapImages("/maps/a.bzm"));
     try std.testing.expectEqual(@as(u32, 1), fake.images_created);
 }
+
+// ---------------------------------------------------------------------------
+// The Layers menu (M3, D-32, 05-06): renderer state, remembered and re-applied.
+// ---------------------------------------------------------------------------
+
+fn layerBits(fake: *FakeBridge) u32 {
+    var bits: u32 = 0;
+    var mask: u32 = 0;
+    _ = fake.bridge().layers(&bits, &mask);
+    return bits;
+}
+
+test "layers: a toggle reaches the renderer, reads back, and is no map edit" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const generation = editor.layers_generation;
+    try std.testing.expect(!editor.layers.shown(.grid));
+    try editor.toggleLayer(.grid);
+    try std.testing.expect(editor.layers.shown(.grid));
+    try std.testing.expect(layerBits(&fake) & layers_mod.bit(.grid) != 0);
+    try std.testing.expect(editor.layers_generation != generation);
+    try editor.setLayer(.terrain, false);
+    try std.testing.expect(!editor.layers.shown(.terrain));
+    try std.testing.expect(layerBits(&fake) & layers_mod.bit(.terrain) == 0);
+    try std.testing.expect(layerBits(&fake) & layers_mod.bit(.haze) != 0);
+    // A renderer state is no document edit: nothing to undo, nothing dirty.
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(!editor.history.canUndo());
+    // The same request twice is fine and stays put.
+    try editor.setLayer(.grid, true);
+    try std.testing.expect(editor.layers.shown(.grid));
+}
+
+test "layers: a layer the renderer cannot draw and the fire-range toggle are refused, changing nothing" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    // The open read the mask: the fixture renderer cannot draw the depth complexity.
+    try std.testing.expect(!editor.layerAvailable(.depth_complexity));
+    try std.testing.expect(editor.layerAvailable(.grid));
+    const bits = layerBits(&fake);
+    const state_bits = editor.layers.bits;
+    try std.testing.expectError(error.Refused, editor.toggleLayer(.depth_complexity));
+    try std.testing.expect(!editor.layers.shown(.depth_complexity));
+    try std.testing.expectEqual(state_bits, editor.layers.bits);
+    try std.testing.expectEqual(bits, layerBits(&fake));
+    try std.testing.expectEqualStrings("layers: this renderer cannot draw that layer", editor.status());
+    try std.testing.expectError(error.Refused, editor.setLayer(.fire_ranges, true));
+    try std.testing.expect(!editor.layers.shown(.fire_ranges));
+    // The fake refuses what it is asked past the mask too (the bridge's own rule).
+    try std.testing.expectEqual(bridge_mod.Status.refused, fake.bridge().setLayerShow(@intFromEnum(layers_mod.Layer.depth_complexity), true));
+    try std.testing.expectEqual(bridge_mod.Status.bad_argument, fake.bridge().setLayerShow(99, true));
+    try std.testing.expectEqual(bridge_mod.Status.bad_argument, fake.bridge().setLayerShow(@intFromEnum(layers_mod.Layer.fire_ranges), true));
+}
+
+test "layers: with no map open a toggle is refused and the remembered state stays" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try std.testing.expectError(error.Refused, editor.setLayer(.grid, true));
+    try std.testing.expect(!editor.layers.shown(.grid));
+    try std.testing.expectEqualStrings("no map is open", editor.status());
+}
+
+test "layers: the state is re-applied after every open and every new map (the MFC desync)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.setLayer(.grid, true);
+    try editor.setLayer(.terrain_noise, false);
+    try editor.setLayer(.war_fog, true);
+    try editor.setLayer(.units_passability, true);
+    const chosen = layerBits(&fake);
+    // The fake renderer comes up at its defaults on an open (what the engine's
+    // own memory does to the MFC editor's menu): the editor puts its state back.
+    try editor.open("fixture.bzm");
+    try std.testing.expectEqual(chosen, layerBits(&fake));
+    try std.testing.expect(layerBits(&fake) & layers_mod.bit(.grid) != 0);
+    try std.testing.expect(layerBits(&fake) & layers_mod.bit(.terrain_noise) == 0);
+    try std.testing.expect(layerBits(&fake) & layers_mod.bit(.war_fog) != 0);
+    try editor.newMap(.{ .size_x = 2, .size_y = 2, .season = 0 });
+    try std.testing.expectEqual(chosen, layerBits(&fake));
+    try editor.open("fixture.bzm");
+    try std.testing.expectEqual(chosen, layerBits(&fake));
+    // The re-apply is quiet: an open's status is not wiped by it, and a failed
+    // open does not touch the remembered state.
+    try std.testing.expectError(error.Failed, editor.open("missing.bzm"));
+    try std.testing.expect(editor.layers.shown(.grid));
+}
+
+test "layers: a state loaded before any map (settings) is what the first open applies" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    var remembered: layers_mod.State = .{};
+    remembered.set(.bounding_boxes, true);
+    remembered.set(.shadows, false);
+    remembered.set(.depth_complexity, true); // the renderer cannot draw it: skipped, not an error
+    editor.layers = remembered;
+    try editor.open("fixture.bzm");
+    const bits = layerBits(&fake);
+    try std.testing.expect(bits & layers_mod.bit(.bounding_boxes) != 0);
+    try std.testing.expect(bits & layers_mod.bit(.shadows) == 0);
+    try std.testing.expect(bits & layers_mod.bit(.depth_complexity) == 0);
+    // What was remembered for the layer it cannot draw is kept for a renderer that can.
+    try std.testing.expect(editor.layers.shown(.depth_complexity));
+}
+
+test "layers: fire ranges - selected follows the selection, a filter names a known filter, off clears" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.loadFilters();
+    const first = try editor.addObject("T34", 60, 60, 0, 1);
+    const second = try editor.addObject("T34", 90, 90, 0, 1);
+    // Selected: the bridge is told the selection (one unit).
+    editor.selectOnly(first);
+    try editor.setFireRange(.selected, "");
+    try std.testing.expect(editor.layers.shown(.fire_ranges));
+    try std.testing.expectEqual(@as(u32, 1), fake.fire_mode);
+    try std.testing.expectEqualSlices(i32, &.{first}, fake.fire_link_ids.items);
+    try std.testing.expect(layerBits(&fake) & layers_mod.bit(.fire_ranges) != 0);
+    // The selection moves: the per-frame sync tells the bridge again, once.
+    editor.selectionReplace(&.{ first, second });
+    const calls_before = fake.calls.items.len;
+    editor.syncFireRange();
+    try std.testing.expectEqualSlices(i32, &.{ first, second }, fake.fire_link_ids.items);
+    try std.testing.expectEqual(calls_before + 1, fake.calls.items.len);
+    editor.syncFireRange();
+    editor.syncFireRange();
+    try std.testing.expectEqual(calls_before + 1, fake.calls.items.len);
+    // An edit moves the key too (a deleted selected unit must leave the group).
+    _ = try editor.addObject("T34", 120, 120, 0, 1);
+    const calls_after_add = fake.calls.items.len;
+    editor.syncFireRange();
+    try std.testing.expectEqual(calls_after_add + 1, fake.calls.items.len);
+    try std.testing.expect(fake.calls.items[calls_after_add].kind == .fire_range);
+    // A filter: a known name is sent and remembered, an unknown one refused with the old mode kept.
+    try editor.setFireRange(.filter, "Buildings");
+    try std.testing.expectEqual(@as(u32, 2), fake.fire_mode);
+    try std.testing.expectEqualStrings("Buildings", editor.layers.fireFilter());
+    try std.testing.expectError(error.Refused, editor.setFireRange(.filter, "No Such Filter"));
+    try std.testing.expectEqual(layers_mod.FireMode.filter, editor.layers.fire_mode);
+    try std.testing.expectEqualStrings("Buildings", editor.layers.fireFilter());
+    try std.testing.expectEqual(@as(u32, 2), fake.fire_mode);
+    try std.testing.expectEqualStrings("fire range: no object filter is named that", editor.status());
+    // Off hides every range and forgets the filter.
+    try editor.setFireRange(.off, "");
+    try std.testing.expect(!editor.layers.shown(.fire_ranges));
+    try std.testing.expectEqual(@as(u32, 0), fake.fire_mode);
+    try std.testing.expectEqualStrings("", editor.layers.fireFilter());
+    // With the mode off the sync sends nothing.
+    const calls_off = fake.calls.items.len;
+    editor.syncFireRange();
+    try std.testing.expectEqual(calls_off, fake.calls.items.len);
+}
+
+test "layers: the fire-range mode is asked again after an open - the AI forgot its groups with the map" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.loadFilters();
+    try editor.setFireRange(.filter, "Buildings");
+    try std.testing.expectEqual(@as(u32, 2), fake.fire_mode);
+    try editor.open("fixture.bzm");
+    try std.testing.expectEqual(@as(u32, 2), fake.fire_mode);
+    try std.testing.expectEqualStrings("Buildings", editor.layers.fireFilter());
+    try std.testing.expectEqualStrings("Buildings", fake.fire_filter_buffer[0..fake.fire_filter_len]);
+    // Selected mode: the open cleared the selection, so the group is empty - and
+    // the mode survives for the next selection.
+    try editor.setFireRange(.selected, "");
+    try editor.open("fixture.bzm");
+    try std.testing.expectEqual(@as(u32, 1), fake.fire_mode);
+    try std.testing.expectEqual(@as(usize, 0), fake.fire_link_ids.items.len);
+}
+

@@ -3363,3 +3363,174 @@ test "the minimap pictures are named after the map without its extension" {
     try std.testing.expectEqual(@as(?[]const u8, null), minimapImageBase("/maps/a.txt"));
     try std.testing.expectEqual(@as(?[]const u8, null), minimapImageBase("/maps.bzm/a"));
 }
+
+// ---------------------------------------------------------------------------
+// The Layers menu (M3, D-32, 05-06): its model, with no window.
+// ---------------------------------------------------------------------------
+
+/// The Layers menu's toggle entries in the MFC menu's own order (the fire
+/// ranges are the submenu after them, not a check).
+pub const layer_menu_order = [_]core.layers.Layer{
+    .terrain,         .grid,           .wireframe,      .depth_complexity,
+    .terrain_noise,   .black_stripes,  .units,          .objects,
+    .bounding_boxes,  .shadows,        .haze,           .war_fog,
+    .units_passability,
+};
+
+pub const LayerMenuItem = struct {
+    layer: core.layers.Layer,
+    label: [:0]const u8,
+    /// Shown ticks; a layer the renderer cannot draw never reads as shown.
+    checked: bool,
+    /// Greyed with no map open and for a layer outside the renderer's mask.
+    enabled: bool,
+    tooltip: [:0]const u8,
+};
+
+/// What each entry says when hovered: what it is, or - for the layer the
+/// renderer cannot draw - the measurement that says why it is greyed (05-06's
+/// TestM3LayerProbe).
+pub fn layerTooltip(layer: core.layers.Layer, available: bool) [:0]const u8 {
+    if (!available) {
+        return switch (layer) {
+            .depth_complexity => "The GPU renderer has no overdraw counter: switching this on paints the whole frame white (measured by the layer probe, 05-06), so it is not offered.",
+            else => "This renderer cannot draw this layer.",
+        };
+    }
+    return switch (layer) {
+        .terrain => "The ground. Off leaves objects floating on black.",
+        .grid => "The tile grid over the terrain.",
+        .wireframe => "Everything as its triangle edges.",
+        .depth_complexity => "How many times each pixel is drawn.",
+        .terrain_noise => "The noise texture over the terrain.",
+        .black_stripes => "The black border drawn outside the map's edge.",
+        .units => "Infantry and vehicles.",
+        .objects => "Buildings, trees and every other object.",
+        .bounding_boxes => "Every object's bounding box.",
+        .shadows => "Object shadows.",
+        .haze => "The depth haze over the distance.",
+        .war_fog => "The game's war fog (the editor sees every object either way).",
+        .units_passability => "The tiles units cannot cross, marked on the ground.",
+        .fire_ranges => "The firing ranges of the chosen units.",
+    };
+}
+
+pub fn layerMenuItems(state: *const core.layers.State, mask: u32, map_open: bool) [layer_menu_order.len]LayerMenuItem {
+    var items: [layer_menu_order.len]LayerMenuItem = undefined;
+    for (layer_menu_order, 0..) |layer, index| {
+        const available = mask & core.layers.bit(layer) != 0;
+        items[index] = .{
+            .layer = layer,
+            .label = core.layers.label(layer),
+            .checked = available and state.shown(layer),
+            .enabled = map_open and available,
+            .tooltip = layerTooltip(layer, available),
+        };
+    }
+    return items;
+}
+
+/// The fire-range submenu's three radio entries' labels.
+pub fn fireModeLabel(mode: core.layers.FireMode) [:0]const u8 {
+    return switch (mode) {
+        .off => "Off",
+        .selected => "Selected units",
+        .filter => "Filter",
+    };
+}
+
+/// The submenu's own title with what is on: "Unit Fire Ranges" when off,
+/// "Unit Fire Ranges: selected units" / "...: <filter name>" otherwise.
+pub fn fireRangeTitle(buffer: []u8, state: *const core.layers.State) []const u8 {
+    return switch (state.fire_mode) {
+        .off => "Unit Fire Ranges",
+        .selected => std.fmt.bufPrint(buffer, "Unit Fire Ranges: selected units", .{}) catch "Unit Fire Ranges",
+        .filter => std.fmt.bufPrint(buffer, "Unit Fire Ranges: {s}", .{state.fireFilter()}) catch "Unit Fire Ranges",
+    };
+}
+
+/// A filter name as a script writes it: spaces cannot appear in an auto
+/// argument, so `Axis_Units` names "Axis Units" - the exact spelling wins
+/// when a filter is named with the underscore itself. `buffer` holds the
+/// result; null when no filter matches either spelling.
+pub fn resolveFilterName(buffer: []u8, filters: []const core.bridge.ObjectFilter, arg: []const u8) ?[]const u8 {
+    for (filters) |*one| {
+        if (std.mem.eql(u8, one.nameSlice(), arg)) return one.nameSlice();
+    }
+    if (arg.len > buffer.len) return null;
+    for (arg, 0..) |ch, i| buffer[i] = if (ch == '_') ' ' else ch;
+    const spaced = buffer[0..arg.len];
+    for (filters) |*one| {
+        if (std.mem.eql(u8, one.nameSlice(), spaced)) return one.nameSlice();
+    }
+    return null;
+}
+
+test "layer menu: the MFC's thirteen toggles in its order, the fire ranges apart" {
+    try std.testing.expectEqual(@as(usize, 13), layer_menu_order.len);
+    for (layer_menu_order) |layer| try std.testing.expect(core.layers.isToggle(layer));
+    try std.testing.expectEqual(core.layers.Layer.terrain, layer_menu_order[0]);
+    try std.testing.expectEqual(core.layers.Layer.war_fog, layer_menu_order[11]);
+    try std.testing.expectEqual(core.layers.Layer.units_passability, layer_menu_order[12]);
+    // Every toggle layer is in the menu exactly once.
+    var seen: u32 = 0;
+    for (layer_menu_order) |layer| {
+        try std.testing.expect(seen & core.layers.bit(layer) == 0);
+        seen |= core.layers.bit(layer);
+    }
+    try std.testing.expectEqual(core.layers.all_bits & ~core.layers.bit(.fire_ranges), seen);
+}
+
+test "layer menu: ticks follow the state, a greyed layer never ticks, no map greys everything" {
+    var state: core.layers.State = .{};
+    state.set(.grid, true);
+    state.set(.depth_complexity, true);
+    const mask = core.layers.all_bits & ~core.layers.bit(.depth_complexity);
+    const items = layerMenuItems(&state, mask, true);
+    for (items) |item| {
+        switch (item.layer) {
+            .grid => try std.testing.expect(item.checked and item.enabled),
+            .terrain => try std.testing.expect(item.checked and item.enabled),
+            .wireframe => try std.testing.expect(!item.checked and item.enabled),
+            // Remembered as on, but the renderer cannot draw it: unticked and greyed, with the finding.
+            .depth_complexity => {
+                try std.testing.expect(!item.checked and !item.enabled);
+                try std.testing.expect(std.mem.indexOf(u8, item.tooltip, "white") != null);
+            },
+            else => {},
+        }
+        try std.testing.expect(item.label.len != 0 and item.tooltip.len != 0);
+    }
+    const closed = layerMenuItems(&state, mask, false);
+    for (closed) |item| try std.testing.expect(!item.enabled);
+}
+
+test "layer menu: the fire-range title says what is on" {
+    var buffer: [128]u8 = undefined;
+    var state: core.layers.State = .{};
+    try std.testing.expectEqualStrings("Unit Fire Ranges", fireRangeTitle(&buffer, &state));
+    state.setFireRange(.selected, "");
+    try std.testing.expectEqualStrings("Unit Fire Ranges: selected units", fireRangeTitle(&buffer, &state));
+    state.setFireRange(.filter, "Axis Units");
+    try std.testing.expectEqualStrings("Unit Fire Ranges: Axis Units", fireRangeTitle(&buffer, &state));
+    try std.testing.expectEqualStrings("Off", fireModeLabel(.off));
+    try std.testing.expectEqualStrings("Selected units", fireModeLabel(.selected));
+    try std.testing.expectEqualStrings("Filter", fireModeLabel(.filter));
+}
+
+test "layer menu: a script names a filter with underscores for spaces, the exact name first" {
+    var spaced: core.bridge.ObjectFilter = .{};
+    spaced.setName("Axis Units");
+    var underscored: core.bridge.ObjectFilter = .{};
+    underscored.setName("Odd_Name");
+    var plain: core.bridge.ObjectFilter = .{};
+    plain.setName("Buildings");
+    const filters = [_]core.bridge.ObjectFilter{ spaced, underscored, plain };
+    var buffer: [64]u8 = undefined;
+    try std.testing.expectEqualStrings("Axis Units", resolveFilterName(&buffer, &filters, "Axis_Units").?);
+    try std.testing.expectEqualStrings("Axis Units", resolveFilterName(&buffer, &filters, "Axis Units").?);
+    try std.testing.expectEqualStrings("Odd_Name", resolveFilterName(&buffer, &filters, "Odd_Name").?);
+    try std.testing.expectEqualStrings("Buildings", resolveFilterName(&buffer, &filters, "Buildings").?);
+    try std.testing.expect(resolveFilterName(&buffer, &filters, "Nothing_Here") == null);
+    try std.testing.expect(resolveFilterName(&buffer, &filters, "") == null);
+}

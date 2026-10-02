@@ -299,6 +299,9 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         }
     }
     view.wheel_sensitivity = state.settings.scroll_speed;
+    // D-32 (M3): the Layers menu starts from what the last session left; the
+    // editor re-applies it to the renderer after every open and new map.
+    state.editor.layers = state.settings.layers;
 
     if (!automated) {
         // D-22, spec Errors -> Crashes: offered back once, at startup, before

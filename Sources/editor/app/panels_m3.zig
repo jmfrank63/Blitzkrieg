@@ -996,3 +996,50 @@ pub fn drawCheckMapPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     ig.igPopStyleColor();
     ig.igPopTextWrapPos();
 }
+
+/// The Layers menu (D-32, 05-06): one check per MFC toggle, in the MFC's own
+/// order, greyed with no map open or - with the renderer's own finding as its
+/// tip - for a layer the renderer cannot draw; then the Unit Fire Ranges
+/// submenu (Off / Selected units / one entry per object filter, the D-31
+/// filters the palette's combo lists). Every entry runs a named command, so a
+/// click and a BK_EDITOR_AUTO `do=` are the same code.
+pub fn drawLayersMenu(state: *State, map_open: bool) void {
+    const items = logic.layerMenuItems(&state.editor.layers, state.editor.layers_mask, map_open);
+    for (items) |item| {
+        var on = item.checked;
+        if (ig.igMenuItemBoolPtr(item.label.ptr, null, &on, item.enabled)) {
+            _ = commands.layerToggle(state, core.layers.commandName(item.layer));
+        }
+        if (ig.igIsItemHovered(ig.ImGuiHoveredFlags_AllowWhenDisabled) and ig.igBeginTooltip()) {
+            panels.text(item.tooltip);
+            ig.igEndTooltip();
+        }
+        // The MFC's menu grouped the scene toggles apart from the wire frame and the passability.
+        if (item.layer == .depth_complexity or item.layer == .war_fog) ig.igSeparator();
+    }
+    ig.igSeparator();
+    var title_buffer: [128:0]u8 = undefined;
+    const title = logic.fireRangeTitle(&title_buffer, &state.editor.layers);
+    var title_z: [160:0]u8 = undefined;
+    const title_text = std.fmt.bufPrintZ(&title_z, "{s}###fire_ranges", .{title}) catch "Unit Fire Ranges###fire_ranges";
+    if (ig.igBeginMenu(title_text.ptr)) {
+        defer ig.igEndMenu();
+        const fire_mode = state.editor.layers.fire_mode;
+        if (ig.igMenuItemEx(logic.fireModeLabel(.off).ptr, null, fire_mode == .off, map_open)) _ = commands.fireRange(state, "off");
+        if (ig.igMenuItemEx(logic.fireModeLabel(.selected).ptr, null, fire_mode == .selected, map_open)) _ = commands.fireRange(state, "selected");
+        if (ig.igIsItemHovered(ig.ImGuiHoveredFlags_AllowWhenDisabled) and ig.igBeginTooltip()) {
+            panels.text("The ranges of the units selected now; they follow the selection.");
+            ig.igEndTooltip();
+        }
+        ig.igSeparator();
+        ig.igTextDisabled("Filter:");
+        for (state.editor.filtersSlice()) |*filter| {
+            const name = filter.nameSlice();
+            var name_buffer: [96:0]u8 = undefined;
+            const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{name}) catch continue;
+            const ticked = fire_mode == .filter and std.mem.eql(u8, state.editor.layers.fireFilter(), name);
+            if (ig.igMenuItemEx(name_z.ptr, null, ticked, map_open)) _ = commands.fireRangeFilter(state, name);
+        }
+    }
+}
+

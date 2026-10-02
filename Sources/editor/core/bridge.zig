@@ -716,6 +716,20 @@ pub const Bridge = struct {
         /// BkEditorSetTerrainModes (M3, D-20): the Instant Update and Fit To
         /// Grid toggles. A view setting: no map data, no history.
         setTerrainModes: *const fn (ptr: *anyopaque, instant_update: bool, fit_to_grid: bool) Status,
+        /// BkEditorLayers (M3, D-32): the renderer's layer state - `bits` one
+        /// bit per `layers.Layer` (set = shown), `mask` the layers the
+        /// renderer can draw at all (a refused layer is greyed in the menu).
+        /// Fixed-size, no map need be open.
+        layers: *const fn (ptr: *anyopaque, bits: *u32, mask: *u32) Status,
+        /// BkEditorSetLayerShow (M3, D-32): one toggle layer to a state.
+        /// Renderer state only: no map data, never dirty, no history. Refused
+        /// with no map open or for a layer outside the mask.
+        setLayerShow: *const fn (ptr: *anyopaque, layer: u32, shown: bool) Status,
+        /// BkEditorSetFireRangeMode (M3, D-32): `mode` is a `layers.FireMode`
+        /// value; `filter` names an object filter (`.filter` only) and
+        /// `link_ids` the selection (`.selected` only). The previous group is
+        /// dropped first.
+        setFireRangeMode: *const fn (ptr: *anyopaque, mode: u32, filter: []const u8, link_ids: []const i32) Status,
         /// BkEditorSnapToGrid (M3, D-20): the MFC placer's own question -
         /// where would the fit put (x, y) for this object type? The session's
         /// fit flag decides; the kinds the rule does not fit answer the
@@ -928,6 +942,9 @@ pub const Bridge = struct {
     pub fn updateMap(self: Bridge, progress: ?ProgressFn, user: ?*anyopaque, token: *i32) Status { return self.vtable.updateMap(self.ptr, progress, user, token); }
     pub fn fillEntireMap(self: Bridge, tile: u8, token: *i32) Status { return self.vtable.fillEntireMap(self.ptr, tile, token); }
     pub fn setTerrainModes(self: Bridge, instant_update: bool, fit_to_grid: bool) Status { return self.vtable.setTerrainModes(self.ptr, instant_update, fit_to_grid); }
+    pub fn layers(self: Bridge, bits: *u32, mask: *u32) Status { return self.vtable.layers(self.ptr, bits, mask); }
+    pub fn setLayerShow(self: Bridge, layer: u32, shown: bool) Status { return self.vtable.setLayerShow(self.ptr, layer, shown); }
+    pub fn setFireRangeMode(self: Bridge, mode: u32, filter: []const u8, link_ids: []const i32) Status { return self.vtable.setFireRangeMode(self.ptr, mode, filter, link_ids); }
     pub fn snapToGrid(self: Bridge, name: [*:0]const u8, x: f32, y: f32, out_x: *f32, out_y: *f32) Status { return self.vtable.snapToGrid(self.ptr, name, x, y, out_x, out_y); }
     pub fn vsoDescriptors(self: Bridge, kind: VsoKind, out: []VsoDescriptor, total: *usize) Status { return self.vtable.vsoDescriptors(self.ptr, kind, out, total); }
     pub fn vsoCount(self: Bridge, kind: VsoKind, count: *usize) Status { return self.vtable.vsoCount(self.ptr, kind, count); }

@@ -218,6 +218,9 @@ pub const RealBridge = struct {
         .updateMap = vtableUpdateMap,
         .fillEntireMap = vtableFillEntireMap,
         .setTerrainModes = vtableSetTerrainModes,
+        .layers = vtableLayers,
+        .setLayerShow = vtableSetLayerShow,
+        .setFireRangeMode = vtableSetFireRangeMode,
         .snapToGrid = vtableSnapToGrid,
         .vsoDescriptors = vtableVsoDescriptors,
         .vsoCount = vtableVsoCount,
@@ -1438,6 +1441,32 @@ pub const RealBridge = struct {
     /// BkEditorSetTerrainModes.
     fn vtableSetTerrainModes(ptr: *anyopaque, instant_update: bool, fit_to_grid: bool) Status {
         return status(c.BkEditorSetTerrainModes(from(ptr).session, @intFromBool(instant_update), @intFromBool(fit_to_grid)));
+    }
+
+    /// BkEditorLayers (M3, D-32): two fixed-size words, no sizing pass.
+    fn vtableLayers(ptr: *anyopaque, bits: *u32, mask: *u32) Status {
+        var c_bits: c_uint = 0;
+        var c_mask: c_uint = 0;
+        const result = status(c.BkEditorLayers(from(ptr).session, &c_bits, &c_mask));
+        bits.* = c_bits;
+        mask.* = c_mask;
+        return result;
+    }
+
+    /// BkEditorSetLayerShow.
+    fn vtableSetLayerShow(ptr: *anyopaque, layer: u32, shown: bool) Status {
+        return status(c.BkEditorSetLayerShow(from(ptr).session, @intCast(layer), @intFromBool(shown)));
+    }
+
+    /// BkEditorSetFireRangeMode: the filter name NUL-terminated (a name past
+    /// the object filters' own 63-character rule cannot name a filter, so it is
+    /// a bad argument here and never reaches the engine), the selection by
+    /// pointer and count.
+    fn vtableSetFireRangeMode(ptr: *anyopaque, mode: u32, filter: []const u8, link_ids: []const i32) Status {
+        var buffer: [128]u8 = undefined;
+        const filter_z = terminated(&buffer, filter) orelse return .bad_argument;
+        const ids: ?[*]const c_int = if (link_ids.len == 0) null else @ptrCast(link_ids.ptr);
+        return status(c.BkEditorSetFireRangeMode(from(ptr).session, @intCast(mode), filter_z, ids, @intCast(link_ids.len)));
     }
 
     /// BkEditorSnapToGrid.

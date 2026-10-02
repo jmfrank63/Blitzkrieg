@@ -39,6 +39,10 @@ pub const command_table = [_]Entry{
     .{ .name = "map_fill", .handler = mapFill },
     .{ .name = "instant_update", .handler = instantUpdate },
     .{ .name = "fit_grid", .handler = fitGrid },
+    // 05-06 (D-32): the Layers menu.
+    .{ .name = "layer_toggle", .handler = layerToggle },
+    .{ .name = "layer_set", .handler = layerSet },
+    .{ .name = "fire_range", .handler = fireRange },
     .{ .name = "tile_info", .handler = tileInfo },
     .{ .name = "file_save_xml", .handler = fileSaveXml },
     .{ .name = "file_save_bzm", .handler = fileSaveBzm },
@@ -155,6 +159,9 @@ pub const predicate_table = [_]Entry{
     .{ .name = "anchor_set", .handler = anchorSet },
     .{ .name = "anchor_unset", .handler = anchorUnset },
     .{ .name = "undo_depth", .handler = undoDepth },
+    // 05-06 (D-32): what the renderer holds for a layer, and the fire ranges' areas.
+    .{ .name = "layer", .handler = layerIs },
+    .{ .name = "fire_areas", .handler = fireAreasAtLeast },
     // M3 (D-26/D-28/D-29): the properties', the wheel's and the Damage
     // tool's own predicates.
     .{ .name = "placer_angle", .handler = placerAngleIs },
@@ -412,6 +419,96 @@ pub fn fitGrid(state: *State, arg: []const u8) Outcome {
     state.settings.fit_to_grid = next;
     state.settings_changed = true;
     return .ok;
+}
+
+// ---------------------------------------------------------------------------
+// The Layers menu (M3, D-32): renderer state. Every change is remembered in
+// the editor (re-applied after each open and new map) and carried into the
+// settings for the next start. Nothing here is map data: no history, no dirt.
+// ---------------------------------------------------------------------------
+
+fn layerOutcome(state: *State, result: core.bridge.EditError!void) Outcome {
+    const outcome = resultOutcome(state, result);
+    if (outcome == .ok) {
+        state.settings.layers = state.editor.layers;
+        state.settings_changed = true;
+    }
+    return outcome;
+}
+
+/// `do=layer_toggle:<name>` - Layers > the named entry (`terrain`, `grid`,
+/// `wireframe`, `depth_complexity`, `terrain_noise`, `black_stripes`, `units`,
+/// `objects`, `bounding_boxes`, `shadows`, `haze`, `war_fog`,
+/// `units_passability`). The fire ranges are `fire_range`, not a toggle.
+pub fn layerToggle(state: *State, arg: []const u8) Outcome {
+    const layer = core.layers.fromCommandName(arg) orelse return .bad_arg;
+    if (!core.layers.isToggle(layer)) return .bad_arg;
+    return layerOutcome(state, state.editor.toggleLayer(layer));
+}
+
+/// `do=layer_set:<name>:<0|1>` - the named layer to a state (what a script
+/// wants when it does not know the state it is toggling from).
+fn layerSet(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const layer = core.layers.fromCommandName(arg[0..colon]) orelse return .bad_arg;
+    if (!core.layers.isToggle(layer)) return .bad_arg;
+    const shown = parseZeroOne(arg[colon + 1 ..]) orelse return .bad_arg;
+    return layerOutcome(state, state.editor.setLayer(layer, shown));
+}
+
+fn parseZeroOne(text: []const u8) ?bool {
+    if (std.mem.eql(u8, text, "1")) return true;
+    if (std.mem.eql(u8, text, "0")) return false;
+    return null;
+}
+
+/// `do=fire_range:off`, `do=fire_range:selected` or
+/// `do=fire_range:filter:<name>` - Layers > Unit Fire Ranges: none, the
+/// selected units', or every unit a filter passes (underscores stand for the
+/// spaces of a name, `Axis_Units`). An unknown filter name is refused and
+/// changes nothing.
+pub fn fireRange(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "off")) return layerOutcome(state, state.editor.setFireRange(.off, ""));
+    if (std.mem.eql(u8, arg, "selected")) return layerOutcome(state, state.editor.setFireRange(.selected, ""));
+    const prefix = "filter:";
+    if (!std.mem.startsWith(u8, arg, prefix)) return .bad_arg;
+    var buffer: [128]u8 = undefined;
+    const name = logic.resolveFilterName(&buffer, state.editor.filtersSlice(), arg[prefix.len..]) orelse {
+        state.view.setStatus("fire range: ", "no filter is named that");
+        return .refused;
+    };
+    return fireRangeFilter(state, name);
+}
+
+/// The menu's own entry for a filter: the exact name, whatever characters it
+/// holds (the script spelling `filter:Axis_Units` only exists because an auto
+/// argument cannot hold a space).
+pub fn fireRangeFilter(state: *State, name: []const u8) Outcome {
+    return layerOutcome(state, state.editor.setFireRange(.filter, name));
+}
+
+/// `expect=layer:<name>:<0|1>` - what the renderer says for the layer, read
+/// back from the bridge (not the editor's own memory): the proof a toggle, or
+/// the re-apply after an open, reached the engine.
+fn layerIs(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const layer = core.layers.fromCommandName(arg[0..colon]) orelse return .bad_arg;
+    const shown = parseZeroOne(arg[colon + 1 ..]) orelse return .bad_arg;
+    var bits: u32 = 0;
+    var mask: u32 = 0;
+    if (state.editor.bridge.layers(&bits, &mask) != .ok) return .refused;
+    return if ((bits & core.layers.bit(layer) != 0) == shown) .ok else .refused;
+}
+
+/// `expect=fire_areas:<n>` - at least n shoot areas are shown (the minimap's
+/// read of what the AI shows; line-shaped ranges are left out of it).
+fn fireAreasAtLeast(state: *State, arg: []const u8) Outcome {
+    const wanted = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    var none: [0]core.bridge.MinimapArea = .{};
+    var total: usize = 0;
+    const answer = state.editor.bridge.minimapAreas(&none, &total);
+    if (answer != .ok and answer != .refused) return .refused;
+    return if (total >= wanted) .ok else .refused;
 }
 
 /// `do=tile_info:NN` - the tile properties (M3, D-35/TR2): the tile's
