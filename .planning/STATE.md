@@ -2,14 +2,14 @@
 gsd_state_version: "1.0"
 current_plan: 5
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-10-01T20:29:30.215Z"
-state_head: 9d7923d6567c21c785484bfaf7539ea54185c603
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-10-02T07:02:53.669Z"
+state_head: 639ed80b90ddc8b53c39235e00551f82f6980ce7
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 43
-  completed_plans: 35
+  completed_plans: 36
   percent: 0
 current_phase: 05
 current_phase_name: "Map editor M3: random map templates, minimap tools, full parity"
@@ -26,12 +26,12 @@ current_phase_name: "Map editor M3: random map templates, minimap tools, full pa
 
 ## Current Position
 
-Current Plan: 4
+Current Plan: 5
 Total Plans in Phase: 11
 Progress: [░░░░░░░░░░] 0%
 
-Phase 05 wave 3: 05-03 (filters and fields) summarized; 05-04 next in the
-wave order.
+Phase 05 wave 4: 05-04 (multi-selection, Properties, links, direction
+wheel, Damage tool) summarized; 05-05 next in the wave order.
 
 ## Current summary
 
@@ -67,8 +67,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-10-01T20:28:44.306Z
-**Stopped at:** Completed 05-03-PLAN.md
+**Last session:** 2026-10-02T07:02:53.399Z
+**Stopped at:** Completed 05-04-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -117,6 +117,7 @@ behavior needs the in-game rows).
 | Phase 05 P02 | ~6h (incl. interruption recovery) | 3 tasks | 25 files |
 | Phase 05 P03 | 2 waves (continuation) | 3 tasks | 27 files |
 | Phase 05 P03 | 2 waves (continuation) | 3 tasks | 27 files |
+| Phase 05 P04 | Tasks 1-2 03:36-07:16, Task 3 + gaps 11:50-14:10 | 3 tasks | 30 files |
 
 ## Decisions
 
@@ -185,3 +186,7 @@ behavior needs the in-game rows).
 - [Phase ?]: Save As offers to bring the script along for any map whose script is beside it and the new folder differs (04-13)
 - [Phase ?]: In the width mode All the Roads & Rivers sliders re-width the selected line, one undo step per slider drag (04-13, MFC CW_ALL)
 - [Phase ?]: M2 exit met: M2 sweeps byte-exact (59 maps/460 edits, 57 maps/238 edits), CI 36692345194 green, win-home non-GUI tiers and release package green (04-13)
+- [Phase 05]: 05-04: the direction wheel turns the selection TO its angle (the MFC's TEF:1053-1090), one drag = one undo step
+- [Phase 05]: 05-04: PutObjectRecordBack moves the engine before writing the records; bridge edits copy the before-record before any in-place write
+- [Phase 05]: 05-04: the Damage tool floors squads at 1% like units; Alt+click repairs; SyncEngineHP keeps engine health with the record
+- [Phase 05]: 05-04: BK_EDITOR_AUTO names objects by selection index (@n); link_make uses '='; placer_name takes any placeable entry
