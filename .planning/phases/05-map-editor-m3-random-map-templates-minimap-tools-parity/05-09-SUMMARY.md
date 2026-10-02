@@ -122,10 +122,10 @@ coverage:
   - deliverable: "Windows leg (D-37) and the composer frames on win-home"
     verification:
       - kind: command
-        ref: "pending: the GUI scenario cannot run over ssh win-home, and the data-only step is not in cross-platform.yml yet (deferred-items.md From 05-09); every tier ran green on macOS arm64"
+        ref: "win-home (x86_64-windows-msvc, branch head 58f440dcd, no GUI): test-editor-core 361/361 passed, the app tiers (panels, auto, testlaunch) 211/213 passed with the 2 usual skips, test-editor-bridge and test-rmg-composer-roundtrip COMPILE under MSVC, install-map-editor builds the editor app. Pending: the engine tiers' RUN and the composer frames of map-editor-m3-auto (a GUI cannot be launched over ssh) and the data-only step in CI (it is not in cross-platform.yml yet - deferred-items.md From 05-09)"
         status: pending
     human_judgment: true
-    rationale: "win-home runs no GUI over SSH (executor rules), and wiring test-rmg-composer-roundtrip / test-rmg-determinism into the five engine-C++ targets is a workflow edit left to the orchestrator; the new C++ is platform-plain (std::filesystem, the engine's backslash form, no std::min/max, no reserved identifiers) and the Zig has no platform code."
+    rationale: "win-home runs no GUI over SSH (executor rules), and wiring test-rmg-composer-roundtrip / test-rmg-determinism into the five engine-C++ targets is a workflow edit left to the orchestrator; the new C++ compiles under MSVC on win-home and is platform-plain (std::filesystem, the engine's backslash form, no std::min/max, no reserved identifiers) and the Zig has no platform code."
 
 # Phase 05 Plan 09: Containers and Graphs composers and the user RMG root - Summary
 
@@ -180,7 +180,7 @@ containers and 102 shipped graphs round-trip equal, byte-stable on a second writ
 - **`rmgc_patch_set` grammar.** The auto grammar has no commas, so the command is `<index>:<field>:<value>` (place, north, east, south, west) instead of `<index>,<spec>`; commands take names relative to the kind's folder (64-character cap).
 - **Task commits.** Tasks 2 and 3 share panels_m3.zig, commands.zig and panels.zig, so the Graphs Composer's window and canvas landed with Task 2's commit; Task 3's commit holds the round trip, the frames, the PARITY rows and the bridge/Check! changes the round trip forced. The first commit was amended once, before any push, to carry composers.zig that its root.zig already imported.
 - **One gate run was spoiled and rerun whole.** Two background runs of the engine tier overlapped on `zig-out/local-test` (the second started while the first still ran) and tripped each other's scratch files (about 30 spurious FAIL lines in the layer and cascade tests and the seeded regeneration); the tier was rerun alone, rc 0, no FAIL. No test was changed for it.
-- **Windows:** no win-home run - see the coverage entry.
+- **Windows:** the non-GUI tiers and the MSVC compile ran on win-home after the push (core 361/361, app tiers 211/213, the engine tier and the round trip compile, the editor app builds); the engine tiers' run and the composer frames need CI or a hand run - see the coverage entry.
 
 **Total deviations:** 3 auto-fixed (2 bugs, 1 missing critical functionality), the rest recorded. **Impact:** none on the plan's contract; the data-only round trip is stricter than the plan's "load, save, reload equal" (a second write is byte-identical).
 
