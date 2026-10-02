@@ -44,3 +44,24 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
   engine tests) waits for the orchestrator's push; all of it ran green on macOS arm64.
 - **`TestM3Fields`' byte diagnostic** (`editor-bridge: (identical? ...)`) printed again in the
   gate runs (the known window 4); the test passed.
+
+## From 05-07
+
+- **The minimap's markers are not filtered by the object palette's filter.** The MFC's
+  `CUnitsSelection::Update` asked the palette's `FilterName` for every object (and for the one
+  squad-marker gate `squads\german_hmg`), so choosing a filter such as "Buildings" thinned the
+  minimap. `BkEditorMinimapUnits` answers every object the database knows; the panel draws them all.
+  The D-31 filters are matched on the palette's catalogue paths app-side, so wiring them in is an app
+  change (the markers would need their object's name or path), not a bridge one.
+- **The Heights ramp does not mark invalid heights red.** The MFC painted a vertex the engine's
+  `IsValidHeight` refuses in red; no read says which those are, so the ramp is grey only.
+- **The fire-range areas come from the AI, not from a Layers toggle.** `BkEditorMinimapAreas` reads
+  what `IAILogic::UpdateShootAreas` shows now. Until plan 05-06's fire-range layer registers a group and
+  calls `ShowAreas`, nothing shows them; the engine test registers one itself. 05-06 needs no minimap work.
+- **The minimap rebuilds the whole texture on any document change.** A dirty flag (the history's
+  revision, the Heights tool, the map's size), at most once a frame, not a dirty rectangle; a paint
+  stroke on a 512x512 map re-reads and re-uploads the tiles each frame it moves. Fast enough in the
+  scenario's maps; a region read per edit is the next step if a big map stutters.
+- **The Windows leg** of `test-editor-bridge` (the minimap tests), `test-map-editor-engine` and
+  `map-editor-m3-auto` (the shot comparison) waits for the orchestrator's push: a GUI scenario cannot be
+  launched over `ssh win-home`. All of it ran green on macOS arm64.

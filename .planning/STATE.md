@@ -1,15 +1,15 @@
 ---
 gsd_state_version: "1.0"
-current_plan: 6
+current_plan: 7
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 05-05-PLAN.md
-last_updated: "2026-10-02T10:48:01.129Z"
-state_head: 3d5e4faa5038073e6e75f205a0005183e13914dc
+stopped_at: Completed 05-07-PLAN.md
+last_updated: "2026-10-02T12:01:15.501Z"
+state_head: a78330a538a59af3c4c0c3ec4ae2d39d0fa2fcb9
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 43
-  completed_plans: 37
+  completed_plans: 38
   percent: 0
 current_phase: 05
 current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
@@ -26,7 +26,7 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 
 ## Current Position
 
-Current Plan: 6
+Current Plan: 7
 Total Plans in Phase: 11
 Progress: [░░░░░░░░░░] 0%
 
@@ -67,8 +67,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-10-02T10:48:00.837Z
-**Stopped at:** Completed 05-05-PLAN.md
+**Last session:** 2026-10-02T12:01:15.250Z
+**Stopped at:** Completed 05-07-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -119,6 +119,7 @@ behavior needs the in-game rows).
 | Phase 05 P03 | 2 waves (continuation) | 3 tasks | 27 files |
 | Phase 05 P04 | Tasks 1-2 03:36-07:16, Task 3 + gaps 11:50-14:10 | 3 tasks | 30 files |
 | Phase 5 P05 | 2h50m | 3 tasks | 27 files |
+| Phase 05 P07 | one session | 3 tasks | 17 files |
 
 ## Decisions
 
@@ -196,3 +197,7 @@ behavior needs the in-game rows).
 - [Phase 05]: 05-05: Check Map clears an invalid link (the MFC deleted the object), reports a shared link ID, asks before removing an unknown-type object or a short road; Fix all is one composite undo step; Save only warns
 - [Phase 05]: 05-05: an unknown-type object can be deleted and restored (explicit removal replacing RemoveNonExistingObjects); an owner outside the table moves on the records alone
 - [Phase 05]: 05-05: CRailroadGraphConstructor::Construct skips railroads with fewer than two control points; the unguarded map also crashes the editor's own open
+- [Phase 05]: 05-07: Editor is the minimap's default mode and only Create switches to Game (the MFC's own behaviour, not the plan's wording)
+- [Phase 05]: 05-07: the minimap texture holds only the terrain; markers, areas, camera frame and grid are draw-list overlays placed by the MFC draw tool's maths; refresh is a dirty flag on History.revision
+- [Phase 05]: 05-07: Create Minimap Images is one CreateMiniMapImage call with the MFC's four parameters - eight files (the DDS trio), verified by header size; the bridge refuses relative paths and anything under the installation's Data
+- [Phase 05]: 05-07: BkEditorTiles added so the app can read the tile grid; a tile's minimap colour is its terrain type's first-tile average, as CMiniMapTerrain::UpdateColor
