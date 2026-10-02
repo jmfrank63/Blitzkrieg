@@ -55,6 +55,14 @@ var dialog_slot: logic.PathSlot = .{};
 /// The Script dialog's own file dialog (04-10, D-20: Choose other...), a second
 /// slot for the same reason, and its filter.
 var script_slot: logic.PathSlot = .{};
+
+/// Create Random Map's Browse buttons (05-08, D-01): a third slot, for a template
+/// or a context file picked by the OS dialog and turned back into the
+/// storage-relative name the combos hold.
+var rmg_slot: logic.PathSlot = .{};
+const rmg_filters = [_]sdl3.c.SDL_DialogFileFilter{
+    .{ .name = "RMG files (*.xml)", .pattern = "xml" },
+};
 const script_filters = [_]sdl3.c.SDL_DialogFileFilter{
     .{ .name = "Lua scripts (*.lua)", .pattern = "lua" },
 };
@@ -172,6 +180,22 @@ pub const ScriptCopyPending = struct {
     }
 };
 
+/// Create Random Map's phases (05-08): idle, the modal announced at 0 of 19,
+/// the generator running (one frozen frame), and the result shown.
+pub const RmgPhase = enum { idle, announce, run, done };
+
+/// What the generator's progress callback counts (the callback only stores).
+pub const RmgProgress = struct {
+    steps: i32 = 0,
+    total: i32 = 0,
+
+    pub fn report(step: c_int, total: c_int, user: ?*anyopaque) callconv(.c) void {
+        const self: *RmgProgress = @ptrCast(@alignCast(user.?));
+        self.steps = step;
+        self.total = total;
+    }
+};
+
 pub const State = struct {
     allocator: std.mem.Allocator,
     editor: *Editor,
@@ -246,6 +270,36 @@ pub const State = struct {
     update_report_open: bool = false,
     update_steps: i32 = 0,
     update_total: i32 = 0,
+
+    /// File > Create Random Map (05-08, D-01..D-05): the dialog's fields and the
+    /// edit buffers ImGui writes in place, the combos' lists (read when the
+    /// dialog opens), and the generation's own small state machine. The
+    /// generation is synchronous on the main thread (D-03): OK shows the
+    /// progress modal at 0 of 19 for one frame (`announce`), the next frame runs
+    /// the generator with the window frozen (`run`, the Update Map model: the
+    /// bridge's callback only counts), and the result modal follows (`done`).
+    rmg_open: bool = false,
+    rmg_fields: logic.RmgFields = .{},
+    rmg_map_edit: [core.bridge.rmg_map_name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.rmg_map_name_capacity,
+    rmg_seed_edit: [16:0]u8 = [_:0]u8{0} ** 16,
+    rmg_templates: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
+    rmg_contexts: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
+    rmg_settings: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
+    /// How many graphs the chosen template lists (the graph field's range), -1 unknown.
+    rmg_graph_count: i32 = -1,
+    rmg_phase: RmgPhase = .idle,
+    rmg_popup_opened: bool = false,
+    rmg_params: core.bridge.RmgGenerateParams = .{},
+    rmg_progress: RmgProgress = .{},
+    rmg_result: core.bridge.RmgGenerateResult = .{},
+    /// A generation has succeeded this run (the `rmg_seed` predicate).
+    rmg_made: bool = false,
+    rmg_made_name: logic.NameText = .{},
+    /// Which Browse button is waiting on the OS dialog: 0 none, 1 template, 2 context.
+    rmg_browse_target: u8 = 0,
+    /// The dialog's note under the fields: the last refusal's reason.
+    rmg_message: [320]u8 = undefined,
+    rmg_message_len: usize = 0,
 
     /// File > Open Recent (D-27): whether each entry's file still exists,
     /// checked once (std.Io.Dir access) the frame the submenu newly opens
@@ -741,6 +795,9 @@ pub const State = struct {
         self.vso_line_kinds.deinit(self.allocator);
         for (self.uc_lists) |list| self.allocator.free(list);
         self.allocator.free(self.check_findings);
+        self.rmg_templates.deinit(self.allocator);
+        self.rmg_contexts.deinit(self.allocator);
+        self.rmg_settings.deinit(self.allocator);
         self.* = undefined;
     }
 
@@ -1428,6 +1485,9 @@ pub fn draw(state: *State) void {
     drawUnknownObjectsPrompt(state);
     drawSettingsWindow(state);
     drawNewMapDialog(state);
+    pollRmgBrowse(state);
+    panels_m3.drawRmgDialog(state);
+    panels_m3.drawRmgProgress(state);
     drawRecoveryPrompt(state);
     drawTerrainModals(state);
     updateTitle(state);
@@ -1784,6 +1844,7 @@ fn recoveryFolder(buffer: []u8, state: *const State) ?[]const u8 {
 /// showing.
 fn anyModalOpen(state: *const State) bool {
     return state.actions.dialog.waiting() or state.actions.prompt.isAsking() or state.settings_window_open or
+        state.rmg_phase != .idle or state.rmg_open or
         state.test_prompt.isAskingRestart() or state.test_prompt.report() != null or
         (state.recovery_offers_count != 0 and !state.recovery_prompt_dismissed);
 }
@@ -2373,6 +2434,9 @@ fn drawMenuBar(state: *State) f32 {
         // once the unsaved-changes prompt, if any, has been answered.
         if (ig.igMenuItemEx("New...", new_map_shortcut_label, false, true)) openNewMapDialog(state);
         if (ig.igMenuItemEx("Open...", null, false, true)) state.actions.open_requested = true;
+        // 05-08, D-01: Create Random Map - the generator's own dialog, the
+        // map opened afterwards as any other.
+        if (ig.igMenuItemEx("Create Random Map...", null, false, state.rmg_phase == .idle)) openRmgDialog(state);
         if (ig.igBeginMenu("Open Recent")) {
             if (!state.recent_menu_open_prev) refreshRecentExistsCache(state);
             state.recent_menu_open_prev = true;
@@ -2457,6 +2521,15 @@ fn drawMenuBar(state: *State) f32 {
         // M3, D-26: the Properties window (the MFC CPropertieDialog); it
         // also opens on a double-click, Enter or Space on a selection.
         if (ig.igMenuItemBoolPtr("Properties...", null, &state.properties_open, map_open)) {}
+        // 05-08, D-13: the MFC's Tools 0..3, each writing its list to
+        // <UserRoot>mapeditor/logs (ID_TOOL_4 is not a feature: it would
+        // rewrite Data).
+        if (ig.igBeginMenu("Export lists")) {
+            inline for (comptime std.enums.values(logic.ExportKind)) |kind| {
+                if (ig.igMenuItemEx(kind.menuLabel().ptr, null, false, true)) _ = commands.run(state, "export_lists", @tagName(kind));
+            }
+            ig.igEndMenu();
+        }
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("View")) {
@@ -2772,6 +2845,112 @@ fn openNewMapDialog(state: *State) void {
     const len = @min(name.len, state.new_map_name_edit.len - 1);
     @memcpy(state.new_map_name_edit[0..len], name[0..len]);
     state.new_map_dialog_open = true;
+}
+
+/// Opens the Create Random Map dialog (05-08, D-01) with the fields as they
+/// were last left: the template, context and setting lists are read afresh
+/// (a mod switch changes them), the edit buffers loaded from the fields.
+pub fn openRmgDialog(state: *State) void {
+    readRmgNames(state, .templates, &state.rmg_templates, false);
+    readRmgNames(state, .chapters, &state.rmg_contexts, true);
+    readRmgNames(state, .settings, &state.rmg_settings, false);
+    syncRmgEdits(state);
+    refreshRmgGraphCount(state);
+    state.rmg_message_len = 0;
+    state.rmg_open = true;
+}
+
+/// The dialog's text edit buffers (the map name and the seed) loaded from the
+/// fields - on open, and after a script set one of them.
+pub fn syncRmgEdits(state: *State) void {
+    const name = state.rmg_fields.map_name.slice();
+    const name_len = @min(name.len, state.rmg_map_edit.len - 1);
+    @memset(&state.rmg_map_edit, 0);
+    @memcpy(state.rmg_map_edit[0..name_len], name[0..name_len]);
+    const seed = state.rmg_fields.seed.slice();
+    const seed_len = @min(seed.len, state.rmg_seed_edit.len - 1);
+    @memset(&state.rmg_seed_edit, 0);
+    @memcpy(state.rmg_seed_edit[0..seed_len], seed[0..seed_len]);
+}
+
+/// One RMG folder's names into `list` (replacing it), the bridge's two-pass
+/// read: the sizing pass is refused with the total when the folder lists
+/// anything. `contexts_only` keeps the chapters' own `context` files, the
+/// MFC combo's contents. A failed read leaves the list empty.
+fn readRmgNames(state: *State, kind: core.bridge.RmgKind, list: *std.ArrayListUnmanaged(core.bridge.RmgName), contexts_only: bool) void {
+    list.clearRetainingCapacity();
+    var total: usize = 0;
+    _ = state.editor.bridge.listRmg(kind, &.{}, &total);
+    if (total == 0) return;
+    const names = state.allocator.alloc(core.bridge.RmgName, total) catch return;
+    defer state.allocator.free(names);
+    var read_total: usize = 0;
+    if (state.editor.bridge.listRmg(kind, names, &read_total) != .ok) return;
+    for (names[0..@min(read_total, names.len)]) |entry| {
+        if (contexts_only and !logic.isContextName(entry.nameSlice())) continue;
+        list.append(state.allocator, entry) catch return;
+    }
+}
+
+/// How many graphs the chosen template lists, for the graph field's range
+/// (the sizing pass of BkEditorRmgTemplateGraphs); -1 when it is not known.
+pub fn refreshRmgGraphCount(state: *State) void {
+    state.rmg_graph_count = -1;
+    var buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
+    const template = std.fmt.bufPrintZ(&buffer, "{s}", .{state.rmg_fields.template.slice()}) catch return;
+    if (template.len == 0) return;
+    var total: usize = 0;
+    const status = state.editor.bridge.rmgTemplateGraphs(template.ptr, &.{}, &total);
+    if (status == .ok or status == .refused) {
+        if (total > 0) state.rmg_graph_count = @intCast(total);
+    }
+}
+
+/// Browse next to the template or context combo: the OS file dialog over the
+/// game's Data folder (never taken with OS dialogs off - a scripted run names
+/// its files through `rmg_generate`).
+pub fn browseRmg(state: *State, target: u8) void {
+    if (!state.os_dialogs) return;
+    if (!rmg_slot.request(.open)) return;
+    state.rmg_browse_target = target;
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+    var default_location: ?[*:0]const u8 = null;
+    const sub: []const u8 = if (target == 1) "Scenarios" ++ std.fs.path.sep_str ++ "Templates" else "Scenarios" ++ std.fs.path.sep_str ++ "Chapters";
+    if (std.fmt.bufPrint(&folder_buffer, "{s}Data{c}{s}", .{ baseRoot(state), std.fs.path.sep, sub })) |folder| {
+        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
+    } else |_| {}
+    state.os_dialogs_opened += 1;
+    sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &rmg_slot, state.window, &rmg_filters, rmg_filters.len, default_location, false);
+}
+
+/// Each frame: what a Browse dialog answered, once. A file inside the game's
+/// Data folder becomes the template or context (its storage-relative name);
+/// anything else is said to be outside the data.
+fn pollRmgBrowse(state: *State) void {
+    const result = rmg_slot.take() orelse return;
+    const target = state.rmg_browse_target;
+    state.rmg_browse_target = 0;
+    switch (result) {
+        .cancelled => {},
+        .failed => |message| state.view.setStatus("the file dialog failed: ", message),
+        .path => |chosen| {
+            var buffer: [core.bridge.field_set_name_capacity]u8 = undefined;
+            const name = logic.storageNameFromBrowse(&buffer, baseRoot(state), chosen.path) orelse {
+                const note = "that file is not inside the game's Data folder";
+                @memcpy(state.rmg_message[0..note.len], note);
+                state.rmg_message_len = note.len;
+                return;
+            };
+            if (target == 1) {
+                state.rmg_fields.template.set(name);
+                refreshRmgGraphCount(state);
+            } else if (target == 2) {
+                state.rmg_fields.context.set(name);
+            }
+            state.rmg_message_len = 0;
+        },
+    }
 }
 
 /// The New Map dialog (M3, D-23): the MFC CNewMapDialog's own fields - size

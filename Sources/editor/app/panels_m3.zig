@@ -1043,3 +1043,197 @@ pub fn drawLayersMenu(state: *State, map_open: bool) void {
     }
 }
 
+
+// ---------------------------------------------------------------------------
+// Create Random Map (05-08, D-01..D-05)
+// ---------------------------------------------------------------------------
+
+/// Which edit text a Create Random Map combo fills.
+const RmgField = enum { template, context, setting };
+
+/// A combo of the dialog's names: `current` as the preview (`blank_label`
+/// when empty), one selectable per name, and - when `any_label` is given - an
+/// extra first entry that clears the field (the setting's `<any setting>`).
+fn rmgCombo(
+    state: *State,
+    label: [*:0]const u8,
+    names: []const core.bridge.RmgName,
+    field: *logic.NameText,
+    which: RmgField,
+    blank_label: [:0]const u8,
+) void {
+    var preview: [core.bridge.field_set_name_capacity + 16:0]u8 = undefined;
+    const shown = if (field.len == 0) blank_label else std.fmt.bufPrintZ(&preview, "{s}", .{field.slice()}) catch blank_label;
+    if (ig.igBeginCombo(label, shown.ptr, 0)) {
+        if (which == .setting and ig.igSelectableEx("<any setting>", field.len == 0, 0, .{ .x = 0, .y = 0 })) field.set("");
+        for (names) |*entry| {
+            const name = entry.nameSlice();
+            var name_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
+            const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{name}) catch continue;
+            if (ig.igSelectableEx(name_z.ptr, std.mem.eql(u8, name, field.slice()), 0, .{ .x = 0, .y = 0 })) {
+                field.set(name);
+                if (which == .template) panels.refreshRmgGraphCount(state);
+            }
+        }
+        ig.igEndCombo();
+    }
+}
+
+/// File > Create Random Map (D-01): the MFC dialog's fields - the template
+/// and context combos with Browse, the graph index, the setting with
+/// `<any setting>`, the direction N/E/S/W, the difficulty level, Save as BZM,
+/// Write DDS, the map name - plus the seed this port adds (blank draws one).
+/// OK waits for a template, a context and a name (the MFC's own rule), then
+/// hands the fields to the progress modal.
+pub fn drawRmgDialog(state: *State) void {
+    if (!state.rmg_open) return;
+    if (!ig.igBegin("Create Random Map", &state.rmg_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        ig.igEnd();
+        return;
+    }
+    defer ig.igEnd();
+    const fields = &state.rmg_fields;
+
+    rmgCombo(state, "##rmg_template", state.rmg_templates.items, &fields.template, .template, "(choose a template)");
+    ig.igSameLine();
+    if (ig.igSmallButton("Browse##template")) panels.browseRmg(state, 1);
+    ig.igSameLine();
+    panels.text("Template");
+
+    rmgCombo(state, "##rmg_context", state.rmg_contexts.items, &fields.context, .context, "(choose a context)");
+    ig.igSameLine();
+    if (ig.igSmallButton("Browse##context")) panels.browseRmg(state, 2);
+    ig.igSameLine();
+    panels.text("Context");
+
+    var graph: c_int = fields.graph;
+    if (ig.igInputIntEx("Graph", &graph, 1, 1, 0)) fields.graph = if (graph < -1) -1 else graph;
+    if (state.rmg_graph_count > 0) {
+        var hint: [96]u8 = undefined;
+        panels.text(std.fmt.bufPrint(&hint, "-1 lets the template's weights pick; 0 to {d} for this template", .{state.rmg_graph_count - 1}) catch "-1 lets the template's weights pick");
+    } else {
+        panels.text("-1 lets the template's weights pick");
+    }
+
+    rmgCombo(state, "Setting", state.rmg_settings.items, &fields.setting, .setting, "<any setting>");
+
+    ig.igText("Direction");
+    var angle: c_int = fields.angle;
+    inline for (logic.RmgFields.direction_names, 0..) |name, index| {
+        ig.igSameLine();
+        _ = ig.igRadioButtonIntPtr(name ++ "##dir", &angle, index);
+    }
+    fields.angle = angle;
+    ig.igText("Level");
+    var level: c_int = fields.level;
+    inline for ([_][:0]const u8{ "1", "2", "3" }, 0..) |name, index| {
+        ig.igSameLine();
+        _ = ig.igRadioButtonIntPtr(name ++ "##level", &level, index);
+    }
+    fields.level = level;
+
+    _ = ig.igCheckbox("Save as BZM", &fields.save_as_bzm);
+    ig.igSameLine();
+    _ = ig.igCheckbox("Write DDS", &fields.write_dds);
+
+    _ = ig.igInputTextWithHint("Map name", "name", &state.rmg_map_edit, state.rmg_map_edit.len + 1, 0);
+    fields.map_name.set(std.mem.sliceTo(&state.rmg_map_edit, 0));
+    _ = ig.igInputTextWithHint("Seed", "blank = random", &state.rmg_seed_edit, state.rmg_seed_edit.len + 1, ig.ImGuiInputTextFlags_CharsDecimal);
+    fields.seed.set(std.mem.sliceTo(&state.rmg_seed_edit, 0));
+    _ = ig.igCheckbox("Replace a map of that name", &fields.overwrite);
+    ig.igTextDisabled("The map goes to your maps folder (or the active mod's); the seed used is shown afterwards.");
+
+    if (state.rmg_message_len != 0) {
+        ig.igSpacing();
+        panels.text(state.rmg_message[0..state.rmg_message_len]);
+    }
+
+    ig.igSpacing();
+    ig.igBeginDisabled(!fields.okEnabled());
+    const ok = ig.igButton("OK");
+    ig.igEndDisabled();
+    ig.igSameLine();
+    const cancel = ig.igButton("Cancel");
+    if (cancel) state.rmg_open = false;
+    if (ok) {
+        const params = fields.toParams() orelse {
+            const note = "the seed is a whole number, or blank for a fresh one";
+            @memcpy(state.rmg_message[0..note.len], note);
+            state.rmg_message_len = note.len;
+            return;
+        };
+        state.rmg_params = params;
+        state.rmg_progress = .{};
+        state.rmg_message_len = 0;
+        state.rmg_open = false;
+        state.rmg_phase = .announce;
+    }
+}
+
+/// The generation's modal (D-03): announced at 0 of the generator's 19 steps
+/// for one frame so the window shows it, then the generator runs on the main
+/// thread with the window frozen - the callback only counts, and there is
+/// no cancel (the MFC editor has none) - then the result: the seed to ask
+/// for the same map again, with Open map (the generated file as a normal
+/// document, D-02) and Close. A refusal reopens the dialog with its reason.
+pub fn drawRmgProgress(state: *State) void {
+    if (state.rmg_phase == .idle) return;
+    // The frame before showed the modal at 0 of 19; this call blocks. A
+    // refusal closes the modal below and reopens the dialog with the reason.
+    var refused = false;
+    if (state.rmg_phase == .run) {
+        if (commands.rmgRun(state, state.rmg_params) == .ok) {
+            state.rmg_phase = .done;
+        } else {
+            const status = state.editor.status();
+            const len = @min(status.len, state.rmg_message.len);
+            @memcpy(state.rmg_message[0..len], status[0..len]);
+            state.rmg_message_len = len;
+            refused = true;
+        }
+    }
+    if (!state.rmg_popup_opened) {
+        _ = ig.igOpenPopup("Creating random map", 0);
+        state.rmg_popup_opened = true;
+    }
+    if (!ig.igBeginPopupModal("Creating random map", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
+    defer ig.igEndPopup();
+    if (refused) {
+        state.rmg_phase = .idle;
+        state.rmg_popup_opened = false;
+        state.rmg_open = true;
+        ig.igCloseCurrentPopup();
+        return;
+    }
+    const total: i32 = if (state.rmg_progress.total > 0) state.rmg_progress.total else 19;
+    var overlay: [32:0]u8 = undefined;
+    const overlay_z = std.fmt.bufPrintZ(&overlay, "{d} of {d}", .{ state.rmg_progress.steps, total }) catch "";
+    ig.igProgressBar(@as(f32, @floatFromInt(state.rmg_progress.steps)) / @as(f32, @floatFromInt(total)), .{ .x = 320, .y = 0 }, overlay_z.ptr);
+    switch (state.rmg_phase) {
+        .announce => {
+            panels.text("Creating the random map - the window waits until it is done.");
+            state.rmg_phase = .run;
+        },
+        .run, .idle => {},
+        .done => {
+            var line: [256]u8 = undefined;
+            panels.text(logic.rmgResultLine(&line, state.rmg_made_name.slice(), &state.rmg_result));
+            var seed_line: [64]u8 = undefined;
+            panels.text(std.fmt.bufPrint(&seed_line, "Seed used: {d}", .{state.rmg_result.seed}) catch "");
+            panels.text(state.rmg_result.mapPathSlice());
+            ig.igSpacing();
+            if (ig.igButton("Open map")) {
+                state.actions.requestOpenPath(state.rmg_result.mapPathSlice());
+                state.rmg_phase = .idle;
+                state.rmg_popup_opened = false;
+                ig.igCloseCurrentPopup();
+            }
+            ig.igSameLine();
+            if (ig.igButton("Close")) {
+                state.rmg_phase = .idle;
+                state.rmg_popup_opened = false;
+                ig.igCloseCurrentPopup();
+            }
+        },
+    }
+}
