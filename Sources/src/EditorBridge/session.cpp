@@ -354,6 +354,9 @@ bool InstallMapInSession( SEditorSession *pSession, const CMapInfo &read, const 
 	// too, so it comes before the new terrain is set, never after.
 	if ( pSession->pWorld != 0 )
 		pSession->pWorld->Clear();
+	// The fire-range group names units of the AI that is cleared next (M3,
+	// D-32): it goes first, and the caller asks for its mode again.
+	DropFireRangeInSession( pSession );
 
 	// The AI editor first: the terrain it is initialised with is what
 	// IsObjectInsideOfMap and AddNewObject answer against below.
@@ -400,6 +403,11 @@ bool InstallMapInSession( SEditorSession *pSession, const CMapInfo &read, const 
 	for ( int i = 0; i < 2; ++i )
 		if ( !pScene->ToggleShow( SCENE_SHOW_WARFOG ) )	// false: the scene's fog is off
 			break;
+	// The Layers menu's state onto the new terrain and the scene (M3, D-32):
+	// the grid and noise flags live on the terrain this open just replaced, and
+	// the line above put the fog off whatever the menu said - the MFC editor's
+	// desync. After the fog line on purpose: a fog the user asked for is back.
+	ReapplyLayersInSession( pSession );
 
 	std::vector<SMapObjectInfo> bridgeSpans;
 	PlaceObjects( pSession, pSession->working.objects, pObjectsDB, pAIEditor, &bridgeSpans );
@@ -3164,6 +3172,12 @@ bool DrawSessionFrame( SEditorSession *pSession )
 		return false;
 	}
 	pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
+	// The Layers menu (M3, D-32): the wire frame is a render state, so it is
+	// said inside every frame; passability marks and shoot areas follow the
+	// camera and the units, so while one is shown the world updates first.
+	ApplyWireframeForFrame( pSession );
+	if ( LayersNeedWorldUpdate( pSession ) && pSession->pWorld != 0 && pSession->bMapOpen )
+		UpdateSessionWorld( pSession );
 	pScene->Draw( pCamera );
 	pGFX->EndScene();
 	pGFX->Flip();

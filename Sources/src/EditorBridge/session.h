@@ -19,6 +19,10 @@ interface ITerrainEditor;
 interface IAIEditor;
 struct SEditorSession;
 
+// The Layers menu's starting state (session_layers.cpp): the MFC editor's own
+// (TemplateEditorFrame1.cpp:379) - see BkEditorLayer.
+unsigned LayerDefaultBits();
+
 // One entry of the session's edit log (04-05, research Pattern 3): an edit the
 // bridge derives or compounds keeps its own undo record here, next to the
 // engine state it must stay consistent with, and the core holds only its
@@ -199,9 +203,18 @@ struct SEditorSession
 	// (TemplateEditorFrame1.cpp:5249/5287).
 	bool bInstantUpdate;
 	bool bFitToGrid;
+	// The Layers menu (M3, D-32, session_layers.cpp): the state each layer was
+	// last asked for, one bit per BkEditorLayer, and the fire-range mode with
+	// the AI group that shows it (-1 for none). Renderer state: never in the
+	// map, never in the history. Re-applied to the engine after every map the
+	// session builds (InstallMapInSession), which is the desync fix.
+	unsigned nLayerBits;
+	int nFireRangeMode;
+	std::string szFireRangeFilter;
+	int nFireRangeGroup;
 	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ), fYawOffsetDegrees( 0.0f ), bSquadIconOwnerMapBuilt( false ),
 									 bPartyTableRead( false ), nHeightsBrush( 0 ), fHeightsSpeed( 0.0f ), bHeightsPatternValid( false ), vClickRefStroke( VNULL3 ), fClickTileHeight( 0.0f ), bClickTileValid( false ), fClickAverageHeight( 0.0f ),
-									 bInstantUpdate( false ), bFitToGrid( true ) {  }
+									 bInstantUpdate( false ), bFitToGrid( true ), nLayerBits( LayerDefaultBits() ), nFireRangeMode( 0 ), nFireRangeGroup( -1 ) {  }
 };
 
 // Reads pszPath into the session and builds the engine state the editor draws
@@ -1074,5 +1087,27 @@ void ReadSessionEntrenchments( const SEditorSession &rSession, std::vector<SEntr
 // entry at the same index. Refused, as a bridge is, for an entrenchment with a
 // piece the editor could not put back; it is kept as read.
 bool DeleteEntrenchmentFromSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused );
+
+// The Layers menu (M3, D-32, session_layers.cpp). Each answers a BkEditorStatus
+// with the reason in szMessage; none touches map data.
+// The layers this renderer can drive (a bit per BkEditorLayer).
+unsigned LayerAvailableMask();
+// One layer to a state: the engine is driven there and the bit remembered.
+BkEditorStatus SetLayerInSession( SEditorSession *pSession, int nLayer, int bShown );
+// The remembered state put back onto the engine after a map is built into it
+// (the scene's flags and the terrain's own grid and noise are not carried over
+// to a new terrain), and the frame-time part of the wire frame.
+void ReapplyLayersInSession( SEditorSession *pSession );
+void ApplyWireframeForFrame( SEditorSession *pSession );
+// Whether a frame has to update the world first (passability marks follow the
+// camera, the shoot areas follow the units).
+bool LayersNeedWorldUpdate( const SEditorSession *pSession );
+// The fire-range group leaves before the AI that owns its units is cleared;
+// the mode goes back to off (the caller re-asks it for the new map).
+void DropFireRangeInSession( SEditorSession *pSession );
+BkEditorStatus SetFireRangeInSession( SEditorSession *pSession, int nMode, const char *pszFilter, const int *pnLinkIDs, int nCount );
+// The named object filter's condition lists (filters.cpp): shipped, user's
+// over it; false for a name neither file holds.
+bool ReadObjectFilterLists( const std::string &rszName, std::vector< std::vector<std::string> > *pLists );
 
 #endif // __EDITOR_BRIDGE_SESSION_H__

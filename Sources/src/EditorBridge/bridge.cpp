@@ -1168,6 +1168,45 @@ BkEditorStatus BkEditorSetTerrainModes( BkEditorSession *pSession, int bInstantU
 		return BK_EDITOR_OK;
 	} );
 }
+// The Layers menu (M3, D-32): renderer state, the BkEditorSetMapType shape - no
+// map data, no history, never dirty. The work is session_layers.cpp's.
+BkEditorStatus BkEditorSetLayerShow( BkEditorSession *pSession, int nLayer, int bShown )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetLayerInSession( pSession, nLayer, bShown );
+	} );
+}
+
+BkEditorStatus BkEditorSetWireframe( BkEditorSession *pSession, int bOn )
+{
+	return BkEditorSetLayerShow( pSession, BK_EDITOR_LAYER_WIREFRAME, bOn );
+}
+
+BkEditorStatus BkEditorLayers( BkEditorSession *pSession, unsigned *pnBits, unsigned *pnMask )
+{
+	if ( pnBits != 0 )
+		*pnBits = 0;
+	if ( pnMask != 0 )
+		*pnMask = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnBits != 0 )
+			*pnBits = pSession->nLayerBits;
+		if ( pnMask != 0 )
+			*pnMask = LayerAvailableMask() | ( 1u << BK_EDITOR_LAYER_UNIT_FIRE_RANGES );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorSetFireRangeMode( BkEditorSession *pSession, int nMode, const char *pszFilter, const int *pnLinkIDs, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetFireRangeInSession( pSession, nMode, pszFilter, pnLinkIDs, nCount );
+	} );
+}
+
 BkEditorStatus BkEditorTilesetTiles( BkEditorSession *pSession, unsigned char *pOut, int nCapacity, int *pnCount )
 {
 	if ( pnCount != 0 )

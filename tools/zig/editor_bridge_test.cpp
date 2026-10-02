@@ -29,6 +29,7 @@
 #include "../../Sources/src/Misc/Win32Random.h"
 #include "../../Sources/src/AILogic/AILogic.h"
 #include "../../Sources/src/AILogic/aiconsts.h"
+#include "../../Sources/src/AILogic/AITypes.h"
 #include "../../Sources/src/Common/Actions.h"
 #include "../../Sources/src/GFX/GFX.H"
 #include "../../Sources/src/Scene/Scene.h"
@@ -3800,6 +3801,8 @@ static void TestM3MinimapReads( BkEditorSession *pSession, const std::string &sz
 static void TestM3MinimapImages( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3PlayersAndUnitCreation( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3CheckMap( BkEditorSession *pSession, const std::string &szScratch );
+static void TestM3LayerProbe( BkEditorSession *pSession, const std::string &szScratch );
+static void TestM3Layers( BkEditorSession *pSession, const std::string &szScratch );
 static bool CraftFixture( BkEditorSession *pSession, const char *pszKind, const char *pszOut );
 static void CheckSavedEquals( BkEditorSession *pSession, const std::string &szPath, const CMapInfo &rExpected, const char *pszWhat );
 
@@ -11145,7 +11148,7 @@ int main( int argc, char **argv )
 	// executable's own directory unless a caller names another one.
 	// 04-13: `--m2-sweep` after the two positional arguments runs only the M2
 	// sweep (the local step test-editor-bridge-m2-sweep).
-	bool bM2Sweep = false, bPlayersOnly = false, bMinimapOnly = false;
+	bool bM2Sweep = false, bPlayersOnly = false, bMinimapOnly = false, bLayersOnly = false;
 	const char *pszCraftKind = 0, *pszCraftOut = 0;
 	for ( int i = 3; i < argc; ++i )
 	{
@@ -11156,6 +11159,9 @@ int main( int argc, char **argv )
 		// 05-07: `--m3-minimap-only` runs the minimap reads and image creation alone
 		// (the local step test-editor-bridge-m3-minimap).
 		bMinimapOnly = bMinimapOnly || strcmp( argv[i], "--m3-minimap-only" ) == 0;
+		// 05-06: `--m3-layers-only` runs the Layers probe and the layer entries alone
+		// (the local step test-editor-bridge-m3-layers).
+		bLayersOnly = bLayersOnly || strcmp( argv[i], "--m3-layers-only" ) == 0;
 		// 05-05: `--craft <kind> <out>` writes one fixture map (CraftFixture) instead
 		// of running the tier (<out> is a file name under the scratch folder) - the build
 		// runs it before the scenarios that open them.
@@ -11230,6 +11236,12 @@ int main( int argc, char **argv )
 		TestM3MinimapImages( pSession, szScratch );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
 	}
+	else if ( bLayersOnly )
+	{
+		TestM3LayerProbe( pSession, szScratch );
+		TestM3Layers( pSession, szScratch );
+		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+	}
 	else if ( bPlayersOnly )
 	{
 		TestM3PlayersAndUnitCreation( pSession, szScratch );
@@ -11274,6 +11286,8 @@ int main( int argc, char **argv )
 		TestM3CheckMap( pSession, szScratch );
 		TestM3MinimapReads( pSession, szScratch );
 		TestM3MinimapImages( pSession, szScratch );
+		TestM3LayerProbe( pSession, szScratch );
+		TestM3Layers( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );
@@ -12707,4 +12721,428 @@ static void TestM3MinimapImages( BkEditorSession *pSession, const std::string &s
 	remove( OsPath( szMap ).c_str() );
 	remove( OsPath( szMapAgain ).c_str() );
 	printf( "editor-bridge: M3 minimap images ok\n" );
+}
+
+// ---------------------------------------------------------------------------
+// The Layers menu (M3, D-32, 05-06).
+// ---------------------------------------------------------------------------
+
+static const char *const M3_LAYER_NAMES[BK_EDITOR_LAYER_COUNT] = {
+	"Terrain", "Grid", "Wire Frame", "Depth Complexity", "Terrain Noise", "Black Stripes", "Units", "Objects",
+	"Bounding Boxes", "Shadows", "Haze", "War Fog", "Units Passability", "Unit Fire Ranges" };
+
+static const char *const M3_LAYER_FILE_NAMES[BK_EDITOR_LAYER_COUNT] = {
+	"terrain", "grid", "wireframe", "depth-complexity", "terrain-noise", "black-stripes", "units", "objects",
+	"bounding-boxes", "shadows", "haze", "war-fog", "passability", "fire-ranges" };
+
+// The IScene flag a layer is, -1 when it is not one.
+static int M3SceneFlagOf( int nLayer )
+{
+	switch ( nLayer )
+	{
+		case BK_EDITOR_LAYER_TERRAIN: return SCENE_SHOW_TERRAIN;
+		case BK_EDITOR_LAYER_GRID: return SCENE_SHOW_GRID;
+		case BK_EDITOR_LAYER_DEPTH_COMPLEXITY: return SCENE_SHOW_DEPTH_COMPLEXITY;
+		case BK_EDITOR_LAYER_TERRAIN_NOISE: return SCENE_SHOW_NOISE;
+		case BK_EDITOR_LAYER_BLACK_STRIPES: return SCENE_SHOW_BORDER;
+		case BK_EDITOR_LAYER_UNITS: return SCENE_SHOW_UNITS;
+		case BK_EDITOR_LAYER_OBJECTS: return SCENE_SHOW_OBJECTS;
+		case BK_EDITOR_LAYER_BOUNDING_BOXES: return SCENE_SHOW_BBS;
+		case BK_EDITOR_LAYER_SHADOWS: return SCENE_SHOW_SHADOWS;
+		case BK_EDITOR_LAYER_HAZE: return SCENE_SHOW_HAZE;
+		case BK_EDITOR_LAYER_WAR_FOG: return SCENE_SHOW_WARFOG;
+		default: return -1;
+	}
+}
+
+// The scene's own flag, read the only way the scene allows: ToggleShow flips
+// and answers the new state, so flipping twice answers what it was and leaves
+// it as it was.
+static bool M3SceneFlagTruth( int nSceneFlag )
+{
+	IScene *pScene = GetSingleton<IScene>();
+	pScene->ToggleShow( nSceneFlag );
+	return pScene->ToggleShow( nSceneFlag );
+}
+
+// The MFC editor's starting menu, written out here on purpose rather than read
+// from the bridge: terrain, noise, black stripes, units, objects, shadows, haze.
+static unsigned M3LayerDefaults()
+{
+	return ( 1u << BK_EDITOR_LAYER_TERRAIN ) | ( 1u << BK_EDITOR_LAYER_TERRAIN_NOISE ) | ( 1u << BK_EDITOR_LAYER_BLACK_STRIPES ) |
+	       ( 1u << BK_EDITOR_LAYER_UNITS ) | ( 1u << BK_EDITOR_LAYER_OBJECTS ) | ( 1u << BK_EDITOR_LAYER_SHADOWS ) | ( 1u << BK_EDITOR_LAYER_HAZE );
+}
+
+// Puts a layer to a state the way the probe has to: through the bridge, and
+// - for a layer the bridge's mask refuses to drive - straight on the scene's
+// flag, so what the renderer does with it can still be measured and cited.
+static BkEditorStatus M3ProbeDrive( BkEditorSession *pSession, unsigned nMask, int nLayer, bool bShown )
+{
+	if ( ( nMask & ( 1u << nLayer ) ) != 0 || M3SceneFlagOf( nLayer ) < 0 )
+		return BkEditorSetLayerShow( pSession, nLayer, bShown ? 1 : 0 );
+	IScene *pScene = GetSingleton<IScene>();
+	for ( int i = 0; i < 2; ++i )
+		if ( pScene->ToggleShow( M3SceneFlagOf( nLayer ) ) == bShown )
+			return BK_EDITOR_OK;
+	return BK_EDITOR_FAILED;
+}
+
+static bool M3LayerShot( BkEditorSession *pSession, const std::string &szPath, std::vector<unsigned char> *pPixels, int *pnWidth, int *pnHeight, bool bKeep = false )
+{
+	if ( !SaveFrame( pSession, szPath ) )
+		return false;
+	*pPixels = ReadFramePixels( szPath, pnWidth, pnHeight );
+	if ( !bKeep )
+		remove( OsPath( szPath ).c_str() );
+	return !pPixels->empty();
+}
+
+// Every shoot area the AI shows now, lines included (BkEditorMinimapAreas
+// leaves those out).
+static int M3ShownAreaCount()
+{
+	IAILogic *pAILogic = GetSingleton<IAILogic>();
+	if ( pAILogic == 0 )
+		return -1;
+	SShootAreas *pAreas = 0;
+	int nAreas = 0;
+	pAILogic->UpdateShootAreas( &pAreas, &nAreas );
+	int nCount = 0;
+	if ( pAreas != 0 )
+		for ( int i = 0; i < nAreas; ++i )
+			nCount += int( pAreas[i].areas.size() );
+	return nCount;
+}
+
+// The A4 measurement (05-RESEARCH Open Question 1, PARITY L3/L4): for every
+// layer, in the bridge session's own renderer, does the call succeed, does the
+// state read back (the bridge's bits and, for the scene's flags, the scene's own
+// flag), and does a captured frame change - at the map's middle and at its
+// corner, where the black stripes live - and come back exactly when the layer is
+// put back. What this prints is the evidence the PARITY rows cite and what the
+// bridge's availability mask is built from: a layer that does nothing here is
+// greyed in the menu, not silently ignored.
+static void TestM3LayerProbe( BkEditorSession *pSession, const std::string &szScratch )
+{
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	// A known start: every layer at the MFC's own default.
+	unsigned nBits = 0, nMask = 0;
+	Check( BkEditorLayers( pSession, &nBits, &nMask ) == BK_EDITOR_OK, "the layers read" );
+	for ( int nLayer = 0; nLayer < BK_EDITOR_LAYER_COUNT; ++nLayer )
+		if ( nLayer != BK_EDITOR_LAYER_UNIT_FIRE_RANGES )
+			M3ProbeDrive( pSession, nMask, nLayer, ( ( M3LayerDefaults() >> nLayer ) & 1 ) != 0 );
+	Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_OFF, "", 0, 0 ) == BK_EDITOR_OK, "no fire range shows" );
+
+	const float fMiddleX = float( summary.width_tiles ) * fWorldCellSize / 2, fMiddleY = float( summary.height_tiles ) * fWorldCellSize / 2;
+	struct SView { const char *pszName; float fX, fY; };
+	const SView views[2] = { { "middle", fMiddleX, fMiddleY }, { "corner", 4.0f * fWorldCellSize, 4.0f * fWorldCellSize } };
+
+	int nWorks = 0, nInert = 0;
+	for ( int nLayer = 0; nLayer < BK_EDITOR_LAYER_COUNT; ++nLayer )
+	{
+		if ( nLayer == BK_EDITOR_LAYER_UNIT_FIRE_RANGES )
+			continue;
+		const bool bDefault = ( ( M3LayerDefaults() >> nLayer ) & 1 ) != 0;
+		int nChanged[2] = { -1, -1 }, nRestored[2] = { -1, -1 };
+		BkEditorStatus statusSet = BK_EDITOR_OK;
+		bool bReadBack = false;
+		int nSceneFlag = M3SceneFlagOf( nLayer );
+		bool bEngineAgrees = true;
+		for ( int nView = 0; nView < 2; ++nView )
+		{
+			Check( BkEditorSetCamera( pSession, views[nView].fX, views[nView].fY ) == BK_EDITOR_OK, "the probe camera moves" );
+			std::vector<unsigned char> base, toggled, back;
+			int nW = 0, nH = 0, nW2 = 0, nH2 = 0, nW3 = 0, nH3 = 0;
+			const std::string szShot = szScratch + "/m3-layer-probe.tga";
+			if ( !M3LayerShot( pSession, szShot, &base, &nW, &nH ) )
+				continue;
+			if ( nView == 0 && nLayer == 0 )
+				M3LayerShot( pSession, szScratch + "/m3-layer-base.tga", &base, &nW, &nH, true );
+			statusSet = M3ProbeDrive( pSession, nMask, nLayer, !bDefault );
+			if ( nView == 0 )
+			{
+				unsigned nNow = 0;
+				BkEditorLayers( pSession, &nNow, 0 );
+				bReadBack = ( ( nNow >> nLayer ) & 1 ) == ( bDefault ? 0u : 1u );
+				if ( nSceneFlag >= 0 )
+					bEngineAgrees = M3SceneFlagTruth( nSceneFlag ) == !bDefault;
+			}
+			// The pictures the PARITY rows cite are kept beside the logs: the three
+			// layers whose effect is more than a few pixels of difference to read.
+			const bool bKeepShot = nView == 0 && ( nLayer == BK_EDITOR_LAYER_WIREFRAME || nLayer == BK_EDITOR_LAYER_DEPTH_COMPLEXITY ||
+			                                       nLayer == BK_EDITOR_LAYER_UNITS_PASSABILITY || nLayer == BK_EDITOR_LAYER_GRID );
+			const std::string szKept = szScratch + "/m3-layer-" + M3_LAYER_FILE_NAMES[nLayer] + ".tga";
+			if ( statusSet == BK_EDITOR_OK && M3LayerShot( pSession, bKeepShot ? szKept : szShot, &toggled, &nW2, &nH2, bKeepShot ) )
+				nChanged[nView] = ChangedPixels( base, toggled, nW, nH, 0, 0, nW, nH );
+			M3ProbeDrive( pSession, nMask, nLayer, bDefault );
+			if ( M3LayerShot( pSession, szShot, &back, &nW3, &nH3 ) )
+				nRestored[nView] = ChangedPixels( base, back, nW, nH, 0, 0, nW, nH );
+		}
+		const bool bVisible = nChanged[0] > 0 || nChanged[1] > 0;
+		const bool bDriven = ( nMask & ( 1u << nLayer ) ) != 0;
+		if ( bVisible ) ++nWorks; else ++nInert;
+		Check( !bDriven || statusSet == BK_EDITOR_OK, NStr::Format( "the probe's %s call is accepted by the bridge", M3_LAYER_NAMES[nLayer] ) );
+		Check( !bDriven || ( bReadBack && bEngineAgrees ), NStr::Format( "%s reads back in the bridge and agrees with the scene", M3_LAYER_NAMES[nLayer] ) );
+		Check( !bDriven || ( nRestored[0] >= 0 && nRestored[0] <= 100 && nRestored[1] >= 0 && nRestored[1] <= 100 ),
+		       NStr::Format( "%s put back restores the picture (%d / %d px differ)", M3_LAYER_NAMES[nLayer], nRestored[0], nRestored[1] ) );
+		printf( "editor-bridge: M3 layer probe: %-17s %s call %s, reads back %s%s, frame changed %d px (middle) / %d px (corner), put back differs %d / %d px%s\n",
+		        M3_LAYER_NAMES[nLayer], bDriven ? "bridge" : "SCENE DIRECT (bridge refuses it)", statusSet == BK_EDITOR_OK ? "ok" : "REFUSED", bReadBack ? "yes" : "NO",
+		        nSceneFlag >= 0 ? ( bEngineAgrees ? ", scene flag agrees" : ", SCENE FLAG DISAGREES" ) : "",
+		        nChanged[0], nChanged[1], nRestored[0], nRestored[1], bVisible ? "" : "  <- NO VISIBLE EFFECT" );
+	}
+	printf( "editor-bridge: M3 layer probe: %d layers change the frame, %d show nothing in these two views\n", nWorks, nInert );
+	// Back to the defaults for whoever runs next.
+	for ( int nLayer = 0; nLayer < BK_EDITOR_LAYER_COUNT; ++nLayer )
+		if ( nLayer != BK_EDITOR_LAYER_UNIT_FIRE_RANGES )
+			M3ProbeDrive( pSession, nMask, nLayer, ( ( M3LayerDefaults() >> nLayer ) & 1 ) != 0 );
+}
+
+static void TestM3Layers( BkEditorSession *pSession, const std::string &szScratch )
+{
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	// Before any map: the state reads (it is the session's own), a toggle is refused.
+	// (Another test may have left a map open: close by opening, so the refusal check is
+	// only made when the state says nothing is open.)
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szBefore = szScratch + "\\m3-layers-before.bzm";
+	const std::string szAfter = szScratch + "\\m3-layers-after.bzm";
+	Check( BkEditorSaveMap( pSession, szBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	unsigned nBits = 0, nMask = 0;
+	Check( BkEditorLayers( pSession, &nBits, &nMask ) == BK_EDITOR_OK, "the layers read" );
+	Check( BkEditorLayers( pSession, 0, 0 ) == BK_EDITOR_OK, "and either pointer may be null" );
+	{
+		unsigned nNoBits = 7, nNoMask = 7;
+		Check( BkEditorLayers( 0, &nNoBits, &nNoMask ) == BK_EDITOR_NO_SESSION && nNoBits == 0 && nNoMask == 0, "a null session is no session, and the outputs are cleared" );
+	}
+	Check( ( nMask & ( ( 1u << BK_EDITOR_LAYER_COUNT ) - 1 ) ) != 0 && ( nMask >> BK_EDITOR_LAYER_COUNT ) == 0, "the mask names only layers that exist" );
+	Check( ( nMask & ( 1u << BK_EDITOR_LAYER_TERRAIN ) ) != 0 && ( nMask & ( 1u << BK_EDITOR_LAYER_UNIT_FIRE_RANGES ) ) != 0, "the terrain and the fire ranges can always be driven" );
+	// The probe's findings (05-06 Task 1) pinned: the GPU renderer draws the wire
+	// frame (its fill mode) but not the depth-complexity count - it paints the
+	// frame white - so that one layer is the menu's greyed entry.
+	Check( ( nMask & ( 1u << BK_EDITOR_LAYER_WIREFRAME ) ) != 0, "the wire frame is drivable: the GPU renderer has a fill mode" );
+	Check( ( nMask & ( 1u << BK_EDITOR_LAYER_DEPTH_COMPLEXITY ) ) == 0, "the depth complexity is not drivable: the GPU renderer has no overdraw counter (the probe's measurement)" );
+	Check( nMask == ( ( ( 1u << BK_EDITOR_LAYER_COUNT ) - 1 ) & ~( 1u << BK_EDITOR_LAYER_DEPTH_COMPLEXITY ) ), "every other layer is in the mask" );
+
+	// The state on a fresh session is the MFC's own starting menu.
+	unsigned nStart = nBits;
+	if ( ( nBits & ~( 1u << BK_EDITOR_LAYER_UNIT_FIRE_RANGES ) ) != M3LayerDefaults() )
+	{
+		// A previous test in this run may have left layers changed: put them back and say so.
+		for ( int nLayer = 0; nLayer < BK_EDITOR_LAYER_COUNT; ++nLayer )
+			if ( nLayer != BK_EDITOR_LAYER_UNIT_FIRE_RANGES )
+				BkEditorSetLayerShow( pSession, nLayer, ( M3LayerDefaults() >> nLayer ) & 1 );
+		BkEditorLayers( pSession, &nStart, 0 );
+	}
+	Check( ( nStart & ~( 1u << BK_EDITOR_LAYER_UNIT_FIRE_RANGES ) ) == M3LayerDefaults(), "the starting layers are the MFC editor's own menu" );
+
+	// Every layer toggles and reads back, in the bridge and in the scene.
+	for ( int nLayer = 0; nLayer < BK_EDITOR_LAYER_COUNT; ++nLayer )
+	{
+		if ( nLayer == BK_EDITOR_LAYER_UNIT_FIRE_RANGES )
+		{
+			Check( BkEditorSetLayerShow( pSession, nLayer, 1 ) == BK_EDITOR_BAD_ARGUMENT, "the fire ranges are a mode: the toggle is a bad argument" );
+			continue;
+		}
+		const bool bAvailable = ( nMask & ( 1u << nLayer ) ) != 0;
+		for ( int nPass = 0; nPass < 2; ++nPass )
+		{
+			unsigned nWas = 0, nNow = 0;
+			BkEditorLayers( pSession, &nWas, 0 );
+			const bool bWantShown = ( ( nWas >> nLayer ) & 1 ) == 0;
+			const BkEditorStatus status = BkEditorSetLayerShow( pSession, nLayer, bWantShown ? 1 : 0 );
+			BkEditorLayers( pSession, &nNow, 0 );
+			if ( !bAvailable )
+			{
+				Check( status == BK_EDITOR_REFUSED && nNow == nWas, NStr::Format( "%s is not available here: the toggle is refused and the state stays", M3_LAYER_NAMES[nLayer] ) );
+				break;
+			}
+			Check( status == BK_EDITOR_OK, NStr::Format( "%s toggles (%s)", M3_LAYER_NAMES[nLayer], BkEditorLastMessage( pSession ) ) );
+			Check( ( ( nNow >> nLayer ) & 1 ) == ( bWantShown ? 1u : 0u ), NStr::Format( "%s reads back as %s", M3_LAYER_NAMES[nLayer], bWantShown ? "shown" : "hidden" ) );
+			Check( ( nNow & ~( 1u << nLayer ) ) == ( nWas & ~( 1u << nLayer ) ), NStr::Format( "toggling %s moves no other layer", M3_LAYER_NAMES[nLayer] ) );
+			const int nSceneFlag = M3SceneFlagOf( nLayer );
+			if ( nSceneFlag >= 0 )
+				Check( M3SceneFlagTruth( nSceneFlag ) == bWantShown, NStr::Format( "the scene's own flag for %s follows", M3_LAYER_NAMES[nLayer] ) );
+			// The same call twice changes nothing and is no error.
+			Check( BkEditorSetLayerShow( pSession, nLayer, bWantShown ? 1 : 0 ) == BK_EDITOR_OK, "asking for the state a layer is in is fine" );
+			unsigned nAgain = 0;
+			BkEditorLayers( pSession, &nAgain, 0 );
+			Check( nAgain == nNow, "and leaves the state as it was" );
+			if ( nSceneFlag >= 0 )
+				Check( M3SceneFlagTruth( nSceneFlag ) == bWantShown, NStr::Format( "the scene's flag for %s stays put when asked for its state again", M3_LAYER_NAMES[nLayer] ) );
+		}
+	}
+	Check( BkEditorSetWireframe( pSession, 1 ) == ( ( nMask & ( 1u << BK_EDITOR_LAYER_WIREFRAME ) ) != 0 ? BK_EDITOR_OK : BK_EDITOR_REFUSED ), "the MFC's own wire frame name drives the same layer" );
+	BkEditorSetWireframe( pSession, 0 );
+	Check( BkEditorSetLayerShow( pSession, -1, 1 ) == BK_EDITOR_BAD_ARGUMENT, "a layer below zero is a bad argument" );
+	Check( BkEditorSetLayerShow( pSession, BK_EDITOR_LAYER_COUNT, 1 ) == BK_EDITOR_BAD_ARGUMENT, "the layer past the last is a bad argument" );
+	Check( BkEditorSetLayerShow( pSession, 99, 0 ) == BK_EDITOR_BAD_ARGUMENT, "and so is 99" );
+	Check( BkEditorSetLayerShow( 0, BK_EDITOR_LAYER_GRID, 1 ) == BK_EDITOR_NO_SESSION, "a null session is no session" );
+
+	// Back to the defaults, then the desync fix: what was asked is what a map
+	// opened afterwards comes up with.
+	for ( int nLayer = 0; nLayer < BK_EDITOR_LAYER_COUNT; ++nLayer )
+		if ( nLayer != BK_EDITOR_LAYER_UNIT_FIRE_RANGES )
+			BkEditorSetLayerShow( pSession, nLayer, ( M3LayerDefaults() >> nLayer ) & 1 );
+	const int changed[] = { BK_EDITOR_LAYER_GRID, BK_EDITOR_LAYER_TERRAIN_NOISE, BK_EDITOR_LAYER_BOUNDING_BOXES, BK_EDITOR_LAYER_WAR_FOG,
+	                        BK_EDITOR_LAYER_SHADOWS, BK_EDITOR_LAYER_UNITS_PASSABILITY };
+	for ( int i = 0; i < int( sizeof changed / sizeof changed[0] ); ++i )
+	{
+		unsigned nNow = 0;
+		BkEditorLayers( pSession, &nNow, 0 );
+		BkEditorSetLayerShow( pSession, changed[i], ( ( nNow >> changed[i] ) & 1 ) == 0 ? 1 : 0 );
+	}
+	unsigned nChosen = 0;
+	BkEditorLayers( pSession, &nChosen, 0 );
+	{
+		// Open again, then a new map: the layers survive both (the MFC editor
+		// lost the grid and noise to the new terrain and its war fog to the open).
+		BkEditorMapSummary again;
+		memset( &again, 0, sizeof again );
+		Check( BkEditorOpenMap( pSession, BRIDGE_MAP, &again ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		unsigned nAfterOpen = 0;
+		BkEditorLayers( pSession, &nAfterOpen, 0 );
+		Check( nAfterOpen == nChosen, "the layers are the same after the map is opened again" );
+		for ( int i = 0; i < int( sizeof changed / sizeof changed[0] ); ++i )
+			if ( M3SceneFlagOf( changed[i] ) >= 0 )
+				Check( M3SceneFlagTruth( M3SceneFlagOf( changed[i] ) ) == ( ( ( nChosen >> changed[i] ) & 1 ) != 0 ),
+				       NStr::Format( "the scene's flag for %s is what was asked, after the open", M3_LAYER_NAMES[changed[i]] ) );
+		BkEditorNewMapParams params;
+		memset( &params, 0, sizeof params );
+		params.size_x = 2;
+		params.size_y = 2;
+		strcpy( params.szName, "m3_layers" );
+		Check( BkEditorNewMap( pSession, &params, &again ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		unsigned nAfterNew = 0;
+		BkEditorLayers( pSession, &nAfterNew, 0 );
+		Check( nAfterNew == nChosen, "the layers are the same after a new map" );
+		for ( int i = 0; i < int( sizeof changed / sizeof changed[0] ); ++i )
+			if ( M3SceneFlagOf( changed[i] ) >= 0 )
+				Check( M3SceneFlagTruth( M3SceneFlagOf( changed[i] ) ) == ( ( ( nChosen >> changed[i] ) & 1 ) != 0 ),
+				       NStr::Format( "the scene's flag for %s is what was asked, after the new map", M3_LAYER_NAMES[changed[i]] ) );
+	}
+	for ( int nLayer = 0; nLayer < BK_EDITOR_LAYER_COUNT; ++nLayer )
+		if ( nLayer != BK_EDITOR_LAYER_UNIT_FIRE_RANGES )
+			BkEditorSetLayerShow( pSession, nLayer, ( M3LayerDefaults() >> nLayer ) & 1 );
+
+	// --- Unit Fire Ranges: modes, the selection, the filter.
+	Check( BkEditorOpenMap( pSession, BRIDGE_MAP, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( M3ShownAreaCount() == 0, "no area is shown before a mode asks for one" );
+	std::vector<int> unitLinks;
+	{
+		int nObjects = 0;
+		BkEditorObjects( pSession, 0, 0, &nObjects );
+		std::vector<BkEditorObjectRecord> records( size_t( nObjects > 0 ? nObjects : 1 ) );
+		int nRead = 0;
+		BkEditorObjects( pSession, &records[0], nObjects, &nRead );
+		int nCatalogue = 0;
+		BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+		std::vector<BkEditorCatalogueEntry> catalogue( size_t( nCatalogue > 0 ? nCatalogue : 1 ) );
+		int nCatalogueRead = 0;
+		BkEditorCatalogue( pSession, &catalogue[0], nCatalogue, &nCatalogueRead );
+		for ( int i = 0; i < nRead; ++i )
+		{
+			bool bIsUnit = false;
+			for ( int j = 0; j < nCatalogueRead; ++j )
+				bIsUnit = bIsUnit || ( catalogue[size_t( j )].game_type == 1 && records[size_t( i )].name == std::string( catalogue[size_t( j )].name ) );
+			if ( bIsUnit && records[size_t( i )].link_id > 0 && records[size_t( i )].known )
+				unitLinks.push_back( records[size_t( i )].link_id );
+		}
+	}
+	if ( Check( !unitLinks.empty(), "the map has units to show ranges for" ) )
+	{
+		Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_SELECTED, "", &unitLinks[0], int( unitLinks.size() ) ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		const int nSelectedAreas = M3ShownAreaCount();
+		Check( nSelectedAreas > 0, NStr::Format( "the selected units' ranges are shown (%d areas)", nSelectedAreas ) );
+		unsigned nNow = 0;
+		BkEditorLayers( pSession, &nNow, 0 );
+		Check( ( nNow & ( 1u << BK_EDITOR_LAYER_UNIT_FIRE_RANGES ) ) != 0, "the fire-range layer reads as shown" );
+		int nScene = 0;
+		{
+			SShootAreas *pAreas = 0;
+			int nAreas = 0;
+			if ( IScene *pScene = GetSingleton<IScene>() )
+				pScene->GetAreas( &pAreas, &nAreas );
+			if ( pAreas != 0 )
+				for ( int i = 0; i < nAreas; ++i )
+					nScene += int( pAreas[i].areas.size() );
+		}
+		Check( nScene == nSelectedAreas, NStr::Format( "the scene draws the areas the AI shows (%d of %d)", nScene, nSelectedAreas ) );
+
+		// One unit selected shows no more than all of them; none selected shows nothing.
+		Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_SELECTED, "", &unitLinks[0], 1 ) == BK_EDITOR_OK, "one selected unit" );
+		Check( M3ShownAreaCount() <= nSelectedAreas, "one unit shows no more ranges than all" );
+		Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_SELECTED, "", 0, 0 ) == BK_EDITOR_OK, "nothing selected is no error" );
+		Check( M3ShownAreaCount() == 0, "and shows no range - the previous group went first" );
+		const int nGhost[] = { 987654321, -5, 0 };
+		Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_SELECTED, "", nGhost, 3 ) == BK_EDITOR_OK && M3ShownAreaCount() == 0, "link IDs the map does not hold are skipped" );
+
+		// Filters: Buildings has no firing unit, the units' own filters have; an unknown name is refused.
+		int nFilters = 0;
+		BkEditorObjectFilters( pSession, 0, 0, &nFilters );
+		std::vector<BkEditorObjectFilter> filters( size_t( nFilters > 0 ? nFilters : 1 ) );
+		int nFiltersRead = 0;
+		BkEditorObjectFilters( pSession, &filters[0], nFilters, &nFiltersRead );
+		int nBestAreas = 0;
+		std::string szBest;
+		bool bBuildingsFound = false;
+		for ( int i = 0; i < nFiltersRead; ++i )
+		{
+			const BkEditorStatus status = BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_FILTER, filters[size_t( i )].name, 0, 0 );
+			Check( status == BK_EDITOR_OK, NStr::Format( "the filter %s is accepted (%s)", filters[size_t( i )].name, BkEditorLastMessage( pSession ) ) );
+			const int nAreas = M3ShownAreaCount();
+			if ( strcmp( filters[size_t( i )].name, "Buildings" ) == 0 )
+			{
+				bBuildingsFound = true;
+				Check( nAreas == 0, "the Buildings filter passes no firing unit, so it shows no range" );
+			}
+			if ( nAreas > nBestAreas )
+			{
+				nBestAreas = nAreas;
+				szBest = filters[size_t( i )].name;
+			}
+		}
+		Check( bBuildingsFound, "the shipped Buildings filter is there" );
+		Check( nBestAreas >= nSelectedAreas, "a filter that passes every unit shows at least what the selected units do (it also finds the squads' soldiers)" );
+		printf( "editor-bridge: M3 layers: the filter %s shows %d areas (selected units, all: %d)\n", szBest.c_str(), nBestAreas, nSelectedAreas );
+		// The refusals leave what shows in place.
+		if ( !szBest.empty() )
+		{
+			Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_FILTER, szBest.c_str(), 0, 0 ) == BK_EDITOR_OK, "the best filter again" );
+			const int nShown = M3ShownAreaCount();
+			Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_FILTER, "No Such Filter", 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "an unknown filter name is a bad argument" );
+			Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_FILTER, "", 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "an empty filter name is a bad argument" );
+			Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_FILTER, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null filter name is a bad argument" );
+			Check( BkEditorSetFireRangeMode( pSession, 3, "", 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a mode past the last is a bad argument" );
+			Check( BkEditorSetFireRangeMode( pSession, -1, "", 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a negative mode is a bad argument" );
+			Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_SELECTED, "", 0, 2 ) == BK_EDITOR_BAD_ARGUMENT, "a null selection with a count is a bad argument" );
+			Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_SELECTED, "", &unitLinks[0], -1 ) == BK_EDITOR_BAD_ARGUMENT, "a negative count is a bad argument" );
+			Check( M3ShownAreaCount() == nShown, "the refused calls left the shown ranges in place" );
+			// The map opened again drops the group with the AI (the caller asks again).
+			Check( BkEditorOpenMap( pSession, BRIDGE_MAP, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			Check( M3ShownAreaCount() == 0, "an open drops the ranges with the AI that owned them" );
+			unsigned nAfter = 0;
+			BkEditorLayers( pSession, &nAfter, 0 );
+			Check( ( nAfter & ( 1u << BK_EDITOR_LAYER_UNIT_FIRE_RANGES ) ) == 0, "and the layer reads as hidden until the mode is asked again" );
+			Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_FILTER, szBest.c_str(), 0, 0 ) == BK_EDITOR_OK && M3ShownAreaCount() == nShown, "asked again, the same ranges come back" );
+		}
+		Check( BkEditorSetFireRangeMode( pSession, BK_EDITOR_FIRE_OFF, "", 0, 0 ) == BK_EDITOR_OK && M3ShownAreaCount() == 0, "off hides every range" );
+		BkEditorLayers( pSession, &nNow, 0 );
+		Check( ( nNow & ( 1u << BK_EDITOR_LAYER_UNIT_FIRE_RANGES ) ) == 0, "and the layer reads as hidden" );
+	}
+
+	// --- None of it touched the map: what is saved now is what was saved first.
+	// (The file opened again before the fire-range part: the layers part ran on
+	// two maps, the second of them new, so the first is opened once more.)
+	Check( BkEditorOpenMap( pSession, BRIDGE_MAP, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BridgeFilesAreIdentical( szBefore.c_str(), szAfter.c_str() ), "no layer toggle changed the map: the save after is the save before, byte for byte" );
+	remove( OsPath( szBefore ).c_str() );
+	remove( OsPath( szAfter ).c_str() );
+	printf( "editor-bridge: M3 layers ok\n" );
 }

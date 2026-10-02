@@ -439,6 +439,86 @@ BkEditorStatus BkEditorFillEntireMap( BkEditorSession *session, int tile_index, 
    history, kept until the next call. A null session is BK_EDITOR_NO_SESSION. */
 BkEditorStatus BkEditorSetTerrainModes( BkEditorSession *session, int instant_update, int fit_to_grid );
 
+/* The Layers menu (M3, D-32): what the renderer draws. One value per MFC
+   toggle (TemplateEditorFrame1.cpp:5318-5777). Terrain, Grid, Terrain Noise,
+   Black Stripes, Units, Objects, Bounding Boxes, Shadows, Haze, War Fog and
+   Depth Complexity are IScene::ToggleShow flags; Wire Frame is
+   IGFX::SetWireframe, not a scene flag (the renderer's fill mode, applied
+   inside every frame - IGFX::SetWireframe is a render state and the GPU
+   renderer refuses one outside a scene); Units Passability is the world's
+   ToggleAIInfo (the passability marks the terrain draws); Unit Fire Ranges is
+   not a toggle but a mode (BkEditorSetFireRangeMode) - its bit in the state
+   reads says whether any range is shown. The numbers are the bit positions of
+   BkEditorLayers and the order of the core's Layer enum: they never change. */
+typedef enum
+{
+	BK_EDITOR_LAYER_TERRAIN = 0,
+	BK_EDITOR_LAYER_GRID = 1,
+	BK_EDITOR_LAYER_WIREFRAME = 2,
+	BK_EDITOR_LAYER_DEPTH_COMPLEXITY = 3,
+	BK_EDITOR_LAYER_TERRAIN_NOISE = 4,
+	BK_EDITOR_LAYER_BLACK_STRIPES = 5,
+	BK_EDITOR_LAYER_UNITS = 6,
+	BK_EDITOR_LAYER_OBJECTS = 7,
+	BK_EDITOR_LAYER_BOUNDING_BOXES = 8,
+	BK_EDITOR_LAYER_SHADOWS = 9,
+	BK_EDITOR_LAYER_HAZE = 10,
+	BK_EDITOR_LAYER_WAR_FOG = 11,
+	BK_EDITOR_LAYER_UNITS_PASSABILITY = 12,
+	BK_EDITOR_LAYER_UNIT_FIRE_RANGES = 13,
+	BK_EDITOR_LAYER_COUNT = 14
+} BkEditorLayer;
+
+/* BkEditorSetFireRangeMode's modes. */
+#define BK_EDITOR_FIRE_OFF      0
+#define BK_EDITOR_FIRE_SELECTED 1
+#define BK_EDITOR_FIRE_FILTER   2
+
+/* Shows or hides one layer. Renderer state only: no map data is touched, the
+   document is never dirtied, nothing is recorded in the history - the shape of
+   BkEditorSetMapType, which the engine has no say in either. shown is 0/1.
+   The engine is driven to the wanted state whatever it was (IScene::ToggleShow
+   flips and answers the new state, so it is asked at most twice), and the
+   state is remembered: every map the session opens or creates afterwards
+   comes up with it re-applied, which the MFC editor did not do (its menu check
+   marks and the scene's own flags drifted apart across an open).
+   BK_EDITOR_BAD_ARGUMENT for a layer outside 0..BK_EDITOR_LAYER_COUNT-1 or for
+   BK_EDITOR_LAYER_UNIT_FIRE_RANGES (that is a mode, not a toggle).
+   BK_EDITOR_REFUSED with no map open, or for a layer the renderer cannot draw
+   (BkEditorLayers' mask) - nothing changes then. */
+BkEditorStatus BkEditorSetLayerShow( BkEditorSession *session, int layer, int shown );
+
+/* IGFX::SetWireframe, as the Layers menu's Wire Frame: BkEditorSetLayerShow's
+   BK_EDITOR_LAYER_WIREFRAME with the MFC's own name. */
+BkEditorStatus BkEditorSetWireframe( BkEditorSession *session, int on );
+
+/* The layer state the session holds: out_bits has one bit per BkEditorLayer
+   (bit n is layer n, set = shown), out_mask the layers the session can
+   actually drive in this renderer (a layer outside it is refused by
+   BkEditorSetLayerShow and its bit never changes - the Layers menu greys it).
+   Both fixed-size, no map need be open; either pointer may be null, a null
+   session is BK_EDITOR_NO_SESSION. */
+BkEditorStatus BkEditorLayers( BkEditorSession *session, unsigned *out_bits, unsigned *out_mask );
+
+/* Unit Fire Ranges (MFC ShowFireRange, TemplateEditorFrame1.cpp:2115): the
+   shoot areas of a group of units are shown. mode is BK_EDITOR_FIRE_OFF (every
+   range hidden), BK_EDITOR_FIRE_SELECTED (the units named in link_ids - the
+   caller's selection; only the infantry and vehicles among them, as the MFC
+   registered) or BK_EDITOR_FIRE_FILTER (every infantry or vehicle of the map
+   whose database path the named filter passes; filter_name is a name from
+   BkEditorObjectFilters as the files hold them - shipped and user). The
+   previous group is dropped first, as the MFC did; a mode that finds no unit
+   shows nothing, and that is no error. link_ids/count name the selection for
+   BK_EDITOR_FIRE_SELECTED and are ignored by the other modes (link IDs the map
+   does not hold, or that are no unit, are skipped). The layer's bit in
+   BkEditorLayers is set while the mode is not off. Re-asked after every open or
+   new map by the caller (the AI forgets its groups with the map).
+   BK_EDITOR_BAD_ARGUMENT for a mode outside 0..2, a negative count, a null
+   link_ids with a positive count, or - in filter mode - a null, empty or
+   unknown filter name (the message names it); nothing changes then.
+   BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorSetFireRangeMode( BkEditorSession *session, int mode, const char *filter_name, const int *link_ids, int count );
+
 /* The tiles BkEditorPaint takes on the open map: every index its tileset has a
    terrain type for, once each, ascending - what a brush's palette offers.
    Like BkEditorObjects, out_count is always the total, and a buffer too short
