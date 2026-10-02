@@ -65,3 +65,24 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
 - **The Windows leg** of `test-editor-bridge` (the minimap tests), `test-map-editor-engine` and
   `map-editor-m3-auto` (the shot comparison) waits for the orchestrator's push: a GUI scenario cannot be
   launched over `ssh win-home`. All of it ran green on macOS arm64.
+
+## From 05-06
+
+- **Depth Complexity is greyed, not drawn.** The probe measured the GPU renderer painting the whole frame white
+  for `SCENE_SHOW_DEPTH_COMPLEXITY`: the D3D path counts overdraw in the stencil (SceneDraw.cpp:731-741 over effects
+  300, 301 and 310-329) and the GPU renderer's stencil has one mode (`effects.StencilMode.darken_once`) and no
+  counter. A real counter needs an increment-and-wrap stencil op, a per-draw stencil reference and the 20 colour
+  rects keyed on it in `Sources/src/GFXGPU/renderer.zig`; until then the bridge's mask leaves the layer out
+  (`LayerAvailableMask` in `session_layers.cpp`) and the menu greys it with the finding. When the renderer learns it,
+  the mask line goes and `TestM3Layers`' pinned mask with it.
+- **A filter made in the Filters Composer and not saved cannot drive the fire ranges.** The bridge validates the
+  filter name against the filter files (shipped and user), as 05-06's plan says; the composer's live list also holds
+  names not saved yet. Choosing one answers "no object filter is named ..." and the mode that showed stays. Saving the
+  filters first makes it work.
+- **The fire-range filter's combo is a submenu, not the MFC toolbar combo.** Layers > Unit Fire Ranges lists Off,
+  Selected units and every filter; the MFC's combo sat in the toolbar beside the fire-range button.
+- **The wire frame draws the sprites as outlines too.** D3D's `D3DRS_FILLMODE` did the same; the ImGui overlay draws in
+  its own pass and is not affected.
+- **The Windows leg** (`test-editor-bridge`'s layer tests, `map-editor-m3-auto`'s shot comparisons, the wire-frame pipeline
+  on D3D12/Vulkan through SDL GPU) waits for the orchestrator's push: a GUI scenario cannot be launched over
+  `ssh win-home`. All of it ran green on macOS arm64.
