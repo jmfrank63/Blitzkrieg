@@ -958,6 +958,8 @@ bool ImportRmgPatch( SEditorSession *pSession, const std::string &rszSourcePath,
 // SaveTemplatesList did.
 bool ReadRmgFieldSetRecord( SEditorSession *pSession, const std::string &rszName, BkEditorRmgFieldSetRecord *pRecord, bool *pbRefused );
 bool WriteRmgFieldSetRecord( SEditorSession *pSession, const std::string &rszName, const BkEditorRmgFieldSetRecord &rRecord, bool *pbRefused, bool *pbBadArgument );
+bool ReadRmgTemplateRecord( SEditorSession *pSession, const std::string &rszName, BkEditorRmgTemplateRecord *pRecord, bool *pbRefused );
+bool WriteRmgTemplateRecord( SEditorSession *pSession, const std::string &rszName, const BkEditorRmgTemplateRecord &rRecord, bool *pbRefused, bool *pbBadArgument );
 // The season's tileset terrain types (names and tile counts), no map needed.
 bool ListRmgTerrainTypes( SEditorSession *pSession, int nSeason, std::vector<std::pair<std::string, int> > *pTypes );
 // Whether name + extension is in the storage stack.

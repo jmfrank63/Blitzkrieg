@@ -88,6 +88,37 @@ pub const command_table = [_]Entry{
     .{ .name = "rmgf_fix_all", .handler = rmgfFixAll },
     .{ .name = "rmgf_undo", .handler = rmgfUndo },
     .{ .name = "rmgf_redo", .handler = rmgfRedo },
+    // 05-10 (D-06/D-07/D-12): the Templates Composer.
+    .{ .name = "rmgt_window", .handler = rmgtWindow },
+    .{ .name = "rmgt_new", .handler = rmgtNew },
+    .{ .name = "rmgt_open", .handler = rmgtOpen },
+    .{ .name = "rmgt_save", .handler = rmgtSave },
+    .{ .name = "rmgt_saveas", .handler = rmgtSaveAs },
+    .{ .name = "rmgt_graph_add", .handler = rmgtGraphAdd },
+    .{ .name = "rmgt_graph_del", .handler = rmgtGraphDel },
+    .{ .name = "rmgt_field_add", .handler = rmgtFieldAdd },
+    .{ .name = "rmgt_field_del", .handler = rmgtFieldDel },
+    .{ .name = "rmgt_vso_add", .handler = rmgtVsoAdd },
+    .{ .name = "rmgt_vso_del", .handler = rmgtVsoDel },
+    .{ .name = "rmgt_weight_set", .handler = rmgtWeightSet },
+    .{ .name = "rmgt_vso_set", .handler = rmgtVsoSet },
+    .{ .name = "rmgt_default_field", .handler = rmgtDefaultField },
+    .{ .name = "rmgt_script", .handler = rmgtScript },
+    .{ .name = "rmgt_mod", .handler = rmgtMod },
+    .{ .name = "rmgt_player_add", .handler = rmgtPlayerAdd },
+    .{ .name = "rmgt_player_del", .handler = rmgtPlayerDel },
+    .{ .name = "rmgt_player_side", .handler = rmgtPlayerSide },
+    .{ .name = "rmgt_game_type", .handler = rmgtGameType },
+    .{ .name = "rmgt_units_set", .handler = rmgtUnitsSet },
+    .{ .name = "rmgt_appear_add", .handler = rmgtAppearAdd },
+    .{ .name = "rmgt_appear_set", .handler = rmgtAppearSet },
+    .{ .name = "rmgt_appear_del", .handler = rmgtAppearDel },
+    .{ .name = "rmgt_popup", .handler = rmgtPopup },
+    .{ .name = "rmgt_check", .handler = rmgtCheck },
+    .{ .name = "rmgt_fix", .handler = rmgtFix },
+    .{ .name = "rmgt_fix_all", .handler = rmgtFixAll },
+    .{ .name = "rmgt_undo", .handler = rmgtUndo },
+    .{ .name = "rmgt_redo", .handler = rmgtRedo },
     .{ .name = "camera_player", .handler = cameraPlayer },
     .{ .name = "camera_neutral", .handler = cameraNeutral },
     .{ .name = "camera_clear", .handler = cameraClear },
@@ -253,6 +284,25 @@ pub const predicate_table = [_]Entry{
     .{ .name = "rmgf_listed", .handler = rmgfListedAtLeast },
     .{ .name = "rmgf_avail", .handler = rmgfAvailableAtLeast },
     .{ .name = "rmgf_tab_is", .handler = rmgfTabIs },
+    .{ .name = "rmgt_dirty", .handler = rmgtDirtyIs },
+    .{ .name = "rmgt_name", .handler = rmgtNameEndsWith },
+    .{ .name = "rmgt_findings", .handler = rmgtFindingsAre },
+    .{ .name = "rmgt_errors", .handler = rmgtErrorsAre },
+    .{ .name = "rmgt_graphs", .handler = rmgtGraphsAre },
+    .{ .name = "rmgt_fields", .handler = rmgtFieldsAre },
+    .{ .name = "rmgt_vsos", .handler = rmgtVsosAre },
+    .{ .name = "rmgt_players", .handler = rmgtPlayersAre },
+    .{ .name = "rmgt_default", .handler = rmgtDefaultIs },
+    .{ .name = "rmgt_weight", .handler = rmgtWeightIs },
+    .{ .name = "rmgt_vso_is", .handler = rmgtVsoIs },
+    .{ .name = "rmgt_script_is", .handler = rmgtScriptIs },
+    .{ .name = "rmgt_mod_is", .handler = rmgtModIs },
+    .{ .name = "rmgt_sides", .handler = rmgtSidesAre },
+    .{ .name = "rmgt_game_type_is", .handler = rmgtGameTypeIs },
+    .{ .name = "rmgt_unit", .handler = rmgtUnitIs },
+    .{ .name = "rmgt_appear", .handler = rmgtAppearIs },
+    .{ .name = "rmgt_size", .handler = rmgtSizeIs },
+    .{ .name = "rmgt_listed", .handler = rmgtListedAtLeast },
     .{ .name = "anchor_set", .handler = anchorSet },
     .{ .name = "anchor_unset", .handler = anchorUnset },
     .{ .name = "undo_depth", .handler = undoDepth },
@@ -4123,6 +4173,405 @@ fn rmgfAvailableAtLeast(state: *State, arg: []const u8) Outcome {
 fn rmgfTabIs(state: *State, arg: []const u8) Outcome {
     const tab = std.meta.stringToEnum(panels.FieldTab, arg) orelse return .bad_arg;
     return if (state.fc_tab == tab) .ok else .refused;
+}
+
+
+// ---------------------------------------------------------------------------
+// The Templates Composer (05-10, D-06/D-07/D-12): core.composers' template behind
+// the window. Names are relative to the kind's folder like every composer's; a
+// weight edit names its list (`fields`, `graphs` or `vso`) and index from 0.
+// ---------------------------------------------------------------------------
+
+fn resetTemplateUi(state: *State) void {
+    for (&state.tc_selected) |*list| list.clearRetainingCapacity();
+    state.tc_cells_valid = false;
+}
+
+fn rmgtWindow(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    state.templates_composer_open = !state.templates_composer_open;
+    if (state.templates_composer_open) state.composers.ensureScanned(state.editor);
+    return .ok;
+}
+
+fn rmgtNew(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    resetTemplateUi(state);
+    return composerResult(state, state.composers.newTemplate());
+}
+
+fn rmgtOpen(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    resetTemplateUi(state);
+    return composerResult(state, state.composers.openTemplate(state.editor, arg));
+}
+
+fn rmgtSave(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return composerSave(state, state.composers.saveTemplate(state.editor));
+}
+
+fn rmgtSaveAs(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    return composerSave(state, state.composers.saveTemplateAs(state.editor, arg));
+}
+
+fn rmgtAdded(state: *State, added: anytype, want: usize) Outcome {
+    const count = added catch return composerResult(state, @as(error{Failed}!void, error.Failed));
+    if (count == want) return .ok;
+    state.view.setStatus("composer: ", state.composers.message());
+    return .refused;
+}
+
+fn rmgtGraphAdd(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    state.tc_selected[1].clearRetainingCapacity();
+    return rmgtAdded(state, state.composers.addTemplateGraphs(state.editor, &.{arg}), 1);
+}
+
+fn rmgtFieldAdd(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    state.tc_selected[0].clearRetainingCapacity();
+    return rmgtAdded(state, state.composers.addTemplateFields(state.editor, &.{arg}), 1);
+}
+
+fn rmgtVsoAdd(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    state.tc_selected[2].clearRetainingCapacity();
+    return rmgtAdded(state, state.composers.addTemplateVsos(state.editor, &.{arg}), 1);
+}
+
+fn rmgtDelete(state: *State, list: core.composers.Composers.TemplateList, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    state.tc_selected[@intFromEnum(list)].clearRetainingCapacity();
+    const removed = state.composers.removeTemplateEntries(list, &.{index}) catch return .refused;
+    return if (removed) .ok else .refused;
+}
+
+fn rmgtGraphDel(state: *State, arg: []const u8) Outcome {
+    return rmgtDelete(state, .graphs, arg);
+}
+fn rmgtFieldDel(state: *State, arg: []const u8) Outcome {
+    return rmgtDelete(state, .fields, arg);
+}
+fn rmgtVsoDel(state: *State, arg: []const u8) Outcome {
+    return rmgtDelete(state, .vso, arg);
+}
+
+/// `<fields|graphs|vso>:<index>:<weight>`.
+fn rmgtWeightSet(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const list = std.meta.stringToEnum(core.composers.Composers.TemplateList, parts.next() orelse return .bad_arg) orelse return .bad_arg;
+    const index = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const weight = std.fmt.parseInt(i32, parts.rest(), 10) catch return .bad_arg;
+    const changed = state.composers.setTemplateWeight(list, index, weight) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// `<index>:<width in cells>:<opacity in percent>`.
+fn rmgtVsoSet(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const index = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const width = std.fmt.parseFloat(f32, parts.next() orelse return .bad_arg) catch return .bad_arg;
+    const opacity = std.fmt.parseFloat(f32, parts.rest()) catch return .bad_arg;
+    const changed = state.composers.setTemplateVso(index, width, opacity) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// The default field's index, or -1 for none.
+fn rmgtDefaultField(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    const changed = state.composers.setTemplateDefaultField(index) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// The mission script's storage name without ".lua", or `none`.
+fn rmgtScript(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    const changed = state.composers.setTemplateText(.script_file, if (std.mem.eql(u8, arg, "none")) "" else arg) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// The MOD combo: `none` or an installed mod's folder.
+fn rmgtMod(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    var name: []const u8 = "";
+    var version: []const u8 = "";
+    if (!std.mem.eql(u8, arg, "none")) {
+        panels.refreshModList(state);
+        var found = false;
+        for (state.mod_list_buffer[0..state.mod_list_count]) |*mod| {
+            if (!std.mem.eql(u8, std.mem.sliceTo(&mod.folder, 0), arg)) continue;
+            name = std.mem.sliceTo(&mod.name, 0);
+            version = std.mem.sliceTo(&mod.version, 0);
+            found = true;
+            break;
+        }
+        if (!found) return .refused;
+    }
+    const changed = state.composers.setTemplateMod(name, version) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+fn rmgtPlayerAdd(state: *State, arg: []const u8) Outcome {
+    const side = std.fmt.parseInt(u8, arg, 10) catch return .bad_arg;
+    const changed = state.composers.addTemplatePlayer(side) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+fn rmgtPlayerDel(state: *State, arg: []const u8) Outcome {
+    const player = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    const changed = state.composers.deleteTemplatePlayer(player) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// `<player>:<side>`.
+fn rmgtPlayerSide(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const player = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const side = std.fmt.parseInt(u8, parts.rest(), 10) catch return .bad_arg;
+    const changed = state.composers.setTemplatePlayerSide(player, side) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// `<game type 0..2>:<attacking side 0..1>`.
+fn rmgtGameType(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const game_type = std.fmt.parseInt(i32, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const attacking = std.fmt.parseInt(i32, parts.rest(), 10) catch return .bad_arg;
+    const changed = state.composers.setTemplateGameType(game_type, attacking) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// `<player>:<field>=<value>`: the Units... grid's fields (party, aircraft<N>_name,
+/// aircraft<N>_formation, aircraft<N>_count, paratroop_name, paratroop_count, relax).
+fn rmgtUnitsSet(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const player = std.fmt.parseInt(usize, arg[0..colon], 10) catch return .bad_arg;
+    const equals = std.mem.indexOfScalar(u8, arg[colon + 1 ..], '=') orelse return .bad_arg;
+    const field_name = arg[colon + 1 .. colon + 1 + equals];
+    const value = arg[colon + 2 + equals ..];
+    const changed = state.composers.setTemplateUnit(state.editor, player, field_name, value) catch return .refused;
+    if (!changed) {
+        state.view.setStatus("composer: ", state.composers.message());
+        return .refused;
+    }
+    return .ok;
+}
+
+/// `<player>:<x>:<y>` in map units.
+fn rmgtAppearAdd(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const player = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const x = std.fmt.parseFloat(f32, parts.next() orelse return .bad_arg) catch return .bad_arg;
+    const y = std.fmt.parseFloat(f32, parts.rest()) catch return .bad_arg;
+    const changed = state.composers.addTemplateAppear(player, x, y) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// `<player>:<index>:<x>:<y>` in map units.
+fn rmgtAppearSet(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const player = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const index = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const x = std.fmt.parseFloat(f32, parts.next() orelse return .bad_arg) catch return .bad_arg;
+    const y = std.fmt.parseFloat(f32, parts.rest()) catch return .bad_arg;
+    const changed = state.composers.setTemplateAppear(player, index, x, y) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// `<player>:<index>`.
+fn rmgtAppearDel(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const player = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const index = std.fmt.parseInt(usize, parts.rest(), 10) catch return .bad_arg;
+    const changed = state.composers.removeTemplateAppear(player, index) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// Opens (or closes) the template window's Diplomacy and Units popups: `units`,
+/// `diplomacy` or `none`.
+fn rmgtPopup(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "units")) {
+        state.tc_popup = .unit_grid;
+    } else if (std.mem.eql(u8, arg, "diplomacy")) {
+        state.tc_popup = .diplomacy;
+    } else if (std.mem.eql(u8, arg, "none")) {
+        state.tc_popup = .none;
+    } else return .bad_arg;
+    state.templates_composer_open = true;
+    return .ok;
+}
+
+fn rmgtCheck(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    bindObjectLookup(state);
+    return composerResult(state, state.composers.checkTemplate(state.editor));
+}
+
+fn rmgtFix(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    bindObjectLookup(state);
+    return composerResult(state, state.composers.fixTemplateFinding(state.editor, index));
+}
+
+fn rmgtFixAll(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    bindObjectLookup(state);
+    return composerResult(state, state.composers.fixTemplateAll(state.editor));
+}
+
+fn rmgtUndo(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const done = state.composers.undoTemplate() catch return .refused;
+    return if (done) .ok else .refused;
+}
+
+fn rmgtRedo(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const done = state.composers.redoTemplate() catch return .refused;
+    return if (done) .ok else .refused;
+}
+
+fn rmgtDirtyIs(state: *State, arg: []const u8) Outcome {
+    return flagIs(state.composers.tdoc.dirty, arg);
+}
+fn rmgtNameEndsWith(state: *State, arg: []const u8) Outcome {
+    return if (std.mem.endsWith(u8, state.composers.tdoc.name, arg)) .ok else .refused;
+}
+fn rmgtFindingsAre(state: *State, arg: []const u8) Outcome {
+    const report = state.composers.template_report orelse return .refused;
+    return countIs(report.findings.items.len, arg);
+}
+fn rmgtErrorsAre(state: *State, arg: []const u8) Outcome {
+    const report = state.composers.template_report orelse return .refused;
+    return countIs(report.errorCount(), arg);
+}
+fn rmgtGraphsAre(state: *State, arg: []const u8) Outcome {
+    return countIs(state.composers.tdoc.current.graphs.items.len, arg);
+}
+fn rmgtFieldsAre(state: *State, arg: []const u8) Outcome {
+    return countIs(state.composers.tdoc.current.fields.items.len, arg);
+}
+fn rmgtVsosAre(state: *State, arg: []const u8) Outcome {
+    return countIs(state.composers.tdoc.current.vso.items.len, arg);
+}
+fn rmgtPlayersAre(state: *State, arg: []const u8) Outcome {
+    return countIs(state.composers.tdoc.current.playerCount(), arg);
+}
+fn rmgtDefaultIs(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    return if (state.composers.tdoc.current.default_field == want) .ok else .refused;
+}
+
+/// `<fields|graphs|vso>:<index>:<weight>`.
+fn rmgtWeightIs(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const list = std.meta.stringToEnum(core.composers.Composers.TemplateList, parts.next() orelse return .bad_arg) orelse return .bad_arg;
+    const index = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const want = std.fmt.parseInt(i32, parts.rest(), 10) catch return .bad_arg;
+    const t = &state.composers.tdoc.current;
+    const have: i32 = switch (list) {
+        .fields => if (index < t.fields.items.len) t.fields.items[index].weight else return .refused,
+        .graphs => if (index < t.graphs.items.len) t.graphs.items[index].weight else return .refused,
+        .vso => if (index < t.vso.items.len) t.vso.items[index].weight else return .refused,
+    };
+    return if (have == want) .ok else .refused;
+}
+
+/// `<index>:<width in cells>:<opacity in percent>`, compared to two decimals.
+fn rmgtVsoIs(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const index = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const width = std.fmt.parseFloat(f32, parts.next() orelse return .bad_arg) catch return .bad_arg;
+    const opacity = std.fmt.parseFloat(f32, parts.rest()) catch return .bad_arg;
+    const t = &state.composers.tdoc.current;
+    if (index >= t.vso.items.len) return .refused;
+    const entry = t.vso.items[index];
+    return if (@abs(entry.width / core.rmg.world_cell - width) < 0.005 and @abs(entry.opacity * 100 - opacity) < 0.005) .ok else .refused;
+}
+
+fn rmgtScriptIs(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "none")) return if (state.composers.tdoc.current.script_file.len == 0) .ok else .refused;
+    return if (std.mem.endsWith(u8, state.composers.tdoc.current.script_file, arg)) .ok else .refused;
+}
+
+/// `none` or the mod's name (and version when the arg is `<name> <version>`).
+fn rmgtModIs(state: *State, arg: []const u8) Outcome {
+    const t = &state.composers.tdoc.current;
+    if (std.mem.eql(u8, arg, "none")) return if (t.mod_name.len == 0 and t.mod_version.len == 0) .ok else .refused;
+    return if (std.mem.eql(u8, t.mod_name, arg)) .ok else .refused;
+}
+
+/// The diplomacy table as digits, e.g. `0112` (two... three players and the neutral).
+fn rmgtSidesAre(state: *State, arg: []const u8) Outcome {
+    const sides = state.composers.tdoc.current.diplomacies.items;
+    if (arg.len != sides.len) return .refused;
+    for (sides, arg) |side, text| {
+        if (text < '0' or text > '9' or side != text - '0') return .refused;
+    }
+    return .ok;
+}
+
+/// `<game type>:<attacking side>`.
+fn rmgtGameTypeIs(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const game_type = std.fmt.parseInt(i32, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const attacking = std.fmt.parseInt(i32, parts.rest(), 10) catch return .bad_arg;
+    const t = &state.composers.tdoc.current;
+    return if (t.game_type == game_type and t.attacking_side == attacking) .ok else .refused;
+}
+
+/// `<player>:<field>=<value>`, the grid's own fields as text.
+fn rmgtUnitIs(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const player = std.fmt.parseInt(usize, arg[0..colon], 10) catch return .bad_arg;
+    const equals = std.mem.indexOfScalar(u8, arg[colon + 1 ..], '=') orelse return .bad_arg;
+    const field_name = arg[colon + 1 .. colon + 1 + equals];
+    const want = arg[colon + 2 + equals ..];
+    const t = &state.composers.tdoc.current;
+    if (player >= t.units.items.len) return .refused;
+    const unit = &t.units.items[player];
+    var buffer: [64]u8 = undefined;
+    const have: []const u8 = blk: {
+        if (std.mem.eql(u8, field_name, "party")) break :blk unit.partySlice();
+        if (std.mem.eql(u8, field_name, "paratroop_name")) break :blk unit.paratroopSlice();
+        if (std.mem.eql(u8, field_name, "paratroop_count")) break :blk std.fmt.bufPrint(&buffer, "{d}", .{unit.paratroop_count}) catch return .refused;
+        if (std.mem.eql(u8, field_name, "relax")) break :blk std.fmt.bufPrint(&buffer, "{d}", .{unit.relax_time}) catch return .refused;
+        if (std.mem.startsWith(u8, field_name, "aircraft") and field_name.len > 10 and field_name[9] == '_') {
+            const slot = std.fmt.parseInt(usize, field_name[8..9], 10) catch return .bad_arg;
+            if (slot >= unit.aircraft.len) return .bad_arg;
+            const rest = field_name[10..];
+            if (std.mem.eql(u8, rest, "name")) break :blk unit.aircraft[slot].nameSlice();
+            if (std.mem.eql(u8, rest, "formation")) break :blk std.fmt.bufPrint(&buffer, "{d}", .{unit.aircraft[slot].formation_size}) catch return .refused;
+            if (std.mem.eql(u8, rest, "count")) break :blk std.fmt.bufPrint(&buffer, "{d}", .{unit.aircraft[slot].count}) catch return .refused;
+        }
+        return .bad_arg;
+    };
+    return if (std.mem.eql(u8, have, want)) .ok else .refused;
+}
+
+/// `<player>:<count>`: the player's appear points.
+fn rmgtAppearIs(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const player = std.fmt.parseInt(usize, arg[0..colon], 10) catch return .bad_arg;
+    if (player >= state.composers.tdoc.current.units.items.len) return .refused;
+    return countIs(state.composers.tdoc.current.units.items[player].appear_count, arg[colon + 1 ..]);
+}
+
+/// `<x>x<y>`: the template's size in patches (the first graph's).
+fn rmgtSizeIs(state: *State, arg: []const u8) Outcome {
+    const x = std.mem.indexOfScalar(u8, arg, 'x') orelse return .bad_arg;
+    const want_x = std.fmt.parseInt(i32, arg[0..x], 10) catch return .bad_arg;
+    const want_y = std.fmt.parseInt(i32, arg[x + 1 ..], 10) catch return .bad_arg;
+    const t = &state.composers.tdoc.current;
+    return if (t.size_x == want_x and t.size_y == want_y) .ok else .refused;
+}
+
+fn rmgtListedAtLeast(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    state.composers.ensureScanned(state.editor);
+    return if (state.composers.template_names.items.len >= want) .ok else .refused;
 }
 
 fn rmggZoomIs(state: *State, arg: []const u8) Outcome {

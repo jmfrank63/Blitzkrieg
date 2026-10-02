@@ -48,6 +48,7 @@
 #include <functional>
 #include <iterator>
 #include <limits>
+#include <sstream>
 
 static std::string DirectoryOf( const char *pszPath )
 {
@@ -3825,6 +3826,7 @@ static void TestM3CreateRandomMap( BkEditorSession *pSession, const std::string 
 static void TestM3RmgContainers( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3RmgGraphs( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3RmgFieldSets( BkEditorSession *pSession, const std::string &szScratch );
+static void TestM3RmgTemplates( BkEditorSession *pSession, const std::string &szScratch );
 static bool CraftFixture( BkEditorSession *pSession, const char *pszKind, const char *pszOut );
 static void CheckSavedEquals( BkEditorSession *pSession, const std::string &szPath, const CMapInfo &rExpected, const char *pszWhat );
 
@@ -11267,6 +11269,7 @@ int main( int argc, char **argv )
 		TestM3RmgContainers( pSession, szScratch );
 		TestM3RmgGraphs( pSession, szScratch );
 		TestM3RmgFieldSets( pSession, szScratch );
+		TestM3RmgTemplates( pSession, szScratch );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
 	}
 	else if ( bLayersOnly )
@@ -11316,6 +11319,7 @@ int main( int argc, char **argv )
 		TestM3RmgContainers( pSession, szScratch );
 		TestM3RmgGraphs( pSession, szScratch );
 		TestM3RmgFieldSets( pSession, szScratch );
+		TestM3RmgTemplates( pSession, szScratch );
 		TestM3MultiSelect( pSession, szScratch );
 		TestM3PropertiesAndLinks( pSession, szScratch );
 		TestM3Damage( pSession, szScratch );
@@ -14627,4 +14631,432 @@ static void TestM3RmgFieldSets( BkEditorSession *pSession, const std::string &sz
 	Check( !FileExists( std::filesystem::path( NPlatform::Paths::DataRoot() ) / "Scenarios" / "FieldSets" / "user" ), "nothing was written into the shipped Data" );
 	if ( g_nFailures == nFailuresBefore )
 		printf( "editor-bridge: M3 rmg field sets ok\n" );
+}
+
+
+// ---------------------------------------------------------------------------
+// M3 05-10: the Templates Composer's records (D-06/D-07/D-12)
+// ---------------------------------------------------------------------------
+
+struct STemplateBuf
+{
+	BkEditorRmgTemplateRecord record;
+	std::vector<BkEditorRmgWeightedName> fields, graphs;
+	std::vector<BkEditorRmgVso> vso;
+	std::vector<unsigned char> diplomacies;
+	std::vector<BkEditorUnitCreationRecord> units;
+	std::vector<int> ids;
+	std::vector<BkEditorRmgName> areas;
+	STemplateBuf() { memset( &record, 0, sizeof record ); }
+	void Rebind()
+	{
+		record.fields = fields.empty() ? 0 : &fields[0];
+		record.graphs = graphs.empty() ? 0 : &graphs[0];
+		record.vso = vso.empty() ? 0 : &vso[0];
+		record.diplomacies = diplomacies.empty() ? 0 : &diplomacies[0];
+		record.units = units.empty() ? 0 : &units[0];
+		record.scripts.ids = ids.empty() ? 0 : &ids[0];
+		record.scripts.areas = areas.empty() ? 0 : &areas[0];
+	}
+};
+
+static BkEditorStatus ReadTemplateTwoPass( BkEditorSession *pSession, const char *pszName, STemplateBuf *pOut )
+{
+	*pOut = STemplateBuf();
+	BkEditorStatus status = BkEditorRmgReadTemplate( pSession, pszName, &pOut->record );
+	const BkEditorRmgTemplateRecord &r = pOut->record;
+	if ( status == BK_EDITOR_OK )
+		return status;
+	if ( status != BK_EDITOR_REFUSED || ( r.field_count == 0 && r.graph_count == 0 && r.vso_count == 0 && r.diplomacy_count == 0 && r.unit_count == 0 && r.scripts.id_count == 0 && r.scripts.area_count == 0 ) )
+		return status;
+	const int nFields = r.field_count, nGraphs = r.graph_count, nVso = r.vso_count, nDiplomacies = r.diplomacy_count, nUnits = r.unit_count, nIds = r.scripts.id_count, nAreas = r.scripts.area_count;
+	pOut->fields.resize( size_t( nFields ) );
+	pOut->graphs.resize( size_t( nGraphs ) );
+	pOut->vso.resize( size_t( nVso ) );
+	pOut->diplomacies.resize( size_t( nDiplomacies ) );
+	pOut->units.resize( size_t( nUnits ) );
+	pOut->ids.resize( size_t( nIds ) );
+	pOut->areas.resize( size_t( nAreas ) );
+	pOut->Rebind();
+	pOut->record.field_capacity = nFields;
+	pOut->record.graph_capacity = nGraphs;
+	pOut->record.vso_capacity = nVso;
+	pOut->record.diplomacy_capacity = nDiplomacies;
+	pOut->record.unit_capacity = nUnits;
+	pOut->record.scripts.id_capacity = nIds;
+	pOut->record.scripts.area_capacity = nAreas;
+	status = BkEditorRmgReadTemplate( pSession, pszName, &pOut->record );
+	if ( status == BK_EDITOR_OK && ( pOut->record.field_count != nFields || pOut->record.graph_count != nGraphs || pOut->record.vso_count != nVso || pOut->record.unit_count != nUnits ) )
+		return BK_EDITOR_FAILED;
+	return status;
+}
+
+static bool SameVec3Loose( const CVec3 &rA, const CVec3 &rB )
+{
+	return fabsf( rA.x - rB.x ) < 1e-3f && fabsf( rA.y - rB.y ) < 1e-3f && fabsf( rA.z - rB.z ) < 1e-3f;
+}
+
+static bool TemplateBufIs( const STemplateBuf &rBuf, const SRMTemplate &rT )
+{
+	const BkEditorRmgTemplateRecord &r = rBuf.record;
+	if ( r.size_x != rT.size.x || r.size_y != rT.size.y || r.season != rT.nSeason || std::string( r.season_folder ) != rT.szSeasonFolder || std::string( r.place ) != rT.szPlace ||
+	     r.default_field != rT.nDefaultFieldIndex || r.mission_index != rT.nMissionIndex || r.game_type != rT.nType || r.attacking_side != rT.nAttackingSide ||
+	     !SameVec3Loose( CVec3( r.camera[0], r.camera[1], r.camera[2] ), rT.vCameraAnchor ) || std::string( r.script_file ) != rT.szScriptFile || std::string( r.chapter_name ) != rT.szChapterName ||
+	     std::string( r.forest_circle_sounds ) != rT.szForestCircleSounds || std::string( r.forest_ambient_sounds ) != rT.szForestAmbientSounds ||
+	     std::string( r.mod_name ) != rT.szMODName || std::string( r.mod_version ) != rT.szMODVersion ||
+	     r.field_count != rT.fields.size() || r.graph_count != rT.graphs.size() || r.vso_count != rT.vso.size() ||
+	     r.diplomacy_count != int( rT.diplomacies.size() ) || r.unit_count != int( rT.unitCreation.units.size() ) ||
+	     r.scripts.id_count != int( rT.usedScriptIDs.size() ) || r.scripts.area_count != int( rT.usedScriptAreas.size() ) )
+		return false;
+	for ( int i = 0; i < r.field_count; ++i )
+		if ( rT.fields[i] != r.fields[i].name || rT.fields.GetWeight( i ) != r.fields[i].weight )
+			return false;
+	for ( int i = 0; i < r.graph_count; ++i )
+		if ( rT.graphs[i] != r.graphs[i].name || rT.graphs.GetWeight( i ) != r.graphs[i].weight )
+			return false;
+	for ( int i = 0; i < r.vso_count; ++i )
+		if ( rT.vso[i].szVSODescFileName != r.vso[i].name || rT.vso.GetWeight( i ) != r.vso[i].weight || fabsf( rT.vso[i].fWidth - r.vso[i].width ) > 1e-3f || fabsf( rT.vso[i].fOpacity - r.vso[i].opacity ) > 1e-5f )
+			return false;
+	for ( int i = 0; i < r.diplomacy_count; ++i )
+		if ( rT.diplomacies[size_t( i )] != r.diplomacies[i] )
+			return false;
+	for ( int i = 0; i < r.unit_count; ++i )
+	{
+		const SUnitCreation &u = rT.unitCreation.units[size_t( i )];
+		const BkEditorUnitCreationRecord &c = r.units[i];
+		if ( u.szPartyName != c.party || u.aviation.szParadropSquadName != c.paratroop_name || u.aviation.nParadropSquadCount != c.paratroop_count || u.aviation.nRelaxTime != c.relax_time ||
+		     int( u.aviation.vAppearPoints.size() ) != c.appear_count || int( u.aviation.aircrafts.size() ) != 5 )
+			return false;
+		for ( int k = 0; k < 5; ++k )
+			if ( u.aviation.aircrafts[size_t( k )].szName != c.aircraft[k].name || u.aviation.aircrafts[size_t( k )].nFormationSize != c.aircraft[k].formation_size || u.aviation.aircrafts[size_t( k )].nPlanes != c.aircraft[k].count )
+				return false;
+		int nPoint = 0;
+		for ( std::list<CVec3>::const_iterator it = u.aviation.vAppearPoints.begin(); it != u.aviation.vAppearPoints.end(); ++it, ++nPoint )
+			if ( !SameVec3Loose( *it, CVec3( c.appear[nPoint].x, c.appear[nPoint].y, c.appear[nPoint].z ) ) )
+				return false;
+	}
+	int nId = 0;
+	for ( CUsedScriptIDs::const_iterator it = rT.usedScriptIDs.begin(); it != rT.usedScriptIDs.end(); ++it )
+		if ( r.scripts.ids[nId++] != *it )
+			return false;
+	int nArea = 0;
+	for ( CUsedScriptAreas::const_iterator it = rT.usedScriptAreas.begin(); it != rT.usedScriptAreas.end(); ++it )
+		if ( *it != r.scripts.areas[nArea++].name )
+			return false;
+	return true;
+}
+
+static bool QuickLoadIsTemplates( const SQuickLoadMapInfo &rQ, const SRMTemplate &rT )
+{
+	SQuickLoadMapInfo wanted;
+	wanted.FillFromRMTemplate( rT );
+	return rQ.playerParties == wanted.playerParties && rQ.diplomacies == wanted.diplomacies && rQ.size == wanted.size && rQ.nType == wanted.nType &&
+	       rQ.nAttackingSide == wanted.nAttackingSide && rQ.szMODName == wanted.szMODName && rQ.szMODVersion == wanted.szMODVersion;
+}
+
+static std::string ReadWholeFile( const std::filesystem::path &rPath )
+{
+	std::ifstream in( rPath.string().c_str(), std::ios::binary );
+	std::ostringstream text;
+	text << in.rdbuf();
+	return text.str();
+}
+
+static void TestM3RmgTemplates( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const int nFailuresBefore = g_nFailures;
+	BkEditorRmgTemplateRecord none;
+	memset( &none, 0, sizeof none );
+	Check( BkEditorRmgReadTemplate( pSession, 0, &none ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgReadTemplate( pSession, "x", 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null name or record is BAD_ARGUMENT on a template read" );
+	Check( BkEditorRmgWriteTemplate( pSession, 0, &none ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgWriteTemplate( pSession, "scenarios\\templates\\user\\x", 0 ) == BK_EDITOR_BAD_ARGUMENT, "and on a write" );
+	Check( BkEditorRmgReadTemplate( 0, "x", &none ) == BK_EDITOR_NO_SESSION, "no session is NO_SESSION" );
+	BkEditorRmgTemplateRecord badCapacity = none;
+	badCapacity.graph_capacity = 3;
+	Check( BkEditorRmgReadTemplate( pSession, "scenarios\\templates\\summer\\template00", &badCapacity ) == BK_EDITOR_BAD_ARGUMENT, "a capacity with no array is BAD_ARGUMENT" );
+
+	SScratchUserRoot user( szScratch, "rmg-user-templates" );
+
+	// The shipped templates: the scan lists them all, and every one reads.
+	const std::vector<std::string> templates = ListRmgNames( pSession, 1 );
+	if ( !Check( templates.size() >= 40, NStr::Format( "the data lists its templates (%d)", int( templates.size() ) ) ) )
+		return;
+	std::string szShipped;
+	SRMTemplate shipped;
+	size_t nBest = 0;
+	for ( size_t i = 0; i < templates.size(); ++i )
+	{
+		SRMTemplate candidate;
+		if ( LoadDataResource( templates[i], "", false, 0, RMGC_TEMPLATE_XML_NAME, candidate ) )
+		{
+			const size_t nRank = candidate.graphs.size() + candidate.fields.size() + candidate.usedScriptIDs.size();
+			if ( candidate.graphs.size() >= 3 && candidate.fields.size() >= 3 && !candidate.usedScriptIDs.empty() && !candidate.szScriptFile.empty() && nRank > nBest )
+			{
+				nBest = nRank;
+				szShipped = templates[i];
+				shipped = candidate;
+			}
+		}
+	}
+	if ( !Check( !szShipped.empty(), "the data has a template with graphs, fields, scripts and a script file" ) )
+		return;
+	printf( "editor-bridge: M3 rmg template %s (%d graphs, %d fields, %d vso, %d players, script %s)\n", szShipped.c_str(), shipped.graphs.size(), shipped.fields.size(), shipped.vso.size(), int( shipped.diplomacies.size() ) - 1, shipped.szScriptFile.c_str() );
+	STemplateBuf read;
+	{
+		BkEditorRmgTemplateRecord sizing;
+		memset( &sizing, 0, sizeof sizing );
+		Check( BkEditorRmgReadTemplate( pSession, szShipped.c_str(), &sizing ) == BK_EDITOR_REFUSED && sizing.graph_count == shipped.graphs.size() && sizing.field_count == shipped.fields.size() && sizing.unit_count == int( shipped.unitCreation.units.size() ),
+		       "the sizing pass is REFUSED with the list totals" );
+		BkEditorRmgTemplateRecord one = sizing;
+		BkEditorRmgWeightedName oneGraph;
+		memset( &oneGraph, 0, sizeof oneGraph );
+		one.graphs = &oneGraph;
+		one.graph_capacity = 1;
+		Check( BkEditorRmgReadTemplate( pSession, szShipped.c_str(), &one ) == BK_EDITOR_REFUSED && one.graph_count == sizing.graph_count && oneGraph.name[0] != 0, "a capacity below the total writes what fits and says the total" );
+	}
+	if ( !Check( ReadTemplateTwoPass( pSession, szShipped.c_str(), &read ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( TemplateBufIs( read, shipped ), "the bridge's read is the engine's own LoadDataResource read, field for field" );
+	SQuickLoadMapInfo shippedQuick;
+	Check( LoadDataResource( szShipped, "", false, 0, RMGC_QUICK_LOAD_MAP_INFO_NAME, shippedQuick ) && QuickLoadIsTemplates( shippedQuick, shipped ), "the shipped file's own QuickLoadMapInfo is what FillFromRMTemplate makes of its template" );
+	{
+		STemplateBuf again;
+		std::string szUpper = szShipped + ".XML";
+		for ( size_t i = 0; i < szUpper.size(); ++i )
+			szUpper[i] = char( toupper( ( unsigned char )szUpper[i] ) );
+		Check( ReadTemplateTwoPass( pSession, szUpper.c_str(), &again ) == BK_EDITOR_OK && TemplateBufIs( again, shipped ), "the name is taken lower-cased and with or without .xml" );
+		STemplateBuf nothing;
+		Check( ReadTemplateTwoPass( pSession, "scenarios\\templates\\nope\\nothing", &nothing ) == BK_EDITOR_REFUSED && nothing.record.graph_count == 0 && MessageHas( pSession, "template" ), "an unknown template is REFUSED naming it" );
+		Check( ReadTemplateTwoPass( pSession, "..\\consts", &nothing ) == BK_EDITOR_REFUSED, "a name that goes up is REFUSED on a read" );
+		Check( ReadTemplateTwoPass( pSession, "scenarios\\graphs\\winter\\graph_escort1", &nothing ) == BK_EDITOR_REFUSED, "a name outside the templates folder is REFUSED on a read" );
+	}
+
+	// Every shipped template reads (the composers list them all).
+	{
+		int nRead = 0;
+		for ( size_t i = 0; i < templates.size(); ++i )
+		{
+			STemplateBuf each;
+			SRMTemplate direct;
+			if ( Check( ReadTemplateTwoPass( pSession, templates[i].c_str(), &each ) == BK_EDITOR_OK, NStr::Format( "template %s reads: %s", templates[i].c_str(), BkEditorLastMessage( pSession ) ) ) &&
+			     Check( LoadDataResource( templates[i], "", false, 0, RMGC_TEMPLATE_XML_NAME, direct ) && TemplateBufIs( each, direct ), NStr::Format( "and is the engine's own read (%s)", templates[i].c_str() ) ) )
+				++nRead;
+		}
+		printf( "editor-bridge: M3 rmg templates read: %d of %d\n", nRead, int( templates.size() ) );
+	}
+
+	// Write it under a user name: under the user RMG root, both entries in the one
+	// file, read back equal through the storage and in the engine's own reader.
+	const std::string szUserName = "scenarios\\templates\\user\\m3_copy";
+	STemplateBuf toWrite = read;
+	toWrite.Rebind();
+	const std::filesystem::path userFile = user.path / "rmg" / "scenarios" / "templates" / "user" / "m3_copy.xml";
+	Check( !FileExists( userFile ), "nothing is under the user RMG root yet" );
+	if ( !Check( BkEditorRmgWriteTemplate( pSession, szUserName.c_str(), &toWrite.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( FileExists( userFile ), NStr::Format( "the file is under the user RMG root (%s)", userFile.string().c_str() ) );
+	{
+		const std::string szText = ReadWholeFile( userFile );
+		Check( szText.find( "<Template " ) != std::string::npos && szText.find( "<QuickLoadMapInfo" ) != std::string::npos && szText.find( "<QuickLoadMapInfo" ) > szText.find( "</Template>" ), "the file holds the Template entry and the QuickLoadMapInfo entry after it" );
+		STemplateBuf back;
+		Check( ReadTemplateTwoPass( pSession, szUserName.c_str(), &back ) == BK_EDITOR_OK && TemplateBufIs( back, shipped ), "the user's file reads back through the bridge as the shipped one" );
+		SRMTemplate direct;
+		SQuickLoadMapInfo quick;
+		Check( LoadDataResource( szUserName, "", false, 0, RMGC_TEMPLATE_XML_NAME, direct ) && TemplateBufIs( read, direct ), "and loads in the engine's own LoadDataResource (the game's reader)" );
+		Check( LoadDataResource( szUserName, "", false, 0, RMGC_QUICK_LOAD_MAP_INFO_NAME, quick ) && QuickLoadIsTemplates( quick, direct ), "its QuickLoadMapInfo (chunk 2's entry) is the template's own" );
+		const std::vector<std::string> listed = ListRmgNames( pSession, 1 );
+		Check( std::find( listed.begin(), listed.end(), szUserName ) != listed.end(), "the folder scan lists the user's template beside the shipped ones" );
+	}
+	Check( BkEditorRmgWriteTemplate( pSession, szUserName.c_str(), &toWrite.record ) == BK_EDITOR_OK, "writing over the user's own file is allowed" );
+
+	// An edit goes through, and the QuickLoadMapInfo follows the template: a
+	// player added (side 1, before the neutral, with a unit creation), a vso with
+	// its width and opacity, a new weight, the default field moved, the chapter
+	// fields, the camera.
+	{
+		STemplateBuf edited = toWrite;
+		edited.Rebind();
+		edited.diplomacies.insert( edited.diplomacies.end() - 1, 1 );
+		BkEditorUnitCreationRecord extra = edited.units.back();
+		strcpy( extra.party, "German" );
+		extra.relax_time = 77;
+		extra.appear_count = 2;
+		extra.appear[0].x = 128.0f;
+		extra.appear[0].y = 256.0f;
+		extra.appear[1].x = 512.0f;
+		extra.appear[1].y = 64.0f;
+		edited.units.push_back( extra );
+		BkEditorRmgVso vso;
+		memset( &vso, 0, sizeof vso );
+		strcpy( vso.name, "terrain\\sets\\1\\roads3d\\road_asphalt_ground" );
+		vso.weight = 3;
+		vso.width = 96.0f;
+		vso.opacity = 0.75f;
+		edited.vso.push_back( vso );
+		edited.fields[0].weight = 42;
+		edited.Rebind();
+		edited.record.diplomacy_count = int( edited.diplomacies.size() );
+		edited.record.unit_count = int( edited.units.size() );
+		edited.record.vso_count = int( edited.vso.size() );
+		edited.record.default_field = edited.record.field_count - 1;
+		edited.record.mission_index = 7;
+		edited.record.game_type = 2;
+		edited.record.attacking_side = 1;
+		strcpy( edited.record.chapter_name, "m3_chapter" );
+		strcpy( edited.record.mod_name, "M3 Mod" );
+		strcpy( edited.record.mod_version, "1.2" );
+		edited.record.camera[0] = 100.0f;
+		edited.record.camera[1] = 200.0f;
+		edited.record.camera[2] = 5.0f;
+		if ( Check( BkEditorRmgWriteTemplate( pSession, szUserName.c_str(), &edited.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			STemplateBuf back;
+			Check( ReadTemplateTwoPass( pSession, szUserName.c_str(), &back ) == BK_EDITOR_OK && back.record.diplomacy_count == int( shipped.diplomacies.size() ) + 1 && back.record.unit_count == int( shipped.unitCreation.units.size() ) + 1 &&
+			       back.record.vso_count == shipped.vso.size() + 1, "an edited template reads back with its new player and vso" );
+			if ( back.record.unit_count == int( shipped.unitCreation.units.size() ) + 1 && back.record.vso_count == shipped.vso.size() + 1 )
+			{
+				const BkEditorUnitCreationRecord &u = back.units[size_t( back.record.unit_count - 1 )];
+				Check( std::string( u.party ) == "German" && u.relax_time == 77 && u.appear_count == 2 && u.appear[1].x == 512.0f && u.appear[1].y == 64.0f, "the new player's unit creation is as given" );
+				const BkEditorRmgVso &v = back.vso[size_t( back.record.vso_count - 1 )];
+				Check( v.weight == 3 && v.width == 96.0f && v.opacity == 0.75f && std::string( v.name ) == vso.name, "the vso's weight, width and opacity are as given" );
+				Check( back.fields[0].weight == 42 && back.record.default_field == back.record.field_count - 1 && back.record.mission_index == 7 && back.record.game_type == 2 && back.record.attacking_side == 1 &&
+				       std::string( back.record.chapter_name ) == "m3_chapter" && std::string( back.record.mod_name ) == "M3 Mod" && std::string( back.record.mod_version ) == "1.2" && back.record.camera[1] == 200.0f, "and the weights, the default field, the chapter fields, the mod and the camera" );
+			}
+			SQuickLoadMapInfo quick;
+			SRMTemplate direct;
+			Check( LoadDataResource( szUserName, "", false, 0, RMGC_TEMPLATE_XML_NAME, direct ) && LoadDataResource( szUserName, "", false, 0, RMGC_QUICK_LOAD_MAP_INFO_NAME, quick ) && QuickLoadIsTemplates( quick, direct ) &&
+			       quick.playerParties.size() == shipped.unitCreation.units.size() + 1 && quick.diplomacies.size() == shipped.diplomacies.size() + 1 && quick.nType == 2 && quick.nAttackingSide == 1 && quick.szMODName == "M3 Mod",
+			       "the QuickLoadMapInfo entry follows the template (parties, diplomacies, type, attacking side, mod)" );
+		}
+	}
+
+	// Shipped files are read-only: Save becomes Save As, nothing is written.
+	{
+		Check( BkEditorRmgWriteTemplate( pSession, szShipped.c_str(), &toWrite.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "Save As" ), "a write to a shipped name is REFUSED with the Save-As message" );
+		std::string szSub = szShipped.substr( strlen( "scenarios\\templates\\" ) );
+		std::replace( szSub.begin(), szSub.end(), '\\', '/' );
+		Check( !FileExists( user.path / "rmg" / "scenarios" / "templates" / ( szSub + ".xml" ) ), "and wrote nothing under the user RMG root" );
+		STemplateBuf stillShipped;
+		Check( ReadTemplateTwoPass( pSession, szShipped.c_str(), &stillShipped ) == BK_EDITOR_OK && TemplateBufIs( stillShipped, shipped ), "the shipped template reads as it did" );
+	}
+
+	// Names that are not plain are a caller bug and write nothing.
+	{
+		const char *bad[] = { "", "scenarios\\templates\\..\\x", "..\\x", "\\scenarios\\templates\\x", "c:\\scenarios\\templates\\x", "scenarios\\graphs\\x", "scenarios\\templates\\", "scenarios\\templates\\a?b" };
+		for ( size_t i = 0; i < sizeof bad / sizeof bad[0]; ++i )
+			Check( BkEditorRmgWriteTemplate( pSession, bad[i], &toWrite.record ) == BK_EDITOR_BAD_ARGUMENT, NStr::Format( "the template name \"%s\" is BAD_ARGUMENT on a write", bad[i] ) );
+		BkEditorRmgTemplateRecord unterminated = toWrite.record;
+		memset( unterminated.script_file, 'a', sizeof unterminated.script_file );
+		Check( BkEditorRmgWriteTemplate( pSession, szUserName.c_str(), &unterminated ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated field is BAD_ARGUMENT" );
+		BkEditorRmgTemplateRecord noArray = toWrite.record;
+		noArray.graphs = 0;
+		Check( BkEditorRmgWriteTemplate( pSession, szUserName.c_str(), &noArray ) == BK_EDITOR_BAD_ARGUMENT, "a graph count with no array is BAD_ARGUMENT" );
+		STemplateBuf badUnit = toWrite;
+		badUnit.Rebind();
+		memset( badUnit.units[0].party, 'p', sizeof badUnit.units[0].party );
+		Check( BkEditorRmgWriteTemplate( pSession, szUserName.c_str(), &badUnit.record ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated unit creation name is BAD_ARGUMENT" );
+		Check( !FileExists( user.path / "rmg" / "scenarios" / "templates" / "a?b.xml" ), "no bad name made a file" );
+	}
+
+	// Refusals leave nothing behind (T-05-10-03).
+	{
+		const std::string szProbe = "scenarios\\templates\\user\\m3_refused";
+		STemplateBuf bad = toWrite;
+		bad.Rebind();
+		bad.record.season = 9;
+		Check( BkEditorRmgWriteTemplate( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "season" ), "a season outside 0..3 is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.graphs[0].weight = -2;
+		Check( BkEditorRmgWriteTemplate( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "weight" ), "a graph weight below 0 is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		strcpy( bad.graphs[0].name, "scenarios\\graphs\\a\x07" "b" );
+		Check( BkEditorRmgWriteTemplate( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a control character in a name is REFUSED" );
+		bad = toWrite;
+		std::vector<BkEditorRmgWeightedName> many( size_t( BK_EDITOR_RMG_MAX_WEIGHTED + 1 ) );
+		for ( size_t i = 0; i < many.size(); ++i )
+		{
+			memset( &many[i], 0, sizeof many[i] );
+			strcpy( many[i].name, "scenarios\\graphs\\x" );
+			many[i].weight = 1;
+		}
+		bad.record.graphs = &many[0];
+		bad.record.graph_count = int( many.size() );
+		Check( BkEditorRmgWriteTemplate( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "more graphs than the bound is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.record.diplomacy_count = BK_EDITOR_RMG_MAX_PLAYERS + 1;
+		std::vector<unsigned char> sides( size_t( BK_EDITOR_RMG_MAX_PLAYERS + 1 ), 0 );
+		bad.record.diplomacies = &sides[0];
+		Check( BkEditorRmgWriteTemplate( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "more diplomacies than the bound is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.units[0].appear_count = 33;
+		Check( BkEditorRmgWriteTemplate( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_BAD_ARGUMENT, "more than 32 appear points is BAD_ARGUMENT" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.units[0].appear_count = 1;
+		bad.units[0].appear[0].x = NAN;
+		Check( BkEditorRmgWriteTemplate( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_BAD_ARGUMENT, "an appear point that is not finite is BAD_ARGUMENT" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.record.camera[0] = INFINITY;
+		Check( BkEditorRmgWriteTemplate( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a camera that is not finite is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.record.unit_count = BK_EDITOR_RMG_MAX_UNITS + 1;
+		std::vector<BkEditorUnitCreationRecord> units( size_t( BK_EDITOR_RMG_MAX_UNITS + 1 ), toWrite.units[0] );
+		bad.record.units = &units[0];
+		Check( BkEditorRmgWriteTemplate( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "more units than the bound is REFUSED" );
+		Check( !FileExists( user.path / "rmg" / "scenarios" / "templates" / "user" / "m3_refused.xml" ), "no refusal wrote a file" );
+	}
+
+	// The facts the template Check! reads (D-12): a template the engine stores can
+	// list a graph and a field set that are not there and a vso nobody has - data,
+	// written and read back as given, and the storages say they are missing. An
+	// empty diplomacy table is the loader's own default pair and neutral.
+	{
+		STemplateBuf crafted = toWrite;
+		crafted.Rebind();
+		strcpy( crafted.graphs[0].name, "scenarios\\graphs\\summer\\no_such_graph" );
+		strcpy( crafted.fields[0].name, "scenarios\\fieldsets\\summer\\no_such_field" );
+		const std::string szCrafted = "scenarios\\templates\\user\\m3_crafted";
+		if ( Check( BkEditorRmgWriteTemplate( pSession, szCrafted.c_str(), &crafted.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			STemplateBuf back;
+			Check( ReadTemplateTwoPass( pSession, szCrafted.c_str(), &back ) == BK_EDITOR_OK && std::string( back.graphs[0].name ) == "scenarios\\graphs\\summer\\no_such_graph", "a graph that is not there is data: written and read back as given" );
+			SGraphBuf missing;
+			Check( ReadGraphTwoPass( pSession, back.graphs[0].name, &missing ) == BK_EDITOR_REFUSED && MessageHas( pSession, "graph" ), "and the graph read says it is not there" );
+			SFieldSetBuf missingField;
+			Check( ReadFieldSetTwoPass( pSession, back.fields[0].name, &missingField ) == BK_EDITOR_REFUSED && MessageHas( pSession, "field set" ), "and so does the field set read" );
+			int nExists = -1;
+			Check( BkEditorRmgFileExists( pSession, "terrain\\sets\\1\\roads3d\\no_such_road", ".xml", &nExists ) == BK_EDITOR_OK && nExists == 0, "a vso descriptor nobody has is not in the storage" );
+			Check( BkEditorRmgFileExists( pSession, shipped.szScriptFile.c_str(), ".lua", &nExists ) == BK_EDITOR_OK && nExists == 1, "and the shipped template's own script is" );
+		}
+		STemplateBuf defaults = toWrite;
+		defaults.Rebind();
+		defaults.record.diplomacy_count = 0;
+		defaults.record.unit_count = 0;
+		if ( Check( BkEditorRmgWriteTemplate( pSession, "scenarios\\templates\\user\\m3_defaults", &defaults.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			STemplateBuf back;
+			Check( ReadTemplateTwoPass( pSession, "scenarios\\templates\\user\\m3_defaults", &back ) == BK_EDITOR_OK && back.record.diplomacy_count == 3 && back.diplomacies[0] == 0 && back.diplomacies[1] == 1 && back.diplomacies[2] == 2 && back.record.unit_count == 2,
+			       "an empty diplomacy table is written as the default two players and the neutral, with two unit creations" );
+		}
+	}
+
+	// A mod moves the root: <UserRoot>mods/<Folder>/rmg.
+	if ( BkEditorSetMod( pSession, "EditorTestMod" ) == BK_EDITOR_OK )
+	{
+		STemplateBuf nothing;
+		Check( ReadTemplateTwoPass( pSession, szUserName.c_str(), &nothing ) == BK_EDITOR_REFUSED, "the no-mod root's template is not mounted with the mod active" );
+		const std::string szModName = "scenarios\\templates\\user\\m3_mod_copy";
+		Check( BkEditorRmgWriteTemplate( pSession, szModName.c_str(), &toWrite.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( FileExists( user.path / "mods" / "EditorTestMod" / "rmg" / "scenarios" / "templates" / "user" / "m3_mod_copy.xml" ), "the mod's file is under the mod's rmg folder" );
+		Check( BkEditorSetMod( pSession, 0 ) == BK_EDITOR_OK, "the mod clears" );
+		Check( ReadTemplateTwoPass( pSession, szModName.c_str(), &nothing ) == BK_EDITOR_REFUSED && ReadTemplateTwoPass( pSession, szUserName.c_str(), &nothing ) == BK_EDITOR_OK, "the mod's template leaves with the mod and the no-mod root's is back" );
+	}
+	Check( !FileExists( std::filesystem::path( NPlatform::Paths::DataRoot() ) / "Scenarios" / "Templates" / "user" ), "nothing was written into the shipped Data" );
+	if ( g_nFailures == nFailuresBefore )
+		printf( "editor-bridge: M3 rmg templates ok\n" );
 }

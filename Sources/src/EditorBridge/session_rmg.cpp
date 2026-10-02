@@ -1320,6 +1320,11 @@ bool ImportRmgPatch( SEditorSession *pSession, const std::string &rszSourcePath,
 namespace
 {
 
+bool SameInts( const std::vector<BYTE> &rA, const std::vector<BYTE> &rB )
+{
+	return rA == rB;
+}
+
 bool SameFieldSet( const SRMFieldSet &rA, const SRMFieldSet &rB )
 {
 	if ( rA.nSeason != rB.nSeason || rA.szSeasonFolder != rB.szSeasonFolder || rA.szProfileFileName != rB.szProfileFileName ||
@@ -1355,6 +1360,161 @@ template<class TList>
 bool WeightsAreWhole( const TList &rList )
 {
 	return rList.IsConsistent();
+}
+
+bool SameVec3( const CVec3 &rA, const CVec3 &rB )
+{
+	return SameFloat( rA.x, rB.x ) && SameFloat( rA.y, rB.y ) && SameFloat( rA.z, rB.z );
+}
+
+bool SameUnitCreation( const SUnitCreation &rA, const SUnitCreation &rB )
+{
+	if ( rA.szPartyName != rB.szPartyName || rA.aviation.aircrafts.size() != rB.aviation.aircrafts.size() ||
+	     rA.aviation.szParadropSquadName != rB.aviation.szParadropSquadName || rA.aviation.nParadropSquadCount != rB.aviation.nParadropSquadCount ||
+	     rA.aviation.nRelaxTime != rB.aviation.nRelaxTime || rA.aviation.vAppearPoints.size() != rB.aviation.vAppearPoints.size() )
+		return false;
+	for ( size_t i = 0; i < rA.aviation.aircrafts.size(); ++i )
+		if ( rA.aviation.aircrafts[i].szName != rB.aviation.aircrafts[i].szName || rA.aviation.aircrafts[i].nFormationSize != rB.aviation.aircrafts[i].nFormationSize ||
+		     rA.aviation.aircrafts[i].nPlanes != rB.aviation.aircrafts[i].nPlanes )
+			return false;
+	std::list<CVec3>::const_iterator itB = rB.aviation.vAppearPoints.begin();
+	for ( std::list<CVec3>::const_iterator itA = rA.aviation.vAppearPoints.begin(); itA != rA.aviation.vAppearPoints.end(); ++itA, ++itB )
+		if ( !SameVec3( *itA, *itB ) )
+			return false;
+	return true;
+}
+
+bool SameTemplate( const SRMTemplate &rA, const SRMTemplate &rB )
+{
+	if ( !( rA.size == rB.size ) || rA.nSeason != rB.nSeason || rA.szSeasonFolder != rB.szSeasonFolder || rA.szPlace != rB.szPlace ||
+	     rA.usedScriptIDs != rB.usedScriptIDs || rA.usedScriptAreas != rB.usedScriptAreas || rA.nDefaultFieldIndex != rB.nDefaultFieldIndex ||
+	     rA.szScriptFile != rB.szScriptFile || !SameVec3( rA.vCameraAnchor, rB.vCameraAnchor ) || !SameInts( rA.diplomacies, rB.diplomacies ) ||
+	     rA.szForestCircleSounds != rB.szForestCircleSounds || rA.szForestAmbientSounds != rB.szForestAmbientSounds || rA.szChapterName != rB.szChapterName ||
+	     rA.nMissionIndex != rB.nMissionIndex || rA.nType != rB.nType || rA.nAttackingSide != rB.nAttackingSide ||
+	     rA.szMODName != rB.szMODName || rA.szMODVersion != rB.szMODVersion ||
+	     rA.fields.size() != rB.fields.size() || rA.graphs.size() != rB.graphs.size() || rA.vso.size() != rB.vso.size() ||
+	     rA.unitCreation.units.size() != rB.unitCreation.units.size() )
+		return false;
+	for ( int i = 0; i < rA.fields.size(); ++i )
+		if ( rA.fields[i] != rB.fields[i] || rA.fields.GetWeight( i ) != rB.fields.GetWeight( i ) )
+			return false;
+	for ( int i = 0; i < rA.graphs.size(); ++i )
+		if ( rA.graphs[i] != rB.graphs[i] || rA.graphs.GetWeight( i ) != rB.graphs.GetWeight( i ) )
+			return false;
+	for ( int i = 0; i < rA.vso.size(); ++i )
+		if ( rA.vso[i].szVSODescFileName != rB.vso[i].szVSODescFileName || rA.vso.GetWeight( i ) != rB.vso.GetWeight( i ) ||
+		     !SameFloat( rA.vso[i].fWidth, rB.vso[i].fWidth ) || !SameFloat( rA.vso[i].fOpacity, rB.vso[i].fOpacity ) )
+			return false;
+	for ( size_t i = 0; i < rA.unitCreation.units.size(); ++i )
+		if ( !SameUnitCreation( rA.unitCreation.units[i], rB.unitCreation.units[i] ) )
+			return false;
+	return true;
+}
+
+bool SameQuickLoad( const SQuickLoadMapInfo &rA, const SQuickLoadMapInfo &rB )
+{
+	return rA.playerParties == rB.playerParties && rA.diplomacies == rB.diplomacies && rA.size == rB.size && rA.nType == rB.nType &&
+	       rA.nAttackingSide == rB.nAttackingSide && rA.szMODName == rB.szMODName && rA.szMODVersion == rB.szMODVersion;
+}
+
+// The template's own unit creation as the bridge.h record the map's unit
+// creation uses. False for an entry that does not fit the record (the file's,
+// kept as it is, and not editable here).
+bool UnitToRecord( const SUnitCreation &rUnit, BkEditorUnitCreationRecord *pOut )
+{
+	memset( pOut, 0, sizeof *pOut );
+	if ( int( rUnit.aviation.aircrafts.size() ) != 5 || int( rUnit.aviation.vAppearPoints.size() ) > 32 ||
+	     rUnit.szPartyName.size() >= sizeof pOut->party || rUnit.aviation.szParadropSquadName.size() >= sizeof pOut->paratroop_name )
+		return false;
+	memcpy( pOut->party, rUnit.szPartyName.c_str(), rUnit.szPartyName.size() );
+	for ( int i = 0; i < 5; ++i )
+	{
+		if ( rUnit.aviation.aircrafts[size_t( i )].szName.size() >= sizeof pOut->aircraft[i].name )
+			return false;
+		memcpy( pOut->aircraft[i].name, rUnit.aviation.aircrafts[size_t( i )].szName.c_str(), rUnit.aviation.aircrafts[size_t( i )].szName.size() );
+		pOut->aircraft[i].formation_size = rUnit.aviation.aircrafts[size_t( i )].nFormationSize;
+		pOut->aircraft[i].count = rUnit.aviation.aircrafts[size_t( i )].nPlanes;
+	}
+	memcpy( pOut->paratroop_name, rUnit.aviation.szParadropSquadName.c_str(), rUnit.aviation.szParadropSquadName.size() );
+	pOut->paratroop_count = rUnit.aviation.nParadropSquadCount;
+	pOut->relax_time = rUnit.aviation.nRelaxTime;
+	int nPoint = 0;
+	for ( std::list<CVec3>::const_iterator it = rUnit.aviation.vAppearPoints.begin(); it != rUnit.aviation.vAppearPoints.end(); ++it, ++nPoint )
+	{
+		pOut->appear[nPoint].x = it->x;
+		pOut->appear[nPoint].y = it->y;
+		pOut->appear[nPoint].z = it->z;
+	}
+	pOut->appear_count = nPoint;
+	return true;
+}
+
+// False, naming the field, for a record a caller filled badly.
+bool UnitFromRecord( const BkEditorUnitCreationRecord &rRecord, SUnitCreation *pOut, std::string *pszWhy )
+{
+	std::string szParty, szSquad;
+	if ( !GetField( rRecord.party, &szParty ) || !GetField( rRecord.paratroop_name, &szSquad ) )
+	{
+		*pszWhy = "a unit creation name is not terminated";
+		return false;
+	}
+	if ( rRecord.appear_count < 0 || rRecord.appear_count > 32 )
+	{
+		*pszWhy = "a unit creation holds at most 32 appear points";
+		return false;
+	}
+	pOut->szPartyName = szParty;
+	pOut->aviation.aircrafts.resize( 5 );
+	for ( int i = 0; i < 5; ++i )
+	{
+		std::string szName;
+		if ( !GetField( rRecord.aircraft[i].name, &szName ) )
+		{
+			*pszWhy = "an aircraft name is not terminated";
+			return false;
+		}
+		pOut->aviation.aircrafts[size_t( i )].szName = szName;
+		pOut->aviation.aircrafts[size_t( i )].nFormationSize = rRecord.aircraft[i].formation_size;
+		pOut->aviation.aircrafts[size_t( i )].nPlanes = rRecord.aircraft[i].count;
+	}
+	pOut->aviation.szParadropSquadName = szSquad;
+	pOut->aviation.nParadropSquadCount = rRecord.paratroop_count;
+	pOut->aviation.nRelaxTime = rRecord.relax_time;
+	pOut->aviation.vAppearPoints.clear();
+	for ( int i = 0; i < rRecord.appear_count; ++i )
+	{
+		if ( !std::isfinite( rRecord.appear[i].x ) || !std::isfinite( rRecord.appear[i].y ) || !std::isfinite( rRecord.appear[i].z ) )
+		{
+			*pszWhy = "an appear point is not finite";
+			return false;
+		}
+		pOut->aviation.vAppearPoints.push_back( CVec3( rRecord.appear[i].x, rRecord.appear[i].y, rRecord.appear[i].z ) );
+	}
+	return true;
+}
+
+// The template's file: the Template entry and, beside it, the QuickLoadMapInfo
+// entry the MFC's SaveTemplatesList wrote (CRMGCreateTemplateDialog.cpp:348-354),
+// through the engine's own tree saver.
+bool WriteRmgTemplateXml( const std::string &rszEngineFile, SRMTemplate &rTemplate )
+{
+	try
+	{
+		SQuickLoadMapInfo quickLoadMapInfo;
+		quickLoadMapInfo.FillFromRMTemplate( rTemplate );
+		CPtr<IDataStream> pStream = CreateFileStream( rszEngineFile.c_str(), STREAM_ACCESS_WRITE );
+		if ( pStream == 0 )
+			return false;
+		CPtr<IDataTree> pSaver = CreateDataTreeSaver( pStream, IDataTree::WRITE );
+		CTreeAccessor saver = pSaver;
+		saver.Add( RMGC_TEMPLATE_XML_NAME, &rTemplate );
+		saver.Add( RMGC_QUICK_LOAD_MAP_INFO_NAME, &quickLoadMapInfo );
+	}
+	catch ( ... )
+	{
+		return false;
+	}
+	return true;
 }
 
 }
@@ -1590,6 +1750,269 @@ bool WriteRmgFieldSetRecord( SEditorSession *pSession, const std::string &rszNam
 	if ( !LoadDataResource( szName, "", false, 0, RMGC_FIELDSET_XML_NAME, readBack ) || !SameFieldSet( fieldSet, readBack ) )
 	{
 		pSession->szMessage = "the field set written does not read back as the one given: " + szHostFile;
+		return false;
+	}
+	return true;
+}
+
+bool ReadRmgTemplateRecord( SEditorSession *pSession, const std::string &rszName, BkEditorRmgTemplateRecord *pRecord, bool *pbRefused )
+{
+	*pbRefused = false;
+	pRecord->field_count = pRecord->graph_count = pRecord->vso_count = pRecord->diplomacy_count = pRecord->unit_count = 0;
+	pRecord->scripts.id_count = pRecord->scripts.area_count = 0;
+	std::string szName;
+	if ( !CheckRecordName( pSession, 1, rszName, &szName ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	SRMTemplate tpl;
+	if ( !LoadDataResource( szName, "", false, 0, RMGC_TEMPLATE_XML_NAME, tpl ) )
+	{
+		pSession->szMessage = "template \"" + szName + "\" is not in the data or does not load as a template";
+		*pbRefused = true;
+		return false;
+	}
+	if ( !WeightsAreWhole( tpl.fields ) || !WeightsAreWhole( tpl.graphs ) || !WeightsAreWhole( tpl.vso ) )
+	{
+		pSession->szMessage = "template \"" + szName + "\" lists fields, graphs or vso without their weights";
+		*pbRefused = true;
+		return false;
+	}
+	if ( int( tpl.unitCreation.units.size() ) > BK_EDITOR_RMG_MAX_UNITS || int( tpl.diplomacies.size() ) > BK_EDITOR_RMG_MAX_PLAYERS )
+	{
+		pSession->szMessage = "this template has more players than the editor edits";
+		*pbRefused = true;
+		return false;
+	}
+	pRecord->size_x = tpl.size.x;
+	pRecord->size_y = tpl.size.y;
+	pRecord->season = tpl.nSeason;
+	pRecord->default_field = tpl.nDefaultFieldIndex;
+	pRecord->mission_index = tpl.nMissionIndex;
+	pRecord->game_type = tpl.nType;
+	pRecord->attacking_side = tpl.nAttackingSide;
+	pRecord->camera[0] = tpl.vCameraAnchor.x;
+	pRecord->camera[1] = tpl.vCameraAnchor.y;
+	pRecord->camera[2] = tpl.vCameraAnchor.z;
+	if ( !PutField( pRecord->season_folder, tpl.szSeasonFolder ) || !PutField( pRecord->place, tpl.szPlace ) || !PutField( pRecord->script_file, tpl.szScriptFile ) ||
+	     !PutField( pRecord->chapter_name, tpl.szChapterName ) || !PutField( pRecord->forest_circle_sounds, tpl.szForestCircleSounds ) ||
+	     !PutField( pRecord->forest_ambient_sounds, tpl.szForestAmbientSounds ) || !PutField( pRecord->mod_name, tpl.szMODName ) || !PutField( pRecord->mod_version, tpl.szMODVersion ) )
+	{
+		pSession->szMessage = "a text of the template does not fit its field";
+		return false;
+	}
+	pRecord->field_count = tpl.fields.size();
+	for ( int i = 0; i < Min( pRecord->field_count, pRecord->field_capacity ); ++i )
+	{
+		if ( !PutField( pRecord->fields[i].name, tpl.fields[i] ) )
+		{
+			pSession->szMessage = "a field set name does not fit its field";
+			return false;
+		}
+		pRecord->fields[i].weight = tpl.fields.GetWeight( i );
+	}
+	pRecord->graph_count = tpl.graphs.size();
+	for ( int i = 0; i < Min( pRecord->graph_count, pRecord->graph_capacity ); ++i )
+	{
+		if ( !PutField( pRecord->graphs[i].name, tpl.graphs[i] ) )
+		{
+			pSession->szMessage = "a graph name does not fit its field";
+			return false;
+		}
+		pRecord->graphs[i].weight = tpl.graphs.GetWeight( i );
+	}
+	pRecord->vso_count = tpl.vso.size();
+	for ( int i = 0; i < Min( pRecord->vso_count, pRecord->vso_capacity ); ++i )
+	{
+		if ( !PutField( pRecord->vso[i].name, tpl.vso[i].szVSODescFileName ) )
+		{
+			pSession->szMessage = "a vso name does not fit its field";
+			return false;
+		}
+		pRecord->vso[i].weight = tpl.vso.GetWeight( i );
+		pRecord->vso[i].width = tpl.vso[i].fWidth;
+		pRecord->vso[i].opacity = tpl.vso[i].fOpacity;
+	}
+	pRecord->diplomacy_count = int( tpl.diplomacies.size() );
+	for ( int i = 0; i < Min( pRecord->diplomacy_count, pRecord->diplomacy_capacity ); ++i )
+		pRecord->diplomacies[i] = tpl.diplomacies[size_t( i )];
+	pRecord->unit_count = int( tpl.unitCreation.units.size() );
+	for ( int i = 0; i < Min( pRecord->unit_count, pRecord->unit_capacity ); ++i )
+	{
+		if ( !UnitToRecord( tpl.unitCreation.units[size_t( i )], &pRecord->units[i] ) )
+		{
+			pSession->szMessage = NStr::Format( "the unit creation of player %d does not fit the record (other than five aircraft slots, a name of 64 characters or more, or more than 32 appear points)", i );
+			*pbRefused = true;
+			return false;
+		}
+		pRecord->units[i].slot_count = pRecord->unit_count;
+	}
+	bool bShort = pRecord->field_count > pRecord->field_capacity || pRecord->graph_count > pRecord->graph_capacity || pRecord->vso_count > pRecord->vso_capacity ||
+	              pRecord->diplomacy_count > pRecord->diplomacy_capacity || pRecord->unit_count > pRecord->unit_capacity;
+	if ( !FillScripts( &pRecord->scripts, tpl.usedScriptIDs, tpl.usedScriptAreas, &bShort ) )
+	{
+		pSession->szMessage = "a script area name does not fit its field";
+		return false;
+	}
+	if ( bShort )
+		pSession->szMessage = "the record's arrays are short: the counts are the totals";
+	return !bShort;
+}
+
+bool WriteRmgTemplateRecord( SEditorSession *pSession, const std::string &rszName, const BkEditorRmgTemplateRecord &rRecord, bool *pbRefused, bool *pbBadArgument )
+{
+	*pbRefused = *pbBadArgument = false;
+	std::string szName;
+	if ( !CheckRecordName( pSession, 1, rszName, &szName ) )
+	{
+		*pbBadArgument = true;
+		return false;
+	}
+	if ( rRecord.field_count < 0 || rRecord.graph_count < 0 || rRecord.vso_count < 0 || rRecord.diplomacy_count < 0 || rRecord.unit_count < 0 ||
+	     ( rRecord.field_count > 0 && rRecord.fields == 0 ) || ( rRecord.graph_count > 0 && rRecord.graphs == 0 ) || ( rRecord.vso_count > 0 && rRecord.vso == 0 ) ||
+	     ( rRecord.diplomacy_count > 0 && rRecord.diplomacies == 0 ) || ( rRecord.unit_count > 0 && rRecord.units == 0 ) )
+	{
+		pSession->szMessage = "a list count has no array, or is negative";
+		*pbBadArgument = true;
+		return false;
+	}
+	if ( rRecord.field_count > BK_EDITOR_RMG_MAX_WEIGHTED || rRecord.graph_count > BK_EDITOR_RMG_MAX_WEIGHTED || rRecord.vso_count > BK_EDITOR_RMG_MAX_WEIGHTED ||
+	     rRecord.diplomacy_count > BK_EDITOR_RMG_MAX_PLAYERS || rRecord.unit_count > BK_EDITOR_RMG_MAX_UNITS )
+	{
+		pSession->szMessage = NStr::Format( "a template holds at most %d fields, graphs and vso each, %d diplomacies and %d units", BK_EDITOR_RMG_MAX_WEIGHTED, BK_EDITOR_RMG_MAX_PLAYERS, BK_EDITOR_RMG_MAX_UNITS );
+		*pbRefused = true;
+		return false;
+	}
+	if ( rRecord.season < 0 || rRecord.season > 3 || rRecord.size_x < 0 || rRecord.size_y < 0 )
+	{
+		pSession->szMessage = NStr::Format( "season %d is outside 0..3, or the size (%d, %d) is negative", rRecord.season, rRecord.size_x, rRecord.size_y );
+		*pbRefused = true;
+		return false;
+	}
+	SRMTemplate tpl;
+	tpl.fields.clear();
+	tpl.graphs.clear();
+	tpl.vso.clear();
+	tpl.usedScriptIDs.clear();
+	tpl.usedScriptAreas.clear();
+	tpl.diplomacies.clear();
+	tpl.unitCreation.units.clear();
+	std::string *pszTexts[8] = { &tpl.szSeasonFolder, &tpl.szPlace, &tpl.szScriptFile, &tpl.szChapterName, &tpl.szForestCircleSounds, &tpl.szForestAmbientSounds, &tpl.szMODName, &tpl.szMODVersion };
+	const char *pFields[8] = { rRecord.season_folder, rRecord.place, rRecord.script_file, rRecord.chapter_name, rRecord.forest_circle_sounds, rRecord.forest_ambient_sounds, rRecord.mod_name, rRecord.mod_version };
+	for ( int i = 0; i < 8; ++i )
+	{
+		if ( memchr( pFields[i], 0, 192 ) == 0 )
+		{
+			pSession->szMessage = "a text of the template is not terminated";
+			*pbBadArgument = true;
+			return false;
+		}
+		*pszTexts[i] = pFields[i];
+		if ( !IsPlainText( *pszTexts[i] ) )
+		{
+			pSession->szMessage = "a text of the template holds a control character";
+			*pbRefused = true;
+			return false;
+		}
+	}
+	if ( !std::isfinite( rRecord.camera[0] ) || !std::isfinite( rRecord.camera[1] ) || !std::isfinite( rRecord.camera[2] ) )
+	{
+		pSession->szMessage = "the camera anchor is not finite";
+		*pbRefused = true;
+		return false;
+	}
+	tpl.size = CTPoint<int>( rRecord.size_x, rRecord.size_y );
+	tpl.nSeason = rRecord.season;
+	tpl.nDefaultFieldIndex = rRecord.default_field;
+	tpl.nMissionIndex = rRecord.mission_index;
+	tpl.nType = rRecord.game_type;
+	tpl.nAttackingSide = rRecord.attacking_side;
+	tpl.vCameraAnchor = CVec3( rRecord.camera[0], rRecord.camera[1], rRecord.camera[2] );
+	for ( int i = 0; i < rRecord.field_count; ++i )
+	{
+		std::string szEntry;
+		if ( !GetField( rRecord.fields[i].name, &szEntry ) || rRecord.fields[i].weight < 0 || !IsPlainText( szEntry ) )
+		{
+			pSession->szMessage = NStr::Format( "field %d: a name not terminated, a control character or a weight below 0", i );
+			*pbRefused = true;
+			return false;
+		}
+		tpl.fields.push_back( szEntry, rRecord.fields[i].weight );
+	}
+	for ( int i = 0; i < rRecord.graph_count; ++i )
+	{
+		std::string szEntry;
+		if ( !GetField( rRecord.graphs[i].name, &szEntry ) || rRecord.graphs[i].weight < 0 || !IsPlainText( szEntry ) )
+		{
+			pSession->szMessage = NStr::Format( "graph %d: a name not terminated, a control character or a weight below 0", i );
+			*pbRefused = true;
+			return false;
+		}
+		tpl.graphs.push_back( szEntry, rRecord.graphs[i].weight );
+	}
+	for ( int i = 0; i < rRecord.vso_count; ++i )
+	{
+		SRMVSODesc desc;
+		if ( !GetField( rRecord.vso[i].name, &desc.szVSODescFileName ) || rRecord.vso[i].weight < 0 || !IsPlainText( desc.szVSODescFileName ) ||
+		     !std::isfinite( rRecord.vso[i].width ) || !std::isfinite( rRecord.vso[i].opacity ) )
+		{
+			pSession->szMessage = NStr::Format( "vso %d: a name not terminated, a control character, a weight below 0 or a width or opacity not finite", i );
+			*pbRefused = true;
+			return false;
+		}
+		desc.fWidth = rRecord.vso[i].width;
+		desc.fOpacity = rRecord.vso[i].opacity;
+		tpl.vso.push_back( desc, rRecord.vso[i].weight );
+	}
+	for ( int i = 0; i < rRecord.diplomacy_count; ++i )
+		tpl.diplomacies.push_back( rRecord.diplomacies[i] );
+	for ( int i = 0; i < rRecord.unit_count; ++i )
+	{
+		SUnitCreation unit;
+		std::string szWhy;
+		if ( !UnitFromRecord( rRecord.units[i], &unit, &szWhy ) )
+		{
+			pSession->szMessage = NStr::Format( "unit creation of player %d: ", i ) + szWhy;
+			*pbBadArgument = true;
+			return false;
+		}
+		tpl.unitCreation.units.push_back( unit );
+	}
+	if ( !TakeScripts( pSession, rRecord.scripts, &tpl.usedScriptIDs, &tpl.usedScriptAreas, pbBadArgument ) )
+	{
+		*pbRefused = !*pbBadArgument;
+		return false;
+	}
+	// What the loader does after reading: no diplomacies is the default pair and
+	// the neutral entry, and the unit creation has at least the two players.
+	tpl.FillDefaultDiplomacies();
+	tpl.unitCreation.Validate();
+	std::string szEngineFile, szHostFile;
+	if ( !PrepareRecordWrite( pSession, szName, &szEngineFile, &szHostFile ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !WriteRmgTemplateXml( szEngineFile, tpl ) )
+	{
+		pSession->szMessage = "the template file could not be written: " + szHostFile;
+		return false;
+	}
+	// Both entries come back through the storage and are compared with what was
+	// meant: the template, and the QuickLoadMapInfo beside it against
+	// FillFromRMTemplate - the way the game's own loaders read them.
+	SRMTemplate readBack;
+	SQuickLoadMapInfo quickBack, quickWanted;
+	quickWanted.FillFromRMTemplate( tpl );
+	if ( !LoadDataResource( szName, "", false, 0, RMGC_TEMPLATE_XML_NAME, readBack ) || !SameTemplate( tpl, readBack ) )
+	{
+		pSession->szMessage = "the template written does not read back as the one given: " + szHostFile;
+		return false;
+	}
+	if ( !LoadDataResource( szName, "", false, 0, RMGC_QUICK_LOAD_MAP_INFO_NAME, quickBack ) || !SameQuickLoad( quickWanted, quickBack ) )
+	{
+		pSession->szMessage = "the QuickLoadMapInfo entry written does not read back as the template's own: " + szHostFile;
 		return false;
 	}
 	return true;

@@ -108,6 +108,13 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorRmgObjectShell) == @sizeOf(core.bridge.RmgObjectShell));
     std.debug.assert(@sizeOf(c.BkEditorRmgFieldSetRecord) == @sizeOf(core.bridge.RmgFieldSetRecord));
     std.debug.assert(@sizeOf(c.BkEditorRmgTerrainType) == @sizeOf(core.bridge.RmgTerrainType));
+    // The template record (05-10): its unit creation entry is the map's own record
+    // layout, and its vso and whole record are handed over as they are.
+    std.debug.assert(@sizeOf(c.BkEditorUnitCreationRecord) == @sizeOf(core.bridge.RmgUnit));
+    std.debug.assert(@offsetOf(c.BkEditorUnitCreationRecord, "appear") == @offsetOf(core.bridge.RmgUnit, "appear"));
+    std.debug.assert(@sizeOf(c.BkEditorRmgVso) == @sizeOf(core.bridge.RmgVso));
+    std.debug.assert(@sizeOf(c.BkEditorRmgTemplateRecord) == @sizeOf(core.bridge.RmgTemplateRecord));
+    std.debug.assert(@offsetOf(c.BkEditorRmgTemplateRecord, "units") == @offsetOf(core.bridge.RmgTemplateRecord, "units"));
     std.debug.assert(@sizeOf(c.BkEditorRmgGenerateResult) == @sizeOf(core.bridge.RmgGenerateResult));
     std.debug.assert(@offsetOf(c.BkEditorRmgGenerateResult, "map_path") == @offsetOf(core.bridge.RmgGenerateResult, "map_path"));
     // The reserve position's record: gun, truck, x, y.
@@ -287,6 +294,8 @@ pub const RealBridge = struct {
         .rmgImportPatch = vtableRmgImportPatch,
         .rmgRoot = vtableRmgRoot,
         .rmgReadFieldSet = vtableRmgReadFieldSet,
+        .rmgReadTemplate = vtableRmgReadTemplate,
+        .rmgWriteTemplate = vtableRmgWriteTemplate,
         .rmgWriteFieldSet = vtableRmgWriteFieldSet,
         .rmgTileset = vtableRmgTileset,
         .rmgFileExists = vtableRmgFileExists,
@@ -801,6 +810,13 @@ pub const RealBridge = struct {
     }
     fn vtableRmgWriteFieldSet(ptr: *anyopaque, name: [*:0]const u8, record: *const core.bridge.RmgFieldSetRecord) Status {
         return status(c.BkEditorRmgWriteFieldSet(from(ptr).session, name, @ptrCast(record)));
+    }
+
+    fn vtableRmgReadTemplate(ptr: *anyopaque, name: [*:0]const u8, record: *core.bridge.RmgTemplateRecord) Status {
+        return status(c.BkEditorRmgReadTemplate(from(ptr).session, name, @ptrCast(record)));
+    }
+    fn vtableRmgWriteTemplate(ptr: *anyopaque, name: [*:0]const u8, record: *const core.bridge.RmgTemplateRecord) Status {
+        return status(c.BkEditorRmgWriteTemplate(from(ptr).session, name, @ptrCast(record)));
     }
 
     /// BkEditorRmgTileset in two passes: size, then exactly the total.

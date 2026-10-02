@@ -5203,6 +5203,39 @@ BkEditorStatus BkEditorRmgWriteFieldSet( BkEditorSession *pSession, const char *
 	} );
 }
 
+BkEditorStatus BkEditorRmgReadTemplate( BkEditorSession *pSession, const char *pszName, BkEditorRmgTemplateRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pRecord == 0 || strnlen( pszName, 256 ) >= 256 ||
+		     !IsGoodCapacity( pRecord->fields, pRecord->field_capacity ) || !IsGoodCapacity( pRecord->graphs, pRecord->graph_capacity ) ||
+		     !IsGoodCapacity( pRecord->vso, pRecord->vso_capacity ) || !IsGoodCapacity( pRecord->diplomacies, pRecord->diplomacy_capacity ) ||
+		     !IsGoodCapacity( pRecord->units, pRecord->unit_capacity ) ||
+		     !IsGoodCapacity( pRecord->scripts.ids, pRecord->scripts.id_capacity ) || !IsGoodCapacity( pRecord->scripts.areas, pRecord->scripts.area_capacity ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		EnsureRmgMount( pSession );
+		bool bRefused = false;
+		const bool bOk = ReadRmgTemplateRecord( pSession, pszName, pRecord, &bRefused );
+		const bool bShort = pRecord->field_count > pRecord->field_capacity || pRecord->graph_count > pRecord->graph_capacity || pRecord->vso_count > pRecord->vso_capacity ||
+		                    pRecord->diplomacy_count > pRecord->diplomacy_capacity || pRecord->unit_count > pRecord->unit_capacity || IsShort( pRecord->scripts );
+		return ReadStatus( bOk, bRefused, bShort );
+	} );
+}
+
+BkEditorStatus BkEditorRmgWriteTemplate( BkEditorSession *pSession, const char *pszName, const BkEditorRmgTemplateRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pRecord == 0 || strnlen( pszName, 256 ) >= 256 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		EnsureRmgMount( pSession );
+		bool bRefused = false, bBad = false;
+		if ( WriteRmgTemplateRecord( pSession, pszName, *pRecord, &bRefused, &bBad ) )
+			return BK_EDITOR_OK;
+		return bBad ? BK_EDITOR_BAD_ARGUMENT : ( bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED );
+	} );
+}
+
 BkEditorStatus BkEditorRmgTileset( BkEditorSession *pSession, int nSeason, BkEditorRmgTerrainType *pOut, int nCapacity, int *pnCount )
 {
 	if ( pnCount != 0 )

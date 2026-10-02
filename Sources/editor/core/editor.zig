@@ -3391,6 +3391,242 @@ pub const Editor = struct {
         try self.noteOutcome(self.bridge.rmgWriteFieldSet(name_z, &record));
     }
 
+    // --- The Templates Composer's templates (05-10, D-06/D-07/D-12) ----------
+
+    const OwnedTemplate = struct {
+        record: bridge_mod.RmgTemplateRecord = .{},
+        fields: []bridge_mod.RmgWeightedName = &.{},
+        graphs: []bridge_mod.RmgWeightedName = &.{},
+        vso: []bridge_mod.RmgVso = &.{},
+        diplomacies: []u8 = &.{},
+        units: []bridge_mod.RmgUnit = &.{},
+        ids: []c_int = &.{},
+        areas: []bridge_mod.RmgName = &.{},
+
+        fn deinit(self: *OwnedTemplate, a: std.mem.Allocator) void {
+            a.free(self.fields);
+            a.free(self.graphs);
+            a.free(self.vso);
+            a.free(self.diplomacies);
+            a.free(self.units);
+            a.free(self.ids);
+            a.free(self.areas);
+            self.* = .{};
+        }
+    };
+
+    fn fetchTemplate(self: *Editor, a: std.mem.Allocator, name: [*:0]const u8, out: *OwnedTemplate) std.mem.Allocator.Error!bridge_mod.Status {
+        out.* = .{};
+        errdefer out.deinit(a);
+        var first = bridge_mod.RmgTemplateRecord{};
+        const sizing = self.bridge.rmgReadTemplate(name, &first);
+        if (sizing == .ok) {
+            out.record = first;
+            return .ok;
+        }
+        const totals = countOf(first.field_count) + countOf(first.graph_count) + countOf(first.vso_count) + countOf(first.diplomacy_count) + countOf(first.unit_count);
+        if (sizing != .refused or !sizedRefusal(first.scripts, totals)) return sizing;
+        out.fields = try a.alloc(bridge_mod.RmgWeightedName, countOf(first.field_count));
+        out.graphs = try a.alloc(bridge_mod.RmgWeightedName, countOf(first.graph_count));
+        out.vso = try a.alloc(bridge_mod.RmgVso, countOf(first.vso_count));
+        out.diplomacies = try a.alloc(u8, countOf(first.diplomacy_count));
+        out.units = try a.alloc(bridge_mod.RmgUnit, countOf(first.unit_count));
+        out.ids = try a.alloc(c_int, countOf(first.scripts.id_count));
+        out.areas = try a.alloc(bridge_mod.RmgName, countOf(first.scripts.area_count));
+        var second = first;
+        second.fields = out.fields.ptr;
+        second.field_capacity = @intCast(out.fields.len);
+        second.graphs = out.graphs.ptr;
+        second.graph_capacity = @intCast(out.graphs.len);
+        second.vso = out.vso.ptr;
+        second.vso_capacity = @intCast(out.vso.len);
+        second.diplomacies = out.diplomacies.ptr;
+        second.diplomacy_capacity = @intCast(out.diplomacies.len);
+        second.units = out.units.ptr;
+        second.unit_capacity = @intCast(out.units.len);
+        second.scripts.ids = out.ids.ptr;
+        second.scripts.id_capacity = @intCast(out.ids.len);
+        second.scripts.areas = out.areas.ptr;
+        second.scripts.area_capacity = @intCast(out.areas.len);
+        const read = self.bridge.rmgReadTemplate(name, &second);
+        out.record = second;
+        return if (read == .refused) .failed else read;
+    }
+
+    pub fn unitFromRmg(rec: bridge_mod.RmgUnit) records.UnitCreation {
+        // slot_count is the map entry's vector size: a template's units have no such thing.
+        var out: records.UnitCreation = .{ .slot_count = 0, .paratroop_count = rec.paratroop_count, .relax_time = rec.relax_time, .appear_count = @intCast(std.math.clamp(rec.appear_count, 0, records.max_appear_points)) };
+        @memcpy(&out.party, &rec.party);
+        @memcpy(&out.paratroop_name, &rec.paratroop_name);
+        for (rec.aircraft, 0..) |slot, i| {
+            @memcpy(&out.aircraft[i].name, &slot.name);
+            out.aircraft[i].formation_size = slot.formation_size;
+            out.aircraft[i].count = slot.count;
+        }
+        for (rec.appear, 0..) |point, i| out.appear[i] = .{ .x = point.x, .y = point.y, .z = point.z };
+        return out;
+    }
+
+    pub fn unitToRmg(unit: records.UnitCreation) bridge_mod.RmgUnit {
+        var out: bridge_mod.RmgUnit = .{ .slot_count = @intCast(unit.slot_count), .paratroop_count = unit.paratroop_count, .relax_time = unit.relax_time, .appear_count = @intCast(unit.appear_count) };
+        @memcpy(&out.party, &unit.party);
+        @memcpy(&out.paratroop_name, &unit.paratroop_name);
+        for (unit.aircraft, 0..) |slot, i| {
+            @memcpy(&out.aircraft[i].name, &slot.name);
+            out.aircraft[i].formation_size = slot.formation_size;
+            out.aircraft[i].count = slot.count;
+        }
+        for (unit.appear, 0..) |point, i| out.appear[i] = .{ .x = point.x, .y = point.y, .z = point.z };
+        return out;
+    }
+
+    /// Template `name` as the storages hold it (the user's root first). The
+    /// caller owns the result.
+    pub fn readTemplate(self: *Editor, name: []const u8) EditError!rmg_mod.Template {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = nameZ(&buffer, name) orelse return error.Refused;
+        const a = self.allocator;
+        var owned: OwnedTemplate = .{};
+        defer owned.deinit(a);
+        try self.noteOutcome(try self.fetchTemplate(a, name_z, &owned));
+        const record = &owned.record;
+        var out: rmg_mod.Template = .{
+            .size_x = record.size_x,
+            .size_y = record.size_y,
+            .season = record.season,
+            .default_field = record.default_field,
+            .mission_index = record.mission_index,
+            .game_type = record.game_type,
+            .attacking_side = record.attacking_side,
+            .camera = record.camera,
+        };
+        errdefer out.deinit(a);
+        const sources = [8][]const u8{
+            std.mem.sliceTo(&record.season_folder, 0), std.mem.sliceTo(&record.place, 0),                 std.mem.sliceTo(&record.script_file, 0),
+            std.mem.sliceTo(&record.chapter_name, 0),  std.mem.sliceTo(&record.forest_circle_sounds, 0), std.mem.sliceTo(&record.forest_ambient_sounds, 0),
+            std.mem.sliceTo(&record.mod_name, 0),      std.mem.sliceTo(&record.mod_version, 0),
+        };
+        for (sources, 0..) |text, i| try out.setText(a, @enumFromInt(i), text);
+        for (owned.fields[0..@min(owned.fields.len, countOf(record.field_count))]) |entry| {
+            const copy = try a.dupe(u8, std.mem.sliceTo(&entry.name, 0));
+            errdefer a.free(copy);
+            try out.fields.append(a, .{ .name = copy, .weight = entry.weight });
+        }
+        for (owned.graphs[0..@min(owned.graphs.len, countOf(record.graph_count))]) |entry| {
+            const copy = try a.dupe(u8, std.mem.sliceTo(&entry.name, 0));
+            errdefer a.free(copy);
+            try out.graphs.append(a, .{ .name = copy, .weight = entry.weight });
+        }
+        for (owned.vso[0..@min(owned.vso.len, countOf(record.vso_count))]) |entry| {
+            const copy = try a.dupe(u8, std.mem.sliceTo(&entry.name, 0));
+            errdefer a.free(copy);
+            try out.vso.append(a, .{ .name = copy, .weight = entry.weight, .width = entry.width, .opacity = entry.opacity });
+        }
+        try out.diplomacies.appendSlice(a, owned.diplomacies[0..@min(owned.diplomacies.len, countOf(record.diplomacy_count))]);
+        for (owned.units[0..@min(owned.units.len, countOf(record.unit_count))]) |unit| try out.units.append(a, unitFromRmg(unit));
+        try out.script_ids.appendSlice(a, owned.ids[0..@min(owned.ids.len, countOf(record.scripts.id_count))]);
+        for (owned.areas[0..@min(owned.areas.len, countOf(record.scripts.area_count))]) |area| {
+            const copy = try a.dupe(u8, std.mem.sliceTo(&area.name, 0));
+            errdefer a.free(copy);
+            try out.script_areas.append(a, copy);
+        }
+        return out;
+    }
+
+    /// Writes `t` as `name` under the user RMG root: the Template entry and the
+    /// QuickLoadMapInfo beside it. A shipped name is refused (the status says
+    /// Save As); nothing changes then.
+    pub fn writeTemplate(self: *Editor, name: []const u8, t: *const rmg_mod.Template) EditError!void {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = nameZ(&buffer, name) orelse return error.Refused;
+        const a = self.allocator;
+        const fields = try a.alloc(bridge_mod.RmgWeightedName, t.fields.items.len);
+        defer a.free(fields);
+        const graphs = try a.alloc(bridge_mod.RmgWeightedName, t.graphs.items.len);
+        defer a.free(graphs);
+        const vso = try a.alloc(bridge_mod.RmgVso, t.vso.items.len);
+        defer a.free(vso);
+        const units = try a.alloc(bridge_mod.RmgUnit, t.units.items.len);
+        defer a.free(units);
+        const areas = try a.alloc(bridge_mod.RmgName, t.script_areas.items.len);
+        defer a.free(areas);
+        const ids = try a.alloc(c_int, t.script_ids.items.len);
+        defer a.free(ids);
+        var record = bridge_mod.RmgTemplateRecord{
+            .size_x = t.size_x,
+            .size_y = t.size_y,
+            .season = t.season,
+            .default_field = t.default_field,
+            .mission_index = t.mission_index,
+            .game_type = t.game_type,
+            .attacking_side = t.attacking_side,
+            .camera = t.camera,
+        };
+        if (!bridge_mod.putName(&record.season_folder, t.season_folder) or !bridge_mod.putName(&record.place, t.place) or !bridge_mod.putName(&record.script_file, t.script_file) or
+            !bridge_mod.putName(&record.chapter_name, t.chapter_name) or !bridge_mod.putName(&record.forest_circle_sounds, t.forest_circle_sounds) or
+            !bridge_mod.putName(&record.forest_ambient_sounds, t.forest_ambient_sounds) or !bridge_mod.putName(&record.mod_name, t.mod_name) or !bridge_mod.putName(&record.mod_version, t.mod_version)) return error.Refused;
+        for (t.fields.items, 0..) |entry, i| {
+            fields[i] = .{ .weight = entry.weight };
+            if (!bridge_mod.putName(&fields[i].name, entry.name)) return error.Refused;
+        }
+        for (t.graphs.items, 0..) |entry, i| {
+            graphs[i] = .{ .weight = entry.weight };
+            if (!bridge_mod.putName(&graphs[i].name, entry.name)) return error.Refused;
+        }
+        for (t.vso.items, 0..) |entry, i| {
+            vso[i] = .{ .weight = entry.weight, .width = entry.width, .opacity = entry.opacity };
+            if (!bridge_mod.putName(&vso[i].name, entry.name)) return error.Refused;
+        }
+        for (t.units.items, 0..) |unit, i| {
+            units[i] = unitToRmg(unit);
+            units[i].slot_count = @intCast(units.len);
+        }
+        for (t.script_ids.items, 0..) |id, i| ids[i] = id;
+        for (t.script_areas.items, 0..) |area, i| {
+            areas[i] = .{};
+            if (!bridge_mod.putName(&areas[i].name, area)) return error.Refused;
+        }
+        record.fields = fields.ptr;
+        record.field_count = @intCast(fields.len);
+        record.field_capacity = record.field_count;
+        record.graphs = graphs.ptr;
+        record.graph_count = @intCast(graphs.len);
+        record.graph_capacity = record.graph_count;
+        record.vso = vso.ptr;
+        record.vso_count = @intCast(vso.len);
+        record.vso_capacity = record.vso_count;
+        record.diplomacies = t.diplomacies.items.ptr;
+        record.diplomacy_count = @intCast(t.diplomacies.items.len);
+        record.diplomacy_capacity = record.diplomacy_count;
+        record.units = units.ptr;
+        record.unit_count = @intCast(units.len);
+        record.unit_capacity = record.unit_count;
+        record.scripts = .{ .ids = ids.ptr, .id_capacity = @intCast(ids.len), .id_count = @intCast(ids.len), .areas = areas.ptr, .area_capacity = @intCast(areas.len), .area_count = @intCast(areas.len) };
+        try self.noteOutcome(self.bridge.rmgWriteTemplate(name_z, &record));
+    }
+
+    /// The graph `name` or null, the status line left as it was (the template's
+    /// Check! reads every listed graph).
+    pub fn readGraphQuiet(self: *Editor, name: []const u8) ?rmg_mod.Graph {
+        const kept = self.status_buffer;
+        const kept_len = self.status_len;
+        defer {
+            self.status_buffer = kept;
+            self.status_len = kept_len;
+        }
+        return self.readGraph(name) catch null;
+    }
+
+    pub fn readFieldSetQuiet(self: *Editor, name: []const u8) ?rmg_mod.FieldSet {
+        const kept = self.status_buffer;
+        const kept_len = self.status_len;
+        defer {
+            self.status_buffer = kept;
+            self.status_len = kept_len;
+        }
+        return self.readFieldSet(name) catch null;
+    }
+
     /// The terrain types of a season's tileset (0 summer .. 3 spring): names and
     /// tile counts, the caller frees the slice. An empty slice when the tileset
     /// will not load. Never touches the status line.
