@@ -5164,3 +5164,98 @@ BkEditorStatus BkEditorRmgRoot( BkEditorSession *pSession, char *pOut, int nCapa
 		return BK_EDITOR_OK;
 	} );
 }
+
+
+// ---------------------------------------------------------------------------
+// The Fields and Templates Composers (M3 05-10): field sets and templates
+// through the engine's own serialisers, the season tilesets and the storage
+// probe their Check! rules read.
+// ---------------------------------------------------------------------------
+
+BkEditorStatus BkEditorRmgReadFieldSet( BkEditorSession *pSession, const char *pszName, BkEditorRmgFieldSetRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pRecord == 0 || strnlen( pszName, 256 ) >= 256 ||
+		     !IsGoodCapacity( pRecord->tile_shells, pRecord->tile_shell_capacity ) || !IsGoodCapacity( pRecord->tiles, pRecord->tile_capacity ) ||
+		     !IsGoodCapacity( pRecord->object_shells, pRecord->object_shell_capacity ) || !IsGoodCapacity( pRecord->objects, pRecord->object_capacity ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		EnsureRmgMount( pSession );
+		bool bRefused = false;
+		const bool bOk = ReadRmgFieldSetRecord( pSession, pszName, pRecord, &bRefused );
+		const bool bShort = pRecord->tile_shell_count > pRecord->tile_shell_capacity || pRecord->tile_total > pRecord->tile_capacity ||
+		                    pRecord->object_shell_count > pRecord->object_shell_capacity || pRecord->object_total > pRecord->object_capacity;
+		return ReadStatus( bOk, bRefused, bShort );
+	} );
+}
+
+BkEditorStatus BkEditorRmgWriteFieldSet( BkEditorSession *pSession, const char *pszName, const BkEditorRmgFieldSetRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pRecord == 0 || strnlen( pszName, 256 ) >= 256 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		EnsureRmgMount( pSession );
+		bool bRefused = false, bBad = false;
+		if ( WriteRmgFieldSetRecord( pSession, pszName, *pRecord, &bRefused, &bBad ) )
+			return BK_EDITOR_OK;
+		return bBad ? BK_EDITOR_BAD_ARGUMENT : ( bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED );
+	} );
+}
+
+BkEditorStatus BkEditorRmgTileset( BkEditorSession *pSession, int nSeason, BkEditorRmgTerrainType *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( pOut == 0 && nCapacity > 0 ) || nSeason < 0 || nSeason > 3 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		EnsureRmgMount( pSession );
+		std::vector<std::pair<std::string, int> > types;
+		if ( !ListRmgTerrainTypes( pSession, nSeason, &types ) )
+			return BK_EDITOR_REFUSED;
+		*pnCount = int( types.size() );
+		const int nWrite = Min( int( types.size() ), nCapacity );
+		for ( int i = 0; i < nWrite; ++i )
+		{
+			memset( &pOut[i], 0, sizeof pOut[i] );
+			const size_t nCopy = Min( types[size_t( i )].first.size(), sizeof pOut[i].name - 1 );
+			memcpy( pOut[i].name, types[size_t( i )].first.c_str(), nCopy );
+			pOut[i].variant_count = types[size_t( i )].second;
+		}
+		if ( int( types.size() ) > nCapacity )
+		{
+			pSession->szMessage = NStr::Format( "the tileset holds %d terrain types and room was given for %d", int( types.size() ), nCapacity );
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorRmgFileExists( BkEditorSession *pSession, const char *pszName, const char *pszExtension, int *pnExists )
+{
+	if ( pnExists != 0 )
+		*pnExists = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pszExtension == 0 || pnExists == 0 || strnlen( pszName, 256 ) >= 256 || strnlen( pszExtension, 32 ) >= 32 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		EnsureRmgMount( pSession );
+		bool bExists = false, bBad = false;
+		if ( !RmgFileExists( pSession, pszName, pszExtension, &bExists, &bBad ) )
+			return bBad ? BK_EDITOR_BAD_ARGUMENT : BK_EDITOR_FAILED;
+		*pnExists = bExists ? 1 : 0;
+		return BK_EDITOR_OK;
+	} );
+}

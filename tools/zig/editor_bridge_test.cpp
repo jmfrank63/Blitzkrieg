@@ -3824,6 +3824,7 @@ static void TestM3Layers( BkEditorSession *pSession, const std::string &szScratc
 static void TestM3CreateRandomMap( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3RmgContainers( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3RmgGraphs( BkEditorSession *pSession, const std::string &szScratch );
+static void TestM3RmgFieldSets( BkEditorSession *pSession, const std::string &szScratch );
 static bool CraftFixture( BkEditorSession *pSession, const char *pszKind, const char *pszOut );
 static void CheckSavedEquals( BkEditorSession *pSession, const std::string &szPath, const CMapInfo &rExpected, const char *pszWhat );
 
@@ -11265,6 +11266,7 @@ int main( int argc, char **argv )
 		TestM3CreateRandomMap( pSession, szScratch );
 		TestM3RmgContainers( pSession, szScratch );
 		TestM3RmgGraphs( pSession, szScratch );
+		TestM3RmgFieldSets( pSession, szScratch );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
 	}
 	else if ( bLayersOnly )
@@ -11313,6 +11315,7 @@ int main( int argc, char **argv )
 		TestM3CreateRandomMap( pSession, szScratch );
 		TestM3RmgContainers( pSession, szScratch );
 		TestM3RmgGraphs( pSession, szScratch );
+		TestM3RmgFieldSets( pSession, szScratch );
 		TestM3MultiSelect( pSession, szScratch );
 		TestM3PropertiesAndLinks( pSession, szScratch );
 		TestM3Damage( pSession, szScratch );
@@ -14220,4 +14223,408 @@ static void TestM3RmgGraphs( BkEditorSession *pSession, const std::string &szScr
 	}
 	if ( g_nFailures == nFailuresBefore )
 		printf( "editor-bridge: M3 rmg graphs ok\n" );
+}
+
+
+// ---------------------------------------------------------------------------
+// M3 05-10: the Fields Composer's records (D-06/D-07/D-12)
+// ---------------------------------------------------------------------------
+
+struct SFieldSetBuf
+{
+	BkEditorRmgFieldSetRecord record;
+	std::vector<BkEditorRmgTileShell> tileShells;
+	std::vector<BkEditorRmgWeightedTile> tiles;
+	std::vector<BkEditorRmgObjectShell> objectShells;
+	std::vector<BkEditorRmgWeightedName> objects;
+	SFieldSetBuf() { memset( &record, 0, sizeof record ); }
+	// A copy's record still points into the source's vectors: point it at its own.
+	void Rebind()
+	{
+		record.tile_shells = tileShells.empty() ? 0 : &tileShells[0];
+		record.tiles = tiles.empty() ? 0 : &tiles[0];
+		record.object_shells = objectShells.empty() ? 0 : &objectShells[0];
+		record.objects = objects.empty() ? 0 : &objects[0];
+	}
+};
+
+// The two-pass read the way a caller does it: size, allocate to the totals, read.
+// A real refusal has every count 0 and is returned as it is.
+static BkEditorStatus ReadFieldSetTwoPass( BkEditorSession *pSession, const char *pszName, SFieldSetBuf *pOut )
+{
+	*pOut = SFieldSetBuf();
+	BkEditorStatus status = BkEditorRmgReadFieldSet( pSession, pszName, &pOut->record );
+	const BkEditorRmgFieldSetRecord &r = pOut->record;
+	if ( status == BK_EDITOR_OK )
+		return status;
+	if ( status != BK_EDITOR_REFUSED || ( r.tile_shell_count == 0 && r.tile_total == 0 && r.object_shell_count == 0 && r.object_total == 0 ) )
+		return status;
+	const int nTileShells = r.tile_shell_count, nTiles = r.tile_total, nObjectShells = r.object_shell_count, nObjects = r.object_total;
+	pOut->tileShells.resize( size_t( nTileShells ) );
+	pOut->tiles.resize( size_t( nTiles ) );
+	pOut->objectShells.resize( size_t( nObjectShells ) );
+	pOut->objects.resize( size_t( nObjects ) );
+	pOut->Rebind();
+	pOut->record.tile_shell_capacity = nTileShells;
+	pOut->record.tile_capacity = nTiles;
+	pOut->record.object_shell_capacity = nObjectShells;
+	pOut->record.object_capacity = nObjects;
+	status = BkEditorRmgReadFieldSet( pSession, pszName, &pOut->record );
+	if ( status == BK_EDITOR_OK && ( pOut->record.tile_shell_count != nTileShells || pOut->record.tile_total != nTiles || pOut->record.object_shell_count != nObjectShells || pOut->record.object_total != nObjects ) )
+		return BK_EDITOR_FAILED;
+	return status;
+}
+
+static bool FieldSetBufIs( const SFieldSetBuf &rBuf, const SRMFieldSet &rF )
+{
+	const BkEditorRmgFieldSetRecord &r = rBuf.record;
+	if ( r.season != rF.nSeason || std::string( r.season_folder ) != rF.szSeasonFolder || std::string( r.profile ) != rF.szProfileFileName ||
+	     r.height != rF.fHeight || r.pattern_min != rF.patternSize.min || r.pattern_max != rF.patternSize.max || r.positive_ratio != rF.fPositiveRatio ||
+	     r.tile_shell_count != int( rF.tilesShells.size() ) || r.object_shell_count != int( rF.objectsShells.size() ) )
+		return false;
+	int nTileAt = 0, nObjectAt = 0;
+	for ( int i = 0; i < r.tile_shell_count; ++i )
+	{
+		const SRMTileSetShell &shell = rF.tilesShells[size_t( i )];
+		if ( r.tile_shells[i].width != shell.fWidth || r.tile_shells[i].tile_count != shell.tiles.size() )
+			return false;
+		for ( int k = 0; k < shell.tiles.size(); ++k, ++nTileAt )
+			if ( r.tiles[nTileAt].tile != shell.tiles[k] || r.tiles[nTileAt].weight != shell.tiles.GetWeight( k ) )
+				return false;
+	}
+	for ( int i = 0; i < r.object_shell_count; ++i )
+	{
+		const SRMObjectSetShell &shell = rF.objectsShells[size_t( i )];
+		if ( r.object_shells[i].width != shell.fWidth || r.object_shells[i].step != shell.nBetweenDistance || r.object_shells[i].ratio != shell.fRatio ||
+		     r.object_shells[i].object_count != shell.objects.size() )
+			return false;
+		for ( int k = 0; k < shell.objects.size(); ++k, ++nObjectAt )
+			if ( shell.objects[k] != r.objects[nObjectAt].name || r.objects[nObjectAt].weight != shell.objects.GetWeight( k ) )
+				return false;
+	}
+	return r.tile_total == nTileAt && r.object_total == nObjectAt;
+}
+
+// Two field sets read by the engine are the same (the buffer-free comparison the
+// user's file is held to against the shipped one).
+static bool SameFieldSetsLoaded( const SRMFieldSet &rA, const SRMFieldSet &rB )
+{
+	SFieldSetBuf a;
+	// Compare through the record's own shape: every field of one against the other.
+	if ( rA.nSeason != rB.nSeason || rA.szSeasonFolder != rB.szSeasonFolder || rA.szProfileFileName != rB.szProfileFileName ||
+	     fabsf( rA.fHeight - rB.fHeight ) > 1e-5f || rA.patternSize.min != rB.patternSize.min || rA.patternSize.max != rB.patternSize.max ||
+	     fabsf( rA.fPositiveRatio - rB.fPositiveRatio ) > 1e-5f || rA.tilesShells.size() != rB.tilesShells.size() || rA.objectsShells.size() != rB.objectsShells.size() )
+		return false;
+	for ( size_t i = 0; i < rA.tilesShells.size(); ++i )
+	{
+		if ( fabsf( rA.tilesShells[i].fWidth - rB.tilesShells[i].fWidth ) > 1e-5f || rA.tilesShells[i].tiles.size() != rB.tilesShells[i].tiles.size() )
+			return false;
+		for ( int k = 0; k < rA.tilesShells[i].tiles.size(); ++k )
+			if ( rA.tilesShells[i].tiles[k] != rB.tilesShells[i].tiles[k] || rA.tilesShells[i].tiles.GetWeight( k ) != rB.tilesShells[i].tiles.GetWeight( k ) )
+				return false;
+	}
+	for ( size_t i = 0; i < rA.objectsShells.size(); ++i )
+	{
+		if ( fabsf( rA.objectsShells[i].fWidth - rB.objectsShells[i].fWidth ) > 1e-5f || rA.objectsShells[i].nBetweenDistance != rB.objectsShells[i].nBetweenDistance ||
+		     fabsf( rA.objectsShells[i].fRatio - rB.objectsShells[i].fRatio ) > 1e-5f || rA.objectsShells[i].objects.size() != rB.objectsShells[i].objects.size() )
+			return false;
+		for ( int k = 0; k < rA.objectsShells[i].objects.size(); ++k )
+			if ( rA.objectsShells[i].objects[k] != rB.objectsShells[i].objects[k] || rA.objectsShells[i].objects.GetWeight( k ) != rB.objectsShells[i].objects.GetWeight( k ) )
+				return false;
+	}
+	return true;
+}
+
+static void TestM3RmgFieldSets( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const int nFailuresBefore = g_nFailures;
+	BkEditorRmgFieldSetRecord none;
+	memset( &none, 0, sizeof none );
+	Check( BkEditorRmgReadFieldSet( pSession, 0, &none ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgReadFieldSet( pSession, "x", 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null name or record is BAD_ARGUMENT on a field set read" );
+	Check( BkEditorRmgWriteFieldSet( pSession, 0, &none ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgWriteFieldSet( pSession, "scenarios\\fieldsets\\user\\x", 0 ) == BK_EDITOR_BAD_ARGUMENT, "and on a write" );
+	Check( BkEditorRmgReadFieldSet( 0, "x", &none ) == BK_EDITOR_NO_SESSION, "no session is NO_SESSION" );
+	BkEditorRmgFieldSetRecord badCapacity = none;
+	badCapacity.tile_capacity = 4;
+	Check( BkEditorRmgReadFieldSet( pSession, "scenarios\\fieldsets\\summer\\field00", &badCapacity ) == BK_EDITOR_BAD_ARGUMENT, "a capacity with no array is BAD_ARGUMENT" );
+
+	SScratchUserRoot user( szScratch, "rmg-user-fieldsets" );
+
+	// The terrain types of every season's tileset, with no map needed to ask.
+	std::vector<std::vector<BkEditorRmgTerrainType> > types( 4 );
+	for ( int season = 0; season < 4; ++season )
+	{
+		int nTotal = -1;
+		const BkEditorStatus sizing = BkEditorRmgTileset( pSession, season, 0, 0, &nTotal );
+		Check( sizing == BK_EDITOR_REFUSED && nTotal > 5, NStr::Format( "season %d's tileset sizes with a total (%d)", season, nTotal ) );
+		if ( nTotal > 0 )
+		{
+			types[size_t( season )].resize( size_t( nTotal ) );
+			int nGot = 0;
+			Check( BkEditorRmgTileset( pSession, season, &types[size_t( season )][0], nTotal, &nGot ) == BK_EDITOR_OK && nGot == nTotal && types[size_t( season )][0].name[0] != 0 && types[size_t( season )][0].variant_count > 0,
+			       "and reads that many terrain types, named, with their tile counts" );
+			BkEditorRmgTerrainType one;
+			int nOne = 0;
+			Check( BkEditorRmgTileset( pSession, season, &one, 1, &nOne ) == BK_EDITOR_REFUSED && nOne == nTotal && one.name[0] != 0, "a capacity below the total writes what fits and says the total" );
+		}
+	}
+	{
+		STilesetDesc direct;
+		int nTotal = 0;
+		BkEditorRmgTileset( pSession, 1, 0, 0, &nTotal );
+		Check( LoadDataResource( NStr::Format( "%stileset", CMapInfo::SEASON_FOLDERS[1] ), "", false, 0, "tileset", direct ) && int( direct.terrtypes.size() ) == nTotal && !types[1].empty() && direct.terrtypes[0].szName == types[1][0].name,
+		       "the list is the tileset description's own, in its order" );
+		int nCount = 0;
+		Check( BkEditorRmgTileset( pSession, 4, 0, 0, &nCount ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgTileset( pSession, -1, 0, 0, &nCount ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgTileset( pSession, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a season outside 0..3 and a null count are BAD_ARGUMENT" );
+	}
+
+	// The storage probe the profile's Check! reads: the generator's own spelling
+	// (a leading backslash and capitals, as the shipped field sets hold it) resolves.
+	{
+		int nExists = -1;
+		Check( BkEditorRmgFileExists( pSession, "scenarios\\profiles\\profile", ".tga", &nExists ) == BK_EDITOR_OK && nExists == 1, "the plain profile name is in the storage" );
+		Check( BkEditorRmgFileExists( pSession, "\\Scenarios\\Profiles\\Profile", ".tga", &nExists ) == BK_EDITOR_OK && nExists == 1, "and so is the shipped files' own spelling of it (leading backslash, capitals)" );
+		Check( BkEditorRmgFileExists( pSession, "scenarios\\profiles\\nothing_here", ".tga", &nExists ) == BK_EDITOR_OK && nExists == 0, "an unknown profile is not" );
+		Check( BkEditorRmgFileExists( pSession, "scenarios\\profiles\\profile", ".lua", &nExists ) == BK_EDITOR_OK && nExists == 0, "nor is the right name with another extension" );
+		Check( BkEditorRmgFileExists( pSession, "..\\x", ".tga", &nExists ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgFileExists( pSession, "c:\\x", ".tga", &nExists ) == BK_EDITOR_BAD_ARGUMENT &&
+		       BkEditorRmgFileExists( pSession, "x", "tga", &nExists ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgFileExists( pSession, "a*b", ".tga", &nExists ) == BK_EDITOR_BAD_ARGUMENT &&
+		       BkEditorRmgFileExists( pSession, "", ".tga", &nExists ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgFileExists( pSession, "x", ".tga", 0 ) == BK_EDITOR_BAD_ARGUMENT, "a name going up, a drive, a bad extension, a wildcard, an empty name and a null out are BAD_ARGUMENT" );
+	}
+
+	// A shipped field set with shells of both kinds, read two-pass and directly.
+	const std::vector<std::string> sets = ListRmgNames( pSession, 0 );
+	if ( !Check( sets.size() >= 20, NStr::Format( "the data lists its field sets (%d)", int( sets.size() ) ) ) )
+		return;
+	std::string szShipped;
+	SRMFieldSet shipped;
+	size_t nBest = 0;
+	for ( size_t i = 0; i < sets.size(); ++i )
+	{
+		SRMFieldSet candidate;
+		if ( LoadDataResource( sets[i], "", false, 0, RMGC_FIELDSET_XML_NAME, candidate ) )
+		{
+			const size_t nRank = candidate.tilesShells.size() + candidate.objectsShells.size();
+			if ( !candidate.tilesShells.empty() && !candidate.objectsShells.empty() && nRank > nBest )
+			{
+				nBest = nRank;
+				szShipped = sets[i];
+				shipped = candidate;
+			}
+		}
+	}
+	if ( !Check( !szShipped.empty(), "the data has a field set with tile and object shells" ) )
+		return;
+	printf( "editor-bridge: M3 rmg field set %s (%d tile shells, %d object shells)\n", szShipped.c_str(), int( shipped.tilesShells.size() ), int( shipped.objectsShells.size() ) );
+	SFieldSetBuf read;
+	{
+		BkEditorRmgFieldSetRecord sizing;
+		memset( &sizing, 0, sizeof sizing );
+		Check( BkEditorRmgReadFieldSet( pSession, szShipped.c_str(), &sizing ) == BK_EDITOR_REFUSED && sizing.tile_shell_count == int( shipped.tilesShells.size() ) && sizing.object_shell_count == int( shipped.objectsShells.size() ),
+		       "the sizing pass is REFUSED with the shell totals" );
+		BkEditorRmgFieldSetRecord one = sizing;
+		BkEditorRmgTileShell oneShell;
+		memset( &oneShell, 0, sizeof oneShell );
+		one.tile_shells = &oneShell;
+		one.tile_shell_capacity = 1;
+		Check( BkEditorRmgReadFieldSet( pSession, szShipped.c_str(), &one ) == BK_EDITOR_REFUSED && one.tile_shell_count == sizing.tile_shell_count && oneShell.tile_count > 0,
+		       "a capacity below the total writes what fits and says the total" );
+	}
+	if ( !Check( ReadFieldSetTwoPass( pSession, szShipped.c_str(), &read ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( FieldSetBufIs( read, shipped ), "the bridge's read is the engine's own LoadDataResource read, field for field" );
+	{
+		SFieldSetBuf again;
+		std::string szUpper = szShipped + ".XML";
+		for ( size_t i = 0; i < szUpper.size(); ++i )
+			szUpper[i] = char( toupper( ( unsigned char )szUpper[i] ) );
+		Check( ReadFieldSetTwoPass( pSession, szUpper.c_str(), &again ) == BK_EDITOR_OK && FieldSetBufIs( again, shipped ), "the name is taken lower-cased and with or without .xml" );
+		SFieldSetBuf nothing;
+		Check( ReadFieldSetTwoPass( pSession, "scenarios\\fieldsets\\nope\\nothing", &nothing ) == BK_EDITOR_REFUSED && nothing.record.tile_shell_count == 0 && MessageHas( pSession, "field set" ), "an unknown field set is REFUSED naming it" );
+		Check( ReadFieldSetTwoPass( pSession, "..\\consts", &nothing ) == BK_EDITOR_REFUSED, "a name that goes up is REFUSED on a read" );
+		Check( ReadFieldSetTwoPass( pSession, "scenarios\\graphs\\winter\\graph_escort1", &nothing ) == BK_EDITOR_REFUSED, "a name outside the field sets folder is REFUSED on a read" );
+	}
+
+	// Write it under a user name: under the user RMG root, read back equal through
+	// the storage and in the engine's own reader.
+	const std::string szUserName = "scenarios\\fieldsets\\user\\m3_copy";
+	SFieldSetBuf toWrite = read;
+	toWrite.Rebind();
+	const std::filesystem::path userFile = user.path / "rmg" / "scenarios" / "fieldsets" / "user" / "m3_copy.xml";
+	Check( !FileExists( userFile ), "nothing is under the user RMG root yet" );
+	if ( !Check( BkEditorRmgWriteFieldSet( pSession, szUserName.c_str(), &toWrite.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( FileExists( userFile ), NStr::Format( "the file is under the user RMG root (%s)", userFile.string().c_str() ) );
+	{
+		SFieldSetBuf back;
+		Check( ReadFieldSetTwoPass( pSession, szUserName.c_str(), &back ) == BK_EDITOR_OK && FieldSetBufIs( back, shipped ), "the user's file reads back through the bridge as the shipped one" );
+		SRMFieldSet direct;
+		Check( LoadDataResource( szUserName, "", false, 0, RMGC_FIELDSET_XML_NAME, direct ) && SameFieldSetsLoaded( direct, shipped ), "and loads in the engine's own LoadDataResource (the game's reader)" );
+		const std::vector<std::string> listed = ListRmgNames( pSession, 0 );
+		Check( std::find( listed.begin(), listed.end(), szUserName ) != listed.end(), "the folder scan lists the user's field set beside the shipped ones" );
+	}
+	Check( BkEditorRmgWriteFieldSet( pSession, szUserName.c_str(), &toWrite.record ) == BK_EDITOR_OK, "writing over the user's own file is allowed" );
+
+	// An edit goes through: one more tile shell with two tiles, one more object
+	// shell with an object, a new profile height - each reads back as given.
+	{
+		SFieldSetBuf edited = toWrite;
+		BkEditorRmgTileShell shell;
+		shell.width = 3.5f;
+		shell.tile_count = 2;
+		edited.tileShells.push_back( shell );
+		BkEditorRmgWeightedTile tile;
+		tile.tile = 1;
+		tile.weight = 7;
+		edited.tiles.push_back( tile );
+		tile.tile = 3;
+		tile.weight = 2;
+		edited.tiles.push_back( tile );
+		BkEditorRmgObjectShell objectShell;
+		objectShell.width = 1.5f;
+		objectShell.step = 6;
+		objectShell.ratio = 0.4f;
+		objectShell.object_count = 1;
+		edited.objectShells.push_back( objectShell );
+		BkEditorRmgWeightedName object;
+		memset( &object, 0, sizeof object );
+		strcpy( object.name, "_Birch" );
+		object.weight = 9;
+		edited.objects.push_back( object );
+		edited.Rebind();
+		edited.record.tile_shell_count = int( edited.tileShells.size() );
+		edited.record.tile_total = int( edited.tiles.size() );
+		edited.record.object_shell_count = int( edited.objectShells.size() );
+		edited.record.object_total = int( edited.objects.size() );
+		edited.record.height = 3.25f;
+		edited.record.pattern_min = 4;
+		edited.record.pattern_max = 7;
+		edited.record.positive_ratio = 0.25f;
+		if ( Check( BkEditorRmgWriteFieldSet( pSession, szUserName.c_str(), &edited.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			SFieldSetBuf back;
+			Check( ReadFieldSetTwoPass( pSession, szUserName.c_str(), &back ) == BK_EDITOR_OK && back.record.tile_shell_count == int( shipped.tilesShells.size() ) + 1 &&
+			       back.record.object_shell_count == int( shipped.objectsShells.size() ) + 1, "an edited set reads back with its new shells" );
+			if ( back.record.tile_shell_count == int( shipped.tilesShells.size() ) + 1 && back.record.object_shell_count == int( shipped.objectsShells.size() ) + 1 )
+			{
+				const int nLastTile = back.record.tile_total - 1;
+				const int nLastObject = back.record.object_total - 1;
+				Check( back.tileShells[size_t( back.record.tile_shell_count - 1 )].width == 3.5f && back.tileShells[size_t( back.record.tile_shell_count - 1 )].tile_count == 2 &&
+				       back.tiles[size_t( nLastTile )].tile == 3 && back.tiles[size_t( nLastTile )].weight == 2 && back.tiles[size_t( nLastTile - 1 )].tile == 1 && back.tiles[size_t( nLastTile - 1 )].weight == 7,
+				       "the new tile shell's width and its two weighted tiles are as given" );
+				Check( back.objectShells[size_t( back.record.object_shell_count - 1 )].step == 6 && back.objectShells[size_t( back.record.object_shell_count - 1 )].ratio == 0.4f &&
+				       std::string( back.objects[size_t( nLastObject )].name ) == "_Birch" && back.objects[size_t( nLastObject )].weight == 9, "the new object shell's step, ratio and object are as given" );
+				Check( back.record.height == 3.25f && back.record.pattern_min == 4 && back.record.pattern_max == 7 && back.record.positive_ratio == 0.25f, "and the heights block" );
+			}
+		}
+	}
+
+	// Shipped files are read-only: Save becomes Save As, nothing is written.
+	{
+		Check( BkEditorRmgWriteFieldSet( pSession, szShipped.c_str(), &toWrite.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "Save As" ), "a write to a shipped name is REFUSED with the Save-As message" );
+		std::string szSub = szShipped.substr( strlen( "scenarios\\fieldsets\\" ) );
+		std::replace( szSub.begin(), szSub.end(), '\\', '/' );
+		Check( !FileExists( user.path / "rmg" / "scenarios" / "fieldsets" / ( szSub + ".xml" ) ), "and wrote nothing under the user RMG root" );
+		SFieldSetBuf stillShipped;
+		Check( ReadFieldSetTwoPass( pSession, szShipped.c_str(), &stillShipped ) == BK_EDITOR_OK && FieldSetBufIs( stillShipped, shipped ), "the shipped field set reads as it did" );
+	}
+
+	// Names that are not plain are a caller bug and write nothing (T-05-09-01's rule for this kind).
+	{
+		const char *bad[] = { "", "scenarios\\fieldsets\\..\\x", "..\\x", "\\scenarios\\fieldsets\\x", "c:\\scenarios\\fieldsets\\x", "scenarios\\templates\\x", "scenarios\\fieldsets\\", "scenarios\\fieldsets\\a*b" };
+		for ( size_t i = 0; i < sizeof bad / sizeof bad[0]; ++i )
+			Check( BkEditorRmgWriteFieldSet( pSession, bad[i], &toWrite.record ) == BK_EDITOR_BAD_ARGUMENT, NStr::Format( "the field set name \"%s\" is BAD_ARGUMENT on a write", bad[i] ) );
+		BkEditorRmgFieldSetRecord unterminated = toWrite.record;
+		memset( unterminated.profile, 'a', sizeof unterminated.profile );
+		Check( BkEditorRmgWriteFieldSet( pSession, szUserName.c_str(), &unterminated ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated field is BAD_ARGUMENT" );
+		BkEditorRmgFieldSetRecord noArray = toWrite.record;
+		noArray.tile_shells = 0;
+		Check( BkEditorRmgWriteFieldSet( pSession, szUserName.c_str(), &noArray ) == BK_EDITOR_BAD_ARGUMENT, "a shell count with no array is BAD_ARGUMENT" );
+		Check( !FileExists( user.path / "rmg" / "scenarios" / "fieldsets" / "a*b.xml" ), "no bad name made a file" );
+	}
+
+	// Refusals leave nothing behind (T-05-10-03).
+	{
+		const std::string szProbe = "scenarios\\fieldsets\\user\\m3_refused";
+		SFieldSetBuf bad = toWrite;
+		bad.Rebind();
+		bad.record.season = 9;
+		Check( BkEditorRmgWriteFieldSet( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "season" ), "a season outside 0..3 is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.tileShells[0].tile_count += 1;
+		Check( BkEditorRmgWriteFieldSet( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "tile" ), "a shell whose entries do not fit the tiles given is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.tileShells[0].width = -1.0f;
+		Check( BkEditorRmgWriteFieldSet( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a negative shell width is REFUSED" );
+		bad.tileShells[0].width = NAN;
+		Check( BkEditorRmgWriteFieldSet( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a width that is not finite is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.tiles[0].weight = -4;
+		Check( BkEditorRmgWriteFieldSet( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a tile weight below 0 is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.record.height = INFINITY;
+		Check( BkEditorRmgWriteFieldSet( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a height that is not finite is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.objects[0].name[1] = 7;
+		Check( BkEditorRmgWriteFieldSet( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a control character in an object name is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.record.tile_total = BK_EDITOR_RMG_MAX_SHELL_ENTRIES + 1;
+		Check( BkEditorRmgWriteFieldSet( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "more tiles than the bound is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.record.tile_shell_count = BK_EDITOR_RMG_MAX_SHELLS + 1;
+		Check( BkEditorRmgWriteFieldSet( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "more shells than the bound is REFUSED" );
+		Check( !FileExists( user.path / "rmg" / "scenarios" / "fieldsets" / "user" / "m3_refused.xml" ), "no refusal wrote a file" );
+	}
+
+	// The facts Check! reads (D-12): a set the engine happily stores can hold a
+	// tile past its season's tileset and an object the database does not know -
+	// written as data, read back as given, and the tileset and the catalogue say
+	// they are wrong.
+	{
+		SFieldSetBuf crafted = toWrite;
+		const int nTypes = int( types[size_t( shipped.nSeason == 0 && shipped.szSeasonFolder != CMapInfo::SEASON_FOLDERS[0] ? 3 : shipped.nSeason )].size() );
+		crafted.tiles[0].tile = nTypes + 5;
+		BkEditorRmgWeightedName &ghost = crafted.objects[0];
+		memset( &ghost, 0, sizeof ghost );
+		strcpy( ghost.name, "NoSuchObjectAnywhere" );
+		ghost.weight = 3;
+		crafted.Rebind();
+		const std::string szCrafted = "scenarios\\fieldsets\\user\\m3_crafted";
+		if ( Check( BkEditorRmgWriteFieldSet( pSession, szCrafted.c_str(), &crafted.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			SFieldSetBuf back;
+			Check( ReadFieldSetTwoPass( pSession, szCrafted.c_str(), &back ) == BK_EDITOR_OK && back.tiles[0].tile == nTypes + 5 && std::string( back.objects[0].name ) == "NoSuchObjectAnywhere", "a tile past the tileset and an unknown object are data: written and read back as given" );
+			Check( back.tiles[0].tile >= nTypes, NStr::Format( "the season's tileset has %d terrain types, so the tile is off range", nTypes ) );
+			int nCatalogue = 0;
+			BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+			std::vector<BkEditorCatalogueEntry> entries( size_t( nCatalogue > 0 ? nCatalogue : 1 ) );
+			int nGot = 0;
+			bool bFound = false;
+			if ( BkEditorCatalogue( pSession, &entries[0], nCatalogue, &nGot ) == BK_EDITOR_OK )
+				for ( int i = 0; i < nGot; ++i )
+					if ( strcmp( entries[size_t( i )].name, "NoSuchObjectAnywhere" ) == 0 )
+						bFound = true;
+			Check( nGot > 0 && !bFound, NStr::Format( "and the catalogue (%d objects) does not know the object", nGot ) );
+		}
+	}
+
+	// A mod moves the root: <UserRoot>mods/<Folder>/rmg.
+	if ( BkEditorSetMod( pSession, "EditorTestMod" ) == BK_EDITOR_OK )
+	{
+		SFieldSetBuf nothing;
+		Check( ReadFieldSetTwoPass( pSession, szUserName.c_str(), &nothing ) == BK_EDITOR_REFUSED, "the no-mod root's field set is not mounted with the mod active" );
+		const std::string szModName = "scenarios\\fieldsets\\user\\m3_mod_copy";
+		Check( BkEditorRmgWriteFieldSet( pSession, szModName.c_str(), &toWrite.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( FileExists( user.path / "mods" / "EditorTestMod" / "rmg" / "scenarios" / "fieldsets" / "user" / "m3_mod_copy.xml" ), "the mod's file is under the mod's rmg folder" );
+		Check( BkEditorSetMod( pSession, 0 ) == BK_EDITOR_OK, "the mod clears" );
+		Check( ReadFieldSetTwoPass( pSession, szModName.c_str(), &nothing ) == BK_EDITOR_REFUSED && ReadFieldSetTwoPass( pSession, szUserName.c_str(), &nothing ) == BK_EDITOR_OK, "the mod's field set leaves with the mod and the no-mod root's is back" );
+	}
+	Check( !FileExists( std::filesystem::path( NPlatform::Paths::DataRoot() ) / "Scenarios" / "FieldSets" / "user" ), "nothing was written into the shipped Data" );
+	if ( g_nFailures == nFailuresBefore )
+		printf( "editor-bridge: M3 rmg field sets ok\n" );
 }

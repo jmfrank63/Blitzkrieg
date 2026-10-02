@@ -2378,6 +2378,101 @@ BkEditorStatus BkEditorRmgImportPatch( BkEditorSession *session, const char *sou
    lands and what the composers' status lines show. Not created by asking. */
 BkEditorStatus BkEditorRmgRoot( BkEditorSession *session, char *out, int capacity );
 
+/* ---------------------------------------------------------------------
+   The Fields and Templates Composers (M3 05-10, D-06/D-07/D-12): field sets
+   and templates read and written through the same serialisers the game's
+   CreateRandomMap loads them with (SRMFieldSet "FieldSet", SRMTemplate
+   "Template" plus the "QuickLoadMapInfo" entry the template's file carries
+   beside it - SQuickLoadMapInfo::FillFromRMTemplate, as the MFC's
+   SaveTemplatesList wrote both), under the same rules as the containers and
+   graphs above: names storage-relative under the kind's folder
+   ("scenarios\fieldsets\", "scenarios\templates\"), shipped files read-only,
+   writes only under the user RMG root, every write read back through the
+   storage and compared before OK, two-pass counted arrays. */
+
+/* A name with its weight: a template's field sets and graphs, and one object
+   of an object shell. The weight is the entry's own (the engine keeps
+   running sums; the serialiser writes the differences). */
+typedef struct { char name[192]; int weight; } BkEditorRmgWeightedName;
+
+/* One tile of a tile shell: a terrain TYPE of the season's tileset (an index
+   into BkEditorRmgTileset's list) with its weight. */
+typedef struct { int tile; int weight; } BkEditorRmgWeightedTile;
+
+/* A tile shell (SRMTileSetShell): its width in VIS tiles and how many of the
+   flat `tiles` array's entries are its own (the shells' counts add up to
+   tile_total, in shell order). */
+typedef struct { float width; int tile_count; } BkEditorRmgTileShell;
+
+/* An object shell (SRMObjectSetShell): width in VIS tiles, the step between
+   objects (VIS tiles), the ratio 0..1 (the dialog shows it as a percent) and
+   how many of the flat `objects` array's entries are its own. */
+typedef struct { float width; int step; float ratio; int object_count; } BkEditorRmgObjectShell;
+
+/* SRMFieldSet. profile is the height profile's storage name without ".tga"
+   (the Heights tab's file), height the field's height 0..5 as the dialog
+   limits it, pattern_min / pattern_max the pattern sizes 1..16, positive_ratio
+   0..1 (the dialog shows percent). */
+typedef struct
+{
+	int season;
+	char season_folder[192];
+	char profile[192];
+	float height;
+	int pattern_min;
+	int pattern_max;
+	float positive_ratio;
+	BkEditorRmgTileShell *tile_shells;
+	int tile_shell_capacity;
+	int tile_shell_count;
+	BkEditorRmgWeightedTile *tiles;
+	int tile_capacity;
+	int tile_total;
+	BkEditorRmgObjectShell *object_shells;
+	int object_shell_capacity;
+	int object_shell_count;
+	BkEditorRmgWeightedName *objects;
+	int object_capacity;
+	int object_total;
+} BkEditorRmgFieldSetRecord;
+
+/* Bounds a write refuses above (T-05-10-03). */
+#define BK_EDITOR_RMG_MAX_SHELLS 256
+#define BK_EDITOR_RMG_MAX_SHELL_ENTRIES 16384
+#define BK_EDITOR_RMG_MAX_WEIGHTED 1024
+#define BK_EDITOR_RMG_MAX_PLAYERS 17
+#define BK_EDITOR_RMG_MAX_UNITS 16
+
+/* Reads field set `name` through the storage stack. REFUSED (every count 0)
+   for a name the data does not hold, one that does not load as a field set, or
+   a file whose weight lists are short (the engine's reader leaves those with
+   fewer weights than entries). */
+BkEditorStatus BkEditorRmgReadFieldSet( BkEditorSession *session, const char *name, BkEditorRmgFieldSetRecord *record );
+
+/* Writes the record as field set `name` under the user RMG root. REFUSED for a
+   shipped name (Save As), a season outside 0..3, a shell whose entry counts do
+   not add up to the flat arrays, a count above the bounds, a width, height or
+   ratio that is not finite or is negative; BAD_ARGUMENT for a null record, an
+   unterminated field or a name not under scenarios\fieldsets\. */
+BkEditorStatus BkEditorRmgWriteFieldSet( BkEditorSession *session, const char *name, const BkEditorRmgFieldSetRecord *record );
+
+/* The terrain types of a season's tileset (0 summer, 1 winter, 2 africa, 3
+   spring) - the names the field set's tile shells index, in the tileset
+   description's own order, with each type's tile count. Needs no map: the
+   MFC read "<season folder>tileset" the same way. Two-pass like
+   BkEditorListRmg. BAD_ARGUMENT for a season outside 0..3; REFUSED, no
+   names, when the tileset will not load. */
+typedef struct { char name[64]; int variant_count; } BkEditorRmgTerrainType;
+BkEditorStatus BkEditorRmgTileset( BkEditorSession *session, int season, BkEditorRmgTerrainType *out, int capacity, int *out_count );
+
+/* Whether `name` + `extension` (".tga", ".lua", ".xml") is a file of the
+   storage stack - a field set's profile, a template's script, a graph's or a
+   vso's descriptor. name is a storage-relative name with no extension (a
+   trailing extension is not stripped), extension a dot and letters. out_exists
+   is 0 or 1. BAD_ARGUMENT for a null out, a name that is not a plain relative
+   storage name or an extension that is not plain. */
+BkEditorStatus BkEditorRmgFileExists( BkEditorSession *session, const char *name, const char *extension, int *out_exists );
+
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );

@@ -22,6 +22,8 @@ const Editor = editor_mod.Editor;
 pub const container_folder = "scenarios\\containers\\";
 pub const graph_folder = "scenarios\\graphs\\";
 pub const patch_folder = "scenarios\\patches\\";
+pub const field_folder = "scenarios\\fieldsets\\";
+pub const template_folder = "scenarios\\templates\\";
 
 /// A name as the storages spell it: lower-cased and with backslashes by the
 /// bridge, so the comparison here is too. Unchanged when it already starts at
@@ -87,10 +89,24 @@ pub const PendingImport = struct {
     }
 };
 
+/// Whether an object name is one of the database's: the app hands the object
+/// catalogue it already holds (the bridge's core vtable has no catalogue), tests
+/// hand a table. Without one every name counts as known.
+pub const ObjectLookup = struct {
+    ctx: *anyopaque,
+    has_fn: *const fn (ctx: *anyopaque, name: []const u8) bool,
+};
+
 pub const Composers = struct {
     allocator: Allocator,
     cdoc: rmg.ContainerDoc,
     gdoc: rmg.GraphDoc,
+    /// The Fields Composer (05-10): its open file, the scan its Open list shows,
+    /// the last Check! report.
+    fdoc: rmg.FieldSetDoc,
+    field_names: std.ArrayListUnmanaged([]u8) = .empty,
+    field_report: ?rmg.Report = null,
+    object_lookup: ?ObjectLookup = null,
     /// The scans the Open lists and the patch picker show (full storage names).
     container_names: std.ArrayListUnmanaged([]u8) = .empty,
     graph_names: std.ArrayListUnmanaged([]u8) = .empty,
@@ -110,12 +126,15 @@ pub const Composers = struct {
     scanned: bool = false,
 
     pub fn init(allocator: Allocator) Composers {
-        return .{ .allocator = allocator, .cdoc = rmg.ContainerDoc.init(allocator), .gdoc = rmg.GraphDoc.init(allocator) };
+        return .{ .allocator = allocator, .cdoc = rmg.ContainerDoc.init(allocator), .gdoc = rmg.GraphDoc.init(allocator), .fdoc = rmg.FieldSetDoc.init(allocator) };
     }
 
     pub fn deinit(self: *Composers) void {
         self.cdoc.deinit();
         self.gdoc.deinit();
+        self.fdoc.deinit();
+        freeList(self.allocator, &self.field_names);
+        if (self.field_report) |*report| report.deinit(self.allocator);
         freeList(self.allocator, &self.container_names);
         freeList(self.allocator, &self.graph_names);
         freeList(self.allocator, &self.patch_names);
@@ -178,6 +197,7 @@ pub const Composers = struct {
     pub fn refreshNames(self: *Composers, editor: *Editor) Allocator.Error!void {
         try self.scanKind(editor, .containers, &self.container_names);
         try self.scanKind(editor, .graphs, &self.graph_names);
+        try self.scanKind(editor, .field_sets, &self.field_names);
         self.scanned = true;
     }
 
@@ -678,6 +698,367 @@ pub const Composers = struct {
         if (done) self.clearGraphReport();
         return done;
     }
+
+    // --- Field sets (05-10) ---------------------------------------------
+
+    fn clearFieldReport(self: *Composers) void {
+        if (self.field_report) |*report| report.deinit(self.allocator);
+        self.field_report = null;
+        self.generation +%= 1;
+    }
+
+    pub fn newField(self: *Composers) Allocator.Error!void {
+        try self.fdoc.load("", try rmg.FieldSet.initNew(self.allocator), false);
+        self.clearFieldReport();
+        self.message_len = 0;
+    }
+
+    pub fn openField(self: *Composers, editor: *Editor, name: []const u8) !void {
+        var buffer: [bridge_mod.field_set_name_capacity]u8 = undefined;
+        const full = fullName(&buffer, field_folder, name) orelse return error.Refused;
+        var field = editor.readFieldSet(full) catch |err| {
+            self.sayText(editor.status());
+            return err;
+        };
+        errdefer field.deinit(self.allocator);
+        try self.fdoc.load(full, field, false);
+        self.clearFieldReport();
+        self.message_len = 0;
+    }
+
+    pub fn saveField(self: *Composers, editor: *Editor) Allocator.Error!SaveResult {
+        if (self.fdoc.name.len == 0) {
+            self.say("a new field set has no file yet: Save As", .{});
+            return .needs_save_as;
+        }
+        return self.writeFieldTo(editor, try self.allocator.dupe(u8, self.fdoc.name));
+    }
+
+    pub fn saveFieldAs(self: *Composers, editor: *Editor, name: []const u8) Allocator.Error!SaveResult {
+        var buffer: [bridge_mod.field_set_name_capacity]u8 = undefined;
+        const full = fullName(&buffer, field_folder, name) orelse {
+            self.say("that name is too long", .{});
+            return .failed;
+        };
+        return self.writeFieldTo(editor, try self.allocator.dupe(u8, full));
+    }
+
+    fn writeFieldTo(self: *Composers, editor: *Editor, owned_name: []u8) Allocator.Error!SaveResult {
+        defer self.allocator.free(owned_name);
+        editor.writeFieldSet(owned_name, &self.fdoc.current) catch |err| {
+            self.sayText(editor.status());
+            if (err == error.OutOfMemory) return error.OutOfMemory;
+            if (std.mem.indexOf(u8, editor.status(), "Save As") != null) {
+                self.fdoc.shipped = true;
+                return .needs_save_as;
+            }
+            return .failed;
+        };
+        try self.fdoc.markSaved(owned_name);
+        try self.refreshNames(editor);
+        self.say("saved {s}", .{owned_name});
+        return .saved;
+    }
+
+    /// An edit of the open field set: the document keeps its state before, the
+    /// edit runs, and a refused or no-op edit takes the snapshot back. `edit`
+    /// returns true when it changed something.
+    fn editField(self: *Composers, comptime Context: type, context: Context, comptime edit: fn (Context, Allocator, *rmg.FieldSet) Allocator.Error!bool) Allocator.Error!bool {
+        const field = try self.fdoc.begin();
+        const changed = edit(context, self.allocator, field) catch |err| {
+            self.fdoc.cancel();
+            return err;
+        };
+        if (!changed) {
+            self.fdoc.cancel();
+            return false;
+        }
+        self.clearFieldReport();
+        return true;
+    }
+
+    pub fn setFieldSeason(self: *Composers, index: usize) Allocator.Error!bool {
+        if (index >= rmg.season_folders.len) return false;
+        return self.editField(usize, index, struct {
+            fn run(i: usize, a: Allocator, f: *rmg.FieldSet) Allocator.Error!bool {
+                if (f.seasonSlot() == i and f.season == rmg.real_seasons[i] and std.ascii.eqlIgnoreCase(f.season_folder, rmg.season_folders[i])) return false;
+                try f.setSeasonIndex(a, i);
+                return true;
+            }
+        }.run);
+    }
+
+    pub fn addFieldShell(self: *Composers, objects: bool) Allocator.Error!usize {
+        const field = try self.fdoc.begin();
+        const index = (if (objects) field.addObjectShell(self.allocator) else field.addTileShell(self.allocator)) catch |err| {
+            self.fdoc.cancel();
+            return err;
+        };
+        self.clearFieldReport();
+        return index;
+    }
+
+    /// Takes the shells at `doomed` out (the MFC asked first; the window does).
+    pub fn removeFieldShells(self: *Composers, objects: bool, doomed: []const usize) Allocator.Error!bool {
+        const field = try self.fdoc.begin();
+        const before = if (objects) field.object_shells.items.len else field.tile_shells.items.len;
+        if (objects) field.removeObjectShells(self.allocator, doomed) else field.removeTileShells(self.allocator, doomed);
+        const after = if (objects) field.object_shells.items.len else field.tile_shells.items.len;
+        if (after == before) {
+            self.fdoc.cancel();
+            return false;
+        }
+        self.clearFieldReport();
+        return true;
+    }
+
+    pub const ShellField = enum { width, step, ratio };
+
+    /// One shell property (the shell properties dialogs' edits): the width
+    /// 0 or more (tile and object shells), the step above 0 and the ratio in
+    /// PERCENT 0..100 (object shells). A value the dialog would not take is
+    /// refused and changes nothing.
+    pub fn setFieldShell(self: *Composers, objects: bool, index: usize, field_kind: ShellField, value: f32) Allocator.Error!bool {
+        if (!std.math.isFinite(value)) return false;
+        const Context = struct { objects: bool, index: usize, kind: ShellField, value: f32 };
+        return self.editField(Context, .{ .objects = objects, .index = index, .kind = field_kind, .value = value }, struct {
+            fn run(c: Context, _: Allocator, f: *rmg.FieldSet) Allocator.Error!bool {
+                switch (c.kind) {
+                    .width => {
+                        if (c.value < 0) return false;
+                        const slot: *f32 = if (c.objects) (if (c.index < f.object_shells.items.len) &f.object_shells.items[c.index].width else return false) else (if (c.index < f.tile_shells.items.len) &f.tile_shells.items[c.index].width else return false);
+                        if (slot.* == c.value) return false;
+                        slot.* = c.value;
+                        return true;
+                    },
+                    .step => {
+                        if (!c.objects or c.index >= f.object_shells.items.len or c.value < 1) return false;
+                        const step: i32 = @intFromFloat(@min(c.value, 1.0e6));
+                        if (f.object_shells.items[c.index].step == step) return false;
+                        f.object_shells.items[c.index].step = step;
+                        return true;
+                    },
+                    .ratio => {
+                        if (!c.objects or c.index >= f.object_shells.items.len or c.value < 0 or c.value > 100) return false;
+                        const ratio = c.value / 100.0;
+                        if (f.object_shells.items[c.index].ratio == ratio) return false;
+                        f.object_shells.items[c.index].ratio = ratio;
+                        return true;
+                    },
+                }
+            }
+        }.run);
+    }
+
+    /// Terrain types added to a tile shell (the MFC's OnAddTile skipped a
+    /// repeat); returns how many were new.
+    pub fn addShellTiles(self: *Composers, shell: usize, tiles: []const i32) Allocator.Error!usize {
+        const field = try self.fdoc.begin();
+        var added: usize = 0;
+        for (tiles) |tile| {
+            if (try field.addTile(self.allocator, shell, tile)) added += 1;
+        }
+        if (added == 0) {
+            self.fdoc.cancel();
+            return 0;
+        }
+        self.clearFieldReport();
+        return added;
+    }
+
+    pub fn removeShellTiles(self: *Composers, shell: usize, indices: []const usize) Allocator.Error!bool {
+        const field = try self.fdoc.begin();
+        const before = field.tileEntryCount();
+        field.removeTiles(shell, indices);
+        if (field.tileEntryCount() == before) {
+            self.fdoc.cancel();
+            return false;
+        }
+        self.clearFieldReport();
+        return true;
+    }
+
+    /// The tile properties dialog's weight (0 or more) for every index given.
+    pub fn setShellTileWeights(self: *Composers, shell: usize, indices: []const usize, weight: i32) Allocator.Error!bool {
+        if (weight < 0) return false;
+        const field = try self.fdoc.begin();
+        var changed = false;
+        if (shell < field.tile_shells.items.len) {
+            const list = field.tile_shells.items[shell].tiles.items;
+            for (indices) |i| {
+                if (i < list.len and list[i].weight != weight) {
+                    list[i].weight = weight;
+                    changed = true;
+                }
+            }
+        }
+        if (!changed) {
+            self.fdoc.cancel();
+            return false;
+        }
+        self.clearFieldReport();
+        return true;
+    }
+
+    pub fn addShellObjects(self: *Composers, shell: usize, names: []const []const u8) Allocator.Error!usize {
+        const field = try self.fdoc.begin();
+        var added: usize = 0;
+        for (names) |name| {
+            if (try field.addObject(self.allocator, shell, name)) added += 1;
+        }
+        if (added == 0) {
+            self.fdoc.cancel();
+            return 0;
+        }
+        self.clearFieldReport();
+        return added;
+    }
+
+    pub fn removeShellObjects(self: *Composers, shell: usize, indices: []const usize) Allocator.Error!bool {
+        const field = try self.fdoc.begin();
+        const before = field.objectEntryCount();
+        field.removeObjects(self.allocator, shell, indices);
+        if (field.objectEntryCount() == before) {
+            self.fdoc.cancel();
+            return false;
+        }
+        self.clearFieldReport();
+        return true;
+    }
+
+    pub fn setShellObjectWeights(self: *Composers, shell: usize, indices: []const usize, weight: i32) Allocator.Error!bool {
+        if (weight < 0) return false;
+        const field = try self.fdoc.begin();
+        var changed = false;
+        if (shell < field.object_shells.items.len) {
+            const list = field.object_shells.items[shell].objects.items;
+            for (indices) |i| {
+                if (i < list.len and list[i].weight != weight) {
+                    list[i].weight = weight;
+                    changed = true;
+                }
+            }
+        }
+        if (!changed) {
+            self.fdoc.cancel();
+            return false;
+        }
+        self.clearFieldReport();
+        return true;
+    }
+
+    pub const HeightField = enum { height, pattern_min, pattern_max, positive, profile };
+
+    /// The Heights tab's fields: height 0..5, the pattern sizes 1..16 (the other
+    /// end follows), the positive ratio in percent 0..100, and the profile (a
+    /// name the storages hold as a .tga - the MFC ignored one they did not).
+    pub fn setFieldHeights(self: *Composers, editor: *Editor, kind: HeightField, text: []const u8) Allocator.Error!bool {
+        const Context = struct { kind: HeightField, text: []const u8, known_profile: bool };
+        const known = kind != .profile or editor.rmgFileExists(text, ".tga");
+        const changed = try self.editField(Context, .{ .kind = kind, .text = text, .known_profile = known }, struct {
+            fn run(c: Context, a: Allocator, f: *rmg.FieldSet) Allocator.Error!bool {
+                switch (c.kind) {
+                    .height => {
+                        const value = std.fmt.parseFloat(f32, c.text) catch return false;
+                        if (f.height == value) return false;
+                        return f.setHeight(value);
+                    },
+                    .pattern_min, .pattern_max => {
+                        const value = std.fmt.parseInt(i32, c.text, 10) catch return false;
+                        const before = [2]i32{ f.pattern_min, f.pattern_max };
+                        const ok = if (c.kind == .pattern_min) f.setPatternMin(value) else f.setPatternMax(value);
+                        return ok and (before[0] != f.pattern_min or before[1] != f.pattern_max);
+                    },
+                    .positive => {
+                        const value = std.fmt.parseFloat(f32, c.text) catch return false;
+                        const before = f.positive_ratio;
+                        return f.setPositivePercent(value) and f.positive_ratio != before;
+                    },
+                    .profile => {
+                        if (!c.known_profile or std.mem.eql(u8, f.profile, c.text)) return false;
+                        try f.setProfile(a, c.text);
+                        return true;
+                    },
+                }
+            }
+        }.run);
+        if (!changed and kind == .profile and !known) self.say("\"{s}\" is not a .tga of the storages: the profile stays", .{text});
+        return changed;
+    }
+
+    /// What the field set's Check! reads that the value does not hold: the
+    /// tileset's terrain types per season (asked once each), the profile in the
+    /// storages, the object in the catalogue.
+    const FieldFacts = struct {
+        editor: *Editor,
+        composers: *Composers,
+        counts: [4]?usize = .{ null, null, null, null },
+        asked: [4]bool = .{ false, false, false, false },
+
+        fn tileCount(ctx: *anyopaque, slot: usize) ?usize {
+            const self: *FieldFacts = @ptrCast(@alignCast(ctx));
+            if (slot >= 4) return null;
+            if (!self.asked[slot]) {
+                self.asked[slot] = true;
+                const types = self.editor.tilesetTypes(self.composers.allocator, slot) catch return null;
+                defer self.composers.allocator.free(types);
+                self.counts[slot] = if (types.len == 0) null else types.len;
+            }
+            return self.counts[slot];
+        }
+        fn hasObject(ctx: *anyopaque, name: []const u8) bool {
+            const self: *FieldFacts = @ptrCast(@alignCast(ctx));
+            const lookup = self.composers.object_lookup orelse return true;
+            return lookup.has_fn(lookup.ctx, name);
+        }
+        fn hasProfile(ctx: *anyopaque, name: []const u8) bool {
+            const self: *FieldFacts = @ptrCast(@alignCast(ctx));
+            return self.editor.rmgFileExists(name, ".tga");
+        }
+        fn source(self: *FieldFacts) rmg.FieldSource {
+            return .{ .ctx = self, .tile_count_fn = tileCount, .object_fn = hasObject, .profile_fn = hasProfile };
+        }
+    };
+
+    pub fn checkField(self: *Composers, editor: *Editor) Allocator.Error!usize {
+        self.clearFieldReport();
+        var facts: FieldFacts = .{ .editor = editor, .composers = self };
+        self.field_report = try rmg.checkFieldSet(self.allocator, &self.fdoc.current, facts.source());
+        self.generation +%= 1;
+        const report = &self.field_report.?;
+        self.say("Check!: {d} errors, {d} findings", .{ report.errorCount(), report.findings.items.len });
+        return report.findings.items.len;
+    }
+
+    pub fn fixFieldFinding(self: *Composers, editor: *Editor, index: usize) !void {
+        const report = &(self.field_report orelse return error.Refused);
+        if (index >= report.findings.items.len or report.findings.items[index].fix == .none) return error.Refused;
+        const fix = report.findings.items[index].fix;
+        const field = try self.fdoc.begin();
+        try rmg.applyFieldFix(self.allocator, field, fix);
+        _ = try self.checkField(editor);
+    }
+
+    pub fn fixFieldAll(self: *Composers, editor: *Editor) !usize {
+        const report = &(self.field_report orelse return error.Refused);
+        const field = try self.fdoc.begin();
+        const fixed = try rmg.fixAllField(self.allocator, field, report);
+        if (fixed == 0) self.fdoc.cancel();
+        _ = try self.checkField(editor);
+        return fixed;
+    }
+
+    pub fn undoField(self: *Composers) Allocator.Error!bool {
+        const done = try self.fdoc.undo();
+        if (done) self.clearFieldReport();
+        return done;
+    }
+
+    pub fn redoField(self: *Composers) Allocator.Error!bool {
+        const done = try self.fdoc.redo();
+        if (done) self.clearFieldReport();
+        return done;
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -896,4 +1277,126 @@ test "a graph's supported settings follow the MFC: any alone when every containe
     try composers.setNodeContainer(&editor, 1, "summer\\road_a");
     try composers.graphSettingsText(&editor, &text);
     try testing.expectEqualStrings("<any setting>", text.items);
+}
+
+fn testObjectKnown(_: *anyopaque, name: []const u8) bool {
+    return std.mem.eql(u8, name, "_Birch") or std.mem.eql(u8, name, "_Lime");
+}
+
+test "the fields composer opens a shipped field set, edits it by the tabs' rules, checks it and saves it as a user file" {
+    const a = testing.allocator;
+    var fake = try fake_mod.fixture(a);
+    defer fake.deinit();
+    var editor = Editor.init(a, fake.bridge());
+    defer editor.deinit();
+    var shipped = try rmg.FieldSet.initNew(a);
+    {
+        const shell = try shipped.addTileShell(a);
+        _ = try shipped.addTile(a, shell, 3);
+        _ = try shipped.addTile(a, shell, 5);
+        const oshell = try shipped.addObjectShell(a);
+        _ = try shipped.addObject(a, oshell, "_Birch");
+    }
+    try fake.addFieldSetFixture("scenarios\\fieldsets\\summer\\field00", true, shipped);
+    var dummy: u8 = 0;
+    var composers = Composers.init(a);
+    defer composers.deinit();
+    composers.object_lookup = .{ .ctx = &dummy, .has_fn = testObjectKnown };
+    try composers.refreshNames(&editor);
+    try testing.expectEqual(@as(usize, 1), composers.field_names.items.len);
+    try testing.expectEqualStrings("summer\\field00", relativeName(field_folder, composers.field_names.items[0]));
+    try composers.openField(&editor, "summer\\field00");
+    try testing.expectEqual(@as(usize, 2), composers.fdoc.current.tileEntryCount());
+    try testing.expect(!composers.fdoc.dirty);
+
+    // Terrain tab: a shell, two tiles (one repeat), a weight, the season.
+    const shell = try composers.addFieldShell(false);
+    try testing.expectEqual(@as(usize, 1), shell);
+    try testing.expectEqual(@as(usize, 1), try composers.addShellTiles(shell, &.{ 2, 2 }));
+    try testing.expectEqual(@as(usize, 0), try composers.addShellTiles(shell, &.{2}));
+    try testing.expect(try composers.setShellTileWeights(shell, &.{0}, 6));
+    try testing.expect(!(try composers.setShellTileWeights(shell, &.{0}, 6)));
+    try testing.expect(!(try composers.setShellTileWeights(shell, &.{0}, -1)));
+    try testing.expect(try composers.setFieldShell(false, shell, .width, 3.5));
+    try testing.expect(!(try composers.setFieldShell(false, shell, .width, -1)));
+    try testing.expect(try composers.setFieldSeason(1));
+    try testing.expect(!(try composers.setFieldSeason(1)));
+    try testing.expectEqual(@as(i32, 1), composers.fdoc.current.season);
+    // Objects tab: a shell with the MFC's defaults, an object, step and percent.
+    const oshell = try composers.addFieldShell(true);
+    try testing.expectEqual(@as(usize, 1), oshell);
+    try testing.expectEqual(@as(usize, 1), try composers.addShellObjects(oshell, &.{"_Lime"}));
+    try testing.expect(try composers.setFieldShell(true, oshell, .step, 6));
+    try testing.expect(try composers.setFieldShell(true, oshell, .ratio, 40));
+    try testing.expect(!(try composers.setFieldShell(true, oshell, .ratio, 140)));
+    try testing.expect(!(try composers.setFieldShell(false, shell, .step, 6)));
+    try testing.expect(composers.fdoc.current.object_shells.items[oshell].step == 6 and composers.fdoc.current.object_shells.items[oshell].ratio == 0.4);
+    // Heights tab: each field by its text; a profile the storages lack stays out.
+    try testing.expect(try composers.setFieldHeights(&editor, .height, "3.5"));
+    try testing.expect(!(try composers.setFieldHeights(&editor, .height, "9")));
+    try testing.expect(try composers.setFieldHeights(&editor, .pattern_min, "6"));
+    try testing.expect(composers.fdoc.current.pattern_max == 6);
+    try testing.expect(!(try composers.setFieldHeights(&editor, .profile, "scenarios\\profiles\\nope")));
+    try testing.expect(std.mem.indexOf(u8, composers.message(), "not a .tga") != null);
+    try testing.expect(try composers.setFieldHeights(&editor, .positive, "10"));
+    try testing.expect(composers.fdoc.current.positive_ratio == 0.1);
+    // Every edit is its own undo step: walk them all back and forward.
+    try testing.expect(composers.fdoc.dirty and composers.fdoc.canUndo());
+    var steps: usize = 0;
+    while (try composers.undoField()) steps += 1;
+    try testing.expect(steps >= 12);
+    try testing.expectEqual(@as(usize, 2), composers.fdoc.current.tileEntryCount());
+    try testing.expect(composers.fdoc.current.eql(&shipped));
+    while (try composers.redoField()) {}
+    try testing.expect(composers.fdoc.current.pattern_max == 6);
+
+    // Check! lists, never rewrites: the new tile shell's tile 2 is fine (12 types);
+    // put a tile past the tileset and an unknown object in, then find them.
+    _ = try composers.addShellTiles(shell, &.{99});
+    _ = try composers.addShellObjects(oshell, &.{"Ghost"});
+    try testing.expect(try composers.checkField(&editor) >= 2);
+    const before_tiles = composers.fdoc.current.tileEntryCount();
+    try testing.expectEqual(before_tiles, composers.fdoc.current.tileEntryCount());
+    const fixed = try composers.fixFieldAll(&editor);
+    try testing.expect(fixed >= 2);
+    try testing.expectEqual(before_tiles - 1, composers.fdoc.current.tileEntryCount());
+    try testing.expectEqual(@as(usize, 0), composers.field_report.?.findings.items.len);
+    // The shipped one is read-only: Save asks for a name, nothing is written.
+    try testing.expectEqual(SaveResult.needs_save_as, try composers.saveField(&editor));
+    try testing.expect(composers.fdoc.shipped);
+    try testing.expectEqual(SaveResult.saved, try composers.saveFieldAs(&editor, "user\\mine"));
+    try testing.expectEqualStrings("scenarios\\fieldsets\\user\\mine", composers.fdoc.name);
+    try testing.expect(!composers.fdoc.shipped and !composers.fdoc.dirty);
+    try testing.expectEqual(@as(usize, 2), composers.field_names.items.len);
+    // The saved file reads back equal.
+    var back = try editor.readFieldSet("scenarios\\fieldsets\\user\\mine");
+    defer back.deinit(a);
+    try testing.expect(back.eql(&composers.fdoc.current));
+    // A new field set starts from the MFC's defaults and has no file yet.
+    try composers.newField();
+    try testing.expectEqual(SaveResult.needs_save_as, try composers.saveField(&editor));
+    try testing.expect(composers.fdoc.current.height == 2.0);
+    // An unknown name does not open and leaves the document alone.
+    try testing.expectError(error.Refused, composers.openField(&editor, "summer\\nope"));
+    try testing.expectEqual(@as(usize, 0), composers.fdoc.name.len);
+}
+
+test "the fields composer's tileset and profile facts come from the bridge" {
+    const a = testing.allocator;
+    var fake = try fake_mod.fixture(a);
+    defer fake.deinit();
+    fake.tileset_counts = .{ 12, 0, 12, 12 };
+    var editor = Editor.init(a, fake.bridge());
+    defer editor.deinit();
+    const types = try editor.tilesetTypes(a, 0);
+    defer a.free(types);
+    try testing.expectEqual(@as(usize, 12), types.len);
+    try testing.expectEqualStrings("terrain0", types[0].nameSlice());
+    const none = try editor.tilesetTypes(a, 1);
+    defer a.free(none);
+    try testing.expectEqual(@as(usize, 0), none.len);
+    try testing.expect(editor.rmgFileExists("scenarios\\profiles\\profile", ".tga"));
+    try testing.expect(editor.rmgFileExists("\\Scenarios\\Profiles\\Profile", ".tga"));
+    try testing.expect(!editor.rmgFileExists("scenarios\\profiles\\other", ".tga"));
+    try testing.expect(!editor.rmgFileExists("..\\x", ".tga"));
 }
