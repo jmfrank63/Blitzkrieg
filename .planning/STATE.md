@@ -1,18 +1,18 @@
 ---
 gsd_state_version: "1.0"
-current_plan: 5
+current_plan: 6
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 05-04-PLAN.md
-last_updated: "2026-10-02T07:02:53.669Z"
-state_head: 639ed80b90ddc8b53c39235e00551f82f6980ce7
+stopped_at: Completed 05-05-PLAN.md
+last_updated: "2026-10-02T10:48:01.129Z"
+state_head: 3d5e4faa5038073e6e75f205a0005183e13914dc
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 43
-  completed_plans: 36
+  completed_plans: 37
   percent: 0
 current_phase: 05
-current_phase_name: "Map editor M3: random map templates, minimap tools, full parity"
+current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 ---
 
 # Project state
@@ -26,12 +26,12 @@ current_phase_name: "Map editor M3: random map templates, minimap tools, full pa
 
 ## Current Position
 
-Current Plan: 5
+Current Plan: 6
 Total Plans in Phase: 11
 Progress: [░░░░░░░░░░] 0%
 
-Phase 05 wave 4: 05-04 (multi-selection, Properties, links, direction
-wheel, Damage tool) summarized; 05-05 next in the wave order.
+Phase 05 wave 5: 05-05 (players, Unit Creation Info, Check Map, the
+railroad <2-control-points loader guard) summarized; 05-06 next in the wave order.
 
 ## Current summary
 
@@ -67,8 +67,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-10-02T07:02:53.399Z
-**Stopped at:** Completed 05-04-PLAN.md
+**Last session:** 2026-10-02T10:48:00.837Z
+**Stopped at:** Completed 05-05-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -118,6 +118,7 @@ behavior needs the in-game rows).
 | Phase 05 P03 | 2 waves (continuation) | 3 tasks | 27 files |
 | Phase 05 P03 | 2 waves (continuation) | 3 tasks | 27 files |
 | Phase 05 P04 | Tasks 1-2 03:36-07:16, Task 3 + gaps 11:50-14:10 | 3 tasks | 30 files |
+| Phase 5 P05 | 2h50m | 3 tasks | 27 files |
 
 ## Decisions
 
@@ -190,3 +191,8 @@ behavior needs the in-game rows).
 - [Phase 05]: 05-04: PutObjectRecordBack moves the engine before writing the records; bridge edits copy the before-record before any in-place write
 - [Phase 05]: 05-04: the Damage tool floors squads at 1% like units; Alt+click repairs; SyncEngineHP keeps engine health with the record
 - [Phase 05]: 05-04: BK_EDITOR_AUTO names objects by selection index (@n); link_make uses '='; placer_name takes any placeable entry
+- [Phase 05]: 05-05: add inserts the player before the neutral and every owner follows its player; delete sends the player's objects to the neutral; 2 players + neutral at least, 17 entries at most
+- [Phase 05]: 05-05: the unit-creation record carries the vector size so the undo of a put that grew it is byte-exact; appear points are map (AI) units; relax time >= 1
+- [Phase 05]: 05-05: Check Map clears an invalid link (the MFC deleted the object), reports a shared link ID, asks before removing an unknown-type object or a short road; Fix all is one composite undo step; Save only warns
+- [Phase 05]: 05-05: an unknown-type object can be deleted and restored (explicit removal replacing RemoveNonExistingObjects); an owner outside the table moves on the records alone
+- [Phase 05]: 05-05: CRailroadGraphConstructor::Construct skips railroads with fewer than two control points; the unguarded map also crashes the editor's own open
