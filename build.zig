@@ -5897,6 +5897,19 @@ fn addEditorBridgeTest(
     step_m3_players.dependOn(&exe.step);
     if (test_mode == .run) step_m3_players.dependOn(&run_m3_players.step);
 
+    // 05-07: the Minimap panel's reads and Create Minimap Images through the engine,
+    // alone (the full tier above runs them too, among everything else).
+    const run_m3_minimap = b.addRunArtifact(exe);
+    run_m3_minimap.setCwd(b.path(stage_root));
+    run_m3_minimap.addArg(".");
+    run_m3_minimap.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_minimap.addArg("--m3-minimap-only");
+    run_m3_minimap.has_side_effects = true;
+    run_m3_minimap.step.dependOn(&install_exe.step);
+    const step_m3_minimap = b.step("test-editor-bridge-m3-minimap", "Read the minimap's tiles, colours and markers and create its pictures through the engine and check them");
+    step_m3_minimap.dependOn(&exe.step);
+    if (test_mode == .run) step_m3_minimap.dependOn(&run_m3_minimap.step);
+
     // 05-05: the fixture maps the Check Map scenario and the railroad guard's game
     // proof open. `--craft <kind> <file>` writes one under zig-out/local-test
     // (CraftFixture in editor_bridge_test.cpp); the scenario steps depend on this

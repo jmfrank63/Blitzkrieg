@@ -503,6 +503,87 @@ BkEditorStatus BkEditorTilePicture( BkEditorSession *session, int tile,
                                     unsigned char *out_rgba, int capacity_bytes, int max_side,
                                     int *out_width, int *out_height );
 
+/* The Minimap panel and Create Minimap Images (M3 05-07, D-14..D-17). Every
+   read here is a view over the session's map: none of them touches the map
+   document, the history or the engine's state (the engine tier asserts the
+   map is not dirty after each). All the lists are two-pass like
+   BkEditorObjects: out_count is always the total, a buffer too short for it is
+   BK_EDITOR_REFUSED with nothing written past capacity, and out may be null
+   when capacity is 0, to ask for the count - after the sizing pass's
+   BK_EDITOR_REFUSED "count returned", read only that many. */
+
+/* Tile indices, half-open [x0, x1) x [y0, y1) in TILE coordinates (a 512-tile
+   map is 512 wide), row-major with row 0 at the TOP of the map: tile row 0 is
+   the map's far (highest world y) edge, exactly as BkEditorWorldToTile and
+   BkEditorEngineTile number the rows. What is read is the map as it will be
+   saved (the session's snapshot), which the engine's own terrain agrees with
+   (BkEditorTerrainMatchesEngine). A null region, an empty or inverted one, or
+   an area over 2^31 is BK_EDITOR_BAD_ARGUMENT; a region off the map, or no map
+   open, is BK_EDITOR_REFUSED. */
+typedef struct { int x0, y0, x1, y1; } BkEditorTileRegion;
+BkEditorStatus BkEditorTiles( BkEditorSession *session, const BkEditorTileRegion *region,
+                              unsigned char *out_tiles, int capacity, int *out_count );
+
+/* The live minimap's terrain colour of every tile index the open map's tileset
+   has (out_count is the tileset's tilemap count, at most 256): 0x00RRGGBB, the
+   average of the tileset texture's UV rectangle (the "_h.dds" the MFC editor's
+   minimap and CMapInfo::CreateMiniMapImage both sample, else "_c" or "_l")
+   with CreateMiniMapImage's own arithmetic. The MFC panel colours a tile by its
+   TERRAIN TYPE (CMiniMapTerrain::UpdateColor), so tile t answers the average
+   of the first tile of the first terrain type that lists t; a tile no terrain
+   type lists answers its own average. The texture and description come from
+   BkEditorTilePicture's per-tileset cache. */
+BkEditorStatus BkEditorMinimapTileColors( BkEditorSession *session, unsigned int *out_rgb, int capacity, int *out_count );
+
+/* One marker the MFC minimap draws for a map object (MiniMapTypes.cpp,
+   CUnitsSelection::Update): the object's AI-tile rectangle - half-open
+   [x0, x1) x [y0, y1), in AI tiles (two per terrain tile per axis, y up from
+   the map's south edge, clamped to the map) - its passability rectangle, or
+   five AI tiles square around its position when it has none or is smaller;
+   color_index 0..16 indexes the 17-colour player table (a player outside
+   0..16 is 16); squad is 1 for a squad's own marker. Soldiers a squad
+   carries are not objects of the map, so a squad is the one marker for them;
+   an object whose type the database does not know has none. */
+typedef struct { int link_id; int x0, y0, x1, y1; int color_index; int squad; } BkEditorMinimapUnit;
+BkEditorStatus BkEditorMinimapUnits( BkEditorSession *session, BkEditorMinimapUnit *out, int capacity, int *out_count );
+
+/* The fire-range areas the AI shows now (IAILogic::UpdateShootAreas - what
+   CScene::SetAreas copies for the MFC panel): empty unless a group of units
+   has its areas on, which is what the Layers menu's fire-range layer does.
+   Centre and radii are AI (map) units (64 per terrain tile, y up from the
+   south edge); kind is SShootArea::EShootAreaType (0 ballistic, 1 anti-air,
+   2 line - never answered, the MFC skips it - 3 range); angles are the
+   engine's 0..65535 turns, equal when the area is a full circle; rgb is
+   SShootArea::GetColor() as 0x00RRGGBB. */
+typedef struct { int kind; float cx, cy, radius, min_radius; int start_angle, finish_angle; unsigned int rgb; } BkEditorMinimapArea;
+BkEditorStatus BkEditorMinimapAreas( BkEditorSession *session, BkEditorMinimapArea *out, int capacity, int *out_count );
+
+/* The map's own pre-built minimap picture, for Game mode (D-16): map_path is
+   the map file's path (the one BkEditorOpenMap was given, any separator) -
+   <map>.tga is tried first, then <map>_h.dds, through the engine's image
+   decoders, never a decoder of the caller's. RGBA8, top row first, scaled
+   down only when a side exceeds max_side (BkEditorTilePicture's layout and
+   REFUSED-with-the-size rules). BK_EDITOR_REFUSED when the map has no
+   picture or it will not decode (a malformed image is a refusal, never a
+   crash); BK_EDITOR_BAD_ARGUMENT for a null pointer or max_side outside
+   8..2048. */
+BkEditorStatus BkEditorMinimapImage( BkEditorSession *session, const char *map_path,
+                                     unsigned char *out_rgba, int capacity_bytes, int max_side,
+                                     int *out_width, int *out_height );
+
+/* Map > Create Minimap Images (D-17): CMapInfo::CreateMiniMapImage on the SAVED
+   map file at map_path, one call with the MFC's own four image parameters
+   (TemplateEditorFrame1.cpp:300): <map>_large at 512x512 and <map> at 256x256,
+   each as DDS (the engine's "_c/_l/_h" trio) and as TGA, written beside the
+   map file. Afterwards every file is verified to exist and to have the size
+   asked for; a missing or wrong one is BK_EDITOR_FAILED naming it. The map
+   document is never touched (not dirty, no history).
+   map_path must be the full path of a .bzm or .xml that exists and is not
+   inside the installation's Data folder - the shipped data is never written -
+   else BK_EDITOR_REFUSED naming why (the editor routes a shipped or
+   never-saved map through Save As first). */
+BkEditorStatus BkEditorCreateMiniMapImage( BkEditorSession *session, const char *map_path );
+
 /* A world point (world units, not map units) to the tile it falls in - the
    brush's other half, through the engine's own conversion. Screen to world
    is BkEditorScreenToWorld; the two compose. BK_EDITOR_REFUSED means the

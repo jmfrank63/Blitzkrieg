@@ -29,6 +29,7 @@
 #include "../../Sources/src/Misc/Win32Random.h"
 #include "../../Sources/src/AILogic/AILogic.h"
 #include "../../Sources/src/AILogic/aiconsts.h"
+#include "../../Sources/src/Common/Actions.h"
 #include "../../Sources/src/GFX/GFX.H"
 #include "../../Sources/src/Scene/Scene.h"
 #include "../../Sources/src/Scene/Terrain.h"
@@ -3795,6 +3796,8 @@ static std::string DescribeDifference( const std::string &szLeft, const std::str
 static std::string OsPath( std::string szPath );
 static bool ReadObjectRecord( BkEditorSession *pSession, int nLinkID, BkEditorObjectRecord *pOut );
 static void TestM3Damage( BkEditorSession *pSession, const std::string &szScratch );
+static void TestM3MinimapReads( BkEditorSession *pSession, const std::string &szScratch );
+static void TestM3MinimapImages( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3PlayersAndUnitCreation( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3CheckMap( BkEditorSession *pSession, const std::string &szScratch );
 static bool CraftFixture( BkEditorSession *pSession, const char *pszKind, const char *pszOut );
@@ -11142,7 +11145,7 @@ int main( int argc, char **argv )
 	// executable's own directory unless a caller names another one.
 	// 04-13: `--m2-sweep` after the two positional arguments runs only the M2
 	// sweep (the local step test-editor-bridge-m2-sweep).
-	bool bM2Sweep = false, bPlayersOnly = false;
+	bool bM2Sweep = false, bPlayersOnly = false, bMinimapOnly = false;
 	const char *pszCraftKind = 0, *pszCraftOut = 0;
 	for ( int i = 3; i < argc; ++i )
 	{
@@ -11150,6 +11153,9 @@ int main( int argc, char **argv )
 		// 05-05: `--m3-players-only` runs the players, unit creation and Check Map
 		// fixes alone (the local step test-editor-bridge-m3-players).
 		bPlayersOnly = bPlayersOnly || strcmp( argv[i], "--m3-players-only" ) == 0;
+		// 05-07: `--m3-minimap-only` runs the minimap reads and image creation alone
+		// (the local step test-editor-bridge-m3-minimap).
+		bMinimapOnly = bMinimapOnly || strcmp( argv[i], "--m3-minimap-only" ) == 0;
 		// 05-05: `--craft <kind> <out>` writes one fixture map (CraftFixture) instead
 		// of running the tier (<out> is a file name under the scratch folder) - the build
 		// runs it before the scenarios that open them.
@@ -11218,6 +11224,12 @@ int main( int argc, char **argv )
 		Check( CraftFixture( pSession, pszCraftKind, ( szScratch + "\\" + pszCraftOut ).c_str() ), "the fixture map is crafted" );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
 	}
+	else if ( bMinimapOnly )
+	{
+		TestM3MinimapReads( pSession, szScratch );
+		TestM3MinimapImages( pSession, szScratch );
+		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+	}
 	else if ( bPlayersOnly )
 	{
 		TestM3PlayersAndUnitCreation( pSession, szScratch );
@@ -11260,6 +11272,8 @@ int main( int argc, char **argv )
 		TestM3Damage( pSession, szScratch );
 		TestM3PlayersAndUnitCreation( pSession, szScratch );
 		TestM3CheckMap( pSession, szScratch );
+		TestM3MinimapReads( pSession, szScratch );
+		TestM3MinimapImages( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );
@@ -12309,4 +12323,388 @@ static void TestM3CheckMap( BkEditorSession *pSession, const std::string &szScra
 	remove( OsPath( szFixed ).c_str() );
 	remove( OsPath( szUndone ).c_str() );
 	printf( "editor-bridge: M3 check map ok\n" );
+}
+
+// M3 05-07 (D-14): the Minimap panel's reads on the engine. The tiles come out
+// of the map as the file holds them, and the colour of a tile is
+// CreateMiniMapImage's own averaging (recomputed here the way the static does
+// it, straight from the tileset's "_h.dds") of the terrain type's first tile;
+// the markers are the MFC's own (five AI tiles square around a unit, the
+// player's colour of the 17, a squad flagged); the fire-range areas are the
+// AI's own and empty until a group shows them; and none of it touches the map.
+static void TestM3MinimapReads( BkEditorSession *pSession, const std::string &szScratch )
+{
+	BkEditorMapSummary summary;
+	memset( &summary, 0, sizeof summary );
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	const int nWidth = summary.width_tiles, nHeight = summary.height_tiles;
+	const std::string szBefore = szScratch + "\\m3-minimap-reads-before.bzm";
+	const std::string szAfter = szScratch + "\\m3-minimap-reads-after.bzm";
+	Check( BkEditorSaveMap( pSession, szBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// --- The tiles: a sizing pass that answers REFUSED with the count, then the
+	// read, equal to the file's own tiles cell for cell and to the engine's.
+	{
+		const BkEditorTileRegion all = { 0, 0, nWidth, nHeight };
+		int nCount = -1;
+		Check( BkEditorTiles( pSession, &all, 0, 0, &nCount ) == BK_EDITOR_REFUSED && nCount == nWidth * nHeight,
+		       "the tiles' sizing pass answers REFUSED with the whole map's count" );
+		std::vector<unsigned char> tiles( size_t( nCount > 0 ? nCount : 1 ) );
+		int nRead = 0;
+		if ( Check( BkEditorTiles( pSession, &all, &tiles[0], nCount, &nRead ) == BK_EDITOR_OK && nRead == nCount, "the tiles read" ) )
+		{
+			int nDifferent = 0;
+			for ( int y = 0; y < nHeight; ++y )
+				for ( int x = 0; x < nWidth; ++x )
+					if ( tiles[size_t( y * nWidth + x )] != original.terrain.tiles[y][x].tile )
+						++nDifferent;
+			Check( nDifferent == 0, "every tile read is the file's own, row 0 first" );
+			int nEngineDifferent = 0;
+			for ( int y = 0; y < nHeight; y += 37 )
+				for ( int x = 0; x < nWidth; x += 29 )
+				{
+					unsigned char tile = 0;
+					if ( BkEditorEngineTile( pSession, x, y, &tile ) != BK_EDITOR_OK || tile != tiles[size_t( y * nWidth + x )] )
+						++nEngineDifferent;
+				}
+			Check( nEngineDifferent == 0, "the tiles read are the engine's own at a sample of cells" );
+		}
+		const BkEditorTileRegion part = { 10, 20, 14, 23 };
+		unsigned char partTiles[12];
+		Check( BkEditorTiles( pSession, &part, partTiles, 12, &nRead ) == BK_EDITOR_OK && nRead == 12, "a sub-region reads" );
+		bool bPartSame = true;
+		for ( int y = 0; y < 3; ++y )
+			for ( int x = 0; x < 4; ++x )
+				bPartSame = bPartSame && partTiles[y * 4 + x] == original.terrain.tiles[20 + y][10 + x].tile;
+		Check( bPartSame, "the sub-region is the file's tiles at those cells" );
+		unsigned char tooShort[4];
+		Check( BkEditorTiles( pSession, &part, tooShort, 4, &nRead ) == BK_EDITOR_REFUSED && nRead == 12, "a short buffer is refused with the count and nothing past its end" );
+		const BkEditorTileRegion empty = { 5, 5, 5, 9 }, off = { 0, 0, nWidth + 1, 4 }, negative = { -1, 0, 4, 4 };
+		Check( BkEditorTiles( pSession, &empty, partTiles, 12, &nRead ) == BK_EDITOR_BAD_ARGUMENT, "an empty region is a bad argument" );
+		Check( BkEditorTiles( pSession, 0, partTiles, 12, &nRead ) == BK_EDITOR_BAD_ARGUMENT, "a null region is a bad argument" );
+		Check( BkEditorTiles( pSession, &off, partTiles, 12, &nRead ) == BK_EDITOR_REFUSED, "a region off the map is refused" );
+		Check( BkEditorTiles( pSession, &negative, partTiles, 12, &nRead ) == BK_EDITOR_REFUSED, "a region before the map is refused" );
+	}
+
+	// --- The colours: one per tile of the tileset, equal to a recomputation of
+	// CreateMiniMapImage's averaging for three spot-check terrain types.
+	{
+		int nColors = -1;
+		Check( BkEditorMinimapTileColors( pSession, 0, 0, &nColors ) == BK_EDITOR_REFUSED && nColors > 0 && nColors <= 256,
+		       "the colours' sizing pass answers REFUSED with the tileset's tile count" );
+		std::vector<unsigned int> colors( size_t( nColors > 0 ? nColors : 1 ) );
+		int nRead = 0;
+		if ( Check( BkEditorMinimapTileColors( pSession, &colors[0], nColors, &nRead ) == BK_EDITOR_OK && nRead == nColors, "the tile colours read" ) )
+		{
+			bool bAllInRange = true;
+			for ( int y = 0; y < nHeight && bAllInRange; ++y )
+				for ( int x = 0; x < nWidth; ++x )
+					if ( int( original.terrain.tiles[y][x].tile ) >= nColors )
+					{
+						bAllInRange = false;
+						break;
+					}
+			Check( bAllInRange, "every tile the map uses has a colour" );
+
+			BkEditorTile described;
+			memset( &described, 0, sizeof described );
+			const unsigned char firstTile = original.terrain.tiles[0][0].tile;
+			if ( Check( BkEditorDescribeTile( pSession, firstTile, &described ) == BK_EDITOR_OK, "the map's first tile is described" ) )
+			{
+				const std::string szTileset = described.tileset;
+				STilesetDesc tilesetDesc;
+				LoadDataResource( szTileset, "", false, 0, "tileset", tilesetDesc );
+				CPtr<IDataStream> pStream = GetSingleton<IDataStorage>()->OpenStream( ( szTileset + "_h.dds" ).c_str(), STREAM_ACCESS_READ );
+				CPtr<IDDSImage> pImage = pStream != 0 ? GetImageProcessor()->LoadDDSImage( pStream ) : 0;
+				if ( Check( pImage != 0 && !tilesetDesc.terrtypes.empty(), "the tileset's own description and _h.dds load for the recomputation" ) )
+				{
+					CTImageAccessor< SColor, IDDSImage, CPtr<IDDSImage> > accessor = pImage;
+					// CreateMiniMapImage's loop for one tile, verbatim.
+					struct SRecompute
+					{
+						static unsigned int Average( CTImageAccessor< SColor, IDDSImage, CPtr<IDDSImage> > &rAccessor, IDDSImage *pDDS, const STilesetDesc &rDesc, int nTile )
+						{
+							const CVec2 *pVertices = rDesc.tilemaps[nTile].maps;
+							CTRect<int> colorRect( ( pVertices[0].x * pDDS->GetSizeX() + pVertices[2].x * pDDS->GetSizeX() ) / 2,
+							                       ( pVertices[0].y * pDDS->GetSizeY() + pVertices[2].y * pDDS->GetSizeY() ) / 2,
+							                       ( pVertices[1].x * pDDS->GetSizeX() + pVertices[3].x * pDDS->GetSizeX() ) / 2,
+							                       ( pVertices[1].y * pDDS->GetSizeY() + pVertices[3].y * pDDS->GetSizeY() ) / 2 );
+							colorRect.Normalize();
+							DWORD dwRed = 0, dwGreen = 0, dwBlue = 0;
+							for ( int x = colorRect.left; x < colorRect.right; ++x )
+								for ( int y = colorRect.top; y < colorRect.bottom; ++y )
+								{
+									const SColor &rColor = rAccessor[y][x];
+									dwRed += rColor.r;
+									dwGreen += rColor.g;
+									dwBlue += rColor.b;
+								}
+							if ( colorRect.Width() * colorRect.Height() > 0 )
+							{
+								dwRed /= colorRect.Width() * colorRect.Height();
+								dwGreen /= colorRect.Width() * colorRect.Height();
+								dwBlue /= colorRect.Width() * colorRect.Height();
+							}
+							return ( ( dwRed & 0xFF ) << 16 ) | ( ( dwGreen & 0xFF ) << 8 ) | ( dwBlue & 0xFF );
+						}
+					};
+					int nSpot = 0, nSpotMismatch = 0;
+					const size_t nTypes = tilesetDesc.terrtypes.size();
+					const size_t spotTypes[3] = { 0, nTypes / 2, nTypes - 1 };
+					for ( int i = 0; i < 3; ++i )
+					{
+						const std::vector<SMainTileDesc> &rTypeTiles = tilesetDesc.terrtypes[spotTypes[i]].tiles;
+						if ( rTypeTiles.empty() )
+							continue;
+						const int nTile = rTypeTiles[0].nIndex;
+						if ( nTile < 0 || nTile >= nColors || nTile >= int( tilesetDesc.tilemaps.size() ) )
+							continue;
+						// The first terrain type that lists the tile decides the representative.
+						int nRepresentative = nTile;
+						for ( size_t t = 0; t < nTypes; ++t )
+						{
+							bool bLists = false;
+							for ( size_t k = 0; k < tilesetDesc.terrtypes[t].tiles.size(); ++k )
+								bLists = bLists || tilesetDesc.terrtypes[t].tiles[k].nIndex == nTile;
+							if ( bLists )
+							{
+								if ( !tilesetDesc.terrtypes[t].tiles.empty() )
+									nRepresentative = tilesetDesc.terrtypes[t].tiles[0].nIndex;
+								break;
+							}
+						}
+						const unsigned int expected = SRecompute::Average( accessor, pImage, tilesetDesc, nRepresentative );
+						++nSpot;
+						if ( colors[size_t( nTile )] != expected )
+						{
+							++nSpotMismatch;
+							printf( "editor-bridge: tile %d colour %06x, CreateMiniMapImage's averaging says %06x\n", nTile, colors[size_t( nTile )], expected );
+						}
+					}
+					Check( nSpot >= 3 && nSpotMismatch == 0, "three spot-check tiles match CreateMiniMapImage's averaging exactly" );
+					printf( "editor-bridge: M3 minimap colour spot check: %d tiles compared, %d differ\n", nSpot, nSpotMismatch );
+				}
+			}
+		}
+		unsigned int tooShort[2];
+		Check( BkEditorMinimapTileColors( pSession, tooShort, 2, &nRead ) == BK_EDITOR_REFUSED && nRead == nColors, "a short colour buffer is refused with the count" );
+	}
+
+	// --- The markers: five AI tiles square around a unit, its player's colour,
+	// a squad flagged.
+	{
+		int nUnits = -1;
+		Check( BkEditorMinimapUnits( pSession, 0, 0, &nUnits ) == BK_EDITOR_REFUSED && nUnits > 0, "the markers' sizing pass answers REFUSED with the count" );
+		std::vector<BkEditorMinimapUnit> units( size_t( nUnits > 0 ? nUnits : 1 ) );
+		int nRead = 0;
+		Check( BkEditorMinimapUnits( pSession, &units[0], nUnits, &nRead ) == BK_EDITOR_OK && nRead == nUnits, "the markers read" );
+		bool bAllSane = true;
+		int nSquads = 0;
+		for ( int i = 0; i < nRead; ++i )
+		{
+			const BkEditorMinimapUnit &rUnit = units[size_t( i )];
+			bAllSane = bAllSane && rUnit.x0 >= 0 && rUnit.y0 >= 0 && rUnit.x1 > rUnit.x0 && rUnit.y1 > rUnit.y0 &&
+			           rUnit.color_index >= 0 && rUnit.color_index <= 16;
+			nSquads += rUnit.squad;
+		}
+		Check( bAllSane, "every marker is a non-empty rectangle with a colour of the 17" );
+		Check( nSquads > 0, "arnheim's squads have their markers" );
+
+		// A unit placed at a known point, player 1: a 5x5 square there.
+		int nCatalogue = 0;
+		BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+		std::vector<BkEditorCatalogueEntry> catalogue( size_t( nCatalogue > 0 ? nCatalogue : 1 ) );
+		int nCatalogueRead = 0;
+		BkEditorCatalogue( pSession, &catalogue[0], nCatalogue, &nCatalogueRead );
+		std::string szUnitName;
+		for ( int i = 0; i < nCatalogueRead && szUnitName.empty(); ++i )
+			if ( catalogue[size_t( i )].game_type == 1 )
+				szUnitName = catalogue[size_t( i )].name;
+		int nLinkID = -1;
+		const float fMiddleX = nWidth * fWorldCellSize / 2, fMiddleY = nHeight * fWorldCellSize / 2;
+		if ( Check( !szUnitName.empty() && BkEditorAddObject( pSession, szUnitName.c_str(), fMiddleX, fMiddleY, 0, 1, &nLinkID ) == BK_EDITOR_OK, "a unit is placed at the middle" ) )
+		{
+			BkEditorObjectRecord record;
+			memset( &record, 0, sizeof record );
+			ReadObjectRecord( pSession, nLinkID, &record );
+			const int nCentreX = int( record.x / SAIConsts::TILE_SIZE ), nCentreY = int( record.y / SAIConsts::TILE_SIZE );
+			Check( BkEditorMinimapUnits( pSession, 0, 0, &nUnits ) == BK_EDITOR_REFUSED, "the markers count again" );
+			units.assign( size_t( nUnits ), BkEditorMinimapUnit() );
+			Check( BkEditorMinimapUnits( pSession, &units[0], nUnits, &nRead ) == BK_EDITOR_OK, "and read again" );
+			const BkEditorMinimapUnit *pPlaced = 0;
+			for ( int i = 0; i < nRead; ++i )
+				if ( units[size_t( i )].link_id == nLinkID )
+					pPlaced = &units[size_t( i )];
+			if ( Check( pPlaced != 0, "the placed unit has a marker" ) )
+			{
+				Check( pPlaced->x0 == nCentreX - 2 && pPlaced->x1 == nCentreX + 3 && pPlaced->y0 == nCentreY - 2 && pPlaced->y1 == nCentreY + 3,
+				       ( "the marker is five AI tiles square around the unit (" + std::to_string( pPlaced->x0 ) + "," + std::to_string( pPlaced->y0 ) + "-" +
+				         std::to_string( pPlaced->x1 ) + "," + std::to_string( pPlaced->y1 ) + " around " + std::to_string( nCentreX ) + "," + std::to_string( nCentreY ) + ")" ).c_str() );
+				Check( pPlaced->color_index == 1 && pPlaced->squad == 0, "its colour is player 1's and it is no squad" );
+			}
+
+			// --- The fire-range areas: empty until a group shows them. Units are
+			// tried until one has an area the AI draws (artillery does; a plain
+			// rifleman's is a line, which the MFC panel skips).
+			int nAreas = -1;
+			Check( BkEditorMinimapAreas( pSession, 0, 0, &nAreas ) == BK_EDITOR_OK && nAreas == 0, "no areas are shown until a group shows them" );
+			IAILogic *pAILogic = GetSingleton<IAILogic>();
+			bool bAreasSeen = false;
+			if ( Check( pAILogic != 0, "the AI is there" ) )
+			{
+				int nObjects = 0;
+				BkEditorObjects( pSession, 0, 0, &nObjects );
+				std::vector<BkEditorObjectRecord> records( size_t( nObjects > 0 ? nObjects : 1 ) );
+				int nObjectsRead = 0;
+				BkEditorObjects( pSession, &records[0], nObjects, &nObjectsRead );
+				for ( int i = 0; i < nObjectsRead && !bAreasSeen; ++i )
+				{
+					bool bIsUnit = false;
+					for ( int j = 0; j < nCatalogueRead; ++j )
+						bIsUnit = bIsUnit || ( catalogue[size_t( j )].game_type == 1 && records[size_t( i )].name == std::string( catalogue[size_t( j )].name ) );
+					if ( !bIsUnit || records[size_t( i )].link_id <= 0 || !records[size_t( i )].known )
+						continue;
+					IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+					IRefCount *pAIObject = pAIEditor != 0 ? pAIEditor->ObjectByLink( records[size_t( i )].link_id ) : 0;
+					if ( pAIObject == 0 )
+						continue;
+					const WORD wGroup = pAILogic->GenerateGroupNumber();
+					pAILogic->RegisterGroup( &pAIObject, 1, wGroup );
+					pAILogic->ShowAreas( wGroup, ACTION_NOTIFY_SHOOT_AREA, true );
+					int nShown = 0;
+					if ( BkEditorMinimapAreas( pSession, 0, 0, &nShown ) == BK_EDITOR_REFUSED && nShown > 0 )
+					{
+						std::vector<BkEditorMinimapArea> areas;
+						areas.resize( size_t( nShown ) );
+						int nAreasRead = 0;
+						Check( BkEditorMinimapAreas( pSession, &areas[0], nShown, &nAreasRead ) == BK_EDITOR_OK && nAreasRead == nShown, "the shown areas read" );
+						bool bSane = true;
+						for ( int a = 0; a < nAreasRead; ++a )
+							bSane = bSane && areas[size_t( a )].radius > 0 && areas[size_t( a )].kind != 2 && areas[size_t( a )].kind >= 0 && areas[size_t( a )].kind <= 3;
+						Check( bSane, "every area has a radius and is not a line" );
+						printf( "editor-bridge: M3 minimap areas: %d shown for %s (first: kind %d, radius %.1f AI units, at %.0f,%.0f)\n", nAreasRead,
+						        records[size_t( i )].name, areas[0].kind, areas[0].radius, areas[0].cx, areas[0].cy );
+						bAreasSeen = true;
+					}
+					pAILogic->ShowAreas( wGroup, ACTION_NOTIFY_SHOOT_AREA, false );
+					pAILogic->UnregisterGroup( wGroup );
+				}
+			}
+			Check( bAreasSeen, "a unit's fire-range areas are answered while a group shows them" );
+			Check( BkEditorDeleteObject( pSession, nLinkID ) == BK_EDITOR_OK, "the placed unit goes again" );
+		}
+	}
+
+	// The reads never touched the map: what is saved after is what was saved
+	// before.
+	Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	remove( OsPath( szBefore ).c_str() );
+	remove( OsPath( szAfter ).c_str() );
+	printf( "editor-bridge: M3 minimap reads ok\n" );
+}
+
+// M3 05-07 (D-16/D-17): Create Minimap Images on the engine. A saved user map
+// gets its pictures beside it - the MFC's four parameters, <map>_large at 512
+// and <map> at 256, each as TGA and as the engine's DDS trio - verified by
+// size; the shipped map is refused and nothing is written beside it; a
+// malformed or missing picture is a refusal, never a crash; and the map
+// document is never touched.
+static void TestM3MinimapImages( BkEditorSession *pSession, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szFolder = szScratch + "\\m3-minimap-images";
+	MakeDirectory( OsPath( szFolder ).c_str() );
+	const std::string szMap = szFolder + "\\m3img.bzm";
+	const std::string szMapAgain = szFolder + "\\m3img-again.bzm";
+	Check( BkEditorSaveMap( pSession, szMap.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	const std::string szBase = szFolder + "\\m3img";
+
+	const BkEditorStatus nStatus = BkEditorCreateMiniMapImage( pSession, szMap.c_str() );
+	if ( !Check( nStatus == BK_EDITOR_OK, ( std::string( "the images are created: " ) + BkEditorLastMessage( pSession ) ).c_str() ) )
+		return;
+	static const char *const suffixes[] = { "_large.tga", "_large_c.dds", "_large_l.dds", "_large_h.dds", ".tga", "_c.dds", "_l.dds", "_h.dds" };
+	int nPresent = 0;
+	for ( int i = 0; i < 8; ++i )
+	{
+		std::error_code error;
+		if ( std::filesystem::exists( OsPath( szBase + suffixes[i] ), error ) )
+			++nPresent;
+		else
+			printf( "editor-bridge: missing %s\n", ( szBase + suffixes[i] ).c_str() );
+	}
+	Check( nPresent == 8, "all eight files (the four pictures, DDS as the engine's trio) are beside the map" );
+
+	// Game mode's read: <map>.tga is tried first and is the 256x256 one.
+	std::vector<unsigned char> rgba( 512 * 512 * 4 );
+	int nWidth = 0, nHeight = 0;
+	if ( Check( BkEditorMinimapImage( pSession, szMap.c_str(), &rgba[0], int( rgba.size() ), 1024, &nWidth, &nHeight ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( nWidth == 256 && nHeight == 256, "the Game mode picture is the 256x256 <map>.tga" );
+	// The same call scaled down.
+	if ( Check( BkEditorMinimapImage( pSession, szMap.c_str(), &rgba[0], int( rgba.size() ), 64, &nWidth, &nHeight ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( nWidth == 64 && nHeight == 64, "a smaller max_side scales the picture down" );
+	Check( BkEditorMinimapImage( pSession, szMap.c_str(), &rgba[0], 16, 1024, &nWidth, &nHeight ) == BK_EDITOR_REFUSED && nWidth == 256 && nHeight == 256,
+	       "a buffer too short is refused and the real size reported" );
+
+	// Never touches the map document.
+	Check( BkEditorSaveMap( pSession, szMapAgain.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szMap, szMapAgain ), "creating the pictures left the map's own save byte for byte" );
+
+	// The shipped map: refused, and nothing is written beside it.
+	{
+		const BkEditorStatus nShipped = BkEditorCreateMiniMapImage( pSession, BRIDGE_MAP );
+		Check( nShipped == BK_EDITOR_REFUSED, "a shipped map (a relative Data path) is refused" );
+		#if defined(_WIN32) || defined(_WIN64)
+		char absolute[_MAX_PATH] = { 0 };
+		_fullpath( absolute, "Data/Maps/Multiplayer/arnheim.bzm", _MAX_PATH );
+#else
+		char absolute[PATH_MAX] = { 0 };
+		if ( realpath( "Data/Maps/Multiplayer/arnheim.bzm", absolute ) == 0 )
+			absolute[0] = 0;
+#endif
+		const std::string szAbsolute = absolute;
+		Check( BkEditorCreateMiniMapImage( pSession, szAbsolute.c_str() ) == BK_EDITOR_REFUSED, "the same map by its full path is refused" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "Data" ) != std::string::npos, ( "and the refusal names the Data folder (" + std::string( BkEditorLastMessage( pSession ) ) + " for " + szAbsolute + ")" ).c_str() );
+		std::error_code error;
+		Check( !std::filesystem::exists( "Data/Maps/Multiplayer/arnheim_large.tga", error ), "nothing was written beside the shipped map" );
+		Check( BkEditorCreateMiniMapImage( pSession, ( szFolder + "\\m3img-not-there.bzm" ).c_str() ) == BK_EDITOR_REFUSED, "a map file that is not there is refused" );
+		Check( BkEditorCreateMiniMapImage( pSession, ( szFolder + "\\m3img.txt" ).c_str() ) == BK_EDITOR_BAD_ARGUMENT, "a path that is no .bzm or .xml is a bad argument" );
+		Check( BkEditorCreateMiniMapImage( pSession, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null path is a bad argument" );
+	}
+
+	// A malformed picture is a refusal.
+	{
+		const std::string szGarbageMap = szFolder + "\\m3garbage.bzm";
+		FILE *pFile = fopen( OsPath( szFolder + "\\m3garbage.tga" ).c_str(), "wb" );
+		if ( Check( pFile != 0, "the malformed picture is written" ) )
+		{
+			const char garbage[40] = "this is not a tga file at all, no sir!";
+			fwrite( garbage, 1, sizeof garbage, pFile );
+			fclose( pFile );
+			const BkEditorStatus nGarbage = BkEditorMinimapImage( pSession, szGarbageMap.c_str(), &rgba[0], int( rgba.size() ), 1024, &nWidth, &nHeight );
+			Check( nGarbage == BK_EDITOR_REFUSED, "a malformed picture is refused" );
+		}
+		Check( BkEditorMinimapImage( pSession, ( szFolder + "\\m3nothing.bzm" ).c_str(), &rgba[0], int( rgba.size() ), 1024, &nWidth, &nHeight ) == BK_EDITOR_REFUSED,
+		       "a map with no picture is refused" );
+		Check( BkEditorMinimapImage( pSession, szMap.c_str(), 0, 0, 1024, &nWidth, &nHeight ) == BK_EDITOR_BAD_ARGUMENT, "no buffer is a bad argument" );
+		remove( OsPath( szFolder + "\\m3garbage.tga" ).c_str() );
+	}
+
+	// The shipped coldwinter has only its _h.dds: Game mode finds it there.
+	{
+		const std::string szColdwinter = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+		if ( Check( BkEditorMinimapImage( pSession, szColdwinter.c_str(), &rgba[0], int( rgba.size() ), 1024, &nWidth, &nHeight ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( nWidth > 0 && nHeight > 0, "a shipped map's _h.dds picture is found for Game mode" );
+	}
+
+	for ( int i = 0; i < 8; ++i )
+		remove( OsPath( szBase + suffixes[i] ).c_str() );
+	remove( OsPath( szMap ).c_str() );
+	remove( OsPath( szMapAgain ).c_str() );
+	printf( "editor-bridge: M3 minimap images ok\n" );
 }

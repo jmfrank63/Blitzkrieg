@@ -25,6 +25,14 @@
 #include "../StreamIO/ProfilePaths.h"
 #include "../Main/GameDB.h"
 #include "../Main/RPGStats.h"
+#include "../MapFile/MapFile.h"
+#include "../RandomMapGen/LA_Types.h"
+#include "../RandomMapGen/MiniMap_Types.h"
+#include "../AILogic/AILogic.h"
+#include "../AILogic/aiconsts.h"
+#include "../AILogic/AITypes.h"
+#include <fstream>
+#include <map>
 // The shared managers BkEditorSetMod clears (03-08, mirroring
 // CMainLoop::ClearResources(true)) other than the ones GFX.H already
 // declares (IMeshManager, ITextureManager, IFontManager).
@@ -1642,6 +1650,566 @@ BkEditorStatus BkEditorTilePicture( BkEditorSession *pSession, int nTile,
 			return BK_EDITOR_FAILED;
 		}
 		return WritePicture( pSession, pImages, pTile, szWhat.c_str(), nMaxSide, pOutRgba, nCapacityBytes, pnOutWidth, pnOutHeight );
+	} );
+}
+
+// ---------------------------------------------------------------------------
+// The Minimap panel's reads and Create Minimap Images (M3 05-07, D-14..D-17).
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// CMapInfo::CreateMiniMapImage's own averaging of one tile (MapInfo_Static
+// Methods_MiniMapCreation.cpp:94-161, which the MFC panel repeats per terrain
+// type in CMiniMapTerrain::UpdateColor): the mean colour of the rectangle the
+// tile's four corners span in the tileset texture, integer arithmetic and all.
+// The only addition is the clamp to the texture, which the engine's own loop
+// leaves to the data being right.
+unsigned int AverageTileColor( IImage *pAtlas, const STileMapsDesc &rMaps )
+{
+	const int nWidth = pAtlas->GetSizeX(), nHeight = pAtlas->GetSizeY();
+	const CVec2 *pVertices = rMaps.maps;
+	CTRect<int> colorRect( ( pVertices[0].x * nWidth + pVertices[2].x * nWidth ) / 2,
+	                       ( pVertices[0].y * nHeight + pVertices[2].y * nHeight ) / 2,
+	                       ( pVertices[1].x * nWidth + pVertices[3].x * nWidth ) / 2,
+	                       ( pVertices[1].y * nHeight + pVertices[3].y * nHeight ) / 2 );
+	colorRect.Normalize();
+	colorRect.minx = Clamp( colorRect.minx, 0, nWidth );
+	colorRect.maxx = Clamp( colorRect.maxx, 0, nWidth );
+	colorRect.miny = Clamp( colorRect.miny, 0, nHeight );
+	colorRect.maxy = Clamp( colorRect.maxy, 0, nHeight );
+	const SColor *pPixels = pAtlas->GetLFB();
+	DWORD dwRed = 0, dwGreen = 0, dwBlue = 0;
+	for ( int y = colorRect.miny; y < colorRect.maxy; ++y )
+	{
+		for ( int x = colorRect.minx; x < colorRect.maxx; ++x )
+		{
+			const SColor &rColor = pPixels[y * nWidth + x];
+			dwRed += rColor.r;
+			dwGreen += rColor.g;
+			dwBlue += rColor.b;
+		}
+	}
+	const int nArea = colorRect.Width() * colorRect.Height();
+	if ( nArea > 0 )
+	{
+		dwRed /= nArea;
+		dwGreen /= nArea;
+		dwBlue /= nArea;
+	}
+	return ( ( dwRed & 0xFF ) << 16 ) | ( ( dwGreen & 0xFF ) << 8 ) | ( dwBlue & 0xFF );
+}
+
+// Engine form of a path (backslashes: OpenFileStream and CreateFileStream
+// split on them only), and the host form of the same (the OS's own).
+std::string EnginePathOf( std::string szPath )
+{
+	for ( size_t i = 0; i < szPath.size(); ++i )
+		if ( szPath[i] == '/' )
+			szPath[i] = '\\';
+	return szPath;
+}
+
+std::string HostPathOf( std::string szPath )
+{
+#if !defined(_WIN32)
+	for ( size_t i = 0; i < szPath.size(); ++i )
+		if ( szPath[i] == '\\' )
+			szPath[i] = '/';
+#endif
+	return szPath;
+}
+
+// "<dir>\<name>" with the map's .bzm or .xml taken off; false for any other
+// extension.
+bool MapBaseOf( const std::string &szMapPath, std::string *pszBase )
+{
+	const std::string::size_type nDot = szMapPath.find_last_of( '.' );
+	const std::string::size_type nSep = szMapPath.find_last_of( "/\\" );
+	if ( nDot == std::string::npos || ( nSep != std::string::npos && nDot < nSep ) )
+		return false;
+	std::string szExtension = szMapPath.substr( nDot );
+	NStr::ToLower( szExtension );
+	if ( szExtension != ".bzm" && szExtension != ".xml" )
+		return false;
+	*pszBase = szMapPath.substr( 0, nDot );
+	return true;
+}
+
+// True for a full path in either of the engine's forms: POSIX absolute, a
+// leading backslash, or a drive letter.
+bool IsFullPath( const std::string &szPath )
+{
+	return !szPath.empty() && ( szPath[0] == '/' || szPath[0] == '\\' || ( szPath.size() > 1 && szPath[1] == ':' ) );
+}
+
+// Whether the path lies inside the installation's Data folder (the shipped
+// data, which is never written): the same prefix test the editor's own
+// shipped-map rule starts with (core/shipped.zig, rule 1), case and separator
+// blind, on the paths as the file system resolves them (the installation's
+// root may be given relative, and a path may carry "..").
+bool IsUnderInstalledData( const std::string &szPath )
+{
+	std::error_code error;
+	const std::filesystem::path data = std::filesystem::weakly_canonical( std::filesystem::path( HostPathOf( NPlatform::Paths::BaseRoot() ) ) / "Data", error );
+	if ( error )
+		return false;
+	const std::filesystem::path map = std::filesystem::weakly_canonical( std::filesystem::path( HostPathOf( szPath ) ), error );
+	if ( error )
+		return false;
+	std::string szData = data.generic_string(), szMap = map.generic_string();
+	for ( size_t i = 0; i < szData.size(); ++i )
+		szData[i] = char( tolower( (unsigned char)szData[i] ) );
+	for ( size_t i = 0; i < szMap.size(); ++i )
+		szMap[i] = char( tolower( (unsigned char)szMap[i] ) );
+	if ( !szData.empty() && szData[szData.size() - 1] != '/' )
+		szData += '/';
+	return szMap.compare( 0, szData.size(), szData ) == 0;
+}
+
+// A little-endian field of a file's header.
+unsigned int HeaderWord( const unsigned char *p, int nBytes )
+{
+	unsigned int n = 0;
+	for ( int i = nBytes - 1; i >= 0; --i )
+		n = ( n << 8 ) | p[i];
+	return n;
+}
+
+// The width and height a written .tga or .dds file's own header names, or
+// false when the file is not there or too short to say.
+bool ImageFileSize( const std::string &szHostPath, bool bDDS, int *pnWidth, int *pnHeight )
+{
+	std::ifstream file( szHostPath.c_str(), std::ios::binary );
+	if ( !file )
+		return false;
+	unsigned char header[20] = { 0 };
+	file.read( reinterpret_cast<char *>( header ), sizeof header );
+	if ( file.gcount() < ( bDDS ? 20 : 16 ) )
+		return false;
+	if ( bDDS )
+	{
+		if ( header[0] != 'D' || header[1] != 'D' || header[2] != 'S' || header[3] != ' ' )
+			return false;
+		*pnHeight = int( HeaderWord( header + 12, 4 ) );
+		*pnWidth = int( HeaderWord( header + 16, 4 ) );
+	}
+	else
+	{
+		*pnWidth = int( HeaderWord( header + 12, 2 ) );
+		*pnHeight = int( HeaderWord( header + 14, 2 ) );
+	}
+	return true;
+}
+
+// The objects' markers, MiniMapTypes.cpp's CUnitsSelection::Update over the
+// session's working copy (the engine's own copy: the frame indices unpacked).
+void CollectMinimapUnits( BkEditorSession *pSession, std::vector<BkEditorMinimapUnit> *pUnits )
+{
+	pUnits->clear();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+		return;
+	const CMapInfo &rMap = pSession->working;
+	const CTRect<int> aiRect( 0, 0, rMap.terrain.tiles.GetSizeX() * 2, rMap.terrain.tiles.GetSizeY() * 2 );
+	const std::vector<SMapObjectInfo> *lists[2] = { &rMap.objects, &rMap.scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+	{
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+		{
+			const SMapObjectInfo &rObject = ( *lists[nList] )[i];
+			const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( rObject.szName.c_str() );
+			if ( pDesc == 0 )
+				continue;
+			const bool bSquad = pDesc->eGameType == SGVOGT_SQUAD;
+			const SObjectBaseRPGStats *pRPG = 0;
+			if ( !bSquad && IsObjectHasPassability( pDesc->eGameType ) && ( pDesc->eGameType != SGVOGT_TERRAOBJ || rObject.nFrameIndex >= 0 ) )
+				pRPG = static_cast<const SObjectBaseRPGStats *>( pObjectsDB->GetRPGStats( pDesc ) );
+			CTRect<int> position( 0, 0, 0, 0 );
+			CTPoint<int> center( 0, 0 );
+			if ( pRPG != 0 )
+			{
+				const CVec2 &rOrigin = pRPG->GetOrigin( rObject.nFrameIndex );
+				const CArray2D<BYTE> &rPassability = pRPG->GetPassability( rObject.nFrameIndex );
+				const CTPoint<int> start( int( ( rObject.vPos.x - rOrigin.x + ( SAIConsts::TILE_SIZE / 2.0 ) ) / SAIConsts::TILE_SIZE ),
+				                          int( ( rObject.vPos.y - rOrigin.y + ( SAIConsts::TILE_SIZE / 2.0 ) ) / SAIConsts::TILE_SIZE ) );
+				position.minx = start.x;
+				position.miny = start.y;
+				position.maxx = start.x + rPassability.GetSizeX();
+				position.maxy = start.y + rPassability.GetSizeY();
+				center.x = position.minx + position.Width() / 2;
+				center.y = position.miny + position.Height() / 2;
+			}
+			else
+			{
+				center.x = int( rObject.vPos.x / SAIConsts::TILE_SIZE );
+				center.y = int( rObject.vPos.y / SAIConsts::TILE_SIZE );
+				position.minx = center.x;
+				position.miny = center.y;
+				position.maxx = position.minx;
+				position.maxy = position.miny;
+			}
+			if ( position.Width() < 5 )
+			{
+				position.minx = center.x - 2;
+				position.maxx = center.x + 2;
+			}
+			if ( position.Height() < 5 )
+			{
+				position.miny = center.y - 2;
+				position.maxy = center.y + 2;
+			}
+			if ( ValidateIndices( aiRect, &position ) < 0 )
+				continue;
+			BkEditorMinimapUnit unit;
+			memset( &unit, 0, sizeof unit );
+			unit.link_id = rObject.link.nLinkID;
+			unit.x0 = position.minx;
+			unit.y0 = position.miny;
+			unit.x1 = position.maxx + 1;
+			unit.y1 = position.maxy + 1;
+			unit.color_index = ( rObject.nPlayer >= 0 && rObject.nPlayer < 17 ) ? rObject.nPlayer : 16;
+			unit.squad = bSquad ? 1 : 0;
+			pUnits->push_back( unit );
+		}
+	}
+}
+
+}
+
+BkEditorStatus BkEditorTiles( BkEditorSession *pSession, const BkEditorTileRegion *pRegion,
+                              unsigned char *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || pRegion == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( pRegion->x1 <= pRegion->x0 || pRegion->y1 <= pRegion->y0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		const long long nArea = ( (long long)pRegion->x1 - pRegion->x0 ) * ( (long long)pRegion->y1 - pRegion->y0 );
+		if ( nArea > 0x7fffffff )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		const CArray2D<SMainTileInfo> &rTiles = pSession->snapshot.terrain.tiles;
+		if ( pRegion->x0 < 0 || pRegion->y0 < 0 || pRegion->x1 > rTiles.GetSizeX() || pRegion->y1 > rTiles.GetSizeY() )
+		{
+			pSession->szMessage = NStr::Format( "the region %d,%d-%d,%d is not on the %dx%d map", pRegion->x0, pRegion->y0,
+			                                    pRegion->x1, pRegion->y1, rTiles.GetSizeX(), rTiles.GetSizeY() );
+			return BK_EDITOR_REFUSED;
+		}
+		*pnCount = int( nArea );
+		if ( nCapacity < int( nArea ) )
+		{
+			pSession->szMessage = NStr::Format( "the region holds %d tiles, the buffer has room for %d", int( nArea ), nCapacity );
+			return BK_EDITOR_REFUSED;
+		}
+		int nAt = 0;
+		for ( int y = pRegion->y0; y < pRegion->y1; ++y )
+			for ( int x = pRegion->x0; x < pRegion->x1; ++x )
+				pOut[nAt++] = rTiles[y][x].tile;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorMinimapTileColors( BkEditorSession *pSession, unsigned int *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		ITerrainEditor *pTerrain = OpenMapTerrain( pSession );
+		if ( pTerrain == 0 || !LoadTileAtlas( pSession, pTerrain ) )
+			return BK_EDITOR_REFUSED;
+		const STilesetDesc &rTileset = pSession->tileAtlasDesc;
+		const int nTiles = Min( int( rTileset.tilemaps.size() ), 256 );
+		*pnCount = nTiles;
+		const int nFit = Min( nCapacity, nTiles );
+		std::map<int, unsigned int> byRepresentative;
+		for ( int nTile = 0; nTile < nFit; ++nTile )
+		{
+			// The MFC colours a terrain type by its first tile (UpdateColor).
+			const int nType = TerrainTypeOfTile( rTileset, nTile );
+			int nRepresentative = nTile;
+			if ( nType >= 0 && !rTileset.terrtypes[nType].tiles.empty() )
+			{
+				const int nFirst = rTileset.terrtypes[nType].tiles[0].nIndex;
+				if ( nFirst >= 0 && nFirst < int( rTileset.tilemaps.size() ) )
+					nRepresentative = nFirst;
+			}
+			std::map<int, unsigned int>::const_iterator iFound = byRepresentative.find( nRepresentative );
+			if ( iFound == byRepresentative.end() )
+				iFound = byRepresentative.insert( std::make_pair( nRepresentative, AverageTileColor( pSession->pTileAtlas, rTileset.tilemaps[nRepresentative] ) ) ).first;
+			pOut[nTile] = iFound->second;
+		}
+		if ( nFit < nTiles )
+		{
+			pSession->szMessage = NStr::Format( "the tileset has %d tiles, the buffer has room for %d", nTiles, nCapacity );
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorMinimapUnits( BkEditorSession *pSession, BkEditorMinimapUnit *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		std::vector<BkEditorMinimapUnit> units;
+		CollectMinimapUnits( pSession, &units );
+		*pnCount = int( units.size() );
+		const int nFit = Min( nCapacity, int( units.size() ) );
+		for ( int i = 0; i < nFit; ++i )
+			pOut[i] = units[i];
+		if ( nFit < int( units.size() ) )
+		{
+			pSession->szMessage = NStr::Format( "the map has %d markers, the buffer has room for %d", int( units.size() ), nCapacity );
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorMinimapAreas( BkEditorSession *pSession, BkEditorMinimapArea *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( nCapacity > 0 && pOut == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		IAILogic *pAILogic = GetSingleton<IAILogic>();
+		if ( pAILogic == 0 )
+		{
+			pSession->szMessage = "the AI is not there";
+			return BK_EDITOR_REFUSED;
+		}
+		// CAILogic::UpdateShootAreas sets nothing for an area type it was
+		// never told to show, so both outputs start at "none".
+		SShootAreas *pAreas = 0;
+		int nAreas = 0;
+		pAILogic->UpdateShootAreas( &pAreas, &nAreas );
+		std::vector<BkEditorMinimapArea> areas;
+		if ( pAreas != 0 )
+		{
+			for ( int i = 0; i < nAreas; ++i )
+			{
+				for ( std::list<SShootArea>::const_iterator it = pAreas[i].areas.begin(); it != pAreas[i].areas.end(); ++it )
+				{
+					// The MFC draws every area but the line ones.
+					if ( it->eType == SShootArea::ESAT_LINE )
+						continue;
+					BkEditorMinimapArea area;
+					memset( &area, 0, sizeof area );
+					area.kind = int( it->eType );
+					area.cx = it->vCenter3D.x;
+					area.cy = it->vCenter3D.y;
+					area.radius = it->fMaxR;
+					area.min_radius = it->fMinR;
+					area.start_angle = it->wStartAngle;
+					area.finish_angle = it->wFinishAngle;
+					area.rgb = it->GetColor() & 0x00FFFFFF;
+					areas.push_back( area );
+				}
+			}
+		}
+		*pnCount = int( areas.size() );
+		const int nFit = Min( nCapacity, int( areas.size() ) );
+		for ( int i = 0; i < nFit; ++i )
+			pOut[i] = areas[i];
+		if ( nFit < int( areas.size() ) )
+		{
+			pSession->szMessage = NStr::Format( "%d areas are shown, the buffer has room for %d", int( areas.size() ), nCapacity );
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorMinimapImage( BkEditorSession *pSession, const char *pszMapPath,
+                                     unsigned char *pOutRgba, int nCapacityBytes, int nMaxSide,
+                                     int *pnOutWidth, int *pnOutHeight )
+{
+	if ( pnOutWidth != 0 ) *pnOutWidth = 0;
+	if ( pnOutHeight != 0 ) *pnOutHeight = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszMapPath == 0 || *pszMapPath == 0 || pOutRgba == 0 || pnOutWidth == 0 || pnOutHeight == 0 ||
+		     nCapacityBytes < 0 || nMaxSide < 8 || nMaxSide > 2048 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		IImageProcessor *pImages = GetImageProcessor();
+		if ( pImages == 0 )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		std::string szBase;
+		if ( !MapBaseOf( pszMapPath, &szBase ) )
+		{
+			pSession->szMessage = "the map path does not end in .bzm or .xml";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		szBase = EnginePathOf( szBase );
+		// <map>.tga first, then <map>_h.dds, as CMiniMapDialog::UpdateControls
+		// and CMiniMapTerrain::Update look. A file that is not there is a
+		// null stream; one that will not decode is a null image.
+		// The file is asked for first: OpenFileStream opens a storage on the
+		// file's folder and has no answer for one that is not there.
+		// A malformed picture (T-05-07-01) is a refusal, never a crash: the
+		// decoders may throw, which here means "no picture".
+		std::error_code error;
+		CPtr<IImage> pImage;
+		try
+		{
+			if ( std::filesystem::exists( HostPathOf( szBase + ".tga" ), error ) )
+			{
+				CPtr<IDataStream> pStream = OpenFileStream( szBase + ".tga", STREAM_ACCESS_READ );
+				if ( pStream != 0 )
+					pImage = pImages->LoadImage( pStream );
+			}
+			if ( pImage == 0 && std::filesystem::exists( HostPathOf( szBase + "_h.dds" ), error ) )
+			{
+				CPtr<IDataStream> pStream = OpenFileStream( szBase + "_h.dds", STREAM_ACCESS_READ );
+				if ( pStream != 0 )
+				{
+					CPtr<IDDSImage> pDDS = pImages->LoadDDSImage( pStream );
+					if ( pDDS != 0 )
+						pImage = pImages->Decompress( pDDS );
+				}
+			}
+		}
+		catch ( ... )
+		{
+			pImage = 0;
+		}
+		if ( pImage != 0 && ( pImage->GetSizeX() <= 0 || pImage->GetSizeY() <= 0 ) )
+			pImage = 0;
+		if ( pImage == 0 )
+		{
+			pSession->szMessage = "the map has no minimap picture (<map>.tga or <map>_h.dds), or it will not decode";
+			return BK_EDITOR_REFUSED;
+		}
+		return WritePicture( pSession, pImages, pImage, "the minimap picture", nMaxSide, pOutRgba, nCapacityBytes, pnOutWidth, pnOutHeight );
+	} );
+}
+
+BkEditorStatus BkEditorCreateMiniMapImage( BkEditorSession *pSession, const char *pszMapPath )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszMapPath == 0 || *pszMapPath == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		std::string szBase;
+		if ( !MapBaseOf( pszMapPath, &szBase ) )
+		{
+			pSession->szMessage = "the map path does not end in .bzm or .xml";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		if ( !IsFullPath( pszMapPath ) )
+		{
+			pSession->szMessage = "minimap images are written beside a saved map: give the map's full path (a shipped or never-saved map is saved with Save As first)";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( IsUnderInstalledData( pszMapPath ) )
+		{
+			pSession->szMessage = "the map is inside the installation's Data folder, which is never written: Save As a copy first";
+			return BK_EDITOR_REFUSED;
+		}
+		const std::string szEngineMap = EnginePathOf( pszMapPath );
+		const std::string szEngineBase = EnginePathOf( szBase );
+		std::error_code error;
+		if ( !std::filesystem::exists( HostPathOf( szEngineMap ), error ) )
+		{
+			pSession->szMessage = "the map file is not there to read: save the map first";
+			return BK_EDITOR_REFUSED;
+		}
+		CMapInfo mapInfo;
+		std::string szReadError;
+		if ( !NMapFile::Read( szEngineMap.c_str(), &mapInfo, &szReadError ) )
+		{
+			pSession->szMessage = "the saved map does not read: " + szReadError;
+			return BK_EDITOR_REFUSED;
+		}
+		mapInfo.UnpackFrameIndices();
+
+		// What this writes, and the size of each: the MFC's own four
+		// parameters, the DDS ones writing the engine's "_c/_l/_h" trio.
+		struct SOutput { const char *pszName; const char *pszSuffix; bool bDDS; int nSize; };
+		static const SOutput outputs[] =
+		{
+			{ "_large", ".tga", false, 512 }, { "_large", "_c.dds", true, 512 }, { "_large", "_l.dds", true, 512 }, { "_large", "_h.dds", true, 512 },
+			{ "", ".tga", false, 256 }, { "", "_c.dds", true, 256 }, { "", "_l.dds", true, 256 }, { "", "_h.dds", true, 256 },
+		};
+		// Stale pictures from an earlier run must not pass the check below.
+		for ( size_t i = 0; i < sizeof outputs / sizeof outputs[0]; ++i )
+			std::filesystem::remove( HostPathOf( szEngineBase + outputs[i].pszName + outputs[i].pszSuffix ), error );
+
+		CRMImageCreateParameterList imageCreateParameterList;
+		imageCreateParameterList.push_back( SRMImageCreateParameter( szEngineBase + "_large", CTPoint<int>( 0x200, 0x200 ), true, false,
+			SRMImageCreateParameter::INTERMISSION_IMAGE_BRIGHTNESS, SRMImageCreateParameter::INTERMISSION_IMAGE_CONSTRAST, SRMImageCreateParameter::INTERMISSION_IMAGE_GAMMA ) );
+		imageCreateParameterList.push_back( SRMImageCreateParameter( szEngineBase, CTPoint<int>( 0x100, 0x100 ), true ) );
+		imageCreateParameterList.push_back( SRMImageCreateParameter( szEngineBase + "_large", CTPoint<int>( 0x200, 0x200 ), false, false,
+			SRMImageCreateParameter::INTERMISSION_IMAGE_BRIGHTNESS, SRMImageCreateParameter::INTERMISSION_IMAGE_CONSTRAST, SRMImageCreateParameter::INTERMISSION_IMAGE_GAMMA ) );
+		imageCreateParameterList.push_back( SRMImageCreateParameter( szEngineBase, CTPoint<int>( 0x100, 0x100 ), false ) );
+		if ( !mapInfo.CreateMiniMapImage( imageCreateParameterList ) )
+		{
+			pSession->szMessage = "CMapInfo::CreateMiniMapImage failed";
+			return BK_EDITOR_FAILED;
+		}
+		// The BkEditorSaveMap habit: what was written is read back and
+		// compared with what was meant before the call says OK.
+		for ( size_t i = 0; i < sizeof outputs / sizeof outputs[0]; ++i )
+		{
+			const std::string szFile = szEngineBase + outputs[i].pszName + outputs[i].pszSuffix;
+			int nWidth = 0, nHeight = 0;
+			if ( !ImageFileSize( HostPathOf( szFile ), outputs[i].bDDS, &nWidth, &nHeight ) )
+			{
+				pSession->szMessage = "the minimap picture " + szFile + " was not written";
+				return BK_EDITOR_FAILED;
+			}
+			if ( nWidth != outputs[i].nSize || nHeight != outputs[i].nSize )
+			{
+				pSession->szMessage = NStr::Format( "the minimap picture %s is %dx%d, not %dx%d", szFile.c_str(), nWidth, nHeight, outputs[i].nSize, outputs[i].nSize );
+				return BK_EDITOR_FAILED;
+			}
+		}
+		return BK_EDITOR_OK;
 	} );
 }
 
