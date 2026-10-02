@@ -363,6 +363,16 @@ jobs:
       - name: Random missions tier
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run -Drandom-missions-sweep=all "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # The map editor's composers (05-09, 05-10): every shipped template, graph,
+      # container and field set read, written and read again through the editor's
+      # own records and compared (bytes included), and an authored set generated
+      # from twice with one seed and compared byte for byte.
+      - name: RMG composer round trip
+        run: zig build test-rmg-composer-roundtrip -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: RMG determinism
+        run: zig build test-rmg-determinism -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       # Saved here, not at job end: by now the debug engine and the release
       # game are built, and a job cut off later still leaves the next run warm.
       - name: Save Zig build cache
@@ -657,6 +667,12 @@ jobs:
 
       - name: Random missions tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
+
+      - name: RMG composer round trip
+        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-composer-roundtrip -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
+
+      - name: RMG determinism
+        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-determinism -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos
