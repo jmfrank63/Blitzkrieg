@@ -86,3 +86,25 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
 - **The Windows leg** (`test-editor-bridge`'s layer tests, `map-editor-m3-auto`'s shot comparisons, the wire-frame pipeline
   on D3D12/Vulkan through SDL GPU) waits for the orchestrator's push: a GUI scenario cannot be launched over
   `ssh win-home`. All of it ran green on macOS arm64.
+
+## From 05-08
+
+- **A generated map names the script by its absolute path.** The engine's `CreateRandomMap` sets
+  `mapInfo.szScriptFile = szRandomMapName` - the output path with the folder in it - as it did in the MFC editor
+  (Data root) and as the game's briefing relies on (the generated-data root). A map generated into
+  `<UserRoot>maps` therefore records `<UserRoot>maps\<name>`; `Test in game` then says the script's name "is not a
+  plain name, so it was not copied" and the game starts without the secure-area script, although `<name>.lua`
+  sits beside the map. It also makes two generations of one seed into two folders differ in exactly that path
+  (found by the determinism harness; it generates into one folder and copies the first aside). Not fixed here:
+  the field is the engine's and the game's own callers read it - the editor's fix is to put the bare name there
+  after generation, which is a script-name edit of a freshly written file (05-11's hand try should look at it).
+- **The Settings window's "Maps folder" does not move a generated map.** The generator appends `maps\<name>` to
+  an output root, so the bridge builds the root from the user root (or the mod's folder) - D-17's default maps
+  folder - and a custom folder typed into Settings is not honoured for generation (the map still opens normally).
+- **The progress modal does not animate while the generator runs.** The window waits for the whole generation
+  (D-03's accepted model, the Update Map one): the modal is on screen at 0 of 19 for the frame before the call and
+  shows 19 of 19 with the seed after it. The callback only counts - never pumps events - so the overlay rule holds.
+- **Windows.** The generation, the determinism harness and the m3-auto frames wait for the orchestrator's push and
+  05-11's win-home run (no GUI over SSH); on Windows the m3-auto run's generated map and lists land in the
+  profile's own `%APPDATA%\Nival\Blitzkrieg` (the macOS/Linux run redirects XDG_DATA_HOME to
+  `zig-out/local-test/map-editor-m3-auto-user`).
