@@ -87,6 +87,10 @@ public:
 		weights.erase( weights.begin() + nElementIndex );
 	}
 	inline int size() const { return elements.size(); }
+	// True when every element has its weight - what the XML reader leaves a file with a
+	// short or missing <Weights> list without (the editor bridge refuses such a file
+	// rather than read weights[] past the end).
+	inline bool IsConsistent() const { return elements.size() == weights.size(); }
 	inline int weight() const { return !weights.empty() ? weights[weights.size() - 1 ] : 0; }
 	inline void clear() { elements.clear(); weights.clear(); }
 	inline bool empty() const { return elements.empty(); }

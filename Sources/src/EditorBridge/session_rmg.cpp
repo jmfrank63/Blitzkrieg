@@ -11,6 +11,7 @@
 #include "bridge.h"
 #include "session.h"
 #include "../Main/GameStats.h"
+#include "../Formats/fmtTerrain.h"
 #include "../RandomMapGen/RMG_Types.h"
 #include "../RandomMapGen/Resource_Types.h"
 #include "../RandomMapGen/MapInfo_Types.h"
@@ -574,24 +575,25 @@ bool IsPlainText( const std::string &rszText )
 	return true;
 }
 
-// Which folder each composer record lives under.
-const char *RecordFolder( bool bGraph )
+// Which folder each composer record lives under: the scan kinds of
+// BkEditorListRmg (0 field sets, 1 templates, 2 graphs, 3 containers).
+const char *RecordFolder( int nKind )
 {
-	return bGraph ? "scenarios\\graphs\\" : "scenarios\\containers\\";
+	return RmgFolder( nKind );
 }
 
 // A composer record's storage name (T-05-09-01): lower-cased, backslashes, no
 // .xml, a plain relative name under the kind's folder with something after
 // it, nothing a host filesystem would take as a wildcard or a control.
 // False with the reason in szMessage.
-bool CheckRecordName( SEditorSession *pSession, bool bGraph, const std::string &rszName, std::string *pszOut )
+bool CheckRecordName( SEditorSession *pSession, int nKind, const std::string &rszName, std::string *pszOut )
 {
 	std::string szName = rszName;
 	NStr::ToLower( szName );
 	std::replace( szName.begin(), szName.end(), '/', '\\' );
 	if ( szName.size() > 4 && szName.compare( szName.size() - 4, 4, ".xml" ) == 0 )
 		szName.resize( szName.size() - 4 );
-	const std::string szFolder = RecordFolder( bGraph );
+	const std::string szFolder = RecordFolder( nKind );
 	bool bPlain = szName.size() < 192 && szName.size() > szFolder.size() && szName.compare( 0, szFolder.size(), szFolder ) == 0 &&
 	              NPlatform::Paths::IsRelativeDataName( szName );
 	for ( size_t i = 0; bPlain && i < szName.size(); ++i )
@@ -796,7 +798,7 @@ bool ReadRmgContainerRecord( SEditorSession *pSession, const std::string &rszNam
 	pRecord->patch_count = pRecord->index_counts[0] = pRecord->index_counts[1] = pRecord->index_counts[2] = pRecord->index_counts[3] = 0;
 	pRecord->scripts.id_count = pRecord->scripts.area_count = 0;
 	std::string szName;
-	if ( !CheckRecordName( pSession, false, rszName, &szName ) )
+	if ( !CheckRecordName( pSession, 3, rszName, &szName ) )
 	{
 		*pbRefused = true;
 		return false;
@@ -862,7 +864,7 @@ bool WriteRmgContainerRecord( SEditorSession *pSession, const std::string &rszNa
 {
 	*pbRefused = *pbBadArgument = false;
 	std::string szName;
-	if ( !CheckRecordName( pSession, false, rszName, &szName ) )
+	if ( !CheckRecordName( pSession, 3, rszName, &szName ) )
 	{
 		*pbBadArgument = true;
 		return false;
@@ -973,7 +975,7 @@ bool ReadRmgGraphRecord( SEditorSession *pSession, const std::string &rszName, B
 	pRecord->node_count = pRecord->link_count = 0;
 	pRecord->scripts.id_count = pRecord->scripts.area_count = 0;
 	std::string szName;
-	if ( !CheckRecordName( pSession, true, rszName, &szName ) )
+	if ( !CheckRecordName( pSession, 2, rszName, &szName ) )
 	{
 		*pbRefused = true;
 		return false;
@@ -1042,7 +1044,7 @@ bool WriteRmgGraphRecord( SEditorSession *pSession, const std::string &rszName, 
 {
 	*pbRefused = *pbBadArgument = false;
 	std::string szName;
-	if ( !CheckRecordName( pSession, true, rszName, &szName ) )
+	if ( !CheckRecordName( pSession, 2, rszName, &szName ) )
 	{
 		*pbBadArgument = true;
 		return false;
@@ -1305,5 +1307,354 @@ bool ImportRmgPatch( SEditorSession *pSession, const std::string &rszSourcePath,
 		*pbRefused = true;
 		return false;
 	}
+	return true;
+}
+
+
+// ---------------------------------------------------------------------------
+// The Fields and Templates Composers' records (M3 05-10, D-06/D-07/D-12): the
+// engine's own SRMFieldSet / SRMTemplate behind the bridge.h structs, the
+// containers' and graphs' two-pass reads and read-back-verified writes.
+// ---------------------------------------------------------------------------
+
+namespace
+{
+
+bool SameFieldSet( const SRMFieldSet &rA, const SRMFieldSet &rB )
+{
+	if ( rA.nSeason != rB.nSeason || rA.szSeasonFolder != rB.szSeasonFolder || rA.szProfileFileName != rB.szProfileFileName ||
+	     !SameFloat( rA.fHeight, rB.fHeight ) || rA.patternSize.min != rB.patternSize.min || rA.patternSize.max != rB.patternSize.max ||
+	     !SameFloat( rA.fPositiveRatio, rB.fPositiveRatio ) || rA.tilesShells.size() != rB.tilesShells.size() || rA.objectsShells.size() != rB.objectsShells.size() )
+		return false;
+	for ( size_t i = 0; i < rA.tilesShells.size(); ++i )
+	{
+		const SRMTileSetShell &a = rA.tilesShells[i];
+		const SRMTileSetShell &b = rB.tilesShells[i];
+		if ( !SameFloat( a.fWidth, b.fWidth ) || a.tiles.size() != b.tiles.size() )
+			return false;
+		for ( int k = 0; k < a.tiles.size(); ++k )
+			if ( a.tiles[k] != b.tiles[k] || a.tiles.GetWeight( k ) != b.tiles.GetWeight( k ) )
+				return false;
+	}
+	for ( size_t i = 0; i < rA.objectsShells.size(); ++i )
+	{
+		const SRMObjectSetShell &a = rA.objectsShells[i];
+		const SRMObjectSetShell &b = rB.objectsShells[i];
+		if ( !SameFloat( a.fWidth, b.fWidth ) || a.nBetweenDistance != b.nBetweenDistance || !SameFloat( a.fRatio, b.fRatio ) || a.objects.size() != b.objects.size() )
+			return false;
+		for ( int k = 0; k < a.objects.size(); ++k )
+			if ( a.objects[k] != b.objects[k] || a.objects.GetWeight( k ) != b.objects.GetWeight( k ) )
+				return false;
+	}
+	return true;
+}
+
+// A weighted list read from a file must hold one weight per element before
+// GetWeight() may be asked: the engine's reader leaves a short list otherwise.
+template<class TList>
+bool WeightsAreWhole( const TList &rList )
+{
+	return rList.IsConsistent();
+}
+
+}
+
+bool ReadRmgFieldSetRecord( SEditorSession *pSession, const std::string &rszName, BkEditorRmgFieldSetRecord *pRecord, bool *pbRefused )
+{
+	*pbRefused = false;
+	pRecord->tile_shell_count = pRecord->tile_total = pRecord->object_shell_count = pRecord->object_total = 0;
+	std::string szName;
+	if ( !CheckRecordName( pSession, 0, rszName, &szName ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	SRMFieldSet fieldSet;
+	if ( !LoadDataResource( szName, "", false, 0, RMGC_FIELDSET_XML_NAME, fieldSet ) )
+	{
+		pSession->szMessage = "field set \"" + szName + "\" is not in the data or does not load as a field set";
+		*pbRefused = true;
+		return false;
+	}
+	for ( size_t i = 0; i < fieldSet.tilesShells.size(); ++i )
+		if ( !WeightsAreWhole( fieldSet.tilesShells[i].tiles ) )
+		{
+			pSession->szMessage = NStr::Format( "field set \"%s\": tile shell %d lists tiles without their weights", szName.c_str(), int( i ) );
+			*pbRefused = true;
+			return false;
+		}
+	for ( size_t i = 0; i < fieldSet.objectsShells.size(); ++i )
+		if ( !WeightsAreWhole( fieldSet.objectsShells[i].objects ) )
+		{
+			pSession->szMessage = NStr::Format( "field set \"%s\": object shell %d lists objects without their weights", szName.c_str(), int( i ) );
+			*pbRefused = true;
+			return false;
+		}
+	pRecord->season = fieldSet.nSeason;
+	pRecord->height = fieldSet.fHeight;
+	pRecord->pattern_min = fieldSet.patternSize.min;
+	pRecord->pattern_max = fieldSet.patternSize.max;
+	pRecord->positive_ratio = fieldSet.fPositiveRatio;
+	if ( !PutField( pRecord->season_folder, fieldSet.szSeasonFolder ) || !PutField( pRecord->profile, fieldSet.szProfileFileName ) )
+	{
+		pSession->szMessage = "the season folder or the profile name does not fit its field";
+		return false;
+	}
+	pRecord->tile_shell_count = int( fieldSet.tilesShells.size() );
+	pRecord->object_shell_count = int( fieldSet.objectsShells.size() );
+	for ( size_t i = 0; i < fieldSet.tilesShells.size(); ++i )
+	{
+		pRecord->tile_total += fieldSet.tilesShells[i].tiles.size();
+		if ( int( i ) < pRecord->tile_shell_capacity )
+		{
+			pRecord->tile_shells[i].width = fieldSet.tilesShells[i].fWidth;
+			pRecord->tile_shells[i].tile_count = fieldSet.tilesShells[i].tiles.size();
+		}
+	}
+	for ( size_t i = 0; i < fieldSet.objectsShells.size(); ++i )
+	{
+		pRecord->object_total += fieldSet.objectsShells[i].objects.size();
+		if ( int( i ) < pRecord->object_shell_capacity )
+		{
+			pRecord->object_shells[i].width = fieldSet.objectsShells[i].fWidth;
+			pRecord->object_shells[i].step = fieldSet.objectsShells[i].nBetweenDistance;
+			pRecord->object_shells[i].ratio = fieldSet.objectsShells[i].fRatio;
+			pRecord->object_shells[i].object_count = fieldSet.objectsShells[i].objects.size();
+		}
+	}
+	bool bShort = pRecord->tile_shell_count > pRecord->tile_shell_capacity || pRecord->object_shell_count > pRecord->object_shell_capacity ||
+	              pRecord->tile_total > pRecord->tile_capacity || pRecord->object_total > pRecord->object_capacity;
+	if ( pRecord->tile_total <= pRecord->tile_capacity )
+	{
+		int nAt = 0;
+		for ( size_t i = 0; i < fieldSet.tilesShells.size(); ++i )
+			for ( int k = 0; k < fieldSet.tilesShells[i].tiles.size(); ++k, ++nAt )
+			{
+				pRecord->tiles[nAt].tile = fieldSet.tilesShells[i].tiles[k];
+				pRecord->tiles[nAt].weight = fieldSet.tilesShells[i].tiles.GetWeight( k );
+			}
+	}
+	if ( pRecord->object_total <= pRecord->object_capacity )
+	{
+		int nAt = 0;
+		for ( size_t i = 0; i < fieldSet.objectsShells.size(); ++i )
+			for ( int k = 0; k < fieldSet.objectsShells[i].objects.size(); ++k, ++nAt )
+			{
+				if ( !PutField( pRecord->objects[nAt].name, fieldSet.objectsShells[i].objects[k] ) )
+				{
+					pSession->szMessage = "an object name does not fit its field";
+					return false;
+				}
+				pRecord->objects[nAt].weight = fieldSet.objectsShells[i].objects.GetWeight( k );
+			}
+	}
+	if ( bShort )
+		pSession->szMessage = "the record's arrays are short: the counts are the totals";
+	return !bShort;
+}
+
+bool WriteRmgFieldSetRecord( SEditorSession *pSession, const std::string &rszName, const BkEditorRmgFieldSetRecord &rRecord, bool *pbRefused, bool *pbBadArgument )
+{
+	*pbRefused = *pbBadArgument = false;
+	std::string szName;
+	if ( !CheckRecordName( pSession, 0, rszName, &szName ) )
+	{
+		*pbBadArgument = true;
+		return false;
+	}
+	if ( rRecord.tile_shell_count < 0 || rRecord.object_shell_count < 0 || rRecord.tile_total < 0 || rRecord.object_total < 0 ||
+	     ( rRecord.tile_shell_count > 0 && rRecord.tile_shells == 0 ) || ( rRecord.object_shell_count > 0 && rRecord.object_shells == 0 ) ||
+	     ( rRecord.tile_total > 0 && rRecord.tiles == 0 ) || ( rRecord.object_total > 0 && rRecord.objects == 0 ) )
+	{
+		pSession->szMessage = "a shell or entry count has no array, or is negative";
+		*pbBadArgument = true;
+		return false;
+	}
+	if ( rRecord.tile_shell_count > BK_EDITOR_RMG_MAX_SHELLS || rRecord.object_shell_count > BK_EDITOR_RMG_MAX_SHELLS ||
+	     rRecord.tile_total > BK_EDITOR_RMG_MAX_SHELL_ENTRIES || rRecord.object_total > BK_EDITOR_RMG_MAX_SHELL_ENTRIES )
+	{
+		pSession->szMessage = NStr::Format( "a field set holds at most %d shells of each kind and %d entries of each", BK_EDITOR_RMG_MAX_SHELLS, BK_EDITOR_RMG_MAX_SHELL_ENTRIES );
+		*pbRefused = true;
+		return false;
+	}
+	if ( rRecord.season < 0 || rRecord.season > 3 )
+	{
+		pSession->szMessage = NStr::Format( "season %d is outside 0..3", rRecord.season );
+		*pbRefused = true;
+		return false;
+	}
+	SRMFieldSet fieldSet;
+	std::string szProfile;
+	if ( !GetField( rRecord.season_folder, &fieldSet.szSeasonFolder ) || !GetField( rRecord.profile, &szProfile ) )
+	{
+		pSession->szMessage = "the season folder or the profile name is not terminated";
+		*pbBadArgument = true;
+		return false;
+	}
+	if ( !IsPlainText( fieldSet.szSeasonFolder ) || !IsPlainText( szProfile ) )
+	{
+		pSession->szMessage = "the season folder or the profile name holds a control character";
+		*pbRefused = true;
+		return false;
+	}
+	if ( !std::isfinite( rRecord.height ) || rRecord.height < 0.0f || !std::isfinite( rRecord.positive_ratio ) || rRecord.positive_ratio < 0.0f )
+	{
+		pSession->szMessage = "the height and the positive ratio must be finite and not negative";
+		*pbRefused = true;
+		return false;
+	}
+	fieldSet.nSeason = rRecord.season;
+	fieldSet.szProfileFileName = szProfile;
+	fieldSet.fHeight = rRecord.height;
+	fieldSet.patternSize.min = rRecord.pattern_min;
+	fieldSet.patternSize.max = rRecord.pattern_max;
+	fieldSet.fPositiveRatio = rRecord.positive_ratio;
+	int nTileAt = 0;
+	for ( int i = 0; i < rRecord.tile_shell_count; ++i )
+	{
+		const BkEditorRmgTileShell &rIn = rRecord.tile_shells[i];
+		if ( rIn.tile_count < 0 || rIn.tile_count > rRecord.tile_total - nTileAt || !std::isfinite( rIn.width ) || rIn.width < 0.0f )
+		{
+			pSession->szMessage = NStr::Format( "tile shell %d: its entry count does not fit the tiles given, or its width is negative or not finite", i );
+			*pbRefused = true;
+			return false;
+		}
+		SRMTileSetShell shell;
+		shell.fWidth = rIn.width;
+		for ( int k = 0; k < rIn.tile_count; ++k, ++nTileAt )
+		{
+			const BkEditorRmgWeightedTile &rTile = rRecord.tiles[nTileAt];
+			if ( rTile.tile < 0 || rTile.weight < 0 )
+			{
+				pSession->szMessage = NStr::Format( "tile shell %d: a tile or weight below 0", i );
+				*pbRefused = true;
+				return false;
+			}
+			shell.tiles.push_back( rTile.tile, rTile.weight );
+		}
+		fieldSet.tilesShells.push_back( shell );
+	}
+	int nObjectAt = 0;
+	for ( int i = 0; i < rRecord.object_shell_count; ++i )
+	{
+		const BkEditorRmgObjectShell &rIn = rRecord.object_shells[i];
+		if ( rIn.object_count < 0 || rIn.object_count > rRecord.object_total - nObjectAt || !std::isfinite( rIn.width ) || rIn.width < 0.0f ||
+		     !std::isfinite( rIn.ratio ) || rIn.ratio < 0.0f )
+		{
+			pSession->szMessage = NStr::Format( "object shell %d: its entry count does not fit the objects given, or its width or ratio is negative or not finite", i );
+			*pbRefused = true;
+			return false;
+		}
+		SRMObjectSetShell shell;
+		shell.fWidth = rIn.width;
+		shell.nBetweenDistance = rIn.step;
+		shell.fRatio = rIn.ratio;
+		for ( int k = 0; k < rIn.object_count; ++k, ++nObjectAt )
+		{
+			const BkEditorRmgWeightedName &rObject = rRecord.objects[nObjectAt];
+			std::string szObject;
+			if ( !GetField( rObject.name, &szObject ) )
+			{
+				pSession->szMessage = "an object name is not terminated";
+				*pbBadArgument = true;
+				return false;
+			}
+			if ( rObject.weight < 0 || !IsPlainText( szObject ) )
+			{
+				pSession->szMessage = NStr::Format( "object shell %d: a weight below 0 or a control character in a name", i );
+				*pbRefused = true;
+				return false;
+			}
+			shell.objects.push_back( szObject, rObject.weight );
+		}
+		fieldSet.objectsShells.push_back( shell );
+	}
+	if ( nTileAt != rRecord.tile_total || nObjectAt != rRecord.object_total )
+	{
+		pSession->szMessage = "the shells' entry counts do not add up to the tiles or objects given";
+		*pbRefused = true;
+		return false;
+	}
+	std::string szEngineFile, szHostFile;
+	if ( !PrepareRecordWrite( pSession, szName, &szEngineFile, &szHostFile ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !WriteRmgXml( szEngineFile, RMGC_FIELDSET_XML_NAME, fieldSet ) )
+	{
+		pSession->szMessage = "the field set file could not be written: " + szHostFile;
+		return false;
+	}
+	SRMFieldSet readBack;
+	if ( !LoadDataResource( szName, "", false, 0, RMGC_FIELDSET_XML_NAME, readBack ) || !SameFieldSet( fieldSet, readBack ) )
+	{
+		pSession->szMessage = "the field set written does not read back as the one given: " + szHostFile;
+		return false;
+	}
+	return true;
+}
+
+bool ListRmgTerrainTypes( SEditorSession *pSession, int nSeason, std::vector<std::pair<std::string, int> > *pTypes )
+{
+	pTypes->clear();
+	if ( nSeason < 0 || nSeason >= CMapInfo::SEASON_COUNT )
+	{
+		pSession->szMessage = NStr::Format( "season %d is outside 0..3", nSeason );
+		return false;
+	}
+	STilesetDesc tilesetDesc;
+	if ( !LoadDataResource( NStr::Format( "%stileset", CMapInfo::SEASON_FOLDERS[nSeason] ), "", false, 0, "tileset", tilesetDesc ) || tilesetDesc.terrtypes.empty() )
+	{
+		pSession->szMessage = NStr::Format( "the tileset of season %d does not load", nSeason );
+		return false;
+	}
+	for ( size_t i = 0; i < tilesetDesc.terrtypes.size(); ++i )
+		pTypes->push_back( std::make_pair( tilesetDesc.terrtypes[i].szName, int( tilesetDesc.terrtypes[i].tiles.size() ) ) );
+	return true;
+}
+
+bool RmgFileExists( SEditorSession *pSession, const std::string &rszName, const std::string &rszExtension, bool *pbExists, bool *pbBadArgument )
+{
+	*pbExists = false;
+	*pbBadArgument = false;
+	std::string szName = rszName;
+	NStr::ToLower( szName );
+	std::replace( szName.begin(), szName.end(), '/', '\\' );
+	// A probe, never a path that is opened for writing: a stored name may carry
+	// the leading backslash and capitals shipped data has ("\Scenarios\Profiles\
+	// Profile"); the storage resolves it as the generator's own OpenStream does.
+	// Only a drive, a ".." component, a control character or a size that is not
+	// sane is refused.
+	bool bPlain = !szName.empty() && szName.size() < 192 && szName.find( ':' ) == std::string::npos && !rszExtension.empty() && rszExtension.size() < 16 && rszExtension[0] == '.' &&
+	              rszExtension.find_first_of( "\\/:*?\"<>|" ) == std::string::npos;
+	for ( size_t i = 0; bPlain && i < szName.size(); ++i )
+		bPlain = ( unsigned char )szName[i] >= 0x20 && strchr( "*?\"<>|", szName[i] ) == 0;
+	if ( bPlain )
+	{
+		size_t nAt = 0;
+		while ( bPlain && nAt <= szName.size() )
+		{
+			size_t nNext = szName.find( '\\', nAt );
+			if ( nNext == std::string::npos )
+				nNext = szName.size();
+			if ( szName.compare( nAt, nNext - nAt, ".." ) == 0 )
+				bPlain = false;
+			nAt = nNext + 1;
+		}
+	}
+	if ( !bPlain )
+	{
+		pSession->szMessage = "\"" + rszName + "\" is not a plain storage name";
+		*pbBadArgument = true;
+		return false;
+	}
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( pStorage == 0 )
+	{
+		pSession->szMessage = "the data storage is not there";
+		return false;
+	}
+	*pbExists = pStorage->IsStreamExist( ( szName + rszExtension ).c_str() );
 	return true;
 }

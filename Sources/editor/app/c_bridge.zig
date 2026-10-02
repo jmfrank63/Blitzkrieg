@@ -101,6 +101,13 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorRmgLink) == @sizeOf(core.bridge.RmgLink));
     std.debug.assert(@sizeOf(c.BkEditorRmgGraphRecord) == @sizeOf(core.bridge.RmgGraphRecord));
     std.debug.assert(@sizeOf(c.BkEditorRmgPatchInfo) == @sizeOf(core.bridge.RmgPatchInfo));
+    // The field set record (05-10) and the tileset's terrain type.
+    std.debug.assert(@sizeOf(c.BkEditorRmgWeightedName) == @sizeOf(core.bridge.RmgWeightedName));
+    std.debug.assert(@sizeOf(c.BkEditorRmgWeightedTile) == @sizeOf(core.bridge.RmgWeightedTile));
+    std.debug.assert(@sizeOf(c.BkEditorRmgTileShell) == @sizeOf(core.bridge.RmgTileShell));
+    std.debug.assert(@sizeOf(c.BkEditorRmgObjectShell) == @sizeOf(core.bridge.RmgObjectShell));
+    std.debug.assert(@sizeOf(c.BkEditorRmgFieldSetRecord) == @sizeOf(core.bridge.RmgFieldSetRecord));
+    std.debug.assert(@sizeOf(c.BkEditorRmgTerrainType) == @sizeOf(core.bridge.RmgTerrainType));
     std.debug.assert(@sizeOf(c.BkEditorRmgGenerateResult) == @sizeOf(core.bridge.RmgGenerateResult));
     std.debug.assert(@offsetOf(c.BkEditorRmgGenerateResult, "map_path") == @offsetOf(core.bridge.RmgGenerateResult, "map_path"));
     // The reserve position's record: gun, truck, x, y.
@@ -279,6 +286,10 @@ pub const RealBridge = struct {
         .rmgPatchInfo = vtableRmgPatchInfo,
         .rmgImportPatch = vtableRmgImportPatch,
         .rmgRoot = vtableRmgRoot,
+        .rmgReadFieldSet = vtableRmgReadFieldSet,
+        .rmgWriteFieldSet = vtableRmgWriteFieldSet,
+        .rmgTileset = vtableRmgTileset,
+        .rmgFileExists = vtableRmgFileExists,
         .addPlayer = vtableAddPlayer,
         .deletePlayer = vtableDeletePlayer,
         .unitCreationChoices = vtableUnitCreationChoices,
@@ -781,6 +792,47 @@ pub const RealBridge = struct {
     fn vtableRmgRoot(ptr: *anyopaque, out: []u8) Status {
         if (out.len == 0) return .bad_argument;
         return status(c.BkEditorRmgRoot(from(ptr).session, out.ptr, @intCast(out.len)));
+    }
+
+    /// The field set record (05-10): one layout on both sides, the two-pass read
+    /// is the core's (`Editor.readFieldSet`).
+    fn vtableRmgReadFieldSet(ptr: *anyopaque, name: [*:0]const u8, record: *core.bridge.RmgFieldSetRecord) Status {
+        return status(c.BkEditorRmgReadFieldSet(from(ptr).session, name, @ptrCast(record)));
+    }
+    fn vtableRmgWriteFieldSet(ptr: *anyopaque, name: [*:0]const u8, record: *const core.bridge.RmgFieldSetRecord) Status {
+        return status(c.BkEditorRmgWriteFieldSet(from(ptr).session, name, @ptrCast(record)));
+    }
+
+    /// BkEditorRmgTileset in two passes: size, then exactly the total.
+    fn vtableRmgTileset(ptr: *anyopaque, season: i32, out: []core.bridge.RmgTerrainType, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorRmgTileset(self.session, season, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        if (count <= 0) {
+            total.* = 0;
+            return .refused;
+        }
+        total.* = @intCast(count);
+        if (out.len < total.*) return .refused;
+        const all = std.heap.page_allocator.alloc(c.BkEditorRmgTerrainType, @intCast(count)) catch return .failed;
+        defer std.heap.page_allocator.free(all);
+        var got: c_int = 0;
+        const read = status(c.BkEditorRmgTileset(self.session, season, all.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (all, 0..) |item, i| {
+            if (i >= out.len) break;
+            out[i] = @bitCast(item);
+        }
+        return .ok;
+    }
+
+    fn vtableRmgFileExists(ptr: *anyopaque, name: [*:0]const u8, extension: [*:0]const u8, exists: *bool) Status {
+        var flag: c_int = 0;
+        const result = status(c.BkEditorRmgFileExists(from(ptr).session, name, extension, &flag));
+        exists.* = result == .ok and flag != 0;
+        return result;
     }
 
     /// BkEditorListStorageFiles (05-08, D-13) in two passes, like `vtableListRmg`.

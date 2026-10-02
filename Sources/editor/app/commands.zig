@@ -63,6 +63,31 @@ pub const command_table = [_]Entry{
     .{ .name = "rmgg_fix_all", .handler = rmggFixAll },
     .{ .name = "rmgg_undo", .handler = rmggUndo },
     .{ .name = "rmgg_redo", .handler = rmggRedo },
+    // 05-10 (D-06/D-07/D-12): the Fields Composer.
+    .{ .name = "rmgf_window", .handler = rmgfWindow },
+    .{ .name = "rmgf_new", .handler = rmgfNew },
+    .{ .name = "rmgf_open", .handler = rmgfOpen },
+    .{ .name = "rmgf_save", .handler = rmgfSave },
+    .{ .name = "rmgf_saveas", .handler = rmgfSaveAs },
+    .{ .name = "rmgf_tab", .handler = rmgfTab },
+    .{ .name = "rmgf_season", .handler = rmgfSeason },
+    .{ .name = "rmgf_shell_add", .handler = rmgfShellAdd },
+    .{ .name = "rmgf_shell_del", .handler = rmgfShellDel },
+    .{ .name = "rmgf_shell_set", .handler = rmgfShellSet },
+    .{ .name = "rmgf_shell_pick", .handler = rmgfShellPick },
+    .{ .name = "rmgf_tile_add", .handler = rmgfTileAdd },
+    .{ .name = "rmgf_tile_del", .handler = rmgfTileDel },
+    .{ .name = "rmgf_tile_weight", .handler = rmgfTileWeight },
+    .{ .name = "rmgf_object_add", .handler = rmgfObjectAdd },
+    .{ .name = "rmgf_object_del", .handler = rmgfObjectDel },
+    .{ .name = "rmgf_object_weight", .handler = rmgfObjectWeight },
+    .{ .name = "rmgf_filter", .handler = rmgfFilter },
+    .{ .name = "rmgf_set", .handler = rmgfSet },
+    .{ .name = "rmgf_check", .handler = rmgfCheck },
+    .{ .name = "rmgf_fix", .handler = rmgfFix },
+    .{ .name = "rmgf_fix_all", .handler = rmgfFixAll },
+    .{ .name = "rmgf_undo", .handler = rmgfUndo },
+    .{ .name = "rmgf_redo", .handler = rmgfRedo },
     .{ .name = "camera_player", .handler = cameraPlayer },
     .{ .name = "camera_neutral", .handler = cameraNeutral },
     .{ .name = "camera_clear", .handler = cameraClear },
@@ -216,6 +241,18 @@ pub const predicate_table = [_]Entry{
     .{ .name = "rmgg_link_parts", .handler = rmggLinkPartsAre },
     .{ .name = "rmgg_zoom_is", .handler = rmggZoomIs },
     .{ .name = "rmgg_listed", .handler = rmggListedAtLeast },
+    .{ .name = "rmgf_dirty", .handler = rmgfDirtyIs },
+    .{ .name = "rmgf_name", .handler = rmgfNameEndsWith },
+    .{ .name = "rmgf_findings", .handler = rmgfFindingsAre },
+    .{ .name = "rmgf_errors", .handler = rmgfErrorsAre },
+    .{ .name = "rmgf_season_is", .handler = rmgfSeasonIs },
+    .{ .name = "rmgf_shells", .handler = rmgfShellsAre },
+    .{ .name = "rmgf_tiles", .handler = rmgfTilesAre },
+    .{ .name = "rmgf_objects", .handler = rmgfObjectsAre },
+    .{ .name = "rmgf_value", .handler = rmgfValueIs },
+    .{ .name = "rmgf_listed", .handler = rmgfListedAtLeast },
+    .{ .name = "rmgf_avail", .handler = rmgfAvailableAtLeast },
+    .{ .name = "rmgf_tab_is", .handler = rmgfTabIs },
     .{ .name = "anchor_set", .handler = anchorSet },
     .{ .name = "anchor_unset", .handler = anchorUnset },
     .{ .name = "undo_depth", .handler = undoDepth },
@@ -3767,6 +3804,325 @@ fn rmggLinkPartsAre(state: *State, arg: []const u8) Outcome {
     const want = std.fmt.parseInt(i32, arg[colon + 1 ..], 10) catch return .bad_arg;
     if (index >= state.composers.gdoc.current.links.items.len) return .refused;
     return if (state.composers.gdoc.current.links.items[index].parts == want) .ok else .refused;
+}
+
+
+// ---------------------------------------------------------------------------
+// The Fields Composer (05-10, D-06/D-07/D-12): core.composers' field set behind
+// the window. Shell and entry arguments are `terrain` or `objects` (the MFC's
+// two shell lists), indices from 0.
+// ---------------------------------------------------------------------------
+
+fn stateHasObject(ctx: *anyopaque, name: []const u8) bool {
+    const state: *State = @ptrCast(@alignCast(ctx));
+    for (state.catalogue) |*entry| {
+        if (std.mem.eql(u8, std.mem.sliceTo(&entry.name, 0), name)) return true;
+    }
+    return false;
+}
+
+/// The Check! asks the object catalogue the palette already holds.
+pub fn bindObjectLookup(state: *State) void {
+    state.composers.object_lookup = .{ .ctx = state, .has_fn = stateHasObject };
+}
+
+/// A file opened or a new one: the lists' selections and the chosen shells go.
+fn resetFieldUi(state: *State) void {
+    state.fc_shell = .{ 0, 0 };
+    state.fc_shell_chosen = .{ false, false };
+    for (&state.fc_shell_selected) |*list| list.clearRetainingCapacity();
+    for (&state.fc_entry_selected) |*list| list.clearRetainingCapacity();
+    state.fc_type_selected.clearRetainingCapacity();
+    state.fc_avail_selected.clearRetainingCapacity();
+}
+
+fn rmgfWindow(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    state.fields_composer_open = !state.fields_composer_open;
+    if (state.fields_composer_open) state.composers.ensureScanned(state.editor);
+    return .ok;
+}
+
+fn rmgfNew(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    resetFieldUi(state);
+    return composerResult(state, state.composers.newField());
+}
+
+fn rmgfOpen(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    resetFieldUi(state);
+    return composerResult(state, state.composers.openField(state.editor, arg));
+}
+
+fn rmgfSave(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return composerSave(state, state.composers.saveField(state.editor));
+}
+
+fn rmgfSaveAs(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    return composerSave(state, state.composers.saveFieldAs(state.editor, arg));
+}
+
+fn rmgfTab(state: *State, arg: []const u8) Outcome {
+    const tab = std.meta.stringToEnum(panels.FieldTab, arg) orelse return .bad_arg;
+    state.fc_tab = tab;
+    state.fc_tab_request = true;
+    return .ok;
+}
+
+fn rmgfSeason(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (index >= core.rmg.season_folders.len) return .bad_arg;
+    const changed = state.composers.setFieldSeason(index) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// `terrain` or `objects` to its slot (0, 1).
+fn shellKind(text: []const u8) ?usize {
+    if (std.mem.eql(u8, text, "terrain")) return 0;
+    if (std.mem.eql(u8, text, "objects")) return 1;
+    return null;
+}
+
+fn shellCount(state: *State, kind: usize) usize {
+    const field = &state.composers.fdoc.current;
+    return if (kind == 0) field.tile_shells.items.len else field.object_shells.items.len;
+}
+
+fn rmgfShellAdd(state: *State, arg: []const u8) Outcome {
+    const kind = shellKind(arg) orelse return .bad_arg;
+    const index = state.composers.addFieldShell(kind == 1) catch return .refused;
+    state.fc_shell[kind] = index;
+    state.fc_shell_chosen[kind] = true;
+    state.fc_entry_selected[kind].clearRetainingCapacity();
+    return .ok;
+}
+
+/// `<kind>:<index>`.
+fn parseShell(state: *State, arg: []const u8) ?struct { kind: usize, index: usize, rest: []const u8 } {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const kind = shellKind(parts.next() orelse return null) orelse return null;
+    const index = std.fmt.parseInt(usize, parts.next() orelse return null, 10) catch return null;
+    if (index >= shellCount(state, kind)) return null;
+    return .{ .kind = kind, .index = index, .rest = parts.rest() };
+}
+
+fn rmgfShellDel(state: *State, arg: []const u8) Outcome {
+    const at = parseShell(state, arg) orelse return .refused;
+    const removed = state.composers.removeFieldShells(at.kind == 1, &.{at.index}) catch return .refused;
+    state.fc_shell_chosen[at.kind] = false;
+    state.fc_shell_selected[at.kind].clearRetainingCapacity();
+    state.fc_entry_selected[at.kind].clearRetainingCapacity();
+    return if (removed) .ok else .refused;
+}
+
+fn rmgfShellPick(state: *State, arg: []const u8) Outcome {
+    const at = parseShell(state, arg) orelse return .refused;
+    state.fc_shell[at.kind] = at.index;
+    state.fc_shell_chosen[at.kind] = true;
+    state.fc_entry_selected[at.kind].clearRetainingCapacity();
+    // The list shows the shell picked, and only it.
+    const list = &state.fc_shell_selected[at.kind];
+    list.clearRetainingCapacity();
+    list.appendNTimes(state.allocator, false, shellCount(state, at.kind)) catch return .ok;
+    list.items[at.index] = true;
+    return .ok;
+}
+
+/// `<kind>:<index>:<width|step|ratio>:<value>`: ratio is a percent.
+fn rmgfShellSet(state: *State, arg: []const u8) Outcome {
+    const at = parseShell(state, arg) orelse return .refused;
+    var parts = std.mem.splitScalar(u8, at.rest, ':');
+    const field_name = parts.next() orelse return .bad_arg;
+    const kind = std.meta.stringToEnum(core.composers.Composers.ShellField, field_name) orelse return .bad_arg;
+    const value = std.fmt.parseFloat(f32, parts.rest()) catch return .bad_arg;
+    const changed = state.composers.setFieldShell(at.kind == 1, at.index, kind, value) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// `<shell>:<terrain type>`: one tile into a terrain shell.
+fn rmgfTileAdd(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const shell = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const tile = std.fmt.parseInt(i32, parts.rest(), 10) catch return .bad_arg;
+    if (shell >= shellCount(state, 0)) return .refused;
+    const added = state.composers.addShellTiles(shell, &.{tile}) catch return .refused;
+    return if (added == 1) .ok else .refused;
+}
+
+/// `<shell>:<entry>`.
+fn rmgfTileDel(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const shell = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const entry = std.fmt.parseInt(usize, parts.rest(), 10) catch return .bad_arg;
+    state.fc_entry_selected[0].clearRetainingCapacity();
+    const removed = state.composers.removeShellTiles(shell, &.{entry}) catch return .refused;
+    return if (removed) .ok else .refused;
+}
+
+/// `<shell>:<entry>:<weight>`.
+fn rmgfTileWeight(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const shell = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const entry = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const weight = std.fmt.parseInt(i32, parts.rest(), 10) catch return .bad_arg;
+    const changed = state.composers.setShellTileWeights(shell, &.{entry}, weight) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// `<shell>:<object name>`.
+fn rmgfObjectAdd(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const shell = std.fmt.parseInt(usize, arg[0..colon], 10) catch return .bad_arg;
+    if (arg.len == colon + 1) return .bad_arg;
+    if (shell >= shellCount(state, 1)) return .refused;
+    const added = state.composers.addShellObjects(shell, &.{arg[colon + 1 ..]}) catch return .refused;
+    return if (added == 1) .ok else .refused;
+}
+
+fn rmgfObjectDel(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const shell = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const entry = std.fmt.parseInt(usize, parts.rest(), 10) catch return .bad_arg;
+    state.fc_entry_selected[1].clearRetainingCapacity();
+    const removed = state.composers.removeShellObjects(shell, &.{entry}) catch return .refused;
+    return if (removed) .ok else .refused;
+}
+
+fn rmgfObjectWeight(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const shell = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const entry = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const weight = std.fmt.parseInt(i32, parts.rest(), 10) catch return .bad_arg;
+    const changed = state.composers.setShellObjectWeights(shell, &.{entry}, weight) catch return .refused;
+    return if (changed) .ok else .refused;
+}
+
+/// The objects tab's filter (a name of the D-31 filters, or `none`).
+fn rmgfFilter(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0 or arg.len >= state.fc_filter.len) return .bad_arg;
+    @memset(&state.fc_filter, 0);
+    if (!std.mem.eql(u8, arg, "none")) @memcpy(state.fc_filter[0..arg.len], arg);
+    return .ok;
+}
+
+/// `<height|pattern_min|pattern_max|positive|profile>:<value>`: the Heights
+/// tab's fields (positive in percent).
+fn rmgfSet(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const kind = std.meta.stringToEnum(core.composers.Composers.HeightField, arg[0..colon]) orelse return .bad_arg;
+    const changed = state.composers.setFieldHeights(state.editor, kind, arg[colon + 1 ..]) catch return .refused;
+    if (!changed) {
+        state.view.setStatus("composer: ", state.composers.message());
+        return .refused;
+    }
+    return .ok;
+}
+
+fn rmgfCheck(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    bindObjectLookup(state);
+    return composerResult(state, state.composers.checkField(state.editor));
+}
+
+fn rmgfFix(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    bindObjectLookup(state);
+    return composerResult(state, state.composers.fixFieldFinding(state.editor, index));
+}
+
+fn rmgfFixAll(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    bindObjectLookup(state);
+    return composerResult(state, state.composers.fixFieldAll(state.editor));
+}
+
+fn rmgfUndo(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const done = state.composers.undoField() catch return .refused;
+    return if (done) .ok else .refused;
+}
+
+fn rmgfRedo(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const done = state.composers.redoField() catch return .refused;
+    return if (done) .ok else .refused;
+}
+
+fn rmgfDirtyIs(state: *State, arg: []const u8) Outcome {
+    return flagIs(state.composers.fdoc.dirty, arg);
+}
+fn rmgfNameEndsWith(state: *State, arg: []const u8) Outcome {
+    return if (std.mem.endsWith(u8, state.composers.fdoc.name, arg)) .ok else .refused;
+}
+fn rmgfFindingsAre(state: *State, arg: []const u8) Outcome {
+    const report = state.composers.field_report orelse return .refused;
+    return countIs(report.findings.items.len, arg);
+}
+fn rmgfErrorsAre(state: *State, arg: []const u8) Outcome {
+    const report = state.composers.field_report orelse return .refused;
+    return countIs(report.errorCount(), arg);
+}
+/// The season combo's slot (0 summer .. 3 spring).
+fn rmgfSeasonIs(state: *State, arg: []const u8) Outcome {
+    return countIs(state.composers.fdoc.current.seasonSlot(), arg);
+}
+/// `<terrain|objects>:<count>`.
+fn rmgfShellsAre(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const kind = shellKind(arg[0..colon]) orelse return .bad_arg;
+    return countIs(shellCount(state, kind), arg[colon + 1 ..]);
+}
+/// `<shell>:<count>`: the tiles of a terrain shell.
+fn rmgfTilesAre(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const shell = std.fmt.parseInt(usize, arg[0..colon], 10) catch return .bad_arg;
+    if (shell >= shellCount(state, 0)) return .refused;
+    return countIs(state.composers.fdoc.current.tile_shells.items[shell].tiles.items.len, arg[colon + 1 ..]);
+}
+/// `<shell>:<count>`: the objects of an objects shell.
+fn rmgfObjectsAre(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const shell = std.fmt.parseInt(usize, arg[0..colon], 10) catch return .bad_arg;
+    if (shell >= shellCount(state, 1)) return .refused;
+    return countIs(state.composers.fdoc.current.object_shells.items[shell].objects.items.len, arg[colon + 1 ..]);
+}
+
+/// `<field>:<text>` - a heights field as the tab shows it (height and percent
+/// with two decimals, the pattern sizes whole, the profile as stored).
+fn rmgfValueIs(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const kind = std.meta.stringToEnum(core.composers.Composers.HeightField, arg[0..colon]) orelse return .bad_arg;
+    const field = &state.composers.fdoc.current;
+    var buffer: [128]u8 = undefined;
+    const have = switch (kind) {
+        .height => std.fmt.bufPrint(&buffer, "{d:.2}", .{field.height}) catch return .refused,
+        .pattern_min => std.fmt.bufPrint(&buffer, "{d}", .{field.pattern_min}) catch return .refused,
+        .pattern_max => std.fmt.bufPrint(&buffer, "{d}", .{field.pattern_max}) catch return .refused,
+        .positive => std.fmt.bufPrint(&buffer, "{d:.2}", .{field.positive_ratio * 100.0}) catch return .refused,
+        .profile => field.profile,
+    };
+    return if (std.mem.eql(u8, have, arg[colon + 1 ..])) .ok else .refused;
+}
+
+fn rmgfListedAtLeast(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    state.composers.ensureScanned(state.editor);
+    return if (state.composers.field_names.items.len >= want) .ok else .refused;
+}
+
+/// The objects tab offers at least N objects under its filter.
+fn rmgfAvailableAtLeast(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    panels.refreshAvailableObjects(state);
+    return if (state.fc_avail.items.len >= want) .ok else .refused;
+}
+
+fn rmgfTabIs(state: *State, arg: []const u8) Outcome {
+    const tab = std.meta.stringToEnum(panels.FieldTab, arg) orelse return .bad_arg;
+    return if (state.fc_tab == tab) .ok else .refused;
 }
 
 fn rmggZoomIs(state: *State, arg: []const u8) Outcome {

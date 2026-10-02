@@ -34,10 +34,16 @@ pub const undo_depth: usize = 64;
 
 pub const season_names = [_][]const u8{ "Summer", "Winter", "Africa", "Spring" };
 
+/// The tileset folders of the four seasons (CMapInfo::SEASON_FOLDERS) and the
+/// season number each stores (CMapInfo::REAL_SEASONS: Spring is season 0 with
+/// its own folder).
+pub const season_folders = [_][]const u8{ "terrain\\sets\\1\\", "terrain\\sets\\2\\", "terrain\\sets\\3\\", "terrain\\sets\\4\\" };
+pub const real_seasons = [_]i32{ 0, 1, 2, 0 };
+
 /// The MFC's RMGGetSeasonNameString: season 0 whose folder is the spring one
-/// is Spring (terrain\sets\3\ in the shipped data).
+/// (terrain\sets\4\) is Spring.
 pub fn seasonName(season: i32, season_folder: []const u8) []const u8 {
-    if (season == 0 and std.ascii.eqlIgnoreCase(season_folder, "terrain\\sets\\3\\")) return season_names[3];
+    if (season == 0 and std.ascii.eqlIgnoreCase(season_folder, season_folders[3])) return season_names[3];
     if (season < 0 or season >= season_names.len) return "?";
     return season_names[@intCast(season)];
 }
@@ -499,6 +505,21 @@ pub const Fix = union(enum) {
     /// with its author's drive in front).
     strip_node_name: usize,
     strip_link_desc: usize,
+    // Field sets (05-10): each is one explicit repair of what the MFC's own
+    // Check! rewrote silently (RMG_CreateFieldDialog.cpp OnCheckFieldsButton).
+    set_season_summer,
+    clamp_height,
+    clamp_ratio,
+    reset_profile,
+    fix_pattern,
+    /// A shell's width clamped to 0..512 (`objects`: an object shell).
+    shell_width: struct { objects: bool, shell: usize },
+    remove_tile: struct { shell: usize, index: usize },
+    zero_tile_weight: struct { shell: usize, index: usize },
+    remove_object: struct { shell: usize, index: usize },
+    zero_object_weight: struct { shell: usize, index: usize },
+    object_step: usize,
+    object_ratio: usize,
 };
 
 pub const Finding = struct {
@@ -1334,6 +1355,472 @@ pub const ContainerDoc = Document(Container);
 pub const GraphDoc = Document(Graph);
 
 // ---------------------------------------------------------------------------
+// Field sets (M3 05-10, D-06/D-07/D-12): SRMFieldSet as an owned value, its
+// edit rules (the three MFC tabs' own limits) and its Check! rules
+// ---------------------------------------------------------------------------
+
+/// The MFC's defaults: a new shell (RMG_FieldTerrainDialog.cpp OnAddShell,
+/// RMG_FieldObjectsDialog.cpp OnAddShell), a tile or object added to one, and a
+/// field set made new (RMG_CreateFieldDialog.cpp OnAddFieldButton).
+pub const default_tile_weight: i32 = 1;
+pub const default_object_weight: i32 = 1;
+pub const default_shell_width: f32 = 2.0;
+pub const default_shell_step: i32 = 4;
+pub const default_shell_ratio: f32 = 0.3;
+pub const default_field_height: f32 = 2.0;
+pub const default_pattern_min: i32 = 3;
+pub const default_pattern_max: i32 = 5;
+pub const default_profile = "scenarios\\profiles\\profile";
+/// The limits the Check! and the Heights tab hold a field set to.
+pub const max_field_height: f32 = 5.0;
+pub const min_pattern: i32 = 1;
+pub const max_pattern: i32 = 16;
+pub const max_shell_width: f32 = 512.0;
+/// CMapInfo::REAL_SEASONS_COUNT: a field set's season is 0..2.
+pub const real_season_count: i32 = 3;
+
+/// The season (0 summer, 1 winter, 2 africa, 3 spring) the tileset of a field
+/// set, a template or a graph is the one of.
+pub fn seasonIndex(season: i32, season_folder: []const u8) usize {
+    if (season == 0 and std.ascii.eqlIgnoreCase(season_folder, season_folders[3])) return 3;
+    return if (season < 0) 0 else @min(@as(usize, @intCast(season)), 3);
+}
+
+pub const WeightedTile = struct { tile: i32, weight: i32 };
+
+pub const WeightedName = struct {
+    name: []u8 = &.{},
+    weight: i32 = 1,
+
+    pub fn clone(self: WeightedName, allocator: Allocator) Allocator.Error!WeightedName {
+        return .{ .name = try dupe(allocator, self.name), .weight = self.weight };
+    }
+    pub fn deinit(self: *WeightedName, allocator: Allocator) void {
+        allocator.free(self.name);
+        self.name = &.{};
+    }
+};
+
+fn sameFloat32(a: f32, b: f32) bool {
+    return @abs(a - b) <= 1e-5 * @max(1.0, @max(@abs(a), @abs(b)));
+}
+
+pub const TileShell = struct {
+    width: f32 = default_shell_width,
+    tiles: std.ArrayListUnmanaged(WeightedTile) = .empty,
+
+    pub fn clone(self: *const TileShell, allocator: Allocator) Allocator.Error!TileShell {
+        var out: TileShell = .{ .width = self.width };
+        errdefer out.deinit(allocator);
+        try out.tiles.appendSlice(allocator, self.tiles.items);
+        return out;
+    }
+    pub fn deinit(self: *TileShell, allocator: Allocator) void {
+        self.tiles.deinit(allocator);
+        self.* = .{};
+    }
+    pub fn eql(self: *const TileShell, other: *const TileShell) bool {
+        if (!sameFloat32(self.width, other.width) or self.tiles.items.len != other.tiles.items.len) return false;
+        for (self.tiles.items, other.tiles.items) |a, b| if (a.tile != b.tile or a.weight != b.weight) return false;
+        return true;
+    }
+};
+
+pub const ObjectShell = struct {
+    width: f32 = default_shell_width,
+    /// The distance between objects, VIS tiles.
+    step: i32 = default_shell_step,
+    /// 0..1 (the dialog shows percent).
+    ratio: f32 = default_shell_ratio,
+    objects: std.ArrayListUnmanaged(WeightedName) = .empty,
+
+    pub fn clone(self: *const ObjectShell, allocator: Allocator) Allocator.Error!ObjectShell {
+        var out: ObjectShell = .{ .width = self.width, .step = self.step, .ratio = self.ratio };
+        errdefer out.deinit(allocator);
+        try out.objects.ensureTotalCapacity(allocator, self.objects.items.len);
+        for (self.objects.items) |object| out.objects.appendAssumeCapacity(try object.clone(allocator));
+        return out;
+    }
+    pub fn deinit(self: *ObjectShell, allocator: Allocator) void {
+        for (self.objects.items) |*object| object.deinit(allocator);
+        self.objects.deinit(allocator);
+        self.* = .{};
+    }
+    pub fn eql(self: *const ObjectShell, other: *const ObjectShell) bool {
+        if (!sameFloat32(self.width, other.width) or self.step != other.step or !sameFloat32(self.ratio, other.ratio) or self.objects.items.len != other.objects.items.len) return false;
+        for (self.objects.items, other.objects.items) |a, b| if (a.weight != b.weight or !std.mem.eql(u8, a.name, b.name)) return false;
+        return true;
+    }
+};
+
+/// SRMFieldSet: the terrain shells (tiles of the season's tileset by weight),
+/// the object shells (objects of the database by weight) and the heights block.
+pub const FieldSet = struct {
+    season: i32 = 0,
+    season_folder: []u8 = &.{},
+    /// The height profile's storage name, no ".tga".
+    profile: []u8 = &.{},
+    height: f32 = default_field_height,
+    pattern_min: i32 = default_pattern_min,
+    pattern_max: i32 = default_pattern_max,
+    /// 0..1 (the dialog shows percent).
+    positive_ratio: f32 = 0.5,
+    tile_shells: std.ArrayListUnmanaged(TileShell) = .empty,
+    object_shells: std.ArrayListUnmanaged(ObjectShell) = .empty,
+
+    /// What File > New starts from (OnAddFieldButton's own defaults: summer, the
+    /// stock profile, height 2, patterns 3..5, 50% positive).
+    pub fn initNew(allocator: Allocator) Allocator.Error!FieldSet {
+        var out: FieldSet = .{};
+        errdefer out.deinit(allocator);
+        out.season_folder = try dupe(allocator, season_folders[0]);
+        out.profile = try dupe(allocator, default_profile);
+        return out;
+    }
+
+    pub fn deinit(self: *FieldSet, allocator: Allocator) void {
+        allocator.free(self.season_folder);
+        allocator.free(self.profile);
+        for (self.tile_shells.items) |*shell| shell.deinit(allocator);
+        self.tile_shells.deinit(allocator);
+        for (self.object_shells.items) |*shell| shell.deinit(allocator);
+        self.object_shells.deinit(allocator);
+        self.* = .{};
+    }
+
+    pub fn clone(self: *const FieldSet, allocator: Allocator) Allocator.Error!FieldSet {
+        var out: FieldSet = .{ .season = self.season, .height = self.height, .pattern_min = self.pattern_min, .pattern_max = self.pattern_max, .positive_ratio = self.positive_ratio };
+        errdefer out.deinit(allocator);
+        out.season_folder = try dupe(allocator, self.season_folder);
+        out.profile = try dupe(allocator, self.profile);
+        try out.tile_shells.ensureTotalCapacity(allocator, self.tile_shells.items.len);
+        for (self.tile_shells.items) |*shell| out.tile_shells.appendAssumeCapacity(try shell.clone(allocator));
+        try out.object_shells.ensureTotalCapacity(allocator, self.object_shells.items.len);
+        for (self.object_shells.items) |*shell| out.object_shells.appendAssumeCapacity(try shell.clone(allocator));
+        return out;
+    }
+
+    pub fn eql(self: *const FieldSet, other: *const FieldSet) bool {
+        if (self.season != other.season or !std.mem.eql(u8, self.season_folder, other.season_folder) or !std.mem.eql(u8, self.profile, other.profile)) return false;
+        if (!sameFloat32(self.height, other.height) or self.pattern_min != other.pattern_min or self.pattern_max != other.pattern_max or !sameFloat32(self.positive_ratio, other.positive_ratio)) return false;
+        if (self.tile_shells.items.len != other.tile_shells.items.len or self.object_shells.items.len != other.object_shells.items.len) return false;
+        for (self.tile_shells.items, other.tile_shells.items) |*a, *b| if (!a.eql(b)) return false;
+        for (self.object_shells.items, other.object_shells.items) |*a, *b| if (!a.eql(b)) return false;
+        return true;
+    }
+
+    /// The season combo's choice (0 summer .. 3 spring): the season number it
+    /// stores and its tileset folder (RMG_FieldTerrainDialog.cpp
+    /// OnSelchangeSeasonCombo).
+    pub fn setSeasonIndex(self: *FieldSet, allocator: Allocator, index: usize) Allocator.Error!void {
+        if (index >= season_folders.len) return;
+        const folder = try dupe(allocator, season_folders[index]);
+        allocator.free(self.season_folder);
+        self.season_folder = folder;
+        self.season = real_seasons[index];
+    }
+
+    pub fn seasonSlot(self: *const FieldSet) usize {
+        return seasonIndex(self.season, self.season_folder);
+    }
+
+    pub fn setProfile(self: *FieldSet, allocator: Allocator, name: []const u8) Allocator.Error!void {
+        try setText(allocator, &self.profile, name);
+    }
+
+    /// A shell appended with the MFC's default width; returns its index.
+    pub fn addTileShell(self: *FieldSet, allocator: Allocator) Allocator.Error!usize {
+        try self.tile_shells.append(allocator, .{});
+        return self.tile_shells.items.len - 1;
+    }
+
+    pub fn addObjectShell(self: *FieldSet, allocator: Allocator) Allocator.Error!usize {
+        try self.object_shells.append(allocator, .{});
+        return self.object_shells.items.len - 1;
+    }
+
+    /// Takes the shells at `doomed` (any order) out.
+    pub fn removeTileShells(self: *FieldSet, allocator: Allocator, doomed: []const usize) void {
+        removeIndexed(TileShell, allocator, &self.tile_shells, doomed);
+    }
+
+    pub fn removeObjectShells(self: *FieldSet, allocator: Allocator, doomed: []const usize) void {
+        removeIndexed(ObjectShell, allocator, &self.object_shells, doomed);
+    }
+
+    /// Adds terrain type `tile` to a shell with the default weight; false when
+    /// the shell is not there or already holds it (the MFC's OnAddTile skipped
+    /// a repeat).
+    pub fn addTile(self: *FieldSet, allocator: Allocator, shell: usize, tile: i32) Allocator.Error!bool {
+        if (shell >= self.tile_shells.items.len) return false;
+        const list = &self.tile_shells.items[shell].tiles;
+        for (list.items) |entry| if (entry.tile == tile) return false;
+        try list.append(allocator, .{ .tile = tile, .weight = default_tile_weight });
+        return true;
+    }
+
+    pub fn removeTiles(self: *FieldSet, shell: usize, doomed: []const usize) void {
+        if (shell >= self.tile_shells.items.len) return;
+        removeIndexedPlain(WeightedTile, &self.tile_shells.items[shell].tiles, doomed);
+    }
+
+    pub fn addObject(self: *FieldSet, allocator: Allocator, shell: usize, name: []const u8) Allocator.Error!bool {
+        if (shell >= self.object_shells.items.len) return false;
+        const list = &self.object_shells.items[shell].objects;
+        for (list.items) |entry| if (std.mem.eql(u8, entry.name, name)) return false;
+        var made: WeightedName = .{ .name = try dupe(allocator, name), .weight = default_object_weight };
+        errdefer made.deinit(allocator);
+        try list.append(allocator, made);
+        return true;
+    }
+
+    pub fn removeObjects(self: *FieldSet, allocator: Allocator, shell: usize, doomed: []const usize) void {
+        if (shell >= self.object_shells.items.len) return;
+        removeIndexed(WeightedName, allocator, &self.object_shells.items[shell].objects, doomed);
+    }
+
+    /// The Heights tab's pattern edits (RMG_FieldHeightsDialog.cpp
+    /// OnChangeSizeMinEdit / OnChangeSizeMaxEdit): a value outside 1..16 is
+    /// ignored, and the other end follows so min never passes max.
+    pub fn setPatternMin(self: *FieldSet, value: i32) bool {
+        if (value < min_pattern or value > max_pattern) return false;
+        self.pattern_min = value;
+        if (self.pattern_max < value) self.pattern_max = value;
+        return true;
+    }
+
+    pub fn setPatternMax(self: *FieldSet, value: i32) bool {
+        if (value < min_pattern or value > max_pattern) return false;
+        self.pattern_max = value;
+        if (self.pattern_min > value) self.pattern_min = value;
+        return true;
+    }
+
+    /// Height 0..5 (OnChangeHeightEdit); false leaves it.
+    pub fn setHeight(self: *FieldSet, value: f32) bool {
+        if (!std.math.isFinite(value) or value < 0 or value > max_field_height) return false;
+        self.height = value;
+        return true;
+    }
+
+    /// The positive ratio in PERCENT 0..100 (OnChangePositiveRatioEdit).
+    pub fn setPositivePercent(self: *FieldSet, percent: f32) bool {
+        if (!std.math.isFinite(percent) or percent < 0 or percent > 100) return false;
+        self.positive_ratio = percent / 100.0;
+        return true;
+    }
+
+    pub fn tileEntryCount(self: *const FieldSet) usize {
+        var n: usize = 0;
+        for (self.tile_shells.items) |shell| n += shell.tiles.items.len;
+        return n;
+    }
+
+    pub fn objectEntryCount(self: *const FieldSet) usize {
+        var n: usize = 0;
+        for (self.object_shells.items) |shell| n += shell.objects.items.len;
+        return n;
+    }
+};
+
+fn removeIndexed(comptime T: type, allocator: Allocator, list: *std.ArrayListUnmanaged(T), doomed: []const usize) void {
+    var kept: usize = 0;
+    for (list.items, 0..) |*item, i| {
+        var gone = false;
+        for (doomed) |d| if (d == i) {
+            gone = true;
+        };
+        if (gone) {
+            item.deinit(allocator);
+            continue;
+        }
+        list.items[kept] = item.*;
+        kept += 1;
+    }
+    list.shrinkRetainingCapacity(kept);
+}
+
+fn removeIndexedPlain(comptime T: type, list: *std.ArrayListUnmanaged(T), doomed: []const usize) void {
+    var kept: usize = 0;
+    for (list.items, 0..) |item, i| {
+        var gone = false;
+        for (doomed) |d| if (d == i) {
+            gone = true;
+        };
+        if (gone) continue;
+        list.items[kept] = item;
+        kept += 1;
+    }
+    list.shrinkRetainingCapacity(kept);
+}
+
+/// What the field set's Check! needs to know that the value itself does not
+/// say: how many terrain types the season's tileset has (null: it will not
+/// load), whether an object name is in the database's catalogue, whether the
+/// profile's .tga is in the storages. The Editor's own source asks the bridge;
+/// tests supply a table.
+pub const FieldSource = struct {
+    ctx: *anyopaque,
+    tile_count_fn: *const fn (ctx: *anyopaque, season_slot: usize) ?usize,
+    object_fn: *const fn (ctx: *anyopaque, name: []const u8) bool,
+    profile_fn: *const fn (ctx: *anyopaque, name: []const u8) bool,
+
+    pub fn tileCount(self: FieldSource, season_slot: usize) ?usize {
+        return self.tile_count_fn(self.ctx, season_slot);
+    }
+    pub fn hasObject(self: FieldSource, name: []const u8) bool {
+        return self.object_fn(self.ctx, name);
+    }
+    pub fn hasProfile(self: FieldSource, name: []const u8) bool {
+        return self.profile_fn(self.ctx, name);
+    }
+};
+
+/// The Fields Composer's Check! (RMG_CreateFieldDialog.cpp
+/// OnCheckFieldsButton, D-12): the MFC rewrote every field set it did not like
+/// without a word; this lists what it would have changed - ranges, tile indices
+/// against the tileset, object names against the catalogue, the profile against
+/// the storage - and rewrites nothing. Every finding that has a repair names it
+/// (`Finding.fix`); removals are the person's choice.
+pub fn checkFieldSet(allocator: Allocator, field: *const FieldSet, source: FieldSource) Allocator.Error!Report {
+    var report: Report = .{};
+    errdefer report.deinit(allocator);
+    if (field.season < 0 or field.season >= real_season_count) {
+        try report.add(allocator, .@"error", -1, .set_season_summer, "season {d} is not a season of the game (0..{d}); the MFC made it summer", .{ field.season, real_season_count - 1 });
+    }
+    const slot = if (field.season < 0 or field.season >= real_season_count) 0 else field.seasonSlot();
+    const tile_count = source.tileCount(slot);
+    if (tile_count == null) {
+        try report.add(allocator, .warning, -1, .none, "the tileset of {s} does not load: tile indices cannot be checked", .{season_names[slot]});
+    }
+    if (!std.math.isFinite(field.height) or field.height < 0 or field.height > max_field_height) {
+        try report.add(allocator, .@"error", -1, .clamp_height, "height {d:.2} is outside 0..{d}", .{ field.height, @as(i32, @intFromFloat(max_field_height)) });
+    }
+    if (!std.math.isFinite(field.positive_ratio) or field.positive_ratio < 0 or field.positive_ratio > 1) {
+        try report.add(allocator, .@"error", -1, .clamp_ratio, "the positive ratio {d:.2}% is outside 0..100%", .{field.positive_ratio * 100});
+    }
+    if (!source.hasProfile(field.profile)) {
+        try report.add(allocator, .@"error", -1, .reset_profile, "the profile \"{s}\" is not in the storages (.tga); the MFC reset it to {s}", .{ field.profile, default_profile });
+    }
+    if (field.pattern_min < min_pattern or field.pattern_min > max_pattern or field.pattern_max < min_pattern or field.pattern_max > max_pattern or field.pattern_min > field.pattern_max) {
+        try report.add(allocator, .@"error", -1, .fix_pattern, "the pattern size {d} - {d} is not within {d}..{d} with min not above max", .{ field.pattern_min, field.pattern_max, min_pattern, max_pattern });
+    }
+    if (field.tile_shells.items.len == 0 and field.object_shells.items.len == 0) {
+        try report.add(allocator, .warning, -1, .none, "the field set has no shells: applying it paints nothing", .{});
+    }
+    for (field.tile_shells.items, 0..) |shell, si| {
+        if (!std.math.isFinite(shell.width) or shell.width < 0 or shell.width > max_shell_width) {
+            try report.add(allocator, .@"error", @intCast(si), .{ .shell_width = .{ .objects = false, .shell = si } }, "terrain shell {d}: width {d:.2} is outside 0..{d}", .{ si, shell.width, @as(i32, @intFromFloat(max_shell_width)) });
+        }
+        if (shell.tiles.items.len == 0) try report.add(allocator, .warning, @intCast(si), .none, "terrain shell {d} holds no tiles", .{si});
+        for (shell.tiles.items, 0..) |entry, ti| {
+            if (entry.tile < 0 or (tile_count != null and entry.tile >= tile_count.?)) {
+                try report.add(allocator, .@"error", @intCast(si), .{ .remove_tile = .{ .shell = si, .index = ti } }, "terrain shell {d}: tile {d} is not a terrain type of the {s} tileset ({d} types)", .{ si, entry.tile, season_names[slot], tile_count orelse 0 });
+            } else if (entry.weight < 0) {
+                try report.add(allocator, .@"error", @intCast(si), .{ .zero_tile_weight = .{ .shell = si, .index = ti } }, "terrain shell {d}: tile {d} has weight {d} below 0", .{ si, entry.tile, entry.weight });
+            }
+        }
+    }
+    for (field.object_shells.items, 0..) |shell, si| {
+        if (!std.math.isFinite(shell.width) or shell.width < 0 or shell.width > max_shell_width) {
+            try report.add(allocator, .@"error", @intCast(si), .{ .shell_width = .{ .objects = true, .shell = si } }, "objects shell {d}: width {d:.2} is outside 0..{d}", .{ si, shell.width, @as(i32, @intFromFloat(max_shell_width)) });
+        }
+        if (!std.math.isFinite(shell.ratio) or shell.ratio < 0 or shell.ratio > 1) {
+            try report.add(allocator, .@"error", @intCast(si), .{ .object_ratio = si }, "objects shell {d}: probability {d:.2}% is outside 0..100%", .{ si, shell.ratio * 100 });
+        }
+        if (shell.step <= 0) {
+            try report.add(allocator, .@"error", @intCast(si), .{ .object_step = si }, "objects shell {d}: step {d} is not above 0", .{ si, shell.step });
+        }
+        // An objects shell with no objects is a deliberate gap between two rings (the
+        // shipped field sets have thirty of them), so it is not reported.
+        for (shell.objects.items, 0..) |entry, oi| {
+            if (!source.hasObject(entry.name)) {
+                try report.add(allocator, .@"error", @intCast(si), .{ .remove_object = .{ .shell = si, .index = oi } }, "objects shell {d}: \"{s}\" is not an object of the database", .{ si, entry.name });
+            } else if (entry.weight < 0) {
+                try report.add(allocator, .@"error", @intCast(si), .{ .zero_object_weight = .{ .shell = si, .index = oi } }, "objects shell {d}: \"{s}\" has weight {d} below 0", .{ si, entry.name, entry.weight });
+            }
+        }
+    }
+    return report;
+}
+
+/// Applies one field set fix. A removal renumbers what follows, so a caller
+/// with several removals goes through `fixAllField`.
+pub fn applyFieldFix(allocator: Allocator, field: *FieldSet, fix: Fix) Allocator.Error!void {
+    switch (fix) {
+        .set_season_summer => try field.setSeasonIndex(allocator, 0),
+        .clamp_height => field.height = if (!std.math.isFinite(field.height)) default_field_height else std.math.clamp(field.height, 0, max_field_height),
+        .clamp_ratio => field.positive_ratio = if (!std.math.isFinite(field.positive_ratio)) 0.5 else std.math.clamp(field.positive_ratio, 0, 1),
+        .reset_profile => try field.setProfile(allocator, default_profile),
+        .fix_pattern => {
+            field.pattern_min = std.math.clamp(field.pattern_min, min_pattern, max_pattern);
+            field.pattern_max = std.math.clamp(field.pattern_max, min_pattern, max_pattern);
+            if (field.pattern_min > field.pattern_max) std.mem.swap(i32, &field.pattern_min, &field.pattern_max);
+        },
+        .shell_width => |at| {
+            const width: *f32 = if (at.objects) (if (at.shell < field.object_shells.items.len) &field.object_shells.items[at.shell].width else return) else (if (at.shell < field.tile_shells.items.len) &field.tile_shells.items[at.shell].width else return);
+            width.* = if (!std.math.isFinite(width.*)) default_shell_width else std.math.clamp(width.*, 0, max_shell_width);
+        },
+        .remove_tile => |at| field.removeTiles(at.shell, &.{at.index}),
+        .zero_tile_weight => |at| {
+            if (at.shell < field.tile_shells.items.len and at.index < field.tile_shells.items[at.shell].tiles.items.len) field.tile_shells.items[at.shell].tiles.items[at.index].weight = 0;
+        },
+        .remove_object => |at| field.removeObjects(allocator, at.shell, &.{at.index}),
+        .zero_object_weight => |at| {
+            if (at.shell < field.object_shells.items.len and at.index < field.object_shells.items[at.shell].objects.items.len) field.object_shells.items[at.shell].objects.items[at.index].weight = 0;
+        },
+        .object_step => |shell| {
+            if (shell < field.object_shells.items.len) field.object_shells.items[shell].step = 1;
+        },
+        .object_ratio => |shell| {
+            if (shell < field.object_shells.items.len) {
+                const ratio = &field.object_shells.items[shell].ratio;
+                ratio.* = if (!std.math.isFinite(ratio.*)) default_shell_ratio else std.math.clamp(ratio.*, 0, 1);
+            }
+        },
+        else => {},
+    }
+}
+
+/// Fix all (one undo step): every repair that renumbers nothing first, then
+/// the removals highest index first within each shell. Returns the findings
+/// fixed.
+pub fn fixAllField(allocator: Allocator, field: *FieldSet, report: *const Report) Allocator.Error!usize {
+    var fixed: usize = 0;
+    var tile_removals = std.ArrayListUnmanaged([2]usize).empty;
+    defer tile_removals.deinit(allocator);
+    var object_removals = std.ArrayListUnmanaged([2]usize).empty;
+    defer object_removals.deinit(allocator);
+    for (report.findings.items) |finding| switch (finding.fix) {
+        .none => {},
+        .remove_tile => |at| {
+            try tile_removals.append(allocator, .{ at.shell, at.index });
+            fixed += 1;
+        },
+        .remove_object => |at| {
+            try object_removals.append(allocator, .{ at.shell, at.index });
+            fixed += 1;
+        },
+        else => {
+            try applyFieldFix(allocator, field, finding.fix);
+            fixed += 1;
+        },
+    };
+    const order = struct {
+        fn desc(_: void, a: [2]usize, b: [2]usize) bool {
+            return if (a[0] != b[0]) a[0] > b[0] else a[1] > b[1];
+        }
+    }.desc;
+    std.mem.sort([2]usize, tile_removals.items, {}, order);
+    for (tile_removals.items) |at| field.removeTiles(at[0], &.{at[1]});
+    std.mem.sort([2]usize, object_removals.items, {}, order);
+    for (object_removals.items) |at| field.removeObjects(allocator, at[0], &.{at[1]});
+    return fixed;
+}
+
+pub const FieldSetDoc = Document(FieldSet);
+
+// ---------------------------------------------------------------------------
 // The Graphs Composer canvas (D-11)
 // ---------------------------------------------------------------------------
 
@@ -2095,7 +2582,8 @@ test "a document keeps its own undo, dirty flag and shipped state" {
 
 test "season names follow the MFC: season 0 on the spring folder is Spring" {
     try testing.expectEqualStrings("Summer", seasonName(0, "terrain\\sets\\1\\"));
-    try testing.expectEqualStrings("Spring", seasonName(0, "Terrain\\Sets\\3\\"));
+    try testing.expectEqualStrings("Spring", seasonName(0, "Terrain\\Sets\\4\\"));
+    try testing.expectEqualStrings("Summer", seasonName(0, "terrain\\sets\\3\\"));
     try testing.expectEqualStrings("Winter", seasonName(1, "terrain\\sets\\2\\"));
     try testing.expectEqualStrings("Africa", seasonName(2, ""));
     try testing.expectEqualStrings("?", seasonName(9, ""));
@@ -2138,4 +2626,214 @@ test "graph Check! reports a name with its author's drive in front and strips it
     try testing.expectEqual(@as(usize, 0), g.nodes.items[1].container.len);
     try testing.expect(isStorageRelative("terrain\\x") and !isStorageRelative("c:\\x") and !isStorageRelative("\\x") and isStorageRelative(""));
     try testing.expect(storageSuffix("x\\terrain\\y", "terrain\\") != null and storageSuffix("xterrain\\y", "terrain\\") == null);
+}
+
+/// A FieldSource over small tables, for the field set Check! rules.
+const TestFieldFacts = struct {
+    counts: [4]?usize = .{ 10, 8, null, 6 },
+    objects: []const []const u8 = &.{ "_Birch", "_Lime" },
+    profiles: []const []const u8 = &.{"scenarios\\profiles\\profile"},
+
+    fn tileCount(ctx: *anyopaque, slot: usize) ?usize {
+        const self: *TestFieldFacts = @ptrCast(@alignCast(ctx));
+        return self.counts[slot];
+    }
+    fn hasObject(ctx: *anyopaque, name: []const u8) bool {
+        const self: *TestFieldFacts = @ptrCast(@alignCast(ctx));
+        for (self.objects) |known| if (std.mem.eql(u8, known, name)) return true;
+        return false;
+    }
+    fn hasProfile(ctx: *anyopaque, name: []const u8) bool {
+        const self: *TestFieldFacts = @ptrCast(@alignCast(ctx));
+        for (self.profiles) |known| if (std.ascii.eqlIgnoreCase(known, name)) return true;
+        return false;
+    }
+    fn source(self: *TestFieldFacts) FieldSource {
+        return .{ .ctx = self, .tile_count_fn = tileCount, .object_fn = hasObject, .profile_fn = hasProfile };
+    }
+};
+
+test "a field set takes the three tabs' edits with the dialogs' own limits" {
+    const a = testing.allocator;
+    var f = try FieldSet.initNew(a);
+    defer f.deinit(a);
+    // File > New: the MFC's own defaults.
+    try testing.expectEqualStrings("terrain\\sets\\1\\", f.season_folder);
+    try testing.expectEqualStrings(default_profile, f.profile);
+    try testing.expect(f.height == 2.0 and f.pattern_min == 3 and f.pattern_max == 5 and f.positive_ratio == 0.5);
+    // Terrain: a shell is 2 wide, a tile joins once with weight 1, a weight edits, a tile and a shell go.
+    const shell = try f.addTileShell(a);
+    try testing.expect(f.tile_shells.items[shell].width == 2.0);
+    try testing.expect(try f.addTile(a, shell, 4));
+    try testing.expect(try f.addTile(a, shell, 7));
+    try testing.expect(!(try f.addTile(a, shell, 4)));
+    try testing.expect(!(try f.addTile(a, 9, 4)));
+    try testing.expectEqual(@as(i32, 1), f.tile_shells.items[shell].tiles.items[0].weight);
+    f.tile_shells.items[shell].tiles.items[1].weight = 9;
+    f.removeTiles(shell, &.{0});
+    try testing.expectEqual(@as(usize, 1), f.tileEntryCount());
+    try testing.expectEqual(@as(i32, 7), f.tile_shells.items[shell].tiles.items[0].tile);
+    // Objects: 2 wide, step 4, 30%; an object joins once; an object and a shell go.
+    const oshell = try f.addObjectShell(a);
+    try testing.expect(f.object_shells.items[oshell].width == 2.0 and f.object_shells.items[oshell].step == 4 and f.object_shells.items[oshell].ratio == 0.3);
+    try testing.expect(try f.addObject(a, oshell, "_Birch"));
+    try testing.expect(try f.addObject(a, oshell, "_Lime"));
+    try testing.expect(!(try f.addObject(a, oshell, "_Birch")));
+    f.removeObjects(a, oshell, &.{0});
+    try testing.expectEqualStrings("_Lime", f.object_shells.items[oshell].objects.items[0].name);
+    f.removeObjectShells(a, &.{oshell});
+    f.removeTileShells(a, &.{shell});
+    try testing.expectEqual(@as(usize, 0), f.tile_shells.items.len + f.object_shells.items.len);
+    // Heights: pattern sizes 1..16 and min never passes max, height 0..5, percent 0..100.
+    try testing.expect(f.setPatternMin(8) and f.pattern_min == 8 and f.pattern_max == 8);
+    try testing.expect(f.setPatternMax(3) and f.pattern_max == 3 and f.pattern_min == 3);
+    try testing.expect(!f.setPatternMin(0) and !f.setPatternMax(17) and f.pattern_min == 3);
+    try testing.expect(f.setHeight(5.0) and !f.setHeight(5.1) and !f.setHeight(-1) and f.height == 5.0);
+    try testing.expect(f.setPositivePercent(25) and f.positive_ratio == 0.25 and !f.setPositivePercent(101) and !f.setPositivePercent(std.math.nan(f32)));
+    // The season combo sets the folder with the season.
+    try f.setSeasonIndex(a, 3);
+    try testing.expect(f.season == 0 and std.mem.eql(u8, f.season_folder, "terrain\\sets\\4\\") and f.seasonSlot() == 3);
+    try testing.expectEqualStrings("Spring", seasonName(f.season, f.season_folder));
+    try f.setSeasonIndex(a, 2);
+    try testing.expect(f.season == 2 and f.seasonSlot() == 2);
+}
+
+test "a field set clones and compares by content" {
+    const a = testing.allocator;
+    var f = try FieldSet.initNew(a);
+    defer f.deinit(a);
+    const shell = try f.addTileShell(a);
+    _ = try f.addTile(a, shell, 2);
+    const oshell = try f.addObjectShell(a);
+    _ = try f.addObject(a, oshell, "_Birch");
+    var copy = try f.clone(a);
+    defer copy.deinit(a);
+    try testing.expect(f.eql(&copy));
+    copy.object_shells.items[0].objects.items[0].weight = 5;
+    try testing.expect(!f.eql(&copy));
+    copy.object_shells.items[0].objects.items[0].weight = 1;
+    try testing.expect(f.eql(&copy));
+    copy.tile_shells.items[0].width = 3;
+    try testing.expect(!f.eql(&copy));
+}
+
+test "field set Check! reports every range, tile, object and profile rule, and Fix all repairs them as one step without a silent removal" {
+    const a = testing.allocator;
+    var facts: TestFieldFacts = .{};
+    var f = try FieldSet.initNew(a);
+    defer f.deinit(a);
+    // A clean set checks clean.
+    {
+        const shell = try f.addTileShell(a);
+        _ = try f.addTile(a, shell, 3);
+        const oshell = try f.addObjectShell(a);
+        _ = try f.addObject(a, oshell, "_Birch");
+        var report = try checkFieldSet(a, &f, facts.source());
+        defer report.deinit(a);
+        try testing.expectEqual(@as(usize, 0), report.findings.items.len);
+    }
+    // Now break it every way: a season, a height, a ratio, a profile, a pattern, a
+    // shell width, a tile past the tileset, a negative tile weight, an object the
+    // catalogue does not know, a negative object weight, a step, a probability.
+    f.season = 7;
+    f.height = 9;
+    f.positive_ratio = 1.5;
+    try f.setProfile(a, "scenarios\\profiles\\gone");
+    f.pattern_min = 9;
+    f.pattern_max = 2;
+    f.tile_shells.items[0].width = 600;
+    _ = try f.addTile(a, 0, 50);
+    _ = try f.addTile(a, 0, 4);
+    f.tile_shells.items[0].tiles.items[2].weight = -3;
+    f.object_shells.items[0].step = 0;
+    f.object_shells.items[0].ratio = 2;
+    f.object_shells.items[0].width = -1;
+    _ = try f.addObject(a, 0, "Ghost");
+    _ = try f.addObject(a, 0, "_Lime");
+    f.object_shells.items[0].objects.items[2].weight = -1;
+    var report = try checkFieldSet(a, &f, facts.source());
+    defer report.deinit(a);
+    for (report.findings.items) |finding| {
+        if (finding.fix == .none) continue;
+        try testing.expect(finding.severity == .@"error");
+    }
+    const has = struct {
+        fn tag(r: *const Report, want: std.meta.Tag(Fix)) bool {
+            for (r.findings.items) |finding| if (std.meta.activeTag(finding.fix) == want) return true;
+            return false;
+        }
+    };
+    try testing.expect(has.tag(&report, .set_season_summer) and has.tag(&report, .clamp_height) and has.tag(&report, .clamp_ratio) and has.tag(&report, .reset_profile) and has.tag(&report, .fix_pattern));
+    try testing.expect(has.tag(&report, .shell_width) and has.tag(&report, .remove_tile) and has.tag(&report, .zero_tile_weight));
+    try testing.expect(has.tag(&report, .remove_object) and has.tag(&report, .zero_object_weight) and has.tag(&report, .object_step) and has.tag(&report, .object_ratio));
+    // The tile past the tileset (50) is found; 4, inside the 10 types, is not.
+    var off_range: usize = 0;
+    for (report.findings.items) |finding| switch (finding.fix) {
+        .remove_tile => |at| {
+            off_range += 1;
+            try testing.expectEqual(@as(usize, 1), at.index);
+        },
+        .remove_object => |at| try testing.expectEqual(@as(usize, 1), at.index),
+        else => {},
+    };
+    try testing.expectEqual(@as(usize, 1), off_range);
+    // Check! alone rewrote nothing.
+    try testing.expectEqual(@as(usize, 3), f.tile_shells.items[0].tiles.items.len);
+    try testing.expectEqual(@as(i32, 7), f.season);
+    // Fix all: the removals go (highest first), the rest are repaired.
+    const fixed = try fixAllField(a, &f, &report);
+    try testing.expect(fixed >= 10);
+    try testing.expectEqual(@as(usize, 2), f.tile_shells.items[0].tiles.items.len);
+    try testing.expectEqual(@as(usize, 2), f.object_shells.items[0].objects.items.len);
+    try testing.expectEqual(@as(i32, 0), f.tile_shells.items[0].tiles.items[1].weight);
+    try testing.expectEqual(@as(i32, 0), f.object_shells.items[0].objects.items[1].weight);
+    var again = try checkFieldSet(a, &f, facts.source());
+    defer again.deinit(a);
+    try testing.expectEqual(@as(usize, 0), again.findings.items.len);
+}
+
+test "field set Check! says when a tileset does not load and warns about empty shells" {
+    const a = testing.allocator;
+    var facts: TestFieldFacts = .{};
+    var f = try FieldSet.initNew(a);
+    defer f.deinit(a);
+    try f.setSeasonIndex(a, 2); // africa: the table's tileset is null
+    _ = try f.addTileShell(a);
+    _ = try f.addTile(a, 0, 400);
+    _ = try f.addTileShell(a); // empty: a warning
+    _ = try f.addObjectShell(a); // empty: a deliberate gap, no warning
+    var report = try checkFieldSet(a, &f, facts.source());
+    defer report.deinit(a);
+    var warnings: usize = 0;
+    var tile_errors: usize = 0;
+    for (report.findings.items) |finding| {
+        if (finding.severity == .warning) warnings += 1;
+        if (std.meta.activeTag(finding.fix) == .remove_tile) tile_errors += 1;
+    }
+    // The tileset warning and the empty terrain shell; no tile can be called off range.
+    try testing.expectEqual(@as(usize, 2), warnings);
+    try testing.expectEqual(@as(usize, 0), tile_errors);
+    // A set with no shells at all paints nothing.
+    var empty = try FieldSet.initNew(a);
+    defer empty.deinit(a);
+    var empty_report = try checkFieldSet(a, &empty, facts.source());
+    defer empty_report.deinit(a);
+    try testing.expectEqual(@as(usize, 1), empty_report.findings.items.len);
+}
+
+test "a field set document keeps its own undo and shipped state" {
+    const a = testing.allocator;
+    var doc = FieldSetDoc.init(a);
+    defer doc.deinit();
+    try doc.load("scenarios\\fieldsets\\summer\\field00", try FieldSet.initNew(a), true);
+    try testing.expect(doc.shipped and !doc.dirty and !doc.canUndo());
+    const field = try doc.begin();
+    _ = try field.addTileShell(a);
+    try testing.expect(doc.dirty and doc.canUndo());
+    try testing.expect(try doc.undo());
+    try testing.expectEqual(@as(usize, 0), doc.current.tile_shells.items.len);
+    try testing.expect(try doc.redo());
+    try testing.expectEqual(@as(usize, 1), doc.current.tile_shells.items.len);
+    try doc.markSaved("scenarios\\fieldsets\\user\\mine");
+    try testing.expect(!doc.shipped and !doc.dirty);
 }

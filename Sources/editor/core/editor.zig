@@ -3256,6 +3256,169 @@ pub const Editor = struct {
         try self.noteOutcome(self.bridge.rmgImportPatch(path_z.ptr, apply, out));
     }
 
+    // --- The Fields Composer's field sets (05-10, D-06/D-07/D-12) ----------
+
+    const OwnedFieldSet = struct {
+        record: bridge_mod.RmgFieldSetRecord = .{},
+        tile_shells: []bridge_mod.RmgTileShell = &.{},
+        tiles: []bridge_mod.RmgWeightedTile = &.{},
+        object_shells: []bridge_mod.RmgObjectShell = &.{},
+        objects: []bridge_mod.RmgWeightedName = &.{},
+
+        fn deinit(self: *OwnedFieldSet, a: std.mem.Allocator) void {
+            a.free(self.tile_shells);
+            a.free(self.tiles);
+            a.free(self.object_shells);
+            a.free(self.objects);
+            self.* = .{};
+        }
+    };
+
+    fn fetchFieldSet(self: *Editor, a: std.mem.Allocator, name: [*:0]const u8, out: *OwnedFieldSet) std.mem.Allocator.Error!bridge_mod.Status {
+        out.* = .{};
+        errdefer out.deinit(a);
+        var first = bridge_mod.RmgFieldSetRecord{};
+        const sizing = self.bridge.rmgReadFieldSet(name, &first);
+        if (sizing == .ok) {
+            out.record = first;
+            return .ok;
+        }
+        const totals = countOf(first.tile_shell_count) + countOf(first.tile_total) + countOf(first.object_shell_count) + countOf(first.object_total);
+        if (sizing != .refused or totals == 0) return sizing;
+        out.tile_shells = try a.alloc(bridge_mod.RmgTileShell, countOf(first.tile_shell_count));
+        out.tiles = try a.alloc(bridge_mod.RmgWeightedTile, countOf(first.tile_total));
+        out.object_shells = try a.alloc(bridge_mod.RmgObjectShell, countOf(first.object_shell_count));
+        out.objects = try a.alloc(bridge_mod.RmgWeightedName, countOf(first.object_total));
+        var second = first;
+        second.tile_shells = out.tile_shells.ptr;
+        second.tile_shell_capacity = @intCast(out.tile_shells.len);
+        second.tiles = out.tiles.ptr;
+        second.tile_capacity = @intCast(out.tiles.len);
+        second.object_shells = out.object_shells.ptr;
+        second.object_shell_capacity = @intCast(out.object_shells.len);
+        second.objects = out.objects.ptr;
+        second.object_capacity = @intCast(out.objects.len);
+        const read = self.bridge.rmgReadFieldSet(name, &second);
+        out.record = second;
+        // The totals cannot have moved between the passes: anything but ok is a failure.
+        return if (read == .refused) .failed else read;
+    }
+
+    /// Field set `name` as the storages hold it (the user's root first). The
+    /// caller owns the result.
+    pub fn readFieldSet(self: *Editor, name: []const u8) EditError!rmg_mod.FieldSet {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = nameZ(&buffer, name) orelse return error.Refused;
+        const a = self.allocator;
+        var owned: OwnedFieldSet = .{};
+        defer owned.deinit(a);
+        try self.noteOutcome(try self.fetchFieldSet(a, name_z, &owned));
+        const record = &owned.record;
+        var out: rmg_mod.FieldSet = .{ .season = record.season, .height = record.height, .pattern_min = record.pattern_min, .pattern_max = record.pattern_max, .positive_ratio = record.positive_ratio };
+        errdefer out.deinit(a);
+        out.season_folder = try a.dupe(u8, std.mem.sliceTo(&record.season_folder, 0));
+        out.profile = try a.dupe(u8, std.mem.sliceTo(&record.profile, 0));
+        var tile_at: usize = 0;
+        for (owned.tile_shells[0..@min(owned.tile_shells.len, countOf(record.tile_shell_count))]) |shell| {
+            var made: rmg_mod.TileShell = .{ .width = shell.width };
+            errdefer made.deinit(a);
+            const count = @min(countOf(shell.tile_count), owned.tiles.len - tile_at);
+            for (owned.tiles[tile_at .. tile_at + count]) |entry| try made.tiles.append(a, .{ .tile = entry.tile, .weight = entry.weight });
+            tile_at += count;
+            try out.tile_shells.append(a, made);
+        }
+        var object_at: usize = 0;
+        for (owned.object_shells[0..@min(owned.object_shells.len, countOf(record.object_shell_count))]) |shell| {
+            var made: rmg_mod.ObjectShell = .{ .width = shell.width, .step = shell.step, .ratio = shell.ratio };
+            errdefer made.deinit(a);
+            const count = @min(countOf(shell.object_count), owned.objects.len - object_at);
+            for (owned.objects[object_at .. object_at + count]) |entry| {
+                const copy = try a.dupe(u8, std.mem.sliceTo(&entry.name, 0));
+                errdefer a.free(copy);
+                try made.objects.append(a, .{ .name = copy, .weight = entry.weight });
+            }
+            object_at += count;
+            try out.object_shells.append(a, made);
+        }
+        return out;
+    }
+
+    /// Writes `field` as `name` under the user RMG root. A shipped name is
+    /// refused (the status says Save As); nothing changes then.
+    pub fn writeFieldSet(self: *Editor, name: []const u8, field: *const rmg_mod.FieldSet) EditError!void {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = nameZ(&buffer, name) orelse return error.Refused;
+        const a = self.allocator;
+        const tile_shells = try a.alloc(bridge_mod.RmgTileShell, field.tile_shells.items.len);
+        defer a.free(tile_shells);
+        const tiles = try a.alloc(bridge_mod.RmgWeightedTile, field.tileEntryCount());
+        defer a.free(tiles);
+        const object_shells = try a.alloc(bridge_mod.RmgObjectShell, field.object_shells.items.len);
+        defer a.free(object_shells);
+        const objects = try a.alloc(bridge_mod.RmgWeightedName, field.objectEntryCount());
+        defer a.free(objects);
+        var record = bridge_mod.RmgFieldSetRecord{ .season = field.season, .height = field.height, .pattern_min = field.pattern_min, .pattern_max = field.pattern_max, .positive_ratio = field.positive_ratio };
+        if (!bridge_mod.putName(&record.season_folder, field.season_folder) or !bridge_mod.putName(&record.profile, field.profile)) return error.Refused;
+        var tile_at: usize = 0;
+        for (field.tile_shells.items, 0..) |shell, i| {
+            tile_shells[i] = .{ .width = shell.width, .tile_count = @intCast(shell.tiles.items.len) };
+            for (shell.tiles.items) |entry| {
+                tiles[tile_at] = .{ .tile = entry.tile, .weight = entry.weight };
+                tile_at += 1;
+            }
+        }
+        var object_at: usize = 0;
+        for (field.object_shells.items, 0..) |shell, i| {
+            object_shells[i] = .{ .width = shell.width, .step = shell.step, .ratio = shell.ratio, .object_count = @intCast(shell.objects.items.len) };
+            for (shell.objects.items) |entry| {
+                objects[object_at] = .{ .weight = entry.weight };
+                if (!bridge_mod.putName(&objects[object_at].name, entry.name)) return error.Refused;
+                object_at += 1;
+            }
+        }
+        record.tile_shells = tile_shells.ptr;
+        record.tile_shell_count = @intCast(tile_shells.len);
+        record.tile_shell_capacity = record.tile_shell_count;
+        record.tiles = tiles.ptr;
+        record.tile_total = @intCast(tiles.len);
+        record.tile_capacity = record.tile_total;
+        record.object_shells = object_shells.ptr;
+        record.object_shell_count = @intCast(object_shells.len);
+        record.object_shell_capacity = record.object_shell_count;
+        record.objects = objects.ptr;
+        record.object_total = @intCast(objects.len);
+        record.object_capacity = record.object_total;
+        try self.noteOutcome(self.bridge.rmgWriteFieldSet(name_z, &record));
+    }
+
+    /// The terrain types of a season's tileset (0 summer .. 3 spring): names and
+    /// tile counts, the caller frees the slice. An empty slice when the tileset
+    /// will not load. Never touches the status line.
+    pub fn tilesetTypes(self: *Editor, a: std.mem.Allocator, season: usize) std.mem.Allocator.Error![]bridge_mod.RmgTerrainType {
+        var total: usize = 0;
+        _ = self.bridge.rmgTileset(@intCast(season), &.{}, &total);
+        if (total == 0) return try a.alloc(bridge_mod.RmgTerrainType, 0);
+        const out = try a.alloc(bridge_mod.RmgTerrainType, total);
+        errdefer a.free(out);
+        var got: usize = 0;
+        if (self.bridge.rmgTileset(@intCast(season), out, &got) != .ok or got != total) {
+            a.free(out);
+            return try a.alloc(bridge_mod.RmgTerrainType, 0);
+        }
+        return out;
+    }
+
+    /// Whether `name` + `extension` is in the storage stack (a profile's
+    /// ".tga", a script's ".lua", a descriptor's ".xml"). False for anything
+    /// the bridge refuses. Never touches the status line.
+    pub fn rmgFileExists(self: *Editor, name: []const u8, extension: [:0]const u8) bool {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = nameZ(&buffer, name) orelse return false;
+        var exists = false;
+        if (self.bridge.rmgFileExists(name_z, extension.ptr, &exists) != .ok) return false;
+        return exists;
+    }
+
     /// The user RMG root as the host spells it, in `buffer`.
     pub fn rmgRoot(self: *Editor, buffer: []u8) EditError![]const u8 {
         try self.noteOutcome(self.bridge.rmgRoot(buffer));

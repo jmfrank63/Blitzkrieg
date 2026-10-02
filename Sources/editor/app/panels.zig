@@ -199,7 +199,10 @@ pub const RmgProgress = struct {
 };
 
 /// Which modal a composer window has open (one at a time).
-pub const ComposerPopup = enum { none, picker, properties, delete_patches, import_copy, node_properties, link_properties, delete_node, delete_link, discard };
+pub const ComposerPopup = enum { none, picker, properties, delete_patches, import_copy, node_properties, link_properties, delete_node, delete_link, discard, shell_properties, entry_properties, delete_shells, delete_entries, template_list_properties, diplomacy, unit_grid };
+
+/// The Fields Composer's three tabs (the MFC's FIELD_TAB_TERRAIN / OBJECTS / HEIGHTS).
+pub const FieldTab = enum { terrain, objects, heights };
 
 pub const State = struct {
     allocator: std.mem.Allocator,
@@ -432,6 +435,45 @@ pub const State = struct {
     cg_settings_text: std.ArrayListUnmanaged(u8) = .empty,
     cg_settings_seen: u32 = 0,
     cg_pointer: core.rmg.Tile = .{ .x = 0, .y = 0 },
+
+    /// The Fields Composer (05-10, D-06/D-07/D-12): the window, its tab, and the
+    /// UI state of its lists - the chosen shell of each kind, the selected rows,
+    /// the objects tab's filter and the available objects it gates. None of it
+    /// is data, so none of it is undoable. `fc_tab_request` makes the tab bar
+    /// select `fc_tab` on the next frame (a command asked for it).
+    fields_composer_open: bool = false,
+    fc_tab: FieldTab = .terrain,
+    fc_tab_request: bool = false,
+    fc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    fc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    fc_popup: ComposerPopup = .none,
+    fc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    /// The chosen shell of each kind (0 terrain, 1 objects) and whether one is chosen.
+    fc_shell: [2]usize = .{ 0, 0 },
+    fc_shell_chosen: [2]bool = .{ false, false },
+    fc_filter: [64:0]u8 = [_:0]u8{0} ** 64,
+    fc_text_filter: [64:0]u8 = [_:0]u8{0} ** 64,
+    fc_avail: std.ArrayListUnmanaged(usize) = .empty,
+    fc_avail_catalogue_seen: u32 = 0,
+    fc_filters_seen: u32 = 0,
+    fc_avail_filter_seen: [64]u8 = [_]u8{0} ** 64,
+    fc_avail_text_seen: [64]u8 = [_]u8{0} ** 64,
+    fc_avail_selected: std.ArrayListUnmanaged(bool) = .empty,
+    fc_type_selected: std.ArrayListUnmanaged(bool) = .empty,
+    fc_shell_selected: [2]std.ArrayListUnmanaged(bool) = .{ .empty, .empty },
+    fc_entry_selected: [2]std.ArrayListUnmanaged(bool) = .{ .empty, .empty },
+    fc_types: std.ArrayListUnmanaged(core.bridge.RmgTerrainType) = .empty,
+    fc_types_slot: usize = 99,
+    fc_types_generation: u32 = 0,
+    /// The popups' text fields: width, step, percent / a weight.
+    fc_shell_edit: [3][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 3,
+    fc_weight_edit: [32:0]u8 = [_:0]u8{0} ** 32,
+    /// The Heights tab's fields (height, pattern min, pattern max, percent,
+    /// profile) as text, reloaded when the file or an edit moves `generation`.
+    fc_edit: [5][96:0]u8 = [_][96:0]u8{[_:0]u8{0} ** 96} ** 5,
+    fc_edit_seen: u32 = 0,
+    fc_profiles: std.ArrayListUnmanaged([]u8) = .empty,
+    fc_profiles_read: bool = false,
 
     fields_open: bool = false,
     /// The Fields panel's state (M3, D-21): the chosen field set, the
@@ -818,6 +860,14 @@ pub const State = struct {
         self.composers.deinit();
         self.cc_picker_selected.deinit(self.allocator);
         self.cg_settings_text.deinit(self.allocator);
+        self.fc_avail.deinit(self.allocator);
+        self.fc_avail_selected.deinit(self.allocator);
+        self.fc_type_selected.deinit(self.allocator);
+        for (&self.fc_shell_selected) |*list| list.deinit(self.allocator);
+        for (&self.fc_entry_selected) |*list| list.deinit(self.allocator);
+        self.fc_types.deinit(self.allocator);
+        for (self.fc_profiles.items) |name| self.allocator.free(name);
+        self.fc_profiles.deinit(self.allocator);
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
         self.allocator.free(self.sound_names);
@@ -1522,6 +1572,7 @@ pub fn draw(state: *State) void {
     panels_m3.drawFiltersComposer(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 420, .y = 380 });
     panels_m3.drawContainersComposer(state, .{ .x = state.left_width + 60, .y = body_top + 50 }, .{ .x = 880, .y = 560 });
     panels_m3.drawGraphsComposer(state, .{ .x = state.left_width + 80, .y = body_top + 70 }, .{ .x = 820, .y = 640 });
+    panels_m3.drawFieldsComposer(state, .{ .x = state.left_width + 100, .y = body_top + 90 }, .{ .x = 880, .y = 680 });
     panels_m3.drawFieldsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 80 }, .{ .x = 320, .y = 440 });
     panels_m3.drawPropertiesPanel(state, .{ .x = state.left_width + 40, .y = body_top + 100 }, .{ .x = 320, .y = 420 });
     panels_m3.drawCheckMapPanel(state, .{ .x = state.left_width + 80, .y = body_top + 140 }, .{ .x = 520, .y = 420 });
@@ -2572,6 +2623,8 @@ fn drawMenuBar(state: *State) f32 {
         // M3, D-06/D-11: the Containers and Graphs Composers (05-09).
         if (ig.igMenuItemBoolPtr("Containers Composer...", null, &state.containers_open, true)) state.composers.ensureScanned(state.editor);
         if (ig.igMenuItemBoolPtr("Graphs Composer...", null, &state.graphs_open, true)) state.composers.ensureScanned(state.editor);
+        // 05-10: the Fields Composer (the MFC's RMG_CreateFieldDialog).
+        if (ig.igMenuItemBoolPtr("Fields Composer...", null, &state.fields_composer_open, true)) state.composers.ensureScanned(state.editor);
         // M3, D-21: the Fields panel (the MFC's TabTerrainFieldsDialog).
         if (ig.igMenuItemBoolPtr("Fields...", null, &state.fields_open, true)) {}
         // M3, D-26: the Properties window (the MFC CPropertieDialog); it
@@ -3417,6 +3470,51 @@ fn drawTilePicture(state: *State, key: []const u8, width: f32, height: f32, top_
         },
         .pending, .missing => ig.ImDrawList_AddRect(draw_list, top_left, .{ .x = top_left.x + width, .y = top_left.y + height }, ig.igGetColorU32(ig.ImGuiCol_Border)),
     }
+}
+
+/// The Fields Composer's objects tab (RMG_FieldObjectsDialog.cpp
+/// FillAvailableObjects): the objects the palette offers (the catalogue's
+/// placeable ones - the MFC's CommonFilterName) whose folder the chosen filter
+/// passes, by name; nothing while no filter is chosen. `fc_avail` holds
+/// catalogue indices, rebuilt only when the catalogue, the filter or the text
+/// moved.
+pub fn refreshAvailableObjects(state: *State) void {
+    const filter_name = std.mem.sliceTo(&state.fc_filter, 0);
+    const text_filter = std.mem.sliceTo(&state.fc_text_filter, 0);
+    if (state.fc_avail_catalogue_seen == state.catalogue_generation and state.fc_avail_catalogue_seen != 0 and
+        std.mem.eql(u8, std.mem.sliceTo(&state.fc_avail_filter_seen, 0), filter_name) and
+        std.mem.eql(u8, std.mem.sliceTo(&state.fc_avail_text_seen, 0), text_filter) and state.editor.filters_generation == state.fc_filters_seen) return;
+    state.fc_avail_catalogue_seen = state.catalogue_generation;
+    state.fc_filters_seen = state.editor.filters_generation;
+    @memset(&state.fc_avail_filter_seen, 0);
+    @memcpy(state.fc_avail_filter_seen[0..filter_name.len], filter_name);
+    @memset(&state.fc_avail_text_seen, 0);
+    @memcpy(state.fc_avail_text_seen[0..text_filter.len], text_filter);
+    state.fc_avail.clearRetainingCapacity();
+    state.fc_avail_selected.clearRetainingCapacity();
+    if (filter_name.len == 0) return;
+    var view_scratch: core.bridge.FilterView = undefined;
+    var chosen: ?core.filters.Filter = null;
+    for (state.editor.filtersSlice()) |*candidate| {
+        if (std.mem.eql(u8, candidate.nameSlice(), filter_name)) {
+            chosen = candidate.view(&view_scratch);
+            break;
+        }
+    }
+    const filter = chosen orelse return;
+    for (state.catalogue, 0..) |*entry, index| {
+        if (entry.placeable == 0) continue;
+        const path = std.mem.sliceTo(&entry.path, 0);
+        if (!filter.matches(path)) continue;
+        if (text_filter.len != 0 and std.ascii.indexOfIgnoreCase(std.mem.sliceTo(&entry.name, 0), text_filter) == null) continue;
+        state.fc_avail.append(state.allocator, index) catch return;
+    }
+    const order = struct {
+        fn less(catalogue: []const CatalogueEntry, a: usize, b: usize) bool {
+            return std.mem.lessThan(u8, std.mem.sliceTo(&catalogue[a].name, 0), std.mem.sliceTo(&catalogue[b].name, 0));
+        }
+    };
+    std.mem.sort(usize, state.fc_avail.items, @as([]const CatalogueEntry, state.catalogue), order.less);
 }
 
 fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {

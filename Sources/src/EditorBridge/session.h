@@ -952,6 +952,17 @@ bool WriteRmgGraphRecord( SEditorSession *pSession, const std::string &rszName, 
 bool ReadRmgPatchInfo( SEditorSession *pSession, const std::string &rszName, BkEditorRmgPatchInfo *pInfo, bool *pbRefused );
 bool ImportRmgPatch( SEditorSession *pSession, const std::string &rszSourcePath, bool bApply, std::string *pszName, bool *pbRefused );
 
+// The Fields and Templates Composers' records (M3 05-10, session_rmg.cpp), as
+// the container and graph ones above. A template's write puts the
+// QuickLoadMapInfo entry beside the Template entry, as the MFC's
+// SaveTemplatesList did.
+bool ReadRmgFieldSetRecord( SEditorSession *pSession, const std::string &rszName, BkEditorRmgFieldSetRecord *pRecord, bool *pbRefused );
+bool WriteRmgFieldSetRecord( SEditorSession *pSession, const std::string &rszName, const BkEditorRmgFieldSetRecord &rRecord, bool *pbRefused, bool *pbBadArgument );
+// The season's tileset terrain types (names and tile counts), no map needed.
+bool ListRmgTerrainTypes( SEditorSession *pSession, int nSeason, std::vector<std::pair<std::string, int> > *pTypes );
+// Whether name + extension is in the storage stack.
+bool RmgFileExists( SEditorSession *pSession, const std::string &rszName, const std::string &rszExtension, bool *pbExists, bool *pbBadArgument );
+
 // Puts one recorded altitude region back into both copies and the engine,
 // raw (session.cpp) - SAltitudeEdit's own route, shared with the composite.
 bool PutAltitudeEditBack( SEditorSession *pSession, const NMapOverlay::SAltitudeUndo &rRegion );

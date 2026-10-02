@@ -204,6 +204,7 @@ pub const FakeRole = struct {
 /// it (a write to its name is refused with the Save-As message).
 const RmgContainerFile = struct { name: []u8, shipped: bool, value: rmg_mod.Container };
 const RmgGraphFile = struct { name: []u8, shipped: bool, value: rmg_mod.Graph };
+const RmgFieldSetFile = struct { name: []u8, shipped: bool, value: rmg_mod.FieldSet };
 const RmgPatchFile = struct { name: []u8, size_x: i32, size_y: i32, season: i32, folder: []u8, ids: []i32, areas: [][]u8 };
 
 const StartChange = struct { position: usize, before: FakeStartCommand, unit_removed: bool, erased: bool, target_cleared: bool };
@@ -610,6 +611,13 @@ pub const FakeBridge = struct {
     rmg_patches: std.ArrayListUnmanaged(RmgPatchFile) = .empty,
     rmg_root_text: []const u8 = "/fake/user/rmg",
     rmg_imports: usize = 0,
+    /// The Fields Composer's fixtures (05-10): the field sets the storages
+    /// hold, how many terrain types each season's tileset has (a season set to
+    /// 0 is a tileset that will not load) and the files `rmgFileExists` knows
+    /// (lower case, backslashes, the extension kept).
+    rmg_fieldsets: std.ArrayListUnmanaged(RmgFieldSetFile) = .empty,
+    tileset_counts: [4]usize = .{ 12, 12, 12, 12 },
+    known_files: []const []const u8 = &.{"scenarios\\profiles\\profile.tga"},
 
     pub fn init(allocator: std.mem.Allocator, width_tiles: i32, height_tiles: i32, players: i32) FakeBridge {
         return .{
@@ -645,6 +653,11 @@ pub const FakeBridge = struct {
             file.value.deinit(self.allocator);
         }
         self.rmg_graphs.deinit(self.allocator);
+        for (self.rmg_fieldsets.items) |*file| {
+            self.allocator.free(file.name);
+            file.value.deinit(self.allocator);
+        }
+        self.rmg_fieldsets.deinit(self.allocator);
         for (self.rmg_patches.items) |file| {
             self.allocator.free(file.name);
             self.allocator.free(file.folder);
@@ -1299,6 +1312,10 @@ pub const FakeBridge = struct {
         .rmgPatchInfo = rmgPatchInfo,
         .rmgImportPatch = rmgImportPatch,
         .rmgRoot = rmgRoot,
+        .rmgReadFieldSet = rmgReadFieldSet,
+        .rmgWriteFieldSet = rmgWriteFieldSet,
+        .rmgTileset = rmgTileset,
+        .rmgFileExists = rmgFileExists,
         .addPlayer = addPlayer,
         .deletePlayer = deletePlayer,
         .unitCreationChoices = unitCreationChoices,
@@ -4656,6 +4673,226 @@ pub const FakeBridge = struct {
         return .ok;
     }
 
+    pub fn addFieldSetFixture(self: *FakeBridge, name: []const u8, shipped: bool, value: rmg_mod.FieldSet) !void {
+        const owned = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned);
+        try self.rmg_fieldsets.append(self.allocator, .{ .name = owned, .shipped = shipped, .value = value });
+    }
+
+    fn rmgReadFieldSet(ptr: *anyopaque, name: [*:0]const u8, rec: *bridge_mod.RmgFieldSetRecord) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        rec.tile_shell_count = 0;
+        rec.tile_total = 0;
+        rec.object_shell_count = 0;
+        rec.object_total = 0;
+        var buffer: [192]u8 = undefined;
+        const wanted = rmgName(&buffer, std.mem.span(name));
+        if (!rmgNameIsPlain(wanted, "scenarios\\fieldsets\\")) {
+            self.say("\"{s}\" is not a name under scenarios\\fieldsets\\", .{std.mem.span(name)});
+            return .refused;
+        }
+        for (self.rmg_fieldsets.items) |file| {
+            if (!std.mem.eql(u8, file.name, wanted)) continue;
+            const f = &file.value;
+            rec.season = f.season;
+            putText(&rec.season_folder, f.season_folder);
+            putText(&rec.profile, f.profile);
+            rec.height = f.height;
+            rec.pattern_min = f.pattern_min;
+            rec.pattern_max = f.pattern_max;
+            rec.positive_ratio = f.positive_ratio;
+            rec.tile_shell_count = @intCast(f.tile_shells.items.len);
+            rec.object_shell_count = @intCast(f.object_shells.items.len);
+            rec.tile_total = @intCast(f.tileEntryCount());
+            rec.object_total = @intCast(f.objectEntryCount());
+            var short = false;
+            if (f.tile_shells.items.len <= @as(usize, @intCast(@max(rec.tile_shell_capacity, 0)))) {
+                if (rec.tile_shells) |dst| for (f.tile_shells.items, 0..) |shell, i| {
+                    dst[i] = .{ .width = shell.width, .tile_count = @intCast(shell.tiles.items.len) };
+                };
+            } else short = true;
+            if (f.object_shells.items.len <= @as(usize, @intCast(@max(rec.object_shell_capacity, 0)))) {
+                if (rec.object_shells) |dst| for (f.object_shells.items, 0..) |shell, i| {
+                    dst[i] = .{ .width = shell.width, .step = shell.step, .ratio = shell.ratio, .object_count = @intCast(shell.objects.items.len) };
+                };
+            } else short = true;
+            if (f.tileEntryCount() <= @as(usize, @intCast(@max(rec.tile_capacity, 0)))) {
+                if (rec.tiles) |dst| {
+                    var at: usize = 0;
+                    for (f.tile_shells.items) |shell| for (shell.tiles.items) |entry| {
+                        dst[at] = .{ .tile = entry.tile, .weight = entry.weight };
+                        at += 1;
+                    };
+                }
+            } else short = true;
+            if (f.objectEntryCount() <= @as(usize, @intCast(@max(rec.object_capacity, 0)))) {
+                if (rec.objects) |dst| {
+                    var at: usize = 0;
+                    for (f.object_shells.items) |shell| for (shell.objects.items) |entry| {
+                        dst[at] = .{ .weight = entry.weight };
+                        putText(&dst[at].name, entry.name);
+                        at += 1;
+                    };
+                }
+            } else short = true;
+            if (short) {
+                self.say("the record's arrays are short: the counts are the totals", .{});
+                return .refused;
+            }
+            return .ok;
+        }
+        self.say("field set \"{s}\" is not in the data or does not load as a field set", .{wanted});
+        return .refused;
+    }
+
+    fn fieldSetFromRecord(self: *FakeBridge, rec: *const bridge_mod.RmgFieldSetRecord) !rmg_mod.FieldSet {
+        const a = self.allocator;
+        var out: rmg_mod.FieldSet = .{ .season = rec.season, .height = rec.height, .pattern_min = rec.pattern_min, .pattern_max = rec.pattern_max, .positive_ratio = rec.positive_ratio };
+        errdefer out.deinit(a);
+        out.season_folder = try a.dupe(u8, std.mem.sliceTo(&rec.season_folder, 0));
+        out.profile = try a.dupe(u8, std.mem.sliceTo(&rec.profile, 0));
+        var tile_at: usize = 0;
+        const shells: usize = @intCast(@max(rec.tile_shell_count, 0));
+        if (rec.tile_shells) |src| for (src[0..shells]) |shell| {
+            var made: rmg_mod.TileShell = .{ .width = shell.width };
+            errdefer made.deinit(a);
+            const count: usize = @intCast(@max(shell.tile_count, 0));
+            if (rec.tiles) |tiles| for (tiles[tile_at .. tile_at + count]) |entry| try made.tiles.append(a, .{ .tile = entry.tile, .weight = entry.weight });
+            tile_at += count;
+            try out.tile_shells.append(a, made);
+        };
+        var object_at: usize = 0;
+        const object_shells: usize = @intCast(@max(rec.object_shell_count, 0));
+        if (rec.object_shells) |src| for (src[0..object_shells]) |shell| {
+            var made: rmg_mod.ObjectShell = .{ .width = shell.width, .step = shell.step, .ratio = shell.ratio };
+            errdefer made.deinit(a);
+            const count: usize = @intCast(@max(shell.object_count, 0));
+            if (rec.objects) |object_src| for (object_src[object_at .. object_at + count]) |entry| {
+                const copy = try a.dupe(u8, std.mem.sliceTo(&entry.name, 0));
+                errdefer a.free(copy);
+                try made.objects.append(a, .{ .name = copy, .weight = entry.weight });
+            };
+            object_at += count;
+            try out.object_shells.append(a, made);
+        };
+        return out;
+    }
+
+    fn rmgWriteFieldSet(ptr: *anyopaque, name: [*:0]const u8, rec: *const bridge_mod.RmgFieldSetRecord) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        var buffer: [192]u8 = undefined;
+        const wanted = rmgName(&buffer, std.mem.span(name));
+        if (!rmgNameIsPlain(wanted, "scenarios\\fieldsets\\")) {
+            self.say("\"{s}\" is not a name under scenarios\\fieldsets\\", .{std.mem.span(name)});
+            return .bad_argument;
+        }
+        if (rec.tile_shell_count < 0 or rec.tile_shell_count > bridge_mod.rmg_max_shells or rec.object_shell_count < 0 or rec.object_shell_count > bridge_mod.rmg_max_shells or
+            rec.tile_total < 0 or rec.tile_total > bridge_mod.rmg_max_shell_entries or rec.object_total < 0 or rec.object_total > bridge_mod.rmg_max_shell_entries)
+        {
+            self.say("a field set holds at most {d} shells of each kind and {d} entries of each", .{ bridge_mod.rmg_max_shells, bridge_mod.rmg_max_shell_entries });
+            return .refused;
+        }
+        if (rec.season < 0 or rec.season > 3) {
+            self.say("season {d} is outside 0..3", .{rec.season});
+            return .refused;
+        }
+        if (!std.math.isFinite(rec.height) or rec.height < 0 or !std.math.isFinite(rec.positive_ratio) or rec.positive_ratio < 0) {
+            self.say("the height and the positive ratio must be finite and not negative", .{});
+            return .refused;
+        }
+        var tiles_seen: usize = 0;
+        if (rec.tile_shells) |shells| for (shells[0..@intCast(rec.tile_shell_count)], 0..) |shell, i| {
+            if (shell.tile_count < 0 or @as(usize, @intCast(shell.tile_count)) > @as(usize, @intCast(rec.tile_total)) - tiles_seen or !std.math.isFinite(shell.width) or shell.width < 0) {
+                self.say("tile shell {d}: its entry count does not fit the tiles given, or its width is negative or not finite", .{i});
+                return .refused;
+            }
+            tiles_seen += @intCast(shell.tile_count);
+        };
+        var objects_seen: usize = 0;
+        if (rec.object_shells) |shells| for (shells[0..@intCast(rec.object_shell_count)], 0..) |shell, i| {
+            if (shell.object_count < 0 or @as(usize, @intCast(shell.object_count)) > @as(usize, @intCast(rec.object_total)) - objects_seen or !std.math.isFinite(shell.width) or shell.width < 0 or !std.math.isFinite(shell.ratio) or shell.ratio < 0) {
+                self.say("object shell {d}: its entry count does not fit the objects given, or its width or ratio is negative or not finite", .{i});
+                return .refused;
+            }
+            objects_seen += @intCast(shell.object_count);
+        };
+        if (tiles_seen != @as(usize, @intCast(rec.tile_total)) or objects_seen != @as(usize, @intCast(rec.object_total))) {
+            self.say("the shells' entry counts do not add up to the tiles or objects given", .{});
+            return .refused;
+        }
+        if (rec.tiles) |tiles| for (tiles[0..@intCast(rec.tile_total)]) |entry| {
+            if (entry.tile < 0 or entry.weight < 0) {
+                self.say("a tile or weight below 0", .{});
+                return .refused;
+            }
+        };
+        if (rec.objects) |object_src| for (object_src[0..@intCast(rec.object_total)]) |entry| {
+            if (entry.weight < 0) {
+                self.say("a weight below 0", .{});
+                return .refused;
+            }
+        };
+        for (self.rmg_fieldsets.items) |*file| {
+            if (!std.mem.eql(u8, file.name, wanted)) continue;
+            if (file.shipped) {
+                self.say("\"{s}\" is shipped data and read-only: Save As a new name", .{wanted});
+                return .refused;
+            }
+            const made = self.fieldSetFromRecord(rec) catch return .failed;
+            file.value.deinit(self.allocator);
+            file.value = made;
+            return .ok;
+        }
+        var made = self.fieldSetFromRecord(rec) catch return .failed;
+        self.addFieldSetFixture(wanted, false, made) catch {
+            made.deinit(self.allocator);
+            return .failed;
+        };
+        return .ok;
+    }
+
+    fn rmgTileset(ptr: *anyopaque, season: i32, out: []bridge_mod.RmgTerrainType, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        total.* = 0;
+        if (season < 0 or season > 3) return .bad_argument;
+        const count = self.tileset_counts[@intCast(season)];
+        if (count == 0) {
+            self.say("the tileset of season {d} does not load", .{season});
+            return .refused;
+        }
+        total.* = count;
+        if (out.len < count) return .refused;
+        for (0..count) |i| {
+            out[i] = .{ .variant_count = 4 };
+            var label: [32]u8 = undefined;
+            const text = std.fmt.bufPrint(&label, "terrain{d}", .{i}) catch "terrain";
+            putText(&out[i].name, text);
+        }
+        return .ok;
+    }
+
+    fn rmgFileExists(ptr: *anyopaque, name: [*:0]const u8, extension: [*:0]const u8, exists: *bool) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        exists.* = false;
+        const wanted_name = std.mem.span(name);
+        if (wanted_name.len == 0 or std.mem.indexOf(u8, wanted_name, "..") != null or std.mem.indexOfScalar(u8, wanted_name, ':') != null) return .bad_argument;
+        var buffer: [256]u8 = undefined;
+        const trimmed = std.mem.trimStart(u8, wanted_name, "\\/");
+        const joined = std.fmt.bufPrint(&buffer, "{s}{s}", .{ trimmed, std.mem.span(extension) }) catch return .bad_argument;
+        for (joined) |*byte| byte.* = if (byte.* == '/') '\\' else std.ascii.toLower(byte.*);
+        for (self.known_files) |known| {
+            if (std.mem.eql(u8, known, joined)) {
+                exists.* = true;
+                break;
+            }
+        }
+        return .ok;
+    }
+
     fn rmgPatchInfo(ptr: *anyopaque, name: [*:0]const u8, info: *bridge_mod.RmgPatchInfo) Status {
         const self = from(ptr);
         self.message_len = 0;
@@ -4753,6 +4990,18 @@ pub const FakeBridge = struct {
                 var entry = bridge_mod.RmgName{};
                 const len = @min(name.len, entry.name.len - 1);
                 @memcpy(entry.name[0..len], name[0..len]);
+                out[i] = entry;
+            }
+            return .ok;
+        }
+        if (kind == .field_sets and self.rmg_fieldsets.items.len != 0) {
+            // The Fields Composer's stored files, shipped and user alike.
+            total.* = self.rmg_fieldsets.items.len;
+            if (out.len < total.*) return .refused;
+            for (self.rmg_fieldsets.items, 0..) |file, i| {
+                var entry = bridge_mod.RmgName{};
+                const len = @min(file.name.len, entry.name.len - 1);
+                @memcpy(entry.name[0..len], file.name[0..len]);
                 out[i] = entry;
             }
             return .ok;

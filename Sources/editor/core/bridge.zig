@@ -340,6 +340,51 @@ pub const RmgPatchInfo = extern struct {
     scripts: RmgScripts = .{},
 };
 
+/// BkEditorRmgWeightedName / WeightedTile / TileShell / ObjectShell /
+/// FieldSetRecord (05-10): SRMFieldSet through the engine's own serialiser.
+/// The shells' entries are two flat arrays in shell order (a shell's
+/// `tile_count` / `object_count` says how many are its own); every count is the
+/// TOTAL and a short array is filled as far as it fits (two-pass, like the
+/// container record).
+pub const RmgWeightedName = extern struct {
+    name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    weight: c_int = 0,
+};
+pub const RmgWeightedTile = extern struct { tile: c_int = 0, weight: c_int = 0 };
+pub const RmgTileShell = extern struct { width: f32 = 0, tile_count: c_int = 0 };
+pub const RmgObjectShell = extern struct { width: f32 = 0, step: c_int = 0, ratio: f32 = 0, object_count: c_int = 0 };
+pub const RmgFieldSetRecord = extern struct {
+    season: c_int = 0,
+    season_folder: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    profile: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    height: f32 = 0,
+    pattern_min: c_int = 0,
+    pattern_max: c_int = 0,
+    positive_ratio: f32 = 0,
+    tile_shells: ?[*]RmgTileShell = null,
+    tile_shell_capacity: c_int = 0,
+    tile_shell_count: c_int = 0,
+    tiles: ?[*]RmgWeightedTile = null,
+    tile_capacity: c_int = 0,
+    tile_total: c_int = 0,
+    object_shells: ?[*]RmgObjectShell = null,
+    object_shell_capacity: c_int = 0,
+    object_shell_count: c_int = 0,
+    objects: ?[*]RmgWeightedName = null,
+    object_capacity: c_int = 0,
+    object_total: c_int = 0,
+};
+
+/// BkEditorRmgTerrainType: one terrain type of a season's tileset.
+pub const RmgTerrainType = extern struct {
+    name: [64]u8 = [_]u8{0} ** 64,
+    variant_count: c_int = 0,
+
+    pub fn nameSlice(self: *const RmgTerrainType) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+};
+
 /// Text into a NUL-terminated C field, zero-filled; false (nothing written)
 /// when it does not fit with its terminator - never truncated.
 pub fn putName(field: []u8, text: []const u8) bool {
@@ -355,6 +400,12 @@ pub const rmg_max_nodes = 256;
 pub const rmg_max_links = 1024;
 pub const rmg_max_script_ids = 4096;
 pub const rmg_max_script_areas = 512;
+/// The field set write's bounds (bridge.h BK_EDITOR_RMG_MAX_SHELLS and kin).
+pub const rmg_max_shells = 256;
+pub const rmg_max_shell_entries = 16384;
+pub const rmg_max_weighted = 1024;
+pub const rmg_max_players = 17;
+pub const rmg_max_units = 16;
 
 /// BkEditorRmgGenerateParams (05-08, D-01), layout included: one Create
 /// Random Map. The names are storage-relative as `listRmg` answers them
@@ -1062,6 +1113,16 @@ pub const Bridge = struct {
         /// BkEditorRmgRoot: the user RMG root as the host spells it, written
         /// into `out` (NUL-terminated).
         rmgRoot: *const fn (ptr: *anyopaque, out: []u8) Status,
+        /// BkEditorRmgReadFieldSet / BkEditorRmgWriteFieldSet (05-10, D-06/D-07):
+        /// SRMFieldSet through the engine's serialiser, like the containers'.
+        rmgReadFieldSet: *const fn (ptr: *anyopaque, name: [*:0]const u8, record: *RmgFieldSetRecord) Status,
+        rmgWriteFieldSet: *const fn (ptr: *anyopaque, name: [*:0]const u8, record: *const RmgFieldSetRecord) Status,
+        /// BkEditorRmgTileset: the terrain types of a season's tileset (0 summer
+        /// .. 3 spring), no map needed. Two-pass like `listRmg`.
+        rmgTileset: *const fn (ptr: *anyopaque, season: i32, out: []RmgTerrainType, total: *usize) Status,
+        /// BkEditorRmgFileExists: whether `name` + `extension` is in the storage
+        /// stack (a profile's .tga, a script's .lua, a descriptor's .xml).
+        rmgFileExists: *const fn (ptr: *anyopaque, name: [*:0]const u8, extension: [*:0]const u8, exists: *bool) Status,
         /// BkEditorAddPlayer (05-05, D-30): a player of `side` (0 or 1) before
         /// the neutral entry, ONE bridge-logged edit (`token`, -1 after a
         /// refusal). The diplomacies, unit creation, camera anchors and every
@@ -1204,6 +1265,10 @@ pub const Bridge = struct {
     pub fn rmgPatchInfo(self: Bridge, name: [*:0]const u8, info: *RmgPatchInfo) Status { return self.vtable.rmgPatchInfo(self.ptr, name, info); }
     pub fn rmgImportPatch(self: Bridge, source: [*:0]const u8, apply: bool, out: *RmgName) Status { return self.vtable.rmgImportPatch(self.ptr, source, apply, out); }
     pub fn rmgRoot(self: Bridge, out: []u8) Status { return self.vtable.rmgRoot(self.ptr, out); }
+    pub fn rmgReadFieldSet(self: Bridge, name: [*:0]const u8, record: *RmgFieldSetRecord) Status { return self.vtable.rmgReadFieldSet(self.ptr, name, record); }
+    pub fn rmgWriteFieldSet(self: Bridge, name: [*:0]const u8, record: *const RmgFieldSetRecord) Status { return self.vtable.rmgWriteFieldSet(self.ptr, name, record); }
+    pub fn rmgTileset(self: Bridge, season: i32, out: []RmgTerrainType, total: *usize) Status { return self.vtable.rmgTileset(self.ptr, season, out, total); }
+    pub fn rmgFileExists(self: Bridge, name: [*:0]const u8, extension: [*:0]const u8, exists: *bool) Status { return self.vtable.rmgFileExists(self.ptr, name, extension, exists); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 

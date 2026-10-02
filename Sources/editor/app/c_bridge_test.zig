@@ -996,6 +996,75 @@ test "the core drives the real bridge: every command, undone and redone" {
         std.debug.print("map-editor-engine: M3 rmg composer reads round trip ok\n", .{});
     }
 
+    // M3 (05-10, D-06/D-07/D-12): the Fields Composer's records on the real
+    // engine. Every shipped field set reads in two passes into the core's owned
+    // type, equals itself after a clone, and the Check! rules - the tileset's
+    // terrain types, the profile in the storages, the objects of the catalogue -
+    // run through the real bridge. A crafted set with a tile past the tileset
+    // and an object nobody knows is found, and Fix all removes exactly those.
+    {
+        var total: usize = 0;
+        _ = editor.bridge.listRmg(.field_sets, &.{}, &total);
+        try std.testing.expect(total >= 20);
+        const names = try std.testing.allocator.alloc(core.bridge.RmgName, total);
+        defer std.testing.allocator.free(names);
+        var got: usize = 0;
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.listRmg(.field_sets, names, &got));
+        // The object catalogue the app's State holds, as the Check! asks it.
+        const known = struct {
+            fn has(ctx: *anyopaque, name: []const u8) bool {
+                const entries: *const []c.BkEditorCatalogueEntry = @ptrCast(@alignCast(ctx));
+                for (entries.*) |*cat_item| if (std.mem.eql(u8, std.mem.sliceTo(&cat_item.name, 0), name)) return true;
+                return false;
+            }
+        };
+        var catalogue_view: []c.BkEditorCatalogueEntry = catalogue;
+        var composers = core.composers.Composers.init(std.testing.allocator);
+        defer composers.deinit();
+        composers.object_lookup = .{ .ctx = @ptrCast(&catalogue_view), .has_fn = known.has };
+        var shells: usize = 0;
+        var errors: usize = 0;
+        for (names[0..got]) |listed_name| {
+            try composers.openField(&editor, listed_name.nameSlice());
+            shells += composers.fdoc.current.tile_shells.items.len + composers.fdoc.current.object_shells.items.len;
+            var copy = try composers.fdoc.current.clone(std.testing.allocator);
+            defer copy.deinit(std.testing.allocator);
+            try std.testing.expect(copy.eql(&composers.fdoc.current));
+            _ = try composers.checkField(&editor);
+            const report = &composers.field_report.?;
+            errors += report.errorCount();
+            for (report.findings.items) |finding| std.debug.print("map-editor-engine: field set {s}: {s}\n", .{ listed_name.nameSlice(), finding.text });
+        }
+        std.debug.print("map-editor-engine: {d} shipped field sets read ({d} shells), Check! found {d} errors\n", .{ got, shells, errors });
+        try std.testing.expect(shells > got);
+        try std.testing.expectEqual(@as(usize, 0), errors);
+        // The terrain types of the four seasons come through the ABI, and the profile probe agrees.
+        for (0..4) |season| {
+            const types = try editor.tilesetTypes(std.testing.allocator, season);
+            defer std.testing.allocator.free(types);
+            try std.testing.expect(types.len > 5);
+        }
+        try std.testing.expect(editor.rmgFileExists("scenarios\\profiles\\profile", ".tga"));
+        try std.testing.expect(editor.rmgFileExists("\\Scenarios\\Profiles\\Profile", ".tga"));
+        try std.testing.expect(!editor.rmgFileExists("scenarios\\profiles\\nothing_here", ".tga"));
+        // A crafted set: one tile past the tileset, one object nobody knows.
+        try composers.openField(&editor, names[0].nameSlice());
+        const field = try composers.fdoc.begin();
+        const shell = try field.addTileShell(std.testing.allocator);
+        try std.testing.expect(try field.addTile(std.testing.allocator, shell, 3));
+        try std.testing.expect(try field.addTile(std.testing.allocator, shell, 4000));
+        const oshell = try field.addObjectShell(std.testing.allocator);
+        try std.testing.expect(try field.addObject(std.testing.allocator, oshell, "NoSuchObjectAnywhere"));
+        _ = try composers.checkField(&editor);
+        try std.testing.expectEqual(@as(usize, 2), composers.field_report.?.errorCount());
+        try std.testing.expectEqual(@as(usize, 2), try composers.fixFieldAll(&editor));
+        try std.testing.expectEqual(@as(usize, 0), composers.field_report.?.errorCount());
+        try std.testing.expectError(error.Refused, editor.writeFieldSet(names[0].nameSlice(), &composers.fdoc.current));
+        try std.testing.expect(std.mem.indexOf(u8, editor.status(), "Save As") != null);
+        try std.testing.expect(!editor.dirty());
+        std.debug.print("map-editor-engine: M3 rmg field sets round trip ok\n", .{});
+    }
+
     // M3 (05-06, D-32): the Layers menu on the real engine, through the core
     // that remembers it. Three layers are toggled, the map is opened again, and
     // the renderer - read back from the bridge, not the editor's memory - is
