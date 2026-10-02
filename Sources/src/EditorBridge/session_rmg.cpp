@@ -109,15 +109,15 @@ namespace
 // the MFC's CCreateRandomMapProgress is its model. The callback only stores a
 // counter or pumps the platform; it must never call back into the bridge (the
 // overlay rule: the generator holds the engine's singletons while it runs).
-class CBkProgressHook : public IProgressHook
+class SBkProgressHook : public IProgressHook
 {
-	OBJECT_COMPLETE_METHODS( CBkProgressHook );
+	OBJECT_COMPLETE_METHODS( SBkProgressHook );
 	void (*pfnReport)( int nStep, int nTotal, void *pUser );
 	void *pUser;
 	int nTotal;
 	int nPos;
 public:
-	CBkProgressHook() : pfnReport( 0 ), pUser( 0 ), nTotal( RMGC_CREATE_RANDOM_MAP_STEP_COUNT ), nPos( 0 ) {  }
+	SBkProgressHook() : pfnReport( 0 ), pUser( 0 ), nTotal( RMGC_CREATE_RANDOM_MAP_STEP_COUNT ), nPos( 0 ) {  }
 	void Init( void (*_pfnReport)( int, int, void * ), void *_pUser )
 	{
 		pfnReport = _pfnReport;
@@ -382,7 +382,7 @@ bool CreateRandomMapInSession( SEditorSession *pSession, const SRMGenerateParams
 	// The briefing picture beside the map ("<name>_large"): the MFC left it at
 	// the working directory; here everything of one generation sits together.
 	missionStats.szMapImage = "maps\\" + rParams.szMapName + "_large";
-	CPtr<CBkProgressHook> pHook = new CBkProgressHook();
+	CPtr<SBkProgressHook> pHook = new SBkProgressHook();
 	pHook->Init( rParams.pfnProgress, rParams.pUser );
 	SRMUsedTemplateInfo used;
 	if ( !CMapInfo::CreateRandomMap( &missionStats, szContext, rParams.nLevel, rParams.nGraph, rParams.nAngle, rParams.bSaveAsBZM, rParams.bWriteDDS, &used, pHook, szRoot ) )

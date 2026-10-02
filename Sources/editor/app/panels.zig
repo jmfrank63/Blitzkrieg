@@ -1490,7 +1490,7 @@ pub fn draw(state: *State) void {
     drawSettingsWindow(state);
     drawNewMapDialog(state);
     pollRmgBrowse(state);
-    panels_m3.drawRmgDialog(state);
+    panels_m3.drawRandomMapDialog(state);
     panels_m3.drawRmgProgress(state);
     drawRecoveryPrompt(state);
     drawTerrainModals(state);
