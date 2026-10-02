@@ -180,8 +180,8 @@ pub const ScriptCopyPending = struct {
     }
 };
 
-/// Create Random Map's phases (05-08): idle, the modal announced at 0 of 19,
-/// the generator running (one frozen frame), and the result shown.
+/// Create Random Map's phases (05-08): idle, the modal announced at 0 of 19
+/// (two frames), the generator running (one frozen frame), and the result shown.
 pub const RmgPhase = enum { idle, announce, run, done };
 
 /// What the generator's progress callback counts (the callback only stores).
@@ -275,7 +275,7 @@ pub const State = struct {
     /// edit buffers ImGui writes in place, the combos' lists (read when the
     /// dialog opens), and the generation's own small state machine. The
     /// generation is synchronous on the main thread (D-03): OK shows the
-    /// progress modal at 0 of 19 for one frame (`announce`), the next frame runs
+    /// progress modal at 0 of 19 for two frames (`announce`), the next frame runs
     /// the generator with the window frozen (`run`, the Update Map model: the
     /// bridge's callback only counts), and the result modal follows (`done`).
     rmg_open: bool = false,
@@ -289,6 +289,10 @@ pub const State = struct {
     rmg_graph_count: i32 = -1,
     rmg_phase: RmgPhase = .idle,
     rmg_popup_opened: bool = false,
+    /// Frames the announced modal still has to be drawn before the generator runs:
+    /// an auto-resizing window is hidden for its first frame, so the person sees it
+    /// from the second.
+    rmg_announce_left: u8 = 0,
     rmg_params: core.bridge.RmgGenerateParams = .{},
     rmg_progress: RmgProgress = .{},
     rmg_result: core.bridge.RmgGenerateResult = .{},
@@ -2858,6 +2862,41 @@ pub fn openRmgDialog(state: *State) void {
     refreshRmgGraphCount(state);
     state.rmg_message_len = 0;
     state.rmg_open = true;
+}
+
+/// The dialog's OK (and `rmg_dialog:ok`): the fields become the bridge's
+/// params and the progress modal takes over (`announce`, then `run`, then
+/// `done` - drawRmgProgress). False, with the dialog kept and its note saying
+/// why, when the fields are not enough or the seed is not a number.
+pub fn startRmgGeneration(state: *State) bool {
+    const fields = &state.rmg_fields;
+    if (state.rmg_phase != .idle) return false;
+    var note: []const u8 = "";
+    if (!fields.okEnabled()) {
+        note = "a template, a context and a map name are needed";
+    } else if (fields.toParams()) |params| {
+        state.rmg_params = params;
+        state.rmg_progress = .{};
+        state.rmg_message_len = 0;
+        state.rmg_open = false;
+        state.rmg_announce_left = 2;
+        state.rmg_phase = .announce;
+        return true;
+    } else {
+        note = "the seed is a whole number, or blank for a fresh one";
+    }
+    @memcpy(state.rmg_message[0..note.len], note);
+    state.rmg_message_len = note.len;
+    return false;
+}
+
+/// The result modal's Open map (and `rmg_dialog:open_map`): the generated file
+/// opens as a normal document through the open path (D-02), guarded by the
+/// unsaved-changes prompt like any Open.
+pub fn openGeneratedRmgMap(state: *State) void {
+    state.actions.requestOpenPath(state.rmg_result.mapPathSlice());
+    state.rmg_phase = .idle;
+    state.rmg_popup_opened = false;
 }
 
 /// The dialog's text edit buffers (the map name and the seed) loaded from the

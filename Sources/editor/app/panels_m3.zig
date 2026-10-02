@@ -1155,23 +1155,11 @@ pub fn drawRmgDialog(state: *State) void {
     ig.igSameLine();
     const cancel = ig.igButton("Cancel");
     if (cancel) state.rmg_open = false;
-    if (ok) {
-        const params = fields.toParams() orelse {
-            const note = "the seed is a whole number, or blank for a fresh one";
-            @memcpy(state.rmg_message[0..note.len], note);
-            state.rmg_message_len = note.len;
-            return;
-        };
-        state.rmg_params = params;
-        state.rmg_progress = .{};
-        state.rmg_message_len = 0;
-        state.rmg_open = false;
-        state.rmg_phase = .announce;
-    }
+    if (ok) _ = panels.startRmgGeneration(state);
 }
 
 /// The generation's modal (D-03): announced at 0 of the generator's 19 steps
-/// for one frame so the window shows it, then the generator runs on the main
+/// for two frames (a new auto-sized window is hidden for its first) so the window shows it, then the generator runs on the main
 /// thread with the window frozen - the callback only counts, and there is
 /// no cancel (the MFC editor has none) - then the result: the seed to ask
 /// for the same map again, with Open map (the generated file as a normal
@@ -1181,6 +1169,7 @@ pub fn drawRmgProgress(state: *State) void {
     // The frame before showed the modal at 0 of 19; this call blocks. A
     // refusal closes the modal below and reopens the dialog with the reason.
     var refused = false;
+    if (state.rmg_phase == .announce and state.rmg_announce_left == 0) state.rmg_phase = .run;
     if (state.rmg_phase == .run) {
         if (commands.rmgRun(state, state.rmg_params) == .ok) {
             state.rmg_phase = .done;
@@ -1212,20 +1201,24 @@ pub fn drawRmgProgress(state: *State) void {
     switch (state.rmg_phase) {
         .announce => {
             panels.text("Creating the random map - the window waits until it is done.");
-            state.rmg_phase = .run;
+            if (state.rmg_announce_left > 0) state.rmg_announce_left -= 1;
         },
         .run, .idle => {},
         .done => {
-            var line: [256]u8 = undefined;
-            panels.text(logic.rmgResultLine(&line, state.rmg_made_name.slice(), &state.rmg_result));
-            var seed_line: [64]u8 = undefined;
-            panels.text(std.fmt.bufPrint(&seed_line, "Seed used: {d}", .{state.rmg_result.seed}) catch "");
-            panels.text(state.rmg_result.mapPathSlice());
+            // Wrapped: a map's path can be longer than the window is wide.
+            ig.igPushTextWrapPos(520);
+            var raw: [256]u8 = undefined;
+            var line: [256:0]u8 = undefined;
+            const said = std.fmt.bufPrintZ(&line, "{s}", .{logic.rmgResultLine(&raw, state.rmg_made_name.slice(), &state.rmg_result)}) catch "";
+            ig.igTextWrapped("%s", said.ptr);
+            ig.igText("Seed used: %u", @as(c_uint, state.rmg_result.seed));
+            var path_z: [1100:0]u8 = undefined;
+            const shown_path = std.fmt.bufPrintZ(&path_z, "{s}", .{state.rmg_result.mapPathSlice()}) catch "";
+            ig.igTextWrapped("%s", shown_path.ptr);
+            ig.igPopTextWrapPos();
             ig.igSpacing();
             if (ig.igButton("Open map")) {
-                state.actions.requestOpenPath(state.rmg_result.mapPathSlice());
-                state.rmg_phase = .idle;
-                state.rmg_popup_opened = false;
+                panels.openGeneratedRmgMap(state);
                 ig.igCloseCurrentPopup();
             }
             ig.igSameLine();
