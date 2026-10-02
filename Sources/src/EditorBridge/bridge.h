@@ -805,11 +805,17 @@ BkEditorStatus BkEditorObjectAt( BkEditorSession *session, float sx, float sy, i
 
 /* The rubber band's pick (M3, D-25): the link IDs of every object the
    screen rectangle (window pixels, any two opposite corners, normalized
-   here) selects - the scene's own rectangle pick, then the same rules
-   BkEditorObjectAt picks by: a soldier answers his squad's link ID (so a
-   band over one soldier selects the whole squad), bridges and entrenchments
-   answer nothing (M2 edits them as wholes), objects held back by Hide
-   checked are not there, and duplicates are answered once. Two-pass, like
+   here) selects - the scene's own rectangle pick, the MFC rubber band's own
+   rule, which takes an object only when the CENTRE of its picture (a
+   sprite's picture box, a mesh's bounding-sphere centre) lies inside the
+   rectangle; a picture that merely meets it, as BkEditorObjectAt's point
+   pick would take, is not selected. The picks' filters are ObjectAt's: a
+   soldier answers his squad's link ID (so a band over one soldier selects
+   the whole squad), bridges and entrenchments answer nothing (M2 edits them
+   as wholes), objects held back by Hide checked are not there, and
+   duplicates are answered once. The window's gameplay scale (a larger
+   window, a zoom step) is undone around each picture as the point pick
+   undoes it, so the band answers the same at any window size. Two-pass, like
    BkEditorObjects: *out_count is always the total, and a buffer too short
    is BK_EDITOR_REFUSED with nothing written past capacity. The order is the
    pick's own, which the Selector's cycle walks. */

@@ -80,7 +80,18 @@ bool CSpriteVisObj::IsHit( const SHMatrix &matTransform, const RECT &rect )
 {
 	CVec3 relpos;
 	matTransform.RotateHVector( &relpos, GetPos() );
-	return pAnim->IsHit( relpos, rect );
+	// The picture is drawn scaled about relpos by the gameplay scale (a larger
+	// window, a zoom step), so the rectangle is brought back into the
+	// picture's own unscaled frame around the same point - the correction the
+	// point pick above applies to its point. Unscaling is a positive scale
+	// about one point, so the corners keep their order and "the picture's
+	// centre inside the rectangle" answers the same as on screen.
+	float fLeft = float( rect.left ), fTop = float( rect.top );
+	float fRight = float( rect.right ), fBottom = float( rect.bottom );
+	const CTRect<float> rcScreen = GetSingleton<IGFX>()->GetScreenRect();
+	NSceneScreenScale::UnscaleGameplaySpritePoint( &fLeft, &fTop, relpos, rcScreen );
+	NSceneScreenScale::UnscaleGameplaySpritePoint( &fRight, &fBottom, relpos, rcScreen );
+	return pAnim->IsHit( relpos, CTRect<float>( fLeft, fTop, fRight, fBottom ) );
 }
 bool CSpriteVisObj::Draw( IGFX *pGFX )
 {
