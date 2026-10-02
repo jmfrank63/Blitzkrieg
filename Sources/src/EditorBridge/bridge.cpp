@@ -75,6 +75,10 @@ struct BkEditorSession : public SEditorSession
 	std::string szTileAtlasName;
 	CPtr<IImage> pTileAtlas;
 	STilesetDesc tileAtlasDesc;
+	// The mod's data storage while a mod is active (the layer the data storage
+	// holds as "MOD"), kept so the user RMG root can be remounted below it
+	// (session_rmg.cpp MountRmgRoot).
+	CPtr<IDataStorage> pModStorage;
 	BkEditorSession() : pWindow( 0 ) {  }
 };
 
@@ -334,6 +338,15 @@ bool ReloadAfterModChange( BkEditorSession *pSession, IDataStorage *pStorage )
 	return true;
 }
 
+// The user RMG root (D-09) is mounted before anything reads or writes a
+// composer file or lists a folder: a cheap compare of the root the platform's
+// user root and the active mod name now, a remount only when it changed (the
+// engine tests re-point the user root while a session lives).
+static void EnsureRmgMount( BkEditorSession *pSession )
+{
+	MountRmgRoot( pSession, pSession->szModFolder, pSession->pModStorage, false );
+}
+
 // A window opened on a non-primary display otherwise jumps to
 // GraphicsEngineGpu.cpp's SelectedDisplay default (GFX.Monitor.Index unset,
 // which resolves to SDL_GetDisplays()'s first entry) the moment SetMode
@@ -475,6 +488,9 @@ BkEditorStatus BkEditorStart( void *pWindow, const char *pszDataRoot, BkEditorSe
 			// textures, if it has them, below any mod mounted later.
 			NSeasonData::Mount( pStorage );
 			RegisterSingleton( IDataStorage::tidTypeID, pStorage );
+			// D-09 (costly - see bridge.h): the user's RMG files resolve through
+			// the storage like shipped data, from the first moment.
+			MountRmgRoot( pSession, std::string(), 0, true );
 		}
 		{
 			CTableAccessor table = NDB::OpenDataTable( "consts.xml" );
@@ -2306,7 +2322,8 @@ static BkEditorStatus SetModCore( BkEditorSession *pSession, const char *pszFold
 		{
 			CloseSessionMap( pSession );
 			ForgetTileAtlas( pSession );
-			pStorage->RemoveStorage( "MOD" );
+			pSession->pModStorage = 0;
+			MountRmgRoot( pSession, std::string(), 0, true );
 			RemoveGlobalVar( "MOD.Active" );
 			RemoveGlobalVar( "MOD.Name" );
 			RemoveGlobalVar( "MOD.Folder" );
@@ -2341,8 +2358,10 @@ static BkEditorStatus SetModCore( BkEditorSession *pSession, const char *pszFold
 		}
 		CloseSessionMap( pSession );
 		ForgetTileAtlas( pSession );
-		pStorage->RemoveStorage( "MOD" );
-		pStorage->AddStorage( pModStorage, "MOD" );
+		// The mod's layer and the user's RMG root swap together (D-09): the root of
+		// the new mod's own rmg folder sits below the mod layer.
+		pSession->pModStorage = pModStorage;
+		MountRmgRoot( pSession, szFolder, pModStorage, true );
 		SetGlobalVar( "MOD.Active", 1 );
 		SetGlobalVar( "MOD.Name", mod.name );
 		// The folder under mods\, for anything that wants to find layouts
@@ -4780,6 +4799,7 @@ BkEditorStatus BkEditorApplyField( BkEditorSession *pSession, const BkEditorFiel
 	if ( pnToken != 0 ) *pnToken = -1;
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
+		EnsureRmgMount( pSession );
 		if ( pParams == 0 || pnToken == 0 || pnReportCount == 0 || nReportCapacity < 0 || ( pOutReport == 0 && nReportCapacity > 0 ) )
 			return BK_EDITOR_BAD_ARGUMENT;
 		SFieldApply apply;
@@ -4829,6 +4849,7 @@ BkEditorStatus BkEditorFieldSetSeason( BkEditorSession *pSession, const char *ps
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
+		EnsureRmgMount( pSession );
 		if ( pszName == 0 || *pszName == 0 || pnSeason == 0 || strnlen( pszName, 256 ) >= 256 )
 			return BK_EDITOR_BAD_ARGUMENT;
 		int nSeason = -1;
@@ -4847,6 +4868,7 @@ BkEditorStatus BkEditorCreateRandomMap( BkEditorSession *pSession, const BkEdito
 		memset( pResult, 0, sizeof *pResult );
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
+		EnsureRmgMount( pSession );
 		if ( pParams == 0 || pResult == 0 )
 			return BK_EDITOR_BAD_ARGUMENT;
 		// Every text field has to end inside its buffer: a caller that filled
@@ -4897,6 +4919,7 @@ BkEditorStatus BkEditorListStorageFiles( BkEditorSession *pSession, const char *
 		*pnCount = 0;
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
+		EnsureRmgMount( pSession );
 		if ( pszFolder == 0 || pszExtension == 0 || pnCount == 0 || nCapacity < 0 || ( pOut == 0 && nCapacity > 0 ) )
 			return BK_EDITOR_BAD_ARGUMENT;
 		std::vector<std::string> names;
@@ -4932,6 +4955,7 @@ BkEditorStatus BkEditorRmgTemplateGraphs( BkEditorSession *pSession, const char 
 		*pnCount = 0;
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
+		EnsureRmgMount( pSession );
 		if ( pszTemplate == 0 || pnCount == 0 || nCapacity < 0 || ( pOut == 0 && nCapacity > 0 ) || strnlen( pszTemplate, 256 ) >= 256 )
 			return BK_EDITOR_BAD_ARGUMENT;
 		std::vector<SRMTemplateGraph> graphs;
@@ -4965,6 +4989,7 @@ BkEditorStatus BkEditorListRmg( BkEditorSession *pSession, int nKind, BkEditorRm
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
+		EnsureRmgMount( pSession );
 		if ( pnCount == 0 || nCapacity < 0 || ( pOut == 0 && nCapacity > 0 ) )
 			return BK_EDITOR_BAD_ARGUMENT;
 		std::vector<std::string> names;
@@ -4984,6 +5009,158 @@ BkEditorStatus BkEditorListRmg( BkEditorSession *pSession, int nKind, BkEditorRm
 				int( names.size() ), nCapacity );
 			return BK_EDITOR_REFUSED;
 		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+
+// ---------------------------------------------------------------------------
+// The RMG composers (M3 05-09): containers and graphs through the engine's own
+// serialisers, patch info and copy-in, the user RMG root.
+// ---------------------------------------------------------------------------
+
+namespace
+{
+
+// A record read that came out short: some count above its array's capacity.
+// (A real refusal has every count 0 and was flagged refused.)
+bool IsShort( const BkEditorRmgScripts &r )
+{
+	return r.id_count > r.id_capacity || r.area_count > r.area_capacity;
+}
+
+BkEditorStatus ReadStatus( bool bOk, bool bRefused, bool bShort )
+{
+	if ( bOk )
+		return BK_EDITOR_OK;
+	if ( bRefused || bShort )
+		return BK_EDITOR_REFUSED;
+	return BK_EDITOR_FAILED;
+}
+
+bool IsGoodCapacity( const void *pArray, int nCapacity )
+{
+	return nCapacity >= 0 && ( pArray != 0 || nCapacity == 0 );
+}
+
+}
+
+BkEditorStatus BkEditorRmgReadContainer( BkEditorSession *pSession, const char *pszName, BkEditorRmgContainerRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pRecord == 0 || strnlen( pszName, 256 ) >= 256 ||
+		     !IsGoodCapacity( pRecord->patches, pRecord->patch_capacity ) || !IsGoodCapacity( pRecord->indices, pRecord->index_capacity ) ||
+		     !IsGoodCapacity( pRecord->scripts.ids, pRecord->scripts.id_capacity ) || !IsGoodCapacity( pRecord->scripts.areas, pRecord->scripts.area_capacity ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		EnsureRmgMount( pSession );
+		bool bRefused = false;
+		const bool bOk = ReadRmgContainerRecord( pSession, pszName, pRecord, &bRefused );
+		const int nIndexTotal = pRecord->index_counts[0] + pRecord->index_counts[1] + pRecord->index_counts[2] + pRecord->index_counts[3];
+		const bool bShort = pRecord->patch_count > pRecord->patch_capacity || nIndexTotal > pRecord->index_capacity || IsShort( pRecord->scripts );
+		return ReadStatus( bOk, bRefused, bShort );
+	} );
+}
+
+BkEditorStatus BkEditorRmgWriteContainer( BkEditorSession *pSession, const char *pszName, const BkEditorRmgContainerRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pRecord == 0 || strnlen( pszName, 256 ) >= 256 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		EnsureRmgMount( pSession );
+		bool bRefused = false, bBad = false;
+		if ( WriteRmgContainerRecord( pSession, pszName, *pRecord, &bRefused, &bBad ) )
+			return BK_EDITOR_OK;
+		return bBad ? BK_EDITOR_BAD_ARGUMENT : ( bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED );
+	} );
+}
+
+BkEditorStatus BkEditorRmgReadGraph( BkEditorSession *pSession, const char *pszName, BkEditorRmgGraphRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pRecord == 0 || strnlen( pszName, 256 ) >= 256 ||
+		     !IsGoodCapacity( pRecord->nodes, pRecord->node_capacity ) || !IsGoodCapacity( pRecord->links, pRecord->link_capacity ) ||
+		     !IsGoodCapacity( pRecord->scripts.ids, pRecord->scripts.id_capacity ) || !IsGoodCapacity( pRecord->scripts.areas, pRecord->scripts.area_capacity ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		EnsureRmgMount( pSession );
+		bool bRefused = false;
+		const bool bOk = ReadRmgGraphRecord( pSession, pszName, pRecord, &bRefused );
+		const bool bShort = pRecord->node_count > pRecord->node_capacity || pRecord->link_count > pRecord->link_capacity || IsShort( pRecord->scripts );
+		return ReadStatus( bOk, bRefused, bShort );
+	} );
+}
+
+BkEditorStatus BkEditorRmgWriteGraph( BkEditorSession *pSession, const char *pszName, const BkEditorRmgGraphRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pRecord == 0 || strnlen( pszName, 256 ) >= 256 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		EnsureRmgMount( pSession );
+		bool bRefused = false, bBad = false;
+		if ( WriteRmgGraphRecord( pSession, pszName, *pRecord, &bRefused, &bBad ) )
+			return BK_EDITOR_OK;
+		return bBad ? BK_EDITOR_BAD_ARGUMENT : ( bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED );
+	} );
+}
+
+BkEditorStatus BkEditorRmgPatchInfoRead( BkEditorSession *pSession, const char *pszName, BkEditorRmgPatchInfo *pInfo )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 || pInfo == 0 || strnlen( pszName, 256 ) >= 256 ||
+		     !IsGoodCapacity( pInfo->scripts.ids, pInfo->scripts.id_capacity ) || !IsGoodCapacity( pInfo->scripts.areas, pInfo->scripts.area_capacity ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		EnsureRmgMount( pSession );
+		bool bRefused = false;
+		const bool bOk = ReadRmgPatchInfo( pSession, pszName, pInfo, &bRefused );
+		return ReadStatus( bOk, bRefused, IsShort( pInfo->scripts ) );
+	} );
+}
+
+BkEditorStatus BkEditorRmgImportPatch( BkEditorSession *pSession, const char *pszSourcePath, int nApply, BkEditorRmgName *pOutName )
+{
+	if ( pOutName != 0 )
+		memset( pOutName, 0, sizeof *pOutName );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszSourcePath == 0 || pOutName == 0 || strnlen( pszSourcePath, 2048 ) >= 2048 || ( nApply != 0 && nApply != 1 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bEngineStarted )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		EnsureRmgMount( pSession );
+		std::string szName;
+		bool bRefused = false;
+		if ( !ImportRmgPatch( pSession, pszSourcePath, nApply == 1, &szName, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( szName.size() >= sizeof pOutName->name )
+		{
+			pSession->szMessage = "the destination name does not fit the caller's buffer";
+			return BK_EDITOR_FAILED;
+		}
+		memcpy( pOutName->name, szName.c_str(), szName.size() + 1 );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorRmgRoot( BkEditorSession *pSession, char *pOut, int nCapacity )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 || nCapacity <= 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		const std::string szRoot = RmgRootHostPath( pSession->szModFolder );
+		if ( int( szRoot.size() ) >= nCapacity )
+		{
+			pSession->szMessage = "the user RMG root does not fit the caller's buffer";
+			return BK_EDITOR_REFUSED;
+		}
+		memcpy( pOut, szRoot.c_str(), szRoot.size() + 1 );
 		return BK_EDITOR_OK;
 	} );
 }

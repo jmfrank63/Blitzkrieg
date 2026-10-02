@@ -21,6 +21,8 @@ pub const autosave = @import("autosave.zig");
 pub const shipped = @import("shipped.zig");
 pub const script_file = @import("script_file.zig");
 pub const checks = @import("checks.zig");
+pub const rmg = @import("rmg.zig");
+pub const composers = @import("composers.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());

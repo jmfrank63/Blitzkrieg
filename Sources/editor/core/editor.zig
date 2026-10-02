@@ -10,6 +10,7 @@ const records = @import("records.zig");
 const core_filters = @import("filters.zig");
 const checks = @import("checks.zig");
 const layers_mod = @import("layers.zig");
+const rmg_mod = @import("rmg.zig");
 const Bridge = bridge_mod.Bridge;
 const EditError = bridge_mod.EditError;
 const ObjectRecord = bridge_mod.ObjectRecord;
@@ -2905,6 +2906,361 @@ pub const Editor = struct {
         try self.noteOutcome(self.bridge.fieldSetSeason(name_z, &season));
         return season;
     }
+
+    // --- The RMG composers (05-09, D-06/D-07/D-10) --------------------------
+    //
+    // Composer files are file-level: nothing here joins the map's undo
+    // history, touches the open map or marks the document dirty. A record is
+    // read in the two passes bridge.h describes (size with empty arrays, then
+    // exactly what was answered) and written whole.
+
+    /// A record the bridge answered, with the arrays it points into.
+    const OwnedContainer = struct {
+        record: bridge_mod.RmgContainerRecord = .{},
+        patches: []bridge_mod.RmgPatch = &.{},
+        indices: []c_int = &.{},
+        ids: []c_int = &.{},
+        areas: []bridge_mod.RmgName = &.{},
+
+        fn deinit(self: *OwnedContainer, a: std.mem.Allocator) void {
+            a.free(self.patches);
+            a.free(self.indices);
+            a.free(self.ids);
+            a.free(self.areas);
+            self.* = .{};
+        }
+    };
+
+    const OwnedGraph = struct {
+        record: bridge_mod.RmgGraphRecord = .{},
+        nodes: []bridge_mod.RmgNode = &.{},
+        links: []bridge_mod.RmgLink = &.{},
+        ids: []c_int = &.{},
+        areas: []bridge_mod.RmgName = &.{},
+
+        fn deinit(self: *OwnedGraph, a: std.mem.Allocator) void {
+            a.free(self.nodes);
+            a.free(self.links);
+            a.free(self.ids);
+            a.free(self.areas);
+            self.* = .{};
+        }
+    };
+
+    fn countOf(value: c_int) usize {
+        return @intCast(@max(value, 0));
+    }
+
+    /// The sizing pass said "counts returned" when it was refused with something
+    /// to size; a refusal with every count 0 is a real one.
+    fn sizedRefusal(scripts: bridge_mod.RmgScripts, extra: usize) bool {
+        return countOf(scripts.id_count) + countOf(scripts.area_count) + extra > 0;
+    }
+
+    fn fetchContainer(self: *Editor, a: std.mem.Allocator, name: [*:0]const u8, out: *OwnedContainer) std.mem.Allocator.Error!bridge_mod.Status {
+        out.* = .{};
+        errdefer out.deinit(a);
+        var first = bridge_mod.RmgContainerRecord{};
+        const sizing = self.bridge.rmgReadContainer(name, &first);
+        const index_total = countOf(first.index_counts[0]) + countOf(first.index_counts[1]) + countOf(first.index_counts[2]) + countOf(first.index_counts[3]);
+        if (sizing == .ok) {
+            out.record = first;
+            return .ok;
+        }
+        if (sizing != .refused or !sizedRefusal(first.scripts, countOf(first.patch_count) + index_total)) return sizing;
+        out.patches = try a.alloc(bridge_mod.RmgPatch, countOf(first.patch_count));
+        out.indices = try a.alloc(c_int, index_total);
+        out.ids = try a.alloc(c_int, countOf(first.scripts.id_count));
+        out.areas = try a.alloc(bridge_mod.RmgName, countOf(first.scripts.area_count));
+        var second = first;
+        second.patches = out.patches.ptr;
+        second.patch_capacity = @intCast(out.patches.len);
+        second.indices = out.indices.ptr;
+        second.index_capacity = @intCast(out.indices.len);
+        second.scripts.ids = out.ids.ptr;
+        second.scripts.id_capacity = @intCast(out.ids.len);
+        second.scripts.areas = out.areas.ptr;
+        second.scripts.area_capacity = @intCast(out.areas.len);
+        const read = self.bridge.rmgReadContainer(name, &second);
+        out.record = second;
+        // The totals cannot have moved between the passes: anything but ok is a failure.
+        return if (read == .refused) .failed else read;
+    }
+
+    fn containerFromOwned(a: std.mem.Allocator, owned: *const OwnedContainer) std.mem.Allocator.Error!rmg_mod.Container {
+        const record = &owned.record;
+        var out: rmg_mod.Container = .{ .size_x = record.size_x, .size_y = record.size_y, .season = record.season };
+        errdefer out.deinit(a);
+        out.season_folder = try a.dupe(u8, std.mem.sliceTo(&record.season_folder, 0));
+        for (owned.patches[0..@min(owned.patches.len, countOf(record.patch_count))]) |patch| {
+            var made: rmg_mod.Patch = .{ .size_x = patch.size_x, .size_y = patch.size_y };
+            made.name = try a.dupe(u8, std.mem.sliceTo(&patch.name, 0));
+            errdefer a.free(made.name);
+            made.place = try a.dupe(u8, std.mem.sliceTo(&patch.place, 0));
+            errdefer a.free(made.place);
+            try out.patches.append(a, made);
+        }
+        var at: usize = 0;
+        for (record.index_counts, 0..) |count, d| {
+            for (0..countOf(count)) |_| {
+                if (at >= owned.indices.len) break;
+                try out.indices[d].append(a, owned.indices[at]);
+                at += 1;
+            }
+        }
+        try out.script_ids.appendSlice(a, owned.ids[0..@min(owned.ids.len, countOf(record.scripts.id_count))]);
+        for (owned.areas[0..@min(owned.areas.len, countOf(record.scripts.area_count))]) |area| {
+            const copy = try a.dupe(u8, std.mem.sliceTo(&area.name, 0));
+            errdefer a.free(copy);
+            try out.script_areas.append(a, copy);
+        }
+        return out;
+    }
+
+    fn nameZ(buffer: *[bridge_mod.field_set_name_capacity:0]u8, name: []const u8) ?[*:0]const u8 {
+        if (name.len == 0 or name.len >= bridge_mod.field_set_name_capacity) return null;
+        const text = std.fmt.bufPrintZ(buffer, "{s}", .{name}) catch return null;
+        return text.ptr;
+    }
+
+    /// Container `name` as the storages hold it (the user's root first). The
+    /// caller owns the result (`deinit(allocator)`).
+    pub fn readContainer(self: *Editor, name: []const u8) EditError!rmg_mod.Container {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = nameZ(&buffer, name) orelse return error.Refused;
+        var owned: OwnedContainer = .{};
+        defer owned.deinit(self.allocator);
+        try self.noteOutcome(try self.fetchContainer(self.allocator, name_z, &owned));
+        return try containerFromOwned(self.allocator, &owned);
+    }
+
+    /// Writes `container` as `name` under the user RMG root. A shipped name is
+    /// refused (the status says Save As); nothing changes then.
+    pub fn writeContainer(self: *Editor, name: []const u8, container: *const rmg_mod.Container) EditError!void {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = nameZ(&buffer, name) orelse return error.Refused;
+        const a = self.allocator;
+        const patches = try a.alloc(bridge_mod.RmgPatch, container.patches.items.len);
+        defer a.free(patches);
+        var index_total: usize = 0;
+        for (container.indices) |list| index_total += list.items.len;
+        const indices = try a.alloc(c_int, index_total);
+        defer a.free(indices);
+        const areas = try a.alloc(bridge_mod.RmgName, container.script_areas.items.len);
+        defer a.free(areas);
+        const ids = try a.alloc(c_int, container.script_ids.items.len);
+        defer a.free(ids);
+        var record = bridge_mod.RmgContainerRecord{ .size_x = container.size_x, .size_y = container.size_y, .season = container.season };
+        if (!bridge_mod.putName(&record.season_folder, container.season_folder)) return error.Refused;
+        for (container.patches.items, 0..) |patch, i| {
+            patches[i] = .{ .size_x = patch.size_x, .size_y = patch.size_y };
+            if (!bridge_mod.putName(&patches[i].name, patch.name) or !bridge_mod.putName(&patches[i].place, patch.place)) return error.Refused;
+        }
+        var at: usize = 0;
+        for (container.indices, 0..) |list, d| {
+            record.index_counts[d] = @intCast(list.items.len);
+            for (list.items) |entry| {
+                indices[at] = entry;
+                at += 1;
+            }
+        }
+        for (container.script_ids.items, 0..) |id, i| ids[i] = id;
+        for (container.script_areas.items, 0..) |area, i| {
+            areas[i] = .{};
+            if (!bridge_mod.putName(&areas[i].name, area)) return error.Refused;
+        }
+        record.patches = patches.ptr;
+        record.patch_count = @intCast(patches.len);
+        record.patch_capacity = record.patch_count;
+        record.indices = indices.ptr;
+        record.index_capacity = @intCast(indices.len);
+        record.scripts = .{ .ids = ids.ptr, .id_capacity = @intCast(ids.len), .id_count = @intCast(ids.len), .areas = areas.ptr, .area_capacity = @intCast(areas.len), .area_count = @intCast(areas.len) };
+        try self.noteOutcome(self.bridge.rmgWriteContainer(name_z, &record));
+    }
+
+    fn fetchGraph(self: *Editor, a: std.mem.Allocator, name: [*:0]const u8, out: *OwnedGraph) std.mem.Allocator.Error!bridge_mod.Status {
+        out.* = .{};
+        errdefer out.deinit(a);
+        var first = bridge_mod.RmgGraphRecord{};
+        const sizing = self.bridge.rmgReadGraph(name, &first);
+        if (sizing == .ok) {
+            out.record = first;
+            return .ok;
+        }
+        if (sizing != .refused or !sizedRefusal(first.scripts, countOf(first.node_count) + countOf(first.link_count))) return sizing;
+        out.nodes = try a.alloc(bridge_mod.RmgNode, countOf(first.node_count));
+        out.links = try a.alloc(bridge_mod.RmgLink, countOf(first.link_count));
+        out.ids = try a.alloc(c_int, countOf(first.scripts.id_count));
+        out.areas = try a.alloc(bridge_mod.RmgName, countOf(first.scripts.area_count));
+        var second = first;
+        second.nodes = out.nodes.ptr;
+        second.node_capacity = @intCast(out.nodes.len);
+        second.links = out.links.ptr;
+        second.link_capacity = @intCast(out.links.len);
+        second.scripts.ids = out.ids.ptr;
+        second.scripts.id_capacity = @intCast(out.ids.len);
+        second.scripts.areas = out.areas.ptr;
+        second.scripts.area_capacity = @intCast(out.areas.len);
+        const read = self.bridge.rmgReadGraph(name, &second);
+        out.record = second;
+        return if (read == .refused) .failed else read;
+    }
+
+    /// Graph `name` as the storages hold it. The caller owns the result.
+    pub fn readGraph(self: *Editor, name: []const u8) EditError!rmg_mod.Graph {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = nameZ(&buffer, name) orelse return error.Refused;
+        const a = self.allocator;
+        var owned: OwnedGraph = .{};
+        defer owned.deinit(a);
+        try self.noteOutcome(try self.fetchGraph(a, name_z, &owned));
+        const record = &owned.record;
+        var out: rmg_mod.Graph = .{ .size_x = record.size_x, .size_y = record.size_y, .season = record.season };
+        errdefer out.deinit(a);
+        out.season_folder = try a.dupe(u8, std.mem.sliceTo(&record.season_folder, 0));
+        for (owned.nodes[0..@min(owned.nodes.len, countOf(record.node_count))]) |node| {
+            const container = try a.dupe(u8, std.mem.sliceTo(&node.container, 0));
+            errdefer a.free(container);
+            try out.nodes.append(a, .{ .rect = .{ .x1 = node.x1, .y1 = node.y1, .x2 = node.x2, .y2 = node.y2 }, .container = container });
+        }
+        for (owned.links[0..@min(owned.links.len, countOf(record.link_count))]) |link| {
+            const desc = try a.dupe(u8, std.mem.sliceTo(&link.desc, 0));
+            errdefer a.free(desc);
+            try out.links.append(a, .{ .a = link.a, .b = link.b, .kind = link.kind, .desc = desc, .radius = link.radius, .parts = link.parts, .min_length = link.min_length, .distance = link.distance, .disturbance = link.disturbance });
+        }
+        try out.script_ids.appendSlice(a, owned.ids[0..@min(owned.ids.len, countOf(record.scripts.id_count))]);
+        for (owned.areas[0..@min(owned.areas.len, countOf(record.scripts.area_count))]) |area| {
+            const copy = try a.dupe(u8, std.mem.sliceTo(&area.name, 0));
+            errdefer a.free(copy);
+            try out.script_areas.append(a, copy);
+        }
+        return out;
+    }
+
+    pub fn writeGraph(self: *Editor, name: []const u8, graph: *const rmg_mod.Graph) EditError!void {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = nameZ(&buffer, name) orelse return error.Refused;
+        const a = self.allocator;
+        const nodes = try a.alloc(bridge_mod.RmgNode, graph.nodes.items.len);
+        defer a.free(nodes);
+        const links = try a.alloc(bridge_mod.RmgLink, graph.links.items.len);
+        defer a.free(links);
+        const areas = try a.alloc(bridge_mod.RmgName, graph.script_areas.items.len);
+        defer a.free(areas);
+        const ids = try a.alloc(c_int, graph.script_ids.items.len);
+        defer a.free(ids);
+        var record = bridge_mod.RmgGraphRecord{ .size_x = graph.size_x, .size_y = graph.size_y, .season = graph.season };
+        if (!bridge_mod.putName(&record.season_folder, graph.season_folder)) return error.Refused;
+        for (graph.nodes.items, 0..) |node, i| {
+            nodes[i] = .{ .x1 = node.rect.x1, .y1 = node.rect.y1, .x2 = node.rect.x2, .y2 = node.rect.y2 };
+            if (!bridge_mod.putName(&nodes[i].container, node.container)) return error.Refused;
+        }
+        for (graph.links.items, 0..) |link, i| {
+            links[i] = .{ .a = link.a, .b = link.b, .kind = link.kind, .radius = link.radius, .parts = link.parts, .min_length = link.min_length, .distance = link.distance, .disturbance = link.disturbance };
+            if (!bridge_mod.putName(&links[i].desc, link.desc)) return error.Refused;
+        }
+        for (graph.script_ids.items, 0..) |id, i| ids[i] = id;
+        for (graph.script_areas.items, 0..) |area, i| {
+            areas[i] = .{};
+            if (!bridge_mod.putName(&areas[i].name, area)) return error.Refused;
+        }
+        record.nodes = nodes.ptr;
+        record.node_count = @intCast(nodes.len);
+        record.node_capacity = record.node_count;
+        record.links = links.ptr;
+        record.link_count = @intCast(links.len);
+        record.link_capacity = record.link_count;
+        record.scripts = .{ .ids = ids.ptr, .id_capacity = @intCast(ids.len), .id_count = @intCast(ids.len), .areas = areas.ptr, .area_capacity = @intCast(areas.len), .area_count = @intCast(areas.len) };
+        try self.noteOutcome(self.bridge.rmgWriteGraph(name_z, &record));
+    }
+
+    /// What a patch map says about itself (null: the data does not hold it or
+    /// it does not load). Does not touch the status line: Check! asks this for
+    /// every patch.
+    fn patchSummary(self: *Editor, a: std.mem.Allocator, name: []const u8) ?rmg_mod.Summary {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = nameZ(&buffer, name) orelse return null;
+        var first = bridge_mod.RmgPatchInfo{};
+        const sizing = self.bridge.rmgPatchInfo(name_z, &first);
+        var info = first;
+        var ids: []c_int = &.{};
+        var areas: []bridge_mod.RmgName = &.{};
+        defer a.free(ids);
+        defer a.free(areas);
+        if (sizing != .ok) {
+            if (sizing != .refused or !sizedRefusal(first.scripts, 0)) return null;
+            ids = a.alloc(c_int, countOf(first.scripts.id_count)) catch return null;
+            areas = a.alloc(bridge_mod.RmgName, countOf(first.scripts.area_count)) catch return null;
+            info.scripts.ids = ids.ptr;
+            info.scripts.id_capacity = @intCast(ids.len);
+            info.scripts.areas = areas.ptr;
+            info.scripts.area_capacity = @intCast(areas.len);
+            if (self.bridge.rmgPatchInfo(name_z, &info) != .ok) return null;
+        }
+        return summaryFrom(a, info.size_x, info.size_y, info.season, &info.season_folder, ids[0..@min(ids.len, countOf(info.scripts.id_count))], areas[0..@min(areas.len, countOf(info.scripts.area_count))]) catch null;
+    }
+
+    fn summaryFrom(a: std.mem.Allocator, size_x: i32, size_y: i32, season: i32, folder: []const u8, ids: []const c_int, areas: []const bridge_mod.RmgName) std.mem.Allocator.Error!rmg_mod.Summary {
+        var out: rmg_mod.Summary = .{ .size_x = size_x, .size_y = size_y, .season = season };
+        errdefer out.deinit(a);
+        out.season_folder = try a.dupe(u8, std.mem.sliceTo(folder, 0));
+        out.script_ids = try a.dupe(i32, ids);
+        const list = try a.alloc([]u8, areas.len);
+        out.script_areas = list[0..0];
+        errdefer {
+            for (list[0..out.script_areas.len]) |area| a.free(area);
+            a.free(list);
+        }
+        for (areas, 0..) |area, i| {
+            list[i] = try a.dupe(u8, std.mem.sliceTo(&area.name, 0));
+            out.script_areas = list[0 .. i + 1];
+        }
+        return out;
+    }
+
+    fn containerSummary(self: *Editor, a: std.mem.Allocator, name: []const u8) ?rmg_mod.Summary {
+        var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
+        const name_z = nameZ(&buffer, name) orelse return null;
+        var owned: OwnedContainer = .{};
+        defer owned.deinit(a);
+        const status_code = self.fetchContainer(a, name_z, &owned) catch return null;
+        if (status_code != .ok) return null;
+        const record = &owned.record;
+        return summaryFrom(a, record.size_x, record.size_y, record.season, &record.season_folder, owned.ids[0..@min(owned.ids.len, countOf(record.scripts.id_count))], owned.areas[0..@min(owned.areas.len, countOf(record.scripts.area_count))]) catch null;
+    }
+
+    fn patchSourceFn(ctx: *anyopaque, a: std.mem.Allocator, name: []const u8) ?rmg_mod.Summary {
+        const self: *Editor = @ptrCast(@alignCast(ctx));
+        return self.patchSummary(a, name);
+    }
+
+    fn containerSourceFn(ctx: *anyopaque, a: std.mem.Allocator, name: []const u8) ?rmg_mod.Summary {
+        const self: *Editor = @ptrCast(@alignCast(ctx));
+        return self.containerSummary(a, name);
+    }
+
+    /// The facts Check! and the add rules ask: patch maps and containers as
+    /// the storages hold them.
+    pub fn rmgSource(self: *Editor) rmg_mod.Source {
+        return .{ .ctx = self, .patch_fn = patchSourceFn, .container_fn = containerSourceFn };
+    }
+
+    /// D-10: a map outside the storages, copied into the user RMG root's
+    /// Scenarios/Patches/<season>/. `apply` false only names the destination
+    /// (what the YES/NO popup shows). Returns the storage name, in `out`.
+    pub fn importPatch(self: *Editor, source_path: []const u8, apply: bool, out: *bridge_mod.RmgName) EditError!void {
+        var buffer: [2048:0]u8 = undefined;
+        if (source_path.len == 0 or source_path.len >= buffer.len) return error.Refused;
+        const path_z = std.fmt.bufPrintZ(&buffer, "{s}", .{source_path}) catch return error.Refused;
+        out.* = .{};
+        try self.noteOutcome(self.bridge.rmgImportPatch(path_z.ptr, apply, out));
+    }
+
+    /// The user RMG root as the host spells it, in `buffer`.
+    pub fn rmgRoot(self: *Editor, buffer: []u8) EditError![]const u8 {
+        try self.noteOutcome(self.bridge.rmgRoot(buffer));
+        return std.mem.sliceTo(buffer, 0);
+    }
 };
 
 /// The same fixture fake_bridge.zig builds for its own tests, exposed here
@@ -5711,4 +6067,127 @@ test "create random map: every refusal names its field and the bridge writes not
     params.overwrite = 1;
     try editor.createRandomMap(params, &result);
     try std.testing.expectEqual(@as(usize, 1), fake.generated_names.items.len);
+}
+
+test "composer containers read through two passes, write under a user name and keep shipped ones read-only" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    const name = "scenarios\\containers\\summer\\road_a";
+    var container = try editor.readContainer(name);
+    defer container.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 2), container.patchCount());
+    try std.testing.expectEqualStrings("scenarios\\patches\\summer\\road_a2", container.patches.items[1].name);
+    try std.testing.expectEqual(@as(i32, 2), container.size_x);
+    try std.testing.expectEqualSlices(i32, &.{ 0, 1 }, container.indices[2].items);
+    try std.testing.expectEqualSlices(i32, &.{3}, container.script_ids.items);
+    try std.testing.expectEqualStrings("Ambush", container.script_areas.items[0]);
+    // The shipped name is read-only: Save As.
+    try std.testing.expectError(error.Refused, editor.writeContainer(name, &container));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "Save As") != null);
+    // A user name takes it, and reads back equal.
+    const user_name = "scenarios\\containers\\user\\mine";
+    try editor.writeContainer(user_name, &container);
+    var back = try editor.readContainer(user_name);
+    defer back.deinit(std.testing.allocator);
+    try std.testing.expect(container.eql(&back));
+    // An edited container writes over the user's own file.
+    try back.setDirection(std.testing.allocator, 0, .north, false);
+    try editor.writeContainer(user_name, &back);
+    var again = try editor.readContainer(user_name);
+    defer again.deinit(std.testing.allocator);
+    try std.testing.expect(!again.hasDirection(0, .north));
+    // An unknown or not-plain name is refused with the reason.
+    try std.testing.expectError(error.Refused, editor.readContainer("scenarios\\containers\\nope"));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "container") != null);
+    try std.testing.expectError(error.Refused, editor.readContainer(""));
+    try std.testing.expectError(error.Failed, editor.writeContainer("..\\x", &container));
+}
+
+test "composer graphs round-trip through the bridge" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    var graph = try editor.readGraph("scenarios\\graphs\\summer\\graph_a");
+    defer graph.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 2), graph.nodes.items.len);
+    try std.testing.expectEqual(@as(usize, 1), graph.links.items.len);
+    try std.testing.expectEqualStrings("scenarios\\containers\\summer\\road_a", graph.nodes.items[0].container);
+    try std.testing.expectEqualStrings("terrain\\sets\\1\\roads3d\\road_grunt", graph.links.items[0].desc);
+    try std.testing.expectError(error.Refused, editor.writeGraph("scenarios\\graphs\\summer\\graph_a", &graph));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "Save As") != null);
+    _ = try graph.addNode(std.testing.allocator, .{ .x1 = 96, .y1 = 0, .x2 = 128, .y2 = 32 });
+    _ = try graph.addLink(std.testing.allocator, 1, 2);
+    try editor.writeGraph("scenarios\\graphs\\user\\mine", &graph);
+    var back = try editor.readGraph("scenarios\\graphs\\user\\mine");
+    defer back.deinit(std.testing.allocator);
+    try std.testing.expect(graph.eql(&back));
+    try std.testing.expectEqual(@as(usize, 3), back.nodes.items.len);
+    // A link to a node that is not there is refused by the bridge too.
+    back.links.items[0].a = 7;
+    try std.testing.expectError(error.Refused, editor.writeGraph("scenarios\\graphs\\user\\bad", &back));
+}
+
+test "Check! and the add rules ask the editor's own source: patches and containers as the storages hold them" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    var container = try editor.readContainer("scenarios\\containers\\summer\\road_a");
+    defer container.deinit(std.testing.allocator);
+    var report = try rmg_mod.checkContainer(std.testing.allocator, &container, editor.rmgSource());
+    defer report.deinit(std.testing.allocator);
+    // road_a2 is two patches wide in the map and the fixture container lists it
+    // as 2x2; the one wrong thing the fixture holds is the stale size of road_a1? No:
+    // every size agrees, so the shipped fixture checks clean.
+    try std.testing.expectEqual(@as(usize, 0), report.errorCount());
+    // A winter patch does not belong in a summer container.
+    var outcome = try rmg_mod.addPatchChecked(std.testing.allocator, &container, editor.rmgSource(), "scenarios\\patches\\winter\\snow_a1");
+    defer outcome.deinit(std.testing.allocator);
+    try std.testing.expect(outcome == .mismatch);
+    try std.testing.expect(std.mem.indexOf(u8, outcome.mismatch, "Winter") != null);
+    var missing = try rmg_mod.addPatchChecked(std.testing.allocator, &container, editor.rmgSource(), "scenarios\\patches\\summer\\nope");
+    defer missing.deinit(std.testing.allocator);
+    try std.testing.expect(missing == .unreadable);
+    // A different script-ID set is refused too (road_b1 uses 9, the container 3).
+    var ids = try rmg_mod.addPatchChecked(std.testing.allocator, &container, editor.rmgSource(), "scenarios\\patches\\summer\\road_b1");
+    defer ids.deinit(std.testing.allocator);
+    try std.testing.expect(ids == .mismatch and std.mem.indexOf(u8, ids.mismatch, "ScriptIDs") != null);
+    // The graph's check goes through the container source.
+    var graph = try editor.readGraph("scenarios\\graphs\\summer\\graph_a");
+    defer graph.deinit(std.testing.allocator);
+    var graph_report = try rmg_mod.checkGraph(std.testing.allocator, &graph, editor.rmgSource());
+    defer graph_report.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 0), graph_report.errorCount());
+    // Node 1 is empty: a warning, not an error.
+    try std.testing.expect(graph_report.findings.items.len >= 1);
+    // The status line was never touched by those lookups.
+    try std.testing.expectEqual(@as(usize, 0), editor.status().len);
+}
+
+test "a patch outside the storages is copied in, not refused (D-10); a bad one is refused naming why" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    var named: bridge_mod.RmgName = .{};
+    try editor.importPatch("/somewhere/else/My Patch.bzm", false, &named);
+    try std.testing.expectEqualStrings("scenarios\\patches\\summer\\my patch", named.nameSlice());
+    try std.testing.expectEqual(@as(usize, 0), fake.rmg_imports);
+    try editor.importPatch("/somewhere/else/My Patch.bzm", true, &named);
+    try std.testing.expectEqual(@as(usize, 1), fake.rmg_imports);
+    // The copy is a patch the container can now list.
+    var container: rmg_mod.Container = .{};
+    defer container.deinit(std.testing.allocator);
+    var outcome = try rmg_mod.addPatchChecked(std.testing.allocator, &container, editor.rmgSource(), named.nameSlice());
+    defer outcome.deinit(std.testing.allocator);
+    try std.testing.expect(outcome == .added);
+    try std.testing.expectError(error.Refused, editor.importPatch("relative/patch.bzm", false, &named));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "full path") != null);
+    try std.testing.expectError(error.Refused, editor.importPatch("/x/notamap.bzm", true, &named));
+    try std.testing.expectError(error.Refused, editor.importPatch("/x/readme.txt", false, &named));
+    var root: [128]u8 = undefined;
+    try std.testing.expectEqualStrings("/fake/user/rmg", try editor.rmgRoot(&root));
 }

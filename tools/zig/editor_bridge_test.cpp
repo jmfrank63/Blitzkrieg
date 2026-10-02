@@ -3822,6 +3822,8 @@ static void TestM3CheckMap( BkEditorSession *pSession, const std::string &szScra
 static void TestM3LayerProbe( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3Layers( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3CreateRandomMap( BkEditorSession *pSession, const std::string &szScratch );
+static void TestM3RmgContainers( BkEditorSession *pSession, const std::string &szScratch );
+static void TestM3RmgGraphs( BkEditorSession *pSession, const std::string &szScratch );
 static bool CraftFixture( BkEditorSession *pSession, const char *pszKind, const char *pszOut );
 static void CheckSavedEquals( BkEditorSession *pSession, const std::string &szPath, const CMapInfo &rExpected, const char *pszWhat );
 
@@ -11261,6 +11263,8 @@ int main( int argc, char **argv )
 	else if ( bRmgOnly )
 	{
 		TestM3CreateRandomMap( pSession, szScratch );
+		TestM3RmgContainers( pSession, szScratch );
+		TestM3RmgGraphs( pSession, szScratch );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
 	}
 	else if ( bLayersOnly )
@@ -11307,6 +11311,8 @@ int main( int argc, char **argv )
 		TestM3Filters( pSession, pszRoot, szScratch );
 		TestM3Fields( pSession, szScratch );
 		TestM3CreateRandomMap( pSession, szScratch );
+		TestM3RmgContainers( pSession, szScratch );
+		TestM3RmgGraphs( pSession, szScratch );
 		TestM3MultiSelect( pSession, szScratch );
 		TestM3PropertiesAndLinks( pSession, szScratch );
 		TestM3Damage( pSession, szScratch );
@@ -13511,4 +13517,700 @@ static void TestM3CreateRandomMap( BkEditorSession *pSession, const std::string 
 
 	std::filesystem::remove_all( userPath, error );
 	printf( "editor-bridge: M3 create random map ok\n" );
+}
+
+// Field-for-field equality of two container / graph records the way the
+// engine's own serialisers hold them (floats to a part in 100000: the XML
+// writes a float with a handful of digits).
+static bool SameContainerFields( const SRMContainer &rA, const SRMContainer &rB )
+{
+	if ( rA.patches.size() != rB.patches.size() || rA.size != rB.size || rA.nSeason != rB.nSeason || rA.szSeasonFolder != rB.szSeasonFolder ||
+	     rA.usedScriptIDs != rB.usedScriptIDs || rA.usedScriptAreas != rB.usedScriptAreas )
+		return false;
+	for ( size_t i = 0; i < rA.patches.size(); ++i )
+		if ( rA.patches[i].size != rB.patches[i].size || rA.patches[i].szFileName != rB.patches[i].szFileName || rA.patches[i].szPlace != rB.patches[i].szPlace )
+			return false;
+	for ( int d = 0; d < 4; ++d )
+		if ( rA.indices[d] != rB.indices[d] )
+			return false;
+	return true;
+}
+
+static bool SameGraphFields( const SRMGraph &rA, const SRMGraph &rB )
+{
+	if ( rA.nodes.size() != rB.nodes.size() || rA.links.size() != rB.links.size() || rA.size != rB.size || rA.nSeason != rB.nSeason ||
+	     rA.szSeasonFolder != rB.szSeasonFolder || rA.usedScriptIDs != rB.usedScriptIDs || rA.usedScriptAreas != rB.usedScriptAreas )
+		return false;
+	for ( size_t i = 0; i < rA.nodes.size(); ++i )
+		if ( rA.nodes[i].rect.minx != rB.nodes[i].rect.minx || rA.nodes[i].rect.miny != rB.nodes[i].rect.miny || rA.nodes[i].rect.maxx != rB.nodes[i].rect.maxx ||
+		     rA.nodes[i].rect.maxy != rB.nodes[i].rect.maxy || rA.nodes[i].szContainerFileName != rB.nodes[i].szContainerFileName )
+			return false;
+	for ( size_t i = 0; i < rA.links.size(); ++i )
+	{
+		const SRMGraphLink &a = rA.links[i];
+		const SRMGraphLink &b = rB.links[i];
+		if ( a.link != b.link || a.nType != b.nType || a.szDescFileName != b.szDescFileName || a.nParts != b.nParts ||
+		     fabsf( a.fRadius - b.fRadius ) > 1e-3f || fabsf( a.fMinLength - b.fMinLength ) > 1e-3f || fabsf( a.fDistance - b.fDistance ) > 1e-5f || fabsf( a.fDisturbance - b.fDisturbance ) > 1e-5f )
+			return false;
+	}
+	return true;
+}
+
+// Two host paths name the same place: made absolute and normalised, no
+// trailing separator, case ignored (a Windows or macOS volume).
+static bool SamePathLoose( const std::string &rszLeft, const std::string &rszRight )
+{
+	std::error_code error;
+	std::string szL = std::filesystem::absolute( rszLeft, error ).lexically_normal().generic_string();
+	std::string szR = std::filesystem::absolute( rszRight, error ).lexically_normal().generic_string();
+	while ( !szL.empty() && szL[szL.size() - 1] == '/' ) szL.resize( szL.size() - 1 );
+	while ( !szR.empty() && szR[szR.size() - 1] == '/' ) szR.resize( szR.size() - 1 );
+	NStr::ToLower( szL );
+	NStr::ToLower( szR );
+	return szL == szR;
+}
+
+// ---------------------------------------------------------------------------
+// M3 05-09: the composers' records and the user RMG root (D-06..D-12)
+// ---------------------------------------------------------------------------
+
+struct SContainerBuf
+{
+	BkEditorRmgContainerRecord record;
+	std::vector<BkEditorRmgPatch> patches;
+	std::vector<int> indices, ids;
+	std::vector<BkEditorRmgName> areas;
+	SContainerBuf() { memset( &record, 0, sizeof record ); }
+	// A copy's record still points into the source's vectors: point it at its own.
+	void Rebind()
+	{
+		record.patches = &patches[0];
+		record.indices = &indices[0];
+		record.scripts.ids = &ids[0];
+		record.scripts.areas = &areas[0];
+	}
+};
+
+// The two-pass read the way a caller does it: size, allocate to the total,
+// read. REFUSED with every count 0 is a real refusal, which this returns.
+static BkEditorStatus ReadContainerTwoPass( BkEditorSession *pSession, const char *pszName, SContainerBuf *pOut )
+{
+	*pOut = SContainerBuf();
+	BkEditorStatus status = BkEditorRmgReadContainer( pSession, pszName, &pOut->record );
+	const BkEditorRmgContainerRecord &r = pOut->record;
+	const int nIndexTotal = r.index_counts[0] + r.index_counts[1] + r.index_counts[2] + r.index_counts[3];
+	if ( status == BK_EDITOR_OK )
+		return status;
+	if ( status != BK_EDITOR_REFUSED || ( r.patch_count == 0 && nIndexTotal == 0 && r.scripts.id_count == 0 && r.scripts.area_count == 0 ) )
+		return status;
+	pOut->patches.resize( size_t( r.patch_count > 0 ? r.patch_count : 1 ) );
+	pOut->indices.resize( size_t( nIndexTotal > 0 ? nIndexTotal : 1 ) );
+	pOut->ids.resize( size_t( r.scripts.id_count > 0 ? r.scripts.id_count : 1 ) );
+	pOut->areas.resize( size_t( r.scripts.area_count > 0 ? r.scripts.area_count : 1 ) );
+	const int nPatches = r.patch_count, nIds = r.scripts.id_count, nAreas = r.scripts.area_count;
+	pOut->record.patches = &pOut->patches[0];
+	pOut->record.patch_capacity = nPatches;
+	pOut->record.indices = &pOut->indices[0];
+	pOut->record.index_capacity = nIndexTotal;
+	pOut->record.scripts.ids = &pOut->ids[0];
+	pOut->record.scripts.id_capacity = nIds;
+	pOut->record.scripts.areas = &pOut->areas[0];
+	pOut->record.scripts.area_capacity = nAreas;
+	status = BkEditorRmgReadContainer( pSession, pszName, &pOut->record );
+	if ( status == BK_EDITOR_OK && ( pOut->record.patch_count != nPatches || pOut->record.scripts.id_count != nIds || pOut->record.scripts.area_count != nAreas ) )
+		return BK_EDITOR_FAILED;
+	return status;
+}
+
+static bool ContainerBufIs( const SContainerBuf &rBuf, const SRMContainer &rC )
+{
+	const BkEditorRmgContainerRecord &r = rBuf.record;
+	if ( r.patch_count != int( rC.patches.size() ) || r.size_x != rC.size.x || r.size_y != rC.size.y || r.season != rC.nSeason || std::string( r.season_folder ) != rC.szSeasonFolder ||
+	     r.scripts.id_count != int( rC.usedScriptIDs.size() ) || r.scripts.area_count != int( rC.usedScriptAreas.size() ) )
+		return false;
+	for ( int i = 0; i < r.patch_count; ++i )
+		if ( rC.patches[size_t( i )].szFileName != r.patches[i].name || rC.patches[size_t( i )].szPlace != r.patches[i].place ||
+		     rC.patches[size_t( i )].size.x != r.patches[i].size_x || rC.patches[size_t( i )].size.y != r.patches[i].size_y )
+			return false;
+	int nAt = 0;
+	for ( int d = 0; d < 4; ++d )
+	{
+		if ( r.index_counts[d] != int( rC.indices[d].size() ) )
+			return false;
+		for ( int i = 0; i < r.index_counts[d]; ++i )
+			if ( r.indices[nAt++] != rC.indices[d][size_t( i )] )
+				return false;
+	}
+	int nId = 0;
+	for ( CUsedScriptIDs::const_iterator it = rC.usedScriptIDs.begin(); it != rC.usedScriptIDs.end(); ++it )
+		if ( r.scripts.ids[nId++] != *it )
+			return false;
+	int nArea = 0;
+	for ( CUsedScriptAreas::const_iterator it = rC.usedScriptAreas.begin(); it != rC.usedScriptAreas.end(); ++it )
+		if ( *it != r.scripts.areas[nArea++].name )
+			return false;
+	return true;
+}
+
+static bool FileExists( const std::filesystem::path &rPath )
+{
+	std::error_code error;
+	return std::filesystem::exists( rPath, error );
+}
+
+// The user RMG root, re-pointed under the scratch folder for one test.
+struct SScratchUserRoot
+{
+	std::string szOriginalBase, szOriginalUser, szUserRoot;
+	std::filesystem::path path;
+	SScratchUserRoot( const std::string &rszScratch, const char *pszFolder )
+	{
+		szOriginalBase = NPlatform::Paths::BaseRoot();
+		szOriginalUser = NPlatform::Paths::UserRoot();
+		path = std::filesystem::path( rszScratch ) / pszFolder;
+		std::error_code error;
+		std::filesystem::remove_all( path, error );
+		szUserRoot = path.string() + "/";
+		NPlatform::Paths::SetInjectedRootsForTest( szOriginalBase.c_str(), szUserRoot.c_str() );
+	}
+	~SScratchUserRoot()
+	{
+		NPlatform::Paths::SetInjectedRootsForTest( szOriginalBase.c_str(), szOriginalUser.c_str() );
+		std::error_code error;
+		std::filesystem::remove_all( path, error );
+	}
+};
+
+static void TestM3RmgContainers( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const int nFailuresBefore = g_nFailures;
+	// Argument checks: nothing a caller sends crashes or writes.
+	BkEditorRmgContainerRecord none;
+	memset( &none, 0, sizeof none );
+	Check( BkEditorRmgReadContainer( pSession, 0, &none ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgReadContainer( pSession, "x", 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null name or record is BAD_ARGUMENT on a read" );
+	Check( BkEditorRmgWriteContainer( pSession, 0, &none ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgWriteContainer( pSession, "scenarios\\containers\\user\\x", 0 ) == BK_EDITOR_BAD_ARGUMENT, "and on a write" );
+	Check( BkEditorRmgReadContainer( 0, "x", &none ) == BK_EDITOR_NO_SESSION, "no session is NO_SESSION" );
+	BkEditorRmgContainerRecord badCapacity = none;
+	badCapacity.patch_capacity = 5;
+	Check( BkEditorRmgReadContainer( pSession, "scenarios\\containers\\winter\\army_s", &badCapacity ) == BK_EDITOR_BAD_ARGUMENT, "a capacity with no array is BAD_ARGUMENT" );
+
+	SScratchUserRoot user( szScratch, "rmg-user-containers" );
+
+	// A shipped container with patches and script lists: read it through the
+	// bridge (two passes) and directly, and they agree.
+	const std::vector<std::string> containers = ListRmgNames( pSession, 3 );
+	if ( !Check( containers.size() > 100, NStr::Format( "the data lists its containers (%d)", int( containers.size() ) ) ) )
+		return;
+	std::string szShipped, szPlain;
+	SRMContainer shipped;
+	for ( size_t i = 0; i < containers.size() && szShipped.empty(); ++i )
+	{
+		SRMContainer candidate;
+		if ( LoadDataResource( containers[i], "", false, 0, RMGC_CONTAINER_XML_NAME, candidate ) )
+		{
+			if ( szPlain.empty() && candidate.patches.size() >= 2 )
+				szPlain = containers[i];
+			if ( candidate.patches.size() >= 2 && !candidate.usedScriptIDs.empty() && !candidate.usedScriptAreas.empty() )
+			{
+				szShipped = containers[i];
+				shipped = candidate;
+			}
+		}
+	}
+	if ( szShipped.empty() )
+	{
+		szShipped = szPlain;
+		Check( LoadDataResource( szShipped, "", false, 0, RMGC_CONTAINER_XML_NAME, shipped ), "a shipped container loads directly" );
+	}
+	if ( !Check( !szShipped.empty(), "the data has a container with patches" ) )
+		return;
+	printf( "editor-bridge: M3 rmg container %s (%d patches, %d script IDs, %d areas)\n", szShipped.c_str(), int( shipped.patches.size() ), int( shipped.usedScriptIDs.size() ), int( shipped.usedScriptAreas.size() ) );
+	SContainerBuf read;
+	{
+		BkEditorRmgContainerRecord sizing;
+		memset( &sizing, 0, sizeof sizing );
+		Check( BkEditorRmgReadContainer( pSession, szShipped.c_str(), &sizing ) == BK_EDITOR_REFUSED && sizing.patch_count == int( shipped.patches.size() ), "the sizing pass is REFUSED with the patch total" );
+		BkEditorRmgContainerRecord one = sizing;
+		BkEditorRmgPatch onePatch;
+		memset( &onePatch, 0, sizeof onePatch );
+		one.patches = &onePatch;
+		one.patch_capacity = 1;
+		Check( BkEditorRmgReadContainer( pSession, szShipped.c_str(), &one ) == BK_EDITOR_REFUSED && one.patch_count == sizing.patch_count && onePatch.name[0] != 0, "a capacity below the total writes what fits and says the total" );
+	}
+	if ( !Check( ReadContainerTwoPass( pSession, szShipped.c_str(), &read ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( ContainerBufIs( read, shipped ), "the bridge's read is the engine's own LoadDataResource read, field for field" );
+	// A name with the extension and capitals reads the same file.
+	{
+		SContainerBuf again;
+		std::string szUpper = szShipped + ".XML";
+		for ( size_t i = 0; i < szUpper.size(); ++i )
+			szUpper[i] = char( toupper( ( unsigned char )szUpper[i] ) );
+		Check( ReadContainerTwoPass( pSession, szUpper.c_str(), &again ) == BK_EDITOR_OK && ContainerBufIs( again, shipped ), "the name is taken lower-cased and with or without .xml" );
+	}
+	// Reads that refuse: counts 0, the reason named.
+	{
+		SContainerBuf nothing;
+		Check( ReadContainerTwoPass( pSession, "scenarios\\containers\\nope\\nothing", &nothing ) == BK_EDITOR_REFUSED && nothing.record.patch_count == 0 && MessageHas( pSession, "container" ), "an unknown container is REFUSED naming it" );
+		Check( ReadContainerTwoPass( pSession, "..\\consts", &nothing ) == BK_EDITOR_REFUSED, "a name that goes up is REFUSED on a read" );
+		Check( ReadContainerTwoPass( pSession, "scenarios\\graphs\\winter\\graph_escort1", &nothing ) == BK_EDITOR_REFUSED, "a name outside the containers folder is REFUSED on a read" );
+	}
+
+	// Write it under a user name: it lands under the user RMG root, reads back
+	// equal through the storage, and loads in the engine's own reader.
+	const std::string szUserName = "scenarios\\containers\\user\\m3_copy";
+	SContainerBuf toWrite = read;
+	toWrite.Rebind();
+	const std::filesystem::path userFile = user.path / "rmg" / "scenarios" / "containers" / "user" / "m3_copy.xml";
+	Check( !FileExists( userFile ), "nothing is under the user RMG root yet" );
+	if ( !Check( BkEditorRmgWriteContainer( pSession, szUserName.c_str(), &toWrite.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( FileExists( userFile ), NStr::Format( "the file is under the user RMG root (%s)", userFile.string().c_str() ) );
+	{
+		SContainerBuf back;
+		Check( ReadContainerTwoPass( pSession, szUserName.c_str(), &back ) == BK_EDITOR_OK && ContainerBufIs( back, shipped ), "the user's file reads back through the bridge as the shipped one" );
+		SRMContainer direct;
+		Check( LoadDataResource( szUserName, "", false, 0, RMGC_CONTAINER_XML_NAME, direct ) && SameContainerFields( direct, shipped ), "and loads in the engine's own LoadDataResource (the game's reader)" );
+		const std::vector<std::string> listed = ListRmgNames( pSession, 3 );
+		Check( std::find( listed.begin(), listed.end(), szUserName ) != listed.end(), "the folder scan lists the user's container beside the shipped ones" );
+	}
+	// Saving again over the user's own file is allowed (it is theirs).
+	Check( BkEditorRmgWriteContainer( pSession, szUserName.c_str(), &toWrite.record ) == BK_EDITOR_OK, "writing over the user's own file is allowed" );
+	// An edit goes through: drop the last patch (and its index entries is
+	// the caller's job, so give an index list that fits) - a changed record
+	// reads back changed.
+	{
+		SContainerBuf edited = toWrite;
+		edited.Rebind();
+		edited.record.patch_count = 1;
+		for ( int d = 0; d < 4; ++d )
+			edited.record.index_counts[d] = 0;
+		edited.record.index_counts[0] = 1;
+		edited.indices[0] = 0;
+		edited.record.size_x = 3;
+		if ( Check( BkEditorRmgWriteContainer( pSession, szUserName.c_str(), &edited.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			SContainerBuf back;
+			Check( ReadContainerTwoPass( pSession, szUserName.c_str(), &back ) == BK_EDITOR_OK && back.record.patch_count == 1 && back.record.size_x == 3 &&
+			       back.record.index_counts[0] == 1 && back.record.index_counts[1] == 0, "an edited record reads back edited" );
+		}
+	}
+
+	// Shipped files are read-only: Save becomes Save As, and nothing is written.
+	{
+		const std::filesystem::path shippedUnderRoot = user.path / "rmg" / "scenarios" / "containers";
+		Check( BkEditorRmgWriteContainer( pSession, szShipped.c_str(), &toWrite.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "Save As" ), "a write to a shipped name is REFUSED with the Save-As message" );
+		std::string szSub = szShipped.substr( strlen( "scenarios\\containers\\" ) );
+		std::replace( szSub.begin(), szSub.end(), '\\', '/' );
+		Check( !FileExists( shippedUnderRoot / ( szSub + ".xml" ) ), "and wrote nothing under the user RMG root" );
+		SContainerBuf stillShipped;
+		Check( ReadContainerTwoPass( pSession, szShipped.c_str(), &stillShipped ) == BK_EDITOR_OK && ContainerBufIs( stillShipped, shipped ), "the shipped container reads as it did" );
+	}
+
+	// Names that are not plain are a caller bug and write nothing (T-05-09-01).
+	{
+		struct SBad { const char *pszWhat; std::string szName; };
+		const SBad bad[] = {
+			{ "an empty name", "" },
+			{ "a name going up", "scenarios\\containers\\..\\..\\x" },
+			{ "a name starting with ..", "..\\scenarios\\containers\\x" },
+			{ "a rooted name", "\\scenarios\\containers\\x" },
+			{ "a drive", "c:\\scenarios\\containers\\x" },
+			{ "a name outside the containers folder", "scenarios\\graphs\\x" },
+			{ "the folder alone", "scenarios\\containers\\" },
+			{ "a wildcard", "scenarios\\containers\\user\\a*b" },
+			{ "an empty component", "scenarios\\containers\\\\x" },
+			{ "a name too long", "scenarios\\containers\\" + std::string( 200, 'a' ) },
+		};
+		for ( size_t i = 0; i < sizeof bad / sizeof bad[0]; ++i )
+			Check( BkEditorRmgWriteContainer( pSession, bad[i].szName.c_str(), &toWrite.record ) == BK_EDITOR_BAD_ARGUMENT, NStr::Format( "%s is BAD_ARGUMENT on a write", bad[i].pszWhat ) );
+		BkEditorRmgContainerRecord unterminated = toWrite.record;
+		unterminated.season_folder[0] = 'a';
+		memset( unterminated.season_folder, 'a', sizeof unterminated.season_folder );
+		Check( BkEditorRmgWriteContainer( pSession, szUserName.c_str(), &unterminated ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated field is BAD_ARGUMENT" );
+		BkEditorRmgContainerRecord noArray = toWrite.record;
+		noArray.patches = 0;
+		Check( BkEditorRmgWriteContainer( pSession, szUserName.c_str(), &noArray ) == BK_EDITOR_BAD_ARGUMENT, "a patch count with no array is BAD_ARGUMENT" );
+		Check( !FileExists( user.path / "rmg" / "scenarios" / "containers" / "a*b.xml" ), "no bad name made a file" );
+	}
+	// Refusals: an index outside the patches, too many patches, a bad season - nothing written.
+	{
+		SContainerBuf bad = toWrite;
+		bad.Rebind();
+		bad.record.patch_count = int( bad.patches.size() );
+		const std::string szProbe = "scenarios\\containers\\user\\m3_refused";
+		bad.indices[0] = bad.record.patch_count + 3;
+		bad.record.index_counts[0] = 1;
+		bad.record.index_counts[1] = bad.record.index_counts[2] = bad.record.index_counts[3] = 0;
+		Check( BkEditorRmgWriteContainer( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "patch" ), "an index outside the patches is REFUSED" );
+		bad.indices[0] = 0;
+		bad.record.season = 9;
+		Check( BkEditorRmgWriteContainer( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "season" ), "a season outside 0..3 is REFUSED" );
+		bad.record.season = 0;
+		std::vector<BkEditorRmgPatch> many( size_t( BK_EDITOR_RMG_MAX_PATCHES + 1 ) );
+		for ( size_t i = 0; i < many.size(); ++i )
+		{
+			memset( &many[i], 0, sizeof many[i] );
+			strcpy( many[i].name, "scenarios\\patches\\x" );
+			many[i].size_x = many[i].size_y = 1;
+		}
+		bad.record.patches = &many[0];
+		bad.record.patch_count = int( many.size() );
+		Check( BkEditorRmgWriteContainer( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "more patches than the bound is REFUSED" );
+		bad.record.patch_count = 1;
+		strcpy( many[0].name, "..\\x" );
+		Check( BkEditorRmgWriteContainer( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a patch outside the data is REFUSED" );
+		Check( !FileExists( user.path / "rmg" / "scenarios" / "containers" / "user" / "m3_refused.xml" ), "no refusal wrote a file" );
+	}
+
+	// A patch's own facts, and the copy-in (D-10).
+	{
+		const std::string szPatch = shipped.patches[0].szFileName;
+		BkEditorRmgPatchInfo info;
+		memset( &info, 0, sizeof info );
+		const BkEditorStatus sizing = BkEditorRmgPatchInfoRead( pSession, szPatch.c_str(), &info );
+		if ( Check( sizing == BK_EDITOR_OK || ( sizing == BK_EDITOR_REFUSED && info.scripts.id_count + info.scripts.area_count > 0 ), BkEditorLastMessage( pSession ) ) )
+		{
+			std::vector<int> ids( size_t( info.scripts.id_count > 0 ? info.scripts.id_count : 1 ) );
+			std::vector<BkEditorRmgName> areas( size_t( info.scripts.area_count > 0 ? info.scripts.area_count : 1 ) );
+			info.scripts.ids = &ids[0];
+			info.scripts.id_capacity = info.scripts.id_count;
+			info.scripts.areas = &areas[0];
+			info.scripts.area_capacity = info.scripts.area_count;
+			if ( Check( BkEditorRmgPatchInfoRead( pSession, szPatch.c_str(), &info ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			{
+				CMapInfo mapInfo;
+				Check( LoadTypedSuperLatestDataResource( szPatch, ".bzm", 1, mapInfo ), "the patch loads directly" );
+				CUsedScriptIDs directIds;
+				mapInfo.GetUsedScriptIDs( &directIds );
+				Check( info.size_x == mapInfo.terrain.patches.GetSizeX() && info.size_y == mapInfo.terrain.patches.GetSizeY() && info.season == mapInfo.nSeason && std::string( info.season_folder ) == mapInfo.szSeasonFolder && int( directIds.size() ) == info.scripts.id_count,
+				       "the patch info is the engine's own read of the map" );
+			}
+		}
+		BkEditorRmgPatchInfo missing;
+		memset( &missing, 0, sizeof missing );
+		Check( BkEditorRmgPatchInfoRead( pSession, "scenarios\\patches\\nope\\nothing", &missing ) == BK_EDITOR_REFUSED && missing.scripts.id_count == 0, "an unknown patch is REFUSED with counts 0" );
+		Check( BkEditorRmgPatchInfoRead( pSession, "..\\x", &missing ) == BK_EDITOR_REFUSED, "a patch name going up is REFUSED" );
+	}
+	{
+		// A map outside the storages: a shipped patch copied under another name
+		// into the scratch folder.
+		const std::string szPatch = shipped.patches[0].szFileName;
+		const std::filesystem::path sourceBzm = std::filesystem::path( NPlatform::Paths::DataRoot() ) / OsPath( szPatch + ".bzm" );
+		std::filesystem::path source = sourceBzm;
+		std::string szExt = ".bzm";
+		if ( !FileExists( source ) )
+		{
+			source = std::filesystem::path( NPlatform::Paths::DataRoot() ) / OsPath( szPatch + ".xml" );
+			szExt = ".xml";
+		}
+		std::error_code error;
+		const std::filesystem::path outside = std::filesystem::path( szScratch ) / ( "m3_import_patch" + szExt );
+		if ( Check( FileExists( source ), NStr::Format( "the shipped patch's file is in Data (%s)", source.string().c_str() ) ) &&
+		     Check( std::filesystem::copy_file( source, outside, std::filesystem::copy_options::overwrite_existing, error ), "and copies out" ) )
+		{
+			BkEditorRmgName named;
+			memset( &named, 0, sizeof named );
+			const BkEditorStatus dry = BkEditorRmgImportPatch( pSession, outside.string().c_str(), 0, &named );
+			Check( dry == BK_EDITOR_OK && std::string( named.name ).compare( 0, 18, "scenarios\\patches\\" ) == 0 && std::string( named.name ).find( "m3_import_patch" ) != std::string::npos,
+			       NStr::Format( "a dry run names the destination (%s) %s", named.name, BkEditorLastMessage( pSession ) ) );
+			const std::string szDest = named.name;
+			std::string szDestSub = szDest;
+			std::replace( szDestSub.begin(), szDestSub.end(), '\\', '/' );
+			Check( !FileExists( user.path / "rmg" / ( szDestSub + szExt ) ), "and copies nothing" );
+			BkEditorRmgName done;
+			memset( &done, 0, sizeof done );
+			if ( Check( BkEditorRmgImportPatch( pSession, outside.string().c_str(), 1, &done ) == BK_EDITOR_OK && szDest == done.name, BkEditorLastMessage( pSession ) ) )
+			{
+				Check( FileExists( user.path / "rmg" / ( szDestSub + szExt ) ), "the copy lands under the user RMG root's Scenarios/Patches/<season>/" );
+				BkEditorRmgPatchInfo info;
+				memset( &info, 0, sizeof info );
+				const BkEditorStatus s = BkEditorRmgPatchInfoRead( pSession, szDest.c_str(), &info );
+				Check( ( s == BK_EDITOR_OK || s == BK_EDITOR_REFUSED ) && info.size_x > 0 && info.size_y > 0, "the copy loads through the storage as a patch" );
+				Check( BkEditorRmgImportPatch( pSession, outside.string().c_str(), 1, &done ) == BK_EDITOR_OK, "a second copy replaces the user's own file" );
+				// A container can now list it, and the write goes through.
+				SContainerBuf withCopy = toWrite;
+				withCopy.Rebind();
+				withCopy.record.patch_count = 1;
+				strcpy( withCopy.patches[0].name, szDest.c_str() );
+				withCopy.record.index_counts[0] = 1;
+				withCopy.record.index_counts[1] = withCopy.record.index_counts[2] = withCopy.record.index_counts[3] = 0;
+				withCopy.indices[0] = 0;
+				Check( BkEditorRmgWriteContainer( pSession, "scenarios\\containers\\user\\m3_with_copy", &withCopy.record ) == BK_EDITOR_OK, "a container listing the copied patch writes" );
+			}
+			// What is not a readable map is refused and copies nothing.
+			const std::filesystem::path notAMap = std::filesystem::path( szScratch ) / "m3_not_a_map.bzm";
+			{
+				std::ofstream out( notAMap.string().c_str(), std::ios::binary );
+				out << "this is not a map";
+			}
+			BkEditorRmgName refused;
+			memset( &refused, 0, sizeof refused );
+			Check( BkEditorRmgImportPatch( pSession, notAMap.string().c_str(), 1, &refused ) == BK_EDITOR_REFUSED && refused.name[0] == 0, "a file that does not read as a map is REFUSED" );
+			Check( BkEditorRmgImportPatch( pSession, "relative\\patch.bzm", 0, &refused ) == BK_EDITOR_REFUSED, "a relative path is REFUSED" );
+			Check( BkEditorRmgImportPatch( pSession, ( std::filesystem::path( szScratch ) / "nothing.txt" ).string().c_str(), 0, &refused ) == BK_EDITOR_REFUSED, "a path that is not a map file is REFUSED" );
+			Check( BkEditorRmgImportPatch( pSession, outside.string().c_str(), 2, &refused ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgImportPatch( pSession, 0, 0, &refused ) == BK_EDITOR_BAD_ARGUMENT, "a bad apply flag or a null path is BAD_ARGUMENT" );
+			remove( notAMap.string().c_str() );
+			// A patch whose name is shipped cannot be replaced by a copy.
+			const std::filesystem::path shadow = std::filesystem::path( szScratch ) / ( szPatch.substr( szPatch.find_last_of( '\\' ) + 1 ) + szExt );
+			// (the shipped name's own stem, in the summer/winter folder of its season)
+			std::filesystem::copy_file( source, shadow, std::filesystem::copy_options::overwrite_existing, error );
+			BkEditorRmgName shadowName;
+			memset( &shadowName, 0, sizeof shadowName );
+			const BkEditorStatus shadowStatus = BkEditorRmgImportPatch( pSession, shadow.string().c_str(), 1, &shadowName );
+			Check( shadowStatus == BK_EDITOR_OK || ( shadowStatus == BK_EDITOR_REFUSED && MessageHas( pSession, "shipped" ) ), NStr::Format( "a copy never replaces a shipped patch: OK under another folder, else REFUSED naming it (%d: %s)", int( shadowStatus ), BkEditorLastMessage( pSession ) ) );
+			remove( shadow.string().c_str() );
+		}
+		remove( outside.string().c_str() );
+	}
+
+	// A mod moves the root: <UserRoot>mods/<Folder>/rmg, mounted for that mod.
+	if ( BkEditorSetMod( pSession, "EditorTestMod" ) == BK_EDITOR_OK )
+	{
+		char szRoot[1024];
+		Check( BkEditorRmgRoot( pSession, szRoot, sizeof szRoot ) == BK_EDITOR_OK && SamePathLoose( szRoot, ( user.path / "mods" / "EditorTestMod" / "rmg" ).string() ), NStr::Format( "with a mod active the root is the mod's own (%s)", szRoot ) );
+		SContainerBuf nothing;
+		Check( ReadContainerTwoPass( pSession, szUserName.c_str(), &nothing ) == BK_EDITOR_REFUSED, "the no-mod root's container is not mounted with the mod active" );
+		const std::string szModName = "scenarios\\containers\\user\\m3_mod_copy";
+		Check( BkEditorRmgWriteContainer( pSession, szModName.c_str(), &toWrite.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( FileExists( user.path / "mods" / "EditorTestMod" / "rmg" / "scenarios" / "containers" / "user" / "m3_mod_copy.xml" ), "the mod's file is under the mod's rmg folder" );
+		Check( ReadContainerTwoPass( pSession, szModName.c_str(), &nothing ) == BK_EDITOR_OK, "and reads back" );
+		Check( BkEditorSetMod( pSession, 0 ) == BK_EDITOR_OK, "the mod clears" );
+		Check( ReadContainerTwoPass( pSession, szModName.c_str(), &nothing ) == BK_EDITOR_REFUSED, "the mod's container leaves with the mod" );
+		Check( ReadContainerTwoPass( pSession, szUserName.c_str(), &nothing ) == BK_EDITOR_OK, "and the no-mod root's container is back" );
+	}
+	char szRoot[1024];
+	Check( BkEditorRmgRoot( pSession, szRoot, sizeof szRoot ) == BK_EDITOR_OK && SamePathLoose( szRoot, ( user.path / "rmg" ).string() ), "with no mod the root is <UserRoot>/rmg" );
+	Check( BkEditorRmgRoot( pSession, szRoot, 4 ) == BK_EDITOR_REFUSED && BkEditorRmgRoot( pSession, 0, 10 ) == BK_EDITOR_BAD_ARGUMENT, "a root that does not fit is REFUSED, no buffer BAD_ARGUMENT" );
+	// Nothing outside the user root was written.
+	Check( !FileExists( std::filesystem::path( NPlatform::Paths::DataRoot() ) / "Scenarios" / "Containers" / "user" ), "nothing was written into the shipped Data" );
+	if ( g_nFailures == nFailuresBefore )
+		printf( "editor-bridge: M3 rmg containers ok\n" );
+}
+
+struct SGraphBuf
+{
+	BkEditorRmgGraphRecord record;
+	std::vector<BkEditorRmgNode> nodes;
+	std::vector<BkEditorRmgLink> links;
+	std::vector<int> ids;
+	std::vector<BkEditorRmgName> areas;
+	SGraphBuf() { memset( &record, 0, sizeof record ); }
+	void Rebind()
+	{
+		record.nodes = &nodes[0];
+		record.links = &links[0];
+		record.scripts.ids = &ids[0];
+		record.scripts.areas = &areas[0];
+	}
+};
+
+static BkEditorStatus ReadGraphTwoPass( BkEditorSession *pSession, const char *pszName, SGraphBuf *pOut )
+{
+	*pOut = SGraphBuf();
+	BkEditorStatus status = BkEditorRmgReadGraph( pSession, pszName, &pOut->record );
+	const BkEditorRmgGraphRecord &r = pOut->record;
+	if ( status == BK_EDITOR_OK )
+		return status;
+	if ( status != BK_EDITOR_REFUSED || ( r.node_count == 0 && r.link_count == 0 && r.scripts.id_count == 0 && r.scripts.area_count == 0 ) )
+		return status;
+	const int nNodes = r.node_count, nLinks = r.link_count, nIds = r.scripts.id_count, nAreas = r.scripts.area_count;
+	pOut->nodes.resize( size_t( nNodes > 0 ? nNodes : 1 ) );
+	pOut->links.resize( size_t( nLinks > 0 ? nLinks : 1 ) );
+	pOut->ids.resize( size_t( nIds > 0 ? nIds : 1 ) );
+	pOut->areas.resize( size_t( nAreas > 0 ? nAreas : 1 ) );
+	pOut->record.nodes = &pOut->nodes[0];
+	pOut->record.node_capacity = nNodes;
+	pOut->record.links = &pOut->links[0];
+	pOut->record.link_capacity = nLinks;
+	pOut->record.scripts.ids = &pOut->ids[0];
+	pOut->record.scripts.id_capacity = nIds;
+	pOut->record.scripts.areas = &pOut->areas[0];
+	pOut->record.scripts.area_capacity = nAreas;
+	status = BkEditorRmgReadGraph( pSession, pszName, &pOut->record );
+	if ( status == BK_EDITOR_OK && ( pOut->record.node_count != nNodes || pOut->record.link_count != nLinks ) )
+		return BK_EDITOR_FAILED;
+	return status;
+}
+
+static bool GraphBufIs( const SGraphBuf &rBuf, const SRMGraph &rG )
+{
+	const BkEditorRmgGraphRecord &r = rBuf.record;
+	if ( r.node_count != int( rG.nodes.size() ) || r.link_count != int( rG.links.size() ) || r.size_x != rG.size.x || r.size_y != rG.size.y || r.season != rG.nSeason ||
+	     std::string( r.season_folder ) != rG.szSeasonFolder || r.scripts.id_count != int( rG.usedScriptIDs.size() ) || r.scripts.area_count != int( rG.usedScriptAreas.size() ) )
+		return false;
+	for ( int i = 0; i < r.node_count; ++i )
+	{
+		const SRMGraphNode &n = rG.nodes[size_t( i )];
+		if ( r.nodes[i].x1 != n.rect.minx || r.nodes[i].y1 != n.rect.miny || r.nodes[i].x2 != n.rect.maxx || r.nodes[i].y2 != n.rect.maxy || n.szContainerFileName != r.nodes[i].container )
+			return false;
+	}
+	for ( int i = 0; i < r.link_count; ++i )
+	{
+		const SRMGraphLink &l = rG.links[size_t( i )];
+		if ( r.links[i].a != l.link.a || r.links[i].b != l.link.b || r.links[i].type != l.nType || l.szDescFileName != r.links[i].desc || r.links[i].parts != l.nParts ||
+		     r.links[i].radius != l.fRadius || r.links[i].min_length != l.fMinLength || r.links[i].distance != l.fDistance || r.links[i].disturbance != l.fDisturbance )
+			return false;
+	}
+	int nId = 0;
+	for ( CUsedScriptIDs::const_iterator it = rG.usedScriptIDs.begin(); it != rG.usedScriptIDs.end(); ++it )
+		if ( r.scripts.ids[nId++] != *it )
+			return false;
+	int nArea = 0;
+	for ( CUsedScriptAreas::const_iterator it = rG.usedScriptAreas.begin(); it != rG.usedScriptAreas.end(); ++it )
+		if ( *it != r.scripts.areas[nArea++].name )
+			return false;
+	return true;
+}
+
+static void TestM3RmgGraphs( BkEditorSession *pSession, const std::string &szScratch )
+{
+	const int nFailuresBefore = g_nFailures;
+	BkEditorRmgGraphRecord none;
+	memset( &none, 0, sizeof none );
+	Check( BkEditorRmgReadGraph( pSession, 0, &none ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgReadGraph( pSession, "x", 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null name or record is BAD_ARGUMENT on a graph read" );
+	Check( BkEditorRmgWriteGraph( pSession, 0, &none ) == BK_EDITOR_BAD_ARGUMENT && BkEditorRmgWriteGraph( pSession, "scenarios\\graphs\\user\\x", 0 ) == BK_EDITOR_BAD_ARGUMENT, "and on a write" );
+	SScratchUserRoot user( szScratch, "rmg-user-graphs" );
+
+	// The folder scan finds the graphs where they are (scenarios\graphs).
+	const std::vector<std::string> graphs = ListRmgNames( pSession, 2 );
+	if ( !Check( graphs.size() >= 100, NStr::Format( "the data lists its graphs (%d)", int( graphs.size() ) ) ) )
+		return;
+	std::string szShipped;
+	SRMGraph shipped;
+	for ( size_t i = 0; i < graphs.size() && szShipped.empty(); ++i )
+	{
+		SRMGraph candidate;
+		if ( LoadDataResource( graphs[i], "", false, 0, RMGC_GRAPH_XML_NAME, candidate ) && candidate.nodes.size() >= 4 && candidate.links.size() >= 3 &&
+		     !candidate.usedScriptIDs.empty() && !candidate.usedScriptAreas.empty() )
+		{
+			szShipped = graphs[i];
+			shipped = candidate;
+		}
+	}
+	if ( !Check( !szShipped.empty(), "the data has a graph with nodes, links and script lists" ) )
+		return;
+	printf( "editor-bridge: M3 rmg graph %s (%d nodes, %d links)\n", szShipped.c_str(), int( shipped.nodes.size() ), int( shipped.links.size() ) );
+	SGraphBuf read;
+	{
+		BkEditorRmgGraphRecord sizing;
+		memset( &sizing, 0, sizeof sizing );
+		Check( BkEditorRmgReadGraph( pSession, szShipped.c_str(), &sizing ) == BK_EDITOR_REFUSED && sizing.node_count == int( shipped.nodes.size() ) && sizing.link_count == int( shipped.links.size() ), "the sizing pass is REFUSED with the node and link totals" );
+	}
+	if ( !Check( ReadGraphTwoPass( pSession, szShipped.c_str(), &read ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( GraphBufIs( read, shipped ), "the bridge's graph read is the engine's own LoadDataResource read, field for field" );
+	{
+		SGraphBuf nothing;
+		Check( ReadGraphTwoPass( pSession, "scenarios\\graphs\\nope\\nothing", &nothing ) == BK_EDITOR_REFUSED && nothing.record.node_count == 0 && MessageHas( pSession, "graph" ), "an unknown graph is REFUSED naming it" );
+		Check( ReadGraphTwoPass( pSession, "scenarios\\containers\\winter\\army_s", &nothing ) == BK_EDITOR_REFUSED, "a container's name is REFUSED as a graph" );
+	}
+
+	// Write under a user name, read back equal, loads in the engine's own reader.
+	const std::string szUserName = "scenarios\\graphs\\user\\m3_graph";
+	SGraphBuf toWrite = read;
+	toWrite.Rebind();
+	const std::filesystem::path userFile = user.path / "rmg" / "scenarios" / "graphs" / "user" / "m3_graph.xml";
+	if ( !Check( BkEditorRmgWriteGraph( pSession, szUserName.c_str(), &toWrite.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( FileExists( userFile ), "the graph file is under the user RMG root" );
+	{
+		SGraphBuf back;
+		Check( ReadGraphTwoPass( pSession, szUserName.c_str(), &back ) == BK_EDITOR_OK && GraphBufIs( back, shipped ), "the user's graph reads back as the shipped one" );
+		SRMGraph direct;
+		Check( LoadDataResource( szUserName, "", false, 0, RMGC_GRAPH_XML_NAME, direct ) && SameGraphFields( direct, shipped ), "and loads in the engine's own LoadDataResource (the game's reader)" );
+		const std::vector<std::string> listed = ListRmgNames( pSession, 2 );
+		Check( std::find( listed.begin(), listed.end(), szUserName ) != listed.end(), "the folder scan lists the user's graph" );
+	}
+	// An edit: one more node and a link to it, changed link numbers.
+	{
+		SGraphBuf edited = toWrite;
+		edited.Rebind();
+		BkEditorRmgNode node;
+		memset( &node, 0, sizeof node );
+		node.x1 = 0;
+		node.y1 = 0;
+		node.x2 = 16;
+		node.y2 = 16;
+		edited.nodes.push_back( node );
+		BkEditorRmgLink link;
+		memset( &link, 0, sizeof link );
+		link.a = 0;
+		link.b = int( edited.nodes.size() ) - 1;
+		link.type = 1;
+		strcpy( link.desc, "terrain\\sets\\1\\rivers3d\\river_small" );
+		link.radius = 128.0f;
+		link.parts = 9;
+		link.min_length = 96.0f;
+		link.distance = 0.25f;
+		link.disturbance = 0.05f;
+		edited.links.push_back( link );
+		edited.record.nodes = &edited.nodes[0];
+		edited.record.node_count = int( edited.nodes.size() );
+		edited.record.links = &edited.links[0];
+		edited.record.link_count = int( edited.links.size() );
+		if ( Check( BkEditorRmgWriteGraph( pSession, szUserName.c_str(), &edited.record ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			SGraphBuf back;
+			Check( ReadGraphTwoPass( pSession, szUserName.c_str(), &back ) == BK_EDITOR_OK && back.record.node_count == int( shipped.nodes.size() ) + 1 && back.record.link_count == int( shipped.links.size() ) + 1, "an edited graph reads back with its node and link" );
+			if ( back.record.link_count == int( shipped.links.size() ) + 1 )
+			{
+				const BkEditorRmgLink &l = back.links[size_t( back.record.link_count - 1 )];
+				Check( l.type == 1 && l.parts == 9 && fabsf( l.radius - 128.0f ) < 1e-3f && fabsf( l.min_length - 96.0f ) < 1e-3f && fabsf( l.distance - 0.25f ) < 1e-5f && fabsf( l.disturbance - 0.05f ) < 1e-5f && std::string( l.desc ) == link.desc, "with the link's fields as given" );
+			}
+		}
+	}
+	// Shipped files are read-only.
+	{
+		Check( BkEditorRmgWriteGraph( pSession, szShipped.c_str(), &toWrite.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "Save As" ), "a write to a shipped graph name is REFUSED with the Save-As message" );
+		std::string szSub = szShipped.substr( strlen( "scenarios\\graphs\\" ) );
+		std::replace( szSub.begin(), szSub.end(), '\\', '/' );
+		Check( !FileExists( user.path / "rmg" / "scenarios" / "graphs" / ( szSub + ".xml" ) ), "and wrote nothing" );
+	}
+	// Names, as for containers.
+	{
+		const char *bad[] = { "", "scenarios\\graphs\\..\\x", "..\\x", "c:\\scenarios\\graphs\\x", "scenarios\\containers\\x", "scenarios\\graphs\\", "scenarios\\graphs\\a|b" };
+		for ( size_t i = 0; i < sizeof bad / sizeof bad[0]; ++i )
+			Check( BkEditorRmgWriteGraph( pSession, bad[i], &toWrite.record ) == BK_EDITOR_BAD_ARGUMENT, NStr::Format( "the graph name \"%s\" is BAD_ARGUMENT on a write", bad[i] ) );
+	}
+	// Refusals leave nothing behind.
+	{
+		const std::string szProbe = "scenarios\\graphs\\user\\m3_refused";
+		SGraphBuf bad = toWrite;
+		bad.Rebind();
+		bad.links[0].a = bad.record.node_count + 2;
+		Check( BkEditorRmgWriteGraph( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "link" ), "a link to a node that is not there is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.nodes[0].x2 = bad.nodes[0].x1;
+		Check( BkEditorRmgWriteGraph( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "node" ), "a node with no area is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.links[0].type = 2;
+		Check( BkEditorRmgWriteGraph( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a link type outside road/river is REFUSED" );
+		bad = toWrite;
+		bad.Rebind();
+		bad.links[0].radius = NAN;
+		Check( BkEditorRmgWriteGraph( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a link number that is not finite is REFUSED" );
+		bad = toWrite;
+		bad.record.season = 7;
+		Check( BkEditorRmgWriteGraph( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "season" ), "a season outside 0..3 is REFUSED" );
+		bad = toWrite;
+		std::vector<BkEditorRmgNode> many( size_t( BK_EDITOR_RMG_MAX_NODES + 1 ) );
+		for ( size_t i = 0; i < many.size(); ++i )
+		{
+			memset( &many[i], 0, sizeof many[i] );
+			many[i].x2 = many[i].y2 = 16;
+		}
+		bad.record.nodes = &many[0];
+		bad.record.node_count = int( many.size() );
+		bad.record.link_count = 0;
+		Check( BkEditorRmgWriteGraph( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "more nodes than the bound is REFUSED" );
+		bad = toWrite;
+		bad.record.nodes = 0;
+		Check( BkEditorRmgWriteGraph( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_BAD_ARGUMENT, "a node count with no array is BAD_ARGUMENT" );
+		Check( !FileExists( user.path / "rmg" / "scenarios" / "graphs" / "user" / "m3_refused.xml" ), "no refusal wrote a file" );
+	}
+	if ( g_nFailures == nFailuresBefore )
+		printf( "editor-bridge: M3 rmg graphs ok\n" );
 }

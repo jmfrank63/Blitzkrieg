@@ -253,6 +253,109 @@ pub const RmgGraph = extern struct {
     }
 };
 
+/// BkEditorRmgScripts (05-09): a record's script ID and area lists as the
+/// caller sizes them. `*_count` is always the total; an array shorter than its
+/// count is filled as far as it fits and the call is `.refused` (the sizing
+/// pass). A write ignores the capacities and reads each array by its count.
+pub const RmgScripts = extern struct {
+    ids: ?[*]c_int = null,
+    id_capacity: c_int = 0,
+    id_count: c_int = 0,
+    areas: ?[*]RmgName = null,
+    area_capacity: c_int = 0,
+    area_count: c_int = 0,
+};
+
+/// BkEditorRmgPatch: one patch of a container (a storage name without
+/// extension, its size in patches, its setting - empty is any).
+pub const RmgPatch = extern struct {
+    name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    size_x: c_int = 0,
+    size_y: c_int = 0,
+    place: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+};
+
+/// BkEditorRmgContainerRecord, layout included: SRMContainer through the
+/// engine's own serialiser. The four direction lists (North, East, South,
+/// West) are ONE flat `indices` array of `index_counts` entries each, in that
+/// order; an index is a position in `patches`.
+pub const RmgContainerRecord = extern struct {
+    size_x: c_int = 0,
+    size_y: c_int = 0,
+    season: c_int = 0,
+    season_folder: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    patches: ?[*]RmgPatch = null,
+    patch_capacity: c_int = 0,
+    patch_count: c_int = 0,
+    indices: ?[*]c_int = null,
+    index_capacity: c_int = 0,
+    index_counts: [4]c_int = .{ 0, 0, 0, 0 },
+    scripts: RmgScripts = .{},
+};
+
+/// BkEditorRmgNode / BkEditorRmgLink / BkEditorRmgGraphRecord: SRMGraph. A
+/// node's rectangle is in VIS tiles (16 per patch, y up, max exclusive); a
+/// link's radius and min length are WORLD units (the MFC dialog shows them
+/// divided by 32), `kind` 0 road, 1 river.
+pub const RmgNode = extern struct {
+    x1: c_int = 0,
+    y1: c_int = 0,
+    x2: c_int = 0,
+    y2: c_int = 0,
+    container: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+};
+
+pub const RmgLink = extern struct {
+    a: c_int = 0,
+    b: c_int = 0,
+    kind: c_int = 0,
+    desc: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    radius: f32 = 0,
+    parts: c_int = 0,
+    min_length: f32 = 0,
+    distance: f32 = 0,
+    disturbance: f32 = 0,
+};
+
+pub const RmgGraphRecord = extern struct {
+    size_x: c_int = 0,
+    size_y: c_int = 0,
+    season: c_int = 0,
+    season_folder: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    nodes: ?[*]RmgNode = null,
+    node_capacity: c_int = 0,
+    node_count: c_int = 0,
+    links: ?[*]RmgLink = null,
+    link_capacity: c_int = 0,
+    link_count: c_int = 0,
+    scripts: RmgScripts = .{},
+};
+
+/// BkEditorRmgPatchInfo: what a patch map says about itself.
+pub const RmgPatchInfo = extern struct {
+    size_x: c_int = 0,
+    size_y: c_int = 0,
+    season: c_int = 0,
+    season_folder: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    scripts: RmgScripts = .{},
+};
+
+/// Text into a NUL-terminated C field, zero-filled; false (nothing written)
+/// when it does not fit with its terminator - never truncated.
+pub fn putName(field: []u8, text: []const u8) bool {
+    if (text.len >= field.len) return false;
+    @memset(field, 0);
+    @memcpy(field[0..text.len], text);
+    return true;
+}
+
+/// The bounds a record write refuses above (bridge.h BK_EDITOR_RMG_MAX_*).
+pub const rmg_max_patches = 512;
+pub const rmg_max_nodes = 256;
+pub const rmg_max_links = 1024;
+pub const rmg_max_script_ids = 4096;
+pub const rmg_max_script_areas = 512;
+
 /// BkEditorRmgGenerateParams (05-08, D-01), layout included: one Create
 /// Random Map. The names are storage-relative as `listRmg` answers them
 /// (templates, chapters for the context, settings; `setting_name` empty or
@@ -940,6 +1043,25 @@ pub const Bridge = struct {
         /// BkEditorRmgTemplateGraphs (05-08, D-13): a template's graphs with
         /// their weights, in its own order. Two-pass like `listRmg`.
         rmgTemplateGraphs: *const fn (ptr: *anyopaque, template: [*:0]const u8, out: []RmgGraph, total: *usize) Status,
+        /// BkEditorRmgReadContainer / BkEditorRmgWriteContainer (05-09, D-06/D-07):
+        /// a container through the engine's own serialiser. Reads are two-pass
+        /// (see `RmgScripts`); a write under the user RMG root refuses a shipped
+        /// name with the Save-As message.
+        rmgReadContainer: *const fn (ptr: *anyopaque, name: [*:0]const u8, record: *RmgContainerRecord) Status,
+        rmgWriteContainer: *const fn (ptr: *anyopaque, name: [*:0]const u8, record: *const RmgContainerRecord) Status,
+        /// The same for a graph.
+        rmgReadGraph: *const fn (ptr: *anyopaque, name: [*:0]const u8, record: *RmgGraphRecord) Status,
+        rmgWriteGraph: *const fn (ptr: *anyopaque, name: [*:0]const u8, record: *const RmgGraphRecord) Status,
+        /// BkEditorRmgPatchInfoRead: a patch map's size, season, folder and
+        /// script lists, two-pass.
+        rmgPatchInfo: *const fn (ptr: *anyopaque, name: [*:0]const u8, info: *RmgPatchInfo) Status,
+        /// BkEditorRmgImportPatch (D-10): a map outside the storages copied into
+        /// the user RMG root's Scenarios/Patches/<season>/. `apply` false only
+        /// validates and names the destination.
+        rmgImportPatch: *const fn (ptr: *anyopaque, source: [*:0]const u8, apply: bool, out: *RmgName) Status,
+        /// BkEditorRmgRoot: the user RMG root as the host spells it, written
+        /// into `out` (NUL-terminated).
+        rmgRoot: *const fn (ptr: *anyopaque, out: []u8) Status,
         /// BkEditorAddPlayer (05-05, D-30): a player of `side` (0 or 1) before
         /// the neutral entry, ONE bridge-logged edit (`token`, -1 after a
         /// refusal). The diplomacies, unit creation, camera anchors and every
@@ -1075,6 +1197,13 @@ pub const Bridge = struct {
     pub fn createRandomMap(self: Bridge, params: RmgGenerateParams, result: *RmgGenerateResult) Status { return self.vtable.createRandomMap(self.ptr, params, result); }
     pub fn listStorageFiles(self: Bridge, folder: [*:0]const u8, extension: [*:0]const u8, out: []RmgName, total: *usize) Status { return self.vtable.listStorageFiles(self.ptr, folder, extension, out, total); }
     pub fn rmgTemplateGraphs(self: Bridge, template: [*:0]const u8, out: []RmgGraph, total: *usize) Status { return self.vtable.rmgTemplateGraphs(self.ptr, template, out, total); }
+    pub fn rmgReadContainer(self: Bridge, name: [*:0]const u8, record: *RmgContainerRecord) Status { return self.vtable.rmgReadContainer(self.ptr, name, record); }
+    pub fn rmgWriteContainer(self: Bridge, name: [*:0]const u8, record: *const RmgContainerRecord) Status { return self.vtable.rmgWriteContainer(self.ptr, name, record); }
+    pub fn rmgReadGraph(self: Bridge, name: [*:0]const u8, record: *RmgGraphRecord) Status { return self.vtable.rmgReadGraph(self.ptr, name, record); }
+    pub fn rmgWriteGraph(self: Bridge, name: [*:0]const u8, record: *const RmgGraphRecord) Status { return self.vtable.rmgWriteGraph(self.ptr, name, record); }
+    pub fn rmgPatchInfo(self: Bridge, name: [*:0]const u8, info: *RmgPatchInfo) Status { return self.vtable.rmgPatchInfo(self.ptr, name, info); }
+    pub fn rmgImportPatch(self: Bridge, source: [*:0]const u8, apply: bool, out: *RmgName) Status { return self.vtable.rmgImportPatch(self.ptr, source, apply, out); }
+    pub fn rmgRoot(self: Bridge, out: []u8) Status { return self.vtable.rmgRoot(self.ptr, out); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 
