@@ -2928,9 +2928,23 @@ fn addRandomMapGen(
     randommapgen_module.addIncludePath(b.path("Sources/src/Main"));
     randommapgen_module.addIncludePath(b.path("Sources/src/Common"));
     randommapgen_module.addIncludePath(b.path("Sources/src/Image"));
+    // The randommapgen archive is linked into several runtime binaries (AILogic,
+    // GameTT, Game, the editors). Its globals - SRMTemplateUnitsTable's string
+    // array and lookup maps, the RMGC_* names - have default visibility, so on
+    // ELF every copy interposes to the first-loaded instance while each module
+    // still registers its own destructor for it: the one array is then destroyed
+    // once per module at UnloadAllModules, and the double frees abort glibc at
+    // exit ("double free or corruption"). Hiding visibility gives every binary
+    // its own private copy - constructed once, destroyed once - which is what
+    // the Windows build already does with per-DLL static data.
+    const randommapgen_flags = std.mem.concat(
+        b.allocator,
+        []const u8,
+        &.{ cppflagsForOptimize(optimize), &.{ "-fvisibility=hidden", "-fvisibility-inlines-hidden" } },
+    ) catch @panic("out of memory");
     randommapgen_module.addCSourceFiles(.{
         .files = randommapgen_sources,
-        .flags = cppflagsForOptimize(optimize),
+        .flags = randommapgen_flags,
     });
 
     return b.addLibrary(.{
