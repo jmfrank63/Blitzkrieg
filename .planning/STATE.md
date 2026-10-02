@@ -1,15 +1,15 @@
 ---
 gsd_state_version: "1.0"
-current_plan: 8
+current_plan: 9
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 05-06-PLAN.md
-last_updated: "2026-10-02T13:11:21.686Z"
-state_head: 011aae1749ed79eaa8f85a176c4073e55e01254c
+stopped_at: Completed 05-08-PLAN.md
+last_updated: "2026-10-02T15:35:26.014Z"
+state_head: 9fcbd90126146b07d3cae4c6733d71b730088979
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 43
-  completed_plans: 39
+  completed_plans: 40
   percent: 0
 current_phase: 05
 current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
@@ -26,7 +26,7 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 
 ## Current Position
 
-Current Plan: 8
+Current Plan: 9
 Total Plans in Phase: 11
 Progress: [░░░░░░░░░░] 0%
 
@@ -67,8 +67,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-10-02T13:11:21.437Z
-**Stopped at:** Completed 05-06-PLAN.md
+**Last session:** 2026-10-02T15:35:25.780Z
+**Stopped at:** Completed 05-08-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -121,6 +121,7 @@ behavior needs the in-game rows).
 | Phase 5 P05 | 2h50m | 3 tasks | 27 files |
 | Phase 05 P07 | one session | 3 tasks | 17 files |
 | Phase 05 P06 | 1h30m | 3 tasks | 26 files |
+| Phase 05 P08 | 2h45m | 3 tasks | 19 files |
 
 ## Decisions
 
@@ -205,3 +206,8 @@ behavior needs the in-game rows).
 - [Phase 05]: 05-06: Depth Complexity is refused by the bridge's mask and greyed in the Layers menu: the GPU renderer has no stencil overdraw counter and the layer paints the frame white (measured); the wire frame was fixed in the renderer instead (Renderer.wireframe, a pipeline-key bit, fill mode LINE)
 - [Phase 05]: 05-06: the Layers state is remembered by the editor and re-applied after every open and new map (only layers that differ, only those in the bridge's mask), and the bridge re-applies its own after every build; settings keys layers_bits, fire_range_mode, fire_range_filter
 - [Phase 05]: 05-06: BkEditorSetFireRangeMode takes the selection (link_ids/count) beside the filter name; the filter is matched in the bridge against the saved filter files, so a composer filter not saved yet cannot drive the fire ranges
+- [Phase 05]: 05-08: the seed is a 32-bit number that is the generator's state; blank draws one, the seed used is read back from the .seed file
+- [Phase 05]: 05-08: Create Random Map writes under the user root (or the mod's folder), never the data; a repeat needs overwrite
+- [Phase 05]: 05-08: progress is the frozen-window model - the modal is announced for two frames, the callback only counts, no cancel
+- [Phase 05]: 05-08: the dialog's fields are set one by one in scripts (rmg_set) because the auto grammar caps arguments at 64 characters
+- [Phase 05]: 05-08: D-05 reads the MOD.Name/MOD.Version globals; Export lists need BkEditorListStorageFiles and BkEditorRmgTemplateGraphs
