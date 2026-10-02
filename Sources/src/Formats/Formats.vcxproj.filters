@@ -31,6 +31,9 @@
     <ClInclude Include="fmtMap.h">
       <Filter>Formats</Filter>
     </ClInclude>
+    <ClInclude Include="fmtMapScriptPath.h">
+      <Filter>Formats</Filter>
+    </ClInclude>
     <ClInclude Include="fmtMesh.h">
       <Filter>Formats</Filter>
     </ClInclude>

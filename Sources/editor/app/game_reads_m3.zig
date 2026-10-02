@@ -21,6 +21,14 @@
 //!     counted. The user root is the build step's scratch XDG_DATA_HOME where the
 //!     platform honours it; on Windows it is the profile's, and the authored files
 //!     (names under `user\authored_*`) are rewritten identically on every run.
+//!  4. the script path ruling of 2026-10-03 (WINDOWS.md 5): that generated map names
+//!     its script by the bare name (relative to the map's own folder), so the map
+//!     and its .lua are MOVED to another folder (the stand-in for another computer;
+//!     the originals are deleted), opened there, and Test in game - the very
+//!     `copyScriptForTest` call the menu makes - copies the script beside the test
+//!     map and the real Game loads and runs it (`BK_MAP_TRACE: script ... loaded=1
+//!     init=1`). The same play runs once before the move, from the folder it was
+//!     generated into.
 //!
 //! The log path names a combined report (the traces of both runs); each run's own
 //! full log is `<log>.short-railroad.log` and `<log>.regular.log` beside it.
@@ -142,8 +150,101 @@ fn authorSet(gpa: std.mem.Allocator, editor: *core.editor.Editor, base: []const 
     try editor.writeTemplate(authored_template, &tpl);
 }
 
+/// Test in game for the open map, as the menu does it: the map's script copied beside
+/// the test map (`copyScriptForTest`), the test copy saved, the real Game played; the
+/// game's BK_MAP_TRACE must report the map's `name` script loaded and run. Null after
+/// printing why.
+fn playWithScript(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, rig: *common.Rig, paths: *const common.TestPaths, log_path: []const u8, what: []const u8, name: []const u8) ?Play {
+    const editor = &rig.editor;
+    var note: [256]u8 = undefined;
+    if (panels_logic.copyScriptForTest(editor, paths.test_path, &note)) |warning| {
+        std.debug.print("map-editor: {s} FAIL: Test in game would not copy the script of {s}: {s}\n", .{ label, what, warning });
+        return null;
+    }
+    if (!common.saveTestCopy(rig, label, what, paths.test_path)) return null;
+    const played = play(gpa, io, environ, paths, what, log_path) orelse return null;
+    const script = played.trace.script orelse {
+        std.debug.print("map-editor: {s} FAIL: the game's BK_MAP_TRACE reported no script for {s}; see {s}\n", .{ label, what, log_path });
+        gpa.free(played.log);
+        return null;
+    };
+    if (!std.mem.eql(u8, script.name.slice(), name) or !script.loaded or !script.init) {
+        std.debug.print("map-editor: {s} FAIL: the game's script for {s} is \"{s}\" loaded={} init={}, not {s} loaded and run; see {s}\n", .{ label, what, script.name.slice(), script.loaded, script.init, name, log_path });
+        gpa.free(played.log);
+        return null;
+    }
+    std.debug.print("map-editor: {s}: {s}: BK_MAP_TRACE script name={s} loaded=1 init=1\n", .{ label, what, script.name.slice() });
+    return played;
+}
+
+/// The generated map's name, which is also its script's: the map is made as
+/// `m3_authored`, so the stored script path has to be exactly that.
+const authored_name = "m3_authored";
+
+/// `path` with its last extension cut off (an OS path).
+fn withoutExtension(path: []const u8) []const u8 {
+    const dot = std.mem.lastIndexOfScalar(u8, path, '.') orelse return path;
+    const cut = std.mem.lastIndexOfAny(u8, path, "/\\") orelse 0;
+    return if (dot > cut) path[0..dot] else path;
+}
+
+/// Leg 4: the generated map (open now, beside its script) and its .lua are copied to a
+/// folder of their own and the originals deleted - another computer's folder, as far as
+/// the map file can tell - then the map is opened from there and played with its script.
+/// Returns the play of the moved map, or null after printing why.
+fn movedLeg(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, rig: *common.Rig, paths: *const common.TestPaths, log_path: []const u8, generated_os: []const u8) ?Play {
+    const editor = &rig.editor;
+    const files = editor.files orelse return null;
+    const parent = std.fs.path.dirname(log_path) orelse ".";
+    var dir_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const moved_dir = std.fmt.bufPrint(&dir_buffer, "{s}{c}game-reads-it-m3-moved", .{ parent, std.fs.path.sep }) catch {
+        std.debug.print("map-editor: {s} FAIL: the moved folder's path is too long\n", .{label});
+        return null;
+    };
+    std.Io.Dir.cwd().deleteTree(io, moved_dir) catch {};
+    std.Io.Dir.cwd().createDirPath(io, moved_dir) catch |err| {
+        std.debug.print("map-editor: {s} FAIL: the folder {s} would not be made: {s}\n", .{ label, moved_dir, @errorName(err) });
+        return null;
+    };
+    var from_lua_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const from_lua = std.fmt.bufPrint(&from_lua_buffer, "{s}.lua", .{withoutExtension(generated_os)}) catch return null;
+    var to_map_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const to_map = std.fmt.bufPrint(&to_map_buffer, "{s}{c}{s}.bzm", .{ moved_dir, std.fs.path.sep, authored_name }) catch return null;
+    var to_lua_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const to_lua = std.fmt.bufPrint(&to_lua_buffer, "{s}{c}{s}.lua", .{ moved_dir, std.fs.path.sep, authored_name }) catch return null;
+    if (!files.exists(from_lua)) {
+        std.debug.print("map-editor: {s} FAIL: the generation left no script beside its map at {s}\n", .{ label, from_lua });
+        return null;
+    }
+    files.copy(generated_os, to_map) catch {
+        std.debug.print("map-editor: {s} FAIL: the map would not copy to {s}: {s}\n", .{ label, to_map, files.lastError() });
+        return null;
+    };
+    files.copy(from_lua, to_lua) catch {
+        std.debug.print("map-editor: {s} FAIL: the script would not copy to {s}: {s}\n", .{ label, to_lua, files.lastError() });
+        return null;
+    };
+    // The originals go, so nothing can be found where the map used to be.
+    files.delete(generated_os);
+    files.delete(from_lua);
+    var open_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+    const moved = panels_logic.enginePath(&open_buffer, to_map, .open, .bzm) orelse {
+        std.debug.print("map-editor: {s} FAIL: the moved map's path is too long\n", .{label});
+        return null;
+    };
+    editor.open(moved) catch {
+        std.debug.print("map-editor: {s} FAIL: the moved map {s} did not open: {s}\n", .{ label, to_map, editor.status() });
+        return null;
+    };
+    if (!rig.settle(label, 2)) return null;
+    var log_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const moved_log = std.fmt.bufPrint(&log_buffer, "{s}.moved.log", .{log_path}) catch return null;
+    return playWithScript(gpa, io, environ, rig, paths, moved_log, "the moved authored map", authored_name);
+}
+
 /// The authored leg: author, generate from the fixed seed, open the map, play its
-/// test copy. True when the game loaded it (its roads equal the editor's) and exited 0.
+/// test copy (with its script), then move the map and its script and play that. True
+/// when the game loaded it (its roads equal the editor's) and exited 0.
 fn authoredLeg(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, rig: *common.Rig, paths: *const common.TestPaths, log_path: []const u8) !?usize {
     const editor = &rig.editor;
     const base = "scenarios\\templates\\summer\\template02";
@@ -197,10 +298,19 @@ fn authoredLeg(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     };
     if (!rig.settle(label, 2)) return null;
     const roads = editor.vsoCount(.road) catch 0;
-    if (!common.saveTestCopy(rig, label, "authored test copy", paths.test_path)) return null;
+    // The generator names the script relative to the map's own folder (WINDOWS.md 5).
+    var script_buffer: [core.records.script_file_capacity]u8 = undefined;
+    const stored = editor.scriptFileName(&script_buffer) catch {
+        std.debug.print("map-editor: {s} FAIL: the generated map's script name would not read: {s}\n", .{ label, editor.status() });
+        return null;
+    };
+    if (!std.mem.eql(u8, stored, authored_name)) {
+        std.debug.print("map-editor: {s} FAIL: the generated map names its script \"{s}\", not the bare {s}\n", .{ label, stored, authored_name });
+        return null;
+    }
     const authored_log_path = try pathWithSuffix(gpa, log_path, ".authored.log");
     defer gpa.free(authored_log_path);
-    const played = play(gpa, io, environ, paths, "game on the authored map", authored_log_path) orelse return null;
+    const played = playWithScript(gpa, io, environ, rig, paths, authored_log_path, "the authored map", authored_name) orelse return null;
     defer gpa.free(played.log);
     const traced = played.trace.roads orelse {
         std.debug.print("map-editor: {s} FAIL: the game's BK_MAP_TRACE did not report the authored map's roads (it did not load the map?); see {s}\n", .{ label, authored_log_path });
@@ -210,6 +320,18 @@ fn authoredLeg(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         std.debug.print("map-editor: {s} FAIL: the game loaded {d} roads of the authored map, the editor holds {d}; see {s}\n", .{ label, traced, roads, authored_log_path });
         return null;
     }
+    // 4. Moved to another folder with its script, the same map plays the same.
+    const moved = movedLeg(gpa, io, environ, rig, paths, log_path, result.mapPathSlice()) orelse return null;
+    defer gpa.free(moved.log);
+    const moved_roads = moved.trace.roads orelse {
+        std.debug.print("map-editor: {s} FAIL: the game's BK_MAP_TRACE did not report the moved map's roads\n", .{label});
+        return null;
+    };
+    if (moved_roads != roads) {
+        std.debug.print("map-editor: {s} FAIL: the game loaded {d} roads of the moved map, the editor held {d}\n", .{ label, moved_roads, roads });
+        return null;
+    }
+    std.debug.print("map-editor: {s}: the map and its script moved to another folder and the game ran the script there\n", .{label});
     return traced;
 }
 

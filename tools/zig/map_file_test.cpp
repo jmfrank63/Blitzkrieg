@@ -16,6 +16,7 @@
 #include "../../Sources/src/RandomMapGen/MapInfo_Types.h"
 #include "../../Sources/src/RandomMapGen/VSO_Types.h"
 #include "../../Sources/src/Formats/fmtTerrain.h"
+#include "../../Sources/src/Formats/fmtMapScriptPath.h"
 
 static int g_nFailures = 0;
 
@@ -3465,6 +3466,85 @@ static void SweepM2Edits()
 		printf( "map-file: M2 sweep %d maps, %d edits, all restored byte-exact\n", int( paths.size() ), nEdits );
 }
 
+// The 2026-10-03 ruling on map script paths (WINDOWS.md 5): a map stores its script
+// relative to its own folder - a bare name, '/' the only separator it could hold -
+// and a loader expands it beside the map; an absolute path of an older map still
+// loads and is cut to its name on the next save. NMapScriptPath is the one rule the
+// generator, the game's loaders and the bridge's save share. This tier proves the
+// rule on the cases (a Windows drive path with backslashes, a macOS/Linux root path,
+// a share, the shipped "maps\Name", "scripts/name", none) and on the shipped maps:
+// exactly two hold an absolute path - the two intro movies' maps, "C:\a7\data\maps\..."
+// from the developers' own machine, the real-world legacy case - and every other
+// value is one the rule leaves as it is, so the bridge's save rewrites those two on a
+// Save As and nothing else. (This tier writes through NMapFile, which does not apply
+// the rule: the 66/66 round trip is byte-identical either way.)
+static void TestScriptPathForms()
+{
+	using namespace NMapScriptPath;
+	const char *const pszWindowsAbsolute = "C:\\Users\\jmfrank\\AppData\\Roaming\\Nival\\Blitzkrieg\\user\\maps\\rmg_one";
+	const char *const pszWindowsSlashes = "D:/Games/Blitzkrieg/user/maps/rmg_one";
+	const char *const pszPosixAbsolute = "/Users/johannes/Library/Application Support/Nival/user/maps/rmg_one";
+	const char *const pszShare = "\\\\host\\share\\maps\\rmg_one";
+	Check( IsAbsolute( pszWindowsAbsolute ) && IsAbsolute( pszWindowsSlashes ) && IsAbsolute( pszPosixAbsolute ) && IsAbsolute( pszShare ) && IsAbsolute( "\\maps\\x" ),
+	       "a drive path, a root path and a share are absolute" );
+	Check( !IsAbsolute( "" ) && !IsAbsolute( "rmg_one" ) && !IsAbsolute( "scripts/rmg_one" ) && !IsAbsolute( "maps\\BattleOfBulge" ) && !IsAbsolute( "1:x" ) && !IsAbsolute( "m" ),
+	       "none, a bare name, a relative path and the shipped maps' maps\\Name are not" );
+	Check( ToStored( pszWindowsAbsolute ) == "rmg_one" && ToStored( pszWindowsSlashes ) == "rmg_one" && ToStored( pszPosixAbsolute ) == "rmg_one" && ToStored( pszShare ) == "rmg_one",
+	       "an absolute path of either kind is stored as the script's name" );
+	Check( ToStored( "" ).empty() && ToStored( "rmg_one" ) == "rmg_one" && ToStored( "scripts/rmg_one" ) == "scripts/rmg_one" && ToStored( "maps\\BattleOfBulge" ) == "maps\\BattleOfBulge",
+	       "every other value - none, a bare name, a relative path, the shipped maps' maps\\Name - is stored as it is" );
+	Check( ToStored( ToStored( pszWindowsAbsolute ) ) == ToStored( pszWindowsAbsolute ), "storing twice changes nothing" );
+	Check( IsRelative( "rmg_one" ) && IsRelative( "scripts/rmg_one" ) && !IsRelative( "" ) && !IsRelative( "maps\\BattleOfBulge" ) && !IsRelative( pszWindowsAbsolute ),
+	       "a relative value has no drive, no root and no backslash" );
+
+	// The expansion beside the map, in the spelling of the map's own name.
+	const std::string szMap = "maps\\Allies\\Ardennes\\battleofbulge";
+	Check( BesideMap( "rmg_one", szMap ) == "maps\\Allies\\Ardennes\\rmg_one", "a bare name is looked up beside the map" );
+	Check( BesideMap( "scripts/rmg_one", szMap ) == "maps\\Allies\\Ardennes\\rmg_one", "a '/' path is split on the slash: the game takes its last component" );
+	Check( BesideMap( "maps\\BattleOfBulge", szMap ) == "maps\\Allies\\Ardennes\\BattleOfBulge", "the shipped maps' path is looked up the way the game always did" );
+	Check( BesideMap( pszWindowsAbsolute, "maps\\rmg_one.bzm" ) == "maps\\rmg_one" && BesideMap( pszPosixAbsolute, "maps\\rmg_one.bzm" ) == "maps\\rmg_one",
+	       "an absolute path of another computer is looked up beside the map, whichever machine wrote it" );
+	Check( BesideMap( "", szMap ).empty(), "no script stays none" );
+	Check( BesideMap( "rmg_one", "rmg_one" ) == "rmg_one" && BesideMap( "rmg_one", "/home/u/maps/rmg_one.bzm" ) == "/home/u/maps/rmg_one", "a map name with no folder, or an OS path, keeps its own spelling" );
+	Check( ExpandOnLoad( "rmg_one", "maps\\rmg_one" ) == "maps\\rmg_one" && ExpandOnLoad( "scripts/rmg_one", szMap ) == "maps\\Allies\\Ardennes\\rmg_one",
+	       "a relative value expands to the storage name beside the map" );
+	Check( ExpandOnLoad( "maps\\BattleOfBulge", szMap ) == "maps\\BattleOfBulge" && ExpandOnLoad( pszWindowsAbsolute, szMap ) == pszWindowsAbsolute && ExpandOnLoad( "", szMap ).empty(),
+	       "a legacy value is handed to the consumers that read it raw exactly as it was" );
+
+	// The shipped maps: how they name a script. None may be absolute, or the
+	// bridge's save would rewrite it.
+	std::vector<std::string> paths;
+	CollectMaps( "Data\\Maps", true, &paths );
+	int nNone = 0, nBare = 0, nSlash = 0, nBackslash = 0, nAbsolute = 0, nWindowsDrive = 0;
+	for ( size_t i = 0; i < paths.size(); ++i )
+	{
+		CMapInfo map;
+		std::string szError;
+		if ( !NMapFile::Read( paths[i].c_str(), &map, &szError ) )
+			continue;
+		const std::string &szScript = map.szScriptFile;
+		if ( szScript.empty() )
+			++nNone;
+		else if ( IsAbsolute( szScript ) )
+		{
+			++nAbsolute;
+			nWindowsDrive += szScript.size() > 2 && szScript[1] == ':' ? 1 : 0;
+			Check( ToStored( szScript ) == LastComponent( szScript ) && !ToStored( szScript ).empty(), "a shipped absolute path is stored as its script's name" );
+			printf( "map-file: script path forms: %s holds the absolute path \"%s\" (stored: \"%s\")\n", paths[i].c_str(), szScript.c_str(), ToStored( szScript ).c_str() );
+		}
+		else if ( szScript.find( '\\' ) != std::string::npos )
+			++nBackslash;
+		else if ( szScript.find( '/' ) != std::string::npos )
+			++nSlash;
+		else
+			++nBare;
+		Check( ToStored( szScript ) == szScript || IsAbsolute( szScript ), "a shipped map's script value is stored as it is unless it is absolute" );
+	}
+	printf( "map-file: script path forms of %d shipped maps: %d none, %d bare, %d with '/', %d with '\\', %d absolute\n", int( paths.size() ), nNone, nBare, nSlash, nBackslash, nAbsolute );
+	Check( nAbsolute == 2 && nWindowsDrive == 2, "exactly the two intro maps hold an absolute script path, both a Windows drive path (shipped data changed?)" );
+	printf( "map-file: script path forms ok\n" );
+}
+
 int main( int argc, char **argv )
 {
 	if ( !NDataOnly::Start( argc > 1 ? argv[1] : ".", "Data" ) )
@@ -3515,6 +3595,7 @@ int main( int argc, char **argv )
 	TestM2CascadeKinds();
 	TestM2VsoBuilder();
 	TestVsoPointBytes();
+	TestScriptPathForms();
 	TestM2BridgePlan();
 	TestM2FencePlan();
 	TestM2TrenchOverlay();

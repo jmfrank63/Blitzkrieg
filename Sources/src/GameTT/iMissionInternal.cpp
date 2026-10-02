@@ -21,6 +21,7 @@
 #include "../AILogic/AITypes.h"
 #include "../AILogic/aiconsts.h"
 #include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtMapScriptPath.h"
 #include "../Main/TextSystem.h"
 
 BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
@@ -1442,16 +1443,10 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 		}
 	}
 	{
-		std::string szScriptName;
-		const int nMapNamePos = szTerrainName.rfind( '\\' );
-		if ( nMapNamePos != std::string::npos ) 
-			szScriptName = szTerrainName.substr( 0, nMapNamePos + 1 );
-		const int nScriptNamePos = mapinfo.szScriptFile.rfind( '\\' );
-		if ( nScriptNamePos != std::string::npos ) 
-			szScriptName += mapinfo.szScriptFile.substr( nScriptNamePos + 1 );
-		else
-			szScriptName += mapinfo.szScriptFile;
-		mapinfo.szScriptFile = szScriptName;
+		// The script is looked up beside the map: its folder and the last component of the
+		// stored name, split on either separator (NMapScriptPath: a map stores the name
+		// relative to its own folder, with '/', and older maps a path with '\\').
+		mapinfo.szScriptFile = NMapScriptPath::BesideMap( mapinfo.szScriptFile, szTerrainName );
 	}
 	{
 		const std::string szMissionName = GetGlobalVar( "Mission.Current.Name", "" );

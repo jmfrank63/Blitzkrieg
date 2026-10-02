@@ -274,6 +274,7 @@
     <ClInclude Include="fmtEffect.h" />
     <ClInclude Include="fmtFont.h" />
     <ClInclude Include="fmtMap.h" />
+    <ClInclude Include="fmtMapScriptPath.h" />
     <ClInclude Include="fmtMesh.h" />
     <ClInclude Include="fmtSaveLoad.h" />
     <ClInclude Include="fmtSound.h" />

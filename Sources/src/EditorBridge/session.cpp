@@ -17,6 +17,7 @@
 #include "../GFX/GFX.H"
 #include "../Scene/Terrain.h"
 #include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtMapScriptPath.h"
 #include "../RandomMapGen/VA_Types.h"
 
 // A sound and a tank pit are in the object database, and so in the catalogue,
@@ -556,6 +557,20 @@ bool SaveSessionMap( SEditorSession *pSession, const char *pszPath )
 	{
 		pSession->szMessage = "no map path";
 		return false;
+	}
+	// A script path that names a place on one computer (an absolute one, as maps
+	// generated before the 2026-10-03 ruling hold: the output path) does not
+	// travel when a save syncs to another. It is written as the script's name
+	// relative to the map's own folder (NMapScriptPath); every other value - none,
+	// a bare name, the shipped maps' "maps\\Name" - is left exactly as the map had
+	// it, so a map opened and saved without a change is the same bytes.
+	{
+		const std::string szStored = NMapScriptPath::ToStored( pSession->snapshot.szScriptFile );
+		if ( szStored != pSession->snapshot.szScriptFile )
+		{
+			NMapRecords::PutScriptFile( &pSession->snapshot, szStored );
+			NMapRecords::PutScriptFile( &pSession->working, szStored );
+		}
 	}
 	// The snapshot, with whatever the editor has changed already laid over it -
 	// never pSession->working. The working copy has UnpackFrameIndices applied,

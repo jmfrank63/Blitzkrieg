@@ -23,6 +23,7 @@
 #include "../zlib/zconf.h"
 #include "../StreamIO/GeneratedData.h"
 #include "../Platform/Paths.h"
+#include "../Formats/fmtMapScriptPath.h"
 #include "ScenarioTracker.h"
 
 #if !defined(_FINALRELEASE) || defined(_DEVVERSION)
@@ -175,27 +176,16 @@ bool CCommonGameCreationInfo::LoadMapInfo( const bool bServer, const bool bNeedC
 		bMapLoaded = LoadTypedSuperLatestDataResource( "maps\\" + gameInfo.szMapName, ".bzm", 1, fullMapInfo, &packedInfo.szMapFileName );
 		if ( bMapLoaded )
 		{
+			// A map stores its script's name relative to its own folder (NMapScriptPath):
+			// the check sum reads the script by the storage name beside the map.
+			fullMapInfo.szScriptFile = NMapScriptPath::ExpandOnLoad( fullMapInfo.szScriptFile, packedInfo.szMapFileName );
 			if ( bNeedCheckSums )
 				fullMapInfo.GetCheckSums( &gameInfo.checkSumRes, &gameInfo.checkSumMap );
-
-			const int nPos = packedInfo.szMapFileName.find_last_of( '\\' );
 
 			if ( fullMapInfo.szScriptFile.empty() )
 				packedInfo.szScriptFileName = "";
 			else
-			{
-				packedInfo.szScriptFileName.clear();
-				packedInfo.szScriptFileName.assign( packedInfo.szMapFileName.begin(), packedInfo.szMapFileName.begin() + nPos );
-				
-				int nScriptPos = fullMapInfo.szScriptFile.find_last_of( '\\' );
-				if ( nScriptPos > fullMapInfo.szScriptFile.size() || nScriptPos < 0 )
-				{
-					nScriptPos = 0;
-					packedInfo.szScriptFileName += '\\';
-				}
-				packedInfo.szScriptFileName.append( fullMapInfo.szScriptFile.begin() + nScriptPos, fullMapInfo.szScriptFile.end() );
-				packedInfo.szScriptFileName += ".lua";
-			}
+				packedInfo.szScriptFileName = NMapScriptPath::BesideMap( fullMapInfo.szScriptFile, packedInfo.szMapFileName ) + ".lua";
 
 			packedInfo.szTXTFileName = packedInfo.szMapFileName;
 			packedInfo.szTXTFileName[packedInfo.szTXTFileName.size() - 3] = 't';

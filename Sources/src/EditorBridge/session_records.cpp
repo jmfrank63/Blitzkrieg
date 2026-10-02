@@ -16,6 +16,7 @@
 #include "../Scene/Scene.h"
 #include "../MapFile/MapRecords.h"
 #include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtMapScriptPath.h"
 #include "../RandomMapGen/VSO_Types.h"
 #include "../Main/GameDB.h"
 #include "../Main/RPGStats.h"
@@ -165,7 +166,10 @@ bool ReadSessionScriptFile( SEditorSession *pSession, BkEditorScriptFileRecord *
 		pSession->szMessage = "no map is open";
 		return false;
 	}
-	const std::string &rszName = pSession->snapshot.szScriptFile;
+	// The name as a save would write it: a map that still holds the output path of
+	// the computer that generated it reads as its script's name, which is also what
+	// Test in game and Save As copy by (NMapScriptPath::ToStored).
+	const std::string rszName = NMapScriptPath::ToStored( pSession->snapshot.szScriptFile );
 	if ( rszName.size() >= sizeof pOut->name )
 	{
 		pSession->szMessage = "this map's script file name is longer than the editor edits";
@@ -190,7 +194,7 @@ bool SetSessionScriptFile( SEditorSession *pSession, const char *pszName, bool *
 	// exempt however odd, so the undo of an edit can bring a verbatim path back
 	// (Pitfall 12). Only an empty or bare name can name a file beside the map:
 	// the copies made for it are built from a fixed directory plus that name.
-	if ( szWanted != pSession->szScriptFileAtOpen && !NMapRecords::IsBareScriptName( szWanted ) )
+	if ( szWanted != pSession->szScriptFileAtOpen && szWanted != NMapScriptPath::ToStored( pSession->szScriptFileAtOpen ) && !NMapRecords::IsBareScriptName( szWanted ) )
 	{
 		pSession->szMessage = "a script is named without folder or .lua";
 		if ( pbRefused != 0 ) *pbRefused = true;
