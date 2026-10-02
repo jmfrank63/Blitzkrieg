@@ -2315,12 +2315,16 @@ pub const Editor = struct {
     }
 
     /// What a replayed command needs once its entry has moved stacks: the
-    /// document's objects read again after an `objects`-scope edit. A failed
-    /// re-read is reported (the history stays as the bridge is) and asks for
-    /// a reopen.
+    /// document's objects read again after an `objects`-scope edit - and
+    /// after an `altitudes`-scope one, whose composites (the Fields tool's
+    /// apply, which fills objects as well as heights) add and take objects
+    /// back too: applyField re-reads after the apply, so its undo and redo
+    /// must as well, or the document keeps the fill's objects the map no
+    /// longer holds. A failed re-read is reported (the history stays as the
+    /// bridge is) and asks for a reopen.
     fn afterReplay(self: *Editor, command: *const history_mod.Command) EditError!void {
         switch (command.*) {
-            .edit => |e| if (e.scope == .objects) try self.reloadObjectsAfterEdit(),
+            .edit => |e| if (e.scope == .objects or e.scope == .altitudes) try self.reloadObjectsAfterEdit(),
             else => {},
         }
     }
@@ -4451,3 +4455,21 @@ test "filters: load merges through the bridge, the composer edits session-wide, 
     try std.testing.expectEqual(@as(u32, 6), editor.filters_generation);
 }
 
+
+test "fields: the apply's objects leave the document on undo and come back on redo" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    fake.field_adds_object = true;
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const before = editor.document.objects.items.len;
+    const points = [_]bridge_mod.FieldVec3{ .{ .x = 64, .y = 64 }, .{ .x = 192, .y = 64 }, .{ .x = 192, .y = 192 } };
+    try editor.applyField(.{ .point_count = points.len, .points = &points }, null, std.testing.allocator);
+    try std.testing.expectEqual(before + 1, editor.document.objects.items.len);
+    // The composite's undo takes the fill's object out of the document too
+    // (it is altitudes-scoped, and used to leave the document stale).
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(before, editor.document.objects.items.len);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(before + 1, editor.document.objects.items.len);
+}

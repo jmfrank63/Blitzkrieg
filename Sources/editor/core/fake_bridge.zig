@@ -299,7 +299,10 @@ const FakeBridgeGroup = struct {
 const FakeBridgeEdit = struct { before: ?FakeBridgeGroup, after: ?FakeBridgeGroup };
 /// The fake's edit log holds road and river edits and bridge edits alike,
 /// one token space, as the real session's does.
-const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit, altitudes: FakeAltitudeEdit, fields: void, move_objects: FakeMoveObjectsEdit, object_fields: FakeObjectFieldsEdit };
+/// A simulated fields apply: the object its fill added, when the test asked
+/// for one (`field_adds_object`) - undo takes it out, redo puts it back.
+const FakeFieldsEdit = struct { added: ?ObjectRecord = null };
+const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit, altitudes: FakeAltitudeEdit, fields: FakeFieldsEdit, move_objects: FakeMoveObjectsEdit, object_fields: FakeObjectFieldsEdit };
 /// A toggle of built during play: the entry and its flag before and after.
 const FakeBuildEdit = struct { index: usize, before: bool, after: bool };
 /// One altitude region edit (M3, D-19): the region and its heights before
@@ -452,6 +455,10 @@ pub const FakeBridge = struct {
     field_set_names: []const []const u8 = &.{"scenarios/fieldsets/summer_basic"},
     last_field_apply: ?bridge_mod.FieldApplyParams = null,
     field_apply_refused: bool = false,
+    /// Set by a test: a fields apply adds one object (the fill's own), at
+    /// the polygon's first point - so the document's object list can be
+    /// checked across the composite's undo and redo.
+    field_adds_object: bool = false,
     /// The object filters (M3, D-31): the user file's contents, saved whole
     /// by `saveObjectFilters`; `objectFilters` merges them over the shipped
     /// `default_filters` (user wins by name) the way the real bridge reads
@@ -1109,7 +1116,12 @@ pub const FakeBridge = struct {
         }
         self.undone_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
         const put = switch (self.edits.items[@intCast(token)]) {
-            .fields => .ok,
+            .fields => |*edit| blk: {
+                if (edit.added) |added| {
+                    if (self.indexOf(added.link_id)) |index| _ = self.objects_list.orderedRemove(index);
+                }
+                break :blk Status.ok;
+            },
             .vso => |*edit| self.putVso(edit.kind, edit.index, if (edit.after) |*a| a else null, if (edit.before) |*b| b else null),
             .bridge => |*edit| self.putBridge(if (edit.after) |*a| a else null, if (edit.before) |*b| b else null),
             .build => |edit| self.putBuild(edit.index, edit.before),
@@ -1143,7 +1155,10 @@ pub const FakeBridge = struct {
         }
         self.applied_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
         const put = switch (self.edits.items[@intCast(token)]) {
-            .fields => .ok,
+            .fields => |*edit| blk: {
+                if (edit.added) |added| self.objects_list.append(self.allocator, added) catch break :blk Status.failed;
+                break :blk Status.ok;
+            },
             .vso => |*edit| self.putVso(edit.kind, edit.index, if (edit.before) |*b| b else null, if (edit.after) |*a| a else null),
             .bridge => |*edit| self.putBridge(if (edit.before) |*b| b else null, if (edit.after) |*a| a else null),
             .build => |edit| self.putBuild(edit.index, edit.after),
@@ -3648,7 +3663,15 @@ pub const FakeBridge = struct {
         // documented simplification: the engine's tile, object and height
         // fills are the real bridge's business; the fake proves the command
         // shape - one token, the report path, the refusal path.
-        const edit = FakeEdit{ .fields = {} };
+        var edit = FakeEdit{ .fields = .{} };
+        if (self.field_adds_object) {
+            const first = params.points.?[0];
+            var object: ObjectRecord = .{ .link_id = self.nextLinkId(), .x = first.x, .y = first.y };
+            object.setName("FieldTree");
+            self.objects_list.append(self.allocator, object) catch return .failed;
+            self.link_floor = object.link_id + 1;
+            edit.fields.added = object;
+        }
         self.edits.append(self.allocator, edit) catch return .failed;
         token.* = @intCast(self.edits.items.len - 1);
         self.applied_edits.append(self.allocator, token.*) catch return .failed;
