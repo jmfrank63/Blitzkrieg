@@ -214,6 +214,7 @@ pub const predicate_table = [_]Entry{
     // 05-08: the dialog is up, the seed a generation reported, an export's file written.
     .{ .name = "rmg_dialog", .handler = rmgDialogIs },
     .{ .name = "rmg_seed", .handler = rmgSeedIs },
+    .{ .name = "rmg_phase", .handler = rmgPhaseIs },
     .{ .name = "export_file", .handler = exportFileExists },
     .{ .name = "export_lines", .handler = exportLinesAtLeast },
 };
@@ -3116,8 +3117,9 @@ pub fn rmgRun(state: *State, params: core.bridge.RmgGenerateParams) Outcome {
     return .ok;
 }
 
-/// `do=rmg_dialog[:open|close]` - File > Create Random Map (D-01): opens the
-/// dialog with the fields as last left, or closes it.
+/// `do=rmg_dialog[:open|close|ok|open_map]` - File > Create Random Map (D-01):
+/// opens the dialog with the fields as last left, closes it, presses its OK, or
+/// presses the result modal's Open map.
 fn rmgDialogCommand(state: *State, arg: []const u8) Outcome {
     if (arg.len == 0 or std.mem.eql(u8, arg, "open")) {
         if (state.rmg_phase != .idle) return .refused;
@@ -3126,6 +3128,15 @@ fn rmgDialogCommand(state: *State, arg: []const u8) Outcome {
     }
     if (std.mem.eql(u8, arg, "close")) {
         state.rmg_open = false;
+        return .ok;
+    }
+    // The dialog's own OK, and the result modal's Open map: the progress modal's
+    // frames run as a person would see them (announced at 0 of 19, one frame later
+    // the generator runs, then the result), where `rmg_generate` is the one-step form.
+    if (std.mem.eql(u8, arg, "ok")) return if (panels.startRmgGeneration(state)) .ok else .refused;
+    if (std.mem.eql(u8, arg, "open_map")) {
+        if (state.rmg_phase != .done) return .refused;
+        panels.openGeneratedRmgMap(state);
         return .ok;
     }
     return .bad_arg;
@@ -3173,6 +3184,12 @@ fn rmgGenerateCommand(state: *State, arg: []const u8) Outcome {
 fn rmgDialogIs(state: *State, arg: []const u8) Outcome {
     const want = parseFlagArg(arg) orelse return .bad_arg;
     return if (state.rmg_open == want) .ok else .refused;
+}
+
+/// `expect=rmg_phase:<idle|announce|run|done>` - where the progress modal is.
+fn rmgPhaseIs(state: *State, arg: []const u8) Outcome {
+    const want = std.meta.stringToEnum(panels.RmgPhase, arg) orelse return .bad_arg;
+    return if (state.rmg_phase == want) .ok else .refused;
 }
 
 /// `expect=rmg_seed:N` - the last generation of this run reported seed N (the
