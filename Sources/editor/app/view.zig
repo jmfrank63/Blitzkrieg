@@ -130,6 +130,8 @@ pub fn ViewWith(comptime Input: type) type {
         /// level gesture.
         heights_tool: core.tools_heights.Heights = .{},
         fields_tool: core.tools_fields.Fields = .{},
+        /// M3, D-29: the Damage tool (percent is the panel's field).
+        damage_tool: core.tools_damage.Damage = .{},
         /// Set each frame by a panel that uses the Delete key itself (the Start
         /// Commands window while it is focused): the view then does not hand
         /// Delete or Backspace to the tool, which would delete the selected
@@ -419,10 +421,13 @@ pub fn ViewWith(comptime Input: type) type {
                     const button = event.button;
                     if (button.button == sdl3.c.SDL_BUTTON_MIDDLE) {
                         // In the Heights tool the middle button levels (M3,
-                        // D-18); everywhere else it pans the camera, exactly
-                        // as before.
+                        // D-18); in the Damage tool it repairs to full
+                        // (M3, D-29); everywhere else it pans the camera,
+                        // exactly as before.
                         if (self.tool == .heights)
                             self.handleHeightsMiddle(editor, button)
+                        else if (self.tool == .damage)
+                            self.handleDamageMiddle(editor, button)
                         else
                             self.handleMiddleButton(editor, button);
                         return;
@@ -444,10 +449,11 @@ pub fn ViewWith(comptime Input: type) type {
                                 return;
                             }
                             // Alt+left is the middle button in the Heights tool
-                            // only (D-18: a trackpad's stand-in for the
-                            // level-drag); the heights tool never takes
+                            // (D-18: a trackpad's stand-in for the level-drag)
+                            // and in the Damage tool (D-29: Alt+click repairs
+                            // to full, the MFC's middle click); neither takes
                             // Ctrl-as-right, so the two never collide.
-                            if (self.tool == .heights and Input.modState() & sdl3.c.SDL_KMOD_ALT != 0) {
+                            if ((self.tool == .heights or self.tool == .damage) and Input.modState() & sdl3.c.SDL_KMOD_ALT != 0) {
                                 self.left_button_down = true;
                                 self.middle_button_down = true;
                                 self.middle_via_alt = true;
@@ -533,6 +539,14 @@ pub fn ViewWith(comptime Input: type) type {
                 self.middle_via_alt = false;
                 self.dispatch(editor, self.withButtons(.{ .release = pointer }, null));
             }
+        }
+
+        /// The Damage tool's middle button (M3, D-29): a repair-to-full
+        /// press, the same routing the Heights tool's level press takes -
+        /// the press resolves, the release ends the gesture, and the mask
+        /// says only the middle button (the tool reads it).
+        fn handleDamageMiddle(self: *Self, editor: *Editor, button: sdl3.c.SDL_MouseButtonEvent) void {
+            self.handleHeightsMiddle(editor, button);
         }
 
         fn handleMiddleButton(self: *Self, editor: *Editor, button: sdl3.c.SDL_MouseButtonEvent) void {
@@ -945,6 +959,7 @@ pub fn ViewWith(comptime Input: type) type {
                 .ai_general => self.ai_tool.handle(editor, event),
                 .heights => self.heights_tool.handle(editor, event),
                 .fields => handleFields(self, editor, event),
+                .damage => self.damage_tool.handle(editor, event),
             };
             self.noteEditResult(editor, result);
             // M3 (D-26/PARITY O15): double-click, Enter or Space on a
@@ -1930,4 +1945,41 @@ test "view: Delete is not the tool's while a panel has claimed it" {
     rig.view.delete_claimed = false;
     rig.send(keyDown(sdl3.c.SDLK_DELETE, 0, false));
     try testing.expect(rig.editor.document.find(1) == null);
+}
+
+test "view: the Damage tool - left damages, right heals, Alt+left and the middle button repair to full, one step each" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.view.selectTool(&rig.editor, .damage);
+    const depth = rig.editor.history.undo_stack.items.len;
+    // Left damages by the default 10%.
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expectApproxEqAbs(@as(f32, 0.90), rig.editor.document.find(1).?.hp, 0.0001);
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expectApproxEqAbs(@as(f32, 0.80), rig.editor.document.find(1).?.hp, 0.0001);
+    // Right heals the same share.
+    rig.send(mouseButton(button_right, true, 40, 40));
+    rig.send(mouseButton(button_right, false, 40, 40));
+    try testing.expectApproxEqAbs(@as(f32, 0.90), rig.editor.document.find(1).?.hp, 0.0001);
+    // Alt+left is the middle button here (the trackpad's stand-in): full.
+    FakeInput.mod = sdl3.c.SDL_KMOD_ALT;
+    rig.send(mouseButton(button_left, true, 40, 40));
+    try testing.expect(rig.view.middle_via_alt);
+    rig.send(mouseButton(button_left, false, 40, 40));
+    FakeInput.mod = 0;
+    try testing.expectEqual(@as(f32, 1.0), rig.editor.document.find(1).?.hp);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    // The real middle button repairs too (it does not pan in this tool).
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    const camera_x = rig.view.camera_x;
+    rig.send(mouseButton(button_middle, true, 40, 40));
+    rig.send(mouseButton(button_middle, false, 40, 40));
+    try testing.expectEqual(@as(f32, 1.0), rig.editor.document.find(1).?.hp);
+    try testing.expectEqual(camera_x, rig.view.camera_x);
+    try testing.expect(!rig.view.panning);
+    // Six clicks, six undo steps.
+    try testing.expectEqual(depth + 6, rig.editor.history.undo_stack.items.len);
 }

@@ -14,7 +14,7 @@
 const std = @import("std");
 const marker_logic = @import("marker_logic.zig");
 
-pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas, start_target, reserve_positions, ai_general, heights, fields };
+pub const ToolId = enum { select, brush, place, roads_rivers, bridge, fence, entrenchment, script_areas, start_target, reserve_positions, ai_general, heights, fields, damage };
 
 pub const Entry = struct {
     id: ToolId,
@@ -164,6 +164,15 @@ pub const entries = [_]Entry{
         .label = "Fields",
         .needs_right_button = true,
         .needs_double_click = true,
+    },
+    // M3, D-29 (PARITY MT1): the Damage tool. Left damages, right heals (the
+    // right button is its own gesture), middle - or Alt+click, the view's
+    // mapping - repairs to full. Ctrl is nothing here, so it never stands
+    // in for the right button.
+    .{
+        .id = .damage,
+        .label = "Damage",
+        .needs_right_button = true,
     },
 };
 

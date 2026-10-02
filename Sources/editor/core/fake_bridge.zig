@@ -499,6 +499,10 @@ pub const FakeBridge = struct {
     /// sqrt 2 (BkEditorWorldToMap), and a test sets another to catch a
     /// world point used as a map position.
     map_per_world: f32 = 1,
+    /// Set by a test: `damageObject` refuses naming the missing stats, as
+    /// the real bridge refuses an object whose stats did not read (the MFC
+    /// bug is not copied).
+    no_stats_fixture: bool = false,
 
     pub fn init(allocator: std.mem.Allocator, width_tiles: i32, height_tiles: i32, players: i32) FakeBridge {
         return .{
@@ -967,6 +971,7 @@ pub const FakeBridge = struct {
         .canLink = canLink,
         .setLink = setLink,
         .unlink = unlink,
+        .damageObject = damageObject,
         .sounds = sounds,
         .addSound = addSound,
         .setSound = setSound,
@@ -4192,6 +4197,54 @@ pub const FakeBridge = struct {
         self.applied_edits.append(self.allocator, token.*) catch return .failed;
         self.undone_edits.clearRetainingCapacity();
         self.objects_list.items[index] = after;
+        self.record(.vso_edit, token.*);
+        return .ok;
+    }
+
+    fn damageObject(ptr: *anyopaque, link_id: i32, delta: f32, mode: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        if (mode < 0 or mode > 2 or !std.math.isFinite(delta) or delta < 0 or delta > 1) return .bad_argument;
+        const index = self.indexOf(link_id) orelse {
+            self.say("no object with that link ID", .{});
+            return .refused;
+        };
+        if (self.shared(link_id)) return .refused;
+        const object = &self.objects_list.items[index];
+        if (!object.known or self.no_stats_fixture) {
+            self.say("the object has no stats to damage", .{});
+            return .refused;
+        }
+        // The MFC's clamps: a unit (the fake names units "T34"-style; every
+        // known object here is a unit or a building - the floor is 1% for
+        // both) keeps 1% under damage.
+        const floor: f32 = 0.01;
+        const before_hp = object.hp;
+        var new_hp = before_hp;
+        if (mode == 2) {
+            new_hp = 1.0;
+        } else {
+            const move: f32 = if (mode == 1) -delta else delta;
+            if (before_hp - move > 1.0) {
+                new_hp = 1.0;
+            } else if (before_hp - move < floor) {
+                new_hp = floor;
+            } else {
+                new_hp = before_hp - move;
+            }
+        }
+        if (new_hp == before_hp) return .ok; // nothing to change: no token
+        const logged = FakeObjectFieldsEdit{ .link_id = link_id, .before = object.*, .after = blk: {
+            var after = object.*;
+            after.hp = new_hp;
+            break :blk after;
+        } };
+        self.edits.append(self.allocator, .{ .object_fields = logged }) catch return .failed;
+        token.* = @intCast(self.edits.items.len - 1);
+        self.applied_edits.append(self.allocator, token.*) catch return .failed;
+        self.undone_edits.clearRetainingCapacity();
+        self.objects_list.items[index] = logged.after;
         self.record(.vso_edit, token.*);
         return .ok;
     }

@@ -892,6 +892,45 @@ test "properties fields commit as one undo step; an equal value records nothing"
     try testing.expectEqual(@as(f32, 1.0), editor.document.find(1).?.hp);
 }
 
+test "the direction wheel turns a multi-selection to its angle as ONE undo step per drag" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const second = try editor.addObject("T34", 100, 100, 65536 / 8, 0);
+    const members = [_]i32{ 1, second };
+    const dir_first = editor.document.find(1).?.dir;
+    const dir_second = editor.document.find(second).?.dir;
+    const depth = editor.history.undo_stack.items.len;
+    // One drag over the dial: many frames, one gesture.
+    const gesture = editor.beginGesture();
+    try editor.turnSelection(&members, 30, gesture);
+    try editor.turnSelection(&members, 60, gesture);
+    try editor.turnSelection(&members, 90, gesture);
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    // Both face the wheel's angle (the MFC turns each to it).
+    try testing.expectEqual(@as(i32, 65536 / 4), editor.document.find(1).?.dir);
+    try testing.expectEqual(@as(i32, 65536 / 4), editor.document.find(second).?.dir);
+    // A second drag is a second step.
+    const next = editor.beginGesture();
+    try editor.turnSelection(&members, 180, next);
+    try testing.expectEqual(depth + 2, editor.history.undo_stack.items.len);
+    _ = try editor.undo();
+    try testing.expectEqual(@as(i32, 65536 / 4), editor.document.find(1).?.dir);
+    // ONE undo takes the whole first drag back, every member.
+    _ = try editor.undo();
+    try testing.expectEqual(depth, editor.history.undo_stack.items.len);
+    try testing.expectEqual(dir_first, editor.document.find(1).?.dir);
+    try testing.expectEqual(dir_second, editor.document.find(second).?.dir);
+    // And the redo turns both again in one step.
+    _ = try editor.redo();
+    try testing.expectEqual(@as(i32, 65536 / 4), editor.document.find(1).?.dir);
+    try testing.expectEqual(@as(i32, 65536 / 4), editor.document.find(second).?.dir);
+    // A non-finite angle is refused and changes nothing.
+    try testing.expectError(error.Refused, editor.turnSelection(&members, std.math.nan(f32), 0));
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+}
+
 test "the formation rides only a squad, and the flag swap renames the record" {
     var fake = try testFixture(testing.allocator);
     defer fake.deinit();

@@ -1070,6 +1070,27 @@ BkEditorStatus BkEditorSetLink( BkEditorSession *session, int source, int target
    OK with *out_token -1. */
 BkEditorStatus BkEditorUnlink( BkEditorSession *session, int link_id, int *out_token );
 
+/* The Damage tool's hit (M3, D-29): the record's fHP moves by `delta` (the
+   tool's percentage/100) with the MFC MapToolState's own clamps - 1.0 at the
+   top, and a floor of 0.01 for a technics or a human object (a unit; its
+   mesh or sprite kind answers IsTechnics/IsHuman), 0 for anything else -
+   `mode` 0 damages (left click), 1 heals (right), 2 repairs to full
+   (middle); a UNIT keeps 1% under any damage (D-29's own floor - the MFC's
+   IsTechnics/IsHuman split the unit kind by vis type, and both are units),
+   anything else may be hit to 0. The engine's live object takes the same
+   share of its fMaxHP through IAIEditor::DamageObject. ONE edit of the log;
+   the undo re-places the whole record, engine included. A squad floors at
+   1% like a unit (the MFC damaged its soldiers, which IsHuman floors). A
+   record with no engine object of its own carrying stats is REFUSED naming
+   the stats - one the engine never took (a kind the engine does not place,
+   a position off the terrain) or a missing stats pointer: the MFC's
+   unguarded FindByVis result and pTmp->pRPG dereference
+   (MapToolState.cpp:54-57) are NOT copied. A record
+   the editor cannot edit is REFUSED too, and a percentage out of 0..1 is
+   BK_EDITOR_BAD_ARGUMENT. The clamps leaving nothing to change answers OK
+   with *out_token -1. */
+BkEditorStatus BkEditorDamageObject( BkEditorSession *session, int link_id, float delta, int mode, int *out_token );
+
 /* The map's script file (04-10, D-20): CMapInfo::szScriptFile, the name of the
    Lua file the game loads from the map's own folder (the game adds ".lua"). The
    MFC editor stored a bare name; empty means None. */

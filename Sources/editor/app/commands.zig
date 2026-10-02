@@ -99,6 +99,10 @@ pub const command_table = [_]Entry{
     .{ .name = "ai_mobile_remove", .handler = aiMobileRemove },
     .{ .name = "heights_window", .handler = heightsWindow },
     .{ .name = "props_open", .handler = propsOpen },
+    .{ .name = "wheel_turn", .handler = wheelTurn },
+    .{ .name = "damage_percent", .handler = damagePercent },
+    .{ .name = "damage", .handler = damageCommand },
+    .{ .name = "band_select", .handler = bandSelect },
     .{ .name = "props_set", .handler = propsSet },
     .{ .name = "link_make", .handler = linkMake },
     .{ .name = "link_unlink", .handler = linkUnlink },
@@ -129,6 +133,14 @@ pub const predicate_table = [_]Entry{
     .{ .name = "anchor_set", .handler = anchorSet },
     .{ .name = "anchor_unset", .handler = anchorUnset },
     .{ .name = "undo_depth", .handler = undoDepth },
+    // M3 (D-26/D-28/D-29): the properties', the wheel's and the Damage
+    // tool's own predicates.
+    .{ .name = "placer_angle", .handler = placerAngleIs },
+    .{ .name = "hp", .handler = hpIs },
+    .{ .name = "angle", .handler = angleIs },
+    .{ .name = "link_with", .handler = linkWithIs },
+    .{ .name = "selection_count", .handler = selectionCountIs },
+    .{ .name = "objects", .handler = objectsIs },
     .{ .name = "vso_delta", .handler = vsoDelta },
     .{ .name = "vso_points", .handler = vsoPoints },
     .{ .name = "bridge_delta", .handler = bridgeDelta },
@@ -822,6 +834,176 @@ fn scriptIdIs(state: *State, arg: []const u8) Outcome {
 // and a BK_EDITOR_AUTO `do=` run the same code.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// The direction wheel and the Damage tool (M3, D-28/D-29): the palette
+// wheel's turn and the tool's hit, every one a named command so the widget,
+// the tool and a BK_EDITOR_AUTO `do=` run the same code.
+// ---------------------------------------------------------------------------
+
+/// `do=wheel_turn:<degrees>`: the wheel's answer - the placer's placement
+/// angle becomes `degrees` (0 east, counter-clockwise, the MFC's own dial),
+/// and every selected object turns to face it, as the MFC frame turns each
+/// selected object to the wheel's angle (TemplateEditorFrame1.cpp:1053-1090).
+/// The frames of one drag over the dial share `state.wheel_gesture`, so the
+/// whole drag is ONE undo step; a scripted call (gesture 0) is a step of
+/// its own.
+fn wheelTurn(state: *State, arg: []const u8) Outcome {
+    const degrees = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    if (degrees < 0 or degrees >= 360) return .bad_arg;
+    state.view.placer.dir = logic.degreesToDirection(@floatFromInt(degrees));
+    if (!panels.mapIsOpen(state.editor)) return .ok;
+    const members = state.editor.selectionMembers(state.allocator) catch return .refused;
+    defer state.allocator.free(members);
+    if (members.len == 0) return .ok;
+    return resultOutcome(state, state.editor.turnSelection(members, @floatFromInt(degrees), state.wheel_gesture));
+}
+
+/// `do=damage_percent:<p>`: the Damage tool's percentage (0..100).
+fn damagePercent(state: *State, arg: []const u8) Outcome {
+    const percent = std.fmt.parseFloat(f32, arg) catch return .bad_arg;
+    if (!(percent >= 0 and percent <= 100)) return .bad_arg;
+    state.view.damage_tool.percent = percent;
+    return .ok;
+}
+
+/// A scripted object reference (M3): a link ID, or `@<n>` - the n-th
+/// selected object, the selection's members ascending by link ID (the order
+/// `selectionMembers` answers and edits apply in) - so a scenario names the
+/// objects it placed and banded without knowing the IDs the map handed out.
+fn objectRef(state: *State, text: []const u8) ?i32 {
+    if (text.len > 1 and text[0] == '@') {
+        const index = std.fmt.parseInt(usize, text[1..], 10) catch return null;
+        const members = state.editor.selectionMembers(state.allocator) catch return null;
+        defer state.allocator.free(members);
+        if (index >= members.len) {
+            state.editor.note("the selection holds fewer objects");
+            return null;
+        }
+        return members[index];
+    }
+    return std.fmt.parseInt(i32, text, 10) catch null;
+}
+
+fn damageModeOf(name: []const u8) ?core.bridge.DamageMode {
+    if (std.mem.eql(u8, name, "damage")) return .damage;
+    if (std.mem.eql(u8, name, "heal")) return .heal;
+    if (std.mem.eql(u8, name, "repair")) return .repair_full;
+    return null;
+}
+
+/// `do=damage:<object>:<mode>`: the Damage tool's hit as a command - the
+/// object a link ID or `@<n>`, the mode one of damage, heal, repair - the
+/// same editor call the tool's click makes, ONE undo step.
+fn damageCommand(state: *State, arg: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const mode = damageModeOf(arg[colon + 1 ..]) orelse return .bad_arg;
+    const link_id = objectRef(state, arg[0..colon]) orelse return .bad_arg;
+    return resultOutcome(state, state.editor.damageObject(link_id, mode, state.view.damage_tool.percent / 100.0, 0));
+}
+
+/// `do=band_select:<tx0>-<ty0>-<tx1>-<ty1>`: the Ctrl rubber band as a
+/// command - the tile rectangle over map cells, bridges and entrenchments
+/// passed over, the pick's answer the selection - the same read the
+/// Selector's Ctrl drag finishes with (the scripted pointer has no Ctrl).
+fn bandSelect(state: *State, arg: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    // '-' separates the tiles: the auto scenario's entries are comma-joined.
+    var parts = std.mem.splitScalar(u8, arg, '-');
+    var tiles: [4]i32 = undefined;
+    for (&tiles) |*tile| {
+        const text = parts.next() orelse return .bad_arg;
+        tile.* = std.fmt.parseInt(i32, text, 10) catch return .bad_arg;
+    }
+    if (parts.next() != null) return .bad_arg;
+    const bridge = state.editor.bridge;
+    var total: usize = 0;
+    var none: [0]i32 = .{};
+    const sizing = bridge.pickObjectsInTiles(tiles[0], tiles[1], tiles[2], tiles[3], &none, &total);
+    if (sizing != .ok and sizing != .refused) return .refused;
+    const members = state.allocator.alloc(i32, total) catch return .refused;
+    defer state.allocator.free(members);
+    var got: usize = 0;
+    if (bridge.pickObjectsInTiles(tiles[0], tiles[1], tiles[2], tiles[3], members, &got) != .ok) return .refused;
+    if (got != total) return .refused;
+    state.editor.selectionReplace(members[0..got]);
+    return .ok;
+}
+
+/// `expect=selection_count:<n>`: the selection holds exactly n objects.
+fn selectionCountIs(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    const got = state.editor.selectionCount();
+    if (got == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "{d} objects selected, not {d}", .{ got, want }) catch "selection differs");
+    return .refused;
+}
+
+/// `expect=objects:<n>`: the document holds exactly n objects (a delete and
+/// its undo, counted).
+fn objectsIs(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const got = state.editor.document.objects.items.len;
+    if (got == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "{d} objects on the map, not {d}", .{ got, want }) catch "object count differs");
+    return .refused;
+}
+
+/// `expect=placer_angle:<degrees>`: the wheel's angle is the placer's.
+fn placerAngleIs(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    const got = logic.directionToDegrees(state.view.placer.dir);
+    const got_rounded: i32 = @intFromFloat(got);
+    if (got_rounded == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "placer angle is {d}, not {d}", .{ got_rounded, want }) catch "placer angle differs");
+    return .refused;
+}
+
+/// `expect=angle:<object>:<degrees>`: the object faces that many whole
+/// degrees (the properties' own direction-to-degrees reading).
+fn angleIs(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const want = std.fmt.parseInt(i32, arg[colon + 1 ..], 10) catch return .bad_arg;
+    const link_id = objectRef(state, arg[0..colon]) orelse return .bad_arg;
+    const object = state.editor.document.find(link_id) orelse return .refused;
+    const got: i32 = @intFromFloat(logic.directionToDegrees(object.dir));
+    if (got == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "angle is {d}, not {d}", .{ got, want }) catch "angle differs");
+    return .refused;
+}
+
+/// `expect=hp:<object>:<percent>`: the object's health is that percentage
+/// of full, read from the document (two decimals of slack).
+fn hpIs(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const want_percent = std.fmt.parseFloat(f32, arg[colon + 1 ..]) catch return .bad_arg;
+    const link_id = objectRef(state, arg[0..colon]) orelse return .bad_arg;
+    const object = state.editor.document.find(link_id) orelse return .refused;
+    const got_percent = object.hp * 100.0;
+    if (@abs(got_percent - want_percent) < 0.011) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "hp is {d:.2}%, not {d:.2}%", .{ got_percent, want_percent }) catch "hp differs");
+    return .refused;
+}
+
+/// `expect=link_with:<object>=<host>`: the object's nLinkWith names the
+/// host (`0`: linked with nothing).
+fn linkWithIs(state: *State, arg: []const u8) Outcome {
+    const bar = std.mem.indexOfScalar(u8, arg, '=') orelse return .bad_arg;
+    const link_id = objectRef(state, arg[0..bar]) orelse return .bad_arg;
+    const want = objectRef(state, arg[bar + 1 ..]) orelse return .bad_arg;
+    const object = state.editor.document.find(link_id) orelse return .refused;
+    if (object.link_with == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "linked with {d}, not {d}", .{ object.link_with, want }) catch "link differs");
+    return .refused;
+}
+
 /// `do=props_open:1|0` opens or closes the Properties window (the menu
 /// checkbox is the same state).
 fn propsOpen(state: *State, arg: []const u8) Outcome {
@@ -833,13 +1015,15 @@ fn propsOpen(state: *State, arg: []const u8) Outcome {
     return .ok;
 }
 
-/// `do=props_set:<field>,<value>`: the Properties panel's commit, the field
+/// `do=props_set:<field>=<value>`: the Properties panel's commit, the field
 /// one of player, health (a percent), angle (degrees) or formation - the
 /// Script ID rides the M2 `script_id` command. Applied to the whole
 /// selection (the multi-selection's own set), ONE undo step.
 fn propsSet(state: *State, arg: []const u8) Outcome {
     if (!panels.mapIsOpen(state.editor)) return .refused;
-    const bar = std.mem.indexOfScalar(u8, arg, ',') orelse return .bad_arg;
+    // '=' separates field and value: the auto scenario's entries are
+    // comma-joined, so an argument may not carry a comma.
+    const bar = std.mem.indexOfScalar(u8, arg, '=') orelse return .bad_arg;
     const field = arg[0..bar];
     const value_text = arg[bar + 1 ..];
     var fields: core.bridge.ObjectFieldsEdit = .{};
@@ -884,20 +1068,23 @@ fn isSquadName(state: *State, name: []const u8) bool {
     return false;
 }
 
-/// `do=link_make:<source>,<target>`: the drop's link, refused with
-/// CheckForInserting's own reason when the rules say no.
+/// `do=link_make:<source>=<target>`: the drop's link, refused with
+/// CheckForInserting's own reason when the rules say no. Each side is a
+/// link ID or `@<n>` (the n-th selected object); '=' separates them, as in
+/// `props_set`, since the auto scenario's entries are comma-joined.
 fn linkMake(state: *State, arg: []const u8) Outcome {
     if (!panels.mapIsOpen(state.editor)) return .refused;
-    const bar = std.mem.indexOfScalar(u8, arg, ',') orelse return .bad_arg;
-    const source = std.fmt.parseInt(i32, arg[0..bar], 10) catch return .bad_arg;
-    const target = std.fmt.parseInt(i32, arg[bar + 1 ..], 10) catch return .bad_arg;
+    const bar = std.mem.indexOfScalar(u8, arg, '=') orelse return .bad_arg;
+    const source = objectRef(state, arg[0..bar]) orelse return .bad_arg;
+    const target = objectRef(state, arg[bar + 1 ..]) orelse return .bad_arg;
     return resultOutcome(state, state.editor.makeLink(source, target));
 }
 
-/// `do=link_unlink:<id>`: the properties' units list unlink.
+/// `do=link_unlink:<object>`: the properties' units list unlink (a link ID
+/// or `@<n>`).
 fn linkUnlink(state: *State, arg: []const u8) Outcome {
     if (!panels.mapIsOpen(state.editor)) return .refused;
-    const link_id = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    const link_id = objectRef(state, arg) orelse return .bad_arg;
     return resultOutcome(state, state.editor.unlinkObject(link_id));
 }
 
@@ -1643,22 +1830,24 @@ fn placerRole(state: *State, arg: []const u8) Outcome {
     return .refused;
 }
 
-/// `do=placer_name:Sdkfz_8`: the Place tool's object becomes the placeable unit of the
-/// catalogue with that name. For a scenario that needs one particular unit - a truck
-/// strong enough for the gun it tows - and refused, saying so, when the catalogue has no
-/// such unit.
+/// `do=placer_name:Sdkfz_8`: the Place tool's object becomes the placeable object of the
+/// catalogue with that name - a unit, a squad or a building, whatever the palette itself
+/// would put in hand (M3: the multi-selection, properties and link frames place a squad
+/// and a building). For a scenario that needs one particular object - a truck strong
+/// enough for the gun it tows - and refused, saying so, when the catalogue has no such
+/// placeable object (a lone soldier is not placeable and stays refused).
 fn placerName(state: *State, arg: []const u8) Outcome {
     if (arg.len == 0) return .bad_arg;
     if (!panels.mapIsOpen(state.editor)) return .refused;
     for (state.catalogue) |*entry| {
-        if (entry.game_type != 1 or entry.placeable == 0) continue;
+        if (entry.placeable == 0) continue;
         const name = std.mem.sliceTo(&entry.name, 0);
         if (!std.mem.eql(u8, name, arg)) continue;
         state.view.setPlacerObject(name);
         return .ok;
     }
     var buffer: [96]u8 = undefined;
-    state.editor.note(std.fmt.bufPrint(&buffer, "the catalogue has no placeable unit named {s}", .{arg}) catch "no such unit");
+    state.editor.note(std.fmt.bufPrint(&buffer, "the catalogue has no placeable object named {s}", .{arg}) catch "no such unit");
     return .refused;
 }
 

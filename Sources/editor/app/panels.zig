@@ -526,6 +526,11 @@ pub const State = struct {
     props_angle: f32 = 0,
     props_formation: usize = 0,
     props_reload: bool = true,
+    /// M3, D-28: the direction wheel's drag - the gesture its `wheel_turn`
+    /// frames share, so one drag over the dial turns the selection as ONE
+    /// undo step (0 between drags: a scripted `do=wheel_turn` is a step of
+    /// its own).
+    wheel_gesture: u32 = 0,
     groups: std.ArrayListUnmanaged(GroupRow) = .empty,
     groups_generation_seen: ?u32 = null,
     /// The groups the map held when it opened, for `groups_delta`.
@@ -1354,6 +1359,8 @@ pub fn draw(state: *State) void {
         panels_m2.drawReservePositions(state, left_pos, left_size, cond)
     else if (state.view.tool == .ai_general)
         panels_m2.drawAIGeneral(state, left_pos, left_size, cond)
+    else if (state.view.tool == .damage)
+        panels_m3.drawDamageTool(state, left_pos, left_size, cond)
     else
         drawObjectPalette(state, left_pos, left_size, cond);
     const right_x = @max(size.x - state.right_width, state.left_width);
@@ -3034,8 +3041,16 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
     const open = beginPanel("Objects", pos, size, cond, null);
     defer endPanel(open);
     if (!open) return;
+    // M3, D-28: the direction wheel shares the filter input's row (the
+    // input gives up its right margin), so the rows below keep the heights
+    // the M1/M2 reference frames were captured with.
+    ig.igPushItemWidth(ig.igGetContentRegionAvail().x - 56);
     _ = ig.igInputTextWithHint("##filter", "filter", &state.filter, state.filter.len + 1, 0);
+    ig.igPopItemWidth();
     const filter = std.mem.sliceTo(&state.filter, 0);
+    ig.igSameLine();
+    panels_m3.drawDirectionWheel(state, 48);
+    ig.igNewLine();
     drawPaletteFilters(state);
     if (state.catalogue.len == 0) {
         text("the object catalogue is empty");

@@ -1360,8 +1360,35 @@ bool SObjectFieldsEdit::Reapply( SEditorSession *pSession )
 	return PutObjectRecordBack( pSession, after );
 }
 
+SMapObject *DamageTargetObject( SEditorSession *pSession, int nLinkID );
+
+// The engine object's health brought from fFrom to fTo (the records' own
+// 0..1), the way the Damage tool's hit reaches it: IAIEditor::DamageObject
+// with the share of the stats' fMaxHP (positive damages, negative heals - the
+// MFC's own RemoveObject heal, TemplateEditorFrame1.cpp:2317-2322), and the
+// drawn health with it. An object without an engine object of its own or
+// without stats has no engine health to bring along.
+void SyncEngineHP( SEditorSession *pSession, int nLinkID, float fFrom, float fTo )
+{
+	fFrom = Max( 0.0f, Min( 1.0f, fFrom ) );
+	fTo = Max( 0.0f, Min( 1.0f, fTo ) );
+	if ( fFrom == fTo )
+		return;
+	SMapObject *pTarget = DamageTargetObject( pSession, nLinkID );
+	if ( pTarget == 0 || pTarget->pRPG == 0 )
+		return;
+	pTarget->SetHP( fTo );
+	if ( pTarget->pAIObj != 0 )
+	{
+		if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+			pAIEditor->DamageObject( pTarget->pAIObj, ( fFrom - fTo ) * pTarget->pRPG->fMaxHP );
+	}
+}
+
 // Re-places the engine object from `rRecord` - its position, direction and
-// owner - and then writes the record over the object's record in both copies.
+// owner - and then writes the record over the object's record in both copies,
+// the engine's health brought along when the record's fHP changes (a fields
+// edit, a Damage hit's undo and redo).
 // The engine goes first: PlaceObjectInSession compares the snapshot's current
 // record with what it is asked for to decide what to move, turn or re-own, so
 // a record written before it would leave the engine where it was (an angle
@@ -1375,6 +1402,7 @@ bool PutObjectRecordBack( SEditorSession *pSession, const SMapObjectInfo &rRecor
 		return false;
 	}
 	const SMapObjectInfo *pCurrent = FindIn( &pSession->snapshot, rRecord.link.nLinkID );
+	const float fHPBefore = pCurrent->fHP;
 	// A flag's owner is its type - the properties' swap renames it
 	// Flag_<party> - and the engine holds a flag unowned, so the engine is
 	// never asked to re-own one (it would refuse, and the swap with it).
@@ -1397,6 +1425,7 @@ bool PutObjectRecordBack( SEditorSession *pSession, const SMapObjectInfo &rRecor
 	}
 	*pSnapshot = rRecord;
 	*pWorking = rRecord;
+	SyncEngineHP( pSession, rRecord.link.nLinkID, fHPBefore, rRecord.fHP );
 	return true;
 }
 
@@ -1833,6 +1862,136 @@ bool UnlinkInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused, in
 		*pbRefused = true;
 		return false;
 	}
+	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
+	pEditRecord->nLinkID = nLinkID;
+	pEditRecord->before = recordBefore;
+	pEditRecord->after = after;
+	*pnToken = LogEdit( pSession, pEditRecord );
+	return true;
+}
+
+// The Damage tool's hit (M3, D-29). The engine object the session holds for
+// the link, as the world draws it - the MFC's FindByVis answer - so the
+// stats' fMaxHP and the technics/human question answer from the same place
+// the game's own damage does.
+SMapObject *DamageTargetObject( SEditorSession *pSession, int nLinkID )
+{
+	IRefCount *pAIObject = 0;
+	{
+		std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = pSession->byLinkID.find( nLinkID );
+		if ( it == pSession->byLinkID.end() )
+			return 0;
+		pAIObject = it->second;
+	}
+	if ( pSession->pWorld == 0 || pAIObject == 0 )
+		return 0;
+	std::vector<SMapObject*> objects;
+	pSession->pWorld->GetObjects( &objects );
+	for ( size_t i = 0; i < objects.size(); ++i )
+		if ( objects[i] != 0 && objects[i]->pAIObj == pAIObject )
+			return objects[i];
+	return 0;
+}
+
+bool DamageObjectInSession( SEditorSession *pSession, int nLinkID, float fDelta, int eMode, bool *pbRefused, int *pnToken )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		*pbRefused = true;
+		return false;
+	}
+	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+		return false;
+	const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nLinkID );
+	if ( pRecord == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		*pbRefused = true;
+		return false;
+	}
+	SMapObject *pTarget = DamageTargetObject( pSession, nLinkID );
+	// The MFC bug is not copied (MapToolState.cpp:54-57): a record with no
+	// engine object of its own in the world (one the engine never took - a
+	// kind PlaceOneObject passes over, a position off the terrain) or a
+	// missing stats pointer is a refusal, never a dereference.
+	if ( pTarget == 0 || pTarget->pRPG == 0 )
+	{
+		pSession->szMessage = "the object has no stats in the engine to damage";
+		*pbRefused = true;
+		return false;
+	}
+	// The MFC MapToolState's own clamps (MapToolState.cpp:59-76), D-29's own
+	// wording: a UNIT keeps 1% under any damage (the MFC's IsTechnics and
+	// IsHuman split the unit kind by its vis type - mesh or sprite - and
+	// both are units; the floor follows the kind, so every UNIT gets it),
+	// and so does a SQUAD - the MFC damaged its soldiers, which IsHuman
+	// floors at 1%, and saved the squad's health from them; anything else
+	// may be hit to 0. The repair mode is the MFC's middle button: back to
+	// full.
+	const bool bUnitFloor = pTarget->pDesc != 0 && ( pTarget->pDesc->eGameType == SGVOGT_UNIT || pTarget->pDesc->eGameType == SGVOGT_SQUAD );
+	const float fMinHP = bUnitFloor ? 0.01f : 0.0f;
+	float fNewHP = pRecord->fHP;
+	if ( eMode == 2 )
+	{
+		fNewHP = 1.0f;
+	}
+	else
+	{
+		float fHPAdded = ( eMode == 1 ) ? -fDelta : fDelta;
+		if ( ( pRecord->fHP - fHPAdded ) > 1.0f )
+			fHPAdded = pRecord->fHP - 1.0f;
+		else if ( ( pRecord->fHP - fHPAdded ) < fMinHP )
+			fHPAdded = pRecord->fHP - fMinHP;
+		fNewHP = pRecord->fHP - fHPAdded;
+		// D-29's own wording is the contract: the floor is at least 1%.
+		// The MFC's two-step float dance can land a hair below fMinHP
+		// (fHP - (fHP - 0.01f) rounding), which is below the clamp the row
+		// documents - the floor is set here, once, exactly.
+		if ( fNewHP < fMinHP )
+			fNewHP = fMinHP;
+	}
+	// The record before the edit is copied NOW: pRecord points into the
+	// snapshot, and the write below mutates it in place.
+	const SMapObjectInfo recordBefore = *pRecord;
+	if ( fNewHP == recordBefore.fHP )
+		return true; // the clamps left nothing to change: OK, no token
+	SMapObjectInfo after = recordBefore;
+	after.fHP = fNewHP;
+	// The records go in place (the engine object stays the one it is - the
+	// MFC damaged the live object, it did not re-place it), the world's own
+	// copy with them, and the engine takes the same share of its fMaxHP, the
+	// MFC's own IAIEditor::DamageObject call with the MFC's own
+	// hpAdded*fMaxHP.
+	{
+		SMapObjectInfo *pSnapshot = FindIn( &pSession->snapshot, nLinkID );
+		SMapObjectInfo *pWorking = FindIn( &pSession->working, nLinkID );
+		if ( pSnapshot == 0 || pWorking == 0 )
+		{
+			pSession->szMessage = "no object with that link ID";
+			*pbRefused = true;
+			return false;
+		}
+		pSnapshot->fHP = fNewHP;
+		pWorking->fHP = fNewHP;
+	}
+	// The engine's share, the record's own before and after: a hit damages,
+	// a heal and the repair heal (the MFC's middle button passes fHP - 1, a
+	// negative damage, MapToolState.cpp:172-176).
+	SyncEngineHP( pSession, nLinkID, recordBefore.fHP, fNewHP );
 	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
 	pEditRecord->nLinkID = nLinkID;
 	pEditRecord->before = recordBefore;

@@ -605,6 +605,21 @@ pub fn directionToDegrees(direction: i32) f32 {
     return @as(f32, @floatFromInt(direction)) * 360.0 / 65536.0 + 0.5;
 }
 
+/// The direction wheel's angle (M3, D-28/PARITY O6): the drag point against
+/// the dial's centre, as the MFC CDirectionButton reads it -
+/// `atan2(cy, cx)` with y up (DirectionButton.cpp:104-113) - as whole
+/// degrees 0..359, 0 at east and turning counter-clockwise on screen like
+/// the MFC's. Nothing here snaps: the MFC's wheel does not either.
+pub fn wheelAngleDegrees(centre: [2]f32, point: [2]f32) i32 {
+    const dx = point[0] - centre[0];
+    const dy = centre[1] - point[1]; // y up, the MFC's own flip
+    if (dx == 0 and dy == 0) return 0;
+    var degrees = std.math.radiansToDegrees(std.math.atan2(dy, dx));
+    if (degrees < 0) degrees += 360.0;
+    // 359.6 rounds to 360, which is 0 again.
+    return @mod(@as(i32, @intFromFloat(degrees + 0.5)), 360);
+}
+
 const normalizeForCompare = core.shipped.normalizeForCompare;
 const isAbsolutePath = core.shipped.isAbsolutePath;
 
@@ -1817,6 +1832,19 @@ test "angle: the MFC's degrees-to-direction pair turns and reads back" {
     // The read-back rounds to whole degrees, the MFC's own +0.5.
     try std.testing.expectEqual(@as(f32, 90.5), directionToDegrees(65536 / 4));
     try std.testing.expectEqual(@as(i32, 0), degreesToDirection(std.math.nan(f32)));
+}
+
+test "the direction wheel reads the drag angle the MFC's way: y up, whole degrees" {
+    // East, north, west, south - the MFC's atan2(cy, cx) with y up.
+    try std.testing.expectEqual(@as(i32, 0), wheelAngleDegrees(.{ 50, 50 }, .{ 60, 50 }));
+    try std.testing.expectEqual(@as(i32, 90), wheelAngleDegrees(.{ 50, 50 }, .{ 50, 40 }));
+    try std.testing.expectEqual(@as(i32, 180), wheelAngleDegrees(.{ 50, 50 }, .{ 40, 50 }));
+    try std.testing.expectEqual(@as(i32, 270), wheelAngleDegrees(.{ 50, 50 }, .{ 50, 60 }));
+    // The diagonal and the dead centre.
+    try std.testing.expectEqual(@as(i32, 45), wheelAngleDegrees(.{ 50, 50 }, .{ 60, 40 }));
+    try std.testing.expectEqual(@as(i32, 0), wheelAngleDegrees(.{ 50, 50 }, .{ 50, 50 }));
+    // Just below east rounds up to 360, which is 0: never out of 0..359.
+    try std.testing.expectEqual(@as(i32, 0), wheelAngleDegrees(.{ 50, 50 }, .{ 150, 50.5 }));
 }
 
 test "isShippedMap: Data and mods/*/data are shipped, relative or absolute, separators and case ignored" {

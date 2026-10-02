@@ -282,6 +282,7 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorCanLink", [&] { return BkEditorCanLink( 0, 0, 0, &nInt ); } },
 		{ "BkEditorSetLink", [&] { return BkEditorSetLink( 0, 0, 0, &nInt ); } },
 		{ "BkEditorUnlink", [&] { return BkEditorUnlink( 0, 0, &nInt ); } },
+		{ "BkEditorDamageObject", [&] { return BkEditorDamageObject( 0, 0, 0.1f, 0, &nInt ); } },
 		{ "BkEditorGroupIDs", [&] { return BkEditorGroupIDs( 0, &nInt, 1, &nInt2 ); } },
 		{ "BkEditorGroup", [&] { return BkEditorGroup( 0, 0, &nInt, 1, &nInt2 ); } },
 		{ "BkEditorSetGroup", [&] { return BkEditorSetGroup( 0, 0, &nInt, 1 ); } },
@@ -3771,6 +3772,10 @@ static void TestM3UpdateMapAndFill( BkEditorSession *pSession, const std::string
 }
 
 static bool SameBytes( const std::string &szLeft, const std::string &szRight );
+static std::string DescribeDifference( const std::string &szLeft, const std::string &szRight );
+static std::string OsPath( std::string szPath );
+static bool ReadObjectRecord( BkEditorSession *pSession, int nLinkID, BkEditorObjectRecord *pOut );
+static void TestM3Damage( BkEditorSession *pSession, const std::string &szScratch );
 
 // M3 (D-26/D-27): the properties' fields and the links, on the engine. The
 // fields edit (player, hp, angle, formation) saves as the builder's map; the
@@ -4175,6 +4180,275 @@ static void TestM3PropertiesAndLinks( BkEditorSession *pSession, const std::stri
 	remove( szHostGone.c_str() );
 	remove( szHostBack.c_str() );
 	printf( "editor-bridge: M3 properties and links ok\n" );
+}
+
+// The bridge's record for one link ID, read fresh (M3 tests).
+static bool ReadObjectRecord( BkEditorSession *pSession, int nLinkID, BkEditorObjectRecord *pOut )
+{
+	int nCount = 0;
+	BkEditorObjects( pSession, 0, 0, &nCount );
+	std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+	int nRead = 0;
+	if ( BkEditorObjects( pSession, &( records[0] ), nCount, &nRead ) != BK_EDITOR_OK )
+		return false;
+	for ( int i = 0; i < nRead; ++i )
+		if ( records[size_t( i )].link_id == nLinkID )
+		{
+			*pOut = records[size_t( i )];
+			return true;
+		}
+	return false;
+}
+
+// The record a fresh read of the map file holds for one link ID (the
+// expected-value builder's own lookup).
+static SMapObjectInfo *FindMapRecord( CMapInfo *pMap, int nLinkID )
+{
+	std::vector<SMapObjectInfo> *lists[2] = { &pMap->objects, &pMap->scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+			if ( ( *lists[nList] )[i].link.nLinkID == nLinkID )
+				return &( *lists[nList] )[i];
+	return 0;
+}
+
+// M3 (D-29): the Damage tool's hit, on the engine. A hit moves the record's
+// fHP by the percentage with the MFC's own clamps (1% floor for a unit), the
+// engine still holds the object where the record says, the save is the
+// builder's map (D-40.3), the undo is byte for byte, a squad floors at 1%
+// too, a record no engine object carries stats for refuses without a crash
+// (the MFC's unguarded FindByVis/pRPG dereference is not copied), and the
+// repair mode sets full.
+static void TestM3Damage( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// The target: a whole UNIT of the catalogue (game type 1), whose 1%
+	// floor the MFC's IsTechnics/IsHuman answers; and a SQUAD (game type
+	// 15), whose soldiers IsHuman floors the same.
+	int nTarget = -1, nSquad = -1;
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+		int nRead = 0;
+		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+		int nCatalogue = 0;
+		BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+		std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+		int nCatalogueRead = 0;
+		BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nCatalogueRead );
+		for ( int i = 0; i < nRead && ( nTarget < 0 || nSquad < 0 ); ++i )
+		{
+			const BkEditorObjectRecord &rRecord = records[size_t( i )];
+			if ( rRecord.link_id <= 0 || !rRecord.known )
+				continue;
+			for ( int j = 0; j < nCatalogueRead; ++j )
+			{
+				if ( rRecord.name != std::string( catalogue[size_t( j )].name ) )
+					continue;
+				if ( nTarget < 0 && catalogue[size_t( j )].game_type == 1 && rRecord.hp == 1.0f )
+					nTarget = rRecord.link_id;
+				if ( nSquad < 0 && catalogue[size_t( j )].game_type == 15 )
+					nSquad = rRecord.link_id;
+				break;
+			}
+		}
+	}
+	if ( !Check( nTarget > 0, "a whole unit to damage is on the map" ) )
+		return;
+	Check( nSquad > 0, "a squad for the floor is on the map" );
+
+	const std::string szUnedited = szScratch + "\\m3-damage-unedited.bzm";
+	const std::string szDamaged = szScratch + "\\m3-damage-damaged.bzm";
+	const std::string szUndone = szScratch + "\\m3-damage-undone.bzm";
+	const std::string szRefused = szScratch + "\\m3-damage-refused.bzm";
+	const std::string szPitCopy = szScratch + "\\m3-damage-pit.bzm";
+	const std::string szPitUnedited = szScratch + "\\m3-damage-pit-unedited.bzm";
+	Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	BkEditorObjectState engineBefore;
+	memset( &engineBefore, 0, sizeof engineBefore );
+	Check( BkEditorEngineObjectState( pSession, nTarget, &engineBefore ) == BK_EDITOR_OK, "the engine holds the unit" );
+
+	// A 30% hit on a full unit: the 1% floor is not met, the record reads
+	// 0.70 - the MFC's own float step (fHP - hpAdded).
+	const float fExpected = 1.0f - 0.30f;
+	int nToken = -1;
+	if ( !Check( BkEditorDamageObject( pSession, nTarget, 0.30f, 0, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( nToken >= 0, "the damage has a token" );
+	BkEditorObjectRecord record;
+	memset( &record, 0, sizeof record );
+	if ( Check( ReadObjectRecord( pSession, nTarget, &record ), "the damaged unit's record reads" ) )
+		Check( record.hp == fExpected, "the record reads 70% after a 30% hit" );
+
+	// The engine still holds the unit, where and as the record says: the
+	// hit damages the live object, it does not re-place it.
+	BkEditorObjectState engineState;
+	memset( &engineState, 0, sizeof engineState );
+	if ( Check( BkEditorEngineObjectState( pSession, nTarget, &engineState ) == BK_EDITOR_OK, "the engine still holds the object" ) )
+	{
+		Check( fabsf( engineState.x - record.x ) < 1.0f && fabsf( engineState.y - record.y ) < 1.0f,
+		       ( "the engine's position is the record's (" + std::to_string( engineState.x ) + "," + std::to_string( engineState.y ) +
+		         " vs " + std::to_string( record.x ) + "," + std::to_string( record.y ) + ")" ).c_str() );
+		Check( engineState.player == record.player,
+		       ( "the engine's player is the record's (" + std::to_string( engineState.player ) + " vs " + std::to_string( record.player ) + ")" ).c_str() );
+		Check( engineState.x == engineBefore.x && engineState.y == engineBefore.y && engineState.dir == engineBefore.dir &&
+		       engineState.player == engineBefore.player,
+		       "and the hit moved, turned and re-owned nothing in the engine" );
+	}
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "the engine agrees after the hit: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+
+	// D-40.3: the damaged save is the expected-value builder's map - the
+	// same fHP on a fresh read of the file, no engine.
+	{
+		CMapInfo expected, saved;
+		std::string szWhere;
+		if ( Check( NMapFile::Read( BRIDGE_MAP, &expected, &szError ), szError.c_str() ) )
+		{
+			SMapObjectInfo *pExpected = FindMapRecord( &expected, nTarget );
+			if ( Check( pExpected != 0, "the builder finds the unit" ) )
+			{
+				pExpected->fHP = fExpected;
+				if ( Check( BkEditorSaveMap( pSession, szDamaged.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+				     Check( NMapFile::Read( szDamaged.c_str(), &saved, &szError ), szError.c_str() ) )
+					Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+					       szWhere.empty() ? "the damaged save is the expected map" : ( "the damaged save differs at " + szWhere ).c_str() );
+			}
+		}
+	}
+
+	// The undo is byte for byte, and the engine agrees with the map again.
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "the damage undoes" );
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "the engine agrees after the undo: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szUnedited, szUndone ), ( "the undone damage saves the unedited file byte for byte (" + DescribeDifference( szUnedited, szUndone ) + ")" ).c_str() );
+
+	// The 1% clamp: a 100% hit on the unit leaves 1%, not 0.
+	nToken = -1;
+	Check( BkEditorDamageObject( pSession, nTarget, 1.0f, 0, &nToken ) == BK_EDITOR_OK && nToken >= 0, BkEditorLastMessage( pSession ) );
+	if ( Check( ReadObjectRecord( pSession, nTarget, &record ), "the clamped unit's record reads" ) )
+		Check( record.hp == 0.01f, "a unit keeps 1% under a 100% hit (the MFC's clamp)" );
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, ( std::string( "and it undoes: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+
+	// The repair of a full unit changes nothing: OK with no token.
+	nToken = -1;
+	Check( BkEditorDamageObject( pSession, nTarget, 0.0f, 2, &nToken ) == BK_EDITOR_OK, "the repair answers" );
+	Check( nToken == -1, "the repair of a full unit changes nothing" );
+	if ( Check( ReadObjectRecord( pSession, nTarget, &record ), "the repaired unit's record reads" ) )
+		Check( record.hp == 1.0f, "the repair leaves full" );
+	// A real repair: damage first, then the mode-2 hit, then both undone.
+	nToken = -1;
+	Check( BkEditorDamageObject( pSession, nTarget, 0.4f, 0, &nToken ) == BK_EDITOR_OK && nToken >= 0, "the 40% hit for the repair answers with a token" );
+	int nRepairToken = -1;
+	Check( BkEditorDamageObject( pSession, nTarget, 0.0f, 2, &nRepairToken ) == BK_EDITOR_OK && nRepairToken >= 0, "the repair of a damaged unit answers with a token" );
+	if ( Check( ReadObjectRecord( pSession, nTarget, &record ), "the repaired unit's record reads" ) )
+		Check( record.hp == 1.0f, "the repair sets 100%" );
+	Check( BkEditorUndoEdit( pSession, nRepairToken ) == BK_EDITOR_OK, ( std::string( "and the repair undoes: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	if ( Check( ReadObjectRecord( pSession, nTarget, &record ), "the unrepaired unit's record reads" ) )
+		Check( record.hp == 1.0f - 0.4f, "back to the 40% hit" );
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, ( std::string( "and the hit undoes: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+
+	// A 0% hit changes nothing (the clamps leave nothing), and a percentage
+	// out of range is the caller's bug.
+	nToken = -1;
+	Check( BkEditorDamageObject( pSession, nTarget, 0.0f, 0, &nToken ) == BK_EDITOR_OK && nToken == -1,
+	       "a 0% hit changes nothing" );
+	Check( BkEditorDamageObject( pSession, nTarget, 5.0f, 0, &nToken ) == BK_EDITOR_BAD_ARGUMENT,
+	       "a percentage out of 0..1 is BAD_ARGUMENT" );
+
+	// A squad floors at 1% like a unit (the MFC damaged its soldiers, which
+	// IsHuman floors): a 100% hit leaves 1%, the engine agrees, and the undo
+	// is the unedited file byte for byte.
+	if ( nSquad > 0 )
+	{
+		nToken = -1;
+		Check( BkEditorDamageObject( pSession, nSquad, 1.0f, 0, &nToken ) == BK_EDITOR_OK && nToken >= 0,
+		       ( std::string( "a squad takes the hit: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		if ( Check( ReadObjectRecord( pSession, nSquad, &record ), "the squad's record reads" ) )
+			Check( record.hp == 0.01f, "a squad keeps 1% under a 100% hit" );
+		Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "the engine agrees after the squad's hit: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, ( std::string( "and the squad's hit undoes: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( SameBytes( szUnedited, szUndone ), ( "the undone squad hit saves the unedited file byte for byte (" + DescribeDifference( szUnedited, szUndone ) + ")" ).c_str() );
+	}
+
+	// The stats refusal, no crash (the MFC bug is not copied - its
+	// FindByVis answer and pRPG were dereferenced unguarded): a map copy
+	// gains a record of a kind the engine never places (a tank pit, game
+	// type 5 - engineers dig those during play), so the record is known,
+	// editable, alone on its link ID and in the snapshot - every earlier
+	// check passes - but no engine object carries stats for it. The
+	// refusal names the stats and changes nothing: the save is still the
+	// copy's unedited file, byte for byte.
+	{
+		std::string szPitName;
+		{
+			int nCatalogue = 0;
+			BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+			std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+			int nCatalogueRead = 0;
+			BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nCatalogueRead );
+			for ( int j = 0; j < nCatalogueRead && szPitName.empty(); ++j )
+				if ( catalogue[size_t( j )].game_type == SGVOGT_TANK_PIT )
+					szPitName = catalogue[size_t( j )].name;
+		}
+		CMapInfo copy;
+		if ( Check( !szPitName.empty(), "the database knows a tank pit" ) &&
+		     Check( NMapFile::Read( BRIDGE_MAP, &copy, &szError ), szError.c_str() ) &&
+		     Check( !copy.objects.empty(), "the copy has an object to stand the pit beside" ) )
+		{
+			int nPitLinkID = 0;
+			std::vector<SMapObjectInfo> *lists[2] = { &copy.objects, &copy.scenarioObjects };
+			for ( int nList = 0; nList < 2; ++nList )
+				for ( size_t i = 0; i < lists[nList]->size(); ++i )
+					nPitLinkID = Max( nPitLinkID, ( *lists[nList] )[i].link.nLinkID );
+			++nPitLinkID;
+			SMapObjectInfo pit = copy.objects[0];
+			pit.szName = szPitName;
+			pit.link.nLinkID = nPitLinkID;
+			pit.link.nLinkWith = 0;
+			pit.nScriptID = -1;
+			pit.nFrameIndex = 0;
+			pit.fHP = 1.0f;
+			copy.objects.push_back( pit );
+			if ( Check( NMapFile::Write( szPitCopy.c_str(), copy, &szError ), szError.c_str() ) &&
+			     Check( BkEditorOpenMap( pSession, szPitCopy.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			{
+				Check( BkEditorSaveMap( pSession, szPitUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+				BkEditorObjectRecord pitBefore;
+				memset( &pitBefore, 0, sizeof pitBefore );
+				Check( ReadObjectRecord( pSession, nPitLinkID, &pitBefore ) && pitBefore.known, "the pit's record reads, of a known type" );
+				nToken = -1;
+				Check( BkEditorDamageObject( pSession, nPitLinkID, 0.1f, 0, &nToken ) == BK_EDITOR_REFUSED && nToken == -1,
+				       "a record no engine object carries stats for is refused" );
+				Check( std::string( BkEditorLastMessage( pSession ) ).find( "stats" ) != std::string::npos,
+				       ( "and the refusal names the stats, not the object: " + std::string( BkEditorLastMessage( pSession ) ) ).c_str() );
+				BkEditorObjectRecord pitAfter;
+				memset( &pitAfter, 0, sizeof pitAfter );
+				if ( Check( ReadObjectRecord( pSession, nPitLinkID, &pitAfter ), "the pit's record still reads" ) )
+					Check( pitAfter.hp == pitBefore.hp, "and its health is untouched" );
+				Check( BkEditorSaveMap( pSession, szRefused.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+				Check( SameBytes( szPitUnedited, szRefused ), ( "the refused hit leaves the copy's file byte for byte (" + DescribeDifference( szPitUnedited, szRefused ) + ")" ).c_str() );
+			}
+		}
+	}
+	// And a link ID the map does not hold is refused earlier, as no object.
+	Check( BkEditorDamageObject( pSession, 987654, 0.1f, 0, &nToken ) == BK_EDITOR_REFUSED, "a link ID off the map is refused" );
+	Check( std::string( BkEditorLastMessage( pSession ) ).find( "no object" ) != std::string::npos, "and names it" );
+
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szDamaged ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szRefused ).c_str() );
+	remove( OsPath( szPitCopy ).c_str() );
+	remove( OsPath( szPitUnedited ).c_str() );
+	printf( "editor-bridge: M3 damage ok\n" );
 }
 
 // M3 (D-25): the selection's batch move and delete-all, on the engine.
@@ -10825,6 +11099,7 @@ int main( int argc, char **argv )
 		TestM3Fields( pSession, szScratch );
 		TestM3MultiSelect( pSession, szScratch );
 		TestM3PropertiesAndLinks( pSession, szScratch );
+		TestM3Damage( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );

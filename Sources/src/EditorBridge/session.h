@@ -340,8 +340,21 @@ bool SetLinkInSession( SEditorSession *pSession, int nSource, int nTarget, bool 
 
 // The properties' units list unlink (D-27): the record's nLinkWith back to 0
 // (a palette-placed object is linked with nothing), both copies, the engine
-// re-placed, ONE edit of the log. An unlinked object answers OK with no token.
+// re-placed, ONE edit of the log. An already-unlinked object answers OK with
+// no token.
 bool UnlinkInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused, int *pnToken );
+
+// The Damage tool's hit (M3, D-29, session.cpp): `eMode` 0 damage, 1 heal,
+// 2 repair to full; `fDelta` is the tool's percentage/100. The record's fHP
+// moves by the MFC MapToolState's own clamps (SEditorMApObject's 0..1, and a
+// floor of 0.01 for a technics or a human object - units and squads; anything
+// else may reach 0), the engine's live object takes the same share of its
+// fMaxHP through IAIEditor::DamageObject, and ONE edit of the log carries the
+// whole record before and after. A record with no engine object of its own
+// or a missing stats pointer is REFUSED - the MFC's unguarded FindByVis and
+// pTmp->pRPG dereferences are NOT copied - and so is a record the editor
+// cannot edit. Nothing changes on a refusal.
+bool DamageObjectInSession( SEditorSession *pSession, int nLinkID, float fDelta, int eMode, bool *pbRefused, int *pnToken );
 
 // Fills pOut with the object database's descriptors and pnCount with how many
 // there are - always the database's count, not how many fitted. Returns false

@@ -391,6 +391,83 @@ fn checkboxCommand(state: *State, label: [*:0]const u8, what: []const u8, value:
     }
 }
 
+/// What the Damage tool's panel says about its own clicks.
+pub const damage_help = "Left click damages the object under the pointer by the percentage, right click heals it, middle click or Alt+click repairs it to full. A unit keeps at least 1%.";
+
+/// The Damage tool's panel (M3, D-29/PARITY MT1): the MFC Map Tools tab's
+/// damage row (IDD_TAB_TOOLS: "Damage To Add:" [edit] "%",
+/// TabToolsDialog.cpp) in the left panel while the tool is in hand, as the
+/// MFC tab replaced the palette. The field is a whole percentage, default
+/// 10 (the dialog's nParameters[0]); it applies on every change, as the
+/// MFC's ON_EN_CHANGE did, through the `damage_percent` command, held to
+/// 0..100 (the bridge refuses a hit beyond the whole object).
+pub fn drawDamageTool(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
+    const open = panels.beginPanel("Map Tools", pos, size, cond, null);
+    defer panels.endPanel(open);
+    if (!open) return;
+    ig.igSeparatorText("Damage Tool");
+    var percent: c_int = @intFromFloat(@round(state.view.damage_tool.percent));
+    panels.text("Damage To Add:");
+    ig.igSameLine();
+    ig.igPushItemWidth(@max(ig.igGetContentRegionAvail().x - 24, 40));
+    const changed = ig.igInputIntEx("##damage_percent", &percent, 1, 10, 0);
+    ig.igPopItemWidth();
+    ig.igSameLine();
+    panels.text("%");
+    if (changed) {
+        const clamped = std.math.clamp(percent, 0, 100);
+        var buffer: [8:0]u8 = undefined;
+        _ = commands.run(state, "damage_percent", std.fmt.bufPrintZ(&buffer, "{d}", .{clamped}) catch "");
+    }
+    ig.igPushTextWrapPos(0);
+    panels.text(damage_help);
+    ig.igPopTextWrapPos();
+}
+
+/// The direction wheel (M3, D-28/PARITY O6): the MFC CDirectionButton as a
+/// drawn dial in the palette - a drag over it reads the angle (the MFC's
+/// atan2 with y up) through the `wheel_turn` command, which sets the
+/// placer's placement angle and turns the selection with it. Q/E keep their
+/// own M1 behaviour beside it. `input_width` is the width the filter input
+/// gave up on the shared row: the wheel hangs beside it, so the rows below
+/// keep the heights the M1 reference frames were captured with.
+pub fn drawDirectionWheel(state: *State, input_width: f32) void {
+    const size: f32 = 40;
+    const origin = ig.igGetCursorScreenPos();
+    const centre = [2]f32{ origin.x + size / 2, origin.y + size / 2 };
+    const draw_list = ig.igGetWindowDrawList();
+    const button_w = @max(input_width, size);
+    const button_h = ig.igGetFrameHeight();
+    _ = ig.igInvisibleButton("##direction_wheel", .{ .x = button_w, .y = button_h }, 0);
+    const active = ig.igIsItemActive();
+    const hovered = ig.igIsItemHovered(ig.ImGuiHoveredFlags_None);
+    ig.ImDrawList_AddCircleEx(draw_list, .{ .x = centre[0], .y = centre[1] }, size / 2, ig.igColorConvertFloat4ToU32(.{ .x = 0.45, .y = 0.45, .z = 0.45, .w = 1 }), 24, 1.5);
+
+    // The needle: from the centre to the rim at the placer's angle, the
+    // MFC's own arrow direction.
+    const degrees: f32 = logic.directionToDegrees(state.view.placer.dir);
+    const radians = std.math.degreesToRadians(degrees);
+    const tip = [2]f32{ centre[0] + size / 2 * 0.9 * @cos(radians), centre[1] - size / 2 * 0.9 * @sin(radians) };
+    ig.ImDrawList_AddLineEx(draw_list, .{ .x = centre[0], .y = centre[1] }, .{ .x = tip[0], .y = tip[1] }, ig.igColorConvertFloat4ToU32(.{ .x = 1, .y = 0.9, .z = 0.2, .w = 1 }), 2.5);
+
+    // One drag over the dial is one gesture: its frames' turns of the
+    // selection merge into ONE undo step (`wheel_turn` reads the gesture).
+    if (ig.igIsItemActivated()) state.wheel_gesture = state.editor.beginGesture();
+    if (active and ig.igIsMouseDown(0)) {
+        const mouse = ig.igGetIO().*.MousePos;
+        const angle = logic.wheelAngleDegrees(centre, .{ mouse.x, mouse.y });
+        const old_angle: i32 = @intFromFloat(logic.directionToDegrees(state.view.placer.dir));
+        if (angle != @mod(old_angle, 360)) {
+            var buffer: [16:0]u8 = undefined;
+            _ = commands.run(state, "wheel_turn", std.fmt.bufPrintZ(&buffer, "{d}", .{angle}) catch "");
+        }
+    }
+    if (!active) state.wheel_gesture = 0;
+    if (hovered) {
+        ig.igSetTooltip("Direction: drag to set the placement angle; turns the selection too");
+    }
+}
+
 /// The catalogue's game type for an object name, or null when the database
 /// does not list it. The palette's own cache answers; the panel never reads
 /// the bridge for it.
@@ -496,7 +573,7 @@ pub fn drawPropertiesPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
         _ = ig.igInputFloatEx("Health %", &health, 0, 0, "%.1f", 0);
         if (ig.igIsItemDeactivatedAfterEdit()) {
             var buffer: [24:0]u8 = undefined;
-            _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "health,{d:.2}", .{logic.clampHealthPercent(health)}) catch "");
+            _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "health={d:.2}", .{logic.clampHealthPercent(health)}) catch "");
             state.props_reload = true;
         }
     }
@@ -506,7 +583,7 @@ pub fn drawPropertiesPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
         _ = ig.igInputFloatEx("Angle (degrees)", &angle, 0, 0, "%.1f", 0);
         if (ig.igIsItemDeactivatedAfterEdit()) {
             var buffer: [24:0]u8 = undefined;
-            _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "angle,{d:.1}", .{angle}) catch "");
+            _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "angle={d:.1}", .{angle}) catch "");
             state.props_reload = true;
         }
         // O18: the scenario unit, drawn blue. The MFC's combo is editor
@@ -522,7 +599,7 @@ pub fn drawPropertiesPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
             for (logic.formation_labels, 0..) |name, index| {
                 if (ig.igSelectableEx(name.ptr, index == formation, 0, .{ .x = 0, .y = 0 })) {
                     var buffer: [24:0]u8 = undefined;
-                    _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "formation,{d}", .{index}) catch "");
+                    _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "formation={d}", .{index}) catch "");
                     state.props_reload = true;
                 }
             }
@@ -567,7 +644,7 @@ fn drawPlayerCombo(state: *State, link_id: i32, current_player: i32) void {
             const label_z = std.fmt.bufPrintZ(&label, "{d}", .{player}) catch continue;
             if (ig.igSelectableEx(label_z.ptr, @as(i32, @intCast(player)) == current_player, 0, .{ .x = 0, .y = 0 })) {
                 var arg: [24:0]u8 = undefined;
-                _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&arg, "player,{d}", .{player}) catch "");
+                _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&arg, "player={d}", .{player}) catch "");
                 state.props_reload = true;
             }
         }
@@ -586,7 +663,7 @@ fn drawMultiFields(state: *State) void {
     _ = ig.igInputFloatEx("Angle (degrees)", &angle, 0, 0, "%.1f", 0);
     if (ig.igIsItemDeactivatedAfterEdit()) {
         var buffer: [24:0]u8 = undefined;
-        _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "angle,{d:.1}", .{angle}) catch "");
+        _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "angle={d:.1}", .{angle}) catch "");
         state.props_reload = true;
     }
     _ = ig.igInputText("Script ID", &state.props_script_edit, state.props_script_edit.len, 0);
@@ -607,7 +684,7 @@ fn drawMultiFields(state: *State) void {
             const label_z = std.fmt.bufPrintZ(&label, "{d}", .{player}) catch continue;
             if (ig.igSelectableEx(label_z.ptr, @as(i32, @intCast(player)) == current, 0, .{ .x = 0, .y = 0 })) {
                 var arg: [24:0]u8 = undefined;
-                _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&arg, "player,{d}", .{player}) catch "");
+                _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&arg, "player={d}", .{player}) catch "");
                 state.props_reload = true;
             }
         }

@@ -11,6 +11,7 @@ pub const tools_vso = @import("tools_vso.zig");
 pub const tools_groups = @import("tools_groups.zig");
 pub const tools_ai = @import("tools_ai.zig");
 pub const tools_heights = @import("tools_heights.zig");
+pub const tools_damage = @import("tools_damage.zig");
 pub const filters = @import("filters.zig");
 pub const tools_fields = @import("tools_fields.zig");
 pub const files = @import("files.zig");
