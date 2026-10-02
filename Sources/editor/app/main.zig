@@ -4,6 +4,7 @@
 //!   MapEditor [-mod=...] --smoke <map> [<out.bzm>]     scripted run of the real loop
 //!   MapEditor [-mod=...] --game-reads-it <map> [<log>] headless test-launch, played by Game
 //!   MapEditor [-mod=...] --game-reads-it-m2 <map> [<log>] the M2 scenario: what the game reports it read
+//!   MapEditor [-mod=...] --game-reads-it-m3 <map> [<log>] the M3 scenario: the game loads a map with a short railroad
 //!
 //! -mod=<Folder> or -mod=None (D-26, like the game's own -mod=) is accepted
 //! anywhere before the positional arguments, in every mode above: it is
@@ -61,12 +62,14 @@ const auto_mod = @import("auto.zig");
 const testlaunch = @import("testlaunch.zig");
 const game_reads_common = @import("game_reads_common.zig");
 const game_reads_m2 = @import("game_reads_m2.zig");
+const game_reads_m3 = @import("game_reads_m3.zig");
 const c = host_mod.c;
 
 const default_output = "zig-out/local-test/map-editor-check.tga";
 const default_smoke_output = "zig-out/local-test/map-editor-smoke.bzm";
 const default_game_reads_it_log = "zig-out/local-test/map-editor-game-reads-it.log";
 const default_game_reads_it_m2_log = "zig-out/local-test/map-editor-game-reads-it-m2.log";
+const default_game_reads_it_m3_log = "zig-out/local-test/map-editor-game-reads-it-m3.log";
 /// BK_EDITOR_AUTO_DIR's own default (03-12-PLAN.md Task 1): shots and
 /// references live here unless the environment overrides it.
 const default_auto_dir = "zig-out/local-test/map-editor-auto";
@@ -182,6 +185,13 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
             const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_m2_log;
             if (nextArg(rest.items, &index) != null) usage();
             const passed = try game_reads_m2.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
+            std.process.exit(if (passed) 0 else 1);
+        }
+        if (std.mem.eql(u8, arg, "--game-reads-it-m3")) {
+            const map = nextArg(rest.items, &index) orelse usage();
+            const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_m3_log;
+            if (nextArg(rest.items, &index) != null) usage();
+            const passed = try game_reads_m3.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
             std.process.exit(if (passed) 0 else 1);
         }
         if (nextArg(rest.items, &index) != null) usage();
@@ -789,7 +799,7 @@ fn usage() noreturn {
     // subsystem) MapEditor.exe run with bad arguments from a terminal still
     // needs this message to be visible there.
     crt.attachParentConsole();
-    std.debug.print("usage: MapEditor [-mod=<Folder>|-mod=None] [<map>]\n       MapEditor [-mod=...] --check <map> [<out.tga>]\n       MapEditor [-mod=...] --smoke <map> [<out.bzm>]\n       MapEditor [-mod=...] --game-reads-it <map> [<log>]\n       MapEditor [-mod=...] --game-reads-it-m2 <map> [<log>]\n", .{});
+    std.debug.print("usage: MapEditor [-mod=<Folder>|-mod=None] [<map>]\n       MapEditor [-mod=...] --check <map> [<out.tga>]\n       MapEditor [-mod=...] --smoke <map> [<out.bzm>]\n       MapEditor [-mod=...] --game-reads-it <map> [<log>]\n       MapEditor [-mod=...] --game-reads-it-m2 <map> [<log>]\n       MapEditor [-mod=...] --game-reads-it-m3 <map> [<log>]\n", .{});
     std.process.exit(2);
 }
 

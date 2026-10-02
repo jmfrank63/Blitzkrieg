@@ -815,6 +815,7 @@ static void TestAltitudeRegion()
 // puts the fill back byte for byte.
 static void TestM3FieldRegion();
 static void TestM3ObjectFields();
+static void TestM3Players();
 static void TestM3FillRegion()
 {
 	const char *const pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
@@ -3433,6 +3434,7 @@ int main( int argc, char **argv )
 	TestM3FillRegion();
 	TestM3FieldRegion();
 	TestM3ObjectFields();
+	TestM3Players();
 	TestM2RecordOps();
 	TestM2ScriptAreaConversion();
 	TestM2FindReferences();
@@ -3655,4 +3657,216 @@ static void TestM3ObjectFields()
 	remove( pszUneditedPath );
 	remove( pszProbedPath );
 	printf( "map-file: M3 object fields ok\n" );
+}
+
+// Players and the Unit Creation Info (M3, D-30): add and delete a player in the
+// record layer, the owners that follow, and one player's unit creation - each
+// written, read back fresh and compared, its inverse byte for byte.
+static void TestM3Players()
+{
+	const char *const pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	std::string szError;
+	CMapInfo original;
+	if ( !Check( NMapFile::Read( pszMap, &original, &szError ), szError.c_str() ) )
+		return;
+	const int nEntries = int( original.diplomacies.size() );
+	Check( nEntries >= 2, "the map has players and a neutral" );
+	const char *pszUneditedPath = "zig-out\\local-test\\m3-players-unedited.bzm";
+	const char *pszEditedPath = "zig-out\\local-test\\m3-players-edited.bzm";
+	const char *pszUndonePath = "zig-out\\local-test\\m3-players-undone.bzm";
+	const char *pszExpectedPath = "zig-out\\local-test\\m3-players-expected.bzm";
+	Check( NMapFile::Write( pszUneditedPath, original, &szError ), szError.c_str() );
+
+	// Insert and erase of the new player write the unedited file byte for byte.
+	{
+		CMapInfo map;
+		if ( !Check( NMapFile::Read( pszMap, &map, &szError ), szError.c_str() ) )
+			return;
+		Check( NMapRecords::InsertPlayer( &map, 1 ), "a player is added" );
+		Check( int( map.diplomacies.size() ) == nEntries + 1, "the table grew by one" );
+		Check( map.diplomacies[nEntries - 1] == 1 && map.diplomacies[nEntries] == original.diplomacies[nEntries - 1],
+		       "the new player sits before the neutral entry, the neutral last" );
+		// The neutral's objects stay the neutral's: their index moved up with it.
+		bool bNeutralFollowed = true;
+		for ( size_t i = 0; i < original.objects.size() && i < map.objects.size(); ++i )
+			if ( original.objects[i].nPlayer == nEntries - 1 && map.objects[i].nPlayer != nEntries )
+				bNeutralFollowed = false;
+		Check( bNeutralFollowed, "an object of the neutral is still the neutral's" );
+		Check( NMapRecords::ErasePlayer( &map, nEntries - 1 ), "the new player is deleted again" );
+		Check( NMapFile::Write( pszUndonePath, map, &szError ), szError.c_str() );
+		Check( FilesAreIdentical( pszUneditedPath, pszUndonePath ), "add and delete of a player write the unedited file byte for byte" );
+	}
+
+	// The bound: 16 players and the neutral, then a refusal that changes nothing.
+	{
+		CMapInfo map;
+		if ( !Check( NMapFile::Read( pszMap, &map, &szError ), szError.c_str() ) )
+			return;
+		while ( int( map.diplomacies.size() ) < NMapRecords::nMaxPlayerEntries )
+			if ( !Check( NMapRecords::InsertPlayer( &map, 0 ), "a player is added up to the bound" ) )
+				return;
+		Check( int( map.diplomacies.size() ) == 17, "the table holds 16 players and the neutral" );
+		Check( NMapFile::Write( pszEditedPath, map, &szError ), szError.c_str() );
+		Check( !NMapRecords::InsertPlayer( &map, 0 ), "the 17th player is refused" );
+		Check( NMapFile::Write( pszUndonePath, map, &szError ), szError.c_str() );
+		Check( FilesAreIdentical( pszEditedPath, pszUndonePath ), "the refused insert changed nothing, byte for byte" );
+		Check( !NMapRecords::InsertPlayer( &original, 2 ), "a side of 2 is no side for a player" );
+	}
+
+	// Delete re-maps the owners exactly: the player's objects become the neutral's,
+	// the players above move down. The expected owners come from a rule written
+	// out here, not from the function.
+	{
+		CMapInfo map;
+		if ( !Check( NMapFile::Read( pszMap, &map, &szError ), szError.c_str() ) )
+			return;
+		// Three players and the neutral at least, so a middle player can go.
+		while ( int( map.diplomacies.size() ) < 5 )
+			Check( NMapRecords::InsertPlayer( &map, 0 ), "a player is added" );
+		const int nSize = int( map.diplomacies.size() );
+		// Give the objects owners over the whole table so every case occurs.
+		for ( size_t i = 0; i < map.objects.size(); ++i )
+			map.objects[i].nPlayer = int( i % nSize );
+		CMapInfo expected;
+		if ( !Check( NMapFile::Read( pszMap, &expected, &szError ), szError.c_str() ) )
+			return;
+		const CMapInfo beforeDelete = map;
+		const int nDeleted = 1;
+		Check( NMapRecords::ErasePlayer( &map, nDeleted ), "a middle player is deleted" );
+		Check( int( map.diplomacies.size() ) == nSize - 1, "the table shrank by one" );
+		bool bOwnersRight = map.objects.size() == beforeDelete.objects.size();
+		for ( size_t i = 0; bOwnersRight && i < map.objects.size(); ++i )
+		{
+			const int nOwner = beforeDelete.objects[i].nPlayer;
+			const int nWanted = nOwner == nDeleted ? nSize - 2 : ( nOwner > nDeleted ? nOwner - 1 : nOwner );
+			bOwnersRight = map.objects[i].nPlayer == nWanted;
+		}
+		Check( bOwnersRight, "the deleted player's objects became the neutral's and the players above moved down" );
+		bool bDiplomaciesRight = true;
+		for ( int i = 0, j = 0; i < nSize; ++i )
+			if ( i != nDeleted )
+				bDiplomaciesRight = bDiplomaciesRight && map.diplomacies[j++] == beforeDelete.diplomacies[i];
+		Check( bDiplomaciesRight, "the other players keep their sides in order" );
+		Check( NMapFile::Write( pszEditedPath, map, &szError ), szError.c_str() );
+		CMapInfo readBack;
+		if ( Check( NMapFile::Read( pszEditedPath, &readBack, &szError ), szError.c_str() ) )
+		{
+			std::string szWhere;
+			Check( NMapFile::AreEquivalent( map, readBack, &szWhere ), szWhere.empty() ? "the saved map is the edited map" : ( "the delete differs at " + szWhere ).c_str() );
+		}
+
+		// The neutral, a player out of range and a table at its floor are refused,
+		// and the refusals change nothing.
+		CMapInfo probed = map;
+		Check( !NMapRecords::ErasePlayer( &probed, int( probed.diplomacies.size() ) - 1 ), "the neutral entry cannot be deleted" );
+		Check( !NMapRecords::ErasePlayer( &probed, -1 ), "player -1 is refused" );
+		Check( !NMapRecords::ErasePlayer( &probed, 99 ), "a player past the table is refused" );
+		while ( int( probed.diplomacies.size() ) > NMapRecords::nMinPlayerEntries )
+			Check( NMapRecords::ErasePlayer( &probed, 0 ), "players are deleted down to the floor" );
+		const CMapInfo atFloor = probed;
+		Check( !NMapRecords::ErasePlayer( &probed, 0 ), "a table at the floor keeps its players" );
+		Check( probed.diplomacies == atFloor.diplomacies && probed.unitCreation.units.size() == atFloor.unitCreation.units.size(), "the refusal changed nothing" );
+	}
+
+	// One player's unit creation: put, byte-exact inverse, and the builder's own map.
+	{
+		CMapInfo edited;
+		if ( !Check( NMapFile::Read( pszMap, &edited, &szError ), szError.c_str() ) )
+			return;
+		const int nSlots = int( edited.unitCreation.units.size() );
+		SUnitCreation unit;
+		Check( NMapRecords::GetUnitCreation( edited, 0, &unit ), "player 0's unit creation reads" );
+		const SUnitCreation unitBefore = unit;
+		unit.szPartyName = "USSR_test";
+		unit.aviation.aircrafts[2].szName = "Tb-3";
+		unit.aviation.aircrafts[2].nFormationSize = 3;
+		unit.aviation.aircrafts[2].nPlanes = 6;
+		unit.aviation.szParadropSquadName = "USSR_rpd_43";
+		unit.aviation.nParadropSquadCount = 4;
+		unit.aviation.nRelaxTime = 77;
+		unit.aviation.vAppearPoints.push_back( CVec3( 640.0f, 1280.0f, 0.0f ) );
+		Check( NMapRecords::PutUnitCreation( &edited, 0, unit, nSlots ), "the unit creation is put" );
+		CMapInfo expected;
+		if ( !Check( NMapFile::Read( pszMap, &expected, &szError ), szError.c_str() ) )
+			return;
+		Check( NMapRecords::PutUnitCreation( &expected, 0, unit, nSlots ), "the builder puts the same entry" );
+		Check( NMapFile::Write( pszEditedPath, edited, &szError ), szError.c_str() );
+		Check( NMapFile::Write( pszExpectedPath, expected, &szError ), szError.c_str() );
+		{
+			CMapInfo savedEdited, savedExpected;
+			std::string szWhere;
+			if ( Check( NMapFile::Read( pszEditedPath, &savedEdited, &szError ) && NMapFile::Read( pszExpectedPath, &savedExpected, &szError ), szError.c_str() ) )
+				Check( NMapFile::AreEquivalent( savedExpected, savedEdited, &szWhere ), szWhere.empty() ? "the unit-creation save is the expected map" : ( "the unit creation differs at " + szWhere ).c_str() );
+			CMapInfo readBack;
+			SUnitCreation got;
+			if ( Check( NMapFile::Read( pszEditedPath, &readBack, &szError ), szError.c_str() ) && Check( NMapRecords::GetUnitCreation( readBack, 0, &got ), "the saved entry reads" ) )
+				Check( got.szPartyName == "USSR_test" && got.aviation.nRelaxTime == 77 && got.aviation.vAppearPoints.size() == unitBefore.aviation.vAppearPoints.size() + 1 &&
+				       got.aviation.aircrafts[2].nPlanes == 6 && got.aviation.nParadropSquadCount == 4, "the saved entry holds what was put" );
+		}
+		// The inverse: the old entry and the old size put back.
+		Check( NMapRecords::PutUnitCreation( &edited, 0, unitBefore, nSlots ), "the old entry goes back" );
+		Check( NMapFile::Write( pszUndonePath, edited, &szError ), szError.c_str() );
+		Check( FilesAreIdentical( pszUneditedPath, pszUndonePath ), "a unit-creation put and its inverse write the unedited file byte for byte" );
+
+		// A player the vector does not hold yet: the defaults read, a put grows the
+		// vector, and putting the old size back (the entry beyond it left out)
+		// restores the file byte for byte.
+		const int nBeyond = nSlots;
+		SUnitCreation beyond;
+		Check( NMapRecords::GetUnitCreation( edited, nBeyond, &beyond ), "a player past the vector reads the defaults" );
+		Check( beyond.szPartyName == SUnitCreationInfo::DEFAULT_PARTY_NAME && beyond.aviation.nRelaxTime == 30 &&
+		       beyond.aviation.aircrafts[0].szName == SUnitCreationInfo::DEFAULT_AIRCRAFT_NAME[0], "and they are the defaults a new entry gets (relax 30, the game's Validate names)" );
+		beyond.aviation.nRelaxTime = 99;
+		Check( NMapRecords::PutUnitCreation( &edited, nBeyond, beyond, nBeyond + 1 ), "a put past the vector grows it" );
+		Check( int( edited.unitCreation.units.size() ) == nBeyond + 1 && edited.unitCreation.units[nBeyond].aviation.nRelaxTime == 99, "the vector grew by the entry" );
+		Check( NMapRecords::PutUnitCreation( &edited, nBeyond, beyond, nSlots ), "the old size goes back (the entry beyond it is left out)" );
+		Check( NMapFile::Write( pszUndonePath, edited, &szError ), szError.c_str() );
+		Check( FilesAreIdentical( pszUneditedPath, pszUndonePath ), "a put that grew the vector and its inverse write the unedited file byte for byte" );
+
+		// Refusals: a player out of range, a slot count out of range, an entry that
+		// does not hold five aircraft.
+		SUnitCreation broken = unitBefore;
+		broken.aviation.aircrafts.pop_back();
+		Check( !NMapRecords::PutUnitCreation( &edited, 0, broken, nSlots ), "an entry without five aircraft is refused" );
+		Check( !NMapRecords::PutUnitCreation( &edited, 0, unitBefore, NMapRecords::nMaxPlayerEntries ), "a vector of 17 entries is refused" );
+		Check( !NMapRecords::PutUnitCreation( &edited, -1, unitBefore, nSlots ), "player -1 is refused" );
+		Check( !NMapRecords::PutUnitCreation( &edited, NMapRecords::nMaxPlayerEntries - 1, unitBefore, nSlots ), "the neutral's slot is no player" );
+		Check( NMapFile::Write( pszUndonePath, edited, &szError ), szError.c_str() );
+		Check( FilesAreIdentical( pszUneditedPath, pszUndonePath ), "the refusals changed nothing: byte for byte" );
+	}
+
+	// Insert and delete keep the unit creation and the anchors of the players that
+	// stay: a player's entry follows its player.
+	{
+		CMapInfo map;
+		if ( !Check( NMapFile::Read( pszMap, &map, &szError ), szError.c_str() ) )
+			return;
+		const int nPlayers = int( map.diplomacies.size() ) - 1;
+		while ( int( map.unitCreation.units.size() ) < nPlayers )
+			map.unitCreation.units.push_back( SUnitCreation() );
+		SUnitCreationInfo validated;
+		validated.units = map.unitCreation.units;
+		validated.Validate();
+		map.unitCreation.units = validated.units;
+		for ( size_t i = 0; i < map.unitCreation.units.size(); ++i )
+			map.unitCreation.units[i].aviation.nRelaxTime = 100 + int( i );
+		map.playersCameraAnchors.assign( nPlayers, VNULL3 );
+		for ( int i = 0; i < nPlayers; ++i )
+			map.playersCameraAnchors[i] = CVec3( 10.0f * ( i + 1 ), 20.0f * ( i + 1 ), 0.0f );
+		const CMapInfo before = map;
+		Check( NMapRecords::InsertPlayer( &map, 0 ), "a player is added over a full unit creation" );
+		Check( map.unitCreation.units.size() == before.unitCreation.units.size() + 1 && map.playersCameraAnchors.size() == before.playersCameraAnchors.size() + 1,
+		       "the unit creation and the anchors gained an entry" );
+		Check( map.unitCreation.units[nPlayers].aviation.nRelaxTime == 30 && map.playersCameraAnchors[nPlayers] == VNULL3,
+		       "the new entries are the defaults and unset" );
+		Check( NMapRecords::ErasePlayer( &map, 0 ), "player 0 is deleted" );
+		Check( map.unitCreation.units[0].aviation.nRelaxTime == 101 && map.playersCameraAnchors[0] == before.playersCameraAnchors[1],
+		       "player 1's entries moved down to index 0" );
+	}
+
+	remove( pszUneditedPath );
+	remove( pszEditedPath );
+	remove( pszUndonePath );
+	remove( pszExpectedPath );
+	printf( "map-file: M3 players ok\n" );
 }

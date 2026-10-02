@@ -5883,6 +5883,44 @@ fn addEditorBridgeTest(
     const step_m2_sweep = b.step("test-editor-bridge-m2-sweep", "Draw, delete and undo bridges, fences, entrenchments and cascades on every Data/Maps map through the engine and compare the bytes");
     step_m2_sweep.dependOn(&exe.step);
     if (test_mode == .run) step_m2_sweep.dependOn(&run_m2_sweep.step);
+
+    // 05-05: the players, the unit creation and Check Map's fixes through the engine,
+    // alone (the full tier above runs them too, among everything else).
+    const run_m3_players = b.addRunArtifact(exe);
+    run_m3_players.setCwd(b.path(stage_root));
+    run_m3_players.addArg(".");
+    run_m3_players.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_players.addArg("--m3-players-only");
+    run_m3_players.has_side_effects = true;
+    run_m3_players.step.dependOn(&install_exe.step);
+    const step_m3_players = b.step("test-editor-bridge-m3-players", "Add and delete players, edit the unit creation and make Check Map's fixes through the engine and compare the bytes");
+    step_m3_players.dependOn(&exe.step);
+    if (test_mode == .run) step_m3_players.dependOn(&run_m3_players.step);
+
+    // 05-05: the fixture maps the Check Map scenario and the railroad guard's game
+    // proof open. `--craft <kind> <file>` writes one under zig-out/local-test
+    // (CraftFixture in editor_bridge_test.cpp); the scenario steps depend on this
+    // step. The two crafts run one after the other, so two engines never start at once.
+    const craft_step = b.step("editor-craft-fixtures", "Craft the Check Map and short-railroad fixture maps under zig-out/local-test");
+    const craft_kinds = [_][2][]const u8{
+        .{ "short-railroad", "m3-short-railroad.bzm" },
+        .{ "check-map", "m3-check-map.bzm" },
+    };
+    var previous_craft: ?*std.Build.Step = null;
+    for (craft_kinds) |entry| {
+        const run_craft = b.addRunArtifact(exe);
+        run_craft.setCwd(b.path(stage_root));
+        run_craft.addArg(".");
+        run_craft.addArg(b.pathFromRoot("zig-out/local-test"));
+        run_craft.addArg("--craft");
+        run_craft.addArg(entry[0]);
+        run_craft.addArg(entry[1]);
+        run_craft.has_side_effects = true;
+        run_craft.step.dependOn(&install_exe.step);
+        if (previous_craft) |earlier| run_craft.step.dependOn(earlier);
+        previous_craft = &run_craft.step;
+        if (test_mode == .run) craft_step.dependOn(&run_craft.step);
+    }
 }
 
 /// The static libraries MapEditor's executables link: the engine
@@ -6577,6 +6615,10 @@ fn addMapEditor(
     // BK_EDITOR_AUTO_GAME: the game-reads-it checks belong to the plans that
     // add them.
     const auto_m3_dir = b.pathFromRoot("zig-out/local-test/map-editor-m3-auto");
+    // The Check Map fixture the scenario opens (05-05): crafted by the bridge test's
+    // `--craft` before the scenario starts.
+    const auto_m3_check_map = b.pathFromRoot("zig-out/local-test/m3-check-map.bzm");
+    const craft_fixtures_step = &(b.top_level_steps.get("editor-craft-fixtures") orelse @panic("editor-craft-fixtures is defined by addEditorBridgeTest")).step;
     const auto_m3_entries = [_][]const u8{
         // The shipped map from the command line is open by now: the title
         // names it (F15), the status bar carries the MFC's own VIS/SCRIPT
@@ -6800,7 +6842,72 @@ fn addMapEditor(
         "332:do=damage:@0:repair",
         "333:expect=hp:@0:100",
         "334:expect=undo_depth:21",
-        "340:exit",
+        // Players (D-30, M4): the new map has the two default entries; two
+        // players are added before the neutral (one undo step each), the
+        // unit creation of player 0 takes a relax time and an appear point
+        // (one step each), and deleting player 0 turns the T-34 - its
+        // object - over to the neutral, which is entry 2 of the 3 left.
+        // Undo and redo walk it, the owner following.
+        "336:expect=players:2",
+        "338:do=player_add:0",
+        "340:do=player_add:1",
+        "342:expect=players:4",
+        "344:expect=undo_depth:23",
+        "346:do=unit_creation_player:0",
+        "348:do=unit_creation_set:relax=77",
+        "350:expect=unit_creation_is:relax=77",
+        "352:expect=undo_depth:24",
+        "354:do=appear_point_here",
+        "356:expect=undo_depth:25",
+        "358:expect=player_is:@0:0",
+        "360:do=player_delete:0",
+        "362:expect=players:3",
+        "364:expect=player_is:@0:2",
+        "366:expect=undo_depth:26",
+        "368:key=Z+ctrl",
+        "370:expect=players:4",
+        "372:expect=player_is:@0:0",
+        "374:key=Y+ctrl",
+        "376:expect=players:3",
+        "378:expect=player_is:@0:2",
+        "380:key=Z+ctrl",
+        "382:expect=players:4",
+        // Check Map (D-33, M7/F4/S1) on a crafted fixture (coldwinter plus six defects:
+        // a duplicate object, a link to a host that is not there, an owner of 99, a
+        // party partys.xml lacks, an object whose type no database lists, and a road
+        // with one control point). The new map is saved first so the open asks
+        // nothing. A check edits nothing and writes its log; Save only SAYS the
+        // checks failed; Fix all fixes what needs no asking as ONE undo step and
+        // `remove` takes the unknown object and the short road too; undo walks both
+        // back to the six findings.
+        "384:do=file_save_bzm:../../local-test/map-editor-m3-auto/m3.bzm",
+        b.fmt("392:open={s}", .{auto_m3_check_map}),
+        "406:do=check_map",
+        "408:expect=check_findings:duplicate_object=1",
+        "409:expect=check_findings:invalid_link=1",
+        "410:expect=check_findings:player_index=1",
+        "411:expect=check_findings:unknown_party=1",
+        "412:expect=check_findings:unknown_object_type=1",
+        "413:expect=check_findings:short_vso=1",
+        "414:expect=check_findings:6",
+        "416:expect=check_log_has:control",
+        "418:expect=undo_depth:0",
+        "424:do=file_save_bzm:../../local-test/map-editor-m3-auto/m3-checked.bzm",
+        "434:expect=status:checks",
+        "436:expect=check_findings:6",
+        "438:do=check_jump:0",
+        "440:do=check_map_fix_all",
+        "442:expect=check_findings:2",
+        "444:expect=undo_depth:1",
+        "446:do=check_map_fix_all:remove",
+        "448:expect=check_findings:0",
+        "450:expect=undo_depth:2",
+        "452:do=undo",
+        "453:do=undo",
+        "454:expect=undo_depth:0",
+        "456:do=check_map",
+        "458:expect=check_findings:6",
+        "500:exit",
     };
     const auto_m3_run = b.addRunArtifact(exe);
     auto_m3_run.setCwd(b.path(stage_root));
@@ -6812,6 +6919,7 @@ fn addMapEditor(
     // After the M2 scenario (which itself runs after M1's), so two engines
     // never start at once.
     auto_m3_run.step.dependOn(&cleanup_autoshots_m2.step);
+    auto_m3_run.step.dependOn(craft_fixtures_step);
     const cleanup_autoshots_m3 = b.addRunArtifact(delete_matching);
     cleanup_autoshots_m3.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
     cleanup_autoshots_m3.step.dependOn(&auto_m3_run.step);
@@ -6853,6 +6961,25 @@ fn addMapEditor(
     cleanup_autoshots_game_reads_m2.step.dependOn(&game_reads_it_m2_run.step);
     const game_reads_it_m2_step = b.step("map-editor-game-reads-it-m2", "Test-launch M2 edits and prove from the game's own BK_MAP_TRACE report that it read them (D-22, D-25)");
     game_reads_it_m2_step.dependOn(&cleanup_autoshots_game_reads_m2.step);
+
+    // Phase 5's M3 game-reads-it scenario (05-05, D-37's game tier): the real Game
+    // loads a map whose railroads hold fewer than two control points - the record
+    // that crashed CRailroadGraphConstructor - and an ordinary map after it, and
+    // both exit 0 (game_reads_m3.zig). The fixture map is crafted by the bridge
+    // test's `--craft` first. Local-only like its siblings, and after them, so two
+    // games never start at once.
+    const game_reads_it_m3_run = b.addRunArtifact(exe);
+    game_reads_it_m3_run.setCwd(b.path(stage_root));
+    game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", b.pathFromRoot("zig-out/local-test/m3-short-railroad.bzm"), b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3.log") });
+    game_reads_it_m3_run.has_side_effects = true;
+    game_reads_it_m3_run.step.dependOn(&install_exe.step);
+    game_reads_it_m3_run.step.dependOn(&game_reads_it_m2_run.step);
+    game_reads_it_m3_run.step.dependOn(craft_fixtures_step);
+    const cleanup_autoshots_game_reads_m3 = b.addRunArtifact(delete_matching);
+    cleanup_autoshots_game_reads_m3.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_autoshots_game_reads_m3.step.dependOn(&game_reads_it_m3_run.step);
+    const game_reads_it_m3_step = b.step("map-editor-game-reads-it-m3", "Load a map whose railroads hold fewer than two control points in the real Game and prove it exits cleanly (05-05, D-33)");
+    game_reads_it_m3_step.dependOn(&cleanup_autoshots_game_reads_m3.step);
 
     // The engine tier of the core: c_bridge_test.zig, linked exactly as
     // MapEditor is and staged beside it, because on Windows the engine's roots

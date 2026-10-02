@@ -520,6 +520,28 @@ pub const State = struct {
     /// selection or the objects move (`props_reload`), and every field
     /// commits on deactivate as one undo step through `props_set`.
     properties_open: bool = false,
+    /// 05-05, D-30: the Players window's selected row (Insert adds a player,
+    /// Delete deletes the selected one, 0 and 1 set its side), and the Unit
+    /// Creation Info window (Map > Unit Creation Info...): the player it shows,
+    /// that player's record read again whenever the editor's `.unit_creation`
+    /// generation moves or the player changes, and the three combo lists
+    /// (parties, aircraft, paratroop squads) read once each time the window opens.
+    selected_player: ?usize = null,
+    uc_open: bool = false,
+    uc_was_open: bool = false,
+    uc_player: usize = 0,
+    uc_cache: core.records.UnitCreation = .{},
+    uc_cache_player: ?usize = null,
+    uc_cache_generation: u32 = 0,
+    uc_cache_ok: bool = false,
+    uc_lists: [3][]core.bridge.UcName = .{ &.{}, &.{}, &.{} },
+    /// 05-05, D-33: Check Map's window and its last run - the findings (owned), what
+    /// Fix all did the last time it ran, and the confirmation popup for the fixes
+    /// that remove something (an unknown-type object, a short road or river).
+    check_open: bool = false,
+    check_findings: []core.checks.Finding = &.{},
+    check_fix_report: ?core.editor.Editor.FixReport = null,
+    check_confirm_pending: bool = false,
     props_link_id: i32 = -1,
     props_script_edit: [16:0]u8 = [_:0]u8{0} ** 16,
     props_health: f32 = 100,
@@ -713,6 +735,8 @@ pub const State = struct {
         self.vso_line_points.deinit(self.allocator);
         self.vso_line_ends.deinit(self.allocator);
         self.vso_line_kinds.deinit(self.allocator);
+        for (self.uc_lists) |list| self.allocator.free(list);
+        self.allocator.free(self.check_findings);
         self.* = undefined;
     }
 
@@ -1199,6 +1223,13 @@ pub const State = struct {
     /// After any open that succeeded, the startup one included: the camera,
     /// the tileset's tiles and the fields follow the new map.
     pub fn mapOpened(self: *State) void {
+        // 05-05: the new map's players, unit creation and checks are its own.
+        self.selected_player = null;
+        self.uc_cache_player = null;
+        self.uc_was_open = false;
+        self.allocator.free(self.check_findings);
+        self.check_findings = &.{};
+        self.check_fix_report = null;
         self.edit = .{};
         self.tile_count = 0;
         self.tile_reason_len = 0;
@@ -1364,6 +1395,9 @@ pub fn draw(state: *State) void {
     else
         drawObjectPalette(state, left_pos, left_size, cond);
     const right_x = @max(size.x - state.right_width, state.left_width);
+    // A panel that uses Delete itself (the Players list, the start commands)
+    // claims it again during its own draw.
+    state.view.delete_claimed = false;
     drawProperties(state, .{ .x = right_x, .y = body_top }, .{ .x = state.right_width, .y = layout.properties_height }, cond);
     drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = state.right_width, .y = layout.players_height }, cond);
     panels_m2.drawCameraAnchors(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height }, .{ .x = state.right_width, .y = layout.anchors_height }, cond);
@@ -1373,11 +1407,11 @@ pub fn draw(state: *State) void {
     panels_m3.drawFiltersComposer(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 420, .y = 380 });
     panels_m3.drawFieldsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 80 }, .{ .x = 320, .y = 440 });
     panels_m3.drawPropertiesPanel(state, .{ .x = state.left_width + 40, .y = body_top + 100 }, .{ .x = 320, .y = 420 });
+    panels_m3.drawCheckMapPanel(state, .{ .x = state.left_width + 80, .y = body_top + 140 }, .{ .x = 520, .y = 420 });
+    panels_m3.drawUnitCreationPanel(state, .{ .x = state.left_width + 60, .y = body_top + 120 }, .{ .x = 420, .y = 520 });
     pollScriptPick(state);
     panels_m2.drawScriptDialog(state, .{ .x = state.left_width + 60, .y = body_top + 80 }, .{ .x = 380, .y = 340 });
     panels_m2.drawScriptModals(state);
-    // A panel that uses Delete itself claims it again during its own draw.
-    state.view.delete_claimed = false;
     panels_m2.drawStartCommands(state, .{ .x = state.left_width + 80, .y = body_top + 100 }, .{ .x = 420, .y = 520 });
     drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
     drawTestLaunchModals(state);
@@ -1453,6 +1487,7 @@ pub fn act(state: *State) bool {
                 if (ok) {
                     pushRecentFromDocument(state);
                     deleteRecoveryIfActive(state);
+                    commands.noteChecksAfterSave(state);
                 }
                 state.actions.noteSaveOutcome(ok);
             },
@@ -1486,6 +1521,7 @@ pub fn act(state: *State) bool {
                         pushRecentFromDocument(state);
                         deleteRecoveryIfActive(state);
                         if (bring_script) offerScriptCopyAlong(state, came_from.slice());
+                        commands.noteChecksAfterSave(state);
                     }
                     state.actions.noteSaveOutcome(ok);
                 }
@@ -2449,6 +2485,11 @@ fn drawMapMenu(state: *State, map_open: bool) void {
     if (ig.igMenuItemBoolPtr("Reinforcement groups...", null, &state.groups_open, map_open)) {}
     // D-20: the map's script file.
     if (ig.igMenuItemBoolPtr("Script...", null, &state.script_open, map_open)) {}
+    // 05-05, D-30: the per-player Unit Creation Info (the MFC's Edit > Unit Creation Info).
+    if (ig.igMenuItemBoolPtr("Unit Creation Info...", null, &state.uc_open, map_open)) {}
+    // 05-05, D-33: the MFC's Check Map, its results in a window with jump-to, Fix all
+    // as one undo step; Save only says when the checks find something.
+    if (ig.igMenuItemEx("Check Map", null, false, map_open)) _ = commands.run(state, "check_map", "");
     // D-20/D-22 (M3): the terrain composite, the whole-map fill (its
     // confirmation asks before the command runs) and the two toggles, whose
     // live copy is the bridge session's and whose persisted copy is the
@@ -3407,16 +3448,62 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCon
         state.view.noteEditResult(editor, editor.setAttackingSide(attacking));
 
     ig.igSeparatorText("Diplomacy");
+    const entries = editor.document.diplomacy.items.len;
+    if (state.selected_player != null and (entries == 0 or state.selected_player.? >= entries - 1)) state.selected_player = null;
+    // The MFC dialog's buttons and keys (TabSimpleObjectsDiplomacyDialog.cpp:263, 434),
+    // on one compact row: Insert adds a player, Delete deletes the selected one, 0 and 1
+    // set its side. The keys are this window's while it is focused, as the start
+    // commands' Delete is.
+    var action: PlayersAction = .none;
+    if (ig.igButton("Add")) action = .add;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Add a player before the neutral (Insert)");
+    ig.igSameLine();
+    if (ig.igButton("Del")) action = .delete;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Delete the selected player; its objects become the neutral's (Delete)");
+    ig.igSameLine();
+    if (ig.igButton("S0")) action = .side0;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Put the selected player on side 0 (0)");
+    ig.igSameLine();
+    if (ig.igButton("S1")) action = .side1;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Put the selected player on side 1 (1)");
     for (editor.document.diplomacy.items, 0..) |side, player| {
         ig.igPushIDInt(@intCast(player));
         defer ig.igPopID();
+        const neutral = player + 1 == entries;
         var label: [32:0]u8 = undefined;
-        const label_text = std.fmt.bufPrintZ(&label, "player {d}", .{player}) catch continue;
+        const label_text = (if (neutral) std.fmt.bufPrintZ(&label, "{d} (neutral)", .{player}) else std.fmt.bufPrintZ(&label, "{d}", .{player})) catch continue;
+        // The row: the player's number selects it (the MFC list's selection); the
+        // neutral entry is listed but never selected - it cannot be deleted or re-sided.
+        const selected = state.selected_player != null and state.selected_player.? == player;
+        if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 80, .y = ig.igGetFrameHeight() }) and !neutral) state.selected_player = player;
+        ig.igSameLine();
+        ig.igSetNextItemWidth(110);
         var value: c_int = side;
-        if (ig.igCombo(label_text.ptr, &value, "side 0\x00side 1\x00neutral\x00") and value != side)
+        if (ig.igCombo("##side", &value, "side 0\x00side 1\x00neutral\x00") and value != side)
             state.view.noteEditResult(editor, editor.setDiplomacy(@intCast(player), value));
     }
+    if (ig.igIsWindowFocused(ig.ImGuiFocusedFlags_RootAndChildWindows) and !ig.igGetIO().*.WantTextInput) {
+        state.view.delete_claimed = true;
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_Insert, false)) action = .add;
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_Delete, false)) action = .delete;
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_0, false) or ig.igIsKeyPressedEx(ig.ImGuiKey_Keypad0, false)) action = .side0;
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_1, false) or ig.igIsKeyPressedEx(ig.ImGuiKey_Keypad1, false)) action = .side1;
+    }
+    switch (action) {
+        .none => {},
+        .add => _ = commands.run(state, "player_add", "0"),
+        .delete => if (state.selected_player) |player| {
+            var buffer: [16:0]u8 = undefined;
+            _ = commands.run(state, "player_delete", std.fmt.bufPrintZ(&buffer, "{d}", .{player}) catch "");
+        },
+        .side0, .side1 => if (state.selected_player) |player| {
+            var buffer: [24:0]u8 = undefined;
+            _ = commands.run(state, "player_side", std.fmt.bufPrintZ(&buffer, "{d}={d}", .{ player, @intFromBool(action == .side1) }) catch "");
+        },
+    }
 }
+
+const PlayersAction = enum { none, add, delete, side0, side1 };
 
 /// The map's own sound list: one row per sound, name and world position and
 /// radii; a selected row's fields below the list, committed on deactivation

@@ -402,4 +402,87 @@ bool SetObjectLink( SLoadMapInfo *pMap, int nLinkID, int nLinkWith )
 	pObject->link.nLinkWith = nLinkWith;
 	return true;
 }
+namespace
+{
+SUnitCreation DefaultUnitCreation()
+{
+	// The defaults the game's own SUnitCreationInfo::Validate fills in.
+	SUnitCreationInfo info;
+	info.units.assign( 1, SUnitCreation() );
+	info.Validate();
+	return info.units[0];
+}
+
+void MoveOwnersUp( std::vector<SMapObjectInfo> *pObjects, int nFrom )
+{
+	for ( size_t i = 0; i < pObjects->size(); ++i )
+		if ( (*pObjects)[i].nPlayer >= nFrom )
+			++(*pObjects)[i].nPlayer;
+}
+
+// An owner of the deleted player becomes nNeutral; one above it moves down.
+void MoveOwnersDown( std::vector<SMapObjectInfo> *pObjects, int nDeleted, int nNeutral )
+{
+	for ( size_t i = 0; i < pObjects->size(); ++i )
+	{
+		int &rnPlayer = (*pObjects)[i].nPlayer;
+		if ( rnPlayer == nDeleted )
+			rnPlayer = nNeutral;
+		else if ( rnPlayer > nDeleted )
+			--rnPlayer;
+	}
+}
+}
+
+bool InsertPlayer( SLoadMapInfo *pMap, BYTE nSide )
+{
+	if ( pMap == 0 || nSide > 1 || pMap->diplomacies.empty() || int( pMap->diplomacies.size() ) >= nMaxPlayerEntries )
+		return false;
+	const int nNew = int( pMap->diplomacies.size() ) - 1;
+	pMap->diplomacies.insert( pMap->diplomacies.begin() + nNew, nSide );
+	if ( int( pMap->unitCreation.units.size() ) >= nNew )
+		pMap->unitCreation.units.insert( pMap->unitCreation.units.begin() + nNew, DefaultUnitCreation() );
+	if ( int( pMap->playersCameraAnchors.size() ) >= nNew )
+		pMap->playersCameraAnchors.insert( pMap->playersCameraAnchors.begin() + nNew, VNULL3 );
+	MoveOwnersUp( &pMap->objects, nNew );
+	MoveOwnersUp( &pMap->scenarioObjects, nNew );
+	return true;
+}
+
+bool ErasePlayer( SLoadMapInfo *pMap, int nPlayer )
+{
+	if ( pMap == 0 || nPlayer < 0 || nPlayer >= int( pMap->diplomacies.size() ) - 1 || int( pMap->diplomacies.size() ) - 1 < nMinPlayerEntries )
+		return false;
+	// The neutral entry's index once the player is gone.
+	const int nNeutral = int( pMap->diplomacies.size() ) - 2;
+	pMap->diplomacies.erase( pMap->diplomacies.begin() + nPlayer );
+	if ( int( pMap->unitCreation.units.size() ) > nPlayer )
+		pMap->unitCreation.units.erase( pMap->unitCreation.units.begin() + nPlayer );
+	if ( int( pMap->playersCameraAnchors.size() ) > nPlayer )
+		pMap->playersCameraAnchors.erase( pMap->playersCameraAnchors.begin() + nPlayer );
+	MoveOwnersDown( &pMap->objects, nPlayer, nNeutral );
+	MoveOwnersDown( &pMap->scenarioObjects, nPlayer, nNeutral );
+	return true;
+}
+
+bool GetUnitCreation( const SLoadMapInfo &rMap, int nPlayer, SUnitCreation *pOut )
+{
+	if ( pOut == 0 || nPlayer < 0 || nPlayer >= nMaxPlayerEntries - 1 )
+		return false;
+	*pOut = nPlayer < int( rMap.unitCreation.units.size() ) ? rMap.unitCreation.units[nPlayer] : DefaultUnitCreation();
+	return true;
+}
+
+bool PutUnitCreation( SLoadMapInfo *pMap, int nPlayer, const SUnitCreation &rUnitCreation, int nSlotCount )
+{
+	if ( pMap == 0 || nPlayer < 0 || nPlayer >= nMaxPlayerEntries - 1 || nSlotCount < 0 || nSlotCount > nMaxPlayerEntries - 1 ||
+	     int( rUnitCreation.aviation.aircrafts.size() ) != SUCAviation::AT_COUNT )
+		return false;
+	pMap->unitCreation.units.resize( nSlotCount, DefaultUnitCreation() );
+	// A slot count that does not reach the player means the vector does not hold
+	// the player (the record read back the defaults): there is nothing to store.
+	if ( nPlayer < nSlotCount )
+		pMap->unitCreation.units[nPlayer] = rUnitCreation;
+	return true;
+}
 }

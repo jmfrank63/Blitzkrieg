@@ -317,6 +317,17 @@ bool InstallMapInSession( SEditorSession *pSession, const CMapInfo &read, const 
 	pSession->openedStartCommands.assign( read.startCommandsList.begin(), read.startCommandsList.end() );
 	pSession->openedReservePositions.assign( read.reservePositionsList.begin(), read.reservePositionsList.end() );
 	pSession->openedAISides = read.aiGeneralMapInfo.sidesInfo;
+	pSession->openedUCParties.clear();
+	pSession->openedUCAircraft.clear();
+	pSession->openedUCSquads.clear();
+	for ( size_t i = 0; i < read.unitCreation.units.size(); ++i )
+	{
+		const SUnitCreation &rUnit = read.unitCreation.units[i];
+		pSession->openedUCParties.insert( rUnit.szPartyName );
+		pSession->openedUCSquads.insert( rUnit.aviation.szParadropSquadName );
+		for ( size_t j = 0; j < rUnit.aviation.aircrafts.size(); ++j )
+			pSession->openedUCAircraft.insert( rUnit.aviation.aircrafts[j].szName );
+	}
 	{
 		NMapRecords::SCameraAnchors anchors;
 		NMapRecords::GetCameraAnchors( read, &anchors );
@@ -1037,7 +1048,14 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	// not be refused because its kind reports no direction.
 	const bool bMoving = before.vPos.x != vPos.x || before.vPos.y != vPos.y;
 	const bool bTurning = before.nDir != nDir;
-	const bool bReowning = before.nPlayer != nPlayer;
+	// An owner outside the diplomacy table was never the engine's owner
+	// (PlaceOneObject handed such an object a stand-in), so moving a record into the
+	// table - Check Map's owner fix (05-05, TEF:6010-6014) - or out of it again - that
+	// fix's undo - changes the records alone. Every other owner change is asked of the
+	// engine, which may refuse it.
+	const int nTable = int( pSession->snapshot.diplomacies.size() );
+	const bool bOwnersInTable = before.nPlayer >= 0 && before.nPlayer < nTable && nPlayer >= 0 && nPlayer < nTable;
+	const bool bReowning = before.nPlayer != nPlayer && bOwnersInTable;
 	if ( bMoving )
 		pAIEditor->MoveObject( pAIObject, ToEngineCoord( vPos.x ), ToEngineCoord( vPos.y ) );
 	if ( bTurning )
@@ -1098,14 +1116,11 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 		*pbRefused = false;
 	if ( pSession == 0 || !pSession->bMapOpen )
 		return false;
-	// The preservation invariant: an object the database does not know is
-	// written back exactly as it was read, so no edit may reach it.
-	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
-	{
-		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
-		if ( pbRefused ) *pbRefused = true;
-		return false;
-	}
+	// The preservation invariant keeps every edit away from an object the
+	// database does not know - except its removal (05-05, D-33): Check Map's Fix
+	// all offers it explicitly, replacing the MFC's silent RemoveNonExistingObjects
+	// (PARITY F4). The engine never held such an object, so there is nothing to
+	// take out of it, and the restore puts the record back exactly where it was.
 	// Before anything else: with the ID shared, "not in byLinkID" below would
 	// not mean "the engine holds nothing", and a found engine object might be
 	// another record's.
@@ -1414,8 +1429,18 @@ bool PutObjectRecordBack( SEditorSession *pSession, const SMapObjectInfo &rRecor
 			nEnginePlayer = pCurrent->nPlayer;
 	}
 	bool bRefused = false;
-	if ( !PlaceObjectInSession( pSession, rRecord.link.nLinkID, rRecord.vPos, rRecord.nDir, nEnginePlayer, &bRefused ) )
-		return false;
+	// An object the engine never took (an owner outside the table, a place off
+	// the map, no stats) has no engine state to keep in step: an edit that leaves
+	// its place and direction alone changes the records only (05-05, Check Map's
+	// owner fix reaches exactly such an object). A move or a turn of it is still
+	// refused by the place below.
+	const bool bEngineHolds = pSession->byLinkID.find( rRecord.link.nLinkID ) != pSession->byLinkID.end();
+	const bool bPlaceUnchanged = pCurrent->vPos.x == rRecord.vPos.x && pCurrent->vPos.y == rRecord.vPos.y && pCurrent->nDir == rRecord.nDir;
+	if ( bEngineHolds || !bPlaceUnchanged )
+	{
+		if ( !PlaceObjectInSession( pSession, rRecord.link.nLinkID, rRecord.vPos, rRecord.nDir, nEnginePlayer, &bRefused ) )
+			return false;
+	}
 	SMapObjectInfo *pSnapshot = FindIn( &pSession->snapshot, rRecord.link.nLinkID );
 	SMapObjectInfo *pWorking = FindIn( &pSession->working, rRecord.link.nLinkID );
 	if ( pSnapshot == 0 || pWorking == 0 )

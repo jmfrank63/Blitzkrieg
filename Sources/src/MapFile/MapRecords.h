@@ -148,5 +148,49 @@ bool SetObjectPlayer( SLoadMapInfo *pMap, int nLinkID, int nPlayer );
 bool SetObjectAngle( SLoadMapInfo *pMap, int nLinkID, float fAngleDegrees );
 bool SetObjectFormation( SLoadMapInfo *pMap, int nLinkID, int nFormation );
 bool SetObjectLink( SLoadMapInfo *pMap, int nLinkID, int nLinkWith );
+
+// Players (M3, D-30). The map's diplomacies hold one entry per player and the
+// neutral player LAST (0 and 1 are the two sides, 2 the neutral); the most a
+// map holds is 16 players and the neutral. The per-player collections that
+// follow the players by position are the unit creation (units) and the player
+// camera anchors; the objects name their owner by index.
+const int nMaxPlayerEntries = 17;
+// The fewest entries a map keeps: two players and the neutral. The MFC allowed
+// fewer; a mission needs its two sides, so the editor does not.
+const int nMinPlayerEntries = 3;
+
+// Adds a player of side nSide (0 or 1) just before the neutral entry - the MFC
+// dialog's own insert (TabSimpleObjectsDiplomacyDialog.cpp:263). The player
+// takes the neutral's index and the neutral moves up by one, so every owner
+// index at or above the old neutral's moves up with it (an object of the neutral
+// stays the neutral's: the MFC left it to take the new player's index, which no
+// one meant). The unit creation and the player camera anchors gain a default /
+// unset entry at the new index when the file held entries for every player
+// (the MFC resized both to players-many, TabSimpleObjectsDialog.cpp:627, 3435);
+// a vector shorter than that is left alone (the file's own size, as on open).
+// False and untouched at nMaxPlayerEntries or without a neutral entry.
+bool InsertPlayer( SLoadMapInfo *pMap, BYTE nSide );
+
+// Deletes player nPlayer (0 .. diplomacies-2: never the neutral entry), the
+// players above it moving down by one with their unit creation, their camera
+// anchors and their objects. The deleted player's objects become the neutral's
+// (D-30; TemplateEditorFrame1.cpp:6013's own rule for an owner out of range).
+// False and untouched for the neutral, an index out of range, or when fewer than
+// nMinPlayerEntries entries would remain.
+bool ErasePlayer( SLoadMapInfo *pMap, int nPlayer );
+
+// One player's unit creation (the MFC's Map Unit Creation Property, one entry of
+// SUnitCreationInfo::units). A player the vector does not hold yet reads as the
+// defaults the game's own Validate would fill in (party USSR, the default
+// aircraft, relax time 20) and reads from a map exactly what the file holds
+// otherwise. PutUnitCreation is an exact put: units becomes exactly nSlotCount
+// long (padded with validated defaults, or cut), so an undo can bring back a
+// vector a put grew. A slot count that does not reach nPlayer leaves the entry
+// out (the vector does not hold that player: the state a read of it answered
+// with the defaults for). False and untouched for a player outside
+// 0..nMaxPlayerEntries-2, a slot count outside 0..nMaxPlayerEntries-1, or an
+// entry that does not hold the five aircraft.
+bool GetUnitCreation( const SLoadMapInfo &rMap, int nPlayer, SUnitCreation *pOut );
+bool PutUnitCreation( SLoadMapInfo *pMap, int nPlayer, const SUnitCreation &rUnitCreation, int nSlotCount );
 }
 #endif // __MAP_RECORDS_H__

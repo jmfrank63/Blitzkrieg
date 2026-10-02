@@ -33,6 +33,11 @@ pub const Kind = enum {
     /// One side of the AI general (04-12, D-19): keyed by the side's number, holding
     /// its mobile script IDs and parcels, and the map's side count (a put sets both).
     ai_side,
+    /// One player's Unit Creation Info (05-05, D-30): keyed by the player's index,
+    /// holding the party, the five aviation slots, the paratroop squad, the relax
+    /// time and the appear points - and the size of the map's unit-creation vector
+    /// (a put sets both, like an AI side's count).
+    unit_creation,
 };
 
 /// A world-unit point. The all-zero value is the file's VNULL3: "not set".
@@ -437,6 +442,132 @@ pub const AiSide = struct {
     }
 };
 
+/// BkEditorUnitCreationRecord's capacities (05-05, D-30).
+pub const uc_name_capacity = 64;
+pub const uc_aircraft_slots = 5;
+pub const max_uc_slots = 16;
+pub const max_appear_points = 32;
+
+/// The aviation slots in the file's order (the MFC's AIRCRAFT_TYPE_NAMES).
+pub const uc_aircraft_labels = [uc_aircraft_slots][]const u8{ "Scouts", "Fighters", "Paradropers", "Bombers", "Attack planes" };
+
+/// One aviation slot: an aircraft name with a formation size and a count.
+pub const UcAircraft = struct {
+    name: [uc_name_capacity]u8 = [_]u8{0} ** uc_name_capacity,
+    formation_size: i32 = 1,
+    count: i32 = 1,
+
+    pub fn nameSlice(self: *const UcAircraft) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+
+    pub fn setName(self: *UcAircraft, text: []const u8) void {
+        const len = @min(text.len, uc_name_capacity - 1);
+        @memset(&self.name, 0);
+        @memcpy(self.name[0..len], text[0..len]);
+    }
+
+    pub fn eql(a: UcAircraft, b: UcAircraft) bool {
+        return std.mem.eql(u8, a.nameSlice(), b.nameSlice()) and a.formation_size == b.formation_size and a.count == b.count;
+    }
+};
+
+/// One player's unit creation, the record BkEditorUnitCreation hands out. Appear
+/// points are MAP (AI) units, as the file holds them (the MFC's list shows them
+/// divided by 64): a click on the map is converted by the app the way a start
+/// command's target is. `slot_count` is the size of the map's unit-creation
+/// vector, 0..16: a put makes the vector exactly that long, so an undo of a put
+/// that grew it brings the old size back; a put whose `slot_count` does not reach
+/// the player only sets the size. The default is what a player the vector does not
+/// hold reads as (the game's own Validate defaults).
+pub const UnitCreation = struct {
+    slot_count: u32 = 0,
+    party: [uc_name_capacity]u8 = [_]u8{0} ** uc_name_capacity,
+    aircraft: [uc_aircraft_slots]UcAircraft = [_]UcAircraft{.{}} ** uc_aircraft_slots,
+    paratroop_name: [uc_name_capacity]u8 = [_]u8{0} ** uc_name_capacity,
+    paratroop_count: i32 = 1,
+    relax_time: i32 = 30,
+    appear_count: u32 = 0,
+    appear: [max_appear_points]Vec3 = [_]Vec3{.{}} ** max_appear_points,
+
+    /// What the bridge answers for a player the vector does not hold, and what
+    /// the fake answers likewise (Validate's names, relax 30).
+    pub fn defaults() UnitCreation {
+        var out: UnitCreation = .{};
+        setText(&out.party, "USSR");
+        const names = [uc_aircraft_slots][]const u8{ "Po_2", "Yak-7", "Tb-3", "Tb-3", "IL_2" };
+        for (&out.aircraft, names) |*slot, name| slot.setName(name);
+        setText(&out.paratroop_name, "USSR_rpd_43");
+        return out;
+    }
+
+    fn setText(buffer: *[uc_name_capacity]u8, text: []const u8) void {
+        const len = @min(text.len, uc_name_capacity - 1);
+        @memset(buffer, 0);
+        @memcpy(buffer[0..len], text[0..len]);
+    }
+
+    pub fn partySlice(self: *const UnitCreation) []const u8 {
+        return std.mem.sliceTo(&self.party, 0);
+    }
+
+    pub fn setParty(self: *UnitCreation, text: []const u8) void {
+        setText(&self.party, text);
+    }
+
+    pub fn paratroopSlice(self: *const UnitCreation) []const u8 {
+        return std.mem.sliceTo(&self.paratroop_name, 0);
+    }
+
+    pub fn setParatroop(self: *UnitCreation, text: []const u8) void {
+        setText(&self.paratroop_name, text);
+    }
+
+    pub fn appearSlice(self: *const UnitCreation) []const Vec3 {
+        return self.appear[0..self.appear_count];
+    }
+
+    /// Adds an appear point; false at the record's capacity.
+    pub fn addAppear(self: *UnitCreation, point: Vec3) bool {
+        if (self.appear_count >= max_appear_points) return false;
+        self.appear[self.appear_count] = point;
+        self.appear_count += 1;
+        return true;
+    }
+
+    /// Removes appear point `index`; false past the end.
+    pub fn removeAppear(self: *UnitCreation, index: usize) bool {
+        if (index >= self.appear_count) return false;
+        var i = index;
+        while (i + 1 < self.appear_count) : (i += 1) self.appear[i] = self.appear[i + 1];
+        self.appear_count -= 1;
+        self.appear[self.appear_count] = .{};
+        return true;
+    }
+
+    /// A copy whose vector covers `player`: the slot count raised to player + 1,
+    /// never lowered (the caller's rule when it builds a value for a player the
+    /// vector does not hold yet). Null for a player the record cannot hold.
+    pub fn withPlayerCovered(self: UnitCreation, player: usize) ?UnitCreation {
+        if (player >= max_uc_slots) return null;
+        var out = self;
+        out.slot_count = @max(self.slot_count, @as(u32, @intCast(player + 1)));
+        return out;
+    }
+
+    pub fn eql(a: UnitCreation, b: UnitCreation) bool {
+        if (a.slot_count != b.slot_count or a.paratroop_count != b.paratroop_count or a.relax_time != b.relax_time or a.appear_count != b.appear_count) return false;
+        if (!std.mem.eql(u8, a.partySlice(), b.partySlice()) or !std.mem.eql(u8, a.paratroopSlice(), b.paratroopSlice())) return false;
+        for (a.aircraft, b.aircraft) |left, right| {
+            if (!left.eql(right)) return false;
+        }
+        for (a.appearSlice(), b.appearSlice()) |left, right| {
+            if (!left.eql(right)) return false;
+        }
+        return true;
+    }
+};
+
 /// One whole record of some kind. The history owns the values it holds and
 /// frees them with `deinit`; the camera anchors and the script file own no
 /// memory, a group owns its script-ID list, a start command its unit list and an
@@ -450,10 +581,11 @@ pub const Value = union(Kind) {
     start_command: StartCommand,
     reserve_position: ReservePosition,
     ai_side: AiSide,
+    unit_creation: UnitCreation,
 
     pub fn deinit(self: *Value, allocator: std.mem.Allocator) void {
         switch (self.*) {
-            .camera_anchors, .script_file, .script_area, .reserve_position => {},
+            .camera_anchors, .script_file, .script_area, .reserve_position, .unit_creation => {},
             .group => |group| {
                 allocator.free(group.ids);
                 self.* = .{ .group = .{ .id = group.id } };
@@ -478,6 +610,7 @@ pub const Value = union(Kind) {
             .script_file => |file| .{ .script_file = file },
             .script_area => |area| .{ .script_area = area },
             .reserve_position => |position| .{ .reserve_position = position },
+            .unit_creation => |unit| .{ .unit_creation = unit },
             .group => |group| .{ .group = .{ .id = group.id, .ids = try allocator.dupe(i32, group.ids) } },
             .start_command => |command| blk: {
                 var copy = command;
@@ -498,6 +631,7 @@ pub const Value = union(Kind) {
             .start_command => |left| left.eql(b.start_command),
             .reserve_position => |left| left.eql(b.reserve_position),
             .ai_side => |left| left.eql(b.ai_side),
+            .unit_creation => |left| left.eql(b.unit_creation),
         };
     }
 };
@@ -727,4 +861,51 @@ test "a file's own odd parcel type survives a clone" {
     defer copy.deinit(allocator);
     try std.testing.expectEqual(@as(i32, 0), @intFromEnum(copy.parcels[0].kind));
     try std.testing.expect(side.eql(copy));
+}
+
+test "a unit creation value compares by its used slots and never by the padding" {
+    var first = UnitCreation.defaults();
+    first.slot_count = 2;
+    try std.testing.expectEqualStrings("USSR", first.partySlice());
+    try std.testing.expectEqualStrings("Po_2", first.aircraft[0].nameSlice());
+    try std.testing.expectEqualStrings("USSR_rpd_43", first.paratroopSlice());
+    try std.testing.expectEqual(@as(i32, 30), first.relax_time);
+    var second = first;
+    second.appear[7] = .{ .x = 1, .y = 1 }; // past appear_count: not part of the value
+    second.party[40] = 0; // padding past the NUL
+    try std.testing.expect(first.eql(second));
+    try std.testing.expect(first.addAppear(.{ .x = 640, .y = 1280 }));
+    try std.testing.expect(!first.eql(second));
+    second = first;
+    second.aircraft[3].count = 9;
+    try std.testing.expect(!first.eql(second));
+    second = first;
+    second.slot_count = 3;
+    try std.testing.expect(!first.eql(second));
+    const value: Value = .{ .unit_creation = first };
+    var copy = try value.clone(std.testing.allocator);
+    defer copy.deinit(std.testing.allocator);
+    try std.testing.expect(value.eql(copy));
+    try std.testing.expect(!value.eql(.{ .camera_anchors = .{} }));
+}
+
+test "appear points add and remove in order and the vector covers a player on demand" {
+    var unit = UnitCreation.defaults();
+    try std.testing.expect(unit.addAppear(.{ .x = 1 }));
+    try std.testing.expect(unit.addAppear(.{ .x = 2 }));
+    try std.testing.expect(unit.addAppear(.{ .x = 3 }));
+    try std.testing.expect(unit.removeAppear(1));
+    try std.testing.expectEqual(@as(u32, 2), unit.appear_count);
+    try std.testing.expectEqual(@as(f32, 3), unit.appear[1].x);
+    try std.testing.expect(unit.appear[2].isUnset());
+    try std.testing.expect(!unit.removeAppear(2));
+    var full = UnitCreation.defaults();
+    var i: usize = 0;
+    while (i < max_appear_points) : (i += 1) try std.testing.expect(full.addAppear(.{ .x = 1 }));
+    try std.testing.expect(!full.addAppear(.{ .x = 1 }));
+    var held = UnitCreation.defaults();
+    held.slot_count = 2;
+    try std.testing.expectEqual(@as(u32, 5), held.withPlayerCovered(4).?.slot_count);
+    try std.testing.expectEqual(@as(u32, 2), held.withPlayerCovered(0).?.slot_count); // never lowered
+    try std.testing.expect(held.withPlayerCovered(max_uc_slots) == null);
 }

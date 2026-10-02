@@ -127,6 +127,22 @@ pub const command_table = [_]Entry{
     .{ .name = "fields_apply", .handler = fieldsApply },
     .{ .name = "fields_vertex_add", .handler = fieldsVertexAdd },
     .{ .name = "fields_vertex_clear", .handler = fieldsVertexClear },
+    .{ .name = "player_add", .handler = playerAdd },
+    .{ .name = "player_delete", .handler = playerDelete },
+    .{ .name = "player_side", .handler = playerSide },
+    .{ .name = "unit_creation_window", .handler = unitCreationWindow },
+    .{ .name = "unit_creation_player", .handler = unitCreationPlayer },
+    .{ .name = "unit_creation_set", .handler = unitCreationSet },
+    .{ .name = "appear_point_here", .handler = appearPointHere },
+    .{ .name = "appear_point_add", .handler = appearPointAdd },
+    .{ .name = "appear_point_set", .handler = appearPointSet },
+    .{ .name = "appear_point_remove", .handler = appearPointRemove },
+    .{ .name = "check_map", .handler = checkMapCommand },
+    .{ .name = "check_map_fix_all", .handler = checkMapFixAll },
+    .{ .name = "check_jump", .handler = checkJump },
+    .{ .name = "check_window", .handler = checkWindow },
+    .{ .name = "undo", .handler = undoCommand },
+    .{ .name = "redo", .handler = redoCommand },
 };
 
 pub const predicate_table = [_]Entry{
@@ -168,6 +184,11 @@ pub const predicate_table = [_]Entry{
     .{ .name = "status", .handler = statusContains },
     .{ .name = "palette_count", .handler = paletteCount },
     .{ .name = "dirty", .handler = dirtyIs },
+    .{ .name = "players", .handler = playersIs },
+    .{ .name = "player_is", .handler = playerIs },
+    .{ .name = "unit_creation_is", .handler = unitCreationIs },
+    .{ .name = "check_findings", .handler = checkFindingsIs },
+    .{ .name = "check_log_has", .handler = checkLogHas },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -2447,5 +2468,410 @@ fn fieldsVertexAdd(state: *State, arg: []const u8) Outcome {
 fn fieldsVertexClear(state: *State, arg: []const u8) Outcome {
     if (arg.len != 0) return .bad_arg;
     state.view.fields_tool.clear();
+    return .ok;
+}
+
+
+// ---------------------------------------------------------------------------
+// Players and the Unit Creation Info (05-05, D-30)
+// ---------------------------------------------------------------------------
+
+/// `do=player_add[:side]`: a player of that side (0 or 1, default 0 - the
+/// MFC's own insert) before the neutral entry; one undo step.
+fn playerAdd(state: *State, arg: []const u8) Outcome {
+    const side = if (arg.len == 0) 0 else std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.editor.addPlayer(side));
+}
+
+/// `do=player_delete:<player>`: the player's objects become the neutral's, the
+/// players above move down; one undo step. The neutral entry is refused.
+fn playerDelete(state: *State, arg: []const u8) Outcome {
+    const player = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    state.selected_player = null;
+    return resultOutcome(state, state.editor.deletePlayer(player));
+}
+
+/// `do=player_side:<player>=<side>`: the MFC list's 0 and 1 keys.
+fn playerSide(state: *State, arg: []const u8) Outcome {
+    const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return .bad_arg;
+    const player = std.fmt.parseInt(i32, arg[0..eq], 10) catch return .bad_arg;
+    const side = std.fmt.parseInt(i32, arg[eq + 1 ..], 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    return resultOutcome(state, state.editor.setDiplomacy(player, side));
+}
+
+/// `do=unit_creation_window:1|0` opens or closes the Unit Creation Info window.
+fn unitCreationWindow(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "1")) {
+        state.uc_open = true;
+    } else if (std.mem.eql(u8, arg, "0")) {
+        state.uc_open = false;
+    } else return .bad_arg;
+    return .ok;
+}
+
+/// `do=unit_creation_player:<n>`: the player the window shows and the fields
+/// below edit (opens the window).
+fn unitCreationPlayer(state: *State, arg: []const u8) Outcome {
+    const player = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (player >= records.max_uc_slots) return .bad_arg;
+    state.uc_player = player;
+    state.uc_open = true;
+    return .ok;
+}
+
+/// One field of a player's unit creation, as the commands name it.
+const UcField = union(enum) {
+    party,
+    paratroop_name,
+    paratroop_count,
+    relax,
+    aircraft_name: usize,
+    aircraft_formation: usize,
+    aircraft_count: usize,
+};
+
+/// `party`, `paratroop_name`, `paratroop_count`, `relax`, and
+/// `aircraft<0..4>_name|formation|count`.
+fn parseUcField(field: []const u8) ?UcField {
+    if (std.mem.eql(u8, field, "party")) return .party;
+    if (std.mem.eql(u8, field, "paratroop_name")) return .paratroop_name;
+    if (std.mem.eql(u8, field, "paratroop_count")) return .paratroop_count;
+    if (std.mem.eql(u8, field, "relax")) return .relax;
+    const prefix = "aircraft";
+    if (field.len > prefix.len + 2 and std.mem.startsWith(u8, field, prefix) and field[prefix.len + 1] == '_') {
+        const slot = field[prefix.len] -% '0';
+        if (slot >= records.uc_aircraft_slots) return null;
+        const rest = field[prefix.len + 2 ..];
+        if (std.mem.eql(u8, rest, "name")) return .{ .aircraft_name = slot };
+        if (std.mem.eql(u8, rest, "formation")) return .{ .aircraft_formation = slot };
+        if (std.mem.eql(u8, rest, "count")) return .{ .aircraft_count = slot };
+    }
+    return null;
+}
+
+/// Puts `value` into the field; null for a value that does not parse.
+fn setUcField(unit: *records.UnitCreation, field: UcField, value: []const u8) ?void {
+    switch (field) {
+        .party => unit.setParty(value),
+        .paratroop_name => unit.setParatroop(value),
+        .paratroop_count => unit.paratroop_count = std.fmt.parseInt(i32, value, 10) catch return null,
+        .relax => unit.relax_time = std.fmt.parseInt(i32, value, 10) catch return null,
+        .aircraft_name => |slot| unit.aircraft[slot].setName(value),
+        .aircraft_formation => |slot| unit.aircraft[slot].formation_size = std.fmt.parseInt(i32, value, 10) catch return null,
+        .aircraft_count => |slot| unit.aircraft[slot].count = std.fmt.parseInt(i32, value, 10) catch return null,
+    }
+}
+
+/// The field's value as text, for a predicate and the panel's own reading.
+fn ucFieldText(buffer: []u8, unit: *const records.UnitCreation, field: UcField) []const u8 {
+    return switch (field) {
+        .party => unit.partySlice(),
+        .paratroop_name => unit.paratroopSlice(),
+        .paratroop_count => std.fmt.bufPrint(buffer, "{d}", .{unit.paratroop_count}) catch "",
+        .relax => std.fmt.bufPrint(buffer, "{d}", .{unit.relax_time}) catch "",
+        .aircraft_name => |slot| unit.aircraft[slot].nameSlice(),
+        .aircraft_formation => |slot| std.fmt.bufPrint(buffer, "{d}", .{unit.aircraft[slot].formation_size}) catch "",
+        .aircraft_count => |slot| std.fmt.bufPrint(buffer, "{d}", .{unit.aircraft[slot].count}) catch "",
+    };
+}
+
+/// `do=unit_creation_set:<field>=<value>`: one field of the window's player,
+/// one undo step; the bridge's MutableValidate-style rules answer, a refusal
+/// names the field and changes nothing.
+fn unitCreationSet(state: *State, arg: []const u8) Outcome {
+    const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return .bad_arg;
+    const field = parseUcField(arg[0..eq]) orelse return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    var unit = state.editor.unitCreation(state.uc_player) catch |err| return resultOutcome(state, err);
+    setUcField(&unit, field, arg[eq + 1 ..]) orelse return .bad_arg;
+    return resultOutcome(state, state.editor.editUnitCreation(state.uc_player, unit, 0));
+}
+
+/// `expect=unit_creation_is:<field>=<value>`: the window's player holds that
+/// value (what the bridge reads, not the panel's cache).
+fn unitCreationIs(state: *State, arg: []const u8) Outcome {
+    const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return .bad_arg;
+    const field = parseUcField(arg[0..eq]) orelse return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const unit = state.editor.unitCreation(state.uc_player) catch return .refused;
+    var buffer: [32]u8 = undefined;
+    const got = ucFieldText(&buffer, &unit, field);
+    if (std.mem.eql(u8, got, arg[eq + 1 ..])) return .ok;
+    var note: [128]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&note, "player {d}'s {s} is {s}, not {s}", .{ state.uc_player, arg[0..eq], got, arg[eq + 1 ..] }) catch "unit creation differs");
+    return .refused;
+}
+
+/// An appear point in map (AI) units, the way the MFC rounds a point it is handed
+/// (Vis2AI cuts int(v + 0.3)).
+fn appearPoint(x: f32, y: f32) records.Vec3 {
+    return .{ .x = records.truncateToAi(x), .y = records.truncateToAi(y) };
+}
+
+fn addAppear(state: *State, point: records.Vec3) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    var unit = state.editor.unitCreation(state.uc_player) catch |err| return resultOutcome(state, err);
+    if (!unit.addAppear(point)) {
+        state.editor.note("a player holds 32 appear points at most");
+        return .refused;
+    }
+    return resultOutcome(state, state.editor.editUnitCreation(state.uc_player, unit, 0));
+}
+
+/// `do=appear_point_here`: an appear point at the ground under the centre of
+/// the view, in map units; one undo step.
+fn appearPointHere(state: *State, _: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const centre = viewCentre(state) orelse return .refused;
+    return addAppear(state, appearPoint(centre.map_x, centre.map_y));
+}
+
+fn parseXY(arg: []const u8) ?[2]f32 {
+    const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return null;
+    const x = std.fmt.parseFloat(f32, arg[0..slash]) catch return null;
+    const y = std.fmt.parseFloat(f32, arg[slash + 1 ..]) catch return null;
+    if (!std.math.isFinite(x) or !std.math.isFinite(y)) return null;
+    return .{ x, y };
+}
+
+/// `do=appear_point_add:<x>/<y>`: an appear point at map (AI) units.
+fn appearPointAdd(state: *State, arg: []const u8) Outcome {
+    const xy = parseXY(arg) orelse return .bad_arg;
+    return addAppear(state, .{ .x = xy[0], .y = xy[1] });
+}
+
+/// `do=appear_point_set:<index>/<x>/<y>`: moves one point (map units) - the
+/// points list's own edit; one undo step.
+fn appearPointSet(state: *State, arg: []const u8) Outcome {
+    const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return .bad_arg;
+    const index = std.fmt.parseInt(usize, arg[0..slash], 10) catch return .bad_arg;
+    const xy = parseXY(arg[slash + 1 ..]) orelse return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    var unit = state.editor.unitCreation(state.uc_player) catch |err| return resultOutcome(state, err);
+    if (index >= unit.appear_count) return .bad_arg;
+    unit.appear[index] = .{ .x = xy[0], .y = xy[1] };
+    return resultOutcome(state, state.editor.editUnitCreation(state.uc_player, unit, 0));
+}
+
+/// `do=appear_point_remove:<index>`.
+fn appearPointRemove(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    var unit = state.editor.unitCreation(state.uc_player) catch |err| return resultOutcome(state, err);
+    if (!unit.removeAppear(index)) return .bad_arg;
+    return resultOutcome(state, state.editor.editUnitCreation(state.uc_player, unit, 0));
+}
+
+/// `expect=players:<n>`: the diplomacy table holds n entries (the players and
+/// the neutral).
+fn playersIs(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const got = state.editor.document.diplomacy.items.len;
+    if (got == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "the table holds {d} entries, not {d}", .{ got, want }) catch "player count differs");
+    return .refused;
+}
+
+/// `expect=player_is:<object>:<player>`: the object (`@<n>`: the n-th selected,
+/// or a link ID) belongs to that player.
+fn playerIs(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const want = std.fmt.parseInt(i32, arg[colon + 1 ..], 10) catch return .bad_arg;
+    const link_id = objectRef(state, arg[0..colon]) orelse return .bad_arg;
+    const object = state.editor.document.find(link_id) orelse return .refused;
+    if (object.player == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "object {d} belongs to player {d}, not {d}", .{ link_id, object.player, want }) catch "owner differs");
+    return .refused;
+}
+
+
+// ---------------------------------------------------------------------------
+// Check Map (05-05, D-33)
+// ---------------------------------------------------------------------------
+
+/// The type names of squads (game type 15), from the catalogue: the duplicate rule
+/// leaves a squad alone. Freed by the caller (the names point into the catalogue).
+fn squadNames(state: *State) ?[][]const u8 {
+    var names: std.ArrayListUnmanaged([]const u8) = .empty;
+    for (state.catalogue) |*entry| {
+        if (entry.game_type == 15) names.append(state.allocator, std.mem.sliceTo(&entry.name, 0)) catch {
+            names.deinit(state.allocator);
+            return null;
+        };
+    }
+    return names.toOwnedSlice(state.allocator) catch null;
+}
+
+/// `<user_root>mapeditor/logs/checkmap_log.txt` (D-33), an OS path.
+fn checkLogPath(buffer: []u8, state: *const State) ?[]const u8 {
+    const root = std.mem.sliceTo(&state.paths.user_root, 0);
+    return std.fmt.bufPrint(buffer, "{s}mapeditor{c}logs{c}checkmap_log.txt", .{ root, std.fs.path.sep, std.fs.path.sep }) catch null;
+}
+
+/// Writes the findings to the log, MFC layout; a failure is a status note, never
+/// a failed check.
+fn writeCheckLog(state: *State) void {
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const path = checkLogPath(&path_buffer, state) orelse return;
+    var out = std.Io.Writer.Allocating.init(state.allocator);
+    defer out.deinit();
+    core.checks.writeLog(&out.writer, state.check_findings) catch return;
+    if (std.fs.path.dirname(path)) |dir| std.Io.Dir.cwd().createDirPath(state.io, dir) catch {
+        state.view.setStatus("check map: ", "the log folder could not be made");
+        return;
+    };
+    std.Io.Dir.cwd().writeFile(state.io, .{ .sub_path = path, .data = out.written() }) catch {
+        state.view.setStatus("check map: ", "the log could not be written");
+    };
+}
+
+/// Runs the checks and keeps their findings for the window (the old ones go).
+/// `write_log` is Check Map's own run; the quiet one after a save leaves the log alone.
+fn runChecks(state: *State) bool {
+    const names = squadNames(state) orelse return false;
+    defer state.allocator.free(names);
+    const found = state.editor.checkMap(state.allocator, names) catch return false;
+    state.allocator.free(state.check_findings);
+    state.check_findings = found;
+    return true;
+}
+
+/// `do=check_map`: runs every check, lists the findings in the Check Map window
+/// and writes `<UserRoot>mapeditor/logs/checkmap_log.txt` - a run edits nothing.
+fn checkMapCommand(state: *State, _: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    if (!runChecks(state)) {
+        state.view.setStatus("check map: ", "the checks could not run");
+        return .refused;
+    }
+    state.check_open = true;
+    state.check_fix_report = null;
+    writeCheckLog(state);
+    var buffer: [96]u8 = undefined;
+    const count = state.check_findings.len;
+    state.view.setStatus("check map: ", if (count == 0) "no problems found" else std.fmt.bufPrint(&buffer, "{d} finding(s)", .{count}) catch "findings");
+    return .ok;
+}
+
+/// After a Save or Save As landed: the checks run and the status bar only SAYS when
+/// they find something - Save never fixes silently, unlike the MFC's CheckMap(false)
+/// (TemplateEditorFrame1.cpp:2934; PARITY S1). The log is the Check Map command's.
+pub fn noteChecksAfterSave(state: *State) void {
+    if (!panels.mapIsOpen(state.editor)) return;
+    if (!runChecks(state)) return;
+    if (state.check_findings.len == 0) return;
+    var buffer: [112]u8 = undefined;
+    state.view.setStatus("checks failed: ", std.fmt.bufPrint(&buffer, "{d} finding(s) - Map > Check Map lists them; the save is as it was", .{state.check_findings.len}) catch "findings - Map > Check Map");
+}
+
+/// `do=check_map_fix_all[:remove]`: Fix all as ONE undo step. Without `remove` the
+/// fixes that take something away (an unknown-type object, a short road or river)
+/// wait; with it they go too - the window's confirmation is this argument. The
+/// checks run again afterwards and the window shows what is left.
+fn checkMapFixAll(state: *State, arg: []const u8) Outcome {
+    const remove = std.mem.eql(u8, arg, "remove");
+    if (arg.len != 0 and !remove) return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    if (state.check_findings.len == 0 and !runChecks(state)) return .refused;
+    const report = state.editor.fixAll(state.check_findings, remove) catch |err| return resultOutcome(state, err);
+    state.check_fix_report = report;
+    state.check_confirm_pending = false;
+    _ = runChecks(state);
+    writeCheckLog(state);
+    var buffer: [112]u8 = undefined;
+    state.view.setStatus("check map: ", std.fmt.bufPrint(&buffer, "fixed {d}, left {d}, refused {d}", .{ report.fixed, report.left, report.refused }) catch "fixed");
+    return .ok;
+}
+
+/// `do=check_window:1|0` opens or closes the Check Map window.
+fn checkWindow(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "1")) {
+        state.check_open = true;
+    } else if (std.mem.eql(u8, arg, "0")) {
+        state.check_open = false;
+    } else return .bad_arg;
+    return .ok;
+}
+
+/// `do=check_jump:<n>`: the n-th finding's place comes to the middle of the view and
+/// its object is selected (the selection circle is the marker): an object's own place
+/// is in map units, a road's first control point in world units.
+pub fn jumpToFinding(state: *State, index: usize) Outcome {
+    if (index >= state.check_findings.len) return .bad_arg;
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const finding = state.check_findings[index];
+    if (finding.kind == .unknown_party) {
+        state.uc_player = @intCast(@max(finding.player, 0));
+        state.uc_open = true;
+        return .ok;
+    }
+    if (finding.kind == .short_vso and !finding.world) {
+        state.view.setStatus("check map: ", "that road has no control point to go to");
+        return .refused;
+    }
+    const world = if (finding.world) marker_logic.Vec2{ .x = finding.x, .y = finding.y } else marker_logic.aiToWorld(.{ .x = finding.x, .y = finding.y });
+    state.view.centreOn(state.real, world.x, world.y);
+    if (finding.kind != .short_vso and state.editor.document.find(finding.link_id) != null) state.editor.selectOnly(finding.link_id);
+    return .ok;
+}
+
+fn checkJump(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    return jumpToFinding(state, index);
+}
+
+/// `expect=check_findings:<n>` - or `<kind>=<n>`, one kind's count (the Kind's own
+/// name: duplicate_object, invalid_link, duplicate_link, player_index,
+/// unknown_party, unknown_object_type, short_vso) - in the last run.
+fn checkFindingsIs(state: *State, arg: []const u8) Outcome {
+    if (std.mem.indexOfScalar(u8, arg, '=')) |eq| {
+        const kind = std.meta.stringToEnum(core.checks.Kind, arg[0..eq]) orelse return .bad_arg;
+        const want = std.fmt.parseInt(usize, arg[eq + 1 ..], 10) catch return .bad_arg;
+        const got = core.checks.count(state.check_findings, kind);
+        if (got == want) return .ok;
+        var buffer: [96]u8 = undefined;
+        state.editor.note(std.fmt.bufPrint(&buffer, "{d} {s} finding(s), not {d}", .{ got, arg[0..eq], want }) catch "finding count differs");
+        return .refused;
+    }
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (state.check_findings.len == want) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "{d} finding(s), not {d}", .{ state.check_findings.len, want }) catch "finding count differs");
+    return .refused;
+}
+
+/// `expect=check_log_has:<text>`: `checkmap_log.txt` exists and holds the text.
+fn checkLogHas(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const path = checkLogPath(&path_buffer, state) orelse return .refused;
+    const bytes = std.Io.Dir.cwd().readFileAlloc(state.io, path, state.allocator, .limited(1024 * 1024)) catch {
+        state.editor.note("checkmap_log.txt is not there");
+        return .refused;
+    };
+    defer state.allocator.free(bytes);
+    if (std.mem.indexOf(u8, bytes, arg) != null) return .ok;
+    state.editor.note("checkmap_log.txt does not hold that text");
+    return .refused;
+}
+
+
+/// `do=undo` / `do=redo`: Edit > Undo / Redo as a named command, for a scenario whose
+/// keyboard a modal (the unknown-objects prompt a map's open raises) is holding.
+fn undoCommand(state: *State, _: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor) or !state.editor.history.canUndo()) return .refused;
+    state.view.undo(state.editor);
+    return .ok;
+}
+
+fn redoCommand(state: *State, _: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor) or !state.editor.history.canRedo()) return .refused;
+    state.view.redo(state.editor);
     return .ok;
 }

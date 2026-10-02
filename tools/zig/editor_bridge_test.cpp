@@ -893,7 +893,8 @@ static void TestObjectsReadBack( BkEditorSession *pSession )
 }
 
 // An object whose type the database does not know is kept as it is: the
-// preservation invariant writes it back unchanged, so no edit may reach it.
+// preservation invariant writes it back unchanged, so no edit may reach it -
+// but its removal, which Check Map offers explicitly (05-05, D-33).
 static void TestUnknownObjectIsReadOnly( BkEditorSession *pSession, const std::string &szScratch )
 {
 	const std::string szCopy = szScratch + "\\coldwinter-unknown-read-only.bzm";
@@ -912,10 +913,28 @@ static void TestUnknownObjectIsReadOnly( BkEditorSession *pSession, const std::s
 	int nCount = 0;
 	BkEditorObjects( pSession, &record, 1, &nCount );
 	Check( record.link_id == nLinkID && record.known == 0, "the list marks it unknown" );
-	Check( BkEditorDeleteObject( pSession, nLinkID ) == BK_EDITOR_REFUSED, "its delete is refused" );
-	Check( BkEditorMoveObject( pSession, nLinkID, record.x + 32, record.y ) == BK_EDITOR_REFUSED, "and so is its move" );
+	Check( BkEditorMoveObject( pSession, nLinkID, record.x + 32, record.y ) == BK_EDITOR_REFUSED, "its move is refused" );
 	// WR-A05: and its script ID, which the save would otherwise write back changed.
 	Check( BkEditorSetObjectScriptID( pSession, nLinkID, record.script_id == 7 ? 8 : 7 ) == BK_EDITOR_REFUSED, "and so is a script ID for it" );
+
+	// Its removal is the one edit allowed (05-05, D-33: Check Map's explicit fix,
+	// PARITY F4): the record leaves the map and the restore brings it back as it
+	// was - the save below is still the map that was read.
+	{
+		int nBefore = 0;
+		BkEditorObjects( pSession, 0, 0, &nBefore );
+		Check( BkEditorDeleteObject( pSession, nLinkID ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		int nAfter = 0;
+		BkEditorObjects( pSession, 0, 0, &nAfter );
+		Check( nAfter == nBefore - 1, "the unknown object's removal takes exactly it" );
+		Check( BkEditorRestoreObject( pSession, nLinkID ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		BkEditorObjects( pSession, 0, 0, &nAfter );
+		Check( nAfter == nBefore, "and its restore brings it back" );
+		BkEditorObjectRecord again;
+		int nOne = 0;
+		BkEditorObjects( pSession, &again, 1, &nOne );
+		Check( again.link_id == nLinkID && again.known == 0 && again.x == record.x && again.y == record.y, "in the place it held, still unknown" );
+	}
 
 	const std::string szSaved = szScratch + "\\coldwinter-unknown-read-only-saved.bzm";
 	CMapInfo saved;
@@ -3776,6 +3795,10 @@ static std::string DescribeDifference( const std::string &szLeft, const std::str
 static std::string OsPath( std::string szPath );
 static bool ReadObjectRecord( BkEditorSession *pSession, int nLinkID, BkEditorObjectRecord *pOut );
 static void TestM3Damage( BkEditorSession *pSession, const std::string &szScratch );
+static void TestM3PlayersAndUnitCreation( BkEditorSession *pSession, const std::string &szScratch );
+static void TestM3CheckMap( BkEditorSession *pSession, const std::string &szScratch );
+static bool CraftFixture( BkEditorSession *pSession, const char *pszKind, const char *pszOut );
+static void CheckSavedEquals( BkEditorSession *pSession, const std::string &szPath, const CMapInfo &rExpected, const char *pszWhat );
 
 // M3 (D-26/D-27): the properties' fields and the links, on the engine. The
 // fields edit (player, hp, angle, formation) saves as the builder's map; the
@@ -11119,9 +11142,23 @@ int main( int argc, char **argv )
 	// executable's own directory unless a caller names another one.
 	// 04-13: `--m2-sweep` after the two positional arguments runs only the M2
 	// sweep (the local step test-editor-bridge-m2-sweep).
-	bool bM2Sweep = false;
+	bool bM2Sweep = false, bPlayersOnly = false;
+	const char *pszCraftKind = 0, *pszCraftOut = 0;
 	for ( int i = 3; i < argc; ++i )
+	{
 		bM2Sweep = bM2Sweep || strcmp( argv[i], "--m2-sweep" ) == 0;
+		// 05-05: `--m3-players-only` runs the players, unit creation and Check Map
+		// fixes alone (the local step test-editor-bridge-m3-players).
+		bPlayersOnly = bPlayersOnly || strcmp( argv[i], "--m3-players-only" ) == 0;
+		// 05-05: `--craft <kind> <out>` writes one fixture map (CraftFixture) instead
+		// of running the tier (<out> is a file name under the scratch folder) - the build
+		// runs it before the scenarios that open them.
+		if ( strcmp( argv[i], "--craft" ) == 0 && i + 2 < argc )
+		{
+			pszCraftKind = argv[i + 1];
+			pszCraftOut = argv[i + 2];
+		}
+	}
 	const std::string szSelfDir = DirectoryOf( argv[0] != 0 ? argv[0] : "." );
 	const char *pszRoot = argc > 1 ? argv[1] : szSelfDir.c_str();
 	// Everything this test writes goes here. Defaults beside the executable so
@@ -11176,6 +11213,17 @@ int main( int argc, char **argv )
 	// which is why BkEditorLastMessage is defined for a null session.
 	if ( !Check( status == BK_EDITOR_OK, "the bridge starts" ) )
 		printf( "editor-bridge: %s\n", BkEditorLastMessage( pSession ) );
+	else if ( pszCraftKind != 0 )
+	{
+		Check( CraftFixture( pSession, pszCraftKind, ( szScratch + "\\" + pszCraftOut ).c_str() ), "the fixture map is crafted" );
+		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+	}
+	else if ( bPlayersOnly )
+	{
+		TestM3PlayersAndUnitCreation( pSession, szScratch );
+		TestM3CheckMap( pSession, szScratch );
+		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+	}
 	else if ( bM2Sweep )
 	{
 		// 04-13: --m2-sweep runs the M2 edit-and-undo sweep alone.
@@ -11210,6 +11258,8 @@ int main( int argc, char **argv )
 		TestM3MultiSelect( pSession, szScratch );
 		TestM3PropertiesAndLinks( pSession, szScratch );
 		TestM3Damage( pSession, szScratch );
+		TestM3PlayersAndUnitCreation( pSession, szScratch );
+		TestM3CheckMap( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );
@@ -11613,4 +11663,650 @@ static int M3CountObjects( BkEditorSession *pSession )
 	if ( BkEditorObjects( pSession, 0, 0, &nCount ) != BK_EDITOR_REFUSED )
 		return -1;
 	return nCount;
+}
+
+// M3 (D-30): players and the Unit Creation Info, on the engine. A player is
+// added before the neutral and deleted again, the owners of the objects follow
+// by the rule, the saved map is the builder's (the same NMapRecords calls on a
+// fresh read) and the undo, redo and undo save the unedited file byte for
+// byte; one player's unit creation is put through MutableValidate-style rules
+// (a refusal names the field and changes nothing), saved and read back, and a
+// put for a player the vector does not hold grows it and its undo shrinks it
+// back exactly.
+static int M3PlayerEntries( BkEditorSession *pSession )
+{
+	int nEntries = 0, nValue = 0;
+	while ( nEntries < 32 && BkEditorDiplomacy( pSession, nEntries, &nValue ) == BK_EDITOR_OK )
+		++nEntries;
+	return nEntries;
+}
+
+static std::vector<std::string> M3UcChoices( BkEditorSession *pSession, int nKind )
+{
+	std::vector<std::string> names;
+	int nCount = 0;
+	const BkEditorStatus nSizing = BkEditorUnitCreationChoices( pSession, nKind, 0, 0, &nCount );
+	Check( nSizing == BK_EDITOR_REFUSED || ( nSizing == BK_EDITOR_OK && nCount == 0 ), "the sizing pass answers the total" );
+	if ( nCount <= 0 )
+		return names;
+	std::vector<BkEditorUcName> all( static_cast<size_t>( nCount ) );
+	int nRead = 0;
+	if ( Check( BkEditorUnitCreationChoices( pSession, nKind, &all[0], nCount, &nRead ) == BK_EDITOR_OK && nRead == nCount, "the choices read" ) )
+		for ( int i = 0; i < nRead; ++i )
+			names.push_back( all[size_t( i )].name );
+	// One short of the total: REFUSED, after writing what fits.
+	if ( nCount > 1 )
+	{
+		int nShort = 0;
+		Check( BkEditorUnitCreationChoices( pSession, nKind, &all[0], nCount - 1, &nShort ) == BK_EDITOR_REFUSED && nShort == nCount, "a short buffer is refused and the total is still answered" );
+	}
+	return names;
+}
+
+static bool M3SameUc( const BkEditorUnitCreationRecord &rLeft, const BkEditorUnitCreationRecord &rRight )
+{
+	return memcmp( &rLeft, &rRight, sizeof rLeft ) == 0;
+}
+
+// The builder's entry: the same values the record carries, set through the
+// overlay on a read of the file.
+static SUnitCreation M3UcFromRecord( const BkEditorUnitCreationRecord &rRecord, const SUnitCreation &rBase )
+{
+	SUnitCreation unit = rBase;
+	unit.szPartyName = rRecord.party;
+	for ( int i = 0; i < 5; ++i )
+	{
+		unit.aviation.aircrafts[i].szName = rRecord.aircraft[i].name;
+		unit.aviation.aircrafts[i].nFormationSize = rRecord.aircraft[i].formation_size;
+		unit.aviation.aircrafts[i].nPlanes = rRecord.aircraft[i].count;
+	}
+	unit.aviation.szParadropSquadName = rRecord.paratroop_name;
+	unit.aviation.nParadropSquadCount = rRecord.paratroop_count;
+	unit.aviation.nRelaxTime = rRecord.relax_time;
+	unit.aviation.vAppearPoints.clear();
+	for ( int i = 0; i < rRecord.appear_count; ++i )
+		unit.aviation.vAppearPoints.push_back( CVec3( rRecord.appear[i].x, rRecord.appear[i].y, rRecord.appear[i].z ) );
+	return unit;
+}
+
+static std::vector<BkEditorObjectRecord> M3ReadObjects( BkEditorSession *pSession )
+{
+	int nCount = 0;
+	BkEditorObjects( pSession, 0, 0, &nCount );
+	std::vector<BkEditorObjectRecord> records( nCount > 0 ? size_t( nCount ) : 1 );
+	int nRead = 0;
+	BkEditorObjects( pSession, &records[0], nCount, &nRead );
+	records.resize( size_t( nRead ) );
+	return records;
+}
+
+static void TestM3PlayersAndUnitCreation( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szUnedited = szScratch + "\\m3-players-unedited.bzm";
+	const std::string szEdited = szScratch + "\\m3-players-edited.bzm";
+	const std::string szUndone = szScratch + "\\m3-players-undone.bzm";
+	Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	const int nEntries = M3PlayerEntries( pSession );
+	Check( nEntries == int( original.diplomacies.size() ) && nEntries >= 2, "the bridge holds the map's table" );
+	printf( "editor-bridge: M3 players: %d entries, %d unit-creation slots\n", nEntries, int( original.unitCreation.units.size() ) );
+
+	// --- The unit creation ---------------------------------------------------
+	const std::vector<std::string> parties = M3UcChoices( pSession, 0 );
+	const std::vector<std::string> aircraft = M3UcChoices( pSession, 1 );
+	const std::vector<std::string> squads = M3UcChoices( pSession, 2 );
+	if ( !Check( !parties.empty() && !aircraft.empty() && !squads.empty(), "partys.xml, the aviation folders and the squads folders list names" ) )
+		return;
+	{
+		int nCount = 0;
+		Check( BkEditorUnitCreationChoices( pSession, 3, 0, 0, &nCount ) == BK_EDITOR_BAD_ARGUMENT, "a choice kind outside 0..2 is a caller bug" );
+		Check( BkEditorUnitCreationChoices( pSession, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "and so is a null count" );
+	}
+	BkEditorUnitCreationRecord before;
+	if ( !Check( BkEditorUnitCreation( pSession, 0, &before ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( before.slot_count == int( original.unitCreation.units.size() ), "the record carries the vector's size" );
+	Check( BkEditorUnitCreation( pSession, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null record to fill is a caller bug" );
+	{
+		BkEditorUnitCreationRecord probe;
+		Check( BkEditorUnitCreation( pSession, 16, &probe ) == BK_EDITOR_REFUSED, "player 16 is no player" );
+		Check( BkEditorUnitCreation( pSession, -1, &probe ) == BK_EDITOR_REFUSED, "player -1 is no player" );
+	}
+
+	BkEditorUnitCreationRecord wanted = before;
+	wanted.slot_count = Max( before.slot_count, 1 );
+	strcpy( wanted.party, parties.back().c_str() );
+	strcpy( wanted.aircraft[2].name, aircraft[0].c_str() );
+	wanted.aircraft[2].formation_size = 3;
+	wanted.aircraft[2].count = 4;
+	strcpy( wanted.paratroop_name, squads[0].c_str() );
+	wanted.paratroop_count = 5;
+	wanted.relax_time = 77;
+	wanted.appear_count = before.appear_count < 31 ? before.appear_count + 1 : before.appear_count;
+	if ( before.appear_count < 31 )
+	{
+		wanted.appear[before.appear_count].x = 640.0f;
+		wanted.appear[before.appear_count].y = 1280.0f;
+		wanted.appear[before.appear_count].z = 0.0f;
+	}
+
+	// Refusals name the field and change nothing.
+	{
+		BkEditorUnitCreationRecord bad = wanted;
+		strcpy( bad.party, "Narnia" );
+		Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_REFUSED, "an unknown party is refused" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "partys.xml" ) != std::string::npos, "and names partys.xml" );
+		bad = wanted;
+		strcpy( bad.aircraft[1].name, "Spitfire_Not_There" );
+		Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_REFUSED, "an unknown aircraft is refused" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "Fighters" ) != std::string::npos, "and names the slot" );
+		bad = wanted;
+		bad.aircraft[3].formation_size = -5;
+		Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_REFUSED, "a negative formation size is refused" );
+		bad.aircraft[3].formation_size = 33;
+		Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_REFUSED, "a formation size of 33 is refused" );
+		bad = wanted;
+		bad.aircraft[4].count = 300;
+		Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_REFUSED, "a plane count of 300 is refused" );
+		bad = wanted;
+		strcpy( bad.paratroop_name, "Ghost_Squad" );
+		Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_REFUSED, "an unknown paratroop squad is refused" );
+		bad = wanted;
+		bad.paratroop_count = -1;
+		Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_REFUSED, "a negative paratroop count is refused" );
+		bad = wanted;
+		bad.relax_time = 0;
+		Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_REFUSED, "a relax time below 1 is refused" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "relax" ) != std::string::npos, "and names it" );
+		if ( before.appear_count < 31 )
+		{
+			bad = wanted;
+			bad.appear[before.appear_count].x = -5.0f;
+			Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_REFUSED, "an appear point off the map is refused" );
+			bad.appear[before.appear_count].x = 1.0e9f;
+			Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_REFUSED, "a far appear point is refused" );
+		}
+		// The caller's bugs.
+		Check( BkEditorSetUnitCreation( pSession, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null record is a caller bug" );
+		Check( BkEditorSetUnitCreation( pSession, 16, &wanted ) == BK_EDITOR_BAD_ARGUMENT, "player 16 is a caller bug" );
+		bad = wanted;
+		bad.slot_count = 17;
+		Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_BAD_ARGUMENT, "17 slots is a caller bug" );
+		bad = wanted;
+		memset( bad.party, 'x', sizeof bad.party );
+		Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated name is a caller bug" );
+		bad = wanted;
+		bad.appear_count = 33;
+		Check( BkEditorSetUnitCreation( pSession, 0, &bad ) == BK_EDITOR_BAD_ARGUMENT, "33 appear points are a caller bug" );
+		BkEditorUnitCreationRecord now;
+		Check( BkEditorUnitCreation( pSession, 0, &now ) == BK_EDITOR_OK && M3SameUc( before, now ), "the refusals changed nothing" );
+	}
+
+	// The put: saved, it is the builder's map; put back, the unedited file.
+	if ( !Check( BkEditorSetUnitCreation( pSession, 0, &wanted ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	{
+		BkEditorUnitCreationRecord now;
+		Check( BkEditorUnitCreation( pSession, 0, &now ) == BK_EDITOR_OK && M3SameUc( wanted, now ), "the record reads back as put" );
+		CMapInfo expected;
+		if ( Check( NMapFile::Read( BRIDGE_MAP, &expected, &szError ), szError.c_str() ) )
+		{
+			SUnitCreation base;
+			NMapRecords::GetUnitCreation( expected, 0, &base );
+			Check( NMapRecords::PutUnitCreation( &expected, 0, M3UcFromRecord( wanted, base ), wanted.slot_count ), "the builder puts the same entry" );
+			CheckSavedEquals( pSession, szEdited, expected, "the unit-creation put" );
+		}
+	}
+	Check( BkEditorSetUnitCreation( pSession, 0, &before ) == BK_EDITOR_OK, "the old record goes back" );
+	Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szUnedited, szUndone ), ( "a unit-creation put and its inverse save the unedited file byte for byte (" + DescribeDifference( szUnedited, szUndone ) + ")" ).c_str() );
+
+	// A player the vector does not hold yet: it reads the defaults, a put grows the
+	// vector, and the old record (its slot count) shrinks it back exactly.
+	{
+		const int nBeyond = before.slot_count;
+		BkEditorUnitCreationRecord beyond;
+		if ( nBeyond < 16 && nBeyond < nEntries - 1 )
+		{
+			if ( Check( BkEditorUnitCreation( pSession, nBeyond, &beyond ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			{
+				Check( beyond.slot_count == nBeyond, "a player past the vector reads with the vector's size" );
+				BkEditorUnitCreationRecord grown = beyond;
+				grown.slot_count = nBeyond + 1;
+				grown.relax_time = 99;
+				Check( BkEditorSetUnitCreation( pSession, nBeyond, &grown ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+				BkEditorUnitCreationRecord now;
+				Check( BkEditorUnitCreation( pSession, nBeyond, &now ) == BK_EDITOR_OK && now.relax_time == 99 && now.slot_count == nBeyond + 1, "the vector grew by the entry" );
+				CMapInfo expected;
+				if ( Check( NMapFile::Read( BRIDGE_MAP, &expected, &szError ), szError.c_str() ) )
+				{
+					SUnitCreation base;
+					NMapRecords::GetUnitCreation( expected, nBeyond, &base );
+					Check( NMapRecords::PutUnitCreation( &expected, nBeyond, M3UcFromRecord( grown, base ), grown.slot_count ), "the builder grows the vector too" );
+					CheckSavedEquals( pSession, szEdited, expected, "the put that grew the vector" );
+				}
+				// The undo: the record a read answered before the put, its slot count the old size.
+				Check( BkEditorSetUnitCreation( pSession, nBeyond, &beyond ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+				Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+				Check( SameBytes( szUnedited, szUndone ), ( "the undo of a put that grew the vector saves the unedited file byte for byte (" + DescribeDifference( szUnedited, szUndone ) + ")" ).c_str() );
+			}
+		}
+		else
+		{
+			BkEditorUnitCreationRecord grown = before;
+			grown.slot_count = Min( nBeyond + 1, 16 );
+			Check( BkEditorSetUnitCreation( pSession, nEntries - 1 + 1, &grown ) == BK_EDITOR_REFUSED, "a put for a player the map does not have is refused" );
+		}
+	}
+
+	// --- Players -------------------------------------------------------------
+	// Every object's owner by the rule, for the add and for the delete.
+	const std::vector<BkEditorObjectRecord> objectsBefore = M3ReadObjects( pSession );
+	int nAddToken = -1;
+	Check( BkEditorAddPlayer( pSession, 2, &nAddToken ) == BK_EDITOR_REFUSED, "a side of 2 is no side for a player" );
+	Check( nAddToken == -1, "and hands out no token" );
+	Check( BkEditorAddPlayer( pSession, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null token is a caller bug" );
+	if ( !Check( BkEditorAddPlayer( pSession, 1, &nAddToken ) == BK_EDITOR_OK && nAddToken >= 0, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( M3PlayerEntries( pSession ) == nEntries + 1, "the table grew by one" );
+	{
+		int nSide = -1, nNeutral = -1;
+		BkEditorDiplomacy( pSession, nEntries - 1, &nSide );
+		BkEditorDiplomacy( pSession, nEntries, &nNeutral );
+		Check( nSide == 1 && nNeutral == int( original.diplomacies[size_t( nEntries - 1 )] ), "the new player sits before the neutral, the neutral last" );
+		const std::vector<BkEditorObjectRecord> now = M3ReadObjects( pSession );
+		bool bOwnersRight = now.size() == objectsBefore.size();
+		for ( size_t i = 0; bOwnersRight && i < now.size(); ++i )
+			bOwnersRight = now[i].player == ( objectsBefore[i].player >= nEntries - 1 ? objectsBefore[i].player + 1 : objectsBefore[i].player );
+		Check( bOwnersRight, "the owners at or above the old neutral moved up with it" );
+		BkEditorCameraAnchorRecord anchors;
+		if ( Check( BkEditorCameraAnchors( pSession, &anchors ) == BK_EDITOR_OK, "the anchors read" ) )
+			Check( anchors.player_count == int( original.playersCameraAnchors.size() ) + ( int( original.playersCameraAnchors.size() ) >= nEntries - 1 ? 1 : 0 ),
+			       "the anchors gained a slot exactly when the file held every player's" );
+	}
+	CMapInfo expectedAdd;
+	if ( Check( NMapFile::Read( BRIDGE_MAP, &expectedAdd, &szError ), szError.c_str() ) )
+	{
+		Check( NMapRecords::InsertPlayer( &expectedAdd, 1 ), "the builder adds the player" );
+		// A flag follows its owner's party: only the flags that changed owner can differ.
+		CheckSavedEquals( pSession, szEdited, expectedAdd, "the added player" );
+	}
+	Check( BkEditorUndoEdit( pSession, nAddToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( M3PlayerEntries( pSession ) == nEntries, "the undo takes the player away" );
+	Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szUnedited, szUndone ), ( "add and undo save the unedited file byte for byte (" + DescribeDifference( szUnedited, szUndone ) + ")" ).c_str() );
+	Check( BkEditorRedoEdit( pSession, nAddToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( M3PlayerEntries( pSession ) == nEntries + 1, "the redo adds it again" );
+	CheckSavedEquals( pSession, szEdited, expectedAdd, "the redone player" );
+	Check( BkEditorUndoEdit( pSession, nAddToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// The delete: player 0's objects become the neutral's. Done on a table that
+	// is certain to keep two players after it: one more player first when needed.
+	int nPrefixToken = -1;
+	int nPrefixEntries = nEntries;
+	CMapInfo expectedDelete;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &expectedDelete, &szError ), szError.c_str() ) )
+		return;
+	if ( nEntries < 4 )
+	{
+		// Fewer than four entries: a delete would leave less than two players and the neutral.
+		int nSmallToken = -1;
+		Check( BkEditorDeletePlayer( pSession, 0, &nSmallToken ) == BK_EDITOR_REFUSED, "a table at its floor keeps its players" );
+		Check( nSmallToken == -1, "and hands out no token" );
+	}
+	if ( nEntries < 4 )
+	{
+		if ( !Check( BkEditorAddPlayer( pSession, 0, &nPrefixToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			return;
+		++nPrefixEntries;
+		Check( NMapRecords::InsertPlayer( &expectedDelete, 0 ), "the builder adds the prefix player" );
+	}
+	const std::vector<BkEditorObjectRecord> objectsBeforeDelete = M3ReadObjects( pSession );
+	BkEditorUnitCreationRecord unitOfOne;
+	const bool bUnitOfOne = BkEditorUnitCreation( pSession, 1, &unitOfOne ) == BK_EDITOR_OK;
+	int nDeleteToken = -1;
+	{
+		int nIgnored = -1;
+		Check( BkEditorDeletePlayer( pSession, nPrefixEntries - 1, &nIgnored ) == BK_EDITOR_REFUSED, "the neutral entry cannot be deleted" );
+		Check( BkEditorDeletePlayer( pSession, nPrefixEntries + 5, &nIgnored ) == BK_EDITOR_REFUSED, "a player past the table is refused" );
+		Check( BkEditorDeletePlayer( pSession, -1, &nIgnored ) == BK_EDITOR_REFUSED, "player -1 is refused" );
+		Check( BkEditorDeletePlayer( pSession, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null token is a caller bug" );
+		Check( M3PlayerEntries( pSession ) == nPrefixEntries, "the refusals changed nothing" );
+	}
+	if ( !Check( BkEditorDeletePlayer( pSession, 0, &nDeleteToken ) == BK_EDITOR_OK && nDeleteToken >= 0, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( M3PlayerEntries( pSession ) == nPrefixEntries - 1, "the table shrank by one" );
+	{
+		const std::vector<BkEditorObjectRecord> now = M3ReadObjects( pSession );
+		bool bOwnersRight = now.size() == objectsBeforeDelete.size();
+		int nReowned = 0;
+		for ( size_t i = 0; bOwnersRight && i < now.size(); ++i )
+		{
+			const int nOwner = objectsBeforeDelete[i].player;
+			const int nWanted = nOwner == 0 ? nPrefixEntries - 2 : ( nOwner > 0 ? nOwner - 1 : nOwner );
+			bOwnersRight = now[i].player == nWanted;
+			if ( nOwner == 0 )
+				++nReowned;
+		}
+		Check( bOwnersRight, "player 0's objects became the neutral's and the players above moved down" );
+		printf( "editor-bridge: M3 delete re-owned %d objects\n", nReowned );
+		if ( bUnitOfOne )
+		{
+			BkEditorUnitCreationRecord moved;
+			if ( Check( BkEditorUnitCreation( pSession, 0, &moved ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			{
+				BkEditorUnitCreationRecord same = unitOfOne;
+				same.slot_count = moved.slot_count;
+				Check( M3SameUc( same, moved ), "the unit creation of player 1 followed it down to index 0" );
+			}
+		}
+	}
+	Check( NMapRecords::ErasePlayer( &expectedDelete, 0 ), "the builder deletes the player" );
+	CheckSavedEquals( pSession, szEdited, expectedDelete, "the deleted player" );
+	Check( BkEditorUndoEdit( pSession, nDeleteToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( M3PlayerEntries( pSession ) == nPrefixEntries, "the undo puts the player back" );
+	{
+		const std::vector<BkEditorObjectRecord> now = M3ReadObjects( pSession );
+		bool bSame = now.size() == objectsBeforeDelete.size();
+		for ( size_t i = 0; bSame && i < now.size(); ++i )
+			bSame = now[i].player == objectsBeforeDelete[i].player && std::string( now[i].name ) == objectsBeforeDelete[i].name;
+		Check( bSame, "the undo gives every object its owner and name back" );
+	}
+	Check( BkEditorRedoEdit( pSession, nDeleteToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	CheckSavedEquals( pSession, szEdited, expectedDelete, "the redone delete" );
+	Check( BkEditorUndoEdit( pSession, nDeleteToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	if ( nPrefixToken >= 0 )
+		Check( BkEditorUndoEdit( pSession, nPrefixToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szUnedited, szUndone ), ( "delete and undo save the unedited file byte for byte (" + DescribeDifference( szUnedited, szUndone ) + ")" ).c_str() );
+
+	// The bound: 16 players and the neutral, the 17th refused, all of them undone.
+	{
+		std::vector<int> tokens;
+		int nToken = -1;
+		while ( M3PlayerEntries( pSession ) < 17 )
+		{
+			if ( !Check( BkEditorAddPlayer( pSession, 0, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+				break;
+			tokens.push_back( nToken );
+		}
+		Check( M3PlayerEntries( pSession ) == 17, "the table holds 16 players and the neutral" );
+		Check( BkEditorAddPlayer( pSession, 0, &nToken ) == BK_EDITOR_REFUSED, "the 17th player is refused" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "16 players" ) != std::string::npos, "and says why" );
+		while ( !tokens.empty() )
+		{
+			Check( BkEditorUndoEdit( pSession, tokens.back() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			tokens.pop_back();
+		}
+		Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( SameBytes( szUnedited, szUndone ), "sixteen adds and their undos save the unedited file byte for byte" );
+	}
+
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	printf( "editor-bridge: M3 players and unit creation ok\n" );
+}
+
+// ---------------------------------------------------------------------------
+// Check Map (05-05, D-33) on the engine: the fixes' bridge half, and the fixture
+// maps the m3-auto and game-reads-it steps open.
+// ---------------------------------------------------------------------------
+
+// The defects one fixture map carries, by what names them afterwards.
+struct SCheckMapFixture
+{
+	int nDuplicateSource;   // the object that was copied...
+	int nDuplicateLink;     // ...and the copy, at the same place
+	int nInvalidLinkObject; // an object whose host (987654) is not on the map
+	int nOwnerObject;       // an object owned by player 99
+	int nUnknownLink;       // an object whose type is in no database
+	int nShortRoad;         // the road with one control point (index in roads3)
+	std::string szBadParty; // the party player 0's unit creation was given
+	SCheckMapFixture() : nDuplicateSource( -1 ), nDuplicateLink( -1 ), nInvalidLinkObject( -1 ), nOwnerObject( -1 ), nUnknownLink( -1 ), nShortRoad( -1 ) {  }
+};
+
+// A plain object of the map: a known type the database lists, a link ID of its own,
+// no host or passenger, and nothing that names it - so a defect made of it is the
+// only thing wrong with it. `rExcluded` are indices already taken.
+static int PickPlainObject( const CMapInfo &rMap, const std::vector<int> &rExcluded )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+		return -1;
+	std::map<int, int> idCounts;
+	for ( size_t i = 0; i < rMap.objects.size(); ++i )
+		++idCounts[rMap.objects[i].link.nLinkID];
+	for ( size_t i = 0; i < rMap.objects.size(); ++i )
+	{
+		const SMapObjectInfo &rObject = rMap.objects[i];
+		if ( rObject.link.nLinkID <= 0 || idCounts[rObject.link.nLinkID] != 1 || rObject.link.nLinkWith != 0 )
+			continue;
+		if ( std::find( rExcluded.begin(), rExcluded.end(), int( i ) ) != rExcluded.end() )
+			continue;
+		const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( rObject.szName.c_str() );
+		if ( pDesc == 0 || pDesc->eGameType != SGVOGT_OBJECT )
+			continue;
+		// Nothing may name it: no passenger, no bridge span, no entrenchment piece.
+		bool bNamed = false;
+		for ( size_t j = 0; j < rMap.objects.size() && !bNamed; ++j )
+			bNamed = rMap.objects[j].link.nLinkWith == rObject.link.nLinkID;
+		if ( !bNamed )
+			return int( i );
+	}
+	return -1;
+}
+
+static bool BuildCheckMapFixture( BkEditorSession *pSession, CMapInfo *pMap, SCheckMapFixture *pOut )
+{
+	std::vector<int> taken;
+	const int nSource = PickPlainObject( *pMap, taken );
+	taken.push_back( nSource );
+	const int nInvalid = PickPlainObject( *pMap, taken );
+	taken.push_back( nInvalid );
+	const int nOwner = PickPlainObject( *pMap, taken );
+	taken.push_back( nOwner );
+	const int nUnknownSource = PickPlainObject( *pMap, taken );
+	if ( !Check( nSource >= 0 && nInvalid >= 0 && nOwner >= 0 && nUnknownSource >= 0, "four plain objects for the defects" ) )
+		return false;
+	pOut->nDuplicateSource = pMap->objects[nSource].link.nLinkID;
+	pOut->nInvalidLinkObject = pMap->objects[nInvalid].link.nLinkID;
+	pOut->nOwnerObject = pMap->objects[nOwner].link.nLinkID;
+
+	// The duplicate: the same type, place and frame under a link ID of its own.
+	SMapObjectInfo duplicate = pMap->objects[nSource];
+	duplicate.link.nLinkID = NMapOverlay::NextLinkID( *pMap );
+	duplicate.link.nLinkWith = 0;
+	pOut->nDuplicateLink = duplicate.link.nLinkID;
+	pMap->objects.push_back( duplicate );
+	// A host that is not on the map.
+	pMap->objects[nInvalid].link.nLinkWith = 987654;
+	// An owner the table does not have.
+	pMap->objects[nOwner].nPlayer = 99;
+	// A type no database lists, a few tiles from where the plain one stood.
+	SMapObjectInfo unknown = pMap->objects[nUnknownSource];
+	unknown.szName = "No_Such_Object_In_Any_Database";
+	unknown.link.nLinkID = NMapOverlay::NextLinkID( *pMap );
+	unknown.link.nLinkWith = 0;
+	unknown.vPos.x += 256.0f;
+	pOut->nUnknownLink = unknown.link.nLinkID;
+	pMap->objects.push_back( unknown );
+	// A party partys.xml does not list.
+	if ( pMap->unitCreation.units.empty() )
+		pMap->unitCreation.units.push_back( SUnitCreation() );
+	pMap->unitCreation.units[0].szPartyName = "Narnia";
+	pOut->szBadParty = "Narnia";
+	// A road with one control point (a file can hold one; the editor will not draw one).
+	const std::vector<std::string> roads = VsoDescriptorNames( pSession, 0 );
+	std::string szRoad;
+	for ( size_t i = 0; i < roads.size() && szRoad.empty(); ++i )
+		if ( roads[i].find( "rail" ) == std::string::npos )
+			szRoad = roads[i];
+	if ( !Check( !szRoad.empty() && AppendExpectedVso( pMap, 0, szRoad, MiddleLine( *pMap, 0.0f, -300.0f ), 3.0f, 1.0f ), "the short road builds" ) )
+		return false;
+	pOut->nShortRoad = int( pMap->terrain.roads3.size() ) - 1;
+	pMap->terrain.roads3.back().controlpoints.resize( 1 );
+	return true;
+}
+
+// The map the game must survive: coldwinter plus two railroads, one with a single
+// control point and one with none - the records that crashed CRailroadGraphConstructor
+// (RailroadGraph.cpp, CSplineEdge reads controlpoints[0] and edgeParts[-1]).
+static bool BuildShortRailroadMap( BkEditorSession *pSession, CMapInfo *pMap )
+{
+	const std::vector<std::string> roads = VsoDescriptorNames( pSession, 0 );
+	std::string szRail;
+	for ( size_t i = 0; i < roads.size() && szRail.empty(); ++i )
+		if ( roads[i].find( "rail" ) != std::string::npos )
+			szRail = roads[i];
+	if ( !Check( !szRail.empty(), "a railroad type for the short-railroad map" ) )
+		return false;
+	if ( !Check( AppendExpectedVso( pMap, 0, szRail, MiddleLine( *pMap, 0.0f, -300.0f ), 3.0f, 1.0f ), "the one-point railroad builds" ) )
+		return false;
+	pMap->terrain.roads3.back().eType = SVectorStripeObjectDesc::TYPE_RAILROAD;
+	pMap->terrain.roads3.back().controlpoints.resize( 1 );
+	if ( !Check( AppendExpectedVso( pMap, 0, szRail, MiddleLine( *pMap, 0.0f, 300.0f ), 3.0f, 1.0f ), "the empty railroad builds" ) )
+		return false;
+	pMap->terrain.roads3.back().eType = SVectorStripeObjectDesc::TYPE_RAILROAD;
+	pMap->terrain.roads3.back().controlpoints.clear();
+	return true;
+}
+
+// `--craft <kind> <out>`: one fixture map written to a path the scenarios open.
+static bool CraftFixture( BkEditorSession *pSession, const char *pszKind, const char *pszOut )
+{
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) )
+		return false;
+	// The season's road types come from an open map.
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return false;
+	if ( strcmp( pszKind, "short-railroad" ) == 0 )
+	{
+		if ( !BuildShortRailroadMap( pSession, &map ) )
+			return false;
+	}
+	else if ( strcmp( pszKind, "check-map" ) == 0 )
+	{
+		SCheckMapFixture fixture;
+		if ( !BuildCheckMapFixture( pSession, &map, &fixture ) )
+			return false;
+	}
+	else
+	{
+		printf( "FAIL: no fixture named %s\n", pszKind );
+		return false;
+	}
+	if ( !Check( NMapFile::Write( pszOut, map, &szError ), szError.c_str() ) )
+		return false;
+	printf( "editor-bridge: crafted %s at %s\n", pszKind, pszOut );
+	return true;
+}
+
+// The fixes Check Map's Fix all makes, as bridge calls on a map that has every defect:
+// a duplicate deleted, an invalid host cleared, an owner out of the table moved to
+// the neutral, a party set to one partys.xml lists, an unknown-type object deleted
+// and a one-point road deleted. The save is the builder's map (the same overlay calls
+// on a fresh read); put back in reverse, the saves are the crafted file's bytes.
+static void TestM3CheckMap( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo crafted;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &crafted, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	SCheckMapFixture fixture;
+	if ( !BuildCheckMapFixture( pSession, &crafted, &fixture ) )
+		return;
+	const std::string szMap = szScratch + "\\m3-check-map.bzm";
+	const std::string szPre = szScratch + "\\m3-check-map-pre.bzm";
+	const std::string szFixed = szScratch + "\\m3-check-map-fixed.bzm";
+	const std::string szUndone = szScratch + "\\m3-check-map-undone.bzm";
+	if ( !Check( NMapFile::Write( szMap.c_str(), crafted, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( BkEditorSaveMap( pSession, szPre.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// What Check Map reads: the crafted defects are there to be found.
+	{
+		const std::vector<BkEditorObjectRecord> objects = M3ReadObjects( pSession );
+		int nSeen = 0;
+		for ( size_t i = 0; i < objects.size(); ++i )
+		{
+			if ( objects[i].link_id == fixture.nUnknownLink )
+				nSeen += objects[i].known == 0 ? 1 : 0;
+			if ( objects[i].link_id == fixture.nOwnerObject )
+				nSeen += objects[i].player == 99 ? 1 : 0;
+			if ( objects[i].link_id == fixture.nInvalidLinkObject )
+				nSeen += objects[i].link_with == 987654 ? 1 : 0;
+		}
+		Check( nSeen == 3, "the unknown type, the owner 99 and the missing host read back as crafted" );
+		BkEditorVsoInfo info;
+		Check( BkEditorVso( pSession, 0, fixture.nShortRoad, &info, 0, 0, 0, 0 ) != BK_EDITOR_FAILED && info.control_count == 1, "the short road reads with one control point" );
+	}
+	const int nEntries = M3PlayerEntries( pSession );
+	const std::vector<std::string> parties = M3UcChoices( pSession, 0 );
+	if ( !Check( !parties.empty(), "partys.xml lists a party" ) )
+		return;
+	BkEditorUnitCreationRecord partyBefore;
+	if ( !Check( BkEditorUnitCreation( pSession, 0, &partyBefore ) == BK_EDITOR_OK && std::string( partyBefore.party ) == fixture.szBadParty, "the bad party reads back" ) )
+		return;
+
+	// The fixes, in Fix all's own order.
+	int nUnlinkToken = -1, nOwnerToken = -1, nRoadToken = -1;
+	Check( BkEditorDeleteObject( pSession, fixture.nDuplicateLink ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorUnlink( pSession, fixture.nInvalidLinkObject, &nUnlinkToken ) == BK_EDITOR_OK && nUnlinkToken >= 0, BkEditorLastMessage( pSession ) );
+	BkEditorObjectFieldsEdit owner;
+	memset( &owner, 0, sizeof owner );
+	owner.mask = 1;
+	owner.player = nEntries - 1;
+	Check( BkEditorSetObjectFields( pSession, fixture.nOwnerObject, &owner, &nOwnerToken ) == BK_EDITOR_OK && nOwnerToken >= 0,
+	       ( std::string( "the out-of-table owner moves to the neutral: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	BkEditorUnitCreationRecord partyAfter = partyBefore;
+	strcpy( partyAfter.party, parties[0].c_str() );
+	Check( BkEditorSetUnitCreation( pSession, 0, &partyAfter ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorDeleteObject( pSession, fixture.nUnknownLink ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorDeleteVso( pSession, 0, fixture.nShortRoad, &nRoadToken ) == BK_EDITOR_OK && nRoadToken >= 0, BkEditorLastMessage( pSession ) );
+
+	// The map is the builder's: the same calls on a fresh read of the crafted file.
+	CMapInfo expected;
+	if ( Check( NMapFile::Read( szMap.c_str(), &expected, &szError ), szError.c_str() ) )
+	{
+		std::string szRefusal;
+		Check( NMapOverlay::DeleteObject( &expected, fixture.nDuplicateLink, &szRefusal ), szRefusal.c_str() );
+		Check( NMapRecords::SetObjectLink( &expected, fixture.nInvalidLinkObject, 0 ), "the builder clears the link" );
+		Check( NMapRecords::SetObjectPlayer( &expected, fixture.nOwnerObject, nEntries - 1 ), "the builder re-owns the object" );
+		SUnitCreation unit;
+		NMapRecords::GetUnitCreation( expected, 0, &unit );
+		unit.szPartyName = parties[0];
+		Check( NMapRecords::PutUnitCreation( &expected, 0, unit, int( expected.unitCreation.units.size() ) ), "the builder sets the party" );
+		Check( NMapOverlay::DeleteObject( &expected, fixture.nUnknownLink, &szRefusal ), szRefusal.c_str() );
+		Check( NMapRecords::EraseVso( &expected, NMapRecords::VSO_ROAD, fixture.nShortRoad ), "the builder deletes the short road" );
+		CheckSavedEquals( pSession, szFixed, expected, "Fix all's fixes" );
+	}
+
+	// Put back in reverse: the road, the unknown object, the party, the owner, the
+	// link, the duplicate. The save is the crafted file's own bytes.
+	Check( BkEditorUndoEdit( pSession, nRoadToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorRestoreObject( pSession, fixture.nUnknownLink ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSetUnitCreation( pSession, 0, &partyBefore ) == BK_EDITOR_OK, ( std::string( "the file's own party goes back: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	Check( BkEditorUndoEdit( pSession, nOwnerToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorUndoEdit( pSession, nUnlinkToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorRestoreObject( pSession, fixture.nDuplicateLink ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szPre, szUndone ), ( "Fix all's fixes put back in reverse save the crafted file byte for byte (" + DescribeDifference( szPre, szUndone ) + ")" ).c_str() );
+
+	remove( OsPath( szMap ).c_str() );
+	remove( OsPath( szPre ).c_str() );
+	remove( OsPath( szFixed ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	printf( "editor-bridge: M3 check map ok\n" );
 }
