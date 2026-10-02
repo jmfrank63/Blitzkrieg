@@ -475,6 +475,38 @@ pub const State = struct {
     fc_profiles: std.ArrayListUnmanaged([]u8) = .empty,
     fc_profiles_read: bool = false,
 
+    /// The Templates Composer (05-10, D-06/D-07/D-12): the window, the selected
+    /// rows of its three lists (fields, graphs, vso - `TemplateList` order), the add
+    /// picker's names and picks, the properties popup's fields, the Diplomacy
+    /// popup's working copy and the cached cells of the lists that need a read of
+    /// each graph and field set. None of it is data, so none of it is undoable.
+    templates_composer_open: bool = false,
+    tc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    tc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    tc_popup: ComposerPopup = .none,
+    /// The popup the last frame had, so a popup opened by a command loads what it needs.
+    tc_popup_seen: ComposerPopup = .none,
+    tc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    tc_selected: [3]std.ArrayListUnmanaged(bool) = .{ .empty, .empty, .empty },
+    /// Which list the open picker or properties popup is about (0 fields, 1 graphs, 2 vso).
+    tc_list: usize = 1,
+    tc_picker_names: std.ArrayListUnmanaged([]u8) = .empty,
+    tc_picker_selected: std.ArrayListUnmanaged(bool) = .empty,
+    tc_picker_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    tc_scripts: std.ArrayListUnmanaged([]u8) = .empty,
+    tc_scripts_read: bool = false,
+    tc_edit: [3][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 3,
+    tc_default_edit: bool = false,
+    tc_dipl_sides: [core.rmg.max_diplomacies]u8 = [_]u8{0} ** core.rmg.max_diplomacies,
+    tc_dipl_count: usize = 0,
+    tc_dipl_type: i32 = 0,
+    tc_dipl_attacking: i32 = 0,
+    tc_cells: std.ArrayListUnmanaged([]u8) = .empty,
+    tc_cells_seen: u32 = 0,
+    tc_cells_valid: bool = false,
+    tc_settings_text: std.ArrayListUnmanaged(u8) = .empty,
+    tc_appear_edit: [2][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 2,
+
     fields_open: bool = false,
     /// The Fields panel's state (M3, D-21): the chosen field set, the
     /// dialog's checkboxes and the Randomize dialog's three numbers. The
@@ -868,6 +900,15 @@ pub const State = struct {
         self.fc_types.deinit(self.allocator);
         for (self.fc_profiles.items) |name| self.allocator.free(name);
         self.fc_profiles.deinit(self.allocator);
+        for (&self.tc_selected) |*list| list.deinit(self.allocator);
+        for (self.tc_picker_names.items) |name| self.allocator.free(name);
+        self.tc_picker_names.deinit(self.allocator);
+        self.tc_picker_selected.deinit(self.allocator);
+        for (self.tc_scripts.items) |name| self.allocator.free(name);
+        self.tc_scripts.deinit(self.allocator);
+        for (self.tc_cells.items) |cell| self.allocator.free(cell);
+        self.tc_cells.deinit(self.allocator);
+        self.tc_settings_text.deinit(self.allocator);
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
         self.allocator.free(self.sound_names);
@@ -1573,6 +1614,7 @@ pub fn draw(state: *State) void {
     panels_m3.drawContainersComposer(state, .{ .x = state.left_width + 60, .y = body_top + 50 }, .{ .x = 880, .y = 560 });
     panels_m3.drawGraphsComposer(state, .{ .x = state.left_width + 80, .y = body_top + 70 }, .{ .x = 820, .y = 640 });
     panels_m3.drawFieldsComposer(state, .{ .x = state.left_width + 100, .y = body_top + 90 }, .{ .x = 880, .y = 680 });
+    panels_m3.drawTemplatesComposer(state, .{ .x = state.left_width + 120, .y = body_top + 110 }, .{ .x = 940, .y = 700 });
     panels_m3.drawFieldsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 80 }, .{ .x = 320, .y = 440 });
     panels_m3.drawPropertiesPanel(state, .{ .x = state.left_width + 40, .y = body_top + 100 }, .{ .x = 320, .y = 420 });
     panels_m3.drawCheckMapPanel(state, .{ .x = state.left_width + 80, .y = body_top + 140 }, .{ .x = 520, .y = 420 });
@@ -2625,6 +2667,8 @@ fn drawMenuBar(state: *State) f32 {
         if (ig.igMenuItemBoolPtr("Graphs Composer...", null, &state.graphs_open, true)) state.composers.ensureScanned(state.editor);
         // 05-10: the Fields Composer (the MFC's RMG_CreateFieldDialog).
         if (ig.igMenuItemBoolPtr("Fields Composer...", null, &state.fields_composer_open, true)) state.composers.ensureScanned(state.editor);
+        // 05-10: the Templates Composer (the MFC's RMG_CreateTemplateDialog).
+        if (ig.igMenuItemBoolPtr("Templates Composer...", null, &state.templates_composer_open, true)) state.composers.ensureScanned(state.editor);
         // M3, D-21: the Fields panel (the MFC's TabTerrainFieldsDialog).
         if (ig.igMenuItemBoolPtr("Fields...", null, &state.fields_open, true)) {}
         // M3, D-26: the Properties window (the MFC CPropertieDialog); it
@@ -2785,7 +2829,7 @@ fn drawOpenRecentItems(state: *State) void {
 
 /// File > Mod (D-26): every installed mod, once for the frame the submenu
 /// newly opened - `BkEditorMods` itself, capped at the cache's own capacity.
-fn refreshModList(state: *State) void {
+pub fn refreshModList(state: *State) void {
     var count: c_int = 0;
     _ = c.BkEditorMods(state.real.session, &state.mod_list_buffer, @intCast(state.mod_list_buffer.len), &count);
     state.mod_list_count = if (count < 0) 0 else @min(@as(usize, @intCast(count)), state.mod_list_buffer.len);

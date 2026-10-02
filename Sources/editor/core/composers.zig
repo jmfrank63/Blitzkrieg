@@ -14,6 +14,7 @@
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 const rmg = @import("rmg.zig");
+const records = @import("records.zig");
 const editor_mod = @import("editor.zig");
 
 const Allocator = std.mem.Allocator;
@@ -106,6 +107,10 @@ pub const Composers = struct {
     fdoc: rmg.FieldSetDoc,
     field_names: std.ArrayListUnmanaged([]u8) = .empty,
     field_report: ?rmg.Report = null,
+    /// The Templates Composer (05-10): the same three.
+    tdoc: rmg.TemplateDoc,
+    template_names: std.ArrayListUnmanaged([]u8) = .empty,
+    template_report: ?rmg.Report = null,
     object_lookup: ?ObjectLookup = null,
     /// The scans the Open lists and the patch picker show (full storage names).
     container_names: std.ArrayListUnmanaged([]u8) = .empty,
@@ -126,13 +131,16 @@ pub const Composers = struct {
     scanned: bool = false,
 
     pub fn init(allocator: Allocator) Composers {
-        return .{ .allocator = allocator, .cdoc = rmg.ContainerDoc.init(allocator), .gdoc = rmg.GraphDoc.init(allocator), .fdoc = rmg.FieldSetDoc.init(allocator) };
+        return .{ .allocator = allocator, .cdoc = rmg.ContainerDoc.init(allocator), .gdoc = rmg.GraphDoc.init(allocator), .fdoc = rmg.FieldSetDoc.init(allocator), .tdoc = rmg.TemplateDoc.init(allocator) };
     }
 
     pub fn deinit(self: *Composers) void {
         self.cdoc.deinit();
         self.gdoc.deinit();
         self.fdoc.deinit();
+        self.tdoc.deinit();
+        freeList(self.allocator, &self.template_names);
+        if (self.template_report) |*report| report.deinit(self.allocator);
         freeList(self.allocator, &self.field_names);
         if (self.field_report) |*report| report.deinit(self.allocator);
         freeList(self.allocator, &self.container_names);
@@ -198,6 +206,7 @@ pub const Composers = struct {
         try self.scanKind(editor, .containers, &self.container_names);
         try self.scanKind(editor, .graphs, &self.graph_names);
         try self.scanKind(editor, .field_sets, &self.field_names);
+        try self.scanKind(editor, .templates, &self.template_names);
         self.scanned = true;
     }
 
@@ -629,15 +638,19 @@ pub const Composers = struct {
         return fixed;
     }
 
-    /// The graph's supported settings (SRMGraph::GetSupportedSettings): every
+    /// The supported settings of one graph (SRMGraph::GetSupportedSettings): every
     /// node's container is read; "<any setting>" alone when all of them take any,
     /// else the settings every node that is not "any" supports. Empty when a node
     /// is empty or its container does not load, or there are no nodes (the C++
-    /// answers 0). Joined with "; ", sorted. Written into `out`.
-    pub fn graphSettingsText(self: *Composers, editor: *Editor, out: *std.ArrayListUnmanaged(u8)) Allocator.Error!void {
-        out.clearRetainingCapacity();
-        const nodes = self.gdoc.current.nodes.items;
-        if (nodes.len == 0) return;
+    /// answers 0). Sorted; the caller frees with `rmg.freeNames`.
+    pub fn graphSettingList(self: *Composers, editor: *Editor, graph: *const rmg.Graph) Allocator.Error![][]u8 {
+        var out = std.ArrayListUnmanaged([]u8).empty;
+        errdefer {
+            for (out.items) |item| self.allocator.free(item);
+            out.deinit(self.allocator);
+        }
+        const nodes = graph.nodes.items;
+        if (nodes.len == 0) return try out.toOwnedSlice(self.allocator);
         var counts = std.StringArrayHashMapUnmanaged(usize).empty;
         defer {
             for (counts.keys()) |key| self.allocator.free(key);
@@ -645,8 +658,8 @@ pub const Composers = struct {
         }
         var any_nodes: usize = 0;
         for (nodes) |node| {
-            if (node.container.len == 0) return;
-            var container = editor.readContainer(node.container) catch return;
+            if (node.container.len == 0) return try out.toOwnedSlice(self.allocator);
+            var container = editor.readContainer(node.container) catch return try out.toOwnedSlice(self.allocator);
             defer container.deinit(self.allocator);
             const settings = try container.supportedSettings(self.allocator);
             defer rmg.freeNames(self.allocator, settings);
@@ -668,13 +681,76 @@ pub const Composers = struct {
             }
         }
         if (any_nodes == nodes.len) {
+            try out.append(self.allocator, try self.allocator.dupe(u8, "<any setting>"));
+            return try out.toOwnedSlice(self.allocator);
+        }
+        for (counts.keys(), counts.values()) |name, count| {
+            if (count >= nodes.len - any_nodes) try out.append(self.allocator, try self.allocator.dupe(u8, name));
+        }
+        std.mem.sort([]u8, out.items, {}, struct {
+            fn less(_: void, a: []u8, b: []u8) bool {
+                return std.mem.lessThan(u8, a, b);
+            }
+        }.less);
+        return try out.toOwnedSlice(self.allocator);
+    }
+
+    /// The open graph's supported settings joined with "; " (the list's column).
+    pub fn graphSettingsText(self: *Composers, editor: *Editor, out: *std.ArrayListUnmanaged(u8)) Allocator.Error!void {
+        out.clearRetainingCapacity();
+        const names = try self.graphSettingList(editor, &self.gdoc.current);
+        defer rmg.freeNames(self.allocator, names);
+        for (names, 0..) |name, i| {
+            if (i != 0) try out.appendSlice(self.allocator, "; ");
+            try out.appendSlice(self.allocator, name);
+        }
+    }
+
+    /// The open template's supported settings (SRMTemplate::GetSupportedSettings):
+    /// every graph of weight above 0 is read (one that does not load makes it empty);
+    /// "<any setting>" alone when every one takes any, else the settings every one
+    /// that is not "any" supports. Joined with "; ", sorted.
+    pub fn templateSettingsText(self: *Composers, editor: *Editor, out: *std.ArrayListUnmanaged(u8)) Allocator.Error!void {
+        out.clearRetainingCapacity();
+        var counts = std.StringArrayHashMapUnmanaged(usize).empty;
+        defer {
+            for (counts.keys()) |key| self.allocator.free(key);
+            counts.deinit(self.allocator);
+        }
+        var graphs: usize = 0;
+        var any_graphs: usize = 0;
+        for (self.tdoc.current.graphs.items) |entry| {
+            if (entry.weight <= 0) continue;
+            var graph = editor.readGraphQuiet(entry.name) orelse return;
+            defer graph.deinit(self.allocator);
+            const names = try self.graphSettingList(editor, &graph);
+            defer rmg.freeNames(self.allocator, names);
+            var takes_any = false;
+            for (names) |name| {
+                if (std.mem.eql(u8, name, "<any setting>")) takes_any = true;
+            }
+            if (names.len != 0) {
+                if (takes_any) {
+                    any_graphs += 1;
+                } else for (names) |name| {
+                    if (counts.getPtr(name)) |slot| {
+                        slot.* += 1;
+                    } else {
+                        try counts.put(self.allocator, try self.allocator.dupe(u8, name), 1);
+                    }
+                }
+            }
+            graphs += 1;
+        }
+        if (graphs == 0) return;
+        if (any_graphs == graphs) {
             try out.appendSlice(self.allocator, "<any setting>");
             return;
         }
         var names = std.ArrayListUnmanaged([]const u8).empty;
         defer names.deinit(self.allocator);
         for (counts.keys(), counts.values()) |name, count| {
-            if (count >= nodes.len - any_nodes) try names.append(self.allocator, name);
+            if (count >= graphs - any_graphs) try names.append(self.allocator, name);
         }
         std.mem.sort([]const u8, names.items, {}, struct {
             fn less(_: void, a: []const u8, b: []const u8) bool {
@@ -1059,6 +1135,549 @@ pub const Composers = struct {
         if (done) self.clearFieldReport();
         return done;
     }
+
+    // --- Templates (05-10) ----------------------------------------------
+
+    fn clearTemplateReport(self: *Composers) void {
+        if (self.template_report) |*report| report.deinit(self.allocator);
+        self.template_report = null;
+        self.generation +%= 1;
+    }
+
+    pub fn newTemplate(self: *Composers) Allocator.Error!void {
+        try self.tdoc.load("", try rmg.Template.initNew(self.allocator), false);
+        self.clearTemplateReport();
+        self.message_len = 0;
+    }
+
+    pub fn openTemplate(self: *Composers, editor: *Editor, name: []const u8) !void {
+        var buffer: [bridge_mod.field_set_name_capacity]u8 = undefined;
+        const full = fullName(&buffer, template_folder, name) orelse return error.Refused;
+        var template = editor.readTemplate(full) catch |err| {
+            self.sayText(editor.status());
+            return err;
+        };
+        errdefer template.deinit(self.allocator);
+        try self.tdoc.load(full, template, false);
+        self.clearTemplateReport();
+        self.message_len = 0;
+    }
+
+    pub fn saveTemplate(self: *Composers, editor: *Editor) Allocator.Error!SaveResult {
+        if (self.tdoc.name.len == 0) {
+            self.say("a new template has no file yet: Save As", .{});
+            return .needs_save_as;
+        }
+        return self.writeTemplateTo(editor, try self.allocator.dupe(u8, self.tdoc.name));
+    }
+
+    pub fn saveTemplateAs(self: *Composers, editor: *Editor, name: []const u8) Allocator.Error!SaveResult {
+        var buffer: [bridge_mod.field_set_name_capacity]u8 = undefined;
+        const full = fullName(&buffer, template_folder, name) orelse {
+            self.say("that name is too long", .{});
+            return .failed;
+        };
+        return self.writeTemplateTo(editor, try self.allocator.dupe(u8, full));
+    }
+
+    fn writeTemplateTo(self: *Composers, editor: *Editor, owned_name: []u8) Allocator.Error!SaveResult {
+        defer self.allocator.free(owned_name);
+        editor.writeTemplate(owned_name, &self.tdoc.current) catch |err| {
+            self.sayText(editor.status());
+            if (err == error.OutOfMemory) return error.OutOfMemory;
+            if (std.mem.indexOf(u8, editor.status(), "Save As") != null) {
+                self.tdoc.shipped = true;
+                return .needs_save_as;
+            }
+            return .failed;
+        };
+        try self.tdoc.markSaved(owned_name);
+        try self.refreshNames(editor);
+        self.say("saved {s} (the Template entry and its QuickLoadMapInfo)", .{owned_name});
+        return .saved;
+    }
+
+    fn editTemplate(self: *Composers, comptime Context: type, context: Context, comptime edit: fn (Context, Allocator, *rmg.Template) Allocator.Error!bool) Allocator.Error!bool {
+        const template = try self.tdoc.begin();
+        const changed = edit(context, self.allocator, template) catch |err| {
+            self.tdoc.cancel();
+            return err;
+        };
+        if (!changed) {
+            self.tdoc.cancel();
+            return false;
+        }
+        self.clearTemplateReport();
+        return true;
+    }
+
+    /// What the template rules read: graphs and field sets as the storages hold
+    /// them (the editor's status line left alone), a file's presence, the
+    /// container and tileset facts the graph and field set rules ask.
+    const TemplateFacts = struct {
+        editor: *Editor,
+        fields: FieldFacts,
+
+        fn graph(ctx: *anyopaque, a: Allocator, name: []const u8) ?rmg.Graph {
+            _ = a;
+            const self: *TemplateFacts = @ptrCast(@alignCast(ctx));
+            return self.editor.readGraphQuiet(name);
+        }
+        fn field(ctx: *anyopaque, a: Allocator, name: []const u8) ?rmg.FieldSet {
+            _ = a;
+            const self: *TemplateFacts = @ptrCast(@alignCast(ctx));
+            return self.editor.readFieldSetQuiet(name);
+        }
+        fn exists(ctx: *anyopaque, name: []const u8, extension: []const u8) bool {
+            const self: *TemplateFacts = @ptrCast(@alignCast(ctx));
+            var buffer: [16:0]u8 = undefined;
+            const extension_z = std.fmt.bufPrintZ(&buffer, "{s}", .{extension}) catch return false;
+            return self.editor.rmgFileExists(name, extension_z);
+        }
+        fn source(self: *TemplateFacts) rmg.TemplateSource {
+            return .{ .ctx = self, .graph_fn = graph, .field_fn = field, .exists_fn = exists, .containers = self.editor.rmgSource(), .facts = self.fields.source() };
+        }
+    };
+
+    /// Adds graphs from the storages the MFC's way (OnAddGraphButton): the first
+    /// that does not belong stops the batch and says why; earlier ones stay as one
+    /// undo step. A script-list difference is reported and the graph kept.
+    pub fn addTemplateGraphs(self: *Composers, editor: *Editor, names: []const []const u8) !usize {
+        if (names.len == 0) return 0;
+        var facts: TemplateFacts = .{ .editor = editor, .fields = .{ .editor = editor, .composers = self } };
+        const template = try self.tdoc.begin();
+        var added: usize = 0;
+        var warned = false;
+        for (names) |name| {
+            var buffer: [bridge_mod.field_set_name_capacity]u8 = undefined;
+            const full = fullName(&buffer, graph_folder, name) orelse {
+                self.say("the graph name is too long", .{});
+                break;
+            };
+            var outcome = try rmg.addTemplateGraph(self.allocator, template, facts.source(), full);
+            defer outcome.deinit(self.allocator);
+            switch (outcome) {
+                .added => added += 1,
+                .added_warning => |text| {
+                    added += 1;
+                    warned = true;
+                    self.say("Warning! Graph <{s}>: {s}", .{ full, text });
+                },
+                .unreadable => {
+                    self.say("Can't Add Graph to Template! Graph <{s}> does not load as a graph.", .{full});
+                    break;
+                },
+                .mismatch => |text| {
+                    self.say("Can't Add Graph to Template! Graph <{s}>: {s}", .{ full, text });
+                    break;
+                },
+            }
+        }
+        if (added == 0) self.tdoc.cancel() else self.clearTemplateReport();
+        if (added == names.len and !warned) self.message_len = 0;
+        return added;
+    }
+
+    /// Field sets (OnAddFieldButton): one that does not load is refused; the
+    /// batch stops there. Returns how many were added.
+    pub fn addTemplateFields(self: *Composers, editor: *Editor, names: []const []const u8) !usize {
+        if (names.len == 0) return 0;
+        const template = try self.tdoc.begin();
+        var added: usize = 0;
+        for (names) |name| {
+            var buffer: [bridge_mod.field_set_name_capacity]u8 = undefined;
+            const full = fullName(&buffer, field_folder, name) orelse {
+                self.say("the field set name is too long", .{});
+                break;
+            };
+            var field = editor.readFieldSetQuiet(full) orelse {
+                self.say("Can't Add Field to Template! Field set <{s}> does not load as a field set.", .{full});
+                break;
+            };
+            field.deinit(self.allocator);
+            try template.addField(self.allocator, full);
+            added += 1;
+        }
+        if (added == 0) self.tdoc.cancel() else self.clearTemplateReport();
+        if (added == names.len) self.message_len = 0;
+        return added;
+    }
+
+    /// Road and river descriptors (OnAddVsoButton): any descriptor of the storages.
+    pub fn addTemplateVsos(self: *Composers, editor: *Editor, names: []const []const u8) !usize {
+        if (names.len == 0) return 0;
+        const template = try self.tdoc.begin();
+        var added: usize = 0;
+        for (names) |name| {
+            if (!editor.rmgFileExists(name, ".xml")) {
+                self.say("Can't Add VSO to Template! <{s}> is not a descriptor of the storages.", .{name});
+                break;
+            }
+            try template.addVso(self.allocator, name);
+            added += 1;
+        }
+        if (added == 0) self.tdoc.cancel() else self.clearTemplateReport();
+        if (added == names.len) self.message_len = 0;
+        return added;
+    }
+
+    pub const TemplateList = enum { fields, graphs, vso };
+
+    pub fn removeTemplateEntries(self: *Composers, list: TemplateList, doomed: []const usize) Allocator.Error!bool {
+        const template = try self.tdoc.begin();
+        const before = switch (list) {
+            .fields => template.fields.items.len,
+            .graphs => template.graphs.items.len,
+            .vso => template.vso.items.len,
+        };
+        switch (list) {
+            .fields => template.removeFields(self.allocator, doomed),
+            .graphs => template.removeGraphs(self.allocator, doomed),
+            .vso => template.removeVso(self.allocator, doomed),
+        }
+        const after = switch (list) {
+            .fields => template.fields.items.len,
+            .graphs => template.graphs.items.len,
+            .vso => template.vso.items.len,
+        };
+        if (after == before) {
+            self.tdoc.cancel();
+            return false;
+        }
+        self.clearTemplateReport();
+        return true;
+    }
+
+    /// One entry's weight (the properties dialogs' own edit, 0 or more), and for the
+    /// field list whether it is the default.
+    pub fn setTemplateWeight(self: *Composers, list: TemplateList, index: usize, weight: i32) Allocator.Error!bool {
+        if (weight < 0) return false;
+        const Context = struct { list: TemplateList, index: usize, weight: i32 };
+        return self.editTemplate(Context, .{ .list = list, .index = index, .weight = weight }, struct {
+            fn run(c: Context, _: Allocator, t: *rmg.Template) Allocator.Error!bool {
+                const slot: *i32 = switch (c.list) {
+                    .fields => if (c.index < t.fields.items.len) &t.fields.items[c.index].weight else return false,
+                    .graphs => if (c.index < t.graphs.items.len) &t.graphs.items[c.index].weight else return false,
+                    .vso => if (c.index < t.vso.items.len) &t.vso.items[c.index].weight else return false,
+                };
+                if (slot.* == c.weight) return false;
+                slot.* = c.weight;
+                return true;
+            }
+        }.run);
+    }
+
+    /// The VSO properties dialog: the width in cells (above 0) and the opacity in
+    /// percent (0..100) - the file holds world units and 0..1.
+    pub fn setTemplateVso(self: *Composers, index: usize, width_cells: f32, opacity_percent: f32) Allocator.Error!bool {
+        if (!std.math.isFinite(width_cells) or width_cells <= 0 or !std.math.isFinite(opacity_percent) or opacity_percent < 0 or opacity_percent > 100) return false;
+        const Context = struct { index: usize, width: f32, opacity: f32 };
+        return self.editTemplate(Context, .{ .index = index, .width = width_cells * rmg.world_cell, .opacity = opacity_percent / 100.0 }, struct {
+            fn run(c: Context, _: Allocator, t: *rmg.Template) Allocator.Error!bool {
+                if (c.index >= t.vso.items.len) return false;
+                const entry = &t.vso.items[c.index];
+                if (entry.width == c.width and entry.opacity == c.opacity) return false;
+                entry.width = c.width;
+                entry.opacity = c.opacity;
+                return true;
+            }
+        }.run);
+    }
+
+    /// The field set the generator falls back to: an index into the listed ones, or
+    /// -1 for none.
+    pub fn setTemplateDefaultField(self: *Composers, index: i32) Allocator.Error!bool {
+        return self.editTemplate(i32, index, struct {
+            fn run(i: i32, _: Allocator, t: *rmg.Template) Allocator.Error!bool {
+                if (t.default_field == i) return false;
+                return t.setDefaultField(i);
+            }
+        }.run);
+    }
+
+    pub fn setTemplateText(self: *Composers, which: rmg.Template.TextField, text: []const u8) Allocator.Error!bool {
+        const Context = struct { which: rmg.Template.TextField, text: []const u8 };
+        return self.editTemplate(Context, .{ .which = which, .text = text }, struct {
+            fn run(c: Context, a: Allocator, t: *rmg.Template) Allocator.Error!bool {
+                if (std.mem.indexOfAny(u8, c.text, "\x00\r\n") != null or c.text.len >= bridge_mod.field_set_name_capacity) return false;
+                const slot = t.texts()[@intFromEnum(c.which)];
+                if (std.mem.eql(u8, slot.*, c.text)) return false;
+                try t.setText(a, c.which, c.text);
+                return true;
+            }
+        }.run);
+    }
+
+    /// The MOD combo: a mod's name and version, or both empty for none
+    /// (OnSelchangeModComboBox).
+    pub fn setTemplateMod(self: *Composers, name: []const u8, version: []const u8) Allocator.Error!bool {
+        const Context = struct { name: []const u8, version: []const u8 };
+        return self.editTemplate(Context, .{ .name = name, .version = version }, struct {
+            fn run(c: Context, a: Allocator, t: *rmg.Template) Allocator.Error!bool {
+                if (std.mem.eql(u8, t.mod_name, c.name) and std.mem.eql(u8, t.mod_version, c.version)) return false;
+                try t.setText(a, .mod_name, c.name);
+                try t.setText(a, .mod_version, c.version);
+                return true;
+            }
+        }.run);
+    }
+
+    /// The Diplomacy dialog's result: the table of sides (players, then the
+    /// neutral 2), the game type and the attacking side. The unit creation follows
+    /// the player count. One undo step; a table the dialog would not allow is refused.
+    pub fn setTemplateDiplomacy(self: *Composers, sides: []const u8, game_type: i32, attacking_side: i32) Allocator.Error!bool {
+        const Context = struct { sides: []const u8, game_type: i32, attacking: i32 };
+        return self.editTemplate(Context, .{ .sides = sides, .game_type = game_type, .attacking = attacking_side }, struct {
+            fn run(c: Context, a: Allocator, t: *rmg.Template) Allocator.Error!bool {
+                const before = try t.clone(a);
+                var kept = before;
+                defer kept.deinit(a);
+                if (!try t.setDiplomacy(a, c.sides, c.game_type, c.attacking)) return false;
+                return !t.eql(&kept);
+            }
+        }.run);
+    }
+
+    /// A player added on `side` before the neutral (the Diplomacy dialog's Insert).
+    pub fn addTemplatePlayer(self: *Composers, side: u8) Allocator.Error!bool {
+        const t = &self.tdoc.current;
+        if (side > 1 or t.diplomacies.items.len >= rmg.max_diplomacies) return false;
+        var sides = std.ArrayListUnmanaged(u8).empty;
+        defer sides.deinit(self.allocator);
+        try sides.appendSlice(self.allocator, t.diplomacies.items);
+        try sides.insert(self.allocator, sides.items.len - 1, side);
+        return self.setTemplateDiplomacy(sides.items, t.game_type, t.attacking_side);
+    }
+
+    /// A player deleted (never the neutral, and the table keeps two players).
+    pub fn deleteTemplatePlayer(self: *Composers, player: usize) Allocator.Error!bool {
+        const t = &self.tdoc.current;
+        if (player >= t.playerCount() or t.playerCount() <= 2) return false;
+        var sides = std.ArrayListUnmanaged(u8).empty;
+        defer sides.deinit(self.allocator);
+        try sides.appendSlice(self.allocator, t.diplomacies.items);
+        _ = sides.orderedRemove(player);
+        return self.setTemplateDiplomacy(sides.items, t.game_type, t.attacking_side);
+    }
+
+    pub fn setTemplatePlayerSide(self: *Composers, player: usize, side: u8) Allocator.Error!bool {
+        const t = &self.tdoc.current;
+        if (player >= t.playerCount() or side > 1) return false;
+        var sides = std.ArrayListUnmanaged(u8).empty;
+        defer sides.deinit(self.allocator);
+        try sides.appendSlice(self.allocator, t.diplomacies.items);
+        sides.items[player] = side;
+        return self.setTemplateDiplomacy(sides.items, t.game_type, t.attacking_side);
+    }
+
+    pub fn setTemplateGameType(self: *Composers, game_type: i32, attacking_side: i32) Allocator.Error!bool {
+        const t = &self.tdoc.current;
+        return self.setTemplateDiplomacy(t.diplomacies.items, game_type, attacking_side);
+    }
+
+    /// The names a unit creation combo offers (parties, aircraft, squads), asked
+    /// of the bridge; the caller frees. Empty when it will not say.
+    pub fn unitChoices(self: *Composers, editor: *Editor, kind: bridge_mod.UcChoice) Allocator.Error![]bridge_mod.UcName {
+        var total: usize = 0;
+        _ = editor.bridge.unitCreationChoices(kind, &.{}, &total);
+        if (total == 0) return try self.allocator.alloc(bridge_mod.UcName, 0);
+        const names = try self.allocator.alloc(bridge_mod.UcName, total);
+        errdefer self.allocator.free(names);
+        var got: usize = 0;
+        if (editor.bridge.unitCreationChoices(kind, names, &got) != .ok or got != total) {
+            self.allocator.free(names);
+            return try self.allocator.alloc(bridge_mod.UcName, 0);
+        }
+        return names;
+    }
+
+    pub const max_unit_value: i32 = 255;
+    pub const max_formation_size: i32 = 32;
+
+    fn nameAllowed(name: []const u8, current: []const u8, list: []const bridge_mod.UcName) bool {
+        if (name.len == 0 or name.len >= records.uc_name_capacity) return false;
+        if (std.mem.eql(u8, name, current)) return true;
+        for (list) |*item| if (std.mem.eql(u8, item.nameSlice(), name)) return true;
+        return false;
+    }
+
+    /// One field of one player's unit creation in the template's table (the
+    /// Units... grid; MutableValidate's rules and the combos' lists): party, one of
+    /// partys.xml; `aircraftN_name` an aviation unit, `aircraftN_formation` 1..32,
+    /// `aircraftN_count` 0..255; `paratroop_name` a squad, `paratroop_count`
+    /// 0..255; `relax` seconds, 1 or more. A value the entry already holds is
+    /// always accepted. A refusal changes nothing and says which rule.
+    pub fn setTemplateUnit(self: *Composers, editor: *Editor, player: usize, field_name: []const u8, value: []const u8) !bool {
+        if (player >= self.tdoc.current.units.items.len) return false;
+        const Kind = enum { party, aircraft_name, aircraft_formation, aircraft_count, paratroop_name, paratroop_count, relax };
+        var kind: Kind = undefined;
+        var slot: usize = 0;
+        if (std.mem.eql(u8, field_name, "party")) {
+            kind = .party;
+        } else if (std.mem.eql(u8, field_name, "paratroop_name")) {
+            kind = .paratroop_name;
+        } else if (std.mem.eql(u8, field_name, "paratroop_count")) {
+            kind = .paratroop_count;
+        } else if (std.mem.eql(u8, field_name, "relax")) {
+            kind = .relax;
+        } else if (std.mem.startsWith(u8, field_name, "aircraft") and field_name.len > "aircraft".len + 2) {
+            slot = std.fmt.parseInt(usize, field_name["aircraft".len .. "aircraft".len + 1], 10) catch return false;
+            if (slot >= records.uc_aircraft_slots or field_name["aircraft".len + 1] != '_') return false;
+            const rest = field_name["aircraft".len + 2 ..];
+            kind = if (std.mem.eql(u8, rest, "name")) .aircraft_name else if (std.mem.eql(u8, rest, "formation")) .aircraft_formation else if (std.mem.eql(u8, rest, "count")) .aircraft_count else return false;
+        } else return false;
+        const current = self.tdoc.current.units.items[player];
+        var number: i32 = 0;
+        switch (kind) {
+            .aircraft_formation, .aircraft_count, .paratroop_count, .relax => {
+                number = std.fmt.parseInt(i32, value, 10) catch {
+                    self.say("{s}: \"{s}\" is not a whole number", .{ field_name, value });
+                    return false;
+                };
+            },
+            else => {},
+        }
+        switch (kind) {
+            .party => {
+                const list = try self.unitChoices(editor, .parties);
+                defer self.allocator.free(list);
+                if (!nameAllowed(value, current.partySlice(), list)) {
+                    self.say("the party \"{s}\" is not in partys.xml", .{value});
+                    return false;
+                }
+            },
+            .aircraft_name => {
+                const list = try self.unitChoices(editor, .aircraft);
+                defer self.allocator.free(list);
+                if (!nameAllowed(value, current.aircraft[slot].nameSlice(), list)) {
+                    self.say("{s}: \"{s}\" is no aircraft of the object database", .{ records.uc_aircraft_labels[slot], value });
+                    return false;
+                }
+            },
+            .paratroop_name => {
+                const list = try self.unitChoices(editor, .squads);
+                defer self.allocator.free(list);
+                if (!nameAllowed(value, current.paratroopSlice(), list)) {
+                    self.say("the paratroop squad \"{s}\" is no squad of the object database", .{value});
+                    return false;
+                }
+            },
+            .aircraft_formation => if (number < 1 or number > max_formation_size) {
+                self.say("{s}: formation size {d} is outside 1..{d}", .{ records.uc_aircraft_labels[slot], number, max_formation_size });
+                return false;
+            },
+            .aircraft_count => if (number < 0 or number > max_unit_value) {
+                self.say("{s}: count {d} is outside 0..{d}", .{ records.uc_aircraft_labels[slot], number, max_unit_value });
+                return false;
+            },
+            .paratroop_count => if (number < 0 or number > max_unit_value) {
+                self.say("the paratroop squads count {d} is outside 0..{d}", .{ number, max_unit_value });
+                return false;
+            },
+            .relax => if (number < 1) {
+                self.say("the relax time {d} is below 1 second", .{number});
+                return false;
+            },
+        }
+        const Context = struct { player: usize, kind: Kind, slot: usize, text: []const u8, number: i32 };
+        return self.editTemplate(Context, .{ .player = player, .kind = kind, .slot = slot, .text = value, .number = number }, struct {
+            fn run(c: Context, _: Allocator, t: *rmg.Template) Allocator.Error!bool {
+                const unit = &t.units.items[c.player];
+                const before = unit.*;
+                switch (c.kind) {
+                    .party => unit.setParty(c.text),
+                    .aircraft_name => unit.aircraft[c.slot].setName(c.text),
+                    .aircraft_formation => unit.aircraft[c.slot].formation_size = c.number,
+                    .aircraft_count => unit.aircraft[c.slot].count = c.number,
+                    .paratroop_name => unit.setParatroop(c.text),
+                    .paratroop_count => unit.paratroop_count = c.number,
+                    .relax => unit.relax_time = c.number,
+                }
+                return !before.eql(unit.*);
+            }
+        }.run);
+    }
+
+    /// An appear point of a player's template unit creation, in MAP units (the
+    /// grid shows tiles, 64 to a tile): added, moved or removed. A point must be
+    /// finite and not negative; at most 32 per player.
+    pub fn addTemplateAppear(self: *Composers, player: usize, x: f32, y: f32) Allocator.Error!bool {
+        if (!std.math.isFinite(x) or !std.math.isFinite(y) or x < 0 or y < 0) return false;
+        const Context = struct { player: usize, x: f32, y: f32 };
+        return self.editTemplate(Context, .{ .player = player, .x = x, .y = y }, struct {
+            fn run(c: Context, _: Allocator, t: *rmg.Template) Allocator.Error!bool {
+                if (c.player >= t.units.items.len) return false;
+                return t.units.items[c.player].addAppear(.{ .x = c.x, .y = c.y, .z = 0 });
+            }
+        }.run);
+    }
+
+    pub fn setTemplateAppear(self: *Composers, player: usize, index: usize, x: f32, y: f32) Allocator.Error!bool {
+        if (!std.math.isFinite(x) or !std.math.isFinite(y) or x < 0 or y < 0) return false;
+        const Context = struct { player: usize, index: usize, x: f32, y: f32 };
+        return self.editTemplate(Context, .{ .player = player, .index = index, .x = x, .y = y }, struct {
+            fn run(c: Context, _: Allocator, t: *rmg.Template) Allocator.Error!bool {
+                if (c.player >= t.units.items.len or c.index >= t.units.items[c.player].appear_count) return false;
+                const point = &t.units.items[c.player].appear[c.index];
+                if (point.x == c.x and point.y == c.y) return false;
+                point.x = c.x;
+                point.y = c.y;
+                return true;
+            }
+        }.run);
+    }
+
+    pub fn removeTemplateAppear(self: *Composers, player: usize, index: usize) Allocator.Error!bool {
+        const Context = struct { player: usize, index: usize };
+        return self.editTemplate(Context, .{ .player = player, .index = index }, struct {
+            fn run(c: Context, _: Allocator, t: *rmg.Template) Allocator.Error!bool {
+                if (c.player >= t.units.items.len) return false;
+                return t.units.items[c.player].removeAppear(c.index);
+            }
+        }.run);
+    }
+
+    pub fn checkTemplate(self: *Composers, editor: *Editor) Allocator.Error!usize {
+        self.clearTemplateReport();
+        var facts: TemplateFacts = .{ .editor = editor, .fields = .{ .editor = editor, .composers = self } };
+        self.template_report = try rmg.checkTemplate(self.allocator, &self.tdoc.current, facts.source());
+        self.generation +%= 1;
+        const report = &self.template_report.?;
+        self.say("Check!: {d} errors, {d} findings", .{ report.errorCount(), report.findings.items.len });
+        return report.findings.items.len;
+    }
+
+    pub fn fixTemplateFinding(self: *Composers, editor: *Editor, index: usize) !void {
+        const report = &(self.template_report orelse return error.Refused);
+        if (index >= report.findings.items.len or report.findings.items[index].fix == .none) return error.Refused;
+        const fix = report.findings.items[index].fix;
+        var facts: TemplateFacts = .{ .editor = editor, .fields = .{ .editor = editor, .composers = self } };
+        const template = try self.tdoc.begin();
+        try rmg.applyTemplateFix(self.allocator, template, facts.source(), fix);
+        _ = try self.checkTemplate(editor);
+    }
+
+    pub fn fixTemplateAll(self: *Composers, editor: *Editor) !usize {
+        const report = &(self.template_report orelse return error.Refused);
+        var facts: TemplateFacts = .{ .editor = editor, .fields = .{ .editor = editor, .composers = self } };
+        const template = try self.tdoc.begin();
+        const fixed = try rmg.fixAllTemplate(self.allocator, template, facts.source(), report);
+        if (fixed == 0) self.tdoc.cancel();
+        _ = try self.checkTemplate(editor);
+        return fixed;
+    }
+
+    pub fn undoTemplate(self: *Composers) Allocator.Error!bool {
+        const done = try self.tdoc.undo();
+        if (done) self.clearTemplateReport();
+        return done;
+    }
+
+    pub fn redoTemplate(self: *Composers) Allocator.Error!bool {
+        const done = try self.tdoc.redo();
+        if (done) self.clearTemplateReport();
+        return done;
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -1399,4 +2018,153 @@ test "the fields composer's tileset and profile facts come from the bridge" {
     try testing.expect(editor.rmgFileExists("\\Scenarios\\Profiles\\Profile", ".tga"));
     try testing.expect(!editor.rmgFileExists("scenarios\\profiles\\other", ".tga"));
     try testing.expect(!editor.rmgFileExists("..\\x", ".tga"));
+}
+
+test "the templates composer opens a shipped template, edits its lists, players and units, checks it and saves it with its QuickLoadMapInfo as a user file" {
+    const a = testing.allocator;
+    var fake = try fake_mod.fixture(a);
+    defer fake.deinit();
+    fake.known_files = &.{ "scenarios\\profiles\\profile.tga", "terrain\\sets\\1\\roads3d\\road_grunt.xml", "scenarios\\scripts\\sa\\secure_area.lua" };
+    // Two field sets that load, and a shipped template of the fixture graph.
+    var field = try rmg.FieldSet.initNew(a);
+    {
+        const shell = try field.addTileShell(a);
+        _ = try field.addTile(a, shell, 3);
+    }
+    try fake.addFieldSetFixture("scenarios\\fieldsets\\summer\\field00", true, field);
+    var field_two = try rmg.FieldSet.initNew(a);
+    {
+        const shell = try field_two.addTileShell(a);
+        _ = try field_two.addTile(a, shell, 4);
+    }
+    try fake.addFieldSetFixture("scenarios\\fieldsets\\summer\\field01", true, field_two);
+    var shipped = try rmg.Template.initNew(a);
+    try shipped.addField(a, "scenarios\\fieldsets\\summer\\field00");
+    try shipped.graphs.append(a, .{ .name = try a.dupe(u8, "scenarios\\graphs\\summer\\graph_a"), .weight = 2 });
+    try shipped.setText(a, .season_folder, "terrain\\sets\\1\\");
+    try shipped.script_ids.append(a, 3);
+    try shipped.script_areas.append(a, try a.dupe(u8, "Ambush"));
+    try shipped.setText(a, .script_file, "scenarios\\scripts\\sa\\secure_area");
+    _ = shipped.setDefaultField(0);
+    try fake.addTemplateFixture("scenarios\\templates\\summer\\template00", true, shipped);
+    var editor = Editor.init(a, fake.bridge());
+    defer editor.deinit();
+    var dummy: u8 = 0;
+    var composers = Composers.init(a);
+    defer composers.deinit();
+    composers.object_lookup = .{ .ctx = &dummy, .has_fn = testObjectKnown };
+    try composers.refreshNames(&editor);
+    try testing.expectEqual(@as(usize, 1), composers.template_names.items.len);
+    try composers.openTemplate(&editor, "summer\\template00");
+    try testing.expect(!composers.tdoc.dirty and composers.tdoc.current.graphs.items.len == 1 and composers.tdoc.current.default_field == 0);
+    {
+        var names = std.ArrayListUnmanaged(u8).empty;
+        defer names.deinit(a);
+        try composers.templateSettingsText(&editor, &names);
+        // The fixture graph has an empty second node, so nothing is supported (the C++ answers 0).
+        try testing.expectEqualStrings("", names.items);
+    }
+
+    // The lists: a graph that does not load stops the batch naming it; a field set
+    // repeated goes to the end; a vso of the storages joins, one nobody has does not.
+    var graph_names = [_][]const u8{ "summer\\graph_a", "summer\\nope" };
+    try testing.expectEqual(@as(usize, 1), try composers.addTemplateGraphs(&editor, &graph_names));
+    try testing.expect(std.mem.indexOf(u8, composers.message(), "Can't Add Graph to Template!") != null);
+    try testing.expectEqual(@as(usize, 1), composers.tdoc.current.graphs.items.len);
+    var field_names = [_][]const u8{ "summer\\field01", "summer\\field00", "summer\\missing" };
+    try testing.expectEqual(@as(usize, 2), try composers.addTemplateFields(&editor, &field_names));
+    try testing.expectEqual(@as(usize, 2), composers.tdoc.current.fields.items.len);
+    try testing.expectEqualStrings("scenarios\\fieldsets\\summer\\field00", composers.tdoc.current.fields.items[1].name);
+    try testing.expectEqual(@as(i32, 1), composers.tdoc.current.default_field);
+    var vso_names = [_][]const u8{ "terrain\\sets\\1\\roads3d\\road_grunt", "terrain\\sets\\1\\roads3d\\nobody" };
+    try testing.expectEqual(@as(usize, 1), try composers.addTemplateVsos(&editor, &vso_names));
+    try testing.expect(try composers.setTemplateWeight(.graphs, 0, 5));
+    try testing.expect(!(try composers.setTemplateWeight(.graphs, 0, 5)));
+    try testing.expect(!(try composers.setTemplateWeight(.graphs, 0, -1)));
+    try testing.expect(!(try composers.setTemplateWeight(.fields, 9, 1)));
+    try testing.expect(try composers.setTemplateVso(0, 3.5, 40));
+    try testing.expect(!(try composers.setTemplateVso(0, 0, 40)) and !(try composers.setTemplateVso(0, 3, 140)));
+    try testing.expect(composers.tdoc.current.vso.items[0].width == 3.5 * 32 and composers.tdoc.current.vso.items[0].opacity == 0.4);
+    try testing.expect(try composers.setTemplateDefaultField(0));
+    try testing.expect(!(try composers.setTemplateDefaultField(0)) and !(try composers.setTemplateDefaultField(5)));
+    try testing.expect(try composers.setTemplateText(.script_file, "scenarios\\scripts\\sa\\other"));
+    try testing.expect(try composers.setTemplateMod("Mod One", "1.0"));
+    try testing.expectEqualStrings("Mod One", composers.tdoc.current.mod_name);
+    try testing.expect(try composers.setTemplateMod("", ""));
+
+    // Diplomacy: a player on side 1 gets the defaults; the unit creation follows;
+    // the table keeps two players; the game type and the attacking side go with it.
+    try testing.expect(try composers.addTemplatePlayer(1));
+    try testing.expectEqual(@as(usize, 3), composers.tdoc.current.units.items.len);
+    try testing.expectEqualSlices(u8, &.{ 0, 1, 1, 2 }, composers.tdoc.current.diplomacies.items);
+    try testing.expect(try composers.setTemplatePlayerSide(2, 0));
+    try testing.expect(!(try composers.setTemplatePlayerSide(3, 0)));
+    try testing.expect(try composers.setTemplateGameType(2, 1));
+    try testing.expect(try composers.deleteTemplatePlayer(2));
+    try testing.expect(!(try composers.deleteTemplatePlayer(1)));
+    try testing.expectEqual(@as(usize, 2), composers.tdoc.current.units.items.len);
+
+    // Units...: the rules the map's own unit creation holds.
+    try testing.expect(try composers.setTemplateUnit(&editor, 0, "party", "Germany"));
+    try testing.expect(!(try composers.setTemplateUnit(&editor, 0, "party", "Narnia")));
+    try testing.expect(std.mem.indexOf(u8, composers.message(), "partys.xml") != null);
+    try testing.expect(try composers.setTemplateUnit(&editor, 1, "aircraft0_name", "Yak-7"));
+    try testing.expect(!(try composers.setTemplateUnit(&editor, 1, "aircraft0_name", "Zeppelin")));
+    try testing.expect(try composers.setTemplateUnit(&editor, 1, "aircraft2_formation", "4"));
+    try testing.expect(!(try composers.setTemplateUnit(&editor, 1, "aircraft2_formation", "33")));
+    try testing.expect(try composers.setTemplateUnit(&editor, 1, "aircraft4_count", "0"));
+    try testing.expect(!(try composers.setTemplateUnit(&editor, 1, "aircraft4_count", "256")));
+    try testing.expect(try composers.setTemplateUnit(&editor, 0, "paratroop_name", "German_rpd_43"));
+    try testing.expect(try composers.setTemplateUnit(&editor, 0, "paratroop_count", "12"));
+    try testing.expect(try composers.setTemplateUnit(&editor, 0, "relax", "240"));
+    try testing.expect(!(try composers.setTemplateUnit(&editor, 0, "relax", "0")));
+    try testing.expect(!(try composers.setTemplateUnit(&editor, 0, "relax", "abc")));
+    try testing.expect(!(try composers.setTemplateUnit(&editor, 0, "nonsense", "1")));
+    try testing.expect(!(try composers.setTemplateUnit(&editor, 7, "relax", "9")));
+    try testing.expect(try composers.addTemplateAppear(0, 1024, 0));
+    try testing.expect(try composers.addTemplateAppear(0, 3072, 0));
+    try testing.expect(try composers.setTemplateAppear(0, 1, 2048, 64));
+    try testing.expect(!(try composers.addTemplateAppear(0, -1, 0)) and !(try composers.setTemplateAppear(0, 5, 1, 1)));
+    try testing.expectEqual(@as(u32, 2), composers.tdoc.current.units.items[0].appear_count);
+    try testing.expect(try composers.removeTemplateAppear(0, 0));
+    try testing.expectEqual(@as(u32, 1), composers.tdoc.current.units.items[0].appear_count);
+    try testing.expectEqual(@as(f32, 2048), composers.tdoc.current.units.items[0].appear[0].x);
+    try testing.expectEqual(@as(i32, 240), composers.tdoc.current.units.items[0].relax_time);
+
+    // Every edit was one step of the file's own undo.
+    try testing.expect(composers.tdoc.dirty);
+    var steps: usize = 0;
+    while (try composers.undoTemplate()) steps += 1;
+    try testing.expect(steps >= 20);
+    try testing.expect(composers.tdoc.current.eql(&shipped));
+    while (try composers.redoTemplate()) {}
+    try testing.expectEqual(@as(usize, 1), composers.tdoc.current.units.items[0].appear_count);
+
+    // Check! (the addition): the saved-in-the-fixture facts are clean but the vso with its
+    // 3.5-cell width is fine, the script is not there (a warning), a field set the storages do not
+    // hold is an error with its removal as the explicit fix.
+    try testing.expect(try composers.checkTemplate(&editor) >= 1);
+    try testing.expectEqual(@as(usize, 0), composers.template_report.?.errorCount());
+    try composers.tdoc.current.fields.append(a, .{ .name = try a.dupe(u8, "scenarios\\fieldsets\\summer\\ghost"), .weight = 1 });
+    _ = try composers.tdoc.begin();
+    try testing.expect(try composers.checkTemplate(&editor) >= 2);
+    try testing.expectEqual(@as(usize, 1), composers.template_report.?.errorCount());
+    try testing.expectEqual(@as(usize, 1), try composers.fixTemplateAll(&editor));
+    try testing.expectEqual(@as(usize, 0), composers.template_report.?.errorCount());
+    try testing.expectEqual(@as(usize, 2), composers.tdoc.current.fields.items.len);
+
+    // The shipped one is read-only: Save asks for a name, nothing is written; Save As writes.
+    try testing.expectEqual(SaveResult.needs_save_as, try composers.saveTemplate(&editor));
+    try testing.expect(composers.tdoc.shipped);
+    try testing.expectEqual(SaveResult.saved, try composers.saveTemplateAs(&editor, "user\\mine"));
+    try testing.expectEqualStrings("scenarios\\templates\\user\\mine", composers.tdoc.name);
+    try testing.expect(!composers.tdoc.shipped and !composers.tdoc.dirty);
+    try testing.expectEqual(@as(usize, 2), composers.template_names.items.len);
+    var back = try editor.readTemplate("scenarios\\templates\\user\\mine");
+    defer back.deinit(a);
+    try testing.expect(back.eql(&composers.tdoc.current));
+    try composers.newTemplate();
+    try testing.expectEqual(SaveResult.needs_save_as, try composers.saveTemplate(&editor));
+    try testing.expectEqual(@as(usize, 2), composers.tdoc.current.units.items.len);
+    try testing.expectError(error.Refused, composers.openTemplate(&editor, "summer\\nope"));
 }

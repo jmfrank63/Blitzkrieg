@@ -2456,6 +2456,78 @@ BkEditorStatus BkEditorRmgReadFieldSet( BkEditorSession *session, const char *na
    unterminated field or a name not under scenarios\fieldsets\. */
 BkEditorStatus BkEditorRmgWriteFieldSet( BkEditorSession *session, const char *name, const BkEditorRmgFieldSetRecord *record );
 
+/* One unit-creation entry per player of a template (the MFC's "Units..."
+   grid: CTemplateUnitsDialog over rTemplate.unitCreation - the template's
+   own SUnitCreationInfo, not the map's; BkEditorUnitCreationRecord is the
+   same shape the map's own entry has). slot_count is ignored on a write and
+   the template's unit count on a read. */
+
+/* A vso (road/river descriptor) of a template with its weight and the
+   defaults a placement uses: width in WORLD units (the dialog shows it divided
+   by the 32-unit cell) and opacity 0..1 (the dialog shows percent). */
+typedef struct { char name[192]; int weight; float width; float opacity; } BkEditorRmgVso;
+
+/* SRMTemplate. fields / graphs / vso are the weighted lists, default_field the
+   index into `fields` (-1 none), size in patches, the season with its folder
+   and the script IDs and areas the graphs use (the MFC copies them from the
+   first graph), camera the start anchor, diplomacies the side of each player
+   then the neutral entry (0, 1: sides, 2: neutral), units the unit creation
+   of each player, mission_index / game_type / attacking_side the chapter
+   fields, script_file the mission script's storage name, mod_name and
+   mod_version the mod the template belongs to. */
+typedef struct
+{
+	int size_x;
+	int size_y;
+	int season;
+	char season_folder[192];
+	char place[192];
+	int default_field;
+	int mission_index;
+	int game_type;
+	int attacking_side;
+	float camera[3];
+	char script_file[192];
+	char chapter_name[192];
+	char forest_circle_sounds[192];
+	char forest_ambient_sounds[192];
+	char mod_name[192];
+	char mod_version[192];
+	BkEditorRmgWeightedName *fields;
+	int field_capacity;
+	int field_count;
+	BkEditorRmgWeightedName *graphs;
+	int graph_capacity;
+	int graph_count;
+	BkEditorRmgVso *vso;
+	int vso_capacity;
+	int vso_count;
+	unsigned char *diplomacies;
+	int diplomacy_capacity;
+	int diplomacy_count;
+	BkEditorUnitCreationRecord *units;
+	int unit_capacity;
+	int unit_count;
+	BkEditorRmgScripts scripts;
+} BkEditorRmgTemplateRecord;
+
+/* Reads template `name` (scenarios\templates\...) like BkEditorRmgReadFieldSet.
+   REFUSED too for a file whose unit creation does not fit the record (more
+   than five aircraft slots, a name of 64 characters or more, more than 32
+   appear points or 16 players). */
+BkEditorStatus BkEditorRmgReadTemplate( BkEditorSession *session, const char *name, BkEditorRmgTemplateRecord *record );
+
+/* Writes the record as template `name` under the user RMG root: the Template
+   entry and the QuickLoadMapInfo entry beside it, in one file. REFUSED for a
+   shipped name (Save As), a season outside 0..3, a count above the bounds
+   (BK_EDITOR_RMG_MAX_WEIGHTED weighted entries, BK_EDITOR_RMG_MAX_PLAYERS
+   diplomacies, BK_EDITOR_RMG_MAX_UNITS units, the script bounds above), a
+   weight below 0, a width or opacity that is not finite; BAD_ARGUMENT for a
+   null record, an unterminated field, a count with no array or a name not
+   under scenarios\templates\. The file is read back and both entries compared
+   (the QuickLoadMapInfo against FillFromRMTemplate) before OK. */
+BkEditorStatus BkEditorRmgWriteTemplate( BkEditorSession *session, const char *name, const BkEditorRmgTemplateRecord *record );
+
 /* The terrain types of a season's tileset (0 summer, 1 winter, 2 africa, 3
    spring) - the names the field set's tile shells index, in the tileset
    description's own order, with each type's tile count. Needs no map: the

@@ -375,6 +375,72 @@ pub const RmgFieldSetRecord = extern struct {
     object_total: c_int = 0,
 };
 
+/// BkEditorUnitCreationRecord's layout (05-05): one player's unit creation as the
+/// C side hands it over - the template record carries one per player.
+pub const RmgUnitAircraft = extern struct {
+    name: [64]u8 = [_]u8{0} ** 64,
+    formation_size: c_int = 0,
+    count: c_int = 0,
+};
+pub const RmgVec3 = extern struct { x: f32 = 0, y: f32 = 0, z: f32 = 0 };
+pub const RmgUnit = extern struct {
+    slot_count: c_int = 0,
+    party: [64]u8 = [_]u8{0} ** 64,
+    aircraft: [5]RmgUnitAircraft = [_]RmgUnitAircraft{.{}} ** 5,
+    paratroop_name: [64]u8 = [_]u8{0} ** 64,
+    paratroop_count: c_int = 0,
+    relax_time: c_int = 0,
+    appear_count: c_int = 0,
+    appear: [32]RmgVec3 = [_]RmgVec3{.{}} ** 32,
+};
+
+/// BkEditorRmgVso: a template's road or river descriptor with its weight; the
+/// width is in WORLD units (the dialog shows it divided by the 32-unit cell),
+/// the opacity 0..1.
+pub const RmgVso = extern struct {
+    name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    weight: c_int = 0,
+    width: f32 = 0,
+    opacity: f32 = 0,
+};
+
+/// BkEditorRmgTemplateRecord (05-10): SRMTemplate through the engine's own
+/// serialiser, every list caller-sized and two-pass like the containers'.
+pub const RmgTemplateRecord = extern struct {
+    size_x: c_int = 0,
+    size_y: c_int = 0,
+    season: c_int = 0,
+    season_folder: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    place: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    default_field: c_int = -1,
+    mission_index: c_int = 0,
+    game_type: c_int = 0,
+    attacking_side: c_int = 0,
+    camera: [3]f32 = .{ 0, 0, 0 },
+    script_file: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    chapter_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    forest_circle_sounds: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    forest_ambient_sounds: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    mod_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    mod_version: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    fields: ?[*]RmgWeightedName = null,
+    field_capacity: c_int = 0,
+    field_count: c_int = 0,
+    graphs: ?[*]RmgWeightedName = null,
+    graph_capacity: c_int = 0,
+    graph_count: c_int = 0,
+    vso: ?[*]RmgVso = null,
+    vso_capacity: c_int = 0,
+    vso_count: c_int = 0,
+    diplomacies: ?[*]u8 = null,
+    diplomacy_capacity: c_int = 0,
+    diplomacy_count: c_int = 0,
+    units: ?[*]RmgUnit = null,
+    unit_capacity: c_int = 0,
+    unit_count: c_int = 0,
+    scripts: RmgScripts = .{},
+};
+
 /// BkEditorRmgTerrainType: one terrain type of a season's tileset.
 pub const RmgTerrainType = extern struct {
     name: [64]u8 = [_]u8{0} ** 64,
@@ -1119,6 +1185,8 @@ pub const Bridge = struct {
         rmgWriteFieldSet: *const fn (ptr: *anyopaque, name: [*:0]const u8, record: *const RmgFieldSetRecord) Status,
         /// BkEditorRmgTileset: the terrain types of a season's tileset (0 summer
         /// .. 3 spring), no map needed. Two-pass like `listRmg`.
+        rmgReadTemplate: *const fn (ptr: *anyopaque, name: [*:0]const u8, record: *RmgTemplateRecord) Status,
+        rmgWriteTemplate: *const fn (ptr: *anyopaque, name: [*:0]const u8, record: *const RmgTemplateRecord) Status,
         rmgTileset: *const fn (ptr: *anyopaque, season: i32, out: []RmgTerrainType, total: *usize) Status,
         /// BkEditorRmgFileExists: whether `name` + `extension` is in the storage
         /// stack (a profile's .tga, a script's .lua, a descriptor's .xml).
@@ -1267,6 +1335,8 @@ pub const Bridge = struct {
     pub fn rmgRoot(self: Bridge, out: []u8) Status { return self.vtable.rmgRoot(self.ptr, out); }
     pub fn rmgReadFieldSet(self: Bridge, name: [*:0]const u8, record: *RmgFieldSetRecord) Status { return self.vtable.rmgReadFieldSet(self.ptr, name, record); }
     pub fn rmgWriteFieldSet(self: Bridge, name: [*:0]const u8, record: *const RmgFieldSetRecord) Status { return self.vtable.rmgWriteFieldSet(self.ptr, name, record); }
+    pub fn rmgReadTemplate(self: Bridge, name: [*:0]const u8, record: *RmgTemplateRecord) Status { return self.vtable.rmgReadTemplate(self.ptr, name, record); }
+    pub fn rmgWriteTemplate(self: Bridge, name: [*:0]const u8, record: *const RmgTemplateRecord) Status { return self.vtable.rmgWriteTemplate(self.ptr, name, record); }
     pub fn rmgTileset(self: Bridge, season: i32, out: []RmgTerrainType, total: *usize) Status { return self.vtable.rmgTileset(self.ptr, season, out, total); }
     pub fn rmgFileExists(self: Bridge, name: [*:0]const u8, extension: [*:0]const u8, exists: *bool) Status { return self.vtable.rmgFileExists(self.ptr, name, extension, exists); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }

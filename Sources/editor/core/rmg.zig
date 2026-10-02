@@ -11,6 +11,7 @@
 //! own serialisers (bridge.h "The RMG composers").
 
 const std = @import("std");
+const records = @import("records.zig");
 
 const Allocator = std.mem.Allocator;
 
@@ -520,6 +521,15 @@ pub const Fix = union(enum) {
     zero_object_weight: struct { shell: usize, index: usize },
     object_step: usize,
     object_ratio: usize,
+    // Templates (05-10).
+    remove_template_graph: usize,
+    remove_template_field: usize,
+    remove_template_vso: usize,
+    zero_template_weight: struct { list: u8, index: usize },
+    clear_default_field,
+    clamp_vso: usize,
+    resize_units,
+    take_header_from_graph,
 };
 
 pub const Finding = struct {
@@ -1821,6 +1831,657 @@ pub fn fixAllField(allocator: Allocator, field: *FieldSet, report: *const Report
 pub const FieldSetDoc = Document(FieldSet);
 
 // ---------------------------------------------------------------------------
+// Templates (M3 05-10, D-06/D-07/D-12): SRMTemplate as an owned value, its edit
+// rules (RMG_CreateTemplateDialog.cpp) and the Check! the MFC left empty
+// ---------------------------------------------------------------------------
+
+pub const default_graph_weight: i32 = 1;
+pub const default_vso_weight: i32 = 1;
+pub const default_field_weight: i32 = 1;
+/// SRMVSODesc::DEFAULT_WIDTH / DEFAULT_OPACITY: two cells wide, fully opaque.
+pub const vso_default_width: f32 = world_cell * 2;
+pub const vso_default_opacity: f32 = 1.0;
+/// A template holds up to this many players and the neutral entry
+/// (CTabSimpleObjectsDiplomacyDialog: 16 plus the neutral).
+pub const max_diplomacies: usize = 17;
+/// The map units to a VIS tile in an appear point (the file's own unit).
+pub const appear_units_per_tile: f32 = 64.0;
+/// A patch is 16 tiles on a side.
+pub const appear_units_per_patch: f32 = appear_units_per_tile * 16.0;
+
+pub const game_type_names = [_][]const u8{ "Single Player", "Flag Control", "Assault" };
+
+pub const VsoEntry = struct {
+    name: []u8 = &.{},
+    weight: i32 = default_vso_weight,
+    /// World units; the dialog shows cells (divided by `world_cell`).
+    width: f32 = vso_default_width,
+    /// 0..1; the dialog shows percent.
+    opacity: f32 = vso_default_opacity,
+
+    pub fn clone(self: VsoEntry, allocator: Allocator) Allocator.Error!VsoEntry {
+        var out = self;
+        out.name = try dupe(allocator, self.name);
+        return out;
+    }
+    pub fn deinit(self: *VsoEntry, allocator: Allocator) void {
+        allocator.free(self.name);
+        self.name = &.{};
+    }
+};
+
+fn textOf(slot: []const u8) []const u8 {
+    return slot;
+}
+
+/// SRMTemplate: the weighted lists the generator draws from (field sets, graphs,
+/// road and river descriptors), the header the first graph gives (size, season,
+/// folder, script lists), the chapter fields, the players' diplomacy and unit
+/// creation, the mission script and the mod.
+pub const Template = struct {
+    size_x: i32 = 0,
+    size_y: i32 = 0,
+    season: i32 = 0,
+    season_folder: []u8 = &.{},
+    place: []u8 = &.{},
+    default_field: i32 = -1,
+    mission_index: i32 = 0,
+    game_type: i32 = 0,
+    attacking_side: i32 = 0,
+    camera: [3]f32 = .{ 0, 0, 0 },
+    script_file: []u8 = &.{},
+    chapter_name: []u8 = &.{},
+    forest_circle_sounds: []u8 = &.{},
+    forest_ambient_sounds: []u8 = &.{},
+    mod_name: []u8 = &.{},
+    mod_version: []u8 = &.{},
+    fields: std.ArrayListUnmanaged(WeightedName) = .empty,
+    graphs: std.ArrayListUnmanaged(WeightedName) = .empty,
+    vso: std.ArrayListUnmanaged(VsoEntry) = .empty,
+    /// The side of each player (0 or 1), then the neutral entry (2).
+    diplomacies: std.ArrayListUnmanaged(u8) = .empty,
+    units: std.ArrayListUnmanaged(records.UnitCreation) = .empty,
+    script_ids: std.ArrayListUnmanaged(i32) = .empty,
+    script_areas: std.ArrayListUnmanaged([]u8) = .empty,
+
+    /// What File > New starts from (OnAddTemplateButton: no size, summer, the
+    /// default pair of players and the neutral, each player's default unit
+    /// creation, the camera at the origin).
+    pub fn initNew(allocator: Allocator) Allocator.Error!Template {
+        var out: Template = .{};
+        errdefer out.deinit(allocator);
+        out.season_folder = try dupe(allocator, "");
+        try out.diplomacies.appendSlice(allocator, &.{ 0, 1, 2 });
+        try out.units.appendNTimes(allocator, defaultUnit(), 2);
+        return out;
+    }
+
+    pub fn defaultUnit() records.UnitCreation {
+        var unit = records.UnitCreation.defaults();
+        unit.slot_count = 0;
+        return unit;
+    }
+
+    pub fn texts(self: *Template) [8]*[]u8 {
+        return .{ &self.season_folder, &self.place, &self.script_file, &self.chapter_name, &self.forest_circle_sounds, &self.forest_ambient_sounds, &self.mod_name, &self.mod_version };
+    }
+
+    pub fn deinit(self: *Template, allocator: Allocator) void {
+        for (self.texts()) |slot| allocator.free(slot.*);
+        for (self.fields.items) |*entry| entry.deinit(allocator);
+        self.fields.deinit(allocator);
+        for (self.graphs.items) |*entry| entry.deinit(allocator);
+        self.graphs.deinit(allocator);
+        for (self.vso.items) |*entry| entry.deinit(allocator);
+        self.vso.deinit(allocator);
+        self.diplomacies.deinit(allocator);
+        self.units.deinit(allocator);
+        self.script_ids.deinit(allocator);
+        for (self.script_areas.items) |area| allocator.free(area);
+        self.script_areas.deinit(allocator);
+        self.* = .{};
+    }
+
+    pub fn clone(self: *const Template, allocator: Allocator) Allocator.Error!Template {
+        var out: Template = .{
+            .size_x = self.size_x,
+            .size_y = self.size_y,
+            .season = self.season,
+            .default_field = self.default_field,
+            .mission_index = self.mission_index,
+            .game_type = self.game_type,
+            .attacking_side = self.attacking_side,
+            .camera = self.camera,
+        };
+        errdefer out.deinit(allocator);
+        const mine = @constCast(self).texts();
+        const theirs = out.texts();
+        for (mine, theirs) |from, to| to.* = try dupe(allocator, from.*);
+        try out.fields.ensureTotalCapacity(allocator, self.fields.items.len);
+        for (self.fields.items) |entry| out.fields.appendAssumeCapacity(try entry.clone(allocator));
+        try out.graphs.ensureTotalCapacity(allocator, self.graphs.items.len);
+        for (self.graphs.items) |entry| out.graphs.appendAssumeCapacity(try entry.clone(allocator));
+        try out.vso.ensureTotalCapacity(allocator, self.vso.items.len);
+        for (self.vso.items) |entry| out.vso.appendAssumeCapacity(try entry.clone(allocator));
+        try out.diplomacies.appendSlice(allocator, self.diplomacies.items);
+        try out.units.appendSlice(allocator, self.units.items);
+        try out.script_ids.appendSlice(allocator, self.script_ids.items);
+        try out.script_areas.ensureTotalCapacity(allocator, self.script_areas.items.len);
+        for (self.script_areas.items) |area| out.script_areas.appendAssumeCapacity(try dupe(allocator, area));
+        return out;
+    }
+
+    pub fn eql(self: *const Template, other: *const Template) bool {
+        if (self.size_x != other.size_x or self.size_y != other.size_y or self.season != other.season or self.default_field != other.default_field) return false;
+        if (self.mission_index != other.mission_index or self.game_type != other.game_type or self.attacking_side != other.attacking_side) return false;
+        for (self.camera, other.camera) |a, b| if (!sameFloat32(a, b)) return false;
+        const mine = @constCast(self).texts();
+        const theirs = @constCast(other).texts();
+        for (mine, theirs) |a, b| if (!std.mem.eql(u8, a.*, b.*)) return false;
+        if (self.fields.items.len != other.fields.items.len or self.graphs.items.len != other.graphs.items.len or self.vso.items.len != other.vso.items.len) return false;
+        for (self.fields.items, other.fields.items) |a, b| if (a.weight != b.weight or !std.mem.eql(u8, a.name, b.name)) return false;
+        for (self.graphs.items, other.graphs.items) |a, b| if (a.weight != b.weight or !std.mem.eql(u8, a.name, b.name)) return false;
+        for (self.vso.items, other.vso.items) |a, b| {
+            if (a.weight != b.weight or !std.mem.eql(u8, a.name, b.name) or !sameFloat32(a.width, b.width) or !sameFloat32(a.opacity, b.opacity)) return false;
+        }
+        if (!std.mem.eql(u8, self.diplomacies.items, other.diplomacies.items)) return false;
+        if (self.units.items.len != other.units.items.len) return false;
+        for (self.units.items, other.units.items) |a, b| if (!a.eql(b)) return false;
+        return sameInts(self.script_ids.items, other.script_ids.items) and sameAreas(self.script_areas.items, other.script_areas.items);
+    }
+
+    pub fn setText(self: *Template, allocator: Allocator, which: TextField, text: []const u8) Allocator.Error!void {
+        const slot = self.texts()[@intFromEnum(which)];
+        try setTextOf(allocator, slot, text);
+    }
+
+    pub const TextField = enum(usize) { season_folder, place, script_file, chapter_name, forest_circle_sounds, forest_ambient_sounds, mod_name, mod_version };
+
+    /// The players: every diplomacy entry but the neutral.
+    pub fn playerCount(self: *const Template) usize {
+        return if (self.diplomacies.items.len == 0) 0 else self.diplomacies.items.len - 1;
+    }
+
+    /// Players on side 0 and side 1 (the list's "Players" cell: "N / a / b").
+    pub fn sideCounts(self: *const Template) [2]usize {
+        var out = [2]usize{ 0, 0 };
+        for (self.diplomacies.items[0..self.playerCount()]) |side| {
+            if (side == 0) out[0] += 1 else if (side == 1) out[1] += 1;
+        }
+        return out;
+    }
+
+    /// The MFC's rule when the last graph leaves: no size, season, folder or
+    /// script lists (OnDeleteGraphButton).
+    pub fn clearHeader(self: *Template, allocator: Allocator) void {
+        self.size_x = 0;
+        self.size_y = 0;
+        self.season = 0;
+        allocator.free(self.season_folder);
+        self.season_folder = allocator.dupe(u8, "") catch &.{};
+        self.script_ids.clearRetainingCapacity();
+        for (self.script_areas.items) |area| allocator.free(area);
+        self.script_areas.clearRetainingCapacity();
+    }
+
+    /// Takes size, season, folder and script lists from `summary` (the first
+    /// graph's own, OnAddGraphButton).
+    pub fn setHeaderFrom(self: *Template, allocator: Allocator, summary: Summary) Allocator.Error!void {
+        self.size_x = summary.size_x;
+        self.size_y = summary.size_y;
+        self.season = summary.season;
+        try setTextOf(allocator, &self.season_folder, summary.season_folder);
+        self.script_ids.clearRetainingCapacity();
+        try self.script_ids.appendSlice(allocator, summary.script_ids);
+        for (self.script_areas.items) |area| allocator.free(area);
+        self.script_areas.clearRetainingCapacity();
+        for (summary.script_areas) |area| {
+            const copy = try dupe(allocator, area);
+            errdefer allocator.free(copy);
+            try self.script_areas.append(allocator, copy);
+        }
+    }
+
+    fn findNamed(list: []const WeightedName, name: []const u8) ?usize {
+        for (list, 0..) |entry, i| if (std.mem.eql(u8, entry.name, name)) return i;
+        return null;
+    }
+
+    pub fn removeGraphs(self: *Template, allocator: Allocator, doomed: []const usize) void {
+        removeIndexed(WeightedName, allocator, &self.graphs, doomed);
+        if (self.graphs.items.len == 0) self.clearHeader(allocator);
+    }
+
+    /// A field set leaves: the default stays on the field it named (the MFC left
+    /// the index where it was, so it named the next one after a removal above).
+    pub fn removeFields(self: *Template, allocator: Allocator, doomed: []const usize) void {
+        var default_name: ?[]u8 = null;
+        if (self.default_field >= 0 and @as(usize, @intCast(self.default_field)) < self.fields.items.len) {
+            default_name = allocator.dupe(u8, self.fields.items[@intCast(self.default_field)].name) catch null;
+        }
+        defer if (default_name) |name| allocator.free(name);
+        removeIndexed(WeightedName, allocator, &self.fields, doomed);
+        self.default_field = -1;
+        if (default_name) |name| if (findNamed(self.fields.items, name)) |at| {
+            self.default_field = @intCast(at);
+        };
+    }
+
+    pub fn removeVso(self: *Template, allocator: Allocator, doomed: []const usize) void {
+        removeIndexed(VsoEntry, allocator, &self.vso, doomed);
+    }
+
+    /// Adds field set `name` with the default weight; one already listed is taken
+    /// out first and goes in at the end (OnAddFieldButton) with the default
+    /// still on the same field.
+    pub fn addField(self: *Template, allocator: Allocator, name: []const u8) Allocator.Error!void {
+        var default_name: ?[]u8 = null;
+        if (self.default_field >= 0 and @as(usize, @intCast(self.default_field)) < self.fields.items.len) {
+            default_name = try dupe(allocator, self.fields.items[@intCast(self.default_field)].name);
+        }
+        defer if (default_name) |kept| allocator.free(kept);
+        if (findNamed(self.fields.items, name)) |at| removeIndexed(WeightedName, allocator, &self.fields, &.{at});
+        var made: WeightedName = .{ .name = try dupe(allocator, name), .weight = default_field_weight };
+        errdefer made.deinit(allocator);
+        try self.fields.append(allocator, made);
+        self.default_field = -1;
+        if (default_name) |kept| if (findNamed(self.fields.items, kept)) |at| {
+            self.default_field = @intCast(at);
+        };
+    }
+
+    pub fn addVso(self: *Template, allocator: Allocator, name: []const u8) Allocator.Error!void {
+        for (self.vso.items, 0..) |entry, i| if (std.mem.eql(u8, entry.name, name)) {
+            removeIndexed(VsoEntry, allocator, &self.vso, &.{i});
+            break;
+        };
+        var made: VsoEntry = .{ .name = try dupe(allocator, name) };
+        errdefer made.deinit(allocator);
+        try self.vso.append(allocator, made);
+    }
+
+    /// The default field's index (-1: none); the dialog's "Default" tick
+    /// moves it (RMG_TemplateFieldPropertiesDialog).
+    pub fn setDefaultField(self: *Template, index: i32) bool {
+        if (index < -1 or index >= @as(i32, @intCast(self.fields.items.len))) return false;
+        self.default_field = index;
+        return true;
+    }
+
+    /// The Diplomacy dialog's own result (OnTemplateDiplomacyButton): the table,
+    /// the unit creation follows it (a player added gets the defaults, one removed
+    /// takes its unit creation along), the game type and the attacking side.
+    pub fn setDiplomacy(self: *Template, allocator: Allocator, sides: []const u8, game_type: i32, attacking_side: i32) Allocator.Error!bool {
+        if (sides.len < 3 or sides.len > max_diplomacies or sides[sides.len - 1] != 2) return false;
+        for (sides[0 .. sides.len - 1]) |side| if (side > 1) return false;
+        if (game_type < 0 or game_type >= game_type_names.len or (attacking_side != 0 and attacking_side != 1)) return false;
+        // `sides` may be this template's own table (a game type change passes it back).
+        const copy = try allocator.dupe(u8, sides);
+        defer allocator.free(copy);
+        self.diplomacies.clearRetainingCapacity();
+        try self.diplomacies.appendSlice(allocator, copy);
+        try self.fitUnitsToPlayers(allocator);
+        self.game_type = game_type;
+        self.attacking_side = attacking_side;
+        return true;
+    }
+
+    /// One unit creation per player (`units.resize(diplomacies.size() - 1)`).
+    pub fn fitUnitsToPlayers(self: *Template, allocator: Allocator) Allocator.Error!void {
+        const want = self.playerCount();
+        if (self.units.items.len > want) {
+            self.units.shrinkRetainingCapacity(want);
+        } else if (self.units.items.len < want) {
+            try self.units.appendNTimes(allocator, defaultUnit(), want - self.units.items.len);
+        }
+    }
+};
+
+fn setTextOf(allocator: Allocator, slot: *[]u8, text: []const u8) Allocator.Error!void {
+    const copy = try allocator.dupe(u8, text);
+    allocator.free(slot.*);
+    slot.* = copy;
+}
+
+/// What adding a graph to a template found (RMG_CreateTemplateDialog.cpp
+/// OnAddGraphButton): the size, season and folder must be the template's (the
+/// first graph gives them); script lists that differ are only reported.
+pub const TemplateAddOutcome = union(enum) {
+    added,
+    /// Added, with the script-list difference to report.
+    added_warning: []u8,
+    unreadable,
+    /// Refused; names what differs ("Invalid Size: ...").
+    mismatch: []u8,
+
+    pub fn deinit(self: *TemplateAddOutcome, allocator: Allocator) void {
+        switch (self.*) {
+            .added_warning, .mismatch => |text| allocator.free(text),
+            else => {},
+        }
+        self.* = .added;
+    }
+};
+
+/// Where the template rules read a graph and a field set (owned values, null when
+/// they do not load) and whether a file is in the storages; plus the container
+/// and tileset facts the graph and field set rules ask.
+pub const TemplateSource = struct {
+    ctx: *anyopaque,
+    graph_fn: *const fn (ctx: *anyopaque, allocator: Allocator, name: []const u8) ?Graph,
+    field_fn: *const fn (ctx: *anyopaque, allocator: Allocator, name: []const u8) ?FieldSet,
+    exists_fn: *const fn (ctx: *anyopaque, name: []const u8, extension: []const u8) bool,
+    containers: Source,
+    facts: FieldSource,
+
+    pub fn graph(self: TemplateSource, allocator: Allocator, name: []const u8) ?Graph {
+        return self.graph_fn(self.ctx, allocator, name);
+    }
+    pub fn field(self: TemplateSource, allocator: Allocator, name: []const u8) ?FieldSet {
+        return self.field_fn(self.ctx, allocator, name);
+    }
+    pub fn exists(self: TemplateSource, name: []const u8, extension: []const u8) bool {
+        return self.exists_fn(self.ctx, name, extension);
+    }
+
+    /// A graph's own header as the facts the template compares.
+    pub fn graphSummary(self: TemplateSource, allocator: Allocator, name: []const u8) Allocator.Error!?Summary {
+        var g = self.graph(allocator, name) orelse return null;
+        defer g.deinit(allocator);
+        var out: Summary = .{ .size_x = g.size_x, .size_y = g.size_y, .season = g.season };
+        errdefer out.deinit(allocator);
+        out.season_folder = try dupe(allocator, g.season_folder);
+        out.script_ids = try allocator.dupe(i32, g.script_ids.items);
+        const areas = try allocator.alloc([]u8, g.script_areas.items.len);
+        var made: usize = 0;
+        errdefer {
+            for (areas[0..made]) |area| allocator.free(area);
+            allocator.free(areas);
+        }
+        for (g.script_areas.items, 0..) |area, i| {
+            areas[i] = try dupe(allocator, area);
+            made += 1;
+        }
+        out.script_areas = areas;
+        return out;
+    }
+};
+
+fn templateHeaderSummary(t: *const Template) Summary {
+    return .{ .size_x = t.size_x, .size_y = t.size_y, .season = t.season, .season_folder = t.season_folder, .script_ids = t.script_ids.items, .script_areas = t.script_areas.items };
+}
+
+/// The template's size, season and folder against a graph's: what the MFC's add
+/// refused over ("Invalid Size", "Invalid Season", "Invalid Season Folder"),
+/// empty when they agree; the script lists differing go to `script_text`.
+fn describeTemplateMismatch(allocator: Allocator, header: Summary, other: Summary, script_text: *?[]u8) Allocator.Error![]u8 {
+    var text = std.ArrayListUnmanaged(u8).empty;
+    errdefer text.deinit(allocator);
+    if (header.size_x != other.size_x or header.size_y != other.size_y) {
+        try text.print(allocator, "Invalid Size: template [{d}x{d}], graph [{d}x{d}]. ", .{ header.size_x, header.size_y, other.size_x, other.size_y });
+    }
+    if (header.season != other.season) {
+        try text.print(allocator, "Invalid Season: template {s}, graph {s}. ", .{ seasonName(header.season, header.season_folder), seasonName(other.season, other.season_folder) });
+    }
+    if (!std.ascii.eqlIgnoreCase(header.season_folder, other.season_folder)) {
+        try text.print(allocator, "Invalid Season Folder: template <{s}>, graph <{s}>. ", .{ header.season_folder, other.season_folder });
+    }
+    while (text.items.len != 0 and text.items[text.items.len - 1] == ' ') _ = text.pop();
+    const critical = try text.toOwnedSlice(allocator);
+    errdefer allocator.free(critical);
+    var scripts = std.ArrayListUnmanaged(u8).empty;
+    errdefer scripts.deinit(allocator);
+    if (!sameInts(header.script_ids, other.script_ids)) {
+        try scripts.appendSlice(allocator, "Different ScriptIDs used: template <");
+        try printIds(allocator, &scripts, header.script_ids);
+        try scripts.appendSlice(allocator, ">, graph <");
+        try printIds(allocator, &scripts, other.script_ids);
+        try scripts.appendSlice(allocator, ">. ");
+    }
+    if (!sameAreas(header.script_areas, other.script_areas)) {
+        try scripts.appendSlice(allocator, "Different ScriptAreas used: template <");
+        try printAreas(allocator, &scripts, header.script_areas);
+        try scripts.appendSlice(allocator, ">, graph <");
+        try printAreas(allocator, &scripts, other.script_areas);
+        try scripts.appendSlice(allocator, ">. ");
+    }
+    while (scripts.items.len != 0 and scripts.items[scripts.items.len - 1] == ' ') _ = scripts.pop();
+    script_text.* = if (scripts.items.len == 0) null else try scripts.toOwnedSlice(allocator);
+    if (scripts.items.len == 0) scripts.deinit(allocator);
+    return critical;
+}
+
+/// Adds graph `name` the MFC's way: the first one gives the template its size,
+/// season, folder and script lists; a later one must have the same size,
+/// season and folder (refused, naming the difference) and only a script-list
+/// difference is reported. A graph already listed is taken out first and goes in
+/// at the end. A refusal changes nothing.
+pub fn addTemplateGraph(allocator: Allocator, t: *Template, source: TemplateSource, name: []const u8) Allocator.Error!TemplateAddOutcome {
+    var info = (try source.graphSummary(allocator, name)) orelse return .unreadable;
+    defer info.deinit(allocator);
+    var others = false;
+    for (t.graphs.items) |entry| if (!std.mem.eql(u8, entry.name, name)) {
+        others = true;
+    };
+    var warning: ?[]u8 = null;
+    if (others) {
+        const critical = try describeTemplateMismatch(allocator, templateHeaderSummary(t), info, &warning);
+        if (critical.len != 0) {
+            if (warning) |text| allocator.free(text);
+            return .{ .mismatch = critical };
+        }
+        allocator.free(critical);
+    }
+    errdefer if (warning) |text| allocator.free(text);
+    for (t.graphs.items, 0..) |entry, i| if (std.mem.eql(u8, entry.name, name)) {
+        t.removeGraphs(allocator, &.{i});
+        break;
+    };
+    if (t.graphs.items.len == 0) try t.setHeaderFrom(allocator, info);
+    var made: WeightedName = .{ .name = try dupe(allocator, name), .weight = default_graph_weight };
+    errdefer made.deinit(allocator);
+    try t.graphs.append(allocator, made);
+    return if (warning) |text| .{ .added_warning = text } else .added;
+}
+
+/// What a template Check! found, one finding per defect, fixes named. The
+/// graph and field set rules run on every listed one with the finding prefixed
+/// by its name (and nothing fixable here - the repair is in that composer).
+/// M3's own addition: the MFC's Check! button did nothing
+/// (RMG_CreateTemplateDialog.cpp:1269 OnCheckTemplatesButton is an empty
+/// function).
+pub fn checkTemplate(allocator: Allocator, t: *const Template, source: TemplateSource) Allocator.Error!Report {
+    var report: Report = .{};
+    errdefer report.deinit(allocator);
+    if (t.season < 0 or t.season > 3) {
+        try report.add(allocator, .@"error", -1, .none, "season {d} is outside 0..3", .{t.season});
+    }
+    // Lists.
+    if (t.graphs.items.len == 0) try report.add(allocator, .warning, -1, .none, "the template lists no graph: nothing can be generated from it", .{});
+    if (t.fields.items.len == 0) try report.add(allocator, .warning, -1, .none, "the template lists no field set", .{});
+    var graph_weight: i64 = 0;
+    var first_summary: ?Summary = null;
+    defer if (first_summary) |*info| info.deinit(allocator);
+    for (t.graphs.items, 0..) |entry, i| {
+        graph_weight += entry.weight;
+        if (entry.weight < 0) try report.add(allocator, .@"error", @intCast(i), .{ .zero_template_weight = .{ .list = 1, .index = i } }, "graph {d} \"{s}\": weight {d} is below 0", .{ i, entry.name, entry.weight });
+        var graph = source.graph(allocator, entry.name) orelse {
+            try report.add(allocator, .@"error", @intCast(i), .{ .remove_template_graph = i }, "graph {d} \"{s}\" cannot be loaded through the storages", .{ i, entry.name });
+            continue;
+        };
+        defer graph.deinit(allocator);
+        // The graph against the template's header (the add rule, run again).
+        var summary = (try source.graphSummary(allocator, entry.name)) orelse continue;
+        var keep = false;
+        defer if (!keep) summary.deinit(allocator);
+        if (first_summary == null) {
+            first_summary = summary;
+            keep = true;
+            // A size, season or folder that is not the first graph's is a defect (the add
+            // refused it); script lists that differ are the MFC's non-critical warning.
+            var warning: ?[]u8 = null;
+            const critical = try describeTemplateMismatch(allocator, templateHeaderSummary(t), summary, &warning);
+            defer allocator.free(critical);
+            defer if (warning) |text| allocator.free(text);
+            if (critical.len != 0) {
+                try report.add(allocator, .@"error", @intCast(i), .take_header_from_graph, "the template's size, season or folder is not its first graph's: {s}", .{critical});
+            }
+            if (warning) |text| {
+                try report.add(allocator, .warning, @intCast(i), .take_header_from_graph, "the template's script lists are not its first graph's: {s}", .{text});
+            }
+        } else {
+            var warning: ?[]u8 = null;
+            const critical = try describeTemplateMismatch(allocator, templateHeaderSummary(t), summary, &warning);
+            defer allocator.free(critical);
+            defer if (warning) |text| allocator.free(text);
+            if (critical.len != 0) {
+                try report.add(allocator, .@"error", @intCast(i), .{ .remove_template_graph = i }, "graph {d} \"{s}\" does not belong with the template: {s}", .{ i, entry.name, critical });
+            } else if (warning) |text| {
+                try report.add(allocator, .warning, @intCast(i), .none, "graph {d} \"{s}\": {s}", .{ i, entry.name, text });
+            }
+        }
+        var inner = try checkGraph(allocator, &graph, source.containers);
+        defer inner.deinit(allocator);
+        for (inner.findings.items) |finding| {
+            try report.add(allocator, finding.severity, @intCast(i), .none, "graph {d} \"{s}\": {s}", .{ i, entry.name, finding.text });
+        }
+    }
+    if (t.graphs.items.len != 0 and graph_weight <= 0) try report.add(allocator, .warning, -1, .none, "every graph has weight 0: the generator has none to draw", .{});
+    for (t.fields.items, 0..) |entry, i| {
+        if (entry.weight < 0) try report.add(allocator, .@"error", @intCast(i), .{ .zero_template_weight = .{ .list = 0, .index = i } }, "field {d} \"{s}\": weight {d} is below 0", .{ i, entry.name, entry.weight });
+        var field = source.field(allocator, entry.name) orelse {
+            try report.add(allocator, .@"error", @intCast(i), .{ .remove_template_field = i }, "field set {d} \"{s}\" cannot be loaded through the storages", .{ i, entry.name });
+            continue;
+        };
+        defer field.deinit(allocator);
+        var inner = try checkFieldSet(allocator, &field, source.facts);
+        defer inner.deinit(allocator);
+        for (inner.findings.items) |finding| {
+            try report.add(allocator, finding.severity, @intCast(i), .none, "field set {d} \"{s}\": {s}", .{ i, entry.name, finding.text });
+        }
+    }
+    if (t.default_field < -1 or t.default_field >= @as(i32, @intCast(t.fields.items.len))) {
+        try report.add(allocator, .@"error", -1, .clear_default_field, "the default field {d} is not one of the {d} field sets listed", .{ t.default_field, t.fields.items.len });
+    }
+    for (t.vso.items, 0..) |entry, i| {
+        if (!source.exists(entry.name, ".xml")) {
+            try report.add(allocator, .@"error", @intCast(i), .{ .remove_template_vso = i }, "vso {d} \"{s}\" is not a descriptor of the storages", .{ i, entry.name });
+        }
+        if (entry.weight < 0) try report.add(allocator, .@"error", @intCast(i), .{ .zero_template_weight = .{ .list = 2, .index = i } }, "vso {d} \"{s}\": weight {d} is below 0", .{ i, entry.name, entry.weight });
+        if (!std.math.isFinite(entry.width) or entry.width <= 0 or !std.math.isFinite(entry.opacity) or entry.opacity < 0 or entry.opacity > 1) {
+            try report.add(allocator, .@"error", @intCast(i), .{ .clamp_vso = i }, "vso {d} \"{s}\": width {d:.2} cells or opacity {d:.0}% is out of range (width above 0, opacity 0..100%)", .{ i, entry.name, entry.width / world_cell, entry.opacity * 100 });
+        }
+    }
+    // The players.
+    if (t.diplomacies.items.len < 3 or t.diplomacies.items.len > max_diplomacies or t.diplomacies.items[t.diplomacies.items.len - 1] != 2) {
+        try report.add(allocator, .@"error", -1, .none, "the diplomacy table has {d} entries: two to sixteen players, then the neutral (2)", .{t.diplomacies.items.len});
+    } else if (t.units.items.len != t.playerCount()) {
+        try report.add(allocator, .@"error", -1, .resize_units, "the template has {d} players and {d} unit creation entries", .{ t.playerCount(), t.units.items.len });
+    }
+    if (t.game_type < 0 or t.game_type >= game_type_names.len) {
+        try report.add(allocator, .@"error", -1, .none, "game type {d} is not one of the {d} the game has", .{ t.game_type, game_type_names.len });
+    }
+    if (t.attacking_side != 0 and t.attacking_side != 1) {
+        try report.add(allocator, .@"error", -1, .none, "the attacking side {d} is not 0 or 1", .{t.attacking_side});
+    }
+    const limit_x = @as(f32, @floatFromInt(t.size_x)) * appear_units_per_patch;
+    const limit_y = @as(f32, @floatFromInt(t.size_y)) * appear_units_per_patch;
+    if (t.size_x > 0 and t.size_y > 0) {
+        for (t.units.items, 0..) |unit, player| {
+            for (unit.appearSlice(), 0..) |point, k| {
+                if (point.x < 0 or point.y < 0 or point.x > limit_x or point.y > limit_y) {
+                    try report.add(allocator, .warning, @intCast(player), .none, "player {d}: appear point {d} ({d:.0}, {d:.0}) is off the {d}x{d} patch map", .{ player, k, point.x, point.y, t.size_x, t.size_y });
+                }
+            }
+        }
+    }
+    if (t.script_file.len != 0 and !source.exists(t.script_file, ".lua")) {
+        try report.add(allocator, .warning, -1, .none, "the script \"{s}\" is not a .lua of the storages", .{t.script_file});
+    }
+    return report;
+}
+
+pub fn applyTemplateFix(allocator: Allocator, t: *Template, source: TemplateSource, fix: Fix) Allocator.Error!void {
+    switch (fix) {
+        .remove_template_graph => |index| t.removeGraphs(allocator, &.{index}),
+        .remove_template_field => |index| t.removeFields(allocator, &.{index}),
+        .remove_template_vso => |index| t.removeVso(allocator, &.{index}),
+        .zero_template_weight => |at| switch (at.list) {
+            0 => if (at.index < t.fields.items.len) {
+                t.fields.items[at.index].weight = 0;
+            },
+            1 => if (at.index < t.graphs.items.len) {
+                t.graphs.items[at.index].weight = 0;
+            },
+            else => if (at.index < t.vso.items.len) {
+                t.vso.items[at.index].weight = 0;
+            },
+        },
+        .clear_default_field => t.default_field = -1,
+        .clamp_vso => |index| {
+            if (index < t.vso.items.len) {
+                const entry = &t.vso.items[index];
+                if (!std.math.isFinite(entry.width) or entry.width <= 0) entry.width = vso_default_width;
+                entry.opacity = if (!std.math.isFinite(entry.opacity)) vso_default_opacity else std.math.clamp(entry.opacity, 0, 1);
+            }
+        },
+        .resize_units => try t.fitUnitsToPlayers(allocator),
+        .take_header_from_graph => {
+            for (t.graphs.items) |entry| {
+                var info = (try source.graphSummary(allocator, entry.name)) orelse continue;
+                defer info.deinit(allocator);
+                try t.setHeaderFrom(allocator, info);
+                break;
+            }
+        },
+        else => {},
+    }
+}
+
+/// Fix all (one undo step): the repairs that renumber nothing, then the
+/// removals highest index first within each list. Returns the findings fixed.
+pub fn fixAllTemplate(allocator: Allocator, t: *Template, source: TemplateSource, report: *const Report) Allocator.Error!usize {
+    var fixed: usize = 0;
+    var graphs = std.ArrayListUnmanaged(usize).empty;
+    defer graphs.deinit(allocator);
+    var fields = std.ArrayListUnmanaged(usize).empty;
+    defer fields.deinit(allocator);
+    var vsos = std.ArrayListUnmanaged(usize).empty;
+    defer vsos.deinit(allocator);
+    var header = false;
+    for (report.findings.items) |finding| switch (finding.fix) {
+        .none => {},
+        .remove_template_graph => |index| {
+            try graphs.append(allocator, index);
+            fixed += 1;
+        },
+        .remove_template_field => |index| {
+            try fields.append(allocator, index);
+            fixed += 1;
+        },
+        .remove_template_vso => |index| {
+            try vsos.append(allocator, index);
+            fixed += 1;
+        },
+        .take_header_from_graph => {
+            header = true;
+            fixed += 1;
+        },
+        else => {
+            try applyTemplateFix(allocator, t, source, finding.fix);
+            fixed += 1;
+        },
+    };
+    t.removeGraphs(allocator, graphs.items);
+    t.removeFields(allocator, fields.items);
+    t.removeVso(allocator, vsos.items);
+    if (header) try applyTemplateFix(allocator, t, source, .take_header_from_graph);
+    return fixed;
+}
+
+pub const TemplateDoc = Document(Template);
+
+// ---------------------------------------------------------------------------
 // The Graphs Composer canvas (D-11)
 // ---------------------------------------------------------------------------
 
@@ -2835,5 +3496,250 @@ test "a field set document keeps its own undo and shipped state" {
     try testing.expect(try doc.redo());
     try testing.expectEqual(@as(usize, 1), doc.current.tile_shells.items.len);
     try doc.markSaved("scenarios\\fieldsets\\user\\mine");
+    try testing.expect(!doc.shipped and !doc.dirty);
+}
+
+/// A TemplateSource over tables: graphs (each one node holding the named
+/// container), field sets that load, and the files the storages hold.
+const TestTemplateFacts = struct {
+    const GraphEntry = struct { name: []const u8, season: i32, folder: []const u8, size: i32, ids: []const i32, areas: []const []const u8, container: []const u8 };
+    graphs: []const GraphEntry,
+    fields: []const []const u8,
+    files: []const []const u8,
+    containers: *TestSource,
+    facts: *TestFieldFacts,
+
+    fn graph(ctx: *anyopaque, a: Allocator, name: []const u8) ?Graph {
+        const self: *TestTemplateFacts = @ptrCast(@alignCast(ctx));
+        for (self.graphs) |entry| {
+            if (!std.mem.eql(u8, entry.name, name)) continue;
+            var g: Graph = .{ .size_x = entry.size, .size_y = entry.size, .season = entry.season };
+            g.season_folder = dupe(a, entry.folder) catch return null;
+            g.script_ids.appendSlice(a, entry.ids) catch return null;
+            for (entry.areas) |area| g.script_areas.append(a, dupe(a, area) catch return null) catch return null;
+            _ = g.addNode(a, .{ .x1 = 0, .y1 = 0, .x2 = 16 * entry.size, .y2 = 16 * entry.size }) catch return null;
+            setText(a, &g.nodes.items[0].container, entry.container) catch return null;
+            return g;
+        }
+        return null;
+    }
+    fn field(ctx: *anyopaque, a: Allocator, name: []const u8) ?FieldSet {
+        const self: *TestTemplateFacts = @ptrCast(@alignCast(ctx));
+        for (self.fields) |known| {
+            if (!std.mem.eql(u8, known, name)) continue;
+            var f = FieldSet.initNew(a) catch return null;
+            const shell = f.addTileShell(a) catch return null;
+            _ = f.addTile(a, shell, 3) catch return null;
+            return f;
+        }
+        return null;
+    }
+    fn exists(ctx: *anyopaque, name: []const u8, extension: []const u8) bool {
+        const self: *TestTemplateFacts = @ptrCast(@alignCast(ctx));
+        var buffer: [256]u8 = undefined;
+        const joined = std.fmt.bufPrint(&buffer, "{s}{s}", .{ name, extension }) catch return false;
+        for (self.files) |known| if (std.mem.eql(u8, known, joined)) return true;
+        return false;
+    }
+    fn source(self: *TestTemplateFacts) TemplateSource {
+        return .{ .ctx = self, .graph_fn = graph, .field_fn = field, .exists_fn = exists, .containers = self.containers.source(), .facts = self.facts.source() };
+    }
+};
+
+test "a template takes the composer's edits by the MFC's rules" {
+    const a = testing.allocator;
+    var t = try Template.initNew(a);
+    defer t.deinit(a);
+    // File > New: two players, the neutral, a unit creation each.
+    try testing.expectEqualSlices(u8, &.{ 0, 1, 2 }, t.diplomacies.items);
+    try testing.expectEqual(@as(usize, 2), t.units.items.len);
+    try testing.expectEqual(@as(usize, 2), t.playerCount());
+    try testing.expectEqualSlices(usize, &.{ 1, 1 }, &t.sideCounts());
+    // Fields: a default weight, the default stays on its field through a repeat and a removal.
+    try t.addField(a, "scenarios\\fieldsets\\summer\\a");
+    try t.addField(a, "scenarios\\fieldsets\\summer\\b");
+    try t.addField(a, "scenarios\\fieldsets\\summer\\c");
+    try testing.expectEqual(@as(i32, 1), t.fields.items[0].weight);
+    try testing.expect(t.setDefaultField(1) and t.default_field == 1);
+    try testing.expect(!t.setDefaultField(3) and !t.setDefaultField(-2));
+    try t.addField(a, "scenarios\\fieldsets\\summer\\a"); // goes to the end; the default stays on b
+    try testing.expectEqualStrings("scenarios\\fieldsets\\summer\\b", t.fields.items[@intCast(t.default_field)].name);
+    t.removeFields(a, &.{1}); // c goes: b is first and stays the default
+    try testing.expectEqual(@as(i32, 0), t.default_field);
+    try testing.expectEqualStrings("scenarios\\fieldsets\\summer\\b", t.fields.items[@intCast(t.default_field)].name);
+    t.removeFields(a, &.{@as(usize, @intCast(t.default_field)) + 1}); // the last leaves: the default still names b
+    try testing.expectEqualStrings("scenarios\\fieldsets\\summer\\b", t.fields.items[@intCast(t.default_field)].name);
+    t.removeFields(a, &.{@as(usize, @intCast(t.default_field))});
+    try testing.expectEqual(@as(i32, -1), t.default_field);
+    // VSO: two cells wide, opaque; a repeat replaces.
+    try t.addVso(a, "terrain\\sets\\1\\roads3d\\x");
+    try testing.expect(t.vso.items[0].width == 64 and t.vso.items[0].opacity == 1.0 and t.vso.items[0].weight == 1);
+    try t.addVso(a, "terrain\\sets\\1\\roads3d\\x");
+    try testing.expectEqual(@as(usize, 1), t.vso.items.len);
+    // Diplomacy: the unit creation follows the player count; the table's own limits hold.
+    try testing.expect(try t.setDiplomacy(a, &.{ 0, 1, 1, 2 }, 1, 1));
+    try testing.expectEqual(@as(usize, 3), t.units.items.len);
+    try testing.expectEqualSlices(usize, &.{ 1, 2 }, &t.sideCounts());
+    try testing.expect(t.game_type == 1 and t.attacking_side == 1);
+    try testing.expect(!(try t.setDiplomacy(a, &.{ 0, 2 }, 0, 0)));
+    try testing.expect(!(try t.setDiplomacy(a, &.{ 0, 1, 3 }, 0, 0)));
+    try testing.expect(!(try t.setDiplomacy(a, &.{ 0, 5, 2 }, 0, 0)));
+    try testing.expect(!(try t.setDiplomacy(a, &.{ 0, 1, 2 }, 9, 0)));
+    try testing.expect(!(try t.setDiplomacy(a, &.{ 0, 1, 2 }, 0, 2)));
+    try testing.expectEqual(@as(usize, 3), t.units.items.len);
+    try testing.expect(try t.setDiplomacy(a, &.{ 0, 1, 2 }, 0, 0));
+    try testing.expectEqual(@as(usize, 2), t.units.items.len);
+    // A clone is equal until it changes.
+    var copy = try t.clone(a);
+    defer copy.deinit(a);
+    try testing.expect(t.eql(&copy));
+    copy.units.items[0].relax_time = 99;
+    try testing.expect(!t.eql(&copy));
+}
+
+test "adding a graph: the first gives the header, a later size, season or folder is refused, a script difference warns" {
+    const a = testing.allocator;
+    var containers: TestSource = .{ .entries = &.{} };
+    var facts: TestFieldFacts = .{};
+    var source: TestTemplateFacts = .{
+        .graphs = &.{
+            .{ .name = "g\\one", .season = 1, .folder = "terrain\\sets\\2\\", .size = 8, .ids = &.{ 3, 4 }, .areas = &.{"Ambush"}, .container = "" },
+            .{ .name = "g\\two", .season = 1, .folder = "terrain\\sets\\2\\", .size = 8, .ids = &.{ 3, 4 }, .areas = &.{"Ambush"}, .container = "" },
+            .{ .name = "g\\ids", .season = 1, .folder = "terrain\\sets\\2\\", .size = 8, .ids = &.{ 3, 5 }, .areas = &.{"Ambush"}, .container = "" },
+            .{ .name = "g\\big", .season = 1, .folder = "terrain\\sets\\2\\", .size = 12, .ids = &.{ 3, 4 }, .areas = &.{"Ambush"}, .container = "" },
+            .{ .name = "g\\summer", .season = 0, .folder = "terrain\\sets\\1\\", .size = 8, .ids = &.{ 3, 4 }, .areas = &.{"Ambush"}, .container = "" },
+        },
+        .fields = &.{},
+        .files = &.{},
+        .containers = &containers,
+        .facts = &facts,
+    };
+    var t = try Template.initNew(a);
+    defer t.deinit(a);
+    var first = try addTemplateGraph(a, &t, source.source(), "g\\one");
+    defer first.deinit(a);
+    try testing.expect(first == .added);
+    try testing.expect(t.size_x == 8 and t.size_y == 8 and t.season == 1 and std.mem.eql(u8, t.season_folder, "terrain\\sets\\2\\"));
+    try testing.expectEqualSlices(i32, &.{ 3, 4 }, t.script_ids.items);
+    var second = try addTemplateGraph(a, &t, source.source(), "g\\two");
+    defer second.deinit(a);
+    try testing.expect(second == .added);
+    try testing.expectEqual(@as(i32, 1), t.graphs.items[1].weight);
+    var other_ids = try addTemplateGraph(a, &t, source.source(), "g\\ids");
+    defer other_ids.deinit(a);
+    try testing.expect(other_ids == .added_warning);
+    try testing.expect(std.mem.indexOf(u8, other_ids.added_warning, "ScriptIDs") != null);
+    var big = try addTemplateGraph(a, &t, source.source(), "g\\big");
+    defer big.deinit(a);
+    try testing.expect(big == .mismatch and std.mem.indexOf(u8, big.mismatch, "Invalid Size") != null);
+    var summer = try addTemplateGraph(a, &t, source.source(), "g\\summer");
+    defer summer.deinit(a);
+    try testing.expect(summer == .mismatch and std.mem.indexOf(u8, summer.mismatch, "Invalid Season") != null);
+    var nothing = try addTemplateGraph(a, &t, source.source(), "g\\nope");
+    defer nothing.deinit(a);
+    try testing.expect(nothing == .unreadable);
+    try testing.expectEqual(@as(usize, 3), t.graphs.items.len);
+    // A repeat replaces and goes to the end; the last graph leaving forgets the header.
+    var again = try addTemplateGraph(a, &t, source.source(), "g\\one");
+    defer again.deinit(a);
+    try testing.expect(again == .added and t.graphs.items.len == 3);
+    try testing.expectEqualStrings("g\\one", t.graphs.items[2].name);
+    t.removeGraphs(a, &.{ 0, 1, 2 });
+    try testing.expect(t.size_x == 0 and t.season == 0 and t.script_ids.items.len == 0 and t.season_folder.len == 0);
+}
+
+test "template Check! runs the graph and field set rules on every one listed, and Fix all repairs what it can as one step" {
+    const a = testing.allocator;
+    var containers_table = [_]TestSource.Entry{
+        .{ .name = "scenarios\\containers\\winter\\army_s", .season = 1, .folder = "terrain\\sets\\2\\", .ids = &.{}, .areas = &.{}, .size = 1 },
+    };
+    var containers: TestSource = .{ .entries = &containers_table };
+    var facts: TestFieldFacts = .{};
+    var source: TestTemplateFacts = .{
+        .graphs = &.{
+            .{ .name = "g\\one", .season = 1, .folder = "terrain\\sets\\2\\", .size = 8, .ids = &.{}, .areas = &.{}, .container = "scenarios\\containers\\winter\\army_s" },
+            .{ .name = "g\\wide", .season = 1, .folder = "terrain\\sets\\2\\", .size = 12, .ids = &.{}, .areas = &.{}, .container = "scenarios\\containers\\winter\\army_s" },
+            .{ .name = "g\\broken", .season = 1, .folder = "terrain\\sets\\2\\", .size = 8, .ids = &.{}, .areas = &.{}, .container = "scenarios\\containers\\winter\\nothing" },
+        },
+        .fields = &.{ "f\\ok", "f\\ok2" },
+        .files = &.{ "terrain\\sets\\2\\roads3d\\road.xml", "scenarios\\scripts\\s.lua" },
+        .containers = &containers,
+        .facts = &facts,
+    };
+    var t = try Template.initNew(a);
+    defer t.deinit(a);
+    // A clean one: a graph, a field set, a vso, a script.
+    try t.addField(a, "f\\ok");
+    try t.addVso(a, "terrain\\sets\\2\\roads3d\\road");
+    try setTextOf(a, &t.script_file, "scenarios\\scripts\\s");
+    var added = try addTemplateGraph(a, &t, source.source(), "g\\one");
+    defer added.deinit(a);
+    _ = t.setDefaultField(0);
+    {
+        var report = try checkTemplate(a, &t, source.source());
+        defer report.deinit(a);
+        try testing.expectEqual(@as(usize, 0), report.findings.items.len);
+    }
+    // The defects: a graph that does not load, one of another size, one whose container
+    // is missing, a field set that does not load, a vso nobody has, weights below 0,
+    // a default past the list, a vso out of range, unit creation not one per player, a script not there.
+    try t.graphs.append(a, .{ .name = try dupe(a, "g\\gone"), .weight = 1 });
+    try t.graphs.append(a, .{ .name = try dupe(a, "g\\wide"), .weight = -1 });
+    try t.graphs.append(a, .{ .name = try dupe(a, "g\\broken"), .weight = 1 });
+    try t.fields.append(a, .{ .name = try dupe(a, "f\\gone"), .weight = 1 });
+    t.fields.items[0].weight = -5;
+    try t.addVso(a, "terrain\\sets\\2\\roads3d\\missing");
+    t.vso.items[0].opacity = 3;
+    t.vso.items[0].width = -1;
+    t.default_field = 9;
+    try t.units.append(a, Template.defaultUnit());
+    try setTextOf(a, &t.script_file, "scenarios\\scripts\\nope");
+    var report = try checkTemplate(a, &t, source.source());
+    defer report.deinit(a);
+    const has = struct {
+        fn tag(r: *const Report, want: std.meta.Tag(Fix)) bool {
+            for (r.findings.items) |finding| if (std.meta.activeTag(finding.fix) == want) return true;
+            return false;
+        }
+        fn text(r: *const Report, needle: []const u8) bool {
+            for (r.findings.items) |finding| if (std.mem.indexOf(u8, finding.text, needle) != null) return true;
+            return false;
+        }
+    };
+    try testing.expect(has.tag(&report, .remove_template_graph) and has.tag(&report, .remove_template_field) and has.tag(&report, .remove_template_vso));
+    try testing.expect(has.tag(&report, .zero_template_weight) and has.tag(&report, .clear_default_field) and has.tag(&report, .clamp_vso) and has.tag(&report, .resize_units));
+    try testing.expect(has.text(&report, "g\\wide") and has.text(&report, "does not belong with the template"));
+    // The graph rules ran on the graph with the missing container, prefixed by its name.
+    try testing.expect(has.text(&report, "graph 3 \"g\\broken\": node 0: container") and has.text(&report, "cannot be loaded"));
+    try testing.expect(has.text(&report, "is not a .lua of the storages"));
+    const before = t.graphs.items.len;
+    try testing.expectEqual(before, t.graphs.items.len);
+    const fixed = try fixAllTemplate(a, &t, source.source(), &report);
+    try testing.expect(fixed >= 8);
+    // g\\gone and g\\wide leave; g\\broken stays (its repair is the graph composer's).
+    try testing.expectEqual(@as(usize, 2), t.graphs.items.len);
+    try testing.expectEqual(@as(i32, -1), t.default_field);
+    try testing.expectEqual(@as(usize, 2), t.units.items.len);
+    try testing.expect(t.vso.items.len == 0 or t.vso.items[0].opacity <= 1);
+    var again = try checkTemplate(a, &t, source.source());
+    defer again.deinit(a);
+    // What is left is the graph composer's: the broken container, and the script that is not there.
+    for (again.findings.items) |finding| try testing.expect(finding.fix == .none);
+}
+
+test "a template document keeps its own undo and shipped state" {
+    const a = testing.allocator;
+    var doc = TemplateDoc.init(a);
+    defer doc.deinit();
+    try doc.load("scenarios\\templates\\summer\\template00", try Template.initNew(a), true);
+    try testing.expect(doc.shipped and !doc.dirty and !doc.canUndo());
+    const template = try doc.begin();
+    try template.addField(a, "f\\x");
+    try testing.expect(doc.dirty and doc.canUndo());
+    try testing.expect(try doc.undo());
+    try testing.expectEqual(@as(usize, 0), doc.current.fields.items.len);
+    try testing.expect(try doc.redo());
+    try testing.expectEqual(@as(usize, 1), doc.current.fields.items.len);
+    try doc.markSaved("scenarios\\templates\\user\\mine");
     try testing.expect(!doc.shipped and !doc.dirty);
 }

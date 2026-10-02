@@ -205,6 +205,7 @@ pub const FakeRole = struct {
 const RmgContainerFile = struct { name: []u8, shipped: bool, value: rmg_mod.Container };
 const RmgGraphFile = struct { name: []u8, shipped: bool, value: rmg_mod.Graph };
 const RmgFieldSetFile = struct { name: []u8, shipped: bool, value: rmg_mod.FieldSet };
+const RmgTemplateFile = struct { name: []u8, shipped: bool, value: rmg_mod.Template };
 const RmgPatchFile = struct { name: []u8, size_x: i32, size_y: i32, season: i32, folder: []u8, ids: []i32, areas: [][]u8 };
 
 const StartChange = struct { position: usize, before: FakeStartCommand, unit_removed: bool, erased: bool, target_cleared: bool };
@@ -616,6 +617,7 @@ pub const FakeBridge = struct {
     /// 0 is a tileset that will not load) and the files `rmgFileExists` knows
     /// (lower case, backslashes, the extension kept).
     rmg_fieldsets: std.ArrayListUnmanaged(RmgFieldSetFile) = .empty,
+    rmg_templates: std.ArrayListUnmanaged(RmgTemplateFile) = .empty,
     tileset_counts: [4]usize = .{ 12, 12, 12, 12 },
     known_files: []const []const u8 = &.{"scenarios\\profiles\\profile.tga"},
 
@@ -658,6 +660,11 @@ pub const FakeBridge = struct {
             file.value.deinit(self.allocator);
         }
         self.rmg_fieldsets.deinit(self.allocator);
+        for (self.rmg_templates.items) |*file| {
+            self.allocator.free(file.name);
+            file.value.deinit(self.allocator);
+        }
+        self.rmg_templates.deinit(self.allocator);
         for (self.rmg_patches.items) |file| {
             self.allocator.free(file.name);
             self.allocator.free(file.folder);
@@ -1313,6 +1320,8 @@ pub const FakeBridge = struct {
         .rmgImportPatch = rmgImportPatch,
         .rmgRoot = rmgRoot,
         .rmgReadFieldSet = rmgReadFieldSet,
+        .rmgReadTemplate = rmgReadTemplate,
+        .rmgWriteTemplate = rmgWriteTemplate,
         .rmgWriteFieldSet = rmgWriteFieldSet,
         .rmgTileset = rmgTileset,
         .rmgFileExists = rmgFileExists,
@@ -4853,6 +4862,231 @@ pub const FakeBridge = struct {
         return .ok;
     }
 
+    pub fn addTemplateFixture(self: *FakeBridge, name: []const u8, shipped: bool, value: rmg_mod.Template) !void {
+        const owned = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned);
+        try self.rmg_templates.append(self.allocator, .{ .name = owned, .shipped = shipped, .value = value });
+    }
+
+    fn unitToRecord(unit: records.UnitCreation, out: *bridge_mod.RmgUnit) void {
+        out.* = .{ .slot_count = @intCast(unit.slot_count), .paratroop_count = unit.paratroop_count, .relax_time = unit.relax_time, .appear_count = @intCast(unit.appear_count) };
+        @memcpy(&out.party, &unit.party);
+        @memcpy(&out.paratroop_name, &unit.paratroop_name);
+        for (unit.aircraft, 0..) |slot, i| {
+            @memcpy(&out.aircraft[i].name, &slot.name);
+            out.aircraft[i].formation_size = slot.formation_size;
+            out.aircraft[i].count = slot.count;
+        }
+        for (unit.appear, 0..) |point, i| out.appear[i] = .{ .x = point.x, .y = point.y, .z = point.z };
+    }
+
+    fn unitFromRecord(rec: bridge_mod.RmgUnit) records.UnitCreation {
+        var out: records.UnitCreation = .{ .slot_count = 0, .paratroop_count = rec.paratroop_count, .relax_time = rec.relax_time, .appear_count = @intCast(@max(rec.appear_count, 0)) };
+        @memcpy(&out.party, &rec.party);
+        @memcpy(&out.paratroop_name, &rec.paratroop_name);
+        for (rec.aircraft, 0..) |slot, i| {
+            @memcpy(&out.aircraft[i].name, &slot.name);
+            out.aircraft[i].formation_size = slot.formation_size;
+            out.aircraft[i].count = slot.count;
+        }
+        for (rec.appear, 0..) |point, i| out.appear[i] = .{ .x = point.x, .y = point.y, .z = point.z };
+        return out;
+    }
+
+    fn rmgReadTemplate(ptr: *anyopaque, name: [*:0]const u8, rec: *bridge_mod.RmgTemplateRecord) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        rec.field_count = 0;
+        rec.graph_count = 0;
+        rec.vso_count = 0;
+        rec.diplomacy_count = 0;
+        rec.unit_count = 0;
+        rec.scripts.id_count = 0;
+        rec.scripts.area_count = 0;
+        var buffer: [192]u8 = undefined;
+        const wanted = rmgName(&buffer, std.mem.span(name));
+        if (!rmgNameIsPlain(wanted, "scenarios\\templates\\")) {
+            self.say("\"{s}\" is not a name under scenarios\\templates\\", .{std.mem.span(name)});
+            return .refused;
+        }
+        for (self.rmg_templates.items) |file| {
+            if (!std.mem.eql(u8, file.name, wanted)) continue;
+            const t = &file.value;
+            rec.size_x = t.size_x;
+            rec.size_y = t.size_y;
+            rec.season = t.season;
+            rec.default_field = t.default_field;
+            rec.mission_index = t.mission_index;
+            rec.game_type = t.game_type;
+            rec.attacking_side = t.attacking_side;
+            rec.camera = t.camera;
+            putText(&rec.season_folder, t.season_folder);
+            putText(&rec.place, t.place);
+            putText(&rec.script_file, t.script_file);
+            putText(&rec.chapter_name, t.chapter_name);
+            putText(&rec.forest_circle_sounds, t.forest_circle_sounds);
+            putText(&rec.forest_ambient_sounds, t.forest_ambient_sounds);
+            putText(&rec.mod_name, t.mod_name);
+            putText(&rec.mod_version, t.mod_version);
+            var short = false;
+            rec.field_count = @intCast(t.fields.items.len);
+            if (t.fields.items.len <= @as(usize, @intCast(@max(rec.field_capacity, 0)))) {
+                if (rec.fields) |dst| for (t.fields.items, 0..) |entry, i| {
+                    dst[i] = .{ .weight = entry.weight };
+                    putText(&dst[i].name, entry.name);
+                };
+            } else short = true;
+            rec.graph_count = @intCast(t.graphs.items.len);
+            if (t.graphs.items.len <= @as(usize, @intCast(@max(rec.graph_capacity, 0)))) {
+                if (rec.graphs) |dst| for (t.graphs.items, 0..) |entry, i| {
+                    dst[i] = .{ .weight = entry.weight };
+                    putText(&dst[i].name, entry.name);
+                };
+            } else short = true;
+            rec.vso_count = @intCast(t.vso.items.len);
+            if (t.vso.items.len <= @as(usize, @intCast(@max(rec.vso_capacity, 0)))) {
+                if (rec.vso) |dst| for (t.vso.items, 0..) |entry, i| {
+                    dst[i] = .{ .weight = entry.weight, .width = entry.width, .opacity = entry.opacity };
+                    putText(&dst[i].name, entry.name);
+                };
+            } else short = true;
+            rec.diplomacy_count = @intCast(t.diplomacies.items.len);
+            if (t.diplomacies.items.len <= @as(usize, @intCast(@max(rec.diplomacy_capacity, 0)))) {
+                if (rec.diplomacies) |dst| @memcpy(dst[0..t.diplomacies.items.len], t.diplomacies.items);
+            } else short = true;
+            rec.unit_count = @intCast(t.units.items.len);
+            if (t.units.items.len <= @as(usize, @intCast(@max(rec.unit_capacity, 0)))) {
+                if (rec.units) |dst| for (t.units.items, 0..) |unit, i| {
+                    unitToRecord(unit, &dst[i]);
+                    dst[i].slot_count = rec.unit_count;
+                };
+            } else short = true;
+            if (putScripts(&rec.scripts, t.script_ids.items, @as([]const []const u8, @ptrCast(t.script_areas.items)))) short = true;
+            if (short) {
+                self.say("the record's arrays are short: the counts are the totals", .{});
+                return .refused;
+            }
+            return .ok;
+        }
+        self.say("template \"{s}\" is not in the data or does not load as a template", .{wanted});
+        return .refused;
+    }
+
+    fn templateFromRecord(self: *FakeBridge, rec: *const bridge_mod.RmgTemplateRecord) !rmg_mod.Template {
+        const a = self.allocator;
+        var out: rmg_mod.Template = .{
+            .size_x = rec.size_x,
+            .size_y = rec.size_y,
+            .season = rec.season,
+            .default_field = rec.default_field,
+            .mission_index = rec.mission_index,
+            .game_type = rec.game_type,
+            .attacking_side = rec.attacking_side,
+            .camera = rec.camera,
+        };
+        errdefer out.deinit(a);
+        const sources = [8][]const u8{
+            std.mem.sliceTo(&rec.season_folder, 0), std.mem.sliceTo(&rec.place, 0),                 std.mem.sliceTo(&rec.script_file, 0),
+            std.mem.sliceTo(&rec.chapter_name, 0),  std.mem.sliceTo(&rec.forest_circle_sounds, 0), std.mem.sliceTo(&rec.forest_ambient_sounds, 0),
+            std.mem.sliceTo(&rec.mod_name, 0),      std.mem.sliceTo(&rec.mod_version, 0),
+        };
+        for (sources, 0..) |text, i| try out.setText(a, @enumFromInt(i), text);
+        const field_count: usize = @intCast(@max(rec.field_count, 0));
+        if (rec.fields) |src| for (src[0..field_count]) |entry| {
+            const copy = try a.dupe(u8, std.mem.sliceTo(&entry.name, 0));
+            errdefer a.free(copy);
+            try out.fields.append(a, .{ .name = copy, .weight = entry.weight });
+        };
+        const graph_count: usize = @intCast(@max(rec.graph_count, 0));
+        if (rec.graphs) |src| for (src[0..graph_count]) |entry| {
+            const copy = try a.dupe(u8, std.mem.sliceTo(&entry.name, 0));
+            errdefer a.free(copy);
+            try out.graphs.append(a, .{ .name = copy, .weight = entry.weight });
+        };
+        const vso_count: usize = @intCast(@max(rec.vso_count, 0));
+        if (rec.vso) |src| for (src[0..vso_count]) |entry| {
+            const copy = try a.dupe(u8, std.mem.sliceTo(&entry.name, 0));
+            errdefer a.free(copy);
+            try out.vso.append(a, .{ .name = copy, .weight = entry.weight, .width = entry.width, .opacity = entry.opacity });
+        };
+        const diplomacy_count: usize = @intCast(@max(rec.diplomacy_count, 0));
+        if (rec.diplomacies) |src| try out.diplomacies.appendSlice(a, src[0..diplomacy_count]);
+        const unit_count: usize = @intCast(@max(rec.unit_count, 0));
+        if (rec.units) |src| for (src[0..unit_count]) |unit| try out.units.append(a, unitFromRecord(unit));
+        const id_count: usize = @intCast(@max(rec.scripts.id_count, 0));
+        if (rec.scripts.ids) |src| for (src[0..id_count]) |id| try out.script_ids.append(a, id);
+        const area_count: usize = @intCast(@max(rec.scripts.area_count, 0));
+        if (rec.scripts.areas) |src| for (src[0..area_count]) |area| {
+            try out.script_areas.append(a, try a.dupe(u8, std.mem.sliceTo(&area.name, 0)));
+        };
+        // What the loader does after reading: no diplomacies is the default pair and
+        // the neutral, and the unit creation has a player each (at least two).
+        if (out.diplomacies.items.len == 0) try out.diplomacies.appendSlice(a, &.{ 0, 1, 2 });
+        while (out.units.items.len < 2) try out.units.append(a, rmg_mod.Template.defaultUnit());
+        return out;
+    }
+
+    fn rmgWriteTemplate(ptr: *anyopaque, name: [*:0]const u8, rec: *const bridge_mod.RmgTemplateRecord) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        var buffer: [192]u8 = undefined;
+        const wanted = rmgName(&buffer, std.mem.span(name));
+        if (!rmgNameIsPlain(wanted, "scenarios\\templates\\")) {
+            self.say("\"{s}\" is not a name under scenarios\\templates\\", .{std.mem.span(name)});
+            return .bad_argument;
+        }
+        if (rec.field_count < 0 or rec.field_count > bridge_mod.rmg_max_weighted or rec.graph_count < 0 or rec.graph_count > bridge_mod.rmg_max_weighted or
+            rec.vso_count < 0 or rec.vso_count > bridge_mod.rmg_max_weighted or rec.diplomacy_count < 0 or rec.diplomacy_count > bridge_mod.rmg_max_players or
+            rec.unit_count < 0 or rec.unit_count > bridge_mod.rmg_max_units)
+        {
+            self.say("a template holds at most {d} fields, graphs and vso each, {d} diplomacies and {d} units", .{ bridge_mod.rmg_max_weighted, bridge_mod.rmg_max_players, bridge_mod.rmg_max_units });
+            return .refused;
+        }
+        if (rec.season < 0 or rec.season > 3 or rec.size_x < 0 or rec.size_y < 0) {
+            self.say("season {d} is outside 0..3, or the size is negative", .{rec.season});
+            return .refused;
+        }
+        if (rec.fields) |src| for (src[0..@intCast(rec.field_count)]) |entry| {
+            if (entry.weight < 0) {
+                self.say("a field weight below 0", .{});
+                return .refused;
+            }
+        };
+        if (rec.graphs) |src| for (src[0..@intCast(rec.graph_count)]) |entry| {
+            if (entry.weight < 0) {
+                self.say("a graph weight below 0", .{});
+                return .refused;
+            }
+        };
+        if (rec.vso) |src| for (src[0..@intCast(rec.vso_count)]) |entry| {
+            if (entry.weight < 0 or !std.math.isFinite(entry.width) or !std.math.isFinite(entry.opacity)) {
+                self.say("a vso weight below 0 or a width or opacity not finite", .{});
+                return .refused;
+            }
+        };
+        if (!std.math.isFinite(rec.camera[0]) or !std.math.isFinite(rec.camera[1]) or !std.math.isFinite(rec.camera[2])) {
+            self.say("the camera anchor is not finite", .{});
+            return .refused;
+        }
+        for (self.rmg_templates.items) |*file| {
+            if (!std.mem.eql(u8, file.name, wanted)) continue;
+            if (file.shipped) {
+                self.say("\"{s}\" is shipped data and read-only: Save As a new name", .{wanted});
+                return .refused;
+            }
+            const made = self.templateFromRecord(rec) catch return .failed;
+            file.value.deinit(self.allocator);
+            file.value = made;
+            return .ok;
+        }
+        var made = self.templateFromRecord(rec) catch return .failed;
+        self.addTemplateFixture(wanted, false, made) catch {
+            made.deinit(self.allocator);
+            return .failed;
+        };
+        return .ok;
+    }
+
     fn rmgTileset(ptr: *anyopaque, season: i32, out: []bridge_mod.RmgTerrainType, total: *usize) Status {
         const self = from(ptr);
         self.message_len = 0;
@@ -4999,6 +5233,18 @@ pub const FakeBridge = struct {
             total.* = self.rmg_fieldsets.items.len;
             if (out.len < total.*) return .refused;
             for (self.rmg_fieldsets.items, 0..) |file, i| {
+                var entry = bridge_mod.RmgName{};
+                const len = @min(file.name.len, entry.name.len - 1);
+                @memcpy(entry.name[0..len], file.name[0..len]);
+                out[i] = entry;
+            }
+            return .ok;
+        }
+        if (kind == .templates and self.rmg_templates.items.len != 0) {
+            // The Templates Composer's stored files, shipped and user alike.
+            total.* = self.rmg_templates.items.len;
+            if (out.len < total.*) return .refused;
+            for (self.rmg_templates.items, 0..) |file, i| {
                 var entry = bridge_mod.RmgName{};
                 const len = @min(file.name.len, entry.name.len - 1);
                 @memcpy(entry.name[0..len], file.name[0..len]);

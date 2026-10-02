@@ -1065,6 +1065,86 @@ test "the core drives the real bridge: every command, undone and redone" {
         std.debug.print("map-editor-engine: M3 rmg field sets round trip ok\n", .{});
     }
 
+    // M3 (05-10, D-06/D-07/D-12): the Templates Composer's records on the real
+    // engine. Every shipped template reads in two passes into the core's owned
+    // type, clones equal, and the template Check! - the MFC's empty button, here the
+    // graph, field set and vso rules over everything it lists - runs through the
+    // real bridge. A crafted template listing a graph and a field set that are not
+    // there is found, and Fix all removes exactly those.
+    {
+        var total: usize = 0;
+        _ = editor.bridge.listRmg(.templates, &.{}, &total);
+        try std.testing.expect(total >= 40);
+        const names = try std.testing.allocator.alloc(core.bridge.RmgName, total);
+        defer std.testing.allocator.free(names);
+        var got: usize = 0;
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.listRmg(.templates, names, &got));
+        const known = struct {
+            fn has(ctx: *anyopaque, name: []const u8) bool {
+                const entries: *const []c.BkEditorCatalogueEntry = @ptrCast(@alignCast(ctx));
+                for (entries.*) |*cat_item| if (std.mem.eql(u8, std.mem.sliceTo(&cat_item.name, 0), name)) return true;
+                return false;
+            }
+        };
+        var catalogue_view: []c.BkEditorCatalogueEntry = catalogue;
+        var composers = core.composers.Composers.init(std.testing.allocator);
+        defer composers.deinit();
+        composers.object_lookup = .{ .ctx = @ptrCast(&catalogue_view), .has_fn = known.has };
+        var graphs: usize = 0;
+        var errors: usize = 0;
+        var nested_findings: usize = 0;
+        for (names[0..got]) |listed_name| {
+            try composers.openTemplate(&editor, listed_name.nameSlice());
+            const t = &composers.tdoc.current;
+            graphs += t.graphs.items.len;
+            try std.testing.expect(t.diplomacies.items.len >= 3 and t.units.items.len == t.playerCount());
+            var copy = try t.clone(std.testing.allocator);
+            defer copy.deinit(std.testing.allocator);
+            try std.testing.expect(copy.eql(t));
+            _ = try composers.checkTemplate(&editor);
+            const report = &composers.template_report.?;
+            // The template's own rules (lists, weights, default field, vso, players,
+            // header) hold for every shipped template. What the graph and field set rules
+            // say about the graphs and field sets it lists is those composers' own
+            // finding (shipped graphs hold links of fewer than eight parts, which the
+            // Graphs Composer's Check! reports too): counted, not asserted.
+            for (report.findings.items) |finding| {
+                const nested = std.mem.startsWith(u8, finding.text, "graph ") and std.mem.indexOf(u8, finding.text, "\": ") != null or std.mem.startsWith(u8, finding.text, "field set ") and std.mem.indexOf(u8, finding.text, "\": ") != null;
+                if (nested) {
+                    nested_findings += 1;
+                } else if (finding.severity == .@"error") {
+                    errors += 1;
+                    std.debug.print("map-editor-engine: template {s}: {s}\n", .{ listed_name.nameSlice(), finding.text });
+                }
+            }
+        }
+        std.debug.print("map-editor-engine: {d} shipped templates read ({d} graphs), the template's own Check! found {d} errors ({d} findings of its graphs' and field sets' rules)\n", .{ got, graphs, errors, nested_findings });
+        try std.testing.expect(graphs > got);
+        try std.testing.expectEqual(@as(usize, 0), errors);
+        // A crafted one: a graph and a field set that are not in the data.
+        try composers.openTemplate(&editor, names[0].nameSlice());
+        const template = try composers.tdoc.begin();
+        try template.graphs.append(std.testing.allocator, .{ .name = try std.testing.allocator.dupe(u8, "scenarios\\graphs\\summer\\no_such_graph"), .weight = 1 });
+        try template.fields.append(std.testing.allocator, .{ .name = try std.testing.allocator.dupe(u8, "scenarios\\fieldsets\\summer\\no_such_field"), .weight = 1 });
+        _ = try composers.checkTemplate(&editor);
+        const ghosts = struct {
+            fn count(report: *const core.rmg.Report) usize {
+                var n: usize = 0;
+                for (report.findings.items) |finding| {
+                    if (std.mem.indexOf(u8, finding.text, "no_such_graph") != null or std.mem.indexOf(u8, finding.text, "no_such_field") != null) n += 1;
+                }
+                return n;
+            }
+        };
+        try std.testing.expectEqual(@as(usize, 2), ghosts.count(&composers.template_report.?));
+        try std.testing.expect(try composers.fixTemplateAll(&editor) >= 2);
+        try std.testing.expectEqual(@as(usize, 0), ghosts.count(&composers.template_report.?));
+        try std.testing.expectError(error.Refused, editor.writeTemplate(names[0].nameSlice(), &composers.tdoc.current));
+        try std.testing.expect(std.mem.indexOf(u8, editor.status(), "Save As") != null);
+        try std.testing.expect(!editor.dirty());
+        std.debug.print("map-editor-engine: M3 rmg templates round trip ok\n", .{});
+    }
+
     // M3 (05-06, D-32): the Layers menu on the real engine, through the core
     // that remembers it. Three layers are toggled, the map is opened again, and
     // the renderer - read back from the bridge, not the editor's memory - is
