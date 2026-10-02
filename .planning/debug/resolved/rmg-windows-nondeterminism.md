@@ -117,6 +117,11 @@ started: first run of the 05-08 determinism harness on windows-msvc (run 3702903
   found: with the instrumentation in place the leftover was 3f9a7b in every traced call (float-like) - the extra calls change SliceSpline's frame, so the probe disturbs what it measures
   implication: which earlier store leaves the run-varying bytes on windows-msvc is not pinned; it does not matter for the fix (every byte is now defined) and is recorded as unknown rather than guessed
 
+- timestamp: 2026-10-02T20:10:00Z
+  checked: CI run 37053251798 (workflow "Cross-platform validation", dispatched on fix/rmg-windows-determinism at d0ad3595d)
+  found: all six jobs success. windows-platform (MSVC 14.51, the job that failed in 37029035801): Map file tier "map-file: vso point bytes ok", "66 of 66 maps round-tripped", PASS; Engine tier "M3 create random map ok", "editor-bridge: PASS", zero "FAIL:" lines - the only "identical?" dump is the seed-778 check that must differ. Map file tier also green on linux, linux-arm, macos-intel.
+  implication: the fix holds on the CI runner itself
+
 ## Resolution
 
 root_cause: "SVectorStripeObjectPoint (Formats/fmtVSO.h) has 3 implicit pad bytes after `bool bKeyPoint`. Maps save the points vector as raw bytes (CSaverAccessor::DoDataVector - the struct has no IStructureSaver operator&), and the RMG builds each point as a stack local in CVSOBuilder::SliceSpline whose constructor sets the members only, so the pad bytes carried the stack's leftovers into the BZM. On windows-msvc those leftovers differ between generations (macOS: garbage too, but repeatable), so a seed did not regenerate a byte-identical map. AND-gate: raw byte save + uninitialised padding."
@@ -126,7 +131,7 @@ verification:
   - "signal 2 (test red before fix): TestVsoPointBytes 4/4 FAIL on win-home msvc, 2/4 on macOS (the stack-fill checks only bite on msvc)"
   - "signal 3 (green after fix): win-home test-map-files PASS (66/66 maps round-trip), win-home test-editor-bridge PASS with gen1==gen2 and drawn1==drawn2; macOS test-map-files PASS; macOS gate test-editor-bridge -Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run PASS"
   - "signal 4 (fix changes only the cause): fixed vs unfixed generated map differ only at offset 33..35 of the point records"
-  - "signal 5 (no collateral): every other check of test-map-files and test-editor-bridge passes on both hosts"
+  - "signal 5 (no collateral): every other check of test-map-files and test-editor-bridge passes on both hosts; CI run 37053251798 green on all six jobs"
 oracle_type: specified (byte-identity of two saves is the D-04 contract itself); boundary neighbours: both fills 0x00/0xff, a copy into a third fill 0xa5, and the saved-file level as well as the in-memory level
 guardrail_verdict: accepted
 files_changed: [Sources/src/Formats/fmtVSO.h, tools/zig/map_file_test.cpp]
