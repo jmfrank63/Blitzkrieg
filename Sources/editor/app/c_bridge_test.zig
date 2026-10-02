@@ -887,6 +887,52 @@ test "the core drives the real bridge: every command, undone and redone" {
         std.debug.print("map-editor-engine: M3 minimap reads and click round trip ok\n", .{});
     }
 
+    // M3 (05-08, D-01/D-13): the Create Random Map and Export lists reads cross the
+    // ABI. The storage listing keeps the extension and the folder's own names, the
+    // template's graphs come with their weights, a refusal names its field and
+    // writes nothing (a real generation writes into the user's maps folder, which
+    // this process has no scratch root for - the bridge tier does it with one).
+    {
+        var total: usize = 0;
+        _ = editor.bridge.listStorageFiles("scenarios\\chapters\\", "context.xml", &.{}, &total);
+        try std.testing.expect(total > 0);
+        const contexts = try std.testing.allocator.alloc(core.bridge.RmgName, total);
+        defer std.testing.allocator.free(contexts);
+        var got: usize = 0;
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.listStorageFiles("scenarios\\chapters\\", "context.xml", contexts, &got));
+        try std.testing.expectEqual(total, got);
+        for (contexts) |context| try std.testing.expect(std.mem.endsWith(u8, context.nameSlice(), "\\context.xml"));
+        for (contexts[1..], 1..) |context, i| try std.testing.expect(std.mem.order(u8, contexts[i - 1].nameSlice(), context.nameSlice()) == .lt);
+        try std.testing.expectEqual(core.bridge.Status.refused, editor.bridge.listStorageFiles("..\\", ".xml", &.{}, &total));
+        try std.testing.expectEqual(@as(usize, 0), total);
+
+        var templates: usize = 0;
+        _ = editor.bridge.listRmg(.templates, &.{}, &templates);
+        try std.testing.expect(templates > 0);
+        var graphs_total: usize = 0;
+        _ = editor.bridge.rmgTemplateGraphs("scenarios\\templates\\summer\\template02", &.{}, &graphs_total);
+        try std.testing.expect(graphs_total > 0);
+        const graphs = try std.testing.allocator.alloc(core.bridge.RmgGraph, graphs_total);
+        defer std.testing.allocator.free(graphs);
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.rmgTemplateGraphs("scenarios\\templates\\summer\\template02", graphs, &got));
+        try std.testing.expectEqual(graphs_total, got);
+        for (graphs) |graph| {
+            try std.testing.expect(graph.weight > 0);
+            try std.testing.expect(std.mem.startsWith(u8, graph.nameSlice(), "scenarios\\graphs\\"));
+        }
+        try std.testing.expectEqual(core.bridge.Status.refused, editor.bridge.rmgTemplateGraphs("scenarios\\templates\\summer\\nope", &.{}, &graphs_total));
+
+        var params: core.bridge.RmgGenerateParams = .{};
+        params.setTemplate("scenarios\\templates\\summer\\nope");
+        params.setContext(contexts[0].nameSlice()[0 .. contexts[0].nameSlice().len - ".xml".len]);
+        params.setMapName("c_bridge_never_written");
+        var result: core.bridge.RmgGenerateResult = .{};
+        try std.testing.expectError(error.Refused, editor.createRandomMap(params, &result));
+        try std.testing.expect(std.mem.indexOf(u8, editor.status(), "template") != null);
+        try std.testing.expect(!editor.dirty());
+        std.debug.print("map-editor-engine: M3 random map reads round trip ok\n", .{});
+    }
+
     // M3 (05-06, D-32): the Layers menu on the real engine, through the core
     // that remembers it. Three layers are toggled, the map is opened again, and
     // the renderer - read back from the bridge, not the editor's memory - is

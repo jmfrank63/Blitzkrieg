@@ -2887,6 +2887,16 @@ pub const Editor = struct {
         self.reloadObjectsAfterEdit() catch {};
     }
 
+    /// Create Random Map (05-08, D-01..D-05): one generation, written into the
+    /// user's (or the mod's) maps folder - not an edit of the open map, so
+    /// nothing joins the undo history and the document is untouched; the
+    /// caller opens the generated file (`result.mapPathSlice()`) through the
+    /// normal open path. A refusal's reason is the status line's.
+    pub fn createRandomMap(self: *Editor, params: bridge_mod.RmgGenerateParams, result: *bridge_mod.RmgGenerateResult) EditError!void {
+        result.* = .{};
+        try self.noteOutcome(self.bridge.createRandomMap(params, result));
+    }
+
     /// The field set's season, for the YES/NO confirmation before an apply.
     pub fn fieldSetSeason(self: *Editor, name: []const u8) EditError!i32 {
         var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
@@ -5594,3 +5604,111 @@ test "layers: the fire-range mode is asked again after an open - the AI forgot i
     try std.testing.expectEqual(@as(usize, 0), fake.fire_link_ids.items.len);
 }
 
+
+const GenerateProgress = struct {
+    steps: i32 = 0,
+    total: i32 = 0,
+
+    fn report(step: c_int, total: c_int, user: ?*anyopaque) callconv(.c) void {
+        const self: *GenerateProgress = @ptrCast(@alignCast(user.?));
+        self.steps = step;
+        self.total = total;
+    }
+};
+
+fn generateParams() bridge_mod.RmgGenerateParams {
+    var params: bridge_mod.RmgGenerateParams = .{};
+    params.setTemplate("scenarios\\templates\\summer\\small");
+    params.setContext("scenarios\\chapters\\allies\\france\\context");
+    params.setSetting(bridge_mod.rmg_any_setting);
+    params.setMapName("rmg_test");
+    return params;
+}
+
+test "create random map: a generation reports 19 steps, names its seed and graph and leaves the document alone" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const objects = editor.document.objects.items.len;
+    const undo_depth = editor.history.undo_stack.items.len;
+    var progress = GenerateProgress{};
+    var params = generateParams();
+    params.has_seed = 1;
+    params.seed = 4242;
+    params.graph = 2;
+    params.angle = 1;
+    params.progress = GenerateProgress.report;
+    params.user = &progress;
+    var result: bridge_mod.RmgGenerateResult = .{};
+    try editor.createRandomMap(params, &result);
+    try std.testing.expectEqual(@as(i32, 19), progress.steps);
+    try std.testing.expectEqual(@as(i32, 19), progress.total);
+    try std.testing.expectEqual(@as(c_uint, 4242), result.seed);
+    try std.testing.expectEqual(@as(c_int, 2), result.graph);
+    try std.testing.expectEqual(@as(c_int, 1), result.angle);
+    try std.testing.expect(std.mem.endsWith(u8, result.mapPathSlice(), "rmg_test.bzm"));
+    // Not an edit of the open map: nothing for the history, the document as it was.
+    try std.testing.expectEqual(undo_depth, editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(objects, editor.document.objects.items.len);
+    // A blank seed draws one, and the result names it.
+    params.has_seed = 0;
+    params.overwrite = 1;
+    try editor.createRandomMap(params, &result);
+    try std.testing.expectEqual(fake.drawn_seed, result.seed);
+}
+
+test "create random map: every refusal names its field and the bridge writes nothing" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var result: bridge_mod.RmgGenerateResult = .{};
+
+    var params = generateParams();
+    params.setTemplate("scenarios\\templates\\summer\\nope");
+    try std.testing.expectError(error.Refused, editor.createRandomMap(params, &result));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "template") != null);
+
+    params = generateParams();
+    params.setContext("nope");
+    try std.testing.expectError(error.Refused, editor.createRandomMap(params, &result));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "context") != null);
+
+    params = generateParams();
+    params.setSetting("nope");
+    try std.testing.expectError(error.Refused, editor.createRandomMap(params, &result));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "setting") != null);
+
+    params = generateParams();
+    params.level = 3;
+    try std.testing.expectError(error.Refused, editor.createRandomMap(params, &result));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "level") != null);
+
+    params = generateParams();
+    params.graph = fake.template_graph_count;
+    try std.testing.expectError(error.Refused, editor.createRandomMap(params, &result));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "graph") != null);
+
+    params = generateParams();
+    params.angle = 4;
+    try std.testing.expectError(error.Refused, editor.createRandomMap(params, &result));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "angle") != null);
+
+    for ([_][]const u8{ "", "..", "a/b", "a\\b", "c:x" }) |bad| {
+        params = generateParams();
+        params.setMapName(bad);
+        try std.testing.expectError(error.Refused, editor.createRandomMap(params, &result));
+        try std.testing.expect(std.mem.indexOf(u8, editor.status(), "map name") != null);
+    }
+    try std.testing.expectEqual(@as(usize, 0), fake.generated_names.items.len);
+
+    // A repeat of a name is refused until overwrite is set.
+    params = generateParams();
+    try editor.createRandomMap(params, &result);
+    try std.testing.expectError(error.Refused, editor.createRandomMap(params, &result));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "already exists") != null);
+    params.overwrite = 1;
+    try editor.createRandomMap(params, &result);
+    try std.testing.expectEqual(@as(usize, 1), fake.generated_names.items.len);
+}

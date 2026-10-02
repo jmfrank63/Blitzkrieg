@@ -5912,6 +5912,21 @@ fn addEditorBridgeTest(
     if (test_mode == .run) step_m3_minimap.dependOn(&run_m3_minimap.step);
 
     // 05-06: the Layers menu's probe (what each layer does in this renderer) and the
+    // 05-08: Create Random Map through the engine's own generator, alone (the full
+    // tier above runs it too, among everything else): the refusals, the seed, the
+    // output folders, the mod stamp and the generated map's open.
+    const run_m3_rmg = b.addRunArtifact(exe);
+    run_m3_rmg.setCwd(b.path(stage_root));
+    run_m3_rmg.addArg(".");
+    run_m3_rmg.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_rmg.addArg("--m3-rmg-only");
+    run_m3_rmg.has_side_effects = true;
+    run_m3_rmg.step.dependOn(&install_exe.step);
+    run_m3_rmg.step.dependOn(install_fixture_mod_step);
+    const step_m3_rmg = b.step("test-editor-bridge-m3-rmg", "Generate random maps through the engine with seeds and check the files, the refusals and the mod stamp");
+    step_m3_rmg.dependOn(&exe.step);
+    if (test_mode == .run) step_m3_rmg.dependOn(&run_m3_rmg.step);
+
     // layer entries through the engine, alone (the full tier above runs them too).
     const run_m3_layers = b.addRunArtifact(exe);
     run_m3_layers.setCwd(b.path(stage_root));

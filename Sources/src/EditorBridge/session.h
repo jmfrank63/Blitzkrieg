@@ -865,6 +865,62 @@ bool FieldSetSeasonInSession( SEditorSession *pSession, const std::string &rszNa
 // folder is an empty list, not an error.
 bool ListRmgFolder( SEditorSession *pSession, int nKind, std::vector<std::string> *pNames );
 
+// Create Random Map (session_rmg.cpp, M3 D-01..D-05): one generation through
+// the engine's own CMapInfo::CreateRandomMap. The names are storage-relative
+// (BkEditorListRmg's); the map name is bare; the output root is built here from
+// the platform's user root (and the active mod's folder) and never comes from
+// the caller. pfnProgress is told (step, total, user) once per generator step
+// and must not call back into the bridge.
+struct SRMGenerateParams
+{
+	std::string szTemplate;
+	std::string szContext;
+	std::string szSetting;				// empty or RMGC_ANY_SETTING_NAME: any setting
+	std::string szMapName;
+	std::string szModFolder;			// the session's active mod (the bridge fills it; never the caller)
+	int nLevel;								// 0..2
+	int nGraph;								// -1: the generator picks
+	int nAngle;								// -1: the generator picks, 0..3
+	bool bSaveAsBZM;
+	bool bWriteDDS;
+	bool bOverwrite;
+	bool bHasSeed;
+	unsigned int nSeed;
+	void (*pfnProgress)( int nStep, int nTotal, void *pUser );
+	void *pUser;
+	SRMGenerateParams() : nLevel( 0 ), nGraph( -1 ), nAngle( -1 ), bSaveAsBZM( true ), bWriteDDS( false ), bOverwrite( false ), bHasSeed( false ), nSeed( 0 ), pfnProgress( 0 ), pUser( 0 ) {  }
+};
+struct SRMGenerateResult
+{
+	unsigned int nSeed;
+	int nGraph;
+	int nAngle;
+	std::string szGraphName;
+	std::string szMapPath;				// the map file, in the host's own separators
+	SRMGenerateResult() : nSeed( 0 ), nGraph( -1 ), nAngle( -1 ) {  }
+};
+bool CreateRandomMapInSession( SEditorSession *pSession, const SRMGenerateParams &rParams, bool *pbRefused, SRMGenerateResult *pResult );
+
+// The mounted storages' files under a folder that end in an extension (M3,
+// D-13's Export lists, MainFrm.cpp OnTool0-3's own enumeration): the names
+// as the storage holds them with the extension kept, lower-cased, backslashes,
+// sorted and deduped. The folder is storage-relative with its trailing
+// backslash; the extension is whatever the name ends in (".xml", "context.xml").
+// False, with the reason in szMessage and *pbRefused set, for a folder or an
+// extension that is not plain.
+bool ListStorageFiles( SEditorSession *pSession, const std::string &rszFolder, const std::string &rszExtension, std::vector<std::string> *pNames, bool *pbRefused );
+
+// One template's graphs with their weights, in the template's own order (the
+// graphs_list.txt export's lines, MainFrm.cpp:975-981). The name is
+// storage-relative as ListRmgFolder lists it. False, refused, for a name the
+// data does not hold.
+struct SRMTemplateGraph
+{
+	std::string szName;
+	int nWeight;
+};
+bool ListTemplateGraphs( SEditorSession *pSession, const std::string &rszTemplate, std::vector<SRMTemplateGraph> *pGraphs, bool *pbRefused );
+
 // Puts one recorded altitude region back into both copies and the engine,
 // raw (session.cpp) - SAltitudeEdit's own route, shared with the composite.
 bool PutAltitudeEditBack( SEditorSession *pSession, const NMapOverlay::SAltitudeUndo &rRegion );

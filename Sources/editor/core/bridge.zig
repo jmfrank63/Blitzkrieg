@@ -243,6 +243,90 @@ pub const UcChoice = enum(c_int) { parties = 0, aircraft = 1, squads = 2 };
 /// The RMG folder kinds BkEditorListRmg walks (D-08).
 pub const RmgKind = enum(c_int) { field_sets = 0, templates = 1, graphs = 2, containers = 3, settings = 4, chapters = 5 };
 
+/// BkEditorRmgGraph (05-08, D-13): one graph of a template with its weight.
+pub const RmgGraph = extern struct {
+    name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    weight: c_int = 0,
+
+    pub fn nameSlice(self: *const RmgGraph) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+};
+
+/// BkEditorRmgGenerateParams (05-08, D-01), layout included: one Create
+/// Random Map. The names are storage-relative as `listRmg` answers them
+/// (templates, chapters for the context, settings; `setting_name` empty or
+/// "<any setting>" is any setting); `level` 0..2, `graph` -1 or an index,
+/// `angle` -1 or 0..3; `map_name` is one path component. `has_seed` 0 draws
+/// a fresh seed. `progress` is called once per generator step on the calling
+/// thread and must not call back into the bridge.
+pub const rmg_map_name_capacity = 96;
+pub const rmg_any_setting = "<any setting>";
+pub const RmgGenerateParams = extern struct {
+    template_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    context_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    setting_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    map_name: [rmg_map_name_capacity]u8 = [_]u8{0} ** rmg_map_name_capacity,
+    level: c_int = 0,
+    graph: c_int = -1,
+    angle: c_int = -1,
+    save_as_bzm: c_int = 1,
+    write_dds: c_int = 0,
+    overwrite: c_int = 0,
+    has_seed: c_int = 0,
+    seed: c_uint = 0,
+    progress: ?ProgressFn = null,
+    user: ?*anyopaque = null,
+
+    fn put(field: []u8, text: []const u8) void {
+        const len = @min(text.len, field.len - 1);
+        @memset(field, 0);
+        @memcpy(field[0..len], text[0..len]);
+    }
+    pub fn setTemplate(self: *RmgGenerateParams, text: []const u8) void {
+        put(&self.template_name, text);
+    }
+    pub fn setContext(self: *RmgGenerateParams, text: []const u8) void {
+        put(&self.context_name, text);
+    }
+    pub fn setSetting(self: *RmgGenerateParams, text: []const u8) void {
+        put(&self.setting_name, text);
+    }
+    pub fn setMapName(self: *RmgGenerateParams, text: []const u8) void {
+        put(&self.map_name, text);
+    }
+    pub fn templateSlice(self: *const RmgGenerateParams) []const u8 {
+        return std.mem.sliceTo(&self.template_name, 0);
+    }
+    pub fn contextSlice(self: *const RmgGenerateParams) []const u8 {
+        return std.mem.sliceTo(&self.context_name, 0);
+    }
+    pub fn settingSlice(self: *const RmgGenerateParams) []const u8 {
+        return std.mem.sliceTo(&self.setting_name, 0);
+    }
+    pub fn mapNameSlice(self: *const RmgGenerateParams) []const u8 {
+        return std.mem.sliceTo(&self.map_name, 0);
+    }
+};
+
+/// BkEditorRmgGenerateResult (05-08), layout included: the seed the
+/// generation ran from (read back from the .seed file beside the map), the
+/// graph and angle it used and the map file's OS path.
+pub const RmgGenerateResult = extern struct {
+    seed: c_uint = 0,
+    graph: c_int = -1,
+    angle: c_int = -1,
+    graph_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    map_path: [1024]u8 = [_]u8{0} ** 1024,
+
+    pub fn graphNameSlice(self: *const RmgGenerateResult) []const u8 {
+        return std.mem.sliceTo(&self.graph_name, 0);
+    }
+    pub fn mapPathSlice(self: *const RmgGenerateResult) []const u8 {
+        return std.mem.sliceTo(&self.map_path, 0);
+    }
+};
+
 /// BkEditorAltitudeRegion (M3, D-19), layout included: terrain-VERTEX
 /// indices, half-open [x0, x1) x [y0, y1) - altitudes are indexed by terrain
 /// vertex, one more per axis than the map's tiles.
@@ -844,6 +928,18 @@ pub const Bridge = struct {
         /// BkEditorListRmg (M3, D-08): the storage folder's bare names,
         /// sorted (two-pass, like `vsoDescriptors`).
         listRmg: *const fn (ptr: *anyopaque, kind: RmgKind, out: []RmgName, total: *usize) Status,
+        /// BkEditorCreateRandomMap (05-08, D-01..D-05): one generation through
+        /// the engine's CreateRandomMap, into the user's (or the mod's) maps
+        /// folder. Not an edit of the open map: no token, the map is left as it
+        /// was. REFUSED names the field in `lastMessage` and wrote nothing.
+        createRandomMap: *const fn (ptr: *anyopaque, params: RmgGenerateParams, result: *RmgGenerateResult) Status,
+        /// BkEditorListStorageFiles (05-08, D-13): the storage files under a
+        /// folder ending in an extension, extension kept (the Export lists'
+        /// enumeration). Two-pass like `listRmg`.
+        listStorageFiles: *const fn (ptr: *anyopaque, folder: [*:0]const u8, extension: [*:0]const u8, out: []RmgName, total: *usize) Status,
+        /// BkEditorRmgTemplateGraphs (05-08, D-13): a template's graphs with
+        /// their weights, in its own order. Two-pass like `listRmg`.
+        rmgTemplateGraphs: *const fn (ptr: *anyopaque, template: [*:0]const u8, out: []RmgGraph, total: *usize) Status,
         /// BkEditorAddPlayer (05-05, D-30): a player of `side` (0 or 1) before
         /// the neutral entry, ONE bridge-logged edit (`token`, -1 after a
         /// refusal). The diplomacies, unit creation, camera anchors and every
@@ -976,6 +1072,9 @@ pub const Bridge = struct {
     pub fn applyField(self: Bridge, params: FieldApplyParams, report: []FieldObjectReport, total: *usize, token: *i32) Status { return self.vtable.applyField(self.ptr, params, report, total, token); }
     pub fn fieldSetSeason(self: Bridge, name: [*:0]const u8, season: *i32) Status { return self.vtable.fieldSetSeason(self.ptr, name, season); }
     pub fn listRmg(self: Bridge, kind: RmgKind, out: []RmgName, total: *usize) Status { return self.vtable.listRmg(self.ptr, kind, out, total); }
+    pub fn createRandomMap(self: Bridge, params: RmgGenerateParams, result: *RmgGenerateResult) Status { return self.vtable.createRandomMap(self.ptr, params, result); }
+    pub fn listStorageFiles(self: Bridge, folder: [*:0]const u8, extension: [*:0]const u8, out: []RmgName, total: *usize) Status { return self.vtable.listStorageFiles(self.ptr, folder, extension, out, total); }
+    pub fn rmgTemplateGraphs(self: Bridge, template: [*:0]const u8, out: []RmgGraph, total: *usize) Status { return self.vtable.rmgTemplateGraphs(self.ptr, template, out, total); }
     pub fn addVso(self: Bridge, kind: VsoKind, desc: []const u8, points: []const records.Vec3, width_tiles: f32, opacity: f32, token: *i32, index: *i32) Status { return self.vtable.addVso(self.ptr, kind, desc, points, width_tiles, opacity, token, index); }
 };
 

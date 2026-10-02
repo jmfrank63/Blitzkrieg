@@ -27,6 +27,8 @@
 #include "../../Sources/src/StreamIO/RandomGen.h"
 #include "../../Sources/src/StreamIO/StreamIOTypes.h"
 #include "../../Sources/src/Misc/Win32Random.h"
+#include "../../Sources/src/RandomMapGen/RMG_Types.h"
+#include "../../Sources/src/RandomMapGen/Resource_Types.h"
 #include "../../Sources/src/AILogic/AILogic.h"
 #include "../../Sources/src/AILogic/aiconsts.h"
 #include "../../Sources/src/AILogic/AITypes.h"
@@ -3803,6 +3805,7 @@ static void TestM3PlayersAndUnitCreation( BkEditorSession *pSession, const std::
 static void TestM3CheckMap( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3LayerProbe( BkEditorSession *pSession, const std::string &szScratch );
 static void TestM3Layers( BkEditorSession *pSession, const std::string &szScratch );
+static void TestM3CreateRandomMap( BkEditorSession *pSession, const std::string &szScratch );
 static bool CraftFixture( BkEditorSession *pSession, const char *pszKind, const char *pszOut );
 static void CheckSavedEquals( BkEditorSession *pSession, const std::string &szPath, const CMapInfo &rExpected, const char *pszWhat );
 
@@ -11148,7 +11151,7 @@ int main( int argc, char **argv )
 	// executable's own directory unless a caller names another one.
 	// 04-13: `--m2-sweep` after the two positional arguments runs only the M2
 	// sweep (the local step test-editor-bridge-m2-sweep).
-	bool bM2Sweep = false, bPlayersOnly = false, bMinimapOnly = false, bLayersOnly = false;
+	bool bM2Sweep = false, bPlayersOnly = false, bMinimapOnly = false, bLayersOnly = false, bRmgOnly = false;
 	const char *pszCraftKind = 0, *pszCraftOut = 0;
 	for ( int i = 3; i < argc; ++i )
 	{
@@ -11162,6 +11165,9 @@ int main( int argc, char **argv )
 		// 05-06: `--m3-layers-only` runs the Layers probe and the layer entries alone
 		// (the local step test-editor-bridge-m3-layers).
 		bLayersOnly = bLayersOnly || strcmp( argv[i], "--m3-layers-only" ) == 0;
+		// 05-08: `--m3-rmg-only` runs Create Random Map alone (the local step
+		// test-editor-bridge-m3-rmg).
+		bRmgOnly = bRmgOnly || strcmp( argv[i], "--m3-rmg-only" ) == 0;
 		// 05-05: `--craft <kind> <out>` writes one fixture map (CraftFixture) instead
 		// of running the tier (<out> is a file name under the scratch folder) - the build
 		// runs it before the scenarios that open them.
@@ -11236,6 +11242,11 @@ int main( int argc, char **argv )
 		TestM3MinimapImages( pSession, szScratch );
 		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
 	}
+	else if ( bRmgOnly )
+	{
+		TestM3CreateRandomMap( pSession, szScratch );
+		Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "and stops" );
+	}
 	else if ( bLayersOnly )
 	{
 		TestM3LayerProbe( pSession, szScratch );
@@ -11279,6 +11290,7 @@ int main( int argc, char **argv )
 		TestM3TileInfo( pSession );
 		TestM3Filters( pSession, pszRoot, szScratch );
 		TestM3Fields( pSession, szScratch );
+		TestM3CreateRandomMap( pSession, szScratch );
 		TestM3MultiSelect( pSession, szScratch );
 		TestM3PropertiesAndLinks( pSession, szScratch );
 		TestM3Damage( pSession, szScratch );
@@ -13145,4 +13157,346 @@ static void TestM3Layers( BkEditorSession *pSession, const std::string &szScratc
 	remove( OsPath( szBefore ).c_str() );
 	remove( OsPath( szAfter ).c_str() );
 	printf( "editor-bridge: M3 layers ok\n" );
+}
+
+
+// Create Random Map (05-08, D-01..D-05) through the engine's own generator: the
+// refusals name their field and write nothing; a fixed seed, graph and angle
+// give the same bytes twice and another seed another map; the files land under
+// the user's maps folder (or the mod's) and nowhere else; the progress callback
+// sees the generator's 19 steps; the map records the ACTIVE MOD, not its chapter
+// (D-05); and the generated map opens as a normal document.
+// RMGC_CREATE_RANDOM_MAP_STEP_COUNT: the generator's steps, the minimap's included.
+static const int RMG_STEPS = 19;
+
+struct SRmgProgress
+{
+	int nCalls, nLast, nTotal;
+	bool bMonotonic;
+};
+
+static void RmgProgressCallback( int nStep, int nTotal, void *pUser )
+{
+	SRmgProgress *pProgress = static_cast<SRmgProgress*>( pUser );
+	++pProgress->nCalls;
+	if ( nStep < pProgress->nLast )
+		pProgress->bMonotonic = false;
+	pProgress->nLast = nStep;
+	pProgress->nTotal = nTotal;
+}
+
+// The engine's form of a host path: backslashes (OpenFileStream splits on them only).
+static std::string EngineForm( std::string szPath )
+{
+	for ( char &c : szPath )
+		if ( c == '/' )
+			c = '\\';
+	return szPath;
+}
+
+static std::vector<std::string> ListRmgNames( BkEditorSession *pSession, int nKind )
+{
+	std::vector<std::string> names;
+	int nTotal = 0;
+	BkEditorListRmg( pSession, nKind, 0, 0, &nTotal );
+	if ( nTotal <= 0 )
+		return names;
+	std::vector<BkEditorRmgName> entries( static_cast<size_t>( nTotal ) );
+	int nGot = 0;
+	if ( BkEditorListRmg( pSession, nKind, &( entries[0] ), nTotal, &nGot ) != BK_EDITOR_OK )
+		return names;
+	for ( int i = 0; i < nGot && i < nTotal; ++i )
+		names.push_back( entries[size_t( i )].name );
+	return names;
+}
+
+static bool MessageHas( BkEditorSession *pSession, const char *pszWord )
+{
+	return strstr( BkEditorLastMessage( pSession ), pszWord ) != 0;
+}
+
+static void TestM3CreateRandomMap( BkEditorSession *pSession, const std::string &szScratch )
+{
+	Check( BkEditorCreateRandomMap( pSession, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "BkEditorCreateRandomMap with null params is BAD_ARGUMENT" );
+	BkEditorRmgGenerateParams none;
+	memset( &none, 0, sizeof none );
+	Check( BkEditorCreateRandomMap( pSession, &none, 0 ) == BK_EDITOR_BAD_ARGUMENT, "and with a null result" );
+
+	// The Export lists' reads (D-13): the storage's files under a folder ending in
+	// an extension, the extension kept, sorted; a template's graphs with weights.
+	{
+		int nTotal = -1;
+		Check( BkEditorListStorageFiles( pSession, "scenarios\\chapters\\", "context.xml", 0, 0, &nTotal ) == BK_EDITOR_REFUSED && nTotal > 0,
+		       NStr::Format( "the contexts list sizes (%d)", nTotal ) );
+		std::vector<BkEditorRmgName> contexts( static_cast<size_t>( nTotal > 0 ? nTotal : 1 ) );
+		int nGot = 0;
+		if ( Check( BkEditorListStorageFiles( pSession, "scenarios\\chapters\\", "context.xml", &( contexts[0] ), nTotal, &nGot ) == BK_EDITOR_OK && nGot == nTotal,
+		            BkEditorLastMessage( pSession ) ) )
+		{
+			bool bAllContext = true, bSorted = true;
+			for ( int i = 0; i < nGot; ++i )
+			{
+				const std::string szName = contexts[size_t( i )].name;
+				bAllContext = bAllContext && szName.size() > 12 && szName.compare( szName.size() - 12, 12, "\\context.xml" ) == 0 && szName.compare( 0, 19, "scenarios\\chapters\\" ) == 0;
+				bSorted = bSorted && ( i == 0 || strcmp( contexts[size_t( i - 1 )].name, contexts[size_t( i )].name ) < 0 );
+			}
+			Check( bAllContext, "every context is under the chapters folder and ends in context.xml (the extension kept)" );
+			Check( bSorted, "the listing is sorted without repeats" );
+		}
+		// The patches: the .bzm files, then the .xml ones, are two listings the caller joins.
+		int nBzm = 0, nXml = 0;
+		BkEditorListStorageFiles( pSession, "scenarios\\patches\\", ".bzm", 0, 0, &nBzm );
+		BkEditorListStorageFiles( pSession, "scenarios\\patches\\", ".xml", 0, 0, &nXml );
+		Check( nBzm > 0, NStr::Format( "the patches folder lists .bzm files (%d), .xml files (%d)", nBzm, nXml ) );
+		// What is not plain is refused, listing nothing.
+		int nNothing = 7;
+		Check( BkEditorListStorageFiles( pSession, "..\\", ".xml", 0, 0, &nNothing ) == BK_EDITOR_REFUSED && nNothing == 0, "a folder going up is REFUSED and lists nothing" );
+		Check( BkEditorListStorageFiles( pSession, "maps", ".bzm", 0, 0, &nNothing ) == BK_EDITOR_REFUSED, "a folder without its trailing separator is REFUSED" );
+		Check( BkEditorListStorageFiles( pSession, "maps\\", "a\\b", 0, 0, &nNothing ) == BK_EDITOR_REFUSED, "an extension with a separator is REFUSED" );
+		Check( BkEditorListStorageFiles( pSession, 0, ".bzm", 0, 0, &nNothing ) == BK_EDITOR_BAD_ARGUMENT, "a null folder is BAD_ARGUMENT" );
+		Check( BkEditorListStorageFiles( pSession, "maps\\", ".bzm", 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null count is BAD_ARGUMENT" );
+		// A capacity too short writes what fits and says the total.
+		if ( nTotal > 1 )
+		{
+			BkEditorRmgName one;
+			memset( &one, 0, sizeof one );
+			int nSeen = 0;
+			Check( BkEditorListStorageFiles( pSession, "scenarios\\chapters\\", "context.xml", &one, 1, &nSeen ) == BK_EDITOR_REFUSED && nSeen == nTotal && one.name[0] != 0,
+			       "a capacity below the total is REFUSED after writing what fits, with the total" );
+		}
+		// A template's graphs with their weights, in its own order.
+		int nGraphs = 0;
+		Check( BkEditorRmgTemplateGraphs( pSession, "scenarios\\templates\\summer\\template02", 0, 0, &nGraphs ) == BK_EDITOR_REFUSED && nGraphs > 0,
+		       NStr::Format( "template02's graphs size (%d)", nGraphs ) );
+		std::vector<BkEditorRmgGraph> graphs( static_cast<size_t>( nGraphs > 0 ? nGraphs : 1 ) );
+		int nRead = 0;
+		if ( Check( BkEditorRmgTemplateGraphs( pSession, "scenarios\\templates\\summer\\template02", &( graphs[0] ), nGraphs, &nRead ) == BK_EDITOR_OK && nRead == nGraphs,
+		            BkEditorLastMessage( pSession ) ) )
+		{
+			SRMTemplate shipped;
+			if ( Check( LoadDataResource( "scenarios\\templates\\summer\\template02", "", false, 0, RMGC_TEMPLATE_XML_NAME, shipped ), "the template loads through the engine" ) )
+			{
+				bool bSame = int( shipped.graphs.size() ) == nRead;
+				for ( int i = 0; bSame && i < nRead; ++i )
+					bSame = shipped.graphs[i] == graphs[size_t( i )].name && int( shipped.graphs.GetWeight( i ) ) == graphs[size_t( i )].weight;
+				Check( bSame, "the graphs and weights are the template's own, in its own order" );
+			}
+		}
+		Check( BkEditorRmgTemplateGraphs( pSession, "scenarios\\templates\\summer\\nope", 0, 0, &nGraphs ) == BK_EDITOR_REFUSED && nGraphs == 0 && MessageHas( pSession, "template" ),
+		       "an unknown template is REFUSED naming the template" );
+		Check( BkEditorRmgTemplateGraphs( pSession, 0, 0, 0, &nGraphs ) == BK_EDITOR_BAD_ARGUMENT, "a null template is BAD_ARGUMENT" );
+	}
+
+	// What the dialog's combos list: a summer template, a chapter context and a setting.
+	const std::vector<std::string> templates = ListRmgNames( pSession, 1 );
+	const std::vector<std::string> settings = ListRmgNames( pSession, 4 );
+	const std::vector<std::string> chapters = ListRmgNames( pSession, 5 );
+	std::string szTemplate, szContext, szSetting;
+	for ( size_t i = 0; i < templates.size() && szTemplate.empty(); ++i )
+		if ( templates[i] == "scenarios\\templates\\summer\\template02" )
+			szTemplate = templates[i];
+	for ( size_t i = 0; i < chapters.size() && szContext.empty(); ++i )
+		if ( chapters[i].size() > 8 && chapters[i].compare( chapters[i].size() - 8, 8, "\\context" ) == 0 )
+			szContext = chapters[i];
+	for ( size_t i = 0; i < settings.size() && szSetting.empty(); ++i )
+		if ( settings[i] == "scenarios\\settings\\summer_france" )
+			szSetting = settings[i];
+	if ( !Check( !szTemplate.empty() && !szContext.empty() && !szSetting.empty(), "the shipped data lists a summer template, a context and a setting" ) )
+		return;
+
+	// The generation lands under a scratch user root, never the real one.
+	const std::string szOriginalBase = NPlatform::Paths::BaseRoot();
+	const std::string szOriginalUser = NPlatform::Paths::UserRoot();
+	const std::filesystem::path userPath = std::filesystem::path( szScratch ) / "rmg-user";
+	std::error_code error;
+	std::filesystem::remove_all( userPath, error );
+	const std::string szUserRoot = userPath.string() + "/";
+	NPlatform::Paths::SetInjectedRootsForTest( szOriginalBase.c_str(), szUserRoot.c_str() );
+	struct SRestore
+	{
+		const std::string &rszBase, &rszUser;
+		~SRestore() { NPlatform::Paths::SetInjectedRootsForTest( rszBase.c_str(), rszUser.c_str() ); }
+	} restore = { szOriginalBase, szOriginalUser };
+
+	BkEditorRmgGenerateParams good;
+	memset( &good, 0, sizeof good );
+	strcpy( good.template_name, szTemplate.c_str() );
+	strcpy( good.context_name, szContext.c_str() );
+	strcpy( good.setting_name, szSetting.c_str() );
+	strcpy( good.map_name, "m3_rmg_a" );
+	good.level = 0;
+	good.graph = 0;
+	good.angle = 0;
+	good.save_as_bzm = 1;
+	good.write_dds = 0;
+	good.has_seed = 1;
+	good.seed = 777;
+	BkEditorRmgGenerateResult result;
+
+	// Every refusal names its field, and nothing is written.
+	{
+		struct SBadCase { const char *pszWhat; const char *pszField; void (*pfnBreak)( BkEditorRmgGenerateParams * ); };
+		static const SBadCase cases[] = {
+			{ "an unknown template", "template", []( BkEditorRmgGenerateParams *p ) { strcpy( p->template_name, "scenarios\\templates\\summer\\nope" ); } },
+			{ "a template outside the data", "template", []( BkEditorRmgGenerateParams *p ) { strcpy( p->template_name, "..\\x" ); } },
+			{ "an empty template", "template", []( BkEditorRmgGenerateParams *p ) { p->template_name[0] = 0; } },
+			{ "an unknown context", "context", []( BkEditorRmgGenerateParams *p ) { strcpy( p->context_name, "scenarios\\chapters\\nope" ); } },
+			{ "an unknown setting", "setting", []( BkEditorRmgGenerateParams *p ) { strcpy( p->setting_name, "scenarios\\settings\\nope" ); } },
+			{ "level 3", "level", []( BkEditorRmgGenerateParams *p ) { p->level = 3; } },
+			{ "level -1", "level", []( BkEditorRmgGenerateParams *p ) { p->level = -1; } },
+			{ "graph -2", "graph", []( BkEditorRmgGenerateParams *p ) { p->graph = -2; } },
+			{ "graph 999", "graph", []( BkEditorRmgGenerateParams *p ) { p->graph = 999; } },
+			{ "angle 4", "angle", []( BkEditorRmgGenerateParams *p ) { p->angle = 4; } },
+			{ "an empty map name", "map name", []( BkEditorRmgGenerateParams *p ) { p->map_name[0] = 0; } },
+			{ "a map name with a folder", "map name", []( BkEditorRmgGenerateParams *p ) { strcpy( p->map_name, "a\\b" ); } },
+			{ "a map name going up", "map name", []( BkEditorRmgGenerateParams *p ) { strcpy( p->map_name, ".." ); } },
+			{ "a map name with a drive", "map name", []( BkEditorRmgGenerateParams *p ) { strcpy( p->map_name, "c:x" ); } },
+			{ "a map name with a slash", "map name", []( BkEditorRmgGenerateParams *p ) { strcpy( p->map_name, "a/b" ); } },
+		};
+		for ( size_t i = 0; i < sizeof cases / sizeof cases[0]; ++i )
+		{
+			BkEditorRmgGenerateParams bad = good;
+			cases[i].pfnBreak( &bad );
+			const BkEditorStatus refused = BkEditorCreateRandomMap( pSession, &bad, &result );
+			Check( refused == BK_EDITOR_REFUSED, NStr::Format( "%s is REFUSED (got %d)", cases[i].pszWhat, int( refused ) ) );
+			Check( MessageHas( pSession, cases[i].pszField ), NStr::Format( "%s: the message names the %s (\"%s\")", cases[i].pszWhat, cases[i].pszField, BkEditorLastMessage( pSession ) ) );
+		}
+		// A field filled to the brim is not terminated: a caller bug.
+		BkEditorRmgGenerateParams brim = good;
+		memset( brim.map_name, 'a', sizeof brim.map_name );
+		Check( BkEditorCreateRandomMap( pSession, &brim, &result ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated map name is BAD_ARGUMENT" );
+		Check( !std::filesystem::exists( userPath / "maps", error ), "the refusals wrote nothing - not even the maps folder" );
+	}
+
+	// The first generation: fixed seed, graph and angle, with progress.
+	SRmgProgress progress = { 0, 0, 0, true };
+	good.progress_fn = RmgProgressCallback;
+	good.user = &progress;
+	const BkEditorStatus first = BkEditorCreateRandomMap( pSession, &good, &result );
+	if ( !Check( first == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	good.progress_fn = 0;
+	good.user = 0;
+	Check( progress.nLast == RMG_STEPS && progress.nTotal == RMG_STEPS,
+	       NStr::Format( "the progress ends at %d of %d", progress.nLast, progress.nTotal ) );
+	Check( progress.nCalls >= RMG_STEPS && progress.bMonotonic,
+	       NStr::Format( "the callback ran %d times, never backwards", progress.nCalls ) );
+	Check( result.seed == 777, NStr::Format( "the seed used is the one given (%u)", result.seed ) );
+	Check( result.graph == 0 && result.angle == 0, "the graph and angle are the ones given" );
+	Check( result.graph_name[0] != 0, "the graph's file is named" );
+	const std::filesystem::path mapsFolder = userPath / "maps";
+	const std::string szMapA = ( mapsFolder / "m3_rmg_a.bzm" ).string();
+	Check( SamePath( result.map_path, szMapA.c_str() ), NStr::Format( "the map is where the user's maps go (%s)", result.map_path ) );
+	// Everything of the generation sits in the user's folder: the map, its
+	// seed, its script and the pictures.
+	int nFiles = 0;
+	bool bSeed = false, bScript = false, bPictures = false;
+	for ( const std::filesystem::directory_entry &entry : std::filesystem::directory_iterator( mapsFolder, error ) )
+	{
+		const std::string szName = entry.path().filename().string();
+		++nFiles;
+		bSeed = bSeed || szName == "m3_rmg_a.bzm.seed" || szName == "m3_rmg_a.seed";
+		bScript = bScript || szName == "m3_rmg_a.lua";
+		const bool bOwn = szName.compare( 0, 8, "m3_rmg_a" ) == 0;
+		bPictures = bPictures || ( bOwn && szName != "m3_rmg_a.bzm" && szName != "m3_rmg_a.seed" && szName != "m3_rmg_a.lua" && szName != "m3_rmg_a.bzm.seed" );
+		printf( "editor-bridge: M3 rmg wrote %s\n", szName.c_str() );
+	}
+	Check( bSeed && bScript && bPictures, NStr::Format( "the seed, the script and the pictures are beside the map (%d files)", nFiles ) );
+	Check( std::filesystem::exists( szMapA, error ), "the map file exists" );
+
+	// The map reads, carries no MOD (none is active), and opens as a document.
+	CMapInfo generated;
+	std::string szError;
+	if ( Check( NMapFile::Read( EngineForm( szMapA ).c_str(), &generated, &szError ), szError.c_str() ) )
+	{
+		Check( generated.szMODName.empty(), NStr::Format( "with no mod active the map records none (\"%s\")", generated.szMODName.c_str() ) );
+		Check( generated.terrain.tiles.GetSizeX() == 8 * 16 && generated.terrain.tiles.GetSizeY() == 8 * 16, "an 8x8-patch template makes a 128x128-tile map" );
+	}
+	{
+		const std::string szEnginePath = EngineForm( szMapA );
+		BkEditorMapSummary summary;
+		memset( &summary, 0, sizeof summary );
+		if ( Check( BkEditorOpenMap( pSession, szEnginePath.c_str(), &summary ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			Check( summary.width_tiles == 8 * 16 && summary.height_tiles == 8 * 16, "the generated map opens at its size" );
+			Check( summary.season == CMapInfo::REAL_SEASONS[0], "and in the template's season" );
+			Check( summary.player_count >= 2, "with the template's players" );
+		}
+	}
+
+	// A repeat of the name is refused until overwrite is asked for, and the
+	// refusal leaves the file as it was.
+	const std::string szCopyA = szScratch + "\\m3-rmg-a-first.bzm";
+	std::filesystem::copy_file( szMapA, OsPath( szCopyA ), std::filesystem::copy_options::overwrite_existing, error );
+	Check( BkEditorCreateRandomMap( pSession, &good, &result ) == BK_EDITOR_REFUSED && MessageHas( pSession, "already exists" ),
+	       "a name already in the maps folder is REFUSED without overwrite" );
+	Check( BridgeFilesAreIdentical( szCopyA.c_str(), szMapA.c_str() ), "and the refusal left the map as it was" );
+
+	// D-04: the same seed, template, context, setting, level, graph and angle
+	// give a byte-identical map - both read fresh from disk.
+	good.overwrite = 1;
+	if ( Check( BkEditorCreateRandomMap( pSession, &good, &result ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( BridgeFilesAreIdentical( szCopyA.c_str(), szMapA.c_str() ), "the same seed regenerates a byte-identical map" );
+	// Another seed, another map.
+	good.seed = 778;
+	if ( Check( BkEditorCreateRandomMap( pSession, &good, &result ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		Check( result.seed == 778, "the other seed is the one reported" );
+		Check( !BridgeFilesAreIdentical( szCopyA.c_str(), szMapA.c_str() ), "another seed makes another map" );
+	}
+	// A blank seed draws a fresh one each time, and the result names it.
+	good.has_seed = 0;
+	BkEditorRmgGenerateResult drawn;
+	memset( &drawn, 0, sizeof drawn );
+	if ( Check( BkEditorCreateRandomMap( pSession, &good, &result ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+	     Check( BkEditorCreateRandomMap( pSession, &good, &drawn ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		Check( result.seed != drawn.seed, NStr::Format( "two blank seeds differ (%u, %u)", result.seed, drawn.seed ) );
+	// ...and that seed asked for again gives that map again.
+	if ( Check( BkEditorCreateRandomMap( pSession, &good, &result ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		const unsigned int nDrawn = result.seed;
+		std::filesystem::copy_file( szMapA, OsPath( szCopyA ), std::filesystem::copy_options::overwrite_existing, error );
+		good.has_seed = 1;
+		good.seed = nDrawn;
+		good.graph = result.graph;
+		good.angle = result.angle;
+		if ( Check( BkEditorCreateRandomMap( pSession, &good, &result ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+			Check( BridgeFilesAreIdentical( szCopyA.c_str(), szMapA.c_str() ), "the seed a blank draw reported regenerates that map" );
+	}
+	remove( OsPath( szCopyA ).c_str() );
+
+	// D-05: with a mod active the map records the MOD, not its chapter, and
+	// the files go to the mod's own folder.
+	if ( BkEditorSetMod( pSession, "EditorTestMod" ) == BK_EDITOR_OK )
+	{
+		BkEditorRmgGenerateParams modded = good;
+		strcpy( modded.map_name, "m3_rmg_mod" );
+		modded.has_seed = 1;
+		modded.seed = 777;
+		modded.graph = 0;
+		modded.angle = 0;
+		modded.overwrite = 0;
+		if ( Check( BkEditorCreateRandomMap( pSession, &modded, &result ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			const std::string szMapMod = ( userPath / "mods" / "EditorTestMod" / "maps" / "m3_rmg_mod.bzm" ).string();
+			Check( SamePath( result.map_path, szMapMod.c_str() ), NStr::Format( "with a mod active the map goes to the mod's maps folder (%s)", result.map_path ) );
+			CMapInfo fromMod;
+			szError.clear();
+			if ( Check( NMapFile::Read( EngineForm( szMapMod ).c_str(), &fromMod, &szError ), szError.c_str() ) )
+			{
+				Check( fromMod.szMODName == "Editor Test Mod", NStr::Format( "the map records the active mod's name (\"%s\")", fromMod.szMODName.c_str() ) );
+				Check( fromMod.szMODVersion == "1.0", NStr::Format( "and its version (\"%s\")", fromMod.szMODVersion.c_str() ) );
+			}
+		}
+		Check( BkEditorSetMod( pSession, 0 ) == BK_EDITOR_OK, "and the mod clears again" );
+	}
+
+	// The shipped data is never the output: a user root inside it is refused.
+	NPlatform::Paths::SetInjectedRootsForTest( szOriginalBase.c_str(), ( szOriginalBase + "Data" ).c_str() );
+	Check( BkEditorCreateRandomMap( pSession, &good, &result ) == BK_EDITOR_REFUSED && MessageHas( pSession, "data" ),
+	       "an output folder inside the game's data is REFUSED" );
+	NPlatform::Paths::SetInjectedRootsForTest( szOriginalBase.c_str(), szUserRoot.c_str() );
+
+	std::filesystem::remove_all( userPath, error );
+	printf( "editor-bridge: M3 create random map ok\n" );
 }
