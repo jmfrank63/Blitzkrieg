@@ -1446,7 +1446,12 @@ bool SetObjectFieldsInSession( SEditorSession *pSession, int nLinkID, const BkEd
 {
 	*pbRefused = false;
 	*pnToken = -1;
-	if ( pSession == 0 || !pSession->bMapOpen )
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen )
 	{
 		pSession->szMessage = "no map is open";
 		*pbRefused = true;
@@ -1581,7 +1586,12 @@ bool CanLinkInSession( SEditorSession *pSession, int nSource, int nTarget, int *
 {
 	*pbRefused = false;
 	*pnType = 0;
-	if ( pSession == 0 || !pSession->bMapOpen )
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen )
 	{
 		pSession->szMessage = "no map is open";
 		*pbRefused = true;
@@ -1784,7 +1794,12 @@ bool UnlinkInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused, in
 {
 	*pbRefused = false;
 	*pnToken = -1;
-	if ( pSession == 0 || !pSession->bMapOpen )
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen )
 	{
 		pSession->szMessage = "no map is open";
 		*pbRefused = true;
@@ -1830,7 +1845,12 @@ bool MoveObjectsInSession( SEditorSession *pSession, const int *pnLinkIDs, int n
 {
 	*pbRefused = false;
 	*pnToken = -1;
-	if ( pSession == 0 || !pSession->bMapOpen )
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen )
 	{
 		pSession->szMessage = "no map is open";
 		*pbRefused = true;
@@ -2048,7 +2068,7 @@ bool PickLinksOut( std::vector<int> &rLinks, int *pnOut, int nCapacity, int *pnC
 {
 	*pbRefused = false;
 	*pnCount = int( rLinks.size() );
-	if ( nCapacity < rLinks.size() )
+	if ( nCapacity < 0 || size_t( nCapacity ) < rLinks.size() )
 	{
 		*pbRefused = true;
 		return false;
@@ -2067,13 +2087,24 @@ void AddPickLink( std::vector<int> &rLinks, int nLinkID )
 }
 
 // The screen-rectangle pick of the MFC's rubber band (ObjectPlacerState.cpp:920):
-// every pickable object whose visual meets the rectangle. The rectangle is in
-// screen units, normalized here, as the MFC normalizes its own.
+// the scene's own rectangle pick (CScene::Pick over a rectangle), which takes
+// an object only when the CENTRE of its picture lies inside the rectangle - a
+// sprite's picture box (Anim/SpriteAnimation.cpp IsHit over a rectangle), a
+// mesh's bounding-sphere centre (MeshVisObj.cpp) - not one whose picture
+// merely meets it, as BkEditorObjectAt's point pick does. PickableLink then
+// applies ObjectAt's own filters (a soldier answers his squad, bridges and
+// entrenchments answer nothing). The rectangle is in screen units, normalized
+// here, as the MFC normalizes its own.
 bool PickObjectsInSession( SEditorSession *pSession, float fSx0, float fSy0, float fSx1, float fSy1, int *pnOut, int nCapacity, int *pnCount, bool *pbRefused )
 {
 	*pbRefused = false;
 	*pnCount = 0;
-	if ( pSession == 0 || !pSession->bMapOpen || pSession->pWorld == 0 )
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen || pSession->pWorld == 0 )
 	{
 		pSession->szMessage = "no map is open";
 		*pbRefused = true;
@@ -2110,7 +2141,12 @@ bool PickObjectsInTilesInSession( SEditorSession *pSession, int nTx0, int nTy0, 
 {
 	*pbRefused = false;
 	*pnCount = 0;
-	if ( pSession == 0 || !pSession->bMapOpen || pSession->pWorld == 0 )
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen || pSession->pWorld == 0 )
 	{
 		pSession->szMessage = "no map is open";
 		*pbRefused = true;
