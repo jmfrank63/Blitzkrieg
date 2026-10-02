@@ -9,11 +9,12 @@
 // draws a different one each time. This is the harness backlog 999.1's polygon-fill
 // speed-up needs as its own gate (the fill is where the time goes).
 //
-// Every generation goes into the SAME user folder, the one before it copied away first:
-// the map records the absolute path of the script it was generated beside (the engine's
-// own CreateRandomMap stores szScriptFile = the output path, as the MFC editor's did), so
-// two folders would differ in that one path and in nothing else. The copies are of the
-// files as the generator wrote them; the comparison reads them from disk.
+// The first comparison generates into two DIFFERENT user folders: a map names its script
+// relative to its own folder (the bare name, WINDOWS.md 5, ruled 2026-10-03), so nothing of
+// the computer it was made on is in the file - an older engine stored the absolute output
+// path and the two folders differed in that one path. Every generation's output is copied
+// away before the next one replaces it; the copies are of the files as the generator wrote
+// them, and the comparison reads them from disk.
 //
 // The authored leg (05-10, D-40.5): a template, a graph, a container and a field set
 // the composers wrote - through the same portable BkEditorRmgWrite* entries the
@@ -292,15 +293,17 @@ int main( int argc, char **argv )
 			BkEditorRmgGenerateResult first, second;
 			memset( &first, 0, sizeof first );
 			memset( &second, 0, sizeof second );
+			const std::filesystem::path otherUser = root / "user-other-folder";
 			if ( Generate( pSession, szBase, user, params, &first, "the first generation", root / "first.bzm" ) &&
-			     Generate( pSession, szBase, user, params, &second, "the second generation", root / "second.bzm" ) )
+			     Generate( pSession, szBase, otherUser, params, &second, "the second generation", root / "second.bzm" ) )
 			{
 				Check( first.seed == 424242 && second.seed == 424242, "both report the seed they were given" );
+				Check( strcmp( first.map_path, second.map_path ) != 0, "the two maps were generated into different folders" );
 				const long long nDifference = FirstDifference( ( root / "first.bzm" ).string(), ( root / "second.bzm" ).string() );
 				Check( nDifference == -1, nDifference == -2 ? std::string( "the generated maps cannot be read" )
 				                                            : "the two maps differ at byte " + std::to_string( nDifference ) );
 				if ( nDifference == -1 )
-					printf( "rmg-determinism: byte identical ok (seed 424242, graph 0, angle 0)\n" );
+					printf( "rmg-determinism: byte identical ok across two folders (seed 424242, graph 0, angle 0)\n" );
 			}
 
 			// 2. The seed decides: another seed gives another map.

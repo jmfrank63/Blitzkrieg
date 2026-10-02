@@ -6903,6 +6903,13 @@ static void TestM2ScriptFile( BkEditorSession *pSession, const std::string &szSc
 	// The read equals the file, verbatim.
 	std::string szRead;
 	Check( ReadScriptFileOf( pSession, &szRead ) && szRead == original.szScriptFile, "the script file reads as the file has it, verbatim" );
+	// A relative value (the shipped maps' maps\\Name is one) is not rewritten by a save that
+	// changed nothing: the saved file names the script as the opened one did.
+	{
+		CMapInfo savedUnedited;
+		if ( Check( NMapFile::Read( szUnedited.c_str(), &savedUnedited, &szError ), szError.c_str() ) )
+			Check( savedUnedited.szScriptFile == original.szScriptFile, "an unedited save keeps a relative script path exactly as the map had it" );
+	}
 	Check( BkEditorScriptFile( pSession, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null out is a bad argument" );
 
 	// m2_script is set, reads back and saves as the NMapRecords-built map.
@@ -6981,6 +6988,56 @@ static void TestM2ScriptFile( BkEditorSession *pSession, const std::string &szSc
 			remove( OsPath( szLongSaved ).c_str() );
 		}
 		remove( OsPath( szLong ).c_str() );
+	}
+	// The 2026-10-03 ruling (WINDOWS.md 5): a script path that names a place on one
+	// computer - the output path an older generation stored, a Windows drive path with
+	// backslashes or a macOS/Linux root path - reads as the script's name, is saved as
+	// that name (relative to the map's own folder), and so the same map from two
+	// computers is the same file. The map and its script then move together.
+	{
+		const char *const pszWindows = "C:\\Users\\jmfrank\\AppData\\Roaming\\Nival\\Blitzkrieg\\user\\maps\\legacy_script";
+		const char *const pszPosix = "/Users/other/Library/Application Support/Nival/user/maps/legacy_script";
+		const std::string szLegacy[2] = { szScratch + "\\scriptfile-legacy-a.bzm", szScratch + "\\scriptfile-legacy-b.bzm" };
+		const std::string szLegacySaved[2] = { szScratch + "\\scriptfile-legacy-a-saved.bzm", szScratch + "\\scriptfile-legacy-b-saved.bzm" };
+		const std::string szResaved = szScratch + "\\scriptfile-legacy-resaved.bzm";
+		const char *const pszLegacyPath[2] = { pszWindows, pszPosix };
+		bool bWritten = true;
+		for ( int i = 0; i < 2; ++i )
+		{
+			CMapInfo legacy = original;
+			NMapRecords::PutScriptFile( &legacy, pszLegacyPath[i] );
+			bWritten = Check( NMapFile::Write( szLegacy[i].c_str(), legacy, &szError ), szError.c_str() ) && bWritten;
+		}
+		bool bSaved = bWritten;
+		for ( int i = 0; i < 2 && bSaved; ++i )
+		{
+			bSaved = Check( BkEditorOpenMap( pSession, szLegacy[i].c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			if ( !bSaved )
+				break;
+			// A 90-character path used to read as a refusal (the record holds 63 characters).
+			Check( ReadScriptFileOf( pSession, &szRead ) && szRead == "legacy_script", NStr::Format( "the absolute path of map %d reads as the script's name (\"%s\")", i, szRead.c_str() ) );
+			bSaved = Check( BkEditorSaveMap( pSession, szLegacySaved[i].c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			CMapInfo saved;
+			if ( bSaved && Check( NMapFile::Read( szLegacySaved[i].c_str(), &saved, &szError ), szError.c_str() ) )
+				Check( saved.szScriptFile == "legacy_script", NStr::Format( "the absolute path of map %d is saved relative (\"%s\")", i, saved.szScriptFile.c_str() ) );
+			// Editing the script by name and undoing it (the value read) works on such a map.
+			Check( PutScriptFileOf( pSession, "other_script" ) == BK_EDITOR_OK, "a bare name replaces the absolute path" );
+			Check( PutScriptFileOf( pSession, "legacy_script" ) == BK_EDITOR_OK, "and the name the read gave goes back" );
+		}
+		if ( bSaved )
+		{
+			Check( SameBytes( szLegacySaved[0], szLegacySaved[1] ), "the same map from a Windows path and from a macOS path is the same file once saved" );
+			// A saved relative path stays: opening and saving it again changes nothing.
+			if ( Check( BkEditorOpenMap( pSession, szLegacySaved[0].c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) &&
+			     Check( BkEditorSaveMap( pSession, szResaved.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+				Check( SameBytes( szLegacySaved[0], szResaved ), "a relative script path is saved again as it was" );
+		}
+		for ( int i = 0; i < 2; ++i )
+		{
+			remove( OsPath( szLegacy[i] ).c_str() );
+			remove( OsPath( szLegacySaved[i] ).c_str() );
+		}
+		remove( OsPath( szResaved ).c_str() );
 	}
 	remove( OsPath( szUnedited ).c_str() );
 	remove( OsPath( szEdited ).c_str() );
@@ -13435,6 +13492,9 @@ static void TestM3CreateRandomMap( BkEditorSession *pSession, const std::string 
 	if ( Check( NMapFile::Read( EngineForm( szMapA ).c_str(), &generated, &szError ), szError.c_str() ) )
 	{
 		Check( generated.szMODName.empty(), NStr::Format( "with no mod active the map records none (\"%s\")", generated.szMODName.c_str() ) );
+		// WINDOWS.md 5 (2026-10-03): the script is named relative to the map's own folder, not by the output
+		// path of this computer, so the map and its .lua can be moved or synced together.
+		Check( generated.szScriptFile == "m3_rmg_a", NStr::Format( "the generated map names its script by its bare name (\"%s\")", generated.szScriptFile.c_str() ) );
 		Check( generated.terrain.tiles.GetSizeX() == 8 * 16 && generated.terrain.tiles.GetSizeY() == 8 * 16, "an 8x8-patch template makes a 128x128-tile map" );
 	}
 	{

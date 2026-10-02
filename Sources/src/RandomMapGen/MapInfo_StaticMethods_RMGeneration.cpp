@@ -12,6 +12,7 @@
 #include "Resource_Types.h"
 
 #include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtMapScriptPath.h"
 #include "TerrainBuilder.h"
 #include "../Main/GameStats.h"
 #include "../AILogic/aiconsts.h"
@@ -957,7 +958,11 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 								return false );
 	/**/
 
-	mapInfo.szScriptFile = szRandomMapName;
+	// The script is copied beside the map under the map's own name (below), so the map
+	// stores that name - relative to the map's folder, never the output path of this
+	// machine (NMapScriptPath: saves sync to other computers; the game loads the last
+	// component beside the map either way, so nothing that read the path loses).
+	mapInfo.szScriptFile = NMapScriptPath::LastComponent( szRandomMapName );
 	mapInfo.diplomacies = randomMapTemplate.diplomacies;
 	mapInfo.playersCameraAnchors.clear();
 	mapInfo.playersCameraAnchors.resize( mapInfo.diplomacies.size() - 1, VNULL3 );

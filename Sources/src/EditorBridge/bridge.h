@@ -1346,10 +1346,16 @@ BkEditorStatus BkEditorUnitCreationChoices( BkEditorSession *session, int kind, 
    MFC editor stored a bare name; empty means None. */
 typedef struct { char name[64]; } BkEditorScriptFileRecord;
 
-/* The snapshot's script file name, NUL-terminated in out->name. A value that
-   does not fit (64 characters or more) is BK_EDITOR_REFUSED naming why: the file
-   keeps it byte-exact and it is not editable. BK_EDITOR_BAD_ARGUMENT for a null
-   out; BK_EDITOR_REFUSED with no map open. */
+/* The snapshot's script file name, NUL-terminated in out->name. A map names its
+   script RELATIVE to its own folder - the bare name (the user's ruling of
+   2026-10-03: saves sync to other computers, so no path of this one is stored;
+   NMapScriptPath, Formats/fmtMapScriptPath.h). A map that still holds an ABSOLUTE
+   path (generated before the ruling) reads as that path's last component - the
+   name the game loads beside the map - and a save writes it so; every other value
+   reads, and saves, exactly as the file has it. A value that does not fit (64
+   characters or more) is BK_EDITOR_REFUSED naming why: the file keeps it
+   byte-exact and it is not editable. BK_EDITOR_BAD_ARGUMENT for a null out;
+   BK_EDITOR_REFUSED with no map open. */
 BkEditorStatus BkEditorScriptFile( BkEditorSession *session, BkEditorScriptFileRecord *out );
 
 /* An exact put of the script file name into the snapshot and the working copy

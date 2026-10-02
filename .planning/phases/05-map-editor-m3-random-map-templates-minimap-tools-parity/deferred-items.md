@@ -103,6 +103,15 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
   (found by the determinism harness; it generates into one folder and copies the first aside). Not fixed here:
   the field is the engine's and the game's own callers read it - the editor's fix is to put the bare name there
   after generation, which is a script-name edit of a freshly written file (05-11's hand try should look at it).
+  **Resolved (quick task 2026-10-03-script-path-wheel-link-pad, the user's ruling of 2026-10-03: saves sync through
+  the cloud to other computers):** a map stores its script path RELATIVE to its own folder - in practice the bare
+  name, '/' the only separator it could hold - and a loader expands it beside the map. `CreateRandomMap` stores the
+  name of the map it wrote; the bridge's save writes any ABSOLUTE value as its last component (an older generated
+  map, or the shipped intro maps' `C:\a7\data\maps\...`), and every other value is left exactly as the map had it
+  (the shipped maps' `maps\Name`, so the 66/66 round trip and an unedited save are unchanged); the game's loaders
+  (`iMissionInternal`, `GameCreation`, `CommandsHistory`) expand through `NMapScriptPath` (Formats/fmtMapScriptPath.h),
+  splitting on either separator. Two generations of one seed into two folders are byte identical
+  (`rmg-determinism: byte identical ok across two folders`). WINDOWS.md entry 5 is fixed.
 - **The Settings window's "Maps folder" does not move a generated map.** The generator appends `maps\<name>` to
   an output root, so the bridge builds the root from the user root (or the mod's folder) - D-17's default maps
   folder - and a custom folder typed into Settings is not honoured for generation (the map still opens normally).
