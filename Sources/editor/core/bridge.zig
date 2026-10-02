@@ -52,6 +52,12 @@ pub const ObjectRecord = struct {
     known: bool = true,
     /// The map's nScriptID: -1 none, else 0..32000 (D-15).
     script_id: i32 = -1,
+    /// The map's fHP, the record's own 0..1 (M3, D-26).
+    hp: f32 = 1.0,
+    /// The map's nFrameIndex: a squad's formation, a terraobj's segment (M3).
+    frame_index: i32 = 0,
+    /// The map's link.nLinkWith: the host's link ID, 0 none (M3, D-27).
+    link_with: i32 = 0,
 
     pub fn nameSlice(self: *const ObjectRecord) []const u8 {
         return std.mem.sliceTo(&self.name, 0);
@@ -62,6 +68,21 @@ pub const ObjectRecord = struct {
         @memset(&self.name, 0);
         @memcpy(self.name[0..len], text[0..len]);
     }
+};
+
+/// BkEditorObjectFieldsEdit (M3, D-26), layout included: the masked fields of
+/// one object's record. Mask bits: 1 player, 2 hp (the record's own 0..1),
+/// 4 angle in DEGREES (the MFC properties' unit), 8 formation (a squad's).
+pub const ObjectFieldsEdit = extern struct {
+    pub const player_bit: c_int = 1;
+    pub const hp_bit: c_int = 2;
+    pub const angle_bit: c_int = 4;
+    pub const formation_bit: c_int = 8;
+    mask: c_int = 0,
+    player: c_int = 0,
+    hp: f32 = 1.0,
+    angle: f32 = 0,
+    formation: c_int = 0,
 };
 
 /// What BkEditorReserveRole answers (04-11, D-18).
@@ -523,6 +544,22 @@ pub const Bridge = struct {
         /// be moved, a destination off the map) changes nothing and the
         /// whole move is refused.
         moveObjects: *const fn (ptr: *anyopaque, link_ids: []const i32, dx: f32, dy: f32, token: *i32) Status,
+        /// BkEditorSetObjectFields (M3, D-26): the masked fields of one
+        /// object's record, ONE edit of the log (`token`, -1 when nothing
+        /// changed). The flag swap rides the player bit; the formation bit
+        /// is refused for a kind that carries none.
+        setObjectFields: *const fn (ptr: *anyopaque, link_id: i32, edit: *const ObjectFieldsEdit, token: *i32) Status,
+        /// BkEditorCanLink (M3, D-27): CheckForInserting's rules as a
+        /// question - `link_type` 0 garrison, 1 train coupling, 2 tow;
+        /// refused naming the rule when none holds. A read.
+        canLink: *const fn (ptr: *anyopaque, source: i32, target: i32, link_type: *i32) Status,
+        /// BkEditorSetLink (M3, D-27): the passenger's nLinkWith becomes the
+        /// host's link ID, ONE edit of the log; a garrison moves the
+        /// passenger beside the host. Refused with canLink's reason.
+        setLink: *const fn (ptr: *anyopaque, source: i32, target: i32, token: *i32) Status,
+        /// BkEditorUnlink (M3, D-27): the record's nLinkWith back to 0, ONE
+        /// edit of the log (`token` -1 when nothing was linked).
+        unlink: *const fn (ptr: *anyopaque, link_id: i32, token: *i32) Status,
         /// BkEditorSounds. Like `objects`: `total` is always the full count,
         /// so a caller sizes `out` from a first sizing call the way
         /// `document.reload` does for `objects`.
@@ -780,6 +817,10 @@ pub const Bridge = struct {
     pub fn pickObjects(self: Bridge, sx0: f32, sy0: f32, sx1: f32, sy1: f32, out: []i32, total: *usize) Status { return self.vtable.pickObjects(self.ptr, sx0, sy0, sx1, sy1, out, total); }
     pub fn pickObjectsInTiles(self: Bridge, tx0: i32, ty0: i32, tx1: i32, ty1: i32, out: []i32, total: *usize) Status { return self.vtable.pickObjectsInTiles(self.ptr, tx0, ty0, tx1, ty1, out, total); }
     pub fn moveObjects(self: Bridge, link_ids: []const i32, dx: f32, dy: f32, token: *i32) Status { return self.vtable.moveObjects(self.ptr, link_ids, dx, dy, token); }
+    pub fn setObjectFields(self: Bridge, link_id: i32, edit: *const ObjectFieldsEdit, token: *i32) Status { return self.vtable.setObjectFields(self.ptr, link_id, edit, token); }
+    pub fn canLink(self: Bridge, source: i32, target: i32, link_type: *i32) Status { return self.vtable.canLink(self.ptr, source, target, link_type); }
+    pub fn setLink(self: Bridge, source: i32, target: i32, token: *i32) Status { return self.vtable.setLink(self.ptr, source, target, token); }
+    pub fn unlink(self: Bridge, link_id: i32, token: *i32) Status { return self.vtable.unlink(self.ptr, link_id, token); }
     pub fn sounds(self: Bridge, out: []SoundRecord, total: *usize) Status { return self.vtable.sounds(self.ptr, out, total); }
     pub fn addSound(self: Bridge, index: i32, rec: SoundRecord) Status { return self.vtable.addSound(self.ptr, index, rec); }
     pub fn setSound(self: Bridge, index: i32, rec: SoundRecord) Status { return self.vtable.setSound(self.ptr, index, rec); }

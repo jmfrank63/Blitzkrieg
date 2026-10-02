@@ -193,6 +193,11 @@ pub const Selector = struct {
     /// and m_curPickNum).
     cycle: std.ArrayListUnmanaged(i32) = .empty,
     cycle_index: usize = 0,
+    /// The drop's link (M3, D-27): while a drag carries objects, the object
+    /// under the pointer is polled through CheckForInserting; a valid host
+    /// is drawn ringed (the MFC's IDC_UPARROW cursor) and the release links.
+    drop_target: ?i32 = null,
+    drop_kind: i32 = 0,
 
     pub const Grabbed = struct { link_id: i32, x: f32, y: f32 };
 
@@ -231,6 +236,7 @@ pub const Selector = struct {
     pub fn handle(self: *Selector, editor: *Editor, event: Event) EditError!void {
         switch (event) {
             .press => |pointer| {
+                self.drop_target = null;
                 // The cycle candidates of this press, whatever the press then
                 // does with them (the MFC keeps m_pickedObjects at the press
                 // and the right click walks them).
@@ -279,11 +285,33 @@ pub const Selector = struct {
                 // goes on - the batch move is all-or-nothing per frame, so
                 // the frame is skipped whole.
                 self.dragMove(editor, pointer) catch |err| if (err != error.Refused) return err;
+                // The drop's link (M3, D-27): the object under the pointer -
+                // not one of the dragged ones - is polled through
+                // CheckForInserting, the MFC's own drag poll
+                // (ObjectPlacerState.cpp:121-134); the release links.
+                self.drop_target = null;
+                if (pointer.object) |candidate| {
+                    if (!editor.isSelected(candidate)) {
+                        if (editor.canLink(self.grabbed.items[0].link_id, candidate)) |kind| {
+                            self.drop_target = candidate;
+                            self.drop_kind = kind;
+                        } else |err| if (err != error.Refused) return err;
+                    }
+                }
             },
             .release => |pointer| {
                 if (self.band) |band| {
                     try finishBand(editor, band, pointer);
                     self.band = null;
+                }
+                // The drop (M3, D-27): a valid host under the release links
+                // the first dragged object to it, as the MFC's mouse-up does
+                // (ObjectPlacerState.cpp:846-860).
+                if (self.drop_target) |target| {
+                    if (self.grabbed.items.len != 0) {
+                        editor.makeLink(self.grabbed.items[0].link_id, target) catch |err| if (err != error.Refused) return err;
+                    }
+                    self.drop_target = null;
                 }
                 self.gesture = 0;
                 self.grabbed.clearRetainingCapacity();
@@ -315,15 +343,10 @@ pub const Selector = struct {
                 switch (key) {
                     .enter, .insert, .escape, .space => {},
                     .delete => {
-                        // Delete removes the whole selection, every member
-                        // through the M2 cascade, as ONE undo step (D-25).
-                        const members = try editor.selectionMembers(editor.allocator);
-                        defer editor.allocator.free(members);
-                        if (members.len > 1) {
-                            try editor.deleteMany(members);
-                        } else {
-                            try editor.delete(link_id);
-                        }
+                        // Delete removes the whole selection - every member
+                        // and every passenger of every member, through the
+                        // M2 cascade, as ONE undo step (D-25/D-27).
+                        try editor.deleteSelection();
                     },
                     .rotate_left, .rotate_right => {
                         const object = editor.document.find(link_id) orelse return;
@@ -845,4 +868,98 @@ test "Delete takes the whole selection through the cascade as one undo step" {
     try testing.expect(editor.document.find(1) != null);
     try testing.expect(editor.document.find(second) != null);
     try testing.expectEqual(@as(usize, 1), fake.start_commands.items.len);
+}
+
+test "properties fields commit as one undo step; an equal value records nothing" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const depth = editor.history.undo_stack.items.len;
+    try editor.applyObjectFields(1, .{ .mask = bridge_mod.ObjectFieldsEdit.hp_bit | bridge_mod.ObjectFieldsEdit.angle_bit, .hp = 0.43, .angle = 90 });
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    const object = editor.document.find(1).?;
+    try testing.expectEqual(@as(f32, 0.43), object.hp);
+    try testing.expectEqual(@as(i32, 65536 / 4), object.dir);
+    // An edit that changes nothing records nothing.
+    try editor.applyObjectFields(1, .{ .mask = bridge_mod.ObjectFieldsEdit.hp_bit, .hp = 0.43 });
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    // A refusal (a bad player) changes nothing.
+    try testing.expectError(error.Refused, editor.applyObjectFields(1, .{ .mask = bridge_mod.ObjectFieldsEdit.player_bit, .player = 9 }));
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    // Undo puts the whole record back.
+    _ = try editor.undo();
+    try testing.expectEqual(@as(f32, 1.0), editor.document.find(1).?.hp);
+}
+
+test "the formation rides only a squad, and the flag swap renames the record" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const squad = try editor.addObject("Rifle_Squad", 60, 60, 0, 0);
+    try fake.markSquadFixture(squad);
+    // A squad takes the formation.
+    try editor.applyObjectFields(squad, .{ .mask = bridge_mod.ObjectFieldsEdit.formation_bit, .formation = 2 });
+    try testing.expectEqual(@as(i32, 2), editor.document.find(squad).?.frame_index);
+    // A tank does not: its frame index is its segment.
+    try testing.expectError(error.Refused, editor.applyObjectFields(1, .{ .mask = bridge_mod.ObjectFieldsEdit.formation_bit, .formation = 1 }));
+    // The flag swap: re-owning a flag renames the record (the seeded swap).
+    const flag = try editor.addObject("Flag_allies", 100, 100, 0, 0);
+    try fake.addFlagSwapFixture(1, "Flag_germ");
+    try editor.applyObjectFields(flag, .{ .mask = bridge_mod.ObjectFieldsEdit.player_bit, .player = 1 });
+    try testing.expectEqualStrings("Flag_germ", editor.document.find(flag).?.nameSlice());
+    try testing.expectEqual(@as(i32, 1), editor.document.find(flag).?.player);
+    // And the undo puts the old flag back whole.
+    _ = try editor.undo();
+    try testing.expectEqualStrings("Flag_allies", editor.document.find(flag).?.nameSlice());
+    try testing.expectEqual(@as(i32, 0), editor.document.find(flag).?.player);
+}
+
+test "the drop links, garrisons beside the host, and the unlink clears" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const infantry = try editor.addObject("US_rifleman", 40, 100, 0, 0);
+    const building = try editor.addObject("A_Cisterns01", 100, 100, 0, 0);
+    try fake.addLinkRuleFixture("US_rifleman", "A_Cisterns01", 0);
+    // The question first: a garrison.
+    try testing.expectEqual(@as(i32, 0), try editor.canLink(infantry, building));
+    try editor.makeLink(infantry, building);
+    const passenger = editor.document.find(infantry).?;
+    try testing.expectEqual(building, passenger.link_with);
+    // A garrison stands beside its host, the MFC's own -30, +30.
+    try testing.expectEqual(@as(f32, 70), passenger.x);
+    try testing.expectEqual(@as(f32, 130), passenger.y);
+    const depth = editor.history.undo_stack.items.len;
+    // The unlink: nLinkWith back to 0, one undo step.
+    try editor.unlinkObject(infantry);
+    try testing.expectEqual(@as(i32, 0), editor.document.find(infantry).?.link_with);
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    _ = try editor.undo();
+    try testing.expectEqual(building, editor.document.find(infantry).?.link_with);
+    // A pair with no rule is refused with the reason.
+    try testing.expectError(error.Refused, editor.canLink(building, infantry));
+}
+
+test "deleting a host takes its passengers as one undo step" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    const infantry = try editor.addObject("US_rifleman", 40, 100, 0, 0);
+    const building = try editor.addObject("A_Cisterns01", 100, 100, 0, 0);
+    try fake.addLinkRuleFixture("US_rifleman", "A_Cisterns01", 0);
+    try editor.makeLink(infantry, building);
+    const depth = editor.history.undo_stack.items.len;
+    try editor.deleteHost(building);
+    try testing.expect(editor.document.find(building) == null);
+    try testing.expect(editor.document.find(infantry) == null);
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    // The undo restores the host first, then the passenger that names it.
+    _ = try editor.undo();
+    try testing.expect(editor.document.find(building) != null);
+    try testing.expect(editor.document.find(infantry) != null);
+    try testing.expectEqual(building, editor.document.find(infantry).?.link_with);
 }

@@ -194,6 +194,11 @@ const StartChange = struct { position: usize, before: FakeStartCommand, unit_rem
 const ReserveChange = struct { position: usize, before: FakeReservePosition };
 /// One soldier of a squad (M3, D-25): the member's link ID and the squad's.
 const FakeSquadMember = struct { member: i32, squad: i32 };
+/// One link rule the fake's canLink answers from (M3, D-27): source name,
+/// target name, the type it links as.
+const FakeLinkRule = struct { source: [64]u8 = [_]u8{0} ** 64, target: [64]u8 = [_]u8{0} ** 64, link_type: i32 = 0 };
+/// One flag swap (M3, D-26): re-owning a flag to `player` renames it.
+const FakeFlagSwap = struct { player: i32, to_name: [64]u8 = [_]u8{0} ** 64 };
 const Tombstone = struct {
     record: ObjectRecord,
     index: usize,
@@ -294,7 +299,7 @@ const FakeBridgeGroup = struct {
 const FakeBridgeEdit = struct { before: ?FakeBridgeGroup, after: ?FakeBridgeGroup };
 /// The fake's edit log holds road and river edits and bridge edits alike,
 /// one token space, as the real session's does.
-const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit, altitudes: FakeAltitudeEdit, fields: void, move_objects: FakeMoveObjectsEdit };
+const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit, altitudes: FakeAltitudeEdit, fields: void, move_objects: FakeMoveObjectsEdit, object_fields: FakeObjectFieldsEdit };
 /// A toggle of built during play: the entry and its flag before and after.
 const FakeBuildEdit = struct { index: usize, before: bool, after: bool };
 /// One altitude region edit (M3, D-19): the region and its heights before
@@ -311,6 +316,11 @@ const FakeMovedMember = struct { link_id: i32, before_x: f32, before_y: f32, aft
 /// after, put back raw by undo and forward again by redo - the same record
 /// the real bridge's SMoveObjectsEdit keeps.
 const FakeMoveObjectsEdit = struct { moves: std.ArrayListUnmanaged(FakeMovedMember) = .empty };
+
+/// One object's whole record before and after a fields edit (M3, D-26/D-27):
+/// the same record the real bridge's SObjectFieldsEdit keeps; a flag's swap
+/// of name undoes exactly through it.
+const FakeObjectFieldsEdit = struct { link_id: i32, before: ObjectRecord, after: ObjectRecord };
 
 /// A mutable empty slice to start from; Allocator.free ignores a zero length.
 var no_tiles: [0]u8 = .{};
@@ -386,6 +396,11 @@ pub const FakeBridge = struct {
     /// link. The real bridge answers a soldier's pick with his squad's link
     /// ID; this list is what the fake answers from (addSquadMemberFixture).
     squad_members: std.ArrayListUnmanaged(FakeSquadMember) = .empty,
+    /// The link rules and flag swaps the fake's link answers answer from
+    /// (M3, D-26/D-27). The real bridge reads the stats and partys.xml; the
+    /// fake has neither, so a test seeds what it needs.
+    link_rules: std.ArrayListUnmanaged(FakeLinkRule) = .empty,
+    flag_swaps: std.ArrayListUnmanaged(FakeFlagSwap) = .empty,
     /// The AI general's sides (04-12, D-19): the list's length is the side count. A
     /// side owns its script IDs, parcels and points (`AiSide.deinit`); its `side_count`
     /// field is unused here (the list's length is the count), its `side` is its index.
@@ -528,6 +543,8 @@ pub const FakeBridge = struct {
         self.roles.deinit(self.allocator);
         self.squads.deinit(self.allocator);
         self.squad_members.deinit(self.allocator);
+        self.link_rules.deinit(self.allocator);
+        self.flag_swaps.deinit(self.allocator);
         for (self.ai_sides.items) |*side| side.deinit(self.allocator);
         self.ai_sides.deinit(self.allocator);
         self.freeTombstones();
@@ -610,6 +627,46 @@ pub const FakeBridge = struct {
     /// member answers the squad's link ID, as the real bridge answers it.
     pub fn addSquadMemberFixture(self: *FakeBridge, member_link: i32, squad_link: i32) !void {
         try self.squad_members.append(self.allocator, .{ .member = member_link, .squad = squad_link });
+    }
+
+    /// A link rule the fake's `canLink` answers from (M3, D-27): source NAME
+    /// to target NAME with the type it links as (0 garrison, 1 train, 2 tow).
+    /// The real bridge reads the stats; the fake has no database, so a test
+    /// seeds the pairs it needs - the core behavior under test is the token,
+    /// the refusal path and the beside-move, not the stats.
+    pub fn addLinkRuleFixture(self: *FakeBridge, source_name: []const u8, target_name: []const u8, link_type: i32) !void {
+        var rule: FakeLinkRule = .{ .link_type = link_type };
+        const src_len = @min(source_name.len, rule.source.len - 1);
+        @memcpy(rule.source[0..src_len], source_name[0..src_len]);
+        const dst_len = @min(target_name.len, rule.target.len - 1);
+        @memcpy(rule.target[0..dst_len], target_name[0..dst_len]);
+        try self.link_rules.append(self.allocator, rule);
+    }
+
+    /// The flag swap the fake answers (M3, D-26): re-owning a Flag_ object
+    /// to `player` renames it to `to_name`, as the real bridge renames it to
+    /// Flag_<the party's general side>.
+    pub fn addFlagSwapFixture(self: *FakeBridge, player: i32, to_name: []const u8) !void {
+        var swap: FakeFlagSwap = .{ .player = player };
+        const len = @min(to_name.len, swap.to_name.len - 1);
+        @memcpy(swap.to_name[0..len], to_name[0..len]);
+        try self.flag_swaps.append(self.allocator, swap);
+    }
+
+    fn linkRuleFor(self: *const FakeBridge, source_name: []const u8, target_name: []const u8) ?i32 {
+        for (self.link_rules.items) |*rule| {
+            if (std.mem.eql(u8, std.mem.sliceTo(&rule.source, 0), source_name) and
+                std.mem.eql(u8, std.mem.sliceTo(&rule.target, 0), target_name))
+                return rule.link_type;
+        }
+        return null;
+    }
+
+    fn flagSwapFor(self: *const FakeBridge, player: i32) ?[]const u8 {
+        for (self.flag_swaps.items) |*swap| {
+            if (swap.player == player) return std.mem.sliceTo(&swap.to_name, 0);
+        }
+        return null;
     }
 
     /// The link a pick answers for `link_id`: the squad's when the object is
@@ -899,6 +956,10 @@ pub const FakeBridge = struct {
         .pickObjects = pickObjects,
         .pickObjectsInTiles = pickObjectsInTiles,
         .moveObjects = moveObjects,
+        .setObjectFields = setObjectFields,
+        .canLink = canLink,
+        .setLink = setLink,
+        .unlink = unlink,
         .sounds = sounds,
         .addSound = addSound,
         .setSound = setSound,
@@ -1057,6 +1118,10 @@ pub const FakeBridge = struct {
                 self.putMoves(edit.moves.items, true);
                 break :blk Status.ok;
             },
+            .object_fields => |*edit| blk: {
+                const put = self.putObjectRecordBack(edit.link_id, &edit.before);
+                break :blk put;
+            },
         };
         if (put != .ok) return put;
         _ = self.applied_edits.pop();
@@ -1086,6 +1151,10 @@ pub const FakeBridge = struct {
             .move_objects => |*edit| blk: {
                 self.putMoves(edit.moves.items, false);
                 break :blk Status.ok;
+            },
+            .object_fields => |*edit| blk: {
+                const put = self.putObjectRecordBack(edit.link_id, &edit.after);
+                break :blk put;
             },
         };
         if (put != .ok) return put;
@@ -3979,6 +4048,154 @@ pub const FakeBridge = struct {
                 object.y = if (back) move.before_y else move.after_y;
             }
         }
+    }
+
+    /// Writes `wanted` over the object's record - the fields edit's undo and
+    /// redo half, the whole record raw (a flag's swapped name included).
+    fn putObjectRecordBack(self: *FakeBridge, link_id: i32, wanted: *const ObjectRecord) Status {
+        const index = self.indexOf(link_id) orelse {
+            self.say("no object with that link ID", .{});
+            return .refused;
+        };
+        self.objects_list.items[index] = wanted.*;
+        return .ok;
+    }
+
+    fn setObjectFields(ptr: *anyopaque, link_id: i32, edit: *const bridge_mod.ObjectFieldsEdit, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        if (edit.mask == 0) return .bad_argument;
+        const index = self.indexOf(link_id) orelse {
+            self.say("no object with that link ID", .{});
+            return .refused;
+        };
+        if (self.shared(link_id)) return .refused;
+        const object = &self.objects_list.items[index];
+        if (!object.known) {
+            self.say("the object database does not know this object's type; it is kept as it is", .{});
+            return .refused;
+        }
+        var after = object.*;
+        if (edit.mask & bridge_mod.ObjectFieldsEdit.player_bit != 0) {
+            if (edit.player < 0 or @as(usize, @intCast(edit.player)) >= self.diplomacy_table.items.len) {
+                self.say("{d} is no player: the map holds {d}", .{ edit.player, self.diplomacy_table.items.len });
+                return .refused;
+            }
+            after.player = edit.player;
+            // The flag swap: a re-owned Flag_ object takes the seeded name.
+            if (std.mem.startsWith(u8, object.nameSlice(), "Flag_")) {
+                if (self.flagSwapFor(edit.player)) |to_name| after.setName(to_name);
+            }
+        }
+        if (edit.mask & bridge_mod.ObjectFieldsEdit.hp_bit != 0) {
+            if (!std.math.isFinite(edit.hp)) return .bad_argument;
+            after.hp = edit.hp;
+        }
+        if (edit.mask & bridge_mod.ObjectFieldsEdit.angle_bit != 0) {
+            if (!std.math.isFinite(edit.angle)) return .bad_argument;
+            after.dir = @intFromFloat((edit.angle * 65536.0) / 360.0 + 0.5);
+        }
+        if (edit.mask & bridge_mod.ObjectFieldsEdit.formation_bit != 0) {
+            if (edit.formation < 0) {
+                self.say("a formation index is 0 or greater", .{});
+                return .refused;
+            }
+            if (!self.isSquad(link_id)) {
+                self.say("only a squad carries a formation", .{});
+                return .refused;
+            }
+            after.frame_index = edit.formation;
+        }
+        if (std.meta.eql(after, object.*)) return .ok; // nothing changed: no token
+        const logged = FakeObjectFieldsEdit{ .link_id = link_id, .before = object.*, .after = after };
+        self.edits.append(self.allocator, .{ .object_fields = logged }) catch return .failed;
+        token.* = @intCast(self.edits.items.len - 1);
+        self.applied_edits.append(self.allocator, token.*) catch return .failed;
+        self.undone_edits.clearRetainingCapacity();
+        self.objects_list.items[index] = after;
+        self.record(.vso_edit, token.*);
+        return .ok;
+    }
+
+    fn canLink(ptr: *anyopaque, source: i32, target: i32, link_type: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        link_type.* = 0;
+        const source_index = self.indexOf(source) orelse {
+            self.say("no object with that link ID", .{});
+            return .refused;
+        };
+        const target_index = self.indexOf(target) orelse {
+            self.say("no object with that link ID", .{});
+            return .refused;
+        };
+        if (source == target) {
+            self.say("an object does not link to itself", .{});
+            return .refused;
+        }
+        const source_name = self.objects_list.items[source_index].nameSlice();
+        const target_name = self.objects_list.items[target_index].nameSlice();
+        const rule = self.linkRuleFor(source_name, target_name) orelse {
+            self.say("{s} does not link to {s}", .{ source_name, target_name });
+            return .refused;
+        };
+        link_type.* = rule;
+        return .ok;
+    }
+
+    fn setLink(ptr: *anyopaque, source: i32, target: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        var link_type: i32 = 0;
+        const can = canLink(ptr, source, target, &link_type);
+        if (can != .ok) return can;
+        const index = self.indexOf(source) orelse return .refused;
+        if (self.shared(source) or self.objects_list.items[index].known == false) return .refused;
+        const object = &self.objects_list.items[index];
+        var after = object.*;
+        after.link_with = target;
+        if (link_type == 0) {
+            // A garrison stands beside its host, the MFC's own offset.
+            const host = &self.objects_list.items[self.indexOf(target).?];
+            after.x = host.x - 30;
+            after.y = host.y + 30;
+        }
+        if (std.meta.eql(after, object.*)) return .ok;
+        const logged = FakeObjectFieldsEdit{ .link_id = source, .before = object.*, .after = after };
+        self.edits.append(self.allocator, .{ .object_fields = logged }) catch return .failed;
+        token.* = @intCast(self.edits.items.len - 1);
+        self.applied_edits.append(self.allocator, token.*) catch return .failed;
+        self.undone_edits.clearRetainingCapacity();
+        self.objects_list.items[index] = after;
+        self.record(.vso_edit, token.*);
+        return .ok;
+    }
+
+    fn unlink(ptr: *anyopaque, link_id: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        const index = self.indexOf(link_id) orelse {
+            self.say("no object with that link ID", .{});
+            return .refused;
+        };
+        if (self.shared(link_id)) return .refused;
+        const object = &self.objects_list.items[index];
+        if (object.link_with == 0) return .ok; // nothing linked: no token
+        const logged = FakeObjectFieldsEdit{ .link_id = link_id, .before = object.*, .after = blk: {
+            var after = object.*;
+            after.link_with = 0;
+            break :blk after;
+        } };
+        self.edits.append(self.allocator, .{ .object_fields = logged }) catch return .failed;
+        token.* = @intCast(self.edits.items.len - 1);
+        self.applied_edits.append(self.allocator, token.*) catch return .failed;
+        self.undone_edits.clearRetainingCapacity();
+        self.objects_list.items[index] = logged.after;
+        self.record(.vso_edit, token.*);
+        return .ok;
     }
 };
 

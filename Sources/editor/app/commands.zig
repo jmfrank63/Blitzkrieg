@@ -98,6 +98,10 @@ pub const command_table = [_]Entry{
     .{ .name = "ai_mobile_add", .handler = aiMobileAdd },
     .{ .name = "ai_mobile_remove", .handler = aiMobileRemove },
     .{ .name = "heights_window", .handler = heightsWindow },
+    .{ .name = "props_open", .handler = propsOpen },
+    .{ .name = "props_set", .handler = propsSet },
+    .{ .name = "link_make", .handler = linkMake },
+    .{ .name = "link_unlink", .handler = linkUnlink },
     .{ .name = "heights_brush", .handler = heightsBrush },
     .{ .name = "heights_speed", .handler = heightsSpeed },
     .{ .name = "heights_ratio", .handler = heightsRatio },
@@ -810,6 +814,91 @@ fn scriptIdIs(state: *State, arg: []const u8) Outcome {
     var buffer: [96]u8 = undefined;
     state.editor.note(std.fmt.bufPrint(&buffer, "script_id is {d}, not {d}", .{ object.script_id, want }) catch "script_id differs");
     return .refused;
+}
+
+// ---------------------------------------------------------------------------
+// Properties, links (M3, D-26/D-27): the Properties window's fields and the
+// drop's link, every one a named command so the panel, the Selector's drop
+// and a BK_EDITOR_AUTO `do=` run the same code.
+// ---------------------------------------------------------------------------
+
+/// `do=props_open:1|0` opens or closes the Properties window (the menu
+/// checkbox is the same state).
+fn propsOpen(state: *State, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "1")) {
+        state.properties_open = true;
+    } else if (std.mem.eql(u8, arg, "0")) {
+        state.properties_open = false;
+    } else return .bad_arg;
+    return .ok;
+}
+
+/// `do=props_set:<field>,<value>`: the Properties panel's commit, the field
+/// one of player, health (a percent), angle (degrees) or formation - the
+/// Script ID rides the M2 `script_id` command. Applied to the whole
+/// selection (the multi-selection's own set), ONE undo step.
+fn propsSet(state: *State, arg: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const bar = std.mem.indexOfScalar(u8, arg, ',') orelse return .bad_arg;
+    const field = arg[0..bar];
+    const value_text = arg[bar + 1 ..];
+    var fields: core.bridge.ObjectFieldsEdit = .{};
+    if (std.mem.eql(u8, field, "player")) {
+        fields.mask |= core.bridge.ObjectFieldsEdit.player_bit;
+        fields.player = std.fmt.parseInt(c_int, value_text, 10) catch return .bad_arg;
+    } else if (std.mem.eql(u8, field, "health")) {
+        fields.mask |= core.bridge.ObjectFieldsEdit.hp_bit;
+        const percent = std.fmt.parseFloat(f32, value_text) catch return .bad_arg;
+        fields.hp = logic.clampHealthPercent(percent) / 100.0;
+    } else if (std.mem.eql(u8, field, "angle")) {
+        fields.mask |= core.bridge.ObjectFieldsEdit.angle_bit;
+        fields.angle = std.fmt.parseFloat(f32, value_text) catch return .bad_arg;
+    } else if (std.mem.eql(u8, field, "formation")) {
+        fields.mask |= core.bridge.ObjectFieldsEdit.formation_bit;
+        fields.formation = std.fmt.parseInt(c_int, value_text, 10) catch return .bad_arg;
+    } else return .bad_arg;
+    const members = state.editor.selectionMembers(state.allocator) catch return .failed;
+    defer state.allocator.free(members);
+    if (members.len == 0) {
+        state.editor.note("select an object first");
+        return .refused;
+    }
+    // The formation rides only when every member is a squad: any other
+    // kind's frame index is its segment, never a formation.
+    if (fields.mask & core.bridge.ObjectFieldsEdit.formation_bit != 0) {
+        for (members) |member| {
+            const object = state.editor.document.find(member) orelse return .failed;
+            if (!isSquadName(state, object.nameSlice())) {
+                state.editor.note("only a squad carries a formation");
+                return .refused;
+            }
+        }
+    }
+    return resultOutcome(state, state.editor.applyObjectFieldsMany(members, fields));
+}
+
+fn isSquadName(state: *State, name: []const u8) bool {
+    for (state.catalogue) |*entry| {
+        if (std.mem.eql(u8, std.mem.sliceTo(&entry.name, 0), name)) return entry.game_type == 15;
+    }
+    return false;
+}
+
+/// `do=link_make:<source>,<target>`: the drop's link, refused with
+/// CheckForInserting's own reason when the rules say no.
+fn linkMake(state: *State, arg: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const bar = std.mem.indexOfScalar(u8, arg, ',') orelse return .bad_arg;
+    const source = std.fmt.parseInt(i32, arg[0..bar], 10) catch return .bad_arg;
+    const target = std.fmt.parseInt(i32, arg[bar + 1 ..], 10) catch return .bad_arg;
+    return resultOutcome(state, state.editor.makeLink(source, target));
+}
+
+/// `do=link_unlink:<id>`: the properties' units list unlink.
+fn linkUnlink(state: *State, arg: []const u8) Outcome {
+    if (!panels.mapIsOpen(state.editor)) return .refused;
+    const link_id = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    return resultOutcome(state, state.editor.unlinkObject(link_id));
 }
 
 /// The script file's name as the map holds it now (a fresh read), or null

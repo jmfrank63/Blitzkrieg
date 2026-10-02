@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../RandomMapGen/VA_Types.h"
+#include "../AILogic/UnitCreation.h"
 #include "../MapFile/MapOverlay.h"
 #include "../MapFile/MapGeometry.h"
 #include "bridge.h"
@@ -48,6 +49,13 @@ struct SEditorSession
 	// stays in the snapshot and is written back untouched.
 	std::unordered_map<int, CPtr<IRefCount> > byLinkID;
 	std::vector<int> unknownLinkIDs;
+	// The party table (partys.xml), read once per session for the flag swap
+	// (M3, D-26): a flag re-owned to player N becomes Flag_<the party's
+	// general side>, exactly the MFC properties' own swap. Empty until the
+	// first flag edit needs it; a partys.xml the storage does not have keeps
+	// it empty and every swap answers neutral.
+	std::vector<CUnitCreation::SPartyDependentInfo> partyTable;
+	bool bPartyTableRead;
 	// The reinforcement groups as the file had them when the map was opened
 	// (04-09). A group put may keep any script ID - and as many copies of it -
 	// that the file's own group held, however odd (a duplicate, a value out of
@@ -58,6 +66,7 @@ struct SEditorSession
 	// read from a file is kept verbatim until the user changes it - it may be
 	// a path or carry ".lua" - so a put may always bring it back (an undo),
 	// while a value NEW to the map must be a bare name.
+
 	std::string szScriptFileAtOpen;
 	// How many script areas held each name when the map was opened (04-10, D-21).
 	// A file may name two areas alike; an edit may not make a NEW duplicate, but an
@@ -133,6 +142,11 @@ struct SEditorSession
 		// Whether the engine held it. One it never held - outside the map, or a
 		// span set aside from every bridge - goes back into the map alone.
 		bool bPlaced;
+		// The host's passengers (M3, D-27): the records whose nLinkWith named
+		// this object go with it - deleted first, each with its own tombstone,
+		// and restored after the host (their links point at it), last deleted
+		// first. Empty for a passengerless object.
+		std::vector<STombstone> passengers;
 		STombstone() : bPlaced( false ) {  }
 	};
 	std::unordered_map<int, STombstone> tombstones;
@@ -181,7 +195,7 @@ struct SEditorSession
 	bool bInstantUpdate;
 	bool bFitToGrid;
 	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ), fYawOffsetDegrees( 0.0f ), bSquadIconOwnerMapBuilt( false ),
-									 nHeightsBrush( 0 ), fHeightsSpeed( 0.0f ), bHeightsPatternValid( false ), vClickRefStroke( VNULL3 ), fClickTileHeight( 0.0f ), bClickTileValid( false ), fClickAverageHeight( 0.0f ),
+									 bPartyTableRead( false ), nHeightsBrush( 0 ), fHeightsSpeed( 0.0f ), bHeightsPatternValid( false ), vClickRefStroke( VNULL3 ), fClickTileHeight( 0.0f ), bClickTileValid( false ), fClickAverageHeight( 0.0f ),
 									 bInstantUpdate( false ), bFitToGrid( true ) {  }
 };
 
@@ -292,6 +306,42 @@ bool MoveObjectsInSession( SEditorSession *pSession, const int *pnLinkIDs, int n
 // total, and a buffer too short is refused with nothing written past capacity.
 bool PickObjectsInSession( SEditorSession *pSession, float fSx0, float fSy0, float fSx1, float fSy1, int *pnOut, int nCapacity, int *pnCount, bool *pbRefused );
 bool PickObjectsInTilesInSession( SEditorSession *pSession, int nTx0, int nTy0, int nTx1, int nTy1, int *pnOut, int nCapacity, int *pnCount, bool *pbRefused );
+
+// The properties' fields, links and the flag swap (M3, D-26/D-27, session.cpp).
+//
+// SetObjectFieldsInSession applies the masked fields of `edit` to ONE object's
+// record (both copies, then the engine re-placed) as ONE edit of the log -
+// one deactivate commit is one undo step. Mask bits: 1 player (the flag swap:
+// a FLAG re-owned becomes Flag_<the map's unit-creation party's general side>,
+// partys.xml naming the general side, "neutral" when anything is unknown),
+// 2 hp (finite, the record's own 0..1), 4 angle (DEGREES, the MFC properties'
+// unit, turned into the record's direction with the MFC's own formula), and
+// 8 formation (the squad record's frame index; refused for any other kind -
+// a unit record's frame index is its segment index, never a formation).
+// A refusal changes nothing.
+bool SetObjectFieldsInSession( SEditorSession *pSession, int nLinkID, const BkEditorObjectFieldsEdit *pEdit, bool *pbRefused, int *pnToken );
+
+// CheckForInserting's rules (ObjectPlacerState.cpp:1325-1424) answered as a
+// question about ONE passenger and ONE host: *pnType is 0 garrison, 1 train
+// coupling, 2 tow; refused naming the rule when none holds. Infantry only as
+// passengers; a building needs its stats and a free slot (slots + rest +
+// medical); a trench piece takes infantry (the MFC's own checks are commented
+// out there); a vehicle needs an entrance point and passenger room; a tractor
+// or carrier tows an artillery gun with crew points it out-pulls; train cars
+// couple with train cars.
+bool CanLinkInSession( SEditorSession *pSession, int nSource, int nTarget, int *pnType, bool *pbRefused );
+
+// The drop's link (D-27): the passenger record's nLinkWith becomes the host's
+// link ID on both copies (the engine's garrison follows when the map loads,
+// exactly the MFC editor's own save/load route), and a garrison moves the
+// passenger beside the host (the MFC's GetCenter - 30, +30). ONE edit of the
+// log. Refused with CanLink's reason, changing nothing.
+bool SetLinkInSession( SEditorSession *pSession, int nSource, int nTarget, bool *pbRefused, int *pnToken );
+
+// The properties' units list unlink (D-27): the record's nLinkWith back to 0
+// (a palette-placed object is linked with nothing), both copies, the engine
+// re-placed, ONE edit of the log. An unlinked object answers OK with no token.
+bool UnlinkInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused, int *pnToken );
 
 // Fills pOut with the object database's descriptors and pnCount with how many
 // there are - always the database's count, not how many fitted. Returns false
@@ -628,6 +678,20 @@ struct SMoveObjectsEdit : public IEditRecord
 		SMovedMember() : nLinkID( -1 ) {  }
 	};
 	std::vector<SMovedMember> members;
+
+	virtual bool Revert( SEditorSession *pSession );
+	virtual bool Reapply( SEditorSession *pSession );
+};
+
+// One object's whole record before and after a fields edit (M3, D-26), put
+// back raw - the flag swap's name change undoes exactly through it, engine
+// included. Shared by BkEditorSetObjectFields, BkEditorSetLink and
+// BkEditorUnlink: every one of them changes one object's record whole.
+struct SObjectFieldsEdit : public IEditRecord
+{
+	int nLinkID;
+	SMapObjectInfo before, after;
+	SObjectFieldsEdit() : nLinkID( -1 ) {  }
 
 	virtual bool Revert( SEditorSession *pSession );
 	virtual bool Reapply( SEditorSession *pSession );

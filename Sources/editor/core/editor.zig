@@ -634,6 +634,151 @@ pub const Editor = struct {
         }
     }
 
+    /// The properties' commit (M3, D-26): the masked fields of one object's
+    /// record through one BkEditorSetObjectFields call - ONE edit per
+    /// deactivation (`gesture` 0; the panel commits once). The document
+    /// re-reads its objects (the flag swap renames and moves the record).
+    /// A refusal - a bad player, a non-finite field, a formation on a kind
+    /// that carries none - changes nothing. An edit that changes nothing
+    /// records nothing (the token answers -1).
+    pub fn applyObjectFields(self: *Editor, link_id: i32, fields: bridge_mod.ObjectFieldsEdit) EditError!void {
+        return self.applyObjectFieldsMany(&.{link_id}, fields);
+    }
+
+    /// The same commit over several objects (the multi-selection's fields):
+    /// ONE undo step for the whole commit - one bridge edit per member, the
+    /// tokens of one call merged. A member's refusal stops the commit there
+    /// and keeps what applied (each member's edit is its own whole token,
+    /// the MFC's own per-object multi set), and the status names it.
+    pub fn applyObjectFieldsMany(self: *Editor, links: []const i32, fields: bridge_mod.ObjectFieldsEdit) EditError!void {
+        if (links.len == 0) return;
+        for (links) |link_id| {
+            if (self.document.find(link_id) == null) return error.Failed;
+        }
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        if (prepared.entry) |entry| {
+            try entry.command.edit.tokens.ensureUnusedCapacity(self.allocator, links.len);
+        } else {
+            try prepared.tokens.ensureTotalCapacity(self.allocator, links.len);
+        }
+        var applied: usize = 0;
+        for (links) |link_id| {
+            var token: i32 = -1;
+            const outcome = self.bridge.setObjectFields(link_id, &fields, &token);
+            if (outcome != .ok) {
+                // The status carries the refusal. Nothing applied yet: the
+                // refusal is the commit's answer; some members applied: a
+                // partial commit stands (each member's edit is its own whole
+                // token, the MFC's own per-object multi set).
+                const message = self.bridge.lastMessage();
+                const len = @min(message.len, self.status_buffer.len);
+                @memcpy(self.status_buffer[0..len], message[0..len]);
+                self.status_len = len;
+                if (applied == 0) return bridge_mod.check(outcome);
+                break;
+            }
+            self.status_len = 0;
+            if (token >= 0) {
+                applied += 1;
+                if (prepared.entry) |entry| {
+                    entry.command.edit.tokens.appendAssumeCapacity(token);
+                    self.history.touchTop(self.allocator);
+                } else {
+                    prepared.tokens.appendAssumeCapacity(token);
+                }
+            }
+        }
+        if (prepared.entry == null and prepared.tokens.items.len != 0) {
+            const tokens = prepared.tokens;
+            prepared.tokens = .empty;
+            self.history.recordAssumeCapacity(self.allocator, .{ .edit = .{ .tokens = tokens, .scope = .objects } }, 0);
+            self.bumpScope(.objects);
+        }
+        try self.reloadObjectsAfterEdit();
+    }
+
+    /// The drop's link (M3, D-27): `source` linked to `host` through
+    /// BkEditorSetLink - ONE edit; the document re-reads. The drop asks
+    /// `canLink` first (the cursor feedback); a refusal here names the rule.
+    pub fn makeLink(self: *Editor, source: i32, host: i32) EditError!void {
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.setLink(source, host, &token));
+        if (token >= 0) self.commitEdit(&prepared, token, 0, .objects);
+        try self.reloadObjectsAfterEdit();
+    }
+
+    /// The properties' units list unlink (M3, D-27): `link_id`'s nLinkWith
+    /// back to 0, ONE edit; the document re-reads. Nothing linked records
+    /// nothing.
+    pub fn unlinkObject(self: *Editor, link_id: i32) EditError!void {
+        var prepared = try self.prepareEdit(0, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.unlink(link_id, &token));
+        if (token >= 0) self.commitEdit(&prepared, token, 0, .objects);
+        try self.reloadObjectsAfterEdit();
+    }
+
+    /// CheckForInserting's answer for a drop (M3, D-27): the link type -
+    /// 0 garrison, 1 train coupling, 2 tow - refused naming the rule. A
+    /// read; the status line is left alone.
+    pub fn canLink(self: *Editor, source: i32, host: i32) EditError!i32 {
+        var link_type: i32 = 0;
+        const result = self.bridge.canLink(source, host, &link_type);
+        if (result == .refused) {
+            const message = self.bridge.lastMessage();
+            const len = @min(message.len, self.status_buffer.len);
+            @memcpy(self.status_buffer[0..len], message[0..len]);
+            self.status_len = len;
+            return error.Refused;
+        }
+        try bridge_mod.check(result);
+        return link_type;
+    }
+
+    /// Deleting a host takes its passengers with it (M3, D-27): the members
+    /// of the delete are the passengers - the records whose nLinkWith names
+    /// the host - plus the host itself, passengers first, so ONE deleteMany
+    /// undo restores the host before the passengers that point at it. The
+    /// M1 refusal is lifted for exactly this path; the M2 refusals (a span,
+    /// a trench piece) still refuse the delete whole. Passes through to a
+    /// plain delete when the host carries none.
+    pub fn deleteHost(self: *Editor, link_id: i32) EditError!void {
+        var members: std.ArrayListUnmanaged(i32) = .empty;
+        defer members.deinit(self.allocator);
+        for (self.document.objects.items) |object| {
+            if (object.link_with == link_id and object.link_id != link_id)
+                members.append(self.allocator, object.link_id) catch return error.OutOfMemory;
+        }
+        if (members.items.len == 0) return self.delete(link_id);
+        members.append(self.allocator, link_id) catch return error.OutOfMemory;
+        try self.deleteMany(members.items);
+    }
+
+    /// The selection's Delete, host-aware (M3, D-25/D-27): every member and
+    /// every passenger of every member, ONE undo step, duplicates collapsed.
+    pub fn deleteSelection(self: *Editor) EditError!void {
+        const members = try self.selectionMembers(self.allocator);
+        defer self.allocator.free(members);
+        if (members.len == 0) return;
+        if (members.len == 1) return self.deleteHost(members[0]);
+        var all: std.ArrayListUnmanaged(i32) = .empty;
+        defer all.deinit(self.allocator);
+        for (members) |member| {
+            for (self.document.objects.items) |object| {
+                if (object.link_with == member and object.link_id != member and
+                    std.mem.indexOfScalar(i32, all.items, object.link_id) == null and
+                    std.mem.indexOfScalar(i32, members, object.link_id) == null)
+                    all.append(self.allocator, object.link_id) catch return error.OutOfMemory;
+            }
+        }
+        for (members) |member| all.append(self.allocator, member) catch return error.OutOfMemory;
+        try self.deleteMany(all.items);
+    }
+
     /// An object's script ID (D-15): -1 none, else 0..32000. The bridge
     /// changes both map copies only (C7) and refuses a value out of range, an
     /// unknown or shared link ID and link ID 0, naming why, so a refusal

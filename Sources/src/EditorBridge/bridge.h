@@ -242,6 +242,9 @@ typedef struct
 	int scenario;      /* 1: scenarioObjects, 0: objects */
 	int known;         /* 0: the database does not know the type */
 	int script_id;     /* the map's nScriptID: -1 none, else 0..32000 (04-09) */
+	float hp;          /* the map's fHP, the record's own 0..1 (M3, D-26) */
+	int frame_index;   /* the map's nFrameIndex: a squad's formation, a terraobj's segment (M3) */
+	int link_with;     /* the map's link.nLinkWith: the host's link ID, 0 none (M3, D-27) */
 } BkEditorObjectRecord;
 BkEditorStatus BkEditorObjects( BkEditorSession *session, BkEditorObjectRecord *out, int capacity, int *out_count );
 
@@ -1006,6 +1009,60 @@ BkEditorStatus BkEditorGroundHeight( BkEditorSession *session, float x, float y,
    outside -1..32000 are BK_EDITOR_REFUSED, naming why, and change nothing.
    BK_EDITOR_REFUSED with no map open. */
 BkEditorStatus BkEditorSetObjectScriptID( BkEditorSession *session, int link_id, int script_id );
+
+/* The properties' fields (M3, D-26): the masked fields of *edit applied to
+   ONE object's record, both copies, the engine re-placed - ONE edit of the
+   log, so one deactivate commit is one undo step. Mask bits: 1 player, 2 hp
+   (the record's own 0..1; the properties' percent is the caller's scale),
+   4 angle in DEGREES (the MFC properties dialog's unit, turned into the
+   record's direction with the MFC's own formula), 8 formation (the squad
+   record's frame index; refused for any other kind - a unit's frame index is
+   its segment index, never a formation). The flag swap rides the player bit:
+   a FLAG re-owned to player N becomes Flag_<the map's unit-creation party's
+   general side> (partys.xml names the general side; "neutral" when the map's
+   unit creation or the table is silent), the MFC properties' own swap
+   (SEditorMApObject.cpp:426-470) - the record renames in place and the engine
+   re-places it under the new type. BK_EDITOR_BAD_ARGUMENT for a null edit or
+   a mask naming nothing; BK_EDITOR_REFUSED, changing nothing, for a record
+   that cannot be edited (unknown or shared link ID), a player outside the
+   diplomacy table, a non-finite hp or angle, a negative formation, a
+   formation on a kind that carries none, or a flag type the database does
+   not know. */
+typedef struct
+{
+	int mask;          /* 1 player, 2 hp, 4 angle, 8 formation */
+	int player;        /* 0..diplomacies-1 */
+	float hp;          /* the record's own 0..1 */
+	float angle;       /* degrees */
+	int formation;     /* the squad's formation index, 0 or greater */
+} BkEditorObjectFieldsEdit;
+BkEditorStatus BkEditorSetObjectFields( BkEditorSession *session, int link_id, const BkEditorObjectFieldsEdit *edit, int *out_token );
+
+/* CheckForInserting's rules (ObjectPlacerState.cpp:1325-1424) answered as a
+   question (M3, D-27): can `source` link to `target`, and as what? *out_type
+   is 0 garrison, 1 train coupling, 2 tow. Infantry only as passengers; a
+   building needs its stats and a free slot (shoot slots + rest + medical); a
+   trench piece takes infantry (the MFC's own checks are commented out there,
+   ObjectPlacerState.cpp:1358-1372); a vehicle needs an entrance point and
+   passenger room; a tractor or carrier tows an artillery gun with crew points
+   it out-pulls; train cars couple with train cars. A read: nothing changes.
+   BK_EDITOR_REFUSED names the rule that said no. */
+BkEditorStatus BkEditorCanLink( BkEditorSession *session, int source, int target, int *out_type );
+
+/* The drop's link (M3, D-27): the passenger record's nLinkWith becomes the
+   host's link ID on both copies - the engine's garrison follows when the map
+   loads, exactly the MFC editor's own save/load route - and a garrison moves
+   the passenger beside the host (the MFC's GetCenter - 30, +30,
+   ObjectPlacerState.cpp:827-831). ONE edit of the log. Refused with
+   BkEditorCanLink's reason, changing nothing; the same refusals as the
+   fields edit for a record that cannot be edited. */
+BkEditorStatus BkEditorSetLink( BkEditorSession *session, int source, int target, int *out_token );
+
+/* The properties' units list unlink (M3, D-27): the record's nLinkWith back
+   to 0 (a palette-placed object is linked with nothing), both copies, the
+   engine re-placed, ONE edit of the log. An already-unlinked object answers
+   OK with *out_token -1. */
+BkEditorStatus BkEditorUnlink( BkEditorSession *session, int link_id, int *out_token );
 
 /* The map's script file (04-10, D-20): CMapInfo::szScriptFile, the name of the
    Lua file the game loads from the map's own folder (the game adds ".lua"). The

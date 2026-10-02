@@ -149,6 +149,10 @@ pub fn ViewWith(comptime Input: type) type {
         /// left button's own events then become right ones until its release.
         right_button_down: bool = false,
         right_via_ctrl: bool = false,
+        /// M3 (D-26): set when the Selector's double-click or Enter/Space
+        /// lands on a selection; main.zig's loop opens the Properties window
+        /// and clears it.
+        props_open_request: bool = false,
         /// The same for the middle button in the Heights tool (M3, D-18) -
         /// or for Alt+left there (`middle_via_alt`), the trackpad's stand-in
         /// for a middle button the MFC editor levels with. In every other
@@ -943,6 +947,18 @@ pub fn ViewWith(comptime Input: type) type {
                 .fields => handleFields(self, editor, event),
             };
             self.noteEditResult(editor, result);
+            // M3 (D-26/PARITY O15): double-click, Enter or Space on a
+            // selection opens the Properties window - the view notes the ask
+            // and main.zig's loop opens the panel (the view owns no panels).
+            if (self.tool == .select and editor.selection != null) {
+                switch (event) {
+                    .double_click => self.props_open_request = true,
+                    .key => |key| if (key == .enter or key == .space) {
+                        self.props_open_request = true;
+                    },
+                    else => {},
+                }
+            }
             // The Start Target tool takes one click: back to the tool it came from.
             if (self.tool == .start_target and self.start_target.done) {
                 self.start_target.reset();

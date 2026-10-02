@@ -814,6 +814,7 @@ static void TestAltitudeRegion()
 // call on a copy carrying the same tiles; and the paint's own undo record
 // puts the fill back byte for byte.
 static void TestM3FieldRegion();
+static void TestM3ObjectFields();
 static void TestM3FillRegion()
 {
 	const char *const pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
@@ -3431,6 +3432,7 @@ int main( int argc, char **argv )
 	TestAltitudeRegion();
 	TestM3FillRegion();
 	TestM3FieldRegion();
+	TestM3ObjectFields();
 	TestM2RecordOps();
 	TestM2ScriptAreaConversion();
 	TestM2FindReferences();
@@ -3523,4 +3525,134 @@ static void TestM3FieldRegion()
 		remove( szOriginalFile.c_str() );
 	}
 	printf( "map-file: M3 field region ok\n" );
+}
+
+// The properties' record fields (M3, D-26/D-27) at the map-file tier: each
+// new Set* is in place, the expected map is the same calls on a second read,
+// and the inverse writes the unedited file byte for byte. Bad input - a
+// player past the diplomacy table, a non-finite angle, a negative formation,
+// a link to a missing object or to the object itself - is false and changes
+// nothing (the fresh read compares byte for byte).
+static void TestM3ObjectFields()
+{
+	const char *const pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( pszMap, &original, &szError ), szError.c_str() ) )
+		return;
+
+	// The object the fields go on: one with a link ID of its own, and the
+	// target one the link names.
+	int nTarget = -1;
+	{
+		const std::vector<SMapObjectInfo> *lists[2] = { &original.objects, &original.scenarioObjects };
+		for ( int nList = 0; nList < 2 && nTarget < 0; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size() && nTarget < 0; ++i )
+				if ( ( *lists[nList] )[i].link.nLinkID > 0 )
+					nTarget = ( *lists[nList] )[i].link.nLinkID;
+	}
+	Check( nTarget > 0, "an object with a link ID of its own" );
+	SMapObjectInfo *pTarget = 0;
+	{
+		std::vector<SMapObjectInfo> *lists[2] = { &original.objects, &original.scenarioObjects };
+		for ( int nList = 0; nList < 2 && pTarget == 0; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size() && pTarget == 0; ++i )
+				if ( ( *lists[nList] )[i].link.nLinkID == nTarget )
+					pTarget = &( *lists[nList] )[i];
+	}
+	Check( pTarget != 0, "the object is found" );
+	const int nPlayerBefore = pTarget->nPlayer;
+	const int nDirBefore = pTarget->nDir;
+	const float fHPBefore = pTarget->fHP;
+	const int nFrameBefore = pTarget->nFrameIndex;
+	const int nLinkBefore = pTarget->link.nLinkWith;
+	// A second object to link to (a different link ID).
+	int nHost = -1;
+	{
+		const std::vector<SMapObjectInfo> *lists[2] = { &original.objects, &original.scenarioObjects };
+		for ( int nList = 0; nList < 2 && nHost < 0; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size() && nHost < 0; ++i )
+				if ( ( *lists[nList] )[i].link.nLinkID > 0 && ( *lists[nList] )[i].link.nLinkID != nTarget )
+					nHost = ( *lists[nList] )[i].link.nLinkID;
+	}
+	Check( nHost > 0, "a second object to link to" );
+
+	// The edited read: every setter, in place.
+	CMapInfo edited;
+	if ( !Check( NMapFile::Read( pszMap, &edited, &szError ), szError.c_str() ) )
+		return;
+	Check( NMapRecords::SetObjectPlayer( &edited, nTarget, 1 ), "the player is set" );
+	Check( NMapRecords::SetObjectAngle( &edited, nTarget, 90.0f ), "the angle is set" );
+	Check( NMapRecords::SetObjectHP( &edited, nTarget, 0.43f ), "the health is set" );
+	Check( NMapRecords::SetObjectFormation( &edited, nTarget, 2 ), "the formation is set" );
+	Check( NMapRecords::SetObjectLink( &edited, nTarget, nHost ), "the link is set" );
+	SMapObjectInfo *pEdited = 0;
+	{
+		std::vector<SMapObjectInfo> *lists[2] = { &edited.objects, &edited.scenarioObjects };
+		for ( int nList = 0; nList < 2 && pEdited == 0; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size() && pEdited == 0; ++i )
+				if ( ( *lists[nList] )[i].link.nLinkID == nTarget )
+					pEdited = &( *lists[nList] )[i];
+	}
+	Check( pEdited != 0 && pEdited->nPlayer == 1, "and the player is in place" );
+	Check( pEdited->nDir == int( ( 90.0f * 65536.0f ) / 360.0f + 0.5f ), "the angle is the MFC's own turn" );
+	Check( pEdited->fHP == 0.43f, "the health is in place" );
+	Check( pEdited->nFrameIndex == 2, "the formation is in place" );
+	Check( pEdited->link.nLinkWith == nHost, "the link names the host" );
+
+	// The expected map: the same calls on a second read.
+	CMapInfo expected;
+	if ( !Check( NMapFile::Read( pszMap, &expected, &szError ), szError.c_str() ) )
+		return;
+	Check( NMapRecords::SetObjectPlayer( &expected, nTarget, 1 ) && NMapRecords::SetObjectAngle( &expected, nTarget, 90.0f ) &&
+	       NMapRecords::SetObjectHP( &expected, nTarget, 0.43f ) && NMapRecords::SetObjectFormation( &expected, nTarget, 2 ) &&
+	       NMapRecords::SetObjectLink( &expected, nTarget, nHost ),
+	       "the builder applies the same fields" );
+	const char *pszEditedPath = "zig-out\\local-test\\m3-fields-edited.bzm";
+	const char *pszExpectedPath = "zig-out\\local-test\\m3-fields-expected.bzm";
+	const char *pszUndonePath = "zig-out\\local-test\\m3-fields-undone.bzm";
+	const char *pszUneditedPath = "zig-out\\local-test\\m3-fields-unedited.bzm";
+	Check( NMapFile::Write( pszEditedPath, edited, &szError ), szError.c_str() );
+	Check( NMapFile::Write( pszExpectedPath, expected, &szError ), szError.c_str() );
+
+	// The inverse: the whole record as it was put back in place (the setters
+	// answer new values; the record's own -1 frame index or any HP a file
+	// held goes back whole, the M2 raw-restore rule).
+	*pEdited = *pTarget;
+	Check( NMapFile::Write( pszUndonePath, edited, &szError ), szError.c_str() );
+	CMapInfo unedited;
+	if ( !Check( NMapFile::Read( pszMap, &unedited, &szError ), szError.c_str() ) )
+		return;
+	Check( NMapFile::Write( pszUneditedPath, unedited, &szError ), szError.c_str() );
+	Check( FilesAreIdentical( pszUneditedPath, pszUndonePath ), "a fields edit and its inverse write the unedited file byte for byte" );
+	{
+		CMapInfo savedExpected, savedEdited;
+		std::string szWhere;
+		if ( Check( NMapFile::Read( pszExpectedPath, &savedExpected, &szError ) && NMapFile::Read( pszEditedPath, &savedEdited, &szError ), szError.c_str() ) )
+			Check( NMapFile::AreEquivalent( savedExpected, savedEdited, &szWhere ),
+			       szWhere.empty() ? "the edited save is the expected map" : ( "the fields edit differs at " + szWhere ).c_str() );
+	}
+
+	// Bad input: false and untouched - the read compares byte for byte with
+	// the file's own.
+	CMapInfo probed;
+	if ( !Check( NMapFile::Read( pszMap, &probed, &szError ), szError.c_str() ) )
+		return;
+	Check( !NMapRecords::SetObjectPlayer( &probed, nTarget, -1 ), "player -1 is refused" );
+	Check( !NMapRecords::SetObjectPlayer( &probed, nTarget, int( probed.diplomacies.size() ) ), "a player past the table is refused" );
+	Check( !NMapRecords::SetObjectAngle( &probed, nTarget, std::numeric_limits<float>::quiet_NaN() ), "a NaN angle is refused" );
+	Check( !NMapRecords::SetObjectFormation( &probed, nTarget, -2 ), "a formation below -1 is refused (-1 is a record's own)" );
+	Check( !NMapRecords::SetObjectLink( &probed, nTarget, nTarget ), "a self-link is refused" );
+	Check( !NMapRecords::SetObjectLink( &probed, nTarget, 123456 ), "a link to a missing object is refused" );
+	Check( !NMapRecords::SetObjectPlayer( &probed, 0, 1 ), "link ID 0 is refused" );
+	const char *pszProbedPath = "zig-out\\local-test\\m3-fields-probed.bzm";
+	Check( NMapFile::Write( pszProbedPath, probed, &szError ), szError.c_str() );
+	Check( FilesAreIdentical( pszUneditedPath, pszProbedPath ), "the refusals changed nothing: byte for byte" );
+
+	remove( pszEditedPath );
+	remove( pszExpectedPath );
+	remove( pszUndonePath );
+	remove( pszUneditedPath );
+	remove( pszProbedPath );
+	printf( "map-file: M3 object fields ok\n" );
 }

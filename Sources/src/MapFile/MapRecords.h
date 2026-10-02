@@ -134,5 +134,19 @@ bool EraseEntrenchment( SLoadMapInfo *pMap, int nIndex, SEntrenchmentInfo *pEras
 // a bridge span the mission builds later holds a negative one.
 bool SetObjectScriptID( SLoadMapInfo *pMap, int nLinkID, int nScriptID );
 bool SetObjectHP( SLoadMapInfo *pMap, int nLinkID, float fHP );
+
+// The properties' fields (M3, D-26), the same contract: in-place, found by
+// link ID, false-and-untouched on bad input. A player is 0..diplomacies-1
+// (the properties combo's own range). An angle is DEGREES, the MFC
+// properties dialog's unit, turned into the record's 65536-direction with
+// the MFC's own formula (SEditorMApObject.cpp:384-386). A formation is the
+// squad record's frame index (the MFC properties' Formation combo writes the
+// squad's, SEditorMApObject.cpp:522-547), 0 or greater. A link is the host's
+// link ID, which must be an object of the map and never the passenger's own;
+// 0 unlinks (a palette-placed object is linked with nothing, SAddObject::nLinkWith).
+bool SetObjectPlayer( SLoadMapInfo *pMap, int nLinkID, int nPlayer );
+bool SetObjectAngle( SLoadMapInfo *pMap, int nLinkID, float fAngleDegrees );
+bool SetObjectFormation( SLoadMapInfo *pMap, int nLinkID, int nFormation );
+bool SetObjectLink( SLoadMapInfo *pMap, int nLinkID, int nLinkWith );
 }
 #endif // __MAP_RECORDS_H__
