@@ -33,7 +33,7 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 | F7 | Save As | TEF:4452 | M1 | | 03-VERIFICATION |
 | F8 | Save in XML (Ctrl+X) / Save in BZM (Ctrl+B) | TEF:4406, 4413 | M3 05-01 | D-24 (Ctrl+Shift+X/B) | TestM3NewMap saves both formats and reads them back equal; `file_save_xml`/`file_save_bzm` commands; `do=file_save_bzm` step in map-editor-m3-auto; settings `default_format` (enginePath test) | |
 | F9 | Recent maps (10) | MainFrm.cpp:889–937 | M1 | Open Recent | 03-VERIFICATION |
-| F10 | Create Random Map dialog: template, context, graph index, setting, direction, level, BZM, DDS, name | TEF:207–298, CreateRandomMapDialog.cpp | M3 05-08 | D-01..D-05 | |
+| F10 | Create Random Map dialog: template, context, graph index, setting, direction, level, BZM, DDS, name | TEF:207–298, CreateRandomMapDialog.cpp | M3 05-08 | D-01..D-05 | `editor-bridge: M3 create random map ok` (TestM3CreateRandomMap: every refusal names its field and writes nothing, 19 progress steps, map/.seed/.lua/pictures under the user folder, the active mod's name and version in the map (D-05), byte-identical regeneration from a fixed seed, blank seeds differ); `rmg-determinism: byte identical ok` (test-rmg-determinism, the editor's own path, fixed seed + graph + angle, and with graph/angle left to the seed); panels_logic tests (OK rule, params, seed, Browse name, `rmg_set`); map-editor-m3-auto: `rmg_dialog`, `rmg_set:*`, `rmg_generate` + `expect=rmg_seed:777` + `expect=title:m3_auto_rmg.bzm`, and the dialog-driven pass (`rmg_dialog:ok`, shots `m3-rmg-dialog`/`m3-rmg-progress`/`m3-rmg-result`, `rmg_dialog:open_map`). The one added field is the seed; Browse picks a file inside `Data` and maps it back to its storage name |
 | F11 | Exit (grayed item) / close with save prompt | editor.rc:2061, MainFrm.cpp:693 | M1 | Quit and close prompts | 03-VERIFICATION |
 | F12 | Drag-and-drop a map onto the window | MainFrm.cpp:1120 | M3 05-11 | D-34 | |
 | F13 | Single instance: a second launch passes its file (WM_COPYDATA) | MainFrm.cpp:1200, editor.cpp:125 | M3 05-11 | D-34 local IPC | |
@@ -100,11 +100,11 @@ File references are relative to `Sources/src/MapEditor/` unless stated. `TEF` = 
 | H2 | About | editor.cpp:260 | M3 05-11 | | |
 | T1 | Run Blitzkrieg | TEF:6649 | M1 | Test in game | map-editor-auto |
 | T2 | Options: game command-line parameters, default save format | MapEditorOptions.cpp, TEF:6464 | M3 05-11 / 05-01 | D-34, D-24 | |
-| T3 | Tool 0: RMG graphs list | MainFrm.cpp:939 | M3 05-08 | D-13 | |
-| T4 | Tool 1: contexts list | MainFrm.cpp:990 | M3 05-08 | D-13 | |
-| T5 | Tool 2: patches list | MainFrm.cpp:1031 | M3 05-08 | D-13 | |
-| T6 | Tool 3: game maps list | MainFrm.cpp:1072 | M3 05-08 | D-13 | |
-| T7 | Tool 4: re-update and resave every patch | MainFrm.cpp:1138 | NF | No menu item; it would rewrite shipped `Data` | |
+| T3 | Tool 0: RMG graphs list | MainFrm.cpp:939 | M3 05-08 | D-13 | panels_logic `export lists: the graphs list is each template then its graphs as index, weight and name` (the MFC's `\t%d %d %s\r\n`); `editor-bridge: M3 create random map ok` (BkEditorRmgTemplateGraphs = the template's own graphs and weights); m3-auto `export_lists:graphs` + `expect=export_file:graphs` + `export_lines:graphs:100` (to `<UserRoot>mapeditor/logs/graphs_list.txt`, not `Data\logs`) |
+| T4 | Tool 1: contexts list | MainFrm.cpp:990 | M3 05-08 | D-13 | panels_logic `export lists: names one per line with CRLF` and `each kind has the MFC's file, folder and extensions` (`scenarios\chapters\`, `context.xml`); bridge storage listing test; m3-auto `export_lists:contexts` + `export_file:contexts` + `export_lines:contexts:10` |
+| T5 | Tool 2: patches list | MainFrm.cpp:1031 | M3 05-08 | D-13 | panels_logic export tests (the `.bzm` files, then the `.xml` ones, as the MFC's two parameters enumerate); bridge storage listing test (`scenarios\patches\` lists .bzm files); m3-auto `export_lists:patches` + `export_file:patches` + `export_lines:patches:5` |
+| T6 | Tool 3: game maps list | MainFrm.cpp:1072 | M3 05-08 | D-13 | panels_logic `export lists: names one per line with CRLF, the Maps list without the two 3D maps` (`maps\river3d.xml`, `maps\road3d.xml` left out as MainFrm.cpp:1100-1112); m3-auto `export_lists:maps` + `export_file:maps` + `export_lines:maps:20` + the status names the written file |
+| T7 | Tool 4: re-update and resave every patch | MainFrm.cpp:1138 | NF | No menu item; it would rewrite shipped `Data` | MainFrm.cpp:1138 re-read, and editor.rc:2132-2135 lists Tools 0-3 only (no menu item for ID_TOOL_4): `OnTool4` loads every patch under `Scenarios\Patches\`, updates and saves it back into the storage - a rewrite of shipped `Data`; Tools > Export lists (panels.zig) carries the four lists only, and every writer targets `<UserRoot>mapeditor/logs` |
 | T8 | Mod switch (clears managers, swaps storage, reloads DB) | MODCollector.cpp, TEF:6392 | M1 | File → Mod | 03-VERIFICATION |
 
 ## 6. Edit toolbar

@@ -2198,6 +2198,7 @@ pub fn build(b: *std.Build) void {
     const map_editor: ?MapEditorBuild = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
     const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
+    addRmgDeterminismTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
 
     // Backwards-compatible alias for the older command used in project scripts.
     const game_install_step = b.step("game-install", "Create runnable game install layout with binaries and Data");
@@ -5897,7 +5898,6 @@ fn addEditorBridgeTest(
     step_m3_minimap.dependOn(&exe.step);
     if (test_mode == .run) step_m3_minimap.dependOn(&run_m3_minimap.step);
 
-    // 05-06: the Layers menu's probe (what each layer does in this renderer) and the
     // 05-08: Create Random Map through the engine's own generator, alone (the full
     // tier above runs it too, among everything else): the refusals, the seed, the
     // output folders, the mod stamp and the generated map's open.
@@ -5913,6 +5913,7 @@ fn addEditorBridgeTest(
     step_m3_rmg.dependOn(&exe.step);
     if (test_mode == .run) step_m3_rmg.dependOn(&run_m3_rmg.step);
 
+    // 05-06: the Layers menu's probe (what each layer does in this renderer) and the
     // layer entries through the engine, alone (the full tier above runs them too).
     const run_m3_layers = b.addRunArtifact(exe);
     run_m3_layers.setCwd(b.path(stage_root));
@@ -7125,12 +7126,80 @@ fn addMapEditor(
         "889:expect=layer:terrain_noise:1",
         "890:expect=layer:bounding_boxes:0",
         "893:expect=dirty:0",
-        "897:exit",
+        // Create Random Map (05-08, F10, D-01..D-05): the dialog opens and closes;
+        // a fixed seed generates through the engine's own generator (the command is
+        // synchronous - the window waits, D-03) into the run's user maps folder
+        // (XDG_DATA_HOME below), the map opens as a normal document, and the seed
+        // the generation reports is the one asked for.
+        "895:do=rmg_dialog",
+        "897:expect=rmg_dialog:1",
+        "899:do=rmg_dialog:close",
+        "901:expect=rmg_dialog:0",
+        "902:do=rmg_set:template:scenarios\\templates\\summer\\template02",
+        "903:do=rmg_set:context:scenarios\\chapters\\allies\\france\\context",
+        "903:do=rmg_set:graph:0",
+        "903:do=rmg_set:setting:any",
+        "903:do=rmg_set:angle:0",
+        "903:do=rmg_set:level:1",
+        "903:do=rmg_set:bzm:1",
+        "903:do=rmg_set:dds:0",
+        "903:do=rmg_set:overwrite:1",
+        "903:do=rmg_set:name:m3_auto_rmg",
+        "904:do=rmg_set:seed:777",
+        "905:do=rmg_generate",
+        "907:expect=rmg_seed:777",
+        "945:expect=title:m3_auto_rmg.bzm",
+        "947:expect=title:8x8",
+        "949:expect=dirty:0",
+        // The same generation as a person drives it: the dialog open with its fields
+        // set one by one (shot), OK - the modal is announced at 0 of 19, the generator
+        // runs one frame later with the window waiting, the result modal says the seed
+        // (shot) - and Open map opens the file as a normal document.
+        "951:do=rmg_dialog",
+        "952:do=rmg_set:template:scenarios\\templates\\summer\\template02",
+        "952:do=rmg_set:context:scenarios\\chapters\\allies\\france\\context",
+        "952:do=rmg_set:graph:2",
+        "952:do=rmg_set:angle:3",
+        "952:do=rmg_set:level:2",
+        "952:do=rmg_set:overwrite:1",
+        "952:do=rmg_set:name:m3_auto_rmg_ui",
+        "953:do=rmg_set:seed:4242",
+        "958:shot=m3-rmg-dialog",
+        "960:do=rmg_dialog:ok",
+        "960:expect=rmg_phase:announce",
+        "962:shot=m3-rmg-progress",
+        "985:expect=rmg_phase:done",
+        "986:expect=rmg_seed:4242",
+        "988:shot=m3-rmg-result",
+        "990:do=rmg_dialog:open_map",
+        "992:expect=rmg_phase:idle",
+        "1030:expect=title:m3_auto_rmg_ui.bzm",
+        // Tools > Export lists (T3-T6, D-13): each list lands in the user's logs
+        // folder in the MFC's line format (the writers' bytes are in the panels'
+        // tests; here the files exist and hold what the shipped data lists).
+        "1040:do=export_lists:graphs",
+        "1042:expect=export_file:graphs",
+        "1044:expect=export_lines:graphs:100",
+        "1046:do=export_lists:contexts",
+        "1048:expect=export_file:contexts",
+        "1050:expect=export_lines:contexts:10",
+        "1052:do=export_lists:patches",
+        "1054:expect=export_file:patches",
+        "1056:expect=export_lines:patches:5",
+        "1058:do=export_lists:maps",
+        "1060:expect=export_file:maps",
+        "1062:expect=export_lines:maps:20",
+        "1064:expect=status:created",
+        "1068:exit",
     };
     const auto_m3_run = b.addRunArtifact(exe);
     auto_m3_run.setCwd(b.path(stage_root));
     auto_m3_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m3_dir);
+    // The user root of this run (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and
+    // Linux): the generated random map and the exported lists land here and not in
+    // the person's own maps and logs folders.
+    auto_m3_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/map-editor-m3-auto-user"));
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m3_entries) catch @panic("OOM"));
     auto_m3_run.has_side_effects = true;
     auto_m3_run.step.dependOn(&install_exe.step);
@@ -7329,6 +7398,62 @@ fn addRandomMissionsTest(
     platform_runtime: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+    sweep: []const u8,
+) void {
+    addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "random-missions-test", "tools/zig/random_missions_test.cpp", "test-random-missions", "Generate every random mission a chapter can offer and open it in the engine", &.{sweep});
+}
+
+// 05-08 (D-04/D-40.5): the Create Random Map determinism harness - the editor's own
+// generation path, a fixed seed, the .bzm bytes compared. The data-only tier, like the
+// random missions.
+fn addRmgDeterminismTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+) void {
+    addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "rmg-determinism-test", "tools/zig/rmg_determinism_test.cpp", "test-rmg-determinism", "Generate a random map twice from a fixed seed through the editor and compare the files byte for byte", &.{});
+}
+
+// Both engine-hosted C++ tools of the editor's data-only tier (the random missions and
+// the Create Random Map determinism harness) are linked, staged and run the same way:
+// beside Game in the installation, on the engine the editor bridge starts, writing only
+// under zig-out/local-test. `tool` is the executable's name, `source` its one
+// translation unit, `step_name` and `step_description` the build step, and
+// `extra_args` what follows the installation and scratch arguments.
+fn addEngineHostedTool(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
     // install-game stages every shared library the engine needs - StreamIO,
     // StreamIOOptionsAbi, PlatformRuntime, SDL3 and the rest - so the run step
     // installs none of them itself. The map file tier has to; it runs from the
@@ -7336,7 +7461,11 @@ fn addRandomMissionsTest(
     stage_root: []const u8,
     install_game_step: *std.Build.Step,
     test_mode: build_support.TestMode,
-    sweep: []const u8,
+    tool: []const u8,
+    source: []const u8,
+    step_name: []const u8,
+    step_description: []const u8,
+    extra_args: []const []const u8,
 ) void {
     // The recipe of gfxgpu-factory-test, which is the C++ executable this
     // repository already runs on Linux CI. See the note in addMapFileTest.
@@ -7350,7 +7479,7 @@ fn addRandomMissionsTest(
     module.addIncludePath(b.path("Sources/src/GFX"));
     module.addIncludePath(sdl_include);
     module.addCSourceFiles(.{
-        .files = &.{"tools/zig/random_missions_test.cpp"},
+        .files = &.{source},
         .flags = cppflagsForOptimize(optimize),
     });
     addMsvcIncludePaths(b, module, toolchain);
@@ -7390,7 +7519,7 @@ fn addRandomMissionsTest(
     module.linkLibrary(platform_runtime);
     linkSdlImport(module, target, sdl_dynamic);
 
-    const exe = b.addExecutable(.{ .name = "random-missions-test", .root_module = module });
+    const exe = b.addExecutable(.{ .name = tool, .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     // Loader-relative, because this binary runs from the installation and not
@@ -7418,9 +7547,9 @@ fn addRandomMissionsTest(
     // Where the test may write. Shipped Data is read-only for every tier: a run
     // that is killed halfway must not leave a map behind in the installation.
     run.addArg(b.pathFromRoot("zig-out/local-test"));
-    run.addArg(sweep);
+    for (extra_args) |arg| run.addArg(arg);
     run.step.dependOn(&install_exe.step);
-    const step = b.step("test-random-missions", "Generate every random mission a chapter can offer and open it in the engine");
+    const step = b.step(step_name, step_description);
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }
