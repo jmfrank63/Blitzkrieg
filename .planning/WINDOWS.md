@@ -2,9 +2,9 @@
 schema_version: 1
 open_count: 1
 waived_count: 0
-fixed_count: 4
-total_count: 5
-last_updated: 2026-10-02T15:34:14.928Z
+fixed_count: 5
+total_count: 6
+last_updated: 2026-10-02T19:16:41.715Z
 ---
 
 # Broken Windows Ledger
@@ -20,6 +20,7 @@ last_updated: 2026-10-02T15:34:14.928Z
 | 3 | 03 | deviation | Sources/editor/app/view_math.zig |  | plan-5 carried: the scroll-direction unit test restates its own constants; an engine-tier ScreenToWorld direction check would catch a sign error (Task 6) | fixed | fixed in 03-16 82a08a462: the direction tests assert literal camera positions (a notch up: 2000,2000 -> 1971.716,2028.284); view.zig's wheel tests do the same through SDL events; the engine tier's TestWorldToScreenRoundTrip already checks screen up is world (-x,+y) | 2026-09-28T17:53:07.199Z | 2026-09-29T10:08:34.712Z |
 | 4 | 05 | unmet-truth | Sources/src/EditorBridge/session_fields.cpp |  | The engine's field fill leaves its final scanline's tile picks unreproducible across seeded replays (recorded in 05-03-SUMMARY deviations; the touched-cell proof and the byte-exact undo proofs carry the contract) | fixed | fixed on fix/m3-fields-flake 9f19fb411: not a scanline effect - FillTileSet picks each cell's tile variant with STileTypeDesc::GetMapsIndex (Formats/fmtTerrain.h:87), which draws from the C runtime's rand(); SeedFieldFills never seeded it and the engine time-seeds it at start, so every fill rolled its own variants (57 of 64 cells, every row; the two copies differed too). SeedFieldFills now calls srand() as CreateRandomMap does; TestM3Fields compares the tile values over the whole map exactly and asserts two identical applies save the same bytes | 2026-10-01T20:30:49.716Z | 2026-10-02T13:33:46.360Z |
 | 5 | 5 | deviation | Sources/src/RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp | 970 | 05-08: a generated map names its script by the absolute output path (engine's own szScriptFile = output path); Test in game warns 'not a plain name' for a generated map - see deferred-items.md From 05-08 | open |  | 2026-10-02T15:34:14.928Z |  |
+| 6 | 05 | unmet-truth | Sources/src/Formats/fmtVSO.h | 13 | 05-08 D-04 on windows-msvc: the same seed did not regenerate a byte-identical map (test-editor-bridge, CI run 37029035801) - the road/river points' 3 pad bytes after bKeyPoint are saved raw and were never written | fixed | fixed on fix/rmg-windows-determinism cabb77da8: SVectorStripeObjectPoint is saved as raw bytes (CSaverAccessor::DoDataVector) and CVSOBuilder::SliceSpline built each point on its stack, so its 3 pad bytes carried stack leftovers into the BZM - run-varying on windows-msvc, repeatable (but still garbage) on macOS. Full diff of two same-seed maps on a Windows host: 1487 bytes, all at offset 33..35 of a 40-byte point in the roads3 points chunk, nothing else (not the stored script path - see #5 - not objects, not altitudes). The pad is now a zero-initialised member cReserved[3]; layout and format unchanged (static_assert 40), 66/66 maps still round-trip. TestVsoPointBytes (test-map-files) fails 4/4 without the fix on windows-msvc and passes with it; test-editor-bridge passes on the Windows host and macOS | 2026-10-02T19:16:41.583Z | 2026-10-02T19:16:41.715Z |
 
 ````json
 [
@@ -82,6 +83,19 @@ last_updated: 2026-10-02T15:34:14.928Z
     "reason": "",
     "recorded_at": "2026-10-02T15:34:14.928Z",
     "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 6,
+    "kind": "unmet-truth",
+    "phase": "05",
+    "file": "Sources/src/Formats/fmtVSO.h",
+    "line": 13,
+    "description": "05-08 D-04 on windows-msvc: the same seed did not regenerate a byte-identical map (test-editor-bridge, CI run 37029035801) - the road/river points' 3 pad bytes after bKeyPoint are saved raw and were never written",
+    "status": "fixed",
+    "reason": "fixed on fix/rmg-windows-determinism cabb77da8: SVectorStripeObjectPoint is saved as raw bytes (CSaverAccessor::DoDataVector) and CVSOBuilder::SliceSpline built each point on its stack, so its 3 pad bytes carried stack leftovers into the BZM - run-varying on windows-msvc, repeatable (but still garbage) on macOS. Full diff of two same-seed maps on a Windows host: 1487 bytes, all at offset 33..35 of a 40-byte point in the roads3 points chunk, nothing else (not the stored script path - see #5 - not objects, not altitudes). The pad is now a zero-initialised member cReserved[3]; layout and format unchanged (static_assert 40), 66/66 maps still round-trip. TestVsoPointBytes (test-map-files) fails 4/4 without the fix on windows-msvc and passes with it; test-editor-bridge passes on the Windows host and macOS",
+    "recorded_at": "2026-10-02T19:16:41.583Z",
+    "resolved_at": "2026-10-02T19:16:41.715Z",
     "milestone": null
   }
 ]
