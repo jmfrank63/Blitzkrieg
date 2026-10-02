@@ -3534,3 +3534,474 @@ test "layer menu: a script names a filter with underscores for spaces, the exact
     try std.testing.expect(resolveFilterName(&buffer, &filters, "Nothing_Here") == null);
     try std.testing.expect(resolveFilterName(&buffer, &filters, "") == null);
 }
+
+// ---------------------------------------------------------------------------
+// Create Random Map (05-08, D-01..D-05) and Tools > Export lists (D-13)
+// ---------------------------------------------------------------------------
+
+/// What the seed field holds: blank draws a fresh seed, digits are the seed
+/// (0..4294967295), anything else is refused with the field kept as typed.
+pub const SeedText = union(enum) { blank, value: u32, invalid };
+
+pub fn parseSeedText(text: []const u8) SeedText {
+    const trimmed = std.mem.trim(u8, text, " ");
+    if (trimmed.len == 0) return .blank;
+    for (trimmed) |c| {
+        if (c < '0' or c > '9') return .invalid;
+    }
+    const value = std.fmt.parseInt(u32, trimmed, 10) catch return .invalid;
+    return .{ .value = value };
+}
+
+/// A map name the way the bridge takes one: one path component. The MFC
+/// dialog stripped the extension a user typed (ValidatePath cuts at the last
+/// '.'), and so does this - ".bzm" or ".xml", either case - and nothing else:
+/// a name with a separator reaches the bridge as typed and is refused there.
+pub fn cleanMapName(text: []const u8) []const u8 {
+    const trimmed = std.mem.trim(u8, text, " ");
+    for ([_][]const u8{ ".bzm", ".xml" }) |extension| {
+        if (trimmed.len > extension.len and std.ascii.eqlIgnoreCase(trimmed[trimmed.len - extension.len ..], extension))
+            return trimmed[0 .. trimmed.len - extension.len];
+    }
+    return trimmed;
+}
+
+/// Create Random Map's fields (D-01): the MFC dialog's own - template,
+/// context, setting ("" is `<any setting>`), graph index, direction 0..3
+/// (N, E, S, W), difficulty level 0..2 (the dialog shows 1..3), Save as BZM,
+/// write DDS and the map name - plus the seed this port adds. A plain value;
+/// `seed` is the text as typed.
+pub const RmgFields = struct {
+    template: NameText = .{},
+    context: NameText = .{},
+    setting: NameText = .{},
+    map_name: NameText = .{},
+    /// -1 lets the template's weights pick, as the game's briefing does; the
+    /// MFC's own edit took any integer.
+    graph: i32 = -1,
+    angle: i32 = 0,
+    level: i32 = 0,
+    save_as_bzm: bool = true,
+    write_dds: bool = false,
+    /// Replace a map of the same name already in the maps folder (the MFC
+    /// overwrote silently; the bridge asks to be told).
+    overwrite: bool = false,
+    seed: NameText = .{},
+
+    pub const direction_names = [4][]const u8{ "N", "E", "S", "W" };
+
+    /// The MFC's own rule (CCreateRandomMapDialog::UpdateControls): OK waits
+    /// for a template, a context and a map name; the setting always has one.
+    pub fn okEnabled(self: *const RmgFields) bool {
+        return self.template.len != 0 and self.context.len != 0 and cleanMapName(self.map_name.slice()).len != 0;
+    }
+
+    /// The bridge's params for these fields, or null when the seed is typed
+    /// but is not a number (the caller says so and keeps the dialog).
+    pub fn toParams(self: *const RmgFields) ?core.bridge.RmgGenerateParams {
+        var params: core.bridge.RmgGenerateParams = .{};
+        params.setTemplate(self.template.slice());
+        params.setContext(self.context.slice());
+        params.setSetting(self.setting.slice());
+        params.setMapName(cleanMapName(self.map_name.slice()));
+        params.level = self.level;
+        params.graph = self.graph;
+        params.angle = self.angle;
+        params.save_as_bzm = @intFromBool(self.save_as_bzm);
+        params.write_dds = @intFromBool(self.write_dds);
+        params.overwrite = @intFromBool(self.overwrite);
+        switch (parseSeedText(self.seed.slice())) {
+            .blank => params.has_seed = 0,
+            .value => |value| {
+                params.has_seed = 1;
+                params.seed = value;
+            },
+            .invalid => return null,
+        }
+        return params;
+    }
+
+    /// `rmg_set:<field>:<value>` - one of the dialog's fields set the way the
+    /// dialog sets it, so a script drives exactly what the person does (the
+    /// auto grammar allows 64 characters an argument and no comma or space, which
+    /// ten fields on one line would not fit): `template`, `context` (storage
+    /// names), `setting` (`any` is `<any setting>`), `graph` (-1 or an index),
+    /// `angle` (-1..3), `level` (1..3 as the dialog shows it), `bzm`, `dds` and
+    /// `overwrite` (0 or 1), `name`, `seed` (digits, or empty for a fresh one).
+    /// False - the field unchanged - when the field is unknown or the value does
+    /// not fit it.
+    pub fn set(self: *RmgFields, field: []const u8, value: []const u8) bool {
+        if (std.mem.eql(u8, field, "template")) {
+            self.template.set(value);
+        } else if (std.mem.eql(u8, field, "context")) {
+            self.context.set(value);
+        } else if (std.mem.eql(u8, field, "setting")) {
+            self.setting.set(if (std.ascii.eqlIgnoreCase(value, "any")) "" else value);
+        } else if (std.mem.eql(u8, field, "graph")) {
+            const graph = std.fmt.parseInt(i32, value, 10) catch return false;
+            if (graph < -1) return false;
+            self.graph = graph;
+        } else if (std.mem.eql(u8, field, "angle")) {
+            const angle = std.fmt.parseInt(i32, value, 10) catch return false;
+            if (angle < -1 or angle > 3) return false;
+            self.angle = angle;
+        } else if (std.mem.eql(u8, field, "level")) {
+            const level = std.fmt.parseInt(i32, value, 10) catch return false;
+            if (level < 1 or level > 3) return false;
+            self.level = level - 1;
+        } else if (std.mem.eql(u8, field, "bzm")) {
+            self.save_as_bzm = parseFlag(value) orelse return false;
+        } else if (std.mem.eql(u8, field, "dds")) {
+            self.write_dds = parseFlag(value) orelse return false;
+        } else if (std.mem.eql(u8, field, "overwrite")) {
+            self.overwrite = parseFlag(value) orelse return false;
+        } else if (std.mem.eql(u8, field, "name")) {
+            self.map_name.set(value);
+        } else if (std.mem.eql(u8, field, "seed")) {
+            if (parseSeedText(value) == .invalid) return false;
+            self.seed.set(value);
+        } else {
+            return false;
+        }
+        return true;
+    }
+
+    fn parseFlag(text: []const u8) ?bool {
+        if (std.mem.eql(u8, text, "1")) return true;
+        if (std.mem.eql(u8, text, "0")) return false;
+        return null;
+    }
+};
+
+/// A file a Browse dialog picked, as the storage-relative name the combos
+/// hold: under `<base_root>Data`, the `.xml` taken off, backslashes, lower
+/// case ("scenarios\\templates\\summer\\template02"). Null for a file outside
+/// the game's Data folder, a name that is not `.xml`, or one that does not fit.
+pub fn storageNameFromBrowse(buffer: []u8, base_root: []const u8, os_path: []const u8) ?[]const u8 {
+    var root_buffer: [4096]u8 = undefined;
+    const root = std.fmt.bufPrint(&root_buffer, "{s}Data/", .{base_root}) catch return null;
+    // Compare with '/' for both separators and without regard to case: the
+    // OS dialog and the root need not spell them alike.
+    if (os_path.len <= root.len) return null;
+    for (root, os_path[0..root.len]) |expected, got| {
+        const a = if (expected == '\\') '/' else std.ascii.toLower(expected);
+        const b = if (got == '\\') '/' else std.ascii.toLower(got);
+        if (a != b) return null;
+    }
+    const rest = os_path[root.len..];
+    const extension = ".xml";
+    if (rest.len <= extension.len or !std.ascii.eqlIgnoreCase(rest[rest.len - extension.len ..], extension)) return null;
+    const stem = rest[0 .. rest.len - extension.len];
+    if (stem.len > buffer.len) return null;
+    for (stem, 0..) |c, i| buffer[i] = if (c == '/') '\\' else std.ascii.toLower(c);
+    return buffer[0..stem.len];
+}
+
+/// The words the result modal and the status line say about a finished
+/// generation: the map, the seed to ask for it again, the graph and the
+/// direction used.
+pub fn rmgResultLine(buffer: []u8, map_name: []const u8, result: *const core.bridge.RmgGenerateResult) []const u8 {
+    const angle: usize = if (result.angle >= 0 and result.angle < 4) @intCast(result.angle) else 0;
+    return std.fmt.bufPrint(buffer, "random map {s}: seed {d}, graph {d} ({s}), direction {s}", .{
+        map_name,
+        result.seed,
+        result.graph,
+        std.fs.path.basename(result.graphNameSlice()),
+        RmgFields.direction_names[angle],
+    }) catch "random map created";
+}
+
+/// The context combo's entries: the MFC listed only the chapters' own
+/// `context.xml` files (EnumFilesInDataStorage's "context.xml" extension).
+pub fn isContextName(name: []const u8) bool {
+    const suffix = "\\context";
+    return name.len > suffix.len and std.ascii.eqlIgnoreCase(name[name.len - suffix.len ..], suffix);
+}
+
+/// Tools > Export lists (D-13): the four lists the MFC's Tools 0..3 wrote,
+/// each to `<UserRoot>mapeditor/logs/` (the MFC wrote into Data\logs, which
+/// the editor never touches).
+pub const ExportKind = enum {
+    graphs,
+    contexts,
+    patches,
+    maps,
+
+    pub fn fromName(name: []const u8) ?ExportKind {
+        inline for (comptime std.enums.values(ExportKind)) |kind| {
+            if (std.mem.eql(u8, name, @tagName(kind))) return kind;
+        }
+        return null;
+    }
+
+    pub fn fileName(self: ExportKind) []const u8 {
+        return switch (self) {
+            .graphs => "graphs_list.txt",
+            .contexts => "contexts_list.txt",
+            .patches => "patches_list.txt",
+            .maps => "maps_list.txt",
+        };
+    }
+
+    /// The MFC's own wording of "created", without its message box.
+    pub fn noun(self: ExportKind) []const u8 {
+        return switch (self) {
+            .graphs => "RMG graphs list",
+            .contexts => "RMG contexts list",
+            .patches => "RMG patches list",
+            .maps => "Maps list",
+        };
+    }
+
+    pub fn menuLabel(self: ExportKind) [:0]const u8 {
+        return switch (self) {
+            .graphs => "Graphs list",
+            .contexts => "Contexts list",
+            .patches => "Patches list",
+            .maps => "Maps list",
+        };
+    }
+
+    /// Where the names come from: the folder and the extensions the MFC
+    /// enumerated, in its own order (the .bzm files before the .xml ones).
+    pub fn folder(self: ExportKind) [:0]const u8 {
+        return switch (self) {
+            .graphs => "scenarios\\templates\\",
+            .contexts => "scenarios\\chapters\\",
+            .patches => "scenarios\\patches\\",
+            .maps => "maps\\",
+        };
+    }
+
+    pub fn extensions(self: ExportKind) []const [:0]const u8 {
+        return switch (self) {
+            .graphs => &.{".xml"},
+            .contexts => &.{"context.xml"},
+            .patches, .maps => &.{ ".bzm", ".xml" },
+        };
+    }
+};
+
+/// The two maps the MFC's Maps list left out (MainFrm.cpp OnTool3).
+pub const maps_list_skipped = [_][]const u8{ "maps\\river3d.xml", "maps\\road3d.xml" };
+
+/// One name per line, the MFC's `"%s\r\n"`; names in `skipped` are left out.
+pub fn writeNameLines(writer: *std.Io.Writer, names: []const []const u8, skipped: []const []const u8) std.Io.Writer.Error!void {
+    for (names) |name| {
+        var leave_out = false;
+        for (skipped) |skip| {
+            if (std.mem.eql(u8, name, skip)) leave_out = true;
+        }
+        if (leave_out) continue;
+        try writer.print("{s}\r\n", .{name});
+    }
+}
+
+/// One template and its graphs for the graphs list.
+pub const TemplateGraphs = struct {
+    name: []const u8,
+    graphs: []const core.bridge.RmgGraph,
+};
+
+/// The graphs list (MainFrm.cpp:975-981): each template's file name, then one
+/// tab-indented `index weight graph` line per graph.
+pub fn writeGraphsList(writer: *std.Io.Writer, templates: []const TemplateGraphs) std.Io.Writer.Error!void {
+    for (templates) |template| {
+        try writer.print("{s}\r\n", .{template.name});
+        for (template.graphs, 0..) |*graph, index| {
+            try writer.print("\t{d} {d} {s}\r\n", .{ index, graph.weight, graph.nameSlice() });
+        }
+    }
+}
+
+test "seed text: blank draws one, digits are the seed, anything else is refused" {
+    try std.testing.expect(parseSeedText("") == .blank);
+    try std.testing.expect(parseSeedText("   ") == .blank);
+    try std.testing.expectEqual(@as(u32, 777), parseSeedText("777").value);
+    try std.testing.expectEqual(@as(u32, 0), parseSeedText("0").value);
+    try std.testing.expectEqual(@as(u32, 4294967295), parseSeedText(" 4294967295 ").value);
+    try std.testing.expect(parseSeedText("4294967296") == .invalid);
+    try std.testing.expect(parseSeedText("-5") == .invalid);
+    try std.testing.expect(parseSeedText("12a") == .invalid);
+    try std.testing.expect(parseSeedText("1 2") == .invalid);
+}
+
+test "create random map: OK waits for a template, a context and a name - the MFC's own rule" {
+    var fields: RmgFields = .{};
+    try std.testing.expect(!fields.okEnabled());
+    fields.template.set("scenarios\\templates\\summer\\template02");
+    try std.testing.expect(!fields.okEnabled());
+    fields.context.set("scenarios\\chapters\\allies\\france\\context");
+    try std.testing.expect(!fields.okEnabled());
+    fields.map_name.set("   ");
+    try std.testing.expect(!fields.okEnabled());
+    fields.map_name.set("my_map.bzm");
+    try std.testing.expect(fields.okEnabled());
+    // The setting is never missing: empty is `<any setting>`.
+    try std.testing.expectEqual(@as(usize, 0), fields.setting.len);
+}
+
+test "create random map: the map name loses a typed extension and nothing more" {
+    try std.testing.expectEqualStrings("m", cleanMapName("m.bzm"));
+    try std.testing.expectEqualStrings("m", cleanMapName(" m.XML "));
+    try std.testing.expectEqualStrings("m.v2", cleanMapName("m.v2"));
+    try std.testing.expectEqualStrings("a\\b", cleanMapName("a\\b.bzm"));
+    try std.testing.expectEqualStrings(".bzm", cleanMapName(".bzm"));
+}
+
+test "create random map: the fields become the bridge's params, the seed as typed" {
+    var fields: RmgFields = .{};
+    fields.template.set("scenarios\\templates\\summer\\template02");
+    fields.context.set("scenarios\\chapters\\allies\\france\\context");
+    fields.map_name.set("test.bzm");
+    fields.graph = 3;
+    fields.angle = 2;
+    fields.level = 1;
+    fields.write_dds = true;
+    fields.seed.set("12345");
+    const params = fields.toParams().?;
+    try std.testing.expectEqualStrings("scenarios\\templates\\summer\\template02", params.templateSlice());
+    try std.testing.expectEqualStrings("", params.settingSlice());
+    try std.testing.expectEqualStrings("test", params.mapNameSlice());
+    try std.testing.expectEqual(@as(c_int, 3), params.graph);
+    try std.testing.expectEqual(@as(c_int, 2), params.angle);
+    try std.testing.expectEqual(@as(c_int, 1), params.level);
+    try std.testing.expectEqual(@as(c_int, 1), params.has_seed);
+    try std.testing.expectEqual(@as(c_uint, 12345), params.seed);
+    try std.testing.expectEqual(@as(c_int, 1), params.write_dds);
+    try std.testing.expectEqual(@as(c_int, 0), params.overwrite);
+    fields.seed.set("");
+    try std.testing.expectEqual(@as(c_int, 0), fields.toParams().?.has_seed);
+    fields.seed.set("x1");
+    try std.testing.expect(fields.toParams() == null);
+}
+
+test "create random map: rmg_set sets the dialog's fields one at a time" {
+    var fields: RmgFields = .{};
+    try std.testing.expect(fields.set("template", "scenarios\\templates\\summer\\template02"));
+    try std.testing.expect(fields.set("context", "scenarios\\chapters\\allies\\france\\context"));
+    try std.testing.expect(fields.set("graph", "0"));
+    try std.testing.expect(fields.set("setting", "any"));
+    try std.testing.expect(fields.set("angle", "1"));
+    try std.testing.expect(fields.set("level", "3"));
+    try std.testing.expect(fields.set("bzm", "1"));
+    try std.testing.expect(fields.set("dds", "0"));
+    try std.testing.expect(fields.set("overwrite", "1"));
+    try std.testing.expect(fields.set("name", "m3_auto_rmg"));
+    try std.testing.expect(fields.set("seed", "777"));
+    try std.testing.expectEqualStrings("scenarios\\templates\\summer\\template02", fields.template.slice());
+    try std.testing.expectEqualStrings("scenarios\\chapters\\allies\\france\\context", fields.context.slice());
+    try std.testing.expectEqual(@as(i32, 0), fields.graph);
+    try std.testing.expectEqual(@as(usize, 0), fields.setting.len);
+    try std.testing.expectEqual(@as(i32, 1), fields.angle);
+    try std.testing.expectEqual(@as(i32, 2), fields.level);
+    try std.testing.expect(fields.save_as_bzm and !fields.write_dds and fields.overwrite);
+    try std.testing.expectEqualStrings("m3_auto_rmg", fields.map_name.slice());
+    try std.testing.expectEqualStrings("777", fields.seed.slice());
+    try std.testing.expect(fields.okEnabled());
+    const params = fields.toParams().?;
+    try std.testing.expectEqual(@as(c_uint, 777), params.seed);
+    try std.testing.expectEqual(@as(c_int, 1), params.overwrite);
+    // A named setting, a blank seed, any graph and angle.
+    try std.testing.expect(fields.set("setting", "scenarios\\settings\\summer_france"));
+    try std.testing.expectEqualStrings("scenarios\\settings\\summer_france", fields.setting.slice());
+    try std.testing.expect(fields.set("setting", "ANY"));
+    try std.testing.expectEqual(@as(usize, 0), fields.setting.len);
+    try std.testing.expect(fields.set("graph", "-1") and fields.set("angle", "-1") and fields.set("seed", ""));
+    try std.testing.expectEqual(@as(i32, -1), fields.graph);
+    try std.testing.expectEqual(@as(c_int, 0), fields.toParams().?.has_seed);
+    // What does not fit leaves the field as it was.
+    try std.testing.expect(!fields.set("level", "0"));
+    try std.testing.expect(!fields.set("level", "4"));
+    try std.testing.expect(!fields.set("angle", "4"));
+    try std.testing.expect(!fields.set("graph", "-2"));
+    try std.testing.expect(!fields.set("graph", "x"));
+    try std.testing.expect(!fields.set("bzm", "2"));
+    try std.testing.expect(!fields.set("seed", "x1"));
+    try std.testing.expect(!fields.set("colour", "red"));
+    try std.testing.expectEqual(@as(i32, 2), fields.level);
+    try std.testing.expectEqual(@as(i32, -1), fields.angle);
+}
+
+test "create random map: the result line names the map, the seed to ask again, the graph and the direction" {
+    var result: core.bridge.RmgGenerateResult = .{};
+    result.seed = 777;
+    result.graph = 4;
+    result.angle = 3;
+    const graph = "scenarios\\graphs\\summer\\graph04";
+    @memcpy(result.graph_name[0..graph.len], graph);
+    var buffer: [160]u8 = undefined;
+    const line = rmgResultLine(&buffer, "m", &result);
+    try std.testing.expect(std.mem.indexOf(u8, line, "seed 777") != null);
+    try std.testing.expect(std.mem.indexOf(u8, line, "graph 4") != null);
+    try std.testing.expect(std.mem.indexOf(u8, line, "direction W") != null);
+}
+
+test "create random map: the context combo lists the chapters' own context files" {
+    try std.testing.expect(isContextName("scenarios\\chapters\\allies\\france\\context"));
+    try std.testing.expect(isContextName("scenarios\\chapters\\x\\CONTEXT"));
+    try std.testing.expect(!isContextName("scenarios\\chapters\\allies\\france\\chapter"));
+    try std.testing.expect(!isContextName("context"));
+}
+
+test "export lists: names one per line with CRLF, the Maps list without the two 3D maps" {
+    var out = std.Io.Writer.Allocating.init(std.testing.allocator);
+    defer out.deinit();
+    const names = [_][]const u8{ "maps\\arena.bzm", "maps\\river3d.xml", "maps\\duel.xml", "maps\\road3d.xml" };
+    try writeNameLines(&out.writer, &names, &maps_list_skipped);
+    try std.testing.expectEqualStrings("maps\\arena.bzm\r\nmaps\\duel.xml\r\n", out.written());
+    out.writer.end = 0;
+    try writeNameLines(&out.writer, names[0..2], &.{});
+    try std.testing.expectEqualStrings("maps\\arena.bzm\r\nmaps\\river3d.xml\r\n", out.written());
+}
+
+test "export lists: the graphs list is each template then its graphs as index, weight and name" {
+    var out = std.Io.Writer.Allocating.init(std.testing.allocator);
+    defer out.deinit();
+    var first: core.bridge.RmgGraph = .{ .weight = 2 };
+    @memcpy(first.name[0.."graphs\\a".len], "graphs\\a");
+    var second: core.bridge.RmgGraph = .{ .weight = 5 };
+    @memcpy(second.name[0.."graphs\\b".len], "graphs\\b");
+    const graphs = [_]core.bridge.RmgGraph{ first, second };
+    const templates = [_]TemplateGraphs{
+        .{ .name = "scenarios\\templates\\t0.xml", .graphs = &graphs },
+        .{ .name = "scenarios\\templates\\t1.xml", .graphs = &.{} },
+    };
+    try writeGraphsList(&out.writer, &templates);
+    try std.testing.expectEqualStrings(
+        "scenarios\\templates\\t0.xml\r\n\t0 2 graphs\\a\r\n\t1 5 graphs\\b\r\nscenarios\\templates\\t1.xml\r\n",
+        out.written(),
+    );
+}
+
+test "export lists: each kind has the MFC's file, folder and extensions in its order" {
+    try std.testing.expectEqualStrings("graphs_list.txt", ExportKind.graphs.fileName());
+    try std.testing.expectEqualStrings("contexts_list.txt", ExportKind.contexts.fileName());
+    try std.testing.expectEqualStrings("patches_list.txt", ExportKind.patches.fileName());
+    try std.testing.expectEqualStrings("maps_list.txt", ExportKind.maps.fileName());
+    try std.testing.expectEqualStrings("scenarios\\chapters\\", ExportKind.contexts.folder());
+    try std.testing.expectEqualStrings("context.xml", ExportKind.contexts.extensions()[0]);
+    try std.testing.expectEqual(@as(usize, 2), ExportKind.maps.extensions().len);
+    try std.testing.expectEqualStrings(".bzm", ExportKind.patches.extensions()[0]);
+    try std.testing.expectEqualStrings(".xml", ExportKind.patches.extensions()[1]);
+    try std.testing.expect(ExportKind.fromName("patches").? == .patches);
+    try std.testing.expect(ExportKind.fromName("fields") == null);
+}
+
+test "create random map: a browsed file inside Data is the storage name the combos hold" {
+    var buffer: [192]u8 = undefined;
+    try std.testing.expectEqualStrings(
+        "scenarios\\templates\\summer\\template02",
+        storageNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/Scenarios/Templates/Summer/Template02.xml").?,
+    );
+    // A Windows path against a Windows root: backslashes, any case.
+    try std.testing.expectEqualStrings(
+        "scenarios\\chapters\\allies\\france\\context",
+        storageNameFromBrowse(&buffer, "D:\\GOG\\Blitzkrieg\\", "d:\\gog\\blitzkrieg\\DATA\\Scenarios\\Chapters\\Allies\\France\\context.xml").?,
+    );
+    // Outside Data, not an xml, or only the folder.
+    try std.testing.expect(storageNameFromBrowse(&buffer, "/g/blitz/", "/elsewhere/Data/Scenarios/Templates/a.xml") == null);
+    try std.testing.expect(storageNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/Scenarios/Templates/a.txt") == null);
+    try std.testing.expect(storageNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/.xml") == null);
+    try std.testing.expect(storageNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/") == null);
+}

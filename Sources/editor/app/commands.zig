@@ -151,6 +151,11 @@ pub const command_table = [_]Entry{
     .{ .name = "minimap_mode", .handler = minimapMode },
     .{ .name = "minimap_click", .handler = minimapClick },
     .{ .name = "minimap_create", .handler = minimapCreate },
+    // 05-08 (D-01..D-05, D-13): Create Random Map and Tools > Export lists.
+    .{ .name = "rmg_dialog", .handler = rmgDialogCommand },
+    .{ .name = "rmg_set", .handler = rmgSetCommand },
+    .{ .name = "rmg_generate", .handler = rmgGenerateCommand },
+    .{ .name = "export_lists", .handler = exportListsCommand },
     .{ .name = "undo", .handler = undoCommand },
     .{ .name = "redo", .handler = redoCommand },
 };
@@ -206,6 +211,11 @@ pub const predicate_table = [_]Entry{
     .{ .name = "minimap_visible", .handler = minimapVisibleIs },
     .{ .name = "minimap_moved", .handler = minimapMovedIs },
     .{ .name = "minimap_files", .handler = minimapFilesExist },
+    // 05-08: the dialog is up, the seed a generation reported, an export's file written.
+    .{ .name = "rmg_dialog", .handler = rmgDialogIs },
+    .{ .name = "rmg_seed", .handler = rmgSeedIs },
+    .{ .name = "export_file", .handler = exportFileExists },
+    .{ .name = "export_lines", .handler = exportLinesAtLeast },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -3076,4 +3086,215 @@ fn minimapFilesExist(state: *State, arg: []const u8) Outcome {
         if (!files.exists(name)) return .refused;
     }
     return .ok;
+}
+
+
+// ---------------------------------------------------------------------------
+// Create Random Map (05-08, D-01..D-05) and Tools > Export lists (D-13)
+// ---------------------------------------------------------------------------
+
+/// Create Random Map's generation, shared by the dialog's modal and
+/// `rmg_generate`: the bridge's CreateRandomMap with the progress counter
+/// wired in (the callback only counts - it never re-enters the bridge), run
+/// to completion on the calling thread (D-03). On success the result, the name
+/// and the status line's words are kept; a refusal's reason is the status
+/// line's. Does not open the map - the dialog's Open map button and
+/// `rmg_generate` do, through the normal open path (D-02).
+pub fn rmgRun(state: *State, params: core.bridge.RmgGenerateParams) Outcome {
+    state.rmg_progress = .{};
+    var run_params = params;
+    run_params.progress = panels.RmgProgress.report;
+    run_params.user = &state.rmg_progress;
+    state.editor.createRandomMap(run_params, &state.rmg_result) catch |err| {
+        state.view.noteEditResult(state.editor, err);
+        return .refused;
+    };
+    state.rmg_made = true;
+    state.rmg_made_name.set(params.mapNameSlice());
+    var line: [256]u8 = undefined;
+    state.view.setStatus("", logic.rmgResultLine(&line, state.rmg_made_name.slice(), &state.rmg_result));
+    return .ok;
+}
+
+/// `do=rmg_dialog[:open|close]` - File > Create Random Map (D-01): opens the
+/// dialog with the fields as last left, or closes it.
+fn rmgDialogCommand(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0 or std.mem.eql(u8, arg, "open")) {
+        if (state.rmg_phase != .idle) return .refused;
+        panels.openRmgDialog(state);
+        return .ok;
+    }
+    if (std.mem.eql(u8, arg, "close")) {
+        state.rmg_open = false;
+        return .ok;
+    }
+    return .bad_arg;
+}
+
+/// `do=rmg_set:<field>:<value>` - one of the dialog's fields, set the way the
+/// dialog sets it (`logic.RmgFields.set` lists them: template, context,
+/// setting, graph, angle, level, bzm, dds, overwrite, name, seed). The auto
+/// grammar allows 64 characters an argument, which ten fields on one line
+/// would not fit - and a script then drives exactly the fields a person does.
+fn rmgSetCommand(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    if (!state.rmg_fields.set(arg[0..colon], arg[colon + 1 ..])) return .bad_arg;
+    panels.syncRmgEdits(state);
+    if (std.mem.eql(u8, arg[0..colon], "template")) panels.refreshRmgGraphCount(state);
+    return .ok;
+}
+
+/// `do=rmg_generate` - the dialog's OK on the fields as they stand: the
+/// generation runs synchronously (the window waits, D-03), the result is kept,
+/// and the map opens as a normal document through the open path (D-02) - so
+/// `ok` means generated and queued; the title shows the map once the open
+/// ran, and `expect=rmg_seed:N` the seed the generation reported. Refused with
+/// the reason in the status line when the fields are not enough (the MFC's own
+/// OK rule), the bridge refuses a field (the status line names it), or the map
+/// of that name exists and `overwrite` is not set.
+fn rmgGenerateCommand(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    if (state.rmg_phase != .idle) return .refused;
+    if (!state.rmg_fields.okEnabled()) {
+        state.view.setStatus("random map: ", "a template, a context and a map name are needed");
+        return .refused;
+    }
+    const params = state.rmg_fields.toParams() orelse {
+        state.view.setStatus("random map: ", "the seed is a whole number, or blank for a fresh one");
+        return .refused;
+    };
+    state.rmg_open = false;
+    if (rmgRun(state, params) != .ok) return .refused;
+    state.actions.requestOpenPath(state.rmg_result.mapPathSlice());
+    return .ok;
+}
+
+/// `expect=rmg_dialog:1|0` - whether the Create Random Map dialog is up.
+fn rmgDialogIs(state: *State, arg: []const u8) Outcome {
+    const want = parseFlagArg(arg) orelse return .bad_arg;
+    return if (state.rmg_open == want) .ok else .refused;
+}
+
+/// `expect=rmg_seed:N` - the last generation of this run reported seed N (the
+/// seed-shown predicate: the modal and the status line say the same number).
+fn rmgSeedIs(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(u32, arg, 10) catch return .bad_arg;
+    return if (state.rmg_made and state.rmg_result.seed == want) .ok else .refused;
+}
+
+fn parseFlagArg(arg: []const u8) ?bool {
+    if (std.mem.eql(u8, arg, "1")) return true;
+    if (std.mem.eql(u8, arg, "0")) return false;
+    return null;
+}
+
+/// One of the storage listings the Export lists walk, appended to `list`
+/// (the bridge's two-pass read; the sizing pass is refused with the total).
+fn readStorageFiles(state: *State, folder: [:0]const u8, extension: [:0]const u8, list: *std.ArrayListUnmanaged(core.bridge.RmgName)) bool {
+    var total: usize = 0;
+    _ = state.editor.bridge.listStorageFiles(folder.ptr, extension.ptr, &.{}, &total);
+    if (total == 0) return true;
+    const names = state.allocator.alloc(core.bridge.RmgName, total) catch return false;
+    defer state.allocator.free(names);
+    var read_total: usize = 0;
+    if (state.editor.bridge.listStorageFiles(folder.ptr, extension.ptr, names, &read_total) != .ok) return false;
+    list.appendSlice(state.allocator, names[0..@min(read_total, names.len)]) catch return false;
+    return true;
+}
+
+/// `<user_root>mapeditor/logs/<file>` (D-13), an OS path.
+fn exportPath(buffer: []u8, state: *const State, kind: logic.ExportKind) ?[]const u8 {
+    const root = std.mem.sliceTo(&state.paths.user_root, 0);
+    return std.fmt.bufPrint(buffer, "{s}mapeditor{c}logs{c}{s}", .{ root, std.fs.path.sep, std.fs.path.sep, kind.fileName() }) catch null;
+}
+
+/// Writes one list (D-13): the MFC's Tools 0..3 line formats lifted whole
+/// (`logic.writeNameLines`/`writeGraphsList`), to the user's logs folder - the
+/// MFC wrote into Data\logs, which the editor never touches. The folder is made on
+/// demand; the status bar names the file.
+fn exportList(state: *State, kind: logic.ExportKind) Outcome {
+    var names: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty;
+    defer names.deinit(state.allocator);
+    for (kind.extensions()) |extension| {
+        if (!readStorageFiles(state, kind.folder(), extension, &names)) {
+            state.view.setStatus("export: ", "the list could not be read from the data");
+            return .refused;
+        }
+    }
+    var out = std.Io.Writer.Allocating.init(state.allocator);
+    defer out.deinit();
+    if (kind == .graphs) {
+        for (names.items) |*entry| {
+            const file = entry.nameSlice();
+            if (file.len <= ".xml".len) continue;
+            // The template's own name, as ListRmg lists it: the file less ".xml".
+            var template_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
+            const template = std.fmt.bufPrintZ(&template_buffer, "{s}", .{file[0 .. file.len - ".xml".len]}) catch continue;
+            var graph_total: usize = 0;
+            _ = state.editor.bridge.rmgTemplateGraphs(template.ptr, &.{}, &graph_total);
+            const graphs = state.allocator.alloc(core.bridge.RmgGraph, graph_total) catch return .refused;
+            defer state.allocator.free(graphs);
+            var graph_read: usize = 0;
+            if (graph_total != 0 and state.editor.bridge.rmgTemplateGraphs(template.ptr, graphs, &graph_read) != .ok) {
+                state.view.setStatus("export: ", "a template's graphs could not be read");
+                return .refused;
+            }
+            const entries = [_]logic.TemplateGraphs{.{ .name = file, .graphs = graphs[0..@min(graph_read, graphs.len)] }};
+            logic.writeGraphsList(&out.writer, &entries) catch return .refused;
+        }
+    } else {
+        const slices = state.allocator.alloc([]const u8, names.items.len) catch return .refused;
+        defer state.allocator.free(slices);
+        for (names.items, 0..) |*entry, i| slices[i] = entry.nameSlice();
+        const skipped: []const []const u8 = if (kind == .maps) &logic.maps_list_skipped else &.{};
+        logic.writeNameLines(&out.writer, slices, skipped) catch return .refused;
+    }
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const path = exportPath(&path_buffer, state, kind) orelse return .refused;
+    if (std.fs.path.dirname(path)) |dir| std.Io.Dir.cwd().createDirPath(state.io, dir) catch {
+        state.view.setStatus("export: ", "the logs folder could not be made");
+        return .refused;
+    };
+    std.Io.Dir.cwd().writeFile(state.io, .{ .sub_path = path, .data = out.written() }) catch {
+        state.view.setStatus("export: ", "the list could not be written");
+        return .refused;
+    };
+    var message: [std.Io.Dir.max_path_bytes + 48]u8 = undefined;
+    state.view.setStatus("", std.fmt.bufPrint(&message, "{s} created: {s}", .{ kind.noun(), path }) catch "list created");
+    return .ok;
+}
+
+/// `do=export_lists:<graphs|contexts|patches|maps>` - Tools > Export lists
+/// (D-13), each to `<UserRoot>mapeditor/logs/<kind>_list.txt`. ID_TOOL_4 is not
+/// a feature (PARITY T7): it would rewrite Data.
+fn exportListsCommand(state: *State, arg: []const u8) Outcome {
+    const kind = logic.ExportKind.fromName(arg) orelse return .bad_arg;
+    return exportList(state, kind);
+}
+
+/// `expect=export_file:<graphs|contexts|patches|maps>` - the list's file is in
+/// the user's logs folder.
+fn exportFileExists(state: *State, arg: []const u8) Outcome {
+    const kind = logic.ExportKind.fromName(arg) orelse return .bad_arg;
+    const files = state.editor.files orelse return .refused;
+    var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const path = exportPath(&buffer, state, kind) orelse return .refused;
+    return if (files.exists(path)) .ok else .refused;
+}
+
+/// `expect=export_lines:<kind>:<N>` - the list file holds at least N lines
+/// (a graphs list: its templates and their graphs together).
+fn exportLinesAtLeast(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const kind = logic.ExportKind.fromName(arg[0..colon]) orelse return .bad_arg;
+    const want = std.fmt.parseInt(usize, arg[colon + 1 ..], 10) catch return .bad_arg;
+    var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const path = exportPath(&buffer, state, kind) orelse return .refused;
+    const bytes = std.Io.Dir.cwd().readFileAlloc(state.io, path, state.allocator, .limited(16 << 20)) catch return .refused;
+    defer state.allocator.free(bytes);
+    var lines: usize = 0;
+    for (bytes) |c| {
+        if (c == '\n') lines += 1;
+    }
+    return if (lines >= want) .ok else .refused;
 }
