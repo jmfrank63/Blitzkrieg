@@ -99,6 +99,12 @@ pub const History = struct {
     /// The undo depth at the last open or save; null once that state can no
     /// longer be reached by undo or redo.
     clean_depth: ?usize = 0,
+    /// Bumped by everything that changes what the document is: a command
+    /// recorded, a merge into the top entry, a merge that drops it, an undo or
+    /// a redo (the Editor bumps those two - it moves the stacks itself), a
+    /// clear. A view of the map that is costly to rebuild (the Minimap's
+    /// texture, 05-07) rebuilds when this moves and not otherwise.
+    revision: u32 = 0,
 
     pub fn deinit(self: *History, allocator: std.mem.Allocator) void {
         self.clear(allocator);
@@ -113,6 +119,7 @@ pub const History = struct {
         self.undo_stack.clearRetainingCapacity();
         self.redo_stack.clearRetainingCapacity();
         self.clean_depth = 0;
+        self.revision +%= 1;
     }
 
     /// Reserves room for one more undone command without touching anything
@@ -143,6 +150,7 @@ pub const History = struct {
     /// call commits, so an allocation failure can never happen after the
     /// bridge has already acted.
     pub fn recordAssumeCapacity(self: *History, allocator: std.mem.Allocator, command: Command, gesture: u32) void {
+        self.revision +%= 1;
         self.dropRedoBranch(allocator);
         if (self.clean_depth) |depth| {
             if (depth > self.undo_stack.items.len) self.clean_depth = null;
@@ -160,6 +168,7 @@ pub const History = struct {
     /// so it goes too. If that entry was the saved state, the saved state is
     /// gone.
     pub fn touchTop(self: *History, allocator: std.mem.Allocator) void {
+        self.revision +%= 1;
         self.dropRedoBranch(allocator);
         if (self.clean_depth) |depth| {
             if (depth == self.undo_stack.items.len) self.clean_depth = null;
@@ -173,6 +182,7 @@ pub const History = struct {
     /// it was the entry's own.
     pub fn dropTop(self: *History, allocator: std.mem.Allocator) void {
         if (self.undo_stack.items.len == 0) return;
+        self.revision +%= 1;
         self.dropRedoBranch(allocator);
         if (self.clean_depth) |depth| {
             if (depth == self.undo_stack.items.len) self.clean_depth = null;
@@ -221,4 +231,24 @@ test "the clean mark follows the undo depth" {
     try std.testing.expect(!history.dirty());
     history.touchTop(std.testing.allocator);
     try std.testing.expect(history.dirty());
+}
+
+test "the revision moves with every change of the document and with nothing else" {
+    var history: History = .{};
+    defer history.deinit(std.testing.allocator);
+    const start = history.revision;
+    try history.record(std.testing.allocator, .{ .map_type = .{ .before = 0, .after = 1 } }, 0);
+    try std.testing.expect(history.revision != start);
+    const recorded = history.revision;
+    history.touchTop(std.testing.allocator);
+    try std.testing.expect(history.revision != recorded);
+    const touched = history.revision;
+    history.markClean();
+    _ = history.dirty();
+    try std.testing.expectEqual(touched, history.revision);
+    history.dropTop(std.testing.allocator);
+    try std.testing.expect(history.revision != touched);
+    const dropped = history.revision;
+    history.clear(std.testing.allocator);
+    try std.testing.expect(history.revision != dropped);
 }

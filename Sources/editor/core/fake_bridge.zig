@@ -464,6 +464,14 @@ pub const FakeBridge = struct {
     undone_edits: std.ArrayListUnmanaged(i32) = .empty,
     diplomacy_table: std.ArrayListUnmanaged(i32) = .empty,
     tiles: []u8 = &no_tiles,
+    /// The fire-range areas the fake's AI shows (05-07): what a test puts here
+    /// `minimapAreas` answers; empty by default, as before any group shows them.
+    minimap_areas: std.ArrayListUnmanaged(bridge_mod.MinimapArea) = .empty,
+    /// What `createMinimapImages` was last asked: how many times, and the path
+    /// (cut to the buffer). The fake writes no file.
+    images_created: u32 = 0,
+    images_path: [256]u8 = undefined,
+    images_path_len: usize = 0,
     /// The map's vertex heights (M3, D-19): (tiles + 1) per axis, row-major -
     /// the fake keeps heights only, its ground being flat, so there is no
     /// shade to recompute. Allocated at the first open, like `tiles`.
@@ -569,6 +577,7 @@ pub const FakeBridge = struct {
         self.applied.deinit(self.allocator);
         self.undone.deinit(self.allocator);
         self.objects_list.deinit(self.allocator);
+        self.minimap_areas.deinit(self.allocator);
         self.sounds_list.deinit(self.allocator);
         self.script_areas.deinit(self.allocator);
         self.script_areas_at_open.deinit(self.allocator);
@@ -983,6 +992,127 @@ pub const FakeBridge = struct {
         return next;
     }
 
+    /// The tiles the fake's tileset has colours for (05-07).
+    pub const minimap_tile_count: usize = 64;
+
+    /// The colour the fake gives a tile index: distinct for every index below
+    /// `minimap_tile_count`, so a test can tell which tile a pixel came from.
+    pub fn minimapColorOf(tile_index: usize) u32 {
+        return (@as(u32, @intCast(tile_index * 4 + 3)) << 16) | (@as(u32, @intCast(255 - tile_index * 3)) << 8) | @as(u32, @intCast(tile_index * 2));
+    }
+
+    /// BkEditorTiles: a region of `tiles`, row-major, row 0 first.
+    fn tiles_read(ptr: *anyopaque, region: bridge_mod.TileRegion, out: []u8, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        total.* = 0;
+        if (region.x1 <= region.x0 or region.y1 <= region.y0) return .bad_argument;
+        if (self.tiles.len == 0) {
+            self.say("no map is open", .{});
+            return .refused;
+        }
+        if (region.x0 < 0 or region.y0 < 0 or region.x1 > self.info.width_tiles or region.y1 > self.info.height_tiles) {
+            self.say("the region {d},{d}-{d},{d} is not on the map", .{ region.x0, region.y0, region.x1, region.y1 });
+            return .refused;
+        }
+        const width: usize = @intCast(region.x1 - region.x0);
+        const area = width * @as(usize, @intCast(region.y1 - region.y0));
+        total.* = area;
+        if (out.len < area) {
+            self.say("the region holds {d} tiles, the buffer has room for {d}", .{ area, out.len });
+            return .refused;
+        }
+        var at: usize = 0;
+        var y = region.y0;
+        while (y < region.y1) : (y += 1) {
+            var x = region.x0;
+            while (x < region.x1) : (x += 1) {
+                out[at] = self.tile(x, y);
+                at += 1;
+            }
+        }
+        return .ok;
+    }
+
+    fn minimapTileColors(ptr: *anyopaque, out: []u32, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        total.* = 0;
+        if (self.tiles.len == 0) {
+            self.say("no map is open", .{});
+            return .refused;
+        }
+        total.* = minimap_tile_count;
+        const fit = @min(out.len, minimap_tile_count);
+        for (0..fit) |tile_index| out[tile_index] = minimapColorOf(tile_index);
+        return if (out.len >= minimap_tile_count) .ok else .refused;
+    }
+
+    /// One marker per object: five AI tiles square around its position, clamped
+    /// to the map, the player's colour of the 17.
+    fn minimapUnits(ptr: *anyopaque, out: []bridge_mod.MinimapUnit, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        total.* = 0;
+        if (self.tiles.len == 0) {
+            self.say("no map is open", .{});
+            return .refused;
+        }
+        const limit_x = self.info.width_tiles * 2;
+        const limit_y = self.info.height_tiles * 2;
+        var count: usize = 0;
+        for (self.objects_list.items) |object| {
+            if (!object.known) continue;
+            const cx: i32 = @intFromFloat(object.x / 32.0);
+            const cy: i32 = @intFromFloat(object.y / 32.0);
+            const unit: bridge_mod.MinimapUnit = .{
+                .link_id = object.link_id,
+                .x0 = @max(cx - 2, 0),
+                .y0 = @max(cy - 2, 0),
+                .x1 = @min(cx + 3, limit_x + 1),
+                .y1 = @min(cy + 3, limit_y + 1),
+                .color_index = if (object.player >= 0 and object.player < 17) object.player else 16,
+                .squad = 0,
+            };
+            if (count < out.len) out[count] = unit;
+            count += 1;
+        }
+        total.* = count;
+        return if (out.len >= count) .ok else .refused;
+    }
+
+    fn minimapAreas(ptr: *anyopaque, out: []bridge_mod.MinimapArea, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        const areas = self.minimap_areas.items;
+        total.* = areas.len;
+        const fit = @min(out.len, areas.len);
+        @memcpy(out[0..fit], areas[0..fit]);
+        return if (out.len >= areas.len) .ok else .refused;
+    }
+
+    /// Records the request and writes nothing; a path that is no .bzm or .xml
+    /// is a bad argument, one without a map open or a full path is refused.
+    fn createMinimapImages(ptr: *anyopaque, map_path: []const u8) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        const is_map = std.ascii.endsWithIgnoreCase(map_path, ".bzm") or std.ascii.endsWithIgnoreCase(map_path, ".xml");
+        if (map_path.len == 0 or !is_map) return .bad_argument;
+        if (self.tiles.len == 0) {
+            self.say("no map is open", .{});
+            return .refused;
+        }
+        if (map_path[0] != '/' and map_path[0] != '\\' and !(map_path.len > 1 and map_path[1] == ':')) {
+            self.say("minimap images are written beside a saved map: give the map's full path", .{});
+            return .refused;
+        }
+        self.images_created += 1;
+        const len = @min(map_path.len, self.images_path.len);
+        @memcpy(self.images_path[0..len], map_path[0..len]);
+        self.images_path_len = len;
+        return .ok;
+    }
+
     const vtable: Bridge.VTable = .{
         .lastMessage = lastMessage,
         .openMap = openMap,
@@ -1075,6 +1205,11 @@ pub const FakeBridge = struct {
         .addPlayer = addPlayer,
         .deletePlayer = deletePlayer,
         .unitCreationChoices = unitCreationChoices,
+        .tiles = tiles_read,
+        .minimapTileColors = minimapTileColors,
+        .minimapUnits = minimapUnits,
+        .minimapAreas = minimapAreas,
+        .createMinimapImages = createMinimapImages,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a

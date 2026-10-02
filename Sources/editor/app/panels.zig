@@ -22,6 +22,7 @@ const view_mod = @import("view.zig");
 const logic = @import("panels_logic.zig");
 const testlaunch = @import("testlaunch.zig");
 const pictures_mod = @import("pictures.zig");
+const minimap_mod = @import("minimap.zig");
 const marker_logic = @import("marker_logic.zig");
 const tool_registry = @import("tool_registry.zig");
 const markers = @import("markers.zig");
@@ -539,6 +540,8 @@ pub const State = struct {
     /// Fix all did the last time it ran, and the confirmation popup for the fixes
     /// that remove something (an unknown-type object, a short road or river).
     check_open: bool = false,
+    /// 05-07, D-14..D-17: the Minimap panel (minimap.zig).
+    minimap: minimap_mod.Minimap = .{},
     check_findings: []core.checks.Finding = &.{},
     check_fix_report: ?core.editor.Editor.FixReport = null,
     check_confirm_pending: bool = false,
@@ -710,6 +713,7 @@ pub const State = struct {
     pub fn deinit(self: *State) void {
         self.pictures.deinit();
         self.tile_pictures.deinit();
+        self.minimap.deinit(self.allocator);
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
         self.allocator.free(self.sound_names);
@@ -1223,6 +1227,8 @@ pub const State = struct {
     /// After any open that succeeded, the startup one included: the camera,
     /// the tileset's tiles and the fields follow the new map.
     pub fn mapOpened(self: *State) void {
+        // 05-07: the minimap read the last map.
+        self.minimap.mapOpened();
         // 05-05: the new map's players, unit creation and checks are its own.
         self.selected_player = null;
         self.uc_cache_player = null;
@@ -1409,6 +1415,7 @@ pub fn draw(state: *State) void {
     panels_m3.drawPropertiesPanel(state, .{ .x = state.left_width + 40, .y = body_top + 100 }, .{ .x = 320, .y = 420 });
     panels_m3.drawCheckMapPanel(state, .{ .x = state.left_width + 80, .y = body_top + 140 }, .{ .x = 520, .y = 420 });
     panels_m3.drawUnitCreationPanel(state, .{ .x = state.left_width + 60, .y = body_top + 120 }, .{ .x = 420, .y = 520 });
+    minimap_mod.draw(state, .{ .x = size.x - state.right_width - 300, .y = body_top + 40 }, .{ .x = 280, .y = 320 });
     pollScriptPick(state);
     panels_m2.drawScriptDialog(state, .{ .x = state.left_width + 60, .y = body_top + 80 }, .{ .x = 380, .y = 340 });
     panels_m2.drawScriptModals(state);
@@ -1474,6 +1481,8 @@ pub fn act(state: *State) bool {
             .dialog_cancelled => {
                 state.view.clearStatusFrom(.dialog);
                 state.save_as_format_forced = null;
+                // A Create Minimap Images that asked for a save first gives up with it.
+                state.minimap.create_pending = false;
             },
             // A quit that reaches here is either clean (never dirty) or
             // answered Don't save (the prompt's .proceed path) - both are
@@ -1490,6 +1499,7 @@ pub fn act(state: *State) bool {
                     commands.noteChecksAfterSave(state);
                 }
                 state.actions.noteSaveOutcome(ok);
+                finishPendingMinimapCreate(state, ok);
             },
             .show_dialog => |kind| showDialog(state, kind),
             .act_on_path => |chosen| {
@@ -1524,6 +1534,7 @@ pub fn act(state: *State) bool {
                         commands.noteChecksAfterSave(state);
                     }
                     state.actions.noteSaveOutcome(ok);
+                    finishPendingMinimapCreate(state, ok);
                 }
             },
             // File > New (M3, D-23): the engine builds the map (the prompt,
@@ -1543,11 +1554,22 @@ pub fn act(state: *State) bool {
                     state.mapOpened();
                 } else |_| if (!mapIsOpen(state.editor)) state.mapOpened();
             },
-            .dialog_failed => |message| state.view.setStatusFrom(.dialog, "the file dialog failed: ", message),
+            .dialog_failed => |message| {
+                state.view.setStatusFrom(.dialog, "the file dialog failed: ", message);
+                state.minimap.create_pending = false;
+            },
             .switch_mod => |folder| performModSwitch(state, folder),
             .close => performClose(state),
         }
     }
+}
+
+/// A Create Minimap Images that had to save first (05-07, D-17): once the save
+/// landed the pictures are made, and if it did not they are not.
+fn finishPendingMinimapCreate(state: *State, saved: bool) void {
+    if (!state.minimap.create_pending) return;
+    state.minimap.create_pending = false;
+    if (saved) _ = minimap_mod.createNow(state);
 }
 
 /// The script file's name as the map holds it, for the functions below; null
@@ -2435,6 +2457,8 @@ fn drawMenuBar(state: *State) f32 {
         // The floating windows the menus own (the M2/M3 panels' own View
         // entries, D-34's show/hide every panel as it lands).
         if (ig.igMenuItemBoolPtr("Heights", null, &state.heights_open, true)) {}
+        // 05-07, D-14: the Minimap (PARITY V2's minimap bar).
+        if (ig.igMenuItemBoolPtr("Minimap", null, &state.minimap.visible, map_open)) {}
         if (ig.igMenuItemBoolPtr("Properties", null, &state.properties_open, map_open)) {}
         if (ig.igMenuItemBoolPtr("Reinforcement groups", null, &state.groups_open, map_open)) {}
         if (ig.igBeginMenu("Markers")) {
@@ -2490,6 +2514,8 @@ fn drawMapMenu(state: *State, map_open: bool) void {
     // 05-05, D-33: the MFC's Check Map, its results in a window with jump-to, Fix all
     // as one undo step; Save only says when the checks find something.
     if (ig.igMenuItemEx("Check Map", null, false, map_open)) _ = commands.run(state, "check_map", "");
+    // 05-07, D-17: the minimap pictures beside the saved map - an explicit command, never part of Save.
+    if (ig.igMenuItemEx("Create Minimap Images", null, false, map_open)) _ = commands.run(state, "minimap_create", "");
     // D-20/D-22 (M3): the terrain composite, the whole-map fill (its
     // confirmation asks before the command runs) and the two toggles, whose
     // live copy is the bridge session's and whose persisted copy is the

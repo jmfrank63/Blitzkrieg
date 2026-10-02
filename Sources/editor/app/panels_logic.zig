@@ -2984,3 +2984,382 @@ test "heights modes and generate types: the names the commands take" {
     try std.testing.expectEqual(@as(?core.bridge.HeightsGenerateType, null), heightsGenerateTypeFromName("multi"));
     try std.testing.expectEqual(@as(?core.bridge.HeightsGenerateType, null), heightsGenerateTypeFromName("hetero"));
 }
+
+// ---------------------------------------------------------------------------
+// The Minimap (05-07, D-14..D-16): everything that needs no window.
+// ---------------------------------------------------------------------------
+
+/// The MFC minimap's 17 player colours, 0xRRGGBB: MINIMAP_PLAYER_COLORS in
+/// MiniMapTypes.cpp:149-167 value for value (the MFC writes them as RGB(r, g, b);
+/// MxHC is 0x80). Index 16 is the one a player outside the table gets.
+pub const minimap_player_colors = [17]u32{
+    0x00FF00, // 0
+    0xFF0000, // 1
+    0x0000FF, // 2
+    0xFFFF00, // 3
+    0x00FFFF, // 4
+    0xFF00FF, // 5
+    0xFFFFFF, // 6
+    0xFF8000, // 7
+    0xFF0080, // 8
+    0x80FF00, // 9
+    0x00FF80, // 10
+    0x8000FF, // 11
+    0x0080FF, // 12
+    0x008080, // 13
+    0x800080, // 14
+    0x808000, // 15
+    0x808080, // 16
+};
+
+/// A marker's colour: the table's entry, the last one for any index outside it.
+pub fn minimapPlayerColor(index: i32) u32 {
+    if (index < 0 or index >= minimap_player_colors.len) return minimap_player_colors[minimap_player_colors.len - 1];
+    return minimap_player_colors[@intCast(index)];
+}
+
+/// The patch grid's spacing in tiles: a terrain patch is 16 x 16 tiles
+/// (STerrainPatchInfo::nSizeX).
+pub const minimap_grid_step_tiles: i32 = 16;
+
+/// The AI's units per terrain tile (two AI tiles of 32).
+pub const minimap_ai_units_per_tile: f32 = 64.0;
+
+/// The size the minimap picture takes inside `avail_w` x `avail_h`, in the
+/// map's own aspect (a 16 x 8 patch map is twice as wide as high). A map of no
+/// size or no room gives zero.
+pub fn minimapFit(avail_w: f32, avail_h: f32, tiles_w: i32, tiles_h: i32) [2]f32 {
+    if (tiles_w <= 0 or tiles_h <= 0 or avail_w <= 0 or avail_h <= 0) return .{ 0, 0 };
+    const aspect = @as(f32, @floatFromInt(tiles_w)) / @as(f32, @floatFromInt(tiles_h));
+    var w = avail_w;
+    var h = w / aspect;
+    if (h > avail_h) {
+        h = avail_h;
+        w = h * aspect;
+    }
+    return .{ w, h };
+}
+
+/// A point in the picture to the world point it stands for - the MFC's own
+/// formula (MiniMapDialog.cpp:316-322, OnLButtonDown): `px`, `py` are pixels
+/// from the picture's top-left in a picture `rect_w` x `rect_h` pixels; the
+/// picture's top is the map's far (high y) edge, and the last pixel row is
+/// world y 0 - the "- 1" is the MFC's.
+pub fn minimapToWorld(px: f32, py: f32, rect_w: f32, rect_h: f32, tiles_w: i32, tiles_h: i32) [2]f32 {
+    if (rect_w <= 0 or rect_h <= 0) return .{ 0, 0 };
+    const cell = view_math.world_cell_size;
+    return .{
+        px * @as(f32, @floatFromInt(tiles_w)) * cell / rect_w,
+        (rect_h - py - 1) * @as(f32, @floatFromInt(tiles_h)) * cell / rect_h,
+    };
+}
+
+/// Where the camera goes for a click on world point `world` - the MFC's rule
+/// (MiniMapDialog.cpp:325-329): the clicked point goes to the screen's
+/// centre, so the anchor moves by the clicked point plus however far the anchor
+/// is from what is under the screen's centre now (`centre`), then clamped to
+/// the map like every other camera move (NormalizeCamera).
+pub fn minimapCameraTarget(world: [2]f32, anchor: [2]f32, centre: [2]f32, map: view_math.MapSize) [2]f32 {
+    var camera: view_math.Camera = .{ .x = world[0] + anchor[0] - centre[0], .y = world[1] + anchor[1] - centre[1] };
+    camera.clamp(map);
+    return .{ camera.x, camera.y };
+}
+
+/// The MFC draw tool's placement of a WORLD point in a picture `rect_w` x
+/// `rect_h` pixels (CSizedMiniMapDrawTool::ActualX/ActualY): y runs up.
+pub fn minimapWorldToPanel(wx: f32, wy: f32, rect_w: f32, rect_h: f32, tiles_w: i32, tiles_h: i32) [2]f32 {
+    const cell = view_math.world_cell_size;
+    const max_x = @as(f32, @floatFromInt(tiles_w)) * cell;
+    const max_y = @as(f32, @floatFromInt(tiles_h)) * cell;
+    if (max_x <= 0 or max_y <= 0) return .{ 0, 0 };
+    return .{ wx * rect_w / max_x, rect_h - wy * rect_h / max_y };
+}
+
+/// The same for a point in AI TILES (two per terrain tile per axis, y up): the
+/// unit markers' rectangles.
+pub fn minimapAiTileToPanel(ax: f32, ay: f32, rect_w: f32, rect_h: f32, tiles_w: i32, tiles_h: i32) [2]f32 {
+    const max_x = @as(f32, @floatFromInt(tiles_w)) * 2;
+    const max_y = @as(f32, @floatFromInt(tiles_h)) * 2;
+    if (max_x <= 0 or max_y <= 0) return .{ 0, 0 };
+    return .{ ax * rect_w / max_x, rect_h - ay * rect_h / max_y };
+}
+
+/// The same for a point in AI UNITS (64 per terrain tile): the fire-range
+/// areas' centres.
+pub fn minimapAiUnitsToPanel(ux: f32, uy: f32, rect_w: f32, rect_h: f32, tiles_w: i32, tiles_h: i32) [2]f32 {
+    return minimapAiTileToPanel(ux / (minimap_ai_units_per_tile / 2), uy / (minimap_ai_units_per_tile / 2), rect_w, rect_h, tiles_w, tiles_h);
+}
+
+/// The end of a fire-range sector's edge (MiniMapTypes.cpp:118-145): the area's
+/// angle word is a turn out of 65535, the edge is drawn from the centre at that
+/// angle plus a quarter turn, and `radius` long - in whatever units the centre
+/// and radius are in, y up.
+pub fn minimapSectorEnd(cx: f32, cy: f32, radius: f32, angle: i32) [2]f32 {
+    const two_pi = 2.0 * std.math.pi;
+    const turned = @as(f32, @floatFromInt(angle)) / 65535.0 * two_pi + std.math.pi / 2.0;
+    const wrapped = @mod(turned, two_pi);
+    return .{ cx + radius * @cos(wrapped), cy + radius * @sin(wrapped) };
+}
+
+/// How many grid lines a map of `tiles` tiles has along one axis, one every
+/// `step` tiles inside the map (not on its edge).
+pub fn minimapGridCount(tiles: i32, step: i32) usize {
+    if (tiles <= 0 or step <= 0) return 0;
+    return @intCast(@divTrunc(tiles - 1, step));
+}
+
+/// Grid line `index` (0-based) as a fraction of the map's width or height, 0..1.
+pub fn minimapGridFraction(index: usize, tiles: i32, step: i32) f32 {
+    return @as(f32, @floatFromInt((@as(i32, @intCast(index)) + 1) * step)) / @as(f32, @floatFromInt(tiles));
+}
+
+/// The grey a tile the tileset has no colour for is drawn in.
+pub const minimap_unknown_tile_color: u32 = 0x808080;
+
+/// The terrain texture's pixels (RGBA8, one per tile, row 0 first): every tile's
+/// colour from the table, MiniMapTypes.cpp's `colors[...]`. `pixels` must be
+/// `tiles.len * 4` long.
+pub fn rasterizeMinimapTerrain(pixels: []u8, tiles: []const u8, colors: []const u32) void {
+    std.debug.assert(pixels.len == tiles.len * 4);
+    for (tiles, 0..) |tile, i| {
+        const rgb = if (tile < colors.len) colors[tile] else minimap_unknown_tile_color;
+        pixels[i * 4 + 0] = @intCast((rgb >> 16) & 0xFF);
+        pixels[i * 4 + 1] = @intCast((rgb >> 8) & 0xFF);
+        pixels[i * 4 + 2] = @intCast(rgb & 0xFF);
+        pixels[i * 4 + 3] = 0xFF;
+    }
+}
+
+/// The height gradient the MFC shows while the Heights tool is active
+/// (MiniMapTypes.cpp CMiniMapTerrain::Update, altitudes branch): one grey per
+/// tile from the height of the tile's first vertex, 0 at the lowest of those
+/// and 255 at the highest. `heights` is the vertex sheet (`vertex_w` per row,
+/// one more than the tiles per axis). A flat sheet is all black (the MFC's
+/// divides by a range it set to -1 there). The MFC's red for a height the
+/// engine's validity rule refuses is not drawn: no read says which those are.
+pub fn rasterizeMinimapHeights(pixels: []u8, heights: []const f32, vertex_w: usize, tiles_w: usize, tiles_h: usize) void {
+    std.debug.assert(pixels.len == tiles_w * tiles_h * 4);
+    if (tiles_w == 0 or tiles_h == 0 or heights.len < vertex_w * tiles_h or vertex_w < tiles_w) {
+        @memset(pixels, 0);
+        return;
+    }
+    var low = heights[0];
+    var high = heights[0];
+    for (0..tiles_h) |y| {
+        for (0..tiles_w) |x| {
+            const h = heights[y * vertex_w + x];
+            if (h < low) low = h;
+            if (h > high) high = h;
+        }
+    }
+    const span = high - low;
+    for (0..tiles_h) |y| {
+        for (0..tiles_w) |x| {
+            const h = heights[y * vertex_w + x];
+            const grey: u8 = if (span > 0) @intFromFloat(std.math.clamp(255.0 * (h - low) / span, 0, 255)) else 0;
+            const at = (y * tiles_w + x) * 4;
+            pixels[at + 0] = grey;
+            pixels[at + 1] = grey;
+            pixels[at + 2] = grey;
+            pixels[at + 3] = 0xFF;
+        }
+    }
+}
+
+/// What a `minimap_click:<x>x<y>` argument asks: percents of the picture's width
+/// and height from its top-left, 0..100 each.
+pub fn parseMinimapClick(arg: []const u8) ?[2]f32 {
+    const sep = std.mem.indexOfScalar(u8, arg, 'x') orelse return null;
+    const x = std.fmt.parseFloat(f32, arg[0..sep]) catch return null;
+    const y = std.fmt.parseFloat(f32, arg[sep + 1 ..]) catch return null;
+    if (!std.math.isFinite(x) or !std.math.isFinite(y) or x < 0 or x > 100 or y < 0 or y > 100) return null;
+    return .{ x, y };
+}
+
+/// The minimap's two pictures.
+pub const MinimapMode = enum {
+    editor,
+    game,
+
+    pub fn fromName(name: []const u8) ?MinimapMode {
+        if (std.mem.eql(u8, name, "editor")) return .editor;
+        if (std.mem.eql(u8, name, "game")) return .game;
+        return null;
+    }
+
+    pub fn label(self: MinimapMode) []const u8 {
+        return switch (self) {
+            .editor => "Editor",
+            .game => "Game",
+        };
+    }
+};
+
+/// `<map path minus .bzm or .xml>` - what Create Minimap Images names its
+/// pictures after; null for a path that ends in neither.
+pub fn minimapImageBase(map_path: []const u8) ?[]const u8 {
+    const dot = std.mem.lastIndexOfScalar(u8, map_path, '.') orelse return null;
+    const cut = std.mem.lastIndexOfAny(u8, map_path, "/\\");
+    if (cut != null and dot < cut.?) return null;
+    const extension = map_path[dot..];
+    if (!std.ascii.eqlIgnoreCase(extension, ".bzm") and !std.ascii.eqlIgnoreCase(extension, ".xml")) return null;
+    return map_path[0..dot];
+}
+
+test "the minimap's player colours are the MFC's table, value for value" {
+    // MiniMapTypes.cpp:149-167, RGB(r, g, b) with MxHC = 0x80.
+    const mfc = [17][3]u8{
+        .{ 0x00, 0xFF, 0x00 }, .{ 0xFF, 0x00, 0x00 }, .{ 0x00, 0x00, 0xFF }, .{ 0xFF, 0xFF, 0x00 },
+        .{ 0x00, 0xFF, 0xFF }, .{ 0xFF, 0x00, 0xFF }, .{ 0xFF, 0xFF, 0xFF }, .{ 0xFF, 0x80, 0x00 },
+        .{ 0xFF, 0x00, 0x80 }, .{ 0x80, 0xFF, 0x00 }, .{ 0x00, 0xFF, 0x80 }, .{ 0x80, 0x00, 0xFF },
+        .{ 0x00, 0x80, 0xFF }, .{ 0x00, 0x80, 0x80 }, .{ 0x80, 0x00, 0x80 }, .{ 0x80, 0x80, 0x00 },
+        .{ 0x80, 0x80, 0x80 },
+    };
+    try std.testing.expectEqual(@as(usize, 17), minimap_player_colors.len);
+    for (mfc, 0..) |rgb, i| {
+        const want = (@as(u32, rgb[0]) << 16) | (@as(u32, rgb[1]) << 8) | rgb[2];
+        try std.testing.expectEqual(want, minimap_player_colors[i]);
+    }
+    // Outside the table is the last entry.
+    try std.testing.expectEqual(@as(u32, 0x808080), minimapPlayerColor(-1));
+    try std.testing.expectEqual(@as(u32, 0x808080), minimapPlayerColor(17));
+    try std.testing.expectEqual(@as(u32, 0xFF0000), minimapPlayerColor(1));
+}
+
+test "minimap click: the MFC's point-to-world formula, edges included" {
+    const cell = view_math.world_cell_size;
+    // A 100 x 100 tile map in a 200 x 200 picture: the top-left pixel is the far
+    // west edge at the map's north end (world y just under the top), the last row
+    // is world y 0 less nothing: the MFC's "- 1" puts the last row at y 0.
+    const top_left = minimapToWorld(0, 0, 200, 200, 100, 100);
+    try std.testing.expectEqual(@as(f32, 0), top_left[0]);
+    try std.testing.expectApproxEqAbs(199.0 * 100 * cell / 200.0, top_left[1], 0.01);
+    const bottom_row = minimapToWorld(0, 199, 200, 200, 100, 100);
+    try std.testing.expectEqual(@as(f32, 0), bottom_row[1]);
+    // The right edge pixel is one pixel short of the map's east edge.
+    const right = minimapToWorld(199, 100, 200, 200, 100, 100);
+    try std.testing.expectApproxEqAbs(199.0 * 100 * cell / 200.0, right[0], 0.01);
+    // The middle of the picture is the middle of the map (to the pixel).
+    const middle = minimapToWorld(100, 99, 200, 200, 100, 100);
+    try std.testing.expectApproxEqAbs(50.0 * cell, middle[0], 0.01);
+    try std.testing.expectApproxEqAbs(100.0 * 100 * cell / 200.0, middle[1], 0.01);
+    // A non-square map scales each axis by its own size.
+    const wide = minimapToWorld(100, 50, 200, 100, 200, 100);
+    try std.testing.expectApproxEqAbs(100.0 * 200 * cell / 200.0, wide[0], 0.01);
+    try std.testing.expectApproxEqAbs(49.0 * 100 * cell / 100.0, wide[1], 0.01);
+    // No picture, no point.
+    try std.testing.expectEqual([2]f32{ 0, 0 }, minimapToWorld(5, 5, 0, 10, 8, 8));
+}
+
+test "minimap click: the camera keeps the MFC's screen-centre offset and stays on the map" {
+    const map: view_math.MapSize = .{ .width_tiles = 100, .height_tiles = 100 };
+    const cell = view_math.world_cell_size;
+    // The anchor and the screen's centre agree: the camera goes where the click is.
+    const plain = minimapCameraTarget(.{ 1000, 1500 }, .{ 800, 800 }, .{ 800, 800 }, map);
+    try std.testing.expectEqual([2]f32{ 1000, 1500 }, plain);
+    // The centre is 40 east and 25 south of the anchor (the iso view's offset):
+    // the click's point goes to the centre, so the anchor goes to the point minus that.
+    const offset = minimapCameraTarget(.{ 1000, 1500 }, .{ 800, 800 }, .{ 840, 775 }, map);
+    try std.testing.expectEqual([2]f32{ 960, 1525 }, offset);
+    // Past the map's edge the camera is held to it, like every camera move.
+    const west = minimapCameraTarget(.{ 10, 1500 }, .{ 800, 800 }, .{ 900, 800 }, map);
+    try std.testing.expectEqual(@as(f32, 0), west[0]);
+    const north = minimapCameraTarget(.{ 1000, 100 * cell + 500 }, .{ 800, 800 }, .{ 800, 800 }, map);
+    try std.testing.expectEqual(@as(f32, 100 * cell), north[1]);
+}
+
+test "minimap overlays: the MFC draw tool's placement, y up" {
+    // World units: the origin is the bottom-left, the far corner the top-right.
+    const origin = minimapWorldToPanel(0, 0, 200, 100, 50, 25);
+    try std.testing.expectEqual([2]f32{ 0, 100 }, origin);
+    const far = minimapWorldToPanel(50 * view_math.world_cell_size, 25 * view_math.world_cell_size, 200, 100, 50, 25);
+    try std.testing.expectApproxEqAbs(@as(f32, 200), far[0], 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 0), far[1], 0.001);
+    // AI tiles: two per terrain tile.
+    const ai = minimapAiTileToPanel(50, 25, 200, 100, 50, 25);
+    try std.testing.expectEqual([2]f32{ 100, 50 }, ai);
+    // AI units: 64 per terrain tile, so 25 tiles of 64 is the middle of a 50-tile map.
+    const units = minimapAiUnitsToPanel(25 * 64, 12.5 * 64, 200, 100, 50, 25);
+    try std.testing.expectApproxEqAbs(@as(f32, 100), units[0], 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 50), units[1], 0.001);
+}
+
+test "minimap sector edges: the angle word plus a quarter turn, from the centre" {
+    // Angle 0 is the quarter turn: straight along +y.
+    const north = minimapSectorEnd(100, 100, 50, 0);
+    try std.testing.expectApproxEqAbs(@as(f32, 100), north[0], 0.001);
+    try std.testing.expectApproxEqAbs(@as(f32, 150), north[1], 0.001);
+    // A quarter of 65535 more is a half turn from +x: along -x.
+    const west = minimapSectorEnd(100, 100, 50, 16384);
+    try std.testing.expectApproxEqAbs(@as(f32, 50), west[0], 0.05);
+    try std.testing.expectApproxEqAbs(@as(f32, 100), west[1], 0.05);
+}
+
+test "minimap grid: one line per patch inside the map" {
+    try std.testing.expectEqual(@as(usize, 0), minimapGridCount(16, 16));
+    try std.testing.expectEqual(@as(usize, 1), minimapGridCount(32, 16));
+    try std.testing.expectEqual(@as(usize, 31), minimapGridCount(512, 16));
+    try std.testing.expectEqual(@as(usize, 0), minimapGridCount(0, 16));
+    try std.testing.expectEqual(@as(f32, 0.5), minimapGridFraction(0, 32, 16));
+    try std.testing.expectEqual(@as(f32, 0.25), minimapGridFraction(0, 64, 16));
+    try std.testing.expectEqual(@as(f32, 0.5), minimapGridFraction(1, 64, 16));
+}
+
+test "minimap fit: the map's aspect inside the room there is" {
+    const wide = minimapFit(400, 400, 200, 100);
+    try std.testing.expectEqual([2]f32{ 400, 200 }, wide);
+    const tall = minimapFit(400, 100, 100, 100);
+    try std.testing.expectEqual([2]f32{ 100, 100 }, tall);
+    try std.testing.expectEqual([2]f32{ 0, 0 }, minimapFit(0, 10, 8, 8));
+    try std.testing.expectEqual([2]f32{ 0, 0 }, minimapFit(10, 10, 0, 8));
+}
+
+test "minimap terrain pixels: every tile's colour, an unknown tile grey" {
+    const colors = [_]u32{ 0x102030, 0xAABBCC };
+    const tiles = [_]u8{ 0, 1, 1, 7 };
+    var pixels: [16]u8 = undefined;
+    rasterizeMinimapTerrain(&pixels, &tiles, &colors);
+    try std.testing.expectEqualSlices(u8, &.{ 0x10, 0x20, 0x30, 0xFF }, pixels[0..4]);
+    try std.testing.expectEqualSlices(u8, &.{ 0xAA, 0xBB, 0xCC, 0xFF }, pixels[4..8]);
+    try std.testing.expectEqualSlices(u8, &.{ 0x80, 0x80, 0x80, 0xFF }, pixels[12..16]);
+}
+
+test "minimap heights: the first vertex of each tile, lowest black and highest white" {
+    // 2 x 2 tiles, 3 x 3 vertices; the last row and column of vertices belong to no tile.
+    const heights = [_]f32{
+        0, 10, 99,
+        20, 30, 99,
+        99, 99, 99,
+    };
+    var pixels: [16]u8 = undefined;
+    rasterizeMinimapHeights(&pixels, &heights, 3, 2, 2);
+    try std.testing.expectEqual(@as(u8, 0), pixels[0]);
+    try std.testing.expectEqual(@as(u8, 255), pixels[12]);
+    try std.testing.expectEqual(@as(u8, 85), pixels[4]);
+    try std.testing.expectEqual(@as(u8, 170), pixels[8]);
+    try std.testing.expectEqual(@as(u8, 0xFF), pixels[3]);
+    // A flat sheet is black.
+    const flat = [_]f32{5} ** 9;
+    rasterizeMinimapHeights(&pixels, &flat, 3, 2, 2);
+    try std.testing.expectEqual(@as(u8, 0), pixels[0]);
+    try std.testing.expectEqual(@as(u8, 0), pixels[12]);
+}
+
+test "minimap click arguments and modes" {
+    try std.testing.expectEqual(@as(?[2]f32, .{ 90, 10 }), parseMinimapClick("90x10"));
+    try std.testing.expectEqual(@as(?[2]f32, .{ 0.5, 100 }), parseMinimapClick("0.5x100"));
+    try std.testing.expectEqual(@as(?[2]f32, null), parseMinimapClick("101x10"));
+    try std.testing.expectEqual(@as(?[2]f32, null), parseMinimapClick("-1x10"));
+    try std.testing.expectEqual(@as(?[2]f32, null), parseMinimapClick("10"));
+    try std.testing.expectEqual(@as(?[2]f32, null), parseMinimapClick("axb"));
+    try std.testing.expectEqual(MinimapMode.game, MinimapMode.fromName("game").?);
+    try std.testing.expectEqual(MinimapMode.editor, MinimapMode.fromName("editor").?);
+    try std.testing.expectEqual(@as(?MinimapMode, null), MinimapMode.fromName("Game"));
+}
+
+test "the minimap pictures are named after the map without its extension" {
+    try std.testing.expectEqualStrings("/maps/a", minimapImageBase("/maps/a.bzm").?);
+    try std.testing.expectEqualStrings("C:\\maps\\a", minimapImageBase("C:\\maps\\a.XML").?);
+    try std.testing.expectEqual(@as(?[]const u8, null), minimapImageBase("/maps/a.txt"));
+    try std.testing.expectEqual(@as(?[]const u8, null), minimapImageBase("/maps.bzm/a"));
+}
