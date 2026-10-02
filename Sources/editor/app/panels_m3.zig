@@ -544,8 +544,8 @@ fn drawUnitsList(state: *State, link_id: i32) void {
         shown += 1;
         var row: [96:0]u8 = undefined;
         const row_text = std.fmt.bufPrintZ(&row, "{s}##u{d}", .{ passenger.nameSlice(), passenger.link_id }) catch continue;
-        ig.igSelectableEx(row_text.ptr, false, 0, .{ .x = 0, .y = 0 });
-        if (ig.igIsItemHovered(ig.ImGuiHoveredFlags_None) and ig.igIsMouseDoubleClicked(0, false)) {
+        _ = ig.igSelectableEx(row_text.ptr, false, 0, .{ .x = 0, .y = 0 });
+        if (ig.igIsItemHovered(ig.ImGuiHoveredFlags_None) and ig.igIsMouseDoubleClicked(0)) {
             var buffer: [24:0]u8 = undefined;
             _ = commands.run(state, "link_unlink", std.fmt.bufPrintZ(&buffer, "{d}", .{passenger.link_id}) catch "");
             state.props_reload = true;

@@ -857,7 +857,7 @@ fn propsSet(state: *State, arg: []const u8) Outcome {
         fields.mask |= core.bridge.ObjectFieldsEdit.formation_bit;
         fields.formation = std.fmt.parseInt(c_int, value_text, 10) catch return .bad_arg;
     } else return .bad_arg;
-    const members = state.editor.selectionMembers(state.allocator) catch return .failed;
+    const members = state.editor.selectionMembers(state.allocator) catch return .refused;
     defer state.allocator.free(members);
     if (members.len == 0) {
         state.editor.note("select an object first");
@@ -867,7 +867,7 @@ fn propsSet(state: *State, arg: []const u8) Outcome {
     // kind's frame index is its segment, never a formation.
     if (fields.mask & core.bridge.ObjectFieldsEdit.formation_bit != 0) {
         for (members) |member| {
-            const object = state.editor.document.find(member) orelse return .failed;
+            const object = state.editor.document.find(member) orelse return .refused;
             if (!isSquadName(state, object.nameSlice())) {
                 state.editor.note("only a squad carries a formation");
                 return .refused;
