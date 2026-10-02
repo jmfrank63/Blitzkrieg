@@ -36,20 +36,30 @@ namespace
 {
 
 // The fills' draws (the shells' GetRandom, the pattern picks, the edge
-// randomize) come from the engine's random services. The MFC filled ONE map
-// and never met the question; the bridge fills TWO copies that must land
-// byte-identical, and a deterministic apply is testable at all - so every
-// fill is seeded from this fixed state before it runs: the global random
-// generator (RandomGen.h's Random(), the shells' draw) and the Win32 LCG
-// (Polygons_Types.h's edge randomize) alike.
+// randomize, the tile variants) come from three random services. The MFC
+// filled ONE map and never met the question; the bridge fills TWO copies
+// that must land byte-identical, and a deterministic apply is testable at
+// all - so every fill is seeded from this fixed state before it runs: the
+// global random generator (RandomGen.h's Random(), the shells' draw of the
+// terrain type), the Win32 LCG (Polygons_Types.h's edge randomize) and the C
+// runtime's rand() (STileTypeDesc::GetMapsIndex, Formats/fmtTerrain.h, the
+// variant of the terrain type each filled cell gets). The RMG seeds the same
+// three for the same reason (CMapInfo::CreateRandomMap, after storing the
+// seed).
 const int kFieldFillSeed = 0;
 
-// Seeds both generators the fills draw from. g_pGlobalRandomGen is the
+// Seeds the three generators the fills draw from. g_pGlobalRandomGen is the
 // pointer Random() reads; the singleton is its loader-assigned instance -
-// seeded too, so the order does not matter.
+// seeded too, so the order does not matter. rand() is the one the engine
+// time-seeds at start (CRandomGenSeed::FillRandRsl): left alone, every fill
+// - the snapshot's, the working copy's, a replay's - rolled its own tile
+// variants, and the two copies differed in nearly every filled cell. The
+// UCRT keeps rand()'s state per thread and libc per process; either way the
+// fill runs on this thread straight after the seed.
 void SeedFieldFills()
 {
 	NWin32Random::Seed( kFieldFillSeed );
+	srand( static_cast<unsigned int>( kFieldFillSeed ) );
 	if ( CPtr<IRandomGenSeed> pSeed = CreateObject<IRandomGenSeed>( STREAMIO_RANDOM_GEN_SEED ) )
 	{
 		pSeed->InitByZeroSeed();

@@ -135,10 +135,13 @@ static bool Check( bool bCondition, const char *pszWhat )
 // The tile and object shells draw from the engine's random services: the
 // bridge seeds its fills from a fixed state (session_fields.cpp), and the
 // test replays them with the same seeds. The zero seed is the game's own
-// fixed point (IRandomGenSeed::InitByZeroSeed, NWin32Random::Seed).
+// fixed point (IRandomGenSeed::InitByZeroSeed, NWin32Random::Seed), and
+// srand( 0 ) the bridge's for the C runtime's rand(), which picks every
+// filled cell's tile variant (STileTypeDesc::GetMapsIndex).
 static void ReseedRandom()
 {
 	NWin32Random::Seed( 0 );
+	srand( 0 );
 	if ( CPtr<IRandomGenSeed> pSeed = CreateObject<IRandomGenSeed>( STREAMIO_RANDOM_GEN_SEED ) )
 	{
 		pSeed->InitByZeroSeed();
@@ -146,6 +149,19 @@ static void ReseedRandom()
 			g_pGlobalRandomGen->SetSeed( pSeed );
 		GetSingleton<IRandomGen>()->SetSeed( pSeed );
 	}
+}
+
+// The opposite: every generator the fills draw from moved off the replay's
+// fixed point, so an apply that still matches the replay proves the bridge
+// seeds its own fills (session_fields.cpp SeedFieldFills) rather than riding
+// on the seeds the test happened to leave behind.
+static void ScrambleRandom()
+{
+	NWin32Random::Seed( 12345 );
+	srand( 12345 );
+	if ( IRandomGen *pGen = GetSingleton<IRandomGen>() )
+		for ( int i = 0; i < 17; ++i )
+			pGen->Get();
 }
 
 // The same map the map-file tier uses, as a file dialog would hand the path
@@ -11480,7 +11496,7 @@ static void TestM3Fields( BkEditorSession *pSession, const std::string &szScratc
 		params.place_objects = 0;
 		params.modify_heights = 1;
 		int nToken = -1, nReport = 0;
-		ReseedRandom();
+		ScrambleRandom();
 		Check( BkEditorApplyField( pSession, &params, 0, 0, &nReport, &nToken ) == BK_EDITOR_OK,
 		       ( std::string( "the terrain half applies: " ) + BkEditorLastMessage( pSession ) ).c_str() );
 		Check( nToken >= 0, "the terrain half has a token" );
@@ -11541,51 +11557,47 @@ static void TestM3Fields( BkEditorSession *pSession, const std::string &szScratc
 						CTRect<int>( 0, 0, pre.terrain.altitudes.GetSizeX(), pre.terrain.altitudes.GetSizeY() ),
 						CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( pre.nSeason ) ) );
 				}
-				// The same engine calls over the same polygon, the bridge's
-				// own fixed seeds: the fill's touched cells and the changed
-				// heights must agree cell for cell. (The engine's fill leaves
-				// its final scanline's tile picks unreproducible across
-				// replays - recorded in the plan summary - so the values
-				// themselves are not compared.)
-				// A cell of the final scanline may disagree: its pick can land
-				// on the tile the cell already had in one replay and not in
-				// the other, so "changed" itself is unreproducible there (the
-				// open window 4 of .planning/WINDOWS.md). Every disagreement
-				// must therefore sit in ONE row, the first or the last the
-				// fill touched; anywhere else it is a real difference.
-				int nDisagreeTiles = 0, nTouched = 0, nDisagreeHeights = 0, nHeights = 0;
-				int nFirstTouchedRow = -1, nLastTouchedRow = -1;
-				std::set<int> disagreeRows;
+				// The same engine calls over the same polygon, the bridge's own
+				// fixed seeds: the replay is the apply, tile for tile, over the
+				// whole map. Each filled cell takes its terrain type from
+				// Random() and its variant of that type from rand()
+				// (STileTypeDesc::GetMapsIndex); both are seeded before every
+				// fill, so nothing about the values is left to chance. (Before
+				// rand() was seeded the variants rolled differently on every
+				// fill - 57 of the 64 cells, in every row - and only the
+				// changed-ness was compared, which still flipped wherever a
+				// cell already had the picked type.) The heights must change
+				// at exactly the vertices the engine's own pattern changes.
+				int nDifferentTiles = 0, nTouched = 0, nDisagreeHeights = 0, nHeights = 0;
+				int nFirstDifferentX = -1, nFirstDifferentRow = -1;
+				for ( int nRow = 0; nRow < pre.terrain.tiles.GetSizeY(); ++nRow )
+					for ( int nXIndex = 0; nXIndex < pre.terrain.tiles.GetSizeX(); ++nXIndex )
+					{
+						if ( expected.terrain.tiles[nRow][nXIndex].tile != pre.terrain.tiles[nRow][nXIndex].tile )
+						{
+							if ( nDifferentTiles == 0 )
+							{
+								nFirstDifferentX = nXIndex;
+								nFirstDifferentRow = nRow;
+							}
+							++nDifferentTiles;
+						}
+						if ( expected.terrain.tiles[nRow][nXIndex].tile != pPreAsRead->terrain.tiles[nRow][nXIndex].tile )
+							++nTouched;
+					}
 				for ( int nYIndex = 40; nYIndex < 48; ++nYIndex )
 					for ( int nXIndex = 40; nXIndex < 48; ++nXIndex )
 					{
 						const int nRow = 128 - nYIndex - 1;
-						const bool bChangedMap = expected.terrain.tiles[nRow][nXIndex].tile != pPreAsRead->terrain.tiles[nRow][nXIndex].tile;
-						const bool bChangedBuilt = pre.terrain.tiles[nRow][nXIndex].tile != pPreAsRead->terrain.tiles[nRow][nXIndex].tile;
-						if ( bChangedMap || bChangedBuilt )
-						{
-							nFirstTouchedRow = nFirstTouchedRow < 0 ? nRow : Min( nFirstTouchedRow, nRow );
-							nLastTouchedRow = Max( nLastTouchedRow, nRow );
-						}
-						if ( bChangedMap ) ++nTouched;
-						if ( bChangedMap != bChangedBuilt )
-						{
-							++nDisagreeTiles;
-							disagreeRows.insert( nRow );
-						}
 						const float fMap = expected.terrain.altitudes[nRow][nXIndex].fHeight - pPreAsRead->terrain.altitudes[nRow][nXIndex].fHeight;
 						const float fBuilt = pre.terrain.altitudes[nRow][nXIndex].fHeight - pPreAsRead->terrain.altitudes[nRow][nXIndex].fHeight;
 						if ( fabs( fMap ) > 0.01f ) ++nHeights;
 						if ( ( fabs( fMap ) > 0.01f ) != ( fabs( fBuilt ) > 0.01f ) ) ++nDisagreeHeights;
 					}
-				const bool bOnlyFinalScanline = disagreeRows.empty() ||
-					( disagreeRows.size() == 1 && ( *disagreeRows.begin() == nFirstTouchedRow || *disagreeRows.begin() == nLastTouchedRow ) );
-				if ( nDisagreeTiles != 0 && bOnlyFinalScanline )
-					printf( "editor-bridge: M3 fields: %d cell(s) of the fill's edge scanline (row %d) disagree on changed-ness - window 4\n",
-					        nDisagreeTiles, *disagreeRows.begin() );
-				Check( bOnlyFinalScanline && nTouched > 0,
-				       ( "the fields' tiles change exactly the cells the engine's own fill touches, the edge scanline aside (" + std::to_string( nTouched ) + " touched, " +
-				         std::to_string( nDisagreeTiles ) + " disagree in " + std::to_string( disagreeRows.size() ) + " row(s))" ).c_str() );
+				Check( nDifferentTiles == 0 && nTouched > 0,
+				       ( "the fields' tiles are exactly the engine's own fill's, cell for cell (" + std::to_string( nTouched ) + " touched, " +
+				         std::to_string( nDifferentTiles ) + " different" +
+				         ( nDifferentTiles != 0 ? ", the first at row " + std::to_string( nFirstDifferentRow ) + " x " + std::to_string( nFirstDifferentX ) : std::string() ) + ")" ).c_str() );
 				Check( nDisagreeHeights == 0,
 				       ( "the fields' heights change exactly the vertices the engine's own pattern touches (" + std::to_string( nHeights ) + " changed, " + std::to_string( nDisagreeHeights ) + " disagree)" ).c_str() );
 				delete pPreAsRead;
@@ -11662,9 +11674,10 @@ static void TestM3Fields( BkEditorSession *pSession, const std::string &szScratc
 		Check( BridgeFilesAreIdentical( szPre.c_str(), szUndone.c_str() ),
 		       "the randomized apply undone writes the unedited save byte for byte" );
 	}
-	// 4. Two identical seeded applies run and undo clean; their saves' tile
-	// divergence (the engine fill's final scanline, unreproducible across
-	// replays - see the builder check above) is printed, not asserted.
+	// 4. Two identical seeded applies run, undo clean and save the same
+	// bytes: every generator the fills draw from is seeded before each fill
+	// (session_fields.cpp SeedFieldFills), so an apply is a function of its
+	// inputs alone.
 	{
 		BkEditorFieldApplyParams params;
 		memset( &params, 0, sizeof params );
@@ -11683,15 +11696,14 @@ static void TestM3Fields( BkEditorSession *pSession, const std::string &szScratc
 		const std::string szProbeB = szScratch + "\\m3-fields-probe-b.bzm";
 		Check( BkEditorSaveMap( pSession, szProbeB.c_str() ) == BK_EDITOR_OK, "the determinism probe B saves" );
 		Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "the determinism probe B undoes" );
-		if ( BridgeFilesAreIdentical( szProbeA.c_str(), szProbeB.c_str() ) )
-			printf( "editor-bridge: M3 fields deterministic ok\n" );
-		else
+		if ( !Check( BridgeFilesAreIdentical( szProbeA.c_str(), szProbeB.c_str() ),
+		             "two identical seeded field applies save byte for byte the same map" ) )
 		{
 			CMapInfo readA, readB;
 			std::string szErr, szWhere;
 			if ( NMapFile::Read( szProbeA.c_str(), &readA, &szErr ) && NMapFile::Read( szProbeB.c_str(), &readB, &szErr ) )
-				printf( "editor-bridge: the seeded applies diverge at %s (recorded)\n",
-				        NMapFile::AreEquivalent( readA, readB, &szWhere ) ? "nowhere" : szWhere.c_str() );
+				printf( "editor-bridge: the seeded applies diverge at %s\n",
+				        NMapFile::AreEquivalent( readA, readB, &szWhere ) ? "nowhere the reader compares" : szWhere.c_str() );
 		}
 	}
 	printf( "editor-bridge: M3 fields ok\n" );
