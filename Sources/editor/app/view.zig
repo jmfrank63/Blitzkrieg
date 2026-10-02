@@ -1797,19 +1797,51 @@ test "view: Ctrl+left is only the right button in a tool that asks for it, so a 
 test "view: in a tool with no use for a double click the second click of a fast pair is a click of its own (WR-C03)" {
     const rig = try Rig.create();
     defer rig.destroy();
-    rig.send(mouseButton(button_left, true, 40, 40));
-    rig.send(mouseButton(button_left, false, 40, 40));
-    // SDL's clicks 2 (within 500 ms and 32 px): a press and a release in Select,
-    // never swallowed.
-    rig.send(doubleClickDown(40, 40));
+    // Place has no use for a double click (Select has since M3: it opens the
+    // Properties window), so its fast pair places twice.
+    rig.view.selectTool(&rig.editor, .place);
+    rig.send(mouseButton(button_left, true, 120, 120));
+    rig.send(mouseButton(button_left, false, 120, 120));
+    try testing.expectEqual(@as(usize, 1), rig.editor.history.undo_stack.items.len);
+    // SDL's clicks 2 (within 500 ms and 32 px): a press and a release in
+    // Place, never swallowed.
+    rig.send(doubleClickDown(120, 120));
     try testing.expect(rig.view.hasActiveMouseGesture());
-    var up = mouseButton(button_left, false, 40, 40);
+    var up = mouseButton(button_left, false, 120, 120);
     up.button.clicks = 2;
     rig.send(up);
     try testing.expect(!rig.view.hasActiveMouseGesture());
-    // Both clicks selected the tank; nothing was deselected or moved.
+    // Both clicks placed.
+    try testing.expectEqual(@as(usize, 2), rig.editor.history.undo_stack.items.len);
+}
+
+test "view: in Select a double click, Enter or Space on a selection asks for the Properties window (O15)" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    // A double click on nothing selected asks nothing.
+    rig.send(mouseButton(button_left, true, 220, 220));
+    rig.send(mouseButton(button_left, false, 220, 220));
+    rig.send(doubleClickDown(220, 220));
+    try testing.expect(!rig.view.props_open_request);
+    // The first click selects the tank, the second click of the pair asks;
+    // nothing moved.
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
     try testing.expectEqual(@as(?i32, 1), rig.editor.selection);
+    rig.send(doubleClickDown(40, 40));
+    var up = mouseButton(button_left, false, 40, 40);
+    up.button.clicks = 2;
+    rig.send(up);
+    try testing.expect(rig.view.props_open_request);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
     try testing.expectEqual(@as(usize, 0), rig.editor.history.undo_stack.items.len);
+    // Enter and Space ask the same.
+    rig.view.props_open_request = false;
+    rig.send(keyDown(sdl3.c.SDLK_RETURN, 0, false));
+    try testing.expect(rig.view.props_open_request);
+    rig.view.props_open_request = false;
+    rig.send(keyDown(sdl3.c.SDLK_SPACE, 0, false));
+    try testing.expect(rig.view.props_open_request);
 }
 
 test "view: the registry's shortcuts still switch the M1 tools" {

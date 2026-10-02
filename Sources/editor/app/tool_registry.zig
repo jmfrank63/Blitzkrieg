@@ -46,12 +46,16 @@ pub const Entry = struct {
 pub const entries = [_]Entry{
     // M3 (D-25): the selector takes the right button - a right click alone
     // deselects, with the left held it cycles the press's candidates. Ctrl
-    // stays the multi-select modifier, never a right click.
+    // stays the multi-select modifier, never a right click. It takes the
+    // double click too (D-26/PARITY O15): a double click on the selection
+    // opens the Properties window, the MFC's OnLButtonDblClk
+    // (ObjectPlacerState.cpp:627).
     .{
         .id = .select,
         .label = "Select",
         .shortcut = '1',
         .needs_right_button = true,
+        .needs_double_click = true,
     },
     .{ .id = .brush, .label = "Brush", .shortcut = '2' },
     .{ .id = .place, .label = "Place", .shortcut = '3' },
@@ -315,14 +319,15 @@ test "the Reserve Positions tool has no key, takes the left button and keys, and
     try std.testing.expectEqual(@as(?ToolId, .reserve_positions), byLabel("reserve_positions"));
 }
 
-test "the select tool is key 1: the right button cycles and deselects, Ctrl stays a modifier" {
+test "the select tool is key 1: the right button cycles and deselects, Ctrl stays a modifier, a double click opens the properties" {
     const item = entry(.select);
     try std.testing.expectEqual(@as(?u8, '1'), item.shortcut);
     // M3 (D-25): the right click deselects and cycles; Ctrl is the
     // multi-select modifier, never a right click.
     try std.testing.expect(item.needs_right_button);
     try std.testing.expect(!item.ctrl_click_is_right);
-    try std.testing.expect(!item.needs_double_click);
+    // M3 (D-26/PARITY O15): the double click opens the Properties window.
+    try std.testing.expect(item.needs_double_click);
 }
 
 test "the brush and the place tool take no right button, double click or Ctrl-as-right" {
