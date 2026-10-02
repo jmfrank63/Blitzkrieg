@@ -94,6 +94,13 @@ comptime {
     std.debug.assert(@offsetOf(c.BkEditorRmgGenerateParams, "seed") == @offsetOf(core.bridge.RmgGenerateParams, "seed"));
     std.debug.assert(@offsetOf(c.BkEditorRmgGenerateParams, "progress_fn") == @offsetOf(core.bridge.RmgGenerateParams, "progress"));
     std.debug.assert(@sizeOf(c.BkEditorRmgGraph) == @sizeOf(core.bridge.RmgGraph));
+    std.debug.assert(@sizeOf(c.BkEditorRmgScripts) == @sizeOf(core.bridge.RmgScripts));
+    std.debug.assert(@sizeOf(c.BkEditorRmgPatch) == @sizeOf(core.bridge.RmgPatch));
+    std.debug.assert(@sizeOf(c.BkEditorRmgContainerRecord) == @sizeOf(core.bridge.RmgContainerRecord));
+    std.debug.assert(@sizeOf(c.BkEditorRmgNode) == @sizeOf(core.bridge.RmgNode));
+    std.debug.assert(@sizeOf(c.BkEditorRmgLink) == @sizeOf(core.bridge.RmgLink));
+    std.debug.assert(@sizeOf(c.BkEditorRmgGraphRecord) == @sizeOf(core.bridge.RmgGraphRecord));
+    std.debug.assert(@sizeOf(c.BkEditorRmgPatchInfo) == @sizeOf(core.bridge.RmgPatchInfo));
     std.debug.assert(@sizeOf(c.BkEditorRmgGenerateResult) == @sizeOf(core.bridge.RmgGenerateResult));
     std.debug.assert(@offsetOf(c.BkEditorRmgGenerateResult, "map_path") == @offsetOf(core.bridge.RmgGenerateResult, "map_path"));
     // The reserve position's record: gun, truck, x, y.
@@ -265,6 +272,13 @@ pub const RealBridge = struct {
         .createRandomMap = vtableCreateRandomMap,
         .listStorageFiles = vtableListStorageFiles,
         .rmgTemplateGraphs = vtableRmgTemplateGraphs,
+        .rmgReadContainer = vtableRmgReadContainer,
+        .rmgWriteContainer = vtableRmgWriteContainer,
+        .rmgReadGraph = vtableRmgReadGraph,
+        .rmgWriteGraph = vtableRmgWriteGraph,
+        .rmgPatchInfo = vtableRmgPatchInfo,
+        .rmgImportPatch = vtableRmgImportPatch,
+        .rmgRoot = vtableRmgRoot,
         .addPlayer = vtableAddPlayer,
         .deletePlayer = vtableDeletePlayer,
         .unitCreationChoices = vtableUnitCreationChoices,
@@ -740,6 +754,33 @@ pub const RealBridge = struct {
         var c_params: c.BkEditorRmgGenerateParams = @bitCast(params);
         const c_result: *c.BkEditorRmgGenerateResult = @ptrCast(result);
         return status(c.BkEditorCreateRandomMap(self.session, &c_params, c_result));
+    }
+
+    /// The composer records (05-09): the Zig and C structs share one layout
+    /// (asserted above), so each is the C call on the same memory. The two-pass
+    /// reads are the core's (`Editor.readContainer` sizes, allocates exactly,
+    /// reads) - the adapter never loops a buffer to a returned total.
+    fn vtableRmgReadContainer(ptr: *anyopaque, name: [*:0]const u8, record: *core.bridge.RmgContainerRecord) Status {
+        return status(c.BkEditorRmgReadContainer(from(ptr).session, name, @ptrCast(record)));
+    }
+    fn vtableRmgWriteContainer(ptr: *anyopaque, name: [*:0]const u8, record: *const core.bridge.RmgContainerRecord) Status {
+        return status(c.BkEditorRmgWriteContainer(from(ptr).session, name, @ptrCast(record)));
+    }
+    fn vtableRmgReadGraph(ptr: *anyopaque, name: [*:0]const u8, record: *core.bridge.RmgGraphRecord) Status {
+        return status(c.BkEditorRmgReadGraph(from(ptr).session, name, @ptrCast(record)));
+    }
+    fn vtableRmgWriteGraph(ptr: *anyopaque, name: [*:0]const u8, record: *const core.bridge.RmgGraphRecord) Status {
+        return status(c.BkEditorRmgWriteGraph(from(ptr).session, name, @ptrCast(record)));
+    }
+    fn vtableRmgPatchInfo(ptr: *anyopaque, name: [*:0]const u8, info: *core.bridge.RmgPatchInfo) Status {
+        return status(c.BkEditorRmgPatchInfoRead(from(ptr).session, name, @ptrCast(info)));
+    }
+    fn vtableRmgImportPatch(ptr: *anyopaque, source: [*:0]const u8, apply: bool, out: *core.bridge.RmgName) Status {
+        return status(c.BkEditorRmgImportPatch(from(ptr).session, source, @intFromBool(apply), @ptrCast(out)));
+    }
+    fn vtableRmgRoot(ptr: *anyopaque, out: []u8) Status {
+        if (out.len == 0) return .bad_argument;
+        return status(c.BkEditorRmgRoot(from(ptr).session, out.ptr, @intCast(out.len)));
     }
 
     /// BkEditorListStorageFiles (05-08, D-13) in two passes, like `vtableListRmg`.

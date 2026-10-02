@@ -933,6 +933,69 @@ test "the core drives the real bridge: every command, undone and redone" {
         std.debug.print("map-editor-engine: M3 random map reads round trip ok\n", .{});
     }
 
+    // M3 (05-09, D-06/D-07): the composers' records cross the ABI. A shipped
+    // container and graph read in two passes into the core's owned types, the
+    // patch map they list reports its own facts, Check! on them is clean (the
+    // shipped data is consistent), and a write to a shipped name is refused
+    // with the Save-As message and writes nothing (a real write lands in the
+    // user's own folder, which this process has no scratch root for - the bridge
+    // tier does that with one).
+    {
+        var total: usize = 0;
+        _ = editor.bridge.listRmg(.containers, &.{}, &total);
+        try std.testing.expect(total > 100);
+        const names = try std.testing.allocator.alloc(core.bridge.RmgName, total);
+        defer std.testing.allocator.free(names);
+        var got: usize = 0;
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.listRmg(.containers, names, &got));
+        // The first container with patches.
+        var container: ?core.rmg.Container = null;
+        defer if (container) |*owned| owned.deinit(std.testing.allocator);
+        var container_name: []const u8 = "";
+        for (names) |listed_name| {
+            var candidate = try editor.readContainer(listed_name.nameSlice());
+            if (candidate.patchCount() >= 2) {
+                container = candidate;
+                container_name = listed_name.nameSlice();
+                break;
+            }
+            candidate.deinit(std.testing.allocator);
+        }
+        const read = container orelse return error.NoContainerWithPatches;
+        std.debug.print("map-editor-engine: composer container {s}: {d} patches, size {d}x{d}, {d} script IDs\n", .{ container_name, read.patchCount(), read.size_x, read.size_y, read.script_ids.items.len });
+        try std.testing.expect(read.size_x > 0 and read.size_y > 0);
+        for (read.indices) |direction_list| for (direction_list.items) |patch_index| try std.testing.expect(patch_index >= 0 and patch_index < read.patchCount());
+        // A shipped container is consistent: Check! through the real storages is clean.
+        var report = try core.rmg.checkContainer(std.testing.allocator, &read, editor.rmgSource());
+        defer report.deinit(std.testing.allocator);
+        for (report.findings.items) |finding| std.debug.print("map-editor-engine: composer container finding: {s}\n", .{finding.text});
+        try std.testing.expectEqual(@as(usize, 0), report.errorCount());
+        // Shipped is read-only.
+        try std.testing.expectError(error.Refused, editor.writeContainer(container_name, &read));
+        try std.testing.expect(std.mem.indexOf(u8, editor.status(), "Save As") != null);
+        try std.testing.expectError(error.Refused, editor.readContainer("scenarios\\containers\\nope\\nothing"));
+        // The graphs: the scan finds them under scenarios\graphs now.
+        var graph_total: usize = 0;
+        _ = editor.bridge.listRmg(.graphs, &.{}, &graph_total);
+        try std.testing.expect(graph_total >= 100);
+        const graph_names = try std.testing.allocator.alloc(core.bridge.RmgName, graph_total);
+        defer std.testing.allocator.free(graph_names);
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.listRmg(.graphs, graph_names, &got));
+        var graph = try editor.readGraph(graph_names[0].nameSlice());
+        defer graph.deinit(std.testing.allocator);
+        try std.testing.expect(graph.nodes.items.len > 0 and graph.size_x > 0);
+        var graph_report = try core.rmg.checkGraph(std.testing.allocator, &graph, editor.rmgSource());
+        defer graph_report.deinit(std.testing.allocator);
+        for (graph_report.findings.items) |finding| std.debug.print("map-editor-engine: composer graph finding: {s}\n", .{finding.text});
+        try std.testing.expectError(error.Refused, editor.writeGraph(graph_names[0].nameSlice(), &graph));
+        try std.testing.expect(std.mem.indexOf(u8, editor.status(), "Save As") != null);
+        var buffer: [1024]u8 = undefined;
+        const root = try editor.rmgRoot(&buffer);
+        try std.testing.expect(std.mem.endsWith(u8, root, "rmg"));
+        try std.testing.expect(!editor.dirty());
+        std.debug.print("map-editor-engine: M3 rmg composer reads round trip ok\n", .{});
+    }
+
     // M3 (05-06, D-32): the Layers menu on the real engine, through the core
     // that remembers it. Three layers are toggled, the map is opened again, and
     // the renderer - read back from the bridge, not the editor's memory - is

@@ -2201,6 +2201,178 @@ typedef struct
 BkEditorStatus BkEditorCreateRandomMap( BkEditorSession *session, const BkEditorRmgGenerateParams *params,
                                         BkEditorRmgGenerateResult *result );
 
+/* ---------------------------------------------------------------------
+   The RMG composers (M3 05-09, D-06..D-12): containers and graphs read and
+   written through the engine's own serialisers (SRMContainer / SRMGraph,
+   labels "Container" and "Graph"), never re-typed.
+
+   The user RMG root (D-09 - rated COSTLY: the folder becomes where user
+   templates accumulate, moving it later needs a migration, so it is decided
+   once, here): <UserRoot>rmg/, or <UserRoot>mods/<Folder>/rmg/ with a mod
+   active, mounted as a storage layer ("RMG_USER") over Data and below the
+   mod layer by BkEditorStart and BkEditorSetMod, mirroring the Data layout
+   (Scenarios/Patches, Scenarios/Containers, Scenarios/Graphs,
+   Scenarios/FieldSets, Scenarios/Templates, Scenarios/Settings). Everything
+   a user file names resolves through the storages exactly like shipped data.
+   Shipped RMG files are read-only: a write whose name exists in a storage
+   below the root is REFUSED with the Save-As message, and every write lands
+   under the root and nowhere else (SaveDataResource itself writes under the
+   data storage's name, so the composers' writes do not use it).
+
+   Names are storage-relative, lower-cased, without ".xml", and must lie under
+   the kind's own folder ("scenarios\containers\", "scenarios\graphs\");
+   anything rooted, with a drive colon, "." / ".." / empty components or too
+   long is BK_EDITOR_BAD_ARGUMENT on a write and REFUSED on a read.
+
+   The records carry their lists as caller-sized arrays, two-pass: every
+   count is always the TOTAL, an array whose capacity is below its count is
+   filled as far as it fits and the call is BK_EDITOR_REFUSED. Telling the
+   sizing REFUSED from a real one: a real refusal has every count 0 and says
+   why in BkEditorLastMessage. Never loop a fixed buffer up to a returned
+   total. Pointers may be null with capacity 0. A write ignores the
+   capacities and reads each array by its count (a container's flat indices
+   array by the sum of its index_counts); a non-zero count with a null
+   pointer is BAD_ARGUMENT. */
+typedef struct
+{
+	int *ids;                         /* UsedScriptIDs, ascending */
+	int id_capacity;
+	int id_count;
+	BkEditorRmgName *areas;           /* UsedScriptAreas, sorted */
+	int area_capacity;
+	int area_count;
+} BkEditorRmgScripts;
+
+/* One patch of a container: its map (a storage name, no extension), size in
+   patches and the setting ("" = any, else a settings name). */
+typedef struct
+{
+	char name[192];
+	int size_x;
+	int size_y;
+	char place[192];
+} BkEditorRmgPatch;
+
+/* SRMContainer: the patches, the four direction index lists (North 0, East
+   90, South 180, West 270) as ONE flat array of index_counts[0..3] entries
+   each in that order - an index is a position in `patches` - the container's
+   size in patches, the season (0 summer, 1 winter, 2 africa, 3 spring) with
+   its folder and the script IDs and areas its patches use. */
+typedef struct
+{
+	int size_x;
+	int size_y;
+	int season;
+	char season_folder[192];
+	BkEditorRmgPatch *patches;
+	int patch_capacity;
+	int patch_count;
+	int *indices;
+	int index_capacity;
+	int index_counts[4];              /* in on a write too: how the flat array splits */
+	BkEditorRmgScripts scripts;
+} BkEditorRmgContainerRecord;
+
+/* Counts above these are refused on a write (T-05-09-04): a container's
+   patches, a graph's nodes and links, an area list, an id list. The shipped
+   maximum is 128 patches, 16 nodes, 16 links; the longest area name 9
+   characters. */
+#define BK_EDITOR_RMG_MAX_PATCHES 512
+#define BK_EDITOR_RMG_MAX_NODES 256
+#define BK_EDITOR_RMG_MAX_LINKS 1024
+#define BK_EDITOR_RMG_MAX_SCRIPT_IDS 4096
+#define BK_EDITOR_RMG_MAX_SCRIPT_AREAS 512
+
+/* Reads container `name` through the whole storage stack (user root first).
+   REFUSED (every count 0) naming the file for a name the data does not hold
+   or that does not load as a container. */
+BkEditorStatus BkEditorRmgReadContainer( BkEditorSession *session, const char *name, BkEditorRmgContainerRecord *record );
+
+/* Writes the record as container `name` under the user RMG root. REFUSED for a
+   name that is a shipped file (Save As a new name), for an index outside the
+   patches, a count above the bounds above, or an index_counts that do not add
+   to a negative number; nothing is written then. BAD_ARGUMENT for
+   a null record, an unterminated field or a name that is not plain or not
+   under scenarios\containers\. The written file is read back through the
+   storage and compared before OK. */
+BkEditorStatus BkEditorRmgWriteContainer( BkEditorSession *session, const char *name, const BkEditorRmgContainerRecord *record );
+
+/* One node of a graph: its rectangle in VIS tiles (16 per patch, y up, as the
+   MFC canvas keeps it; x1,y1 the min corner, x2,y2 the max corner,
+   exclusive) and the container it holds ("" = an empty node). */
+typedef struct { int x1, y1, x2, y2; char container[192]; } BkEditorRmgNode;
+
+/* One link: the two node indices, the type (0 road, 1 river), the VSO
+   descriptor (a storage name, "" = empty), and the engine's own units -
+   radius and min_length in WORLD units (the MFC dialog shows them divided by
+   the 32-unit cell), distance and disturbance 0..1, parts an integer
+   (the engine clamps below 8 up to 8). */
+typedef struct
+{
+	int a, b;
+	int type;
+	char desc[192];
+	float radius;
+	int parts;
+	float min_length;
+	float distance;
+	float disturbance;
+} BkEditorRmgLink;
+
+/* SRMGraph, laid out like the container record. */
+typedef struct
+{
+	int size_x;
+	int size_y;
+	int season;
+	char season_folder[192];
+	BkEditorRmgNode *nodes;
+	int node_capacity;
+	int node_count;
+	BkEditorRmgLink *links;
+	int link_capacity;
+	int link_count;
+	BkEditorRmgScripts scripts;
+} BkEditorRmgGraphRecord;
+
+/* As BkEditorRmgReadContainer / BkEditorRmgWriteContainer for a graph under
+   scenarios\graphs\. A write is REFUSED for a link whose node index is
+   outside the nodes and for any bound exceeded. */
+BkEditorStatus BkEditorRmgReadGraph( BkEditorSession *session, const char *name, BkEditorRmgGraphRecord *record );
+BkEditorStatus BkEditorRmgWriteGraph( BkEditorSession *session, const char *name, const BkEditorRmgGraphRecord *record );
+
+/* What a patch map says about itself, for adding it to a container and for
+   Check!: its size in patches, season, season folder and the script IDs and
+   areas it uses (the MFC's LoadTypedSuperLatestDataResource of the .bzm or
+   .xml, whichever is newer). `name` is a storage name without extension.
+   Two-pass like the records; REFUSED (counts 0) for a map the data does not
+   hold or that does not load. */
+typedef struct
+{
+	int size_x;
+	int size_y;
+	int season;
+	char season_folder[192];
+	BkEditorRmgScripts scripts;
+} BkEditorRmgPatchInfo;
+BkEditorStatus BkEditorRmgPatchInfoRead( BkEditorSession *session, const char *name, BkEditorRmgPatchInfo *info );
+
+/* D-10: a patch outside the storages is COPIED IN rather than refused (the MFC
+   refused it: RMG_CreateContainerDialog.cpp:207). source_path is a map file on
+   the host (.bzm or .xml, full path) that must read as a map. The destination
+   is built here from the user RMG root, the fixed folder Scenarios/Patches and
+   the map's own season name (summer, winter, africa, spring) plus the file's
+   own bare name: out_name is that storage name (no extension), the one the
+   container then lists. apply 0 only validates and names the destination;
+   apply 1 copies (the existing file of that name is replaced only when it is
+   already a user file; a shipped patch of that name is REFUSED). REFUSED for
+   a path that is not a readable map, with the reason in the message. */
+BkEditorStatus BkEditorRmgImportPatch( BkEditorSession *session, const char *source_path, int apply, BkEditorRmgName *out_name );
+
+/* The user RMG root as the host spells it (see D-09 above): where Save As
+   lands and what the composers' status lines show. Not created by asking. */
+BkEditorStatus BkEditorRmgRoot( BkEditorSession *session, char *out, int capacity );
+
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );

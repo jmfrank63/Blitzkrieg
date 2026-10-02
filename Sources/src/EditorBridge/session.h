@@ -54,6 +54,12 @@ struct SEditorSession
 	// stays in the snapshot and is written back untouched.
 	std::unordered_map<int, CPtr<IRefCount> > byLinkID;
 	std::vector<int> unknownLinkIDs;
+	// The user RMG root mounted over the data (session_rmg.cpp MountRmgRoot,
+	// D-09): the root it was mounted from, in the engine's own spelling, and
+	// the storage itself - kept so a write can ask whether a file is the
+	// user's own (in this storage) or shipped (only in a layer below it).
+	std::string szRmgMountedRoot;
+	CPtr<IDataStorage> pRmgStorage;
 	// The party table (partys.xml), read once per session for the flag swap
 	// (M3, D-26): a flag re-owned to player N becomes Flag_<the party's
 	// general side>, exactly the MFC properties' own swap. Empty until the
@@ -920,6 +926,31 @@ struct SRMTemplateGraph
 	int nWeight;
 };
 bool ListTemplateGraphs( SEditorSession *pSession, const std::string &rszTemplate, std::vector<SRMTemplateGraph> *pGraphs, bool *pbRefused );
+
+// The user RMG storage root (M3 05-09, D-09 - COSTLY, see bridge.h): mounts
+// <UserRoot>rmg/ (or <UserRoot>mods/<rszModFolder>/rmg/) as the "RMG_USER"
+// layer of the data storage, over Data and below the mod layer. The mod layer
+// (pModStorage, null for none) is taken off and put back above it, which is
+// why every caller names the mod storage it holds. Remounts only when the
+// root changed (the platform's user root can be re-pointed, as the tests do)
+// unless bForce. Nothing is created on disk. False when the storage is not
+// there.
+bool MountRmgRoot( SEditorSession *pSession, const std::string &rszModFolder, IDataStorage *pModStorage, bool bForce );
+
+// The user RMG root as the host spells it (no trailing separator), for the
+// session's mod folder.
+std::string RmgRootHostPath( const std::string &rszModFolder );
+
+// The composer records (session_rmg.cpp), the bridge.h structs filled and
+// written through the engine's own serialisers. pbRefused is set for an
+// ordinary no (message in szMessage), pbBadArgument for a caller bug. Reads
+// never change anything; a write changes only the user RMG root.
+bool ReadRmgContainerRecord( SEditorSession *pSession, const std::string &rszName, BkEditorRmgContainerRecord *pRecord, bool *pbRefused );
+bool WriteRmgContainerRecord( SEditorSession *pSession, const std::string &rszName, const BkEditorRmgContainerRecord &rRecord, bool *pbRefused, bool *pbBadArgument );
+bool ReadRmgGraphRecord( SEditorSession *pSession, const std::string &rszName, BkEditorRmgGraphRecord *pRecord, bool *pbRefused );
+bool WriteRmgGraphRecord( SEditorSession *pSession, const std::string &rszName, const BkEditorRmgGraphRecord &rRecord, bool *pbRefused, bool *pbBadArgument );
+bool ReadRmgPatchInfo( SEditorSession *pSession, const std::string &rszName, BkEditorRmgPatchInfo *pInfo, bool *pbRefused );
+bool ImportRmgPatch( SEditorSession *pSession, const std::string &rszSourcePath, bool bApply, std::string *pszName, bool *pbRefused );
 
 // Puts one recorded altitude region back into both copies and the engine,
 // raw (session.cpp) - SAltitudeEdit's own route, shared with the composite.

@@ -18,7 +18,10 @@
 #include "../StreamIO/ProgressHook.h"
 #include "../StreamIO/RandomGen.h"
 #include "../StreamIO/StreamIOTypes.h"
+#include "../MapFile/MapFile.h"
 #include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <filesystem>
 #include <random>
 #include <set>
@@ -34,7 +37,7 @@ const char *RmgFolder( int nKind )
 	{
 		case 0: return "scenarios\\fieldsets\\";
 		case 1: return "scenarios\\templates\\";
-		case 2: return "graphs\\";
+		case 2: return "scenarios\\graphs\\";
 		case 3: return "scenarios\\containers\\";
 		case 4: return "scenarios\\settings\\";
 		case 5: return "scenarios\\chapters\\";
@@ -497,6 +500,796 @@ bool ListTemplateGraphs( SEditorSession *pSession, const std::string &rszTemplat
 		graph.szName = randomMapTemplate.graphs[i];
 		graph.nWeight = int( randomMapTemplate.graphs.GetWeight( i ) );
 		pGraphs->push_back( graph );
+	}
+	return true;
+}
+
+
+// ---------------------------------------------------------------------------
+// The user RMG storage root and the composer records (M3 05-09, D-06..D-12)
+// ---------------------------------------------------------------------------
+
+namespace
+{
+
+// "<UserRoot>[mods/<Folder>/]rmg", absolute and normalised, in the host's own
+// separators.
+std::filesystem::path RmgRootPath( const std::string &rszModFolder )
+{
+	std::filesystem::path root( NPlatform::Paths::UserRoot() );
+	if ( !rszModFolder.empty() )
+		root = root / "mods" / rszModFolder;
+	root = root / "rmg";
+	std::error_code error;
+	return std::filesystem::absolute( root, error ).lexically_normal();
+}
+
+std::string HostForm( std::string szPath )
+{
+#if !defined(_WIN32)
+	for ( char &c : szPath )
+		if ( c == '\\' )
+			c = '/';
+#endif
+	return szPath;
+}
+
+std::string EngineForm( std::string szPath )
+{
+	for ( char &c : szPath )
+		if ( c == '/' )
+			c = '\\';
+	return szPath;
+}
+
+// A bounded field: false when the text does not fit with its terminator
+// (nothing is ever truncated).
+template<size_t N>
+bool PutField( char ( &rField )[N], const std::string &rszText )
+{
+	if ( rszText.size() >= N )
+		return false;
+	memset( rField, 0, N );
+	memcpy( rField, rszText.c_str(), rszText.size() );
+	return true;
+}
+
+// A field a caller filled: terminated inside its buffer (a caller bug else).
+template<size_t N>
+bool GetField( const char ( &rField )[N], std::string *pszOut )
+{
+	const void *pEnd = memchr( rField, 0, N );
+	if ( pEnd == 0 )
+		return false;
+	*pszOut = rField;
+	return true;
+}
+
+// Which folder each composer record lives under.
+const char *RecordFolder( bool bGraph )
+{
+	return bGraph ? "scenarios\\graphs\\" : "scenarios\\containers\\";
+}
+
+// A composer record's storage name (T-05-09-01): lower-cased, backslashes, no
+// .xml, a plain relative name under the kind's folder with something after
+// it, nothing a host filesystem would take as a wildcard or a control.
+// False with the reason in szMessage.
+bool CheckRecordName( SEditorSession *pSession, bool bGraph, const std::string &rszName, std::string *pszOut )
+{
+	std::string szName = rszName;
+	NStr::ToLower( szName );
+	std::replace( szName.begin(), szName.end(), '/', '\\' );
+	if ( szName.size() > 4 && szName.compare( szName.size() - 4, 4, ".xml" ) == 0 )
+		szName.resize( szName.size() - 4 );
+	const std::string szFolder = RecordFolder( bGraph );
+	bool bPlain = szName.size() < 192 && szName.size() > szFolder.size() && szName.compare( 0, szFolder.size(), szFolder ) == 0 &&
+	              NPlatform::Paths::IsRelativeDataName( szName );
+	for ( size_t i = 0; bPlain && i < szName.size(); ++i )
+		bPlain = ( unsigned char )szName[i] >= 0x20 && strchr( "<>\"|*?", szName[i] ) == 0;
+	if ( !bPlain )
+	{
+		pSession->szMessage = "\"" + rszName + "\" is not a name under " + szFolder + " (a plain relative storage name, no extension)";
+		return false;
+	}
+	*pszOut = szName;
+	return true;
+}
+
+// Fills one of the record's arrays as far as it fits. *pnCount is always the
+// total; the caller compares it with the capacity. False only when an item
+// would not fit its own field.
+template<class T, class Source>
+bool FillArray( T *pOut, int nCapacity, int *pnCount, const std::vector<Source> &rItems, bool ( *pfnPut )( T *, const Source & ) )
+{
+	*pnCount = int( rItems.size() );
+	const int nWrite = Min( int( rItems.size() ), nCapacity );
+	for ( int i = 0; i < nWrite; ++i )
+		if ( !pfnPut( &pOut[i], rItems[size_t( i )] ) )
+			return false;
+	return true;
+}
+
+bool PutInt( int *pOut, const int &rValue ) { *pOut = rValue; return true; }
+bool PutName( BkEditorRmgName *pOut, const std::string &rszValue ) { return PutField( pOut->name, rszValue ); }
+
+// The script lists of a record, filled the same way for all three records.
+// *pbShort is set when an array was short; false when a name would not fit.
+bool FillScripts( BkEditorRmgScripts *pScripts, const CUsedScriptIDs &rIDs, const CUsedScriptAreas &rAreas, bool *pbShort )
+{
+	std::vector<int> ids( rIDs.begin(), rIDs.end() );
+	std::vector<std::string> areas( rAreas.begin(), rAreas.end() );
+	if ( !FillArray<int, int>( pScripts->ids, pScripts->id_capacity, &pScripts->id_count, ids, PutInt ) ||
+	     !FillArray<BkEditorRmgName, std::string>( pScripts->areas, pScripts->area_capacity, &pScripts->area_count, areas, PutName ) )
+		return false;
+	if ( pScripts->id_count > pScripts->id_capacity || pScripts->area_count > pScripts->area_capacity )
+		*pbShort = true;
+	return true;
+}
+
+// The script lists a write was given, checked and read.
+bool TakeScripts( SEditorSession *pSession, const BkEditorRmgScripts &rScripts, CUsedScriptIDs *pIDs, CUsedScriptAreas *pAreas, bool *pbBad )
+{
+	if ( rScripts.id_count < 0 || rScripts.area_count < 0 || ( rScripts.id_count > 0 && rScripts.ids == 0 ) || ( rScripts.area_count > 0 && rScripts.areas == 0 ) )
+	{
+		pSession->szMessage = "a script list has a negative count or no array";
+		*pbBad = true;
+		return false;
+	}
+	if ( rScripts.id_count > BK_EDITOR_RMG_MAX_SCRIPT_IDS || rScripts.area_count > BK_EDITOR_RMG_MAX_SCRIPT_AREAS )
+	{
+		pSession->szMessage = NStr::Format( "a record holds at most %d script IDs and %d script areas", BK_EDITOR_RMG_MAX_SCRIPT_IDS, BK_EDITOR_RMG_MAX_SCRIPT_AREAS );
+		return false;
+	}
+	for ( int i = 0; i < rScripts.id_count; ++i )
+		pIDs->insert( rScripts.ids[i] );
+	for ( int i = 0; i < rScripts.area_count; ++i )
+	{
+		std::string szArea;
+		if ( !GetField( rScripts.areas[i].name, &szArea ) )
+		{
+			pSession->szMessage = "a script area name is not terminated";
+			*pbBad = true;
+			return false;
+		}
+		pAreas->insert( szArea );
+	}
+	return true;
+}
+
+// The whole of a record's XML out through the engine's own tree saver to an
+// absolute file (engine spelling). SaveDataResource writes under the data
+// storage's name - the shipped Data - so the composers' writes do their own
+// path, with the same serialiser (operator& under the same label).
+template<class Type>
+bool WriteRmgXml( const std::string &rszEngineFile, const char *pszLabel, Type &rResource )
+{
+	try
+	{
+		CPtr<IDataStream> pStream = CreateFileStream( rszEngineFile.c_str(), STREAM_ACCESS_WRITE );
+		if ( pStream == 0 )
+			return false;
+		CPtr<IDataTree> pSaver = CreateDataTreeSaver( pStream, IDataTree::WRITE );
+		CTreeAccessor saver = pSaver;
+		saver.Add( pszLabel, &rResource );
+	}
+	catch ( ... )
+	{
+		return false;
+	}
+	return true;
+}
+
+bool SameFloat( float fLeft, float fRight )
+{
+	return fabsf( fLeft - fRight ) <= 1e-5f * Max( 1.0f, Max( fabsf( fLeft ), fabsf( fRight ) ) );
+}
+
+bool SameContainer( const SRMContainer &rA, const SRMContainer &rB )
+{
+	if ( rA.patches.size() != rB.patches.size() || rA.size != rB.size || rA.nSeason != rB.nSeason || rA.szSeasonFolder != rB.szSeasonFolder ||
+	     rA.usedScriptIDs != rB.usedScriptIDs || rA.usedScriptAreas != rB.usedScriptAreas )
+		return false;
+	for ( size_t i = 0; i < rA.patches.size(); ++i )
+		if ( rA.patches[i].size != rB.patches[i].size || rA.patches[i].szFileName != rB.patches[i].szFileName || rA.patches[i].szPlace != rB.patches[i].szPlace )
+			return false;
+	for ( int d = 0; d < 4; ++d )
+		if ( rA.indices[d] != rB.indices[d] )
+			return false;
+	return true;
+}
+
+bool SameGraph( const SRMGraph &rA, const SRMGraph &rB )
+{
+	if ( rA.nodes.size() != rB.nodes.size() || rA.links.size() != rB.links.size() || rA.size != rB.size || rA.nSeason != rB.nSeason ||
+	     rA.szSeasonFolder != rB.szSeasonFolder || rA.usedScriptIDs != rB.usedScriptIDs || rA.usedScriptAreas != rB.usedScriptAreas )
+		return false;
+	for ( size_t i = 0; i < rA.nodes.size(); ++i )
+		if ( rA.nodes[i].rect.minx != rB.nodes[i].rect.minx || rA.nodes[i].rect.miny != rB.nodes[i].rect.miny ||
+		     rA.nodes[i].rect.maxx != rB.nodes[i].rect.maxx || rA.nodes[i].rect.maxy != rB.nodes[i].rect.maxy ||
+		     rA.nodes[i].szContainerFileName != rB.nodes[i].szContainerFileName )
+			return false;
+	for ( size_t i = 0; i < rA.links.size(); ++i )
+	{
+		const SRMGraphLink &a = rA.links[i];
+		const SRMGraphLink &b = rB.links[i];
+		if ( a.link != b.link || a.nType != b.nType || a.szDescFileName != b.szDescFileName || a.nParts != b.nParts ||
+		     !SameFloat( a.fRadius, b.fRadius ) || !SameFloat( a.fMinLength, b.fMinLength ) || !SameFloat( a.fDistance, b.fDistance ) || !SameFloat( a.fDisturbance, b.fDisturbance ) )
+			return false;
+	}
+	return true;
+}
+
+// Where a write goes and whether it may: the file under the user root, and a
+// refusal (the Save-As message) when the name is a shipped file - present in
+// the storage stack but not in the user's own layer.
+bool PrepareRecordWrite( SEditorSession *pSession, const std::string &rszName, std::string *pszEngineFile, std::string *pszHostFile )
+{
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( pStorage == 0 || pSession->pRmgStorage == 0 )
+	{
+		pSession->szMessage = "the user RMG root is not mounted";
+		return false;
+	}
+	const std::string szFile = rszName + ".xml";
+	if ( !pSession->pRmgStorage->IsStreamExist( szFile.c_str() ) && pStorage->IsStreamExist( szFile.c_str() ) )
+	{
+		pSession->szMessage = "\"" + rszName + "\" is shipped data and read-only: Save As a new name";
+		return false;
+	}
+	const std::string szRoot = pSession->szRmgMountedRoot;
+	*pszEngineFile = szRoot + szFile;
+	*pszHostFile = HostForm( *pszEngineFile );
+	std::error_code error;
+	std::filesystem::create_directories( std::filesystem::path( *pszHostFile ).parent_path(), error );
+	if ( error )
+	{
+		pSession->szMessage = "the folder under the user RMG root could not be created: " + error.message();
+		return false;
+	}
+	return true;
+}
+
+}
+
+std::string RmgRootHostPath( const std::string &rszModFolder )
+{
+	return RmgRootPath( rszModFolder ).string();
+}
+
+bool MountRmgRoot( SEditorSession *pSession, const std::string &rszModFolder, IDataStorage *pModStorage, bool bForce )
+{
+	if ( pSession == 0 )
+		return false;
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( pStorage == 0 )
+		return false;
+	const std::string szRoot = EngineRootOf( RmgRootPath( rszModFolder ) );
+	if ( !bForce && pSession->pRmgStorage != 0 && pSession->szRmgMountedRoot == szRoot )
+		return true;
+	CPtr<IDataStorage> pRmg = OpenStorage( ( szRoot + "*.pak" ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
+	// The mod layer comes off first and goes back on top, so the user's layer
+	// stays below it however the two changed.
+	pStorage->RemoveStorage( "MOD" );
+	pStorage->RemoveStorage( "RMG_USER" );
+	if ( pRmg != 0 )
+		pStorage->AddStorage( pRmg, "RMG_USER" );
+	if ( pModStorage != 0 )
+		pStorage->AddStorage( pModStorage, "MOD" );
+	pSession->pRmgStorage = pRmg;
+	pSession->szRmgMountedRoot = pRmg != 0 ? szRoot : std::string();
+	return pRmg != 0;
+}
+
+bool ReadRmgContainerRecord( SEditorSession *pSession, const std::string &rszName, BkEditorRmgContainerRecord *pRecord, bool *pbRefused )
+{
+	*pbRefused = false;
+	pRecord->patch_count = pRecord->index_counts[0] = pRecord->index_counts[1] = pRecord->index_counts[2] = pRecord->index_counts[3] = 0;
+	pRecord->scripts.id_count = pRecord->scripts.area_count = 0;
+	std::string szName;
+	if ( !CheckRecordName( pSession, false, rszName, &szName ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	SRMContainer container;
+	if ( !LoadDataResource( szName, "", false, 0, RMGC_CONTAINER_XML_NAME, container ) )
+	{
+		pSession->szMessage = "container \"" + szName + "\" is not in the data or does not load as a container";
+		*pbRefused = true;
+		return false;
+	}
+	pRecord->size_x = container.size.x;
+	pRecord->size_y = container.size.y;
+	pRecord->season = container.nSeason;
+	if ( !PutField( pRecord->season_folder, container.szSeasonFolder ) )
+	{
+		pSession->szMessage = "the season folder does not fit its field";
+		return false;
+	}
+	bool bShort = false;
+	// Patches.
+	pRecord->patch_count = int( container.patches.size() );
+	for ( int i = 0; i < Min( pRecord->patch_count, pRecord->patch_capacity ); ++i )
+	{
+		const SRMPatch &rPatch = container.patches[size_t( i )];
+		BkEditorRmgPatch &rOut = pRecord->patches[i];
+		rOut.size_x = rPatch.size.x;
+		rOut.size_y = rPatch.size.y;
+		if ( !PutField( rOut.name, rPatch.szFileName ) || !PutField( rOut.place, rPatch.szPlace ) )
+		{
+			pSession->szMessage = "a patch name or setting does not fit its field";
+			return false;
+		}
+	}
+	bShort = pRecord->patch_count > pRecord->patch_capacity;
+	// The four index lists, flat.
+	int nIndexTotal = 0;
+	for ( int d = 0; d < 4; ++d )
+	{
+		pRecord->index_counts[d] = int( container.indices[d].size() );
+		nIndexTotal += pRecord->index_counts[d];
+	}
+	if ( nIndexTotal <= pRecord->index_capacity )
+	{
+		int nAt = 0;
+		for ( int d = 0; d < 4; ++d )
+			for ( size_t i = 0; i < container.indices[d].size(); ++i )
+				pRecord->indices[nAt++] = container.indices[d][i];
+	}
+	else
+		bShort = true;
+	if ( !FillScripts( &pRecord->scripts, container.usedScriptIDs, container.usedScriptAreas, &bShort ) )
+	{
+		pSession->szMessage = "a script area name does not fit its field";
+		return false;
+	}
+	if ( bShort )
+		pSession->szMessage = "the record's arrays are short: the counts are the totals";
+	return !bShort;
+}
+
+bool WriteRmgContainerRecord( SEditorSession *pSession, const std::string &rszName, const BkEditorRmgContainerRecord &rRecord, bool *pbRefused, bool *pbBadArgument )
+{
+	*pbRefused = *pbBadArgument = false;
+	std::string szName;
+	if ( !CheckRecordName( pSession, false, rszName, &szName ) )
+	{
+		*pbBadArgument = true;
+		return false;
+	}
+	const int nPatches = rRecord.patch_count;
+	int nIndexTotal = 0;
+	for ( int d = 0; d < 4; ++d )
+	{
+		if ( rRecord.index_counts[d] < 0 )
+		{
+			pSession->szMessage = "an index count is negative";
+			*pbBadArgument = true;
+			return false;
+		}
+		nIndexTotal += Min( rRecord.index_counts[d], 1 << 20 );
+	}
+	if ( nPatches < 0 || ( nPatches > 0 && rRecord.patches == 0 ) || ( nIndexTotal > 0 && rRecord.indices == 0 ) )
+	{
+		pSession->szMessage = "a patch or index count has no array, or is negative";
+		*pbBadArgument = true;
+		return false;
+	}
+	if ( nPatches > BK_EDITOR_RMG_MAX_PATCHES || nIndexTotal > 4 * BK_EDITOR_RMG_MAX_PATCHES )
+	{
+		pSession->szMessage = NStr::Format( "a container holds at most %d patches (and an index list at most that many entries)", BK_EDITOR_RMG_MAX_PATCHES );
+		*pbRefused = true;
+		return false;
+	}
+	SRMContainer container;
+	container.size = CTPoint<int>( rRecord.size_x, rRecord.size_y );
+	container.nSeason = rRecord.season;
+	if ( !GetField( rRecord.season_folder, &container.szSeasonFolder ) )
+	{
+		pSession->szMessage = "the season folder is not terminated";
+		*pbBadArgument = true;
+		return false;
+	}
+	if ( rRecord.season < 0 || rRecord.season > 3 )
+	{
+		pSession->szMessage = NStr::Format( "season %d is outside 0..3", rRecord.season );
+		*pbRefused = true;
+		return false;
+	}
+	for ( int i = 0; i < nPatches; ++i )
+	{
+		SRMPatch patch;
+		std::string szPatch, szPlace;
+		if ( !GetField( rRecord.patches[i].name, &szPatch ) || !GetField( rRecord.patches[i].place, &szPlace ) )
+		{
+			pSession->szMessage = "a patch name or setting is not terminated";
+			*pbBadArgument = true;
+			return false;
+		}
+		if ( !NPlatform::Paths::IsRelativeDataName( szPatch ) )
+		{
+			pSession->szMessage = NStr::Format( "patch %d: \"%s\" is not a name in the data", i, szPatch.c_str() );
+			*pbRefused = true;
+			return false;
+		}
+		patch.size = CTPoint<int>( rRecord.patches[i].size_x, rRecord.patches[i].size_y );
+		patch.szFileName = szPatch;
+		patch.szPlace = szPlace;
+		container.patches.push_back( patch );
+	}
+	int nAt = 0;
+	for ( int d = 0; d < 4; ++d )
+		for ( int i = 0; i < rRecord.index_counts[d]; ++i )
+		{
+			const int nIndex = rRecord.indices[nAt++];
+			if ( nIndex < 0 || nIndex >= nPatches )
+			{
+				pSession->szMessage = NStr::Format( "direction %d lists patch %d, and there are %d patches", d, nIndex, nPatches );
+				*pbRefused = true;
+				return false;
+			}
+			container.indices[d].push_back( nIndex );
+		}
+	if ( !TakeScripts( pSession, rRecord.scripts, &container.usedScriptIDs, &container.usedScriptAreas, pbBadArgument ) )
+	{
+		*pbRefused = !*pbBadArgument;
+		return false;
+	}
+	std::string szEngineFile, szHostFile;
+	if ( !PrepareRecordWrite( pSession, szName, &szEngineFile, &szHostFile ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !WriteRmgXml( szEngineFile, RMGC_CONTAINER_XML_NAME, container ) )
+	{
+		pSession->szMessage = "the container file could not be written: " + szHostFile;
+		return false;
+	}
+	// What was written is read back through the storage and compared with
+	// what was meant before this says OK (the BkEditorSaveMap habit).
+	SRMContainer readBack;
+	if ( !LoadDataResource( szName, "", false, 0, RMGC_CONTAINER_XML_NAME, readBack ) || !SameContainer( container, readBack ) )
+	{
+		pSession->szMessage = "the container written does not read back as the one given: " + szHostFile;
+		return false;
+	}
+	return true;
+}
+
+bool ReadRmgGraphRecord( SEditorSession *pSession, const std::string &rszName, BkEditorRmgGraphRecord *pRecord, bool *pbRefused )
+{
+	*pbRefused = false;
+	pRecord->node_count = pRecord->link_count = 0;
+	pRecord->scripts.id_count = pRecord->scripts.area_count = 0;
+	std::string szName;
+	if ( !CheckRecordName( pSession, true, rszName, &szName ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	SRMGraph graph;
+	if ( !LoadDataResource( szName, "", false, 0, RMGC_GRAPH_XML_NAME, graph ) )
+	{
+		pSession->szMessage = "graph \"" + szName + "\" is not in the data or does not load as a graph";
+		*pbRefused = true;
+		return false;
+	}
+	pRecord->size_x = graph.size.x;
+	pRecord->size_y = graph.size.y;
+	pRecord->season = graph.nSeason;
+	if ( !PutField( pRecord->season_folder, graph.szSeasonFolder ) )
+	{
+		pSession->szMessage = "the season folder does not fit its field";
+		return false;
+	}
+	pRecord->node_count = int( graph.nodes.size() );
+	for ( int i = 0; i < Min( pRecord->node_count, pRecord->node_capacity ); ++i )
+	{
+		const SRMGraphNode &rNode = graph.nodes[size_t( i )];
+		BkEditorRmgNode &rOut = pRecord->nodes[i];
+		rOut.x1 = rNode.rect.minx;
+		rOut.y1 = rNode.rect.miny;
+		rOut.x2 = rNode.rect.maxx;
+		rOut.y2 = rNode.rect.maxy;
+		if ( !PutField( rOut.container, rNode.szContainerFileName ) )
+		{
+			pSession->szMessage = "a node's container name does not fit its field";
+			return false;
+		}
+	}
+	pRecord->link_count = int( graph.links.size() );
+	for ( int i = 0; i < Min( pRecord->link_count, pRecord->link_capacity ); ++i )
+	{
+		const SRMGraphLink &rLink = graph.links[size_t( i )];
+		BkEditorRmgLink &rOut = pRecord->links[i];
+		rOut.a = rLink.link.a;
+		rOut.b = rLink.link.b;
+		rOut.type = rLink.nType;
+		rOut.radius = rLink.fRadius;
+		rOut.parts = rLink.nParts;
+		rOut.min_length = rLink.fMinLength;
+		rOut.distance = rLink.fDistance;
+		rOut.disturbance = rLink.fDisturbance;
+		if ( !PutField( rOut.desc, rLink.szDescFileName ) )
+		{
+			pSession->szMessage = "a link's descriptor name does not fit its field";
+			return false;
+		}
+	}
+	bool bShort = pRecord->node_count > pRecord->node_capacity || pRecord->link_count > pRecord->link_capacity;
+	if ( !FillScripts( &pRecord->scripts, graph.usedScriptIDs, graph.usedScriptAreas, &bShort ) )
+	{
+		pSession->szMessage = "a script area name does not fit its field";
+		return false;
+	}
+	if ( bShort )
+		pSession->szMessage = "the record's arrays are short: the counts are the totals";
+	return !bShort;
+}
+
+bool WriteRmgGraphRecord( SEditorSession *pSession, const std::string &rszName, const BkEditorRmgGraphRecord &rRecord, bool *pbRefused, bool *pbBadArgument )
+{
+	*pbRefused = *pbBadArgument = false;
+	std::string szName;
+	if ( !CheckRecordName( pSession, true, rszName, &szName ) )
+	{
+		*pbBadArgument = true;
+		return false;
+	}
+	if ( rRecord.node_count < 0 || rRecord.link_count < 0 || ( rRecord.node_count > 0 && rRecord.nodes == 0 ) || ( rRecord.link_count > 0 && rRecord.links == 0 ) )
+	{
+		pSession->szMessage = "a node or link count has no array, or is negative";
+		*pbBadArgument = true;
+		return false;
+	}
+	if ( rRecord.node_count > BK_EDITOR_RMG_MAX_NODES || rRecord.link_count > BK_EDITOR_RMG_MAX_LINKS )
+	{
+		pSession->szMessage = NStr::Format( "a graph holds at most %d nodes and %d links", BK_EDITOR_RMG_MAX_NODES, BK_EDITOR_RMG_MAX_LINKS );
+		*pbRefused = true;
+		return false;
+	}
+	if ( rRecord.season < 0 || rRecord.season > 3 )
+	{
+		pSession->szMessage = NStr::Format( "season %d is outside 0..3", rRecord.season );
+		*pbRefused = true;
+		return false;
+	}
+	SRMGraph graph;
+	graph.size = CTPoint<int>( rRecord.size_x, rRecord.size_y );
+	graph.nSeason = rRecord.season;
+	if ( !GetField( rRecord.season_folder, &graph.szSeasonFolder ) )
+	{
+		pSession->szMessage = "the season folder is not terminated";
+		*pbBadArgument = true;
+		return false;
+	}
+	for ( int i = 0; i < rRecord.node_count; ++i )
+	{
+		const BkEditorRmgNode &rIn = rRecord.nodes[i];
+		SRMGraphNode node;
+		if ( !GetField( rIn.container, &node.szContainerFileName ) )
+		{
+			pSession->szMessage = "a node's container name is not terminated";
+			*pbBadArgument = true;
+			return false;
+		}
+		if ( rIn.x2 <= rIn.x1 || rIn.y2 <= rIn.y1 )
+		{
+			pSession->szMessage = NStr::Format( "node %d has no area (%d,%d)-(%d,%d)", i, rIn.x1, rIn.y1, rIn.x2, rIn.y2 );
+			*pbRefused = true;
+			return false;
+		}
+		if ( !node.szContainerFileName.empty() && !NPlatform::Paths::IsRelativeDataName( node.szContainerFileName ) )
+		{
+			pSession->szMessage = NStr::Format( "node %d: \"%s\" is not a name in the data", i, node.szContainerFileName.c_str() );
+			*pbRefused = true;
+			return false;
+		}
+		node.rect = CTRect<int>( rIn.x1, rIn.y1, rIn.x2, rIn.y2 );
+		graph.nodes.push_back( node );
+	}
+	for ( int i = 0; i < rRecord.link_count; ++i )
+	{
+		const BkEditorRmgLink &rIn = rRecord.links[i];
+		SRMGraphLink link;
+		if ( !GetField( rIn.desc, &link.szDescFileName ) )
+		{
+			pSession->szMessage = "a link's descriptor name is not terminated";
+			*pbBadArgument = true;
+			return false;
+		}
+		if ( rIn.a < 0 || rIn.a >= rRecord.node_count || rIn.b < 0 || rIn.b >= rRecord.node_count )
+		{
+			pSession->szMessage = NStr::Format( "link %d joins nodes %d and %d, and there are %d nodes", i, rIn.a, rIn.b, rRecord.node_count );
+			*pbRefused = true;
+			return false;
+		}
+		if ( rIn.type < 0 || rIn.type > 1 || rIn.parts < 0 || !std::isfinite( rIn.radius ) || !std::isfinite( rIn.min_length ) || !std::isfinite( rIn.distance ) || !std::isfinite( rIn.disturbance ) )
+		{
+			pSession->szMessage = NStr::Format( "link %d has a type outside 0..1, a negative part count or a number that is not finite", i );
+			*pbRefused = true;
+			return false;
+		}
+		if ( !link.szDescFileName.empty() && !NPlatform::Paths::IsRelativeDataName( link.szDescFileName ) )
+		{
+			pSession->szMessage = NStr::Format( "link %d: \"%s\" is not a name in the data", i, link.szDescFileName.c_str() );
+			*pbRefused = true;
+			return false;
+		}
+		link.link = CTPoint<int>( rIn.a, rIn.b );
+		link.nType = rIn.type;
+		link.fRadius = rIn.radius;
+		link.nParts = rIn.parts;
+		link.fMinLength = rIn.min_length;
+		link.fDistance = rIn.distance;
+		link.fDisturbance = rIn.disturbance;
+		graph.links.push_back( link );
+	}
+	if ( !TakeScripts( pSession, rRecord.scripts, &graph.usedScriptIDs, &graph.usedScriptAreas, pbBadArgument ) )
+	{
+		*pbRefused = !*pbBadArgument;
+		return false;
+	}
+	std::string szEngineFile, szHostFile;
+	if ( !PrepareRecordWrite( pSession, szName, &szEngineFile, &szHostFile ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !WriteRmgXml( szEngineFile, RMGC_GRAPH_XML_NAME, graph ) )
+	{
+		pSession->szMessage = "the graph file could not be written: " + szHostFile;
+		return false;
+	}
+	SRMGraph readBack;
+	if ( !LoadDataResource( szName, "", false, 0, RMGC_GRAPH_XML_NAME, readBack ) || !SameGraph( graph, readBack ) )
+	{
+		pSession->szMessage = "the graph written does not read back as the one given: " + szHostFile;
+		return false;
+	}
+	return true;
+}
+
+bool ReadRmgPatchInfo( SEditorSession *pSession, const std::string &rszName, BkEditorRmgPatchInfo *pInfo, bool *pbRefused )
+{
+	*pbRefused = false;
+	pInfo->scripts.id_count = pInfo->scripts.area_count = 0;
+	std::string szName = rszName;
+	NStr::ToLower( szName );
+	std::replace( szName.begin(), szName.end(), '/', '\\' );
+	if ( szName.size() >= 192 || !NPlatform::Paths::IsRelativeDataName( szName ) )
+	{
+		pSession->szMessage = "\"" + rszName + "\" is not a name in the data";
+		*pbRefused = true;
+		return false;
+	}
+	CMapInfo mapInfo;
+	// The .bzm or the .xml, whichever is newer (the MFC's own load of a patch).
+	if ( !LoadTypedSuperLatestDataResource( szName, ".bzm", 1, mapInfo ) )
+	{
+		pSession->szMessage = "patch \"" + szName + "\" is not in the data or does not load as a map";
+		*pbRefused = true;
+		return false;
+	}
+	pInfo->size_x = mapInfo.terrain.patches.GetSizeX();
+	pInfo->size_y = mapInfo.terrain.patches.GetSizeY();
+	pInfo->season = mapInfo.nSeason;
+	if ( !PutField( pInfo->season_folder, mapInfo.szSeasonFolder ) )
+	{
+		pSession->szMessage = "the season folder does not fit its field";
+		return false;
+	}
+	CUsedScriptIDs ids;
+	CUsedScriptAreas areas;
+	mapInfo.GetUsedScriptIDs( &ids );
+	mapInfo.GetUsedScriptAreas( &areas );
+	bool bShort = false;
+	if ( !FillScripts( &pInfo->scripts, ids, areas, &bShort ) )
+	{
+		pSession->szMessage = "a script area name does not fit its field";
+		return false;
+	}
+	if ( bShort )
+		pSession->szMessage = "the record's arrays are short: the counts are the totals";
+	return !bShort;
+}
+
+bool ImportRmgPatch( SEditorSession *pSession, const std::string &rszSourcePath, bool bApply, std::string *pszName, bool *pbRefused )
+{
+	*pbRefused = true;
+	pszName->clear();
+	std::error_code error;
+	const std::filesystem::path source( HostForm( rszSourcePath ) );
+	std::string szExtension = source.extension().string();
+	NStr::ToLower( szExtension );
+	if ( rszSourcePath.empty() || !source.is_absolute() || ( szExtension != ".bzm" && szExtension != ".xml" ) || !std::filesystem::is_regular_file( source, error ) )
+	{
+		pSession->szMessage = "\"" + rszSourcePath + "\" is not the full path of an existing .bzm or .xml map file";
+		return false;
+	}
+	std::string szStem = source.stem().string();
+	NStr::ToLower( szStem );
+	bool bPlainStem = !szStem.empty() && szStem.size() < 64 && szStem.find_first_of( "\\/:" ) == std::string::npos && szStem != "." && szStem != "..";
+	for ( size_t i = 0; bPlainStem && i < szStem.size(); ++i )
+		bPlainStem = ( unsigned char )szStem[i] >= 0x20 && strchr( "<>\"|*?", szStem[i] ) == 0;
+	if ( !bPlainStem )
+	{
+		pSession->szMessage = "the map file's name is not a plain name";
+		return false;
+	}
+	// A readable map: the same reader Open uses, so what a container later
+	// loads through the storage is what was checked here.
+	CMapInfo mapInfo;
+	std::string szReadError;
+	if ( !NMapFile::Read( EngineForm( source.string() ).c_str(), &mapInfo, &szReadError ) )
+	{
+		pSession->szMessage = "the file does not read as a map: " + szReadError;
+		return false;
+	}
+	if ( mapInfo.nSeason < 0 || mapInfo.nSeason > 3 )
+	{
+		pSession->szMessage = NStr::Format( "the map's season %d is outside 0..3", mapInfo.nSeason );
+		return false;
+	}
+	std::string szSeason;
+	RMGGetSeasonNameString( mapInfo.nSeason, mapInfo.szSeasonFolder, &szSeason );
+	NStr::ToLower( szSeason );
+	const std::string szName = "scenarios\\patches\\" + szSeason + "\\" + szStem;
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( pStorage == 0 || pSession->pRmgStorage == 0 )
+	{
+		pSession->szMessage = "the user RMG root is not mounted";
+		*pbRefused = false;
+		return false;
+	}
+	*pszName = szName;
+	*pbRefused = false;
+	if ( !bApply )
+		return true;
+	// A shipped patch of that name stays: only the user's own layer is replaced.
+	for ( int i = 0; i < 2; ++i )
+	{
+		const std::string szFile = szName + ( i == 0 ? ".bzm" : ".xml" );
+		if ( !pSession->pRmgStorage->IsStreamExist( szFile.c_str() ) && pStorage->IsStreamExist( szFile.c_str() ) )
+		{
+			pSession->szMessage = "\"" + szName + "\" is shipped data and read-only: rename the map file first";
+			*pbRefused = true;
+			pszName->clear();
+			return false;
+		}
+	}
+	const std::string szDestHost = HostForm( pSession->szRmgMountedRoot + szName + szExtension );
+	std::filesystem::create_directories( std::filesystem::path( szDestHost ).parent_path(), error );
+	if ( error )
+	{
+		pSession->szMessage = "the patches folder under the user RMG root could not be created: " + error.message();
+		pszName->clear();
+		return false;
+	}
+	if ( !std::filesystem::equivalent( source, szDestHost, error ) )
+	{
+		error.clear();
+		std::filesystem::copy_file( source, szDestHost, std::filesystem::copy_options::overwrite_existing, error );
+		if ( error )
+		{
+			pSession->szMessage = "the map could not be copied in: " + error.message();
+			pszName->clear();
+			return false;
+		}
+	}
+	BkEditorRmgPatchInfo probe;
+	memset( &probe, 0, sizeof probe );
+	bool bRefused = false;
+	// The copy has to load through the storage as a patch: counts only.
+	ReadRmgPatchInfo( pSession, szName, &probe, &bRefused );
+	if ( bRefused )
+	{
+		std::filesystem::remove( szDestHost, error );
+		pszName->clear();
+		*pbRefused = true;
+		return false;
 	}
 	return true;
 }

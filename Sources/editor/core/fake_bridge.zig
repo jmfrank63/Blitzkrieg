@@ -64,6 +64,7 @@ const files_mod = @import("files.zig");
 const records = @import("records.zig");
 const script_file_mod = @import("script_file.zig");
 const layers_mod = @import("layers.zig");
+const rmg_mod = @import("rmg.zig");
 const Status = bridge_mod.Status;
 const MapInfo = bridge_mod.MapInfo;
 const ObjectRecord = bridge_mod.ObjectRecord;
@@ -198,6 +199,13 @@ pub const FakeRole = struct {
 /// (an earlier erase had already shifted the later ones), the record as it
 /// was, whether the command went and whether its target was cleared. Undone
 /// in reverse.
+/// The composer fixtures (05-09): a container, a graph and a patch map the
+/// fake's storages hold. A shipped file is read-only, as the real bridge keeps
+/// it (a write to its name is refused with the Save-As message).
+const RmgContainerFile = struct { name: []u8, shipped: bool, value: rmg_mod.Container };
+const RmgGraphFile = struct { name: []u8, shipped: bool, value: rmg_mod.Graph };
+const RmgPatchFile = struct { name: []u8, size_x: i32, size_y: i32, season: i32, folder: []u8, ids: []i32, areas: [][]u8 };
+
 const StartChange = struct { position: usize, before: FakeStartCommand, unit_removed: bool, erased: bool, target_cleared: bool };
 const ReserveChange = struct { position: usize, before: FakeReservePosition };
 /// One soldier of a squad (M3, D-25): the member's link ID and the squad's.
@@ -593,6 +601,15 @@ pub const FakeBridge = struct {
     /// the real bridge refuses an object whose stats did not read (the MFC
     /// bug is not copied).
     no_stats_fixture: bool = false,
+    /// The RMG composers' fixtures (05-09): the containers, graphs and patch
+    /// maps the storages hold, the user root the bridge reports, how many
+    /// patches were copied in, and whether the next write is refused as the
+    /// real bridge refuses a name under no folder.
+    rmg_containers: std.ArrayListUnmanaged(RmgContainerFile) = .empty,
+    rmg_graphs: std.ArrayListUnmanaged(RmgGraphFile) = .empty,
+    rmg_patches: std.ArrayListUnmanaged(RmgPatchFile) = .empty,
+    rmg_root_text: []const u8 = "/fake/user/rmg",
+    rmg_imports: usize = 0,
 
     pub fn init(allocator: std.mem.Allocator, width_tiles: i32, height_tiles: i32, players: i32) FakeBridge {
         return .{
@@ -618,6 +635,24 @@ pub const FakeBridge = struct {
     pub fn deinit(self: *FakeBridge) void {
         self.fire_link_ids.deinit(self.allocator);
         self.generated_names.deinit(self.allocator);
+        for (self.rmg_containers.items) |*file| {
+            self.allocator.free(file.name);
+            file.value.deinit(self.allocator);
+        }
+        self.rmg_containers.deinit(self.allocator);
+        for (self.rmg_graphs.items) |*file| {
+            self.allocator.free(file.name);
+            file.value.deinit(self.allocator);
+        }
+        self.rmg_graphs.deinit(self.allocator);
+        for (self.rmg_patches.items) |file| {
+            self.allocator.free(file.name);
+            self.allocator.free(file.folder);
+            self.allocator.free(file.ids);
+            for (file.areas) |area| self.allocator.free(area);
+            self.allocator.free(file.areas);
+        }
+        self.rmg_patches.deinit(self.allocator);
         for (self.paints.items) |paint_record| {
             self.allocator.free(paint_record.cells);
             self.allocator.free(paint_record.before);
@@ -1257,6 +1292,13 @@ pub const FakeBridge = struct {
         .createRandomMap = createRandomMap,
         .listStorageFiles = listStorageFiles,
         .rmgTemplateGraphs = rmgTemplateGraphs,
+        .rmgReadContainer = rmgReadContainer,
+        .rmgWriteContainer = rmgWriteContainer,
+        .rmgReadGraph = rmgReadGraph,
+        .rmgWriteGraph = rmgWriteGraph,
+        .rmgPatchInfo = rmgPatchInfo,
+        .rmgImportPatch = rmgImportPatch,
+        .rmgRoot = rmgRoot,
         .addPlayer = addPlayer,
         .deletePlayer = deletePlayer,
         .unitCreationChoices = unitCreationChoices,
@@ -4280,6 +4322,414 @@ pub const FakeBridge = struct {
         try self.unit_creation_list.append(self.allocator, stored);
     }
 
+    // --- The RMG composers (05-09) -------------------------------------
+
+    /// A shipped container before the session: the fake owns it from here.
+    pub fn addContainerFixture(self: *FakeBridge, name: []const u8, shipped: bool, value: rmg_mod.Container) !void {
+        const owned = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned);
+        try self.rmg_containers.append(self.allocator, .{ .name = owned, .shipped = shipped, .value = value });
+    }
+
+    pub fn addGraphFixture(self: *FakeBridge, name: []const u8, shipped: bool, value: rmg_mod.Graph) !void {
+        const owned = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned);
+        try self.rmg_graphs.append(self.allocator, .{ .name = owned, .shipped = shipped, .value = value });
+    }
+
+    pub fn addPatchFixture(self: *FakeBridge, name: []const u8, size: i32, season: i32, folder: []const u8, ids: []const i32, areas: []const []const u8) !void {
+        const owned = try self.allocator.dupe(u8, name);
+        errdefer self.allocator.free(owned);
+        const folder_copy = try self.allocator.dupe(u8, folder);
+        errdefer self.allocator.free(folder_copy);
+        const ids_copy = try self.allocator.dupe(i32, ids);
+        errdefer self.allocator.free(ids_copy);
+        const areas_copy = try self.allocator.alloc([]u8, areas.len);
+        errdefer self.allocator.free(areas_copy);
+        var made: usize = 0;
+        errdefer for (areas_copy[0..made]) |area| self.allocator.free(area);
+        for (areas, 0..) |area, i| {
+            areas_copy[i] = try self.allocator.dupe(u8, area);
+            made += 1;
+        }
+        try self.rmg_patches.append(self.allocator, .{ .name = owned, .size_x = size, .size_y = size, .season = season, .folder = folder_copy, .ids = ids_copy, .areas = areas_copy });
+    }
+
+    /// The composer name the real bridge reads: lower case, backslashes, no
+    /// ".xml", at most 191 bytes into `buffer`.
+    fn rmgName(buffer: []u8, name: []const u8) []const u8 {
+        const stripped = if (name.len > 4 and std.ascii.eqlIgnoreCase(name[name.len - 4 ..], ".xml")) name[0 .. name.len - 4] else name;
+        const len = @min(stripped.len, buffer.len);
+        for (stripped[0..len], 0..) |byte, i| buffer[i] = if (byte == '/') '\\' else std.ascii.toLower(byte);
+        return buffer[0..len];
+    }
+
+    /// A plain relative name under `folder` with something after it - the
+    /// real bridge's T-05-09-01 rule.
+    fn rmgNameIsPlain(name: []const u8, folder: []const u8) bool {
+        if (name.len >= 192 or name.len <= folder.len or !std.mem.startsWith(u8, name, folder)) return false;
+        if (std.mem.indexOfAny(u8, name, ":<>\"|*?") != null) return false;
+        var parts = std.mem.splitScalar(u8, name, '\\');
+        while (parts.next()) |part| {
+            if (part.len == 0 or std.mem.eql(u8, part, ".") or std.mem.eql(u8, part, "..")) return false;
+        }
+        return true;
+    }
+
+    fn putText(field: []u8, text: []const u8) void {
+        @memset(field, 0);
+        const len = @min(text.len, field.len - 1);
+        @memcpy(field[0..len], text[0..len]);
+    }
+
+    fn putScripts(scripts: *bridge_mod.RmgScripts, ids: []const i32, areas: []const []const u8) bool {
+        scripts.id_count = @intCast(ids.len);
+        scripts.area_count = @intCast(areas.len);
+        var short = false;
+        const id_capacity: usize = @intCast(@max(scripts.id_capacity, 0));
+        if (ids.len <= id_capacity) {
+            if (scripts.ids) |dst| for (ids, 0..) |id, i| {
+                dst[i] = id;
+            };
+        } else short = true;
+        const area_capacity: usize = @intCast(@max(scripts.area_capacity, 0));
+        if (areas.len <= area_capacity) {
+            if (scripts.areas) |dst| for (areas, 0..) |area, i| {
+                dst[i] = .{};
+                putText(&dst[i].name, area);
+            };
+        } else short = true;
+        return short;
+    }
+
+    fn rmgReadContainer(ptr: *anyopaque, name: [*:0]const u8, rec: *bridge_mod.RmgContainerRecord) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        rec.patch_count = 0;
+        rec.index_counts = .{ 0, 0, 0, 0 };
+        rec.scripts.id_count = 0;
+        rec.scripts.area_count = 0;
+        var buffer: [192]u8 = undefined;
+        const wanted = rmgName(&buffer, std.mem.span(name));
+        if (!rmgNameIsPlain(wanted, "scenarios\\containers\\")) {
+            self.say("\"{s}\" is not a name under scenarios\\containers\\", .{std.mem.span(name)});
+            return .refused;
+        }
+        for (self.rmg_containers.items) |file| {
+            if (!std.mem.eql(u8, file.name, wanted)) continue;
+            const c = &file.value;
+            rec.size_x = c.size_x;
+            rec.size_y = c.size_y;
+            rec.season = c.season;
+            putText(&rec.season_folder, c.season_folder);
+            var short = false;
+            rec.patch_count = @intCast(c.patches.items.len);
+            if (c.patches.items.len <= @as(usize, @intCast(@max(rec.patch_capacity, 0)))) {
+                if (rec.patches) |dst| for (c.patches.items, 0..) |patch, i| {
+                    dst[i] = .{ .size_x = patch.size_x, .size_y = patch.size_y };
+                    putText(&dst[i].name, patch.name);
+                    putText(&dst[i].place, patch.place);
+                };
+            } else short = true;
+            var total: usize = 0;
+            for (c.indices, 0..) |list, d| {
+                rec.index_counts[d] = @intCast(list.items.len);
+                total += list.items.len;
+            }
+            if (total <= @as(usize, @intCast(@max(rec.index_capacity, 0)))) {
+                if (rec.indices) |dst| {
+                    var at: usize = 0;
+                    for (c.indices) |list| for (list.items) |entry| {
+                        dst[at] = entry;
+                        at += 1;
+                    };
+                }
+            } else short = true;
+            if (putScripts(&rec.scripts, c.script_ids.items, @as([]const []const u8, @ptrCast(c.script_areas.items)))) short = true;
+            if (short) {
+                self.say("the record's arrays are short: the counts are the totals", .{});
+                return .refused;
+            }
+            return .ok;
+        }
+        self.say("container \"{s}\" is not in the data or does not load as a container", .{wanted});
+        return .refused;
+    }
+
+    fn containerFromRecord(self: *FakeBridge, rec: *const bridge_mod.RmgContainerRecord) !rmg_mod.Container {
+        var out: rmg_mod.Container = .{ .size_x = rec.size_x, .size_y = rec.size_y, .season = rec.season };
+        errdefer out.deinit(self.allocator);
+        out.season_folder = try self.allocator.dupe(u8, std.mem.sliceTo(&rec.season_folder, 0));
+        const count: usize = @intCast(@max(rec.patch_count, 0));
+        if (rec.patches) |src| for (src[0..count]) |patch| {
+            var made: rmg_mod.Patch = .{ .size_x = patch.size_x, .size_y = patch.size_y };
+            made.name = try self.allocator.dupe(u8, std.mem.sliceTo(&patch.name, 0));
+            errdefer self.allocator.free(made.name);
+            made.place = try self.allocator.dupe(u8, std.mem.sliceTo(&patch.place, 0));
+            try out.patches.append(self.allocator, made);
+        };
+        var at: usize = 0;
+        for (rec.index_counts, 0..) |n, d| {
+            var i: c_int = 0;
+            while (i < n) : (i += 1) {
+                try out.indices[d].append(self.allocator, rec.indices.?[at]);
+                at += 1;
+            }
+        }
+        const id_count: usize = @intCast(@max(rec.scripts.id_count, 0));
+        if (rec.scripts.ids) |src| for (src[0..id_count]) |id| try out.script_ids.append(self.allocator, id);
+        const area_count: usize = @intCast(@max(rec.scripts.area_count, 0));
+        if (rec.scripts.areas) |src| for (src[0..area_count]) |area| {
+            try out.script_areas.append(self.allocator, try self.allocator.dupe(u8, std.mem.sliceTo(&area.name, 0)));
+        };
+        return out;
+    }
+
+    fn rmgWriteContainer(ptr: *anyopaque, name: [*:0]const u8, rec: *const bridge_mod.RmgContainerRecord) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        var buffer: [192]u8 = undefined;
+        const wanted = rmgName(&buffer, std.mem.span(name));
+        if (!rmgNameIsPlain(wanted, "scenarios\\containers\\")) {
+            self.say("\"{s}\" is not a name under scenarios\\containers\\", .{std.mem.span(name)});
+            return .bad_argument;
+        }
+        if (rec.patch_count < 0 or rec.patch_count > bridge_mod.rmg_max_patches) {
+            self.say("a container holds at most {d} patches", .{bridge_mod.rmg_max_patches});
+            return .refused;
+        }
+        if (rec.season < 0 or rec.season > 3) {
+            self.say("season {d} is outside 0..3", .{rec.season});
+            return .refused;
+        }
+        var at: usize = 0;
+        for (rec.index_counts, 0..) |n, d| {
+            var i: c_int = 0;
+            while (i < n) : (i += 1) {
+                const entry = rec.indices.?[at];
+                at += 1;
+                if (entry < 0 or entry >= rec.patch_count) {
+                    self.say("direction {d} lists patch {d}, and there are {d} patches", .{ d, entry, rec.patch_count });
+                    return .refused;
+                }
+            }
+        }
+        for (self.rmg_containers.items) |*file| {
+            if (!std.mem.eql(u8, file.name, wanted)) continue;
+            if (file.shipped) {
+                self.say("\"{s}\" is shipped data and read-only: Save As a new name", .{wanted});
+                return .refused;
+            }
+            const made = self.containerFromRecord(rec) catch return .failed;
+            file.value.deinit(self.allocator);
+            file.value = made;
+            return .ok;
+        }
+        var made = self.containerFromRecord(rec) catch return .failed;
+        self.addContainerFixture(wanted, false, made) catch {
+            made.deinit(self.allocator);
+            return .failed;
+        };
+        return .ok;
+    }
+
+    fn rmgReadGraph(ptr: *anyopaque, name: [*:0]const u8, rec: *bridge_mod.RmgGraphRecord) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        rec.node_count = 0;
+        rec.link_count = 0;
+        rec.scripts.id_count = 0;
+        rec.scripts.area_count = 0;
+        var buffer: [192]u8 = undefined;
+        const wanted = rmgName(&buffer, std.mem.span(name));
+        if (!rmgNameIsPlain(wanted, "scenarios\\graphs\\")) {
+            self.say("\"{s}\" is not a name under scenarios\\graphs\\", .{std.mem.span(name)});
+            return .refused;
+        }
+        for (self.rmg_graphs.items) |file| {
+            if (!std.mem.eql(u8, file.name, wanted)) continue;
+            const g = &file.value;
+            rec.size_x = g.size_x;
+            rec.size_y = g.size_y;
+            rec.season = g.season;
+            putText(&rec.season_folder, g.season_folder);
+            var short = false;
+            rec.node_count = @intCast(g.nodes.items.len);
+            if (g.nodes.items.len <= @as(usize, @intCast(@max(rec.node_capacity, 0)))) {
+                if (rec.nodes) |dst| for (g.nodes.items, 0..) |node, i| {
+                    dst[i] = .{ .x1 = node.rect.x1, .y1 = node.rect.y1, .x2 = node.rect.x2, .y2 = node.rect.y2 };
+                    putText(&dst[i].container, node.container);
+                };
+            } else short = true;
+            rec.link_count = @intCast(g.links.items.len);
+            if (g.links.items.len <= @as(usize, @intCast(@max(rec.link_capacity, 0)))) {
+                if (rec.links) |dst| for (g.links.items, 0..) |link, i| {
+                    dst[i] = .{ .a = link.a, .b = link.b, .kind = link.kind, .radius = link.radius, .parts = link.parts, .min_length = link.min_length, .distance = link.distance, .disturbance = link.disturbance };
+                    putText(&dst[i].desc, link.desc);
+                };
+            } else short = true;
+            if (putScripts(&rec.scripts, g.script_ids.items, @as([]const []const u8, @ptrCast(g.script_areas.items)))) short = true;
+            if (short) {
+                self.say("the record's arrays are short: the counts are the totals", .{});
+                return .refused;
+            }
+            return .ok;
+        }
+        self.say("graph \"{s}\" is not in the data or does not load as a graph", .{wanted});
+        return .refused;
+    }
+
+    fn graphFromRecord(self: *FakeBridge, rec: *const bridge_mod.RmgGraphRecord) !rmg_mod.Graph {
+        var out: rmg_mod.Graph = .{ .size_x = rec.size_x, .size_y = rec.size_y, .season = rec.season };
+        errdefer out.deinit(self.allocator);
+        out.season_folder = try self.allocator.dupe(u8, std.mem.sliceTo(&rec.season_folder, 0));
+        const nodes: usize = @intCast(@max(rec.node_count, 0));
+        if (rec.nodes) |src| for (src[0..nodes]) |node| {
+            const container = try self.allocator.dupe(u8, std.mem.sliceTo(&node.container, 0));
+            errdefer self.allocator.free(container);
+            try out.nodes.append(self.allocator, .{ .rect = .{ .x1 = node.x1, .y1 = node.y1, .x2 = node.x2, .y2 = node.y2 }, .container = container });
+        };
+        const links: usize = @intCast(@max(rec.link_count, 0));
+        if (rec.links) |src| for (src[0..links]) |link| {
+            const desc = try self.allocator.dupe(u8, std.mem.sliceTo(&link.desc, 0));
+            errdefer self.allocator.free(desc);
+            try out.links.append(self.allocator, .{ .a = link.a, .b = link.b, .kind = link.kind, .desc = desc, .radius = link.radius, .parts = link.parts, .min_length = link.min_length, .distance = link.distance, .disturbance = link.disturbance });
+        };
+        const id_count: usize = @intCast(@max(rec.scripts.id_count, 0));
+        if (rec.scripts.ids) |src| for (src[0..id_count]) |id| try out.script_ids.append(self.allocator, id);
+        const area_count: usize = @intCast(@max(rec.scripts.area_count, 0));
+        if (rec.scripts.areas) |src| for (src[0..area_count]) |area| {
+            try out.script_areas.append(self.allocator, try self.allocator.dupe(u8, std.mem.sliceTo(&area.name, 0)));
+        };
+        return out;
+    }
+
+    fn rmgWriteGraph(ptr: *anyopaque, name: [*:0]const u8, rec: *const bridge_mod.RmgGraphRecord) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        var buffer: [192]u8 = undefined;
+        const wanted = rmgName(&buffer, std.mem.span(name));
+        if (!rmgNameIsPlain(wanted, "scenarios\\graphs\\")) {
+            self.say("\"{s}\" is not a name under scenarios\\graphs\\", .{std.mem.span(name)});
+            return .bad_argument;
+        }
+        if (rec.node_count < 0 or rec.node_count > bridge_mod.rmg_max_nodes or rec.link_count < 0 or rec.link_count > bridge_mod.rmg_max_links) {
+            self.say("a graph holds at most {d} nodes and {d} links", .{ bridge_mod.rmg_max_nodes, bridge_mod.rmg_max_links });
+            return .refused;
+        }
+        if (rec.season < 0 or rec.season > 3) {
+            self.say("season {d} is outside 0..3", .{rec.season});
+            return .refused;
+        }
+        if (rec.nodes) |nodes| for (nodes[0..@intCast(rec.node_count)], 0..) |node, i| {
+            if (node.x2 <= node.x1 or node.y2 <= node.y1) {
+                self.say("node {d} has no area", .{i});
+                return .refused;
+            }
+        };
+        if (rec.links) |links| for (links[0..@intCast(rec.link_count)], 0..) |link, i| {
+            if (link.a < 0 or link.a >= rec.node_count or link.b < 0 or link.b >= rec.node_count) {
+                self.say("link {d} joins nodes {d} and {d}, and there are {d} nodes", .{ i, link.a, link.b, rec.node_count });
+                return .refused;
+            }
+            if (link.kind < 0 or link.kind > 255 or link.parts < 0) {
+                self.say("link {d} has a type outside 0..255 or a negative part count", .{i});
+                return .refused;
+            }
+        };
+        for (self.rmg_graphs.items) |*file| {
+            if (!std.mem.eql(u8, file.name, wanted)) continue;
+            if (file.shipped) {
+                self.say("\"{s}\" is shipped data and read-only: Save As a new name", .{wanted});
+                return .refused;
+            }
+            const made = self.graphFromRecord(rec) catch return .failed;
+            file.value.deinit(self.allocator);
+            file.value = made;
+            return .ok;
+        }
+        var made = self.graphFromRecord(rec) catch return .failed;
+        self.addGraphFixture(wanted, false, made) catch {
+            made.deinit(self.allocator);
+            return .failed;
+        };
+        return .ok;
+    }
+
+    fn rmgPatchInfo(ptr: *anyopaque, name: [*:0]const u8, info: *bridge_mod.RmgPatchInfo) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        info.scripts.id_count = 0;
+        info.scripts.area_count = 0;
+        var buffer: [192]u8 = undefined;
+        const wanted = rmgName(&buffer, std.mem.span(name));
+        for (self.rmg_patches.items) |file| {
+            if (!std.mem.eql(u8, file.name, wanted)) continue;
+            info.size_x = file.size_x;
+            info.size_y = file.size_y;
+            info.season = file.season;
+            putText(&info.season_folder, file.folder);
+            if (putScripts(&info.scripts, file.ids, @as([]const []const u8, @ptrCast(file.areas)))) {
+                self.say("the record's arrays are short: the counts are the totals", .{});
+                return .refused;
+            }
+            return .ok;
+        }
+        self.say("patch \"{s}\" is not in the data or does not load as a map", .{wanted});
+        return .refused;
+    }
+
+    fn rmgImportPatch(ptr: *anyopaque, source: [*:0]const u8, apply: bool, out: *bridge_mod.RmgName) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        out.* = .{};
+        const path = std.mem.span(source);
+        const base = std.fs.path.basename(path);
+        const dot = std.mem.lastIndexOfScalar(u8, base, '.') orelse base.len;
+        const extension = base[dot..];
+        if (path.len == 0 or path[0] != '/' or !(std.ascii.eqlIgnoreCase(extension, ".bzm") or std.ascii.eqlIgnoreCase(extension, ".xml"))) {
+            self.say("\"{s}\" is not the full path of an existing .bzm or .xml map file", .{path});
+            return .refused;
+        }
+        if (std.mem.indexOf(u8, base, "notamap") != null) {
+            self.say("the file does not read as a map: fixture", .{});
+            return .refused;
+        }
+        var stem_buffer: [64]u8 = undefined;
+        const stem = rmgName(&stem_buffer, base[0..dot]);
+        var name_buffer: [192]u8 = undefined;
+        const name = std.fmt.bufPrint(&name_buffer, "scenarios\\patches\\summer\\{s}", .{stem}) catch return .failed;
+        if (apply) {
+            for (self.rmg_patches.items) |file| {
+                if (std.mem.eql(u8, file.name, name)) {
+                    // Only a patch of ours (one this fake copied in) is replaced.
+                    if (self.rmg_imports == 0) {
+                        self.say("\"{s}\" is shipped data and read-only: rename the map file first", .{name});
+                        return .refused;
+                    }
+                    putText(&out.name, name);
+                    return .ok;
+                }
+            }
+            self.addPatchFixture(name, 1, 0, "terrain\\sets\\1\\", &.{}, &.{}) catch return .failed;
+            self.rmg_imports += 1;
+        }
+        putText(&out.name, name);
+        return .ok;
+    }
+
+    fn rmgRoot(ptr: *anyopaque, out: []u8) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (out.len <= self.rmg_root_text.len) {
+            self.say("the user RMG root does not fit the caller's buffer", .{});
+            return .refused;
+        }
+        @memcpy(out[0..self.rmg_root_text.len], self.rmg_root_text);
+        out[self.rmg_root_text.len] = 0;
+        return .ok;
+    }
+
     fn rmgNames(self: *const FakeBridge, kind: bridge_mod.RmgKind) []const []const u8 {
         return switch (kind) {
             .field_sets => self.field_set_names,
@@ -4293,6 +4743,20 @@ pub const FakeBridge = struct {
     fn listRmg(ptr: *anyopaque, kind: bridge_mod.RmgKind, out: []bridge_mod.RmgName, total: *usize) Status {
         const self = from(ptr);
         self.message_len = 0;
+        if (kind == .containers or kind == .graphs) {
+            // The stored composer files, shipped and user alike, as the scan lists them.
+            const count = if (kind == .containers) self.rmg_containers.items.len else self.rmg_graphs.items.len;
+            total.* = count;
+            if (out.len < count) return .refused;
+            for (0..count) |i| {
+                const name = if (kind == .containers) self.rmg_containers.items[i].name else self.rmg_graphs.items[i].name;
+                var entry = bridge_mod.RmgName{};
+                const len = @min(name.len, entry.name.len - 1);
+                @memcpy(entry.name[0..len], name[0..len]);
+                out[i] = entry;
+            }
+            return .ok;
+        }
         const names = self.rmgNames(kind);
         total.* = names.len;
         if (out.len < total.*) return .refused;
@@ -5015,7 +5479,38 @@ pub fn fixture(allocator: std.mem.Allocator) !FakeBridge {
     try fake.addBridgeTypeFixture("Lonely_Bridge", .horizontal, false, tile_size);
     try fake.addFenceTypeFixture("W_Fake_Fence");
     try fake.addFenceTypeFixture("W_Fake_Fence_Wire");
+    try addRmgFixtures(&fake);
     return fake;
+}
+
+/// The composers' shipped fixtures (05-09): three summer patches (one with a
+/// script ID), a winter one, a container of the first two patches, a graph of
+/// two nodes holding it and one link.
+fn addRmgFixtures(fake: *FakeBridge) !void {
+    const a = fake.allocator;
+    try fake.addPatchFixture("scenarios\\patches\\summer\\road_a1", 1, 0, "terrain\\sets\\1\\", &.{3}, &.{"Ambush"});
+    try fake.addPatchFixture("scenarios\\patches\\summer\\road_a2", 2, 0, "terrain\\sets\\1\\", &.{3}, &.{"Ambush"});
+    try fake.addPatchFixture("scenarios\\patches\\summer\\road_b1", 1, 0, "terrain\\sets\\1\\", &.{9}, &.{});
+    try fake.addPatchFixture("scenarios\\patches\\winter\\snow_a1", 1, 1, "terrain\\sets\\2\\", &.{3}, &.{"Ambush"});
+    var container: rmg_mod.Container = .{};
+    errdefer container.deinit(a);
+    try container.addPatch(a, "scenarios\\patches\\summer\\road_a1", 1, 1);
+    try container.addPatch(a, "scenarios\\patches\\summer\\road_a2", 2, 2);
+    container.season_folder = try a.dupe(u8, "terrain\\sets\\1\\");
+    try container.script_ids.append(a, 3);
+    try container.script_areas.append(a, try a.dupe(u8, "Ambush"));
+    try fake.addContainerFixture("scenarios\\containers\\summer\\road_a", true, container);
+    var graph: rmg_mod.Graph = .{};
+    errdefer graph.deinit(a);
+    _ = try graph.addNode(a, .{ .x1 = 0, .y1 = 0, .x2 = 32, .y2 = 32 });
+    _ = try graph.addNode(a, .{ .x1 = 48, .y1 = 0, .x2 = 80, .y2 = 32 });
+    graph.nodes.items[0].container = try a.dupe(u8, "scenarios\\containers\\summer\\road_a");
+    _ = try graph.addLink(a, 0, 1);
+    graph.links.items[0].desc = try a.dupe(u8, "terrain\\sets\\1\\roads3d\\road_grunt");
+    graph.season_folder = try a.dupe(u8, "terrain\\sets\\1\\");
+    try graph.script_ids.append(a, 3);
+    try graph.script_areas.append(a, try a.dupe(u8, "Ambush"));
+    try fake.addGraphFixture("scenarios\\graphs\\summer\\graph_a", true, graph);
 }
 
 test "the fake refuses what the bridge refuses" {
