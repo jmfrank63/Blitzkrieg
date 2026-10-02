@@ -1,15 +1,15 @@
 ---
 gsd_state_version: "1.0"
-current_plan: 9
+current_plan: 10
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 05-08-PLAN.md
-last_updated: "2026-10-02T15:35:26.014Z"
-state_head: 9fcbd90126146b07d3cae4c6733d71b730088979
+stopped_at: Completed 05-09-PLAN.md
+last_updated: "2026-10-02T19:55:09.903Z"
+state_head: a404310d77703a6ea1c69c5562b4bd48065b25a4
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 43
-  completed_plans: 40
+  completed_plans: 41
   percent: 0
 current_phase: 05
 current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
@@ -26,7 +26,7 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 
 ## Current Position
 
-Current Plan: 9
+Current Plan: 10
 Total Plans in Phase: 11
 Progress: [░░░░░░░░░░] 0%
 
@@ -67,8 +67,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-10-02T15:35:25.780Z
-**Stopped at:** Completed 05-08-PLAN.md
+**Last session:** 2026-10-02T19:55:09.666Z
+**Stopped at:** Completed 05-09-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -122,6 +122,7 @@ behavior needs the in-game rows).
 | Phase 05 P07 | one session | 3 tasks | 17 files |
 | Phase 05 P06 | 1h30m | 3 tasks | 26 files |
 | Phase 05 P08 | 2h45m | 3 tasks | 19 files |
+| Phase 05 P09 | 2h30m | 3 tasks | 21 files |
 
 ## Decisions
 
@@ -211,3 +212,7 @@ behavior needs the in-game rows).
 - [Phase 05]: 05-08: progress is the frozen-window model - the modal is announced for two frames, the callback only counts, no cancel
 - [Phase 05]: 05-08: the dialog's fields are set one by one in scripts (rmg_set) because the auto grammar caps arguments at 64 characters
 - [Phase 05]: 05-08: D-05 reads the MOD.Name/MOD.Version globals; Export lists need BkEditorListStorageFiles and BkEditorRmgTemplateGraphs
+- [Phase 05]: 05-09: the user RMG root is one storage layer (RMG_USER) over Data and below the mod, remounted when the platform's user root moves; shipped RMG files are read-only (Save As) and every composer write lands under that root only
+- [Phase 05]: 05-09: composer records cross the ABI as the engine's own SRMContainer/SRMGraph fields with caller-sized counted arrays (two-pass: a short array is REFUSED with the totals); SaveDataResource writes into Data, so the composers write through the same tree serialiser under the user root and read each write back
+- [Phase 05]: 05-09: stored names in a graph are data (only a control character is refused; links typed 2 and a descriptor with a drive exist in shipped graphs) - Check! reports and offers explicit fixes, never silently; D-10 copy-in is bridge-side with a dry run for the YES/NO
+- [Phase 05]: 05-09 (Open Question 4): containers and graphs share the file row, Open combo with filter, findings list, confirmations and the name:field:value command shape; the patch table and the canvas are their own windows - 05-10 inherits the shared helpers
