@@ -6658,7 +6658,135 @@ fn addMapEditor(
         "166:expect=dirty:1",
         "168:key=Z+ctrl",
         "170:expect=dirty:0",
-        "180:exit",
+        // Multi-selection (D-25, O9-O12/O14/O16): two squads placed - the
+        // placer selects each one it places - and the Selector takes over.
+        // Undo depths run on from the fields segment's 5.
+        "180:do=placer_name:US_sniper",
+        "182:tool=place",
+        "184:click=c-40x-60",
+        "186:click=c0x-60",
+        "188:expect=undo_depth:7",
+        "189:expect=objects:2",
+        // The screen rubber band (O10): a drag that starts on empty ground
+        // draws the band, and its release selects every object whose
+        // picture's centre it holds - the engine's own rectangle pick.
+        "190:tool=select",
+        "191:press=c-90x-150",
+        "192:drag=c-20x-80",
+        "193:drag=c50x-20",
+        "194:release=c50x-20",
+        "196:expect=selection_count:2",
+        // The group move (O12): a drag FROM a selected object - on its
+        // drawn picture, which the generated hills lift above the ground
+        // point the placer clicked - moves the whole selection as ONE undo
+        // step.
+        "198:press=c-42x-102",
+        "199:drag=c-32x-97",
+        "200:drag=c-22x-92",
+        "201:release=c-22x-92",
+        "202:expect=undo_depth:8",
+        "203:expect=selection_count:2",
+        // Right-click alone deselects (O14); the Ctrl band's tile rectangle
+        // re-selects both (O11: the scripted pointer has no Ctrl, so the
+        // band's own read runs as a command).
+        "204:rclick=c60x60",
+        "206:expect=selection_count:0",
+        "208:do=band_select:0-0-255-255",
+        "210:expect=selection_count:2",
+        // Delete takes the whole selection as one step (O16), and one undo
+        // brings both back; the redo deletes them again, so the frames
+        // below stage their own objects.
+        "212:key=Delete",
+        "214:expect=selection_count:0",
+        "216:expect=undo_depth:9",
+        "217:expect=objects:0",
+        "218:key=Z+ctrl",
+        "220:expect=undo_depth:8",
+        "222:expect=objects:2",
+        "224:key=Y+ctrl",
+        "226:expect=undo_depth:9",
+        "228:expect=objects:0",
+        // The Properties window (D-26, O15/O17/O19): a fresh squad placed and
+        // selected by the placer's own click; the player and health fields
+        // commit as ONE undo step each.
+        "230:do=placer_name:US_sniper",
+        "231:tool=place",
+        "232:click=c-40x-60",
+        "233:expect=selection_count:1",
+        "234:do=props_open:1",
+        "236:do=props_set:player=1",
+        "238:expect=undo_depth:11",
+        "240:do=props_set:health=50",
+        "242:expect=hp:@0:50",
+        "244:expect=undo_depth:12",
+        // Links (D-27, O13/O21): a house with rest slots (A_H01_1: 40)
+        // placed off to the side, the band selects the pair (@0 the squad,
+        // placed first, so the lower link ID; @1 the house), the garrison
+        // follows CheckForInserting's rules as ONE step; undo and redo walk
+        // it, and the units list's unlink takes it back.
+        "250:do=placer_name:A_H01_1",
+        "252:click=c160x-120",
+        "254:do=band_select:0-0-255-255",
+        "256:expect=selection_count:2",
+        "258:do=link_make:@0=@1",
+        "259:expect=link_with:@0=@1",
+        "260:expect=undo_depth:14",
+        "262:key=Z+ctrl",
+        "264:expect=undo_depth:13",
+        "265:expect=link_with:@0=0",
+        "266:key=Y+ctrl",
+        "268:expect=undo_depth:14",
+        "269:expect=link_with:@0=@1",
+        "274:do=link_unlink:@0",
+        "276:expect=undo_depth:15",
+        "277:expect=link_with:@0=0",
+        // The direction wheel (D-28, O6) with nothing selected: a turn sets
+        // the placement angle and edits nothing - Q/E stay beside it.
+        "280:tool=select",
+        "281:rclick=c60x60",
+        "282:expect=selection_count:0",
+        "283:do=wheel_turn:90",
+        "284:expect=placer_angle:90",
+        "286:do=wheel_turn:180",
+        "288:expect=placer_angle:180",
+        "290:expect=undo_depth:15",
+        // The wheel with a selection (O6): a T-34 placed at the placer's 180
+        // and selected; the turn faces it to the wheel's 90 as ONE undo
+        // step, the undo turns it back, the redo turns it again.
+        "300:do=placer_name:T-34",
+        "301:tool=place",
+        "302:click=c-30x-30",
+        "303:expect=selection_count:1",
+        "304:expect=angle:@0:180",
+        "305:expect=undo_depth:16",
+        "306:do=wheel_turn:90",
+        "307:expect=placer_angle:90",
+        "308:expect=angle:@0:90",
+        "309:expect=undo_depth:17",
+        "310:key=Z+ctrl",
+        "311:expect=angle:@0:180",
+        "312:expect=undo_depth:16",
+        "313:key=Y+ctrl",
+        "314:expect=angle:@0:90",
+        "315:expect=undo_depth:17",
+        // The Damage tool (D-29, MT1) by its real clicks on the T-34's drawn
+        // hull (the hills lift it above the point it was placed at): 25%, a
+        // left click damages it ONE step, a right click heals it ONE step;
+        // then the command form's hit and repair, ONE step each.
+        "320:do=damage_percent:25",
+        "321:tool=damage",
+        "322:click=c-10x-78",
+        "324:expect=hp:@0:75",
+        "325:expect=undo_depth:18",
+        "326:rclick=c-10x-78",
+        "328:expect=hp:@0:100",
+        "329:expect=undo_depth:19",
+        "330:do=damage:@0:damage",
+        "331:expect=hp:@0:75",
+        "332:do=damage:@0:repair",
+        "333:expect=hp:@0:100",
+        "334:expect=undo_depth:21",
+        "340:exit",
     };
     const auto_m3_run = b.addRunArtifact(exe);
     auto_m3_run.setCwd(b.path(stage_root));

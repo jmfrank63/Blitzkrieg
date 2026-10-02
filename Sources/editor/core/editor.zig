@@ -651,11 +651,28 @@ pub const Editor = struct {
     /// and keeps what applied (each member's edit is its own whole token,
     /// the MFC's own per-object multi set), and the status names it.
     pub fn applyObjectFieldsMany(self: *Editor, links: []const i32, fields: bridge_mod.ObjectFieldsEdit) EditError!void {
+        return self.applyObjectFieldsInGesture(links, fields, 0);
+    }
+
+    /// The direction wheel's turn of the selection (M3, D-28/PARITY O6):
+    /// every member faces `degrees` - the MFC frame's own answer to the
+    /// wheel (TemplateEditorFrame1.cpp:1053-1090 turns each selected object,
+    /// a soldier's formation for him, to the wheel's angle) - through the
+    /// properties' angle field, so the record's direction is the MFC's own
+    /// degrees formula. The calls of one drag (`gesture`) merge into ONE
+    /// undo step, the way the group move's do; `gesture` 0 is a step of its
+    /// own. A member already facing there records nothing.
+    pub fn turnSelection(self: *Editor, links: []const i32, degrees: f32, gesture: u32) EditError!void {
+        if (!std.math.isFinite(degrees)) return error.Refused;
+        return self.applyObjectFieldsInGesture(links, .{ .mask = bridge_mod.ObjectFieldsEdit.angle_bit, .angle = degrees }, gesture);
+    }
+
+    fn applyObjectFieldsInGesture(self: *Editor, links: []const i32, fields: bridge_mod.ObjectFieldsEdit, gesture: u32) EditError!void {
         if (links.len == 0) return;
         for (links) |link_id| {
             if (self.document.find(link_id) == null) return error.Failed;
         }
-        var prepared = try self.prepareEdit(0, .objects);
+        var prepared = try self.prepareEdit(gesture, .objects);
         defer prepared.tokens.deinit(self.allocator);
         if (prepared.entry) |entry| {
             try entry.command.edit.tokens.ensureUnusedCapacity(self.allocator, links.len);
@@ -692,7 +709,7 @@ pub const Editor = struct {
         if (prepared.entry == null and prepared.tokens.items.len != 0) {
             const tokens = prepared.tokens;
             prepared.tokens = .empty;
-            self.history.recordAssumeCapacity(self.allocator, .{ .edit = .{ .tokens = tokens, .scope = .objects } }, 0);
+            self.history.recordAssumeCapacity(self.allocator, .{ .edit = .{ .tokens = tokens, .scope = .objects } }, gesture);
             self.bumpScope(.objects);
         }
         try self.reloadObjectsAfterEdit();
@@ -737,6 +754,21 @@ pub const Editor = struct {
         }
         try bridge_mod.check(result);
         return link_type;
+    }
+
+    /// The Damage tool's hit (M3, D-29): the object's fHP moved by
+    /// `delta` (the tool's percentage/100) with the MFC's clamps, ONE
+    /// bridge edit; the document re-reads. The clicks of one gesture
+    /// (`gesture`) merge, though a click is a gesture of its own. Missing
+    /// stats refuse (the MFC's null dereference is not copied); the clamps
+    /// leaving nothing to change records nothing.
+    pub fn damageObject(self: *Editor, link_id: i32, mode: bridge_mod.DamageMode, delta: f32, gesture: u32) EditError!void {
+        var prepared = try self.prepareEdit(gesture, .objects);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.damageObject(link_id, delta, @intFromEnum(mode), &token));
+        if (token >= 0) self.commitEdit(&prepared, token, gesture, .objects);
+        try self.reloadObjectsAfterEdit();
     }
 
     /// Deleting a host takes its passengers with it (M3, D-27): the members

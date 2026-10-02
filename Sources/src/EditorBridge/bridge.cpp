@@ -2462,6 +2462,30 @@ BkEditorStatus BkEditorUnlink( BkEditorSession *pSession, int nLinkID, int *pnTo
 	} );
 }
 
+BkEditorStatus BkEditorDamageObject( BkEditorSession *pSession, int nLinkID, float fDelta, int nMode, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnToken == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		// A mode out of the three or a percentage out of 0..1 is the
+		// caller's bug, answered before anything is looked up.
+		if ( nMode < 0 || nMode > 2 || !std::isfinite( fDelta ) || fDelta < 0.0f || fDelta > 1.0f )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( DamageObjectInSession( pSession, nLinkID, fDelta, nMode, &bRefused, pnToken ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
 BkEditorStatus BkEditorScriptFile( BkEditorSession *pSession, BkEditorScriptFileRecord *pOut )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus

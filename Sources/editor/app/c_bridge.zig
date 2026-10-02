@@ -167,6 +167,7 @@ pub const RealBridge = struct {
         .canLink = canLink,
         .setLink = setLink,
         .unlink = unlink,
+        .damageObject = damageObject,
         .sounds = vtableSounds,
         .addSound = vtableAddSound,
         .setSound = vtableSetSound,
@@ -330,6 +331,11 @@ pub const RealBridge = struct {
     /// BkEditorUnlink (M3, D-27).
     fn unlink(ptr: *anyopaque, link_id: i32, token: *i32) Status {
         return status(c.BkEditorUnlink(from(ptr).session, link_id, token));
+    }
+
+    /// BkEditorDamageObject (M3, D-29).
+    fn damageObject(ptr: *anyopaque, link_id: i32, delta: f32, mode: i32, token: *i32) Status {
+        return status(c.BkEditorDamageObject(from(ptr).session, link_id, delta, mode, token));
     }
 
     fn diplomacy(ptr: *anyopaque, player: i32, value: *i32) Status {

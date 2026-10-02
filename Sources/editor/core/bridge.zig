@@ -500,6 +500,9 @@ pub const trench_arc: i32 = 8;
 pub const GroupKind = enum(u8) { bridge = 1, entrenchment = 2 };
 pub const GroupRef = struct { kind: GroupKind, index: usize };
 
+/// The Damage tool's modes (M3, D-29), the C ABI's own numbers.
+pub const DamageMode = enum(i32) { damage = 0, heal = 1, repair_full = 2 };
+
 pub const Bridge = struct {
     ptr: *anyopaque,
     vtable: *const VTable,
@@ -560,6 +563,13 @@ pub const Bridge = struct {
         /// BkEditorUnlink (M3, D-27): the record's nLinkWith back to 0, ONE
         /// edit of the log (`token` -1 when nothing was linked).
         unlink: *const fn (ptr: *anyopaque, link_id: i32, token: *i32) Status,
+        /// BkEditorDamageObject (M3, D-29): the record's fHP moved by
+        /// `delta` (the tool's percentage/100) with the MFC's clamps, the
+        /// engine's live object damaged the same share; ONE edit of the
+        /// log. `mode` 0 damage, 1 heal, 2 repair to full. Missing stats
+        /// refuse (the MFC's null dereference is not copied); the clamps
+        /// leaving nothing to change answer -1.
+        damageObject: *const fn (ptr: *anyopaque, link_id: i32, delta: f32, mode: i32, token: *i32) Status,
         /// BkEditorSounds. Like `objects`: `total` is always the full count,
         /// so a caller sizes `out` from a first sizing call the way
         /// `document.reload` does for `objects`.
@@ -821,6 +831,7 @@ pub const Bridge = struct {
     pub fn canLink(self: Bridge, source: i32, target: i32, link_type: *i32) Status { return self.vtable.canLink(self.ptr, source, target, link_type); }
     pub fn setLink(self: Bridge, source: i32, target: i32, token: *i32) Status { return self.vtable.setLink(self.ptr, source, target, token); }
     pub fn unlink(self: Bridge, link_id: i32, token: *i32) Status { return self.vtable.unlink(self.ptr, link_id, token); }
+    pub fn damageObject(self: Bridge, link_id: i32, delta: f32, mode: i32, token: *i32) Status { return self.vtable.damageObject(self.ptr, link_id, delta, mode, token); }
     pub fn sounds(self: Bridge, out: []SoundRecord, total: *usize) Status { return self.vtable.sounds(self.ptr, out, total); }
     pub fn addSound(self: Bridge, index: i32, rec: SoundRecord) Status { return self.vtable.addSound(self.ptr, index, rec); }
     pub fn setSound(self: Bridge, index: i32, rec: SoundRecord) Status { return self.vtable.setSound(self.ptr, index, rec); }
