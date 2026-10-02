@@ -422,6 +422,13 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
         const ticks = sdl3.c.SDL_GetTicks();
         const dt_seconds = @as(f32, @floatFromInt(ticks -% last_ticks)) / 1000.0;
         last_ticks = ticks;
+        // M3 (D-26): a double-click or Enter/Space on a selection opens the
+        // Properties window (O15) - the view owns the ask, the panels own
+        // the window.
+        if (view.props_open_request) {
+            view.props_open_request = false;
+            state.properties_open = true;
+        }
         view.update(editor, real, host.window, dt_seconds);
 
         host.beginFrame();

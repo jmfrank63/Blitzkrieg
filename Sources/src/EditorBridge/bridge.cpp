@@ -2387,6 +2387,81 @@ BkEditorStatus BkEditorSetObjectScriptID( BkEditorSession *pSession, int nLinkID
 	} );
 }
 
+BkEditorStatus BkEditorSetObjectFields( BkEditorSession *pSession, int nLinkID, const BkEditorObjectFieldsEdit *pEdit, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnToken == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( SetObjectFieldsInSession( pSession, nLinkID, pEdit, &bRefused, pnToken ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorCanLink( BkEditorSession *pSession, int nSource, int nTarget, int *pnType )
+{
+	if ( pnType != 0 )
+		*pnType = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnType == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( CanLinkInSession( pSession, nSource, nTarget, pnType, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorSetLink( BkEditorSession *pSession, int nSource, int nTarget, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnToken == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( SetLinkInSession( pSession, nSource, nTarget, &bRefused, pnToken ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorUnlink( BkEditorSession *pSession, int nLinkID, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnToken == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( UnlinkInSession( pSession, nLinkID, &bRefused, pnToken ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
 BkEditorStatus BkEditorScriptFile( BkEditorSession *pSession, BkEditorScriptFileRecord *pOut )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus

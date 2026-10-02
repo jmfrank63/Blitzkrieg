@@ -695,6 +695,9 @@ bool ReadSessionObjects( SEditorSession *pSession, BkEditorObjectRecord *pOut, i
 			rRecord.known = std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(),
 			                           rObject.link.nLinkID ) == pSession->unknownLinkIDs.end() ? 1 : 0;
 			rRecord.script_id = rObject.nScriptID;
+			rRecord.hp = rObject.fHP;
+			rRecord.frame_index = rObject.nFrameIndex;
+			rRecord.link_with = rObject.link.nLinkWith;
 		}
 	return nCapacity >= nTotal;
 }
@@ -1108,6 +1111,44 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	// another record's.
 	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
 		return false;
+	// M3 (D-27): the host's passengers go with it - the records whose
+	// nLinkWith names this object are deleted first (each through this very
+	// path, so their own references and passengers cascade the same way), and
+	// the host's restore brings them back. The M2 refusals - a bridge span, a
+	// trench piece - still refuse below, passengers or no passengers; the
+	// overlay's own passenger refusal never fires, because by the time the
+	// overlay sees the host, its passengers are gone.
+	std::vector<int> passengers;
+	{
+		const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
+		for ( int nList = 0; nList < 2; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size(); ++i )
+			{
+				const SMapObjectInfo &rObject = ( *lists[nList] )[i];
+				if ( rObject.link.nLinkID != nLinkID && rObject.link.nLinkWith == nLinkID )
+					passengers.push_back( rObject.link.nLinkID );
+			}
+	}
+	SEditorSession::STombstone tombstone;
+	for ( size_t i = 0; i < passengers.size(); ++i )
+	{
+		bool bPassengerRefused = false;
+		if ( !DeleteObjectFromSession( pSession, passengers[i], &bPassengerRefused ) )
+		{
+			// A passenger that cannot go (itself a referred span, say)
+			// refuses the whole delete; the ones already taken are put back.
+			for ( size_t j = tombstone.passengers.size(); j > 0; --j )
+			{
+				bool bIgnored = false;
+				RestoreObjectInSession( pSession, tombstone.passengers[j - 1].snapshot.object.link.nLinkID, &bIgnored );
+			}
+			pSession->szMessage = NStr::Format( "the passenger of object %d cannot be deleted: %s", nLinkID, pSession->szMessage.c_str() );
+			if ( pbRefused ) *pbRefused = true;
+			return false;
+		}
+		tombstone.passengers.push_back( pSession->tombstones[passengers[i]] );
+		pSession->tombstones.erase( passengers[i] );
+	}
 	// The map decides first: a bridge span, a trench piece or a vehicle with a
 	// passenger means no, and the engine is never asked. Anything else that
 	// names the object - start commands, reserve positions - is edited by the
@@ -1115,7 +1156,6 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	//
 	// Both records are kept, with their lists, places and cascades, for a
 	// restore.
-	SEditorSession::STombstone tombstone;
 	std::string szRefusal;
 	if ( !NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szRefusal, &tombstone.snapshot ) )
 	{
@@ -1177,6 +1217,14 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	UpdateSessionWorld( pSession );
 	// What else changed, for the status bar; empty when only the object went.
 	NMapOverlay::DescribeCascade( tombstone.snapshot.cascade, &pSession->szMessage );
+	if ( !tombstone.passengers.empty() )
+	{
+		std::string szPassengers = NStr::Format( "%d passenger%s deleted with the host", int( tombstone.passengers.size() ), tombstone.passengers.size() == 1 ? "" : "s" );
+		if ( pSession->szMessage.empty() )
+			pSession->szMessage = szPassengers;
+		else
+			pSession->szMessage += "; " + szPassengers;
+	}
 	return true;
 }
 
@@ -1225,8 +1273,30 @@ bool RestoreObjectInSession( SEditorSession *pSession, int nLinkID, bool *pbRefu
 		}
 		pSession->byLinkID[nLinkID] = pAIObject;
 	}
-	pSession->tombstones.erase( it );
+	// The host's passengers come back last (M3, D-27), each from its own
+	// tombstone, last deleted first - the delete order put each nested host
+	// before its own passengers, so the reverse walk restores the deepest
+	// passengers before their hosts.
+	bool bAllPassengers = true;
+	for ( size_t i = it->second.passengers.size(); i > 0; --i )
+	{
+		const int nPassengerID = it->second.passengers[i - 1].snapshot.object.link.nLinkID;
+		SEditorSession::STombstone passenger = it->second.passengers[i - 1];
+		pSession->tombstones[nPassengerID] = passenger;
+		bool bPassengerRefused = false;
+		if ( !RestoreObjectInSession( pSession, nPassengerID, &bPassengerRefused ) )
+			bAllPassengers = false;
+	}
+	it = pSession->tombstones.find( nLinkID );
+	if ( it != pSession->tombstones.end() )
+		pSession->tombstones.erase( it );
 	UpdateSessionWorld( pSession );
+	if ( !bAllPassengers )
+	{
+		pSession->szMessage = "a passenger would not come back with the host";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
 	return true;
 }
 
@@ -1266,6 +1336,448 @@ bool SMoveObjectsEdit::Reapply( SEditorSession *pSession )
 		if ( !PlaceObjectInSession( pSession, members[i].nLinkID, members[i].after.vPos, members[i].after.nDir, members[i].after.nPlayer, &bRefused ) )
 			return false;
 	}
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// The properties' fields, links and the flag swap (M3, D-26/D-27). Every one
+// of them changes ONE object's record whole - both copies, the engine
+// re-placed - and logs SObjectFieldsEdit, so one deactivate commit is one
+// undo step and a swap's name change undoes exactly.
+// ---------------------------------------------------------------------------
+
+// Writes `rRecord` over the object's record in both copies and re-places the
+// engine object from it - the record's own name, position, direction, owner
+// and hp, so a flag's swap of type lands in the engine too.
+bool PutObjectRecordBack( SEditorSession *pSession, const SMapObjectInfo &rRecord );
+
+bool SObjectFieldsEdit::Revert( SEditorSession *pSession )
+{
+	return PutObjectRecordBack( pSession, before );
+}
+
+bool SObjectFieldsEdit::Reapply( SEditorSession *pSession )
+{
+	return PutObjectRecordBack( pSession, after );
+}
+
+// Writes `rRecord` over the object's record in both copies and re-places the
+// engine object from it - the record's own name, position, direction, owner
+// and hp, so a flag's swap of type lands in the engine too.
+bool PutObjectRecordBack( SEditorSession *pSession, const SMapObjectInfo &rRecord )
+{
+	SMapObjectInfo *pSnapshot = FindIn( &pSession->snapshot, rRecord.link.nLinkID );
+	SMapObjectInfo *pWorking = FindIn( &pSession->working, rRecord.link.nLinkID );
+	if ( pSnapshot == 0 || pWorking == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		return false;
+	}
+	*pSnapshot = rRecord;
+	*pWorking = rRecord;
+	bool bRefused = false;
+	if ( !PlaceObjectInSession( pSession, rRecord.link.nLinkID, rRecord.vPos, rRecord.nDir, rRecord.nPlayer, &bRefused ) )
+		return false;
+	return true;
+}
+
+// The party table (partys.xml), read once per session - the same serialiser
+// the game's own unit creation reads it with (UnitCreation.cpp:87-91).
+bool ReadPartyTable( SEditorSession *pSession )
+{
+	if ( pSession->bPartyTableRead )
+		return true;
+	pSession->bPartyTableRead = true;
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( pStorage == 0 )
+		return false;
+	CPtr<IDataStream> pStream = pStorage->OpenStream( "partys.xml", STREAM_ACCESS_READ );
+	if ( pStream == 0 )
+		return false;
+	CTreeAccessor tree = CreateDataTreeSaver( pStream, IDataTree::READ );
+	tree.Add( "PartyInfo", &pSession->partyTable );
+	return true;
+}
+
+// The flag prefix + the general side of player `nPlayer`'s party, lowercased,
+// exactly the MFC properties' swap (SEditorMApObject.cpp:426-447): the map's
+// unit creation names the player's party, partys.xml names the party's
+// general side; anything unknown answers "neutral", as the MFC does.
+std::string FlagPartyName( SEditorSession *pSession, int nPlayer )
+{
+	std::string szPartyName;
+	const SUnitCreationInfo &rUnitCreation = pSession->snapshot.unitCreation;
+	if ( nPlayer >= 0 && nPlayer < int( rUnitCreation.units.size() ) )
+		szPartyName = rUnitCreation.units[nPlayer].szPartyName;
+	std::string szGeneral;
+	ReadPartyTable( pSession );
+	for ( size_t i = 0; i < pSession->partyTable.size(); ++i )
+		if ( pSession->partyTable[i].szPartyName == szPartyName )
+		{
+			szGeneral = pSession->partyTable[i].szGeneralPartyName;
+			break;
+		}
+	if ( szGeneral.empty() )
+		szGeneral = "neutral";
+	NStr::ToLower( szGeneral );
+	return szGeneral;
+}
+
+bool SetObjectFieldsInSession( SEditorSession *pSession, int nLinkID, const BkEditorObjectFieldsEdit *pEdit, bool *pbRefused, int *pnToken )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	if ( pEdit == 0 || pEdit->mask == 0 )
+	{
+		pSession->szMessage = "no field to change";
+		return false;
+	}
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		*pbRefused = true;
+		return false;
+	}
+	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+		return false;
+	const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nLinkID );
+	if ( pRecord == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		*pbRefused = true;
+		return false;
+	}
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the engine has no object database";
+		return false;
+	}
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( pRecord->szName.c_str() );
+	SMapObjectInfo after = *pRecord;
+	if ( pEdit->mask & 1 )
+	{
+		if ( pEdit->player < 0 || pEdit->player >= int( pSession->snapshot.diplomacies.size() ) )
+		{
+			pSession->szMessage = NStr::Format( "%d is no player: the map holds %d", pEdit->player, int( pSession->snapshot.diplomacies.size() ) );
+			*pbRefused = true;
+			return false;
+		}
+		after.nPlayer = pEdit->player;
+		// The flag swap: a re-owned flag becomes Flag_<the party's general
+		// side>, and the engine re-places it under the new type. A flag type
+		// the database does not know refuses - the MFC's AddObjectByAI would
+		// have failed the same way.
+		if ( pDesc != 0 && pDesc->eGameType == SGVOGT_FLAG )
+		{
+			std::string szFlagName = "Flag_" + FlagPartyName( pSession, pEdit->player );
+			if ( szFlagName != pRecord->szName )
+			{
+				if ( pObjectsDB->GetDesc( szFlagName.c_str() ) == 0 )
+				{
+					pSession->szMessage = "the object database does not know \"" + szFlagName + "\"";
+					*pbRefused = true;
+					return false;
+				}
+				after.szName = szFlagName;
+			}
+		}
+	}
+	if ( pEdit->mask & 2 )
+	{
+		if ( !std::isfinite( pEdit->hp ) )
+		{
+			pSession->szMessage = "the health is not a number";
+			*pbRefused = true;
+			return false;
+		}
+		after.fHP = pEdit->hp;
+	}
+	if ( pEdit->mask & 4 )
+	{
+		if ( !std::isfinite( pEdit->angle ) )
+		{
+			pSession->szMessage = "the angle is not a number";
+			*pbRefused = true;
+			return false;
+		}
+		// The MFC properties dialog's own turn (SEditorMApObject.cpp:384-386).
+		after.nDir = int( ( pEdit->angle * 65536.0f ) / 360.0f + 0.5f );
+	}
+	if ( pEdit->mask & 8 )
+	{
+		if ( pEdit->formation < 0 )
+		{
+			pSession->szMessage = "a formation index is 0 or greater";
+			*pbRefused = true;
+			return false;
+		}
+		// The squad record's frame index is the formation; any other kind's
+		// is its segment or variant, which this edit must never touch.
+		if ( pDesc == 0 || pDesc->eGameType != SGVOGT_SQUAD )
+		{
+			pSession->szMessage = "only a squad carries a formation";
+			*pbRefused = true;
+			return false;
+		}
+		after.nFrameIndex = pEdit->formation;
+	}
+	if ( after.szName == pRecord->szName && after.vPos.x == pRecord->vPos.x && after.vPos.y == pRecord->vPos.y &&
+	     after.nDir == pRecord->nDir && after.nPlayer == pRecord->nPlayer && after.nScriptID == pRecord->nScriptID &&
+	     after.fHP == pRecord->fHP && after.nFrameIndex == pRecord->nFrameIndex && after.link.nLinkWith == pRecord->link.nLinkWith )
+	{
+		// An edit that changes nothing records nothing; the core has usually
+		// answered this itself.
+		return true;
+	}
+	if ( !PutObjectRecordBack( pSession, after ) )
+	{
+		// The place refused: the records are as they were (PutObjectRecordBack
+		// writes both copies only after its own lookups; the place path leaves
+		// them untouched on a refusal), so nothing to roll back here.
+		*pbRefused = true;
+		return false;
+	}
+	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
+	pEditRecord->nLinkID = nLinkID;
+	pEditRecord->before = *pRecord;
+	pEditRecord->after = after;
+	*pnToken = LogEdit( pSession, pEditRecord );
+	return true;
+}
+
+// CheckForInserting (ObjectPlacerState.cpp:1325-1424) for ONE passenger and
+// ONE host, naming the rule that says no.
+bool CanLinkInSession( SEditorSession *pSession, int nSource, int nTarget, int *pnType, bool *pbRefused )
+{
+	*pbRefused = false;
+	*pnType = 0;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the engine has no object database";
+		return false;
+	}
+	const SMapObjectInfo *pSource = FindSnapshotObject( *pSession, nSource );
+	const SMapObjectInfo *pTarget = FindSnapshotObject( *pSession, nTarget );
+	if ( pSource == 0 || pTarget == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		*pbRefused = true;
+		return false;
+	}
+	const SGDBObjectDesc *pSourceDesc = pObjectsDB->GetDesc( pSource->szName.c_str() );
+	const SGDBObjectDesc *pTargetDesc = pObjectsDB->GetDesc( pTarget->szName.c_str() );
+	if ( pSourceDesc == 0 || pTargetDesc == 0 )
+	{
+		pSession->szMessage = "the object database does not know one of the two types";
+		*pbRefused = true;
+		return false;
+	}
+	// The garrison rules first, the MFC's own order: the passenger must be
+	// infantry, and the host's kind answers. The MFC judges the dragged
+	// SOLDIERS (its selection expands a picked squad to them, and a soldier's
+	// stats are SUnitBaseRPGStats); the map holds the squad, so a squad
+	// record is garrison-capable here in its own right - the soldiers its
+	// formations name are infantry by construction. The MFC compared the
+	// dragged group's size against the host's total slots and never asked
+	// how many stood inside already - the evident intent is a host that
+	// takes as many as it has room for, so the occupancy (the records whose
+	// nLinkWith names the host) is what the room is measured against here.
+	int nOccupants = 0;
+	{
+		const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
+		for ( int nList = 0; nList < 2; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size(); ++i )
+				if ( ( *lists[nList] )[i].link.nLinkWith == nTarget && ( *lists[nList] )[i].link.nLinkID != nSource )
+					++nOccupants;
+	}
+	const SUnitBaseRPGStats *pSourceStats = dynamic_cast<const SUnitBaseRPGStats*>( pObjectsDB->GetRPGStats( pSourceDesc ) );
+	const bool bSquadPassenger = pSourceDesc->eGameType == SGVOGT_SQUAD;
+	std::string szWhy;
+	bool bCan = false;
+	if ( pSourceStats == 0 && !bSquadPassenger )
+		szWhy = "\"" + pSource->szName + "\" is not a unit that can be garrisoned";
+	else if ( pSourceStats != 0 && !pSourceStats->IsInfantry() )
+		szWhy = "only infantry garrisons something: \"" + pSource->szName + "\" is not infantry";
+	else if ( pTargetDesc->eGameType == SGVOGT_BUILDING )
+	{
+		const SBuildingRPGStats *pBuilding = dynamic_cast<const SBuildingRPGStats*>( pObjectsDB->GetRPGStats( pTargetDesc ) );
+		if ( pBuilding == 0 )
+			szWhy = "the database does not know \"" + pTarget->szName + "\" as a building";
+		else if ( ( pBuilding->slots.size() + pBuilding->nRestSlots + pBuilding->nMedicalSlots ) < nOccupants + 1 )
+			szWhy = "\"" + pTarget->szName + "\" has no free slot: a garrison needs one";
+		else
+			bCan = true;
+	}
+	else if ( pTargetDesc->eGameType == SGVOGT_ENTRENCHMENT )
+	{
+		// The MFC's own trench checks are commented out
+		// (ObjectPlacerState.cpp:1358-1372): an infantry passenger links in.
+		bCan = true;
+	}
+	else if ( pTargetDesc->eGameType == SGVOGT_UNIT )
+	{
+		const SMechUnitRPGStats *pVehicle = dynamic_cast<const SMechUnitRPGStats*>( pObjectsDB->GetRPGStats( pTargetDesc ) );
+		if ( pVehicle == 0 )
+			szWhy = "the database does not know \"" + pTarget->szName + "\" as a vehicle";
+		else if ( pVehicle->vEntrancePoint == VNULL2 )
+			szWhy = "\"" + pTarget->szName + "\" has no entrance point";
+		else if ( pVehicle->nPassangers < nOccupants + 1 )
+			szWhy = "\"" + pTarget->szName + "\" takes no more passengers";
+		else
+			bCan = true;
+	}
+	else
+		szWhy = "\"" + pTarget->szName + "\" takes no passengers";
+	if ( bCan )
+	{
+		*pnType = 0;
+		return true;
+	}
+	// The tow fallback: a tractor or carrier onto an artillery gun with crew
+	// points it out-pulls.
+	const SMechUnitRPGStats *pTower = dynamic_cast<const SMechUnitRPGStats*>( pObjectsDB->GetRPGStats( pSourceDesc ) );
+	if ( pTower != 0 &&
+	     ( pTower->type == RPG_TYPE_TRN_CARRIER || pTower->type == RPG_TYPE_TRN_TRACTOR ) &&
+	     pTower->vTowPoint != VNULL2 && pTower->fTowingForce > 0 &&
+	     pTargetDesc->eGameType == SGVOGT_UNIT )
+	{
+		const SMechUnitRPGStats *pGun = dynamic_cast<const SMechUnitRPGStats*>( pObjectsDB->GetRPGStats( pTargetDesc ) );
+		if ( pGun != 0 && IsArtillery( pGun->type ) && !pGun->vPeoplePoints.empty() )
+		{
+			if ( pTower->fTowingForce > pGun->fWeight )
+			{
+				*pnType = 2;
+				return true;
+			}
+			szWhy = NStr::Format( "the tractor cannot tow the gun: it pulls %.0f and the gun weighs %.0f", pTower->fTowingForce, pGun->fWeight );
+		}
+		else if ( pGun != 0 && !IsArtillery( pGun->type ) )
+			szWhy = "\"" + pTarget->szName + "\" is not artillery: a tractor tows a gun";
+		else if ( pGun != 0 && pGun->vPeoplePoints.empty() )
+			szWhy = "\"" + pTarget->szName + "\" has no crew points: a tractor tows a crewed gun";
+	}
+	// The train fallback: train cars couple with train cars.
+	if ( pTower != 0 && IsTrain( pTower->type ) && pTargetDesc->eGameType == SGVOGT_UNIT )
+	{
+		const SMechUnitRPGStats *pCar = dynamic_cast<const SMechUnitRPGStats*>( pObjectsDB->GetRPGStats( pTargetDesc ) );
+		if ( pCar != 0 && IsTrain( pCar->type ) )
+		{
+			*pnType = 1;
+			return true;
+		}
+		if ( pCar != 0 && !IsTrain( pCar->type ) )
+			szWhy = "train cars couple with train cars: \"" + pTarget->szName + "\" is not a train";
+	}
+	pSession->szMessage = szWhy.empty() ? "those two do not link" : szWhy;
+	*pbRefused = true;
+	return false;
+}
+
+bool SetLinkInSession( SEditorSession *pSession, int nSource, int nTarget, bool *pbRefused, int *pnToken )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	int nType = 0;
+	if ( !CanLinkInSession( pSession, nSource, nTarget, &nType, pbRefused ) )
+		return false;
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nSource ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		*pbRefused = true;
+		return false;
+	}
+	if ( RefuseSharedLinkID( pSession, nSource, pbRefused ) )
+		return false;
+	const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nSource );
+	if ( pRecord == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		*pbRefused = true;
+		return false;
+	}
+	SMapObjectInfo after = *pRecord;
+	after.link.nLinkWith = nTarget;
+	if ( nType == 0 )
+	{
+		// A garrison stands beside its host, the MFC's own offset
+		// (ObjectPlacerState.cpp:827-831). A tow or a coupling keeps the
+		// passenger where it stands.
+		const SMapObjectInfo *pHost = FindSnapshotObject( *pSession, nTarget );
+		if ( pHost == 0 )
+		{
+			pSession->szMessage = "no object with that link ID";
+			*pbRefused = true;
+			return false;
+		}
+		after.vPos.x = pHost->vPos.x - 30.0f;
+		after.vPos.y = pHost->vPos.y + 30.0f;
+	}
+	if ( !PutObjectRecordBack( pSession, after ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
+	pEditRecord->nLinkID = nSource;
+	pEditRecord->before = *pRecord;
+	pEditRecord->after = after;
+	*pnToken = LogEdit( pSession, pEditRecord );
+	return true;
+}
+
+bool UnlinkInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused, int *pnToken )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		*pbRefused = true;
+		return false;
+	}
+	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+		return false;
+	const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nLinkID );
+	if ( pRecord == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		*pbRefused = true;
+		return false;
+	}
+	if ( pRecord->link.nLinkWith == 0 )
+		return true; // nothing linked: OK, no token
+	SMapObjectInfo after = *pRecord;
+	after.link.nLinkWith = 0;
+	if ( !PutObjectRecordBack( pSession, after ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
+	pEditRecord->nLinkID = nLinkID;
+	pEditRecord->before = *pRecord;
+	pEditRecord->after = after;
+	*pnToken = LogEdit( pSession, pEditRecord );
 	return true;
 }
 

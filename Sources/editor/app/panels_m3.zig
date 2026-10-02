@@ -390,3 +390,227 @@ fn checkboxCommand(state: *State, label: [*:0]const u8, what: []const u8, value:
         checked = value.*;
     }
 }
+
+/// The catalogue's game type for an object name, or null when the database
+/// does not list it. The palette's own cache answers; the panel never reads
+/// the bridge for it.
+fn gameTypeOf(state: *State, name: []const u8) ?i32 {
+    for (state.catalogue) |*entry| {
+        if (std.mem.eql(u8, std.mem.sliceTo(&entry.name, 0), name)) return entry.game_type;
+    }
+    return null;
+}
+
+/// The properties' reload: the buffers start from the object as it is now.
+fn reloadProps(state: *State) void {
+    const editor = state.editor;
+    const object = if (editor.selection) |link_id| editor.document.find(link_id) else null;
+    state.props_link_id = if (object) |o| o.link_id else -1;
+    state.props_script_edit = [_:0]u8{0} ** 16;
+    if (object) |o| {
+        var buffer: [16]u8 = undefined;
+        const text = std.fmt.bufPrint(&buffer, "{d}", .{o.script_id}) catch "";
+        const len = @min(text.len, state.props_script_edit.len - 1);
+        @memcpy(state.props_script_edit[0..len], text[0..len]);
+        state.props_health = o.hp * 100.0;
+        state.props_angle = logic.directionToDegrees(o.dir);
+        state.props_formation = @intCast(@max(o.frame_index, 0));
+    } else {
+        state.props_health = 100;
+        state.props_angle = 0;
+        state.props_formation = 0;
+    }
+    state.props_reload = false;
+}
+
+/// The Properties window (M3, D-26/PARITY O15..O21): the MFC
+/// CPropertieDialog as one dockable window. Per kind the SEditorMApObject
+/// fields - a building garrisons (units, Script ID, player, health), a
+/// trench piece takes units and a Script ID, a unit or a squad the full set
+/// (units, angle, Script ID, scenario unit, player with the flag swap,
+/// health, the squad its formation) - and for a multi-selection the fields
+/// every member takes (angle, Script ID, player), the MFC's own
+/// multi-unit set minus its dead Behaviour combo (the manipulator is
+/// commented out there, SEditorMApObject.cpp:655-860). Every field commits
+/// on deactivation as one undo step, through the `props_set` command.
+pub fn drawPropertiesPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    if (!state.properties_open) return;
+    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
+    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    const open = ig.igBegin("Properties", &state.properties_open, ig.ImGuiWindowFlags_NoCollapse);
+    defer ig.igEnd();
+    if (!open) return;
+    const editor = state.editor;
+    if (!panels.mapIsOpen(editor)) {
+        panels.text("no map open");
+        return;
+    }
+    // The buffers reload when the selection moved or an edit re-read the
+    // objects (a flag's swap renames the record).
+    const anchor_changed = state.props_link_id != (editor.selection orelse -1);
+    if (state.props_reload or anchor_changed) reloadProps(state);
+
+    const count = editor.selectionCount();
+    if (count == 0) {
+        panels.text("Name: no selected");
+        return;
+    }
+
+    if (count > 1) {
+        var header: [48:0]u8 = undefined;
+        if (std.fmt.bufPrintZ(&header, "{d} objects selected", .{count})) |text| {
+            ig.igSeparatorText(text.ptr);
+        } else |_| {}
+        drawMultiFields(state);
+        return;
+    }
+
+    const link_id = editor.selection.?;
+    const object = editor.document.find(link_id) orelse {
+        panels.text("Name: no selected");
+        return;
+    };
+    const kind: logic.PropKind = if (gameTypeOf(state, object.nameSlice())) |game_type| logic.propertyKind(game_type) else .other;
+    ig.igSeparatorText(object.nameSlice().ptr);
+    if (kind == .other) {
+        panels.text("this kind has no properties");
+        return;
+    }
+
+    if (kind == .building or kind == .trench or kind == .unit or kind == .squad)
+        drawUnitsList(state, link_id);
+
+    // Script ID: the M2 field's own merge-per-typed-value path.
+    _ = ig.igInputText("Script ID", &state.props_script_edit, state.props_script_edit.len, 0);
+    if (ig.igIsItemDeactivatedAfterEdit()) {
+        const text = std.mem.sliceTo(&state.props_script_edit, 0);
+        _ = commands.run(state, "script_id", text);
+        state.props_reload = true;
+    }
+
+    if (kind == .building or kind == .unit or kind == .squad)
+        drawPlayerCombo(state, link_id, object.player);
+
+    if (kind == .building or kind == .unit or kind == .squad) {
+        var health = state.props_health;
+        _ = ig.igInputFloatEx("Health %", &health, 0, 0, "%.1f", 0);
+        if (ig.igIsItemDeactivatedAfterEdit()) {
+            var buffer: [24:0]u8 = undefined;
+            _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "health,{d:.2}", .{logic.clampHealthPercent(health)}) catch "");
+            state.props_reload = true;
+        }
+    }
+
+    if (kind == .unit or kind == .squad) {
+        var angle = state.props_angle;
+        _ = ig.igInputFloatEx("Angle (degrees)", &angle, 0, 0, "%.1f", 0);
+        if (ig.igIsItemDeactivatedAfterEdit()) {
+            var buffer: [24:0]u8 = undefined;
+            _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "angle,{d:.1}", .{angle}) catch "");
+            state.props_reload = true;
+        }
+        // O18: the scenario unit, drawn blue. The MFC's combo is editor
+        // session state (a specular on the visual, never saved); the map's
+        // own answer is what the record is - scenarioObjects or objects.
+        panels.text(if (object.scenario) "Scenario unit: TRUE" else "Scenario unit: FALSE");
+    }
+
+    if (kind == .squad) {
+        const formation: usize = @intCast(@max(object.frame_index, 0));
+        const label = if (formation < logic.formation_labels.len) logic.formation_labels[formation] else "FORMATION?";
+        if (ig.igBeginCombo("##formation", label.ptr, 0)) {
+            for (logic.formation_labels, 0..) |name, index| {
+                if (ig.igSelectableEx(name.ptr, index == formation, 0, .{ .x = 0, .y = 0 })) {
+                    var buffer: [24:0]u8 = undefined;
+                    _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "formation,{d}", .{index}) catch "");
+                    state.props_reload = true;
+                }
+            }
+            ig.igEndCombo();
+        }
+    }
+}
+
+/// The units list (PARITY O17..O19): the passengers - the records whose
+/// nLinkWith names this object - read-only, one per row, and double-click
+/// unlinks the row (the MFC's own DblClick-for-unlink,
+/// TemplateEditorFrame1.cpp:3678).
+fn drawUnitsList(state: *State, link_id: i32) void {
+    const editor = state.editor;
+    ig.igSeparatorText("Units");
+    var shown: usize = 0;
+    for (editor.document.objects.items) |*passenger| {
+        if (passenger.link_with != link_id or passenger.link_id == link_id) continue;
+        shown += 1;
+        var row: [96:0]u8 = undefined;
+        const row_text = std.fmt.bufPrintZ(&row, "{s}##u{d}", .{ passenger.nameSlice(), passenger.link_id }) catch continue;
+        ig.igSelectableEx(row_text.ptr, false, 0, .{ .x = 0, .y = 0 });
+        if (ig.igIsItemHovered(ig.ImGuiHoveredFlags_None) and ig.igIsMouseDoubleClicked(0, false)) {
+            var buffer: [24:0]u8 = undefined;
+            _ = commands.run(state, "link_unlink", std.fmt.bufPrintZ(&buffer, "{d}", .{passenger.link_id}) catch "");
+            state.props_reload = true;
+        }
+    }
+    if (shown == 0) panels.text("(none)");
+}
+
+/// The Player combo over the map's diplomacies (the MFC's own combo range),
+/// committing through the flag-swap rule on a flag.
+fn drawPlayerCombo(state: *State, link_id: i32, current_player: i32) void {
+    _ = link_id;
+    var buffer: [16:0]u8 = undefined;
+    const current_z = std.fmt.bufPrintZ(&buffer, "{d}", .{current_player}) catch "0";
+    if (ig.igBeginCombo("Player", current_z.ptr, 0)) {
+        var player: usize = 0;
+        while (player < state.editor.document.diplomacy.items.len) : (player += 1) {
+            var label: [16:0]u8 = undefined;
+            const label_z = std.fmt.bufPrintZ(&label, "{d}", .{player}) catch continue;
+            if (ig.igSelectableEx(label_z.ptr, @as(i32, @intCast(player)) == current_player, 0, .{ .x = 0, .y = 0 })) {
+                var arg: [24:0]u8 = undefined;
+                _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&arg, "player,{d}", .{player}) catch "");
+                state.props_reload = true;
+            }
+        }
+        ig.igEndCombo();
+    }
+}
+
+/// The multi-selection's fields (PARITY O20): angle, Script ID and player -
+/// the fields every member's record carries - committed to every member as
+/// ONE undo step. The MFC's Behaviour combo is its commented-out
+/// multi-unit manipulator (SEditorMApObject.cpp:655-860); the reinforcement
+/// group it displayed is the Group Manager's own data (M2).
+fn drawMultiFields(state: *State) void {
+    const editor = state.editor;
+    var angle = state.props_angle;
+    _ = ig.igInputFloatEx("Angle (degrees)", &angle, 0, 0, "%.1f", 0);
+    if (ig.igIsItemDeactivatedAfterEdit()) {
+        var buffer: [24:0]u8 = undefined;
+        _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "angle,{d:.1}", .{angle}) catch "");
+        state.props_reload = true;
+    }
+    _ = ig.igInputText("Script ID", &state.props_script_edit, state.props_script_edit.len, 0);
+    if (ig.igIsItemDeactivatedAfterEdit()) {
+        const text = std.mem.sliceTo(&state.props_script_edit, 0);
+        _ = commands.run(state, "script_id", text);
+        state.props_reload = true;
+    }
+    // The player of the multi-selection: the anchor's combo, applied to all.
+    const anchor = editor.selection.?;
+    const current = editor.document.find(anchor).?.player;
+    var buffer: [16:0]u8 = undefined;
+    const current_z = std.fmt.bufPrintZ(&buffer, "{d}", .{current}) catch "0";
+    if (ig.igBeginCombo("Player", current_z.ptr, 0)) {
+        var player: usize = 0;
+        while (player < editor.document.diplomacy.items.len) : (player += 1) {
+            var label: [16:0]u8 = undefined;
+            const label_z = std.fmt.bufPrintZ(&label, "{d}", .{player}) catch continue;
+            if (ig.igSelectableEx(label_z.ptr, @as(i32, @intCast(player)) == current, 0, .{ .x = 0, .y = 0 })) {
+                var arg: [24:0]u8 = undefined;
+                _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&arg, "player,{d}", .{player}) catch "");
+                state.props_reload = true;
+            }
+        }
+        ig.igEndCombo();
+    }
+}

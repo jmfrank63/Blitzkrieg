@@ -515,6 +515,17 @@ pub const State = struct {
     heights_granularity: f32 = 0.3,
     heights_min_z: f32 = -3.0,
     heights_max_z: f32 = 3.0,
+    /// M3, D-26: the Properties window (the MFC CPropertieDialog). It edits
+    /// the selected object's per-kind fields; the buffers reload when the
+    /// selection or the objects move (`props_reload`), and every field
+    /// commits on deactivate as one undo step through `props_set`.
+    properties_open: bool = false,
+    props_link_id: i32 = -1,
+    props_script_edit: [16:0]u8 = [_:0]u8{0} ** 16,
+    props_health: f32 = 100,
+    props_angle: f32 = 0,
+    props_formation: usize = 0,
+    props_reload: bool = true,
     groups: std.ArrayListUnmanaged(GroupRow) = .empty,
     groups_generation_seen: ?u32 = null,
     /// The groups the map held when it opened, for `groups_delta`.
@@ -1354,6 +1365,7 @@ pub fn draw(state: *State) void {
     panels_m3.drawHeightsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 40 }, .{ .x = 300, .y = 420 });
     panels_m3.drawFiltersComposer(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 420, .y = 380 });
     panels_m3.drawFieldsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 80 }, .{ .x = 320, .y = 440 });
+    panels_m3.drawPropertiesPanel(state, .{ .x = state.left_width + 40, .y = body_top + 100 }, .{ .x = 320, .y = 420 });
     pollScriptPick(state);
     panels_m2.drawScriptDialog(state, .{ .x = state.left_width + 60, .y = body_top + 80 }, .{ .x = 380, .y = 340 });
     panels_m2.drawScriptModals(state);
@@ -2370,6 +2382,9 @@ fn drawMenuBar(state: *State) f32 {
         if (ig.igMenuItemBoolPtr("Filters Composer...", null, &state.filters_composer_open, true)) {}
         // M3, D-21: the Fields panel (the MFC's TabTerrainFieldsDialog).
         if (ig.igMenuItemBoolPtr("Fields...", null, &state.fields_open, true)) {}
+        // M3, D-26: the Properties window (the MFC CPropertieDialog); it
+        // also opens on a double-click, Enter or Space on a selection.
+        if (ig.igMenuItemBoolPtr("Properties...", null, &state.properties_open, map_open)) {}
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("View")) {
@@ -2377,6 +2392,7 @@ fn drawMenuBar(state: *State) f32 {
         // The floating windows the menus own (the M2/M3 panels' own View
         // entries, D-34's show/hide every panel as it lands).
         if (ig.igMenuItemBoolPtr("Heights", null, &state.heights_open, true)) {}
+        if (ig.igMenuItemBoolPtr("Properties", null, &state.properties_open, map_open)) {}
         if (ig.igMenuItemBoolPtr("Reinforcement groups", null, &state.groups_open, map_open)) {}
         if (ig.igBeginMenu("Markers")) {
             inline for (comptime std.enums.values(marker_logic.MarkerKind)) |kind| {

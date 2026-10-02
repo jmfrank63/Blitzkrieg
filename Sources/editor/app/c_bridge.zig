@@ -12,6 +12,7 @@ const Status = core.bridge.Status;
 const Bridge = core.bridge.Bridge;
 const MapInfo = core.bridge.MapInfo;
 const ObjectRecord = core.bridge.ObjectRecord;
+const ObjectFieldsEdit = core.bridge.ObjectFieldsEdit;
 const SoundRecord = core.bridge.SoundRecord;
 const record_types = core.records;
 const PaintCell = core.bridge.PaintCell;
@@ -162,6 +163,10 @@ pub const RealBridge = struct {
         .pickObjects = pickObjects,
         .pickObjectsInTiles = pickObjectsInTiles,
         .moveObjects = moveObjects,
+        .setObjectFields = setObjectFields,
+        .canLink = canLink,
+        .setLink = setLink,
+        .unlink = unlink,
         .sounds = vtableSounds,
         .addSound = vtableAddSound,
         .setSound = vtableSetSound,
@@ -292,9 +297,39 @@ pub const RealBridge = struct {
             .scenario = record.scenario != 0,
             .known = record.known != 0,
             .script_id = record.script_id,
+            .hp = record.hp,
+            .frame_index = record.frame_index,
+            .link_with = record.link_with,
         };
         object.setName(std.mem.sliceTo(&record.name, 0));
         return object;
+    }
+
+    /// BkEditorSetObjectFields (M3, D-26).
+    fn setObjectFields(ptr: *anyopaque, link_id: i32, edit: *const ObjectFieldsEdit, token: *i32) Status {
+        const c_edit: c.BkEditorObjectFieldsEdit = .{
+            .mask = edit.mask,
+            .player = edit.player,
+            .hp = edit.hp,
+            .angle = edit.angle,
+            .formation = edit.formation,
+        };
+        return status(c.BkEditorSetObjectFields(from(ptr).session, link_id, &c_edit, token));
+    }
+
+    /// BkEditorCanLink (M3, D-27).
+    fn canLink(ptr: *anyopaque, source: i32, target: i32, link_type: *i32) Status {
+        return status(c.BkEditorCanLink(from(ptr).session, source, target, link_type));
+    }
+
+    /// BkEditorSetLink (M3, D-27).
+    fn setLink(ptr: *anyopaque, source: i32, target: i32, token: *i32) Status {
+        return status(c.BkEditorSetLink(from(ptr).session, source, target, token));
+    }
+
+    /// BkEditorUnlink (M3, D-27).
+    fn unlink(ptr: *anyopaque, link_id: i32, token: *i32) Status {
+        return status(c.BkEditorUnlink(from(ptr).session, link_id, token));
     }
 
     fn diplomacy(ptr: *anyopaque, player: i32, value: *i32) Status {

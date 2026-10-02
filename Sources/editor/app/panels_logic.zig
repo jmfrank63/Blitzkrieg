@@ -561,6 +561,50 @@ pub fn selectionCircles(footprint: [2]f32) [2]f32 {
 
 pub const selection_circle_min: f32 = 6.0;
 
+/// The Properties panel's per-kind field set (M3, D-26), from the catalogue's
+/// game type: a building garrisons (units, Script ID, player, health), a
+/// trench piece garrisons (units, Script ID), a unit or a squad carries the
+/// full set (units, angle, Script ID, scenario unit, player, health, and the
+/// squad its formation), and every other kind has no SEditorMApObject
+/// manipulator - the MFC shows nothing for it either.
+pub const PropKind = enum { building, trench, unit, squad, other };
+
+pub fn propertyKind(game_type: i32) PropKind {
+    return switch (game_type) {
+        2 => .building, // SGVOGT_BUILDING
+        4 => .trench, // SGVOGT_ENTRENCHMENT
+        1 => .unit, // SGVOGT_UNIT
+        15 => .squad, // SGVOGT_SQUAD
+        else => .other,
+    };
+}
+
+/// The Formation combo's labels, the MFC's own FORMATIONS_LABELS
+/// (SEditorMApObject.cpp:286-292); the combo indexes the squad stats'
+/// formations by type.
+pub const formation_labels = [_][]const u8{ "DEFAULT", "MOVEMENT", "DEFENSIVE", "OFFENSIVE", "SNEAK" };
+
+/// The Health field's percent clamp (the MFC's own 0.01..1.0 record range,
+/// shown and typed as a percent): anything below 1% stands at 1%, anything
+/// above 100% at 100%. The record keeps the fraction.
+pub fn clampHealthPercent(percent: f32) f32 {
+    if (!std.math.isFinite(percent)) return 100.0;
+    return std.math.clamp(percent, 1.0, 100.0);
+}
+
+/// The Angle field's degrees-to-direction and back, the MFC's own pair
+/// (SEditorMApObject.cpp:384-386 and :395-397): a degree turn into the
+/// record's 65536 direction, rounded once, and the direction back to whole
+/// degrees.
+pub fn degreesToDirection(degrees: f32) i32 {
+    if (!std.math.isFinite(degrees)) return 0;
+    return @intFromFloat((degrees * 65536.0) / 360.0 + 0.5);
+}
+
+pub fn directionToDegrees(direction: i32) f32 {
+    return @as(f32, @floatFromInt(direction)) * 360.0 / 65536.0 + 0.5;
+}
+
 const normalizeForCompare = core.shipped.normalizeForCompare;
 const isAbsolutePath = core.shipped.isAbsolutePath;
 
@@ -1745,6 +1789,34 @@ test "selection circles: the inner ring rides the footprint, the outer follows, 
     const big = selectionCircles(.{ 40, 30 });
     try std.testing.expectApproxEqAbs(@as(f32, 0.5 * 50.0 + 2.0), big[0], 0.01);
     try std.testing.expectApproxEqAbs(big[0] + 3.0, big[1], 0.001);
+}
+
+test "property kinds: the catalogue's game types answer their MFC manipulator's set" {
+    try std.testing.expectEqual(PropKind.building, propertyKind(2));
+    try std.testing.expectEqual(PropKind.trench, propertyKind(4));
+    try std.testing.expectEqual(PropKind.unit, propertyKind(1));
+    try std.testing.expectEqual(PropKind.squad, propertyKind(15));
+    // A flag, a fence, a mine - the kinds with no manipulator show none.
+    try std.testing.expectEqual(PropKind.other, propertyKind(17));
+    try std.testing.expectEqual(PropKind.other, propertyKind(9));
+    try std.testing.expectEqual(PropKind.other, propertyKind(0));
+}
+
+test "health percent clamps to the MFC's own 1..100, non-finite stands at 100" {
+    try std.testing.expectEqual(@as(f32, 1.0), clampHealthPercent(0.0));
+    try std.testing.expectEqual(@as(f32, 1.0), clampHealthPercent(-5.0));
+    try std.testing.expectEqual(@as(f32, 43.5), clampHealthPercent(43.5));
+    try std.testing.expectEqual(@as(f32, 100.0), clampHealthPercent(140.0));
+    try std.testing.expectEqual(@as(f32, 100.0), clampHealthPercent(std.math.nan(f32)));
+}
+
+test "angle: the MFC's degrees-to-direction pair turns and reads back" {
+    try std.testing.expectEqual(@as(i32, 0), degreesToDirection(0));
+    try std.testing.expectEqual(@as(i32, 65536 / 4), degreesToDirection(90));
+    try std.testing.expectEqual(@as(i32, 65536 / 2), degreesToDirection(180));
+    // The read-back rounds to whole degrees, the MFC's own +0.5.
+    try std.testing.expectEqual(@as(f32, 90.5), directionToDegrees(65536 / 4));
+    try std.testing.expectEqual(@as(i32, 0), degreesToDirection(std.math.nan(f32)));
 }
 
 test "isShippedMap: Data and mods/*/data are shipped, relative or absolute, separators and case ignored" {

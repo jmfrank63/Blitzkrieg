@@ -211,6 +211,8 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 	BkEditorView view; memset( &view, 0, sizeof view );
 	BkEditorPathSet paths; memset( &paths, 0, sizeof paths );
 	BkEditorTile tileInfo; memset( &tileInfo, 0, sizeof tileInfo );
+	BkEditorObjectFieldsEdit fieldsEdit; memset( &fieldsEdit, 0, sizeof fieldsEdit );
+	fieldsEdit.mask = 1;
 	void *pDevice = 0; unsigned int nFormat = 0;
 
 	const std::vector<Call> noSession = {
@@ -276,6 +278,10 @@ static void TestEntryPointsBeforeAMap( BkEditorSession *pSession )
 		{ "BkEditorSetCameraAnchors", [&] { return BkEditorSetCameraAnchors( 0, &anchorRecord ); } },
 		{ "BkEditorGroundHeight", [&] { return BkEditorGroundHeight( 0, 0, 0, &fFloat ); } },
 		{ "BkEditorSetObjectScriptID", [&] { return BkEditorSetObjectScriptID( 0, 0, 0 ); } },
+		{ "BkEditorSetObjectFields", [&] { return BkEditorSetObjectFields( 0, 0, &fieldsEdit, &nInt ); } },
+		{ "BkEditorCanLink", [&] { return BkEditorCanLink( 0, 0, 0, &nInt ); } },
+		{ "BkEditorSetLink", [&] { return BkEditorSetLink( 0, 0, 0, &nInt ); } },
+		{ "BkEditorUnlink", [&] { return BkEditorUnlink( 0, 0, &nInt ); } },
 		{ "BkEditorGroupIDs", [&] { return BkEditorGroupIDs( 0, &nInt, 1, &nInt2 ); } },
 		{ "BkEditorGroup", [&] { return BkEditorGroup( 0, 0, &nInt, 1, &nInt2 ); } },
 		{ "BkEditorSetGroup", [&] { return BkEditorSetGroup( 0, 0, &nInt, 1 ); } },
@@ -3765,6 +3771,411 @@ static void TestM3UpdateMapAndFill( BkEditorSession *pSession, const std::string
 }
 
 static bool SameBytes( const std::string &szLeft, const std::string &szRight );
+
+// M3 (D-26/D-27): the properties' fields and the links, on the engine. The
+// fields edit (player, hp, angle, formation) saves as the builder's map; the
+// garrison links a known infantry to a known building through
+// BkEditorCanLink's answer, and a full building refuses the next passenger
+// naming the rule; the unlink clears; deleting a host takes its passengers
+// and the restore brings every one back byte for byte; and the flag swap
+// renames the record the MFC properties' own way.
+static void TestM3PropertiesAndLinks( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	// arnheim, not coldwinter: the multiplayer map holds no units a garrison
+	// can name. arnheim has the units, the squads and the buildings.
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	if ( !Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// One editable unit (or squad) and its record.
+	int nTarget = -1;
+	bool bTargetIsSquad = false;
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+		int nRead = 0;
+		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+		int nCatalogue = 0;
+		BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+		std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+		int nCatalogueRead = 0;
+		BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nCatalogueRead );
+		for ( int i = 0; i < nRead && nTarget < 0; ++i )
+		{
+			const BkEditorObjectRecord &rRecord = records[size_t( i )];
+			if ( rRecord.link_id <= 0 || !rRecord.known )
+				continue;
+			for ( int j = 0; j < nCatalogueRead && nTarget < 0; ++j )
+			{
+				const int nGameType = catalogue[size_t( j )].game_type;
+				if ( ( nGameType == 1 || nGameType == 15 ) && rRecord.name == std::string( catalogue[size_t( j )].name ) )
+				{
+					nTarget = rRecord.link_id;
+					bTargetIsSquad = nGameType == 15;
+				}
+			}
+		}
+	}
+	if ( !Check( nTarget > 0, ( "a unit to edit is on the map (squad: " + std::string( bTargetIsSquad ? "yes" : "no" ) + ")" ).c_str() ) )
+		return;
+
+	// The fields edit: one call, one token, the save the builder's map. The
+	// formation bit rides only on a squad - on any other unit the record's
+	// frame index is its segment, and the edit refuses naming that.
+	BkEditorObjectFieldsEdit fields;
+	memset( &fields, 0, sizeof fields );
+	fields.mask = 1 | 2 | 4 | ( bTargetIsSquad ? 8 : 0 );
+	fields.player = 1;
+	fields.hp = 0.77f;
+	fields.angle = 270.0f;
+	fields.formation = 2;
+	int nToken = -1;
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> probe( nCount > 0 ? nCount : 1 );
+		int nProbeRead = 0;
+		BkEditorObjects( pSession, &( probe[0] ), nCount, &nProbeRead );
+		for ( int i = 0; i < nProbeRead; ++i )
+			if ( probe[size_t( i )].link_id == nTarget )
+				printf( "editor-bridge: M3 fields target %d: name %s, player %d, hp %f, dir %d, frame %d, mask %d\\n",
+				        nTarget, probe[size_t( i )].name, probe[size_t( i )].player, probe[size_t( i )].hp,
+				        probe[size_t( i )].dir, probe[size_t( i )].frame_index, int( fields.mask ) );
+	}
+	const BkEditorStatus nFieldsStatus = BkEditorSetObjectFields( pSession, nTarget, &fields, &nToken );
+	printf( "editor-bridge: M3 fields edit: status %d, token %d, message '%s'\\n", int( nFieldsStatus ), nToken, BkEditorLastMessage( pSession ) );
+	if ( !Check( nFieldsStatus == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( nToken >= 0, "the fields edit has a token" );
+	if ( !bTargetIsSquad )
+	{
+		BkEditorObjectFieldsEdit formationOnly;
+		memset( &formationOnly, 0, sizeof formationOnly );
+		formationOnly.mask = 8;
+		formationOnly.formation = 1;
+		int nFormationToken = -1;
+		Check( BkEditorSetObjectFields( pSession, nTarget, &formationOnly, &nFormationToken ) == BK_EDITOR_REFUSED,
+		       "a formation on a plain unit is refused" );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "squad" ) != std::string::npos, "and names the rule" );
+	}
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+		int nRead = 0;
+		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+		const BkEditorObjectRecord *pNow = 0;
+		for ( int i = 0; i < nRead; ++i )
+			if ( records[size_t( i )].link_id == nTarget )
+				pNow = &records[size_t( i )];
+		Check( pNow != 0 && pNow->player == 1 && pNow->hp == 0.77f, "the player and the health are in the record" );
+		Check( pNow->dir == int( ( 270.0f * 65536.0f ) / 360.0f + 0.5f ), "the angle is the MFC's own turn" );
+		if ( bTargetIsSquad )
+			Check( pNow->frame_index == 2, "the formation is in the squad's record" );
+	}
+	const std::string szUnedited = szScratch + "\\m3-fields-unedited.bzm";
+	const std::string szEdited = szScratch + "\\m3-fields-edited.bzm";
+	const std::string szUndone = szScratch + "\\m3-fields-undone.bzm";
+	Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// The expected value: the same setters on a fresh read, no engine.
+	CMapInfo expected, saved;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &expected, &szError ), szError.c_str() ) )
+		return;
+	SMapObjectInfo *pExpected = 0;
+	{
+		std::vector<SMapObjectInfo> *lists[2] = { &expected.objects, &expected.scenarioObjects };
+		for ( int nList = 0; nList < 2 && pExpected == 0; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size() && pExpected == 0; ++i )
+				if ( ( *lists[nList] )[i].link.nLinkID == nTarget )
+					pExpected = &( *lists[nList] )[i];
+	}
+	if ( !Check( pExpected != 0, "the builder finds the squad" ) )
+		return;
+	pExpected->nPlayer = 1;
+	pExpected->fHP = 0.77f;
+	pExpected->nDir = int( ( 270.0f * 65536.0f ) / 360.0f + 0.5f );
+	if ( bTargetIsSquad )
+		pExpected->nFrameIndex = 2;
+	if ( !Check( BkEditorSaveMap( pSession, szEdited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	std::string szWhere;
+	if ( !Check( NMapFile::Read( szEdited.c_str(), &saved, &szError ), szError.c_str() ) )
+		return;
+	Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
+	       szWhere.empty() ? "the fields edit's save is the expected map" : ( "the fields edit differs at " + szWhere ).c_str() );
+
+	// The undo, byte for byte.
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "the fields edit undoes" );
+	Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szUnedited, szUndone ), "the undone fields edit saves the unedited file byte for byte" );
+
+	// The garrison: an infantry onto a building or a vehicle, through the
+	// rules. Searched over the map's own objects, so the proof is the
+	// engine's database, not a fixture.
+	int nPassenger = -1, nHost = -1, nLinkType = -1;
+	int nProbes = 0;
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+		int nRead = 0;
+		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+		int nCatalogue = 0;
+		BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+		std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+		int nCatalogueRead = 0;
+		BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nCatalogueRead );
+		auto gameTypeOf = [&]( const BkEditorObjectRecord &rRecord ) -> int {
+			for ( int j = 0; j < nCatalogueRead; ++j )
+				if ( rRecord.name == std::string( catalogue[size_t( j )].name ) )
+					return catalogue[size_t( j )].game_type;
+			return -1;
+		};
+		for ( int i = 0; i < nRead && nHost < 0; ++i )
+		{
+			const int nTargetType = gameTypeOf( records[size_t( i )] );
+			if ( records[size_t( i )].link_id <= 0 || !records[size_t( i )].known )
+				continue;
+			if ( nTargetType != 2 && nTargetType != 1 ) // a building or a vehicle
+				continue;
+			for ( int j = 0; j < nRead && nHost < 0; ++j )
+			{
+				if ( j == i || records[size_t( j )].link_id <= 0 || !records[size_t( j )].known )
+					continue;
+				{
+					const int nSourceType = gameTypeOf( records[size_t( j )] );
+					if ( nSourceType != 1 && nSourceType != 15 ) // a unit or a squad
+						continue;
+				}
+				int nType = -1;
+				const BkEditorStatus nCan = BkEditorCanLink( pSession, records[size_t( j )].link_id, records[size_t( i )].link_id, &nType );
+				if ( nCan == BK_EDITOR_OK && nType == 0 )
+				{
+					nPassenger = records[size_t( j )].link_id;
+					nHost = records[size_t( i )].link_id;
+					nLinkType = nType;
+				}
+				else if ( nProbes < 6 )
+				{
+					++nProbes;
+					printf( "editor-bridge: M3 canlink probe: status %d, type %d, why '%s'\\n", int( nCan ), nType, BkEditorLastMessage( pSession ) );
+				}
+			}
+		}
+	}
+	if ( !Check( nPassenger > 0 && nHost > 0 && nLinkType == 0, ( "a garrison pair is on the map (" + std::to_string( nPassenger ) + " -> " + std::to_string( nHost ) + ")" ).c_str() ) )
+		return;
+	printf( "editor-bridge: M3 garrison pair: %d -> %d\n", nPassenger, nHost );
+	Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+
+	// A full host refuses the next passenger, naming the rule. Proven on the
+	// first host the fill actually fills up: each garrison-able host is
+	// filled until the rules say no - the extra links ride the host's own
+	// delete below, so the byte proof restores them all.
+	std::vector<int> extraLinks;
+	bool bSlotRefusal = false;
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+		int nRead = 0;
+		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+		int nCatalogue = 0;
+		BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+		std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+		int nCatalogueRead = 0;
+		BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nCatalogueRead );
+		auto gameTypeOf = [&]( const BkEditorObjectRecord &rRecord ) -> int {
+			for ( int j = 0; j < nCatalogueRead; ++j )
+				if ( rRecord.name == std::string( catalogue[size_t( j )].name ) )
+					return catalogue[size_t( j )].game_type;
+			return -1;
+		};
+		std::vector<int> hosts;
+		for ( int i = 0; i < nRead; ++i )
+		{
+			if ( records[size_t( i )].link_id <= 0 || !records[size_t( i )].known )
+				continue;
+			const int nType = gameTypeOf( records[size_t( i )] );
+			if ( nType == 2 || nType == 1 )
+				hosts.push_back( records[size_t( i )].link_id );
+		}
+		for ( size_t h = 0; h < hosts.size() && !bSlotRefusal; ++h )
+		{
+			const int nThisHost = hosts[h];
+			for ( int round = 0; round < 2 && !bSlotRefusal; ++round )
+			{
+				for ( int j = 0; j < nRead; ++j )
+				{
+					const int nWho = records[size_t( j )].link_id;
+					if ( nWho <= 0 || !records[size_t( j )].known )
+						continue;
+					{
+						const int nSourceType = gameTypeOf( records[size_t( j )] );
+						if ( nSourceType != 1 && nSourceType != 15 )
+							continue;
+					}
+					int nType = -1;
+					const BkEditorStatus status = BkEditorCanLink( pSession, nWho, nThisHost, &nType );
+					if ( status == BK_EDITOR_OK )
+					{
+						const bool bAlreadyIn = nWho == nPassenger || std::find( extraLinks.begin(), extraLinks.end(), nWho ) != extraLinks.end();
+						if ( !bAlreadyIn && nThisHost == nHost )
+						{
+							int nExtraToken = -1;
+							if ( BkEditorSetLink( pSession, nWho, nThisHost, &nExtraToken ) == BK_EDITOR_OK )
+								extraLinks.push_back( nWho );
+						}
+						continue;
+					}
+					const std::string szWhy = BkEditorLastMessage( pSession );
+					if ( szWhy.find( "slot" ) != std::string::npos || szWhy.find( "passengers" ) != std::string::npos || szWhy.find( "entrance" ) != std::string::npos )
+					{
+						bSlotRefusal = true;
+						printf( "editor-bridge: M3 garrison refusal on host %d: %s\n", nThisHost, szWhy.c_str() );
+						break;
+					}
+				}
+			}
+		}
+	}
+	Check( bSlotRefusal, "the garrison rules refuse when the host takes no more" );
+
+	// The drop's link itself, then the unlink.
+	nToken = -1;
+	if ( !Check( BkEditorSetLink( pSession, nPassenger, nHost, &nToken ) == BK_EDITOR_OK && nToken >= 0, BkEditorLastMessage( pSession ) ) )
+		return;
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+		int nRead = 0;
+		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+		for ( int i = 0; i < nRead; ++i )
+			if ( records[size_t( i )].link_id == nPassenger )
+				Check( records[size_t( i )].link_with == nHost, "the passenger's record names the host" );
+	}
+	Check( BkEditorUnlink( pSession, nPassenger, &nToken ) == BK_EDITOR_OK && nToken >= 0, "the unlink answers with a token" );
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+		int nRead = 0;
+		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+		for ( int i = 0; i < nRead; ++i )
+			if ( records[size_t( i )].link_id == nPassenger )
+				Check( records[size_t( i )].link_with == 0, "and the record links with nothing" );
+	}
+	Check( BkEditorSetLink( pSession, nPassenger, nHost, &nToken ) == BK_EDITOR_OK, "the link goes back for the delete proof" );
+
+	// Deleting the host takes the passengers; the restore brings every one
+	// back, byte for byte.
+	const std::string szHostGone = szScratch + "\\m3-host-gone.bzm";
+	const std::string szHostBack = szScratch + "\\m3-host-back.bzm";
+	Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorDeleteObject( pSession, nHost ) == BK_EDITOR_OK, ( std::string( "the host deletes: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+		int nRead = 0;
+		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+		bool bHostGone = true, bPassengerGone = true;
+		for ( int i = 0; i < nRead; ++i )
+		{
+			if ( records[size_t( i )].link_id == nHost ) bHostGone = false;
+			if ( records[size_t( i )].link_id == nPassenger ) bPassengerGone = false;
+		}
+		Check( bHostGone, "the host is gone" );
+		Check( bPassengerGone, "and the passenger went with it" );
+	}
+	Check( BkEditorSaveMap( pSession, szHostGone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorRestoreObject( pSession, nHost ) == BK_EDITOR_OK, ( std::string( "the host is restored: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+		int nRead = 0;
+		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+		bool bPassengerBack = false;
+		for ( int i = 0; i < nRead; ++i )
+			if ( records[size_t( i )].link_id == nPassenger && records[size_t( i )].link_with == nHost )
+				bPassengerBack = true;
+		Check( bPassengerBack, "the passenger came back linked" );
+	}
+	Check( BkEditorSaveMap( pSession, szHostBack.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szUnedited, szHostBack ), "the host delete undone saves the unedited file byte for byte" );
+
+	// The flag swap: a flag re-owned takes the party's general-side name,
+	// exactly the MFC properties' swap. Found over the map's own flags; a map
+	// with none the pair search above already proved the rest on.
+	int nFlag = -1;
+	{
+		int nCount = 0;
+		BkEditorObjects( pSession, 0, 0, &nCount );
+		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+		int nRead = 0;
+		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+		int nCatalogue = 0;
+		BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+		std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+		int nCatalogueRead = 0;
+		BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nCatalogueRead );
+		for ( int i = 0; i < nRead && nFlag < 0; ++i )
+			for ( int j = 0; j < nCatalogueRead && nFlag < 0; ++j )
+				if ( catalogue[size_t( j )].game_type == 17 && records[size_t( i )].name == std::string( catalogue[size_t( j )].name ) )
+					nFlag = records[size_t( i )].link_id;
+	}
+	if ( nFlag > 0 )
+	{
+		BkEditorObjectFieldsEdit swap;
+		memset( &swap, 0, sizeof swap );
+		swap.mask = 1;
+		swap.player = 1;
+		const std::string szNameBefore = [&] {
+			int nCount = 0;
+			BkEditorObjects( pSession, 0, 0, &nCount );
+			std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+			int nRead = 0;
+			BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+			for ( int i = 0; i < nRead; ++i )
+				if ( records[size_t( i )].link_id == nFlag )
+					return std::string( records[size_t( i )].name );
+			return std::string();
+		}();
+		if ( Check( BkEditorSetObjectFields( pSession, nFlag, &swap, &nToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		{
+			int nCount = 0;
+			BkEditorObjects( pSession, 0, 0, &nCount );
+			std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
+			int nRead = 0;
+			BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+			for ( int i = 0; i < nRead; ++i )
+				if ( records[size_t( i )].link_id == nFlag )
+				{
+					const std::string szName( records[size_t( i )].name );
+					Check( szName != szNameBefore && szName.rfind( "Flag_", 0 ) == 0,
+					       ( "the flag swapped: " + szNameBefore + " -> " + szName ).c_str() );
+					printf( "editor-bridge: M3 flag swap: %s -> %s\n", szNameBefore.c_str(), szName.c_str() );
+				}
+			Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "the swap undoes" );
+		}
+	}
+	else
+		printf( "editor-bridge: M3 flag swap: no flag on the map, skipped\n" );
+
+	remove( szUnedited.c_str() );
+	remove( szEdited.c_str() );
+	remove( szUndone.c_str() );
+	remove( szHostGone.c_str() );
+	remove( szHostBack.c_str() );
+	printf( "editor-bridge: M3 properties and links ok\n" );
+}
 
 // M3 (D-25): the selection's batch move and delete-all, on the engine.
 // Three movable objects - one a squad, whose record moves whole so its
@@ -10413,6 +10824,7 @@ int main( int argc, char **argv )
 		TestM3Filters( pSession, pszRoot, szScratch );
 		TestM3Fields( pSession, szScratch );
 		TestM3MultiSelect( pSession, szScratch );
+		TestM3PropertiesAndLinks( pSession, szScratch );
 		TestPaintRefusesTileOutsideTileset( pSession );
 		TestTilesetTilesAllPaint( pSession );
 		TestTilePicturesAndClose( pSession, szScratch );

@@ -48,6 +48,12 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
         drawSelectionCircles(state, real);
         drawSelectionBand(state, real);
     }
+    // M3 (D-26/D-27, PARITY S6/S7): the load-time answers as live layers -
+    // scenario objects ringed blue, and one line per garrison, tow or
+    // coupling from the passenger to its host.
+    drawScenarioTint(state, real);
+    drawLinkLines(state, real);
+    drawDropTarget(state, real);
     // The Fence tool's ghost is its own and always on while it is active.
     if (state.view.tool == .fence) drawFenceGhost(state, real);
     // So are the Entrenchment tool's preview and outlines (04-08).
@@ -560,6 +566,74 @@ fn drawSelectionBand(state: *State, real: anytype) void {
         .{ .x = left, .y = bottom },
     };
     drawDashed(draw_list, &corners, band_color, 10, 1.5);
+}
+
+/// S6 (D-26): scenario objects ringed blue - the MFC load pass draws its
+/// scenario units with a blue specular (TemplateEditorFrame1.cpp:1357-2113),
+/// and the portable editor rings each record of the scenarioObjects list.
+/// Capped like every kind; a selection ring on top still reads.
+fn drawScenarioTint(state: *State, real: anytype) void {
+    const editor = state.editor;
+    const draw_list = ig.igGetBackgroundDrawList();
+    const scenario_color = color(0.35, 0.55, 1.0);
+    const limit = marker_logic.cap(.selection_outline);
+    var walked: usize = 0;
+    for (editor.document.objects.items) |object| {
+        if (!object.scenario) continue;
+        if (walked >= limit) return;
+        walked += 1;
+        const world = marker_logic.aiToWorld(.{ .x = object.x, .y = object.y });
+        if (screenOf(real, world.x, world.y)) |at| {
+            ig.ImDrawList_AddCircleEx(draw_list, at, 9, scenario_color, 20, 1.2);
+        }
+    }
+}
+
+/// S7 (D-27): one line per link, from the passenger's record position to its
+/// host's - the map's own nLinkWith answers, the same data the properties'
+/// units list unlinks. Capped like every kind.
+fn drawLinkLines(state: *State, real: anytype) void {
+    const editor = state.editor;
+    const draw_list = ig.igGetBackgroundDrawList();
+    const link_color = color(1.0, 0.65, 0.2);
+    const limit = marker_logic.cap(.selection_outline);
+    var walked: usize = 0;
+    for (editor.document.objects.items) |object| {
+        if (object.link_with <= 0) continue;
+        if (walked >= limit) return;
+        const host = editor.document.find(object.link_with) orelse continue;
+        walked += 1;
+        const from = marker_logic.aiToWorld(.{ .x = object.x, .y = object.y });
+        const to = marker_logic.aiToWorld(.{ .x = host.x, .y = host.y });
+        const a = screenOf(real, from.x, from.y) orelse continue;
+        const b = screenOf(real, to.x, to.y) orelse continue;
+        ig.ImDrawList_AddLineEx(draw_list, a, b, link_color, 1.5);
+    }
+}
+
+/// O13 (D-27): the drop's cursor feedback - the MFC shows IDC_UPARROW while
+/// a dragged group hovers a valid host (ObjectPlacerState.cpp:129-134); the
+/// portable editor rings the host, dashed for a tow or a coupling.
+fn drawDropTarget(state: *State, real: anytype) void {
+    const target = state.view.selector.drop_target orelse return;
+    const editor = state.editor;
+    const object = editor.document.find(target) orelse return;
+    const tow = state.view.selector.drop_kind != 0;
+    const world = marker_logic.aiToWorld(.{ .x = object.x, .y = object.y });
+    const at = screenOf(real, world.x, world.y) orelse return;
+    const draw_list = ig.igGetBackgroundDrawList();
+    const drop_color = color(0.2, 1.0, 0.4);
+    if (tow) {
+        var corners: [4]ig.ImVec2 = .{
+            .{ .x = at.x - 12, .y = at.y - 12 },
+            .{ .x = at.x + 12, .y = at.y - 12 },
+            .{ .x = at.x + 12, .y = at.y + 12 },
+            .{ .x = at.x - 12, .y = at.y + 12 },
+        };
+        drawDashed(draw_list, &corners, drop_color, 12, 2.0);
+    } else {
+        ig.ImDrawList_AddCircleEx(draw_list, at, 13, drop_color, 24, 2.0);
+    }
 }
 
 /// The ghost of the drag in hand (research Q2: drawn by the app from the

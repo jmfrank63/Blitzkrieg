@@ -345,4 +345,61 @@ bool SetObjectHP( SLoadMapInfo *pMap, int nLinkID, float fHP )
 	pObject->fHP = fHP;
 	return true;
 }
+
+bool SetObjectPlayer( SLoadMapInfo *pMap, int nLinkID, int nPlayer )
+{
+	if ( pMap == 0 || nPlayer < 0 || nPlayer >= int( pMap->diplomacies.size() ) )
+		return false;
+	SMapObjectInfo *pObject = FindByLinkID( pMap, nLinkID );
+	if ( pObject == 0 )
+		return false;
+	pObject->nPlayer = nPlayer;
+	return true;
+}
+
+bool SetObjectAngle( SLoadMapInfo *pMap, int nLinkID, float fAngleDegrees )
+{
+	if ( !std::isfinite( fAngleDegrees ) )
+		return false;
+	SMapObjectInfo *pObject = FindByLinkID( pMap, nLinkID );
+	if ( pObject == 0 )
+		return false;
+	// The MFC properties dialog's own turn (SEditorMApObject.cpp:384-386):
+	// degrees to the record's 65536-direction, rounded once.
+	pObject->nDir = int( ( fAngleDegrees * 65536.0f ) / 360.0f + 0.5f );
+	return true;
+}
+
+bool SetObjectFormation( SLoadMapInfo *pMap, int nLinkID, int nFormation )
+{
+	// -1 is what a record that never carried a formation holds (fmtMap's own
+	// default), so an undo can put it back; anything below is the caller's.
+	if ( nFormation < -1 )
+		return false;
+	SMapObjectInfo *pObject = FindByLinkID( pMap, nLinkID );
+	if ( pObject == 0 )
+		return false;
+	pObject->nFrameIndex = nFormation;
+	return true;
+}
+
+bool SetObjectLink( SLoadMapInfo *pMap, int nLinkID, int nLinkWith )
+{
+	if ( pMap == 0 )
+		return false;
+	SMapObjectInfo *pObject = FindByLinkID( pMap, nLinkID );
+	if ( pObject == 0 )
+		return false;
+	// 0 unlinks; a host must be an object of the map and never the passenger
+	// itself (a self-link would make the game's loaders chase a cycle).
+	if ( nLinkWith != 0 )
+	{
+		if ( nLinkWith == nLinkID )
+			return false;
+		if ( FindByLinkID( pMap, nLinkWith ) == 0 )
+			return false;
+	}
+	pObject->link.nLinkWith = nLinkWith;
+	return true;
+}
 }
