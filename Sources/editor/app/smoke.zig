@@ -1620,6 +1620,7 @@ pub const AutoRunner = struct {
             .waitgame => |seconds| return self.runWaitgame(seconds),
             .shot => |name| return self.runShot(name),
             .compare => |compare| return self.runCompare(compare),
+            .differ => |differ| return self.runDiffer(differ),
             .do => |named| return self.runDo(named),
             .expect => |named| return self.runExpect(named),
             .exit => {
@@ -1860,6 +1861,37 @@ pub const AutoRunner = struct {
         std.debug.print("map-editor: BK_EDITOR_AUTO: compare {s}: {d:.4}% of pixels differ\n", .{ compare.name, fraction });
         if (fraction > compare.percent)
             return self.fail("compare={s}: {d:.4}% of pixels differ, want at most {d:.2}%", .{ compare.name, fraction, compare.percent });
+        return true;
+    }
+
+    /// `differ=<a>/<b>[@<percent>]`: the two shots of this run must differ in more
+    /// than `percent` of their pixels (at `compare=`'s own channel tolerance) -
+    /// the proof that what was drawn moved. Sizes that differ fail: two shots of
+    /// one window are one size.
+    fn runDiffer(self: *AutoRunner, differ: auto_mod.Differ) bool {
+        const gpa = self.editor.allocator;
+        var bytes: [2][]u8 = undefined;
+        const names = [2][]const u8{ differ.a, differ.b };
+        var read: usize = 0;
+        defer for (bytes[0..read]) |one| gpa.free(one);
+        for (names, 0..) |name, i| {
+            var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+            const path = std.fmt.bufPrint(&path_buffer, "{s}{c}{s}.tga", .{ self.dir, std.fs.path.sep, name }) catch
+                return self.fail("differ={s}: the path is too long", .{name});
+            bytes[i] = std.Io.Dir.cwd().readFileAlloc(self.io, path, gpa, .limited(64 << 20)) catch |err|
+                return self.fail("differ={s}: the shot did not read: {s}", .{ name, @errorName(err) });
+            read += 1;
+        }
+        const first = auto_mod.Tga.parse(bytes[0]) catch |err|
+            return self.fail("differ={s}: the shot is not an uncompressed 32-bit TGA: {s}", .{ differ.a, @errorName(err) });
+        const second = auto_mod.Tga.parse(bytes[1]) catch |err|
+            return self.fail("differ={s}: the shot is not an uncompressed 32-bit TGA: {s}", .{ differ.b, @errorName(err) });
+        const diff = auto_mod.compareTga(first, second, auto_mod.default_channel_tolerance);
+        if (!diff.same_size) return self.fail("differ={s}/{s}: the shots are {d}x{d} and {d}x{d}", .{ differ.a, differ.b, first.width, first.height, second.width, second.height });
+        const fraction = diff.fraction() * 100.0;
+        std.debug.print("map-editor: BK_EDITOR_AUTO: differ {s}/{s}: {d:.4}% of pixels differ\n", .{ differ.a, differ.b, fraction });
+        if (fraction <= differ.percent)
+            return self.fail("differ={s}/{s}: only {d:.4}% of pixels differ, want more than {d:.2}%", .{ differ.a, differ.b, fraction, differ.percent });
         return true;
     }
 

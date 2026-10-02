@@ -46,6 +46,11 @@
 //!                                   `percent` (default 1.0) is the greatest
 //!                                   acceptable percentage of differing
 //!                                   pixels
+//!   differ=<a>/<b>[@<percent>]     compare two shots of this run, `<a>.tga` and
+//!                                   `<b>.tga`: the run fails unless MORE than
+//!                                   `percent` (default 0.1) of the pixels
+//!                                   differ - the proof that something drawn
+//!                                   moved (a camera jump, a panel that filled)
 //!   do=<name>[:<arg>]              run a named editor command (commands.zig:
 //!                                   the same one a menu item or panel button
 //!                                   runs); the run fails when the name is
@@ -108,6 +113,16 @@ pub const Compare = struct {
 
 pub const default_compare_percent: f32 = 1.0;
 
+/// `differ=<a>/<b>[@<percent>]`: two shots of this run that must differ by more
+/// than `percent` of their pixels (the opposite of `compare=`'s tolerance).
+pub const Differ = struct {
+    a: []const u8,
+    b: []const u8,
+    percent: f32 = default_differ_percent,
+};
+
+pub const default_differ_percent: f32 = 0.1;
+
 /// `shot=`/`compare=`'s own name: at most this many characters, from
 /// `[A-Za-z0-9_-]`.
 pub const max_name_len = 64;
@@ -148,6 +163,7 @@ pub const Action = union(enum) {
     waitgame: u32,
     shot: []const u8,
     compare: Compare,
+    differ: Differ,
     do: Named,
     expect: Named,
     exit,
@@ -284,6 +300,8 @@ fn parseAction(text: []const u8, entry: []const u8, failure: *Failure) ParseErro
     }
     if (std.mem.eql(u8, name, "compare"))
         return .{ .compare = try parseCompare(value orelse return fail(failure, entry, "compare needs a name", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "differ"))
+        return .{ .differ = try parseDiffer(value orelse return fail(failure, entry, "differ needs two shot names", error.BadAction), entry, failure) };
     if (std.mem.eql(u8, name, "do"))
         return .{ .do = try parseNamed(value orelse return fail(failure, entry, "do needs a name", error.BadAction), entry, failure) };
     if (std.mem.eql(u8, name, "expect"))
@@ -368,6 +386,19 @@ fn parseCompare(text: []const u8, entry: []const u8, failure: *Failure) ParseErr
     if (at) |i|
         percent = std.fmt.parseFloat(f32, text[i + 1 ..]) catch return fail(failure, entry, "compare's percent is not a number", error.BadNumber);
     return .{ .name = name, .percent = percent };
+}
+
+/// `<a>/<b>[@<percent>]`.
+fn parseDiffer(text: []const u8, entry: []const u8, failure: *Failure) ParseError!Differ {
+    const at = std.mem.indexOfScalar(u8, text, '@');
+    const names = if (at) |i| text[0..i] else text;
+    const slash = std.mem.indexOfScalar(u8, names, '/') orelse return fail(failure, entry, "differ needs '<a>/<b>'", error.BadName);
+    try validateName(names[0..slash], entry, failure);
+    try validateName(names[slash + 1 ..], entry, failure);
+    var percent: f32 = default_differ_percent;
+    if (at) |i|
+        percent = std.fmt.parseFloat(f32, text[i + 1 ..]) catch return fail(failure, entry, "differ's percent is not a number", error.BadNumber);
+    return .{ .a = names[0..slash], .b = names[slash + 1 ..], .percent = percent };
 }
 
 /// A tool label: `[a-z_]{1,32}` (the registry's ToolId names).
@@ -516,6 +547,8 @@ test "parse: every action" {
     try expectAction("3:shot=painted", .{ .shot = "painted" });
     try expectAction("3:compare=painted", .{ .compare = .{ .name = "painted", .percent = default_compare_percent } });
     try expectAction("3:compare=painted@2.5", .{ .compare = .{ .name = "painted", .percent = 2.5 } });
+    try expectAction("3:differ=before/after", .{ .differ = .{ .a = "before", .b = "after", .percent = default_differ_percent } });
+    try expectAction("3:differ=a-1/b_2@0.5", .{ .differ = .{ .a = "a-1", .b = "b_2", .percent = 0.5 } });
     try expectAction("3:rpress=c1x2", .{ .rpress = .{ .x = 1, .y = 2, .from_centre = true } });
     try expectAction("3:rdrag=10x20", .{ .rdrag = .{ .x = 10, .y = 20 } });
     try expectAction("3:rrelease=c0x0", .{ .rrelease = .{ .x = 0, .y = 0, .from_centre = true } });
@@ -574,6 +607,11 @@ test "parse: bad tokens are rejected, naming the entry" {
     try expectBad("3:shot=", error.BadName); // empty name
     try expectBad("3:compare=painted@soon", error.BadNumber); // percent not a number
     try expectBad("3:shot=" ++ ("a" ** 65), error.BadName); // over max_name_len
+    try expectBad("3:differ", error.BadAction); // differ needs two names
+    try expectBad("3:differ=one", error.BadName); // no '/'
+    try expectBad("3:differ=a/", error.BadName); // an empty second name
+    try expectBad("3:differ=a b/c", error.BadName); // a space
+    try expectBad("3:differ=a/b@lots", error.BadNumber); // percent not a number
     try expectBad("3:rclick", error.BadAction); // rclick needs a point
     try expectBad("3:rpress=5", error.BadNumber); // no 'x' separator
     try expectBad("3:rdrag=axb", error.BadNumber);
