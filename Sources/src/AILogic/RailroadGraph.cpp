@@ -625,7 +625,11 @@ void CRailroadGraphConstructor::Construct( const STerrainInfo &terrain, CRailroa
 {
 	for ( int i = 0; i < terrain.roads3.size(); ++i )
 	{
-		if ( terrain.roads3[i].eType == SVectorStripeObjectDesc::TYPE_RAILROAD )
+		// A railroad with fewer than two control points is skipped: the spline edge reads
+		// controlpoints[0] (CSplineEdge ctor, :55) and edgeParts[nControlPointsSize-1], which
+		// is edgeParts[-1] for none (:69), and a map file can hold such a record - it
+		// crashed the game at load (CAILogic::Init, AILogicInternal.cpp:820).
+		if ( terrain.roads3[i].eType == SVectorStripeObjectDesc::TYPE_RAILROAD && terrain.roads3[i].controlpoints.size() >= 2 )
 			railroads.push_back( new CRailroad( terrain.roads3[i] ) );
 	}
 

@@ -25,3 +25,22 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
   printed `the fields' tiles change exactly the cells the engine's own fill touches (63
   touched, 1 disagree)` - the final-scanline replay gap already open in `.planning/WINDOWS.md`
   (entry 4, from 05-03); the next runs passed.
+
+## From 05-05
+
+- **Appear points are placed from a list, not by a map click.** The Unit Creation Info window
+  lists a player's appear points in tiles (the MFC's own points dialog shows map units / 64) and
+  adds one at the view centre; a hidden "click on the map" tool as the Start Target tool has was
+  not built - the MFC editor has none for appear points either (PEPointsListDialog.cpp:107-130,
+  typed coordinates only).
+- **A party change does not rename the flags.** The MFC's `ResetPlayersForFlags` re-types every
+  flag of the map when a party is set (UnitCreation.cpp `SetPartyName`); the editor never edits an
+  object it was not asked to, so existing flags keep their names until their owner moves
+  (properties' flag swap, a player delete) - the player edits do rename a flag that changes owner.
+- **A shared link ID is reported by Check Map, not fixed.** The MFC deleted both records
+  (TEF:6078-6144); the bridge keeps every edit away from a record whose link ID other records
+  share (RefuseSharedLinkID), so Fix all counts it as left.
+- **The Windows leg of the new tiers** (`map-editor-game-reads-it-m3`, `map-editor-m3-auto`, the
+  engine tests) waits for the orchestrator's push; all of it ran green on macOS arm64.
+- **`TestM3Fields`' byte diagnostic** (`editor-bridge: (identical? ...)`) printed again in the
+  gate runs (the known window 4); the test passed.
