@@ -138,3 +138,32 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
   yet (05-08's `test-rmg-determinism` is not either): it runs on macOS arm64 here, and wiring both into the five
   engine-C++ targets is a workflow edit for the orchestrator. The composer frames of `map-editor-m3-auto` need a GUI
   and wait for CI or a hand run on win-home, like every M3 scenario before them.
+
+## From 05-10
+
+- **No thumbnails in the Fields Composer's tabs.** The MFC's terrain and objects tabs drew a bitmap of each tile
+  and object; the portable tabs list names (and the tile's index), with the weights and widths. A thumbnail needs
+  the bridge to render a tile or an object to a texture the way the minimap tools do; the lists and every edit
+  work without it.
+- **Save All is Save.** The MFC's Save All wrote every field set it held; the portable composers hold one file each
+  (D-08, the same as the containers and graphs in 05-09), so Save All and Save are the same button.
+- **Appear points are listed in tiles.** The template's unit-creation grid lists an appear point in tiles at 64
+  map units to a tile; the record keeps the engine's map units, so nothing is lost on save.
+- **The authored game leg cannot redirect the user root on Windows.** `map-editor-game-reads-it-m3` sets a scratch
+  `XDG_DATA_HOME` on macOS and Linux (Platform/Paths.cpp honours it there); on Windows the authored files go to
+  the profile's user RMG root under `...\user\authored_*` and are rewritten identically on every run. A Windows
+  user root override would make the leg hermetic there too.
+- **The composer frames of `map-editor-m3-auto` have no Windows run.** The Fields and Templates frames (1214-1400)
+  need a GUI and wait for CI or a hand run on win-home, like every M3 scenario before them. The non-GUI Windows
+  tiers (core, app tiers, the MSVC compile of the engine tier and the composer tools, the editor app build) ran on
+  win-home after the push; the round trip and the determinism step are now in the Windows and macOS engine jobs of
+  `cross-platform.yml`.
+- **Check! of a template shows the nested files' findings.** A shipped template's graphs and field sets hold
+  things the nested rules flag (a link under 8 parts, for one); they are listed with their own severity, prefixed
+  with the nested file's name, so a shipped template can open with nested errors. Only the template's own rules
+  (the findings without a prefix) are clean on every shipped template, which the engine tier asserts. The nested
+  files are fixed in their own composers. A script list that differs from the first graph's is a warning with a
+  take-from-graph fix, not an error.
+- **The template composer does not offer to create the graph or field set it names.** A name that is not in the
+  storages is a Check! finding with a fix that removes it; making a new graph or field set is the other two
+  composers' job.

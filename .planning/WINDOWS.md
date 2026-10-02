@@ -2,9 +2,9 @@
 schema_version: 1
 open_count: 2
 waived_count: 0
-fixed_count: 4
-total_count: 6
-last_updated: 2026-10-02T19:55:21.443Z
+fixed_count: 5
+total_count: 7
+last_updated: 2026-10-02T23:05:43.881Z
 ---
 
 # Broken Windows Ledger
@@ -20,7 +20,8 @@ last_updated: 2026-10-02T19:55:21.443Z
 | 3 | 03 | deviation | Sources/editor/app/view_math.zig |  | plan-5 carried: the scroll-direction unit test restates its own constants; an engine-tier ScreenToWorld direction check would catch a sign error (Task 6) | fixed | fixed in 03-16 82a08a462: the direction tests assert literal camera positions (a notch up: 2000,2000 -> 1971.716,2028.284); view.zig's wheel tests do the same through SDL events; the engine tier's TestWorldToScreenRoundTrip already checks screen up is world (-x,+y) | 2026-09-28T17:53:07.199Z | 2026-09-29T10:08:34.712Z |
 | 4 | 05 | unmet-truth | Sources/src/EditorBridge/session_fields.cpp |  | The engine's field fill leaves its final scanline's tile picks unreproducible across seeded replays (recorded in 05-03-SUMMARY deviations; the touched-cell proof and the byte-exact undo proofs carry the contract) | fixed | fixed on fix/m3-fields-flake 9f19fb411: not a scanline effect - FillTileSet picks each cell's tile variant with STileTypeDesc::GetMapsIndex (Formats/fmtTerrain.h:87), which draws from the C runtime's rand(); SeedFieldFills never seeded it and the engine time-seeds it at start, so every fill rolled its own variants (57 of 64 cells, every row; the two copies differed too). SeedFieldFills now calls srand() as CreateRandomMap does; TestM3Fields compares the tile values over the whole map exactly and asserts two identical applies save the same bytes | 2026-10-01T20:30:49.716Z | 2026-10-02T13:33:46.360Z |
 | 5 | 5 | deviation | Sources/src/RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp | 970 | 05-08: a generated map names its script by the absolute output path (engine's own szScriptFile = output path); Test in game warns 'not a plain name' for a generated map - see deferred-items.md From 05-08 | open |  | 2026-10-02T15:34:14.928Z |  |
-| 6 | 5 | unrun-verify | .github/workflows/cross-platform.yml |  | 05-09: test-rmg-composer-roundtrip (and 05-08's test-rmg-determinism) are not in the CI workflow yet, and the composer m3-auto frames have no Windows run - see deferred-items.md From 05-09 | open |  | 2026-10-02T19:55:21.443Z |  |
+| 6 | 5 | unrun-verify | .github/workflows/cross-platform.yml |  | 05-09: test-rmg-composer-roundtrip (and 05-08's test-rmg-determinism) are not in the CI workflow yet, and the composer m3-auto frames have no Windows run - see deferred-items.md From 05-09 | fixed | fixed in 05-10 00c02ae11: test-rmg-composer-roundtrip and test-rmg-determinism run in the Windows and macOS engine jobs of cross-platform.yml (macOS green on run 37072698456); the Windows frames and the Windows run of the two steps are entry 7 | 2026-10-02T19:55:21.443Z | 2026-10-02T23:05:38.337Z |
+| 7 | 5 | unrun-verify | .planning/phases/05-map-editor-m3-random-map-templates-minimap-tools-parity/05-10-SUMMARY.md |  | 05-10: the Fields and Templates composer frames of map-editor-m3-auto (1214-1400) and the Windows run of test-rmg-composer-roundtrip / test-rmg-determinism have no green Windows run yet: the Windows engine job already fails earlier on the RMG nondeterminism fixed on fix/rmg-windows-determinism (run 37072698456); the macOS job ran both steps green | open |  | 2026-10-02T23:05:43.881Z |  |
 
 ````json
 [
@@ -92,9 +93,22 @@ last_updated: 2026-10-02T19:55:21.443Z
     "file": ".github/workflows/cross-platform.yml",
     "line": null,
     "description": "05-09: test-rmg-composer-roundtrip (and 05-08's test-rmg-determinism) are not in the CI workflow yet, and the composer m3-auto frames have no Windows run - see deferred-items.md From 05-09",
+    "status": "fixed",
+    "reason": "fixed in 05-10 00c02ae11: test-rmg-composer-roundtrip and test-rmg-determinism run in the Windows and macOS engine jobs of cross-platform.yml (macOS green on run 37072698456); the Windows frames and the Windows run of the two steps are entry 7",
+    "recorded_at": "2026-10-02T19:55:21.443Z",
+    "resolved_at": "2026-10-02T23:05:38.337Z",
+    "milestone": null
+  },
+  {
+    "id": 7,
+    "kind": "unrun-verify",
+    "phase": "5",
+    "file": ".planning/phases/05-map-editor-m3-random-map-templates-minimap-tools-parity/05-10-SUMMARY.md",
+    "line": null,
+    "description": "05-10: the Fields and Templates composer frames of map-editor-m3-auto (1214-1400) and the Windows run of test-rmg-composer-roundtrip / test-rmg-determinism have no green Windows run yet: the Windows engine job already fails earlier on the RMG nondeterminism fixed on fix/rmg-windows-determinism (run 37072698456); the macOS job ran both steps green",
     "status": "open",
     "reason": "",
-    "recorded_at": "2026-10-02T19:55:21.443Z",
+    "recorded_at": "2026-10-02T23:05:43.881Z",
     "resolved_at": null,
     "milestone": null
   }
