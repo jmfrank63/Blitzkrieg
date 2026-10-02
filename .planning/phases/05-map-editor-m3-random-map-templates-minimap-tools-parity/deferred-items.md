@@ -25,6 +25,9 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
   printed `the fields' tiles change exactly the cells the engine's own fill touches (63
   touched, 1 disagree)` - the final-scanline replay gap already open in `.planning/WINDOWS.md`
   (entry 4, from 05-03); the next runs passed.
+  **Resolved (fix/m3-fields-flake, 9f19fb411):** not a scanline effect - the tile variants come from
+  the unseeded C runtime rand() (`STileTypeDesc::GetMapsIndex`); `SeedFieldFills` now seeds it and
+  the test compares the tile values exactly. Window 4 is fixed.
 
 ## From 05-05
 
@@ -44,6 +47,8 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
   engine tests) waits for the orchestrator's push; all of it ran green on macOS arm64.
 - **`TestM3Fields`' byte diagnostic** (`editor-bridge: (identical? ...)`) printed again in the
   gate runs (the known window 4); the test passed.
+  **Resolved (fix/m3-fields-flake, 9f19fb411):** the two seeded applies now save the same bytes
+  and the test asserts it.
 
 ## From 05-07
 
