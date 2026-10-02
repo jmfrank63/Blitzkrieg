@@ -94,6 +94,14 @@ comptime {
     std.debug.assert(@sizeOf(c.BkEditorAISideInfo) == 4 * 4);
     std.debug.assert(@sizeOf(c.BkEditorAIParcel) == 7 * 4);
     std.debug.assert(@sizeOf(c.BkEditorAIPoint) == 3 * 4);
+    // The unit creation's record (05-05, D-30): read and put field by field; the
+    // sizes are the ABI - an aircraft slot is a name and two ints, the record the
+    // slot count, the party, five slots, the paratroop name and two ints, the
+    // appear count and 32 points.
+    std.debug.assert(@sizeOf(c.BkEditorUcAircraft) == record_types.uc_name_capacity + 2 * 4);
+    std.debug.assert(@sizeOf(c.BkEditorUnitCreationRecord) == 4 + record_types.uc_name_capacity + record_types.uc_aircraft_slots * (record_types.uc_name_capacity + 8) +
+        record_types.uc_name_capacity + 4 + 4 + 4 + record_types.max_appear_points * 12);
+    std.debug.assert(@sizeOf(c.BkEditorUcName) == @sizeOf(core.bridge.UcName));
     // Every status the bridge answers has a name in the core.
     std.debug.assert(@intFromEnum(Status.failed) == c.BK_EDITOR_FAILED);
 }
@@ -229,6 +237,9 @@ pub const RealBridge = struct {
         .applyField = vtableApplyField,
         .fieldSetSeason = vtableFieldSetSeason,
         .listRmg = vtableListRmg,
+        .addPlayer = vtableAddPlayer,
+        .deletePlayer = vtableDeletePlayer,
+        .unitCreationChoices = vtableUnitCreationChoices,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -711,6 +722,83 @@ pub const RealBridge = struct {
         return .ok;
     }
 
+    /// BkEditorAddPlayer / BkEditorDeletePlayer (05-05, D-30).
+    fn vtableAddPlayer(ptr: *anyopaque, side: i32, token: *i32) Status {
+        var out: c_int = -1;
+        const result = status(c.BkEditorAddPlayer(from(ptr).session, side, &out));
+        token.* = out;
+        return result;
+    }
+
+    fn vtableDeletePlayer(ptr: *anyopaque, player: i32, token: *i32) Status {
+        var out: c_int = -1;
+        const result = status(c.BkEditorDeletePlayer(from(ptr).session, player, &out));
+        token.* = out;
+        return result;
+    }
+
+    /// BkEditorUnitCreationChoices (05-05) in two passes, like `vtableListRmg`.
+    fn vtableUnitCreationChoices(ptr: *anyopaque, kind: core.bridge.UcChoice, out: []core.bridge.UcName, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorUnitCreationChoices(self.session, @intFromEnum(kind), null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        total.* = @intCast(@max(count, 0));
+        if (count <= 0) return .ok;
+        if (out.len < total.*) return .refused;
+        const all = std.heap.page_allocator.alloc(c.BkEditorUcName, @intCast(count)) catch return .failed;
+        defer std.heap.page_allocator.free(all);
+        var got: c_int = 0;
+        const read = status(c.BkEditorUnitCreationChoices(self.session, @intFromEnum(kind), all.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (all, 0..) |item, i| {
+            if (i >= out.len) break;
+            out[i] = @bitCast(item);
+        }
+        return .ok;
+    }
+
+    fn toUnitCreation(record: c.BkEditorUnitCreationRecord) ?record_types.UnitCreation {
+        if (record.slot_count < 0 or record.slot_count > record_types.max_uc_slots) return null;
+        if (record.appear_count < 0 or record.appear_count > record_types.max_appear_points) return null;
+        var unit: record_types.UnitCreation = .{
+            .slot_count = @intCast(record.slot_count),
+            .paratroop_count = record.paratroop_count,
+            .relax_time = record.relax_time,
+            .appear_count = @intCast(record.appear_count),
+        };
+        unit.setParty(std.mem.sliceTo(&record.party, 0));
+        unit.setParatroop(std.mem.sliceTo(&record.paratroop_name, 0));
+        for (&unit.aircraft, record.aircraft) |*slot, source| {
+            slot.setName(std.mem.sliceTo(&source.name, 0));
+            slot.formation_size = source.formation_size;
+            slot.count = source.count;
+        }
+        for (0..unit.appear_count) |index| unit.appear[index] = toVec3(record.appear[index]);
+        return unit;
+    }
+
+    fn toCUnitCreation(unit: record_types.UnitCreation) c.BkEditorUnitCreationRecord {
+        var record: c.BkEditorUnitCreationRecord = std.mem.zeroes(c.BkEditorUnitCreationRecord);
+        record.slot_count = @intCast(unit.slot_count);
+        const party = unit.partySlice();
+        @memcpy(record.party[0..party.len], party);
+        const squad = unit.paratroopSlice();
+        @memcpy(record.paratroop_name[0..squad.len], squad);
+        record.paratroop_count = unit.paratroop_count;
+        record.relax_time = unit.relax_time;
+        for (&record.aircraft, unit.aircraft) |*slot, source| {
+            const name = source.nameSlice();
+            @memcpy(slot.name[0..name.len], name);
+            slot.formation_size = source.formation_size;
+            slot.count = source.count;
+        }
+        record.appear_count = @intCast(unit.appear_count);
+        for (0..unit.appear_count) |index| record.appear[index] = toCVec3(unit.appear[index]);
+        return record;
+    }
+
     /// BkEditorReserveRole (04-11): the object type's role in a reserve position.
     fn vtableReserveRole(ptr: *anyopaque, name: []const u8, role: *i32) Status {
         var buffer: [core.bridge.name_capacity]u8 = undefined;
@@ -934,6 +1022,13 @@ pub const RealBridge = struct {
             .start_command => return self.readStartCommand(key, allocator, out),
             .reserve_position => return self.readReservePosition(key, out),
             .ai_side => return self.readAiSide(key, allocator, out),
+            .unit_creation => {
+                var record: c.BkEditorUnitCreationRecord = std.mem.zeroes(c.BkEditorUnitCreationRecord);
+                const result = status(c.BkEditorUnitCreation(self.session, key, &record));
+                if (result != .ok) return result;
+                out.* = .{ .unit_creation = toUnitCreation(record) orelse return .failed };
+                return .ok;
+            },
             .script_file => {
                 if (key != 0) return .bad_argument;
                 var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
@@ -972,6 +1067,10 @@ pub const RealBridge = struct {
                 return status(c.BkEditorSetReservePosition(self.session, key, &record));
             },
             .ai_side => |side| return self.putAiSide(key, side),
+            .unit_creation => |unit| {
+                const record = toCUnitCreation(unit);
+                return status(c.BkEditorSetUnitCreation(self.session, key, &record));
+            },
             .script_file => |file| {
                 if (key != 0) return .bad_argument;
                 var record: c.BkEditorScriptFileRecord = std.mem.zeroes(c.BkEditorScriptFileRecord);
@@ -1016,6 +1115,7 @@ pub const RealBridge = struct {
                 out.* = keys;
                 return .ok;
             },
+            .unit_creation => return .bad_argument,
             .camera_anchors, .script_file => {
                 const keys = allocator.alloc(i32, 1) catch return .failed;
                 keys[0] = 0;
@@ -1064,7 +1164,7 @@ pub const RealBridge = struct {
         const self = from(ptr);
         self.own_message = null;
         switch (value.*) {
-            .camera_anchors, .script_file, .ai_side => return .bad_argument,
+            .camera_anchors, .script_file, .ai_side, .unit_creation => return .bad_argument,
             .script_area => |area| {
                 const record = toCScriptArea(area);
                 return status(c.BkEditorAddScriptArea(self.session, key, &record));
@@ -1097,7 +1197,7 @@ pub const RealBridge = struct {
     fn vtableRemoveRecord(ptr: *anyopaque, kind: record_types.Kind, key: i32) Status {
         const self = from(ptr);
         switch (kind) {
-            .camera_anchors, .script_file, .ai_side => return .bad_argument,
+            .camera_anchors, .script_file, .ai_side, .unit_creation => return .bad_argument,
             .script_area => return status(c.BkEditorDeleteScriptArea(self.session, key)),
             .start_command => return status(c.BkEditorDeleteStartCommand(self.session, key)),
             .reserve_position => return status(c.BkEditorDeleteReservePosition(self.session, key)),

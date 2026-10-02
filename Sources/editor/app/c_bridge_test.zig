@@ -367,6 +367,86 @@ test "the core drives the real bridge: every command, undone and redone" {
     std.debug.print("map-editor-engine: M3 multi-select group move ok (links {d} and {d})\n", .{ first.link_id, second.link_id });
     editor.clearSelection();
 
+    // M3 (05-05, D-30): players and the unit creation end to end through the
+    // core on the real engine. A player is added before the neutral and the
+    // document follows the bridge (the table and every owner), a unit-creation
+    // edit - a party and an aircraft taken from the bridge's own choices - is
+    // one undo step that puts the exact old vector back, and a delete re-owns
+    // the player's objects, with undo and redo keeping the document, the
+    // engine and the map in step.
+    {
+        const entries_at_start = editor.document.diplomacy.items.len;
+        const depth_at_players = editor.history.undo_stack.items.len;
+        try editor.addPlayer(1);
+        try std.testing.expectEqual(entries_at_start + 1, editor.document.diplomacy.items.len);
+        try expectEngineMatches(&real);
+        try expectDocumentIsBridge(&real, &editor);
+        try std.testing.expectEqual(depth_at_players + 1, editor.history.undo_stack.items.len);
+        _ = try editor.undo();
+        try std.testing.expectEqual(entries_at_start, editor.document.diplomacy.items.len);
+        try expectDocumentIsBridge(&real, &editor);
+        _ = try editor.redo();
+        try std.testing.expectEqual(entries_at_start + 1, editor.document.diplomacy.items.len);
+        try expectEngineMatches(&real);
+
+        // The choices the combos offer, and a unit-creation put from them.
+        var party_names: [64]core.bridge.UcName = undefined;
+        var aircraft_names: [512]core.bridge.UcName = undefined;
+        var total: usize = 0;
+        try core.bridge.check(real.bridge().unitCreationChoices(.parties, &party_names, &total));
+        const party_total = total;
+        try std.testing.expect(party_total > 0);
+        try core.bridge.check(real.bridge().unitCreationChoices(.aircraft, &aircraft_names, &total));
+        try std.testing.expect(total > 0);
+        var unit = try editor.unitCreation(0);
+        const old_relax = unit.relax_time;
+        unit.relax_time = old_relax + 11;
+        unit.setParty(party_names[party_total - 1].nameSlice());
+        unit.aircraft[2].setName(aircraft_names[0].nameSlice());
+        unit.aircraft[2].formation_size = 3;
+        try editor.editUnitCreation(0, unit, 0);
+        const edited = try editor.unitCreation(0);
+        try std.testing.expectEqual(old_relax + 11, edited.relax_time);
+        try std.testing.expectEqualStrings(party_names[party_total - 1].nameSlice(), edited.partySlice());
+        // A party the data does not list is refused naming it, and nothing changes.
+        var bad = edited;
+        bad.setParty("Narnia");
+        try std.testing.expectError(error.Refused, editor.editUnitCreation(0, bad, 0));
+        try std.testing.expect(std.mem.indexOf(u8, editor.status(), "partys.xml") != null);
+        try std.testing.expect(edited.eql(try editor.unitCreation(0)));
+        _ = try editor.undo();
+        try std.testing.expectEqual(old_relax, (try editor.unitCreation(0)).relax_time);
+        _ = try editor.redo();
+        try std.testing.expectEqual(old_relax + 11, (try editor.unitCreation(0)).relax_time);
+        _ = try editor.undo();
+
+        // Delete player 0: its objects become the neutral's, the table shrinks.
+        const entries_before_delete = editor.document.diplomacy.items.len;
+        var owned_by_zero: usize = 0;
+        for (editor.document.objects.items) |object| {
+            if (object.player == 0) owned_by_zero += 1;
+        }
+        try editor.deletePlayer(0);
+        try std.testing.expectEqual(entries_before_delete - 1, editor.document.diplomacy.items.len);
+        const neutral: i32 = @intCast(editor.document.diplomacy.items.len - 1);
+        var now_neutral: usize = 0;
+        for (editor.document.objects.items) |object| {
+            if (object.player == neutral) now_neutral += 1;
+        }
+        try std.testing.expect(now_neutral >= owned_by_zero);
+        try expectEngineMatches(&real);
+        try expectDocumentIsBridge(&real, &editor);
+        _ = try editor.undo();
+        try std.testing.expectEqual(entries_before_delete, editor.document.diplomacy.items.len);
+        try expectDocumentIsBridge(&real, &editor);
+        _ = try editor.undo(); // the add
+        try std.testing.expectEqual(entries_at_start, editor.document.diplomacy.items.len);
+        try std.testing.expectEqual(depth_at_players, editor.history.undo_stack.items.len);
+        try expectEngineMatches(&real);
+        try expectDocumentIsBridge(&real, &editor);
+        std.debug.print("map-editor-engine: M3 players and unit creation round trip ok\n", .{});
+    }
+
     // M2 (04-09): reinforcement groups through the generic record path on the
     // real engine (readGroup's two passes, insert refusing a taken ID, delete
     // and undo). Read back through the raw C ABI, not RealBridge.

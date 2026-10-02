@@ -37,6 +37,13 @@
 //!    resizes it as the real one does) and the fake does not exempt the parcels
 //!    the file held when it was opened, only the ones the side holds now. The fake words the delete's summary one change at a time where the
 //!    real one groups ("start commands 2 and 5");
+//!  - players and the unit creation (05-05, D-30): a player add or delete keeps the
+//!    table (17 entries at most, the neutral last), the unit-creation vector, the
+//!    camera anchors and the owners of the objects as ONE logged edit; a unit-creation
+//!    put is checked against fixture lists (`uc_parties`, `uc_aircraft`, `uc_squads`)
+//!    and a name the entry or the opened file held is always taken back. The fake
+//!    renames no flag when an owner moves (the real bridge does), and an unknown-type
+//!    object can be deleted (Check Map's explicit fix) as in the real one;
 //!  - the ground is flat: `groundHeight` answers 0 on the map, where the real
 //!    one reads the terrain's altitudes;
 //!  - roads and rivers are not sampled: a record's key points are its control
@@ -302,7 +309,7 @@ const FakeBridgeEdit = struct { before: ?FakeBridgeGroup, after: ?FakeBridgeGrou
 /// A simulated fields apply: the object its fill added, when the test asked
 /// for one (`field_adds_object`) - undo takes it out, redo puts it back.
 const FakeFieldsEdit = struct { added: ?ObjectRecord = null };
-const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit, altitudes: FakeAltitudeEdit, fields: FakeFieldsEdit, move_objects: FakeMoveObjectsEdit, object_fields: FakeObjectFieldsEdit };
+const FakeEdit = union(enum) { vso: FakeVsoEdit, bridge: FakeBridgeEdit, build: FakeBuildEdit, altitudes: FakeAltitudeEdit, fields: FakeFieldsEdit, move_objects: FakeMoveObjectsEdit, object_fields: FakeObjectFieldsEdit, players: FakePlayersEdit };
 /// A toggle of built during play: the entry and its flag before and after.
 const FakeBuildEdit = struct { index: usize, before: bool, after: bool };
 /// One altitude region edit (M3, D-19): the region and its heights before
@@ -325,6 +332,22 @@ const FakeMoveObjectsEdit = struct { moves: std.ArrayListUnmanaged(FakeMovedMemb
 /// of name undoes exactly through it.
 const FakeObjectFieldsEdit = struct { link_id: i32, before: ObjectRecord, after: ObjectRecord };
 
+/// The table, the unit-creation vector and the camera anchors of a player edit
+/// (05-05, D-30), held whole like the real SPlayersEdit's SPlayersState.
+pub const max_player_entries = 17;
+const FakePlayersState = struct {
+    table: [max_player_entries]i32 = @splat(0),
+    table_len: usize = 0,
+    units: [records.max_uc_slots]records.UnitCreation = @splat(.{}),
+    units_len: usize = 0,
+    anchors: records.CameraAnchors = .{},
+};
+/// One object a player edit re-owned, with the name it had before and after
+/// (the fake keeps names: the real bridge renames a flag, the fake does not).
+const FakeOwnerChange = struct { link_id: i32, before_player: i32, after_player: i32 };
+/// A player add or delete as the fake's edit log keeps it.
+const FakePlayersEdit = struct { before: FakePlayersState, after: FakePlayersState, owners: std.ArrayListUnmanaged(FakeOwnerChange) = .empty };
+
 /// A mutable empty slice to start from; Allocator.free ignores a zero length.
 var no_tiles: [0]u8 = .{};
 var no_altitudes: [0]f32 = .{};
@@ -342,6 +365,18 @@ pub const FakeBridge = struct {
     /// The map's camera anchors (BkEditorCameraAnchors): world units, kept
     /// across a fake reopen like the sounds. `setCameraAnchorsFixture` seeds it.
     camera_anchors: records.CameraAnchors = .{},
+    /// The map's unit-creation vector (05-05, D-30): one entry per slot, the
+    /// vector's length being the slot count a record reads and a put sets. Kept
+    /// across a fake reopen like the anchors. `addUnitCreationFixture` seeds it.
+    unit_creation_list: std.ArrayListUnmanaged(records.UnitCreation) = .empty,
+    /// The vector as it was at the last open: a name the file held is always accepted
+    /// back by a put, however odd (the real bridge's openedUC* sets).
+    unit_creation_at_open: std.ArrayListUnmanaged(records.UnitCreation) = .empty,
+    /// The lists a unit-creation put is checked against and the combos offer
+    /// (partys.xml and the aviation / squads folders of the real database).
+    uc_parties: []const []const u8 = &.{ "USSR", "Germany", "Allies" },
+    uc_aircraft: []const []const u8 = &.{ "Po_2", "Yak-7", "Tb-3", "IL_2", "Ju-87" },
+    uc_squads: []const []const u8 = &.{ "USSR_rpd_43", "German_rpd_43" },
     /// The anchors as they were at the last open: a slot put back to its own
     /// value there is exempt from the on-the-map rule, as the real bridge's
     /// (WR-B03).
@@ -569,6 +604,7 @@ pub const FakeBridge = struct {
                     self.allocator.free(edit.after);
                 },
                 .move_objects => |*edit| edit.moves.deinit(self.allocator),
+                .players => |*edit| edit.owners.deinit(self.allocator),
                 else => {},
             }
         }
@@ -581,6 +617,8 @@ pub const FakeBridge = struct {
         self.undone_edits.deinit(self.allocator);
         self.object_filters.deinit(self.allocator);
         self.diplomacy_table.deinit(self.allocator);
+        self.unit_creation_list.deinit(self.allocator);
+        self.unit_creation_at_open.deinit(self.allocator);
         self.calls.deinit(self.allocator);
         self.allocator.free(self.tiles);
         self.allocator.free(self.altitudes_grid);
@@ -874,6 +912,7 @@ pub const FakeBridge = struct {
                     self.allocator.free(edit.after);
                 },
                 .move_objects => |*edit| edit.moves.deinit(self.allocator),
+                .players => |*edit| edit.owners.deinit(self.allocator),
                 else => {},
             }
         }
@@ -1033,6 +1072,9 @@ pub const FakeBridge = struct {
         .applyField = applyField,
         .fieldSetSeason = fieldSetSeason,
         .listRmg = listRmg,
+        .addPlayer = addPlayer,
+        .deletePlayer = deletePlayer,
+        .unitCreationChoices = unitCreationChoices,
     };
 
     /// The real builder's rules the core sees, without the sampling: drops a
@@ -1139,6 +1181,7 @@ pub const FakeBridge = struct {
                 const put = self.putObjectRecordBack(edit.link_id, &edit.before);
                 break :blk put;
             },
+            .players => |*edit| self.putPlayersState(&edit.before, edit.owners.items, false),
         };
         if (put != .ok) return put;
         _ = self.applied_edits.pop();
@@ -1176,6 +1219,7 @@ pub const FakeBridge = struct {
                 const put = self.putObjectRecordBack(edit.link_id, &edit.after);
                 break :blk put;
             },
+            .players => |*edit| self.putPlayersState(&edit.after, edit.owners.items, true),
         };
         if (put != .ok) return put;
         _ = self.undone_edits.pop();
@@ -2621,6 +2665,8 @@ pub const FakeBridge = struct {
                 return .failed;
             };
         }
+        self.unit_creation_at_open.clearRetainingCapacity();
+        self.unit_creation_at_open.appendSlice(self.allocator, self.unit_creation_list.items) catch return .failed;
         self.script_areas_at_open.clearRetainingCapacity();
         self.script_areas_at_open.appendSlice(self.allocator, self.script_areas.items) catch return .failed;
         self.start_commands_at_open.clearRetainingCapacity();
@@ -2757,10 +2803,8 @@ pub const FakeBridge = struct {
             self.say("no object with that link ID", .{});
             return .refused;
         };
-        if (!self.objects_list.items[index].known) {
-            self.say("the object database does not know this object's type; it is kept as it is", .{});
-            return .refused;
-        }
+        // An object the database does not know can be removed (05-05, D-33: Check
+        // Map's explicit fix); every other edit of one is refused.
         if (self.shared(link_id)) return .refused;
         if (self.bridgeHolding(link_id)) |bridge_index| {
             self.say("still referred to by bridge {d}", .{bridge_index});
@@ -2984,6 +3028,12 @@ pub const FakeBridge = struct {
                 if (key < 0 or key >= self.reserve_positions.items.len) return .bad_argument;
                 out.* = .{ .reserve_position = self.reserve_positions.items[@intCast(key)] };
             },
+            .unit_creation => {
+                if (key < 0 or key >= records.max_uc_slots) return .bad_argument;
+                var unit: records.UnitCreation = if (key < self.unit_creation_list.items.len) self.unit_creation_list.items[@intCast(key)] else records.UnitCreation.defaults();
+                unit.slot_count = @intCast(self.unit_creation_list.items.len);
+                out.* = .{ .unit_creation = unit };
+            },
             .ai_side => {
                 if (key < 0 or key >= records.max_ai_sides) return .bad_argument;
                 const count: u32 = @intCast(self.ai_sides.items.len);
@@ -3154,6 +3204,7 @@ pub const FakeBridge = struct {
                 for (keys, 0..) |*key_slot, index| key_slot.* = @intCast(index);
                 out.* = keys;
             },
+            .unit_creation => return .bad_argument,
             .ai_side => {
                 const keys = allocator.alloc(i32, self.ai_sides.items.len) catch return .failed;
                 for (keys, 0..) |*key_slot, index| key_slot.* = @intCast(index);
@@ -3175,7 +3226,7 @@ pub const FakeBridge = struct {
         const self = from(ptr);
         self.message_len = 0;
         switch (value.*) {
-            .camera_anchors, .script_file, .ai_side => return .bad_argument,
+            .camera_anchors, .script_file, .ai_side, .unit_creation => return .bad_argument,
             .script_area => |area| {
                 if (key < 0 or key > self.script_areas.items.len) return .bad_argument;
                 if (!self.areaPutAllowed(area, null)) return .refused;
@@ -3220,7 +3271,7 @@ pub const FakeBridge = struct {
         const self = from(ptr);
         self.message_len = 0;
         switch (kind) {
-            .camera_anchors, .script_file, .ai_side => return .bad_argument,
+            .camera_anchors, .script_file, .ai_side, .unit_creation => return .bad_argument,
             .script_area => {
                 if (key < 0 or key >= self.script_areas.items.len) return .bad_argument;
                 _ = self.script_areas.orderedRemove(@intCast(key));
@@ -3332,6 +3383,7 @@ pub const FakeBridge = struct {
                 self.record(.record_put, key);
             },
             .ai_side => |wanted| return self.putAiSide(key, wanted),
+            .unit_creation => |wanted| return self.putUnitCreation(key, wanted),
             .script_file => |wanted| {
                 if (key != 0) return .bad_argument;
                 // The real bridge's rule: None, a bare name, or the value the
@@ -3696,6 +3748,257 @@ pub const FakeBridge = struct {
         }
         self.say("the field set \"{s}\" is not in the data", .{wanted});
         return .refused;
+    }
+
+    // Players and the unit creation (05-05, D-30): the real bridge's rules the core
+    // can see - the 17-entry bound, the neutral kept last, the owners that follow,
+    // MutableValidate's name and range checks - over fixed-size state.
+
+    fn capturePlayers(self: *const FakeBridge) FakePlayersState {
+        var state: FakePlayersState = .{};
+        state.table_len = self.diplomacy_table.items.len;
+        for (self.diplomacy_table.items, 0..) |side, index| {
+            if (index < state.table.len) state.table[index] = side;
+        }
+        state.units_len = self.unit_creation_list.items.len;
+        for (self.unit_creation_list.items, 0..) |unit, index| {
+            if (index < state.units.len) state.units[index] = unit;
+        }
+        state.anchors = self.camera_anchors;
+        return state;
+    }
+
+    /// The table, vector and anchors of `state` and the owners of the changed
+    /// objects (the after-values when `after`).
+    fn putPlayersState(self: *FakeBridge, state: *const FakePlayersState, owners: []const FakeOwnerChange, after: bool) Status {
+        self.diplomacy_table.resize(self.allocator, state.table_len) catch return .failed;
+        for (self.diplomacy_table.items, 0..) |*side, index| side.* = state.table[index];
+        self.unit_creation_list.resize(self.allocator, state.units_len) catch return .failed;
+        for (self.unit_creation_list.items, 0..) |*unit, index| unit.* = state.units[index];
+        self.camera_anchors = state.anchors;
+        for (owners) |change| {
+            const index = self.indexOf(change.link_id) orelse return .failed;
+            self.objects_list.items[index].player = if (after) change.after_player else change.before_player;
+        }
+        return .ok;
+    }
+
+    fn logPlayersEdit(self: *FakeBridge, edit: FakePlayersEdit, token: *i32) Status {
+        self.edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        self.applied_edits.ensureUnusedCapacity(self.allocator, 1) catch return .failed;
+        const put = self.putPlayersState(&edit.after, edit.owners.items, true);
+        if (put != .ok) return put;
+        self.edits.appendAssumeCapacity(.{ .players = edit });
+        token.* = @intCast(self.edits.items.len - 1);
+        self.applied_edits.appendAssumeCapacity(token.*);
+        self.undone_edits.clearRetainingCapacity();
+        self.record(.vso_edit, token.*);
+        return .ok;
+    }
+
+    fn addPlayer(ptr: *anyopaque, side: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        if (side < 0 or side > 1) {
+            self.say("{d} is no side for a player: 0 and 1 are the two sides", .{side});
+            return .refused;
+        }
+        const len = self.diplomacy_table.items.len;
+        if (len == 0 or len >= max_player_entries) {
+            self.say("{s}", .{if (len == 0) "the map has no neutral player to add a player before" else "a map holds 16 players and the neutral"});
+            return .refused;
+        }
+        const new_index = len - 1;
+        var edit: FakePlayersEdit = .{ .before = self.capturePlayers(), .after = self.capturePlayers() };
+        errdefer edit.owners.deinit(self.allocator);
+        var after = &edit.after;
+        var i = after.table_len;
+        while (i > new_index) : (i -= 1) after.table[i] = after.table[i - 1];
+        after.table[new_index] = side;
+        after.table_len += 1;
+        if (after.units_len >= new_index and after.units_len < records.max_uc_slots) {
+            var u = after.units_len;
+            while (u > new_index) : (u -= 1) after.units[u] = after.units[u - 1];
+            after.units[new_index] = records.UnitCreation.defaults();
+            after.units_len += 1;
+        }
+        if (after.anchors.player_count >= new_index and after.anchors.player_count < records.max_camera_players) {
+            var a: usize = after.anchors.player_count;
+            while (a > new_index) : (a -= 1) after.anchors.players[a] = after.anchors.players[a - 1];
+            after.anchors.players[new_index] = .{};
+            after.anchors.player_count += 1;
+        }
+        for (self.objects_list.items) |object| {
+            if (object.player >= @as(i32, @intCast(new_index))) {
+                edit.owners.append(self.allocator, .{ .link_id = object.link_id, .before_player = object.player, .after_player = object.player + 1 }) catch return .failed;
+            }
+        }
+        return self.logPlayersEdit(edit, token);
+    }
+
+    fn deletePlayer(ptr: *anyopaque, player: i32, token: *i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        token.* = -1;
+        const len = self.diplomacy_table.items.len;
+        if (player < 0 or player >= @as(i32, @intCast(len)) - 1) {
+            if (len > 0 and player == @as(i32, @intCast(len)) - 1) {
+                self.say("the neutral player cannot be deleted", .{});
+            } else {
+                self.say("{d} is no player: the map holds {d}", .{ player, if (len > 0) len - 1 else 0 });
+            }
+            return .refused;
+        }
+        if (len - 1 < 3) {
+            self.say("a map keeps at least two players and the neutral", .{});
+            return .refused;
+        }
+        const gone: usize = @intCast(player);
+        const neutral: i32 = @as(i32, @intCast(len)) - 2;
+        var edit: FakePlayersEdit = .{ .before = self.capturePlayers(), .after = self.capturePlayers() };
+        errdefer edit.owners.deinit(self.allocator);
+        var after = &edit.after;
+        var i = gone;
+        while (i + 1 < after.table_len) : (i += 1) after.table[i] = after.table[i + 1];
+        after.table_len -= 1;
+        if (after.units_len > gone) {
+            var u = gone;
+            while (u + 1 < after.units_len) : (u += 1) after.units[u] = after.units[u + 1];
+            after.units_len -= 1;
+        }
+        if (after.anchors.player_count > gone) {
+            var a = gone;
+            while (a + 1 < after.anchors.player_count) : (a += 1) after.anchors.players[a] = after.anchors.players[a + 1];
+            after.anchors.player_count -= 1;
+            after.anchors.players[after.anchors.player_count] = .{};
+        }
+        for (self.objects_list.items) |object| {
+            const moved: i32 = if (object.player == player) neutral else if (object.player > player) object.player - 1 else object.player;
+            if (moved != object.player) {
+                edit.owners.append(self.allocator, .{ .link_id = object.link_id, .before_player = object.player, .after_player = moved }) catch return .failed;
+            }
+        }
+        return self.logPlayersEdit(edit, token);
+    }
+
+    fn ucNameKnown(name: []const u8, list: []const []const u8) bool {
+        for (list) |known| {
+            if (std.mem.eql(u8, known, name)) return true;
+        }
+        return false;
+    }
+
+    /// Whether the file held `name` as a party (0), an aircraft (1) or a paratroop
+    /// squad (2) in any entry when the map was opened.
+    fn ucOpenedHas(self: *const FakeBridge, kind: u8, name: []const u8) bool {
+        for (self.unit_creation_at_open.items) |unit| {
+            switch (kind) {
+                0 => if (std.mem.eql(u8, unit.partySlice(), name)) return true,
+                1 => for (unit.aircraft) |slot| {
+                    if (std.mem.eql(u8, slot.nameSlice(), name)) return true;
+                },
+                else => if (std.mem.eql(u8, unit.paratroopSlice(), name)) return true,
+            }
+        }
+        return false;
+    }
+
+    /// The real SetSessionUnitCreation's rules, as far as the fake can see them: a
+    /// field that differs from the entry's own is held to its list or range; the
+    /// refusal names the field. A name the entry holds now or any entry held when
+    /// the map was opened is always accepted back (an undo of the file's own data).
+    fn putUnitCreation(self: *FakeBridge, key: i32, wanted: records.UnitCreation) Status {
+        if (key < 0 or key >= records.max_uc_slots or wanted.slot_count > records.max_uc_slots) return .bad_argument;
+        const have = self.unit_creation_list.items.len;
+        const players = @max(self.diplomacy_table.items.len -| 1, have);
+        if (@as(usize, @intCast(key)) >= players) {
+            self.say("{d} is no player: the map holds {d}", .{ key, players });
+            return .refused;
+        }
+        const slots: usize = wanted.slot_count;
+        if (slots > have) {
+            self.unit_creation_list.ensureTotalCapacity(self.allocator, slots) catch return .failed;
+        }
+        if (slots > @as(usize, @intCast(key))) {
+            const current = if (@as(usize, @intCast(key)) < have) self.unit_creation_list.items[@intCast(key)] else records.UnitCreation.defaults();
+            if (!std.mem.eql(u8, wanted.partySlice(), current.partySlice()) and !ucNameKnown(wanted.partySlice(), self.uc_parties) and !self.ucOpenedHas(0, wanted.partySlice())) {
+                self.say("the party \"{s}\" is not in partys.xml", .{wanted.partySlice()});
+                return .refused;
+            }
+            for (wanted.aircraft, current.aircraft, 0..) |slot, held, index| {
+                if (slot.nameSlice().len == 0 or (!std.mem.eql(u8, slot.nameSlice(), held.nameSlice()) and !ucNameKnown(slot.nameSlice(), self.uc_aircraft) and !self.ucOpenedHas(1, slot.nameSlice()))) {
+                    self.say("{s}: \"{s}\" is no aircraft of the object database", .{ records.uc_aircraft_labels[index], slot.nameSlice() });
+                    return .refused;
+                }
+                if (slot.formation_size != held.formation_size and (slot.formation_size < 1 or slot.formation_size > 32)) {
+                    self.say("{s}: formation size {d} is outside 1..32", .{ records.uc_aircraft_labels[index], slot.formation_size });
+                    return .refused;
+                }
+                if (slot.count != held.count and (slot.count < 0 or slot.count > 255)) {
+                    self.say("{s}: count {d} is outside 0..255", .{ records.uc_aircraft_labels[index], slot.count });
+                    return .refused;
+                }
+            }
+            if (!std.mem.eql(u8, wanted.paratroopSlice(), current.paratroopSlice()) and !ucNameKnown(wanted.paratroopSlice(), self.uc_squads) and !self.ucOpenedHas(2, wanted.paratroopSlice())) {
+                self.say("the paratroop squad \"{s}\" is no squad of the object database", .{wanted.paratroopSlice()});
+                return .refused;
+            }
+            if (wanted.paratroop_count != current.paratroop_count and (wanted.paratroop_count < 0 or wanted.paratroop_count > 255)) {
+                self.say("the paratroop squads count {d} is outside 0..255", .{wanted.paratroop_count});
+                return .refused;
+            }
+            if (wanted.relax_time != current.relax_time and wanted.relax_time < 1) {
+                self.say("the relax time {d} is below 1 second", .{wanted.relax_time});
+                return .refused;
+            }
+            for (wanted.appearSlice()) |point| {
+                var held = false;
+                for (current.appearSlice()) |existing| {
+                    if (existing.eql(point)) held = true;
+                }
+                if (!held and !self.onMapAt(point.x, point.y)) {
+                    self.say("the appear point ({d:.1}, {d:.1}) is off the map", .{ point.x, point.y });
+                    return .refused;
+                }
+            }
+        }
+        var stored = wanted;
+        stored.slot_count = 0;
+        self.unit_creation_list.resize(self.allocator, slots) catch return .failed;
+        if (slots > have) {
+            for (self.unit_creation_list.items[have..]) |*padded| padded.* = records.UnitCreation.defaults();
+        }
+        if (slots > @as(usize, @intCast(key))) self.unit_creation_list.items[@intCast(key)] = stored;
+        self.record(.record_put, key);
+        return .ok;
+    }
+
+    fn unitCreationChoices(ptr: *anyopaque, kind: bridge_mod.UcChoice, out: []bridge_mod.UcName, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        const list = switch (kind) {
+            .parties => self.uc_parties,
+            .aircraft => self.uc_aircraft,
+            .squads => self.uc_squads,
+        };
+        total.* = list.len;
+        if (out.len < list.len) return .refused;
+        for (list, 0..) |name, i| {
+            var entry = bridge_mod.UcName{};
+            const len = @min(name.len, entry.name.len - 1);
+            @memcpy(entry.name[0..len], name[0..len]);
+            out[i] = entry;
+        }
+        return .ok;
+    }
+
+    /// One player's unit creation before the map opens (05-05): appended to the
+    /// vector, so the slot count grows by one.
+    pub fn addUnitCreationFixture(self: *FakeBridge, unit: records.UnitCreation) !void {
+        var stored = unit;
+        stored.slot_count = 0;
+        try self.unit_creation_list.append(self.allocator, stored);
     }
 
     fn listRmg(ptr: *anyopaque, kind: bridge_mod.RmgKind, out: []bridge_mod.RmgName, total: *usize) Status {
@@ -4316,7 +4619,8 @@ test "the fake refuses what the bridge refuses" {
     var info: MapInfo = .{};
     try std.testing.expectEqual(Status.ok, b.openMap("fixture.bzm", &info));
     try std.testing.expectEqual(Status.refused, b.deleteObject(2)); // referenced
-    try std.testing.expectEqual(Status.refused, b.deleteObject(3)); // unknown type
+    try std.testing.expectEqual(Status.ok, b.deleteObject(3)); // unknown type: its removal is explicit (D-33); every other edit refuses
+    try std.testing.expectEqual(Status.ok, b.restoreObject(3));
     try std.testing.expectEqual(Status.refused, b.placeObject(3, 10, 10, 0, 1)); // unknown type
     try std.testing.expectEqual(Status.refused, b.placeObject(1, -5, 10, 0, 0)); // off the map
     var link: i32 = -1;

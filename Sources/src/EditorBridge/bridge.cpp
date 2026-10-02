@@ -2462,6 +2462,133 @@ BkEditorStatus BkEditorUnlink( BkEditorSession *pSession, int nLinkID, int *pnTo
 	} );
 }
 
+BkEditorStatus BkEditorAddPlayer( BkEditorSession *pSession, int nSide, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnToken == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( AddPlayerToSession( pSession, nSide, &bRefused, pnToken ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorDeletePlayer( BkEditorSession *pSession, int nPlayer, int *pnToken )
+{
+	if ( pnToken != 0 )
+		*pnToken = -1;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnToken == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( DeletePlayerFromSession( pSession, nPlayer, &bRefused, pnToken ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorUnitCreation( BkEditorSession *pSession, int nPlayer, BkEditorUnitCreationRecord *pOut )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( ReadSessionUnitCreation( pSession, nPlayer, pOut, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+namespace {
+// The caller-bug checks BkEditorSetUnitCreation documents as
+// BK_EDITOR_BAD_ARGUMENT: a record whose names end inside their arrays, counts
+// the arrays carry, a slot count of 0..16, finite points.
+// Whether a NAME is a known one is the session's, a refusal.
+bool UnitCreationWellFormed( int nPlayer, const BkEditorUnitCreationRecord *pRecord )
+{
+	if ( pRecord == 0 || nPlayer < 0 || nPlayer >= 16 )
+		return false;
+	if ( pRecord->slot_count < 0 || pRecord->slot_count > 16 )
+		return false;
+	if ( pRecord->appear_count < 0 || pRecord->appear_count > int( sizeof pRecord->appear / sizeof pRecord->appear[0] ) )
+		return false;
+	if ( memchr( pRecord->party, 0, sizeof pRecord->party ) == 0 || memchr( pRecord->paratroop_name, 0, sizeof pRecord->paratroop_name ) == 0 )
+		return false;
+	for ( int i = 0; i < 5; ++i )
+		if ( memchr( pRecord->aircraft[i].name, 0, sizeof pRecord->aircraft[i].name ) == 0 )
+			return false;
+	for ( int i = 0; i < pRecord->appear_count; ++i )
+		if ( !std::isfinite( pRecord->appear[i].x ) || !std::isfinite( pRecord->appear[i].y ) || !std::isfinite( pRecord->appear[i].z ) )
+			return false;
+	return true;
+}
+}
+
+BkEditorStatus BkEditorSetUnitCreation( BkEditorSession *pSession, int nPlayer, const BkEditorUnitCreationRecord *pRecord )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( !UnitCreationWellFormed( nPlayer, pRecord ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !pSession->bMapOpen )
+		{
+			pSession->szMessage = "no map is open";
+			return BK_EDITOR_REFUSED;
+		}
+		bool bRefused = false;
+		if ( SetSessionUnitCreation( pSession, nPlayer, *pRecord, &bRefused ) )
+			return BK_EDITOR_OK;
+		return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+	} );
+}
+
+BkEditorStatus BkEditorUnitCreationChoices( BkEditorSession *pSession, int nKind, BkEditorUcName *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == 0 || nCapacity < 0 || ( pOut == 0 && nCapacity > 0 ) || nKind < 0 || nKind > 2 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		std::vector<std::string> names;
+		if ( !ListUnitCreationChoices( pSession, nKind, &names ) )
+			return BK_EDITOR_FAILED;
+		*pnCount = int( names.size() );
+		const int nWrite = Min( int( names.size() ), nCapacity );
+		for ( int i = 0; i < nWrite; ++i )
+		{
+			memset( &pOut[i], 0, sizeof pOut[i] );
+			const size_t nCopy = Min( names[i].size(), sizeof pOut[i].name - 1 );
+			memcpy( pOut[i].name, names[i].c_str(), nCopy );
+		}
+		if ( int( names.size() ) > nCapacity )
+		{
+			pSession->szMessage = NStr::Format( "the list holds %d names and room was given for %d", int( names.size() ), nCapacity );
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorDamageObject( BkEditorSession *pSession, int nLinkID, float fDelta, int nMode, int *pnToken )
 {
 	if ( pnToken != 0 )

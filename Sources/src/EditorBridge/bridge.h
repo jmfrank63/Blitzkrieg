@@ -187,8 +187,11 @@ BkEditorStatus BkEditorSetObjectPlayer( BkEditorSession *session, int link_id, i
    object and every one of those changes exactly. BK_EDITOR_REFUSED, changing
    nothing, for the three things the game's loaders and M3's links depend on: a
    bridge span, a trench piece, and an object carrying a passenger; and for an
-   object the database does not know, and one whose link ID other objects
-   share. */
+   object whose link ID other objects share. An object the database does not
+   know CAN be deleted (05-05, D-33): Check Map's Fix all offers its removal
+   explicitly, replacing the MFC's silent RemoveNonExistingObjects, and the
+   restore brings the record back byte for byte - every other edit of one is
+   still refused. */
 BkEditorStatus BkEditorDeleteObject( BkEditorSession *session, int link_id );
 /* Puts a deleted object back as it was: same record, same link ID, same place
    in its list, and in the engine where it stood. Undo of a delete, and redo of
@@ -1090,6 +1093,92 @@ BkEditorStatus BkEditorUnlink( BkEditorSession *session, int link_id, int *out_t
    BK_EDITOR_BAD_ARGUMENT. The clamps leaving nothing to change answers OK
    with *out_token -1. */
 BkEditorStatus BkEditorDamageObject( BkEditorSession *session, int link_id, float delta, int mode, int *out_token );
+
+/* Players (M3, D-30). The map's diplomacy table holds one entry per player and
+   the neutral player LAST: 0 and 1 are the two sides, 2 the neutral; the most
+   a map holds is 16 players and the neutral (17 entries), the fewest two
+   players and the neutral.
+
+   BkEditorAddPlayer adds a player of `side` (0 or 1) just before the neutral
+   entry, the MFC dialog's own insert: the new player takes the neutral's
+   index, the neutral moves up by one and so do the objects of the neutral (an
+   owner index at or above the old neutral's moves up, so the neutral's objects
+   stay the neutral's). The player's unit creation and camera anchor are added
+   when the file held entries at that place to shift.
+   BkEditorDeletePlayer deletes player `player` (0 .. entries-2: never the
+   neutral): the players above it move down by one with their unit creation,
+   camera anchors and objects, and the deleted player's objects become the
+   neutral's. Each is ONE edit of the log (out_token names it for
+   BkEditorUndoEdit/RedoEdit; -1 after a refusal): undo puts the diplomacies,
+   the unit creation, the camera anchors and every re-owned object back, raw,
+   byte for byte. A flag that changes owner follows the properties' own swap
+   (Flag_<the party's general side>). BK_EDITOR_REFUSED, changing nothing, for
+   a side outside 0..1, a table already at 17 entries (or one that would fall
+   below 3), the neutral entry or a player out of range; BK_EDITOR_BAD_ARGUMENT
+   for a null out_token; BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorAddPlayer( BkEditorSession *session, int side, int *out_token );
+BkEditorStatus BkEditorDeletePlayer( BkEditorSession *session, int player, int *out_token );
+
+/* One player's Unit Creation Info (M3, D-30; the MFC's "Map Unit Creation
+   Property", one entry of the map's SUnitCreationInfo): the party (a name of
+   partys.xml), five aviation slots in the file's order - scouts, fighters,
+   paradroppers, bombers, attack planes - each an aircraft name with a
+   formation size and a plane count, the paratroop squad with its count, the
+   relax time in seconds and the appear points. Appear points are MAP (AI)
+   units, as the file holds them (the MFC's points list shows them divided by
+   64). slot_count is the size of the map's unit-creation vector, 0..16:
+   a put makes the vector exactly that long (an undo restores the old size
+   byte for byte), so a caller raising it for a player the vector does not hold
+   yet sets slot_count to at least player + 1; a put whose slot_count does not
+   reach the player only sets the size (the entry is not stored, and not
+   checked: it is the defaults a read of that player answered). */
+typedef struct { char name[64]; int formation_size; int count; } BkEditorUcAircraft;
+typedef struct
+{
+	int slot_count;
+	char party[64];
+	BkEditorUcAircraft aircraft[5];
+	char paratroop_name[64];
+	int paratroop_count;
+	int relax_time;
+	int appear_count;      /* 0..32 */
+	BkEditorVec3 appear[32];
+} BkEditorUnitCreationRecord;
+
+/* The snapshot's unit creation of `player` (0..15). A player the vector does
+   not hold yet reads as the defaults the game's own Validate fills in (and
+   slot_count says how long the vector is). BK_EDITOR_REFUSED, naming why, for
+   a map whose entry does not fit the record (a name of 64 characters or more,
+   more than 32 appear points, a vector longer than 16) - it saves byte-exact
+   untouched - and for a player outside 0..15; BK_EDITOR_BAD_ARGUMENT for a null
+   out; BK_EDITOR_REFUSED with no map open. */
+BkEditorStatus BkEditorUnitCreation( BkEditorSession *session, int player, BkEditorUnitCreationRecord *out );
+
+/* An exact put of one player's unit creation into the snapshot and the working
+   copy together, validated like the MFC's MutableValidate and the manipulators'
+   combos: the party must be in partys.xml, an aircraft a unit of an
+   "aviation" folder of the object database, the paratroop squad a squad of a
+   "squads" folder, a formation size 1..32, a plane and a paratroop count
+   0..255, the relax time 1 or more (the file reader turns 0 into 20), every
+   appear point on the map. A value the file held when the map was opened (or
+   the entry holds now) is always accepted, so an undo of an edit of a file's
+   own odd data cannot fail. The refusal names the field. The engine is
+   untouched: unit creation matters only when a mission starts. BK_EDITOR_REFUSED
+   changes nothing; BK_EDITOR_BAD_ARGUMENT for a null record, a player outside
+   0..15, a slot_count outside 0..16, counts
+   outside the record's arrays, or a non-finite point or unterminated name. */
+BkEditorStatus BkEditorSetUnitCreation( BkEditorSession *session, int player, const BkEditorUnitCreationRecord *record );
+
+/* The names a unit-creation field chooses from (M3, D-30): kind 0 the parties
+   of partys.xml, 1 the aircraft (every unit of an "aviation" folder of the
+   object database), 2 the paratroop squads (every squad of a "squads"
+   folder), each in the order the source lists them. Two-pass like
+   BkEditorListRmg: out_count is always the total, a capacity below it is
+   BK_EDITOR_REFUSED after writing what fits, out may be null with capacity 0.
+   BK_EDITOR_BAD_ARGUMENT for a null out_count, a negative capacity or a kind
+   outside 0..2. */
+typedef struct { char name[64]; } BkEditorUcName;
+BkEditorStatus BkEditorUnitCreationChoices( BkEditorSession *session, int kind, BkEditorUcName *out, int capacity, int *out_count );
 
 /* The map's script file (04-10, D-20): CMapInfo::szScriptFile, the name of the
    Lua file the game loads from the map's own folder (the game adds ".lua"). The

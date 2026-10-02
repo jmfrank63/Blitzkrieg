@@ -1544,3 +1544,601 @@ bool SetSessionAIGeneralSide( SEditorSession *pSession, int nSide, int nSideCoun
 	}
 	return true;
 }
+
+// ---------------------------------------------------------------------------
+// Players and the Unit Creation Info (M3, D-30)
+// ---------------------------------------------------------------------------
+
+namespace {
+// The most unit-creation entries and appear points the ABI's record carries.
+const int nMaxUnitCreationSlots = 16;
+const int nMaxAppearPoints = 32;
+const int nMaxFormationSize = 32;
+const int nMaxPlaneCount = 255;
+
+const char *const UC_AIRCRAFT_TYPE_NAMES[5] = { "Scouts", "Fighters", "Paradropers", "Bombers", "Attack planes" };
+
+// The state of the map a player edit changes besides the owners: the table, the
+// unit creation and the player camera anchors, held whole so an undo puts back
+// the exact vectors (their sizes included) the file had.
+struct SPlayersState
+{
+	std::vector<BYTE> diplomacies;
+	std::vector<SUnitCreation> units;
+	std::vector<CVec3> anchors;
+};
+
+// One object whose owner (and, for a flag, whose type name) an edit changed.
+// The place is the list and the index in it: both copies hold their objects in
+// the same order, and an undo happens with the map exactly as the edit left it.
+struct SOwnerChange
+{
+	int nList;
+	int nIndex;
+	int nLinkID;
+	int nOwnerBefore, nOwnerAfter;
+	std::string szNameBefore, szNameAfter;
+	SOwnerChange() : nList( 0 ), nIndex( 0 ), nLinkID( 0 ), nOwnerBefore( 0 ), nOwnerAfter( 0 ) {  }
+};
+
+std::vector<SMapObjectInfo>* ObjectList( CMapInfo *pMap, int nList )
+{
+	return nList == 0 ? &pMap->objects : &pMap->scenarioObjects;
+}
+
+void CapturePlayersState( const CMapInfo &rMap, SPlayersState *pState )
+{
+	pState->diplomacies = rMap.diplomacies;
+	pState->units = rMap.unitCreation.units;
+	pState->anchors = rMap.playersCameraAnchors;
+}
+
+void PutPlayersStateRaw( CMapInfo *pMap, const SPlayersState &rState )
+{
+	pMap->diplomacies = rState.diplomacies;
+	pMap->unitCreation.units = rState.units;
+	pMap->playersCameraAnchors = rState.anchors;
+}
+
+// Both copies hold the member where the change names it, as the same object.
+bool MemberIsThere( SEditorSession *pSession, const SOwnerChange &rMember )
+{
+	CMapInfo *maps[2] = { &pSession->snapshot, &pSession->working };
+	for ( int i = 0; i < 2; ++i )
+	{
+		std::vector<SMapObjectInfo> *pList = ObjectList( maps[i], rMember.nList );
+		if ( rMember.nIndex < 0 || rMember.nIndex >= int( pList->size() ) || (*pList)[rMember.nIndex].link.nLinkID != rMember.nLinkID )
+			return false;
+	}
+	return true;
+}
+
+void PutOwnerRaw( CMapInfo *pMap, const SOwnerChange &rMember, bool bAfter )
+{
+	SMapObjectInfo &rObject = (*ObjectList( pMap, rMember.nList ))[rMember.nIndex];
+	rObject.nPlayer = bAfter ? rMember.nOwnerAfter : rMember.nOwnerBefore;
+	rObject.szName = bAfter ? rMember.szNameAfter : rMember.szNameBefore;
+}
+
+// The records of the members, both copies, and the engine's owner of each:
+// a flag's owner is its type (the engine holds flags unowned, as
+// PutObjectRecordBack knows), anything else is handed the new index.
+bool PutOwners( SEditorSession *pSession, const std::vector<SOwnerChange> &rMembers, bool bAfter )
+{
+	for ( size_t i = 0; i < rMembers.size(); ++i )
+		if ( !MemberIsThere( pSession, rMembers[i] ) )
+		{
+			pSession->szMessage = "the objects no longer match the player edit; reopen the map";
+			return false;
+		}
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	for ( size_t i = 0; i < rMembers.size(); ++i )
+	{
+		const SOwnerChange &rMember = rMembers[i];
+		PutOwnerRaw( &pSession->snapshot, rMember, bAfter );
+		PutOwnerRaw( &pSession->working, rMember, bAfter );
+		const SGDBObjectDesc *pDesc = pObjectsDB != 0 ? pObjectsDB->GetDesc( ( bAfter ? rMember.szNameBefore : rMember.szNameAfter ).c_str() ) : 0;
+		if ( pDesc != 0 && pDesc->eGameType == SGVOGT_FLAG )
+			continue;
+		std::unordered_map<int, CPtr<IRefCount> >::const_iterator itEngine = pSession->byLinkID.find( rMember.nLinkID );
+		if ( pAIEditor != 0 && itEngine != pSession->byLinkID.end() )
+		{
+			IRefCount *pAIObject = itEngine->second;
+			pAIEditor->SetPlayer( pAIObject, bAfter ? rMember.nOwnerAfter : rMember.nOwnerBefore );
+		}
+	}
+	return true;
+}
+
+// The table, the unit creation and the anchors of a state, both copies, and the
+// engine's diplomacies.
+void PutTable( SEditorSession *pSession, const SPlayersState &rState )
+{
+	PutPlayersStateRaw( &pSession->snapshot, rState );
+	PutPlayersStateRaw( &pSession->working, rState );
+	if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+		pAIEditor->SetDiplomacies( pSession->snapshot.diplomacies );
+}
+
+// A state and its owners put in, the bigger of the two tables in force while
+// the engine's owners move: an owner is always an index of the table then.
+bool ApplyPlayersState( SEditorSession *pSession, const SPlayersState &rState, const std::vector<SOwnerChange> &rMembers, bool bAfter )
+{
+	const bool bTableFirst = rState.diplomacies.size() >= pSession->snapshot.diplomacies.size();
+	if ( bTableFirst )
+	{
+		PutTable( pSession, rState );
+		if ( !PutOwners( pSession, rMembers, bAfter ) )
+			return false;
+	}
+	else
+	{
+		if ( !PutOwners( pSession, rMembers, bAfter ) )
+			return false;
+		PutTable( pSession, rState );
+	}
+	UpdateSessionWorld( pSession );
+	return true;
+}
+
+// ONE player edit of the log (D-30): the table, unit creation and anchors
+// before and after, and every object whose owner moved. Revert and Reapply put
+// them back raw - nothing is derived again.
+struct SPlayersEdit : public IEditRecord
+{
+	SPlayersState before, after;
+	std::vector<SOwnerChange> members;
+
+	virtual bool Revert( SEditorSession *pSession )
+	{
+		return ApplyPlayersState( pSession, before, members, false );
+	}
+	virtual bool Reapply( SEditorSession *pSession )
+	{
+		return ApplyPlayersState( pSession, after, members, true );
+	}
+};
+
+// The owners of every object of both lists, with the names, before an edit.
+struct SOwnerSnapshot
+{
+	std::vector<int> owners[2];
+	std::vector<std::string> names[2];
+};
+
+void CaptureOwners( CMapInfo *pMap, SOwnerSnapshot *pOut )
+{
+	for ( int nList = 0; nList < 2; ++nList )
+	{
+		const std::vector<SMapObjectInfo> &rList = *ObjectList( pMap, nList );
+		pOut->owners[nList].clear();
+		pOut->names[nList].clear();
+		for ( size_t i = 0; i < rList.size(); ++i )
+		{
+			pOut->owners[nList].push_back( rList[i].nPlayer );
+			pOut->names[nList].push_back( rList[i].szName );
+		}
+	}
+}
+
+// What an edit that changed the snapshot's owners moved: the objects whose owner
+// differs from `rBefore`, a flag renamed to its new owner's party.
+void CollectOwnerChanges( SEditorSession *pSession, const SOwnerSnapshot &rBefore, std::vector<SOwnerChange> *pMembers )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	for ( int nList = 0; nList < 2; ++nList )
+	{
+		std::vector<SMapObjectInfo> &rList = *ObjectList( &pSession->snapshot, nList );
+		for ( size_t i = 0; i < rList.size() && i < rBefore.owners[nList].size(); ++i )
+		{
+			if ( rList[i].nPlayer == rBefore.owners[nList][i] )
+				continue;
+			SOwnerChange member;
+			member.nList = nList;
+			member.nIndex = int( i );
+			member.nLinkID = rList[i].link.nLinkID;
+			member.nOwnerBefore = rBefore.owners[nList][i];
+			member.nOwnerAfter = rList[i].nPlayer;
+			member.szNameBefore = rBefore.names[nList][i];
+			member.szNameAfter = rBefore.names[nList][i];
+			// A flag follows its owner: Flag_<the party's general side>, the
+			// properties' own swap; a type the database lacks keeps its name.
+			const SGDBObjectDesc *pDesc = pObjectsDB != 0 ? pObjectsDB->GetDesc( member.szNameBefore.c_str() ) : 0;
+			if ( pDesc != 0 && pDesc->eGameType == SGVOGT_FLAG )
+			{
+				const std::string szFlag = "Flag_" + FlagPartyName( pSession, member.nOwnerAfter );
+				if ( pObjectsDB->GetDesc( szFlag.c_str() ) != 0 )
+					member.szNameAfter = szFlag;
+			}
+			pMembers->push_back( member );
+		}
+	}
+}
+
+// Logs a player edit whose after-state is the snapshot as the NMapRecords call
+// left it: the snapshot goes back to `before` (records only), then the state is
+// applied the way an undo's redo would - both copies and the engine at once.
+bool CommitPlayersEdit( SEditorSession *pSession, const SPlayersState &rBefore, const SOwnerSnapshot &rOwnersBefore, bool *pbRefused, int *pnToken )
+{
+	std::unique_ptr<SPlayersEdit> pEdit( new SPlayersEdit() );
+	pEdit->before = rBefore;
+	CapturePlayersState( pSession->snapshot, &pEdit->after );
+	CollectOwnerChanges( pSession, rOwnersBefore, &pEdit->members );
+	// The snapshot's records back to what they were, so the apply is the same
+	// path an undo's redo takes.
+	PutPlayersStateRaw( &pSession->snapshot, pEdit->before );
+	for ( size_t i = 0; i < pEdit->members.size(); ++i )
+		PutOwnerRaw( &pSession->snapshot, pEdit->members[i], false );
+	if ( !ApplyPlayersState( pSession, pEdit->after, pEdit->members, true ) )
+	{
+		// Back to the state before; the apply's own refusal names why.
+		PutPlayersStateRaw( &pSession->snapshot, pEdit->before );
+		PutPlayersStateRaw( &pSession->working, pEdit->before );
+		for ( size_t i = 0; i < pEdit->members.size(); ++i )
+		{
+			if ( MemberIsThere( pSession, pEdit->members[i] ) )
+			{
+				PutOwnerRaw( &pSession->snapshot, pEdit->members[i], false );
+				PutOwnerRaw( &pSession->working, pEdit->members[i], false );
+			}
+		}
+		if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+			pAIEditor->SetDiplomacies( pSession->snapshot.diplomacies );
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	*pnToken = LogEdit( pSession, pEdit.release() );
+	return true;
+}
+}
+
+bool AddPlayerToSession( SEditorSession *pSession, int nSide, bool *pbRefused, int *pnToken )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	*pnToken = -1;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		if ( pSession != 0 ) pSession->szMessage = "no map is open";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( nSide < 0 || nSide > 1 )
+	{
+		pSession->szMessage = NStr::Format( "%d is no side for a player: 0 and 1 are the two sides", nSide );
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( pSession->snapshot.diplomacies.empty() || int( pSession->snapshot.diplomacies.size() ) >= NMapRecords::nMaxPlayerEntries )
+	{
+		pSession->szMessage = pSession->snapshot.diplomacies.empty() ? "the map has no neutral player to add a player before" : "a map holds 16 players and the neutral";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	SPlayersState before;
+	CapturePlayersState( pSession->snapshot, &before );
+	SOwnerSnapshot owners;
+	CaptureOwners( &pSession->snapshot, &owners );
+	if ( !NMapRecords::InsertPlayer( &pSession->snapshot, BYTE( nSide ) ) )
+	{
+		pSession->szMessage = "the player could not be added";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	return CommitPlayersEdit( pSession, before, owners, pbRefused, pnToken );
+}
+
+bool DeletePlayerFromSession( SEditorSession *pSession, int nPlayer, bool *pbRefused, int *pnToken )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	*pnToken = -1;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		if ( pSession != 0 ) pSession->szMessage = "no map is open";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	const int nEntries = int( pSession->snapshot.diplomacies.size() );
+	if ( nPlayer < 0 || nPlayer >= nEntries - 1 )
+	{
+		pSession->szMessage = nPlayer == nEntries - 1 ? "the neutral player cannot be deleted" : NStr::Format( "%d is no player: the map holds %d", nPlayer, Max( nEntries - 1, 0 ) );
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( nEntries - 1 < NMapRecords::nMinPlayerEntries )
+	{
+		pSession->szMessage = "a map keeps at least two players and the neutral";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	SPlayersState before;
+	CapturePlayersState( pSession->snapshot, &before );
+	SOwnerSnapshot owners;
+	CaptureOwners( &pSession->snapshot, &owners );
+	if ( !NMapRecords::ErasePlayer( &pSession->snapshot, nPlayer ) )
+	{
+		pSession->szMessage = "the player could not be deleted";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	return CommitPlayersEdit( pSession, before, owners, pbRefused, pnToken );
+}
+
+namespace {
+bool NameFits( const std::string &rszName )
+{
+	return rszName.size() < sizeof( ( (BkEditorUnitCreationRecord*)0 )->party );
+}
+
+void CopyName( char *pDest, size_t nSize, const std::string &rszName )
+{
+	memset( pDest, 0, nSize );
+	memcpy( pDest, rszName.c_str(), Min( rszName.size(), nSize - 1 ) );
+}
+
+// The aircraft and the paratroop squads a unit-creation combo offers: the MFC
+// CUCHelper::Initialize's own scan of the object database - a unit under a folder
+// with "aviation" in its name, a squad under one with "squads".
+void CollectUnitCreationLists( std::vector<std::string> *pAircraft, std::vector<std::string> *pSquads )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+		return;
+	const SGDBObjectDesc *pDescs = pObjectsDB->GetAllDescs();
+	const int nDescs = pObjectsDB->GetNumDescs();
+	for ( int i = 0; i < nDescs; ++i )
+	{
+		std::vector<std::string> parts;
+		NStr::SplitString( pDescs[i].szPath, parts, '\\' );
+		for ( size_t j = 0; j < parts.size(); ++j )
+		{
+			std::string szPart = parts[j];
+			NStr::ToLower( szPart );
+			if ( szPart.find( "aviation" ) != std::string::npos && pDescs[i].eGameType == SGVOGT_UNIT )
+			{
+				if ( pAircraft != 0 ) pAircraft->push_back( pDescs[i].szKey );
+				break;
+			}
+			else if ( szPart.find( "squads" ) != std::string::npos && pDescs[i].eGameType == SGVOGT_SQUAD )
+			{
+				if ( pSquads != 0 ) pSquads->push_back( pDescs[i].szKey );
+				break;
+			}
+		}
+	}
+}
+
+bool IsIn( const std::vector<std::string> &rList, const std::string &rszName )
+{
+	return std::find( rList.begin(), rList.end(), rszName ) != rList.end();
+}
+
+// A name the put may keep: the entry's own, one the file held at open, or a
+// known one. An empty name is never kept (the reader would refill it).
+bool NameAllowed( const std::string &rszName, const std::string &rszCurrent, const std::set<std::string> &rOpened, const std::vector<std::string> &rKnown )
+{
+	if ( rszName.empty() )
+		return false;
+	return rszName == rszCurrent || rOpened.count( rszName ) != 0 || IsIn( rKnown, rszName );
+}
+
+void ToCUnitCreation( const SUnitCreation &rUnit, int nSlotCount, BkEditorUnitCreationRecord *pOut )
+{
+	memset( pOut, 0, sizeof *pOut );
+	pOut->slot_count = nSlotCount;
+	CopyName( pOut->party, sizeof pOut->party, rUnit.szPartyName );
+	for ( int i = 0; i < 5; ++i )
+	{
+		CopyName( pOut->aircraft[i].name, sizeof pOut->aircraft[i].name, rUnit.aviation.aircrafts[i].szName );
+		pOut->aircraft[i].formation_size = rUnit.aviation.aircrafts[i].nFormationSize;
+		pOut->aircraft[i].count = rUnit.aviation.aircrafts[i].nPlanes;
+	}
+	CopyName( pOut->paratroop_name, sizeof pOut->paratroop_name, rUnit.aviation.szParadropSquadName );
+	pOut->paratroop_count = rUnit.aviation.nParadropSquadCount;
+	pOut->relax_time = rUnit.aviation.nRelaxTime;
+	int nPoint = 0;
+	for ( std::list<CVec3>::const_iterator it = rUnit.aviation.vAppearPoints.begin(); it != rUnit.aviation.vAppearPoints.end() && nPoint < nMaxAppearPoints; ++it, ++nPoint )
+		pOut->appear[nPoint] = ToC( *it );
+	pOut->appear_count = nPoint;
+}
+
+bool SameVec3Bits( const CVec3 &rLeft, const CVec3 &rRight )
+{
+	return memcmp( &rLeft, &rRight, sizeof rLeft ) == 0;
+}
+}
+
+bool ReadSessionUnitCreation( SEditorSession *pSession, int nPlayer, BkEditorUnitCreationRecord *pOut, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	const std::vector<SUnitCreation> &rUnits = pSession->snapshot.unitCreation.units;
+	if ( nPlayer < 0 || nPlayer >= nMaxUnitCreationSlots )
+	{
+		pSession->szMessage = NStr::Format( "%d is no player: a map has 0 to 15", nPlayer );
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( int( rUnits.size() ) > nMaxUnitCreationSlots )
+	{
+		pSession->szMessage = "this map has more unit-creation entries than the editor edits";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	SUnitCreation unit;
+	if ( !NMapRecords::GetUnitCreation( pSession->snapshot, nPlayer, &unit ) )
+		return false;
+	// The record's fixed arrays: an entry that does not fit is the file's, kept
+	// byte-exact, and not editable here.
+	bool bFits = int( unit.aviation.aircrafts.size() ) == 5 && int( unit.aviation.vAppearPoints.size() ) <= nMaxAppearPoints &&
+	             NameFits( unit.szPartyName ) && NameFits( unit.aviation.szParadropSquadName );
+	for ( size_t i = 0; bFits && i < unit.aviation.aircrafts.size(); ++i )
+		bFits = NameFits( unit.aviation.aircrafts[i].szName );
+	if ( !bFits )
+	{
+		pSession->szMessage = "this player's unit creation does not fit the record (a name of 64 characters or more, other than five aircraft slots, or more than 32 appear points)";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	ToCUnitCreation( unit, int( rUnits.size() ), pOut );
+	return true;
+}
+
+bool SetSessionUnitCreation( SEditorSession *pSession, int nPlayer, const BkEditorUnitCreationRecord &rRecord, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		return false;
+	}
+	const int nSlots = int( pSession->snapshot.unitCreation.units.size() );
+	if ( nSlots > nMaxUnitCreationSlots )
+	{
+		pSession->szMessage = "this map has more unit-creation entries than the editor edits";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	// A player is one of the table's, or one the vector already holds.
+	const int nPlayers = Max( int( pSession->snapshot.diplomacies.size() ) - 1, nSlots );
+	if ( nPlayer < 0 || nPlayer >= nPlayers || nPlayer >= nMaxUnitCreationSlots )
+	{
+		pSession->szMessage = NStr::Format( "%d is no player: the map holds %d", nPlayer, nPlayers );
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	// A slot count that does not reach the player only sets the vector's size: the
+	// entry is the defaults (an undo of a put that grew the vector), not stored.
+	if ( rRecord.slot_count <= nPlayer )
+	{
+		const SUnitCreation unused;
+		if ( !NMapRecords::PutUnitCreation( &pSession->snapshot, nPlayer, unused, rRecord.slot_count ) ||
+		     !NMapRecords::PutUnitCreation( &pSession->working, nPlayer, unused, rRecord.slot_count ) )
+			return false;
+		return true;
+	}
+	SUnitCreation current;
+	NMapRecords::GetUnitCreation( pSession->snapshot, nPlayer, &current );
+	if ( int( current.aviation.aircrafts.size() ) != 5 )
+	{
+		pSession->szMessage = "this player's unit creation does not hold five aircraft slots; it is kept as it is";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+
+	SUnitCreation wanted = current;
+	wanted.szPartyName = rRecord.party;
+	for ( int i = 0; i < 5; ++i )
+	{
+		wanted.aviation.aircrafts[i].szName = rRecord.aircraft[i].name;
+		wanted.aviation.aircrafts[i].nFormationSize = rRecord.aircraft[i].formation_size;
+		wanted.aviation.aircrafts[i].nPlanes = rRecord.aircraft[i].count;
+	}
+	wanted.aviation.szParadropSquadName = rRecord.paratroop_name;
+	wanted.aviation.nParadropSquadCount = rRecord.paratroop_count;
+	wanted.aviation.nRelaxTime = rRecord.relax_time;
+	wanted.aviation.vAppearPoints.clear();
+	for ( int i = 0; i < rRecord.appear_count; ++i )
+		wanted.aviation.vAppearPoints.push_back( FromC( rRecord.appear[i] ) );
+
+	// MutableValidate's rules and the manipulators' combos. Only a field that
+	// differs from what the entry holds is held to them: a file's own odd value
+	// stays, and an undo can always put it back.
+	std::vector<std::string> parties, aircraft, squads;
+	ListUnitCreationChoices( pSession, 0, &parties );
+	CollectUnitCreationLists( &aircraft, &squads );
+	if ( !NameAllowed( wanted.szPartyName, current.szPartyName, pSession->openedUCParties, parties ) )
+	{
+		pSession->szMessage = "the party \"" + wanted.szPartyName + "\" is not in partys.xml";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	for ( int i = 0; i < 5; ++i )
+	{
+		const SUCAircraft &rWanted = wanted.aviation.aircrafts[i];
+		const SUCAircraft &rCurrent = current.aviation.aircrafts[i];
+		if ( !NameAllowed( rWanted.szName, rCurrent.szName, pSession->openedUCAircraft, aircraft ) )
+		{
+			pSession->szMessage = NStr::Format( "%s: \"%s\" is no aircraft of the object database", UC_AIRCRAFT_TYPE_NAMES[i], rWanted.szName.c_str() );
+			if ( pbRefused != 0 ) *pbRefused = true;
+			return false;
+		}
+		if ( rWanted.nFormationSize != rCurrent.nFormationSize && ( rWanted.nFormationSize < 1 || rWanted.nFormationSize > nMaxFormationSize ) )
+		{
+			pSession->szMessage = NStr::Format( "%s: formation size %d is outside 1..%d", UC_AIRCRAFT_TYPE_NAMES[i], rWanted.nFormationSize, nMaxFormationSize );
+			if ( pbRefused != 0 ) *pbRefused = true;
+			return false;
+		}
+		if ( rWanted.nPlanes != rCurrent.nPlanes && ( rWanted.nPlanes < 0 || rWanted.nPlanes > nMaxPlaneCount ) )
+		{
+			pSession->szMessage = NStr::Format( "%s: count %d is outside 0..%d", UC_AIRCRAFT_TYPE_NAMES[i], rWanted.nPlanes, nMaxPlaneCount );
+			if ( pbRefused != 0 ) *pbRefused = true;
+			return false;
+		}
+	}
+	if ( !NameAllowed( wanted.aviation.szParadropSquadName, current.aviation.szParadropSquadName, pSession->openedUCSquads, squads ) )
+	{
+		pSession->szMessage = "the paratroop squad \"" + wanted.aviation.szParadropSquadName + "\" is no squad of the object database";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( wanted.aviation.nParadropSquadCount != current.aviation.nParadropSquadCount && ( wanted.aviation.nParadropSquadCount < 0 || wanted.aviation.nParadropSquadCount > nMaxPlaneCount ) )
+	{
+		pSession->szMessage = NStr::Format( "the paratroop squads count %d is outside 0..%d", wanted.aviation.nParadropSquadCount, nMaxPlaneCount );
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	// The file reader turns a relax time of 0 or less into 20 (Validate), so a
+	// smaller value would not survive a save: it is refused instead.
+	if ( wanted.aviation.nRelaxTime != current.aviation.nRelaxTime && wanted.aviation.nRelaxTime < 1 )
+	{
+		pSession->szMessage = NStr::Format( "the relax time %d is below 1 second", wanted.aviation.nRelaxTime );
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	for ( std::list<CVec3>::const_iterator it = wanted.aviation.vAppearPoints.begin(); it != wanted.aviation.vAppearPoints.end(); ++it )
+	{
+		bool bHeld = false;
+		for ( std::list<CVec3>::const_iterator itCurrent = current.aviation.vAppearPoints.begin(); itCurrent != current.aviation.vAppearPoints.end(); ++itCurrent )
+			if ( SameVec3Bits( *it, *itCurrent ) )
+				bHeld = true;
+		if ( !bHeld && !OnTheMapInAIUnits( *pSession, it->x, it->y ) )
+		{
+			pSession->szMessage = NStr::Format( "the appear point (%.1f, %.1f) is off the map", it->x, it->y );
+			if ( pbRefused != 0 ) *pbRefused = true;
+			return false;
+		}
+	}
+
+	if ( !NMapRecords::PutUnitCreation( &pSession->snapshot, nPlayer, wanted, rRecord.slot_count ) )
+	{
+		pSession->szMessage = "the unit creation could not be put";
+		return false;
+	}
+	if ( !NMapRecords::PutUnitCreation( &pSession->working, nPlayer, wanted, rRecord.slot_count ) )
+		return false;
+	return true;
+}
+
+bool ListUnitCreationChoices( SEditorSession *pSession, int nKind, std::vector<std::string> *pNames )
+{
+	pNames->clear();
+	if ( nKind == 0 )
+	{
+		ReadPartyTable( pSession );
+		for ( size_t i = 0; i < pSession->partyTable.size(); ++i )
+			pNames->push_back( pSession->partyTable[i].szPartyName );
+		return true;
+	}
+	if ( nKind == 1 )
+		CollectUnitCreationLists( pNames, 0 );
+	else if ( nKind == 2 )
+		CollectUnitCreationLists( 0, pNames );
+	else
+		return false;
+	return true;
+}

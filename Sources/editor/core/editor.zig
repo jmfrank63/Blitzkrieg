@@ -8,6 +8,7 @@ const files_mod = @import("files.zig");
 const shipped_mod = @import("shipped.zig");
 const records = @import("records.zig");
 const core_filters = @import("filters.zig");
+const checks = @import("checks.zig");
 const Bridge = bridge_mod.Bridge;
 const EditError = bridge_mod.EditError;
 const ObjectRecord = bridge_mod.ObjectRecord;
@@ -68,6 +69,10 @@ pub const Editor = struct {
     /// undo and redo, and an open or a close, so whatever shows the terrain's
     /// heights (the minimap's gradient, the Heights panel) reads them again.
     altitudes_generation: u32 = 0,
+    /// The players (05-05, D-30): bumped by a player add or delete, their undo
+    /// and redo, and an open or a close, so the Diplomacy and Unit Creation
+    /// panels read the table and the entries again.
+    players_generation: u32 = 0,
     /// The object filters (M3, D-31): the shipped Data/Editor/filter.xml
     /// merged with the user <UserRoot>mapeditor/filter.xml, read through the
     /// bridge once at startup (`loadFilters`). The Filters Composer's
@@ -316,6 +321,7 @@ pub const Editor = struct {
         self.entrenchments_generation +%= 1;
         self.sounds_generation +%= 1;
         self.altitudes_generation +%= 1;
+        self.players_generation +%= 1;
         for (std.enums.values(records.Kind)) |kind| self.record_generations.set(kind, self.record_generations.get(kind) +% 1);
     }
 
@@ -841,6 +847,213 @@ pub const Editor = struct {
         } else {
             self.history.recordAssumeCapacity(self.allocator, .{ .script_id = .{ .link_id = link_id, .before = before, .after = value } }, gesture);
         }
+    }
+
+    /// Adds a player of `side` (0 or 1) just before the neutral entry (05-05,
+    /// D-30): ONE undo step. The bridge keeps the table, the unit creation, the
+    /// camera anchors and the re-owned objects; a refusal (17 entries, a bad
+    /// side) changes nothing, not the bridge and not the history.
+    pub fn addPlayer(self: *Editor, side: i32) EditError!void {
+        var prepared = try self.prepareEdit(0, .players);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.addPlayer(side, &token));
+        if (token < 0) return error.Failed;
+        self.commitEdit(&prepared, token, 0, .players);
+        try self.reloadPlayersAfterEdit();
+    }
+
+    /// Deletes player `player` (never the neutral; 05-05, D-30): its objects
+    /// become the neutral's, the players above move down, ONE undo step.
+    pub fn deletePlayer(self: *Editor, player: i32) EditError!void {
+        var prepared = try self.prepareEdit(0, .players);
+        defer prepared.tokens.deinit(self.allocator);
+        var token: i32 = -1;
+        try self.noteOutcome(self.bridge.deletePlayer(player, &token));
+        if (token < 0) return error.Failed;
+        self.commitEdit(&prepared, token, 0, .players);
+        try self.reloadPlayersAfterEdit();
+    }
+
+    /// One player's unit creation, read through the record call (05-05, D-30).
+    pub fn unitCreation(self: *Editor, player: usize) EditError!records.UnitCreation {
+        if (player >= records.max_uc_slots) return error.Failed;
+        var value: records.Value = undefined;
+        try self.noteOutcome(self.bridge.readRecord(.unit_creation, @intCast(player), self.allocator, &value));
+        return value.unit_creation;
+    }
+
+    /// Puts one player's unit creation (a whole record) as ONE undo step per
+    /// gesture, merging while the same player is edited. The slot count is raised
+    /// to cover the player when the vector does not hold it yet; the rules are the
+    /// bridge's, a refusal names the field and changes nothing.
+    pub fn editUnitCreation(self: *Editor, player: usize, value: records.UnitCreation, gesture: u32) EditError!void {
+        const covered = value.withPlayerCovered(player) orelse return error.Failed;
+        const record: records.Value = .{ .unit_creation = covered };
+        try self.editRecord(.unit_creation, @intCast(player), &record, gesture);
+    }
+
+    /// Check Map (05-05, D-33): every finding over what the editor holds - the
+    /// document's objects, the table, each player's unit-creation party against
+    /// partys.xml, and the roads and rivers with fewer than two control points
+    /// (read through the bridge). A READ: nothing is edited, and the status line
+    /// is left alone. `squad_names` are the type names of squads (the duplicate rule
+    /// skips them; the catalogue the app holds knows which they are). The caller
+    /// frees the slice with `allocator`.
+    pub fn checkMap(self: *Editor, allocator: std.mem.Allocator, squad_names: []const []const u8) EditError![]checks.Finding {
+        // The party table, and the party of each unit-creation entry.
+        var parties: std.ArrayListUnmanaged(bridge_mod.UcName) = .empty;
+        defer parties.deinit(allocator);
+        var total: usize = 0;
+        var none: [0]bridge_mod.UcName = .{};
+        const sizing = self.bridge.unitCreationChoices(.parties, &none, &total);
+        if ((sizing == .ok or sizing == .refused) and total > 0) {
+            try parties.resize(allocator, total);
+            if (self.bridge.unitCreationChoices(.parties, parties.items, &total) != .ok) parties.clearRetainingCapacity();
+        }
+        var party_names: std.ArrayListUnmanaged([]const u8) = .empty;
+        defer party_names.deinit(allocator);
+        for (parties.items) |*name| try party_names.append(allocator, name.nameSlice());
+
+        var unit_party_buffers: std.ArrayListUnmanaged(records.UnitCreation) = .empty;
+        defer unit_party_buffers.deinit(allocator);
+        var slot_count: usize = 0;
+        {
+            var value: records.Value = undefined;
+            if (self.bridge.readRecord(.unit_creation, 0, allocator, &value) == .ok) slot_count = value.unit_creation.slot_count;
+        }
+        var player: usize = 0;
+        while (player < slot_count and player < records.max_uc_slots) : (player += 1) {
+            var value: records.Value = undefined;
+            if (self.bridge.readRecord(.unit_creation, @intCast(player), allocator, &value) != .ok) break;
+            try unit_party_buffers.append(allocator, value.unit_creation);
+        }
+        var unit_parties: std.ArrayListUnmanaged([]const u8) = .empty;
+        defer unit_parties.deinit(allocator);
+        for (unit_party_buffers.items) |*unit| try unit_parties.append(allocator, unit.partySlice());
+
+        // Roads and rivers with fewer than two control points.
+        var short: std.ArrayListUnmanaged(checks.ShortVso) = .empty;
+        defer short.deinit(allocator);
+        inline for ([_]VsoKind{ .road, .river }) |kind| {
+            var count: usize = 0;
+            if (self.bridge.vsoCount(kind, &count) == .ok) {
+                var index: usize = 0;
+                while (index < count) : (index += 1) {
+                    var view: VsoView = .{};
+                    if (self.bridge.readVso(kind, @intCast(index), allocator, &view) != .ok) continue;
+                    defer view.deinit(allocator);
+                    if (view.control_points.len >= 2) continue;
+                    const first: records.Vec3 = if (view.control_points.len > 0) view.control_points[0] else .{};
+                    try short.append(allocator, .{ .kind = @intFromEnum(kind), .index = index, .x = first.x, .y = first.y, .control_points = view.control_points.len });
+                }
+            }
+        }
+
+        return checks.checkMap(allocator, .{
+            .objects = self.document.objects.items,
+            .players = self.document.diplomacy.items.len,
+            .parties = party_names.items,
+            .unit_parties = unit_parties.items,
+            .squad_names = squad_names,
+            .short_vsos = short.items,
+        });
+    }
+
+    /// What `fixAll` did: how many findings it fixed, how many it left (a shared
+    /// link ID, a destructive fix nobody confirmed, an object that was gone by
+    /// then) and how many the bridge refused.
+    pub const FixReport = struct { fixed: usize = 0, left: usize = 0, refused: usize = 0 };
+
+    /// Fix all (05-05, D-33): the findings' fixes as ONE undo step. Each fix is the
+    /// edit a person would make - a duplicate deleted, an invalid link cleared, an
+    /// owner out of range moved to the neutral, a party set to the default - so a
+    /// fix the bridge refuses (a record it keeps untouched) is counted and the
+    /// rest go on. `confirmed` allows the destructive ones: an unknown-type object
+    /// removed, a short road or river deleted (the MFC's silent
+    /// RemoveNonExistingObjects, now asked first). The edits are recorded one by
+    /// one and then folded into a single composite step; a failure part-way keeps
+    /// what was applied inside that one step.
+    pub fn fixAll(self: *Editor, findings: []const checks.Finding, confirmed: bool) EditError!FixReport {
+        var report: FixReport = .{};
+        const start = self.history.undo_stack.items.len;
+        const players = self.document.diplomacy.items.len;
+        if (players == 0) return error.Failed;
+        // Duplicates first (the MFC's own order), the later records going first so no
+        // index a later fix needs moves under it.
+        for (findings) |finding| {
+            if (finding.kind != .duplicate_object) continue;
+            self.countFix(&report, finding, self.delete(finding.link_id));
+        }
+        for (findings) |finding| {
+            switch (finding.kind) {
+                .invalid_link => self.countFix(&report, finding, self.unlinkObject(finding.link_id)),
+                .player_index => {
+                    const fields: bridge_mod.ObjectFieldsEdit = .{ .mask = bridge_mod.ObjectFieldsEdit.player_bit, .player = @intCast(players - 1) };
+                    self.countFix(&report, finding, self.applyObjectFields(finding.link_id, fields));
+                },
+                .unknown_party => {
+                    const player: usize = @intCast(finding.player);
+                    if (self.unitCreation(player)) |held| {
+                        var wanted = held;
+                        wanted.setParty(checks.default_party);
+                        self.countFix(&report, finding, self.editUnitCreation(player, wanted, 0));
+                    } else |err| self.countFix(&report, finding, err);
+                },
+                .duplicate_link => report.left += 1,
+                .duplicate_object, .unknown_object_type, .short_vso => {},
+            }
+        }
+        if (confirmed) {
+            for (findings) |finding| {
+                if (finding.kind == .unknown_object_type) self.countFix(&report, finding, self.delete(finding.link_id));
+            }
+            // The highest index of a kind first: a delete renumbers the ones after it.
+            var wanted_kind: u8 = 0;
+            while (wanted_kind < 2) : (wanted_kind += 1) {
+                var indices: std.ArrayListUnmanaged(usize) = .empty;
+                defer indices.deinit(self.allocator);
+                for (findings) |finding| {
+                    if (finding.kind == .short_vso and finding.vso_kind == wanted_kind) try indices.append(self.allocator, finding.vso_index);
+                }
+                std.mem.sort(usize, indices.items, {}, std.sort.desc(usize));
+                for (indices.items) |index| {
+                    const finding: checks.Finding = .{ .kind = .short_vso, .vso_kind = wanted_kind, .vso_index = index };
+                    self.countFix(&report, finding, self.deleteVso(@enumFromInt(wanted_kind), index));
+                }
+            }
+        } else {
+            for (findings) |finding| {
+                if (finding.needsConfirmation()) report.left += 1;
+            }
+        }
+        try self.foldSince(start);
+        return report;
+    }
+
+    fn countFix(self: *Editor, report: *FixReport, finding: checks.Finding, result: EditError!void) void {
+        _ = self;
+        _ = finding;
+        if (result) |_| {
+            report.fixed += 1;
+        } else |err| switch (err) {
+            // The object was gone by the time its turn came (an earlier fix took it).
+            error.Failed => report.left += 1,
+            else => report.refused += 1,
+        }
+    }
+
+    /// Folds the undo entries recorded after `start` into one composite step, in
+    /// order. Fewer than two stay as they are.
+    fn foldSince(self: *Editor, start: usize) EditError!void {
+        const stack = &self.history.undo_stack;
+        if (stack.items.len < start + 2) return;
+        var steps: std.ArrayListUnmanaged(Command) = .empty;
+        errdefer steps.deinit(self.allocator);
+        try steps.ensureTotalCapacity(self.allocator, stack.items.len - start);
+        for (stack.items[start..]) |entry| steps.appendAssumeCapacity(entry.command);
+        stack.shrinkRetainingCapacity(start);
+        stack.appendAssumeCapacity(.{ .command = .{ .composite = .{ .steps = steps } }, .gesture = 0 });
     }
 
     pub fn setDiplomacy(self: *Editor, player: i32, value: i32) EditError!void {
@@ -1713,6 +1926,11 @@ pub const Editor = struct {
                 self.entrenchments_generation +%= 1;
             },
             .altitudes => self.altitudes_generation +%= 1,
+            .players => {
+                self.players_generation +%= 1;
+                self.record_generations.set(.camera_anchors, self.record_generations.get(.camera_anchors) +% 1);
+                self.record_generations.set(.unit_creation, self.record_generations.get(.unit_creation) +% 1);
+            },
         }
     }
 
@@ -2266,6 +2484,7 @@ pub const Editor = struct {
                 if (forwards) try self.noteOutcome(self.bridge.removeRecord(e.kind, e.key)) else try self.noteOutcome(self.bridge.insertRecord(e.key, &e.value));
                 self.record_generations.set(e.kind, self.record_generations.get(e.kind) +% 1);
             },
+            .composite => |*c| try self.replayComposite(c.steps.items, forwards),
             .edit => |e| {
                 // A token that fails part-way leaves the ones before it replayed
                 // in the bridge's own log: they are put back, so the log and this
@@ -2292,6 +2511,39 @@ pub const Editor = struct {
                 // leave the entry on the stack the bridge has already left.
                 self.bumpScope(e.scope);
             },
+        }
+    }
+
+    /// How many objects a replay of `command` may put back in the document (each one
+    /// needs a free slot before the bridge acts): one for a restore, a composite's
+    /// steps in all.
+    fn replayRoom(command: *const Command) usize {
+        return switch (command.*) {
+            .composite => |c| @max(c.steps.items.len, 1),
+            else => 1,
+        };
+    }
+
+    /// A composite's steps one after another - last first when undoing - and, when
+    /// one fails after others went through, the ones that did put back the other
+    /// way (best effort): if even that fails, the history no longer matches the map
+    /// and `replay_broken` says so.
+    fn replayComposite(self: *Editor, steps: []Command, forwards: bool) EditError!void {
+        var done: usize = 0;
+        while (done < steps.len) : (done += 1) {
+            const index = if (forwards) done else steps.len - 1 - done;
+            self.replay(&steps[index], forwards) catch |err| {
+                var back: usize = done;
+                while (back > 0) {
+                    back -= 1;
+                    const undone = if (forwards) back else steps.len - 1 - back;
+                    self.replay(&steps[undone], !forwards) catch {
+                        self.replay_broken = true;
+                        break;
+                    };
+                }
+                return err;
+            };
         }
     }
 
@@ -2356,9 +2608,41 @@ pub const Editor = struct {
     /// bridge is) and asks for a reopen.
     fn afterReplay(self: *Editor, command: *const history_mod.Command) EditError!void {
         switch (command.*) {
-            .edit => |e| if (e.scope == .objects or e.scope == .altitudes) try self.reloadObjectsAfterEdit(),
+            .composite => |c| for (c.steps.items) |*step| try self.afterReplay(step),
+            .edit => |e| switch (e.scope) {
+                .objects, .altitudes => try self.reloadObjectsAfterEdit(),
+                .players => try self.reloadPlayersAfterEdit(),
+                .vso => {},
+            },
             else => {},
         }
+    }
+
+    /// Re-reads what a player add or delete (or its replay) changed: the
+    /// diplomacy table - its length is the player count - and the objects, whose
+    /// owners moved. The table is probed player by player until the bridge says
+    /// there is no such player (a map holds at most 17 entries), and everything
+    /// is staged before `self` is touched.
+    fn reloadPlayers(self: *Editor) EditError!void {
+        var table: std.ArrayListUnmanaged(i32) = .empty;
+        errdefer table.deinit(self.allocator);
+        var player: i32 = 0;
+        while (player < 32) : (player += 1) {
+            var side: i32 = 0;
+            if (self.bridge.diplomacy(player, &side) != .ok) break;
+            try table.append(self.allocator, side);
+        }
+        try self.reloadObjects();
+        self.document.diplomacy.deinit(self.allocator);
+        self.document.diplomacy = table;
+        self.document.info.player_count = @intCast(self.document.diplomacy.items.len);
+    }
+
+    fn reloadPlayersAfterEdit(self: *Editor) EditError!void {
+        self.reloadPlayers() catch |err| {
+            self.setStatus("", "the edit went through but the map's players could not be read again; reopen the map");
+            return err;
+        };
     }
 
     /// `reloadObjects` after a bridge edit has committed (or been undone or
@@ -2386,7 +2670,7 @@ pub const Editor = struct {
         // lost to an allocation failure, nor a restored object be missing
         // from the document.
         try self.history.redo_stack.ensureUnusedCapacity(self.allocator, 1);
-        try self.document.objects.ensureUnusedCapacity(self.allocator, 1);
+        try self.document.objects.ensureUnusedCapacity(self.allocator, replayRoom(&self.history.undo_stack.items[count - 1].command));
         var entry = self.history.undo_stack.items[count - 1];
         self.replay(&entry.command, false) catch |err| return drifted(err);
         _ = self.history.undo_stack.pop();
@@ -2400,7 +2684,7 @@ pub const Editor = struct {
         if (count == 0) return false;
         if (self.replay_broken) return self.refuseBrokenReplay();
         try self.history.undo_stack.ensureUnusedCapacity(self.allocator, 1);
-        try self.document.objects.ensureUnusedCapacity(self.allocator, 1);
+        try self.document.objects.ensureUnusedCapacity(self.allocator, replayRoom(&self.history.redo_stack.items[count - 1].command));
         var entry = self.history.redo_stack.items[count - 1];
         self.replay(&entry.command, true) catch |err| return drifted(err);
         _ = self.history.redo_stack.pop();
@@ -4504,4 +4788,373 @@ test "fields: the apply's objects leave the document on undo and come back on re
     try std.testing.expectEqual(before, editor.document.objects.items.len);
     try std.testing.expect(try editor.redo());
     try std.testing.expectEqual(before + 1, editor.document.objects.items.len);
+}
+
+fn playersFixture(fake: *FakeBridge) void {
+    // Three players and the neutral: 0 and 1 are the sides, the last entry the neutral's.
+    fake.info.player_count = 4;
+}
+
+test "players: add puts a player before the neutral and undoes and redoes as one step" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    playersFixture(&fake);
+    fake.objects_list.items[0].player = 3; // an object of the neutral
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try std.testing.expectEqual(@as(usize, 4), editor.document.diplomacy.items.len);
+    const generation = editor.players_generation;
+    try editor.addPlayer(1);
+    try std.testing.expectEqual(@as(usize, 5), editor.document.diplomacy.items.len);
+    try std.testing.expectEqual(@as(i32, 5), editor.document.info.player_count);
+    try std.testing.expectEqual(@as(i32, 1), editor.document.diplomacy.items[3]); // the new player's side
+    try std.testing.expectEqual(@as(i32, 1), editor.document.diplomacy.items[4]); // the old neutral's, moved up
+    // The neutral's object stays the neutral's: its index moved up with it.
+    try std.testing.expectEqual(@as(i32, 4), editor.document.objects.items[0].player);
+    try std.testing.expect(editor.players_generation != generation);
+    try std.testing.expect(editor.dirty());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 4), editor.document.diplomacy.items.len);
+    try std.testing.expectEqual(@as(i32, 3), editor.document.objects.items[0].player);
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(usize, 5), editor.document.diplomacy.items.len);
+    try std.testing.expectEqual(@as(i32, 4), editor.document.objects.items[0].player);
+}
+
+test "players: delete re-owns the player's objects to the neutral, moves the others down, and undoes as one step" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    playersFixture(&fake);
+    fake.objects_list.items[0].player = 0;
+    fake.objects_list.items[1].player = 1;
+    fake.objects_list.items[2].player = 2;
+    try fake.addUnitCreationFixture(records.UnitCreation.defaults());
+    var second = records.UnitCreation.defaults();
+    second.relax_time = 41;
+    try fake.addUnitCreationFixture(second);
+    var third = records.UnitCreation.defaults();
+    third.relax_time = 52;
+    try fake.addUnitCreationFixture(third);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try editor.deletePlayer(1);
+    try std.testing.expectEqual(@as(usize, 3), editor.document.diplomacy.items.len);
+    try std.testing.expectEqual(@as(i32, 0), editor.document.objects.items[0].player); // below: unchanged
+    try std.testing.expectEqual(@as(i32, 2), editor.document.objects.items[1].player); // the deleted player's: the neutral (index 2 now)
+    try std.testing.expectEqual(@as(i32, 1), editor.document.objects.items[2].player); // above: moved down
+    // The unit creation of the player above followed it, and the deleted one's slot is gone.
+    try std.testing.expectEqual(@as(usize, 2), fake.unit_creation_list.items.len);
+    try std.testing.expectEqual(@as(i32, 52), fake.unit_creation_list.items[1].relax_time);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 4), editor.document.diplomacy.items.len);
+    try std.testing.expectEqual(@as(i32, 1), editor.document.objects.items[1].player);
+    try std.testing.expectEqual(@as(i32, 2), editor.document.objects.items[2].player);
+    try std.testing.expectEqual(@as(usize, 3), fake.unit_creation_list.items.len);
+    try std.testing.expectEqual(@as(i32, 41), fake.unit_creation_list.items[1].relax_time);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(i32, 2), editor.document.objects.items[1].player);
+    try std.testing.expectEqual(@as(usize, 2), fake.unit_creation_list.items.len);
+}
+
+test "players: the neutral, a bad player, a bad side and the 17th entry are refused and change nothing" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    playersFixture(&fake);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    try std.testing.expectError(error.Refused, editor.deletePlayer(3)); // the neutral
+    try std.testing.expectEqualStrings("the neutral player cannot be deleted", editor.status());
+    try std.testing.expectError(error.Refused, editor.deletePlayer(9));
+    try std.testing.expectError(error.Refused, editor.deletePlayer(-1));
+    try std.testing.expectError(error.Refused, editor.addPlayer(2));
+    try std.testing.expect(!editor.history.canUndo());
+    // Up to 16 players and the neutral, then a refusal.
+    while (editor.document.diplomacy.items.len < max_player_entries) try editor.addPlayer(0);
+    try std.testing.expectEqual(@as(usize, 17), editor.document.diplomacy.items.len);
+    try std.testing.expectError(error.Refused, editor.addPlayer(0));
+    try std.testing.expectEqualStrings("a map holds 16 players and the neutral", editor.status());
+    try std.testing.expectEqual(@as(usize, 17), editor.document.diplomacy.items.len);
+    // A table at its floor keeps its players.
+    var small = try testFixture(std.testing.allocator);
+    defer small.deinit();
+    var small_editor = try openFixture(&small); // two entries: a player and the neutral
+    defer small_editor.deinit();
+    try std.testing.expectError(error.Refused, small_editor.deletePlayer(0));
+    try std.testing.expectEqualStrings("a map keeps at least two players and the neutral", small_editor.status());
+}
+
+const max_player_entries = fake_mod.max_player_entries;
+
+test "unit creation: an edit is one undo step, a put for a player past the vector grows it and its undo shrinks it back" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    playersFixture(&fake);
+    try fake.addUnitCreationFixture(records.UnitCreation.defaults());
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var held = try editor.unitCreation(0);
+    try std.testing.expectEqual(@as(u32, 1), held.slot_count);
+    held.relax_time = 77;
+    held.aircraft[2].count = 6;
+    try std.testing.expect(held.addAppear(.{ .x = 100, .y = 200 }));
+    try editor.editUnitCreation(0, held, 0);
+    try std.testing.expectEqual(@as(i32, 77), fake.unit_creation_list.items[0].relax_time);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(i32, 30), fake.unit_creation_list.items[0].relax_time);
+    try std.testing.expectEqual(@as(u32, 0), fake.unit_creation_list.items[0].appear_count);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(u32, 1), fake.unit_creation_list.items[0].appear_count);
+    try std.testing.expect(try editor.undo());
+
+    // Player 2 is not in the vector: it reads the defaults, a put grows the vector.
+    var beyond = try editor.unitCreation(2);
+    try std.testing.expectEqual(@as(u32, 1), beyond.slot_count);
+    try std.testing.expectEqualStrings("USSR", beyond.partySlice());
+    beyond.relax_time = 99;
+    try editor.editUnitCreation(2, beyond, 0);
+    try std.testing.expectEqual(@as(usize, 3), fake.unit_creation_list.items.len);
+    try std.testing.expectEqual(@as(i32, 99), fake.unit_creation_list.items[2].relax_time);
+    try std.testing.expectEqual(@as(i32, 30), fake.unit_creation_list.items[1].relax_time); // the padding is the defaults
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(usize, 1), fake.unit_creation_list.items.len); // the vector's old size, exactly
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(usize, 3), fake.unit_creation_list.items.len);
+}
+
+test "unit creation: a gesture merges, and an unchanged record records nothing" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    playersFixture(&fake);
+    try fake.addUnitCreationFixture(records.UnitCreation.defaults());
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    var unit = try editor.unitCreation(0);
+    try editor.editUnitCreation(0, unit, 0);
+    try std.testing.expect(!editor.history.canUndo());
+    unit.relax_time = 31;
+    try editor.editUnitCreation(0, unit, 7);
+    unit.relax_time = 32;
+    try editor.editUnitCreation(0, unit, 7);
+    unit.relax_time = 33;
+    try editor.editUnitCreation(0, unit, 7);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expectEqual(@as(i32, 33), fake.unit_creation_list.items[0].relax_time);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(@as(i32, 30), fake.unit_creation_list.items[0].relax_time);
+}
+
+test "unit creation: the MutableValidate rules refuse by field and change nothing" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    playersFixture(&fake);
+    try fake.addUnitCreationFixture(records.UnitCreation.defaults());
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const base = try editor.unitCreation(0);
+    var bad = base;
+    bad.setParty("Narnia");
+    try std.testing.expectError(error.Refused, editor.editUnitCreation(0, bad, 0));
+    try std.testing.expectEqualStrings("the party \"Narnia\" is not in partys.xml", editor.status());
+    bad = base;
+    bad.aircraft[1].setName("Spitfire");
+    try std.testing.expectError(error.Refused, editor.editUnitCreation(0, bad, 0));
+    try std.testing.expectEqualStrings("Fighters: \"Spitfire\" is no aircraft of the object database", editor.status());
+    bad = base;
+    bad.aircraft[3].formation_size = 0;
+    try std.testing.expectError(error.Refused, editor.editUnitCreation(0, bad, 0));
+    try std.testing.expectEqualStrings("Bombers: formation size 0 is outside 1..32", editor.status());
+    bad = base;
+    bad.aircraft[4].count = 300;
+    try std.testing.expectError(error.Refused, editor.editUnitCreation(0, bad, 0));
+    bad = base;
+    bad.setParatroop("Ghosts");
+    try std.testing.expectError(error.Refused, editor.editUnitCreation(0, bad, 0));
+    bad = base;
+    bad.paratroop_count = -1;
+    try std.testing.expectError(error.Refused, editor.editUnitCreation(0, bad, 0));
+    bad = base;
+    bad.relax_time = 0;
+    try std.testing.expectError(error.Refused, editor.editUnitCreation(0, bad, 0));
+    try std.testing.expectEqualStrings("the relax time 0 is below 1 second", editor.status());
+    bad = base;
+    _ = bad.addAppear(.{ .x = -5, .y = 10 });
+    try std.testing.expectError(error.Refused, editor.editUnitCreation(0, bad, 0));
+    bad = base;
+    _ = bad.addAppear(.{ .x = 1.0e6, .y = 10 });
+    try std.testing.expectError(error.Refused, editor.editUnitCreation(0, bad, 0));
+    // A player the map does not have.
+    bad = base;
+    bad.relax_time = 40;
+    try std.testing.expectError(error.Refused, editor.editUnitCreation(5, bad, 0));
+    try std.testing.expectError(error.Failed, editor.editUnitCreation(records.max_uc_slots, bad, 0));
+    // Nothing changed: not the bridge, not the history.
+    try std.testing.expect(!editor.history.canUndo());
+    try std.testing.expect(base.eql(try editor.unitCreation(0)));
+    // A good edit of the same kinds goes through.
+    var good = base;
+    good.setParty("Germany");
+    good.aircraft[1].setName("Ju-87");
+    good.setParatroop("German_rpd_43");
+    try editor.editUnitCreation(0, good, 0);
+    try std.testing.expectEqualStrings("Germany", fake.unit_creation_list.items[0].partySlice());
+}
+
+test "unit creation: choices list the parties, aircraft and squads" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var names: [8]bridge_mod.UcName = undefined;
+    var total: usize = 0;
+    try bridge_mod.check(fake.bridge().unitCreationChoices(.parties, &names, &total));
+    try std.testing.expectEqual(@as(usize, 3), total);
+    try std.testing.expectEqualStrings("USSR", names[0].nameSlice());
+    try bridge_mod.check(fake.bridge().unitCreationChoices(.aircraft, &names, &total));
+    try std.testing.expectEqual(@as(usize, 5), total);
+    try bridge_mod.check(fake.bridge().unitCreationChoices(.squads, &names, &total));
+    try std.testing.expectEqual(@as(usize, 2), total);
+    var none: [0]bridge_mod.UcName = .{};
+    try std.testing.expectEqual(bridge_mod.Status.refused, fake.bridge().unitCreationChoices(.parties, &none, &total)); // the sizing pass
+    try std.testing.expectEqual(@as(usize, 3), total);
+}
+
+test "players: add and delete shift the camera anchors with their players" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    playersFixture(&fake);
+    var anchors: records.CameraAnchors = .{ .player_count = 3 };
+    anchors.players[0] = .{ .x = 10, .y = 10, .z = 1 };
+    anchors.players[1] = .{ .x = 20, .y = 20, .z = 1 };
+    anchors.players[2] = .{ .x = 30, .y = 30, .z = 1 };
+    fake.setCameraAnchorsFixture(anchors);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const generation = editor.record_generations.get(.camera_anchors);
+    try editor.addPlayer(0);
+    try std.testing.expectEqual(@as(u32, 4), fake.camera_anchors.player_count);
+    try std.testing.expect(fake.camera_anchors.players[3].isUnset());
+    try std.testing.expect(editor.record_generations.get(.camera_anchors) != generation);
+    try editor.deletePlayer(0);
+    try std.testing.expectEqual(@as(u32, 3), fake.camera_anchors.player_count);
+    try std.testing.expectEqual(@as(f32, 20), fake.camera_anchors.players[0].x);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(fake.camera_anchors.eql(anchors));
+}
+
+fn checkFixture(fake: *FakeBridge) !void {
+    playersFixture(fake); // 4 entries, the neutral is 3
+    var duplicate: ObjectRecord = .{ .link_id = 10, .x = 40, .y = 40, .dir = 0, .player = 0 };
+    duplicate.setName("T34"); // the fixture's tank (link 1) again
+    try fake.addFixture(duplicate, false);
+    var stray: ObjectRecord = .{ .link_id = 11, .x = 300, .y = 300, .dir = 0, .player = 9 };
+    stray.setName("Pak40"); // an owner the table does not have
+    try fake.addFixture(stray, false);
+    var passenger: ObjectRecord = .{ .link_id = 12, .x = 320, .y = 320, .dir = 0, .player = 0, .link_with = 99 };
+    passenger.setName("US_rifle"); // a host that is not there
+    try fake.addFixture(passenger, false);
+    var party: records.UnitCreation = records.UnitCreation.defaults();
+    party.setParty("Narnia");
+    try fake.addUnitCreationFixture(party);
+    // A road with one control point: the record that crashed the game's loader.
+    var short: fake_mod.FakeVso = .{ .count = 1 };
+    short.controls[0] = .{ .x = 50, .y = 60 };
+    try fake.vso_lists[0].append(fake.allocator, short);
+}
+
+test "check map finds every kind, and fix all fixes them as ONE undo step" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    try checkFixture(&fake);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const findings = try editor.checkMap(std.testing.allocator, &.{});
+    defer std.testing.allocator.free(findings);
+    try std.testing.expectEqual(@as(usize, 1), checks.count(findings, .duplicate_object));
+    try std.testing.expectEqual(@as(usize, 1), checks.count(findings, .invalid_link));
+    try std.testing.expectEqual(@as(usize, 1), checks.count(findings, .player_index));
+    try std.testing.expectEqual(@as(usize, 1), checks.count(findings, .unknown_party));
+    try std.testing.expectEqual(@as(usize, 1), checks.count(findings, .unknown_object_type));
+    try std.testing.expectEqual(@as(usize, 1), checks.count(findings, .short_vso));
+    try std.testing.expectEqual(@as(usize, 6), findings.len);
+    // A check is a read: nothing changed, nothing to undo.
+    try std.testing.expect(!editor.history.canUndo());
+    try std.testing.expect(!editor.dirty());
+
+    const objects_before = editor.document.objects.items.len;
+    // Without the say-so the destructive fixes (an unknown object, the short road) wait.
+    const report = try editor.fixAll(findings, false);
+    try std.testing.expectEqual(@as(usize, 4), report.fixed);
+    try std.testing.expectEqual(@as(usize, 2), report.left);
+    try std.testing.expectEqual(@as(usize, 0), report.refused);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len); // ONE step
+    try std.testing.expectEqual(objects_before - 1, editor.document.objects.items.len); // the duplicate went
+    try std.testing.expect(editor.document.find(10) == null);
+    try std.testing.expectEqual(@as(i32, 3), editor.document.find(11).?.player); // the neutral
+    try std.testing.expectEqual(@as(i32, 0), editor.document.find(12).?.link_with);
+    try std.testing.expectEqualStrings("USSR", fake.unit_creation_list.items[0].partySlice());
+    {
+        const again = try editor.checkMap(std.testing.allocator, &.{});
+        defer std.testing.allocator.free(again);
+        try std.testing.expectEqual(@as(usize, 2), again.len); // only the two that were left
+    }
+
+    // One undo takes every one of the four back; one redo does them again.
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(!editor.history.canUndo());
+    try std.testing.expect(!editor.dirty());
+    try std.testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try std.testing.expectEqual(@as(i32, 9), editor.document.find(11).?.player);
+    try std.testing.expectEqual(@as(i32, 99), editor.document.find(12).?.link_with);
+    try std.testing.expectEqualStrings("Narnia", fake.unit_creation_list.items[0].partySlice());
+    try std.testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try std.testing.expect(editor.document.find(10) != null);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expect(editor.document.find(10) == null);
+    try std.testing.expectEqual(@as(i32, 3), editor.document.find(11).?.player);
+    try std.testing.expect(try editor.undo());
+
+    // Confirmed, the unknown object and the short road go too - still one step, and
+    // after it nothing is left to find.
+    const all = try editor.fixAll(findings, true);
+    try std.testing.expectEqual(@as(usize, 6), all.fixed);
+    try std.testing.expectEqual(@as(usize, 0), all.left);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expect(editor.document.find(3) == null); // the unknown type
+    try std.testing.expectEqual(@as(usize, 0), try editor.vsoCount(.road));
+    {
+        const none = try editor.checkMap(std.testing.allocator, &.{});
+        defer std.testing.allocator.free(none);
+        try std.testing.expectEqual(@as(usize, 0), none.len);
+    }
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(editor.document.find(3) != null);
+    try std.testing.expectEqual(@as(usize, 1), try editor.vsoCount(.road));
+    try std.testing.expect(!editor.history.canUndo());
+    try std.testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expectEqual(@as(usize, 0), try editor.vsoCount(.road));
+}
+
+test "fix all with nothing to fix records nothing; a refused fix is counted and the rest go on" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const none = try editor.fixAll(&.{}, true);
+    try std.testing.expectEqual(@as(usize, 0), none.fixed + none.left + none.refused);
+    try std.testing.expect(!editor.history.canUndo());
+    // A duplicate finding whose object is a bridge span the bridge keeps: refused, counted.
+    var findings = [_]checks.Finding{
+        .{ .kind = .duplicate_object, .link_id = 2 }, // the span: referred to by a bridge
+        .{ .kind = .duplicate_link, .link_id = 1 }, // report only
+    };
+    const report = try editor.fixAll(&findings, false);
+    try std.testing.expectEqual(@as(usize, 0), report.fixed);
+    try std.testing.expectEqual(@as(usize, 1), report.refused);
+    try std.testing.expectEqual(@as(usize, 1), report.left);
+    try std.testing.expect(!editor.history.canUndo());
+}
+
+test "checks.zig is under the core's own tests" {
+    _ = checks;
 }

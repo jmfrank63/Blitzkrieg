@@ -1,6 +1,7 @@
 #ifndef __EDITOR_BRIDGE_SESSION_H__
 #define __EDITOR_BRIDGE_SESSION_H__
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -91,6 +92,10 @@ struct SEditorSession
 	// legacy map's off-map anchor - is not held to the on-the-map rule.
 	CVec3 vOpenedNeutralAnchor;
 	std::vector<CVec3> openedPlayerAnchors;
+	// The unit-creation names the file held when the map was opened (M3, D-30):
+	// a put may always bring one back, however odd, so an undo of an edit of a
+	// file's own data cannot fail the way a new value is checked.
+	std::set<std::string> openedUCParties, openedUCAircraft, openedUCSquads;
 	// "Hide checked" (04-09, D-16): the script IDs the view holds back, sorted
 	// and unique, and the link IDs of the objects-list entries they name that
 	// are hidden now (their visuals at opacity 0, and picking skips them). A
@@ -470,6 +475,23 @@ bool DeleteSoundFromSession( SEditorSession *pSession, int nIndex, bool *pbRefus
 //
 // The camera anchors, world units. A vector of more than 32 entries is
 // readable-refused and setting is refused: the file keeps it byte-exact.
+// Players and the Unit Creation Info (M3, D-30, session_records.cpp). The two
+// player edits are ONE edit of the log each (SPlayersEdit lives in
+// session_records.cpp): the diplomacies, the unit creation, the camera anchors
+// and every re-owned object, put back raw. The unit-creation put is the same
+// exact put the other records have (the entry and the vector's size), checked
+// like MutableValidate; the choices are the lists its combos offer (0 parties,
+// 1 aircraft, 2 paratroop squads).
+bool AddPlayerToSession( SEditorSession *pSession, int nSide, bool *pbRefused, int *pnToken );
+bool DeletePlayerFromSession( SEditorSession *pSession, int nPlayer, bool *pbRefused, int *pnToken );
+bool ReadSessionUnitCreation( SEditorSession *pSession, int nPlayer, BkEditorUnitCreationRecord *pOut, bool *pbRefused );
+bool SetSessionUnitCreation( SEditorSession *pSession, int nPlayer, const BkEditorUnitCreationRecord &rRecord, bool *pbRefused );
+bool ListUnitCreationChoices( SEditorSession *pSession, int nKind, std::vector<std::string> *pNames );
+// The party table (partys.xml, read once per session) and the flag type name a
+// player's flags carry, session.cpp: what the properties' flag swap uses, and a
+// player edit re-owning a flag after it.
+bool ReadPartyTable( SEditorSession *pSession );
+std::string FlagPartyName( SEditorSession *pSession, int nPlayer );
 bool ReadSessionCameraAnchors( SEditorSession *pSession, BkEditorCameraAnchorRecord *pOut, bool *pbRefused );
 bool SetSessionCameraAnchors( SEditorSession *pSession, const BkEditorCameraAnchorRecord &rAnchors, bool *pbRefused );
 // The script file name (04-10, D-20). The read is refused for a value the record

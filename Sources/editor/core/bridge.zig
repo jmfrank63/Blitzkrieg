@@ -227,6 +227,19 @@ pub const RmgName = extern struct {
     }
 };
 
+/// One name of a unit-creation combo (BkEditorUcName, 05-05, D-30).
+pub const UcName = extern struct {
+    name: [64]u8 = [_]u8{0} ** 64,
+
+    pub fn nameSlice(self: *const UcName) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+};
+
+/// The lists BkEditorUnitCreationChoices answers (D-30): the parties of
+/// partys.xml, the aircraft of the aviation folders and the paratroop squads.
+pub const UcChoice = enum(c_int) { parties = 0, aircraft = 1, squads = 2 };
+
 /// The RMG folder kinds BkEditorListRmg walks (D-08).
 pub const RmgKind = enum(c_int) { field_sets = 0, templates = 1, graphs = 2, containers = 3, settings = 4, chapters = 5 };
 
@@ -801,8 +814,22 @@ pub const Bridge = struct {
         /// BkEditorListRmg (M3, D-08): the storage folder's bare names,
         /// sorted (two-pass, like `vsoDescriptors`).
         listRmg: *const fn (ptr: *anyopaque, kind: RmgKind, out: []RmgName, total: *usize) Status,
+        /// BkEditorAddPlayer (05-05, D-30): a player of `side` (0 or 1) before
+        /// the neutral entry, ONE bridge-logged edit (`token`, -1 after a
+        /// refusal). The diplomacies, unit creation, camera anchors and every
+        /// re-owned object undo and redo through `undoEdit`/`redoEdit`.
+        addPlayer: *const fn (ptr: *anyopaque, side: i32, token: *i32) Status,
+        /// BkEditorDeletePlayer: the same for deleting player `player` (never the
+        /// neutral); its objects become the neutral's.
+        deletePlayer: *const fn (ptr: *anyopaque, player: i32, token: *i32) Status,
+        /// BkEditorUnitCreationChoices: the names a unit-creation combo offers,
+        /// two-pass like `listRmg`.
+        unitCreationChoices: *const fn (ptr: *anyopaque, kind: UcChoice, out: []UcName, total: *usize) Status,
     };
 
+    pub fn addPlayer(self: Bridge, side: i32, token: *i32) Status { return self.vtable.addPlayer(self.ptr, side, token); }
+    pub fn deletePlayer(self: Bridge, player: i32, token: *i32) Status { return self.vtable.deletePlayer(self.ptr, player, token); }
+    pub fn unitCreationChoices(self: Bridge, kind: UcChoice, out: []UcName, total: *usize) Status { return self.vtable.unitCreationChoices(self.ptr, kind, out, total); }
     pub fn lastMessage(self: Bridge) []const u8 { return self.vtable.lastMessage(self.ptr); }
     pub fn openMap(self: Bridge, path: []const u8, info: *MapInfo) Status { return self.vtable.openMap(self.ptr, path, info); }
     pub fn saveMap(self: Bridge, path: []const u8) Status { return self.vtable.saveMap(self.ptr, path); }

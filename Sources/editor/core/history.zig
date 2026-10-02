@@ -15,7 +15,7 @@ pub const Pose = struct { x: f32, y: f32, dir: i32, player: i32 };
 pub const DeletedRecord = struct { object: ObjectRecord, index: usize };
 
 /// What a bridge-logged edit changed, so a replay knows what to refresh.
-pub const EditScope = enum { vso, objects, altitudes };
+pub const EditScope = enum { vso, objects, altitudes, players };
 
 pub const Command = union(enum) {
     /// One bridge token per paint call of the gesture, oldest first.
@@ -62,8 +62,14 @@ pub const Command = union(enum) {
     /// the core refreshes after a replay: `vso` bumps the road and river
     /// generation, `objects` reloads the document's objects (the compound
     /// edits of bridges, fences and entrenchments, which add and remove map
-    /// objects).
+    /// objects), `players` re-reads the diplomacy table, its length and the
+    /// objects' owners (a player add or delete, 05-05).
     edit: struct { tokens: std.ArrayListUnmanaged(i32) = .empty, scope: EditScope },
+    /// Several commands that undo and redo as ONE step (05-05, Check Map's Fix
+    /// all): the commands exactly as they were recorded, oldest first. Undo
+    /// takes them back last first, redo replays them in order. The command owns
+    /// them.
+    composite: struct { steps: std.ArrayListUnmanaged(Command) = .empty },
 
     pub fn deinit(self: *Command, allocator: std.mem.Allocator) void {
         switch (self.*) {
@@ -76,6 +82,10 @@ pub const Command = union(enum) {
             },
             .record_add => |*e| e.value.deinit(allocator),
             .record_delete => |*e| e.value.deinit(allocator),
+            .composite => |*c| {
+                for (c.steps.items) |*step| step.deinit(allocator);
+                c.steps.deinit(allocator);
+            },
             else => {},
         }
     }

@@ -691,3 +691,308 @@ fn drawMultiFields(state: *State) void {
         ig.igEndCombo();
     }
 }
+
+// ---------------------------------------------------------------------------
+// The Unit Creation Info window (05-05, D-30)
+// ---------------------------------------------------------------------------
+
+/// What the points list says about its units: the MFC's Appear Points dialog shows
+/// a point's place in tiles (the file holds map units, 64 to a tile).
+pub const appear_points_help = "Appear points are the places the game's aircraft and paratroopers come in from. They are listed in tiles; Add at view centre puts one where the view looks.";
+
+/// The map units to a tile in the points list (PEPointsListDialog.cpp:180).
+const appear_units_per_tile: f32 = 64.0;
+
+fn ucChoiceKind(index: usize) core.bridge.UcChoice {
+    return switch (index) {
+        0 => .parties,
+        1 => .aircraft,
+        else => .squads,
+    };
+}
+
+/// Reads the three combo lists through the bridge, two passes each; a list that
+/// will not read stays empty (the combos then show only the current value).
+fn loadUcLists(state: *State) void {
+    for (&state.uc_lists, 0..) |*list, index| {
+        state.allocator.free(list.*);
+        list.* = &.{};
+        var none: [0]core.bridge.UcName = .{};
+        var total: usize = 0;
+        const sizing = state.editor.bridge.unitCreationChoices(ucChoiceKind(index), &none, &total);
+        if ((sizing != .ok and sizing != .refused) or total == 0) continue;
+        const names = state.allocator.alloc(core.bridge.UcName, total) catch continue;
+        var got: usize = 0;
+        if (state.editor.bridge.unitCreationChoices(ucChoiceKind(index), names, &got) != .ok or got != total) {
+            state.allocator.free(names);
+            continue;
+        }
+        list.* = names;
+    }
+}
+
+/// A combo over `list` showing `current`; true with the chosen name written to `chosen`.
+fn drawNameCombo(label: [*:0]const u8, current: []const u8, list: []const core.bridge.UcName, chosen: *[core.records.uc_name_capacity]u8) bool {
+    var preview: [core.records.uc_name_capacity + 1:0]u8 = undefined;
+    const shown = std.fmt.bufPrintZ(&preview, "{s}", .{current}) catch "";
+    var picked = false;
+    if (ig.igBeginCombo(label, shown.ptr, 0)) {
+        for (list) |*item| {
+            const name = item.nameSlice();
+            if (ig.igSelectableEx(@ptrCast(&item.name), std.mem.eql(u8, name, current), 0, .{ .x = 0, .y = 0 })) {
+                @memset(chosen, 0);
+                @memcpy(chosen[0..name.len], name);
+                picked = true;
+            }
+        }
+        ig.igEndCombo();
+    }
+    return picked;
+}
+
+/// Runs `unit_creation_set` with `<field>=<value>`.
+fn setField(state: *State, field: []const u8, value: []const u8) void {
+    var buffer: [128:0]u8 = undefined;
+    _ = commands.run(state, "unit_creation_set", std.fmt.bufPrintZ(&buffer, "{s}={s}", .{ field, value }) catch return);
+}
+
+/// An integer field committed on deactivation (the Sounds panel's pattern):
+/// the buffer is the cached value, so a cancelled edit changes nothing.
+fn drawIntField(state: *State, label: [*:0]const u8, field: []const u8, current: i32) void {
+    var value: c_int = current;
+    _ = ig.igInputIntEx(label, &value, 0, 0, 0);
+    if (ig.igIsItemDeactivatedAfterEdit() and value != current) {
+        var buffer: [16:0]u8 = undefined;
+        setField(state, field, std.fmt.bufPrintZ(&buffer, "{d}", .{value}) catch return);
+    }
+}
+
+/// The MFC's Map Unit Creation Property as one window: the player, the party,
+/// the five aviation slots (aircraft name, formation size, count), the paratroop
+/// squad with its count, the relax time and the appear points. Every control
+/// runs a named command (`unit_creation_set`, `appear_point_*`), so a button
+/// and a BK_EDITOR_AUTO `do=` share one path and one undo step; the bridge's
+/// MutableValidate-style rules refuse a bad value naming the field.
+pub fn drawUnitCreationPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    if (!state.uc_open) {
+        state.uc_was_open = false;
+        return;
+    }
+    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
+    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    const open = ig.igBegin("Unit Creation Info", &state.uc_open, ig.ImGuiWindowFlags_NoCollapse);
+    defer ig.igEnd();
+    if (!open) return;
+    const editor = state.editor;
+    if (!panels.mapIsOpen(editor)) {
+        panels.text("no map open");
+        return;
+    }
+    if (!state.uc_was_open) {
+        loadUcLists(state);
+        state.uc_was_open = true;
+        state.uc_cache_player = null;
+    }
+    const entries = editor.document.diplomacy.items.len;
+    const players = if (entries > 0) entries - 1 else 0;
+    if (players == 0) {
+        panels.text("the map has no players");
+        return;
+    }
+    if (state.uc_player >= players) state.uc_player = players - 1;
+
+    var player_label: [16:0]u8 = undefined;
+    const player_text = std.fmt.bufPrintZ(&player_label, "player {d}", .{state.uc_player}) catch "player";
+    if (ig.igBeginCombo("Player", player_text.ptr, 0)) {
+        var index: usize = 0;
+        while (index < players) : (index += 1) {
+            var label: [16:0]u8 = undefined;
+            const label_text = std.fmt.bufPrintZ(&label, "player {d}", .{index}) catch continue;
+            if (ig.igSelectableEx(label_text.ptr, index == state.uc_player, 0, .{ .x = 0, .y = 0 })) state.uc_player = index;
+        }
+        ig.igEndCombo();
+    }
+
+    // The player's record, read again when the player changes or an edit, undo or
+    // redo moved the editor's unit-creation generation.
+    const generation = editor.record_generations.get(.unit_creation);
+    if (state.uc_cache_player == null or state.uc_cache_player.? != state.uc_player or state.uc_cache_generation != generation) {
+        state.uc_cache_player = state.uc_player;
+        state.uc_cache_generation = generation;
+        if (editor.unitCreation(state.uc_player)) |unit| {
+            state.uc_cache = unit;
+            state.uc_cache_ok = true;
+        } else |_| {
+            state.uc_cache_ok = false;
+        }
+    }
+    if (!state.uc_cache_ok) {
+        ig.igPushTextWrapPos(0);
+        panels.text(if (editor.status().len > 0) editor.status() else "this player's unit creation cannot be shown");
+        ig.igPopTextWrapPos();
+        return;
+    }
+    const unit = state.uc_cache;
+    var chosen: [core.records.uc_name_capacity]u8 = undefined;
+
+    if (drawNameCombo("Party", unit.partySlice(), state.uc_lists[0], &chosen)) setField(state, "party", std.mem.sliceTo(&chosen, 0));
+
+    ig.igSeparatorText("Aviation");
+    for (unit.aircraft, 0..) |slot, index| {
+        ig.igPushIDInt(@intCast(index));
+        defer ig.igPopID();
+        panels.text(core.records.uc_aircraft_labels[index]);
+        var name_field: [24]u8 = undefined;
+        ig.igSetNextItemWidth(200);
+        if (drawNameCombo("##aircraft", slot.nameSlice(), state.uc_lists[1], &chosen))
+            setField(state, std.fmt.bufPrint(&name_field, "aircraft{d}_name", .{index}) catch "", std.mem.sliceTo(&chosen, 0));
+        ig.igSameLine();
+        ig.igSetNextItemWidth(80);
+        var formation_field: [28:0]u8 = undefined;
+        drawIntField(state, "formation##f", std.fmt.bufPrintZ(&formation_field, "aircraft{d}_formation", .{index}) catch "", slot.formation_size);
+        ig.igSameLine();
+        ig.igSetNextItemWidth(80);
+        var count_field: [24:0]u8 = undefined;
+        drawIntField(state, "count##c", std.fmt.bufPrintZ(&count_field, "aircraft{d}_count", .{index}) catch "", slot.count);
+    }
+
+    ig.igSeparatorText("Paratroopers");
+    if (drawNameCombo("Squad", unit.paratroopSlice(), state.uc_lists[2], &chosen)) setField(state, "paratroop_name", std.mem.sliceTo(&chosen, 0));
+    drawIntField(state, "Squads count", "paratroop_count", unit.paratroop_count);
+    drawIntField(state, "Relax time (s)", "relax", unit.relax_time);
+
+    ig.igSeparatorText("Appear points");
+    var remove: ?usize = null;
+    for (unit.appearSlice(), 0..) |point, index| {
+        ig.igPushIDInt(@intCast(index));
+        defer ig.igPopID();
+        var tile_x = point.x / appear_units_per_tile;
+        var tile_y = point.y / appear_units_per_tile;
+        ig.igSetNextItemWidth(90);
+        _ = ig.igInputFloatEx("x##p", &tile_x, 0, 0, "%.2f", 0);
+        const x_done = ig.igIsItemDeactivatedAfterEdit();
+        ig.igSameLine();
+        ig.igSetNextItemWidth(90);
+        _ = ig.igInputFloatEx("y##p", &tile_y, 0, 0, "%.2f", 0);
+        const y_done = ig.igIsItemDeactivatedAfterEdit();
+        ig.igSameLine();
+        if (ig.igButton("Remove")) remove = index;
+        if (x_done or y_done) {
+            var arg: [64:0]u8 = undefined;
+            _ = commands.run(state, "appear_point_set", std.fmt.bufPrintZ(&arg, "{d}/{d:.1}/{d:.1}", .{ index, tile_x * appear_units_per_tile, tile_y * appear_units_per_tile }) catch "");
+        }
+    }
+    if (unit.appear_count == 0) panels.text("no appear points");
+    if (ig.igButton("Add at view centre")) _ = commands.run(state, "appear_point_here", "");
+    if (remove) |index| {
+        var arg: [16:0]u8 = undefined;
+        _ = commands.run(state, "appear_point_remove", std.fmt.bufPrintZ(&arg, "{d}", .{index}) catch "");
+    }
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text(appear_points_help);
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+}
+
+// ---------------------------------------------------------------------------
+// The Check Map window (05-05, D-33)
+// ---------------------------------------------------------------------------
+
+/// What the window says about Fix all.
+pub const check_help = "Check Map reports what is wrong; it changes nothing. Click a finding to go to it. Fix all makes every fix as one undo step; removing an object the database does not know, or a road with fewer than two control points, asks first. Save never fixes anything: it only says here when the checks find something.";
+
+/// The MFC's own wording where it had one.
+fn kindLabel(kind: core.checks.Kind) [:0]const u8 {
+    return kind.heading();
+}
+
+/// The window: Run check, Fix all (with the confirmation when a fix would remove
+/// something), the findings grouped by kind - a click goes to the finding. Every
+/// button runs a named command (check_map, check_map_fix_all, check_jump).
+pub fn drawCheckMapPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    if (!state.check_open) return;
+    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
+    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    const open = ig.igBegin("Check Map", &state.check_open, ig.ImGuiWindowFlags_NoCollapse);
+    defer ig.igEnd();
+    if (!open) return;
+    if (!panels.mapIsOpen(state.editor)) {
+        panels.text("no map open");
+        return;
+    }
+    if (ig.igButton("Run check")) _ = commands.run(state, "check_map", "");
+    ig.igSameLine();
+    const findings = state.check_findings;
+    var destructive: usize = 0;
+    for (findings) |finding| {
+        if (finding.needsConfirmation()) destructive += 1;
+    }
+    ig.igBeginDisabled(findings.len == 0);
+    if (ig.igButton("Fix all")) {
+        if (destructive == 0) {
+            _ = commands.run(state, "check_map_fix_all", "");
+        } else {
+            state.check_confirm_pending = true;
+            _ = ig.igOpenPopup("Fix all##check", 0);
+        }
+    }
+    ig.igEndDisabled();
+
+    // The confirmation: what removes something is listed and asked for.
+    if (ig.igBeginPopupModal("Fix all##check", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        const unknown = core.checks.count(findings, .unknown_object_type);
+        const short = core.checks.count(findings, .short_vso);
+        var line: [160:0]u8 = undefined;
+        ig.igText("Fix all will also remove:");
+        if (unknown > 0) ig.igText(std.fmt.bufPrintZ(&line, "  {d} object(s) whose type the object database does not know", .{unknown}) catch "  unknown objects");
+        if (short > 0) ig.igText(std.fmt.bufPrintZ(&line, "  {d} road(s) or river(s) with fewer than two control points", .{short}) catch "  short roads");
+        ig.igText("It is one undo step.");
+        if (ig.igButton("Fix all and remove them")) {
+            _ = commands.run(state, "check_map_fix_all", "remove");
+            ig.igCloseCurrentPopup();
+        }
+        ig.igSameLine();
+        if (ig.igButton("Fix all but leave them")) {
+            _ = commands.run(state, "check_map_fix_all", "");
+            ig.igCloseCurrentPopup();
+        }
+        ig.igSameLine();
+        if (ig.igButton("Cancel")) {
+            state.check_confirm_pending = false;
+            ig.igCloseCurrentPopup();
+        }
+        ig.igEndPopup();
+    }
+
+    if (state.check_fix_report) |report| {
+        var line: [128:0]u8 = undefined;
+        panels.text(std.fmt.bufPrintZ(&line, "last Fix all: fixed {d}, left {d}, refused {d}", .{ report.fixed, report.left, report.refused }) catch "last Fix all ran");
+    }
+    ig.igSeparator();
+    if (findings.len == 0) {
+        panels.text("no problems found");
+    } else {
+        var current: ?core.checks.Kind = null;
+        for (findings, 0..) |*finding, index| {
+            if (current == null or current.? != finding.kind) {
+                ig.igSeparatorText(kindLabel(finding.kind).ptr);
+                current = finding.kind;
+            }
+            ig.igPushIDInt(@intCast(index));
+            defer ig.igPopID();
+            var label: [core.checks.detail_capacity + 1:0]u8 = undefined;
+            const label_text = std.fmt.bufPrintZ(&label, "{s}", .{finding.text()}) catch continue;
+            if (ig.igSelectableEx(label_text.ptr, false, 0, .{ .x = 0, .y = 0 })) {
+                var arg: [16:0]u8 = undefined;
+                _ = commands.run(state, "check_jump", std.fmt.bufPrintZ(&arg, "{d}", .{index}) catch "");
+            }
+        }
+    }
+    ig.igSeparator();
+    ig.igPushTextWrapPos(0);
+    ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
+    panels.text(check_help);
+    ig.igPopStyleColor();
+    ig.igPopTextWrapPos();
+}
