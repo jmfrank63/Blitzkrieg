@@ -1,10 +1,10 @@
 ---
 schema_version: 1
-open_count: 1
+open_count: 2
 waived_count: 0
 fixed_count: 3
-total_count: 4
-last_updated: 2026-10-01T20:30:49.716Z
+total_count: 5
+last_updated: 2026-10-02T15:34:14.928Z
 ---
 
 # Broken Windows Ledger
@@ -19,6 +19,7 @@ last_updated: 2026-10-01T20:30:49.716Z
 | 2 | 03 | unrun-verify | Sources/editor/app/view.zig |  | plan-5 carried: no test of view.zig's event-to-tool wiring beyond the routing function (Task 4) | fixed | fixed in 03-16 294bcdf74: View = ViewWith(SdlInput), bridge as anytype; 19 view.zig tests feed real SDL events through handleEvent/update against fake bridges, incl. D-15 per-map camera restore; run by test-map-editor-view and CI's unit tier | 2026-09-28T17:53:07.093Z | 2026-09-29T10:08:34.609Z |
 | 3 | 03 | deviation | Sources/editor/app/view_math.zig |  | plan-5 carried: the scroll-direction unit test restates its own constants; an engine-tier ScreenToWorld direction check would catch a sign error (Task 6) | fixed | fixed in 03-16 82a08a462: the direction tests assert literal camera positions (a notch up: 2000,2000 -> 1971.716,2028.284); view.zig's wheel tests do the same through SDL events; the engine tier's TestWorldToScreenRoundTrip already checks screen up is world (-x,+y) | 2026-09-28T17:53:07.199Z | 2026-09-29T10:08:34.712Z |
 | 4 | 05 | unmet-truth | Sources/src/EditorBridge/session_fields.cpp |  | The engine's field fill leaves its final scanline's tile picks unreproducible across seeded replays (recorded in 05-03-SUMMARY deviations; the touched-cell proof and the byte-exact undo proofs carry the contract) | open |  | 2026-10-01T20:30:49.716Z |  |
+| 5 | 5 | deviation | Sources/src/RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp | 970 | 05-08: a generated map names its script by the absolute output path (engine's own szScriptFile = output path); Test in game warns 'not a plain name' for a generated map - see deferred-items.md From 05-08 | open |  | 2026-10-02T15:34:14.928Z |  |
 
 ````json
 [
@@ -69,6 +70,19 @@ last_updated: 2026-10-01T20:30:49.716Z
     "reason": "",
     "recorded_at": "2026-10-01T20:30:49.716Z",
     "resolved_at": null
+  },
+  {
+    "id": 5,
+    "kind": "deviation",
+    "phase": "5",
+    "file": "Sources/src/RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp",
+    "line": 970,
+    "description": "05-08: a generated map names its script by the absolute output path (engine's own szScriptFile = output path); Test in game warns 'not a plain name' for a generated map - see deferred-items.md From 05-08",
+    "status": "open",
+    "reason": "",
+    "recorded_at": "2026-10-02T15:34:14.928Z",
+    "resolved_at": null,
+    "milestone": null
   }
 ]
 ````
