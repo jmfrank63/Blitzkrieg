@@ -1,15 +1,15 @@
 ---
 gsd_state_version: "1.0"
-current_plan: 7
+current_plan: 8
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 05-07-PLAN.md
-last_updated: "2026-10-02T12:01:15.501Z"
-state_head: a78330a538a59af3c4c0c3ec4ae2d39d0fa2fcb9
+stopped_at: Completed 05-06-PLAN.md
+last_updated: "2026-10-02T13:11:21.686Z"
+state_head: 011aae1749ed79eaa8f85a176c4073e55e01254c
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 43
-  completed_plans: 38
+  completed_plans: 39
   percent: 0
 current_phase: 05
 current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
@@ -26,12 +26,12 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 
 ## Current Position
 
-Current Plan: 7
+Current Plan: 8
 Total Plans in Phase: 11
 Progress: [░░░░░░░░░░] 0%
 
-Phase 05 wave 5: 05-05 (players, Unit Creation Info, Check Map, the
-railroad <2-control-points loader guard) summarized; 05-06 next in the wave order.
+Phase 05: 05-05 (players, Unit Creation Info, Check Map), 05-06 (the Layers menu, fire ranges,
+the wire frame in the GPU renderer) and 05-07 (the minimap) summarized; 05-08 next in the wave order.
 
 ## Current summary
 
@@ -67,8 +67,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-10-02T12:01:15.250Z
-**Stopped at:** Completed 05-07-PLAN.md
+**Last session:** 2026-10-02T13:11:21.437Z
+**Stopped at:** Completed 05-06-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -120,6 +120,7 @@ behavior needs the in-game rows).
 | Phase 05 P04 | Tasks 1-2 03:36-07:16, Task 3 + gaps 11:50-14:10 | 3 tasks | 30 files |
 | Phase 5 P05 | 2h50m | 3 tasks | 27 files |
 | Phase 05 P07 | one session | 3 tasks | 17 files |
+| Phase 05 P06 | 1h30m | 3 tasks | 26 files |
 
 ## Decisions
 
@@ -201,3 +202,6 @@ behavior needs the in-game rows).
 - [Phase 05]: 05-07: the minimap texture holds only the terrain; markers, areas, camera frame and grid are draw-list overlays placed by the MFC draw tool's maths; refresh is a dirty flag on History.revision
 - [Phase 05]: 05-07: Create Minimap Images is one CreateMiniMapImage call with the MFC's four parameters - eight files (the DDS trio), verified by header size; the bridge refuses relative paths and anything under the installation's Data
 - [Phase 05]: 05-07: BkEditorTiles added so the app can read the tile grid; a tile's minimap colour is its terrain type's first-tile average, as CMiniMapTerrain::UpdateColor
+- [Phase 05]: 05-06: Depth Complexity is refused by the bridge's mask and greyed in the Layers menu: the GPU renderer has no stencil overdraw counter and the layer paints the frame white (measured); the wire frame was fixed in the renderer instead (Renderer.wireframe, a pipeline-key bit, fill mode LINE)
+- [Phase 05]: 05-06: the Layers state is remembered by the editor and re-applied after every open and new map (only layers that differ, only those in the bridge's mask), and the bridge re-applies its own after every build; settings keys layers_bits, fire_range_mode, fire_range_filter
+- [Phase 05]: 05-06: BkEditorSetFireRangeMode takes the selection (link_ids/count) beside the filter name; the filter is matched in the bridge against the saved filter files, so a composer filter not saved yet cannot drive the fire ranges
