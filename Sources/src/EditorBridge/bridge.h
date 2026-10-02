@@ -2302,7 +2302,9 @@ BkEditorStatus BkEditorRmgWriteContainer( BkEditorSession *session, const char *
    exclusive) and the container it holds ("" = an empty node). */
 typedef struct { int x1, y1, x2, y2; char container[192]; } BkEditorRmgNode;
 
-/* One link: the two node indices, the type (0 road, 1 river), the VSO
+/* One link: the two node indices, the type (0 road, 1 river - the engine
+   treats any other value as a river, and some shipped links are typed 2;
+   0..255 is accepted), the VSO
    descriptor (a storage name, "" = empty), and the engine's own units -
    radius and min_length in WORLD units (the MFC dialog shows them divided by
    the 32-unit cell), distance and disturbance 0..1, parts an integer
@@ -2337,7 +2339,10 @@ typedef struct
 
 /* As BkEditorRmgReadContainer / BkEditorRmgWriteContainer for a graph under
    scenarios\graphs\. A write is REFUSED for a link whose node index is
-   outside the nodes and for any bound exceeded. */
+   outside the nodes and for any bound exceeded. The stored container and
+   descriptor names are data, kept as given (a shipped graph holds a descriptor
+   with its author's drive in front): only a control character is refused, and
+   the composers' Check! reports a name that is not storage-relative. */
 BkEditorStatus BkEditorRmgReadGraph( BkEditorSession *session, const char *name, BkEditorRmgGraphRecord *record );
 BkEditorStatus BkEditorRmgWriteGraph( BkEditorSession *session, const char *name, const BkEditorRmgGraphRecord *record );
 

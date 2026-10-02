@@ -2199,6 +2199,7 @@ pub fn build(b: *std.Build) void {
     const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
     addRmgDeterminismTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    addComposerRoundtripTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
 
     // Backwards-compatible alias for the older command used in project scripts.
     const game_install_step = b.step("game-install", "Create runnable game install layout with binaries and Data");
@@ -7190,7 +7191,91 @@ fn addMapEditor(
         "1060:expect=export_file:maps",
         "1062:expect=export_lines:maps:20",
         "1064:expect=status:created",
-        "1068:exit",
+        // 05-09 (D-06..D-12): the Containers Composer. A shipped container opens (the
+        // MFC's twelve columns and seven patch columns, shot), Check! finds nothing
+        // wrong with it; a new container takes a map from the user's maps folder
+        // through the copy-in (the YES/NO popup, shot) instead of the MFC's refusal,
+        // its patch gets a setting and a direction cleared (undo and redo walk it),
+        // and Save As writes it under the user RMG root, where Open reads it back.
+        "1066:do=rmgc_window",
+        "1068:expect=rmgc_listed:100",
+        "1070:do=rmgc_open:common\\road_cross_asph_we_grunt_winter",
+        "1072:expect=rmgc_patches:4",
+        "1074:expect=rmgc_dirty:0",
+        "1076:expect=rmgc_name:road_cross_asph_we_grunt_winter",
+        "1078:shot=m3-containers-shipped",
+        "1080:do=rmgc_check",
+        "1082:expect=rmgc_errors:0",
+        "1084:do=rmgc_new",
+        "1086:expect=rmgc_patches:0",
+        "1088:do=rmgc_import:m3_auto_rmg",
+        "1090:expect=rmgc_pending:1",
+        "1092:shot=m3-containers-copyin",
+        "1094:do=rmgc_import_yes",
+        "1096:expect=rmgc_pending:0",
+        "1098:expect=rmgc_patches:1",
+        "1100:expect=rmgc_dirty:1",
+        "1102:do=rmgc_patch_set:0:place:summer_france",
+        "1104:expect=rmgc_place:0:summer_france",
+        "1106:do=rmgc_patch_set:0:east:0",
+        "1108:expect=rmgc_cell:0:east:0",
+        "1110:expect=rmgc_cell:0:north:1",
+        "1112:do=rmgc_check",
+        "1114:expect=rmgc_errors:0",
+        "1116:do=rmgc_undo",
+        "1118:expect=rmgc_cell:0:east:1",
+        "1120:do=rmgc_redo",
+        "1122:expect=rmgc_cell:0:east:0",
+        "1124:do=rmgc_saveas:m3auto\\mine",
+        "1126:expect=rmgc_dirty:0",
+        "1128:expect=rmgc_name:m3auto\\mine",
+        "1130:do=rmgc_new",
+        "1132:do=rmgc_open:m3auto\\mine",
+        "1134:expect=rmgc_patches:1",
+        "1136:expect=rmgc_place:0:summer_france",
+        "1138:expect=rmgc_cell:0:east:0",
+        "1140:shot=m3-containers-user",
+        // The Graphs Composer: a shipped graph opens on the canvas (shot); a new one is
+        // drawn with the canvas gestures (two nodes, one moved, Ctrl+drag links them),
+        // the nodes take a container and the link a descriptor and a part count below
+        // eight, Check! finds that one thing (shot), Fix all repairs it, and the graph
+        // saves under the user RMG root and opens again.
+        "1142:do=rmgg_window",
+        "1144:do=rmgg_open:winter\\graph_escort2",
+        "1146:expect=rmgg_nodes:12",
+        "1148:expect=rmgg_links:5",
+        "1150:shot=m3-graphs-shipped",
+        "1152:do=rmgg_new",
+        "1154:expect=rmgg_nodes:0",
+        "1156:do=rmgg_drag:0:0:31:31",
+        "1158:do=rmgg_drag:48:0:79:31",
+        "1160:expect=rmgg_nodes:2",
+        "1162:do=rmgg_drag:10:10:12:10",
+        "1164:expect=rmgg_dirty:1",
+        "1166:do=rmgg_ctrl_drag:10:10:60:10",
+        "1168:expect=rmgg_links:1",
+        "1170:do=rmgg_node:0:winter\\army_s",
+        "1172:do=rmgg_node:1:winter\\army_s",
+        "1174:expect=rmgg_node_container:0:army_s",
+        "1176:do=rmgg_link:0:desc:terrain\\sets\\2\\roads3d\\road_grunt",
+        "1178:do=rmgg_link:0:parts:6",
+        "1180:expect=rmgg_link_parts:0:6",
+        "1182:do=rmgg_check",
+        "1184:expect=rmgg_errors:1",
+        "1186:shot=m3-graphs-check",
+        "1188:do=rmgg_fix_all",
+        "1190:expect=rmgg_errors:0",
+        "1192:expect=rmgg_link_parts:0:8",
+        "1194:do=rmgg_saveas:m3auto\\graph_mine",
+        "1196:expect=rmgg_dirty:0",
+        "1198:do=rmgg_new",
+        "1200:do=rmgg_open:m3auto\\graph_mine",
+        "1202:expect=rmgg_nodes:2",
+        "1204:expect=rmgg_links:1",
+        "1206:expect=rmgg_link_parts:0:8",
+        "1208:expect=rmgg_node_container:1:army_s",
+        "1210:shot=m3-graphs-user",
+        "1214:exit",
     };
     const auto_m3_run = b.addRunArtifact(exe);
     auto_m3_run.setCwd(b.path(stage_root));
@@ -7430,6 +7515,33 @@ fn addRmgDeterminismTest(
     test_mode: build_support.TestMode,
 ) void {
     addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "rmg-determinism-test", "tools/zig/rmg_determinism_test.cpp", "test-rmg-determinism", "Generate a random map twice from a fixed seed through the editor and compare the files byte for byte", &.{});
+}
+
+// 05-09 (D-07/D-40.4): the composer round trip - every shipped container and graph read
+// through the editor's composer records, written back under a scratch name in a scratch
+// user RMG root, read again and compared, the bytes of a second write the same. The
+// data-only tier, like the random missions.
+fn addComposerRoundtripTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+) void {
+    addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "composer-roundtrip-test", "tools/zig/composer_roundtrip_test.cpp", "test-rmg-composer-roundtrip", "Read, write and re-read every shipped RMG container and graph through the composers' records and compare them and their bytes", &.{});
 }
 
 // Both engine-hosted C++ tools of the editor's data-only tier (the random missions and

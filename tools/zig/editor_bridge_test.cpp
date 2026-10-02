@@ -14186,8 +14186,15 @@ static void TestM3RmgGraphs( BkEditorSession *pSession, const std::string &szScr
 		Check( BkEditorRmgWriteGraph( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED && MessageHas( pSession, "node" ), "a node with no area is REFUSED" );
 		bad = toWrite;
 		bad.Rebind();
+		bad.links[0].type = 256;
+		Check( BkEditorRmgWriteGraph( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a link type past 255 is REFUSED" );
 		bad.links[0].type = 2;
-		Check( BkEditorRmgWriteGraph( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a link type outside road/river is REFUSED" );
+		Check( BkEditorRmgWriteGraph( pSession, "scenarios\\graphs\\user\\m3_type2", &bad.record ) == BK_EDITOR_OK, "a link typed 2, as some shipped ones are, is written as it is" );
+		bad.links[0].type = 0;
+		strcpy( bad.links[0].desc, "c:\\a7\\data\\terrain\\sets\\2\\roads3d\\road_asphalt_ground" );
+		Check( BkEditorRmgWriteGraph( pSession, "scenarios\\graphs\\user\\m3_drive", &bad.record ) == BK_EDITOR_OK, "a descriptor with its author's drive in front is data, written as it is" );
+		bad.links[0].desc[2] = 7;
+		Check( BkEditorRmgWriteGraph( pSession, szProbe.c_str(), &bad.record ) == BK_EDITOR_REFUSED, "a control character in a name is REFUSED" );
 		bad = toWrite;
 		bad.Rebind();
 		bad.links[0].radius = NAN;
