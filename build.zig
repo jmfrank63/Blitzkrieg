@@ -6920,7 +6920,42 @@ fn addMapEditor(
         "454:expect=undo_depth:0",
         "456:do=check_map",
         "458:expect=check_findings:6",
-        "500:exit",
+        // The Minimap panel (05-07, D-14..D-17, MM1-MM4, M11). The crafted map is
+        // saved under a name of its own (Save As: a user map beside which the
+        // pictures can go), the panel is shown - nothing in it is an edit, the
+        // document stays clean - and a click near its top-left corner moves the
+        // camera: the shots before and after differ (the view's ground and the
+        // panel's camera frame both moved). Create Minimap Images writes the
+        // pictures beside the saved map (an explicit command, never part of
+        // Save), the panel switches to Game mode and shows the fresh picture;
+        // Editor mode is one click back.
+        "460:do=file_save_bzm:../../../../local-test/map-editor-m3-auto/m3-minimap.bzm",
+        "470:expect=title:m3-minimap.bzm",
+        "472:do=minimap_toggle:on",
+        "474:expect=minimap_visible:1",
+        "476:expect=minimap_mode:editor",
+        "480:shot=m3-minimap-before",
+        "482:do=minimap_click:8x8",
+        "484:expect=minimap_moved",
+        "488:shot=m3-minimap-after",
+        "490:differ=m3-minimap-before/m3-minimap-after@0.5",
+        "492:expect=dirty:0",
+        "494:do=minimap_create",
+        "498:expect=minimap_files",
+        "500:expect=minimap_mode:game",
+        "504:shot=m3-minimap-game",
+        "506:do=minimap_mode:editor",
+        "508:expect=minimap_mode:editor",
+        "510:do=minimap_mode:game",
+        "512:expect=dirty:0",
+        // With the Heights tool active the panel draws the height gradient
+        // (D-14: the MFC's grey ramp), not the terrain colours.
+        "514:do=minimap_mode:editor",
+        "516:tool=heights",
+        "524:shot=m3-minimap-heights",
+        "526:differ=m3-minimap-after/m3-minimap-heights@0.5",
+        "528:tool=select",
+        "540:exit",
     };
     const auto_m3_run = b.addRunArtifact(exe);
     auto_m3_run.setCwd(b.path(stage_root));
