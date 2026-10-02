@@ -2106,6 +2106,101 @@ typedef struct { char name[192]; } BkEditorRmgName;
    kind outside 0..5. */
 BkEditorStatus BkEditorListRmg( BkEditorSession *session, int kind, BkEditorRmgName *out, int capacity, int *out_count );
 
+/* Create Random Map (M3, D-01..D-05): one generation through the engine's own
+   CMapInfo::CreateRandomMap (RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp)
+   - the 2100 lines of the MFC editor's File > Create Random Map, never
+   re-typed. template_name, context_name and setting_name are storage-relative
+   names as BkEditorListRmg kinds 1, 5 and 4 list them (the .xml may be left
+   on; the case does not matter); setting_name "" or "<any setting>" means any
+   setting. level is 0..2 (the dialog's 1..3), graph -1 (the template's
+   weights pick) or an index into the template's graphs, angle -1 (any) or
+   0..3 (N, E, S, W). map_name is ONE path component - no folder, drive, ".."
+   or separator of either kind. save_as_bzm 0 writes the XML form instead,
+   write_dds 0 writes the pictures as TGA only.
+
+   The output root is built here, never taken from the caller: the user's
+   maps folder <UserRoot>maps, or <UserRoot>mods/<Folder>/maps with a mod
+   active (D-17) - the map, its .seed, its .lua and its pictures all land
+   there, and a root inside the game's data is refused. A map of that name
+   already there is refused unless overwrite is set.
+
+   The seed is a 32-bit number: has_seed 0 draws a fresh one, otherwise seed
+   is used as given (0 included). The same seed with the same template,
+   context, setting, level, graph and angle gives a byte-identical map
+   (D-04); with graph or angle -1 the seed decides them too. result.seed is
+   the seed used, read back from the .seed file the generator writes beside
+   the map; graph and angle are the ones used (graph -1 when the index cannot
+   be told); graph_name is the graph file; map_path is the map file in the
+   host's own separators, ready for BkEditorOpenMap after the caller's own
+   conversion. result is zeroed first.
+
+   progress_fn (may be null) is called with (step, total, user) once per
+   generator step, total RMGC_CREATE_RANDOM_MAP_STEP_COUNT (19); it runs on
+   the calling thread inside this call and must not call back into this
+   bridge (the generator holds the engine's singletons). There is no cancel
+   (D-03). Generation does not edit the open map, so there is no edit token
+   and the open map is left exactly as it was.
+
+   BK_EDITOR_BAD_ARGUMENT for a null params or result, or a name that does
+   not fit its field; BK_EDITOR_REFUSED, naming the field in
+   BkEditorLastMessage, for a template, context or setting the data does not
+   hold, a level, graph or angle out of range, a map name that is not plain,
+   a map that already exists, or an output folder inside the data - nothing
+   was written; BK_EDITOR_FAILED when the generator itself fails (files may
+   have been started). */
+/* The mounted storages' files under a folder that end in an extension
+   (M3, D-13's Export lists - the enumeration MainFrm.cpp OnTool0-3 walk):
+   names as the storage holds them with the extension KEPT, lower-cased with
+   backslashes, sorted, deduped. folder is storage-relative with its trailing
+   backslash ("scenarios\\patches\\"), extension a suffix with no separator
+   (".bzm", "context.xml"). Two-pass like BkEditorListRmg: out_count is
+   always the total, a capacity below it is BK_EDITOR_REFUSED after writing
+   what fits, out may be null with capacity 0. A name that does not fit the
+   192-byte field is BK_EDITOR_FAILED (never truncated). BK_EDITOR_REFUSED
+   too, nothing listed, for a folder or extension that is not plain;
+   BK_EDITOR_BAD_ARGUMENT for a null folder, extension or out_count or a
+   negative capacity. */
+BkEditorStatus BkEditorListStorageFiles( BkEditorSession *session, const char *folder, const char *extension,
+                                         BkEditorRmgName *out, int capacity, int *out_count );
+
+/* One template's graphs with their weights in the template's own order (the
+   graphs_list.txt export's lines). template_name is storage-relative as
+   BkEditorListRmg kind 1 lists it. Two-pass like BkEditorListRmg;
+   BK_EDITOR_REFUSED naming "template" for a name the data does not hold (out_count 0). */
+typedef struct { char name[192]; int weight; } BkEditorRmgGraph;
+BkEditorStatus BkEditorRmgTemplateGraphs( BkEditorSession *session, const char *template_name,
+                                          BkEditorRmgGraph *out, int capacity, int *out_count );
+
+typedef struct
+{
+	char template_name[192];
+	char context_name[192];
+	char setting_name[192];
+	char map_name[96];
+	int level;           /* 0..2 */
+	int graph;           /* -1: any */
+	int angle;           /* -1: any, 0..3 */
+	int save_as_bzm;     /* 0/1 */
+	int write_dds;       /* 0/1 */
+	int overwrite;       /* 0/1 */
+	int has_seed;        /* 0/1 */
+	unsigned int seed;
+	BkEditorProgressFn progress_fn;
+	void *user;
+} BkEditorRmgGenerateParams;
+
+typedef struct
+{
+	unsigned int seed;
+	int graph;
+	int angle;
+	char graph_name[192];
+	char map_path[1024];
+} BkEditorRmgGenerateResult;
+
+BkEditorStatus BkEditorCreateRandomMap( BkEditorSession *session, const BkEditorRmgGenerateParams *params,
+                                        BkEditorRmgGenerateResult *result );
+
 /* Safe on a null session, and safe to call twice. Removes the overlay
    BkEditorSetOverlay installed, so it is never called after this returns. */
 BkEditorStatus BkEditorStop( BkEditorSession *session );

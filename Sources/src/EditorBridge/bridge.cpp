@@ -4840,6 +4840,127 @@ BkEditorStatus BkEditorFieldSetSeason( BkEditorSession *pSession, const char *ps
 	} );
 }
 
+BkEditorStatus BkEditorCreateRandomMap( BkEditorSession *pSession, const BkEditorRmgGenerateParams *pParams,
+                                        BkEditorRmgGenerateResult *pResult )
+{
+	if ( pResult != 0 )
+		memset( pResult, 0, sizeof *pResult );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pParams == 0 || pResult == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		// Every text field has to end inside its buffer: a caller that filled
+		// one to the brim has not terminated it.
+		if ( strnlen( pParams->template_name, sizeof pParams->template_name ) >= sizeof pParams->template_name ||
+		     strnlen( pParams->context_name, sizeof pParams->context_name ) >= sizeof pParams->context_name ||
+		     strnlen( pParams->setting_name, sizeof pParams->setting_name ) >= sizeof pParams->setting_name ||
+		     strnlen( pParams->map_name, sizeof pParams->map_name ) >= sizeof pParams->map_name )
+			return BK_EDITOR_BAD_ARGUMENT;
+		SRMGenerateParams params;
+		params.szTemplate = pParams->template_name;
+		params.szContext = pParams->context_name;
+		params.szSetting = pParams->setting_name;
+		params.szMapName = pParams->map_name;
+		params.szModFolder = pSession->szModFolder;
+		params.nLevel = pParams->level;
+		params.nGraph = pParams->graph;
+		params.nAngle = pParams->angle;
+		params.bSaveAsBZM = pParams->save_as_bzm != 0;
+		params.bWriteDDS = pParams->write_dds != 0;
+		params.bOverwrite = pParams->overwrite != 0;
+		params.bHasSeed = pParams->has_seed != 0;
+		params.nSeed = pParams->seed;
+		params.pfnProgress = pParams->progress_fn;
+		params.pUser = pParams->user;
+		SRMGenerateResult result;
+		bool bRefused = false;
+		if ( !CreateRandomMapInSession( pSession, params, &bRefused, &result ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		if ( result.szGraphName.size() >= sizeof pResult->graph_name || result.szMapPath.size() >= sizeof pResult->map_path )
+		{
+			pSession->szMessage = "a name of the result does not fit the caller's buffer";
+			return BK_EDITOR_FAILED;
+		}
+		pResult->seed = result.nSeed;
+		pResult->graph = result.nGraph;
+		pResult->angle = result.nAngle;
+		memcpy( pResult->graph_name, result.szGraphName.c_str(), result.szGraphName.size() + 1 );
+		memcpy( pResult->map_path, result.szMapPath.c_str(), result.szMapPath.size() + 1 );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorListStorageFiles( BkEditorSession *pSession, const char *pszFolder, const char *pszExtension,
+                                         BkEditorRmgName *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszFolder == 0 || pszExtension == 0 || pnCount == 0 || nCapacity < 0 || ( pOut == 0 && nCapacity > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		std::vector<std::string> names;
+		bool bRefused = false;
+		if ( !ListStorageFiles( pSession, pszFolder, pszExtension, &names, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		for ( size_t i = 0; i < names.size(); ++i )
+			if ( names[i].size() >= sizeof pOut->name )
+			{
+				pSession->szMessage = "a file name does not fit the 191-character field: " + names[i];
+				return BK_EDITOR_FAILED;
+			}
+		*pnCount = int( names.size() );
+		const int nWrite = Min( int( names.size() ), nCapacity );
+		for ( int i = 0; i < nWrite; ++i )
+		{
+			memset( &pOut[i], 0, sizeof pOut[i] );
+			memcpy( pOut[i].name, names[size_t( i )].c_str(), names[size_t( i )].size() );
+		}
+		if ( int( names.size() ) > nCapacity )
+		{
+			pSession->szMessage = NStr::Format( "the folder holds %d files and room was given for %d", int( names.size() ), nCapacity );
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorRmgTemplateGraphs( BkEditorSession *pSession, const char *pszTemplate,
+                                          BkEditorRmgGraph *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != 0 )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszTemplate == 0 || pnCount == 0 || nCapacity < 0 || ( pOut == 0 && nCapacity > 0 ) || strnlen( pszTemplate, 256 ) >= 256 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		std::vector<SRMTemplateGraph> graphs;
+		bool bRefused = false;
+		if ( !ListTemplateGraphs( pSession, pszTemplate, &graphs, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
+		for ( size_t i = 0; i < graphs.size(); ++i )
+			if ( graphs[i].szName.size() >= sizeof pOut->name )
+			{
+				pSession->szMessage = "a graph name does not fit the 191-character field: " + graphs[i].szName;
+				return BK_EDITOR_FAILED;
+			}
+		*pnCount = int( graphs.size() );
+		const int nWrite = Min( int( graphs.size() ), nCapacity );
+		for ( int i = 0; i < nWrite; ++i )
+		{
+			memset( &pOut[i], 0, sizeof pOut[i] );
+			memcpy( pOut[i].name, graphs[size_t( i )].szName.c_str(), graphs[size_t( i )].szName.size() );
+			pOut[i].weight = graphs[size_t( i )].nWeight;
+		}
+		if ( int( graphs.size() ) > nCapacity )
+		{
+			pSession->szMessage = NStr::Format( "the template has %d graphs and room was given for %d", int( graphs.size() ), nCapacity );
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorListRmg( BkEditorSession *pSession, int nKind, BkEditorRmgName *pOut, int nCapacity, int *pnCount )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus

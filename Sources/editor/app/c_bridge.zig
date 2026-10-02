@@ -87,6 +87,15 @@ comptime {
     std.debug.assert(@offsetOf(c.BkEditorFieldApplyParams, "object_filter") == @offsetOf(core.bridge.FieldApplyParams, "object_filter"));
     std.debug.assert(@sizeOf(c.BkEditorFieldObjectReport) == @sizeOf(core.bridge.FieldObjectReport));
     std.debug.assert(@sizeOf(c.BkEditorRmgName) == @sizeOf(core.bridge.RmgName));
+    // Create Random Map (05-08): the params and the result are handed over as
+    // they are.
+    std.debug.assert(@sizeOf(c.BkEditorRmgGenerateParams) == @sizeOf(core.bridge.RmgGenerateParams));
+    std.debug.assert(@offsetOf(c.BkEditorRmgGenerateParams, "map_name") == @offsetOf(core.bridge.RmgGenerateParams, "map_name"));
+    std.debug.assert(@offsetOf(c.BkEditorRmgGenerateParams, "seed") == @offsetOf(core.bridge.RmgGenerateParams, "seed"));
+    std.debug.assert(@offsetOf(c.BkEditorRmgGenerateParams, "progress_fn") == @offsetOf(core.bridge.RmgGenerateParams, "progress"));
+    std.debug.assert(@sizeOf(c.BkEditorRmgGraph) == @sizeOf(core.bridge.RmgGraph));
+    std.debug.assert(@sizeOf(c.BkEditorRmgGenerateResult) == @sizeOf(core.bridge.RmgGenerateResult));
+    std.debug.assert(@offsetOf(c.BkEditorRmgGenerateResult, "map_path") == @offsetOf(core.bridge.RmgGenerateResult, "map_path"));
     // The reserve position's record: gun, truck, x, y.
     std.debug.assert(@sizeOf(c.BkEditorReservePositionRecord) == 4 * 4);
     // The AI general's records (04-12): four counts; a parcel's type, centre, radius,
@@ -253,6 +262,9 @@ pub const RealBridge = struct {
         .applyField = vtableApplyField,
         .fieldSetSeason = vtableFieldSetSeason,
         .listRmg = vtableListRmg,
+        .createRandomMap = vtableCreateRandomMap,
+        .listStorageFiles = vtableListStorageFiles,
+        .rmgTemplateGraphs = vtableRmgTemplateGraphs,
         .addPlayer = vtableAddPlayer,
         .deletePlayer = vtableDeletePlayer,
         .unitCreationChoices = vtableUnitCreationChoices,
@@ -718,6 +730,63 @@ pub const RealBridge = struct {
         const result = status(c.BkEditorFieldSetSeason(self.session, name, &out));
         if (result == .ok) season.* = out;
         return result;
+    }
+
+    /// BkEditorCreateRandomMap (05-08, D-01): the params and the result are
+    /// the C structs' own layout (asserted above); the progress callback is C
+    /// ABI on both sides and runs inside the call.
+    fn vtableCreateRandomMap(ptr: *anyopaque, params: core.bridge.RmgGenerateParams, result: *core.bridge.RmgGenerateResult) Status {
+        const self = from(ptr);
+        var c_params: c.BkEditorRmgGenerateParams = @bitCast(params);
+        const c_result: *c.BkEditorRmgGenerateResult = @ptrCast(result);
+        return status(c.BkEditorCreateRandomMap(self.session, &c_params, c_result));
+    }
+
+    /// BkEditorListStorageFiles (05-08, D-13) in two passes, like `vtableListRmg`.
+    fn vtableListStorageFiles(ptr: *anyopaque, folder: [*:0]const u8, extension: [*:0]const u8, out: []core.bridge.RmgName, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorListStorageFiles(self.session, folder, extension, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        total.* = @intCast(@max(count, 0));
+        // Nothing listed: ok for an empty folder, the refusal itself when the
+        // folder or the extension was not plain (the sizing pass of a real
+        // listing is refused WITH a count above 0).
+        if (count <= 0) return sizing;
+        if (out.len < total.*) return .refused;
+        const all = std.heap.page_allocator.alloc(c.BkEditorRmgName, @intCast(count)) catch return .failed;
+        defer std.heap.page_allocator.free(all);
+        var got: c_int = 0;
+        const read = status(c.BkEditorListStorageFiles(self.session, folder, extension, all.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (all, 0..) |item, i| {
+            if (i >= out.len) break;
+            out[i] = @bitCast(item);
+        }
+        return .ok;
+    }
+
+    /// BkEditorRmgTemplateGraphs (05-08, D-13) in two passes.
+    fn vtableRmgTemplateGraphs(ptr: *anyopaque, template: [*:0]const u8, out: []core.bridge.RmgGraph, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        const sizing = status(c.BkEditorRmgTemplateGraphs(self.session, template, null, 0, &count));
+        if (sizing != .ok and sizing != .refused) return sizing;
+        total.* = @intCast(@max(count, 0));
+        if (count <= 0) return sizing;
+        if (out.len < total.*) return .refused;
+        const all = std.heap.page_allocator.alloc(c.BkEditorRmgGraph, @intCast(count)) catch return .failed;
+        defer std.heap.page_allocator.free(all);
+        var got: c_int = 0;
+        const read = status(c.BkEditorRmgTemplateGraphs(self.session, template, all.ptr, count, &got));
+        if (read != .ok) return read;
+        if (got != count) return .failed;
+        for (all, 0..) |item, i| {
+            if (i >= out.len) break;
+            out[i] = @bitCast(item);
+        }
+        return .ok;
     }
 
     /// BkEditorListRmg (M3, D-08) in two passes: the sizing pass is REFUSED

@@ -511,6 +511,38 @@ pub const FakeBridge = struct {
     /// answers for the field sets folder.
     field_set_season: i32 = 0,
     field_set_names: []const []const u8 = &.{"scenarios/fieldsets/summer_basic"},
+    /// Create Random Map's fixtures (05-08): the names listRmg answers for the
+    /// templates, settings and chapters folders, how many graphs every
+    /// template has, what the last generation asked for, the names already
+    /// generated (a repeat is refused without overwrite - the real bridge's
+    /// rule over the user's maps folder) and the seed a blank seed draws.
+    template_names: []const []const u8 = &.{"scenarios\\templates\\summer\\small"},
+    setting_names: []const []const u8 = &.{"scenarios\\settings\\summer_france"},
+    chapter_names: []const []const u8 = &.{"scenarios\\chapters\\allies\\france\\context"},
+    template_graph_count: i32 = 3,
+    /// Every file the fake storages hold under the folders the Export lists
+    /// walk (05-08, D-13), as the real enumeration names them: lower case,
+    /// backslashes, the extension kept - listStorageFiles filters this by
+    /// folder and extension exactly as the real one does.
+    storage_files: []const []const u8 = &.{
+        "scenarios\\templates\\summer\\template00.xml",
+        "scenarios\\templates\\summer\\template01.xml",
+        "scenarios\\chapters\\allies\\france\\chapter.xml",
+        "scenarios\\chapters\\allies\\france\\context.xml",
+        "scenarios\\chapters\\german\\poland\\context.xml",
+        "scenarios\\patches\\ridge.bzm",
+        "scenarios\\patches\\ridge.xml",
+        "maps\\arena.bzm",
+        "maps\\river3d.xml",
+        "maps\\road3d.xml",
+        "maps\\duel.xml",
+    },
+    /// What rmgTemplateGraphs answers for every template: names and weights.
+    template_graph_names: []const []const u8 = &.{ "scenarios\\graphs\\summer\\graph00", "scenarios\\graphs\\summer\\graph01", "scenarios\\graphs\\summer\\graph02" },
+    template_graph_weights: []const i32 = &.{ 1, 2, 3 },
+    last_generate: ?bridge_mod.RmgGenerateParams = null,
+    generated_names: std.ArrayListUnmanaged([bridge_mod.rmg_map_name_capacity]u8) = .empty,
+    drawn_seed: u32 = 0x5eed0001,
     last_field_apply: ?bridge_mod.FieldApplyParams = null,
     field_apply_refused: bool = false,
     /// Set by a test: a fields apply adds one object (the fill's own), at
@@ -585,6 +617,7 @@ pub const FakeBridge = struct {
 
     pub fn deinit(self: *FakeBridge) void {
         self.fire_link_ids.deinit(self.allocator);
+        self.generated_names.deinit(self.allocator);
         for (self.paints.items) |paint_record| {
             self.allocator.free(paint_record.cells);
             self.allocator.free(paint_record.before);
@@ -1221,6 +1254,9 @@ pub const FakeBridge = struct {
         .applyField = applyField,
         .fieldSetSeason = fieldSetSeason,
         .listRmg = listRmg,
+        .createRandomMap = createRandomMap,
+        .listStorageFiles = listStorageFiles,
+        .rmgTemplateGraphs = rmgTemplateGraphs,
         .addPlayer = addPlayer,
         .deletePlayer = deletePlayer,
         .unitCreationChoices = unitCreationChoices,
@@ -4244,19 +4280,146 @@ pub const FakeBridge = struct {
         try self.unit_creation_list.append(self.allocator, stored);
     }
 
+    fn rmgNames(self: *const FakeBridge, kind: bridge_mod.RmgKind) []const []const u8 {
+        return switch (kind) {
+            .field_sets => self.field_set_names,
+            .templates => self.template_names,
+            .settings => self.setting_names,
+            .chapters => self.chapter_names,
+            else => &.{},
+        };
+    }
+
     fn listRmg(ptr: *anyopaque, kind: bridge_mod.RmgKind, out: []bridge_mod.RmgName, total: *usize) Status {
         const self = from(ptr);
         self.message_len = 0;
-        total.* = if (kind == .field_sets) self.field_set_names.len else 0;
+        const names = self.rmgNames(kind);
+        total.* = names.len;
         if (out.len < total.*) return .refused;
-        if (kind == .field_sets) {
-            for (self.field_set_names, 0..) |name, i| {
+        for (names, 0..) |name, i| {
+            var entry = bridge_mod.RmgName{};
+            const len = @min(name.len, entry.name.len - 1);
+            @memcpy(entry.name[0..len], name[0..len]);
+            out[i] = entry;
+        }
+        return .ok;
+    }
+
+    fn listStorageFiles(ptr: *anyopaque, folder: [*:0]const u8, extension: [*:0]const u8, out: []bridge_mod.RmgName, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        total.* = 0;
+        const wanted_folder = std.mem.span(folder);
+        const wanted_extension = std.mem.span(extension);
+        if (wanted_folder.len < 2 or wanted_folder[wanted_folder.len - 1] != '\\' or wanted_extension.len == 0) {
+            self.say("the folder or the extension of the storage listing is not plain", .{});
+            return .refused;
+        }
+        // The real listing is sorted and deduped; the fixture's order is the
+        // sorted one, so the filter keeps it.
+        var count: usize = 0;
+        for (self.storage_files) |name| {
+            if (name.len <= wanted_folder.len or !std.mem.startsWith(u8, name, wanted_folder)) continue;
+            if (!std.mem.endsWith(u8, name, wanted_extension)) continue;
+            if (count < out.len) {
                 var entry = bridge_mod.RmgName{};
                 const len = @min(name.len, entry.name.len - 1);
                 @memcpy(entry.name[0..len], name[0..len]);
-                out[i] = entry;
+                out[count] = entry;
             }
+            count += 1;
         }
+        total.* = count;
+        return if (count > out.len) .refused else .ok;
+    }
+
+    fn rmgTemplateGraphs(ptr: *anyopaque, template: [*:0]const u8, out: []bridge_mod.RmgGraph, total: *usize) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        total.* = 0;
+        if (!self.rmgHas(.templates, std.mem.span(template))) {
+            self.say("template \"{s}\" is not in the data", .{std.mem.span(template)});
+            return .refused;
+        }
+        total.* = self.template_graph_names.len;
+        if (out.len < total.*) return .refused;
+        for (self.template_graph_names, 0..) |name, i| {
+            var entry = bridge_mod.RmgGraph{};
+            const len = @min(name.len, entry.name.len - 1);
+            @memcpy(entry.name[0..len], name[0..len]);
+            entry.weight = self.template_graph_weights[i];
+            out[i] = entry;
+        }
+        return .ok;
+    }
+
+    fn rmgHas(self: *const FakeBridge, kind: bridge_mod.RmgKind, name: []const u8) bool {
+        for (self.rmgNames(kind)) |known| {
+            if (std.ascii.eqlIgnoreCase(known, name)) return true;
+        }
+        return false;
+    }
+
+    /// Create Random Map's scripted generation: the real bridge's refusals
+    /// (a name the data does not hold, a range, a map name that is not
+    /// plain, a repeat without overwrite) naming their field, then a
+    /// fixture result - the seed as given or the drawn one, the graph and
+    /// angle as given or 0 - with the 19 progress steps reported.
+    fn createRandomMap(ptr: *anyopaque, params: bridge_mod.RmgGenerateParams, result: *bridge_mod.RmgGenerateResult) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        result.* = .{};
+        if (!self.rmgHas(.templates, params.templateSlice())) {
+            self.say("template \"{s}\" is not in the data", .{params.templateSlice()});
+            return .refused;
+        }
+        if (!self.rmgHas(.chapters, params.contextSlice())) {
+            self.say("context \"{s}\" is not in the data", .{params.contextSlice()});
+            return .refused;
+        }
+        const setting = params.settingSlice();
+        if (setting.len != 0 and !std.mem.eql(u8, setting, bridge_mod.rmg_any_setting) and !self.rmgHas(.settings, setting)) {
+            self.say("setting \"{s}\" is not in the data", .{setting});
+            return .refused;
+        }
+        if (params.level < 0 or params.level > 2) {
+            self.say("level {d} is outside 0..2", .{params.level});
+            return .refused;
+        }
+        if (params.graph < -1 or params.graph >= self.template_graph_count) {
+            self.say("graph {d} is outside -1..{d} for template \"{s}\"", .{ params.graph, self.template_graph_count - 1, params.templateSlice() });
+            return .refused;
+        }
+        if (params.angle < -1 or params.angle > 3) {
+            self.say("angle {d} is outside -1..3", .{params.angle});
+            return .refused;
+        }
+        const name = params.mapNameSlice();
+        if (name.len == 0 or std.mem.indexOfAny(u8, name, "\\/:") != null or std.mem.eql(u8, name, ".") or std.mem.eql(u8, name, "..")) {
+            self.say("map name \"{s}\" is not a plain name (no folder, drive or dots)", .{name});
+            return .refused;
+        }
+        var repeated = false;
+        for (self.generated_names.items) |known| {
+            if (std.mem.eql(u8, std.mem.sliceTo(&known, 0), name)) repeated = true;
+        }
+        if (repeated and params.overwrite == 0) {
+            self.say("a map named \"{s}\" already exists in the maps folder", .{name});
+            return .refused;
+        }
+        if (!repeated) self.generated_names.append(self.allocator, params.map_name) catch return .failed;
+        self.last_generate = params;
+        var step: c_int = 1;
+        while (step <= 19) : (step += 1) {
+            if (params.progress) |report| report(step, 19, params.user);
+        }
+        result.seed = if (params.has_seed != 0) params.seed else self.drawn_seed;
+        result.graph = if (params.graph >= 0) params.graph else 0;
+        result.angle = if (params.angle >= 0) params.angle else 0;
+        const graph_name = std.fmt.bufPrint(&result.graph_name, "graphs\\fake{d}", .{result.graph}) catch "";
+        _ = graph_name;
+        const extension: []const u8 = if (params.save_as_bzm != 0) "bzm" else "xml";
+        _ = std.fmt.bufPrint(&result.map_path, "/fake/user/maps/{s}.{s}", .{ name, extension }) catch {};
         return .ok;
     }
 
