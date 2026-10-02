@@ -501,13 +501,15 @@ fn layerIs(state: *State, arg: []const u8) Outcome {
 }
 
 /// `expect=fire_areas:<n>` - at least n shoot areas are shown (the minimap's
-/// read of what the AI shows; line-shaped ranges are left out of it).
+/// read of what the AI shows; line-shaped ranges are left out of it); `0`
+/// means none are shown at all.
 fn fireAreasAtLeast(state: *State, arg: []const u8) Outcome {
     const wanted = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
     var none: [0]core.bridge.MinimapArea = .{};
     var total: usize = 0;
     const answer = state.editor.bridge.minimapAreas(&none, &total);
     if (answer != .ok and answer != .refused) return .refused;
+    if (wanted == 0) return if (total == 0) .ok else .refused;
     return if (total >= wanted) .ok else .refused;
 }
 
