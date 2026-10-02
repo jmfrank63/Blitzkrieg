@@ -1,15 +1,15 @@
 ---
 gsd_state_version: "1.0"
-current_plan: 10
+current_plan: 11
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 05-09-PLAN.md
-last_updated: "2026-10-02T19:55:09.903Z"
-state_head: a404310d77703a6ea1c69c5562b4bd48065b25a4
+stopped_at: Completed 05-10-PLAN.md
+last_updated: "2026-10-02T22:42:04.771Z"
+state_head: 00c02ae11ff7b966fe9f54669738b2d30df2e722
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 43
-  completed_plans: 41
+  completed_plans: 42
   percent: 0
 current_phase: 05
 current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
@@ -26,7 +26,7 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 
 ## Current Position
 
-Current Plan: 10
+Current Plan: 11
 Total Plans in Phase: 11
 Progress: [░░░░░░░░░░] 0%
 
@@ -67,8 +67,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-10-02T19:55:09.666Z
-**Stopped at:** Completed 05-09-PLAN.md
+**Last session:** 2026-10-02T22:42:04.531Z
+**Stopped at:** Completed 05-10-PLAN.md
 **Resume file:** None
 
 ## Accumulated Context
@@ -123,6 +123,7 @@ behavior needs the in-game rows).
 | Phase 05 P06 | 1h30m | 3 tasks | 26 files |
 | Phase 05 P08 | 2h45m | 3 tasks | 19 files |
 | Phase 05 P09 | 2h30m | 3 tasks | 21 files |
+| Phase 05 P10 | n/a | 3 tasks | 24 files |
 
 ## Decisions
 
@@ -216,3 +217,6 @@ behavior needs the in-game rows).
 - [Phase 05]: 05-09: composer records cross the ABI as the engine's own SRMContainer/SRMGraph fields with caller-sized counted arrays (two-pass: a short array is REFUSED with the totals); SaveDataResource writes into Data, so the composers write through the same tree serialiser under the user root and read each write back
 - [Phase 05]: 05-09: stored names in a graph are data (only a control character is refused; links typed 2 and a descriptor with a drive exist in shipped graphs) - Check! reports and offers explicit fixes, never silently; D-10 copy-in is bridge-side with a dry run for the YES/NO
 - [Phase 05]: 05-09 (Open Question 4): containers and graphs share the file row, Open combo with filter, findings list, confirmations and the name:field:value command shape; the patch table and the canvas are their own windows - 05-10 inherits the shared helpers
+- [Phase 05]: 05-10: Check! for templates is implemented as a recorded addition (the MFC handler at RMG_CreateTemplateDialog.cpp:1269 does nothing); every finding has an explicit fix, Fix all is one undo step
+- [Phase 05]: 05-10: the season folder mapping follows CMapInfo::SEASON_FOLDERS (1 summer, 2 winter, 3 africa, 4 spring); a weight vector whose elements and weights differ in length is refused on write
+- [Phase 05]: 05-10: Save All is Save (one file per composer); the authored end-to-end is a renamed copy of a shipped set written through the composers' I/O, generated twice byte-identical and loaded by the real Game
