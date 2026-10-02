@@ -1230,3 +1230,1061 @@ pub fn drawRmgProgress(state: *State) void {
         },
     }
 }
+
+// ---------------------------------------------------------------------------
+// The RMG composers (05-09, D-06..D-12): the Containers Composer and the
+// Graphs Composer. Each is a dockable Tools window over core.composers; every
+// button runs a named command (commands.zig rmgc_* / rmgg_*) - except the
+// batch adds, which pass several names at once - so BK_EDITOR_AUTO reaches all
+// of it. Decision for 05-10 (RESEARCH Open Question 4): containers and graphs
+// share the file row, the Open combo with its filter, the Check! findings list
+// and the confirm popups below; the tables and the canvas are their own.
+// ---------------------------------------------------------------------------
+
+fn caseInsensitiveContains(haystack: []const u8, needle: []const u8) bool {
+    if (needle.len == 0) return true;
+    if (needle.len > haystack.len) return false;
+    var at: usize = 0;
+    while (at + needle.len <= haystack.len) : (at += 1) {
+        if (std.ascii.eqlIgnoreCase(haystack[at .. at + needle.len], needle)) return true;
+    }
+    return false;
+}
+
+/// A command the discard prompt will run on YES: `name arg`.
+fn setPending(buffer: *[220:0]u8, name: []const u8, arg: []const u8) void {
+    const text = std.fmt.bufPrintZ(buffer, "{s} {s}", .{ name, arg }) catch {
+        buffer[0] = 0;
+        return;
+    };
+    _ = text;
+}
+
+fn runPending(state: *State, buffer: *const [220:0]u8) void {
+    const text = std.mem.sliceTo(buffer, 0);
+    const split = std.mem.indexOfScalar(u8, text, ' ') orelse text.len;
+    _ = commands.run(state, text[0..split], if (split < text.len) text[split + 1 ..] else "");
+}
+
+/// Opens the named modal once when `want` asks for it, and reports whether it
+/// is showing this frame. The modal's own buttons set `want` back to none.
+fn modalIsShowing(want: panels.ComposerPopup, which: panels.ComposerPopup, name: [:0]const u8) bool {
+    if (want != which) return false;
+    if (!ig.igIsPopupOpen(name.ptr, 0)) _ = ig.igOpenPopup(name.ptr, 0);
+    return true;
+}
+
+fn drawDiscardModal(state: *State, popup: *panels.ComposerPopup, pending: *const [220:0]u8) void {
+    if (!modalIsShowing(popup.*, .discard, "Discard changes?")) return;
+    if (ig.igBeginPopupModal("Discard changes?", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        panels.text("This file has changes that are not saved. Discard them?");
+        if (ig.igButton("Discard")) {
+            popup.* = .none;
+            ig.igCloseCurrentPopup();
+            runPending(state, pending);
+        }
+        ig.igSameLine();
+        if (ig.igButton("Keep editing")) {
+            popup.* = .none;
+            ig.igCloseCurrentPopup();
+        }
+        ig.igEndPopup();
+    }
+}
+
+/// New and Open ask first when the file has unsaved changes (the MFC saved
+/// silently on New/Open; here the choice is the person's).
+fn requestWithDiscard(state: *State, dirty: bool, popup: *panels.ComposerPopup, pending: *[220:0]u8, command: []const u8, arg: []const u8) void {
+    if (!dirty) {
+        _ = commands.run(state, command, arg);
+        return;
+    }
+    setPending(pending, command, arg);
+    popup.* = .discard;
+}
+
+fn drawFindings(state: *State, report: ?*const core.rmg.Report, fix_command: []const u8, fix_all_command: []const u8) void {
+    const found = report orelse return;
+    ig.igSeparatorText("Check! findings");
+    if (found.findings.items.len == 0) {
+        panels.text("Nothing found: every patch, size and list checks out.");
+        return;
+    }
+    if (ig.igSmallButton("Fix all")) _ = commands.run(state, fix_all_command, "");
+    ig.igSameLine();
+    panels.text("Fixes that remove an entry are explicit: Fix removes just that one, and every fix is one undo step.");
+    _ = ig.igBeginChild("findings", .{ .x = 0, .y = 0 }, ig.ImGuiChildFlags_Borders, 0);
+    for (found.findings.items, 0..) |finding, i| {
+        ig.igPushIDInt(@intCast(i));
+        if (finding.fix != .none) {
+            if (ig.igSmallButton("Fix")) {
+                var buffer: [16:0]u8 = undefined;
+                _ = commands.run(state, fix_command, std.fmt.bufPrintZ(&buffer, "{d}", .{i}) catch "");
+            }
+            ig.igSameLine();
+        }
+        const color = if (finding.severity == .@"error") ig.ImVec4{ .x = 1.0, .y = 0.45, .z = 0.4, .w = 1 } else ig.ImVec4{ .x = 1.0, .y = 0.85, .z = 0.4, .w = 1 };
+        ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, color);
+        var line: [800:0]u8 = undefined;
+        const text = std.fmt.bufPrintZ(&line, "{s}: {s}", .{ if (finding.severity == .@"error") "error" else "warning", finding.text }) catch "?";
+        ig.igTextWrapped("%s", text.ptr);
+        ig.igPopStyleColor();
+        ig.igPopID();
+    }
+    ig.igEndChild();
+}
+
+/// The shared File row: New, an Open combo over the scanned names with its
+/// filter, Save, Save As with its name field, Undo, Redo, Check!. `prefix` is
+/// `rmgc` or `rmgg`.
+fn drawFileRow(
+    state: *State,
+    comptime prefix: []const u8,
+    folder: []const u8,
+    names: []const []u8,
+    doc_name: []const u8,
+    dirty: bool,
+    shipped: bool,
+    can_undo: bool,
+    can_redo: bool,
+    open_filter: *[96:0]u8,
+    save_as_edit: *[128:0]u8,
+    popup: *panels.ComposerPopup,
+    pending: *[220:0]u8,
+) void {
+    if (ig.igButton("New")) requestWithDiscard(state, dirty, popup, pending, prefix ++ "_new", "");
+    ig.igSameLine();
+    ig.igSetNextItemWidth(230);
+    if (ig.igBeginCombo(std.fmt.comptimePrint("##open_{s}", .{prefix}), "Open...", 0)) {
+        _ = ig.igInputTextWithHint(std.fmt.comptimePrint("##filter_{s}", .{prefix}), "filter", open_filter, open_filter.len + 1, 0);
+        const filter = std.mem.sliceTo(open_filter, 0);
+        _ = ig.igBeginChild(std.fmt.comptimePrint("##names_{s}", .{prefix}), .{ .x = 440, .y = 260 }, 0, 0);
+        for (names) |full| {
+            const relative = core.composers.relativeName(folder, full);
+            if (!caseInsensitiveContains(relative, filter)) continue;
+            var label: [200:0]u8 = undefined;
+            const label_z = std.fmt.bufPrintZ(&label, "{s}", .{relative}) catch continue;
+            if (ig.igSelectableEx(label_z.ptr, std.ascii.eqlIgnoreCase(full, doc_name), 0, .{ .x = 0, .y = 0 })) {
+                var arg_buffer: [200:0]u8 = undefined;
+                const arg = std.fmt.bufPrintZ(&arg_buffer, "{s}", .{relative}) catch "";
+                requestWithDiscard(state, dirty, popup, pending, prefix ++ "_open", arg);
+                ig.igCloseCurrentPopup();
+            }
+        }
+        ig.igEndChild();
+        ig.igEndCombo();
+    }
+    ig.igSameLine();
+    if (ig.igButton(if (shipped) "Save (read-only: Save As)" else "Save")) _ = commands.run(state, prefix ++ "_save", "");
+    ig.igSameLine();
+    ig.igSetNextItemWidth(170);
+    _ = ig.igInputTextWithHint(std.fmt.comptimePrint("##saveas_{s}", .{prefix}), "user\\name", save_as_edit, save_as_edit.len + 1, 0);
+    ig.igSameLine();
+    if (ig.igButton("Save As")) {
+        const typed = std.mem.sliceTo(save_as_edit, 0);
+        if (typed.len != 0) _ = commands.run(state, prefix ++ "_saveas", typed);
+    }
+    ig.igSameLine();
+    ig.igBeginDisabled(!can_undo);
+    if (ig.igButton("Undo")) _ = commands.run(state, prefix ++ "_undo", "");
+    ig.igEndDisabled();
+    ig.igSameLine();
+    ig.igBeginDisabled(!can_redo);
+    if (ig.igButton("Redo")) _ = commands.run(state, prefix ++ "_redo", "");
+    ig.igEndDisabled();
+    ig.igSameLine();
+    if (ig.igButton("Check!")) _ = commands.run(state, prefix ++ "_check", "");
+}
+
+fn composerTitle(buffer: []u8, title: []const u8, doc_name: []const u8, dirty: bool, shipped: bool) [:0]const u8 {
+    return std.fmt.bufPrintZ(buffer, "{s} - [{s}]{s}{s}###{s}", .{
+        title,
+        if (doc_name.len == 0) "new" else doc_name,
+        if (dirty) " *" else "",
+        if (shipped) " (shipped, read-only)" else "",
+        title,
+    }) catch "composer";
+}
+
+/// How many bytes a bufPrint wrote (none when it did not fit).
+fn printedLen(printed: anyerror![]u8) usize {
+    const text = printed catch return 0;
+    return text.len;
+}
+
+fn fmtZ(buffer: []u8, comptime format: []const u8, args: anytype) [:0]const u8 {
+    return std.fmt.bufPrintZ(buffer, format, args) catch "";
+}
+
+fn textCell(comptime format: []const u8, args: anytype) void {
+    var buffer: [512:0]u8 = undefined;
+    const text = std.fmt.bufPrintZ(&buffer, format, args) catch "?";
+    ig.igTextUnformatted(text.ptr);
+}
+
+/// D-06/D-07/D-10/D-12: the Containers Composer.
+pub fn drawContainersComposer(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    if (!state.containers_open) return;
+    const composers = &state.composers;
+    composers.ensureScanned(state.editor);
+    var title_buffer: [256]u8 = undefined;
+    const doc = &composers.cdoc;
+    const title = composerTitle(&title_buffer, "Containers Composer", doc.name, doc.dirty, doc.shipped);
+    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
+    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    const open = ig.igBegin(title.ptr, &state.containers_open, ig.ImGuiWindowFlags_NoCollapse);
+    defer ig.igEnd();
+    if (!open) return;
+
+    drawFileRow(state, "rmgc", core.composers.container_folder, composers.container_names.items, doc.name, doc.dirty, doc.shipped, doc.canUndo(), doc.canRedo(), &state.cc_open_filter, &state.cc_save_as_edit, &state.cc_popup, &state.cc_pending_cmd);
+    if (composers.message().len != 0) {
+        ig.igPushTextWrapPos(0);
+        textCell("{s}", .{composers.message()});
+        ig.igPopTextWrapPos();
+    }
+    drawContainerHeader(state);
+    drawPatchTable(state);
+    drawFindings(state, if (composers.container_report) |*report| report else null, "rmgc_fix", "rmgc_fix_all");
+    drawContainerModals(state);
+    drawDiscardModal(state, &state.cc_popup, &state.cc_pending_cmd);
+}
+
+/// The container's own row, the MFC list's twelve columns.
+fn drawContainerHeader(state: *State) void {
+    const c = &state.composers.cdoc.current;
+    const columns = [_][:0]const u8{ "Path", "Size", "Count", "NORTH (0)", "EAST (90)", "SOUTH (180)", "WEST (270)", "Season", "Season Folder", "Supported Settings", "Used Script IDs", "Used Script Areas" };
+    const flags = ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_Resizable | ig.ImGuiTableFlags_ScrollX | ig.ImGuiTableFlags_SizingFixedFit;
+    if (!ig.igBeginTableEx("##container_header", columns.len, flags, .{ .x = 0, .y = ig.igGetFrameHeight() * 2.6 }, 0)) return;
+    defer ig.igEndTable();
+    ig.igTableSetupColumnEx(columns[0].ptr, ig.ImGuiTableColumnFlags_WidthFixed, 230, 0);
+    for (columns[1..]) |label| ig.igTableSetupColumn(label.ptr, 0);
+    ig.igTableHeadersRow();
+    ig.igTableNextRow();
+    var scratch: [512]u8 = undefined;
+    _ = ig.igTableSetColumnIndex(0);
+    textCell("{s}", .{if (state.composers.cdoc.name.len == 0) "(new)" else core.composers.relativeName(core.composers.container_folder, state.composers.cdoc.name)});
+    _ = ig.igTableSetColumnIndex(1);
+    textCell("{s}", .{logic.patchSizeText(&scratch, c.size_x, c.size_y)});
+    _ = ig.igTableSetColumnIndex(2);
+    textCell("{d}", .{c.patchCount()});
+    for (0..4) |d| {
+        _ = ig.igTableSetColumnIndex(@intCast(3 + d));
+        textCell("{d}", .{c.indices[d].items.len});
+    }
+    _ = ig.igTableSetColumnIndex(7);
+    textCell("{s}", .{core.rmg.seasonName(c.season, c.season_folder)});
+    _ = ig.igTableSetColumnIndex(8);
+    textCell("{s}", .{c.season_folder});
+    _ = ig.igTableSetColumnIndex(9);
+    if (c.supportedSettings(state.allocator)) |settings| {
+        defer core.rmg.freeNames(state.allocator, settings);
+        textCell("{s}", .{logic.namesText(&scratch, settings)});
+    } else |_| {}
+    _ = ig.igTableSetColumnIndex(10);
+    textCell("{s}", .{logic.idsText(&scratch, c.script_ids.items)});
+    _ = ig.igTableSetColumnIndex(11);
+    textCell("{s}", .{logic.areasText(&scratch, c.script_areas.items)});
+}
+
+fn selectedPatches(state: *State, out: []usize) usize {
+    var n: usize = 0;
+    const count = @min(state.composers.cdoc.current.patchCount(), state.cc_selected.len);
+    for (0..count) |i| {
+        if (state.cc_selected[i] and n < out.len) {
+            out[n] = i;
+            n += 1;
+        }
+    }
+    return n;
+}
+
+fn openPatchProperties(state: *State) void {
+    var picked: [core.bridge.rmg_max_patches]usize = undefined;
+    const n = selectedPatches(state, &picked);
+    if (n == 0) return;
+    const c = &state.composers.cdoc.current;
+    // The setting shown is the common one; the cells are tri-state over the
+    // selection (RMG_CreateContainerDialog.cpp OnPropertiesButton: all, none or
+    // mixed - mixed is "keep").
+    const first_place = c.patches.items[picked[0]].place;
+    var same = true;
+    for (picked[1..n]) |i| {
+        if (!std.mem.eql(u8, c.patches.items[i].place, first_place)) same = false;
+    }
+    const shown = if (!same) "" else if (first_place.len == 0) "<any setting>" else first_place;
+    @memset(&state.cc_place_edit, 0);
+    const len = @min(shown.len, state.cc_place_edit.len - 1);
+    @memcpy(state.cc_place_edit[0..len], shown[0..len]);
+    for (0..4) |d| {
+        var have: usize = 0;
+        for (picked[0..n]) |i| {
+            if (c.hasDirection(i, @enumFromInt(d))) have += 1;
+        }
+        state.cc_flags_edit[d] = if (have == 0) .off else if (have == n) .on else .keep;
+    }
+    state.cc_popup = .properties;
+}
+
+fn drawPatchTable(state: *State) void {
+    const c = &state.composers.cdoc.current;
+    // The buttons above the table (the MFC's Add / Delete / Properties).
+    var picked: [core.bridge.rmg_max_patches]usize = undefined;
+    const picked_count = selectedPatches(state, &picked);
+    if (ig.igButton("Add patches...")) {
+        state.composers.refreshPatches(state.editor) catch {};
+        state.cc_picker_selected.clearRetainingCapacity();
+        state.cc_picker_selected.appendNTimes(state.allocator, false, state.composers.patch_names.items.len) catch {};
+        state.cc_popup = .picker;
+    }
+    ig.igSameLine();
+    ig.igBeginDisabled(picked_count == 0);
+    if (ig.igButton("Delete")) state.cc_popup = .delete_patches;
+    ig.igSameLine();
+    if (ig.igButton("Properties...")) openPatchProperties(state);
+    ig.igEndDisabled();
+    ig.igSameLine();
+    var counter: [160]u8 = undefined;
+    ig.igTextDisabled("%s", fmtZ(&counter, "{d} patches, {d} selected (Insert adds, Delete removes, Space or a double-click edits)", .{ c.patchCount(), picked_count }).ptr);
+
+    const columns = [_][:0]const u8{ "Path", "Size", "Setting", "NORTH (0)", "EAST (90)", "SOUTH (180)", "WEST (270)" };
+    const flags = ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_Resizable | ig.ImGuiTableFlags_ScrollY | ig.ImGuiTableFlags_ScrollX | ig.ImGuiTableFlags_SizingFixedFit;
+    const avail = ig.igGetContentRegionAvail();
+    const height = if (state.composers.container_report != null) @max(avail.y * 0.5, 120) else @max(avail.y, 120);
+    if (ig.igBeginTableEx("##patches", columns.len, flags, .{ .x = 0, .y = height }, 0)) {
+        ig.igTableSetupColumnEx(columns[0].ptr, ig.ImGuiTableColumnFlags_WidthFixed, 470, 0);
+        for (columns[1..]) |label| ig.igTableSetupColumn(label.ptr, 0);
+        ig.igTableHeadersRow();
+        const shift = ig.igGetIO().*.KeyShift;
+        const ctrl = ig.igGetIO().*.KeyCtrl or ig.igGetIO().*.KeySuper;
+        for (c.patches.items, 0..) |patch, i| {
+            if (i >= state.cc_selected.len) break;
+            ig.igTableNextRow();
+            _ = ig.igTableSetColumnIndex(0);
+            ig.igPushIDInt(@intCast(i));
+            var label: [260:0]u8 = undefined;
+            const label_z = std.fmt.bufPrintZ(&label, "{s}", .{patch.name}) catch "?";
+            if (ig.igSelectableEx(label_z.ptr, state.cc_selected[i], ig.ImGuiSelectableFlags_SpanAllColumns | ig.ImGuiSelectableFlags_AllowDoubleClick, .{ .x = 0, .y = 0 })) {
+                if (shift) {
+                    const lo = @min(state.cc_anchor, i);
+                    const hi = @max(state.cc_anchor, i);
+                    if (!ctrl) @memset(&state.cc_selected, false);
+                    for (lo..hi + 1) |k| state.cc_selected[k] = true;
+                } else if (ctrl) {
+                    state.cc_selected[i] = !state.cc_selected[i];
+                    state.cc_anchor = i;
+                } else {
+                    @memset(&state.cc_selected, false);
+                    state.cc_selected[i] = true;
+                    state.cc_anchor = i;
+                }
+                if (ig.igIsMouseDoubleClicked(0)) openPatchProperties(state);
+            }
+            // A right-click selects the row under it when it is not selected.
+            if (ig.igIsItemClickedEx(ig.ImGuiMouseButton_Right) and !state.cc_selected[i]) {
+                @memset(&state.cc_selected, false);
+                state.cc_selected[i] = true;
+                state.cc_anchor = i;
+            }
+            ig.igPopID();
+            var scratch: [32]u8 = undefined;
+            _ = ig.igTableSetColumnIndex(1);
+            textCell("{s}", .{logic.patchSizeText(&scratch, patch.size_x, patch.size_y)});
+            _ = ig.igTableSetColumnIndex(2);
+            textCell("{s}", .{patch.place});
+            for (0..4) |d| {
+                _ = ig.igTableSetColumnIndex(@intCast(3 + d));
+                textCell("{s}", .{logic.directionCell(c.hasDirection(i, @enumFromInt(d)))});
+            }
+        }
+        ig.igEndTable();
+    }
+    // The popup menu on the patches (the MFC's right-click menu).
+    if (ig.igBeginPopupContextWindowEx("patches_context", ig.ImGuiPopupFlags_MouseButtonRight)) {
+        if (ig.igMenuItemEx("Add patches...", "Insert", false, true)) {
+            state.composers.refreshPatches(state.editor) catch {};
+            state.cc_picker_selected.clearRetainingCapacity();
+            state.cc_picker_selected.appendNTimes(state.allocator, false, state.composers.patch_names.items.len) catch {};
+            state.cc_popup = .picker;
+        }
+        if (ig.igMenuItemEx("Delete patch", "Delete", false, picked_count > 0)) state.cc_popup = .delete_patches;
+        if (ig.igMenuItemEx("Properties...", "Space", false, picked_count > 0)) openPatchProperties(state);
+        ig.igSeparator();
+        if (ig.igMenuItemEx("Check!", null, false, true)) _ = commands.run(state, "rmgc_check", "");
+        ig.igEndPopup();
+    }
+    // The MFC list's keys, when this window has the focus and no text is being typed.
+    if (ig.igIsWindowFocused(ig.ImGuiFocusedFlags_RootAndChildWindows) and !ig.igGetIO().*.WantTextInput and state.cc_popup == .none) {
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_Insert, false)) {
+            state.composers.refreshPatches(state.editor) catch {};
+            state.cc_picker_selected.clearRetainingCapacity();
+            state.cc_picker_selected.appendNTimes(state.allocator, false, state.composers.patch_names.items.len) catch {};
+            state.cc_popup = .picker;
+        } else if (ig.igIsKeyPressedEx(ig.ImGuiKey_Delete, false) and picked_count > 0) {
+            state.cc_popup = .delete_patches;
+        } else if (ig.igIsKeyPressedEx(ig.ImGuiKey_Space, false) and picked_count > 0) {
+            openPatchProperties(state);
+        }
+    }
+}
+
+fn drawContainerModals(state: *State) void {
+    const composers = &state.composers;
+    // The patch picker: every patch map the storages hold under
+    // Scenarios\Patches, multi-select, with Browse for a map outside them.
+    if (modalIsShowing(state.cc_popup, .picker, "Add patches")) {
+        ig.igSetNextWindowSize(.{ .x = 560, .y = 440 }, ig.ImGuiCond_Appearing);
+        if (ig.igBeginPopupModal("Add patches", null, 0)) {
+            panels.text("Patches of the storages (Scenarios\\Patches). Click to pick several.");
+            _ = ig.igInputTextWithHint("##picker_filter", "filter", &state.cc_picker_filter, state.cc_picker_filter.len + 1, 0);
+            const filter = std.mem.sliceTo(&state.cc_picker_filter, 0);
+            _ = ig.igBeginChild("##picker_list", .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() * 2 }, ig.ImGuiChildFlags_Borders, 0);
+            var picked_count: usize = 0;
+            for (composers.patch_names.items, 0..) |name, i| {
+                if (i >= state.cc_picker_selected.items.len) break;
+                if (state.cc_picker_selected.items[i]) picked_count += 1;
+                const relative = core.composers.relativeName(core.composers.patch_folder, name);
+                if (!caseInsensitiveContains(relative, filter)) continue;
+                var label: [260:0]u8 = undefined;
+                const label_z = std.fmt.bufPrintZ(&label, "{s}", .{relative}) catch continue;
+                ig.igPushIDInt(@intCast(i));
+                if (ig.igSelectableEx(label_z.ptr, state.cc_picker_selected.items[i], 0, .{ .x = 0, .y = 0 })) state.cc_picker_selected.items[i] = !state.cc_picker_selected.items[i];
+                ig.igPopID();
+            }
+            ig.igEndChild();
+            var button: [48]u8 = undefined;
+            if (ig.igButton(fmtZ(&button, "Add {d} selected", .{picked_count}).ptr)) {
+                var names_buffer = std.ArrayListUnmanaged([]const u8).empty;
+                defer names_buffer.deinit(state.allocator);
+                for (composers.patch_names.items, 0..) |name, i| {
+                    if (i < state.cc_picker_selected.items.len and state.cc_picker_selected.items[i]) names_buffer.append(state.allocator, name) catch break;
+                }
+                _ = composers.addPatches(state.editor, names_buffer.items) catch 0;
+                state.view.setStatus("containers: ", composers.message());
+                state.cc_popup = .none;
+                ig.igCloseCurrentPopup();
+            }
+            ig.igSameLine();
+            if (ig.igButton("Browse for a map file...")) panels.browsePatch(state);
+            ig.igSameLine();
+            if (ig.igButton("Close")) {
+                state.cc_popup = .none;
+                ig.igCloseCurrentPopup();
+            }
+            ig.igEndPopup();
+        }
+    }
+    // D-10: a map outside the storages is copied in, not refused.
+    if (modalIsShowing(state.cc_popup, .import_copy, "Copy the patch into the RMG folder?")) {
+        if (ig.igBeginPopupModal("Copy the patch into the RMG folder?", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+            var root_buffer: [1024]u8 = undefined;
+            var dest_buffer: [1200]u8 = undefined;
+            const root = state.editor.rmgRoot(&root_buffer) catch "";
+            const dest = logic.copyInDestination(&dest_buffer, root, composers.pending_import.dest.nameSlice(), composers.pending_import.pathSlice()) orelse "";
+            ig.igPushTextWrapPos(520);
+            textCell("{s}", .{composers.pending_import.pathSlice()});
+            panels.text("is outside the game's data, so a container could not find it. Copy it to");
+            textCell("{s}", .{dest});
+            panels.text("and add the copy?");
+            ig.igPopTextWrapPos();
+            if (ig.igButton("Yes")) _ = commands.run(state, "rmgc_import_yes", "");
+            ig.igSameLine();
+            if (ig.igButton("No")) _ = commands.run(state, "rmgc_import_no", "");
+            if (state.cc_popup != .import_copy) ig.igCloseCurrentPopup();
+            ig.igEndPopup();
+        }
+    }
+    if (modalIsShowing(state.cc_popup, .delete_patches, "Delete patches?")) {
+        if (ig.igBeginPopupModal("Delete patches?", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+            panels.text("Do you really want to DELETE the selected patches?");
+            if (ig.igButton("Yes")) {
+                var picked: [core.bridge.rmg_max_patches]usize = undefined;
+                const n = selectedPatches(state, &picked);
+                composers.deletePatches(picked[0..n]) catch {};
+                @memset(&state.cc_selected, false);
+                state.cc_popup = .none;
+                ig.igCloseCurrentPopup();
+            }
+            ig.igSameLine();
+            if (ig.igButton("No")) {
+                state.cc_popup = .none;
+                ig.igCloseCurrentPopup();
+            }
+            ig.igEndPopup();
+        }
+    }
+    // Patch properties: the setting and the four direction cells (tri-state
+    // over a multi-selection: unchanged cells stay as each patch has them).
+    if (modalIsShowing(state.cc_popup, .properties, "Patch properties")) {
+        if (ig.igBeginPopupModal("Patch properties", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+            var picked: [core.bridge.rmg_max_patches]usize = undefined;
+            const n = selectedPatches(state, &picked);
+            if (n == 1) {
+                const patch = composers.cdoc.current.patches.items[picked[0]];
+                textCell("Path: {s}", .{patch.name});
+                textCell("Size: {d}x{d} patches", .{ patch.size_x, patch.size_y });
+            } else {
+                panels.text("Path: Multiple selection...");
+                panels.text("Size: ...");
+            }
+            _ = ig.igInputTextWithHint("setting", "<any setting> or a settings name", &state.cc_place_edit, state.cc_place_edit.len + 1, 0);
+            ig.igSameLine();
+            if (ig.igSmallButton("any")) {
+                @memset(&state.cc_place_edit, 0);
+                @memcpy(state.cc_place_edit[0.."<any setting>".len], "<any setting>");
+            }
+            if (ig.igBeginCombo("##settings_scan", "choose a setting", 0)) {
+                var total: usize = 0;
+                _ = state.editor.bridge.listRmg(.settings, &.{}, &total);
+                if (total != 0) {
+                    if (state.allocator.alloc(core.bridge.RmgName, total)) |names| {
+                        defer state.allocator.free(names);
+                        var got: usize = 0;
+                        if (state.editor.bridge.listRmg(.settings, names, &got) == .ok) {
+                            for (names[0..@min(got, names.len)]) |entry| {
+                                var label: [200:0]u8 = undefined;
+                                const stem = core.composers.relativeName("scenarios\\settings\\", entry.nameSlice());
+                                const label_z = std.fmt.bufPrintZ(&label, "{s}", .{stem}) catch continue;
+                                if (ig.igSelectableEx(label_z.ptr, false, 0, .{ .x = 0, .y = 0 })) {
+                                    @memset(&state.cc_place_edit, 0);
+                                    const len = @min(stem.len, state.cc_place_edit.len - 1);
+                                    @memcpy(state.cc_place_edit[0..len], stem[0..len]);
+                                }
+                            }
+                        }
+                    } else |_| {}
+                }
+                ig.igEndCombo();
+            }
+            for (0..4) |d| {
+                var label: [32:0]u8 = undefined;
+                const text = std.fmt.bufPrintZ(&label, "{s}", .{core.rmg.direction_names[d]}) catch "?";
+                var value: bool = state.cc_flags_edit[d] == .on;
+                // Mixed over a selection (keep) shows unticked and stays unless clicked.
+                if (ig.igCheckbox(text.ptr, &value)) state.cc_flags_edit[d] = if (value) .on else .off;
+                if (state.cc_flags_edit[d] == .keep) {
+                    ig.igSameLine();
+                    ig.igTextDisabled("(mixed: unchanged)");
+                }
+            }
+            if (ig.igButton("OK")) {
+                const place = std.mem.sliceTo(&state.cc_place_edit, 0);
+                // A blank setting over a mixed selection is "leave the setting".
+                composers.setPatchProperties(picked[0..n], if (place.len == 0 and n > 1) null else place, state.cc_flags_edit) catch {};
+                state.cc_popup = .none;
+                ig.igCloseCurrentPopup();
+            }
+            ig.igSameLine();
+            if (ig.igButton("Cancel")) {
+                state.cc_popup = .none;
+                ig.igCloseCurrentPopup();
+            }
+            ig.igEndPopup();
+        }
+    }
+}
+
+// --- The Graphs Composer ------------------------------------------------
+
+const link_half_width_pixels: f32 = 2;
+
+fn graphGeometry(origin: ig.ImVec2, side: f32, canvas: *const core.rmg.Canvas) logic.CanvasGeometry {
+    return .{ .origin_x = origin.x, .origin_y = origin.y, .side = side, .limit = canvas.limit() };
+}
+
+fn abgr(r: u8, g: u8, b: u8, a: u8) u32 {
+    return (@as(u32, a) << 24) | (@as(u32, b) << 16) | (@as(u32, g) << 8) | r;
+}
+
+/// What is under `tile`, remembered for the right-click menu and the
+/// properties dialogs: the node and every link (up to eight).
+fn rememberHit(state: *State, geometry: logic.CanvasGeometry, tile: core.rmg.Tile) core.rmg.Hit {
+    const graph = &state.composers.gdoc.current;
+    const tolerance = geometry.toleranceTiles(link_half_width_pixels);
+    const hit = core.rmg.hitTest(graph, tile, tolerance);
+    state.cg_hit_node = hit.node;
+    var listed: [8]usize = undefined;
+    state.cg_hit_link_count = core.rmg.hitLinks(graph, tile, tolerance, &listed);
+    for (listed[0..state.cg_hit_link_count], 0..) |index, slot| state.cg_hit_links[slot] = @intCast(index);
+    return hit;
+}
+
+/// Opens the properties dialog for what is under `tile`: the links first (the
+/// MFC's own order - a link's line crosses its nodes), else the node.
+fn openGraphProperties(state: *State, geometry: logic.CanvasGeometry, tile: core.rmg.Tile) bool {
+    const hit = rememberHit(state, geometry, tile);
+    if (!hit.any()) return false;
+    openRememberedProperties(state);
+    return true;
+}
+
+fn openRememberedProperties(state: *State) void {
+    if (state.cg_hit_link_count > 0) {
+        state.cg_link_index = 0;
+        loadLinkEdits(state);
+        state.cg_popup = .link_properties;
+    } else if (state.cg_hit_node >= 0) {
+        const node = state.composers.gdoc.current.nodes.items[@intCast(state.cg_hit_node)];
+        @memset(&state.cg_container_edit, 0);
+        const shown = core.composers.relativeName(core.composers.container_folder, node.container);
+        const len = @min(shown.len, state.cg_container_edit.len - 1);
+        @memcpy(state.cg_container_edit[0..len], shown[0..len]);
+        state.cg_popup = .node_properties;
+    }
+}
+
+fn currentLink(state: *State) ?usize {
+    if (state.cg_link_index >= state.cg_hit_link_count) return null;
+    const index = state.cg_hit_links[state.cg_link_index];
+    return if (index < state.composers.gdoc.current.links.items.len) index else null;
+}
+
+/// The link dialog's edit buffers from the link now shown (radius and min
+/// length in cells, as the MFC dialog has them).
+fn loadLinkEdits(state: *State) void {
+    const index = currentLink(state) orelse return;
+    const link = state.composers.gdoc.current.links.items[index];
+    var scratch: [64]u8 = undefined;
+    const values = [6][]const u8{
+        link.desc,
+        logic.cellsText(&scratch, link.radius),
+        "",
+        "",
+        "",
+        "",
+    };
+    for (&state.cg_link_edit) |*buffer| buffer.* = [_:0]u8{0} ** 96;
+    const put = struct {
+        fn into(buffer: *[96:0]u8, text: []const u8) void {
+            const len = @min(text.len, buffer.len - 1);
+            @memcpy(buffer[0..len], text[0..len]);
+            buffer[len] = 0;
+        }
+    }.into;
+    put(&state.cg_link_edit[0], values[0]);
+    put(&state.cg_link_edit[1], values[1]);
+    var parts: [16]u8 = undefined;
+    put(&state.cg_link_edit[2], std.fmt.bufPrint(&parts, "{d}", .{link.parts}) catch "");
+    var cells: [32]u8 = undefined;
+    put(&state.cg_link_edit[3], logic.cellsText(&cells, link.min_length));
+    var width: [32]u8 = undefined;
+    put(&state.cg_link_edit[4], std.fmt.bufPrint(&width, "{d:.2}", .{link.distance}) catch "");
+    var disturbance: [32]u8 = undefined;
+    put(&state.cg_link_edit[5], std.fmt.bufPrint(&disturbance, "{d:.2}", .{link.disturbance}) catch "");
+}
+
+fn drawGraphHeader(state: *State) void {
+    const g = &state.composers.gdoc.current;
+    const columns = [_][:0]const u8{ "Path", "Max Size", "Nodes", "Links", "Empty Nodes", "Empty Links", "Season", "Season Folder", "Supported Settings", "Used ScriptIDs", "Used ScriptAreas" };
+    const flags = ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_Resizable | ig.ImGuiTableFlags_ScrollX | ig.ImGuiTableFlags_SizingFixedFit;
+    if (!ig.igBeginTableEx("##graph_header", columns.len, flags, .{ .x = 0, .y = ig.igGetFrameHeight() * 2.6 }, 0)) return;
+    defer ig.igEndTable();
+    ig.igTableSetupColumnEx(columns[0].ptr, ig.ImGuiTableColumnFlags_WidthFixed, 230, 0);
+    for (columns[1..]) |label| ig.igTableSetupColumn(label.ptr, 0);
+    ig.igTableHeadersRow();
+    ig.igTableNextRow();
+    var scratch: [512]u8 = undefined;
+    _ = ig.igTableSetColumnIndex(0);
+    textCell("{s}", .{if (state.composers.gdoc.name.len == 0) "(new)" else core.composers.relativeName(core.composers.graph_folder, state.composers.gdoc.name)});
+    _ = ig.igTableSetColumnIndex(1);
+    textCell("{s}", .{logic.patchSizeText(&scratch, g.size_x, g.size_y)});
+    _ = ig.igTableSetColumnIndex(2);
+    textCell("{d}", .{g.nodes.items.len});
+    _ = ig.igTableSetColumnIndex(3);
+    textCell("{d}", .{g.links.items.len});
+    _ = ig.igTableSetColumnIndex(4);
+    textCell("{d}", .{g.emptyNodeCount()});
+    _ = ig.igTableSetColumnIndex(5);
+    textCell("{d}", .{g.emptyLinkCount()});
+    _ = ig.igTableSetColumnIndex(6);
+    textCell("{s}", .{core.rmg.seasonName(g.season, g.season_folder)});
+    _ = ig.igTableSetColumnIndex(7);
+    textCell("{s}", .{g.season_folder});
+    _ = ig.igTableSetColumnIndex(8);
+    // Reading every node's container is not free: only when the graph moved.
+    if (state.cg_settings_seen != state.composers.generation or state.cg_settings_text.items.len == 0 and state.cg_settings_seen == 0) {
+        state.composers.graphSettingsText(state.editor, &state.cg_settings_text) catch {};
+        state.cg_settings_seen = state.composers.generation;
+    }
+    textCell("{s}", .{state.cg_settings_text.items});
+    _ = ig.igTableSetColumnIndex(9);
+    textCell("{s}", .{logic.idsText(&scratch, g.script_ids.items)});
+    _ = ig.igTableSetColumnIndex(10);
+    textCell("{s}", .{logic.areasText(&scratch, g.script_areas.items)});
+}
+
+/// D-11: the canvas - left-drag on empty ground adds a node, a drag from a node
+/// moves it, a drag from its edge resizes it, Ctrl+drag from one node to
+/// another links them, right-click is Delete / Properties, a double-click is
+/// Properties, and the slider shows 1 to 32 patches across.
+fn drawGraphCanvas(state: *State, reserve_below: f32) void {
+    const composers = &state.composers;
+    const canvas = &composers.canvas;
+    const doc = &composers.gdoc;
+    var patches: c_int = canvas.patches;
+    if (ig.igSliderInt("patches across", &patches, core.rmg.min_zoom, core.rmg.max_zoom)) {
+        var buffer: [8:0]u8 = undefined;
+        _ = commands.run(state, "rmgg_zoom", std.fmt.bufPrintZ(&buffer, "{d}", .{patches}) catch "");
+    }
+    const avail = ig.igGetContentRegionAvail();
+    const side = @max(@min(avail.x, avail.y - reserve_below - ig.igGetFrameHeightWithSpacing() * 2), 160);
+    const hover_tile = state.cg_pointer;
+    // The line above the canvas: the map size, the position and the rect.
+    {
+        var rect = core.rmg.Rect{ .x1 = hover_tile.x, .y1 = hover_tile.y, .x2 = hover_tile.x + 1, .y2 = hover_tile.y + 1 };
+        if (canvas.state == .add) rect = canvas.dragRect();
+        textCell("Map: [{d}x{d}], position: ({d}, {d}), rect: ({d}, {d}, {d}, {d}) [{d}x{d}]", .{ canvas.patches, canvas.patches, hover_tile.x, hover_tile.y, rect.x1, rect.y1, rect.x2, rect.y2, rect.width(), rect.height() });
+    }
+    const origin = ig.igGetCursorScreenPos();
+    _ = ig.igInvisibleButton("##graph_canvas", .{ .x = side, .y = side }, ig.ImGuiButtonFlags_MouseButtonLeft | ig.ImGuiButtonFlags_MouseButtonRight);
+    const hovered = ig.igIsItemHovered(0);
+    const geometry = graphGeometry(origin, side, canvas);
+    const io = ig.igGetIO();
+    const mouse = io.*.MousePos;
+    const tile = geometry.tileAt(mouse.x, mouse.y);
+    if (hovered or state.cg_dragging) state.cg_pointer = tile;
+    const tolerance = geometry.toleranceTiles(link_half_width_pixels);
+    const ctrl = io.*.KeyCtrl or io.*.KeySuper;
+
+    // The gestures: press, drag, release - core.rmg.Canvas decides.
+    if (state.cg_popup == .none and hovered and ig.igIsMouseClicked(0) and !state.cg_dragging) {
+        canvas.press(state.allocator, doc, tile, ctrl, tolerance) catch {};
+        state.cg_dragging = true;
+    }
+    if (state.cg_dragging) {
+        if (ig.igIsMouseDown(0)) {
+            canvas.drag(doc, tile);
+        } else {
+            _ = composers.finishGesture(tile) catch {};
+            state.cg_dragging = false;
+            if (composers.message().len != 0) state.view.setStatus("graphs: ", composers.message());
+        }
+    }
+    if (hovered and !state.cg_dragging and state.cg_popup == .none) {
+        if (ig.igIsMouseDoubleClicked(0)) _ = openGraphProperties(state, geometry, tile);
+        if (ig.igIsMouseReleased(1)) {
+            if (rememberHit(state, geometry, tile).any()) _ = ig.igOpenPopup("graph_context", 0);
+        }
+    }
+
+    // Drawing.
+    const draw_list = ig.igGetWindowDrawList();
+    const corner = ig.ImVec2{ .x = origin.x + side, .y = origin.y + side };
+    ig.ImDrawList_AddRectFilled(draw_list, origin, corner, abgr(0x20, 0x20, 0x20, 0xFF));
+    if (canvas.patches > 1) {
+        var k: i32 = 1;
+        while (k < canvas.patches) : (k += 1) {
+            const offset = @as(f32, @floatFromInt(k)) * side / @as(f32, @floatFromInt(canvas.patches));
+            ig.ImDrawList_AddLine(draw_list, .{ .x = origin.x + offset, .y = origin.y }, .{ .x = origin.x + offset, .y = corner.y }, abgr(0x60, 0x60, 0x60, 0xFF));
+            ig.ImDrawList_AddLine(draw_list, .{ .x = origin.x, .y = origin.y + offset }, .{ .x = corner.x, .y = origin.y + offset }, abgr(0x60, 0x60, 0x60, 0xFF));
+        }
+    }
+    ig.ImDrawList_AddRect(draw_list, origin, corner, abgr(0xA0, 0xA0, 0xA0, 0xFF));
+    const graph = &doc.current;
+    for (graph.nodes.items, 0..) |node, i| {
+        const outer = geometry.rectOnScreen(node.rect);
+        const inner = geometry.rectOnScreen(.{ .x1 = node.rect.x1 + 1, .y1 = node.rect.y1 + 1, .x2 = node.rect.x2 - 1, .y2 = node.rect.y2 - 1 });
+        const empty = node.container.len == 0;
+        const fill: u32 = if (empty) abgr(0x55, 0x55, 0x55, 0xFF) else abgr(0x80, 0x80, 0x80, 0xFF);
+        ig.ImDrawList_AddRectFilled(draw_list, .{ .x = outer[0], .y = outer[1] }, .{ .x = outer[2], .y = outer[3] }, fill);
+        ig.ImDrawList_AddRect(draw_list, .{ .x = outer[0], .y = outer[1] }, .{ .x = outer[2], .y = outer[3] }, abgr(0xFF, 0xFF, 0xFF, 0xFF));
+        ig.ImDrawList_AddRect(draw_list, .{ .x = inner[0], .y = inner[1] }, .{ .x = inner[2], .y = inner[3] }, abgr(0xFF, 0xFF, 0xFF, 0xFF));
+        var label: [16:0]u8 = undefined;
+        const label_z = std.fmt.bufPrintZ(&label, "{d}", .{i}) catch "";
+        ig.ImDrawList_AddText(draw_list, .{ .x = inner[0] + 2, .y = inner[1] + 2 }, if (empty) abgr(0xFF, 0xA0, 0xA0, 0xFF) else abgr(0xA0, 0xFF, 0xA0, 0xFF), label_z.ptr);
+    }
+    const node_count: i32 = @intCast(graph.nodes.items.len);
+    for (graph.links.items) |link| {
+        if (link.a < 0 or link.a >= node_count or link.b < 0 or link.b >= node_count) continue;
+        const ra = graph.nodes.items[@intCast(link.a)].rect;
+        const rb = graph.nodes.items[@intCast(link.b)].rect;
+        const a = geometry.pointOnScreen(@as(f32, @floatFromInt(ra.x1 + ra.x2)) * 0.5, @as(f32, @floatFromInt(ra.y1 + ra.y2)) * 0.5);
+        const b = geometry.pointOnScreen(@as(f32, @floatFromInt(rb.x1 + rb.x2)) * 0.5, @as(f32, @floatFromInt(rb.y1 + rb.y2)) * 0.5);
+        const color = if (link.desc.len == 0) abgr(0xFF, 0xA0, 0xA0, 0xFF) else abgr(0xA0, 0xFF, 0xA0, 0xFF);
+        ig.ImDrawList_AddLineEx(draw_list, .{ .x = a[0], .y = a[1] }, .{ .x = b[0], .y = b[1] }, color, link_half_width_pixels * 2);
+    }
+    if (state.cg_dragging and canvas.state == .add) {
+        const r = geometry.rectOnScreen(canvas.dragRect());
+        ig.ImDrawList_AddRect(draw_list, .{ .x = r[0], .y = r[1] }, .{ .x = r[2], .y = r[3] }, abgr(0xFF, 0xFF, 0xFF, 0xFF));
+    } else if (state.cg_dragging and canvas.state == .link) {
+        const a = geometry.pointOnScreen(@as(f32, @floatFromInt(canvas.start.x)) + 0.5, @as(f32, @floatFromInt(canvas.start.y)) + 0.5);
+        ig.ImDrawList_AddLineEx(draw_list, .{ .x = a[0], .y = a[1] }, mouse, abgr(0xFF, 0xA0, 0xA0, 0xFF), link_half_width_pixels * 2);
+    }
+
+    // The line below: what is under the pointer, and the cursor to match.
+    var below: [512]u8 = undefined;
+    var shown: []const u8 = "";
+    if (hovered and !state.cg_dragging) {
+        const hit = core.rmg.hitTest(graph, tile, tolerance);
+        var used: usize = 0;
+        if (hit.links > 1) {
+            const links_text = std.fmt.bufPrint(&below, "{d} Links", .{hit.links});
+            used = printedLen(links_text);
+        } else if (hit.link >= 0) {
+            const link = graph.links.items[@intCast(hit.link)];
+            const link_text = if (link.desc.len == 0)
+                std.fmt.bufPrint(&below, "Empty Link {d}", .{hit.link})
+            else
+                std.fmt.bufPrint(&below, "Link {d}: {s}", .{ hit.link, link.desc });
+            used = printedLen(link_text);
+        }
+        if (hit.node >= 0) {
+            const node = graph.nodes.items[@intCast(hit.node)];
+            const sep = if (used != 0) ", " else "";
+            const text = if (node.container.len == 0)
+                std.fmt.bufPrint(below[used..], "{s}Empty Node {d}", .{ sep, hit.node })
+            else
+                std.fmt.bufPrint(below[used..], "{s}Node {d}: {s}", .{ sep, hit.node, node.container });
+            used += printedLen(text);
+            if (hit.link < 0) setResizeCursor(hit.sides);
+        }
+        shown = below[0..used];
+    }
+    textCell("{s}", .{shown});
+}
+
+fn setResizeCursor(sides: u8) void {
+    const rmg = core.rmg;
+    const min_x = sides & rmg.side_min_x != 0;
+    const max_x = sides & rmg.side_max_x != 0;
+    const min_y = sides & rmg.side_min_y != 0;
+    const max_y = sides & rmg.side_max_y != 0;
+    const cursor: c_int = if ((min_x and min_y) or (max_x and max_y)) ig.ImGuiMouseCursor_ResizeNESW else if ((min_x and max_y) or (max_x and min_y)) ig.ImGuiMouseCursor_ResizeNWSE else if (min_x or max_x) ig.ImGuiMouseCursor_ResizeEW else if (min_y or max_y) ig.ImGuiMouseCursor_ResizeNS else ig.ImGuiMouseCursor_ResizeAll;
+    ig.igSetMouseCursor(cursor);
+}
+
+/// D-11/D-12: the Graphs Composer.
+pub fn drawGraphsComposer(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    if (!state.graphs_open) return;
+    const composers = &state.composers;
+    composers.ensureScanned(state.editor);
+    var title_buffer: [256]u8 = undefined;
+    const doc = &composers.gdoc;
+    const title = composerTitle(&title_buffer, "Graphs Composer", doc.name, doc.dirty, doc.shipped);
+    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
+    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    const open = ig.igBegin(title.ptr, &state.graphs_open, ig.ImGuiWindowFlags_NoCollapse);
+    defer ig.igEnd();
+    if (!open) return;
+
+    drawFileRow(state, "rmgg", core.composers.graph_folder, composers.graph_names.items, doc.name, doc.dirty, doc.shipped, doc.canUndo(), doc.canRedo(), &state.cg_open_filter, &state.cg_save_as_edit, &state.cg_popup, &state.cg_pending_cmd);
+    if (composers.message().len != 0) {
+        ig.igPushTextWrapPos(0);
+        textCell("{s}", .{composers.message()});
+        ig.igPopTextWrapPos();
+    }
+    drawGraphHeader(state);
+    const reserve: f32 = if (composers.graph_report != null) 150 else 0;
+    drawGraphCanvas(state, reserve);
+    drawFindings(state, if (composers.graph_report) |*report| report else null, "rmgg_fix", "rmgg_fix_all");
+    drawGraphModals(state);
+    drawDiscardModal(state, &state.cg_popup, &state.cg_pending_cmd);
+}
+
+fn drawGraphModals(state: *State) void {
+    if (ig.igBeginPopup("graph_context", 0)) {
+        const has_target = state.cg_hit_link_count > 0 or state.cg_hit_node >= 0;
+        if (ig.igMenuItemEx("Delete", null, false, has_target)) {
+            state.cg_popup = if (state.cg_hit_link_count > 0) .delete_link else .delete_node;
+        }
+        if (ig.igMenuItemEx("Properties...", null, false, has_target)) openRememberedProperties(state);
+        ig.igEndPopup();
+    }
+    // Delete asks first, as the MFC does ("Do you really want to DELETE selected
+    // Links/Nodes?"); a script's rmgg_node_del / rmgg_link_del is the answer.
+    if (modalIsShowing(state.cg_popup, .delete_link, "Delete link?")) {
+        if (ig.igBeginPopupModal("Delete link?", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+            panels.text("Do you really want to DELETE the selected link?");
+            if (ig.igButton("Yes")) {
+                if (state.cg_hit_link_count > 0) {
+                    var buffer: [16:0]u8 = undefined;
+                    _ = commands.run(state, "rmgg_link_del", std.fmt.bufPrintZ(&buffer, "{d}", .{state.cg_hit_links[0]}) catch "");
+                }
+                state.cg_popup = .none;
+                ig.igCloseCurrentPopup();
+            }
+            ig.igSameLine();
+            if (ig.igButton("No")) {
+                state.cg_popup = .none;
+                ig.igCloseCurrentPopup();
+            }
+            ig.igEndPopup();
+        }
+    }
+    if (modalIsShowing(state.cg_popup, .delete_node, "Delete node?")) {
+        if (ig.igBeginPopupModal("Delete node?", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+            panels.text("Do you really want to DELETE the selected node (and its links)?");
+            if (ig.igButton("Yes")) {
+                if (state.cg_hit_node >= 0) {
+                    var buffer: [16:0]u8 = undefined;
+                    _ = commands.run(state, "rmgg_node_del", std.fmt.bufPrintZ(&buffer, "{d}", .{state.cg_hit_node}) catch "");
+                }
+                state.cg_popup = .none;
+                ig.igCloseCurrentPopup();
+            }
+            ig.igSameLine();
+            if (ig.igButton("No")) {
+                state.cg_popup = .none;
+                ig.igCloseCurrentPopup();
+            }
+            ig.igEndPopup();
+        }
+    }
+    drawNodeProperties(state);
+    drawLinkProperties(state);
+}
+
+/// Node properties: the node's rectangle and link count, the container's path
+/// with Browse over the storages (and the size and season checks run on OK,
+/// RMG_CreateGraphDialog.cpp OnPropertiesMenu).
+fn drawNodeProperties(state: *State) void {
+    const composers = &state.composers;
+    if (!modalIsShowing(state.cg_popup, .node_properties, "Node properties")) return;
+    if (!ig.igBeginPopupModal("Node properties", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
+    defer ig.igEndPopup();
+    const graph = &composers.gdoc.current;
+    if (state.cg_hit_node < 0 or state.cg_hit_node >= graph.nodes.items.len) {
+        state.cg_popup = .none;
+        ig.igCloseCurrentPopup();
+        return;
+    }
+    const index: usize = @intCast(state.cg_hit_node);
+    const node = graph.nodes.items[index];
+    textCell("Node {d}: ({d}, {d}, {d}, {d}), [{d}x{d}], Links: {d}", .{ index, node.rect.x1, node.rect.y1, node.rect.x2, node.rect.y2, node.rect.width(), node.rect.height(), graph.linksOfNode(index) });
+    _ = ig.igInputTextWithHint("container", "e.g. winter\\army_s (under scenarios\\containers)", &state.cg_container_edit, state.cg_container_edit.len + 1, 0);
+    if (ig.igBeginCombo("##browse_container", "Browse the storages...", 0)) {
+        _ = ig.igInputTextWithHint("##container_filter", "filter", &state.cg_open_filter, state.cg_open_filter.len + 1, 0);
+        const filter = std.mem.sliceTo(&state.cg_open_filter, 0);
+        _ = ig.igBeginChild("##container_list", .{ .x = 440, .y = 240 }, 0, 0);
+        for (composers.container_names.items) |full| {
+            const relative = core.composers.relativeName(core.composers.container_folder, full);
+            if (!caseInsensitiveContains(relative, filter)) continue;
+            var label: [200:0]u8 = undefined;
+            const label_z = std.fmt.bufPrintZ(&label, "{s}", .{relative}) catch continue;
+            if (ig.igSelectableEx(label_z.ptr, false, 0, .{ .x = 0, .y = 0 })) {
+                @memset(&state.cg_container_edit, 0);
+                const len = @min(relative.len, state.cg_container_edit.len - 1);
+                @memcpy(state.cg_container_edit[0..len], relative[0..len]);
+            }
+        }
+        ig.igEndChild();
+        ig.igEndCombo();
+    }
+    if (ig.igButton("OK")) {
+        const typed = std.mem.sliceTo(&state.cg_container_edit, 0);
+        composers.setNodeContainer(state.editor, index, typed) catch {};
+        state.view.setStatus("graphs: ", composers.message());
+        state.cg_popup = .none;
+        ig.igCloseCurrentPopup();
+    }
+    ig.igSameLine();
+    if (ig.igButton("Clear")) {
+        @memset(&state.cg_container_edit, 0);
+    }
+    ig.igSameLine();
+    if (ig.igButton("Cancel")) {
+        state.cg_popup = .none;
+        ig.igCloseCurrentPopup();
+    }
+}
+
+/// Link properties: the links under the point (a list when there are several),
+/// the type, the descriptor with Browse, the length, radius, width,
+/// disturbance and parts (RMG_GraphLinkPropertiesDialog); every edit commits
+/// on deactivate as one undo step.
+fn drawLinkProperties(state: *State) void {
+    const composers = &state.composers;
+    if (!modalIsShowing(state.cg_popup, .link_properties, "Link properties")) return;
+    if (!ig.igBeginPopupModal("Link properties", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
+    defer ig.igEndPopup();
+    const graph = &composers.gdoc.current;
+    if (state.cg_hit_link_count == 0 or currentLink(state) == null) {
+        state.cg_popup = .none;
+        ig.igCloseCurrentPopup();
+        return;
+    }
+    if (state.cg_hit_link_count > 1) {
+        for (0..state.cg_hit_link_count) |slot| {
+            const link_index = state.cg_hit_links[slot];
+            if (link_index >= graph.links.items.len) continue;
+            const link = graph.links.items[link_index];
+            var label: [160:0]u8 = undefined;
+            const label_z = std.fmt.bufPrintZ(&label, "link {d}: node {d} to node {d}  {s}", .{ link_index, link.a, link.b, link.desc }) catch continue;
+            if (ig.igSelectableEx(label_z.ptr, slot == state.cg_link_index, 0, .{ .x = 0, .y = 0 })) {
+                state.cg_link_index = slot;
+                loadLinkEdits(state);
+            }
+        }
+        ig.igSeparator();
+    }
+    const index = currentLink(state).?;
+    const link = graph.links.items[index];
+    textCell("Link {d}: node {d} to node {d}", .{ index, link.a, link.b });
+    var arg_buffer: [200:0]u8 = undefined;
+    var road = link.kind == core.rmg.link_road;
+    if (ig.igRadioButton("Road", road)) {
+        _ = commands.run(state, "rmgg_link", std.fmt.bufPrintZ(&arg_buffer, "{d}:kind:0", .{index}) catch "");
+        road = true;
+    }
+    ig.igSameLine();
+    if (ig.igRadioButton("River", !road)) {
+        _ = commands.run(state, "rmgg_link", std.fmt.bufPrintZ(&arg_buffer, "{d}:kind:1", .{index}) catch "");
+    }
+    // The descriptor: typed, or picked from the storage's own (terrain\sets\...\roads3d or rivers3d).
+    _ = ig.igInputTextWithHint("VSO desc", "terrain\\sets\\2\\roads3d\\road_grunt", &state.cg_link_edit[0], state.cg_link_edit[0].len + 1, 0);
+    if (ig.igIsItemDeactivatedAfterEdit()) {
+        const typed = std.mem.sliceTo(&state.cg_link_edit[0], 0);
+        _ = commands.run(state, "rmgg_link", std.fmt.bufPrintZ(&arg_buffer, "{d}:desc:{s}", .{ index, typed }) catch "");
+    }
+    if (ig.igBeginCombo("##browse_vso", "Browse the storages...", 0)) {
+        const folder_word: []const u8 = if (link.kind == core.rmg.link_road) "\\roads3d\\" else "\\rivers3d\\";
+        var total: usize = 0;
+        _ = state.editor.bridge.listStorageFiles("terrain\\sets\\", ".xml", &.{}, &total);
+        if (total != 0) {
+            if (state.allocator.alloc(core.bridge.RmgName, total)) |names| {
+                defer state.allocator.free(names);
+                var got: usize = 0;
+                if (state.editor.bridge.listStorageFiles("terrain\\sets\\", ".xml", names, &got) == .ok) {
+                    for (names[0..@min(got, names.len)]) |entry| {
+                        const full = entry.nameSlice();
+                        if (std.mem.indexOf(u8, full, folder_word) == null) continue;
+                        const bare = full[0 .. full.len - ".xml".len];
+                        var label: [200:0]u8 = undefined;
+                        const label_z = std.fmt.bufPrintZ(&label, "{s}", .{bare}) catch continue;
+                        if (ig.igSelectableEx(label_z.ptr, false, 0, .{ .x = 0, .y = 0 })) {
+                            _ = commands.run(state, "rmgg_link", std.fmt.bufPrintZ(&arg_buffer, "{d}:desc:{s}", .{ index, bare }) catch "");
+                            loadLinkEdits(state);
+                        }
+                    }
+                }
+            } else |_| {}
+        }
+        ig.igEndCombo();
+    }
+    // Numbers: committed on deactivate, as the MFC's edits commit on change.
+    const fields = [_]struct { label: [:0]const u8, field: []const u8, slot: usize }{
+        .{ .label = "min length (cells)", .field = "min_length", .slot = 3 },
+        .{ .label = "radius (cells)", .field = "radius", .slot = 1 },
+        .{ .label = "width (0..1)", .field = "distance", .slot = 4 },
+        .{ .label = "disturbance (0..1)", .field = "disturbance", .slot = 5 },
+        .{ .label = "parts", .field = "parts", .slot = 2 },
+    };
+    for (fields) |entry| {
+        _ = ig.igInputTextWithHint(entry.label.ptr, null, &state.cg_link_edit[entry.slot], state.cg_link_edit[entry.slot].len + 1, 0);
+        if (ig.igIsItemDeactivatedAfterEdit()) {
+            const typed = std.mem.sliceTo(&state.cg_link_edit[entry.slot], 0);
+            if (typed.len != 0) _ = commands.run(state, "rmgg_link", std.fmt.bufPrintZ(&arg_buffer, "{d}:{s}:{s}", .{ index, entry.field, typed }) catch "");
+            loadLinkEdits(state);
+        }
+    }
+    if (link.parts < core.rmg.min_parts) {
+        ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, .{ .x = 1.0, .y = 0.85, .z = 0.4, .w = 1 });
+        textCell("The engine raises {d} parts to {d}.", .{ link.parts, core.rmg.min_parts });
+        ig.igPopStyleColor();
+    }
+    if (ig.igButton("Delete link...")) state.cg_popup = .delete_link;
+    ig.igSameLine();
+    if (ig.igButton("Close")) {
+        state.cg_popup = .none;
+        ig.igCloseCurrentPopup();
+    }
+}

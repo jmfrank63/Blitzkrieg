@@ -4005,3 +4005,216 @@ test "create random map: a browsed file inside Data is the storage name the comb
     try std.testing.expect(storageNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/.xml") == null);
     try std.testing.expect(storageNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/") == null);
 }
+
+// ---------------------------------------------------------------------------
+// The RMG composers (05-09): the pure rules behind the two windows
+// ---------------------------------------------------------------------------
+
+/// The graph canvas's square on screen: `origin` its top-left corner in
+/// screen pixels, `side` its pixel size, `limit` the tiles across (patches
+/// shown x 16). Tile y runs UP from the bottom edge, as the MFC canvas has it.
+pub const CanvasGeometry = struct {
+    origin_x: f32,
+    origin_y: f32,
+    side: f32,
+    limit: i32,
+
+    pub fn scale(self: CanvasGeometry) f32 {
+        return self.side / @as(f32, @floatFromInt(@max(self.limit, 1)));
+    }
+
+    /// The tile under a screen point (RMG_CreateGraphDialog.cpp GetTilePoint):
+    /// x from the left, y from the bottom, both clamped onto the canvas.
+    pub fn tileAt(self: CanvasGeometry, x: f32, y: f32) core.rmg.Tile {
+        const limit = @max(self.limit, 1);
+        const fx = (x - self.origin_x) / self.scale();
+        const fy = (y - self.origin_y) / self.scale();
+        const tx: i32 = @intFromFloat(std.math.clamp(@floor(fx), 0, @as(f32, @floatFromInt(limit - 1))));
+        const row: i32 = @intFromFloat(std.math.clamp(@floor(fy), 0, @as(f32, @floatFromInt(limit - 1))));
+        return .{ .x = tx, .y = limit - 1 - row };
+    }
+
+    /// A node's rectangle on screen: left, top, right, bottom in pixels.
+    pub fn rectOnScreen(self: CanvasGeometry, rect: core.rmg.Rect) [4]f32 {
+        const s = self.scale();
+        const bottom_edge = self.origin_y + self.side;
+        return .{
+            self.origin_x + @as(f32, @floatFromInt(rect.x1)) * s,
+            bottom_edge - @as(f32, @floatFromInt(rect.y2)) * s,
+            self.origin_x + @as(f32, @floatFromInt(rect.x2)) * s,
+            bottom_edge - @as(f32, @floatFromInt(rect.y1)) * s,
+        };
+    }
+
+    /// A tile point (node centres) on screen.
+    pub fn pointOnScreen(self: CanvasGeometry, x: f32, y: f32) [2]f32 {
+        const s = self.scale();
+        return .{ self.origin_x + x * s, self.origin_y + self.side - y * s };
+    }
+
+    /// The link hit tolerance in tiles for a half width in pixels (the MFC's
+    /// CG_GRAPH_LINK_HALF_WIDTH = 2).
+    pub fn toleranceTiles(self: CanvasGeometry, half_width_pixels: f32) f32 {
+        return half_width_pixels / self.scale();
+    }
+};
+
+/// "3; 4; 1000" - a script ID list the MFC list columns show
+/// (RMGGetUsedScriptIDsString's separator).
+pub fn idsText(buffer: []u8, ids: []const i32) []const u8 {
+    var len: usize = 0;
+    for (ids, 0..) |id, i| {
+        const piece = std.fmt.bufPrint(buffer[len..], "{s}{d}", .{ if (i == 0) "" else "; ", id }) catch return buffer[0..len];
+        len += piece.len;
+    }
+    return buffer[0..len];
+}
+
+pub fn areasText(buffer: []u8, areas: []const []u8) []const u8 {
+    var len: usize = 0;
+    for (areas, 0..) |area, i| {
+        const piece = std.fmt.bufPrint(buffer[len..], "{s}{s}", .{ if (i == 0) "" else "; ", area }) catch return buffer[0..len];
+        len += piece.len;
+    }
+    return buffer[0..len];
+}
+
+pub fn namesText(buffer: []u8, names: []const []u8) []const u8 {
+    return areasText(buffer, names);
+}
+
+/// The host path a copy-in will create, for the YES/NO popup (D-10): the user
+/// RMG root, the destination's storage name with its backslashes as slashes,
+/// and the source's own extension. Null when it does not fit.
+pub fn copyInDestination(buffer: []u8, rmg_root: []const u8, dest_name: []const u8, source_path: []const u8) ?[]const u8 {
+    const extension = std.fs.path.extension(source_path);
+    const root = std.mem.trimEnd(u8, rmg_root, "/\\");
+    const need = root.len + 1 + dest_name.len + extension.len;
+    if (need > buffer.len) return null;
+    @memcpy(buffer[0..root.len], root);
+    buffer[root.len] = '/';
+    for (dest_name, 0..) |c, i| buffer[root.len + 1 + i] = if (c == '\\') '/' else c;
+    // The bridge keeps the extension lower-cased (a .BZM is written as .bzm).
+    for (extension, 0..) |c, i| buffer[root.len + 1 + dest_name.len + i] = std.ascii.toLower(c);
+    return buffer[0..need];
+}
+
+/// What a picked patch map is: a storage name when it lies under the game's
+/// Data folder and is a .bzm or .xml (the add goes straight through), else
+/// null - the caller offers the copy-in. `buffer` holds the name.
+pub fn patchNameFromBrowse(buffer: []u8, base_root: []const u8, os_path: []const u8) ?[]const u8 {
+    var root_buffer: [4096]u8 = undefined;
+    const root = std.fmt.bufPrint(&root_buffer, "{s}Data/", .{base_root}) catch return null;
+    if (os_path.len <= root.len) return null;
+    for (root, os_path[0..root.len]) |expected, got| {
+        const a = if (expected == '\\') '/' else std.ascii.toLower(expected);
+        const b = if (got == '\\') '/' else std.ascii.toLower(got);
+        if (a != b) return null;
+    }
+    const rest = os_path[root.len..];
+    const stem_len = if (rest.len > 4 and (std.ascii.eqlIgnoreCase(rest[rest.len - 4 ..], ".bzm") or std.ascii.eqlIgnoreCase(rest[rest.len - 4 ..], ".xml"))) rest.len - 4 else return null;
+    if (stem_len > buffer.len) return null;
+    for (rest[0..stem_len], 0..) |c, i| buffer[i] = if (c == '/') '\\' else std.ascii.toLower(c);
+    return buffer[0..stem_len];
+}
+
+/// The Containers Composer's table cell for a direction: "Yes" or blank.
+pub fn directionCell(has: bool) []const u8 {
+    return if (has) "Yes" else "";
+}
+
+/// The patch table's size cell, the MFC's "%4dx%-4d".
+pub fn patchSizeText(buffer: []u8, size_x: i32, size_y: i32) []const u8 {
+    // Unsigned: a signed number with a width prints a "+" sign.
+    const x: u32 = @intCast(@max(size_x, 0));
+    const y: u32 = @intCast(@max(size_y, 0));
+    return std.fmt.bufPrint(buffer, "{d:>4}x{d:<4}", .{ x, y }) catch buffer[0..0];
+}
+
+/// A link dialog's cell value as the MFC shows it: radius and min length in
+/// cells to two places, whole numbers kept whole (GetRoundFloat).
+pub fn cellsText(buffer: []u8, world_units: f32) []const u8 {
+    const cells = world_units / core.rmg.world_cell;
+    const rounded = @round(cells);
+    const value = if (@abs(cells - rounded) < 0.001) rounded else cells;
+    return std.fmt.bufPrint(buffer, "{d:.2}", .{value}) catch buffer[0..0];
+}
+
+test "composers: the canvas maps pixels to tiles with y up, clamped, and rectangles back" {
+    const geometry: CanvasGeometry = .{ .origin_x = 100, .origin_y = 50, .side = 256, .limit = 128 };
+    try std.testing.expectEqual(@as(f32, 2), geometry.scale());
+    // The top-left pixel is the top row: the last tile row, not 0.
+    const top_left = geometry.tileAt(100, 50);
+    try std.testing.expectEqual(@as(i32, 0), top_left.x);
+    try std.testing.expectEqual(@as(i32, 127), top_left.y);
+    const bottom_left = geometry.tileAt(100, 50 + 255);
+    try std.testing.expectEqual(@as(i32, 0), bottom_left.y);
+    const middle = geometry.tileAt(100 + 128, 50 + 128);
+    try std.testing.expectEqual(@as(i32, 64), middle.x);
+    try std.testing.expectEqual(@as(i32, 63), middle.y);
+    // Outside the square is clamped onto it.
+    const outside = geometry.tileAt(-500, 9000);
+    try std.testing.expectEqual(@as(i32, 0), outside.x);
+    try std.testing.expectEqual(@as(i32, 0), outside.y);
+    const far_corner = geometry.tileAt(9000, -9000);
+    try std.testing.expectEqual(@as(i32, 127), far_corner.x);
+    try std.testing.expectEqual(@as(i32, 127), far_corner.y);
+    // A node rectangle: its bottom edge is tile y1.
+    const rect = geometry.rectOnScreen(.{ .x1 = 0, .y1 = 0, .x2 = 16, .y2 = 16 });
+    try std.testing.expectEqual(@as(f32, 100), rect[0]);
+    try std.testing.expectEqual(@as(f32, 50 + 256 - 32), rect[1]);
+    try std.testing.expectEqual(@as(f32, 132), rect[2]);
+    try std.testing.expectEqual(@as(f32, 50 + 256), rect[3]);
+    try std.testing.expectEqual(@as(f32, 1), geometry.toleranceTiles(2));
+    // The pixel in the middle of a tile reads back as that tile.
+    const point = geometry.pointOnScreen(8.5, 8.5);
+    const tile = geometry.tileAt(point[0], point[1]);
+    try std.testing.expectEqual(@as(i32, 8), tile.x);
+    try std.testing.expectEqual(@as(i32, 8), tile.y);
+}
+
+test "composers: the list columns say ids, areas and sizes the MFC's way" {
+    var buffer: [64]u8 = undefined;
+    try std.testing.expectEqualStrings("3; 4; 1000", idsText(&buffer, &.{ 3, 4, 1000 }));
+    try std.testing.expectEqualStrings("", idsText(&buffer, &.{}));
+    var a = "Ambush".*;
+    var b = "Bridge".*;
+    const areas = [_][]u8{ &a, &b };
+    try std.testing.expectEqualStrings("Ambush; Bridge", areasText(&buffer, &areas));
+    try std.testing.expectEqualStrings("   2x3   ", patchSizeText(&buffer, 2, 3));
+    try std.testing.expectEqualStrings("Yes", directionCell(true));
+    try std.testing.expectEqualStrings("", directionCell(false));
+    // 181.019 world units is 5.66 cells; a whole number of cells stays whole.
+    try std.testing.expectEqualStrings("5.66", cellsText(&buffer, 181.019));
+    try std.testing.expectEqualStrings("4.00", cellsText(&buffer, 128.0));
+}
+
+test "composers: the copy-in destination is under the user RMG root, with the map's own extension" {
+    var buffer: [256]u8 = undefined;
+    try std.testing.expectEqualStrings(
+        "/home/me/.local/share/blitz/rmg/scenarios/patches/summer/mine.bzm",
+        copyInDestination(&buffer, "/home/me/.local/share/blitz/rmg", "scenarios\\patches\\summer\\mine", "/elsewhere/Mine.BZM").?,
+    );
+    // A trailing separator on the root does not double up.
+    try std.testing.expectEqualStrings(
+        "C:\\Users\\me\\rmg/scenarios/patches/winter/p.xml",
+        copyInDestination(&buffer, "C:\\Users\\me\\rmg\\", "scenarios\\patches\\winter\\p", "D:\\maps\\P.xml").?,
+    );
+    var tiny: [8]u8 = undefined;
+    try std.testing.expect(copyInDestination(&tiny, "/root", "scenarios\\patches\\summer\\mine", "/x/mine.bzm") == null);
+}
+
+test "composers: a picked patch inside Data is added by name, one outside is offered a copy" {
+    var buffer: [192]u8 = undefined;
+    try std.testing.expectEqualStrings(
+        "scenarios\\patches\\summer\\road\\p_one",
+        patchNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/Scenarios/Patches/Summer/Road/P_One.bzm").?,
+    );
+    try std.testing.expectEqualStrings(
+        "scenarios\\patches\\winter\\p",
+        patchNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/Scenarios/Patches/Winter/p.xml").?,
+    );
+    try std.testing.expect(patchNameFromBrowse(&buffer, "/g/blitz/", "/elsewhere/p.bzm") == null);
+    try std.testing.expect(patchNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/Scenarios/Patches/p.txt") == null);
+    try std.testing.expect(patchNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/.bzm") == null);
+}

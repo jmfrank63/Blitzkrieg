@@ -29,6 +29,40 @@ pub const Handler = *const fn (state: *State, arg: []const u8) Outcome;
 pub const Entry = struct { name: []const u8, handler: Handler };
 
 pub const command_table = [_]Entry{
+    // 05-09 (D-06..D-12): the Containers and Graphs Composers.
+    .{ .name = "rmgc_window", .handler = rmgcWindow },
+    .{ .name = "rmgc_new", .handler = rmgcNew },
+    .{ .name = "rmgc_open", .handler = rmgcOpen },
+    .{ .name = "rmgc_save", .handler = rmgcSave },
+    .{ .name = "rmgc_saveas", .handler = rmgcSaveAs },
+    .{ .name = "rmgc_patch_add", .handler = rmgcPatchAdd },
+    .{ .name = "rmgc_patch_del", .handler = rmgcPatchDel },
+    .{ .name = "rmgc_patch_set", .handler = rmgcPatchSet },
+    .{ .name = "rmgc_import", .handler = rmgcImport },
+    .{ .name = "rmgc_import_yes", .handler = rmgcImportYes },
+    .{ .name = "rmgc_import_no", .handler = rmgcImportNo },
+    .{ .name = "rmgc_check", .handler = rmgcCheck },
+    .{ .name = "rmgc_fix", .handler = rmgcFix },
+    .{ .name = "rmgc_fix_all", .handler = rmgcFixAll },
+    .{ .name = "rmgc_undo", .handler = rmgcUndo },
+    .{ .name = "rmgc_redo", .handler = rmgcRedo },
+    .{ .name = "rmgg_window", .handler = rmggWindow },
+    .{ .name = "rmgg_new", .handler = rmggNew },
+    .{ .name = "rmgg_open", .handler = rmggOpen },
+    .{ .name = "rmgg_save", .handler = rmggSave },
+    .{ .name = "rmgg_saveas", .handler = rmggSaveAs },
+    .{ .name = "rmgg_zoom", .handler = rmggZoom },
+    .{ .name = "rmgg_drag", .handler = rmggDrag },
+    .{ .name = "rmgg_ctrl_drag", .handler = rmggCtrlDrag },
+    .{ .name = "rmgg_node", .handler = rmggNode },
+    .{ .name = "rmgg_node_del", .handler = rmggNodeDel },
+    .{ .name = "rmgg_link", .handler = rmggLink },
+    .{ .name = "rmgg_link_del", .handler = rmggLinkDel },
+    .{ .name = "rmgg_check", .handler = rmggCheck },
+    .{ .name = "rmgg_fix", .handler = rmggFix },
+    .{ .name = "rmgg_fix_all", .handler = rmggFixAll },
+    .{ .name = "rmgg_undo", .handler = rmggUndo },
+    .{ .name = "rmgg_redo", .handler = rmggRedo },
     .{ .name = "camera_player", .handler = cameraPlayer },
     .{ .name = "camera_neutral", .handler = cameraNeutral },
     .{ .name = "camera_clear", .handler = cameraClear },
@@ -161,6 +195,27 @@ pub const command_table = [_]Entry{
 };
 
 pub const predicate_table = [_]Entry{
+    // 05-09: what the composers hold.
+    .{ .name = "rmgc_patches", .handler = rmgcPatchesAre },
+    .{ .name = "rmgc_dirty", .handler = rmgcDirtyIs },
+    .{ .name = "rmgc_name", .handler = rmgcNameEndsWith },
+    .{ .name = "rmgc_findings", .handler = rmgcFindingsAre },
+    .{ .name = "rmgc_errors", .handler = rmgcErrorsAre },
+    .{ .name = "rmgc_cell", .handler = rmgcCellIs },
+    .{ .name = "rmgc_place", .handler = rmgcPlaceIs },
+    .{ .name = "rmgc_size", .handler = rmgcSizeIs },
+    .{ .name = "rmgc_pending", .handler = rmgcPendingIs },
+    .{ .name = "rmgc_listed", .handler = rmgcListedAtLeast },
+    .{ .name = "rmgg_nodes", .handler = rmggNodesAre },
+    .{ .name = "rmgg_links", .handler = rmggLinksAre },
+    .{ .name = "rmgg_dirty", .handler = rmggDirtyIs },
+    .{ .name = "rmgg_name", .handler = rmggNameEndsWith },
+    .{ .name = "rmgg_findings", .handler = rmggFindingsAre },
+    .{ .name = "rmgg_errors", .handler = rmggErrorsAre },
+    .{ .name = "rmgg_node_container", .handler = rmggNodeContainerIs },
+    .{ .name = "rmgg_link_parts", .handler = rmggLinkPartsAre },
+    .{ .name = "rmgg_zoom_is", .handler = rmggZoomIs },
+    .{ .name = "rmgg_listed", .handler = rmggListedAtLeast },
     .{ .name = "anchor_set", .handler = anchorSet },
     .{ .name = "anchor_unset", .handler = anchorUnset },
     .{ .name = "undo_depth", .handler = undoDepth },
@@ -3314,4 +3369,412 @@ fn exportLinesAtLeast(state: *State, arg: []const u8) Outcome {
         if (c == '\n') lines += 1;
     }
     return if (lines >= want) .ok else .refused;
+}
+
+// ---------------------------------------------------------------------------
+// The RMG composers (05-09, D-06..D-12): core.composers behind the two windows.
+// Names are relative to the kind's folder (see core/composers.zig); a refusal
+// puts its words on the status line.
+// ---------------------------------------------------------------------------
+
+fn composerResult(state: *State, result: anytype) Outcome {
+    _ = result catch {
+        const said = state.composers.message();
+        state.view.setStatus("composer: ", if (said.len != 0) said else state.editor.status());
+        return .refused;
+    };
+    return .ok;
+}
+
+fn composerSave(state: *State, saved: anytype) Outcome {
+    const result = saved catch return .refused;
+    switch (result) {
+        .saved => return .ok,
+        .needs_save_as, .failed => {
+            state.view.setStatus("composer: ", state.composers.message());
+            return .refused;
+        },
+    }
+}
+
+fn rmgcWindow(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    state.containers_open = !state.containers_open;
+    if (state.containers_open) state.composers.ensureScanned(state.editor);
+    return .ok;
+}
+
+fn rmgcNew(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return composerResult(state, state.composers.newContainer());
+}
+
+fn rmgcOpen(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    @memset(&state.cc_selected, false);
+    return composerResult(state, state.composers.openContainer(state.editor, arg));
+}
+
+fn rmgcSave(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return composerSave(state, state.composers.saveContainer(state.editor));
+}
+
+fn rmgcSaveAs(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    return composerSave(state, state.composers.saveContainerAs(state.editor, arg));
+}
+
+/// A patch map of the storages, by name (relative to scenarios\patches\ unless it
+/// starts at scenarios\); the MFC's checks run and a patch that does not belong is
+/// refused naming why.
+fn rmgcPatchAdd(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    var names = [_][]const u8{arg};
+    const added = state.composers.addPatches(state.editor, &names) catch return composerResult(state, @as(error{Failed}!void, error.Failed));
+    if (added == 1) return .ok;
+    state.view.setStatus("composer: ", state.composers.message());
+    return .refused;
+}
+
+fn rmgcPatchDel(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (index >= state.composers.cdoc.current.patchCount()) return .refused;
+    return composerResult(state, state.composers.deletePatches(&.{index}));
+}
+
+const flag_names = [_][]const u8{ "north", "east", "south", "west" };
+
+/// `<index>:<field>:<value>` - field place (a setting name, or `any`) or one of
+/// north/east/south/west (0 or 1): one patch's properties, one undo step.
+fn rmgcPatchSet(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const index = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const field = parts.next() orelse return .bad_arg;
+    const value = parts.rest();
+    if (index >= state.composers.cdoc.current.patchCount()) return .refused;
+    var flags = [4]core.composers.Tri{ .keep, .keep, .keep, .keep };
+    var place: ?[]const u8 = null;
+    if (std.mem.eql(u8, field, "place")) {
+        place = if (std.mem.eql(u8, value, "any")) "" else value;
+    } else for (flag_names, 0..) |name, d| {
+        if (!std.mem.eql(u8, field, name)) continue;
+        if (std.mem.eql(u8, value, "1")) flags[d] = .on else if (std.mem.eql(u8, value, "0")) flags[d] = .off else return .bad_arg;
+        break;
+    } else return .bad_arg;
+    return composerResult(state, state.composers.setPatchProperties(&.{index}, place, flags));
+}
+
+/// D-10: a map of the user's maps folder (`<UserRoot>maps/<name>.bzm`, or the
+/// mod's) is offered a copy into the RMG root - the same path the Browse
+/// button takes for a file outside Data. The window then asks; `rmgc_import_yes`
+/// and `rmgc_import_no` answer.
+fn rmgcImport(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0 or std.mem.indexOfAny(u8, arg, "/\\:") != null) return .bad_arg;
+    var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const user = panels.userRoot(state);
+    for ([_][]const u8{ ".bzm", ".xml" }) |extension| {
+        const path = if (state.modFolder()) |folder|
+            std.fmt.bufPrint(&buffer, "{s}mods{c}{s}{c}maps{c}{s}{s}", .{ user, std.fs.path.sep, folder, std.fs.path.sep, std.fs.path.sep, arg, extension }) catch return .refused
+        else
+            std.fmt.bufPrint(&buffer, "{s}maps{c}{s}{s}", .{ user, std.fs.path.sep, arg, extension }) catch return .refused;
+        std.Io.Dir.cwd().access(state.io, path, .{}) catch continue;
+        const result = state.composers.beginImport(state.editor, path);
+        if (result) |_| {
+            state.cc_popup = .import_copy;
+            state.containers_open = true;
+            return .ok;
+        } else |_| return composerResult(state, @as(error{Failed}!void, error.Failed));
+    }
+    state.view.setStatus("composer: ", "no such map in the user's maps folder");
+    return .refused;
+}
+
+fn rmgcImportYes(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    state.cc_popup = .none;
+    const added = state.composers.confirmImport(state.editor) catch return composerResult(state, @as(error{Failed}!void, error.Failed));
+    return if (added == 1) .ok else .refused;
+}
+
+fn rmgcImportNo(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    state.cc_popup = .none;
+    state.composers.cancelImport();
+    return .ok;
+}
+
+fn rmgcCheck(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return composerResult(state, state.composers.checkContainer(state.editor));
+}
+
+fn rmgcFix(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    return composerResult(state, state.composers.fixContainerFinding(state.editor, index));
+}
+
+fn rmgcFixAll(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return composerResult(state, state.composers.fixContainerAll(state.editor));
+}
+
+fn rmgcUndo(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const done = state.composers.undoContainer() catch return .refused;
+    return if (done) .ok else .refused;
+}
+
+fn rmgcRedo(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const done = state.composers.redoContainer() catch return .refused;
+    return if (done) .ok else .refused;
+}
+
+fn rmggWindow(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    state.graphs_open = !state.graphs_open;
+    if (state.graphs_open) state.composers.ensureScanned(state.editor);
+    return .ok;
+}
+
+fn rmggNew(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return composerResult(state, state.composers.newGraph());
+}
+
+fn rmggOpen(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    return composerResult(state, state.composers.openGraph(state.editor, arg));
+}
+
+fn rmggSave(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return composerSave(state, state.composers.saveGraph(state.editor));
+}
+
+fn rmggSaveAs(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    return composerSave(state, state.composers.saveGraphAs(state.editor, arg));
+}
+
+fn rmggZoom(state: *State, arg: []const u8) Outcome {
+    const patches = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    if (patches < core.rmg.min_zoom or patches > core.rmg.max_zoom) return .bad_arg;
+    state.composers.canvas.setPatches(patches);
+    return .ok;
+}
+
+fn parseDrag(arg: []const u8) ?[4]i32 {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    var out: [4]i32 = undefined;
+    for (&out) |*slot| slot.* = std.fmt.parseInt(i32, parts.next() orelse return null, 10) catch return null;
+    if (parts.next() != null) return null;
+    return out;
+}
+
+/// `<x1>:<y1>:<x2>:<y2>` in tile coordinates (y up): press, drag and release on
+/// the canvas - the same state machine the mouse drives. Refused when the
+/// gesture changed nothing (a rejected add, a reverted overlap).
+fn canvasDrag(state: *State, arg: []const u8, ctrl: bool) Outcome {
+    const p = parseDrag(arg) orelse return .bad_arg;
+    const outcome = state.composers.gesture(.{ .x = p[0], .y = p[1] }, .{ .x = p[2], .y = p[3] }, ctrl, 1.0) catch return .refused;
+    return switch (outcome) {
+        .node_added, .node_moved, .node_resized, .link_added => .ok,
+        else => blk: {
+            state.view.setStatus("composer: ", state.composers.message());
+            break :blk .refused;
+        },
+    };
+}
+
+fn rmggDrag(state: *State, arg: []const u8) Outcome {
+    return canvasDrag(state, arg, false);
+}
+
+fn rmggCtrlDrag(state: *State, arg: []const u8) Outcome {
+    return canvasDrag(state, arg, true);
+}
+
+/// `<node>:<container>` (`-` empties the node): the node properties' OK.
+fn rmggNode(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const index = std.fmt.parseInt(usize, arg[0..colon], 10) catch return .bad_arg;
+    const name = arg[colon + 1 ..];
+    if (name.len == 0) return .bad_arg;
+    const result = state.composers.setNodeContainer(state.editor, index, if (std.mem.eql(u8, name, "-")) "" else name);
+    if (result) |_| return .ok else |_| {
+        state.view.setStatus("composer: ", state.composers.message());
+        return .refused;
+    }
+}
+
+fn rmggNodeDel(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (index >= state.composers.gdoc.current.nodes.items.len) return .refused;
+    return composerResult(state, state.composers.deleteNode(index));
+}
+
+/// `<link>:<field>:<value>`: kind (0 road, 1 river), desc, radius and min_length
+/// in cells, parts, distance, disturbance - the link properties' own edits.
+fn rmggLink(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const index = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const field = core.composers.LinkField.fromName(parts.next() orelse return .bad_arg) orelse return .bad_arg;
+    const value = parts.rest();
+    if (value.len == 0 and field != .desc) return .bad_arg;
+    return composerResult(state, state.composers.setLinkField(index, field, value));
+}
+
+fn rmggLinkDel(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    if (index >= state.composers.gdoc.current.links.items.len) return .refused;
+    return composerResult(state, state.composers.deleteLink(index));
+}
+
+fn rmggCheck(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return composerResult(state, state.composers.checkGraph(state.editor));
+}
+
+fn rmggFix(state: *State, arg: []const u8) Outcome {
+    const index = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    return composerResult(state, state.composers.fixGraphFinding(state.editor, index));
+}
+
+fn rmggFixAll(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    return composerResult(state, state.composers.fixGraphAll(state.editor));
+}
+
+fn rmggUndo(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const done = state.composers.undoGraph() catch return .refused;
+    return if (done) .ok else .refused;
+}
+
+fn rmggRedo(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    const done = state.composers.redoGraph() catch return .refused;
+    return if (done) .ok else .refused;
+}
+
+fn countIs(have: usize, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    return if (have == want) .ok else .refused;
+}
+
+fn flagIs(have: bool, arg: []const u8) Outcome {
+    if (std.mem.eql(u8, arg, "1")) return if (have) .ok else .refused;
+    if (std.mem.eql(u8, arg, "0")) return if (!have) .ok else .refused;
+    return .bad_arg;
+}
+
+fn rmgcPatchesAre(state: *State, arg: []const u8) Outcome {
+    return countIs(state.composers.cdoc.current.patchCount(), arg);
+}
+fn rmgcDirtyIs(state: *State, arg: []const u8) Outcome {
+    return flagIs(state.composers.cdoc.dirty, arg);
+}
+fn rmgcNameEndsWith(state: *State, arg: []const u8) Outcome {
+    return if (std.mem.endsWith(u8, state.composers.cdoc.name, arg)) .ok else .refused;
+}
+fn rmgcFindingsAre(state: *State, arg: []const u8) Outcome {
+    const report = state.composers.container_report orelse return .refused;
+    return countIs(report.findings.items.len, arg);
+}
+fn rmgcErrorsAre(state: *State, arg: []const u8) Outcome {
+    const report = state.composers.container_report orelse return .refused;
+    return countIs(report.errorCount(), arg);
+}
+
+/// `<patch>:<direction>:<0|1>` - north, east, south or west.
+fn rmgcCellIs(state: *State, arg: []const u8) Outcome {
+    var parts = std.mem.splitScalar(u8, arg, ':');
+    const index = std.fmt.parseInt(usize, parts.next() orelse return .bad_arg, 10) catch return .bad_arg;
+    const field = parts.next() orelse return .bad_arg;
+    const want = parts.rest();
+    if (index >= state.composers.cdoc.current.patchCount()) return .refused;
+    for (flag_names, 0..) |name, d| {
+        if (std.mem.eql(u8, field, name)) return flagIs(state.composers.cdoc.current.hasDirection(index, @enumFromInt(d)), want);
+    }
+    return .bad_arg;
+}
+
+/// `<patch>:<setting>` (`any` is the empty setting).
+fn rmgcPlaceIs(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const index = std.fmt.parseInt(usize, arg[0..colon], 10) catch return .bad_arg;
+    if (index >= state.composers.cdoc.current.patchCount()) return .refused;
+    const want = if (std.mem.eql(u8, arg[colon + 1 ..], "any")) "" else arg[colon + 1 ..];
+    return if (std.mem.eql(u8, state.composers.cdoc.current.patches.items[index].place, want)) .ok else .refused;
+}
+
+/// `<x>x<y>`: the container's size in patches.
+fn rmgcSizeIs(state: *State, arg: []const u8) Outcome {
+    const x = std.mem.indexOfScalar(u8, arg, 'x') orelse return .bad_arg;
+    const want_x = std.fmt.parseInt(i32, arg[0..x], 10) catch return .bad_arg;
+    const want_y = std.fmt.parseInt(i32, arg[x + 1 ..], 10) catch return .bad_arg;
+    const c = &state.composers.cdoc.current;
+    return if (c.size_x == want_x and c.size_y == want_y) .ok else .refused;
+}
+
+fn rmgcPendingIs(state: *State, arg: []const u8) Outcome {
+    return flagIs(state.composers.pending_import.active, arg);
+}
+
+fn rmgcListedAtLeast(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    state.composers.ensureScanned(state.editor);
+    return if (state.composers.container_names.items.len >= want) .ok else .refused;
+}
+
+fn rmggNodesAre(state: *State, arg: []const u8) Outcome {
+    return countIs(state.composers.gdoc.current.nodes.items.len, arg);
+}
+fn rmggLinksAre(state: *State, arg: []const u8) Outcome {
+    return countIs(state.composers.gdoc.current.links.items.len, arg);
+}
+fn rmggDirtyIs(state: *State, arg: []const u8) Outcome {
+    return flagIs(state.composers.gdoc.dirty, arg);
+}
+fn rmggNameEndsWith(state: *State, arg: []const u8) Outcome {
+    return if (std.mem.endsWith(u8, state.composers.gdoc.name, arg)) .ok else .refused;
+}
+fn rmggFindingsAre(state: *State, arg: []const u8) Outcome {
+    const report = state.composers.graph_report orelse return .refused;
+    return countIs(report.findings.items.len, arg);
+}
+fn rmggErrorsAre(state: *State, arg: []const u8) Outcome {
+    const report = state.composers.graph_report orelse return .refused;
+    return countIs(report.errorCount(), arg);
+}
+
+/// `<node>:<name>` - the node's container ends with the name (`-`: empty).
+fn rmggNodeContainerIs(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const index = std.fmt.parseInt(usize, arg[0..colon], 10) catch return .bad_arg;
+    if (index >= state.composers.gdoc.current.nodes.items.len) return .refused;
+    const have = state.composers.gdoc.current.nodes.items[index].container;
+    const want = arg[colon + 1 ..];
+    if (std.mem.eql(u8, want, "-")) return if (have.len == 0) .ok else .refused;
+    return if (std.mem.endsWith(u8, have, want)) .ok else .refused;
+}
+
+fn rmggLinkPartsAre(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const index = std.fmt.parseInt(usize, arg[0..colon], 10) catch return .bad_arg;
+    const want = std.fmt.parseInt(i32, arg[colon + 1 ..], 10) catch return .bad_arg;
+    if (index >= state.composers.gdoc.current.links.items.len) return .refused;
+    return if (state.composers.gdoc.current.links.items[index].parts == want) .ok else .refused;
+}
+
+fn rmggZoomIs(state: *State, arg: []const u8) Outcome {
+    return countIs(@intCast(state.composers.canvas.patches), arg);
+}
+
+fn rmggListedAtLeast(state: *State, arg: []const u8) Outcome {
+    const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
+    state.composers.ensureScanned(state.editor);
+    return if (state.composers.graph_names.items.len >= want) .ok else .refused;
 }

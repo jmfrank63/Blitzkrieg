@@ -60,6 +60,8 @@ var script_slot: logic.PathSlot = .{};
 /// or a context file picked by the OS dialog and turned back into the
 /// storage-relative name the combos hold.
 var rmg_slot: logic.PathSlot = .{};
+/// The Containers Composer's Browse for a patch map (05-09, D-10).
+var patch_slot: logic.PathSlot = .{};
 const rmg_filters = [_]sdl3.c.SDL_DialogFileFilter{
     .{ .name = "RMG files (*.xml)", .pattern = "xml" },
 };
@@ -195,6 +197,9 @@ pub const RmgProgress = struct {
         self.total = total;
     }
 };
+
+/// Which modal a composer window has open (one at a time).
+pub const ComposerPopup = enum { none, picker, properties, delete_patches, import_copy, node_properties, link_properties, delete_node, delete_link, discard };
 
 pub const State = struct {
     allocator: std.mem.Allocator,
@@ -389,6 +394,44 @@ pub const State = struct {
     /// confirmation, so the modal opens once and names its filter.
     filter_new_popup: bool = false,
     filter_delete_popup: [64:0]u8 = [_:0]u8{0} ** 64,
+
+    /// The RMG composers (05-09, D-06): the two Tools windows and their shared
+    /// working state (core.composers). `cc_*` is the Containers window's own
+    /// UI state - the patch table's selected rows, its name fields, the
+    /// patch picker and the properties popup - and `cg_*` the Graphs
+    /// window's; none of it is data, so none of it is undoable.
+    containers_open: bool = false,
+    graphs_open: bool = false,
+    composers: core.composers.Composers,
+    cc_selected: [core.bridge.rmg_max_patches]bool = [_]bool{false} ** core.bridge.rmg_max_patches,
+    cc_anchor: usize = 0,
+    cc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    cc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    cc_picker_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    cc_picker_selected: std.ArrayListUnmanaged(bool) = .empty,
+    cc_place_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    cc_flags_edit: [4]core.composers.Tri = .{ .keep, .keep, .keep, .keep },
+    cc_popup: ComposerPopup = .none,
+    cc_check_seen: u32 = 0,
+    /// A New or Open that waits for the answer to "discard the changes?":
+    /// the command it runs on YES, as `name arg`.
+    cc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    cg_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    cg_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    cg_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    cg_container_edit: [192:0]u8 = [_:0]u8{0} ** 192,
+    cg_link_edit: [6][96:0]u8 = [_][96:0]u8{[_:0]u8{0} ** 96} ** 6,
+    cg_popup: ComposerPopup = .none,
+    /// The element the last right-click or double-click found: a node and/or
+    /// the links under the point (at most eight).
+    cg_hit_node: i32 = -1,
+    cg_hit_links: [8]u32 = [_]u32{0} ** 8,
+    cg_hit_link_count: usize = 0,
+    cg_link_index: usize = 0,
+    cg_dragging: bool = false,
+    cg_settings_text: std.ArrayListUnmanaged(u8) = .empty,
+    cg_settings_seen: u32 = 0,
+    cg_pointer: core.rmg.Tile = .{ .x = 0, .y = 0 },
 
     fields_open: bool = false,
     /// The Fields panel's state (M3, D-21): the chosen field set, the
@@ -754,7 +797,7 @@ pub const State = struct {
     /// mod chosen on the command line (main.zig's `-mod=`), already applied
     /// to the bridge session before this call - `init` only records it.
     pub fn init(allocator: std.mem.Allocator, editor: *Editor, view: *View, real: *RealBridge, window: *sdl3.c.SDL_Window, io: std.Io, environ: std.process.Environ, mod_folder: ?[]const u8) State {
-        var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window, .io = io, .environ = environ, .pictures = pictures_mod.Pictures.init(allocator), .tile_pictures = pictures_mod.Pictures.initFor(allocator, .tile) };
+        var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window, .io = io, .environ = environ, .pictures = pictures_mod.Pictures.init(allocator), .tile_pictures = pictures_mod.Pictures.initFor(allocator, .tile), .composers = core.composers.Composers.init(allocator) };
         state.setModFolder(mod_folder);
         if (real.paths(&state.paths) != .ok) state.paths = std.mem.zeroes(c.BkEditorPathSet);
         // Editor.save's own read-only refusal (D-18) judges against the
@@ -772,6 +815,9 @@ pub const State = struct {
         self.pictures.deinit();
         self.tile_pictures.deinit();
         self.minimap.deinit(self.allocator);
+        self.composers.deinit();
+        self.cc_picker_selected.deinit(self.allocator);
+        self.cg_settings_text.deinit(self.allocator);
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
         self.allocator.free(self.sound_names);
@@ -1474,6 +1520,8 @@ pub fn draw(state: *State) void {
     panels_m2.drawGroups(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 360, .y = 420 });
     panels_m3.drawHeightsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 40 }, .{ .x = 300, .y = 420 });
     panels_m3.drawFiltersComposer(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 420, .y = 380 });
+    panels_m3.drawContainersComposer(state, .{ .x = state.left_width + 60, .y = body_top + 50 }, .{ .x = 880, .y = 560 });
+    panels_m3.drawGraphsComposer(state, .{ .x = state.left_width + 80, .y = body_top + 70 }, .{ .x = 820, .y = 640 });
     panels_m3.drawFieldsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 80 }, .{ .x = 320, .y = 440 });
     panels_m3.drawPropertiesPanel(state, .{ .x = state.left_width + 40, .y = body_top + 100 }, .{ .x = 320, .y = 420 });
     panels_m3.drawCheckMapPanel(state, .{ .x = state.left_width + 80, .y = body_top + 140 }, .{ .x = 520, .y = 420 });
@@ -1490,6 +1538,7 @@ pub fn draw(state: *State) void {
     drawSettingsWindow(state);
     drawNewMapDialog(state);
     pollRmgBrowse(state);
+    pollPatchBrowse(state);
     panels_m3.drawRandomMapDialog(state);
     panels_m3.drawRmgProgress(state);
     drawRecoveryPrompt(state);
@@ -1498,12 +1547,12 @@ pub fn draw(state: *State) void {
 }
 
 /// The base root as `BkEditorPaths` gave it at init, sliced to its content.
-fn baseRoot(state: *const State) []const u8 {
+pub fn baseRoot(state: *const State) []const u8 {
     return std.mem.sliceTo(&state.paths.base_root, 0);
 }
 
 /// The user root the same way.
-fn userRoot(state: *const State) []const u8 {
+pub fn userRoot(state: *const State) []const u8 {
     return std.mem.sliceTo(&state.paths.user_root, 0);
 }
 
@@ -2520,6 +2569,9 @@ fn drawMenuBar(state: *State) f32 {
         // M3, D-31: the Filters Composer (the MFC's CreateFilterDialog), a
         // Tools window like every composer (D-06).
         if (ig.igMenuItemBoolPtr("Filters Composer...", null, &state.filters_composer_open, true)) {}
+        // M3, D-06/D-11: the Containers and Graphs Composers (05-09).
+        if (ig.igMenuItemBoolPtr("Containers Composer...", null, &state.containers_open, true)) state.composers.ensureScanned(state.editor);
+        if (ig.igMenuItemBoolPtr("Graphs Composer...", null, &state.graphs_open, true)) state.composers.ensureScanned(state.editor);
         // M3, D-21: the Fields panel (the MFC's TabTerrainFieldsDialog).
         if (ig.igMenuItemBoolPtr("Fields...", null, &state.fields_open, true)) {}
         // M3, D-26: the Properties window (the MFC CPropertieDialog); it
@@ -2961,6 +3013,44 @@ pub fn browseRmg(state: *State, target: u8) void {
     } else |_| {}
     state.os_dialogs_opened += 1;
     sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &rmg_slot, state.window, &rmg_filters, rmg_filters.len, default_location, false);
+}
+
+/// Browse in the Containers Composer's patch picker (05-09, D-10): the OS
+/// dialog over the game's Data patches folder. A map inside Data is added by
+/// its storage name, one outside is offered the copy into the user RMG root
+/// (`pollPatchBrowse`).
+pub fn browsePatch(state: *State) void {
+    if (!state.os_dialogs) return;
+    if (!patch_slot.request(.open)) return;
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+    var default_location: ?[*:0]const u8 = null;
+    if (std.fmt.bufPrint(&folder_buffer, "{s}Data{c}Scenarios{c}Patches", .{ baseRoot(state), std.fs.path.sep, std.fs.path.sep })) |folder| {
+        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
+    } else |_| {}
+    state.os_dialogs_opened += 1;
+    sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &patch_slot, state.window, &map_filters, map_filters.len, default_location, false);
+}
+
+/// Each frame: what the patch Browse answered, once.
+fn pollPatchBrowse(state: *State) void {
+    const result = patch_slot.take() orelse return;
+    switch (result) {
+        .cancelled => {},
+        .failed => |message| state.view.setStatus("the file dialog failed: ", message),
+        .path => |chosen| {
+            var buffer: [core.bridge.field_set_name_capacity]u8 = undefined;
+            if (logic.patchNameFromBrowse(&buffer, baseRoot(state), chosen.path)) |name| {
+                var names = [_][]const u8{name};
+                _ = state.composers.addPatches(state.editor, &names) catch {};
+                state.view.setStatus("containers: ", state.composers.message());
+            } else if (state.composers.beginImport(state.editor, chosen.path)) |_| {
+                state.cc_popup = .import_copy;
+            } else |_| {
+                state.view.setStatus("containers: ", state.composers.message());
+            }
+        },
+    }
 }
 
 /// Each frame: what a Browse dialog answered, once. A file inside the game's
