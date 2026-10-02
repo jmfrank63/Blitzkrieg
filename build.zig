@@ -5893,7 +5893,7 @@ fn addEditorBridgeTest(
     run_m3_players.addArg("--m3-players-only");
     run_m3_players.has_side_effects = true;
     run_m3_players.step.dependOn(&install_exe.step);
-    const step_m3_players = b.step("test-editor-bridge-m3-players", "Add and delete players, edit the unit creation and make Check Map's fixes through the engine and compare the bytes");
+    const step_m3_players = b.step("test-editor-bridge-m3-players", "Add and delete players, edit the unit creation and apply Check Map's fixes through the engine and compare the bytes");
     step_m3_players.dependOn(&exe.step);
     if (test_mode == .run) step_m3_players.dependOn(&run_m3_players.step);
 
