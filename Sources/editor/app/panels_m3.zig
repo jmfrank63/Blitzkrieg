@@ -1085,7 +1085,7 @@ fn rmgCombo(
 /// Write DDS, the map name - plus the seed this port adds (blank draws one).
 /// OK waits for a template, a context and a name (the MFC's own rule), then
 /// hands the fields to the progress modal.
-pub fn drawRmgDialog(state: *State) void {
+pub fn drawRandomMapDialog(state: *State) void {
     if (!state.rmg_open) return;
     if (!ig.igBegin("Create Random Map", &state.rmg_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
         ig.igEnd();
