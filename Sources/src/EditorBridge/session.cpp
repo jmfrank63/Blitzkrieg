@@ -1346,9 +1346,8 @@ bool SMoveObjectsEdit::Reapply( SEditorSession *pSession )
 // undo step and a swap's name change undoes exactly.
 // ---------------------------------------------------------------------------
 
-// Writes `rRecord` over the object's record in both copies and re-places the
-// engine object from it - the record's own name, position, direction, owner
-// and hp, so a flag's swap of type lands in the engine too.
+// The engine object re-placed from `rRecord`, then the record written over
+// the object's record in both copies (defined below).
 bool PutObjectRecordBack( SEditorSession *pSession, const SMapObjectInfo &rRecord );
 
 bool SObjectFieldsEdit::Revert( SEditorSession *pSession )
@@ -1361,11 +1360,34 @@ bool SObjectFieldsEdit::Reapply( SEditorSession *pSession )
 	return PutObjectRecordBack( pSession, after );
 }
 
-// Writes `rRecord` over the object's record in both copies and re-places the
-// engine object from it - the record's own name, position, direction, owner
-// and hp, so a flag's swap of type lands in the engine too.
+// Re-places the engine object from `rRecord` - its position, direction and
+// owner - and then writes the record over the object's record in both copies.
+// The engine goes first: PlaceObjectInSession compares the snapshot's current
+// record with what it is asked for to decide what to move, turn or re-own, so
+// a record written before it would leave the engine where it was (an angle
+// edit that never turned the object, an undo that never turned it back). A
+// placement the engine refuses leaves the records as they were.
 bool PutObjectRecordBack( SEditorSession *pSession, const SMapObjectInfo &rRecord )
 {
+	if ( FindIn( &pSession->snapshot, rRecord.link.nLinkID ) == 0 || FindIn( &pSession->working, rRecord.link.nLinkID ) == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		return false;
+	}
+	const SMapObjectInfo *pCurrent = FindIn( &pSession->snapshot, rRecord.link.nLinkID );
+	// A flag's owner is its type - the properties' swap renames it
+	// Flag_<party> - and the engine holds a flag unowned, so the engine is
+	// never asked to re-own one (it would refuse, and the swap with it).
+	int nEnginePlayer = rRecord.nPlayer;
+	{
+		IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+		const SGDBObjectDesc *pDesc = pObjectsDB != 0 ? pObjectsDB->GetDesc( pCurrent->szName.c_str() ) : 0;
+		if ( pDesc != 0 && pDesc->eGameType == SGVOGT_FLAG )
+			nEnginePlayer = pCurrent->nPlayer;
+	}
+	bool bRefused = false;
+	if ( !PlaceObjectInSession( pSession, rRecord.link.nLinkID, rRecord.vPos, rRecord.nDir, nEnginePlayer, &bRefused ) )
+		return false;
 	SMapObjectInfo *pSnapshot = FindIn( &pSession->snapshot, rRecord.link.nLinkID );
 	SMapObjectInfo *pWorking = FindIn( &pSession->working, rRecord.link.nLinkID );
 	if ( pSnapshot == 0 || pWorking == 0 )
@@ -1375,9 +1397,6 @@ bool PutObjectRecordBack( SEditorSession *pSession, const SMapObjectInfo &rRecor
 	}
 	*pSnapshot = rRecord;
 	*pWorking = rRecord;
-	bool bRefused = false;
-	if ( !PlaceObjectInSession( pSession, rRecord.link.nLinkID, rRecord.vPos, rRecord.nDir, rRecord.nPlayer, &bRefused ) )
-		return false;
 	return true;
 }
 
@@ -1460,7 +1479,11 @@ bool SetObjectFieldsInSession( SEditorSession *pSession, int nLinkID, const BkEd
 		return false;
 	}
 	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( pRecord->szName.c_str() );
-	SMapObjectInfo after = *pRecord;
+	// The record before the edit is copied NOW: pRecord points into the
+	// snapshot, and PutObjectRecordBack below overwrites it in place - an
+	// undo record taken after that would hold the edit itself.
+	const SMapObjectInfo recordBefore = *pRecord;
+	SMapObjectInfo after = recordBefore;
 	if ( pEdit->mask & 1 )
 	{
 		if ( pEdit->player < 0 || pEdit->player >= int( pSession->snapshot.diplomacies.size() ) )
@@ -1546,7 +1569,7 @@ bool SetObjectFieldsInSession( SEditorSession *pSession, int nLinkID, const BkEd
 	}
 	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
 	pEditRecord->nLinkID = nLinkID;
-	pEditRecord->before = *pRecord;
+	pEditRecord->before = recordBefore;
 	pEditRecord->after = after;
 	*pnToken = LogEdit( pSession, pEditRecord );
 	return true;
@@ -1709,7 +1732,11 @@ bool SetLinkInSession( SEditorSession *pSession, int nSource, int nTarget, bool 
 		*pbRefused = true;
 		return false;
 	}
-	SMapObjectInfo after = *pRecord;
+	// The record before the edit is copied NOW: pRecord points into the
+	// snapshot, and PutObjectRecordBack below overwrites it in place - an
+	// undo record taken after that would hold the edit itself.
+	const SMapObjectInfo recordBefore = *pRecord;
+	SMapObjectInfo after = recordBefore;
 	after.link.nLinkWith = nTarget;
 	if ( nType == 0 )
 	{
@@ -1728,12 +1755,26 @@ bool SetLinkInSession( SEditorSession *pSession, int nSource, int nTarget, bool 
 	}
 	if ( !PutObjectRecordBack( pSession, after ) )
 	{
-		*pbRefused = true;
-		return false;
+		// The MFC moved a garrison's passenger beside its host and linked it
+		// whether or not the engine took the move (ObjectPlacerState.cpp:820-
+		// 827 never asks MoveObject's answer): a passenger the engine will
+		// not stand there keeps its own place and is linked where it stands.
+		if ( nType != 0 || ( after.vPos.x == recordBefore.vPos.x && after.vPos.y == recordBefore.vPos.y ) )
+		{
+			*pbRefused = true;
+			return false;
+		}
+		after.vPos = recordBefore.vPos;
+		if ( !PutObjectRecordBack( pSession, after ) )
+		{
+			*pbRefused = true;
+			return false;
+		}
+		pSession->szMessage.clear();
 	}
 	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
 	pEditRecord->nLinkID = nSource;
-	pEditRecord->before = *pRecord;
+	pEditRecord->before = recordBefore;
 	pEditRecord->after = after;
 	*pnToken = LogEdit( pSession, pEditRecord );
 	return true;
@@ -1766,7 +1807,11 @@ bool UnlinkInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused, in
 	}
 	if ( pRecord->link.nLinkWith == 0 )
 		return true; // nothing linked: OK, no token
-	SMapObjectInfo after = *pRecord;
+	// The record before the edit is copied NOW: pRecord points into the
+	// snapshot, and PutObjectRecordBack below overwrites it in place - an
+	// undo record taken after that would hold the edit itself.
+	const SMapObjectInfo recordBefore = *pRecord;
+	SMapObjectInfo after = recordBefore;
 	after.link.nLinkWith = 0;
 	if ( !PutObjectRecordBack( pSession, after ) )
 	{
@@ -1775,7 +1820,7 @@ bool UnlinkInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused, in
 	}
 	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
 	pEditRecord->nLinkID = nLinkID;
-	pEditRecord->before = *pRecord;
+	pEditRecord->before = recordBefore;
 	pEditRecord->after = after;
 	*pnToken = LogEdit( pSession, pEditRecord );
 	return true;
