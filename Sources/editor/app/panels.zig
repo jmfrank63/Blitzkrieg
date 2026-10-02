@@ -1350,6 +1350,8 @@ pub fn draw(state: *State) void {
     // reading this frame's hover/tool state before anything else changes it.
     state.refreshAnchors();
     state.syncHiddenGroups();
+    // 05-06, D-32: the fire ranges follow the selection and the edits.
+    state.editor.syncFireRange();
     state.view.drawOverlay(state.real, state.sounds, state.selected_sound);
     markers.drawM2Markers(state, state.real);
     const menu_height = drawMenuBar(state);
@@ -2429,6 +2431,11 @@ fn drawMenuBar(state: *State) f32 {
     }
     if (ig.igBeginMenu("Unit")) {
         drawUnitMenu(state, map_open);
+        ig.igEndMenu();
+    }
+    // 05-06, D-32: Layers - the renderer's toggles and the fire ranges.
+    if (ig.igBeginMenu("Layers")) {
+        panels_m3.drawLayersMenu(state, map_open);
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("Tools")) {

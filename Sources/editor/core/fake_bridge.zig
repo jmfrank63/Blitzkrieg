@@ -63,6 +63,7 @@ const bridge_mod = @import("bridge.zig");
 const files_mod = @import("files.zig");
 const records = @import("records.zig");
 const script_file_mod = @import("script_file.zig");
+const layers_mod = @import("layers.zig");
 const Status = bridge_mod.Status;
 const MapInfo = bridge_mod.MapInfo;
 const ObjectRecord = bridge_mod.ObjectRecord;
@@ -102,7 +103,7 @@ pub const pick_radius: f32 = 16.0;
 /// so it uses a bound a test can compute. 16 tiles of height.
 pub const fake_height_limit: f32 = tile_size * 16.0;
 
-pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit, altitudes_edit, new_map, heights_stroke, heights_generate, heights_zero, update_map, fill_map, terrain_modes };
+pub const CallKind = enum { open, save, add, place, delete, restore, diplomacy, map_type, attacking_side, paint, undo_paint, redo_paint, sound_add, sound_edit, sound_delete, record_put, script_id, vso_edit, undo_edit, redo_edit, bridge_edit, altitudes_edit, new_map, heights_stroke, heights_generate, heights_zero, update_map, fill_map, terrain_modes, layer_show, fire_range };
 pub const Call = struct { kind: CallKind, id: i32 = 0 };
 
 /// The most units a fake start command holds (the real one holds as many as the
@@ -491,6 +492,20 @@ pub const FakeBridge = struct {
     /// no object z), so no fake behaviour keys off them yet.
     instant_update: bool = false,
     fit_to_grid: bool = true,
+    /// The Layers menu (M3, D-32): the renderer's bits as the fake engine
+    /// holds them, and what it can draw. The fixture renderer cannot draw the
+    /// depth complexity (the real GPU renderer cannot either - 05-06's probe),
+    /// so a test sees the mask respected. An open or a new map brings the
+    /// renderer up at `layers_mod.default_bits` and drops every fire-range
+    /// group - what the engine's own memory does to the MFC editor's menu -
+    /// so a test proves the editor re-applies what it remembers rather than
+    /// relying on the bridge to.
+    layer_bits: u32 = layers_mod.default_bits,
+    layer_mask: u32 = layers_mod.all_bits & ~layers_mod.bit(.depth_complexity),
+    fire_mode: u32 = 0,
+    fire_filter_buffer: [layers_mod.max_filter_len]u8 = undefined,
+    fire_filter_len: usize = 0,
+    fire_link_ids: std.ArrayListUnmanaged(i32) = .empty,
     /// The fields fixtures (M3, D-21): the season a fieldSetSeason ask
     /// answers (the fixture set is a summer one) and the names listRmg
     /// answers for the field sets folder.
@@ -569,6 +584,7 @@ pub const FakeBridge = struct {
     };
 
     pub fn deinit(self: *FakeBridge) void {
+        self.fire_link_ids.deinit(self.allocator);
         for (self.paints.items) |paint_record| {
             self.allocator.free(paint_record.cells);
             self.allocator.free(paint_record.before);
@@ -1170,6 +1186,9 @@ pub const FakeBridge = struct {
         .updateMap = updateMap,
         .fillEntireMap = fillEntireMap,
         .setTerrainModes = setTerrainModes,
+        .layers = layers,
+        .setLayerShow = setLayerShow,
+        .setFireRangeMode = setFireRangeMode,
         .snapToGrid = snapToGrid,
         .vsoDescriptors = vsoDescriptors,
         .vsoCount = vsoCount,
@@ -1503,6 +1522,12 @@ pub const FakeBridge = struct {
         }
         const width = params.size_x * 16;
         const height = params.size_y * 16;
+        // The renderer comes up at its own defaults and the AI's groups are
+        // gone with the map before (see layer_bits).
+        self.layer_bits = layers_mod.default_bits;
+        self.fire_mode = 0;
+        self.fire_filter_len = 0;
+        self.fire_link_ids.clearRetainingCapacity();
         // A new map replaces everything: the objects, the history, the
         // tombstones and the tiles of the map before.
         self.forgetHistory();
@@ -1826,6 +1851,83 @@ pub const FakeBridge = struct {
         self.instant_update = instant_update;
         self.fit_to_grid = fit_to_grid;
         self.record(.terrain_modes, 0);
+        return .ok;
+    }
+
+    /// BkEditorLayers (M3, D-32): the fake renderer's bits - the fire-range bit
+    /// derived from its mode, as the real one's - and mask.
+    fn layers(ptr: *anyopaque, bits: *u32, mask: *u32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        bits.* = (self.layer_bits & ~layers_mod.bit(.fire_ranges)) | (if (self.fire_mode != 0) layers_mod.bit(.fire_ranges) else 0);
+        mask.* = self.layer_mask | layers_mod.bit(.fire_ranges);
+        return .ok;
+    }
+
+    /// BkEditorSetLayerShow: the real rules - a layer outside 0..13 and the
+    /// fire-range mode are bad arguments, no map open and a layer outside the
+    /// mask are refused, and in every refusal nothing changes.
+    fn setLayerShow(ptr: *anyopaque, layer: u32, shown: bool) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (layer >= layers_mod.layer_count) {
+            self.say("no such layer", .{});
+            return .bad_argument;
+        }
+        if (layer == @intFromEnum(layers_mod.Layer.fire_ranges)) {
+            self.say("the fire ranges are a mode, not a toggle", .{});
+            return .bad_argument;
+        }
+        if (self.tiles.len == 0) {
+            self.say("no map is open", .{});
+            return .refused;
+        }
+        const one = @as(u32, 1) << @intCast(layer);
+        if (self.layer_mask & one == 0) {
+            self.say("that layer cannot be drawn by this renderer", .{});
+            return .refused;
+        }
+        if (shown) self.layer_bits |= one else self.layer_bits &= ~one;
+        self.record(.layer_show, @intCast(layer));
+        return .ok;
+    }
+
+    fn filterKnown(self: *const FakeBridge, name: []const u8) bool {
+        for (default_filters) |one| {
+            if (std.mem.eql(u8, one.nameSlice(), name)) return true;
+        }
+        for (self.object_filters.items) |one| {
+            if (std.mem.eql(u8, one.nameSlice(), name)) return true;
+        }
+        return false;
+    }
+
+    /// BkEditorSetFireRangeMode: the real rules, the shown set kept as the
+    /// mode, the filter's name and the selection it was asked with (a test
+    /// reads them back).
+    fn setFireRangeMode(ptr: *anyopaque, mode: u32, filter: []const u8, link_ids: []const i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (mode > @intFromEnum(layers_mod.FireMode.filter)) {
+            self.say("no such fire-range mode", .{});
+            return .bad_argument;
+        }
+        if (mode == @intFromEnum(layers_mod.FireMode.filter) and (filter.len == 0 or !self.filterKnown(filter))) {
+            self.say("no object filter is named that", .{});
+            return .bad_argument;
+        }
+        if (self.tiles.len == 0) {
+            self.say("no map is open", .{});
+            return .refused;
+        }
+        self.fire_mode = mode;
+        self.fire_filter_len = if (mode == @intFromEnum(layers_mod.FireMode.filter)) @min(filter.len, self.fire_filter_buffer.len) else 0;
+        @memcpy(self.fire_filter_buffer[0..self.fire_filter_len], filter[0..self.fire_filter_len]);
+        self.fire_link_ids.clearRetainingCapacity();
+        if (mode == @intFromEnum(layers_mod.FireMode.selected)) {
+            self.fire_link_ids.appendSlice(self.allocator, link_ids) catch return .failed;
+        }
+        self.record(.fire_range, @intCast(mode));
         return .ok;
     }
 
@@ -2785,6 +2887,12 @@ pub const FakeBridge = struct {
             self.say("the engine threw", .{});
             return .failed;
         }
+        // The renderer comes up at its own defaults and the AI's groups are
+        // gone with the map before (see layer_bits).
+        self.layer_bits = layers_mod.default_bits;
+        self.fire_mode = 0;
+        self.fire_filter_len = 0;
+        self.fire_link_ids.clearRetainingCapacity();
         // What the real bridge forgets on an open: every tombstone and every
         // paint token of the map before.
         self.forgetHistory();

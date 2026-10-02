@@ -887,5 +887,75 @@ test "the core drives the real bridge: every command, undone and redone" {
         std.debug.print("map-editor-engine: M3 minimap reads and click round trip ok\n", .{});
     }
 
+    // M3 (05-06, D-32): the Layers menu on the real engine, through the core
+    // that remembers it. Three layers are toggled, the map is opened again, and
+    // the renderer - read back from the bridge, not the editor's memory - is
+    // what was asked: the MFC editor's check marks and the scene's own flags
+    // drifted apart across an open. A layer the GPU renderer cannot draw is
+    // refused with the state unchanged, and none of it is a map edit.
+    {
+        const layers = core.layers;
+        try std.testing.expect(!editor.dirty());
+        try std.testing.expect(editor.layerAvailable(.grid));
+        try std.testing.expect(!editor.layerAvailable(.depth_complexity));
+        try std.testing.expect(editor.layerAvailable(.wireframe));
+        try editor.toggleLayer(.grid);
+        try editor.toggleLayer(.bounding_boxes);
+        try editor.toggleLayer(.terrain_noise);
+        try editor.toggleLayer(.war_fog);
+        try std.testing.expectError(error.Refused, editor.toggleLayer(.depth_complexity));
+        var bits: u32 = 0;
+        var mask: u32 = 0;
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.layers(&bits, &mask));
+        try std.testing.expect(bits & layers.bit(.grid) != 0);
+        try std.testing.expect(bits & layers.bit(.bounding_boxes) != 0);
+        try std.testing.expect(bits & layers.bit(.terrain_noise) == 0);
+        try std.testing.expect(bits & layers.bit(.war_fog) != 0);
+        try std.testing.expect(bits & layers.bit(.depth_complexity) == 0);
+        const chosen = bits;
+        try expectEngineMatches(&real);
+        // Close and open the same map again: the layers come back as chosen.
+        try editor.open("Data\\Maps\\Multiplayer\\coldwinter.bzm");
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.layers(&bits, &mask));
+        try std.testing.expectEqual(chosen, bits);
+        try std.testing.expect(editor.layers.shown(.grid) and editor.layers.shown(.war_fog));
+        try std.testing.expect(!editor.dirty());
+        try expectEngineMatches(&real);
+        // A new map too.
+        try editor.newMap(.{ .size_x = 2, .size_y = 2, .season = 0 });
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.layers(&bits, &mask));
+        try std.testing.expectEqual(chosen, bits);
+        try editor.open("Data\\Maps\\Multiplayer\\coldwinter.bzm");
+        // The editor's own memory is the truth the bridge is brought to: a state
+        // remembered from settings before the open is what the open applies.
+        var remembered: layers.State = .{};
+        remembered.set(.shadows, false);
+        remembered.set(.haze, false);
+        editor.layers = remembered;
+        try editor.open("Data\\Maps\\Multiplayer\\coldwinter.bzm");
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.layers(&bits, &mask));
+        try std.testing.expectEqual(remembered.bitsFor(mask), bits & ~layers.bit(.fire_ranges));
+        // Fire ranges: the selected units' ranges come and go with the selection, and
+        // the mode is asked again after an open (the AI forgot its groups).
+        try editor.loadFilters();
+        try editor.setFireRange(.filter, "Buildings");
+        try std.testing.expect(editor.layers.shown(.fire_ranges));
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.layers(&bits, &mask));
+        try std.testing.expect(bits & layers.bit(.fire_ranges) != 0);
+        try std.testing.expectError(error.Refused, editor.setFireRange(.filter, "No Such Filter"));
+        try std.testing.expectEqualStrings("Buildings", editor.layers.fireFilter());
+        try editor.open("Data\\Maps\\Multiplayer\\coldwinter.bzm");
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.layers(&bits, &mask));
+        try std.testing.expect(bits & layers.bit(.fire_ranges) != 0);
+        try editor.setFireRange(.off, "");
+        try std.testing.expectEqual(core.bridge.Status.ok, editor.bridge.layers(&bits, &mask));
+        try std.testing.expect(bits & layers.bit(.fire_ranges) == 0);
+        // Put the renderer back for whatever runs after.
+        editor.layers = .{};
+        try editor.open("Data\\Maps\\Multiplayer\\coldwinter.bzm");
+        try std.testing.expect(!editor.dirty());
+        std.debug.print("map-editor-engine: M3 layers re-applied after open and new ok\n", .{});
+    }
+
     std.debug.print("map-editor-engine: PASS ({d} objects)\n", .{objects_at_open});
 }
