@@ -11,13 +11,24 @@ struct SVectorStripeObjectPoint
 	float fRadius;												// curvature radius
 	float fWidth;													// width at this point
 	bool	bKeyPoint;											// key point of the sampling
+	// The three bytes the compiler pads bKeyPoint with, named so they always
+	// hold zero. A map saves its points as raw bytes (CSaverAccessor's
+	// DoDataVector: this struct has no IStructureSaver operator&), so the
+	// unnamed padding took whatever the stack held where the generator built
+	// each point (CVSOBuilder::SliceSpline) into the file - and on
+	// windows-msvc that differed from run to run, so one seed did not give one
+	// map (broken window 6). Layout and file format are unchanged; a point
+	// read back from a map keeps the bytes the map had.
+	BYTE	cReserved[3];
 	float fOpacity;												// ������������ ( 0..1 ) ������ ��� key point
 
 	SVectorStripeObjectPoint()
-		: vPos( VNULL3 ), vNorm( VNULL3 ), fRadius( 0.0f ), fWidth( 0.0f ), bKeyPoint( false ), fOpacity( 1.0f ) {}
+		: vPos( VNULL3 ), vNorm( VNULL3 ), fRadius( 0.0f ), fWidth( 0.0f ), bKeyPoint( false ), cReserved(), fOpacity( 1.0f ) {}
 
 	int operator&( IDataTree &ss );
 };
+// The raw bytes are the file format: no member added, none reordered.
+static_assert( sizeof( SVectorStripeObjectPoint ) == 40, "SVectorStripeObjectPoint is saved as raw bytes; its layout is the map format" );
 
 struct SVectorStripeObjectDesc
 {

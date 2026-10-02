@@ -2,9 +2,9 @@
 schema_version: 1
 open_count: 2
 waived_count: 0
-fixed_count: 5
-total_count: 7
-last_updated: 2026-10-02T23:05:43.881Z
+fixed_count: 6
+total_count: 8
+last_updated: 2026-10-03T12:00:00.000Z
 ---
 
 # Broken Windows Ledger
@@ -22,6 +22,7 @@ last_updated: 2026-10-02T23:05:43.881Z
 | 5 | 5 | deviation | Sources/src/RandomMapGen/MapInfo_StaticMethods_RMGeneration.cpp | 970 | 05-08: a generated map names its script by the absolute output path (engine's own szScriptFile = output path); Test in game warns 'not a plain name' for a generated map - see deferred-items.md From 05-08 | open |  | 2026-10-02T15:34:14.928Z |  |
 | 6 | 5 | unrun-verify | .github/workflows/cross-platform.yml |  | 05-09: test-rmg-composer-roundtrip (and 05-08's test-rmg-determinism) are not in the CI workflow yet, and the composer m3-auto frames have no Windows run - see deferred-items.md From 05-09 | fixed | fixed in 05-10 00c02ae11: test-rmg-composer-roundtrip and test-rmg-determinism run in the Windows and macOS engine jobs of cross-platform.yml (macOS green on run 37072698456); the Windows frames and the Windows run of the two steps are entry 7 | 2026-10-02T19:55:21.443Z | 2026-10-02T23:05:38.337Z |
 | 7 | 5 | unrun-verify | .planning/phases/05-map-editor-m3-random-map-templates-minimap-tools-parity/05-10-SUMMARY.md |  | 05-10: the Fields and Templates composer frames of map-editor-m3-auto (1214-1400) and the Windows run of test-rmg-composer-roundtrip / test-rmg-determinism have no green Windows run yet: the Windows engine job already fails earlier on the RMG nondeterminism fixed on fix/rmg-windows-determinism (run 37072698456); the macOS job ran both steps green | open |  | 2026-10-02T23:05:43.881Z |  |
+| 8 | 05 | unmet-truth | Sources/src/Formats/fmtVSO.h | 13 | 05-08 D-04 on windows-msvc: the same seed did not regenerate a byte-identical map (test-editor-bridge, CI run 37029035801) - the road/river points' 3 pad bytes after bKeyPoint are saved raw and were never written | fixed | fixed on fix/rmg-windows-determinism cabb77da8: SVectorStripeObjectPoint is saved as raw bytes (CSaverAccessor::DoDataVector) and CVSOBuilder::SliceSpline built each point on its stack, so its 3 pad bytes carried stack leftovers into the BZM - run-varying on windows-msvc, repeatable (but still garbage) on macOS. Full diff of two same-seed maps on a Windows host: 1487 bytes, all at offset 33..35 of a 40-byte point in the roads3 points chunk, nothing else (not the stored script path - see #5 - not objects, not altitudes). The pad is now a zero-initialised member cReserved[3]; layout and format unchanged (static_assert 40), 66/66 maps still round-trip. TestVsoPointBytes (test-map-files) fails 4/4 without the fix on windows-msvc and passes with it; test-editor-bridge passes on the Windows host and macOS | 2026-10-02T19:16:41.583Z | 2026-10-02T19:16:41.715Z |
 
 ````json
 [
@@ -110,6 +111,19 @@ last_updated: 2026-10-02T23:05:43.881Z
     "reason": "",
     "recorded_at": "2026-10-02T23:05:43.881Z",
     "resolved_at": null,
+    "milestone": null
+  },
+  {
+    "id": 8,
+    "kind": "unmet-truth",
+    "phase": "05",
+    "file": "Sources/src/Formats/fmtVSO.h",
+    "line": 13,
+    "description": "05-08 D-04 on windows-msvc: the same seed did not regenerate a byte-identical map (test-editor-bridge, CI run 37029035801) - the road/river points' 3 pad bytes after bKeyPoint are saved raw and were never written",
+    "status": "fixed",
+    "reason": "fixed on fix/rmg-windows-determinism cabb77da8: SVectorStripeObjectPoint is saved as raw bytes (CSaverAccessor::DoDataVector) and CVSOBuilder::SliceSpline built each point on its stack, so its 3 pad bytes carried stack leftovers into the BZM - run-varying on windows-msvc, repeatable (but still garbage) on macOS. Full diff of two same-seed maps on a Windows host: 1487 bytes, all at offset 33..35 of a 40-byte point in the roads3 points chunk, nothing else (not the stored script path - see #5 - not objects, not altitudes). The pad is now a zero-initialised member cReserved[3]; layout and format unchanged (static_assert 40), 66/66 maps still round-trip. TestVsoPointBytes (test-map-files) fails 4/4 without the fix on windows-msvc and passes with it; test-editor-bridge passes on the Windows host and macOS",
+    "recorded_at": "2026-10-02T19:16:41.583Z",
+    "resolved_at": "2026-10-02T19:16:41.715Z",
     "milestone": null
   }
 ]

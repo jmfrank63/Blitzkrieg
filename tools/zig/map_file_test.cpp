@@ -2232,6 +2232,80 @@ static void TestM2VsoBuilder()
 	printf( "map-file: M2 vso builder ok\n" );
 }
 
+// Broken window 6: a map saves its road and river points as raw bytes
+// (CSaverAccessor's DoDataVector), the three after bKeyPoint included. Left as
+// compiler padding they held whatever the memory held where the generator
+// built the point, so on windows-msvc one seed did not give one map. A point
+// built, or copied, over two different fills of memory must be the same bytes.
+static void ScribbleStack( unsigned char cByte )
+{
+	volatile unsigned char scribble[32 * 1024];
+	for ( size_t i = 0; i < sizeof scribble; ++i )
+		scribble[i] = cByte;
+}
+// Called through a volatile pointer so the fill is not inlined or dropped:
+// the next call's locals then start out in the bytes it left.
+static void ( *volatile g_pfnScribbleStack )( unsigned char ) = ScribbleStack;
+
+static void TestVsoPointBytes()
+{
+	alignas( SVectorStripeObjectPoint ) unsigned char zeros[sizeof( SVectorStripeObjectPoint )];
+	alignas( SVectorStripeObjectPoint ) unsigned char ones[sizeof( SVectorStripeObjectPoint )];
+	alignas( SVectorStripeObjectPoint ) unsigned char copied[sizeof( SVectorStripeObjectPoint )];
+	memset( zeros, 0x00, sizeof zeros );
+	memset( ones, 0xff, sizeof ones );
+	memset( copied, 0xa5, sizeof copied );
+	new( zeros ) SVectorStripeObjectPoint;
+	const SVectorStripeObjectPoint *pOnes = new( ones ) SVectorStripeObjectPoint;
+	Check( memcmp( zeros, ones, sizeof zeros ) == 0, "a new road point keeps no byte of the memory it was built in" );
+	new( copied ) SVectorStripeObjectPoint( *pOnes );
+	Check( memcmp( copied, zeros, sizeof copied ) == 0, "a road point copied into other memory is every byte of the original" );
+
+	// The generator's builder end to end (CVSOBuilder::SliceSpline makes each
+	// point on its stack): the same road built after two different stack fills
+	// is the same bytes, and the two maps it is saved into are the same file.
+	const char *pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	CMapInfo map;
+	if ( !ReadFresh( pszMap, &map ) || !Check( !map.terrain.roads3.empty(), "coldwinter has a road descriptor to build with" ) )
+		return;
+	const std::string szDesc = map.terrain.roads3[0].szDescName;
+	const float fMiddleX = map.terrain.tiles.GetSizeX() * fWorldCellSize / 2.0f;
+	const float fMiddleY = map.terrain.tiles.GetSizeY() * fWorldCellSize / 2.0f;
+	std::vector<CVec3> controls;
+	controls.push_back( CVec3( fMiddleX - 300.0f, fMiddleY - 100.0f, 0.0f ) );
+	controls.push_back( CVec3( fMiddleX, fMiddleY + 60.0f, 0.0f ) );
+	controls.push_back( CVec3( fMiddleX + 300.0f, fMiddleY - 40.0f, 0.0f ) );
+	// BuildTestVso's calls, with the stack filled just before the sampling.
+	SVectorStripeObject built[2];
+	bool bBuilt = true;
+	for ( int i = 0; i < 2; ++i )
+	{
+		bBuilt = CVSOBuilder::CreateVSO( &built[i], szDesc, controls ) && bBuilt;
+		g_pfnScribbleStack( i == 0 ? 0x00 : 0xff );
+		CVSOBuilder::Update( &built[i], false, CVSOBuilder::DEFAULT_STEP, 3.0f * fWorldCellSize / 2.0f, 1.0f );
+		CVSOBuilder::UpdateZ( map.terrain.altitudes, &built[i] );
+		if ( built[i].fPassability == 0 )
+			built[i].fPassability = 1;
+		built[i].nID = NMapRecords::NextVsoID( map );
+	}
+	if ( !Check( bBuilt && !built[0].points.empty() && built[0].points.size() == built[1].points.size(), "the road builds twice" ) )
+		return;
+	Check( memcmp( &built[0].points[0], &built[1].points[0], sizeof( SVectorStripeObjectPoint ) * built[0].points.size() ) == 0,
+	       "the same road built over two different stack fills is the same bytes" );
+	const char *const pszFiles[2] = { M2_EDITED, M2_UNDONE };
+	bool bWritten = true;
+	for ( int i = 0; i < 2; ++i )
+	{
+		CMapInfo edited;
+		std::string szError;
+		bWritten = ReadFresh( pszMap, &edited ) && NMapRecords::InsertVso( &edited, NMapRecords::VSO_ROAD, -1, built[i] ) &&
+		           Check( NMapFile::Write( pszFiles[i], edited, &szError ), szError.c_str() ) && bWritten;
+	}
+	Check( bWritten && FilesAreIdentical( M2_EDITED, M2_UNDONE ), "the two maps the two builds are saved into are the same file" );
+	RemoveM2Files();
+	printf( "map-file: vso point bytes ok\n" );
+}
+
 // The inputs of the shipped W_WoodenBig_Heavy_01 and _02
 // (Data/Bridges/w_woodenbig_heavy/01/1.xml and 02/1.xml), read once and
 // written here as literals, as the map-file tier has no object database (C5):
@@ -3440,6 +3514,7 @@ int main( int argc, char **argv )
 	TestM2FindReferences();
 	TestM2CascadeKinds();
 	TestM2VsoBuilder();
+	TestVsoPointBytes();
 	TestM2BridgePlan();
 	TestM2FencePlan();
 	TestM2TrenchOverlay();
