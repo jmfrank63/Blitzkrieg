@@ -1731,7 +1731,9 @@ fn doubleClickDown(x: f32, y: f32) sdl3.c.SDL_Event {
 test "view: the right button and the new keys reach no gesture in tools that do not ask for them" {
     const rig = try Rig.create();
     defer rig.destroy();
-    for ([_]Tool{ .select, .brush, .place }) |tool| {
+    // Select takes the right button since M3 (D-25: right-click alone
+    // deselects, with the left held it cycles); Brush and Place still do not.
+    for ([_]Tool{ .brush, .place }) |tool| {
         rig.view.selectTool(&rig.editor, tool);
         const depth = rig.editor.history.undo_stack.items.len;
         rig.send(mouseButton(button_right, true, 40, 40));
