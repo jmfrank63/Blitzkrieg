@@ -3847,12 +3847,18 @@ static void TestM3PropertiesAndLinks( BkEditorSession *pSession, const std::stri
 		BkEditorObjects( pSession, &( probe[0] ), nCount, &nProbeRead );
 		for ( int i = 0; i < nProbeRead; ++i )
 			if ( probe[size_t( i )].link_id == nTarget )
-				printf( "editor-bridge: M3 fields target %d: name %s, player %d, hp %f, dir %d, frame %d, mask %d\\n",
+				printf( "editor-bridge: M3 fields target %d: name %s, player %d, hp %f, dir %d, frame %d, mask %d\n",
 				        nTarget, probe[size_t( i )].name, probe[size_t( i )].player, probe[size_t( i )].hp,
 				        probe[size_t( i )].dir, probe[size_t( i )].frame_index, int( fields.mask ) );
 	}
+	// The unedited file, saved BEFORE the edit: the undo below is proven
+	// against it byte for byte.
+	const std::string szUnedited = szScratch + "\\m3-fields-unedited.bzm";
+	const std::string szEdited = szScratch + "\\m3-fields-edited.bzm";
+	const std::string szUndone = szScratch + "\\m3-fields-undone.bzm";
+	Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 	const BkEditorStatus nFieldsStatus = BkEditorSetObjectFields( pSession, nTarget, &fields, &nToken );
-	printf( "editor-bridge: M3 fields edit: status %d, token %d, message '%s'\\n", int( nFieldsStatus ), nToken, BkEditorLastMessage( pSession ) );
+	printf( "editor-bridge: M3 fields edit: status %d, token %d, message '%s'\n", int( nFieldsStatus ), nToken, BkEditorLastMessage( pSession ) );
 	if ( !Check( nFieldsStatus == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
 		return;
 	Check( nToken >= 0, "the fields edit has a token" );
@@ -3879,13 +3885,16 @@ static void TestM3PropertiesAndLinks( BkEditorSession *pSession, const std::stri
 				pNow = &records[size_t( i )];
 		Check( pNow != 0 && pNow->player == 1 && pNow->hp == 0.77f, "the player and the health are in the record" );
 		Check( pNow->dir == int( ( 270.0f * 65536.0f ) / 360.0f + 0.5f ), "the angle is the MFC's own turn" );
+		// And the engine turned with the record: the object is drawn facing
+		// the new angle, not only saved that way.
+		BkEditorObjectState engineNow;
+		memset( &engineNow, 0, sizeof engineNow );
+		if ( pNow != 0 && Check( BkEditorEngineObjectState( pSession, nTarget, &engineNow ) == BK_EDITOR_OK, "the engine holds the edited object" ) )
+			Check( engineNow.dir == ( pNow->dir & 0xFFFF ),
+			       ( "the engine faces the record's angle (" + std::to_string( engineNow.dir ) + " vs " + std::to_string( pNow->dir ) + ")" ).c_str() );
 		if ( bTargetIsSquad )
 			Check( pNow->frame_index == 2, "the formation is in the squad's record" );
 	}
-	const std::string szUnedited = szScratch + "\\m3-fields-unedited.bzm";
-	const std::string szEdited = szScratch + "\\m3-fields-edited.bzm";
-	const std::string szUndone = szScratch + "\\m3-fields-undone.bzm";
-	Check( BkEditorSaveMap( pSession, szUnedited.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 
 	// The expected value: the same setters on a fresh read, no engine.
 	CMapInfo expected, saved;
@@ -3968,7 +3977,7 @@ static void TestM3PropertiesAndLinks( BkEditorSession *pSession, const std::stri
 				else if ( nProbes < 6 )
 				{
 					++nProbes;
-					printf( "editor-bridge: M3 canlink probe: status %d, type %d, why '%s'\\n", int( nCan ), nType, BkEditorLastMessage( pSession ) );
+					printf( "editor-bridge: M3 canlink probe: status %d, type %d, why '%s'\n", int( nCan ), nType, BkEditorLastMessage( pSession ) );
 				}
 			}
 		}
@@ -4051,20 +4060,43 @@ static void TestM3PropertiesAndLinks( BkEditorSession *pSession, const std::stri
 	}
 	Check( bSlotRefusal, "the garrison rules refuse when the host takes no more" );
 
-	// The drop's link itself, then the unlink.
+	// The drop's link itself - undone byte for byte and redone - then the
+	// unlink.
+	const std::string szLinkBefore = szScratch + "\\m3-link-before.bzm";
+	const std::string szLinkUndone = szScratch + "\\m3-link-undone.bzm";
+	Check( BkEditorSaveMap( pSession, szLinkBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	BkEditorObjectRecord passengerBefore;
+	memset( &passengerBefore, 0, sizeof passengerBefore );
+	Check( ReadObjectRecord( pSession, nPassenger, &passengerBefore ), "the passenger's record reads before the link" );
 	nToken = -1;
 	if ( !Check( BkEditorSetLink( pSession, nPassenger, nHost, &nToken ) == BK_EDITOR_OK && nToken >= 0, BkEditorLastMessage( pSession ) ) )
 		return;
 	{
-		int nCount = 0;
-		BkEditorObjects( pSession, 0, 0, &nCount );
-		std::vector<BkEditorObjectRecord> records( nCount > 0 ? nCount : 1 );
-		int nRead = 0;
-		BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
-		for ( int i = 0; i < nRead; ++i )
-			if ( records[size_t( i )].link_id == nPassenger )
-				Check( records[size_t( i )].link_with == nHost, "the passenger's record names the host" );
+		BkEditorObjectRecord passenger;
+		memset( &passenger, 0, sizeof passenger );
+		if ( Check( ReadObjectRecord( pSession, nPassenger, &passenger ), "the passenger's record reads" ) )
+			Check( passenger.link_with == nHost, "the passenger's record names the host" );
 	}
+	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, ( std::string( "the link undoes: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	{
+		BkEditorObjectRecord passenger;
+		memset( &passenger, 0, sizeof passenger );
+		if ( Check( ReadObjectRecord( pSession, nPassenger, &passenger ), "the unlinked passenger's record reads" ) )
+			Check( passenger.link_with == passengerBefore.link_with && passenger.x == passengerBefore.x && passenger.y == passengerBefore.y,
+			       "the undone link puts the passenger's link and place back" );
+	}
+	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "the engine agrees after the link's undo: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	Check( BkEditorSaveMap( pSession, szLinkUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( SameBytes( szLinkBefore, szLinkUndone ), ( "the undone link saves the file before it byte for byte (" + DescribeDifference( szLinkBefore, szLinkUndone ) + ")" ).c_str() );
+	Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, ( std::string( "the link redoes: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	{
+		BkEditorObjectRecord passenger;
+		memset( &passenger, 0, sizeof passenger );
+		if ( Check( ReadObjectRecord( pSession, nPassenger, &passenger ), "the relinked passenger's record reads" ) )
+			Check( passenger.link_with == nHost, "the redone link names the host again" );
+	}
+	remove( OsPath( szLinkBefore ).c_str() );
+	remove( OsPath( szLinkUndone ).c_str() );
 	Check( BkEditorUnlink( pSession, nPassenger, &nToken ) == BK_EDITOR_OK && nToken >= 0, "the unlink answers with a token" );
 	{
 		int nCount = 0;
@@ -4174,11 +4206,11 @@ static void TestM3PropertiesAndLinks( BkEditorSession *pSession, const std::stri
 	else
 		printf( "editor-bridge: M3 flag swap: no flag on the map, skipped\n" );
 
-	remove( szUnedited.c_str() );
-	remove( szEdited.c_str() );
-	remove( szUndone.c_str() );
-	remove( szHostGone.c_str() );
-	remove( szHostBack.c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szHostGone ).c_str() );
+	remove( OsPath( szHostBack ).c_str() );
 	printf( "editor-bridge: M3 properties and links ok\n" );
 }
 
@@ -4560,6 +4592,84 @@ static void TestM3MultiSelect( BkEditorSession *pSession, const std::string &szS
 	Check( NMapFile::AreEquivalent( expected, saved, &szWhere ),
 	       szWhere.empty() ? "the batch move's save is the expected map" : ( "batch move differs at " + szWhere ).c_str() );
 
+	// The band pick (M3, D-25): the screen rectangle over both members
+	// answers at least the two links - the camera sits where the batch
+	// move's placement put it, and the screen points come from
+	// WorldToScreen of the members' moved positions, so the rectangle is
+	// computed, not guessed. The two need not be on screen together (the
+	// scene's rectangle pick selects its own patches from the rectangle).
+	{
+		CVec3 vA( 0.0f, 0.0f, 0.0f ), vB( 0.0f, 0.0f, 0.0f );
+		SMapObjectInfo *pRecA = 0, *pRecB = 0;
+		{
+			std::vector<SMapObjectInfo> *lists[2] = { &original.objects, &original.scenarioObjects };
+			for ( int nList = 0; nList < 2; ++nList )
+				for ( size_t j = 0; j < lists[nList]->size(); ++j )
+				{
+					const int nID = ( *lists[nList] )[j].link.nLinkID;
+					if ( nID == members[0] ) pRecA = &( *lists[nList] )[j];
+					if ( nID == members[1] ) pRecB = &( *lists[nList] )[j];
+				}
+		}
+		if ( Check( pRecA != 0 && pRecB != 0, "both members are in the original map" ) )
+		{
+			// Where the batch move put them - the expected map's positions,
+			// which the engine was just checked to agree with.
+			AI2Vis( &vA, pRecA->vPos.x + fDx, pRecA->vPos.y + fDy, 0.0f );
+			AI2Vis( &vB, pRecB->vPos.x + fDx, pRecB->vPos.y + fDy, 0.0f );
+			// The camera over member A, one frame drawn: WorldToScreen's
+			// answers are the drawn ones (the squad-delete test's own recipe).
+			Check( BkEditorSetCamera( pSession, vA.x, vA.y ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			Check( BkEditorFrame( pSession ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+			float fAx = 0, fAy = 0, fBx = 0, fBy = 0;
+			const bool bA = BkEditorWorldToScreen( pSession, vA.x, vA.y, &fAx, &fAy ) == BK_EDITOR_OK;
+			const bool bB = BkEditorWorldToScreen( pSession, vB.x, vB.y, &fBx, &fBy ) == BK_EDITOR_OK;
+			Check( bA && bB, "both members convert to the screen" );
+			if ( bA && bB )
+			{
+				// The engine's band (CScene::Pick over a rectangle) takes a
+				// sprite whose picture's centre is inside it
+				// (Anim/SpriteAnimation.cpp), not one whose picture merely
+				// meets it as BkEditorObjectAt's point does. WorldToScreen
+				// answers the ground point a picture stands on, and a tree's
+				// centre is well above that: so the band is normalized here,
+				// whichever corner each member is in, and runs from a margin
+				// below the ground points up by a screen's height, which no
+				// picture outgrows.
+				int nScreenW = 0, nScreenH = 0;
+				Check( BkEditorScreenSize( pSession, &nScreenW, &nScreenH ) == BK_EDITOR_OK && nScreenH > 0, BkEditorLastMessage( pSession ) );
+				const float fLeft = Min( fAx, fBx ) - 40.0f, fTop = Min( fAy, fBy ) - float( nScreenH );
+				const float fRight = Max( fAx, fBx ) + 40.0f, fBottom = Max( fAy, fBy ) + 40.0f;
+				// Two-pass: the sizing call answers the total; a buffer one
+				// short is refused with the total and nothing written past its
+				// capacity; the buffer the sizing pass asked for reads every
+				// link. Only what an OK read wrote is looked at.
+				int nTotal = 0;
+				const BkEditorStatus nSizing = BkEditorPickObjects( pSession, fLeft, fTop, fRight, fBottom, 0, 0, &nTotal );
+				Check( nSizing == BK_EDITOR_REFUSED && nTotal >= 2,
+				       ( "the band over both members sizes at least the 2, got " + std::to_string( nTotal ) ).c_str() );
+				if ( nTotal >= 2 )
+				{
+					std::vector<int> picked( size_t( nTotal ), -1 );
+					int nShortCount = 0;
+					Check( BkEditorPickObjects( pSession, fLeft, fTop, fRight, fBottom, &( picked[0] ), nTotal - 1, &nShortCount ) == BK_EDITOR_REFUSED && nShortCount == nTotal,
+					       "a short band buffer is refused with the total" );
+					Check( picked[size_t( nTotal - 1 )] == -1, "and nothing is written past its capacity" );
+					int nPickedCount = 0;
+					Check( BkEditorPickObjects( pSession, fLeft, fTop, fRight, fBottom, &( picked[0] ), nTotal, &nPickedCount ) == BK_EDITOR_OK && nPickedCount == nTotal,
+					       "the band's full buffer reads every link" );
+					bool bHasA = false, bHasB = false;
+					for ( int i = 0; i < nPickedCount && i < nTotal; ++i )
+					{
+						bHasA = bHasA || picked[size_t( i )] == members[0];
+						bHasB = bHasB || picked[size_t( i )] == members[1];
+					}
+					Check( bHasA && bHasB, "and the band's links include the two members" );
+				}
+			}
+		}
+	}
+
 	// The undo is the unedited file byte for byte, and the redo moves again.
 	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "the batch move undoes" );
 	Check( BkEditorWorldMatchesMap( pSession ) == BK_EDITOR_OK, ( std::string( "the engine agrees after the undo: " ) + BkEditorLastMessage( pSession ) ).c_str() );
@@ -4599,11 +4709,11 @@ static void TestM3MultiSelect( BkEditorSession *pSession, const std::string &szS
 	Check( BkEditorSaveMap( pSession, szRestored.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 	Check( SameBytes( szUnedited, szRestored ), "the deletes undone restore every reference: byte for byte" );
 
-	remove( szUnedited.c_str() );
-	remove( szEdited.c_str() );
-	remove( szUndone.c_str() );
-	remove( szRefused.c_str() );
-	remove( szRestored.c_str() );
+	remove( OsPath( szUnedited ).c_str() );
+	remove( OsPath( szEdited ).c_str() );
+	remove( OsPath( szUndone ).c_str() );
+	remove( OsPath( szRefused ).c_str() );
+	remove( OsPath( szRestored ).c_str() );
 	printf( "editor-bridge: M3 multi-select ok\n" );
 }
 
@@ -11347,22 +11457,45 @@ static void TestM3Fields( BkEditorSession *pSession, const std::string &szScratc
 				// its final scanline's tile picks unreproducible across
 				// replays - recorded in the plan summary - so the values
 				// themselves are not compared.)
+				// A cell of the final scanline may disagree: its pick can land
+				// on the tile the cell already had in one replay and not in
+				// the other, so "changed" itself is unreproducible there (the
+				// open window 4 of .planning/WINDOWS.md). Every disagreement
+				// must therefore sit in ONE row, the first or the last the
+				// fill touched; anywhere else it is a real difference.
 				int nDisagreeTiles = 0, nTouched = 0, nDisagreeHeights = 0, nHeights = 0;
+				int nFirstTouchedRow = -1, nLastTouchedRow = -1;
+				std::set<int> disagreeRows;
 				for ( int nYIndex = 40; nYIndex < 48; ++nYIndex )
 					for ( int nXIndex = 40; nXIndex < 48; ++nXIndex )
 					{
 						const int nRow = 128 - nYIndex - 1;
 						const bool bChangedMap = expected.terrain.tiles[nRow][nXIndex].tile != pPreAsRead->terrain.tiles[nRow][nXIndex].tile;
 						const bool bChangedBuilt = pre.terrain.tiles[nRow][nXIndex].tile != pPreAsRead->terrain.tiles[nRow][nXIndex].tile;
+						if ( bChangedMap || bChangedBuilt )
+						{
+							nFirstTouchedRow = nFirstTouchedRow < 0 ? nRow : Min( nFirstTouchedRow, nRow );
+							nLastTouchedRow = Max( nLastTouchedRow, nRow );
+						}
 						if ( bChangedMap ) ++nTouched;
-						if ( bChangedMap != bChangedBuilt ) ++nDisagreeTiles;
+						if ( bChangedMap != bChangedBuilt )
+						{
+							++nDisagreeTiles;
+							disagreeRows.insert( nRow );
+						}
 						const float fMap = expected.terrain.altitudes[nRow][nXIndex].fHeight - pPreAsRead->terrain.altitudes[nRow][nXIndex].fHeight;
 						const float fBuilt = pre.terrain.altitudes[nRow][nXIndex].fHeight - pPreAsRead->terrain.altitudes[nRow][nXIndex].fHeight;
 						if ( fabs( fMap ) > 0.01f ) ++nHeights;
 						if ( ( fabs( fMap ) > 0.01f ) != ( fabs( fBuilt ) > 0.01f ) ) ++nDisagreeHeights;
 					}
-				Check( nDisagreeTiles == 0 && nTouched > 0,
-				       ( "the fields' tiles change exactly the cells the engine's own fill touches (" + std::to_string( nTouched ) + " touched, " + std::to_string( nDisagreeTiles ) + " disagree)" ).c_str() );
+				const bool bOnlyFinalScanline = disagreeRows.empty() ||
+					( disagreeRows.size() == 1 && ( *disagreeRows.begin() == nFirstTouchedRow || *disagreeRows.begin() == nLastTouchedRow ) );
+				if ( nDisagreeTiles != 0 && bOnlyFinalScanline )
+					printf( "editor-bridge: M3 fields: %d cell(s) of the fill's edge scanline (row %d) disagree on changed-ness - window 4\n",
+					        nDisagreeTiles, *disagreeRows.begin() );
+				Check( bOnlyFinalScanline && nTouched > 0,
+				       ( "the fields' tiles change exactly the cells the engine's own fill touches, the edge scanline aside (" + std::to_string( nTouched ) + " touched, " +
+				         std::to_string( nDisagreeTiles ) + " disagree in " + std::to_string( disagreeRows.size() ) + " row(s))" ).c_str() );
 				Check( nDisagreeHeights == 0,
 				       ( "the fields' heights change exactly the vertices the engine's own pattern touches (" + std::to_string( nHeights ) + " changed, " + std::to_string( nDisagreeHeights ) + " disagree)" ).c_str() );
 				delete pPreAsRead;
