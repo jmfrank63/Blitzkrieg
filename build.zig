@@ -6166,9 +6166,9 @@ fn addMapEditor(
     // place, save as a new map, shoot and compare the frame against a local
     // (never committed) reference, test-launch the game and wait for it to
     // exit 0, then quit. `--hidden`, like `--smoke`: the same loop, not a
-    // person watching it. Local-only (RESEARCH.md/spec: the editor-app tier
-    // is not part of CI's GPU-runner gate) - it starts a second engine
-    // process end to end, like map-editor-game-reads-it.
+    // person watching it. It starts a second engine process end to end, like
+    // map-editor-game-reads-it. CI runs it on the two GPU runners (Windows,
+    // macos-14) through map-editor-m3-auto, which depends on it (05-REVIEW WR-D05).
     const auto_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto");
     const auto_saveas_path = b.fmt("{s}/auto.bzm", .{auto_dir});
     // Coordinates match smoke.zig's own script exactly (ground_a/
@@ -7529,10 +7529,10 @@ fn addMapEditor(
     auto_m3_step.dependOn(&cleanup_autoshots_m3.step);
 
     // Task 1's headless test-launch proof (D-01..D-09): the editor places a
-    // unit and the real Game plays it, no person watching. Local-only
-    // (RESEARCH.md Pitfall 6 / the spec's own test-tier table): it starts a
-    // second engine process end to end, which is not something CI's GPU
-    // runners need to gate every commit on.
+    // unit and the real Game plays it, no person watching. It starts a second
+    // engine process end to end. CI runs it on the two GPU runners (Windows,
+    // macos-14) through map-editor-game-reads-it-m3, which depends on it, so
+    // D-33's railroad crash has a regression gate (05-REVIEW WR-D05).
     const game_reads_it_run = b.addRunArtifact(exe);
     game_reads_it_run.setCwd(b.path(stage_root));
     game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it.log") });
@@ -7548,8 +7548,8 @@ fn addMapEditor(
     // through the core Editor on the real bridge, save the test copy, play it
     // with the real Game - but the assertions are on the game's own
     // BK_MAP_TRACE report of what it consumed (the camera anchor here; each
-    // later M2 plan adds its edit to game_reads_m2.zig). Local-only like its
-    // M1 sibling, and after it, so two games never start at once.
+    // later M2 plan adds its edit to game_reads_m2.zig). After its M1 sibling, so
+    // two games never start at once.
     const game_reads_it_m2_run = b.addRunArtifact(exe);
     game_reads_it_m2_run.setCwd(b.path(stage_root));
     game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m2.log") });
@@ -7568,8 +7568,7 @@ fn addMapEditor(
     // loads a map whose railroads hold fewer than two control points - the record
     // that crashed CRailroadGraphConstructor - and an ordinary map after it, and
     // both exit 0 (game_reads_m3.zig). The fixture map is crafted by the bridge
-    // test's `--craft` first. Local-only like its siblings, and after them, so two
-    // games never start at once.
+    // test's `--craft` first. After its siblings, so two games never start at once.
     const game_reads_it_m3_run = b.addRunArtifact(exe);
     game_reads_it_m3_run.setCwd(b.path(stage_root));
     game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", b.pathFromRoot("zig-out/local-test/m3-short-railroad.bzm"), b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3.log") });

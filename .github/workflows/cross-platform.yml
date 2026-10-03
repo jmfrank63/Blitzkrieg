@@ -322,11 +322,6 @@ jobs:
       # Only here and on macos-14: the probe says those are the two runners with
       # a GPU device. The tier skips honestly where there is none, but a runner
       # that only ever skips is a 2.3 GB checkout for a line of output.
-      #
-      # Not run in any job, on purpose or by omission (05-REVIEW WR-D05): the scripted
-      # editor scenarios (map-editor-auto, -auto-m2, -m3-auto) and the real-Game steps
-      # (map-editor-game-reads-it, -m2, -m3). The railroad with fewer than two control
-      # points (D-33) therefore has no regression gate here; it is a local step.
       - name: Engine tier
         env:
           # This job has a video driver and a GPU device (the probe step below), so a tool that
@@ -368,6 +363,22 @@ jobs:
       # The editor core driving the real engine through the Zig adapter.
       - name: Map editor engine tier
         run: zig build test-map-editor-engine -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # The scripted editor scenarios (05-REVIEW WR-D05): BK_EDITOR_AUTO's M1, M2
+      # and M3 scripts, one after the other (each step depends on the one before,
+      # so two engines never start at once), with their do=/expect= predicates.
+      - name: Map editor scenarios
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build map-editor-m3-auto -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # The real Game playing what the editor saved: M1's placed unit, M2's
+      # BK_MAP_TRACE report, and M3's railroad with fewer than two control
+      # points (D-33, the CRailroadGraphConstructor crash) - its regression gate.
+      - name: Game reads the editor's maps
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build map-editor-game-reads-it-m3 -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Random missions tier
         env:
@@ -685,6 +696,22 @@ jobs:
       # The editor core driving the real engine through the Zig adapter.
       - name: Map editor engine tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-map-editor-engine -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # The scripted editor scenarios (05-REVIEW WR-D05): BK_EDITOR_AUTO's M1, M2
+      # and M3 scripts, one after the other (each step depends on the one before,
+      # so two engines never start at once), with their do=/expect= predicates.
+      - name: Map editor scenarios
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-m3-auto -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # The real Game playing what the editor saved: M1's placed unit, M2's
+      # BK_MAP_TRACE report, and M3's railroad with fewer than two control
+      # points (D-33, the CRailroadGraphConstructor crash) - its regression gate.
+      - name: Game reads the editor's maps
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-game-reads-it-m3 -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Random missions tier
         env:
