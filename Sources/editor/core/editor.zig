@@ -7005,6 +7005,58 @@ test "delete selection: a host and its selected passenger go passenger first, as
     try std.testing.expectEqual(@as(i32, 20), editor.document.find(21).?.link_with);
 }
 
+fn fakeIndexOf(fake: *const FakeBridge, link_id: i32) ?usize {
+    for (fake.objects_list.items, 0..) |object, index| {
+        if (object.link_id == link_id) return index;
+    }
+    return null;
+}
+
+test "the fake deletes a host with its passengers and restores them with it, as the real session does (CR-B01)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var host: ObjectRecord = .{ .link_id = 20, .x = 220, .y = 80, .dir = 0, .player = 0 };
+    host.setName("T34");
+    try fake.addFixture(host, false);
+    var passenger: ObjectRecord = .{ .link_id = 21, .x = 240, .y = 80, .dir = 0, .player = 0, .link_with = 20 };
+    passenger.setName("T34");
+    try fake.addFixture(passenger, false);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const before = fake.objects_list.items.len;
+    // The bridge alone takes the host's passengers into the host's delete ...
+    try std.testing.expectEqual(bridge_mod.Status.ok, editor.bridge.deleteObject(20));
+    try std.testing.expectEqual(before - 2, fake.objects_list.items.len);
+    // ... a passenger's own delete is then gone with it ...
+    try std.testing.expectEqual(bridge_mod.Status.refused, editor.bridge.deleteObject(21));
+    // ... and the host's restore brings the passenger back, still linked.
+    try std.testing.expectEqual(bridge_mod.Status.ok, editor.bridge.restoreObject(20));
+    try std.testing.expectEqual(before, fake.objects_list.items.len);
+    try std.testing.expectEqual(@as(i32, 20), fake.objects_list.items[fakeIndexOf(&fake, 21).?].link_with);
+}
+
+test "the fake puts a host's passengers back when the host's own delete is refused" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    // A passenger of the bridge span (link 2): the span is refused after its
+    // passenger has gone, and the passenger must come back where it was.
+    var passenger: ObjectRecord = .{ .link_id = 21, .x = 240, .y = 80, .dir = 0, .player = 0, .link_with = 2 };
+    passenger.setName("T34");
+    try fake.addFixture(passenger, false);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const before = fake.objects_list.items.len;
+    const index = fakeIndexOf(&fake, 21).?;
+    try std.testing.expectEqual(bridge_mod.Status.refused, editor.bridge.deleteObject(2));
+    try std.testing.expectEqual(before, fake.objects_list.items.len);
+    try std.testing.expectEqual(index, fakeIndexOf(&fake, 21).?);
+    // The core's delete of it is refused the same, and changes nothing.
+    try std.testing.expectError(error.Refused, editor.deleteHost(2));
+    try std.testing.expectEqualStrings("still referred to by bridge 0", editor.status());
+    try std.testing.expectEqual(before, editor.document.objects.items.len);
+    try std.testing.expect(!editor.history.canUndo());
+}
+
 test "delete many: a member another object shares the link ID of is refused after the ordinary one, which comes back (CR-B01)" {
     var fake = try testFixture(std.testing.allocator);
     defer fake.deinit();

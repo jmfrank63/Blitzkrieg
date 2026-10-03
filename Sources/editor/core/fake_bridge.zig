@@ -222,6 +222,10 @@ const Tombstone = struct {
     index: usize,
     changes: std.ArrayListUnmanaged(StartChange) = .empty,
     reserves: std.ArrayListUnmanaged(ReserveChange) = .empty,
+    /// The host's passengers (M3, D-27), each with its own tombstone, in the
+    /// order they were deleted: the real session deletes them with the host and
+    /// restores them, last deleted first, after it.
+    passengers: std.ArrayListUnmanaged(Tombstone) = .empty,
 };
 /// The most control points a fake road or river holds: as many as the Roads &
 /// Rivers tool draws (`tools_vso.max_pending`), so the tools' long-line paths
@@ -1046,10 +1050,14 @@ pub const FakeBridge = struct {
 
     fn freeTombstones(self: *FakeBridge) void {
         var tombstones = self.tombstones.valueIterator();
-        while (tombstones.next()) |tombstone| {
-            tombstone.changes.deinit(self.allocator);
-            tombstone.reserves.deinit(self.allocator);
-        }
+        while (tombstones.next()) |tombstone| self.freeTombstone(tombstone);
+    }
+
+    fn freeTombstone(self: *FakeBridge, tombstone: *Tombstone) void {
+        tombstone.changes.deinit(self.allocator);
+        tombstone.reserves.deinit(self.allocator);
+        for (tombstone.passengers.items) |*passenger| self.freeTombstone(passenger);
+        tombstone.passengers.deinit(self.allocator);
     }
 
     /// The real bridge's summary of what a delete changed besides the object,
@@ -3161,13 +3169,73 @@ pub const FakeBridge = struct {
     fn deleteObject(ptr: *anyopaque, link_id: i32) Status {
         const self = from(ptr);
         self.message_len = 0;
+        const status = self.deleteWithPassengers(link_id, 0);
+        if (status == .ok) self.record(.delete, link_id);
+        return status;
+    }
+
+    /// The real session's delete (DeleteObjectInChain): the host's passengers -
+    /// the records whose link_with names it - are deleted first, each through
+    /// this same path, and kept in the host's tombstone; the host's own refusals
+    /// (a bridge span, a trench piece, a shared link ID) come after, and a
+    /// refusal anywhere puts the passengers already taken back, so the delete is
+    /// all or nothing. A link cycle is refused, as the real one is.
+    fn deleteWithPassengers(self: *FakeBridge, link_id: i32, depth: usize) Status {
+        _ = self.indexOf(link_id) orelse {
+            self.say("no object with that link ID", .{});
+            return .refused;
+        };
+        if (depth > self.objects_list.items.len) {
+            self.say("objects link to each other in a cycle; unlink one of them first", .{});
+            return .refused;
+        }
+        if (self.shared(link_id)) return .refused;
+        var passengers: std.ArrayListUnmanaged(Tombstone) = .empty;
+        if (link_id != 0) {
+            var ids: std.ArrayListUnmanaged(i32) = .empty;
+            defer ids.deinit(self.allocator);
+            for (self.objects_list.items) |other| {
+                if (other.link_with == link_id and other.link_id != link_id)
+                    ids.append(self.allocator, other.link_id) catch return .failed;
+            }
+            passengers.ensureTotalCapacity(self.allocator, ids.items.len) catch return .failed;
+            for (ids.items) |passenger_id| {
+                const status = self.deleteWithPassengers(passenger_id, depth + 1);
+                if (status != .ok) {
+                    self.putPassengersBack(&passengers);
+                    return status;
+                }
+                const taken = self.tombstones.fetchRemove(passenger_id) orelse unreachable;
+                passengers.appendAssumeCapacity(taken.value);
+            }
+        }
+        const status = self.deleteRecord(link_id, &passengers);
+        if (status != .ok) self.putPassengersBack(&passengers);
+        return status;
+    }
+
+    /// Restores the passengers a refused host delete had taken, last deleted
+    /// first, and empties the list. The message is left as the refusal set it.
+    fn putPassengersBack(self: *FakeBridge, passengers: *std.ArrayListUnmanaged(Tombstone)) void {
+        while (passengers.pop()) |passenger| {
+            var taken = passenger;
+            const id = taken.record.link_id;
+            self.tombstones.put(self.allocator, id, taken) catch {
+                self.freeTombstone(&taken);
+                continue;
+            };
+            _ = self.restoreWithPassengers(id);
+        }
+        passengers.deinit(self.allocator);
+    }
+
+    /// The host's own delete, its passengers already gone: on success the
+    /// passengers move into its tombstone, on a refusal the caller puts them back.
+    fn deleteRecord(self: *FakeBridge, link_id: i32, passengers: *std.ArrayListUnmanaged(Tombstone)) Status {
         const index = self.indexOf(link_id) orelse {
             self.say("no object with that link ID", .{});
             return .refused;
         };
-        // An object the database does not know can be removed (05-05, D-33: Check
-        // Map's explicit fix); every other edit of one is refused.
-        if (self.shared(link_id)) return .refused;
         if (self.bridgeHolding(link_id)) |bridge_index| {
             self.say("still referred to by bridge {d}", .{bridge_index});
             return .refused;
@@ -3175,19 +3243,6 @@ pub const FakeBridge = struct {
         if (self.trenchHolding(link_id)) |entrenchment_index| {
             self.say("still part of entrenchment {d}", .{entrenchment_index});
             return .refused;
-        }
-        // bridge.h: an object carrying a passenger is refused. The real
-        // session takes the passengers into the host's own tombstone instead,
-        // which makes the passenger's later delete fail with "no such
-        // object"; either way a caller that names the host before its
-        // passenger is refused part-way, and the fake models that.
-        if (link_id != 0) {
-            for (self.objects_list.items) |other| {
-                if (other.link_with == link_id and other.link_id != link_id) {
-                    self.say("object {d} still carries passenger {d}", .{ link_id, other.link_id });
-                    return .refused;
-                }
-            }
         }
         // Everything that can fail comes first, so a failure leaves the map as it was.
         var changes: std.ArrayListUnmanaged(StartChange) = .empty;
@@ -3232,16 +3287,23 @@ pub const FakeBridge = struct {
                 _ = self.reserve_positions.orderedRemove(position);
             }
         }
-        self.tombstones.putAssumeCapacity(link_id, .{ .record = removed, .index = index, .changes = changes, .reserves = reserves });
+        self.tombstones.putAssumeCapacity(link_id, .{ .record = removed, .index = index, .changes = changes, .reserves = reserves, .passengers = passengers.* });
         self.link_floor = @max(self.link_floor, link_id + 1);
         self.describeCascade(changes.items, reserves.items);
-        self.record(.delete, link_id);
         return .ok;
     }
 
     fn restoreObject(ptr: *anyopaque, link_id: i32) Status {
         const self = from(ptr);
         self.message_len = 0;
+        const status = self.restoreWithPassengers(link_id);
+        if (status == .ok) self.record(.restore, link_id);
+        return status;
+    }
+
+    /// The object back, then its passengers from their own tombstones, last
+    /// deleted first (their links point at it); the real RestoreObjectInSession.
+    fn restoreWithPassengers(self: *FakeBridge, link_id: i32) Status {
         const tombstone = self.tombstones.getPtr(link_id) orelse {
             self.say("no deleted object has that link ID", .{});
             return .refused;
@@ -3274,8 +3336,24 @@ pub const FakeBridge = struct {
         self.objects_list.insertAssumeCapacity(index, tombstone.record);
         tombstone.changes.deinit(self.allocator);
         tombstone.reserves.deinit(self.allocator);
+        var passengers = tombstone.passengers;
         _ = self.tombstones.remove(link_id);
-        self.record(.restore, link_id);
+        var all_back = true;
+        while (passengers.pop()) |passenger| {
+            var taken = passenger;
+            const passenger_id = taken.record.link_id;
+            self.tombstones.put(self.allocator, passenger_id, taken) catch {
+                self.freeTombstone(&taken);
+                all_back = false;
+                continue;
+            };
+            if (self.restoreWithPassengers(passenger_id) != .ok) all_back = false;
+        }
+        passengers.deinit(self.allocator);
+        if (!all_back) {
+            self.say("a passenger would not come back with the host", .{});
+            return .refused;
+        }
         return .ok;
     }
 

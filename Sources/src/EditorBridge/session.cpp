@@ -1161,6 +1161,22 @@ struct SDeleteChain
 };
 
 bool DeleteObjectInChain( SEditorSession *pSession, int nLinkID, bool *pbRefused, SDeleteChain *pChain );
+
+// Puts back the passengers a host's delete had already taken, last deleted
+// first, when the delete is refused after all. DeleteObjectInChain moves each
+// passenger's tombstone into the host's, so it is registered under the
+// passenger's ID again before RestoreObjectInSession is asked (which also
+// brings the passenger's own passengers back).
+void RestoreTakenPassengers( SEditorSession *pSession, const std::vector<SEditorSession::STombstone> &rPassengers )
+{
+	for ( size_t j = rPassengers.size(); j > 0; --j )
+	{
+		const int nPassengerID = rPassengers[j - 1].snapshot.object.link.nLinkID;
+		pSession->tombstones[nPassengerID] = rPassengers[j - 1];
+		bool bIgnored = false;
+		RestoreObjectInSession( pSession, nPassengerID, &bIgnored );
+	}
+}
 }
 
 bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRefused )
@@ -1230,11 +1246,7 @@ bool DeleteObjectInChain( SEditorSession *pSession, int nLinkID, bool *pbRefused
 		{
 			// A passenger that cannot go (itself a referred span, say)
 			// refuses the whole delete; the ones already taken are put back.
-			for ( size_t j = tombstone.passengers.size(); j > 0; --j )
-			{
-				bool bIgnored = false;
-				RestoreObjectInSession( pSession, tombstone.passengers[j - 1].snapshot.object.link.nLinkID, &bIgnored );
-			}
+			RestoreTakenPassengers( pSession, tombstone.passengers );
 			pSession->szMessage = NStr::Format( "the passenger of object %d cannot be deleted: %s", nLinkID, pSession->szMessage.c_str() );
 			if ( pbRefused ) *pbRefused = true;
 			return false;
@@ -1252,6 +1264,9 @@ bool DeleteObjectInChain( SEditorSession *pSession, int nLinkID, bool *pbRefused
 	std::string szRefusal;
 	if ( !NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szRefusal, &tombstone.snapshot ) )
 	{
+		// The host itself is refused (a bridge span, a trench piece): its
+		// passengers, already taken, come back - all or nothing.
+		RestoreTakenPassengers( pSession, tombstone.passengers );
 		pSession->szMessage = szRefusal;
 		if ( pbRefused ) *pbRefused = true;
 		return false;
