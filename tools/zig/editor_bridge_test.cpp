@@ -624,6 +624,24 @@ static void TestObjectEdits( BkEditorSession *pSession, const std::string &szScr
 	Check( BkEditorMoveObject( pSession, nLinkID, 132.0f, 100.0f ) == BK_EDITOR_OK, "and moves" );
 	Check( BkEditorTurnObject( pSession, nLinkID, 1024 ) == BK_EDITOR_OK, "and turns" );
 	Check( BkEditorSetObjectPlayer( pSession, nLinkID, 1 ) == BK_EDITOR_OK, "and changes hands" );
+
+	// WR-C02: what the engine cannot hold is refused at the ABI or the session and changes
+	// nothing - the engine reads shorts and WORDs, the readback converts the request the same
+	// way, so a NaN, an enormous position or a direction outside 0..65535 would pass it and
+	// reach the file. The save below is still the one object, moved, turned and owned.
+	{
+		const float fNaN = std::numeric_limits<float>::quiet_NaN();
+		const float fInf = std::numeric_limits<float>::infinity();
+		Check( BkEditorMoveObject( pSession, nLinkID, fNaN, 100.0f ) == BK_EDITOR_BAD_ARGUMENT, "a NaN position is BAD_ARGUMENT" );
+		Check( BkEditorMoveObject( pSession, nLinkID, 132.0f, fInf ) == BK_EDITOR_BAD_ARGUMENT, "an infinite position is BAD_ARGUMENT" );
+		Check( BkEditorMoveObject( pSession, nLinkID, 1.0e9f, 100.0f ) == BK_EDITOR_BAD_ARGUMENT, "a position far off the map is BAD_ARGUMENT" );
+		Check( BkEditorPlaceObject( pSession, nLinkID, fNaN, fNaN, 1024, 1 ) == BK_EDITOR_BAD_ARGUMENT, "a placement at NaN is BAD_ARGUMENT" );
+		Check( BkEditorTurnObject( pSession, nLinkID, 70000 ) == BK_EDITOR_REFUSED, "a direction above 65535 is refused" );
+		Check( BkEditorTurnObject( pSession, nLinkID, -1 ) == BK_EDITOR_REFUSED, "a negative direction is refused" );
+		int nRefusedLink = -1;
+		Check( BkEditorAddObject( pSession, pszName, fNaN, 100.0f, 0, 0, &nRefusedLink ) == BK_EDITOR_BAD_ARGUMENT && nRefusedLink == -1, "an object added at NaN is BAD_ARGUMENT" );
+		Check( BkEditorAddObject( pSession, pszName, 100.0f, 100.0f, 70000, 0, &nRefusedLink ) == BK_EDITOR_REFUSED && nRefusedLink == -1, "an object added facing 70000 is refused" );
+	}
 	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "and saves" ) )
 		return;
 

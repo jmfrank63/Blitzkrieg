@@ -5,6 +5,7 @@
 // MFC taken out and one guard put in.
 #include "StdAfx.h"
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include "session.h"
 #include "world.h"
@@ -933,6 +934,11 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		pSession->szMessage = "the engine is not there";
 		return false;
 	}
+	if ( rAdd.nDir < 0 || rAdd.nDir > 65535 )
+	{
+		pSession->szMessage = "a direction is 0..65535";
+		return false;
+	}
 	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( rAdd.szName.c_str() );
 	if ( pDesc == 0 )
 	{
@@ -1047,6 +1053,23 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	}
 
 	const SMapObjectInfo before = *pObject;
+	// What the engine cannot hold is refused here, before the map takes it: the engine stores a
+	// direction as a WORD and a position as a short, the readback converts the request the same
+	// way, and a value outside both would pass the check while the map kept it. A value the
+	// object already has is let through (a file may hold one; moving the object leaves it).
+	if ( ( vPosIn.x != before.vPos.x || vPosIn.y != before.vPos.y ) &&
+	     ( !std::isfinite( vPosIn.x ) || !std::isfinite( vPosIn.y ) || std::fabs( vPosIn.x ) > 32000.0f || std::fabs( vPosIn.y ) > 32000.0f ) )
+	{
+		pSession->szMessage = "that position is outside what the engine can hold";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+	if ( nDir != before.nDir && ( nDir < 0 || nDir > 65535 ) )
+	{
+		pSession->szMessage = "a direction is 0..65535";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
 	CVec3 vPos = vPosIn;
 	IRefCount *pAIObject = itEngine->second;
 	const SEngineObjectState engineBefore = ReadEngine( pAIEditor, pAIObject );
