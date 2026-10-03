@@ -56,6 +56,8 @@ pub fn drawM2Markers(state: *State, real: anytype) void {
     drawDropTarget(state, real);
     // The Fence tool's ghost is its own and always on while it is active.
     if (state.view.tool == .fence) drawFenceGhost(state, real);
+    // So is the Place tool's (PARITY O7, 05-11).
+    drawPlacementGhost(state, real);
     // So are the Entrenchment tool's preview and outlines (04-08).
     if (state.view.tool == .entrenchment) drawTrenchMarkers(state, real);
     // D-21: the script areas, drawn where the map holds them; the active Script
@@ -836,6 +838,41 @@ const fence_bar_length: f32 = 96.0;
 /// by Ctrl. Each planned fence is a short bar along its direction in green;
 /// a refused run (an end off the map) is the drag in red with the reason.
 /// Planned again only when the drag, the type or Ctrl changed.
+/// PARITY O7 (ObjectPlacerState.cpp:251-297): while the Place tool is active the
+/// object about to be placed follows the pointer at half opacity - the MFC's
+/// `SetOpacity( 128 )` ghost. Here it is the object's own palette picture (the
+/// same icon the Objects panel shows, `BkEditorObjectPicture`) at half opacity
+/// over a ring marking the pointer, drawn under the panels; no bridge call draws
+/// a temporary scene object, so it is the picture and not the engine's sprite. It
+/// stays off with no map, another tool, no object chosen or the pointer off the map.
+/// `State.place_ghost_drawn` says whether this frame drew one (the scenario's
+/// `expect=place_ghost`).
+fn drawPlacementGhost(state: *State, real: anytype) void {
+    state.place_ghost_drawn = false;
+    if (state.view.tool != .place) return;
+    const name = state.view.placer.name;
+    if (name.len == 0) return;
+    const hover = state.view.hover orelse return;
+    const at = screenOf(real, hover.world_x, hover.world_y) orelse return;
+    const draw_list = ig.igGetBackgroundDrawList();
+    state.pictures.request(name);
+    switch (state.pictures.lookup(name)) {
+        .ready => |ready| {
+            const side: f32 = 48;
+            const w: f32 = @floatFromInt(ready.width);
+            const h: f32 = @floatFromInt(ready.height);
+            const scale = @min(side / w, side / h);
+            const half_w = w * scale / 2;
+            const half_h = h * scale / 2;
+            const half_opacity: ig.ImU32 = 0x80FFFFFF; // IM_COL32( 255, 255, 255, 128 ), the MFC's SetOpacity( 128 )
+            ig.ImDrawList_AddImageEx(draw_list, panels.pictureTextureRef(ready.texture), .{ .x = at.x - half_w, .y = at.y - half_h }, .{ .x = at.x + half_w, .y = at.y + half_h }, .{ .x = 0, .y = 0 }, .{ .x = 1, .y = 1 }, half_opacity);
+        },
+        .pending, .missing => {},
+    }
+    ig.ImDrawList_AddCircleEx(draw_list, at, 5, color(1.0, 0.9, 0.2), 16, 1.5);
+    state.place_ghost_drawn = true;
+}
+
 fn drawFenceGhost(state: *State, real: anytype) void {
     const tool = &state.view.fence_tool;
     if (tool.desc().len == 0) return;

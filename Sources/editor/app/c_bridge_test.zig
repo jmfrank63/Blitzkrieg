@@ -14,6 +14,10 @@ const c = c_bridge.c;
 const Editor = core.editor.Editor;
 const logic = @import("panels_logic.zig");
 
+/// The vertices of coldwinter (the map these tests open) that `CVertexAltitudeInfo::IsValidHeight`
+/// refuses, counted by the bridge tier's `editor-bridge: M3 height rule` line.
+const shipped_map_refused_vertices: usize = 0;
+
 // A test executable is a host too. On Windows it is entered like MapEditor,
 // through mainCRTStartup (crt.zig minimalFromPeb says why), so the C main
 // that calls is exported here and hands over to the test runner, which is
@@ -882,6 +886,26 @@ test "the core drives the real bridge: every command, undone and redone" {
             try std.testing.expectApproxEqAbs(world[1], centre_after.world_y, 3.0);
             try std.testing.expect(view_after.anchor_x != previous[0] or view_after.anchor_y != previous[1]);
             previous = .{ view_after.anchor_x, view_after.anchor_y };
+        }
+        // The Heights minimap's red: the app's port of the engine's validity rule over the
+        // sheet the panel reads. The bridge tier counts the same map's refused vertices with
+        // the engine's own function (`editor-bridge: M3 height rule: N of M vertices ...`);
+        // the two counts are the same number.
+        {
+            const vertex_w: usize = width + 1;
+            const vertex_h: usize = height + 1;
+            const sheet = try std.testing.allocator.alloc(f32, vertex_w * vertex_h);
+            defer std.testing.allocator.free(sheet);
+            const vertices: core.bridge.AltitudeRegion = .{ .x0 = 0, .y0 = 0, .x1 = @intCast(vertex_w), .y1 = @intCast(vertex_h) };
+            var got: usize = 0;
+            try std.testing.expectEqual(core.bridge.Status.ok, bridge.altitudes(vertices, sheet, &got));
+            try std.testing.expectEqual(sheet.len, got);
+            var refused: usize = 0;
+            for (0..vertex_h) |y| for (0..vertex_w) |x| {
+                if (!logic.isValidHeight(sheet, vertex_w, vertex_h, x, y)) refused += 1;
+            };
+            std.debug.print("map-editor-engine: M3 height rule: {d} of {d} vertices of the shipped map refused\n", .{ refused, sheet.len });
+            try std.testing.expectEqual(shipped_map_refused_vertices, refused);
         }
         try std.testing.expect(!editor.dirty());
         std.debug.print("map-editor-engine: M3 minimap reads and click round trip ok\n", .{});

@@ -373,6 +373,7 @@ pub const predicate_table = [_]Entry{
     .{ .name = "default_format", .handler = defaultFormatIs },
     .{ .name = "panel_visible", .handler = panelVisibleIs },
     .{ .name = "layout_default", .handler = layoutDefaultIs },
+    .{ .name = "place_ghost", .handler = placeGhostIs },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -1262,12 +1263,18 @@ fn objectsIs(state: *State, arg: []const u8) Outcome {
     return .refused;
 }
 
-/// `expect=placer_angle:<degrees>`: the wheel's angle is the placer's.
+/// `expect=placer_angle:<degrees>[:<tolerance>]`: the wheel's angle is the placer's,
+/// to `tolerance` whole degrees (default 0) either way round the circle - a press
+/// of the pointer on the dial lands where the pointer is, a few degrees off the
+/// round number a script can name.
 fn placerAngleIs(state: *State, arg: []const u8) Outcome {
-    const want = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
+    const colon = std.mem.indexOfScalar(u8, arg, ':');
+    const want = std.fmt.parseInt(i32, if (colon) |i| arg[0..i] else arg, 10) catch return .bad_arg;
+    const tolerance = if (colon) |i| (std.fmt.parseInt(i32, arg[i + 1 ..], 10) catch return .bad_arg) else 0;
+    if (tolerance < 0 or tolerance > 180) return .bad_arg;
     const got = logic.directionToDegrees(state.view.placer.dir);
     const got_rounded: i32 = @intFromFloat(got);
-    if (got_rounded == want) return .ok;
+    if (@abs(logic.wheelDeltaDegrees(want, got_rounded)) <= tolerance) return .ok;
     var buffer: [96]u8 = undefined;
     state.editor.note(std.fmt.bufPrint(&buffer, "placer angle is {d}, not {d}", .{ got_rounded, want }) catch "placer angle differs");
     return .refused;
@@ -4755,4 +4762,11 @@ fn panelVisibleIs(state: *State, arg: []const u8) Outcome {
 fn layoutDefaultIs(state: *State, arg: []const u8) Outcome {
     if (!std.mem.eql(u8, arg, "1")) return .bad_arg;
     return if (state.settings.hidden_panels == 0 and !state.layout_reset_pending and panels.columnsAtDefault(state)) .ok else .refused;
+}
+
+/// `expect=place_ghost:<0|1>` - the Place tool's ghost was (1) or was not (0) drawn
+/// on the last frame (PARITY O7).
+fn placeGhostIs(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 1 or (arg[0] != '0' and arg[0] != '1')) return .bad_arg;
+    return if (state.place_ghost_drawn == (arg[0] == '1')) .ok else .refused;
 }

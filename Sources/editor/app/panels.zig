@@ -265,6 +265,9 @@ pub const State = struct {
     layout_reset_pending: bool = false,
     /// The hidden-panel bits `draw` last placed the docked panels for.
     last_hidden_panels: u32 = 0,
+    /// Whether the last frame drew the Place tool's ghost (markers.zig
+    /// `drawPlacementGhost`, PARITY O7); `expect=place_ghost:<0|1>` reads it.
+    place_ghost_drawn: bool = false,
     /// Where the open now being made came from, when it is not a menu or a
     /// dialog: a second launch (single_instance.zig) or a dropped file. `act`
     /// says on the console how it ended - the line the double-launch check reads.
@@ -1584,6 +1587,8 @@ pub fn draw(state: *State) void {
     // properties field mid-edit must keep F5 as a literal keystroke, but a
     // window merely being focused must not swallow it.
     if (ig.igIsKeyPressedEx(ig.ImGuiKey_F5, false) and !ig.igGetIO().*.WantTextInput) requestTestLaunch(state);
+    // F1 is Help (the MFC's "Contents\tF1", editor.rc:2152): here Keys and tools.
+    if (ig.igIsKeyPressedEx(ig.ImGuiKey_F1, false) and !ig.igGetIO().*.WantTextInput) state.help_keys_open = !state.help_keys_open;
     if (closeShortcutPressed() and mapIsOpen(state.editor)) state.actions.close_requested = true;
     if (newMapShortcutPressed()) openNewMapDialog(state);
     if (saveAsFormatShortcutPressed()) |which| requestSaveAsFormat(state, which);
@@ -2767,7 +2772,7 @@ fn drawMenuBar(state: *State) f32 {
     // 05-11, D-34 (PARITY H1/H2): the MFC's .chm is not shipped; Keys and tools
     // is the help, About the product line.
     if (ig.igBeginMenu("Help")) {
-        if (ig.igMenuItemBoolPtr("Keys and tools", null, &state.help_keys_open, true)) {}
+        if (ig.igMenuItemBoolPtr("Keys and tools", "F1", &state.help_keys_open, true)) {}
         if (ig.igMenuItemBoolPtr("About", null, &state.about_open, true)) {}
         ig.igEndMenu();
     }
@@ -4020,7 +4025,7 @@ pub fn drawPaletteRowPicture(state: *State, name: []const u8) void {
     ig.igDummy(.{ .x = palette_picture_size, .y = palette_picture_size });
 }
 
-fn pictureTextureRef(texture: *sdl3.c.SDL_GPUTexture) ig.ImTextureRef {
+pub fn pictureTextureRef(texture: *sdl3.c.SDL_GPUTexture) ig.ImTextureRef {
     return .{ ._TexData = null, ._TexID = @intCast(@intFromPtr(texture)) };
 }
 

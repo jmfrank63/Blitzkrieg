@@ -444,7 +444,18 @@ pub fn drawDirectionWheel(state: *State, input_width: f32) void {
     const draw_list = ig.igGetWindowDrawList();
     const button_w = @max(input_width, size);
     const button_h = ig.igGetFrameHeight();
-    _ = ig.igInvisibleButton("##direction_wheel", .{ .x = button_w, .y = button_h }, 0);
+    // This button only holds the row's height (the palette's layout, and the M1
+    // reference frames, depend on it being one frame high); the dial's button
+    // below overlaps it and must be allowed to take the pointer.
+    ig.igSetNextItemAllowOverlap();
+    _ = ig.igInvisibleButton("##direction_wheel_row", .{ .x = button_w, .y = button_h }, 0);
+    // The dial's own hit area is all of the dial: a second button, 40 px square,
+    // put over it and then the cursor put back where the row's button left it, so
+    // the whole drawn circle takes the drag, not only its upper frame-high strip.
+    const after_row = ig.igGetCursorScreenPos();
+    ig.igSetCursorScreenPos(origin);
+    _ = ig.igInvisibleButton("##direction_wheel", .{ .x = size, .y = size }, 0);
+    ig.igSetCursorScreenPos(after_row);
     const active = ig.igIsItemActive();
     const hovered = ig.igIsItemHovered(ig.ImGuiHoveredFlags_None);
     ig.ImDrawList_AddCircleEx(draw_list, .{ .x = centre[0], .y = centre[1] }, size / 2, ig.igColorConvertFloat4ToU32(.{ .x = 0.45, .y = 0.45, .z = 0.45, .w = 1 }), 24, 1.5);
