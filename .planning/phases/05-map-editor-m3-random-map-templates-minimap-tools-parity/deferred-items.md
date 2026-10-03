@@ -221,3 +221,14 @@ MFC's, through `BkEditorSetPlacementGhost`; nothing is left over).
   redirect the user root on Windows (05-10).
 - **WINDOWS.md entry 7** (the composer frames and the Windows run of two data-only steps): the Windows GUI legs are user-waived
   (CI or by hand); the Windows data-only steps run in CI.
+
+**Found at the end of 05-11 (2026-10-03), not this plan's code:**
+- **`zig build test` is red on macOS arm64 at the branch tip `eefe8e8de`** (the phase 5 review fixes merged after the 05-11
+  gates ran at `e2e5d7e74`). The test `single_instance.test.single instance: the fallback endpoint's folder is made private, and
+  one left open is refused (WR-A04)` aborts with `panic: index out of bounds: index 108, len 104` inside the std's
+  `addressUnixToPosix` (macOS `sun_path` is 104 bytes; the std panics instead of returning an error for a longer path), reached
+  from `single_instance.zig` `startServer` <- `acquireAt`. WR-A04's fallback endpoint needs a path-length check before it
+  listens (or a shorter name under the temporary folder). Log: `zig-out/local-test/05-11-t5-test-rerun.log`.
+- **The post-deletion random-missions sweep (`-Drandom-missions-sweep=cover`) was killed at 180 of 208 cases, 0 failed,** by the
+  harness's two-hour background limit while another session loaded the machine; the pre-deletion pass was 208/0 in 3984 s.
+  Rerun it on a quiet machine: `zig build test-random-missions -Drandom-missions-sweep=cover -Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run`.

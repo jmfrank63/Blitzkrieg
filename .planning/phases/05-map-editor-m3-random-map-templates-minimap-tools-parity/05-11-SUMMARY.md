@@ -2,9 +2,8 @@
 phase: 05-map-editor-m3-random-map-templates-minimap-tools-parity
 plan: 11
 subsystem: map-editor
-tags: [map-editor, m3, app-shell, options, view-menu, drag-drop, single-instance, parity-closure, gates, hand-try-prep, checkpoint]
-status: partial
-stopped_at: "Task 4 (checkpoint:decision, the one-way deletion of the MFC editor): tasks 1-3 done, task 5 NOT started, nothing deleted"
+tags: [map-editor, m3, app-shell, options, view-menu, drag-drop, single-instance, parity-closure, gates, hand-try-prep, mfc-deletion]
+status: complete
 
 requires:
   - phase: 05-map-editor-m3-random-map-templates-minimap-tools-parity
@@ -15,12 +14,17 @@ provides:
   - single_instance.zig - a per-user stream socket that hands a second launch's map to the running editor
   - 05-PARITY.md closed (152 rows, none empty, 18 NF rows re-read against the MFC source), the recorded gate results, the spec marked, the hand-try checklist
   - three parity gaps found while closing the rows and fixed (Place tool ghost, red refused heights on the Heights minimap, the direction wheel's whole dial)
-affects: [05-11 task 4 and 5 (the deletion), the phase 5 verification]
+  - the MFC Map Editor deleted (D-38) after Johannes's explicit approval: Sources/src/MapEditor, Sources/src/bin/MapEditor.exe and every build, packaging, CI and VS Code reference; the repo-wide grep gate (D-40.9) returns nothing
+affects: [the phase 5 code review and verification, the hand try (D-40.10)]
 
 key-files:
   created:
     - Sources/editor/app/single_instance.zig
+  deleted:
+    - Sources/src/MapEditor/ (the whole MFC tree, 230 files), Sources/src/bin/MapEditor.exe, .vs/slnx.sqlite (a tracked local cache, now ignored)
   modified:
+    - Sources/src/A7.sln, .vscode/tasks.json, .vscode/launch.json, tools/zig/stage.zig, tools/zig/game_install.ps1, tools/openspy/check_no_gamespy_runtime.ps1, .gitignore
+    - Sources/editor/core/filters.zig, tools_ai.zig, tools_groups.zig, tools_vso.zig, Sources/src/EditorBridge/bridge.h, filters.cpp, session.cpp, session_groups.cpp, Sources/src/MapFile/MapFile.cpp (comments only: they name the last commit that had the MFC file)
     - Sources/editor/app/main.zig, panels.zig, panels_m3.zig, panels_logic.zig, commands.zig, testlaunch.zig, markers.zig, smoke.zig, view_math.zig, c_bridge_test.zig
     - Sources/editor/core/settings.zig
     - Sources/editor/imgui/imgui_backend.cpp, imgui_backend.h
@@ -32,34 +36,38 @@ key-decisions:
   - "The single-instance socket is a stream socket on every system (a Unix domain socket; on Windows AF_UNIX through the std), not a named pipe on Windows: one implementation, one test set that runs on every target; build.zig now names Windows 10 1803 as the oldest Windows a Windows target builds for, because the std hides net.UnixAddress behind that version"
   - "The second launch does its whole hand-off on a worker thread and gives up after 1.5 s; the owner serves each connection on its own thread (four at most): the std has no connect or read timeout and on Windows a shutdown does not wake a read on a hung owner's socket"
   - "Docking nodes are not switched on: the docked columns are fixed and the other windows float; View hides and shows each and Reset layout puts them back (PARITY V3)"
-  - "The Place tool's ghost is the object's palette picture at half opacity over a ring, not the engine's sprite (PARITY O7): no bridge call draws a temporary scene object"
+  - "The Place tool's ghost is the engine's own half-opaque visual of the chosen entry (PARITY O7, 9d0ebb572): BkEditorSetPlacementGhost / ClearPlacementGhost build the entry's real visual at the pointer and the placer's angle, in the scene and nowhere else (never saved, undoable, picked or listed); this replaced the first palette-picture-over-a-ring ghost of ed883d613"
   - "The Properties window keeps its ImGui name 'Properties' (it shares an ID with the docked panel, so its fields append to that panel): renaming it floats it over the map and the M2/M3 scenarios' map clicks then hit it; recorded in deferred-items.md"
+  - "The MFC editor is deleted now (Task 4 decision delete-now, approved by Johannes 2026-10-03), not held for the hand try: git history keeps the tree and the last commit with all of it is f0bbdde83; comments that cited MapEditor/<file> name the last commit that had the file"
+  - "Sources/src/RandomMapGen (the game uses it) and Data/Editor (the portable editor reads its filters and markers) stay; the tracked .vs/slnx.sqlite and the .vscode/launch.json MapEditor profile went too because the repo-wide grep gate (D-40.9) found them"
   - "The three user rulings of 2026-10-03 are decisions in PARITY (L4, MM1, the final note), not open rows; the script-path and wheel-delta rulings were already done"
 
 metrics:
-  duration: "about 11 h of wall clock (long gates, two Windows hangs and the harness modifier bug took most of it)"
-  completed: "partial - see status"
+  duration: "about 11 h of wall clock to the Task 4 checkpoint (long gates, two Windows hangs and the harness modifier bug took most of it), then the ghost, the deletion, the post-deletion gates and the CI run on 2026-10-03"
+  completed: 2026-10-03
 
-commits: 8
+commits: 12
 plan_head_before: 741cabe9712725f190316b043098373633d69df7
 actuals:
-  tokens: 45000
-  tasks: 3
-  commits: 8
+  tokens: 70000
+  tasks: 5
+  commits: 12
 ---
 
-# Phase 5 Plan 11: App shell, single instance, parity closure and the phase gates - stopped at the deletion decision
+# Phase 5 Plan 11: App shell, single instance, parity closure, the phase gates and the deletion of the MFC editor
 
-**Status: PARTIAL. Tasks 1, 2 and 3 are done and committed; the run STOPPED at Task 4, the one-way decision to delete the MFC editor. Task 5 (the deletion) was not started: `Sources/src/MapEditor` and `Sources/src/bin/MapEditor.exe` are untouched.**
+**Status: COMPLETE, with one open item the reader must see: the post-deletion random-missions sweep was killed by the harness's two-hour background limit after 180 of its 208 cases (0 failed, the machine under load from another session); the last complete sweep, 208 cases and 0 failed, ran before the deletion. See "Verification and gates" and "Pending". The hand try (D-40.10) is still Johannes's.**
 
-One-liner: Options, View with Reset layout, drag-drop, Help/About and a per-user single-instance socket that works on macOS, Linux and Windows; every one of the 152 PARITY rows closed with evidence (the NF rows re-read against the MFC source and one cited wrongly corrected); three real parity gaps the closure turned up fixed; every local gate green.
+One-liner: Options, View with Reset layout, drag-drop, Help/About and a per-user single-instance socket that works on macOS, Linux and Windows; every one of the 152 PARITY rows closed with evidence (the NF rows re-read against the MFC source and one cited wrongly corrected); three real parity gaps the closure turned up fixed, the Place tool's ghost now the engine's own half-opaque visual; the MFC Map Editor deleted after Johannes's explicit approval, with the repo-wide grep gate clean and every other gate green on macOS, win-home and CI.
 
 ## Accomplishments
 
 - **Task 1 (`4bb5667cf`)** - Tools > Options (`game_parameters` into Test in game's argv between the editor's own arguments and the map name, split on spaces with `"..."` groups and nothing else interpreted; the default save format), View with a check per docked panel (`PanelId`), the status bar and every floating window (`ViewWindow`), Reset layout (`bk_imgui_reset_window_layout` over ImGui's `ClearWindowSettings`), `layout.ini` kept beside `mapeditor.cfg` (interactive mode only), SDL drop events through the unsaved-changes guard, Help > Keys and tools (tools from `tool_registry`, keys from `view_math.key_help`) and About; commands `options_show`, `options_set_gameparams`, `options_set_format`, `layout_reset`, `view_panel`, `help_keys`, `about_show`, `drop_file` and predicates `game_parameters`, `default_format`, `panel_visible`, `layout_default`; map-editor-m3-auto frames 1402-1510.
 - **Task 2 (`2f7dd1b96`, fixes `6d04800dd`, `9e92edea8`, `d76e3fadb`)** - `single_instance.zig`: endpoint `<user root>/mapeditor/instance.sock` (the engine's own user-root rules, a short per-user name under the temporary folder when too long for a socket address), one line one path, an owner whose accept loop and four connection threads answer `ok` as soon as the line is queued, a main-loop poll once a frame, an empty line that only raises the window, stale files and hung owners replaced after a timeout. Nine unit tests over the real mechanism run on macOS and on Windows.
-- **Task 3** - 05-PARITY.md closed and the gates recorded (below); the spec's editor-set table and user-data section updated; 05-VALIDATION.md's D-40 rows; deferred-items.md weighed item by item; this file with the hand-try checklist.
-- **Parity gaps found and fixed while closing rows** (`ed883d613`): PARITY O7 (the Place tool's ghost) had no evidence because M1 never drew one; the Heights minimap now paints refused heights red as the MFC did (`isValidHeight`, pinned against the engine's own function in the bridge tier); the direction wheel's hit area is the whole dial; Help answers F1 as the MFC's Contents did.
+- **Task 3 (`5c8808f1a`)** - 05-PARITY.md closed and the gates recorded (below); the spec's editor-set table and user-data section updated; 05-VALIDATION.md's D-40 rows; deferred-items.md weighed item by item; this file with the hand-try checklist.
+- **Task 4 (`f0bbdde83`) - the decision.** checkpoint:decision, delete-now or hold: **approved by Johannes 2026-10-03, delete-now** (relayed by the coordinating agent once PARITY O7 was closed against the MFC code while the tree was still there). Recorded in this file and in the commit before any deletion commit.
+- **Task 5 (`e2e5d7e74`) - the deletion (D-38).** `git rm` by explicit path of `Sources/src/MapEditor/` (the whole tree, 230 files; the commit with the edits below changes 250 files and deletes 55,537 lines) and `Sources/src/bin/MapEditor.exe`; the MapEditor project and its solution-config lines out of `Sources/src/A7.sln`; the "Build MapEditor (Debug)" task out of `.vscode/tasks.json`; the `Editors/MapEditor.exe` entries out of `tools/zig/stage.zig` and `tools/zig/game_install.ps1`; the MapEditor assertion out of `tools/openspy/check_no_gamespy_runtime.ps1`. Two hits the repo-wide gate surfaced beyond D-38's seven targets went too (D-40.9): the `.vscode/launch.json` MapEditor debug profile and the tracked `.vs/slnx.sqlite` cache (untracked, `.gitignore` gained `/.vs/slnx.sqlite`). Every code comment under `Sources/` that cited `MapEditor/<file>` was rewritten to name the last commit that had the file (`Sources/editor/core/filters.zig`, `tools_ai.zig`, `tools_groups.zig`, `tools_vso.zig`, `EditorBridge/bridge.h`, `filters.cpp`, `session.cpp`, `session_groups.cpp`, `MapFile/MapFile.cpp`: comments only, checked by diff); the spec's mentions were updated. **Kept:** `Sources/src/RandomMapGen` (the game uses it) and `Data/Editor` (the portable editor reads its filters and markers); `.planning/` and `docs/superpowers/plans` references stay as history. The grep gate (below) returns nothing, `Sources/src/MapEditor` and `Sources/src/bin/MapEditor.exe` are gone, and 05-VALIDATION.md's D-40 row 9 is done.
+- **Parity gaps found and fixed while closing rows** (`ed883d613`, then `9d0ebb572`): PARITY O7 (the Place tool's ghost) had no evidence because M1 never drew one; it first got a palette picture over a ring, and `9d0ebb572` replaced that with the engine's own half-opaque visual of the entry (`BkEditorSetPlacementGhost`, never saved or picked; engine-tier test, core tests and m3-auto frames 1512-1550); the Heights minimap now paints refused heights red as the MFC did (`isValidHeight`, pinned against the engine's own function in the bridge tier); the direction wheel's hit area is the whole dial; Help answers F1 as the MFC's Contents did.
 
 ## Deviations from Plan
 
@@ -88,8 +96,8 @@ One-liner: Options, View with Reset layout, drag-drop, Help/About and a per-user
 
 **4. [Rule 2 - Missing critical functionality] PARITY O7, the placement ghost, had no evidence and no code**
 - **Found during:** Task 3, chasing the empty Evidence cells
-- **Fix:** `markers.drawPlacementGhost` (the object's palette picture at 50% over a ring); recorded as a difference from the MFC's engine-sprite ghost
-- **Commit:** ed883d613
+- **Fix:** first `markers.drawPlacementGhost` (the palette picture at 50% over a ring, recorded as a difference); then, with the MFC code still in the tree and before the deletion, `BkEditorSetPlacementGhost` / `BkEditorClearPlacementGhost` / `BkEditorPlacementGhost` so the ghost is the engine's own half-opaque visual as the MFC's `SetOpacity( 128 )` ghost was, with Q and E turning the placer; PARITY O7 now reads that way and is no longer a difference
+- **Commits:** ed883d613, 9d0ebb572
 
 **5. [Rule 1 - Bug] 05-PARITY.md cited L16 and D3 wrongly and hid evidence in 21 rows**
 - **Issue:** L16 said the Storage coverage button is in no toolbar (it is, editor.rc:1961; only its computation is dead); D3 cited `iMissionInternal.cpp:1465` (it is :1471); 21 rows had one cell too many, so their evidence sat in a column GitHub's table renderer drops
@@ -102,11 +110,14 @@ One-liner: Options, View with Reset layout, drag-drop, Help/About and a per-user
 - **Windows is a socket, not a named pipe** (key-decisions above).
 - **Two things the plan asked for could not be run as written:** `map-editor-m3-auto` on win-home over ssh (no GUI; **user-waived 2026-10-03**) and a macOS or win-home *interactive* double launch with a visible window - the macOS double launch ran with hidden editors (below).
 - **Environment, not committed:** the visible-window M1 smoke at the head of the m3-auto chain needs the real pointer over its window; the pointer was parked there with `cliclick m:700,450` before each run. Without it the smoke fails with `mouse focus false`, the known flake.
-- **The extra `fix(build)` and harness commits** are why `commits: 8` where the plan had three task commits (the count is measured at the write of this file and includes the Task 3 docs commit `5c8808f1a`; this file and STATE.md come after).
+- **The extra `fix(build)`, harness and ghost commits** are why `commits: 12` where the plan had five task commits (the count is measured with `git rev-list --count` from `plan_head_before` at the write of this file; it includes the partial summary `f328c0d5e` and the Task 4 and 5 commits, and excludes this file's own commit and STATE.md).
+- **The post-deletion random-missions sweep did not finish** (deviation-free but open, see the gates table and Pending).
 
 **Total deviations:** 5 auto-fixed (4 bugs, 1 missing functionality). **Impact:** the single-instance feature is now tested on Windows and shipped there; nothing else changes the plan's contract.
 
 ## Verification and gates
+
+### Before the deletion (Task 3)
 
 All local gates run one at a time on macOS arm64 with `-Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run` (logs in `zig-out/local-test/`, prefix `05-11-`):
 
@@ -128,6 +139,34 @@ All local gates run one at a time on macOS arm64 with `-Dtarget=aarch64-macos -D
 | macOS double launch (hidden editors, `05-11-dl-check.sh`) | second launch exit 0 in 0.23 s, owner logs `map open from second instance`; raise-only launch exit 0; stale socket after `kill -9` does not block a start; clean exit removes the socket |
 | CI | run 37098890101 at d76e3fadb, dispatched 2026-10-03: **all six jobs green** - linux-platform 4m16s, linux-arm-platform 1m18s, macos-intel-platform 2m32s, macos-platform 23m5s, windows-mingw-platform 5m48s, windows-platform 1h46m (its Engine tier, Map editor engine tier, Random missions tier, RMG composer round trip, RMG determinism and the packages all green). The run before it, 37094312614 at ed883d613, failed only the Windows Map editor engine tier's five socket tests (deviation 2), fixed by d76e3fadb. |
 
+### After the deletion (Task 5, at `e2e5d7e74`)
+
+**The grep gate (D-40.9)**, re-run on 2026-10-03 after the deletion: `git grep -n 'src/MapEditor\|MapEditor.vcxproj\|Editors/MapEditor' -- . ':!.planning' ':!docs/superpowers/plans' ':!docs/superpowers/specs'` returned rc=1 with an empty output (`05-11-t5-grep.log`, 0 bytes). `Sources/src/MapEditor` and `Sources/src/bin/MapEditor.exe` do not exist; `Sources/src/RandomMapGen` and `Data/Editor` do.
+
+| Gate (macOS arm64, `-Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run`) | Result | Log |
+|---|---|---|
+| hermeticity (`zig test tools/zig/build_hermeticity_test.zig`) | 3/3 (re-run at the write of this file, on the tree with the review fixes merged) | `05-11-t5-herm.log` |
+| `zig build test` | pass at `e2e5d7e74` (the stderr trace `unexpected errno: 61` in the log is a deliberate connect-to-a-dead-socket test, not a failure). **Red on the branch tip, see "Found at the end" below.** | `05-11-t5-test.log` (at `e2e5d7e74`), `05-11-t5-test-rerun.log` (at the tip) |
+| `map-editor-smoke` | `smoke PASS (52 steps, 260 objects ...)` | `05-11-t5-smoke.log` |
+| `map-editor-auto`, `map-editor-auto-m2`, `map-editor-m3-auto` | done (13), done (298), done (666 actions: the 659 plus the ghost frames) | `05-11-t5-auto.log` |
+| `test-map-editor-engine` | `map-editor-engine: PASS (260 objects)` | `05-11-t5-engine.log` |
+| `test-editor-bridge` | `editor-bridge: PASS` | `05-11-t5-bridge.log` |
+| `test-rmg-composer-roundtrip` | `43 templates, 102 graphs, 404 containers, 27 field sets ok` | `05-11-t5-roundtrip.log` |
+| `test-rmg-determinism` | `rmg-determinism: PASS` | `05-11-t5-determinism.log` |
+| `map-editor-game-reads-it`, `-m2`, `-m3` | all three PASS (the game still builds and loads the editor's maps) | `05-11-t5-gamereads.log` |
+| `test-map-files-all` | `1755 of 1755 maps round-tripped`, PASS | `05-11-t5-mapfiles.log` |
+| the scripted editor runs on the release build | done (666 actions) | `05-11-t5-release.log` |
+| win-home (x86_64-windows-msvc, no GUI) at `e2e5d7e74` | tiers run: 598/599 tests passed (1 skipped), 377 core tests pass; Map editor engine tier: 222/224 (2 skipped), engine test 208 pass, 2 skip; both EXIT 0 | `05-11-win-t5.out`, `05-11-win-t5b.out` |
+| **CI run 37121998156** at `e2e5d7e74` (workflow_dispatch, 2026-10-03) | **all six jobs green:** linux-platform 1m36s, linux-arm-platform 1m36s, macos-intel-platform 3m44s, macos-platform 30m23s, windows-mingw-platform 2m21s, windows-platform 1h10m | `gh run view 37121998156` |
+| `test-random-missions -Drandom-missions-sweep=cover` | **NOT COMPLETE: 180 of 208 cases ran, 0 failed, then the process was killed.** The harness stops a background command at its two-hour limit; this run needed far longer than the pre-deletion pass (3984 s) because another session's editor run held a CPU core and the machine was under load (load average 3 to 8). The first attempt, earlier the same day, was cut at about two thirds when the external disk /Volumes/Storage force-unmounted. The sweep was not started a third time past the limit. | `05-11-t5-random-missions.log` (the first attempt's partial log is `05-11-t5-sweep.log`) |
+
+The last **complete** sweep, `random-missions: 208 cases, 0 failed, 3984 s`, ran before the deletion (`05-11-g-random-missions.log`). What the deletion changed in code the sweep reaches is comments only: a diff of `Sources/src/MapFile`, `Sources/src/EditorBridge` and `Sources/editor` between `9d0ebb572` and `e2e5d7e74` shows only rewritten comment lines. The sweep exercises `RandomMapGen`, which was kept untouched. The 180 post-deletion cases all passed. The remaining 28 cases (the last of the `ussr/german`, then `ussr/rumania` and `ussr/ukraine` chapters) have not been run on the post-deletion tree; rerun `zig build test-random-missions -Drandom-missions-sweep=cover -Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run` on a quiet machine to close that line.
+
+
+### Found at the end: the branch tip is red on macOS for a review-fix test (not this plan's code)
+
+While this file was being finished, other sessions merged the phase 5 code-review fixes into `feat/map-editor-m3` (`4a7a994dc`, `eefe8e8de`; commits `97c14f6a7`, `d05d091aa`, `14970e643`, `cc5f86e91` and others). All gates above ran on `e2e5d7e74`, before those merges. A `zig build test -Dtarget=aarch64-macos -Dcopy-data=false -Dtest-mode=run` at the tip `eefe8e8de` exits 1 (`05-11-t5-test-rerun.log`): 787 of 788 tests pass and one crashes, `single_instance.test.single instance: the fallback endpoint's folder is made private, and one left open is refused (WR-A04)` terminated with signal ABRT, `panic: index out of bounds: index 108, len 104` in the Zig standard library's `addressUnixToPosix` (`@memcpy(storage.un.path[0..path_len], a.path[a.path.len - path_len ..])`), reached from `single_instance.zig` `startServer` -> `acquireAt`. A socket path longer than macOS's 104-byte `sun_path` panics in the std instead of returning an error, so the fallback endpoint WR-A04 added needs a length check before it listens. It is in the review-fix area A code, outside this plan's scope (deviation scope rule), so it was not touched here; it is recorded in `deferred-items.md` and reported to the coordinating agent.
+
 ## Hand try (D-40.10) - Johannes's backstop, on the release build
 
 Build: macOS `zig build install-map-editor --release=fast -Dtarget=aarch64-macos -Dcopy-data=false`, then run `zig-out/game/macos/arm64/release/MapEditor`; Windows: the same command with `-Dtarget=x86_64-windows-msvc` on a machine with a desktop session, or `zig build package-game-editors --release=fast` and unzip the editors package. Look at each stop and tick it:
@@ -146,20 +185,20 @@ Build: macOS `zig build install-map-editor --release=fast -Dtarget=aarch64-macos
 12. **Drag a `.bzm` from Finder/Explorer onto the window**: it opens (a dirty map asks first); a `.txt` is ignored with a note. **Single instance:** launch `MapEditor <another map>` while one runs: the running window comes forward and opens it, the second process exits.
 13. Repeat 1-12 on the Windows release build (the GPU look of roads, rivers, wire frame and the minimap on D3D12/Vulkan is the part nothing else checks).
 
-## Checkpoint: Task 4 - delete the MFC editor (one-way, D-38)
+## Task 4 - the decision to delete the MFC editor (one-way, D-38)
 
 **Decision: `delete-now` - approved by Johannes 2026-10-03, delete-now.** (Relayed by the coordinating agent after the Place-tool ghost, PARITY O7, was closed against the MFC code while it was still in the tree: commit `9d0ebb572`.) Evidence for it:
 
 - **Parity.** 152 rows, none empty. 100 M3 and shared rows closed with named tests and scenario frames; 18 NF rows (L16, T7, E1-E4, TR13, TR19, O22, MM5, R13, R16, R17, D1-D5) closed with file:line citations re-read on 2026-10-03 (one correction); 19 M1 rows closed by phase 3's verification and the tests their cells name; 15 M2 rows by phase 4 (CI 36692345194); the user-waived items (Depth Complexity L4, the minimap marker filter MM1) noted in their rows. The full table is below.
 - **Gates.** Every local gate green (table above); CI run 37098890101 green on all six jobs.
 - **What stays open.** (a) D-40.10, the hand try; (b) the Windows GUI legs, user-waived; (c) the items under "Open and weighed" below.
-- **Recommendation: `delete-now`** (CI run 37098890101 is green on all six jobs). Git history keeps the tree; the only thing `hold` buys is greppability during the hand try, and the deletion task's own grep gate, build and full matrix re-run are ready. If you would rather have the tree beside you for the hand try, `hold` costs nothing but D-40.9 staying open.
+- **Why delete-now.** Git history keeps the tree (the last commit with all of it is `f0bbdde83`); the only thing `hold` would have bought is greppability during the hand try. After the deletion the whole matrix was re-run and CI run 37121998156 is green on all six jobs (above).
 
 ### Open and weighed (the checkpoint's "any rows still open")
 
-No PARITY row is open. What the human should know before approving:
+No PARITY row is open. What the human was told before approving:
 
-1. **O7 (placement ghost) is a picture, not the engine's sprite**, and it does not turn with the wheel. Fixed here, recorded as a difference.
+1. **O7 (placement ghost)** was first a picture over a ring; it is now the engine's own half-opaque visual of the entry and turns with the wheel and Q/E (`9d0ebb572`), so it is no longer a difference.
 2. **V3: ImGui docking is not switched on.** The docked columns are fixed, the other windows float, View manages all of them.
 3. **Not verifiable without a desktop:** a real Finder/Explorer drag onto the window (the scripted drop uses the command path), a Windows double launch of the real editor (the socket tests pass on Windows over the real mechanism), the Windows GPU look.
 4. **Found, not fixed:** the Properties window shares its ImGui ID with the docked Properties panel (deferred-items.md "From 05-11").
@@ -336,10 +375,11 @@ None.
 
 ## Pending
 
-- The decision of Task 4 (`delete-now` or `hold`), then Task 5 if approved.
-- D-40.10, Johannes's hand try (checklist above).
-- Phase-level: the code review, the verifier and `phase.complete` after the decision.
+- **D-40.10, Johannes's hand try** (checklist above), macOS and Windows release builds.
+- **The post-deletion random-missions sweep** finished 180 of 208 cases with 0 failures before the harness's background limit killed it; rerun it on a quiet machine to record `208 cases, 0 failed` on the post-deletion tree (the pre-deletion pass was 208/0, and the deletion touched comments only in code the sweep reaches).
+- **The WR-A04 test crash on macOS** at the branch tip (above), a review-fix regression.
+- Phase-level: the code review (its fixes are already merged), the verifier and `phase.complete`.
 
 ## Self-Check: PASSED
 
-Checked after writing: `Sources/editor/app/single_instance.zig`, this file, `05-PARITY.md`, the gate logs (`zig-out/local-test/05-11-*`) and the double-launch script exist; the commits `4bb5667cf`, `2f7dd1b96`, `6d04800dd`, `9e92edea8`, `708f0e75e`, `ed883d613`, `d76e3fadb` and `5c8808f1a` are in the log; `Sources/src/MapEditor` and `Sources/src/bin/MapEditor.exe` are untouched (Task 5 not started).
+Checked after writing: `Sources/editor/app/single_instance.zig`, `05-PARITY.md`, the gate logs (`zig-out/local-test/05-11-t5-*`, `05-11-win-t5.out`, `05-11-g-random-missions.log`), `Data/Editor` and `Sources/src/RandomMapGen` exist; `Sources/src/MapEditor` and `Sources/src/bin/MapEditor.exe` are gone; the commits `4bb5667cf`, `2f7dd1b96`, `6d04800dd`, `9e92edea8`, `708f0e75e`, `ed883d613`, `d76e3fadb`, `5c8808f1a`, `f328c0d5e`, `9d0ebb572`, `f0bbdde83` and `e2e5d7e74` are in the log; `commits: 12` is `git rev-list --count 741cabe9...e2e5d7e74` (the plan's own commits, before the review-fix merges that followed on the branch). Two things this file reports as open, not as passed: the post-deletion random-missions sweep (180 of 208) and the macOS `zig build test` crash at the branch tip.
