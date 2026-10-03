@@ -2914,6 +2914,8 @@ test "parseAnchorSlot takes neutral and players below the record's capacity" {
 test {
     _ = @import("marker_logic.zig");
     _ = @import("tool_registry.zig");
+    // 05-11: the single-instance endpoint, framing and socket tests.
+    _ = @import("single_instance.zig");
 }
 
 test "new map fields: parse the command's format, clamp the dialog's" {

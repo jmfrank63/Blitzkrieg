@@ -204,6 +204,9 @@ pub const ComposerPopup = enum { none, picker, properties, delete_patches, impor
 /// The Fields Composer's three tabs (the MFC's FIELD_TAB_TERRAIN / OBJECTS / HEIGHTS).
 pub const FieldTab = enum { terrain, objects, heights };
 
+/// See `State.open_origin`.
+pub const OpenOrigin = enum { none, second_instance, dropped_file };
+
 pub const State = struct {
     allocator: std.mem.Allocator,
     editor: *Editor,
@@ -262,6 +265,10 @@ pub const State = struct {
     layout_reset_pending: bool = false,
     /// The hidden-panel bits `draw` last placed the docked panels for.
     last_hidden_panels: u32 = 0,
+    /// Where the open now being made came from, when it is not a menu or a
+    /// dialog: a second launch (single_instance.zig) or a dropped file. `act`
+    /// says on the console how it ended - the line the double-launch check reads.
+    open_origin: OpenOrigin = .none,
     /// File > New's dialog (M3, D-23): whether it is up, the fields being
     /// edited, the Square lock, and the name the newest never-saved map was
     /// given (kept for the title and the first Save As; the document holds
@@ -1771,7 +1778,11 @@ pub fn act(state: *State) bool {
                     if (result) |_| {
                         state.mapOpened();
                         pushRecentFromDocument(state);
-                    } else |_| if (!mapIsOpen(state.editor)) state.mapOpened();
+                        announceOpen(state, true);
+                    } else |_| {
+                        if (!mapIsOpen(state.editor)) state.mapOpened();
+                        announceOpen(state, false);
+                    }
                 } else {
                     // Save As: the unsaved-changes prompt, if it asked for
                     // this one, hears whether it landed.
@@ -1810,6 +1821,20 @@ pub fn act(state: *State) bool {
             .switch_mod => |folder| performModSwitch(state, folder),
             .close => performClose(state),
         }
+    }
+}
+
+/// Says on the console how an open that came from a second launch or a drop
+/// ended (`State.open_origin`); nothing for any other open.
+fn announceOpen(state: *State, opened: bool) void {
+    const origin = state.open_origin;
+    state.open_origin = .none;
+    if (origin == .none) return;
+    const what = if (origin == .second_instance) "second instance" else "dropped file";
+    if (opened) {
+        std.debug.print("map-editor: map open from {s}: {s}\n", .{ what, state.editor.document.path.items });
+    } else {
+        std.debug.print("map-editor: map from {s} did not open: {s}\n", .{ what, state.editor.status() });
     }
 }
 
@@ -2894,6 +2919,22 @@ fn drawViewMenu(state: *State, map_open: bool) void {
     }
 }
 
+/// A path handed over by a second launch (PARITY F13): validated like a drop,
+/// then queued through the unsaved-changes guard. The line it logs is the one
+/// the double-launch check looks for.
+pub fn openFromSecondInstance(state: *State, os_path: []const u8) void {
+    const verdict = logic.dropVerdict(os_path);
+    if (verdict != .open) {
+        var note: [256]u8 = undefined;
+        state.view.setStatus("second instance: ", logic.dropNote(&note, verdict, os_path));
+        return;
+    }
+    state.actions.requestOpenPath(os_path);
+    state.open_origin = .second_instance;
+    state.view.setStatus("opened from second instance: ", os_path);
+    std.debug.print("map-editor: opened from second instance: {s}\n", .{os_path});
+}
+
 /// A file dropped onto the window (PARITY F12): a map goes through the same
 /// unsaved-changes guard as File > Open Recent; anything else is ignored with
 /// a status note. The path is another program's input and is checked first.
@@ -2905,6 +2946,7 @@ pub fn dropFile(state: *State, os_path: []const u8) bool {
         return false;
     }
     state.actions.requestOpenPath(os_path);
+    state.open_origin = .dropped_file;
     return true;
 }
 
