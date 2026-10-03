@@ -1667,7 +1667,12 @@ pub const AutoRunner = struct {
         if (key.mods.shift) mod |= sdl.SDL_KMOD_SHIFT;
         if (key.mods.alt) mod |= sdl.SDL_KMOD_ALT;
         if (key.mods.cmd) mod |= sdl.SDL_KMOD_GUI;
-        return self.pushKey(mapped, mod, true) and self.pushKey(mapped, mod, false);
+        // The key goes down with its modifiers and comes up with none, as the
+        // modifier keys' own releases would leave them: ImGui follows the modifiers
+        // each key event carries, and a Ctrl left "held" by the last event turns
+        // every later left click into a right click on macOS (Ctrl+click), which
+        // is how a press on a panel went to the wrong button after `key=Z+ctrl`.
+        return self.pushKey(mapped, mod, true) and self.pushKey(mapped, 0, false);
     }
 
     /// A press the schedule holds until its `release=`/`rrelease=`, in this
@@ -1959,6 +1964,25 @@ pub const AutoRunner = struct {
 
     fn fail(self: *AutoRunner, comptime format: []const u8, args: anytype) bool {
         std.debug.print("map-editor: BK_EDITOR_AUTO: FAIL: " ++ format ++ "\n", args);
+        // Where ImGui thinks the pointer is and which window it is over: the first
+        // thing a failed pointer step needs (a press that a window above the panel took).
+        var pointer: imgui.c.BkImguiPointerState = undefined;
+        imgui.c.bk_imgui_backend_pointer_state(&pointer);
+        std.debug.print("map-editor: BK_EDITOR_AUTO: pointer at frame {d}: ImGui {d:.0},{d:.0} wants mouse {} hovered '{s}' (before clear '{s}', window at pointer '{s}') down {any} popups {d}; focus lost {}; active widget {d} in '{s}', hovered widget {d}\n", .{
+            self.frame,
+            pointer.mouse_x,
+            pointer.mouse_y,
+            pointer.want_capture_mouse,
+            std.mem.sliceTo(&pointer.hovered_window, 0),
+            std.mem.sliceTo(&pointer.hovered_before_clear, 0),
+            std.mem.sliceTo(&pointer.window_at_pointer, 0),
+            pointer.mouse_down,
+            pointer.open_popups,
+            pointer.app_focus_lost,
+            pointer.active_id,
+            std.mem.sliceTo(&pointer.active_window, 0),
+            pointer.hovered_id,
+        });
         self.failed = true;
         return false;
     }

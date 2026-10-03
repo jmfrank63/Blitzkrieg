@@ -128,6 +128,9 @@ extern "C" void bk_imgui_backend_pointer_state( BkImguiPointerState *out )
     }
     CopyWindowName( out->hovered_window, sizeof( out->hovered_window ), g.HoveredWindow );
     CopyWindowName( out->hovered_before_clear, sizeof( out->hovered_before_clear ), g.HoveredWindowBeforeClear );
+    CopyWindowName( out->active_window, sizeof( out->active_window ), g.ActiveIdWindow );
+    out->active_id = g.ActiveId;
+    out->hovered_id = g.HoveredId;
     // Frontmost first, the order FindHoveredWindowEx walks them in.
     for ( int n = g.Windows.Size - 1; n >= 0; n-- )
     {
