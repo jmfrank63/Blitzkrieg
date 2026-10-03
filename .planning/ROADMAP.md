@@ -348,7 +348,7 @@ Plans:
 **Goal:** Map Editor M3 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md`: random map templates and generation from the editor, minimap tools, and every remaining feature of the MFC map editor (`Sources/src/MapEditor`) so the portable editor reaches full parity. When parity is shown by a feature-by-feature checklist against the MFC editor, delete the MFC map editor from the tree.
 **Requirements**: none mapped — CONTEXT D-01..D-40 (05-CONTEXT.md) are the requirements of record; 05-PARITY.md is the checklist of record (D-36) and 05-VALIDATION.md's D-40 exit criteria are the coverage contract
 **Depends on:** Phase 4
-**Plans:** 10/11 plans executed
+**Plans:** 11/11 plans executed
 
 Plans (per D-39; waves serialized — plans 2-8 all touch bridge.h/editor.zig/fake_bridge.zig/c_bridge.zig/commands.zig/build.zig, so the shared-worktree execution order is plan order; depends_on keeps D-39's logical structure):
 
@@ -362,7 +362,7 @@ Plans (per D-39; waves serialized — plans 2-8 all touch bridge.h/editor.zig/fa
 - [x] 05-08-PLAN.md — Create Random Map (D-01..D-04, the D-05 szMODName fix, determinism) and Export lists (D-13)
 - [x] 05-09-PLAN.md — Containers + Graphs composers (D-06..D-12), user RMG storage root (D-09, costly), round-trip half 1
 - [x] 05-10-PLAN.md — Fields + Templates composers (R7-R13, the implemented Check!), round-trip complete (D-40.4), authored end-to-end (D-40.5)
-- [ ] 05-11-PLAN.md — app shell (D-34: Options, View, drag-drop, single instance, Help), full parity verification + gates, hand-try prep, MFC editor deletion behind a one-way checkpoint (D-38)
+- [x] 05-11-PLAN.md — app shell (D-34: Options, View, drag-drop, single instance, Help), full parity verification + gates, hand-try prep, MFC editor deletion behind a one-way checkpoint (D-38)
 
 ### Phase 6: Resource Editor: portable port of editor.exe
 

@@ -2,14 +2,14 @@
 gsd_state_version: "1.0"
 current_plan: 11
 status: phase-2-executed-human-verification-outstanding
-stopped_at: "Stopped at 05-11 Task 4 (checkpoint:decision, delete the MFC editor): tasks 1-3 done, nothing deleted"
-last_updated: "2026-10-03T05:18:05.782Z"
-state_head: d76e3fadbf38f55bbf9f85902caa2a22ddc8aa9e
+stopped_at: "Completed 05-11-PLAN.md (phase 5 execution done; next: code review and verification)"
+last_updated: "2026-10-03T16:20:14.197Z"
+state_head: 1121c1225e5b028c45133334e0af88e876d9dfa8
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 43
-  completed_plans: 42
+  completed_plans: 43
   percent: 0
 current_phase: 05
 current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
@@ -26,12 +26,15 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 
 ## Current Position
 
-Current Plan: 11
+Current Plan: 11 (complete)
 Total Plans in Phase: 11
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100% (phase 5 plans)
 
-Phase 05: 05-05 (players, Unit Creation Info, Check Map), 05-06 (the Layers menu, fire ranges,
-the wire frame in the GPU renderer) and 05-07 (the minimap) summarized; 05-08 next in the wave order.
+Phase 05: all 11 plans executed (11/11 summarized). 05-11 closed the 152 PARITY rows, deleted the MFC editor
+(approved by Johannes 2026-10-03) and ran the gates (CI run 37121998156 green on all six jobs). Execution is done;
+next: the phase code review and verification, and Johannes's hand try (D-40.10). Open: the post-deletion
+random-missions sweep stopped at 180 of 208 cases (0 failed), and macOS `zig build test` is red at the branch tip
+for the WR-A04 single-instance test (see 05-11-SUMMARY.md).
 
 ## Current summary
 
@@ -67,9 +70,9 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-10-03T05:18:03.543Z
-**Stopped at:** Stopped at 05-11 Task 4 (checkpoint:decision, delete the MFC editor): tasks 1-3 done, nothing deleted
-**Resume file:** .planning/phases/05-map-editor-m3-random-map-templates-minimap-tools-parity/05-11-SUMMARY.md
+**Last session:** 2026-10-03T16:20:13.845Z
+**Stopped at:** Completed 05-11-PLAN.md (phase 5 execution done; next: code review and verification)
+**Resume file:** None
 
 ## Accumulated Context
 
