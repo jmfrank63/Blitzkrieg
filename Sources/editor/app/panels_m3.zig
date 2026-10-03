@@ -9,6 +9,8 @@ const core = @import("editor_core");
 const panels = @import("panels.zig");
 const commands = @import("commands.zig");
 const logic = @import("panels_logic.zig");
+const view_math = @import("view_math.zig");
+const tool_registry = @import("tool_registry.zig");
 
 const ig = imgui.c;
 const State = panels.State;
@@ -524,6 +526,11 @@ pub fn drawPropertiesPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
     if (!state.properties_open) return;
     ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
     ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    // NOTE (05-11): the docked Properties panel (panels.zig) is also called
+    // "Properties", and two windows of one name are one window to ImGui - this
+    // window's fields are appended to the docked panel. Renaming it moves them
+    // into a floating window over the map, which the M2 and M3 scenarios' map
+    // clicks then hit; recorded in deferred-items.md, not changed here.
     const open = ig.igBegin("Properties", &state.properties_open, ig.ImGuiWindowFlags_NoCollapse);
     defer ig.igEnd();
     if (!open) return;
@@ -3707,4 +3714,134 @@ fn drawUnitGrid(state: *State) void {
         state.tc_popup = .none;
         ig.igCloseCurrentPopup();
     }
+}
+
+// ---------------------------------------------------------------------------
+// 05-11 (D-34): Tools > Options, Help > Keys and tools, Help > About
+// ---------------------------------------------------------------------------
+
+/// Tools > Options (PARITY T2, the MFC's CMapEditorOptionsDialog): loads the
+/// window's two fields fresh from the settings, so a stale edit is never shown.
+pub fn openOptionsWindow(state: *State) void {
+    state.options_open = true;
+    @memset(&state.options_params_edit, 0);
+    const text = state.settings.gameParameters();
+    @memcpy(state.options_params_edit[0..text.len], text);
+    state.options_format_edit = state.settings.default_format;
+}
+
+/// OK: both fields in one settings write (the file is written once, by the
+/// run loop, after this frame; nothing is written when nothing changed).
+pub fn commitOptions(state: *State) void {
+    if (logic.applyOptions(&state.settings, std.mem.sliceTo(&state.options_params_edit, 0), state.options_format_edit)) state.settings_changed = true;
+}
+
+/// The MFC's two Options controls: the game's extra command line (Test in game
+/// puts it before the map name, exactly as the MFC's `<parameters> -<map>`) and
+/// the default save format, here the format a Save As of a name with no .bzm or
+/// .xml extension gets (the format of an open file follows its own extension).
+pub fn drawOptionsWindow(state: *State) void {
+    if (!state.options_open) return;
+    ig.igSetNextWindowPos(.{ .x = 420, .y = 160 }, ig.ImGuiCond_FirstUseEver);
+    if (!ig.igBegin("Options", &state.options_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        ig.igEnd();
+        return;
+    }
+    defer ig.igEnd();
+    ig.igTextDisabled("Test in game starts the game with these extra parameters, before the map name.");
+    _ = ig.igInputTextWithHint("Game parameters", "e.g. -nosound", &state.options_params_edit, state.options_params_edit.len + 1, 0);
+    ig.igSeparatorText("Default save format");
+    if (ig.igRadioButton("BZM (binary)", state.options_format_edit == .bzm)) state.options_format_edit = .bzm;
+    ig.igSameLine();
+    if (ig.igRadioButton("XML", state.options_format_edit == .xml)) state.options_format_edit = .xml;
+    ig.igTextDisabled("Used by Save As when the name has no .bzm or .xml extension.");
+    if (ig.igButton("OK")) {
+        commitOptions(state);
+        state.options_open = false;
+    }
+    ig.igSameLine();
+    if (ig.igButton("Cancel")) state.options_open = false;
+}
+
+/// Help > Keys and tools (PARITY H1; the MFC's .chm is not shipped): the tools
+/// from tool_registry's own entries - label, key and the buttons each takes -
+/// and the view's key and pointer map (view_math.key_help), so neither list is
+/// typed twice.
+pub fn drawHelpKeysWindow(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
+    if (!state.help_keys_open) return;
+    ig.igSetNextWindowPos(pos, ig.ImGuiCond_FirstUseEver);
+    ig.igSetNextWindowSize(size, ig.ImGuiCond_FirstUseEver);
+    const open = ig.igBegin("Keys and tools", &state.help_keys_open, ig.ImGuiWindowFlags_NoCollapse);
+    defer ig.igEnd();
+    if (!open) return;
+    ig.igSeparatorText("Tools");
+    const flags = ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_SizingFixedFit;
+    if (ig.igBeginTableEx("##help_tools", 3, flags, .{ .x = 0, .y = 0 }, 0)) {
+        ig.igTableSetupColumn("Tool", 0);
+        ig.igTableSetupColumn("Key", 0);
+        ig.igTableSetupColumn("Also takes", 0);
+        ig.igTableHeadersRow();
+        for (&tool_registry.entries) |*item| {
+            if (item.hidden) continue;
+            ig.igTableNextRow();
+            _ = ig.igTableSetColumnIndex(0);
+            ig.igTextUnformatted(item.label.ptr);
+            _ = ig.igTableSetColumnIndex(1);
+            var key_buffer: [2:0]u8 = undefined;
+            const key = tool_registry.shortcutText(item, &key_buffer);
+            ig.igTextUnformatted(if (key.len == 0) "-" else key.ptr);
+            _ = ig.igTableSetColumnIndex(2);
+            var extra_buffer: [96:0]u8 = undefined;
+            ig.igTextUnformatted(helpToolExtras(&extra_buffer, item).ptr);
+        }
+        ig.igEndTable();
+    }
+    ig.igSeparatorText("Keys and pointer");
+    if (ig.igBeginTableEx("##help_keys", 2, flags | ig.ImGuiTableFlags_ScrollX, .{ .x = 0, .y = 0 }, 0)) {
+        for (view_math.key_help) |line| {
+            ig.igTableNextRow();
+            _ = ig.igTableSetColumnIndex(0);
+            ig.igTextUnformatted(line.keys.ptr);
+            _ = ig.igTableSetColumnIndex(1);
+            ig.igTextUnformatted(line.what.ptr);
+        }
+        ig.igEndTable();
+    }
+    if (ig.igButton("Close")) state.help_keys_open = false;
+}
+
+/// What a tool takes beyond the left button, from its registry flags.
+pub fn helpToolExtras(buffer: *[96:0]u8, item: *const tool_registry.Entry) [:0]const u8 {
+    var len: usize = 0;
+    const parts = [_]struct { on: bool, text: []const u8 }{
+        .{ .on = item.needs_right_button, .text = "right button" },
+        .{ .on = item.ctrl_click_is_right, .text = "Ctrl+click as right" },
+        .{ .on = item.needs_double_click, .text = "double click" },
+    };
+    for (parts) |part| {
+        if (!part.on) continue;
+        const written = std.fmt.bufPrint(buffer[len..95], "{s}{s}", .{ if (len == 0) "" else ", ", part.text }) catch break;
+        len += written.len;
+    }
+    buffer[len] = 0;
+    return buffer[0..len :0];
+}
+
+/// Help > About (PARITY H2): the product line, the milestone, where the design
+/// is written, the source and the licence.
+pub fn drawAboutWindow(state: *State) void {
+    if (!state.about_open) return;
+    ig.igSetNextWindowPos(.{ .x = 440, .y = 180 }, ig.ImGuiCond_FirstUseEver);
+    if (!ig.igBegin("About", &state.about_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        ig.igEnd();
+        return;
+    }
+    defer ig.igEnd();
+    ig.igTextUnformatted(logic.about_title);
+    ig.igTextDisabled(logic.about_version);
+    ig.igSeparator();
+    ig.igTextUnformatted(logic.about_spec);
+    ig.igTextUnformatted(logic.about_source);
+    ig.igTextWrapped("%s", logic.about_license);
+    if (ig.igButton("Close")) state.about_open = false;
 }

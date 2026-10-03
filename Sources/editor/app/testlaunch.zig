@@ -48,17 +48,84 @@ pub const Options = struct {
     /// --game-reads-it). Empty means "inherit the parent's environment
     /// unchanged" - the common case, and cheaper than copying it.
     extra_env: []const [2][]const u8 = &.{},
+    /// D-34 (05-11, PARITY T2): Tools > Options' extra game command line (the
+    /// MFC's `szGameParameters`). Split into argv elements by `splitParameters`
+    /// and put between the editor's own arguments and the map name, where the
+    /// MFC put them (`<parameters> -<map>`). Never a shell string (T-05-11-03).
+    game_parameters: []const u8 = "",
 };
 
+/// The most extra arguments Options' text yields; the rest are dropped.
+pub const max_extra_args = 16;
+/// The longest Options text `splitParameters` keeps (settings.max_game_parameters).
+pub const max_parameters_text = 256;
+
+/// Splits Options' text into game arguments: spaces and tabs separate them, a
+/// double quote groups ("a b" is one argument, the quotes themselves go), and
+/// nothing else is interpreted - no escapes, no variables, no globbing, no
+/// shell (T-05-11-03). `out` holds the argument slices, which point into
+/// `text_copy` (written to, at most `max_parameters_text` bytes of it kept).
+/// Returns how many arguments there are.
+pub fn splitParameters(text: []const u8, text_copy: *[max_parameters_text]u8, out: *[max_extra_args][]const u8) usize {
+    var count: usize = 0;
+    var write: usize = 0;
+    var arg_start: usize = 0;
+    var in_quotes = false;
+    var in_arg = false;
+    for (text[0..@min(text.len, text_copy.len)]) |byte| {
+        const separator = !in_quotes and (byte == ' ' or byte == '\t');
+        if (separator) {
+            if (in_arg) {
+                if (count < out.len) {
+                    out[count] = text_copy[arg_start..write];
+                    count += 1;
+                }
+                in_arg = false;
+            }
+            continue;
+        }
+        if (byte == '"') {
+            // A quote opens or closes a group and is not part of the argument;
+            // "" alone is an empty argument and is dropped like any empty one.
+            if (!in_arg) {
+                in_arg = true;
+                arg_start = write;
+            }
+            in_quotes = !in_quotes;
+            continue;
+        }
+        if (!in_arg) {
+            in_arg = true;
+            arg_start = write;
+        }
+        text_copy[write] = byte;
+        write += 1;
+    }
+    if (in_arg and write > arg_start and count < out.len) {
+        out[count] = text_copy[arg_start..write];
+        count += 1;
+    }
+    // Empty groups ("") are not arguments.
+    var kept: usize = 0;
+    for (out[0..count]) |argument| {
+        if (argument.len == 0) continue;
+        out[kept] = argument;
+        kept += 1;
+    }
+    return kept;
+}
+
 /// The most argv can ever hold: game_path, -editor-test, -profile=, -mod=,
-/// -windowed, -monitor<n>, the map name.
-pub const max_argv = 7;
+/// -windowed, -monitor<n>, Options' extra arguments, the map name.
+pub const max_argv = 7 + max_extra_args;
 
 /// Backing storage for buildArgv's two formatted arguments, owned by the
 /// caller so buildArgv itself takes no allocator.
 pub const ArgvStorage = struct {
     mod_arg: [320]u8 = undefined,
     monitor_arg: [16]u8 = undefined,
+    parameters_text: [max_parameters_text]u8 = undefined,
+    parameters: [max_extra_args][]const u8 = undefined,
     argv: [max_argv][]const u8 = undefined,
 };
 
@@ -85,6 +152,11 @@ pub fn buildArgv(storage: *ArgvStorage, options: Options) []const []const u8 {
     n += 1;
     if (options.monitor) |monitor| {
         storage.argv[n] = std.fmt.bufPrint(&storage.monitor_arg, "-monitor{d}", .{monitor}) catch "-monitor1";
+        n += 1;
+    }
+    const extra = splitParameters(options.game_parameters, &storage.parameters_text, &storage.parameters);
+    for (storage.parameters[0..extra]) |argument| {
+        storage.argv[n] = argument;
         n += 1;
     }
     storage.argv[n] = map_file_name;
@@ -813,4 +885,49 @@ test "parseMapTrace: truncated lines of every kind add nothing" {
     try std.testing.expectEqual(@as(?u32, null), trace.reserve_applied);
     try std.testing.expectEqual(@as(u32, 0), trace.generals.seen);
     try std.testing.expectEqual(@as(u32, 0), trace.parcels.seen);
+}
+
+test "splitParameters: spaces split, a quoted group stays one argument, nothing else is interpreted" {
+    var text: [max_parameters_text]u8 = undefined;
+    var out: [max_extra_args][]const u8 = undefined;
+    var count = splitParameters("  -nosound   -windowed\t-x ", &text, &out);
+    try std.testing.expectEqual(@as(usize, 3), count);
+    try std.testing.expectEqualStrings("-nosound", out[0]);
+    try std.testing.expectEqualStrings("-windowed", out[1]);
+    try std.testing.expectEqualStrings("-x", out[2]);
+
+    count = splitParameters("-profile=\"My Profile\" \"two words\" $HOME `ls` ; rm", &text, &out);
+    try std.testing.expectEqual(@as(usize, 6), count);
+    try std.testing.expectEqualStrings("-profile=My Profile", out[0]);
+    try std.testing.expectEqualStrings("two words", out[1]);
+    // No variable, command or separator means anything here.
+    try std.testing.expectEqualStrings("$HOME", out[2]);
+    try std.testing.expectEqualStrings("`ls`", out[3]);
+    try std.testing.expectEqualStrings(";", out[4]);
+    try std.testing.expectEqualStrings("rm", out[5]);
+
+    try std.testing.expectEqual(@as(usize, 0), splitParameters("", &text, &out));
+    try std.testing.expectEqual(@as(usize, 0), splitParameters("   \"\"  ", &text, &out));
+    // An unclosed quote takes the rest as one argument.
+    count = splitParameters("-a \"b c", &text, &out);
+    try std.testing.expectEqual(@as(usize, 2), count);
+    try std.testing.expectEqualStrings("b c", out[1]);
+}
+
+test "splitParameters: more than the cap are dropped, never past the storage" {
+    var text: [max_parameters_text]u8 = undefined;
+    var out: [max_extra_args][]const u8 = undefined;
+    var many: [max_parameters_text]u8 = undefined;
+    for (&many, 0..) |*byte, i| byte.* = if (i % 2 == 0) 'a' else ' ';
+    try std.testing.expectEqual(@as(usize, max_extra_args), splitParameters(&many, &text, &out));
+}
+
+test "buildArgv: Options' parameters sit between the editor's arguments and the map, as the MFC put them" {
+    var storage: ArgvStorage = .{};
+    const argv = buildArgv(&storage, .{ .game_path = "/stage/Game", .game_parameters = "-nosound \"-x y\"", .log_path = "log" });
+    try std.testing.expectEqual(@as(usize, 8), argv.len);
+    try std.testing.expectEqualStrings("-windowed", argv[4]);
+    try std.testing.expectEqualStrings("-nosound", argv[5]);
+    try std.testing.expectEqualStrings("-x y", argv[6]);
+    try std.testing.expectEqualStrings("mapeditor_test.bzm", argv[7]);
 }

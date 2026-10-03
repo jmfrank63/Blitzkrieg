@@ -298,6 +298,10 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
             };
         }
     }
+    // 05-11 (PARITY R15): every window's position, size and collapse state is
+    // remembered between sessions in ImGui's own ini, beside mapeditor.cfg and
+    // never in the repository; View > Reset layout forgets it.
+    if (!automated) enableLayoutPersistence(io, settings_path);
     view.wheel_sensitivity = state.settings.scroll_speed;
     // D-32 (M3): the Layers menu starts from what the last session left; the
     // editor re-applies it to the renderer after every open and new map.
@@ -341,6 +345,22 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     // per process is the contract (host.zig Host.stop). `main` does the
     // actual std.process.exit, after this return has let those defers run.
     return if (auto_runner) |r| !r.failed else true;
+}
+
+/// ImGui keeps the ini file's name by pointer for the whole session (it saves
+/// on a timer and at the context's end), so the path lives in a global.
+var layout_ini_path: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+
+/// Turns ImGui's own layout persistence on for the interactive mode:
+/// `layout.ini` in the folder of `mapeditor.cfg` (the user root's `mapeditor`
+/// folder, or wherever the BK_EDITOR_SETTINGS test seam points). Without a
+/// settings path - no user root - the layout simply is not remembered.
+fn enableLayoutPersistence(io: std.Io, settings_path: ?[]const u8) void {
+    const settings = settings_path orelse return;
+    const folder = std.fs.path.dirname(settings) orelse return;
+    const path = std.fmt.bufPrintZ(&layout_ini_path, "{s}{c}layout.ini", .{ folder, std.fs.path.sep }) catch return;
+    std.Io.Dir.cwd().createDirPath(io, folder) catch return;
+    imgui.c.igGetIO().*.IniFilename = path.ptr;
 }
 
 /// `<user_root>mapeditor/mapeditor.cfg`, or `BK_EDITOR_SETTINGS` when the
@@ -424,6 +444,12 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
                 // unsaved-changes guard as the menu's Quit - the loop ends
                 // only once `act` (below) says so.
                 sdl3.c.SDL_EVENT_QUIT, sdl3.c.SDL_EVENT_WINDOW_CLOSE_REQUESTED => state.actions.quit_requested = true,
+                // 05-11 (PARITY F12): a map dropped on the window opens through
+                // the same unsaved-changes guard as Open Recent. SDL owns the
+                // path until the next event poll; `dropFile` copies what it keeps.
+                sdl3.c.SDL_EVENT_DROP_FILE => if (event.drop.data) |data| {
+                    _ = panels.dropFile(state, std.mem.span(data));
+                },
                 else => {
                     const kind = view_mod.inputKindOf(event.type);
                     const capture = view_mod.captureFlags();

@@ -643,3 +643,48 @@ test "routing: a wheel over a panel is the panel's, even during a gesture; over 
     try std.testing.expect(!shouldDeliver(.pinch, busy, true));
     try std.testing.expect(shouldDeliver(.pinch, free, false));
 }
+
+/// One line of Help > Keys and tools: the keys and what they do.
+pub const KeyHelp = struct { keys: [:0]const u8, what: [:0]const u8 };
+
+/// The view's own key and pointer map, for Help > Keys and tools (PARITY H1).
+/// It mirrors `View.handleKey` and the mouse wiring in view.zig, and lives
+/// here, with the pure parts, so the window and its test need no SDL. The
+/// tools' own digit keys are not here: the help window lists them from
+/// tool_registry.zig's entries, so they cannot drift.
+pub const key_help = [_]KeyHelp{
+    .{ .keys = "W A S D, arrow keys", .what = "Pan the camera" },
+    .{ .keys = "Mouse wheel, two-finger swipe", .what = "Pan the camera (speed in Edit > Settings)" },
+    .{ .keys = "Shift + wheel, pinch", .what = "Zoom at the pointer" },
+    .{ .keys = "Home", .what = "Reset the view (zoom and rotation)" },
+    .{ .keys = "Left button", .what = "Use the active tool; Select picks, drags and rubber-bands" },
+    .{ .keys = "Middle button, Alt + left button", .what = "Heights: level; Damage: repair to full" },
+    .{ .keys = "Right button", .what = "Select: deselect; Heights: lower; Damage: heal" },
+    .{ .keys = "Ctrl + click", .what = "Select: add to the selection; Roads, Entrenchment: right click on a trackpad" },
+    .{ .keys = "Q / E", .what = "Turn the selection or the placer left / right" },
+    .{ .keys = "Delete, Backspace", .what = "Delete the selection" },
+    .{ .keys = "Enter, Space, double click", .what = "Open Properties on the selection; finish or toggle in the Vector tools" },
+    .{ .keys = "Insert", .what = "Insert a point or a player" },
+    .{ .keys = "Escape", .what = "Cancel the gesture in progress" },
+    .{ .keys = "Ctrl/Cmd + Z, Ctrl/Cmd + Y", .what = "Undo, redo (Shift + Z redoes too)" },
+    .{ .keys = "Ctrl/Cmd + N, W", .what = "New map, close the map" },
+    .{ .keys = "Ctrl/Cmd + Shift + X, B", .what = "Save as XML, save as BZM" },
+    .{ .keys = "Ctrl/Cmd + U", .what = "Update Map" },
+    .{ .keys = "F5", .what = "Test in game" },
+};
+
+test "the help's key map names every key the view handles, with no empty line" {
+    try std.testing.expect(key_help.len >= 15);
+    for (key_help) |line| {
+        try std.testing.expect(line.keys.len != 0);
+        try std.testing.expect(line.what.len != 0);
+    }
+    // The keys handleKey takes by name appear in the list.
+    inline for (.{ "Home", "Delete", "Q / E", "Insert", "Escape", "Enter", "Space", "F5" }) |key| {
+        var found = false;
+        for (key_help) |line| {
+            if (std.mem.indexOf(u8, line.keys, key) != null) found = true;
+        }
+        try std.testing.expect(found);
+    }
+}

@@ -249,6 +249,19 @@ pub const State = struct {
     /// changed.
     settings_changed: bool = false,
     settings_window_open: bool = false,
+    /// 05-11 (D-34): Tools > Options (the game's extra command line and the
+    /// default save format; the two fields are edited here and commit on OK),
+    /// Help > Keys and tools and Help > About.
+    options_open: bool = false,
+    options_params_edit: [core.settings.max_game_parameters:0]u8 = [_:0]u8{0} ** core.settings.max_game_parameters,
+    options_format_edit: core.settings.Format = core.settings.default_format,
+    help_keys_open: bool = false,
+    about_open: bool = false,
+    /// View > Reset layout asked for: the next `draw` makes every panel and
+    /// window forget where it was and puts the docked ones back.
+    layout_reset_pending: bool = false,
+    /// The hidden-panel bits `draw` last placed the docked panels for.
+    last_hidden_panels: u32 = 0,
     /// File > New's dialog (M3, D-23): whether it is up, the fields being
     /// edited, the Square lock, and the name the newest never-saved map was
     /// given (kept for the title and the first Save As; the document holds
@@ -1546,6 +1559,9 @@ pub fn documentLoaded(editor: *const Editor) bool {
 /// Edits made through them go to the editor at once; the file actions the
 /// menu asks for are left in `state.actions` for `act`.
 pub fn draw(state: *State) void {
+    // View > Reset layout (05-11, PARITY V3/R15): before any window is drawn,
+    // so every one of them takes its first-use placement again this frame.
+    if (state.layout_reset_pending) resetLayout(state);
     // Drawn first so the brush outline sits under the panels' own draw
     // calls - it targets the background draw list (behind the panels'
     // window draw lists regardless of call order), so this is about
@@ -1574,18 +1590,25 @@ pub fn draw(state: *State) void {
     // frame the viewport itself changes size re-applies pos and height;
     // size.x is handed back exactly as `beginPanel` last read it
     // (state.left_width/right_width), so a width the user dragged survives.
-    const resized = size.x != state.last_viewport_size.x or size.y != state.last_viewport_size.y;
+    // View (05-11, PARITY V1/V2): the always-present panels and the status bar
+    // can each be hidden; the ones left take the room, in the same order - the
+    // docked panels are placed again (like after a resize) the frame the set
+    // of hidden panels changes.
+    const hidden = state.settings.hidden_panels;
+    const resized = size.x != state.last_viewport_size.x or size.y != state.last_viewport_size.y or hidden != state.last_hidden_panels;
     state.last_viewport_size = size;
+    state.last_hidden_panels = hidden;
     const cond: ig.ImGuiCond = if (resized) ig.ImGuiCond_Always else ig.ImGuiCond_FirstUseEver;
-    const status_height = ig.igGetFrameHeightWithSpacing() + 4;
+    const status_height = if (logic.panelHidden(hidden, .status_bar)) 0 else ig.igGetFrameHeightWithSpacing() + 4;
     const body_top = menu_height;
     const body_height = @max(size.y - menu_height - status_height, 100);
 
-    drawToolPalette(state, .{ .x = 0, .y = body_top }, .{ .x = state.left_width, .y = layout.tools_height }, cond);
+    const tools_height: f32 = if (logic.panelHidden(hidden, .tools)) 0 else layout.tools_height;
+    if (!logic.panelHidden(hidden, .tools)) drawToolPalette(state, .{ .x = 0, .y = body_top }, .{ .x = state.left_width, .y = tools_height }, cond);
     // The left column under the tools: the Roads & Rivers panel while its
     // tool is active (04-05), the object palette otherwise.
-    const left_pos: ig.ImVec2 = .{ .x = 0, .y = body_top + layout.tools_height };
-    const left_size: ig.ImVec2 = .{ .x = state.left_width, .y = @max(body_height - layout.tools_height, 100) };
+    const left_pos: ig.ImVec2 = .{ .x = 0, .y = body_top + tools_height };
+    const left_size: ig.ImVec2 = .{ .x = state.left_width, .y = @max(body_height - tools_height, 100) };
     if (state.view.tool == .roads_rivers)
         panels_m2.drawRoadsRivers(state, left_pos, left_size, cond)
     else if (state.view.tool == .bridge)
@@ -1602,16 +1625,26 @@ pub fn draw(state: *State) void {
         panels_m2.drawAIGeneral(state, left_pos, left_size, cond)
     else if (state.view.tool == .damage)
         panels_m3.drawDamageTool(state, left_pos, left_size, cond)
-    else
+    else if (!logic.panelHidden(hidden, .objects))
         drawObjectPalette(state, left_pos, left_size, cond);
     const right_x = @max(size.x - state.right_width, state.left_width);
     // A panel that uses Delete itself (the Players list, the start commands)
     // claims it again during its own draw.
     state.view.delete_claimed = false;
-    drawProperties(state, .{ .x = right_x, .y = body_top }, .{ .x = state.right_width, .y = layout.properties_height }, cond);
-    drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = state.right_width, .y = layout.players_height }, cond);
-    panels_m2.drawCameraAnchors(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height }, .{ .x = state.right_width, .y = layout.anchors_height }, cond);
-    drawSounds(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height + layout.anchors_height }, .{ .x = state.right_width, .y = @max(body_height - layout.properties_height - layout.players_height - layout.anchors_height, 100) }, cond);
+    var right_y: f32 = body_top;
+    if (!logic.panelHidden(hidden, .properties)) {
+        drawProperties(state, .{ .x = right_x, .y = right_y }, .{ .x = state.right_width, .y = layout.properties_height }, cond);
+        right_y += layout.properties_height;
+    }
+    if (!logic.panelHidden(hidden, .players)) {
+        drawPlayers(state, .{ .x = right_x, .y = right_y }, .{ .x = state.right_width, .y = layout.players_height }, cond);
+        right_y += layout.players_height;
+    }
+    if (!logic.panelHidden(hidden, .camera_anchors)) {
+        panels_m2.drawCameraAnchors(state, .{ .x = right_x, .y = right_y }, .{ .x = state.right_width, .y = layout.anchors_height }, cond);
+        right_y += layout.anchors_height;
+    }
+    if (!logic.panelHidden(hidden, .sounds)) drawSounds(state, .{ .x = right_x, .y = right_y }, .{ .x = state.right_width, .y = @max(body_height - (right_y - body_top), 100) }, cond);
     panels_m2.drawGroups(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 360, .y = 420 });
     panels_m3.drawHeightsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 40 }, .{ .x = 300, .y = 420 });
     panels_m3.drawFiltersComposer(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 420, .y = 380 });
@@ -1628,7 +1661,11 @@ pub fn draw(state: *State) void {
     panels_m2.drawScriptDialog(state, .{ .x = state.left_width + 60, .y = body_top + 80 }, .{ .x = 380, .y = 340 });
     panels_m2.drawScriptModals(state);
     panels_m2.drawStartCommands(state, .{ .x = state.left_width + 80, .y = body_top + 100 }, .{ .x = 420, .y = 520 });
-    drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
+    if (!logic.panelHidden(hidden, .status_bar)) drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
+    // 05-11 (D-34): Help's two windows and Tools > Options.
+    panels_m3.drawHelpKeysWindow(state, .{ .x = state.left_width + 60, .y = body_top + 40 }, .{ .x = 760, .y = 600 });
+    panels_m3.drawAboutWindow(state);
+    panels_m3.drawOptionsWindow(state);
     drawTestLaunchModals(state);
     drawUnsavedPrompt(state);
     drawUnknownObjectsPrompt(state);
@@ -2513,6 +2550,8 @@ fn launchTestGame(state: *State, buffer: *[512]u8) logic.LaunchAttempt {
         .monitor = windowMonitor(state.window),
         .log_path = log_path,
         .extra_env = state.test_extra_env,
+        // PARITY T2 (05-11): Tools > Options' extra game command line.
+        .game_parameters = state.settings.gameParameters(),
     }) catch |err| {
         const message = if (err == error.FileNotFound)
             std.fmt.bufPrint(buffer, "No game beside the Map Editor at {s}", .{game_path}) catch "No game beside the Map Editor"
@@ -2687,32 +2726,186 @@ fn drawMenuBar(state: *State) f32 {
             }
             ig.igEndMenu();
         }
+        // 05-11, D-34 (PARITY T2): the game's extra command line and the default save format.
+        ig.igSeparator();
+        if (ig.igMenuItemEx("Options...", null, state.options_open, true)) panels_m3.openOptionsWindow(state);
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("View")) {
-        if (ig.igMenuItemEx("Reset view", "Home", false, map_open)) state.view.resetView(state.real);
-        // The floating windows the menus own (the M2/M3 panels' own View
-        // entries, D-34's show/hide every panel as it lands).
-        if (ig.igMenuItemBoolPtr("Heights", null, &state.heights_open, true)) {}
-        // 05-07, D-14: the Minimap (PARITY V2's minimap bar).
-        if (ig.igMenuItemBoolPtr("Minimap", null, &state.minimap.visible, map_open)) {}
-        if (ig.igMenuItemBoolPtr("Properties", null, &state.properties_open, map_open)) {}
-        if (ig.igMenuItemBoolPtr("Reinforcement groups", null, &state.groups_open, map_open)) {}
-        if (ig.igBeginMenu("Markers")) {
-            inline for (comptime std.enums.values(marker_logic.MarkerKind)) |kind| {
-                var on = state.marker_set.has(kind);
-                if (ig.igMenuItemBoolPtr(kind.label(), null, &on, true)) state.marker_set.setKind(kind, on);
-            }
-            ig.igEndMenu();
-        }
+        drawViewMenu(state, map_open);
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("Test")) {
         if (ig.igMenuItemEx("Test in game", "F5", false, map_open)) requestTestLaunch(state);
         ig.igEndMenu();
     }
+    // 05-11, D-34 (PARITY H1/H2): the MFC's .chm is not shipped; Keys and tools
+    // is the help, About the product line.
+    if (ig.igBeginMenu("Help")) {
+        if (ig.igMenuItemBoolPtr("Keys and tools", null, &state.help_keys_open, true)) {}
+        if (ig.igMenuItemBoolPtr("About", null, &state.about_open, true)) {}
+        ig.igEndMenu();
+    }
     ig.igEndMainMenuBar();
     return height;
+}
+
+/// The floating windows the View menu lists beside the docked panels (PARITY
+/// V1: "every panel"). Each is one `bool` of State; the order is the menu's.
+pub const ViewWindow = enum {
+    heights,
+    fields,
+    minimap,
+    properties_window,
+    groups,
+    start_commands,
+    script,
+    unit_creation,
+    check_map,
+    filters_composer,
+    containers_composer,
+    graphs_composer,
+    fields_composer,
+    templates_composer,
+    options,
+    keys_and_tools,
+    about,
+};
+
+pub fn viewWindowLabel(window: ViewWindow) [:0]const u8 {
+    return switch (window) {
+        .heights => "Heights",
+        .fields => "Fields",
+        .minimap => "Minimap",
+        .properties_window => "Properties window",
+        .groups => "Reinforcement groups",
+        .start_commands => "Start commands",
+        .script => "Script",
+        .unit_creation => "Unit Creation Info",
+        .check_map => "Check Map",
+        .filters_composer => "Filters Composer",
+        .containers_composer => "Containers Composer",
+        .graphs_composer => "Graphs Composer",
+        .fields_composer => "Fields Composer",
+        .templates_composer => "Templates Composer",
+        .options => "Options",
+        .keys_and_tools => "Keys and tools",
+        .about => "About",
+    };
+}
+
+/// Whether the window's flag may be turned on with no map open.
+fn viewWindowNeedsMap(window: ViewWindow) bool {
+    return switch (window) {
+        .minimap, .properties_window, .groups, .start_commands, .script, .unit_creation, .check_map => true,
+        else => false,
+    };
+}
+
+pub fn viewWindowFlag(state: *State, window: ViewWindow) *bool {
+    return switch (window) {
+        .heights => &state.heights_open,
+        .fields => &state.fields_open,
+        .minimap => &state.minimap.visible,
+        .properties_window => &state.properties_open,
+        .groups => &state.groups_open,
+        .start_commands => &state.startcmds_open,
+        .script => &state.script_open,
+        .unit_creation => &state.uc_open,
+        .check_map => &state.check_open,
+        .filters_composer => &state.filters_composer_open,
+        .containers_composer => &state.containers_open,
+        .graphs_composer => &state.graphs_open,
+        .fields_composer => &state.fields_composer_open,
+        .templates_composer => &state.templates_composer_open,
+        .options => &state.options_open,
+        .keys_and_tools => &state.help_keys_open,
+        .about => &state.about_open,
+    };
+}
+
+/// Shows or hides one floating window as its View entry does: the composers
+/// scan their folders when they open, Options loads its fields fresh.
+pub fn setViewWindow(state: *State, window: ViewWindow, on: bool) void {
+    const flag = viewWindowFlag(state, window);
+    const was = flag.*;
+    flag.* = on;
+    if (on and !was) switch (window) {
+        .containers_composer, .graphs_composer, .fields_composer, .templates_composer => state.composers.ensureScanned(state.editor),
+        .options => panels_m3.openOptionsWindow(state),
+        else => {},
+    };
+}
+
+/// Shows or hides one of the docked panels or the status bar, and asks for the
+/// setting to be written.
+pub fn setPanelVisible(state: *State, id: logic.PanelId, visible: bool) void {
+    const bits = logic.withPanelHidden(state.settings.hidden_panels, id, !visible);
+    if (bits == state.settings.hidden_panels) return;
+    state.settings.hidden_panels = bits;
+    state.settings_changed = true;
+}
+
+/// View > Reset layout (PARITY V3, R15): every panel and window goes back to
+/// its first-use placement, the docked columns to their first widths and every
+/// hidden panel and the status bar are shown again. The windows' positions are
+/// ImGui's own ini state (kept under the user root by the interactive mode),
+/// which `bk_imgui_reset_window_layout` clears with them.
+fn resetLayout(state: *State) void {
+    state.layout_reset_pending = false;
+    ig.bk_imgui_reset_window_layout();
+    state.left_width = layout.left_width;
+    state.right_width = layout.right_width;
+    if (state.settings.hidden_panels != 0) {
+        state.settings.hidden_panels = 0;
+        state.settings_changed = true;
+    }
+    state.last_viewport_size = .{ .x = 0, .y = 0 }; // the docked panels take their place this frame
+}
+
+/// Whether the docked columns have the widths Reset layout gives them.
+pub fn columnsAtDefault(state: *const State) bool {
+    return state.left_width == layout.left_width and state.right_width == layout.right_width;
+}
+
+/// View (05-11, D-34): the view, the layout, every docked panel and floating
+/// window with a check, the status bar and the markers.
+fn drawViewMenu(state: *State, map_open: bool) void {
+    if (ig.igMenuItemEx("Reset view", "Home", false, map_open)) state.view.resetView(state.real);
+    if (ig.igMenuItemEx("Reset layout", null, false, true)) state.layout_reset_pending = true;
+    ig.igSeparator();
+    inline for (comptime std.enums.values(logic.PanelId)) |id| {
+        var shown = !logic.panelHidden(state.settings.hidden_panels, id);
+        if (ig.igMenuItemBoolPtr(logic.panelLabel(id).ptr, null, &shown, true)) setPanelVisible(state, id, shown);
+    }
+    ig.igSeparator();
+    inline for (comptime std.enums.values(ViewWindow)) |window| {
+        const flag = viewWindowFlag(state, window);
+        var on = flag.*;
+        if (ig.igMenuItemBoolPtr(viewWindowLabel(window).ptr, null, &on, map_open or !viewWindowNeedsMap(window))) setViewWindow(state, window, on);
+    }
+    ig.igSeparator();
+    if (ig.igBeginMenu("Markers")) {
+        inline for (comptime std.enums.values(marker_logic.MarkerKind)) |kind| {
+            var on = state.marker_set.has(kind);
+            if (ig.igMenuItemBoolPtr(kind.label(), null, &on, true)) state.marker_set.setKind(kind, on);
+        }
+        ig.igEndMenu();
+    }
+}
+
+/// A file dropped onto the window (PARITY F12): a map goes through the same
+/// unsaved-changes guard as File > Open Recent; anything else is ignored with
+/// a status note. The path is another program's input and is checked first.
+pub fn dropFile(state: *State, os_path: []const u8) bool {
+    const verdict = logic.dropVerdict(os_path);
+    if (verdict != .open) {
+        var note: [256]u8 = undefined;
+        state.view.setStatus("drop: ", logic.dropNote(&note, verdict, os_path));
+        return false;
+    }
+    state.actions.requestOpenPath(os_path);
+    return true;
 }
 
 /// The Unit menu (04-11): start commands for the selected unit. "Add start

@@ -40,6 +40,10 @@ pub fn formatExtension(which: Format) []const u8 {
     };
 }
 
+/// D-34 (05-11): the longest extra game command line Options keeps - a game
+/// command line is a few switches, never a script.
+pub const max_game_parameters = 256;
+
 /// `BkEditorPathSet`'s own `char[1024]` (bridge.h) - big enough for any real
 /// path, and matches the engine's own convention for a fixed path buffer.
 pub const max_path = 1024;
@@ -90,7 +94,38 @@ pub const Settings = struct {
     filter_active: FixedPath = .{},
     filter_slots: [filter_slot_count]FixedPath = [_]FixedPath{.{}} ** filter_slot_count,
 
+    /// D-34 (05-11, PARITY T2): Tools > Options' extra game command line for
+    /// Test in game (the MFC's `szGameParameters`). Empty means none. It comes
+    /// from this file or the Options window only and goes to the game as argv
+    /// elements, never through a shell (T-05-11-03).
+    game_parameters: FixedPath = .{},
+
+    /// D-34 (05-11, PARITY V1/V2): which of the always-present panels and the
+    /// status bar the View menu hid, one bit each in the app's own panel order
+    /// (panels_logic.PanelId). The core only keeps the number: 0, nothing
+    /// hidden, is the default and what Reset layout restores.
+    hidden_panels: u32 = 0,
+
     pub const filter_slot_count = 9;
+
+    pub fn gameParameters(self: *const Settings) []const u8 {
+        return self.game_parameters.slice();
+    }
+
+    /// Keeps at most `max_game_parameters` bytes and drops control characters
+    /// (a newline would split the settings file's own line, and no argument
+    /// of a game command line holds one).
+    pub fn setGameParameters(self: *Settings, text: []const u8) void {
+        var clean: [max_game_parameters]u8 = undefined;
+        var len: usize = 0;
+        for (text) |byte| {
+            if (byte < 0x20 or byte == 0x7f) continue;
+            if (len == clean.len) break;
+            clean[len] = byte;
+            len += 1;
+        }
+        self.game_parameters.set(std.mem.trim(u8, clean[0..len], " "));
+    }
 
     pub fn filterSlot(self: *const Settings, index: usize) []const u8 {
         if (index >= filter_slot_count) return "";
@@ -213,6 +248,11 @@ fn applyKey(settings: *Settings, key: []const u8, value: []const u8) void {
         const len = @min(value.len, layers_mod.max_filter_len);
         @memcpy(settings.layers.fire_filter_buffer[0..len], value[0..len]);
         settings.layers.fire_filter_len = len;
+    } else if (std.mem.eql(u8, key, "game_parameters")) {
+        settings.setGameParameters(value);
+    } else if (std.mem.eql(u8, key, "hidden_panels")) {
+        // A number or nothing: a malformed value keeps every panel shown.
+        settings.hidden_panels = std.fmt.parseInt(u32, value, 10) catch return;
     } else if (std.mem.eql(u8, key, "maps_folder")) {
         settings.setMapsFolder(value);
     } else if (std.mem.eql(u8, key, "filter_active")) {
@@ -270,6 +310,8 @@ pub fn format(self: *const Settings, writer: *std.Io.Writer) std.Io.Writer.Error
     try writer.print("layers_bits={d}\n", .{self.layers.bits & ~layers_mod.bit(.fire_ranges)});
     try writer.print("fire_range_mode={s}\n", .{@tagName(self.layers.fire_mode)});
     if (self.layers.fire_mode == .filter) try writer.print("fire_range_filter={s}\n", .{self.layers.fireFilter()});
+    if (self.gameParameters().len != 0) try writer.print("game_parameters={s}\n", .{self.gameParameters()});
+    if (self.hidden_panels != 0) try writer.print("hidden_panels={d}\n", .{self.hidden_panels});
     if (self.mapsFolder().len != 0) try writer.print("maps_folder={s}\n", .{self.mapsFolder()});
     if (self.filter_active.slice().len != 0) try writer.print("filter_active={s}\n", .{self.filter_active.slice()});
     for (self.filter_slots, 0..) |slot, index| {
@@ -492,3 +534,34 @@ test "removeRecent: an out-of-range index is a no-op" {
     try std.testing.expectEqual(@as(usize, 1), settings.recentCount());
 }
 
+
+test "game parameters and hidden panels: default empty, round trip, control characters and length cut" {
+    try std.testing.expectEqualStrings("", parse("").gameParameters());
+    try std.testing.expectEqual(@as(u32, 0), parse("").hidden_panels);
+
+    var settings: Settings = .{};
+    settings.setGameParameters("  -nosound -windowed \"a b\"  ");
+    settings.hidden_panels = 0b1010;
+    var buffer: [1024]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    const back = parse(writer.buffered());
+    try std.testing.expectEqualStrings("-nosound -windowed \"a b\"", back.gameParameters());
+    try std.testing.expectEqual(@as(u32, 0b1010), back.hidden_panels);
+
+    // A control character is dropped, so one line stays one line.
+    settings.setGameParameters("-a\n-b\r\x01");
+    try std.testing.expectEqualStrings("-a-b", settings.gameParameters());
+    // Nothing past the cap is kept.
+    var long: [max_game_parameters + 40]u8 = undefined;
+    @memset(&long, 'x');
+    settings.setGameParameters(&long);
+    try std.testing.expectEqual(@as(usize, max_game_parameters), settings.gameParameters().len);
+
+    // A malformed number keeps every panel shown; empty parameters write no key.
+    try std.testing.expectEqual(@as(u32, 0), parse("hidden_panels=many\n").hidden_panels);
+    settings.setGameParameters("");
+    var writer2: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer2);
+    try std.testing.expect(std.mem.indexOf(u8, writer2.buffered(), "game_parameters") == null);
+}
