@@ -3935,10 +3935,13 @@ fn drawPaletteFilters(state: *State) void {
     if (ig.igSmallButton("New Filter")) state.filter_new_popup = true;
     ig.igSameLine();
     if (ig.igSmallButton("Delete Filter")) {
-        if (combo_name.len != 0) {
+        if (combo_name.len != 0 and combo_name.len < state.filter_delete_popup.len) {
             @memcpy(state.filter_delete_popup[0..combo_name.len], combo_name[0..combo_name.len]);
             state.filter_delete_popup[combo_name.len] = 0;
             _ = ig.igOpenPopup("Delete filter?", 0);
+        } else if (combo_name.len != 0) {
+            // CR-A03: a hand-edited mapeditor.cfg can name more than the popup's buffer holds.
+            state.view.setStatus("filter: ", "that filter name is too long to delete here");
         }
     }
     drawPaletteFilterPopups(state);
