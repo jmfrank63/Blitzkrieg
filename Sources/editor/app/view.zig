@@ -362,6 +362,14 @@ pub fn ViewWith(comptime Input: type) type {
             }
         }
 
+        /// A never-saved map (File > New: `showMap` with an empty path) got its
+        /// path by the first Save As: the view's remembered camera follows the
+        /// document from here on. A view that already has a path is left alone.
+        pub fn rebindPath(self: *Self, path: []const u8) void {
+            if (self.current_path.items.len != 0 or path.len == 0) return;
+            self.current_path.appendSlice(self.allocator, path) catch self.current_path.clearRetainingCapacity();
+        }
+
         /// The map was closed (File > Mod, D-26 revised 2026-09-29): the view is
         /// what it is with no map open at startup - no map size to clamp the
         /// camera to, no current path, no open gesture or hover. The closed
@@ -1324,6 +1332,31 @@ test "view: a map opened for the first time shows its middle, unzoomed" {
     try testing.expectApproxEqAbs(fixture_centre, rig.camera.anchor_x, 0.001);
     try testing.expectEqual(@as(i32, 0), rig.camera.zoom_steps);
     try testing.expectEqualStrings("T34", rig.view.placer.name);
+}
+
+test "view: a never-saved map (an empty path) still sets the map size and the camera, and keeps no remembered view (CR-A01)" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    // The fixture map is open under a path; File > New replaces it with a
+    // document that has none.
+    var info = rig.editor.document.info;
+    info.width_tiles = 16;
+    info.height_tiles = 12;
+    rig.view.showMap(&rig.camera, "", info, "T34");
+    try testing.expectEqual(@as(i32, 16), rig.view.map.width_tiles);
+    try testing.expectEqual(@as(i32, 12), rig.view.map.height_tiles);
+    try testing.expectEqual(@as(usize, 0), rig.view.current_path.items.len);
+    // The fixture map's view was remembered when it was replaced; the
+    // never-saved map's is not (there is no key to keep it under).
+    try testing.expectEqual(@as(u32, 1), rig.view.remembered.count());
+    rig.view.showMap(&rig.camera, "", info, "T34");
+    try testing.expectEqual(@as(u32, 1), rig.view.remembered.count());
+    // The first Save As gives it a path the view follows; a second one is
+    // left alone.
+    rig.view.rebindPath("saved.bzm");
+    try testing.expectEqualStrings("saved.bzm", rig.view.current_path.items);
+    rig.view.rebindPath("other.bzm");
+    try testing.expectEqualStrings("saved.bzm", rig.view.current_path.items);
 }
 
 test "view: the 2 key, then a left press, drag and release paint two cells as one undo step" {
