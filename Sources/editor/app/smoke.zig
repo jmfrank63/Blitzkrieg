@@ -1805,12 +1805,31 @@ pub const AutoRunner = struct {
         const exit = self.state.test_game.?.waitBlocking(self.io, seconds * 1000) orelse {
             self.state.test_game.?.terminate(self.io);
             self.state.test_game = null;
+            self.printGameLogTail();
             return self.fail("waitgame: the game did not exit within {d}s", .{seconds});
         };
         self.state.test_game = null;
-        if ((exit.code orelse 1) != 0 or exit.signal != null)
+        if ((exit.code orelse 1) != 0 or exit.signal != null) {
+            self.printGameLogTail();
             return self.fail("waitgame: the game exited code={?d} signal={?d}", .{ exit.code, exit.signal });
+        }
         return true;
+    }
+
+    /// The end of the test game's own log (it lives in the user root, which an
+    /// unattended run - CI - keeps nowhere it can be read afterwards), so a
+    /// failed `waitgame` says why the game went.
+    fn printGameLogTail(self: *AutoRunner) void {
+        const log_path = self.state.test_game_log_buffer[0..self.state.test_game_log_len];
+        if (log_path.len == 0) return;
+        const log = std.Io.Dir.cwd().readFileAlloc(self.io, log_path, self.state.allocator, .limited(16 << 20)) catch |err| {
+            std.debug.print("map-editor: BK_EDITOR_AUTO: the test game's log {s} could not be read: {t}\n", .{ log_path, err });
+            return;
+        };
+        defer self.state.allocator.free(log);
+        const tail_bytes = 12 * 1024;
+        const tail = log[log.len -| tail_bytes ..];
+        std.debug.print("map-editor: BK_EDITOR_AUTO: the test game's log {s} ({d} bytes), its end:\n{s}\nmap-editor: BK_EDITOR_AUTO: end of the test game's log\n", .{ log_path, log.len, tail });
     }
 
     fn runShot(self: *AutoRunner, name: []const u8) bool {
