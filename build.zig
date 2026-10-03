@@ -797,6 +797,19 @@ pub fn build(b: *std.Build) void {
         query.glibc_version = b.graph.host.result.os.version_range.linux.glibc;
         selected_target = b.resolveTargetQuery(query);
     }
+    // The editor's single-instance socket (Sources/editor/app/single_instance.zig) is an
+    // AF_UNIX stream socket, which Windows has had since Windows 10 version 1803 (build
+    // 17063, "redstone 4"). The std keeps `net.UnixAddress` behind
+    // `builtin.os.version_range.windows.isAtLeast(.win10_rs4)`, and a target that names no
+    // Windows version leaves that unknown - read as false - so a plain
+    // -Dtarget=x86_64-windows-msvc build would have a second launch that never reaches the
+    // first (its socket tests fail with AddressFamilyUnsupported). Name the oldest Windows
+    // this project builds for unless the command line pinned a version.
+    if (selected_target.result.os.tag == .windows and selected_target.query.os_version_min == null) {
+        var query = selected_target.query;
+        query.os_version_min = .{ .windows = .win10_rs4 };
+        selected_target = b.resolveTargetQuery(query);
+    }
     const platform = build_support.classify(selected_target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-windows-gnu, x86_64-linux-gnu, aarch64-linux-gnu, x86_64-macos, and aarch64-macos");
     build_target_os = selected_target.result.os.tag;
     build_target_msvc = build_support.usesMsvc(platform);
