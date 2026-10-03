@@ -4147,6 +4147,73 @@ static void TestM3LinkCycleAndZeroID( BkEditorSession *pSession, const std::stri
 	Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 }
 
+// A host's delete is all or nothing: the passengers go first, and a host the
+// map then refuses (a bridge span here) must not leave them deleted. A map file
+// can hold an object that names a span as its host (the editor's own link rules
+// would not make one); deleting the span takes the passenger, is refused for
+// the span, and the passenger comes back where it was.
+static void TestM3HostRefusedKeepsPassengers( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	std::set<int> referred;
+	for ( size_t i = 0; i < original.bridges.size(); ++i )
+		referred.insert( original.bridges[i].begin(), original.bridges[i].end() );
+	for ( size_t i = 0; i < original.entrenchments.size(); ++i )
+		for ( size_t j = 0; j < original.entrenchments[i].sections.size(); ++j )
+			referred.insert( original.entrenchments[i].sections[j].begin(), original.entrenchments[i].sections[j].end() );
+	referred.erase( 0 );
+	int nSpan = 0;
+	for ( size_t i = 0; i < original.bridges.size() && nSpan == 0; ++i )
+		for ( size_t j = 0; j < original.bridges[i].size() && nSpan == 0; ++j )
+			nSpan = original.bridges[i][j];
+	// The passenger: an object nothing refers to and nothing carries.
+	std::set<int> carried;
+	std::vector<SMapObjectInfo> *lists[2] = { &original.objects, &original.scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+			carried.insert( ( *lists[nList] )[i].link.nLinkWith );
+	SMapObjectInfo *pPassenger = 0;
+	bool bSpanOnMap = false;
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+		{
+			SMapObjectInfo &rObject = ( *lists[nList] )[i];
+			const int nID = rObject.link.nLinkID;
+			if ( nID == nSpan )
+				bSpanOnMap = true;
+			else if ( pPassenger == 0 && nID != 0 && referred.count( nID ) == 0 && carried.count( nID ) == 0 && rObject.link.nLinkWith == 0 )
+				pPassenger = &rObject;
+		}
+	if ( !Check( nSpan != 0 && bSpanOnMap && pPassenger != 0, "the map holds a bridge span and a free object to make its passenger" ) )
+		return;
+	const int nPassengerID = pPassenger->link.nLinkID;
+	pPassenger->link.nLinkWith = nSpan;
+
+	const std::string szMap = szScratch + "\\m3-host-refused.bzm";
+	const std::string szBefore = szScratch + "\\m3-host-refused-before.bzm";
+	const std::string szAfter = szScratch + "\\m3-host-refused-after.bzm";
+	if ( Check( NMapFile::Write( szMap.c_str(), original, &szError ), szError.c_str() ) &&
+	     Check( BkEditorOpenMap( pSession, szMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		Check( BkEditorSaveMap( pSession, szBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		const int nObjects = CountObjects( pSession );
+		Check( BkEditorDeleteObject( pSession, nSpan ) == BK_EDITOR_REFUSED, ( std::string( "the span's delete is refused: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		Check( CountObjects( pSession ) == nObjects, "and nothing is left deleted - the passenger is back" );
+		Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( SameBytes( szBefore, szAfter ), "the refused host delete left the map byte for byte" );
+		// The passenger is still its own object: it can be deleted and restored.
+		Check( BkEditorDeleteObject( pSession, nPassengerID ) == BK_EDITOR_OK, ( std::string( "the restored passenger can be deleted: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		Check( CountObjects( pSession ) == nObjects - 1, "and that takes it alone" );
+	}
+	remove( OsPath( szMap ).c_str() );
+	remove( OsPath( szBefore ).c_str() );
+	remove( OsPath( szAfter ).c_str() );
+	Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+}
+
 // M3 (D-26/D-27): the properties' fields and the links, on the engine. The
 // fields edit (player, hp, angle, formation) saves as the builder's map; the
 // garrison links a known infantry to a known building through
@@ -11823,6 +11890,7 @@ int main( int argc, char **argv )
 		TestM3MultiSelect( pSession, szScratch );
 		TestM3PropertiesAndLinks( pSession, szScratch );
 		TestM3LinkCycleAndZeroID( pSession, szScratch );
+		TestM3HostRefusedKeepsPassengers( pSession, szScratch );
 		TestM3Damage( pSession, szScratch );
 		TestM3PlayersAndUnitCreation( pSession, szScratch );
 		TestM3CheckMap( pSession, szScratch );
