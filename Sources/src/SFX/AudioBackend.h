@@ -23,6 +23,7 @@ namespace NAudioBackend
 	void SetDriver( int nDriver );
 	bool InitDevice( ESFXOutputType output, int nMixRate, int nMaxChannels, const SDriverInfo &driverInfo, bool *pSoundCardPresent );
 	void CloseDevice();
+	void RestartStoppedDevice();
 	void DebugTraceMixer();
 	void SetDistanceFactor( float fFactor );
 	void SetRolloffFactor( float fFactor );

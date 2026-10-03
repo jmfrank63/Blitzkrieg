@@ -222,6 +222,8 @@ void CSoundEngine::Update( interface ICamera *pCamera )
 		}
 	}
 
+	NAudioBackend::RestartStoppedDevice();
+
 	timeLastUpdate = GetSingleton<IGameTimer>()->GetAbsTime();
 	if ( pCamera )
 		UpdateCameraPos( pCamera->GetAnchor() );

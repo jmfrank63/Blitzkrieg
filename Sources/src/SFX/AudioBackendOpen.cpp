@@ -1483,6 +1483,41 @@ namespace NAudioBackendImpl
 		}
 	}
 
+	// The game never stops the device itself (CloseDevice uninits it), so a
+	// stopped device means the output went away under us. After a Mac sleeps
+	// with an AirPlay default output, miniaudio reroutes to the returning link
+	// but its AudioOutputUnitStart fails while the link wakes up; miniaudio
+	// then marks the device stopped without telling anyone and the whole
+	// session stays silent. Called every frame; retries once a second.
+	void RestartStoppedDevice()
+	{
+		if ( !g_bEngineInitialized )
+			return;
+		ma_device *pDevice = ma_engine_get_device( &g_engine );
+		if ( !pDevice || ma_device_get_state( pDevice ) != ma_device_state_stopped )
+			return;
+
+		static std::uint32_t s_tLastAttempt = 0;
+		static bool s_bReportedFailure = false;
+		const std::uint32_t tNow = NPlatform::MonotonicMilliseconds();
+		if ( s_tLastAttempt != 0 && NPlatform::MillisecondsElapsed( s_tLastAttempt, tNow ) < 1000 )
+			return;
+		s_tLastAttempt = tNow;
+
+		const ma_result result = ma_device_start( pDevice );
+		if ( result == MA_SUCCESS )
+		{
+			NPlatform::DebugWrite( "SFX open audio device had stopped; restarted\n" );
+			TraceOpenAudioDevice();
+			s_bReportedFailure = false;
+		}
+		else if ( !s_bReportedFailure )
+		{
+			TraceOpenAudioResult( "device had stopped; restart failed, retrying", result );
+			s_bReportedFailure = true;
+		}
+	}
+
 	void DebugTraceMixer()
 	{
 		NPlatform::DebugWrite( "SFX open audio miniaudio backend\n" );
