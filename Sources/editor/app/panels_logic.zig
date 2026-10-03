@@ -9,6 +9,7 @@ const builtin = @import("builtin");
 const core = @import("editor_core");
 const testlaunch = @import("testlaunch.zig");
 const view_math = @import("view_math.zig");
+const tool_registry = @import("tool_registry.zig");
 
 const Editor = core.editor.Editor;
 const Pose = core.editor.Pose;
@@ -4278,4 +4279,216 @@ test "composers: a picked patch inside Data is added by name, one outside is off
     try std.testing.expect(patchNameFromBrowse(&buffer, "/g/blitz/", "/elsewhere/p.bzm") == null);
     try std.testing.expect(patchNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/Scenarios/Patches/p.txt") == null);
     try std.testing.expect(patchNameFromBrowse(&buffer, "/g/blitz/", "/g/blitz/Data/.bzm") == null);
+}
+
+// ---------------------------------------------------------------------------
+// 05-11 (D-34): the app shell - View menu panels, drop, Options, Help, About
+// ---------------------------------------------------------------------------
+
+/// The panels that are always on screen and the status bar: what View can
+/// hide (PARITY V1/V2). The floating windows each have their own flag in
+/// panels.zig's State and a View entry; these are the docked ones. One bit
+/// each in `Settings.hidden_panels`, in this order - append, never reorder
+/// (the bits are written to mapeditor.cfg).
+pub const PanelId = enum(u5) { tools, objects, properties, players, camera_anchors, sounds, status_bar };
+
+pub fn panelLabel(id: PanelId) [:0]const u8 {
+    return switch (id) {
+        .tools => "Tools palette",
+        .objects => "Objects",
+        .properties => "Properties panel",
+        .players => "Players",
+        .camera_anchors => "Camera anchors",
+        .sounds => "Sounds",
+        .status_bar => "Status bar",
+    };
+}
+
+/// The name the `view_panel` command and the `panel_visible` predicate use.
+pub fn panelByName(name: []const u8) ?PanelId {
+    inline for (comptime std.enums.values(PanelId)) |id| {
+        if (std.mem.eql(u8, name, @tagName(id))) return id;
+    }
+    return null;
+}
+
+pub fn panelHidden(bits: u32, id: PanelId) bool {
+    return bits & (@as(u32, 1) << @intFromEnum(id)) != 0;
+}
+
+pub fn withPanelHidden(bits: u32, id: PanelId, hidden: bool) u32 {
+    const mask = @as(u32, 1) << @intFromEnum(id);
+    return if (hidden) bits | mask else bits & ~mask;
+}
+
+/// Bits past the known panels are never kept: a hand-edited or newer file
+/// cannot hide something this build does not draw.
+pub fn knownPanelBits(bits: u32) u32 {
+    const all: u32 = (@as(u32, 1) << @intCast(std.enums.values(PanelId).len)) - 1;
+    return bits & all;
+}
+
+/// What dropping a file onto the window does (PARITY F12).
+pub const DropVerdict = enum { open, not_a_map, bad_path };
+
+/// A dropped path opens only when it names a map (`.bzm` or `.xml`, either
+/// case), fits the path buffers and holds no control character. Anything else
+/// is ignored with a status note: a drop is another process's input.
+pub fn dropVerdict(os_path: []const u8) DropVerdict {
+    if (os_path.len == 0 or os_path.len >= PathSlot.max_path) return .bad_path;
+    for (os_path) |byte| {
+        if (byte < 0x20 or byte == 0x7f) return .bad_path;
+    }
+    return if (hasMapExtension(os_path)) .open else .not_a_map;
+}
+
+/// The status line for a drop that did not open: the verdict and the file's
+/// own name (cut to fit).
+pub fn dropNote(buffer: []u8, verdict: DropVerdict, os_path: []const u8) []const u8 {
+    return switch (verdict) {
+        .open => "",
+        .not_a_map => std.fmt.bufPrint(buffer, "not a map (.bzm or .xml): {s}", .{baseName(os_path)}) catch "not a map (.bzm or .xml)",
+        .bad_path => "the dropped path cannot be opened",
+    };
+}
+
+/// Applies Tools > Options' two fields to `settings`: true when something
+/// changed (so the settings file is written once, only then).
+pub fn applyOptions(settings: *core.settings.Settings, game_parameters: []const u8, format: core.settings.Format) bool {
+    var cleaned: core.settings.Settings = .{};
+    cleaned.setGameParameters(game_parameters);
+    var changed = false;
+    if (!std.mem.eql(u8, cleaned.gameParameters(), settings.gameParameters())) {
+        settings.setGameParameters(game_parameters);
+        changed = true;
+    }
+    if (settings.default_format != format) {
+        settings.default_format = format;
+        changed = true;
+    }
+    return changed;
+}
+
+pub fn parseFormat(name: []const u8) ?core.settings.Format {
+    if (std.mem.eql(u8, name, "bzm")) return .bzm;
+    if (std.mem.eql(u8, name, "xml")) return .xml;
+    return null;
+}
+
+/// About (PARITY H2): the product line, where the design is written and the
+/// licence the repository carries.
+pub const about_title = "Blitzkrieg Map Editor";
+pub const about_version = "portable editor, milestone M3 (random map templates, minimap, tools: parity with the MFC editor)";
+pub const about_spec = "Design: docs/superpowers/specs/2026-09-19-portable-map-editor-design.md";
+pub const about_source = "Source: github.com/jmfrank63/Blitzkrieg";
+pub const about_license = "Blitzkrieg and its data belong to Nival International Ltd.; use is licensed for noncommercial purposes only (LICENSE.md).";
+
+test "panels: the View menu's panel bits hide and show one panel each, and unknown bits are cut" {
+    var bits: u32 = 0;
+    inline for (comptime std.enums.values(PanelId)) |id| {
+        try std.testing.expect(!panelHidden(bits, id));
+        bits = withPanelHidden(bits, id, true);
+        try std.testing.expect(panelHidden(bits, id));
+    }
+    try std.testing.expectEqual(knownPanelBits(0xffff_ffff), bits);
+    bits = withPanelHidden(bits, .sounds, false);
+    try std.testing.expect(!panelHidden(bits, .sounds));
+    try std.testing.expect(panelHidden(bits, .status_bar));
+    try std.testing.expectEqual(@as(u32, 0), knownPanelBits(@as(u32, 1) << 20));
+}
+
+test "panels: every panel has a label and a unique name the command finds" {
+    inline for (comptime std.enums.values(PanelId)) |id| {
+        try std.testing.expect(panelLabel(id).len != 0);
+        try std.testing.expectEqual(@as(?PanelId, id), panelByName(@tagName(id)));
+    }
+    try std.testing.expectEqual(@as(?PanelId, null), panelByName("nothing"));
+    inline for (comptime std.enums.values(PanelId), 0..) |a, i| {
+        inline for (comptime std.enums.values(PanelId), 0..) |b, j| {
+            if (i != j) try std.testing.expect(!std.mem.eql(u8, panelLabel(a), panelLabel(b)));
+        }
+    }
+}
+
+test "drop: a map opens, anything else is ignored with a note, a hostile path is refused" {
+    try std.testing.expectEqual(DropVerdict.open, dropVerdict("/maps/a.bzm"));
+    try std.testing.expectEqual(DropVerdict.open, dropVerdict("C:\\maps\\B.XML"));
+    try std.testing.expectEqual(DropVerdict.not_a_map, dropVerdict("/maps/a.lua"));
+    try std.testing.expectEqual(DropVerdict.not_a_map, dropVerdict("/maps/folder"));
+    try std.testing.expectEqual(DropVerdict.bad_path, dropVerdict(""));
+    try std.testing.expectEqual(DropVerdict.bad_path, dropVerdict("/maps/a\n.bzm"));
+    try std.testing.expectEqual(DropVerdict.bad_path, dropVerdict("/maps/a\x00.bzm"));
+    var long: [PathSlot.max_path + 8]u8 = undefined;
+    @memset(&long, 'x');
+    @memcpy(long[long.len - 4 ..], ".bzm");
+    try std.testing.expectEqual(DropVerdict.bad_path, dropVerdict(&long));
+
+    var buffer: [128]u8 = undefined;
+    try std.testing.expectEqualStrings("not a map (.bzm or .xml): a.lua", dropNote(&buffer, .not_a_map, "/maps/a.lua"));
+    try std.testing.expectEqualStrings("", dropNote(&buffer, .open, "/maps/a.bzm"));
+}
+
+test "drop: a dropped map goes through the unsaved-changes guard like Open Recent" {
+    var slot: PathSlot = .{};
+    var actions: FileActions = .{ .dialog = &slot };
+    // A dirty document asks first; the map opens only after Don't save.
+    actions.requestOpenPath("/maps/dropped.bzm");
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, false));
+    actions.answer_pending = .dont_save;
+    const step = actions.next(true, false);
+    try std.testing.expectEqual(DialogKind.open, step.act_on_path.kind);
+    try std.testing.expectEqualStrings("/maps/dropped.bzm", step.act_on_path.path);
+    // A Cancel opens nothing.
+    actions.requestOpenPath("/maps/dropped.bzm");
+    try std.testing.expectEqual(FileActions.Step.ask_unsaved, actions.next(true, false));
+    actions.answer_pending = .cancel;
+    try std.testing.expectEqual(FileActions.Step.none, actions.next(true, false));
+}
+
+test "options: the two fields apply as one change, an equal value changes nothing" {
+    var settings: core.settings.Settings = .{};
+    try std.testing.expect(!applyOptions(&settings, "", .bzm));
+    try std.testing.expect(applyOptions(&settings, " -nosound ", .bzm));
+    try std.testing.expectEqualStrings("-nosound", settings.gameParameters());
+    try std.testing.expect(!applyOptions(&settings, "-nosound", .bzm));
+    try std.testing.expect(applyOptions(&settings, "-nosound", .xml));
+    try std.testing.expectEqual(core.settings.Format.xml, settings.default_format);
+    try std.testing.expect(applyOptions(&settings, "", .xml));
+    try std.testing.expectEqualStrings("", settings.gameParameters());
+    try std.testing.expectEqual(@as(?core.settings.Format, .xml), parseFormat("xml"));
+    try std.testing.expectEqual(@as(?core.settings.Format, null), parseFormat("zip"));
+}
+
+test "options: the saved parameters reach the game as argv elements, in the file and in the argv" {
+    // The settings round trip (what Options wrote is what a restart reads) and
+    // the argv the test launch builds from it.
+    var settings: core.settings.Settings = .{};
+    _ = applyOptions(&settings, "-nosound \"-x y\"", .xml);
+    var buffer: [512]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try core.settings.format(&settings, &writer);
+    const back = core.settings.parse(writer.buffered());
+    try std.testing.expectEqualStrings("-nosound \"-x y\"", back.gameParameters());
+    try std.testing.expectEqual(core.settings.Format.xml, back.default_format);
+    var storage: testlaunch.ArgvStorage = .{};
+    const argv = testlaunch.buildArgv(&storage, .{ .game_path = "/g/Game", .game_parameters = back.gameParameters(), .log_path = "l" });
+    try std.testing.expectEqualStrings("-nosound", argv[argv.len - 3]);
+    try std.testing.expectEqualStrings("-x y", argv[argv.len - 2]);
+    try std.testing.expectEqualStrings(testlaunch.map_file_name, argv[argv.len - 1]);
+}
+
+test "help: the key map and the registry's digit keys list every tool once" {
+    // The window builds its tool lines from tool_registry.entries; every tool
+    // with a key must have one that byShortcut finds again.
+    var with_key: usize = 0;
+    for (tool_registry.entries) |item| {
+        if (item.hidden) continue;
+        if (item.shortcut) |key| {
+            with_key += 1;
+            try std.testing.expectEqual(@as(?tool_registry.ToolId, item.id), tool_registry.byShortcut(key));
+        }
+    }
+    try std.testing.expect(with_key >= 9);
+    try std.testing.expect(view_math.key_help.len >= 15);
+    try std.testing.expect(about_title.len != 0 and about_license.len != 0);
 }

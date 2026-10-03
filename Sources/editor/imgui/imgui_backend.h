@@ -64,6 +64,11 @@ typedef struct BkImguiPointerState
 } BkImguiPointerState;
 void bk_imgui_backend_pointer_state(BkImguiPointerState *out);
 
+/* View > Reset layout: every top-level window forgets its remembered position,
+   size and collapse state (and the .ini settings do), so the app's own
+   FirstUseEver placement applies again from the next frame. */
+void bk_imgui_reset_window_layout(void);
+
 #ifdef __cplusplus
 }
 #endif

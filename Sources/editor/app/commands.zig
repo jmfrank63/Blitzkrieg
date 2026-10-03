@@ -246,6 +246,15 @@ pub const command_table = [_]Entry{
     .{ .name = "rmg_set", .handler = rmgSetCommand },
     .{ .name = "rmg_generate", .handler = rmgGenerateCommand },
     .{ .name = "export_lists", .handler = exportListsCommand },
+    // 05-11 (D-34): the app shell - Options, View, Help, About, drop.
+    .{ .name = "options_show", .handler = optionsShow },
+    .{ .name = "options_set_gameparams", .handler = optionsSetGameParams },
+    .{ .name = "options_set_format", .handler = optionsSetFormat },
+    .{ .name = "layout_reset", .handler = layoutReset },
+    .{ .name = "view_panel", .handler = viewPanel },
+    .{ .name = "help_keys", .handler = helpKeys },
+    .{ .name = "about_show", .handler = aboutShow },
+    .{ .name = "drop_file", .handler = dropFileCommand },
     .{ .name = "undo", .handler = undoCommand },
     .{ .name = "redo", .handler = redoCommand },
 };
@@ -359,6 +368,11 @@ pub const predicate_table = [_]Entry{
     .{ .name = "rmg_phase", .handler = rmgPhaseIs },
     .{ .name = "export_file", .handler = exportFileExists },
     .{ .name = "export_lines", .handler = exportLinesAtLeast },
+    // 05-11: what the app shell holds.
+    .{ .name = "game_parameters", .handler = gameParametersAre },
+    .{ .name = "default_format", .handler = defaultFormatIs },
+    .{ .name = "panel_visible", .handler = panelVisibleIs },
+    .{ .name = "layout_default", .handler = layoutDefaultIs },
 };
 
 fn find(table: []const Entry, name: []const u8) ?Handler {
@@ -4595,4 +4609,150 @@ fn rmggListedAtLeast(state: *State, arg: []const u8) Outcome {
     const want = std.fmt.parseInt(usize, arg, 10) catch return .bad_arg;
     state.composers.ensureScanned(state.editor);
     return if (state.composers.graph_names.items.len >= want) .ok else .refused;
+}
+
+// ---------------------------------------------------------------------------
+// 05-11 (D-34): the app shell
+// ---------------------------------------------------------------------------
+
+/// `on`, `off` or nothing (a toggle) for a window flag.
+fn parseOnOff(arg: []const u8, current: bool) ?bool {
+    if (arg.len == 0) return !current;
+    if (std.mem.eql(u8, arg, "on")) return true;
+    if (std.mem.eql(u8, arg, "off")) return false;
+    return null;
+}
+
+/// `do=options_show[:on|:off]` - Tools > Options: opens the window with its
+/// fields loaded from the settings, or closes it without committing (Cancel).
+fn optionsShow(state: *State, arg: []const u8) Outcome {
+    const want = parseOnOff(arg, state.options_open) orelse return .bad_arg;
+    panels.setViewWindow(state, .options, want);
+    return .ok;
+}
+
+/// `do=options_set_gameparams:<text>` - the game's extra command line, as typed
+/// into the Options window and committed with OK. A script argument holds no
+/// space, so `+` stands for one here; the text is the settings' own cleaned
+/// form (control characters dropped, at most 256 bytes).
+fn optionsSetGameParams(state: *State, arg: []const u8) Outcome {
+    var text: [core.settings.max_game_parameters]u8 = undefined;
+    if (arg.len > text.len) return .bad_arg;
+    for (arg, text[0..arg.len]) |byte, *out| out.* = if (byte == '+') ' ' else byte;
+    if (logic.applyOptions(&state.settings, text[0..arg.len], state.settings.default_format)) state.settings_changed = true;
+    return .ok;
+}
+
+/// `do=options_set_format:<bzm|xml>` - the default save format, committed.
+fn optionsSetFormat(state: *State, arg: []const u8) Outcome {
+    const format = logic.parseFormat(arg) orelse return .bad_arg;
+    if (logic.applyOptions(&state.settings, state.settings.gameParameters(), format)) state.settings_changed = true;
+    return .ok;
+}
+
+/// `do=layout_reset` - View > Reset layout (applied by the next frame).
+fn layoutReset(state: *State, arg: []const u8) Outcome {
+    if (arg.len != 0) return .bad_arg;
+    state.layout_reset_pending = true;
+    return .ok;
+}
+
+/// A name `view_panel` and `panel_visible` take: a docked panel (`tools`,
+/// `objects`, `properties`, `players`, `camera_anchors`, `sounds`,
+/// `status_bar`) or a floating window (`panels.ViewWindow`'s tags).
+const PanelTarget = union(enum) { docked: logic.PanelId, window: panels.ViewWindow };
+
+fn panelTarget(name: []const u8) ?PanelTarget {
+    if (logic.panelByName(name)) |id| return .{ .docked = id };
+    inline for (comptime std.enums.values(panels.ViewWindow)) |window| {
+        if (std.mem.eql(u8, name, @tagName(window))) return .{ .window = window };
+    }
+    return null;
+}
+
+fn targetShown(state: *State, target: PanelTarget) bool {
+    return switch (target) {
+        .docked => |id| !logic.panelHidden(state.settings.hidden_panels, id),
+        .window => |window| panels.viewWindowFlag(state, window).*,
+    };
+}
+
+/// `do=view_panel:<name>[:on|:off]` - a View menu check: shows, hides or
+/// toggles a docked panel, the status bar or a floating window.
+fn viewPanel(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.indexOfScalar(u8, arg, ':');
+    const name = if (colon) |i| arg[0..i] else arg;
+    const target = panelTarget(name) orelse return .bad_arg;
+    const want = parseOnOff(if (colon) |i| arg[i + 1 ..] else "", targetShown(state, target)) orelse return .bad_arg;
+    switch (target) {
+        .docked => |id| panels.setPanelVisible(state, id, want),
+        .window => |window| panels.setViewWindow(state, window, want),
+    }
+    return .ok;
+}
+
+/// `do=help_keys[:on|:off]` - Help > Keys and tools.
+fn helpKeys(state: *State, arg: []const u8) Outcome {
+    const want = parseOnOff(arg, state.help_keys_open) orelse return .bad_arg;
+    state.help_keys_open = want;
+    return .ok;
+}
+
+/// `do=about_show[:on|:off]` - Help > About.
+fn aboutShow(state: *State, arg: []const u8) Outcome {
+    const want = parseOnOff(arg, state.about_open) orelse return .bad_arg;
+    state.about_open = want;
+    return .ok;
+}
+
+/// `do=drop_file:<path>` - a file dropped onto the window (SDL's drop event
+/// goes through `panels.dropFile` too). A map is queued through the
+/// unsaved-changes guard and opens in the next frame's `act`; anything else is
+/// ignored with a status note - a drop of a non-map is the window doing what it
+/// should, so it is `.ok` and the status line (`expect=status:drop:`) says so.
+fn dropFileCommand(state: *State, arg: []const u8) Outcome {
+    if (arg.len == 0) return .bad_arg;
+    // A script argument is at most 64 characters, so the path may be relative to
+    // the working directory; a real drop is always absolute.
+    var cwd_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    var absolute_buffer: [logic.PathSlot.max_path]u8 = undefined;
+    const path = blk: {
+        const cwd_len = std.process.currentPath(state.io, &cwd_buffer) catch break :blk arg;
+        break :blk logic.absoluteFromLaunchDir(&absolute_buffer, cwd_buffer[0..cwd_len], arg) orelse arg;
+    };
+    _ = panels.dropFile(state, path);
+    return .ok;
+}
+
+/// `expect=game_parameters:<text>` - the settings' game command line is exactly
+/// this (`+` for a space, as `options_set_gameparams` reads it; empty argument
+/// means none).
+fn gameParametersAre(state: *State, arg: []const u8) Outcome {
+    var text: [core.settings.max_game_parameters]u8 = undefined;
+    if (arg.len > text.len) return .bad_arg;
+    for (arg, text[0..arg.len]) |byte, *out| out.* = if (byte == '+') ' ' else byte;
+    return if (std.mem.eql(u8, state.settings.gameParameters(), text[0..arg.len])) .ok else .refused;
+}
+
+/// `expect=default_format:<bzm|xml>`.
+fn defaultFormatIs(state: *State, arg: []const u8) Outcome {
+    const format = logic.parseFormat(arg) orelse return .bad_arg;
+    return if (state.settings.default_format == format) .ok else .refused;
+}
+
+/// `expect=panel_visible:<name>:<0|1>` - a docked panel, the status bar or a
+/// floating window is (1) or is not (0) shown.
+fn panelVisibleIs(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.lastIndexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const target = panelTarget(arg[0..colon]) orelse return .bad_arg;
+    const want = arg[colon + 1 ..];
+    if (want.len != 1 or (want[0] != '0' and want[0] != '1')) return .bad_arg;
+    return if (targetShown(state, target) == (want[0] == '1')) .ok else .refused;
+}
+
+/// `expect=layout_default:1` - the reset is done: no panel hidden, no reset
+/// still waiting for its frame and the docked columns at their first widths.
+fn layoutDefaultIs(state: *State, arg: []const u8) Outcome {
+    if (!std.mem.eql(u8, arg, "1")) return .bad_arg;
+    return if (state.settings.hidden_panels == 0 and !state.layout_reset_pending and panels.columnsAtDefault(state)) .ok else .refused;
 }

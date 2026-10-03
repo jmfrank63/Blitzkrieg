@@ -141,3 +141,31 @@ extern "C" void bk_imgui_backend_pointer_state( BkImguiPointerState *out )
         }
     }
 }
+
+// View > Reset layout (05-11, PARITY V3/R15): forgets every top-level window's
+// remembered position, size and collapse state - in the running windows and in
+// the settings the .ini would write - so the next SetNextWindowPos/Size with
+// ImGuiCond_FirstUseEver applies again and the panels go back to the layout
+// the app gave them. ImGui's own ClearWindowSettings is the call the debug
+// tools use for the same thing; it needs the internal header, which is why this
+// lives here and not in the Zig.
+extern "C" void bk_imgui_reset_window_layout( void )
+{
+    ImGuiContext *context = ImGui::GetCurrentContext();
+    if ( !context )
+        return;
+    // ClearWindowSettings does not add or remove windows, but copy the names
+    // first anyway: it is not documented as safe over a list it may touch.
+    ImVector<const char *> names;
+    for ( int i = 0; i < context->Windows.Size; ++i )
+    {
+        const ImGuiWindow *window = context->Windows[i];
+        if ( window->Flags & ( ImGuiWindowFlags_ChildWindow | ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip ) )
+            continue;
+        names.push_back( window->Name );
+    }
+    for ( int i = 0; i < names.Size; ++i )
+        ImGui::ClearWindowSettings( names[i] );
+    ImGui::ClearIniSettings();
+    ImGui::MarkIniSettingsDirty();
+}
