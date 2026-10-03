@@ -148,7 +148,7 @@ Build: macOS `zig build install-map-editor --release=fast -Dtarget=aarch64-macos
 
 ## Checkpoint: Task 4 - delete the MFC editor (one-way, D-38)
 
-**Decision needed: `delete-now` or `hold`.** Evidence for it:
+**Decision: `delete-now` - approved by Johannes 2026-10-03, delete-now.** (Relayed by the coordinating agent after the Place-tool ghost, PARITY O7, was closed against the MFC code while it was still in the tree: commit `9d0ebb572`.) Evidence for it:
 
 - **Parity.** 152 rows, none empty. 100 M3 and shared rows closed with named tests and scenario frames; 18 NF rows (L16, T7, E1-E4, TR13, TR19, O22, MM5, R13, R16, R17, D1-D5) closed with file:line citations re-read on 2026-10-03 (one correction); 19 M1 rows closed by phase 3's verification and the tests their cells name; 15 M2 rows by phase 4 (CI 36692345194); the user-waived items (Depth Complexity L4, the minimap marker filter MM1) noted in their rows. The full table is below.
 - **Gates.** Every local gate green (table above); CI run 37098890101 green on all six jobs.
