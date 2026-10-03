@@ -330,6 +330,52 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-editor-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # The scripted editor scenarios (Map editor scenarios below) place their
+      # clicks for the editor's own 1280x800 window, the size it gets on the
+      # macOS runners. This runner's desktop is 1024x768, which shrinks the
+      # window to 1008x681; there the right-hand panels start at x=688 and
+      # points like M2's dblclick=c200x-250 land on them (CI 37155733296: a
+      # click into the Properties panel's x field left the road tool with no
+      # point in hand). A 1920x1080 desktop gives the window its full size.
+      - name: Desktop large enough for the editor's window
+        shell: pwsh
+        run: |
+          Add-Type -TypeDefinition @"
+          using System;
+          using System.Runtime.InteropServices;
+          public static class BkDisplay {
+              [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+              public struct DEVMODE {
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+                  public short dmSpecVersion; public short dmDriverVersion; public short dmSize; public short dmDriverExtra;
+                  public int dmFields;
+                  public int dmPositionX; public int dmPositionY; public int dmDisplayOrientation; public int dmDisplayFixedOutput;
+                  public short dmColor; public short dmDuplex; public short dmYResolution; public short dmTTOption; public short dmCollate;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+                  public short dmLogPixels; public int dmBitsPerPel; public int dmPelsWidth; public int dmPelsHeight;
+                  public int dmDisplayFlags; public int dmDisplayFrequency;
+                  public int dmICMMethod; public int dmICMIntent; public int dmMediaType; public int dmDitherType;
+                  public int dmReserved1; public int dmReserved2; public int dmPanningWidth; public int dmPanningHeight;
+              }
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool EnumDisplaySettings(string device, int mode, ref DEVMODE dm);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int ChangeDisplaySettings(ref DEVMODE dm, int flags);
+          }
+          "@
+          $dm = New-Object BkDisplay+DEVMODE
+          $dm.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($dm)
+          if (-not [BkDisplay]::EnumDisplaySettings($null, -1, [ref]$dm)) { throw "EnumDisplaySettings failed" }
+          Write-Host "desktop before: $($dm.dmPelsWidth)x$($dm.dmPelsHeight)"
+          $dm.dmPelsWidth = 1920
+          $dm.dmPelsHeight = 1080
+          $dm.dmFields = 0x00080000 -bor 0x00100000
+          $result = [BkDisplay]::ChangeDisplaySettings([ref]$dm, 0)
+          if ($result -ne 0) { throw "ChangeDisplaySettings to 1920x1080 returned $result" }
+          $now = New-Object BkDisplay+DEVMODE
+          $now.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($now)
+          [void][BkDisplay]::EnumDisplaySettings($null, -1, [ref]$now)
+          Write-Host "desktop now: $($now.dmPelsWidth)x$($now.dmPelsHeight)"
+          if ($now.dmPelsWidth -lt 1280 -or $now.dmPelsHeight -lt 900) { throw "the desktop is still $($now.dmPelsWidth)x$($now.dmPelsHeight)" }
+
       # MapEditor itself: the engine started hidden with ImGui over it, one
       # frame captured as presented and checked for both.
       - name: Map editor host
