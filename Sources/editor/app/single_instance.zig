@@ -24,7 +24,10 @@
 //! Windows) - computed here from the environment because the check has to run
 //! before the window and the engine exist. A path longer than a socket address
 //! holds (104 bytes on macOS) falls back to a short file under the per-user
-//! temporary folder, named after a hash of the user root.
+//! temporary folder - a folder of its own there, `bk-mapeditor-<uid>`, made with
+//! mode 0700 and refused when it is open to others, so that nobody else can
+//! bind the name first or reach the socket (WR-A04) - named after a hash of
+//! the user root.
 //!
 //! A stale or hung peer never blocks a start (T-05-11-02): connecting to a
 //! socket file nobody listens on fails; one whose accept thread is hung answers
@@ -77,6 +80,9 @@ pub const Options = struct {
     /// ask again this many times, this far apart, before calling it stale.
     stale_retries: u8 = 2,
     stale_retry_ms: u32 = 60,
+    /// The endpoint's folder is the private fallback one (`Endpoint`): made with
+    /// mode 0700 and refused if it is open to anyone else (WR-A04).
+    private_folder: bool = false,
 };
 
 // -- The endpoint ------------------------------------------------------------
@@ -88,6 +94,9 @@ pub const Env = struct {
     home: ?[]const u8 = null,
     appdata: ?[]const u8 = null,
     tmpdir: ?[]const u8 = null,
+    /// The user's id, for the name of the private folder the fallback endpoint
+    /// lives in (WR-A04); null on Windows, which never uses the fallback.
+    uid: ?u32 = null,
 
     pub fn fromEnviron(gpa: std.mem.Allocator, environ: std.process.Environ, storage: *EnvStorage) Env {
         storage.* = .{};
@@ -96,9 +105,18 @@ pub const Env = struct {
             .home = storage.get(gpa, environ, 1, "HOME"),
             .appdata = storage.get(gpa, environ, 2, "APPDATA"),
             .tmpdir = storage.get(gpa, environ, 3, "TMPDIR"),
+            .uid = currentUid(),
         };
     }
 };
+
+fn currentUid() ?u32 {
+    return switch (builtin.os.tag) {
+        .windows, .wasi => null,
+        .linux => std.os.linux.getuid(),
+        else => std.c.getuid(),
+    };
+}
 
 /// Owned copies of the four variables, so `Env` can hold slices (the
 /// `Environ.getAlloc` API allocates). Freed by `deinit`.
@@ -121,13 +139,23 @@ pub const EnvStorage = struct {
     }
 };
 
+/// Where the endpoint is, and whether its folder has to be made private: the
+/// short fallback in the shared temporary folder lives in a folder of its own
+/// (`prepareFolder`).
+pub const Endpoint = struct { path: []const u8, private_folder: bool = false };
+
 /// `<user root>/mapeditor/instance.sock` (see the file's header), or null when
 /// the environment names no user root or the result does not fit `buffer`.
 /// `os` is a parameter so the Windows form is tested on every host.
 pub fn endpointPath(buffer: []u8, env: Env, os: std.Target.Os.Tag) ?[]const u8 {
+    return (endpointFor(buffer, env, os) orelse return null).path;
+}
+
+pub fn endpointFor(buffer: []u8, env: Env, os: std.Target.Os.Tag) ?Endpoint {
     if (os == .windows) {
         const appdata = env.appdata orelse return null;
-        return std.fmt.bufPrint(buffer, "{s}{s}Nival\\Blitzkrieg\\mapeditor\\instance.sock", .{ appdata, if (std.mem.endsWith(u8, appdata, "\\")) "" else "\\" }) catch null;
+        const text = std.fmt.bufPrint(buffer, "{s}{s}Nival\\Blitzkrieg\\mapeditor\\instance.sock", .{ appdata, if (std.mem.endsWith(u8, appdata, "\\")) "" else "\\" }) catch return null;
+        return .{ .path = text };
     }
     var root_buffer: [path_capacity]u8 = undefined;
     const root: []const u8 = if (env.xdg_data_home) |xdg|
@@ -137,11 +165,34 @@ pub fn endpointPath(buffer: []u8, env: Env, os: std.Target.Os.Tag) ?[]const u8 {
     else
         return null;
     const preferred = std.fmt.bufPrint(buffer, "{s}/mapeditor/instance.sock", .{root}) catch return null;
-    if (preferred.len <= posix_path_limit) return preferred;
-    // Too long for a socket address: a short name in the per-user temporary
-    // folder, still one per user root.
+    if (preferred.len <= posix_path_limit) return .{ .path = preferred };
+    // Too long for a socket address: a short name in the temporary folder,
+    // still one per user root. That folder may be shared (/tmp is world-
+    // writable on Linux), where a plain `bk-mapeditor-<hash>.sock` could be
+    // bound first by anyone: so the name sits in a folder of its own, one per
+    // user, made private by `prepareFolder` (WR-A04).
     const tmp = std.mem.trimEnd(u8, env.tmpdir orelse "/tmp", "/");
-    return std.fmt.bufPrint(buffer, "{s}/bk-mapeditor-{x:0>16}.sock", .{ tmp, std.hash.Fnv1a_64.hash(root) }) catch null;
+    const text = std.fmt.bufPrint(buffer, "{s}/bk-mapeditor-{d}/{x:0>16}.sock", .{ tmp, env.uid orelse 0, std.hash.Fnv1a_64.hash(root) }) catch return null;
+    return .{ .path = text, .private_folder = true };
+}
+
+/// Makes the endpoint's folder if it is not there, for the fallback endpoint
+/// (WR-A04): created with mode 0700, and an existing one must be a directory
+/// with no group or world access. Another user's folder of that name cannot
+/// be written to by us, and one they left open fails the mode check, so a name
+/// squatted in a shared temporary folder is refused rather than trusted.
+fn prepareFolder(io: Io, directory: []const u8) bool {
+    if (builtin.os.tag == .windows) return true;
+    return preparePosixFolder(io, directory);
+}
+
+fn preparePosixFolder(io: Io, directory: []const u8) bool {
+    Io.Dir.cwd().createDir(io, directory, @enumFromInt(0o700)) catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        else => return false,
+    };
+    const stat = Io.Dir.cwd().statFile(io, directory, .{}) catch return false;
+    return stat.kind == .directory and stat.permissions.toMode() & 0o077 == 0;
 }
 
 // -- One line, one path ------------------------------------------------------
@@ -575,7 +626,13 @@ pub const Acquired = union(enum) {
 pub fn acquireAt(gpa: std.mem.Allocator, io: Io, endpoint: []const u8, line: []const u8, options: Options) Acquired {
     if (endpoint.len > path_capacity) return .{ .unavailable = "the endpoint path is too long" };
     const address = net.UnixAddress.init(endpoint) catch return .{ .unavailable = "the endpoint path is too long for a socket" };
-    if (std.fs.path.dirname(endpoint)) |directory| Io.Dir.cwd().createDirPath(io, directory) catch {};
+    if (std.fs.path.dirname(endpoint)) |directory| {
+        if (options.private_folder) {
+            if (!prepareFolder(io, directory)) return .{ .unavailable = "the folder for the endpoint is not private to this user" };
+        } else {
+            Io.Dir.cwd().createDirPath(io, directory) catch {};
+        }
+    }
     var attempt: u8 = 0;
     while (attempt < 2) : (attempt += 1) {
         if (startServer(gpa, io, &address, endpoint, options)) |instance| {
@@ -620,8 +677,10 @@ pub fn acquire(gpa: std.mem.Allocator, io: Io, environ: std.process.Environ, lin
     defer storage.deinit(gpa);
     const env = Env.fromEnviron(gpa, environ, &storage);
     var buffer: [path_capacity]u8 = undefined;
-    const endpoint = endpointPath(&buffer, env, builtin.os.tag) orelse return .{ .unavailable = "no user folder to keep the endpoint in" };
-    return acquireAt(gpa, io, endpoint, line, options);
+    const endpoint = endpointFor(&buffer, env, builtin.os.tag) orelse return .{ .unavailable = "no user folder to keep the endpoint in" };
+    var chosen = options;
+    chosen.private_folder = endpoint.private_folder;
+    return acquireAt(gpa, io, endpoint.path, line, chosen);
 }
 
 // -- Tests ---------------------------------------------------------------------
@@ -653,16 +712,20 @@ test "endpoint: the user root's mapeditor folder, the engine's own root rules" {
 test "endpoint: a root too long for a socket address falls back to a short per-user name" {
     var buffer: [path_capacity]u8 = undefined;
     const long_home = "/Users/a-very-long-user-name-indeed/with/some/more/folders/to/make/it/long";
-    const a = endpointPath(&buffer, .{ .home = long_home, .tmpdir = "/var/folders/xy/abc/T/" }, .macos).?;
+    const a = endpointPath(&buffer, .{ .home = long_home, .tmpdir = "/var/folders/xy/abc/T/", .uid = 501 }, .macos).?;
     try std.testing.expect(a.len <= posix_path_limit);
-    try std.testing.expect(std.mem.startsWith(u8, a, "/var/folders/xy/abc/T/bk-mapeditor-"));
+    try std.testing.expect(std.mem.startsWith(u8, a, "/var/folders/xy/abc/T/bk-mapeditor-501/"));
     try std.testing.expect(std.mem.endsWith(u8, a, ".sock"));
+    // The fallback asks for a private folder; the preferred endpoint does not (WR-A04).
+    var flag_buffer: [path_capacity]u8 = undefined;
+    try std.testing.expect(endpointFor(&flag_buffer, .{ .home = long_home, .uid = 501 }, .linux).?.private_folder);
+    try std.testing.expect(!endpointFor(&flag_buffer, .{ .home = "/h" }, .linux).?.private_folder);
     // Stable for one user root, different for another.
     var other_buffer: [path_capacity]u8 = undefined;
-    const again = endpointPath(&other_buffer, .{ .home = long_home, .tmpdir = "/var/folders/xy/abc/T/" }, .macos).?;
+    const again = endpointPath(&other_buffer, .{ .home = long_home, .tmpdir = "/var/folders/xy/abc/T/", .uid = 501 }, .macos).?;
     try std.testing.expectEqualStrings(a, again);
     var third_buffer: [path_capacity]u8 = undefined;
-    const other = endpointPath(&third_buffer, .{ .home = long_home ++ "2", .tmpdir = "/var/folders/xy/abc/T/" }, .macos).?;
+    const other = endpointPath(&third_buffer, .{ .home = long_home ++ "2", .tmpdir = "/var/folders/xy/abc/T/", .uid = 501 }, .macos).?;
     try std.testing.expect(!std.mem.eql(u8, a, other));
     // With no TMPDIR it is /tmp.
     try std.testing.expect(std.mem.startsWith(u8, endpointPath(&buffer, .{ .home = long_home }, .linux).?, "/tmp/bk-mapeditor-"));
@@ -910,6 +973,47 @@ test "single instance: deinit neither hangs on a replaced socket nor removes the
     try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, "/maps/b.bzm\n", 2000));
     var out: [max_line]u8 = undefined;
     try std.testing.expectEqualStrings("/maps/b.bzm", second.poll(&out).?.open);
+}
+
+test "single instance: the fallback endpoint's folder is made private, and one left open is refused (WR-A04)" {
+    if (builtin.os.tag == .windows) return error.SkipZigTest;
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var endpoint_buffer: [path_capacity]u8 = undefined;
+    const base = testEndpoint(io, &endpoint_buffer, "private");
+    // <base>.d/x.sock: a folder next to where the plain test socket would be.
+    var folder_buffer: [path_capacity]u8 = undefined;
+    const folder = try std.fmt.bufPrint(&folder_buffer, "{s}.d", .{base});
+    var sock_buffer: [path_capacity]u8 = undefined;
+    const sock = try std.fmt.bufPrint(&sock_buffer, "{s}/x.sock", .{folder});
+    Io.Dir.cwd().deleteFile(io, sock) catch {};
+    Io.Dir.cwd().deleteDir(io, folder) catch {};
+    defer Io.Dir.cwd().deleteDir(io, folder) catch {};
+    defer removeTestEndpoint(io, sock);
+
+    // Made by the first launch, with no access for anyone else.
+    const owner = switch (acquireAt(gpa, io, sock, "\n", .{ .timeout_ms = 1000, .private_folder = true })) {
+        .primary => |instance| instance,
+        else => return error.TestUnexpectedResult,
+    };
+    const stat = try Io.Dir.cwd().statFile(io, folder, .{});
+    try std.testing.expect(stat.permissions.toMode() & 0o077 == 0);
+    owner.deinit();
+    removeTestEndpoint(io, sock);
+
+    // A folder that is open to others (somebody squatting the name, a leftover)
+    // is not trusted with the socket.
+    Io.Dir.cwd().deleteDir(io, folder) catch {};
+    try Io.Dir.cwd().createDir(io, folder, @enumFromInt(0o777));
+    try Io.Dir.cwd().setFilePermissions(io, folder, @enumFromInt(0o755), .{});
+    switch (acquireAt(gpa, io, sock, "\n", .{ .timeout_ms = 1000, .private_folder = true })) {
+        .unavailable => {},
+        .primary => |instance| {
+            instance.deinit();
+            return error.TestUnexpectedResult;
+        },
+        .handed_off => return error.TestUnexpectedResult,
+    }
 }
 
 test "single instance: a stale socket file never blocks a start - the next launch takes the endpoint" {
