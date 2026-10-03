@@ -1520,7 +1520,10 @@ pub const State = struct {
         self.unknown_types_count = 0;
         self.unknown_objects_total = 0;
         self.unknown_popup_shown = false;
-        if (!mapIsOpen(self.editor)) return;
+        // A loaded document, not a file-bound one: a map File > New made has
+        // no path yet but needs its view, tiles and placer all the same
+        // (CR-A01). `showMap` takes the empty path.
+        if (!documentLoaded(self.editor)) return;
         self.view.showMap(self.real, self.editor.document.path.items, self.editor.document.info, self.defaultPlacerObject());
         if (self.real.tilesetTiles(&self.tile_buffer)) |got| {
             self.tile_count = got.len;
@@ -1782,7 +1785,7 @@ pub fn act(state: *State) bool {
                         pushRecentFromDocument(state);
                         announceOpen(state, true);
                     } else |_| {
-                        if (!mapIsOpen(state.editor)) state.mapOpened();
+                        if (!documentLoaded(state.editor)) state.mapOpened();
                         announceOpen(state, false);
                     }
                 } else {
@@ -1792,6 +1795,8 @@ pub fn act(state: *State) bool {
                     if (ok) {
                         pushRecentFromDocument(state);
                         deleteRecoveryIfActive(state);
+                        // A never-saved map's view followed no path; now it has one.
+                        if (!bring_script) state.view.rebindPath(state.editor.document.path.items);
                         if (bring_script) offerScriptCopyAlong(state, came_from.slice());
                         commands.noteChecksAfterSave(state);
                     }
@@ -1814,7 +1819,7 @@ pub fn act(state: *State) bool {
                 if (result) |_| {
                     state.new_map_name.set(fields.name.slice());
                     state.mapOpened();
-                } else |_| if (!mapIsOpen(state.editor)) state.mapOpened();
+                } else |_| if (!documentLoaded(state.editor)) state.mapOpened();
             },
             .dialog_failed => |message| {
                 state.view.setStatusFrom(.dialog, "the file dialog failed: ", message);
