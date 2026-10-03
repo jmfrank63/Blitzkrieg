@@ -3,6 +3,7 @@
 #include "StdAfx.h"
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <functional>
 #include <limits>
 #include <map>
@@ -2307,6 +2308,80 @@ static void TestVsoPointBytes()
 	printf( "map-file: vso point bytes ok\n" );
 }
 
+// Broken window 9, the class of window 8 (TestVsoPointBytes): a map saves each
+// object's link as raw bytes (SMapObjectInfo::operator&( IStructureSaver & ) adds
+// `link`, and SLinkInfo has no IStructureSaver operator&), the three bytes after
+// bIntention included. Left as compiler padding they held whatever the memory held
+// where the object was built, so two saves of one map could differ in bytes nothing
+// meant. A link built, or copied, over two different fills of memory - and an
+// object built on a stack the memory before it was scribbled over - must be the
+// same bytes, and so must the maps they are saved into.
+static void BuildLinkedObject( SMapObjectInfo *pOut, const std::string &szName )
+{
+	SMapObjectInfo object;
+	object.szName = szName;
+	object.vPos = CVec3( 640.0f, 640.0f, 0.0f );
+	object.link.nLinkID = 424242;
+	object.link.bIntention = true;
+	object.link.nLinkWith = 7;
+	*pOut = object;
+}
+// Called through a volatile pointer, like the scribble: not inlined into its caller,
+// so its locals sit where the scribble just wrote.
+static void ( *volatile g_pfnBuildLinkedObject )( SMapObjectInfo *, const std::string & ) = BuildLinkedObject;
+
+static void TestLinkInfoBytes()
+{
+	typedef SMapObjectInfo::SLinkInfo TLink;
+	Check( sizeof( TLink ) == 12 && offsetof( TLink, cReserved ) == 5, "the link is 12 bytes with the three pad bytes right after bIntention" );
+	alignas( TLink ) unsigned char zeros[sizeof( TLink )];
+	alignas( TLink ) unsigned char ones[sizeof( TLink )];
+	alignas( TLink ) unsigned char copied[sizeof( TLink )];
+	memset( zeros, 0x00, sizeof zeros );
+	memset( ones, 0xff, sizeof ones );
+	memset( copied, 0xa5, sizeof copied );
+	new( zeros ) TLink;
+	TLink *pOnes = new( ones ) TLink;
+	Check( memcmp( zeros, ones, sizeof zeros ) == 0, "a new object link keeps no byte of the memory it was built in" );
+	// The fields an editor link sets (the garrison's pair of IDs and the intention).
+	pOnes->nLinkID = 11;
+	pOnes->bIntention = true;
+	pOnes->nLinkWith = 22;
+	TLink *pZeros = reinterpret_cast<TLink *>( zeros );
+	pZeros->nLinkID = 11;
+	pZeros->bIntention = true;
+	pZeros->nLinkWith = 22;
+	Check( memcmp( zeros, ones, sizeof zeros ) == 0, "a link set the same way over other memory is the same bytes" );
+	new( copied ) TLink( *pOnes );
+	Check( memcmp( copied, zeros, sizeof copied ) == 0, "a link copied into other memory is every byte of the original" );
+
+	// The object built end to end on a scribbled stack, saved into two maps.
+	const char *pszMap = "Data\\Maps\\Multiplayer\\coldwinter.bzm";
+	CMapInfo map;
+	if ( !ReadFresh( pszMap, &map ) || !Check( !map.objects.empty(), "coldwinter has an object to take a name from" ) )
+		return;
+	const std::string szName = map.objects[0].szName;
+	SMapObjectInfo built[2];
+	for ( int i = 0; i < 2; ++i )
+	{
+		g_pfnScribbleStack( i == 0 ? 0x00 : 0xff );
+		g_pfnBuildLinkedObject( &built[i], szName );
+	}
+	Check( memcmp( &built[0].link, &built[1].link, sizeof( TLink ) ) == 0, "the same object built over two different stack fills has the same link bytes" );
+	const char *const pszFiles[2] = { M2_EDITED, M2_UNDONE };
+	bool bWritten = true;
+	for ( int i = 0; i < 2; ++i )
+	{
+		CMapInfo edited;
+		std::string szError;
+		bWritten = ReadFresh( pszMap, &edited ) && Check( ( edited.objects.push_back( built[i] ), true ), "the object is added" ) &&
+		           Check( NMapFile::Write( pszFiles[i], edited, &szError ), szError.c_str() ) && bWritten;
+	}
+	Check( bWritten && FilesAreIdentical( M2_EDITED, M2_UNDONE ), "the two maps the two builds are saved into are the same file" );
+	RemoveM2Files();
+	printf( "map-file: link info bytes ok\n" );
+}
+
 // The inputs of the shipped W_WoodenBig_Heavy_01 and _02
 // (Data/Bridges/w_woodenbig_heavy/01/1.xml and 02/1.xml), read once and
 // written here as literals, as the map-file tier has no object database (C5):
@@ -3595,6 +3670,7 @@ int main( int argc, char **argv )
 	TestM2CascadeKinds();
 	TestM2VsoBuilder();
 	TestVsoPointBytes();
+	TestLinkInfoBytes();
 	TestScriptPathForms();
 	TestM2BridgePlan();
 	TestM2FencePlan();

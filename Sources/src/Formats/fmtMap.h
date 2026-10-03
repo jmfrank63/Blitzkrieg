@@ -21,9 +21,18 @@ struct SMapObjectInfo
 	{
 		int nLinkID;												// ID of this list
 		bool bIntention;										// bIntention == false => unit is inside of the linked object
+		// The three bytes the compiler pads bIntention with, named so they always
+		// hold zero. A map saves an object's link as raw bytes (CSaverAccessor:
+		// SMapObjectInfo::operator&( IStructureSaver & ) adds `link` and this struct
+		// has no IStructureSaver operator&), so unnamed padding took whatever the
+		// memory held where the object was built into the file - the same bug as
+		// SVectorStripeObjectPoint's (fmtVSO.h, broken window 8). Layout and file
+		// format are unchanged; a link read back from a map keeps the bytes the map
+		// had.
+		BYTE cReserved[3];
 		int nLinkWith;											// ID of the link to link with
 
-		SLinkInfo() : nLinkID( 0 ), bIntention( false ), nLinkWith( 0 ) { }
+		SLinkInfo() : nLinkID( 0 ), bIntention( false ), cReserved(), nLinkWith( 0 ) { }
 		int operator&( IDataTree &ss );
 	};
 
@@ -34,6 +43,8 @@ struct SMapObjectInfo
 	int operator&( IDataTree &ss );
 	int operator&( IStructureSaver &ss );
 };
+// The raw bytes are the file format: no member added, none reordered.
+static_assert( sizeof( SMapObjectInfo::SLinkInfo ) == 12, "SLinkInfo is saved as raw bytes; its layout is the map format" );
 struct SEntrenchmentInfo
 {
 	typedef std::vector<int> TSegment;
