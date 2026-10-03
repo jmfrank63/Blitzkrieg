@@ -2715,6 +2715,10 @@ fn drawEntryList(state: *State, kind: usize) void {
             _ = composers.removeShellTiles(shell, picked[0..picked_count]) catch false;
         }
         state.fc_entry_selected[kind].clearRetainingCapacity();
+        // The lists changed: `count` and the selection flags above are stale,
+        // so the rows are drawn from the next frame's (CR-A02).
+        ig.igEndDisabled();
+        return;
     }
     ig.igSameLine();
     if (ig.igButton("Properties...")) {
