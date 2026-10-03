@@ -338,8 +338,81 @@ pub fn endpointIsStale(result: Handoff) bool {
     return result == .no_listener or result == .no_reply;
 }
 
+/// A connect attempt on its own thread, so that a hung owner cannot hold the
+/// second launch: on Windows a connection to a listening socket whose owner never
+/// accepts does not complete, and `connect` has no timeout. The waiter polls for
+/// the answer; one that does not come in time abandons the attempt, and whichever
+/// of the two finishes last (the thread, when abandoned) closes the stream and
+/// frees this.
+const ConnectJob = struct {
+    io: Io,
+    path_storage: [path_capacity]u8 = undefined,
+    path_len: usize = 0,
+    state: std.atomic.Value(u8) = .init(pending),
+    result: ?net.Stream = null,
+
+    const pending: u8 = 0;
+    const done: u8 = 1;
+    const abandoned: u8 = 2;
+    /// An abandoned job can outlive its caller (and a test's own allocator), so the
+    /// job comes from the process-wide allocator.
+    const allocator = std.heap.smp_allocator;
+
+    fn run(self: *ConnectJob) void {
+        const address = net.UnixAddress.init(self.path_storage[0..self.path_len]) catch {
+            self.finish(null);
+            return;
+        };
+        self.finish(address.connect(self.io) catch null);
+    }
+
+    fn finish(self: *ConnectJob, stream: ?net.Stream) void {
+        self.result = stream;
+        if (self.state.cmpxchgStrong(pending, done, .acq_rel, .acquire) != null) {
+            // Abandoned while connecting: nobody is waiting for this stream.
+            if (stream) |open| open.close(self.io);
+            allocator.destroy(self);
+        }
+    }
+};
+
+/// The stream, or null when nobody is listening or the owner did not take the
+/// connection within `timeout_ms`; `hung` says which of the two it was.
+fn connectWithTimeout(io: Io, address: *const net.UnixAddress, timeout_ms: u32, hung: *bool) ?net.Stream {
+    hung.* = false;
+    const job = ConnectJob.allocator.create(ConnectJob) catch return address.connect(io) catch null;
+    job.* = .{ .io = io };
+    @memcpy(job.path_storage[0..address.path.len], address.path);
+    job.path_len = address.path.len;
+    const thread = std.Thread.spawn(.{ .stack_size = 128 * 1024 }, ConnectJob.run, .{job}) catch {
+        ConnectJob.allocator.destroy(job);
+        return address.connect(io) catch null;
+    };
+    thread.detach();
+    var waited: u32 = 0;
+    const step_ms: u32 = 5;
+    while (waited <= timeout_ms) {
+        if (job.state.load(.acquire) == ConnectJob.done) {
+            const stream = job.result;
+            ConnectJob.allocator.destroy(job);
+            return stream;
+        }
+        io.sleep(.fromMilliseconds(step_ms), .awake) catch break;
+        waited += step_ms;
+    }
+    if (job.state.cmpxchgStrong(ConnectJob.pending, ConnectJob.abandoned, .acq_rel, .acquire) == null) {
+        hung.* = true;
+        return null;
+    }
+    // It finished in the moment between the last look and the give-up.
+    const stream = job.result;
+    ConnectJob.allocator.destroy(job);
+    return stream;
+}
+
 fn handoffOnce(io: Io, address: *const net.UnixAddress, line: []const u8, timeout_ms: u32) Handoff {
-    const stream = address.connect(io) catch return .no_listener;
+    var hung = false;
+    const stream = connectWithTimeout(io, address, timeout_ms, &hung) orelse return if (hung) .no_reply else .no_listener;
     defer stream.close(io);
     var watchdog: Watchdog = .{ .io = io, .stream = stream, .timeout_ms = timeout_ms };
     watchdog.start();
