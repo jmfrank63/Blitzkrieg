@@ -4877,9 +4877,14 @@ BkEditorStatus BkEditorApplyField( BkEditorSession *pSession, const BkEditorFiel
 			pOutReport[i].y = report[i].fY;
 			pOutReport[i].placed = report[i].bPlaced ? 1 : 0;
 		}
-		if ( int( report.size() ) > nReportCapacity )
-			return BK_EDITOR_REFUSED;
+		// The edit is applied and on the log by now, so the token is the caller's whatever the
+		// report buffer held: answering REFUSED ("changes nothing") here would drop the token and
+		// leave an edit on top of the log that nothing can undo. A buffer smaller than the report
+		// is a truncation, which out_report_count (always the total) tells the caller.
 		*pnToken = nToken;
+		if ( int( report.size() ) > nReportCapacity )
+			pSession->szMessage = "the report holds " + std::to_string( report.size() ) + " objects, room was given for " +
+			                      std::to_string( nReportCapacity ) + "; the field was applied all the same";
 		return BK_EDITOR_OK;
 	} );
 }

@@ -12116,6 +12116,28 @@ static void TestM3Fields( BkEditorSession *pSession, const std::string &szScratc
 			Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 			Check( BridgeFilesAreIdentical( szPre.c_str(), szUndone.c_str() ),
 			       "the objects half undone writes the unedited save byte for byte" );
+
+			// CR-C01: a report buffer smaller than the report is a truncation. The field is
+			// applied and logged by then, so the call answers OK with the token and the full
+			// count (REFUSED, "changes nothing", would drop the token of an edit that is on the
+			// log and leave every earlier edit un-undoable behind it).
+			const int nTotal = nReport;
+			if ( Check( nTotal > 1, "the objects half produced several objects to truncate" ) )
+			{
+				BkEditorFieldObjectReport one[1];
+				int nShort = 0, nShortToken = -1;
+				const BkEditorStatus nShortStatus = BkEditorApplyField( pSession, &params, one, 1, &nShort, &nShortToken );
+				if ( Check( nShortStatus == BK_EDITOR_OK, ( std::string( "a report buffer smaller than the report is a truncation, not a refusal: " ) + BkEditorLastMessage( pSession ) ).c_str() ) )
+				{
+					Check( nShort == nTotal, "the count is still the total" );
+					Check( nShortToken >= 0, "and the token is handed over" );
+					Check( M3CountObjects( pSession ) > nObjectsBefore, "and the field was applied" );
+					Check( BkEditorUndoEdit( pSession, nShortToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+					Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+					Check( BridgeFilesAreIdentical( szPre.c_str(), szUndone.c_str() ),
+					       "the truncated apply undone writes the unedited save byte for byte" );
+				}
+			}
 		}
 	}
 

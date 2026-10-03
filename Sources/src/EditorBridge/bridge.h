@@ -2077,9 +2077,14 @@ BkEditorStatus BkEditorSaveObjectFilters( BkEditorSession *session, const BkEdit
 
    out_report (which may be null with capacity 0) answers every object the
    object shells produced and whether it was placed; out_report_count is
-   always the total, a capacity below it is BK_EDITOR_REFUSED after writing
-   what fits. A refusal - no map, bad arguments, an unknown field set or
-   filter, a degenerate polygon - changes nothing; a mid-pipeline failure
+   always the total. A capacity below it truncates the report - the rows that
+   fit are written - and the call still answers BK_EDITOR_OK with the token:
+   the field was applied, and a REFUSED here would be a lie ("changes
+   nothing") that also drops the token of an edit already on the log. Size
+   the buffer first with check_passability_only (nothing changes, so the
+   count is free), or compare out_report_count with the capacity. A
+   refusal - no map, bad arguments, an unknown field set or filter, a
+   degenerate polygon - changes nothing; a mid-pipeline failure
    puts the tiles, the altitudes and the objects already added back and is
    BK_EDITOR_FAILED. Undo restores the whole composite raw, byte for byte.
 
