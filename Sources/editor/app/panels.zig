@@ -1781,6 +1781,10 @@ pub fn act(state: *State) bool {
                     // A failed open may have emptied the document (editor.open
                     // says when); either way the panels follow what is open now.
                     if (result) |_| {
+                        // The document that was replaced is gone for good (the
+                        // unsaved prompt was answered): its recovery copy would
+                        // be offered at the next start as unsaved work (WR-A10).
+                        deleteRecoveryIfActive(state);
                         state.mapOpened();
                         pushRecentFromDocument(state);
                         announceOpen(state, true);
@@ -1817,6 +1821,9 @@ pub fn act(state: *State) bool {
                 const result = state.editor.newMap(params);
                 state.view.noteEditResult(state.editor, result);
                 if (result) |_| {
+                    // Same as an open: the document File > New replaced is gone
+                    // (WR-A10).
+                    deleteRecoveryIfActive(state);
                     state.new_map_name.set(fields.name.slice());
                     state.mapOpened();
                 } else |_| if (!documentLoaded(state.editor)) state.mapOpened();
