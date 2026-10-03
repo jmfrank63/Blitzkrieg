@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const bridge_mod = @import("bridge.zig");
 const fake_mod = @import("fake_bridge.zig");
 const document_mod = @import("document.zig");
@@ -104,7 +105,8 @@ pub const Editor = struct {
     files: ?files_mod.Files = null,
     /// The OS paths `save` has already taken this session's one `.bak` for
     /// (D-19: once per file per session, at the first write); owned keys,
-    /// freed in `deinit`.
+    /// freed in `deinit`. Keyed by `backedUpKey`, so two spellings of one
+    /// Windows file are one entry.
     backed_up: std.StringHashMapUnmanaged(void) = .empty,
     /// The installation the editor runs from (BkEditorPaths' base root),
     /// copied by `setBaseRoot`: what `save` classifies a shipped map against
@@ -440,7 +442,9 @@ pub const Editor = struct {
             return error.Failed;
         };
 
-        if (!self.backed_up.contains(path_os)) {
+        var key_buffer: [files_mod.max_path]u8 = undefined;
+        const backup_key = backedUpKey(&key_buffer, path_os, builtin.os.tag == .windows);
+        if (!self.backed_up.contains(backup_key)) {
             if (files.exists(path_os)) {
                 var backup_buffer: [files_mod.max_path]u8 = undefined;
                 const backup_os = files_mod.backupPathFor(&backup_buffer, path_os) orelse {
@@ -456,7 +460,7 @@ pub const Editor = struct {
             }
             // Recorded even when `path_os` did not exist yet, so a file
             // created this session never gets a .bak of a later version.
-            const owned_key = self.allocator.dupe(u8, path_os) catch |err| {
+            const owned_key = self.allocator.dupe(u8, backup_key) catch |err| {
                 files.delete(temp_os);
                 return err;
             };
@@ -3728,6 +3732,28 @@ pub const Editor = struct {
 
 /// The same fixture fake_bridge.zig builds for its own tests, exposed here
 /// under the name later tasks call it by.
+/// What `backed_up` is keyed by. On Windows `C:\Maps\A.bzm`, `c:\maps\a.bzm`
+/// and `C:/Maps/A.bzm` are one file, so those spellings lower-case ASCII and
+/// use one separator (WR-B04); elsewhere the path is the key. A path longer
+/// than `buffer` is used as it is.
+fn backedUpKey(buffer: []u8, path_os: []const u8, windows: bool) []const u8 {
+    if (!windows or path_os.len > buffer.len) return path_os;
+    for (path_os, buffer[0..path_os.len]) |byte, *out| out.* = if (byte == '/') '\\' else std.ascii.toLower(byte);
+    return buffer[0..path_os.len];
+}
+
+test "backed-up key: Windows spellings of one file are one key, other systems keep the path (WR-B04)" {
+    var one: [64]u8 = undefined;
+    var two: [64]u8 = undefined;
+    try std.testing.expectEqualStrings(
+        backedUpKey(&one, "C:\\Maps\\A.bzm", true),
+        backedUpKey(&two, "c:/maps/a.BZM", true),
+    );
+    try std.testing.expectEqualStrings("C:\\Maps\\A.bzm", backedUpKey(&one, "C:\\Maps\\A.bzm", false));
+    var small: [4]u8 = undefined;
+    try std.testing.expectEqualStrings("C:\\Maps\\A.bzm", backedUpKey(&small, "C:\\Maps\\A.bzm", true));
+}
+
 pub const testFixture = fake_mod.fixture;
 
 test "open fills the document from the bridge" {
