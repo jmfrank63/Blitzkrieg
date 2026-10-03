@@ -244,7 +244,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     // 05-11 (D-34, PARITY F13): before the window and the engine exist - a second
     // launch hands its map to the running editor and exits here; the first one
     // goes on and answers on its socket for as long as it runs.
-    const instance = acquireInstance(gpa, io, environ, map);
+    const instance = acquireInstance(gpa, io, environ, map, mod_folder, mod_requested);
     defer if (instance) |owner| owner.deinit();
     var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = hidden }) catch |err| {
         const reason = host_mod.failureReason();
@@ -378,7 +378,7 @@ fn enableLayoutPersistence(io: std.Io, settings_path: ?[]const u8) void {
 /// that has it and exits 0. Null (an editor with no single-instance socket) for
 /// the automated runs (BK_EDITOR_AUTO), under BK_EDITOR_NO_SINGLE_INSTANCE, and
 /// when no endpoint can be had - never a reason not to start.
-fn acquireInstance(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8) ?*single_instance.Instance {
+fn acquireInstance(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8, mod_folder: ?[]const u8, mod_requested: bool) ?*single_instance.Instance {
     for ([_][]const u8{ "BK_EDITOR_AUTO", "BK_EDITOR_NO_SINGLE_INSTANCE" }) |name| {
         if (environ.getAlloc(gpa, name)) |value| {
             gpa.free(value);
@@ -396,12 +396,19 @@ fn acquireInstance(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Envi
         var cwd_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const cwd_len = std.process.currentPath(io, &cwd_buffer) catch break :blk nothing;
         const absolute = panels_logic.absoluteFromLaunchDir(&absolute_buffer, cwd_buffer[0..cwd_len], typed) orelse break :blk nothing;
-        var framed: [single_instance.max_line + 2]u8 = undefined;
-        const text = single_instance.frameLine(&framed, absolute) orelse break :blk nothing;
+        var framed: [single_instance.max_line + 2 + single_instance.max_mod_len + 1]u8 = undefined;
+        // A launch that named a mod says which: the running editor only takes
+        // the map when it has that mod loaded (WR-A03). One that did not
+        // simply wants the map opened where it is.
+        const text = (if (mod_requested)
+            single_instance.frameOpenInMod(&framed, mod_folder orelse "", absolute)
+        else
+            single_instance.frameLine(&framed, absolute)) orelse break :blk nothing;
+        if (text.len > line_buffer.len) break :blk nothing;
         @memcpy(line_buffer[0..text.len], text);
         break :blk line_buffer[0..text.len];
     };
-    switch (single_instance.acquire(gpa, io, environ, line, .{})) {
+    switch (single_instance.acquire(gpa, io, environ, line, .{ .mod = mod_folder })) {
         .primary => |owner| return owner,
         .handed_off => {
             std.debug.print("map-editor: handed over to the running editor\n", .{});
@@ -417,6 +424,9 @@ fn acquireInstance(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Envi
 /// One line from a second launch per frame: the window comes forward (and back
 /// from a minimise), and a path opens through the unsaved-changes guard.
 fn pollInstance(box: *single_instance.Instance, state: *panels.State, window: *sdl3.c.SDL_Window) void {
+    // The mod that is loaded now (File > Mod changes it): a second launch that
+    // names a mod is only handed over when it is this one (WR-A03).
+    box.setMod(state.modFolder());
     var out: [single_instance.max_line]u8 = undefined;
     const received = box.poll(&out) orelse return;
     _ = sdl3.c.SDL_RestoreWindow(window);

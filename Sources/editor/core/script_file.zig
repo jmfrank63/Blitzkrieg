@@ -174,6 +174,17 @@ pub fn copyForTest(files: Files, base_root: []const u8, map_path: []const u8, te
     return .copied;
 }
 
+/// How much of `beside` (`directoryOf`'s answer: empty or ending in a
+/// separator) names the folder to list: the trailing separators go, but a
+/// root keeps its own - "D:\" is the drive's root, while "D:" would be the
+/// drive's current directory (WR-B06).
+fn listedLength(beside: []const u8) usize {
+    var len = beside.len;
+    while (len > 1 and (beside[len - 1] == '/' or beside[len - 1] == '\\')) len -= 1;
+    if (len == 2 and beside[1] == ':' and beside.len > 2) len = 3;
+    return len;
+}
+
 /// The bare names of the `.lua` files beside the map `map_path` (engine or OS
 /// form), sorted, each without the extension: only files whose name before
 /// ".lua" passes `isBareName` (a file the game could be told to load), owned by
@@ -184,8 +195,7 @@ pub fn listBeside(files: Files, allocator: std.mem.Allocator, map_path: []const 
     const beside = directoryOf(map_path);
     // The directory without its trailing separator (a root keeps its own), "."
     // for a map named with no folder at all.
-    var dir_len = beside.len;
-    while (dir_len > 1 and (beside[dir_len - 1] == '/' or beside[dir_len - 1] == '\\')) dir_len -= 1;
+    const dir_len = listedLength(beside);
     if (dir_len > directory.len) return;
     @memcpy(directory[0..dir_len], beside[0..dir_len]);
     toOsSeparators(directory[0..dir_len]);
@@ -309,7 +319,14 @@ pub fn folderUrl(files: Files, buffer: []u8, map_path: []const u8, value: []cons
     const script_path = scriptPathBeside(&path_buffer, map_path, name) orelse return null;
     if (!files.exists(script_path)) return null;
     var dir_buffer: [files_mod.max_path]u8 = undefined;
-    const script_dir = script_path[0 .. std.mem.lastIndexOfAny(u8, script_path, "/\\") orelse 0];
+    // A script in a root ("/s.lua", "D:\s.lua") lives in the root, which keeps
+    // its separator: without it the folder would be "" or "D:", the working
+    // directory (WR-B06).
+    const cut = std.mem.lastIndexOfAny(u8, script_path, "/\\");
+    const script_dir = if (cut) |c|
+        (if (c == 0 or (c == 2 and script_path[1] == ':')) script_path[0 .. c + 1] else script_path[0..c])
+    else
+        script_path[0..0];
     const real_dir = files.realPath(if (script_dir.len == 0) "." else script_dir, &dir_buffer) orelse return null;
     var out: std.ArrayListUnmanaged(u8) = .initBuffer(buffer);
     out.appendSliceBounded("file://") catch return null;
@@ -583,6 +600,29 @@ test "copyAlong never replaces a different script beside the new map unless told
     try std.testing.expectEqualStrings("shipped", fake.contents("/home/maps/coldwinter.lua").?);
     // Nothing beside the old map is still missing, whatever `overwrite` says.
     try std.testing.expectEqual(CopyAlongOutcome.missing, copyAlong(files, "", "/game/Data/Maps/Multiplayer/coldwinter.bzm", "/home/maps/mine.bzm", "absent", true));
+}
+
+test "a map in a filesystem root lists and opens the root, not the working directory (WR-B06)" {
+    try std.testing.expectEqual(@as(usize, 3), listedLength("D:\\"));
+    try std.testing.expectEqual(@as(usize, 3), listedLength("D:\\\\"));
+    try std.testing.expectEqual(@as(usize, 1), listedLength("/"));
+    try std.testing.expectEqual(@as(usize, 10), listedLength("\\maps\\mine\\"));
+    try std.testing.expectEqual(@as(usize, 7), listedLength("/maps/x/"));
+    try std.testing.expectEqual(@as(usize, 0), listedLength(""));
+    try std.testing.expectEqual(@as(usize, 4), listedLength("D:\\a\\"));
+    if (builtin.os.tag == .windows) return;
+    var fake = files_mod.FakeFiles.init(std.testing.allocator);
+    defer fake.deinit();
+    try fake.write("/s.lua", "x");
+    try fake.write("D:/d.lua", "x");
+    var buffer: [512]u8 = undefined;
+    try std.testing.expectEqualStrings("file:///", folderUrl(fake.files(), &buffer, "/a.bzm", "s").?);
+    try std.testing.expectEqualStrings("file:///D:/", folderUrl(fake.files(), &buffer, "D:\\a.bzm", "d").?);
+    var names: std.ArrayListUnmanaged([]u8) = .empty;
+    defer files_mod.freeNames(std.testing.allocator, &names);
+    try listBeside(fake.files(), std.testing.allocator, "D:\\a.bzm", &names);
+    try std.testing.expectEqual(@as(usize, 1), names.items.len);
+    try std.testing.expectEqualStrings("d", names.items[0]);
 }
 
 test "folderUrl is file:// and the resolved folder of a validated script, never the script itself (WR-B04)" {

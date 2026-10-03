@@ -362,7 +362,8 @@ pub const Selector = struct {
                         try editor.place(link_id, .{
                             .x = object.x,
                             .y = object.y,
-                            .dir = @mod(object.dir + step, full_turn),
+                            // i64: a map's stored direction is the raw file int (WR-B02).
+                            .dir = @intCast(@mod(@as(i64, object.dir) + step, full_turn)),
                             .player = object.player,
                         }, 0);
                     },
@@ -683,6 +684,31 @@ test "rotate turns by a step and wraps" {
     try testing.expectEqual(@as(i32, 65536 - rotate_step), editor.document.find(1).?.dir);
     try selector.handle(&editor, .{ .key = .rotate_right });
     try testing.expectEqual(@as(i32, 0), editor.document.find(1).?.dir);
+}
+
+test "rotate on an object whose stored direction is near maxInt(i32) wraps instead of overflowing (WR-B02)" {
+    const ObjectRecord = bridge_mod.ObjectRecord;
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    var wild: ObjectRecord = .{ .link_id = 40, .x = 60, .y = 120, .dir = std.math.maxInt(i32), .player = 0 };
+    wild.setName("T34");
+    try fake.addFixture(wild, false);
+    var other: ObjectRecord = .{ .link_id = 41, .x = 90, .y = 120, .dir = std.math.maxInt(i32), .player = 0 };
+    other.setName("T34");
+    try fake.addFixture(other, false);
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var selector: Selector = .{};
+    defer selector.deinit(testing.allocator);
+    editor.selectOnly(40);
+    try selector.handle(&editor, .{ .key = .rotate_right });
+    const turned = editor.document.find(40).?.dir;
+    try testing.expect(turned >= 0 and turned < full_turn);
+    try testing.expectEqual(@as(i32, @intCast(@mod(@as(i64, std.math.maxInt(i32)) + rotate_step, full_turn))), turned);
+    // The group turn takes the same widening.
+    try editor.rotateSelection(&.{41}, 90, 0);
+    const quarter = editor.document.find(41).?.dir;
+    try testing.expect(quarter >= 0 and quarter < full_turn);
 }
 
 test "a press on nothing clears the selection" {
