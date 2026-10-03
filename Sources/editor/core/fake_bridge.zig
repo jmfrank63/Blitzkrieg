@@ -3176,6 +3176,19 @@ pub const FakeBridge = struct {
             self.say("still part of entrenchment {d}", .{entrenchment_index});
             return .refused;
         }
+        // bridge.h: an object carrying a passenger is refused. The real
+        // session takes the passengers into the host's own tombstone instead,
+        // which makes the passenger's later delete fail with "no such
+        // object"; either way a caller that names the host before its
+        // passenger is refused part-way, and the fake models that.
+        if (link_id != 0) {
+            for (self.objects_list.items) |other| {
+                if (other.link_with == link_id and other.link_id != link_id) {
+                    self.say("object {d} still carries passenger {d}", .{ link_id, other.link_id });
+                    return .refused;
+                }
+            }
+        }
         // Everything that can fail comes first, so a failure leaves the map as it was.
         var changes: std.ArrayListUnmanaged(StartChange) = .empty;
         errdefer changes.deinit(self.allocator);
