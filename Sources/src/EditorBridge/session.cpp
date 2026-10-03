@@ -5,6 +5,7 @@
 // MFC taken out and one guard put in.
 #include "StdAfx.h"
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include "session.h"
 #include "world.h"
@@ -296,20 +297,9 @@ bool InstallMapInSession( SEditorSession *pSession, const CMapInfo &read, const 
 		                                              pSession->snapshot.terrain.patches.GetSizeY() * STerrainPatchInfo::nSizeY + 1 );
 		pSession->snapshot.terrain.altitudes.SetZero();
 	}
-	// 05-02 (Rule 1): the snapshot is a COPY of the read, and the copy's
-	// SVertexAltitude padding bytes are whatever the heap held there - a
-	// save wrote them, so every byte-for-byte proof of an altitude edit
-	// since 05-01 rode on heap luck. Pin them to what a fresh read holds -
-	// the file's own padding - by zeroing the three pad bytes of every
-	// vertex once, here, at install: capture, restore and save all agree
-	// from then on, whatever the allocator did. (SetZero already zeroed the
-	// F5 sheet's records whole, so this is a no-op there.)
-	{
-		STerrainInfo::TVertexAltitudeArray2D &rSheet = pSession->snapshot.terrain.altitudes;
-		for ( int nY = 0; nY < rSheet.GetSizeY(); ++nY )
-			for ( int nX = 0; nX < rSheet.GetSizeX(); ++nX )
-				memset( &rSheet[nY][nX].shade + 1, 0, sizeof( SVertexAltitude ) - 5 );
-	}
+	// The snapshot is a COPY of the read. SVertexAltitude names its three padding bytes
+	// (cReserved, fmtMap.h), so the copy carries the file's own bytes and a new sheet starts at
+	// zero: no pin at install is needed for a save to write defined bytes.
 	pSession->hiddenScriptIDs.clear();
 	pSession->hiddenLinkIDs.clear();
 	pSession->szScriptFileAtOpen = read.szScriptFile;
@@ -944,6 +934,11 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		pSession->szMessage = "the engine is not there";
 		return false;
 	}
+	if ( rAdd.nDir < 0 || rAdd.nDir > 65535 )
+	{
+		pSession->szMessage = "a direction is 0..65535";
+		return false;
+	}
 	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( rAdd.szName.c_str() );
 	if ( pDesc == 0 )
 	{
@@ -1058,6 +1053,23 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	}
 
 	const SMapObjectInfo before = *pObject;
+	// What the engine cannot hold is refused here, before the map takes it: the engine stores a
+	// direction as a WORD and a position as a short, the readback converts the request the same
+	// way, and a value outside both would pass the check while the map kept it. A value the
+	// object already has is let through (a file may hold one; moving the object leaves it).
+	if ( ( vPosIn.x != before.vPos.x || vPosIn.y != before.vPos.y ) &&
+	     ( !std::isfinite( vPosIn.x ) || !std::isfinite( vPosIn.y ) || std::fabs( vPosIn.x ) > 32000.0f || std::fabs( vPosIn.y ) > 32000.0f ) )
+	{
+		pSession->szMessage = "that position is outside what the engine can hold";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+	if ( nDir != before.nDir && ( nDir < 0 || nDir > 65535 ) )
+	{
+		pSession->szMessage = "a direction is 0..65535";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
 	CVec3 vPos = vPosIn;
 	IRefCount *pAIObject = itEngine->second;
 	const SEngineObjectState engineBefore = ReadEngine( pAIEditor, pAIObject );
@@ -1137,12 +1149,47 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	return true;
 }
 
+namespace
+{
+// The objects being deleted right now, outermost first: the host and the
+// passengers its cascade has gone into. An object met a second time means the
+// links form a cycle (A carries B and B carries A, which a map file can hold),
+// and following it would recurse until the stack ran out.
+struct SDeleteChain
+{
+	std::vector<int> ids;
+};
+
+bool DeleteObjectInChain( SEditorSession *pSession, int nLinkID, bool *pbRefused, SDeleteChain *pChain );
+}
+
 bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRefused )
+{
+	SDeleteChain chain;
+	return DeleteObjectInChain( pSession, nLinkID, pbRefused, &chain );
+}
+
+namespace
+{
+bool DeleteObjectInChain( SEditorSession *pSession, int nLinkID, bool *pbRefused, SDeleteChain *pChain )
 {
 	if ( pbRefused )
 		*pbRefused = false;
 	if ( pSession == 0 || !pSession->bMapOpen )
 		return false;
+	if ( std::find( pChain->ids.begin(), pChain->ids.end(), nLinkID ) != pChain->ids.end() )
+	{
+		pSession->szMessage = "objects link to each other in a cycle; unlink one of them first";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+	// Leaves the chain on every way out of this level, return or not.
+	struct SChainLevel
+	{
+		SDeleteChain *pChain;
+		SChainLevel( SDeleteChain *p, int nID ) : pChain( p ) { pChain->ids.push_back( nID ); }
+		~SChainLevel() { pChain->ids.pop_back(); }
+	} chainLevel( pChain, nLinkID );
 	// The preservation invariant keeps every edit away from an object the
 	// database does not know - except its removal (05-05, D-33): Check Map's Fix
 	// all offers it explicitly, replacing the MFC's silent RemoveNonExistingObjects
@@ -1160,7 +1207,11 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	// trench piece - still refuse below, passengers or no passengers; the
 	// overlay's own passenger refusal never fires, because by the time the
 	// overlay sees the host, its passengers are gone.
+	// Only a real link ID can be named by a passenger: 0 is what every
+	// unlinked object carries as nLinkWith, "linked with nothing", so the
+	// lone object under link ID 0 must not make all of them its passengers.
 	std::vector<int> passengers;
+	if ( nLinkID != 0 )
 	{
 		const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
 		for ( int nList = 0; nList < 2; ++nList )
@@ -1175,7 +1226,7 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	for ( size_t i = 0; i < passengers.size(); ++i )
 	{
 		bool bPassengerRefused = false;
-		if ( !DeleteObjectFromSession( pSession, passengers[i], &bPassengerRefused ) )
+		if ( !DeleteObjectInChain( pSession, passengers[i], &bPassengerRefused, pChain ) )
 		{
 			// A passenger that cannot go (itself a referred span, say)
 			// refuses the whole delete; the ones already taken are put back.
@@ -1268,6 +1319,7 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 			pSession->szMessage += "; " + szPassengers;
 	}
 	return true;
+}
 }
 
 bool RestoreObjectInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused )
@@ -1816,6 +1868,16 @@ bool SetLinkInSession( SEditorSession *pSession, int nSource, int nTarget, bool 
 	}
 	if ( RefuseSharedLinkID( pSession, nSource, pbRefused ) )
 		return false;
+	// A link that closes a loop (the host already rides on the source, however
+	// far down the chain) would send the game's loaders, and the delete
+	// cascade, round it for ever. CanLinkInSession's train fallback accepts
+	// any two cars, so this is the only place that catches it.
+	if ( NMapRecords::WouldLinkCycle( &pSession->snapshot, nSource, nTarget ) )
+	{
+		pSession->szMessage = "those two would link to each other in a cycle";
+		*pbRefused = true;
+		return false;
+	}
 	const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nSource );
 	if ( pRecord == 0 )
 	{

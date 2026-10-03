@@ -383,6 +383,28 @@ bool SetObjectFormation( SLoadMapInfo *pMap, int nLinkID, int nFormation )
 	return true;
 }
 
+bool WouldLinkCycle( SLoadMapInfo *pMap, int nLinkID, int nLinkWith )
+{
+	// Walk the host chain from the would-be host. It reaches nLinkID only if
+	// linking would close a loop. A chain already looping among other objects
+	// (a map file can hold one) never reaches nLinkID, so the walk is bounded
+	// by the object count and ends there.
+	size_t nBound = 0;
+	if ( pMap != 0 )
+		nBound = pMap->objects.size() + pMap->scenarioObjects.size();
+	int nHost = nLinkWith;
+	for ( size_t nStep = 0; nHost != 0 && nStep <= nBound; ++nStep )
+	{
+		if ( nHost == nLinkID )
+			return true;
+		const SMapObjectInfo *pHost = FindByLinkID( pMap, nHost );
+		if ( pHost == 0 )
+			return false;
+		nHost = pHost->link.nLinkWith;
+	}
+	return false;
+}
+
 bool SetObjectLink( SLoadMapInfo *pMap, int nLinkID, int nLinkWith )
 {
 	if ( pMap == 0 )
@@ -397,6 +419,9 @@ bool SetObjectLink( SLoadMapInfo *pMap, int nLinkID, int nLinkWith )
 		if ( nLinkWith == nLinkID )
 			return false;
 		if ( FindByLinkID( pMap, nLinkWith ) == 0 )
+			return false;
+		// Nor may the host be (through its own hosts) a passenger of this one.
+		if ( WouldLinkCycle( pMap, nLinkID, nLinkWith ) )
 			return false;
 	}
 	pObject->link.nLinkWith = nLinkWith;

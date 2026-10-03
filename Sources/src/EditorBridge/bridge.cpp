@@ -569,6 +569,16 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *pSession, const char *pszPath, 
 	return status;
 }
 
+namespace {
+// A map position the engine can be asked for. IAIEditor::MoveObject takes shorts, so a NaN or
+// anything beyond about +/-32768 collapses to one garbage value (ToEngineCoord), the readback
+// converts the request the same way and agrees with it, and the map would keep the request.
+bool IsUsableCoordinate( float f )
+{
+	return std::isfinite( f ) && std::fabs( f ) <= 32000.0f;
+}
+}
+
 BkEditorStatus BkEditorAddObject( BkEditorSession *pSession, const char *pszName,
                                   float x, float y, int nDir, int nPlayer, int *pnLinkID )
 {
@@ -577,6 +587,8 @@ BkEditorStatus BkEditorAddObject( BkEditorSession *pSession, const char *pszName
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		if ( pszName == 0 || *pszName == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !IsUsableCoordinate( x ) || !IsUsableCoordinate( y ) )
 			return BK_EDITOR_BAD_ARGUMENT;
 		if ( !pSession->bMapOpen )
 		{
@@ -611,6 +623,8 @@ BkEditorStatus ChangeOneField( BkEditorSession *pSession, int nLinkID, int nWhic
 	}
 	CVec3 vPos = pObject->vPos;
 	int nDir = pObject->nDir, nPlayer = pObject->nPlayer;
+	if ( nWhich == 0 && ( !IsUsableCoordinate( x ) || !IsUsableCoordinate( y ) ) )
+		return BK_EDITOR_BAD_ARGUMENT;
 	if ( nWhich == 0 ) { vPos.x = x; vPos.y = y; }
 	else if ( nWhich == 1 ) nDir = nValue;
 	else nPlayer = nValue;
@@ -625,6 +639,8 @@ BkEditorStatus BkEditorPlaceObject( BkEditorSession *pSession, int nLinkID, floa
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
+		if ( !IsUsableCoordinate( x ) || !IsUsableCoordinate( y ) )
+			return BK_EDITOR_BAD_ARGUMENT;
 		if ( !pSession->bMapOpen )
 		{
 			pSession->szMessage = "no map is open";
@@ -790,6 +806,10 @@ BkEditorStatus BkEditorMoveObjects( BkEditorSession *pSession, const int *pnLink
 		if ( pnToken == 0 )
 			return BK_EDITOR_BAD_ARGUMENT;
 		if ( !std::isfinite( fDx ) || !std::isfinite( fDy ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		// The loop below reads pnLinkIDs[0..nCount): a count with no array behind it is the caller's
+		// bug, answered before anything is read.
+		if ( nCount < 0 || ( nCount > 0 && pnLinkIDs == 0 ) )
 			return BK_EDITOR_BAD_ARGUMENT;
 		// A link ID named twice is the caller's bug - the move cannot say
 		// which copy it meant - and is answered before anything is looked up.
@@ -1060,6 +1080,10 @@ BkEditorStatus BkEditorNewMap( BkEditorSession *pSession, const BkEditorNewMapPa
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		if ( pParams == 0 || pOut == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		// "Always terminated" is the caller's contract; both arrays are read as C strings below.
+		if ( memchr( pParams->szName, 0, sizeof pParams->szName ) == 0 ||
+		     memchr( pParams->szModFolder, 0, sizeof pParams->szModFolder ) == 0 )
 			return BK_EDITOR_BAD_ARGUMENT;
 		if ( pParams->size_x < 1 || pParams->size_x > 32 ||
 		     pParams->size_y < 1 || pParams->size_y > 32 )
@@ -4841,6 +4865,11 @@ BkEditorStatus BkEditorApplyField( BkEditorSession *pSession, const BkEditorFiel
 		EnsureRmgMount( pSession );
 		if ( pParams == 0 || pnToken == 0 || pnReportCount == 0 || nReportCapacity < 0 || ( pOutReport == 0 && nReportCapacity > 0 ) )
 			return BK_EDITOR_BAD_ARGUMENT;
+		// Both names are read as C strings below: a caller that filled one to the brim has not
+		// terminated it.
+		if ( memchr( pParams->field_set, 0, sizeof pParams->field_set ) == 0 ||
+		     memchr( pParams->object_filter, 0, sizeof pParams->object_filter ) == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
 		SFieldApply apply;
 		apply.szFieldSet = pParams->field_set;
 		const int nPoints = pParams->point_count;
@@ -4877,9 +4906,14 @@ BkEditorStatus BkEditorApplyField( BkEditorSession *pSession, const BkEditorFiel
 			pOutReport[i].y = report[i].fY;
 			pOutReport[i].placed = report[i].bPlaced ? 1 : 0;
 		}
-		if ( int( report.size() ) > nReportCapacity )
-			return BK_EDITOR_REFUSED;
+		// The edit is applied and on the log by now, so the token is the caller's whatever the
+		// report buffer held: answering REFUSED ("changes nothing") here would drop the token and
+		// leave an edit on top of the log that nothing can undo. A buffer smaller than the report
+		// is a truncation, which out_report_count (always the total) tells the caller.
 		*pnToken = nToken;
+		if ( int( report.size() ) > nReportCapacity )
+			pSession->szMessage = "the report holds " + std::to_string( report.size() ) + " objects, room was given for " +
+			                      std::to_string( nReportCapacity ) + "; the field was applied all the same";
 		return BK_EDITOR_OK;
 	} );
 }

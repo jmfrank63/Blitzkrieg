@@ -2249,6 +2249,25 @@ static void ScribbleStack( unsigned char cByte )
 // the next call's locals then start out in the bytes it left.
 static void ( *volatile g_pfnScribbleStack )( unsigned char ) = ScribbleStack;
 
+// Broken window 6/8 again (WR-C03): the altitude sheet is saved as raw structs, and
+// SVertexAltitude had three unnamed padding bytes, so a sheet a generator built (new T[n])
+// wrote whatever the allocator held there and one seed did not give one file. The padding is
+// named and zeroed by the constructor, and a copy carries it.
+static void TestVertexAltitudeBytes()
+{
+	alignas( SVertexAltitude ) unsigned char zeros[sizeof( SVertexAltitude )];
+	alignas( SVertexAltitude ) unsigned char ones[sizeof( SVertexAltitude )];
+	alignas( SVertexAltitude ) unsigned char copied[sizeof( SVertexAltitude )];
+	memset( zeros, 0x00, sizeof zeros );
+	memset( ones, 0xff, sizeof ones );
+	memset( copied, 0xa5, sizeof copied );
+	new( zeros ) SVertexAltitude;
+	const SVertexAltitude *pOnes = new( ones ) SVertexAltitude;
+	Check( memcmp( zeros, ones, sizeof zeros ) == 0, "a new vertex altitude keeps no byte of the memory it was built in" );
+	new( copied ) SVertexAltitude( *pOnes );
+	Check( memcmp( copied, zeros, sizeof copied ) == 0, "a vertex altitude copied into other memory is every byte of the original" );
+}
+
 static void TestVsoPointBytes()
 {
 	alignas( SVectorStripeObjectPoint ) unsigned char zeros[sizeof( SVectorStripeObjectPoint )];
@@ -3669,6 +3688,7 @@ int main( int argc, char **argv )
 	TestM2FindReferences();
 	TestM2CascadeKinds();
 	TestM2VsoBuilder();
+	TestVertexAltitudeBytes();
 	TestVsoPointBytes();
 	TestLinkInfoBytes();
 	TestScriptPathForms();
@@ -3820,6 +3840,9 @@ static void TestM3ObjectFields()
 	Check( NMapRecords::SetObjectHP( &edited, nTarget, 0.43f ), "the health is set" );
 	Check( NMapRecords::SetObjectFormation( &edited, nTarget, 2 ), "the formation is set" );
 	Check( NMapRecords::SetObjectLink( &edited, nTarget, nHost ), "the link is set" );
+	// The host may not be linked back to its own passenger: that is a loop
+	// (CR-C02), and nothing changes when it is refused.
+	Check( !NMapRecords::SetObjectLink( &edited, nHost, nTarget ), "a link that would close a loop is refused" );
 	SMapObjectInfo *pEdited = 0;
 	{
 		std::vector<SMapObjectInfo> *lists[2] = { &edited.objects, &edited.scenarioObjects };

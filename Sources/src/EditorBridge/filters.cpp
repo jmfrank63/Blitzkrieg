@@ -111,6 +111,16 @@ void WriteXmlText( std::string &rszOut, const std::string &rszText )
 	}
 }
 
+// A name or word with no control character in it: below 0x20 the XML the file is written as
+// is one the engine's reader rejects, and the whole user file then reads as empty.
+bool IsPlainFilterText( const char *pszText )
+{
+	for ( ; *pszText != 0; ++pszText )
+		if ( (unsigned char)*pszText < 0x20 )
+			return false;
+	return true;
+}
+
 bool WriteUserFilterMap( const std::string &rszDir, const TBkFilterMap &rMap )
 {
 	try
@@ -141,13 +151,31 @@ bool WriteUserFilterMap( const std::string &rszDir, const TBkFilterMap &rMap )
 		}
 		szXml += "\t</filters>\n</base>\n";
 
+		// Written whole beside the file and moved over it: a crash or a full disk part-way leaves
+		// the previous filter.xml, not a truncated one that ReadUserFilterMap would read as no
+		// filters at all.
 		std::error_code error;
 		std::filesystem::create_directories( std::filesystem::path( rszDir ), error );
-		std::ofstream file( std::filesystem::path( rszDir ) / "filter.xml", std::ios::binary | std::ios::trunc );
-		if ( !file )
+		const std::filesystem::path finalPath = std::filesystem::path( rszDir ) / "filter.xml";
+		const std::filesystem::path tempPath = std::filesystem::path( rszDir ) / "filter.xml.tmp";
+		bool bWritten = false;
+		{
+			std::ofstream file( tempPath, std::ios::binary | std::ios::trunc );
+			if ( !file )
+				return false;
+			file.write( szXml.data(), std::streamsize( szXml.size() ) );
+			file.flush();
+			bWritten = bool( file );
+		}
+		if ( bWritten )
+			std::filesystem::rename( tempPath, finalPath, error );
+		if ( !bWritten || error )
+		{
+			std::error_code ignored;
+			std::filesystem::remove( tempPath, ignored );
 			return false;
-		file.write( szXml.data(), std::streamsize( szXml.size() ) );
-		return bool( file );
+		}
+		return true;
 	}
 	catch ( ... )
 	{
@@ -290,6 +318,8 @@ BkEditorStatus BkEditorSaveObjectFilters( BkEditorSession *pSession, const BkEdi
 			const size_t nNameLen = strnlen( rFilter.name, sizeof rFilter.name );
 			if ( nNameLen == 0 || nNameLen >= sizeof rFilter.name )
 				return BK_EDITOR_BAD_ARGUMENT;
+			if ( !IsPlainFilterText( rFilter.name ) )
+				return BK_EDITOR_BAD_ARGUMENT;
 			if ( rFilter.list_count < 0 || rFilter.list_count > BK_EDITOR_FILTER_MAX_LISTS )
 				return BK_EDITOR_BAD_ARGUMENT;
 			SBkFilterData &rData = map[std::string( rFilter.name, nNameLen )];
@@ -302,6 +332,8 @@ BkEditorStatus BkEditorSaveObjectFilters( BkEditorSession *pSession, const BkEdi
 				for ( int nWord = 0; nWord < rIn.word_count; ++nWord )
 				{
 					if ( strnlen( rIn.words[nWord], BK_EDITOR_FILTER_WORD_LEN ) == BK_EDITOR_FILTER_WORD_LEN )
+						return BK_EDITOR_BAD_ARGUMENT;
+					if ( !IsPlainFilterText( rIn.words[nWord] ) )
 						return BK_EDITOR_BAD_ARGUMENT;
 					rData.conditions.back().push_back( std::string( rIn.words[nWord] ) );
 				}
