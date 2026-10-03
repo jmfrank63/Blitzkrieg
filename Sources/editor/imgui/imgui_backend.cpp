@@ -131,6 +131,9 @@ extern "C" void bk_imgui_backend_pointer_state( BkImguiPointerState *out )
     CopyWindowName( out->active_window, sizeof( out->active_window ), g.ActiveIdWindow );
     out->active_id = g.ActiveId;
     out->hovered_id = g.HoveredId;
+    out->want_capture_keyboard = io.WantCaptureKeyboard;
+    out->want_text_input = io.WantTextInput;
+    CopyWindowName( out->nav_window, sizeof( out->nav_window ), g.NavWindow );
     // Frontmost first, the order FindHoveredWindowEx walks them in.
     for ( int n = g.Windows.Size - 1; n >= 0; n-- )
     {

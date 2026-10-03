@@ -2006,6 +2006,11 @@ pub const AutoRunner = struct {
         // and nowhere else), and the Roads & Rivers tool's hand: what Insert
         // and Delete act on.
         const rr = &self.state.view.roads_rivers;
+        std.debug.print("map-editor: BK_EDITOR_AUTO: keyboard: ImGui wants it {} (text input {}), focused window '{s}'\n", .{
+            pointer.want_capture_keyboard,
+            pointer.want_text_input,
+            std.mem.sliceTo(&pointer.nav_window, 0),
+        });
         std.debug.print("map-editor: BK_EDITOR_AUTO: status '{s}' editor '{s}'; roads & rivers: selected {any} hovered {any} last grab {any} pending {d}\n", .{
             self.state.view.statusLine(),
             self.state.editor.status(),

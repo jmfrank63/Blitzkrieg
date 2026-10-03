@@ -64,6 +64,9 @@ typedef struct BkImguiPointerState
     char active_window[48];         /* g.ActiveIdWindow: the window of the widget being used, "" for none */
     unsigned int active_id;         /* g.ActiveId (0: no widget is active) */
     unsigned int hovered_id;        /* g.HoveredId */
+    bool want_capture_keyboard;     /* io.WantCaptureKeyboard: keys then go to ImGui, not the view */
+    bool want_text_input;           /* io.WantTextInput */
+    char nav_window[48];            /* g.NavWindow: the window that has keyboard focus, "" for none */
 } BkImguiPointerState;
 void bk_imgui_backend_pointer_state(BkImguiPointerState *out);
 
