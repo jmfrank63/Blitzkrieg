@@ -492,7 +492,12 @@ int main( int argc, char **argv )
 		const std::vector<std::string> graphs = ListNames( pSession, 2 );
 		const std::vector<std::string> fieldSets = ListNames( pSession, 0 );
 		const std::vector<std::string> templates = ListNames( pSession, 1 );
-		Check( !containers.empty() && !graphs.empty() && !fieldSets.empty() && !templates.empty(), "the scan finds containers, graphs, field sets and templates" );
+		// The shipped counts are lower bounds: the loops below compare against what the scan
+		// found, so a scan that returned a subset (a changed ListRmg filter, a sparse checkout
+		// without a Data/Scenarios subfolder) would otherwise pass on whatever it did find.
+		Check( templates.size() >= 43 && graphs.size() >= 102 && containers.size() >= 404 && fieldSets.size() >= 27,
+		       ( "the scan finds the shipped records (" + std::to_string( templates.size() ) + " templates, " + std::to_string( graphs.size() ) +
+		         " graphs, " + std::to_string( containers.size() ) + " containers, " + std::to_string( fieldSets.size() ) + " field sets; at least 43/102/404/27)" ).c_str() );
 		int nContainersOk = 0, nGraphsOk = 0, nFieldSetsOk = 0, nTemplatesOk = 0;
 		for ( size_t i = 0; i < containers.size(); ++i )
 		{
