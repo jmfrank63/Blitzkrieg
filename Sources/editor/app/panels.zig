@@ -2077,10 +2077,12 @@ fn anyModalOpen(state: *const State) bool {
 pub fn tickAutosave(state: *State, now_ms: u64) void {
     state.autosave.enabled = state.settings.autosave;
     state.autosave.interval_ms = @as(u64, state.settings.autosave_minutes) * std.time.ms_per_min;
-    if (!mapIsOpen(state.editor) or anyModalOpen(state)) {
+    // A loaded document, not a file-bound one: a map File > New made has no
+    // path but is exactly what the recovery copy exists for (WR-A06).
+    if (!documentLoaded(state.editor) or anyModalOpen(state)) {
         // Still tracked (not ticked away): a dirty map waiting out a modal
         // must not lose its place in the interval once the modal closes.
-        state.autosave.note(now_ms, state.editor.dirty() and mapIsOpen(state.editor));
+        state.autosave.note(now_ms, state.editor.dirty() and documentLoaded(state.editor));
         return;
     }
     const dirty = state.editor.dirty();
@@ -2147,7 +2149,9 @@ fn writeRecoverySidecar(state: *State, recovery_os_path: []const u8) void {
     var sidecar_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const sidecar_path = std.fmt.bufPrint(&sidecar_buffer, "{s}.txt", .{recovery_os_path}) catch return;
     var doc_os_buffer: [core.files.max_path]u8 = undefined;
-    const original_os_path = core.files.osPathFromEngine(&doc_os_buffer, state.editor.document.path.items) orelse return;
+    // A never-saved document has no original: the sidecar's first line is empty.
+    const doc_path = state.editor.document.path.items;
+    const original_os_path = if (doc_path.len == 0) "" else core.files.osPathFromEngine(&doc_os_buffer, doc_path) orelse return;
     const unix_seconds = std.Io.Clock.real.now(state.io).toSeconds();
     var sidecar_text_buffer: [core.files.max_path + 64]u8 = undefined;
     const sidecar_text = std.fmt.bufPrint(&sidecar_text_buffer, "{s}\n{d}\n", .{ original_os_path, unix_seconds }) catch return;
@@ -2217,7 +2221,8 @@ fn drawRecoveryPrompt(state: *State) void {
         const offer = state.recovery_offers[index];
         ig.igPushIDInt(@intCast(index));
         var line: [400]u8 = undefined;
-        const label = std.fmt.bufPrint(&line, "{s} - {d}", .{ logic.baseName(offer.originalPath()), offer.unix_time }) catch "?";
+        const original_name = logic.baseName(offer.originalPath());
+        const label = std.fmt.bufPrint(&line, "{s} - {d}", .{ if (original_name.len == 0) "(a map that was never saved)" else original_name, offer.unix_time }) catch "?";
         text(label);
         ig.igSameLine();
         const opened = ig.igSmallButton("Open");
@@ -2515,7 +2520,8 @@ pub fn pollTestGame(state: *State) void {
 /// `pub`: smoke.zig's `AutoRunner` (BK_EDITOR_AUTO's `test` action) calls
 /// this directly, the same way it already calls `addSoundAtViewCentre`.
 pub fn requestTestLaunch(state: *State) void {
-    if (!mapIsOpen(state.editor)) return;
+    // A never-saved map tests too: the copy goes to the test folder (WR-A06).
+    if (!documentLoaded(state.editor)) return;
     if (state.test_prompt.request(state.test_game != null) == .start) startTestGame(state);
 }
 
@@ -2768,7 +2774,7 @@ fn drawMenuBar(state: *State) f32 {
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("Test")) {
-        if (ig.igMenuItemEx("Test in game", "F5", false, map_open)) requestTestLaunch(state);
+        if (ig.igMenuItemEx("Test in game", "F5", false, documentLoaded(editor))) requestTestLaunch(state);
         ig.igEndMenu();
     }
     // 05-11, D-34 (PARITY H1/H2): the MFC's .chm is not shipped; Keys and tools
