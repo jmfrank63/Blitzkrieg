@@ -281,9 +281,14 @@ fn applyKey(settings: *Settings, key: []const u8, value: []const u8) void {
     } else if (std.mem.eql(u8, key, "maps_folder")) {
         settings.setMapsFolder(value);
     } else if (std.mem.eql(u8, key, "filter_active")) {
+        // A name no filter can have (longer than the filter-name limit) is a
+        // hand-edited file: skipped, so the app's fixed name buffers never
+        // see it (CR-A03).
+        if (value.len > layers_mod.max_filter_len) return;
         settings.filter_active.set(value);
     } else if (std.mem.startsWith(u8, key, "filter_slot_")) {
         const index = std.fmt.parseInt(usize, key["filter_slot_".len..], 10) catch return;
+        if (value.len > layers_mod.max_filter_len) return;
         settings.setFilterSlot(index, value);
     } else if (std.mem.eql(u8, key, "recent")) {
         if (value.len != 0 and settings.recent_count < recent_capacity) {
@@ -616,4 +621,13 @@ test "a newline in a recent path, folder or filter name plants no key in the fil
     try std.testing.expectEqualStrings("onetwo", back.filter_active.slice());
     // An empty recent= value adds no entry.
     try std.testing.expectEqual(@as(usize, 0), parse("recent=\nrecent=   \n").recentCount());
+}
+
+test "a filter name longer than the filter-name limit in the file is skipped (CR-A03)" {
+    const long = "x" ** (layers_mod.max_filter_len + 1);
+    const exact = "y" ** layers_mod.max_filter_len;
+    const read = parse("filter_active=" ++ long ++ "\nfilter_slot_2=" ++ long ++ "\nfilter_slot_3=" ++ exact ++ "\n");
+    try std.testing.expectEqual(@as(usize, 0), read.filter_active.slice().len);
+    try std.testing.expectEqual(@as(usize, 0), read.filterSlot(2).len);
+    try std.testing.expectEqualStrings(exact, read.filterSlot(3));
 }
