@@ -757,7 +757,8 @@ pub const Editor = struct {
         const edits = try self.allocator.alloc(bridge_mod.ObjectFieldsEdit, links.len);
         defer self.allocator.free(edits);
         for (edits, self.rotate_dirs.items) |*edit, start| {
-            const target = @mod(start + turn_units, 65536);
+            // i64: a map's stored direction is the raw file int (WR-B02).
+            const target: i32 = @intCast(@mod(@as(i64, start) + turn_units, 65536));
             edit.* = .{ .mask = bridge_mod.ObjectFieldsEdit.angle_bit, .angle = @as(f32, @floatFromInt(target)) * 360.0 / 65536.0 };
         }
         return self.applyObjectFieldsEach(links, edits, gesture);
