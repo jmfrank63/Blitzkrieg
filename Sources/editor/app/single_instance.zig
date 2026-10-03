@@ -12,11 +12,18 @@
 //!
 //! Protocol: one line, one path. The second launch connects, writes
 //! `<absolute path>\n` (an empty line means "bring the window to the front"
-//! and nothing else) and waits for `ok\n` (queued) or `no\n` (refused). No
+//! and nothing else) and waits for `ok\n` (queued), `no\n` (refused), `busy\n`
+//! (the owner serves its limit of connections) or `mod\n` (see below). No
 //! commands travel the socket (T-05-11-01); the receiving editor validates the
 //! path like any open (`panels_logic.dropVerdict`, then the guard and the
 //! bridge's own read), so a hostile line can at worst name a file the editor
 //! would open anyway, or be refused with a status note.
+//!
+//! A launch that named a mod (`-mod=`) sends `<mod>`, a unit separator (0x1f)
+//! and then the path, with an empty mod for `-mod=None`. A map opens under the
+//! object database of the mod that is loaded, so an owner with another mod
+//! answers `mod\n` and queues nothing; the second launch then runs its own
+//! editor instead of having its mod silently dropped (WR-A03).
 //!
 //! Endpoint: `<user root>/mapeditor/instance.sock`, the user root being the one
 //! the engine uses (Platform/Paths.cpp: `$XDG_DATA_HOME/Nival/Blitzkrieg`, else
@@ -24,13 +31,27 @@
 //! Windows) - computed here from the environment because the check has to run
 //! before the window and the engine exist. A path longer than a socket address
 //! holds (104 bytes on macOS) falls back to a short file under the per-user
-//! temporary folder, named after a hash of the user root.
+//! temporary folder - a folder of its own there, `bk-mapeditor-<uid>`, made with
+//! mode 0700 and refused when it is open to others, so that nobody else can
+//! bind the name first or reach the socket (WR-A04) - named after a hash of
+//! the user root.
 //!
 //! A stale or hung peer never blocks a start (T-05-11-02): connecting to a
-//! socket file nobody listens on fails; one whose owner is hung answers
+//! socket file nobody listens on fails; one whose accept thread is hung answers
 //! nothing within `timeout_ms`. Either way the second launch removes that one
 //! socket file (a per-user path, never anything else), binds a fresh one and
-//! starts normally.
+//! starts normally. A listener that accepted the connection and then closed it
+//! unanswered, or said `busy`, is alive: the second launch leaves its socket
+//! file alone and starts without single-instance instead (WR-A01).
+//!
+//! What "hung" means here is the owner's accept thread, nothing more. An owner
+//! whose MAIN loop is frozen (a long synchronous Create Random Map or Update
+//! Map, or a deadlock) is not detected: the helper thread still answers `ok`,
+//! up to `queue_capacity` lines queue and the second launch exits 0 without
+//! the map opening until the loop runs again. Telling a long job from a
+//! deadlock needs a heartbeat and a guess at how long is too long, and a wrong
+//! guess starts a second editor over the first one's files and recovery copies,
+//! so there is none (WR-A05).
 //!
 //! Threads: the owner's accept loop runs on its own thread and hands each
 //! connection to a thread of its own (four at most), which answers `ok` as soon
@@ -60,6 +81,9 @@ pub const max_connections = 4;
 /// How long a second launch waits for the owner's answer, and how long the
 /// owner waits for a connected client's line.
 pub const default_timeout_ms = 1500;
+/// How long `deinit` waits for the accept thread to notice its wake-up
+/// connection before it gives the thread up (WR-A02).
+pub const accept_wait_ms = 1000;
 /// A socket address holds 104 bytes on macOS, 108 on Linux (the std's own
 /// limit); one byte for the terminator and a margin of one.
 pub const posix_path_limit = 102;
@@ -72,6 +96,12 @@ pub const Options = struct {
     /// ask again this many times, this far apart, before calling it stale.
     stale_retries: u8 = 2,
     stale_retry_ms: u32 = 60,
+    /// The endpoint's folder is the private fallback one (`Endpoint`): made with
+    /// mode 0700 and refused if it is open to anyone else (WR-A04).
+    private_folder: bool = false,
+    /// The mod the owner starts with (null: none); `Instance.setMod` keeps it
+    /// current afterwards.
+    mod: ?[]const u8 = null,
 };
 
 // -- The endpoint ------------------------------------------------------------
@@ -83,6 +113,9 @@ pub const Env = struct {
     home: ?[]const u8 = null,
     appdata: ?[]const u8 = null,
     tmpdir: ?[]const u8 = null,
+    /// The user's id, for the name of the private folder the fallback endpoint
+    /// lives in (WR-A04); null on Windows, which never uses the fallback.
+    uid: ?u32 = null,
 
     pub fn fromEnviron(gpa: std.mem.Allocator, environ: std.process.Environ, storage: *EnvStorage) Env {
         storage.* = .{};
@@ -91,9 +124,18 @@ pub const Env = struct {
             .home = storage.get(gpa, environ, 1, "HOME"),
             .appdata = storage.get(gpa, environ, 2, "APPDATA"),
             .tmpdir = storage.get(gpa, environ, 3, "TMPDIR"),
+            .uid = currentUid(),
         };
     }
 };
+
+fn currentUid() ?u32 {
+    return switch (builtin.os.tag) {
+        .windows, .wasi => null,
+        .linux => std.os.linux.getuid(),
+        else => std.c.getuid(),
+    };
+}
 
 /// Owned copies of the four variables, so `Env` can hold slices (the
 /// `Environ.getAlloc` API allocates). Freed by `deinit`.
@@ -116,13 +158,23 @@ pub const EnvStorage = struct {
     }
 };
 
+/// Where the endpoint is, and whether its folder has to be made private: the
+/// short fallback in the shared temporary folder lives in a folder of its own
+/// (`prepareFolder`).
+pub const Endpoint = struct { path: []const u8, private_folder: bool = false };
+
 /// `<user root>/mapeditor/instance.sock` (see the file's header), or null when
 /// the environment names no user root or the result does not fit `buffer`.
 /// `os` is a parameter so the Windows form is tested on every host.
 pub fn endpointPath(buffer: []u8, env: Env, os: std.Target.Os.Tag) ?[]const u8 {
+    return (endpointFor(buffer, env, os) orelse return null).path;
+}
+
+pub fn endpointFor(buffer: []u8, env: Env, os: std.Target.Os.Tag) ?Endpoint {
     if (os == .windows) {
         const appdata = env.appdata orelse return null;
-        return std.fmt.bufPrint(buffer, "{s}{s}Nival\\Blitzkrieg\\mapeditor\\instance.sock", .{ appdata, if (std.mem.endsWith(u8, appdata, "\\")) "" else "\\" }) catch null;
+        const text = std.fmt.bufPrint(buffer, "{s}{s}Nival\\Blitzkrieg\\mapeditor\\instance.sock", .{ appdata, if (std.mem.endsWith(u8, appdata, "\\")) "" else "\\" }) catch return null;
+        return .{ .path = text };
     }
     var root_buffer: [path_capacity]u8 = undefined;
     const root: []const u8 = if (env.xdg_data_home) |xdg|
@@ -132,31 +184,75 @@ pub fn endpointPath(buffer: []u8, env: Env, os: std.Target.Os.Tag) ?[]const u8 {
     else
         return null;
     const preferred = std.fmt.bufPrint(buffer, "{s}/mapeditor/instance.sock", .{root}) catch return null;
-    if (preferred.len <= posix_path_limit) return preferred;
-    // Too long for a socket address: a short name in the per-user temporary
-    // folder, still one per user root.
+    if (preferred.len <= posix_path_limit) return .{ .path = preferred };
+    // Too long for a socket address: a short name in the temporary folder,
+    // still one per user root. That folder may be shared (/tmp is world-
+    // writable on Linux), where a plain `bk-mapeditor-<hash>.sock` could be
+    // bound first by anyone: so the name sits in a folder of its own, one per
+    // user, made private by `prepareFolder` (WR-A04).
     const tmp = std.mem.trimEnd(u8, env.tmpdir orelse "/tmp", "/");
-    return std.fmt.bufPrint(buffer, "{s}/bk-mapeditor-{x:0>16}.sock", .{ tmp, std.hash.Fnv1a_64.hash(root) }) catch null;
+    const text = std.fmt.bufPrint(buffer, "{s}/bk-mapeditor-{d}/{x:0>16}.sock", .{ tmp, env.uid orelse 0, std.hash.Fnv1a_64.hash(root) }) catch return null;
+    return .{ .path = text, .private_folder = true };
+}
+
+/// Makes the endpoint's folder if it is not there, for the fallback endpoint
+/// (WR-A04): created with mode 0700, and an existing one must be a directory
+/// with no group or world access. Another user's folder of that name cannot
+/// be written to by us, and one they left open fails the mode check, so a name
+/// squatted in a shared temporary folder is refused rather than trusted.
+fn prepareFolder(io: Io, directory: []const u8) bool {
+    if (builtin.os.tag == .windows) return true;
+    return preparePosixFolder(io, directory);
+}
+
+fn preparePosixFolder(io: Io, directory: []const u8) bool {
+    Io.Dir.cwd().createDir(io, directory, @enumFromInt(0o700)) catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        else => return false,
+    };
+    const stat = Io.Dir.cwd().statFile(io, directory, .{}) catch return false;
+    return stat.kind == .directory and stat.permissions.toMode() & 0o077 == 0;
 }
 
 // -- One line, one path ------------------------------------------------------
+
+/// The longest mod folder name a line may carry (the app keeps 64 bytes for it).
+pub const max_mod_len = 64;
+/// Between the mod and the path of an open that names a mod: the one control
+/// character a line may hold.
+pub const mod_separator: u8 = 0x1f;
 
 /// What a line asks for.
 pub const Request = union(enum) {
     /// An empty line: bring the window forward, open nothing.
     raise,
     open: []const u8,
+    /// A launch that named a mod (`-mod=`, "" for `-mod=None`): the open only
+    /// goes through when the owner has that mod loaded (WR-A03).
+    open_in_mod: struct { mod: []const u8, path: []const u8 },
 };
+
+fn hasControl(text: []const u8) bool {
+    for (text) |byte| {
+        if (byte < 0x20 or byte == 0x7f) return true;
+    }
+    return false;
+}
 
 /// A line read off the socket (without its newline), or null when it is not
 /// one this protocol sends: a control character in it (a second line, an
-/// escape sequence) or more than `max_line` bytes. A trailing CR is dropped.
+/// escape sequence; the one mod separator is allowed) or more than `max_line`
+/// bytes. A trailing CR is dropped.
 pub fn parseLine(line: []const u8) ?Request {
     const body = std.mem.trimEnd(u8, line, "\r");
     if (body.len > max_line) return null;
-    for (body) |byte| {
-        if (byte < 0x20 or byte == 0x7f) return null;
+    if (std.mem.indexOfScalar(u8, body, mod_separator)) |cut| {
+        const mod = body[0..cut];
+        const path = body[cut + 1 ..];
+        if (mod.len > max_mod_len or path.len == 0 or hasControl(mod) or hasControl(path)) return null;
+        return .{ .open_in_mod = .{ .mod = mod, .path = path } };
     }
+    if (hasControl(body)) return null;
     if (body.len == 0) return .raise;
     return .{ .open = body };
 }
@@ -164,11 +260,28 @@ pub fn parseLine(line: []const u8) ?Request {
 /// `<path>\n` in `buffer` for the client to send; null when the path would not
 /// parse back (a control character, too long) or does not fit.
 pub fn frameLine(buffer: []u8, path: []const u8) ?[]const u8 {
+    // The separator would make parseLine read a mod where there is none.
+    if (std.mem.indexOfScalar(u8, path, mod_separator) != null) return null;
     if (parseLine(path) == null) return null;
     if (path.len + 1 > buffer.len) return null;
     @memcpy(buffer[0..path.len], path);
     buffer[path.len] = '\n';
     return buffer[0 .. path.len + 1];
+}
+
+/// `<mod>` 0x1f `<path>\n` in `buffer`, for a launch that named a mod (an empty
+/// `mod` is `-mod=None`); null when it would not parse back or does not fit.
+pub fn frameOpenInMod(buffer: []u8, mod: []const u8, path: []const u8) ?[]const u8 {
+    if (path.len == 0 or mod.len > max_mod_len) return null;
+    const total = mod.len + 1 + path.len + 1;
+    if (total > buffer.len) return null;
+    @memcpy(buffer[0..mod.len], mod);
+    buffer[mod.len] = mod_separator;
+    @memcpy(buffer[mod.len + 1 ..][0..path.len], path);
+    buffer[total - 1] = '\n';
+    const framed = buffer[0 .. total - 1];
+    if (parseLine(framed) == null) return null;
+    return buffer[0..total];
 }
 
 // -- The owner's side --------------------------------------------------------
@@ -191,8 +304,17 @@ pub const Instance = struct {
     path_storage: [path_capacity]u8 = undefined,
     path_len: usize = 0,
     timeout_ms: u32,
+    /// The loaded mod's folder name, guarded by `mutex` (`setMod`).
+    mod_storage: [max_mod_len]u8 = undefined,
+    mod_len: usize = 0,
     thread: ?std.Thread = null,
     stopping: std.atomic.Value(bool) = .init(false),
+    /// Set by the accept thread as it returns, so `deinit` can wait for it with
+    /// a deadline instead of `join`ing a thread that may never be woken.
+    serve_done: std.atomic.Value(bool) = .init(false),
+    /// The socket file's inode when it was bound, to tell it from a file a
+    /// later launch put at the same path; null when it could not be read.
+    bound_inode: ?Io.File.INode = null,
     /// Connection threads running; `max_connections` at most (one more is closed unanswered).
     connections: std.atomic.Value(u32) = .init(0),
     mutex: Io.Mutex = .init,
@@ -202,6 +324,24 @@ pub const Instance = struct {
 
     pub fn path(self: *const Instance) []const u8 {
         return self.path_storage[0..self.path_len];
+    }
+
+    /// The mod this editor has loaded now (null or "" for none); the main loop
+    /// keeps it current, each frame, because File > Mod changes it. A name
+    /// past `max_mod_len` is cut like the app's own.
+    pub fn setMod(self: *Instance, mod: ?[]const u8) void {
+        const name = mod orelse "";
+        const len = @min(name.len, max_mod_len);
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        @memcpy(self.mod_storage[0..len], name[0..len]);
+        self.mod_len = len;
+    }
+
+    fn hasMod(self: *Instance, mod: []const u8) bool {
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        return std.mem.eql(u8, self.mod_storage[0..self.mod_len], mod);
     }
 
     /// The oldest line the second launches have sent, if any: a path copied
@@ -219,21 +359,38 @@ pub const Instance = struct {
     }
 
     /// Stops answering, removes the socket file and frees the instance. The
-    /// accept thread is woken by a connection of our own and joined. A
+    /// accept thread is woken by a connection of our own and waited for up to
+    /// `accept_wait_ms`: the wake-up goes through the socket file, which may be
+    /// gone or replaced by now (a tmp cleaner, a launch that judged this one
+    /// stale), and then the accept never returns. Past the wait the thread is
+    /// detached and the instance, with its listening socket, left as it is - the
+    /// process is on its way out - rather than closed under the blocked accept
+    /// (WR-A02). Only a socket file that is still the one bound here is removed:
+    /// another editor's live socket at that path is not ours to unlink. A
     /// connection thread still stuck on a silent client (its watchdog could not
     /// wake the read) is waited for up to twice the timeout; past that the
-    /// instance is left allocated - the process is on its way out - rather than
-    /// freed under it.
+    /// instance is left allocated rather than freed under it.
     pub fn deinit(self: *Instance) void {
         self.stopping.store(true, .release);
+        var accept_ended = true;
         if (self.thread) |thread| {
             if (net.UnixAddress.init(self.path())) |address| {
                 if (address.connect(self.io)) |stream| stream.close(self.io) else |_| {}
             } else |_| {}
-            thread.join();
+            var accept_waited: u32 = 0;
+            while (!self.serve_done.load(.acquire) and accept_waited < accept_wait_ms) : (accept_waited += 10) {
+                self.io.sleep(.fromMilliseconds(10), .awake) catch break;
+            }
+            if (self.serve_done.load(.acquire)) {
+                thread.join();
+            } else {
+                thread.detach();
+                accept_ended = false;
+            }
         }
+        if (self.ownsSocketFile()) Io.Dir.cwd().deleteFile(self.io, self.path()) catch {};
+        if (!accept_ended) return;
         self.server.deinit(self.io);
-        Io.Dir.cwd().deleteFile(self.io, self.path()) catch {};
         var waited: u32 = 0;
         while (self.connections.load(.acquire) != 0 and waited < self.timeout_ms * 2) : (waited += 10) {
             self.io.sleep(.fromMilliseconds(10), .awake) catch break;
@@ -254,12 +411,26 @@ pub const Instance = struct {
                 slot.len = @intCast(text.len);
                 @memcpy(slot.bytes[0..text.len], text);
             },
+            // The mod was checked by `serveOne`; the main loop gets the path.
+            .open_in_mod => |named| {
+                slot.len = @intCast(named.path.len);
+                @memcpy(slot.bytes[0..named.path.len], named.path);
+            },
         }
         self.count += 1;
         return true;
     }
 
+    /// Whether the file at the endpoint is still the socket this instance bound
+    /// (or cannot be told apart from it, which keeps the old behaviour).
+    fn ownsSocketFile(self: *const Instance) bool {
+        const bound = self.bound_inode orelse return true;
+        const now = Io.Dir.cwd().statFile(self.io, self.path(), .{}) catch return false;
+        return now.inode == bound;
+    }
+
     fn serve(self: *Instance) void {
+        defer self.serve_done.store(true, .release);
         while (!self.stopping.load(.acquire)) {
             const stream = self.server.accept(self.io) catch |err| switch (err) {
                 error.SocketNotListening, error.Canceled => return,
@@ -273,7 +444,9 @@ pub const Instance = struct {
             // Each connection on its own thread: a client that connects and says
             // nothing must not keep the accept loop from the next launch.
             if (self.connections.load(.acquire) >= max_connections) {
-                stream.close(self.io);
+                // Said, not just closed: a launch that heard nothing would call
+                // this live owner stale (WR-A01).
+                answerAndClose(self.io, stream, "busy\n");
                 continue;
             }
             _ = self.connections.fetchAdd(1, .acq_rel);
@@ -298,19 +471,38 @@ pub const Instance = struct {
         defer _ = watchdog.finish();
         var read_buffer: [max_line + 2]u8 = undefined;
         var reader = stream.reader(self.io, &read_buffer);
-        const line = reader.interface.takeDelimiterExclusive('\n') catch return;
+        const line = reader.interface.takeDelimiterExclusive('\n') catch |err| {
+            // A line longer than the buffer is a hostile client that is still
+            // connected: it is told no. Anything else (it left, the watchdog cut
+            // it) has nobody to answer.
+            if (err == error.StreamTooLong) writeAnswer(self.io, stream, "no\n");
+            return;
+        };
         // Our own wake-up connection (deinit) sends nothing and is closed.
         if (self.stopping.load(.acquire)) return;
         const answer: []const u8 = blk: {
             const request = parseLine(line) orelse break :blk "no\n";
+            // A map opens under the object database of the mod that is
+            // loaded: another mod's launch is told, not queued (WR-A03).
+            if (request == .open_in_mod and !self.hasMod(request.open_in_mod.mod)) break :blk "mod\n";
             break :blk if (self.enqueue(request)) "ok\n" else "no\n";
         };
-        var write_buffer: [8]u8 = undefined;
-        var writer = stream.writer(self.io, &write_buffer);
-        writer.interface.writeAll(answer) catch return;
-        writer.interface.flush() catch return;
+        writeAnswer(self.io, stream, answer);
     }
 };
+
+/// One short answer, flushed; a client that is gone is not an error.
+fn writeAnswer(io: Io, stream: net.Stream, answer: []const u8) void {
+    var write_buffer: [8]u8 = undefined;
+    var writer = stream.writer(io, &write_buffer);
+    writer.interface.writeAll(answer) catch return;
+    writer.interface.flush() catch return;
+}
+
+fn answerAndClose(io: Io, stream: net.Stream, answer: []const u8) void {
+    writeAnswer(io, stream, answer);
+    stream.close(io);
+}
 
 /// Cuts a connection that has not finished by its deadline: a thread that
 /// sleeps in small steps and, if `finish` has not been called by then, shuts
@@ -360,12 +552,24 @@ pub const Handoff = enum {
     refused,
     /// Nothing listens at the endpoint.
     no_listener,
-    /// Something accepted the connection and said nothing in time.
+    /// The connection was made and nothing came back within the timeout: a
+    /// listener that never accepts, or an accept thread that is hung.
     no_reply,
+    /// The connection was made and then closed or reset with no answer (or an
+    /// answer this protocol does not have): somebody is listening, it just did
+    /// not take the line. Not stale (WR-A01).
+    dropped,
+    /// The owner answered `busy`: it is serving its limit of connections.
+    busy,
+    /// The owner has another mod loaded than the one this launch named; nothing
+    /// was queued (WR-A03).
+    other_mod,
 };
 
 /// Whether a failed hand-off means the endpoint is stale (T-05-11-02): nobody
-/// listens, or the one who does is hung. Anything the owner answered is not.
+/// listens, or the one who does never answers. Anything that connected and was
+/// closed on, or was answered, is a live listener - deleting its socket file
+/// would leave two editors with the first one unreachable (WR-A01).
 pub fn endpointIsStale(result: Handoff) bool {
     return result == .no_listener or result == .no_reply;
 }
@@ -403,7 +607,10 @@ const HandoffJob = struct {
             self.finish(.no_listener);
             return;
         };
-        var result: Handoff = .no_reply;
+        // Connected, so somebody listens: unless the deadline passes with no
+        // word at all (`handoffOnce`'s `no_reply`), a failure from here on is
+        // the peer closing on us, not an absent or hung owner.
+        var result: Handoff = .dropped;
         exchange: {
             var write_buffer: [max_line + 2]u8 = undefined;
             var writer = stream.writer(io, &write_buffer);
@@ -412,7 +619,15 @@ const HandoffJob = struct {
             var read_buffer: [16]u8 = undefined;
             var reader = stream.reader(io, &read_buffer);
             const answer = reader.interface.takeDelimiterExclusive('\n') catch break :exchange;
-            if (std.mem.eql(u8, answer, "ok")) result = .acked else if (std.mem.eql(u8, answer, "no")) result = .refused;
+            if (std.mem.eql(u8, answer, "ok")) {
+                result = .acked;
+            } else if (std.mem.eql(u8, answer, "no")) {
+                result = .refused;
+            } else if (std.mem.eql(u8, answer, "busy")) {
+                result = .busy;
+            } else if (std.mem.eql(u8, answer, "mod")) {
+                result = .other_mod;
+            }
         }
         stream.close(io);
         self.finish(result);
@@ -458,8 +673,9 @@ fn handoffWithRetry(io: Io, address: *const net.UnixAddress, line: []const u8, o
     var result = handoffOnce(io, address, line, options.timeout_ms);
     var tries: u8 = 0;
     // An owner that has bound but not yet begun to listen refuses once; give it
-    // a moment before the file is called stale. A hung owner is not retried.
-    while (result == .no_listener and tries < options.stale_retries) : (tries += 1) {
+    // a moment before the file is called stale. An owner at its connection limit
+    // is asked again too. A hung owner is not retried.
+    while ((result == .no_listener or result == .busy) and tries < options.stale_retries) : (tries += 1) {
         io.sleep(.fromMilliseconds(options.stale_retry_ms), .awake) catch break;
         result = handoffOnce(io, address, line, options.timeout_ms);
     }
@@ -474,8 +690,10 @@ fn startServer(gpa: std.mem.Allocator, io: Io, address: *const net.UnixAddress, 
         return error.OutOfMemory;
     };
     instance.* = .{ .gpa = gpa, .io = io, .server = server, .timeout_ms = options.timeout_ms };
+    instance.setMod(options.mod);
     @memcpy(instance.path_storage[0..endpoint.len], endpoint);
     instance.path_len = endpoint.len;
+    if (Io.Dir.cwd().statFile(io, endpoint, .{})) |stat| instance.bound_inode = stat.inode else |_| {}
     instance.thread = std.Thread.spawn(.{ .stack_size = 256 * 1024 }, Instance.serve, .{instance}) catch {
         instance.server.deinit(io);
         Io.Dir.cwd().deleteFile(io, endpoint) catch {};
@@ -500,7 +718,13 @@ pub const Acquired = union(enum) {
 pub fn acquireAt(gpa: std.mem.Allocator, io: Io, endpoint: []const u8, line: []const u8, options: Options) Acquired {
     if (endpoint.len > path_capacity) return .{ .unavailable = "the endpoint path is too long" };
     const address = net.UnixAddress.init(endpoint) catch return .{ .unavailable = "the endpoint path is too long for a socket" };
-    if (std.fs.path.dirname(endpoint)) |directory| Io.Dir.cwd().createDirPath(io, directory) catch {};
+    if (std.fs.path.dirname(endpoint)) |directory| {
+        if (options.private_folder) {
+            if (!prepareFolder(io, directory)) return .{ .unavailable = "the folder for the endpoint is not private to this user" };
+        } else {
+            Io.Dir.cwd().createDirPath(io, directory) catch {};
+        }
+    }
     var attempt: u8 = 0;
     while (attempt < 2) : (attempt += 1) {
         if (startServer(gpa, io, &address, endpoint, options)) |instance| {
@@ -519,7 +743,18 @@ pub fn acquireAt(gpa: std.mem.Allocator, io: Io, endpoint: []const u8, line: []c
         };
         if (!not_a_socket) {
             const result = handoffWithRetry(io, &address, line, options);
-            if (!endpointIsStale(result)) return .handed_off;
+            switch (result) {
+                .acked, .refused => return .handed_off,
+                // A live owner that did not take the line: its socket file stays,
+                // and this launch runs without single-instance rather than exit
+                // with the map unopened (WR-A01).
+                .busy => return .{ .unavailable = "the running editor is busy" },
+                .dropped => return .{ .unavailable = "the running editor did not take the line" },
+                // The map would have opened under the other mod's objects, or
+                // the -mod= been dropped: this launch runs on its own instead.
+                .other_mod => return .{ .unavailable = "the running editor has another mod loaded" },
+                .no_listener, .no_reply => {},
+            }
         }
         // Stale or hung: take the file away and bind our own.
         Io.Dir.cwd().deleteFile(io, endpoint) catch |err| switch (err) {
@@ -537,8 +772,10 @@ pub fn acquire(gpa: std.mem.Allocator, io: Io, environ: std.process.Environ, lin
     defer storage.deinit(gpa);
     const env = Env.fromEnviron(gpa, environ, &storage);
     var buffer: [path_capacity]u8 = undefined;
-    const endpoint = endpointPath(&buffer, env, builtin.os.tag) orelse return .{ .unavailable = "no user folder to keep the endpoint in" };
-    return acquireAt(gpa, io, endpoint, line, options);
+    const endpoint = endpointFor(&buffer, env, builtin.os.tag) orelse return .{ .unavailable = "no user folder to keep the endpoint in" };
+    var chosen = options;
+    chosen.private_folder = endpoint.private_folder;
+    return acquireAt(gpa, io, endpoint.path, line, chosen);
 }
 
 // -- Tests ---------------------------------------------------------------------
@@ -570,16 +807,20 @@ test "endpoint: the user root's mapeditor folder, the engine's own root rules" {
 test "endpoint: a root too long for a socket address falls back to a short per-user name" {
     var buffer: [path_capacity]u8 = undefined;
     const long_home = "/Users/a-very-long-user-name-indeed/with/some/more/folders/to/make/it/long";
-    const a = endpointPath(&buffer, .{ .home = long_home, .tmpdir = "/var/folders/xy/abc/T/" }, .macos).?;
+    const a = endpointPath(&buffer, .{ .home = long_home, .tmpdir = "/var/folders/xy/abc/T/", .uid = 501 }, .macos).?;
     try std.testing.expect(a.len <= posix_path_limit);
-    try std.testing.expect(std.mem.startsWith(u8, a, "/var/folders/xy/abc/T/bk-mapeditor-"));
+    try std.testing.expect(std.mem.startsWith(u8, a, "/var/folders/xy/abc/T/bk-mapeditor-501/"));
     try std.testing.expect(std.mem.endsWith(u8, a, ".sock"));
+    // The fallback asks for a private folder; the preferred endpoint does not (WR-A04).
+    var flag_buffer: [path_capacity]u8 = undefined;
+    try std.testing.expect(endpointFor(&flag_buffer, .{ .home = long_home, .uid = 501 }, .linux).?.private_folder);
+    try std.testing.expect(!endpointFor(&flag_buffer, .{ .home = "/h" }, .linux).?.private_folder);
     // Stable for one user root, different for another.
     var other_buffer: [path_capacity]u8 = undefined;
-    const again = endpointPath(&other_buffer, .{ .home = long_home, .tmpdir = "/var/folders/xy/abc/T/" }, .macos).?;
+    const again = endpointPath(&other_buffer, .{ .home = long_home, .tmpdir = "/var/folders/xy/abc/T/", .uid = 501 }, .macos).?;
     try std.testing.expectEqualStrings(a, again);
     var third_buffer: [path_capacity]u8 = undefined;
-    const other = endpointPath(&third_buffer, .{ .home = long_home ++ "2", .tmpdir = "/var/folders/xy/abc/T/" }, .macos).?;
+    const other = endpointPath(&third_buffer, .{ .home = long_home ++ "2", .tmpdir = "/var/folders/xy/abc/T/", .uid = 501 }, .macos).?;
     try std.testing.expect(!std.mem.eql(u8, a, other));
     // With no TMPDIR it is /tmp.
     try std.testing.expect(std.mem.startsWith(u8, endpointPath(&buffer, .{ .home = long_home }, .linux).?, "/tmp/bk-mapeditor-"));
@@ -606,11 +847,72 @@ test "framing: one line, one path - a control character, a second line and a flo
     try std.testing.expect(parseLine(&long) == null);
 }
 
+test "framing: a mod travels before the path, and the separator is the only control character let through (WR-A03)" {
+    var buffer: [max_line + 4]u8 = undefined;
+    const framed = frameOpenInMod(&buffer, "MyMod", "/maps/a.bzm").?;
+    try std.testing.expectEqualStrings("MyMod\x1f/maps/a.bzm\n", framed);
+    const parsed = parseLine(framed[0 .. framed.len - 1]).?.open_in_mod;
+    try std.testing.expectEqualStrings("MyMod", parsed.mod);
+    try std.testing.expectEqualStrings("/maps/a.bzm", parsed.path);
+    // -mod=None is an empty mod, and still a mod.
+    try std.testing.expectEqualStrings("\x1f/maps/a.bzm\n", frameOpenInMod(&buffer, "", "/maps/a.bzm").?);
+    try std.testing.expectEqualStrings("", parseLine("\x1f/maps/a.bzm").?.open_in_mod.mod);
+    // Nothing else rides along: a second separator, a control character in
+    // either part, no path, a mod too long, a plain path holding the separator.
+    try std.testing.expect(parseLine("m\x1fa\x1fb") == null);
+    try std.testing.expect(parseLine("m\x1b\x1f/maps/a.bzm") == null);
+    try std.testing.expect(parseLine("m\x1f/maps/a\x1b.bzm") == null);
+    try std.testing.expect(parseLine("m\x1f") == null);
+    try std.testing.expect(frameOpenInMod(&buffer, "x" ** (max_mod_len + 1), "/maps/a.bzm") == null);
+    try std.testing.expect(frameOpenInMod(&buffer, "m", "") == null);
+    try std.testing.expect(frameLine(&buffer, "m\x1f/maps/a.bzm") == null);
+}
+
+test "single instance: a launch naming another mod is told so and queues nothing; the same mod is handed over (WR-A03)" {
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var endpoint_buffer: [path_capacity]u8 = undefined;
+    const endpoint = testEndpoint(io, &endpoint_buffer, "mod");
+    removeTestEndpoint(io, endpoint);
+    defer removeTestEndpoint(io, endpoint);
+    const owner = switch (acquireAt(gpa, io, endpoint, "\n", .{ .timeout_ms = 2000, .mod = "ModA" })) {
+        .primary => |instance| instance,
+        else => return error.TestUnexpectedResult,
+    };
+    defer owner.deinit();
+
+    var line_buffer: [max_line + 4]u8 = undefined;
+    const address = try net.UnixAddress.init(endpoint);
+    // Another mod, none, and a plain launch with no -mod= at all.
+    try std.testing.expectEqual(Handoff.other_mod, handoffOnce(io, &address, frameOpenInMod(&line_buffer, "ModB", "/maps/b.bzm").?, 2000));
+    try std.testing.expectEqual(Handoff.other_mod, handoffOnce(io, &address, frameOpenInMod(&line_buffer, "", "/maps/b.bzm").?, 2000));
+    var out: [max_line]u8 = undefined;
+    try std.testing.expect(owner.poll(&out) == null);
+    switch (acquireAt(gpa, io, endpoint, frameOpenInMod(&line_buffer, "ModB", "/maps/b.bzm").?, .{ .timeout_ms = 2000, .stale_retries = 0 })) {
+        .unavailable => {},
+        else => return error.TestUnexpectedResult,
+    }
+    // The same mod goes through, and so does a launch that named none.
+    try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, frameOpenInMod(&line_buffer, "ModA", "/maps/a.bzm").?, 2000));
+    try std.testing.expectEqualStrings("/maps/a.bzm", owner.poll(&out).?.open);
+    try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, "/maps/plain.bzm\n", 2000));
+    try std.testing.expectEqualStrings("/maps/plain.bzm", owner.poll(&out).?.open);
+    // File > Mod changed the owner's mod: the answer follows.
+    owner.setMod("ModB");
+    try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, frameOpenInMod(&line_buffer, "ModB", "/maps/b.bzm").?, 2000));
+    try std.testing.expectEqualStrings("/maps/b.bzm", owner.poll(&out).?.open);
+    owner.setMod(null);
+    try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, frameOpenInMod(&line_buffer, "", "/maps/n.bzm").?, 2000));
+}
+
 test "stale-peer policy: nobody listening and a hung owner are stale, anything answered is not" {
     try std.testing.expect(endpointIsStale(.no_listener));
     try std.testing.expect(endpointIsStale(.no_reply));
     try std.testing.expect(!endpointIsStale(.acked));
     try std.testing.expect(!endpointIsStale(.refused));
+    // Connected and closed on, or told busy: alive, so not stale (WR-A01).
+    try std.testing.expect(!endpointIsStale(.dropped));
+    try std.testing.expect(!endpointIsStale(.busy));
 }
 
 /// A socket path for a test: in zig-out/local-test, absolute where the platform
@@ -715,6 +1017,156 @@ test "single instance: a client that connects and says nothing does not keep the
     try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, "/maps/real.bzm\n", 2000));
     var out: [max_line]u8 = undefined;
     try std.testing.expectEqualStrings("/maps/real.bzm", owner.poll(&out).?.open);
+}
+
+test "single instance: an owner at its connection limit says busy and keeps its socket (WR-A01)" {
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var endpoint_buffer: [path_capacity]u8 = undefined;
+    const endpoint = testEndpoint(io, &endpoint_buffer, "busy");
+    removeTestEndpoint(io, endpoint);
+    defer removeTestEndpoint(io, endpoint);
+    const owner = switch (acquireAt(gpa, io, endpoint, "\n", .{ .timeout_ms = 3000 })) {
+        .primary => |instance| instance,
+        else => return error.TestUnexpectedResult,
+    };
+    defer owner.deinit();
+
+    const address = try net.UnixAddress.init(endpoint);
+    // Every connection slot held by a client that says nothing.
+    var silent: [max_connections]net.Stream = undefined;
+    for (&silent) |*stream| stream.* = try address.connect(io);
+    defer for (silent) |stream| stream.close(io);
+    var waited: u32 = 0;
+    while (owner.connections.load(.acquire) < max_connections and waited < 2000) : (waited += 10) {
+        try io.sleep(.fromMilliseconds(10), .awake);
+    }
+    try std.testing.expectEqual(@as(u32, max_connections), owner.connections.load(.acquire));
+    // The next launch is told so - not left to read its silence as a dead owner.
+    try std.testing.expectEqual(Handoff.busy, handoffOnce(io, &address, "/maps/late.bzm\n", 2000));
+    switch (acquireAt(gpa, io, endpoint, "/maps/late.bzm\n", .{ .timeout_ms = 2000, .stale_retries = 0 })) {
+        .unavailable => {},
+        else => return error.TestUnexpectedResult,
+    }
+    // Its socket file is still the owner's, not removed or replaced.
+    _ = try Io.Dir.cwd().statFile(io, endpoint, .{});
+}
+
+const Closer = struct {
+    io: Io,
+    server: *net.Server,
+
+    /// Accepts one connection and closes it unanswered.
+    fn run(self: *Closer) void {
+        if (self.server.accept(self.io)) |stream| stream.close(self.io) else |_| {}
+    }
+};
+
+test "single instance: a live listener that closes on us is not stale - its socket file stays (WR-A01)" {
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var endpoint_buffer: [path_capacity]u8 = undefined;
+    const endpoint = testEndpoint(io, &endpoint_buffer, "dropped");
+    removeTestEndpoint(io, endpoint);
+    defer removeTestEndpoint(io, endpoint);
+    const address = try net.UnixAddress.init(endpoint);
+    var server = try address.listen(io, .{});
+    defer server.deinit(io);
+    var closer: Closer = .{ .io = io, .server = &server };
+    const thread = try std.Thread.spawn(.{}, Closer.run, .{&closer});
+    defer thread.join();
+
+    const result = acquireAt(gpa, io, endpoint, "/maps/a.bzm\n", .{ .timeout_ms = 2000, .stale_retries = 0 });
+    switch (result) {
+        .unavailable => {},
+        .primary => |instance| {
+            instance.deinit();
+            return error.TestUnexpectedResult;
+        },
+        .handed_off => return error.TestUnexpectedResult,
+    }
+    // Not removed, not replaced: the file is still there for the listener.
+    _ = try Io.Dir.cwd().statFile(io, endpoint, .{});
+}
+
+test "single instance: deinit neither hangs on a replaced socket nor removes the replacement (WR-A02)" {
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var endpoint_buffer: [path_capacity]u8 = undefined;
+    const endpoint = testEndpoint(io, &endpoint_buffer, "replaced");
+    var moved_buffer: [path_capacity + 8]u8 = undefined;
+    const moved = try std.fmt.bufPrint(&moved_buffer, "{s}.old", .{endpoint});
+    removeTestEndpoint(io, endpoint);
+    removeTestEndpoint(io, moved);
+    defer removeTestEndpoint(io, endpoint);
+    defer removeTestEndpoint(io, moved);
+
+    // The first owner. A detached accept thread keeps its memory alive past
+    // this test, so it does not come from the leak-checking allocator.
+    const first = switch (acquireAt(std.heap.smp_allocator, io, endpoint, "\n", .{ .timeout_ms = 1000 })) {
+        .primary => |instance| instance,
+        else => return error.TestUnexpectedResult,
+    };
+    // Its socket file goes away from the path (a tmp cleaner, a launch that
+    // judged it stale) and another editor binds there.
+    try Io.Dir.rename(Io.Dir.cwd(), endpoint, Io.Dir.cwd(), moved, io);
+    const second = switch (acquireAt(gpa, io, endpoint, "\n", .{ .timeout_ms = 1000 })) {
+        .primary => |instance| instance,
+        else => return error.TestUnexpectedResult,
+    };
+    defer second.deinit();
+
+    const started = Io.Clock.Timestamp.now(io, .awake);
+    first.deinit();
+    const elapsed_ms = @divTrunc(started.durationTo(Io.Clock.Timestamp.now(io, .awake)).raw.nanoseconds, std.time.ns_per_ms);
+    // It gave up on its accept thread after about the wait; it did not hang.
+    try std.testing.expect(elapsed_ms < accept_wait_ms + 3000);
+    // The replacement's socket file is still its own, and it still answers.
+    const address = try net.UnixAddress.init(endpoint);
+    try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, "/maps/b.bzm\n", 2000));
+    var out: [max_line]u8 = undefined;
+    try std.testing.expectEqualStrings("/maps/b.bzm", second.poll(&out).?.open);
+}
+
+test "single instance: the fallback endpoint's folder is made private, and one left open is refused (WR-A04)" {
+    if (builtin.os.tag == .windows) return error.SkipZigTest;
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var endpoint_buffer: [path_capacity]u8 = undefined;
+    const base = testEndpoint(io, &endpoint_buffer, "private");
+    // <base>.d/x.sock: a folder next to where the plain test socket would be.
+    var folder_buffer: [path_capacity]u8 = undefined;
+    const folder = try std.fmt.bufPrint(&folder_buffer, "{s}.d", .{base});
+    var sock_buffer: [path_capacity]u8 = undefined;
+    const sock = try std.fmt.bufPrint(&sock_buffer, "{s}/x.sock", .{folder});
+    Io.Dir.cwd().deleteFile(io, sock) catch {};
+    Io.Dir.cwd().deleteDir(io, folder) catch {};
+    defer Io.Dir.cwd().deleteDir(io, folder) catch {};
+    defer removeTestEndpoint(io, sock);
+
+    // Made by the first launch, with no access for anyone else.
+    const owner = switch (acquireAt(gpa, io, sock, "\n", .{ .timeout_ms = 1000, .private_folder = true })) {
+        .primary => |instance| instance,
+        else => return error.TestUnexpectedResult,
+    };
+    const stat = try Io.Dir.cwd().statFile(io, folder, .{});
+    try std.testing.expect(stat.permissions.toMode() & 0o077 == 0);
+    owner.deinit();
+    removeTestEndpoint(io, sock);
+
+    // A folder that is open to others (somebody squatting the name, a leftover)
+    // is not trusted with the socket.
+    Io.Dir.cwd().deleteDir(io, folder) catch {};
+    try Io.Dir.cwd().createDir(io, folder, @enumFromInt(0o777));
+    try Io.Dir.cwd().setFilePermissions(io, folder, @enumFromInt(0o755), .{});
+    switch (acquireAt(gpa, io, sock, "\n", .{ .timeout_ms = 1000, .private_folder = true })) {
+        .unavailable => {},
+        .primary => |instance| {
+            instance.deinit();
+            return error.TestUnexpectedResult;
+        },
+        .handed_off => return error.TestUnexpectedResult,
+    }
 }
 
 test "single instance: a stale socket file never blocks a start - the next launch takes the endpoint" {

@@ -2715,6 +2715,10 @@ fn drawEntryList(state: *State, kind: usize) void {
             _ = composers.removeShellTiles(shell, picked[0..picked_count]) catch false;
         }
         state.fc_entry_selected[kind].clearRetainingCapacity();
+        // The lists changed: `count` and the selection flags above are stale,
+        // so the rows are drawn from the next frame's (CR-A02).
+        ig.igEndDisabled();
+        return;
     }
     ig.igSameLine();
     if (ig.igButton("Properties...")) {
@@ -3228,6 +3232,12 @@ fn openDiplomacy(state: *State) void {
     const t = &state.composers.tdoc.current;
     state.tc_dipl_count = @min(t.diplomacies.items.len, state.tc_dipl_sides.len);
     @memcpy(state.tc_dipl_sides[0..state.tc_dipl_count], t.diplomacies.items[0..state.tc_dipl_count]);
+    // A template file with no diplomacy entries gets the table's last row, the
+    // neutral, so the Add buttons have a row to turn into a player (WR-A09).
+    if (state.tc_dipl_count == 0) {
+        state.tc_dipl_sides[0] = 2;
+        state.tc_dipl_count = 1;
+    }
     state.tc_dipl_type = t.game_type;
     state.tc_dipl_attacking = t.attacking_side;
     state.tc_popup = .diplomacy;
@@ -3591,7 +3601,8 @@ fn drawDiplomacyPopup(state: *State) void {
         state.tc_dipl_count -= 1;
     }
     panels.text("Neutral");
-    ig.igBeginDisabled(state.tc_dipl_count >= core.rmg.max_diplomacies);
+    // `count - 1` below needs a neutral row to turn into a player (WR-A09).
+    ig.igBeginDisabled(state.tc_dipl_count == 0 or state.tc_dipl_count >= core.rmg.max_diplomacies);
     if (ig.igButton("Add a player on side 0")) {
         state.tc_dipl_sides[state.tc_dipl_count] = 2;
         state.tc_dipl_sides[state.tc_dipl_count - 1] = 0;

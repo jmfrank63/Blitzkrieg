@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const bridge_mod = @import("bridge.zig");
 const fake_mod = @import("fake_bridge.zig");
 const document_mod = @import("document.zig");
@@ -104,7 +105,8 @@ pub const Editor = struct {
     files: ?files_mod.Files = null,
     /// The OS paths `save` has already taken this session's one `.bak` for
     /// (D-19: once per file per session, at the first write); owned keys,
-    /// freed in `deinit`.
+    /// freed in `deinit`. Keyed by `backedUpKey`, so two spellings of one
+    /// Windows file are one entry.
     backed_up: std.StringHashMapUnmanaged(void) = .empty,
     /// The installation the editor runs from (BkEditorPaths' base root),
     /// copied by `setBaseRoot`: what `save` classifies a shipped map against
@@ -440,7 +442,9 @@ pub const Editor = struct {
             return error.Failed;
         };
 
-        if (!self.backed_up.contains(path_os)) {
+        var key_buffer: [files_mod.max_path]u8 = undefined;
+        const backup_key = backedUpKey(&key_buffer, path_os, builtin.os.tag == .windows);
+        if (!self.backed_up.contains(backup_key)) {
             if (files.exists(path_os)) {
                 var backup_buffer: [files_mod.max_path]u8 = undefined;
                 const backup_os = files_mod.backupPathFor(&backup_buffer, path_os) orelse {
@@ -456,7 +460,7 @@ pub const Editor = struct {
             }
             // Recorded even when `path_os` did not exist yet, so a file
             // created this session never gets a .bak of a later version.
-            const owned_key = self.allocator.dupe(u8, path_os) catch |err| {
+            const owned_key = self.allocator.dupe(u8, backup_key) catch |err| {
                 files.delete(temp_os);
                 return err;
             };
@@ -645,11 +649,13 @@ pub const Editor = struct {
 
     /// The selection's delete-all (M3, D-25): every member through the M2
     /// cascade, ONE undo step. A member's refused delete refuses the whole
-    // delete and changes nothing - the members are checked against the same
-    // refusals a single delete meets, before any of them goes (a span, a
-    // trench piece, an unknown type; a bridge or an entrenchment is not in a
-    // selection to begin with, the picks pass them over). The link IDs need
-    // not be sorted; the recorded order is the one given.
+    /// delete and changes nothing: the bridge's refusals (a span, a trench
+    /// piece, an object still carrying a passenger, a shared link ID) are met
+    /// only at the member's own turn, so a refusal part-way puts the members
+    /// already deleted back - bridge, document and selection - before it
+    /// answers (CR-B01). A passenger must come before its host in `link_ids`
+    /// (`deleteHost` and `deleteSelection` order them so). The link IDs need
+    /// not be sorted otherwise; the recorded order is the one given.
     pub fn deleteMany(self: *Editor, link_ids: []const i32) EditError!void {
         if (link_ids.len == 0) return;
         // Check every member first (reserve included), so a refusal leaves
@@ -659,6 +665,8 @@ pub const Editor = struct {
             if (self.document.indexOf(link_id) == null) return error.Failed;
         }
         try self.history.reserve(self.allocator);
+        // Room for the rollback's restores, so it cannot fail half way.
+        try self.document.objects.ensureUnusedCapacity(self.allocator, link_ids.len);
         var deleted: std.ArrayListUnmanaged(history_mod.DeletedRecord) = .empty;
         errdefer deleted.deinit(self.allocator);
         try deleted.ensureTotalCapacity(self.allocator, link_ids.len);
@@ -666,9 +674,25 @@ pub const Editor = struct {
             // The index at the member's own deletion: the earlier removals
             // shifted the list, so it is read fresh each time.
             const index = self.document.indexOf(link_id) orelse return error.Failed;
-            try self.noteOutcome(self.bridge.deleteObject(link_id));
+            self.noteOutcome(self.bridge.deleteObject(link_id)) catch |err| {
+                // The refusal's reason: the restores below reset the status.
+                const reason = self.saveStatus();
+                var back = deleted.items.len;
+                while (back != 0) : (back -= 1) {
+                    const member = deleted.items[back - 1];
+                    if (self.bridge.restoreObject(member.object.link_id) != .ok) self.replay_broken = true;
+                    self.document.objects.insertAssumeCapacity(@min(member.index, self.document.objects.items.len), member.object);
+                }
+                if (deleted.items.len != 0) self.bumpCascadeGenerations();
+                self.restoreStatus(&reason);
+                return err;
+            };
             const object = self.document.objects.orderedRemove(index);
             deleted.appendAssumeCapacity(.{ .object = object, .index = index });
+        }
+        // The selection goes only once every member has: a rolled-back delete
+        // leaves it as it was.
+        for (link_ids) |link_id| {
             if (self.selection == link_id) self.selection = null;
             _ = self.selection_set.remove(link_id);
         }
@@ -753,7 +777,8 @@ pub const Editor = struct {
         const edits = try self.allocator.alloc(bridge_mod.ObjectFieldsEdit, links.len);
         defer self.allocator.free(edits);
         for (edits, self.rotate_dirs.items) |*edit, start| {
-            const target = @mod(start + turn_units, 65536);
+            // i64: a map's stored direction is the raw file int (WR-B02).
+            const target: i32 = @intCast(@mod(@as(i64, start) + turn_units, 65536));
             edit.* = .{ .mask = bridge_mod.ObjectFieldsEdit.angle_bit, .angle = @as(f32, @floatFromInt(target)) * 360.0 / 65536.0 };
         }
         return self.applyObjectFieldsEach(links, edits, gesture);
@@ -901,7 +926,31 @@ pub const Editor = struct {
                     all.append(self.allocator, object.link_id) catch return error.OutOfMemory;
             }
         }
-        for (members) |member| all.append(self.allocator, member) catch return error.OutOfMemory;
+        // A member that carries another member goes after it (the bridge
+        // refuses a host that still carries a passenger): deepest first. A
+        // link cycle only stops the climb (CR-B01).
+        const depths = self.allocator.alloc(usize, members.len) catch return error.OutOfMemory;
+        defer self.allocator.free(depths);
+        var deepest: usize = 0;
+        for (members, depths) |member, *depth| {
+            depth.* = 0;
+            var current = self.document.find(member);
+            while (current) |object| {
+                const host = object.link_with;
+                if (host == 0 or host == object.link_id or depth.* >= members.len) break;
+                if (std.mem.indexOfScalar(i32, members, host) == null) break;
+                depth.* += 1;
+                current = self.document.find(host);
+            }
+            deepest = @max(deepest, depth.*);
+        }
+        var level = deepest + 1;
+        while (level != 0) {
+            level -= 1;
+            for (members, depths) |member, depth| {
+                if (depth == level) all.append(self.allocator, member) catch return error.OutOfMemory;
+            }
+        }
         try self.deleteMany(all.items);
     }
 
@@ -2631,21 +2680,43 @@ pub const Editor = struct {
     fn replay(self: *Editor, command: *Command, forwards: bool) EditError!void {
         switch (command.*) {
             .paint => |p| {
+                // A stroke frame that fails part-way leaves the frames before it
+                // replayed in the bridge's own log: they are put back, as the
+                // `.edit` arm does, so the entry and the bridge agree again
+                // (WR-B01).
                 if (forwards) {
-                    for (p.tokens.items) |token| try self.noteOutcome(self.bridge.redoPaint(token));
+                    for (p.tokens.items, 0..) |token, done| {
+                        self.noteOutcome(self.bridge.redoPaint(token)) catch |err| {
+                            self.unwindPaints(p.tokens.items[0..done], .undo);
+                            return err;
+                        };
+                    }
                 } else {
                     var index = p.tokens.items.len;
                     while (index != 0) {
                         index -= 1;
-                        try self.noteOutcome(self.bridge.undoPaint(p.tokens.items[index]));
+                        self.noteOutcome(self.bridge.undoPaint(p.tokens.items[index])) catch |err| {
+                            self.unwindPaints(p.tokens.items[index + 1 ..], .redo);
+                            return err;
+                        };
                     }
                 }
             },
             .add => |a| if (forwards) try self.restoreInto(a.object, a.index) else try self.removeFrom(a.object.link_id),
             .delete => |d| if (forwards) try self.removeFrom(d.object.link_id) else try self.restoreInto(d.object, d.index),
             .multi_delete => |*d| {
+                // A member that fails part-way leaves the ones before it done:
+                // they go back the other way, so a retry starts where this
+                // one did (WR-B01).
                 if (forwards) {
-                    for (d.deleted.items) |record| try self.removeFrom(record.object.link_id);
+                    for (d.deleted.items, 0..) |record, done| {
+                        self.removeFrom(record.object.link_id) catch |err| {
+                            const reason = self.saveStatus();
+                            self.unwindMultiDelete(d.deleted.items[0..done], .restore);
+                            self.restoreStatus(&reason);
+                            return err;
+                        };
+                    }
                 } else {
                     // Last deleted first, each at the index its own deletion
                     // recorded: the exact reverse of the way they went.
@@ -2653,7 +2724,12 @@ pub const Editor = struct {
                     while (i != 0) {
                         i -= 1;
                         const member = d.deleted.items[i];
-                        try self.restoreInto(member.object, member.index);
+                        self.restoreInto(member.object, member.index) catch |err| {
+                            const reason = self.saveStatus();
+                            self.unwindMultiDelete(d.deleted.items[i + 1 ..], .remove);
+                            self.restoreStatus(&reason);
+                            return err;
+                        };
                     }
                 }
             },
@@ -2743,7 +2819,13 @@ pub const Editor = struct {
     /// steps in all.
     fn replayRoom(command: *const Command) usize {
         return switch (command.*) {
-            .composite => |c| @max(c.steps.items.len, 1),
+            .composite => |c| blk: {
+                var total: usize = 0;
+                for (c.steps.items) |*step| total += replayRoom(step);
+                break :blk @max(total, 1);
+            },
+            // Every member of a multi-delete comes back in one undo.
+            .multi_delete => |d| @max(d.deleted.items.len, 1),
             else => 1,
         };
     }
@@ -2792,6 +2874,74 @@ pub const Editor = struct {
 
     fn drifted(err: EditError) EditError {
         return if (err == error.Refused) error.Failed else err;
+    }
+
+    const StatusCopy = struct { buffer: [256]u8 = undefined, len: usize = 0 };
+
+    /// The status line as it is, for a rollback whose own bridge calls would
+    /// overwrite the reason it is reporting.
+    fn saveStatus(self: *const Editor) StatusCopy {
+        var copy: StatusCopy = .{ .len = self.status_len };
+        @memcpy(copy.buffer[0..self.status_len], self.status_buffer[0..self.status_len]);
+        return copy;
+    }
+
+    fn restoreStatus(self: *Editor, copy: *const StatusCopy) void {
+        @memcpy(self.status_buffer[0..copy.len], copy.buffer[0..copy.len]);
+        self.status_len = copy.len;
+    }
+
+    /// `unwindTokens` for a paint's frames: `.redo` re-applies frames an undo
+    /// took back (oldest first), `.undo` takes back frames a redo applied
+    /// (newest first). A frame that will not go back marks the history as broken.
+    fn unwindPaints(self: *Editor, tokens: []const i32, direction: Unwind) void {
+        switch (direction) {
+            .redo => for (tokens) |token| {
+                if (self.bridge.redoPaint(token) != .ok) {
+                    self.replay_broken = true;
+                    return;
+                }
+            },
+            .undo => {
+                var index = tokens.len;
+                while (index != 0) {
+                    index -= 1;
+                    if (self.bridge.undoPaint(tokens[index]) != .ok) {
+                        self.replay_broken = true;
+                        return;
+                    }
+                }
+            },
+        }
+    }
+
+    const MultiUnwind = enum { restore, remove };
+
+    /// Puts back what a failed multi-delete replay had already done:
+    /// `.restore` brings back members a redo had removed (last removed first),
+    /// `.remove` removes members an undo had restored (the one restored last
+    /// first). The caller reserved room for every member. A member that will
+    /// not go back marks the history as broken.
+    fn unwindMultiDelete(self: *Editor, members: []const history_mod.DeletedRecord, direction: MultiUnwind) void {
+        switch (direction) {
+            .restore => {
+                var back = members.len;
+                while (back != 0) {
+                    back -= 1;
+                    const member = members[back];
+                    self.restoreInto(member.object, member.index) catch {
+                        self.replay_broken = true;
+                        return;
+                    };
+                }
+            },
+            .remove => for (members) |member| {
+                self.removeFrom(member.object.link_id) catch {
+                    self.replay_broken = true;
+                    return;
+                };
+            },
+        }
     }
 
     const Unwind = enum { undo, redo };
@@ -3728,6 +3878,28 @@ pub const Editor = struct {
 
 /// The same fixture fake_bridge.zig builds for its own tests, exposed here
 /// under the name later tasks call it by.
+/// What `backed_up` is keyed by. On Windows `C:\Maps\A.bzm`, `c:\maps\a.bzm`
+/// and `C:/Maps/A.bzm` are one file, so those spellings lower-case ASCII and
+/// use one separator (WR-B04); elsewhere the path is the key. A path longer
+/// than `buffer` is used as it is.
+fn backedUpKey(buffer: []u8, path_os: []const u8, windows: bool) []const u8 {
+    if (!windows or path_os.len > buffer.len) return path_os;
+    for (path_os, buffer[0..path_os.len]) |byte, *out| out.* = if (byte == '/') '\\' else std.ascii.toLower(byte);
+    return buffer[0..path_os.len];
+}
+
+test "backed-up key: Windows spellings of one file are one key, other systems keep the path (WR-B04)" {
+    var one: [64]u8 = undefined;
+    var two: [64]u8 = undefined;
+    try std.testing.expectEqualStrings(
+        backedUpKey(&one, "C:\\Maps\\A.bzm", true),
+        backedUpKey(&two, "c:/maps/a.BZM", true),
+    );
+    try std.testing.expectEqualStrings("C:\\Maps\\A.bzm", backedUpKey(&one, "C:\\Maps\\A.bzm", false));
+    var small: [4]u8 = undefined;
+    try std.testing.expectEqualStrings("C:\\Maps\\A.bzm", backedUpKey(&small, "C:\\Maps\\A.bzm", true));
+}
+
 pub const testFixture = fake_mod.fixture;
 
 test "open fills the document from the bridge" {
@@ -6716,4 +6888,136 @@ test "a patch outside the storages is copied in, not refused (D-10); a bad one i
     try std.testing.expectError(error.Refused, editor.importPatch("/x/readme.txt", false, &named));
     var root: [128]u8 = undefined;
     try std.testing.expectEqualStrings("/fake/user/rmg", try editor.rmgRoot(&root));
+}
+
+test "undo of a multi-delete that fails part-way puts the restored members back and can be retried (WR-B01)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    // The tank (1) and the unknown object (3) go as one step; undo restores 3
+    // first, then 1.
+    editor.selectionReplace(&.{ 1, 3 });
+    try editor.deleteSelection();
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    // Something takes link ID 1 meanwhile, so its restore is refused.
+    var intruder: ObjectRecord = .{ .link_id = 1, .x = 10, .y = 10, .dir = 0, .player = 0 };
+    intruder.setName("T34");
+    try fake.addFixture(intruder, false);
+    const live = fake.objects_list.items.len;
+    try std.testing.expectError(error.Failed, editor.undo());
+    // The member that did come back went away again: bridge and document agree
+    // with the entry, which is still on the stack, and the history is not broken.
+    try std.testing.expectEqual(live, fake.objects_list.items.len);
+    try std.testing.expect(editor.document.find(3) == null);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expect(!editor.replay_broken);
+    try std.testing.expect(editor.status().len != 0);
+    // Out of the way, the same undo now goes through.
+    _ = fake.objects_list.pop();
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(editor.document.find(1) != null);
+    try std.testing.expect(editor.document.find(3) != null);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expect(editor.document.find(1) == null);
+    try std.testing.expect(editor.document.find(3) == null);
+}
+
+test "undo of a paint stroke that fails part-way puts the undone frames back and can be retried (WR-B01)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const gesture = editor.beginGesture();
+    try editor.paint(&.{.{ .x = 1, .y = 1, .tile = 4 }}, gesture);
+    try editor.paint(&.{.{ .x = 2, .y = 1, .tile = 4 }}, gesture);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    // A foreign token between the stroke's frames: the second frame's undo
+    // is refused ("newest first") after the first one went.
+    const newest = fake.applied.pop().?;
+    try fake.applied.append(fake.allocator, 99);
+    try fake.applied.append(fake.allocator, newest);
+    const tile_before = fake.tiles[@intCast(@as(i32, 2) + @as(i32, 1) * fake.info.width_tiles)];
+    try std.testing.expectError(error.Failed, editor.undo());
+    // The frame that went was redone: the map shows the whole stroke again.
+    try std.testing.expectEqual(tile_before, fake.tiles[@intCast(@as(i32, 2) + @as(i32, 1) * fake.info.width_tiles)]);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expect(!editor.replay_broken);
+    try std.testing.expectEqual(@as(usize, 0), fake.undone.items.len);
+    // Without the foreign token the undo goes through.
+    _ = fake.applied.orderedRemove(fake.applied.items.len - 2);
+    try std.testing.expect(try editor.undo());
+}
+
+test "delete selection: a member the bridge refuses part-way puts the earlier ones back and records nothing (CR-B01)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const objects_before = editor.document.objects.items.len;
+    const bridge_before = fake.objects_list.items.len;
+    // The tank (link 1) goes first, then the referred span (link 2) is refused.
+    editor.selectionReplace(&.{ 1, 2 });
+    try std.testing.expectError(error.Refused, editor.deleteSelection());
+    try std.testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try std.testing.expectEqual(bridge_before, fake.objects_list.items.len);
+    try std.testing.expectEqual(@as(usize, 0), editor.document.indexOf(1).?);
+    try std.testing.expect(editor.document.find(2) != null);
+    try std.testing.expect(!editor.history.canUndo());
+    try std.testing.expect(!editor.dirty());
+    // The selection is as it was, and the refusal says why.
+    try std.testing.expect(editor.isSelected(1) and editor.isSelected(2));
+    try std.testing.expect(std.mem.indexOf(u8, editor.status(), "bridge") != null);
+    // The bridge took the tank back whole: the same delete of just it works.
+    editor.selectOnly(1);
+    try editor.deleteSelection();
+    try std.testing.expect(editor.document.find(1) == null);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(editor.document.find(1) != null);
+}
+
+test "delete selection: a host and its selected passenger go passenger first, as ONE undo step (CR-B01)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    // Link 20 (the host) sorts before its passenger 21 and after the ordinary
+    // link 5: the ascending order would delete 5, then be refused at 20.
+    var ordinary: ObjectRecord = .{ .link_id = 5, .x = 200, .y = 60, .dir = 0, .player = 0 };
+    ordinary.setName("T34");
+    try fake.addFixture(ordinary, false);
+    var host: ObjectRecord = .{ .link_id = 20, .x = 220, .y = 80, .dir = 0, .player = 0 };
+    host.setName("T34");
+    try fake.addFixture(host, false);
+    var passenger: ObjectRecord = .{ .link_id = 21, .x = 240, .y = 80, .dir = 0, .player = 0, .link_with = 20 };
+    passenger.setName("T34");
+    try fake.addFixture(passenger, false);
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const objects_before = editor.document.objects.items.len;
+    editor.selectionReplace(&.{ 5, 20, 21 });
+    try editor.deleteSelection();
+    try std.testing.expectEqual(objects_before - 3, editor.document.objects.items.len);
+    try std.testing.expect(editor.document.find(5) == null);
+    try std.testing.expect(editor.document.find(20) == null);
+    try std.testing.expect(editor.document.find(21) == null);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expect(try editor.undo());
+    try std.testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try std.testing.expectEqual(@as(i32, 20), editor.document.find(21).?.link_with);
+}
+
+test "delete many: a member another object shares the link ID of is refused after the ordinary one, which comes back (CR-B01)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var twin: ObjectRecord = .{ .link_id = 30, .x = 300, .y = 40, .dir = 0, .player = 0 };
+    twin.setName("T34");
+    try fake.addFixture(twin, false);
+    try fake.addFixture(twin, false); // the same link ID again
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const objects_before = editor.document.objects.items.len;
+    try std.testing.expectError(error.Refused, editor.deleteMany(&.{ 1, 30 }));
+    try std.testing.expectEqual(objects_before, editor.document.objects.items.len);
+    try std.testing.expect(editor.document.find(1) != null);
+    try std.testing.expect(!editor.history.canUndo());
+    try std.testing.expect(!editor.dirty());
 }

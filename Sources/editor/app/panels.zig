@@ -1520,7 +1520,10 @@ pub const State = struct {
         self.unknown_types_count = 0;
         self.unknown_objects_total = 0;
         self.unknown_popup_shown = false;
-        if (!mapIsOpen(self.editor)) return;
+        // A loaded document, not a file-bound one: a map File > New made has
+        // no path yet but needs its view, tiles and placer all the same
+        // (CR-A01). `showMap` takes the empty path.
+        if (!documentLoaded(self.editor)) return;
         self.view.showMap(self.real, self.editor.document.path.items, self.editor.document.info, self.defaultPlacerObject());
         if (self.real.tilesetTiles(&self.tile_buffer)) |got| {
             self.tile_count = got.len;
@@ -1778,11 +1781,15 @@ pub fn act(state: *State) bool {
                     // A failed open may have emptied the document (editor.open
                     // says when); either way the panels follow what is open now.
                     if (result) |_| {
+                        // The document that was replaced is gone for good (the
+                        // unsaved prompt was answered): its recovery copy would
+                        // be offered at the next start as unsaved work (WR-A10).
+                        deleteRecoveryIfActive(state);
                         state.mapOpened();
                         pushRecentFromDocument(state);
                         announceOpen(state, true);
                     } else |_| {
-                        if (!mapIsOpen(state.editor)) state.mapOpened();
+                        if (!documentLoaded(state.editor)) state.mapOpened();
                         announceOpen(state, false);
                     }
                 } else {
@@ -1792,6 +1799,8 @@ pub fn act(state: *State) bool {
                     if (ok) {
                         pushRecentFromDocument(state);
                         deleteRecoveryIfActive(state);
+                        // A never-saved map's view followed no path; now it has one.
+                        if (!bring_script) state.view.rebindPath(state.editor.document.path.items);
                         if (bring_script) offerScriptCopyAlong(state, came_from.slice());
                         commands.noteChecksAfterSave(state);
                     }
@@ -1812,9 +1821,12 @@ pub fn act(state: *State) bool {
                 const result = state.editor.newMap(params);
                 state.view.noteEditResult(state.editor, result);
                 if (result) |_| {
+                    // Same as an open: the document File > New replaced is gone
+                    // (WR-A10).
+                    deleteRecoveryIfActive(state);
                     state.new_map_name.set(fields.name.slice());
                     state.mapOpened();
-                } else |_| if (!mapIsOpen(state.editor)) state.mapOpened();
+                } else |_| if (!documentLoaded(state.editor)) state.mapOpened();
             },
             .dialog_failed => |message| {
                 state.view.setStatusFrom(.dialog, "the file dialog failed: ", message);
@@ -2072,10 +2084,12 @@ fn anyModalOpen(state: *const State) bool {
 pub fn tickAutosave(state: *State, now_ms: u64) void {
     state.autosave.enabled = state.settings.autosave;
     state.autosave.interval_ms = @as(u64, state.settings.autosave_minutes) * std.time.ms_per_min;
-    if (!mapIsOpen(state.editor) or anyModalOpen(state)) {
+    // A loaded document, not a file-bound one: a map File > New made has no
+    // path but is exactly what the recovery copy exists for (WR-A06).
+    if (!documentLoaded(state.editor) or anyModalOpen(state)) {
         // Still tracked (not ticked away): a dirty map waiting out a modal
         // must not lose its place in the interval once the modal closes.
-        state.autosave.note(now_ms, state.editor.dirty() and mapIsOpen(state.editor));
+        state.autosave.note(now_ms, state.editor.dirty() and documentLoaded(state.editor));
         return;
     }
     const dirty = state.editor.dirty();
@@ -2142,7 +2156,9 @@ fn writeRecoverySidecar(state: *State, recovery_os_path: []const u8) void {
     var sidecar_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const sidecar_path = std.fmt.bufPrint(&sidecar_buffer, "{s}.txt", .{recovery_os_path}) catch return;
     var doc_os_buffer: [core.files.max_path]u8 = undefined;
-    const original_os_path = core.files.osPathFromEngine(&doc_os_buffer, state.editor.document.path.items) orelse return;
+    // A never-saved document has no original: the sidecar's first line is empty.
+    const doc_path = state.editor.document.path.items;
+    const original_os_path = if (doc_path.len == 0) "" else core.files.osPathFromEngine(&doc_os_buffer, doc_path) orelse return;
     const unix_seconds = std.Io.Clock.real.now(state.io).toSeconds();
     var sidecar_text_buffer: [core.files.max_path + 64]u8 = undefined;
     const sidecar_text = std.fmt.bufPrint(&sidecar_text_buffer, "{s}\n{d}\n", .{ original_os_path, unix_seconds }) catch return;
@@ -2212,7 +2228,8 @@ fn drawRecoveryPrompt(state: *State) void {
         const offer = state.recovery_offers[index];
         ig.igPushIDInt(@intCast(index));
         var line: [400]u8 = undefined;
-        const label = std.fmt.bufPrint(&line, "{s} - {d}", .{ logic.baseName(offer.originalPath()), offer.unix_time }) catch "?";
+        const original_name = logic.baseName(offer.originalPath());
+        const label = std.fmt.bufPrint(&line, "{s} - {d}", .{ if (original_name.len == 0) "(a map that was never saved)" else original_name, offer.unix_time }) catch "?";
         text(label);
         ig.igSameLine();
         const opened = ig.igSmallButton("Open");
@@ -2510,7 +2527,8 @@ pub fn pollTestGame(state: *State) void {
 /// `pub`: smoke.zig's `AutoRunner` (BK_EDITOR_AUTO's `test` action) calls
 /// this directly, the same way it already calls `addSoundAtViewCentre`.
 pub fn requestTestLaunch(state: *State) void {
-    if (!mapIsOpen(state.editor)) return;
+    // A never-saved map tests too: the copy goes to the test folder (WR-A06).
+    if (!documentLoaded(state.editor)) return;
     if (state.test_prompt.request(state.test_game != null) == .start) startTestGame(state);
 }
 
@@ -2763,7 +2781,7 @@ fn drawMenuBar(state: *State) f32 {
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("Test")) {
-        if (ig.igMenuItemEx("Test in game", "F5", false, map_open)) requestTestLaunch(state);
+        if (ig.igMenuItemEx("Test in game", "F5", false, documentLoaded(editor))) requestTestLaunch(state);
         ig.igEndMenu();
     }
     // 05-11, D-34 (PARITY H1/H2): the MFC's .chm is not shipped; Keys and tools
@@ -3935,10 +3953,13 @@ fn drawPaletteFilters(state: *State) void {
     if (ig.igSmallButton("New Filter")) state.filter_new_popup = true;
     ig.igSameLine();
     if (ig.igSmallButton("Delete Filter")) {
-        if (combo_name.len != 0) {
+        if (combo_name.len != 0 and combo_name.len < state.filter_delete_popup.len) {
             @memcpy(state.filter_delete_popup[0..combo_name.len], combo_name[0..combo_name.len]);
             state.filter_delete_popup[combo_name.len] = 0;
             _ = ig.igOpenPopup("Delete filter?", 0);
+        } else if (combo_name.len != 0) {
+            // CR-A03: a hand-edited mapeditor.cfg can name more than the popup's buffer holds.
+            state.view.setStatus("filter: ", "that filter name is too long to delete here");
         }
     }
     drawPaletteFilterPopups(state);
