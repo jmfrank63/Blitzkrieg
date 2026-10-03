@@ -357,22 +357,30 @@ jobs:
                   public int dmICMMethod; public int dmICMIntent; public int dmMediaType; public int dmDitherType;
                   public int dmReserved1; public int dmReserved2; public int dmPanningWidth; public int dmPanningHeight;
               }
-              [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern bool EnumDisplaySettings(string device, int mode, ref DEVMODE dm);
-              [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int ChangeDisplaySettings(ref DEVMODE dm, int flags);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool EnumDisplaySettings(string device, int mode, ref DEVMODE dm);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int ChangeDisplaySettings(ref DEVMODE dm, int flags);
+              // The primary display's mode now (ENUM_CURRENT_SETTINGS, device null:
+              // done here, as PowerShell would pass a null string as "").
+              public static DEVMODE Current() {
+                  DEVMODE dm = new DEVMODE();
+                  dm.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+                  if (!EnumDisplaySettings(null, -1, ref dm)) throw new Exception("EnumDisplaySettings failed: " + Marshal.GetLastWin32Error());
+                  return dm;
+              }
+              public static int Change(int width, int height) {
+                  DEVMODE dm = Current();
+                  dm.dmPelsWidth = width;
+                  dm.dmPelsHeight = height;
+                  dm.dmFields = 0x00080000 | 0x00100000; // DM_PELSWIDTH | DM_PELSHEIGHT
+                  return ChangeDisplaySettings(ref dm, 0);
+              }
           }
           "@
-          $dm = New-Object BkDisplay+DEVMODE
-          $dm.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($dm)
-          if (-not [BkDisplay]::EnumDisplaySettings($null, -1, [ref]$dm)) { throw "EnumDisplaySettings failed" }
-          Write-Host "desktop before: $($dm.dmPelsWidth)x$($dm.dmPelsHeight)"
-          $dm.dmPelsWidth = 1920
-          $dm.dmPelsHeight = 1080
-          $dm.dmFields = 0x00080000 -bor 0x00100000
-          $result = [BkDisplay]::ChangeDisplaySettings([ref]$dm, 0)
+          $before = [BkDisplay]::Current()
+          Write-Host "desktop before: $($before.dmPelsWidth)x$($before.dmPelsHeight)"
+          $result = [BkDisplay]::Change(1920, 1080)
           if ($result -ne 0) { throw "ChangeDisplaySettings to 1920x1080 returned $result" }
-          $now = New-Object BkDisplay+DEVMODE
-          $now.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($now)
-          [void][BkDisplay]::EnumDisplaySettings($null, -1, [ref]$now)
+          $now = [BkDisplay]::Current()
           Write-Host "desktop now: $($now.dmPelsWidth)x$($now.dmPelsHeight)"
           if ($now.dmPelsWidth -lt 1280 -or $now.dmPelsHeight -lt 900) { throw "the desktop is still $($now.dmPelsWidth)x$($now.dmPelsHeight)" }
 
