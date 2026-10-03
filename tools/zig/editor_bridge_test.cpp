@@ -3142,6 +3142,13 @@ static void TestM3NewMap( BkEditorSession *pSession, const std::string &szScratc
 	bad = params;
 	bad.season = 4;
 	Check( BkEditorNewMap( pSession, &bad, &summary ) == BK_EDITOR_BAD_ARGUMENT, "a season of 4 is BAD_ARGUMENT" );
+	// WR-C07: a name filled to the brim has no terminator, and is not read as a C string.
+	bad = params;
+	memset( bad.szName, 'a', sizeof bad.szName );
+	Check( BkEditorNewMap( pSession, &bad, &summary ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated map name is BAD_ARGUMENT" );
+	bad = params;
+	memset( bad.szModFolder, 'a', sizeof bad.szModFolder );
+	Check( BkEditorNewMap( pSession, &bad, &summary ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated mod folder is BAD_ARGUMENT" );
 	Check( BkEditorNewMap( pSession, 0, &summary ) == BK_EDITOR_BAD_ARGUMENT, "null params are BAD_ARGUMENT" );
 	unsigned char tile = 0;
 	Check( BkEditorEngineTile( pSession, 0, 0, &tile ) == BK_EDITOR_OK && BkEditorEngineTile( pSession, nWidth - 1, 0, &tile ) == BK_EDITOR_OK,
@@ -11937,6 +11944,24 @@ static void TestM3Fields( BkEditorSession *pSession, const std::string &szScratc
 	points[1] = { f1, f0, 0 };
 	points[2] = { f1, f1, 0 };
 	points[3] = { f0, f1, 0 };
+
+	// WR-C07: a field set or filter name filled to the brim has no terminator and is not read
+	// as a C string; nothing is applied.
+	{
+		BkEditorFieldApplyParams unterminated;
+		memset( &unterminated, 0, sizeof unterminated );
+		unterminated.point_count = 4;
+		unterminated.points = points;
+		unterminated.fill_terrain = 1;
+		memset( unterminated.field_set, 'a', sizeof unterminated.field_set );
+		int nCount = 0, nToken = -1;
+		Check( BkEditorApplyField( pSession, &unterminated, 0, 0, &nCount, &nToken ) == BK_EDITOR_BAD_ARGUMENT && nToken == -1,
+		       "an unterminated field set name is BAD_ARGUMENT" );
+		strcpy( unterminated.field_set, sets[nSummer].name );
+		memset( unterminated.object_filter, 'a', sizeof unterminated.object_filter );
+		Check( BkEditorApplyField( pSession, &unterminated, 0, 0, &nCount, &nToken ) == BK_EDITOR_BAD_ARGUMENT && nToken == -1,
+		       "an unterminated object filter name is BAD_ARGUMENT" );
+	}
 
 	// Degenerate first: the same square collapsed to a line refuses and
 	// changes nothing.
