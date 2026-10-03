@@ -1236,6 +1236,12 @@ pub fn Document(comptime T: type) type {
         dirty: bool = false,
         undo_stack: std.ArrayListUnmanaged(T) = .empty,
         redo_stack: std.ArrayListUnmanaged(T) = .empty,
+        /// What the last `begin` took off the stacks - the whole redo branch
+        /// and, at `undo_depth`, the oldest undo point - so that `cancel` can
+        /// put it back. Dropped by the next operation that commits to the
+        /// stacks (WR-B05).
+        held_redo: std.ArrayListUnmanaged(T) = .empty,
+        held_oldest: ?T = null,
 
         pub fn init(allocator: Allocator) Self {
             return .{ .allocator = allocator };
@@ -1247,9 +1253,20 @@ pub fn Document(comptime T: type) type {
             self.clearHistory();
             self.undo_stack.deinit(self.allocator);
             self.redo_stack.deinit(self.allocator);
+            self.held_redo.deinit(self.allocator);
+        }
+
+        /// Frees what `begin` was keeping for a `cancel`: the edit it opened
+        /// has committed (or a later operation made it moot).
+        fn releaseHeld(self: *Self) void {
+            for (self.held_redo.items) |*item| item.deinit(self.allocator);
+            self.held_redo.clearRetainingCapacity();
+            if (self.held_oldest) |*oldest| oldest.deinit(self.allocator);
+            self.held_oldest = null;
         }
 
         fn clearHistory(self: *Self) void {
+            self.releaseHeld();
             for (self.undo_stack.items) |*item| item.deinit(self.allocator);
             self.undo_stack.clearRetainingCapacity();
             for (self.redo_stack.items) |*item| item.deinit(self.allocator);
@@ -1275,26 +1292,40 @@ pub fn Document(comptime T: type) type {
 
         /// Keeps the state before an edit. Returns the content to edit.
         pub fn begin(self: *Self) Allocator.Error!*T {
+            self.releaseHeld();
             var before = try self.current.clone(self.allocator);
             errdefer before.deinit(self.allocator);
             if (self.undo_stack.items.len >= undo_depth) {
-                var oldest = self.undo_stack.orderedRemove(0);
-                oldest.deinit(self.allocator);
+                // The slot the removal frees is the one `before` takes, so
+                // nothing after this can fail.
+                self.held_oldest = self.undo_stack.orderedRemove(0);
+                self.undo_stack.appendAssumeCapacity(before);
+            } else {
+                try self.undo_stack.append(self.allocator, before);
             }
-            try self.undo_stack.append(self.allocator, before);
-            for (self.redo_stack.items) |*item| item.deinit(self.allocator);
-            self.redo_stack.clearRetainingCapacity();
+            // The redo branch is kept, not freed, so `cancel` can return it.
+            std.mem.swap(std.ArrayListUnmanaged(T), &self.redo_stack, &self.held_redo);
             self.dirty_before = self.dirty;
             self.dirty = true;
             return &self.current;
         }
 
-        /// Takes back what `begin` kept, for an edit that changed nothing.
+        /// Takes back what `begin` kept, for an edit that changed nothing -
+        /// the redo branch and the oldest undo point `begin` set aside come
+        /// back too (WR-B05).
         pub fn cancel(self: *Self) void {
             if (self.undo_stack.pop()) |popped| {
                 var item = popped;
                 item.deinit(self.allocator);
             }
+            if (self.held_oldest) |oldest| {
+                // One slot was freed by the pop above.
+                self.undo_stack.insertAssumeCapacity(0, oldest);
+                self.held_oldest = null;
+            }
+            for (self.redo_stack.items) |*item| item.deinit(self.allocator);
+            self.redo_stack.clearRetainingCapacity();
+            std.mem.swap(std.ArrayListUnmanaged(T), &self.redo_stack, &self.held_redo);
             self.dirty = self.dirty_before;
         }
 
@@ -1303,6 +1334,7 @@ pub fn Document(comptime T: type) type {
         pub fn pushUndo(self: *Self, before: T) Allocator.Error!void {
             var owned = before;
             errdefer owned.deinit(self.allocator);
+            self.releaseHeld();
             if (self.undo_stack.items.len >= undo_depth) {
                 var oldest = self.undo_stack.orderedRemove(0);
                 oldest.deinit(self.allocator);
@@ -1321,6 +1353,7 @@ pub fn Document(comptime T: type) type {
         }
 
         pub fn undo(self: *Self) Allocator.Error!bool {
+            self.releaseHeld();
             const popped = self.undo_stack.pop() orelse return false;
             var previous = popped;
             errdefer previous.deinit(self.allocator);
@@ -1337,6 +1370,7 @@ pub fn Document(comptime T: type) type {
         }
 
         pub fn redo(self: *Self) Allocator.Error!bool {
+            self.releaseHeld();
             const popped = self.redo_stack.pop() orelse return false;
             var next = popped;
             errdefer next.deinit(self.allocator);
@@ -3239,6 +3273,44 @@ test "a document keeps its own undo, dirty flag and shipped state" {
     try testing.expect(!doc.canRedo());
     for (0..undo_depth + 10) |_| _ = try doc.begin();
     try testing.expectEqual(undo_depth, doc.undo_stack.items.len);
+}
+
+test "a cancelled edit gives back the redo branch and the oldest undo point (WR-B05)" {
+    const a = testing.allocator;
+    var doc = ContainerDoc.init(a);
+    defer doc.deinit();
+    var content: Container = .{};
+    try content.addPatch(a, "p\\a", 1, 1);
+    try doc.load("scenarios\\containers\\user\\mine", content, false);
+    const edit = try doc.begin();
+    try edit.addPatch(a, "p\\b", 2, 2);
+    // Undo leaves a redo branch; an edit that changes nothing is cancelled.
+    try testing.expect(try doc.undo());
+    try testing.expect(doc.canRedo());
+    _ = try doc.begin();
+    try testing.expect(!doc.canRedo()); // an open edit has dropped it ...
+    doc.cancel();
+    try testing.expect(doc.canRedo()); // ... and the cancel brings it back
+    try testing.expect(!doc.canUndo());
+    try testing.expect(try doc.redo());
+    try testing.expectEqual(@as(usize, 2), doc.current.patchCount());
+    // At the depth limit a cancelled begin no longer loses the oldest point.
+    for (0..undo_depth) |i| {
+        const grow = try doc.begin();
+        try grow.addPatch(a, "p\\x", @intCast(i), 3);
+    }
+    try testing.expectEqual(undo_depth, doc.undo_stack.items.len);
+    const oldest_patches = doc.undo_stack.items[0].patchCount();
+    _ = try doc.begin();
+    doc.cancel();
+    try testing.expectEqual(undo_depth, doc.undo_stack.items.len);
+    try testing.expectEqual(oldest_patches, doc.undo_stack.items[0].patchCount());
+    // A committed edit drops what it set aside for good (no leak, the
+    // allocator checks).
+    _ = try doc.begin();
+    try testing.expectEqual(undo_depth, doc.undo_stack.items.len);
+    try testing.expect(try doc.undo());
+    try testing.expect(doc.held_oldest == null);
 }
 
 test "season names follow the MFC: season 0 on the spring folder is Spring" {
