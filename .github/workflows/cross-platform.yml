@@ -221,6 +221,7 @@ jobs:
             /Data/Fences/
             /Data/Fonts/
             /Data/Icons/
+            /Data/movies/progress/
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -582,6 +583,7 @@ jobs:
             /Data/Fences/
             /Data/Fonts/
             /Data/Icons/
+            /Data/movies/progress/
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
