@@ -387,8 +387,8 @@ pub const Instance = struct {
             if (net.UnixAddress.init(self.path())) |address| {
                 if (address.connect(self.io)) |stream| stream.close(self.io) else |_| {}
             } else |_| {}
-            var accept_waited: u32 = 0;
-            while (!self.serve_done.load(.acquire) and accept_waited < accept_wait_ms) : (accept_waited += 10) {
+            const accept_deadline: Deadline = .in(self.io, accept_wait_ms);
+            while (!self.serve_done.load(.acquire) and !accept_deadline.passed(self.io)) {
                 self.io.sleep(.fromMilliseconds(10), .awake) catch break;
             }
             if (self.serve_done.load(.acquire)) {
@@ -401,8 +401,8 @@ pub const Instance = struct {
         if (self.ownsSocketFile()) Io.Dir.cwd().deleteFile(self.io, self.path()) catch {};
         if (!accept_ended) return;
         self.server.deinit(self.io);
-        var waited: u32 = 0;
-        while (self.connections.load(.acquire) != 0 and waited < self.timeout_ms * 2) : (waited += 10) {
+        const connections_deadline: Deadline = .in(self.io, self.timeout_ms *| 2);
+        while (self.connections.load(.acquire) != 0 and !connections_deadline.passed(self.io)) {
             self.io.sleep(.fromMilliseconds(10), .awake) catch break;
         }
         if (self.connections.load(.acquire) != 0) return;
@@ -524,6 +524,23 @@ fn answerAndClose(io: Io, stream: net.Stream, answer: []const u8) void {
     stream.close(io);
 }
 
+/// A point `ms` from now on the monotonic clock. The waits here poll in short
+/// sleeps; they read this rather than count their sleeps, because on a loaded
+/// machine a 10 ms sleep can take several times that, and a wait that counts
+/// them runs several times its length (CI 37151247396: a 1 s accept wait in
+/// `deinit` took over 4 s on the macos-14 runner).
+const Deadline = struct {
+    at: Io.Clock.Timestamp,
+
+    fn in(io: Io, ms: u32) Deadline {
+        return .{ .at = Io.Clock.Timestamp.fromNow(io, .{ .raw = .fromMilliseconds(ms), .clock = .awake }) };
+    }
+
+    fn passed(self: Deadline, io: Io) bool {
+        return Io.Clock.Timestamp.now(io, .awake).compare(.gte, self.at);
+    }
+};
+
 /// Cuts a connection that has not finished by its deadline: a thread that
 /// sleeps in small steps and, if `finish` has not been called by then, shuts
 /// the stream down, which ends the blocked read or write with an error.
@@ -548,16 +565,14 @@ const Watchdog = struct {
     }
 
     fn run(self: *Watchdog) void {
-        const step_ms: u32 = 10;
-        var waited: u32 = 0;
+        const deadline: Deadline = .in(self.io, self.timeout_ms);
         while (!self.done.load(.acquire)) {
-            if (waited >= self.timeout_ms) {
+            if (deadline.passed(self.io)) {
                 self.fired.store(true, .release);
                 self.stream.shutdown(self.io, .both) catch {};
                 return;
             }
-            self.io.sleep(.fromMilliseconds(step_ms), .awake) catch return;
-            waited += step_ms;
+            self.io.sleep(.fromMilliseconds(10), .awake) catch return;
         }
     }
 };
@@ -676,12 +691,9 @@ fn handoffOnce(io: Io, address: *const net.UnixAddress, line: []const u8, timeou
         return .no_listener;
     };
     thread.detach();
-    var waited: u32 = 0;
-    const step_ms: u32 = 5;
-    while (waited <= timeout_ms) {
-        if (job.state.load(.acquire) == HandoffJob.done) break;
-        io.sleep(.fromMilliseconds(step_ms), .awake) catch break;
-        waited += step_ms;
+    const deadline: Deadline = .in(io, timeout_ms);
+    while (job.state.load(.acquire) != HandoffJob.done and !deadline.passed(io)) {
+        io.sleep(.fromMilliseconds(5), .awake) catch break;
     }
     if (job.state.cmpxchgStrong(HandoffJob.running, HandoffJob.abandoned, .acq_rel, .acquire) == null) return .no_reply;
     const result = job.result;
