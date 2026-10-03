@@ -3074,7 +3074,11 @@ fn checkMapFixAll(state: *State, arg: []const u8) Outcome {
     const remove = std.mem.eql(u8, arg, "remove");
     if (arg.len != 0 and !remove) return .bad_arg;
     if (!panels.mapIsOpen(state.editor)) return .refused;
-    if (state.check_findings.len == 0 and !runChecks(state)) return .refused;
+    // Always against the map as it is now: the findings of the last run name
+    // roads, rivers and objects by index and link ID, and an edit or an undo
+    // since then shifts them, so "Fix all" could delete a healthy neighbour
+    // (WR-A08). The window shows the fresh list afterwards either way.
+    if (!runChecks(state)) return .refused;
     const report = state.editor.fixAll(state.check_findings, remove) catch |err| return resultOutcome(state, err);
     state.check_fix_report = report;
     state.check_confirm_pending = false;
