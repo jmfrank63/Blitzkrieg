@@ -190,9 +190,19 @@ pub fn endpointFor(buffer: []u8, env: Env, os: std.Target.Os.Tag) ?Endpoint {
     // writable on Linux), where a plain `bk-mapeditor-<hash>.sock` could be
     // bound first by anyone: so the name sits in a folder of its own, one per
     // user, made private by `prepareFolder` (WR-A04).
-    const tmp = std.mem.trimEnd(u8, env.tmpdir orelse "/tmp", "/");
-    const text = std.fmt.bufPrint(buffer, "{s}/bk-mapeditor-{d}/{x:0>16}.sock", .{ tmp, env.uid orelse 0, std.hash.Fnv1a_64.hash(root) }) catch return null;
-    return .{ .path = text, .private_folder = true };
+    //
+    // $TMPDIR is tried first, but on macOS it is a long /var/folders/... name and
+    // a custom one can be longer still: when the name does not fit a socket
+    // address either, /tmp is the shorter place (the same per-user folder and
+    // the same checks). When nothing fits there is no endpoint, and the editor
+    // starts without single-instance, rather than hand the std a path it panics
+    // on.
+    const candidates = [_][]const u8{ std.mem.trimEnd(u8, env.tmpdir orelse "/tmp", "/"), "/tmp" };
+    for (candidates) |tmp| {
+        const text = std.fmt.bufPrint(buffer, "{s}/bk-mapeditor-{d}/{x:0>16}.sock", .{ tmp, env.uid orelse 0, std.hash.Fnv1a_64.hash(root) }) catch continue;
+        if (text.len <= posix_path_limit) return .{ .path = text, .private_folder = true };
+    }
+    return null;
 }
 
 /// Makes the endpoint's folder if it is not there, for the fallback endpoint
@@ -717,6 +727,9 @@ pub const Acquired = union(enum) {
 /// stale or hung owner's socket file is removed and the bind tried again.
 pub fn acquireAt(gpa: std.mem.Allocator, io: Io, endpoint: []const u8, line: []const u8, options: Options) Acquired {
     if (endpoint.len > path_capacity) return .{ .unavailable = "the endpoint path is too long" };
+    // The std checks a Unix address against Linux's 108 bytes only and panics
+    // past the shorter sun_path of macOS (104): the limit is ours to keep.
+    if (builtin.os.tag != .windows and endpoint.len > posix_path_limit) return .{ .unavailable = "the endpoint path is too long for a socket" };
     const address = net.UnixAddress.init(endpoint) catch return .{ .unavailable = "the endpoint path is too long for a socket" };
     if (std.fs.path.dirname(endpoint)) |directory| {
         if (options.private_folder) {
@@ -824,6 +837,14 @@ test "endpoint: a root too long for a socket address falls back to a short per-u
     try std.testing.expect(!std.mem.eql(u8, a, other));
     // With no TMPDIR it is /tmp.
     try std.testing.expect(std.mem.startsWith(u8, endpointPath(&buffer, .{ .home = long_home }, .linux).?, "/tmp/bk-mapeditor-"));
+    // A TMPDIR too long for a socket address falls back to /tmp (the macOS
+    // sun_path holds 104 bytes), and a path that fits nowhere is no endpoint.
+    const long_tmp = "/var/folders/xy/abcdefghijklmnopqrstuvwxyz0123456789abcdef/T/and/more/folders/yet";
+    const short = endpointPath(&buffer, .{ .home = long_home, .tmpdir = long_tmp, .uid = 501 }, .macos).?;
+    try std.testing.expect(short.len <= posix_path_limit);
+    try std.testing.expect(std.mem.startsWith(u8, short, "/tmp/bk-mapeditor-501/"));
+    var tiny: [24]u8 = undefined;
+    try std.testing.expect(endpointPath(&tiny, .{ .home = long_home, .uid = 501 }, .macos) == null);
 }
 
 test "framing: one line, one path - a control character, a second line and a flood are refused" {
@@ -1133,12 +1154,10 @@ test "single instance: the fallback endpoint's folder is made private, and one l
     const io = std.testing.io;
     const gpa = std.testing.allocator;
     var endpoint_buffer: [path_capacity]u8 = undefined;
-    const base = testEndpoint(io, &endpoint_buffer, "private");
-    // <base>.d/x.sock: a folder next to where the plain test socket would be.
-    var folder_buffer: [path_capacity]u8 = undefined;
-    const folder = try std.fmt.bufPrint(&folder_buffer, "{s}.d", .{base});
-    var sock_buffer: [path_capacity]u8 = undefined;
-    const sock = try std.fmt.bufPrint(&sock_buffer, "{s}/x.sock", .{folder});
+    // <folder>/s.sock, the whole path no longer than a plain test socket's, so it
+    // fits the sun_path of macOS (104 bytes) wherever the checkout is.
+    const sock = testEndpoint(io, &endpoint_buffer, "private/s");
+    const folder = std.fs.path.dirname(sock).?;
     Io.Dir.cwd().deleteFile(io, sock) catch {};
     Io.Dir.cwd().deleteDir(io, folder) catch {};
     defer Io.Dir.cwd().deleteDir(io, folder) catch {};
@@ -1160,6 +1179,20 @@ test "single instance: the fallback endpoint's folder is made private, and one l
     try Io.Dir.cwd().createDir(io, folder, @enumFromInt(0o777));
     try Io.Dir.cwd().setFilePermissions(io, folder, @enumFromInt(0o755), .{});
     switch (acquireAt(gpa, io, sock, "\n", .{ .timeout_ms = 1000, .private_folder = true })) {
+        .unavailable => {},
+        .primary => |instance| {
+            instance.deinit();
+            return error.TestUnexpectedResult;
+        },
+        .handed_off => return error.TestUnexpectedResult,
+    }
+}
+
+test "single instance: a path longer than a socket address holds is unavailable, not a panic (WR-A04)" {
+    if (builtin.os.tag == .windows) return error.SkipZigTest;
+    const long = "/tmp/bk-test-too-long-for-sun-path/" ++ "x" ** 80 ++ ".sock";
+    try std.testing.expect(long.len > posix_path_limit and long.len < path_capacity);
+    switch (acquireAt(std.testing.allocator, std.testing.io, long, "\n", .{ .timeout_ms = 100 })) {
         .unavailable => {},
         .primary => |instance| {
             instance.deinit();
