@@ -22,7 +22,7 @@ interfaces is.
 |---|---|---|
 | **Map Editor M1** | core editing loop, macOS first | this document |
 | **Map Editor M2** | roads and rivers, bridges (with rotate and built during play), entrenchments, fences, script IDs and reinforcement groups, start commands, reserve positions, AI general, script file and script areas, camera anchors; see "M2 scope" | done (phase 4, 2026-09-30; "Exit criteria for M2") |
-| Map Editor M3 | random map templates, minimap tools, parity; delete the MFC editor | phase 5 (in progress) |
+| **Map Editor M3** | random map templates (Create Random Map and the four composers), minimap and its images, the Heights/Fields/Damage/Check Map/Players tools, the Layers menu, the app shell (Options, View, drop, single instance, Help), parity with the MFC editor | done as code and gates (phase 5, 2026-10-03: `05-PARITY.md` closed, the 05-11 gates and CI run 37098890101 in `05-11-SUMMARY.md`); the hand try on the release build (D-40.10) and the deletion of the MFC editor (D-38) are pending |
 | Resource Editor | `Sources/src/editor`, ~64k lines, 20+ sub-editors | own spec |
 | ELK | localisation kit, ~12k lines | own spec |
 | Small tools | converters and validators | own spec |
@@ -559,6 +559,19 @@ Settled by the overlay spike (plan
   (default 2 minutes, on by default, ticking only while there are unsaved
   changes), the default maps folder, and the last 10 opened maps (a missing
   file shown greyed with Remove).
+- **The app shell (M3, 05-11).** Tools > Options keeps the game's extra
+  command line for Test in game (`game_parameters`, put between the editor's own
+  arguments and the map name as argv elements, never through a shell) and the
+  default save format. View hides and shows each docked panel and floating window
+  (`hidden_panels`) and has Reset layout; every window's position, size and
+  collapse state is kept in ImGui's `layout.ini` beside `mapeditor.cfg` (the
+  automated runs never read or write it). A map dropped on the window opens through
+  the same unsaved-changes guard as Open Recent. **Single instance:** a second
+  launch hands its absolute map path to the running editor over a per-user stream
+  socket (`<UserRoot>mapeditor/instance.sock`, or a short name under the user's
+  temporary folder when that is too long for a socket address; a Unix domain socket
+  on every system, Windows included) and exits 0; a stale socket file or an owner
+  that does not answer within a second and a half never blocks a start.
 - **Autosave** writes into the map file itself once it has a real path;
   before its first Save As, a never-saved map (new, or a shipped map not yet
   redirected) autosaves to a recovery copy in the user data area with a

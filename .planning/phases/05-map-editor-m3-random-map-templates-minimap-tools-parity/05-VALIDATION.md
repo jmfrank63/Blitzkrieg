@@ -42,15 +42,15 @@ Task IDs are filled as plans land (D-39's 11 plans). The binding contract is the
 
 | D-40 # | Criterion | Threat Ref | Test Type | Automated Signal | Status |
 |--------|-----------|------------|-----------|------------------|--------|
-| 1 | Every `05-PARITY.md` row closed with evidence | — | source/test evidence | Evidence column filled per row; "not a feature" rows cite file:line | ⬜ pending |
-| 2 | Core+map-file tiers green on 6 CI targets | — | CI | Green CI run (run id in SUMMARY) | ⬜ pending |
-| 3 | Engine tier green (macOS arm64 + Windows-MSVC) incl. new round trips | — | engine test | `test-map-editor-engine` + expected-value builder comparisons | ⬜ pending |
-| 4 | Composer round trip (43+102+404+27 files) load/save/reload equal, 5 engine-C++ targets | — | data-only test | New composer round-trip step | ⬜ pending |
-| 5 | Authored RMG set + fixed seed → byte-identical `.bzm`; game loads under `BK_AUTO_UI`, clean exit | — | determinism + game tier | Determinism step + game-reads-it step | ⬜ pending |
-| 6 | `CreateMiniMapImage` writes 4 images beside a saved user map; minimap click moves camera | — | app auto + shot compare | `map-editor-m3-auto` shot comparison | ⬜ pending |
-| 7 | `zig build map-editor-m3-auto` passes locally (macOS arm64 + win-home) | — | app auto | Local run logs recorded | ⬜ pending |
-| 8 | `test-map-files-all` 1,755 maps, 0 FAIL | — | sweep | Sweep output 0 FAIL | ⬜ pending |
-| 9 | MFC editor deleted; `git grep` clean; everything builds | — | grep + CI | `git grep -n 'src/MapEditor\|MapEditor.vcxproj\|Editors/MapEditor'` → only `.planning`/`docs` history | ⬜ pending |
+| 1 | Every `05-PARITY.md` row closed with evidence | — | source/test evidence | Evidence column filled per row; "not a feature" rows cite file:line | ✅ green (05-11, 2026-10-03: 152 rows, none empty; the 18 NF rows re-read against the MFC source; three items user-waived as decisions, see the final note) |
+| 2 | Core+map-file tiers green on 6 CI targets | — | CI | Green CI run (run id in SUMMARY) | ⏳ CI run 37098890101 (see 05-11-SUMMARY.md); locally: `zig build test` rc 0 on macOS arm64, win-home core 374/374 and app tiers 352/354 on x86_64-windows-msvc |
+| 3 | Engine tier green (macOS arm64 + Windows-MSVC) incl. new round trips | — | engine test | `test-map-editor-engine` + expected-value builder comparisons | macOS arm64 ✅ (`map-editor-engine: PASS (260 objects)`, `editor-bridge: PASS`); Windows-MSVC: win-home engine tier 208 pass / 2 skip (05-11), the CI Windows job is run 37098890101 ⏳ |
+| 4 | Composer round trip (43+102+404+27 files) load/save/reload equal, 5 engine-C++ targets | — | data-only test | New composer round-trip step | ✅ green on macOS arm64 (`composer-roundtrip: 43 templates, 102 graphs, 404 containers, 27 field sets ok`); the step runs in CI's Windows and macOS engine jobs (run 37098890101 ⏳) |
+| 5 | Authored RMG set + fixed seed → byte-identical `.bzm`; game loads under `BK_AUTO_UI`, clean exit | — | determinism + game tier | Determinism step + game-reads-it step | ✅ green on macOS arm64 (05-11: `rmg-determinism: authored set byte identical ok (seed 424242, graph 0, angle 0)`, `map-editor: game reads it M3 PASS`); the two steps also run in CI's Windows and macOS engine jobs |
+| 6 | `CreateMiniMapImage` writes 4 images beside a saved user map; minimap click moves camera | — | app auto + shot compare | `map-editor-m3-auto` shot comparison | ✅ green on macOS arm64 (05-07 frames 460-528; 05-11 re-run, 659 actions) |
+| 7 | `zig build map-editor-m3-auto` passes locally (macOS arm64 + win-home) | — | app auto | Local run logs recorded | macOS arm64 ✅ (659 actions, `zig-out/local-test/05-11-t3-auto.log`; debug and `--release=fast`); win-home: no GUI over ssh - **user-waived 2026-10-03** (CI or by hand) |
+| 8 | `test-map-files-all` 1,755 maps, 0 FAIL | — | sweep | Sweep output 0 FAIL | ✅ green (05-11: `map-file: 1755 of 1755 maps round-tripped`, `map-file: PASS`, 0 FAIL) |
+| 9 | MFC editor deleted; `git grep` clean; everything builds | — | grep + CI | `git grep -n 'src/MapEditor\|MapEditor.vcxproj\|Editors/MapEditor'` → only `.planning`/`docs` history | ⬜ pending the task-4 decision gate (05-11 stopped at it; nothing deleted) |
 | 10 | Hand try on the release build approves M3 | — | human | — | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
