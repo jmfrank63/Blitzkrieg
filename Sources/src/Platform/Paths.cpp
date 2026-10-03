@@ -2,8 +2,8 @@
 #if !defined(BLITZKRIEG_PATHS_TEST)
 #include <SDL3/SDL.h>
 #endif
-#if !defined(_WIN32)
 #include <cstdlib>
+#if !defined(_WIN32)
 #include <unistd.h>
 #endif
 #include <filesystem>
@@ -72,9 +72,17 @@ bool Initialize() {
     return false;
 #elif defined(_WIN32)
     const char *base = SDL_GetBasePath();
-    char *preference = SDL_GetPrefPath("Nival", "Blitzkrieg");
     if (base) gBase = ensureSeparator(base);
-    if (preference) { gUser = ensureSeparator(preference); SDL_free(preference); }
+    // BK_USER_ROOT points the user root somewhere else, the Windows counterpart of
+    // XDG_DATA_HOME in preferenceRoot: a scripted run (the editor's BK_EDITOR_AUTO scenarios in the
+    // build) writes its maps, logs and records there and not into %APPDATA%.
+    const char *userRoot = std::getenv("BK_USER_ROOT");
+    if (userRoot && *userRoot) {
+        gUser = ensureSeparator(userRoot);
+    } else if (char *preference = SDL_GetPrefPath("Nival", "Blitzkrieg")) {
+        gUser = ensureSeparator(preference);
+        SDL_free(preference);
+    }
 #else
     gBase = ensureSeparator(executableRoot());
     gUser = ensureSeparator(preferenceRoot());
