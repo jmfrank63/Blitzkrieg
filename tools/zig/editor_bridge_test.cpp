@@ -5441,6 +5441,21 @@ static void TestM3Filters( BkEditorSession *pSession, const char *pszRoot, const
 		BkEditorObjectFilter bad = added;
 		memset( bad.lists[0].words[0], 'x', BK_EDITOR_FILTER_WORD_LEN );
 		Check( BkEditorSaveObjectFilters( pSession, &bad, 1 ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated word is BAD_ARGUMENT" );
+		// WR-C06: a control character in a name or a word would write XML the engine's reader
+		// rejects (the whole user file then reads empty), so it is refused; and a save leaves no
+		// temporary file beside filter.xml - it is written aside and moved over it.
+		bad = added;
+		strcpy( bad.lists[0].words[0], "a\x01" "b" );
+		Check( BkEditorSaveObjectFilters( pSession, &bad, 1 ) == BK_EDITOR_BAD_ARGUMENT, "a control character in a word is BAD_ARGUMENT" );
+		bad = added;
+		strcpy( bad.name, "Bad\nName" );
+		Check( BkEditorSaveObjectFilters( pSession, &bad, 1 ) == BK_EDITOR_BAD_ARGUMENT, "a control character in a name is BAD_ARGUMENT" );
+		{
+			std::error_code error;
+			Check( std::filesystem::exists( std::filesystem::path( szScratchUser ) / "mapeditor" / "filter.xml", error ) &&
+			       !std::filesystem::exists( std::filesystem::path( szScratchUser ) / "mapeditor" / "filter.xml.tmp", error ),
+			       "the saved file stands and no temporary file is left beside it" );
+		}
 		Check( BkEditorSaveObjectFilters( pSession, 0, 1 ) == BK_EDITOR_BAD_ARGUMENT, "null filters with a count is BAD_ARGUMENT" );
 		Check( BkEditorSaveObjectFilters( pSession, 0, 0 ) == BK_EDITOR_OK, "count 0 writes the empty set" );
 		int nAfter = 0;
