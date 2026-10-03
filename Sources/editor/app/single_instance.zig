@@ -32,11 +32,15 @@
 //! socket file (a per-user path, never anything else), binds a fresh one and
 //! starts normally.
 //!
-//! Threads: the owner's accept loop runs on its own thread and answers `ok` as
-//! soon as the line is queued, so a busy or loading main thread does not make a
-//! second launch time out; the main loop only `poll`s the queue each frame. A
-//! watchdog thread per connection bounds a client that connects and says
-//! nothing.
+//! Threads: the owner's accept loop runs on its own thread and hands each
+//! connection to a thread of its own (four at most), which answers `ok` as soon
+//! as the line is queued, so neither a busy or loading main thread nor a client
+//! that connects and says nothing keeps a second launch waiting; the main loop
+//! only `poll`s the queue each frame. A watchdog per connection shuts a silent
+//! client's stream down after the timeout. The second launch does its whole
+//! hand-off on a worker thread and gives up on it after the timeout: the std has
+//! no connect or read timeout, and on Windows neither a connect to a listener
+//! that never accepts nor a read on it is woken by anything but the peer.
 //!
 //! std-only (no SDL, no engine, no ImGui), so its tests run in
 //! `zig build test-map-editor-panels` on every target.
@@ -51,6 +55,8 @@ pub const max_line = 2048;
 /// Lines waiting for the main loop. A second launch is a human action: eight
 /// pending is a flood, answered `no`.
 pub const queue_capacity = 8;
+/// Connections served at once; one more is closed without an answer.
+pub const max_connections = 4;
 /// How long a second launch waits for the owner's answer, and how long the
 /// owner waits for a connected client's line.
 pub const default_timeout_ms = 1500;
@@ -187,6 +193,8 @@ pub const Instance = struct {
     timeout_ms: u32,
     thread: ?std.Thread = null,
     stopping: std.atomic.Value(bool) = .init(false),
+    /// Connection threads running; `max_connections` at most (one more is closed unanswered).
+    connections: std.atomic.Value(u32) = .init(0),
     mutex: Io.Mutex = .init,
     queue: [queue_capacity]Entry = undefined,
     head: usize = 0,
@@ -211,9 +219,11 @@ pub const Instance = struct {
     }
 
     /// Stops answering, removes the socket file and frees the instance. The
-    /// accept thread is woken by a connection of our own and joined; a client
-    /// stuck mid-line is cut by its watchdog, so this returns within
-    /// `timeout_ms` at worst.
+    /// accept thread is woken by a connection of our own and joined. A
+    /// connection thread still stuck on a silent client (its watchdog could not
+    /// wake the read) is waited for up to twice the timeout; past that the
+    /// instance is left allocated - the process is on its way out - rather than
+    /// freed under it.
     pub fn deinit(self: *Instance) void {
         self.stopping.store(true, .release);
         if (self.thread) |thread| {
@@ -224,6 +234,11 @@ pub const Instance = struct {
         }
         self.server.deinit(self.io);
         Io.Dir.cwd().deleteFile(self.io, self.path()) catch {};
+        var waited: u32 = 0;
+        while (self.connections.load(.acquire) != 0 and waited < self.timeout_ms * 2) : (waited += 10) {
+            self.io.sleep(.fromMilliseconds(10), .awake) catch break;
+        }
+        if (self.connections.load(.acquire) != 0) return;
         const gpa = self.gpa;
         gpa.destroy(self);
     }
@@ -255,8 +270,25 @@ pub const Instance = struct {
                     continue;
                 },
             };
-            self.serveOne(stream);
+            // Each connection on its own thread: a client that connects and says
+            // nothing must not keep the accept loop from the next launch.
+            if (self.connections.load(.acquire) >= max_connections) {
+                stream.close(self.io);
+                continue;
+            }
+            _ = self.connections.fetchAdd(1, .acq_rel);
+            const thread = std.Thread.spawn(.{ .stack_size = 256 * 1024 }, serveConnection, .{ self, stream }) catch {
+                _ = self.connections.fetchSub(1, .acq_rel);
+                stream.close(self.io);
+                continue;
+            };
+            thread.detach();
         }
+    }
+
+    fn serveConnection(self: *Instance, stream: net.Stream) void {
+        defer _ = self.connections.fetchSub(1, .acq_rel);
+        self.serveOne(stream);
     }
 
     fn serveOne(self: *Instance, stream: net.Stream) void {
@@ -338,96 +370,87 @@ pub fn endpointIsStale(result: Handoff) bool {
     return result == .no_listener or result == .no_reply;
 }
 
-/// A connect attempt on its own thread, so that a hung owner cannot hold the
-/// second launch: on Windows a connection to a listening socket whose owner never
-/// accepts does not complete, and `connect` has no timeout. The waiter polls for
-/// the answer; one that does not come in time abandons the attempt, and whichever
-/// of the two finishes last (the thread, when abandoned) closes the stream and
-/// frees this.
-const ConnectJob = struct {
+/// The whole hand-off - connect, write the line, read the answer - on its own
+/// thread, so that nothing a hung owner does can hold the second launch: on
+/// Windows a connection to a listening socket whose owner never accepts does not
+/// complete, and a blocked read there is not woken by a shutdown. The waiter polls
+/// for the result and, past the deadline, abandons the job; whichever of the two
+/// finishes last frees it (an abandoned worker stays blocked on the dead peer until
+/// the peer or this process goes, which costs one idle thread).
+const HandoffJob = struct {
     io: Io,
     path_storage: [path_capacity]u8 = undefined,
     path_len: usize = 0,
-    state: std.atomic.Value(u8) = .init(pending),
-    result: ?net.Stream = null,
+    line_storage: [max_line + 2]u8 = undefined,
+    line_len: usize = 0,
+    state: std.atomic.Value(u8) = .init(running),
+    result: Handoff = .no_reply,
 
-    const pending: u8 = 0;
+    const running: u8 = 0;
     const done: u8 = 1;
     const abandoned: u8 = 2;
-    /// An abandoned job can outlive its caller (and a test's own allocator), so the
-    /// job comes from the process-wide allocator.
+    /// An abandoned job can outlive its caller (and a test's own allocator), so
+    /// the job comes from the process-wide allocator.
     const allocator = std.heap.smp_allocator;
 
-    fn run(self: *ConnectJob) void {
+    fn run(self: *HandoffJob) void {
+        const io = self.io;
         const address = net.UnixAddress.init(self.path_storage[0..self.path_len]) catch {
-            self.finish(null);
+            self.finish(.no_listener);
             return;
         };
-        self.finish(address.connect(self.io) catch null);
+        const stream = address.connect(io) catch {
+            self.finish(.no_listener);
+            return;
+        };
+        var result: Handoff = .no_reply;
+        exchange: {
+            var write_buffer: [max_line + 2]u8 = undefined;
+            var writer = stream.writer(io, &write_buffer);
+            writer.interface.writeAll(self.line_storage[0..self.line_len]) catch break :exchange;
+            writer.interface.flush() catch break :exchange;
+            var read_buffer: [16]u8 = undefined;
+            var reader = stream.reader(io, &read_buffer);
+            const answer = reader.interface.takeDelimiterExclusive('\n') catch break :exchange;
+            if (std.mem.eql(u8, answer, "ok")) result = .acked else if (std.mem.eql(u8, answer, "no")) result = .refused;
+        }
+        stream.close(io);
+        self.finish(result);
     }
 
-    fn finish(self: *ConnectJob, stream: ?net.Stream) void {
-        self.result = stream;
-        if (self.state.cmpxchgStrong(pending, done, .acq_rel, .acquire) != null) {
-            // Abandoned while connecting: nobody is waiting for this stream.
-            if (stream) |open| open.close(self.io);
-            allocator.destroy(self);
-        }
+    fn finish(self: *HandoffJob, result: Handoff) void {
+        self.result = result;
+        // Abandoned while it worked: nobody is waiting for this.
+        if (self.state.cmpxchgStrong(running, done, .acq_rel, .acquire) != null) allocator.destroy(self);
     }
 };
 
-/// The stream, or null when nobody is listening or the owner did not take the
-/// connection within `timeout_ms`; `hung` says which of the two it was.
-fn connectWithTimeout(io: Io, address: *const net.UnixAddress, timeout_ms: u32, hung: *bool) ?net.Stream {
-    hung.* = false;
-    const job = ConnectJob.allocator.create(ConnectJob) catch return address.connect(io) catch null;
+fn handoffOnce(io: Io, address: *const net.UnixAddress, line: []const u8, timeout_ms: u32) Handoff {
+    const job = HandoffJob.allocator.create(HandoffJob) catch return .no_listener;
+    if (address.path.len > job.path_storage.len or line.len > job.line_storage.len) {
+        HandoffJob.allocator.destroy(job);
+        return .no_listener;
+    }
     job.* = .{ .io = io };
     @memcpy(job.path_storage[0..address.path.len], address.path);
     job.path_len = address.path.len;
-    const thread = std.Thread.spawn(.{ .stack_size = 128 * 1024 }, ConnectJob.run, .{job}) catch {
-        ConnectJob.allocator.destroy(job);
-        return address.connect(io) catch null;
+    @memcpy(job.line_storage[0..line.len], line);
+    job.line_len = line.len;
+    const thread = std.Thread.spawn(.{ .stack_size = 256 * 1024 }, HandoffJob.run, .{job}) catch {
+        HandoffJob.allocator.destroy(job);
+        return .no_listener;
     };
     thread.detach();
     var waited: u32 = 0;
     const step_ms: u32 = 5;
     while (waited <= timeout_ms) {
-        if (job.state.load(.acquire) == ConnectJob.done) {
-            const stream = job.result;
-            ConnectJob.allocator.destroy(job);
-            return stream;
-        }
+        if (job.state.load(.acquire) == HandoffJob.done) break;
         io.sleep(.fromMilliseconds(step_ms), .awake) catch break;
         waited += step_ms;
     }
-    if (job.state.cmpxchgStrong(ConnectJob.pending, ConnectJob.abandoned, .acq_rel, .acquire) == null) {
-        hung.* = true;
-        return null;
-    }
-    // It finished in the moment between the last look and the give-up.
-    const stream = job.result;
-    ConnectJob.allocator.destroy(job);
-    return stream;
-}
-
-fn handoffOnce(io: Io, address: *const net.UnixAddress, line: []const u8, timeout_ms: u32) Handoff {
-    var hung = false;
-    const stream = connectWithTimeout(io, address, timeout_ms, &hung) orelse return if (hung) .no_reply else .no_listener;
-    defer stream.close(io);
-    var watchdog: Watchdog = .{ .io = io, .stream = stream, .timeout_ms = timeout_ms };
-    watchdog.start();
-    var result: Handoff = .no_reply;
-    exchange: {
-        var write_buffer: [max_line + 2]u8 = undefined;
-        var writer = stream.writer(io, &write_buffer);
-        writer.interface.writeAll(line) catch break :exchange;
-        writer.interface.flush() catch break :exchange;
-        var read_buffer: [16]u8 = undefined;
-        var reader = stream.reader(io, &read_buffer);
-        const answer = reader.interface.takeDelimiterExclusive('\n') catch break :exchange;
-        if (std.mem.eql(u8, answer, "ok")) result = .acked else if (std.mem.eql(u8, answer, "no")) result = .refused;
-    }
-    _ = watchdog.finish();
+    if (job.state.cmpxchgStrong(HandoffJob.running, HandoffJob.abandoned, .acq_rel, .acquire) == null) return .no_reply;
+    const result = job.result;
+    HandoffJob.allocator.destroy(job);
     return result;
 }
 
@@ -667,6 +690,31 @@ test "single instance: a hostile line is answered no and queues nothing, a flood
     // Draining makes room again.
     try std.testing.expect(owner.poll(&out) != null);
     try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, "/maps/y.bzm\n", 2000));
+}
+
+test "single instance: a client that connects and says nothing does not keep the owner from the next launch" {
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var endpoint_buffer: [path_capacity]u8 = undefined;
+    const endpoint = testEndpoint(io, &endpoint_buffer, "silent");
+    removeTestEndpoint(io, endpoint);
+    defer removeTestEndpoint(io, endpoint);
+    const owner = switch (acquireAt(gpa, io, endpoint, "\n", .{ .timeout_ms = 400 })) {
+        .primary => |instance| instance,
+        else => return error.TestUnexpectedResult,
+    };
+    defer owner.deinit();
+
+    const address = try net.UnixAddress.init(endpoint);
+    // Two silent clients: connected, never a line.
+    const silent_a = try address.connect(io);
+    defer silent_a.close(io);
+    const silent_b = try address.connect(io);
+    defer silent_b.close(io);
+    // A real launch is answered at once all the same.
+    try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, "/maps/real.bzm\n", 2000));
+    var out: [max_line]u8 = undefined;
+    try std.testing.expectEqualStrings("/maps/real.bzm", owner.poll(&out).?.open);
 }
 
 test "single instance: a stale socket file never blocks a start - the next launch takes the endpoint" {
