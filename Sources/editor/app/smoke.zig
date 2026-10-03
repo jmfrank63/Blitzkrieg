@@ -2002,6 +2002,18 @@ pub const AutoRunner = struct {
             std.mem.sliceTo(&pointer.active_window, 0),
             pointer.hovered_id,
         });
+        // What the editor last said (an edit the engine refused says why here
+        // and nowhere else), and the Roads & Rivers tool's hand: what Insert
+        // and Delete act on.
+        const rr = &self.state.view.roads_rivers;
+        std.debug.print("map-editor: BK_EDITOR_AUTO: status '{s}' editor '{s}'; roads & rivers: selected {any} hovered {any} last grab {any} pending {d}\n", .{
+            self.state.view.statusLine(),
+            self.state.editor.status(),
+            rr.selected,
+            rr.hovered_control,
+            rr.last_grab,
+            rr.pending_len,
+        });
         self.failed = true;
         return false;
     }
