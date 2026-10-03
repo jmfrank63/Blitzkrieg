@@ -3981,6 +3981,96 @@ static void TestM3PropertiesAndLinks( BkEditorSession *pSession, const std::stri
 	Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 	Check( SameBytes( szUnedited, szUndone ), "the undone fields edit saves the unedited file byte for byte" );
 
+	// The direction wheel turns the selection BY THE DELTA (the user's ruling of
+	// 2026-10-03; 05-04 first turned it to the wheel's angle): the editor core hands
+	// each member its own direction plus the turn, as the lossless degrees of that
+	// direction, through the same angle field. Two units facing different ways each
+	// go to their own start plus a quarter turn, so the offset between them is kept
+	// and neither faces the wheel's angle; a turn of nothing records nothing; one
+	// undo apiece puts both back byte for byte.
+	{
+		int nSecond = -1;
+		std::vector<BkEditorObjectRecord> records;
+		{
+			int nCount = 0;
+			BkEditorObjects( pSession, 0, 0, &nCount );
+			records.assign( nCount > 0 ? nCount : 1, BkEditorObjectRecord() );
+			int nRead = 0;
+			BkEditorObjects( pSession, &( records[0] ), nCount, &nRead );
+			records.resize( nRead );
+		}
+		int nFirstDir = -1;
+		for ( size_t i = 0; i < records.size(); ++i )
+			if ( records[i].link_id == nTarget )
+				nFirstDir = records[i].dir & 0xFFFF;
+		// A unit or a squad, by the catalogue's own game type, facing another way.
+		int nCatalogue = 0;
+		BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+		std::vector<BkEditorCatalogueEntry> catalogue( nCatalogue > 0 ? nCatalogue : 1 );
+		int nCatalogueRead = 0;
+		BkEditorCatalogue( pSession, &( catalogue[0] ), nCatalogue, &nCatalogueRead );
+		for ( size_t i = 0; i < records.size() && nSecond < 0; ++i )
+		{
+			if ( records[i].link_id <= 0 || records[i].link_id == nTarget || !records[i].known || ( records[i].dir & 0xFFFF ) == nFirstDir )
+				continue;
+			for ( int j = 0; j < nCatalogueRead; ++j )
+				if ( ( catalogue[size_t( j )].game_type == 1 || catalogue[size_t( j )].game_type == 15 ) && records[i].name == std::string( catalogue[size_t( j )].name ) )
+					nSecond = records[i].link_id;
+		}
+		if ( Check( nSecond > 0 && nFirstDir >= 0, "a second unit that faces another way is on the map" ) )
+		{
+			const int nLinks[2] = { nTarget, nSecond };
+			int nStart[2] = { nFirstDir, 0 };
+			for ( size_t i = 0; i < records.size(); ++i )
+				if ( records[i].link_id == nSecond )
+					nStart[1] = records[i].dir & 0xFFFF;
+			const int nQuarter = 65536 / 4;
+			int nTokens[2] = { -1, -1 };
+			for ( int i = 0; i < 2; ++i )
+			{
+				const int nTargetDir = ( nStart[i] + nQuarter ) & 0xFFFF;
+				BkEditorObjectFieldsEdit turn;
+				memset( &turn, 0, sizeof turn );
+				turn.mask = 4;
+				turn.angle = float( nTargetDir ) * 360.0f / 65536.0f;
+				Check( BkEditorSetObjectFields( pSession, nLinks[i], &turn, &nTokens[i] ) == BK_EDITOR_OK && nTokens[i] >= 0, BkEditorLastMessage( pSession ) );
+			}
+			int nAfter[2] = { -1, -1 };
+			{
+				int nCount = 0;
+				BkEditorObjects( pSession, 0, 0, &nCount );
+				std::vector<BkEditorObjectRecord> now( nCount > 0 ? nCount : 1 );
+				int nRead = 0;
+				BkEditorObjects( pSession, &( now[0] ), nCount, &nRead );
+				for ( int i = 0; i < nRead; ++i )
+					for ( int k = 0; k < 2; ++k )
+						if ( now[size_t( i )].link_id == nLinks[k] )
+							nAfter[k] = now[size_t( i )].dir & 0xFFFF;
+			}
+			Check( nAfter[0] == ( ( nStart[0] + nQuarter ) & 0xFFFF ) && nAfter[1] == ( ( nStart[1] + nQuarter ) & 0xFFFF ),
+			       NStr::Format( "each unit turned by the quarter from its own direction (%d -> %d, %d -> %d)", nStart[0], nAfter[0], nStart[1], nAfter[1] ) );
+			Check( ( ( nAfter[1] - nAfter[0] ) & 0xFFFF ) == ( ( nStart[1] - nStart[0] ) & 0xFFFF ), "the offset between the two is the one they had" );
+			BkEditorObjectState engineSecond;
+			memset( &engineSecond, 0, sizeof engineSecond );
+			if ( Check( BkEditorEngineObjectState( pSession, nSecond, &engineSecond ) == BK_EDITOR_OK, "the engine holds the turned unit" ) )
+				Check( engineSecond.dir == nAfter[1], "and faces the turned direction" );
+			// A turn of nothing: the unit's own direction as degrees records nothing.
+			{
+				BkEditorObjectFieldsEdit nothing;
+				memset( &nothing, 0, sizeof nothing );
+				nothing.mask = 4;
+				nothing.angle = float( nAfter[0] ) * 360.0f / 65536.0f;
+				int nNothingToken = 0;
+				Check( BkEditorSetObjectFields( pSession, nTarget, &nothing, &nNothingToken ) == BK_EDITOR_OK && nNothingToken == -1, "a turn that changes nothing records nothing" );
+			}
+			Check( BkEditorUndoEdit( pSession, nTokens[1] ) == BK_EDITOR_OK && BkEditorUndoEdit( pSession, nTokens[0] ) == BK_EDITOR_OK, "both turns undo" );
+			const std::string szTurnUndone = szScratch + "\\m3-wheel-undone.bzm";
+			if ( Check( BkEditorSaveMap( pSession, szTurnUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+				Check( SameBytes( szUnedited, szTurnUndone ), "the undone turns save the unedited file byte for byte" );
+			remove( OsPath( szTurnUndone ).c_str() );
+		}
+	}
+
 	// The garrison: an infantry onto a building or a vehicle, through the
 	// rules. Searched over the map's own objects, so the proof is the
 	// engine's database, not a fixture.

@@ -14,7 +14,7 @@ requires:
 provides:
   - the set-based Selector (D-25) - Ctrl+click, the screen and the Ctrl tile rubber bands, squad-whole, group move and delete-all as ONE undo step each, right-click cycle/deselect, the MFC double circles (Task 1)
   - the per-kind Properties window, garrison/tow/couple links with CheckForInserting's rules, unlink, host-delete (Task 2)
-  - the direction wheel (D-28) turning the placement angle and the selection, ONE undo step per drag (Editor.turnSelection, wheel_gesture)
+  - the direction wheel (D-28) turning the placement angle and the selection, ONE undo step per drag (Editor.turnSelection, wheel_gesture; the selection turned TO the wheel's angle - since 2026-10-03 BY THE DELTA, Editor.rotateSelection)
   - the Damage tool (D-29) - BkEditorDamageObject, tools_damage.zig, the Map Tools panel's percent field, Alt+click repair, SyncEngineHP
   - the rectangle pick undoing the gameplay scale (CSpriteVisObj::IsHit over a RECT) - D-25 bands at any window size
   - PutObjectRecordBack engine-first (angle edits and their undo turn the engine), the before-record copied before the in-place write (property/link/unlink undo), a link that keeps its place when the engine will not take host-30,+30
@@ -54,7 +54,7 @@ key-files:
     - .planning/phases/05-map-editor-m3-random-map-templates-minimap-tools-parity/05-PARITY.md
 
 key-decisions:
-  - "The direction wheel turns every selected object TO the wheel's angle (absolute), as the MFC frame does (TEF:1053-1090, TurnObject to GetDefaultDirAngel), not by the turn's delta the plan text described - the project's full-parity rule wins; one drag is ONE undo step"
+  - "The direction wheel turns every selected object TO the wheel's angle (absolute), as the MFC frame does (TEF:1053-1090, TurnObject to GetDefaultDirAngel), not by the turn's delta the plan text described - the project's full-parity rule wins; one drag is ONE undo step. SUPERSEDED 2026-10-03 by the user's decision (quick task 2026-10-03-script-path-wheel-link-pad): the wheel ROTATES BY THE DELTA, as the plan text said - a delta is easier for modders to reason about than the MFC's set-to-angle. Each selected object turns by the drag's delta and keeps its own angle offset (Editor.rotateSelection replaced turnSelection); the placer angle and ghost still follow the wheel; one drag is still ONE undo step; Q/E unchanged"
   - "The Damage tool floors a squad at 1% like a unit: the MFC damaged a squad's soldiers, which IsHuman floors, and saved the squad's health from them"
   - "The Damage panel field is a whole percentage applied on every change (the MFC's ON_EN_CHANGE), clamped to 0..100 because the bridge refuses a hit beyond the whole object"
   - "Alt+click is the Damage tool's middle button, as it is the Heights tool's (D-18's trackpad stand-in)"
@@ -165,7 +165,7 @@ coverage:
 
 ## Audit gaps closed
 
-1. **Wheel = one undo step per drag:** `wheelTurn` now calls `Editor.turnSelection(members, degrees, state.wheel_gesture)`; the dial takes a gesture on activation. Core test: two members, three frames, one undo step, one undo back.
+1. **Wheel = one undo step per drag:** `wheelTurn` now calls `Editor.turnSelection(members, degrees, state.wheel_gesture)`; the dial takes a gesture on activation. Core test: two members, three frames, one undo step, one undo back. *(Since 2026-10-03 the wheel turns the selection by the drag's delta, not to the angle - the user's decision overriding the MFC behaviour this shipped; `Editor.rotateSelection`, PARITY O6.)*
 2. **Damage:** Alt+click repairs (view.zig maps Alt for `.damage` as for `.heights`); the Map Tools panel has the MFC's "Damage To Add: [n] %" field.
 3. **TestM3Damage:** the stats refusal runs on a constructed tank-pit record (it gets past the unknown-type, shared-ID and no-object checks); D-40.3 saves the damaged map and compares it with the builder (AreEquivalent); the engine state is checked against the record; the debug printfs are gone.
 4. **Frames:** a screen band dragged on empty ground, Delete then undo (and redo), `wheel_turn` with a selection, Damage by real left/right clicks and by command; `link_make:@0=@1` with '='; line 6740's indent and the stray comment fixed. No `zig fmt build.zig`; the hermeticity test passes.

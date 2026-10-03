@@ -193,6 +193,7 @@ behavior needs the in-game rows).
 - [Phase ?]: In the width mode All the Roads & Rivers sliders re-width the selected line, one undo step per slider drag (04-13, MFC CW_ALL)
 - [Phase ?]: M2 exit met: M2 sweeps byte-exact (59 maps/460 edits, 57 maps/238 edits), CI 36692345194 green, win-home non-GUI tiers and release package green (04-13)
 - [Phase 05]: 05-04: the direction wheel turns the selection TO its angle (the MFC's TEF:1053-1090), one drag = one undo step
+- [Phase 05]: quick 2026-10-03 (user decision): the direction wheel turns the selection BY THE DELTA, each object keeping its own angle offset (supersedes the line above; the MFC's set-to-angle is overridden); the placer angle and ghost still follow the wheel, one drag = one undo step
 - [Phase 05]: 05-04: PutObjectRecordBack moves the engine before writing the records; bridge edits copy the before-record before any in-place write
 - [Phase 05]: 05-04: the Damage tool floors squads at 1% like units; Alt+click repairs; SyncEngineHP keeps engine health with the record
 - [Phase 05]: 05-04: BK_EDITOR_AUTO names objects by selection index (@n); link_make uses '='; placer_name takes any placeable entry

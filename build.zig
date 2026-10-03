@@ -6839,25 +6839,41 @@ fn addMapEditor(
         "286:do=wheel_turn:180",
         "288:expect=placer_angle:180",
         "290:expect=undo_depth:15",
-        // The wheel with a selection (O6): a T-34 placed at the placer's 180
-        // and selected; the turn faces it to the wheel's 90 as ONE undo
-        // step, the undo turns it back, the redo turns it again.
-        "300:do=placer_name:T-34",
-        "301:tool=place",
-        "302:click=c-30x-30",
+        // The wheel with a selection (O6) turns it BY THE DELTA (the user's
+        // ruling of 2026-10-03; 05-04 first turned it TO the wheel's angle):
+        // a T-34 placed at the placer's 180 and left selected; the wheel is
+        // set to 90 with nothing selected (the placer only), the T-34 is
+        // selected again, and the wheel goes from 90 to 135 - a turn of +45,
+        // so the T-34 faces 225, not the 135 a set-to-angle wheel would give.
+        // ONE undo step, the undo turns it back to 180, the redo to 225; a
+        // wheel turned to where it already stands turns nothing.
+        "291:do=placer_name:T-34",
+        "292:tool=place",
+        "293:click=c-30x-30",
+        "294:expect=selection_count:1",
+        "295:expect=angle:@0:180",
+        "296:expect=undo_depth:16",
+        "297:tool=select",
+        "298:rclick=c60x60",
+        "299:expect=selection_count:0",
+        "300:do=wheel_turn:90",
+        "301:expect=placer_angle:90",
+        "302:click=c-10x-78",
         "303:expect=selection_count:1",
         "304:expect=angle:@0:180",
-        "305:expect=undo_depth:16",
-        "306:do=wheel_turn:90",
-        "307:expect=placer_angle:90",
-        "308:expect=angle:@0:90",
-        "309:expect=undo_depth:17",
-        "310:key=Z+ctrl",
-        "311:expect=angle:@0:180",
-        "312:expect=undo_depth:16",
-        "313:key=Y+ctrl",
-        "314:expect=angle:@0:90",
-        "315:expect=undo_depth:17",
+        "305:do=wheel_turn:135",
+        "306:expect=placer_angle:135",
+        "307:expect=angle:@0:225",
+        "308:expect=undo_depth:17",
+        "309:key=Z+ctrl",
+        "310:expect=angle:@0:180",
+        "311:expect=undo_depth:16",
+        "312:key=Y+ctrl",
+        "313:expect=angle:@0:225",
+        "314:expect=undo_depth:17",
+        "315:do=wheel_turn:135",
+        "316:expect=angle:@0:225",
+        "317:expect=undo_depth:17",
         // The Damage tool (D-29, MT1) by its real clicks on the T-34's drawn
         // hull (the hills lift it above the point it was placed at): 25%, a
         // left click damages it ONE step, a right click heals it ONE step;

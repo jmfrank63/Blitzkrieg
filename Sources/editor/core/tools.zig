@@ -892,43 +892,66 @@ test "properties fields commit as one undo step; an equal value records nothing"
     try testing.expectEqual(@as(f32, 1.0), editor.document.find(1).?.hp);
 }
 
-test "the direction wheel turns a multi-selection to its angle as ONE undo step per drag" {
+test "the direction wheel turns a multi-selection BY THE DELTA, each member keeping its own angle, as ONE undo step per drag" {
     var fake = try testFixture(testing.allocator);
     defer fake.deinit();
     var editor = try opened(&fake);
     defer editor.deinit();
     const second = try editor.addObject("T34", 100, 100, 65536 / 8, 0);
     const members = [_]i32{ 1, second };
-    const dir_first = editor.document.find(1).?.dir;
-    const dir_second = editor.document.find(second).?.dir;
+    const start_first = editor.document.find(1).?.dir;
+    const start_second = editor.document.find(second).?.dir;
+    // The two face different ways: the turn must keep that offset.
+    try testing.expect(start_first != start_second);
+    const quarter = 65536 / 4;
     const depth = editor.history.undo_stack.items.len;
-    // One drag over the dial: many frames, one gesture.
+    // One drag over the dial: many frames, one gesture. Each frame's delta is
+    // the whole turn since the drag began (30, 60, 90 degrees).
     const gesture = editor.beginGesture();
-    try editor.turnSelection(&members, 30, gesture);
-    try editor.turnSelection(&members, 60, gesture);
-    try editor.turnSelection(&members, 90, gesture);
+    try editor.rotateSelection(&members, 30, gesture);
+    try editor.rotateSelection(&members, 60, gesture);
+    try editor.rotateSelection(&members, 90, gesture);
     try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
-    // Both face the wheel's angle (the MFC turns each to it).
-    try testing.expectEqual(@as(i32, 65536 / 4), editor.document.find(1).?.dir);
-    try testing.expectEqual(@as(i32, 65536 / 4), editor.document.find(second).?.dir);
-    // A second drag is a second step.
+    // Both turned by the delta - neither was set to an angle - so each kept its own.
+    try testing.expectEqual(@mod(start_first + quarter, 65536), editor.document.find(1).?.dir);
+    try testing.expectEqual(@mod(start_second + quarter, 65536), editor.document.find(second).?.dir);
+    try testing.expectEqual(@mod(start_second - start_first, 65536), @mod(editor.document.find(second).?.dir - editor.document.find(1).?.dir, 65536));
+    // Turning back to where the drag began restores each member exactly (the
+    // frames' rounding does not pile up), still inside the one step.
+    try editor.rotateSelection(&members, 0, gesture);
+    try testing.expectEqual(start_first, editor.document.find(1).?.dir);
+    try testing.expectEqual(start_second, editor.document.find(second).?.dir);
+    try editor.rotateSelection(&members, 90, gesture);
+    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    // A second drag is a second step, and turns from where the first left them;
+    // a negative delta turns the other way and wraps below zero.
     const next = editor.beginGesture();
-    try editor.turnSelection(&members, 180, next);
+    try editor.rotateSelection(&members, -180, next);
     try testing.expectEqual(depth + 2, editor.history.undo_stack.items.len);
+    try testing.expectEqual(@mod(start_first + quarter - 2 * quarter, 65536), editor.document.find(1).?.dir);
+    try testing.expectEqual(@mod(start_second + quarter - 2 * quarter, 65536), editor.document.find(second).?.dir);
     _ = try editor.undo();
-    try testing.expectEqual(@as(i32, 65536 / 4), editor.document.find(1).?.dir);
+    try testing.expectEqual(@mod(start_first + quarter, 65536), editor.document.find(1).?.dir);
     // ONE undo takes the whole first drag back, every member.
     _ = try editor.undo();
     try testing.expectEqual(depth, editor.history.undo_stack.items.len);
-    try testing.expectEqual(dir_first, editor.document.find(1).?.dir);
-    try testing.expectEqual(dir_second, editor.document.find(second).?.dir);
+    try testing.expectEqual(start_first, editor.document.find(1).?.dir);
+    try testing.expectEqual(start_second, editor.document.find(second).?.dir);
     // And the redo turns both again in one step.
     _ = try editor.redo();
-    try testing.expectEqual(@as(i32, 65536 / 4), editor.document.find(1).?.dir);
-    try testing.expectEqual(@as(i32, 65536 / 4), editor.document.find(second).?.dir);
-    // A non-finite angle is refused and changes nothing.
-    try testing.expectError(error.Refused, editor.turnSelection(&members, std.math.nan(f32), 0));
-    try testing.expectEqual(depth + 1, editor.history.undo_stack.items.len);
+    try testing.expectEqual(@mod(start_first + quarter, 65536), editor.document.find(1).?.dir);
+    try testing.expectEqual(@mod(start_second + quarter, 65536), editor.document.find(second).?.dir);
+    // A scripted turn (gesture 0) is a step of its own, from the directions as they
+    // stand; a whole turn faces every member as it did and records nothing.
+    const standing = editor.history.undo_stack.items.len;
+    try editor.rotateSelection(&members, 360, 0);
+    try testing.expectEqual(standing, editor.history.undo_stack.items.len);
+    try editor.rotateSelection(&members, 45, 0);
+    try testing.expectEqual(standing + 1, editor.history.undo_stack.items.len);
+    try testing.expectEqual(@mod(start_first + quarter + 65536 / 8, 65536), editor.document.find(1).?.dir);
+    // A non-finite delta is refused and changes nothing.
+    try testing.expectError(error.Refused, editor.rotateSelection(&members, std.math.nan(f32), 0));
+    try testing.expectEqual(standing + 1, editor.history.undo_stack.items.len);
 }
 
 test "the formation rides only a squad, and the flag swap renames the record" {
