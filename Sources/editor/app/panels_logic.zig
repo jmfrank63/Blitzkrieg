@@ -3199,8 +3199,9 @@ pub fn rasterizeMinimapTerrain(pixels: []u8, tiles: []const u8, colors: []const 
 /// tile from the height of the tile's first vertex, 0 at the lowest of those
 /// and 255 at the highest. `heights` is the vertex sheet (`vertex_w` per row,
 /// one more than the tiles per axis). A flat sheet is all black (the MFC's
-/// divides by a range it set to -1 there). The MFC's red for a height the
-/// engine's validity rule refuses is not drawn: no read says which those are.
+/// divides by a range it set to -1 there). A vertex whose height the engine's
+/// validity rule refuses (`isValidHeight`) is red, as the MFC painted it
+/// (`RGB( 0xFF, 0, 0 )`, MiniMapTypes.cpp:503).
 pub fn rasterizeMinimapHeights(pixels: []u8, heights: []const f32, vertex_w: usize, tiles_w: usize, tiles_h: usize) void {
     std.debug.assert(pixels.len == tiles_w * tiles_h * 4);
     if (tiles_w == 0 or tiles_h == 0 or heights.len < vertex_w * tiles_h or vertex_w < tiles_w) {
@@ -3217,17 +3218,58 @@ pub fn rasterizeMinimapHeights(pixels: []u8, heights: []const f32, vertex_w: usi
         }
     }
     const span = high - low;
+    const vertex_h = heights.len / vertex_w;
     for (0..tiles_h) |y| {
         for (0..tiles_w) |x| {
             const h = heights[y * vertex_w + x];
             const grey: u8 = if (span > 0) @intFromFloat(std.math.clamp(255.0 * (h - low) / span, 0, 255)) else 0;
             const at = (y * tiles_w + x) * 4;
-            pixels[at + 0] = grey;
-            pixels[at + 1] = grey;
-            pixels[at + 2] = grey;
+            const valid = isValidHeight(heights, vertex_w, vertex_h, x, y);
+            pixels[at + 0] = if (valid) grey else 0xFF;
+            pixels[at + 1] = if (valid) grey else 0;
+            pixels[at + 2] = if (valid) grey else 0;
             pixels[at + 3] = 0xFF;
         }
     }
+}
+
+/// `CVertexAltitudeInfo::IsValidHeight` (RandomMapGen/VA_StaticMethods.cpp:152):
+/// the terrain is valid at a vertex when both triangle normals it makes with
+/// its four neighbours (a missing neighbour stands at the vertex's own height)
+/// face the camera from both sides - no slope steeper than the engine's
+/// camera angle allows, no overhang. `heights` is the vertex sheet, `vertex_w`
+/// per row and `vertex_h` rows. The arithmetic is the C++'s own, in f32:
+/// absolute vertex positions first, then the differences.
+pub fn isValidHeight(heights: []const f32, vertex_w: usize, vertex_h: usize, x: usize, y: usize) bool {
+    if (x >= vertex_w or y >= vertex_h or heights.len < vertex_w * vertex_h) return false;
+    const cell = view_math.world_cell_size;
+    const alpha: f32 = std.math.sqrt2 / @sqrt(@as(f32, 3.0)); // CAMERA_ALPHA = FP_SQRT_2 / FP_SQRT_3
+    const fx: f32 = @floatFromInt(x);
+    const fy: f32 = @floatFromInt(y);
+    const h0 = heights[y * vertex_w + x];
+    const v0 = [3]f32{ fx * cell, fy * cell, h0 };
+    const v1 = [3]f32{ (fx - 1) * cell, fy * cell, if (x > 0) heights[y * vertex_w + x - 1] else h0 };
+    const v2 = [3]f32{ fx * cell, (fy - 1) * cell, if (y > 0) heights[(y - 1) * vertex_w + x] else h0 };
+    const v3 = [3]f32{ fx * cell, (fy + 1) * cell, if (y + 1 < vertex_h) heights[(y + 1) * vertex_w + x] else h0 };
+    const v4 = [3]f32{ (fx + 1) * cell, fy * cell, if (x + 1 < vertex_w) heights[y * vertex_w + x + 1] else h0 };
+    const n0 = cross3(sub3(v2, v0), sub3(v1, v0));
+    const n1 = cross3(sub3(v3, v0), sub3(v4, v0));
+    const negative = [3]f32{ -1, -1, -alpha }; // V3_CAMERA_NEGATIVE
+    const positive = [3]f32{ 1, 1, -alpha }; // V3_CAMERA_POSITIVE
+    return dot3(negative, n0) > 0 and dot3(negative, n1) > 0 and dot3(positive, n0) > 0 and dot3(positive, n1) > 0;
+}
+
+fn sub3(a: [3]f32, b: [3]f32) [3]f32 {
+    return .{ a[0] - b[0], a[1] - b[1], a[2] - b[2] };
+}
+
+/// Misc/Geometry.h:104 `operator^( CVec3, CVec3 )`.
+fn cross3(a: [3]f32, b: [3]f32) [3]f32 {
+    return .{ a[1] * b[2] - b[1] * a[2], a[2] * b[0] - b[2] * a[0], a[0] * b[1] - b[0] * a[1] };
+}
+
+fn dot3(a: [3]f32, b: [3]f32) f32 {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
 /// What a `minimap_click:<x>x<y>` argument asks: percents of the picture's width
@@ -3390,10 +3432,11 @@ test "minimap terrain pixels: every tile's colour, an unknown tile grey" {
 
 test "minimap heights: the first vertex of each tile, lowest black and highest white" {
     // 2 x 2 tiles, 3 x 3 vertices; the last row and column of vertices belong to no tile.
+    // Gentle heights, all valid for the engine's rule (a steeper one is red, below).
     const heights = [_]f32{
-        0, 10, 99,
-        20, 30, 99,
-        99, 99, 99,
+        0, 1, 3,
+        2, 3, 3,
+        3, 3, 3,
     };
     var pixels: [16]u8 = undefined;
     rasterizeMinimapHeights(&pixels, &heights, 3, 2, 2);
@@ -3407,6 +3450,43 @@ test "minimap heights: the first vertex of each tile, lowest black and highest w
     rasterizeMinimapHeights(&pixels, &flat, 3, 2, 2);
     try std.testing.expectEqual(@as(u8, 0), pixels[0]);
     try std.testing.expectEqual(@as(u8, 0), pixels[12]);
+}
+
+test "isValidHeight: the engine's rule - gentle slopes are valid, a spike or a cliff either way is not" {
+    // A flat sheet, and a gentle bump (the limit for a lone spike is
+    // CAMERA_ALPHA * cell / 2 = about 18.5 units).
+    var sheet = [_]f32{0} ** 25;
+    for (0..5) |y| for (0..5) |x| try std.testing.expect(isValidHeight(&sheet, 5, 5, x, y));
+    sheet[2 * 5 + 2] = 10;
+    for (0..5) |y| for (0..5) |x| try std.testing.expect(isValidHeight(&sheet, 5, 5, x, y));
+    // A spike up or down past the limit is invalid at its own vertex ...
+    sheet[2 * 5 + 2] = 30;
+    try std.testing.expect(!isValidHeight(&sheet, 5, 5, 2, 2));
+    sheet[2 * 5 + 2] = -30;
+    try std.testing.expect(!isValidHeight(&sheet, 5, 5, 2, 2));
+    // ... and a far corner is not touched by it.
+    try std.testing.expect(isValidHeight(&sheet, 5, 5, 0, 0));
+    // A missing neighbour stands at the vertex's own height: the sheet's edge
+    // and corner are judged on what is there.
+    sheet[2 * 5 + 2] = 0;
+    sheet[0] = 40;
+    try std.testing.expect(!isValidHeight(&sheet, 5, 5, 0, 0));
+    // Out of the sheet is never valid.
+    try std.testing.expect(!isValidHeight(&sheet, 5, 5, 5, 0));
+    try std.testing.expect(!isValidHeight(&sheet, 5, 5, 0, 5));
+}
+
+test "minimap heights: a vertex the engine refuses is red, the rest stay grey" {
+    // 3 x 3 tiles, 4 x 4 vertices, one spike at vertex (1, 1).
+    var heights = [_]f32{0} ** 16;
+    heights[1 * 4 + 1] = 60;
+    var pixels: [9 * 4]u8 = undefined;
+    rasterizeMinimapHeights(&pixels, &heights, 4, 3, 3);
+    const at = (1 * 3 + 1) * 4;
+    try std.testing.expectEqualSlices(u8, &.{ 0xFF, 0, 0, 0xFF }, pixels[at .. at + 4]);
+    // The spike's neighbours see the cliff too; a vertex two away does not.
+    try std.testing.expectEqualSlices(u8, &.{ 0xFF, 0, 0, 0xFF }, pixels[(1 * 3 + 2) * 4 ..][0..4]);
+    try std.testing.expect(!std.mem.eql(u8, pixels[(2 * 3 + 2) * 4 ..][0..3], &.{ 0xFF, 0, 0 }));
 }
 
 test "minimap click arguments and modes" {

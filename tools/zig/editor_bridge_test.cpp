@@ -3183,12 +3183,57 @@ struct SStrokeBuilder
 	}
 };
 
+// The Heights minimap paints a vertex red when the engine's validity rule refuses its height
+// (MiniMapTypes.cpp:503). The editor app has no read for it and judges the heights it already
+// holds with its own port of the rule (panels_logic.zig isValidHeight); this pins the rule's
+// verdicts on the sheets the port's tests use - the same ones, so neither can drift alone - and
+// counts the refused vertices of the shipped map the engine tier of the app reads, whose count
+// that tier asserts too.
+static void TestM3HeightRule( const CMapInfo &rShipped )
+{
+	STerrainInfo::TVertexAltitudeArray2D sheet;
+	sheet.SetSizes( 5, 5 );
+	for ( int y = 0; y < 5; ++y )
+		for ( int x = 0; x < 5; ++x )
+			sheet[y][x].fHeight = 0;
+	bool bFlat = true;
+	for ( int y = 0; y < 5; ++y )
+		for ( int x = 0; x < 5; ++x )
+			bFlat = bFlat && CVertexAltitudeInfo::IsValidHeight( sheet, x, y );
+	Check( bFlat, "a flat sheet is valid at every vertex" );
+	sheet[2][2].fHeight = 10;
+	bool bGentle = true;
+	for ( int y = 0; y < 5; ++y )
+		for ( int x = 0; x < 5; ++x )
+			bGentle = bGentle && CVertexAltitudeInfo::IsValidHeight( sheet, x, y );
+	Check( bGentle, "a bump of 10 units is valid everywhere (the limit for a lone spike is about 18.5)" );
+	sheet[2][2].fHeight = 30;
+	Check( !CVertexAltitudeInfo::IsValidHeight( sheet, 2, 2 ), "a spike of +30 is refused at its own vertex" );
+	sheet[2][2].fHeight = -30;
+	Check( !CVertexAltitudeInfo::IsValidHeight( sheet, 2, 2 ), "a spike of -30 is refused at its own vertex" );
+	Check( CVertexAltitudeInfo::IsValidHeight( sheet, 0, 0 ), "a far corner is not touched by it" );
+	sheet[2][2].fHeight = 0;
+	sheet[0][0].fHeight = 40;
+	Check( !CVertexAltitudeInfo::IsValidHeight( sheet, 0, 0 ), "a corner of +40 is refused: the missing neighbours stand at its own height" );
+	Check( !CVertexAltitudeInfo::IsValidHeight( sheet, 5, 0 ) && !CVertexAltitudeInfo::IsValidHeight( sheet, 0, 5 ), "a vertex outside the sheet is never valid" );
+
+	int nRefused = 0;
+	for ( int y = 0; y < rShipped.terrain.altitudes.GetSizeY(); ++y )
+		for ( int x = 0; x < rShipped.terrain.altitudes.GetSizeX(); ++x )
+			if ( !CVertexAltitudeInfo::IsValidHeight( rShipped.terrain.altitudes, x, y ) )
+				++nRefused;
+	printf( "editor-bridge: M3 height rule: %d of %d vertices of the shipped map refused\n", nRefused,
+	        (int)( rShipped.terrain.altitudes.GetSizeX() * rShipped.terrain.altitudes.GetSizeY() ) );
+	printf( "editor-bridge: M3 height rule ok\n" );
+}
+
 static void TestM3Heights( BkEditorSession *pSession, const std::string &szScratch )
 {
 	CMapInfo original;
 	std::string szError;
 	if ( !Check( NMapFile::Read( SHIPPED_MAP, &original, &szError ), szError.c_str() ) ) return;
 	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) ) return;
+	TestM3HeightRule( original );
 	const int nTilesX = original.terrain.tiles.GetSizeX();
 	const int nTilesY = original.terrain.tiles.GetSizeY();
 	// The world point over an interior tile, and the round trip that says the

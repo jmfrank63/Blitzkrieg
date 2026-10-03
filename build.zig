@@ -7433,12 +7433,48 @@ fn addMapEditor(
         "1451:do=about_show",
         "1455:shot=m3-about",
         "1457:do=about_show:off",
-        "1459:expect=dirty:0",
-        "1460:do=drop_file:Data/Maps/Multiplayer/arnheim.txt",
-        "1462:expect=status:drop:",
-        "1464:do=drop_file:Data/Maps/Multiplayer/arnheim.bzm",
-        "1500:expect=title:arnheim",
-        "1510:exit",
+        // The direction wheel takes the pointer over its whole dial (05-11): the placer's angle is
+        // set to 90, a press on the LOWER half of the dial (the dial's rim is x 224-263, y 274-313
+        // in this layout) turns it to about 270 - before, only the upper frame-high strip answered.
+        "1457:tool=select",
+        "1458:do=wheel_turn:90",
+        "1459:expect=placer_angle:90",
+        "1460:press=244x308",
+        "1462:release=244x308",
+        "1464:expect=placer_angle:270:20",
+        "1466:expect=dirty:0",
+        "1468:do=drop_file:Data/Maps/Multiplayer/arnheim.txt",
+        "1470:expect=status:drop:",
+        "1472:do=drop_file:Data/Maps/Multiplayer/arnheim.bzm",
+        "1510:expect=title:arnheim",
+        // The Place tool's ghost (PARITY O7, 05-11): with every floating window put away the map
+        // is free to point at; the chosen object's picture follows the pointer at half opacity
+        // (the shot), and the ghost is gone with the tool.
+        "1512:do=view_panel:containers_composer:off",
+        "1512:do=view_panel:graphs_composer:off",
+        "1512:do=view_panel:fields_composer:off",
+        "1512:do=view_panel:templates_composer:off",
+        "1512:do=view_panel:filters_composer:off",
+        "1512:do=view_panel:check_map:off",
+        "1512:do=view_panel:heights:off",
+        "1512:do=view_panel:fields:off",
+        "1512:do=view_panel:minimap:off",
+        "1512:do=view_panel:properties_window:off",
+        "1512:do=view_panel:groups:off",
+        "1512:do=view_panel:start_commands:off",
+        "1512:do=view_panel:script:off",
+        "1512:do=view_panel:unit_creation:off",
+        "1514:tool=place",
+        "1515:do=placer_name:T-34",
+        // The pointer goes to the map a frame before the click: ImGui's capture flags are
+        // those of the frame before the events, and the last pointer step (the dial) left them on.
+        "1516:drag=640x500",
+        "1518:click=640x500",
+        "1522:expect=place_ghost:1",
+        "1524:shot=m3-place-ghost",
+        "1526:tool=select",
+        "1528:expect=place_ghost:0",
+        "1540:exit",
     };
     const auto_m3_run = b.addRunArtifact(exe);
     auto_m3_run.setCwd(b.path(stage_root));
