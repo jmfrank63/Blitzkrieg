@@ -62,6 +62,9 @@ pub const max_connections = 4;
 /// How long a second launch waits for the owner's answer, and how long the
 /// owner waits for a connected client's line.
 pub const default_timeout_ms = 1500;
+/// How long `deinit` waits for the accept thread to notice its wake-up
+/// connection before it gives the thread up (WR-A02).
+pub const accept_wait_ms = 1000;
 /// A socket address holds 104 bytes on macOS, 108 on Linux (the std's own
 /// limit); one byte for the terminator and a margin of one.
 pub const posix_path_limit = 102;
@@ -195,6 +198,12 @@ pub const Instance = struct {
     timeout_ms: u32,
     thread: ?std.Thread = null,
     stopping: std.atomic.Value(bool) = .init(false),
+    /// Set by the accept thread as it returns, so `deinit` can wait for it with
+    /// a deadline instead of `join`ing a thread that may never be woken.
+    serve_done: std.atomic.Value(bool) = .init(false),
+    /// The socket file's inode when it was bound, to tell it from a file a
+    /// later launch put at the same path; null when it could not be read.
+    bound_inode: ?Io.File.INode = null,
     /// Connection threads running; `max_connections` at most (one more is closed unanswered).
     connections: std.atomic.Value(u32) = .init(0),
     mutex: Io.Mutex = .init,
@@ -221,21 +230,38 @@ pub const Instance = struct {
     }
 
     /// Stops answering, removes the socket file and frees the instance. The
-    /// accept thread is woken by a connection of our own and joined. A
+    /// accept thread is woken by a connection of our own and waited for up to
+    /// `accept_wait_ms`: the wake-up goes through the socket file, which may be
+    /// gone or replaced by now (a tmp cleaner, a launch that judged this one
+    /// stale), and then the accept never returns. Past the wait the thread is
+    /// detached and the instance, with its listening socket, left as it is - the
+    /// process is on its way out - rather than closed under the blocked accept
+    /// (WR-A02). Only a socket file that is still the one bound here is removed:
+    /// another editor's live socket at that path is not ours to unlink. A
     /// connection thread still stuck on a silent client (its watchdog could not
     /// wake the read) is waited for up to twice the timeout; past that the
-    /// instance is left allocated - the process is on its way out - rather than
-    /// freed under it.
+    /// instance is left allocated rather than freed under it.
     pub fn deinit(self: *Instance) void {
         self.stopping.store(true, .release);
+        var accept_ended = true;
         if (self.thread) |thread| {
             if (net.UnixAddress.init(self.path())) |address| {
                 if (address.connect(self.io)) |stream| stream.close(self.io) else |_| {}
             } else |_| {}
-            thread.join();
+            var accept_waited: u32 = 0;
+            while (!self.serve_done.load(.acquire) and accept_waited < accept_wait_ms) : (accept_waited += 10) {
+                self.io.sleep(.fromMilliseconds(10), .awake) catch break;
+            }
+            if (self.serve_done.load(.acquire)) {
+                thread.join();
+            } else {
+                thread.detach();
+                accept_ended = false;
+            }
         }
+        if (self.ownsSocketFile()) Io.Dir.cwd().deleteFile(self.io, self.path()) catch {};
+        if (!accept_ended) return;
         self.server.deinit(self.io);
-        Io.Dir.cwd().deleteFile(self.io, self.path()) catch {};
         var waited: u32 = 0;
         while (self.connections.load(.acquire) != 0 and waited < self.timeout_ms * 2) : (waited += 10) {
             self.io.sleep(.fromMilliseconds(10), .awake) catch break;
@@ -261,7 +287,16 @@ pub const Instance = struct {
         return true;
     }
 
+    /// Whether the file at the endpoint is still the socket this instance bound
+    /// (or cannot be told apart from it, which keeps the old behaviour).
+    fn ownsSocketFile(self: *const Instance) bool {
+        const bound = self.bound_inode orelse return true;
+        const now = Io.Dir.cwd().statFile(self.io, self.path(), .{}) catch return false;
+        return now.inode == bound;
+    }
+
     fn serve(self: *Instance) void {
+        defer self.serve_done.store(true, .release);
         while (!self.stopping.load(.acquire)) {
             const stream = self.server.accept(self.io) catch |err| switch (err) {
                 error.SocketNotListening, error.Canceled => return,
@@ -515,6 +550,7 @@ fn startServer(gpa: std.mem.Allocator, io: Io, address: *const net.UnixAddress, 
     instance.* = .{ .gpa = gpa, .io = io, .server = server, .timeout_ms = options.timeout_ms };
     @memcpy(instance.path_storage[0..endpoint.len], endpoint);
     instance.path_len = endpoint.len;
+    if (Io.Dir.cwd().statFile(io, endpoint, .{})) |stat| instance.bound_inode = stat.inode else |_| {}
     instance.thread = std.Thread.spawn(.{ .stack_size = 256 * 1024 }, Instance.serve, .{instance}) catch {
         instance.server.deinit(io);
         Io.Dir.cwd().deleteFile(io, endpoint) catch {};
@@ -835,6 +871,45 @@ test "single instance: a live listener that closes on us is not stale - its sock
     }
     // Not removed, not replaced: the file is still there for the listener.
     _ = try Io.Dir.cwd().statFile(io, endpoint, .{});
+}
+
+test "single instance: deinit neither hangs on a replaced socket nor removes the replacement (WR-A02)" {
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var endpoint_buffer: [path_capacity]u8 = undefined;
+    const endpoint = testEndpoint(io, &endpoint_buffer, "replaced");
+    var moved_buffer: [path_capacity + 8]u8 = undefined;
+    const moved = try std.fmt.bufPrint(&moved_buffer, "{s}.old", .{endpoint});
+    removeTestEndpoint(io, endpoint);
+    removeTestEndpoint(io, moved);
+    defer removeTestEndpoint(io, endpoint);
+    defer removeTestEndpoint(io, moved);
+
+    // The first owner. A detached accept thread keeps its memory alive past
+    // this test, so it does not come from the leak-checking allocator.
+    const first = switch (acquireAt(std.heap.smp_allocator, io, endpoint, "\n", .{ .timeout_ms = 1000 })) {
+        .primary => |instance| instance,
+        else => return error.TestUnexpectedResult,
+    };
+    // Its socket file goes away from the path (a tmp cleaner, a launch that
+    // judged it stale) and another editor binds there.
+    try Io.Dir.rename(Io.Dir.cwd(), endpoint, Io.Dir.cwd(), moved, io);
+    const second = switch (acquireAt(gpa, io, endpoint, "\n", .{ .timeout_ms = 1000 })) {
+        .primary => |instance| instance,
+        else => return error.TestUnexpectedResult,
+    };
+    defer second.deinit();
+
+    const started = Io.Clock.Timestamp.now(io, .awake);
+    first.deinit();
+    const elapsed_ms = @divTrunc(started.durationTo(Io.Clock.Timestamp.now(io, .awake)).raw.nanoseconds, std.time.ns_per_ms);
+    // It gave up on its accept thread after about the wait; it did not hang.
+    try std.testing.expect(elapsed_ms < accept_wait_ms + 3000);
+    // The replacement's socket file is still its own, and it still answers.
+    const address = try net.UnixAddress.init(endpoint);
+    try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, "/maps/b.bzm\n", 2000));
+    var out: [max_line]u8 = undefined;
+    try std.testing.expectEqualStrings("/maps/b.bzm", second.poll(&out).?.open);
 }
 
 test "single instance: a stale socket file never blocks a start - the next launch takes the endpoint" {
