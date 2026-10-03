@@ -2,9 +2,9 @@
 gsd_state_version: "1.0"
 current_plan: 11
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Completed 05-10-PLAN.md
-last_updated: "2026-10-02T22:42:04.771Z"
-state_head: 00c02ae11ff7b966fe9f54669738b2d30df2e722
+stopped_at: "Stopped at 05-11 Task 4 (checkpoint:decision, delete the MFC editor): tasks 1-3 done, nothing deleted"
+last_updated: "2026-10-03T05:18:05.782Z"
+state_head: d76e3fadbf38f55bbf9f85902caa2a22ddc8aa9e
 progress:
   total_phases: 7
   completed_phases: 0
@@ -67,9 +67,9 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-10-02T22:42:04.531Z
-**Stopped at:** Completed 05-10-PLAN.md
-**Resume file:** None
+**Last session:** 2026-10-03T05:18:03.543Z
+**Stopped at:** Stopped at 05-11 Task 4 (checkpoint:decision, delete the MFC editor): tasks 1-3 done, nothing deleted
+**Resume file:** .planning/phases/05-map-editor-m3-random-map-templates-minimap-tools-parity/05-11-SUMMARY.md
 
 ## Accumulated Context
 
