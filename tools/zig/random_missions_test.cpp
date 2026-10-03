@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <set>
@@ -101,6 +102,12 @@ static std::vector<SCase> CollectCases( const std::string &szSweep )
 	std::set<std::string> regenerated;
 	// Chapter and template names are compared lower-cased, so the filter is too.
 	const bool bOnly = szSweep.compare( 0, 5, "only=" ) == 0;
+	// "cover-from=N": the cover sweep without its first N cases, to carry on
+	// after a run that was cut short (a harness's time limit). The cases are the
+	// same ones, in the same order, with the same regenerate flags.
+	const bool bResume = szSweep.compare( 0, 11, "cover-from=" ) == 0;
+	const size_t nSkip = bResume ? size_t( atoi( szSweep.c_str() + 11 ) ) : 0;
+	const bool bCover = szSweep == "cover" || bResume;
 	const std::string szOnly = bOnly ? Lower( szSweep.substr( 5 ) ) : std::string();
 	for ( const char *pszCampaign : CAMPAIGNS )
 	{
@@ -129,7 +136,7 @@ static std::vector<SCase> CollectCases( const std::string &szSweep )
 					continue;
 				for ( int nDifficulty = 0; nDifficulty < 3; ++nDifficulty )
 				{
-					if ( szSweep == "cover" && nDifficulty != nPair % 3 )
+					if ( bCover && nDifficulty != nPair % 3 )
 						continue;
 					if ( bOnly && szChapter.find( szOnly ) == std::string::npos && szTemplate.find( szOnly ) == std::string::npos )
 						continue;
@@ -146,6 +153,7 @@ static std::vector<SCase> CollectCases( const std::string &szSweep )
 			}
 		}
 	}
+	cases.erase( cases.begin(), cases.begin() + std::min( nSkip, cases.size() ) );
 	return cases;
 }
 
@@ -352,7 +360,7 @@ int main( int argc, char **argv )
 		const auto start = std::chrono::steady_clock::now();
 		const std::vector<SCase> cases = CollectCases( szSweep );
 		// A sweep that selects nothing (a mistyped only= filter) tests nothing and must not pass.
-		Check( !cases.empty() && ( szSweep.compare( 0, 5, "only=" ) == 0 || cases.size() > 150 ), "the sweep found the chapters' templates (" + std::to_string( cases.size() ) + ")" );
+		Check( !cases.empty() && ( szSweep.compare( 0, 5, "only=" ) == 0 || szSweep.compare( 0, 11, "cover-from=" ) == 0 || cases.size() > 150 ), "the sweep found the chapters' templates (" + std::to_string( cases.size() ) + ")" );
 		int nFailedCases = 0;
 		for ( const SCase &c : cases )
 			if ( !RunCase( pSession, c, scratch ) )
