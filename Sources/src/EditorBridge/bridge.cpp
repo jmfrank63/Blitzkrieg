@@ -1061,6 +1061,10 @@ BkEditorStatus BkEditorNewMap( BkEditorSession *pSession, const BkEditorNewMapPa
 	{
 		if ( pParams == 0 || pOut == 0 )
 			return BK_EDITOR_BAD_ARGUMENT;
+		// "Always terminated" is the caller's contract; both arrays are read as C strings below.
+		if ( memchr( pParams->szName, 0, sizeof pParams->szName ) == 0 ||
+		     memchr( pParams->szModFolder, 0, sizeof pParams->szModFolder ) == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
 		if ( pParams->size_x < 1 || pParams->size_x > 32 ||
 		     pParams->size_y < 1 || pParams->size_y > 32 )
 		{
@@ -4840,6 +4844,11 @@ BkEditorStatus BkEditorApplyField( BkEditorSession *pSession, const BkEditorFiel
 	{
 		EnsureRmgMount( pSession );
 		if ( pParams == 0 || pnToken == 0 || pnReportCount == 0 || nReportCapacity < 0 || ( pOutReport == 0 && nReportCapacity > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		// Both names are read as C strings below: a caller that filled one to the brim has not
+		// terminated it.
+		if ( memchr( pParams->field_set, 0, sizeof pParams->field_set ) == 0 ||
+		     memchr( pParams->object_filter, 0, sizeof pParams->object_filter ) == 0 )
 			return BK_EDITOR_BAD_ARGUMENT;
 		SFieldApply apply;
 		apply.szFieldSet = pParams->field_set;
