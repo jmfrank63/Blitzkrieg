@@ -12,6 +12,8 @@
 #include "../MapFile/MapEquivalence.h"
 #include "../MapFile/MapRecords.h"
 #include "../Main/GameDB.h"
+#include "../Main/GameTimer.h"
+#include "../Misc/HPTimer.h"
 #include "../AILogic/AILogic.h"
 #include "../Scene/Scene.h"
 #include "../GFX/GFX.H"
@@ -353,6 +355,7 @@ bool InstallMapInSession( SEditorSession *pSession, const CMapInfo &read, const 
 	// The old map's objects leave the world before the AI they refer to is
 	// cleared. CWorldBase::Clear empties the scene and takes its terrain away
 	// too, so it comes before the new terrain is set, never after.
+	ClearGhostInSession( pSession );
 	if ( pSession->pWorld != 0 )
 		pSession->pWorld->Clear();
 	// The fire-range group names units of the AI that is cleared next (M3,
@@ -509,6 +512,7 @@ void CloseSessionMap( SEditorSession *pSession )
 		return;
 	// The old map's objects leave the world before the AI they refer to is
 	// cleared - the same order OpenMapIntoSession closes the previous map in.
+	ClearGhostInSession( pSession );
 	if ( pSession->pWorld != 0 )
 		pSession->pWorld->Clear();
 	if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
@@ -3251,4 +3255,135 @@ void WorldToMap( float wx, float wy, float *pmx, float *pmy )
 	Vis2AIFast( &vMap, wx, wy, 0.0f );
 	*pmx = vMap.x;
 	*pmy = vMap.y;
+}
+
+// ---------------------------------------------------------------------------
+// The Place tool's ghost (PARITY O7, 05-11). The MFC's placer builds a temporary
+// visual of the chosen palette entry, adds it to the scene, moves it with the
+// pointer at half opacity and removes it when the pointer leaves or the tool
+// changes (ObjectPlacerState.cpp:251-297, TemplateEditorFrame1.cpp:2260-2304).
+// Here it is the same visual in the same scene and nothing else: no AI object,
+// no world entry, no record - which is what keeps it out of every save, out of
+// the undo history, out of picks and out of FindReferences.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// SetAnim.h of the MFC editor (MapEditor/SetAnim.h): a unit mesh starts in its
+// first idle animation, anything else in animation 0.
+void SetGhostAnimation( IVisObj *pVisObj, const SGDBObjectDesc *pDesc )
+{
+	if ( pDesc->eGameType == SGVOGT_UNIT && pDesc->eVisType == SGVOT_MESH )
+	{
+		const SUnitBaseRPGStats *pRPG = static_cast<const SUnitBaseRPGStats*>( GetSingleton<IObjectsDB>()->GetRPGStats( pDesc ) );
+		if ( pRPG != 0 )
+			if ( const std::vector<SUnitBaseRPGStats::SAnimDesc> *pAnims = pRPG->GetAnims( 0 ) )
+				if ( !pAnims->empty() )
+					static_cast<IObjVisObj*>( pVisObj )->SetAnimation( (*pAnims)[0].nIndex );
+	}
+	else
+		static_cast<IObjVisObj*>( pVisObj )->SetAnimation( 0 );
+}
+
+// The visual the MFC's AddObject builds: "<path>\\1" of the entry, or of its first
+// member for a squad (a squad has no visual of its own).
+IVisObj* BuildGhostVisual( const SGDBObjectDesc *pDesc )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
+	if ( pObjectsDB == 0 || pVOB == 0 )
+		return 0;
+	const SGDBObjectDesc *pShown = pDesc;
+	if ( pDesc->eGameType == SGVOGT_SQUAD )
+	{
+		const SSquadRPGStats *pSquad = NGDB::GetRPGStats<SSquadRPGStats>( pObjectsDB, pDesc );
+		if ( pSquad == 0 || pSquad->members.empty() )
+			return 0;
+		pShown = pObjectsDB->GetDesc( pSquad->members[0]->szParentName.c_str() );
+		if ( pShown == 0 )
+			return 0;
+	}
+	return pVOB->BuildObject( ( pShown->szPath + "\\1" ).c_str(), 0, pShown->eVisType );
+}
+
+} // namespace
+
+void ClearGhostInSession( SEditorSession *pSession )
+{
+	if ( pSession == 0 || pSession->pGhost.GetPtr() == 0 )
+		return;
+	if ( IScene *pScene = GetSingleton<IScene>() )
+		pScene->RemoveObject( static_cast<IVisObj*>( pSession->pGhost.GetPtr() ) );
+	pSession->pGhost = 0;
+	pSession->szGhostName.clear();
+}
+
+bool SetGhostInSession( SEditorSession *pSession, const char *pszName, float fWorldX, float fWorldY, int nDir )
+{
+	if ( pSession == 0 || pszName == 0 )
+		return false;
+	IScene *pScene = GetSingleton<IScene>();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pScene == 0 || pObjectsDB == 0 || !pSession->bMapOpen )
+	{
+		ClearGhostInSession( pSession );
+		pSession->szMessage = "there is no map to show a ghost on";
+		return false;
+	}
+	// Only inside the terrain: the MFC builds its ghost only where the pointer is
+	// over the map (ObjectPlacerState.cpp:262).
+	const float fWidth = pSession->snapshot.terrain.tiles.GetSizeX() * fWorldCellSize;
+	const float fHeight = pSession->snapshot.terrain.tiles.GetSizeY() * fWorldCellSize;
+	if ( !( fWorldX >= 0.0f && fWorldY >= 0.0f && fWorldX < fWidth && fWorldY < fHeight ) )
+	{
+		ClearGhostInSession( pSession );
+		pSession->szMessage = "the pointer is off the map";
+		return false;
+	}
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( pszName );
+	if ( pDesc == 0 || WhyNotAMapObject( pDesc->eGameType ) != 0 || WhyNotPlacedByPalette( pDesc->eGameType ) != 0 || !WhyNotPlacedAlone( pObjectsDB, *pDesc ).empty() )
+	{
+		ClearGhostInSession( pSession );
+		pSession->szMessage = "the palette cannot place that, so there is no ghost of it";
+		return false;
+	}
+	if ( pSession->pGhost.GetPtr() != 0 && pSession->szGhostName != pszName )
+		ClearGhostInSession( pSession );
+	float fZ = 0.0f;
+	if ( ITerrain *pTerrain = pScene->GetTerrain() )
+		fZ = pTerrain->GetHeight( CVec2( fWorldX, fWorldY ) );
+	const CVec3 vPos( fWorldX, fWorldY, fZ );
+	const int nDirection = nDir & 0xFFFF;
+	if ( pSession->pGhost.GetPtr() == 0 )
+	{
+		IVisObj *pVisObj = BuildGhostVisual( pDesc );
+		if ( pVisObj == 0 )
+		{
+			pSession->szMessage = "the engine has no visual for that entry";
+			return false;
+		}
+		SetGhostAnimation( pVisObj, pDesc );
+		pVisObj->SetPlacement( vPos, nDirection );
+		pVisObj->SetOpacity( 128 );
+		pScene->AddObject( pVisObj, pDesc->eGameType, pDesc );
+		pSession->pGhost = pVisObj;
+		pSession->szGhostName = pszName;
+	}
+	else
+	{
+		IVisObj *pVisObj = static_cast<IVisObj*>( pSession->pGhost.GetPtr() );
+		pScene->MoveObject( pVisObj, vPos );
+		pVisObj->SetDirection( nDirection );
+	}
+	// One update at the current time, as the MFC does after every move
+	// (ObjectPlacerState.cpp:292-294), so an animation advances and the visual
+	// is where it was told to be on the next frame.
+	if ( IGameTimer *pTimer = GetSingleton<IGameTimer>() )
+	{
+		NHPTimer::STime hptime;
+		NHPTimer::GetTime( &hptime );
+		pTimer->Update( DWORD( NHPTimer::GetSeconds( hptime ) * 1000.0f ) );
+		static_cast<IVisObj*>( pSession->pGhost.GetPtr() )->Update( pTimer->GetGameTime() );
+	}
+	return true;
 }

@@ -231,6 +231,29 @@ BkEditorStatus BkEditorEngineObjectState( BkEditorSession *session, int link_id,
    pointer may be null. */
 BkEditorStatus BkEditorSnapToGrid( BkEditorSession *session, const char *name, float x, float y, float *out_x, float *out_y );
 
+/* The Place tool's ghost (PARITY O7, 05-11): the real engine visual of the
+   palette entry `name` - a unit's mesh, a building, a squad's first soldier -
+   half opaque (the MFC's SetOpacity( 128 ), ObjectPlacerState.cpp:290) at the
+   WORLD point (world_x, world_y) (the scene's own units, what a pointer
+   resolves to; the visual stands on the terrain there) turned to `dir` (the
+   engine's 65536 steps, the same number BkEditorAddObject takes), built the way
+   the MFC's AddObject builds its temporary visual and added to the SCENE alone.
+   It is not a map object: not in the map, not in the history, not in any list
+   BkEditorMapObjects or a reference search answers, never found by a pick, never
+   written by a save. One ghost at most: a call with the name it already shows
+   moves and turns it, a call with another name replaces it.
+   BK_EDITOR_REFUSED, with no ghost left showing and the reason in
+   BkEditorLastMessage, when no map is open, the point is off the map, or the
+   palette cannot place the entry (a single soldier, a bridge span, a fence);
+   BK_EDITOR_BAD_ARGUMENT for a null name. */
+BkEditorStatus BkEditorSetPlacementGhost( BkEditorSession *session, const char *name, float world_x, float world_y, int dir );
+/* Takes the ghost away. Always BK_EDITOR_OK (also with none showing). The
+   bridge also takes it away itself when a map opens, is made new or closes. */
+BkEditorStatus BkEditorClearPlacementGhost( BkEditorSession *session );
+/* What the scene holds now: out_shown 1 with the visual's own position and
+   direction, or 0 with the others zeroed. Any out pointer may be null. */
+BkEditorStatus BkEditorPlacementGhost( BkEditorSession *session, int *out_shown, float *out_x, float *out_y, int *out_dir );
+
 /* The map as the bridge holds it - the snapshot with the session's edits in
    it - one record per object, objects before scenario objects, in file order.
    Like BkEditorCatalogue, out_count is always the total, and a buffer too

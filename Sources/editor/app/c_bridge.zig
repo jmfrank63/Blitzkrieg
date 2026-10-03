@@ -211,6 +211,9 @@ pub const RealBridge = struct {
         .worldToTile = worldToTile,
         .worldToMap = worldToMap,
         .objectAt = objectAt,
+        .setPlacementGhost = setPlacementGhost,
+        .clearPlacementGhost = clearPlacementGhost,
+        .placementGhost = placementGhost,
         .pickObjects = pickObjects,
         .pickObjectsInTiles = pickObjectsInTiles,
         .moveObjects = moveObjects,
@@ -477,6 +480,23 @@ pub const RealBridge = struct {
 
     fn objectAt(ptr: *anyopaque, sx: f32, sy: f32, link_id: *i32) Status {
         return status(c.BkEditorObjectAt(from(ptr).session, sx, sy, link_id));
+    }
+
+    fn setPlacementGhost(ptr: *anyopaque, name: []const u8, wx: f32, wy: f32, dir: i32) Status {
+        var name_buffer: [core.bridge.name_capacity]u8 = undefined;
+        const name_z = terminated(&name_buffer, name) orelse return .bad_argument;
+        return status(c.BkEditorSetPlacementGhost(from(ptr).session, name_z, wx, wy, dir));
+    }
+
+    fn clearPlacementGhost(ptr: *anyopaque) Status {
+        return status(c.BkEditorClearPlacementGhost(from(ptr).session));
+    }
+
+    fn placementGhost(ptr: *anyopaque, shown: *bool, wx: *f32, wy: *f32, dir: *i32) Status {
+        var raw_shown: c_int = 0;
+        const result = status(c.BkEditorPlacementGhost(from(ptr).session, &raw_shown, wx, wy, dir));
+        shown.* = raw_shown != 0;
+        return result;
     }
 
     /// BkEditorPickObjects in two passes, like `vtableSounds` (M3, D-25).

@@ -4764,9 +4764,27 @@ fn layoutDefaultIs(state: *State, arg: []const u8) Outcome {
     return if (state.settings.hidden_panels == 0 and !state.layout_reset_pending and panels.columnsAtDefault(state)) .ok else .refused;
 }
 
-/// `expect=place_ghost:<0|1>` - the Place tool's ghost was (1) or was not (0) drawn
-/// on the last frame (PARITY O7).
+/// `expect=place_ghost:<0|1>[:<degrees>[:<tolerance>]]` - the engine holds the Place
+/// tool's ghost (1) or holds none (0), asked of the engine itself and not of what
+/// the app last sent (PARITY O7). With degrees: the ghost's own turn, in whole
+/// degrees, within `tolerance` (default 0) either way round the circle.
 fn placeGhostIs(state: *State, arg: []const u8) Outcome {
-    if (arg.len != 1 or (arg[0] != '0' and arg[0] != '1')) return .bad_arg;
-    return if (state.place_ghost_drawn == (arg[0] == '1')) .ok else .refused;
+    if (arg.len == 0 or (arg[0] != '0' and arg[0] != '1') or (arg.len > 1 and arg[1] != ':')) return .bad_arg;
+    var shown = false;
+    var x: f32 = 0;
+    var y: f32 = 0;
+    var dir: i32 = 0;
+    if (state.editor.bridge.placementGhost(&shown, &x, &y, &dir) != .ok) return .refused;
+    if (shown != (arg[0] == '1')) return .refused;
+    if (arg.len == 1) return .ok;
+    const rest = arg[2..];
+    const colon = std.mem.indexOfScalar(u8, rest, ':');
+    const want = std.fmt.parseInt(i32, if (colon) |i| rest[0..i] else rest, 10) catch return .bad_arg;
+    const tolerance = if (colon) |i| (std.fmt.parseInt(i32, rest[i + 1 ..], 10) catch return .bad_arg) else 0;
+    if (tolerance < 0 or tolerance > 180) return .bad_arg;
+    const got: i32 = @intFromFloat(logic.directionToDegrees(dir));
+    if (@abs(logic.wheelDeltaDegrees(want, got)) <= tolerance) return .ok;
+    var buffer: [96]u8 = undefined;
+    state.editor.note(std.fmt.bufPrint(&buffer, "the ghost is turned {d} degrees, not {d}", .{ got, want }) catch "ghost turn differs");
+    return .refused;
 }

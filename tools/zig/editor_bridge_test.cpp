@@ -1886,6 +1886,168 @@ static void TestPlacedObjectDrawsAndPicks( BkEditorSession *pSession, int nScree
 	}
 }
 
+static bool SameBytes( const std::string &szLeft, const std::string &szRight );
+
+// PARITY O7 (05-11): the Place tool's ghost is the real engine visual of the palette entry,
+// half opaque, in the scene and nowhere else. Proven here against the engine: it is drawn
+// where it was told (pixels changed in the box above the point), it turns with the direction
+// it is given (the frames differ and the visual reads the direction back), it follows a new
+// point, and it is NOT a map object - the save is byte for byte the same file, the object
+// list is the same length, no pick finds it - and it is gone on a clear, off the map, after
+// a refused entry, and when a map opens.
+static void TestM3PlacementGhost( BkEditorSession *pSession, int nScreenWidth, int nScreenHeight, const std::string &szScratch )
+{
+	if ( !Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	CMapInfo map;
+	std::string szError;
+	if ( !Check( NMapFile::Read( SHIPPED_MAP, &map, &szError ), szError.c_str() ) || !Check( !map.objects.empty(), "the map has an object to look at" ) )
+		return;
+	int nShown = -1;
+	float fGx = 0.0f, fGy = 0.0f;
+	int nGdir = -1;
+	Check( BkEditorPlacementGhost( pSession, &nShown, &fGx, &fGy, &nGdir ) == BK_EDITOR_OK && nShown == 0 && fGx == 0.0f && fGy == 0.0f && nGdir == 0, "a map with no ghost reads as none" );
+	Check( BkEditorPlacementGhost( pSession, 0, 0, 0, 0 ) == BK_EDITOR_OK, "and the read takes null out pointers" );
+	Check( BkEditorClearPlacementGhost( pSession ) == BK_EDITOR_OK, "clearing no ghost is fine" );
+	Check( BkEditorSetPlacementGhost( pSession, 0, 10.0f, 10.0f, 0 ) == BK_EDITOR_BAD_ARGUMENT, "a null name is a bad argument" );
+	Check( BkEditorSetPlacementGhost( 0, "T-34", 10.0f, 10.0f, 0 ) == BK_EDITOR_NO_SESSION, "a null session is no session" );
+
+	CVec3 vAnchor;
+	AI2Vis( &vAnchor, map.objects[0].vPos );
+	BkEditorSetCamera( pSession, vAnchor.x, vAnchor.y );
+	BkEditorFrame( pSession );
+	BkEditorFrame( pSession );
+	float sx = -1.0f, sy = -1.0f;
+	for ( int nTry = 0; nTry < 16 && sx < 0.0f; ++nTry )
+	{
+		const float fX = nScreenWidth / 2.0f + ( ( nTry % 4 ) - 1.5f ) * 100.0f;
+		const float fY = nScreenHeight / 2.0f + ( ( nTry / 4 ) - 1.5f ) * 60.0f + PLACED_BOX_HEIGHT / 2;
+		int nIgnored = -1;
+		bool bClear = true;
+		for ( int dy = 0; dy <= PLACED_BOX_HEIGHT && bClear; dy += 8 )
+			for ( int dx = -PLACED_BOX_HALF_WIDTH; dx <= PLACED_BOX_HALF_WIDTH && bClear; dx += 8 )
+				bClear = BkEditorObjectAt( pSession, fX + dx, fY - dy, &nIgnored ) != BK_EDITOR_OK;
+		if ( bClear )
+		{
+			sx = fX;
+			sy = fY;
+		}
+	}
+	if ( !Check( sx >= 0.0f, "there is bare ground on screen for the ghost" ) )
+		return;
+	float wx = 0.0f, wy = 0.0f;
+	if ( !Check( BkEditorScreenToWorld( pSession, sx, sy, &wx, &wy ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	const std::string szBase = szScratch + "/editor-bridge-ghost-base.tga";
+	const std::string szNorth = szScratch + "/editor-bridge-ghost-0.tga";
+	const std::string szTurned = szScratch + "/editor-bridge-ghost-1.tga";
+	const std::string szGone = szScratch + "/editor-bridge-ghost-gone.tga";
+	const std::string szSavedBefore = szScratch + "\\m3-ghost-before.bzm";
+	const std::string szSavedWith = szScratch + "\\m3-ghost-with.bzm";
+	int nObjectsBefore = 0;
+	BkEditorObjects( pSession, 0, 0, &nObjectsBefore );
+	if ( !SaveFrame( pSession, szBase ) || !Check( BkEditorSaveMap( pSession, szSavedBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+
+	// Shown: the engine's visual at the point, drawn.
+	if ( !Check( BkEditorSetPlacementGhost( pSession, "T-34", wx, wy, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+		return;
+	Check( BkEditorPlacementGhost( pSession, &nShown, &fGx, &fGy, &nGdir ) == BK_EDITOR_OK && nShown == 1, "the ghost reads as shown" );
+	Check( fabs( fGx - wx ) < 0.5f && fabs( fGy - wy ) < 0.5f, NStr::Format( "the visual stands at the world point asked for (%.1f,%.1f for %.1f,%.1f)", fGx, fGy, wx, wy ) );
+	Check( nGdir == 0, "turned to the direction asked for" );
+	for ( int i = 0; i < 4; ++i )
+		BkEditorFrame( pSession );
+	int nWidth = 0, nHeight = 0;
+	if ( !SaveFrame( pSession, szNorth ) )
+		return;
+	const std::vector<unsigned char> base = ReadFramePixels( szBase, &nWidth, &nHeight );
+	const std::vector<unsigned char> north = ReadFramePixels( szNorth, &nWidth, &nHeight );
+	const int nDrawn = ChangedPixels( base, north, nWidth, nHeight, int( sx ) - PLACED_BOX_HALF_WIDTH, int( sy ) - PLACED_BOX_HEIGHT, int( sx ) + PLACED_BOX_HALF_WIDTH, int( sy ) + 4 );
+	Check( nDrawn >= PLACED_MIN_CHANGED / 2, NStr::Format( "the ghost is drawn at the point (%d pixels changed, bar %d; it is half opaque, so half the bar of a placed object)", nDrawn, PLACED_MIN_CHANGED / 2 ) );
+
+	// Not a map object: no pick finds it, the object list has no new entry, and a save writes
+	// the file the map had before it was shown, byte for byte.
+	int nPicked = -1;
+	bool bPicked = false;
+	for ( int dy = 0; dy <= PLACED_BOX_HEIGHT && !bPicked; dy += 4 )
+		bPicked = BkEditorObjectAt( pSession, sx, sy - dy, &nPicked ) == BK_EDITOR_OK;
+	Check( !bPicked, "no pick finds the ghost where it stands" );
+	int nObjectsWith = 0;
+	BkEditorObjects( pSession, 0, 0, &nObjectsWith );
+	Check( nObjectsWith == nObjectsBefore, NStr::Format( "the object list is the same length with the ghost shown (%d and %d)", nObjectsBefore, nObjectsWith ) );
+	Check( BkEditorSaveMap( pSession, szSavedWith.c_str() ) == BK_EDITOR_OK && SameBytes( szSavedBefore, szSavedWith ), "the map saved with the ghost shown is byte for byte the map saved without it" );
+
+	// Turned: the direction reads back and the frame is another.
+	Check( BkEditorSetPlacementGhost( pSession, "T-34", wx, wy, 16384 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorPlacementGhost( pSession, &nShown, &fGx, &fGy, &nGdir ) == BK_EDITOR_OK && nShown == 1 && nGdir == 16384, NStr::Format( "the ghost turned to 16384 reads back %d", nGdir ) );
+	for ( int i = 0; i < 4; ++i )
+		BkEditorFrame( pSession );
+	if ( !SaveFrame( pSession, szTurned ) )
+		return;
+	const std::vector<unsigned char> turned = ReadFramePixels( szTurned, &nWidth, &nHeight );
+	const int nTurnedDiffers = ChangedPixels( north, turned, nWidth, nHeight, int( sx ) - PLACED_BOX_HALF_WIDTH, int( sy ) - PLACED_BOX_HEIGHT, int( sx ) + PLACED_BOX_HALF_WIDTH, int( sy ) + 4 );
+	Check( nTurnedDiffers >= 8, NStr::Format( "a quarter turn draws a different picture (%d pixels differ)", nTurnedDiffers ) );
+
+	// Follows: another point moves the one ghost.
+	float wx2 = 0.0f, wy2 = 0.0f;
+	if ( BkEditorScreenToWorld( pSession, sx + 60.0f, sy, &wx2, &wy2 ) == BK_EDITOR_OK )
+	{
+		Check( BkEditorSetPlacementGhost( pSession, "T-34", wx2, wy2, 16384 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( BkEditorPlacementGhost( pSession, &nShown, &fGx, &fGy, &nGdir ) == BK_EDITOR_OK && nShown == 1 && fabs( fGx - wx2 ) < 0.5f && fabs( fGy - wy2 ) < 0.5f, "the ghost follows to the new point" );
+	}
+
+	// Another entry replaces it; a squad shows its first soldier.
+	Check( BkEditorSetPlacementGhost( pSession, "W_BigPoplar", wx, wy, 0 ) == BK_EDITOR_OK && BkEditorPlacementGhost( pSession, &nShown, 0, 0, 0 ) == BK_EDITOR_OK && nShown == 1, "another entry replaces the ghost" );
+	{
+		int nCatalogue = 0;
+		BkEditorCatalogue( pSession, 0, 0, &nCatalogue );
+		std::vector<BkEditorCatalogueEntry> entries( nCatalogue > 0 ? nCatalogue : 1 );
+		int nRead = 0;
+		BkEditorCatalogue( pSession, &( entries[0] ), int( entries.size() ), &nRead );
+		const char *pszSquad = 0, *pszSoldier = 0;
+		for ( int i = 0; i < nRead && ( pszSquad == 0 || pszSoldier == 0 ); ++i )
+		{
+			if ( entries[size_t( i )].game_type == SGVOGT_SQUAD && entries[size_t( i )].placeable != 0 && pszSquad == 0 )
+				pszSquad = entries[size_t( i )].name;
+			if ( entries[size_t( i )].game_type == SGVOGT_UNIT && entries[size_t( i )].placeable == 0 && pszSoldier == 0 )
+				pszSoldier = entries[size_t( i )].name;
+		}
+		if ( Check( pszSquad != 0, "the catalogue has a placeable squad" ) )
+			Check( BkEditorSetPlacementGhost( pSession, pszSquad, wx, wy, 0 ) == BK_EDITOR_OK, NStr::Format( "a squad (%s) shows its first soldier: %s", pszSquad, BkEditorLastMessage( pSession ) ) );
+		// A refused entry leaves no ghost behind.
+		if ( pszSoldier != 0 )
+		{
+			Check( BkEditorSetPlacementGhost( pSession, pszSoldier, wx, wy, 0 ) == BK_EDITOR_REFUSED, "a single soldier is not placeable, so it has no ghost" );
+			Check( BkEditorPlacementGhost( pSession, &nShown, 0, 0, 0 ) == BK_EDITOR_OK && nShown == 0, "and the refusal took the ghost that was showing away" );
+		}
+	}
+	Check( BkEditorSetPlacementGhost( pSession, "no_such_object", wx, wy, 0 ) == BK_EDITOR_REFUSED, "an entry the database does not know is refused" );
+
+	// Off the map: refused, none left.
+	Check( BkEditorSetPlacementGhost( pSession, "T-34", wx, wy, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorSetPlacementGhost( pSession, "T-34", -500.0f, -500.0f, 0 ) == BK_EDITOR_REFUSED && BkEditorPlacementGhost( pSession, &nShown, 0, 0, 0 ) == BK_EDITOR_OK && nShown == 0,
+	       "a point off the map is refused and the ghost goes" );
+
+	// Cleared: gone from the frame.
+	Check( BkEditorSetPlacementGhost( pSession, "T-34", wx, wy, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorClearPlacementGhost( pSession ) == BK_EDITOR_OK && BkEditorPlacementGhost( pSession, &nShown, 0, 0, 0 ) == BK_EDITOR_OK && nShown == 0, "a clear takes the ghost away" );
+	for ( int i = 0; i < 4; ++i )
+		BkEditorFrame( pSession );
+	if ( !SaveFrame( pSession, szGone ) )
+		return;
+	const std::vector<unsigned char> gone = ReadFramePixels( szGone, &nWidth, &nHeight );
+	const int nLeft = ChangedPixels( base, gone, nWidth, nHeight, int( sx ) - PLACED_BOX_HALF_WIDTH, int( sy ) - PLACED_BOX_HEIGHT, int( sx ) + PLACED_BOX_HALF_WIDTH, int( sy ) + 4 );
+	Check( nLeft < PLACED_MIN_CHANGED / 4, NStr::Format( "the frame after a clear is the frame before the ghost (%d pixels differ)", nLeft ) );
+	Check( BkEditorSaveMap( pSession, szSavedWith.c_str() ) == BK_EDITOR_OK && SameBytes( szSavedBefore, szSavedWith ), "and the map is still byte for byte what it was" );
+
+	// A map opening takes it too.
+	Check( BkEditorSetPlacementGhost( pSession, "T-34", wx, wy, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	Check( BkEditorOpenMap( pSession, SHIPPED_MAP, 0 ) == BK_EDITOR_OK && BkEditorPlacementGhost( pSession, &nShown, 0, 0, 0 ) == BK_EDITOR_OK && nShown == 0, "opening a map takes the ghost with the old one" );
+	Check( BkEditorSetPlacementGhost( pSession, "T-34", wx, wy, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+	BkEditorClearPlacementGhost( pSession );
+	printf( "editor-bridge: M3 placement ghost ok (%d pixels drawn, %d differ turned)\n", nDrawn, nTurnedDiffers );
+}
+
 // The texture each unit on screen is drawn with, read the way the renderer
 // reads it: a visit hands over the mesh's or the sprite's texture, and the
 // texture manager names it by the key it was loaded under - the model path the
@@ -11542,6 +11704,7 @@ int main( int argc, char **argv )
 		printf( "editor-bridge: after the resize test the screen is %dx%d\n", nScreenWidth, nScreenHeight );
 		TestObjectUnderTheCursor( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestPlacedObjectDrawsAndPicks( pSession, nScreenWidth, nScreenHeight, szScratch );
+		TestM3PlacementGhost( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestSeasonPicksTheVisuals( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestMissingSeasonTextureFallsBack( pSession, nScreenWidth, nScreenHeight, szScratch );
 		TestYawMeasurement( pSession, nScreenWidth, nScreenHeight, szScratch );

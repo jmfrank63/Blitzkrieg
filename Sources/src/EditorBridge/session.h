@@ -218,6 +218,14 @@ struct SEditorSession
 	int nFireRangeMode;
 	std::string szFireRangeFilter;
 	int nFireRangeGroup;
+	// The Place tool's ghost (PARITY O7, 05-11): the one temporary scene object
+	// that follows the pointer while the tool is active - an IVisObj, held as
+	// its IRefCount so this header needs no Scene.h. Never in the snapshot, the
+	// working copy, byLinkID or the world: it is not a map object, so it is
+	// never saved, never in the history and never found by a pick or a
+	// reference search. Null when no ghost is shown.
+	CPtr<IRefCount> pGhost;
+	std::string szGhostName;
 	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ), fYawOffsetDegrees( 0.0f ), bSquadIconOwnerMapBuilt( false ),
 									 bPartyTableRead( false ), nHeightsBrush( 0 ), fHeightsSpeed( 0.0f ), bHeightsPatternValid( false ), vClickRefStroke( VNULL3 ), fClickTileHeight( 0.0f ), bClickTileValid( false ), fClickAverageHeight( 0.0f ),
 									 bInstantUpdate( false ), bFitToGrid( true ), nLayerBits( LayerDefaultBits() ), nFireRangeMode( 0 ), nFireRangeGroup( -1 ) {  }
@@ -403,6 +411,18 @@ bool ObjectAt( SEditorSession *pSession, float sx, float sy, int *pnLinkID, bool
 // The camera, one frame, and the two conversions picking needs.
 bool SetSessionCamera( SEditorSession *pSession, float wx, float wy );
 bool DrawSessionFrame( SEditorSession *pSession );
+
+// The Place tool's ghost (PARITY O7): the real engine visual of the palette
+// entry `pszName`, half opaque (the MFC's SetOpacity( 128 ),
+// ObjectPlacerState.cpp:290), at the world point and the engine direction
+// given - built the way the MFC's CTemplateEditorFrame::AddObject builds its
+// temporary visual and added to the scene alone, not to the AI, the world or
+// the map. A second call with the same name moves and turns the one ghost; a
+// different name replaces it. Outside the map, or for a name the database
+// cannot show, it clears the ghost and answers false.
+bool SetGhostInSession( SEditorSession *pSession, const char *pszName, float fWorldX, float fWorldY, int nDir );
+// Removes the ghost from the scene. A no-op when there is none.
+void ClearGhostInSession( SEditorSession *pSession );
 bool ScreenToWorld( SEditorSession *pSession, float sx, float sy, float *pwx, float *pwy );
 // The other direction: a world point (the scene's units) to the screen point
 // it draws at right now, through the terrain's own height at that point -

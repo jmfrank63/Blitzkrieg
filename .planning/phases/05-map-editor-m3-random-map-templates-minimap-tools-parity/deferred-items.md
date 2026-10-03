@@ -195,8 +195,8 @@ filter, the Windows GUI legs run only in CI or by hand. The two scripts-and-whee
 
 **Fixed here** (real parity gaps, small enough for this plan): the Heights minimap's red for refused heights, the direction
 wheel's hot area (both resolved in their entries above) and the Place tool's ghost (PARITY O7: M1 never drew one and the row had
-no evidence; the portable ghost is the object's palette picture at half opacity - a recorded difference from the MFC's
-engine-sprite ghost).
+no evidence; it is now the engine's own half-opaque visual of the chosen entry at the pointer and the placer's angle, as the
+MFC's, through `BkEditorSetPlacementGhost`; nothing is left over).
 
 **Found here, not fixed:**
 - **The Properties window shares its ImGui ID with the docked Properties panel.** `panels_m3.drawPropertiesPanel` begins a

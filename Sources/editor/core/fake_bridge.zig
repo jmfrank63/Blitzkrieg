@@ -416,6 +416,16 @@ pub const FakeBridge = struct {
     /// objects list (not scenario objects) carrying one are skipped by
     /// `objectAt`. A view setting: forgotten by an open, as the real one.
     hidden_script_ids: std.ArrayListUnmanaged(i32) = .empty,
+    /// The Place tool's ghost (PARITY O7): a scene object only, so it is in none
+    /// of the lists, none of the history and none of the saved bytes - it is
+    /// here only so a test can read what the tool asked the engine to show.
+    /// `ghost_sets` counts the calls that asked (a redundant call is visible).
+    ghost: ?Ghost = null,
+    ghost_sets: u32 = 0,
+    /// Entries `setPlacementGhost` refuses, as the engine refuses an entry the
+    /// palette cannot place (a test fixture; none by default).
+    ghost_refused_name: [bridge_mod.name_capacity]u8 = undefined,
+    ghost_refused_len: usize = 0,
     /// Bridge spans: link ID to the bridge that holds it. A span cannot be
     /// deleted singly (the game's loaders assert every link of a bridge).
     bridge_spans: std.AutoHashMapUnmanaged(i32, i32) = .empty,
@@ -1237,6 +1247,9 @@ pub const FakeBridge = struct {
         .worldToTile = worldToTile,
         .worldToMap = worldToMap,
         .objectAt = objectAt,
+        .setPlacementGhost = setPlacementGhost,
+        .clearPlacementGhost = clearPlacementGhost,
+        .placementGhost = placementGhost,
         .pickObjects = pickObjects,
         .pickObjectsInTiles = pickObjectsInTiles,
         .moveObjects = moveObjects,
@@ -1629,6 +1642,7 @@ pub const FakeBridge = struct {
         // The renderer comes up at its own defaults and the AI's groups are
         // gone with the map before (see layer_bits).
         self.layer_bits = layers_mod.default_bits;
+        self.ghost = null;
         self.fire_mode = 0;
         self.fire_filter_len = 0;
         self.fire_link_ids.clearRetainingCapacity();
@@ -2994,6 +3008,7 @@ pub const FakeBridge = struct {
         // The renderer comes up at its own defaults and the AI's groups are
         // gone with the map before (see layer_bits).
         self.layer_bits = layers_mod.default_bits;
+        self.ghost = null;
         self.fire_mode = 0;
         self.fire_filter_len = 0;
         self.fire_link_ids.clearRetainingCapacity();
@@ -5574,6 +5589,56 @@ pub const FakeBridge = struct {
         const self = from(ptr);
         mx.* = wx * self.map_per_world;
         my.* = wy * self.map_per_world;
+        return .ok;
+    }
+
+    /// What the engine's ghost visual holds: the entry, the world point, the turn.
+    pub const Ghost = struct {
+        name: [bridge_mod.name_capacity]u8 = undefined,
+        name_len: usize = 0,
+        x: f32 = 0,
+        y: f32 = 0,
+        dir: i32 = 0,
+
+        pub fn nameSlice(self: *const Ghost) []const u8 {
+            return self.name[0..self.name_len];
+        }
+    };
+
+    /// Makes `setPlacementGhost` refuse `name`, the engine's answer for an entry
+    /// the palette cannot place.
+    pub fn refuseGhostFor(self: *FakeBridge, name: []const u8) void {
+        self.ghost_refused_len = @min(name.len, self.ghost_refused_name.len);
+        @memcpy(self.ghost_refused_name[0..self.ghost_refused_len], name[0..self.ghost_refused_len]);
+    }
+
+    fn setPlacementGhost(ptr: *anyopaque, name: []const u8, wx: f32, wy: f32, dir: i32) Status {
+        const self = from(ptr);
+        self.message_len = 0;
+        if (name.len == 0 or name.len > bridge_mod.name_capacity or !std.math.isFinite(wx) or !std.math.isFinite(wy)) return .bad_argument;
+        self.ghost_sets += 1;
+        if (!self.onMap(wx, wy) or (self.ghost_refused_len != 0 and std.mem.eql(u8, name, self.ghost_refused_name[0..self.ghost_refused_len]))) {
+            self.ghost = null;
+            self.say("the engine would not show the object there", .{});
+            return .refused;
+        }
+        var ghost: Ghost = .{ .name_len = name.len, .x = wx, .y = wy, .dir = dir };
+        @memcpy(ghost.name[0..name.len], name);
+        self.ghost = ghost;
+        return .ok;
+    }
+
+    fn clearPlacementGhost(ptr: *anyopaque) Status {
+        from(ptr).ghost = null;
+        return .ok;
+    }
+
+    fn placementGhost(ptr: *anyopaque, shown: *bool, wx: *f32, wy: *f32, dir: *i32) Status {
+        const self = from(ptr);
+        shown.* = self.ghost != null;
+        wx.* = if (self.ghost) |ghost| ghost.x else 0;
+        wy.* = if (self.ghost) |ghost| ghost.y else 0;
+        dir.* = if (self.ghost) |ghost| ghost.dir else 0;
         return .ok;
     }
 
