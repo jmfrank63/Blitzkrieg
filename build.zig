@@ -1858,7 +1858,7 @@ pub fn build(b: *std.Build) void {
     const use_prebuilt_shaders = b.option(bool, "use-prebuilt-shaders", "Skip gfxgpu-shaders and reuse existing zig-out/shaders outputs") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
     ubsan_trap = b.option(bool, "ubsan-trap", "Compile UBSan checks as traps so debuggers break at the faulting line (Debug only)") orelse false;
-    const random_missions_sweep = b.option([]const u8, "random-missions-sweep", "test-random-missions: all, cover or only=<text> (default all)") orelse "all";
+    const random_missions_sweep = b.option([]const u8, "random-missions-sweep", "test-random-missions: all, cover, cover-from=<n> (cover without its first n cases, to resume a cut-short run) or only=<text> (default all)") orelse "all";
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
