@@ -148,6 +148,10 @@ bool SetObjectPlayer( SLoadMapInfo *pMap, int nLinkID, int nPlayer );
 bool SetObjectAngle( SLoadMapInfo *pMap, int nLinkID, float fAngleDegrees );
 bool SetObjectFormation( SLoadMapInfo *pMap, int nLinkID, int nFormation );
 bool SetObjectLink( SLoadMapInfo *pMap, int nLinkID, int nLinkWith );
+// True when linking nLinkID to nLinkWith would close a loop: nLinkWith's own
+// host chain leads back to nLinkID (or nLinkWith is nLinkID). SetObjectLink
+// refuses such a link, and the bridge's link command asks it too.
+bool WouldLinkCycle( SLoadMapInfo *pMap, int nLinkID, int nLinkWith );
 
 // Players (M3, D-30). The map's diplomacies hold one entry per player and the
 // neutral player LAST (0 and 1 are the two sides, 2 the neutral); the most a

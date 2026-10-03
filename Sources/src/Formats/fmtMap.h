@@ -240,7 +240,8 @@ struct SVertexAltitude
 {
 	float fHeight;												// height of the vertex => [-inf...+inf] :)
 	BYTE shade;														// shading in the terrain vertex
-	SVertexAltitude() : fHeight( 0 ), shade( 255 ) {  }
+	BYTE cReserved[3];										// always zero: the map format's own padding, named so a raw save writes defined bytes
+	SVertexAltitude() : fHeight( 0 ), shade( 255 ), cReserved() {  }
 	int operator&( IDataTree &ss )
 	{
 		CTreeAccessor saver = &ss;
@@ -249,6 +250,7 @@ struct SVertexAltitude
 		return 0;
 	}
 };
+static_assert( sizeof( SVertexAltitude ) == 8, "SVertexAltitude is saved as raw bytes; its layout is the map format" );
 
 struct STerrainInfo
 {

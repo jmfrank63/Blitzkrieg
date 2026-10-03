@@ -563,6 +563,16 @@ bool PutUpdateMapBack( SEditorSession *pSession, const SUpdateMapEdit &rEdit, bo
 	             bBefore ? rEdit.vsoEngineBefore : rEdit.vsoEngineAfter );
 	return true;
 }
+
+// A step of the composite failed after it began (the engine's own height and terrain updates
+// have run, a cross or shade pass may have changed one copy): both copies and the engine go
+// back to what was captured up front, so the failure leaves nothing half done and nothing
+// unlogged. The sibling composites roll back the same way.
+void AbandonUpdateMap( SEditorSession *pSession, const SUpdateMapEdit &rEdit )
+{
+	if ( !PutUpdateMapBack( pSession, rEdit, true ) )
+		pSession->szMessage += "; the map could not be put back, reopen it";
+}
 }
 
 bool SUpdateMapEdit::Revert( SEditorSession *pSession )
@@ -696,6 +706,7 @@ bool UpdateMapInSession( SEditorSession *pSession, void (*pfnProgress)( int nSte
 		if ( tilesetDesc.terrtypes.empty() )
 		{
 			pSession->szMessage = "the map's tileset has no terrain types";
+			AbandonUpdateMap( pSession, *pEdit );
 			if ( pbRefused )
 				*pbRefused = true;
 			return false;
@@ -704,6 +715,7 @@ bool UpdateMapInSession( SEditorSession *pSession, void (*pfnProgress)( int nSte
 		     !CMapInfo::UpdateTerrainCrosses( &rWorking.terrain, rFullPatches, tilesetDesc, crossetDesc ) )
 		{
 			pSession->szMessage = "the crosses would not recompute";
+			AbandonUpdateMap( pSession, *pEdit );
 			return false;
 		}
 	}
@@ -718,6 +730,7 @@ bool UpdateMapInSession( SEditorSession *pSession, void (*pfnProgress)( int nSte
 	     !CMapInfo::UpdateTerrainShades( &rWorking.terrain, rFullVertices, sunlight ) )
 	{
 		pSession->szMessage = "the shades would not recompute";
+		AbandonUpdateMap( pSession, *pEdit );
 		return false;
 	}
 	pEngineTerrain->Update( CTRect<int>( 0, 0, rFullPatches.maxx - 1, rFullPatches.maxy - 1 ) );

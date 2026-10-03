@@ -7,6 +7,8 @@
 // with exit 1. A tier that cannot tell a skip from a failure is worse than no
 // tier: the map file tier once swept zero maps and reported success.
 #include "StdAfx.h"
+#include <cstdlib>
+#include <cstring>
 #include <SDL3/SDL.h>
 #include <map>
 #include <set>
@@ -622,6 +624,24 @@ static void TestObjectEdits( BkEditorSession *pSession, const std::string &szScr
 	Check( BkEditorMoveObject( pSession, nLinkID, 132.0f, 100.0f ) == BK_EDITOR_OK, "and moves" );
 	Check( BkEditorTurnObject( pSession, nLinkID, 1024 ) == BK_EDITOR_OK, "and turns" );
 	Check( BkEditorSetObjectPlayer( pSession, nLinkID, 1 ) == BK_EDITOR_OK, "and changes hands" );
+
+	// WR-C02: what the engine cannot hold is refused at the ABI or the session and changes
+	// nothing - the engine reads shorts and WORDs, the readback converts the request the same
+	// way, so a NaN, an enormous position or a direction outside 0..65535 would pass it and
+	// reach the file. The save below is still the one object, moved, turned and owned.
+	{
+		const float fNaN = std::numeric_limits<float>::quiet_NaN();
+		const float fInf = std::numeric_limits<float>::infinity();
+		Check( BkEditorMoveObject( pSession, nLinkID, fNaN, 100.0f ) == BK_EDITOR_BAD_ARGUMENT, "a NaN position is BAD_ARGUMENT" );
+		Check( BkEditorMoveObject( pSession, nLinkID, 132.0f, fInf ) == BK_EDITOR_BAD_ARGUMENT, "an infinite position is BAD_ARGUMENT" );
+		Check( BkEditorMoveObject( pSession, nLinkID, 1.0e9f, 100.0f ) == BK_EDITOR_BAD_ARGUMENT, "a position far off the map is BAD_ARGUMENT" );
+		Check( BkEditorPlaceObject( pSession, nLinkID, fNaN, fNaN, 1024, 1 ) == BK_EDITOR_BAD_ARGUMENT, "a placement at NaN is BAD_ARGUMENT" );
+		Check( BkEditorTurnObject( pSession, nLinkID, 70000 ) == BK_EDITOR_REFUSED, "a direction above 65535 is refused" );
+		Check( BkEditorTurnObject( pSession, nLinkID, -1 ) == BK_EDITOR_REFUSED, "a negative direction is refused" );
+		int nRefusedLink = -1;
+		Check( BkEditorAddObject( pSession, pszName, fNaN, 100.0f, 0, 0, &nRefusedLink ) == BK_EDITOR_BAD_ARGUMENT && nRefusedLink == -1, "an object added at NaN is BAD_ARGUMENT" );
+		Check( BkEditorAddObject( pSession, pszName, 100.0f, 100.0f, 70000, 0, &nRefusedLink ) == BK_EDITOR_REFUSED && nRefusedLink == -1, "an object added facing 70000 is refused" );
+	}
 	if ( !Check( BkEditorSaveMap( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "and saves" ) )
 		return;
 
@@ -3140,6 +3160,13 @@ static void TestM3NewMap( BkEditorSession *pSession, const std::string &szScratc
 	bad = params;
 	bad.season = 4;
 	Check( BkEditorNewMap( pSession, &bad, &summary ) == BK_EDITOR_BAD_ARGUMENT, "a season of 4 is BAD_ARGUMENT" );
+	// WR-C07: a name filled to the brim has no terminator, and is not read as a C string.
+	bad = params;
+	memset( bad.szName, 'a', sizeof bad.szName );
+	Check( BkEditorNewMap( pSession, &bad, &summary ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated map name is BAD_ARGUMENT" );
+	bad = params;
+	memset( bad.szModFolder, 'a', sizeof bad.szModFolder );
+	Check( BkEditorNewMap( pSession, &bad, &summary ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated mod folder is BAD_ARGUMENT" );
 	Check( BkEditorNewMap( pSession, 0, &summary ) == BK_EDITOR_BAD_ARGUMENT, "null params are BAD_ARGUMENT" );
 	unsigned char tile = 0;
 	Check( BkEditorEngineTile( pSession, 0, 0, &tile ) == BK_EDITOR_OK && BkEditorEngineTile( pSession, nWidth - 1, 0, &tile ) == BK_EDITOR_OK,
@@ -4036,6 +4063,89 @@ static void TestM3RmgFieldSets( BkEditorSession *pSession, const std::string &sz
 static void TestM3RmgTemplates( BkEditorSession *pSession, const std::string &szScratch );
 static bool CraftFixture( BkEditorSession *pSession, const char *pszKind, const char *pszOut );
 static void CheckSavedEquals( BkEditorSession *pSession, const std::string &szPath, const CMapInfo &rExpected, const char *pszWhat );
+
+// CR-C02 and WR-C01: the delete cascade meets a link cycle and a lone link ID
+// 0. A map file can hold two objects that carry each other (the editor now
+// refuses to make one, but the file is not the editor's); deleting either used
+// to recurse until the stack ran out, which no catch handler can answer. The
+// delete must refuse and leave the map as it was. And the one object that
+// carries link ID 0 is not the host of every unlinked object (they all name 0
+// as "linked with nothing"): deleting it takes it alone.
+static int CountObjects( BkEditorSession *pSession )
+{
+	int nCount = 0;
+	BkEditorObjects( pSession, 0, 0, &nCount );
+	return nCount;
+}
+
+static void TestM3LinkCycleAndZeroID( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	int nMaxID = 0;
+	std::vector<SMapObjectInfo*> unique, zero;
+	{
+		std::vector<SMapObjectInfo> *lists[2] = { &original.objects, &original.scenarioObjects };
+		for ( int nList = 0; nList < 2; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size(); ++i )
+			{
+				SMapObjectInfo &rObject = ( *lists[nList] )[i];
+				nMaxID = Max( nMaxID, rObject.link.nLinkID );
+				if ( rObject.link.nLinkID == 0 )
+					zero.push_back( &rObject );
+				else
+					unique.push_back( &rObject );
+			}
+	}
+	if ( !Check( unique.size() >= 2 && zero.size() >= 2, "the map holds linked-ID objects and several link ID 0 objects" ) )
+		return;
+
+	// 1. A cycle: the first two objects carry each other.
+	const int nA = unique[0]->link.nLinkID, nB = unique[1]->link.nLinkID;
+	Check( nA != nB, "the two objects have different link IDs" );
+	unique[0]->link.nLinkWith = nB;
+	unique[1]->link.nLinkWith = nA;
+	const std::string szCycleMap = szScratch + "\\m3-link-cycle.bzm";
+	const std::string szBefore = szScratch + "\\m3-link-cycle-before.bzm";
+	const std::string szAfter = szScratch + "\\m3-link-cycle-after.bzm";
+	if ( Check( NMapFile::Write( szCycleMap.c_str(), original, &szError ), szError.c_str() ) &&
+	     Check( BkEditorOpenMap( pSession, szCycleMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		Check( BkEditorSaveMap( pSession, szBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		const int nObjects = CountObjects( pSession );
+		Check( BkEditorDeleteObject( pSession, nA ) == BK_EDITOR_REFUSED, ( std::string( "a delete around a link cycle is refused: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "cycle" ) != std::string::npos, "and the answer names the cycle" );
+		Check( CountObjects( pSession ) == nObjects, "nothing was deleted" );
+		Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( SameBytes( szBefore, szAfter ), "the refused delete left the map byte for byte" );
+		// The other end of the cycle refuses the same way.
+		Check( BkEditorDeleteObject( pSession, nB ) == BK_EDITOR_REFUSED, "the other end refuses as well" );
+		Check( CountObjects( pSession ) == nObjects, "and deletes nothing either" );
+	}
+	remove( OsPath( szCycleMap ).c_str() );
+	remove( OsPath( szBefore ).c_str() );
+	remove( OsPath( szAfter ).c_str() );
+
+	// 2. One object under link ID 0: every other zero object gets an ID of its
+	// own, so the ID is no longer shared and the delete is not refused for that.
+	unique[0]->link.nLinkWith = 0;
+	unique[1]->link.nLinkWith = 0;
+	for ( size_t i = 1; i < zero.size(); ++i )
+		zero[i]->link.nLinkID = ++nMaxID;
+	const std::string szZeroMap = szScratch + "\\m3-link-zero.bzm";
+	if ( Check( NMapFile::Write( szZeroMap.c_str(), original, &szError ), szError.c_str() ) &&
+	     Check( BkEditorOpenMap( pSession, szZeroMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		const int nObjects = CountObjects( pSession );
+		BkEditorDeleteObject( pSession, 0 );
+		Check( CountObjects( pSession ) + 1 >= nObjects,
+		       ( "deleting the one link ID 0 object takes it alone (" + std::to_string( nObjects ) + " -> " + std::to_string( CountObjects( pSession ) ) + ")" ).c_str() );
+	}
+	remove( OsPath( szZeroMap ).c_str() );
+	Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+}
 
 // M3 (D-26/D-27): the properties' fields and the links, on the engine. The
 // fields edit (player, hp, angle, formation) saves as the builder's map; the
@@ -5028,6 +5138,12 @@ static void TestM3MultiSelect( BkEditorSession *pSession, const std::string &szS
 	Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, "and redoes" );
 	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "and back once more" );
 
+	// WR-C05: a count with no array behind it, or a negative one, is BAD_ARGUMENT before the
+	// duplicate scan reads the array.
+	nToken = -1;
+	Check( BkEditorMoveObjects( pSession, 0, 2, 32.0f, 0.0f, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "a null array with a count of 2 is BAD_ARGUMENT" );
+	Check( BkEditorMoveObjects( pSession, members, -1, 32.0f, 0.0f, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "a negative count is BAD_ARGUMENT" );
+
 	// One member that would leave the map refuses the whole move, whatever
 	// the other two asked for.
 	const int nBad[3] = { members[0], members[1], members[2] };
@@ -5325,6 +5441,21 @@ static void TestM3Filters( BkEditorSession *pSession, const char *pszRoot, const
 		BkEditorObjectFilter bad = added;
 		memset( bad.lists[0].words[0], 'x', BK_EDITOR_FILTER_WORD_LEN );
 		Check( BkEditorSaveObjectFilters( pSession, &bad, 1 ) == BK_EDITOR_BAD_ARGUMENT, "an unterminated word is BAD_ARGUMENT" );
+		// WR-C06: a control character in a name or a word would write XML the engine's reader
+		// rejects (the whole user file then reads empty), so it is refused; and a save leaves no
+		// temporary file beside filter.xml - it is written aside and moved over it.
+		bad = added;
+		strcpy( bad.lists[0].words[0], "a\x01" "b" );
+		Check( BkEditorSaveObjectFilters( pSession, &bad, 1 ) == BK_EDITOR_BAD_ARGUMENT, "a control character in a word is BAD_ARGUMENT" );
+		bad = added;
+		strcpy( bad.name, "Bad\nName" );
+		Check( BkEditorSaveObjectFilters( pSession, &bad, 1 ) == BK_EDITOR_BAD_ARGUMENT, "a control character in a name is BAD_ARGUMENT" );
+		{
+			std::error_code error;
+			Check( std::filesystem::exists( std::filesystem::path( szScratchUser ) / "mapeditor" / "filter.xml", error ) &&
+			       !std::filesystem::exists( std::filesystem::path( szScratchUser ) / "mapeditor" / "filter.xml.tmp", error ),
+			       "the saved file stands and no temporary file is left beside it" );
+		}
 		Check( BkEditorSaveObjectFilters( pSession, 0, 1 ) == BK_EDITOR_BAD_ARGUMENT, "null filters with a count is BAD_ARGUMENT" );
 		Check( BkEditorSaveObjectFilters( pSession, 0, 0 ) == BK_EDITOR_OK, "count 0 writes the empty set" );
 		int nAfter = 0;
@@ -11483,6 +11614,22 @@ static void TestM2Sweep( BkEditorSession *pSession, const std::string &szScratch
 		printf( "editor-bridge: M2 sweep %d maps, %d edits, all restored byte-exact\n", nMaps, nEdits );
 }
 
+// A skip is a pass that checked nothing, so CI sets BK_REQUIRE_ENGINE=1 on the runners that
+// do have a video driver, the staged game and a GPU device: there a skip is the runner
+// regressing, not a green result (05-REVIEW WR-D03). Unset (a laptop with no display), a
+// skip stays an exit code of 0.
+static int SkipOrFail( const char *pszTool, const std::string &szWhy )
+{
+	const char *pszRequire = getenv( "BK_REQUIRE_ENGINE" );
+	if ( pszRequire != 0 && *pszRequire != 0 && strcmp( pszRequire, "0" ) != 0 )
+	{
+		printf( "FAIL: %s: %s, and BK_REQUIRE_ENGINE is set\n", pszTool, szWhy.c_str() );
+		return 1;
+	}
+	printf( "%s: skipped: %s\n", pszTool, szWhy.c_str() );
+	return 0;
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -11506,8 +11653,7 @@ int main( int argc, char **argv )
 		const char *pszError = SDL_GetError();
 		if ( strstr( pszError, "video driver" ) != 0 || strstr( pszError, "No available" ) != 0 )
 		{
-			printf( "editor-bridge: skipped: no video driver (%s)\n", pszError );
-			return 0;
+			return SkipOrFail( "editor-bridge", std::string( "no video driver (" ) + pszError + ")" );
 		}
 		printf( "FAIL: SDL_Init: %s\n", pszError );
 		return 1;
@@ -11561,10 +11707,10 @@ int main( int argc, char **argv )
 	FILE *pProbe = fopen( ( std::string( pszRoot ) + "/Data/consts.xml" ).c_str(), "rb" );
 	if ( pProbe == 0 )
 	{
-		printf( "editor-bridge: skipped: no staged game at %s (run: zig build install-game)\n", pszRoot );
+		const int nSkipped = SkipOrFail( "editor-bridge", std::string( "no staged game at " ) + pszRoot + " (run: zig build install-game)" );
 		SDL_DestroyWindow( pWindow );
 		SDL_Quit();
-		return 0;
+		return nSkipped;
 	}
 	fclose( pProbe );
 
@@ -11596,11 +11742,11 @@ int main( int argc, char **argv )
 	const BkEditorStatus status = BkEditorStart( pWindow, pszRoot, &pSession );
 	if ( status == BK_EDITOR_NO_DEVICE )
 	{
-		printf( "editor-bridge: skipped: no GPU device (%s)\n", BkEditorLastMessage( pSession ) );
+		const int nSkipped = SkipOrFail( "editor-bridge", std::string( "no GPU device (" ) + BkEditorLastMessage( pSession ) + ")" );
 		BkEditorStop( pSession );
 		SDL_DestroyWindow( pWindow );
 		SDL_Quit();
-		return 0;
+		return nSkipped;
 	}
 	// pSession may be null here: the start can fail before it allocates one,
 	// which is why BkEditorLastMessage is defined for a null session.
@@ -11676,6 +11822,7 @@ int main( int argc, char **argv )
 		TestM3RmgTemplates( pSession, szScratch );
 		TestM3MultiSelect( pSession, szScratch );
 		TestM3PropertiesAndLinks( pSession, szScratch );
+		TestM3LinkCycleAndZeroID( pSession, szScratch );
 		TestM3Damage( pSession, szScratch );
 		TestM3PlayersAndUnitCreation( pSession, szScratch );
 		TestM3CheckMap( pSession, szScratch );
@@ -11836,6 +11983,24 @@ static void TestM3Fields( BkEditorSession *pSession, const std::string &szScratc
 	points[1] = { f1, f0, 0 };
 	points[2] = { f1, f1, 0 };
 	points[3] = { f0, f1, 0 };
+
+	// WR-C07: a field set or filter name filled to the brim has no terminator and is not read
+	// as a C string; nothing is applied.
+	{
+		BkEditorFieldApplyParams unterminated;
+		memset( &unterminated, 0, sizeof unterminated );
+		unterminated.point_count = 4;
+		unterminated.points = points;
+		unterminated.fill_terrain = 1;
+		memset( unterminated.field_set, 'a', sizeof unterminated.field_set );
+		int nCount = 0, nToken = -1;
+		Check( BkEditorApplyField( pSession, &unterminated, 0, 0, &nCount, &nToken ) == BK_EDITOR_BAD_ARGUMENT && nToken == -1,
+		       "an unterminated field set name is BAD_ARGUMENT" );
+		strcpy( unterminated.field_set, sets[nSummer].name );
+		memset( unterminated.object_filter, 'a', sizeof unterminated.object_filter );
+		Check( BkEditorApplyField( pSession, &unterminated, 0, 0, &nCount, &nToken ) == BK_EDITOR_BAD_ARGUMENT && nToken == -1,
+		       "an unterminated object filter name is BAD_ARGUMENT" );
+	}
 
 	// Degenerate first: the same square collapsed to a line refuses and
 	// changes nothing.
@@ -12015,6 +12180,28 @@ static void TestM3Fields( BkEditorSession *pSession, const std::string &szScratc
 			Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 			Check( BridgeFilesAreIdentical( szPre.c_str(), szUndone.c_str() ),
 			       "the objects half undone writes the unedited save byte for byte" );
+
+			// CR-C01: a report buffer smaller than the report is a truncation. The field is
+			// applied and logged by then, so the call answers OK with the token and the full
+			// count (REFUSED, "changes nothing", would drop the token of an edit that is on the
+			// log and leave every earlier edit un-undoable behind it).
+			const int nTotal = nReport;
+			if ( Check( nTotal > 1, "the objects half produced several objects to truncate" ) )
+			{
+				BkEditorFieldObjectReport one[1];
+				int nShort = 0, nShortToken = -1;
+				const BkEditorStatus nShortStatus = BkEditorApplyField( pSession, &params, one, 1, &nShort, &nShortToken );
+				if ( Check( nShortStatus == BK_EDITOR_OK, ( std::string( "a report buffer smaller than the report is a truncation, not a refusal: " ) + BkEditorLastMessage( pSession ) ).c_str() ) )
+				{
+					Check( nShort == nTotal, "the count is still the total" );
+					Check( nShortToken >= 0, "and the token is handed over" );
+					Check( M3CountObjects( pSession ) > nObjectsBefore, "and the field was applied" );
+					Check( BkEditorUndoEdit( pSession, nShortToken ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+					Check( BkEditorSaveMap( pSession, szUndone.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+					Check( BridgeFilesAreIdentical( szPre.c_str(), szUndone.c_str() ),
+					       "the truncated apply undone writes the unedited save byte for byte" );
+				}
+			}
 		}
 	}
 

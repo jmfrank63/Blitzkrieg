@@ -8,6 +8,8 @@
 //   cover   every gated chapter x template pair once, the difficulty rotating
 //   only=   the cases whose chapter or template name contains <text>
 #include "StdAfx.h"
+#include <cstdlib>
+#include <cstring>
 #include <SDL3/SDL.h>
 #include <chrono>
 #include <filesystem>
@@ -270,6 +272,22 @@ static bool RunCase( BkEditorSession *pSession, const SCase &c, const std::files
 	return g_nFailures == nFailuresBefore;
 }
 
+// A skip is a pass that checked nothing, so CI sets BK_REQUIRE_ENGINE=1 on the runners that
+// do have a video driver, the staged game and a GPU device: there a skip is the runner
+// regressing, not a green result (05-REVIEW WR-D03). Unset (a laptop with no display), a
+// skip stays an exit code of 0.
+static int SkipOrFail( const char *pszTool, const std::string &szWhy )
+{
+	const char *pszRequire = getenv( "BK_REQUIRE_ENGINE" );
+	if ( pszRequire != 0 && *pszRequire != 0 && strcmp( pszRequire, "0" ) != 0 )
+	{
+		printf( "FAIL: %s: %s, and BK_REQUIRE_ENGINE is set\n", pszTool, szWhy.c_str() );
+		return 1;
+	}
+	printf( "%s: skipped: %s\n", pszTool, szWhy.c_str() );
+	return 0;
+}
+
 int main( int argc, char **argv )
 {
 	// See the engine tier: a Windows debug assert must not wait behind a dialog.
@@ -286,8 +304,7 @@ int main( int argc, char **argv )
 		const char *pszError = SDL_GetError();
 		if ( strstr( pszError, "video driver" ) != 0 || strstr( pszError, "No available" ) != 0 )
 		{
-			printf( "random-missions: skipped: no video driver (%s)\n", pszError );
-			return 0;
+			return SkipOrFail( "random-missions", std::string( "no video driver (" ) + pszError + ")" );
 		}
 		printf( "FAIL: SDL_Init: %s\n", pszError );
 		return 1;
@@ -306,10 +323,10 @@ int main( int argc, char **argv )
 	std::filesystem::create_directories( scratch );
 	if ( !std::filesystem::exists( std::string( pszRoot ) + "/Data/consts.xml" ) )
 	{
-		printf( "random-missions: skipped: no staged game at %s (run: zig build install-game)\n", pszRoot );
+		const int nSkipped = SkipOrFail( "random-missions", std::string( "no staged game at " ) + pszRoot + " (run: zig build install-game)" );
 		SDL_DestroyWindow( pWindow );
 		SDL_Quit();
-		return 0;
+		return nSkipped;
 	}
 	// Every engine module derives its roots from the executable's location; see
 	// the engine tier (editor_bridge_test.cpp) for why this must hold.
@@ -324,11 +341,11 @@ int main( int argc, char **argv )
 	const BkEditorStatus status = BkEditorStart( pWindow, pszRoot, &pSession );
 	if ( status == BK_EDITOR_NO_DEVICE )
 	{
-		printf( "random-missions: skipped: no GPU device (%s)\n", BkEditorLastMessage( pSession ) );
+		const int nSkipped = SkipOrFail( "random-missions", std::string( "no GPU device (" ) + BkEditorLastMessage( pSession ) + ")" );
 		BkEditorStop( pSession );
 		SDL_DestroyWindow( pWindow );
 		SDL_Quit();
-		return 0;
+		return nSkipped;
 	}
 	if ( Check( status == BK_EDITOR_OK, std::string( "the engine starts: " ) + BkEditorLastMessage( pSession ) ) )
 	{
