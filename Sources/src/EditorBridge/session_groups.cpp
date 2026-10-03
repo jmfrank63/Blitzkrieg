@@ -1119,7 +1119,7 @@ bool DrawFencesInSession( SEditorSession *pSession, const std::string &szDesc, c
 // An entrenchment is one entry of CMapInfo::entrenchments - sections of the
 // link IDs of its pieces - plus its piece objects. The MFC editor places the
 // pieces as ordinary objects (AddObjectByAI) and makes no engine grouping call
-// (the AI editor's entrenchment call has no caller in MapEditor/): the game groups
+// (the AI editor's entrenchment call has no caller in the MFC editor, which 05-11 deleted): the game groups
 // them in LoadEntrenchments, which dereferences every link and each section's
 // first (Pitfall 7). So, as a bridge, a piece is never deleted alone, the
 // entry goes before its pieces and comes back after them.

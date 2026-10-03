@@ -2,8 +2,8 @@
 //! shipped `Data/Editor/filter.xml` carries, the palette's nine quick toggles
 //! and combo gate objects with, and the Filters Composer edits.
 //!
-//! The model mirrors the MFC's `SSimpleFilter` (Sources/src/MapEditor/
-//! CreateFilterDialog.h): a filter is a list of word lists - a word list is a
+//! The model mirrors the MFC's `SSimpleFilter` (CreateFilterDialog.h, last in the
+//! tree at 045ddda7f; the MFC editor was deleted in 05-11): a filter is a list of word lists - a word list is a
 //! condition (every word must appear in the object's folder path), and the
 //! filter passes when ANY condition matches. The MFC lowercases the folder
 //! name before checking (TabSimpleObjectsDialog.cpp:178) and the shipped words

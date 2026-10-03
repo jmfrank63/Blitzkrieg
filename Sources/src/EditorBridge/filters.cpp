@@ -27,10 +27,10 @@ namespace
 {
 
 // The filter file's serialisation shape, byte-for-byte the MFC editor's own
-// SSimpleFilter (MapEditor/CreateFilterDialog.h/.cpp): the same data-tree
+// SSimpleFilter (CreateFilterDialog.h/.cpp, last in the tree at 045ddda7f and f6566e574): the same data-tree
 // reader and writer run over it (the engine's own - the XML is never re-typed
 // here), only the struct is mirrored, because that file is MFC code the
-// bridge cannot include (and 05-11 deletes). The tree shape this produces is
+// bridge cannot include (and 05-11 deleted). The tree shape this produces is
 // the shipped file's: <item><key>Name</key><data><Filter><item><data>
 // <item>word</item>...</data></item></Filter></data></item>.
 typedef std::list<std::string> TBkFilterWords;

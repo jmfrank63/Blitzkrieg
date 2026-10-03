@@ -1,5 +1,5 @@
 // The game's reader (GameTT/iMissionInternal.cpp:1362-1392) and the MFC
-// editor's writer (MapEditor/TemplateEditorFrame1.cpp:3238-3258), lifted into
+// editor's writer (TemplateEditorFrame1.cpp:3238-3258, last in the tree at d1781fa5c), lifted into
 // something with no UI and no renderer under it. Unlike the MFC editor
 // (TemplateEditorFrame1.cpp:1644) this does not call RemoveNonExistingObjects:
 // a map the editor could not fully understand still has to come back out

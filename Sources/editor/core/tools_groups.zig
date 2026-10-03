@@ -1,5 +1,6 @@
 //! The group tools (04-06): the Bridge tool (D-10..D-12), the MFC Bridges tab
-//! (Sources/src/MapEditor/RoadDrawState.cpp). The Fence tool (04-07, D-14) and
+//! (RoadDrawState.cpp, last in the tree at d1781fa5c; the MFC editor was deleted in
+//! 05-11). The Fence tool (04-07, D-14) and
 //! the Entrenchment tool (04-08, D-13) are here too.
 //!
 //! Bridge: a press starts a drag at the pointer's world point, the drag moves

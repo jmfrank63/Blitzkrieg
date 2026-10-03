@@ -18,7 +18,6 @@ Assert-NotContains "Sources\src\A7.sln" "GameSpy\.vcxproj" "The solution runtime
 Assert-NotContains "Sources\src\Main\Main.vcxproj" "GameSpy\.lib|GameSpy\.vcxproj" "Main must not link or reference GameSpy"
 Assert-NotContains "Sources\src\Net\Net.vcxproj" "GameSpy\.lib|GameSpy\.vcxproj" "Net must not link or reference GameSpy"
 Assert-NotContains "Sources\src\editor\editor.vcxproj" "GameSpy\.lib|GameSpy\.vcxproj" "Editor must not link or reference GameSpy"
-Assert-NotContains "Sources\src\MapEditor\MapEditor.vcxproj" "GameSpy\.lib|GameSpy\.vcxproj" "MapEditor must not link or reference GameSpy"
 
 Assert-NotContains "Sources\src\Main\GameSpyChat.h" "\.\.\\GameSpy" "Main chat headers must not include GameSpy SDK headers"
 Assert-NotContains "Sources\src\Main\GameSpyPeerChat.h" "\.\.\\GameSpy" "Main peer chat headers must not include GameSpy SDK headers"

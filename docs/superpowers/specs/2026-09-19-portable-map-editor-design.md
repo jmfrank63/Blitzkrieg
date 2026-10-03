@@ -22,13 +22,16 @@ interfaces is.
 |---|---|---|
 | **Map Editor M1** | core editing loop, macOS first | this document |
 | **Map Editor M2** | roads and rivers, bridges (with rotate and built during play), entrenchments, fences, script IDs and reinforcement groups, start commands, reserve positions, AI general, script file and script areas, camera anchors; see "M2 scope" | done (phase 4, 2026-09-30; "Exit criteria for M2") |
-| **Map Editor M3** | random map templates (Create Random Map and the four composers), minimap and its images, the Heights/Fields/Damage/Check Map/Players tools, the Layers menu, the app shell (Options, View, drop, single instance, Help), parity with the MFC editor | done as code and gates (phase 5, 2026-10-03: `05-PARITY.md` closed, the 05-11 gates and CI run 37098890101 in `05-11-SUMMARY.md`); the hand try on the release build (D-40.10) and the deletion of the MFC editor (D-38) are pending |
+| **Map Editor M3** | random map templates (Create Random Map and the four composers), minimap and its images, the Heights/Fields/Damage/Check Map/Players tools, the Layers menu, the app shell (Options, View, drop, single instance, Help), parity with the MFC editor | done as code and gates, and the MFC editor deleted (phase 5, 2026-10-03: `05-PARITY.md` closed, the 05-11 gates in `05-11-SUMMARY.md`, the deletion approved by Johannes the same day); the hand try on the release build (D-40.10) is pending |
 | Resource Editor | `Sources/src/editor`, ~64k lines, 20+ sub-editors | own spec |
 | ELK | localisation kit, ~12k lines | own spec |
 | Small tools | converters and validators | own spec |
 
-The MFC Map Editor stays in the tree, unbuilt, as a reference until M3 reaches
-parity, then it is deleted.
+The MFC Map Editor stayed in the tree, unbuilt, as a reference until M3 reached
+parity, and was then deleted (phase 5 plan 11, 2026-10-03); git history keeps it
+(the last commit with the whole tree is f0bbdde83). `Sources/src/RandomMapGen`
+(the game uses it) and `Data/Editor` (the editor reads its filters and markers)
+stay.
 
 ## M1 scope
 

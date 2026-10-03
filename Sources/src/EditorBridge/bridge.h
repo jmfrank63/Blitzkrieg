@@ -576,8 +576,8 @@ BkEditorStatus BkEditorDescribeTile( BkEditorSession *session, int tile, BkEdito
 
 /* One tile's picture, for the Brush's tile picker (03-15 gap fix): the tile's
    diamond cut out of the tileset's texture, the way the MFC editor's tile
-   palette cut its thumbnails (MapEditor/TabTileEditDialog.cpp,
-   CreateImageList) - the cell the tileset description's four corners
+   palette cut its thumbnails (TabTileEditDialog.cpp CreateImageList, last in the
+   tree at a430931fe; the MFC editor was deleted in 05-11) - the cell the tileset description's four corners
    (<tilemaps>, STileMapsDesc: maps0 top, maps1 right, maps2 left, maps3
    bottom) span, flipped the way a tile whose corners name the cell the other
    way round is drawn, and transparent outside the diamond (the MFC palette

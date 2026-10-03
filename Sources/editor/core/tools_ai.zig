@@ -1,5 +1,6 @@
 //! The AI-side tools (04-10 on). The Script Areas tool (D-21), the MFC editor's
-//! area tab (Sources/src/MapEditor/MapToolState.cpp, TabToolsDialog.cpp): a drag
+//! area tab (MapToolState.cpp last in the tree at d1781fa5c, TabToolsDialog.cpp at
+//! 1c82b6b87; the MFC editor was deleted in 05-11): a drag
 //! draws a rectangle (the drag's two corners) or a circle (its centre and a point on
 //! its edge) and names it; the map's areas are listed in a panel, which also renames
 //! and deletes; and - beyond the MFC editor, which only drew, added and deleted - the
