@@ -18,6 +18,11 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
 - **The direction wheel's hot area is the filter row's height.** The dial is drawn 40 px
   tall beside the palette's filter input but the invisible button is one frame high, so
   only its upper half takes a drag (kept so the M1 reference frames' row heights hold).
+  **Resolved (05-11):** the row's button stays one frame high and holds the layout; a second
+  invisible button, 40 px square over the dial, takes the pointer (the row's button allows the
+  overlap) and the cursor is put back where the row's button left it. map-editor-m3-auto presses the
+  lower half of the dial (`press=244x308`) and expects the placer's angle to follow
+  (`expect=placer_angle:270:20`).
 - **The flag swap's engine re-placement.** `BkEditorSetObjectFields` renames a re-owned
   flag's record (Flag_<party>) but the engine object keeps its old type until the map is
   reopened; the record (what is saved) is right.
@@ -60,6 +65,11 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
   change (the markers would need their object's name or path), not a bridge one.
 - **The Heights ramp does not mark invalid heights red.** The MFC painted a vertex the engine's
   `IsValidHeight` refuses in red; no read says which those are, so the ramp is grey only.
+  **Resolved (05-11):** the rule is a pure function of the vertex sheet the panel already reads, so
+  `panels_logic.isValidHeight` ports it (the C++'s own f32 arithmetic) and the ramp paints a refused
+  vertex red. Both tiers pin the same sheets (`editor-bridge: M3 height rule ok` with the engine's own
+  function, panels_logic `isValidHeight: ...`) and count the refused vertices of coldwinter, 0 of 9409
+  on each side (`map-editor-engine: M3 height rule`).
 - **The fire-range areas come from the AI, not from a Layers toggle.** `BkEditorMinimapAreas` reads
   what `IAILogic::UpdateShootAreas` shows now. Until plan 05-06's fire-range layer registers a group and
   calls `ShowAreas`, nothing shows them; the engine test registers one itself. 05-06 needs no minimap work.
@@ -176,3 +186,38 @@ Out-of-scope discoveries logged by the executors (not fixed in the plan that fou
 - **The template composer does not offer to create the graph or field set it names.** A name that is not in the
   storages is a Check! finding with a fix that removes it; making a new graph or field set is the other two
   composers' job.
+
+## From 05-11
+
+Every open item above was weighed for full parity. The three the user waived on 2026-10-03 are decisions now (PARITY rows
+L4, MM1 and the final note): the Depth Complexity layer stays greyed, the minimap's markers are not filtered by the palette's
+filter, the Windows GUI legs run only in CI or by hand. The two scripts-and-wheel rulings are done (f54732c46, 5c50d8f27).
+
+**Fixed here** (real parity gaps, small enough for this plan): the Heights minimap's red for refused heights, the direction
+wheel's hot area (both resolved in their entries above) and the Place tool's ghost (PARITY O7: M1 never drew one and the row had
+no evidence; the portable ghost is the object's palette picture at half opacity - a recorded difference from the MFC's
+engine-sprite ghost).
+
+**Found here, not fixed:**
+- **The Properties window shares its ImGui ID with the docked Properties panel.** `panels_m3.drawPropertiesPanel` begins a
+  window named "Properties" and so does `panels.drawProperties`; ImGui treats the two as one window, so the M3 fields are
+  appended to the docked panel and the window's own close button and View entry act on a window that is not separate. Giving it
+  its own ID (`Properties##window`) turns it into a floating window at (left column + 40, top + 100) over the map, which the
+  M2 and M3 scenarios' map clicks then hit (the M2 road clicks failed on it), so it was left as it was; a fix means moving the
+  scenarios' clicks or the window's first position.
+
+**Left open (listed in the 05-11 checkpoint report, not decided by this plan):**
+- **No thumbnails in the Fields Composer's tabs** (05-10). Objects could reuse the palette's pictures, but a tile's picture
+  is rendered from the OPEN map's tileset and a composer works with no map open (or another season's), so it needs a bridge call
+  that renders a tile of a named tileset.
+- **The Settings window's Maps folder does not move a generated map** (05-08). The MFC always generated under the Data root, so
+  nothing the MFC did is missed; honouring a custom folder needs the bridge's output root as a parameter.
+- **Browse takes one file at a time** where the MFC's Add dialog took several (05-09); the picker over the storages does take many.
+- **A party change does not rename the flags** (05-05) and **a shared link ID is reported, not fixed** (05-05): both are the
+  preservation rule (never edit what was not asked) against the MFC's silent `ResetPlayersForFlags` and two-record delete.
+- **A flag re-owned through Properties keeps its old type in the engine until the map is reopened** (05-04); the saved record is right.
+- **A filter made in the Filters Composer and not saved cannot drive the fire ranges** (05-06).
+- **Test hygiene:** older engine tests leave scratch files in zig-out/local-test on macOS (05-04); the authored game leg cannot
+  redirect the user root on Windows (05-10).
+- **WINDOWS.md entry 7** (the composer frames and the Windows run of two data-only steps): the Windows GUI legs are user-waived
+  (CI or by hand); the Windows data-only steps run in CI.
