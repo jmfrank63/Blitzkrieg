@@ -56,11 +56,31 @@ const FixedPath = struct {
         return self.buffer[0..self.len];
     }
 
+    /// Keeps at most `max_path` bytes and drops control characters: a newline
+    /// would split `mapeditor.cfg`'s own line and plant a key of the writer's
+    /// choosing (WR-B03).
     pub fn set(self: *FixedPath, text: []const u8) void {
-        self.len = @min(text.len, self.buffer.len);
-        @memcpy(self.buffer[0..self.len], text[0..self.len]);
+        var len: usize = 0;
+        for (text) |byte| {
+            if (isControl(byte)) continue;
+            if (len == self.buffer.len) break;
+            self.buffer[len] = byte;
+            len += 1;
+        }
+        self.len = len;
     }
 };
+
+fn isControl(byte: u8) bool {
+    return byte < 0x20 or byte == 0x7f;
+}
+
+fn hasControl(text: []const u8) bool {
+    for (text) |byte| {
+        if (isControl(byte)) return true;
+    }
+    return false;
+}
 
 /// `mapeditor.cfg`'s fields (D-24, D-25, D-27): fixed buffers throughout, so
 /// a `Settings` lives on the stack with no allocation.
@@ -160,6 +180,11 @@ pub const Settings = struct {
     /// or a path segment name the same file) moves up instead of repeating;
     /// past `recent_capacity` entries, the oldest (last) one drops off.
     pub fn pushRecent(self: *Settings, os_path: []const u8) void {
+        // A path with a control character (a file name may hold a newline on
+        // macOS and Linux) is not kept: removing the character would name a
+        // different file, and writing it would split the settings file's line
+        // (WR-B03).
+        if (hasControl(os_path)) return;
         var existing: ?usize = null;
         var i: usize = 0;
         while (i < self.recent_count) : (i += 1) {
@@ -261,7 +286,7 @@ fn applyKey(settings: *Settings, key: []const u8, value: []const u8) void {
         const index = std.fmt.parseInt(usize, key["filter_slot_".len..], 10) catch return;
         settings.setFilterSlot(index, value);
     } else if (std.mem.eql(u8, key, "recent")) {
-        if (settings.recent_count < recent_capacity) {
+        if (value.len != 0 and settings.recent_count < recent_capacity) {
             settings.recent_storage[settings.recent_count].set(value);
             settings.recent_count += 1;
         }
@@ -309,7 +334,9 @@ pub fn format(self: *const Settings, writer: *std.Io.Writer) std.Io.Writer.Error
     try writer.print("fit_to_grid={s}\n", .{if (self.fit_to_grid) "on" else "off"});
     try writer.print("layers_bits={d}\n", .{self.layers.bits & ~layers_mod.bit(.fire_ranges)});
     try writer.print("fire_range_mode={s}\n", .{@tagName(self.layers.fire_mode)});
-    if (self.layers.fire_mode == .filter) try writer.print("fire_range_filter={s}\n", .{self.layers.fireFilter()});
+    // A value with a control character would split its line (WR-B03): the
+    // writer leaves such a key out, whatever set it.
+    if (self.layers.fire_mode == .filter and !hasControl(self.layers.fireFilter())) try writer.print("fire_range_filter={s}\n", .{self.layers.fireFilter()});
     if (self.gameParameters().len != 0) try writer.print("game_parameters={s}\n", .{self.gameParameters()});
     if (self.hidden_panels != 0) try writer.print("hidden_panels={d}\n", .{self.hidden_panels});
     if (self.mapsFolder().len != 0) try writer.print("maps_folder={s}\n", .{self.mapsFolder()});
@@ -564,4 +591,29 @@ test "game parameters and hidden panels: default empty, round trip, control char
     var writer2: std.Io.Writer = .fixed(&buffer);
     try format(&settings, &writer2);
     try std.testing.expect(std.mem.indexOf(u8, writer2.buffered(), "game_parameters") == null);
+}
+
+test "a newline in a recent path, folder or filter name plants no key in the file (WR-B03)" {
+    var settings: Settings = .{};
+    // A recent path with a control character is not kept at all.
+    settings.pushRecent("/maps/a\ngame_parameters=--opt x.bzm");
+    try std.testing.expectEqual(@as(usize, 0), settings.recentCount());
+    settings.pushRecent("/maps/fine.bzm");
+    try std.testing.expectEqual(@as(usize, 1), settings.recentCount());
+    // The other free-text fields lose the character instead.
+    settings.setMapsFolder("/maps\nhidden_panels=7");
+    try std.testing.expectEqualStrings("/mapshidden_panels=7", settings.mapsFolder());
+    settings.filter_active.set("one\ntwo");
+    settings.setFilterSlot(0, "slot\r\n0");
+    settings.layers.setFireRange(.filter, "a\nb");
+    var buffer: [2048]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    const back = parse(writer.buffered());
+    try std.testing.expectEqual(@as(u32, 0), back.hidden_panels);
+    try std.testing.expectEqual(@as(usize, 0), back.gameParameters().len);
+    try std.testing.expectEqual(@as(usize, 1), back.recentCount());
+    try std.testing.expectEqualStrings("onetwo", back.filter_active.slice());
+    // An empty recent= value adds no entry.
+    try std.testing.expectEqual(@as(usize, 0), parse("recent=\nrecent=   \n").recentCount());
 }
