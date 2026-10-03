@@ -1137,12 +1137,47 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	return true;
 }
 
+namespace
+{
+// The objects being deleted right now, outermost first: the host and the
+// passengers its cascade has gone into. An object met a second time means the
+// links form a cycle (A carries B and B carries A, which a map file can hold),
+// and following it would recurse until the stack ran out.
+struct SDeleteChain
+{
+	std::vector<int> ids;
+};
+
+bool DeleteObjectInChain( SEditorSession *pSession, int nLinkID, bool *pbRefused, SDeleteChain *pChain );
+}
+
 bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRefused )
+{
+	SDeleteChain chain;
+	return DeleteObjectInChain( pSession, nLinkID, pbRefused, &chain );
+}
+
+namespace
+{
+bool DeleteObjectInChain( SEditorSession *pSession, int nLinkID, bool *pbRefused, SDeleteChain *pChain )
 {
 	if ( pbRefused )
 		*pbRefused = false;
 	if ( pSession == 0 || !pSession->bMapOpen )
 		return false;
+	if ( std::find( pChain->ids.begin(), pChain->ids.end(), nLinkID ) != pChain->ids.end() )
+	{
+		pSession->szMessage = "objects link to each other in a cycle; unlink one of them first";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+	// Leaves the chain on every way out of this level, return or not.
+	struct SChainLevel
+	{
+		SDeleteChain *pChain;
+		SChainLevel( SDeleteChain *p, int nID ) : pChain( p ) { pChain->ids.push_back( nID ); }
+		~SChainLevel() { pChain->ids.pop_back(); }
+	} chainLevel( pChain, nLinkID );
 	// The preservation invariant keeps every edit away from an object the
 	// database does not know - except its removal (05-05, D-33): Check Map's Fix
 	// all offers it explicitly, replacing the MFC's silent RemoveNonExistingObjects
@@ -1175,7 +1210,7 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	for ( size_t i = 0; i < passengers.size(); ++i )
 	{
 		bool bPassengerRefused = false;
-		if ( !DeleteObjectFromSession( pSession, passengers[i], &bPassengerRefused ) )
+		if ( !DeleteObjectInChain( pSession, passengers[i], &bPassengerRefused, pChain ) )
 		{
 			// A passenger that cannot go (itself a referred span, say)
 			// refuses the whole delete; the ones already taken are put back.
@@ -1268,6 +1303,7 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 			pSession->szMessage += "; " + szPassengers;
 	}
 	return true;
+}
 }
 
 bool RestoreObjectInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused )
@@ -1816,6 +1852,16 @@ bool SetLinkInSession( SEditorSession *pSession, int nSource, int nTarget, bool 
 	}
 	if ( RefuseSharedLinkID( pSession, nSource, pbRefused ) )
 		return false;
+	// A link that closes a loop (the host already rides on the source, however
+	// far down the chain) would send the game's loaders, and the delete
+	// cascade, round it for ever. CanLinkInSession's train fallback accepts
+	// any two cars, so this is the only place that catches it.
+	if ( NMapRecords::WouldLinkCycle( &pSession->snapshot, nSource, nTarget ) )
+	{
+		pSession->szMessage = "those two would link to each other in a cycle";
+		*pbRefused = true;
+		return false;
+	}
 	const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nSource );
 	if ( pRecord == 0 )
 	{

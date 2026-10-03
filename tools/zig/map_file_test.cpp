@@ -3820,6 +3820,9 @@ static void TestM3ObjectFields()
 	Check( NMapRecords::SetObjectHP( &edited, nTarget, 0.43f ), "the health is set" );
 	Check( NMapRecords::SetObjectFormation( &edited, nTarget, 2 ), "the formation is set" );
 	Check( NMapRecords::SetObjectLink( &edited, nTarget, nHost ), "the link is set" );
+	// The host may not be linked back to its own passenger: that is a loop
+	// (CR-C02), and nothing changes when it is refused.
+	Check( !NMapRecords::SetObjectLink( &edited, nHost, nTarget ), "a link that would close a loop is refused" );
 	SMapObjectInfo *pEdited = 0;
 	{
 		std::vector<SMapObjectInfo> *lists[2] = { &edited.objects, &edited.scenarioObjects };

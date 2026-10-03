@@ -4037,6 +4037,66 @@ static void TestM3RmgTemplates( BkEditorSession *pSession, const std::string &sz
 static bool CraftFixture( BkEditorSession *pSession, const char *pszKind, const char *pszOut );
 static void CheckSavedEquals( BkEditorSession *pSession, const std::string &szPath, const CMapInfo &rExpected, const char *pszWhat );
 
+// CR-C02: the delete cascade meets a link cycle. A map file can hold two
+// objects that carry each other (the editor now refuses to make one, but the
+// file is not the editor's); deleting either used to recurse until the stack
+// ran out, which no catch handler can answer. The delete must refuse and
+// leave the map as it was.
+static int CountObjects( BkEditorSession *pSession )
+{
+	int nCount = 0;
+	BkEditorObjects( pSession, 0, 0, &nCount );
+	return nCount;
+}
+
+static void TestM3LinkCycle( BkEditorSession *pSession, const std::string &szScratch )
+{
+	CMapInfo original;
+	std::string szError;
+	if ( !Check( NMapFile::Read( BRIDGE_MAP, &original, &szError ), szError.c_str() ) )
+		return;
+	std::vector<SMapObjectInfo*> unique;
+	{
+		std::vector<SMapObjectInfo> *lists[2] = { &original.objects, &original.scenarioObjects };
+		for ( int nList = 0; nList < 2; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size(); ++i )
+			{
+				SMapObjectInfo &rObject = ( *lists[nList] )[i];
+				if ( rObject.link.nLinkID != 0 )
+					unique.push_back( &rObject );
+			}
+	}
+	if ( !Check( unique.size() >= 2, "the map holds linked objects" ) )
+		return;
+
+	// 1. A cycle: the first two objects carry each other.
+	const int nA = unique[0]->link.nLinkID, nB = unique[1]->link.nLinkID;
+	Check( nA != nB, "the two objects have different link IDs" );
+	unique[0]->link.nLinkWith = nB;
+	unique[1]->link.nLinkWith = nA;
+	const std::string szCycleMap = szScratch + "\\m3-link-cycle.bzm";
+	const std::string szBefore = szScratch + "\\m3-link-cycle-before.bzm";
+	const std::string szAfter = szScratch + "\\m3-link-cycle-after.bzm";
+	if ( Check( NMapFile::Write( szCycleMap.c_str(), original, &szError ), szError.c_str() ) &&
+	     Check( BkEditorOpenMap( pSession, szCycleMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		Check( BkEditorSaveMap( pSession, szBefore.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		const int nObjects = CountObjects( pSession );
+		Check( BkEditorDeleteObject( pSession, nA ) == BK_EDITOR_REFUSED, ( std::string( "a delete around a link cycle is refused: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		Check( std::string( BkEditorLastMessage( pSession ) ).find( "cycle" ) != std::string::npos, "and the answer names the cycle" );
+		Check( CountObjects( pSession ) == nObjects, "nothing was deleted" );
+		Check( BkEditorSaveMap( pSession, szAfter.c_str() ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+		Check( SameBytes( szBefore, szAfter ), "the refused delete left the map byte for byte" );
+		// The other end of the cycle refuses the same way.
+		Check( BkEditorDeleteObject( pSession, nB ) == BK_EDITOR_REFUSED, "the other end refuses as well" );
+		Check( CountObjects( pSession ) == nObjects, "and deletes nothing either" );
+	}
+	remove( OsPath( szCycleMap ).c_str() );
+	remove( OsPath( szBefore ).c_str() );
+	remove( OsPath( szAfter ).c_str() );
+	Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
+}
+
 // M3 (D-26/D-27): the properties' fields and the links, on the engine. The
 // fields edit (player, hp, angle, formation) saves as the builder's map; the
 // garrison links a known infantry to a known building through
@@ -11676,6 +11736,7 @@ int main( int argc, char **argv )
 		TestM3RmgTemplates( pSession, szScratch );
 		TestM3MultiSelect( pSession, szScratch );
 		TestM3PropertiesAndLinks( pSession, szScratch );
+		TestM3LinkCycle( pSession, szScratch );
 		TestM3Damage( pSession, szScratch );
 		TestM3PlayersAndUnitCreation( pSession, szScratch );
 		TestM3CheckMap( pSession, szScratch );
