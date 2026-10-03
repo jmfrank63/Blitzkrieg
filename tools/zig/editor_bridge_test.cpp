@@ -5120,6 +5120,12 @@ static void TestM3MultiSelect( BkEditorSession *pSession, const std::string &szS
 	Check( BkEditorRedoEdit( pSession, nToken ) == BK_EDITOR_OK, "and redoes" );
 	Check( BkEditorUndoEdit( pSession, nToken ) == BK_EDITOR_OK, "and back once more" );
 
+	// WR-C05: a count with no array behind it, or a negative one, is BAD_ARGUMENT before the
+	// duplicate scan reads the array.
+	nToken = -1;
+	Check( BkEditorMoveObjects( pSession, 0, 2, 32.0f, 0.0f, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "a null array with a count of 2 is BAD_ARGUMENT" );
+	Check( BkEditorMoveObjects( pSession, members, -1, 32.0f, 0.0f, &nToken ) == BK_EDITOR_BAD_ARGUMENT, "a negative count is BAD_ARGUMENT" );
+
 	// One member that would leave the map refuses the whole move, whatever
 	// the other two asked for.
 	const int nBad[3] = { members[0], members[1], members[2] };

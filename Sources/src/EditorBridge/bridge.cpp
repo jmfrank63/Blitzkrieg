@@ -791,6 +791,10 @@ BkEditorStatus BkEditorMoveObjects( BkEditorSession *pSession, const int *pnLink
 			return BK_EDITOR_BAD_ARGUMENT;
 		if ( !std::isfinite( fDx ) || !std::isfinite( fDy ) )
 			return BK_EDITOR_BAD_ARGUMENT;
+		// The loop below reads pnLinkIDs[0..nCount): a count with no array behind it is the caller's
+		// bug, answered before anything is read.
+		if ( nCount < 0 || ( nCount > 0 && pnLinkIDs == 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
 		// A link ID named twice is the caller's bug - the move cannot say
 		// which copy it meant - and is answered before anything is looked up.
 		for ( int i = 0; i < nCount; ++i )
