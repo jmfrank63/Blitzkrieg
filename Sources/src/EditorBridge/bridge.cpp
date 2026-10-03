@@ -569,6 +569,16 @@ BkEditorStatus BkEditorOpenMap( BkEditorSession *pSession, const char *pszPath, 
 	return status;
 }
 
+namespace {
+// A map position the engine can be asked for. IAIEditor::MoveObject takes shorts, so a NaN or
+// anything beyond about +/-32768 collapses to one garbage value (ToEngineCoord), the readback
+// converts the request the same way and agrees with it, and the map would keep the request.
+bool IsUsableCoordinate( float f )
+{
+	return std::isfinite( f ) && std::fabs( f ) <= 32000.0f;
+}
+}
+
 BkEditorStatus BkEditorAddObject( BkEditorSession *pSession, const char *pszName,
                                   float x, float y, int nDir, int nPlayer, int *pnLinkID )
 {
@@ -577,6 +587,8 @@ BkEditorStatus BkEditorAddObject( BkEditorSession *pSession, const char *pszName
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		if ( pszName == 0 || *pszName == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !IsUsableCoordinate( x ) || !IsUsableCoordinate( y ) )
 			return BK_EDITOR_BAD_ARGUMENT;
 		if ( !pSession->bMapOpen )
 		{
@@ -611,6 +623,8 @@ BkEditorStatus ChangeOneField( BkEditorSession *pSession, int nLinkID, int nWhic
 	}
 	CVec3 vPos = pObject->vPos;
 	int nDir = pObject->nDir, nPlayer = pObject->nPlayer;
+	if ( nWhich == 0 && ( !IsUsableCoordinate( x ) || !IsUsableCoordinate( y ) ) )
+		return BK_EDITOR_BAD_ARGUMENT;
 	if ( nWhich == 0 ) { vPos.x = x; vPos.y = y; }
 	else if ( nWhich == 1 ) nDir = nValue;
 	else nPlayer = nValue;
@@ -625,6 +639,8 @@ BkEditorStatus BkEditorPlaceObject( BkEditorSession *pSession, int nLinkID, floa
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
+		if ( !IsUsableCoordinate( x ) || !IsUsableCoordinate( y ) )
+			return BK_EDITOR_BAD_ARGUMENT;
 		if ( !pSession->bMapOpen )
 		{
 			pSession->szMessage = "no map is open";
