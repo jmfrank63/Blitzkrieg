@@ -1123,22 +1123,35 @@ fn scriptIdIs(state: *State, arg: []const u8) Outcome {
 // the tool and a BK_EDITOR_AUTO `do=` run the same code.
 // ---------------------------------------------------------------------------
 
-/// `do=wheel_turn:<degrees>`: the wheel's answer - the placer's placement
-/// angle becomes `degrees` (0 east, counter-clockwise, the MFC's own dial),
-/// and every selected object turns to face it, as the MFC frame turns each
-/// selected object to the wheel's angle (TemplateEditorFrame1.cpp:1053-1090).
-/// The frames of one drag over the dial share `state.wheel_gesture`, so the
-/// whole drag is ONE undo step; a scripted call (gesture 0) is a step of
-/// its own.
+/// `do=wheel_turn:<degrees>`: the wheel is turned to `degrees` (0 east,
+/// counter-clockwise, the MFC's own dial). The placer's placement angle
+/// follows the wheel - it becomes `degrees`, the ghost with it - and every
+/// selected object turns BY THE DELTA, the wheel's turn from where it stood
+/// (`logic.wheelDeltaDegrees`, the short way round), each keeping its own
+/// angle offset: the user's ruling of 2026-10-03, and the 05-04 plan's own
+/// text (the MFC frame set every object TO the wheel's angle,
+/// TemplateEditorFrame1.cpp:1053-1090, which 05-04 first shipped). The frames
+/// of one drag over the dial share `state.wheel_gesture`, so the whole drag is
+/// ONE undo step and its delta is the whole turn since the grab
+/// (`state.wheel_turned`); a scripted call (gesture 0) is a step of its own,
+/// a turn from the wheel's last angle.
 fn wheelTurn(state: *State, arg: []const u8) Outcome {
     const degrees = std.fmt.parseInt(i32, arg, 10) catch return .bad_arg;
     if (degrees < 0 or degrees >= 360) return .bad_arg;
+    const delta = logic.wheelDeltaDegrees(logic.wheelDegreesOfDirection(state.view.placer.dir), degrees);
     state.view.placer.dir = logic.degreesToDirection(@floatFromInt(degrees));
     if (!panels.mapIsOpen(state.editor)) return .ok;
     const members = state.editor.selectionMembers(state.allocator) catch return .refused;
     defer state.allocator.free(members);
     if (members.len == 0) return .ok;
-    return resultOutcome(state, state.editor.turnSelection(members, @floatFromInt(degrees), state.wheel_gesture));
+    // A drag keeps its running total so every frame turns from the directions the
+    // drag began with; a scripted turn is its own whole.
+    var turned = delta;
+    if (state.wheel_gesture != 0) {
+        state.wheel_turned += delta;
+        turned = state.wheel_turned;
+    }
+    return resultOutcome(state, state.editor.rotateSelection(members, @floatFromInt(turned), state.wheel_gesture));
 }
 
 /// `do=damage_percent:<p>`: the Damage tool's percentage (0..100).

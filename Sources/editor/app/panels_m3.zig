@@ -426,8 +426,12 @@ pub fn drawDamageTool(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.I
 
 /// The direction wheel (M3, D-28/PARITY O6): the MFC CDirectionButton as a
 /// drawn dial in the palette - a drag over it reads the angle (the MFC's
-/// atan2 with y up) through the `wheel_turn` command, which sets the
-/// placer's placement angle and turns the selection with it. Q/E keep their
+/// atan2 with y up) through the `wheel_turn` command. The placer's placement
+/// angle follows the wheel (the needle goes to the pointer, the ghost with it)
+/// and the selection turns BY THE DELTA of the drag, each object keeping its
+/// own angle offset (the user's ruling of 2026-10-03; the MFC set every object
+/// TO the wheel's angle). Pressing on the dial only GRABS it: the needle goes
+/// to the pointer and nothing turns until the pointer moves. Q/E keep their
 /// own M1 behaviour beside it. `input_width` is the width the filter input
 /// gave up on the shared row: the wheel hangs beside it, so the rows below
 /// keep the heights the M1 reference frames were captured with.
@@ -451,20 +455,26 @@ pub fn drawDirectionWheel(state: *State, input_width: f32) void {
     ig.ImDrawList_AddLineEx(draw_list, .{ .x = centre[0], .y = centre[1] }, .{ .x = tip[0], .y = tip[1] }, ig.igColorConvertFloat4ToU32(.{ .x = 1, .y = 0.9, .z = 0.2, .w = 1 }), 2.5);
 
     // One drag over the dial is one gesture: its frames' turns of the
-    // selection merge into ONE undo step (`wheel_turn` reads the gesture).
-    if (ig.igIsItemActivated()) state.wheel_gesture = state.editor.beginGesture();
+    // selection merge into ONE undo step (`wheel_turn` reads the gesture). The
+    // press grabs the dial where the pointer is - the needle (the placer's
+    // angle) goes there, the selection stays - and the turn counted from then.
+    if (ig.igIsItemActivated()) {
+        state.wheel_gesture = state.editor.beginGesture();
+        state.wheel_turned = 0;
+        const mouse = ig.igGetIO().*.MousePos;
+        state.view.placer.dir = logic.degreesToDirection(@floatFromInt(logic.wheelAngleDegrees(centre, .{ mouse.x, mouse.y })));
+    }
     if (active and ig.igIsMouseDown(0)) {
         const mouse = ig.igGetIO().*.MousePos;
         const angle = logic.wheelAngleDegrees(centre, .{ mouse.x, mouse.y });
-        const old_angle: i32 = @intFromFloat(logic.directionToDegrees(state.view.placer.dir));
-        if (angle != @mod(old_angle, 360)) {
+        if (angle != logic.wheelDegreesOfDirection(state.view.placer.dir)) {
             var buffer: [16:0]u8 = undefined;
             _ = commands.run(state, "wheel_turn", std.fmt.bufPrintZ(&buffer, "{d}", .{angle}) catch "");
         }
     }
     if (!active) state.wheel_gesture = 0;
     if (hovered) {
-        ig.igSetTooltip("Direction: drag to set the placement angle; turns the selection too");
+        ig.igSetTooltip("Direction: drag to set the placement angle; turns the selection by the drag");
     }
 }
 

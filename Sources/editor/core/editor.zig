@@ -115,6 +115,13 @@ pub const Editor = struct {
     /// further undo and redo is refused with one clear message instead of
     /// failing on the same entry forever (WR-B01). An open or a close clears it.
     replay_broken: bool = false,
+    /// The direction wheel's gesture (`rotateSelection`): the gesture's id, the
+    /// members it turns and the direction each had when the gesture began. Every
+    /// frame of the drag computes from these, so the turn is exact however many
+    /// frames it took. A new gesture (or a scripted turn, gesture 0) captures its own.
+    rotate_gesture: u32 = 0,
+    rotate_links: std.ArrayListUnmanaged(i32) = .empty,
+    rotate_dirs: std.ArrayListUnmanaged(i32) = .empty,
 
     pub fn init(allocator: std.mem.Allocator, b: Bridge) Editor {
         return .{ .allocator = allocator, .bridge = b };
@@ -125,6 +132,8 @@ pub const Editor = struct {
         self.history.deinit(self.allocator);
         self.filters.deinit(self.allocator);
         self.selection_set.deinit(self.allocator);
+        self.rotate_links.deinit(self.allocator);
+        self.rotate_dirs.deinit(self.allocator);
         var backed_up_keys = self.backed_up.keyIterator();
         while (backed_up_keys.next()) |key| self.allocator.free(key.*);
         self.backed_up.deinit(self.allocator);
@@ -681,23 +690,53 @@ pub const Editor = struct {
     /// and keeps what applied (each member's edit is its own whole token,
     /// the MFC's own per-object multi set), and the status names it.
     pub fn applyObjectFieldsMany(self: *Editor, links: []const i32, fields: bridge_mod.ObjectFieldsEdit) EditError!void {
-        return self.applyObjectFieldsInGesture(links, fields, 0);
+        return self.applyObjectFieldsEach(links, &.{fields}, 0);
     }
 
-    /// The direction wheel's turn of the selection (M3, D-28/PARITY O6):
-    /// every member faces `degrees` - the MFC frame's own answer to the
-    /// wheel (TemplateEditorFrame1.cpp:1053-1090 turns each selected object,
-    /// a soldier's formation for him, to the wheel's angle) - through the
-    /// properties' angle field, so the record's direction is the MFC's own
-    /// degrees formula. The calls of one drag (`gesture`) merge into ONE
-    /// undo step, the way the group move's do; `gesture` 0 is a step of its
-    /// own. A member already facing there records nothing.
-    pub fn turnSelection(self: *Editor, links: []const i32, degrees: f32, gesture: u32) EditError!void {
-        if (!std.math.isFinite(degrees)) return error.Refused;
-        return self.applyObjectFieldsInGesture(links, .{ .mask = bridge_mod.ObjectFieldsEdit.angle_bit, .angle = degrees }, gesture);
+    /// The direction wheel's turn of the selection (M3, D-28/PARITY O6). The
+    /// wheel turns BY THE DELTA - the 05-04 plan's own text, and the user's
+    /// ruling of 2026-10-03 (a delta is easier for modders to reason about; the
+    /// MFC frame set every selected object to the wheel's angle, which 05-04
+    /// first shipped): every member of `links` faces the direction it had when
+    /// the gesture began plus `delta_degrees`, so the members keep their own
+    /// offsets from one another. `delta_degrees` is the whole turn since the
+    /// gesture began (counter-clockwise on screen, the wheel's sense), not the
+    /// last frame's: the starting directions are kept per gesture and every
+    /// frame computes from them, so a long drag does not drift by the rounding
+    /// of its frames and turning back to where it began restores each object
+    /// exactly. It goes through the properties' angle field with degrees that
+    /// are exactly the wanted direction, so the record holds that direction and
+    /// no other. The calls of one drag (`gesture`) merge into ONE undo step, the
+    /// way the group move's do; `gesture` 0 is a step of its own. A member
+    /// already facing there records nothing.
+    pub fn rotateSelection(self: *Editor, links: []const i32, delta_degrees: f32, gesture: u32) EditError!void {
+        if (!std.math.isFinite(delta_degrees)) return error.Refused;
+        if (links.len == 0) return;
+        for (links) |link_id| {
+            if (self.document.find(link_id) == null) return error.Failed;
+        }
+        const same_gesture = gesture != 0 and gesture == self.rotate_gesture and std.mem.eql(i32, links, self.rotate_links.items);
+        if (!same_gesture) {
+            self.rotate_gesture = 0;
+            self.rotate_links.clearRetainingCapacity();
+            self.rotate_dirs.clearRetainingCapacity();
+            try self.rotate_links.appendSlice(self.allocator, links);
+            for (links) |link_id| try self.rotate_dirs.append(self.allocator, self.document.find(link_id).?.dir);
+            self.rotate_gesture = gesture;
+        }
+        const turn_units: i32 = @intFromFloat(@round(@mod(delta_degrees, 360.0) * 65536.0 / 360.0));
+        const edits = try self.allocator.alloc(bridge_mod.ObjectFieldsEdit, links.len);
+        defer self.allocator.free(edits);
+        for (edits, self.rotate_dirs.items) |*edit, start| {
+            const target = @mod(start + turn_units, 65536);
+            edit.* = .{ .mask = bridge_mod.ObjectFieldsEdit.angle_bit, .angle = @as(f32, @floatFromInt(target)) * 360.0 / 65536.0 };
+        }
+        return self.applyObjectFieldsEach(links, edits, gesture);
     }
 
-    fn applyObjectFieldsInGesture(self: *Editor, links: []const i32, fields: bridge_mod.ObjectFieldsEdit, gesture: u32) EditError!void {
+    /// `fields` is one edit for every member, or one per member.
+    fn applyObjectFieldsEach(self: *Editor, links: []const i32, fields: []const bridge_mod.ObjectFieldsEdit, gesture: u32) EditError!void {
+        std.debug.assert(fields.len == 1 or fields.len == links.len);
         if (links.len == 0) return;
         for (links) |link_id| {
             if (self.document.find(link_id) == null) return error.Failed;
@@ -710,9 +749,9 @@ pub const Editor = struct {
             try prepared.tokens.ensureTotalCapacity(self.allocator, links.len);
         }
         var applied: usize = 0;
-        for (links) |link_id| {
+        for (links, 0..) |link_id, index| {
             var token: i32 = -1;
-            const outcome = self.bridge.setObjectFields(link_id, &fields, &token);
+            const outcome = self.bridge.setObjectFields(link_id, &fields[if (fields.len == 1) 0 else index], &token);
             if (outcome != .ok) {
                 // The status carries the refusal. Nothing applied yet: the
                 // refusal is the commit's answer; some members applied: a

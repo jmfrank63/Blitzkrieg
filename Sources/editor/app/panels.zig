@@ -731,6 +731,10 @@ pub const State = struct {
     /// undo step (0 between drags: a scripted `do=wheel_turn` is a step of
     /// its own).
     wheel_gesture: u32 = 0,
+    /// The whole turn, in degrees, the drag has made since it grabbed the dial:
+    /// the selection turns by this from the directions it had at the grab, so
+    /// every frame is exact (0 at the grab).
+    wheel_turned: i32 = 0,
     groups: std.ArrayListUnmanaged(GroupRow) = .empty,
     groups_generation_seen: ?u32 = null,
     /// The groups the map held when it opened, for `groups_delta`.

@@ -609,7 +609,9 @@ pub fn directionToDegrees(direction: i32) f32 {
 /// the dial's centre, as the MFC CDirectionButton reads it -
 /// `atan2(cy, cx)` with y up (DirectionButton.cpp:104-113) - as whole
 /// degrees 0..359, 0 at east and turning counter-clockwise on screen like
-/// the MFC's. Nothing here snaps: the MFC's wheel does not either.
+/// the MFC's. Nothing here snaps: the MFC's wheel does not either. It is the
+/// WHEEL's angle - the placer's placement angle follows it; what the wheel
+/// turns the selection by is `wheelDeltaDegrees` of two of these.
 pub fn wheelAngleDegrees(centre: [2]f32, point: [2]f32) i32 {
     const dx = point[0] - centre[0];
     const dy = centre[1] - point[1]; // y up, the MFC's own flip
@@ -618,6 +620,26 @@ pub fn wheelAngleDegrees(centre: [2]f32, point: [2]f32) i32 {
     if (degrees < 0) degrees += 360.0;
     // 359.6 rounds to 360, which is 0 again.
     return @mod(@as(i32, @intFromFloat(degrees + 0.5)), 360);
+}
+
+/// The turn from one wheel angle to another, in whole degrees, the short way
+/// round: -179..180, positive counter-clockwise on screen (the wheel's sense).
+/// The direction wheel turns the selection BY THIS (the user's ruling of
+/// 2026-10-03, and the 05-04 plan's own text; not TO the angle as the MFC does):
+/// a drag across the 359/0 seam is a turn of a degree or two, never of 359. A
+/// half turn is +180.
+pub fn wheelDeltaDegrees(from: i32, to: i32) i32 {
+    const turn = @mod(to - from, 360);
+    return if (turn > 180) turn - 360 else turn;
+}
+
+/// The wheel's angle for a placement direction (a turn is 65536): whole
+/// degrees 0..359, rounded - the inverse of `degreesToDirection` on the
+/// wheel's own whole degrees, and the nearest degree for a direction the
+/// Q and E keys left between two.
+pub fn wheelDegreesOfDirection(direction: i32) i32 {
+    const degrees: f32 = @as(f32, @floatFromInt(@mod(direction, 65536))) * 360.0 / 65536.0;
+    return @mod(@as(i32, @intFromFloat(@round(degrees))), 360);
 }
 
 const normalizeForCompare = core.shipped.normalizeForCompare;
@@ -1845,6 +1867,45 @@ test "the direction wheel reads the drag angle the MFC's way: y up, whole degree
     try std.testing.expectEqual(@as(i32, 0), wheelAngleDegrees(.{ 50, 50 }, .{ 50, 50 }));
     // Just below east rounds up to 360, which is 0: never out of 0..359.
     try std.testing.expectEqual(@as(i32, 0), wheelAngleDegrees(.{ 50, 50 }, .{ 150, 50.5 }));
+}
+
+test "the direction wheel turns by the delta: the short way round, across the seam, a half turn is +180" {
+    try std.testing.expectEqual(@as(i32, 0), wheelDeltaDegrees(90, 90));
+    try std.testing.expectEqual(@as(i32, 90), wheelDeltaDegrees(0, 90));
+    try std.testing.expectEqual(@as(i32, -90), wheelDeltaDegrees(90, 0));
+    // Across the 359/0 seam: a degree or two, never a near-full turn.
+    try std.testing.expectEqual(@as(i32, 2), wheelDeltaDegrees(359, 1));
+    try std.testing.expectEqual(@as(i32, -2), wheelDeltaDegrees(1, 359));
+    try std.testing.expectEqual(@as(i32, 180), wheelDeltaDegrees(0, 180));
+    try std.testing.expectEqual(@as(i32, 180), wheelDeltaDegrees(180, 0));
+    try std.testing.expectEqual(@as(i32, -179), wheelDeltaDegrees(0, 181));
+    // The frames of a drag add up to the turn since the grab: 350 -> 10 -> 30 -> 350 is 0.
+    const frames = [_]i32{ 350, 10, 30, 350 };
+    var turned: i32 = 0;
+    for (frames[1..], 0..) |angle, index| turned += wheelDeltaDegrees(frames[index], angle);
+    try std.testing.expectEqual(@as(i32, 0), turned);
+    // A drag a full circle round adds up to 360 when taken in steps under a half turn.
+    var circle: i32 = 0;
+    var angle: i32 = 0;
+    for (0..12) |_| {
+        const next = @mod(angle + 30, 360);
+        circle += wheelDeltaDegrees(angle, next);
+        angle = next;
+    }
+    try std.testing.expectEqual(@as(i32, 360), circle);
+}
+
+test "the wheel's angle of a placement direction is the whole degree it was set from" {
+    // degreesToDirection and back, on every whole degree the wheel reads.
+    var degrees: i32 = 0;
+    while (degrees < 360) : (degrees += 1) {
+        try std.testing.expectEqual(degrees, wheelDegreesOfDirection(degreesToDirection(@floatFromInt(degrees))));
+    }
+    // A direction between two degrees reads as the nearest, and one past a turn wraps.
+    try std.testing.expectEqual(@as(i32, 0), wheelDegreesOfDirection(0));
+    try std.testing.expectEqual(@as(i32, 90), wheelDegreesOfDirection(65536 / 4));
+    try std.testing.expectEqual(@as(i32, 0), wheelDegreesOfDirection(65535));
+    try std.testing.expectEqual(@as(i32, 90), wheelDegreesOfDirection(65536 + 65536 / 4));
 }
 
 test "isShippedMap: Data and mods/*/data are shipped, relative or absolute, separators and case ignored" {
