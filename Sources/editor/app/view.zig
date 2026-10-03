@@ -155,6 +155,10 @@ pub fn ViewWith(comptime Input: type) type {
         /// lands on a selection; main.zig's loop opens the Properties window
         /// and clears it.
         props_open_request: bool = false,
+        /// Select only (WR-A07): the second click of a quick pair that did not
+        /// land on the selected object is an ordinary press and release, not a
+        /// double click; set on its press, spent on its release.
+        second_click_single: bool = false,
         /// The same for the middle button in the Heights tool (M3, D-18) -
         /// or for Alt+left there (`middle_via_alt`), the trackpad's stand-in
         /// for a middle button the MFC editor levels with. In every other
@@ -419,6 +423,18 @@ pub fn ViewWith(comptime Input: type) type {
             gop.value_ptr.* = .{ .camera_x = self.camera_x, .camera_y = self.camera_y, .zoom_steps = self.zoom_steps };
         }
 
+        /// Whether the second click of a quick pair, in Select, is a double
+        /// click proper: it lands on the object the first click selected, and
+        /// neither Ctrl nor Shift is held (those toggle and extend the
+        /// selection). A click that cannot resolve keeps the old reading.
+        fn isSelectDoubleClick(self: *Self, editor: *Editor, button: anytype) bool {
+            _ = self;
+            if (Input.modState() & (sdl3.c.SDL_KMOD_CTRL | sdl3.c.SDL_KMOD_SHIFT) != 0) return false;
+            const pointer = editor.resolve(button.x, button.y) catch return true;
+            const object = pointer.object orelse return false;
+            return editor.isSelected(object);
+        }
+
         /// An event `main.zig` decided (through `inputKindOf`/`shouldDeliver`)
         /// belongs to the view. Any edit's outcome goes through
         /// `noteEditResult`: a refusal is left to the editor's own status, a
@@ -441,7 +457,20 @@ pub fn ViewWith(comptime Input: type) type {
                         return;
                     }
                     const spec = tool_registry.entry(self.tool);
-                    const kind = view_math.kindOf(.{ .button = button.button, .down = button.down, .clicks = button.clicks, .wants_double_click = spec.needs_double_click }) orelse return;
+                    var clicks = button.clicks;
+                    // WR-A07: SDL counts a click as the second of a pair within
+                    // 500 ms and 32 px wherever it lands. In Select a double
+                    // click means "open the selection's Properties", so only
+                    // one on the selected object, without Ctrl or Shift, is
+                    // one; any other (a neighbouring object, a Ctrl+click while
+                    // multi-selecting) must still reach the tool as a press
+                    // and a release.
+                    if (button.button == view_math.sdl_button_left and self.tool == .select and clicks == 2) {
+                        if (button.down) self.second_click_single = !self.isSelectDoubleClick(editor, button);
+                        if (self.second_click_single) clicks = 1;
+                        if (!button.down) self.second_click_single = false;
+                    }
+                    const kind = view_math.kindOf(.{ .button = button.button, .down = button.down, .clicks = clicks, .wants_double_click = spec.needs_double_click }) orelse return;
                     switch (kind) {
                         .press => {
                             // A press that cannot resolve starts no gesture: the
@@ -1892,6 +1921,31 @@ test "view: in Select a double click, Enter or Space on a selection asks for the
     rig.view.props_open_request = false;
     rig.send(keyDown(sdl3.c.SDLK_SPACE, 0, false));
     try testing.expect(rig.view.props_open_request);
+}
+
+test "view: in Select the second click of a quick pair on another object selects it and asks for no Properties window (WR-A07)" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expectEqual(@as(?i32, 1), rig.editor.selection);
+    // The second click of the pair lands on the neighbouring object (the
+    // span at 100,40): an ordinary press and release, not a double click.
+    rig.send(doubleClickDown(100, 40));
+    var up = mouseButton(button_left, false, 100, 40);
+    up.button.clicks = 2;
+    rig.send(up);
+    try testing.expectEqual(@as(?i32, 2), rig.editor.selection);
+    try testing.expect(!rig.view.props_open_request);
+    try testing.expect(!rig.view.second_click_single);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    // On the selected object itself it is still a double click.
+    rig.send(doubleClickDown(100, 40));
+    var again = mouseButton(button_left, false, 100, 40);
+    again.button.clicks = 2;
+    rig.send(again);
+    try testing.expect(rig.view.props_open_request);
+    try testing.expectEqual(@as(?i32, 2), rig.editor.selection);
 }
 
 test "view: the registry's shortcuts still switch the M1 tools" {
