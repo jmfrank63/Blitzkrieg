@@ -60,6 +60,7 @@ const crt = @import("crt.zig");
 const smoke = @import("smoke.zig");
 const auto_mod = @import("auto.zig");
 const testlaunch = @import("testlaunch.zig");
+const single_instance = @import("single_instance.zig");
 const game_reads_common = @import("game_reads_common.zig");
 const game_reads_m2 = @import("game_reads_m2.zig");
 const game_reads_m3 = @import("game_reads_m3.zig");
@@ -117,6 +118,11 @@ const probe_frames = 10;
 /// A tile's side in world units: fWorldCellSize (Formats/fmtTerrain.h), 32 * sqrt(2).
 /// Shared with view.zig so the two never drift apart.
 const world_cell_size: f32 = view_mod.world_cell_size;
+
+/// A second launch asks the first one's socket and is, normally, refused when
+/// nobody listens there (single_instance.zig); `Io.Threaded` reports that
+/// answer through `unexpectedErrno`, which would dump a stack trace in Debug.
+pub const std_options: std.Options = .{ .unexpected_error_tracing = false };
 
 pub fn main(minimal: std.process.Init.Minimal) !void {
     crt.routeCrtReportsToStderr();
@@ -235,6 +241,11 @@ const applyModArg = game_reads_common.applyModArg;
 /// failed - `main` turns that into exit code 1; a plain interactive session
 /// always returns true.
 fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8, mod_folder: ?[]const u8, mod_requested: bool, hidden: bool) !bool {
+    // 05-11 (D-34, PARITY F13): before the window and the engine exist - a second
+    // launch hands its map to the running editor and exits here; the first one
+    // goes on and answers on its socket for as long as it runs.
+    const instance = acquireInstance(gpa, io, environ, map);
+    defer if (instance) |owner| owner.deinit();
     var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = hidden }) catch |err| {
         const reason = host_mod.failureReason();
         fatal(startupStepName(err), if (reason.len != 0) reason else @errorName(err));
@@ -336,7 +347,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         } else |_| {}
     }
 
-    run(&host, &editor, &view, &real, &state, if (auto_runner) |*r| smoke.Driver{ .auto = r } else null, settings_path, !automated);
+    run(&host, &editor, &view, &real, &state, if (auto_runner) |*r| smoke.Driver{ .auto = r } else null, settings_path, !automated, instance);
     // A plain return, not std.process.exit, so the deferred view.deinit(),
     // editor.deinit() and host.stop() above run: host.stop() takes the
     // overlay and ImGui down, BkEditorStop deletes the world, and the window
@@ -361,6 +372,59 @@ fn enableLayoutPersistence(io: std.Io, settings_path: ?[]const u8) void {
     const path = std.fmt.bufPrintZ(&layout_ini_path, "{s}{c}layout.ini", .{ folder, std.fs.path.sep }) catch return;
     std.Io.Dir.cwd().createDirPath(io, folder) catch return;
     imgui.c.igGetIO().*.IniFilename = path.ptr;
+}
+
+/// Takes the single-instance endpoint, or hands this launch's map to the editor
+/// that has it and exits 0. Null (an editor with no single-instance socket) for
+/// the automated runs (BK_EDITOR_AUTO), under BK_EDITOR_NO_SINGLE_INSTANCE, and
+/// when no endpoint can be had - never a reason not to start.
+fn acquireInstance(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8) ?*single_instance.Instance {
+    for ([_][]const u8{ "BK_EDITOR_AUTO", "BK_EDITOR_NO_SINGLE_INSTANCE" }) |name| {
+        if (environ.getAlloc(gpa, name)) |value| {
+            gpa.free(value);
+            return null;
+        } else |_| {}
+    }
+    // The line to hand over: this launch's map as an absolute OS path (the
+    // running editor's working directory is not ours), or nothing - which
+    // only brings its window forward.
+    var line_buffer: [single_instance.max_line + 2]u8 = undefined;
+    var absolute_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+    const nothing = single_instance.frameLine(&line_buffer, "").?;
+    const line: []const u8 = blk: {
+        const typed = map orelse break :blk nothing;
+        var cwd_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const cwd_len = std.process.currentPath(io, &cwd_buffer) catch break :blk nothing;
+        const absolute = panels_logic.absoluteFromLaunchDir(&absolute_buffer, cwd_buffer[0..cwd_len], typed) orelse break :blk nothing;
+        var framed: [single_instance.max_line + 2]u8 = undefined;
+        const text = single_instance.frameLine(&framed, absolute) orelse break :blk nothing;
+        @memcpy(line_buffer[0..text.len], text);
+        break :blk line_buffer[0..text.len];
+    };
+    switch (single_instance.acquire(gpa, io, environ, line, .{})) {
+        .primary => |owner| return owner,
+        .handed_off => {
+            std.debug.print("map-editor: handed over to the running editor\n", .{});
+            std.process.exit(0);
+        },
+        .unavailable => |why| {
+            std.debug.print("map-editor: single instance is off: {s}\n", .{why});
+            return null;
+        },
+    }
+}
+
+/// One line from a second launch per frame: the window comes forward (and back
+/// from a minimise), and a path opens through the unsaved-changes guard.
+fn pollInstance(box: *single_instance.Instance, state: *panels.State, window: *sdl3.c.SDL_Window) void {
+    var out: [single_instance.max_line]u8 = undefined;
+    const received = box.poll(&out) orelse return;
+    _ = sdl3.c.SDL_RestoreWindow(window);
+    _ = sdl3.c.SDL_RaiseWindow(window);
+    switch (received) {
+        .raise => {},
+        .open => |path| panels.openFromSecondInstance(state, path),
+    }
 }
 
 /// `<user_root>mapeditor/mapeditor.cfg`, or `BK_EDITOR_SETTINGS` when the
@@ -424,7 +488,11 @@ fn writeSettingsFile(io: std.Io, path: []const u8, settings: *const core.setting
 ///
 /// `driver`: `.table` for --smoke's fixed script, `.auto` for BK_EDITOR_AUTO's
 /// parsed schedule (smoke.zig's `Driver`) - null for a plain interactive run.
-fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, real: *c_bridge.RealBridge, state: *panels.State, driver: ?smoke.Driver, settings_path: ?[]const u8, is_interactive: bool) void {
+///
+/// `inbox`, the interactive mode's single-instance socket (05-11): once a frame
+/// the loop takes the oldest path a second launch handed over and opens it
+/// through the same guard as a dropped file.
+fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, real: *c_bridge.RealBridge, state: *panels.State, driver: ?smoke.Driver, settings_path: ?[]const u8, is_interactive: bool, inbox: ?*single_instance.Instance) void {
     var running = true;
     var last_ticks: u64 = sdl3.c.SDL_GetTicks();
     while (running) {
@@ -458,6 +526,7 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
                 },
             }
         }
+        if (inbox) |box| pollInstance(box, state, host.window);
         const ticks = sdl3.c.SDL_GetTicks();
         const dt_seconds = @as(f32, @floatFromInt(ticks -% last_ticks)) / 1000.0;
         last_ticks = ticks;
@@ -559,7 +628,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     imgui.c.bk_imgui_backend_use_global_mouse(false);
 
     var script = smoke.Script.init(&editor, &view, &real, &state, host.window, output);
-    run(&host, &editor, &view, &real, &state, smoke.Driver{ .table = &script }, null, false);
+    run(&host, &editor, &view, &real, &state, smoke.Driver{ .table = &script }, null, false, null);
     if (!script.passed) {
         // A step that failed has said so; a loop that ended otherwise (a
         // quit event) has not.
