@@ -27,10 +27,12 @@
 //! temporary folder, named after a hash of the user root.
 //!
 //! A stale or hung peer never blocks a start (T-05-11-02): connecting to a
-//! socket file nobody listens on fails; one whose owner is hung answers
+//! socket file nobody listens on fails; one whose accept thread is hung answers
 //! nothing within `timeout_ms`. Either way the second launch removes that one
 //! socket file (a per-user path, never anything else), binds a fresh one and
-//! starts normally.
+//! starts normally. A listener that accepted the connection and then closed it
+//! unanswered, or said `busy`, is alive: the second launch leaves its socket
+//! file alone and starts without single-instance instead (WR-A01).
 //!
 //! Threads: the owner's accept loop runs on its own thread and hands each
 //! connection to a thread of its own (four at most), which answers `ok` as soon
@@ -273,7 +275,9 @@ pub const Instance = struct {
             // Each connection on its own thread: a client that connects and says
             // nothing must not keep the accept loop from the next launch.
             if (self.connections.load(.acquire) >= max_connections) {
-                stream.close(self.io);
+                // Said, not just closed: a launch that heard nothing would call
+                // this live owner stale (WR-A01).
+                answerAndClose(self.io, stream, "busy\n");
                 continue;
             }
             _ = self.connections.fetchAdd(1, .acq_rel);
@@ -298,19 +302,35 @@ pub const Instance = struct {
         defer _ = watchdog.finish();
         var read_buffer: [max_line + 2]u8 = undefined;
         var reader = stream.reader(self.io, &read_buffer);
-        const line = reader.interface.takeDelimiterExclusive('\n') catch return;
+        const line = reader.interface.takeDelimiterExclusive('\n') catch |err| {
+            // A line longer than the buffer is a hostile client that is still
+            // connected: it is told no. Anything else (it left, the watchdog cut
+            // it) has nobody to answer.
+            if (err == error.StreamTooLong) writeAnswer(self.io, stream, "no\n");
+            return;
+        };
         // Our own wake-up connection (deinit) sends nothing and is closed.
         if (self.stopping.load(.acquire)) return;
         const answer: []const u8 = blk: {
             const request = parseLine(line) orelse break :blk "no\n";
             break :blk if (self.enqueue(request)) "ok\n" else "no\n";
         };
-        var write_buffer: [8]u8 = undefined;
-        var writer = stream.writer(self.io, &write_buffer);
-        writer.interface.writeAll(answer) catch return;
-        writer.interface.flush() catch return;
+        writeAnswer(self.io, stream, answer);
     }
 };
+
+/// One short answer, flushed; a client that is gone is not an error.
+fn writeAnswer(io: Io, stream: net.Stream, answer: []const u8) void {
+    var write_buffer: [8]u8 = undefined;
+    var writer = stream.writer(io, &write_buffer);
+    writer.interface.writeAll(answer) catch return;
+    writer.interface.flush() catch return;
+}
+
+fn answerAndClose(io: Io, stream: net.Stream, answer: []const u8) void {
+    writeAnswer(io, stream, answer);
+    stream.close(io);
+}
 
 /// Cuts a connection that has not finished by its deadline: a thread that
 /// sleeps in small steps and, if `finish` has not been called by then, shuts
@@ -360,12 +380,21 @@ pub const Handoff = enum {
     refused,
     /// Nothing listens at the endpoint.
     no_listener,
-    /// Something accepted the connection and said nothing in time.
+    /// The connection was made and nothing came back within the timeout: a
+    /// listener that never accepts, or an accept thread that is hung.
     no_reply,
+    /// The connection was made and then closed or reset with no answer (or an
+    /// answer this protocol does not have): somebody is listening, it just did
+    /// not take the line. Not stale (WR-A01).
+    dropped,
+    /// The owner answered `busy`: it is serving its limit of connections.
+    busy,
 };
 
 /// Whether a failed hand-off means the endpoint is stale (T-05-11-02): nobody
-/// listens, or the one who does is hung. Anything the owner answered is not.
+/// listens, or the one who does never answers. Anything that connected and was
+/// closed on, or was answered, is a live listener - deleting its socket file
+/// would leave two editors with the first one unreachable (WR-A01).
 pub fn endpointIsStale(result: Handoff) bool {
     return result == .no_listener or result == .no_reply;
 }
@@ -403,7 +432,10 @@ const HandoffJob = struct {
             self.finish(.no_listener);
             return;
         };
-        var result: Handoff = .no_reply;
+        // Connected, so somebody listens: unless the deadline passes with no
+        // word at all (`handoffOnce`'s `no_reply`), a failure from here on is
+        // the peer closing on us, not an absent or hung owner.
+        var result: Handoff = .dropped;
         exchange: {
             var write_buffer: [max_line + 2]u8 = undefined;
             var writer = stream.writer(io, &write_buffer);
@@ -412,7 +444,13 @@ const HandoffJob = struct {
             var read_buffer: [16]u8 = undefined;
             var reader = stream.reader(io, &read_buffer);
             const answer = reader.interface.takeDelimiterExclusive('\n') catch break :exchange;
-            if (std.mem.eql(u8, answer, "ok")) result = .acked else if (std.mem.eql(u8, answer, "no")) result = .refused;
+            if (std.mem.eql(u8, answer, "ok")) {
+                result = .acked;
+            } else if (std.mem.eql(u8, answer, "no")) {
+                result = .refused;
+            } else if (std.mem.eql(u8, answer, "busy")) {
+                result = .busy;
+            }
         }
         stream.close(io);
         self.finish(result);
@@ -458,8 +496,9 @@ fn handoffWithRetry(io: Io, address: *const net.UnixAddress, line: []const u8, o
     var result = handoffOnce(io, address, line, options.timeout_ms);
     var tries: u8 = 0;
     // An owner that has bound but not yet begun to listen refuses once; give it
-    // a moment before the file is called stale. A hung owner is not retried.
-    while (result == .no_listener and tries < options.stale_retries) : (tries += 1) {
+    // a moment before the file is called stale. An owner at its connection limit
+    // is asked again too. A hung owner is not retried.
+    while ((result == .no_listener or result == .busy) and tries < options.stale_retries) : (tries += 1) {
         io.sleep(.fromMilliseconds(options.stale_retry_ms), .awake) catch break;
         result = handoffOnce(io, address, line, options.timeout_ms);
     }
@@ -519,7 +558,15 @@ pub fn acquireAt(gpa: std.mem.Allocator, io: Io, endpoint: []const u8, line: []c
         };
         if (!not_a_socket) {
             const result = handoffWithRetry(io, &address, line, options);
-            if (!endpointIsStale(result)) return .handed_off;
+            switch (result) {
+                .acked, .refused => return .handed_off,
+                // A live owner that did not take the line: its socket file stays,
+                // and this launch runs without single-instance rather than exit
+                // with the map unopened (WR-A01).
+                .busy => return .{ .unavailable = "the running editor is busy" },
+                .dropped => return .{ .unavailable = "the running editor did not take the line" },
+                .no_listener, .no_reply => {},
+            }
         }
         // Stale or hung: take the file away and bind our own.
         Io.Dir.cwd().deleteFile(io, endpoint) catch |err| switch (err) {
@@ -611,6 +658,9 @@ test "stale-peer policy: nobody listening and a hung owner are stale, anything a
     try std.testing.expect(endpointIsStale(.no_reply));
     try std.testing.expect(!endpointIsStale(.acked));
     try std.testing.expect(!endpointIsStale(.refused));
+    // Connected and closed on, or told busy: alive, so not stale (WR-A01).
+    try std.testing.expect(!endpointIsStale(.dropped));
+    try std.testing.expect(!endpointIsStale(.busy));
 }
 
 /// A socket path for a test: in zig-out/local-test, absolute where the platform
@@ -715,6 +765,76 @@ test "single instance: a client that connects and says nothing does not keep the
     try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, "/maps/real.bzm\n", 2000));
     var out: [max_line]u8 = undefined;
     try std.testing.expectEqualStrings("/maps/real.bzm", owner.poll(&out).?.open);
+}
+
+test "single instance: an owner at its connection limit says busy and keeps its socket (WR-A01)" {
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var endpoint_buffer: [path_capacity]u8 = undefined;
+    const endpoint = testEndpoint(io, &endpoint_buffer, "busy");
+    removeTestEndpoint(io, endpoint);
+    defer removeTestEndpoint(io, endpoint);
+    const owner = switch (acquireAt(gpa, io, endpoint, "\n", .{ .timeout_ms = 3000 })) {
+        .primary => |instance| instance,
+        else => return error.TestUnexpectedResult,
+    };
+    defer owner.deinit();
+
+    const address = try net.UnixAddress.init(endpoint);
+    // Every connection slot held by a client that says nothing.
+    var silent: [max_connections]net.Stream = undefined;
+    for (&silent) |*stream| stream.* = try address.connect(io);
+    defer for (silent) |stream| stream.close(io);
+    var waited: u32 = 0;
+    while (owner.connections.load(.acquire) < max_connections and waited < 2000) : (waited += 10) {
+        try io.sleep(.fromMilliseconds(10), .awake);
+    }
+    try std.testing.expectEqual(@as(u32, max_connections), owner.connections.load(.acquire));
+    // The next launch is told so - not left to read its silence as a dead owner.
+    try std.testing.expectEqual(Handoff.busy, handoffOnce(io, &address, "/maps/late.bzm\n", 2000));
+    switch (acquireAt(gpa, io, endpoint, "/maps/late.bzm\n", .{ .timeout_ms = 2000, .stale_retries = 0 })) {
+        .unavailable => {},
+        else => return error.TestUnexpectedResult,
+    }
+    // Its socket file is still the owner's, not removed or replaced.
+    _ = try Io.Dir.cwd().statFile(io, endpoint, .{});
+}
+
+const Closer = struct {
+    io: Io,
+    server: *net.Server,
+
+    /// Accepts one connection and closes it unanswered.
+    fn run(self: *Closer) void {
+        if (self.server.accept(self.io)) |stream| stream.close(self.io) else |_| {}
+    }
+};
+
+test "single instance: a live listener that closes on us is not stale - its socket file stays (WR-A01)" {
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var endpoint_buffer: [path_capacity]u8 = undefined;
+    const endpoint = testEndpoint(io, &endpoint_buffer, "dropped");
+    removeTestEndpoint(io, endpoint);
+    defer removeTestEndpoint(io, endpoint);
+    const address = try net.UnixAddress.init(endpoint);
+    var server = try address.listen(io, .{});
+    defer server.deinit(io);
+    var closer: Closer = .{ .io = io, .server = &server };
+    const thread = try std.Thread.spawn(.{}, Closer.run, .{&closer});
+    defer thread.join();
+
+    const result = acquireAt(gpa, io, endpoint, "/maps/a.bzm\n", .{ .timeout_ms = 2000, .stale_retries = 0 });
+    switch (result) {
+        .unavailable => {},
+        .primary => |instance| {
+            instance.deinit();
+            return error.TestUnexpectedResult;
+        },
+        .handed_off => return error.TestUnexpectedResult,
+    }
+    // Not removed, not replaced: the file is still there for the listener.
+    _ = try Io.Dir.cwd().statFile(io, endpoint, .{});
 }
 
 test "single instance: a stale socket file never blocks a start - the next launch takes the endpoint" {
