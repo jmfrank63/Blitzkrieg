@@ -2636,21 +2636,43 @@ pub const Editor = struct {
     fn replay(self: *Editor, command: *Command, forwards: bool) EditError!void {
         switch (command.*) {
             .paint => |p| {
+                // A stroke frame that fails part-way leaves the frames before it
+                // replayed in the bridge's own log: they are put back, as the
+                // `.edit` arm does, so the entry and the bridge agree again
+                // (WR-B01).
                 if (forwards) {
-                    for (p.tokens.items) |token| try self.noteOutcome(self.bridge.redoPaint(token));
+                    for (p.tokens.items, 0..) |token, done| {
+                        self.noteOutcome(self.bridge.redoPaint(token)) catch |err| {
+                            self.unwindPaints(p.tokens.items[0..done], .undo);
+                            return err;
+                        };
+                    }
                 } else {
                     var index = p.tokens.items.len;
                     while (index != 0) {
                         index -= 1;
-                        try self.noteOutcome(self.bridge.undoPaint(p.tokens.items[index]));
+                        self.noteOutcome(self.bridge.undoPaint(p.tokens.items[index])) catch |err| {
+                            self.unwindPaints(p.tokens.items[index + 1 ..], .redo);
+                            return err;
+                        };
                     }
                 }
             },
             .add => |a| if (forwards) try self.restoreInto(a.object, a.index) else try self.removeFrom(a.object.link_id),
             .delete => |d| if (forwards) try self.removeFrom(d.object.link_id) else try self.restoreInto(d.object, d.index),
             .multi_delete => |*d| {
+                // A member that fails part-way leaves the ones before it done:
+                // they go back the other way, so a retry starts where this
+                // one did (WR-B01).
                 if (forwards) {
-                    for (d.deleted.items) |record| try self.removeFrom(record.object.link_id);
+                    for (d.deleted.items, 0..) |record, done| {
+                        self.removeFrom(record.object.link_id) catch |err| {
+                            const reason = self.saveStatus();
+                            self.unwindMultiDelete(d.deleted.items[0..done], .restore);
+                            self.restoreStatus(&reason);
+                            return err;
+                        };
+                    }
                 } else {
                     // Last deleted first, each at the index its own deletion
                     // recorded: the exact reverse of the way they went.
@@ -2658,7 +2680,12 @@ pub const Editor = struct {
                     while (i != 0) {
                         i -= 1;
                         const member = d.deleted.items[i];
-                        try self.restoreInto(member.object, member.index);
+                        self.restoreInto(member.object, member.index) catch |err| {
+                            const reason = self.saveStatus();
+                            self.unwindMultiDelete(d.deleted.items[i + 1 ..], .remove);
+                            self.restoreStatus(&reason);
+                            return err;
+                        };
                     }
                 }
             },
@@ -2748,7 +2775,13 @@ pub const Editor = struct {
     /// steps in all.
     fn replayRoom(command: *const Command) usize {
         return switch (command.*) {
-            .composite => |c| @max(c.steps.items.len, 1),
+            .composite => |c| blk: {
+                var total: usize = 0;
+                for (c.steps.items) |*step| total += replayRoom(step);
+                break :blk @max(total, 1);
+            },
+            // Every member of a multi-delete comes back in one undo.
+            .multi_delete => |d| @max(d.deleted.items.len, 1),
             else => 1,
         };
     }
@@ -2797,6 +2830,74 @@ pub const Editor = struct {
 
     fn drifted(err: EditError) EditError {
         return if (err == error.Refused) error.Failed else err;
+    }
+
+    const StatusCopy = struct { buffer: [256]u8 = undefined, len: usize = 0 };
+
+    /// The status line as it is, for a rollback whose own bridge calls would
+    /// overwrite the reason it is reporting.
+    fn saveStatus(self: *const Editor) StatusCopy {
+        var copy: StatusCopy = .{ .len = self.status_len };
+        @memcpy(copy.buffer[0..self.status_len], self.status_buffer[0..self.status_len]);
+        return copy;
+    }
+
+    fn restoreStatus(self: *Editor, copy: *const StatusCopy) void {
+        @memcpy(self.status_buffer[0..copy.len], copy.buffer[0..copy.len]);
+        self.status_len = copy.len;
+    }
+
+    /// `unwindTokens` for a paint's frames: `.redo` re-applies frames an undo
+    /// took back (oldest first), `.undo` takes back frames a redo applied
+    /// (newest first). A frame that will not go back marks the history as broken.
+    fn unwindPaints(self: *Editor, tokens: []const i32, direction: Unwind) void {
+        switch (direction) {
+            .redo => for (tokens) |token| {
+                if (self.bridge.redoPaint(token) != .ok) {
+                    self.replay_broken = true;
+                    return;
+                }
+            },
+            .undo => {
+                var index = tokens.len;
+                while (index != 0) {
+                    index -= 1;
+                    if (self.bridge.undoPaint(tokens[index]) != .ok) {
+                        self.replay_broken = true;
+                        return;
+                    }
+                }
+            },
+        }
+    }
+
+    const MultiUnwind = enum { restore, remove };
+
+    /// Puts back what a failed multi-delete replay had already done:
+    /// `.restore` brings back members a redo had removed (last removed first),
+    /// `.remove` removes members an undo had restored (the one restored last
+    /// first). The caller reserved room for every member. A member that will
+    /// not go back marks the history as broken.
+    fn unwindMultiDelete(self: *Editor, members: []const history_mod.DeletedRecord, direction: MultiUnwind) void {
+        switch (direction) {
+            .restore => {
+                var back = members.len;
+                while (back != 0) {
+                    back -= 1;
+                    const member = members[back];
+                    self.restoreInto(member.object, member.index) catch {
+                        self.replay_broken = true;
+                        return;
+                    };
+                }
+            },
+            .remove => for (members) |member| {
+                self.removeFrom(member.object.link_id) catch {
+                    self.replay_broken = true;
+                    return;
+                };
+            },
+        }
     }
 
     const Unwind = enum { undo, redo };
@@ -6743,4 +6844,63 @@ test "a patch outside the storages is copied in, not refused (D-10); a bad one i
     try std.testing.expectError(error.Refused, editor.importPatch("/x/readme.txt", false, &named));
     var root: [128]u8 = undefined;
     try std.testing.expectEqualStrings("/fake/user/rmg", try editor.rmgRoot(&root));
+}
+
+test "undo of a multi-delete that fails part-way puts the restored members back and can be retried (WR-B01)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    // The tank (1) and the unknown object (3) go as one step; undo restores 3
+    // first, then 1.
+    editor.selectionReplace(&.{ 1, 3 });
+    try editor.deleteSelection();
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    // Something takes link ID 1 meanwhile, so its restore is refused.
+    var intruder: ObjectRecord = .{ .link_id = 1, .x = 10, .y = 10, .dir = 0, .player = 0 };
+    intruder.setName("T34");
+    try fake.addFixture(intruder, false);
+    const live = fake.objects_list.items.len;
+    try std.testing.expectError(error.Failed, editor.undo());
+    // The member that did come back went away again: bridge and document agree
+    // with the entry, which is still on the stack, and the history is not broken.
+    try std.testing.expectEqual(live, fake.objects_list.items.len);
+    try std.testing.expect(editor.document.find(3) == null);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expect(!editor.replay_broken);
+    try std.testing.expect(editor.status().len != 0);
+    // Out of the way, the same undo now goes through.
+    _ = fake.objects_list.pop();
+    try std.testing.expect(try editor.undo());
+    try std.testing.expect(editor.document.find(1) != null);
+    try std.testing.expect(editor.document.find(3) != null);
+    try std.testing.expect(try editor.redo());
+    try std.testing.expect(editor.document.find(1) == null);
+    try std.testing.expect(editor.document.find(3) == null);
+}
+
+test "undo of a paint stroke that fails part-way puts the undone frames back and can be retried (WR-B01)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = try openFixture(&fake);
+    defer editor.deinit();
+    const gesture = editor.beginGesture();
+    try editor.paint(&.{.{ .x = 1, .y = 1, .tile = 4 }}, gesture);
+    try editor.paint(&.{.{ .x = 2, .y = 1, .tile = 4 }}, gesture);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    // A foreign token between the stroke's frames: the second frame's undo
+    // is refused ("newest first") after the first one went.
+    const newest = fake.applied.pop().?;
+    try fake.applied.append(fake.allocator, 99);
+    try fake.applied.append(fake.allocator, newest);
+    const tile_before = fake.tiles[@intCast(@as(i32, 2) + @as(i32, 1) * fake.info.width_tiles)];
+    try std.testing.expectError(error.Failed, editor.undo());
+    // The frame that went was redone: the map shows the whole stroke again.
+    try std.testing.expectEqual(tile_before, fake.tiles[@intCast(@as(i32, 2) + @as(i32, 1) * fake.info.width_tiles)]);
+    try std.testing.expectEqual(@as(usize, 1), editor.history.undo_stack.items.len);
+    try std.testing.expect(!editor.replay_broken);
+    try std.testing.expectEqual(@as(usize, 0), fake.undone.items.len);
+    // Without the foreign token the undo goes through.
+    _ = fake.applied.orderedRemove(fake.applied.items.len - 2);
+    try std.testing.expect(try editor.undo());
 }
