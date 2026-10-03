@@ -37,6 +37,15 @@
 //! unanswered, or said `busy`, is alive: the second launch leaves its socket
 //! file alone and starts without single-instance instead (WR-A01).
 //!
+//! What "hung" means here is the owner's accept thread, nothing more. An owner
+//! whose MAIN loop is frozen (a long synchronous Create Random Map or Update
+//! Map, or a deadlock) is not detected: the helper thread still answers `ok`,
+//! up to `queue_capacity` lines queue and the second launch exits 0 without
+//! the map opening until the loop runs again. Telling a long job from a
+//! deadlock needs a heartbeat and a guess at how long is too long, and a wrong
+//! guess starts a second editor over the first one's files and recovery copies,
+//! so there is none (WR-A05).
+//!
 //! Threads: the owner's accept loop runs on its own thread and hands each
 //! connection to a thread of its own (four at most), which answers `ok` as soon
 //! as the line is queued, so neither a busy or loading main thread nor a client
