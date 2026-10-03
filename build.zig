@@ -6672,6 +6672,15 @@ fn addMapEditor(
     // BK_EDITOR_AUTO_GAME: the game-reads-it checks belong to the plans that
     // add them.
     const auto_m3_dir = b.pathFromRoot("zig-out/local-test/map-editor-m3-auto");
+    // The climb from the staged game root (the editor's cwd) up to zig-out/, one "../" per
+    // component of stage_root: the save_bzm paths below are relative to that cwd, and a hand-written
+    // count of two landed the maps in zig-out/game/<os>/local-test, outside the scratch folder
+    // BK_EDITOR_AUTO_DIR names (05-REVIEW WR-D01). A do= argument is at most 64 characters.
+    const auto_m3_up = climb: {
+        var up: std.ArrayListUnmanaged(u8) = .empty;
+        for (0..std.mem.count(u8, stage_root, "/")) |_| up.appendSlice(b.allocator, "../") catch @panic("OOM");
+        break :climb up.items;
+    };
     // The Check Map fixture the scenario opens (05-05): crafted by the bridge test's
     // `--craft` before the scenario starts.
     const auto_m3_check_map = b.pathFromRoot("zig-out/local-test/m3-check-map.bzm");
@@ -6699,7 +6708,7 @@ fn addMapEditor(
         // Save as BZM (F8): the command's own path argument delivers the
         // Save As; the relative path is from the staged game root (the
         // run's cwd), the same ground `saveas=` uses.
-        "32:do=file_save_bzm:../../local-test/map-editor-m3-auto/m3.bzm",
+        b.fmt("32:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3.bzm", .{auto_m3_up}),
         // Saved: the title names the file it became, clean of the star.
         "40:expect=title:m3.bzm",
         "42:expect=title:8x8",
@@ -6763,7 +6772,7 @@ fn addMapEditor(
         // clicks would collapse into one deduped point. The save first
         // marks the pre-fields document clean, the way the MFC's dialog
         // flow ran on a saved map.
-        "150:do=file_save_bzm:../../local-test/map-editor-m3-auto/m3.bzm",
+        b.fmt("150:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3.bzm", .{auto_m3_up}),
         "152:do=fields_set:scenarios\\fieldsets\\summer\\field00",
         "154:tool=fields",
         "156:do=fields_vertex_add:64:64",
@@ -6956,7 +6965,7 @@ fn addMapEditor(
         // checks failed; Fix all fixes what needs no asking as ONE undo step and
         // `remove` takes the unknown object and the short road too; undo walks both
         // back to the six findings.
-        "384:do=file_save_bzm:../../local-test/map-editor-m3-auto/m3.bzm",
+        b.fmt("384:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3.bzm", .{auto_m3_up}),
         b.fmt("392:open={s}", .{auto_m3_check_map}),
         "406:do=check_map",
         "408:expect=check_findings:duplicate_object=1",
@@ -6968,7 +6977,7 @@ fn addMapEditor(
         "414:expect=check_findings:6",
         "416:expect=check_log_has:control",
         "418:expect=undo_depth:0",
-        "424:do=file_save_bzm:../../local-test/map-editor-m3-auto/m3-checked.bzm",
+        b.fmt("424:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3-checked.bzm", .{auto_m3_up}),
         "434:expect=status:checks",
         "436:expect=check_findings:6",
         "438:do=check_jump:0",
@@ -6992,7 +7001,7 @@ fn addMapEditor(
         // pictures beside the saved map (an explicit command, never part of
         // Save), the panel switches to Game mode and shows the fresh picture;
         // Editor mode is one click back.
-        "460:do=file_save_bzm:../../../../local-test/map-editor-m3-auto/m3-minimap.bzm",
+        b.fmt("460:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3-minimap.bzm", .{auto_m3_up}),
         "470:expect=title:m3-minimap.bzm",
         "472:do=minimap_toggle:on",
         "474:expect=minimap_visible:1",
@@ -7132,7 +7141,7 @@ fn addMapEditor(
         "760:expect=layer:terrain_noise:0",
         "761:expect=layer:bounding_boxes:1",
         "764:shot=m3-layers-after-new",
-        "768:do=file_save_bzm:../../local-test/map-editor-m3-auto/m3-layers.bzm",
+        b.fmt("768:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3-layers.bzm", .{auto_m3_up}),
         "778:expect=title:m3-layers.bzm",
         b.fmt("780:open={s}", .{auto_m3_arnheim}),
         "806:expect=title:arnheim",
