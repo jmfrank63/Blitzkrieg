@@ -50,7 +50,7 @@ Task IDs are filled as plans land (D-39's 11 plans). The binding contract is the
 | 6 | `CreateMiniMapImage` writes 4 images beside a saved user map; minimap click moves camera | — | app auto + shot compare | `map-editor-m3-auto` shot comparison | ✅ green on macOS arm64 (05-07 frames 460-528; 05-11 re-run, 659 actions) |
 | 7 | `zig build map-editor-m3-auto` passes locally (macOS arm64 + win-home) | — | app auto | Local run logs recorded | macOS arm64 ✅ (659 actions, `zig-out/local-test/05-11-t3-auto.log`; debug and `--release=fast`); win-home: no GUI over ssh - **user-waived 2026-10-03** (CI or by hand) |
 | 8 | `test-map-files-all` 1,755 maps, 0 FAIL | — | sweep | Sweep output 0 FAIL | ✅ green (05-11: `map-file: 1755 of 1755 maps round-tripped`, `map-file: PASS`, 0 FAIL) |
-| 9 | MFC editor deleted; `git grep` clean; everything builds | — | grep + CI | `git grep -n 'src/MapEditor\|MapEditor.vcxproj\|Editors/MapEditor'` → only `.planning`/`docs` history | ⬜ pending the task-4 decision gate (05-11 stopped at it; nothing deleted) |
+| 9 | MFC editor deleted; `git grep` clean; everything builds | — | grep + CI | `git grep -n 'src/MapEditor\|MapEditor.vcxproj\|Editors/MapEditor'` → only `.planning`/`docs` history | ✅ done (05-11 Task 5, 2026-10-03: approved by Johannes, delete-now; the grep gate returns nothing, `Sources/src/MapEditor` and `MapEditor.exe` are gone) |
 | 10 | Hand try on the release build approves M3 | — | human | — | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*

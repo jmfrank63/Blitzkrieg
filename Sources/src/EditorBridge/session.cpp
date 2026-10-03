@@ -3269,7 +3269,7 @@ void WorldToMap( float wx, float wy, float *pmx, float *pmy )
 
 namespace {
 
-// SetAnim.h of the MFC editor (MapEditor/SetAnim.h): a unit mesh starts in its
+// SetAnim.h of the MFC editor (last in the tree at 045ddda7f): a unit mesh starts in its
 // first idle animation, anything else in animation 0.
 void SetGhostAnimation( IVisObj *pVisObj, const SGDBObjectDesc *pDesc )
 {

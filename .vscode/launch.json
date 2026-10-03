@@ -168,23 +168,6 @@
       "preLaunchTask": "Build Object Editor (Debug)"
     },
     {
-      "name": "Debug MapEditor.exe",
-      "type": "cppvsdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/Sources/src/MapEditor/Debug/MapEditor.exe",
-      "args": [],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}/Sources/src/MapEditor/Debug",
-      "environment": [
-        {
-          "name": "PATH",
-          "value": "${workspaceFolder}/Sources/src/StreamIO/Debug;${env:PATH}"
-        }
-      ],
-      "console": "integratedTerminal",
-      "preLaunchTask": "Build MapEditor (Debug)"
-    },
-    {
       "name": "Attach to Process (VSDBG)",
       "type": "cppvsdbg",
       "request": "attach",

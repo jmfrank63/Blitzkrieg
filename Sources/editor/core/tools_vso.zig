@@ -1,5 +1,6 @@
 //! The Roads & Rivers tool (D-08): one tool with a road / river switch, the
-//! MFC editor's gestures (Sources/src/MapEditor/VectorStripeObjectsState.cpp).
+//! MFC editor's gestures (VectorStripeObjectsState.cpp, last in the tree at 1c82b6b87;
+//! the MFC editor was deleted in 05-11).
 //!
 //! Adding: a press adds the pointer's world point, a right press takes the
 //! last point back, a double click or Enter/Space finishes the line as one
