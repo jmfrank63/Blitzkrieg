@@ -2015,18 +2015,24 @@ bool SetSessionUnitCreation( SEditorSession *pSession, int nPlayer, const BkEdit
 		if ( pbRefused != 0 ) *pbRefused = true;
 		return false;
 	}
+	// What the snapshot holds now, and how many slots: the put below is put back exactly, on
+	// both copies, when the working copy refuses it after the snapshot took it.
+	SUnitCreation current;
+	NMapRecords::GetUnitCreation( pSession->snapshot, nPlayer, &current );
 	// A slot count that does not reach the player only sets the vector's size: the
 	// entry is the defaults (an undo of a put that grew the vector), not stored.
 	if ( rRecord.slot_count <= nPlayer )
 	{
 		const SUnitCreation unused;
-		if ( !NMapRecords::PutUnitCreation( &pSession->snapshot, nPlayer, unused, rRecord.slot_count ) ||
-		     !NMapRecords::PutUnitCreation( &pSession->working, nPlayer, unused, rRecord.slot_count ) )
+		if ( !NMapRecords::PutUnitCreation( &pSession->snapshot, nPlayer, unused, rRecord.slot_count ) )
 			return false;
+		if ( !NMapRecords::PutUnitCreation( &pSession->working, nPlayer, unused, rRecord.slot_count ) )
+		{
+			NMapRecords::PutUnitCreation( &pSession->snapshot, nPlayer, current, nSlots );
+			return false;
+		}
 		return true;
 	}
-	SUnitCreation current;
-	NMapRecords::GetUnitCreation( pSession->snapshot, nPlayer, &current );
 	if ( int( current.aviation.aircrafts.size() ) != 5 )
 	{
 		pSession->szMessage = "this player's unit creation does not hold five aircraft slots; it is kept as it is";
@@ -2124,7 +2130,13 @@ bool SetSessionUnitCreation( SEditorSession *pSession, int nPlayer, const BkEdit
 		return false;
 	}
 	if ( !NMapRecords::PutUnitCreation( &pSession->working, nPlayer, wanted, rRecord.slot_count ) )
+	{
+		// The snapshot took the put and the working copy did not: back to what the snapshot held,
+		// the way every other collection setter in this file restores it.
+		NMapRecords::PutUnitCreation( &pSession->snapshot, nPlayer, current, nSlots );
+		pSession->szMessage = "the unit creation could not be put";
 		return false;
+	}
 	return true;
 }
 
