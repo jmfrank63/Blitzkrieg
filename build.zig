@@ -7525,9 +7525,10 @@ fn addMapEditor(
     auto_m3_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m3_dir);
     // The user root of this run (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and
-    // Linux): the generated random map and the exported lists land here and not in
-    // the person's own maps and logs folders.
+    // Linux, BK_USER_ROOT on Windows): the generated random map and the exported lists land
+    // here and not in the person's own maps and logs folders.
     auto_m3_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/map-editor-m3-auto-user"));
+    auto_m3_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/map-editor-m3-auto-user"));
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m3_entries) catch @panic("OOM"));
     auto_m3_run.has_side_effects = true;
     auto_m3_run.step.dependOn(&install_exe.step);
@@ -7588,9 +7589,9 @@ fn addMapEditor(
     game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", b.pathFromRoot("zig-out/local-test/m3-short-railroad.bzm"), b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3.log") });
     // The authored leg writes its template, graph, container and field set under the
     // user RMG root and generates a map into the user maps folder: a scratch user root
-    // (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and Linux; on Windows the
-    // profile's is used and the same files are rewritten identically each run).
+    // (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and Linux and BK_USER_ROOT on Windows).
     game_reads_it_m3_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3-user"));
+    game_reads_it_m3_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3-user"));
     game_reads_it_m3_run.has_side_effects = true;
     game_reads_it_m3_run.step.dependOn(&install_exe.step);
     game_reads_it_m3_run.step.dependOn(&game_reads_it_m2_run.step);
