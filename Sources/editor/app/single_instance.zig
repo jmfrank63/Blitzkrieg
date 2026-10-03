@@ -12,11 +12,18 @@
 //!
 //! Protocol: one line, one path. The second launch connects, writes
 //! `<absolute path>\n` (an empty line means "bring the window to the front"
-//! and nothing else) and waits for `ok\n` (queued) or `no\n` (refused). No
+//! and nothing else) and waits for `ok\n` (queued), `no\n` (refused), `busy\n`
+//! (the owner serves its limit of connections) or `mod\n` (see below). No
 //! commands travel the socket (T-05-11-01); the receiving editor validates the
 //! path like any open (`panels_logic.dropVerdict`, then the guard and the
 //! bridge's own read), so a hostile line can at worst name a file the editor
 //! would open anyway, or be refused with a status note.
+//!
+//! A launch that named a mod (`-mod=`) sends `<mod>`, a unit separator (0x1f)
+//! and then the path, with an empty mod for `-mod=None`. A map opens under the
+//! object database of the mod that is loaded, so an owner with another mod
+//! answers `mod\n` and queues nothing; the second launch then runs its own
+//! editor instead of having its mod silently dropped (WR-A03).
 //!
 //! Endpoint: `<user root>/mapeditor/instance.sock`, the user root being the one
 //! the engine uses (Platform/Paths.cpp: `$XDG_DATA_HOME/Nival/Blitzkrieg`, else
@@ -92,6 +99,9 @@ pub const Options = struct {
     /// The endpoint's folder is the private fallback one (`Endpoint`): made with
     /// mode 0700 and refused if it is open to anyone else (WR-A04).
     private_folder: bool = false,
+    /// The mod the owner starts with (null: none); `Instance.setMod` keeps it
+    /// current afterwards.
+    mod: ?[]const u8 = null,
 };
 
 // -- The endpoint ------------------------------------------------------------
@@ -206,22 +216,43 @@ fn preparePosixFolder(io: Io, directory: []const u8) bool {
 
 // -- One line, one path ------------------------------------------------------
 
+/// The longest mod folder name a line may carry (the app keeps 64 bytes for it).
+pub const max_mod_len = 64;
+/// Between the mod and the path of an open that names a mod: the one control
+/// character a line may hold.
+pub const mod_separator: u8 = 0x1f;
+
 /// What a line asks for.
 pub const Request = union(enum) {
     /// An empty line: bring the window forward, open nothing.
     raise,
     open: []const u8,
+    /// A launch that named a mod (`-mod=`, "" for `-mod=None`): the open only
+    /// goes through when the owner has that mod loaded (WR-A03).
+    open_in_mod: struct { mod: []const u8, path: []const u8 },
 };
+
+fn hasControl(text: []const u8) bool {
+    for (text) |byte| {
+        if (byte < 0x20 or byte == 0x7f) return true;
+    }
+    return false;
+}
 
 /// A line read off the socket (without its newline), or null when it is not
 /// one this protocol sends: a control character in it (a second line, an
-/// escape sequence) or more than `max_line` bytes. A trailing CR is dropped.
+/// escape sequence; the one mod separator is allowed) or more than `max_line`
+/// bytes. A trailing CR is dropped.
 pub fn parseLine(line: []const u8) ?Request {
     const body = std.mem.trimEnd(u8, line, "\r");
     if (body.len > max_line) return null;
-    for (body) |byte| {
-        if (byte < 0x20 or byte == 0x7f) return null;
+    if (std.mem.indexOfScalar(u8, body, mod_separator)) |cut| {
+        const mod = body[0..cut];
+        const path = body[cut + 1 ..];
+        if (mod.len > max_mod_len or path.len == 0 or hasControl(mod) or hasControl(path)) return null;
+        return .{ .open_in_mod = .{ .mod = mod, .path = path } };
     }
+    if (hasControl(body)) return null;
     if (body.len == 0) return .raise;
     return .{ .open = body };
 }
@@ -229,11 +260,28 @@ pub fn parseLine(line: []const u8) ?Request {
 /// `<path>\n` in `buffer` for the client to send; null when the path would not
 /// parse back (a control character, too long) or does not fit.
 pub fn frameLine(buffer: []u8, path: []const u8) ?[]const u8 {
+    // The separator would make parseLine read a mod where there is none.
+    if (std.mem.indexOfScalar(u8, path, mod_separator) != null) return null;
     if (parseLine(path) == null) return null;
     if (path.len + 1 > buffer.len) return null;
     @memcpy(buffer[0..path.len], path);
     buffer[path.len] = '\n';
     return buffer[0 .. path.len + 1];
+}
+
+/// `<mod>` 0x1f `<path>\n` in `buffer`, for a launch that named a mod (an empty
+/// `mod` is `-mod=None`); null when it would not parse back or does not fit.
+pub fn frameOpenInMod(buffer: []u8, mod: []const u8, path: []const u8) ?[]const u8 {
+    if (path.len == 0 or mod.len > max_mod_len) return null;
+    const total = mod.len + 1 + path.len + 1;
+    if (total > buffer.len) return null;
+    @memcpy(buffer[0..mod.len], mod);
+    buffer[mod.len] = mod_separator;
+    @memcpy(buffer[mod.len + 1 ..][0..path.len], path);
+    buffer[total - 1] = '\n';
+    const framed = buffer[0 .. total - 1];
+    if (parseLine(framed) == null) return null;
+    return buffer[0..total];
 }
 
 // -- The owner's side --------------------------------------------------------
@@ -256,6 +304,9 @@ pub const Instance = struct {
     path_storage: [path_capacity]u8 = undefined,
     path_len: usize = 0,
     timeout_ms: u32,
+    /// The loaded mod's folder name, guarded by `mutex` (`setMod`).
+    mod_storage: [max_mod_len]u8 = undefined,
+    mod_len: usize = 0,
     thread: ?std.Thread = null,
     stopping: std.atomic.Value(bool) = .init(false),
     /// Set by the accept thread as it returns, so `deinit` can wait for it with
@@ -273,6 +324,24 @@ pub const Instance = struct {
 
     pub fn path(self: *const Instance) []const u8 {
         return self.path_storage[0..self.path_len];
+    }
+
+    /// The mod this editor has loaded now (null or "" for none); the main loop
+    /// keeps it current, each frame, because File > Mod changes it. A name
+    /// past `max_mod_len` is cut like the app's own.
+    pub fn setMod(self: *Instance, mod: ?[]const u8) void {
+        const name = mod orelse "";
+        const len = @min(name.len, max_mod_len);
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        @memcpy(self.mod_storage[0..len], name[0..len]);
+        self.mod_len = len;
+    }
+
+    fn hasMod(self: *Instance, mod: []const u8) bool {
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        return std.mem.eql(u8, self.mod_storage[0..self.mod_len], mod);
     }
 
     /// The oldest line the second launches have sent, if any: a path copied
@@ -342,6 +411,11 @@ pub const Instance = struct {
                 slot.len = @intCast(text.len);
                 @memcpy(slot.bytes[0..text.len], text);
             },
+            // The mod was checked by `serveOne`; the main loop gets the path.
+            .open_in_mod => |named| {
+                slot.len = @intCast(named.path.len);
+                @memcpy(slot.bytes[0..named.path.len], named.path);
+            },
         }
         self.count += 1;
         return true;
@@ -408,6 +482,9 @@ pub const Instance = struct {
         if (self.stopping.load(.acquire)) return;
         const answer: []const u8 = blk: {
             const request = parseLine(line) orelse break :blk "no\n";
+            // A map opens under the object database of the mod that is
+            // loaded: another mod's launch is told, not queued (WR-A03).
+            if (request == .open_in_mod and !self.hasMod(request.open_in_mod.mod)) break :blk "mod\n";
             break :blk if (self.enqueue(request)) "ok\n" else "no\n";
         };
         writeAnswer(self.io, stream, answer);
@@ -484,6 +561,9 @@ pub const Handoff = enum {
     dropped,
     /// The owner answered `busy`: it is serving its limit of connections.
     busy,
+    /// The owner has another mod loaded than the one this launch named; nothing
+    /// was queued (WR-A03).
+    other_mod,
 };
 
 /// Whether a failed hand-off means the endpoint is stale (T-05-11-02): nobody
@@ -545,6 +625,8 @@ const HandoffJob = struct {
                 result = .refused;
             } else if (std.mem.eql(u8, answer, "busy")) {
                 result = .busy;
+            } else if (std.mem.eql(u8, answer, "mod")) {
+                result = .other_mod;
             }
         }
         stream.close(io);
@@ -608,6 +690,7 @@ fn startServer(gpa: std.mem.Allocator, io: Io, address: *const net.UnixAddress, 
         return error.OutOfMemory;
     };
     instance.* = .{ .gpa = gpa, .io = io, .server = server, .timeout_ms = options.timeout_ms };
+    instance.setMod(options.mod);
     @memcpy(instance.path_storage[0..endpoint.len], endpoint);
     instance.path_len = endpoint.len;
     if (Io.Dir.cwd().statFile(io, endpoint, .{})) |stat| instance.bound_inode = stat.inode else |_| {}
@@ -667,6 +750,9 @@ pub fn acquireAt(gpa: std.mem.Allocator, io: Io, endpoint: []const u8, line: []c
                 // with the map unopened (WR-A01).
                 .busy => return .{ .unavailable = "the running editor is busy" },
                 .dropped => return .{ .unavailable = "the running editor did not take the line" },
+                // The map would have opened under the other mod's objects, or
+                // the -mod= been dropped: this launch runs on its own instead.
+                .other_mod => return .{ .unavailable = "the running editor has another mod loaded" },
                 .no_listener, .no_reply => {},
             }
         }
@@ -759,6 +845,64 @@ test "framing: one line, one path - a control character, a second line and a flo
     try std.testing.expect(parseLine("a\x00b") == null);
     try std.testing.expect(parseLine("a\tb") == null);
     try std.testing.expect(parseLine(&long) == null);
+}
+
+test "framing: a mod travels before the path, and the separator is the only control character let through (WR-A03)" {
+    var buffer: [max_line + 4]u8 = undefined;
+    const framed = frameOpenInMod(&buffer, "MyMod", "/maps/a.bzm").?;
+    try std.testing.expectEqualStrings("MyMod\x1f/maps/a.bzm\n", framed);
+    const parsed = parseLine(framed[0 .. framed.len - 1]).?.open_in_mod;
+    try std.testing.expectEqualStrings("MyMod", parsed.mod);
+    try std.testing.expectEqualStrings("/maps/a.bzm", parsed.path);
+    // -mod=None is an empty mod, and still a mod.
+    try std.testing.expectEqualStrings("\x1f/maps/a.bzm\n", frameOpenInMod(&buffer, "", "/maps/a.bzm").?);
+    try std.testing.expectEqualStrings("", parseLine("\x1f/maps/a.bzm").?.open_in_mod.mod);
+    // Nothing else rides along: a second separator, a control character in
+    // either part, no path, a mod too long, a plain path holding the separator.
+    try std.testing.expect(parseLine("m\x1fa\x1fb") == null);
+    try std.testing.expect(parseLine("m\x1b\x1f/maps/a.bzm") == null);
+    try std.testing.expect(parseLine("m\x1f/maps/a\x1b.bzm") == null);
+    try std.testing.expect(parseLine("m\x1f") == null);
+    try std.testing.expect(frameOpenInMod(&buffer, "x" ** (max_mod_len + 1), "/maps/a.bzm") == null);
+    try std.testing.expect(frameOpenInMod(&buffer, "m", "") == null);
+    try std.testing.expect(frameLine(&buffer, "m\x1f/maps/a.bzm") == null);
+}
+
+test "single instance: a launch naming another mod is told so and queues nothing; the same mod is handed over (WR-A03)" {
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var endpoint_buffer: [path_capacity]u8 = undefined;
+    const endpoint = testEndpoint(io, &endpoint_buffer, "mod");
+    removeTestEndpoint(io, endpoint);
+    defer removeTestEndpoint(io, endpoint);
+    const owner = switch (acquireAt(gpa, io, endpoint, "\n", .{ .timeout_ms = 2000, .mod = "ModA" })) {
+        .primary => |instance| instance,
+        else => return error.TestUnexpectedResult,
+    };
+    defer owner.deinit();
+
+    var line_buffer: [max_line + 4]u8 = undefined;
+    const address = try net.UnixAddress.init(endpoint);
+    // Another mod, none, and a plain launch with no -mod= at all.
+    try std.testing.expectEqual(Handoff.other_mod, handoffOnce(io, &address, frameOpenInMod(&line_buffer, "ModB", "/maps/b.bzm").?, 2000));
+    try std.testing.expectEqual(Handoff.other_mod, handoffOnce(io, &address, frameOpenInMod(&line_buffer, "", "/maps/b.bzm").?, 2000));
+    var out: [max_line]u8 = undefined;
+    try std.testing.expect(owner.poll(&out) == null);
+    switch (acquireAt(gpa, io, endpoint, frameOpenInMod(&line_buffer, "ModB", "/maps/b.bzm").?, .{ .timeout_ms = 2000, .stale_retries = 0 })) {
+        .unavailable => {},
+        else => return error.TestUnexpectedResult,
+    }
+    // The same mod goes through, and so does a launch that named none.
+    try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, frameOpenInMod(&line_buffer, "ModA", "/maps/a.bzm").?, 2000));
+    try std.testing.expectEqualStrings("/maps/a.bzm", owner.poll(&out).?.open);
+    try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, "/maps/plain.bzm\n", 2000));
+    try std.testing.expectEqualStrings("/maps/plain.bzm", owner.poll(&out).?.open);
+    // File > Mod changed the owner's mod: the answer follows.
+    owner.setMod("ModB");
+    try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, frameOpenInMod(&line_buffer, "ModB", "/maps/b.bzm").?, 2000));
+    try std.testing.expectEqualStrings("/maps/b.bzm", owner.poll(&out).?.open);
+    owner.setMod(null);
+    try std.testing.expectEqual(Handoff.acked, handoffOnce(io, &address, frameOpenInMod(&line_buffer, "", "/maps/n.bzm").?, 2000));
 }
 
 test "stale-peer policy: nobody listening and a hung owner are stale, anything answered is not" {
