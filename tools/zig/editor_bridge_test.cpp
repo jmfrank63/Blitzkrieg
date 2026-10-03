@@ -4037,11 +4037,13 @@ static void TestM3RmgTemplates( BkEditorSession *pSession, const std::string &sz
 static bool CraftFixture( BkEditorSession *pSession, const char *pszKind, const char *pszOut );
 static void CheckSavedEquals( BkEditorSession *pSession, const std::string &szPath, const CMapInfo &rExpected, const char *pszWhat );
 
-// CR-C02: the delete cascade meets a link cycle. A map file can hold two
-// objects that carry each other (the editor now refuses to make one, but the
-// file is not the editor's); deleting either used to recurse until the stack
-// ran out, which no catch handler can answer. The delete must refuse and
-// leave the map as it was.
+// CR-C02 and WR-C01: the delete cascade meets a link cycle and a lone link ID
+// 0. A map file can hold two objects that carry each other (the editor now
+// refuses to make one, but the file is not the editor's); deleting either used
+// to recurse until the stack ran out, which no catch handler can answer. The
+// delete must refuse and leave the map as it was. And the one object that
+// carries link ID 0 is not the host of every unlinked object (they all name 0
+// as "linked with nothing"): deleting it takes it alone.
 static int CountObjects( BkEditorSession *pSession )
 {
 	int nCount = 0;
@@ -4049,24 +4051,28 @@ static int CountObjects( BkEditorSession *pSession )
 	return nCount;
 }
 
-static void TestM3LinkCycle( BkEditorSession *pSession, const std::string &szScratch )
+static void TestM3LinkCycleAndZeroID( BkEditorSession *pSession, const std::string &szScratch )
 {
 	CMapInfo original;
 	std::string szError;
 	if ( !Check( NMapFile::Read( BRIDGE_MAP, &original, &szError ), szError.c_str() ) )
 		return;
-	std::vector<SMapObjectInfo*> unique;
+	int nMaxID = 0;
+	std::vector<SMapObjectInfo*> unique, zero;
 	{
 		std::vector<SMapObjectInfo> *lists[2] = { &original.objects, &original.scenarioObjects };
 		for ( int nList = 0; nList < 2; ++nList )
 			for ( size_t i = 0; i < lists[nList]->size(); ++i )
 			{
 				SMapObjectInfo &rObject = ( *lists[nList] )[i];
-				if ( rObject.link.nLinkID != 0 )
+				nMaxID = Max( nMaxID, rObject.link.nLinkID );
+				if ( rObject.link.nLinkID == 0 )
+					zero.push_back( &rObject );
+				else
 					unique.push_back( &rObject );
 			}
 	}
-	if ( !Check( unique.size() >= 2, "the map holds linked objects" ) )
+	if ( !Check( unique.size() >= 2 && zero.size() >= 2, "the map holds linked-ID objects and several link ID 0 objects" ) )
 		return;
 
 	// 1. A cycle: the first two objects carry each other.
@@ -4094,6 +4100,23 @@ static void TestM3LinkCycle( BkEditorSession *pSession, const std::string &szScr
 	remove( OsPath( szCycleMap ).c_str() );
 	remove( OsPath( szBefore ).c_str() );
 	remove( OsPath( szAfter ).c_str() );
+
+	// 2. One object under link ID 0: every other zero object gets an ID of its
+	// own, so the ID is no longer shared and the delete is not refused for that.
+	unique[0]->link.nLinkWith = 0;
+	unique[1]->link.nLinkWith = 0;
+	for ( size_t i = 1; i < zero.size(); ++i )
+		zero[i]->link.nLinkID = ++nMaxID;
+	const std::string szZeroMap = szScratch + "\\m3-link-zero.bzm";
+	if ( Check( NMapFile::Write( szZeroMap.c_str(), original, &szError ), szError.c_str() ) &&
+	     Check( BkEditorOpenMap( pSession, szZeroMap.c_str(), 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) ) )
+	{
+		const int nObjects = CountObjects( pSession );
+		BkEditorDeleteObject( pSession, 0 );
+		Check( CountObjects( pSession ) + 1 >= nObjects,
+		       ( "deleting the one link ID 0 object takes it alone (" + std::to_string( nObjects ) + " -> " + std::to_string( CountObjects( pSession ) ) + ")" ).c_str() );
+	}
+	remove( OsPath( szZeroMap ).c_str() );
 	Check( BkEditorOpenMap( pSession, BRIDGE_MAP, 0 ) == BK_EDITOR_OK, BkEditorLastMessage( pSession ) );
 }
 
@@ -11736,7 +11759,7 @@ int main( int argc, char **argv )
 		TestM3RmgTemplates( pSession, szScratch );
 		TestM3MultiSelect( pSession, szScratch );
 		TestM3PropertiesAndLinks( pSession, szScratch );
-		TestM3LinkCycle( pSession, szScratch );
+		TestM3LinkCycleAndZeroID( pSession, szScratch );
 		TestM3Damage( pSession, szScratch );
 		TestM3PlayersAndUnitCreation( pSession, szScratch );
 		TestM3CheckMap( pSession, szScratch );

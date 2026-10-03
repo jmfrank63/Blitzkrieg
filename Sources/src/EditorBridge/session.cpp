@@ -1195,7 +1195,11 @@ bool DeleteObjectInChain( SEditorSession *pSession, int nLinkID, bool *pbRefused
 	// trench piece - still refuse below, passengers or no passengers; the
 	// overlay's own passenger refusal never fires, because by the time the
 	// overlay sees the host, its passengers are gone.
+	// Only a real link ID can be named by a passenger: 0 is what every
+	// unlinked object carries as nLinkWith, "linked with nothing", so the
+	// lone object under link ID 0 must not make all of them its passengers.
 	std::vector<int> passengers;
+	if ( nLinkID != 0 )
 	{
 		const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
 		for ( int nList = 0; nList < 2; ++nList )
