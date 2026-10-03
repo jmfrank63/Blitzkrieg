@@ -7,6 +7,8 @@
 // with exit 1. A tier that cannot tell a skip from a failure is worse than no
 // tier: the map file tier once swept zero maps and reported success.
 #include "StdAfx.h"
+#include <cstdlib>
+#include <cstring>
 #include <SDL3/SDL.h>
 #include <map>
 #include <set>
@@ -11566,6 +11568,22 @@ static void TestM2Sweep( BkEditorSession *pSession, const std::string &szScratch
 		printf( "editor-bridge: M2 sweep %d maps, %d edits, all restored byte-exact\n", nMaps, nEdits );
 }
 
+// A skip is a pass that checked nothing, so CI sets BK_REQUIRE_ENGINE=1 on the runners that
+// do have a video driver, the staged game and a GPU device: there a skip is the runner
+// regressing, not a green result (05-REVIEW WR-D03). Unset (a laptop with no display), a
+// skip stays an exit code of 0.
+static int SkipOrFail( const char *pszTool, const std::string &szWhy )
+{
+	const char *pszRequire = getenv( "BK_REQUIRE_ENGINE" );
+	if ( pszRequire != 0 && *pszRequire != 0 && strcmp( pszRequire, "0" ) != 0 )
+	{
+		printf( "FAIL: %s: %s, and BK_REQUIRE_ENGINE is set\n", pszTool, szWhy.c_str() );
+		return 1;
+	}
+	printf( "%s: skipped: %s\n", pszTool, szWhy.c_str() );
+	return 0;
+}
+
 int main( int argc, char **argv )
 {
 	// A failed assert in a Windows debug build prints to stderr and then calls
@@ -11589,8 +11607,7 @@ int main( int argc, char **argv )
 		const char *pszError = SDL_GetError();
 		if ( strstr( pszError, "video driver" ) != 0 || strstr( pszError, "No available" ) != 0 )
 		{
-			printf( "editor-bridge: skipped: no video driver (%s)\n", pszError );
-			return 0;
+			return SkipOrFail( "editor-bridge", std::string( "no video driver (" ) + pszError + ")" );
 		}
 		printf( "FAIL: SDL_Init: %s\n", pszError );
 		return 1;
@@ -11644,10 +11661,10 @@ int main( int argc, char **argv )
 	FILE *pProbe = fopen( ( std::string( pszRoot ) + "/Data/consts.xml" ).c_str(), "rb" );
 	if ( pProbe == 0 )
 	{
-		printf( "editor-bridge: skipped: no staged game at %s (run: zig build install-game)\n", pszRoot );
+		const int nSkipped = SkipOrFail( "editor-bridge", std::string( "no staged game at " ) + pszRoot + " (run: zig build install-game)" );
 		SDL_DestroyWindow( pWindow );
 		SDL_Quit();
-		return 0;
+		return nSkipped;
 	}
 	fclose( pProbe );
 
@@ -11679,11 +11696,11 @@ int main( int argc, char **argv )
 	const BkEditorStatus status = BkEditorStart( pWindow, pszRoot, &pSession );
 	if ( status == BK_EDITOR_NO_DEVICE )
 	{
-		printf( "editor-bridge: skipped: no GPU device (%s)\n", BkEditorLastMessage( pSession ) );
+		const int nSkipped = SkipOrFail( "editor-bridge", std::string( "no GPU device (" ) + BkEditorLastMessage( pSession ) + ")" );
 		BkEditorStop( pSession );
 		SDL_DestroyWindow( pWindow );
 		SDL_Quit();
-		return 0;
+		return nSkipped;
 	}
 	// pSession may be null here: the start can fail before it allocates one,
 	// which is why BkEditorLastMessage is defined for a null session.

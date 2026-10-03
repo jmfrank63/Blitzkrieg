@@ -322,7 +322,16 @@ jobs:
       # Only here and on macos-14: the probe says those are the two runners with
       # a GPU device. The tier skips honestly where there is none, but a runner
       # that only ever skips is a 2.3 GB checkout for a line of output.
+      #
+      # Not run in any job, on purpose or by omission (05-REVIEW WR-D05): the scripted
+      # editor scenarios (map-editor-auto, -auto-m2, -m3-auto) and the real-Game steps
+      # (map-editor-game-reads-it, -m2, -m3). The railroad with fewer than two control
+      # points (D-33) therefore has no regression gate here; it is a local step.
       - name: Engine tier
+        env:
+          # This job has a video driver and a GPU device (the probe step below), so a tool that
+          # would print "skipped" and exit 0 fails instead, here and in the engine-hosted steps after it.
+          BK_REQUIRE_ENGINE: "1"
         run: zig build test-editor-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # MapEditor itself: the engine started hidden with ImGui over it, one
@@ -361,6 +370,8 @@ jobs:
         run: zig build test-map-editor-engine -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Random missions tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run -Drandom-missions-sweep=all "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # The map editor's composers (05-09, 05-10): every shipped template, graph,
@@ -368,9 +379,13 @@ jobs:
       # own records and compared (bytes included), and an authored set generated
       # from twice with one seed and compared byte for byte.
       - name: RMG composer round trip
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build test-rmg-composer-roundtrip -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: RMG determinism
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build test-rmg-determinism -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # Saved here, not at job end: by now the debug engine and the release
@@ -398,6 +413,8 @@ jobs:
       # summer_ukraine\securearea* template paths (setting summer_russia),
       # about 96 cases.
       - name: Random missions tier (debug asserts)
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc -Dtest-mode=run -Drandom-missions-sweep=only=kharkov42 "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Build the Map Editor overlay spike
@@ -643,6 +660,10 @@ jobs:
         run: zig build --sysroot "$MACOS_SYSROOT" test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Engine tier
+        env:
+          # This job has a video driver and a GPU device (the probe step below), so a tool that
+          # would print "skipped" and exit 0 fails instead, here and in the engine-hosted steps after it.
+          BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run
 
       # MapEditor itself: the engine started hidden with ImGui over it, one
@@ -666,12 +687,18 @@ jobs:
         run: zig build --sysroot "$MACOS_SYSROOT" test-map-editor-engine -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Random missions tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
 
       - name: RMG composer round trip
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-composer-roundtrip -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
 
       - name: RMG determinism
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-determinism -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
