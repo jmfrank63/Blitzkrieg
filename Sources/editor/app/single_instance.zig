@@ -435,8 +435,8 @@ pub const Instance = struct {
     /// (or cannot be told apart from it, which keeps the old behaviour).
     fn ownsSocketFile(self: *const Instance) bool {
         const bound = self.bound_inode orelse return true;
-        const now = Io.Dir.cwd().statFile(self.io, self.path(), .{}) catch return false;
-        return now.inode == bound;
+        const now = socketFileInode(self.io, self.path()) orelse return false;
+        return now == bound;
     }
 
     fn serve(self: *Instance) void {
@@ -500,6 +500,16 @@ pub const Instance = struct {
         writeAnswer(self.io, stream, answer);
     }
 };
+
+/// The identity of the file at `path` itself, null when there is none. Not
+/// followed: on Windows an AF_UNIX socket file is a reparse point, and opening it
+/// to follow fails (IO_REPARSE_TAG_NOT_HANDLED), which left `bound_inode` unknown
+/// and let `deinit` remove a later owner's socket file. On the other systems a
+/// socket file is no link, so this is the plain stat.
+fn socketFileInode(io: Io, path: []const u8) ?Io.File.INode {
+    const stat = Io.Dir.cwd().statFile(io, path, .{ .follow_symlinks = false }) catch return null;
+    return stat.inode;
+}
 
 /// One short answer, flushed; a client that is gone is not an error.
 fn writeAnswer(io: Io, stream: net.Stream, answer: []const u8) void {
@@ -703,7 +713,7 @@ fn startServer(gpa: std.mem.Allocator, io: Io, address: *const net.UnixAddress, 
     instance.setMod(options.mod);
     @memcpy(instance.path_storage[0..endpoint.len], endpoint);
     instance.path_len = endpoint.len;
-    if (Io.Dir.cwd().statFile(io, endpoint, .{})) |stat| instance.bound_inode = stat.inode else |_| {}
+    instance.bound_inode = socketFileInode(io, endpoint);
     instance.thread = std.Thread.spawn(.{ .stack_size = 256 * 1024 }, Instance.serve, .{instance}) catch {
         instance.server.deinit(io);
         Io.Dir.cwd().deleteFile(io, endpoint) catch {};
@@ -1070,7 +1080,8 @@ test "single instance: an owner at its connection limit says busy and keeps its 
         else => return error.TestUnexpectedResult,
     }
     // Its socket file is still the owner's, not removed or replaced.
-    _ = try Io.Dir.cwd().statFile(io, endpoint, .{});
+    try std.testing.expectEqual(owner.bound_inode, socketFileInode(io, endpoint));
+    try std.testing.expect(owner.bound_inode != null);
 }
 
 const Closer = struct {
@@ -1093,6 +1104,7 @@ test "single instance: a live listener that closes on us is not stale - its sock
     const address = try net.UnixAddress.init(endpoint);
     var server = try address.listen(io, .{});
     defer server.deinit(io);
+    const listening = socketFileInode(io, endpoint) orelse return error.TestUnexpectedResult;
     var closer: Closer = .{ .io = io, .server = &server };
     const thread = try std.Thread.spawn(.{}, Closer.run, .{&closer});
     defer thread.join();
@@ -1107,7 +1119,7 @@ test "single instance: a live listener that closes on us is not stale - its sock
         .handed_off => return error.TestUnexpectedResult,
     }
     // Not removed, not replaced: the file is still there for the listener.
-    _ = try Io.Dir.cwd().statFile(io, endpoint, .{});
+    try std.testing.expectEqual(@as(?Io.File.INode, listening), socketFileInode(io, endpoint));
 }
 
 test "single instance: deinit neither hangs on a replaced socket nor removes the replacement (WR-A02)" {
@@ -1128,6 +1140,9 @@ test "single instance: deinit neither hangs on a replaced socket nor removes the
         .primary => |instance| instance,
         else => return error.TestUnexpectedResult,
     };
+    // It knows its own socket file, so it can tell a replacement from it (on
+    // Windows that file is a reparse point and must be read as one).
+    try std.testing.expect(first.bound_inode != null);
     // Its socket file goes away from the path (a tmp cleaner, a launch that
     // judged it stale) and another editor binds there.
     try Io.Dir.rename(Io.Dir.cwd(), endpoint, Io.Dir.cwd(), moved, io);
