@@ -265,9 +265,6 @@ pub const State = struct {
     layout_reset_pending: bool = false,
     /// The hidden-panel bits `draw` last placed the docked panels for.
     last_hidden_panels: u32 = 0,
-    /// Whether the last frame drew the Place tool's ghost (markers.zig
-    /// `drawPlacementGhost`, PARITY O7); `expect=place_ghost:<0|1>` reads it.
-    place_ghost_drawn: bool = false,
     /// Where the open now being made came from, when it is not a menu or a
     /// dialog: a second launch (single_instance.zig) or a dropped file. `act`
     /// says on the console how it ended - the line the double-launch check reads.

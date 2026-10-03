@@ -862,6 +862,18 @@ pub const Bridge = struct {
         /// object position's). BkEditorWorldToMap.
         worldToMap: *const fn (ptr: *anyopaque, wx: f32, wy: f32, mx: *f32, my: *f32) Status,
         objectAt: *const fn (ptr: *anyopaque, sx: f32, sy: f32, link_id: *i32) Status,
+        /// BkEditorSetPlacementGhost (PARITY O7, 05-11): shows the engine's own
+        /// half-opaque visual of the palette entry `name` at a world point,
+        /// turned to `dir` (the Place tool's ghost). A scene object only: never
+        /// saved, never undoable, never picked, never listed. Refused for an
+        /// entry the palette cannot place or a point off the map - and a refusal
+        /// takes any ghost showing away.
+        setPlacementGhost: *const fn (ptr: *anyopaque, name: []const u8, wx: f32, wy: f32, dir: i32) Status,
+        /// BkEditorClearPlacementGhost: no ghost; fine when there is none.
+        clearPlacementGhost: *const fn (ptr: *anyopaque) Status,
+        /// BkEditorPlacementGhost: whether a ghost shows, and where and turned
+        /// how (world point, direction) when it does.
+        placementGhost: *const fn (ptr: *anyopaque, shown: *bool, wx: *f32, wy: *f32, dir: *i32) Status,
         /// BkEditorPickObjects (M3, D-25): the rubber band's pick - the link
         /// IDs of every object the screen rectangle (window pixels, corners
         /// in any order) selects, soldiers answered by their squad's link,
@@ -1250,6 +1262,9 @@ pub const Bridge = struct {
     pub fn worldToTile(self: Bridge, wx: f32, wy: f32, tx: *i32, ty: *i32) Status { return self.vtable.worldToTile(self.ptr, wx, wy, tx, ty); }
     pub fn worldToMap(self: Bridge, wx: f32, wy: f32, mx: *f32, my: *f32) Status { return self.vtable.worldToMap(self.ptr, wx, wy, mx, my); }
     pub fn objectAt(self: Bridge, sx: f32, sy: f32, link_id: *i32) Status { return self.vtable.objectAt(self.ptr, sx, sy, link_id); }
+    pub fn setPlacementGhost(self: Bridge, name: []const u8, wx: f32, wy: f32, dir: i32) Status { return self.vtable.setPlacementGhost(self.ptr, name, wx, wy, dir); }
+    pub fn clearPlacementGhost(self: Bridge) Status { return self.vtable.clearPlacementGhost(self.ptr); }
+    pub fn placementGhost(self: Bridge, shown: *bool, wx: *f32, wy: *f32, dir: *i32) Status { return self.vtable.placementGhost(self.ptr, shown, wx, wy, dir); }
     /// Two-pass like `sounds`: a sizing call with an empty buffer puts the
     /// total in `total`, a second call with room reads it.
     pub fn pickObjects(self: Bridge, sx0: f32, sy0: f32, sx1: f32, sy1: f32, out: []i32, total: *usize) Status { return self.vtable.pickObjects(self.ptr, sx0, sy0, sx1, sy1, out, total); }

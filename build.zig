@@ -7461,8 +7461,9 @@ fn addMapEditor(
         "1472:do=drop_file:Data/Maps/Multiplayer/arnheim.bzm",
         "1510:expect=title:arnheim",
         // The Place tool's ghost (PARITY O7, 05-11): with every floating window put away the map
-        // is free to point at; the chosen object's picture follows the pointer at half opacity
-        // (the shot), and the ghost is gone with the tool.
+        // is free to point at; the engine's own half-opaque visual of the chosen object follows the
+        // pointer (the shots), turned by the wheel and by E (read back from the engine itself),
+        // and it is gone with the tool.
         "1512:do=view_panel:containers_composer:off",
         "1512:do=view_panel:graphs_composer:off",
         "1512:do=view_panel:fields_composer:off",
@@ -7484,10 +7485,17 @@ fn addMapEditor(
         "1516:drag=640x500",
         "1518:click=640x500",
         "1522:expect=place_ghost:1",
-        "1524:shot=m3-place-ghost",
-        "1526:tool=select",
-        "1528:expect=place_ghost:0",
-        "1540:exit",
+        "1524:do=wheel_turn:90",
+        "1526:expect=place_ghost:1:90:1",
+        "1528:shot=m3-place-ghost-90",
+        "1530:key=e",
+        "1532:expect=place_ghost:1:112:2",
+        "1534:do=wheel_turn:270",
+        "1536:expect=place_ghost:1:270:1",
+        "1538:shot=m3-place-ghost-270",
+        "1540:tool=select",
+        "1542:expect=place_ghost:0",
+        "1550:exit",
     };
     const auto_m3_run = b.addRunArtifact(exe);
     auto_m3_run.setCwd(b.path(stage_root));

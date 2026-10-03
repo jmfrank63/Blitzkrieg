@@ -43,6 +43,8 @@ pub const Editor = struct {
     /// toggles; a band replaces the whole set.
     selection_set: std.AutoHashMapUnmanaged(i32, void) = .empty,
     next_gesture: u32 = 1,
+    /// Whether the last `showPlacementGhost` left a ghost showing in the engine.
+    ghost_shown: bool = false,
     /// Bumped by every sound-list change - addSound, editSound, deleteSound,
     /// and their undo/redo alike (`replay`'s own three cases) - so the panel
     /// knows to read the list again; it has no mirror of its own to compare
@@ -291,6 +293,7 @@ pub const Editor = struct {
     pub fn open(self: *Editor, path: []const u8) EditError!void {
         var info: bridge_mod.MapInfo = .{};
         const opened = self.bridge.openMap(path, &info);
+        self.ghost_shown = false; // the engine drops its ghost with the map it was over
         self.noteOutcome(opened) catch |err| {
             if (opened == .failed) self.closeDocument();
             return err;
@@ -363,6 +366,7 @@ pub const Editor = struct {
     }
 
     fn closeDocument(self: *Editor) void {
+        self.ghost_shown = false;
         self.document.deinit(self.allocator);
         self.document = .{};
         self.history.clear(self.allocator);
@@ -518,6 +522,27 @@ pub const Editor = struct {
         var link_id: i32 = -1;
         if (self.bridge.objectAt(sx, sy, &link_id) == .ok) pointer.object = link_id;
         return pointer;
+    }
+
+    /// The Place tool's ghost (PARITY O7): what the tool wants shown this frame.
+    pub const GhostWish = struct { name: []const u8, world_x: f32, world_y: f32, dir: i32 };
+
+    /// Asks the engine to show the Place tool's ghost - its own half-opaque visual
+    /// of the entry at the pointer, turned as the placer is - or, with no wish
+    /// (another tool, no entry, the pointer off the map or over a panel), to show
+    /// none. A scene object only: this touches no document, no history and no
+    /// selection, so nothing here can be saved, undone or listed. A refusal (an
+    /// entry the palette cannot place, a point off the map) leaves no ghost and
+    /// is not an error. Called every frame the tool is in hand: the engine moves
+    /// the one visual it holds; the clear is skipped while none is showing.
+    pub fn showPlacementGhost(self: *Editor, wish: ?GhostWish) void {
+        const want = if (wish) |w| (if (w.name.len == 0) null else w) else null;
+        const want_now = want orelse {
+            if (self.ghost_shown) _ = self.bridge.clearPlacementGhost();
+            self.ghost_shown = false;
+            return;
+        };
+        self.ghost_shown = self.bridge.setPlacementGhost(want_now.name, want_now.world_x, want_now.world_y, want_now.dir) == .ok;
     }
 
     fn mergeable(self: *Editor, gesture: u32, tag: std.meta.Tag(Command)) ?*history_mod.Entry {
@@ -3717,6 +3742,69 @@ test "open fills the document from the bridge" {
     try std.testing.expectEqualStrings("T34", editor.document.find(1).?.nameSlice());
     try std.testing.expect(!editor.document.find(3).?.known);
     try std.testing.expectEqualSlices(i32, &.{ 0, 1 }, editor.document.diplomacy.items);
+}
+
+test "the placement ghost is the bridge's scene object and nothing else (PARITY O7)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try editor.open("fixture.bzm");
+    const objects = editor.document.objects.items.len;
+    const calls = fake.calls.items.len;
+    // Shown: the entry at the point, turned as asked, held by the bridge.
+    editor.showPlacementGhost(.{ .name = "T34", .world_x = 100, .world_y = 120, .dir = 16384 });
+    try std.testing.expect(editor.ghost_shown);
+    const ghost = fake.ghost.?;
+    try std.testing.expectEqualStrings("T34", ghost.nameSlice());
+    try std.testing.expectEqual(@as(f32, 100), ghost.x);
+    try std.testing.expectEqual(@as(f32, 120), ghost.y);
+    try std.testing.expectEqual(@as(i32, 16384), ghost.dir);
+    // It follows: one visual, moved and turned.
+    editor.showPlacementGhost(.{ .name = "T34", .world_x = 140, .world_y = 120, .dir = 32768 });
+    try std.testing.expectEqual(@as(f32, 140), fake.ghost.?.x);
+    try std.testing.expectEqual(@as(i32, 32768), fake.ghost.?.dir);
+    // Not a map object: no record, no history, no selection, no recorded edit.
+    try std.testing.expectEqual(objects, editor.document.objects.items.len);
+    try std.testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    try std.testing.expect(editor.selection == null);
+    try std.testing.expectEqual(calls, fake.calls.items.len);
+    try std.testing.expect(!editor.dirty());
+    // No wish takes it away, and asks the bridge once, not every frame.
+    editor.showPlacementGhost(null);
+    try std.testing.expect(fake.ghost == null);
+    try std.testing.expect(!editor.ghost_shown);
+    const sets = fake.ghost_sets;
+    editor.showPlacementGhost(null);
+    try std.testing.expectEqual(sets, fake.ghost_sets);
+}
+
+test "a refused ghost leaves none showing, and an open forgets it (PARITY O7)" {
+    var fake = try testFixture(std.testing.allocator);
+    defer fake.deinit();
+    var editor = Editor.init(std.testing.allocator, fake.bridge());
+    defer editor.deinit();
+    try editor.open("fixture.bzm");
+    editor.showPlacementGhost(.{ .name = "T34", .world_x = 100, .world_y = 120, .dir = 0 });
+    try std.testing.expect(fake.ghost != null);
+    // A point off the map: refused, and the ghost that was showing goes.
+    editor.showPlacementGhost(.{ .name = "T34", .world_x = -50, .world_y = 120, .dir = 0 });
+    try std.testing.expect(fake.ghost == null);
+    try std.testing.expect(!editor.ghost_shown);
+    // An entry the palette cannot place: the same.
+    fake.refuseGhostFor("soldier");
+    editor.showPlacementGhost(.{ .name = "T34", .world_x = 100, .world_y = 120, .dir = 0 });
+    editor.showPlacementGhost(.{ .name = "soldier", .world_x = 100, .world_y = 120, .dir = 0 });
+    try std.testing.expect(fake.ghost == null);
+    // No name is no wish, not a crash.
+    editor.showPlacementGhost(.{ .name = "", .world_x = 100, .world_y = 120, .dir = 0 });
+    try std.testing.expect(fake.ghost == null);
+    // A map opening drops the ghost the engine held.
+    editor.showPlacementGhost(.{ .name = "T34", .world_x = 100, .world_y = 120, .dir = 0 });
+    try std.testing.expect(editor.ghost_shown);
+    try editor.open("fixture.bzm");
+    try std.testing.expect(fake.ghost == null);
+    try std.testing.expect(!editor.ghost_shown);
 }
 
 test "an open moves every generation a panel keys on (IN-B04)" {

@@ -165,7 +165,15 @@ pub const Placer = struct {
                 editor.selection = try editor.addObject(self.name, where.x, where.y, self.dir, self.player);
                 editor.selection_set.clearRetainingCapacity();
             },
-            .drag, .release, .key, .right_press, .right_drag, .right_release, .double_click => {},
+            // Q and E turn the object about to be placed, the step the Selector
+            // turns a selected one by (PARITY O7: the ghost follows them, and so
+            // does the wheel, which sets `dir` itself).
+            .key => |key| switch (key) {
+                .rotate_left => self.dir = @mod(self.dir - rotate_step, full_turn),
+                .rotate_right => self.dir = @mod(self.dir + rotate_step, full_turn),
+                .delete, .enter, .insert, .escape, .space => {},
+            },
+            .drag, .release, .right_press, .right_drag, .right_release, .double_click => {},
         }
     }
 };
@@ -562,6 +570,27 @@ test "the placer adds and selects" {
     try placer.handle(&editor, .{ .press = try at(&editor, 200, 200) });
     const link = editor.selection.?;
     try testing.expectEqual(@as(i32, 1), editor.document.find(link).?.player);
+}
+
+test "Q and E turn the object about to be placed, by the Selector's step, and place it turned (PARITY O7)" {
+    var fake = try testFixture(testing.allocator);
+    defer fake.deinit();
+    var editor = try opened(&fake);
+    defer editor.deinit();
+    var placer: Placer = .{ .name = "T34", .dir = 0, .player = 0 };
+    try placer.handle(&editor, .{ .key = .rotate_right });
+    try testing.expectEqual(rotate_step, placer.dir);
+    try placer.handle(&editor, .{ .key = .rotate_right });
+    try testing.expectEqual(2 * rotate_step, placer.dir);
+    try placer.handle(&editor, .{ .key = .rotate_left });
+    try placer.handle(&editor, .{ .key = .rotate_left });
+    try placer.handle(&editor, .{ .key = .rotate_left });
+    try testing.expectEqual(@as(i32, full_turn - rotate_step), placer.dir);
+    // The key is no edit: nothing was added, nothing is undoable.
+    try testing.expectEqual(@as(usize, 0), editor.history.undo_stack.items.len);
+    // The object lands at the angle the ghost showed.
+    try placer.handle(&editor, .{ .press = try at(&editor, 200, 200) });
+    try testing.expectEqual(@as(i32, full_turn - rotate_step), editor.document.find(editor.selection.?).?.dir);
 }
 
 test "the placer and a drag take the map position under the pointer, not the world point" {

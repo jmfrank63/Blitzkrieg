@@ -659,6 +659,44 @@ BkEditorStatus BkEditorEngineObjectState( BkEditorSession *pSession, int nLinkID
 	} );
 }
 
+BkEditorStatus BkEditorSetPlacementGhost( BkEditorSession *pSession, const char *pszName, float fWorldX, float fWorldY, int nDir )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszName == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( !std::isfinite( fWorldX ) || !std::isfinite( fWorldY ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		return SetGhostInSession( pSession, pszName, fWorldX, fWorldY, nDir ) ? BK_EDITOR_OK : BK_EDITOR_REFUSED;
+	} );
+}
+
+BkEditorStatus BkEditorClearPlacementGhost( BkEditorSession *pSession )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		ClearGhostInSession( pSession );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorPlacementGhost( BkEditorSession *pSession, int *pnShown, float *pfX, float *pfY, int *pnDir )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		const IVisObj *pGhost = static_cast<const IVisObj*>( pSession->pGhost.GetPtr() );
+		if ( pnShown != 0 )
+			*pnShown = pGhost != 0 ? 1 : 0;
+		if ( pfX != 0 )
+			*pfX = pGhost != 0 ? pGhost->GetPosition().x : 0.0f;
+		if ( pfY != 0 )
+			*pfY = pGhost != 0 ? pGhost->GetPosition().y : 0.0f;
+		if ( pnDir != 0 )
+			*pnDir = pGhost != 0 ? pGhost->GetDirection() : 0;
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkEditorSnapToGrid( BkEditorSession *pSession, const char *pszName, float fX, float fY, float *pfOutX, float *pfOutY )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
@@ -4768,6 +4806,7 @@ BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 		// The session holds the world by a plain pointer. Its destructor empties
 		// the scene and drops the map objects, which refer to the AI objects
 		// the session holds.
+		ClearGhostInSession( pSession );
 		delete pSession->pWorld;
 		pSession->pWorld = 0;
 		// The renderer outlives the session, and the overlay's function and
