@@ -296,20 +296,9 @@ bool InstallMapInSession( SEditorSession *pSession, const CMapInfo &read, const 
 		                                              pSession->snapshot.terrain.patches.GetSizeY() * STerrainPatchInfo::nSizeY + 1 );
 		pSession->snapshot.terrain.altitudes.SetZero();
 	}
-	// 05-02 (Rule 1): the snapshot is a COPY of the read, and the copy's
-	// SVertexAltitude padding bytes are whatever the heap held there - a
-	// save wrote them, so every byte-for-byte proof of an altitude edit
-	// since 05-01 rode on heap luck. Pin them to what a fresh read holds -
-	// the file's own padding - by zeroing the three pad bytes of every
-	// vertex once, here, at install: capture, restore and save all agree
-	// from then on, whatever the allocator did. (SetZero already zeroed the
-	// F5 sheet's records whole, so this is a no-op there.)
-	{
-		STerrainInfo::TVertexAltitudeArray2D &rSheet = pSession->snapshot.terrain.altitudes;
-		for ( int nY = 0; nY < rSheet.GetSizeY(); ++nY )
-			for ( int nX = 0; nX < rSheet.GetSizeX(); ++nX )
-				memset( &rSheet[nY][nX].shade + 1, 0, sizeof( SVertexAltitude ) - 5 );
-	}
+	// The snapshot is a COPY of the read. SVertexAltitude names its three padding bytes
+	// (cReserved, fmtMap.h), so the copy carries the file's own bytes and a new sheet starts at
+	// zero: no pin at install is needed for a save to write defined bytes.
 	pSession->hiddenScriptIDs.clear();
 	pSession->hiddenLinkIDs.clear();
 	pSession->szScriptFileAtOpen = read.szScriptFile;
