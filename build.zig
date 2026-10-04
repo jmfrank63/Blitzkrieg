@@ -2202,9 +2202,10 @@ pub fn build(b: *std.Build) void {
     // After install-game, whose step it depends on: the tier's executable is
     // staged into the layout that step creates.
     addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step);
-    // The editor's platforms: macOS on Apple Silicon and Intel, and Windows x64
-    // (MSVC); everywhere else there is no MapEditor.
+    // The editor's platforms: macOS on Apple Silicon and Intel, Linux x64 and
+    // Windows x64 (MSVC); everywhere else there is no MapEditor.
     const map_editor_platform = (target.result.os.tag == .macos and (target.result.cpu.arch == .aarch64 or target.result.cpu.arch == .x86_64)) or
+        (target.result.os.tag == .linux and target.result.cpu.arch == .x86_64) or
         (target.result.os.tag == .windows and target.result.cpu.arch == .x86_64 and target.result.abi == .msvc);
     // Captured (rather than discarded, as before) so the package steps below
     // can stage this exact build of MapEditor beside Game (D-08); null on
@@ -4292,7 +4293,12 @@ fn addEditorImgui(
     // On MSVC the CRT is the consumer's business: Zig links its own libc into
     // the Zig programs that use this library, and naming the MSVC CRT here as
     // well links two of them (duplicate _cexit, _wctype, ...).
-    if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
+    // On Linux the C++ runtime is the host's shared libstdc++ and libgcc_s,
+    // which a static archive cannot hold as members (LLD rejects them); the
+    // consuming executable links them itself, so only libc is named here.
+    if (target.result.os.tag == .linux) {
+        module.link_libc = true;
+    } else if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
     module.addCSourceFiles(.{
         .files = &.{
             "vendor/dcimgui/src-docking/imgui.cpp",
@@ -5850,6 +5856,9 @@ fn addEditorBridgeTest(
     const exe = b.addExecutable(.{ .name = "editor-bridge-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    // Engine modules resolve RTTI and the host globals from the executable,
+    // as they do from Game and MapEditor.
+    if (target.result.os.tag == .linux) exe.rdynamic = true;
     // Loader-relative, because this binary runs from the installation and not
     // from the build cache its link-time rpath points at.
     switch (target.result.os.tag) {
@@ -7711,9 +7720,13 @@ fn configureMapEditorExecutable(exe: *std.Build.Step.Compile, target: std.Build.
     }
     // Engine modules resolve RTTI and the coalesced host globals (the host's
     // g_pGlobalSingleton copy wins) from the executable, as they do from Game.
-    if (target.result.os.tag == .macos) exe.rdynamic = true;
+    if (target.result.os.tag == .macos or target.result.os.tag == .linux) exe.rdynamic = true;
     // Loader-relative: it runs from the installation, not the build cache.
-    if (target.result.os.tag == .macos) exe.root_module.addRPathSpecial("@executable_path");
+    switch (target.result.os.tag) {
+        .macos => exe.root_module.addRPathSpecial("@executable_path"),
+        .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
+        else => {},
+    }
 }
 
 fn addRandomMissionsTest(
@@ -7883,6 +7896,9 @@ fn addEngineHostedTool(
     const exe = b.addExecutable(.{ .name = tool, .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    // Engine modules resolve RTTI and the host globals from the executable,
+    // as they do from Game and MapEditor.
+    if (target.result.os.tag == .linux) exe.rdynamic = true;
     // Loader-relative, because this binary runs from the installation and not
     // from the build cache its link-time rpath points at.
     switch (target.result.os.tag) {
