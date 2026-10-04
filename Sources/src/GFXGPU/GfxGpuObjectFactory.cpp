@@ -61,7 +61,7 @@ float FontGpu::TextWidth( const T *text, int count ) const
     if ( !text || count <= 0 ) return 0;
     float width = 0;
     T previous = 0;
-    for ( int i = 0; i < count && text[i] && text[i] != static_cast<T>('\n'); ++i )
+    for ( int i = 0; i < count && text[i] && text[i] != static_cast<T>('\n') && text[i] != static_cast<T>('\r'); ++i )
     {
         const WORD current = static_cast<WORD>( text[i] );
         const SFontFormat::SCharDesc &character = format_.GetChar( current );
@@ -104,7 +104,7 @@ bool FontGpu::AppendGeometry( const wchar_t *text, size_t length, float x, float
     // vectors a quad at a time reallocated and copied several times for every
     // line of text drawn.
     size_t glyphs = 0;
-    while ( glyphs < length && text[glyphs] && text[glyphs] != L'\n' ) ++glyphs;
+    while ( glyphs < length && text[glyphs] && text[glyphs] != L'\n' && text[glyphs] != L'\r' ) ++glyphs;
     vertices.reserve( vertices.size() + glyphs * 4 );
     indices.reserve( indices.size() + glyphs * 6 );
     // The vertex shader now undoes the D3DCOLOR/RGBA channel order for every
@@ -112,7 +112,7 @@ bool FontGpu::AppendGeometry( const wchar_t *text, size_t length, float x, float
     WORD previous = 0;
     const float glyph_height = format_.metrics.nHeight * scale;
     const wchar_t *const text_end = text + length;
-    for ( const wchar_t *cursor = text; cursor != text_end && *cursor && *cursor != L'\n'; ++cursor )
+    for ( const wchar_t *cursor = text; cursor != text_end && *cursor && *cursor != L'\n' && *cursor != L'\r'; ++cursor )
     {
         const WORD current = static_cast<WORD>( *cursor );
         const SFontFormat::SCharDesc &character = format_.GetChar( current );
@@ -436,7 +436,7 @@ public:
         if ( !text_ || !text_->GetString() ) return 0;
         const WORD *value = text_->GetString();
         int length = 0;
-        while ( value[length] && value[length] != L'\n' ) ++length;
+        while ( value[length] && value[length] != L'\n' && value[length] != L'\r' ) ++length;
         if ( count >= 0 && count < length ) length = count;
         FontGpu *gpu_font = dynamic_cast_ptr<FontGpu *>( font_ );
         return gpu_font ? static_cast<int>( gpu_font->TextWidthFloat( value, length ) * scale_ ) : (font_ ? static_cast<int>( font_->GetTextWidth( value, length ) * scale_ ) : static_cast<int>( length * 8 * scale_ ));

@@ -44,6 +44,11 @@ namespace NAudioBackend
 		NAudioBackendImpl::CloseDevice();
 	}
 
+	void RestartStoppedDevice()
+	{
+		NAudioBackendImpl::RestartStoppedDevice();
+	}
+
 	void DebugTraceMixer()
 	{
 		NAudioBackendImpl::DebugTraceMixer();
