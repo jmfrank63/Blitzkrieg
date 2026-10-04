@@ -564,6 +564,8 @@ pub const FakeBridge = struct {
     /// What rmgTemplateGraphs answers for every template: names and weights.
     template_graph_names: []const []const u8 = &.{ "scenarios\\graphs\\summer\\graph00", "scenarios\\graphs\\summer\\graph01", "scenarios\\graphs\\summer\\graph02" },
     template_graph_weights: []const i32 = &.{ 1, 2, 3 },
+    /// Settings rmgCheckSetting (and createRandomMap) refuse for every template.
+    unfit_settings: []const []const u8 = &.{},
     last_generate: ?bridge_mod.RmgGenerateParams = null,
     generated_names: std.ArrayListUnmanaged([bridge_mod.rmg_map_name_capacity]u8) = .empty,
     drawn_seed: u32 = 0x5eed0001,
@@ -1333,6 +1335,7 @@ pub const FakeBridge = struct {
         .createRandomMap = createRandomMap,
         .listStorageFiles = listStorageFiles,
         .rmgTemplateGraphs = rmgTemplateGraphs,
+        .rmgCheckSetting = rmgCheckSetting,
         .rmgReadContainer = rmgReadContainer,
         .rmgWriteContainer = rmgWriteContainer,
         .rmgReadGraph = rmgReadGraph,
@@ -5398,6 +5401,29 @@ pub const FakeBridge = struct {
         return if (count > out.len) .refused else .ok;
     }
 
+    fn rmgCheckSetting(ptr: *anyopaque, template: [*:0]const u8, graph: i32, angle: i32, setting: [*:0]const u8) Status {
+        _ = graph;
+        _ = angle;
+        const self = from(ptr);
+        self.message_len = 0;
+        if (!self.rmgHas(.templates, std.mem.span(template))) {
+            self.say("template \"{s}\" is not in the data", .{std.mem.span(template)});
+            return .refused;
+        }
+        if (self.settingUnfit(std.mem.span(setting))) {
+            self.say("template \"{s}\" cannot be built in setting \"{s}\"", .{ std.mem.span(template), std.mem.span(setting) });
+            return .refused;
+        }
+        return .ok;
+    }
+
+    fn settingUnfit(self: *const FakeBridge, setting: []const u8) bool {
+        for (self.unfit_settings) |unfit| {
+            if (std.ascii.eqlIgnoreCase(unfit, setting)) return true;
+        }
+        return false;
+    }
+
     fn rmgTemplateGraphs(ptr: *anyopaque, template: [*:0]const u8, out: []bridge_mod.RmgGraph, total: *usize) Status {
         const self = from(ptr);
         self.message_len = 0;
@@ -5457,6 +5483,10 @@ pub const FakeBridge = struct {
         }
         if (params.angle < -1 or params.angle > 3) {
             self.say("angle {d} is outside -1..3", .{params.angle});
+            return .refused;
+        }
+        if (self.settingUnfit(setting)) {
+            self.say("template \"{s}\" cannot be built in setting \"{s}\"", .{ params.templateSlice(), setting });
             return .refused;
         }
         const name = params.mapNameSlice();

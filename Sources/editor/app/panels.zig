@@ -315,6 +315,15 @@ pub const State = struct {
     rmg_settings: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
     /// How many graphs the chosen template lists (the graph field's range), -1 unknown.
     rmg_graph_count: i32 = -1,
+    /// Whether each of `rmg_settings` can build the chosen template at the
+    /// chosen graph and direction (BkEditorRmgCheckSetting), parallel to it:
+    /// the setting combo greys out the rest. Read again when the template, the
+    /// graph or the direction changes (`refreshRmgSettingFit`).
+    rmg_setting_fit: std.ArrayListUnmanaged(RmgSettingFit) = .empty,
+    rmg_fit_template: logic.NameText = .{},
+    /// -2: not read yet (the lists were read afresh).
+    rmg_fit_graph: i32 = -2,
+    rmg_fit_angle: i32 = -2,
     rmg_phase: RmgPhase = .idle,
     rmg_popup_opened: bool = false,
     /// Frames the announced modal still has to be drawn before the generator runs:
@@ -330,7 +339,7 @@ pub const State = struct {
     /// Which Browse button is waiting on the OS dialog: 0 none, 1 template, 2 context.
     rmg_browse_target: u8 = 0,
     /// The dialog's note under the fields: the last refusal's reason.
-    rmg_message: [320]u8 = undefined,
+    rmg_message: [512]u8 = undefined,
     rmg_message_len: usize = 0,
 
     /// File > Open Recent (D-27): whether each entry's file still exists,
@@ -963,6 +972,7 @@ pub const State = struct {
         self.rmg_templates.deinit(self.allocator);
         self.rmg_contexts.deinit(self.allocator);
         self.rmg_settings.deinit(self.allocator);
+        self.rmg_setting_fit.deinit(self.allocator);
         self.* = undefined;
     }
 
@@ -3266,6 +3276,7 @@ pub fn openRmgDialog(state: *State) void {
     readRmgNames(state, .templates, &state.rmg_templates, false);
     readRmgNames(state, .chapters, &state.rmg_contexts, true);
     readRmgNames(state, .settings, &state.rmg_settings, false);
+    state.rmg_fit_graph = -2;
     syncRmgEdits(state);
     refreshRmgGraphCount(state);
     state.rmg_message_len = 0;
@@ -3351,6 +3362,63 @@ pub fn refreshRmgGraphCount(state: *State) void {
     if (status == .ok or status == .refused) {
         if (total > 0) state.rmg_graph_count = @intCast(total);
     }
+}
+
+/// One setting's fit with the dialog's template, graph and direction.
+pub const RmgSettingFit = struct {
+    fits: bool = true,
+    /// The bridge's reason when it does not fit (the tooltip).
+    why: [512]u8 = undefined,
+    why_len: usize = 0,
+
+    pub fn reason(self: *const RmgSettingFit) []const u8 {
+        return self.why[0..self.why_len];
+    }
+};
+
+/// Reads which settings fit (BkEditorRmgCheckSetting) when the template, the
+/// graph or the direction differs from the last read, or the lists were read
+/// afresh: a handful of small XML reads, once per change, not per frame. No
+/// template, or a check that could not load its data, counts as fitting - the
+/// generation itself then says what is wrong.
+pub fn refreshRmgSettingFit(state: *State) void {
+    const fields = &state.rmg_fields;
+    if (state.rmg_fit_graph == fields.graph and state.rmg_fit_angle == fields.angle and
+        state.rmg_setting_fit.items.len == state.rmg_settings.items.len and
+        std.mem.eql(u8, state.rmg_fit_template.slice(), fields.template.slice())) return;
+    state.rmg_fit_template.set(fields.template.slice());
+    state.rmg_fit_graph = fields.graph;
+    state.rmg_fit_angle = fields.angle;
+    state.rmg_setting_fit.clearRetainingCapacity();
+    state.rmg_setting_fit.ensureTotalCapacity(state.allocator, state.rmg_settings.items.len) catch return;
+    var template_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
+    const template = std.fmt.bufPrintZ(&template_buffer, "{s}", .{fields.template.slice()}) catch "";
+    for (state.rmg_settings.items) |*entry| {
+        var fit: RmgSettingFit = .{};
+        var setting_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
+        const setting = std.fmt.bufPrintZ(&setting_buffer, "{s}", .{entry.nameSlice()}) catch "";
+        if (template.len != 0 and setting.len != 0 and
+            state.editor.bridge.rmgCheckSetting(template.ptr, fields.graph, fields.angle, setting.ptr) == .refused)
+        {
+            fit.fits = false;
+            const why = state.editor.bridge.lastMessage();
+            fit.why_len = @min(why.len, fit.why.len);
+            @memcpy(fit.why[0..fit.why_len], why[0..fit.why_len]);
+        }
+        state.rmg_setting_fit.appendAssumeCapacity(fit);
+    }
+}
+
+/// The fit of the setting the dialog holds now, null for <any setting> or a
+/// name the list does not have.
+pub fn chosenRmgSettingFit(state: *const State) ?*const RmgSettingFit {
+    const chosen = state.rmg_fields.setting.slice();
+    if (chosen.len == 0) return null;
+    for (state.rmg_settings.items, 0..) |*entry, i| {
+        if (i >= state.rmg_setting_fit.items.len) break;
+        if (std.ascii.eqlIgnoreCase(entry.nameSlice(), chosen)) return &state.rmg_setting_fit.items[i];
+    }
+    return null;
 }
 
 /// Browse next to the template or context combo: the OS file dialog over the

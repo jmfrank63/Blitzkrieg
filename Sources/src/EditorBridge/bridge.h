@@ -2205,6 +2205,19 @@ typedef struct { char name[192]; int weight; } BkEditorRmgGraph;
 BkEditorStatus BkEditorRmgTemplateGraphs( BkEditorSession *session, const char *template_name,
                                           BkEditorRmgGraph *out, int capacity, int *out_count );
 
+/* Whether BkEditorCreateRandomMap can build template_name in setting_name: every
+   container the generation may use has a terrain piece for the setting in every
+   direction it may face. graph -1 means any graph the template's weights may
+   pick, angle -1 any direction (0..3 = N, E, S, W); setting_name "" or
+   "<any setting>" always fits. Names as BkEditorListRmg lists them.
+   BK_EDITOR_OK when it fits; BK_EDITOR_REFUSED when it does not, the reason in
+   BkEditorLastMessage (template, setting, graph, container, direction), or when
+   a name is not in the data; BK_EDITOR_FAILED when a graph or container does
+   not load. BkEditorCreateRandomMap makes the same check and refuses with the
+   same reason. */
+BkEditorStatus BkEditorRmgCheckSetting( BkEditorSession *session, const char *template_name, int graph, int angle,
+                                        const char *setting_name );
+
 typedef struct
 {
 	char template_name[192];

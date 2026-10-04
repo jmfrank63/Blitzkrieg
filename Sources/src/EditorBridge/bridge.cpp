@@ -4840,6 +4840,12 @@ BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 		{
 			if ( IGFX *pGFX = GetSingleton<IGFX>() )
 				pGFX->SetOverlay( 0, 0 );
+			// The audio device's mixer thread runs code in the SFX module, which
+			// the module list unloads at exit; stopped here, as NMain::Finalize
+			// does for the game, or on Linux that thread runs into the unmapped
+			// module (SIGSEGV after the editor's last frame).
+			if ( ISFX *pSFX = GetSingleton<ISFX>() )
+				pSFX->Done();
 		}
 		delete pSession;
 	}
@@ -5054,6 +5060,21 @@ BkEditorStatus BkEditorRmgTemplateGraphs( BkEditorSession *pSession, const char 
 			pSession->szMessage = NStr::Format( "the template has %d graphs and room was given for %d", int( graphs.size() ), nCapacity );
 			return BK_EDITOR_REFUSED;
 		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkEditorRmgCheckSetting( BkEditorSession *pSession, const char *pszTemplate, int nGraph, int nAngle, const char *pszSetting )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		EnsureRmgMount( pSession );
+		if ( pszTemplate == 0 || pszSetting == 0 || strnlen( pszTemplate, 256 ) >= 256 || strnlen( pszSetting, 256 ) >= 256 ||
+		     nGraph < -1 || nAngle < -1 || nAngle > 3 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		bool bRefused = false;
+		if ( !CheckRmgSettingInSession( pSession, pszTemplate, nGraph, nAngle, pszSetting, &bRefused ) )
+			return bRefused ? BK_EDITOR_REFUSED : BK_EDITOR_FAILED;
 		return BK_EDITOR_OK;
 	} );
 }

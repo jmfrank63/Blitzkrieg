@@ -267,6 +267,91 @@ bool ReadSeedWord( const std::string &rszSeedFile, unsigned int *pnSeed )
 
 }
 
+namespace
+{
+// The setting check on names already resolved to the storage's (lower case, no
+// .xml). true when every container the generation may use holds a piece for the
+// setting in every direction it may face; false with the reason in the message
+// (*pbRefused) or when the template or a graph does not load (not refused).
+bool SettingFitsTemplate( SEditorSession *pSession, const std::string &rszTemplate, int nGraph, int nAngle, const std::string &rszSetting, bool *pbRefused )
+{
+	if ( rszSetting.empty() )
+		return true;
+	SRMTemplate randomMapTemplate;
+	if ( !LoadDataResource( rszTemplate, "", false, 0, RMGC_TEMPLATE_XML_NAME, randomMapTemplate ) )
+	{
+		pSession->szMessage = "template \"" + rszTemplate + "\" does not load as a template";
+		return false;
+	}
+	static const char *const pszDirections[4] = { "N", "E", "S", "W" };
+	std::unordered_map<std::string, bool> checkedContainers;
+	for ( int nGraphIndex = 0; nGraphIndex < int( randomMapTemplate.graphs.size() ); ++nGraphIndex )
+	{
+		// The generator's choice: the asked graph, or any the weights may pick.
+		if ( nGraph >= 0 ? nGraphIndex != nGraph : randomMapTemplate.graphs.GetWeight( nGraphIndex ) <= 0 )
+			continue;
+		const std::string &rszGraph = randomMapTemplate.graphs[nGraphIndex];
+		SRMGraph graph;
+		if ( !LoadDataResource( rszGraph, "", false, 1, RMGC_GRAPH_XML_NAME, graph ) )
+		{
+			pSession->szMessage = "graph \"" + rszGraph + "\" of template \"" + rszTemplate + "\" does not load";
+			return false;
+		}
+		for ( CRMGraphNodesList::const_iterator node = graph.nodes.begin(); node != graph.nodes.end(); ++node )
+		{
+			if ( checkedContainers.count( node->szContainerFileName ) != 0 )
+				continue;
+			SRMContainer container;
+			if ( !LoadDataResource( node->szContainerFileName, "", false, 1, RMGC_CONTAINER_XML_NAME, container ) )
+			{
+				pSession->szMessage = "container \"" + node->szContainerFileName + "\" of graph \"" + rszGraph + "\" does not load";
+				return false;
+			}
+			for ( int nDirection = 0; nDirection < 4; ++nDirection )
+			{
+				if ( nAngle >= 0 && nDirection != nAngle )
+					continue;
+				std::vector<int> indices;
+				if ( container.GetIndices( nDirection, rszSetting, &indices ) == 0 )
+				{
+					pSession->szMessage = "template \"" + rszTemplate + "\" cannot be built in setting \"" + rszSetting + "\": its graph \"" + rszGraph +
+						"\" uses container \"" + node->szContainerFileName + "\", which has no terrain piece for that setting facing " + pszDirections[nDirection] +
+						". Choose a setting of the template's season, or <any setting>.";
+					if ( pbRefused != 0 )
+						*pbRefused = true;
+					return false;
+				}
+			}
+			checkedContainers[node->szContainerFileName] = true;
+		}
+	}
+	return true;
+}
+}
+
+bool CheckRmgSettingInSession( SEditorSession *pSession, const std::string &rszTemplate, int nGraph, int nAngle, const std::string &rszSetting, bool *pbRefused )
+{
+	if ( pbRefused != 0 )
+		*pbRefused = false;
+	if ( pSession == 0 )
+		return false;
+	if ( !pSession->bEngineStarted )
+	{
+		pSession->szMessage = "the engine is not started";
+		return false;
+	}
+	std::string szTemplate;
+	std::string szSetting;
+	if ( !CheckStorageName( pSession, "template", rszTemplate, false, &szTemplate ) ||
+	     !CheckStorageName( pSession, "setting", rszSetting == RMGC_ANY_SETTING_NAME ? std::string() : rszSetting, true, &szSetting ) )
+	{
+		if ( pbRefused != 0 )
+			*pbRefused = true;
+		return false;
+	}
+	return SettingFitsTemplate( pSession, szTemplate, nGraph, nAngle, szSetting, pbRefused );
+}
+
 bool CreateRandomMapInSession( SEditorSession *pSession, const SRMGenerateParams &rParams, bool *pbRefused, SRMGenerateResult *pResult )
 {
 	if ( pbRefused != 0 )
@@ -334,6 +419,14 @@ bool CreateRandomMapInSession( SEditorSession *pSession, const SRMGenerateParams
 			pSession->szMessage = "template \"" + missionStats.szTemplateMap + "\" has no graphs";
 			return refuse();
 		}
+	}
+	// A setting none of the template's pieces are for (a summer setting on a
+	// spring template): the generator would stop at the first graph node with
+	// only an assertion to say why, which a release build does not show.
+	{
+		bool bSettingRefused = false;
+		if ( !SettingFitsTemplate( pSession, missionStats.szTemplateMap, rParams.nGraph, rParams.nAngle, szSetting, &bSettingRefused ) )
+			return bSettingRefused ? refuse() : false;
 	}
 	// The output root: the user's (or the mod's) own folder, never the data.
 	const std::filesystem::path rootPath = GeneratedMapsRootPath( rParams.szModFolder );

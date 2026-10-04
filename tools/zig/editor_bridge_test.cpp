@@ -6494,6 +6494,43 @@ static std::string OsPath( std::string szPath )
 	return szPath;
 }
 
+// A storage name's file under Data as the disk spells it. The storage matches
+// names without case and lists them lower-cased; a Linux file system does not
+// (scenarios\patches\... is Data/Scenarios/Patches/...). Each component is
+// matched without case; one that is not there is kept as given.
+static std::filesystem::path DataFile( const std::string &szName )
+{
+	std::filesystem::path path( NPlatform::Paths::DataRoot() );
+	const std::string szOs = OsPath( szName );
+	std::string::size_type nStart = 0;
+	while ( nStart < szOs.size() )
+	{
+		std::string::size_type nEnd = szOs.find( '/', nStart );
+		if ( nEnd == std::string::npos )
+			nEnd = szOs.size();
+		std::string szPart = szOs.substr( nStart, nEnd - nStart );
+		nStart = nEnd + 1;
+		if ( szPart.empty() )
+			continue;
+		std::error_code error;
+		if ( !std::filesystem::exists( path / szPart, error ) )
+		{
+			for ( std::filesystem::directory_iterator it( path, error ), end; !error && it != end; it.increment( error ) )
+			{
+				const std::string szEntry = it->path().filename().string();
+				if ( szEntry.size() == szPart.size() && std::equal( szEntry.begin(), szEntry.end(), szPart.begin(),
+				     []( char a, char b ) { return tolower( ( unsigned char )a ) == tolower( ( unsigned char )b ); } ) )
+				{
+					szPart = szEntry;
+					break;
+				}
+			}
+		}
+		path /= szPart;
+	}
+	return path;
+}
+
 // The bytes of two files are the same. Read whole; the largest shipped map is
 // 1.6 MB.
 static bool SameBytes( const std::string &szLeft, const std::string &szRight )
@@ -14516,12 +14553,12 @@ static void TestM3RmgContainers( BkEditorSession *pSession, const std::string &s
 		// A map outside the storages: a shipped patch copied under another name
 		// into the scratch folder.
 		const std::string szPatch = shipped.patches[0].szFileName;
-		const std::filesystem::path sourceBzm = std::filesystem::path( NPlatform::Paths::DataRoot() ) / OsPath( szPatch + ".bzm" );
+		const std::filesystem::path sourceBzm = DataFile( szPatch + ".bzm" );
 		std::filesystem::path source = sourceBzm;
 		std::string szExt = ".bzm";
 		if ( !FileExists( source ) )
 		{
-			source = std::filesystem::path( NPlatform::Paths::DataRoot() ) / OsPath( szPatch + ".xml" );
+			source = DataFile( szPatch + ".xml" );
 			szExt = ".xml";
 		}
 		std::error_code error;

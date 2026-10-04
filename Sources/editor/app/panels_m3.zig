@@ -1080,8 +1080,10 @@ pub fn drawLayersMenu(state: *State, map_open: bool) void {
 const RmgField = enum { template, context, setting };
 
 /// A combo of the dialog's names: `current` as the preview (`blank_label`
-/// when empty), one selectable per name, and - when `any_label` is given - an
-/// extra first entry that clears the field (the setting's `<any setting>`).
+/// when empty), one selectable per name, and - for the setting - an extra
+/// first entry that clears the field (`<any setting>`). `fit`, parallel to
+/// `names`, greys out the names the chosen template cannot be built in, the
+/// reason in the tooltip.
 fn rmgCombo(
     state: *State,
     label: [*:0]const u8,
@@ -1089,18 +1091,30 @@ fn rmgCombo(
     field: *logic.NameText,
     which: RmgField,
     blank_label: [:0]const u8,
+    fit: []const panels.RmgSettingFit,
 ) void {
     var preview: [core.bridge.field_set_name_capacity + 16:0]u8 = undefined;
     const shown = if (field.len == 0) blank_label else std.fmt.bufPrintZ(&preview, "{s}", .{field.slice()}) catch blank_label;
     if (ig.igBeginCombo(label, shown.ptr, 0)) {
         if (which == .setting and ig.igSelectableEx("<any setting>", field.len == 0, 0, .{ .x = 0, .y = 0 })) field.set("");
-        for (names) |*entry| {
+        for (names, 0..) |*entry, i| {
             const name = entry.nameSlice();
             var name_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
             const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{name}) catch continue;
+            const unfit: ?*const panels.RmgSettingFit = if (i < fit.len and !fit[i].fits) &fit[i] else null;
+            ig.igBeginDisabled(unfit != null);
             if (ig.igSelectableEx(name_z.ptr, std.mem.eql(u8, name, field.slice()), 0, .{ .x = 0, .y = 0 })) {
                 field.set(name);
                 if (which == .template) panels.refreshRmgGraphCount(state);
+            }
+            ig.igEndDisabled();
+            if (unfit) |why| {
+                if (ig.igIsItemHovered(ig.ImGuiHoveredFlags_AllowWhenDisabled) and ig.igBeginTooltip()) {
+                    ig.igPushTextWrapPos(ig.igGetFontSize() * 35);
+                    panels.text(why.reason());
+                    ig.igPopTextWrapPos();
+                    ig.igEndTooltip();
+                }
             }
         }
         ig.igEndCombo();
@@ -1122,13 +1136,13 @@ pub fn drawRandomMapDialog(state: *State) void {
     defer ig.igEnd();
     const fields = &state.rmg_fields;
 
-    rmgCombo(state, "##rmg_template", state.rmg_templates.items, &fields.template, .template, "(choose a template)");
+    rmgCombo(state, "##rmg_template", state.rmg_templates.items, &fields.template, .template, "(choose a template)", &.{});
     ig.igSameLine();
     if (ig.igSmallButton("Browse##template")) panels.browseRmg(state, 1);
     ig.igSameLine();
     panels.text("Template");
 
-    rmgCombo(state, "##rmg_context", state.rmg_contexts.items, &fields.context, .context, "(choose a context)");
+    rmgCombo(state, "##rmg_context", state.rmg_contexts.items, &fields.context, .context, "(choose a context)", &.{});
     ig.igSameLine();
     if (ig.igSmallButton("Browse##context")) panels.browseRmg(state, 2);
     ig.igSameLine();
@@ -1143,7 +1157,19 @@ pub fn drawRandomMapDialog(state: *State) void {
         panels.text("-1 lets the template's weights pick");
     }
 
-    rmgCombo(state, "Setting", state.rmg_settings.items, &fields.setting, .setting, "<any setting>");
+    panels.refreshRmgSettingFit(state);
+    rmgCombo(state, "Setting", state.rmg_settings.items, &fields.setting, .setting, "<any setting>", state.rmg_setting_fit.items);
+    // A setting chosen before the template changed (or set by a script) that
+    // does not fit: said here; OK still runs, and the generation refuses with it.
+    if (panels.chosenRmgSettingFit(state)) |chosen| {
+        if (!chosen.fits) {
+            ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, .{ .x = 1.0, .y = 0.6, .z = 0.3, .w = 1.0 });
+            ig.igPushTextWrapPos(ig.igGetFontSize() * 40);
+            panels.text(chosen.reason());
+            ig.igPopTextWrapPos();
+            ig.igPopStyleColor();
+        }
+    }
 
     ig.igText("Direction");
     var angle: c_int = fields.angle;
@@ -1171,9 +1197,15 @@ pub fn drawRandomMapDialog(state: *State) void {
     _ = ig.igCheckbox("Replace a map of that name", &fields.overwrite);
     ig.igTextDisabled("The map goes to your maps folder (or the active mod's); the seed used is shown afterwards.");
 
-    if (state.rmg_message_len != 0) {
+    const note = state.rmg_message[0..state.rmg_message_len];
+    // Not twice: a refusal for the unfit setting says what the warning under
+    // the setting already says.
+    const said_above = if (panels.chosenRmgSettingFit(state)) |chosen| !chosen.fits and std.mem.eql(u8, chosen.reason(), note) else false;
+    if (note.len != 0 and !said_above) {
         ig.igSpacing();
-        panels.text(state.rmg_message[0..state.rmg_message_len]);
+        ig.igPushTextWrapPos(ig.igGetFontSize() * 40);
+        panels.text(note);
+        ig.igPopTextWrapPos();
     }
 
     ig.igSpacing();
