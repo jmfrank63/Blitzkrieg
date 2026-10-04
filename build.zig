@@ -2202,8 +2202,9 @@ pub fn build(b: *std.Build) void {
     // After install-game, whose step it depends on: the tier's executable is
     // staged into the layout that step creates.
     addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step);
-    // The editor's two platforms; everywhere else there is no MapEditor.
-    const map_editor_platform = (target.result.os.tag == .macos and target.result.cpu.arch == .aarch64) or
+    // The editor's platforms: macOS on Apple Silicon and Intel, and Windows x64
+    // (MSVC); everywhere else there is no MapEditor.
+    const map_editor_platform = (target.result.os.tag == .macos and (target.result.cpu.arch == .aarch64 or target.result.cpu.arch == .x86_64)) or
         (target.result.os.tag == .windows and target.result.cpu.arch == .x86_64 and target.result.abi == .msvc);
     // Captured (rather than discarded, as before) so the package steps below
     // can stage this exact build of MapEditor beside Game (D-08); null on
