@@ -21,6 +21,7 @@
 #include "../AILogic/AITypes.h"
 #include "../AILogic/aiconsts.h"
 #include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtMapScriptPath.h"
 #include "../Main/TextSystem.h"
 
 BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
@@ -845,6 +846,17 @@ static void FixupHudClusterLayout( IUIScreen *pScreen );
 // author no camera anchor at all: the anchor the designers set is the better
 // answer everywhere it exists, because it frames the opening situation rather
 // than the arithmetic middle of the roster.
+// BK_MAP_TRACE=1: print what the mission consumed from the map, one
+// "BK_MAP_TRACE: key=value ..." line per item (the start camera and the
+// terrain's roads and rivers here; the script, areas, groups, bridges,
+// trenches, start commands, reserve positions and generals where they are
+// read). The Map Editor's test-launch scenarios parse these lines to prove
+// the game read what the editor wrote. Nothing is printed without it.
+static bool IsMapTraceOn()
+{
+	static const bool bOn = getenv( "BK_MAP_TRACE" ) != 0;
+	return bOn;
+}
 static CVec3 GetPlayerUnitsCenter( const SLoadMapInfo &mapinfo, const int nPlayer )
 {
 	IObjectsDB *pDB = GetSingleton<IObjectsDB>();
@@ -1431,16 +1443,10 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 		}
 	}
 	{
-		std::string szScriptName;
-		const int nMapNamePos = szTerrainName.rfind( '\\' );
-		if ( nMapNamePos != std::string::npos ) 
-			szScriptName = szTerrainName.substr( 0, nMapNamePos + 1 );
-		const int nScriptNamePos = mapinfo.szScriptFile.rfind( '\\' );
-		if ( nScriptNamePos != std::string::npos ) 
-			szScriptName += mapinfo.szScriptFile.substr( nScriptNamePos + 1 );
-		else
-			szScriptName += mapinfo.szScriptFile;
-		mapinfo.szScriptFile = szScriptName;
+		// The script is looked up beside the map: its folder and the last component of the
+		// stored name, split on either separator (NMapScriptPath: a map stores the name
+		// relative to its own folder, with '/', and older maps a path with '\\').
+		mapinfo.szScriptFile = NMapScriptPath::BesideMap( mapinfo.szScriptFile, szTerrainName );
 	}
 	{
 		const std::string szMissionName = GetGlobalVar( "Mission.Current.Name", "" );
@@ -1484,15 +1490,29 @@ bool CInterfaceMission::NewMission( const std::string &_szMapName, bool _bCycled
 	vCameraStartPos = mapinfo.vCameraAnchor;
 	{
 		const int nUserPlayer = GetSingleton<IScenarioTracker>()->GetUserPlayerID();
+		const char *pszCameraSource = "neutral";
 		if ( nUserPlayer < mapinfo.playersCameraAnchors.size() )
+		{
 			vCameraStartPos = mapinfo.playersCameraAnchors[nUserPlayer];
+			if ( vCameraStartPos != VNULL3 )
+				pszCameraSource = "player";
+		}
 		if ( vCameraStartPos == VNULL3 )
 			vCameraStartPos = mapinfo.vCameraAnchor;
 		// Neither anchor authored - random maps and unfinished ones - used to
 		// open the mission on the map's origin corner, nowhere near the player.
 		// The middle of what the player owns is the useful view instead.
 		if ( vCameraStartPos == VNULL3 )
+		{
 			vCameraStartPos = GetPlayerUnitsCenter( mapinfo, nUserPlayer );
+			pszCameraSource = "units";
+		}
+		if ( IsMapTraceOn() )
+		{
+			fprintf( stderr, "BK_MAP_TRACE: camera x=%.0f y=%.0f z=%.0f source=%s\n", vCameraStartPos.x, vCameraStartPos.y, vCameraStartPos.z, pszCameraSource );
+			fprintf( stderr, "BK_MAP_TRACE: terrain roads=%d rivers=%d\n", int(mapinfo.terrain.roads3.size()), int(mapinfo.terrain.rivers.size()) );
+			fflush( stderr );
+		}
 	}
 	pCamera->SetAnchor( vCameraStartPos );
 	pCamera->SetBounds( 0, 0, mapinfo.terrain.tiles.GetSizeX() * fWorldCellSize, mapinfo.terrain.tiles.GetSizeY() * fWorldCellSize );

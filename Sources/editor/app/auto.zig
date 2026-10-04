@@ -16,6 +16,18 @@
 //!                                   pixels) or `c<dx>x<dy>` (from the
 //!                                   screen's centre); click presses and
 //!                                   releases at the point in one action
+//!   rclick=<point>  rpress=<point>  rdrag=<point>  rrelease=<point>
+//!                                   the same for the right button (an
+//!                                   M2 tool that takes the right button, or a
+//!                                   gesture of Ctrl+left where it asks)
+//!   dblclick=<point>               a click, then its second click of a double
+//!                                   click (SDL clicks 1, then clicks 2) at the
+//!                                   point
+//!   tool=<label>                   switch to the tool of that registry label
+//!                                   (tool_registry.zig: `select`, `brush`,
+//!                                   `place`, ...), `[a-z_]{1,32}`
+//!   text=<text>                    type the text into the focused ImGui field
+//!                                   (printable ASCII, no comma, 1-64 chars)
 //!   wheel=<dx>x<dy>[x<count>][+ctrl][+shift][+alt][+cmd]
 //!                                   `count` wheel events of dx,dy (default
 //!                                   1), at wherever the last press/drag/
@@ -34,7 +46,26 @@
 //!                                   `percent` (default 1.0) is the greatest
 //!                                   acceptable percentage of differing
 //!                                   pixels
+//!   differ=<a>/<b>[@<percent>]     compare two shots of this run, `<a>.tga` and
+//!                                   `<b>.tga`: the run fails unless MORE than
+//!                                   `percent` (default 0.1) of the pixels
+//!                                   differ - the proof that something drawn
+//!                                   moved (a camera jump, a panel that filled)
+//!   do=<name>[:<arg>]              run a named editor command (commands.zig:
+//!                                   the same one a menu item or panel button
+//!                                   runs); the run fails when the name is
+//!                                   unknown, the argument is bad or the
+//!                                   command is refused
+//!   expect=<name>[:<arg>]          ask a named predicate (commands.zig); the
+//!                                   run fails "expect=<name>:<arg> was false"
+//!                                   when it does not hold
 //!   exit                           end the run
+//!
+//! `do=`/`expect=`'s name is `[A-Za-z0-9_]{1,32}`; the argument, when there
+//! is one after the name's ':', is printable ASCII without a space or comma
+//! (a comma ends the entry) and at most 64 characters (T-04-03-01). The
+//! frame's own ':' is the first one in the entry, so `3:do=camera_player:0`
+//! is frame 3, action `do=camera_player:0`.
 //!
 //! `shot=`/`compare=`'s own name (T-03-12-01: names become file paths inside
 //! one fixed directory) is restricted to `[A-Za-z0-9_-]{1,64}`; every other
@@ -61,7 +92,7 @@ pub const Point = struct {
 pub const Key = struct {
     /// A single character ('0'-'9', 'A'-'Z') or a named key (DELETE, HOME,
     /// ESCAPE/ESC, SPACE, ENTER/RETURN, TAB, UP, DOWN, LEFT, RIGHT, HOME,
-    /// END, BACKSPACE) - matched case-insensitively for the named form.
+    /// END, BACKSPACE, INSERT) - matched case-insensitively for the named form.
     /// smoke.zig's `AutoRunner` maps this to an SDL keycode/scancode; auto.zig
     /// itself does not know SDL.
     name: []const u8,
@@ -82,6 +113,16 @@ pub const Compare = struct {
 
 pub const default_compare_percent: f32 = 1.0;
 
+/// `differ=<a>/<b>[@<percent>]`: two shots of this run that must differ by more
+/// than `percent` of their pixels (the opposite of `compare=`'s tolerance).
+pub const Differ = struct {
+    a: []const u8,
+    b: []const u8,
+    percent: f32 = default_differ_percent,
+};
+
+pub const default_differ_percent: f32 = 0.1;
+
 /// `shot=`/`compare=`'s own name: at most this many characters, from
 /// `[A-Za-z0-9_-]`.
 pub const max_name_len = 64;
@@ -90,12 +131,30 @@ pub const max_name_len = 64;
 /// when a channel differs by more than 24" (03-12-PLAN.md Task 2).
 pub const default_channel_tolerance: u8 = 24;
 
+/// A named command or predicate call: `do=<name>[:<arg>]`, `expect=...`.
+pub const Named = struct {
+    name: []const u8,
+    /// Empty when the entry has no ':<arg>'.
+    arg: []const u8 = "",
+};
+
+/// `do=`/`expect=`'s own limits (T-04-03-01).
+pub const max_named_len = 32;
+pub const max_arg_len = 64;
+
 pub const Action = union(enum) {
     key: Key,
     press: Point,
     drag: Point,
     release: Point,
     click: Point,
+    rpress: Point,
+    rdrag: Point,
+    rrelease: Point,
+    rclick: Point,
+    dblclick: Point,
+    tool: []const u8,
+    text: []const u8,
     wheel: Wheel,
     open: []const u8,
     save,
@@ -104,6 +163,9 @@ pub const Action = union(enum) {
     waitgame: u32,
     shot: []const u8,
     compare: Compare,
+    differ: Differ,
+    do: Named,
+    expect: Named,
     exit,
 };
 
@@ -127,8 +189,12 @@ pub const ParseError = error{
     /// did not parse as a number.
     BadNumber,
     /// An unknown modifier, an empty key name, or a shot/compare name
-    /// outside `[A-Za-z0-9_-]{1,64}`.
+    /// outside `[A-Za-z0-9_-]{1,64}`, or a do/expect name outside
+    /// `[A-Za-z0-9_]{1,32}`.
     BadName,
+    /// A do/expect argument that is too long or holds a character outside
+    /// printable ASCII (or a space).
+    BadArgument,
 } || std.mem.Allocator.Error;
 
 /// What went wrong, and the exact entry ("frame:action") that said so - for
@@ -182,6 +248,26 @@ fn parseAction(text: []const u8, entry: []const u8, failure: *Failure) ParseErro
         return .{ .release = try parsePoint(value orelse return fail(failure, entry, "release needs a point", error.BadAction), entry, failure) };
     if (std.mem.eql(u8, name, "click"))
         return .{ .click = try parsePoint(value orelse return fail(failure, entry, "click needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "rpress"))
+        return .{ .rpress = try parsePoint(value orelse return fail(failure, entry, "rpress needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "rdrag"))
+        return .{ .rdrag = try parsePoint(value orelse return fail(failure, entry, "rdrag needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "rrelease"))
+        return .{ .rrelease = try parsePoint(value orelse return fail(failure, entry, "rrelease needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "rclick"))
+        return .{ .rclick = try parsePoint(value orelse return fail(failure, entry, "rclick needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "dblclick"))
+        return .{ .dblclick = try parsePoint(value orelse return fail(failure, entry, "dblclick needs a point", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "tool")) {
+        const label = value orelse return fail(failure, entry, "tool needs a label", error.BadAction);
+        try validateToolLabel(label, entry, failure);
+        return .{ .tool = label };
+    }
+    if (std.mem.eql(u8, name, "text")) {
+        const typed = value orelse return fail(failure, entry, "text needs the text to type", error.BadAction);
+        try validateText(typed, entry, failure);
+        return .{ .text = typed };
+    }
     if (std.mem.eql(u8, name, "wheel"))
         return .{ .wheel = try parseWheel(value orelse return fail(failure, entry, "wheel needs a value", error.BadAction), entry, failure) };
     if (std.mem.eql(u8, name, "open")) {
@@ -214,6 +300,12 @@ fn parseAction(text: []const u8, entry: []const u8, failure: *Failure) ParseErro
     }
     if (std.mem.eql(u8, name, "compare"))
         return .{ .compare = try parseCompare(value orelse return fail(failure, entry, "compare needs a name", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "differ"))
+        return .{ .differ = try parseDiffer(value orelse return fail(failure, entry, "differ needs two shot names", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "do"))
+        return .{ .do = try parseNamed(value orelse return fail(failure, entry, "do needs a name", error.BadAction), entry, failure) };
+    if (std.mem.eql(u8, name, "expect"))
+        return .{ .expect = try parseNamed(value orelse return fail(failure, entry, "expect needs a name", error.BadAction), entry, failure) };
     if (std.mem.eql(u8, name, "exit")) {
         if (value != null) return fail(failure, entry, "exit takes no value", error.BadAction);
         return .exit;
@@ -294,6 +386,59 @@ fn parseCompare(text: []const u8, entry: []const u8, failure: *Failure) ParseErr
     if (at) |i|
         percent = std.fmt.parseFloat(f32, text[i + 1 ..]) catch return fail(failure, entry, "compare's percent is not a number", error.BadNumber);
     return .{ .name = name, .percent = percent };
+}
+
+/// `<a>/<b>[@<percent>]`.
+fn parseDiffer(text: []const u8, entry: []const u8, failure: *Failure) ParseError!Differ {
+    const at = std.mem.indexOfScalar(u8, text, '@');
+    const names = if (at) |i| text[0..i] else text;
+    const slash = std.mem.indexOfScalar(u8, names, '/') orelse return fail(failure, entry, "differ needs '<a>/<b>'", error.BadName);
+    try validateName(names[0..slash], entry, failure);
+    try validateName(names[slash + 1 ..], entry, failure);
+    var percent: f32 = default_differ_percent;
+    if (at) |i|
+        percent = std.fmt.parseFloat(f32, text[i + 1 ..]) catch return fail(failure, entry, "differ's percent is not a number", error.BadNumber);
+    return .{ .a = names[0..slash], .b = names[slash + 1 ..], .percent = percent };
+}
+
+/// A tool label: `[a-z_]{1,32}` (the registry's ToolId names).
+fn validateToolLabel(label: []const u8, entry: []const u8, failure: *Failure) ParseError!void {
+    if (label.len == 0 or label.len > max_named_len) return fail(failure, entry, "the tool label must be 1-32 characters", error.BadName);
+    for (label) |ch| {
+        if (!((ch >= 'a' and ch <= 'z') or ch == '_')) return fail(failure, entry, "the tool label may only use lower-case letters and '_'", error.BadName);
+    }
+}
+
+/// `text=`: printable ASCII (a space is fine), 1..64 characters. A comma
+/// cannot occur: it ends the schedule entry before this is read.
+fn validateText(typed: []const u8, entry: []const u8, failure: *Failure) ParseError!void {
+    if (typed.len == 0 or typed.len > max_arg_len) return fail(failure, entry, "the text must be 1-64 characters", error.BadArgument);
+    for (typed) |ch| {
+        if (ch < ' ' or ch > '~') return fail(failure, entry, "the text may only use printable ASCII", error.BadArgument);
+    }
+}
+
+/// `<name>[:<arg>]`.
+fn parseNamed(text: []const u8, entry: []const u8, failure: *Failure) ParseError!Named {
+    const colon = std.mem.indexOfScalar(u8, text, ':');
+    const name = if (colon) |i| text[0..i] else text;
+    const arg = if (colon) |i| text[i + 1 ..] else "";
+    if (name.len == 0 or name.len > max_named_len) return fail(failure, entry, "the name must be 1-32 characters", error.BadName);
+    for (name) |ch| {
+        const ok = (ch >= 'A' and ch <= 'Z') or (ch >= 'a' and ch <= 'z') or (ch >= '0' and ch <= '9') or ch == '_';
+        if (!ok) return fail(failure, entry, "the name may only use letters, digits and '_'", error.BadName);
+    }
+    try validateArgument(arg, entry, failure);
+    return .{ .name = name, .arg = arg };
+}
+
+/// Printable ASCII without a space, at most `max_arg_len` characters; empty
+/// is fine (a command with no argument).
+fn validateArgument(arg: []const u8, entry: []const u8, failure: *Failure) ParseError!void {
+    if (arg.len > max_arg_len) return fail(failure, entry, "the argument must be at most 64 characters", error.BadArgument);
+    for (arg) |ch| {
+        if (ch <= ' ' or ch > '~') return fail(failure, entry, "the argument may only use printable ASCII without spaces", error.BadArgument);
+    }
 }
 
 fn validateName(name: []const u8, entry: []const u8, failure: *Failure) ParseError!void {
@@ -402,6 +547,21 @@ test "parse: every action" {
     try expectAction("3:shot=painted", .{ .shot = "painted" });
     try expectAction("3:compare=painted", .{ .compare = .{ .name = "painted", .percent = default_compare_percent } });
     try expectAction("3:compare=painted@2.5", .{ .compare = .{ .name = "painted", .percent = 2.5 } });
+    try expectAction("3:differ=before/after", .{ .differ = .{ .a = "before", .b = "after", .percent = default_differ_percent } });
+    try expectAction("3:differ=a-1/b_2@0.5", .{ .differ = .{ .a = "a-1", .b = "b_2", .percent = 0.5 } });
+    try expectAction("3:rpress=c1x2", .{ .rpress = .{ .x = 1, .y = 2, .from_centre = true } });
+    try expectAction("3:rdrag=10x20", .{ .rdrag = .{ .x = 10, .y = 20 } });
+    try expectAction("3:rrelease=c0x0", .{ .rrelease = .{ .x = 0, .y = 0, .from_centre = true } });
+    try expectAction("3:rclick=c0x0", .{ .rclick = .{ .x = 0, .y = 0, .from_centre = true } });
+    try expectAction("3:dblclick=c10x10", .{ .dblclick = .{ .x = 10, .y = 10, .from_centre = true } });
+    try expectAction("3:tool=select", .{ .tool = "select" });
+    try expectAction("3:tool=roads_rivers", .{ .tool = "roads_rivers" });
+    try expectAction("3:text=Area 1", .{ .text = "Area 1" });
+    try expectAction("3:key=INSERT", .{ .key = .{ .name = "INSERT" } });
+    try expectAction("3:do=camera_player:0", .{ .do = .{ .name = "camera_player", .arg = "0" } });
+    try expectAction("3:do=camera_neutral", .{ .do = .{ .name = "camera_neutral", .arg = "" } });
+    try expectAction("3:expect=anchor_set:neutral", .{ .expect = .{ .name = "anchor_set", .arg = "neutral" } });
+    try expectAction("3:expect=undo_depth:12", .{ .expect = .{ .name = "undo_depth", .arg = "12" } });
     try expectAction("3:exit", .exit);
 }
 
@@ -447,6 +607,42 @@ test "parse: bad tokens are rejected, naming the entry" {
     try expectBad("3:shot=", error.BadName); // empty name
     try expectBad("3:compare=painted@soon", error.BadNumber); // percent not a number
     try expectBad("3:shot=" ++ ("a" ** 65), error.BadName); // over max_name_len
+    try expectBad("3:differ", error.BadAction); // differ needs two names
+    try expectBad("3:differ=one", error.BadName); // no '/'
+    try expectBad("3:differ=a/", error.BadName); // an empty second name
+    try expectBad("3:differ=a b/c", error.BadName); // a space
+    try expectBad("3:differ=a/b@lots", error.BadNumber); // percent not a number
+    try expectBad("3:rclick", error.BadAction); // rclick needs a point
+    try expectBad("3:rpress=5", error.BadNumber); // no 'x' separator
+    try expectBad("3:rdrag=axb", error.BadNumber);
+    try expectBad("3:rrelease", error.BadAction);
+    try expectBad("3:dblclick", error.BadAction);
+    try expectBad("3:dblclick=cxx", error.BadNumber);
+    try expectBad("3:tool", error.BadAction); // tool needs a label
+    try expectBad("3:tool=", error.BadName); // empty label
+    try expectBad("3:tool=Select", error.BadName); // upper case
+    try expectBad("3:tool=roads-rivers", error.BadName); // '-'
+    try expectBad("3:tool=" ++ ("a" ** 33), error.BadName); // over 32
+    try expectBad("3:text", error.BadAction); // text needs a value
+    try expectBad("3:text=", error.BadArgument); // empty
+    try expectBad("3:text=" ++ ("a" ** 65), error.BadArgument); // over 64
+    try expectBad("3:text=tab\there", error.BadArgument); // control character
+    try expectBad("3:text=caf\xc3\xa9", error.BadArgument); // non-ASCII
+    try expectBad("3:do", error.BadAction); // do needs a name
+    try expectBad("3:expect", error.BadAction); // expect needs a name
+    try expectBad("3:do=", error.BadName); // empty name
+    try expectBad("3:do=:5", error.BadName); // empty name before the argument
+    try expectBad("3:do=bad-name:1", error.BadName); // '-' is not allowed in a command name
+    try expectBad("3:expect=bad$name", error.BadName);
+    try expectBad("3:do=" ++ ("a" ** 33), error.BadName); // over max_named_len
+    try expectBad("3:do=camera_player:" ++ ("9" ** 65), error.BadArgument); // argument over 64
+    try expectBad("3:do=camera_player:a b", error.BadArgument); // a space in the argument
+    try expectBad("3:expect=anchor_set:caf\xc3\xa9", error.BadArgument); // non-ASCII
+    try expectBad("3:do=camera_player:tab\there", error.BadArgument); // a control character
+}
+
+test "parse: a do argument may hold its own ':' and '='" {
+    try expectAction("3:do=name:a:b=c", .{ .do = .{ .name = "name", .arg = "a:b=c" } });
 }
 
 fn writeTga(buffer: []u8, width: u16, height: u16, top_first: bool, pixels_bgra: []const u8) []const u8 {

@@ -1,0 +1,1334 @@
+// Bridges as whole span groups (04-06, D-10, D-11, D-12), the MFC Bridges tab
+// (RoadDrawState.cpp) taken into the bridge.
+//
+// A bridge is one entry of CMapInfo::bridges - the link IDs of its spans, in
+// order - plus its span objects in objects or scenarioObjects. The game's
+// LoadBridges asserts every link of every entry and then dereferences it
+// (AILogicInternal.cpp:607-646, compiled-out asserts: Pitfall 7), so no edit
+// here ever leaves an entry naming a missing object: an entry is erased
+// before its spans go, and its spans are back before it is inserted again.
+//
+// Every edit is one SGroupEdit in the session's edit log (04-05): the group
+// it takes out and the group it puts in, each the entry, its index and the
+// span records of both copies with their list places. Draw puts a group in,
+// delete takes one out, rotate does both at the same entry index. Undo and
+// redo put the stored records back; nothing is planned again (D-03).
+//
+// The span geometry is NMapGeometry::PlanBridge, the function the map-file
+// tier builds its expected maps with (C5). The saved record holds the packed
+// frame type (what the MFC save writes, C6); the working copy and the engine
+// get a concrete sprite index chosen with the stats' seeded helpers, never the
+// rand() ones.
+#include "StdAfx.h"
+#include <algorithm>
+#include <cmath>
+#include <memory>
+#include "session.h"
+#include "world.h"
+#include "../MapFile/MapGeometry.h"
+#include "../MapFile/MapRecords.h"
+#include "../Main/GameDB.h"
+#include "../Main/RPGStats.h"
+#include "../AILogic/AILogic.h"
+#include "../Scene/Scene.h"
+#include "../Formats/fmtTerrain.h"
+
+namespace {
+
+// The name the MFC editor tests for "may be built during play"
+// (RoadDrawState.cpp:1253): it matches W_WoodenBig_Heavy_01/02 too.
+const char *const BUILD_DURING_PLAY_FAMILY = "WoodenBig_Heavy_";
+
+// No shipped bridge comes near this many spans; a longer drag is a mistake.
+const int nMaxBridgeSpans = 256;
+
+const SBridgeRPGStats* BridgeStats( const std::string &szDesc, const SGDBObjectDesc **ppDesc )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+		return 0;
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( szDesc.c_str() );
+	if ( pDesc == 0 || pDesc->eGameType != SGVOGT_BRIDGE )
+		return 0;
+	if ( ppDesc != 0 )
+		*ppDesc = pDesc;
+	return NGDB::GetRPGStats<SBridgeRPGStats>( pObjectsDB, pDesc );
+}
+
+// The record of one object in whichever list holds it, with its list and place.
+SMapObjectInfo* FindObject( CMapInfo *pMap, int nLinkID, bool *pbScenario, size_t *pnIndex )
+{
+	std::vector<SMapObjectInfo> *lists[2] = { &pMap->objects, &pMap->scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+			if ( (*lists[nList])[i].link.nLinkID == nLinkID )
+			{
+				if ( pbScenario != 0 ) *pbScenario = nList == 1;
+				if ( pnIndex != 0 ) *pnIndex = i;
+				return &(*lists[nList])[i];
+			}
+	return 0;
+}
+
+// Takes an object out of the engine, the way DeleteObjectFromSession does:
+// the link released first, so a later restore under the same ID is not a
+// "Repeated link".
+void RemoveFromEngine( SEditorSession *pSession, int nLinkID )
+{
+	std::unordered_map<int, CPtr<IRefCount> >::iterator it = pSession->byLinkID.find( nLinkID );
+	if ( it != pSession->byLinkID.end() )
+	{
+		if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+		{
+			pAIEditor->ReleaseLink( it->second );
+			pAIEditor->DeleteObject( it->second );
+		}
+		pSession->byLinkID.erase( it );
+	}
+	pSession->futureBuildLinkIDs.erase( std::remove( pSession->futureBuildLinkIDs.begin(), pSession->futureBuildLinkIDs.end(), nLinkID ),
+	                                     pSession->futureBuildLinkIDs.end() );
+}
+
+// A bridge as the edit log keeps it: its entry, where the entry sits in the
+// list, and the span records of both copies in the order they go back
+// (ascending list place, so each goes back to exactly where it was). A span
+// the map does not hold is not in the records; the entry keeps naming it.
+struct SBridgeGroup
+{
+	int nEntryIndex;
+	std::vector<int> linkIDs;
+	std::vector<NMapOverlay::SDeletedObject> snapshotSpans, workingSpans;
+	// False for a group with no bridges entry (a fence run, 04-07): only its
+	// objects go out and come back.
+	bool bEntry;
+	// An entrenchment (04-08): the entry is `trench`, an entrenchments entry
+	// (its sections of link IDs) at nEntryIndex, not a bridges one; linkIDs
+	// are all its pieces, in the order they are built.
+	bool bTrench;
+	SEntrenchmentInfo trench;
+	SBridgeGroup() : nEntryIndex( 0 ), bEntry( true ), bTrench( false ) {  }
+};
+
+bool SameEntry( const std::vector< std::vector<int> > &rBridges, int nIndex, const std::vector<int> &rLinkIDs )
+{
+	return nIndex >= 0 && nIndex < int( rBridges.size() ) && rBridges[nIndex] == rLinkIDs;
+}
+
+bool SameTrench( const std::vector<SEntrenchmentInfo> &rTrenches, int nIndex, const SEntrenchmentInfo &rTrench )
+{
+	return nIndex >= 0 && nIndex < int( rTrenches.size() ) && rTrenches[nIndex].sections == rTrench.sections;
+}
+
+// What the messages call a group and one of its objects.
+const char* GroupNoun( const SBridgeGroup &rGroup )
+{
+	return rGroup.bTrench ? "entrenchment" : rGroup.bEntry ? "bridge" : "fence run";
+}
+
+// Takes a bridge out: the entry first (both copies), then every span, in
+// descending list place, from both copies and the engine. The records taken
+// out replace the group's, so a later AddGroup puts back exactly these, list
+// places included.
+bool RemoveGroup( SEditorSession *pSession, SBridgeGroup *pGroup )
+{
+	if ( pGroup->bTrench &&
+	     ( !SameTrench( pSession->snapshot.entrenchments, pGroup->nEntryIndex, pGroup->trench ) ||
+	       !SameTrench( pSession->working.entrenchments, pGroup->nEntryIndex, pGroup->trench ) ) )
+	{
+		pSession->szMessage = NStr::Format( "entrenchment %d is not the one the edit log holds", pGroup->nEntryIndex );
+		return false;
+	}
+	if ( pGroup->bEntry && !pGroup->bTrench &&
+	     ( !SameEntry( pSession->snapshot.bridges, pGroup->nEntryIndex, pGroup->linkIDs ) ||
+	       !SameEntry( pSession->working.bridges, pGroup->nEntryIndex, pGroup->linkIDs ) ) )
+	{
+		pSession->szMessage = NStr::Format( "bridge %d is not the one the edit log holds", pGroup->nEntryIndex );
+		return false;
+	}
+	// Where each span is now, in the order they go back.
+	struct SPlace { bool bScenario; size_t nIndex; int nLinkID; };
+	std::vector<SPlace> places;
+	for ( size_t i = 0; i < pGroup->linkIDs.size(); ++i )
+	{
+		SPlace place;
+		place.nLinkID = pGroup->linkIDs[i];
+		if ( FindObject( &pSession->snapshot, place.nLinkID, &place.bScenario, &place.nIndex ) != 0 &&
+		     std::find_if( places.begin(), places.end(), [&]( const SPlace &r ) { return r.nLinkID == place.nLinkID; } ) == places.end() )
+			places.push_back( place );
+	}
+	std::sort( places.begin(), places.end(), []( const SPlace &a, const SPlace &b )
+	           { return a.bScenario != b.bScenario ? !a.bScenario : a.nIndex < b.nIndex; } );
+
+	if ( pGroup->bTrench )
+	{
+		NMapRecords::EraseEntrenchment( &pSession->snapshot, pGroup->nEntryIndex );
+		NMapRecords::EraseEntrenchment( &pSession->working, pGroup->nEntryIndex );
+	}
+	else if ( pGroup->bEntry )
+	{
+		NMapRecords::EraseBridgeEntry( &pSession->snapshot, pGroup->nEntryIndex );
+		NMapRecords::EraseBridgeEntry( &pSession->working, pGroup->nEntryIndex );
+	}
+	pGroup->snapshotSpans.assign( places.size(), NMapOverlay::SDeletedObject() );
+	pGroup->workingSpans.assign( places.size(), NMapOverlay::SDeletedObject() );
+	// The map decides first: every span comes out of both copies before the
+	// engine is touched, so a span the map refuses (another entry names it, an
+	// object holds it) leaves the map, the entry and the engine as they were.
+	for ( size_t k = places.size(); k-- > 0; )
+	{
+		const int nLinkID = places[k].nLinkID;
+		std::string szWhy;
+		const bool bSnapshot = NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szWhy, &pGroup->snapshotSpans[k] );
+		if ( bSnapshot && NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szWhy, &pGroup->workingSpans[k] ) )
+			continue;
+		// Back in the reverse of the order they came out: this span's snapshot
+		// record, then every span already taken, then the entry.
+		if ( bSnapshot )
+			NMapOverlay::RestoreObject( &pSession->snapshot, pGroup->snapshotSpans[k] );
+		for ( size_t j = k + 1; j < places.size(); ++j )
+		{
+			NMapOverlay::RestoreObject( &pSession->snapshot, pGroup->snapshotSpans[j] );
+			NMapOverlay::RestoreObject( &pSession->working, pGroup->workingSpans[j] );
+		}
+		if ( pGroup->bTrench )
+		{
+			NMapRecords::InsertEntrenchment( &pSession->snapshot, pGroup->nEntryIndex, pGroup->trench );
+			NMapRecords::InsertEntrenchment( &pSession->working, pGroup->nEntryIndex, pGroup->trench );
+		}
+		else if ( pGroup->bEntry )
+		{
+			NMapRecords::InsertBridgeEntry( &pSession->snapshot, pGroup->nEntryIndex, pGroup->linkIDs );
+			NMapRecords::InsertBridgeEntry( &pSession->working, pGroup->nEntryIndex, pGroup->linkIDs );
+		}
+		pSession->szMessage = std::string( "an object of the " ) + GroupNoun( *pGroup ) + " would not come out of the map: " + szWhy + "; the " + GroupNoun( *pGroup ) + " is kept as it is";
+		return false;
+	}
+	for ( size_t k = places.size(); k-- > 0; )
+		RemoveFromEngine( pSession, places[k].nLinkID );
+	return true;
+}
+
+// Takes a group's spans back out after a failed AddGroup: the first nRestored
+// records of each copy, and whatever the engine took.
+void UndoPartialAdd( SEditorSession *pSession, const SBridgeGroup &rGroup, size_t nRestored )
+{
+	for ( size_t k = nRestored; k-- > 0; )
+	{
+		const int nLinkID = rGroup.snapshotSpans[k].object.link.nLinkID;
+		RemoveFromEngine( pSession, nLinkID );
+		std::string szIgnored;
+		NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szIgnored );
+		NMapOverlay::DeleteObject( &pSession->working, nLinkID, &szIgnored );
+	}
+}
+
+// Puts a bridge in: every span back into both copies at its place, the spans
+// built in the engine in the entry's order, then the entry at its index. All
+// or nothing: when the engine will not take a span (off the map), everything
+// this call did is taken back and *pbRefused says so.
+bool AddGroup( SEditorSession *pSession, const SBridgeGroup &rGroup, bool *pbRefused )
+{
+	*pbRefused = false;
+	const int nEntries = rGroup.bTrench ? int( pSession->snapshot.entrenchments.size() ) : int( pSession->snapshot.bridges.size() );
+	const int nWorkingEntries = rGroup.bTrench ? int( pSession->working.entrenchments.size() ) : int( pSession->working.bridges.size() );
+	if ( ( rGroup.bEntry && ( rGroup.nEntryIndex < 0 || rGroup.nEntryIndex > nEntries || rGroup.nEntryIndex > nWorkingEntries ) ) ||
+	     rGroup.snapshotSpans.size() != rGroup.workingSpans.size() )
+	{
+		pSession->szMessage = NStr::Format( "%s %d cannot go back into the list", GroupNoun( rGroup ), rGroup.nEntryIndex );
+		return false;
+	}
+	size_t nRestored = 0;
+	for ( ; nRestored < rGroup.snapshotSpans.size(); ++nRestored )
+	{
+		if ( !NMapOverlay::RestoreObject( &pSession->snapshot, rGroup.snapshotSpans[nRestored] ) )
+			break;
+		if ( !NMapOverlay::RestoreObject( &pSession->working, rGroup.workingSpans[nRestored] ) )
+		{
+			std::string szIgnored;
+			NMapOverlay::DeleteObject( &pSession->snapshot, rGroup.snapshotSpans[nRestored].object.link.nLinkID, &szIgnored );
+			break;
+		}
+	}
+	if ( nRestored != rGroup.snapshotSpans.size() )
+	{
+		UndoPartialAdd( pSession, rGroup, nRestored );
+		pSession->szMessage = "a span's link ID is in use again";
+		return false;
+	}
+	std::vector<SMapObjectInfo> spans;
+	for ( size_t k = 0; k < rGroup.workingSpans.size(); ++k )
+		spans.push_back( rGroup.workingSpans[k].object );
+	const int nPlaced = BuildOneBridge( pSession, rGroup.linkIDs, spans );
+	if ( nPlaced != int( spans.size() ) )
+	{
+		UndoPartialAdd( pSession, rGroup, nRestored );
+		pSession->szMessage = rGroup.bTrench
+		    ? NStr::Format( "the engine would not place %d of the entrenchment's %d pieces there (off the map)",
+		                    int( spans.size() ) - nPlaced, int( spans.size() ) )
+		    : rGroup.bEntry
+		    ? NStr::Format( "the engine would not place %d of the bridge's %d spans there (off the map, or on another object)",
+		                    int( spans.size() ) - nPlaced, int( spans.size() ) )
+		    : NStr::Format( "the engine would not place %d of the %d fences there (off the map, or on another object)",
+		                    int( spans.size() ) - nPlaced, int( spans.size() ) );
+		*pbRefused = true;
+		return false;
+	}
+	if ( rGroup.bTrench )
+	{
+		NMapRecords::InsertEntrenchment( &pSession->snapshot, rGroup.nEntryIndex, rGroup.trench );
+		NMapRecords::InsertEntrenchment( &pSession->working, rGroup.nEntryIndex, rGroup.trench );
+	}
+	else if ( rGroup.bEntry )
+	{
+		NMapRecords::InsertBridgeEntry( &pSession->snapshot, rGroup.nEntryIndex, rGroup.linkIDs );
+		NMapRecords::InsertBridgeEntry( &pSession->working, rGroup.nEntryIndex, rGroup.linkIDs );
+	}
+	for ( size_t k = 0; k < rGroup.linkIDs.size(); ++k )
+		pSession->nLinkIDFloor = Max( pSession->nLinkIDFloor, rGroup.linkIDs[k] + 1 );
+	return true;
+}
+
+// One bridge edit: the group it takes out (bOld) and the group it puts in
+// (bNew), at the same entry index when both are there (a rotate). Reapply
+// takes the old out and puts the new in; Revert the other way round.
+struct SGroupEdit : public IEditRecord
+{
+	bool bOld, bNew;
+	SBridgeGroup oldGroup, newGroup;
+	SGroupEdit() : bOld( false ), bNew( false ) {  }
+
+	// The edit as it is first made: a refusal (a span off the map) puts back
+	// what was taken out and says so in *pbRefused.
+	bool Apply( SEditorSession *pSession, bool *pbRefused )
+	{
+		*pbRefused = false;
+		if ( bOld && !RemoveGroup( pSession, &oldGroup ) )
+			return false;
+		if ( bNew && !AddGroup( pSession, newGroup, pbRefused ) )
+		{
+			const std::string szWhy = pSession->szMessage;
+			bool bIgnored = false;
+			if ( bOld && !AddGroup( pSession, oldGroup, &bIgnored ) )
+			{
+				UpdateSessionWorld( pSession );
+				pSession->szMessage = szWhy + "; and the " + GroupNoun( oldGroup ) + " could not be put back: reopen the map";
+				*pbRefused = false;
+				return false;
+			}
+			// The world lets go of whatever the engine took and gave back.
+			UpdateSessionWorld( pSession );
+			pSession->szMessage = szWhy;
+			return false;
+		}
+		UpdateSessionWorld( pSession );
+		return true;
+	}
+	virtual bool Reapply( SEditorSession *pSession )
+	{
+		bool bRefused = false;
+		return Apply( pSession, &bRefused );
+	}
+	// Apply's mirror: when the old group will not go back in after the new one
+	// came out (a rotate's undo), the new one is put back, so the map keeps a
+	// bridge and the log still holds this edit as applied (a retry, or a redo
+	// after it, finds the group it expects).
+	virtual bool Revert( SEditorSession *pSession )
+	{
+		bool bRefused = false;
+		if ( bNew && !RemoveGroup( pSession, &newGroup ) )
+			return false;
+		if ( bOld && !AddGroup( pSession, oldGroup, &bRefused ) )
+		{
+			const std::string szWhy = pSession->szMessage;
+			bool bIgnored = false;
+			if ( bNew && !AddGroup( pSession, newGroup, &bIgnored ) )
+				pSession->szMessage = szWhy + "; and the edit could not be put back: reopen the map";
+			else
+				pSession->szMessage = szWhy;
+			UpdateSessionWorld( pSession );
+			return false;
+		}
+		UpdateSessionWorld( pSession );
+		return true;
+	}
+};
+
+// A new group from a plan, not yet in the map: link IDs from the floor up, the
+// records appended at the end of objects, the entry at nEntryIndex.
+bool NewGroupFromPlan( SEditorSession *pSession, const std::string &szDesc, const std::vector<NMapGeometry::SPlannedPiece> &rPlan,
+                       float fHP, int nEntryIndex, SBridgeGroup *pGroup )
+{
+	const SBridgeRPGStats *pStats = BridgeStats( szDesc, 0 );
+	if ( pStats == 0 )
+	{
+		pSession->szMessage = "\"" + szDesc + "\" is not a bridge type";
+		return false;
+	}
+	int nLinkID = Max( NMapOverlay::NextLinkID( pSession->snapshot ), pSession->nLinkIDFloor );
+	pGroup->nEntryIndex = nEntryIndex;
+	pGroup->linkIDs.clear();
+	pGroup->snapshotSpans.clear();
+	pGroup->workingSpans.clear();
+	for ( size_t i = 0; i < rPlan.size(); ++i, ++nLinkID )
+	{
+		SMapObjectInfo span;
+		span.szName = szDesc;
+		span.vPos = rPlan[i].vPos;
+		span.nDir = rPlan[i].nDir;
+		span.nPlayer = 0;
+		span.nScriptID = -1;
+		span.fHP = fHP;
+		span.link.nLinkID = nLinkID;
+		span.link.bIntention = false;
+		span.link.nLinkWith = -1;
+		span.nFrameIndex = rPlan[i].nPackedType;
+		NMapOverlay::SDeletedObject saved;
+		saved.object = span;
+		saved.bScenario = false;
+		saved.nIndex = size_t( -1 );							// RestoreObject appends
+		// The working copy's sprite: the seeded helper, seed 0 for the begin and
+		// end spans (the begin's origin is the plan's), the span's place for a
+		// middle one, so a long bridge is not one repeated plank.
+		int nSeed = rPlan[i].nPackedType == NMapGeometry::BRIDGE_SPAN_CENTER ? int( i ) : 0;
+		NMapOverlay::SDeletedObject working = saved;
+		working.object.nFrameIndex = pStats->GetIndexFromType( rPlan[i].nPackedType, &nSeed );
+		working.object.fHP = 1.0f;
+		pGroup->linkIDs.push_back( nLinkID );
+		pGroup->snapshotSpans.push_back( saved );
+		pGroup->workingSpans.push_back( working );
+	}
+	return true;
+}
+
+// The edit is taken over whether it goes through or not.
+bool ApplyAndLogGroup( SEditorSession *pSession, SGroupEdit *pEdit, int *pnToken, bool *pbRefused )
+{
+	std::unique_ptr<SGroupEdit> edit( pEdit );
+	if ( !edit->Apply( pSession, pbRefused ) )
+		return false;
+	*pnToken = LogEdit( pSession, edit.release() );
+	return true;
+}
+}
+
+bool BridgeDescriptorsInSession( SEditorSession *pSession, std::vector<SBridgeDescriptorInfo> *pOut )
+{
+	pOut->clear();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the object database is not there";
+		return false;
+	}
+	const SGDBObjectDesc *pDescs = pObjectsDB->GetAllDescs();
+	const int nDescs = pObjectsDB->GetNumDescs();
+	for ( int i = 0; pDescs != 0 && i < nDescs; ++i )
+	{
+		if ( pDescs[i].eGameType != SGVOGT_BRIDGE )
+			continue;
+		const SBridgeRPGStats *pStats = NGDB::GetRPGStats<SBridgeRPGStats>( pObjectsDB, &pDescs[i] );
+		if ( pStats == 0 )
+			continue;
+		SBridgeDescriptorInfo info;
+		info.szName = pDescs[i].szKey;
+		info.nDirection = int( pStats->direction );
+		const std::string szPartner = NMapGeometry::BridgePartnerName( info.szName );
+		info.bHasPartner = !szPartner.empty() && pObjectsDB->GetDesc( szPartner.c_str() ) != 0;
+		info.bBuildDuringPlay = info.szName.find( BUILD_DURING_PLAY_FAMILY ) != std::string::npos;
+		pOut->push_back( info );
+	}
+	std::sort( pOut->begin(), pOut->end(), []( const SBridgeDescriptorInfo &a, const SBridgeDescriptorInfo &b ) { return a.szName < b.szName; } );
+	return true;
+}
+
+bool BridgePlanInputFor( SEditorSession *pSession, const std::string &szDesc, NMapGeometry::SBridgePlanInput *pInput )
+{
+	const SBridgeRPGStats *pStats = BridgeStats( szDesc, 0 );
+	if ( pStats == 0 )
+	{
+		pSession->szMessage = "\"" + szDesc + "\" is not a bridge type";
+		return false;
+	}
+	const SBridgeRPGStats::SDamageState &rState = pStats->states[0];
+	if ( rState.spans.empty() || rState.begins.empty() || rState.lines.empty() || rState.ends.empty() )
+	{
+		pSession->szMessage = "the bridge type \"" + szDesc + "\" has no spans, or no begin, middle or end span";
+		return false;
+	}
+	// Every begin, line and end the seeded helpers can hand out (NewGroupFromPlan
+	// seeds a middle span with its place, so any line may be picked) is a span
+	// the type has, and every span's slab and girders are segments it has: the
+	// engine indexes both with asserts compiled out, so a mod descriptor that
+	// names past them is refused here, as trenches and fences are.
+	const int nSpans = int( rState.spans.size() ), nSegments = int( pStats->segments.size() );
+	const std::vector<int> *indexLists[3] = { &rState.begins, &rState.lines, &rState.ends };
+	bool bIndicesOk = true;
+	for ( int nList = 0; nList < 3 && bIndicesOk; ++nList )
+		for ( size_t i = 0; i < indexLists[nList]->size() && bIndicesOk; ++i )
+			bIndicesOk = (*indexLists[nList])[i] >= 0 && (*indexLists[nList])[i] < nSpans;
+	for ( int i = 0; i < nSpans && bIndicesOk; ++i )
+	{
+		const SBridgeRPGStats::SSpan &rSpan = rState.spans[i];
+		bIndicesOk = rSpan.nSlab >= 0 && rSpan.nSlab < nSegments && rSpan.nBackGirder < nSegments && rSpan.nFrontGirder < nSegments;
+	}
+	int nSeed = 0;
+	const int nBegin = bIndicesOk ? pStats->GetRandomBeginIndex( -1, 0, &nSeed ) : -1;
+	const int nLine = rState.lines[0];
+	if ( !bIndicesOk || nBegin < 0 || nBegin >= nSpans )
+	{
+		pSession->szMessage = "the bridge type \"" + szDesc + "\" names a span or segment it does not have";
+		return false;
+	}
+	pInput->nDirection = pStats->direction == SBridgeRPGStats::HORIZONTAL ? NMapGeometry::BRIDGE_HORIZONTAL : NMapGeometry::BRIDGE_VERTICAL;
+	pInput->fSpanLength = pStats->GetSpanStats( nLine ).fLength * fWorldCellSize / 2.0f;
+	pInput->vBeginOrigin = pStats->GetOrigin( nBegin );
+	return true;
+}
+
+bool PlanBridgeInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast,
+                          std::vector<NMapGeometry::SPlannedPiece> *pSpans, bool *pbRefused )
+{
+	*pbRefused = false;
+	NMapGeometry::SBridgePlanInput input;
+	if ( !BridgePlanInputFor( pSession, szDesc, &input ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	std::string szWhy;
+	if ( !NMapGeometry::PlanBridge( input, vFirst, vLast, pSpans, &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	if ( int( pSpans->size() ) > nMaxBridgeSpans )
+	{
+		pSession->szMessage = NStr::Format( "that bridge would have %d spans; the editor draws at most %d", int( pSpans->size() ), nMaxBridgeSpans );
+		*pbRefused = true;
+		return false;
+	}
+	return true;
+}
+
+bool DrawBridgeInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast,
+                          int *pnToken, int *pnIndex, bool *pbRefused )
+{
+	*pbRefused = false;
+	std::vector<NMapGeometry::SPlannedPiece> plan;
+	if ( !PlanBridgeInSession( pSession, szDesc, vFirst, vLast, &plan, pbRefused ) )
+		return false;
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bNew = true;
+	if ( !NewGroupFromPlan( pSession, szDesc, plan, 1.0f, int( pSession->snapshot.bridges.size() ), &edit->newGroup ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	const int nIndex = edit->newGroup.nEntryIndex;
+	if ( !ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused ) )
+		return false;
+	*pnIndex = nIndex;
+	return true;
+}
+
+void ReadSessionBridges( const SEditorSession &rSession, std::vector<SBridgeInfo> *pOut )
+{
+	pOut->clear();
+	CMapInfo &rMap = const_cast<CMapInfo&>( rSession.snapshot );
+	for ( size_t i = 0; i < rMap.bridges.size(); ++i )
+	{
+		SBridgeInfo info;
+		info.nSpans = int( rMap.bridges[i].size() );
+		bool bAny = false;
+		for ( size_t j = 0; j < rMap.bridges[i].size(); ++j )
+		{
+			const SMapObjectInfo *pSpan = FindObject( &rMap, rMap.bridges[i][j], 0, 0 );
+			if ( pSpan == 0 )
+				continue;
+			if ( info.szDesc.empty() )
+				info.szDesc = pSpan->szName;
+			if ( pSpan->fHP < 0 )
+				info.bBuiltDuringPlay = true;
+			const CVec2 vPos( pSpan->vPos.x, pSpan->vPos.y );
+			if ( !bAny )
+				info.vMin = info.vMax = vPos;
+			info.vMin.x = Min( info.vMin.x, vPos.x );
+			info.vMin.y = Min( info.vMin.y, vPos.y );
+			info.vMax.x = Max( info.vMax.x, vPos.x );
+			info.vMax.y = Max( info.vMax.y, vPos.y );
+			bAny = true;
+		}
+		pOut->push_back( info );
+	}
+}
+
+bool PickGroupInSession( SEditorSession *pSession, float sx, float sy, int *pnKind, int *pnIndex, bool *pbRefused )
+{
+	*pbRefused = false;
+	*pnKind = -1;
+	*pnIndex = -1;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 || pSession->pWorld == 0 )
+	{
+		pSession->szMessage = "there is no scene";
+		return false;
+	}
+	std::pair<IVisObj*, CVec2> *pObjects = 0;
+	int nCount = 0;
+	pScene->Pick( CVec2( sx, sy ), &pObjects, &nCount, SGVOGT_UNKNOWN );
+	for ( int i = 0; i < nCount; ++i )
+	{
+		IVisObj *pVisObj = pObjects[i].first;
+		IRefCount *pAIObject = 0;
+		int nKind = 0;
+		// A span is the world's own object (CWorldBase::AddToScene for a span),
+		// its slab and girders each a visual that picks it.
+		if ( SBridgeSpanObject *pSpan = pSession->pWorld->FindSpanByVis( pVisObj ) )
+		{
+			pAIObject = pSpan->pAIObj;
+			nKind = 1;
+		}
+		else if ( SMapObject *pMapObject = pSession->pWorld->FindByVis( pVisObj ) )
+		{
+			if ( pMapObject->pDesc != 0 && pMapObject->pDesc->eGameType == SGVOGT_BRIDGE )
+				nKind = 1;
+			else if ( pMapObject->pDesc != 0 && pMapObject->pDesc->eGameType == SGVOGT_ENTRENCHMENT )
+				nKind = 2;
+			pAIObject = pMapObject->pAIObj;
+		}
+		if ( nKind == 0 || pAIObject == 0 )
+			continue;
+		std::unordered_map<IRefCount*, int>::const_iterator it = pSession->linkByAI.find( pAIObject );
+		if ( it == pSession->linkByAI.end() || it->second == 0 )
+			continue;
+		const int nLinkID = it->second;
+		if ( IsHiddenLink( *pSession, nLinkID ) )
+			continue;
+		if ( nKind == 1 )
+		{
+			const std::vector< std::vector<int> > &rBridges = pSession->snapshot.bridges;
+			for ( size_t b = 0; b < rBridges.size(); ++b )
+				if ( std::find( rBridges[b].begin(), rBridges[b].end(), nLinkID ) != rBridges[b].end() )
+				{
+					*pnKind = 1;
+					*pnIndex = int( b );
+					return true;
+				}
+		}
+		else
+		{
+			const std::vector<SEntrenchmentInfo> &rTrenches = pSession->snapshot.entrenchments;
+			for ( size_t t = 0; t < rTrenches.size(); ++t )
+				for ( size_t k = 0; k < rTrenches[t].sections.size(); ++k )
+					if ( std::find( rTrenches[t].sections[k].begin(), rTrenches[t].sections[k].end(), nLinkID ) != rTrenches[t].sections[k].end() )
+					{
+						*pnKind = 2;
+						*pnIndex = int( t );
+						return true;
+					}
+		}
+	}
+	pSession->szMessage = "no bridge or entrenchment there";
+	*pbRefused = true;
+	return false;
+}
+
+namespace {
+// Whether every span of an entry is one the editor can take out and put back:
+// held by exactly one record of the map, of a type the database knows, and
+// held by the engine. A bridge with any other span is kept as read (the
+// preservation invariant): its undo could not rebuild it.
+bool CanTakeOutWhole( SEditorSession *pSession, const std::vector<int> &rLinkIDs, std::string *pWhy,
+                      const char *pszPart = "span", const char *pszGroup = "bridge" )
+{
+	if ( rLinkIDs.empty() )
+	{
+		*pWhy = NStr::Format( "that %s has no %ss", pszGroup, pszPart );
+		return false;
+	}
+	for ( size_t i = 0; i < rLinkIDs.size(); ++i )
+	{
+		const int nLinkID = rLinkIDs[i];
+		// Named once by this group and by no other bridges or entrenchments
+		// entry: a shared or repeated link ID could neither come out (the map
+		// refuses a span another entry names) nor go back as one object each.
+		int nNamed = 0;
+		for ( size_t b = 0; b < pSession->snapshot.bridges.size(); ++b )
+			nNamed += int( std::count( pSession->snapshot.bridges[b].begin(), pSession->snapshot.bridges[b].end(), nLinkID ) );
+		for ( size_t t = 0; t < pSession->snapshot.entrenchments.size(); ++t )
+			for ( size_t k = 0; k < pSession->snapshot.entrenchments[t].sections.size(); ++k )
+				nNamed += int( std::count( pSession->snapshot.entrenchments[t].sections[k].begin(), pSession->snapshot.entrenchments[t].sections[k].end(), nLinkID ) );
+		if ( std::count( rLinkIDs.begin(), rLinkIDs.end(), nLinkID ) != 1 || nNamed != 1 )
+		{
+			*pWhy = NStr::Format( "%s %d of that %s (link ID %d) is named %d times by the map's bridges and entrenchments; the %s is kept as it is", pszPart, int( i ), pszGroup, nLinkID, nNamed, pszGroup );
+			return false;
+		}
+		int nHolders = 0;
+		const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
+		for ( int nList = 0; nList < 2; ++nList )
+			for ( size_t k = 0; k < lists[nList]->size(); ++k )
+				if ( (*lists[nList])[k].link.nLinkID == nLinkID )
+					++nHolders;
+		if ( nLinkID == 0 || nHolders != 1 )
+		{
+			*pWhy = NStr::Format( "%s %d of that %s (link ID %d) is held by %d objects of the map; the %s is kept as it is", pszPart, int( i ), pszGroup, nLinkID, nHolders, pszGroup );
+			return false;
+		}
+		if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() ||
+		     pSession->byLinkID.find( nLinkID ) == pSession->byLinkID.end() )
+		{
+			*pWhy = NStr::Format( "%s %d of that %s (link ID %d) is not one the engine holds; the %s is kept as it is", pszPart, int( i ), pszGroup, nLinkID, pszGroup );
+			return false;
+		}
+	}
+	// Nothing outside the group may hold one of its objects: a unit whose
+	// nLinkWith names a piece is garrisoned in it (a soldier in a trench),
+	// and the overlay's delete refuses such a piece. Refused here, before
+	// anything is taken out, rather than halfway through the group. Moving
+	// the units out is M3's links (05-PARITY O18, O21).
+	const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t k = 0; k < lists[nList]->size(); ++k )
+		{
+			const SMapObjectInfo &rObject = (*lists[nList])[k];
+			if ( rObject.link.nLinkWith <= 0 || std::find( rLinkIDs.begin(), rLinkIDs.end(), rObject.link.nLinkID ) != rLinkIDs.end() )
+				continue;
+			const std::vector<int>::const_iterator itHeld = std::find( rLinkIDs.begin(), rLinkIDs.end(), rObject.link.nLinkWith );
+			if ( itHeld != rLinkIDs.end() )
+			{
+				*pWhy = NStr::Format( "%s %d of that %s (link ID %d) holds %s (link ID %d); the %s is kept as it is", pszPart, int( itHeld - rLinkIDs.begin() ),
+				                      pszGroup, *itHeld, rObject.szName.c_str(), rObject.link.nLinkID, pszGroup );
+				return false;
+			}
+		}
+	return true;
+}
+}
+
+bool DeleteBridgeFromSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	const std::vector< std::vector<int> > &rBridges = pSession->snapshot.bridges;
+	if ( nIndex < 0 || nIndex >= int( rBridges.size() ) )
+	{
+		pSession->szMessage = NStr::Format( "no bridge %d", nIndex );
+		*pbRefused = true;
+		return false;
+	}
+	std::string szWhy;
+	if ( !CanTakeOutWhole( pSession, rBridges[nIndex], &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bOld = true;
+	edit->oldGroup.nEntryIndex = nIndex;
+	edit->oldGroup.linkIDs = rBridges[nIndex];
+	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
+}
+
+namespace {
+// The span records of an entry, in the entry's order, from the snapshot.
+bool EntrySpans( SEditorSession *pSession, int nIndex, std::vector<const SMapObjectInfo*> *pSpans, std::string *pWhy )
+{
+	pSpans->clear();
+	const std::vector< std::vector<int> > &rBridges = pSession->snapshot.bridges;
+	if ( nIndex < 0 || nIndex >= int( rBridges.size() ) )
+	{
+		*pWhy = NStr::Format( "no bridge %d", nIndex );
+		return false;
+	}
+	for ( size_t i = 0; i < rBridges[nIndex].size(); ++i )
+	{
+		const SMapObjectInfo *pSpan = FindObject( &pSession->snapshot, rBridges[nIndex][i], 0, 0 );
+		if ( pSpan == 0 )
+		{
+			*pWhy = NStr::Format( "span %d of bridge %d is not in the map", int( i ), nIndex );
+			return false;
+		}
+		pSpans->push_back( pSpan );
+	}
+	if ( pSpans->empty() )
+	{
+		*pWhy = "that bridge has no spans";
+		return false;
+	}
+	return true;
+}
+
+// The HP edit of a toggle: the snapshot's HP of each span before and after.
+// The working copy and the engine keep 1 either way (the engine will not take
+// a negative HP); futureBuildLinkIDs and the mark follow the snapshot.
+struct SBridgeBuildEdit : public IEditRecord
+{
+	std::vector<int> linkIDs;
+	std::vector<float> before, after;
+
+	// All or nothing: every span is checked before any HP is written, and a
+	// write that still fails puts back the HPs already changed.
+	bool Put( SEditorSession *pSession, const std::vector<float> &rHPs )
+	{
+		std::vector<float> current( linkIDs.size() );
+		for ( size_t i = 0; i < linkIDs.size(); ++i )
+		{
+			const SMapObjectInfo *pSpan = linkIDs[i] == 0 ? 0 : FindObject( &pSession->snapshot, linkIDs[i], 0, 0 );
+			if ( pSpan == 0 )
+			{
+				pSession->szMessage = NStr::Format( "span link ID %d is not in the map", linkIDs[i] );
+				return false;
+			}
+			current[i] = pSpan->fHP;
+		}
+		for ( size_t i = 0; i < linkIDs.size(); ++i )
+			if ( !NMapRecords::SetObjectHP( &pSession->snapshot, linkIDs[i], rHPs[i] ) )
+			{
+				for ( size_t k = i; k-- > 0; )
+					NMapRecords::SetObjectHP( &pSession->snapshot, linkIDs[k], current[k] );
+				pSession->szMessage = NStr::Format( "span link ID %d is not in the map", linkIDs[i] );
+				return false;
+			}
+		for ( size_t i = 0; i < linkIDs.size(); ++i )
+		{
+			std::vector<int> &rFuture = pSession->futureBuildLinkIDs;
+			rFuture.erase( std::remove( rFuture.begin(), rFuture.end(), linkIDs[i] ), rFuture.end() );
+			if ( rHPs[i] < 0 && pSession->byLinkID.find( linkIDs[i] ) != pSession->byLinkID.end() )
+				rFuture.push_back( linkIDs[i] );
+		}
+		ApplyBridgeMarks( pSession );
+		return true;
+	}
+	virtual bool Reapply( SEditorSession *pSession ) { return Put( pSession, after ); }
+	virtual bool Revert( SEditorSession *pSession ) { return Put( pSession, before ); }
+};
+}
+
+bool RotateBridgeInSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	std::vector<const SMapObjectInfo*> spans;
+	std::string szWhy;
+	if ( !EntrySpans( pSession, nIndex, &spans, &szWhy ) || !CanTakeOutWhole( pSession, pSession->snapshot.bridges[nIndex], &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	const std::string szName = spans.front()->szName;
+	const std::string szPartner = NMapGeometry::BridgePartnerName( szName );
+	if ( szPartner.empty() || BridgeStats( szPartner, 0 ) == 0 )
+	{
+		pSession->szMessage = "no rotated variant of " + szName;
+		*pbRefused = true;
+		return false;
+	}
+	bool bBuilt = false;
+	for ( size_t i = 0; i < spans.size(); ++i )
+		bBuilt = bBuilt || spans[i]->fHP < 0;
+	// The old centre, map units to world units.
+	CVec3 vCentre;
+	AI2Vis( &vCentre, ( spans.front()->vPos.x + spans.back()->vPos.x ) / 2.0f, ( spans.front()->vPos.y + spans.back()->vPos.y ) / 2.0f, 0.0f );
+	NMapGeometry::SBridgePlanInput input;
+	if ( !BridgePlanInputFor( pSession, szPartner, &input ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	CVec2 vFirst, vLast;
+	NMapGeometry::RotatedBridgeDrag( input, CVec2( vCentre.x, vCentre.y ), int( spans.size() ), &vFirst, &vLast );
+	std::vector<NMapGeometry::SPlannedPiece> plan;
+	if ( !PlanBridgeInSession( pSession, szPartner, vFirst, vLast, &plan, pbRefused ) )
+		return false;
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bOld = true;
+	edit->oldGroup.nEntryIndex = nIndex;
+	edit->oldGroup.linkIDs = pSession->snapshot.bridges[nIndex];
+	edit->bNew = true;
+	if ( !NewGroupFromPlan( pSession, szPartner, plan, bBuilt ? -1.0f : 1.0f, nIndex, &edit->newGroup ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
+}
+
+bool ToggleBridgeBuildInSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	std::vector<const SMapObjectInfo*> spans;
+	std::string szWhy;
+	if ( !EntrySpans( pSession, nIndex, &spans, &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	for ( size_t i = 0; i < spans.size(); ++i )
+		if ( spans[i]->szName.find( BUILD_DURING_PLAY_FAMILY ) == std::string::npos )
+		{
+			pSession->szMessage = "only WoodenBig_Heavy bridges can be built during play";
+			*pbRefused = true;
+			return false;
+		}
+	// SetObjectHP edits the first record holding a link ID: a span whose link ID
+	// is 0, shared by another record or named by another entry could flip an
+	// object that is not this bridge's (the delete and rotate's own rule).
+	if ( !CanTakeOutWhole( pSession, pSession->snapshot.bridges[nIndex], &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	// The MFC toggle goes by the span's own HP (RoadDrawState.cpp:1257): built
+	// during play when it is negative. All spans follow the first.
+	const bool bBuilt = spans.front()->fHP < 0;
+	std::unique_ptr<SBridgeBuildEdit> edit( new SBridgeBuildEdit );
+	for ( size_t i = 0; i < spans.size(); ++i )
+	{
+		edit->linkIDs.push_back( spans[i]->link.nLinkID );
+		edit->before.push_back( spans[i]->fHP );
+		edit->after.push_back( bBuilt ? 1.0f : -1.0f );
+	}
+	if ( !edit->Reapply( pSession ) )
+		return false;
+	*pnToken = LogEdit( pSession, edit.release() );
+	return true;
+}
+
+void ApplyBridgeMarks( SEditorSession *pSession )
+{
+	if ( pSession == 0 || pSession->pWorld == 0 )
+		return;
+	const std::vector< std::vector<int> > &rBridges = pSession->snapshot.bridges;
+	for ( size_t b = 0; b < rBridges.size(); ++b )
+		for ( size_t i = 0; i < rBridges[b].size(); ++i )
+		{
+			const int nLinkID = rBridges[b][i];
+			std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = pSession->byLinkID.find( nLinkID );
+			if ( it == pSession->byLinkID.end() )
+				continue;
+			SBridgeSpanObject *pSpan = pSession->pWorld->FindSpanByAI( it->second );
+			if ( pSpan == 0 )
+				continue;
+			const bool bFuture = std::find( pSession->futureBuildLinkIDs.begin(), pSession->futureBuildLinkIDs.end(), nLinkID ) != pSession->futureBuildLinkIDs.end();
+			pSpan->SetSpecular( bFuture ? 0xFF0000FF : 0x00000000 );
+		}
+}
+
+// ---------------------------------------------------------------------------
+// Fences (04-07, D-14).
+
+namespace {
+// No map of the shipped sizes holds this many; a longer run is a mistake.
+const int nMaxFencesInRun = 2048;
+
+const SFenceRPGStats* FenceStats( const std::string &szDesc, const SGDBObjectDesc **ppDesc )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+		return 0;
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( szDesc.c_str() );
+	if ( pDesc == 0 || pDesc->eGameType != SGVOGT_FENCE )
+		return 0;
+	if ( ppDesc != 0 )
+		*ppDesc = pDesc;
+	return NGDB::GetRPGStats<SFenceRPGStats>( pObjectsDB, pDesc );
+}
+
+// The stats' centre segment of a direction (the seeded first one), or -1 when
+// the direction has none or names a segment the stats do not have. Never
+// reaches GetIndexLocal with an empty list.
+int FenceCentreIndex( const SFenceRPGStats *pStats, int nDir )
+{
+	if ( nDir < 0 || nDir >= int( pStats->dirs.size() ) || pStats->dirs[nDir].centers.empty() )
+		return -1;
+	int nSeed = 0;
+	const int nIndex = pStats->GetCenterIndex( nDir, &nSeed );
+	return nIndex >= 0 && nIndex < int( pStats->stats.size() ) ? nIndex : -1;
+}
+
+// A new group of fences from a plan: link IDs from the floor up, no entry. The
+// snapshot's record holds the packed type, the working copy's the seeded first
+// centre segment of the direction the type names.
+bool NewFenceGroupFromPlan( SEditorSession *pSession, const std::string &szDesc, const SFenceRPGStats *pStats,
+                            const std::vector<NMapGeometry::SPlannedPiece> &rPlan, SBridgeGroup *pGroup )
+{
+	int nLinkID = Max( NMapOverlay::NextLinkID( pSession->snapshot ), pSession->nLinkIDFloor );
+	pGroup->bEntry = false;
+	pGroup->nEntryIndex = 0;
+	pGroup->linkIDs.clear();
+	pGroup->snapshotSpans.clear();
+	pGroup->workingSpans.clear();
+	for ( size_t i = 0; i < rPlan.size(); ++i, ++nLinkID )
+	{
+		SMapObjectInfo fence;
+		fence.szName = szDesc;
+		fence.vPos = rPlan[i].vPos;
+		fence.nDir = rPlan[i].nDir;
+		fence.nPlayer = 0;
+		fence.nScriptID = -1;
+		fence.fHP = 1.0f;
+		fence.link.nLinkID = nLinkID;
+		fence.link.bIntention = false;
+		fence.link.nLinkWith = -1;
+		fence.nFrameIndex = rPlan[i].nPackedType;
+		NMapOverlay::SDeletedObject saved;
+		saved.object = fence;
+		saved.bScenario = false;
+		saved.nIndex = size_t( -1 );							// RestoreObject appends
+		int nDir = 0;
+		while ( nDir < 3 && ( ( rPlan[i].nPackedType >> nDir ) & 1 ) == 0 )
+			++nDir;
+		const int nIndex = FenceCentreIndex( pStats, nDir );
+		if ( nIndex < 0 )
+		{
+			pSession->szMessage = "the fence type \"" + szDesc + "\" has no centre segment in one of its directions";
+			return false;
+		}
+		NMapOverlay::SDeletedObject working = saved;
+		working.object.nFrameIndex = nIndex;
+		pGroup->linkIDs.push_back( nLinkID );
+		pGroup->snapshotSpans.push_back( saved );
+		pGroup->workingSpans.push_back( working );
+	}
+	return true;
+}
+}
+
+bool FenceDescriptorsInSession( SEditorSession *pSession, std::vector<SFenceDescriptorInfo> *pOut )
+{
+	pOut->clear();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the object database is not there";
+		return false;
+	}
+	const SGDBObjectDesc *pDescs = pObjectsDB->GetAllDescs();
+	const int nDescs = pObjectsDB->GetNumDescs();
+	for ( int i = 0; pDescs != 0 && i < nDescs; ++i )
+	{
+		if ( pDescs[i].eGameType != SGVOGT_FENCE )
+			continue;
+		if ( NGDB::GetRPGStats<SFenceRPGStats>( pObjectsDB, &pDescs[i] ) == 0 )
+			continue;
+		SFenceDescriptorInfo info;
+		info.szName = pDescs[i].szKey;
+		pOut->push_back( info );
+	}
+	std::sort( pOut->begin(), pOut->end(), []( const SFenceDescriptorInfo &a, const SFenceDescriptorInfo &b ) { return a.szName < b.szName; } );
+	return true;
+}
+
+bool FencePlanInputFor( SEditorSession *pSession, const std::string &szDesc, NMapGeometry::SFencePlanInput *pInput )
+{
+	const SFenceRPGStats *pStats = FenceStats( szDesc, 0 );
+	if ( pStats == 0 )
+	{
+		pSession->szMessage = "\"" + szDesc + "\" is not a fence type";
+		return false;
+	}
+	if ( pStats->dirs.size() < 4 )
+	{
+		pSession->szMessage = "the fence type \"" + szDesc + "\" has fewer than four directions";
+		return false;
+	}
+	for ( int nDir = 0; nDir < 4; ++nDir )
+	{
+		const int nIndex = FenceCentreIndex( pStats, nDir );
+		if ( nIndex < 0 )
+		{
+			pSession->szMessage = "the fence type \"" + szDesc + "\" has no centre segment in one of its directions";
+			return false;
+		}
+		pInput->vOrigin[nDir] = pStats->GetOrigin( nIndex );
+	}
+	// The map's extent in AI tiles: a patch is 16 cells a side, a cell two AI tiles.
+	pInput->nTilesX = pSession->working.terrain.patches.GetSizeX() * 32;
+	pInput->nTilesY = pSession->working.terrain.patches.GetSizeY() * 32;
+	return true;
+}
+
+bool PlanFencesInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast, bool bCtrl,
+                          std::vector<NMapGeometry::SPlannedPiece> *pFences, bool *pbRefused )
+{
+	*pbRefused = false;
+	pFences->clear();
+	NMapGeometry::SFencePlanInput input;
+	if ( !FencePlanInputFor( pSession, szDesc, &input ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	// The engine answers a tile for a point off the map too (and says so with
+	// its result), so an end off the map reaches PlanFences, whose box refuses
+	// it; only a session with no terrain stops here.
+	int nX0 = 0, nY0 = 0, nX1 = 0, nY1 = 0;
+	if ( EngineTerrain() == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	WorldToAITile( pSession, vFirst.x, vFirst.y, &nX0, &nY0 );
+	WorldToAITile( pSession, vLast.x, vLast.y, &nX1, &nY1 );
+	std::string szWhy;
+	if ( !NMapGeometry::PlanFences( input, CTPoint<int>( nX0, nY0 ), CTPoint<int>( nX1, nY1 ), bCtrl, pFences, &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	if ( int( pFences->size() ) > nMaxFencesInRun )
+	{
+		pSession->szMessage = NStr::Format( "that fence run would have %d fences; the editor places at most %d", int( pFences->size() ), nMaxFencesInRun );
+		*pbRefused = true;
+		return false;
+	}
+	return true;
+}
+
+bool DrawFencesInSession( SEditorSession *pSession, const std::string &szDesc, const CVec2 &vFirst, const CVec2 &vLast, bool bCtrl,
+                          int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	std::vector<NMapGeometry::SPlannedPiece> plan;
+	if ( !PlanFencesInSession( pSession, szDesc, vFirst, vLast, bCtrl, &plan, pbRefused ) )
+		return false;
+	const SFenceRPGStats *pStats = FenceStats( szDesc, 0 );
+	if ( pStats == 0 )
+	{
+		pSession->szMessage = "\"" + szDesc + "\" is not a fence type";
+		*pbRefused = true;
+		return false;
+	}
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bNew = true;
+	if ( !NewFenceGroupFromPlan( pSession, szDesc, pStats, plan, &edit->newGroup ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
+}
+
+// ---------------------------------------------------------------------------
+// Entrenchments (04-08, D-13).
+//
+// An entrenchment is one entry of CMapInfo::entrenchments - sections of the
+// link IDs of its pieces - plus its piece objects. The MFC editor places the
+// pieces as ordinary objects (AddObjectByAI) and makes no engine grouping call
+// (the AI editor's entrenchment call has no caller in the MFC editor, which 05-11 deleted): the game groups
+// them in LoadEntrenchments, which dereferences every link and each section's
+// first (Pitfall 7). So, as a bridge, a piece is never deleted alone, the
+// entry goes before its pieces and comes back after them.
+
+namespace {
+// The fixed descriptor the MFC builder reads (RoadDrawState.cpp:249-251).
+const char *const ENTRENCHMENT_DESC = "Entrenchment";
+// The most clicks one trench takes (the ABI refuses more).
+const size_t nMaxTrenchClicks = 256;
+
+const SEntrenchmentRPGStats* EntrenchmentStats( const SGDBObjectDesc **ppDesc )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+		return 0;
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( ENTRENCHMENT_DESC );
+	if ( pDesc == 0 || pDesc->eGameType != SGVOGT_ENTRENCHMENT )
+		return 0;
+	if ( ppDesc != 0 )
+		*ppDesc = pDesc;
+	return NGDB::GetRPGStats<SEntrenchmentRPGStats>( pObjectsDB, pDesc );
+}
+
+bool SegmentIndexOk( const SEntrenchmentRPGStats *pStats, const std::vector<int> &rIndices )
+{
+	if ( rIndices.empty() )
+		return false;
+	for ( size_t i = 0; i < rIndices.size(); ++i )
+		if ( rIndices[i] < 0 || rIndices[i] >= int( pStats->segments.size() ) )
+			return false;
+	return true;
+}
+
+// Every link ID of an entry, section by section.
+std::vector<int> TrenchLinkIDs( const SEntrenchmentInfo &rTrench )
+{
+	std::vector<int> linkIDs;
+	for ( size_t s = 0; s < rTrench.sections.size(); ++s )
+		linkIDs.insert( linkIDs.end(), rTrench.sections[s].begin(), rTrench.sections[s].end() );
+	return linkIDs;
+}
+}
+
+bool EntrenchmentPlanInputFor( SEditorSession *pSession, NMapGeometry::STrenchPlanInput *pInput )
+{
+	const SEntrenchmentRPGStats *pStats = EntrenchmentStats( 0 );
+	if ( pStats == 0 )
+	{
+		pSession->szMessage = "the object database has no \"Entrenchment\" type";
+		return false;
+	}
+	// The index helpers divide by these lists' sizes (Pitfall 5): an empty one,
+	// or one naming a segment the stats do not have, is refused here.
+	if ( !SegmentIndexOk( pStats, pStats->lines ) || !SegmentIndexOk( pStats, pStats->fireplaces ) ||
+	     !SegmentIndexOk( pStats, pStats->terminators ) || !SegmentIndexOk( pStats, pStats->arcs ) )
+	{
+		pSession->szMessage = "the \"Entrenchment\" type lacks a line, fireplace, terminator or arc piece";
+		return false;
+	}
+	pInput->fLineWidth = pStats->segments[pStats->lines[0]].GetVisAABBHalfSize().x * 2.0f;
+	pInput->fArcWidth = pStats->segments[pStats->arcs[0]].GetVisAABBHalfSize().x * 2.0f;
+	// The map's extent in map units: 32 AI tiles of nAITileSize a patch side.
+	pInput->fMapWidth = float( pSession->working.terrain.patches.GetSizeX() * 32 * NMapGeometry::nAITileSize );
+	pInput->fMapHeight = float( pSession->working.terrain.patches.GetSizeY() * 32 * NMapGeometry::nAITileSize );
+	return true;
+}
+
+bool PlanEntrenchmentInSession( SEditorSession *pSession, const std::vector<CVec2> &rPoints, NMapGeometry::STrenchPlan *pPlan, bool *pbRefused )
+{
+	*pbRefused = false;
+	NMapGeometry::STrenchPlanInput input;
+	if ( !EntrenchmentPlanInputFor( pSession, &input ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( rPoints.size() > nMaxTrenchClicks )
+	{
+		pSession->szMessage = NStr::Format( "a trench takes at most %d points", int( nMaxTrenchClicks ) );
+		*pbRefused = true;
+		return false;
+	}
+	std::string szWhy;
+	if ( !NMapGeometry::PlanEntrenchment( input, rPoints, pPlan, &szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	return true;
+}
+
+bool DrawEntrenchmentInSession( SEditorSession *pSession, const std::vector<CVec2> &rPoints, int nPlayer, int *pnToken, int *pnIndex, bool *pbRefused )
+{
+	*pbRefused = false;
+	NMapGeometry::STrenchPlan plan;
+	if ( !PlanEntrenchmentInSession( pSession, rPoints, &plan, pbRefused ) )
+		return false;
+	const SGDBObjectDesc *pDesc = 0;
+	const SEntrenchmentRPGStats *pStats = EntrenchmentStats( &pDesc );
+	if ( pStats == 0 || pDesc == 0 )
+	{
+		pSession->szMessage = "the object database has no \"Entrenchment\" type";
+		*pbRefused = true;
+		return false;
+	}
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bNew = true;
+	SBridgeGroup &rGroup = edit->newGroup;
+	rGroup.bEntry = true;
+	rGroup.bTrench = true;
+	rGroup.nEntryIndex = int( pSession->snapshot.entrenchments.size() );
+	int nLinkID = Max( NMapOverlay::NextLinkID( pSession->snapshot ), pSession->nLinkIDFloor );
+	for ( size_t i = 0; i < plan.pieces.size(); ++i, ++nLinkID )
+	{
+		SMapObjectInfo piece;
+		piece.szName = pDesc->szKey;
+		piece.vPos = plan.pieces[i].vPos;
+		piece.nDir = plan.pieces[i].nDir;
+		piece.nPlayer = nPlayer;
+		piece.nScriptID = -1;
+		piece.fHP = 1.0f;
+		piece.link.nLinkID = nLinkID;
+		piece.link.bIntention = false;
+		piece.link.nLinkWith = -1;
+		piece.nFrameIndex = plan.pieces[i].nPackedType;			// the file holds the type (C6)
+		NMapOverlay::SDeletedObject saved;
+		saved.object = piece;
+		saved.bScenario = false;
+		saved.nIndex = size_t( -1 );										// RestoreObject appends
+		// The working copy's sprite: the seeded helper, seeded with the piece's
+		// place so a straight run is not one repeated model.
+		int nSeed = int( i );
+		NMapOverlay::SDeletedObject working = saved;
+		working.object.nFrameIndex = pStats->GetIndexFromType( plan.pieces[i].nPackedType, &nSeed );
+		rGroup.linkIDs.push_back( nLinkID );
+		rGroup.snapshotSpans.push_back( saved );
+		rGroup.workingSpans.push_back( working );
+	}
+	for ( size_t s = 0; s < plan.sections.size(); ++s )
+	{
+		SEntrenchmentInfo::TSegment section;
+		for ( size_t k = 0; k < plan.sections[s].size(); ++k )
+			section.push_back( rGroup.linkIDs[plan.sections[s][k]] );
+		rGroup.trench.sections.push_back( section );
+	}
+	const int nIndex = rGroup.nEntryIndex;
+	if ( !ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused ) )
+		return false;
+	*pnIndex = nIndex;
+	return true;
+}
+
+void ReadSessionEntrenchments( const SEditorSession &rSession, std::vector<SEntrenchmentSummary> *pOut )
+{
+	pOut->clear();
+	CMapInfo &rMap = const_cast<CMapInfo&>( rSession.snapshot );
+	for ( size_t t = 0; t < rMap.entrenchments.size(); ++t )
+	{
+		SEntrenchmentSummary info;
+		info.nSections = int( rMap.entrenchments[t].sections.size() );
+		const std::vector<int> linkIDs = TrenchLinkIDs( rMap.entrenchments[t] );
+		info.nPieces = int( linkIDs.size() );
+		bool bAny = false;
+		for ( size_t i = 0; i < linkIDs.size(); ++i )
+		{
+			const SMapObjectInfo *pPiece = FindObject( &rMap, linkIDs[i], 0, 0 );
+			if ( pPiece == 0 )
+				continue;
+			const CVec2 vPos( pPiece->vPos.x, pPiece->vPos.y );
+			if ( !bAny )
+			{
+				info.vMin = info.vMax = vPos;
+				info.nPlayer = pPiece->nPlayer;
+			}
+			info.vMin.x = Min( info.vMin.x, vPos.x );
+			info.vMin.y = Min( info.vMin.y, vPos.y );
+			info.vMax.x = Max( info.vMax.x, vPos.x );
+			info.vMax.y = Max( info.vMax.y, vPos.y );
+			bAny = true;
+		}
+		pOut->push_back( info );
+	}
+}
+
+bool DeleteEntrenchmentFromSession( SEditorSession *pSession, int nIndex, int *pnToken, bool *pbRefused )
+{
+	*pbRefused = false;
+	const std::vector<SEntrenchmentInfo> &rTrenches = pSession->snapshot.entrenchments;
+	if ( nIndex < 0 || nIndex >= int( rTrenches.size() ) )
+	{
+		pSession->szMessage = NStr::Format( "no entrenchment %d", nIndex );
+		*pbRefused = true;
+		return false;
+	}
+	const std::vector<int> linkIDs = TrenchLinkIDs( rTrenches[nIndex] );
+	std::string szWhy;
+	if ( !CanTakeOutWhole( pSession, linkIDs, &szWhy, "piece", "entrenchment" ) )
+	{
+		pSession->szMessage = szWhy;
+		*pbRefused = true;
+		return false;
+	}
+	std::unique_ptr<SGroupEdit> edit( new SGroupEdit );
+	edit->bOld = true;
+	edit->oldGroup.bEntry = true;
+	edit->oldGroup.bTrench = true;
+	edit->oldGroup.nEntryIndex = nIndex;
+	edit->oldGroup.linkIDs = linkIDs;
+	edit->oldGroup.trench = rTrenches[nIndex];
+	return ApplyAndLogGroup( pSession, edit.release(), pnToken, pbRefused );
+}

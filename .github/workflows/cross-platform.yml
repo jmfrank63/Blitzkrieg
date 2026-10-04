@@ -31,6 +31,10 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
+            # The map-file tier's road builder test (TestM2VsoBuilder) loads a
+            # road's descriptor through the storage, as the editor does.
+            /Data/Terrain/sets/*/Roads3D/*.xml
+            /Data/Terrain/sets/*/Rivers/*.xml
             # The mission data tier compares Data/Scenarios (144 MB) against
             # GOG 1.2's manifest, and the random missions tier's generator
             # reads templates, settings, chapters, contexts, patches,
@@ -217,6 +221,7 @@ jobs:
             /Data/Fences/
             /Data/Fonts/
             /Data/Icons/
+            /Data/movies/progress/
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -319,7 +324,65 @@ jobs:
       # a GPU device. The tier skips honestly where there is none, but a runner
       # that only ever skips is a 2.3 GB checkout for a line of output.
       - name: Engine tier
+        env:
+          # This job has a video driver and a GPU device (the probe step below), so a tool that
+          # would print "skipped" and exit 0 fails instead, here and in the engine-hosted steps after it.
+          BK_REQUIRE_ENGINE: "1"
         run: zig build test-editor-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # The scripted editor scenarios (Map editor scenarios below) place their
+      # clicks for the editor's own 1280x800 window, the size it gets on the
+      # macOS runners. This runner's desktop is 1024x768, which shrinks the
+      # window to 1008x681; there the right-hand panels start at x=688 and
+      # points like M2's dblclick=c200x-250 land on them (CI 37155733296: a
+      # click into the Properties panel's x field left the road tool with no
+      # point in hand). A 1920x1080 desktop gives the window its full size.
+      - name: Desktop large enough for the editor's window
+        shell: pwsh
+        run: |
+          Add-Type -TypeDefinition @"
+          using System;
+          using System.Runtime.InteropServices;
+          public static class BkDisplay {
+              [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+              public struct DEVMODE {
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+                  public short dmSpecVersion; public short dmDriverVersion; public short dmSize; public short dmDriverExtra;
+                  public int dmFields;
+                  public int dmPositionX; public int dmPositionY; public int dmDisplayOrientation; public int dmDisplayFixedOutput;
+                  public short dmColor; public short dmDuplex; public short dmYResolution; public short dmTTOption; public short dmCollate;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+                  public short dmLogPixels; public int dmBitsPerPel; public int dmPelsWidth; public int dmPelsHeight;
+                  public int dmDisplayFlags; public int dmDisplayFrequency;
+                  public int dmICMMethod; public int dmICMIntent; public int dmMediaType; public int dmDitherType;
+                  public int dmReserved1; public int dmReserved2; public int dmPanningWidth; public int dmPanningHeight;
+              }
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool EnumDisplaySettings(string device, int mode, ref DEVMODE dm);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int ChangeDisplaySettings(ref DEVMODE dm, int flags);
+              // The primary display's mode now (ENUM_CURRENT_SETTINGS, device null:
+              // done here, as PowerShell would pass a null string as "").
+              public static DEVMODE Current() {
+                  DEVMODE dm = new DEVMODE();
+                  dm.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+                  if (!EnumDisplaySettings(null, -1, ref dm)) throw new Exception("EnumDisplaySettings failed: " + Marshal.GetLastWin32Error());
+                  return dm;
+              }
+              public static int Change(int width, int height) {
+                  DEVMODE dm = Current();
+                  dm.dmPelsWidth = width;
+                  dm.dmPelsHeight = height;
+                  dm.dmFields = 0x00080000 | 0x00100000; // DM_PELSWIDTH | DM_PELSHEIGHT
+                  return ChangeDisplaySettings(ref dm, 0);
+              }
+          }
+          "@
+          $before = [BkDisplay]::Current()
+          Write-Host "desktop before: $($before.dmPelsWidth)x$($before.dmPelsHeight)"
+          $result = [BkDisplay]::Change(1920, 1080)
+          if ($result -ne 0) { throw "ChangeDisplaySettings to 1920x1080 returned $result" }
+          $now = [BkDisplay]::Current()
+          Write-Host "desktop now: $($now.dmPelsWidth)x$($now.dmPelsHeight)"
+          if ($now.dmPelsWidth -lt 1280 -or $now.dmPelsHeight -lt 900) { throw "the desktop is still $($now.dmPelsWidth)x$($now.dmPelsHeight)" }
 
       # MapEditor itself: the engine started hidden with ImGui over it, one
       # frame captured as presented and checked for both.
@@ -356,8 +419,40 @@ jobs:
       - name: Map editor engine tier
         run: zig build test-map-editor-engine -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # The scripted editor scenarios (05-REVIEW WR-D05): BK_EDITOR_AUTO's M1, M2
+      # and M3 scripts, one after the other (each step depends on the one before,
+      # so two engines never start at once), with their do=/expect= predicates.
+      - name: Map editor scenarios
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build map-editor-m3-auto -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # The real Game playing what the editor saved: M1's placed unit, M2's
+      # BK_MAP_TRACE report, and M3's railroad with fewer than two control
+      # points (D-33, the CRailroadGraphConstructor crash) - its regression gate.
+      - name: Game reads the editor's maps
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build map-editor-game-reads-it-m3 -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Random missions tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run -Drandom-missions-sweep=all "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # The map editor's composers (05-09, 05-10): every shipped template, graph,
+      # container and field set read, written and read again through the editor's
+      # own records and compared (bytes included), and an authored set generated
+      # from twice with one seed and compared byte for byte.
+      - name: RMG composer round trip
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-rmg-composer-roundtrip -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: RMG determinism
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-rmg-determinism -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # Saved here, not at job end: by now the debug engine and the release
       # game are built, and a job cut off later still leaves the next run warm.
@@ -384,6 +479,8 @@ jobs:
       # summer_ukraine\securearea* template paths (setting summer_russia),
       # about 96 cases.
       - name: Random missions tier (debug asserts)
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc -Dtest-mode=run -Drandom-missions-sweep=only=kharkov42 "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Build the Map Editor overlay spike
@@ -540,6 +637,7 @@ jobs:
             /Data/Fences/
             /Data/Fonts/
             /Data/Icons/
+            /Data/movies/progress/
             /Data/Objects/
             /Data/Sounds/
             /Data/Squads/
@@ -629,6 +727,10 @@ jobs:
         run: zig build --sysroot "$MACOS_SYSROOT" test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Engine tier
+        env:
+          # This job has a video driver and a GPU device (the probe step below), so a tool that
+          # would print "skipped" and exit 0 fails instead, here and in the engine-hosted steps after it.
+          BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run
 
       # MapEditor itself: the engine started hidden with ImGui over it, one
@@ -651,8 +753,36 @@ jobs:
       - name: Map editor engine tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-map-editor-engine -Dtarget=aarch64-macos -Dtest-mode=run
 
+      # The scripted editor scenarios (05-REVIEW WR-D05): BK_EDITOR_AUTO's M1, M2
+      # and M3 scripts, one after the other (each step depends on the one before,
+      # so two engines never start at once), with their do=/expect= predicates.
+      - name: Map editor scenarios
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-m3-auto -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # The real Game playing what the editor saved: M1's placed unit, M2's
+      # BK_MAP_TRACE report, and M3's railroad with fewer than two control
+      # points (D-33, the CRailroadGraphConstructor crash) - its regression gate.
+      - name: Game reads the editor's maps
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-game-reads-it-m3 -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Random missions tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
+
+      - name: RMG composer round trip
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-composer-roundtrip -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
+
+      - name: RMG determinism
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-determinism -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos
@@ -698,6 +828,10 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
+            # The map-file tier's road builder test (TestM2VsoBuilder) loads a
+            # road's descriptor through the storage, as the editor does.
+            /Data/Terrain/sets/*/Roads3D/*.xml
+            /Data/Terrain/sets/*/Rivers/*.xml
             /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
             /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
             /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
@@ -921,6 +1055,10 @@ jobs:
             /Data/Maps/
             /Data/Terrain/sets/*/tileset.xml
             /Data/Terrain/sets/*/crosset.xml
+            # The map-file tier's road builder test (TestM2VsoBuilder) loads a
+            # road's descriptor through the storage, as the editor does.
+            /Data/Terrain/sets/*/Roads3D/*.xml
+            /Data/Terrain/sets/*/Rivers/*.xml
             /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
             /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
             /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm

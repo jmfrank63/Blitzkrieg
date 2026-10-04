@@ -133,26 +133,6 @@
       "problemMatcher": "$msCompile"
     },
     {
-      "label": "Build MapEditor (Debug)",
-      "type": "shell",
-      "command": "msbuild",
-      "dependsOn": "Build StreamIO (Debug)",
-      "dependsOrder": "sequence",
-      "args": [
-        "${workspaceFolder}/Sources/src/MapEditor/MapEditor.vcxproj",
-        "/p:Configuration=Debug",
-        "/p:Platform=Win32",
-        "/m:1",
-        "/v:minimal"
-      ],
-      "group": "build",
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
-      },
-      "problemMatcher": "$msCompile"
-    },
-    {
       "label": "Build All (Debug)",
       "type": "shell",
       "command": "msbuild",

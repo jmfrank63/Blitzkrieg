@@ -16,7 +16,12 @@ CHField::CHField() : dwDimX(0), dwDimY(0), bChanged(true), fGridStep(DEF_GRID_ST
 {
 }
 
-CHField::CHField( int width, int height, float fGridStep, float val ) : bChanged(true)
+// dwDimX/dwDimY zeroed here (05-02, Rule 1): Init's same-size early return
+// read them UNINITIALISED, and stack garbage that happened to equal the
+// asked-for size left hf empty - a null deref on the first Generate write.
+// The MFC editor's own call site (TabTerrainAltitudesDialog.cpp:331) could
+// hit the same wall; the default constructor below already zeroed its own.
+CHField::CHField( int width, int height, float fGridStep, float val ) : dwDimX( 0 ), dwDimY( 0 ), bChanged(true)
 {
   smoothFunc.Init( 1.0f, 0.0f );
   Init( width, height, fGridStep, val );

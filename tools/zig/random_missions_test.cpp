@@ -8,7 +8,10 @@
 //   cover   every gated chapter x template pair once, the difficulty rotating
 //   only=   the cases whose chapter or template name contains <text>
 #include "StdAfx.h"
+#include <cstdlib>
+#include <cstring>
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <set>
@@ -99,6 +102,12 @@ static std::vector<SCase> CollectCases( const std::string &szSweep )
 	std::set<std::string> regenerated;
 	// Chapter and template names are compared lower-cased, so the filter is too.
 	const bool bOnly = szSweep.compare( 0, 5, "only=" ) == 0;
+	// "cover-from=N": the cover sweep without its first N cases, to carry on
+	// after a run that was cut short (a harness's time limit). The cases are the
+	// same ones, in the same order, with the same regenerate flags.
+	const bool bResume = szSweep.compare( 0, 11, "cover-from=" ) == 0;
+	const size_t nSkip = bResume ? size_t( atoi( szSweep.c_str() + 11 ) ) : 0;
+	const bool bCover = szSweep == "cover" || bResume;
 	const std::string szOnly = bOnly ? Lower( szSweep.substr( 5 ) ) : std::string();
 	for ( const char *pszCampaign : CAMPAIGNS )
 	{
@@ -127,7 +136,7 @@ static std::vector<SCase> CollectCases( const std::string &szSweep )
 					continue;
 				for ( int nDifficulty = 0; nDifficulty < 3; ++nDifficulty )
 				{
-					if ( szSweep == "cover" && nDifficulty != nPair % 3 )
+					if ( bCover && nDifficulty != nPair % 3 )
 						continue;
 					if ( bOnly && szChapter.find( szOnly ) == std::string::npos && szTemplate.find( szOnly ) == std::string::npos )
 						continue;
@@ -144,6 +153,7 @@ static std::vector<SCase> CollectCases( const std::string &szSweep )
 			}
 		}
 	}
+	cases.erase( cases.begin(), cases.begin() + (std::min)( nSkip, cases.size() ) );
 	return cases;
 }
 
@@ -270,6 +280,22 @@ static bool RunCase( BkEditorSession *pSession, const SCase &c, const std::files
 	return g_nFailures == nFailuresBefore;
 }
 
+// A skip is a pass that checked nothing, so CI sets BK_REQUIRE_ENGINE=1 on the runners that
+// do have a video driver, the staged game and a GPU device: there a skip is the runner
+// regressing, not a green result (05-REVIEW WR-D03). Unset (a laptop with no display), a
+// skip stays an exit code of 0.
+static int SkipOrFail( const char *pszTool, const std::string &szWhy )
+{
+	const char *pszRequire = getenv( "BK_REQUIRE_ENGINE" );
+	if ( pszRequire != 0 && *pszRequire != 0 && strcmp( pszRequire, "0" ) != 0 )
+	{
+		printf( "FAIL: %s: %s, and BK_REQUIRE_ENGINE is set\n", pszTool, szWhy.c_str() );
+		return 1;
+	}
+	printf( "%s: skipped: %s\n", pszTool, szWhy.c_str() );
+	return 0;
+}
+
 int main( int argc, char **argv )
 {
 	// See the engine tier: a Windows debug assert must not wait behind a dialog.
@@ -286,8 +312,7 @@ int main( int argc, char **argv )
 		const char *pszError = SDL_GetError();
 		if ( strstr( pszError, "video driver" ) != 0 || strstr( pszError, "No available" ) != 0 )
 		{
-			printf( "random-missions: skipped: no video driver (%s)\n", pszError );
-			return 0;
+			return SkipOrFail( "random-missions", std::string( "no video driver (" ) + pszError + ")" );
 		}
 		printf( "FAIL: SDL_Init: %s\n", pszError );
 		return 1;
@@ -306,10 +331,10 @@ int main( int argc, char **argv )
 	std::filesystem::create_directories( scratch );
 	if ( !std::filesystem::exists( std::string( pszRoot ) + "/Data/consts.xml" ) )
 	{
-		printf( "random-missions: skipped: no staged game at %s (run: zig build install-game)\n", pszRoot );
+		const int nSkipped = SkipOrFail( "random-missions", std::string( "no staged game at " ) + pszRoot + " (run: zig build install-game)" );
 		SDL_DestroyWindow( pWindow );
 		SDL_Quit();
-		return 0;
+		return nSkipped;
 	}
 	// Every engine module derives its roots from the executable's location; see
 	// the engine tier (editor_bridge_test.cpp) for why this must hold.
@@ -324,18 +349,18 @@ int main( int argc, char **argv )
 	const BkEditorStatus status = BkEditorStart( pWindow, pszRoot, &pSession );
 	if ( status == BK_EDITOR_NO_DEVICE )
 	{
-		printf( "random-missions: skipped: no GPU device (%s)\n", BkEditorLastMessage( pSession ) );
+		const int nSkipped = SkipOrFail( "random-missions", std::string( "no GPU device (" ) + BkEditorLastMessage( pSession ) + ")" );
 		BkEditorStop( pSession );
 		SDL_DestroyWindow( pWindow );
 		SDL_Quit();
-		return 0;
+		return nSkipped;
 	}
 	if ( Check( status == BK_EDITOR_OK, std::string( "the engine starts: " ) + BkEditorLastMessage( pSession ) ) )
 	{
 		const auto start = std::chrono::steady_clock::now();
 		const std::vector<SCase> cases = CollectCases( szSweep );
 		// A sweep that selects nothing (a mistyped only= filter) tests nothing and must not pass.
-		Check( !cases.empty() && ( szSweep.compare( 0, 5, "only=" ) == 0 || cases.size() > 150 ), "the sweep found the chapters' templates (" + std::to_string( cases.size() ) + ")" );
+		Check( !cases.empty() && ( szSweep.compare( 0, 5, "only=" ) == 0 || szSweep.compare( 0, 11, "cover-from=" ) == 0 || cases.size() > 150 ), "the sweep found the chapters' templates (" + std::to_string( cases.size() ) + ")" );
 		int nFailedCases = 0;
 		for ( const SCase &c : cases )
 			if ( !RunCase( pSession, c, scratch ) )

@@ -1,16 +1,18 @@
 ---
 gsd_state_version: "1.0"
+current_plan: 11
 status: phase-2-executed-human-verification-outstanding
-stopped_at: Phase 3 complete — all phases complete
-last_updated: "2026-09-29T16:18:51.880Z"
-state_head: 85280edeb8bf2aa27b0c2c4335878424cda7da03
+stopped_at: "Completed 05-11-PLAN.md (phase 5 execution done; next: code review and verification)"
+last_updated: "2026-10-03T16:20:14.197Z"
+state_head: 1121c1225e5b028c45133334e0af88e876d9dfa8
 progress:
-  total_phases: 2
-  completed_phases: 1
-  total_plans: 19
-  completed_plans: 19
-  percent: 50
-current_phase_name: "Map editor plan 6: finish M1"
+  total_phases: 7
+  completed_phases: 0
+  total_plans: 43
+  completed_plans: 43
+  percent: 0
+current_phase: 05
+current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 ---
 
 # Project state
@@ -21,6 +23,18 @@ current_phase_name: "Map editor plan 6: finish M1"
 - created: 2026-06-06
 - repoRoot: Blitzkrieg
 - workflow: gsd-execute-phase
+
+## Current Position
+
+Current Plan: 11 (complete)
+Total Plans in Phase: 11
+Progress: [██████████] 100% (phase 5 plans)
+
+Phase 05: all 11 plans executed (11/11 summarized). 05-11 closed the 152 PARITY rows, deleted the MFC editor
+(approved by Johannes 2026-10-03) and ran the gates (CI run 37121998156 green on all six jobs). Execution is done;
+next: the phase code review and verification, and Johannes's hand try (D-40.10). Open: the post-deletion
+random-missions sweep stopped at 180 of 208 cases (0 failed), and macOS `zig build test` is red at the branch tip
+for the WR-A04 single-instance test (see 05-11-SUMMARY.md).
 
 ## Current summary
 
@@ -56,8 +70,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-09-29T11:39:12.343Z
-**Stopped at:** Phase 3 complete — all phases complete
+**Last session:** 2026-10-03T16:20:13.845Z
+**Stopped at:** Completed 05-11-PLAN.md (phase 5 execution done; next: code review and verification)
 **Resume file:** None
 
 ## Accumulated Context
@@ -65,6 +79,8 @@ behavior needs the in-game rows).
 ### Roadmap Evolution
 
 - Phase 3 added (2026-09-28): Map editor plan 6: finish M1 — branch feat/map-editor-plan-6, worktree .worktrees/map-editor-6
+- Phase 3 complete (2026-09-29), merged into main 32b9233ce
+- Phase 4 added (2026-09-29): Map editor M2: roads, rivers, bridges, AI groups, scripts — branch feat/map-editor-m2, worktree .worktrees/map-editor-6
 
 ## Performance Metrics
 
@@ -87,6 +103,30 @@ behavior needs the in-game rows).
 | Phase 03 P15 | ~95min | 3 tasks | 1 files |
 | Phase 03 P15 | ~4h20min incl. hand-try gap fixes | 3 tasks | 44 files |
 | Phase 03 P16 | 107min | 6 tasks | 13 files |
+| Phase 04 P01 | 40min | 3 tasks | 24 files |
+| Phase 04 P02 | 19 min | 3 tasks | 9 files |
+| Phase 04 P03 | 20min | 3 tasks | 13 files |
+| Phase 04 P04 | 20min | 3 tasks | 11 files |
+| Phase 04 P05 | 53min | 4 tasks | 24 files |
+| Phase 04 P06 | 50min | 4 tasks | 25 files |
+| Phase 04 P07 | 28min | 2 tasks | 23 files |
+| Phase 04 P08 | 2h01m | 3 tasks | 23 files |
+| Phase 04 P09 | 1h01m | 3 tasks | 21 files |
+| Phase 04 P10 | 1h02m | 4 tasks | 30 files |
+| Phase 04 P11 | 1h20m | 4 tasks | 21 files |
+| Phase 04 P12 | 50m | 3 tasks | 23 files |
+| Phase 04 P13 | 85min | 4 tasks | 16 files |
+| Phase 05 P01 | ~3h 30m | 3 tasks | 24 files |
+| Phase 05 P02 | ~6h (incl. interruption recovery) | 3 tasks | 25 files |
+| Phase 05 P03 | 2 waves (continuation) | 3 tasks | 27 files |
+| Phase 05 P03 | 2 waves (continuation) | 3 tasks | 27 files |
+| Phase 05 P04 | Tasks 1-2 03:36-07:16, Task 3 + gaps 11:50-14:10 | 3 tasks | 30 files |
+| Phase 5 P05 | 2h50m | 3 tasks | 27 files |
+| Phase 05 P07 | one session | 3 tasks | 17 files |
+| Phase 05 P06 | 1h30m | 3 tasks | 26 files |
+| Phase 05 P08 | 2h45m | 3 tasks | 19 files |
+| Phase 05 P09 | 2h30m | 3 tasks | 21 files |
+| Phase 05 P10 | n/a | 3 tasks | 24 files |
 
 ## Decisions
 
@@ -122,3 +162,65 @@ behavior needs the in-game rows).
 - [Phase ?]: 03-15: spec cites commands and dates for exit criteria; CI run ids live in the SUMMARY
 - [Phase ?]: 03-15: generated winter/Africa unit textures are a build output staged beside Data as SeasonData/SeasonTextures.pak (one stored .pak for the zip entry limit), mounted over the base Data below any mod; Data is never written
 - [Phase ?]: 03-15: Cmd+W closes the map, not the editor (SDL's Window > Close loses its key equivalent on macOS); hand try approved 2026-09-29
+- [Phase 04]: 04-01: camera-anchor C ABI struct is BkEditorCameraAnchorRecord because a C typedef and a function share one namespace — The plan named both the struct and the entry point BkEditorCameraAnchors
+- [Phase 04]: 04-01: byte-identity tests read the map fresh for every write they compare, never a copy of a map — SVertexAltitude is written as a raw struct, so a copied map's three padding bytes per vertex differ from a read map's; later plans follow the rule
+- [Phase 04]: 04-01: camera-anchor set validates only the slots it changes; NextVsoID floors at 1; PutScriptFile is exact and IsBareScriptName checks new names — An off-map anchor a file already holds must not block other edits; undo must be able to restore any name a file held
+- [Phase 04]: 04-02: a delete edits the records naming the object (start-command units and targets, reserve positions) and refuses only for a bridge span, a trench piece and a vehicle holding a passenger; link ID 0 is never a reference — Matches the MFC editor's cascade with C3; refusals protect the game's loaders and M3's links
+- [Phase 04]: 04-03: tools get right-button, Ctrl-as-right and double click only when their registry entry asks; tool= uses the ToolId name; handlers return Outcome
+- [Phase 04]: 04-04: BK_MAP_TRACE names are double-quoted; --game-reads-it-m2 writes a combined baseline+edited report; the shared game-reads helpers live in game_reads_common.zig — Names may hold spaces; one game run prints one camera line, so a two-run comparison needs one file; game_reads_m2.zig cannot import the executable's root
+- [Phase ?]: 04-05: roads and rivers map saved nID to engine nID by a vector parallel to the saved list, not a map keyed by nID — survives repeated nIDs; 0 of 59 shipped maps repeat one
+- [Phase ?]: 04-05: an edit of an existing road hands CVSOBuilder::Update the record's own first width and opacity, not the panel's — an edit never depends on panel state
+- [Phase ?]: 04-05: BK_EDITOR_AUTO drags keep press, drag and release in one frame — the view's stale-gesture guard ends a gesture the real mouse does not hold
+- [Phase ?]: Bridge edits are SGroupEdit records: RemoveGroup erases the entry then the spans, AddGroup restores spans then the entry, all or nothing; a new group goes in through the same AddGroup its redo uses
+- [Phase ?]: Bridge span geometry is NMapGeometry::PlanBridge (and RotatedBridgeDrag for rotate), shared by the bridge and the map-file/engine tiers; the world-unit MFC nudges are left out, one map-unit nudge kept
+- [Phase ?]: In the Bridge tool a click selects (or deselects) and never draws; a drag draws
+- [Phase ?]: BK_EDITOR_AUTO scripted presses are held across frames until their release (View.holdScripted)
+- [Phase ?]: 04-07: the fence tile mapping is the engine's GetAITileIndex (rounds), not CMapInfo::GetAITileIndices (truncates); they agree only at tile corners
+- [Phase ?]: 04-07: a fence run is one SGroupEdit with no bridges entry (SBridgeGroup.bEntry false); PlanFences also refuses a moved fence that leaves the map
+- [Phase ?]: 04-08: the engine places trench pieces anywhere (IsObjectInsideOfMap passes entrenchments), so PlanEntrenchment refuses a piece off the map
+- [Phase ?]: 04-08: a bridge or entrenchment a unit is garrisoned in (nLinkWith) is refused whole before anything is taken out; moving units is M3
+- [Phase ?]: 04-08: the trench builder is pinned by properties over 500 fixed-seed polylines, identical on all CI platforms; the fireplace/line switcher is global over the trench, as in MFC
+- [Phase ?]: 04-08: mid-phase CI gate green on all six jobs (run 36663674380); narrow checkouts now carry road and river descriptors
+- [Phase ?]: 04-09: Hide checked takes the object out of the scene (the MFC editor's RemoveFromScene/AddToScene), not opacity 0: opacity left a tank's mesh shadow and health bar standing; the objects come back for the world's update and leave again
+- [Phase ?]: 04-09: a group put validates only what it adds (0..32000, once); what the file held when the map opened is exempt, so an undo can put a file's own odd data back (the session keeps openedGroups)
+- [Phase ?]: 04-09: the Group Manager is a floating window (Map -> Reinforcement groups...), every control a command; the generic record path now has record_add and record_delete with recordKeys/insertRecord/removeRecord
+- [Phase ?]: 04-10: a script file put takes None, a bare name or exactly the value the file held at open (shipped maps hold a folder path); every copy, list and URL uses the last path component the game itself keeps (gameScriptName), so the fixed-folder-plus-validated-name mitigation holds
+- [Phase ?]: 04-10: a palette-placed object is linked with nothing (nLinkWith 0): the game lands a reinforcement only when it is 0, so an editor-placed unit in a group never landed; the group tools' spans, fences and trench pieces keep -1
+- [Phase ?]: 04-10: script areas are index-keyed records stored verbatim in AI units; the MFC Vis -> AI truncation lives once in NMapGeometry and the bridge answers drag, move and resize as pure calls; a name the file held twice can be put back as often as it held it
+- [Phase ?]: 04-11: the action list is parsed in the bridge from Data/Editor/actions.ini with the MFC table's rules (the game's StreamIO port answers nothing for OpenIniDataTable); STOP is entry 9 of 40
+- [Phase ?]: 04-11: start commands and reserve positions are judged on what a put changes, and a record the file held at open is always accepted back (openedStartCommands, openedReservePositions), so an undo of a delete of odd file data never drifts; a NEW start-command unit must be a unit or squad the database knows
+- [Phase ?]: 04-11: reserve roles (self-propelled, towed, truck) are read from the stats with dynamic_cast, never the typed lookup (it static_casts with asserts compiled out); a self-propelled gun takes no truck and a truck must pull more than the gun weighs; a set never changes from_explosion
+- [Phase ?]: 04-11: Start Target and Reserve Positions are hidden registry tools (no palette button, menu entry or key) that click on the release; a panel that uses Delete claims it per frame (View.delete_claimed) instead of capturing the keyboard, so the Select tool cannot delete the selected unit as well
+- [Phase ?]: 04-12: a parcel's type is a non-exhaustive enum(i32); the AI side is put whole with the side count so undo restores the side count exactly; the AI General tool's keys act on the selection; every tool is in the palette (tools panel 228 px) and the local M1 reference was refreshed
+- [Phase ?]: Save As offers to bring the script along for any map whose script is beside it and the new folder differs (04-13)
+- [Phase ?]: In the width mode All the Roads & Rivers sliders re-width the selected line, one undo step per slider drag (04-13, MFC CW_ALL)
+- [Phase ?]: M2 exit met: M2 sweeps byte-exact (59 maps/460 edits, 57 maps/238 edits), CI 36692345194 green, win-home non-GUI tiers and release package green (04-13)
+- [Phase 05]: 05-04: the direction wheel turns the selection TO its angle (the MFC's TEF:1053-1090), one drag = one undo step
+- [Phase 05]: quick 2026-10-03 (user decision): the direction wheel turns the selection BY THE DELTA, each object keeping its own angle offset (supersedes the line above; the MFC's set-to-angle is overridden); the placer angle and ghost still follow the wheel, one drag = one undo step
+- [Phase 05]: 05-04: PutObjectRecordBack moves the engine before writing the records; bridge edits copy the before-record before any in-place write
+- [Phase 05]: 05-04: the Damage tool floors squads at 1% like units; Alt+click repairs; SyncEngineHP keeps engine health with the record
+- [Phase 05]: 05-04: BK_EDITOR_AUTO names objects by selection index (@n); link_make uses '='; placer_name takes any placeable entry
+- [Phase 05]: 05-05: add inserts the player before the neutral and every owner follows its player; delete sends the player's objects to the neutral; 2 players + neutral at least, 17 entries at most
+- [Phase 05]: 05-05: the unit-creation record carries the vector size so the undo of a put that grew it is byte-exact; appear points are map (AI) units; relax time >= 1
+- [Phase 05]: 05-05: Check Map clears an invalid link (the MFC deleted the object), reports a shared link ID, asks before removing an unknown-type object or a short road; Fix all is one composite undo step; Save only warns
+- [Phase 05]: 05-05: an unknown-type object can be deleted and restored (explicit removal replacing RemoveNonExistingObjects); an owner outside the table moves on the records alone
+- [Phase 05]: 05-05: CRailroadGraphConstructor::Construct skips railroads with fewer than two control points; the unguarded map also crashes the editor's own open
+- [Phase 05]: 05-07: Editor is the minimap's default mode and only Create switches to Game (the MFC's own behaviour, not the plan's wording)
+- [Phase 05]: 05-07: the minimap texture holds only the terrain; markers, areas, camera frame and grid are draw-list overlays placed by the MFC draw tool's maths; refresh is a dirty flag on History.revision
+- [Phase 05]: 05-07: Create Minimap Images is one CreateMiniMapImage call with the MFC's four parameters - eight files (the DDS trio), verified by header size; the bridge refuses relative paths and anything under the installation's Data
+- [Phase 05]: 05-07: BkEditorTiles added so the app can read the tile grid; a tile's minimap colour is its terrain type's first-tile average, as CMiniMapTerrain::UpdateColor
+- [Phase 05]: 05-06: Depth Complexity is refused by the bridge's mask and greyed in the Layers menu: the GPU renderer has no stencil overdraw counter and the layer paints the frame white (measured); the wire frame was fixed in the renderer instead (Renderer.wireframe, a pipeline-key bit, fill mode LINE)
+- [Phase 05]: 05-06: the Layers state is remembered by the editor and re-applied after every open and new map (only layers that differ, only those in the bridge's mask), and the bridge re-applies its own after every build; settings keys layers_bits, fire_range_mode, fire_range_filter
+- [Phase 05]: 05-06: BkEditorSetFireRangeMode takes the selection (link_ids/count) beside the filter name; the filter is matched in the bridge against the saved filter files, so a composer filter not saved yet cannot drive the fire ranges
+- [Phase 05]: 05-08: the seed is a 32-bit number that is the generator's state; blank draws one, the seed used is read back from the .seed file
+- [Phase 05]: 05-08: Create Random Map writes under the user root (or the mod's folder), never the data; a repeat needs overwrite
+- [Phase 05]: 05-08: progress is the frozen-window model - the modal is announced for two frames, the callback only counts, no cancel
+- [Phase 05]: 05-08: the dialog's fields are set one by one in scripts (rmg_set) because the auto grammar caps arguments at 64 characters
+- [Phase 05]: 05-08: D-05 reads the MOD.Name/MOD.Version globals; Export lists need BkEditorListStorageFiles and BkEditorRmgTemplateGraphs
+- [Phase 05]: 05-09: the user RMG root is one storage layer (RMG_USER) over Data and below the mod, remounted when the platform's user root moves; shipped RMG files are read-only (Save As) and every composer write lands under that root only
+- [Phase 05]: 05-09: composer records cross the ABI as the engine's own SRMContainer/SRMGraph fields with caller-sized counted arrays (two-pass: a short array is REFUSED with the totals); SaveDataResource writes into Data, so the composers write through the same tree serialiser under the user root and read each write back
+- [Phase 05]: 05-09: stored names in a graph are data (only a control character is refused; links typed 2 and a descriptor with a drive exist in shipped graphs) - Check! reports and offers explicit fixes, never silently; D-10 copy-in is bridge-side with a dry run for the YES/NO
+- [Phase 05]: 05-09 (Open Question 4): containers and graphs share the file row, Open combo with filter, findings list, confirmations and the name:field:value command shape; the patch table and the canvas are their own windows - 05-10 inherits the shared helpers
+- [Phase 05]: 05-10: Check! for templates is implemented as a recorded addition (the MFC handler at RMG_CreateTemplateDialog.cpp:1269 does nothing); every finding has an explicit fix, Fix all is one undo step
+- [Phase 05]: 05-10: the season folder mapping follows CMapInfo::SEASON_FOLDERS (1 summer, 2 winter, 3 africa, 4 spring); a weight vector whose elements and weights differ in length is refused on write
+- [Phase 05]: 05-10: Save All is Save (one file per composer); the authored end-to-end is a renamed copy of a shipped set written through the composers' I/O, generated twice byte-identical and loaded by the real Game

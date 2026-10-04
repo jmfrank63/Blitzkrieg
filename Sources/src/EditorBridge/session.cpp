@@ -5,17 +5,22 @@
 // MFC taken out and one guard put in.
 #include "StdAfx.h"
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include "session.h"
 #include "world.h"
 #include "../MapFile/MapFile.h"
 #include "../MapFile/MapEquivalence.h"
+#include "../MapFile/MapRecords.h"
 #include "../Main/GameDB.h"
+#include "../Main/GameTimer.h"
+#include "../Misc/HPTimer.h"
 #include "../AILogic/AILogic.h"
 #include "../Scene/Scene.h"
 #include "../GFX/GFX.H"
 #include "../Scene/Terrain.h"
 #include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtMapScriptPath.h"
 #include "../RandomMapGen/VA_Types.h"
 
 // A sound and a tank pit are in the object database, and so in the catalogue,
@@ -37,26 +42,18 @@ const char* WhyNotAMapObject( int nGameType )
 	return 0;
 }
 
-namespace {
-
-// The snapshot keeps frame indices packed; the working copy is unpacked,
-// because unpacking picks a random visual variant per type and that choice must
-// never reach a file for an object the editor did not touch.
-void MakeWorkingCopy( SEditorSession *pSession )
+// D-05. Kept apart from WhyNotAMapObject on purpose: that one guards
+// PlaceOneObject too, and a loaded map's bridge spans, trench pieces and fences
+// must keep being placed in the engine.
+const char* WhyNotPlacedByPalette( int nGameType )
 {
-	pSession->working = pSession->snapshot;
-	pSession->working.UnpackFrameIndices();
-	// A map saved without altitudes gets a flat sheet, as the MFC editor does:
-	// UpdateTerrainShades reads the altitudes and would divide by an empty one.
-	STerrainInfo &rTerrain = pSession->working.terrain;
-	if ( rTerrain.altitudes.GetSizeX() == 0 || rTerrain.altitudes.GetSizeY() == 0 )
-	{
-		rTerrain.altitudes.SetSizes( rTerrain.patches.GetSizeX() * 16 + 1, rTerrain.patches.GetSizeY() * 16 + 1 );
-		rTerrain.altitudes.SetZero();
-	}
-	CMapInfo::UpdateTerrainShades( &rTerrain,
-	                               CTRect<int>( 0, 0, rTerrain.altitudes.GetSizeX(), rTerrain.altitudes.GetSizeY() ),
-	                               CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( pSession->working.nSeason ) ) );
+	if ( nGameType == SGVOGT_ENTRENCHMENT )
+		return "is a trench piece; entrenchments are drawn with the Entrenchment tool";
+	if ( nGameType == SGVOGT_BRIDGE )
+		return "is a bridge span; bridges are drawn with the Bridge tool";
+	if ( nGameType == SGVOGT_FENCE )
+		return "is a fence; fences are drawn with the Fence tool";
+	return 0;
 }
 
 // Placing one object, as CTemplateEditorFrame::AddObjectByAI does it
@@ -91,6 +88,28 @@ IRefCount* PlaceOneObject( const SMapObjectInfo &rObject, const SGDBObjectDesc *
 	if ( pAIObject != 0 && pDesc->eGameType == SGVOGT_BUILDING )
 		pAIEditor->SetPlayer( pAIObject, nPlayer );
 	return pAIObject;
+}
+
+namespace {
+
+// The snapshot keeps frame indices packed; the working copy is unpacked,
+// because unpacking picks a random visual variant per type and that choice must
+// never reach a file for an object the editor did not touch.
+void MakeWorkingCopy( SEditorSession *pSession )
+{
+	pSession->working = pSession->snapshot;
+	pSession->working.UnpackFrameIndices();
+	// A map saved without altitudes gets a flat sheet, as the MFC editor does:
+	// UpdateTerrainShades reads the altitudes and would divide by an empty one.
+	STerrainInfo &rTerrain = pSession->working.terrain;
+	if ( rTerrain.altitudes.GetSizeX() == 0 || rTerrain.altitudes.GetSizeY() == 0 )
+	{
+		rTerrain.altitudes.SetSizes( rTerrain.patches.GetSizeX() * 16 + 1, rTerrain.patches.GetSizeY() * 16 + 1 );
+		rTerrain.altitudes.SetZero();
+	}
+	CMapInfo::UpdateTerrainShades( &rTerrain,
+	                               CTRect<int>( 0, 0, rTerrain.altitudes.GetSizeX(), rTerrain.altitudes.GetSizeY() ),
+	                               CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( pSession->working.nSeason ) ) );
 }
 
 // One pass over objects or scenarioObjects.
@@ -138,44 +157,71 @@ void PlaceObjects( SEditorSession *pSession, const std::vector<SMapObjectInfo> &
 // scenarioObjects that PlaceObjects set aside. Building them here rather than
 // where they were found is what keeps a bridge's spans in the order the file
 // gives them.
-//
-// A span stored with negative HP is one the mission builds during play. The
-// engine will not take it that way, so - as the editor does - it is created at
-// full HP and its link ID listed; the snapshot still holds the negative value,
-// so what gets written back is unchanged.
-void BuildBridges( SEditorSession *pSession, const std::vector<SMapObjectInfo> &rSpans,
-                   IObjectsDB *pObjectsDB, IAIEditor *pAIEditor )
+void BuildBridges( SEditorSession *pSession, const std::vector<SMapObjectInfo> &rSpans )
 {
 	const std::vector< std::vector<int> > &rBridges = pSession->working.bridges;
+	// A link ID named twice - by one entry or by two - is one span, and
+	// BuildOneBridge places it once (a second placement is the engine's
+	// "Repeated link" and orphans the first object).
+	std::vector<int> unique;
 	for ( size_t nBridge = 0; nBridge < rBridges.size(); ++nBridge )
 	{
-		for ( size_t nSpan = 0; nSpan < rBridges[nBridge].size(); ++nSpan )
+		unique.insert( unique.end(), rBridges[nBridge].begin(), rBridges[nBridge].end() );
+		pSession->nBridgeSpansPlaced += BuildOneBridge( pSession, rBridges[nBridge], rSpans );
+	}
+	std::sort( unique.begin(), unique.end() );
+	pSession->nBridgeSpansInMap = int( std::unique( unique.begin(), unique.end() ) - unique.begin() );
+}
+}
+
+// One bridge's spans, in the order its entry lists them (BuildBridges' per
+// bridge part, 04-06: the Bridge tool builds a drawn, restored or rotated
+// bridge the same way). A span stored with negative HP is one the mission
+// builds during play. The engine will not take it that way, so - as the
+// editor does - it is created at full HP and its link ID listed; the snapshot
+// still holds the negative value, so what gets written back is unchanged. The
+// snapshot is asked as well as rSpans, because the working copy of a bridge
+// the Bridge tool toggled keeps HP 1.
+int BuildOneBridge( SEditorSession *pSession, const std::vector<int> &rLinkIDs, const std::vector<SMapObjectInfo> &rSpans )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	if ( pObjectsDB == 0 || pAIEditor == 0 )
+		return 0;
+	int nPlaced = 0;
+	for ( size_t nSpan = 0; nSpan < rLinkIDs.size(); ++nSpan )
+	{
+		const int nLinkID = rLinkIDs[nSpan];
+		// A link ID the entry names twice, or another entry already placed, is
+		// one object: placing it again is the engine's "Repeated link"
+		// (asserted in a debug build) and would orphan the first engine object.
+		if ( std::find( rLinkIDs.begin(), rLinkIDs.begin() + nSpan, nLinkID ) != rLinkIDs.begin() + nSpan ||
+		     pSession->byLinkID.find( nLinkID ) != pSession->byLinkID.end() )
+			continue;
+		std::vector<SMapObjectInfo>::const_iterator it = rSpans.begin();
+		for ( ; it != rSpans.end(); ++it )
+			if ( it->link.nLinkID == nLinkID )
+				break;
+		if ( it == rSpans.end() )
+			continue;
+		SMapObjectInfo span = *it;
+		const SMapObjectInfo *pSaved = FindSnapshotObject( *pSession, nLinkID );
+		if ( span.fHP < 0 || ( pSaved != 0 && pSaved->fHP < 0 ) )
 		{
-			const int nLinkID = rBridges[nBridge][nSpan];
-			++pSession->nBridgeSpansInMap;
-			std::vector<SMapObjectInfo>::const_iterator it = rSpans.begin();
-			for ( ; it != rSpans.end(); ++it )
-				if ( it->link.nLinkID == nLinkID )
-					break;
-			if ( it == rSpans.end() )
-				continue;
-			SMapObjectInfo span = *it;
-			if ( span.fHP < 0 )
-			{
-				span.fHP = 1.0f;
+			span.fHP = 1.0f;
+			if ( std::find( pSession->futureBuildLinkIDs.begin(), pSession->futureBuildLinkIDs.end(), nLinkID ) == pSession->futureBuildLinkIDs.end() )
 				pSession->futureBuildLinkIDs.push_back( nLinkID );
-			}
-			const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( span.szName.c_str() );
-			if ( pDesc == 0 )
-				continue;
-			if ( IRefCount *pAIObject = PlaceOneObject( span, pDesc, pAIEditor ) )
-			{
-				pSession->byLinkID[nLinkID] = pAIObject;
-				++pSession->nBridgeSpansPlaced;
-			}
+		}
+		const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( span.szName.c_str() );
+		if ( pDesc == 0 )
+			continue;
+		if ( IRefCount *pAIObject = PlaceOneObject( span, pDesc, pAIEditor ) )
+		{
+			pSession->byLinkID[nLinkID] = pAIObject;
+			++nPlaced;
 		}
 	}
-}
+	return nPlaced;
 }
 
 bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
@@ -213,6 +259,25 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	// From here on the old map is gone: the engine is global, and it is cleared
 	// and rebuilt in place, so there is nothing to go back to. Only a throw can
 	// leave this path early, and it leaves the session with no map open.
+	return InstallMapInSession( pSession, read, pszPath );
+}
+
+// Everything after a map has been read or built: the per-map tables are
+// reset, the working copy is made, the engine is rebuilt from it and the
+// camera placed on the middle. OpenMapIntoSession and NewMapInSession both
+// end here; pszPath is what the terrain loader names its sidecar files after
+// (the map's own path for an open, its name for a new one - nothing of a new
+// map is on disk, exactly the MFC editor's own Load(m_currentMapName)).
+bool InstallMapInSession( SEditorSession *pSession, const CMapInfo &read, const char *pszPath )
+{
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	IScene *pScene = GetSingleton<IScene>();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pAIEditor == 0 || pScene == 0 || pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the engine is missing the AI editor, the scene or the object database";
+		return false;
+	}
 	pSession->bMapOpen = false;
 	pSession->byLinkID.clear();
 	pSession->unknownLinkIDs.clear();
@@ -220,10 +285,58 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	pSession->nBridgeSpansInMap = 0;
 	pSession->nBridgeSpansPlaced = 0;
 	pSession->snapshot = read;
-	pSession->szMapPath = pszPath;
+	// F5 (M3, D-23): a map whose file lacks altitudes gets a flat sheet on
+	// the snapshot too - the MFC editor's own load rule
+	// (TemplateEditorFrame1.cpp:1658) - so a save writes the zeros rather
+	// than an empty sheet back. MakeWorkingCopy gives the working copy the
+	// same sheet it always did; with the snapshot holding one already, its
+	// own branch simply does not fire.
+	if ( pSession->snapshot.terrain.altitudes.GetSizeX() == 0 || pSession->snapshot.terrain.altitudes.GetSizeY() == 0 )
+	{
+		pSession->snapshot.terrain.altitudes.SetSizes( pSession->snapshot.terrain.patches.GetSizeX() * STerrainPatchInfo::nSizeX + 1,
+		                                              pSession->snapshot.terrain.patches.GetSizeY() * STerrainPatchInfo::nSizeY + 1 );
+		pSession->snapshot.terrain.altitudes.SetZero();
+	}
+	// The snapshot is a COPY of the read. SVertexAltitude names its three padding bytes
+	// (cReserved, fmtMap.h), so the copy carries the file's own bytes and a new sheet starts at
+	// zero: no pin at install is needed for a save to write defined bytes.
+	pSession->hiddenScriptIDs.clear();
+	pSession->hiddenLinkIDs.clear();
+	pSession->szScriptFileAtOpen = read.szScriptFile;
+	pSession->openedAreaNames.clear();
+	for ( size_t i = 0; i < read.scriptAreas.size(); ++i )
+		++pSession->openedAreaNames[read.scriptAreas[i].szName];
+	pSession->openedAreas.assign( read.scriptAreas.begin(), read.scriptAreas.end() );
+	pSession->openedStartCommands.assign( read.startCommandsList.begin(), read.startCommandsList.end() );
+	pSession->openedReservePositions.assign( read.reservePositionsList.begin(), read.reservePositionsList.end() );
+	pSession->openedAISides = read.aiGeneralMapInfo.sidesInfo;
+	pSession->openedUCParties.clear();
+	pSession->openedUCAircraft.clear();
+	pSession->openedUCSquads.clear();
+	for ( size_t i = 0; i < read.unitCreation.units.size(); ++i )
+	{
+		const SUnitCreation &rUnit = read.unitCreation.units[i];
+		pSession->openedUCParties.insert( rUnit.szPartyName );
+		pSession->openedUCSquads.insert( rUnit.aviation.szParadropSquadName );
+		for ( size_t j = 0; j < rUnit.aviation.aircrafts.size(); ++j )
+			pSession->openedUCAircraft.insert( rUnit.aviation.aircrafts[j].szName );
+	}
+	{
+		NMapRecords::SCameraAnchors anchors;
+		NMapRecords::GetCameraAnchors( read, &anchors );
+		pSession->vOpenedNeutralAnchor = anchors.vNeutral;
+		pSession->openedPlayerAnchors = anchors.players;
+	}
+	pSession->openedGroups.clear();
+	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = read.reinforcements.groups.begin(); it != read.reinforcements.groups.end(); ++it )
+		pSession->openedGroups[it->first] = it->second.ids;
+	pSession->szMapPath = pszPath != 0 ? pszPath : "";
 	pSession->paints.clear();
 	pSession->appliedPaints.clear();
 	pSession->undonePaints.clear();
+	ClearEditLog( pSession );
+	pSession->vsoEngineIDs[0].clear();
+	pSession->vsoEngineIDs[1].clear();
 	pSession->tombstones.clear();
 	pSession->nLinkIDFloor = NMapOverlay::NextLinkID( pSession->snapshot );
 	pSession->linkByAI.clear();
@@ -232,8 +345,12 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	// The old map's objects leave the world before the AI they refer to is
 	// cleared. CWorldBase::Clear empties the scene and takes its terrain away
 	// too, so it comes before the new terrain is set, never after.
+	ClearGhostInSession( pSession );
 	if ( pSession->pWorld != 0 )
 		pSession->pWorld->Clear();
+	// The fire-range group names units of the AI that is cleared next (M3,
+	// D-32): it goes first, and the caller asks for its mode again.
+	DropFireRangeInSession( pSession );
 
 	// The AI editor first: the terrain it is initialised with is what
 	// IsObjectInsideOfMap and AddNewObject answer against below.
@@ -258,6 +375,9 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 		pTerrain->Load( pSession->szMapPath.c_str(), pSession->working.terrain );
 		pScene->SetTerrain( pTerrain );
 	}
+	// The engine's road and river nIDs, by list position: the terrain has just
+	// loaded both lists from the working copy, in file order.
+	ResetVsoEngineIDs( pSession );
 
 	// The map's season, before a single object is built: CreateMapObject
 	// hands the world's season to every map object, which picks its winter or
@@ -277,11 +397,16 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	for ( int i = 0; i < 2; ++i )
 		if ( !pScene->ToggleShow( SCENE_SHOW_WARFOG ) )	// false: the scene's fog is off
 			break;
+	// The Layers menu's state onto the new terrain and the scene (M3, D-32):
+	// the grid and noise flags live on the terrain this open just replaced, and
+	// the line above put the fog off whatever the menu said - the MFC editor's
+	// desync. After the fog line on purpose: a fog the user asked for is back.
+	ReapplyLayersInSession( pSession );
 
 	std::vector<SMapObjectInfo> bridgeSpans;
 	PlaceObjects( pSession, pSession->working.objects, pObjectsDB, pAIEditor, &bridgeSpans );
 	PlaceObjects( pSession, pSession->working.scenarioObjects, pObjectsDB, pAIEditor, &bridgeSpans );
-	BuildBridges( pSession, bridgeSpans, pObjectsDB, pAIEditor );
+	BuildBridges( pSession, bridgeSpans );
 	// The AI has queued a notification for every object it took; one update
 	// turns them into map objects with visuals in the scene.
 	UpdateSessionWorld( pSession );
@@ -299,12 +424,85 @@ bool OpenMapIntoSession( SEditorSession *pSession, const char *pszPath )
 	return true;
 }
 
+// File > New (M3, D-23): the engine builds the map and it opens through the
+// same install the open path uses. Sizes are in patches per axis (1..32),
+// nSeason is the dialog's 0..3 (Summer/Winter/Africa/Spring - REAL_SEASONS
+// maps it to the value the map stores), pszName is what the terrain loader's
+// sidecar files are named after (the MFC editor's own m_currentMapName), and
+// the mod stamp is the active mod's name/version (empty for none), put on at
+// creation the way the MFC editor's new map carries it.
+bool NewMapInSession( SEditorSession *pSession, int nSizeX, int nSizeY, int nSeason, const char *pszName,
+                      const std::string &rszModName, const std::string &rszModVersion )
+{
+	if ( pSession == 0 )
+		return false;
+	if ( !pSession->bEngineStarted )
+	{
+		pSession->szMessage = "the engine is not started";
+		return false;
+	}
+	if ( nSizeX < 1 || nSizeX > 32 || nSizeY < 1 || nSizeY > 32 ||
+	     nSeason < 0 || nSeason >= CMapInfo::SEASON_COUNT )
+	{
+		pSession->szMessage = "a new map is 1..32 patches per axis, the season Summer/Winter/Africa/Spring";
+		return false;
+	}
+	IAIEditor *pAIEditor = GetSingleton<IAIEditor>();
+	IScene *pScene = GetSingleton<IScene>();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pAIEditor == 0 || pScene == 0 || pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the engine is missing the AI editor, the scene or the object database";
+		return false;
+	}
+
+	// The MFC editor's own sequence (OnFileNewMap, TemplateEditorFrame1.cpp:
+	// 2479-2512): Create of the size and the season - two neutral players,
+	// a single-player map, altitudes sized and zeroed - then every tile the
+	// season's most common tile.
+	CMapInfo read;
+	if ( !CMapInfo::Create( &read, CTPoint<int>( nSizeX, nSizeY ), CMapInfo::REAL_SEASONS[nSeason],
+	                        CMapInfo::SEASON_FOLDERS[nSeason], 2, CMapInfo::TYPE_SINGLE_PLAYER ) )
+	{
+		pSession->szMessage = "the engine would not create a map of that size and season";
+		return false;
+	}
+	if ( !read.FillTerrain( CMapInfo::MOST_COMMON_TILES[nSeason] ) )
+	{
+		pSession->szMessage = "the season's tileset did not read, so the new map's tiles cannot be filled";
+		return false;
+	}
+	// The shades the season's sun makes over the zero sheet (the MFC editor's
+	// UpdateTerrainShades at :2529); Create has already sized and zeroed the
+	// altitudes.
+	if ( !CMapInfo::UpdateTerrainShades( &read.terrain,
+	                                     CTRect<int>( 0, 0, read.terrain.altitudes.GetSizeX(), read.terrain.altitudes.GetSizeY() ),
+	                                     CVertexAltitudeInfo::GetSunLight( static_cast<CMapInfo::SEASON>( read.nSeason ) ) ) )
+	{
+		pSession->szMessage = "the new map's shades did not compute";
+		return false;
+	}
+	// The mod stamp, at creation, the way the MFC editor's new map carries it
+	// (OnFileNewMap's szNewMODKey handling at :2464-2476): empty with no mod.
+	read.szMODName = rszModName;
+	read.szMODVersion = rszModVersion;
+
+	const std::string szTerrainName = ( pszName != 0 && *pszName != 0 ) ? pszName : "new map";
+	if ( !InstallMapInSession( pSession, read, szTerrainName.c_str() ) )
+		return false;
+	// A new map is never-saved: the session holds no path for it. The name
+	// went to the terrain loader only.
+	pSession->szMapPath.clear();
+	return true;
+}
+
 void CloseSessionMap( SEditorSession *pSession )
 {
 	if ( pSession == 0 || !pSession->bMapOpen )
 		return;
 	// The old map's objects leave the world before the AI they refer to is
 	// cleared - the same order OpenMapIntoSession closes the previous map in.
+	ClearGhostInSession( pSession );
 	if ( pSession->pWorld != 0 )
 		pSession->pWorld->Clear();
 	if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
@@ -315,18 +513,29 @@ void CloseSessionMap( SEditorSession *pSession )
 	pSession->paints.clear();
 	pSession->appliedPaints.clear();
 	pSession->undonePaints.clear();
+	ClearEditLog( pSession );
+	pSession->vsoEngineIDs[0].clear();
+	pSession->vsoEngineIDs[1].clear();
 	pSession->tombstones.clear();
 	pSession->linkByAI.clear();
+	pSession->hiddenScriptIDs.clear();
+	pSession->hiddenLinkIDs.clear();
 	pSession->bMapOpen = false;
 }
 
 void UpdateSessionWorld( SEditorSession *pSession )
 {
+	// Hidden objects are in the scene for the world's update and out again
+	// after it (ApplyHiddenMarks, below).
+	ShowHiddenForUpdate( pSession );
 	if ( pSession->pWorld != 0 )
 		pSession->pWorld->UpdateNow();
 	pSession->linkByAI.clear();
 	for ( std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = pSession->byLinkID.begin(); it != pSession->byLinkID.end(); ++it )
 		pSession->linkByAI[it->second.GetPtr()] = it->first;
+	// After the update: a span the AI just built has its world object only now.
+	ApplyBridgeMarks( pSession );
+	ApplyHiddenMarks( pSession );
 }
 
 bool SaveSessionMap( SEditorSession *pSession, const char *pszPath )
@@ -342,6 +551,20 @@ bool SaveSessionMap( SEditorSession *pSession, const char *pszPath )
 	{
 		pSession->szMessage = "no map path";
 		return false;
+	}
+	// A script path that names a place on one computer (an absolute one, as maps
+	// generated before the 2026-10-03 ruling hold: the output path) does not
+	// travel when a save syncs to another. It is written as the script's name
+	// relative to the map's own folder (NMapScriptPath); every other value - none,
+	// a bare name, the shipped maps' "maps\\Name" - is left exactly as the map had
+	// it, so a map opened and saved without a change is the same bytes.
+	{
+		const std::string szStored = NMapScriptPath::ToStored( pSession->snapshot.szScriptFile );
+		if ( szStored != pSession->snapshot.szScriptFile )
+		{
+			NMapRecords::PutScriptFile( &pSession->snapshot, szStored );
+			NMapRecords::PutScriptFile( &pSession->working, szStored );
+		}
 	}
 	// The snapshot, with whatever the editor has changed already laid over it -
 	// never pSession->working. The working copy has UnpackFrameIndices applied,
@@ -499,8 +722,63 @@ bool ReadSessionObjects( SEditorSession *pSession, BkEditorObjectRecord *pOut, i
 			rRecord.scenario = nList;
 			rRecord.known = std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(),
 			                           rObject.link.nLinkID ) == pSession->unknownLinkIDs.end() ? 1 : 0;
+			rRecord.script_id = rObject.nScriptID;
+			rRecord.hp = rObject.fHP;
+			rRecord.frame_index = rObject.nFrameIndex;
+			rRecord.link_with = rObject.link.nLinkWith;
 		}
 	return nCapacity >= nTotal;
+}
+
+bool SetSessionObjectScriptID( SEditorSession *pSession, int nLinkID, int nScriptID, bool *pbRefused )
+{
+	if ( pbRefused != 0 ) *pbRefused = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		if ( pSession != 0 ) pSession->szMessage = "no map is open";
+		return false;
+	}
+	if ( nScriptID < -1 || nScriptID > 32000 )
+	{
+		pSession->szMessage = "a script ID is -1 (none) or 0..32000";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	const SMapObjectInfo *pObject = FindSnapshotObject( *pSession, nLinkID );
+	if ( nLinkID == 0 || pObject == 0 )
+	{
+		pSession->szMessage = nLinkID == 0 ? "an object with link ID 0 has no link ID to name it by, so its script ID is kept as it is"
+		                                   : "no object with that link ID";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	// An object the database does not know is written back exactly as it was
+	// read (the preservation invariant), so no edit reaches it - its script ID
+	// neither, as PlaceObjectInSession and DeleteObjectFromSession refuse.
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		if ( pbRefused != 0 ) *pbRefused = true;
+		return false;
+	}
+	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+		return false;
+	// Both copies together; the snapshot first, and undone if the working copy
+	// (which holds the same link IDs) somehow will not take it.
+	const int nBefore = pObject->nScriptID;
+	if ( !NMapRecords::SetObjectScriptID( &pSession->snapshot, nLinkID, nScriptID ) )
+		return false;
+	if ( !NMapRecords::SetObjectScriptID( &pSession->working, nLinkID, nScriptID ) )
+	{
+		NMapRecords::SetObjectScriptID( &pSession->snapshot, nLinkID, nBefore );
+		return false;
+	}
+	// An object whose script ID a hidden group names is hidden now, one that
+	// left it is shown.
+	if ( !pSession->hiddenScriptIDs.empty() )
+		ApplyHiddenMarks( pSession );
+	pSession->szMessage = GroupHoldWarning( *pSession, nLinkID, -1 );
+	return true;
 }
 
 bool ReadSessionSounds( SEditorSession *pSession, BkEditorSoundRecord *pOut, int nCapacity, int *pnCount )
@@ -656,6 +934,11 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		pSession->szMessage = "the engine is not there";
 		return false;
 	}
+	if ( rAdd.nDir < 0 || rAdd.nDir > 65535 )
+	{
+		pSession->szMessage = "a direction is 0..65535";
+		return false;
+	}
 	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( rAdd.szName.c_str() );
 	if ( pDesc == 0 )
 	{
@@ -663,6 +946,11 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 		return false;
 	}
 	if ( const char *pszWhy = WhyNotAMapObject( pDesc->eGameType ) )
+	{
+		pSession->szMessage = "\"" + rAdd.szName + "\" " + pszWhy;
+		return false;
+	}
+	if ( const char *pszWhy = WhyNotPlacedByPalette( pDesc->eGameType ) )
 	{
 		pSession->szMessage = "\"" + rAdd.szName + "\" " + pszWhy;
 		return false;
@@ -678,6 +966,15 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 	// its restore, and NextLinkID alone would hand the highest one out again.
 	// Both copies get the ID explicitly, so they cannot disagree about it.
 	NMapOverlay::SAddObject add = rAdd;
+	// Today's values, set explicitly so the intent is visible: a palette add is
+	// whole, has no script ID and takes its frame index from the packing below.
+	add.nFrameIndex = 0;
+	add.fHP = 1.0f;
+	add.nScriptID = -1;
+	// Linked with nothing, as the MFC editor wrote an object it had not linked: the
+	// game lands a reinforcement only when this is 0 (see SAddObject::nLinkWith),
+	// so a unit placed for a reinforcement group needs it.
+	add.nLinkWith = 0;
 	add.nLinkID = Max( NMapOverlay::NextLinkID( pSession->snapshot ), pSession->nLinkIDFloor );
 	int nLinkID = -1;
 	if ( !NMapOverlay::AddObject( &pSession->snapshot, add, &nLinkID ) )
@@ -721,7 +1018,7 @@ bool AddObjectToSession( SEditorSession *pSession, const NMapOverlay::SAddObject
 	return true;
 }
 
-bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &vPos, int nDir, int nPlayer, bool *pbRefused )
+bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &vPosIn, int nDir, int nPlayer, bool *pbRefused )
 {
 	if ( pbRefused )
 		*pbRefused = false;
@@ -756,6 +1053,24 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	}
 
 	const SMapObjectInfo before = *pObject;
+	// What the engine cannot hold is refused here, before the map takes it: the engine stores a
+	// direction as a WORD and a position as a short, the readback converts the request the same
+	// way, and a value outside both would pass the check while the map kept it. A value the
+	// object already has is let through (a file may hold one; moving the object leaves it).
+	if ( ( vPosIn.x != before.vPos.x || vPosIn.y != before.vPos.y ) &&
+	     ( !std::isfinite( vPosIn.x ) || !std::isfinite( vPosIn.y ) || std::fabs( vPosIn.x ) > 32000.0f || std::fabs( vPosIn.y ) > 32000.0f ) )
+	{
+		pSession->szMessage = "that position is outside what the engine can hold";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+	if ( nDir != before.nDir && ( nDir < 0 || nDir > 65535 ) )
+	{
+		pSession->szMessage = "a direction is 0..65535";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+	CVec3 vPos = vPosIn;
 	IRefCount *pAIObject = itEngine->second;
 	const SEngineObjectState engineBefore = ReadEngine( pAIEditor, pAIObject );
 
@@ -772,7 +1087,14 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	// not be refused because its kind reports no direction.
 	const bool bMoving = before.vPos.x != vPos.x || before.vPos.y != vPos.y;
 	const bool bTurning = before.nDir != nDir;
-	const bool bReowning = before.nPlayer != nPlayer;
+	// An owner outside the diplomacy table was never the engine's owner
+	// (PlaceOneObject handed such an object a stand-in), so moving a record into the
+	// table - Check Map's owner fix (05-05, TEF:6010-6014) - or out of it again - that
+	// fix's undo - changes the records alone. Every other owner change is asked of the
+	// engine, which may refuse it.
+	const int nTable = int( pSession->snapshot.diplomacies.size() );
+	const bool bOwnersInTable = before.nPlayer >= 0 && before.nPlayer < nTable && nPlayer >= 0 && nPlayer < nTable;
+	const bool bReowning = before.nPlayer != nPlayer && bOwnersInTable;
 	if ( bMoving )
 		pAIEditor->MoveObject( pAIObject, ToEngineCoord( vPos.x ), ToEngineCoord( vPos.y ) );
 	if ( bTurning )
@@ -827,34 +1149,124 @@ bool PlaceObjectInSession( SEditorSession *pSession, int nLinkID, const CVec3 &v
 	return true;
 }
 
+namespace
+{
+// The objects being deleted right now, outermost first: the host and the
+// passengers its cascade has gone into. An object met a second time means the
+// links form a cycle (A carries B and B carries A, which a map file can hold),
+// and following it would recurse until the stack ran out.
+struct SDeleteChain
+{
+	std::vector<int> ids;
+};
+
+bool DeleteObjectInChain( SEditorSession *pSession, int nLinkID, bool *pbRefused, SDeleteChain *pChain );
+
+// Puts back the passengers a host's delete had already taken, last deleted
+// first, when the delete is refused after all. DeleteObjectInChain moves each
+// passenger's tombstone into the host's, so it is registered under the
+// passenger's ID again before RestoreObjectInSession is asked (which also
+// brings the passenger's own passengers back).
+void RestoreTakenPassengers( SEditorSession *pSession, const std::vector<SEditorSession::STombstone> &rPassengers )
+{
+	for ( size_t j = rPassengers.size(); j > 0; --j )
+	{
+		const int nPassengerID = rPassengers[j - 1].snapshot.object.link.nLinkID;
+		pSession->tombstones[nPassengerID] = rPassengers[j - 1];
+		bool bIgnored = false;
+		RestoreObjectInSession( pSession, nPassengerID, &bIgnored );
+	}
+}
+}
+
 bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRefused )
+{
+	SDeleteChain chain;
+	return DeleteObjectInChain( pSession, nLinkID, pbRefused, &chain );
+}
+
+namespace
+{
+bool DeleteObjectInChain( SEditorSession *pSession, int nLinkID, bool *pbRefused, SDeleteChain *pChain )
 {
 	if ( pbRefused )
 		*pbRefused = false;
 	if ( pSession == 0 || !pSession->bMapOpen )
 		return false;
-	// The preservation invariant: an object the database does not know is
-	// written back exactly as it was read, so no edit may reach it.
-	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+	if ( std::find( pChain->ids.begin(), pChain->ids.end(), nLinkID ) != pChain->ids.end() )
 	{
-		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		pSession->szMessage = "objects link to each other in a cycle; unlink one of them first";
 		if ( pbRefused ) *pbRefused = true;
 		return false;
 	}
+	// Leaves the chain on every way out of this level, return or not.
+	struct SChainLevel
+	{
+		SDeleteChain *pChain;
+		SChainLevel( SDeleteChain *p, int nID ) : pChain( p ) { pChain->ids.push_back( nID ); }
+		~SChainLevel() { pChain->ids.pop_back(); }
+	} chainLevel( pChain, nLinkID );
+	// The preservation invariant keeps every edit away from an object the
+	// database does not know - except its removal (05-05, D-33): Check Map's Fix
+	// all offers it explicitly, replacing the MFC's silent RemoveNonExistingObjects
+	// (PARITY F4). The engine never held such an object, so there is nothing to
+	// take out of it, and the restore puts the record back exactly where it was.
 	// Before anything else: with the ID shared, "not in byLinkID" below would
 	// not mean "the engine holds nothing", and a found engine object might be
 	// another record's.
 	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
 		return false;
-	// The map decides first: something still referring to the object - a bridge,
-	// a start command, a reinforcement group, a passenger - means no, and the
-	// engine is never asked.
-	//
-	// Both records are kept, with their lists and places, for a restore.
+	// M3 (D-27): the host's passengers go with it - the records whose
+	// nLinkWith names this object are deleted first (each through this very
+	// path, so their own references and passengers cascade the same way), and
+	// the host's restore brings them back. The M2 refusals - a bridge span, a
+	// trench piece - still refuse below, passengers or no passengers; the
+	// overlay's own passenger refusal never fires, because by the time the
+	// overlay sees the host, its passengers are gone.
+	// Only a real link ID can be named by a passenger: 0 is what every
+	// unlinked object carries as nLinkWith, "linked with nothing", so the
+	// lone object under link ID 0 must not make all of them its passengers.
+	std::vector<int> passengers;
+	if ( nLinkID != 0 )
+	{
+		const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
+		for ( int nList = 0; nList < 2; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size(); ++i )
+			{
+				const SMapObjectInfo &rObject = ( *lists[nList] )[i];
+				if ( rObject.link.nLinkID != nLinkID && rObject.link.nLinkWith == nLinkID )
+					passengers.push_back( rObject.link.nLinkID );
+			}
+	}
 	SEditorSession::STombstone tombstone;
+	for ( size_t i = 0; i < passengers.size(); ++i )
+	{
+		bool bPassengerRefused = false;
+		if ( !DeleteObjectInChain( pSession, passengers[i], &bPassengerRefused, pChain ) )
+		{
+			// A passenger that cannot go (itself a referred span, say)
+			// refuses the whole delete; the ones already taken are put back.
+			RestoreTakenPassengers( pSession, tombstone.passengers );
+			pSession->szMessage = NStr::Format( "the passenger of object %d cannot be deleted: %s", nLinkID, pSession->szMessage.c_str() );
+			if ( pbRefused ) *pbRefused = true;
+			return false;
+		}
+		tombstone.passengers.push_back( pSession->tombstones[passengers[i]] );
+		pSession->tombstones.erase( passengers[i] );
+	}
+	// The map decides first: a bridge span, a trench piece or a vehicle with a
+	// passenger means no, and the engine is never asked. Anything else that
+	// names the object - start commands, reserve positions - is edited by the
+	// map's cascade, the same on both copies because both lists are equal.
+	//
+	// Both records are kept, with their lists, places and cascades, for a
+	// restore.
 	std::string szRefusal;
 	if ( !NMapOverlay::DeleteObject( &pSession->snapshot, nLinkID, &szRefusal, &tombstone.snapshot ) )
 	{
+		// The host itself is refused (a bridge span, a trench piece): its
+		// passengers, already taken, come back - all or nothing.
+		RestoreTakenPassengers( pSession, tombstone.passengers );
 		pSession->szMessage = szRefusal;
 		if ( pbRefused ) *pbRefused = true;
 		return false;
@@ -911,7 +1323,18 @@ bool DeleteObjectFromSession( SEditorSession *pSession, int nLinkID, bool *pbRef
 	pSession->tombstones[nLinkID] = tombstone;
 	pSession->nLinkIDFloor = Max( pSession->nLinkIDFloor, nLinkID + 1 );
 	UpdateSessionWorld( pSession );
+	// What else changed, for the status bar; empty when only the object went.
+	NMapOverlay::DescribeCascade( tombstone.snapshot.cascade, &pSession->szMessage );
+	if ( !tombstone.passengers.empty() )
+	{
+		std::string szPassengers = NStr::Format( "%d passenger%s deleted with the host", int( tombstone.passengers.size() ), tombstone.passengers.size() == 1 ? "" : "s" );
+		if ( pSession->szMessage.empty() )
+			pSession->szMessage = szPassengers;
+		else
+			pSession->szMessage += "; " + szPassengers;
+	}
 	return true;
+}
 }
 
 bool RestoreObjectInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused )
@@ -959,8 +1382,853 @@ bool RestoreObjectInSession( SEditorSession *pSession, int nLinkID, bool *pbRefu
 		}
 		pSession->byLinkID[nLinkID] = pAIObject;
 	}
-	pSession->tombstones.erase( it );
+	// The host's passengers come back last (M3, D-27), each from its own
+	// tombstone, last deleted first - the delete order put each nested host
+	// before its own passengers, so the reverse walk restores the deepest
+	// passengers before their hosts.
+	bool bAllPassengers = true;
+	for ( size_t i = it->second.passengers.size(); i > 0; --i )
+	{
+		const int nPassengerID = it->second.passengers[i - 1].snapshot.object.link.nLinkID;
+		SEditorSession::STombstone passenger = it->second.passengers[i - 1];
+		pSession->tombstones[nPassengerID] = passenger;
+		bool bPassengerRefused = false;
+		if ( !RestoreObjectInSession( pSession, nPassengerID, &bPassengerRefused ) )
+			bAllPassengers = false;
+	}
+	it = pSession->tombstones.find( nLinkID );
+	if ( it != pSession->tombstones.end() )
+		pSession->tombstones.erase( it );
 	UpdateSessionWorld( pSession );
+	if ( !bAllPassengers )
+	{
+		pSession->szMessage = "a passenger would not come back with the host";
+		if ( pbRefused ) *pbRefused = true;
+		return false;
+	}
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// The batch move (M3, D-25). One call, one edit of the log: every member's
+// whole record before and after, put back raw by Revert/Reapply the way the
+// Update Map composite puts its fit pass's moves back - so one drag gesture
+// (many calls, many tokens merged by the core) undoes as one step, and an
+// undo of it restores every member exactly, engine included.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+bool PutMembersBack( SEditorSession *pSession, const std::vector<SMoveObjectsEdit::SMovedMember> &rMembers )
+{
+	for ( size_t i = 0; i < rMembers.size(); ++i )
+	{
+		bool bRefused = false;
+		if ( !PlaceObjectInSession( pSession, rMembers[i].nLinkID, rMembers[i].before.vPos, rMembers[i].before.nDir, rMembers[i].before.nPlayer, &bRefused ) )
+			return false;
+	}
+	return true;
+}
+
+}
+
+bool SMoveObjectsEdit::Revert( SEditorSession *pSession )
+{
+	return PutMembersBack( pSession, members );
+}
+
+bool SMoveObjectsEdit::Reapply( SEditorSession *pSession )
+{
+	for ( size_t i = 0; i < members.size(); ++i )
+	{
+		bool bRefused = false;
+		if ( !PlaceObjectInSession( pSession, members[i].nLinkID, members[i].after.vPos, members[i].after.nDir, members[i].after.nPlayer, &bRefused ) )
+			return false;
+	}
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// The properties' fields, links and the flag swap (M3, D-26/D-27). Every one
+// of them changes ONE object's record whole - both copies, the engine
+// re-placed - and logs SObjectFieldsEdit, so one deactivate commit is one
+// undo step and a swap's name change undoes exactly.
+// ---------------------------------------------------------------------------
+
+// The engine object re-placed from `rRecord`, then the record written over
+// the object's record in both copies (defined below).
+bool PutObjectRecordBack( SEditorSession *pSession, const SMapObjectInfo &rRecord );
+
+bool SObjectFieldsEdit::Revert( SEditorSession *pSession )
+{
+	return PutObjectRecordBack( pSession, before );
+}
+
+bool SObjectFieldsEdit::Reapply( SEditorSession *pSession )
+{
+	return PutObjectRecordBack( pSession, after );
+}
+
+SMapObject *DamageTargetObject( SEditorSession *pSession, int nLinkID );
+
+// The engine object's health brought from fFrom to fTo (the records' own
+// 0..1), the way the Damage tool's hit reaches it: IAIEditor::DamageObject
+// with the share of the stats' fMaxHP (positive damages, negative heals - the
+// MFC's own RemoveObject heal, TemplateEditorFrame1.cpp:2317-2322), and the
+// drawn health with it. An object without an engine object of its own or
+// without stats has no engine health to bring along.
+void SyncEngineHP( SEditorSession *pSession, int nLinkID, float fFrom, float fTo )
+{
+	fFrom = Max( 0.0f, Min( 1.0f, fFrom ) );
+	fTo = Max( 0.0f, Min( 1.0f, fTo ) );
+	if ( fFrom == fTo )
+		return;
+	SMapObject *pTarget = DamageTargetObject( pSession, nLinkID );
+	if ( pTarget == 0 || pTarget->pRPG == 0 )
+		return;
+	pTarget->SetHP( fTo );
+	if ( pTarget->pAIObj != 0 )
+	{
+		if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+			pAIEditor->DamageObject( pTarget->pAIObj, ( fFrom - fTo ) * pTarget->pRPG->fMaxHP );
+	}
+}
+
+// Re-places the engine object from `rRecord` - its position, direction and
+// owner - and then writes the record over the object's record in both copies,
+// the engine's health brought along when the record's fHP changes (a fields
+// edit, a Damage hit's undo and redo).
+// The engine goes first: PlaceObjectInSession compares the snapshot's current
+// record with what it is asked for to decide what to move, turn or re-own, so
+// a record written before it would leave the engine where it was (an angle
+// edit that never turned the object, an undo that never turned it back). A
+// placement the engine refuses leaves the records as they were.
+bool PutObjectRecordBack( SEditorSession *pSession, const SMapObjectInfo &rRecord )
+{
+	if ( FindIn( &pSession->snapshot, rRecord.link.nLinkID ) == 0 || FindIn( &pSession->working, rRecord.link.nLinkID ) == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		return false;
+	}
+	const SMapObjectInfo *pCurrent = FindIn( &pSession->snapshot, rRecord.link.nLinkID );
+	const float fHPBefore = pCurrent->fHP;
+	// A flag's owner is its type - the properties' swap renames it
+	// Flag_<party> - and the engine holds a flag unowned, so the engine is
+	// never asked to re-own one (it would refuse, and the swap with it).
+	int nEnginePlayer = rRecord.nPlayer;
+	{
+		IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+		const SGDBObjectDesc *pDesc = pObjectsDB != 0 ? pObjectsDB->GetDesc( pCurrent->szName.c_str() ) : 0;
+		if ( pDesc != 0 && pDesc->eGameType == SGVOGT_FLAG )
+			nEnginePlayer = pCurrent->nPlayer;
+	}
+	bool bRefused = false;
+	// An object the engine never took (an owner outside the table, a place off
+	// the map, no stats) has no engine state to keep in step: an edit that leaves
+	// its place and direction alone changes the records only (05-05, Check Map's
+	// owner fix reaches exactly such an object). A move or a turn of it is still
+	// refused by the place below.
+	const bool bEngineHolds = pSession->byLinkID.find( rRecord.link.nLinkID ) != pSession->byLinkID.end();
+	const bool bPlaceUnchanged = pCurrent->vPos.x == rRecord.vPos.x && pCurrent->vPos.y == rRecord.vPos.y && pCurrent->nDir == rRecord.nDir;
+	if ( bEngineHolds || !bPlaceUnchanged )
+	{
+		if ( !PlaceObjectInSession( pSession, rRecord.link.nLinkID, rRecord.vPos, rRecord.nDir, nEnginePlayer, &bRefused ) )
+			return false;
+	}
+	SMapObjectInfo *pSnapshot = FindIn( &pSession->snapshot, rRecord.link.nLinkID );
+	SMapObjectInfo *pWorking = FindIn( &pSession->working, rRecord.link.nLinkID );
+	if ( pSnapshot == 0 || pWorking == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		return false;
+	}
+	*pSnapshot = rRecord;
+	*pWorking = rRecord;
+	SyncEngineHP( pSession, rRecord.link.nLinkID, fHPBefore, rRecord.fHP );
+	return true;
+}
+
+// The party table (partys.xml), read once per session - the same serialiser
+// the game's own unit creation reads it with (UnitCreation.cpp:87-91).
+bool ReadPartyTable( SEditorSession *pSession )
+{
+	if ( pSession->bPartyTableRead )
+		return true;
+	pSession->bPartyTableRead = true;
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( pStorage == 0 )
+		return false;
+	CPtr<IDataStream> pStream = pStorage->OpenStream( "partys.xml", STREAM_ACCESS_READ );
+	if ( pStream == 0 )
+		return false;
+	CTreeAccessor tree = CreateDataTreeSaver( pStream, IDataTree::READ );
+	tree.Add( "PartyInfo", &pSession->partyTable );
+	return true;
+}
+
+// The flag prefix + the general side of player `nPlayer`'s party, lowercased,
+// exactly the MFC properties' swap (SEditorMApObject.cpp:426-447): the map's
+// unit creation names the player's party, partys.xml names the party's
+// general side; anything unknown answers "neutral", as the MFC does.
+std::string FlagPartyName( SEditorSession *pSession, int nPlayer )
+{
+	std::string szPartyName;
+	const SUnitCreationInfo &rUnitCreation = pSession->snapshot.unitCreation;
+	if ( nPlayer >= 0 && nPlayer < int( rUnitCreation.units.size() ) )
+		szPartyName = rUnitCreation.units[nPlayer].szPartyName;
+	std::string szGeneral;
+	ReadPartyTable( pSession );
+	for ( size_t i = 0; i < pSession->partyTable.size(); ++i )
+		if ( pSession->partyTable[i].szPartyName == szPartyName )
+		{
+			szGeneral = pSession->partyTable[i].szGeneralPartyName;
+			break;
+		}
+	if ( szGeneral.empty() )
+		szGeneral = "neutral";
+	NStr::ToLower( szGeneral );
+	return szGeneral;
+}
+
+bool SetObjectFieldsInSession( SEditorSession *pSession, int nLinkID, const BkEditorObjectFieldsEdit *pEdit, bool *pbRefused, int *pnToken )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	if ( pEdit == 0 || pEdit->mask == 0 )
+	{
+		pSession->szMessage = "no field to change";
+		return false;
+	}
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		*pbRefused = true;
+		return false;
+	}
+	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+		return false;
+	const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nLinkID );
+	if ( pRecord == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		*pbRefused = true;
+		return false;
+	}
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the engine has no object database";
+		return false;
+	}
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( pRecord->szName.c_str() );
+	// The record before the edit is copied NOW: pRecord points into the
+	// snapshot, and PutObjectRecordBack below overwrites it in place - an
+	// undo record taken after that would hold the edit itself.
+	const SMapObjectInfo recordBefore = *pRecord;
+	SMapObjectInfo after = recordBefore;
+	if ( pEdit->mask & 1 )
+	{
+		if ( pEdit->player < 0 || pEdit->player >= int( pSession->snapshot.diplomacies.size() ) )
+		{
+			pSession->szMessage = NStr::Format( "%d is no player: the map holds %d", pEdit->player, int( pSession->snapshot.diplomacies.size() ) );
+			*pbRefused = true;
+			return false;
+		}
+		after.nPlayer = pEdit->player;
+		// The flag swap: a re-owned flag becomes Flag_<the party's general
+		// side>, and the engine re-places it under the new type. A flag type
+		// the database does not know refuses - the MFC's AddObjectByAI would
+		// have failed the same way.
+		if ( pDesc != 0 && pDesc->eGameType == SGVOGT_FLAG )
+		{
+			std::string szFlagName = "Flag_" + FlagPartyName( pSession, pEdit->player );
+			if ( szFlagName != pRecord->szName )
+			{
+				if ( pObjectsDB->GetDesc( szFlagName.c_str() ) == 0 )
+				{
+					pSession->szMessage = "the object database does not know \"" + szFlagName + "\"";
+					*pbRefused = true;
+					return false;
+				}
+				after.szName = szFlagName;
+			}
+		}
+	}
+	if ( pEdit->mask & 2 )
+	{
+		if ( !std::isfinite( pEdit->hp ) )
+		{
+			pSession->szMessage = "the health is not a number";
+			*pbRefused = true;
+			return false;
+		}
+		after.fHP = pEdit->hp;
+	}
+	if ( pEdit->mask & 4 )
+	{
+		if ( !std::isfinite( pEdit->angle ) )
+		{
+			pSession->szMessage = "the angle is not a number";
+			*pbRefused = true;
+			return false;
+		}
+		// The MFC properties dialog's own turn (SEditorMApObject.cpp:384-386).
+		after.nDir = int( ( pEdit->angle * 65536.0f ) / 360.0f + 0.5f );
+	}
+	if ( pEdit->mask & 8 )
+	{
+		if ( pEdit->formation < 0 )
+		{
+			pSession->szMessage = "a formation index is 0 or greater";
+			*pbRefused = true;
+			return false;
+		}
+		// The squad record's frame index is the formation; any other kind's
+		// is its segment or variant, which this edit must never touch.
+		if ( pDesc == 0 || pDesc->eGameType != SGVOGT_SQUAD )
+		{
+			pSession->szMessage = "only a squad carries a formation";
+			*pbRefused = true;
+			return false;
+		}
+		after.nFrameIndex = pEdit->formation;
+	}
+	if ( after.szName == pRecord->szName && after.vPos.x == pRecord->vPos.x && after.vPos.y == pRecord->vPos.y &&
+	     after.nDir == pRecord->nDir && after.nPlayer == pRecord->nPlayer && after.nScriptID == pRecord->nScriptID &&
+	     after.fHP == pRecord->fHP && after.nFrameIndex == pRecord->nFrameIndex && after.link.nLinkWith == pRecord->link.nLinkWith )
+	{
+		// An edit that changes nothing records nothing; the core has usually
+		// answered this itself.
+		return true;
+	}
+	if ( !PutObjectRecordBack( pSession, after ) )
+	{
+		// The place refused: the records are as they were (PutObjectRecordBack
+		// writes both copies only after its own lookups; the place path leaves
+		// them untouched on a refusal), so nothing to roll back here.
+		*pbRefused = true;
+		return false;
+	}
+	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
+	pEditRecord->nLinkID = nLinkID;
+	pEditRecord->before = recordBefore;
+	pEditRecord->after = after;
+	*pnToken = LogEdit( pSession, pEditRecord );
+	return true;
+}
+
+// CheckForInserting (ObjectPlacerState.cpp:1325-1424) for ONE passenger and
+// ONE host, naming the rule that says no.
+bool CanLinkInSession( SEditorSession *pSession, int nSource, int nTarget, int *pnType, bool *pbRefused )
+{
+	*pbRefused = false;
+	*pnType = 0;
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pObjectsDB == 0 )
+	{
+		pSession->szMessage = "the engine has no object database";
+		return false;
+	}
+	const SMapObjectInfo *pSource = FindSnapshotObject( *pSession, nSource );
+	const SMapObjectInfo *pTarget = FindSnapshotObject( *pSession, nTarget );
+	if ( pSource == 0 || pTarget == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		*pbRefused = true;
+		return false;
+	}
+	const SGDBObjectDesc *pSourceDesc = pObjectsDB->GetDesc( pSource->szName.c_str() );
+	const SGDBObjectDesc *pTargetDesc = pObjectsDB->GetDesc( pTarget->szName.c_str() );
+	if ( pSourceDesc == 0 || pTargetDesc == 0 )
+	{
+		pSession->szMessage = "the object database does not know one of the two types";
+		*pbRefused = true;
+		return false;
+	}
+	// The garrison rules first, the MFC's own order: the passenger must be
+	// infantry, and the host's kind answers. The MFC judges the dragged
+	// SOLDIERS (its selection expands a picked squad to them, and a soldier's
+	// stats are SUnitBaseRPGStats); the map holds the squad, so a squad
+	// record is garrison-capable here in its own right - the soldiers its
+	// formations name are infantry by construction. The MFC compared the
+	// dragged group's size against the host's total slots and never asked
+	// how many stood inside already - the evident intent is a host that
+	// takes as many as it has room for, so the occupancy (the records whose
+	// nLinkWith names the host) is what the room is measured against here.
+	int nOccupants = 0;
+	{
+		const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
+		for ( int nList = 0; nList < 2; ++nList )
+			for ( size_t i = 0; i < lists[nList]->size(); ++i )
+				if ( ( *lists[nList] )[i].link.nLinkWith == nTarget && ( *lists[nList] )[i].link.nLinkID != nSource )
+					++nOccupants;
+	}
+	const SUnitBaseRPGStats *pSourceStats = dynamic_cast<const SUnitBaseRPGStats*>( pObjectsDB->GetRPGStats( pSourceDesc ) );
+	const bool bSquadPassenger = pSourceDesc->eGameType == SGVOGT_SQUAD;
+	std::string szWhy;
+	bool bCan = false;
+	if ( pSourceStats == 0 && !bSquadPassenger )
+		szWhy = "\"" + pSource->szName + "\" is not a unit that can be garrisoned";
+	else if ( pSourceStats != 0 && !pSourceStats->IsInfantry() )
+		szWhy = "only infantry garrisons something: \"" + pSource->szName + "\" is not infantry";
+	else if ( pTargetDesc->eGameType == SGVOGT_BUILDING )
+	{
+		const SBuildingRPGStats *pBuilding = dynamic_cast<const SBuildingRPGStats*>( pObjectsDB->GetRPGStats( pTargetDesc ) );
+		if ( pBuilding == 0 )
+			szWhy = "the database does not know \"" + pTarget->szName + "\" as a building";
+		else if ( ( pBuilding->slots.size() + pBuilding->nRestSlots + pBuilding->nMedicalSlots ) < nOccupants + 1 )
+			szWhy = "\"" + pTarget->szName + "\" has no free slot: a garrison needs one";
+		else
+			bCan = true;
+	}
+	else if ( pTargetDesc->eGameType == SGVOGT_ENTRENCHMENT )
+	{
+		// The MFC's own trench checks are commented out
+		// (ObjectPlacerState.cpp:1358-1372): an infantry passenger links in.
+		bCan = true;
+	}
+	else if ( pTargetDesc->eGameType == SGVOGT_UNIT )
+	{
+		const SMechUnitRPGStats *pVehicle = dynamic_cast<const SMechUnitRPGStats*>( pObjectsDB->GetRPGStats( pTargetDesc ) );
+		if ( pVehicle == 0 )
+			szWhy = "the database does not know \"" + pTarget->szName + "\" as a vehicle";
+		else if ( pVehicle->vEntrancePoint == VNULL2 )
+			szWhy = "\"" + pTarget->szName + "\" has no entrance point";
+		else if ( pVehicle->nPassangers < nOccupants + 1 )
+			szWhy = "\"" + pTarget->szName + "\" takes no more passengers";
+		else
+			bCan = true;
+	}
+	else
+		szWhy = "\"" + pTarget->szName + "\" takes no passengers";
+	if ( bCan )
+	{
+		*pnType = 0;
+		return true;
+	}
+	// The tow fallback: a tractor or carrier onto an artillery gun with crew
+	// points it out-pulls.
+	const SMechUnitRPGStats *pTower = dynamic_cast<const SMechUnitRPGStats*>( pObjectsDB->GetRPGStats( pSourceDesc ) );
+	if ( pTower != 0 &&
+	     ( pTower->type == RPG_TYPE_TRN_CARRIER || pTower->type == RPG_TYPE_TRN_TRACTOR ) &&
+	     pTower->vTowPoint != VNULL2 && pTower->fTowingForce > 0 &&
+	     pTargetDesc->eGameType == SGVOGT_UNIT )
+	{
+		const SMechUnitRPGStats *pGun = dynamic_cast<const SMechUnitRPGStats*>( pObjectsDB->GetRPGStats( pTargetDesc ) );
+		if ( pGun != 0 && IsArtillery( pGun->type ) && !pGun->vPeoplePoints.empty() )
+		{
+			if ( pTower->fTowingForce > pGun->fWeight )
+			{
+				*pnType = 2;
+				return true;
+			}
+			szWhy = NStr::Format( "the tractor cannot tow the gun: it pulls %.0f and the gun weighs %.0f", pTower->fTowingForce, pGun->fWeight );
+		}
+		else if ( pGun != 0 && !IsArtillery( pGun->type ) )
+			szWhy = "\"" + pTarget->szName + "\" is not artillery: a tractor tows a gun";
+		else if ( pGun != 0 && pGun->vPeoplePoints.empty() )
+			szWhy = "\"" + pTarget->szName + "\" has no crew points: a tractor tows a crewed gun";
+	}
+	// The train fallback: train cars couple with train cars.
+	if ( pTower != 0 && IsTrain( pTower->type ) && pTargetDesc->eGameType == SGVOGT_UNIT )
+	{
+		const SMechUnitRPGStats *pCar = dynamic_cast<const SMechUnitRPGStats*>( pObjectsDB->GetRPGStats( pTargetDesc ) );
+		if ( pCar != 0 && IsTrain( pCar->type ) )
+		{
+			*pnType = 1;
+			return true;
+		}
+		if ( pCar != 0 && !IsTrain( pCar->type ) )
+			szWhy = "train cars couple with train cars: \"" + pTarget->szName + "\" is not a train";
+	}
+	pSession->szMessage = szWhy.empty() ? "those two do not link" : szWhy;
+	*pbRefused = true;
+	return false;
+}
+
+bool SetLinkInSession( SEditorSession *pSession, int nSource, int nTarget, bool *pbRefused, int *pnToken )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	int nType = 0;
+	if ( !CanLinkInSession( pSession, nSource, nTarget, &nType, pbRefused ) )
+		return false;
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nSource ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		*pbRefused = true;
+		return false;
+	}
+	if ( RefuseSharedLinkID( pSession, nSource, pbRefused ) )
+		return false;
+	// A link that closes a loop (the host already rides on the source, however
+	// far down the chain) would send the game's loaders, and the delete
+	// cascade, round it for ever. CanLinkInSession's train fallback accepts
+	// any two cars, so this is the only place that catches it.
+	if ( NMapRecords::WouldLinkCycle( &pSession->snapshot, nSource, nTarget ) )
+	{
+		pSession->szMessage = "those two would link to each other in a cycle";
+		*pbRefused = true;
+		return false;
+	}
+	const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nSource );
+	if ( pRecord == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		*pbRefused = true;
+		return false;
+	}
+	// The record before the edit is copied NOW: pRecord points into the
+	// snapshot, and PutObjectRecordBack below overwrites it in place - an
+	// undo record taken after that would hold the edit itself.
+	const SMapObjectInfo recordBefore = *pRecord;
+	SMapObjectInfo after = recordBefore;
+	after.link.nLinkWith = nTarget;
+	if ( nType == 0 )
+	{
+		// A garrison stands beside its host, the MFC's own offset
+		// (ObjectPlacerState.cpp:827-831). A tow or a coupling keeps the
+		// passenger where it stands.
+		const SMapObjectInfo *pHost = FindSnapshotObject( *pSession, nTarget );
+		if ( pHost == 0 )
+		{
+			pSession->szMessage = "no object with that link ID";
+			*pbRefused = true;
+			return false;
+		}
+		after.vPos.x = pHost->vPos.x - 30.0f;
+		after.vPos.y = pHost->vPos.y + 30.0f;
+	}
+	if ( !PutObjectRecordBack( pSession, after ) )
+	{
+		// The MFC moved a garrison's passenger beside its host and linked it
+		// whether or not the engine took the move (ObjectPlacerState.cpp:820-
+		// 827 never asks MoveObject's answer): a passenger the engine will
+		// not stand there keeps its own place and is linked where it stands.
+		if ( nType != 0 || ( after.vPos.x == recordBefore.vPos.x && after.vPos.y == recordBefore.vPos.y ) )
+		{
+			*pbRefused = true;
+			return false;
+		}
+		after.vPos = recordBefore.vPos;
+		if ( !PutObjectRecordBack( pSession, after ) )
+		{
+			*pbRefused = true;
+			return false;
+		}
+		pSession->szMessage.clear();
+	}
+	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
+	pEditRecord->nLinkID = nSource;
+	pEditRecord->before = recordBefore;
+	pEditRecord->after = after;
+	*pnToken = LogEdit( pSession, pEditRecord );
+	return true;
+}
+
+bool UnlinkInSession( SEditorSession *pSession, int nLinkID, bool *pbRefused, int *pnToken )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		*pbRefused = true;
+		return false;
+	}
+	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+		return false;
+	const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nLinkID );
+	if ( pRecord == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		*pbRefused = true;
+		return false;
+	}
+	if ( pRecord->link.nLinkWith == 0 )
+		return true; // nothing linked: OK, no token
+	// The record before the edit is copied NOW: pRecord points into the
+	// snapshot, and PutObjectRecordBack below overwrites it in place - an
+	// undo record taken after that would hold the edit itself.
+	const SMapObjectInfo recordBefore = *pRecord;
+	SMapObjectInfo after = recordBefore;
+	after.link.nLinkWith = 0;
+	if ( !PutObjectRecordBack( pSession, after ) )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
+	pEditRecord->nLinkID = nLinkID;
+	pEditRecord->before = recordBefore;
+	pEditRecord->after = after;
+	*pnToken = LogEdit( pSession, pEditRecord );
+	return true;
+}
+
+// The Damage tool's hit (M3, D-29). The engine object the session holds for
+// the link, as the world draws it - the MFC's FindByVis answer - so the
+// stats' fMaxHP and the technics/human question answer from the same place
+// the game's own damage does.
+SMapObject *DamageTargetObject( SEditorSession *pSession, int nLinkID )
+{
+	IRefCount *pAIObject = 0;
+	{
+		std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = pSession->byLinkID.find( nLinkID );
+		if ( it == pSession->byLinkID.end() )
+			return 0;
+		pAIObject = it->second;
+	}
+	if ( pSession->pWorld == 0 || pAIObject == 0 )
+		return 0;
+	std::vector<SMapObject*> objects;
+	pSession->pWorld->GetObjects( &objects );
+	for ( size_t i = 0; i < objects.size(); ++i )
+		if ( objects[i] != 0 && objects[i]->pAIObj == pAIObject )
+			return objects[i];
+	return 0;
+}
+
+bool DamageObjectInSession( SEditorSession *pSession, int nLinkID, float fDelta, int eMode, bool *pbRefused, int *pnToken )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+	{
+		pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+		*pbRefused = true;
+		return false;
+	}
+	if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+		return false;
+	const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nLinkID );
+	if ( pRecord == 0 )
+	{
+		pSession->szMessage = "no object with that link ID";
+		*pbRefused = true;
+		return false;
+	}
+	SMapObject *pTarget = DamageTargetObject( pSession, nLinkID );
+	// The MFC bug is not copied (MapToolState.cpp:54-57): a record with no
+	// engine object of its own in the world (one the engine never took - a
+	// kind PlaceOneObject passes over, a position off the terrain) or a
+	// missing stats pointer is a refusal, never a dereference.
+	if ( pTarget == 0 || pTarget->pRPG == 0 )
+	{
+		pSession->szMessage = "the object has no stats in the engine to damage";
+		*pbRefused = true;
+		return false;
+	}
+	// The MFC MapToolState's own clamps (MapToolState.cpp:59-76), D-29's own
+	// wording: a UNIT keeps 1% under any damage (the MFC's IsTechnics and
+	// IsHuman split the unit kind by its vis type - mesh or sprite - and
+	// both are units; the floor follows the kind, so every UNIT gets it),
+	// and so does a SQUAD - the MFC damaged its soldiers, which IsHuman
+	// floors at 1%, and saved the squad's health from them; anything else
+	// may be hit to 0. The repair mode is the MFC's middle button: back to
+	// full.
+	const bool bUnitFloor = pTarget->pDesc != 0 && ( pTarget->pDesc->eGameType == SGVOGT_UNIT || pTarget->pDesc->eGameType == SGVOGT_SQUAD );
+	const float fMinHP = bUnitFloor ? 0.01f : 0.0f;
+	float fNewHP = pRecord->fHP;
+	if ( eMode == 2 )
+	{
+		fNewHP = 1.0f;
+	}
+	else
+	{
+		float fHPAdded = ( eMode == 1 ) ? -fDelta : fDelta;
+		if ( ( pRecord->fHP - fHPAdded ) > 1.0f )
+			fHPAdded = pRecord->fHP - 1.0f;
+		else if ( ( pRecord->fHP - fHPAdded ) < fMinHP )
+			fHPAdded = pRecord->fHP - fMinHP;
+		fNewHP = pRecord->fHP - fHPAdded;
+		// D-29's own wording is the contract: the floor is at least 1%.
+		// The MFC's two-step float dance can land a hair below fMinHP
+		// (fHP - (fHP - 0.01f) rounding), which is below the clamp the row
+		// documents - the floor is set here, once, exactly.
+		if ( fNewHP < fMinHP )
+			fNewHP = fMinHP;
+	}
+	// The record before the edit is copied NOW: pRecord points into the
+	// snapshot, and the write below mutates it in place.
+	const SMapObjectInfo recordBefore = *pRecord;
+	if ( fNewHP == recordBefore.fHP )
+		return true; // the clamps left nothing to change: OK, no token
+	SMapObjectInfo after = recordBefore;
+	after.fHP = fNewHP;
+	// The records go in place (the engine object stays the one it is - the
+	// MFC damaged the live object, it did not re-place it), the world's own
+	// copy with them, and the engine takes the same share of its fMaxHP, the
+	// MFC's own IAIEditor::DamageObject call with the MFC's own
+	// hpAdded*fMaxHP.
+	{
+		SMapObjectInfo *pSnapshot = FindIn( &pSession->snapshot, nLinkID );
+		SMapObjectInfo *pWorking = FindIn( &pSession->working, nLinkID );
+		if ( pSnapshot == 0 || pWorking == 0 )
+		{
+			pSession->szMessage = "no object with that link ID";
+			*pbRefused = true;
+			return false;
+		}
+		pSnapshot->fHP = fNewHP;
+		pWorking->fHP = fNewHP;
+	}
+	// The engine's share, the record's own before and after: a hit damages,
+	// a heal and the repair heal (the MFC's middle button passes fHP - 1, a
+	// negative damage, MapToolState.cpp:172-176).
+	SyncEngineHP( pSession, nLinkID, recordBefore.fHP, fNewHP );
+	SObjectFieldsEdit *pEditRecord = new SObjectFieldsEdit();
+	pEditRecord->nLinkID = nLinkID;
+	pEditRecord->before = recordBefore;
+	pEditRecord->after = after;
+	*pnToken = LogEdit( pSession, pEditRecord );
+	return true;
+}
+
+bool MoveObjectsInSession( SEditorSession *pSession, const int *pnLinkIDs, int nCount, float fDx, float fDy, bool *pbRefused, int *pnToken )
+{
+	*pbRefused = false;
+	*pnToken = -1;
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		*pbRefused = true;
+		return false;
+	}
+	if ( pnLinkIDs == 0 || nCount <= 0 )
+	{
+		pSession->szMessage = "no objects to move";
+		*pbRefused = true;
+		return false;
+	}
+	// Before anything moves, every member is what an edit may reach and every
+	// destination is a place the engine would take - one bad member refuses
+	// the whole move and nothing is touched (the M1 rule: the map never holds
+	// half a move).
+	std::vector<SMoveObjectsEdit::SMovedMember> members;
+	members.reserve( nCount );
+	for ( int i = 0; i < nCount; ++i )
+	{
+		const int nLinkID = pnLinkIDs[i];
+		if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), nLinkID ) != pSession->unknownLinkIDs.end() )
+		{
+			pSession->szMessage = "the object database does not know this object's type; it is kept as it is";
+			*pbRefused = true;
+			return false;
+		}
+		if ( RefuseSharedLinkID( pSession, nLinkID, pbRefused ) )
+			return false;
+		const SMapObjectInfo *pRecord = FindSnapshotObject( *pSession, nLinkID );
+		if ( pRecord == 0 )
+		{
+			pSession->szMessage = "no object with that link ID";
+			*pbRefused = true;
+			return false;
+		}
+		for ( size_t j = 0; j < members.size(); ++j )
+			if ( members[j].nLinkID == nLinkID )
+			{
+				pSession->szMessage = NStr::Format( "link ID %d is named twice", nLinkID );
+				*pbRefused = true;
+				return false;
+			}
+		SMoveObjectsEdit::SMovedMember member;
+		member.nLinkID = nLinkID;
+		member.before = *pRecord;
+		member.after = *pRecord;
+		member.after.vPos.x += fDx;
+		member.after.vPos.y += fDy;
+		// The destination is checked with the engine's own partition, the same
+		// answer a single move's place gets from the engine's AddObject: off
+		// the terrain is refused.
+		CVec3 vWorld;
+		AI2Vis( &vWorld, member.after.vPos.x, member.after.vPos.y, 0.0f );
+		int nTileX = 0, nTileY = 0;
+		if ( !pEngineTerrain->GetTileIndex( vWorld, &nTileX, &nTileY ) )
+		{
+			pSession->szMessage = NStr::Format( "object %d would leave the map", nLinkID );
+			*pbRefused = true;
+			return false;
+		}
+		members.push_back( member );
+	}
+	for ( size_t i = 0; i < members.size(); ++i )
+	{
+		bool bRefused = false;
+		if ( !PlaceObjectInSession( pSession, members[i].nLinkID, members[i].after.vPos, members[i].after.nDir, members[i].after.nPlayer, &bRefused ) )
+		{
+			// The destinations were checked; an engine refusal here is the
+			// single-move path's own answer, and it has put nothing back.
+			// The members that already moved go back to their before records
+			// raw, so the refusal changes nothing.
+			for ( size_t j = 0; j < i; ++j )
+			{
+				bool bIgnored = false;
+				PlaceObjectInSession( pSession, members[j].nLinkID, members[j].before.vPos, members[j].before.nDir, members[j].before.nPlayer, &bIgnored );
+			}
+			*pbRefused = true;
+			return false;
+		}
+	}
+	SMoveObjectsEdit *pEdit = new SMoveObjectsEdit();
+	pEdit->members.swap( members );
+	*pnToken = LogEdit( pSession, pEdit );
 	return true;
 }
 
@@ -1001,12 +2269,206 @@ bool ObjectAt( SEditorSession *pSession, float sx, float sy, int *pnLinkID, bool
 				it = pSession->linkByAI.find( pFormation );
 		if ( it == pSession->linkByAI.end() )
 			continue;
+		// An object "Hide checked" holds back is not there to be picked, whether
+		// or not the scene still finds its invisible visual (assumption A6).
+		if ( IsHiddenLink( *pSession, it->second ) )
+			continue;
 		*pnLinkID = it->second;
 		return true;
 	}
 	pSession->szMessage = "nothing to pick there";
 	*pbRefused = true;
 	return false;
+}
+
+// ---------------------------------------------------------------------------
+// Multi-selection reads and the batch move (M3, D-25). A squad is one map
+// record: the map holds the squad, its soldiers are the engine's objects
+// beside it (see ObjectAt's note), so "a click on a squad member selects the
+// whole squad" is the pick answering the squad's own link ID, and a batch
+// move that moves the squad record once keeps every soldier's offset by
+// construction - the formation re-places whole.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// The one link ID a pick answers for the object a visual belongs to: the
+// object's own, or its squad's when the visual is a lone soldier's. A record
+// the session does not know, a bridge, an entrenchment, an object held back
+// by Hide checked (A6) and an object of a type the database does not know
+// answer nothing - the same rules ObjectAt picks by.
+bool PickableLink( SEditorSession *pSession, IVisObj *pVisObj, int *pnLinkID )
+{
+	if ( pSession->pWorld == 0 || !pSession->pWorld->IsExistByVis( pVisObj ) )
+		return false;
+	SMapObject *pMapObject = pSession->pWorld->FindByVis( pVisObj );
+	if ( pMapObject == 0 || pMapObject->pDesc == 0 || pMapObject->pAIObj == 0 )
+		return false;
+	const EObjGameType eType = pMapObject->pDesc->eGameType;
+	if ( eType == SGVOGT_BRIDGE || eType == SGVOGT_ENTRENCHMENT )
+		return false;
+	std::unordered_map<IRefCount*, int>::const_iterator it = pSession->linkByAI.find( pMapObject->pAIObj );
+	// A soldier is drawn and picked on his own, but the map holds his squad,
+	// as ObjectAt answers it (ObjectPlacerState.cpp:409).
+	if ( it == pSession->linkByAI.end() )
+	{
+		if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+			if ( IRefCount *pFormation = pAIEditor->GetFormationOfUnit( pMapObject->pAIObj ) )
+				it = pSession->linkByAI.find( pFormation );
+	}
+	if ( it == pSession->linkByAI.end() )
+		return false;
+	if ( IsHiddenLink( *pSession, it->second ) )
+		return false;
+	*pnLinkID = it->second;
+	return true;
+}
+
+// A game type the tile-rectangle pick passes over, per D-25: spans and
+// entrenchment pieces are their groups' business (M2). The screen pick runs
+// the same rule through PickableLink, which is where the MFC's pick leaves
+// them out too (TemplateEditorFrame1.cpp:3384-3400).
+bool NotAGroupPiece( const SGDBObjectDesc *pDesc )
+{
+	return pDesc != 0 && pDesc->eGameType != SGVOGT_BRIDGE && pDesc->eGameType != SGVOGT_ENTRENCHMENT;
+}
+
+// True when the tile-rectangle pick may name the record at all: the session
+// knows the type (an unknown object is kept as it is and cannot be moved),
+// the link ID is the record's own, and the kind is not a bridge or an
+// entrenchment.
+bool TilePickable( SEditorSession *pSession, const SMapObjectInfo &rObject )
+{
+	if ( rObject.link.nLinkID <= 0 )
+		return false;
+	if ( std::find( pSession->unknownLinkIDs.begin(), pSession->unknownLinkIDs.end(), rObject.link.nLinkID ) != pSession->unknownLinkIDs.end() )
+		return false;
+	if ( CountIn( pSession->snapshot, rObject.link.nLinkID ) > 1 )
+		return false;
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	return pObjectsDB != 0 && NotAGroupPiece( pObjectsDB->GetDesc( rObject.szName.c_str() ) );
+}
+
+// The answer a pick hands out: link IDs without duplicates, in the order the
+// pick found them (the MFC's m_pickedObjects keeps the pick's own order, which
+// the Selector's cycle walks). Two-pass: *pnCount is always the total.
+bool PickLinksOut( std::vector<int> &rLinks, int *pnOut, int nCapacity, int *pnCount, bool *pbRefused )
+{
+	*pbRefused = false;
+	*pnCount = int( rLinks.size() );
+	if ( nCapacity < 0 || size_t( nCapacity ) < rLinks.size() )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	for ( size_t i = 0; i < rLinks.size(); ++i )
+		pnOut[i] = rLinks[i];
+	return true;
+}
+
+void AddPickLink( std::vector<int> &rLinks, int nLinkID )
+{
+	if ( std::find( rLinks.begin(), rLinks.end(), nLinkID ) == rLinks.end() )
+		rLinks.push_back( nLinkID );
+}
+
+}
+
+// The screen-rectangle pick of the MFC's rubber band (ObjectPlacerState.cpp:920):
+// the scene's own rectangle pick (CScene::Pick over a rectangle), which takes
+// an object only when the CENTRE of its picture lies inside the rectangle - a
+// sprite's picture box (Anim/SpriteAnimation.cpp IsHit over a rectangle), a
+// mesh's bounding-sphere centre (MeshVisObj.cpp) - not one whose picture
+// merely meets it, as BkEditorObjectAt's point pick does. PickableLink then
+// applies ObjectAt's own filters (a soldier answers his squad, bridges and
+// entrenchments answer nothing). The rectangle is in screen units, normalized
+// here, as the MFC normalizes its own.
+bool PickObjectsInSession( SEditorSession *pSession, float fSx0, float fSy0, float fSx1, float fSy1, int *pnOut, int nCapacity, int *pnCount, bool *pbRefused )
+{
+	*pbRefused = false;
+	*pnCount = 0;
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen || pSession->pWorld == 0 )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 )
+	{
+		pSession->szMessage = "there is no scene";
+		*pbRefused = true;
+		return false;
+	}
+	CTRect<float> rect( CVec2( Min( fSx0, fSx1 ), Min( fSy0, fSy1 ) ), CVec2( Max( fSx0, fSx1 ), Max( fSy0, fSy1 ) ) );
+	std::pair<IVisObj*, CVec2> *pObjects = 0;
+	int nNum = 0;
+	pScene->Pick( rect, &pObjects, &nNum, SGVOGT_UNKNOWN );
+	std::vector<int> links;
+	for ( int i = 0; i < nNum; ++i )
+	{
+		int nLinkID = -1;
+		if ( PickableLink( pSession, pObjects[i].first, &nLinkID ) )
+			AddPickLink( links, nLinkID );
+	}
+	return PickLinksOut( links, pnOut, nCapacity, pnCount, pbRefused );
+}
+
+// The tile-rectangle pick of the MFC's Ctrl rubber band (ObjectPlacerState.cpp:937-962):
+// every editable record whose tile position falls inside the rectangle of
+// tiles, bridges and entrenchments passed over. The tiles are the world-cell
+// tiles BkEditorWorldToTile answers (y measured from the terrain's far edge);
+// a record is inside when the engine's own GetTileIndex of its drawn position
+// lands in the rectangle, so the conversion is the engine's own both ways.
+bool PickObjectsInTilesInSession( SEditorSession *pSession, int nTx0, int nTy0, int nTx1, int nTy1, int *pnOut, int nCapacity, int *pnCount, bool *pbRefused )
+{
+	*pbRefused = false;
+	*pnCount = 0;
+	if ( pSession == 0 )
+	{
+		*pbRefused = true;
+		return false;
+	}
+	if ( !pSession->bMapOpen || pSession->pWorld == 0 )
+	{
+		pSession->szMessage = "no map is open";
+		*pbRefused = true;
+		return false;
+	}
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "there is no terrain";
+		*pbRefused = true;
+		return false;
+	}
+	const int nLeft = Min( nTx0, nTx1 ), nRight = Max( nTx0, nTx1 );
+	const int nTop = Min( nTy0, nTy1 ), nBottom = Max( nTy0, nTy1 );
+	std::vector<int> links;
+	const std::vector<SMapObjectInfo> *lists[2] = { &pSession->snapshot.objects, &pSession->snapshot.scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+	{
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+		{
+			const SMapObjectInfo &rObject = ( *lists[nList] )[i];
+			if ( !TilePickable( pSession, rObject ) )
+				continue;
+			CVec3 vWorld;
+			AI2Vis( &vWorld, rObject.vPos.x, rObject.vPos.y, 0.0f );
+			int nTileX = 0, nTileY = 0;
+			if ( !pEngineTerrain->GetTileIndex( vWorld, &nTileX, &nTileY ) )
+				continue;
+			if ( nTileX < nLeft || nTileX > nRight || nTileY < nTop || nTileY > nBottom )
+				continue;
+			AddPickLink( links, rObject.link.nLinkID );
+		}
+	}
+	return PickLinksOut( links, pnOut, nCapacity, pnCount, pbRefused );
 }
 
 bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy )
@@ -1030,7 +2492,6 @@ bool SetSessionDiplomacy( SEditorSession *pSession, int nPlayer, int nDiplomacy 
 	return true;
 }
 
-namespace {
 // The engine's terrain, through the interface only Scene can hand out: a
 // dynamic_cast from ITerrain to its sibling ITerrainEditor would cross the
 // module boundary and come back null on the Itanium ABI.
@@ -1040,6 +2501,8 @@ ITerrainEditor* EngineTerrain()
 	ITerrain *pTerrain = pScene != 0 ? pScene->GetTerrain() : 0;
 	return pTerrain != 0 ? pTerrain->GetEditor() : 0;
 }
+
+namespace {
 
 // The overlay's regions are half-open patch rectangles (AffectedPatches, and
 // SPaintUndo after it); the engine's two region calls each take something
@@ -1294,10 +2757,10 @@ bool PaintIntoSession( SEditorSession *pSession, const std::vector<NMapOverlay::
 	return true;
 }
 
-namespace {
 // Puts one recorded region back into both copies and the engine, raw: no
 // preprocessing and no cross generation, so the engine lands on exactly the
-// tiles and crosses the record holds.
+// tiles and crosses the record holds. Declared in session.h since 05-02:
+// the Update Map composite's undo rides the same route.
 bool PutRegionBack( SEditorSession *pSession, const NMapOverlay::SPaintUndo &rRegion )
 {
 	ITerrainEditor *pEngineTerrain = EngineTerrain();
@@ -1313,7 +2776,6 @@ bool PutRegionBack( SEditorSession *pSession, const NMapOverlay::SPaintUndo &rRe
 	// The AI's passability follows the tiles.
 	pAIEditor->UpdateTerrain( RegionTiles( rRegion.rPatches ), pSession->working.terrain );
 	return true;
-}
 }
 
 bool UndoPaintInSession( SEditorSession *pSession, int nToken, bool *pbRefused )
@@ -1349,6 +2811,222 @@ bool RedoPaintInSession( SEditorSession *pSession, int nToken, bool *pbRefused )
 		return false;
 	pSession->undonePaints.pop_back();
 	pSession->appliedPaints.push_back( nToken );
+	return true;
+}
+
+// ---------------------------------------------------------------------------
+// Altitudes (M3, D-19)
+// ---------------------------------------------------------------------------
+
+namespace {
+// The patch rectangle covering a vertex rectangle, half-open like the
+// overlay's own regions, clamped to the map's patch count - a vertex
+// rectangle at the far edge (the last vertex is one past the last cell)
+// would otherwise step one patch over the end, exactly what
+// InclusivePatches/RegionTiles exist to stop for paints.
+CTRect<int> VertexPatches( const STerrainInfo &rTerrain, const CTRect<int> &rVertices )
+{
+	return CTRect<int>( rVertices.minx / STerrainPatchInfo::nSizeX, rVertices.miny / STerrainPatchInfo::nSizeY,
+	                    Min( ( rVertices.maxx - 1 ) / STerrainPatchInfo::nSizeX + 1, rTerrain.patches.GetSizeX() ),
+	                    Min( ( rVertices.maxy - 1 ) / STerrainPatchInfo::nSizeY + 1, rTerrain.patches.GetSizeY() ) );
+}
+}
+
+// The engine's own terrain over the region, written raw in place - the MFC
+// editor's own route, through GetTerrainInfo's const_cast
+// (DrawShadeState.cpp:204), because ITerrainEditor has a per-vertex shade
+// call but no per-vertex height one - and the covering patches redrawn, as
+// the MFC's pTerrainEditor->Update did after a shade change. Declared in
+// session.h since 05-02: the heights machine in session_terrain.cpp pushes
+// the same way.
+void PutEngineAltitudes( ITerrainEditor *pEngineTerrain, const NMapOverlay::SAltitudeUndo &rRegion )
+{
+	STerrainInfo &rEngine = const_cast<STerrainInfo&>( pEngineTerrain->GetTerrainInfo() );
+	NMapOverlay::UndoTerrainAltitudeRegion( &rEngine, rRegion );
+	pEngineTerrain->Update( InclusivePatches( VertexPatches( rEngine, rRegion.rVertices ) ) );
+}
+
+// One altitude region edit of the log: the grown region before and after,
+// put back raw into both copies and the engine - heights, shades and padding
+// bytes, never recomputed (D-03's rule, SPaintUndo's own). The record type
+// itself and PutEngineAltitudes live in session.h/session_terrain.cpp's
+// world since M3's heights machine (05-02) logs the same edit.
+bool PutAltitudeEditBack( SEditorSession *pSession, const NMapOverlay::SAltitudeUndo &rRegion );
+
+bool SAltitudeEdit::Revert( SEditorSession *pSession )
+{
+	return PutAltitudeEditBack( pSession, before );
+}
+bool SAltitudeEdit::Reapply( SEditorSession *pSession )
+{
+	return PutAltitudeEditBack( pSession, after );
+}
+
+bool PutAltitudeEditBack( SEditorSession *pSession, const NMapOverlay::SAltitudeUndo &rRegion )
+{
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	NMapOverlay::UndoAltitudeRegion( &pSession->snapshot, rRegion );
+	NMapOverlay::UndoAltitudeRegion( &pSession->working, rRegion );
+	PutEngineAltitudes( pEngineTerrain, rRegion );
+	// When Instant Update is on, the stroke this record came from moved the
+	// roads', rivers' and sounds' z with the terrain (05-02, D-20). The z is
+	// a pure function of the altitudes, so putting the altitudes back and
+	// re-deriving it lands on exactly the bytes the stroke found - the
+	// Update Map composite's undo and redo ride the same rule.
+	if ( pSession->bInstantUpdate )
+		UpdateObjectsZInSession( pSession );
+	return true;
+}
+
+bool ApplyAltitudesInSession( SEditorSession *pSession, const CTRect<int> &rVertices,
+                              const std::vector<float> &rHeights, bool *pbRefused, int *pnToken )
+{
+	*pnToken = -1;
+	if ( pbRefused )
+		*pbRefused = false;
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		if ( pSession )
+			pSession->szMessage = "no map is open";
+		return false;
+	}
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+
+	// A map saved without altitudes gets its sheet here, as the open path
+	// builds the working copy's (the MFC editor's own load rule,
+	// TemplateEditorFrame1.cpp:1658): the edit is what turns the implicit
+	// flat sheet into a real one.
+	STerrainInfo &rSnapshot = pSession->snapshot.terrain;
+	if ( rSnapshot.altitudes.GetSizeX() == 0 || rSnapshot.altitudes.GetSizeY() == 0 )
+	{
+		rSnapshot.altitudes.SetSizes( rSnapshot.patches.GetSizeX() * STerrainPatchInfo::nSizeX + 1,
+		                              rSnapshot.patches.GetSizeY() * STerrainPatchInfo::nSizeY + 1 );
+		rSnapshot.altitudes.SetZero();
+	}
+	if ( rVertices.minx < 0 || rVertices.miny < 0 ||
+	     rVertices.maxx <= rVertices.minx || rVertices.maxy <= rVertices.miny ||
+	     rVertices.maxx > rSnapshot.altitudes.GetSizeX() || rVertices.maxy > rSnapshot.altitudes.GetSizeY() )
+	{
+		pSession->szMessage = NStr::Format( "vertices %d,%d..%d,%d are not on the map",
+		                                    rVertices.minx, rVertices.miny, rVertices.maxx, rVertices.maxy );
+		if ( pbRefused )
+			*pbRefused = true;
+		return false;
+	}
+	const size_t nCount = size_t( rVertices.maxx - rVertices.minx ) * size_t( rVertices.maxy - rVertices.miny );
+	if ( rHeights.size() != nCount )
+	{
+		pSession->szMessage = NStr::Format( "the region holds %d vertices, %d heights were given",
+		                                    int( nCount ), int( rHeights.size() ) );
+		if ( pbRefused )
+			*pbRefused = true;
+		return false;
+	}
+
+	const STerrainInfo &rEngineRead = pEngineTerrain->GetTerrainInfo();
+	if ( rEngineRead.altitudes.GetSizeX() != rSnapshot.altitudes.GetSizeX() ||
+	     rEngineRead.altitudes.GetSizeY() != rSnapshot.altitudes.GetSizeY() )
+	{
+		pSession->szMessage = "the engine's terrain is a different size from the map's";
+		return false;
+	}
+
+	// The region as D-19 defines it: the edit rectangle grown by the shade
+	// kernel, because a height edit changes every neighbouring vertex's
+	// shade. Everything is captured over that region, before anything moves.
+	const CTRect<int> rGrown = NMapOverlay::GrowForShades( pSession->snapshot, rVertices );
+	const SGFXLightDirectional sunlight = CVertexAltitudeInfo::GetSunLight(
+		static_cast<CMapInfo::SEASON>( pSession->working.nSeason ) );
+	NMapOverlay::SAltitudeUndo before, workingBefore, engineBefore;
+	NMapOverlay::CaptureAltitudeRegion( pSession->snapshot, rGrown, &before );
+	NMapOverlay::CaptureAltitudeRegion( pSession->working, rGrown, &workingBefore );
+	NMapOverlay::CaptureTerrainAltitudeRegion( rEngineRead, rGrown, &engineBefore );
+
+	// Whole records built from the snapshot's own storage - bitwise, the
+	// raw-struct padding rule (a member-wise copy would carry the heap's
+	// bytes into the file) - with the caller's heights in them; the shades
+	// the record carried do not survive the next step, which is the point.
+	std::vector<SVertexAltitude> values( nCount );
+	size_t nValue = 0;
+	for ( int y = rVertices.miny; y < rVertices.maxy; ++y )
+		for ( int x = rVertices.minx; x < rVertices.maxx; ++x, ++nValue )
+		{
+			memcpy( &values[nValue], &rSnapshot.altitudes[y][x], sizeof( SVertexAltitude ) );
+			values[nValue].fHeight = rHeights[nValue];
+		}
+
+	// The deterministic function on the copy that will be saved, then on the
+	// copy the engine was built from; a failure puts everything back raw.
+	STerrainInfo &rWorking = pSession->working.terrain;
+	if ( !NMapOverlay::SetAltitudeRegion( &pSession->snapshot, rVertices, values, 0 ) ||
+	     !CMapInfo::UpdateTerrainShades( &rSnapshot, rGrown, sunlight ) )
+	{
+		NMapOverlay::UndoAltitudeRegion( &pSession->snapshot, before );
+		PutEngineAltitudes( pEngineTerrain, engineBefore );
+		pSession->szMessage = "the map would not take that altitude edit";
+		return false;
+	}
+	if ( !NMapOverlay::SetAltitudeRegion( &pSession->working, rVertices, values, 0 ) ||
+	     !CMapInfo::UpdateTerrainShades( &rWorking, rGrown, sunlight ) )
+	{
+		NMapOverlay::UndoAltitudeRegion( &pSession->snapshot, before );
+		NMapOverlay::UndoAltitudeRegion( &pSession->working, workingBefore );
+		PutEngineAltitudes( pEngineTerrain, engineBefore );
+		pSession->szMessage = "the map would not take that altitude edit";
+		return false;
+	}
+
+	// The engine's own copy gets what the function just wrote, raw, and the
+	// covering patches redrawn - the MFC editor's whole-map shade recompute
+	// at save is deliberately not here (D-19).
+	NMapOverlay::SAltitudeUndo after;
+	NMapOverlay::CaptureAltitudeRegion( pSession->snapshot, rGrown, &after );
+	PutEngineAltitudes( pEngineTerrain, after );
+
+	SAltitudeEdit *pEdit = new SAltitudeEdit();
+	pEdit->before = before;
+	pEdit->after = after;
+	*pnToken = LogEdit( pSession, pEdit );
+	return true;
+}
+
+bool ReadAltitudesInSession( SEditorSession *pSession, const CTRect<int> &rVertices, std::vector<float> *pHeights )
+{
+	if ( pSession == 0 || !pSession->bMapOpen )
+	{
+		if ( pSession )
+			pSession->szMessage = "no map is open";
+		return false;
+	}
+	const STerrainInfo::TVertexAltitudeArray2D &rAltitudes = pSession->working.terrain.altitudes;
+	if ( rAltitudes.GetSizeX() == 0 || rAltitudes.GetSizeY() == 0 )
+	{
+		pSession->szMessage = "the map has no altitudes";
+		return false;
+	}
+	if ( rVertices.minx < 0 || rVertices.miny < 0 ||
+	     rVertices.maxx <= rVertices.minx || rVertices.maxy <= rVertices.miny ||
+	     rVertices.maxx > rAltitudes.GetSizeX() || rVertices.maxy > rAltitudes.GetSizeY() )
+	{
+		pSession->szMessage = NStr::Format( "vertices %d,%d..%d,%d are not on the map",
+		                                    rVertices.minx, rVertices.miny, rVertices.maxx, rVertices.maxy );
+		return false;
+	}
+	pHeights->clear();
+	pHeights->reserve( size_t( rVertices.maxx - rVertices.minx ) * size_t( rVertices.maxy - rVertices.miny ) );
+	for ( int y = rVertices.miny; y < rVertices.maxy; ++y )
+		for ( int x = rVertices.minx; x < rVertices.maxx; ++x )
+			pHeights->push_back( rAltitudes[y][x].fHeight );
 	return true;
 }
 
@@ -1522,6 +3200,26 @@ bool WorldToTile( SEditorSession *pSession, float wx, float wy, int *pnX, int *p
 	return true;
 }
 
+bool WorldToAITile( SEditorSession *pSession, float wx, float wy, int *pnX, int *pnY )
+{
+	if ( pSession == 0 || !pSession->bMapOpen || pnX == 0 || pnY == 0 )
+		return false;
+	ITerrainEditor *pEngineTerrain = EngineTerrain();
+	if ( pEngineTerrain == 0 )
+	{
+		pSession->szMessage = "the engine has no terrain";
+		return false;
+	}
+	// The fence tool's mapping (RoadDrawState.cpp:571-572): half a world cell,
+	// rounded, not the truncation CMapInfo::GetAITileIndices does.
+	if ( !pEngineTerrain->GetAITileIndex( CVec3( wx, wy, 0.0f ), pnX, pnY ) )
+	{
+		pSession->szMessage = "that point is not on the map";
+		return false;
+	}
+	return true;
+}
+
 bool SetSessionCamera( SEditorSession *pSession, float wx, float wy )
 {
 	if ( pSession == 0 || !pSession->bEngineStarted )
@@ -1570,6 +3268,12 @@ bool DrawSessionFrame( SEditorSession *pSession )
 		return false;
 	}
 	pGFX->Clear( 0, 0, GFXCLEAR_ALL, 0 );
+	// The Layers menu (M3, D-32): the wire frame is a render state, so it is
+	// said inside every frame; passability marks and shoot areas follow the
+	// camera and the units, so while one is shown the world updates first.
+	ApplyWireframeForFrame( pSession );
+	if ( LayersNeedWorldUpdate( pSession ) && pSession->pWorld != 0 && pSession->bMapOpen )
+		UpdateSessionWorld( pSession );
 	pScene->Draw( pCamera );
 	pGFX->EndScene();
 	pGFX->Flip();
@@ -1628,4 +3332,135 @@ void WorldToMap( float wx, float wy, float *pmx, float *pmy )
 	Vis2AIFast( &vMap, wx, wy, 0.0f );
 	*pmx = vMap.x;
 	*pmy = vMap.y;
+}
+
+// ---------------------------------------------------------------------------
+// The Place tool's ghost (PARITY O7, 05-11). The MFC's placer builds a temporary
+// visual of the chosen palette entry, adds it to the scene, moves it with the
+// pointer at half opacity and removes it when the pointer leaves or the tool
+// changes (ObjectPlacerState.cpp:251-297, TemplateEditorFrame1.cpp:2260-2304).
+// Here it is the same visual in the same scene and nothing else: no AI object,
+// no world entry, no record - which is what keeps it out of every save, out of
+// the undo history, out of picks and out of FindReferences.
+// ---------------------------------------------------------------------------
+
+namespace {
+
+// SetAnim.h of the MFC editor (last in the tree at 045ddda7f): a unit mesh starts in its
+// first idle animation, anything else in animation 0.
+void SetGhostAnimation( IVisObj *pVisObj, const SGDBObjectDesc *pDesc )
+{
+	if ( pDesc->eGameType == SGVOGT_UNIT && pDesc->eVisType == SGVOT_MESH )
+	{
+		const SUnitBaseRPGStats *pRPG = static_cast<const SUnitBaseRPGStats*>( GetSingleton<IObjectsDB>()->GetRPGStats( pDesc ) );
+		if ( pRPG != 0 )
+			if ( const std::vector<SUnitBaseRPGStats::SAnimDesc> *pAnims = pRPG->GetAnims( 0 ) )
+				if ( !pAnims->empty() )
+					static_cast<IObjVisObj*>( pVisObj )->SetAnimation( (*pAnims)[0].nIndex );
+	}
+	else
+		static_cast<IObjVisObj*>( pVisObj )->SetAnimation( 0 );
+}
+
+// The visual the MFC's AddObject builds: "<path>\\1" of the entry, or of its first
+// member for a squad (a squad has no visual of its own).
+IVisObj* BuildGhostVisual( const SGDBObjectDesc *pDesc )
+{
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
+	if ( pObjectsDB == 0 || pVOB == 0 )
+		return 0;
+	const SGDBObjectDesc *pShown = pDesc;
+	if ( pDesc->eGameType == SGVOGT_SQUAD )
+	{
+		const SSquadRPGStats *pSquad = NGDB::GetRPGStats<SSquadRPGStats>( pObjectsDB, pDesc );
+		if ( pSquad == 0 || pSquad->members.empty() )
+			return 0;
+		pShown = pObjectsDB->GetDesc( pSquad->members[0]->szParentName.c_str() );
+		if ( pShown == 0 )
+			return 0;
+	}
+	return pVOB->BuildObject( ( pShown->szPath + "\\1" ).c_str(), 0, pShown->eVisType );
+}
+
+} // namespace
+
+void ClearGhostInSession( SEditorSession *pSession )
+{
+	if ( pSession == 0 || pSession->pGhost.GetPtr() == 0 )
+		return;
+	if ( IScene *pScene = GetSingleton<IScene>() )
+		pScene->RemoveObject( static_cast<IVisObj*>( pSession->pGhost.GetPtr() ) );
+	pSession->pGhost = 0;
+	pSession->szGhostName.clear();
+}
+
+bool SetGhostInSession( SEditorSession *pSession, const char *pszName, float fWorldX, float fWorldY, int nDir )
+{
+	if ( pSession == 0 || pszName == 0 )
+		return false;
+	IScene *pScene = GetSingleton<IScene>();
+	IObjectsDB *pObjectsDB = GetSingleton<IObjectsDB>();
+	if ( pScene == 0 || pObjectsDB == 0 || !pSession->bMapOpen )
+	{
+		ClearGhostInSession( pSession );
+		pSession->szMessage = "there is no map to show a ghost on";
+		return false;
+	}
+	// Only inside the terrain: the MFC builds its ghost only where the pointer is
+	// over the map (ObjectPlacerState.cpp:262).
+	const float fWidth = pSession->snapshot.terrain.tiles.GetSizeX() * fWorldCellSize;
+	const float fHeight = pSession->snapshot.terrain.tiles.GetSizeY() * fWorldCellSize;
+	if ( !( fWorldX >= 0.0f && fWorldY >= 0.0f && fWorldX < fWidth && fWorldY < fHeight ) )
+	{
+		ClearGhostInSession( pSession );
+		pSession->szMessage = "the pointer is off the map";
+		return false;
+	}
+	const SGDBObjectDesc *pDesc = pObjectsDB->GetDesc( pszName );
+	if ( pDesc == 0 || WhyNotAMapObject( pDesc->eGameType ) != 0 || WhyNotPlacedByPalette( pDesc->eGameType ) != 0 || !WhyNotPlacedAlone( pObjectsDB, *pDesc ).empty() )
+	{
+		ClearGhostInSession( pSession );
+		pSession->szMessage = "the palette cannot place that, so there is no ghost of it";
+		return false;
+	}
+	if ( pSession->pGhost.GetPtr() != 0 && pSession->szGhostName != pszName )
+		ClearGhostInSession( pSession );
+	float fZ = 0.0f;
+	if ( ITerrain *pTerrain = pScene->GetTerrain() )
+		fZ = pTerrain->GetHeight( CVec2( fWorldX, fWorldY ) );
+	const CVec3 vPos( fWorldX, fWorldY, fZ );
+	const int nDirection = nDir & 0xFFFF;
+	if ( pSession->pGhost.GetPtr() == 0 )
+	{
+		IVisObj *pVisObj = BuildGhostVisual( pDesc );
+		if ( pVisObj == 0 )
+		{
+			pSession->szMessage = "the engine has no visual for that entry";
+			return false;
+		}
+		SetGhostAnimation( pVisObj, pDesc );
+		pVisObj->SetPlacement( vPos, nDirection );
+		pVisObj->SetOpacity( 128 );
+		pScene->AddObject( pVisObj, pDesc->eGameType, pDesc );
+		pSession->pGhost = pVisObj;
+		pSession->szGhostName = pszName;
+	}
+	else
+	{
+		IVisObj *pVisObj = static_cast<IVisObj*>( pSession->pGhost.GetPtr() );
+		pScene->MoveObject( pVisObj, vPos );
+		pVisObj->SetDirection( nDirection );
+	}
+	// One update at the current time, as the MFC does after every move
+	// (ObjectPlacerState.cpp:292-294), so an animation advances and the visual
+	// is where it was told to be on the next frame.
+	if ( IGameTimer *pTimer = GetSingleton<IGameTimer>() )
+	{
+		NHPTimer::STime hptime;
+		NHPTimer::GetTime( &hptime );
+		pTimer->Update( DWORD( NHPTimer::GetSeconds( hptime ) * 1000.0f ) );
+		static_cast<IVisObj*>( pSession->pGhost.GetPtr() )->Update( pTimer->GetGameTime() );
+	}
+	return true;
 }

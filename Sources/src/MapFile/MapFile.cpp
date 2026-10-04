@@ -1,5 +1,5 @@
 // The game's reader (GameTT/iMissionInternal.cpp:1362-1392) and the MFC
-// editor's writer (MapEditor/TemplateEditorFrame1.cpp:3238-3258), lifted into
+// editor's writer (TemplateEditorFrame1.cpp:3238-3258, last in the tree at d1781fa5c), lifted into
 // something with no UI and no renderer under it. Unlike the MFC editor
 // (TemplateEditorFrame1.cpp:1644) this does not call RemoveNonExistingObjects:
 // a map the editor could not fully understand still has to come back out
@@ -33,6 +33,19 @@ static bool ReadStream( IDataStream *pStream, bool bXml, CMapInfo *pMap )
 			return false;
 		CSaverAccessor saver = pSaver;
 		saver.Add( 1, pMap );
+	}
+	// F5 (M3, D-23): a map whose file lacks altitudes gets a flat sheet here,
+	// before IsValid sees it - the MFC editor's own load rule
+	// (TemplateEditorFrame1.cpp:1658), which is why maps of the game's first
+	// years could ship without the sheet at all. This reader is the editor's
+	// (the game loads its maps another way), so the rule lives here rather
+	// than in CMapInfo::IsValid, which every consumer of a map still holds to
+	// what it is handed.
+	if ( ( pMap->terrain.altitudes.GetSizeX() <= 0 ) || ( pMap->terrain.altitudes.GetSizeY() <= 0 ) )
+	{
+		pMap->terrain.altitudes.SetSizes( pMap->terrain.patches.GetSizeX() * STerrainPatchInfo::nSizeX + 1,
+		                                  pMap->terrain.patches.GetSizeY() * STerrainPatchInfo::nSizeY + 1 );
+		pMap->terrain.altitudes.SetZero();
 	}
 	return true;
 }

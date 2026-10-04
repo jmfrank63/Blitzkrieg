@@ -4,6 +4,8 @@
 // the tests here build their expected map with them.
 #include "StdAfx.h"
 #include "MapOverlay.h"
+#include "MapRecords.h"
+#include <algorithm>
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../RandomMapGen/RMG_Types.h"
 #include "../Formats/fmtTerrain.h"
@@ -57,6 +59,201 @@ std::string Numbered( const char *pszWhat, int nIndex )
 	snprintf( szBuffer, sizeof szBuffer, "%s %d", pszWhat, nIndex );
 	return szBuffer;
 }
+
+// Why a delete of nLinkID is refused, or false if it is not. Only what the
+// game's loaders assert on and what M3's links depend on refuses: a bridge span
+// (LoadBridges asserts every link), a trench piece (LoadEntrenchments does),
+// and a vehicle a passenger's nLinkWith still points at. Everything else that
+// names the object is edited by the cascade. Link ID 0 is "no link ID" and is
+// never a reference.
+bool WhyRefused( const SLoadMapInfo &rMap, int nLinkID, std::string *pReason )
+{
+	if ( nLinkID == 0 )
+		return false;
+	std::vector<std::string> referrers, pieces;
+	for ( size_t i = 0; i < rMap.bridges.size(); ++i )
+		for ( size_t j = 0; j < rMap.bridges[i].size(); ++j )
+			if ( rMap.bridges[i][j] == nLinkID )
+			{
+				referrers.push_back( Numbered( "bridge", int( i ) ) );
+				break;
+			}
+	for ( size_t i = 0; i < rMap.entrenchments.size(); ++i )
+	{
+		bool bHit = false;
+		const std::vector<SEntrenchmentInfo::TSegment> &rSections = rMap.entrenchments[i].sections;
+		for ( size_t j = 0; j < rSections.size() && !bHit; ++j )
+			for ( size_t k = 0; k < rSections[j].size() && !bHit; ++k )
+				bHit = rSections[j][k] == nLinkID;
+		if ( bHit )
+			pieces.push_back( Numbered( "entrenchment", int( i ) ) );
+	}
+	// A passenger whose nLinkWith points at a vehicle holds that vehicle: the
+	// spec refuses the vehicle's delete while the passenger is inside it.
+	const std::vector<SMapObjectInfo> *lists[2] = { &rMap.objects, &rMap.scenarioObjects };
+	const char *pszListName[2] = { "object", "scenario object" };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+		{
+			const SMapObjectInfo &rObject = (*lists[nList])[i];
+			if ( rObject.link.nLinkID != nLinkID && rObject.link.nLinkWith == nLinkID )
+				referrers.push_back( Numbered( pszListName[nList], int( i ) ) + " (" + rObject.szName + ")" );
+		}
+	if ( referrers.empty() && pieces.empty() )
+		return false;
+	if ( pReason )
+	{
+		pReason->clear();
+		if ( !referrers.empty() )
+		{
+			*pReason = "still referred to by ";
+			for ( size_t i = 0; i < referrers.size(); ++i )
+				*pReason += ( i == 0 ? "" : ", " ) + referrers[i];
+		}
+		if ( !pieces.empty() )
+		{
+			*pReason += pReason->empty() ? "still part of " : "; still part of ";
+			for ( size_t i = 0; i < pieces.size(); ++i )
+				*pReason += ( i == 0 ? "" : ", " ) + pieces[i];
+		}
+	}
+	return true;
+}
+
+// Takes nLinkID out of every start command that names it, in list order: out of
+// the units (a command left with no unit is erased, as the MFC editor does -
+// RemoveObjectFromAIStartCommand) and, as a target, set to link ID 0
+// (RMGC_INVALID_LINK_ID_VALUE, C3) rather than left dangling. A command that
+// names none of it is not touched, so it stays byte for byte.
+void RemoveFromStartCommands( SLoadMapInfo *pMap, int nLinkID, SCascade *pCascade )
+{
+	size_t nPosition = 0;
+	for ( SLoadMapInfo::TStartCommandsList::iterator it = pMap->startCommandsList.begin();
+	      it != pMap->startCommandsList.end(); )
+	{
+		std::vector<int> &rUnits = it->unitLinkIDs;
+		const bool bUnit = std::find( rUnits.begin(), rUnits.end(), nLinkID ) != rUnits.end();
+		const bool bTarget = it->linkID == nLinkID;
+		if ( !bUnit && !bTarget )
+		{
+			++it;
+			++nPosition;
+			continue;
+		}
+		SStartCommandChange change;
+		change.nPosition = nPosition;
+		change.before = *it;
+		change.bUnitRemoved = bUnit;
+		if ( bUnit )
+			rUnits.erase( std::remove( rUnits.begin(), rUnits.end(), nLinkID ), rUnits.end() );
+		if ( bUnit && rUnits.empty() )
+		{
+			// Nobody left to command: the command goes, whatever its target was.
+			change.bErased = true;
+			it = pMap->startCommandsList.erase( it );
+		}
+		else
+		{
+			if ( bTarget )
+			{
+				it->linkID = 0;
+				change.bTargetCleared = true;
+			}
+			++it;
+			++nPosition;
+		}
+		pCascade->startCommands.push_back( change );
+	}
+}
+
+// Erases every reserve position that names nLinkID as its artillery or its
+// truck (MFC RemoveObjectFromReservePositions, C3), in list order.
+void RemoveFromReservePositions( SLoadMapInfo *pMap, int nLinkID, SCascade *pCascade )
+{
+	size_t nPosition = 0;
+	for ( SLoadMapInfo::TReservePositionsList::iterator it = pMap->reservePositionsList.begin();
+	      it != pMap->reservePositionsList.end(); )
+	{
+		if ( it->nArtilleryLinkID != nLinkID && it->nTruckLinkID != nLinkID )
+		{
+			++it;
+			++nPosition;
+			continue;
+		}
+		SReservePositionChange change;
+		change.nPosition = nPosition;
+		change.before = *it;
+		it = pMap->reservePositionsList.erase( it );
+		pCascade->reservePositions.push_back( change );
+	}
+}
+
+// The group IDs whose ids hold nScriptID, ascending, so what a message says does
+// not depend on the hash map's order.
+std::vector<int> GroupsHolding( const SLoadMapInfo &rMap, int nScriptID )
+{
+	std::vector<int> groups;
+	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = rMap.reinforcements.groups.begin();
+	      it != rMap.reinforcements.groups.end(); ++it )
+		if ( std::find( it->second.ids.begin(), it->second.ids.end(), nScriptID ) != it->second.ids.end() )
+			groups.push_back( it->first );
+	std::sort( groups.begin(), groups.end() );
+	return groups;
+}
+
+// The AI general sides whose mobile reinforcements name nScriptID, ascending.
+std::vector<int> SidesHolding( const SLoadMapInfo &rMap, int nScriptID )
+{
+	std::vector<int> sides;
+	const std::vector<SAIGeneralSideInfo> &rSides = rMap.aiGeneralMapInfo.sidesInfo;
+	for ( size_t i = 0; i < rSides.size(); ++i )
+		if ( std::find( rSides[i].mobileScriptIDs.begin(), rSides[i].mobileScriptIDs.end(), nScriptID ) != rSides[i].mobileScriptIDs.end() )
+			sides.push_back( int( i ) );
+	return sides;
+}
+
+std::string ScriptIDNote( int nScriptID, const char *pszWho, int nWho )
+{
+	char szBuffer[128];
+	snprintf( szBuffer, sizeof szBuffer, "script ID %d is still used by %s %d", nScriptID, pszWho, nWho );
+	return szBuffer;
+}
+
+// Reinforcement groups and the AI general's mobile reinforcements name SCRIPT
+// IDs, which other objects and the Lua script may share, so a delete never edits
+// them. It says so when the last object carrying a script ID they name is gone.
+// Called after the object has been removed.
+void NoteScriptIDStillNamed( const SLoadMapInfo &rMap, int nScriptID, SCascade *pCascade )
+{
+	if ( nScriptID < 0 )
+		return;
+	const std::vector<SMapObjectInfo> *lists[2] = { &rMap.objects, &rMap.scenarioObjects };
+	for ( int nList = 0; nList < 2; ++nList )
+		for ( size_t i = 0; i < lists[nList]->size(); ++i )
+			if ( (*lists[nList])[i].nScriptID == nScriptID )
+				return;
+	const std::vector<int> groups = GroupsHolding( rMap, nScriptID );
+	for ( size_t i = 0; i < groups.size(); ++i )
+		pCascade->notes.push_back( ScriptIDNote( nScriptID, "reinforcement group", groups[i] ) );
+	const std::vector<int> sides = SidesHolding( rMap, nScriptID );
+	for ( size_t i = 0; i < sides.size(); ++i )
+		pCascade->notes.push_back( ScriptIDNote( nScriptID, "the AI general of side", sides[i] ) );
+}
+
+// "2", "2 and 5", "2, 5 and 7".
+std::string JoinNumbers( const std::vector<int> &rNumbers )
+{
+	std::string szOut;
+	for ( size_t i = 0; i < rNumbers.size(); ++i )
+	{
+		char szNumber[32];
+		snprintf( szNumber, sizeof szNumber, "%d", rNumbers[i] );
+		if ( i > 0 )
+			szOut += i + 1 == rNumbers.size() ? " and " : ", ";
+		szOut += szNumber;
+	}
+	return szOut;
+}
 }
 
 int NextLinkID( const SLoadMapInfo &rMap )
@@ -77,12 +274,20 @@ int NextLinkID( const SLoadMapInfo &rMap )
 }
 
 // The spec's list, one loop each. They are not collapsed on purpose: the string
-// each contributes is what the editor shows the player when it refuses.
+// each contributes is what the editor shows the player.
+//
+// Link ID 0 is "no link ID" (RMGC_INVALID_LINK_ID_VALUE): hundreds of shipped
+// objects carry it, start commands and reserve positions use it for "none", so
+// it is never a reference and finds nothing (C11). Reinforcement groups and the
+// AI general's mobile reinforcements hold SCRIPT IDs, not link IDs, so they are
+// matched against the object's script ID - never its link ID.
 void FindReferences( const SLoadMapInfo &rMap, int nLinkID, std::vector<std::string> *pReferences )
 {
 	if ( pReferences == 0 )
 		return;
 	pReferences->clear();
+	if ( nLinkID == 0 )
+		return;
 
 	for ( size_t i = 0; i < rMap.bridges.size(); ++i )
 		for ( size_t j = 0; j < rMap.bridges[i].size(); ++j )
@@ -91,6 +296,17 @@ void FindReferences( const SLoadMapInfo &rMap, int nLinkID, std::vector<std::str
 				pReferences->push_back( Numbered( "bridge", int( i ) ) );
 				break;
 			}
+
+	for ( size_t i = 0; i < rMap.entrenchments.size(); ++i )
+	{
+		bool bHit = false;
+		const std::vector<SEntrenchmentInfo::TSegment> &rSections = rMap.entrenchments[i].sections;
+		for ( size_t j = 0; j < rSections.size() && !bHit; ++j )
+			for ( size_t k = 0; k < rSections[j].size() && !bHit; ++k )
+				bHit = rSections[j][k] == nLinkID;
+		if ( bHit )
+			pReferences->push_back( Numbered( "entrenchment", int( i ) ) );
+	}
 
 	int nCommand = 0;
 	for ( SLoadMapInfo::TStartCommandsList::const_iterator it = rMap.startCommandsList.begin();
@@ -103,14 +319,22 @@ void FindReferences( const SLoadMapInfo &rMap, int nLinkID, std::vector<std::str
 			pReferences->push_back( Numbered( "start command", nCommand ) );
 	}
 
-	for ( std::unordered_map<int, SReinforcementGroupInfo::SGroupsVector>::const_iterator it = rMap.reinforcements.groups.begin();
-	      it != rMap.reinforcements.groups.end(); ++it )
-		for ( size_t j = 0; j < it->second.ids.size(); ++j )
-			if ( it->second.ids[j] == nLinkID )
-			{
-				pReferences->push_back( Numbered( "reinforcement group", it->first ) );
-				break;
-			}
+	int nPosition = 0;
+	for ( SLoadMapInfo::TReservePositionsList::const_iterator it = rMap.reservePositionsList.begin();
+	      it != rMap.reservePositionsList.end(); ++it, ++nPosition )
+		if ( it->nArtilleryLinkID == nLinkID || it->nTruckLinkID == nLinkID )
+			pReferences->push_back( Numbered( "reserve position", nPosition ) );
+
+	const SMapObjectInfo *pObject = FindObject( const_cast<SLoadMapInfo*>( &rMap ), nLinkID, 0, 0 );
+	if ( pObject != 0 && pObject->nScriptID >= 0 )
+	{
+		const std::vector<int> groups = GroupsHolding( rMap, pObject->nScriptID );
+		for ( size_t i = 0; i < groups.size(); ++i )
+			pReferences->push_back( Numbered( "reinforcement group", groups[i] ) );
+		const std::vector<int> sides = SidesHolding( rMap, pObject->nScriptID );
+		for ( size_t i = 0; i < sides.size(); ++i )
+			pReferences->push_back( Numbered( "AI general side", sides[i] ) );
+	}
 
 	// A passenger whose nLinkWith points at a vehicle holds that vehicle: the
 	// spec refuses the vehicle's delete while the passenger is inside it.
@@ -134,13 +358,13 @@ bool AddObject( SLoadMapInfo *pMap, const SAddObject &rAdd, int *pnLinkID )
 	object.vPos = rAdd.vPos;
 	object.nDir = rAdd.nDir;
 	object.nPlayer = rAdd.nPlayer;
-	object.nScriptID = -1;
-	object.fHP = 1.0f;
-	// Left unpacked: packing needs the object database to know the type, and
-	// for a type it does not know it dereferences null. The bridge packs this
-	// one object when it places it; see the spec's "Frame indices and unknown
-	// types".
-	object.nFrameIndex = 0;
+	object.nScriptID = rAdd.nScriptID;
+	object.fHP = rAdd.fHP;
+	// Left as the caller gave it, which is 0 unless it knows better: packing
+	// needs the object database to know the type, and for a type it does not
+	// know it dereferences null. The bridge packs this one object when it
+	// places it; see the spec's "Frame indices and unknown types".
+	object.nFrameIndex = rAdd.nFrameIndex;
 	// A given link ID is the caller's promise that it is free - the bridge's
 	// floor, which never hands out an ID a restore may need back. One in use is
 	// refused rather than doubled.
@@ -148,7 +372,7 @@ bool AddObject( SLoadMapInfo *pMap, const SAddObject &rAdd, int *pnLinkID )
 		return false;
 	object.link.nLinkID = rAdd.nLinkID >= 0 ? rAdd.nLinkID : NextLinkID( *pMap );
 	object.link.bIntention = false;
-	object.link.nLinkWith = -1;
+	object.link.nLinkWith = rAdd.nLinkWith;
 	( rAdd.bScenario ? pMap->scenarioObjects : pMap->objects ).push_back( object );
 	if ( pnLinkID )
 		*pnLinkID = object.link.nLinkID;
@@ -174,16 +398,11 @@ bool DeleteObject( SLoadMapInfo *pMap, int nLinkID, std::string *pRefusal, SDele
 {
 	if ( pMap == 0 )
 		return false;
-	std::vector<std::string> references;
-	FindReferences( *pMap, nLinkID, &references );
-	if ( !references.empty() )
+	std::string szReason;
+	if ( WhyRefused( *pMap, nLinkID, &szReason ) )
 	{
 		if ( pRefusal )
-		{
-			*pRefusal = "still referred to by ";
-			for ( size_t i = 0; i < references.size(); ++i )
-				*pRefusal += ( i == 0 ? "" : ", " ) + references[i];
-		}
+			*pRefusal = szReason;
 		return false;
 	}
 	std::vector<SMapObjectInfo> *pList = 0;
@@ -193,15 +412,23 @@ bool DeleteObject( SLoadMapInfo *pMap, int nLinkID, std::string *pRefusal, SDele
 		if ( pRefusal ) *pRefusal = "no object with that link ID";
 		return false;
 	}
-	if ( pDeleted )
-	{
-		pDeleted->object = (*pList)[nIndex];
-		pDeleted->bScenario = pList == &pMap->scenarioObjects;
-		pDeleted->nIndex = nIndex;
-	}
+	SDeletedObject deleted;
+	deleted.object = (*pList)[nIndex];
+	deleted.bScenario = pList == &pMap->scenarioObjects;
+	deleted.nIndex = nIndex;
 	// Erased, never renumbered: every other object keeps the link ID the rest
 	// of the map refers to it by.
 	pList->erase( pList->begin() + nIndex );
+	// Link ID 0 is no link ID: a start command listing 0 is not naming this
+	// object, so the cascade never runs for it.
+	if ( nLinkID != 0 )
+	{
+		RemoveFromStartCommands( pMap, nLinkID, &deleted.cascade );
+		RemoveFromReservePositions( pMap, nLinkID, &deleted.cascade );
+		NoteScriptIDStillNamed( *pMap, deleted.object.nScriptID, &deleted.cascade );
+	}
+	if ( pDeleted )
+		*pDeleted = deleted;
 	return true;
 }
 
@@ -209,10 +436,71 @@ bool RestoreObject( SLoadMapInfo *pMap, const SDeletedObject &rDeleted )
 {
 	if ( pMap == 0 || FindObject( pMap, rDeleted.object.link.nLinkID, 0, 0 ) != 0 )
 		return false;
+	// Reverse order of application: a later erase shifted the positions after it,
+	// so the last change is undone first.
+	const SCascade &rCascade = rDeleted.cascade;
+	for ( size_t i = rCascade.reservePositions.size(); i-- > 0; )
+	{
+		const SReservePositionChange &rChange = rCascade.reservePositions[i];
+		NMapRecords::InsertReservePosition( pMap, int( Min( rChange.nPosition, pMap->reservePositionsList.size() ) ), rChange.before );
+	}
+	for ( size_t i = rCascade.startCommands.size(); i-- > 0; )
+	{
+		const SStartCommandChange &rChange = rCascade.startCommands[i];
+		const int nPosition = int( Min( rChange.nPosition, pMap->startCommandsList.size() ) );
+		if ( rChange.bErased )
+			NMapRecords::InsertStartCommand( pMap, nPosition, rChange.before );
+		else
+			NMapRecords::ReplaceStartCommand( pMap, nPosition, rChange.before );
+	}
 	std::vector<SMapObjectInfo> &rList = rDeleted.bScenario ? pMap->scenarioObjects : pMap->objects;
 	const size_t nIndex = Min( rDeleted.nIndex, rList.size() );
 	rList.insert( rList.begin() + nIndex, rDeleted.object );
 	return true;
+}
+
+void DescribeCascade( const SCascade &rCascade, std::string *pOut )
+{
+	if ( pOut == 0 )
+		return;
+	pOut->clear();
+	// The positions the player knows are the ones before the delete: an erase
+	// shifted every later position down by one, so add back what went before.
+	std::vector<int> removedFrom, erased, cleared, reserves;
+	int nErased = 0;
+	for ( size_t i = 0; i < rCascade.startCommands.size(); ++i )
+	{
+		const SStartCommandChange &rChange = rCascade.startCommands[i];
+		const int nOriginal = int( rChange.nPosition ) + nErased;
+		if ( rChange.bErased )
+		{
+			erased.push_back( nOriginal );
+			++nErased;
+		}
+		else if ( rChange.bUnitRemoved )
+			removedFrom.push_back( nOriginal );
+		if ( rChange.bTargetCleared && !rChange.bErased )
+			cleared.push_back( nOriginal );
+	}
+	nErased = 0;
+	for ( size_t i = 0; i < rCascade.reservePositions.size(); ++i )
+	{
+		reserves.push_back( int( rCascade.reservePositions[i].nPosition ) + nErased );
+		++nErased;
+	}
+	std::vector<std::string> parts;
+	if ( !removedFrom.empty() )
+		parts.push_back( std::string( "removed from start command" ) + ( removedFrom.size() > 1 ? "s " : " " ) + JoinNumbers( removedFrom ) );
+	if ( !erased.empty() )
+		parts.push_back( std::string( "start command" ) + ( erased.size() > 1 ? "s " : " " ) + JoinNumbers( erased ) + " erased" );
+	if ( !cleared.empty() )
+		parts.push_back( std::string( cleared.size() > 1 ? "targets of start commands " : "target of start command " ) + JoinNumbers( cleared ) + " cleared" );
+	if ( !reserves.empty() )
+		parts.push_back( std::string( "reserve position" ) + ( reserves.size() > 1 ? "s " : " " ) + JoinNumbers( reserves ) + " erased" );
+	for ( size_t i = 0; i < parts.size(); ++i )
+		*pOut += ( i == 0 ? "also " : "; " ) + parts[i];
+	for ( size_t i = 0; i < rCascade.notes.size(); ++i )
+		*pOut += ( pOut->empty() ? "" : "; " ) + rCascade.notes[i];
 }
 
 bool SetDiplomacy( SLoadMapInfo *pMap, int nPlayer, BYTE nDiplomacy )
@@ -327,5 +615,105 @@ void CaptureRegion( const SLoadMapInfo &rMap, const CTRect<int> &rPatches, SPain
 {
 	if ( pOut != 0 )
 		Record( rMap.terrain, rPatches, pOut );
+}
+}
+
+namespace NMapOverlay {
+// The altitude region helpers (D-19, M3). One validity rule shared by the set
+// and the captures: a rectangle is good when it is non-empty, not inverted,
+// and inside the altitudes sheet it names.
+namespace {
+bool VertexRectValid( const STerrainInfo &rTerrain, const CTRect<int> &r )
+{
+	return r.minx >= 0 && r.miny >= 0 && r.maxx > r.minx && r.maxy > r.miny &&
+	       r.maxx <= rTerrain.altitudes.GetSizeX() && r.maxy <= rTerrain.altitudes.GetSizeY();
+}
+
+// Row-major over the rectangle, the layout SAltitudeUndo documents. Every
+// copy is a memcpy: SVertexAltitude is written as a raw struct and its three
+// padding bytes must be the map's own, where a member-wise copy would leave
+// whatever the heap held there (the 04-01 rule).
+void RecordAltitudes( const STerrainInfo &rTerrain, const CTRect<int> &r, SAltitudeUndo *pOut )
+{
+	pOut->rVertices = r;
+	pOut->altitudes.clear();
+	pOut->altitudes.resize( size_t( r.maxx - r.minx ) * size_t( r.maxy - r.miny ) );
+	size_t nValue = 0;
+	for ( int y = r.miny; y < r.maxy; ++y )
+		for ( int x = r.minx; x < r.maxx; ++x, ++nValue )
+			memcpy( &( pOut->altitudes[nValue] ), &( rTerrain.altitudes[y][x] ), sizeof( SVertexAltitude ) );
+}
+}
+
+CTRect<int> GrowForShades( const SLoadMapInfo &rMap, const CTRect<int> &rVertices )
+{
+	const int nSizeX = rMap.terrain.altitudes.GetSizeX(), nSizeY = rMap.terrain.altitudes.GetSizeY();
+	return CTRect<int>( Max( 0, rVertices.minx - 1 ), Max( 0, rVertices.miny - 1 ),
+	                    Min( nSizeX, rVertices.maxx + 1 ), Min( nSizeY, rVertices.maxy + 1 ) );
+}
+
+void CaptureTerrainAltitudeRegion( const STerrainInfo &rTerrain, const CTRect<int> &rVertices, SAltitudeUndo *pOut )
+{
+	if ( pOut == 0 || !VertexRectValid( rTerrain, rVertices ) )
+	{
+		if ( pOut )
+			*pOut = SAltitudeUndo();
+		return;
+	}
+	RecordAltitudes( rTerrain, rVertices, pOut );
+}
+
+bool SetTerrainAltitudeRegion( STerrainInfo *pTerrain, const CTRect<int> &rVertices, const std::vector<SVertexAltitude> &rValues, SAltitudeUndo *pBefore )
+{
+	if ( pTerrain == 0 || !VertexRectValid( *pTerrain, rVertices ) )
+		return false;
+	if ( rValues.size() != size_t( rVertices.maxx - rVertices.minx ) * size_t( rVertices.maxy - rVertices.miny ) )
+		return false;
+	// The region before anything changes, captured whether or not the caller
+	// asked: the record holds the map's own bytes, padding included, so a
+	// failure that had already written some rows can still put the whole
+	// region back exactly.
+	SAltitudeUndo before;
+	RecordAltitudes( *pTerrain, rVertices, &before );
+	size_t nValue = 0;
+	for ( int y = rVertices.miny; y < rVertices.maxy; ++y )
+		for ( int x = rVertices.minx; x < rVertices.maxx; ++x, ++nValue )
+			memcpy( &( pTerrain->altitudes[y][x] ), &rValues[nValue], sizeof( SVertexAltitude ) );
+	if ( pBefore )
+		*pBefore = before;
+	return true;
+}
+
+void UndoTerrainAltitudeRegion( STerrainInfo *pTerrain, const SAltitudeUndo &rUndo )
+{
+	if ( pTerrain == 0 )
+		return;
+	const CTRect<int> &r = rUndo.rVertices;
+	if ( !VertexRectValid( *pTerrain, r ) )
+		return;
+	size_t nValue = 0;
+	for ( int y = r.miny; y < r.maxy; ++y )
+		for ( int x = r.minx; x < r.maxx; ++x, ++nValue )
+			if ( nValue < rUndo.altitudes.size() )
+				memcpy( &( pTerrain->altitudes[y][x] ), &rUndo.altitudes[nValue], sizeof( SVertexAltitude ) );
+}
+
+void CaptureAltitudeRegion( const SLoadMapInfo &rMap, const CTRect<int> &rVertices, SAltitudeUndo *pOut )
+{
+	CaptureTerrainAltitudeRegion( rMap.terrain, rVertices, pOut );
+}
+
+bool SetAltitudeRegion( SLoadMapInfo *pMap, const CTRect<int> &rVertices, const std::vector<SVertexAltitude> &rValues, SAltitudeUndo *pBefore )
+{
+	if ( pMap == 0 )
+		return false;
+	return SetTerrainAltitudeRegion( &pMap->terrain, rVertices, rValues, pBefore );
+}
+
+void UndoAltitudeRegion( SLoadMapInfo *pMap, const SAltitudeUndo &rUndo )
+{
+	if ( pMap == 0 )
+		return;
+	UndoTerrainAltitudeRegion( &pMap->terrain, rUndo );
 }
 }

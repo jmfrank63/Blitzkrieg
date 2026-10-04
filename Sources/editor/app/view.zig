@@ -10,6 +10,7 @@ const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
 const core = @import("editor_core");
 const view_math = @import("view_math.zig");
+const tool_registry = @import("tool_registry.zig");
 
 const Editor = core.editor.Editor;
 const MapInfo = core.bridge.MapInfo;
@@ -18,7 +19,9 @@ const tools = core.tools;
 
 pub const world_cell_size = view_math.world_cell_size;
 
-pub const Tool = enum { select, brush, place };
+/// The active tool's id; what each tool takes as input (the right button,
+/// double click, Ctrl-as-right) and its shortcut are in tool_registry.zig.
+pub const Tool = tool_registry.ToolId;
 
 /// A map's camera and zoom, kept for the session only (D-15): not written
 /// anywhere, forgotten when the editor quits.
@@ -104,6 +107,36 @@ pub fn ViewWith(comptime Input: type) type {
         brush: tools.Brush,
         placer: tools.Placer,
         selector: tools.Selector = .{},
+        /// 04-05: the Roads & Rivers tool (D-08).
+        roads_rivers: core.tools_vso.RoadsRivers = .{},
+        /// 04-06: the Bridge tool (D-10..D-12).
+        bridge_tool: core.tools_groups.BridgeTool = .{},
+        fence_tool: core.tools_groups.FenceTool = .{},
+        /// 04-08: the Entrenchment tool (D-13).
+        trench_tool: core.tools_groups.EntrenchmentTool = .{},
+        /// 04-10: the Script Areas tool (D-21).
+        areas_tool: core.tools_ai.ScriptAreas = .{},
+        /// 04-11: the Start Target tool (D-17), entered from the Start Commands
+        /// window for one click, and the tool it returns to.
+        start_target: core.tools_ai.StartTarget = .{},
+        start_target_return: Tool = .select,
+        /// 04-11: the Reserve Positions tool (D-18), Unit -> Artillery positions mode.
+        reserve_tool: core.tools_ai.ReservePositions = .{},
+        /// 04-12: the AI General tool (D-19).
+        ai_tool: core.tools_ai.AIGeneral = .{},
+        /// M3, D-18: the Heights tool. Its brush, speed, ratio and level
+        /// mode are the Heights panel's fields; the view routes the middle
+        /// button (and Alt+drag, and left+right held together) to it as the
+        /// level gesture.
+        heights_tool: core.tools_heights.Heights = .{},
+        fields_tool: core.tools_fields.Fields = .{},
+        /// M3, D-29: the Damage tool (percent is the panel's field).
+        damage_tool: core.tools_damage.Damage = .{},
+        /// Set each frame by a panel that uses the Delete key itself (the Start
+        /// Commands window while it is focused): the view then does not hand
+        /// Delete or Backspace to the tool, which would delete the selected
+        /// object too. Cleared by `panels.draw` at the start of every frame.
+        delete_claimed: bool = false,
         hover: ?tools.Pointer = null,
 
         map: view_math.MapSize = .{},
@@ -113,6 +146,34 @@ pub fn ViewWith(comptime Input: type) type {
         /// tool gesture, which keeps the view routing motion and the release
         /// even if the cursor strays over an ImGui panel mid-drag.
         left_button_down: bool = false,
+        /// The same for the right button - or for Ctrl+left, in a tool whose
+        /// registry entry has `ctrl_click_is_right` (`right_via_ctrl`): the
+        /// left button's own events then become right ones until its release.
+        right_button_down: bool = false,
+        right_via_ctrl: bool = false,
+        /// M3 (D-26): set when the Selector's double-click or Enter/Space
+        /// lands on a selection; main.zig's loop opens the Properties window
+        /// and clears it.
+        props_open_request: bool = false,
+        /// Select only (WR-A07): the second click of a quick pair that did not
+        /// land on the selected object is an ordinary press and release, not a
+        /// double click; set on its press, spent on its release.
+        second_click_single: bool = false,
+        /// The same for the middle button in the Heights tool (M3, D-18) -
+        /// or for Alt+left there (`middle_via_alt`), the trackpad's stand-in
+        /// for a middle button the MFC editor levels with. In every other
+        /// tool the middle button pans the camera, exactly as before.
+        middle_button_down: bool = false,
+        middle_via_alt: bool = false,
+        /// The buttons a BK_EDITOR_AUTO schedule holds (SDL_BUTTON_*MASK
+        /// bits): set by a scripted press and cleared by its scripted release
+        /// (`holdScripted`). A scripted button is only an event pushed into
+        /// SDL's queue - SDL_GetMouseState never sees it - so without this the
+        /// stale-gesture guard in `update` would end a scripted drag at the
+        /// end of the press's own frame, and the schedule's later `drag=` and
+        /// `release=` would reach a tool with nothing in hand (04-05
+        /// deviation 3, fixed in 04-06). Always 0 for a person at the mouse.
+        scripted_buttons: u32 = 0,
         placer_name_storage: [64]u8 = undefined,
         /// The view's part of the status bar (see `statusLine`).
         status: view_math.StatusSlot = .{},
@@ -128,6 +189,8 @@ pub fn ViewWith(comptime Input: type) type {
 
         pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
             self.brush.deinit(allocator);
+            self.selector.deinit(allocator);
+            self.roads_rivers.deinit(allocator);
             var keys = self.remembered.keyIterator();
             while (keys.next()) |key| allocator.free(key.*);
             self.remembered.deinit(allocator);
@@ -151,7 +214,43 @@ pub fn ViewWith(comptime Input: type) type {
         /// reaching the view even if the cursor drifts over an ImGui panel
         /// before it ends.
         pub fn hasActiveMouseGesture(self: *const Self) bool {
-            return self.left_button_down or self.panning;
+            return self.left_button_down or self.right_button_down or self.middle_button_down or self.panning;
+        }
+
+        /// The event with the modifier state stamped on its pointer.
+        fn withCtrl(event: tools.Event, ctrl: bool) tools.Event {
+            var stamped = event;
+            switch (stamped) {
+                .press, .drag, .release, .right_press, .right_drag, .right_release, .double_click => |*pointer| pointer.ctrl = ctrl,
+                .key => {},
+            }
+            return stamped;
+        }
+
+        /// Stamps which buttons are held as the event arrives, from the
+        /// view's own tracking (already updated for this event) plus the
+        /// motion's own mask when there is one (M3, D-18): a Heights stroke
+        /// changes with the combination - middle, or left and right
+        /// together, level - exactly the MFC's per-move flags
+        /// (DrawShadeState.cpp:195). `motion_state` is SDL's button mask
+        /// for a motion event, null for a press or release.
+        fn withButtons(self: *const Self, event: tools.Event, motion_state: ?u32) tools.Event {
+            var stamped = event;
+            switch (stamped) {
+                .press, .drag, .release, .right_press, .right_drag, .right_release, .double_click => |*pointer| {
+                    var left = self.left_button_down;
+                    var right = self.right_button_down;
+                    var middle = self.middle_button_down;
+                    if (motion_state) |mask| {
+                        if (mask & sdl3.c.SDL_BUTTON_LMASK != 0) left = true;
+                        if (mask & sdl3.c.SDL_BUTTON_RMASK != 0) right = true;
+                        if (mask & sdl3.c.SDL_BUTTON_MMASK != 0) middle = true;
+                    }
+                    pointer.buttons = .{ .left = left, .right = right, .middle = middle };
+                },
+                .key => {},
+            }
+            return stamped;
         }
 
         /// `error.Refused` is not an error here: the editor's status line
@@ -190,12 +289,28 @@ pub fn ViewWith(comptime Input: type) type {
             self.switchTool(editor, tool);
         }
 
+        /// "Set target" of the Start Commands window: the Start Target tool for one
+        /// click on command `index`, returning to the tool in hand afterwards.
+        pub fn beginStartTarget(self: *Self, editor: *Editor, index: usize) void {
+            if (self.tool != .start_target) self.start_target_return = self.tool;
+            self.switchTool(editor, .start_target);
+            self.start_target.index = index;
+            self.start_target.done = false;
+        }
+
         /// The object palette's choice: the placer's object from now on. The
         /// name is copied, so the caller's buffer may go.
         pub fn setPlacerObject(self: *Self, name: []const u8) void {
             const len = @min(name.len, self.placer_name_storage.len);
             @memcpy(self.placer_name_storage[0..len], name[0..len]);
             self.placer.name = self.placer_name_storage[0..len];
+        }
+
+        /// A scripted press (`down`) or release of the buttons in `mask`: held
+        /// across frames for the stale-gesture guard until the scripted
+        /// release, as a real held button would be (see `scripted_buttons`).
+        pub fn holdScripted(self: *Self, mask: u32, down: bool) void {
+            if (down) self.scripted_buttons |= mask else self.scripted_buttons &= ~mask;
         }
 
         /// Undo and redo for the Edit menu, reported as the keys report them.
@@ -220,6 +335,17 @@ pub fn ViewWith(comptime Input: type) type {
         /// chosen yet.
         pub fn showMap(self: *Self, real: anytype, path: []const u8, info: MapInfo, default_object: ?[]const u8) void {
             self.saveCurrentView();
+            self.roads_rivers.reset();
+            self.bridge_tool.reset();
+            self.fence_tool.reset();
+            self.trench_tool.reset();
+            self.areas_tool.reset();
+            self.start_target.reset();
+            self.reserve_tool.reset();
+            self.ai_tool.reset();
+            // IN-C04: a scripted press left held (a failed pushMotion) must not
+            // keep the stale-gesture guard off on the next map.
+            self.scripted_buttons = 0;
             self.map = .{ .width_tiles = info.width_tiles, .height_tiles = info.height_tiles };
             if (self.remembered.get(path)) |saved| {
                 self.camera_x = saved.camera_x;
@@ -240,6 +366,14 @@ pub fn ViewWith(comptime Input: type) type {
             }
         }
 
+        /// A never-saved map (File > New: `showMap` with an empty path) got its
+        /// path by the first Save As: the view's remembered camera follows the
+        /// document from here on. A view that already has a path is left alone.
+        pub fn rebindPath(self: *Self, path: []const u8) void {
+            if (self.current_path.items.len != 0 or path.len == 0) return;
+            self.current_path.appendSlice(self.allocator, path) catch self.current_path.clearRetainingCapacity();
+        }
+
         /// The map was closed (File > Mod, D-26 revised 2026-09-29): the view is
         /// what it is with no map open at startup - no map size to clamp the
         /// camera to, no current path, no open gesture or hover. The closed
@@ -251,15 +385,26 @@ pub fn ViewWith(comptime Input: type) type {
             self.saveCurrentView();
             self.current_path.clearRetainingCapacity();
             self.map = .{};
+            self.scripted_buttons = 0; // IN-C04
             self.hover = null;
             self.panning = false;
             self.left_button_down = false;
+            self.right_button_down = false;
+            self.right_via_ctrl = false;
             self.zoom_wheel = .{};
             self.pinch_zoom = .{};
             self.selector = .{};
             self.brush.gesture = 0;
             self.brush.painted.clearRetainingCapacity();
             self.placer.name = "";
+            self.roads_rivers.reset();
+            self.bridge_tool.reset();
+            self.fence_tool.reset();
+            self.trench_tool.reset();
+            self.areas_tool.reset();
+            self.start_target.reset();
+            self.reserve_tool.reset();
+            self.ai_tool.reset();
         }
 
         /// Records `current_path`'s camera and zoom into `remembered`, if a map
@@ -278,6 +423,18 @@ pub fn ViewWith(comptime Input: type) type {
             gop.value_ptr.* = .{ .camera_x = self.camera_x, .camera_y = self.camera_y, .zoom_steps = self.zoom_steps };
         }
 
+        /// Whether the second click of a quick pair, in Select, is a double
+        /// click proper: it lands on the object the first click selected, and
+        /// neither Ctrl nor Shift is held (those toggle and extend the
+        /// selection). A click that cannot resolve keeps the old reading.
+        fn isSelectDoubleClick(self: *Self, editor: *Editor, button: anytype) bool {
+            _ = self;
+            if (Input.modState() & (sdl3.c.SDL_KMOD_CTRL | sdl3.c.SDL_KMOD_SHIFT) != 0) return false;
+            const pointer = editor.resolve(button.x, button.y) catch return true;
+            const object = pointer.object orelse return false;
+            return editor.isSelected(object);
+        }
+
         /// An event `main.zig` decided (through `inputKindOf`/`shouldDeliver`)
         /// belongs to the view. Any edit's outcome goes through
         /// `noteEditResult`: a refusal is left to the editor's own status, a
@@ -287,18 +444,61 @@ pub fn ViewWith(comptime Input: type) type {
                 sdl3.c.SDL_EVENT_MOUSE_BUTTON_DOWN, sdl3.c.SDL_EVENT_MOUSE_BUTTON_UP => {
                     const button = event.button;
                     if (button.button == sdl3.c.SDL_BUTTON_MIDDLE) {
-                        self.handleMiddleButton(editor, button);
+                        // In the Heights tool the middle button levels (M3,
+                        // D-18); in the Damage tool it repairs to full
+                        // (M3, D-29); everywhere else it pans the camera,
+                        // exactly as before.
+                        if (self.tool == .heights)
+                            self.handleHeightsMiddle(editor, button)
+                        else if (self.tool == .damage)
+                            self.handleDamageMiddle(editor, button)
+                        else
+                            self.handleMiddleButton(editor, button);
                         return;
                     }
-                    const kind = view_math.kindOf(.{ .button = button.button, .down = button.down }) orelse return;
+                    const spec = tool_registry.entry(self.tool);
+                    var clicks = button.clicks;
+                    // WR-A07: SDL counts a click as the second of a pair within
+                    // 500 ms and 32 px wherever it lands. In Select a double
+                    // click means "open the selection's Properties", so only
+                    // one on the selected object, without Ctrl or Shift, is
+                    // one; any other (a neighbouring object, a Ctrl+click while
+                    // multi-selecting) must still reach the tool as a press
+                    // and a release.
+                    if (button.button == view_math.sdl_button_left and self.tool == .select and clicks == 2) {
+                        if (button.down) self.second_click_single = !self.isSelectDoubleClick(editor, button);
+                        if (self.second_click_single) clicks = 1;
+                        if (!button.down) self.second_click_single = false;
+                    }
+                    const kind = view_math.kindOf(.{ .button = button.button, .down = button.down, .clicks = clicks, .wants_double_click = spec.needs_double_click }) orelse return;
                     switch (kind) {
                         .press => {
                             // A press that cannot resolve starts no gesture: the
                             // tool has nothing to press on.
                             const pointer = editor.resolve(button.x, button.y) catch return;
                             self.hover = pointer;
+                            // Ctrl+left is the right button in the tools that
+                            // ask for it (macOS trackpads have one button).
+                            if (spec.needs_right_button and spec.ctrl_click_is_right and Input.modState() & sdl3.c.SDL_KMOD_CTRL != 0) {
+                                self.right_button_down = true;
+                                self.right_via_ctrl = true;
+                                self.dispatch(editor, self.withButtons(.{ .right_press = pointer }, null));
+                                return;
+                            }
+                            // Alt+left is the middle button in the Heights tool
+                            // (D-18: a trackpad's stand-in for the level-drag)
+                            // and in the Damage tool (D-29: Alt+click repairs
+                            // to full, the MFC's middle click); neither takes
+                            // Ctrl-as-right, so the two never collide.
+                            if ((self.tool == .heights or self.tool == .damage) and Input.modState() & sdl3.c.SDL_KMOD_ALT != 0) {
+                                self.left_button_down = true;
+                                self.middle_button_down = true;
+                                self.middle_via_alt = true;
+                                self.dispatch(editor, self.withButtons(.{ .press = pointer }, null));
+                                return;
+                            }
                             self.left_button_down = true;
-                            self.dispatch(editor, .{ .press = pointer });
+                            self.dispatch(editor, self.withButtons(.{ .press = pointer }, null));
                         },
                         .release => {
                             // Unlike a press, a release must still reach the
@@ -309,8 +509,43 @@ pub fn ViewWith(comptime Input: type) type {
                             // open for a later press to merge into.
                             const pointer = editor.resolve(button.x, button.y) catch (self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 });
                             self.hover = pointer;
+                            if (self.right_via_ctrl) {
+                                self.right_button_down = false;
+                                self.right_via_ctrl = false;
+                                self.dispatch(editor, self.withButtons(.{ .right_release = pointer }, null));
+                                return;
+                            }
+                            // An Alt-mapped middle ends with the left button's
+                            // own release, whichever left first - Alt or button.
+                            const was_alt_middle = self.middle_via_alt;
                             self.left_button_down = false;
-                            self.dispatch(editor, .{ .release = pointer });
+                            if (was_alt_middle) {
+                                self.middle_button_down = false;
+                                self.middle_via_alt = false;
+                            }
+                            self.dispatch(editor, self.withButtons(.{ .release = pointer }, null));
+                        },
+                        .right_press => {
+                            if (!spec.needs_right_button) return;
+                            const pointer = editor.resolve(button.x, button.y) catch return;
+                            self.hover = pointer;
+                            self.right_button_down = true;
+                            self.right_via_ctrl = false;
+                            self.dispatch(editor, self.withButtons(.{ .right_press = pointer }, null));
+                        },
+                        .right_release => {
+                            if (!self.right_button_down or self.right_via_ctrl) return;
+                            const pointer = editor.resolve(button.x, button.y) catch (self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 });
+                            self.hover = pointer;
+                            self.right_button_down = false;
+                            self.dispatch(editor, self.withButtons(.{ .right_release = pointer }, null));
+                        },
+                        .double_click => {
+                            // After the single click's own press and release.
+                            if (!spec.needs_double_click) return;
+                            const pointer = editor.resolve(button.x, button.y) catch return;
+                            self.hover = pointer;
+                            self.dispatch(editor, self.withButtons(.{ .double_click = pointer }, null));
                         },
                     }
                 },
@@ -321,6 +556,34 @@ pub fn ViewWith(comptime Input: type) type {
                 sdl3.c.SDL_EVENT_PINCH_UPDATE => self.handlePinch(real, event.pinch),
                 else => {},
             }
+        }
+
+        /// The Heights tool's middle button (M3, D-18): a level gesture, not
+        /// a camera pan - the press resolves (a press that cannot resolve
+        /// starts no gesture), the release reaches the tool even off the
+        /// terrain, and the mask says only the middle button.
+        fn handleHeightsMiddle(self: *Self, editor: *Editor, button: sdl3.c.SDL_MouseButtonEvent) void {
+            if (button.down) {
+                const pointer = editor.resolve(button.x, button.y) catch return;
+                self.hover = pointer;
+                self.middle_button_down = true;
+                self.middle_via_alt = false;
+                self.dispatch(editor, self.withButtons(.{ .press = pointer }, null));
+            } else {
+                const pointer = editor.resolve(button.x, button.y) catch (self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 });
+                self.hover = pointer;
+                self.middle_button_down = false;
+                self.middle_via_alt = false;
+                self.dispatch(editor, self.withButtons(.{ .release = pointer }, null));
+            }
+        }
+
+        /// The Damage tool's middle button (M3, D-29): a repair-to-full
+        /// press, the same routing the Heights tool's level press takes -
+        /// the press resolves, the release ends the gesture, and the mask
+        /// says only the middle button (the tool reads it).
+        fn handleDamageMiddle(self: *Self, editor: *Editor, button: sdl3.c.SDL_MouseButtonEvent) void {
+            self.handleHeightsMiddle(editor, button);
         }
 
         fn handleMiddleButton(self: *Self, editor: *Editor, button: sdl3.c.SDL_MouseButtonEvent) void {
@@ -343,10 +606,36 @@ pub fn ViewWith(comptime Input: type) type {
             }
             const pointer = editor.resolve(motion.x, motion.y) catch {
                 self.hover = null;
+                if (self.tool == .roads_rivers) self.roads_rivers.hoverNone();
+                if (self.tool == .entrenchment) self.trench_tool.hoverNone();
                 return;
             };
             self.hover = pointer;
-            if (motion.state & sdl3.c.SDL_BUTTON_LMASK != 0) self.dispatch(editor, .{ .drag = pointer });
+            // Plain motion: Roads & Rivers follows the pointer (the unfinished
+            // line's last leg, the control point Insert and Delete act on).
+            // Not an edit, so it goes around dispatch and its status handling.
+            if (self.tool == .roads_rivers and !self.left_button_down and !self.right_button_down) self.roads_rivers.hover(editor, pointer);
+            // The Entrenchment tool's preview follows the pointer, and so does
+            // the entrenchment under it (04-08).
+            if (self.tool == .entrenchment and !self.left_button_down and !self.right_button_down) self.trench_tool.hover(editor, pointer);
+            // A Heights level gesture (the middle button, or Alt+left mapped
+            // to it) drags as a left-button drag whose mask carries the
+            // middle - the tool's own precedence reads the combination.
+            if (self.middle_button_down) {
+                const held = if (self.middle_via_alt) sdl3.c.SDL_BUTTON_LMASK else sdl3.c.SDL_BUTTON_MMASK;
+                if (motion.state & held != 0 or motion.state & sdl3.c.SDL_BUTTON_LMASK != 0) {
+                    self.dispatch(editor, self.withButtons(.{ .drag = pointer }, motion.state));
+                    return;
+                }
+            }
+            if (self.right_button_down) {
+                // A right gesture (its own button, or Ctrl+left) drags as a
+                // right one; the left button's motion is then the same gesture.
+                const held = if (self.right_via_ctrl) view_math.sdl_button_lmask else view_math.sdl_button_rmask;
+                if (motion.state & held != 0) self.dispatch(editor, self.withButtons(.{ .right_drag = pointer }, motion.state));
+                return;
+            }
+            if (motion.state & sdl3.c.SDL_BUTTON_LMASK != 0) self.dispatch(editor, self.withButtons(.{ .drag = pointer }, motion.state));
         }
 
         /// A mouse wheel or a two-finger trackpad swipe pans the camera; with
@@ -416,18 +705,23 @@ pub fn ViewWith(comptime Input: type) type {
         fn handleKey(self: *Self, editor: *Editor, real: anytype, key: sdl3.c.SDL_KeyboardEvent) void {
             const command_or_control = key.mod & (sdl3.c.SDL_KMOD_CTRL | sdl3.c.SDL_KMOD_GUI) != 0;
             switch (key.key) {
-                sdl3.c.SDLK_DELETE, sdl3.c.SDLK_BACKSPACE => self.dispatch(editor, .{ .key = .delete }),
+                sdl3.c.SDLK_DELETE, sdl3.c.SDLK_BACKSPACE => if (!self.delete_claimed) self.dispatch(editor, .{ .key = .delete }),
                 sdl3.c.SDLK_Q => if (!key.repeat) self.dispatch(editor, .{ .key = .rotate_left }),
                 sdl3.c.SDLK_E => if (!key.repeat) self.dispatch(editor, .{ .key = .rotate_right }),
-                sdl3.c.SDLK_1 => if (!key.repeat) self.switchTool(editor, .select),
-                sdl3.c.SDLK_2 => if (!key.repeat) self.switchTool(editor, .brush),
-                sdl3.c.SDLK_3 => if (!key.repeat) self.switchTool(editor, .place),
+                sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER => if (!key.repeat) self.dispatch(editor, .{ .key = .enter }),
+                sdl3.c.SDLK_INSERT => if (!key.repeat) self.dispatch(editor, .{ .key = .insert }),
+                sdl3.c.SDLK_ESCAPE => if (!key.repeat) self.dispatch(editor, .{ .key = .escape }),
+                sdl3.c.SDLK_SPACE => if (!key.repeat) self.dispatch(editor, .{ .key = .space }),
                 sdl3.c.SDLK_Z => if (command_or_control) {
                     if (key.mod & sdl3.c.SDL_KMOD_SHIFT != 0) self.runUndoable(editor, .redo) else self.runUndoable(editor, .undo);
                 },
                 sdl3.c.SDLK_Y => if (command_or_control) self.runUndoable(editor, .redo),
                 sdl3.c.SDLK_HOME => self.resetView(real),
-                else => {},
+                // The registry's bare-digit shortcuts: 1, 2, 3 and the keys
+                // the M2 tools take (4-9).
+                else => if (!key.repeat) {
+                    if (tool_registry.byShortcut(key.key)) |id| self.switchTool(editor, id);
+                },
             }
         }
 
@@ -439,13 +733,24 @@ pub fn ViewWith(comptime Input: type) type {
             if (real.setZoom(0) == .ok) self.syncFromBridge(real);
         }
 
-        /// The largest square the brush tool paints (tools.Brush.radius, 0-4),
-        /// in corners along one side of that square of cells.
-        const max_brush_corners: usize = 2 * 4 + 2;
-        /// The perimeter of that square has 4*(n-1) corners for n corners per
-        /// side (a plain rectangle's corner count, walked as one loop); the
-        /// buffer is sized for the largest brush the slider allows.
-        const max_outline_points: usize = 4 * (max_brush_corners - 1);
+        /// Puts the world point (x, y) at the middle of the view: a camera
+        /// anchor's or an area's "Go to". Clamped to the map like every other
+        /// camera move.
+        pub fn centreOn(self: *Self, real: anytype, x: f32, y: f32) void {
+            var camera: view_math.Camera = .{ .x = x, .y = y };
+            camera.clamp(self.map);
+            self.camera_x = camera.x;
+            self.camera_y = camera.y;
+            _ = real.setCamera(self.camera_x, self.camera_y);
+        }
+
+        /// The largest outline the view draws, in points along its whole
+        /// perimeter: the Brush's 16x16 stamp walks 4*16 cell corners, and
+        /// the Heights tool's brush*2-vertex pattern walks 4*(2*16 - 1)
+        /// vertices (M3, D-18/D-22) - 128 covers both with room. (The old
+        /// constant, 10 corners for M1's 9x9 ceiling, would have overrun at
+        /// the M3 combo's 16x16.)
+        const max_outline_points: usize = 4 * 32;
 
         /// A bright, easy-to-see outline colour, converted once through ImGui's
         /// own packer rather than hand-assuming its byte order.
@@ -492,12 +797,23 @@ pub fn ViewWith(comptime Input: type) type {
         /// camera). The sound markers above draw regardless of the active tool.
         pub fn drawOverlay(self: *Self, real: anytype, sounds: []const core.bridge.SoundRecord, selected_sound: ?usize) void {
             drawSoundMarkers(real, sounds, selected_sound);
-            if (self.tool != .brush) return;
+            if (self.tool != .brush and self.tool != .heights) return;
             if (Input.capture().mouse) return;
             const hover = self.hover orelse return;
             const tile = hover.tile orelse return;
-            const radius = self.brush.radius;
-            const n: i32 = 2 * radius + 2; // corners along one side
+            // The stamp's shape: the Brush paints a square of CELLS - its
+            // top-left, not a radius (the brush is sized in cells per axis
+            // now, M3, D-22, even sizes included) - while the Heights tool's
+            // pattern spans brush*2 VERTICES with its corner above-left of
+            // the cursor's tile by the MFC's own arithmetic
+            // (DrawShadeState.cpp:206-207), so its outline walks the pattern's
+            // own boundary vertices (PARITY TR9: the same outline the M1
+            // brush already draws, over the heights brush's footprint).
+            const origin: [2]i32 = if (self.tool == .heights)
+                .{ tile[0] - (self.heights_tool.brush - 1), tile[1] - (self.heights_tool.brush - 1) }
+            else
+                tools.Brush.topLeft(self.brush.size, tile);
+            const n: i32 = if (self.tool == .heights) self.heights_tool.brush * 2 else self.brush.size + 1; // points along one side
             // The engine tier confirms this against BkEditorWorldToTile: a
             // tile's CENTRE - not a corner - is a plain index * world_cell_size
             // in X (CTerrain::GetTileIndex rounds to the nearest tile rather
@@ -507,8 +823,8 @@ pub fn ViewWith(comptime Input: type) type {
             // -0.5 baked into base_x/base_y below, kept in these "corner index"
             // units rather than converted to world units yet, so every corner
             // along the boundary is a whole step of 1.0 from the last.
-            const base_x = @as(f32, @floatFromInt(tile[0] - radius)) - 0.5;
-            const base_y = @as(f32, @floatFromInt(tile[1] - radius)) - 0.5;
+            const base_x = @as(f32, @floatFromInt(origin[0])) - 0.5;
+            const base_y = @as(f32, @floatFromInt(origin[1])) - 0.5;
             const height_tiles = @as(f32, @floatFromInt(self.map.height_tiles));
 
             var points: [max_outline_points]imgui.c.ImVec2 = undefined;
@@ -554,7 +870,7 @@ pub fn ViewWith(comptime Input: type) type {
             return true;
         }
 
-        /// Switches the active tool, ending an open left-button gesture on the
+        /// Switches the active tool, ending an open left- or right-button gesture on the
         /// old one first: without this, painting or dragging with the mouse
         /// still held while pressing 1/2/3 would leave the old tool's gesture
         /// open (`Brush.gesture`/`Selector.gesture` non-zero), and the next
@@ -565,26 +881,141 @@ pub fn ViewWith(comptime Input: type) type {
                 self.dispatch(editor, .{ .release = pointer });
                 self.left_button_down = false;
             }
+            if (self.right_button_down) {
+                const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
+                self.dispatch(editor, .{ .right_release = pointer });
+                self.right_button_down = false;
+                self.right_via_ctrl = false;
+            }
+            if (self.middle_button_down) {
+                const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
+                self.dispatch(editor, .{ .release = pointer });
+                self.middle_button_down = false;
+                self.middle_via_alt = false;
+            }
             self.tool = tool;
         }
 
         const UndoableDirection = enum { undo, redo };
 
         fn runUndoable(self: *Self, editor: *Editor, direction: UndoableDirection) void {
+            // WR-B02: every tool that selects by list index notes what it has
+            // selected before the replay and finds it again after, so an undo
+            // or redo that shifts a list never leaves a Delete, Q or Enter
+            // aimed at the item that took its place.
+            self.roads_rivers.captureSelection(editor);
+            self.bridge_tool.captureSelection(editor);
+            self.trench_tool.captureSelection(editor);
+            self.areas_tool.captureSelection(editor);
+            self.reserve_tool.captureSelection(editor);
+            self.ai_tool.captureSelection(editor);
             const result = switch (direction) {
                 .undo => editor.undo(),
                 .redo => editor.redo(),
             };
+            self.roads_rivers.resolveSelection(editor);
+            self.bridge_tool.resolveSelection(editor);
+            self.trench_tool.resolveSelection(editor);
+            self.areas_tool.resolveSelection(editor);
+            self.reserve_tool.resolveSelection(editor);
+            self.ai_tool.resolveSelection(editor);
             if (result) |_| self.clearStatus() else |err| self.noteToolError(editor, err);
         }
 
-        fn dispatch(self: *Self, editor: *Editor, event: tools.Event) void {
+        /// The Fields tool's own pointer/keys (M3, D-21), the MFC editor's
+        /// CFieldsAddState/CFieldsSelectState/CFieldsEditState machine. The
+        /// world points come from the Pointer; z is the ground's business
+        /// (the drag keeps it there, CVSOBuilder::UpdateZ's rule).
+        fn handleFields(self: *Self, editor: *Editor, event: tools.Event) EditError!void {
+            _ = editor;
+            const tool = &self.fields_tool;
+            const radius: f32 = world_cell_size / 4.0;
+            switch (event) {
+                .press => |p| {
+                    if (tool.state == .select) {
+                        _ = tool.pick(p.world_x, p.world_y, radius);
+                        return;
+                    }
+                    if (tool.state == .add) _ = tool.vertexAdd(p.world_x, p.world_y);
+                },
+                .drag => |p| {
+                    switch (tool.state) {
+                        .add => {
+                            // The rubber point follows the cursor.
+                            if (tool.pending_len > 0) tool.pending_len -= 1;
+                            _ = tool.vertexAdd(p.world_x, p.world_y);
+                        },
+                        .edit => _ = tool.dragTo(p.world_x, p.world_y),
+                        .select => {},
+                    }
+                },
+                .release => {
+                    if (tool.state == .edit) tool.dragEnd();
+                },
+                .right_press => |p| {
+                    if (tool.state == .add) tool.vertexRelease(p.world_x, p.world_y);
+                },
+                .right_drag, .right_release => {},
+                .double_click => {
+                    if (tool.state == .add or tool.state == .select) _ = tool.tryClose();
+                },
+                .key => |key| switch (key) {
+                    .enter, .space => {
+                        if (tool.state == .add or tool.state == .select) _ = tool.tryClose();
+                    },
+                    .escape => {
+                        if (tool.state == .add) tool.escape() else tool.clear();
+                    },
+                    .insert => {
+                        if (tool.state == .edit) _ = tool.insertVertex();
+                    },
+                    .delete => {
+                        if (tool.state == .edit) _ = tool.deleteVertex();
+                    },
+                    else => {},
+                },
+            }
+        }
+
+        fn dispatch(self: *Self, editor: *Editor, raw_event: tools.Event) void {
+            // The modifier travels with the pointer (04-07): the Fence tool's
+            // Ctrl flips a single fence. Read where the event is handled, so a
+            // scripted event and a real one see the same thing.
+            const event = withCtrl(raw_event, Input.modState() & sdl3.c.SDL_KMOD_CTRL != 0);
             const result = switch (self.tool) {
                 .select => self.selector.handle(editor, event),
                 .brush => self.brush.handle(editor, event),
                 .place => self.placer.handle(editor, event),
+                .roads_rivers => self.roads_rivers.handle(editor, event),
+                .bridge => self.bridge_tool.handle(editor, event),
+                .fence => self.fence_tool.handle(editor, event),
+                .entrenchment => self.trench_tool.handle(editor, event),
+                .script_areas => self.areas_tool.handle(editor, event),
+                .start_target => self.start_target.handle(editor, event),
+                .reserve_positions => self.reserve_tool.handle(editor, event),
+                .ai_general => self.ai_tool.handle(editor, event),
+                .heights => self.heights_tool.handle(editor, event),
+                .fields => handleFields(self, editor, event),
+                .damage => self.damage_tool.handle(editor, event),
             };
             self.noteEditResult(editor, result);
+            // M3 (D-26/PARITY O15): double-click, Enter or Space on a
+            // selection opens the Properties window - the view notes the ask
+            // and main.zig's loop opens the panel (the view owns no panels).
+            if (self.tool == .select and editor.selection != null) {
+                switch (event) {
+                    .double_click => self.props_open_request = true,
+                    .key => |key| if (key == .enter or key == .space) {
+                        self.props_open_request = true;
+                    },
+                    else => {},
+                }
+            }
+            // The Start Target tool takes one click: back to the tool it came from.
+            if (self.tool == .start_target and self.start_target.done) {
+                self.start_target.reset();
+                self.tool = self.start_target_return;
+            }
         }
 
         /// `error.Refused` is not an error here: the editor's status line
@@ -627,18 +1058,42 @@ pub fn ViewWith(comptime Input: type) type {
             // gate does not hold.
             var mouse_x: f32 = -1;
             var mouse_y: f32 = -1;
-            const buttons = Input.mouseState(&mouse_x, &mouse_y);
+            // A scripted hold counts as held (BK_EDITOR_AUTO's drags span
+            // frames); it is 0 unless a schedule pressed a button.
+            const buttons = Input.mouseState(&mouse_x, &mouse_y) | self.scripted_buttons;
             const capture = Input.capture();
             // Task 2 (carried from plan 5): a pan or a left-button tool gesture
             // whose release ImGui or another window took, rather than the view
             // itself, would otherwise never end - the view's own press/release
             // handlers are the only place panning/left_button_down used to clear.
-            const stale = view_math.staleGesture(buttons, self.panning, self.left_button_down);
+            // Ctrl+left as the right button holds the LEFT mask.
+            const right_mask_held = buttons & (if (self.right_via_ctrl) view_math.sdl_button_lmask else view_math.sdl_button_rmask) != 0;
+            // Alt+left as the middle button holds the LEFT mask (the
+            // right_via_ctrl trick one branch up); the middle gesture ends
+            // when neither it nor the button it rode is down.
+            const middle_mask = if (self.middle_via_alt) view_math.sdl_button_lmask else view_math.sdl_button_mmask;
+            const middle_still_down = buttons & middle_mask != 0 or buttons & view_math.sdl_button_mmask != 0;
+            const stale = view_math.staleGesture(if (right_mask_held) buttons | view_math.sdl_button_rmask else buttons & ~view_math.sdl_button_rmask, self.panning, self.left_button_down and !self.middle_via_alt, self.right_button_down);
             if (stale.end_pan) self.panning = false;
             if (stale.end_left) {
                 const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
                 self.dispatch(editor, .{ .release = pointer });
                 self.left_button_down = false;
+            }
+            if (stale.end_right) {
+                const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
+                self.dispatch(editor, .{ .right_release = pointer });
+                self.right_button_down = false;
+                self.right_via_ctrl = false;
+            }
+            if (self.middle_button_down and !middle_still_down) {
+                const pointer = self.hover orelse tools.Pointer{ .world_x = 0, .world_y = 0, .map_x = 0, .map_y = 0 };
+                self.dispatch(editor, .{ .release = pointer });
+                // An Alt-mapped middle rode the left button's own gesture
+                // state; both end together.
+                if (self.middle_via_alt) self.left_button_down = false;
+                self.middle_button_down = false;
+                self.middle_via_alt = false;
             }
             // Stale hover over a panel: the hovered tile and the brush outline
             // (drawOverlay checks Input.capture().mouse itself) must disappear
@@ -908,12 +1363,40 @@ test "view: a map opened for the first time shows its middle, unzoomed" {
     try testing.expectEqualStrings("T34", rig.view.placer.name);
 }
 
+test "view: a never-saved map (an empty path) still sets the map size and the camera, and keeps no remembered view (CR-A01)" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    // The fixture map is open under a path; File > New replaces it with a
+    // document that has none.
+    var info = rig.editor.document.info;
+    info.width_tiles = 16;
+    info.height_tiles = 12;
+    rig.view.showMap(&rig.camera, "", info, "T34");
+    try testing.expectEqual(@as(i32, 16), rig.view.map.width_tiles);
+    try testing.expectEqual(@as(i32, 12), rig.view.map.height_tiles);
+    try testing.expectEqual(@as(usize, 0), rig.view.current_path.items.len);
+    // The fixture map's view was remembered when it was replaced; the
+    // never-saved map's is not (there is no key to keep it under).
+    try testing.expectEqual(@as(u32, 1), rig.view.remembered.count());
+    rig.view.showMap(&rig.camera, "", info, "T34");
+    try testing.expectEqual(@as(u32, 1), rig.view.remembered.count());
+    // The first Save As gives it a path the view follows; a second one is
+    // left alone.
+    rig.view.rebindPath("saved.bzm");
+    try testing.expectEqualStrings("saved.bzm", rig.view.current_path.items);
+    rig.view.rebindPath("other.bzm");
+    try testing.expectEqualStrings("saved.bzm", rig.view.current_path.items);
+}
+
 test "view: the 2 key, then a left press, drag and release paint two cells as one undo step" {
     const rig = try Rig.create();
     defer rig.destroy();
     rig.send(keyDown(sdl3.c.SDLK_2, 0, false));
     try testing.expectEqual(Tool.brush, rig.view.tool);
     rig.view.brush.tile = 5;
+    // This test is the gesture and undo semantics, not the brush's size
+    // (D-22 made the default 2x2, which would spread the stroke): pin 1x1.
+    rig.view.brush.size = 1;
 
     rig.send(mouseButton(button_left, true, 40, 40));
     try testing.expect(rig.view.hasActiveMouseGesture());
@@ -1163,6 +1646,9 @@ test "view: a pan or stroke whose release went elsewhere ends on the next frame"
 
     rig.send(keyDown(sdl3.c.SDLK_2, 0, false));
     rig.view.brush.tile = 9;
+    // Pin 1x1 like the stroke test above: D-22's 2x2 default would spread
+    // this stroke into the cell the undo assertions expect to stay 0.
+    rig.view.brush.size = 1;
     rig.send(mouseButton(button_left, true, 40, 40));
     try testing.expect(rig.view.brush.gesture != 0);
     rig.view.update(&rig.editor, &rig.camera, {}, 0);
@@ -1174,6 +1660,45 @@ test "view: a pan or stroke whose release went elsewhere ends on the next frame"
     rig.send(keyDown(sdl3.c.SDLK_Z, sdl3.c.SDL_KMOD_GUI, false));
     try testing.expectEqual(@as(u8, 9), rig.fake.tile(1, 1));
     try testing.expectEqual(@as(u8, 0), rig.fake.tile(2, 1));
+}
+
+test "view: a scripted press stays held across frames until its scripted release, so a drag spans frames as one stroke" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(keyDown(sdl3.c.SDLK_2, 0, false));
+    rig.view.brush.tile = 7;
+    // BK_EDITOR_AUTO's press: the real mouse holds nothing (FakeInput.buttons
+    // stays 0), the schedule holds the left button.
+    rig.view.holdScripted(view_math.sdl_button_lmask, true);
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.view.update(&rig.editor, &rig.camera, {}, 0);
+    try testing.expect(rig.view.hasActiveMouseGesture());
+    // Later frames: the drags reach the same stroke.
+    rig.send(mouseMotion(72, 40, view_math.sdl_button_lmask));
+    rig.view.update(&rig.editor, &rig.camera, {}, 0);
+    try testing.expect(rig.view.hasActiveMouseGesture());
+    rig.send(mouseMotion(104, 40, view_math.sdl_button_lmask));
+    rig.view.update(&rig.editor, &rig.camera, {}, 0);
+    try testing.expect(rig.view.hasActiveMouseGesture());
+    // The scripted release, in a later frame still.
+    rig.view.holdScripted(view_math.sdl_button_lmask, false);
+    rig.send(mouseButton(button_left, false, 104, 40));
+    rig.view.update(&rig.editor, &rig.camera, {}, 0);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    try testing.expectEqual(@as(u32, 0), rig.view.scripted_buttons);
+    try testing.expectEqual(@as(u8, 7), rig.fake.tile(1, 1));
+    try testing.expectEqual(@as(u8, 7), rig.fake.tile(2, 1));
+    try testing.expectEqual(@as(u8, 7), rig.fake.tile(3, 1));
+    // One stroke, one undo step.
+    try testing.expectEqual(@as(usize, 1), rig.editor.history.undo_stack.items.len);
+    rig.send(keyDown(sdl3.c.SDLK_Z, sdl3.c.SDL_KMOD_GUI, false));
+    try testing.expectEqual(@as(u8, 0), rig.fake.tile(1, 1));
+    try testing.expectEqual(@as(u8, 0), rig.fake.tile(3, 1));
+    // Without the hold the guard still ends a stroke whose release went
+    // elsewhere (the M1 rule is unchanged).
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.view.update(&rig.editor, &rig.camera, {}, 0);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
 }
 
 test "view: a hover over a panel is dropped unless a gesture the view started is open" {
@@ -1241,4 +1766,309 @@ test "view: a failed edit shows 'failed: ', the next good edit clears it; a tagg
     try testing.expectEqualStrings("failed: DeviceLost", rig.view.statusLine());
     rig.view.clearStatusFrom(.frame);
     try testing.expectEqualStrings("", rig.view.statusLine());
+}
+
+test "view: centreOn puts the camera at the point, clamped to the map, and tells the engine" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.view.centreOn(&rig.camera, 100, 120);
+    try testing.expectEqual(@as(f32, 100), rig.view.camera_x);
+    try testing.expectEqual(@as(f32, 120), rig.view.camera_y);
+    try testing.expectEqual(@as(f32, 100), rig.camera.anchor_x);
+    try testing.expectEqual(@as(f32, 120), rig.camera.anchor_y);
+    // Off the map: clamped like every other camera move.
+    rig.view.centreOn(&rig.camera, -50, 100000);
+    try testing.expectEqual(@as(f32, 0), rig.view.camera_x);
+    try testing.expect(rig.view.camera_y < 100000);
+    try testing.expectEqual(rig.view.camera_x, rig.camera.anchor_x);
+    try testing.expectEqual(rig.view.camera_y, rig.camera.anchor_y);
+}
+
+fn doubleClickDown(x: f32, y: f32) sdl3.c.SDL_Event {
+    var event = mouseButton(button_left, true, x, y);
+    event.button.clicks = 2;
+    return event;
+}
+
+test "view: the right button and the new keys reach no gesture in tools that do not ask for them" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    // Select takes the right button since M3 (D-25: right-click alone
+    // deselects, with the left held it cycles); Brush and Place still do not.
+    for ([_]Tool{ .brush, .place }) |tool| {
+        rig.view.selectTool(&rig.editor, tool);
+        const depth = rig.editor.history.undo_stack.items.len;
+        rig.send(mouseButton(button_right, true, 40, 40));
+        try testing.expect(!rig.view.hasActiveMouseGesture());
+        rig.send(mouseMotion(60, 40, view_math.sdl_button_rmask));
+        rig.send(mouseButton(button_right, false, 60, 40));
+        for ([_]u32{ sdl3.c.SDLK_RETURN, sdl3.c.SDLK_KP_ENTER, sdl3.c.SDLK_INSERT, sdl3.c.SDLK_ESCAPE, sdl3.c.SDLK_SPACE, sdl3.c.SDLK_0 }) |key| {
+            rig.send(keyDown(key, 0, false));
+        }
+        try testing.expectEqual(depth, rig.editor.history.undo_stack.items.len);
+        try testing.expectEqual(tool, rig.view.tool);
+        try testing.expect(!rig.view.hasActiveMouseGesture());
+    }
+}
+
+test "view: key 4 is Roads & Rivers; clicks, a right click and a double click draw a road as one step" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(keyDown(sdl3.c.SDLK_4, 0, false));
+    try testing.expectEqual(Tool.roads_rivers, rig.view.tool);
+    rig.view.roads_rivers.setDesc("road_track");
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    rig.send(mouseButton(button_left, true, 120, 40));
+    rig.send(mouseButton(button_left, false, 120, 40));
+    rig.send(mouseButton(button_left, true, 150, 150));
+    rig.send(mouseButton(button_left, false, 150, 150));
+    // The right button takes the last point back.
+    rig.send(mouseButton(button_right, true, 150, 150));
+    rig.send(mouseButton(button_right, false, 150, 150));
+    try testing.expectEqual(@as(usize, 2), rig.view.roads_rivers.pending_len);
+    rig.send(mouseButton(button_left, true, 200, 120));
+    rig.send(mouseButton(button_left, false, 200, 120));
+    rig.send(doubleClickDown(200, 120));
+    var up = mouseButton(button_left, false, 200, 120);
+    up.button.clicks = 2;
+    rig.send(up);
+    try testing.expectEqual(@as(usize, 1), rig.fake.vsoLen(.road));
+    try testing.expectEqual(@as(usize, 3), rig.fake.vso(.road, 0).count);
+    try testing.expectEqual(@as(f32, 200), rig.fake.vso(.road, 0).controls[2].x);
+    try testing.expectEqual(@as(usize, 1), rig.editor.history.undo_stack.items.len);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+}
+
+test "view: Ctrl+left is the right button in Roads & Rivers" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.view.selectTool(&rig.editor, .roads_rivers);
+    rig.view.roads_rivers.setDesc("road_track");
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    rig.send(mouseButton(button_left, true, 120, 40));
+    rig.send(mouseButton(button_left, false, 120, 40));
+    FakeInput.mod = sdl3.c.SDL_KMOD_CTRL;
+    rig.send(mouseButton(button_left, true, 120, 40));
+    try testing.expect(rig.view.right_button_down);
+    rig.send(mouseButton(button_left, false, 120, 40));
+    FakeInput.mod = 0;
+    try testing.expectEqual(@as(usize, 1), rig.view.roads_rivers.pending_len);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    rig.send(keyDown(sdl3.c.SDLK_ESCAPE, 0, false));
+    try testing.expectEqual(@as(usize, 0), rig.view.roads_rivers.pending_len);
+    try testing.expectEqual(@as(usize, 0), rig.editor.history.undo_stack.items.len);
+}
+
+test "view: Ctrl+left is only the right button in a tool that asks for it, so a select press is still a press" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    FakeInput.mod = sdl3.c.SDL_KMOD_CTRL;
+    rig.send(mouseButton(button_left, true, 40, 40));
+    // Select does not ask: the press is an ordinary left press.
+    try testing.expect(rig.view.left_button_down);
+    try testing.expect(!rig.view.right_button_down);
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+}
+
+test "view: in a tool with no use for a double click the second click of a fast pair is a click of its own (WR-C03)" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    // Place has no use for a double click (Select has since M3: it opens the
+    // Properties window), so its fast pair places twice.
+    rig.view.selectTool(&rig.editor, .place);
+    rig.send(mouseButton(button_left, true, 120, 120));
+    rig.send(mouseButton(button_left, false, 120, 120));
+    try testing.expectEqual(@as(usize, 1), rig.editor.history.undo_stack.items.len);
+    // SDL's clicks 2 (within 500 ms and 32 px): a press and a release in
+    // Place, never swallowed.
+    rig.send(doubleClickDown(120, 120));
+    try testing.expect(rig.view.hasActiveMouseGesture());
+    var up = mouseButton(button_left, false, 120, 120);
+    up.button.clicks = 2;
+    rig.send(up);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    // Both clicks placed.
+    try testing.expectEqual(@as(usize, 2), rig.editor.history.undo_stack.items.len);
+}
+
+test "view: in Select a double click, Enter or Space on a selection asks for the Properties window (O15)" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    // A double click on nothing selected asks nothing.
+    rig.send(mouseButton(button_left, true, 220, 220));
+    rig.send(mouseButton(button_left, false, 220, 220));
+    rig.send(doubleClickDown(220, 220));
+    try testing.expect(!rig.view.props_open_request);
+    // The first click selects the tank, the second click of the pair asks;
+    // nothing moved.
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expectEqual(@as(?i32, 1), rig.editor.selection);
+    rig.send(doubleClickDown(40, 40));
+    var up = mouseButton(button_left, false, 40, 40);
+    up.button.clicks = 2;
+    rig.send(up);
+    try testing.expect(rig.view.props_open_request);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    try testing.expectEqual(@as(usize, 0), rig.editor.history.undo_stack.items.len);
+    // Enter and Space ask the same.
+    rig.view.props_open_request = false;
+    rig.send(keyDown(sdl3.c.SDLK_RETURN, 0, false));
+    try testing.expect(rig.view.props_open_request);
+    rig.view.props_open_request = false;
+    rig.send(keyDown(sdl3.c.SDLK_SPACE, 0, false));
+    try testing.expect(rig.view.props_open_request);
+}
+
+test "view: in Select the second click of a quick pair on another object selects it and asks for no Properties window (WR-A07)" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expectEqual(@as(?i32, 1), rig.editor.selection);
+    // The second click of the pair lands on the neighbouring object (the
+    // span at 100,40): an ordinary press and release, not a double click.
+    rig.send(doubleClickDown(100, 40));
+    var up = mouseButton(button_left, false, 100, 40);
+    up.button.clicks = 2;
+    rig.send(up);
+    try testing.expectEqual(@as(?i32, 2), rig.editor.selection);
+    try testing.expect(!rig.view.props_open_request);
+    try testing.expect(!rig.view.second_click_single);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    // On the selected object itself it is still a double click.
+    rig.send(doubleClickDown(100, 40));
+    var again = mouseButton(button_left, false, 100, 40);
+    again.button.clicks = 2;
+    rig.send(again);
+    try testing.expect(rig.view.props_open_request);
+    try testing.expectEqual(@as(?i32, 2), rig.editor.selection);
+}
+
+test "view: the registry's shortcuts still switch the M1 tools" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(keyDown(sdl3.c.SDLK_3, 0, false));
+    try testing.expectEqual(Tool.place, rig.view.tool);
+    rig.send(keyDown(sdl3.c.SDLK_2, 0, false));
+    try testing.expectEqual(Tool.brush, rig.view.tool);
+    rig.send(keyDown(sdl3.c.SDLK_1, 0, false));
+    try testing.expectEqual(Tool.select, rig.view.tool);
+    // Keys the registry does not know change nothing (7 is the Entrenchment
+    // tool's since 04-08, 8 the Script Areas tool's since 04-10, 9 the AI General
+    // tool's since 04-12; 0 is nobody's).
+    rig.send(keyDown(sdl3.c.SDLK_0, 0, false));
+    try testing.expectEqual(Tool.select, rig.view.tool);
+    rig.send(keyDown(sdl3.c.SDLK_7, 0, false));
+    try testing.expectEqual(Tool.entrenchment, rig.view.tool);
+    // 8 is the Script Areas tool's since 04-10.
+    rig.send(keyDown(sdl3.c.SDLK_8, 0, false));
+    try testing.expectEqual(Tool.script_areas, rig.view.tool);
+    // 9 is the AI General tool's since 04-12.
+    rig.send(keyDown(sdl3.c.SDLK_9, 0, false));
+    try testing.expectEqual(Tool.ai_general, rig.view.tool);
+}
+
+test "view: key 9 is the AI General tool: a click on open ground makes a parcel, Enter switches it, Delete removes it, each one step" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(keyDown(sdl3.c.SDLK_9, 0, false));
+    try testing.expectEqual(Tool.ai_general, rig.view.tool);
+    const depth = rig.editor.history.undo_stack.items.len;
+    rig.send(mouseButton(button_left, true, 100, 100));
+    rig.send(mouseButton(button_left, false, 100, 100));
+    try testing.expectEqual(@as(usize, 1), rig.fake.ai_sides.items.len);
+    try testing.expectEqual(@as(usize, 1), rig.fake.ai_sides.items[0].parcels.len);
+    try testing.expectEqual(@as(f32, 256), rig.fake.ai_sides.items[0].parcels[0].radius);
+    try testing.expectEqual(depth + 1, rig.editor.history.undo_stack.items.len);
+    rig.send(keyDown(sdl3.c.SDLK_RETURN, 0, false));
+    try testing.expectEqual(core.records.ParcelKind.reinforce, rig.fake.ai_sides.items[0].parcels[0].kind);
+    try testing.expectEqual(depth + 2, rig.editor.history.undo_stack.items.len);
+    rig.send(keyDown(sdl3.c.SDLK_DELETE, 0, false));
+    try testing.expectEqual(@as(usize, 0), rig.fake.ai_sides.items[0].parcels.len);
+    try testing.expectEqual(depth + 3, rig.editor.history.undo_stack.items.len);
+    rig.view.undo(&rig.editor);
+    try testing.expectEqual(@as(usize, 1), rig.fake.ai_sides.items[0].parcels.len);
+}
+
+test "view: Set target puts the Start Target tool in hand for one click, sets the point on the release and returns to the tool it came from" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    try rig.fake.addStartCommandFixtureFull(.{ .cmd_type = 0, .link_id = 1, .x = 5, .y = 5, .units = &.{1} });
+    rig.view.selectTool(&rig.editor, .brush);
+    rig.view.beginStartTarget(&rig.editor, 0);
+    try testing.expectEqual(Tool.start_target, rig.view.tool);
+    // The press changes nothing; the click is the release, as in the MFC editor.
+    rig.send(mouseButton(button_left, true, 100, 100));
+    try testing.expectEqual(Tool.start_target, rig.view.tool);
+    rig.send(mouseButton(button_left, false, 100, 100));
+    try testing.expectEqual(Tool.brush, rig.view.tool);
+    try testing.expectEqual(@as(i32, 0), rig.fake.start_commands.items[0].target);
+    try testing.expectEqual(@as(f32, 100), rig.fake.start_commands.items[0].x);
+    try testing.expectEqual(@as(f32, 100), rig.fake.start_commands.items[0].y);
+    try testing.expectEqual(@as(usize, 1), rig.editor.history.undo_stack.items.len);
+    // A second click is the brush's again, not the target's.
+    try testing.expect(!rig.view.left_button_down);
+    // Asked again from the Start Target tool itself, it still returns to the brush.
+    rig.view.beginStartTarget(&rig.editor, 0);
+    rig.view.beginStartTarget(&rig.editor, 0);
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expectEqual(Tool.brush, rig.view.tool);
+    // Clicking the tank at 40,40 made it the target.
+    try testing.expectEqual(@as(i32, 1), rig.fake.start_commands.items[0].target);
+}
+
+test "view: Delete is not the tool's while a panel has claimed it" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expectEqual(@as(?i32, 1), rig.editor.selection);
+    rig.view.delete_claimed = true;
+    rig.send(keyDown(sdl3.c.SDLK_DELETE, 0, false));
+    try testing.expect(rig.editor.document.find(1) != null);
+    rig.view.delete_claimed = false;
+    rig.send(keyDown(sdl3.c.SDLK_DELETE, 0, false));
+    try testing.expect(rig.editor.document.find(1) == null);
+}
+
+test "view: the Damage tool - left damages, right heals, Alt+left and the middle button repair to full, one step each" {
+    const rig = try Rig.create();
+    defer rig.destroy();
+    rig.view.selectTool(&rig.editor, .damage);
+    const depth = rig.editor.history.undo_stack.items.len;
+    // Left damages by the default 10%.
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expectApproxEqAbs(@as(f32, 0.90), rig.editor.document.find(1).?.hp, 0.0001);
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    try testing.expectApproxEqAbs(@as(f32, 0.80), rig.editor.document.find(1).?.hp, 0.0001);
+    // Right heals the same share.
+    rig.send(mouseButton(button_right, true, 40, 40));
+    rig.send(mouseButton(button_right, false, 40, 40));
+    try testing.expectApproxEqAbs(@as(f32, 0.90), rig.editor.document.find(1).?.hp, 0.0001);
+    // Alt+left is the middle button here (the trackpad's stand-in): full.
+    FakeInput.mod = sdl3.c.SDL_KMOD_ALT;
+    rig.send(mouseButton(button_left, true, 40, 40));
+    try testing.expect(rig.view.middle_via_alt);
+    rig.send(mouseButton(button_left, false, 40, 40));
+    FakeInput.mod = 0;
+    try testing.expectEqual(@as(f32, 1.0), rig.editor.document.find(1).?.hp);
+    try testing.expect(!rig.view.hasActiveMouseGesture());
+    // The real middle button repairs too (it does not pan in this tool).
+    rig.send(mouseButton(button_left, true, 40, 40));
+    rig.send(mouseButton(button_left, false, 40, 40));
+    const camera_x = rig.view.camera_x;
+    rig.send(mouseButton(button_middle, true, 40, 40));
+    rig.send(mouseButton(button_middle, false, 40, 40));
+    try testing.expectEqual(@as(f32, 1.0), rig.editor.document.find(1).?.hp);
+    try testing.expectEqual(camera_x, rig.view.camera_x);
+    try testing.expect(!rig.view.panning);
+    // Six clicks, six undo steps.
+    try testing.expectEqual(depth + 6, rig.editor.history.undo_stack.items.len);
 }

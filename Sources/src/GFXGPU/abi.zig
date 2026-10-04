@@ -305,6 +305,7 @@ fn setFog(handle: ?*RendererHandle, _: u32) callconv(.c) Result {
     if (renderer.frame.state != .recording and renderer.frame.state != .pass_active) return errors.invalid_state;
     return errors.ok;
 }
+const state_wireframe: u32 = 1; // GFXGPU_STATE_WIREFRAME
 const state_depth_mode: u32 = 3; // GFXGPU_STATE_DEPTH_MODE
 const state_lighting: u32 = 4; // GFXGPU_STATE_LIGHTING
 const state_specular: u32 = 5; // GFXGPU_STATE_SPECULAR
@@ -338,6 +339,9 @@ fn setState(handle: ?*RendererHandle, info: ?*const StateInfo) callconv(.c) Resu
             // D3DRS_ALPHABLENDENABLE and the blend factors are deltas too.
             if (effects.blendChangeFor(info.?.value)) |mode| renderer.blend_mode = mode;
         },
+        // Dropped with `else` until the map editor's Wire Frame layer measured it
+        // (05-06): the fill mode is a pipeline property, see Renderer.wireframe.
+        state_wireframe => renderer.wireframe = info.?.value != 0,
         state_lighting => renderer.lighting_enabled = info.?.value != 0,
         state_specular => renderer.specular_enabled = info.?.value != 0,
         // value is EGFXDepthBuffer, index the EGFXCmpFunction.

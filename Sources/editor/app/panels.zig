@@ -22,11 +22,17 @@ const view_mod = @import("view.zig");
 const logic = @import("panels_logic.zig");
 const testlaunch = @import("testlaunch.zig");
 const pictures_mod = @import("pictures.zig");
+const minimap_mod = @import("minimap.zig");
+const marker_logic = @import("marker_logic.zig");
+const tool_registry = @import("tool_registry.zig");
+const markers = @import("markers.zig");
+const commands = @import("commands.zig");
+const panels_m2 = @import("panels_m2.zig");
+const panels_m3 = @import("panels_m3.zig");
 
 const ig = imgui.c;
 const Editor = core.editor.Editor;
 const View = view_mod.View;
-const Tool = view_mod.Tool;
 const RealBridge = c_bridge.RealBridge;
 const CatalogueEntry = c_bridge.c.BkEditorCatalogueEntry;
 const c = c_bridge.c;
@@ -46,13 +52,35 @@ const map_filters = [_]sdl3.c.SDL_DialogFileFilter{
 /// (the editor quit with the dialog still up), and must find live memory.
 var dialog_slot: logic.PathSlot = .{};
 
+/// The Script dialog's own file dialog (04-10, D-20: Choose other...), a second
+/// slot for the same reason, and its filter.
+var script_slot: logic.PathSlot = .{};
+
+/// Create Random Map's Browse buttons (05-08, D-01): a third slot, for a template
+/// or a context file picked by the OS dialog and turned back into the
+/// storage-relative name the combos hold.
+var rmg_slot: logic.PathSlot = .{};
+/// The Containers Composer's Browse for a patch map (05-09, D-10).
+var patch_slot: logic.PathSlot = .{};
+const rmg_filters = [_]sdl3.c.SDL_DialogFileFilter{
+    .{ .name = "RMG files (*.xml)", .pattern = "xml" },
+};
+const script_filters = [_]sdl3.c.SDL_DialogFileFilter{
+    .{ .name = "Lua scripts (*.lua)", .pattern = "lua" },
+};
+
 /// The panels' layout, in screen pixels, for their first appearance.
 const layout = struct {
     const left_width: f32 = 280;
     const right_width: f32 = 320;
-    const tools_height: f32 = 150;
+    // Three rows of tool buttons since the seventh (Entrenchment, 04-08), five
+    // since every tool is in the palette (04-12: Start Target, Reserve Positions
+    // and AI General join), then the brush picker and its radius without a
+    // scrollbar.
+    const tools_height: f32 = 228;
     const properties_height: f32 = 250;
     const players_height: f32 = 220;
+    const anchors_height: f32 = 190;
 };
 
 /// The map types the map file names (CMapInfo::GAME_TYPE,
@@ -76,6 +104,108 @@ const RecoveryOffer = struct {
         return self.original_path[0..self.original_path_len];
     }
 };
+
+/// The Bridge tool's ghost: the drag it was planned for (world units), the
+/// planned spans (map units) or the refusal, so the markers ask the bridge
+/// only when the pointer moved.
+pub const BridgeGhost = struct {
+    pub const max_pieces = 128;
+    from: [2]f32 = .{ 0, 0 },
+    to: [2]f32 = .{ 0, 0 },
+    desc: [core.bridge.name_capacity]u8 = [_]u8{0} ** core.bridge.name_capacity,
+    valid: bool = false,
+    refused: bool = false,
+    why: [160]u8 = undefined,
+    why_len: usize = 0,
+    pieces: [max_pieces]core.bridge.PlannedPiece = undefined,
+    count: usize = 0,
+};
+
+/// The Fence tool's ghost: like the bridge's, but a run has hundreds of
+/// fences, so it keeps more pieces, and the drag also carries Ctrl (a single
+/// fence's flip).
+pub const FenceGhost = struct {
+    pub const max_pieces = 1100;
+    from: [2]f32 = .{ 0, 0 },
+    to: [2]f32 = .{ 0, 0 },
+    ctrl: bool = false,
+    desc: [core.bridge.name_capacity]u8 = [_]u8{0} ** core.bridge.name_capacity,
+    valid: bool = false,
+    refused: bool = false,
+    why: [160]u8 = undefined,
+    why_len: usize = 0,
+    pieces: [max_pieces]core.bridge.PlannedPiece = undefined,
+    count: usize = 0,
+};
+
+/// The Entrenchment tool's preview: the clicks and the pointer it was planned
+/// for (world units), the planned pieces (map units) or the refusal, so the
+/// markers ask the bridge only when the polyline or the pointer moved.
+pub const TrenchGhost = struct {
+    pub const max_pieces = 2100;
+    pub const max_points = core.tools_groups.max_trench_points + 1;
+    points: [max_points]core.records.Vec3 = undefined,
+    point_count: usize = 0,
+    valid: bool = false,
+    refused: bool = false,
+    why: [160]u8 = undefined,
+    why_len: usize = 0,
+    pieces: [max_pieces]core.bridge.PlannedPiece = undefined,
+    count: usize = 0,
+};
+
+/// One reinforcement group as the Groups panel and the markers see it: its ID
+/// and its script IDs (owned by `State.groups`).
+pub const GroupRow = struct {
+    id: i32,
+    ids: []i32,
+
+    pub fn has(self: GroupRow, script_id: i32) bool {
+        return std.mem.indexOfScalar(i32, self.ids, script_id) != null;
+    }
+};
+
+/// Save As of a shipped map that names a script beside it (D-20): the two map
+/// paths and the script's name, held while the question is on screen.
+pub const ScriptCopyPending = struct {
+    active: bool = false,
+    /// A different file of that name is already beside the new map: the
+    /// question is "Replace it?", and Yes overwrites it (CR-B01).
+    replace: bool = false,
+    from: logic.PathText = .{},
+    to: logic.PathText = .{},
+    name_buffer: [core.records.script_file_capacity]u8 = undefined,
+    name_len: usize = 0,
+
+    pub fn name(self: *const ScriptCopyPending) []const u8 {
+        return self.name_buffer[0..self.name_len];
+    }
+};
+
+/// Create Random Map's phases (05-08): idle, the modal announced at 0 of 19
+/// (two frames), the generator running (one frozen frame), and the result shown.
+pub const RmgPhase = enum { idle, announce, run, done };
+
+/// What the generator's progress callback counts (the callback only stores).
+pub const RmgProgress = struct {
+    steps: i32 = 0,
+    total: i32 = 0,
+
+    pub fn report(step: c_int, total: c_int, user: ?*anyopaque) callconv(.c) void {
+        const self: *RmgProgress = @ptrCast(@alignCast(user.?));
+        self.steps = step;
+        self.total = total;
+    }
+};
+
+/// Which modal a composer window has open (one at a time).
+pub const ComposerPopup = enum { none, picker, properties, delete_patches, import_copy, node_properties, link_properties, delete_node, delete_link, discard, shell_properties, entry_properties, delete_shells, delete_entries, template_list_properties, diplomacy, unit_grid };
+
+/// The Fields Composer's three tabs (the MFC's FIELD_TAB_TERRAIN / OBJECTS / HEIGHTS).
+pub const FieldTab = enum { terrain, objects, heights };
+
+/// See `State.open_origin`.
+pub const OpenOrigin = enum { none, second_instance, dropped_file };
 
 pub const State = struct {
     allocator: std.mem.Allocator,
@@ -122,10 +252,86 @@ pub const State = struct {
     /// changed.
     settings_changed: bool = false,
     settings_window_open: bool = false,
+    /// 05-11 (D-34): Tools > Options (the game's extra command line and the
+    /// default save format; the two fields are edited here and commit on OK),
+    /// Help > Keys and tools and Help > About.
+    options_open: bool = false,
+    options_params_edit: [core.settings.max_game_parameters:0]u8 = [_:0]u8{0} ** core.settings.max_game_parameters,
+    options_format_edit: core.settings.Format = core.settings.default_format,
+    help_keys_open: bool = false,
+    about_open: bool = false,
+    /// View > Reset layout asked for: the next `draw` makes every panel and
+    /// window forget where it was and puts the docked ones back.
+    layout_reset_pending: bool = false,
+    /// The hidden-panel bits `draw` last placed the docked panels for.
+    last_hidden_panels: u32 = 0,
+    /// Where the open now being made came from, when it is not a menu or a
+    /// dialog: a second launch (single_instance.zig) or a dropped file. `act`
+    /// says on the console how it ended - the line the double-launch check reads.
+    open_origin: OpenOrigin = .none,
+    /// File > New's dialog (M3, D-23): whether it is up, the fields being
+    /// edited, the Square lock, and the name the newest never-saved map was
+    /// given (kept for the title and the first Save As; the document holds
+    /// no name of its own, and the map none at all).
+    new_map_dialog_open: bool = false,
+    new_map_fields: logic.NewMapFields = .{},
+    new_map_square: bool = true,
+    new_map_name: logic.NameText = .{},
+    /// The New Map dialog's name field (a zero-terminated buffer ImGui
+    /// edits in place, committed to `new_map_fields.name` on Create).
+    new_map_name_edit: [core.bridge.name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.name_capacity,
+    /// The format a Save As was asked for by name (M3, D-24: File > Save as
+    /// XML/BZM and the file_save_xml/bzm commands): while set, a path the
+    /// dialog or command delivered without an extension gets this format's
+    /// one instead of the setting's default. Cleared once consumed.
+    save_as_format_forced: ?core.settings.Format = null,
     /// The Settings window's "Maps folder" field, loaded from `settings`
     /// whenever the window is (re)opened, edited in place, and only copied
     /// back into `settings` once editing is deactivated (not per keystroke).
     maps_folder_edit: [core.settings.max_path:0]u8 = [_:0]u8{0} ** core.settings.max_path,
+
+    /// Map > Update Map (M3, D-20): whether the report modal is still owed a
+    /// frame, and the step count the synchronous command collected (the
+    /// MFC's own total, 7 + the snapped objects). The composite itself runs
+    /// inside one command with the window frozen for its duration - D-03's
+    /// accepted model - and the modal renders after it returns.
+    update_report_open: bool = false,
+    update_steps: i32 = 0,
+    update_total: i32 = 0,
+
+    /// File > Create Random Map (05-08, D-01..D-05): the dialog's fields and the
+    /// edit buffers ImGui writes in place, the combos' lists (read when the
+    /// dialog opens), and the generation's own small state machine. The
+    /// generation is synchronous on the main thread (D-03): OK shows the
+    /// progress modal at 0 of 19 for two frames (`announce`), the next frame runs
+    /// the generator with the window frozen (`run`, the Update Map model: the
+    /// bridge's callback only counts), and the result modal follows (`done`).
+    rmg_open: bool = false,
+    rmg_fields: logic.RmgFields = .{},
+    rmg_map_edit: [core.bridge.rmg_map_name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.rmg_map_name_capacity,
+    rmg_seed_edit: [16:0]u8 = [_:0]u8{0} ** 16,
+    rmg_templates: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
+    rmg_contexts: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
+    rmg_settings: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
+    /// How many graphs the chosen template lists (the graph field's range), -1 unknown.
+    rmg_graph_count: i32 = -1,
+    rmg_phase: RmgPhase = .idle,
+    rmg_popup_opened: bool = false,
+    /// Frames the announced modal still has to be drawn before the generator runs:
+    /// an auto-resizing window is hidden for its first frame, so the person sees it
+    /// from the second.
+    rmg_announce_left: u8 = 0,
+    rmg_params: core.bridge.RmgGenerateParams = .{},
+    rmg_progress: RmgProgress = .{},
+    rmg_result: core.bridge.RmgGenerateResult = .{},
+    /// A generation has succeeded this run (the `rmg_seed` predicate).
+    rmg_made: bool = false,
+    rmg_made_name: logic.NameText = .{},
+    /// Which Browse button is waiting on the OS dialog: 0 none, 1 template, 2 context.
+    rmg_browse_target: u8 = 0,
+    /// The dialog's note under the fields: the last refusal's reason.
+    rmg_message: [320]u8 = undefined,
+    rmg_message_len: usize = 0,
 
     /// File > Open Recent (D-27): whether each entry's file still exists,
     /// checked once (std.Io.Dir access) the frame the submenu newly opens
@@ -179,6 +385,163 @@ pub const State = struct {
     /// - the fixture mod adds no objects, so the entries alone look the same.
     catalogue_generation: u32 = 0,
     filter: [64:0]u8 = [_:0]u8{0} ** 64,
+
+    /// The object filters (M3, D-31): the palette's nine quick toggles. The
+    /// slots' assigned filter names and the combo's current one live in
+    /// `settings` (persisted, the MFC's own dialog parameters, edited there
+    /// live with `settings_changed`); `filter_checked[i]` is whether slot i's
+    /// gate is on - session UI state like the filter text field, never
+    /// persisted. The editor holds the filter list itself
+    /// (`editor.filters`); this cache mirrors the ACTIVE subset for the
+    /// palette's per-frame query, rebuilt whenever `filters_generation_seen`
+    /// differs from the editor's generation. `filters_composer_open` is the
+    /// Filters Composer window (drawn by panels_m3.zig);
+    /// `filters_composer_selected` is the filter its word-list editor shows.
+    filter_checked: [core.settings.Settings.filter_slot_count]bool = [_]bool{false} ** core.settings.Settings.filter_slot_count,
+    filters_generation_seen: u32 = 0,
+    filter_views: [logic.max_active_filters]core.bridge.FilterView = undefined,
+    active_filter_values: [logic.max_active_filters]core.filters.Filter = undefined,
+    active_filters: []const core.filters.Filter = &.{},
+    filters_composer_open: bool = false,
+    filters_composer_selected: [64:0]u8 = [_:0]u8{0} ** 64,
+    /// The composer's new-filter and rename name fields, and the words
+    /// editors' buffers
+    /// (one per condition line, reloaded when the selection or the generation
+    /// changes - the commit-on-deactivate rule needs the buffer to outlive
+    /// the edit).
+    filter_new_edit: [64:0]u8 = [_:0]u8{0} ** 64,
+    filter_rename_edit: [64:0]u8 = [_:0]u8{0} ** 64,
+    filter_words_edit: [core.bridge.filter_max_lists][256:0]u8 = [_][256:0]u8{[_:0]u8{0} ** 256} ** core.bridge.filter_max_lists,
+    filters_composer_words_seen: u32 = 0,
+    /// Set the frame the palette asks for the New Filter popup or the Delete
+    /// confirmation, so the modal opens once and names its filter.
+    filter_new_popup: bool = false,
+    filter_delete_popup: [64:0]u8 = [_:0]u8{0} ** 64,
+
+    /// The RMG composers (05-09, D-06): the two Tools windows and their shared
+    /// working state (core.composers). `cc_*` is the Containers window's own
+    /// UI state - the patch table's selected rows, its name fields, the
+    /// patch picker and the properties popup - and `cg_*` the Graphs
+    /// window's; none of it is data, so none of it is undoable.
+    containers_open: bool = false,
+    graphs_open: bool = false,
+    composers: core.composers.Composers,
+    cc_selected: [core.bridge.rmg_max_patches]bool = [_]bool{false} ** core.bridge.rmg_max_patches,
+    cc_anchor: usize = 0,
+    cc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    cc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    cc_picker_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    cc_picker_selected: std.ArrayListUnmanaged(bool) = .empty,
+    cc_place_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    cc_flags_edit: [4]core.composers.Tri = .{ .keep, .keep, .keep, .keep },
+    cc_popup: ComposerPopup = .none,
+    cc_check_seen: u32 = 0,
+    /// A New or Open that waits for the answer to "discard the changes?":
+    /// the command it runs on YES, as `name arg`.
+    cc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    cg_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    cg_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    cg_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    cg_container_edit: [192:0]u8 = [_:0]u8{0} ** 192,
+    cg_link_edit: [6][96:0]u8 = [_][96:0]u8{[_:0]u8{0} ** 96} ** 6,
+    cg_popup: ComposerPopup = .none,
+    /// The element the last right-click or double-click found: a node and/or
+    /// the links under the point (at most eight).
+    cg_hit_node: i32 = -1,
+    cg_hit_links: [8]u32 = [_]u32{0} ** 8,
+    cg_hit_link_count: usize = 0,
+    cg_link_index: usize = 0,
+    cg_dragging: bool = false,
+    cg_settings_text: std.ArrayListUnmanaged(u8) = .empty,
+    cg_settings_seen: u32 = 0,
+    cg_pointer: core.rmg.Tile = .{ .x = 0, .y = 0 },
+
+    /// The Fields Composer (05-10, D-06/D-07/D-12): the window, its tab, and the
+    /// UI state of its lists - the chosen shell of each kind, the selected rows,
+    /// the objects tab's filter and the available objects it gates. None of it
+    /// is data, so none of it is undoable. `fc_tab_request` makes the tab bar
+    /// select `fc_tab` on the next frame (a command asked for it).
+    fields_composer_open: bool = false,
+    fc_tab: FieldTab = .terrain,
+    fc_tab_request: bool = false,
+    fc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    fc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    fc_popup: ComposerPopup = .none,
+    fc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    /// The chosen shell of each kind (0 terrain, 1 objects) and whether one is chosen.
+    fc_shell: [2]usize = .{ 0, 0 },
+    fc_shell_chosen: [2]bool = .{ false, false },
+    fc_filter: [64:0]u8 = [_:0]u8{0} ** 64,
+    fc_text_filter: [64:0]u8 = [_:0]u8{0} ** 64,
+    fc_avail: std.ArrayListUnmanaged(usize) = .empty,
+    fc_avail_catalogue_seen: u32 = 0,
+    fc_filters_seen: u32 = 0,
+    fc_avail_filter_seen: [64]u8 = [_]u8{0} ** 64,
+    fc_avail_text_seen: [64]u8 = [_]u8{0} ** 64,
+    fc_avail_selected: std.ArrayListUnmanaged(bool) = .empty,
+    fc_type_selected: std.ArrayListUnmanaged(bool) = .empty,
+    fc_shell_selected: [2]std.ArrayListUnmanaged(bool) = .{ .empty, .empty },
+    fc_entry_selected: [2]std.ArrayListUnmanaged(bool) = .{ .empty, .empty },
+    fc_types: std.ArrayListUnmanaged(core.bridge.RmgTerrainType) = .empty,
+    fc_types_slot: usize = 99,
+    fc_types_generation: u32 = 0,
+    /// The popups' text fields: width, step, percent / a weight.
+    fc_shell_edit: [3][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 3,
+    fc_weight_edit: [32:0]u8 = [_:0]u8{0} ** 32,
+    /// The Heights tab's fields (height, pattern min, pattern max, percent,
+    /// profile) as text, reloaded when the file or an edit moves `generation`.
+    fc_edit: [5][96:0]u8 = [_][96:0]u8{[_:0]u8{0} ** 96} ** 5,
+    fc_edit_seen: u32 = 0,
+    fc_profiles: std.ArrayListUnmanaged([]u8) = .empty,
+    fc_profiles_read: bool = false,
+
+    /// The Templates Composer (05-10, D-06/D-07/D-12): the window, the selected
+    /// rows of its three lists (fields, graphs, vso - `TemplateList` order), the add
+    /// picker's names and picks, the properties popup's fields, the Diplomacy
+    /// popup's working copy and the cached cells of the lists that need a read of
+    /// each graph and field set. None of it is data, so none of it is undoable.
+    templates_composer_open: bool = false,
+    tc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    tc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    tc_popup: ComposerPopup = .none,
+    /// The popup the last frame had, so a popup opened by a command loads what it needs.
+    tc_popup_seen: ComposerPopup = .none,
+    tc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    tc_selected: [3]std.ArrayListUnmanaged(bool) = .{ .empty, .empty, .empty },
+    /// Which list the open picker or properties popup is about (0 fields, 1 graphs, 2 vso).
+    tc_list: usize = 1,
+    tc_picker_names: std.ArrayListUnmanaged([]u8) = .empty,
+    tc_picker_selected: std.ArrayListUnmanaged(bool) = .empty,
+    tc_picker_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    tc_scripts: std.ArrayListUnmanaged([]u8) = .empty,
+    tc_scripts_read: bool = false,
+    tc_edit: [3][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 3,
+    tc_default_edit: bool = false,
+    tc_dipl_sides: [core.rmg.max_diplomacies]u8 = [_]u8{0} ** core.rmg.max_diplomacies,
+    tc_dipl_count: usize = 0,
+    tc_dipl_type: i32 = 0,
+    tc_dipl_attacking: i32 = 0,
+    tc_cells: std.ArrayListUnmanaged([]u8) = .empty,
+    tc_cells_seen: u32 = 0,
+    tc_cells_valid: bool = false,
+    tc_settings_text: std.ArrayListUnmanaged(u8) = .empty,
+    tc_appear_edit: [2][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 2,
+
+    fields_open: bool = false,
+    /// The Fields panel's state (M3, D-21): the chosen field set, the
+    /// dialog's checkboxes and the Randomize dialog's three numbers. The
+    /// polygon itself lives in the tool (`view.fields_tool`).
+    fields_set_name: [core.bridge.field_set_name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.field_set_name_capacity,
+    fields_randomize: bool = false,
+    fields_fill_terrain: bool = true,
+    fields_place_objects: bool = true,
+    fields_modify_heights: bool = true,
+    fields_update_after: bool = false,
+    fields_check_passability: bool = false,
+    fields_filter_objects: bool = false,
+    fields_min_length: f32 = 8,
+    fields_width: f32 = 0.3,
+    fields_disturbance: f32 = 0.3,
 
     /// The catalogue's own sound entries (game type 100), sorted
     /// case-insensitively, for the Sounds panel's combo - slices into
@@ -271,6 +634,219 @@ pub const State = struct {
         active: bool = false,
     } = .{},
 
+    /// The open map's camera anchors (D-22), for the Camera anchors panel and
+    /// the anchor markers. Read again whenever a map opens (`mapOpened`) or
+    /// `editor.record_generations` for the anchors moves past
+    /// `anchors_generation_seen` (`refreshAnchors`, called from `draw`): an
+    /// anchor edit, undo or redo does not go through `mapOpened`.
+    anchors: core.records.CameraAnchors = .{},
+    anchors_generation_seen: u32 = 0,
+    /// View -> Markers: which M2 marker kinds are drawn (all, until switched
+    /// off). The active tool's own kinds are drawn regardless.
+    marker_set: marker_logic.MarkerSet = .{},
+    /// 04-05: the Roads & Rivers panel's type list, for `vso_types_kind`;
+    /// read again when a map opens or the tool's kind changes
+    /// (`refreshVsoTypes`).
+    vso_types: []core.bridge.VsoDescriptor = &.{},
+    vso_types_kind: ?core.bridge.VsoKind = null,
+    /// Every road's and river's centre line (its key points, world units),
+    /// for the markers: `vso_line_points` flat, each line's end in
+    /// `vso_line_ends` and its kind in `vso_line_kinds`. Read again when the
+    /// editor's `vso_generation` moves past `vso_lines_generation`.
+    vso_line_points: std.ArrayListUnmanaged(core.records.Vec3) = .empty,
+    vso_line_ends: std.ArrayListUnmanaged(usize) = .empty,
+    vso_line_kinds: std.ArrayListUnmanaged(core.bridge.VsoKind) = .empty,
+    vso_lines_generation: ?u32 = null,
+    /// The roads and rivers the map held when it opened, for the scripted
+    /// `vso_delta` predicate.
+    vso_count_at_open: [2]usize = .{ 0, 0 },
+    /// 04-06: the map's bridges entries (type, span count, box in map units),
+    /// for the Bridges panel and the outline markers; read again when the
+    /// editor's `bridges_generation` moves past `bridges_generation_seen`
+    /// (`refreshBridges`).
+    bridge_infos: []core.bridge.BridgeInfo = &.{},
+    bridges_generation_seen: ?u32 = null,
+    /// The bridges entries the map held when it opened, for `bridge_delta`.
+    bridge_count_at_open: usize = 0,
+    /// The object database's bridge types, for the Bridges panel; read when a
+    /// map opens (`refreshBridgeTypes`).
+    bridge_types: []core.bridge.BridgeDescriptor = &.{},
+    bridge_types_read: bool = false,
+    /// The Bridge tool's ghost (markers.zig): the plan for the last drag it
+    /// was asked for, kept while the drag does not move.
+    bridge_ghost: BridgeGhost = .{},
+    /// 04-07: the object database's fence types, read when a map opens
+    /// (`refreshFenceTypes`), and how many fences the map held then, for the
+    /// scripted `fence_delta`.
+    fence_types: []core.bridge.FenceDescriptor = &.{},
+    fence_types_read: bool = false,
+    fence_count_at_open: usize = 0,
+    /// The Fence tool's ghost (markers.zig).
+    fence_ghost: FenceGhost = .{},
+    /// 04-08: the map's entrenchments (piece and section counts, player, box
+    /// in map units), for the Entrenchments panel and the outline markers;
+    /// read again when the editor's `entrenchments_generation` moves past
+    /// `trenches_generation_seen` (`refreshTrenches`).
+    trench_infos: []core.bridge.EntrenchmentInfo = &.{},
+    trenches_generation_seen: ?u32 = null,
+    /// The entrenchments the map held when it opened, for `trench_delta`.
+    trench_count_at_open: usize = 0,
+    /// The Entrenchment tool's preview (markers.zig).
+    trench_ghost: TrenchGhost = .{},
+    /// False until the player of new pieces is chosen for this map: until
+    /// then it follows the Objects panel's (the placer's) player.
+    trench_player_chosen: bool = false,
+
+    /// 04-09 (D-16): the Groups window (Map -> Reinforcement groups...). The
+    /// map's groups (ID and script IDs, ascending by ID) are read again when
+    /// the editor's `.group` record generation moves past
+    /// `groups_generation_seen` (`refreshGroups`), or a map opens.
+    groups_open: bool = false,
+    /// M3, D-18: the Heights window (Tools > Heights). Its fields are the
+    /// Heights tool's own (brush, speed, ratio, level mode); these four are
+    /// the Generate group's - the MFC dialog's own defaults
+    /// (granularity 0.3, min -3, max 3, TabTerrainAltitudesDialog.cpp:146-154).
+    heights_open: bool = false,
+    heights_generate_type: core.bridge.HeightsGenerateType = .hills,
+    heights_granularity: f32 = 0.3,
+    heights_min_z: f32 = -3.0,
+    heights_max_z: f32 = 3.0,
+    /// M3, D-26: the Properties window (the MFC CPropertieDialog). It edits
+    /// the selected object's per-kind fields; the buffers reload when the
+    /// selection or the objects move (`props_reload`), and every field
+    /// commits on deactivate as one undo step through `props_set`.
+    properties_open: bool = false,
+    /// 05-05, D-30: the Players window's selected row (Insert adds a player,
+    /// Delete deletes the selected one, 0 and 1 set its side), and the Unit
+    /// Creation Info window (Map > Unit Creation Info...): the player it shows,
+    /// that player's record read again whenever the editor's `.unit_creation`
+    /// generation moves or the player changes, and the three combo lists
+    /// (parties, aircraft, paratroop squads) read once each time the window opens.
+    selected_player: ?usize = null,
+    uc_open: bool = false,
+    uc_was_open: bool = false,
+    uc_player: usize = 0,
+    uc_cache: core.records.UnitCreation = .{},
+    uc_cache_player: ?usize = null,
+    uc_cache_generation: u32 = 0,
+    uc_cache_ok: bool = false,
+    uc_lists: [3][]core.bridge.UcName = .{ &.{}, &.{}, &.{} },
+    /// 05-05, D-33: Check Map's window and its last run - the findings (owned), what
+    /// Fix all did the last time it ran, and the confirmation popup for the fixes
+    /// that remove something (an unknown-type object, a short road or river).
+    check_open: bool = false,
+    /// 05-07, D-14..D-17: the Minimap panel (minimap.zig).
+    minimap: minimap_mod.Minimap = .{},
+    check_findings: []core.checks.Finding = &.{},
+    check_fix_report: ?core.editor.Editor.FixReport = null,
+    check_confirm_pending: bool = false,
+    props_link_id: i32 = -1,
+    props_script_edit: [16:0]u8 = [_:0]u8{0} ** 16,
+    props_health: f32 = 100,
+    props_angle: f32 = 0,
+    props_formation: usize = 0,
+    props_reload: bool = true,
+    /// M3, D-28: the direction wheel's drag - the gesture its `wheel_turn`
+    /// frames share, so one drag over the dial turns the selection as ONE
+    /// undo step (0 between drags: a scripted `do=wheel_turn` is a step of
+    /// its own).
+    wheel_gesture: u32 = 0,
+    /// The whole turn, in degrees, the drag has made since it grabbed the dial:
+    /// the selection turns by this from the directions it had at the grab, so
+    /// every frame is exact (0 at the grab).
+    wheel_turned: i32 = 0,
+    groups: std.ArrayListUnmanaged(GroupRow) = .empty,
+    groups_generation_seen: ?u32 = null,
+    /// The groups the map held when it opened, for `groups_delta`.
+    groups_at_open: usize = 0,
+    /// The selected row, the ID field of New (default 0, bumped by the bridge
+    /// to the first unused one at or above it, C9) and the script ID field.
+    group_selected: ?i32 = null,
+    group_new_from: c_int = 0,
+    group_script_field: c_int = 0,
+    /// "Hide checked": the groups whose row is checked. Their script IDs are
+    /// what the bridge hides (`syncHiddenGroups`); a view setting, forgotten
+    /// with the map.
+    groups_checked: std.ArrayListUnmanaged(i32) = .empty,
+    hidden_wanted: std.ArrayListUnmanaged(i32) = .empty,
+    hidden_sent: std.ArrayListUnmanaged(i32) = .empty,
+    /// How many of the document's objects the checked groups hide now.
+    hidden_object_count: usize = 0,
+    /// "Select objects": the group whose objects the markers outline.
+    group_marked: ?i32 = null,
+
+    /// 04-10 (D-20): the Script dialog (Map -> Script...). `script_names` are the
+    /// bare names of the .lua files beside the map, read again when the dialog
+    /// opens, after a choice and when the script file record changes
+    /// (`refreshScriptNames`); a picked file waits in `script_pick` while the
+    /// overwrite question is asked, and `script_copy` is Save As's "Copy
+    /// <name>.lua beside the new map?" question.
+    script_open: bool = false,
+    script_open_seen: bool = false,
+    script_names: std.ArrayListUnmanaged([]u8) = .empty,
+    script_names_stale: bool = true,
+    script_generation_seen: ?u32 = null,
+    script_pick: logic.PathText = .{},
+    script_pick_active: bool = false,
+    /// The undo gesture of the Roads & Rivers width or opacity slider being
+    /// dragged (04-13): begun when the slider is taken hold of, so one drag
+    /// of it re-widths the selected line as one undo step.
+    vso_slider_gesture: u32 = 0,
+    script_copy: ScriptCopyPending = .{},
+    script_note: [200]u8 = undefined,
+
+    /// 04-10 (D-21): the map's script areas (AI units, list order), read again
+    /// when the editor's `.script_area` record generation moves or a map opens
+    /// (`refreshAreas`); `areas_at_open` is for `areas_delta`. The Rename field
+    /// shows the selected area's name and follows the selection.
+    areas: std.ArrayListUnmanaged(core.records.ScriptArea) = .empty,
+    areas_generation_seen: ?u32 = null,
+    areas_at_open: usize = 0,
+    area_rename_field: [core.records.area_name_capacity:0]u8 = [_:0]u8{0} ** core.records.area_name_capacity,
+    area_rename_for: ?usize = null,
+
+    /// 04-11 (D-17): the Start Commands window (Unit -> Start commands...). The map's
+    /// commands (units owned) are read again when the editor's `.start_command`
+    /// record generation moves past `startcmds_generation_seen` - which a delete or
+    /// an undo of an object moves too, since its cascade edits them
+    /// (`refreshStartCommands`); `startcmds_at_open` is for `startcmds_delta`. The
+    /// action types come from Data/Editor/actions.ini, read when a map opens
+    /// (`refreshStartActions`); none listed means no command can be made.
+    startcmds_open: bool = false,
+    startcmds: []core.records.StartCommand = &.{},
+    startcmds_generation_seen: ?u32 = null,
+    startcmds_at_open: usize = 0,
+    startcmd_selected: ?usize = null,
+    startcmd_actions: []core.bridge.ActionCommand = &.{},
+    startcmd_default_action: usize = 0,
+    startcmd_actions_read: bool = false,
+    /// The Number field, following the selected command and not overwritten
+    /// under the cursor while it is typed in.
+    startcmd_number_field: f32 = 0,
+    startcmd_number_for: ?usize = null,
+
+    /// 04-11 (D-18): the map's reserve positions (list order), read again when the
+    /// editor's `.reserve_position` record generation moves past
+    /// `reserve_generation_seen` - a delete or an undo of an object moves it too, since
+    /// its cascade erases and restores positions (`refreshReserve`); `reserve_at_open`
+    /// is for `reserve_delta`.
+    reserve_list: []core.records.ReservePosition = &.{},
+    reserve_generation_seen: ?u32 = null,
+    reserve_at_open: usize = 0,
+
+    /// 04-12 (D-19): the AI general's sides (owned, side order, at most `ai_sides_cap`),
+    /// read again when the editor's `.ai_side` record generation moves past
+    /// `ai_generation_seen` (`refreshAi`); `ai_side_count` is the map's real side
+    /// count, which may be above the cache. `ai_parcels_at_open` holds each side's
+    /// parcel count when the map opened, for `parcels`; `ai_mobile_field` is the
+    /// panel's script ID field.
+    ai_sides: std.ArrayListUnmanaged(core.records.AiSide) = .empty,
+    ai_generation_seen: ?u32 = null,
+    ai_side_count: usize = 0,
+    ai_parcels_at_open: std.ArrayListUnmanaged(usize) = .empty,
+    ai_mobile_field: i32 = 0,
+    ai_arg_buffer: [16]u8 = undefined,
+
     /// open_requested, save_requested, save_as_requested, quit_requested,
     /// and the dialog's hand-over: see panels_logic.FileActions.
     actions: FileActions = .{ .dialog = &dialog_slot },
@@ -284,6 +860,10 @@ pub const State = struct {
     os_dialogs: bool = true,
     /// Real file dialogs asked of SDL so far; the smoke checks it stays 0.
     os_dialogs_opened: u32 = 0,
+    /// BK_EDITOR_AUTO drives this process: result popups that would block
+    /// the scripted viewport (the Update Map report) stay closed - the
+    /// report's steps still land in the status line the predicates read.
+    automated: bool = false,
     /// BK_EDITOR_AUTO's own `test` action (smoke.zig's `AutoRunner`): extra
     /// environment for the next `startTestGame` spawn - BK_AUTO_UI from
     /// BK_EDITOR_AUTO_GAME and BK_NO_HELP=1, so the child game runs and
@@ -301,6 +881,8 @@ pub const State = struct {
         degrees: f32 = 0,
         degrees_shown: f32 = 0,
         player: c_int = 0,
+        /// The Script ID field (D-15): -1 none, else 0..32000.
+        script_id: c_int = -1,
         active: bool = false,
     } = .{},
 
@@ -313,13 +895,16 @@ pub const State = struct {
     /// mod chosen on the command line (main.zig's `-mod=`), already applied
     /// to the bridge session before this call - `init` only records it.
     pub fn init(allocator: std.mem.Allocator, editor: *Editor, view: *View, real: *RealBridge, window: *sdl3.c.SDL_Window, io: std.Io, environ: std.process.Environ, mod_folder: ?[]const u8) State {
-        var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window, .io = io, .environ = environ, .pictures = pictures_mod.Pictures.init(allocator), .tile_pictures = pictures_mod.Pictures.initFor(allocator, .tile) };
+        var state: State = .{ .allocator = allocator, .editor = editor, .view = view, .real = real, .window = window, .io = io, .environ = environ, .pictures = pictures_mod.Pictures.init(allocator), .tile_pictures = pictures_mod.Pictures.initFor(allocator, .tile), .composers = core.composers.Composers.init(allocator) };
         state.setModFolder(mod_folder);
         if (real.paths(&state.paths) != .ok) state.paths = std.mem.zeroes(c.BkEditorPathSet);
         // Editor.save's own read-only refusal (D-18) judges against the
         // same installation the panels do.
         editor.setBaseRoot(std.mem.sliceTo(&state.paths.base_root, 0));
         state.loadCatalogue() catch view.setStatus("failed: ", "the object catalogue did not read");
+        // The object filters (M3, D-31): the session's one read; the palette
+        // re-reads when a generation moves (a composer save or edit).
+        editor.loadFilters() catch view.setStatus("failed: ", "the object filters did not read");
         state.mapOpened();
         return state;
     }
@@ -327,10 +912,57 @@ pub const State = struct {
     pub fn deinit(self: *State) void {
         self.pictures.deinit();
         self.tile_pictures.deinit();
+        self.minimap.deinit(self.allocator);
+        self.composers.deinit();
+        self.cc_picker_selected.deinit(self.allocator);
+        self.cg_settings_text.deinit(self.allocator);
+        self.fc_avail.deinit(self.allocator);
+        self.fc_avail_selected.deinit(self.allocator);
+        self.fc_type_selected.deinit(self.allocator);
+        for (&self.fc_shell_selected) |*list| list.deinit(self.allocator);
+        for (&self.fc_entry_selected) |*list| list.deinit(self.allocator);
+        self.fc_types.deinit(self.allocator);
+        for (self.fc_profiles.items) |name| self.allocator.free(name);
+        self.fc_profiles.deinit(self.allocator);
+        for (&self.tc_selected) |*list| list.deinit(self.allocator);
+        for (self.tc_picker_names.items) |name| self.allocator.free(name);
+        self.tc_picker_names.deinit(self.allocator);
+        self.tc_picker_selected.deinit(self.allocator);
+        for (self.tc_scripts.items) |name| self.allocator.free(name);
+        self.tc_scripts.deinit(self.allocator);
+        for (self.tc_cells.items) |cell| self.allocator.free(cell);
+        self.tc_cells.deinit(self.allocator);
+        self.tc_settings_text.deinit(self.allocator);
         self.allocator.free(self.catalogue);
         self.allocator.free(self.order);
         self.allocator.free(self.sound_names);
         self.allocator.free(self.sounds);
+        self.allocator.free(self.vso_types);
+        self.allocator.free(self.bridge_infos);
+        self.allocator.free(self.bridge_types);
+        self.allocator.free(self.fence_types);
+        self.allocator.free(self.trench_infos);
+        self.freeGroups();
+        core.files.freeNames(self.allocator, &self.script_names);
+        self.areas.deinit(self.allocator);
+        Editor.freeStartCommands(self.allocator, self.startcmds);
+        self.allocator.free(self.startcmd_actions);
+        self.allocator.free(self.reserve_list);
+        self.freeAiSides();
+        self.ai_sides.deinit(self.allocator); // WR-C08: the list's own buffer, not only its sides
+        self.ai_parcels_at_open.deinit(self.allocator);
+        self.groups.deinit(self.allocator);
+        self.groups_checked.deinit(self.allocator);
+        self.hidden_wanted.deinit(self.allocator);
+        self.hidden_sent.deinit(self.allocator);
+        self.vso_line_points.deinit(self.allocator);
+        self.vso_line_ends.deinit(self.allocator);
+        self.vso_line_kinds.deinit(self.allocator);
+        for (self.uc_lists) |list| self.allocator.free(list);
+        self.allocator.free(self.check_findings);
+        self.rmg_templates.deinit(self.allocator);
+        self.rmg_contexts.deinit(self.allocator);
+        self.rmg_settings.deinit(self.allocator);
         self.* = undefined;
     }
 
@@ -499,6 +1131,310 @@ pub const State = struct {
         self.view.brush.tile = tile;
     }
 
+    /// The Roads & Rivers panel's types for the tool's kind: read once per
+    /// map and kind. A tool with no type yet, or one the list does not hold,
+    /// takes the first.
+    pub fn refreshVsoTypes(self: *State) void {
+        const tool = &self.view.roads_rivers;
+        if (self.vso_types_kind != null and self.vso_types_kind.? == tool.kind) return;
+        self.allocator.free(self.vso_types);
+        self.vso_types = &.{};
+        self.vso_types_kind = tool.kind;
+        if (!mapIsOpen(self.editor)) return;
+        self.vso_types = self.editor.vsoDescriptors(tool.kind, self.allocator) catch &.{};
+        for (self.vso_types) |*item| {
+            if (std.mem.eql(u8, item.nameSlice(), tool.desc())) return;
+        }
+        tool.setDesc(if (self.vso_types.len != 0) self.vso_types[0].nameSlice() else "");
+    }
+
+    /// Every road's and river's key points, for the markers, read again after
+    /// any road or river change (and capped per kind, marker_logic.cap).
+    pub fn refreshVsoLines(self: *State) void {
+        const generation = self.editor.vso_generation;
+        if (self.vso_lines_generation != null and self.vso_lines_generation.? == generation) return;
+        self.vso_lines_generation = generation;
+        self.vso_line_points.clearRetainingCapacity();
+        self.vso_line_ends.clearRetainingCapacity();
+        self.vso_line_kinds.clearRetainingCapacity();
+        if (!mapIsOpen(self.editor)) return;
+        const limit = marker_logic.cap(.roads_rivers);
+        for ([_]core.bridge.VsoKind{ .road, .river }) |kind| {
+            const count = self.editor.vsoCount(kind) catch continue;
+            var index: usize = 0;
+            while (index < count and index < limit) : (index += 1) {
+                var line = self.editor.readVso(kind, index) catch continue;
+                defer line.deinit(self.allocator);
+                for (line.key_points) |key| self.vso_line_points.append(self.allocator, .{ .x = key.x, .y = key.y, .z = key.z }) catch return;
+                self.vso_line_ends.append(self.allocator, self.vso_line_points.items.len) catch return;
+                self.vso_line_kinds.append(self.allocator, kind) catch return;
+            }
+        }
+    }
+
+    /// The map's bridges entries, read again after any bridge change (and
+    /// capped, marker_logic.cap would not bound a list the panel scrolls).
+    pub fn refreshBridges(self: *State) void {
+        const generation = self.editor.bridges_generation;
+        if (self.bridges_generation_seen != null and self.bridges_generation_seen.? == generation) return;
+        self.bridges_generation_seen = generation;
+        self.allocator.free(self.bridge_infos);
+        self.bridge_infos = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.bridge_infos = self.editor.bridges(self.allocator) catch &.{};
+    }
+
+    /// The map's entrenchments, read again after any change of the objects.
+    pub fn refreshTrenches(self: *State) void {
+        const generation = self.editor.entrenchments_generation;
+        if (self.trenches_generation_seen != null and self.trenches_generation_seen.? == generation) return;
+        self.trenches_generation_seen = generation;
+        self.allocator.free(self.trench_infos);
+        self.trench_infos = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.trench_infos = self.editor.entrenchments(self.allocator) catch &.{};
+    }
+
+    /// The map's script areas, read again when the editor's `.script_area`
+    /// generation moved or a map opened (`mapOpened` resets the mark). A map whose
+    /// area names the record cannot hold reads as no areas (it saves byte-exact).
+    pub fn refreshAreas(self: *State) void {
+        const generation = self.editor.record_generations.get(.script_area);
+        if (self.areas_generation_seen != null and self.areas_generation_seen.? == generation) return;
+        self.areas_generation_seen = generation;
+        self.areas.clearRetainingCapacity();
+        if (!mapIsOpen(self.editor)) return;
+        const list = self.editor.scriptAreas(self.allocator) catch return;
+        defer self.allocator.free(list);
+        self.areas.appendSlice(self.allocator, list) catch {};
+    }
+
+    /// The map's start commands, read again when the editor's `.start_command`
+    /// generation moved or a map opened (`mapOpened` resets the mark). A selection
+    /// past the new end (an undo took the command away) is dropped.
+    pub fn refreshStartCommands(self: *State) void {
+        const generation = self.editor.record_generations.get(.start_command);
+        if (self.startcmds_generation_seen != null and self.startcmds_generation_seen.? == generation) return;
+        self.startcmds_generation_seen = generation;
+        Editor.freeStartCommands(self.allocator, self.startcmds);
+        self.startcmds = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.startcmds = self.editor.startCommands(self.allocator) catch &.{};
+        if (self.startcmd_selected != null and self.startcmd_selected.? >= self.startcmds.len) self.startcmd_selected = null;
+        self.startcmd_number_for = null;
+    }
+
+    /// The map's reserve positions, read again when the editor's `.reserve_position`
+    /// generation moved or a map opened (`mapOpened` resets the mark). A selection past
+    /// the new end is dropped.
+    pub fn refreshReserve(self: *State) void {
+        const generation = self.editor.record_generations.get(.reserve_position);
+        if (self.reserve_generation_seen != null and self.reserve_generation_seen.? == generation) return;
+        self.reserve_generation_seen = generation;
+        self.allocator.free(self.reserve_list);
+        self.reserve_list = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.reserve_list = self.editor.reservePositions(self.allocator) catch &.{};
+        const tool = &self.view.reserve_tool;
+        if (tool.selected != null and tool.selected.? >= self.reserve_list.len) tool.selected = null;
+    }
+
+    /// The most sides the panel and the markers keep in view; a map has two.
+    pub const ai_sides_cap: usize = 64;
+
+    fn freeAiSides(self: *State) void {
+        for (self.ai_sides.items) |*side| side.deinit(self.allocator);
+        self.ai_sides.clearRetainingCapacity();
+    }
+
+    /// The AI general's sides, read again when the editor's `.ai_side` generation
+    /// moved or a map opened (`mapOpened` resets the mark). A selection past the new
+    /// end (an undo took the parcel away) is dropped.
+    pub fn refreshAi(self: *State) void {
+        const generation = self.editor.record_generations.get(.ai_side);
+        if (self.ai_generation_seen != null and self.ai_generation_seen.? == generation) return;
+        self.ai_generation_seen = generation;
+        self.freeAiSides();
+        self.ai_side_count = 0;
+        if (!mapIsOpen(self.editor)) return;
+        self.ai_side_count = self.editor.aiSideCount() catch 0;
+        var index: usize = 0;
+        while (index < self.ai_side_count and index < ai_sides_cap) : (index += 1) {
+            var side = self.editor.aiSide(self.allocator, index) catch break;
+            self.ai_sides.append(self.allocator, side) catch {
+                side.deinit(self.allocator);
+                break;
+            };
+        }
+        const tool = &self.view.ai_tool;
+        if (tool.selected_parcel != null and tool.selected_parcel.? >= self.aiActive().parcels.len) tool.select(null, null);
+    }
+
+    /// The side the AI General tool and its panel edit; empty when the map does not
+    /// have it (or it is past the cache).
+    pub fn aiActive(self: *const State) core.records.AiSide {
+        const side = self.view.ai_tool.side;
+        return if (side < self.ai_sides.items.len) self.ai_sides.items[side] else .{ .side = @intCast(@min(side, core.records.max_ai_sides)), .side_count = @intCast(self.ai_side_count) };
+    }
+
+    /// The action types of Data/Editor/actions.ini, read once per map. A file that
+    /// is missing leaves the list empty (the window says so and adding is off).
+    pub fn refreshStartActions(self: *State) void {
+        if (self.startcmd_actions_read) return;
+        self.startcmd_actions_read = true;
+        self.allocator.free(self.startcmd_actions);
+        self.startcmd_actions = &.{};
+        self.startcmd_default_action = 0;
+        if (!mapIsOpen(self.editor)) return;
+        const list = self.editor.actionCommands(self.allocator) catch return;
+        self.startcmd_actions = list.items;
+        self.startcmd_default_action = list.default_index;
+    }
+
+    fn freeGroups(self: *State) void {
+        for (self.groups.items) |row| self.allocator.free(row.ids);
+        self.groups.clearRetainingCapacity();
+    }
+
+    /// The map's reinforcement groups, read again when the editor's `.group`
+    /// generation moved or a map opened (`mapOpened` resets the mark).
+    pub fn refreshGroups(self: *State) void {
+        const generation = self.editor.record_generations.get(.group);
+        if (self.groups_generation_seen != null and self.groups_generation_seen.? == generation) return;
+        self.groups_generation_seen = generation;
+        self.freeGroups();
+        if (!mapIsOpen(self.editor)) return;
+        const keys = self.editor.groupIDs(self.allocator) catch return;
+        defer self.allocator.free(keys);
+        self.groups.ensureTotalCapacity(self.allocator, keys.len) catch return;
+        for (keys) |key| {
+            const ids = self.editor.groupScriptIDs(self.allocator, key) catch continue;
+            self.groups.appendAssumeCapacity(.{ .id = key, .ids = ids });
+        }
+    }
+
+    /// The row of group `id`, or null.
+    pub fn findGroup(self: *State, id: i32) ?GroupRow {
+        self.refreshGroups();
+        for (self.groups.items) |row| {
+            if (row.id == id) return row;
+        }
+        return null;
+    }
+
+    pub fn groupIsChecked(self: *const State, id: i32) bool {
+        return std.mem.indexOfScalar(i32, self.groups_checked.items, id) != null;
+    }
+
+    /// Checks or unchecks a group's "hide" box and hands the bridge the new
+    /// set at once.
+    pub fn setGroupChecked(self: *State, id: i32, checked: bool) void {
+        const at = std.mem.indexOfScalar(i32, self.groups_checked.items, id);
+        if (checked and at == null) {
+            self.groups_checked.append(self.allocator, id) catch return;
+        } else if (!checked and at != null) {
+            _ = self.groups_checked.orderedRemove(at.?);
+        }
+        self.syncHiddenGroups();
+    }
+
+    /// "Hide checked": the script IDs of the checked groups (the groups as
+    /// they are now, so an edit of a group, its undo and a group's deletion
+    /// all follow) go to the bridge whenever they differ from what it holds,
+    /// and `hidden_object_count` says how many of the document's objects they
+    /// hide. Called once a frame and after every check.
+    pub fn syncHiddenGroups(self: *State) void {
+        self.refreshGroups();
+        self.hidden_wanted.clearRetainingCapacity();
+        if (mapIsOpen(self.editor)) {
+            for (self.groups.items) |row| {
+                if (!self.groupIsChecked(row.id)) continue;
+                self.hidden_wanted.appendSlice(self.allocator, row.ids) catch return;
+            }
+        }
+        std.mem.sort(i32, self.hidden_wanted.items, {}, std.sort.asc(i32));
+        var kept: usize = 0;
+        for (self.hidden_wanted.items, 0..) |value, index| {
+            if (index != 0 and value == self.hidden_wanted.items[kept - 1]) continue;
+            self.hidden_wanted.items[kept] = value;
+            kept += 1;
+        }
+        self.hidden_wanted.shrinkRetainingCapacity(kept);
+        if (mapIsOpen(self.editor) and !std.mem.eql(i32, self.hidden_wanted.items, self.hidden_sent.items)) {
+            if (self.editor.bridge.setHiddenScriptIDs(self.hidden_wanted.items) == .ok) {
+                self.hidden_sent.clearRetainingCapacity();
+                self.hidden_sent.appendSlice(self.allocator, self.hidden_wanted.items) catch {};
+            }
+        }
+        var hidden: usize = 0;
+        if (self.hidden_wanted.items.len != 0) {
+            for (self.editor.document.objects.items) |object| {
+                if (object.scenario) continue;
+                if (std.mem.indexOfScalar(i32, self.hidden_wanted.items, object.script_id) != null) hidden += 1;
+            }
+        }
+        self.hidden_object_count = hidden;
+    }
+
+    /// The bridge types, once per map; a tool with no type yet, or one the
+    /// list does not hold, takes the first.
+    pub fn refreshBridgeTypes(self: *State) void {
+        if (self.bridge_types_read) return;
+        self.allocator.free(self.bridge_types);
+        self.bridge_types = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.bridge_types_read = true;
+        self.bridge_types = self.editor.bridgeDescriptors(self.allocator) catch &.{};
+        const tool = &self.view.bridge_tool;
+        for (self.bridge_types) |*item| {
+            if (std.mem.eql(u8, item.nameSlice(), tool.desc())) return;
+        }
+        tool.setDesc(if (self.bridge_types.len != 0) self.bridge_types[0].nameSlice() else "");
+    }
+
+    /// The fence types, once per map; a tool with no type yet, or one the list
+    /// does not hold, takes the first.
+    pub fn refreshFenceTypes(self: *State) void {
+        if (self.fence_types_read) return;
+        self.allocator.free(self.fence_types);
+        self.fence_types = &.{};
+        if (!mapIsOpen(self.editor)) return;
+        self.fence_types_read = true;
+        self.fence_types = self.editor.fenceDescriptors(self.allocator) catch &.{};
+        const tool = &self.view.fence_tool;
+        for (self.fence_types) |*item| {
+            if (std.mem.eql(u8, item.nameSlice(), tool.desc())) return;
+        }
+        tool.setDesc(if (self.fence_types.len != 0) self.fence_types[0].nameSlice() else "");
+    }
+
+    /// How many objects of the map are fences (a name in `fence_types`): a
+    /// fresh read of the document, for the scripted `fence_delta`.
+    pub fn fenceCount(self: *State) usize {
+        self.refreshFenceTypes();
+        var count: usize = 0;
+        for (self.editor.document.objects.items) |*object| {
+            for (self.fence_types) |*item| {
+                if (std.mem.eql(u8, item.nameSlice(), object.nameSlice())) {
+                    count += 1;
+                    break;
+                }
+            }
+        }
+        return count;
+    }
+
+    /// Re-reads the camera anchors into `anchors` when the map's anchor
+    /// record moved since the last read (or no map is open: none). A read
+    /// that fails leaves them unset, which the panel and the markers show as
+    /// "unset" rather than as stale positions.
+    pub fn refreshAnchors(self: *State) void {
+        const generation = self.editor.record_generations.get(.camera_anchors);
+        if (generation == self.anchors_generation_seen and mapIsOpen(self.editor)) return;
+        self.anchors_generation_seen = generation;
+        self.anchors = commands.readAnchors(self) orelse .{};
+    }
+
     /// Why the brush has no tiles right now, when a map is open (`tiles()` is
     /// empty but `mapIsOpen` is true) - empty otherwise.
     pub fn tileReason(self: *const State) []const u8 {
@@ -513,6 +1449,15 @@ pub const State = struct {
     /// After any open that succeeded, the startup one included: the camera,
     /// the tileset's tiles and the fields follow the new map.
     pub fn mapOpened(self: *State) void {
+        // 05-07: the minimap read the last map.
+        self.minimap.mapOpened();
+        // 05-05: the new map's players, unit creation and checks are its own.
+        self.selected_player = null;
+        self.uc_cache_player = null;
+        self.uc_was_open = false;
+        self.allocator.free(self.check_findings);
+        self.check_findings = &.{};
+        self.check_fix_report = null;
         self.edit = .{};
         self.tile_count = 0;
         self.tile_reason_len = 0;
@@ -520,10 +1465,65 @@ pub const State = struct {
         self.sound_edit.active = false;
         self.loadSounds();
         self.sounds_generation_seen = self.editor.sounds_generation;
+        self.anchors_generation_seen = self.editor.record_generations.get(.camera_anchors);
+        self.anchors = commands.readAnchors(self) orelse .{};
+        self.vso_types_kind = null;
+        self.vso_lines_generation = null;
+        self.bridges_generation_seen = null;
+        self.refreshBridges();
+        self.bridge_count_at_open = self.bridge_infos.len;
+        self.bridge_types_read = false;
+        self.bridge_ghost = .{};
+        self.fence_types_read = false;
+        self.fence_ghost = .{};
+        self.fence_count_at_open = self.fenceCount();
+        self.trenches_generation_seen = null;
+        self.refreshTrenches();
+        self.trench_count_at_open = self.trench_infos.len;
+        self.trench_ghost.valid = false;
+        self.trench_player_chosen = false;
+        // The bridge forgot the last map's hidden set on the open; so does the
+        // panel's, and the groups are the new map's.
+        self.areas_generation_seen = null;
+        self.area_rename_for = null;
+        self.refreshAreas();
+        self.areas_at_open = self.areas.items.len;
+        self.startcmds_generation_seen = null;
+        self.startcmd_selected = null;
+        self.startcmd_actions_read = false;
+        self.refreshStartActions();
+        self.refreshStartCommands();
+        self.startcmds_at_open = self.startcmds.len;
+        self.reserve_generation_seen = null;
+        self.refreshReserve();
+        self.reserve_at_open = self.reserve_list.len;
+        self.ai_generation_seen = null;
+        self.refreshAi();
+        self.ai_parcels_at_open.clearRetainingCapacity();
+        for (self.ai_sides.items) |side| self.ai_parcels_at_open.append(self.allocator, side.parcels.len) catch break;
+        self.script_names_stale = true;
+        self.script_generation_seen = null;
+        self.script_pick_active = false;
+        self.script_copy.active = false;
+        self.groups_checked.clearRetainingCapacity();
+        self.hidden_sent.clearRetainingCapacity();
+        self.hidden_object_count = 0;
+        self.group_selected = null;
+        self.group_marked = null;
+        self.groups_generation_seen = null;
+        self.refreshGroups();
+        self.groups_at_open = self.groups.items.len;
+        self.vso_count_at_open = .{
+            self.editor.vsoCount(.road) catch 0,
+            self.editor.vsoCount(.river) catch 0,
+        };
         self.unknown_types_count = 0;
         self.unknown_objects_total = 0;
         self.unknown_popup_shown = false;
-        if (!mapIsOpen(self.editor)) return;
+        // A loaded document, not a file-bound one: a map File > New made has
+        // no path yet but needs its view, tiles and placer all the same
+        // (CR-A01). `showMap` takes the empty path.
+        if (!documentLoaded(self.editor)) return;
         self.view.showMap(self.real, self.editor.document.path.items, self.editor.document.info, self.defaultPlacerObject());
         if (self.real.tilesetTiles(&self.tile_buffer)) |got| {
             self.tile_count = got.len;
@@ -558,21 +1558,41 @@ pub fn mapIsOpen(editor: *const Editor) bool {
     return editor.document.path.items.len != 0;
 }
 
+/// A document is loaded - opened OR never-saved (File > New, D-23). The M1
+/// `mapIsOpen` (a non-empty path) cannot see a never-saved map, which has
+/// none; a loaded document always has its tile count.
+pub fn documentLoaded(editor: *const Editor) bool {
+    return editor.document.info.width_tiles != 0;
+}
+
 /// All the panels, once a frame, between host.beginFrame and host.endFrame.
 /// Edits made through them go to the editor at once; the file actions the
 /// menu asks for are left in `state.actions` for `act`.
 pub fn draw(state: *State) void {
+    // View > Reset layout (05-11, PARITY V3/R15): before any window is drawn,
+    // so every one of them takes its first-use placement again this frame.
+    if (state.layout_reset_pending) resetLayout(state);
     // Drawn first so the brush outline sits under the panels' own draw
     // calls - it targets the background draw list (behind the panels'
     // window draw lists regardless of call order), so this is about
     // reading this frame's hover/tool state before anything else changes it.
+    state.refreshAnchors();
+    state.syncHiddenGroups();
+    // 05-06, D-32: the fire ranges follow the selection and the edits.
+    state.editor.syncFireRange();
     state.view.drawOverlay(state.real, state.sounds, state.selected_sound);
+    markers.drawM2Markers(state, state.real);
     const menu_height = drawMenuBar(state);
     // ImGui's own capture flag (WantTextInput, not WantCaptureKeyboard): a
     // properties field mid-edit must keep F5 as a literal keystroke, but a
     // window merely being focused must not swallow it.
     if (ig.igIsKeyPressedEx(ig.ImGuiKey_F5, false) and !ig.igGetIO().*.WantTextInput) requestTestLaunch(state);
+    // F1 is Help (the MFC's "Contents\tF1", editor.rc:2152): here Keys and tools.
+    if (ig.igIsKeyPressedEx(ig.ImGuiKey_F1, false) and !ig.igGetIO().*.WantTextInput) state.help_keys_open = !state.help_keys_open;
     if (closeShortcutPressed() and mapIsOpen(state.editor)) state.actions.close_requested = true;
+    if (newMapShortcutPressed()) openNewMapDialog(state);
+    if (saveAsFormatShortcutPressed()) |which| requestSaveAsFormat(state, which);
+    if (updateMapShortcutPressed() and mapIsOpen(state.editor)) _ = commands.mapUpdate(state, "");
     const viewport = ig.igGetMainViewport();
     const size = viewport.*.Size;
     // Task 2, carried from plan 5: ImGuiCond_FirstUseEver only ever applies
@@ -582,35 +1602,103 @@ pub fn draw(state: *State) void {
     // frame the viewport itself changes size re-applies pos and height;
     // size.x is handed back exactly as `beginPanel` last read it
     // (state.left_width/right_width), so a width the user dragged survives.
-    const resized = size.x != state.last_viewport_size.x or size.y != state.last_viewport_size.y;
+    // View (05-11, PARITY V1/V2): the always-present panels and the status bar
+    // can each be hidden; the ones left take the room, in the same order - the
+    // docked panels are placed again (like after a resize) the frame the set
+    // of hidden panels changes.
+    const hidden = state.settings.hidden_panels;
+    const resized = size.x != state.last_viewport_size.x or size.y != state.last_viewport_size.y or hidden != state.last_hidden_panels;
     state.last_viewport_size = size;
+    state.last_hidden_panels = hidden;
     const cond: ig.ImGuiCond = if (resized) ig.ImGuiCond_Always else ig.ImGuiCond_FirstUseEver;
-    const status_height = ig.igGetFrameHeightWithSpacing() + 4;
+    const status_height = if (logic.panelHidden(hidden, .status_bar)) 0 else ig.igGetFrameHeightWithSpacing() + 4;
     const body_top = menu_height;
     const body_height = @max(size.y - menu_height - status_height, 100);
 
-    drawToolPalette(state, .{ .x = 0, .y = body_top }, .{ .x = state.left_width, .y = layout.tools_height }, cond);
-    drawObjectPalette(state, .{ .x = 0, .y = body_top + layout.tools_height }, .{ .x = state.left_width, .y = @max(body_height - layout.tools_height, 100) }, cond);
+    const tools_height: f32 = if (logic.panelHidden(hidden, .tools)) 0 else layout.tools_height;
+    if (!logic.panelHidden(hidden, .tools)) drawToolPalette(state, .{ .x = 0, .y = body_top }, .{ .x = state.left_width, .y = tools_height }, cond);
+    // The left column under the tools: the Roads & Rivers panel while its
+    // tool is active (04-05), the object palette otherwise.
+    const left_pos: ig.ImVec2 = .{ .x = 0, .y = body_top + tools_height };
+    const left_size: ig.ImVec2 = .{ .x = state.left_width, .y = @max(body_height - tools_height, 100) };
+    if (state.view.tool == .roads_rivers)
+        panels_m2.drawRoadsRivers(state, left_pos, left_size, cond)
+    else if (state.view.tool == .bridge)
+        panels_m2.drawBridges(state, left_pos, left_size, cond)
+    else if (state.view.tool == .fence)
+        panels_m2.drawFences(state, left_pos, left_size, cond)
+    else if (state.view.tool == .entrenchment)
+        panels_m2.drawEntrenchments(state, left_pos, left_size, cond)
+    else if (state.view.tool == .script_areas)
+        panels_m2.drawScriptAreas(state, left_pos, left_size, cond)
+    else if (state.view.tool == .reserve_positions)
+        panels_m2.drawReservePositions(state, left_pos, left_size, cond)
+    else if (state.view.tool == .ai_general)
+        panels_m2.drawAIGeneral(state, left_pos, left_size, cond)
+    else if (state.view.tool == .damage)
+        panels_m3.drawDamageTool(state, left_pos, left_size, cond)
+    else if (!logic.panelHidden(hidden, .objects))
+        drawObjectPalette(state, left_pos, left_size, cond);
     const right_x = @max(size.x - state.right_width, state.left_width);
-    drawProperties(state, .{ .x = right_x, .y = body_top }, .{ .x = state.right_width, .y = layout.properties_height }, cond);
-    drawPlayers(state, .{ .x = right_x, .y = body_top + layout.properties_height }, .{ .x = state.right_width, .y = layout.players_height }, cond);
-    drawSounds(state, .{ .x = right_x, .y = body_top + layout.properties_height + layout.players_height }, .{ .x = state.right_width, .y = @max(body_height - layout.properties_height - layout.players_height, 100) }, cond);
-    drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
+    // A panel that uses Delete itself (the Players list, the start commands)
+    // claims it again during its own draw.
+    state.view.delete_claimed = false;
+    var right_y: f32 = body_top;
+    if (!logic.panelHidden(hidden, .properties)) {
+        drawProperties(state, .{ .x = right_x, .y = right_y }, .{ .x = state.right_width, .y = layout.properties_height }, cond);
+        right_y += layout.properties_height;
+    }
+    if (!logic.panelHidden(hidden, .players)) {
+        drawPlayers(state, .{ .x = right_x, .y = right_y }, .{ .x = state.right_width, .y = layout.players_height }, cond);
+        right_y += layout.players_height;
+    }
+    if (!logic.panelHidden(hidden, .camera_anchors)) {
+        panels_m2.drawCameraAnchors(state, .{ .x = right_x, .y = right_y }, .{ .x = state.right_width, .y = layout.anchors_height }, cond);
+        right_y += layout.anchors_height;
+    }
+    if (!logic.panelHidden(hidden, .sounds)) drawSounds(state, .{ .x = right_x, .y = right_y }, .{ .x = state.right_width, .y = @max(body_height - (right_y - body_top), 100) }, cond);
+    panels_m2.drawGroups(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 360, .y = 420 });
+    panels_m3.drawHeightsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 40 }, .{ .x = 300, .y = 420 });
+    panels_m3.drawFiltersComposer(state, .{ .x = state.left_width + 40, .y = body_top + 60 }, .{ .x = 420, .y = 380 });
+    panels_m3.drawContainersComposer(state, .{ .x = state.left_width + 60, .y = body_top + 50 }, .{ .x = 880, .y = 560 });
+    panels_m3.drawGraphsComposer(state, .{ .x = state.left_width + 80, .y = body_top + 70 }, .{ .x = 820, .y = 640 });
+    panels_m3.drawFieldsComposer(state, .{ .x = state.left_width + 100, .y = body_top + 90 }, .{ .x = 880, .y = 680 });
+    panels_m3.drawTemplatesComposer(state, .{ .x = state.left_width + 120, .y = body_top + 110 }, .{ .x = 940, .y = 700 });
+    panels_m3.drawFieldsPanel(state, .{ .x = state.left_width + 40, .y = body_top + 80 }, .{ .x = 320, .y = 440 });
+    panels_m3.drawPropertiesPanel(state, .{ .x = state.left_width + 40, .y = body_top + 100 }, .{ .x = 320, .y = 420 });
+    panels_m3.drawCheckMapPanel(state, .{ .x = state.left_width + 80, .y = body_top + 140 }, .{ .x = 520, .y = 420 });
+    panels_m3.drawUnitCreationPanel(state, .{ .x = state.left_width + 60, .y = body_top + 120 }, .{ .x = 420, .y = 520 });
+    minimap_mod.draw(state, .{ .x = size.x - state.right_width - 300, .y = body_top + 40 }, .{ .x = 280, .y = 320 });
+    pollScriptPick(state);
+    panels_m2.drawScriptDialog(state, .{ .x = state.left_width + 60, .y = body_top + 80 }, .{ .x = 380, .y = 340 });
+    panels_m2.drawScriptModals(state);
+    panels_m2.drawStartCommands(state, .{ .x = state.left_width + 80, .y = body_top + 100 }, .{ .x = 420, .y = 520 });
+    if (!logic.panelHidden(hidden, .status_bar)) drawStatusBar(state, .{ .x = 0, .y = size.y - status_height }, .{ .x = size.x, .y = status_height });
+    // 05-11 (D-34): Help's two windows and Tools > Options.
+    panels_m3.drawHelpKeysWindow(state, .{ .x = state.left_width + 60, .y = body_top + 40 }, .{ .x = 760, .y = 600 });
+    panels_m3.drawAboutWindow(state);
+    panels_m3.drawOptionsWindow(state);
     drawTestLaunchModals(state);
     drawUnsavedPrompt(state);
     drawUnknownObjectsPrompt(state);
     drawSettingsWindow(state);
+    drawNewMapDialog(state);
+    pollRmgBrowse(state);
+    pollPatchBrowse(state);
+    panels_m3.drawRandomMapDialog(state);
+    panels_m3.drawRmgProgress(state);
     drawRecoveryPrompt(state);
+    drawTerrainModals(state);
     updateTitle(state);
 }
 
 /// The base root as `BkEditorPaths` gave it at init, sliced to its content.
-fn baseRoot(state: *const State) []const u8 {
+pub fn baseRoot(state: *const State) []const u8 {
     return std.mem.sliceTo(&state.paths.base_root, 0);
 }
 
 /// The user root the same way.
-fn userRoot(state: *const State) []const u8 {
+pub fn userRoot(state: *const State) []const u8 {
     return std.mem.sliceTo(&state.paths.user_root, 0);
 }
 
@@ -649,7 +1737,14 @@ pub fn act(state: *State) bool {
             },
             // The dialog that was busy has ended: "a dialog is already
             // open" (or an earlier dialog's failure) is no longer true.
-            .dialog_cancelled => state.view.clearStatusFrom(.dialog),
+            // A Save As that never chose a path takes its forced format
+            // with it (M3, D-24).
+            .dialog_cancelled => {
+                state.view.clearStatusFrom(.dialog);
+                state.save_as_format_forced = null;
+                // A Create Minimap Images that asked for a save first gives up with it.
+                state.minimap.create_pending = false;
+            },
             // A quit that reaches here is either clean (never dirty) or
             // answered Don't save (the prompt's .proceed path) - both are
             // "this document's edits, if any, are abandoned" (D-22).
@@ -662,20 +1757,41 @@ pub fn act(state: *State) bool {
                 if (ok) {
                     pushRecentFromDocument(state);
                     deleteRecoveryIfActive(state);
+                    commands.noteChecksAfterSave(state);
                 }
                 state.actions.noteSaveOutcome(ok);
+                finishPendingMinimapCreate(state, ok);
             },
             .show_dialog => |kind| showDialog(state, kind),
             .act_on_path => |chosen| {
-                const result = logic.actOnPath(state.editor, chosen.kind, chosen.path);
+                // D-20: A Save As may bring the map's script along, so where the
+                // map was is kept before the save moves the document. 04-13: any
+                // map, not only a shipped one - a user map saved into another
+                // folder would leave its script behind just the same.
+                var came_from: logic.PathText = .{};
+                const bring_script = chosen.kind == .save_as and state.editor.document.path.items.len > 0;
+                if (bring_script) came_from.set(state.editor.document.path.items);
+                // M3, D-24: a Save As asked for by name forces its format on
+                // a path that names no extension; consumed here.
+                const save_format = if (chosen.kind == .save_as) state.save_as_format_forced orelse state.settings.default_format else state.settings.default_format;
+                state.save_as_format_forced = null;
+                const result = logic.actOnPath(state.editor, chosen.kind, chosen.path, save_format);
                 state.view.noteEditResult(state.editor, result);
                 if (chosen.kind == .open) {
                     // A failed open may have emptied the document (editor.open
                     // says when); either way the panels follow what is open now.
                     if (result) |_| {
+                        // The document that was replaced is gone for good (the
+                        // unsaved prompt was answered): its recovery copy would
+                        // be offered at the next start as unsaved work (WR-A10).
+                        deleteRecoveryIfActive(state);
                         state.mapOpened();
                         pushRecentFromDocument(state);
-                    } else |_| if (!mapIsOpen(state.editor)) state.mapOpened();
+                        announceOpen(state, true);
+                    } else |_| {
+                        if (!documentLoaded(state.editor)) state.mapOpened();
+                        announceOpen(state, false);
+                    }
                 } else {
                     // Save As: the unsaved-changes prompt, if it asked for
                     // this one, hears whether it landed.
@@ -683,15 +1799,242 @@ pub fn act(state: *State) bool {
                     if (ok) {
                         pushRecentFromDocument(state);
                         deleteRecoveryIfActive(state);
+                        // A never-saved map's view followed no path; now it has one.
+                        if (!bring_script) state.view.rebindPath(state.editor.document.path.items);
+                        if (bring_script) offerScriptCopyAlong(state, came_from.slice());
+                        commands.noteChecksAfterSave(state);
                     }
                     state.actions.noteSaveOutcome(ok);
+                    finishPendingMinimapCreate(state, ok);
                 }
             },
-            .dialog_failed => |message| state.view.setStatusFrom(.dialog, "the file dialog failed: ", message),
+            // File > New (M3, D-23): the engine builds the map (the prompt,
+            // if any, has been answered already) and the document opens
+            // never-saved - exactly what `mapOpened` resets for.
+            .new_map => |fields| {
+                var params: core.bridge.NewMapParams = .{};
+                params.size_x = fields.size_x;
+                params.size_y = fields.size_y;
+                params.season = fields.season;
+                params.setName(fields.name.slice());
+                params.setMod(fields.mod_folder.slice());
+                const result = state.editor.newMap(params);
+                state.view.noteEditResult(state.editor, result);
+                if (result) |_| {
+                    // Same as an open: the document File > New replaced is gone
+                    // (WR-A10).
+                    deleteRecoveryIfActive(state);
+                    state.new_map_name.set(fields.name.slice());
+                    state.mapOpened();
+                } else |_| if (!documentLoaded(state.editor)) state.mapOpened();
+            },
+            .dialog_failed => |message| {
+                state.view.setStatusFrom(.dialog, "the file dialog failed: ", message);
+                state.minimap.create_pending = false;
+            },
             .switch_mod => |folder| performModSwitch(state, folder),
             .close => performClose(state),
         }
     }
+}
+
+/// Says on the console how an open that came from a second launch or a drop
+/// ended (`State.open_origin`); nothing for any other open.
+fn announceOpen(state: *State, opened: bool) void {
+    const origin = state.open_origin;
+    state.open_origin = .none;
+    if (origin == .none) return;
+    const what = if (origin == .second_instance) "second instance" else "dropped file";
+    if (opened) {
+        std.debug.print("map-editor: map open from {s}: {s}\n", .{ what, state.editor.document.path.items });
+    } else {
+        std.debug.print("map-editor: map from {s} did not open: {s}\n", .{ what, state.editor.status() });
+    }
+}
+
+/// A Create Minimap Images that had to save first (05-07, D-17): once the save
+/// landed the pictures are made, and if it did not they are not.
+fn finishPendingMinimapCreate(state: *State, saved: bool) void {
+    if (!state.minimap.create_pending) return;
+    state.minimap.create_pending = false;
+    if (saved) _ = minimap_mod.createNow(state);
+}
+
+/// The script file's name as the map holds it, for the functions below; null
+/// with no map open or for a value the editor cannot read.
+fn scriptValue(state: *State, buffer: *[core.records.script_file_capacity]u8) ?[]const u8 {
+    return commands.readScriptFile(state, buffer);
+}
+
+/// D-20, after a Save As (of a shipped map or, since 04-13, a user map): when
+/// the map names a script that is beside the old map and the new map is in
+/// another folder, asks whether to copy it beside the new one (`from_map` is
+/// where the map was). The question is a modal whose two buttons are the
+/// commands `script_copy_along_yes` and `_no`; when a different file of that
+/// name is already beside the new map it asks "Replace it?" instead, and only
+/// that Yes overwrites it.
+fn offerScriptCopyAlong(state: *State, from_map: []const u8) void {
+    const files = state.editor.files orelse return;
+    var value_buffer: [core.records.script_file_capacity]u8 = undefined;
+    const value = scriptValue(state, &value_buffer) orelse return;
+    const name = core.script_file.gameScriptName(value) orelse return;
+    var beside: [core.files.max_path]u8 = undefined;
+    const path = core.script_file.scriptPathBeside(&beside, from_map, name) orelse return;
+    if (!files.exists(path)) return;
+    // Both maps in one folder: the script is beside the new map already.
+    var beside_new: [core.files.max_path]u8 = undefined;
+    const new_path = core.script_file.scriptPathBeside(&beside_new, state.editor.document.path.items, name) orelse return;
+    if (core.script_file.sameFile(files, path, new_path)) return;
+    const pending = &state.script_copy;
+    // A different <name>.lua already there is never replaced without asking
+    // (CR-B01): the question becomes "Replace it?".
+    pending.replace = files.exists(new_path);
+    pending.from.set(from_map);
+    pending.to.set(state.editor.document.path.items);
+    pending.name_len = @min(name.len, pending.name_buffer.len);
+    @memcpy(pending.name_buffer[0..pending.name_len], name[0..pending.name_len]);
+    pending.active = true;
+}
+
+/// The answer to that question (the modal's buttons and the two commands).
+/// False when no question was up, and when a different file of that name
+/// turned up beside the new map after a plain "Copy?" was answered: nothing
+/// is copied and the question is put again as "Replace it?".
+pub fn answerScriptCopyAlong(state: *State, yes: bool) bool {
+    const pending = &state.script_copy;
+    if (!pending.active) return false;
+    pending.active = false;
+    if (!yes) return true;
+    const files = state.editor.files orelse return false;
+    var note: [200]u8 = undefined;
+    switch (core.script_file.copyAlong(files, baseRoot(state), pending.from.slice(), pending.to.slice(), pending.name(), pending.replace)) {
+        .copied => state.view.setStatus("script: ", std.fmt.bufPrint(&note, "{s}.lua copied beside the new map", .{pending.name()}) catch "copied"),
+        // A file of that name appeared beside the new map after the question
+        // was put: nothing is replaced; the question is asked again as
+        // "Replace it?".
+        .exists => {
+            pending.replace = true;
+            pending.active = true;
+            state.view.setStatus("script: ", std.fmt.bufPrint(&note, "a different {s}.lua is beside the new map now; nothing was copied", .{pending.name()}) catch "a different script is beside the new map now");
+            return false;
+        },
+        .missing => state.view.setStatus("script: ", "the script is not beside the old map any more"),
+        .failed => state.view.setStatus("script: ", std.fmt.bufPrint(&note, "{s}.lua could not be copied: {s}", .{ pending.name(), files.lastError() }) catch "could not be copied"),
+        .not_a_bare_name => state.view.setStatus("script: ", "the script's name is not a plain name, so it was not copied"),
+        .shipped => state.view.setStatus("script: ", "the new map is inside a game's data folder, which is read-only; the script was not copied"),
+    }
+    return true;
+}
+
+/// Re-reads the .lua files beside the map when the dialog has just opened, a
+/// choice was made or the script file record changed (an undo included).
+pub fn refreshScriptNames(state: *State) void {
+    const generation = state.editor.record_generations.get(.script_file);
+    const opened_now = state.script_open and !state.script_open_seen;
+    state.script_open_seen = state.script_open;
+    if (!opened_now and !state.script_names_stale and state.script_generation_seen == generation) return;
+    state.script_names_stale = false;
+    state.script_generation_seen = generation;
+    core.files.freeNames(state.allocator, &state.script_names);
+    const files = state.editor.files orelse return;
+    core.script_file.listBeside(files, state.allocator, state.editor.document.path.items, &state.script_names) catch {};
+}
+
+/// "Open script folder": the folder that holds the map's script, in the
+/// system's file manager - never the `.lua` itself, which the system's default
+/// "open" may run (WR-B04). The URL is built from the resolved folder of the
+/// validated name (`script_file.folderUrl`), never from typed text; a script
+/// that is not there is a warning.
+pub fn openScript(state: *State) bool {
+    const files = state.editor.files orelse return false;
+    var value_buffer: [core.records.script_file_capacity]u8 = undefined;
+    const value = scriptValue(state, &value_buffer) orelse return false;
+    if (value.len == 0) {
+        state.view.setStatus("script: ", "the map names no script");
+        return false;
+    }
+    var url_buffer: [core.files.max_path + 64]u8 = undefined;
+    const url = core.script_file.folderUrl(files, &url_buffer, state.editor.document.path.items, value) orelse {
+        state.view.setStatus("script: ", "the script file is not beside the map");
+        return false;
+    };
+    var z_buffer: [core.files.max_path + 65]u8 = undefined;
+    const url_z = std.fmt.bufPrintZ(&z_buffer, "{s}", .{url}) catch return false;
+    if (!state.os_dialogs) return true; // the scripted runs check the URL, not the desktop
+    if (panels_m2.openUrlWithSystem(url_z)) |reason| {
+        state.view.setStatus("script: ", reason);
+        return false;
+    }
+    return true;
+}
+
+/// "Choose other...": the Lua file dialog. Never opened for a map inside a
+/// game's data folder: the script is copied beside the map, and that folder is
+/// read-only (Save As into your maps folder first).
+pub fn chooseOtherScript(state: *State) void {
+    if (documentIsShipped(state)) {
+        state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first");
+        return;
+    }
+    // IN-C05: with OS dialogs off nothing would ever answer the slot, so it is
+    // not taken at all (a scripted run picks through script_choose).
+    if (!state.os_dialogs) return;
+    if (!script_slot.request(.open)) return;
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+    var default_location: ?[*:0]const u8 = null;
+    if (dialogFolder(state, &folder_buffer)) |folder| {
+        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
+    }
+    state.os_dialogs_opened += 1;
+    sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &script_slot, state.window, &script_filters, script_filters.len, default_location, false);
+}
+
+/// Each frame: what the Lua file dialog answered, once. A picked file goes beside
+/// the map and becomes the script; when a different file of that name is there the
+/// question is asked first (`script_pick`).
+fn pollScriptPick(state: *State) void {
+    const result = script_slot.take() orelse return;
+    switch (result) {
+        .cancelled => {},
+        .failed => |message| state.view.setStatus("the file dialog failed: ", message),
+        .path => |chosen| _ = pickScript(state, chosen.path, false),
+    }
+}
+
+/// Copies the picked script beside the map and names it, or asks before it
+/// replaces one (`overwrite` is the answer to that question). Public: the
+/// overwrite question's button and the smoke call it.
+/// What `pickScript` did (WR-C04): the file is beside the map and named as the
+/// map's script, the "Replace it?" question is up, or nothing changed (the
+/// status line says why).
+pub const PickOutcome = enum { chosen, asked, refused };
+
+pub fn pickScript(state: *State, picked: []const u8, overwrite: bool) PickOutcome {
+    const files = state.editor.files orelse return .refused;
+    if (documentIsShipped(state)) {
+        state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first");
+        return .refused;
+    }
+    const name = core.script_file.pickedName(picked) orelse {
+        state.view.setStatus("script: ", "choose a .lua file named with letters, digits, _ - and . only");
+        return .refused;
+    };
+    switch (core.script_file.copyInto(files, baseRoot(state), state.editor.document.path.items, picked, overwrite)) {
+        .copied => {
+            state.script_names_stale = true;
+            return if (commands.setScriptFile(state, name) == .ok) .chosen else .refused;
+        },
+        .exists => {
+            state.script_pick.set(picked);
+            state.script_pick_active = true;
+            return .asked;
+        },
+        .not_a_bare_name => state.view.setStatus("script: ", "choose a .lua file named with letters, digits, _ - and . only"),
+        .failed => state.view.setStatus("script: ", std.fmt.bufPrint(&state.script_note, "{s} could not be copied beside the map: {s}", .{ name, files.lastError() }) catch "the script could not be copied"),
+        .shipped => state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first"),
+    }
+    return .refused;
 }
 
 /// D-27: after every successful Open, Save or Save As, the document's OS
@@ -727,6 +2070,7 @@ fn recoveryFolder(buffer: []u8, state: *const State) ?[]const u8 {
 /// showing.
 fn anyModalOpen(state: *const State) bool {
     return state.actions.dialog.waiting() or state.actions.prompt.isAsking() or state.settings_window_open or
+        state.rmg_phase != .idle or state.rmg_open or
         state.test_prompt.isAskingRestart() or state.test_prompt.report() != null or
         (state.recovery_offers_count != 0 and !state.recovery_prompt_dismissed);
 }
@@ -740,10 +2084,12 @@ fn anyModalOpen(state: *const State) bool {
 pub fn tickAutosave(state: *State, now_ms: u64) void {
     state.autosave.enabled = state.settings.autosave;
     state.autosave.interval_ms = @as(u64, state.settings.autosave_minutes) * std.time.ms_per_min;
-    if (!mapIsOpen(state.editor) or anyModalOpen(state)) {
+    // A loaded document, not a file-bound one: a map File > New made has no
+    // path but is exactly what the recovery copy exists for (WR-A06).
+    if (!documentLoaded(state.editor) or anyModalOpen(state)) {
         // Still tracked (not ticked away): a dirty map waiting out a modal
         // must not lose its place in the interval once the modal closes.
-        state.autosave.note(now_ms, state.editor.dirty() and mapIsOpen(state.editor));
+        state.autosave.note(now_ms, state.editor.dirty() and documentLoaded(state.editor));
         return;
     }
     const dirty = state.editor.dirty();
@@ -791,7 +2137,7 @@ fn writeRecoveryCopy(state: *State, now_ms: u64) void {
         return;
     };
     var engine_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const engine_path = logic.enginePath(&engine_buffer, os_path, .open) orelse {
+    const engine_path = logic.enginePath(&engine_buffer, os_path, .open, .bzm) orelse {
         state.view.setStatus("autosave failed: ", "the recovery path is too long");
         return;
     };
@@ -810,7 +2156,9 @@ fn writeRecoverySidecar(state: *State, recovery_os_path: []const u8) void {
     var sidecar_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const sidecar_path = std.fmt.bufPrint(&sidecar_buffer, "{s}.txt", .{recovery_os_path}) catch return;
     var doc_os_buffer: [core.files.max_path]u8 = undefined;
-    const original_os_path = core.files.osPathFromEngine(&doc_os_buffer, state.editor.document.path.items) orelse return;
+    // A never-saved document has no original: the sidecar's first line is empty.
+    const doc_path = state.editor.document.path.items;
+    const original_os_path = if (doc_path.len == 0) "" else core.files.osPathFromEngine(&doc_os_buffer, doc_path) orelse return;
     const unix_seconds = std.Io.Clock.real.now(state.io).toSeconds();
     var sidecar_text_buffer: [core.files.max_path + 64]u8 = undefined;
     const sidecar_text = std.fmt.bufPrint(&sidecar_text_buffer, "{s}\n{d}\n", .{ original_os_path, unix_seconds }) catch return;
@@ -880,7 +2228,8 @@ fn drawRecoveryPrompt(state: *State) void {
         const offer = state.recovery_offers[index];
         ig.igPushIDInt(@intCast(index));
         var line: [400]u8 = undefined;
-        const label = std.fmt.bufPrint(&line, "{s} - {d}", .{ logic.baseName(offer.originalPath()), offer.unix_time }) catch "?";
+        const original_name = logic.baseName(offer.originalPath());
+        const label = std.fmt.bufPrint(&line, "{s} - {d}", .{ if (original_name.len == 0) "(a map that was never saved)" else original_name, offer.unix_time }) catch "?";
         text(label);
         ig.igSameLine();
         const opened = ig.igSmallButton("Open");
@@ -910,7 +2259,7 @@ fn drawRecoveryPrompt(state: *State) void {
 
 fn openRecoveryOffer(state: *State, offer: RecoveryOffer) void {
     var engine_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const engine_path = logic.enginePath(&engine_buffer, offer.filePath(), .open) orelse {
+    const engine_path = logic.enginePath(&engine_buffer, offer.filePath(), .open, .bzm) orelse {
         state.view.setStatus("failed: ", "the recovery path is too long");
         return;
     };
@@ -943,6 +2292,42 @@ fn removeRecoveryOffer(state: *State, index: usize) void {
 /// D-23: while the prompt asks (an Open, Quit or window close found the map
 /// dirty), a modal offers Save, Don't save or Cancel; the buttons only set
 /// what `act`'s next call to `next` picks up - no save happens here.
+/// Map menu's two terrain modals (M3, D-20/D-22): Fill Entire Map's
+/// confirmation (the command runs only on Fill), and Update Map's report of
+/// the step count the synchronous composite reported - rendered after the
+/// return, per D-03's model, since BkEditorUpdateMap runs to completion
+/// inside its command.
+fn drawTerrainModals(state: *State) void {
+    if (ig.igBeginPopupModal("Fill Entire Map", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        var line: [160]u8 = undefined;
+        var what: []const u8 = "the brush tile's terrain type";
+        if (logic.indexOfTile(state.tile_entries[0..state.tile_count], state.view.brush.tile)) |at| {
+            const terrain = state.tile_entries[at].terrain.slice();
+            if (terrain.len != 0) what = terrain;
+        }
+        text(std.fmt.bufPrint(&line, "Every tile of the map becomes terrain type {s}.", .{what}) catch "Every tile of the map becomes the brush tile's terrain type.");
+        text("The whole map is replaced - only undo takes it back.");
+        ig.igSeparator();
+        if (ig.igSmallButton("Fill")) {
+            _ = commands.mapFill(state, "");
+            ig.igCloseCurrentPopup();
+        }
+        ig.igSameLine();
+        if (ig.igSmallButton("Cancel")) ig.igCloseCurrentPopup();
+        ig.igEndPopup();
+    }
+    if (state.update_report_open) {
+        state.update_report_open = false;
+        _ = ig.igOpenPopup("Update Map", 0);
+    }
+    if (ig.igBeginPopupModal("Update Map", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        var line: [96]u8 = undefined;
+        text(std.fmt.bufPrint(&line, "The map is updated - {d} of {d} steps reported.", .{ state.update_steps, state.update_total }) catch "The map is updated.");
+        if (ig.igSmallButton("OK")) ig.igCloseCurrentPopup();
+        ig.igEndPopup();
+    }
+}
+
 fn drawUnsavedPrompt(state: *State) void {
     const popup_id = "Unsaved changes";
     if (state.actions.prompt.isAsking()) {
@@ -1142,7 +2527,8 @@ pub fn pollTestGame(state: *State) void {
 /// `pub`: smoke.zig's `AutoRunner` (BK_EDITOR_AUTO's `test` action) calls
 /// this directly, the same way it already calls `addSoundAtViewCentre`.
 pub fn requestTestLaunch(state: *State) void {
-    if (!mapIsOpen(state.editor)) return;
+    // A never-saved map tests too: the copy goes to the test folder (WR-A06).
+    if (!documentLoaded(state.editor)) return;
     if (state.test_prompt.request(state.test_game != null) == .start) startTestGame(state);
 }
 
@@ -1194,6 +2580,10 @@ fn launchTestGame(state: *State, buffer: *[512]u8) logic.LaunchAttempt {
         return .{ .status_failure = std.mem.span(c.BkEditorLastMessage(real.session)) };
     if (real.saveCopy(test_path) != .ok)
         return .{ .status_failure = std.mem.span(c.BkEditorLastMessage(real.session)) };
+    // D-20: the map's script goes beside the test copy, where the game looks
+    // for it (script_file.copyForTest, through logic.copyScriptForTest). A script
+    // that is not there is a warning; the game still starts.
+    const script_note = logic.copyScriptForTest(state.editor, test_path, buffer);
     var game_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const game_path = testlaunch.gamePath(state.io, &game_path_buffer) catch |err|
         return .{ .report_failure = std.fmt.bufPrint(buffer, "No game beside the Map Editor: {s}", .{@errorName(err)}) catch "No game beside the Map Editor" };
@@ -1205,6 +2595,8 @@ fn launchTestGame(state: *State, buffer: *[512]u8) logic.LaunchAttempt {
         .monitor = windowMonitor(state.window),
         .log_path = log_path,
         .extra_env = state.test_extra_env,
+        // PARITY T2 (05-11): Tools > Options' extra game command line.
+        .game_parameters = state.settings.gameParameters(),
     }) catch |err| {
         const message = if (err == error.FileNotFound)
             std.fmt.bufPrint(buffer, "No game beside the Map Editor at {s}", .{game_path}) catch "No game beside the Map Editor"
@@ -1213,6 +2605,7 @@ fn launchTestGame(state: *State, buffer: *[512]u8) logic.LaunchAttempt {
         return .{ .report_failure = message };
     };
     state.test_game = running;
+    if (script_note) |note| return .{ .started_with_note = note };
     return .started;
 }
 
@@ -1271,7 +2664,13 @@ fn drawMenuBar(state: *State) f32 {
     const editor = state.editor;
     const map_open = mapIsOpen(editor);
     if (ig.igBeginMenu("File")) {
+        // M3, D-23: New goes through the dialog; the map itself is built
+        // once the unsaved-changes prompt, if any, has been answered.
+        if (ig.igMenuItemEx("New...", new_map_shortcut_label, false, true)) openNewMapDialog(state);
         if (ig.igMenuItemEx("Open...", null, false, true)) state.actions.open_requested = true;
+        // 05-08, D-01: Create Random Map - the generator's own dialog, the
+        // map opened afterwards as any other.
+        if (ig.igMenuItemEx("Create Random Map...", null, false, state.rmg_phase == .idle)) openRmgDialog(state);
         if (ig.igBeginMenu("Open Recent")) {
             if (!state.recent_menu_open_prev) refreshRecentExistsCache(state);
             state.recent_menu_open_prev = true;
@@ -1290,8 +2689,20 @@ fn drawMenuBar(state: *State) f32 {
         } else {
             state.mod_menu_open_prev = false;
         }
-        if (ig.igMenuItemEx("Save", null, false, map_open)) state.actions.save_requested = true;
-        if (ig.igMenuItemEx("Save As...", null, false, map_open)) state.actions.save_as_requested = true;
+        // The Save family works on a never-saved map too (D-23/D-24): what
+        // matters is a loaded document, not a path on disk.
+        const saveable = documentLoaded(editor);
+        if (ig.igMenuItemEx("Save", null, false, saveable)) state.actions.save_requested = true;
+        if (ig.igMenuItemEx("Save As...", null, false, saveable)) {
+            // A plain Save As: no forced format, the setting's default is it.
+            state.save_as_format_forced = null;
+            state.actions.save_as_requested = true;
+        }
+        // M3, D-24: both convert the map's format for this and later saves -
+        // the bridge takes the format from the path's extension, so the
+        // forced one is what an extensionless path is given.
+        if (ig.igMenuItemEx("Save as XML", save_xml_shortcut_label, false, saveable)) requestSaveAsFormat(state, .xml);
+        if (ig.igMenuItemEx("Save as BZM", save_bzm_shortcut_label, false, saveable)) requestSaveAsFormat(state, .bzm);
         // 03-15 gap fix: through the unsaved-changes prompt (D-23), like Open.
         if (ig.igMenuItemEx("Close", close_shortcut_label, false, map_open)) state.actions.close_requested = true;
         ig.igSeparator();
@@ -1312,22 +2723,302 @@ fn drawMenuBar(state: *State) f32 {
         if (ig.igMenuItemEx("Settings...", null, false, true)) openSettingsWindow(state);
         ig.igEndMenu();
     }
+    if (ig.igBeginMenu("Map")) {
+        drawMapMenu(state, map_open);
+        ig.igEndMenu();
+    }
+    if (ig.igBeginMenu("Unit")) {
+        drawUnitMenu(state, map_open);
+        ig.igEndMenu();
+    }
+    // 05-06, D-32: Layers - the renderer's toggles and the fire ranges.
+    if (ig.igBeginMenu("Layers")) {
+        panels_m3.drawLayersMenu(state, map_open);
+        ig.igEndMenu();
+    }
     if (ig.igBeginMenu("Tools")) {
-        inline for (.{ .{ "Select", "1", Tool.select }, .{ "Brush", "2", Tool.brush }, .{ "Place", "3", Tool.place } }) |item| {
-            if (ig.igMenuItemEx(item[0], item[1], state.view.tool == item[2], true)) state.view.selectTool(editor, item[2]);
+        for (&tool_registry.entries) |*item| {
+            if (item.hidden) continue;
+            var shortcut_buffer: [2:0]u8 = undefined;
+            const shortcut = tool_registry.shortcutText(item, &shortcut_buffer);
+            if (ig.igMenuItemEx(item.label, if (shortcut.len == 0) null else shortcut.ptr, state.view.tool == item.id, true)) state.view.selectTool(editor, item.id);
         }
+        // M3, D-18: the Heights window (the MFC terrain tab's dialog) beside
+        // the tool it drives - the tool is the gesture, the window the fields.
+        ig.igSeparator();
+        if (ig.igMenuItemBoolPtr("Heights...", null, &state.heights_open, true)) {}
+        // M3, D-31: the Filters Composer (the MFC's CreateFilterDialog), a
+        // Tools window like every composer (D-06).
+        if (ig.igMenuItemBoolPtr("Filters Composer...", null, &state.filters_composer_open, true)) {}
+        // M3, D-06/D-11: the Containers and Graphs Composers (05-09).
+        if (ig.igMenuItemBoolPtr("Containers Composer...", null, &state.containers_open, true)) state.composers.ensureScanned(state.editor);
+        if (ig.igMenuItemBoolPtr("Graphs Composer...", null, &state.graphs_open, true)) state.composers.ensureScanned(state.editor);
+        // 05-10: the Fields Composer (the MFC's RMG_CreateFieldDialog).
+        if (ig.igMenuItemBoolPtr("Fields Composer...", null, &state.fields_composer_open, true)) state.composers.ensureScanned(state.editor);
+        // 05-10: the Templates Composer (the MFC's RMG_CreateTemplateDialog).
+        if (ig.igMenuItemBoolPtr("Templates Composer...", null, &state.templates_composer_open, true)) state.composers.ensureScanned(state.editor);
+        // M3, D-21: the Fields panel (the MFC's TabTerrainFieldsDialog).
+        if (ig.igMenuItemBoolPtr("Fields...", null, &state.fields_open, true)) {}
+        // M3, D-26: the Properties window (the MFC CPropertieDialog); it
+        // also opens on a double-click, Enter or Space on a selection.
+        if (ig.igMenuItemBoolPtr("Properties...", null, &state.properties_open, map_open)) {}
+        // 05-08, D-13: the MFC's Tools 0..3, each writing its list to
+        // <UserRoot>mapeditor/logs (ID_TOOL_4 is not a feature: it would
+        // rewrite Data).
+        if (ig.igBeginMenu("Export lists")) {
+            inline for (comptime std.enums.values(logic.ExportKind)) |kind| {
+                if (ig.igMenuItemEx(kind.menuLabel().ptr, null, false, true)) _ = commands.run(state, "export_lists", @tagName(kind));
+            }
+            ig.igEndMenu();
+        }
+        // 05-11, D-34 (PARITY T2): the game's extra command line and the default save format.
+        ig.igSeparator();
+        if (ig.igMenuItemEx("Options...", null, state.options_open, true)) panels_m3.openOptionsWindow(state);
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("View")) {
-        if (ig.igMenuItemEx("Reset view", "Home", false, map_open)) state.view.resetView(state.real);
+        drawViewMenu(state, map_open);
         ig.igEndMenu();
     }
     if (ig.igBeginMenu("Test")) {
-        if (ig.igMenuItemEx("Test in game", "F5", false, map_open)) requestTestLaunch(state);
+        if (ig.igMenuItemEx("Test in game", "F5", false, documentLoaded(editor))) requestTestLaunch(state);
+        ig.igEndMenu();
+    }
+    // 05-11, D-34 (PARITY H1/H2): the MFC's .chm is not shipped; Keys and tools
+    // is the help, About the product line.
+    if (ig.igBeginMenu("Help")) {
+        if (ig.igMenuItemBoolPtr("Keys and tools", "F1", &state.help_keys_open, true)) {}
+        if (ig.igMenuItemBoolPtr("About", null, &state.about_open, true)) {}
         ig.igEndMenu();
     }
     ig.igEndMainMenuBar();
     return height;
+}
+
+/// The floating windows the View menu lists beside the docked panels (PARITY
+/// V1: "every panel"). Each is one `bool` of State; the order is the menu's.
+pub const ViewWindow = enum {
+    heights,
+    fields,
+    minimap,
+    properties_window,
+    groups,
+    start_commands,
+    script,
+    unit_creation,
+    check_map,
+    filters_composer,
+    containers_composer,
+    graphs_composer,
+    fields_composer,
+    templates_composer,
+    options,
+    keys_and_tools,
+    about,
+};
+
+pub fn viewWindowLabel(window: ViewWindow) [:0]const u8 {
+    return switch (window) {
+        .heights => "Heights",
+        .fields => "Fields",
+        .minimap => "Minimap",
+        .properties_window => "Properties window",
+        .groups => "Reinforcement groups",
+        .start_commands => "Start commands",
+        .script => "Script",
+        .unit_creation => "Unit Creation Info",
+        .check_map => "Check Map",
+        .filters_composer => "Filters Composer",
+        .containers_composer => "Containers Composer",
+        .graphs_composer => "Graphs Composer",
+        .fields_composer => "Fields Composer",
+        .templates_composer => "Templates Composer",
+        .options => "Options",
+        .keys_and_tools => "Keys and tools",
+        .about => "About",
+    };
+}
+
+/// Whether the window's flag may be turned on with no map open.
+fn viewWindowNeedsMap(window: ViewWindow) bool {
+    return switch (window) {
+        .minimap, .properties_window, .groups, .start_commands, .script, .unit_creation, .check_map => true,
+        else => false,
+    };
+}
+
+pub fn viewWindowFlag(state: *State, window: ViewWindow) *bool {
+    return switch (window) {
+        .heights => &state.heights_open,
+        .fields => &state.fields_open,
+        .minimap => &state.minimap.visible,
+        .properties_window => &state.properties_open,
+        .groups => &state.groups_open,
+        .start_commands => &state.startcmds_open,
+        .script => &state.script_open,
+        .unit_creation => &state.uc_open,
+        .check_map => &state.check_open,
+        .filters_composer => &state.filters_composer_open,
+        .containers_composer => &state.containers_open,
+        .graphs_composer => &state.graphs_open,
+        .fields_composer => &state.fields_composer_open,
+        .templates_composer => &state.templates_composer_open,
+        .options => &state.options_open,
+        .keys_and_tools => &state.help_keys_open,
+        .about => &state.about_open,
+    };
+}
+
+/// Shows or hides one floating window as its View entry does: the composers
+/// scan their folders when they open, Options loads its fields fresh.
+pub fn setViewWindow(state: *State, window: ViewWindow, on: bool) void {
+    const flag = viewWindowFlag(state, window);
+    const was = flag.*;
+    flag.* = on;
+    if (on and !was) switch (window) {
+        .containers_composer, .graphs_composer, .fields_composer, .templates_composer => state.composers.ensureScanned(state.editor),
+        .options => panels_m3.openOptionsWindow(state),
+        else => {},
+    };
+}
+
+/// Shows or hides one of the docked panels or the status bar, and asks for the
+/// setting to be written.
+pub fn setPanelVisible(state: *State, id: logic.PanelId, visible: bool) void {
+    const bits = logic.withPanelHidden(state.settings.hidden_panels, id, !visible);
+    if (bits == state.settings.hidden_panels) return;
+    state.settings.hidden_panels = bits;
+    state.settings_changed = true;
+}
+
+/// View > Reset layout (PARITY V3, R15): every panel and window goes back to
+/// its first-use placement, the docked columns to their first widths and every
+/// hidden panel and the status bar are shown again. The windows' positions are
+/// ImGui's own ini state (kept under the user root by the interactive mode),
+/// which `bk_imgui_reset_window_layout` clears with them.
+fn resetLayout(state: *State) void {
+    state.layout_reset_pending = false;
+    ig.bk_imgui_reset_window_layout();
+    state.left_width = layout.left_width;
+    state.right_width = layout.right_width;
+    if (state.settings.hidden_panels != 0) {
+        state.settings.hidden_panels = 0;
+        state.settings_changed = true;
+    }
+    state.last_viewport_size = .{ .x = 0, .y = 0 }; // the docked panels take their place this frame
+}
+
+/// Whether the docked columns have the widths Reset layout gives them.
+pub fn columnsAtDefault(state: *const State) bool {
+    return state.left_width == layout.left_width and state.right_width == layout.right_width;
+}
+
+/// View (05-11, D-34): the view, the layout, every docked panel and floating
+/// window with a check, the status bar and the markers.
+fn drawViewMenu(state: *State, map_open: bool) void {
+    if (ig.igMenuItemEx("Reset view", "Home", false, map_open)) state.view.resetView(state.real);
+    if (ig.igMenuItemEx("Reset layout", null, false, true)) state.layout_reset_pending = true;
+    ig.igSeparator();
+    inline for (comptime std.enums.values(logic.PanelId)) |id| {
+        var shown = !logic.panelHidden(state.settings.hidden_panels, id);
+        if (ig.igMenuItemBoolPtr(logic.panelLabel(id).ptr, null, &shown, true)) setPanelVisible(state, id, shown);
+    }
+    ig.igSeparator();
+    inline for (comptime std.enums.values(ViewWindow)) |window| {
+        const flag = viewWindowFlag(state, window);
+        var on = flag.*;
+        if (ig.igMenuItemBoolPtr(viewWindowLabel(window).ptr, null, &on, map_open or !viewWindowNeedsMap(window))) setViewWindow(state, window, on);
+    }
+    ig.igSeparator();
+    if (ig.igBeginMenu("Markers")) {
+        inline for (comptime std.enums.values(marker_logic.MarkerKind)) |kind| {
+            var on = state.marker_set.has(kind);
+            if (ig.igMenuItemBoolPtr(kind.label(), null, &on, true)) state.marker_set.setKind(kind, on);
+        }
+        ig.igEndMenu();
+    }
+}
+
+/// A path handed over by a second launch (PARITY F13): validated like a drop,
+/// then queued through the unsaved-changes guard. The line it logs is the one
+/// the double-launch check looks for.
+pub fn openFromSecondInstance(state: *State, os_path: []const u8) void {
+    const verdict = logic.dropVerdict(os_path);
+    if (verdict != .open) {
+        var note: [256]u8 = undefined;
+        state.view.setStatus("second instance: ", logic.dropNote(&note, verdict, os_path));
+        return;
+    }
+    state.actions.requestOpenPath(os_path);
+    state.open_origin = .second_instance;
+    state.view.setStatus("opened from second instance: ", os_path);
+    std.debug.print("map-editor: opened from second instance: {s}\n", .{os_path});
+}
+
+/// A file dropped onto the window (PARITY F12): a map goes through the same
+/// unsaved-changes guard as File > Open Recent; anything else is ignored with
+/// a status note. The path is another program's input and is checked first.
+pub fn dropFile(state: *State, os_path: []const u8) bool {
+    const verdict = logic.dropVerdict(os_path);
+    if (verdict != .open) {
+        var note: [256]u8 = undefined;
+        state.view.setStatus("drop: ", logic.dropNote(&note, verdict, os_path));
+        return false;
+    }
+    state.actions.requestOpenPath(os_path);
+    state.open_origin = .dropped_file;
+    return true;
+}
+
+/// The Unit menu (04-11): start commands for the selected unit. "Add start
+/// command" is the MFC editor's Unit > Add Start Command, one command for the
+/// selected unit (a soldier's click already selected his squad); it needs a
+/// selected object and an action list (adding is off without
+/// Data/Editor/actions.ini, T-04-11-04).
+fn drawUnitMenu(state: *State, map_open: bool) void {
+    state.refreshStartActions();
+    const can_add = map_open and state.editor.selection != null and state.startcmd_actions.len != 0;
+    if (ig.igMenuItemEx("Add start command", null, false, can_add)) _ = commands.run(state, "startcmd_add", "");
+    if (ig.igMenuItemBoolPtr("Start commands...", null, &state.startcmds_open, map_open)) {}
+    ig.igSeparator();
+    if (ig.igMenuItemEx("Artillery positions mode", null, state.view.tool == .reserve_positions, map_open)) _ = commands.run(state, "reserve_mode", "");
+}
+
+/// Map > Player camera (D-22): the ground point under the screen's centre
+/// becomes the anchor of the current player (the placer's player) or the
+/// neutral one - the same commands the Camera anchors panel and
+/// BK_EDITOR_AUTO's `do=` run.
+fn drawMapMenu(state: *State, map_open: bool) void {
+    if (ig.igBeginMenu("Player camera")) {
+        const player: i32 = @max(state.view.placer.player, 0);
+        var label: [48:0]u8 = undefined;
+        const label_text = std.fmt.bufPrintZ(&label, "Set camera for player {d}", .{player}) catch "Set camera for player";
+        if (ig.igMenuItemEx(label_text, null, false, map_open)) _ = commands.setAnchorAtViewCentre(state, player);
+        if (ig.igMenuItemEx("Set neutral camera", null, false, map_open)) _ = commands.setAnchorAtViewCentre(state, commands.neutral_slot);
+        ig.igEndMenu();
+    }
+    // D-16: the Group Manager.
+    if (ig.igMenuItemBoolPtr("Reinforcement groups...", null, &state.groups_open, map_open)) {}
+    // D-20: the map's script file.
+    if (ig.igMenuItemBoolPtr("Script...", null, &state.script_open, map_open)) {}
+    // 05-05, D-30: the per-player Unit Creation Info (the MFC's Edit > Unit Creation Info).
+    if (ig.igMenuItemBoolPtr("Unit Creation Info...", null, &state.uc_open, map_open)) {}
+    // 05-05, D-33: the MFC's Check Map, its results in a window with jump-to, Fix all
+    // as one undo step; Save only says when the checks find something.
+    if (ig.igMenuItemEx("Check Map", null, false, map_open)) _ = commands.run(state, "check_map", "");
+    // 05-07, D-17: the minimap pictures beside the saved map - an explicit command, never part of Save.
+    if (ig.igMenuItemEx("Create Minimap Images", null, false, map_open)) _ = commands.run(state, "minimap_create", "");
+    // D-20/D-22 (M3): the terrain composite, the whole-map fill (its
+    // confirmation asks before the command runs) and the two toggles, whose
+    // live copy is the bridge session's and whose persisted copy is the
+    // settings'.
+    ig.igSeparator();
+    if (ig.igMenuItemEx("Update Map", update_shortcut_label, false, map_open)) _ = commands.mapUpdate(state, "");
+    if (ig.igMenuItemEx("Fill Entire Map...", null, false, map_open)) _ = ig.igOpenPopup("Fill Entire Map", 0);
+    var instant_on = state.settings.instant_update;
+    if (ig.igMenuItemBoolPtr("Instant Update Map Mode", null, &instant_on, map_open)) _ = commands.instantUpdate(state, "");
+    var fit_on = state.settings.fit_to_grid;
+    if (ig.igMenuItemBoolPtr("Fit Objects To Grid", null, &fit_on, map_open)) _ = commands.fitGrid(state, "");
 }
 
 /// File > Open Recent (D-27): every entry's existence, checked once for the
@@ -1397,7 +3088,7 @@ fn drawOpenRecentItems(state: *State) void {
 
 /// File > Mod (D-26): every installed mod, once for the frame the submenu
 /// newly opened - `BkEditorMods` itself, capped at the cache's own capacity.
-fn refreshModList(state: *State) void {
+pub fn refreshModList(state: *State) void {
     var count: c_int = 0;
     _ = c.BkEditorMods(state.real.session, &state.mod_list_buffer, @intCast(state.mod_list_buffer.len), &count);
     state.mod_list_count = if (count < 0) 0 else @min(@as(usize, @intCast(count)), state.mod_list_buffer.len);
@@ -1504,6 +3195,10 @@ fn performClose(state: *State) void {
 /// elsewhere - `closeShortcutPressed` takes either modifier on every
 /// platform, as view.zig's own Cmd/Ctrl+Z does.
 const close_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+W" else "Ctrl+W";
+const new_map_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+N" else "Ctrl+N";
+const save_xml_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+Shift+X" else "Ctrl+Shift+X";
+const save_bzm_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+Shift+B" else "Ctrl+Shift+B";
+const update_shortcut_label: [*:0]const u8 = if (builtin.os.tag == .macos) "Cmd+U" else "Ctrl+U";
 
 /// Cmd+W or Ctrl+W this frame, not while a text field is being typed in
 /// (the same WantTextInput rule F5 follows), and not held down (a held W
@@ -1513,6 +3208,322 @@ fn closeShortcutPressed() bool {
     if (io.*.WantTextInput) return false;
     if (!io.*.KeyCtrl and !io.*.KeySuper) return false;
     return ig.igIsKeyPressedEx(ig.ImGuiKey_W, false);
+}
+
+/// File > New (M3, D-23): Ctrl+N / Cmd+N.
+fn newMapShortcutPressed() bool {
+    const io = ig.igGetIO();
+    if (io.*.WantTextInput) return false;
+    if (!io.*.KeyCtrl and !io.*.KeySuper) return false;
+    return ig.igIsKeyPressedEx(ig.ImGuiKey_N, false);
+}
+
+/// Map > Update Map (M3, D-20): Ctrl+U / Cmd+U, the MFC's own accelerator.
+fn updateMapShortcutPressed() bool {
+    const io = ig.igGetIO();
+    if (io.*.WantTextInput) return false;
+    if (!io.*.KeyCtrl and !io.*.KeySuper) return false;
+    return ig.igIsKeyPressedEx(ig.ImGuiKey_U, false);
+}
+
+/// File > Save as XML / Save as BZM (M3, D-24): Ctrl+Shift+X / Ctrl+Shift+B
+/// (the MFC editor's Ctrl+X and Ctrl+B are Cut and Bold in ImGui text
+/// fields, so the portable editor adds the Shift).
+fn saveAsFormatShortcutPressed() ?core.settings.Format {
+    const io = ig.igGetIO();
+    if (io.*.WantTextInput) return null;
+    if (!io.*.KeyCtrl and !io.*.KeySuper) return null;
+    if (!io.*.KeyShift) return null;
+    if (ig.igIsKeyPressedEx(ig.ImGuiKey_X, false)) return .xml;
+    if (ig.igIsKeyPressedEx(ig.ImGuiKey_B, false)) return .bzm;
+    return null;
+}
+
+/// A Save As with the format named (M3, D-24): the forced format rides the
+/// request, so a path delivered without an extension gets this one rather
+/// than the setting's default. A plain Save As (the menu item) clears the
+/// forcing first. Public: the file_save_xml/bzm commands call it.
+pub fn requestSaveAsFormat(state: *State, which: core.settings.Format) void {
+    if (!mapIsOpen(state.editor)) return;
+    state.save_as_format_forced = which;
+    state.actions.save_as_requested = true;
+}
+
+/// Opens the New Map dialog with the fields as they were last left (M3,
+/// D-23), the name field seeded with the newest never-saved map's name.
+fn openNewMapDialog(state: *State) void {
+    const name = state.new_map_fields.name.slice();
+    @memset(&state.new_map_name_edit, 0);
+    const len = @min(name.len, state.new_map_name_edit.len - 1);
+    @memcpy(state.new_map_name_edit[0..len], name[0..len]);
+    state.new_map_dialog_open = true;
+}
+
+/// Opens the Create Random Map dialog (05-08, D-01) with the fields as they
+/// were last left: the template, context and setting lists are read afresh
+/// (a mod switch changes them), the edit buffers loaded from the fields.
+pub fn openRmgDialog(state: *State) void {
+    readRmgNames(state, .templates, &state.rmg_templates, false);
+    readRmgNames(state, .chapters, &state.rmg_contexts, true);
+    readRmgNames(state, .settings, &state.rmg_settings, false);
+    syncRmgEdits(state);
+    refreshRmgGraphCount(state);
+    state.rmg_message_len = 0;
+    state.rmg_open = true;
+}
+
+/// The dialog's OK (and `rmg_dialog:ok`): the fields become the bridge's
+/// params and the progress modal takes over (`announce`, then `run`, then
+/// `done` - drawRmgProgress). False, with the dialog kept and its note saying
+/// why, when the fields are not enough or the seed is not a number.
+pub fn startRmgGeneration(state: *State) bool {
+    const fields = &state.rmg_fields;
+    if (state.rmg_phase != .idle) return false;
+    var note: []const u8 = "";
+    if (!fields.okEnabled()) {
+        note = "a template, a context and a map name are needed";
+    } else if (fields.toParams()) |params| {
+        state.rmg_params = params;
+        state.rmg_progress = .{};
+        state.rmg_message_len = 0;
+        state.rmg_open = false;
+        state.rmg_announce_left = 2;
+        state.rmg_phase = .announce;
+        return true;
+    } else {
+        note = "the seed is a whole number, or blank for a fresh one";
+    }
+    @memcpy(state.rmg_message[0..note.len], note);
+    state.rmg_message_len = note.len;
+    return false;
+}
+
+/// The result modal's Open map (and `rmg_dialog:open_map`): the generated file
+/// opens as a normal document through the open path (D-02), guarded by the
+/// unsaved-changes prompt like any Open.
+pub fn openGeneratedRmgMap(state: *State) void {
+    state.actions.requestOpenPath(state.rmg_result.mapPathSlice());
+    state.rmg_phase = .idle;
+    state.rmg_popup_opened = false;
+}
+
+/// The dialog's text edit buffers (the map name and the seed) loaded from the
+/// fields - on open, and after a script set one of them.
+pub fn syncRmgEdits(state: *State) void {
+    const name = state.rmg_fields.map_name.slice();
+    const name_len = @min(name.len, state.rmg_map_edit.len - 1);
+    @memset(&state.rmg_map_edit, 0);
+    @memcpy(state.rmg_map_edit[0..name_len], name[0..name_len]);
+    const seed = state.rmg_fields.seed.slice();
+    const seed_len = @min(seed.len, state.rmg_seed_edit.len - 1);
+    @memset(&state.rmg_seed_edit, 0);
+    @memcpy(state.rmg_seed_edit[0..seed_len], seed[0..seed_len]);
+}
+
+/// One RMG folder's names into `list` (replacing it), the bridge's two-pass
+/// read: the sizing pass is refused with the total when the folder lists
+/// anything. `contexts_only` keeps the chapters' own `context` files, the
+/// MFC combo's contents. A failed read leaves the list empty.
+fn readRmgNames(state: *State, kind: core.bridge.RmgKind, list: *std.ArrayListUnmanaged(core.bridge.RmgName), contexts_only: bool) void {
+    list.clearRetainingCapacity();
+    var total: usize = 0;
+    _ = state.editor.bridge.listRmg(kind, &.{}, &total);
+    if (total == 0) return;
+    const names = state.allocator.alloc(core.bridge.RmgName, total) catch return;
+    defer state.allocator.free(names);
+    var read_total: usize = 0;
+    if (state.editor.bridge.listRmg(kind, names, &read_total) != .ok) return;
+    for (names[0..@min(read_total, names.len)]) |entry| {
+        if (contexts_only and !logic.isContextName(entry.nameSlice())) continue;
+        list.append(state.allocator, entry) catch return;
+    }
+}
+
+/// How many graphs the chosen template lists, for the graph field's range
+/// (the sizing pass of BkEditorRmgTemplateGraphs); -1 when it is not known.
+pub fn refreshRmgGraphCount(state: *State) void {
+    state.rmg_graph_count = -1;
+    var buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
+    const template = std.fmt.bufPrintZ(&buffer, "{s}", .{state.rmg_fields.template.slice()}) catch return;
+    if (template.len == 0) return;
+    var total: usize = 0;
+    const status = state.editor.bridge.rmgTemplateGraphs(template.ptr, &.{}, &total);
+    if (status == .ok or status == .refused) {
+        if (total > 0) state.rmg_graph_count = @intCast(total);
+    }
+}
+
+/// Browse next to the template or context combo: the OS file dialog over the
+/// game's Data folder (never taken with OS dialogs off - a scripted run names
+/// its files through `rmg_generate`).
+pub fn browseRmg(state: *State, target: u8) void {
+    if (!state.os_dialogs) return;
+    if (!rmg_slot.request(.open)) return;
+    state.rmg_browse_target = target;
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+    var default_location: ?[*:0]const u8 = null;
+    const sub: []const u8 = if (target == 1) "Scenarios" ++ std.fs.path.sep_str ++ "Templates" else "Scenarios" ++ std.fs.path.sep_str ++ "Chapters";
+    if (std.fmt.bufPrint(&folder_buffer, "{s}Data{c}{s}", .{ baseRoot(state), std.fs.path.sep, sub })) |folder| {
+        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
+    } else |_| {}
+    state.os_dialogs_opened += 1;
+    sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &rmg_slot, state.window, &rmg_filters, rmg_filters.len, default_location, false);
+}
+
+/// Browse in the Containers Composer's patch picker (05-09, D-10): the OS
+/// dialog over the game's Data patches folder. A map inside Data is added by
+/// its storage name, one outside is offered the copy into the user RMG root
+/// (`pollPatchBrowse`).
+pub fn browsePatch(state: *State) void {
+    if (!state.os_dialogs) return;
+    if (!patch_slot.request(.open)) return;
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+    var default_location: ?[*:0]const u8 = null;
+    if (std.fmt.bufPrint(&folder_buffer, "{s}Data{c}Scenarios{c}Patches", .{ baseRoot(state), std.fs.path.sep, std.fs.path.sep })) |folder| {
+        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
+    } else |_| {}
+    state.os_dialogs_opened += 1;
+    sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &patch_slot, state.window, &map_filters, map_filters.len, default_location, false);
+}
+
+/// Each frame: what the patch Browse answered, once.
+fn pollPatchBrowse(state: *State) void {
+    const result = patch_slot.take() orelse return;
+    switch (result) {
+        .cancelled => {},
+        .failed => |message| state.view.setStatus("the file dialog failed: ", message),
+        .path => |chosen| {
+            var buffer: [core.bridge.field_set_name_capacity]u8 = undefined;
+            if (logic.patchNameFromBrowse(&buffer, baseRoot(state), chosen.path)) |name| {
+                var names = [_][]const u8{name};
+                _ = state.composers.addPatches(state.editor, &names) catch {};
+                state.view.setStatus("containers: ", state.composers.message());
+            } else if (state.composers.beginImport(state.editor, chosen.path)) |_| {
+                state.cc_popup = .import_copy;
+            } else |_| {
+                state.view.setStatus("containers: ", state.composers.message());
+            }
+        },
+    }
+}
+
+/// Each frame: what a Browse dialog answered, once. A file inside the game's
+/// Data folder becomes the template or context (its storage-relative name);
+/// anything else is said to be outside the data.
+fn pollRmgBrowse(state: *State) void {
+    const result = rmg_slot.take() orelse return;
+    const target = state.rmg_browse_target;
+    state.rmg_browse_target = 0;
+    switch (result) {
+        .cancelled => {},
+        .failed => |message| state.view.setStatus("the file dialog failed: ", message),
+        .path => |chosen| {
+            var buffer: [core.bridge.field_set_name_capacity]u8 = undefined;
+            const name = logic.storageNameFromBrowse(&buffer, baseRoot(state), chosen.path) orelse {
+                const note = "that file is not inside the game's Data folder";
+                @memcpy(state.rmg_message[0..note.len], note);
+                state.rmg_message_len = note.len;
+                return;
+            };
+            if (target == 1) {
+                state.rmg_fields.template.set(name);
+                refreshRmgGraphCount(state);
+            } else if (target == 2) {
+                state.rmg_fields.context.set(name);
+            }
+            state.rmg_message_len = 0;
+        },
+    }
+}
+
+/// The New Map dialog (M3, D-23): the MFC CNewMapDialog's own fields - size
+/// X/Y in patches with a Square lock, the season, the name, and the mod
+/// (current / none / an installed folder). Create runs through the
+/// unsaved-changes prompt like Open, and the map is built by `act` once it
+/// has been answered.
+fn drawNewMapDialog(state: *State) void {
+    if (!state.new_map_dialog_open) return;
+    if (!ig.igBegin("New Map", &state.new_map_dialog_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        ig.igEnd();
+        return;
+    }
+    defer ig.igEnd();
+    ig.igText("A new map is never saved: the first save is a Save As.");
+    var size_x = state.new_map_fields.size_x;
+    if (ig.igInputIntEx("Size X", &size_x, 1, 4, 0)) {
+        state.new_map_fields.size_x = size_x;
+        if (state.new_map_square) state.new_map_fields.size_y = size_x;
+    }
+    var size_y = state.new_map_fields.size_y;
+    if (ig.igInputIntEx("Size Y", &size_y, 1, 4, 0)) {
+        state.new_map_fields.size_y = size_y;
+        if (state.new_map_square) state.new_map_fields.size_x = size_y;
+    }
+    _ = ig.igCheckbox("Square", &state.new_map_square);
+    if (state.new_map_square) state.new_map_fields.size_y = state.new_map_fields.size_x;
+    var season: c_int = state.new_map_fields.season;
+    if (ig.igCombo("Season", &season, "Summer\x00Winter\x00Africa\x00Spring\x00") and season != state.new_map_fields.season)
+        state.new_map_fields.season = season;
+    _ = ig.igInputTextWithHint("Name", "new map", &state.new_map_name_edit, state.new_map_name_edit.len + 1, 0);
+
+    // The mod, the MFC dialog's combo: the current one, none, or an
+    // installed folder ("" is "current" in the params' own meaning, "none"
+    // the literal the bridge answers).
+    refreshModList(state);
+    var mod_choice: c_int = 0;
+    if (std.mem.eql(u8, state.new_map_fields.mod_folder.slice(), "none")) mod_choice = 1;
+    var index: usize = 0;
+    while (index < state.mod_list_count) : (index += 1) {
+        if (std.mem.eql(u8, state.new_map_fields.mod_folder.slice(), std.mem.sliceTo(&state.mod_list_buffer[index].folder, 0)))
+            mod_choice = @intCast(index + 2);
+    }
+    var preview_buffer: [128:0]u8 = undefined;
+    const preview: [*:0]const u8 = modPreview(&preview_buffer, state, mod_choice);
+    if (ig.igBeginCombo("Mod", preview, 0)) {
+        if (ig.igSelectableEx("current mod", mod_choice == 0, 0, .{ .x = 0, .y = 0 })) {
+            state.new_map_fields.mod_folder.set("");
+            mod_choice = 0;
+        }
+        if (ig.igSelectableEx("none", mod_choice == 1, 0, .{ .x = 0, .y = 0 })) {
+            state.new_map_fields.mod_folder.set("none");
+            mod_choice = 1;
+        }
+        index = 0;
+        while (index < state.mod_list_count) : (index += 1) {
+            const mod = state.mod_list_buffer[index];
+            var label_buffer: [128:0]u8 = undefined;
+            const label = std.fmt.bufPrintZ(&label_buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch continue;
+            if (ig.igSelectableEx(label.ptr, mod_choice == @as(c_int, @intCast(index + 2)), 0, .{ .x = 0, .y = 0 }))
+                state.new_map_fields.mod_folder.set(std.mem.sliceTo(&mod.folder, 0));
+        }
+        ig.igEndCombo();
+    }
+
+    ig.igSpacing();
+    const create = ig.igButton("Create") and blk: {
+        state.new_map_fields.name.set(std.mem.sliceTo(&state.new_map_name_edit, 0));
+        break :blk state.new_map_fields.clampToValid();
+    };
+    ig.igSameLine();
+    const cancel = ig.igButton("Cancel");
+    if (create or cancel) state.new_map_dialog_open = false;
+    if (create) {
+        // The prompt, if any, asks before the map is built - exactly Open's
+        // own guard - and `act` builds it once answered.
+        state.actions.requestNewMap(state.new_map_fields);
+    }
+}
+
+/// The mod combo's preview text: "current mod", "none", or the chosen
+/// mod's own "name version".
+fn modPreview(buffer: *[128:0]u8, state: *State, choice: c_int) [*:0]const u8 {
+    if (choice == 0) return "current mod";
+    if (choice == 1) return "none";
+    const mod = state.mod_list_buffer[@intCast(choice - 2)];
+    const shown = std.fmt.bufPrintZ(buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch return "current mod";
+    return shown.ptr;
 }
 
 /// Every panel's widgets leave room for their labels to the right.
@@ -1527,7 +3538,7 @@ const label_room: f32 = 110;
 /// width right after `igBegin` - the caller's column keeps whatever width the
 /// user last dragged it to, even on an `Always` frame, because `size.x` was
 /// itself read back from here the frame before.
-fn beginPanel(name: [*:0]const u8, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond, track_width: ?*f32) bool {
+pub fn beginPanel(name: [*:0]const u8, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond, track_width: ?*f32) bool {
     ig.igSetNextWindowPos(pos, cond);
     ig.igSetNextWindowSize(size, cond);
     const open = ig.igBegin(name, null, ig.ImGuiWindowFlags_NoCollapse);
@@ -1539,12 +3550,12 @@ fn beginPanel(name: [*:0]const u8, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImG
 }
 
 /// Ends what beginPanel began; igEnd whether or not it was open.
-fn endPanel(open: bool) void {
+pub fn endPanel(open: bool) void {
     if (open) ig.igPopItemWidth();
     ig.igEnd();
 }
 
-fn text(slice: []const u8) void {
+pub fn text(slice: []const u8) void {
     ig.igTextUnformattedEx(slice.ptr, slice.ptr + slice.len);
 }
 
@@ -1553,12 +3564,22 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
     defer endPanel(open);
     if (!open) return;
     const view = state.view;
-    inline for (.{ .{ "Select", Tool.select }, .{ "Brush", Tool.brush }, .{ "Place", Tool.place } }, 0..) |item, index| {
-        if (index != 0) ig.igSameLine();
-        const active = view.tool == item[1];
+    // The buttons flow onto a new row when the next would not fit (04-06: a
+    // fifth tool did not fit the default panel width and was clipped).
+    const style = ig.igGetStyle();
+    const right_edge = ig.igGetCursorScreenPos().x + ig.igGetContentRegionAvail().x;
+    var first_button = true;
+    for (&tool_registry.entries) |*item| {
+        if (item.hidden) continue;
+        defer first_button = false;
+        if (!first_button) {
+            const width = ig.igCalcTextSize(item.label).x + 2 * style.*.FramePadding.x;
+            if (ig.igGetItemRectMax().x + style.*.ItemSpacing.x + width <= right_edge) ig.igSameLine();
+        }
+        const active = view.tool == item.id;
         // The active tool's button wears the pressed colour.
         if (active) ig.igPushStyleColorImVec4(ig.ImGuiCol_Button, ig.igGetStyleColorVec4(ig.ImGuiCol_ButtonActive).*);
-        if (ig.igButton(item[0])) view.selectTool(state.editor, item[1]);
+        if (ig.igButton(item.label)) view.selectTool(state.editor, item.id);
         if (active) ig.igPopStyleColor();
     }
     ig.igSeparatorText("Brush");
@@ -1577,8 +3598,22 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
     } else {
         drawTilePicker(state);
     }
-    var radius: c_int = view.brush.radius;
-    if (ig.igSliderInt("radius", &radius, 0, 4)) view.brush.radius = radius;
+    // M3, D-22/PARITY V4: the MFC toolbar's own combo - 1x1..16x16, even
+    // sizes included, 2x2 the default - in place of M1's 0..4 radius slider.
+    var brush_label: [10:0]u8 = undefined;
+    const label = std.fmt.bufPrintZ(&brush_label, "{d}x{d}", .{ view.brush.size, view.brush.size }) catch "2x2";
+    if (ig.igBeginCombo("brush", label.ptr, 0)) {
+        var brush_choice: i32 = 1;
+        while (brush_choice <= 16) : (brush_choice += 1) {
+            var entry_buffer: [10:0]u8 = undefined;
+            const entry = std.fmt.bufPrintZ(&entry_buffer, "{d}x{d}", .{ brush_choice, brush_choice }) catch continue;
+            if (ig.igSelectableEx(entry.ptr, view.brush.size == brush_choice, 0, .{ .x = 0, .y = 0 })) {
+                view.brush.size = brush_choice;
+                state.view.clearStatus();
+            }
+        }
+        ig.igEndCombo();
+    }
     if (state.tile_pictures.queue.pendingCount() != 0) {
         if (state.real.gpuDevice()) |device| state.tile_pictures.pump(state.real, device, tile_picture_pump_budget);
     }
@@ -1688,6 +3723,20 @@ fn drawTileCell(state: *State, entry: logic.TileEntry, cell_height: f32) void {
         text(logic.tileLabel(&label, entry));
         ig.igEndTooltip();
     }
+    // Tile properties (M3, D-35/TR2): the palette's context menu shows the
+    // read-only tile name and its terrain type's variant count - for every
+    // tile, tile 0 included (the MFC's `> 0` guard,
+    // TabTileEditDialog.cpp:316, is not copied).
+    if (ig.igBeginPopupContextItem()) {
+        if (state.real.describeTile(entry.tile)) |info| {
+            var line: [128]u8 = undefined;
+            text(std.fmt.bufPrint(&line, "{s}", .{std.mem.sliceTo(&info.terrain, 0)}) catch "?");
+            text(std.fmt.bufPrint(&line, "{d} variants", .{info.variant_count}) catch "? variants");
+        } else {
+            text("no properties");
+        }
+        ig.igEndPopup();
+    }
     // Requested only once the cell scrolls into view: a tileset's texture
     // is decoded once, and its tiles cost little, but there is no call for
     // pictures nobody looks at.
@@ -1726,12 +3775,66 @@ fn drawTilePicture(state: *State, key: []const u8, width: f32, height: f32, top_
     }
 }
 
+/// The Fields Composer's objects tab (RMG_FieldObjectsDialog.cpp
+/// FillAvailableObjects): the objects the palette offers (the catalogue's
+/// placeable ones - the MFC's CommonFilterName) whose folder the chosen filter
+/// passes, by name; nothing while no filter is chosen. `fc_avail` holds
+/// catalogue indices, rebuilt only when the catalogue, the filter or the text
+/// moved.
+pub fn refreshAvailableObjects(state: *State) void {
+    const filter_name = std.mem.sliceTo(&state.fc_filter, 0);
+    const text_filter = std.mem.sliceTo(&state.fc_text_filter, 0);
+    if (state.fc_avail_catalogue_seen == state.catalogue_generation and state.fc_avail_catalogue_seen != 0 and
+        std.mem.eql(u8, std.mem.sliceTo(&state.fc_avail_filter_seen, 0), filter_name) and
+        std.mem.eql(u8, std.mem.sliceTo(&state.fc_avail_text_seen, 0), text_filter) and state.editor.filters_generation == state.fc_filters_seen) return;
+    state.fc_avail_catalogue_seen = state.catalogue_generation;
+    state.fc_filters_seen = state.editor.filters_generation;
+    @memset(&state.fc_avail_filter_seen, 0);
+    @memcpy(state.fc_avail_filter_seen[0..filter_name.len], filter_name);
+    @memset(&state.fc_avail_text_seen, 0);
+    @memcpy(state.fc_avail_text_seen[0..text_filter.len], text_filter);
+    state.fc_avail.clearRetainingCapacity();
+    state.fc_avail_selected.clearRetainingCapacity();
+    if (filter_name.len == 0) return;
+    var view_scratch: core.bridge.FilterView = undefined;
+    var chosen: ?core.filters.Filter = null;
+    for (state.editor.filtersSlice()) |*candidate| {
+        if (std.mem.eql(u8, candidate.nameSlice(), filter_name)) {
+            chosen = candidate.view(&view_scratch);
+            break;
+        }
+    }
+    const filter = chosen orelse return;
+    for (state.catalogue, 0..) |*entry, index| {
+        if (entry.placeable == 0) continue;
+        const path = std.mem.sliceTo(&entry.path, 0);
+        if (!filter.matches(path)) continue;
+        if (text_filter.len != 0 and std.ascii.indexOfIgnoreCase(std.mem.sliceTo(&entry.name, 0), text_filter) == null) continue;
+        state.fc_avail.append(state.allocator, index) catch return;
+    }
+    const order = struct {
+        fn less(catalogue: []const CatalogueEntry, a: usize, b: usize) bool {
+            return std.mem.lessThan(u8, std.mem.sliceTo(&catalogue[a].name, 0), std.mem.sliceTo(&catalogue[b].name, 0));
+        }
+    };
+    std.mem.sort(usize, state.fc_avail.items, @as([]const CatalogueEntry, state.catalogue), order.less);
+}
+
 fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond) void {
     const open = beginPanel("Objects", pos, size, cond, null);
     defer endPanel(open);
     if (!open) return;
+    // M3, D-28: the direction wheel shares the filter input's row (the
+    // input gives up its right margin), so the rows below keep the heights
+    // the M1/M2 reference frames were captured with.
+    ig.igPushItemWidth(ig.igGetContentRegionAvail().x - 56);
     _ = ig.igInputTextWithHint("##filter", "filter", &state.filter, state.filter.len + 1, 0);
+    ig.igPopItemWidth();
     const filter = std.mem.sliceTo(&state.filter, 0);
+    ig.igSameLine();
+    panels_m3.drawDirectionWheel(state, 48);
+    ig.igNewLine();
+    drawPaletteFilters(state);
     if (state.catalogue.len == 0) {
         text("the object catalogue is empty");
         return;
@@ -1743,7 +3846,7 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
         var end = start;
         var matches: usize = 0;
         while (end < state.order.len and state.catalogue[state.order[end]].game_type == game_type) : (end += 1) {
-            if (logic.matchesFilter(std.mem.sliceTo(&state.catalogue[state.order[end]].name, 0), filter)) matches += 1;
+            if (logic.paletteObjectVisible(std.mem.sliceTo(&state.catalogue[state.order[end]].name, 0), std.mem.sliceTo(&state.catalogue[state.order[end]].path, 0), filter, state.active_filters)) matches += 1;
         }
         defer start = end;
         if (matches == 0) continue;
@@ -1756,7 +3859,7 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
         for (state.order[start..end]) |index| {
             const entry = &state.catalogue[index];
             const name = std.mem.sliceTo(&entry.name, 0);
-            if (!logic.matchesFilter(name, filter)) continue;
+            if (!logic.paletteObjectVisible(name, std.mem.sliceTo(&entry.path, 0), filter, state.active_filters)) continue;
             ig.igPushIDInt(@intCast(index));
             defer ig.igPopID();
             // D-29: a picture per object, decoded by the engine on demand -
@@ -1778,6 +3881,123 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
     if (state.real.gpuDevice()) |device| state.pictures.pump(state.real, device, picture_pump_budget);
 }
 
+/// Rebuilds the palette's active-filter cache over the editor's current list
+/// (M3, D-31): called when `filters_generation` moves, and by the filter
+/// commands when the combo, a slot or its check changes. The borrowed views
+/// read the editor's own records; the scratch lives in State.
+pub fn refreshActiveFilters(state: *State) void {
+    var slots: [core.settings.Settings.filter_slot_count][]const u8 = undefined;
+    for (0..core.settings.Settings.filter_slot_count) |i| slots[i] = state.settings.filterSlot(i);
+    var indices: [logic.max_active_filters]usize = undefined;
+    const count = logic.collectActiveFilterIndices(state.settings.filter_active.slice(), slots, state.filter_checked, state.editor.filtersSlice(), &indices);
+    const filters = state.editor.filtersSlice();
+    for (0..count) |i| {
+        state.filter_views[i] = .{};
+        state.active_filter_values[i] = filters[indices[i]].view(&state.filter_views[i]);
+    }
+    state.active_filters = state.active_filter_values[0..count];
+    state.filters_generation_seen = state.editor.filters_generation;
+}
+
+/// The palette's filter row (M3, D-31): the nine quick toggles (three per
+/// line, the MFC's check row), the filter combo and New/Delete Filter -
+/// every control a named command, so BK_EDITOR_AUTO drives the same path.
+/// Ctrl+click on a toggle assigns the combo's filter to that slot (the MFC
+/// editor's UpdateCheck); a plain click toggles its gate.
+fn drawPaletteFilters(state: *State) void {
+    if (state.filters_generation_seen != state.editor.filters_generation) refreshActiveFilters(state);
+    const slot_count = core.settings.Settings.filter_slot_count;
+    var i: usize = 0;
+    while (i < slot_count) : (i += 1) {
+        var id_buffer: [32:0]u8 = undefined;
+        const label = std.fmt.bufPrintZ(&id_buffer, "##filterslot{d}", .{i}) catch continue;
+        const was = state.filter_checked[i];
+        var now = was;
+        if (ig.igCheckbox(label.ptr, &now)) {
+            var arg: [8:0]u8 = undefined;
+            const slot_arg = std.fmt.bufPrintZ(&arg, "{d}", .{i}) catch "";
+            const io = ig.igGetIO();
+            if (io.*.KeyCtrl or io.*.KeySuper) {
+                // The click was an assignment, not a toggle: the check is
+                // put back and the command decides whether it could assign.
+                _ = commands.run(state, "filter_assign", slot_arg);
+                state.filter_checked[i] = was;
+            } else {
+                _ = commands.run(state, "filter_toggle", slot_arg);
+            }
+        }
+        ig.igSameLine();
+        const slot_name = state.settings.filterSlot(i);
+        text(if (slot_name.len != 0) slot_name else "-");
+        if ((i + 1) % 3 != 0 and i + 1 < slot_count) ig.igSameLine();
+    }
+
+    const combo_name = state.settings.filter_active.slice();
+    var preview_buffer: [65:0]u8 = undefined;
+    const shown: [:0]const u8 = std.fmt.bufPrintZ(&preview_buffer, "{s}", .{if (combo_name.len != 0) combo_name else "(no filter)"}) catch "(no filter)";
+    if (ig.igBeginCombo("##filtercombo", shown.ptr, 0)) {
+        if (ig.igSelectableEx("(no filter)", combo_name.len == 0, 0, .{ .x = 0, .y = 0 })) {
+            _ = commands.run(state, "filter_select", "");
+        }
+        for (state.editor.filtersSlice()) |*entry| {
+            const name = entry.nameSlice();
+            var name_buffer: [65:0]u8 = undefined;
+            const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{name}) catch continue;
+            if (ig.igSelectableEx(name_z.ptr, std.mem.eql(u8, name, combo_name), 0, .{ .x = 0, .y = 0 })) {
+                _ = commands.run(state, "filter_select", name);
+            }
+        }
+        ig.igEndCombo();
+    }
+    ig.igSameLine();
+    if (ig.igSmallButton("New Filter")) state.filter_new_popup = true;
+    ig.igSameLine();
+    if (ig.igSmallButton("Delete Filter")) {
+        if (combo_name.len != 0 and combo_name.len < state.filter_delete_popup.len) {
+            @memcpy(state.filter_delete_popup[0..combo_name.len], combo_name[0..combo_name.len]);
+            state.filter_delete_popup[combo_name.len] = 0;
+            _ = ig.igOpenPopup("Delete filter?", 0);
+        } else if (combo_name.len != 0) {
+            // CR-A03: a hand-edited mapeditor.cfg can name more than the popup's buffer holds.
+            state.view.setStatus("filter: ", "that filter name is too long to delete here");
+        }
+    }
+    drawPaletteFilterPopups(state);
+}
+
+/// The palette's New Filter popup (the MFC's CreateFilterNameDialog, ImGui
+/// shaped) and the Delete confirmation (the MFC's own question).
+fn drawPaletteFilterPopups(state: *State) void {
+    if (state.filter_new_popup) {
+        state.filter_new_popup = false;
+        state.filter_new_edit = [_:0]u8{0} ** 64;
+        _ = ig.igOpenPopup("New filter", 0);
+    }
+    if (ig.igBeginPopupModal("New filter", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        _ = ig.igInputTextWithHint("##newfiltername", "name", &state.filter_new_edit, state.filter_new_edit.len + 1, 0);
+        if (ig.igButton("OK")) {
+            _ = commands.run(state, "filter_new", std.mem.sliceTo(&state.filter_new_edit, 0));
+            ig.igCloseCurrentPopup();
+        }
+        ig.igSameLine();
+        if (ig.igButton("Cancel")) ig.igCloseCurrentPopup();
+        ig.igEndPopup();
+    }
+    if (ig.igBeginPopupModal("Delete filter?", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+        var buffer: [96]u8 = undefined;
+        const message = std.fmt.bufPrint(&buffer, "Do you really want to DELETE the filter \"{s}\"?", .{std.mem.sliceTo(&state.filter_delete_popup, 0)}) catch
+            "Do you really want to DELETE this filter?";
+        text(message);
+        if (ig.igButton("Delete")) {
+            _ = commands.run(state, "filter_delete", std.mem.sliceTo(&state.filter_delete_popup, 0));
+            ig.igCloseCurrentPopup();
+        }
+        ig.igSameLine();
+        if (ig.igButton("Cancel")) ig.igCloseCurrentPopup();
+        ig.igEndPopup();
+    }
+}
+
 /// Names decoded through the bridge per frame (Pictures.pump's budget).
 /// Task 1's engine tier measured 2.226 ms/decode on this host - opening a
 /// group of 300 objects at once queues all 300, but this budget caps any one
@@ -1785,7 +4005,7 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
 /// under a 33 ms (30 fps) frame for the GPU upload and the rest of the
 /// panels and the engine's own frame; the remaining names simply arrive a
 /// few frames later (03-09-SUMMARY.md).
-const picture_pump_budget: usize = 8;
+pub const picture_pump_budget: usize = 8;
 
 /// One palette row's picture cell, always `palette_picture_size` square:
 /// a neutral bordered frame drawn first - visible the instant the row is
@@ -1803,7 +4023,7 @@ const picture_pump_budget: usize = 8;
 /// picture may still land this frame or the next. Never a per-type symbol
 /// either way.
 const palette_picture_size: f32 = 48;
-fn drawPaletteRowPicture(state: *State, name: []const u8) void {
+pub fn drawPaletteRowPicture(state: *State, name: []const u8) void {
     const top_left = ig.igGetCursorScreenPos();
     const draw_list = ig.igGetWindowDrawList();
     ig.ImDrawList_AddRect(draw_list, .{ .x = top_left.x, .y = top_left.y }, .{ .x = top_left.x + palette_picture_size, .y = top_left.y + palette_picture_size }, ig.igGetColorU32(ig.ImGuiCol_Border));
@@ -1823,7 +4043,7 @@ fn drawPaletteRowPicture(state: *State, name: []const u8) void {
     ig.igDummy(.{ .x = palette_picture_size, .y = palette_picture_size });
 }
 
-fn pictureTextureRef(texture: *sdl3.c.SDL_GPUTexture) ig.ImTextureRef {
+pub fn pictureTextureRef(texture: *sdl3.c.SDL_GPUTexture) ig.ImTextureRef {
     return .{ ._TexData = null, ._TexID = @intCast(@intFromPtr(texture)) };
 }
 
@@ -1879,6 +4099,7 @@ fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGui
             .degrees = logic.dirToDegrees(record.dir),
             .degrees_shown = logic.dirToDegrees(record.dir),
             .player = record.player,
+            .script_id = record.script_id,
         };
     }
     var active = false;
@@ -1897,6 +4118,15 @@ fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGui
     _ = ig.igSliderInt("player", &edit.player, 0, player_max);
     active = active or ig.igIsItemActive();
     committed = committed or ig.igIsItemDeactivatedAfterEdit();
+    // D-15: the object's script ID, which a reinforcement group names and a
+    // Lua script finds the object by. -1 is none.
+    _ = ig.igInputIntEx("Script ID", &edit.script_id, 1, 10, 0);
+    active = active or ig.igIsItemActive();
+    committed = committed or ig.igIsItemDeactivatedAfterEdit();
+    if (edit.script_id == -1) {
+        ig.igSameLine();
+        text("none");
+    }
     edit.active = active;
 
     if (committed) {
@@ -1908,7 +4138,8 @@ fn drawProperties(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGui
 /// The fields' pose, as one `editor.place` with gesture 0: one typed
 /// number, one undo step. A refused pose leaves the object as it was; the
 /// fields reload from it next frame. An object gone or no longer editable
-/// takes nothing.
+/// takes nothing. The Script ID field commits the same way, as one
+/// `editor.setScriptID` of its own.
 fn commitEdit(state: *State, link_id: i32) void {
     const editor = state.editor;
     const edit = &state.edit;
@@ -1922,8 +4153,10 @@ fn commitEdit(state: *State, link_id: i32) void {
     // that pattern used to produce - this is the same check one layer up, so
     // the common case (nothing was actually typed) never reaches the bridge
     // at all. Editor.place's check stays as the backstop.
-    if (pose.x == original.x and pose.y == original.y and pose.dir == original.dir and pose.player == original.player) return;
-    state.view.noteEditResult(editor, editor.place(link_id, pose, 0));
+    if (pose.x != original.x or pose.y != original.y or pose.dir != original.dir or pose.player != original.player)
+        state.view.noteEditResult(editor, editor.place(link_id, pose, 0));
+    if (edit.script_id != object.script_id)
+        state.view.noteEditResult(editor, editor.setScriptID(link_id, edit.script_id, editor.beginGesture()));
 }
 
 fn labelled(label: []const u8, value: []const u8) void {
@@ -1960,16 +4193,62 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCon
         state.view.noteEditResult(editor, editor.setAttackingSide(attacking));
 
     ig.igSeparatorText("Diplomacy");
+    const entries = editor.document.diplomacy.items.len;
+    if (state.selected_player != null and (entries == 0 or state.selected_player.? >= entries - 1)) state.selected_player = null;
+    // The MFC dialog's buttons and keys (TabSimpleObjectsDiplomacyDialog.cpp:263, 434),
+    // on one compact row: Insert adds a player, Delete deletes the selected one, 0 and 1
+    // set its side. The keys are this window's while it is focused, as the start
+    // commands' Delete is.
+    var action: PlayersAction = .none;
+    if (ig.igButton("Add")) action = .add;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Add a player before the neutral (Insert)");
+    ig.igSameLine();
+    if (ig.igButton("Del")) action = .delete;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Delete the selected player; its objects become the neutral's (Delete)");
+    ig.igSameLine();
+    if (ig.igButton("S0")) action = .side0;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Put the selected player on side 0 (0)");
+    ig.igSameLine();
+    if (ig.igButton("S1")) action = .side1;
+    if (ig.igIsItemHovered(0)) ig.igSetTooltip("Put the selected player on side 1 (1)");
     for (editor.document.diplomacy.items, 0..) |side, player| {
         ig.igPushIDInt(@intCast(player));
         defer ig.igPopID();
+        const neutral = player + 1 == entries;
         var label: [32:0]u8 = undefined;
-        const label_text = std.fmt.bufPrintZ(&label, "player {d}", .{player}) catch continue;
+        const label_text = (if (neutral) std.fmt.bufPrintZ(&label, "{d} (neutral)", .{player}) else std.fmt.bufPrintZ(&label, "{d}", .{player})) catch continue;
+        // The row: the player's number selects it (the MFC list's selection); the
+        // neutral entry is listed but never selected - it cannot be deleted or re-sided.
+        const selected = state.selected_player != null and state.selected_player.? == player;
+        if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 80, .y = ig.igGetFrameHeight() }) and !neutral) state.selected_player = player;
+        ig.igSameLine();
+        ig.igSetNextItemWidth(110);
         var value: c_int = side;
-        if (ig.igCombo(label_text.ptr, &value, "side 0\x00side 1\x00neutral\x00") and value != side)
+        if (ig.igCombo("##side", &value, "side 0\x00side 1\x00neutral\x00") and value != side)
             state.view.noteEditResult(editor, editor.setDiplomacy(@intCast(player), value));
     }
+    if (ig.igIsWindowFocused(ig.ImGuiFocusedFlags_RootAndChildWindows) and !ig.igGetIO().*.WantTextInput) {
+        state.view.delete_claimed = true;
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_Insert, false)) action = .add;
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_Delete, false)) action = .delete;
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_0, false) or ig.igIsKeyPressedEx(ig.ImGuiKey_Keypad0, false)) action = .side0;
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_1, false) or ig.igIsKeyPressedEx(ig.ImGuiKey_Keypad1, false)) action = .side1;
+    }
+    switch (action) {
+        .none => {},
+        .add => _ = commands.run(state, "player_add", "0"),
+        .delete => if (state.selected_player) |player| {
+            var buffer: [16:0]u8 = undefined;
+            _ = commands.run(state, "player_delete", std.fmt.bufPrintZ(&buffer, "{d}", .{player}) catch "");
+        },
+        .side0, .side1 => if (state.selected_player) |player| {
+            var buffer: [24:0]u8 = undefined;
+            _ = commands.run(state, "player_side", std.fmt.bufPrintZ(&buffer, "{d}={d}", .{ player, @intFromBool(action == .side1) }) catch "");
+        },
+    }
 }
+
+const PlayersAction = enum { none, add, delete, side0, side1 };
 
 /// The map's own sound list: one row per sound, name and world position and
 /// radii; a selected row's fields below the list, committed on deactivation
@@ -2162,9 +4441,10 @@ fn drawStatusBar(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
 }
 
 /// The tool, the hovered tile and map position (or "no map open" - at a
-/// start with no map, or after File > Mod closed it), then the editor's last
-/// refusal or failure and the view's own failures.
-fn statusLine(state: *State, buffer: []u8) []const u8 {
+/// start with no map, or after File > Mod closed it), the MFC's own
+/// VIS/SCRIPT coordinate pair and object line (M3, D-34/PARITY V6), then the
+/// editor's last refusal or failure and the view's own failures.
+pub fn statusLine(state: *State, buffer: []u8) []const u8 {
     var len: usize = 0;
     append(buffer, &len, "{t}", .{state.view.tool});
     if (!mapIsOpen(state.editor)) append(buffer, &len, " | no map open", .{});
@@ -2172,6 +4452,37 @@ fn statusLine(state: *State, buffer: []u8) []const u8 {
         if (hover.tile) |tile| append(buffer, &len, " | tile {d},{d}", .{ tile[0], tile[1] });
         append(buffer, &len, " | map {d:.0},{d:.0}", .{ hover.map_x, hover.map_y });
     }
+    // VIS/SCRIPT (V6), the MFC InputState.cpp's own pair: VIS is the cursor's
+    // world position in world cells (z on the bridge's own z=0 convention -
+    // the same one the brush outline draws on), SCRIPT its AI position.
+    // No cursor: the MFC's own dashes.
+    var coord_buffer: [96]u8 = undefined;
+    const vis_script = if (state.view.hover) |hover|
+        logic.visScriptLine(
+            &coord_buffer,
+            .{ hover.world_x / view_mod.world_cell_size, hover.world_y / view_mod.world_cell_size, 0.0 },
+            .{ @intFromFloat(@round(hover.map_x)), @intFromFloat(@round(hover.map_y)) },
+        )
+    else
+        logic.visScriptLine(&coord_buffer, null, null);
+    append(buffer, &len, " | {s}", .{vis_script});
+    // The object line (V6): the one selected object's name, Script ID and
+    // position (map/AI units, as the records hold them), or the MFC's own
+    // "Name: no selected". The box is unknown to the core records, so it is
+    // left out exactly like the MFC's own else-branch. A multi-selection
+    // wording ("N objects selected") arrives with 05-04's set selection;
+    // until then the count is 0 or 1.
+    var object_buffer: [192]u8 = undefined;
+    const object_line = if (state.editor.selection) |link_id|
+        (if (state.editor.document.find(link_id)) |record|
+            logic.objectLine(&object_buffer, 1, record.nameSlice(), record.script_id, .{ record.x, record.y }, null)
+        else
+            logic.objectLine(&object_buffer, 0, "", -1, null, null))
+    else
+        logic.objectLine(&object_buffer, 0, "", -1, null, null);
+    append(buffer, &len, " | {s}", .{object_line});
+    // "Hide checked" (D-16): how many objects the checked groups hold back.
+    if (state.hidden_object_count != 0) append(buffer, &len, " | {d} {s} hidden", .{ state.hidden_object_count, if (state.hidden_object_count == 1) "object" else "objects" });
     const editor_status = state.editor.status();
     const view_status = state.view.statusLine();
     if (view_status.len != 0 and std.mem.endsWith(u8, view_status, editor_status)) {
@@ -2198,15 +4509,25 @@ fn append(buffer: []u8, len: *usize, comptime format: []const u8, args: anytype)
 /// a plain post-process rather than a `formatTitle` parameter, so
 /// panels_logic.zig's own `formatTitle` tests (base game, no mod) need no
 /// change for this app-layer decoration.
+/// D-34/PARITY F15: the title carries the MFC SetWindowTitle's own fields -
+/// the map's name with its extension, `*` when modified, the size in patches,
+/// the mod key - in one format (formatTitleM3). D-26's separate "[mod]"
+/// suffix is folded in. A never-saved map has no path, so the New Map
+/// dialog's own name stands in (the document holds none, editor.zig
+/// newMap's rule).
 fn updateTitle(state: *State) void {
-    var buffer: [256]u8 = undefined;
-    const read_only = documentIsShipped(state);
-    const base_title = logic.formatTitle(&buffer, state.editor.document.path.items, state.editor.dirty(), read_only);
-    var full_buffer: [320:0]u8 = undefined;
-    const title: [:0]const u8 = if (state.real.activeMod()) |mod|
-        std.fmt.bufPrintZ(&full_buffer, "{s} [{s}]", .{ base_title, std.mem.sliceTo(&mod.name, 0) }) catch base_title
+    var buffer: [320:0]u8 = undefined;
+    const path = state.editor.document.path.items;
+    const name = if (path.len != 0) logic.baseName(path) else state.new_map_name.slice();
+    const size_patches: ?[2]i32 = if (mapIsOpen(state.editor)) .{
+        @divTrunc(@as(i32, @intCast(state.editor.document.info.width_tiles)), 16),
+        @divTrunc(@as(i32, @intCast(state.editor.document.info.height_tiles)), 16),
+    } else null;
+    const mod_key: []const u8 = if (state.real.activeMod()) |mod|
+        std.mem.sliceTo(&mod.name, 0)
     else
-        base_title;
+        "";
+    const title = logic.formatTitleM3(&buffer, name, state.editor.dirty(), documentIsShipped(state), size_patches, mod_key);
     if (std.mem.eql(u8, title, state.title[0..state.title_len])) return;
     _ = sdl3.c.SDL_SetWindowTitle(state.window, title.ptr);
     const len = @min(title.len, state.title.len);

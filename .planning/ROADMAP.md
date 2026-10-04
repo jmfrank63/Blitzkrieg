@@ -283,6 +283,120 @@ Plans:
 
 - [x] 03-16-PLAN.md — plan-5 leftovers (status line, view.zig tests, literal scroll test), Restart exit popup, game-reads-it baseline, CI package job, release package ordering, editor independent of the working directory
 
+### Phase 4: Map editor M2: roads, rivers, bridges, AI groups, scripts
+
+**Goal:** Map Editor M2 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md` ("The editor set"): edit what M1 only preserves — roads and rivers, bridges (including rotating them, deferred from M1) and entrenchments, AI and unit groups (reinforcements, start commands, reserve positions, AI general data), scripts and script areas — with the same undo, save-preservation, test-in-game and CI standards as M1. Revisit free camera rotation (D-12, deferred with evidence in 03-06). Scope to be settled in discuss-phase; may split into several phases.
+**Requirements**: CONTEXT D-01..D-25 (04-CONTEXT.md) and the M2 rows of 04-PARITY.md
+**Depends on:** Phase 3
+**Plans:** 13/13 plans executed (D-24's eight split for one agent context each; executed one after another in the shared worktree)
+
+Plans:
+**Wave 1**
+
+- [x] 04-01-PLAN.md — record foundation: NMapRecords for every M2 collection, generic record_edit command traced by camera anchors, palette filter, spec and decision-log amendments
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 04-02-PLAN.md — cascade delete and fixed FindReferences (start commands, reserve positions, script-ID notes)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 04-03-PLAN.md — app foundations: named commands and predicates, camera-anchor UI, marker layer, right button/double click/keys, tool registry, automation verbs, map-editor-auto-m2
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 04-04-PLAN.md — BK_MAP_TRACE game seam and Lua Trace mirror, map-editor-game-reads-it-m2 (camera anchor), GFXGPU road/river render proof
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 04-05-PLAN.md — roads and rivers: edit log, CVSOBuilder derive, river passability, MFC gestures, panel and markers
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 04-06-PLAN.md — bridges: PlanBridge, draw/select/delete as wholes, rotate (_01/_02), built during play with its mark
+
+**Wave 7** *(blocked on Wave 6 completion)*
+
+- [x] 04-07-PLAN.md — fences: PlanFences, AI tile mapping, Fence tool
+
+**Wave 8** *(blocked on Wave 7 completion)*
+
+- [x] 04-08-PLAN.md — entrenchments: PlanEntrenchment port with property tests, draw/select/delete as wholes; mid-phase CI gate
+
+**Wave 9** *(blocked on Wave 8 completion)*
+
+- [x] 04-09-PLAN.md — script IDs and reinforcement groups: Script ID field, Group Manager, Hide checked, Select objects
+
+**Wave 10** *(blocked on Wave 9 completion)*
+
+- [x] 04-10-PLAN.md — script file (dialog, copies beside map/test map/Save As) and script areas (tool, panel, handles); the game runs the script
+
+**Wave 11** *(blocked on Wave 10 completion)*
+
+- [x] 04-11-PLAN.md — start commands and artillery reserve positions
+
+**Wave 12** *(blocked on Wave 11 completion)*
+
+- [x] 04-12-PLAN.md — AI general: sides, mobile script IDs, parcels and reinforce points
+
+**Wave 13** *(blocked on Wave 12 completion)*
+
+- [x] 04-13-PLAN.md — integration and exit: full game-reads-it and editor-app scenarios, preservation sweeps, CI and win-home, release walk-through, parity evidence
+
+### Phase 5: Map editor M3: random map templates, minimap tools, full parity
+
+**Goal:** Map Editor M3 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md`: random map templates and generation from the editor, minimap tools, and every remaining feature of the MFC map editor (`Sources/src/MapEditor`) so the portable editor reaches full parity. When parity is shown by a feature-by-feature checklist against the MFC editor, delete the MFC map editor from the tree.
+**Requirements**: none mapped — CONTEXT D-01..D-40 (05-CONTEXT.md) are the requirements of record; 05-PARITY.md is the checklist of record (D-36) and 05-VALIDATION.md's D-40 exit criteria are the coverage contract
+**Depends on:** Phase 4
+**Plans:** 11/11 plans executed
+
+Plans (per D-39; waves serialized — plans 2-8 all touch bridge.h/editor.zig/fake_bridge.zig/c_bridge.zig/commands.zig/build.zig, so the shared-worktree execution order is plan order; depends_on keeps D-39's logical structure):
+
+- [x] 05-01-PLAN.md — foundations: altitude region primitive (D-19), New Map (D-23), Save as XML/BZM (D-24), brush 1-16, status bar/title, map-editor-m3-auto step, PARITY anchor verification, spec D-19
+- [x] 05-02-PLAN.md — heights tool (D-18), Update Map / Instant Update / Fit To Grid (D-20), Fill Entire Map (D-22), tile properties (D-35)
+- [x] 05-03-PLAN.md — object filters + Filters Composer (D-31), Fields tool (D-21), the shared RMG storage scan
+- [x] 05-04-PLAN.md — multi-selection (D-25), Properties panel (D-26), links (D-27), direction wheel (D-28), Damage tool (D-29)
+- [x] 05-05-PLAN.md — players add/delete + Unit Creation Info (D-30), Check Map (D-33), the railroad <2-control-points game-loader guard (carried bug)
+- [x] 05-06-PLAN.md — Layers menu and fire ranges (D-32), Wireframe/Depth-Complexity measured
+- [x] 05-07-PLAN.md — Minimap panel (D-14..D-16), Create Minimap Images (D-17), the D-40.6 shot proof
+- [x] 05-08-PLAN.md — Create Random Map (D-01..D-04, the D-05 szMODName fix, determinism) and Export lists (D-13)
+- [x] 05-09-PLAN.md — Containers + Graphs composers (D-06..D-12), user RMG storage root (D-09, costly), round-trip half 1
+- [x] 05-10-PLAN.md — Fields + Templates composers (R7-R13, the implemented Check!), round-trip complete (D-40.4), authored end-to-end (D-40.5)
+- [x] 05-11-PLAN.md — app shell (D-34: Options, View, drag-drop, single instance, Help), full parity verification + gates, hand-try prep, MFC editor deletion behind a one-way checkpoint (D-38)
+
+### Phase 6: Resource Editor: portable port of editor.exe
+
+**Goal:** Port the MFC resource editor (`Sources/src/editor`, `editor.exe`, about 64,000 lines, more than 20 sub-editors: units, weapons, buildings, objects, effects, bridges, fences, entrenchments, particles, animations and the rest) to the portable editor stack (Zig app + Dear ImGui + C bridge to the engine) on macOS and Windows, with its own design spec, undo, safe save, output the game reads unchanged, and CI tiers like the map editor. Every sub-editor is ported; the MFC resource editor is deleted when parity is shown.
+**Requirements**: TBD
+**Depends on:** Phase 5
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 6 to break down)
+
+### Phase 7: ELK: portable localisation kit
+
+**Goal:** Port ELK, the Blitzkrieg localisation kit (`Sources/src/ELK`, about 12,000 lines: text database, import from game/PAK/XLS, export, translation editing with filters, statistics, spell check, fonts), to the portable stack on macOS and Windows with its own design spec; its output must be read by the game unchanged. Delete the MFC ELK when parity is shown.
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 7 to break down)
+
+### Phase 8: Small tools: portable converters and checkers
+
+**Goal:** Port or replace the remaining Windows-only tools (`ExcelExporter`, `FontGen`, `bzmconvertor`, `imagedefrag`, `WhereIS`, `spcomp`, `OffsetRomb`, `betakeygen` and the rest found by an inventory) with portable command-line tools built by `zig build` on macOS and Windows, each with tests; decide per tool (port, replace with an existing path, or drop with a written reason). Remove the shipped Windows binaries from `Sources/Tools` that are replaced.
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 8 to break down)
+
 ## Backlog
 
 ### Phase 999.1: Random map generation: fast polygon fill (BACKLOG)
@@ -302,4 +416,5 @@ Plans:
 **Plans:** 0 plans
 
 Plans:
+
 - [ ] TBD (promote with /gsd-review-backlog when ready)

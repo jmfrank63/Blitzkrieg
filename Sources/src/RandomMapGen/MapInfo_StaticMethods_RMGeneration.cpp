@@ -12,6 +12,7 @@
 #include "Resource_Types.h"
 
 #include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtMapScriptPath.h"
 #include "TerrainBuilder.h"
 #include "../Main/GameStats.h"
 #include "../AILogic/aiconsts.h"
@@ -957,7 +958,11 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 								return false );
 	/**/
 
-	mapInfo.szScriptFile = szRandomMapName;
+	// The script is copied beside the map under the map's own name (below), so the map
+	// stores that name - relative to the map's folder, never the output path of this
+	// machine (NMapScriptPath: saves sync to other computers; the game loads the last
+	// component beside the map either way, so nothing that read the path loses).
+	mapInfo.szScriptFile = NMapScriptPath::LastComponent( szRandomMapName );
 	mapInfo.diplomacies = randomMapTemplate.diplomacies;
 	mapInfo.playersCameraAnchors.clear();
 	mapInfo.playersCameraAnchors.resize( mapInfo.diplomacies.size() - 1, VNULL3 );
@@ -968,8 +973,25 @@ bool CMapInfo::CreateRandomMap( SMissionStats *pMissionStats, const std::string 
 	mapInfo.szChapterName = randomMapTemplate.szChapterName;
 	mapInfo.nMissionIndex = randomMapTemplate.nMissionIndex;
 	
-	mapInfo.szMODName = randomMapTemplate.szChapterName;
-	mapInfo.szMODVersion = randomMapTemplate.szMODVersion;
+	// The map records the MOD it was generated under - the same name and version
+	// CICChangeMOD::Exec (Main/MainLoopCommands.cpp) and the editor's own
+	// BkEditorSetMod put in the "MOD.Name"/"MOD.Version" globals, and the editor's
+	// save stamps (M3 D-05, 2026-10-02). This used to store the template's chapter
+	// name here, so every generated map claimed a MOD named after its chapter. With
+	// no MOD active the name stays empty and the version is the template's own.
+	{
+		const std::string szActiveMODName = GetGlobalVar( "MOD.Name", "" );
+		if ( !szActiveMODName.empty() )
+		{
+			mapInfo.szMODName = szActiveMODName;
+			mapInfo.szMODVersion = GetGlobalVar( "MOD.Version", "" );
+		}
+		else
+		{
+			mapInfo.szMODName.clear();
+			mapInfo.szMODVersion = randomMapTemplate.szMODVersion;
+		}
+	}
 
 	std::list<CVec2> mapVisPointsPolygon;
 	mapVisPointsPolygon.push_back( CVec2( 0, 0 ) );

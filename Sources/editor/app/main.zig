@@ -3,6 +3,8 @@
 //!   MapEditor [-mod=...] --check <map> [<out.tga>]     headless host check
 //!   MapEditor [-mod=...] --smoke <map> [<out.bzm>]     scripted run of the real loop
 //!   MapEditor [-mod=...] --game-reads-it <map> [<log>] headless test-launch, played by Game
+//!   MapEditor [-mod=...] --game-reads-it-m2 <map> [<log>] the M2 scenario: what the game reports it read
+//!   MapEditor [-mod=...] --game-reads-it-m3 <map> [<log>] the M3 scenario: the game loads a map with a short railroad
 //!
 //! -mod=<Folder> or -mod=None (D-26, like the game's own -mod=) is accepted
 //! anywhere before the positional arguments, in every mode above: it is
@@ -58,11 +60,17 @@ const crt = @import("crt.zig");
 const smoke = @import("smoke.zig");
 const auto_mod = @import("auto.zig");
 const testlaunch = @import("testlaunch.zig");
+const single_instance = @import("single_instance.zig");
+const game_reads_common = @import("game_reads_common.zig");
+const game_reads_m2 = @import("game_reads_m2.zig");
+const game_reads_m3 = @import("game_reads_m3.zig");
 const c = host_mod.c;
 
 const default_output = "zig-out/local-test/map-editor-check.tga";
 const default_smoke_output = "zig-out/local-test/map-editor-smoke.bzm";
 const default_game_reads_it_log = "zig-out/local-test/map-editor-game-reads-it.log";
+const default_game_reads_it_m2_log = "zig-out/local-test/map-editor-game-reads-it-m2.log";
+const default_game_reads_it_m3_log = "zig-out/local-test/map-editor-game-reads-it-m3.log";
 /// BK_EDITOR_AUTO_DIR's own default (03-12-PLAN.md Task 1): shots and
 /// references live here unless the environment overrides it.
 const default_auto_dir = "zig-out/local-test/map-editor-auto";
@@ -110,6 +118,11 @@ const probe_frames = 10;
 /// A tile's side in world units: fWorldCellSize (Formats/fmtTerrain.h), 32 * sqrt(2).
 /// Shared with view.zig so the two never drift apart.
 const world_cell_size: f32 = view_mod.world_cell_size;
+
+/// A second launch asks the first one's socket and is, normally, refused when
+/// nobody listens there (single_instance.zig); `Io.Threaded` reports that
+/// answer through `unexpectedErrno`, which would dump a stack trace in Debug.
+pub const std_options: std.Options = .{ .unexpected_error_tracing = false };
 
 pub fn main(minimal: std.process.Init.Minimal) !void {
     crt.routeCrtReportsToStderr();
@@ -173,6 +186,20 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
             const passed = try gameReadsIt(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
             std.process.exit(if (passed) 0 else 1);
         }
+        if (std.mem.eql(u8, arg, "--game-reads-it-m2")) {
+            const map = nextArg(rest.items, &index) orelse usage();
+            const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_m2_log;
+            if (nextArg(rest.items, &index) != null) usage();
+            const passed = try game_reads_m2.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
+            std.process.exit(if (passed) 0 else 1);
+        }
+        if (std.mem.eql(u8, arg, "--game-reads-it-m3")) {
+            const map = nextArg(rest.items, &index) orelse usage();
+            const log_path = nextArg(rest.items, &index) orelse default_game_reads_it_m3_log;
+            if (nextArg(rest.items, &index) != null) usage();
+            const passed = try game_reads_m3.run(gpa, io, minimal.environ, map, log_path, mod_folder, mod_requested);
+            std.process.exit(if (passed) 0 else 1);
+        }
         if (nextArg(rest.items, &index) != null) usage();
         const passed = try interactive(gpa, io, minimal.environ, arg, mod_folder, mod_requested, hidden);
         std.process.exit(if (passed) 0 else 1);
@@ -203,17 +230,7 @@ fn nextArg(items: []const []const u8, index: *usize) ?[]const u8 {
     return items[index.*];
 }
 
-/// Applies `-mod=`'s request, right after the host starts and before
-/// anything reads the catalogue or opens a map. Returns null on success, or
-/// the bridge's reason on a refusal/bad argument - `real.session`'s own
-/// message, valid only until the next bridge call, so callers use it at
-/// once (fatal/a FAIL line) rather than store it. A no-op, returning null,
-/// when `-mod=` was never given at all.
-fn applyModArg(real: *c_bridge.RealBridge, mod_folder: ?[]const u8, mod_requested: bool) ?[]const u8 {
-    if (!mod_requested) return null;
-    if (real.setMod(mod_folder) != .ok) return std.mem.span(c.BkEditorLastMessage(real.session));
-    return null;
-}
+const applyModArg = game_reads_common.applyModArg;
 
 /// The interactive mode: one window, the engine on it, the view driving the
 /// core's tools, until the window closes or the process is asked to quit
@@ -224,6 +241,11 @@ fn applyModArg(real: *c_bridge.RealBridge, mod_folder: ?[]const u8, mod_requeste
 /// failed - `main` turns that into exit code 1; a plain interactive session
 /// always returns true.
 fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8, mod_folder: ?[]const u8, mod_requested: bool, hidden: bool) !bool {
+    // 05-11 (D-34, PARITY F13): before the window and the engine exist - a second
+    // launch hands its map to the running editor and exits here; the first one
+    // goes on and answers on its socket for as long as it runs.
+    const instance = acquireInstance(gpa, io, environ, map, mod_folder, mod_requested);
+    defer if (instance) |owner| owner.deinit();
     var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = hidden }) catch |err| {
         const reason = host_mod.failureReason();
         fatal(startupStepName(err), if (reason.len != 0) reason else @errorName(err));
@@ -287,7 +309,14 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
             };
         }
     }
+    // 05-11 (PARITY R15): every window's position, size and collapse state is
+    // remembered between sessions in ImGui's own ini, beside mapeditor.cfg and
+    // never in the repository; View > Reset layout forgets it.
+    if (!automated) enableLayoutPersistence(io, settings_path);
     view.wheel_sensitivity = state.settings.scroll_speed;
+    // D-32 (M3): the Layers menu starts from what the last session left; the
+    // editor re-applies it to the renderer after every open and new map.
+    state.editor.layers = state.settings.layers;
 
     if (!automated) {
         // D-22, spec Errors -> Crashes: offered back once, at startup, before
@@ -302,6 +331,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         // synthetic press on a panel under the real cursor - the same two
         // rules --smoke already follows (main.zig's smokeRun).
         state.os_dialogs = false;
+        state.automated = true;
         imgui.c.bk_imgui_backend_use_global_mouse(false);
         var failure: auto_mod.Failure = .{};
         const schedule = auto_mod.parse(gpa, text, &failure) catch |err| {
@@ -311,9 +341,13 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         const dir: []const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_DIR") catch default_auto_dir;
         const game_env: ?[]const u8 = environ.getAlloc(gpa, "BK_EDITOR_AUTO_GAME") catch null;
         auto_runner = smoke.AutoRunner.init(&editor, &view, &real, &state, host.window, io, schedule, dir, game_env);
+        if (environ.getAlloc(gpa, "BK_EDITOR_AUTO_GAME_TRACE")) |trace| {
+            auto_runner.?.game_trace = trace.len != 0;
+            gpa.free(trace);
+        } else |_| {}
     }
 
-    run(&host, &editor, &view, &real, &state, if (auto_runner) |*r| smoke.Driver{ .auto = r } else null, settings_path, !automated);
+    run(&host, &editor, &view, &real, &state, if (auto_runner) |*r| smoke.Driver{ .auto = r } else null, settings_path, !automated, instance);
     // A plain return, not std.process.exit, so the deferred view.deinit(),
     // editor.deinit() and host.stop() above run: host.stop() takes the
     // overlay and ImGui down, BkEditorStop deletes the world, and the window
@@ -322,6 +356,85 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     // per process is the contract (host.zig Host.stop). `main` does the
     // actual std.process.exit, after this return has let those defers run.
     return if (auto_runner) |r| !r.failed else true;
+}
+
+/// ImGui keeps the ini file's name by pointer for the whole session (it saves
+/// on a timer and at the context's end), so the path lives in a global.
+var layout_ini_path: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+
+/// Turns ImGui's own layout persistence on for the interactive mode:
+/// `layout.ini` in the folder of `mapeditor.cfg` (the user root's `mapeditor`
+/// folder, or wherever the BK_EDITOR_SETTINGS test seam points). Without a
+/// settings path - no user root - the layout simply is not remembered.
+fn enableLayoutPersistence(io: std.Io, settings_path: ?[]const u8) void {
+    const settings = settings_path orelse return;
+    const folder = std.fs.path.dirname(settings) orelse return;
+    const path = std.fmt.bufPrintZ(&layout_ini_path, "{s}{c}layout.ini", .{ folder, std.fs.path.sep }) catch return;
+    std.Io.Dir.cwd().createDirPath(io, folder) catch return;
+    imgui.c.igGetIO().*.IniFilename = path.ptr;
+}
+
+/// Takes the single-instance endpoint, or hands this launch's map to the editor
+/// that has it and exits 0. Null (an editor with no single-instance socket) for
+/// the automated runs (BK_EDITOR_AUTO), under BK_EDITOR_NO_SINGLE_INSTANCE, and
+/// when no endpoint can be had - never a reason not to start.
+fn acquireInstance(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: ?[]const u8, mod_folder: ?[]const u8, mod_requested: bool) ?*single_instance.Instance {
+    for ([_][]const u8{ "BK_EDITOR_AUTO", "BK_EDITOR_NO_SINGLE_INSTANCE" }) |name| {
+        if (environ.getAlloc(gpa, name)) |value| {
+            gpa.free(value);
+            return null;
+        } else |_| {}
+    }
+    // The line to hand over: this launch's map as an absolute OS path (the
+    // running editor's working directory is not ours), or nothing - which
+    // only brings its window forward.
+    var line_buffer: [single_instance.max_line + 2]u8 = undefined;
+    var absolute_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
+    const nothing = single_instance.frameLine(&line_buffer, "").?;
+    const line: []const u8 = blk: {
+        const typed = map orelse break :blk nothing;
+        var cwd_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const cwd_len = std.process.currentPath(io, &cwd_buffer) catch break :blk nothing;
+        const absolute = panels_logic.absoluteFromLaunchDir(&absolute_buffer, cwd_buffer[0..cwd_len], typed) orelse break :blk nothing;
+        var framed: [single_instance.max_line + 2 + single_instance.max_mod_len + 1]u8 = undefined;
+        // A launch that named a mod says which: the running editor only takes
+        // the map when it has that mod loaded (WR-A03). One that did not
+        // simply wants the map opened where it is.
+        const text = (if (mod_requested)
+            single_instance.frameOpenInMod(&framed, mod_folder orelse "", absolute)
+        else
+            single_instance.frameLine(&framed, absolute)) orelse break :blk nothing;
+        if (text.len > line_buffer.len) break :blk nothing;
+        @memcpy(line_buffer[0..text.len], text);
+        break :blk line_buffer[0..text.len];
+    };
+    switch (single_instance.acquire(gpa, io, environ, line, .{ .mod = mod_folder })) {
+        .primary => |owner| return owner,
+        .handed_off => {
+            std.debug.print("map-editor: handed over to the running editor\n", .{});
+            std.process.exit(0);
+        },
+        .unavailable => |why| {
+            std.debug.print("map-editor: single instance is off: {s}\n", .{why});
+            return null;
+        },
+    }
+}
+
+/// One line from a second launch per frame: the window comes forward (and back
+/// from a minimise), and a path opens through the unsaved-changes guard.
+fn pollInstance(box: *single_instance.Instance, state: *panels.State, window: *sdl3.c.SDL_Window) void {
+    // The mod that is loaded now (File > Mod changes it): a second launch that
+    // names a mod is only handed over when it is this one (WR-A03).
+    box.setMod(state.modFolder());
+    var out: [single_instance.max_line]u8 = undefined;
+    const received = box.poll(&out) orelse return;
+    _ = sdl3.c.SDL_RestoreWindow(window);
+    _ = sdl3.c.SDL_RaiseWindow(window);
+    switch (received) {
+        .raise => {},
+        .open => |path| panels.openFromSecondInstance(state, path),
+    }
 }
 
 /// `<user_root>mapeditor/mapeditor.cfg`, or `BK_EDITOR_SETTINGS` when the
@@ -385,7 +498,11 @@ fn writeSettingsFile(io: std.Io, path: []const u8, settings: *const core.setting
 ///
 /// `driver`: `.table` for --smoke's fixed script, `.auto` for BK_EDITOR_AUTO's
 /// parsed schedule (smoke.zig's `Driver`) - null for a plain interactive run.
-fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, real: *c_bridge.RealBridge, state: *panels.State, driver: ?smoke.Driver, settings_path: ?[]const u8, is_interactive: bool) void {
+///
+/// `inbox`, the interactive mode's single-instance socket (05-11): once a frame
+/// the loop takes the oldest path a second launch handed over and opens it
+/// through the same guard as a dropped file.
+fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, real: *c_bridge.RealBridge, state: *panels.State, driver: ?smoke.Driver, settings_path: ?[]const u8, is_interactive: bool, inbox: ?*single_instance.Instance) void {
     var running = true;
     var last_ticks: u64 = sdl3.c.SDL_GetTicks();
     while (running) {
@@ -405,6 +522,12 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
                 // unsaved-changes guard as the menu's Quit - the loop ends
                 // only once `act` (below) says so.
                 sdl3.c.SDL_EVENT_QUIT, sdl3.c.SDL_EVENT_WINDOW_CLOSE_REQUESTED => state.actions.quit_requested = true,
+                // 05-11 (PARITY F12): a map dropped on the window opens through
+                // the same unsaved-changes guard as Open Recent. SDL owns the
+                // path until the next event poll; `dropFile` copies what it keeps.
+                sdl3.c.SDL_EVENT_DROP_FILE => if (event.drop.data) |data| {
+                    _ = panels.dropFile(state, std.mem.span(data));
+                },
                 else => {
                     const kind = view_mod.inputKindOf(event.type);
                     const capture = view_mod.captureFlags();
@@ -413,9 +536,17 @@ fn run(host: *host_mod.Host, editor: *core.editor.Editor, view: *view_mod.View, 
                 },
             }
         }
+        if (inbox) |box| pollInstance(box, state, host.window);
         const ticks = sdl3.c.SDL_GetTicks();
         const dt_seconds = @as(f32, @floatFromInt(ticks -% last_ticks)) / 1000.0;
         last_ticks = ticks;
+        // M3 (D-26): a double-click or Enter/Space on a selection opens the
+        // Properties window (O15) - the view owns the ask, the panels own
+        // the window.
+        if (view.props_open_request) {
+            view.props_open_request = false;
+            state.properties_open = true;
+        }
         view.update(editor, real, host.window, dt_seconds);
 
         host.beginFrame();
@@ -507,7 +638,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     imgui.c.bk_imgui_backend_use_global_mouse(false);
 
     var script = smoke.Script.init(&editor, &view, &real, &state, host.window, output);
-    run(&host, &editor, &view, &real, &state, smoke.Driver{ .table = &script }, null, false);
+    run(&host, &editor, &view, &real, &state, smoke.Driver{ .table = &script }, null, false, null);
     if (!script.passed) {
         // A step that failed has said so; a loop that ended otherwise (a
         // quit event) has not.
@@ -538,56 +669,20 @@ fn pointUserRootBeside(state: *panels.State, output: []const u8) bool {
 /// without a person watching. Modelled on `smokeRun` and `check`, but the
 /// thing under test here is the game, not the editor's own frame.
 fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: []const u8, log_path: []const u8, mod_folder: ?[]const u8, mod_requested: bool) !bool {
-    // See crt.attachParentConsole's doc comment: a packaged (.windows
-    // subsystem) MapEditor.exe run from a terminal still needs this mode's
-    // PASS/FAIL line to be visible there.
-    crt.attachParentConsole();
-    var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err| {
-        std.debug.print("map-editor: game reads it FAIL: the host did not start ({s}: {s})\n", .{ @errorName(err), host_mod.failureReason() });
-        return false;
-    };
-    defer host.stop();
-
-    var real = c_bridge.RealBridge.init(host.session);
-    if (applyModArg(&real, mod_folder, mod_requested)) |reason| {
-        std.debug.print("map-editor: game reads it FAIL: the mod would not load: {s}\n", .{reason});
-        return false;
-    }
-    var editor = core.editor.Editor.init(gpa, real.bridge());
-    defer editor.deinit();
-    // Never exercised in this mode (D-01: a test copy goes through
-    // saveCopy, never editor.save), but wired for the same reason every
-    // other mode is: nothing here should depend on save silently no-op'ing.
-    var std_files: core.files.StdFiles = .{ .io = io, .dir = .cwd() };
-    editor.files = std_files.files();
-    var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
-    const path = mapArgument(io, &path_buffer, map) orelse {
-        std.debug.print("map-editor: game reads it FAIL: the path {s} is too long\n", .{map});
-        return false;
-    };
-    editor.open(path) catch {
-        std.debug.print("map-editor: game reads it FAIL: {s} did not open: {s}\n", .{ map, editor.status() });
-        return false;
-    };
+    // The shared start (game_reads_common.zig): host, -mod=, the map opened
+    // through the core Editor on the real bridge, two settle frames - this
+    // mode places directly through the editor, no panels involved, but the
+    // bridge still needs a drawn frame before it can resolve a screen point
+    // against the camera it placed.
+    var rig: game_reads_common.Rig = .{};
+    defer rig.deinit();
+    if (!rig.open(gpa, io, "game reads it", map, mod_folder, mod_requested)) return false;
+    const real = &rig.real;
+    const editor = &rig.editor;
     // D-01: the document below must still be exactly this, unsaved - a test
     // copy going through saveCopy, not editor.save, must never touch it.
     const original_path = try gpa.dupe(u8, editor.document.path.items);
     defer gpa.free(original_path);
-
-    // Two settle frames (main.zig's smokeRun/check convention): the panels
-    // have never been drawn here (this mode places directly through the
-    // editor, no panels involved), but the bridge still needs a drawn frame
-    // before it can resolve a screen point against the camera it placed.
-    var frame: u32 = 0;
-    while (frame < 2) : (frame += 1) {
-        var event: sdl3.c.SDL_Event = undefined;
-        while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
-        host.beginFrame();
-        host.endFrame() catch |err| {
-            std.debug.print("map-editor: game reads it FAIL: frame {d}: {s}\n", .{ frame, @errorName(err) });
-            return false;
-        };
-    }
 
     const size = real.screenSize() orelse {
         std.debug.print("map-editor: game reads it FAIL: no screen size\n", .{});
@@ -622,25 +717,16 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     // coordinate systems really do disagree by more than rounding.
     const units_x: i32 = @intFromFloat(@floor(point.map_x / 64.0));
     const units_y: i32 = @intFromFloat(@floor(point.map_y / 64.0));
-    var test_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const test_path = real.testMapPath(testlaunch.profile_name, null, testlaunch.map_file_name, &test_path_buffer) orelse {
-        std.debug.print("map-editor: game reads it FAIL: no test map path: {s}\n", .{std.mem.span(c.BkEditorLastMessage(host.session))});
-        return false;
-    };
-    var game_path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const game_path = testlaunch.gamePath(io, &game_path_buffer) catch |err| {
-        std.debug.print("map-editor: game reads it FAIL: no Game beside MapEditor: {s}\n", .{@errorName(err)});
-        return false;
-    };
+    var paths: game_reads_common.TestPaths = .{};
+    if (!paths.resolve(&rig, io, "game reads it")) return false;
+    const test_path = paths.test_path;
+    const game_path = paths.game_path;
 
     // The baseline: player 0's units at that spot on the map as shipped,
     // counted by the game before anything is placed, so the check below
     // asserts what the edits added rather than relying on the spot being
     // empty ground (03-VERIFICATION.md: an undeclared precondition).
-    if (real.saveCopy(test_path) != .ok) {
-        std.debug.print("map-editor: game reads it FAIL: the unedited test copy would not save: {s}\n", .{std.mem.span(c.BkEditorLastMessage(host.session))});
-        return false;
-    }
+    if (!game_reads_common.saveTestCopy(&rig, "game reads it", "unedited test copy", test_path)) return false;
     var baseline_log_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const baseline_log = std.fmt.bufPrint(&baseline_log_buffer, "{s}.baseline.log", .{log_path}) catch {
         std.debug.print("map-editor: game reads it FAIL: the path {s} is too long\n", .{log_path});
@@ -700,10 +786,7 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         return false;
     };
 
-    if (real.saveCopy(test_path) != .ok) {
-        std.debug.print("map-editor: game reads it FAIL: the test copy would not save: {s}\n", .{std.mem.span(c.BkEditorLastMessage(host.session))});
-        return false;
-    }
+    if (!game_reads_common.saveTestCopy(&rig, "game reads it", "test copy", test_path)) return false;
 
     var auto_ui_buffer: [160]u8 = undefined;
     // camera= at frame 150: the mission (and its own start view) is up by
@@ -715,28 +798,7 @@ fn gameReadsIt(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     const auto_ui = std.fmt.bufPrint(&auto_ui_buffer, "150:camera={d:.0}x{d:.0},400:units={d}x{d}x{d},420:shot,700:exit", .{ point.world_x, point.world_y, units_x, units_y, game_reads_it_radius }) catch unreachable;
     // BK_AUDIO_NULL: the sound scene runs in full (the trace needs it), but
     // into the null device - nothing plays through the Mac's own output.
-    var running = testlaunch.start(gpa, io, environ, .{
-        .game_path = game_path,
-        .log_path = log_path,
-        .extra_env = &.{ .{ "BK_AUTO_UI", auto_ui }, .{ "BK_NO_HELP", "1" }, .{ "BK_SOUND_TRACE", "1" }, .{ "BK_AUDIO_NULL", "1" } },
-    }) catch |err| {
-        std.debug.print("map-editor: game reads it FAIL: the game would not start: {s}\n", .{@errorName(err)});
-        return false;
-    };
-    const exit = running.waitBlocking(io, 240_000) orelse {
-        running.terminate(io);
-        std.debug.print("map-editor: game reads it FAIL: the game did not exit within 240 s; its log: {s}\n", .{log_path});
-        return false;
-    };
-    if ((exit.code orelse 1) != 0 or exit.signal != null) {
-        std.debug.print("map-editor: game reads it FAIL: the game exited code={?d} signal={?d}; its log: {s}\n", .{ exit.code, exit.signal, log_path });
-        return false;
-    }
-
-    const log_bytes = std.Io.Dir.cwd().readFileAlloc(io, log_path, gpa, .limited(4 << 20)) catch |err| {
-        std.debug.print("map-editor: game reads it FAIL: the log at {s} would not read: {s}\n", .{ log_path, @errorName(err) });
-        return false;
-    };
+    const log_bytes = game_reads_common.runGame(gpa, io, environ, "game reads it", "game", game_path, log_path, &.{ .{ "BK_AUTO_UI", auto_ui }, .{ "BK_NO_HELP", "1" }, .{ "BK_SOUND_TRACE", "1" }, .{ "BK_AUDIO_NULL", "1" } }) orelse return false;
     defer gpa.free(log_bytes);
     if (std.mem.indexOf(u8, log_bytes, "BK_AUTO_UI: shot written") == null) {
         std.debug.print("map-editor: game reads it FAIL: no \"BK_AUTO_UI: shot written\" line; see {s}\n", .{log_path});
@@ -793,27 +855,7 @@ const game_reads_it_radius = 5;
 fn gameReadsItBaseline(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, game_path: []const u8, log_path: []const u8, units_x: i32, units_y: i32) ?u32 {
     var auto_ui_buffer: [96]u8 = undefined;
     const auto_ui = std.fmt.bufPrint(&auto_ui_buffer, "400:units={d}x{d}x{d},410:exit", .{ units_x, units_y, game_reads_it_radius }) catch unreachable;
-    var running = testlaunch.start(gpa, io, environ, .{
-        .game_path = game_path,
-        .log_path = log_path,
-        .extra_env = &.{ .{ "BK_AUTO_UI", auto_ui }, .{ "BK_NO_HELP", "1" }, .{ "BK_AUDIO_NULL", "1" } },
-    }) catch |err| {
-        std.debug.print("map-editor: game reads it FAIL: the baseline game would not start: {s}\n", .{@errorName(err)});
-        return null;
-    };
-    const exit = running.waitBlocking(io, 240_000) orelse {
-        running.terminate(io);
-        std.debug.print("map-editor: game reads it FAIL: the baseline game did not exit within 240 s; its log: {s}\n", .{log_path});
-        return null;
-    };
-    if ((exit.code orelse 1) != 0 or exit.signal != null) {
-        std.debug.print("map-editor: game reads it FAIL: the baseline game exited code={?d} signal={?d}; its log: {s}\n", .{ exit.code, exit.signal, log_path });
-        return null;
-    }
-    const log_bytes = std.Io.Dir.cwd().readFileAlloc(io, log_path, gpa, .limited(4 << 20)) catch |err| {
-        std.debug.print("map-editor: game reads it FAIL: the baseline log at {s} would not read: {s}\n", .{ log_path, @errorName(err) });
-        return null;
-    };
+    const log_bytes = game_reads_common.runGame(gpa, io, environ, "game reads it", "baseline game", game_path, log_path, &.{ .{ "BK_AUTO_UI", auto_ui }, .{ "BK_NO_HELP", "1" }, .{ "BK_AUDIO_NULL", "1" } }) orelse return null;
     defer gpa.free(log_bytes);
     return testlaunch.playerUnitsNear(log_bytes, 0) orelse {
         std.debug.print("map-editor: game reads it FAIL: the baseline run printed no units= line; see {s}\n", .{log_path});
@@ -821,40 +863,8 @@ fn gameReadsItBaseline(gpa: std.mem.Allocator, io: std.Io, environ: std.process.
     };
 }
 
-/// The game's own screenshot dump (BK_AUTO_UI's `shot` action), left in the
-/// game's working directory - its installation, where testlaunch.start runs
-/// it - rather than zig-out/local-test, swept up so a repeat run is not
-/// mistaken for a stale leftover.
-fn deleteAutoshots(io: std.Io, game_path: []const u8) void {
-    const game_dir = std.fs.path.dirname(game_path) orelse return;
-    var dir = std.Io.Dir.cwd().openDir(io, game_dir, .{ .iterate = true }) catch return;
-    defer dir.close(io);
-    var it = dir.iterate();
-    while (it.next(io) catch null) |entry| {
-        if (entry.kind != .file) continue;
-        if (std.mem.startsWith(u8, entry.name, "autoshot_") and std.mem.endsWith(u8, entry.name, ".rgba"))
-            dir.deleteFile(io, entry.name) catch {};
-    }
-}
-
-/// A map path from the command line in the engine's form. It arrives as the
-/// person typed it or the shell expanded it - an absolute macOS path has
-/// forward slashes - and the engine's file layer splits only on '\', so it
-/// goes through the conversion the file dialogs' paths go through
-/// (panels_logic.enginePath). Null when it does not fit the buffer.
-///
-/// A relative path is relative to the directory the editor was launched from
-/// and is made absolute here (panels_logic.absoluteFromLaunchDir), so nothing
-/// after it - the document path, Open Recent, recovery, the shipped-map check
-/// - depends on the working directory. The installation itself never does:
-/// the engine finds it from the executable (host.zig's Options.data_root).
-fn mapArgument(io: std.Io, buffer: *[panels_logic.PathSlot.max_path]u8, typed: []const u8) ?[]const u8 {
-    var cwd_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const cwd_len = std.process.currentPath(io, &cwd_buffer) catch return panels_logic.enginePath(buffer, typed, .open);
-    var absolute_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
-    const absolute = panels_logic.absoluteFromLaunchDir(&absolute_buffer, cwd_buffer[0..cwd_len], typed) orelse return null;
-    return panels_logic.enginePath(buffer, absolute, .open);
-}
+const mapArgument = game_reads_common.mapArgument;
+const deleteAutoshots = game_reads_common.deleteAutoshots;
 
 fn startupStepName(err: host_mod.HostError) []const u8 {
     return switch (err) {
@@ -897,7 +907,7 @@ fn usage() noreturn {
     // subsystem) MapEditor.exe run with bad arguments from a terminal still
     // needs this message to be visible there.
     crt.attachParentConsole();
-    std.debug.print("usage: MapEditor [-mod=<Folder>|-mod=None] [<map>]\n       MapEditor [-mod=...] --check <map> [<out.tga>]\n       MapEditor [-mod=...] --smoke <map> [<out.bzm>]\n       MapEditor [-mod=...] --game-reads-it <map> [<log>]\n", .{});
+    std.debug.print("usage: MapEditor [-mod=<Folder>|-mod=None] [<map>]\n       MapEditor [-mod=...] --check <map> [<out.tga>]\n       MapEditor [-mod=...] --smoke <map> [<out.bzm>]\n       MapEditor [-mod=...] --game-reads-it <map> [<log>]\n       MapEditor [-mod=...] --game-reads-it-m2 <map> [<log>]\n       MapEditor [-mod=...] --game-reads-it-m3 <map> [<log>]\n", .{});
     std.process.exit(2);
 }
 

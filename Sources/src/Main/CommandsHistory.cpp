@@ -8,6 +8,7 @@
 
 #include "../AILogic/AILogic.h"
 #include "../Misc/FileUtils.h"
+#include "../Formats/fmtMapScriptPath.h"
 #include "../RandomMapGen/MapInfo_Types.h"
 #include "../RandomMapGen/Resource_Types.h"
 #include "../GameTT/ReplayList.h"
@@ -123,6 +124,8 @@ bool CCommandsHistory::Load( const char *pszFileName )
 		CMapInfo fullMapInfo;
 		if ( LoadTypedSuperLatestDataResource( "maps\\" + szMapName, ".bzm", 1, fullMapInfo ) )
 		{
+			// The same expansion the game's own load makes (GameCreation.cpp).
+			fullMapInfo.szScriptFile = NMapScriptPath::ExpandOnLoad( fullMapInfo.szScriptFile, "maps\\" + szMapName );
 			fullMapInfo.GetCheckSums( &checkSumRes, &checkSumMap );
 
 			SetGlobalVar( "Multiplayer.CheckSumMap", checkSumMap );

@@ -61,8 +61,19 @@ typedef struct BkImguiPointerState
     char hovered_window[48];        /* g.HoveredWindow */
     char hovered_before_clear[48];  /* g.HoveredWindowBeforeClear: hovered, before modal/ownership clears it */
     char window_at_pointer[48];     /* the frontmost active window whose rect holds io.MousePos */
+    char active_window[48];         /* g.ActiveIdWindow: the window of the widget being used, "" for none */
+    unsigned int active_id;         /* g.ActiveId (0: no widget is active) */
+    unsigned int hovered_id;        /* g.HoveredId */
+    bool want_capture_keyboard;     /* io.WantCaptureKeyboard: keys then go to ImGui, not the view */
+    bool want_text_input;           /* io.WantTextInput */
+    char nav_window[48];            /* g.NavWindow: the window that has keyboard focus, "" for none */
 } BkImguiPointerState;
 void bk_imgui_backend_pointer_state(BkImguiPointerState *out);
+
+/* View > Reset layout: every top-level window forgets its remembered position,
+   size and collapse state (and the .ini settings do), so the app's own
+   FirstUseEver placement applies again from the next frame. */
+void bk_imgui_reset_window_layout(void);
 
 #ifdef __cplusplus
 }

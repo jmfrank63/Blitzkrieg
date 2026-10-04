@@ -103,10 +103,21 @@ void CScripts::Init( const SLoadMapInfo &mapInfo )
 	
 	bShowErrors = GetGlobalVar( "ShowScriptErrors", 0 ) != 0;
 }
+// BK_MAP_TRACE=1: one "BK_MAP_TRACE: key=value ..." line per map item read
+// here (GameTT/iMissionInternal.cpp says why). Nothing is printed without it.
+static bool IsMapTraceOn()
+{
+	static const bool bOn = getenv( "BK_MAP_TRACE" ) != 0;
+	return bOn;
+}
 void CScripts::InitAreas( const SScriptArea scriptAreas[], const int nLen )
 {
 	for ( int i = 0; i < nLen; ++i )
+	{
 		areas[scriptAreas[i].szName] = scriptAreas[i];
+		if ( IsMapTraceOn() )
+			fprintf( stderr, "BK_MAP_TRACE: area name=\"%s\" cx=%.0f cy=%.0f\n", scriptAreas[i].szName.c_str(), scriptAreas[i].center.x, scriptAreas[i].center.y );
+	}
 }
 bool CScripts::ReadScriptFile()
 {
@@ -131,10 +142,21 @@ bool CScripts::ReadScriptFile()
 void CScripts::Load( const std::string &_szScriptFile )
 {
 	szScriptFile = _szScriptFile;
-	if ( ReadScriptFile() )
+	const bool bLoaded = ReadScriptFile();
+	// lua_call's own answer: 0 when Init ran, an error code when it failed or
+	// the script has none (a nil is not callable). -1: nothing was called.
+	int nInitError = -1;
+	if ( bLoaded )
 	{
 		script.GetGlobal( "Init" );
-		script.Call( 0, 0 );
+		nInitError = script.Call( 0, 0 );
+	}
+	if ( IsMapTraceOn() )
+	{
+		// The file's own name only, never the directory it was found in.
+		const std::string::size_type nSlash = szScriptFile.find_last_of( "\\/" );
+		const std::string szBaseName = nSlash == std::string::npos ? szScriptFile : szScriptFile.substr( nSlash + 1 );
+		fprintf( stderr, "BK_MAP_TRACE: script name=\"%s\" loaded=%d init=%d\n", szBaseName.c_str(), bLoaded ? 1 : 0, nInitError == 0 ? 1 : 0 );
 	}
 }
 int CScripts::KillActiveScript( const std::string szName )
@@ -1757,6 +1779,11 @@ int CScripts::Trace( struct lua_State *state )
 	GetTraceFormatResult( &script, &result );
 
 	pScripts->pConsole->WriteASCII( CONSOLE_STREAM_CONSOLE, result.c_str(), 0xff00ff00 );
+	// The console write above is unchanged; a test game's log also gets the
+	// text, so a map's own Lua Trace calls can be read by the Map Editor's
+	// game-reads-it scenarios.
+	if ( IsMapTraceOn() )
+		fprintf( stderr, "BK_MAP_TRACE: lua %s\n", result.c_str() );
 
 	return 0;
 }

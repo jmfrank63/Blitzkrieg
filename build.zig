@@ -797,6 +797,19 @@ pub fn build(b: *std.Build) void {
         query.glibc_version = b.graph.host.result.os.version_range.linux.glibc;
         selected_target = b.resolveTargetQuery(query);
     }
+    // The editor's single-instance socket (Sources/editor/app/single_instance.zig) is an
+    // AF_UNIX stream socket, which Windows has had since Windows 10 version 1803 (build
+    // 17063, "redstone 4"). The std keeps `net.UnixAddress` behind
+    // `builtin.os.version_range.windows.isAtLeast(.win10_rs4)`, and a target that names no
+    // Windows version leaves that unknown - read as false - so a plain
+    // -Dtarget=x86_64-windows-msvc build would have a second launch that never reaches the
+    // first (its socket tests fail with AddressFamilyUnsupported). Name the oldest Windows
+    // this project builds for unless the command line pinned a version.
+    if (selected_target.result.os.tag == .windows and selected_target.query.os_version_min == null) {
+        var query = selected_target.query;
+        query.os_version_min = .{ .windows = .win10_rs4 };
+        selected_target = b.resolveTargetQuery(query);
+    }
     const platform = build_support.classify(selected_target.result) catch @panic("unsupported target; supported triples are x86_64-windows-msvc, x86_64-windows-gnu, x86_64-linux-gnu, aarch64-linux-gnu, x86_64-macos, and aarch64-macos");
     build_target_os = selected_target.result.os.tag;
     build_target_msvc = build_support.usesMsvc(platform);
@@ -1845,7 +1858,7 @@ pub fn build(b: *std.Build) void {
     const use_prebuilt_shaders = b.option(bool, "use-prebuilt-shaders", "Skip gfxgpu-shaders and reuse existing zig-out/shaders outputs") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
     ubsan_trap = b.option(bool, "ubsan-trap", "Compile UBSan checks as traps so debuggers break at the faulting line (Debug only)") orelse false;
-    const random_missions_sweep = b.option([]const u8, "random-missions-sweep", "test-random-missions: all, cover or only=<text> (default all)") orelse "all";
+    const random_missions_sweep = b.option([]const u8, "random-missions-sweep", "test-random-missions: all, cover, cover-from=<n> (cover without its first n cases, to resume a cut-short run) or only=<text> (default all)") orelse "all";
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
@@ -2189,8 +2202,9 @@ pub fn build(b: *std.Build) void {
     // After install-game, whose step it depends on: the tier's executable is
     // staged into the layout that step creates.
     addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step);
-    // The editor's two platforms; everywhere else there is no MapEditor.
-    const map_editor_platform = (target.result.os.tag == .macos and target.result.cpu.arch == .aarch64) or
+    // The editor's platforms: macOS on Apple Silicon and Intel, and Windows x64
+    // (MSVC); everywhere else there is no MapEditor.
+    const map_editor_platform = (target.result.os.tag == .macos and (target.result.cpu.arch == .aarch64 or target.result.cpu.arch == .x86_64)) or
         (target.result.os.tag == .windows and target.result.cpu.arch == .x86_64 and target.result.abi == .msvc);
     // Captured (rather than discarded, as before) so the package steps below
     // can stage this exact build of MapEditor beside Game (D-08); null on
@@ -2198,6 +2212,8 @@ pub fn build(b: *std.Build) void {
     const map_editor: ?MapEditorBuild = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
     const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
+    addRmgDeterminismTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    addComposerRoundtripTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
 
     // Backwards-compatible alias for the older command used in project scripts.
     const game_install_step = b.step("game-install", "Create runnable game install layout with binaries and Data");
@@ -3776,7 +3792,7 @@ fn addMapFile(
     map_file_module.addIncludePath(b.path("Sources/src/Main"));
     map_file_module.addIncludePath(b.path("Sources/src/Image"));
     map_file_module.addCSourceFiles(.{
-        .files = &.{ "Sources/src/MapFile/MapFile.cpp", "Sources/src/MapFile/MapEquivalence.cpp", "Sources/src/MapFile/MapOverlay.cpp" },
+        .files = &.{ "Sources/src/MapFile/MapFile.cpp", "Sources/src/MapFile/MapEquivalence.cpp", "Sources/src/MapFile/MapOverlay.cpp", "Sources/src/MapFile/MapRecords.cpp", "Sources/src/MapFile/MapGeometry.cpp" },
         .flags = cppflagsForOptimize(optimize),
     });
     return b.addLibrary(.{
@@ -3819,7 +3835,15 @@ fn addEditorBridge(
         .files = &.{
             "Sources/src/EditorBridge/bridge.cpp",
             "Sources/src/EditorBridge/session.cpp",
+            "Sources/src/EditorBridge/session_records.cpp",
+            "Sources/src/EditorBridge/session_terrain.cpp",
+            "Sources/src/EditorBridge/session_vso.cpp",
+            "Sources/src/EditorBridge/session_groups.cpp",
             "Sources/src/EditorBridge/catalogue.cpp",
+            "Sources/src/EditorBridge/filters.cpp",
+            "Sources/src/EditorBridge/session_rmg.cpp",
+            "Sources/src/EditorBridge/session_fields.cpp",
+            "Sources/src/EditorBridge/session_layers.cpp",
             "Sources/src/EditorBridge/world.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
@@ -5724,6 +5748,23 @@ fn addMapFileTest(
     const step_all = b.step("test-map-files-all", "Sweep every shipped map, not just the CI sample");
     step_all.dependOn(&exe.step);
     if (test_mode == .run) step_all.dependOn(&run_all.step);
+
+    // 04-13 (D-25 item 4): one record edit of each M2 collection a shipped map
+    // has, undone, must write the unedited file byte for byte. Local, like
+    // test-map-files-all: not in the default test step or CI.
+    const run_m2_sweep = b.addRunArtifact(exe);
+    run_m2_sweep.setCwd(b.path("."));
+    run_m2_sweep.addArg(module_root);
+    run_m2_sweep.addArg("--m2-sweep");
+    run_m2_sweep.step.dependOn(&streamio_install.step);
+    run_m2_sweep.step.dependOn(&sdl_install.step);
+    run_m2_sweep.step.dependOn(&scratch_install.step);
+    run_m2_sweep.step.dependOn(&platform_install.step);
+    run_m2_sweep.step.dependOn(&options_install.step);
+    run_m2_sweep.addPathDir(b.path("zig-out/bin").getPath(b));
+    const step_m2_sweep = b.step("test-map-files-m2-sweep", "Edit every M2 collection of every Data/Maps map, undo it, and compare the bytes");
+    step_m2_sweep.dependOn(&exe.step);
+    if (test_mode == .run) step_m2_sweep.dependOn(&run_m2_sweep.step);
 }
 
 fn addEditorBridgeTest(
@@ -5843,6 +5884,101 @@ fn addEditorBridgeTest(
     const step = b.step("test-editor-bridge", "Open maps through the engine and check what it saves");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
+
+    // 04-13 (D-25 item 4): bridges, fences, entrenchments and the cascade
+    // delete on every Data/Maps map, undone, must save the unedited bytes.
+    // Local only, like test-map-files-m2-sweep: not in the default test step
+    // or CI.
+    const run_m2_sweep = b.addRunArtifact(exe);
+    run_m2_sweep.setCwd(b.path(stage_root));
+    run_m2_sweep.addArg(".");
+    run_m2_sweep.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m2_sweep.addArg("--m2-sweep");
+    run_m2_sweep.has_side_effects = true;
+    run_m2_sweep.step.dependOn(&install_exe.step);
+    run_m2_sweep.step.dependOn(install_fixture_mod_step);
+    const step_m2_sweep = b.step("test-editor-bridge-m2-sweep", "Draw, delete and undo bridges, fences, entrenchments and cascades on every Data/Maps map through the engine and compare the bytes");
+    step_m2_sweep.dependOn(&exe.step);
+    if (test_mode == .run) step_m2_sweep.dependOn(&run_m2_sweep.step);
+
+    // 05-05: the players, the unit creation and Check Map's fixes through the engine,
+    // alone (the full tier above runs them too, among everything else).
+    const run_m3_players = b.addRunArtifact(exe);
+    run_m3_players.setCwd(b.path(stage_root));
+    run_m3_players.addArg(".");
+    run_m3_players.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_players.addArg("--m3-players-only");
+    run_m3_players.has_side_effects = true;
+    run_m3_players.step.dependOn(&install_exe.step);
+    const step_m3_players = b.step("test-editor-bridge-m3-players", "Add and delete players, edit the unit creation and apply Check Map's fixes through the engine and compare the bytes");
+    step_m3_players.dependOn(&exe.step);
+    if (test_mode == .run) step_m3_players.dependOn(&run_m3_players.step);
+
+    // 05-07: the Minimap panel's reads and Create Minimap Images through the engine,
+    // alone (the full tier above runs them too, among everything else).
+    const run_m3_minimap = b.addRunArtifact(exe);
+    run_m3_minimap.setCwd(b.path(stage_root));
+    run_m3_minimap.addArg(".");
+    run_m3_minimap.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_minimap.addArg("--m3-minimap-only");
+    run_m3_minimap.has_side_effects = true;
+    run_m3_minimap.step.dependOn(&install_exe.step);
+    const step_m3_minimap = b.step("test-editor-bridge-m3-minimap", "Read the minimap's tiles, colours and markers and create its pictures through the engine and check them");
+    step_m3_minimap.dependOn(&exe.step);
+    if (test_mode == .run) step_m3_minimap.dependOn(&run_m3_minimap.step);
+
+    // 05-08: Create Random Map through the engine's own generator, alone (the full
+    // tier above runs it too, among everything else): the refusals, the seed, the
+    // output folders, the mod stamp and the generated map's open.
+    const run_m3_rmg = b.addRunArtifact(exe);
+    run_m3_rmg.setCwd(b.path(stage_root));
+    run_m3_rmg.addArg(".");
+    run_m3_rmg.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_rmg.addArg("--m3-rmg-only");
+    run_m3_rmg.has_side_effects = true;
+    run_m3_rmg.step.dependOn(&install_exe.step);
+    run_m3_rmg.step.dependOn(install_fixture_mod_step);
+    const step_m3_rmg = b.step("test-editor-bridge-m3-rmg", "Generate random maps through the engine with seeds and check the files, the refusals and the mod stamp");
+    step_m3_rmg.dependOn(&exe.step);
+    if (test_mode == .run) step_m3_rmg.dependOn(&run_m3_rmg.step);
+
+    // 05-06: the Layers menu's probe (what each layer does in this renderer) and the
+    // layer entries through the engine, alone (the full tier above runs them too).
+    const run_m3_layers = b.addRunArtifact(exe);
+    run_m3_layers.setCwd(b.path(stage_root));
+    run_m3_layers.addArg(".");
+    run_m3_layers.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_layers.addArg("--m3-layers-only");
+    run_m3_layers.has_side_effects = true;
+    run_m3_layers.step.dependOn(&install_exe.step);
+    const step_m3_layers = b.step("test-editor-bridge-m3-layers", "Measure what each Layers menu toggle does in the renderer and drive them through the engine");
+    step_m3_layers.dependOn(&exe.step);
+    if (test_mode == .run) step_m3_layers.dependOn(&run_m3_layers.step);
+
+    // 05-05: the fixture maps the Check Map scenario and the railroad guard's game
+    // proof open. `--craft <kind> <file>` writes one under zig-out/local-test
+    // (CraftFixture in editor_bridge_test.cpp); the scenario steps depend on this
+    // step. The two crafts run one after the other, so two engines never start at once.
+    const craft_step = b.step("editor-craft-fixtures", "Craft the Check Map and short-railroad fixture maps under zig-out/local-test");
+    const craft_kinds = [_][2][]const u8{
+        .{ "short-railroad", "m3-short-railroad.bzm" },
+        .{ "check-map", "m3-check-map.bzm" },
+    };
+    var previous_craft: ?*std.Build.Step = null;
+    for (craft_kinds) |entry| {
+        const run_craft = b.addRunArtifact(exe);
+        run_craft.setCwd(b.path(stage_root));
+        run_craft.addArg(".");
+        run_craft.addArg(b.pathFromRoot("zig-out/local-test"));
+        run_craft.addArg("--craft");
+        run_craft.addArg(entry[0]);
+        run_craft.addArg(entry[1]);
+        run_craft.has_side_effects = true;
+        run_craft.step.dependOn(&install_exe.step);
+        if (previous_craft) |earlier| run_craft.step.dependOn(earlier);
+        previous_craft = &run_craft.step;
+        if (test_mode == .run) craft_step.dependOn(&run_craft.step);
+    }
 }
 
 /// The static libraries MapEditor's executables link: the engine
@@ -6045,9 +6181,9 @@ fn addMapEditor(
     // place, save as a new map, shoot and compare the frame against a local
     // (never committed) reference, test-launch the game and wait for it to
     // exit 0, then quit. `--hidden`, like `--smoke`: the same loop, not a
-    // person watching it. Local-only (RESEARCH.md/spec: the editor-app tier
-    // is not part of CI's GPU-runner gate) - it starts a second engine
-    // process end to end, like map-editor-game-reads-it.
+    // person watching it. It starts a second engine process end to end, like
+    // map-editor-game-reads-it. CI runs it on the two GPU runners (Windows,
+    // macos-14) through map-editor-m3-auto, which depends on it (05-REVIEW WR-D05).
     const auto_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto");
     const auto_saveas_path = b.fmt("{s}/auto.bzm", .{auto_dir});
     // Coordinates match smoke.zig's own script exactly (ground_a/
@@ -6088,11 +6224,1330 @@ fn addMapEditor(
     const auto_step = b.step("map-editor-auto", "Run BK_EDITOR_AUTO's editor-app scenario on a shipped map");
     auto_step.dependOn(&cleanup_autoshots.step);
 
+    // Phase 4's M2 scenario (04-03): the same loop and the same shipped map,
+    // scripted with the named commands and predicates (do=/expect=) instead
+    // of coordinates, so each M2 plan appends its own segment here. The
+    // schedule is a Zig array of entries joined with commas (research Q5) -
+    // frames ascending, one entry per line, so a later plan's segment is a
+    // block of lines and never an edit of one long string. No `test` action:
+    // the M2 game-reads-it checks belong to the plans that add them.
+    const auto_m2_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto-m2");
+    // 04-13: the copy-along leg's second folder, and the Lua fixture named
+    // relative to the editor's working directory (the stage root): a do=
+    // argument is at most 64 characters, which an absolute path is not.
+    const auto_m2_along_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto-m2-along");
+    const auto_m2_fixture = fixture: {
+        var up: std.ArrayListUnmanaged(u8) = .empty;
+        for (0..std.mem.count(u8, stage_root, "/") + 1) |_| up.appendSlice(b.allocator, "../") catch @panic("OOM");
+        up.appendSlice(b.allocator, "tools/zig/fixtures/m2_script.lua") catch @panic("OOM");
+        break :fixture up.items;
+    };
+    const auto_m2_entries = [_][]const u8{
+        // 04-03: camera anchors, the tracer. coldwinter already holds anchors
+        // for players 0-3, so the segment works on player 4 and the neutral
+        // anchor, both unset there: set player 4 at the view centre, undo it
+        // (unset again), redo it, set the neutral one, go to player 0's
+        // anchor, clear the neutral one, then save and shoot the markers.
+        "3:do=camera_player:4",
+        "4:expect=anchor_set:4",
+        "5:expect=undo_depth:1",
+        "6:key=Z+ctrl",
+        "8:expect=anchor_unset:4",
+        "9:key=Y+ctrl",
+        "11:expect=anchor_set:4",
+        "12:expect=undo_depth:1",
+        "13:do=camera_neutral",
+        "14:expect=anchor_set:neutral",
+        "15:expect=undo_depth:2",
+        "16:do=camera_goto:0",
+        "17:do=camera_clear:neutral",
+        "18:expect=anchor_unset:neutral",
+        "19:expect=undo_depth:3",
+        // 04-03 Task 3: the gestures and keys reach Select, which ignores them
+        // (a tool that takes no right button or double click is not even
+        // handed them), so nothing new is recorded. `text=` has no focused
+        // field to reach here; it only proves the event is pushed and drawn
+        // past without a failure.
+        "20:tool=select",
+        "21:rclick=c0x0",
+        "22:dblclick=c10x10",
+        "23:key=INSERT",
+        "24:key=ESCAPE",
+        "25:text=Area1",
+        "27:expect=undo_depth:3",
+        // 04-05: Roads & Rivers, on the empty snow above the view centre (the
+        // camera stands at player 0's anchor after camera_goto:0). A road of
+        // three clicks finished by a double click; a drag of its second
+        // point, undone; Insert after that point (4 points), undone; then a
+        // river of three clicks finished by Enter and a right-drag of 50
+        // pixels down on its second point (opacity 1 -> 0.5); the markers
+        // shot. These drags keep their press, motions and release in one
+        // frame as 04-05 wrote them; since 04-06 a scripted press is held
+        // across frames until its release (View.holdScripted), so a drag may
+        // also span frames.
+        "28:tool=roads_rivers",
+        "29:do=vso_kind:road",
+        "30:do=vso_width:3",
+        "31:do=vso_opacity:100",
+        "32:click=c-100x-250",
+        "33:click=c50x-200",
+        "34:dblclick=c200x-250",
+        "36:expect=vso_delta:road:1",
+        "37:expect=vso_points:road:3",
+        "38:expect=undo_depth:4",
+        "39:press=c50x-200",
+        "39:drag=c50x-175",
+        "39:drag=c50x-150",
+        "39:release=c50x-150",
+        "41:expect=undo_depth:5",
+        "42:key=Z+ctrl",
+        "44:expect=vso_delta:road:1",
+        "45:expect=undo_depth:4",
+        "46:key=INSERT",
+        "48:expect=vso_points:road:4",
+        "49:key=Z+ctrl",
+        "51:expect=vso_points:road:3",
+        "52:do=vso_kind:river",
+        "53:click=c-260x-320",
+        "54:click=c-230x-250",
+        "55:click=c-250x-170",
+        "56:key=ENTER",
+        "58:expect=vso_delta:river:1",
+        "59:rpress=c-230x-250",
+        "59:rdrag=c-230x-225",
+        "59:rdrag=c-230x-200",
+        "59:rrelease=c-230x-200",
+        "61:expect=undo_depth:6",
+        // 04-13: in the width mode All the panel's width re-widths the selected
+        // line (the river just finished) as one undo step (the MFC editor's
+        // CW_ALL); undone, and the panel back to single and 3 tiles.
+        "62:do=vso_width_mode:all",
+        "62:do=vso_width:5",
+        "63:expect=undo_depth:7",
+        "63:key=Z+ctrl",
+        "65:expect=undo_depth:6",
+        "65:do=vso_width_mode:single",
+        "65:do=vso_width:3",
+        "66:shot=m2_roads",
+        "66:compare=m2_roads",
+        // 04-06: the Bridge tool (key 5) with W_WoodenBig_Heavy_01, dragged
+        // along the world's x axis (down and to the right on screen, 2:1) over
+        // the empty snow right of the view centre, between the new road and
+        // the tanks below (the engine refuses a span on another object), the
+        // press, the motions and the release in separate
+        // frames (a scripted press is held until its release since 04-06):
+        // one new bridges entry, selected; E rotates it to _02, Enter makes it
+        // built during play; two undos and two redos walk both back and
+        // forth; the bridge, its outline and its mark shot.
+        "67:tool=bridge",
+        "68:do=bridge_desc:W_WoodenBig_Heavy_01",
+        "70:press=c-20x-190",
+        "71:drag=c100x-130",
+        "72:drag=c200x-80",
+        "73:release=c260x-50",
+        "75:expect=bridge_delta:1",
+        "76:expect=undo_depth:7",
+        "77:key=E",
+        "79:expect=undo_depth:8",
+        "80:key=ENTER",
+        "82:expect=bridge_built",
+        "83:expect=undo_depth:9",
+        "84:key=Z+ctrl",
+        "86:key=Z+ctrl",
+        "88:expect=undo_depth:7",
+        "89:key=Y+ctrl",
+        "91:key=Y+ctrl",
+        "93:expect=bridge_built",
+        "94:expect=bridge_delta:1",
+        "96:shot=m2_bridges",
+        "96:compare=m2_bridges",
+        // 04-07: the Fence tool (key 6) with W_FactoryFence, dragged along the
+        // world's x axis on the snow between the bridge and the tanks: the
+        // ghost is shot while the button is held (a scripted press is held
+        // across frames), the release places one run as one undo step, undo
+        // and redo walk it back and forth, the run is shot.
+        "97:tool=fence",
+        "98:do=fence_desc:W_FactoryFence",
+        "100:press=c80x-65",
+        "101:drag=c140x-35",
+        "102:drag=c200x-5",
+        "103:shot=m2_fence_ghost",
+        "103:compare=m2_fence_ghost",
+        "104:drag=c240x15",
+        "105:release=c240x15",
+        "107:expect=fence_delta:6",
+        "108:expect=undo_depth:10",
+        "109:key=Z+ctrl",
+        "111:expect=fence_delta:0",
+        "112:expect=undo_depth:9",
+        "113:key=Y+ctrl",
+        "115:expect=fence_delta:6",
+        "116:expect=undo_depth:10",
+        "118:shot=m2_fences",
+        "118:compare=m2_fences",
+        // 04-08: the Entrenchment tool (key 7) for player 0, an L of three
+        // clicks on the snow left of the view centre, below the river: two
+        // clicks, the pointer moved to the third point (the preview is shot
+        // there), then the double click's own first click adds that point and
+        // commits one entrenchment as one undo step; undo and redo walk it
+        // back and forth; the trench is shot, selected.
+        "119:tool=entrenchment",
+        "120:do=trench_player:0",
+        "121:click=c-330x-60",
+        "122:click=c-170x-10",
+        "123:drag=c-150x80",
+        "125:shot=m2_trench_preview",
+        "125:compare=m2_trench_preview",
+        "126:dblclick=c-150x80",
+        "128:expect=trench_delta:1",
+        "129:expect=undo_depth:11",
+        "130:key=Z+ctrl",
+        "132:expect=trench_delta:0",
+        "133:expect=undo_depth:10",
+        "134:key=Y+ctrl",
+        "136:expect=trench_delta:1",
+        "137:expect=undo_depth:11",
+        "139:shot=m2_trench",
+        "139:compare=m2_trench",
+        // 04-09: script IDs and reinforcement groups (coldwinter holds no
+        // group, so New from 0 takes group 0). The Select tool clicks a tank of
+        // the rows below the fence; the script_id command gives it 4244 and the
+        // predicate reads it back; a new group takes 4244; Select objects
+        // outlines the tank (shot); hiding the group hides that one object (the
+        // status bar counts it, the Groups window is shot with the hidden tank);
+        // unhiding, Remove and Delete are each one step and are undone; three
+        // more undos walk everything back (group script ID, group, script ID),
+        // and the window is shot again.
+        "140:tool=select",
+        "141:click=c-200x150",
+        "143:do=script_id:4244",
+        "144:expect=script_id:4244",
+        "145:expect=undo_depth:12",
+        "146:do=group_new:0",
+        "147:expect=groups_delta:1",
+        "148:expect=undo_depth:13",
+        "149:do=group_add_id:0:4244",
+        "150:expect=group_has:0:4244",
+        "151:expect=undo_depth:14",
+        "152:do=group_select:0",
+        "154:shot=m2_groups_marked",
+        "154:compare=m2_groups_marked",
+        "155:do=group_hide:0:1",
+        "156:expect=hidden_count:1",
+        "157:do=groups_window:1",
+        "160:shot=m2_groups_hidden",
+        "160:compare=m2_groups_hidden",
+        "161:do=group_hide:0:0",
+        "162:expect=hidden_count:0",
+        "163:do=group_remove_id:0:4244",
+        "164:expect=undo_depth:15",
+        "165:do=group_delete:0",
+        "166:expect=groups_delta:0",
+        "167:expect=undo_depth:16",
+        "168:key=Z+ctrl",
+        "170:expect=groups_delta:1",
+        "171:key=Z+ctrl",
+        "173:expect=group_has:0:4244",
+        "174:expect=undo_depth:14",
+        "175:key=Z+ctrl",
+        "177:key=Z+ctrl",
+        "179:key=Z+ctrl",
+        "181:expect=groups_delta:0",
+        "182:expect=undo_depth:11",
+        "185:shot=m2_groups",
+        "185:compare=m2_groups",
+        // 04-10: script areas (key 8) and the script file. A rectangle named
+        // m2_area is dragged, a circle named m2_ring after it (the drag's press,
+        // motions and release in separate frames); the map now holds two areas
+        // more. A click inside the rectangle selects it and a drag from its
+        // centre handle moves it (one undo step, undone by the key); Rename gives
+        // it m2_zone and the second undo takes that back. The map's script file is
+        // named m2_script (a predicate reads it back), the Script window is opened
+        // and everything is shot.
+        "186:tool=script_areas",
+        "187:do=area_shape:rect",
+        "188:do=area_name:m2_area",
+        "190:press=c120x120",
+        "191:drag=c190x160",
+        "192:drag=c260x200",
+        "193:release=c260x200",
+        "195:expect=area_named:m2_area",
+        "196:expect=areas_delta:1",
+        "197:expect=undo_depth:12",
+        "198:do=area_shape:circle",
+        "199:do=area_name:m2_ring",
+        "201:press=c-120x210",
+        "202:drag=c-90x225",
+        "203:release=c-60x240",
+        "205:expect=area_named:m2_ring",
+        "206:expect=areas_delta:2",
+        "207:expect=undo_depth:13",
+        "208:click=c190x160",
+        "210:press=c190x160",
+        "211:drag=c205x170",
+        "212:drag=c220x180",
+        "213:release=c220x180",
+        "215:expect=undo_depth:14",
+        "216:key=Z+ctrl",
+        "218:expect=undo_depth:13",
+        "219:do=area_rename:0:m2_zone",
+        "220:expect=area_named:m2_zone",
+        "221:expect=undo_depth:14",
+        "222:key=Z+ctrl",
+        "224:expect=area_named:m2_area",
+        "225:expect=undo_depth:13",
+        "226:do=script_file:m2_script",
+        "227:expect=script_file:m2_script",
+        "228:expect=undo_depth:14",
+        "229:do=script_dialog:1",
+        "232:shot=m2_areas",
+        "232:compare=m2_areas",
+        "233:do=script_dialog:0",
+        "233:do=groups_window:0",
+        // 04-11: start commands. The Select tool clicks the tank the 04-09 segment
+        // used; Unit > Add start command (the named command) makes a STOP command
+        // for it, selected in the Start Commands window (coldwinter holds none, so
+        // it is command 0); its type becomes MOVE_TO and its number 2.5, and the
+        // view centre its target (a point; the red line from the tank to it is
+        // shot with the window closed, then the window with it open); undo and
+        // redo walk the target back and forth; Set target puts the Start Target
+        // tool in hand for one click and it hands the Select tool back.
+        "234:tool=select",
+        "235:click=c-200x150",
+        "237:do=startcmd_add",
+        "238:expect=startcmds_delta:1",
+        "239:expect=startcmd_units:0:1",
+        "240:expect=undo_depth:15",
+        "241:do=startcmd_type:MOVE_TO",
+        "242:expect=startcmd_is:0:MOVE_TO",
+        "243:expect=undo_depth:16",
+        "244:do=startcmd_number:2.5",
+        "245:expect=undo_depth:17",
+        "246:do=startcmd_target_here",
+        "247:expect=startcmd_target:0:pos",
+        "248:expect=undo_depth:18",
+        "250:shot=m2_startcmds",
+        "250:compare=m2_startcmds",
+        "251:do=startcmds_window:1",
+        "254:shot=m2_startcmds_panel",
+        "254:compare=m2_startcmds_panel",
+        "255:do=startcmds_window:0",
+        "256:key=Z+ctrl",
+        "258:expect=undo_depth:17",
+        "259:key=Y+ctrl",
+        "261:expect=undo_depth:18",
+        "262:expect=startcmd_target:0:pos",
+        "264:do=startcmd_target_begin",
+        "266:click=c300x60",
+        "268:expect=undo_depth:19",
+        "269:key=Z+ctrl",
+        "271:expect=undo_depth:18",
+        // 04-11: reserve positions. The Place tool puts a towed gun and a truck of
+        // player 0 (the first towed gun the catalogue offers, found through the bridge,
+        // and Sdkfz_8, a carrier whose 24000 towing force beats its weight) on the snow
+        // left of the view centre; Unit > Artillery positions
+        // mode (the named command) puts the Reserve Positions tool in hand; a click on
+        // the gun, a click on the truck and a click on the ground form the choice,
+        // Enter commits it as one position; undo and redo walk it back and forth and
+        // the gun -> truck -> place line is shot. A placed unit is drawn above the
+        // ground point it stands on, so the picking clicks land a little above the
+        // points the placing clicks used.
+        "273:tool=place",
+        "274:do=placer_role:towed",
+        "275:click=c-230x-140",
+        "277:do=placer_name:Sdkfz_8",
+        "278:click=c-130x-120",
+        "280:expect=undo_depth:20",
+        "281:do=reserve_mode",
+        "282:click=c-230x-180",
+        "284:expect=reserve_pending:gun",
+        "285:click=c-130x-165",
+        "287:expect=reserve_pending:truck",
+        "288:click=c0x-200",
+        "290:expect=reserve_pending:place",
+        "291:key=ENTER",
+        "293:expect=reserve_delta:1",
+        "294:expect=undo_depth:21",
+        "295:expect=reserve_pending:none",
+        "296:key=Z+ctrl",
+        "298:expect=reserve_delta:0",
+        "299:key=Y+ctrl",
+        "301:expect=reserve_delta:1",
+        "303:shot=m2_reserve",
+        "303:compare=m2_reserve",
+        // 04-12: the AI general. The AI General tool on side 1 (coldwinter has two sides):
+        // a click on open ground makes a defence parcel, a click inside it a reinforce
+        // point, the undo key takes the point away and redo brings it back, Enter switches
+        // the parcel to reinforce, a mobile script ID is added through the named command,
+        // and the parcel, its arrow, the point and the panel are shot; then four undos take
+        // the script ID, the type, the point and the parcel away again (the side count never
+        // moves on an existing side).
+        "304:tool=ai_general",
+        "305:do=ai_side:1",
+        "306:click=c80x-150",
+        "308:expect=parcels:1:1",
+        "309:expect=undo_depth:22",
+        "310:click=c160x-150",
+        "312:expect=undo_depth:23",
+        "313:key=Z+ctrl",
+        "315:expect=undo_depth:22",
+        "316:key=Y+ctrl",
+        "318:expect=undo_depth:23",
+        "319:key=ENTER",
+        "321:expect=undo_depth:24",
+        "322:do=ai_mobile_add:4245",
+        "323:expect=mobile_has:1:4245",
+        "324:expect=undo_depth:25",
+        "327:shot=m2_ai_general",
+        "327:compare=m2_ai_general",
+        "328:key=Z+ctrl",
+        "330:key=Z+ctrl",
+        "332:key=Z+ctrl",
+        "334:key=Z+ctrl",
+        "336:expect=parcels:1:0",
+        "337:expect=undo_depth:21",
+        b.fmt("339:saveas={s}/m2.bzm", .{auto_m2_dir}),
+        "340:shot=m2_anchor",
+        "340:compare=m2_anchor",
+        // 04-13, the exit run (D-25.6): the saved user map gets its script the
+        // way the Script dialog's Choose other gives one, without the file
+        // picker (script_choose copies the fixture beside m2.bzm and names it),
+        // is saved and shot; Save As into another folder asks to bring the
+        // script along and the answer copies it (the copy-along question on a
+        // user map); Test in game from there copies it beside the test map and
+        // the test game's own BK_MAP_TRACE report says it ran the script.
+        "341:do=script_file:none",
+        "342:expect=script_file:none",
+        b.fmt("343:do=script_choose:{s}", .{auto_m2_fixture}),
+        "344:expect=script_file:m2_script",
+        "344:expect=script_beside:m2_script",
+        "345:expect=undo_depth:23",
+        "346:save",
+        "348:shot=m2_final",
+        "348:compare=m2_final",
+        b.fmt("350:saveas={s}/m2_along.bzm", .{auto_m2_along_dir}),
+        "353:do=script_copy_along_yes",
+        "354:expect=script_beside:m2_script",
+        "354:expect=script_file:m2_script",
+        "355:test",
+        "356:waitgame=240",
+        "357:expect=test_game_script:m2_script",
+        "358:exit",
+    };
+    const auto_m2_run = b.addRunArtifact(exe);
+    auto_m2_run.setCwd(b.path(stage_root));
+    auto_m2_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
+    auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m2_dir);
+    auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m2_entries) catch @panic("OOM"));
+    // 04-13: the test game's own schedule (a shot, then exit) and its
+    // BK_MAP_TRACE, which the test_game_script predicate reads.
+    auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO_GAME", "400:shot,440:exit");
+    auto_m2_run.setEnvironmentVariable("BK_EDITOR_AUTO_GAME_TRACE", "1");
+    // What it reads - the staged Data and engine - is not a file input of the
+    // step, so a cached pass would say nothing about the installation now.
+    auto_m2_run.has_side_effects = true;
+    auto_m2_run.step.dependOn(&install_exe.step);
+    // After map-editor-auto (which itself runs after the smoke), so two
+    // engines never start at once: this Zig has no ordering-only edge
+    // (Build.Step has no mustRunAfter), so the M1 scenario runs first.
+    auto_m2_run.step.dependOn(&cleanup_autoshots.step);
+    // 04-13: a script left beside m2.bzm or m2_along.bzm by an earlier run
+    // would turn Choose other into its Replace it? question and let the
+    // copy-along check pass on a stale file, so both go first.
+    for ([_][]const u8{ auto_m2_dir, auto_m2_along_dir }) |folder| {
+        const stale_scripts = b.addRunArtifact(delete_matching);
+        stale_scripts.addArgs(&.{ folder, "m2_script", ".lua" });
+        auto_m2_run.step.dependOn(&stale_scripts.step);
+    }
+    const cleanup_autoshots_m2 = b.addRunArtifact(delete_matching);
+    cleanup_autoshots_m2.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_autoshots_m2.step.dependOn(&auto_m2_run.step);
+    const auto_m2_step = b.step("map-editor-auto-m2", "Run BK_EDITOR_AUTO's M2 scenario (named commands and predicates) on a shipped map");
+    auto_m2_step.dependOn(&cleanup_autoshots_m2.step);
+
+    // Phase 5's M3 scenario (05-01, D-37/D-40.7): the same loop once more -
+    // every M3 plan appends its own segment of named commands and predicates
+    // to the array below. This plan's segment: the title (F15) and status
+    // bar (V6) expect their own predicates, the brush combo's range (V4),
+    // New Map (F1) and Save as BZM (F8). No `test` action and no
+    // BK_EDITOR_AUTO_GAME: the game-reads-it checks belong to the plans that
+    // add them.
+    const auto_m3_dir = b.pathFromRoot("zig-out/local-test/map-editor-m3-auto");
+    // The climb from the staged game root (the editor's cwd) up to zig-out/, one "../" per
+    // component of stage_root: the save_bzm paths below are relative to that cwd, and a hand-written
+    // count of two landed the maps in zig-out/game/<os>/local-test, outside the scratch folder
+    // BK_EDITOR_AUTO_DIR names (05-REVIEW WR-D01). A do= argument is at most 64 characters.
+    const auto_m3_up = climb: {
+        var up: std.ArrayListUnmanaged(u8) = .empty;
+        for (0..std.mem.count(u8, stage_root, "/")) |_| up.appendSlice(b.allocator, "../") catch @panic("OOM");
+        break :climb up.items;
+    };
+    // The Check Map fixture the scenario opens (05-05): crafted by the bridge test's
+    // `--craft` before the scenario starts.
+    const auto_m3_check_map = b.pathFromRoot("zig-out/local-test/m3-check-map.bzm");
+    // The shipped map the Layers frames open again mid-scenario (05-06): the staged copy's OS path.
+    const auto_m3_coldwinter = b.pathFromRoot(b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root}));
+    const auto_m3_arnheim = b.pathFromRoot(b.fmt("{s}/Data/Maps/Multiplayer/arnheim.bzm", .{stage_root}));
+    const craft_fixtures_step = &(b.top_level_steps.get("editor-craft-fixtures") orelse @panic("editor-craft-fixtures is defined by addEditorBridgeTest")).step;
+    const auto_m3_entries = [_][]const u8{
+        // The shipped map from the command line is open by now: the title
+        // names it (F15), the status bar carries the MFC's own VIS/SCRIPT
+        // pair and object line (V6).
+        "3:expect=title:coldwinter",
+        "5:expect=status:VIS:",
+        "7:expect=status:SCRIPT",
+        // The brush combo's own range (V4): 1 and 16 are both taken, and
+        // neither is an edit - there is nothing to undo.
+        "10:do=brush_size:1",
+        "12:do=brush_size:16",
+        "14:expect=undo_depth:0",
+        // New Map (F1): the dialog's fields as one command; the title
+        // follows to the never-saved name (F15).
+        "18:do=map_new:8x8:summer:M3Auto",
+        "25:expect=title:M3Auto",
+        "27:expect=status:VIS:",
+        // Save as BZM (F8): the command's own path argument delivers the
+        // Save As; the relative path is from the staged game root (the
+        // run's cwd), the same ground `saveas=` uses.
+        b.fmt("32:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3.bzm", .{auto_m3_up}),
+        // Saved: the title names the file it became, clean of the star.
+        "40:expect=title:m3.bzm",
+        "42:expect=title:8x8",
+        // The new map's world replaces coldwinter's: the camera goes home
+        // (zoom 0, re-synced), so the scripted cells below name real cells
+        // of the 8x8 map.
+        "44:key=HOME",
+        // The Heights tool (D-18) on the fresh 8x8: a raise drag is one undo
+        // step; a level drag (the mode is a named command, the gesture is
+        // the same left drag) is one more. Generate hills (TR10): one
+        // command, one undo step.
+        "50:tool=heights",
+        "52:press=c0x0",
+        "54:drag=c10x0",
+        "56:release=c10x0",
+        "58:expect=undo_depth:1",
+        "60:do=heights_mode:click_average",
+        "62:press=c-20x0",
+        "64:drag=c-40x0",
+        "66:release=c-40x0",
+        "68:expect=undo_depth:2",
+        "72:do=heights_generate:hills:0.3:-3:3",
+        "74:expect=undo_depth:3",
+        // Update Map (M8/D-20) and Fill Entire Map (M1/D-22): one explicit
+        // undoable command each - and the fill's tile 0 is answered by the
+        // tile properties (TR2) after it.
+        "78:do=map_update",
+        "80:expect=undo_depth:4",
+        "84:do=map_fill:0",
+        "86:expect=undo_depth:5",
+        // The two toggles (M9/M10): settings, never undo steps.
+        "90:do=instant_update",
+        "92:do=fit_grid",
+        "94:expect=undo_depth:5",
+        // Tile properties (TR2): tile 0 answers its name - the MFC's `> 0`
+        // guard is not copied.
+        "98:do=tile_info:0",
+        "100:expect=status:0:",
+        // The object filters (D-31, O2/O3/O4): the combo selects a shipped
+        // filter (Data/Editor/filter.xml), the palette's count follows
+        // (predicate over the filtered catalogue); Ctrl+click's assign puts
+        // it in quick-toggle slot 0, unchecking and rechecking the slot
+        // gates and ungates the same rows; the composer opens and closes by
+        // its command.
+        "120:do=filter_select:Buildings",
+        "122:expect=palette_count:194",
+        "124:do=filter_assign:0",
+        "126:do=filter_select:none",
+        "128:expect=palette_count:1068",
+        "130:do=filter_toggle:0",
+        "132:expect=palette_count:194",
+        "134:do=filter_toggle:0",
+        "136:expect=palette_count:1068",
+        "138:do=filters_composer",
+        "140:do=filters_composer",
+        // The Fields tool (D-21, TR14-TR18): the field-set combo from the
+        // storage scan, a scripted polygon, one apply - one undo step - and
+        // undo back to the saved bytes (dirty 0). The vertices go through
+        // the vertex commands (world points): the synthetic pointer's
+        // ground answer barely moves per screen pixel at this zoom, so
+        // clicks would collapse into one deduped point. The save first
+        // marks the pre-fields document clean, the way the MFC's dialog
+        // flow ran on a saved map.
+        b.fmt("150:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3.bzm", .{auto_m3_up}),
+        "152:do=fields_set:scenarios\\fieldsets\\summer\\field00",
+        "154:tool=fields",
+        "156:do=fields_vertex_add:64:64",
+        "158:do=fields_vertex_add:192:64",
+        "160:do=fields_vertex_add:192:192",
+        "162:do=fields_vertex_add:64:192",
+        "164:do=fields_apply",
+        "166:expect=dirty:1",
+        "168:key=Z+ctrl",
+        "170:expect=dirty:0",
+        // Multi-selection (D-25, O9-O12/O14/O16): two squads placed - the
+        // placer selects each one it places - and the Selector takes over.
+        // Undo depths run on from the fields segment's 5.
+        "180:do=placer_name:US_sniper",
+        "182:tool=place",
+        "184:click=c-40x-60",
+        "186:click=c0x-60",
+        "188:expect=undo_depth:7",
+        "189:expect=objects:2",
+        // The screen rubber band (O10): a drag that starts on empty ground
+        // draws the band, and its release selects every object whose
+        // picture's centre it holds - the engine's own rectangle pick.
+        "190:tool=select",
+        "191:press=c-90x-150",
+        "192:drag=c-20x-80",
+        "193:drag=c50x-20",
+        "194:release=c50x-20",
+        "196:expect=selection_count:2",
+        // The group move (O12): a drag FROM a selected object - on its
+        // drawn picture, which the generated hills lift above the ground
+        // point the placer clicked - moves the whole selection as ONE undo
+        // step.
+        "198:press=c-42x-102",
+        "199:drag=c-32x-97",
+        "200:drag=c-22x-92",
+        "201:release=c-22x-92",
+        "202:expect=undo_depth:8",
+        "203:expect=selection_count:2",
+        // Right-click alone deselects (O14); the Ctrl band's tile rectangle
+        // re-selects both (O11: the scripted pointer has no Ctrl, so the
+        // band's own read runs as a command).
+        "204:rclick=c60x60",
+        "206:expect=selection_count:0",
+        "208:do=band_select:0-0-255-255",
+        "210:expect=selection_count:2",
+        // Delete takes the whole selection as one step (O16), and one undo
+        // brings both back; the redo deletes them again, so the frames
+        // below stage their own objects.
+        "212:key=Delete",
+        "214:expect=selection_count:0",
+        "216:expect=undo_depth:9",
+        "217:expect=objects:0",
+        "218:key=Z+ctrl",
+        "220:expect=undo_depth:8",
+        "222:expect=objects:2",
+        "224:key=Y+ctrl",
+        "226:expect=undo_depth:9",
+        "228:expect=objects:0",
+        // The Properties window (D-26, O15/O17/O19): a fresh squad placed and
+        // selected by the placer's own click; the player and health fields
+        // commit as ONE undo step each.
+        "230:do=placer_name:US_sniper",
+        "231:tool=place",
+        "232:click=c-40x-60",
+        "233:expect=selection_count:1",
+        "234:do=props_open:1",
+        "236:do=props_set:player=1",
+        "238:expect=undo_depth:11",
+        "240:do=props_set:health=50",
+        "242:expect=hp:@0:50",
+        "244:expect=undo_depth:12",
+        // Links (D-27, O13/O21): a house with rest slots (A_H01_1: 40)
+        // placed off to the side, the band selects the pair (@0 the squad,
+        // placed first, so the lower link ID; @1 the house), the garrison
+        // follows CheckForInserting's rules as ONE step; undo and redo walk
+        // it, and the units list's unlink takes it back.
+        "250:do=placer_name:A_H01_1",
+        "252:click=c160x-120",
+        "254:do=band_select:0-0-255-255",
+        "256:expect=selection_count:2",
+        "258:do=link_make:@0=@1",
+        "259:expect=link_with:@0=@1",
+        "260:expect=undo_depth:14",
+        "262:key=Z+ctrl",
+        "264:expect=undo_depth:13",
+        "265:expect=link_with:@0=0",
+        "266:key=Y+ctrl",
+        "268:expect=undo_depth:14",
+        "269:expect=link_with:@0=@1",
+        "274:do=link_unlink:@0",
+        "276:expect=undo_depth:15",
+        "277:expect=link_with:@0=0",
+        // The direction wheel (D-28, O6) with nothing selected: a turn sets
+        // the placement angle and edits nothing - Q/E stay beside it.
+        "280:tool=select",
+        "281:rclick=c60x60",
+        "282:expect=selection_count:0",
+        "283:do=wheel_turn:90",
+        "284:expect=placer_angle:90",
+        "286:do=wheel_turn:180",
+        "288:expect=placer_angle:180",
+        "290:expect=undo_depth:15",
+        // The wheel with a selection (O6) turns it BY THE DELTA (the user's
+        // ruling of 2026-10-03; 05-04 first turned it TO the wheel's angle):
+        // a T-34 placed at the placer's 180 and left selected; the wheel is
+        // set to 90 with nothing selected (the placer only), the T-34 is
+        // selected again, and the wheel goes from 90 to 135 - a turn of +45,
+        // so the T-34 faces 225, not the 135 a set-to-angle wheel would give.
+        // ONE undo step, the undo turns it back to 180, the redo to 225; a
+        // wheel turned to where it already stands turns nothing.
+        "291:do=placer_name:T-34",
+        "292:tool=place",
+        "293:click=c-30x-30",
+        "294:expect=selection_count:1",
+        "295:expect=angle:@0:180",
+        "296:expect=undo_depth:16",
+        "297:tool=select",
+        "298:rclick=c60x60",
+        "299:expect=selection_count:0",
+        "300:do=wheel_turn:90",
+        "301:expect=placer_angle:90",
+        "302:click=c-10x-78",
+        "303:expect=selection_count:1",
+        "304:expect=angle:@0:180",
+        "305:do=wheel_turn:135",
+        "306:expect=placer_angle:135",
+        "307:expect=angle:@0:225",
+        "308:expect=undo_depth:17",
+        "309:key=Z+ctrl",
+        "310:expect=angle:@0:180",
+        "311:expect=undo_depth:16",
+        "312:key=Y+ctrl",
+        "313:expect=angle:@0:225",
+        "314:expect=undo_depth:17",
+        "315:do=wheel_turn:135",
+        "316:expect=angle:@0:225",
+        "317:expect=undo_depth:17",
+        // The Damage tool (D-29, MT1) by its real clicks on the T-34's drawn
+        // hull (the hills lift it above the point it was placed at): 25%, a
+        // left click damages it ONE step, a right click heals it ONE step;
+        // then the command form's hit and repair, ONE step each.
+        "320:do=damage_percent:25",
+        "321:tool=damage",
+        "322:click=c-10x-78",
+        "324:expect=hp:@0:75",
+        "325:expect=undo_depth:18",
+        "326:rclick=c-10x-78",
+        "328:expect=hp:@0:100",
+        "329:expect=undo_depth:19",
+        "330:do=damage:@0:damage",
+        "331:expect=hp:@0:75",
+        "332:do=damage:@0:repair",
+        "333:expect=hp:@0:100",
+        "334:expect=undo_depth:21",
+        // Players (D-30, M4): the new map has the two default entries; two
+        // players are added before the neutral (one undo step each), the
+        // unit creation of player 0 takes a relax time and an appear point
+        // (one step each), and deleting player 0 turns the T-34 - its
+        // object - over to the neutral, which is entry 2 of the 3 left.
+        // Undo and redo walk it, the owner following.
+        "336:expect=players:2",
+        "338:do=player_add:0",
+        "340:do=player_add:1",
+        "342:expect=players:4",
+        "344:expect=undo_depth:23",
+        "346:do=unit_creation_player:0",
+        "348:do=unit_creation_set:relax=77",
+        "350:expect=unit_creation_is:relax=77",
+        "352:expect=undo_depth:24",
+        "354:do=appear_point_here",
+        "356:expect=undo_depth:25",
+        "358:expect=player_is:@0:0",
+        "360:do=player_delete:0",
+        "362:expect=players:3",
+        "364:expect=player_is:@0:2",
+        "366:expect=undo_depth:26",
+        "368:key=Z+ctrl",
+        "370:expect=players:4",
+        "372:expect=player_is:@0:0",
+        "374:key=Y+ctrl",
+        "376:expect=players:3",
+        "378:expect=player_is:@0:2",
+        "380:key=Z+ctrl",
+        "382:expect=players:4",
+        // Check Map (D-33, M7/F4/S1) on a crafted fixture (coldwinter plus six defects:
+        // a duplicate object, a link to a host that is not there, an owner of 99, a
+        // party partys.xml lacks, an object whose type no database lists, and a road
+        // with one control point). The new map is saved first so the open asks
+        // nothing. A check edits nothing and writes its log; Save only SAYS the
+        // checks failed; Fix all fixes what needs no asking as ONE undo step and
+        // `remove` takes the unknown object and the short road too; undo walks both
+        // back to the six findings.
+        b.fmt("384:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3.bzm", .{auto_m3_up}),
+        b.fmt("392:open={s}", .{auto_m3_check_map}),
+        "406:do=check_map",
+        "408:expect=check_findings:duplicate_object=1",
+        "409:expect=check_findings:invalid_link=1",
+        "410:expect=check_findings:player_index=1",
+        "411:expect=check_findings:unknown_party=1",
+        "412:expect=check_findings:unknown_object_type=1",
+        "413:expect=check_findings:short_vso=1",
+        "414:expect=check_findings:6",
+        "416:expect=check_log_has:control",
+        "418:expect=undo_depth:0",
+        b.fmt("424:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3-checked.bzm", .{auto_m3_up}),
+        "434:expect=status:checks",
+        "436:expect=check_findings:6",
+        "438:do=check_jump:0",
+        "440:do=check_map_fix_all",
+        "442:expect=check_findings:2",
+        "444:expect=undo_depth:1",
+        "446:do=check_map_fix_all:remove",
+        "448:expect=check_findings:0",
+        "450:expect=undo_depth:2",
+        "452:do=undo",
+        "453:do=undo",
+        "454:expect=undo_depth:0",
+        "456:do=check_map",
+        "458:expect=check_findings:6",
+        // The Minimap panel (05-07, D-14..D-17, MM1-MM4, M11). The crafted map is
+        // saved under a name of its own (Save As: a user map beside which the
+        // pictures can go), the panel is shown - nothing in it is an edit, the
+        // document stays clean - and a click near its top-left corner moves the
+        // camera: the shots before and after differ (the view's ground and the
+        // panel's camera frame both moved). Create Minimap Images writes the
+        // pictures beside the saved map (an explicit command, never part of
+        // Save), the panel switches to Game mode and shows the fresh picture;
+        // Editor mode is one click back.
+        b.fmt("460:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3-minimap.bzm", .{auto_m3_up}),
+        "470:expect=title:m3-minimap.bzm",
+        "472:do=minimap_toggle:on",
+        "474:expect=minimap_visible:1",
+        "476:expect=minimap_mode:editor",
+        "480:shot=m3-minimap-before",
+        "482:do=minimap_click:8x8",
+        "484:expect=minimap_moved",
+        "488:shot=m3-minimap-after",
+        "490:differ=m3-minimap-before/m3-minimap-after@0.5",
+        "492:expect=dirty:0",
+        "494:do=minimap_create",
+        "498:expect=minimap_files",
+        "500:expect=minimap_mode:game",
+        "504:shot=m3-minimap-game",
+        "506:do=minimap_mode:editor",
+        "508:expect=minimap_mode:editor",
+        "510:do=minimap_mode:game",
+        "512:expect=dirty:0",
+        // With the Heights tool active the panel draws the height gradient
+        // (D-14: the MFC's grey ramp), not the terrain colours.
+        "514:do=minimap_mode:editor",
+        "516:tool=heights",
+        "524:shot=m3-minimap-heights",
+        "526:differ=m3-minimap-after/m3-minimap-heights@0.5",
+        "528:tool=select",
+        // The Layers menu (05-06, D-32; PARITY L1-L12, L14, L15). Renderer state:
+        // nothing here is an edit - the document stays clean and there is nothing to
+        // undo. The renderer's own answer (not the editor's memory) is read back after
+        // every toggle; the layers whose effect is plain in a picture also differ from
+        // the base shot. The starting menu is the MFC's own.
+        "544:expect=dirty:0",
+        "546:expect=layer:terrain:1",
+        "547:expect=layer:terrain_noise:1",
+        "548:expect=layer:black_stripes:1",
+        "549:expect=layer:units:1",
+        "550:expect=layer:objects:1",
+        "551:expect=layer:shadows:1",
+        "552:expect=layer:haze:1",
+        "553:expect=layer:grid:0",
+        "554:expect=layer:wireframe:0",
+        "555:expect=layer:depth_complexity:0",
+        "556:expect=layer:bounding_boxes:0",
+        "557:expect=layer:war_fog:0",
+        "558:expect=layer:units_passability:0",
+        "559:expect=layer:fire_ranges:0",
+        "562:shot=m3-layers-base",
+        "566:do=layer_toggle:terrain",
+        "568:expect=layer:terrain:0",
+        "570:shot=m3-layers-terrain",
+        "572:differ=m3-layers-base/m3-layers-terrain@5",
+        "574:do=layer_toggle:terrain",
+        "576:expect=layer:terrain:1",
+        "578:do=layer_toggle:grid",
+        "580:expect=layer:grid:1",
+        "582:shot=m3-layers-grid",
+        "584:differ=m3-layers-base/m3-layers-grid@0.05",
+        "586:do=layer_toggle:grid",
+        "588:expect=layer:grid:0",
+        "590:do=layer_toggle:wireframe",
+        "592:expect=layer:wireframe:1",
+        "594:shot=m3-layers-wireframe",
+        "596:differ=m3-layers-base/m3-layers-wireframe@5",
+        "598:do=layer_toggle:wireframe",
+        "600:expect=layer:wireframe:0",
+        "602:do=layer_toggle:terrain_noise",
+        "604:expect=layer:terrain_noise:0",
+        "606:do=layer_toggle:terrain_noise",
+        "608:expect=layer:terrain_noise:1",
+        "610:do=layer_toggle:black_stripes",
+        "612:expect=layer:black_stripes:0",
+        "614:do=layer_toggle:black_stripes",
+        "616:expect=layer:black_stripes:1",
+        "618:do=layer_toggle:units",
+        "620:expect=layer:units:0",
+        "622:do=layer_toggle:units",
+        "624:expect=layer:units:1",
+        "626:do=layer_toggle:objects",
+        "628:expect=layer:objects:0",
+        "630:do=layer_toggle:objects",
+        "632:expect=layer:objects:1",
+        "634:do=layer_toggle:bounding_boxes",
+        "636:expect=layer:bounding_boxes:1",
+        "638:do=layer_toggle:bounding_boxes",
+        "640:expect=layer:bounding_boxes:0",
+        "642:do=layer_toggle:shadows",
+        "644:expect=layer:shadows:0",
+        "646:do=layer_toggle:shadows",
+        "648:expect=layer:shadows:1",
+        "650:do=layer_toggle:haze",
+        "652:expect=layer:haze:0",
+        "654:do=layer_toggle:haze",
+        "656:expect=layer:haze:1",
+        "658:do=layer_toggle:war_fog",
+        "660:expect=layer:war_fog:1",
+        "662:shot=m3-layers-war-fog",
+        "664:differ=m3-layers-base/m3-layers-war-fog@5",
+        "666:do=layer_toggle:war_fog",
+        "668:expect=layer:war_fog:0",
+        "670:do=layer_toggle:units_passability",
+        "672:expect=layer:units_passability:1",
+        "674:shot=m3-layers-units-passability",
+        "676:differ=m3-layers-base/m3-layers-units-passability@0.05",
+        "678:do=layer_toggle:units_passability",
+        "680:expect=layer:units_passability:0",
+        // Depth complexity is the one layer the GPU renderer cannot draw (the probe:
+        // it paints the frame white): the menu greys it, the editor refuses it, and the
+        // renderer keeps it off.
+        "682:expect=layer:depth_complexity:0",
+        "684:expect=dirty:0",
+        "686:expect=undo_depth:0",
+        // The desync fix (D-32): layers chosen before an open come back after it and
+        // after a New Map - the MFC editor lost the grid and the noise to the new
+        // terrain and its war fog to the open.
+        "690:do=layer_toggle:grid",
+        "692:do=layer_toggle:war_fog",
+        "694:do=layer_toggle:terrain_noise",
+        "696:do=layer_toggle:bounding_boxes",
+        "698:expect=layer:grid:1",
+        "699:expect=layer:war_fog:1",
+        "700:expect=layer:terrain_noise:0",
+        "701:expect=layer:bounding_boxes:1",
+        "704:shot=m3-layers-chosen",
+        b.fmt("708:open={s}", .{auto_m3_coldwinter}),
+        "730:expect=title:coldwinter",
+        "732:expect=layer:grid:1",
+        "733:expect=layer:war_fog:1",
+        "734:expect=layer:terrain_noise:0",
+        "735:expect=layer:bounding_boxes:1",
+        "736:expect=layer:terrain:1",
+        "737:expect=layer:haze:1",
+        "740:shot=m3-layers-after-open",
+        "744:differ=m3-layers-base/m3-layers-after-open@1",
+        "746:do=map_new:4x4:summer:M3Layers",
+        "756:expect=title:M3Layers",
+        "758:expect=layer:grid:1",
+        "759:expect=layer:war_fog:1",
+        "760:expect=layer:terrain_noise:0",
+        "761:expect=layer:bounding_boxes:1",
+        "764:shot=m3-layers-after-new",
+        b.fmt("768:do=file_save_bzm:{s}local-test/map-editor-m3-auto/m3-layers.bzm", .{auto_m3_up}),
+        "778:expect=title:m3-layers.bzm",
+        b.fmt("780:open={s}", .{auto_m3_arnheim}),
+        "806:expect=title:arnheim",
+        // Unit Fire Ranges (L15), on a map with artillery (arnheim's StuG draws a ballistic
+        // area; a rifleman's range is a line the minimap read leaves out): the selected
+        // units' ranges follow the selection, a filter's follow the filter, and the mode is
+        // asked again after an open (the AI forgot its groups with the map).
+        "808:do=band_select:0-0-1023-1023",
+        "810:do=fire_range:selected",
+        "812:expect=layer:fire_ranges:1",
+        "814:expect=fire_areas:1",
+        "818:shot=m3-layers-fire",
+        "822:do=band_select:0-0-0-0",
+        "824:expect=selection_count:0",
+        "827:expect=fire_areas:0",
+        "829:do=fire_range:filter:All",
+        "831:expect=fire_areas:1",
+        "833:do=fire_range:filter:Buildings",
+        "835:expect=fire_areas:0",
+        "837:do=fire_range:filter:All",
+        "839:expect=fire_areas:1",
+        b.fmt("841:open={s}", .{auto_m3_arnheim}),
+        "867:expect=title:arnheim",
+        "869:expect=layer:fire_ranges:1",
+        "871:expect=fire_areas:1",
+        "873:do=fire_range:off",
+        "875:expect=layer:fire_ranges:0",
+        "877:expect=fire_areas:0",
+        "879:do=layer_toggle:grid",
+        "881:do=layer_toggle:war_fog",
+        "883:do=layer_toggle:terrain_noise",
+        "885:do=layer_toggle:bounding_boxes",
+        "887:expect=layer:grid:0",
+        "888:expect=layer:war_fog:0",
+        "889:expect=layer:terrain_noise:1",
+        "890:expect=layer:bounding_boxes:0",
+        "893:expect=dirty:0",
+        // Create Random Map (05-08, F10, D-01..D-05): the dialog opens and closes;
+        // a fixed seed generates through the engine's own generator (the command is
+        // synchronous - the window waits, D-03) into the run's user maps folder
+        // (XDG_DATA_HOME below), the map opens as a normal document, and the seed
+        // the generation reports is the one asked for.
+        "895:do=rmg_dialog",
+        "897:expect=rmg_dialog:1",
+        "899:do=rmg_dialog:close",
+        "901:expect=rmg_dialog:0",
+        "902:do=rmg_set:template:scenarios\\templates\\summer\\template02",
+        "903:do=rmg_set:context:scenarios\\chapters\\allies\\france\\context",
+        "903:do=rmg_set:graph:0",
+        "903:do=rmg_set:setting:any",
+        "903:do=rmg_set:angle:0",
+        "903:do=rmg_set:level:1",
+        "903:do=rmg_set:bzm:1",
+        "903:do=rmg_set:dds:0",
+        "903:do=rmg_set:overwrite:1",
+        "903:do=rmg_set:name:m3_auto_rmg",
+        "904:do=rmg_set:seed:777",
+        "905:do=rmg_generate",
+        "907:expect=rmg_seed:777",
+        "945:expect=title:m3_auto_rmg.bzm",
+        "947:expect=title:8x8",
+        "949:expect=dirty:0",
+        // The same generation as a person drives it: the dialog open with its fields
+        // set one by one (shot), OK - the modal is announced at 0 of 19, the generator
+        // runs one frame later with the window waiting, the result modal says the seed
+        // (shot) - and Open map opens the file as a normal document.
+        "951:do=rmg_dialog",
+        "952:do=rmg_set:template:scenarios\\templates\\summer\\template02",
+        "952:do=rmg_set:context:scenarios\\chapters\\allies\\france\\context",
+        "952:do=rmg_set:graph:2",
+        "952:do=rmg_set:angle:3",
+        "952:do=rmg_set:level:2",
+        "952:do=rmg_set:overwrite:1",
+        "952:do=rmg_set:name:m3_auto_rmg_ui",
+        "953:do=rmg_set:seed:4242",
+        "958:shot=m3-rmg-dialog",
+        "960:do=rmg_dialog:ok",
+        "960:expect=rmg_phase:announce",
+        "962:shot=m3-rmg-progress",
+        "985:expect=rmg_phase:done",
+        "986:expect=rmg_seed:4242",
+        "988:shot=m3-rmg-result",
+        "990:do=rmg_dialog:open_map",
+        "992:expect=rmg_phase:idle",
+        "1030:expect=title:m3_auto_rmg_ui.bzm",
+        // Tools > Export lists (T3-T6, D-13): each list lands in the user's logs
+        // folder in the MFC's line format (the writers' bytes are in the panels'
+        // tests; here the files exist and hold what the shipped data lists).
+        "1040:do=export_lists:graphs",
+        "1042:expect=export_file:graphs",
+        "1044:expect=export_lines:graphs:100",
+        "1046:do=export_lists:contexts",
+        "1048:expect=export_file:contexts",
+        "1050:expect=export_lines:contexts:10",
+        "1052:do=export_lists:patches",
+        "1054:expect=export_file:patches",
+        "1056:expect=export_lines:patches:5",
+        "1058:do=export_lists:maps",
+        "1060:expect=export_file:maps",
+        "1062:expect=export_lines:maps:20",
+        "1064:expect=status:created",
+        // 05-09 (D-06..D-12): the Containers Composer. A shipped container opens (the
+        // MFC's twelve columns and seven patch columns, shot), Check! finds nothing
+        // wrong with it; a new container takes a map from the user's maps folder
+        // through the copy-in (the YES/NO popup, shot) instead of the MFC's refusal,
+        // its patch gets a setting and a direction cleared (undo and redo walk it),
+        // and Save As writes it under the user RMG root, where Open reads it back.
+        "1066:do=rmgc_window",
+        "1068:expect=rmgc_listed:100",
+        "1070:do=rmgc_open:common\\road_cross_asph_we_grunt_winter",
+        "1072:expect=rmgc_patches:4",
+        "1074:expect=rmgc_dirty:0",
+        "1076:expect=rmgc_name:road_cross_asph_we_grunt_winter",
+        "1078:shot=m3-containers-shipped",
+        "1080:do=rmgc_check",
+        "1082:expect=rmgc_errors:0",
+        "1084:do=rmgc_new",
+        "1086:expect=rmgc_patches:0",
+        "1088:do=rmgc_import:m3_auto_rmg",
+        "1090:expect=rmgc_pending:1",
+        "1092:shot=m3-containers-copyin",
+        "1094:do=rmgc_import_yes",
+        "1096:expect=rmgc_pending:0",
+        "1098:expect=rmgc_patches:1",
+        "1100:expect=rmgc_dirty:1",
+        "1102:do=rmgc_patch_set:0:place:summer_france",
+        "1104:expect=rmgc_place:0:summer_france",
+        "1106:do=rmgc_patch_set:0:east:0",
+        "1108:expect=rmgc_cell:0:east:0",
+        "1110:expect=rmgc_cell:0:north:1",
+        "1112:do=rmgc_check",
+        "1114:expect=rmgc_errors:0",
+        "1116:do=rmgc_undo",
+        "1118:expect=rmgc_cell:0:east:1",
+        "1120:do=rmgc_redo",
+        "1122:expect=rmgc_cell:0:east:0",
+        "1124:do=rmgc_saveas:m3auto\\mine",
+        "1126:expect=rmgc_dirty:0",
+        "1128:expect=rmgc_name:m3auto\\mine",
+        "1130:do=rmgc_new",
+        "1132:do=rmgc_open:m3auto\\mine",
+        "1134:expect=rmgc_patches:1",
+        "1136:expect=rmgc_place:0:summer_france",
+        "1138:expect=rmgc_cell:0:east:0",
+        "1140:shot=m3-containers-user",
+        // The Graphs Composer: a shipped graph opens on the canvas (shot); a new one is
+        // drawn with the canvas gestures (two nodes, one moved, Ctrl+drag links them),
+        // the nodes take a container and the link a descriptor and a part count below
+        // eight, Check! finds that one thing (shot), Fix all repairs it, and the graph
+        // saves under the user RMG root and opens again.
+        "1142:do=rmgg_window",
+        "1144:do=rmgg_open:winter\\graph_escort2",
+        "1146:expect=rmgg_nodes:12",
+        "1148:expect=rmgg_links:5",
+        "1150:shot=m3-graphs-shipped",
+        "1152:do=rmgg_new",
+        "1154:expect=rmgg_nodes:0",
+        "1156:do=rmgg_drag:0:0:31:31",
+        "1158:do=rmgg_drag:48:0:79:31",
+        "1160:expect=rmgg_nodes:2",
+        "1162:do=rmgg_drag:10:10:12:10",
+        "1164:expect=rmgg_dirty:1",
+        "1166:do=rmgg_ctrl_drag:10:10:60:10",
+        "1168:expect=rmgg_links:1",
+        "1170:do=rmgg_node:0:winter\\army_s",
+        "1172:do=rmgg_node:1:winter\\army_s",
+        "1174:expect=rmgg_node_container:0:army_s",
+        "1176:do=rmgg_link:0:desc:terrain\\sets\\2\\roads3d\\road_grunt",
+        "1178:do=rmgg_link:0:parts:6",
+        "1180:expect=rmgg_link_parts:0:6",
+        "1182:do=rmgg_check",
+        "1184:expect=rmgg_errors:1",
+        "1186:shot=m3-graphs-check",
+        "1188:do=rmgg_fix_all",
+        "1190:expect=rmgg_errors:0",
+        "1192:expect=rmgg_link_parts:0:8",
+        "1194:do=rmgg_saveas:m3auto\\graph_mine",
+        "1196:expect=rmgg_dirty:0",
+        "1198:do=rmgg_new",
+        "1200:do=rmgg_open:m3auto\\graph_mine",
+        "1202:expect=rmgg_nodes:2",
+        "1204:expect=rmgg_links:1",
+        "1206:expect=rmgg_link_parts:0:8",
+        "1208:expect=rmgg_node_container:1:army_s",
+        "1210:shot=m3-graphs-user",
+        // The Fields Composer (05-10): a shipped field set opens and its three tabs
+        // show (shots), a shell and tiles and an object are edited with their weights,
+        // Check! is clean on that and finds a tile past the tileset when one is added
+        // (shot), Fix all removes it, and the set saves under the user RMG root and
+        // opens again with the heights as set.
+        "1214:do=rmgf_window",
+        "1216:do=rmgf_open:summer\\field07",
+        "1218:expect=rmgf_shells:terrain:3",
+        "1220:expect=rmgf_shells:objects:5",
+        "1222:expect=rmgf_listed:20",
+        "1224:do=rmgf_tab:terrain",
+        "1226:do=rmgf_shell_pick:terrain:0",
+        "1228:shot=m3-fields-terrain",
+        "1230:do=rmgf_tab:objects",
+        "1232:do=rmgf_filter:Buildings",
+        "1234:expect=rmgf_avail:20",
+        "1236:do=rmgf_shell_pick:objects:1",
+        "1238:shot=m3-fields-objects",
+        "1240:do=rmgf_tab:heights",
+        "1242:do=rmgf_set:height:3",
+        "1244:expect=rmgf_value:height:3.00",
+        "1246:do=rmgf_set:pattern_min:6",
+        "1248:expect=rmgf_value:pattern_max:6",
+        "1250:shot=m3-fields-heights",
+        "1252:do=rmgf_shell_add:terrain",
+        "1254:expect=rmgf_shells:terrain:4",
+        "1256:do=rmgf_tile_add:3:2",
+        "1258:do=rmgf_tile_weight:3:0:5",
+        "1260:do=rmgf_shell_set:terrain:3:width:4",
+        "1262:do=rmgf_object_add:0:_Birch",
+        "1264:expect=rmgf_dirty:1",
+        "1266:do=rmgf_check",
+        "1268:expect=rmgf_errors:0",
+        "1270:do=rmgf_tile_add:3:4000",
+        "1272:do=rmgf_check",
+        "1274:expect=rmgf_errors:1",
+        "1276:do=rmgf_tab:terrain",
+        "1278:shot=m3-fields-check",
+        "1280:do=rmgf_fix_all",
+        "1282:expect=rmgf_errors:0",
+        "1284:expect=rmgf_tiles:3:1",
+        "1286:do=rmgf_saveas:m3auto\\field_mine",
+        "1288:expect=rmgf_dirty:0",
+        "1290:do=rmgf_new",
+        "1292:expect=rmgf_shells:terrain:0",
+        "1294:do=rmgf_open:m3auto\\field_mine",
+        "1296:expect=rmgf_shells:terrain:4",
+        "1298:expect=rmgf_tiles:3:1",
+        "1300:expect=rmgf_value:height:3.00",
+        "1302:expect=rmgf_value:pattern_max:6",
+        "1304:shot=m3-fields-user",
+        // The Templates Composer (05-10): a shipped template opens (shot), a weight, a
+        // vso, the default field, a third player with its unit creation and its appear
+        // point, the game type and the script are edited, Check! runs (shot), and the
+        // template saves under the user RMG root - the Template entry with its
+        // QuickLoadMapInfo beside it - and opens again as edited.
+        "1310:do=rmgt_window",
+        "1312:do=rmgt_open:winter\\template04",
+        "1314:expect=rmgt_graphs:8",
+        "1316:expect=rmgt_fields:4",
+        "1318:expect=rmgt_vsos:1",
+        "1320:expect=rmgt_players:2",
+        "1322:expect=rmgt_listed:40",
+        "1324:shot=m3-templates-shipped",
+        "1326:do=rmgt_weight_set:graphs:0:5",
+        "1328:expect=rmgt_weight:graphs:0:5",
+        "1330:do=rmgt_vso_set:0:3:50",
+        "1332:expect=rmgt_vso_is:0:3:50",
+        "1334:do=rmgt_default_field:1",
+        "1336:expect=rmgt_default:1",
+        "1338:do=rmgt_player_add:1",
+        "1340:expect=rmgt_players:3",
+        "1342:expect=rmgt_sides:0112",
+        "1344:do=rmgt_units_set:2:party=German",
+        "1346:do=rmgt_units_set:2:relax=77",
+        "1348:expect=rmgt_unit:2:relax=77",
+        "1350:do=rmgt_appear_add:2:1024:2048",
+        "1352:expect=rmgt_appear:2:1",
+        "1354:do=rmgt_game_type:2:1",
+        "1356:expect=rmgt_game_type_is:2:1",
+        "1358:do=rmgt_popup:units",
+        "1360:shot=m3-templates-units",
+        "1362:do=rmgt_popup:diplomacy",
+        "1364:shot=m3-templates-diplomacy",
+        "1366:do=rmgt_popup:none",
+        "1368:do=rmgt_check",
+        "1370:shot=m3-templates-check",
+        "1372:do=rmgt_saveas:m3auto\\template_mine",
+        "1374:expect=rmgt_dirty:0",
+        "1376:do=rmgt_new",
+        "1378:expect=rmgt_graphs:0",
+        "1380:do=rmgt_open:m3auto\\template_mine",
+        "1382:expect=rmgt_graphs:8",
+        "1384:expect=rmgt_players:3",
+        "1386:expect=rmgt_weight:graphs:0:5",
+        "1388:expect=rmgt_vso_is:0:3:50",
+        "1390:expect=rmgt_default:1",
+        "1392:expect=rmgt_unit:2:party=German",
+        "1394:expect=rmgt_game_type_is:2:1",
+        "1396:shot=m3-templates-user",
+        // The app shell (05-11, D-34): Tools > Options holds the game's extra command line
+        // and the default save format (the window opens with its fields, a command commits
+        // each as OK would), the View menu hides and shows the docked panels, the status
+        // bar and the floating windows and Reset layout puts it all back, Help shows the
+        // keys and tools and About the product, and a map dropped on the window opens
+        // through the unsaved-changes guard while a file that is not a map is ignored.
+        "1402:do=options_show",
+        "1404:expect=panel_visible:options:1",
+        "1406:shot=m3-options",
+        "1408:do=options_set_gameparams:-nosound+-windowed",
+        "1409:expect=game_parameters:-nosound+-windowed",
+        "1410:do=options_set_format:xml",
+        "1411:expect=default_format:xml",
+        "1412:do=options_set_format:bzm",
+        "1413:expect=default_format:bzm",
+        "1414:do=options_set_gameparams",
+        "1415:expect=game_parameters",
+        "1416:do=options_show:off",
+        "1418:expect=panel_visible:options:0",
+        "1420:do=view_panel:sounds:off",
+        "1421:expect=panel_visible:sounds:0",
+        "1422:do=view_panel:status_bar:off",
+        "1423:expect=panel_visible:status_bar:0",
+        "1424:do=view_panel:tools:off",
+        "1425:expect=panel_visible:tools:0",
+        "1426:do=view_panel:containers_composer:on",
+        "1427:expect=panel_visible:containers_composer:1",
+        "1430:shot=m3-view-hidden",
+        "1432:do=view_panel:containers_composer:off",
+        "1433:expect=panel_visible:containers_composer:0",
+        "1434:do=layout_reset",
+        "1438:expect=layout_default:1",
+        "1439:expect=panel_visible:sounds:1",
+        "1439:expect=panel_visible:status_bar:1",
+        "1439:expect=panel_visible:tools:1",
+        "1442:shot=m3-view-reset",
+        "1444:do=help_keys",
+        "1448:shot=m3-help-keys",
+        "1450:do=help_keys:off",
+        "1451:do=about_show",
+        "1455:shot=m3-about",
+        "1457:do=about_show:off",
+        // The direction wheel takes the pointer over its whole dial (05-11): the placer's angle is
+        // set to 90, a press on the LOWER half of the dial (the dial's rim is x 224-263, y 274-313
+        // in this layout) turns it to about 270 - before, only the upper frame-high strip answered.
+        "1457:tool=select",
+        "1458:do=wheel_turn:90",
+        "1459:expect=placer_angle:90",
+        "1460:press=244x308",
+        "1462:release=244x308",
+        "1464:expect=placer_angle:270:20",
+        "1466:expect=dirty:0",
+        "1468:do=drop_file:Data/Maps/Multiplayer/arnheim.txt",
+        "1470:expect=status:drop:",
+        "1472:do=drop_file:Data/Maps/Multiplayer/arnheim.bzm",
+        "1510:expect=title:arnheim",
+        // The Place tool's ghost (PARITY O7, 05-11): with every floating window put away the map
+        // is free to point at; the engine's own half-opaque visual of the chosen object follows the
+        // pointer (the shots), turned by the wheel and by E (read back from the engine itself),
+        // and it is gone with the tool.
+        "1512:do=view_panel:containers_composer:off",
+        "1512:do=view_panel:graphs_composer:off",
+        "1512:do=view_panel:fields_composer:off",
+        "1512:do=view_panel:templates_composer:off",
+        "1512:do=view_panel:filters_composer:off",
+        "1512:do=view_panel:check_map:off",
+        "1512:do=view_panel:heights:off",
+        "1512:do=view_panel:fields:off",
+        "1512:do=view_panel:minimap:off",
+        "1512:do=view_panel:properties_window:off",
+        "1512:do=view_panel:groups:off",
+        "1512:do=view_panel:start_commands:off",
+        "1512:do=view_panel:script:off",
+        "1512:do=view_panel:unit_creation:off",
+        "1514:tool=place",
+        "1515:do=placer_name:T-34",
+        // The pointer goes to the map a frame before the click: ImGui's capture flags are
+        // those of the frame before the events, and the last pointer step (the dial) left them on.
+        "1516:drag=640x500",
+        "1518:click=640x500",
+        "1522:expect=place_ghost:1",
+        "1524:do=wheel_turn:90",
+        "1526:expect=place_ghost:1:90:1",
+        "1528:shot=m3-place-ghost-90",
+        "1530:key=e",
+        "1532:expect=place_ghost:1:112:2",
+        "1534:do=wheel_turn:270",
+        "1536:expect=place_ghost:1:270:1",
+        "1538:shot=m3-place-ghost-270",
+        "1540:tool=select",
+        "1542:expect=place_ghost:0",
+        "1550:exit",
+    };
+    const auto_m3_run = b.addRunArtifact(exe);
+    auto_m3_run.setCwd(b.path(stage_root));
+    auto_m3_run.addArgs(&.{ "--hidden", "Data\\Maps\\Multiplayer\\coldwinter.bzm" });
+    auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO_DIR", auto_m3_dir);
+    // The user root of this run (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and
+    // Linux, BK_USER_ROOT on Windows): the generated random map and the exported lists land
+    // here and not in the person's own maps and logs folders.
+    auto_m3_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/map-editor-m3-auto-user"));
+    auto_m3_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/map-editor-m3-auto-user"));
+    auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m3_entries) catch @panic("OOM"));
+    auto_m3_run.has_side_effects = true;
+    auto_m3_run.step.dependOn(&install_exe.step);
+    // After the M2 scenario (which itself runs after M1's), so two engines
+    // never start at once.
+    auto_m3_run.step.dependOn(&cleanup_autoshots_m2.step);
+    auto_m3_run.step.dependOn(craft_fixtures_step);
+    const cleanup_autoshots_m3 = b.addRunArtifact(delete_matching);
+    cleanup_autoshots_m3.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_autoshots_m3.step.dependOn(&auto_m3_run.step);
+    const auto_m3_step = b.step("map-editor-m3-auto", "Run BK_EDITOR_AUTO's M3 scenario (named commands and predicates) on a shipped map");
+    auto_m3_step.dependOn(&cleanup_autoshots_m3.step);
+
     // Task 1's headless test-launch proof (D-01..D-09): the editor places a
-    // unit and the real Game plays it, no person watching. Local-only
-    // (RESEARCH.md Pitfall 6 / the spec's own test-tier table): it starts a
-    // second engine process end to end, which is not something CI's GPU
-    // runners need to gate every commit on.
+    // unit and the real Game plays it, no person watching. It starts a second
+    // engine process end to end. CI runs it on the two GPU runners (Windows,
+    // macos-14) through map-editor-game-reads-it-m3, which depends on it, so
+    // D-33's railroad crash has a regression gate (05-REVIEW WR-D05).
     const game_reads_it_run = b.addRunArtifact(exe);
     game_reads_it_run.setCwd(b.path(stage_root));
     game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it.log") });
@@ -6103,6 +7558,49 @@ fn addMapEditor(
     game_reads_it_run.step.dependOn(&install_exe.step);
     const game_reads_it_step = b.step("map-editor-game-reads-it", "Test-launch a unit the editor placed and prove the real Game plays it (D-01..D-09)");
     game_reads_it_step.dependOn(&game_reads_it_run.step);
+
+    // Phase 4's M2 game-reads-it scenario (04-04): the same shape - edit
+    // through the core Editor on the real bridge, save the test copy, play it
+    // with the real Game - but the assertions are on the game's own
+    // BK_MAP_TRACE report of what it consumed (the camera anchor here; each
+    // later M2 plan adds its edit to game_reads_m2.zig). After its M1 sibling, so
+    // two games never start at once.
+    const game_reads_it_m2_run = b.addRunArtifact(exe);
+    game_reads_it_m2_run.setCwd(b.path(stage_root));
+    game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m2.log") });
+    game_reads_it_m2_run.has_side_effects = true;
+    game_reads_it_m2_run.step.dependOn(&install_exe.step);
+    game_reads_it_m2_run.step.dependOn(&game_reads_it_run.step);
+    // The games' own screenshot dumps stay in the stage root they ran from;
+    // swept even when the scenario's own sweep was skipped by an early return.
+    const cleanup_autoshots_game_reads_m2 = b.addRunArtifact(delete_matching);
+    cleanup_autoshots_game_reads_m2.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_autoshots_game_reads_m2.step.dependOn(&game_reads_it_m2_run.step);
+    const game_reads_it_m2_step = b.step("map-editor-game-reads-it-m2", "Test-launch M2 edits and prove from the game's own BK_MAP_TRACE report that it read them (D-22, D-25)");
+    game_reads_it_m2_step.dependOn(&cleanup_autoshots_game_reads_m2.step);
+
+    // Phase 5's M3 game-reads-it scenario (05-05, D-37's game tier): the real Game
+    // loads a map whose railroads hold fewer than two control points - the record
+    // that crashed CRailroadGraphConstructor - and an ordinary map after it, and
+    // both exit 0 (game_reads_m3.zig). The fixture map is crafted by the bridge
+    // test's `--craft` first. After its siblings, so two games never start at once.
+    const game_reads_it_m3_run = b.addRunArtifact(exe);
+    game_reads_it_m3_run.setCwd(b.path(stage_root));
+    game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", b.pathFromRoot("zig-out/local-test/m3-short-railroad.bzm"), b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3.log") });
+    // The authored leg writes its template, graph, container and field set under the
+    // user RMG root and generates a map into the user maps folder: a scratch user root
+    // (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and Linux and BK_USER_ROOT on Windows).
+    game_reads_it_m3_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3-user"));
+    game_reads_it_m3_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3-user"));
+    game_reads_it_m3_run.has_side_effects = true;
+    game_reads_it_m3_run.step.dependOn(&install_exe.step);
+    game_reads_it_m3_run.step.dependOn(&game_reads_it_m2_run.step);
+    game_reads_it_m3_run.step.dependOn(craft_fixtures_step);
+    const cleanup_autoshots_game_reads_m3 = b.addRunArtifact(delete_matching);
+    cleanup_autoshots_game_reads_m3.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_autoshots_game_reads_m3.step.dependOn(&game_reads_it_m3_run.step);
+    const game_reads_it_m3_step = b.step("map-editor-game-reads-it-m3", "Load a map whose railroads hold fewer than two control points in the real Game and prove it exits cleanly (05-05, D-33)");
+    game_reads_it_m3_step.dependOn(&cleanup_autoshots_game_reads_m3.step);
 
     // The engine tier of the core: c_bridge_test.zig, linked exactly as
     // MapEditor is and staged beside it, because on Windows the engine's roots
@@ -6160,6 +7658,9 @@ fn mapEditorModule(
     });
     // bridge.h, for c_bridge.zig's @cImport.
     module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    // The M2 test script (04-10): game_reads_m2.zig embeds it, so the scenario
+    // needs no path to the source tree at run time.
+    module.addAnonymousImport("m2_script_lua", .{ .root_source_file = b.path("tools/zig/fixtures/m2_script.lua") });
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
     // The engine's statics are built against the debug CRT in Debug, so the
@@ -6231,6 +7732,89 @@ fn addRandomMissionsTest(
     platform_runtime: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+    sweep: []const u8,
+) void {
+    addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "random-missions-test", "tools/zig/random_missions_test.cpp", "test-random-missions", "Generate every random mission a chapter can offer and open it in the engine", &.{sweep});
+}
+
+// 05-08 (D-04/D-40.5): the Create Random Map determinism harness - the editor's own
+// generation path, a fixed seed, the .bzm bytes compared. The data-only tier, like the
+// random missions.
+fn addRmgDeterminismTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+) void {
+    addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "rmg-determinism-test", "tools/zig/rmg_determinism_test.cpp", "test-rmg-determinism", "Generate a random map twice from a fixed seed through the editor and compare the files byte for byte", &.{});
+}
+
+// 05-09 (D-07/D-40.4): the composer round trip - every shipped container and graph read
+// through the editor's composer records, written back under a scratch name in a scratch
+// user RMG root, read again and compared, the bytes of a second write the same. The
+// data-only tier, like the random missions.
+fn addComposerRoundtripTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+) void {
+    addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "composer-roundtrip-test", "tools/zig/composer_roundtrip_test.cpp", "test-rmg-composer-roundtrip", "Read, write and re-read every shipped RMG container and graph through the composers' records and compare them and their bytes", &.{});
+}
+
+// Both engine-hosted C++ tools of the editor's data-only tier (the random missions and
+// the Create Random Map determinism harness) are linked, staged and run the same way:
+// beside Game in the installation, on the engine the editor bridge starts, writing only
+// under zig-out/local-test. `tool` is the executable's name, `source` its one
+// translation unit, `step_name` and `step_description` the build step, and
+// `extra_args` what follows the installation and scratch arguments.
+fn addEngineHostedTool(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
     // install-game stages every shared library the engine needs - StreamIO,
     // StreamIOOptionsAbi, PlatformRuntime, SDL3 and the rest - so the run step
     // installs none of them itself. The map file tier has to; it runs from the
@@ -6238,7 +7822,11 @@ fn addRandomMissionsTest(
     stage_root: []const u8,
     install_game_step: *std.Build.Step,
     test_mode: build_support.TestMode,
-    sweep: []const u8,
+    tool: []const u8,
+    source: []const u8,
+    step_name: []const u8,
+    step_description: []const u8,
+    extra_args: []const []const u8,
 ) void {
     // The recipe of gfxgpu-factory-test, which is the C++ executable this
     // repository already runs on Linux CI. See the note in addMapFileTest.
@@ -6252,7 +7840,7 @@ fn addRandomMissionsTest(
     module.addIncludePath(b.path("Sources/src/GFX"));
     module.addIncludePath(sdl_include);
     module.addCSourceFiles(.{
-        .files = &.{"tools/zig/random_missions_test.cpp"},
+        .files = &.{source},
         .flags = cppflagsForOptimize(optimize),
     });
     addMsvcIncludePaths(b, module, toolchain);
@@ -6292,7 +7880,7 @@ fn addRandomMissionsTest(
     module.linkLibrary(platform_runtime);
     linkSdlImport(module, target, sdl_dynamic);
 
-    const exe = b.addExecutable(.{ .name = "random-missions-test", .root_module = module });
+    const exe = b.addExecutable(.{ .name = tool, .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     // Loader-relative, because this binary runs from the installation and not
@@ -6320,9 +7908,9 @@ fn addRandomMissionsTest(
     // Where the test may write. Shipped Data is read-only for every tier: a run
     // that is killed halfway must not leave a map behind in the installation.
     run.addArg(b.pathFromRoot("zig-out/local-test"));
-    run.addArg(sweep);
+    for (extra_args) |arg| run.addArg(arg);
     run.step.dependOn(&install_exe.step);
-    const step = b.step("test-random-missions", "Generate every random mission a chapter can offer and open it in the engine");
+    const step = b.step(step_name, step_description);
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }

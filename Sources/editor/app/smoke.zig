@@ -27,6 +27,8 @@ const panels = @import("panels.zig");
 const panels_logic = @import("panels_logic.zig");
 const imgui = @import("editor_imgui");
 const auto_mod = @import("auto.zig");
+const commands = @import("commands.zig");
+const tool_registry = @import("tool_registry.zig");
 
 const sdl = sdl3.c;
 const c = c_bridge.c;
@@ -1510,7 +1512,11 @@ pub const AutoRunner = struct {
     /// `test`'s own extra-environment pair storage (panels.State.test_extra_env
     /// borrows a slice of this) - owned here so it outlives the `startTestGame`
     /// call that reads it.
-    game_env_pairs: [2][2][]const u8 = undefined,
+    game_env_pairs: [3][2][]const u8 = undefined,
+    /// BK_EDITOR_AUTO_GAME_TRACE (04-13): the test game also gets
+    /// BK_MAP_TRACE=1, so its log (panels' test-game.log) reports what it read
+    /// and the `test_game_script` predicate can ask whether the script ran.
+    game_trace: bool = false,
 
     /// After the map is open and State built, exactly like `Script.init`.
     pub fn init(
@@ -1587,10 +1593,17 @@ pub const AutoRunner = struct {
         std.debug.print("map-editor: BK_EDITOR_AUTO: frame {d} action {s}\n", .{ self.frame, item.text });
         switch (item.action) {
             .key => |key| return self.runKey(key),
-            .press => |point| return self.runPress(point),
-            .drag => |point| return self.runDrag(point),
-            .release => |point| return self.runRelease(point),
-            .click => |point| return self.runClick(point),
+            .press => |point| return self.runPress(point, .left),
+            .drag => |point| return self.runDrag(point, .left),
+            .release => |point| return self.runRelease(point, .left),
+            .click => |point| return self.runClick(point, .left),
+            .rpress => |point| return self.runPress(point, .right),
+            .rdrag => |point| return self.runDrag(point, .right),
+            .rrelease => |point| return self.runRelease(point, .right),
+            .rclick => |point| return self.runClick(point, .right),
+            .dblclick => |point| return self.runDoubleClick(point),
+            .tool => |label| return self.runTool(label),
+            .text => |typed| return self.runText(typed),
             .wheel => |wheel| return self.runWheel(wheel),
             .open => |path| {
                 self.state.actions.requestOpenPath(path);
@@ -1607,12 +1620,44 @@ pub const AutoRunner = struct {
             .waitgame => |seconds| return self.runWaitgame(seconds),
             .shot => |name| return self.runShot(name),
             .compare => |compare| return self.runCompare(compare),
+            .differ => |differ| return self.runDiffer(differ),
+            .do => |named| return self.runDo(named),
+            .expect => |named| return self.runExpect(named),
             .exit => {
                 std.debug.print("map-editor: BK_EDITOR_AUTO: done ({d} actions)\n", .{self.actions_run});
                 self.done = true;
                 return false;
             },
         }
+    }
+
+    /// `do=<name>[:<arg>]`: the named command (commands.zig), the same code a
+    /// menu item or a panel button runs. A refusal has already put its reason
+    /// on the status line; it is repeated here so the log names the entry.
+    fn runDo(self: *AutoRunner, named: auto_mod.Named) bool {
+        return switch (commands.run(self.state, named.name, named.arg)) {
+            .ok => true,
+            .unknown_name => self.fail("do={s}: no such command", .{named.name}),
+            .bad_arg => self.fail("do={s}:{s}: bad argument", .{ named.name, named.arg }),
+            .refused => self.fail("do={s}:{s}: refused: {s}{s}", .{ named.name, named.arg, self.state.view.statusLine(), self.state.editor.status() }),
+        };
+    }
+
+    /// `expect=<name>[:<arg>]`: the named predicate (commands.zig) must hold.
+    fn runExpect(self: *AutoRunner, named: auto_mod.Named) bool {
+        return switch (commands.check(self.state, named.name, named.arg)) {
+            .ok => true,
+            .unknown_name => self.fail("expect={s}: no such predicate", .{named.name}),
+            .bad_arg => self.fail("expect={s}:{s}: bad argument", .{ named.name, named.arg }),
+            // The status line, when there is one, is usually why (a refused
+            // gesture two frames earlier).
+            .refused => refused: {
+                const editor_status = self.state.editor.status();
+                const view_status = self.state.view.statusLine();
+                if (editor_status.len == 0 and view_status.len == 0) break :refused self.fail("expect={s}:{s} was false", .{ named.name, named.arg });
+                break :refused self.fail("expect={s}:{s} was false (status: {s}{s})", .{ named.name, named.arg, view_status, editor_status });
+            },
+        };
     }
 
     fn runKey(self: *AutoRunner, key: auto_mod.Key) bool {
@@ -1622,28 +1667,73 @@ pub const AutoRunner = struct {
         if (key.mods.shift) mod |= sdl.SDL_KMOD_SHIFT;
         if (key.mods.alt) mod |= sdl.SDL_KMOD_ALT;
         if (key.mods.cmd) mod |= sdl.SDL_KMOD_GUI;
-        return self.pushKey(mapped, mod, true) and self.pushKey(mapped, mod, false);
+        // The key goes down with its modifiers and comes up with none, as the
+        // modifier keys' own releases would leave them: ImGui follows the modifiers
+        // each key event carries, and a Ctrl left "held" by the last event turns
+        // every later left click into a right click on macOS (Ctrl+click), which
+        // is how a press on a panel went to the wrong button after `key=Z+ctrl`.
+        return self.pushKey(mapped, mod, true) and self.pushKey(mapped, 0, false);
     }
 
-    fn runPress(self: *AutoRunner, point: auto_mod.Point) bool {
+    /// A press the schedule holds until its `release=`/`rrelease=`, in this
+    /// frame or a later one: the view counts the button as held meanwhile
+    /// (View.holdScripted), so `drag=` entries in later frames reach the
+    /// same gesture.
+    fn runPress(self: *AutoRunner, point: auto_mod.Point, button: Button) bool {
         const p = self.screen(point);
-        return self.pushMotion(p, false) and self.pushButton(p, true);
+        self.view.holdScripted(button.mask(), true);
+        return self.pushMotion(p, 0) and self.pushButton(p, true, button, 1);
     }
 
-    fn runDrag(self: *AutoRunner, point: auto_mod.Point) bool {
-        return self.pushMotion(self.screen(point), true);
+    fn runDrag(self: *AutoRunner, point: auto_mod.Point, button: Button) bool {
+        return self.pushMotion(self.screen(point), button.mask());
     }
 
-    fn runRelease(self: *AutoRunner, point: auto_mod.Point) bool {
+    /// Lets go of the scripted hold: the release event is handled in this
+    /// frame's poll, before the view's stale-gesture guard runs.
+    fn runRelease(self: *AutoRunner, point: auto_mod.Point, button: Button) bool {
         const p = self.screen(point);
-        return self.pushMotion(p, true) and self.pushButton(p, false);
+        self.view.holdScripted(button.mask(), false);
+        return self.pushMotion(p, button.mask()) and self.pushButton(p, false, button, 1);
     }
 
     /// Presses and releases at the point in one action - there is no
     /// in-between frame for a drag to happen, unlike press/drag*/release.
-    fn runClick(self: *AutoRunner, point: auto_mod.Point) bool {
+    fn runClick(self: *AutoRunner, point: auto_mod.Point, button: Button) bool {
         const p = self.screen(point);
-        return self.pushMotion(p, false) and self.pushButton(p, true) and self.pushButton(p, false);
+        return self.pushMotion(p, 0) and self.pushButton(p, true, button, 1) and self.pushButton(p, false, button, 1);
+    }
+
+    /// SDL's own order (Pitfall 13): a down/up pair with clicks 1, then a
+    /// down/up pair with clicks 2, at the same point.
+    fn runDoubleClick(self: *AutoRunner, point: auto_mod.Point) bool {
+        const p = self.screen(point);
+        return self.pushMotion(p, 0) and
+            self.pushButton(p, true, .left, 1) and self.pushButton(p, false, .left, 1) and
+            self.pushButton(p, true, .left, 2) and self.pushButton(p, false, .left, 2);
+    }
+
+    /// `tool=<label>`: through the view's own switching path (the same one a
+    /// digit key and the palette take), so an open gesture ends first.
+    fn runTool(self: *AutoRunner, label: []const u8) bool {
+        const id = tool_registry.byLabel(label) orelse return self.fail("tool={s}: no such tool", .{label});
+        self.view.selectTool(self.editor, id);
+        return true;
+    }
+
+    /// `text=<text>`: one SDL text-input event, which ImGui's backend feeds to
+    /// whichever field has the keyboard focus (nothing happens when none has).
+    /// SDL copies the text of a pushed text event, so a local buffer is enough.
+    fn runText(self: *AutoRunner, typed: []const u8) bool {
+        var buffer: [auto_mod.max_arg_len + 1:0]u8 = undefined;
+        const len = @min(typed.len, auto_mod.max_arg_len);
+        @memcpy(buffer[0..len], typed[0..len]);
+        buffer[len] = 0;
+        var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
+        event.text.type = sdl.SDL_EVENT_TEXT_INPUT;
+        event.text.windowID = self.window_id;
+        event.text.text = &buffer;
+        return self.push(&event);
     }
 
     fn runWheel(self: *AutoRunner, wheel: auto_mod.Wheel) bool {
@@ -1674,6 +1764,9 @@ pub const AutoRunner = struct {
     }
 
     fn runSaveAs(self: *AutoRunner, path: []const u8) bool {
+        // A person picks an existing folder in the dialog; a script names one
+        // that may not be there yet (04-13's copy-along leg), so it is made.
+        if (std.fs.path.dirname(path)) |folder| std.Io.Dir.cwd().createDirPath(self.io, folder) catch {};
         if (!self.state.actions.dialog.request(.save_as)) return self.fail("saveas={s}: the dialog slot was busy", .{path});
         self.state.actions.dialog.deliver(path);
         self.pending_file_action = "saveas";
@@ -1686,14 +1779,18 @@ pub const AutoRunner = struct {
     /// popups").
     fn runTest(self: *AutoRunner) bool {
         if (!panels.mapIsOpen(self.editor)) return self.fail("test: no map is open", .{});
+        var count: usize = 0;
         if (self.game_env_text) |auto_ui| {
-            self.game_env_pairs[0] = .{ "BK_AUTO_UI", auto_ui };
-            self.game_env_pairs[1] = .{ "BK_NO_HELP", "1" };
-            self.state.test_extra_env = self.game_env_pairs[0..2];
-        } else {
-            self.game_env_pairs[0] = .{ "BK_NO_HELP", "1" };
-            self.state.test_extra_env = self.game_env_pairs[0..1];
+            self.game_env_pairs[count] = .{ "BK_AUTO_UI", auto_ui };
+            count += 1;
         }
+        self.game_env_pairs[count] = .{ "BK_NO_HELP", "1" };
+        count += 1;
+        if (self.game_trace) {
+            self.game_env_pairs[count] = .{ "BK_MAP_TRACE", "1" };
+            count += 1;
+        }
+        self.state.test_extra_env = self.game_env_pairs[0..count];
         panels.requestTestLaunch(self.state);
         if (self.state.test_game == null) return self.fail("test: the game did not start: {s}", .{self.state.view.statusLine()});
         return true;
@@ -1708,12 +1805,31 @@ pub const AutoRunner = struct {
         const exit = self.state.test_game.?.waitBlocking(self.io, seconds * 1000) orelse {
             self.state.test_game.?.terminate(self.io);
             self.state.test_game = null;
+            self.printGameLogTail();
             return self.fail("waitgame: the game did not exit within {d}s", .{seconds});
         };
         self.state.test_game = null;
-        if ((exit.code orelse 1) != 0 or exit.signal != null)
+        if ((exit.code orelse 1) != 0 or exit.signal != null) {
+            self.printGameLogTail();
             return self.fail("waitgame: the game exited code={?d} signal={?d}", .{ exit.code, exit.signal });
+        }
         return true;
+    }
+
+    /// The end of the test game's own log (it lives in the user root, which an
+    /// unattended run - CI - keeps nowhere it can be read afterwards), so a
+    /// failed `waitgame` says why the game went.
+    fn printGameLogTail(self: *AutoRunner) void {
+        const log_path = self.state.test_game_log_buffer[0..self.state.test_game_log_len];
+        if (log_path.len == 0) return;
+        const log = std.Io.Dir.cwd().readFileAlloc(self.io, log_path, self.state.allocator, .limited(16 << 20)) catch |err| {
+            std.debug.print("map-editor: BK_EDITOR_AUTO: the test game's log {s} could not be read: {t}\n", .{ log_path, err });
+            return;
+        };
+        defer self.state.allocator.free(log);
+        const tail_bytes = 12 * 1024;
+        const tail = log[log.len -| tail_bytes ..];
+        std.debug.print("map-editor: BK_EDITOR_AUTO: the test game's log {s} ({d} bytes), its end:\n{s}\nmap-editor: BK_EDITOR_AUTO: end of the test game's log\n", .{ log_path, log.len, tail });
     }
 
     fn runShot(self: *AutoRunner, name: []const u8) bool {
@@ -1772,31 +1888,83 @@ pub const AutoRunner = struct {
         return true;
     }
 
+    /// `differ=<a>/<b>[@<percent>]`: the two shots of this run must differ in more
+    /// than `percent` of their pixels (at `compare=`'s own channel tolerance) -
+    /// the proof that what was drawn moved. Sizes that differ fail: two shots of
+    /// one window are one size.
+    fn runDiffer(self: *AutoRunner, differ: auto_mod.Differ) bool {
+        const gpa = self.editor.allocator;
+        var bytes: [2][]u8 = undefined;
+        const names = [2][]const u8{ differ.a, differ.b };
+        var read: usize = 0;
+        defer for (bytes[0..read]) |one| gpa.free(one);
+        for (names, 0..) |name, i| {
+            var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+            const path = std.fmt.bufPrint(&path_buffer, "{s}{c}{s}.tga", .{ self.dir, std.fs.path.sep, name }) catch
+                return self.fail("differ={s}: the path is too long", .{name});
+            bytes[i] = std.Io.Dir.cwd().readFileAlloc(self.io, path, gpa, .limited(64 << 20)) catch |err|
+                return self.fail("differ={s}: the shot did not read: {s}", .{ name, @errorName(err) });
+            read += 1;
+        }
+        const first = auto_mod.Tga.parse(bytes[0]) catch |err|
+            return self.fail("differ={s}: the shot is not an uncompressed 32-bit TGA: {s}", .{ differ.a, @errorName(err) });
+        const second = auto_mod.Tga.parse(bytes[1]) catch |err|
+            return self.fail("differ={s}: the shot is not an uncompressed 32-bit TGA: {s}", .{ differ.b, @errorName(err) });
+        const diff = auto_mod.compareTga(first, second, auto_mod.default_channel_tolerance);
+        if (!diff.same_size) return self.fail("differ={s}/{s}: the shots are {d}x{d} and {d}x{d}", .{ differ.a, differ.b, first.width, first.height, second.width, second.height });
+        const fraction = diff.fraction() * 100.0;
+        std.debug.print("map-editor: BK_EDITOR_AUTO: differ {s}/{s}: {d:.4}% of pixels differ\n", .{ differ.a, differ.b, fraction });
+        if (fraction <= differ.percent)
+            return self.fail("differ={s}/{s}: only {d:.4}% of pixels differ, want more than {d:.2}%", .{ differ.a, differ.b, fraction, differ.percent });
+        return true;
+    }
+
     fn push(self: *AutoRunner, event: *sdl.SDL_Event) bool {
         if (sdl.SDL_PushEvent(event)) return true;
         return self.fail("SDL_PushEvent: {s}", .{sdl.SDL_GetError()});
     }
 
-    fn pushMotion(self: *AutoRunner, point: [2]f32, left_held: bool) bool {
+    /// The mouse buttons the schedule drives.
+    const Button = enum {
+        left,
+        right,
+
+        fn sdlButton(self: Button) u8 {
+            return switch (self) {
+                .left => sdl.SDL_BUTTON_LEFT,
+                .right => sdl.SDL_BUTTON_RIGHT,
+            };
+        }
+
+        /// The held-buttons mask a motion event of a drag carries.
+        fn mask(self: Button) u32 {
+            return switch (self) {
+                .left => sdl.SDL_BUTTON_LMASK,
+                .right => sdl.SDL_BUTTON_RMASK,
+            };
+        }
+    };
+
+    fn pushMotion(self: *AutoRunner, point: [2]f32, held_mask: u32) bool {
         self.last_point = point;
         var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
         event.motion.type = sdl.SDL_EVENT_MOUSE_MOTION;
         event.motion.windowID = self.window_id;
         event.motion.which = smoke_mouse_id;
-        event.motion.state = if (left_held) sdl.SDL_BUTTON_LMASK else 0;
+        event.motion.state = held_mask;
         event.motion.x = point[0];
         event.motion.y = point[1];
         return self.push(&event);
     }
 
-    fn pushButton(self: *AutoRunner, point: [2]f32, down: bool) bool {
+    fn pushButton(self: *AutoRunner, point: [2]f32, down: bool, button: Button, clicks: u8) bool {
         var event: sdl.SDL_Event = std.mem.zeroes(sdl.SDL_Event);
         event.button.type = if (down) sdl.SDL_EVENT_MOUSE_BUTTON_DOWN else sdl.SDL_EVENT_MOUSE_BUTTON_UP;
         event.button.windowID = self.window_id;
         event.button.which = smoke_mouse_id;
-        event.button.button = sdl.SDL_BUTTON_LEFT;
+        event.button.button = button.sdlButton();
         event.button.down = down;
-        event.button.clicks = 1;
+        event.button.clicks = clicks;
         event.button.x = point[0];
         event.button.y = point[1];
         return self.push(&event);
@@ -1815,6 +1983,42 @@ pub const AutoRunner = struct {
 
     fn fail(self: *AutoRunner, comptime format: []const u8, args: anytype) bool {
         std.debug.print("map-editor: BK_EDITOR_AUTO: FAIL: " ++ format ++ "\n", args);
+        // Where ImGui thinks the pointer is and which window it is over: the first
+        // thing a failed pointer step needs (a press that a window above the panel took).
+        var pointer: imgui.c.BkImguiPointerState = undefined;
+        imgui.c.bk_imgui_backend_pointer_state(&pointer);
+        std.debug.print("map-editor: BK_EDITOR_AUTO: pointer at frame {d}: ImGui {d:.0},{d:.0} wants mouse {} hovered '{s}' (before clear '{s}', window at pointer '{s}') down {any} popups {d}; focus lost {}; active widget {d} in '{s}', hovered widget {d}\n", .{
+            self.frame,
+            pointer.mouse_x,
+            pointer.mouse_y,
+            pointer.want_capture_mouse,
+            std.mem.sliceTo(&pointer.hovered_window, 0),
+            std.mem.sliceTo(&pointer.hovered_before_clear, 0),
+            std.mem.sliceTo(&pointer.window_at_pointer, 0),
+            pointer.mouse_down,
+            pointer.open_popups,
+            pointer.app_focus_lost,
+            pointer.active_id,
+            std.mem.sliceTo(&pointer.active_window, 0),
+            pointer.hovered_id,
+        });
+        // What the editor last said (an edit the engine refused says why here
+        // and nowhere else), and the Roads & Rivers tool's hand: what Insert
+        // and Delete act on.
+        const rr = &self.state.view.roads_rivers;
+        std.debug.print("map-editor: BK_EDITOR_AUTO: keyboard: ImGui wants it {} (text input {}), focused window '{s}'\n", .{
+            pointer.want_capture_keyboard,
+            pointer.want_text_input,
+            std.mem.sliceTo(&pointer.nav_window, 0),
+        });
+        std.debug.print("map-editor: BK_EDITOR_AUTO: status '{s}' editor '{s}'; roads & rivers: selected {any} hovered {any} last grab {any} pending {d}\n", .{
+            self.state.view.statusLine(),
+            self.state.editor.status(),
+            rr.selected,
+            rr.hovered_control,
+            rr.last_grab,
+            rr.pending_len,
+        });
         self.failed = true;
         return false;
     }
@@ -1872,6 +2076,7 @@ fn keyFromName(name: []const u8) ?NamedKey {
         .{ .name = "DELETE", .key = .{ .key = sdl.SDLK_DELETE, .scancode = sdl.SDL_SCANCODE_DELETE } },
         .{ .name = "BACKSPACE", .key = .{ .key = sdl.SDLK_BACKSPACE, .scancode = sdl.SDL_SCANCODE_BACKSPACE } },
         .{ .name = "HOME", .key = .{ .key = sdl.SDLK_HOME, .scancode = sdl.SDL_SCANCODE_HOME } },
+        .{ .name = "INSERT", .key = .{ .key = sdl.SDLK_INSERT, .scancode = sdl.SDL_SCANCODE_INSERT } },
         .{ .name = "END", .key = .{ .key = sdl.SDLK_END, .scancode = sdl.SDL_SCANCODE_END } },
         .{ .name = "ESCAPE", .key = .{ .key = sdl.SDLK_ESCAPE, .scancode = sdl.SDL_SCANCODE_ESCAPE } },
         .{ .name = "ESC", .key = .{ .key = sdl.SDLK_ESCAPE, .scancode = sdl.SDL_SCANCODE_ESCAPE } },
