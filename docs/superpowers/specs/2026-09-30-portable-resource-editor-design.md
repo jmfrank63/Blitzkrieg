@@ -409,3 +409,34 @@ the unknown node through a save (the map editor's preservation invariant).
   `Sources/src/bin/editor.exe`, `Sources/src/editor/bin/editor2.exe`, its
   `A7.sln` entry and its `stage.zig` `copyEditors` entry; packages ship
   `ResourceEditor` instead.
+
+## Amendments (M001 planning, 2026-10-05)
+
+These entries override the earlier spec where they conflict and extend it
+otherwise. Each is dated and references the memories and decisions that
+drove it, per `AGENTS.md` ("where this file or a milestone context changes
+one, the newer instruction wins, and record the change in the spec").
+
+- **Linux x64 is a first-class target** for `ResourceEditor` and the
+  shared editor kit. This supersedes the earlier "Linux deferred" posture:
+  the editor is built, tested, and shipped on Linux x64 alongside macOS
+  arm64/x64 and Windows x64 (MSVC). The Map Editor's Linux solutions are
+  reused as-is for the Resource Editor: executables that load engine
+  modules link with `rdynamic` and a `$ORIGIN` rpath; worker threads keep
+  the default 16 MiB stack (glibc carves static TLS out of the stack);
+  hidden test windows use `SDL_WINDOW_HIDDEN | SDL_WINDOW_NOT_FOCUSABLE`;
+  `ISFX` is stopped before engine modules unload; `Data` paths are
+  resolved case-insensitively via the `DataFile` helper in
+  `tools/zig/editor_bridge_test.cpp`. See MEM001, MEM002, D001.
+- **User content lives under `<UserRoot>resourceeditor/`.** All user
+  content the Resource Editor writes on behalf of the person using it -
+  projects, settings, recent-files lists, window layout, per-tool
+  preferences - is rooted at `<UserRoot>resourceeditor/`, resolved
+  per-platform the same way the game resolves `<UserRoot>` (XDG on
+  Linux, `Application Support` on macOS, `%LOCALAPPDATA%` on Windows,
+  with the `BK_*_SETTINGS` seams for tests). Paths stored *inside*
+  project files are relative wherever the project format allows, so a
+  project saved on one machine opens on another without rewriting
+  absolute paths. This extends D-10 (which pinned the location of
+  `editor.ini`/`editor2.ini` equivalents) to **all** user content, not
+  just settings. See D002.
