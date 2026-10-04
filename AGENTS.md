@@ -33,6 +33,10 @@ apps with Dear ImGui (`Sources/editor`) talking to the engine through the C ABI 
   out of the stack); hidden test windows use `SDL_WINDOW_HIDDEN | SDL_WINDOW_NOT_FOCUSABLE`; stop `ISFX` before
   modules unload; resolve Data paths case-insensitively (`DataFile` helper in `tools/zig/editor_bridge_test.cpp`).
 - `BK_DEBUG_LOG=1` is needed for `DebugTrace` output in release builds.
+- Do not edit `.gitignore`'s GSD lines (`.gsd`, `.gsd-id`, `.bg-shell/`, `.mcp.json`) and do not ignore `vendor/`,
+  `build/` or `.vscode/`: they hold tracked files.
+- `CArray2D::SetZero` used to trap in debug builds (fixed in `3e8afc8a7`); the Map Editor tiers that open a map now pass
+  on a Linux debug build too. A tier failure there is a real regression, not a known pre-existing failure.
 - Commit messages: conventional prefix with a scope, e.g. `feat(resource-editor): ...`, `fix(editor): ...`,
   `test(...)`, `docs(...)`. Do not push; the maintainer merges and pushes.
 - Deleting legacy MFC code or shipped binaries is part of a phase's end only after its parity checklist is fully
