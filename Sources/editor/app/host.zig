@@ -36,7 +36,12 @@ pub const Host = struct {
         // No SDL_WINDOW_HIGH_PIXEL_DENSITY: a point is a pixel, so a mouse
         // position is a screen position (see the plan's Decisions).
         var flags: sdl3.c.SDL_WindowFlags = sdl3.c.SDL_WINDOW_RESIZABLE;
-        if (options.hidden) flags |= sdl3.c.SDL_WINDOW_HIDDEN;
+        // Not focusable either: the renderer shows the window anyway
+        // (GraphicsEngineGpu's SetMode), and a focused window not under the
+        // real pointer makes ImGui's SDL3 backend take the pointer from
+        // SDL_GetGlobalMouseState (X11, Windows, macOS) over the script's
+        // pushed motion - the person's own mouse then decides the run.
+        if (options.hidden) flags |= sdl3.c.SDL_WINDOW_HIDDEN | sdl3.c.SDL_WINDOW_NOT_FOCUSABLE;
         const window = sdl3.c.SDL_CreateWindow(options.title, options.width, options.height, flags) orelse
             return failWith(error.WindowFailed, sdlError());
         errdefer sdl3.c.SDL_DestroyWindow(window);

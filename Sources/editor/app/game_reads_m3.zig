@@ -428,8 +428,11 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     // must still load and the game exit 0, saying why there is no loading screen.
     const no_progress_log_path = try pathWithSuffix(gpa, log_path, ".no-progress-list.log");
     defer gpa.free(no_progress_log_path);
+    // BK_DEBUG_LOG: the warning is a DebugTrace, which a release build only
+    // writes to stderr when asked.
     const no_progress = playWithEnv(gpa, io, environ, &paths, "game without the progress screen's movie list", no_progress_log_path, &.{
         .{ "BK_PROGRESS_XML", missing_progress_xml },
+        .{ "BK_DEBUG_LOG", "1" },
     }) orelse return false;
     defer gpa.free(no_progress.log);
     if (std.mem.indexOf(u8, no_progress.log, progress_warning) == null) {

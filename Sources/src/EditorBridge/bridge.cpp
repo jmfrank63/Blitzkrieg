@@ -4840,6 +4840,12 @@ BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 		{
 			if ( IGFX *pGFX = GetSingleton<IGFX>() )
 				pGFX->SetOverlay( 0, 0 );
+			// The audio device's mixer thread runs code in the SFX module, which
+			// the module list unloads at exit; stopped here, as NMain::Finalize
+			// does for the game, or on Linux that thread runs into the unmapped
+			// module (SIGSEGV after the editor's last frame).
+			if ( ISFX *pSFX = GetSingleton<ISFX>() )
+				pSFX->Done();
 		}
 		delete pSession;
 	}

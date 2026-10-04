@@ -67,6 +67,15 @@
 //! `zig build test-map-editor-panels` on every target.
 const std = @import("std");
 const builtin = @import("builtin");
+
+/// A worker thread's stack: these threads only pass a line, so a small one
+/// elsewhere. Not on Linux: glibc carves the static TLS out of each new
+/// thread's stack, and the std alone keeps 256 KiB there (its signal stack), so
+/// a 128-256 KiB stack fails to start (EINVAL). The default there is only
+/// reserved address space, committed as it is touched.
+fn workerStack(size: usize) std.Thread.SpawnConfig {
+    return .{ .stack_size = if (builtin.os.tag == .linux) std.Thread.SpawnConfig.default_stack_size else size };
+}
 const Io = std.Io;
 const net = Io.net;
 
@@ -460,7 +469,7 @@ pub const Instance = struct {
                 continue;
             }
             _ = self.connections.fetchAdd(1, .acq_rel);
-            const thread = std.Thread.spawn(.{ .stack_size = 256 * 1024 }, serveConnection, .{ self, stream }) catch {
+            const thread = std.Thread.spawn(workerStack(256 * 1024), serveConnection, .{ self, stream }) catch {
                 _ = self.connections.fetchSub(1, .acq_rel);
                 stream.close(self.io);
                 continue;
@@ -553,7 +562,7 @@ const Watchdog = struct {
     thread: ?std.Thread = null,
 
     fn start(self: *Watchdog) void {
-        self.thread = std.Thread.spawn(.{ .stack_size = 128 * 1024 }, run, .{self}) catch null;
+        self.thread = std.Thread.spawn(workerStack(128 * 1024), run, .{self}) catch null;
     }
 
     /// True when the deadline passed first.
@@ -686,7 +695,7 @@ fn handoffOnce(io: Io, address: *const net.UnixAddress, line: []const u8, timeou
     job.path_len = address.path.len;
     @memcpy(job.line_storage[0..line.len], line);
     job.line_len = line.len;
-    const thread = std.Thread.spawn(.{ .stack_size = 256 * 1024 }, HandoffJob.run, .{job}) catch {
+    const thread = std.Thread.spawn(workerStack(256 * 1024), HandoffJob.run, .{job}) catch {
         HandoffJob.allocator.destroy(job);
         return .no_listener;
     };
@@ -726,7 +735,7 @@ fn startServer(gpa: std.mem.Allocator, io: Io, address: *const net.UnixAddress, 
     @memcpy(instance.path_storage[0..endpoint.len], endpoint);
     instance.path_len = endpoint.len;
     instance.bound_inode = socketFileInode(io, endpoint);
-    instance.thread = std.Thread.spawn(.{ .stack_size = 256 * 1024 }, Instance.serve, .{instance}) catch {
+    instance.thread = std.Thread.spawn(workerStack(256 * 1024), Instance.serve, .{instance}) catch {
         instance.server.deinit(io);
         Io.Dir.cwd().deleteFile(io, endpoint) catch {};
         gpa.destroy(instance);
