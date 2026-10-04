@@ -1,54 +1,29 @@
-//! Per-object pictures for the palette (D-29): each object's own icon.tga,
-//! decoded by the engine on demand (BkEditorObjectPicture) and cached as an
-//! SDL GPU texture ImGui can draw with `igImage` - never a per-type symbol.
-//!
-//! `request` queues a name once; `pump` drains a budget of the queue each
-//! frame, decoding through the bridge and uploading into its own texture;
-//! `lookup` reports what a row should draw right now. `clear` (a mod switch,
-//! D-26) and `deinit` (shutdown) release every texture. The queue's own
-//! ordering and dedup rules (queued once, request order, a per-frame
-//! budget, a missing mark that is never retried) live in
-//! `panels_logic.PictureQueue`, pure enough to run under its own tests with
-//! no GPU or bridge - only the ready textures below need either.
-//!
-//! The Brush's tile picker (03-15 gap fix) keeps a second cache of the same
-//! kind (`Source.tile`): its names are tile indices in decimal
-//! (`panels_logic.tileKey`), decoded through BkEditorTilePicture, and
-//! cleared whenever the open map's tileset is another one.
+//! MapEditor's two picture caches: palette object pictures (D-29) and the
+//! Brush's tile picker (03-15 gap fix). Each wraps a `kit.pictures_cache.Cache`
+//! and plugs in a decoder callback that reaches the engine through the real
+//! bridge - BkEditorObjectPicture by object name, BkEditorTilePicture by tile
+//! index decoded from the panels_logic key. The queue, texture upload, budget
+//! pump and clear/deinit live in the kit; this file is only the MapEditor-
+//! shaped surface callers already use (`Pictures.init`, `.initFor(.tile)`,
+//! `.request(name)`, `.pump(real, device, budget)`, `.lookup(name)`,
+//! `.clear()`, `.deinit()`).
 const std = @import("std");
-const sdl3 = @import("sdl3");
 const c_bridge = @import("c_bridge.zig");
+const kit = @import("editor_kit");
 const logic = @import("panels_logic.zig");
 
 const RealBridge = c_bridge.RealBridge;
-const Picture = c_bridge.Picture;
-const PictureQueue = logic.PictureQueue;
+const Cache = kit.pictures_cache.Cache;
 
-/// The side BkEditorObjectPicture decodes to (within its own 8..256
-/// contract): big enough for the palette's 48x48 row picture, small enough
-/// that a decode is cheap. `pump`'s own scratch buffer is sized for this.
-pub const decode_max_side: i32 = 64;
+/// The side the engine's own decoders may upscale to - matched to
+/// `kit.pictures_cache.default_decode_max_side` (64).
+pub const decode_max_side: i32 = kit.pictures_cache.default_decode_max_side;
 
-/// The most names one `pump` call can drain from the queue - callers pass a
-/// smaller `budget` (panels.zig's own frame-time choice, see 03-09-SUMMARY);
-/// this only bounds `pump`'s own stack buffer.
-const max_pump_budget: usize = 32;
+/// What `lookup` reports for a name - re-export from the kit so MapEditor
+/// callers keep seeing `pictures.Lookup`.
+pub const Lookup = kit.pictures_cache.Lookup;
 
-const Entry = struct {
-    texture: *sdl3.c.SDL_GPUTexture,
-    width: i32,
-    height: i32,
-};
-
-/// What `lookup` reports for a name: nothing decoded yet, decoded to
-/// nothing (no icon.tga, or it would not fit), or a ready texture.
-pub const Lookup = union(enum) {
-    pending,
-    missing,
-    ready: struct { texture: *sdl3.c.SDL_GPUTexture, width: i32, height: i32 },
-};
-
-/// What a cache's names are, and so which bridge call decodes them.
+/// What a cache's names are, and so which bridge call its decoder runs.
 pub const Source = enum {
     /// Object names from the catalogue: BkEditorObjectPicture (D-29).
     object,
@@ -57,173 +32,59 @@ pub const Source = enum {
 };
 
 pub const Pictures = struct {
-    allocator: std.mem.Allocator,
-    source: Source = .object,
-    /// The engine's SDL_GPUDevice (RealBridge.gpuDevice), learned from
-    /// `pump`'s own argument - `request`/`lookup`/`clear` need no device,
-    /// and `init` is called before the palette's first frame has one to
-    /// give `pump`. Textures are released against whichever device most
-    /// recently uploaded one, which is always the session's single device.
-    device: ?*anyopaque = null,
-    /// Ready textures only - a name whose decode failed never lands here
-    /// (see `queue.isMissing` instead), so `deinit`/`clear` only ever
-    /// release real textures.
-    entries: std.StringHashMapUnmanaged(Entry) = .empty,
-    /// Which names are queued or already known missing, and the order to
-    /// serve them in (panels_logic.PictureQueue).
-    queue: PictureQueue,
+    cache: Cache,
+    source: Source,
 
     pub fn init(allocator: std.mem.Allocator) Pictures {
         return initFor(allocator, .object);
     }
 
     pub fn initFor(allocator: std.mem.Allocator, source: Source) Pictures {
-        return .{ .allocator = allocator, .source = source, .queue = PictureQueue.init(allocator) };
+        return .{ .cache = Cache.init(allocator), .source = source };
     }
 
     pub fn deinit(self: *Pictures) void {
-        self.clear();
-        self.entries.deinit(self.allocator);
-        self.queue.deinit();
+        self.cache.deinit();
         self.* = undefined;
     }
 
-    /// Releases every texture and forgets every cached, queued and missing
-    /// name - a mod switch (D-26) invalidates every picture: the new mod's
-    /// objects may reuse a name with a different icon, or none at all.
     pub fn clear(self: *Pictures) void {
-        var it = self.entries.iterator();
-        while (it.next()) |kv| {
-            if (self.device) |device| releaseTexture(device, kv.value_ptr.texture);
-            self.allocator.free(kv.key_ptr.*);
-        }
-        self.entries.clearAndFree(self.allocator);
-        self.queue.clear();
+        self.cache.clear();
     }
 
-    /// Queues `name` for `pump` to decode, once: already cached (ready or
-    /// missing) or already queued is a no-op, so a group redrawn every
-    /// frame does not re-queue its own rows every frame.
     pub fn request(self: *Pictures, name: []const u8) void {
-        if (self.entries.contains(name)) return;
-        self.queue.request(name);
+        self.cache.request(name);
     }
 
-    /// What a row should draw for `name` right now.
     pub fn lookup(self: *const Pictures, name: []const u8) Lookup {
-        if (self.entries.get(name)) |entry| return .{ .ready = .{ .texture = entry.texture, .width = entry.width, .height = entry.height } };
-        if (self.queue.isMissing(name)) return .missing;
-        return .pending;
+        return self.cache.lookup(name);
     }
 
-    /// Decodes up to `budget` queued names through `real` and uploads each
-    /// into its own SDL_GPUTexture (R8G8B8A8_UNORM, sampler usage) - a
-    /// transfer buffer written once, then a copy pass on its own command
-    /// buffer, submitted at once. Call once per frame; a name whose decode
-    /// fails (no picture, or one somehow too big for `decode_max_side`) is
-    /// marked missing (PictureQueue) and never retried.
     pub fn pump(self: *Pictures, real: *RealBridge, device: *anyopaque, budget: usize) void {
-        if (self.queue.pendingCount() == 0) return;
-        self.device = device;
-        var names_buffer: [max_pump_budget][]u8 = undefined;
-        const take_budget = @min(budget, names_buffer.len);
-        const names = self.queue.take(names_buffer[0..take_budget]);
-        var pixels: [@as(usize, @intCast(decode_max_side)) * @as(usize, @intCast(decode_max_side)) * 4]u8 = undefined;
-        for (names) |name| {
-            defer self.allocator.free(name);
-            const decoded: ?Picture = switch (self.source) {
-                .object => real.objectPicture(name, &pixels, decode_max_side),
-                .tile => if (logic.tileFromKey(name)) |tile| real.tilePicture(tile, &pixels, decode_max_side) else null,
-            };
-            const picture: Picture = decoded orelse {
-                self.queue.markMissing(name);
-                continue;
-            };
-            const texture = self.upload(device, picture) orelse {
-                self.queue.markMissing(name);
-                continue;
-            };
-            const owned = self.allocator.dupe(u8, name) catch {
-                releaseTexture(device, texture);
-                continue;
-            };
-            self.entries.put(self.allocator, owned, .{ .texture = texture, .width = picture.width, .height = picture.height }) catch {
-                releaseTexture(device, texture);
-                self.allocator.free(owned);
-            };
-        }
+        const decoder: kit.pictures_cache.DecoderFn = switch (self.source) {
+            .object => &decodeObject,
+            .tile => &decodeTile,
+        };
+        self.cache.pump(decoder, @ptrCast(real), device, budget);
     }
 
-    fn upload(self: *Pictures, device: *anyopaque, picture: Picture) ?*sdl3.c.SDL_GPUTexture {
-        _ = self;
-        const gpu: *sdl3.c.SDL_GPUDevice = @ptrCast(@alignCast(device));
-        const width: u32 = @intCast(picture.width);
-        const height: u32 = @intCast(picture.height);
-        const texture = sdl3.c.SDL_CreateGPUTexture(gpu, &.{
-            .type = sdl3.c.SDL_GPU_TEXTURETYPE_2D,
-            .format = sdl3.c.SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
-            .usage = sdl3.c.SDL_GPU_TEXTUREUSAGE_SAMPLER,
-            .width = width,
-            .height = height,
-            .layer_count_or_depth = 1,
-            .num_levels = 1,
-            .sample_count = sdl3.c.SDL_GPU_SAMPLECOUNT_1,
-            .props = 0,
-        }) orelse return null;
-
-        // No errdefer below: this function returns a plain optional, not an
-        // error union, so a failure past this point releases the texture by
-        // hand on every remaining path rather than leaking it.
-        const transfer = sdl3.c.SDL_CreateGPUTransferBuffer(gpu, &.{
-            .usage = sdl3.c.SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-            .size = @intCast(picture.bytes.len),
-            .props = 0,
-        }) orelse {
-            sdl3.c.SDL_ReleaseGPUTexture(gpu, texture);
-            return null;
-        };
-        defer sdl3.c.SDL_ReleaseGPUTransferBuffer(gpu, transfer);
-
-        const mapped = sdl3.c.SDL_MapGPUTransferBuffer(gpu, transfer, false) orelse {
-            sdl3.c.SDL_ReleaseGPUTexture(gpu, texture);
-            return null;
-        };
-        const dest: [*]u8 = @ptrCast(mapped);
-        @memcpy(dest[0..picture.bytes.len], picture.bytes);
-        sdl3.c.SDL_UnmapGPUTransferBuffer(gpu, transfer);
-
-        const command_buffer = sdl3.c.SDL_AcquireGPUCommandBuffer(gpu) orelse {
-            sdl3.c.SDL_ReleaseGPUTexture(gpu, texture);
-            return null;
-        };
-        const copy_pass = sdl3.c.SDL_BeginGPUCopyPass(command_buffer) orelse {
-            _ = sdl3.c.SDL_SubmitGPUCommandBuffer(command_buffer);
-            sdl3.c.SDL_ReleaseGPUTexture(gpu, texture);
-            return null;
-        };
-        sdl3.c.SDL_UploadToGPUTexture(copy_pass, &.{
-            .transfer_buffer = transfer,
-            .offset = 0,
-            .pixels_per_row = width,
-            .rows_per_layer = height,
-        }, &.{
-            .texture = texture,
-            .mip_level = 0,
-            .layer = 0,
-            .x = 0,
-            .y = 0,
-            .z = 0,
-            .w = width,
-            .h = height,
-            .d = 1,
-        }, false);
-        sdl3.c.SDL_EndGPUCopyPass(copy_pass);
-        _ = sdl3.c.SDL_SubmitGPUCommandBuffer(command_buffer);
-        return texture;
+    /// How many names are waiting for a decode this frame - mirrors the
+    /// pre-S02 panels.zig call-site `state.tile_pictures.queue.pendingCount()`,
+    /// which used to reach straight into the (now kit-side) queue.
+    pub fn pendingCount(self: *const Pictures) usize {
+        return self.cache.queue.pendingCount();
     }
 };
 
-fn releaseTexture(device: *anyopaque, texture: *sdl3.c.SDL_GPUTexture) void {
-    const gpu: *sdl3.c.SDL_GPUDevice = @ptrCast(@alignCast(device));
-    sdl3.c.SDL_ReleaseGPUTexture(gpu, texture);
+fn decodeObject(ctx: *anyopaque, name: []const u8, pixel_buffer: []u8, max_side: i32) ?kit.pictures_cache.Decoded {
+    const real: *RealBridge = @ptrCast(@alignCast(ctx));
+    const picture = real.objectPicture(name, pixel_buffer, max_side) orelse return null;
+    return .{ .width = picture.width, .height = picture.height, .bytes = picture.bytes };
+}
+
+fn decodeTile(ctx: *anyopaque, name: []const u8, pixel_buffer: []u8, max_side: i32) ?kit.pictures_cache.Decoded {
+    const real: *RealBridge = @ptrCast(@alignCast(ctx));
+    const tile = logic.tileFromKey(name) orelse return null;
+    const picture = real.tilePicture(tile, pixel_buffer, max_side) orelse return null;
+    return .{ .width = picture.width, .height = picture.height, .bytes = picture.bytes };
 }

@@ -13,6 +13,15 @@ pub const script_file = @import("script_file.zig");
 pub const autosave = @import("autosave.zig");
 pub const history = @import("history.zig");
 pub const settings = @import("settings.zig");
+pub const crt = @import("crt.zig");
+pub const testlaunch = @import("testlaunch.zig");
+pub const auto_schedule = @import("auto_schedule.zig");
+pub const pictures_cache = @import("pictures_cache.zig");
+pub const host = @import("host.zig");
+// The ImGui wrapper lives under `kit/imgui/` so the kit is self-contained,
+// but it is reached through its own `editor_imgui` module (build.zig's
+// `editor_imgui_module`), not through this re-export, because a file can
+// belong to only one Zig module.
 
 test {
     @import("std").testing.refAllDecls(@This());

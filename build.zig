@@ -1405,12 +1405,12 @@ pub fn build(b: *std.Build) void {
     const editor_imgui_step = b.step("editor-imgui", "Build Dear ImGui with its SDL3 backends for the editor");
     editor_imgui_step.dependOn(&editor_imgui.step);
     const editor_imgui_module = b.createModule(.{
-        .root_source_file = b.path("Sources/editor/imgui/imgui.zig"),
+        .root_source_file = b.path("Sources/editor/kit/imgui/imgui.zig"),
         .target = target,
         .optimize = optimize,
     });
     editor_imgui_module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
-    editor_imgui_module.addIncludePath(b.path("Sources/editor/imgui"));
+    editor_imgui_module.addIncludePath(b.path("Sources/editor/kit/imgui"));
     // cimgui.h includes <assert.h>. A consumer that does not link libc
     // (MapEditor, whose CRT is the engine's) gets no libc headers from Zig for
     // its @cImport on MSVC, so name the MSVC and UCRT ones here.
@@ -2794,7 +2794,14 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("Sources/editor/kit/root.zig"),
         .target = b.graph.host,
         .optimize = .Debug,
+        .imports = &.{
+            .{ .name = "sdl3", .module = sdl3 },
+            .{ .name = "editor_imgui", .module = editor_imgui_module },
+        },
     });
+    // bridge.h: the engine's C ABI; kit/host.zig @cImports it so any editor
+    // on the kit (ResourceEditor, future tier editors) shares one wrapper.
+    editor_kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
     const editor_kit_tests = b.addTest(.{ .root_module = editor_kit_module });
     const editor_kit_tests_run = b.addRunArtifact(editor_kit_tests);
     const editor_kit_step = b.step("test-editor-kit", "Run the Map Editor kit tests (reusable editor plumbing, no engine bridge)");
@@ -2851,7 +2858,7 @@ pub fn build(b: *std.Build) void {
     // no sdl3 and no c_bridge (testlaunch.zig's own doc comment), so this
     // runs on every target with no engine, GPU or staged installation.
     const testlaunch_module = b.createModule(.{
-        .root_source_file = b.path("Sources/editor/app/testlaunch.zig"),
+        .root_source_file = b.path("Sources/editor/kit/testlaunch.zig"),
         .target = b.graph.host,
         .optimize = .Debug,
     });
@@ -2862,10 +2869,10 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) testlaunch_step.dependOn(&testlaunch_tests_run.step);
     test_step.dependOn(testlaunch_step);
     // BK_EDITOR_AUTO's schedule parser and TGA comparison: plain Zig, no
-    // sdl3 and no c_bridge (auto.zig's own doc comment), so this runs on
-    // every target with no engine, GPU or staged installation.
+    // sdl3 and no c_bridge (auto_schedule.zig's own doc comment), so this
+    // runs on every target with no engine, GPU or staged installation.
     const auto_module = b.createModule(.{
-        .root_source_file = b.path("Sources/editor/app/auto.zig"),
+        .root_source_file = b.path("Sources/editor/kit/auto_schedule.zig"),
         .target = b.graph.host,
         .optimize = .Debug,
     });
@@ -4304,7 +4311,7 @@ fn addEditorImgui(
     });
     module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
     module.addIncludePath(b.path("vendor/dcimgui/backends"));
-    module.addIncludePath(b.path("Sources/editor/imgui"));
+    module.addIncludePath(b.path("Sources/editor/kit/imgui"));
     module.addIncludePath(sdl_include);
     addMsvcIncludePaths(b, module, toolchain);
     addLinuxCxxIncludePaths(b, module);
@@ -4328,7 +4335,7 @@ fn addEditorImgui(
             "vendor/dcimgui/src-docking/cimgui.cpp",
             "vendor/dcimgui/backends/imgui_impl_sdl3.cpp",
             "vendor/dcimgui/backends/imgui_impl_sdlgpu3.cpp",
-            "Sources/editor/imgui/imgui_backend.cpp",
+            "Sources/editor/kit/imgui/imgui_backend.cpp",
         },
         // Plain C++17 everywhere: the project's MSVC flag set selects the DLL
         // CRT (-D_MT -D_DLL), which does not match the CRT Zig links into the
@@ -6099,7 +6106,15 @@ fn addMapEditor(
         .root_source_file = b.path("Sources/editor/kit/root.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{
+            .{ .name = "sdl3", .module = sdl_module },
+            .{ .name = "editor_imgui", .module = editor_imgui_module },
+        },
     });
+    // bridge.h, for kit/host.zig's @cImport.
+    kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    addMsvcIncludePaths(b, kit_module, toolchain);
+    addMsvcLibraryPaths(b, kit_module, toolchain);
     // The editor core for the app's target. The core tier's module
     // (test-editor-core) is built for the host only. The core imports the
     // kit so later S02 tasks can re-point core submodules at the kit.
