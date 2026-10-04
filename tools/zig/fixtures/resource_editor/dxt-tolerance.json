@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "formats": {
+    "DXT1": {
+      "max_delta": 255,
+      "p99": 126
+    },
+    "DXT3": {
+      "max_delta": 255,
+      "p99": 125
+    },
+    "DXT5": {
+      "max_delta": 255,
+      "p99": 125
+    }
+  }
+}

@@ -1245,6 +1245,75 @@ pub fn build(b: *std.Build) void {
     const legacy_variant_step = b.step("test-legacy-variant", "Run portable legacy variant ownership and conversion tests");
     legacy_variant_step.dependOn(&legacy_variant_test.step);
     if (test_mode == .run) legacy_variant_step.dependOn(&legacy_variant_run.step);
+    // Project-XML round-trip spike (spec D-07): portable parse/serialise over the 21 ResourceEditor
+    // fixtures plus an unknown-node preservation check. No engine modules are loaded, so no rdynamic;
+    // the $ORIGIN rpath keeps the AGENTS.md Linux pattern.
+    const resource_xml_roundtrip_module = b.createModule(.{
+        .target = target,
+        .optimize = .Debug,
+    });
+    resource_xml_roundtrip_module.link_libc = !build_support.usesMsvc(platform);
+    resource_xml_roundtrip_module.link_libcpp = !build_support.usesMsvc(platform);
+    resource_xml_roundtrip_module.addIncludePath(b.path("Sources/src"));
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, resource_xml_roundtrip_module, toolchain);
+        addMsvcLibraryPaths(b, resource_xml_roundtrip_module, toolchain);
+        linkMsvcRuntime(resource_xml_roundtrip_module, .Debug);
+    }
+    resource_xml_roundtrip_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/resource_xml_roundtrip_test.cpp",
+            "Sources/src/ResourceModel/spike/xml_spike.cpp",
+        },
+        .flags = if (platform == .windows_x64) cppflags_debug else &.{"-std=c++17"},
+    });
+    const resource_xml_roundtrip_test = b.addExecutable(.{ .name = "resource-xml-roundtrip-test", .root_module = resource_xml_roundtrip_module });
+    resource_xml_roundtrip_test.subsystem = .console;
+    if (platform == .windows_x64) resource_xml_roundtrip_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    applyLoaderPath(target, resource_xml_roundtrip_module);
+    const resource_xml_roundtrip_run = b.addRunArtifact(resource_xml_roundtrip_test);
+    resource_xml_roundtrip_run.setCwd(b.path("."));
+    resource_xml_roundtrip_run.addArg("tools/zig/fixtures/resource_editor");
+    resource_xml_roundtrip_run.addArg("zig-out/local-test/resource_editor/roundtrip");
+    const resource_xml_roundtrip_step = b.step("test-resource-xml-roundtrip", "Round-trip the 21 ResourceEditor project XML fixtures and check unknown-node preservation");
+    resource_xml_roundtrip_step.dependOn(&resource_xml_roundtrip_test.step);
+    if (test_mode == .run) resource_xml_roundtrip_step.dependOn(&resource_xml_roundtrip_run.step);
+
+    // DXT tolerance measurement (spec D-11 / R019): the MFC-era S3TC encoder ported into
+    // Sources/src/ResourceModel/spike/legacy_dxt.* vs the shipping NDxt encoder. Writes a stable
+    // tolerance JSON for downstream golden tests to read programmatically.
+    const dxt_tolerance_module = b.createModule(.{
+        .target = target,
+        .optimize = .Debug,
+    });
+    dxt_tolerance_module.link_libc = !build_support.usesMsvc(platform);
+    dxt_tolerance_module.link_libcpp = !build_support.usesMsvc(platform);
+    dxt_tolerance_module.addIncludePath(b.path("Sources/src"));
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, dxt_tolerance_module, toolchain);
+        addMsvcLibraryPaths(b, dxt_tolerance_module, toolchain);
+        linkMsvcRuntime(dxt_tolerance_module, .Debug);
+    }
+    dxt_tolerance_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/dxt_tolerance_test.cpp",
+            "Sources/src/ResourceModel/spike/legacy_dxt.cpp",
+            "Sources/src/Image/DxtCodec.cpp",
+        },
+        .flags = if (platform == .windows_x64) cppflags_debug else &.{"-std=c++17"},
+    });
+    const dxt_tolerance_test = b.addExecutable(.{ .name = "dxt-tolerance-test", .root_module = dxt_tolerance_module });
+    dxt_tolerance_test.subsystem = .console;
+    if (platform == .windows_x64) dxt_tolerance_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    applyLoaderPath(target, dxt_tolerance_module);
+    const dxt_tolerance_run = b.addRunArtifact(dxt_tolerance_test);
+    dxt_tolerance_run.setCwd(b.path("."));
+    dxt_tolerance_run.addArg("tools/zig/fixtures/resource_editor/dxt-tolerance.json");
+    dxt_tolerance_run.addArg("zig-out/local-test/resource_editor/dxt");
+    const dxt_tolerance_step = b.step("test-dxt-tolerance", "Measure max_delta and p99 between the MFC-era DXT encoder and NDxt for DXT1/DXT3/DXT5");
+    dxt_tolerance_step.dependOn(&dxt_tolerance_test.step);
+    if (test_mode == .run) dxt_tolerance_step.dependOn(&dxt_tolerance_run.step);
+
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
         .target = b.graph.host,
