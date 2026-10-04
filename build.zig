@@ -1380,6 +1380,7 @@ pub fn build(b: *std.Build) void {
     addRuntimeHeadersTest(b, target, test_mode, toolchain);
     addResourceModelScaffoldTest(b, target, test_mode, toolchain);
     addResourceModelReferencesTest(b, target, test_mode, toolchain);
+    addResourceModelComparatorTest(b, target, test_mode, toolchain);
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = dependency_target,
@@ -8166,6 +8167,59 @@ fn addResourceModelReferencesTest(
     // the sweep is where the fixture matrix lives (T06).
     run.has_side_effects = true;
     const step = b.step("test-resource-model-references", "Enumerate every EReferenceType list, the AI-class and player-sides combos and the localization read over the tracked references_root fixture");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+// T05 test: per-stats-type comparator sweep over every repo-owned project
+// fixture + the planted synthetic-unknown abort path. Writes
+// zig-out/local-test/resource_model/comparator.log with one line per
+// (ext, stats_type) + the planted-abort outcome. The comparator stands for the
+// engine's typed readers (ReadRPGStats<T>, GetAddStats, GetGameStats,
+// SParticleSourceData/SSmokinParticleSourceData, fmtEffect, fmtTerrain,
+// fmtVSO) and uses field tables enumerated from the engine's own
+// operator&(IDataTree&) bodies.
+fn addResourceModelComparatorTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const flags: []const []const u8 = if (target.result.os.tag == .windows)
+        &(cppflags_debug.* ++ .{"-std=c++17"})
+    else
+        &.{"-std=c++17"};
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/ResourceModel/xml.cpp",
+            "Sources/src/ResourceModel/comparator.cpp",
+            "tools/zig/resource_model_comparator_test.cpp",
+        },
+        .flags = flags,
+    });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => {
+            addMacosSysrootPaths(b, module, target);
+            module.linkSystemLibrary("c++", .{});
+        },
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "resource-model-comparator-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    // Fixtures and the comparator.log output are repo-root-relative; the
+    // sweep + planted modes both resolve paths from the project root.
+    run.setCwd(b.path("."));
+    run.has_side_effects = true;
+    const step = b.step("test-resource-model-comparator", "Per-stats-type comparator sweep (ReadRPGStats<T>/GetGameStats<T>/fmtEffect/fmtTerrain/fmtVSO/ParticleSourceData) + planted-unknown abort verification");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }

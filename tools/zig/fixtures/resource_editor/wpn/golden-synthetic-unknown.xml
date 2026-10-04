@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<Weapon_Composer_Project>
+	<fixture>
+		<name>minimal-with-planted-unknown</name>
+	</fixture>
+	<SomethingTheEngineDoesNotRead>planted</SomethingTheEngineDoesNotRead>
+</Weapon_Composer_Project>
