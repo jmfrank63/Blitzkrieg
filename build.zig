@@ -1379,6 +1379,7 @@ pub fn build(b: *std.Build) void {
     addNetworkSystemGateTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addRuntimeHeadersTest(b, target, test_mode, toolchain);
     addResourceModelScaffoldTest(b, target, test_mode, toolchain);
+    addResourceModelReferencesTest(b, target, test_mode, toolchain);
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = dependency_target,
@@ -8092,6 +8093,56 @@ fn addResourceModelScaffoldTest(
     // the sweep is where the fixture matrix lives (T06).
     run.has_side_effects = true;
     const step = b.step("resource-model-scaffold-test", "Load and save the wpn fixture through Sources/src/ResourceModel and prove the bytes round-trip");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+// T04 test: reference, combo and localization lists of Sources/src/ResourceModel
+// over tools/zig/fixtures/resource_editor/references_root.
+fn addResourceModelReferencesTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const flags: []const []const u8 = if (target.result.os.tag == .windows)
+        &(cppflags_debug.* ++ .{"-std=c++17"})
+    else
+        &.{"-std=c++17"};
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/ResourceModel/references.cpp",
+            "Sources/src/ResourceModel/combos.cpp",
+            "Sources/src/ResourceModel/localization.cpp",
+            "tools/zig/resource_model_references_test.cpp",
+        },
+        .flags = flags,
+    });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => {
+            addMacosSysrootPaths(b, module, target);
+            module.linkSystemLibrary("c++", .{});
+        },
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "resource-model-references-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    // Fixtures live at repo-root-relative paths; the test defaults to the wpn
+    // fixture and the CI run step passes no args so that default lands.
+    run.setCwd(b.path("."));
+    // The fixture is a file input, not a step input; the test is cheap and
+    // the sweep is where the fixture matrix lives (T06).
+    run.has_side_effects = true;
+    const step = b.step("test-resource-model-references", "Enumerate every EReferenceType list, the AI-class and player-sides combos and the localization read over the tracked references_root fixture");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }
