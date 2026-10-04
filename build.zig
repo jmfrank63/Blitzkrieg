@@ -7203,6 +7203,11 @@ fn addMapEditor(
         "903:do=rmg_set:graph:0",
         "903:do=rmg_set:setting:any",
         "903:do=rmg_set:angle:0",
+        // The setting combo greys out the settings this template cannot be
+        // built in (a spring setting on a summer template): the generator would
+        // find no terrain piece for them.
+        "903:expect=rmg_setting_fits:scenarios\\settings\\spring_germany:0",
+        "903:expect=rmg_setting_fits:scenarios\\settings\\summer_france:1",
         "903:do=rmg_set:level:1",
         "903:do=rmg_set:bzm:1",
         "903:do=rmg_set:dds:0",

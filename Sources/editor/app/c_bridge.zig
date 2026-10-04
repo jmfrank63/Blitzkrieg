@@ -289,6 +289,7 @@ pub const RealBridge = struct {
         .createRandomMap = vtableCreateRandomMap,
         .listStorageFiles = vtableListStorageFiles,
         .rmgTemplateGraphs = vtableRmgTemplateGraphs,
+        .rmgCheckSetting = vtableRmgCheckSetting,
         .rmgReadContainer = vtableRmgReadContainer,
         .rmgWriteContainer = vtableRmgWriteContainer,
         .rmgReadGraph = vtableRmgReadGraph,
@@ -894,6 +895,12 @@ pub const RealBridge = struct {
             out[i] = @bitCast(item);
         }
         return .ok;
+    }
+
+    /// BkEditorRmgCheckSetting: the generator's own fit test, before it runs.
+    fn vtableRmgCheckSetting(ptr: *anyopaque, template: [*:0]const u8, graph: i32, angle: i32, setting: [*:0]const u8) Status {
+        const self = from(ptr);
+        return status(c.BkEditorRmgCheckSetting(self.session, template, graph, angle, setting));
     }
 
     /// BkEditorRmgTemplateGraphs (05-08, D-13) in two passes.

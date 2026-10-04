@@ -366,6 +366,7 @@ pub const predicate_table = [_]Entry{
     .{ .name = "rmg_dialog", .handler = rmgDialogIs },
     .{ .name = "rmg_seed", .handler = rmgSeedIs },
     .{ .name = "rmg_phase", .handler = rmgPhaseIs },
+    .{ .name = "rmg_setting_fits", .handler = rmgSettingFits },
     .{ .name = "export_file", .handler = exportFileExists },
     .{ .name = "export_lines", .handler = exportLinesAtLeast },
     // 05-11: what the app shell holds.
@@ -3364,6 +3365,22 @@ fn rmgGenerateCommand(state: *State, arg: []const u8) Outcome {
 fn rmgDialogIs(state: *State, arg: []const u8) Outcome {
     const want = parseFlagArg(arg) orelse return .bad_arg;
     return if (state.rmg_open == want) .ok else .refused;
+}
+
+/// `expect=rmg_setting_fits:<setting>:<0|1>` - whether the dialog's setting
+/// combo offers the setting (1) or greys it out (0) for the template, graph
+/// and direction the dialog holds now.
+fn rmgSettingFits(state: *State, arg: []const u8) Outcome {
+    const colon = std.mem.lastIndexOfScalar(u8, arg, ':') orelse return .bad_arg;
+    const want = parseFlagArg(arg[colon + 1 ..]) orelse return .bad_arg;
+    const name = arg[0..colon];
+    panels.refreshRmgSettingFit(state);
+    for (state.rmg_settings.items, 0..) |*entry, i| {
+        if (!std.ascii.eqlIgnoreCase(entry.nameSlice(), name)) continue;
+        if (i >= state.rmg_setting_fit.items.len) return .refused;
+        return if (state.rmg_setting_fit.items[i].fits == want) .ok else .refused;
+    }
+    return .bad_arg;
 }
 
 /// `expect=rmg_phase:<idle|announce|run|done>` - where the progress modal is.

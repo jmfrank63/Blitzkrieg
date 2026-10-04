@@ -1172,6 +1172,10 @@ pub const Bridge = struct {
         /// BkEditorRmgTemplateGraphs (05-08, D-13): a template's graphs with
         /// their weights, in its own order. Two-pass like `listRmg`.
         rmgTemplateGraphs: *const fn (ptr: *anyopaque, template: [*:0]const u8, out: []RmgGraph, total: *usize) Status,
+        /// BkEditorRmgCheckSetting: whether `createRandomMap` can build the
+        /// template in the setting (graph and angle -1 = any). `.ok` when it
+        /// can; `.refused` with the reason in the message when it cannot.
+        rmgCheckSetting: *const fn (ptr: *anyopaque, template: [*:0]const u8, graph: i32, angle: i32, setting: [*:0]const u8) Status,
         /// BkEditorRmgReadContainer / BkEditorRmgWriteContainer (05-09, D-06/D-07):
         /// a container through the engine's own serialiser. Reads are two-pass
         /// (see `RmgScripts`); a write under the user RMG root refuses a shipped
@@ -1341,6 +1345,7 @@ pub const Bridge = struct {
     pub fn createRandomMap(self: Bridge, params: RmgGenerateParams, result: *RmgGenerateResult) Status { return self.vtable.createRandomMap(self.ptr, params, result); }
     pub fn listStorageFiles(self: Bridge, folder: [*:0]const u8, extension: [*:0]const u8, out: []RmgName, total: *usize) Status { return self.vtable.listStorageFiles(self.ptr, folder, extension, out, total); }
     pub fn rmgTemplateGraphs(self: Bridge, template: [*:0]const u8, out: []RmgGraph, total: *usize) Status { return self.vtable.rmgTemplateGraphs(self.ptr, template, out, total); }
+    pub fn rmgCheckSetting(self: Bridge, template: [*:0]const u8, graph: i32, angle: i32, setting: [*:0]const u8) Status { return self.vtable.rmgCheckSetting(self.ptr, template, graph, angle, setting); }
     pub fn rmgReadContainer(self: Bridge, name: [*:0]const u8, record: *RmgContainerRecord) Status { return self.vtable.rmgReadContainer(self.ptr, name, record); }
     pub fn rmgWriteContainer(self: Bridge, name: [*:0]const u8, record: *const RmgContainerRecord) Status { return self.vtable.rmgWriteContainer(self.ptr, name, record); }
     pub fn rmgReadGraph(self: Bridge, name: [*:0]const u8, record: *RmgGraphRecord) Status { return self.vtable.rmgReadGraph(self.ptr, name, record); }

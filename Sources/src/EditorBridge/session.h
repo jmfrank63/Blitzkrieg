@@ -926,6 +926,15 @@ struct SRMGenerateResult
 	SRMGenerateResult() : nSeed( 0 ), nGraph( -1 ), nAngle( -1 ) {  }
 };
 bool CreateRandomMapInSession( SEditorSession *pSession, const SRMGenerateParams &rParams, bool *pbRefused, SRMGenerateResult *pResult );
+// Whether a generation of the template can be built in the setting, the way the
+// generator picks its pieces (MapInfo_StaticMethods_RMGeneration.cpp: one patch
+// per graph node from the node's container, for the chosen direction and the
+// setting). nGraph -1 checks every graph the weights may pick, nAngle -1 every
+// direction; an empty setting (<any setting>) always fits. false with the
+// session's message naming the template, setting, graph, container and
+// direction, or that a name is not in the data; *pbRefused tells the two apart
+// from a template or graph that would not load.
+bool CheckRmgSettingInSession( SEditorSession *pSession, const std::string &rszTemplate, int nGraph, int nAngle, const std::string &rszSetting, bool *pbRefused );
 
 // The mounted storages' files under a folder that end in an extension (M3,
 // D-13's Export lists, MainFrm.cpp OnTool0-3's own enumeration): the names

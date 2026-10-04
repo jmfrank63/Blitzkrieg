@@ -33,7 +33,7 @@ pub const Editor = struct {
     allocator: std.mem.Allocator,
     bridge: Bridge,
     document: Document = .{},
-    status_buffer: [256]u8 = undefined,
+    status_buffer: [512]u8 = undefined,
     status_len: usize = 0,
     history: history_mod.History = .{},
     selection: ?i32 = null,
@@ -2876,7 +2876,7 @@ pub const Editor = struct {
         return if (err == error.Refused) error.Failed else err;
     }
 
-    const StatusCopy = struct { buffer: [256]u8 = undefined, len: usize = 0 };
+    const StatusCopy = struct { buffer: [512]u8 = undefined, len: usize = 0 };
 
     /// The status line as it is, for a rollback whose own bridge calls would
     /// overwrite the reason it is reporting.
