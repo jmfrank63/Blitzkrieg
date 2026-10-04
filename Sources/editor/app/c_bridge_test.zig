@@ -5,8 +5,8 @@
 //! engine finds its data from there.
 const std = @import("std");
 const core = @import("editor_core");
-const crt = @import("crt.zig");
-const host_mod = @import("host.zig");
+const crt = @import("editor_kit").crt;
+const host_mod = @import("editor_kit").host;
 const Host = host_mod.Host;
 const c_bridge = @import("c_bridge.zig");
 const RealBridge = c_bridge.RealBridge;
