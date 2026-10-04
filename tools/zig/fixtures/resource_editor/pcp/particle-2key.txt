@@ -1,0 +1,4 @@
+# resource-editor fixture: 2-keyframe source
+# time	value
+0.000	0.0
+1.000	1.0
