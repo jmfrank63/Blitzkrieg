@@ -94,3 +94,9 @@ node_modules/
 
 # macOS Finder metadata
 .DS_Store
+
+# GSD workflow state (local only)
+.gsd
+.gsd-id
+.bg-shell/
+.mcp.json
