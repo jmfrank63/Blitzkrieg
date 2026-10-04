@@ -2846,7 +2846,10 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("Sources/editor/app/panels_logic.zig"),
         .target = b.graph.host,
         .optimize = .Debug,
-        .imports = &.{.{ .name = "editor_core", .module = editor_core_module }},
+        .imports = &.{
+            .{ .name = "editor_core", .module = editor_core_module },
+            .{ .name = "editor_kit", .module = editor_kit_module },
+        },
     });
     const panels_logic_tests = b.addTest(.{ .root_module = panels_logic_module });
     const panels_logic_tests_run = b.addRunArtifact(panels_logic_tests);

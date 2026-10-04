@@ -17,10 +17,11 @@ const builtin = @import("builtin");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
 const core = @import("editor_core");
+const kit = @import("editor_kit");
 const c_bridge = @import("c_bridge.zig");
 const view_mod = @import("view.zig");
 const logic = @import("panels_logic.zig");
-const testlaunch = @import("testlaunch.zig");
+const testlaunch = kit.testlaunch;
 const pictures_mod = @import("pictures.zig");
 const minimap_mod = @import("minimap.zig");
 const marker_logic = @import("marker_logic.zig");
@@ -359,7 +360,7 @@ pub const State = struct {
     /// D-20..D-22's schedule; `tickAutosave` keeps `enabled`/`interval_ms` in
     /// step with `settings` every frame, so a Settings-window or menu change
     /// takes effect at once.
-    autosave: core.autosave.Autosave = .{},
+    autosave: kit.autosave.Autosave = .{},
     /// This document's currently-live recovery copy (D-22), if any - its OS
     /// path, so a later real Save/Save As or a clean/Don't-save quit can
     /// delete it and its sidecar. Set when a recovery write succeeds or a
@@ -952,7 +953,7 @@ pub const State = struct {
         self.allocator.free(self.fence_types);
         self.allocator.free(self.trench_infos);
         self.freeGroups();
-        core.files.freeNames(self.allocator, &self.script_names);
+        kit.files.freeNames(self.allocator, &self.script_names);
         self.areas.deinit(self.allocator);
         Editor.freeStartCommands(self.allocator, self.startcmds);
         self.allocator.free(self.startcmd_actions);
@@ -1887,14 +1888,14 @@ fn offerScriptCopyAlong(state: *State, from_map: []const u8) void {
     const files = state.editor.files orelse return;
     var value_buffer: [core.records.script_file_capacity]u8 = undefined;
     const value = scriptValue(state, &value_buffer) orelse return;
-    const name = core.script_file.gameScriptName(value) orelse return;
-    var beside: [core.files.max_path]u8 = undefined;
-    const path = core.script_file.scriptPathBeside(&beside, from_map, name) orelse return;
+    const name = kit.script_file.gameScriptName(value) orelse return;
+    var beside: [kit.files.max_path]u8 = undefined;
+    const path = kit.script_file.scriptPathBeside(&beside, from_map, name) orelse return;
     if (!files.exists(path)) return;
     // Both maps in one folder: the script is beside the new map already.
-    var beside_new: [core.files.max_path]u8 = undefined;
-    const new_path = core.script_file.scriptPathBeside(&beside_new, state.editor.document.path.items, name) orelse return;
-    if (core.script_file.sameFile(files, path, new_path)) return;
+    var beside_new: [kit.files.max_path]u8 = undefined;
+    const new_path = kit.script_file.scriptPathBeside(&beside_new, state.editor.document.path.items, name) orelse return;
+    if (kit.script_file.sameFile(files, path, new_path)) return;
     const pending = &state.script_copy;
     // A different <name>.lua already there is never replaced without asking
     // (CR-B01): the question becomes "Replace it?".
@@ -1917,7 +1918,7 @@ pub fn answerScriptCopyAlong(state: *State, yes: bool) bool {
     if (!yes) return true;
     const files = state.editor.files orelse return false;
     var note: [200]u8 = undefined;
-    switch (core.script_file.copyAlong(files, baseRoot(state), pending.from.slice(), pending.to.slice(), pending.name(), pending.replace)) {
+    switch (kit.script_file.copyAlong(files, baseRoot(state), pending.from.slice(), pending.to.slice(), pending.name(), pending.replace)) {
         .copied => state.view.setStatus("script: ", std.fmt.bufPrint(&note, "{s}.lua copied beside the new map", .{pending.name()}) catch "copied"),
         // A file of that name appeared beside the new map after the question
         // was put: nothing is replaced; the question is asked again as
@@ -1945,9 +1946,9 @@ pub fn refreshScriptNames(state: *State) void {
     if (!opened_now and !state.script_names_stale and state.script_generation_seen == generation) return;
     state.script_names_stale = false;
     state.script_generation_seen = generation;
-    core.files.freeNames(state.allocator, &state.script_names);
+    kit.files.freeNames(state.allocator, &state.script_names);
     const files = state.editor.files orelse return;
-    core.script_file.listBeside(files, state.allocator, state.editor.document.path.items, &state.script_names) catch {};
+    kit.script_file.listBeside(files, state.allocator, state.editor.document.path.items, &state.script_names) catch {};
 }
 
 /// "Open script folder": the folder that holds the map's script, in the
@@ -1963,12 +1964,12 @@ pub fn openScript(state: *State) bool {
         state.view.setStatus("script: ", "the map names no script");
         return false;
     }
-    var url_buffer: [core.files.max_path + 64]u8 = undefined;
-    const url = core.script_file.folderUrl(files, &url_buffer, state.editor.document.path.items, value) orelse {
+    var url_buffer: [kit.files.max_path + 64]u8 = undefined;
+    const url = kit.script_file.folderUrl(files, &url_buffer, state.editor.document.path.items, value) orelse {
         state.view.setStatus("script: ", "the script file is not beside the map");
         return false;
     };
-    var z_buffer: [core.files.max_path + 65]u8 = undefined;
+    var z_buffer: [kit.files.max_path + 65]u8 = undefined;
     const url_z = std.fmt.bufPrintZ(&z_buffer, "{s}", .{url}) catch return false;
     if (!state.os_dialogs) return true; // the scripted runs check the URL, not the desktop
     if (panels_m2.openUrlWithSystem(url_z)) |reason| {
@@ -2026,11 +2027,11 @@ pub fn pickScript(state: *State, picked: []const u8, overwrite: bool) PickOutcom
         state.view.setStatus("script: ", "this map is inside a game's data folder, which is read-only - Save As into your maps folder first");
         return .refused;
     }
-    const name = core.script_file.pickedName(picked) orelse {
+    const name = kit.script_file.pickedName(picked) orelse {
         state.view.setStatus("script: ", "choose a .lua file named with letters, digits, _ - and . only");
         return .refused;
     };
-    switch (core.script_file.copyInto(files, baseRoot(state), state.editor.document.path.items, picked, overwrite)) {
+    switch (kit.script_file.copyInto(files, baseRoot(state), state.editor.document.path.items, picked, overwrite)) {
         .copied => {
             state.script_names_stale = true;
             return if (commands.setScriptFile(state, name) == .ok) .chosen else .refused;
@@ -2055,8 +2056,8 @@ pub fn pickScript(state: *State, picked: []const u8, overwrite: bool) PickOutcom
 /// to `run`, so the write itself never happens; only this in-memory list,
 /// discarded when the process exits, ever changes.
 fn pushRecentFromDocument(state: *State) void {
-    var buffer: [core.files.max_path]u8 = undefined;
-    const os_path = core.files.osPathFromEngine(&buffer, state.editor.document.path.items) orelse return;
+    var buffer: [kit.files.max_path]u8 = undefined;
+    const os_path = kit.files.osPathFromEngine(&buffer, state.editor.document.path.items) orelse return;
     state.settings.pushRecent(os_path);
     state.settings_changed = true;
 }
@@ -2106,7 +2107,7 @@ pub fn tickAutosave(state: *State, now_ms: u64) void {
     state.autosave.note(now_ms, dirty);
     if (!state.autosave.due(now_ms, dirty)) return;
     const needs_save_as = documentNeedsSaveAs(state);
-    switch (core.autosave.target(needs_save_as)) {
+    switch (kit.autosave.target(needs_save_as)) {
         .map_file => autosaveIntoMapFile(state, now_ms),
         .recovery_copy => writeRecoveryCopy(state, now_ms),
     }
@@ -2131,7 +2132,7 @@ fn autosaveIntoMapFile(state: *State, now_ms: u64) void {
 fn writeRecoveryCopy(state: *State, now_ms: u64) void {
     state.autosave.wrote(now_ms);
     var name_buffer: [300]u8 = undefined;
-    const name = core.autosave.recoveryName(&name_buffer, state.editor.document.path.items) orelse {
+    const name = kit.autosave.recoveryName(&name_buffer, state.editor.document.path.items, ".bzm") orelse {
         state.view.setStatus("autosave failed: ", "the recovery file name is too long");
         return;
     };
@@ -2165,12 +2166,12 @@ fn writeRecoveryCopy(state: *State, now_ms: u64) void {
 fn writeRecoverySidecar(state: *State, recovery_os_path: []const u8) void {
     var sidecar_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const sidecar_path = std.fmt.bufPrint(&sidecar_buffer, "{s}.txt", .{recovery_os_path}) catch return;
-    var doc_os_buffer: [core.files.max_path]u8 = undefined;
+    var doc_os_buffer: [kit.files.max_path]u8 = undefined;
     // A never-saved document has no original: the sidecar's first line is empty.
     const doc_path = state.editor.document.path.items;
-    const original_os_path = if (doc_path.len == 0) "" else core.files.osPathFromEngine(&doc_os_buffer, doc_path) orelse return;
+    const original_os_path = if (doc_path.len == 0) "" else kit.files.osPathFromEngine(&doc_os_buffer, doc_path) orelse return;
     const unix_seconds = std.Io.Clock.real.now(state.io).toSeconds();
-    var sidecar_text_buffer: [core.files.max_path + 64]u8 = undefined;
+    var sidecar_text_buffer: [kit.files.max_path + 64]u8 = undefined;
     const sidecar_text = std.fmt.bufPrint(&sidecar_text_buffer, "{s}\n{d}\n", .{ original_os_path, unix_seconds }) catch return;
     std.Io.Dir.cwd().writeFile(state.io, .{ .sub_path = sidecar_path, .data = sidecar_text }) catch {};
 }
@@ -3682,7 +3683,7 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
         }
         ig.igEndCombo();
     }
-    if (state.tile_pictures.queue.pendingCount() != 0) {
+    if (state.tile_pictures.pendingCount() != 0) {
         if (state.real.gpuDevice()) |device| state.tile_pictures.pump(state.real, device, tile_picture_pump_budget);
     }
 }

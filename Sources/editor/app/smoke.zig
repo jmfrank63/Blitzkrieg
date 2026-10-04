@@ -20,6 +20,7 @@
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const core = @import("editor_core");
+const kit = @import("editor_kit");
 const c_bridge = @import("c_bridge.zig");
 const view_mod = @import("view.zig");
 const view_math = @import("view_math.zig");
@@ -1059,8 +1060,8 @@ pub const Script = struct {
             },
             .foreign_read_only => {
                 if (editor.status().len != 0) return self.stepFail(step, "{s}", .{editor.status()});
-                var os_buffer: [core.files.max_path]u8 = undefined;
-                const doc_os = core.files.osPathFromEngine(&os_buffer, editor.document.path.items) orelse return self.stepFail(step, "the document path does not fit", .{});
+                var os_buffer: [kit.files.max_path]u8 = undefined;
+                const doc_os = kit.files.osPathFromEngine(&os_buffer, editor.document.path.items) orelse return self.stepFail(step, "the document path does not fit", .{});
                 if (!std.mem.eql(u8, doc_os, self.foreign_path.slice()))
                     return self.stepFail(step, "the document is {s}, want {s}", .{ doc_os, self.foreign_path.slice() });
                 if (!panels.documentIsShipped(self.state)) return self.stepFail(step, "{s} is not read-only", .{self.foreign_path.slice()});

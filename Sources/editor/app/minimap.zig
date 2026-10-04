@@ -23,6 +23,7 @@ const std = @import("std");
 const imgui = @import("editor_imgui");
 const sdl3 = @import("sdl3");
 const core = @import("editor_core");
+const kit = @import("editor_kit");
 const panels = @import("panels.zig");
 const commands = @import("commands.zig");
 const logic = @import("panels_logic.zig");
@@ -380,7 +381,7 @@ pub fn createNow(state: *State) bool {
     var os_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     var real_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const document_path = state.editor.document.path.items;
-    const os_path = core.files.osPathFromEngine(&os_buffer, document_path) orelse document_path;
+    const os_path = kit.files.osPathFromEngine(&os_buffer, document_path) orelse document_path;
     const path = if (state.editor.files) |files| (files.realPath(os_path, &real_buffer) orelse os_path) else os_path;
     const result = state.editor.bridge.createMinimapImages(path);
     if (result != .ok) {

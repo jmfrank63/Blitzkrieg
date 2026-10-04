@@ -7,7 +7,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const core = @import("editor_core");
-const testlaunch = @import("testlaunch.zig");
+const kit = @import("editor_kit");
+const testlaunch = kit.testlaunch;
 const view_math = @import("view_math.zig");
 const tool_registry = @import("tool_registry.zig");
 
@@ -215,100 +216,11 @@ pub fn soundRadiusError(min_radius: i32, max_radius: i32) ?[]const u8 {
     return null;
 }
 
-/// The object pictures cache's ordering and dedup rules (D-29), pure enough
-/// to run under this file's own tests with no GPU or bridge: `request`
-/// queues a name once, `take` serves up to a per-frame budget in request
-/// order, and a name reported `markMissing` (no shipped icon.tga, or one
-/// that would not fit) is never queued again until `clear` (a mod switch,
-/// D-26, drops every name so the new mod's objects get a fresh try).
-/// `pictures.Pictures` owns one of these for its pending/missing side; the
-/// ready textures themselves live in `Pictures.entries`, which needs a GPU
-/// and so cannot be tested here.
-pub const PictureQueue = struct {
-    allocator: std.mem.Allocator,
-    /// Names decoded to nothing so far - kept apart from `Pictures.entries`
-    /// (which only ever holds a texture that decoded) so this struct never
-    /// touches the GPU.
-    missing: std.StringHashMapUnmanaged(void) = .empty,
-    /// Names waiting for `take`, in request order.
-    queue: std.ArrayListUnmanaged([]u8) = .empty,
-    queued: std.StringHashMapUnmanaged(void) = .empty,
-
-    pub fn init(allocator: std.mem.Allocator) PictureQueue {
-        return .{ .allocator = allocator };
-    }
-
-    pub fn deinit(self: *PictureQueue) void {
-        self.clear();
-        self.missing.deinit(self.allocator);
-        self.queue.deinit(self.allocator);
-        self.queued.deinit(self.allocator);
-        self.* = undefined;
-    }
-
-    /// Forgets every queued and missing name - a mod switch (D-26): the new
-    /// mod's objects may reuse a name with a different icon, or none at all.
-    pub fn clear(self: *PictureQueue) void {
-        var it = self.missing.keyIterator();
-        while (it.next()) |key| self.allocator.free(key.*);
-        self.missing.clearAndFree(self.allocator);
-        for (self.queue.items) |name| self.allocator.free(name);
-        self.queue.clearAndFree(self.allocator);
-        self.queued.clearAndFree(self.allocator);
-    }
-
-    pub fn isMissing(self: *const PictureQueue, name: []const u8) bool {
-        return self.missing.contains(name);
-    }
-
-    pub fn pendingCount(self: *const PictureQueue) usize {
-        return self.queue.items.len;
-    }
-
-    /// Queues `name` once: already queued, or already marked missing, is a
-    /// no-op, so a group redrawn every frame does not grow the queue every
-    /// frame and a name with no picture is never retried. The caller (the
-    /// cache holding the ready textures) must also check its own resolved
-    /// names before calling - this queue only knows about names still
-    /// pending or already missing.
-    pub fn request(self: *PictureQueue, name: []const u8) void {
-        if (self.missing.contains(name)) return;
-        if (self.queued.contains(name)) return;
-        const owned = self.allocator.dupe(u8, name) catch return;
-        self.queued.put(self.allocator, owned, {}) catch {
-            self.allocator.free(owned);
-            return;
-        };
-        self.queue.append(self.allocator, owned) catch {
-            _ = self.queued.remove(owned);
-            self.allocator.free(owned);
-        };
-    }
-
-    /// Removes and returns up to `buffer.len` names from the front of the
-    /// queue, in request order - `buffer.len` is the frame's decode budget.
-    /// Ownership of each returned name passes to the caller, who reports
-    /// back with `markMissing` on a failed decode and frees the name either
-    /// way; a name not marked missing is simply forgotten (its ready texture,
-    /// if any, is the caller's own cache to keep).
-    pub fn take(self: *PictureQueue, buffer: [][]u8) [][]u8 {
-        var count: usize = 0;
-        while (count < buffer.len and self.queue.items.len != 0) : (count += 1) {
-            const name = self.queue.orderedRemove(0);
-            _ = self.queued.remove(name);
-            buffer[count] = name;
-        }
-        return buffer[0..count];
-    }
-
-    /// Marks `name` (already taken) as missing - never queued again until
-    /// `clear`.
-    pub fn markMissing(self: *PictureQueue, name: []const u8) void {
-        if (self.missing.contains(name)) return;
-        const owned = self.allocator.dupe(u8, name) catch return;
-        self.missing.put(self.allocator, owned, {}) catch self.allocator.free(owned);
-    }
-};
+/// The object pictures cache's ordering and dedup rules (D-29), owned by
+/// `kit.pictures_cache` (where it is also tested); re-exported here as a
+/// type alias so MapEditor callers that spelled it `panels_logic.PictureQueue`
+/// before S02/T04's extraction keep compiling.
+pub const PictureQueue = core.kit.pictures_cache.PictureQueue;
 
 /// One tile the Brush's picker offers (03-15 gap fix, Johannes's M1 hand try:
 /// "tile 0", "tile 1", ... was hard to choose from without seeing them): its
@@ -643,8 +555,8 @@ pub fn wheelDegreesOfDirection(direction: i32) i32 {
     return @mod(@as(i32, @intFromFloat(@round(degrees))), 360);
 }
 
-const normalizeForCompare = core.shipped.normalizeForCompare;
-const isAbsolutePath = core.shipped.isAbsolutePath;
+const normalizeForCompare = kit.shipped.normalizeForCompare;
+const isAbsolutePath = kit.shipped.isAbsolutePath;
 
 /// Whether an engine-form path (the document's own, backslash-separated,
 /// possibly relative to the installation the editor runs from) names a file
@@ -656,8 +568,8 @@ const isAbsolutePath = core.shipped.isAbsolutePath;
 /// which is how another installation's Data, or this one's reached through
 /// a symlink, used to pass for a user's file (03-15's hand try: Save wrote
 /// straight into another checkout's coldwinter.bzm).
-pub fn isShippedMap(engine_path: []const u8, base_root: []const u8, files: ?core.files.Files) bool {
-    return core.shipped.isShipped(engine_path, base_root, files);
+pub fn isShippedMap(engine_path: []const u8, base_root: []const u8, files: ?kit.files.Files) bool {
+    return kit.shipped.isShipped(engine_path, base_root, files);
 }
 
 /// Whether an engine-form path sits inside `<user_root>mapeditor/recovery/`
@@ -681,7 +593,7 @@ fn isRecoveryPath(engine_path: []const u8, user_root: []const u8) bool {
 /// map, never saved), a shipped one, or a path inside the recovery folder -
 /// every case where writing straight to `doc_path` is either impossible or
 /// not where the map actually belongs.
-pub fn needsSaveAs(doc_path: []const u8, base_root: []const u8, user_root: []const u8, files: ?core.files.Files) bool {
+pub fn needsSaveAs(doc_path: []const u8, base_root: []const u8, user_root: []const u8, files: ?kit.files.Files) bool {
     return needsSaveAsKnowing(doc_path, isShippedMap(doc_path, base_root, files), user_root);
 }
 
@@ -1314,8 +1226,8 @@ pub fn copyScriptForTest(editor: *Editor, test_map_path: []const u8, note: []u8)
     defer value.deinit(editor.allocator);
     const name = value.script_file.nameSlice();
     if (name.len == 0) return null;
-    const test_dir = core.script_file.directoryOf(test_map_path);
-    return switch (core.script_file.copyForTest(files, editor.baseRoot(), editor.document.path.items, test_dir, name)) {
+    const test_dir = kit.script_file.directoryOf(test_map_path);
+    return switch (kit.script_file.copyForTest(files, editor.baseRoot(), editor.document.path.items, test_dir, name)) {
         .copied => null,
         .missing => std.fmt.bufPrint(note, "the script {s}.lua is not beside the map; the test game runs without it", .{name}) catch "the script is not beside the map",
         .failed => std.fmt.bufPrint(note, "the script {s}.lua could not be copied for the test: {s}", .{ name, files.lastError() }) catch "the script could not be copied",
@@ -1671,59 +1583,6 @@ test "soundRadiusError names a min above max, and nothing else" {
     try std.testing.expect(soundRadiusError(3, 3) == null);
 }
 
-test "PictureQueue: a name is queued once, served in request order" {
-    var queue = PictureQueue.init(std.testing.allocator);
-    defer queue.deinit();
-    queue.request("b");
-    queue.request("a");
-    queue.request("b"); // already queued: not requeued, not duplicated
-    try std.testing.expectEqual(@as(usize, 2), queue.pendingCount());
-    var buffer: [8][]u8 = undefined;
-    const taken = queue.take(&buffer);
-    defer for (taken) |name| std.testing.allocator.free(name);
-    try std.testing.expectEqual(@as(usize, 2), taken.len);
-    try std.testing.expectEqualStrings("b", taken[0]);
-    try std.testing.expectEqualStrings("a", taken[1]);
-    try std.testing.expectEqual(@as(usize, 0), queue.pendingCount());
-}
-
-test "PictureQueue: take serves at most the given budget, the rest waits for the next frame" {
-    var queue = PictureQueue.init(std.testing.allocator);
-    defer queue.deinit();
-    queue.request("a");
-    queue.request("b");
-    queue.request("c");
-    var buffer: [2][]u8 = undefined;
-    const first = queue.take(&buffer);
-    try std.testing.expectEqual(@as(usize, 2), first.len);
-    try std.testing.expectEqualStrings("a", first[0]);
-    try std.testing.expectEqualStrings("b", first[1]);
-    for (first) |name| std.testing.allocator.free(name);
-    try std.testing.expectEqual(@as(usize, 1), queue.pendingCount());
-    const second = queue.take(&buffer);
-    try std.testing.expectEqual(@as(usize, 1), second.len);
-    try std.testing.expectEqualStrings("c", second[0]);
-    for (second) |name| std.testing.allocator.free(name);
-}
-
-test "PictureQueue: a name marked missing is never queued again until clear" {
-    var queue = PictureQueue.init(std.testing.allocator);
-    defer queue.deinit();
-    queue.request("x");
-    var buffer: [1][]u8 = undefined;
-    const taken = queue.take(&buffer);
-    try std.testing.expectEqual(@as(usize, 1), taken.len);
-    queue.markMissing(taken[0]);
-    std.testing.allocator.free(taken[0]);
-    try std.testing.expect(queue.isMissing("x"));
-    queue.request("x"); // already missing: never retried
-    try std.testing.expectEqual(@as(usize, 0), queue.pendingCount());
-    queue.clear();
-    try std.testing.expect(!queue.isMissing("x"));
-    queue.request("x");
-    try std.testing.expectEqual(@as(usize, 1), queue.pendingCount());
-}
-
 test "unknown and shared-ID objects are kept as they are" {
     var tank: ObjectRecord = .{ .link_id = 1 };
     tank.setName("T34");
@@ -1941,7 +1800,7 @@ test "isShippedMap and needsSaveAs: another installation's Data, found by its ma
     const base = "/Users/me/Blitzkrieg/.worktrees/map-editor-6/zig-out/game/macos/arm64/release/";
     const user_root = "/Users/me/.local/share/Nival/Blitzkrieg/";
     const other = "/Users/me/Blitzkrieg/Data/Maps/Multiplayer/coldwinter.bzm";
-    var fake = core.files.FakeFiles.init(std.testing.allocator);
+    var fake = kit.files.FakeFiles.init(std.testing.allocator);
     defer fake.deinit();
     fake.data_roots = &.{ "/Users/me/Blitzkrieg/Data", "/Users/me/Blitzkrieg/.worktrees/map-editor-6/Data" };
     fake.links = &.{.{ .from = base ++ "Data", .to = "/Users/me/Blitzkrieg/.worktrees/map-editor-6/Data" }};
@@ -1953,11 +1812,11 @@ test "isShippedMap and needsSaveAs: another installation's Data, found by its ma
     try std.testing.expect(isShippedMap("/Users/me/Blitzkrieg/.worktrees/map-editor-6/Data/Maps/a.bzm", base, files));
     try std.testing.expect(needsSaveAs(other, base, user_root, files));
     // Autosave follows the same answer: a recovery copy, never the file.
-    try std.testing.expectEqual(core.autosave.Target.recovery_copy, core.autosave.target(needsSaveAs(other, base, user_root, files)));
+    try std.testing.expectEqual(kit.autosave.Target.recovery_copy, kit.autosave.target(needsSaveAs(other, base, user_root, files)));
     // The user's own folders stay writable, and autosave into themselves.
     try std.testing.expect(!needsSaveAs(user_root ++ "maps/mine.bzm", base, user_root, files));
     try std.testing.expect(!needsSaveAs(user_root ++ "mods/MyMod/maps/mine.bzm", base, user_root, files));
-    try std.testing.expectEqual(core.autosave.Target.map_file, core.autosave.target(needsSaveAs(user_root ++ "maps/mine.bzm", base, user_root, files)));
+    try std.testing.expectEqual(kit.autosave.Target.map_file, kit.autosave.target(needsSaveAs(user_root ++ "maps/mine.bzm", base, user_root, files)));
 }
 
 test "defaultMapsFolder: the user root plus maps, or mods/<name>/maps; a bad mod folder is refused" {
@@ -2146,7 +2005,7 @@ test "file actions: a dirty Open with no path asks Save As; a cancelled dialog d
 test "file actions: a request shows a dialog, the path it delivers is acted on the next frame" {
     var fake = try core.editor.testFixture(std.testing.allocator);
     defer fake.deinit();
-    var fake_files = core.files.FakeFiles.init(std.testing.allocator);
+    var fake_files = kit.files.FakeFiles.init(std.testing.allocator);
     defer fake_files.deinit();
     fake.files = &fake_files;
     var editor = Editor.init(std.testing.allocator, fake.bridge());
@@ -2786,7 +2645,7 @@ test "Test in game status: a launch with a note shows it as a warning, and the n
 test "copyScriptForTest: the script goes beside the test map, a missing one is a warning, no script says nothing" {
     var fake = try core.editor.testFixture(std.testing.allocator);
     defer fake.deinit();
-    var files = core.files.FakeFiles.init(std.testing.allocator);
+    var files = kit.files.FakeFiles.init(std.testing.allocator);
     defer files.deinit();
     fake.setScriptFileFixture("m2_script");
     var editor = Editor.init(std.testing.allocator, fake.bridge());
@@ -2796,8 +2655,8 @@ test "copyScriptForTest: the script goes beside the test map, a missing one is a
     // The keys the copy uses, built the way it builds them.
     var from_buffer: [128]u8 = undefined;
     var to_buffer: [128]u8 = undefined;
-    const from_key = core.script_file.scriptPathBeside(&from_buffer, "maps\\mine\\a.bzm", "m2_script").?;
-    const to_key = core.script_file.scriptPathIn(&to_buffer, "gen\\maps", "m2_script").?;
+    const from_key = kit.script_file.scriptPathBeside(&from_buffer, "maps\\mine\\a.bzm", "m2_script").?;
+    const to_key = kit.script_file.scriptPathIn(&to_buffer, "gen\\maps", "m2_script").?;
     const test_map = "gen\\maps\\mapeditor_test.bzm";
     var note: [256]u8 = undefined;
     // Nothing beside the map yet: a warning that names the script.

@@ -50,16 +50,17 @@ const builtin = @import("builtin");
 const sdl3 = @import("sdl3");
 const imgui = @import("editor_imgui");
 const core = @import("editor_core");
-const host_mod = @import("host.zig");
+const kit = @import("editor_kit");
+const host_mod = kit.host;
 const c_bridge = @import("c_bridge.zig");
 const view_mod = @import("view.zig");
 const view_math = @import("view_math.zig");
 const panels = @import("panels.zig");
 const panels_logic = @import("panels_logic.zig");
-const crt = @import("crt.zig");
+const crt = kit.crt;
 const smoke = @import("smoke.zig");
 const auto_mod = @import("auto.zig");
-const testlaunch = @import("testlaunch.zig");
+const testlaunch = kit.testlaunch;
 const single_instance = @import("single_instance.zig");
 const game_reads_common = @import("game_reads_common.zig");
 const game_reads_m2 = @import("game_reads_m2.zig");
@@ -258,7 +259,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     defer editor.deinit();
     // Plan 6's safe save (D-19): every mode that can save gets one real
     // StdFiles, living as long as editor does (Files.ptr points into it).
-    var std_files: core.files.StdFiles = .{ .io = io, .dir = .cwd() };
+    var std_files: kit.files.StdFiles = .{ .io = io, .dir = .cwd() };
     editor.files = std_files.files();
     var view = view_mod.View.init(gpa);
     defer view.deinit(gpa);
@@ -604,7 +605,7 @@ fn smokeRun(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ma
     }
     var editor = core.editor.Editor.init(gpa, real.bridge());
     defer editor.deinit();
-    var std_files: core.files.StdFiles = .{ .io = io, .dir = .cwd() };
+    var std_files: kit.files.StdFiles = .{ .io = io, .dir = .cwd() };
     editor.files = std_files.files();
     var view = view_mod.View.init(gpa);
     defer view.deinit(gpa);
@@ -1065,7 +1066,7 @@ fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     var real = c_bridge.RealBridge.init(host.session);
     var editor = core.editor.Editor.init(gpa, real.bridge());
     defer editor.deinit();
-    var std_files: core.files.StdFiles = .{ .io = io, .dir = .cwd() };
+    var std_files: kit.files.StdFiles = .{ .io = io, .dir = .cwd() };
     editor.files = std_files.files();
     var view = view_mod.View.init(gpa);
     defer view.deinit(gpa);
