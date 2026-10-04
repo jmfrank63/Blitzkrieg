@@ -3,7 +3,7 @@ status: testing
 phase: 05-map-editor-m3-random-map-templates-minimap-tools-parity
 source: [05-VERIFICATION.md, 05-11-SUMMARY.md]
 started: 2026-10-04T02:05:40Z
-updated: 2026-10-04T02:05:40Z
+updated: 2026-10-04T02:40:47Z
 ---
 
 ## Current Test
@@ -49,7 +49,9 @@ result: [pending]
 
 ### 8. Save as XML / BZM, Test in game, Options game parameters
 expected: Both formats save and reopen. Test in game starts the game. With `-windowed` (or another harmless parameter) in Tools > Options > Game parameters, Test in game starts the game with it.
-result: [pending]
+result: issue
+reported: "Crash report pasted: Game (child of MapEditor) SIGABRT at 09:39:29 - CTreeAccessor::Add<vector<SProgressMovieInfo>> in CProgressScreen::Init, from CInterfaceMission::NewMission. Also: a crash is not what should happen - handle a missing progress.xml cleanly instead of crashing."
+severity: blocker
 
 ### 9. Create Random Map
 expected: With a template and a seed, the map opens. After moving the map and its `.lua` to another folder, Test in game runs the script from there.
@@ -79,9 +81,19 @@ result: [pending]
 
 total: 14
 passed: 0
-issues: 0
-pending: 14
+issues: 1
+pending: 13
 skipped: 0
 blocked: 0
 
 ## Gaps
+
+- gap_id: G-05-8
+  truth: "Test in game starts the game from the editor and the mission loads"
+  status: failed
+  reason: "User reported: Game SIGABRT in CProgressScreen::Init (CTreeAccessor::Add<vector<SProgressMovieInfo>>) on Test in game; a missing progress.xml must be handled cleanly, not crash"
+  severity: blocker
+  test: 8
+  root_cause: "progress.xml (Data/movies/progress) not found by the launched Game; CProgressScreen::Init reads the missing stream and the tree reader panics. Fix in progress: handle the missing file, and check why the install lacks it"
+  artifacts: []
+  missing: []
