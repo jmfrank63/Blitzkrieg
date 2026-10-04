@@ -153,7 +153,7 @@ static std::vector<SCase> CollectCases( const std::string &szSweep )
 			}
 		}
 	}
-	cases.erase( cases.begin(), cases.begin() + std::min( nSkip, cases.size() ) );
+	cases.erase( cases.begin(), cases.begin() + (std::min)( nSkip, cases.size() ) );
 	return cases;
 }
 
