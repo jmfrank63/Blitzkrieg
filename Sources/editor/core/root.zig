@@ -1,5 +1,8 @@
 //! The Map Editor core: no UI, no engine, no C. See
 //! docs/superpowers/specs/2026-09-19-portable-map-editor-design.md, "Editor core".
+//! The kit (editor_kit) is importable here so later S02 tasks can re-point
+//! core submodules at the kit's version without a second build.zig edit.
+pub const kit = @import("editor_kit");
 pub const records = @import("records.zig");
 pub const bridge = @import("bridge.zig");
 pub const fake_bridge = @import("fake_bridge.zig");

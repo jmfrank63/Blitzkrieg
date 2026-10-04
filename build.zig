@@ -2783,12 +2783,31 @@ pub fn build(b: *std.Build) void {
     test_gfxgpu_step.dependOn(gfx_gpu_smoke_step);
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
     test_step.dependOn(wheel_scroll_step);
+    // The editor kit tier: reusable editor plumbing (files, shipped, autosave,
+    // history stack primitive, settings primitive, host, crt, imgui wrapper,
+    // BK_EDITOR_AUTO schedule driver, pictures-cache, testlaunch) without any
+    // engine-bridge dependency. T01 scaffolds the module; later S02 tasks move
+    // submodules in. The kit must not import editor_core; editor_core imports
+    // the kit so core submodules can be re-pointed at the kit later without a
+    // second build.zig edit.
+    const editor_kit_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/kit/root.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const editor_kit_tests = b.addTest(.{ .root_module = editor_kit_module });
+    const editor_kit_tests_run = b.addRunArtifact(editor_kit_tests);
+    const editor_kit_step = b.step("test-editor-kit", "Run the Map Editor kit tests (reusable editor plumbing, no engine bridge)");
+    editor_kit_step.dependOn(&editor_kit_tests.step);
+    if (test_mode == .run) editor_kit_step.dependOn(&editor_kit_tests_run.step);
+    test_step.dependOn(editor_kit_step);
     // The editor core tier: plain Zig against the fake bridge, so it runs on
     // every target, the MinGW job included.
     const editor_core_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/core/root.zig"),
         .target = b.graph.host,
         .optimize = .Debug,
+        .imports = &.{.{ .name = "editor_kit", .module = editor_kit_module }},
     });
     const editor_core_tests = b.addTest(.{ .root_module = editor_core_module });
     const editor_core_tests_run = b.addRunArtifact(editor_core_tests);
@@ -6074,12 +6093,21 @@ fn addMapEditor(
         .optimize = optimize,
         .imports = &.{.{ .name = "sdl_c", .module = sdl_c }},
     });
+    // The editor kit for the app's target. The host-only kit module
+    // (test-editor-kit) is built separately for the test tier.
+    const kit_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/kit/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
     // The editor core for the app's target. The core tier's module
-    // (test-editor-core) is built for the host only.
+    // (test-editor-core) is built for the host only. The core imports the
+    // kit so later S02 tasks can re-point core submodules at the kit.
     const core_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/core/root.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{.{ .name = "editor_kit", .module = kit_module }},
     });
     const stage_suffix = stage_root["zig-out/".len..];
 
@@ -6101,6 +6129,7 @@ fn addMapEditor(
         .imports = &.{
             .{ .name = "sdl3", .module = sdl_module },
             .{ .name = "editor_core", .module = core_module },
+            .{ .name = "editor_kit", .module = kit_module },
             .{ .name = "editor_imgui", .module = view_imgui_stub },
         },
     });
@@ -6110,7 +6139,7 @@ fn addMapEditor(
     view_test_step.dependOn(&view_tests.step);
     if (test_mode == .run) view_test_step.dependOn(&view_tests_run.step);
 
-    const module = mapEditorModule(b, "Sources/editor/app/main.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, engine);
+    const module = mapEditorModule(b, "Sources/editor/app/main.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, kit_module, engine);
     const exe = b.addExecutable(.{ .name = "MapEditor", .root_module = module });
     // .windows: the packaged, player-facing binary opens no console on a
     // normal double-click (crt.attachParentConsole in main.zig keeps its
@@ -7620,7 +7649,7 @@ fn addMapEditor(
     // MapEditor is and staged beside it, because on Windows the engine's roots
     // are the running executable's directory (SDL_GetBasePath). A Run step
     // runs an artifact's installed copy once it has been installed.
-    const engine_test_module = mapEditorModule(b, "Sources/editor/app/c_bridge_test.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, engine);
+    const engine_test_module = mapEditorModule(b, "Sources/editor/app/c_bridge_test.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, kit_module, engine);
     const engine_test = b.addTest(.{ .name = "map-editor-engine-test", .root_module = engine_test_module });
     // .console: a CI/local test tool, never packaged - its output is read
     // straight off the console it always had.
@@ -7658,6 +7687,7 @@ fn mapEditorModule(
     sdl_module: *std.Build.Module,
     editor_imgui_module: *std.Build.Module,
     core_module: *std.Build.Module,
+    kit_module: *std.Build.Module,
     engine: MapEditorEngine,
 ) *std.Build.Module {
     const module = b.createModule(.{
@@ -7668,6 +7698,7 @@ fn mapEditorModule(
             .{ .name = "sdl3", .module = sdl_module },
             .{ .name = "editor_imgui", .module = editor_imgui_module },
             .{ .name = "editor_core", .module = core_module },
+            .{ .name = "editor_kit", .module = kit_module },
         },
     });
     // bridge.h, for c_bridge.zig's @cImport.
