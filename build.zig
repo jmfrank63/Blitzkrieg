@@ -1761,6 +1761,42 @@ pub fn build(b: *std.Build) void {
     // install-map-editor and every tier staged on it, package-game and
     // package-game-editors, with or without -Dcopy-data): see addSeasonData.
     const season_data = addSeasonData(b, season_textures);
+
+    // ResourceEditor fixture generator. See
+    // tools/zig/resource_editor_fixtures.zig for the design rationale and
+    // the 21-row Fixture table it mirrors from Sources/src/editor/*Frm.cpp.
+    const resource_editor_fixtures_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/resource_editor_fixtures.zig"),
+        .target = b.graph.host,
+        .optimize = .ReleaseFast,
+    });
+    const resource_editor_fixtures_exe = b.addExecutable(.{
+        .name = "resource-editor-fixtures",
+        .root_module = resource_editor_fixtures_module,
+    });
+    const resource_editor_fixtures_run = b.addRunArtifact(resource_editor_fixtures_exe);
+    resource_editor_fixtures_run.setCwd(b.path("."));
+    resource_editor_fixtures_run.addArg("--out");
+    resource_editor_fixtures_run.addArg("tools/zig/fixtures/resource_editor");
+    resource_editor_fixtures_run.addArg("--log");
+    resource_editor_fixtures_run.addArg("zig-out/local-test/resource_editor/make-fixtures.log");
+    const resource_editor_fixtures_step = b.step(
+        "make-resource-fixtures",
+        "Regenerate repo-owned ResourceEditor fixtures (21 extensions, project.<ext> + source art, deterministic)",
+    );
+    resource_editor_fixtures_step.dependOn(&resource_editor_fixtures_run.step);
+    const resource_editor_fixtures_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/resource_editor_fixtures.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const resource_editor_fixtures_tests = b.addTest(.{ .root_module = resource_editor_fixtures_test_module });
+    const resource_editor_fixtures_test_step = b.step(
+        "test-resource-editor-fixtures",
+        "Run the ResourceEditor fixture generator's in-memory tests",
+    );
+    resource_editor_fixtures_test_step.dependOn(&resource_editor_fixtures_tests.step);
+    if (test_mode == .run) resource_editor_fixtures_test_step.dependOn(&b.addRunArtifact(resource_editor_fixtures_tests).step);
     // StreamIOOptionsAbi ships in the same directory as the shared SDL3
     // library and is loaded alongside it. It must share the game's one SDL3
     // image on every platform: a *static* SDL3 here is a second, private SDL
