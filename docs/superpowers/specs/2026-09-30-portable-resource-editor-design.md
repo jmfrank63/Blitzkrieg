@@ -409,25 +409,3 @@ the unknown node through a save (the map editor's preservation invariant).
   `Sources/src/bin/editor.exe`, `Sources/src/editor/bin/editor2.exe`, its
   `A7.sln` entry and its `stage.zig` `copyEditors` entry; packages ship
   `ResourceEditor` instead.
-
-## Amendments (M001 planning, 2026-10-05)
-
-- **Linux x64 is a first-class target** for `ResourceEditor` and the shared
-  editor kit, alongside macOS arm64/x64 and Windows x64 MSVC. The Map
-  Editor's Linux solutions are reused: executables that load engine modules
-  need `rdynamic` and a `$ORIGIN` rpath; worker threads use the default
-  16 MiB stack on Linux (glibc carves static TLS out of the stack); hidden
-  test windows use `SDL_WINDOW_HIDDEN | SDL_WINDOW_NOT_FOCUSABLE`; `ISFX`
-  is stopped before modules unload; Data paths are resolved
-  case-insensitively (`DataFile` helper in
-  `tools/zig/editor_bridge_test.cpp`). This supersedes the earlier
-  "Linux build of the app ... deferred" note. Rationale: the Map Editor
-  Linux merge `1d7264fd6` already proves the pattern; the agent machine is
-  Linux and the development loop runs natively here. See [MEM001], [D001].
-
-- **User content lives under `<UserRoot>resourceeditor/`**, never beside
-  the executable: projects, settings, and recent files. Paths stored
-  inside project files are relative where the project format allows. This
-  extends D-10 (settings file) to all user content and keeps the door open
-  for a later editor-wide cloud sync design without pre-committing to one.
-  See [MEM002], [D002].

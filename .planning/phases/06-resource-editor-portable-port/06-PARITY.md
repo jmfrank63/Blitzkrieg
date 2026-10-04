@@ -37,6 +37,8 @@ Sources for this inventory: `MainFrm.cpp`, `ParentFrame.cpp`, `frames.h`,
 | 06-15 | 5 | GUI editor (switched off in MFC; ported against the current UI XML) |
 | 06-16 | 6 | Full sweep: all goldens, `test-resources-all`, game reads a mod with one resource per kind, hand try macOS + Windows, delete the MFC editor |
 
+Oracle runbook for the win-home MFC batch export (plan 06-01): `06-ORACLE-RUNBOOK.md`.
+
 Each sub-editor plan (06-06..06-15) delivers, per sub-editor: the model
 export port in `ResourceModel`, goldens compared under "the game reads it
 unchanged" (spec), Import from game data, its preview and overlays, its

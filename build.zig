@@ -1245,75 +1245,6 @@ pub fn build(b: *std.Build) void {
     const legacy_variant_step = b.step("test-legacy-variant", "Run portable legacy variant ownership and conversion tests");
     legacy_variant_step.dependOn(&legacy_variant_test.step);
     if (test_mode == .run) legacy_variant_step.dependOn(&legacy_variant_run.step);
-    // Project-XML round-trip spike (spec D-07): portable parse/serialise over the 21 ResourceEditor
-    // fixtures plus an unknown-node preservation check. No engine modules are loaded, so no rdynamic;
-    // the $ORIGIN rpath keeps the AGENTS.md Linux pattern.
-    const resource_xml_roundtrip_module = b.createModule(.{
-        .target = target,
-        .optimize = .Debug,
-    });
-    resource_xml_roundtrip_module.link_libc = !build_support.usesMsvc(platform);
-    resource_xml_roundtrip_module.link_libcpp = !build_support.usesMsvc(platform);
-    resource_xml_roundtrip_module.addIncludePath(b.path("Sources/src"));
-    if (platform == .windows_x64) {
-        addMsvcIncludePaths(b, resource_xml_roundtrip_module, toolchain);
-        addMsvcLibraryPaths(b, resource_xml_roundtrip_module, toolchain);
-        linkMsvcRuntime(resource_xml_roundtrip_module, .Debug);
-    }
-    resource_xml_roundtrip_module.addCSourceFiles(.{
-        .files = &.{
-            "tools/zig/resource_xml_roundtrip_test.cpp",
-            "Sources/src/ResourceModel/spike/xml_spike.cpp",
-        },
-        .flags = if (platform == .windows_x64) cppflags_debug else &.{"-std=c++17"},
-    });
-    const resource_xml_roundtrip_test = b.addExecutable(.{ .name = "resource-xml-roundtrip-test", .root_module = resource_xml_roundtrip_module });
-    resource_xml_roundtrip_test.subsystem = .console;
-    if (platform == .windows_x64) resource_xml_roundtrip_test.entry = .{ .symbol_name = "mainCRTStartup" };
-    applyLoaderPath(target, resource_xml_roundtrip_module);
-    const resource_xml_roundtrip_run = b.addRunArtifact(resource_xml_roundtrip_test);
-    resource_xml_roundtrip_run.setCwd(b.path("."));
-    resource_xml_roundtrip_run.addArg("tools/zig/fixtures/resource_editor");
-    resource_xml_roundtrip_run.addArg("zig-out/local-test/resource_editor/roundtrip");
-    const resource_xml_roundtrip_step = b.step("test-resource-xml-roundtrip", "Round-trip the 21 ResourceEditor project XML fixtures and check unknown-node preservation");
-    resource_xml_roundtrip_step.dependOn(&resource_xml_roundtrip_test.step);
-    if (test_mode == .run) resource_xml_roundtrip_step.dependOn(&resource_xml_roundtrip_run.step);
-
-    // DXT tolerance measurement (spec D-11 / R019): the MFC-era S3TC encoder ported into
-    // Sources/src/ResourceModel/spike/legacy_dxt.* vs the shipping NDxt encoder. Writes a stable
-    // tolerance JSON for downstream golden tests to read programmatically.
-    const dxt_tolerance_module = b.createModule(.{
-        .target = target,
-        .optimize = .Debug,
-    });
-    dxt_tolerance_module.link_libc = !build_support.usesMsvc(platform);
-    dxt_tolerance_module.link_libcpp = !build_support.usesMsvc(platform);
-    dxt_tolerance_module.addIncludePath(b.path("Sources/src"));
-    if (platform == .windows_x64) {
-        addMsvcIncludePaths(b, dxt_tolerance_module, toolchain);
-        addMsvcLibraryPaths(b, dxt_tolerance_module, toolchain);
-        linkMsvcRuntime(dxt_tolerance_module, .Debug);
-    }
-    dxt_tolerance_module.addCSourceFiles(.{
-        .files = &.{
-            "tools/zig/dxt_tolerance_test.cpp",
-            "Sources/src/ResourceModel/spike/legacy_dxt.cpp",
-            "Sources/src/Image/DxtCodec.cpp",
-        },
-        .flags = if (platform == .windows_x64) cppflags_debug else &.{"-std=c++17"},
-    });
-    const dxt_tolerance_test = b.addExecutable(.{ .name = "dxt-tolerance-test", .root_module = dxt_tolerance_module });
-    dxt_tolerance_test.subsystem = .console;
-    if (platform == .windows_x64) dxt_tolerance_test.entry = .{ .symbol_name = "mainCRTStartup" };
-    applyLoaderPath(target, dxt_tolerance_module);
-    const dxt_tolerance_run = b.addRunArtifact(dxt_tolerance_test);
-    dxt_tolerance_run.setCwd(b.path("."));
-    dxt_tolerance_run.addArg("tools/zig/fixtures/resource_editor/dxt-tolerance.json");
-    dxt_tolerance_run.addArg("zig-out/local-test/resource_editor/dxt");
-    const dxt_tolerance_step = b.step("test-dxt-tolerance", "Measure max_delta and p99 between the MFC-era DXT encoder and NDxt for DXT1/DXT3/DXT5");
-    dxt_tolerance_step.dependOn(&dxt_tolerance_test.step);
-    if (test_mode == .run) dxt_tolerance_step.dependOn(&dxt_tolerance_run.step);
-
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
         .target = b.graph.host,
@@ -1830,42 +1761,6 @@ pub fn build(b: *std.Build) void {
     // install-map-editor and every tier staged on it, package-game and
     // package-game-editors, with or without -Dcopy-data): see addSeasonData.
     const season_data = addSeasonData(b, season_textures);
-
-    // ResourceEditor fixture generator. See
-    // tools/zig/resource_editor_fixtures.zig for the design rationale and
-    // the 21-row Fixture table it mirrors from Sources/src/editor/*Frm.cpp.
-    const resource_editor_fixtures_module = b.createModule(.{
-        .root_source_file = b.path("tools/zig/resource_editor_fixtures.zig"),
-        .target = b.graph.host,
-        .optimize = .ReleaseFast,
-    });
-    const resource_editor_fixtures_exe = b.addExecutable(.{
-        .name = "resource-editor-fixtures",
-        .root_module = resource_editor_fixtures_module,
-    });
-    const resource_editor_fixtures_run = b.addRunArtifact(resource_editor_fixtures_exe);
-    resource_editor_fixtures_run.setCwd(b.path("."));
-    resource_editor_fixtures_run.addArg("--out");
-    resource_editor_fixtures_run.addArg("tools/zig/fixtures/resource_editor");
-    resource_editor_fixtures_run.addArg("--log");
-    resource_editor_fixtures_run.addArg("zig-out/local-test/resource_editor/make-fixtures.log");
-    const resource_editor_fixtures_step = b.step(
-        "make-resource-fixtures",
-        "Regenerate repo-owned ResourceEditor fixtures (21 extensions, project.<ext> + source art, deterministic)",
-    );
-    resource_editor_fixtures_step.dependOn(&resource_editor_fixtures_run.step);
-    const resource_editor_fixtures_test_module = b.createModule(.{
-        .root_source_file = b.path("tools/zig/resource_editor_fixtures.zig"),
-        .target = b.graph.host,
-        .optimize = .Debug,
-    });
-    const resource_editor_fixtures_tests = b.addTest(.{ .root_module = resource_editor_fixtures_test_module });
-    const resource_editor_fixtures_test_step = b.step(
-        "test-resource-editor-fixtures",
-        "Run the ResourceEditor fixture generator's in-memory tests",
-    );
-    resource_editor_fixtures_test_step.dependOn(&resource_editor_fixtures_tests.step);
-    if (test_mode == .run) resource_editor_fixtures_test_step.dependOn(&b.addRunArtifact(resource_editor_fixtures_tests).step);
     // StreamIOOptionsAbi ships in the same directory as the shared SDL3
     // library and is loaded alongside it. It must share the game's one SDL3
     // image on every platform: a *static* SDL3 here is a second, private SDL
@@ -2320,7 +2215,6 @@ pub fn build(b: *std.Build) void {
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
     addRmgDeterminismTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addComposerRoundtripTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
-    addPreviewSceneSpike(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
 
     // Backwards-compatible alias for the older command used in project scripts.
     const game_install_step = b.step("game-install", "Create runnable game install layout with binaries and Data");
@@ -7915,34 +7809,6 @@ fn addComposerRoundtripTest(
     test_mode: build_support.TestMode,
 ) void {
     addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "composer-roundtrip-test", "tools/zig/composer_roundtrip_test.cpp", "test-rmg-composer-roundtrip", "Read, write and re-read every shipped RMG container and graph through the composers' records and compare them and their bytes", &.{});
-}
-
-// M001 S01 T05: the ResourceEditor preview-scene spike - a GPU-hosted
-// capture harness that proves BkEditorStart -> camera -> BkEditorCaptureFrame
-// writes a usable TGA; the three per-kind captures (mesh / sprite / particle)
-// and the runbook live beside the harness so S04 inherits a measured camera.
-// Skips honestly where there is no GPU, like every other engine-hosted tier.
-fn addPreviewSceneSpike(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    toolchain: ToolchainIncludes,
-    editor_bridge: *std.Build.Step.Compile,
-    map_file: *std.Build.Step.Compile,
-    formats: *std.Build.Step.Compile,
-    randommapgen: *std.Build.Step.Compile,
-    misc: *std.Build.Step.Compile,
-    main_lib: *std.Build.Step.Compile,
-    lualib: *std.Build.Step.Compile,
-    zlib: *std.Build.Step.Compile,
-    platform_runtime: *std.Build.Step.Compile,
-    sdl_dynamic: *std.Build.Step.Compile,
-    sdl_include: std.Build.LazyPath,
-    stage_root: []const u8,
-    install_game_step: *std.Build.Step,
-    test_mode: build_support.TestMode,
-) void {
-    addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "preview-scene-spike", "tools/zig/preview_scene_spike.cpp", "preview-scene-spike", "ResourceEditor preview-scene spike: capture mesh/sprite/particle frames and measure non-black-non-magenta pixels (skips with exit 0 on a GPU-less runner)", &.{});
 }
 
 // Both engine-hosted C++ tools of the editor's data-only tier (the random missions and
