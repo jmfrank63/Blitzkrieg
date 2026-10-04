@@ -1,95 +1,65 @@
-//! The editor's own settings file (`mapeditor.cfg`, D-24): scroll/swipe
-//! speed, autosave on/off and interval, the default maps folder, and the
-//! recent-files list (D-25, D-27). A small hand-written `key=value` format
-//! (CONTEXT.md leaves the format to the builder) rather than pulling in the
-//! game's own `OptionSystem`, which is tied to a much larger option-
-//! registration system for four scalar settings. Std-only, like the rest of
-//! the core: reading and writing the file itself, and reacting to a change,
-//! are the app's job (main.zig, panels.zig); this is only the format and the
-//! in-memory value.
+//! MapEditor's own composed settings on top of the kit's generic
+//! `editor_kit.settings` primitive (`mapeditor.cfg`, D-24): every generic
+//! field (scroll speed, autosave, default format, maps folder, recent list,
+//! game parameters, hidden panels) comes from the kit; the MapEditor
+//! sidecar brings layer visibility and the fire-range mode (D-32), the
+//! filter slots + active filter (D-31) and the two terrain toggles
+//! (instant_update, fit_to_grid - D-20). The flat shape and field names of
+//! the pre-split `Settings` are preserved so every caller in `app/*.zig`
+//! and `core/*.zig` keeps compiling without a surface change.
 //!
-//! T-03-07-01: the app caps what it reads before handing text here (64 KiB);
-//! `parse` itself is lenient rather than fallible - a malformed or truncated
-//! file degrades to defaults for whatever it could not make sense of, never
-//! an error the caller has to handle.
+//! The on-disk format of `mapeditor.cfg` is byte-for-byte unchanged: the
+//! writer emits the same keys in the same order, and the parser accepts
+//! every file the previous build wrote. T-03-07-01's lenient parse rule
+//! holds: a malformed or truncated file degrades to defaults rather than
+//! failing.
 const std = @import("std");
-const builtin = @import("builtin");
+const kit_settings = @import("editor_kit").settings;
 const layers_mod = @import("layers.zig");
 
-pub const min_scroll_speed: f32 = 0.25;
-pub const max_scroll_speed: f32 = 4.0;
-pub const default_scroll_speed: f32 = 1.0;
-pub const min_autosave_minutes: u32 = 1;
-pub const max_autosave_minutes: u32 = 60;
-pub const default_autosave_minutes: u32 = 2;
+// Re-export the kit's generic constants and types so every existing
+// `core.settings.X` caller keeps the same path.
+pub const min_scroll_speed = kit_settings.min_scroll_speed;
+pub const max_scroll_speed = kit_settings.max_scroll_speed;
+pub const default_scroll_speed = kit_settings.default_scroll_speed;
+pub const min_autosave_minutes = kit_settings.min_autosave_minutes;
+pub const max_autosave_minutes = kit_settings.max_autosave_minutes;
+pub const default_autosave_minutes = kit_settings.default_autosave_minutes;
+pub const recent_capacity = kit_settings.recent_capacity;
+pub const Format = kit_settings.Format;
+pub const default_format = kit_settings.default_format;
+pub const formatExtension = kit_settings.formatExtension;
+pub const max_game_parameters = kit_settings.max_game_parameters;
+pub const max_path = kit_settings.max_path;
+pub const FixedPath = kit_settings.FixedPath;
 
-/// D-27: the last ten maps.
-pub const recent_capacity = 10;
-
-/// D-24 (M3): the format a never-saved map's Save As writes when the path
-/// typed names no extension - the MFC Options field. The bridge picks the
-/// format from the path's extension, so this is only ever the default.
-pub const Format = enum { bzm, xml };
-
-pub const default_format: Format = .bzm;
-
-pub fn formatExtension(which: Format) []const u8 {
-    return switch (which) {
-        .bzm => ".bzm",
-        .xml => ".xml",
-    };
-}
-
-/// D-34 (05-11): the longest extra game command line Options keeps - a game
-/// command line is a few switches, never a script.
-pub const max_game_parameters = 256;
-
-/// `BkEditorPathSet`'s own `char[1024]` (bridge.h) - big enough for any real
-/// path, and matches the engine's own convention for a fixed path buffer.
-pub const max_path = 1024;
-
-const FixedPath = struct {
-    buffer: [max_path]u8 = undefined,
-    len: usize = 0,
-
-    pub fn slice(self: *const FixedPath) []const u8 {
-        return self.buffer[0..self.len];
-    }
-
-    /// Keeps at most `max_path` bytes and drops control characters: a newline
-    /// would split `mapeditor.cfg`'s own line and plant a key of the writer's
-    /// choosing (WR-B03).
-    pub fn set(self: *FixedPath, text: []const u8) void {
-        var len: usize = 0;
-        for (text) |byte| {
-            if (isControl(byte)) continue;
-            if (len == self.buffer.len) break;
-            self.buffer[len] = byte;
-            len += 1;
-        }
-        self.len = len;
-    }
-};
-
-fn isControl(byte: u8) bool {
-    return byte < 0x20 or byte == 0x7f;
-}
-
-fn hasControl(text: []const u8) bool {
-    for (text) |byte| {
-        if (isControl(byte)) return true;
-    }
-    return false;
-}
-
-/// `mapeditor.cfg`'s fields (D-24, D-25, D-27): fixed buffers throughout, so
-/// a `Settings` lives on the stack with no allocation.
+/// `mapeditor.cfg`'s fields: the kit's generic fields (same names) plus the
+/// MapEditor sidecar (layer visibility, filter slots, terrain toggles). The
+/// field names and layout match the pre-split struct, so every caller
+/// (`state.settings.scroll_speed`, `state.settings.layers`, `.instant_update`,
+/// `.filter_active`, `.hidden_panels`, ...) is unchanged.
 pub const Settings = struct {
-    scroll_speed: f32 = default_scroll_speed,
+    // --- Generic kit fields (same names as kit_settings.Settings). ---
+    scroll_speed: f32 = kit_settings.default_scroll_speed,
     autosave: bool = true,
-    autosave_minutes: u32 = default_autosave_minutes,
+    autosave_minutes: u32 = kit_settings.default_autosave_minutes,
     /// D-24 (M3): the default format of a never-saved map's Save As.
-    default_format: Format = default_format,
+    default_format: Format = kit_settings.default_format,
+    maps_folder_storage: FixedPath = .{},
+    recent_storage: [recent_capacity]FixedPath = [_]FixedPath{.{}} ** recent_capacity,
+    recent_count: usize = 0,
+    /// D-34 (05-11, PARITY T2): Tools > Options' extra game command line for
+    /// Test in game (the MFC's `szGameParameters`). Empty means none. It
+    /// comes from this file or the Options window only and goes to the game
+    /// as argv elements, never through a shell (T-05-11-03).
+    game_parameters: FixedPath = .{},
+    /// D-34 (05-11, PARITY V1/V2): which of the always-present panels and
+    /// the status bar the View menu hid, one bit each in the app's own panel
+    /// order (panels_logic.PanelId). The core only keeps the number: 0,
+    /// nothing hidden, is the default and what Reset layout restores.
+    hidden_panels: u32 = 0,
+
+    // --- MapEditor sidecar fields. ---
     /// D-20 (M3): the Map menu's two terrain toggles, persisted like the MFC
     /// registry-backed checks. Defaults are the MFC's own: Instant Update
     /// off, Fit Objects To Grid on. The bridge session holds the live copy
@@ -102,62 +72,27 @@ pub const Settings = struct {
     /// copy and re-applies it to the renderer after every open and new map;
     /// these are what a restart starts it from.
     layers: layers_mod.State = .{},
-    maps_folder_storage: FixedPath = .{},
-    recent_storage: [recent_capacity]FixedPath = [_]FixedPath{.{}} ** recent_capacity,
-    recent_count: usize = 0,
-
     /// D-31 (M3): the palette's filter combo selection and the nine quick
-    /// toggles' assigned filter names (empty = an unset slot), persisted like
-    /// the MFC editor's dialog parameters. Names are the filters' own
+    /// toggles' assigned filter names (empty = an unset slot), persisted
+    /// like the MFC editor's dialog parameters. Names are the filters' own
     /// (Data/Editor/filter.xml keys); a name no filter has any more simply
     /// shows as an empty slot.
     filter_active: FixedPath = .{},
     filter_slots: [filter_slot_count]FixedPath = [_]FixedPath{.{}} ** filter_slot_count,
 
-    /// D-34 (05-11, PARITY T2): Tools > Options' extra game command line for
-    /// Test in game (the MFC's `szGameParameters`). Empty means none. It comes
-    /// from this file or the Options window only and goes to the game as argv
-    /// elements, never through a shell (T-05-11-03).
-    game_parameters: FixedPath = .{},
-
-    /// D-34 (05-11, PARITY V1/V2): which of the always-present panels and the
-    /// status bar the View menu hid, one bit each in the app's own panel order
-    /// (panels_logic.PanelId). The core only keeps the number: 0, nothing
-    /// hidden, is the default and what Reset layout restores.
-    hidden_panels: u32 = 0,
-
     pub const filter_slot_count = 9;
+
+    // --- Generic field accessors (delegated to kit helpers so every editor
+    // on the kit uses the same byte-dropping and dedup rules). ---
 
     pub fn gameParameters(self: *const Settings) []const u8 {
         return self.game_parameters.slice();
     }
 
-    /// Keeps at most `max_game_parameters` bytes and drops control characters
-    /// (a newline would split the settings file's own line, and no argument
-    /// of a game command line holds one).
     pub fn setGameParameters(self: *Settings, text: []const u8) void {
-        var clean: [max_game_parameters]u8 = undefined;
-        var len: usize = 0;
-        for (text) |byte| {
-            if (byte < 0x20 or byte == 0x7f) continue;
-            if (len == clean.len) break;
-            clean[len] = byte;
-            len += 1;
-        }
-        self.game_parameters.set(std.mem.trim(u8, clean[0..len], " "));
+        kit_settings.setGameParametersField(&self.game_parameters, text);
     }
 
-    pub fn filterSlot(self: *const Settings, index: usize) []const u8 {
-        if (index >= filter_slot_count) return "";
-        return self.filter_slots[index].slice();
-    }
-
-    pub fn setFilterSlot(self: *Settings, index: usize, name: []const u8) void {
-        if (index >= filter_slot_count) return;
-        self.filter_slots[index].set(name);
-    }
-
-    /// Empty means "use the default maps folder" (D-25's hint text).
     pub fn mapsFolder(self: *const Settings) []const u8 {
         return self.maps_folder_storage.slice();
     }
@@ -170,97 +105,54 @@ pub const Settings = struct {
         return self.recent_count;
     }
 
-    /// `0` is the most recently opened.
     pub fn recentAt(self: *const Settings, index: usize) []const u8 {
         return self.recent_storage[index].slice();
     }
 
-    /// D-27: `os_path` to the front. An entry already in the list (byte-equal
-    /// - case-insensitive on Windows, where two spellings of a drive letter
-    /// or a path segment name the same file) moves up instead of repeating;
-    /// past `recent_capacity` entries, the oldest (last) one drops off.
     pub fn pushRecent(self: *Settings, os_path: []const u8) void {
-        // A path with a control character (a file name may hold a newline on
-        // macOS and Linux) is not kept: removing the character would name a
-        // different file, and writing it would split the settings file's line
-        // (WR-B03).
-        if (hasControl(os_path)) return;
-        var existing: ?usize = null;
-        var i: usize = 0;
-        while (i < self.recent_count) : (i += 1) {
-            if (sameOsPath(self.recent_storage[i].slice(), os_path)) {
-                existing = i;
-                break;
-            }
-        }
-        // Shifting right by one opens a slot at 0 for the new (or moved)
-        // entry; walking from the far end down to 1 means every write lands
-        // in a slot whose old value has already moved on, so nothing is lost
-        // to being overwritten before it is read.
-        const start = existing orelse @min(self.recent_count, recent_capacity - 1);
-        var shift = start;
-        while (shift > 0) : (shift -= 1) self.recent_storage[shift] = self.recent_storage[shift - 1];
-        self.recent_storage[0].set(os_path);
-        if (existing == null) self.recent_count = @min(self.recent_count + 1, recent_capacity);
+        kit_settings.pushRecentField(&self.recent_storage, &self.recent_count, os_path);
     }
 
-    /// D-27: removes a stale (missing-on-disk) entry by its index, shifting
-    /// the rest up. Out of range is a no-op.
     pub fn removeRecent(self: *Settings, index: usize) void {
-        if (index >= self.recent_count) return;
-        var i = index;
-        while (i + 1 < self.recent_count) : (i += 1) self.recent_storage[i] = self.recent_storage[i + 1];
-        self.recent_count -= 1;
+        kit_settings.removeRecentField(&self.recent_storage, &self.recent_count, index);
+    }
+
+    // --- MapEditor sidecar accessors. ---
+
+    pub fn filterSlot(self: *const Settings, index: usize) []const u8 {
+        if (index >= filter_slot_count) return "";
+        return self.filter_slots[index].slice();
+    }
+
+    pub fn setFilterSlot(self: *Settings, index: usize, name: []const u8) void {
+        if (index >= filter_slot_count) return;
+        self.filter_slots[index].set(name);
     }
 };
 
-fn sameOsPath(a: []const u8, b: []const u8) bool {
-    if (builtin.os.tag == .windows) return std.ascii.eqlIgnoreCase(a, b);
-    return std.mem.eql(u8, a, b);
-}
-
-fn applyKey(settings: *Settings, key: []const u8, value: []const u8) void {
-    if (std.mem.eql(u8, key, "scroll_speed")) {
-        const parsed = std.fmt.parseFloat(f32, value) catch return;
-        if (!std.math.isFinite(parsed)) return;
-        settings.scroll_speed = std.math.clamp(parsed, min_scroll_speed, max_scroll_speed);
-    } else if (std.mem.eql(u8, key, "autosave")) {
-        if (std.mem.eql(u8, value, "on")) {
-            settings.autosave = true;
-        } else if (std.mem.eql(u8, value, "off")) {
-            settings.autosave = false;
-        }
-        // Any other value is malformed and skipped, keeping the default.
-    } else if (std.mem.eql(u8, key, "autosave_minutes")) {
-        const parsed = std.fmt.parseInt(u32, value, 10) catch return;
-        settings.autosave_minutes = std.math.clamp(parsed, min_autosave_minutes, max_autosave_minutes);
-    } else if (std.mem.eql(u8, key, "default_format")) {
-        // D-24 (M3): bzm or xml; anything else is malformed and skipped,
-        // keeping the default, exactly autosave's own rule.
-        if (std.mem.eql(u8, value, "bzm")) {
-            settings.default_format = .bzm;
-        } else if (std.mem.eql(u8, value, "xml")) {
-            settings.default_format = .xml;
-        }
-    } else if (std.mem.eql(u8, key, "instant_update")) {
+fn applyMapKey(settings: *Settings, key: []const u8, value: []const u8) bool {
+    if (std.mem.eql(u8, key, "instant_update")) {
         if (std.mem.eql(u8, value, "on")) {
             settings.instant_update = true;
         } else if (std.mem.eql(u8, value, "off")) {
             settings.instant_update = false;
         }
+        return true;
     } else if (std.mem.eql(u8, key, "fit_to_grid")) {
         if (std.mem.eql(u8, value, "on")) {
             settings.fit_to_grid = true;
         } else if (std.mem.eql(u8, value, "off")) {
             settings.fit_to_grid = false;
         }
+        return true;
     } else if (std.mem.eql(u8, key, "layers_bits")) {
         // D-32 (M3): the toggle layers' bits as one decimal number. A value
-        // that is not a number is skipped (the default stays); a number with
-        // bits past the fourteen layers, or the derived fire-range bit, loses
-        // them rather than failing the key.
-        const parsed = std.fmt.parseInt(u32, value, 10) catch return;
+        // that is not a number is skipped (the default stays); a number
+        // with bits past the fourteen layers, or the derived fire-range
+        // bit, loses them rather than failing the key.
+        const parsed = std.fmt.parseInt(u32, value, 10) catch return true;
         settings.layers.bits = parsed & layers_mod.all_bits & ~layers_mod.bit(.fire_ranges);
+        return true;
     } else if (std.mem.eql(u8, key, "fire_range_mode")) {
         if (std.mem.eql(u8, value, "off")) {
             settings.layers.fire_mode = .off;
@@ -269,39 +161,26 @@ fn applyKey(settings: *Settings, key: []const u8, value: []const u8) void {
         } else if (std.mem.eql(u8, value, "filter")) {
             settings.layers.fire_mode = .filter;
         }
+        return true;
     } else if (std.mem.eql(u8, key, "fire_range_filter")) {
         const len = @min(value.len, layers_mod.max_filter_len);
         @memcpy(settings.layers.fire_filter_buffer[0..len], value[0..len]);
         settings.layers.fire_filter_len = len;
-    } else if (std.mem.eql(u8, key, "game_parameters")) {
-        settings.setGameParameters(value);
-    } else if (std.mem.eql(u8, key, "hidden_panels")) {
-        // A number or nothing: a malformed value keeps every panel shown.
-        settings.hidden_panels = std.fmt.parseInt(u32, value, 10) catch return;
-    } else if (std.mem.eql(u8, key, "maps_folder")) {
-        settings.setMapsFolder(value);
+        return true;
     } else if (std.mem.eql(u8, key, "filter_active")) {
-        // A name no filter can have (longer than the filter-name limit) is a
-        // hand-edited file: skipped, so the app's fixed name buffers never
-        // see it (CR-A03).
-        if (value.len > layers_mod.max_filter_len) return;
+        // A name no filter can have (longer than the filter-name limit) is
+        // a hand-edited file: skipped, so the app's fixed name buffers
+        // never see it (CR-A03).
+        if (value.len > layers_mod.max_filter_len) return true;
         settings.filter_active.set(value);
+        return true;
     } else if (std.mem.startsWith(u8, key, "filter_slot_")) {
-        const index = std.fmt.parseInt(usize, key["filter_slot_".len..], 10) catch return;
-        if (value.len > layers_mod.max_filter_len) return;
+        const index = std.fmt.parseInt(usize, key["filter_slot_".len..], 10) catch return true;
+        if (value.len > layers_mod.max_filter_len) return true;
         settings.setFilterSlot(index, value);
-    } else if (std.mem.eql(u8, key, "recent")) {
-        if (value.len != 0 and settings.recent_count < recent_capacity) {
-            settings.recent_storage[settings.recent_count].set(value);
-            settings.recent_count += 1;
-        }
-        // Beyond capacity: parse never reaches here for a well-formed file
-        // (format never writes more than recent_capacity lines), but an
-        // externally-edited file with extras just stops adding - not a
-        // reason to fail the rest of the file.
+        return true;
     }
-    // Every other key is unknown and ignored: a newer or hand-edited file
-    // may carry keys this build does not understand.
+    return false;
 }
 
 /// Parses `mapeditor.cfg`'s text: `key=value` lines, `#`-prefixed full-line
@@ -319,38 +198,39 @@ pub fn parse(text: []const u8) Settings {
         const eq = std.mem.indexOfScalar(u8, trimmed, '=') orelse continue;
         const key = std.mem.trim(u8, trimmed[0..eq], " \t");
         const value = std.mem.trim(u8, trimmed[eq + 1 ..], " \t");
-        applyKey(&settings, key, value);
+        if (kit_settings.applyGenericKey(&settings, key, value)) continue;
+        _ = applyMapKey(&settings, key, value);
+        // Every other key is unknown and ignored: a newer or hand-edited
+        // file may carry keys this build does not understand.
     }
-    // A filter mode with no filter named (a hand-edited file, or the filter key
-    // lost) shows nothing and cannot be sent; it reads as off.
+    // A filter mode with no filter named (a hand-edited file, or the filter
+    // key lost) shows nothing and cannot be sent; it reads as off.
     if (settings.layers.fire_mode == .filter and settings.layers.fire_filter_len == 0) settings.layers.fire_mode = .off;
     if (settings.layers.fire_mode != .filter) settings.layers.fire_filter_len = 0;
     return settings;
 }
 
 /// Writes `self` back as `mapeditor.cfg`'s own format: `parse(format(...))`
-/// round-trips every field (a float within its own precision).
+/// round-trips every field (a float within its own precision). The key
+/// order matches the pre-split build byte-for-byte so existing files on
+/// disk reproduce exactly after a round trip.
 pub fn format(self: *const Settings, writer: *std.Io.Writer) std.Io.Writer.Error!void {
-    try writer.print("scroll_speed={d}\n", .{self.scroll_speed});
-    try writer.print("autosave={s}\n", .{if (self.autosave) "on" else "off"});
-    try writer.print("autosave_minutes={d}\n", .{self.autosave_minutes});
-    try writer.print("default_format={s}\n", .{@tagName(self.default_format)});
+    try kit_settings.writeGenericKeys(self, writer);
     try writer.print("instant_update={s}\n", .{if (self.instant_update) "on" else "off"});
     try writer.print("fit_to_grid={s}\n", .{if (self.fit_to_grid) "on" else "off"});
     try writer.print("layers_bits={d}\n", .{self.layers.bits & ~layers_mod.bit(.fire_ranges)});
     try writer.print("fire_range_mode={s}\n", .{@tagName(self.layers.fire_mode)});
     // A value with a control character would split its line (WR-B03): the
     // writer leaves such a key out, whatever set it.
-    if (self.layers.fire_mode == .filter and !hasControl(self.layers.fireFilter())) try writer.print("fire_range_filter={s}\n", .{self.layers.fireFilter()});
-    if (self.gameParameters().len != 0) try writer.print("game_parameters={s}\n", .{self.gameParameters()});
-    if (self.hidden_panels != 0) try writer.print("hidden_panels={d}\n", .{self.hidden_panels});
-    if (self.mapsFolder().len != 0) try writer.print("maps_folder={s}\n", .{self.mapsFolder()});
+    if (self.layers.fire_mode == .filter and !kit_settings.hasControl(self.layers.fireFilter())) {
+        try writer.print("fire_range_filter={s}\n", .{self.layers.fireFilter()});
+    }
+    try kit_settings.writeGenericTailKeys(self, writer);
     if (self.filter_active.slice().len != 0) try writer.print("filter_active={s}\n", .{self.filter_active.slice()});
     for (self.filter_slots, 0..) |slot, index| {
         if (slot.slice().len != 0) try writer.print("filter_slot_{d}={s}\n", .{ index, slot.slice() });
     }
-    var i: usize = 0;
-    while (i < self.recent_count) : (i += 1) try writer.print("recent={s}\n", .{self.recentAt(i)});
+    try kit_settings.writeRecentLines(self, writer);
 }
 
 test "defaults: an empty file (no mapeditor.cfg yet) is every field's default" {

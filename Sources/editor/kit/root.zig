@@ -11,6 +11,8 @@ pub const files = @import("files.zig");
 pub const shipped = @import("shipped.zig");
 pub const script_file = @import("script_file.zig");
 pub const autosave = @import("autosave.zig");
+pub const history = @import("history.zig");
+pub const settings = @import("settings.zig");
 
 test {
     @import("std").testing.refAllDecls(@This());
