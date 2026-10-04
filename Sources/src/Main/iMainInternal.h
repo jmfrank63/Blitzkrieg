@@ -116,11 +116,12 @@ class CProgressScreen : public IMovieProgressHook
 	CTRect<float> wndRect;
 	int nTextAlign;
 	int nFontSize;
+	bool bInitDone;                       // Init ran (it may have found no movie to play)
 	void Draw();
 	void SetText( const SProgressMovieInfo *pInfo );
 public:
 	CProgressScreen() 
-		: nNumSteps( 0 ), nCurrentStep( 0 ), nMaxFrame( 0 ), nFontSize( 1 ) {  }
+		: nNumSteps( 0 ), nCurrentStep( 0 ), nNumFrames( 0 ), nCurrFrame( 0 ), nMaxFrame( 0 ), dwTextColor( 0 ), nTextAlign( 0 ), nFontSize( 1 ), bInitDone( false ) {  }
 
 	void Init( EProgressType nType );
 	void Init( const std::string &szMovieName );

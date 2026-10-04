@@ -986,38 +986,64 @@ void CMainLoop::RestoreScenarioTracker()
 		pStoredScenarioTracker = 0;
 	}
 }
+// The progress screen is decoration: an installation without its movie list or
+// its movie (a sparse checkout without Data/movies/, an incomplete copy) used to
+// abort the game at the start of every mission - the tree reader was handed the
+// null stream. Without them the load runs with no loading screen (Draw, Stop and
+// Recover all cope with no player and no text) and the log says why.
+// BK_PROGRESS_XML names another storage path for the list, so a test can stand
+// in for such an installation.
 void CProgressScreen::Init( EProgressType nType )
 {
+	bInitDone = true;
+	const char *pszProgressXML = getenv( "BK_PROGRESS_XML" );
+	const std::string szProgressXML = ( pszProgressXML != 0 && pszProgressXML[0] != 0 ) ? pszProgressXML : "movies\\progress\\progress.xml";
 	CPtr<IDataStorage> pStorage = GetSingleton<IDataStorage>();
-	CPtr<IDataStream> pStream = pStorage->OpenStream( "movies\\progress\\progress.xml", STREAM_ACCESS_READ );
-	NI_ASSERT_T( pStream != 0, "Unable to open: movies\\progress\\progress.xml" );
+	CPtr<IDataStream> pStream = pStorage->OpenStream( szProgressXML.c_str(), STREAM_ACCESS_READ );
+	if ( pStream == 0 )
+	{
+		NStr::DebugTrace( "progress screen: no loading movie - %s is missing; loading without the progress screen\n", szProgressXML.c_str() );
+		return;
+	}
 	CTreeAccessor tree = CreateDataTreeSaver( pStream, IDataTree::READ );
-	std::vector< SProgressMovieInfo > vMovies;
+	if ( static_cast<IDataTree*>( tree ) == 0 )
+	{
+		NStr::DebugTrace( "progress screen: no loading movie - %s would not read; loading without the progress screen\n", szProgressXML.c_str() );
+		return;
+	}
+	const char *pszSection = "Load";
 	switch ( nType )
 	{
 		case PT_MAPGEN:
-			tree.Add( "MapGen", &vMovies );
+			pszSection = "MapGen";
 			break;
 		case PT_NEWMISSION:
-			tree.Add( "NewMission", &vMovies );
+			pszSection = "NewMission";
 			break;
 		case PT_MINIMAP:
-			tree.Add( "Minimap", &vMovies );
+			pszSection = "Minimap";
 			break;
 		case PT_TOTAL_ENCYCLOPEDIA_LOAD:
-			tree.Add( "EncyclopediaLoad", &vMovies );
+			pszSection = "EncyclopediaLoad";
 			break;
 		case PT_CONNECTING_TO_SERVER:
-			tree.Add( "Connecting", &vMovies );
+			pszSection = "Connecting";
 			break;
 		case PT_LOAD:
 		default:
-			tree.Add( "Load", &vMovies );
 			break;
 	}
-	NI_ASSERT_T( vMovies.size() > 0, "No movies defined!" );
+	std::vector< SProgressMovieInfo > vMovies;
+	tree.Add( pszSection, &vMovies );
+	if ( vMovies.empty() )
+	{
+		NStr::DebugTrace( "progress screen: no loading movie - %s lists none under %s; loading without the progress screen\n", szProgressXML.c_str(), pszSection );
+		return;
+	}
 	const int i = vMovies.size() == 1 ? 0 : NWin32Random::Random( vMovies.size() - 1 );
 	Init( "movies\\progress\\" + vMovies[i].szMovieName );
+	if ( pVP == 0 )
+		return;
 	SetText( &(vMovies[i]) );
 	// show the loading screen immediately: without this the previous screen
 	// stays frozen until the first progress callback arrives, which can be
@@ -1037,10 +1063,18 @@ void CProgressScreen::Init( EProgressType nType )
 }
 void CProgressScreen::Init( const std::string &szMovieName )
 {
+	bInitDone = true;
 	pGFX = GetSingleton<IGFX>();
-	pVP = CreateObject<IVideoPlayer>( SCENE_VIDEO_PLAYER );
+	CPtr<IVideoPlayer> pPlayer = CreateObject<IVideoPlayer>( SCENE_VIDEO_PLAYER );
 	AppendOpenVideoTrace( "progress movie init \"%s\"\n", szMovieName.c_str() );
-	pVP->Play( szMovieName.c_str(), IVideoPlayer::PLAY_FROM_MEMORY, pGFX, GetSingleton<ISFX>() );
+	if ( pPlayer == 0 || pPlayer->Play( szMovieName.c_str(), IVideoPlayer::PLAY_FROM_MEMORY, pGFX, GetSingleton<ISFX>() ) <= 0 || pPlayer->GetNumFrames() <= 0 )
+	{
+		if ( pPlayer != 0 )
+			pPlayer->Stop();
+		NStr::DebugTrace( "progress screen: no loading movie - %s would not play; loading without the progress screen\n", szMovieName.c_str() );
+		return;
+	}
+	pVP = pPlayer;
 	nNumFrames = pVP->GetNumFrames();
 	CTRect<long> rcScreenRect = pGFX->GetScreenRect();
 	// Fit the movie into the screen at its own aspect rather than stretching it
@@ -1053,6 +1087,9 @@ void CProgressScreen::Init( const std::string &szMovieName )
 }
 void CProgressScreen::Stop()
 {
+	// without a movie (see Init) the cursor was never hidden
+	if ( pVP == 0 )
+		return;
 	pVP->Stop();
 	GetSingleton<ICursor>()->Show( true );
 }
@@ -1062,7 +1099,9 @@ void CProgressScreen::SetNumSteps( const int nRange, const float fPercentage )
 	{
 		nNumSteps = nRange > 1 ? nRange : 1;
 		nCurrentStep = 1;
-		NI_ASSERT_SLOW_T( false, "Can't set num steps for progress screen - init it first!" );
+		// no frames: Init was not called, or it found no movie to play and said
+		// so - then the screen only counts the steps and draws nothing
+		NI_ASSERT_SLOW_T( bInitDone, "Can't set num steps for progress screen - init it first!" );
 	}
 	else if ( nNumSteps == 0 ) 
 	{
@@ -1210,6 +1249,8 @@ void CProgressScreen::SetText( const SProgressMovieInfo *pInfo )
 }
 void CProgressScreen::Recover()
 {
+	if ( pGFXText == 0 )
+		return;
 	switch ( nFontSize )
 	{
 		case 0:

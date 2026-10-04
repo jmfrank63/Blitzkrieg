@@ -13,7 +13,10 @@
 //!     both records as read - is played by the real Game under BK_AUTO_UI: it must
 //!     load, run and exit 0 (a crash is a nonzero exit or a signal, and `runGame`
 //!     fails on both), and the game's own BK_MAP_TRACE must report the map's roads;
-//!  2. the regression guard: an ordinary shipped map still loads and exits 0;
+//!  2. the regression guard: an ordinary shipped map still loads and exits 0 - and
+//!     again with BK_PROGRESS_XML naming a file that does not exist, the stand-in
+//!     for an installation without Data/movies/progress/progress.xml: the mission
+//!     loads without a loading screen, the game says so in its log, and exits 0;
 //!  3. the authored leg (05-10, D-40.5): a template, graph, container and field set
 //!     authored through the core Editor's composer I/O (under the user RMG root,
 //!     never a shipped file) generate a map from a fixed seed, the editor opens it,
@@ -56,15 +59,33 @@ const Play = struct {
 /// Plays the test copy (already saved) with BK_MAP_TRACE and parses the report;
 /// null after printing why (the game did not start, crashed, or did not exit 0).
 fn play(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, paths: *const common.TestPaths, what: []const u8, log_path: []const u8) ?Play {
+    return playWithEnv(gpa, io, environ, paths, what, log_path, &.{});
+}
+
+/// `play` with `extra_env` added to the game's environment.
+fn playWithEnv(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, paths: *const common.TestPaths, what: []const u8, log_path: []const u8, extra_env: []const [2][]const u8) ?Play {
     common.deleteAutoshots(io, paths.game_path);
-    const log = common.runGame(gpa, io, environ, label, what, paths.game_path, log_path, &.{
+    const base_env = [_][2][]const u8{
         .{ "BK_AUTO_UI", auto_ui },
         .{ "BK_NO_HELP", "1" },
         .{ "BK_AUDIO_NULL", "1" },
         .{ "BK_MAP_TRACE", "1" },
-    }) orelse return null;
+    };
+    var env: [base_env.len + 2][2][]const u8 = undefined;
+    std.debug.assert(extra_env.len <= env.len - base_env.len);
+    @memcpy(env[0..base_env.len], &base_env);
+    @memcpy(env[base_env.len..][0..extra_env.len], extra_env);
+    const log = common.runGame(gpa, io, environ, label, what, paths.game_path, log_path, env[0 .. base_env.len + extra_env.len]) orelse return null;
     return .{ .log = log, .trace = testlaunch.parseMapTrace(log) };
 }
+
+/// Where the no-progress-list leg points the game's progress screen
+/// (BK_PROGRESS_XML): a name no installation holds, so the open fails exactly as
+/// it does on an install without Data/movies/progress/progress.xml.
+const missing_progress_xml = "movies\\progress\\no-such-progress-list.xml";
+
+/// The line the game logs when the progress screen has no movie list.
+const progress_warning = "progress screen: no loading movie";
 
 fn appendTraceLines(gpa: std.mem.Allocator, out: *std.ArrayListUnmanaged(u8), heading: []const u8, log: []const u8) !void {
     try out.appendSlice(gpa, heading);
@@ -400,6 +421,31 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
         return false;
     }
 
+    // 2b. An installation without the progress screen's movie list (a sparse
+    // checkout without Data/movies/, an incomplete copy) used to abort the game at
+    // the start of every mission (CProgressScreen::Init read the null stream). The
+    // same test copy, the list pointed at a file that does not exist: the mission
+    // must still load and the game exit 0, saying why there is no loading screen.
+    const no_progress_log_path = try pathWithSuffix(gpa, log_path, ".no-progress-list.log");
+    defer gpa.free(no_progress_log_path);
+    const no_progress = playWithEnv(gpa, io, environ, &paths, "game without the progress screen's movie list", no_progress_log_path, &.{
+        .{ "BK_PROGRESS_XML", missing_progress_xml },
+    }) orelse return false;
+    defer gpa.free(no_progress.log);
+    if (std.mem.indexOf(u8, no_progress.log, progress_warning) == null) {
+        std.debug.print("map-editor: {s} FAIL: the game without the progress list did not log \"{s}...\"; see {s}\n", .{ label, progress_warning, no_progress_log_path });
+        return false;
+    }
+    const no_progress_roads = no_progress.trace.roads orelse {
+        std.debug.print("map-editor: {s} FAIL: the game without the progress list did not report the map's roads (it did not load the mission?); see {s}\n", .{ label, no_progress_log_path });
+        return false;
+    };
+    if (no_progress_roads != regular_roads) {
+        std.debug.print("map-editor: {s} FAIL: the game without the progress list loaded {d} roads, the editor holds {d}; see {s}\n", .{ label, no_progress_roads, regular_roads, no_progress_log_path });
+        return false;
+    }
+    std.debug.print("map-editor: {s}: without the progress list the mission still loads ({d} roads), the warning is logged, exit 0\n", .{ label, no_progress_roads });
+
     // 3. The authored set generates a map the game loads.
     const authored_roads = (try authoredLeg(gpa, io, environ, &rig, &paths, log_path)) orelse return false;
 
@@ -413,6 +459,6 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map
     };
     common.deleteAutoshots(io, paths.game_path);
     std.debug.print("map-editor: {s}: the authored set generated a map the game loaded clean: {d} roads, exit 0\n", .{ label, authored_roads });
-    std.debug.print("map-editor: {s} PASS (short railroad loaded clean: {d} roads incl. {d} short, exit 0; the regular map still loads: {d} roads, exit 0; the authored template's map loads: {d} roads, exit 0)\n", .{ label, crafted_roads, short, regular_traced, authored_roads });
+    std.debug.print("map-editor: {s} PASS (short railroad loaded clean: {d} roads incl. {d} short, exit 0; the regular map still loads: {d} roads, exit 0, and without the progress list too; the authored template's map loads: {d} roads, exit 0)\n", .{ label, crafted_roads, short, regular_traced, authored_roads });
     return true;
 }
