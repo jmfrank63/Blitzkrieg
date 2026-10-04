@@ -12,6 +12,14 @@
 // UI concern the Qt port will reintroduce at its own layer. The ETreeItemType
 // values live in Sources/src/editor/TreeItem.h for now and will move to the
 // port in T02 together with the first wave of registered classes.
+//
+// T02 adds a `storedNode` slot on the base. A typed root item that is produced
+// by Load() keeps the raw NResourceXml::Node around so Save() can emit the
+// authored XML byte-for-byte while higher layers see the typed CTreeItem view.
+// This is the same trick FutureBlob plays, generalised one step up: typed
+// items with unknown sub-structure still round-trip without the Save path
+// having to reconstruct every attribute. serialise()/parse() are the
+// prop-walking replacements for CTreeItem::operator&( IDataTree & ).
 
 #include <list>
 #include <memory>
@@ -19,6 +27,7 @@
 #include <vector>
 
 #include "prop.h"
+#include "xml.h"
 
 namespace NResourceModel
 {
@@ -62,6 +71,26 @@ public:
 	const CChildItemsList &GetDefaultChilds() const { return defaultChilds; }
 	const CPropVector &GetDefaultValues() const { return defaultValues; }
 
+	// Stored node slot: the typed root items keep the raw project XML around
+	// so Save() can emit it byte-for-byte while higher layers walk the typed
+	// CTreeItem view. HasStoredNode() stays false for in-memory items; the
+	// Project loader sets it on recognised roots.
+	bool HasStoredNode() const { return m_hasStoredNode; }
+	const NResourceXml::Node &GetStoredNode() const { return m_storedNode; }
+	void SetStoredNode( NResourceXml::Node node )
+	{
+		m_storedNode = std::move( node );
+		m_hasStoredNode = true;
+	}
+
+	// Prop-walking equivalents of CTreeItem::operator&( IDataTree & ): parse()
+	// pulls each SProp from the XML in declaration order, serialise() emits
+	// them in the same order. The base walks `values`; the typed subclasses
+	// override only when they add out-of-band fields (keyframe curves etc.,
+	// which are not part of the 11 stats-only kinds that T02 covers).
+	virtual void parse( const NResourceXml::Node &node );
+	virtual void serialise( NResourceXml::Node &node ) const;
+
 protected:
 	int nItemType = 0;                        // ETreeItemType the factory keys on
 	std::string szDefaultName;
@@ -72,6 +101,10 @@ protected:
 	CTreeItemList treeItemList;
 
 	virtual void InitDefaultValues() {}
+
+private:
+	NResourceXml::Node m_storedNode;
+	bool m_hasStoredNode = false;
 };
 
 }
