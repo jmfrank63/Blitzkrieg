@@ -1,22 +1,33 @@
 #include "factory.h"
 
-// All per-kind headers that provide the typed CTreeItem subclasses. The eleven
-// stats-only sub-editors T02 ports land here under per-kind blocks; the order
-// of the registrations below matches Sources/src/editor/TreeItemFactory.cpp
+// All per-kind headers that provide the typed CTreeItem subclasses. The
+// eleven stats-only sub-editors T02 ported land first; T03 adds the ten
+// keyframe/graph/image/UI sub-editors (Particle, Effect, TileSet, 3dRoad,
+// 3dRiver, Mission, Chapter, Campaign, Medal, GUI). The order of the
+// registrations below matches Sources/src/editor/TreeItemFactory.cpp
 // line-for-line within each block so an audit against the MFC file is one
-// `diff`. Other sub-editors (particle/keyframe, tileset, 3dRoad/3dRiver, GUI,
-// Medal, Chapter, Campaign, Mission) land in T03-T05.
+// `diff`.
 
 #include "items/stats_item.h"
 #include "items/bridge/bridge.h"
 #include "items/building/building.h"
+#include "items/campaign/campaign.h"
+#include "items/chapter/chapter.h"
+#include "items/effect/effect.h"
 #include "items/fence/fence.h"
+#include "items/gui/gui.h"
 #include "items/infantry/infantry.h"
+#include "items/medal/medal.h"
 #include "items/mesh/mesh.h"
 #include "items/mine/mine.h"
+#include "items/mission/mission.h"
 #include "items/object/object.h"
+#include "items/particle/particle.h"
+#include "items/river3d/river3d.h"
+#include "items/road3d/road3d.h"
 #include "items/sprite/sprite.h"
 #include "items/squad/squad.h"
+#include "items/tileset/tileset.h"
 #include "items/trench/trench.h"
 #include "items/weapon/weapon.h"
 
@@ -203,6 +214,143 @@ void PopulateFactory( CTreeItemFactory &factory )
 	REGISTER_CLASS( ETIT_BRIDGE_DIR_EXPLOSION_PROPS_ITEM,  CBridgeDirExplosionPropsItem );
 	REGISTER_CLASS( ETIT_BRIDGE_SMOKES_ITEM,               CBridgeSmokesItem );
 	REGISTER_CLASS( ETIT_BRIDGE_SMOKE_PROPS_ITEM,          CBridgeSmokePropsItem );
+
+	// --- Effect sub-editor --------------------------------------------------
+	// MFC: Sources/src/editor/TreeItemFactory.cpp:59-69.
+	REGISTER_CLASS( ETIT_EFFECT_ROOT_ITEM,            CEffectTreeRootItem );
+	RegisterRootTag( "Effect_Composer_Project", ETIT_EFFECT_ROOT_ITEM );
+	REGISTER_CLASS( ETIT_EFFECT_COMMON_PROPS_ITEM,    CEffectCommonPropsItem );
+	REGISTER_CLASS( ETIT_EFFECT_ANIMATIONS_ITEM,      CEffectAnimationsItem );
+	REGISTER_CLASS( ETIT_EFFECT_MESHES_ITEM,          CEffectMeshesItem );
+	REGISTER_CLASS( ETIT_EFFECT_FUNC_PARTICLES_ITEM,  CEffectFuncParticlesItem );
+	REGISTER_CLASS( ETIT_EFFECT_MAYA_PARTICLES_ITEM,  CEffectMayaParticlesItem );
+	REGISTER_CLASS( ETIT_EFFECT_LIGHTS_ITEM,          CEffectLightsItem );
+	REGISTER_CLASS( ETIT_EFFECT_ANIMATION_PROPS_ITEM, CEffectAnimationPropsItem );
+	REGISTER_CLASS( ETIT_EFFECT_MESH_PROPS_ITEM,      CEffectMeshPropsItem );
+	REGISTER_CLASS( ETIT_EFFECT_FUNC_PROPS_ITEM,      CEffectFuncPropsItem );
+	REGISTER_CLASS( ETIT_EFFECT_MAYA_PROPS_ITEM,      CEffectMayaPropsItem );
+
+	// --- TileSet sub-editor -------------------------------------------------
+	// MFC: Sources/src/editor/TreeItemFactory.cpp:143-156.
+	REGISTER_CLASS( ETIT_TILESET_ROOT_ITEM,           CTileSetTreeRootItem );
+	RegisterRootTag( "TileSet_Composer_Project", ETIT_TILESET_ROOT_ITEM );
+	REGISTER_CLASS( ETIT_TILESET_COMMON_PROPS_ITEM,   CTileSetCommonPropsItem );
+	REGISTER_CLASS( ETIT_TILESET_TERRAINS_ITEM,       CTileSetTerrainsItem );
+	REGISTER_CLASS( ETIT_TILESET_TERRAIN_PROPS_ITEM,  CTileSetTerrainPropsItem );
+	REGISTER_CLASS( ETIT_TILESET_TILE_PROPS_ITEM,     CTileSetTilePropsItem );
+	REGISTER_CLASS( ETIT_CROSSETS_ITEM,               CCrossetsItem );
+	REGISTER_CLASS( ETIT_CROSSET_PROPS_ITEM,          CCrossetPropsItem );
+	REGISTER_CLASS( ETIT_CROSSET_TILES_ITEM,          CCrossetTilesItem );
+	REGISTER_CLASS( ETIT_CROSSET_TILE_PROPS_ITEM,     CCrossetTilePropsItem );
+	REGISTER_CLASS( ETIT_TILESET_TILES_ITEM,          CTileSetTilesItem );
+	REGISTER_CLASS( ETIT_TILESET_ASOUNDS_ITEM,        CTileSetASoundsItem );
+	REGISTER_CLASS( ETIT_TILESET_ASOUND_PROPS_ITEM,   CTileSetASoundPropsItem );
+	REGISTER_CLASS( ETIT_TILESET_LSOUNDS_ITEM,        CTileSetLSoundsItem );
+	REGISTER_CLASS( ETIT_TILESET_LSOUND_PROPS_ITEM,   CTileSetLSoundPropsItem );
+
+	// --- Particle sub-editor (incl. CKeyFrameTreeItem) ----------------------
+	// MFC: Sources/src/editor/TreeItemFactory.cpp:164-188.
+	REGISTER_CLASS( ETIT_KEYFRAME_TREE_ITEM,                 CKeyFrameTreeItem );
+	REGISTER_CLASS( ETIT_PARTICLE_ROOT_ITEM,                 CParticleTreeRootItem );
+	RegisterRootTag( "Particle_Composer_Project", ETIT_PARTICLE_ROOT_ITEM );
+	REGISTER_CLASS( ETIT_PARTICLE_COMMON_PROPS_ITEM,         CParticleCommonPropsItem );
+	REGISTER_CLASS( ETIT_PARTICLE_SOURCE_PROP_ITEMS,         CParticleSourcePropItems );
+	REGISTER_CLASS( ETIT_PARTICLE_GENERATE_SPIN_ITEM,        CParticleGenerateSpinItem );
+	REGISTER_CLASS( ETIT_PARTICLE_GENERATE_AREA_ITEM,        CParticleGenerateAreaItem );
+	REGISTER_CLASS( ETIT_PARTICLE_GENERATE_ANGLE_ITEM,       CParticleGenerateAngleItem );
+	REGISTER_CLASS( ETIT_PARTICLE_GENERATE_OPACITY_ITEM,     CParticleGenerateOpacityItem );
+	REGISTER_CLASS( ETIT_PARTICLE_GENERATE_SPEED_ITEM,       CParticleGenerateSpeedItem );
+	REGISTER_CLASS( ETIT_PARTICLE_GENERATE_LIFE_ITEM,        CParticleGenerateLifeItem );
+	REGISTER_CLASS( ETIT_PARTICLE_GENERATE_DENSITY_ITEM,     CParticleGenerateDensityItem );
+	REGISTER_CLASS( ETIT_PARTICLE_GENERATE_RANDOM_SPIN_ITEM, CParticleGenerateRandomSpinItem );
+	REGISTER_CLASS( ETIT_PARTICLE_PROP_ITEMS,                CParticlePropItems );
+	REGISTER_CLASS( ETIT_PARTICLE_SPIN_ITEM,                 CParticleSpinItem );
+	REGISTER_CLASS( ETIT_PARTICLE_WEIGHT_ITEM,               CParticleWeightItem );
+	REGISTER_CLASS( ETIT_PARTICLE_SPEED_ITEM,                CParticleSpeedItem );
+	REGISTER_CLASS( ETIT_PARTICLE_SIZE_ITEM,                 CParticleSizeItem );
+	REGISTER_CLASS( ETIT_PARTICLE_OPACITY_ITEM,              CParticleOpacityItem );
+	REGISTER_CLASS( ETIT_PARTICLE_TEXTURE_FRAME_ITEM,        CParticleTextureFrameItem );
+	REGISTER_CLASS( ETIT_PARTICLE_COMPLEX_SOURCE_ITEM,       CParticleComplexSourceItem );
+	REGISTER_CLASS( ETIT_PARTICLE_RAND_LIFE_ITEM,            CParticleRandLifeItem );
+	REGISTER_CLASS( ETIT_PARTICLE_RAND_SPEED_ITEM,           CParticleRandSpeedItem );
+	REGISTER_CLASS( ETIT_PARTICLE_COMPLEX_ITEM,              CParticleComplexItem );
+	REGISTER_CLASS( ETIT_PARTICLE_C_RANDOM_SPEED_ITEM,       CParticleCRandomSpeedItem );
+
+	// --- GUI sub-editor -----------------------------------------------------
+	// MFC: Sources/src/editor/TreeItemFactory.cpp:204-221. E_TEMPLATE_TREE_ITEM
+	// and E_TEMPLATE_PROPS_TREE_ITEM are present in the MFC enum but not
+	// REGISTER_CLASSed in the MFC factory, so the port omits them too.
+	REGISTER_CLASS( ETIT_GUI_ROOT_ITEM,             CGUITreeRootItem );
+	RegisterRootTag( "GUI_Composer_Project", ETIT_GUI_ROOT_ITEM );
+	REGISTER_CLASS( ETIT_GUI_MOUSE_SELECT_ITEM,     CGUIMouseSelectItem );
+	REGISTER_CLASS( ETIT_STATICS_TREE_ITEM,         CStaticsTreeItem );
+	REGISTER_CLASS( ETIT_BUTTONS_TREE_ITEM,         CButtonsTreeItem );
+	REGISTER_CLASS( ETIT_SLIDERS_TREE_ITEM,         CSlidersTreeItem );
+	REGISTER_CLASS( ETIT_SCROLLBARS_TREE_ITEM,      CScrollBarsTreeItem );
+	REGISTER_CLASS( ETIT_STATUSBARS_TREE_ITEM,      CStatusBarsTreeItem );
+	REGISTER_CLASS( ETIT_LISTS_TREE_ITEM,           CListsTreeItem );
+	REGISTER_CLASS( ETIT_DIALOGS_TREE_ITEM,         CDialogsTreeItem );
+	REGISTER_CLASS( ETIT_UNKNOWNS_UI_TREE_ITEM,     CUnknownsTreeItem );
+	REGISTER_CLASS( ETIT_STATIC_PROPS_TREE_ITEM,    CStaticPropsTreeItem );
+	REGISTER_CLASS( ETIT_BUTTON_PROPS_TREE_ITEM,    CButtonPropsTreeItem );
+	REGISTER_CLASS( ETIT_SLIDER_PROPS_TREE_ITEM,    CSliderPropsTreeItem );
+	REGISTER_CLASS( ETIT_SCROLLBAR_PROPS_TREE_ITEM, CScrollBarPropsTreeItem );
+	REGISTER_CLASS( ETIT_STATUSBAR_PROPS_TREE_ITEM, CStatusBarPropsTreeItem );
+	REGISTER_CLASS( ETIT_LIST_PROPS_TREE_ITEM,      CListPropsTreeItem );
+	REGISTER_CLASS( ETIT_DIALOG_PROPS_TREE_ITEM,    CDialogPropsTreeItem );
+
+	// --- Mission sub-editor -------------------------------------------------
+	// MFC: Sources/src/editor/TreeItemFactory.cpp:244-249.
+	REGISTER_CLASS( ETIT_MISSION_ROOT_ITEM,           CMissionTreeRootItem );
+	RegisterRootTag( "Mission_Composer_Project", ETIT_MISSION_ROOT_ITEM );
+	REGISTER_CLASS( ETIT_MISSION_COMMON_PROPS_ITEM,   CMissionCommonPropsItem );
+	REGISTER_CLASS( ETIT_MISSION_OBJECTIVES_ITEM,     CMissionObjectivesItem );
+	REGISTER_CLASS( ETIT_MISSION_OBJECTIVE_PROPS_ITEM, CMissionObjectivePropsItem );
+	REGISTER_CLASS( ETIT_MISSION_MUSICS_ITEM,         CMissionMusicsItem );
+	REGISTER_CLASS( ETIT_MISSION_MUSIC_PROPS_ITEM,    CMissionMusicPropsItem );
+
+	// --- Chapter sub-editor -------------------------------------------------
+	// MFC: Sources/src/editor/TreeItemFactory.cpp:251-256.
+	REGISTER_CLASS( ETIT_CHAPTER_ROOT_ITEM,          CChapterTreeRootItem );
+	RegisterRootTag( "Chapter_Composer_Project", ETIT_CHAPTER_ROOT_ITEM );
+	REGISTER_CLASS( ETIT_CHAPTER_COMMON_PROPS_ITEM,  CChapterCommonPropsItem );
+	REGISTER_CLASS( ETIT_CHAPTER_MISSIONS_ITEM,      CChapterMissionsItem );
+	REGISTER_CLASS( ETIT_CHAPTER_MISSION_PROPS_ITEM, CChapterMissionPropsItem );
+	REGISTER_CLASS( ETIT_CHAPTER_PLACES_ITEM,        CChapterPlacesItem );
+	REGISTER_CLASS( ETIT_CHAPTER_PLACE_PROPS_ITEM,   CChapterPlacePropsItem );
+
+	// --- Campaign sub-editor ------------------------------------------------
+	// MFC: Sources/src/editor/TreeItemFactory.cpp:258-263.
+	REGISTER_CLASS( ETIT_CAMPAIGN_ROOT_ITEM,          CCampaignTreeRootItem );
+	RegisterRootTag( "Campaign_Composer_Project", ETIT_CAMPAIGN_ROOT_ITEM );
+	REGISTER_CLASS( ETIT_CAMPAIGN_COMMON_PROPS_ITEM,  CCampaignCommonPropsItem );
+	REGISTER_CLASS( ETIT_CAMPAIGN_CHAPTERS_ITEM,      CCampaignChaptersItem );
+	REGISTER_CLASS( ETIT_CAMPAIGN_CHAPTER_PROPS_ITEM, CCampaignChapterPropsItem );
+	REGISTER_CLASS( ETIT_CAMPAIGN_TEMPLATES_ITEM,     CCampaignTemplatesItem );
+	REGISTER_CLASS( ETIT_CAMPAIGN_TEMPLATE_PROPS_ITEM, CCampaignTemplatePropsItem );
+
+	// --- 3dRoad sub-editor --------------------------------------------------
+	// MFC: Sources/src/editor/TreeItemFactory.cpp:265-267.
+	REGISTER_CLASS( ETIT_3DROAD_ROOT_ITEM,          C3DRoadTreeRootItem );
+	RegisterRootTag( "Road3D_Composer_Project", ETIT_3DROAD_ROOT_ITEM );
+	REGISTER_CLASS( ETIT_3DROAD_COMMON_PROPS_ITEM,  C3DRoadCommonPropsItem );
+	REGISTER_CLASS( ETIT_3DROAD_LAYER_PROPS_ITEM,   C3DRoadLayerPropsItem );
+
+	// --- 3dRiver sub-editor -------------------------------------------------
+	// MFC: Sources/src/editor/TreeItemFactory.cpp:269-272.
+	REGISTER_CLASS( ETIT_3DRIVER_ROOT_ITEM,             C3DRiverTreeRootItem );
+	RegisterRootTag( "River3D_Composer_Project", ETIT_3DRIVER_ROOT_ITEM );
+	REGISTER_CLASS( ETIT_3DRIVER_BOTTOM_LAYER_PROPS_ITEM, C3DRiverBottomLayerPropsItem );
+	REGISTER_CLASS( ETIT_3DRIVER_LAYER_PROPS_ITEM,      C3DRiverLayerPropsItem );
+	REGISTER_CLASS( ETIT_3DRIVER_LAYERS_ITEM,           C3DRiverLayersItem );
+
+	// --- Medal sub-editor ---------------------------------------------------
+	// MFC: Sources/src/editor/TreeItemFactory.cpp:274-277.
+	REGISTER_CLASS( ETIT_MEDAL_ROOT_ITEM,          CMedalTreeRootItem );
+	RegisterRootTag( "Medal_Composer_Project", ETIT_MEDAL_ROOT_ITEM );
+	REGISTER_CLASS( ETIT_MEDAL_COMMON_PROPS_ITEM,  CMedalCommonPropsItem );
+	REGISTER_CLASS( ETIT_MEDAL_PICTURE_PROPS_ITEM, CMedalPicturePropsItem );
+	REGISTER_CLASS( ETIT_MEDAL_TEXT_PROPS_ITEM,    CMedalTextPropsItem );
 }
 
 #undef REGISTER_CLASS

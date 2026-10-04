@@ -1,5 +1,7 @@
-// Round-trip harness for Sources/src/ResourceModel/ over all 11 stats-only
-// sub-editor fixtures (wpn, mcp, trc, scp, spt, unt, msh, obt, fnc, bld, bdg).
+// Round-trip harness for Sources/src/ResourceModel/ over all 21 project
+// extensions - the 11 stats-only sub-editors T02 ported (wpn, mcp, trc, scp,
+// spt, unt, msh, obt, fnc, bld, bdg) plus the 10 keyframe/graph/image/UI
+// sub-editors T03 ports (pcp, eff, til, 3rd, 3rv, mip, chc, cgc, mdc, gui).
 // For each extension this proves:
 //   1. Load() + Save() reproduces the fixture bytes verbatim (rt_equal).
 //   2. A second Save() of the same project reproduces the first Save() bytes
@@ -11,9 +13,10 @@
 //
 // Writes one line per extension to stderr:
 //   SCAFFOLD <ext> bytes=<n> rt_equal=<0|1> rt_idempotent=<0|1>
-//     unknown_preserved=<0|1> childs=<n> props=<n>
-// (`childs`/`props` are what the task-plan "Observability Impact" asks for -
-// a glance tells a future agent whether a factory registration dropped a type.)
+//     unknown_preserved=<0|1> childs=<n> props=<n> kf_frames=<n>
+// (`childs`/`props`/`kf_frames` are what the task-plan "Observability Impact"
+// asks for - a glance tells a future agent whether a factory registration
+// dropped a type or a keyframe serialiser went missing.)
 // BK_DEBUG_LOG=1 adds depth/elements/root for each ext and prints a
 // first-mismatch byte offset on failure. The harness exits 0 only when every
 // extension passes rt_equal and rt_idempotent and unknown_preserved.
@@ -28,6 +31,7 @@
 
 #include "../../Sources/src/ResourceModel/future_blob.h"
 #include "../../Sources/src/ResourceModel/items/stats_item.h"
+#include "../../Sources/src/ResourceModel/key_frame_tree_item.h"
 #include "../../Sources/src/ResourceModel/project.h"
 #include "../../Sources/src/ResourceModel/xml.h"
 
@@ -71,6 +75,22 @@ void CountChildsAndProps( const NResourceModel::CTreeItem &root, int &childs, in
 {
 	childs = (int)root.GetChildren().size();
 	props = (int)root.GetValues().size();
+}
+
+// Sum CKeyFrameTreeItem::framesList sizes across the typed tree. T03's
+// keyframe-free fixtures leave this at 0 for every ext, but a dropped
+// keyframe serialiser in a later task would surface here before anyone
+// reparses the file - the Observability Impact clause the task plan asks
+// for.
+int CountKeyframeFrames( const NResourceModel::CTreeItem &item )
+{
+	int total = 0;
+	if ( const auto *kf = dynamic_cast<const NResourceModel::CKeyFrameTreeItem *>( &item ) )
+		total += (int)kf->framesList.size();
+	for ( const auto &child : item.GetChildren() )
+		if ( child )
+			total += CountKeyframeFrames( *child );
+	return total;
 }
 
 bool RunExt( const std::string &ext, const std::string &path )
@@ -129,11 +149,12 @@ bool RunExt( const std::string &ext, const std::string &path )
 
 	int childs = 0, props = 0;
 	if ( project.root ) CountChildsAndProps( *project.root, childs, props );
+	const int kf_frames = project.root ? CountKeyframeFrames( *project.root ) : 0;
 
 	std::fprintf( stderr,
-		"SCAFFOLD %s bytes=%zu rt_equal=%d rt_idempotent=%d unknown_preserved=%d childs=%d props=%d\n",
+		"SCAFFOLD %s bytes=%zu rt_equal=%d rt_idempotent=%d unknown_preserved=%d childs=%d props=%d kf_frames=%d\n",
 		ext.c_str(), in.size(), rt_equal ? 1 : 0, rt_idempotent ? 1 : 0,
-		unknown_preserved ? 1 : 0, childs, props );
+		unknown_preserved ? 1 : 0, childs, props, kf_frames );
 
 	if ( DebugLog() )
 	{
@@ -167,7 +188,10 @@ int main( int argc, char **argv )
 	// treated as "sweep every tracked extension" so CI never needs to shell
 	// one invocation per ext.
 	static const char *const kAllExts[] = {
-		"wpn", "mcp", "trc", "scp", "spt", "unt", "msh", "obt", "fnc", "bld", "bdg"
+		// T02 stats-only sub-editors.
+		"wpn", "mcp", "trc", "scp", "spt", "unt", "msh", "obt", "fnc", "bld", "bdg",
+		// T03 keyframe/graph/image/UI sub-editors.
+		"pcp", "eff", "til", "3rd", "3rv", "mip", "chc", "cgc", "mdc", "gui"
 	};
 
 	if ( argc > 1 )
