@@ -1378,6 +1378,7 @@ pub fn build(b: *std.Build) void {
     addNetworkWorkersTest(b, target, test_mode, toolchain);
     addNetworkSystemGateTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addRuntimeHeadersTest(b, target, test_mode, toolchain);
+    addResourceModelScaffoldTest(b, target, test_mode, toolchain);
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = dependency_target,
@@ -8036,6 +8037,63 @@ fn addSdlEventTest(
     const test_step = b.step("test-platform-events", "Run SDL event translation tests");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
+}
+
+// Scaffold-shape smoke for Sources/src/ResourceModel/. Compiles the new
+// portable library and the one-fixture round-trip harness as a standalone
+// C++17 translation unit set (no engine, no MFC, no SDL). This is the T01
+// verification surface - it proves the files compile standalone and the wpn
+// fixture round-trips byte-identically. T06 adds the sweep over every repo
+// fixture as test-resource-model.
+fn addResourceModelScaffoldTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const flags: []const []const u8 = if (target.result.os.tag == .windows)
+        &(cppflags_debug.* ++ .{"-std=c++17"})
+    else
+        &.{"-std=c++17"};
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/ResourceModel/variant.cpp",
+            "Sources/src/ResourceModel/tree_item.cpp",
+            "Sources/src/ResourceModel/factory.cpp",
+            "Sources/src/ResourceModel/future_blob.cpp",
+            "Sources/src/ResourceModel/xml.cpp",
+            "Sources/src/ResourceModel/project.cpp",
+            "tools/zig/resource_model_scaffold_test.cpp",
+        },
+        .flags = flags,
+    });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => {
+            addMacosSysrootPaths(b, module, target);
+            module.linkSystemLibrary("c++", .{});
+        },
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "resource-model-scaffold-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    // Fixtures live at repo-root-relative paths; the test defaults to the wpn
+    // fixture and the CI run step passes no args so that default lands.
+    run.setCwd(b.path("."));
+    // The fixture is a file input, not a step input; the test is cheap and
+    // the sweep is where the fixture matrix lives (T06).
+    run.has_side_effects = true;
+    const step = b.step("resource-model-scaffold-test", "Load and save the wpn fixture through Sources/src/ResourceModel and prove the bytes round-trip");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
 }
 
 fn linkSdlRuntime(
