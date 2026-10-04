@@ -60,9 +60,10 @@
 //!    sets it, so `Editor.save`'s temp+backup+swap has something to see land.
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
-const files_mod = @import("files.zig");
+const kit = @import("editor_kit");
+const files_mod = kit.files;
 const records = @import("records.zig");
-const script_file_mod = @import("script_file.zig");
+const script_file_mod = kit.script_file;
 const layers_mod = @import("layers.zig");
 const rmg_mod = @import("rmg.zig");
 const Status = bridge_mod.Status;

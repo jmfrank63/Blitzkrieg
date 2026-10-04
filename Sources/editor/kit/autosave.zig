@@ -71,15 +71,16 @@ pub fn target(needs_save_as: bool) Target {
 /// recovery name, so a crafted "..\maps\a.bzm" cannot walk the recovery copy
 /// anywhere outside the recovery folder), every character outside
 /// `[A-Za-z0-9_.-]` replaced with `_`, `"untitled"` when the stem is empty (a
-/// brand new map has no path at all yet), plus `.bzm`. Null when the result
-/// would not fit `buffer`.
-pub fn recoveryName(buffer: []u8, doc_path: []const u8) ?[]const u8 {
+/// brand new map has no path at all yet), plus `extension`. Null when the
+/// result would not fit `buffer`. `extension` is caller-chosen so this
+/// primitive is kit-generic (MapEditor threads ".bzm", other editors their
+/// own project extension); it is written verbatim and is not sanitised.
+pub fn recoveryName(buffer: []u8, doc_path: []const u8, extension: []const u8) ?[]const u8 {
     const cut = std.mem.lastIndexOfAny(u8, doc_path, "/\\");
     const file_name = if (cut) |c| doc_path[c + 1 ..] else doc_path;
     const dot = std.mem.lastIndexOfScalar(u8, file_name, '.');
     const stem = if (dot) |d| file_name[0..d] else file_name;
     const safe_stem = if (stem.len == 0) "untitled" else stem;
-    const extension = ".bzm";
     if (safe_stem.len + extension.len > buffer.len) return null;
     for (safe_stem, buffer[0..safe_stem.len]) |char, *out| out.* = if (isSafeChar(char)) char else '_';
     @memcpy(buffer[safe_stem.len..][0..extension.len], extension);
@@ -133,11 +134,17 @@ test "target: no path or a shipped map autosaves to a recovery copy, otherwise t
 
 test "recoveryName: unsafe characters become '_', an empty stem is 'untitled', no directory survives" {
     var buffer: [64]u8 = undefined;
-    try std.testing.expectEqualStrings("a_b_c.bzm", recoveryName(&buffer, "..\\maps\\a:b*c.bzm").?);
-    try std.testing.expectEqualStrings("untitled.bzm", recoveryName(&buffer, "").?);
-    try std.testing.expectEqualStrings("untitled.bzm", recoveryName(&buffer, "maps\\.bzm").?);
-    try std.testing.expectEqualStrings("coldwinter.bzm", recoveryName(&buffer, "Data\\Maps\\Multiplayer\\coldwinter.bzm").?);
-    try std.testing.expectEqualStrings("passwd.bzm", recoveryName(&buffer, "../../etc/passwd").?);
+    try std.testing.expectEqualStrings("a_b_c.bzm", recoveryName(&buffer, "..\\maps\\a:b*c.bzm", ".bzm").?);
+    try std.testing.expectEqualStrings("untitled.bzm", recoveryName(&buffer, "", ".bzm").?);
+    try std.testing.expectEqualStrings("untitled.bzm", recoveryName(&buffer, "maps\\.bzm", ".bzm").?);
+    try std.testing.expectEqualStrings("coldwinter.bzm", recoveryName(&buffer, "Data\\Maps\\Multiplayer\\coldwinter.bzm", ".bzm").?);
+    try std.testing.expectEqualStrings("passwd.bzm", recoveryName(&buffer, "../../etc/passwd", ".bzm").?);
     var tiny: [4]u8 = undefined;
-    try std.testing.expect(recoveryName(&tiny, "a.bzm") == null);
+    try std.testing.expect(recoveryName(&tiny, "a.bzm", ".bzm") == null);
+}
+
+test "recoveryName: a caller-chosen extension is honoured, so other editors can thread their own project extension" {
+    var buffer: [64]u8 = undefined;
+    try std.testing.expectEqualStrings("mine.wpn", recoveryName(&buffer, "weapons\\mine.wpn", ".wpn").?);
+    try std.testing.expectEqualStrings("untitled.obt", recoveryName(&buffer, "", ".obt").?);
 }
