@@ -1798,7 +1798,14 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			}
 			report = BkResExportReport();
 			const BkEditorStatus status = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
-			if ( IsPortedExport( szExt ) )
+			if ( szExt == "spt" )
+			{
+				// The fixture's directory is MFC's default "_.", which MFC joins to the
+				// frame name as "<project folder>\_.sprite-1frame.tga": no such file, so
+				// nothing is composed (S07Sprite proves the export with real frames).
+				Check( status == BK_EDITOR_OK && report.written == 0, "export: .spt exports through its S07 exporter; the fixture's default directory finds no frame, so nothing is composed" );
+			}
+			else 			if ( IsPortedExport( szExt ) )
 			{
 				if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S06 exporter" ).c_str() ) )
 					std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
@@ -2296,6 +2303,7 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 	for ( const Capture &capture : kCaptures )
 	{
 		const std::string szLabel = capture.pszLabel;
+		const NResourceModel::FExporter pfnRegistered = NResourceModel::FindExporter( capture.pszExt );
 		const fs::path projectDir = scratch / capture.pszExt;
 		fs::create_directories( projectDir, ec );
 		const fs::path project = projectDir / ( std::string( "project." ) + capture.pszExt );
@@ -2350,7 +2358,9 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		Check( fChanged >= 0.001, ( "preview: the " + szLabel + " object drew (>= 0.1% of the frame changed)" ).c_str() );
 
 		Check( BkResPreviewCamera( pSession, 12 * 32.0f + 64.0f, 12 * 32.0f, 2 ) == BK_EDITOR_OK, ( "preview: Camera " + szLabel ).c_str() );
-		NResourceModel::RegisterExporter( capture.pszExt, nullptr );
+		// What the table held before this stand-in came and went (a kind ported
+		// since has its real exporter back for the cases after this one).
+		NResourceModel::RegisterExporter( capture.pszExt, pfnRegistered );
 		Check( BkResPreviewStop( pSession ) == BK_EDITOR_OK, ( "preview: Stop " + szLabel ).c_str() );
 		BkResClose( pSession );
 	}
@@ -3320,6 +3330,245 @@ static void Run( const std::string &szRoot, const std::string &szFixtureRoot, co
 
 }
 
+// S07 T06: the sprite exporter and its preview on the real bridge. The
+// fixture project is copied beside a frames folder of generated TGAs; the
+// .san is read back with the engine's structure loader. The preview Run and
+// Stop captures are measured by code.
+
+namespace S07Sprite
+{
+
+// A square of one colour on a transparent border, so every frame is told
+// apart by its colour and cropped to the same rect.
+static void WriteFrame( const std::filesystem::path &file, int nSize, int nBorder, unsigned char r, unsigned char g, unsigned char b )
+{
+	std::string szBytes( 18, '\0' );
+	szBytes[2] = 2;
+	szBytes[12] = char( nSize & 0xff ); szBytes[13] = char( nSize >> 8 );
+	szBytes[14] = char( nSize & 0xff ); szBytes[15] = char( nSize >> 8 );
+	szBytes[16] = 32;
+	szBytes[17] = 0x28;
+	for ( int y = 0; y < nSize; ++y )
+		for ( int x = 0; x < nSize; ++x )
+		{
+			const bool bInside = x >= nBorder && x < nSize - nBorder && y >= nBorder && y < nSize - nBorder;
+			szBytes += char( bInside ? b : 0 ); szBytes += char( bInside ? g : 0 ); szBytes += char( bInside ? r : 0 ); szBytes += char( bInside ? 255 : 0 );
+		}
+	std::ofstream( file, std::ios::binary ) << szBytes;
+}
+
+// The fixture project with its directory set to frames\ and its one frame
+// item replaced by the named ones.
+static std::string Project( const std::string &szFixture, const std::vector<std::string> &names )
+{
+	std::string szXml = szFixture;
+	const std::string szOld = "<string_value>_.</string_value>";
+	szXml.replace( szXml.find( szOld ), szOld.size(), "<string_value>frames\\</string_value>" );
+	const std::string::size_type nStart = szXml.find( "<item ClassTypeID=\"285212695\"" );
+	const std::string::size_type nEnd = szXml.find( "</item>", nStart ) + 7;
+	std::string szItems;
+	for ( const std::string &szName : names )
+		szItems += "<item ClassTypeID=\"285212695\" expand=\"0\"><default_name>" + szName + "</default_name><display_name>" + szName +
+		           "</display_name><values/><childs/></item>";
+	szXml.replace( nStart, nEnd - nStart, szItems );
+	return szXml;
+}
+
+static std::vector<std::string> Warnings( BkResSession *pSession, int nFlags, bool bStatsOnly, BkResExportReport &report, BkEditorStatus &status )
+{
+	std::vector<BkResWarning> warnings( 16 );
+	report = {};
+	report.warnings = warnings.data();
+	report.warnings_capacity = int( warnings.size() );
+	status = bStatsOnly ? BkResExportStatsOnly( pSession, nFlags, &report ) : BkResExport( pSession, nFlags, &report );
+	std::vector<std::string> texts;
+	for ( int i = 0; i < report.warning_count && i < int( warnings.size() ); ++i )
+		texts.push_back( warnings[i].text );
+	return texts;
+}
+
+static bool HasWarning( const std::vector<std::string> &warnings, const char *pszPart )
+{
+	for ( const std::string &sz : warnings )
+		if ( sz.find( pszPart ) != std::string::npos )
+			return true;
+	return false;
+}
+
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s07-sprite";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "sprite";
+	fs::create_directories( projectDir / "frames", ec );
+	std::string szFixture;
+	ReadBytes( szFixtureRoot + "/spt/project.spt", szFixture );
+	const fs::path project = projectDir / "project.spt";
+	const fs::path modDir = scratch / "mod";
+	const fs::path outDir = modDir / "data" / "effects" / "sprites" / "sprite";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S07 sprite" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "sprite: the mod folder is set" );
+	const unsigned char kColours[3][3] = { { 220, 40, 40 }, { 40, 220, 40 }, { 40, 40, 220 } };
+	for ( int i = 0; i < 3; ++i )
+		WriteFrame( projectDir / "frames" / ( "f" + std::to_string( i ) + ".tga" ), 16, 2, kColours[i][0], kColours[i][1], kColours[i][2] );
+	T10::WriteText( project, Project( szFixture, { "f0", "f1", "f2" } ) );
+
+	BkResExportReport report;
+	BkEditorStatus status;
+	std::vector<std::string> warnings;
+	auto Files = [&]( const fs::path &dir )
+	{
+		std::string szList;
+		for ( const char *pszName : { "1.san", "1_c.dds", "1_l.dds", "1_h.dds" } )
+			szList += fs::is_regular_file( dir / pszName, ec ) ? '1' : '0';
+		return szList;
+	};
+
+	// (a) the export file set and the .san read back.
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "sprite: the three-frame project opens" ) )
+		return;
+	warnings = Warnings( pSession, BK_RES_EXPORT_FORCE, false, report, status );
+	Check( status == BK_EDITOR_OK && report.written == 4 && warnings.empty(),
+	       ( "sprite export: four files, no warning " + std::string( BkEditorLastMessage( pSession ) ) + " written " + std::to_string( report.written ) +
+	         " warnings " + std::to_string( report.warning_count ) ).c_str() );
+	Check( Files( outDir ) == "1111", ( "sprite export: 1.san, 1_c, 1_l and 1_h exist (" + Files( outDir ) + ")" ).c_str() );
+	SSpriteAnimationFormat fmt;
+	if ( Check( S07Compose::LoadSan( outDir / "1.san", fmt ), "sprite export: the engine reads the .san" ) )
+	{
+		const bool bShape = fmt.animations.size() == 1 && fmt.animations[0].dirs.size() == 1 && fmt.animations[0].rects.size() == 3;
+		if ( Check( bShape, "sprite export: one animation, one direction, three frames" ) )
+		{
+			const SSpriteAnimationFormat::SSpriteAnimation &anim = fmt.animations[0];
+			Check( anim.dirs[0].frames == std::vector<short>( { 0, 1, 2 } ) && anim.nFrameTime == 125 && !anim.bCycled && anim.fSpeed == 0.0f,
+			       "sprite export: frames 0 1 2, frame time 125, not cycled" );
+			bool bRects = true;
+			for ( const SSpriteRect &rect : anim.rects )
+				bRects = bRects && rect.rect.maxx - rect.rect.minx == 11 && rect.rect.maxy - rect.rect.miny == 11;
+			Check( bRects, "sprite export: each frame is cropped to its picture" );
+			std::printf( "SPRITE export: %zu animation, %zu rects, rect0 %d,%d-%d,%d frame time %d\n", fmt.animations.size(), anim.rects.size(), anim.rects[0].rect.minx,
+			             anim.rects[0].rect.miny, anim.rects[0].rect.maxx, anim.rects[0].rect.maxy, anim.nFrameTime );
+		}
+	}
+	const fs::file_time_type firstExport = fs::last_write_time( outDir / "1.san", ec );
+
+	// (b) stats-only writes nothing.
+	fs::remove_all( modDir / "data", ec );
+	warnings = Warnings( pSession, BK_RES_EXPORT_FORCE, true, report, status );
+	Check( status == BK_EDITOR_OK && report.written == 0 && HasWarning( warnings, "stats-only" ), "sprite stats-only: nothing written, said so" );
+	Check( Files( outDir ) == "0000", "sprite stats-only: no game file appears" );
+
+	// (c) the up-to-date skip: an older export (with the 1.tga MFC compared) is left alone.
+	Check( Warnings( pSession, BK_RES_EXPORT_FORCE, false, report, status ).empty() && status == BK_EDITOR_OK, "sprite skip: the forced export is made again" );
+	T10::WriteText( outDir / "1.tga", "x" );
+	fs::last_write_time( projectDir / "project.spt", firstExport - std::chrono::hours( 2 ), ec );
+	for ( int i = 0; i < 3; ++i )
+		fs::last_write_time( projectDir / "frames" / ( "f" + std::to_string( i ) + ".tga" ), firstExport - std::chrono::hours( 2 ), ec );
+	warnings = Warnings( pSession, 0, false, report, status );
+	Check( status == BK_EDITOR_OK && report.written == 0 && report.skipped >= 1, ( "sprite skip: up to date is skipped (written " + std::to_string( report.written ) +
+	       " skipped " + std::to_string( report.skipped ) + ")" ).c_str() );
+	fs::last_write_time( projectDir / "frames" / "f1.tga", fs::file_time_type::clock::now() + std::chrono::hours( 1 ), ec );
+	warnings = Warnings( pSession, 0, false, report, status );
+	Check( status == BK_EDITOR_OK && report.written == 4 && report.skipped == 0, "sprite skip: a newer frame exports again" );
+	fs::last_write_time( outDir / "1.tga", fs::file_time_type::clock::now() + std::chrono::hours( 2 ), ec );
+	fs::last_write_time( outDir / "1.san", fs::file_time_type::clock::now() + std::chrono::hours( 2 ), ec );
+	warnings = Warnings( pSession, BK_RES_EXPORT_FORCE, false, report, status );
+	Check( status == BK_EDITOR_OK && report.written == 4 && report.skipped == 0, "sprite skip: a forced export ignores the up-to-date files" );
+
+	// (d) a missing frame: left out without the stand-in picture, stood in for with it.
+	BkResClose( pSession );
+	fs::remove( projectDir / "frames" / "f1.tga", ec );
+	fs::remove_all( modDir / "data", ec );
+	if ( Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "sprite missing frame: the project reopens" ) )
+	{
+		warnings = Warnings( pSession, BK_RES_EXPORT_FORCE, false, report, status );
+		Check( status == BK_EDITOR_OK && HasWarning( warnings, "f1.tga" ) && HasWarning( warnings, "left out" ), "sprite missing frame: warns, naming the file, without invalid.tga" );
+		SSpriteAnimationFormat two;
+		Check( S07Compose::LoadSan( outDir / "1.san", two ) && two.animations.size() == 1 && two.animations[0].rects.size() == 2 && two.animations[0].dirs[0].frames == std::vector<short>( { 0, 1 } ),
+		       "sprite missing frame: the other two frames are exported" );
+		fs::create_directories( modDir / "data" / "editor", ec );
+		fs::copy_file( T11::FoldedPath( fs::path( szRoot ) / "Data", "Editor/invalid.tga" ), modDir / "data" / "editor" / "invalid.tga", fs::copy_options::overwrite_existing, ec );
+		warnings = Warnings( pSession, BK_RES_EXPORT_FORCE, false, report, status );
+		Check( status == BK_EDITOR_OK && HasWarning( warnings, "f1.tga" ) && HasWarning( warnings, "stands in" ), "sprite missing frame: warns, naming the file, with invalid.tga" );
+		SSpriteAnimationFormat three;
+		Check( S07Compose::LoadSan( outDir / "1.san", three ) && three.animations.size() == 1 && three.animations[0].rects.size() == 3 && three.animations[0].dirs[0].frames == std::vector<short>( { 0, 1, 2 } ),
+		       "sprite missing frame: invalid.tga fills the slot, three frames" );
+		BkResClose( pSession );
+	}
+
+	// (e) no frames: a warning, nothing written, not a failure.
+	{
+		const fs::path emptyDir = scratch / "empty";
+		fs::create_directories( emptyDir, ec );
+		T10::WriteText( emptyDir / "project.spt", Project( szFixture, {} ) );
+		fs::remove_all( modDir / "data", ec );
+		if ( Check( BkResOpen( pSession, ( emptyDir / "project.spt" ).string().c_str() ) == BK_EDITOR_OK, "sprite no frames: the project opens" ) )
+		{
+			warnings = Warnings( pSession, BK_RES_EXPORT_FORCE, false, report, status );
+			Check( status == BK_EDITOR_OK && report.written == 0 && HasWarning( warnings, "no valid animations" ),
+			       ( "sprite no frames: 'no valid animations' with nothing written (status " + std::to_string( int( status ) ) + ")" ).c_str() );
+			BkResClose( pSession );
+		}
+	}
+
+	// (f) the preview: Run plays the frames, Stop holds one.
+	{
+		const fs::path previewDir = scratch / "preview";
+		fs::create_directories( previewDir / "frames", ec );
+		for ( int i = 0; i < 3; ++i )
+			WriteFrame( previewDir / "frames" / ( "f" + std::to_string( i ) + ".tga" ), 64, 8, kColours[i][0], kColours[i][1], kColours[i][2] );
+		T10::WriteText( previewDir / "project.spt", Project( szFixture, { "f0", "f1", "f2" } ) );
+		if ( !Check( BkResOpen( pSession, ( previewDir / "project.spt" ).string().c_str() ) == BK_EDITOR_OK, "sprite preview: the project opens" ) )
+			return;
+		Check( BkResPreviewBegin( pSession, 4 ) == BK_EDITOR_OK, "sprite preview: Begin" );
+		const fs::path empty = scratch / "empty.tga";
+		Check( BkEditorCaptureFrame( pSession, empty.string().c_str() ) == BK_EDITOR_OK, "sprite preview: the empty frame captures" );
+		const BkEditorStatus nShow = BkResPreviewShow( pSession );
+		Check( nShow == BK_EDITOR_OK, ( std::string( "sprite preview: Show " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		auto Pump = [&]( int nMs )
+		{
+			const auto start = std::chrono::steady_clock::now();
+			while ( std::chrono::steady_clock::now() - start < std::chrono::milliseconds( nMs ) )
+				BkEditorFrame( pSession );
+		};
+		auto Shot = [&]( const char *pszName, std::vector<unsigned char> &rgb )
+		{
+			int nW = 0, nH = 0;
+			const fs::path tga = scratch / pszName;
+			return BkEditorCaptureFrame( pSession, tga.string().c_str() ) == BK_EDITOR_OK && T11::ReadCapture( tga.string(), rgb, nW, nH );
+		};
+		std::vector<unsigned char> emptyRgb, runA, runB, stopA, stopB;
+		int nW = 0, nH = 0;
+		const bool bEmpty = T11::ReadCapture( empty.string(), emptyRgb, nW, nH );
+		Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, "sprite preview: Run" );
+		Pump( 20 );
+		const bool bA = Shot( "run-a.tga", runA );
+		Pump( 140 );
+		const bool bB = Shot( "run-b.tga", runB );
+		Check( BkResPreviewPlayback( pSession, 0 ) == BK_EDITOR_OK, "sprite preview: Stop" );
+		Pump( 60 );
+		const bool bC = Shot( "stop-a.tga", stopA );
+		Pump( 200 );
+		const bool bD = Shot( "stop-b.tga", stopB );
+		const bool bRead = bEmpty && bA && bB && bC && bD;
+		Check( bRead, "sprite preview: the captures read back" );
+		const double fDrew = bRead ? T11::ChangedShare( runA, emptyRgb ) : -1.0;
+		const double fRun = bRead ? T11::ChangedShare( runA, runB ) : -1.0;
+		const double fStop = bRead ? T11::ChangedShare( stopA, stopB ) : -1.0;
+		std::printf( "SPRITE preview: drew-vs-empty=%f run-a-vs-b=%f stop-a-vs-b=%f\n", fDrew, fRun, fStop );
+		Check( fDrew >= 0.0005, "sprite preview: the sprite drew (>= 0.05% of the frame changed)" );
+		Check( fRun >= 0.0005, "sprite preview: Run plays, two frames 140 ms apart differ" );
+		Check( fStop == 0.0, "sprite preview: Stop holds, two frames 200 ms apart are equal" );
+		Check( BkResPreviewStop( pSession ) == BK_EDITOR_OK, "sprite preview: Stop preview" );
+		BkResClose( pSession );
+	}
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -3562,6 +3811,8 @@ int main( int argc, char **argv )
 
 	// S07 T05: the portable BuildAnimations and the .san writer.
 	S07Compose::Run( pszRoot, szFixtureRoot, szScratchRoot );
+	// S07 T06: the sprite exporter and its preview.
+	S07Sprite::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

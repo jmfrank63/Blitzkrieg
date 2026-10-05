@@ -29,6 +29,7 @@ bool ExportWeapon( const Project &project, const SExportContext &context, SExpor
 bool ExportMine( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportTrench( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportSquad( const Project &project, const SExportContext &context, SExportOutcome &outcome );
+bool ExportSprite( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 
 namespace NStatsExport
 {
