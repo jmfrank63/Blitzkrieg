@@ -653,6 +653,50 @@ test "tool: squad direction arrow turns the formation and its slots in one step"
     try testing.expectApproxEqAbs(@as(f32, 350), slots.points2[0].y, 1e-3);
 }
 
+/// CSquadFrame::CalculateNewPositions written out per member, independent of
+/// turnSlots, so the test pins the convention and not the helper.
+fn mfcTurned(slot: Point2, c: Point2, alpha: f32) Point2 {
+    return .{
+        .x = c.x + (slot.x - c.x) * @cos(alpha) - (slot.y - c.y) * @sin(alpha),
+        .y = c.y + (slot.x - c.x) * @sin(alpha) + (slot.y - c.y) * @cos(alpha),
+    };
+}
+
+test "tool: squad direction rotation equals MFC CalculateNewPositions" {
+    var h = Harness.init(testing.allocator);
+    defer h.deinit();
+    const formation = try squadProject(&h);
+    const zero = Point2{ .x = 716, .y = 366 };
+    // MFC starts from FormationDir 0 here; the project seeds 0.25.
+    const flat: GeometryValue = .{ .point2 = .{ .x = 0, .y = 0 } };
+    try bridge_mod.check(h.bridge().geometryWrite(formation, .formation_direction, &flat));
+    try h.doc.reload(h.allocator, h.bridge());
+
+    var previous: f32 = 0;
+    for ([_]f32{ std.math.pi / 2.0, 1.234 }) |angle| {
+        var before = try readGeometry(h.bridge(), formation, .formation_positions);
+        defer before.deinit(h.allocator);
+        try h.runTool("squad direction rotation", try setFormationDirection(h.allocator, h.bridge(), formation, angle, null));
+        var after = try readGeometry(h.bridge(), formation, .formation_positions);
+        defer after.deinit(h.allocator);
+        var direction = try readGeometry(h.bridge(), formation, .formation_direction);
+        defer direction.deinit(h.allocator);
+        try testing.expectEqual(angle, direction.point2.x);
+        for (before.points2, after.points2, 0..) |old, got, i| {
+            const want = mfcTurned(old, zero, angle - previous);
+            testing.expectApproxEqAbs(want.x, got.x, 1e-3) catch |err| {
+                std.debug.print("\nmember {d} angle {d}: expected ({d}, {d}) actual ({d}, {d})\n", .{ i, angle, want.x, want.y, got.x, got.y });
+                return err;
+            };
+            testing.expectApproxEqAbs(want.y, got.y, 1e-3) catch |err| {
+                std.debug.print("\nmember {d} angle {d}: expected ({d}, {d}) actual ({d}, {d})\n", .{ i, angle, want.x, want.y, got.x, got.y });
+                return err;
+            };
+        }
+        previous = angle;
+    }
+}
+
 test "tool: weapon shoot type insert" {
     var h = Harness.init(testing.allocator);
     defer h.deinit();
