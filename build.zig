@@ -8457,7 +8457,72 @@ const resource_auto_schedule =
     "184:expect=dirty:true," ++
     "185:do=redo," ++
     "186:expect=dirty:false," ++
-    "187:exit";
+    // S08 Unit (MeshFrm): a copy of the tracked fixture unit (its models and
+    // pictures beside it) opened, a Common value edited, undone and redone, the
+    // three model variants of the preview shot and differed, the locators shown
+    // and one picked at its screen point (the tree selects its node), then
+    // saved, exported (1.xml, the .mod copies) and played in the real Game.
+    "190:do=mod_dir:{mods}/reseditor_auto_s08," ++
+    "191:do=copy:{fix}/msh/project.msh>{dir}/msh/project.msh," ++
+    "191:do=copy:{fix}/msh/1.mod>{dir}/msh/1.mod," ++
+    "191:do=copy:{fix}/msh/2.mod>{dir}/msh/2.mod," ++
+    "191:do=copy:{fix}/msh/3.mod>{dir}/msh/3.mod," ++
+    "191:do=copy:{fix}/msh/1.tga>{dir}/msh/1.tga," ++
+    "191:do=copy:{fix}/msh/1w.tga>{dir}/msh/1w.tga," ++
+    "191:do=copy:{fix}/msh/1a.tga>{dir}/msh/1a.tga," ++
+    "191:do=copy:{fix}/msh/2.tga>{dir}/msh/2.tga," ++
+    "191:do=copy:{fix}/msh/2w.tga>{dir}/msh/2w.tga," ++
+    "191:do=copy:{fix}/msh/2a.tga>{dir}/msh/2a.tga," ++
+    "191:do=copy:{fix}/msh/icon.tga>{dir}/msh/icon.tga," ++
+    "191:do=copy:{fix}/msh/name.txt>{dir}/msh/name.txt," ++
+    "191:do=copy:{fix}/msh/desc.txt>{dir}/msh/desc.txt," ++
+    "192:open={dir}/msh/project.msh," ++
+    "193:expect=kind:msh," ++
+    "194:expect=nodes_min:20," ++
+    "195:expect=dirty:false," ++
+    "196:do=set_prop:Health=120," ++
+    "197:expect=prop:Health=120," ++
+    "198:expect=dirty:true," ++
+    "199:do=undo," ++
+    "200:expect=prop:Health=100," ++
+    "201:do=redo," ++
+    "202:expect=prop:Health=120," ++
+    "203:do=preview_run," ++
+    "204:do=pause:200," ++
+    "205:do=mesh_variant:0," ++
+    "206:do=pause:150," ++
+    "206:shot=unit_combat," ++
+    "207:expect=shot_lit:unit_combat," ++
+    "208:do=mesh_variant:1," ++
+    "209:do=pause:150," ++
+    "209:shot=unit_install," ++
+    "210:expect=shot_lit:unit_install," ++
+    "211:do=mesh_variant:2," ++
+    "212:do=pause:150," ++
+    "212:shot=unit_transportable," ++
+    "213:expect=shot_lit:unit_transportable," ++
+    "214:differ=unit_combat/unit_transportable@0.1," ++
+    "214:differ=unit_combat/unit_install@0.005," ++
+    "215:do=mesh_variant:0," ++
+    "216:do=locators:1," ++
+    "217:do=pause:150," ++
+    "217:shot=unit_locators," ++
+    "218:differ=unit_combat/unit_locators@0.001," ++
+    "219:do=pick_locator:LMainGun," ++
+    "220:expect=selected:LMainGun," ++
+    "221:do=pick_locator:Turret," ++
+    "222:expect=selected:Turret," ++
+    "223:expect=dirty:true," ++
+    "224:save," ++
+    "225:expect=dirty:false," ++
+    "226:do=export," ++
+    "227:expect=exported," ++
+    "228:expect=file:{mods}/reseditor_auto_s08/data/units/technics/msh/1.xml," ++
+    "228:expect=file:{mods}/reseditor_auto_s08/data/units/technics/msh/1.mod," ++
+    "229:do=preview_stop," ++
+    "230:do=run_game," ++
+    "231:waitgame=240," ++
+    "232:exit";
 
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static

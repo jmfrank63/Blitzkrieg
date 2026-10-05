@@ -94,15 +94,15 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-01.1 | Tree: Common, Defences, Graphics, Platforms (Guns), Joggings, Locators, Avia, Effects, Sound, Death craters, Track | todo |
-| B-01.2 | 3D mesh preview (`IMeshVisObj`, `AddMeshPair`) | todo |
-| B-01.3 | Show locators / show bounding box (toolbar) | todo |
-| B-01.4 | Pick a locator with right-click | todo |
-| B-01.5 | Gun point, gun part, carriage, platform dropdowns | todo |
-| B-01.6 | Combat / install / transportable model switch | todo |
-| B-01.7 | Direction arrow dock | todo |
-| B-01.8 | Export: `1.xml` `SMechUnitRPGStats`, copied `*.mod`, `1/1w/1a/2/2w/2a/1p*` DDS, `icon.tga` 64 px, `icon` DDS 128 px, `icon512`, `name/desc.txt`; auto DXT format choice | todo |
-| B-01.9 | Import from game data | todo |
+| B-01.1 | Tree: Common, Defences, Graphics, Platforms (Guns), Joggings, Locators, Avia, Effects, Sound, Death craters, Track | done: mesh import and tree tests in resource_bridge_test (S08 T02); auto frames 192-195 (open msh, nodes_min:20) |
+| B-01.2 | 3D mesh preview (`IMeshVisObj`, `AddMeshPair`) | done: resource_bridge_test "mesh preview" captures per variant (S08 T04); auto frames 203-213 shot_lit unit_combat/unit_install/unit_transportable |
+| B-01.3 | Show locators / show bounding box (toolbar) | done: mesh_logic toolbar test "the toolbar sets the variant and the toggles through the bridge"; auto frames 216-218 (locators on, differ unit_locators). Bounding boxes: toolbar toggle through BkResPreviewShowLocators |
+| B-01.4 | Pick a locator with right-click | done: mesh_logic tests "pickLocator takes the nearest marker...", "a pick selects the locator's tree node and records nothing"; auto frames 219-222 (pick_locator, expect=selected) |
+| B-01.5 | Gun point, gun part, carriage, platform dropdowns | done: mesh_logic tests "the locator combos follow the combat model's skeleton" and the undo/redo tests for a gun point, part and carriage locator reference and a platform's locator choice |
+| B-01.6 | Combat / install / transportable model switch | done: mesh_logic test "undo and redo: a model switch rebuilds the locator children both ways"; auto frames 205-213 (mesh_variant 0, 1, 2) |
+| B-01.7 | Direction arrow dock | done: mesh_logic test "the direction dock's angle turns the previewed unit by the degrees it shows" |
+| B-01.8 | Export: `1.xml` `SMechUnitRPGStats`, copied `*.mod`, `1/1w/1a/2/2w/2a/1p*` DDS, `icon.tga` 64 px, `icon` DDS 128 px, `icon512`, `name/desc.txt`; auto DXT format choice | done except golden: msh exporter tests in resource_bridge_test (S08 T01, T03); auto frames 226-228 (export, 1.xml, 1.mod); golden pending win-home |
+| B-01.9 | Import from game data | done: six shipped units import, save, reopen and export stats-only field-equal to their 1.xml (S08 T02) |
 
 ### B-02 Infantry editor (`CAnimationFrame`, `.unt`, `units\humans\`) — 06-07
 

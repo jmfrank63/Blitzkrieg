@@ -32,6 +32,9 @@
 //!   do=squad_arrow:<x>/<y>   the arrow gesture (press, move, release) at a world point, through arrowAngle
 //!   do=frame:<picture>      a thumbnail double-click: a frame under the Sprites item or the first animation
 //!   do=delete_frame         the last frame item of the project, as the thumbnail list's Delete
+//!   do=mesh_variant:<0|1|2>   the unit preview's combat, install or transportable model
+//!   do=locators:<0|1>       the locator markers of the unit preview off or on
+//!   do=pick_locator:<name>  the right-click of the unit preview at that locator's screen point, through mesh_logic.pickLocator
 //!   do=preview_on           from here the preview scene follows the open project, as in the docks
 //!   do=preview_run          do=preview_stop   Run (F5) and Stop of the preview, through previewPlayback
 //!   do=pause:<ms>           real time passes, for the preview's clock
@@ -41,6 +44,7 @@
 //!          shot_same:<a>/<b>  the two frames are pixel for pixel equal
 //!          slot:<n>=moved|home  the formation member against where the drag found it
 //!          direction:<radians>  the formation's direction
+//!          selected:<name>  the tree's selected node shows that name (a picked locator)
 //!
 //! `{dir}` (the scratch folder), `{fix}` (the fixtures folder) and `{mods}`
 //! (the installation's mods folder) are replaced in every path and argument,
@@ -65,6 +69,7 @@ const panels_mod = @import("panels.zig");
 const tools = @import("tools_logic.zig");
 const squad = @import("squad_logic.zig");
 const docks_logic = @import("docks_logic.zig");
+const mesh = @import("mesh_logic.zig");
 
 const c = c_bridge.c;
 
@@ -548,6 +553,19 @@ const Runner = struct {
             self.preview_on = true;
             return null;
         }
+        if (eql(u8, name, "mesh_variant")) {
+            const index = std.fmt.parseInt(u8, named.arg, 10) catch return self.fail("mesh_variant needs 0, 1 or 2", .{});
+            if (index > 2) return self.fail("mesh_variant needs 0, 1 or 2, not {d}", .{index});
+            self.panels.mesh_toolbar.setVariant(b, @enumFromInt(index)) catch return self.fail("mesh_variant:{d}: {s}", .{ index, b.lastMessage() });
+            return null;
+        }
+        if (eql(u8, name, "locators")) {
+            const on = eql(u8, named.arg, "1");
+            if (!on and !eql(u8, named.arg, "0")) return self.fail("locators needs 0 or 1", .{});
+            self.panels.mesh_toolbar.setShow(b, on, false) catch return self.fail("locators:{s}: {s}", .{ named.arg, b.lastMessage() });
+            return null;
+        }
+        if (eql(u8, name, "pick_locator")) return self.pickLocator(named.arg);
         if (eql(u8, name, "preview_run")) {
             if (!self.preview.run(b)) return self.fail("preview_run: {s}", .{self.preview.message()});
             return null;
@@ -563,6 +581,28 @@ const Runner = struct {
             return null;
         }
         return self.fail("unknown command '{s}'", .{name});
+    }
+
+    /// The right-click of the unit preview at the screen point of the named
+    /// locator: the pick goes through the same mesh_logic entry the panel's
+    /// click does, so the name only chooses where to click.
+    fn pickLocator(self: *Runner, wanted: []const u8) ?[]const u8 {
+        const b = self.bridge();
+        var buffer: [mesh.locator_capacity]core.bridge.MeshLocator = undefined;
+        const markers = mesh.readLocators(b, &buffer) catch return self.fail("pick_locator:{s}: {s}", .{ wanted, b.lastMessage() });
+        var at: ?Point2 = null;
+        for (markers) |marker| {
+            if (std.ascii.eqlIgnoreCase(marker.nameSlice(), wanted)) at = .{ .x = marker.sx, .y = marker.sy };
+        }
+        const point = at orelse return self.fail("pick_locator: the preview has no locator named {s} among {d}", .{ wanted, markers.len });
+        const pick = mesh.pickAndSelect(self.gpa, &self.life.doc, &self.panels.selection, markers, point) catch return self.fail("pick_locator:{s}: out of memory", .{wanted});
+        switch (pick) {
+            .node => return null,
+            .miss => |nearest| {
+                var text: [160]u8 = undefined;
+                return self.fail("pick_locator:{s}: {s}", .{ wanted, mesh.missText(&text, point, nearest) });
+            },
+        }
     }
 
     /// The last sprite or infantry frame item in tree order.
@@ -724,6 +764,12 @@ const Runner = struct {
             if (self.compareShots(arg[0..slash], arg[slash + 1 ..], &diff)) |reason| return reason;
             if (diff.differing != 0) return self.fail("expect=shot_same:{s} was false: {d:.3}% of the pixels differ", .{ arg, @as(f64, diff.fraction()) * 100.0 });
             std.debug.print("resource-editor: auto: {s} are equal ({d:.3}% differ)\n", .{ arg, @as(f64, diff.fraction()) * 100.0 });
+            return null;
+        }
+        if (eql(u8, name, "selected")) {
+            const node_id = self.panels.selection.primary orelse return self.fail("expect=selected:{s} was false: nothing is selected", .{arg});
+            const node = self.life.doc.tree.findNode(node_id) orelse return self.fail("expect=selected:{s} was false: node {d} is gone", .{ arg, node_id });
+            if (!std.ascii.eqlIgnoreCase(node.displaySlice(), arg)) return self.fail("expect=selected:{s} was false: the selected node is '{s}'", .{ arg, node.displaySlice() });
             return null;
         }
         if (eql(u8, name, "slot")) {
