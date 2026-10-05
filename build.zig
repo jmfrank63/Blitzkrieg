@@ -2207,6 +2207,11 @@ pub fn build(b: *std.Build) void {
     // After install-game, whose step it depends on: the tier's executable is
     // staged into the layout that step creates.
     addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step);
+    // S04 T01: the resource bridge's smoke tier (test-resource-bridge). Reuses
+    // the same engine static libraries addEditorBridgeTest links, and is staged
+    // into the same install directory so NPlatform::Paths derives the right
+    // roots. The step compiles unconditionally and runs only in test_mode==.run.
+    addResourceBridge(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     // The editor's platforms: macOS on Apple Silicon and Intel, Linux x64 and
     // Windows x64 (MSVC); everywhere else there is no MapEditor.
     const map_editor_platform = (target.result.os.tag == .macos and (target.result.cpu.arch == .aarch64 or target.result.cpu.arch == .x86_64)) or
@@ -3880,6 +3885,10 @@ fn addEditorBridge(
             "Sources/src/EditorBridge/session_fields.cpp",
             "Sources/src/EditorBridge/session_layers.cpp",
             "Sources/src/EditorBridge/world.cpp",
+            // S04 T01: the resource bridge's C ABI, stubbed today, filled in
+            // by T02..T06. One archive beside bridge.cpp so a resource editor
+            // process links EditorBridge and gets both ABIs.
+            "Sources/src/EditorBridge/resource_bridge.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
     });
@@ -6022,6 +6031,108 @@ fn addEditorBridgeTest(
         previous_craft = &run_craft.step;
         if (test_mode == .run) craft_step.dependOn(&run_craft.step);
     }
+}
+
+// S04 T01: the resource bridge's smoke tier. One executable linking the same
+// static libraries test-editor-bridge links (the "five engine targets" the
+// slice plan names: EditorBridge, MapFile, Main, RandomMapGen, Formats, Misc,
+// PlatformRuntime and SDL - a bake of the game's engine), staged beside Game
+// so NPlatform::Paths derives the right roots on every runner. On a host
+// without a GPU (CI's Linux runner, three of the six) the executable prints
+// "skipped: no GPU device" and exits 0 - the same gate editor_bridge_test
+// uses, with BK_REQUIRE_ENGINE=1 turning a skip into a failure on the
+// runners that do have a device (so a regression there cannot hide as a
+// skip). The step gates test_mode == .run, so the configure-only build
+// (zig build) compiles the executable but does not run it.
+fn addResourceBridge(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Formats"));
+    module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addIncludePath(b.path("Sources/src/GFX"));
+    module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    module.addIncludePath(sdl_include);
+    module.addCSourceFiles(.{
+        .files = &.{"Sources/src/EditorBridge/resource_bridge_test.cpp"},
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addMacosSysrootPaths(b, module, target);
+    linkMsvcRuntime(module, optimize);
+    if (target.result.os.tag == .windows) {
+        linkComSupport(module, optimize);
+        module.linkSystemLibrary("version", .{});
+        module.linkSystemLibrary("winmm", .{});
+        module.linkSystemLibrary("odbc32", .{});
+        module.linkSystemLibrary("odbccp32", .{});
+        module.linkSystemLibrary("shlwapi", .{});
+        module.linkSystemLibrary("advapi32", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("gdi32", .{});
+        module.linkSystemLibrary("shell32", .{});
+    }
+    module.linkLibrary(editor_bridge);
+    module.linkLibrary(map_file);
+    module.linkLibrary(main_lib);
+    module.linkLibrary(randommapgen);
+    module.linkLibrary(formats);
+    module.linkLibrary(misc);
+    module.linkLibrary(lualib);
+    module.linkLibrary(zlib);
+    module.linkLibrary(platform_runtime);
+    linkSdlImport(module, target, sdl_dynamic);
+
+    const exe = b.addExecutable(.{ .name = "resource-bridge-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    // Linux loader pitfalls the Map Editor already solved (AGENTS.md):
+    // rdynamic so engine modules resolve host RTTI and $ORIGIN rpath so the
+    // staged binary finds libStreamIO etc. beside itself.
+    if (target.result.os.tag == .linux) exe.rdynamic = true;
+    switch (target.result.os.tag) {
+        .macos => exe.root_module.addRPathSpecial("@executable_path"),
+        .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
+        else => {},
+    }
+
+    const stage_suffix = stage_root["zig-out/".len..];
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
+    install_exe.step.dependOn(install_game_step);
+
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path(stage_root));
+    run.addArg(".");
+    // Reads the staged Data and modules, neither a file input of this step:
+    // a cached pass would say nothing about the installation now.
+    run.has_side_effects = true;
+    run.step.dependOn(&install_exe.step);
+    const step = b.step("test-resource-bridge", "Smoke the resource bridge through the engine: start, BkResNew(wpn), BkResClose, stop");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
 }
 
 /// The static libraries MapEditor's executables link: the engine

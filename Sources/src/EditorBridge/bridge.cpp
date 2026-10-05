@@ -7,6 +7,8 @@
 #include "StdAfx.h"
 #include "bridge.h"
 #include "session.h"
+#include "bridge_session.h"
+#include "guarded.h"
 #include "world.h"
 #include "../MapFile/MapOverlay.h"
 #include "../MapFile/MapRecords.h"
@@ -58,29 +60,11 @@ ISaveLoadSystem *g_pGlobalSaveLoadSystem = 0;
 ISingleton *g_pGlobalSingleton = 0;
 GETTEMPRAWBUFFER_HOOK g_pfnGlobalGetTempRawBuffer = 0;
 
-// The window the session was started on, which BkEditorResize reads the new
-// size of. The caller owns it and keeps it alive for the session.
-struct BkEditorSession : public SEditorSession
-{
-	void *pWindow;
-	// The active mod (03-08, D-26): folder exactly as BkEditorSetMod was
-	// given (never lower-cased), and mod.xml's own name/version - all empty
-	// when none is active. BkEditorSaveMap reads these to stamp
-	// szMODName/szMODVersion (D-28).
-	std::string szModFolder, szModName, szModVersion;
-	// BkEditorTilePicture's cache (03-15 gap fix): the tileset last asked
-	// about, by its storage name, with its texture decoded once and its
-	// description as its own .xml has it. Dropped by BkEditorSetMod - the same
-	// name may be another file in the new mod's storage.
-	std::string szTileAtlasName;
-	CPtr<IImage> pTileAtlas;
-	STilesetDesc tileAtlasDesc;
-	// The mod's data storage while a mod is active (the layer the data storage
-	// holds as "MOD"), kept so the user RMG root can be remounted below it
-	// (session_rmg.cpp MountRmgRoot).
-	CPtr<IDataStorage> pModStorage;
-	BkEditorSession() : pWindow( 0 ) {  }
-};
+// BkEditorSession's struct body moved to bridge_session.h so resource_bridge.cpp
+// can accept the same pointer and the shared Guarded template (guarded.h) sees
+// the inheritance from SEditorSession. The window the session was started on,
+// which BkEditorResize reads the new size of, is still owned by the caller and
+// kept alive for the session - see the header's own comments for every field.
 
 namespace {
 
@@ -141,25 +125,12 @@ bool ZoomAtScreenPoint( BkEditorSession *pSession, int nSteps, float fSx, float 
 	return true;
 }
 
-// Every entry point that needs a session goes through this. The catch is not
-// decoration: an engine throw escaping here would unwind out of this module and
-// into a Zig caller.
-template<class F>
-BkEditorStatus Guarded( BkEditorSession *pSession, F body )
-{
-	if ( pSession == 0 )
-		return BK_EDITOR_NO_SESSION;
-	try
-	{
-		pSession->szMessage.clear();
-		return body();
-	}
-	catch ( ... )
-	{
-		pSession->szMessage = "the engine threw";
-		return BK_EDITOR_FAILED;
-	}
-}
+// Guarded has moved into Sources/src/EditorBridge/guarded.h so both bridge.cpp
+// (the map bridge) and resource_bridge.cpp (the resource bridge) go through the
+// one wrapper; see the header's own comment for the reason the catch is not
+// decoration. The template is at namespace scope now rather than in this
+// anonymous namespace, which costs nothing: it is a function template, no
+// alternative overload is in sight, and ADL on a BkEditorSession* lands on it.
 
 // A frame as an uncompressed 32-bit TGA: type 2, top-left origin (descriptor
 // 0x28: 8 alpha bits and the top-to-bottom flag), BGRA, alpha forced opaque
