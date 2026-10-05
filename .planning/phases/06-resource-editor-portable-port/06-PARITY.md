@@ -108,14 +108,14 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-02.1 | Tree: Common, Localization, AI, Weapon, Grenade, Season directories, Animations/Frames, Actions, Exposures, Acks/Ack types | todo |
-| B-02.2 | Animation preview Run/Stop (F5) | todo |
-| B-02.3 | Frame thumbnail list | todo |
-| B-02.4 | Ack Import/Export (`IDR_ACK_MENU`; MFC has enable handlers only) | todo — recover intent; port if clear, else "no behaviour in MFC" |
-| B-02.5 | Export RPG Stats only (Ctrl+R) | todo |
-| B-02.6 | Export: `1.xml` `SInfantryRPGStats`, `1[b][w\|a].san` + DDS per season/blood variant, `name/desc/stats.txt` | todo |
-| B-02.7 | Opens every `.unt` in `Data/Old` and `WinSniper.unt` | todo |
-| B-02.8 | Import from game data | todo |
+| B-02.1 | Tree: Common, Localization, AI, Weapon, Grenade, Season directories, Animations/Frames, Actions, Exposures, Acks/Ack types | done: resource_core sub_editor_tools tests; auto frames 170-174 (open unt, set_prop) |
+| B-02.2 | Animation preview Run/Stop (F5) | done: previewPlayback via ResBridge vtable; test-resource-bridge Run/Stop shots; auto `preview_run`/`preview_stop` + `shot_lit` (frames 178-182) |
+| B-02.3 | Frame thumbnail list | done: infantryAddFrame/delete undoable (sub_editor_tools tests); auto `frame:`/`delete_frame` |
+| B-02.4 | Ack Import/Export (`IDR_ACK_MENU`; MFC has enable handlers only) | no behaviour in MFC: IDR_ACK_MENU items ID_IMPORT_ACK_FILE and ID_EXPORT_ACK_FILE have only always-Enable ON_UPDATE_COMMAND_UI handlers in AnimationFrm.cpp and MeshFrm.cpp, DisplayAcksMenu has no caller, CUnitAckTypesItem and CUnitAckTypePropsItem are empty; the Ack set references are already pickers |
+| B-02.5 | Export RPG Stats only (Ctrl+R) | done: unt exporter stats-only path; test-resource-bridge |
+| B-02.6 | Export: `1.xml` `SInfantryRPGStats`, `1[b][w\|a].san` + DDS per season/blood variant, `name/desc/stats.txt` | done: unt exporter (1.xml, 1[b][w|a].san + DDS, localisation copies) with comparator and bridge tests, auto `do=export` + `expect=exported` (frame 177); golden parity pending win-home (export-goldens.ps1 -Extensions spt,unt) |
+| B-02.7 | Opens every `.unt` in `Data/Old` and `WinSniper.unt` | done: 15-file .unt round-trip loop over Data/Old + WinSniper.unt (test-resource-core, test-resource-bridge) |
+| B-02.8 | Import from game data | done: shipped-human import comparison (test-resource-bridge) |
 
 ### B-03 Squad editor (`CSquadFrame`, `.scp`, `squads\`) — 06-06
 
@@ -124,7 +124,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-03.1 | Tree: Common (picture, type), Members, Formations | done: tree in panels; resource-editor-auto S06 block (scp) |
 | B-03.2 | Formation layout: drag members | done: FormationDrag one undo step; sub_editor_tools tests (fake + real bridge), squad_logic tests, auto `squad_drag` + `expect=slot` |
 | B-03.3 | Set zero point (toolbar) | done: setZeroPoint undoable; sub_editor_tools tests, auto `squad_zero` |
-| B-03.4 | Direction arrow dock | done: formation_direction arrow, one composite undo step; sub_editor_tools tests, auto `squad_dir` + `expect=direction` |
+| B-03.4 | Direction arrow dock | done: formation_direction arrow, one composite undo step; sub_editor_tools tests, auto `squad_dir` + `expect=direction`; MFC angle convention atan2(-dx, dy): T01-T03 tests print expected/actual angle and vector, auto `squad_arrow` + `expect=squad_dir` |
 | B-03.5 | Export: `SSquadRPGStats` + copied icon | done: scp exporter (stats + icon copy) read back by engine; test-resource-bridge, auto `do=export`; golden parity pending win-home (export-goldens.ps1 -Extensions wpn,mcp,trc,scp) |
 | B-03.6 | Import from game data | done: import-then-export round trip german_rifle_45 in test-resource-bridge |
 
@@ -160,10 +160,10 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-07.1 | Tree: Sprites, Sprite properties | todo |
-| B-07.2 | Run/Stop preview; thumbnail list | todo |
-| B-07.3 | Export: `1.san` + DDS (`BuildAnimations`, `SSpriteAnimationFormat`) | todo |
-| B-07.4 | Import from game data | todo |
+| B-07.1 | Tree: Sprites, Sprite properties | done: sub_editor_tools tests; auto frames 143-145 |
+| B-07.2 | Run/Stop preview; thumbnail list | done: measured Run/Stop shots in test-resource-bridge; auto `preview_run`, `shot_lit`, `differ`, `shot_same` (frames 151-159) |
+| B-07.3 | Export: `1.san` + DDS (`BuildAnimations`, `SSpriteAnimationFormat`) | done: spt exporter (1.san + 1_c/1_l/1_h DDS), .san byte-identical to shipped Mp43 1.san; test-resource-bridge, auto `do=export` (frame 150); golden parity pending win-home (export-goldens.ps1 -Extensions spt,unt) |
+| B-07.4 | Import from game data | no behaviour in MFC (no reverse path for sprites) |
 
 ### B-08 Effect editor (`CEffectFrame`, `.eff`, `effects\effects\`) — 06-12
 

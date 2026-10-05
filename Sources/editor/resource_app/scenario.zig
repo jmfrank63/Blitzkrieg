@@ -30,9 +30,15 @@
 //!   do=squad_drag:<slot>/<dx>/<dy>   a formation member dragged by a world offset
 //!   do=squad_zero:<x>/<y>   do=squad_dir:<radians>   the zero point, the direction arrow
 //!   do=squad_arrow:<x>/<y>   the arrow gesture (press, move, release) at a world point, through arrowAngle
+//!   do=frame:<picture>      a thumbnail double-click: a frame under the Sprites item or the first animation
+//!   do=delete_frame         the last frame item of the project, as the thumbnail list's Delete
+//!   do=preview_on           from here the preview scene follows the open project, as in the docks
+//!   do=preview_run          do=preview_stop   Run (F5) and Stop of the preview, through previewPlayback
+//!   do=pause:<ms>           real time passes, for the preview's clock
 //!   open=<path> save saveas=<path> shot=<name> differ=<a>/<b>@<percent> exit
 //!   expect=kind:<ext>  dirty:<true|false>  untitled  nodes_min:<n>
 //!          prop:<name>=<value>  exported  file:<path>  shot_lit:<name>
+//!          shot_same:<a>/<b>  the two frames are pixel for pixel equal
 //!          slot:<n>=moved|home  the formation member against where the drag found it
 //!          direction:<radians>  the formation's direction
 //!
@@ -58,6 +64,7 @@ const logic = @import("panels_logic.zig");
 const panels_mod = @import("panels.zig");
 const tools = @import("tools_logic.zig");
 const squad = @import("squad_logic.zig");
+const docks_logic = @import("docks_logic.zig");
 
 const c = c_bridge.c;
 
@@ -281,6 +288,10 @@ const Runner = struct {
     base_root: []const u8,
     running: ?testlaunch.Running = null,
     exported: bool = false,
+    /// The docks' preview state (Run, Stop), driven here the way Docks drives
+    /// it, since the auto tier draws only the panels.
+    preview: docks_logic.PreviewSync = .{},
+    preview_on: bool = false,
     /// The slot a squad_drag moved and where it stood before, for expect=slot.
     dragged: ?struct { formation: i32, slot: usize, home: Point2 } = null,
     frame: u32 = 0,
@@ -390,19 +401,26 @@ const Runner = struct {
         }
     }
 
-    fn differ(self: *Runner, d: schedule.Differ) ?[]const u8 {
+    /// Two captured shots compared into `diff`; null when they could be, else why not.
+    fn compareShots(self: *Runner, a_name: []const u8, b_name: []const u8, diff: *schedule.Diff) ?[]const u8 {
         var a_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         var b_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-        const a_path = self.shotPath(&a_buffer, d.a) orelse return self.fail("the shot path is too long", .{});
-        const b_path = self.shotPath(&b_buffer, d.b) orelse return self.fail("the shot path is too long", .{});
+        const a_path = self.shotPath(&a_buffer, a_name) orelse return self.fail("the shot path is too long", .{});
+        const b_path = self.shotPath(&b_buffer, b_name) orelse return self.fail("the shot path is too long", .{});
         const a_bytes = readFile(self.io, self.gpa, a_path) catch |err| return self.fail("{s}: {s}", .{ a_path, @errorName(err) });
         defer self.gpa.free(a_bytes);
         const b_bytes = readFile(self.io, self.gpa, b_path) catch |err| return self.fail("{s}: {s}", .{ b_path, @errorName(err) });
         defer self.gpa.free(b_bytes);
         const a = schedule.Tga.parse(a_bytes) catch |err| return self.fail("{s}: {s}", .{ a_path, @errorName(err) });
         const b = schedule.Tga.parse(b_bytes) catch |err| return self.fail("{s}: {s}", .{ b_path, @errorName(err) });
-        const diff = schedule.compareTga(a, b, schedule.default_channel_tolerance);
-        if (!diff.same_size) return self.fail("{s} and {s} are different sizes", .{ d.a, d.b });
+        diff.* = schedule.compareTga(a, b, schedule.default_channel_tolerance);
+        if (!diff.same_size) return self.fail("{s} and {s} are different sizes", .{ a_name, b_name });
+        return null;
+    }
+
+    fn differ(self: *Runner, d: schedule.Differ) ?[]const u8 {
+        var diff: schedule.Diff = undefined;
+        if (self.compareShots(d.a, d.b, &diff)) |reason| return reason;
         const percent = @as(f64, diff.fraction()) * 100.0;
         if (percent <= d.percent) return self.fail("{s} and {s} differ in {d:.3}% of their pixels, not more than {d:.3}%", .{ d.a, d.b, percent, d.percent });
         std.debug.print("resource-editor: auto: {s} and {s} differ in {d:.2}% of their pixels\n", .{ d.a, d.b, percent });
@@ -517,7 +535,43 @@ const Runner = struct {
         }
         if (eql(u8, name, "squad_arrow")) return self.squadArrow(named.arg);
         if (eql(u8, name, "run_game")) return self.runGame();
+        if (eql(u8, name, "frame")) {
+            docks_logic.addFrameFromPicture(self.gpa, b, &self.life, null, named.arg) catch return self.fail("frame:{s}: {s}", .{ named.arg, b.lastMessage() });
+            return null;
+        }
+        if (eql(u8, name, "delete_frame")) {
+            const frame = self.lastFrame() orelse return self.fail("delete_frame: the project has no frame item", .{});
+            docks_logic.deleteSelectedFrame(self.gpa, b, &self.life, frame) catch return self.fail("delete_frame: {s}", .{b.lastMessage()});
+            return null;
+        }
+        if (eql(u8, name, "preview_on")) {
+            self.preview_on = true;
+            return null;
+        }
+        if (eql(u8, name, "preview_run")) {
+            if (!self.preview.run(b)) return self.fail("preview_run: {s}", .{self.preview.message()});
+            return null;
+        }
+        if (eql(u8, name, "preview_stop")) {
+            self.preview.halt(b);
+            if (self.preview.running) return self.fail("preview_stop: the preview is still running", .{});
+            return null;
+        }
+        if (eql(u8, name, "pause")) {
+            const ms = std.fmt.parseInt(i64, named.arg, 10) catch return self.fail("pause needs milliseconds", .{});
+            self.io.sleep(.fromMilliseconds(ms), .awake) catch {};
+            return null;
+        }
         return self.fail("unknown command '{s}'", .{name});
+    }
+
+    /// The last sprite or infantry frame item in tree order.
+    fn lastFrame(self: *Runner) ?i32 {
+        var found: ?i32 = null;
+        for (self.life.doc.tree.nodes.items) |*node| {
+            if (sub_tools.isClass(node, sub_tools.item_type.sprite_props) or sub_tools.isClass(node, sub_tools.item_type.unit_frame_props)) found = node.id;
+        }
+        return found;
     }
 
     fn firstFormation(self: *Runner) ?i32 {
@@ -663,6 +717,15 @@ const Runner = struct {
             std.debug.print("resource-editor: auto: {s} has {d:.1}% of its frame drawn\n", .{ arg, lit });
             return null;
         }
+        if (eql(u8, name, "shot_same")) {
+            const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return self.fail("shot_same needs <a>/<b>", .{});
+            // The frames may not differ in a single pixel (past the channel tolerance).
+            var diff: schedule.Diff = undefined;
+            if (self.compareShots(arg[0..slash], arg[slash + 1 ..], &diff)) |reason| return reason;
+            if (diff.differing != 0) return self.fail("expect=shot_same:{s} was false: {d:.3}% of the pixels differ", .{ arg, @as(f64, diff.fraction()) * 100.0 });
+            std.debug.print("resource-editor: auto: {s} are equal ({d:.3}% differ)\n", .{ arg, @as(f64, diff.fraction()) * 100.0 });
+            return null;
+        }
         if (eql(u8, name, "slot")) {
             const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return self.fail("slot needs <n>=moved|home", .{});
             const drag = self.dragged orelse return self.fail("expect=slot:{s}: no squad_drag ran", .{arg});
@@ -733,12 +796,18 @@ pub fn auto(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ho
     defer runner.life.deinit(gpa);
     defer runner.panels.deinit(gpa);
     defer _ = runner.bridge().close();
+    // Before the bridge closes: the preview scene belongs to the engine's modules.
+    defer runner.preview.stop(runner.bridge());
     defer if (runner.running) |*r| r.terminate(io);
 
     var last: u32 = 0;
     for (entries) |entry| last = @max(last, entry.frame);
     var exiting = false;
     while (runner.frame <= last and !exiting) : (runner.frame += 1) {
+        // The docks' once-a-frame sync: the scene of the open project is begun a
+        // frame before Run. Off until do=preview_on, so the earlier blocks'
+        // frames stay as they were measured.
+        if (runner.preview_on) _ = runner.preview.sync(runner.bridge(), runner.life.is_open, runner.life.doc.kind);
         for ([_]bool{ true, false }) |before_draw| {
             if (!before_draw) {
                 drawFrame(host, &runner.panels, gpa, runner.bridge(), &runner.life) catch |err|

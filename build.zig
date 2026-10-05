@@ -8289,12 +8289,12 @@ const resource_auto_schedule =
     "22:expect=dirty:true," ++
     "23:save," ++
     "24:expect=dirty:false," ++
-    // No kind has an exporter yet, so Export is refused naming the kind (this
-    // entry becomes do=export, expect=exported when the first one is ported).
-    // A tracked file stands in for the exported data so Compress to PAK, which
-    // the engine's own PAK reader reads back, and Run Blitzkrieg have a mod.
+    // The infantry exporter (S07) writes this project into the mod folder; a
+    // tracked file stands in for further data so Compress to PAK, which the
+    // engine's own PAK reader reads back, and Run Blitzkrieg have a mod.
     "25:do=mod_dir:{mods}/reseditor_auto," ++
-    "26:do=export_refused," ++
+    "26:do=export," ++
+    "26:expect=exported," ++
     "27:do=copy:{fix}/unt/mesh-2x2x2.obj>{mods}/reseditor_auto/data/x/m.obj," ++
     "28:do=pack:{dir}/auto.pak," ++
     "29:expect=file:{dir}/auto.pak," ++
@@ -8397,7 +8397,66 @@ const resource_auto_schedule =
     "129:save," ++
     "130:do=export," ++
     "131:expect=exported," ++
-    "132:exit";
+    // S07 Sprite (SpriteFrm): the frame folder pointed at, a thumbnail
+    // double-click, saved and exported (1.san + DDS), then Run and Stop of the
+    // preview measured: the running frames differ, the stopped ones are equal.
+    "139:do=preview_on," ++
+    "140:do=mod_dir:{mods}/reseditor_auto_s07," ++
+    "141:do=copy:{fix}/spt/project.spt>{dir}/spt/project.spt," ++
+    "142:do=copy:{fix}/spt/sprite-1frame.tga>{dir}/spt/frames/sprite-1frame.tga," ++
+    "142:do=copy:{fix}/mcp/art-16x16.tga>{dir}/spt/frames/art-16x16.tga," ++
+    "143:open={dir}/spt/project.spt," ++
+    "144:expect=kind:spt," ++
+    "145:do=set_prop:Directory=frames\\," ++
+    "146:do=frame:sprite-1frame," ++
+    "146:do=frame:art-16x16," ++
+    "147:expect=dirty:true," ++
+    "148:save," ++
+    "149:do=export," ++
+    "150:expect=exported," ++
+    "151:do=preview_run," ++
+    "152:do=pause:100," ++
+    "153:shot=sprite_a," ++
+    "154:do=pause:150," ++
+    "154:shot=sprite_b," ++
+    "154:differ=sprite_a/sprite_b@0.001," ++
+    "155:do=preview_stop," ++
+    "156:do=pause:100," ++
+    "157:shot=sprite_c," ++
+    "158:do=pause:200," ++
+    "158:shot=sprite_d," ++
+    "158:expect=shot_same:sprite_c/sprite_d," ++
+    "159:expect=shot_lit:sprite_d," ++
+    "160:do=undo," ++
+    "161:expect=dirty:true," ++
+    "162:do=redo," ++
+    "163:expect=dirty:false," ++
+    "164:do=delete_frame," ++
+    "165:expect=dirty:true," ++
+    "166:do=undo," ++
+    "167:expect=dirty:false," ++
+    // S07 Infantry (AnimationFrm): a season directory set, exported (1.xml,
+    // 1[b][w|a].san + DDS), Run and Stop of the preview, undo and redo.
+    "170:do=mod_dir:{mods}/reseditor_auto_s07," ++
+    "171:do=copy:{fix}/unt/project.unt>{dir}/unt/project.unt," ++
+    "172:open={dir}/unt/project.unt," ++
+    "173:expect=kind:unt," ++
+    "174:do=set_prop:Directory=frames\\," ++
+    "174:do=copy:{fix}/spt/sprite-1frame.tga>{dir}/unt/frames/sprite-1frame.tga," ++
+    "174:do=frame:sprite-1frame," ++
+    "175:save," ++
+    "176:do=export," ++
+    "177:expect=exported," ++
+    "178:do=preview_run," ++
+    "179:do=pause:150," ++
+    "180:shot=infantry," ++
+    "181:expect=shot_lit:infantry," ++
+    "182:do=preview_stop," ++
+    "183:do=undo," ++
+    "184:expect=dirty:true," ++
+    "185:do=redo," ++
+    "186:expect=dirty:false," ++
+    "187:exit";
 
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static
