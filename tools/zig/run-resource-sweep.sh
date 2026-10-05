@@ -60,7 +60,9 @@ run_step() {
   local start_ms
   start_ms=$(date +%s%3N)
   local exit_code=0
-  timeout "${TIER_TIMEOUT}" "$@" >/dev/null 2>"${tmp_err}" || exit_code=$?
+  # 9>&- keeps the lock out of the tier: an orphaned tier process must not
+  # hold it and block the next sweep forever.
+  timeout "${TIER_TIMEOUT}" "$@" >/dev/null 2>"${tmp_err}" 9>&- || exit_code=$?
   local end_ms
   end_ms=$(date +%s%3N)
   local elapsed=$((end_ms - start_ms))
@@ -112,6 +114,17 @@ TIERS=(
 for tier in "${TIERS[@]}"; do
   run_step "${tier}" zig build "${tier}" -Dtest-mode=run
 done
+
+# The preview captures test-resource-bridge measured (one line per capture:
+# the non-black-non-magenta share, the share changed against the empty
+# frame, the TGA's path), so the sweep log carries the graphics evidence too.
+# The tier rewrites the file on every run; a host without a GPU device has none.
+PREVIEW_LOG="${LOG_DIR}/t02/preview-scene/preview.log"
+if [[ -s "${PREVIEW_LOG}" ]]; then
+  sed 's/^/PREVIEW: /' "${PREVIEW_LOG}" >> "${LOG}"
+else
+  printf 'PREVIEW: none written (expected only on a host without a GPU device)\n' >> "${LOG}"
+fi
 
 VERDICT="PASS"
 if grep -q 'RESULT=FAIL' "${LOG}"; then

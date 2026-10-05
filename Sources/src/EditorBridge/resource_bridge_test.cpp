@@ -19,6 +19,8 @@
 //   [2] fixture source root: tools/zig/fixtures/resource_editor
 //   [3] scratch output root: zig-out/local-test/resource_editor/t02
 #include "StdAfx.h"
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -36,6 +38,9 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <crtdbg.h>
+#include <windows.h>
+#else
+#include <unistd.h>
 #endif
 
 static int g_nFailures = 0;
@@ -932,6 +937,277 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 }
 
+// T11: the preview group (D-16). The real exporters come with each kind's
+// sub-editor slice, so the preview's own path - export into the preview
+// folder, mount it over the data, build through IVisObjBuilder, draw on the
+// empty scene - is proved with stand-in exporters that copy one shipped
+// resource of the kind into the staging root, as an exporter would write it.
+// Every capture is measured by code: the share of pixels that are neither
+// black nor the renderer's magenta fallback (>= 1%), and the share that differ
+// from the empty preview frame (the object really drew).
+
+namespace T11
+{
+
+static std::filesystem::path g_dataRoot;
+
+// pszRelative resolved below root one component at a time, ignoring case:
+// the shipped Data keeps MFC-era mixed case and Linux does not fold it
+// (AGENTS.md, the DataFile helper of editor_bridge_test.cpp).
+static std::filesystem::path FoldedPath( const std::filesystem::path &root, const char *pszRelative )
+{
+	std::filesystem::path current = root;
+	std::error_code ec;
+	for ( const std::filesystem::path &part : std::filesystem::path( pszRelative ) )
+	{
+		std::filesystem::path next = current / part;
+		if ( !std::filesystem::exists( next, ec ) )
+			for ( std::filesystem::directory_iterator it( current, ec ), end; !ec && it != end; it.increment( ec ) )
+			{
+				std::string a = it->path().filename().string(), b = part.string();
+				std::transform( a.begin(), a.end(), a.begin(), ::tolower );
+				std::transform( b.begin(), b.end(), b.begin(), ::tolower );
+				if ( a == b ) { next = it->path(); break; }
+			}
+		current = next;
+	}
+	return current;
+}
+
+// Copies the regular files of a shipped folder below the staging root.
+static bool CopyFolder( const char *pszShipped, const std::filesystem::path &target, NResourceModel::SExportOutcome &outcome )
+{
+	std::error_code ec;
+	const std::filesystem::path source = FoldedPath( g_dataRoot, pszShipped );
+	std::filesystem::create_directories( target, ec );
+	for ( std::filesystem::directory_iterator it( source, ec ), end; !ec && it != end; it.increment( ec ) )
+	{
+		if ( !it->is_regular_file() )
+			continue;
+		std::string szName = it->path().filename().string();
+		std::transform( szName.begin(), szName.end(), szName.begin(), ::tolower );
+		std::filesystem::copy_file( it->path(), target / szName, std::filesystem::copy_options::overwrite_existing, ec );
+		if ( ec )
+			break;
+		++outcome.nWritten;
+	}
+	if ( ec || outcome.nWritten == 0 )
+		outcome.szError = std::string( "cannot copy " ) + source.string();
+	return !ec && outcome.nWritten > 0;
+}
+
+static bool MeshExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &context, NResourceModel::SExportOutcome &outcome )
+{
+	outcome.szObjectName = "editor\\preview\\mesh\\1";
+	return CopyFolder( "Units/Technics/German/SPG/Jagdpanther_SdKfz173", std::filesystem::path( context.szStagingRoot ) / "editor/preview/mesh", outcome );
+}
+
+static bool SpriteExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &context, NResourceModel::SExportOutcome &outcome )
+{
+	outcome.szObjectName = "editor\\preview\\sprite\\1";
+	return CopyFolder( "Buildings/europe/summer/e_house11_3", std::filesystem::path( context.szStagingRoot ) / "editor/preview/sprite", outcome );
+}
+
+// An effect is one xml whose particles stay in the shipped data below.
+static bool EffectExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &context, NResourceModel::SExportOutcome &outcome )
+{
+	std::error_code ec;
+	const std::filesystem::path target = std::filesystem::path( context.szStagingRoot ) / "editor/preview/effect.xml";
+	std::filesystem::create_directories( target.parent_path(), ec );
+	std::filesystem::copy_file( FoldedPath( g_dataRoot, "Effects/Effects/flame_smoke.xml" ), target, std::filesystem::copy_options::overwrite_existing, ec );
+	outcome.nWritten = ec ? 0 : 1;
+	outcome.szObjectName = "editor\\preview\\effect";
+	if ( ec )
+		outcome.szError = "cannot copy flame_smoke.xml: " + ec.message();
+	return !ec;
+}
+
+static bool NamelessExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &, NResourceModel::SExportOutcome & )
+{
+	return true;
+}
+
+// A bridge-written capture (32-bit, top row first, BGRA) as RGB triples;
+// false for anything else.
+static bool ReadCapture( const std::string &szPath, std::vector<unsigned char> &rgb, int &nWidth, int &nHeight )
+{
+	std::string bytes;
+	if ( !ReadBytes( szPath, bytes ) || bytes.size() < 18 )
+		return false;
+	const unsigned char *h = (const unsigned char *)bytes.data();
+	if ( h[2] != 2 || h[16] != 32 || ( h[17] & 0x20 ) == 0 )
+		return false;
+	nWidth = h[12] | ( h[13] << 8 );
+	nHeight = h[14] | ( h[15] << 8 );
+	const std::size_t nPixels = std::size_t( nWidth ) * nHeight;
+	if ( nPixels == 0 || bytes.size() < 18 + h[0] + nPixels * 4 )
+		return false;
+	const unsigned char *p = h + 18 + h[0];
+	rgb.resize( nPixels * 3 );
+	for ( std::size_t i = 0; i < nPixels; ++i )
+	{
+		rgb[i * 3 + 0] = p[i * 4 + 2];
+		rgb[i * 3 + 1] = p[i * 4 + 1];
+		rgb[i * 3 + 2] = p[i * 4 + 0];
+	}
+	return true;
+}
+
+// preview_scene_spike.cpp's measure: neither solid black nor magenta.
+static double NonBlackNonMagentaShare( const std::vector<unsigned char> &rgb )
+{
+	const std::size_t nPixels = rgb.size() / 3;
+	std::size_t nInteresting = 0;
+	for ( std::size_t i = 0; i < nPixels; ++i )
+	{
+		const unsigned char r = rgb[i * 3], g = rgb[i * 3 + 1], b = rgb[i * 3 + 2];
+		if ( !( r == 0 && g == 0 && b == 0 ) && !( r == 255 && g == 0 && b == 255 ) )
+			++nInteresting;
+	}
+	return nPixels == 0 ? 0.0 : double( nInteresting ) / double( nPixels );
+}
+
+// The share of pixels in which any channel differs by more than 8.
+static double ChangedShare( const std::vector<unsigned char> &a, const std::vector<unsigned char> &b )
+{
+	if ( a.size() != b.size() || a.empty() )
+		return -1.0;
+	std::size_t nChanged = 0;
+	for ( std::size_t i = 0; i < a.size(); i += 3 )
+		if ( std::abs( a[i] - b[i] ) > 8 || std::abs( a[i + 1] - b[i + 1] ) > 8 || std::abs( a[i + 2] - b[i + 2] ) > 8 )
+			++nChanged;
+	return double( nChanged ) / double( a.size() / 3 );
+}
+
+// The temp folders this process's previews left behind.
+static int PreviewFolders()
+{
+	int nFound = 0;
+	std::error_code ec;
+#if defined(_WIN32) || defined(_WIN64)
+	const std::string szPrefix = "bk-resource-preview-" + std::to_string( (unsigned long)GetCurrentProcessId() ) + "-";
+#else
+	const std::string szPrefix = "bk-resource-preview-" + std::to_string( (unsigned long)getpid() ) + "-";
+#endif
+	for ( std::filesystem::directory_iterator it( std::filesystem::temp_directory_path( ec ), ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->path().filename().string().rfind( szPrefix, 0 ) == 0 )
+			++nFound;
+	return nFound;
+}
+
+struct Capture
+{
+	const char *pszLabel;    // the capture's name, as the S01 spike named it
+	const char *pszExt;      // the fixture kind
+	int nKind;
+	NResourceModel::FExporter pfnExporter;
+};
+
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	g_dataRoot = fs::path( szRoot ) / "Data";
+	const fs::path scratch = fs::path( szScratchRoot ) / "preview-scene";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch, ec );
+	std::ofstream log( scratch / "preview.log", std::ios::out | std::ios::trunc );
+	auto Log = [&]( const std::string &sz ) { std::printf( "%s\n", sz.c_str() ); log << sz << '\n'; };
+
+	// Refusals before anything is built.
+	{
+		Check( BkResPreviewShow( pSession ) == BK_EDITOR_REFUSED, "preview: Show before Begin is refused" );
+		Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_REFUSED, "preview: Playback before Show is refused" );
+		Check( BkResPreviewCamera( pSession, 0, 0, 0 ) == BK_EDITOR_REFUSED, "preview: Camera before Begin is refused" );
+		Check( BkResPreviewBegin( pSession, 21 ) == BK_EDITOR_BAD_ARGUMENT, "preview: kind 21 is a bad argument" );
+		Check( BkResPreviewBegin( pSession, -1 ) == BK_EDITOR_BAD_ARGUMENT, "preview: kind -1 is a bad argument" );
+		Check( BkResPreviewBegin( pSession, 0 ) == BK_EDITOR_REFUSED, "preview: a weapon has no preview" );
+		Check( std::strstr( BkEditorLastMessage( pSession ), ".wpn" ) != 0, "preview: the refusal names the kind" );
+		Check( BkResPreviewStop( pSession ) == BK_EDITOR_OK, "preview: Stop with none active is OK" );
+	}
+
+	const Capture kCaptures[] = {
+		{ "mesh",     "msh", 6,  &MeshExporter },
+		{ "sprite",   "spt", 4,  &SpriteExporter },
+		{ "particle", "eff", 12, &EffectExporter },
+	};
+	for ( const Capture &capture : kCaptures )
+	{
+		const std::string szLabel = capture.pszLabel;
+		const fs::path projectDir = scratch / capture.pszExt;
+		fs::create_directories( projectDir, ec );
+		const fs::path project = projectDir / ( std::string( "project." ) + capture.pszExt );
+		fs::copy_file( fs::path( szFixtureRoot ) / capture.pszExt / project.filename(), project, fs::copy_options::overwrite_existing, ec );
+		Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, ( "preview: opens the " + szLabel + " fixture" ).c_str() );
+		Check( BkResPreviewBegin( pSession, capture.nKind ) == BK_EDITOR_OK, ( "preview: Begin " + szLabel ).c_str() );
+
+		// No exporter yet: refused, and nothing is drawn.
+		NResourceModel::RegisterExporter( capture.pszExt, nullptr );
+		Check( BkResPreviewShow( pSession ) == BK_EDITOR_REFUSED, ( "preview: " + szLabel + " without an exporter is refused" ).c_str() );
+		NResourceModel::RegisterExporter( capture.pszExt, &NamelessExporter );
+		Check( BkResPreviewShow( pSession ) == BK_EDITOR_FAILED, ( "preview: " + szLabel + " export naming no visual fails" ).c_str() );
+
+		const fs::path empty = scratch / ( szLabel + "-empty.tga" );
+		Check( BkEditorCaptureFrame( pSession, empty.string().c_str() ) == BK_EDITOR_OK, ( "preview: the empty " + szLabel + " frame captures" ).c_str() );
+
+		NResourceModel::RegisterExporter( capture.pszExt, capture.pfnExporter );
+		const BkEditorStatus nShow = BkResPreviewShow( pSession );
+		Check( nShow == BK_EDITOR_OK, ( "preview: Show " + szLabel + ": " + BkEditorLastMessage( pSession ) ).c_str() );
+		Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, ( "preview: Run " + szLabel ).c_str() );
+		// About a second of frames, so the effect's particles (which start
+		// 200-800 ms in) and the sprite's animation have run.
+		const auto start = std::chrono::steady_clock::now();
+		while ( std::chrono::steady_clock::now() - start < std::chrono::milliseconds( 1000 ) )
+			BkEditorFrame( pSession );
+		const fs::path tga = scratch / ( szLabel + ".tga" );
+		const BkEditorStatus nCapture = BkEditorCaptureFrame( pSession, tga.string().c_str() );
+		const long long nMs = (long long)std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now() - start ).count();
+		Check( BkResPreviewPlayback( pSession, 0 ) == BK_EDITOR_OK, ( "preview: Stop playback " + szLabel ).c_str() );
+
+		std::vector<unsigned char> emptyRgb, rgb, refRgb;
+		int nW = 0, nH = 0, nRefW = 0, nRefH = 0;
+		const bool bRead = nCapture == BK_EDITOR_OK && ReadCapture( tga.string(), rgb, nW, nH ) && ReadCapture( empty.string(), emptyRgb, nW, nH );
+		Check( bRead, ( "preview: the " + szLabel + " capture reads back" ).c_str() );
+		const double fShare = bRead ? NonBlackNonMagentaShare( rgb ) : -1.0;
+		const double fChanged = bRead ? ChangedShare( rgb, emptyRgb ) : -1.0;
+		// The committed capture of the same scene (preview-scene/<label>.tga),
+		// for the record: another GPU or driver draws other pixels, so the
+		// comparison is logged, not asserted.
+		const fs::path reference = fs::path( szFixtureRoot ) / "preview-scene" / ( szLabel + ".tga" );
+		const double fVsReference = bRead && ReadCapture( reference.string(), refRgb, nRefW, nRefH ) ? ChangedShare( rgb, refRgb ) : -1.0;
+		Log( "preview-scene: " + szLabel
+		   + " fixture=tools/zig/fixtures/resource_editor/" + capture.pszExt + "/project." + capture.pszExt
+		   + " show_status=" + std::to_string( int( nShow ) )
+		   + " capture_status=" + std::to_string( int( nCapture ) )
+		   + " non-black-non-magenta=" + std::to_string( fShare )
+		   + " changed-vs-empty=" + std::to_string( fChanged )
+		   + " changed-vs-reference=" + std::to_string( fVsReference )
+		   + " duration_ms=" + std::to_string( nMs )
+		   + " path=" + tga.string() );
+		Check( fShare >= 0.01, ( "preview: the " + szLabel + " capture is >= 1% non-black-non-magenta" ).c_str() );
+		Check( fChanged >= 0.001, ( "preview: the " + szLabel + " object drew (>= 0.1% of the frame changed)" ).c_str() );
+
+		Check( BkResPreviewCamera( pSession, 12 * 32.0f + 64.0f, 12 * 32.0f, 2 ) == BK_EDITOR_OK, ( "preview: Camera " + szLabel ).c_str() );
+		NResourceModel::RegisterExporter( capture.pszExt, nullptr );
+		Check( BkResPreviewStop( pSession ) == BK_EDITOR_OK, ( "preview: Stop " + szLabel ).c_str() );
+		BkResClose( pSession );
+	}
+	Check( BkResPreviewCamera( pSession, 0, 0, 0 ) == BK_EDITOR_REFUSED, "preview: Camera after Stop is refused" );
+	Check( PreviewFolders() == 0, "preview: Stop removes the preview folders" );
+
+	// A preview begun for one kind does not show another kind's project.
+	{
+		const fs::path project = scratch / "spt" / "project.spt";
+		Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "preview: reopens the sprite" );
+		Check( BkResPreviewBegin( pSession, 6 ) == BK_EDITOR_OK, "preview: Begin mesh" );
+		Check( BkResPreviewShow( pSession ) == BK_EDITOR_REFUSED, "preview: a mesh preview refuses a sprite project" );
+		Check( BkResPreviewStop( pSession ) == BK_EDITOR_OK, "preview: Stop" );
+		BkResClose( pSession );
+	}
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -1389,14 +1665,7 @@ int main( int argc, char **argv )
 
 	T10::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 
-	// An entry point this slice has not built yet (the preview group, T11)
-	// fails loudly instead of answering OK for work it did not do.
-	{
-		Check( BkResNew( pSession, 0 ) == BK_EDITOR_OK, "stubs: BkResNew" );
-		Check( BkResPreviewShow( pSession ) == BK_EDITOR_FAILED, "stubs: BkResPreviewShow is not a silent OK" );
-		Check( std::strlen( BkEditorLastMessage( pSession ) ) > 0, "stubs: the failure says why" );
-		BkResClose( pSession );
-	}
+	T11::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

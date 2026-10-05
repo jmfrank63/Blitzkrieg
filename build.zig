@@ -6317,7 +6317,7 @@ fn addResourceBridge(
     // a cached pass would say nothing about the installation now.
     run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
-    const step = b.step("test-resource-bridge", "Smoke the resource bridge through the engine: Project+Tree over every fixture");
+    const step = b.step("test-resource-bridge", "Drive the resource bridge through the engine: every fixture, geometry, export, references and the preview captures");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }

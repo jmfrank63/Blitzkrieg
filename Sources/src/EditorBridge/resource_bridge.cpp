@@ -16,7 +16,7 @@
 // boundary is the one place the unit is pinned. The remaining geometry
 // channels (formation, bridge-spans, keyframes, crosses) and the other groups
 // (references, export, mod, preview, import) stay stubbed and are replaced
-// in T08-T11. T07 replaced the `<path>.lock` sentinel with MFC's per-folder
+// in T08-T11 (T11: the preview group). T07 replaced the `<path>.lock` sentinel with MFC's per-folder
 // `locked_<user>` (CParentFrame::LockFile, D-08) and made a delete blob carry
 // its subtree's geometry, so BkResRestoreNode brings it back.
 //
@@ -44,6 +44,13 @@
 #include "../ResourceModel/references.h"
 #include "../ResourceModel/exporter.h"
 #include "../Main/RPGStats.h"
+#include "../Main/iMain.h"
+#include "../Main/GameTimer.h"
+#include "../Misc/HPTimer.h"
+#include "../Scene/Scene.h"
+#include "../Scene/SceneScreenScale.h"
+#include "../Scene/PFX.h"
+#include "../Anim/Animation.h"
 #include "../zlib/zlib.h"
 
 #include <algorithm>
@@ -189,6 +196,19 @@ struct ResourceState
 	bool bRefsBuilt = false;
 	std::string szRefsModFolder;
 	std::vector<std::string> refLists[NResourceModel::kReferenceTypeCount];
+	// The preview (D-16), session-level like the above: it outlives a
+	// project close and is rebuilt by the next BkResPreviewShow. The object
+	// is held by a raw pointer with its own reference, not a CPtr: this map
+	// is destroyed at exit, after the engine modules are gone, so a
+	// forgotten BkResPreviewStop must leak the reference, not release it
+	// into an unloaded module. The export folder is mounted over the data as
+	// the storage layer kPreviewLayer.
+	bool bPreview = false;
+	int nPreviewKind = -1;
+	std::filesystem::path previewRoot;
+	IVisObj *pPreviewObj = nullptr;
+	bool bPreviewEffect = false;
+	bool bPreviewRunning = false;
 };
 
 // Channel ids: the C ABI's geometry channel integers (shared with Zig's
@@ -1510,15 +1530,6 @@ BkEditorStatus BkResMoveNode( BkResSession *pSession, int nNodeId, int nNewParen
 		RebuildIds( state );
 		return BK_EDITOR_OK;
 	} );
-}
-
-/* Entry points the header declares but this slice has not built yet answer
-   BK_EDITOR_FAILED with a message, never a silent OK: a caller must not take
-   an export, a preview or a geometry write that did nothing for success. */
-static BkEditorStatus NotImplemented( BkResSession *pSession, const char *pszWhat )
-{
-	pSession->szMessage = std::string( pszWhat ) + " is not implemented yet";
-	return BK_EDITOR_FAILED;
 }
 
 /* ---- References ------------------------------------------------------- */
@@ -2896,29 +2907,361 @@ BkEditorStatus BkResPackMod( BkResSession *pSession, const char *pszZip )
 
 /* ---- Preview --------------------------------------------------------- */
 
-BkEditorStatus BkResPreviewBegin( BkResSession *pSession, BkResKind )
+extern "C++" {
+namespace {
+
+// The storage layer the preview's export folder is mounted as, on top of
+// the data, the MOD and the user's RMG root. MFC exported its preview into
+// the data folder itself (editor\temp); a layer of its own keeps the
+// shipped Data/ and the mod untouched.
+const char *const kPreviewLayer = "RES_PREVIEW";
+
+// Where an exported visual sits in the empty scene: MFC's mesh preview put
+// its unit at the twelfth cell on both axes (CMeshFrame, MeshFrm.cpp), and the
+// other frames at the camera's anchor - the camera is placed on this point,
+// so both are the same.
+const float kPreviewCells = 12.0f;
+const float kPreviewCellSize = 32.0f;
+
+// The kinds the preview builds today and what IVisObjBuilder builds them as:
+// the four the MFC frames this slice measures (D-17) build, with the frame
+// that does it. The other scene kinds (object, fence, building, bridge,
+// trench, squad, particle) join with their sub-editor slices; road and river
+// load maps\road3d / maps\river3d as their terrain (S13).
+struct PreviewKind
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPreviewBegin" ); } );
+	int nKind;
+	EObjVisType eVisType;
+	EObjGameType eGameType;
+};
+const PreviewKind kPreviewKinds[] =
+{
+	{ 4,  SGVOT_SPRITE, SGVOGT_UNIT   },  // spt: CSpriteFrame::OnRunButton
+	{ 5,  SGVOT_SPRITE, SGVOGT_UNIT   },  // unt: infantry draws as a sprite
+	{ 6,  SGVOT_MESH,   SGVOGT_UNIT   },  // msh: CMeshFrame's combat object
+	{ 12, SGVOT_EFFECT, SGVOGT_EFFECT },  // eff: CEffectFrame::OnRunButton
+};
+
+const PreviewKind *FindPreviewKind( int nKind )
+{
+	for ( const PreviewKind &entry : kPreviewKinds )
+		if ( entry.nKind == nKind )
+			return &entry;
+	return nullptr;
+}
+
+// The game timer at the high-precision clock's now, as the map bridge's
+// ghost and world do (session.cpp, world.cpp).
+NTimer::STime UpdateGameTimer()
+{
+	IGameTimer *pTimer = GetSingleton<IGameTimer>();
+	if ( pTimer == 0 )
+		return 0;
+	NHPTimer::STime hptime;
+	NHPTimer::GetTime( &hptime );
+	pTimer->Update( DWORD( NHPTimer::GetSeconds( hptime ) * 1000.0f ) );
+	return pTimer->GetGameTime();
+}
+
+// DrawSessionFrame's hook while the playback runs: one timer step and one
+// update of the preview object per drawn frame.
+void PreviewBeforeDraw( SEditorSession *pBase )
+{
+	ResourceState &state = StateOf( static_cast<BkEditorSession *>( pBase ) );
+	const NTimer::STime time = UpdateGameTimer();
+	if ( state.pPreviewObj != nullptr )
+		state.pPreviewObj->Update( time );
+}
+
+// Restarts the object's own animation: an effect from the current game time,
+// a sprite or mesh from its first animation.
+void RestartPreviewObject( ResourceState &state )
+{
+	if ( state.pPreviewObj == nullptr )
+		return;
+	const NTimer::STime time = UpdateGameTimer();
+	if ( state.bPreviewEffect )
+		static_cast<IEffectVisObj *>( state.pPreviewObj )->SetStartTime( time );
+	else if ( IAnimation *pAnimation = static_cast<IObjVisObj *>( state.pPreviewObj )->GetAnimation() )
+		pAnimation->SetAnimation( 0 );
+	state.pPreviewObj->Update( time );
+}
+
+void DropPreviewObject( ResourceState &state )
+{
+	if ( state.pPreviewObj == nullptr )
+		return;
+	if ( IScene *pScene = GetSingleton<IScene>() )
+		pScene->RemoveObject( state.pPreviewObj );
+	state.pPreviewObj->Release();
+	state.pPreviewObj = nullptr;
+}
+
+// The shared caches that hold what the last export built, by name: the next
+// export may write other files under the same names. The same managers
+// BkEditorSetMod clears after its storage changes (bridge.cpp
+// ReloadAfterModChange), minus sound, fonts, text and the object database,
+// which an export into the preview layer does not touch. (CLEAL_ is the
+// engine's own spelling.)
+void ForgetPreviewCaches()
+{
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	if ( IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>() )
+		pVOB->Clear();
+	GetSingleton<IParticleManager>()->Clear( ISharedManager::CLEAL_UNREFERENCED );
+	GetSingleton<IAnimationManager>()->Clear( ISharedManager::CLEAL_UNREFERENCED );
+	GetSingleton<IMeshManager>()->Clear( ISharedManager::CLEAL_UNREFERENCED );
+	GetSingleton<ITextureManager>()->Clear( ISharedManager::CLEAL_UNREFERENCED );
+	GetSingleton<IFilesInspector>()->Clear();
+	GetSingleton<IFilesInspector>()->InspectStorage( pStorage );
+}
+
+// OpenStorage's own convention for a folder: backslash-separated with a
+// trailing "*.pak" mask (bridge.cpp ModEngineDir); the common file system
+// takes the loose files below it as well as any packs.
+std::string EngineFolderPattern( const std::filesystem::path &dir )
+{
+	std::string szDir = dir.string();
+	for ( char &c : szDir )
+		if ( c == '/' ) c = '\\';
+	if ( szDir.empty() || szDir.back() != '\\' )
+		szDir += '\\';
+	return szDir + "*.pak";
+}
+
+void StopPreview( BkEditorSession *pSession, ResourceState &state )
+{
+	if ( !state.bPreview )
+		return;
+	DropPreviewObject( state );
+	if ( IDataStorage *pStorage = GetSingleton<IDataStorage>() )
+		pStorage->RemoveStorage( kPreviewLayer );
+	pSession->pfnBeforeDraw = nullptr;
+	std::error_code ec;
+	if ( !state.previewRoot.empty() )
+		std::filesystem::remove_all( state.previewRoot, ec );
+	state.previewRoot.clear();
+	state.bPreview = false;
+	state.nPreviewKind = -1;
+	state.bPreviewEffect = false;
+	state.bPreviewRunning = false;
+}
+
+// A folder of the system's temp directory for this session's preview export,
+// named so two sessions or two processes never share one.
+std::filesystem::path NewPreviewRoot( const BkEditorSession *pSession )
+{
+	static int nCounter = 0;
+#if defined(_WIN32) || defined(_WIN64)
+	const unsigned long nProcess = GetCurrentProcessId();
+#else
+	const unsigned long nProcess = (unsigned long)getpid();
+#endif
+	char szName[96];
+	std::snprintf( szName, sizeof szName, "bk-resource-preview-%lu-%p-%d", nProcess, (const void *)pSession, ++nCounter );
+	std::error_code ec;
+	return std::filesystem::temp_directory_path( ec ) / szName;
+}
+
+BkEditorStatus BeginPreview( BkEditorSession *pSession, int nKind )
+{
+	if ( nKind < 0 || nKind >= kKindCount )
+		return BK_EDITOR_BAD_ARGUMENT;
+	ResourceState &state = StateOf( pSession );
+	IScene *pScene = pSession->bEngineStarted ? GetSingleton<IScene>() : 0;
+	if ( pScene == 0 || GetSingleton<IVisObjBuilder>() == 0 || GetSingleton<ICamera>() == 0 )
+	{
+		pSession->szMessage = "no GPU device: the engine is not started in this session";
+		return BK_EDITOR_NO_DEVICE;
+	}
+	if ( pSession->bMapOpen )
+	{
+		pSession->szMessage = "a map is open in this session; the preview draws on an empty scene";
+		return BK_EDITOR_REFUSED;
+	}
+	const PreviewKind *pKind = FindPreviewKind( nKind );
+	if ( pKind == nullptr )
+	{
+		pSession->szMessage = std::string( "the preview of ." ) + kKindExtensions[nKind]
+			+ " projects is not ported yet; it comes with its sub-editor";
+		return BK_EDITOR_REFUSED;
+	}
+	StopPreview( pSession, state );
+	const std::filesystem::path root = NewPreviewRoot( pSession );
+	std::error_code ec;
+	std::filesystem::create_directories( root, ec );
+	if ( ec )
+	{
+		pSession->szMessage = "cannot create the preview folder " + root.string() + ": " + ec.message();
+		return BK_EDITOR_FAILED;
+	}
+	// D-16: an empty scene - MFC's frames cleared the scene and the builder
+	// before every run - and the game's own camera (no yaw override).
+	pScene->Clear();
+	GetSingleton<IVisObjBuilder>()->Clear();
+	const float fOrigin = kPreviewCells * kPreviewCellSize;
+	SetSessionCamera( pSession, fOrigin, fOrigin );
+	state.bPreview = true;
+	state.nPreviewKind = nKind;
+	state.previewRoot = root;
+	state.bPreviewEffect = pKind->eVisType == SGVOT_EFFECT;
+	pSession->szMessage = std::string( "preview of ." ) + kKindExtensions[nKind] + " begun";
+	return BK_EDITOR_OK;
+}
+
+BkEditorStatus ShowPreview( BkEditorSession *pSession )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bPreview )
+	{
+		pSession->szMessage = "no preview: call BkResPreviewBegin first";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( !state.bOpen || !state.pProject )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.nKindOrdinal != state.nPreviewKind )
+	{
+		pSession->szMessage = std::string( "the preview was begun for ." ) + kKindExtensions[state.nPreviewKind]
+			+ " and the open project is not one";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.szPath.empty() )
+	{
+		pSession->szMessage = "save the project first: an export reads its sources beside the project file";
+		return BK_EDITOR_REFUSED;
+	}
+	const std::string szExtension = kKindExtensions[state.nKindOrdinal];
+	const NResourceModel::FExporter pfnExporter = NResourceModel::FindExporter( szExtension );
+	if ( pfnExporter == nullptr )
+	{
+		pSession->szMessage = "exporting ." + szExtension + " projects is not ported yet; the exporter comes with its sub-editor";
+		return BK_EDITOR_REFUSED;
+	}
+	// The edited tree, as BkResExport hands it to the exporter.
+	std::string szBytes;
+	if ( !RenderForSave( state, szBytes, pSession->szMessage ) )
+		return BK_EDITOR_FAILED;
+	NResourceModel::Project project;
+	std::string szError;
+	if ( !NResourceModel::Load( szBytes, project, szError ) )
+	{
+		pSession->szMessage = "cannot re-read the project for the preview: " + szError;
+		return BK_EDITOR_FAILED;
+	}
+	// The old object goes first: its files are about to be replaced.
+	DropPreviewObject( state );
+	IDataStorage *pStorage = GetSingleton<IDataStorage>();
+	pStorage->RemoveStorage( kPreviewLayer );
+	const std::filesystem::path dataDir = state.previewRoot / "data";
+	std::error_code ec;
+	std::filesystem::remove_all( dataDir, ec );
+	std::filesystem::create_directories( dataDir, ec );
+	NResourceModel::SExportContext context;
+	context.szProjectPath = state.szPath;
+	context.szStagingRoot = dataDir.string();
+	context.bForce = true;
+	NResourceModel::SExportOutcome outcome;
+	if ( !pfnExporter( project, context, outcome ) )
+	{
+		pSession->szMessage = "the preview export failed: " + ( outcome.szError.empty() ? std::string( "the exporter failed" ) : outcome.szError );
+		return BK_EDITOR_FAILED;
+	}
+	if ( outcome.szObjectName.empty() )
+	{
+		pSession->szMessage = "the ." + szExtension + " export named no visual to build";
+		return BK_EDITOR_FAILED;
+	}
+	// The folder is enumerated when it is opened, so it is mounted after the
+	// export wrote it, and again after every export.
+	CPtr<IDataStorage> pPreview = OpenStorage( EngineFolderPattern( dataDir ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
+	if ( pPreview == 0 )
+	{
+		pSession->szMessage = "cannot mount the preview folder " + dataDir.string();
+		return BK_EDITOR_FAILED;
+	}
+	pStorage->AddStorage( pPreview, kPreviewLayer );
+	ForgetPreviewCaches();
+	const PreviewKind *pKind = FindPreviewKind( state.nPreviewKind );
+	IVisObj *pObj = GetSingleton<IVisObjBuilder>()->BuildObject( outcome.szObjectName.c_str(), 0, pKind->eVisType );
+	if ( pObj == nullptr )
+	{
+		pSession->szMessage = "IVisObjBuilder would not build \"" + outcome.szObjectName + "\" from the export";
+		return BK_EDITOR_FAILED;
+	}
+	pObj->AddRef();
+	state.pPreviewObj = pObj;
+	ICamera *pCamera = GetSingleton<ICamera>();
+	pCamera->Update();
+	const CVec3 vAnchor = pCamera->GetAnchor();
+	pObj->SetPlacement( CVec3( vAnchor.x, vAnchor.y, 0.0f ), 0 );
+	RestartPreviewObject( state );
+	GetSingleton<IScene>()->AddObject( pObj, pKind->eGameType );
+	pSession->szMessage = "built \"" + outcome.szObjectName + "\" from " + std::to_string( outcome.nWritten ) + " exported files";
+	return BK_EDITOR_OK;
+}
+
+} // namespace
+} // extern "C++"
+
+BkEditorStatus BkResPreviewBegin( BkResSession *pSession, BkResKind kind )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus { return BeginPreview( pSession, kind ); } );
 }
 
 BkEditorStatus BkResPreviewShow( BkResSession *pSession )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPreviewShow" ); } );
+	return Guarded( pSession, [=]() -> BkEditorStatus { return ShowPreview( pSession ); } );
 }
 
 BkEditorStatus BkResPreviewStop( BkResSession *pSession )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPreviewStop" ); } );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		StopPreview( pSession, StateOf( pSession ) );
+		return BK_EDITOR_OK;
+	} );
 }
 
-BkEditorStatus BkResPreviewPlayback( BkResSession *pSession, int )
+BkEditorStatus BkResPreviewPlayback( BkResSession *pSession, int nRun )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPreviewPlayback" ); } );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bPreview || state.pPreviewObj == nullptr )
+		{
+			pSession->szMessage = "no preview object: call BkResPreviewBegin and BkResPreviewShow first";
+			return BK_EDITOR_REFUSED;
+		}
+		// MFC's Run restarted the object; Stop left it where it was.
+		if ( nRun != 0 && !state.bPreviewRunning )
+			RestartPreviewObject( state );
+		state.bPreviewRunning = nRun != 0;
+		pSession->pfnBeforeDraw = state.bPreviewRunning ? &PreviewBeforeDraw : nullptr;
+		return BK_EDITOR_OK;
+	} );
 }
 
-BkEditorStatus BkResPreviewCamera( BkResSession *pSession, float, float, int )
+BkEditorStatus BkResPreviewCamera( BkResSession *pSession, float fX, float fY, int nZoom )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPreviewCamera" ); } );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bPreview )
+		{
+			pSession->szMessage = "no preview: call BkResPreviewBegin first";
+			return BK_EDITOR_REFUSED;
+		}
+		// The zoom step the game's own wheel sets (GFX.World.ZoomSteps),
+		// clamped to the window's range as ZoomAtScreenPoint does.
+		const CTRect<float> rcScreen = GetSingleton<IGFX>()->GetScreenRect();
+		SetGlobalVar( "GFX.World.ZoomSteps", Clamp( nZoom, 0, NSceneScreenScale::GetMaxZoomSteps( rcScreen ) ) );
+		if ( !SetSessionCamera( pSession, fX, fY ) )
+			return BK_EDITOR_FAILED;
+		return BK_EDITOR_OK;
+	} );
 }
 
 /* ---- Import ----------------------------------------------------------- */

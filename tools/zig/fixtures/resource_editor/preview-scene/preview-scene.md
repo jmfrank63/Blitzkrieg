@@ -3,9 +3,11 @@
 This note documents the preview-scene spike: the test harness
 `tools/zig/preview_scene_spike.cpp` writes one captured TGA per preview kind
 (`mesh.tga`, `sprite.tga`, `particle.tga`) and a `spike.log` under
-`zig-out/local-test/preview-scene/`. The captures are build output and are not
-committed: while the per-kind visual is missing they are three identical
-empty frames.
+`zig-out/local-test/preview-scene/`. Those spike captures are build output and
+are not committed: they are three readings of the empty scene.
+
+The three `.tga` files committed beside this note are the S04 captures (see
+"S04 result" at the end): the real preview path, one object per kind.
 
 Spec cross-reference: D-16 and D-17 of
 `docs/superpowers/specs/2026-09-30-portable-resource-editor-design.md` and
@@ -148,3 +150,56 @@ S04 (ResourceEditor preview-scene bridge path) must:
    block `BkEditorOpenMap` is fixed (`3e8afc8a7`), so S13 (preview road /
    river) can open `maps\road3d` / `maps\river3d` as the preview terrain
    the runbook names.
+
+## S04 result (M001 / S04 / T11)
+
+`BkResPreviewBegin` / `Show` / `Stop` / `Playback` / `Camera` are declared in
+`Sources/src/EditorBridge/resource_bridge.h`, not `bridge.h` as the hand-off
+above guessed, and built in `resource_bridge.cpp`. `test-resource-bridge`
+(`resource_bridge_test.cpp`, namespace `T11`) proves them on the engine and
+writes the captures to `zig-out/local-test/resource_editor/t02/preview-scene/`
+with `preview.log`. `tools/zig/run-resource-sweep.sh` copies that log into its
+own as `PREVIEW:` lines.
+
+What `BkResPreviewShow` does (D-16): it runs the kind's exporter into a temp
+folder, mounts that folder over the data as the storage layer `RES_PREVIEW`,
+clears the shared caches, builds the exported visual with `IVisObjBuilder`,
+and places it at the camera's anchor on the cleared scene. The camera is the
+game's own: cell 12,12 as MFC's mesh frame used, with no yaw override.
+`BkResPreviewPlayback` advances the game timer and the object once per drawn
+frame through the session's `pfnBeforeDraw` hook. `BkResPreviewStop` removes
+the layer and the folder.
+
+The real exporters arrive with each kind's sub-editor slice, so the test
+registers stand-in exporters. Each copies one shipped resource into the
+staging root, as an exporter would write it:
+
+| Capture        | Kind | Stand-in export (shipped Data)                    | Built as       |
+|----------------|------|---------------------------------------------------|----------------|
+| `mesh.tga`     | msh  | `Units/Technics/German/SPG/Jagdpanther_SdKfz173`  | `SGVOT_MESH`   |
+| `sprite.tga`   | spt  | `Buildings/europe/summer/e_house11_3`             | `SGVOT_SPRITE` |
+| `particle.tga` | eff  | `Effects/Effects/flame_smoke.xml`                 | `SGVOT_EFFECT` |
+
+The fixture projects opened are `msh/project.msh`, `spt/project.spt` and
+`eff/project.eff`. The test asserts two measures on each capture, after
+about a second of playback:
+
+- the share of pixels that are neither black nor magenta is at least 1 %. The
+  empty scene alone reads about 0.25, so this only rules out a black frame or
+  a frame of missing textures;
+- the share of pixels that changed against the empty preview frame captured
+  just before is at least 0.1 %: the object really drew.
+
+The share that changed against the committed capture is logged, not
+asserted: another GPU or driver draws other pixels. Measured on the Linux x64
+agent (640 x 480):
+
+| Capture  | non-black-non-magenta | changed vs empty |
+|----------|-----------------------|------------------|
+| mesh     | 0.265                 | 0.017            |
+| sprite   | 0.307                 | 0.086            |
+| particle | 0.292                 | 0.031            |
+
+A host without a GPU device skips the whole tier ("skipped: no GPU device").
+`BK_REQUIRE_ENGINE=1` on the CI runners that have a device turns that skip
+into a failure.

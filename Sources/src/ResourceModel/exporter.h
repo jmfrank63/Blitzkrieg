@@ -33,6 +33,11 @@ struct SExportOutcome
 	int nSkipped = 0;                    // files left alone as up to date
 	std::vector<std::string> warnings;   // what MFC's output pane collected
 	std::string szError;                 // why the export failed, when it returns false
+	// The data name of the visual the export wrote, as IVisObjBuilder::
+	// BuildObject takes it (backslashes, no extension, relative to the staging
+	// root, e.g. "units\technics\tiger\1"). BkResPreviewShow builds this
+	// from the preview storage (D-16); empty for a kind with nothing to draw.
+	std::string szObjectName;
 };
 
 // Exports project into context.szStagingRoot. False with outcome.szError on a

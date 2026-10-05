@@ -121,6 +121,12 @@ jobs:
       - name: Resource model tier
         run: zig build test-resource-model -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      # S04 slice gate: the resource bridge through the engine (Project+Tree,
+      # geometry, export, references, preview). No GPU device here, so it
+      # prints "skipped: no GPU device" and exits 0; it still has to build.
+      - name: Resource bridge tier
+        run: zig build test-resource-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
 
@@ -347,6 +353,13 @@ jobs:
           # would print "skipped" and exit 0 fails instead, here and in the engine-hosted steps after it.
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-editor-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # S04 slice gate: the resource bridge through the engine, including the
+      # preview captures (mesh, sprite, effect) measured by code.
+      - name: Resource bridge tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-resource-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # The scripted editor scenarios (Map editor scenarios below) place their
       # clicks for the editor's own 1280x800 window, the size it gets on the
@@ -763,6 +776,13 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run
 
+      # S04 slice gate: the resource bridge through the engine, including the
+      # preview captures (mesh, sprite, effect) measured by code.
+      - name: Resource bridge tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-bridge -Dtarget=aarch64-macos -Dtest-mode=run
+
       # MapEditor itself: the engine started hidden with ImGui over it, one
       # frame captured as presented and checked for both.
       - name: Map editor host
@@ -956,6 +976,12 @@ jobs:
       # D-11 comparator over shipped Data read through the engine's own readers.
       - name: Resource model tier
         run: zig build test-resource-model -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
+      # S04 slice gate: the resource bridge through the engine (Project+Tree,
+      # geometry, export, references, preview). No GPU device here, so it
+      # prints "skipped: no GPU device" and exits 0; it still has to build.
+      - name: Resource bridge tier
+        run: zig build test-resource-bridge -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=aarch64-linux-gnu
@@ -1199,6 +1225,12 @@ jobs:
       # per-stats-type comparator with its planted-unknown abort path.
       - name: Resource model tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-resource-model -Dtarget=x86_64-macos -Dtest-mode=run
+
+      # S04 slice gate: the resource bridge through the engine (Project+Tree,
+      # geometry, export, references, preview). No GPU device here, so it
+      # prints "skipped: no GPU device" and exits 0; it still has to build.
+      - name: Resource bridge tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-bridge -Dtarget=x86_64-macos -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=x86_64-macos

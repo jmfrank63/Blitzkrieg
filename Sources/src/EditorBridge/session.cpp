@@ -3274,6 +3274,8 @@ bool DrawSessionFrame( SEditorSession *pSession )
 	ApplyWireframeForFrame( pSession );
 	if ( LayersNeedWorldUpdate( pSession ) && pSession->pWorld != 0 && pSession->bMapOpen )
 		UpdateSessionWorld( pSession );
+	if ( pSession->pfnBeforeDraw != 0 )
+		pSession->pfnBeforeDraw( pSession );
 	pScene->Draw( pCamera );
 	pGFX->EndScene();
 	pGFX->Flip();

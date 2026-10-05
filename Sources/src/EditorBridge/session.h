@@ -226,6 +226,12 @@ struct SEditorSession
 	// reference search. Null when no ghost is shown.
 	CPtr<IRefCount> pGhost;
 	std::string szGhostName;
+	// The resource editor's preview (resource_bridge.cpp, BkResPreviewPlayback):
+	// while its playback runs, DrawSessionFrame calls this before the scene
+	// draws so the game timer and the preview object advance with every frame,
+	// as the MFC editor's game window did on its own timer. Null otherwise,
+	// which is the Map Editor's case: its frame is unchanged.
+	void ( *pfnBeforeDraw )( SEditorSession *pSession ) = 0;
 	SEditorSession() : nBridgeSpansInMap( 0 ), nBridgeSpansPlaced( 0 ), nLinkIDFloor( 0 ), pWorld( 0 ), bEngineStarted( false ), bMapOpen( false ), fYawOffsetDegrees( 0.0f ), bSquadIconOwnerMapBuilt( false ),
 									 bPartyTableRead( false ), nHeightsBrush( 0 ), fHeightsSpeed( 0.0f ), bHeightsPatternValid( false ), vClickRefStroke( VNULL3 ), fClickTileHeight( 0.0f ), bClickTileValid( false ), fClickAverageHeight( 0.0f ),
 									 bInstantUpdate( false ), bFitToGrid( true ), nLayerBits( LayerDefaultBits() ), nFireRangeMode( 0 ), nFireRangeGroup( -1 ) {  }
