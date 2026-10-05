@@ -44,10 +44,10 @@ Phase 2 (variable zoom and minimap scaling) executed: all 3 plans complete.
 Two review rounds applied: (1) zoom bound matches floored render scale, (2)
 minimap flex with idempotent absolute baselines + 4:3 negative-size guard,
 (3) fixup geometry applied immediately. Zig cross-compile (full game incl.
-Metal shaders) clean. In-game sign-off rows outstanding — see
+Metal shaders) clean. In-game sign-off done 2026-10-05: Johannes confirmed
+variable zoom works and the minimap layout is correct; all rows of
 `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`
-(its 10/10 source claims superseded by the review findings; corrected
-behavior needs the in-game rows).
+PASS and Phase 2 is complete.
 
 ## Phase 4 runtime stability closeout (prior milestone work — historical)
 
@@ -67,8 +67,7 @@ behavior needs the in-game rows).
 
 ## Next actions
 
-1. Run in-game sign-off rows from `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md` on the Windows build: zoom bounds at 640/1024/1920/3440, cursor anchoring, Shift+wheel (both shifts), J/K hold-repeat, L reset, mission restart/load reset, mid-mission resolution change, minimap cluster geometry + 2:1 diamond, fractional-zoom visuals, 1024×768 z=1 regression.
-2. Record PASS/FAIL per row in the verification report; finalize Phase 2 status.
+1. Plan Phase 6 (Resource Editor): `/gsd-plan-phase 6`.
 
 ## Session
 

@@ -208,8 +208,9 @@ Plans:
 - [x] 02 — cursor-anchored zoom application and terrain rebuild trigger (complete)
 - [x] 03 — minimap cluster sizing, texture recreation (complete)
 
-Executed and verified (source level); in-game sign-off rows outstanding —
-see `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`.
+**Complete 2026-10-05** — executed, verified (source level), and the in-game sign-off
+approved by Johannes (variable zoom and minimap layout); see
+`.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md` (status passed).
 
 ### Phase 3: Map editor plan 6: finish M1
 
