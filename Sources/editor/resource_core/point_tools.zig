@@ -63,6 +63,11 @@ pub const Target = struct {
     /// direction (a shoot point does, fire and smoke points copy the
     /// direction only).
     copies_cone: bool = false,
+    /// Where the footprint the generate commands walk is read from, when it
+    /// is not the target's own passability grid: a bridge's span part keeps
+    /// its footprint as locked tiles.
+    footprint_node: ?i32 = null,
+    footprint_channel: GeometryChannel = .passability_cells,
 };
 
 /// The Target of `mode` on the building whose root is `root`, or null when
@@ -82,6 +87,37 @@ pub fn buildingTarget(doc: *const Document, root: i32, mode: Mode) ?Target {
         .smoke => .{ .node = root, .channel = .smoke_points, .container = container, .child_class = item_type.building_smoke_props },
         .dir_explosion => .{ .node = root, .channel = .directed_explosion_points, .container = container, .child_class = item_type.building_dir_explosion_props, .fixed_children = true },
     };
+}
+
+/// The Target of `mode` on the bridge whose root is `root`, or null when the
+/// tree lacks the container or a span part. CBridgeFrame has fire and smoke
+/// points and the directed explosions, no shoot points. Its generate commands
+/// walk the first span part's locked tiles.
+pub fn bridgeTarget(doc: *const Document, root: i32, mode: Mode) ?Target {
+    const container_class: i32 = switch (mode) {
+        .shoot => return null,
+        .fire => item_type.bridge_fire_points,
+        .smoke => item_type.bridge_smokes,
+        .dir_explosion => item_type.bridge_dir_explosions,
+    };
+    const container = tools.firstOfClass(doc, container_class) orelse return null;
+    const part = tools.firstOfClass(doc, item_type.bridge_parts) orelse return null;
+    const base: Target = .{ .node = root, .channel = .fire_points, .container = container, .child_class = 0, .footprint_node = part, .footprint_channel = .locked_tiles };
+    return switch (mode) {
+        .shoot => null,
+        .fire => with(base, .fire_points, item_type.bridge_fire_point_props, false),
+        .smoke => with(base, .smoke_points, item_type.bridge_smoke_props, false),
+        // The five explosions are fixed, as a building's are.
+        .dir_explosion => with(base, .directed_explosion_points, item_type.bridge_dir_explosion_props, true),
+    };
+}
+
+fn with(base: Target, channel: GeometryChannel, child_class: i32, fixed: bool) Target {
+    var target = base;
+    target.channel = channel;
+    target.child_class = child_class;
+    target.fixed_children = fixed;
+    return target;
 }
 
 /// A geometry command from the list as it was read to `after_points`.
@@ -257,6 +293,55 @@ pub fn editPoint(allocator: std.mem.Allocator, bridge: ResBridge, target: Target
 /// bridge's entrance channel is the point the building's entrance sits on.
 pub fn setEntrance(allocator: std.mem.Allocator, bridge: ResBridge, node: i32, to: Point2) EditError!ResourceCommand {
     return tools.setGeometry(allocator, bridge, node, .entrance, .{ .point2 = to });
+}
+
+// --- Bridge span marks -----------------------------------------------------------
+
+/// CBridgeFrame's 'Bridge type' (SetBridgeType): the bridge runs along the red
+/// line either down-right (horizontal) or up-right (vertical).
+pub const BridgeType = enum { horizontal, vertical };
+
+/// The four marks of the span-mark tool. Begin and End sit on the line; Front
+/// and Back are offsets of a span from its centre cross, across the line.
+pub const SpanMark = enum { begin, end, front, back };
+
+// BridgeFrm.cpp SetBridgeType: the line starts at grid index 16 (horizontal) or
+// 14 (vertical) and runs 1000 pixels right and 500 down or up.
+const span_line_width: f32 = 1000;
+const span_line_rise: f32 = 500;
+
+/// CBridgeFrame::GetPointOnLine: the line's y at screen x.
+pub fn spanLineY(kind: BridgeType, x: f32) f32 {
+    const x1: f32 = grid_ox + cell_x * @as(f32, if (kind == .horizontal) 16 else 14);
+    const y1: f32 = if (kind == .horizontal) grid_oy - cell_y * 16 else grid_oy + cell_y * 14;
+    const y2: f32 = if (kind == .horizontal) y1 + span_line_rise else y1 - span_line_rise;
+    return y1 + (x - x1) * (y2 - y1) / span_line_width;
+}
+
+// The frame's constructor value for Begin and End (BridgeFrm.cpp:91).
+const world_cell: f32 = 16 * 2.0 * 1.41421356;
+const default_span_mark: Point2 = .{ .x = 16 * world_cell - 300, .y = 16 * world_cell };
+
+/// Moves one span mark as one undo step. The geometry is MFC's own_data in the
+/// order Begin, End and (Front, Back as one point): a Begin or End drag keeps
+/// the x of the pointer and takes the y of the line for the bridge type; a
+/// Front or Back drag stores the pointer's offset from `papa` (the span's
+/// Begin, End or centre cross) across the line, y for a horizontal bridge and
+/// x for a vertical one. The other marks, a stale Front and Back included, stay
+/// as they are. Null when the mark does not change.
+pub fn setSpanMark(allocator: std.mem.Allocator, bridge: ResBridge, node: i32, mark: SpanMark, to: Point2, kind: BridgeType, papa: Point2) EditError!?ResourceCommand {
+    var before = try tools.readGeometry(bridge, node, .bridge_span_marks);
+    defer before.deinit(allocator);
+    var marks: [3]Point2 = .{ default_span_mark, default_span_mark, .{} };
+    if (before.points2.len == 3) @memcpy(&marks, before.points2) else if (before.points2.len != 0) return error.BadArgument;
+    switch (mark) {
+        .begin => marks[0] = .{ .x = to.x, .y = spanLineY(kind, to.x) },
+        .end => marks[1] = .{ .x = to.x, .y = spanLineY(kind, to.x) },
+        .front => marks[2].x = if (kind == .horizontal) to.y - papa.y else to.x - papa.x,
+        .back => marks[2].y = if (kind == .horizontal) to.y - papa.y else to.x - papa.x,
+    }
+    if (before.points2.len == 3 and std.mem.eql(u8, std.mem.sliceAsBytes(before.points2), std.mem.sliceAsBytes(&marks))) return null;
+    return try tools.setGeometry(allocator, bridge, node, .bridge_span_marks, .{ .points2 = &marks });
 }
 
 // --- Generate points -----------------------------------------------------------
@@ -444,7 +529,7 @@ pub fn generateDirExp(box: Footprint, frame: Frame, cones: [5]i32) [5]AimedPoint
 /// building's passability channel as the bridge reads it.
 pub fn generateSmokePoints(allocator: std.mem.Allocator, doc: *const Document, bridge: ResBridge, target: Target, frame: Frame) EditError!ResourceCommand {
     if (target.fixed_children) return error.Refused;
-    var pass = try tools.readGeometry(bridge, target.node, .passability_cells);
+    var pass = try tools.readGeometry(bridge, target.footprint_node orelse target.node, target.footprint_channel);
     defer pass.deinit(allocator);
     const grid = pass.bytes_grid;
     const box = Footprint.of(grid.bytes, @intCast(grid.width), @intCast(grid.height)) orelse return error.Refused;
@@ -481,7 +566,7 @@ pub fn generateSmokePoints(allocator: std.mem.Allocator, doc: *const Document, b
 /// OnGeneratePoints in directed-explosion mode: the five fixed explosions move
 /// to their generated places. Null when they are there already.
 pub fn generateDirExpPoints(allocator: std.mem.Allocator, bridge: ResBridge, target: Target, frame: Frame) EditError!?ResourceCommand {
-    var pass = try tools.readGeometry(bridge, target.node, .passability_cells);
+    var pass = try tools.readGeometry(bridge, target.footprint_node orelse target.node, target.footprint_channel);
     defer pass.deinit(allocator);
     const grid = pass.bytes_grid;
     const box = Footprint.of(grid.bytes, @intCast(grid.width), @intCast(grid.height)) orelse return error.Refused;
@@ -513,6 +598,38 @@ const Rig = struct {
     doc: Document = .{},
     history: History = .{},
     root: i32 = 0,
+    /// The first span part of a bridge rig (its locked tiles are the footprint).
+    part: i32 = 0,
+    on_bridge: bool = false,
+
+    /// A bridge with CBridgeFrame's three point containers (the directed
+    /// explosions' five fixed children among them) and one span part.
+    fn initBridge(allocator: std.mem.Allocator) !Rig {
+        var rig: Rig = .{ .allocator = allocator, .fake = FakeResBridge.init(allocator), .on_bridge = true };
+        try bridge_mod.check(rig.fake.bridge().new(.bridge));
+        rig.root = rig.fake.nodes.items[0].id;
+        const classes = [_]i32{ item_type.bridge_parts, item_type.bridge_fire_points, item_type.bridge_smokes, item_type.bridge_dir_explosions };
+        var explosions: i32 = -1;
+        for (classes, 0..) |class, i| {
+            var id: i32 = -1;
+            var name: [16]u8 = undefined;
+            const text = try std.fmt.bufPrint(&name, "{d}", .{class});
+            try bridge_mod.check(rig.fake.bridge().insertNode(rig.root, text, @intCast(i), &id));
+            if (class == item_type.bridge_parts) rig.part = id;
+            if (class == item_type.bridge_dir_explosions) explosions = id;
+        }
+        var name: [16]u8 = undefined;
+        const child = try std.fmt.bufPrint(&name, "{d}", .{item_type.bridge_dir_explosion_props});
+        var n: i32 = 0;
+        while (n < 5) : (n += 1) {
+            var id: i32 = -1;
+            try bridge_mod.check(rig.fake.bridge().insertNode(explosions, child, n, &id));
+        }
+        const five = [_]AimedPoint{.{}} ** 5;
+        try bridge_mod.check(rig.fake.bridge().geometryWrite(rig.root, .directed_explosion_points, &.{ .aimed = @constCast(&five) }));
+        try rig.doc.reload(allocator, rig.fake.bridge());
+        return rig;
+    }
 
     /// A building with the four containers the editor's tree has, the
     /// directed explosions' five fixed children among them.
@@ -553,6 +670,7 @@ const Rig = struct {
     }
 
     fn target(self: *Rig, mode: Mode) Target {
+        if (self.on_bridge) return bridgeTarget(&self.doc, self.root, mode).?;
         return buildingTarget(&self.doc, self.root, mode).?;
     }
 
@@ -607,6 +725,10 @@ const pt = struct {
 fn placeAndDeleteCase(mode: Mode, default_angle: i32, default_cone: i32, copied_cone: i32) !void {
     var rig = try Rig.init(testing.allocator);
     defer rig.deinit();
+    try placeAndDeleteOn(&rig, mode, default_angle, default_cone, copied_cone);
+}
+
+fn placeAndDeleteOn(rig: *Rig, mode: Mode, default_angle: i32, default_cone: i32, copied_cone: i32) !void {
     const t = rig.target(mode);
     try rig.expectPoints(t, &.{});
     try rig.expectChildren(t, 0);
@@ -833,4 +955,231 @@ test "generate refuses a building with no passability tile" {
     defer rig.deinit();
     try testing.expectError(error.Refused, generateSmokePoints(testing.allocator, &rig.doc, rig.bridge(), rig.target(.smoke), .{}));
     try testing.expectError(error.Refused, generateDirExpPoints(testing.allocator, rig.bridge(), rig.target(.dir_explosion), .{}));
+}
+
+// --- Bridge tests ------------------------------------------------------------
+
+const grid_tools = @import("grid_tools.zig");
+
+test "bridge fire and smoke points are placed, copied and deleted as one step each" {
+    inline for (.{ Mode.fire, Mode.smoke }) |mode| {
+        var rig = try Rig.initBridge(testing.allocator);
+        defer rig.deinit();
+        try placeAndDeleteOn(&rig, mode, 0, 0, 0);
+    }
+}
+
+test "a bridge has no shoot points and its directed explosions have no place and no delete" {
+    var rig = try Rig.initBridge(testing.allocator);
+    defer rig.deinit();
+    try testing.expect(bridgeTarget(&rig.doc, rig.root, .shoot) == null);
+    const t = rig.target(.dir_explosion);
+    try testing.expectError(error.Refused, placePoint(testing.allocator, &rig.doc, rig.bridge(), t, pt.at(1, 1), null));
+    try testing.expectError(error.Refused, deletePoint(testing.allocator, &rig.doc, rig.bridge(), t, 0));
+    try rig.expectChildren(t, 5);
+}
+
+test "bridge points move, run horizontally and turn in one undo step each" {
+    const cases = [_]struct { mode: Mode, part: Part, sample: Sample, want: AimedPoint }{
+        .{ .mode = .fire, .part = .move, .sample = .{ .at = pt.at(15, 25) }, .want = .{ .at = pt.at(15, 25), .angle = 0 } },
+        .{ .mode = .smoke, .part = .horizontal, .sample = .{ .at = pt.at(99, 33) }, .want = .{ .at = pt.at(10, 33), .angle = 0 } },
+        .{ .mode = .fire, .part = .direction, .sample = .{ .angle = 270 }, .want = .{ .at = pt.at(10, 20), .angle = 270 } },
+        .{ .mode = .smoke, .part = .direction, .sample = .{ .angle = 90 }, .want = .{ .at = pt.at(10, 20), .angle = 90 } },
+    };
+    for (cases) |case| {
+        var rig = try Rig.initBridge(testing.allocator);
+        defer rig.deinit();
+        const t = rig.target(case.mode);
+        try rig.commitCommand(try placePoint(testing.allocator, &rig.doc, rig.bridge(), t, pt.at(10, 20), null));
+        const start: AimedPoint = .{ .at = pt.at(10, 20) };
+        var drag = try PointDrag.begin(testing.allocator, rig.bridge(), t, 0, case.part);
+        try drag.move(rig.bridge(), .{ .at = pt.at(1, 1), .angle = 1 });
+        try drag.move(rig.bridge(), case.sample);
+        try rig.commitCommand(drag.finish(testing.allocator).?);
+        try rig.expectPoints(t, &.{case.want});
+        try testing.expectEqual(@as(usize, 2), rig.history.undo_stack.items.len);
+        try rig.undo();
+        try rig.expectPoints(t, &.{start});
+        try rig.redo();
+        try rig.expectPoints(t, &.{case.want});
+    }
+}
+
+test "a bridge's directed explosion turns in one undo step" {
+    var rig = try Rig.initBridge(testing.allocator);
+    defer rig.deinit();
+    const t = rig.target(.dir_explosion);
+    try rig.commitCommand((try editPoint(testing.allocator, rig.bridge(), t, 1, .direction, .{ .angle = 135 })).?);
+    var want = [_]AimedPoint{.{}} ** 5;
+    want[1].angle = 135;
+    try rig.expectPoints(t, &want);
+    try testing.expectEqualStrings("135", try rig.childProp(t, 1, "Direction"));
+    try rig.undo();
+    try rig.expectPoints(t, &([_]AimedPoint{.{}} ** 5));
+    try rig.redo();
+    try rig.expectPoints(t, &want);
+}
+
+test "bridge generate commands walk the span part's locked tiles and undo in one step" {
+    var rig = try Rig.initBridge(testing.allocator);
+    defer rig.deinit();
+    const smoke = rig.target(.smoke);
+    const blasts = rig.target(.dir_explosion);
+    // A bridge with no locked tile has no footprint to walk.
+    try testing.expectError(error.Refused, generateSmokePoints(testing.allocator, &rig.doc, rig.bridge(), smoke, .{}));
+    try testing.expectError(error.Refused, generateDirExpPoints(testing.allocator, rig.bridge(), blasts, .{}));
+
+    const cells = [_]u8{1} ** 8;
+    try bridge_mod.check(rig.bridge().geometryWrite(rig.part, .locked_tiles, &.{ .bytes_grid = .{ .bytes = @constCast(&cells), .width = 4, .height = 2 } }));
+    try rig.commitCommand(try generateSmokePoints(testing.allocator, &rig.doc, rig.bridge(), smoke, .{}));
+    var read = try tools.readGeometry(rig.bridge(), smoke.node, smoke.channel);
+    try testing.expectEqual(@as(usize, 6), read.aimed.len);
+    read.deinit(testing.allocator);
+    try rig.expectChildren(smoke, 6);
+    try testing.expectEqualStrings("180", try rig.childProp(smoke, 0, "Direction"));
+    try rig.undo();
+    try rig.expectPoints(smoke, &.{});
+    try rig.expectChildren(smoke, 0);
+    try rig.redo();
+    try rig.expectChildren(smoke, 6);
+
+    try rig.commitCommand((try generateDirExpPoints(testing.allocator, rig.bridge(), blasts, .{})).?);
+    var after = try tools.readGeometry(rig.bridge(), blasts.node, blasts.channel);
+    defer after.deinit(testing.allocator);
+    try testing.expectEqual(@as(i32, 225), after.aimed[4].angle);
+    try rig.undo();
+    try rig.expectPoints(blasts, &([_]AimedPoint{.{}} ** 5));
+    try rig.redo();
+    try rig.expectChildren(blasts, 5);
+}
+
+fn expectMarks(rig: *Rig, want: [3]Point2) !void {
+    var read = try tools.readGeometry(rig.bridge(), rig.root, .bridge_span_marks);
+    defer read.deinit(rig.allocator);
+    try testing.expectEqualSlices(Point2, &want, read.points2);
+}
+
+test "each span mark moves in one undo step and leaves the others, a stale Front and Back too" {
+    inline for (.{ BridgeType.horizontal, BridgeType.vertical }) |kind| {
+        var rig = try Rig.initBridge(testing.allocator);
+        defer rig.deinit();
+        const line_y = struct {
+            fn at(x: f32) f32 {
+                return spanLineY(kind, x);
+            }
+        }.at;
+        // A project with stale Front and Back, as a reopened .bdg holds them.
+        const stale: [3]Point2 = .{ pt.at(100, line_y(100)), pt.at(700, line_y(700)), pt.at(-12.5, 30.25) };
+        try bridge_mod.check(rig.bridge().geometryWrite(rig.root, .bridge_span_marks, &.{ .points2 = @constCast(&stale) }));
+
+        // Begin and End keep x and take the line's y, whatever y the pointer has.
+        var want = stale;
+        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .begin, pt.at(240, 9999), kind, .{})).?);
+        want[0] = pt.at(240, line_y(240));
+        try expectMarks(&rig, want);
+        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .end, pt.at(820, -9999), kind, .{})).?);
+        want[1] = pt.at(820, line_y(820));
+        try expectMarks(&rig, want);
+        // Front and Back are offsets from the span's papa across the line.
+        const papa = pt.at(50, 60);
+        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .front, pt.at(80, 100), kind, papa)).?);
+        want[2].x = if (kind == .horizontal) 40 else 30;
+        try expectMarks(&rig, want);
+        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .back, pt.at(10, 20), kind, papa)).?);
+        want[2].y = -40;
+        try expectMarks(&rig, want);
+        try testing.expectEqual(@as(usize, 4), rig.history.undo_stack.items.len);
+
+        // Undo walks back one mark at a time, redo forward again.
+        const final = want;
+        try rig.undo();
+        want[2].y = stale[2].y;
+        try expectMarks(&rig, want);
+        try rig.undo();
+        want[2].x = stale[2].x;
+        try expectMarks(&rig, want);
+        try rig.undo();
+        want[1] = stale[1];
+        try expectMarks(&rig, want);
+        try rig.undo();
+        try expectMarks(&rig, stale);
+        try rig.redo();
+        try rig.redo();
+        try rig.redo();
+        try rig.redo();
+        try testing.expectEqual(final, try readMarks(&rig));
+    }
+}
+
+fn readMarks(rig: *Rig) ![3]Point2 {
+    var read = try tools.readGeometry(rig.bridge(), rig.root, .bridge_span_marks);
+    defer read.deinit(rig.allocator);
+    var out: [3]Point2 = undefined;
+    @memcpy(&out, read.points2);
+    return out;
+}
+
+test "the bridge type picks the line a span mark sits on" {
+    // Horizontal runs down-right from grid index 16, vertical up-right from 14.
+    try testing.expectEqual(@as(f32, 296 - 16 * 16), spanLineY(.horizontal, -622 + 32 * 16));
+    try testing.expectEqual(@as(f32, 296 + 14 * 16), spanLineY(.vertical, -622 + 32 * 14));
+    try testing.expect(spanLineY(.horizontal, 300) > spanLineY(.horizontal, 100));
+    try testing.expect(spanLineY(.vertical, 300) < spanLineY(.vertical, 100));
+}
+
+test "a span mark with nothing set starts from the frame's defaults, a repeat is no step, a bad list is refused" {
+    var rig = try Rig.initBridge(testing.allocator);
+    defer rig.deinit();
+    var read = try tools.readGeometry(rig.bridge(), rig.root, .bridge_span_marks);
+    try testing.expectEqual(@as(usize, 0), read.points2.len);
+    read.deinit(testing.allocator);
+
+    try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .front, pt.at(0, 7), .horizontal, .{})).?);
+    const marks = try readMarks(&rig);
+    try testing.expectEqual(default_span_mark, marks[0]);
+    try testing.expectEqual(default_span_mark, marks[1]);
+    try testing.expectEqual(pt.at(7, 0), marks[2]);
+    try testing.expect((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .front, pt.at(0, 7), .horizontal, .{})) == null);
+    try rig.undo();
+    read = try tools.readGeometry(rig.bridge(), rig.root, .bridge_span_marks);
+    try testing.expectEqual(@as(usize, 0), read.points2.len);
+    read.deinit(testing.allocator);
+
+    const two = [_]Point2{ .{}, .{} };
+    try bridge_mod.check(rig.bridge().geometryWrite(rig.root, .bridge_span_marks, &.{ .points2 = @constCast(&two) }));
+    try testing.expectError(error.BadArgument, setSpanMark(testing.allocator, rig.bridge(), rig.root, .begin, pt.at(1, 1), .horizontal, .{}));
+}
+
+test "a span part's passability brush and the bridge's set zero undo and redo" {
+    var rig = try Rig.initBridge(testing.allocator);
+    defer rig.deinit();
+    var stroke = try grid_tools.BrushStroke.begin(testing.allocator, rig.bridge(), rig.part, .locked_tiles, 1);
+    try stroke.press(testing.allocator, rig.bridge(), 1, 0);
+    try stroke.move(testing.allocator, rig.bridge(), 3, 0);
+    try rig.commitCommand((try stroke.finish(testing.allocator, rig.bridge())).?);
+    const painted = [_]u8{ 0, 1, 1, 1 };
+    const grid = struct {
+        fn expect(r: *Rig, w: i32, h: i32, cells: []const u8) !void {
+            var read = try tools.readGeometry(r.bridge(), r.part, .locked_tiles);
+            defer read.deinit(r.allocator);
+            try testing.expectEqual(w, read.bytes_grid.width);
+            try testing.expectEqual(h, read.bytes_grid.height);
+            try testing.expectEqualSlices(u8, cells, read.bytes_grid.bytes);
+        }
+    }.expect;
+    try grid(&rig, 4, 1, &painted);
+    try rig.undo();
+    try grid(&rig, 0, 0, &.{});
+    try rig.redo();
+    try grid(&rig, 4, 1, &painted);
+
+    try rig.commitCommand(try grid_tools.setZero(testing.allocator, rig.bridge(), rig.root, pt.at(33.5, -4)));
+    var zero = try tools.readGeometry(rig.bridge(), rig.root, .zero_point);
+    try testing.expectEqual(pt.at(33.5, -4), zero.point2);
+    try rig.undo();
+    zero = try tools.readGeometry(rig.bridge(), rig.root, .zero_point);
+    try testing.expectEqual(pt.at(0, 0), zero.point2);
+    try rig.redo();
+    zero = try tools.readGeometry(rig.bridge(), rig.root, .zero_point);
+    try testing.expectEqual(pt.at(33.5, -4), zero.point2);
 }

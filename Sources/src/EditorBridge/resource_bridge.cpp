@@ -794,6 +794,7 @@ EGeometryHome HomeOf( const ResourceState &state, int nNodeId, int nChannel )
 	const bool bRoot = itParent->second == 0;
 	const bool bBuilding = bRoot && nType == NResourceModel::ETIT_BUILDING_ROOT_ITEM;
 	const bool bObject = bRoot && nType == NResourceModel::ETIT_OBJECT_ROOT_ITEM;
+	const bool bBridge = bRoot && nType == NResourceModel::ETIT_BRIDGE_ROOT_ITEM;
 	switch ( nChannel )
 	{
 	case CHANNEL_PASSABILITY_CELLS:
@@ -817,7 +818,7 @@ EGeometryHome HomeOf( const ResourceState &state, int nNodeId, int nChannel )
 			return HOME_FRAME;
 		return nType == NResourceModel::ETIT_FENCE_PROPS_ITEM ? HOME_FENCE_SPRITE : HOME_NONE;
 	case CHANNEL_ZERO_POINT:
-		if ( bBuilding || bObject )
+		if ( bBuilding || bObject || bBridge )
 			return HOME_FRAME;
 		return nType == NResourceModel::ETIT_SQUAD_FORMATION_PROPS_ITEM ? HOME_SQUAD_ZERO : HOME_NONE;
 	case CHANNEL_FORMATION_POSITIONS:
@@ -836,10 +837,12 @@ EGeometryHome HomeOf( const ResourceState &state, int nNodeId, int nChannel )
 		return IsEffectPartList( nType ) ? HOME_EFFECT_PLACES : HOME_NONE;
 	case CHANNEL_ENTRANCE:
 	case CHANNEL_SHOOT_POINTS:
+		return bBuilding ? HOME_FRAME : HOME_NONE;
 	case CHANNEL_FIRE_POINTS:
 	case CHANNEL_SMOKE_POINTS:
 	case CHANNEL_DIRECTED_EXPLOSION_POINTS:
-		return bBuilding ? HOME_FRAME : HOME_NONE;
+		// A bridge keeps these too, in the RPG chunk (CBridgeFrame::SaveRPGStats).
+		return bBuilding || bBridge ? HOME_FRAME : HOME_NONE;
 	default:	// a channel integer the bridge does not define
 		return HOME_NONE;
 	}
@@ -886,12 +889,26 @@ NResourceXml::Node &ChildOrNew( NResourceXml::Node &parent, const std::string &s
 	return parent.children.back();
 }
 
-// own_data or desc under the project element. A missing one goes where
-// CParentFrame::OnFileSave writes it: own_data first, then desc, then the tree.
+// The chunk a frame's stats copy lives in: CBuildingFrame and CObjectFrame
+// write "desc", CBridgeFrame "RPG" (the bridge exporter's WriteBridgeFrameData
+// builds the same one).
+const char *StatsChunkName( const NResourceXml::Node &root )
+{
+	return root.name == "Bridge_Composer_Project" ? "RPG" : "desc";
+}
+
+// own_data, desc or RPG under the project element. A missing one goes where
+// CParentFrame::OnFileSave writes it: own_data first, then desc, then the tree;
+// the bridge's RPG chunk follows the tree.
 NResourceXml::Node &FrameChunk( NResourceXml::Node &root, const std::string &szName )
 {
 	if ( NResourceXml::Node *p = MutableChild( root, szName ) )
 		return *p;
+	if ( szName == "RPG" )
+	{
+		root.children.push_back( NewElement( szName ) );
+		return root.children.back();
+	}
 	std::size_t nAt = 0;
 	if ( szName == "desc" )
 		for ( std::size_t i = 0; i < root.children.size(); ++i )
@@ -1004,7 +1021,7 @@ bool ReadFrameGeometry( const NResourceXml::Node &root, int nChannel, GeometryBl
 	out = GeometryBlob();
 	const bool bOwnData = nChannel == CHANNEL_ZERO_POINT || nChannel == CHANNEL_TRANSPARENCY_LINES
 		|| nChannel == CHANNEL_BRIDGE_SPAN_MARKS || nChannel == CHANNEL_SPRITE_POS;
-	const NResourceXml::Node *pChunk = NResourceXml::FindChild( root, bOwnData ? "own_data" : "desc" );
+	const NResourceXml::Node *pChunk = NResourceXml::FindChild( root, bOwnData ? "own_data" : StatsChunkName( root ) );
 	if ( pChunk == nullptr )
 		return true;
 	switch ( nChannel )
@@ -1188,13 +1205,19 @@ void WriteFrameGeometry( NResourceXml::Node &root, int nChannel, const GeometryB
 	}
 	default:
 	{
-		NResourceXml::Node &list = ChildOrNew( FrameChunk( root, "desc" ), AimedListName( nChannel ) );
+		NResourceXml::Node &list = ChildOrNew( FrameChunk( root, StatsChunkName( root ) ), AimedListName( nChannel ) );
 		std::vector<NResourceXml::Node> kept;
 		for ( auto &c : list.children )
 			if ( c.kind == NResourceXml::Node::Element && c.name == "item" && kept.size() < blob.aimed.size() )
 				kept.push_back( std::move( c ) );
 		while ( kept.size() < blob.aimed.size() )
+		{
 			kept.push_back( NewAimedEntry( nChannel ) );
+			// A bridge's smoke point has no fire effect (SBridgeRPGStats::SSmokePoint).
+			if ( nChannel == CHANNEL_SMOKE_POINTS && root.name == "Bridge_Composer_Project" )
+				kept.back().children.erase( std::remove_if( kept.back().children.begin(), kept.back().children.end(),
+					[]( const NResourceXml::Node &n ) { return n.kind == NResourceXml::Node::Element && n.name == "FireEffect"; } ), kept.back().children.end() );
+		}
 		for ( std::size_t i = 0; i < kept.size(); ++i )
 		{
 			const AimedPoint &ap = blob.aimed[i];
@@ -1594,7 +1617,11 @@ const SAimedChildren kAimedChildren[] =
 	{ CHANNEL_SHOOT_POINTS, NResourceModel::ETIT_BUILDING_SLOTS_ITEM, "Angle" },
 	{ CHANNEL_FIRE_POINTS, NResourceModel::ETIT_BUILDING_FIRE_POINTS_ITEM, "Vertical angle" },
 	{ CHANNEL_SMOKE_POINTS, NResourceModel::ETIT_BUILDING_SMOKES_ITEM, "Vertical angle" },
-	{ CHANNEL_DIRECTED_EXPLOSION_POINTS, NResourceModel::ETIT_BUILDING_DIR_EXPLOSIONS_ITEM, "Vertical angle" }
+	{ CHANNEL_DIRECTED_EXPLOSION_POINTS, NResourceModel::ETIT_BUILDING_DIR_EXPLOSIONS_ITEM, "Vertical angle" },
+	// The bridge's children carry a direction only, so the cone name finds nothing.
+	{ CHANNEL_FIRE_POINTS, NResourceModel::ETIT_BRIDGE_FIRE_POINTS_ITEM, "Vertical angle" },
+	{ CHANNEL_SMOKE_POINTS, NResourceModel::ETIT_BRIDGE_SMOKES_ITEM, "Vertical angle" },
+	{ CHANNEL_DIRECTED_EXPLOSION_POINTS, NResourceModel::ETIT_BRIDGE_DIR_EXPLOSIONS_ITEM, "Vertical angle" }
 };
 
 void SyncAimedChildren( const ResourceState &state, int nChannel, const GeometryBlob &blob )
@@ -1640,7 +1667,7 @@ BkEditorStatus StoreGeometry( BkResSession *pSession, ResourceState &state, int 
 		pSession->szMessage = NoHomeMessage( state, nChannel );
 		return BK_EDITOR_REFUSED;
 	case HOME_FRAME:
-		if ( !blob.aimed.empty() && pItem->GetItemType() == NResourceModel::ETIT_BUILDING_ROOT_ITEM )
+		if ( !blob.aimed.empty() && ( pItem->GetItemType() == NResourceModel::ETIT_BUILDING_ROOT_ITEM || pItem->GetItemType() == NResourceModel::ETIT_BRIDGE_ROOT_ITEM ) )
 			SyncAimedChildren( state, nChannel, blob );
 		state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
 		return BK_EDITOR_OK;

@@ -81,6 +81,14 @@ pub const item_type = struct {
     pub const building_dir_explosions: i32 = base + 270;
     pub const building_dir_explosion_props: i32 = base + 271;
     pub const building_smoke_props: i32 = base + 272;
+    pub const bridge_root: i32 = base + 220;
+    pub const bridge_parts: i32 = base + 225;
+    pub const bridge_fire_points: i32 = base + 330;
+    pub const bridge_fire_point_props: i32 = base + 331;
+    pub const bridge_dir_explosions: i32 = base + 332;
+    pub const bridge_dir_explosion_props: i32 = base + 333;
+    pub const bridge_smokes: i32 = base + 334;
+    pub const bridge_smoke_props: i32 = base + 335;
 };
 
 // --- Reading the mirror ------------------------------------------------------

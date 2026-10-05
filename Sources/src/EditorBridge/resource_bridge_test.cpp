@@ -1111,6 +1111,74 @@ static void BridgeSpanMarksInMfcLayout( BkResSession *pSession, const std::strin
 	} );
 }
 
+// S11 T03: the bridge's other channels. CBridgeFrame keeps the fire, smoke
+// and directed-explosion points in the RPG chunk (SaveRPGStats), the zero point
+// in the frame, and a part's passability as its locked tiles. Each round-trips
+// through save and reopen, span marks included with a stale Front and Back.
+static bool SameAimed( const BkResAimedPoint &got, const BkResAimedPoint &want )
+{
+	return got.at.x == want.at.x && got.at.y == want.at.y && got.angle == want.angle && got.cone == want.cone;
+}
+
+static void BridgeFrameChannels( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path dir = fs::path( szScratchRoot ) / "s11-bridge-channels";
+	fs::remove_all( dir, ec );
+	fs::create_directories( dir, ec );
+	const std::string szPath = ( dir / "project.bdg" ).string();
+	fs::copy_file( fs::path( szFixtureRoot ) / "bdg" / "project.bdg", szPath, fs::copy_options::overwrite_existing, ec );
+	if ( !Check( BkResOpen( pSession, szPath.c_str() ) == BK_EDITOR_OK, "bridge-channels: the fixture opens" ) )
+		return;
+	const int nRoot = FirstNodeOfType( pSession, 0x11000000 + 220 );
+	const int nParts = FirstNodeOfType( pSession, 0x11000000 + 225 );
+	Check( nRoot > 0 && nParts > 0, "bridge-channels: the root and a span part are found" );
+
+	const BkResAimedPoint fire[2] = { { { 10.5f, 20.25f }, 30, 40 }, { { -5, 6 }, 90, 12 } };
+	const BkResAimedPoint smoke[1] = { { { 1, 2 }, 45, 78 } };
+	const BkResAimedPoint explosion[1] = { { { 100, 200 }, 180, 60 } };
+	const BkResPoint2 zero = { 33.5f, 44.25f };
+	const BkResPoint2 marks[3] = { { 200.5f, 512.25f }, { 800.75f, 512.25f }, { -40.5f, 40.125f } };
+	const unsigned char tiles[6] = { 1, 0, 1, 0, 1, 0 };
+	Check( BkResSetFirePoints( pSession, nRoot, fire, 2 ) == BK_EDITOR_OK, "bridge-channels: fire points are set" );
+	Check( BkResSetSmokePoints( pSession, nRoot, smoke, 1 ) == BK_EDITOR_OK, "bridge-channels: smoke points are set" );
+	Check( BkResSetDirectedExplosionPoints( pSession, nRoot, explosion, 1 ) == BK_EDITOR_OK, "bridge-channels: directed explosions are set" );
+	Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK, "bridge-channels: the zero point is set" );
+	Check( BkResSetBridgeSpanMarks( pSession, nRoot, marks, 3 ) == BK_EDITOR_OK, "bridge-channels: span marks (with a stale Front and Back) are set" );
+	Check( BkResSetLockedTiles( pSession, nParts, tiles, 3, 2 ) == BK_EDITOR_OK, "bridge-channels: a part's locked tiles are set" );
+	Check( BkResSetFirePoints( pSession, nParts, fire, 2 ) == BK_EDITOR_REFUSED, "bridge-channels: a span part has no fire points" );
+
+	auto Verify = [&]( const char *pszWhen )
+	{
+		const std::string szWhen = std::string( "bridge-channels: " ) + pszWhen + ": ";
+		BkResAimedPoint got[4] = {};
+		int nCount = -1;
+		Check( BkResGetFirePoints( pSession, nRoot, got, 4, &nCount ) == BK_EDITOR_OK && nCount == 2 && SameAimed( got[0], fire[0] ) && SameAimed( got[1], fire[1] ), ( szWhen + "fire points" ).c_str() );
+		Check( BkResGetSmokePoints( pSession, nRoot, got, 4, &nCount ) == BK_EDITOR_OK && nCount == 1 && SameAimed( got[0], smoke[0] ), ( szWhen + "smoke points" ).c_str() );
+		Check( BkResGetDirectedExplosionPoints( pSession, nRoot, got, 4, &nCount ) == BK_EDITOR_OK && nCount == 1 && SameAimed( got[0], explosion[0] ), ( szWhen + "directed explosions" ).c_str() );
+		BkResPoint2 z = {};
+		Check( BkResGetZeroPoint( pSession, nRoot, &z ) == BK_EDITOR_OK && z.x == zero.x && z.y == zero.y, ( szWhen + "zero point" ).c_str() );
+		BkResPoint2 m[3] = {};
+		Check( BkResGetBridgeSpanMarks( pSession, nRoot, m, 3, &nCount ) == BK_EDITOR_OK && nCount == 3
+			&& m[0].x == marks[0].x && m[0].y == marks[0].y && m[1].x == marks[1].x && m[2].x == marks[2].x && m[2].y == marks[2].y, ( szWhen + "span marks" ).c_str() );
+		unsigned char t[64] = {};
+		int nW = -1, nH = -1;
+		Check( BkResGetLockedTiles( pSession, nParts, t, 64, &nW, &nH ) == BK_EDITOR_OK && nW == 3 && nH == 2 && std::memcmp( t, tiles, 6 ) == 0, ( szWhen + "locked tiles" ).c_str() );
+	};
+	Verify( "before save" );
+	const bool bSaved = Check( BkResSave( pSession, szPath.c_str() ) == BK_EDITOR_OK, "bridge-channels: the project saves" );
+	BkResClose( pSession );
+	if ( bSaved && Check( BkResOpen( pSession, szPath.c_str() ) == BK_EDITOR_OK, "bridge-channels: the project reopens" ) )
+	{
+		const int nReRoot = FirstNodeOfType( pSession, 0x11000000 + 220 );
+		const int nRePart = FirstNodeOfType( pSession, 0x11000000 + 225 );
+		Check( nReRoot == nRoot && nRePart == nParts, "bridge-channels: node ids are stable across reopen" );
+		Verify( "after reopen" );
+	}
+	BkResClose( pSession );
+}
+
 // Map crosses: the position values of each child of the container, plus the
 // RPG copy MFC's LoadRPGStats copies over them. Without RPG the values are
 // what MFC reads, and CreateDefaultChilds turns them back into the ints the
@@ -1227,6 +1295,7 @@ static void ListGeometryInMfcLayout( BkResSession *pSession, const std::string &
 {
 	FormationInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
 	BridgeSpanMarksInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
+	BridgeFrameChannels( pSession, szFixtureRoot, szScratchRoot );
 	{
 		SMissionStats stats;
 		stats.objectives.resize( 1 );
