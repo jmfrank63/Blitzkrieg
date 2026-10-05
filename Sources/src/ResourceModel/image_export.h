@@ -17,6 +17,9 @@
 
 #include <string>
 
+#include "../Anim/Animation.h"
+#include "../Formats/fmtAnimation.h"
+#include "../Image/Image.h"
 #include "exporter.h"
 
 namespace NResourceModel
@@ -36,6 +39,22 @@ struct SGamma
 	float fGamma = 0.0f;
 };
 SGamma ReadGammaConfig( const std::string &szProjectDirectory );
+
+// A picture the engine can read, from a path with slashes or backslashes, or
+// null with outcome.szError naming the path and why: missing, or present and
+// not a readable TGA/PNG/BMP.
+CPtr<IImage> LoadPicture( const std::string &szSource, SExportOutcome &outcome );
+
+// SaveCompressedTexture: the picture after the gamma correction as
+// <szName>_c.dds (DXT5), _l.dds (lowFormat) and _h.dds (ARGB8888). Mine and
+// trench frames use ARGB1555 for the low format, sprites and infantry
+// ARGB4444; the overload without lowFormat is the ARGB1555 one.
+bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, EGFXPixelFormat lowFormat, SExportOutcome &outcome );
+bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome );
+
+// The animation format written as the engine's structure file szName (chunk
+// 1), which is how MFC wrote every .san.
+bool SaveAnimation( const SExportContext &context, SSpriteAnimationFormat &animations, const std::string &szName, SExportOutcome &outcome );
 
 // CParentFrame::ConvertAndSaveImage for a mine or trench frame: the picture
 // written as <szName>_c.dds (DXT5), _l.dds (ARGB1555) and _h.dds (ARGB8888)

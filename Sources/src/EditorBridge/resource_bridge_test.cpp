@@ -38,6 +38,9 @@
 #include "bridge_session.h"
 #include "../ResourceModel/references.h"
 #include "../ResourceModel/exporter.h"
+#include "../ResourceModel/compose.h"
+#include "../ResourceModel/dxt_gate.h"
+#include "../ResourceModel/image_export.h"
 #include "../ResourceModel/comparator.h"
 #include "../ResourceModel/project.h"
 #include "../ResourceModel/items/squad/squad.h"
@@ -3090,6 +3093,233 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 }
 
+// S07 T05: the portable BuildAnimations (ResourceModel/compose.cpp) on the
+// hosted engine. Frames are small generated TGAs written below the scratch
+// root; the .san is read back with the engine's structure loader, the DDS
+// through NDxt, and the writer is proved against a shipped human's 1.san.
+
+namespace S07Compose
+{
+
+static void WriteTga( const std::filesystem::path &file, int nSize, int nIndex )
+{
+	std::string szBytes( 18, '\0' );
+	szBytes[2] = 2;
+	szBytes[12] = char( nSize ); szBytes[14] = char( nSize );
+	szBytes[16] = 32;
+	szBytes[17] = 0x28;  // 8 alpha bits, origin top-left
+	for ( int y = 0; y < nSize; ++y )
+		for ( int x = 0; x < nSize; ++x )
+		{
+			const bool bInside = x >= 2 + nIndex && x < nSize - 3 && y >= 3 && y < nSize - 2 - nIndex;
+			const unsigned char b = 100, g = bInside ? (unsigned char)120 : 0, r = bInside ? (unsigned char)200 : 0, a = bInside ? 255 : 0;
+			szBytes += char( b ); szBytes += char( g ); szBytes += char( r ); szBytes += char( a );
+		}
+	std::ofstream( file, std::ios::binary ) << szBytes;
+}
+
+static bool LoadSan( const std::filesystem::path &file, SSpriteAnimationFormat &fmt )
+{
+	const std::string szDir = file.parent_path().string() + "/";
+	CPtr<IDataStorage> pStorage = OpenStorage( szDir.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( file.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+	if ( pStream == 0 )
+		return false;
+	CPtr<IStructureSaver> pSS = CreateStructureSaver( pStream, IStructureSaver::READ );
+	CSaverAccessor saver = pSS;
+	saver.Add( 1, &fmt );
+	return true;
+}
+
+static NResourceModel::NCompose::SAnimationDesc Animation( const char *pszName, std::vector<std::vector<short>> dirs )
+{
+	NResourceModel::NCompose::SAnimationDesc desc;
+	desc.szName = pszName;
+	desc.nFrameTime = 100;
+	desc.fSpeed = 1.5f;
+	desc.bCycled = true;
+	desc.frames[0] = CVec2( 0, 0 );
+	for ( const std::vector<short> &frames : dirs )
+	{
+		desc.dirs.emplace_back();
+		desc.dirs.back().frames = frames;
+	}
+	return desc;
+}
+
+// One compose into <root>/<szSub>: the .san and the three DDS, as the sprite
+// exporter will write them. False with the outcome's error printed.
+static bool ComposeInto( const std::filesystem::path &root, const char *pszSub, std::vector<NResourceModel::NCompose::SAnimationDesc> descs,
+                         const std::vector<std::string> &files, DWORD dwMinAlpha, SSpriteAnimationFormat &fmt, CPtr<IImage> *ppPacked = 0 )
+{
+	NResourceModel::SExportContext context;
+	context.szStagingRoot = ( root / pszSub ).string();
+	NResourceModel::SExportOutcome outcome;
+	CPtr<IImage> pPacked = NResourceModel::NCompose::BuildAnimations( &descs, &fmt, files, true, dwMinAlpha, outcome );
+	bool bOk = pPacked != 0 &&
+	           NResourceModel::NImageExport::SaveCompressedTexture( context, pPacked, "1", NResourceModel::NImageExport::SGamma(), GFXPF_ARGB4444, outcome ) &&
+	           NResourceModel::NImageExport::SaveAnimation( context, fmt, "1.san", outcome );
+	if ( !bOk )
+		std::printf( "   detail: %s\n", outcome.szError.c_str() );
+	if ( ppPacked != 0 )
+		*ppPacked = pPacked;
+	return bOk;
+}
+
+static void Run( const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s07-compose";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch / "frames", ec );
+	std::vector<std::string> files;
+	for ( int i = 0; i < 3; ++i )
+	{
+		const fs::path frame = scratch / "frames" / ( std::to_string( i ) + ".tga" );
+		WriteTga( frame, 16, i );
+		files.push_back( frame.string() );
+	}
+
+	// Check the action table against the engine's ANIMATION_* slots.
+	bool bKnown = false;
+	Check( NResourceModel::NCompose::GetActionFromName( "Idle", &bKnown ) == ANIMATION_IDLE && bKnown, "compose: Idle is ANIMATION_IDLE" );
+	Check( NResourceModel::NCompose::GetActionFromName( "Death", &bKnown ) == ANIMATION_DEATH && bKnown, "compose: Death is ANIMATION_DEATH" );
+	Check( NResourceModel::NCompose::GetActionFromName( "RUN", &bKnown ) == ANIMATION_MOVE && bKnown, "compose: names ignore case, Run is ANIMATION_MOVE" );
+	Check( NResourceModel::NCompose::GetActionFromName( "default" ) == ANIMATION_IDLE && NResourceModel::NCompose::GetActionFromName( "prisoning" ) == ANIMATION_PRISONING,
+	       "compose: default maps to idle, prisoning to ANIMATION_PRISONING" );
+	Check( NResourceModel::NCompose::GetActionFromName( "no such animation", &bKnown ) == 0 && !bKnown, "compose: an unknown name is slot 0 and reported unknown" );
+
+	// (a) three frames, one animation, one direction.
+	{
+		SSpriteAnimationFormat written;
+		CPtr<IImage> pPacked;
+		if ( !Check( ComposeInto( scratch, "a", { Animation( "Idle", { { 0, 1, 2 } } ) }, files, 0, written, &pPacked ), "compose (a): three frames compose and write" ) )
+			return;
+		for ( const char *pszName : { "1.san", "1_c.dds", "1_l.dds", "1_h.dds" } )
+			Check( fs::is_regular_file( scratch / "a" / pszName, ec ), ( std::string( "compose (a): " ) + pszName + " is written" ).c_str() );
+		SSpriteAnimationFormat fmt;
+		if ( !Check( LoadSan( scratch / "a" / "1.san", fmt ), "compose (a): the engine reads the .san back" ) )
+			return;
+		bool bShape = fmt.animations.size() == 1 && fmt.animations[0].dirs.size() == 1 && fmt.animations[0].rects.size() == 3;
+		if ( !Check( bShape, "compose (a): one animation at ANIMATION_IDLE, one direction, three rects" ) )
+			return;
+		const SSpriteAnimationFormat::SSpriteAnimation &anim = fmt.animations[ANIMATION_IDLE];
+		Check( anim.dirs[0].frames == std::vector<short>( { 0, 1, 2 } ), "compose (a): the frame list is 0 1 2" );
+		Check( anim.nFrameTime == 100 && anim.fSpeed == 1.5f && anim.bCycled, "compose (a): frame time, speed and cycled are kept" );
+		bool bRects = true, bDepth = true;
+		for ( int i = 0; i < 3; ++i )
+		{
+			const SSpriteRect &rect = anim.rects[i];
+			const float fWidth = ( rect.maps.x2 - rect.maps.x1 ) * pPacked->GetSizeX(), fHeight = ( rect.maps.y2 - rect.maps.y1 ) * pPacked->GetSizeY();
+			// Frame i's picture is 10-i wide and 10-i high inside the transparent border.
+			bRects = bRects && rect.rect.maxx - rect.rect.minx == 10 - i && rect.rect.maxy - rect.rect.miny == 10 - i &&
+			         std::fabs( fWidth - ( 10 - i ) ) < 0.01f && std::fabs( fHeight - ( 10 - i ) ) < 0.01f;
+			bDepth = bDepth && rect.fDepthLeft == 0.0f && rect.fDepthRight == 0.0f;
+		}
+		Check( bRects, "compose (a): each rect is the cropped picture, and agrees with its texture mapping" );
+		Check( bDepth, "compose (a): fDepth is 0 without a minimum alpha" );
+		std::printf( "COMPOSE (a): %zu animation, rect0 %d,%d-%d,%d depth %g/%g\n", fmt.animations.size(), anim.rects[0].rect.minx, anim.rects[0].rect.miny,
+		             anim.rects[0].rect.maxx, anim.rects[0].rect.maxy, anim.rects[0].fDepthLeft, anim.rects[0].fDepthRight );
+
+		// The depth pass with a minimum alpha reads the picture and keeps the rest.
+		SSpriteAnimationFormat deep;
+		if ( Check( ComposeInto( scratch, "a-depth", { Animation( "Idle", { { 0, 1, 2 } } ) }, files, 128, deep ), "compose (a): the depth pass composes" ) )
+		{
+			SSpriteAnimationFormat deepFmt;
+			Check( LoadSan( scratch / "a-depth" / "1.san", deepFmt ) && deepFmt.animations.size() == 1 && deepFmt.animations[0].rects.size() == 3 &&
+			       deepFmt.animations[0].rects[1].rect.maxx == anim.rects[1].rect.maxx && deepFmt.animations[0].dirs[0].frames == anim.dirs[0].frames,
+			       "compose (a): the depth pass leaves rects and frames unchanged" );
+		}
+
+		// (d) _c.dds decoded through NDxt, held to the DXT5 gate.
+		NResourceModel::SDxtTolerance tolerance;
+		std::string szError, szDds;
+		const bool bGate = NResourceModel::LoadDxtTolerance( ( fs::path( szFixtureRoot ) / "dxt-tolerance.json" ).string(), &tolerance, &szError ) && tolerance.Find( "DXT5" ) != 0;
+		NResourceModel::SDdsImage decoded;
+		if ( Check( bGate && ReadBytes( ( scratch / "a" / "1_c.dds" ).string(), szDds ) && NResourceModel::DecodeDds( szDds, &decoded, &szError ) && decoded.szFourCC == "DXT5" &&
+		            !decoded.mips.empty(), ( "compose (d): 1_c.dds is a DXT5 NDxt decodes " + szError ).c_str() ) )
+		{
+			NResourceModel::SDdsMip source;
+			source.nWidth = pPacked->GetSizeX();
+			source.nHeight = pPacked->GetSizeY();
+			const SColor *pColors = pPacked->GetLFB();
+			// A fully transparent pixel has no visible colour, and the packer
+			// leaves it unspecified, so it is taken from the decoded picture.
+			for ( int i = 0; i < source.nWidth * source.nHeight && i < int( decoded.mips[0].pixels.size() ); ++i )
+				source.pixels.push_back( pColors[i].a == 0 ? decoded.mips[0].pixels[i] :
+				                         ( unsigned( pColors[i].a ) << 24 ) | ( unsigned( pColors[i].r ) << 16 ) | ( unsigned( pColors[i].g ) << 8 ) | unsigned( pColors[i].b ) );
+			NResourceModel::SDxtDelta delta;
+			delta.Add( 0, decoded.mips[0], source );
+			const NResourceModel::SDxtStats stats = delta.Stats(), *pGate = tolerance.Find( "DXT5" );
+			std::printf( "COMPOSE (d): DXT5 colour max %d p99 %d alpha max %d p99 %d, gate colour max %d p99 %d alpha max %d p99 %d\n", stats.nColourMax, stats.nColourP99,
+			             stats.nAlphaMax, stats.nAlphaP99, pGate->nColourMax, pGate->nColourP99, pGate->nAlphaMax, pGate->nAlphaP99 );
+			Check( decoded.mips[0].nWidth == source.nWidth && stats.nColourMax <= pGate->nColourMax && stats.nColourP99 <= pGate->nColourP99 &&
+			       stats.nAlphaMax <= pGate->nAlphaMax && stats.nAlphaP99 <= pGate->nAlphaP99, "compose (d): the _c.dds decodes within the DXT5 gate of the packed picture" );
+		}
+	}
+
+	// (b) two animations, two directions each, a file used twice.
+	{
+		std::vector<std::string> shared = files;
+		shared.push_back( files[1] );
+		SSpriteAnimationFormat written;
+		if ( !Check( ComposeInto( scratch, "b", { Animation( "Idle", { { 0, 1 }, { 1, 2 } } ), Animation( "Death", { { 2, 3 }, { 3, 2 } } ) }, shared, 0, written ),
+		             "compose (b): two animations with two directions compose and write" ) )
+			return;
+		SSpriteAnimationFormat fmt;
+		if ( !Check( LoadSan( scratch / "b" / "1.san", fmt ) && fmt.animations.size() == ANIMATION_DEATH + 1, "compose (b): the engine reads ANIMATION_DEATH + 1 slots" ) )
+			return;
+		const SSpriteAnimationFormat::SSpriteAnimation &idle = fmt.animations[ANIMATION_IDLE], &death = fmt.animations[ANIMATION_DEATH];
+		Check( idle.dirs.size() == 2 && idle.dirs[0].frames == std::vector<short>( { 0, 1 } ) && idle.dirs[1].frames == std::vector<short>( { 1, 2 } ) && idle.rects.size() == 3,
+		       "compose (b): Idle keeps its two directions over three used frames" );
+		// The fourth name is the second file: its index is 1, so Death uses
+		// files 2 and 1, the used frames {1, 2}, which index as 1 and 0.
+		Check( death.dirs.size() == 2 && death.dirs[0].frames == std::vector<short>( { 1, 0 } ) && death.dirs[1].frames == std::vector<short>( { 0, 1 } ) && death.rects.size() == 2,
+		       "compose (b): Death indexes its used frames, and a repeated file name shares its frame" );
+		Check( death.rects.size() == 2 && idle.rects.size() == 3 && death.rects[0].maps.x1 == idle.rects[1].maps.x1 && death.rects[1].maps.x1 == idle.rects[2].maps.x1,
+		       "compose (b): Death's rects are Idle's rects of the same files" );
+		bool bEmpty = true;
+		for ( int i = 1; i < ANIMATION_DEATH; ++i )
+			bEmpty = bEmpty && fmt.animations[i].dirs.empty() && fmt.animations[i].rects.empty();
+		Check( bEmpty, "compose (b): the slots between Idle and Death are empty" );
+	}
+
+	// (c) the same compose twice writes the same bytes.
+	{
+		SSpriteAnimationFormat first, second;
+		const bool bFirst = ComposeInto( scratch, "c1", { Animation( "Idle", { { 0, 1, 2 } } ), Animation( "Run", { { 2, 1 } } ) }, files, 0, first );
+		const bool bSecond = ComposeInto( scratch, "c2", { Animation( "Idle", { { 0, 1, 2 } } ), Animation( "Run", { { 2, 1 } } ) }, files, 0, second );
+		if ( Check( bFirst && bSecond, "compose (c): two composes of the same project write" ) )
+			for ( const char *pszName : { "1.san", "1_c.dds", "1_l.dds", "1_h.dds" } )
+			{
+				std::string a, b;
+				Check( ReadBytes( ( scratch / "c1" / pszName ).string(), a ) && ReadBytes( ( scratch / "c2" / pszName ).string(), b ) && !a.empty() && a == b,
+				       ( std::string( "compose (c): " ) + pszName + " is byte-identical across composes" ).c_str() );
+			}
+	}
+
+	// (e) the writer on a shipped human's 1.san.
+	{
+		const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", "Units/Humans/German/Mp43/1.san" );
+		std::printf( "COMPOSE (e): writer identity on %s\n", shipped.string().c_str() );
+		SSpriteAnimationFormat fmt;
+		std::string szShipped, szResaved;
+		if ( Check( LoadSan( shipped, fmt ) && !fmt.animations.empty() && ReadBytes( shipped.string(), szShipped ), "compose (e): the shipped 1.san loads" ) )
+		{
+			NResourceModel::SExportContext context;
+			context.szStagingRoot = ( scratch / "e" ).string();
+			NResourceModel::SExportOutcome outcome;
+			Check( NResourceModel::NImageExport::SaveAnimation( context, fmt, "1.san", outcome ) && ReadBytes( ( scratch / "e" / "1.san" ).string(), szResaved ),
+			       ( "compose (e): the shipped format re-saves " + outcome.szError ).c_str() );
+			Check( szShipped == szResaved, ( "compose (e): the re-saved .san is byte-identical to the shipped one (" + std::to_string( szShipped.size() ) + " vs " +
+			                                 std::to_string( szResaved.size() ) + " bytes)" ).c_str() );
+		}
+	}
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -3329,6 +3559,9 @@ int main( int argc, char **argv )
 	S06Preview::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 	// S06 T04: the sub-editors' tools, undo, redo and save on the real bridge.
 	S06Tools::Run( pSession, szFixtureRoot, szScratchRoot );
+
+	// S07 T05: the portable BuildAnimations and the .san writer.
+	S07Compose::Run( pszRoot, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

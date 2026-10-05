@@ -2,7 +2,10 @@
 
 #include "image_export.h"
 
+#include <algorithm>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 
 #include "../Anim/Animation.h"
 #include "../Formats/fmtAnimation.h"
@@ -52,34 +55,63 @@ CPtr<IDataStream> CreateStaged( const SExportContext &context, const std::string
 	return pStream;
 }
 
-// A picture the engine can read, or null with outcome.szError naming the
-// path and why: missing, or present and not a readable TGA/PNG/BMP.
-CPtr<IImage> LoadPicture( const std::string &szSource, SExportOutcome &outcome )
+// A structure file is three top chunks: 0 the object directory, 1 the main
+// data, 2 the object content. MFC's saver wrote them 1, 0, 2 and every
+// shipped .san has that order; the engine's Zig saver writes 0, 1, 2. The
+// reader finds chunks by id, so both load the same, but the exporter keeps
+// the shipped byte order so a re-save of a shipped file is identical. A chunk
+// is [id][length]: a payload under 128 bytes takes the one byte length*2, a
+// longer one the four bytes length*2+1.
+bool MoveMainChunkFirst( const fs::path &file, SExportOutcome &outcome )
 {
-	const fs::path file( Slashed( szSource ) );
-	std::error_code ec;
-	if ( !fs::is_regular_file( file, ec ) )
+	std::string szBytes;
 	{
-		outcome.szError = "cannot read the picture " + file.string() + ": the file is missing";
-		return 0;
+		std::ifstream in( file, std::ios::binary );
+		szBytes.assign( std::istreambuf_iterator<char>( in ), std::istreambuf_iterator<char>() );
 	}
-	std::string szDir = file.parent_path().string();
-	if ( szDir.empty() || szDir.back() != '/' )
-		szDir += '/';
-	CPtr<IDataStorage> pStorage = OpenStorage( szDir.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
-	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( file.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
-	if ( pStream == 0 )
+	std::vector<std::pair<unsigned char, std::string>> chunks;
+	for ( size_t nPos = 0; nPos < szBytes.size(); )
 	{
-		outcome.szError = "cannot read the picture " + file.string() + ": the file cannot be opened";
-		return 0;
+		const unsigned char id = (unsigned char)szBytes[nPos];
+		size_t nHeader = 2, nLength = 0;
+		if ( nPos + 2 > szBytes.size() )
+			break;
+		if ( ( (unsigned char)szBytes[nPos + 1] & 1 ) == 0 )
+			nLength = (unsigned char)szBytes[nPos + 1] >> 1;
+		else
+		{
+			if ( nPos + 5 > szBytes.size() )
+				break;
+			unsigned int dwLength = 0;
+			memcpy( &dwLength, szBytes.data() + nPos + 1, 4 );
+			nHeader = 5;
+			nLength = dwLength >> 1;
+		}
+		if ( nPos + nHeader + nLength > szBytes.size() )
+			break;
+		chunks.emplace_back( id, szBytes.substr( nPos, nHeader + nLength ) );
+		nPos += nHeader + nLength;
 	}
-	CPtr<IImage> pImage = GetImageProcessor()->LoadImage( pStream );
-	if ( pImage == 0 || pImage->GetSizeX() <= 0 || pImage->GetSizeY() <= 0 )
+	size_t nTotal = 0;
+	for ( const auto &chunk : chunks )
+		nTotal += chunk.second.size();
+	if ( nTotal != szBytes.size() )
 	{
-		outcome.szError = "cannot read the picture " + file.string() + ": it is not a TGA, PNG or BMP the engine reads, or it is truncated";
-		return 0;
+		outcome.szError = "cannot order the chunks of " + file.string() + ": the saved structure is not a chunk sequence";
+		return false;
 	}
-	return pImage;
+	std::stable_partition( chunks.begin(), chunks.end(), []( const std::pair<unsigned char, std::string> &chunk ) { return chunk.first == 1; } );
+	std::string szOrdered;
+	for ( const auto &chunk : chunks )
+		szOrdered += chunk.second;
+	std::ofstream out( file, std::ios::binary | std::ios::trunc );
+	out.write( szOrdered.data(), std::streamsize( szOrdered.size() ) );
+	if ( !out )
+	{
+		outcome.szError = "cannot write " + file.string();
+		return false;
+	}
+	return true;
 }
 
 // One DDS of pImage in format, written as szName.
@@ -104,16 +136,6 @@ bool SaveDds( const SExportContext &context, IImage *pImage, EGFXPixelFormat for
 	}
 	++outcome.nWritten;
 	return true;
-}
-
-// SaveCompressedTexture of a mine or trench frame: the picture after the
-// gamma correction, as the frame's compressed, low and high formats.
-bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome )
-{
-	CPtr<IImage> pImage = GetImageProcessor()->CreateGammaCorrection( pSrc, gamma.fBrightness, gamma.fContrast, gamma.fGamma );
-	return SaveDds( context, pImage, GFXPF_DXT5, szName + "_c.dds", outcome ) &&
-	       SaveDds( context, pImage, GFXPF_ARGB1555, szName + "_l.dds", outcome ) &&
-	       SaveDds( context, pImage, GFXPF_ARGB8888, szName + "_h.dds", outcome );
 }
 
 // SaveCompressedShadow: the shadow formats of the frame base class, no gamma.
@@ -158,6 +180,51 @@ CPtr<IImage> BuildSingleFrame( IImage *pSource, SSpriteAnimationFormat &animatio
 	return pImage;
 }
 
+}
+
+// A picture the engine can read, or null with outcome.szError naming the
+// path and why: missing, or present and not a readable TGA/PNG/BMP.
+CPtr<IImage> LoadPicture( const std::string &szSource, SExportOutcome &outcome )
+{
+	const fs::path file( Slashed( szSource ) );
+	std::error_code ec;
+	if ( !fs::is_regular_file( file, ec ) )
+	{
+		outcome.szError = "cannot read the picture " + file.string() + ": the file is missing";
+		return 0;
+	}
+	std::string szDir = file.parent_path().string();
+	if ( szDir.empty() || szDir.back() != '/' )
+		szDir += '/';
+	CPtr<IDataStorage> pStorage = OpenStorage( szDir.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( file.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+	if ( pStream == 0 )
+	{
+		outcome.szError = "cannot read the picture " + file.string() + ": the file cannot be opened";
+		return 0;
+	}
+	CPtr<IImage> pImage = GetImageProcessor()->LoadImage( pStream );
+	if ( pImage == 0 || pImage->GetSizeX() <= 0 || pImage->GetSizeY() <= 0 )
+	{
+		outcome.szError = "cannot read the picture " + file.string() + ": it is not a TGA, PNG or BMP the engine reads, or it is truncated";
+		return 0;
+	}
+	return pImage;
+}
+
+bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, EGFXPixelFormat lowFormat, SExportOutcome &outcome )
+{
+	CPtr<IImage> pImage = GetImageProcessor()->CreateGammaCorrection( pSrc, gamma.fBrightness, gamma.fContrast, gamma.fGamma );
+	return SaveDds( context, pImage, GFXPF_DXT5, szName + "_c.dds", outcome ) &&
+	       SaveDds( context, pImage, lowFormat, szName + "_l.dds", outcome ) &&
+	       SaveDds( context, pImage, GFXPF_ARGB8888, szName + "_h.dds", outcome );
+}
+
+bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome )
+{
+	return SaveCompressedTexture( context, pSrc, szName, gamma, GFXPF_ARGB1555, outcome );
+}
+
 bool SaveAnimation( const SExportContext &context, SSpriteAnimationFormat &animations, const std::string &szName, SExportOutcome &outcome )
 {
 	{
@@ -168,10 +235,10 @@ bool SaveAnimation( const SExportContext &context, SSpriteAnimationFormat &anima
 		CSaverAccessor saver = pSS;
 		saver.Add( 1, &animations );
 	}
+	if ( !MoveMainChunkFirst( fs::path( context.szStagingRoot ) / Slashed( szName ), outcome ) )
+		return false;
 	++outcome.nWritten;
 	return true;
-}
-
 }
 
 SGamma ReadGammaConfig( const std::string &szProjectDirectory )
