@@ -1381,6 +1381,8 @@ pub fn build(b: *std.Build) void {
     addResourceModelScaffoldTest(b, target, test_mode, toolchain);
     addResourceModelReferencesTest(b, target, test_mode, toolchain);
     addResourceModelComparatorTest(b, target, test_mode, toolchain);
+    addResourceModelAggregateStep(b);
+    addResourcesAllAggregateStep(b);
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = dependency_target,
@@ -8222,6 +8224,37 @@ fn addResourceModelComparatorTest(
     const step = b.step("test-resource-model-comparator", "Per-stats-type comparator sweep (ReadRPGStats<T>/GetGameStats<T>/fmtEffect/fmtTerrain/fmtVSO/ParticleSourceData) + planted-unknown abort verification");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
+}
+
+// S03 T06 aggregate step. The slice-level success-criteria sentence
+// ("test-resource-model is green on five engine targets") must map to a single
+// invocation, so this step depends on every underlying tool T01/T04/T05 added:
+// resource-model-scaffold-test (T01, extended to every project extension),
+// test-resource-model-references (T04), and test-resource-model-comparator (T05).
+fn addResourceModelAggregateStep(b: *std.Build) void {
+    const step = b.step("test-resource-model", "Aggregate ResourceModel sweep: scaffold round-trip over every project extension, references/combos/localization lists, and per-stats-type comparator with planted-unknown abort");
+    const scaffold = &(b.top_level_steps.get("resource-model-scaffold-test") orelse @panic("resource-model-scaffold-test is defined by addResourceModelScaffoldTest")).step;
+    const references = &(b.top_level_steps.get("test-resource-model-references") orelse @panic("test-resource-model-references is defined by addResourceModelReferencesTest")).step;
+    const comparator = &(b.top_level_steps.get("test-resource-model-comparator") orelse @panic("test-resource-model-comparator is defined by addResourceModelComparatorTest")).step;
+    step.dependOn(scaffold);
+    step.dependOn(references);
+    step.dependOn(comparator);
+}
+
+// S03 T06 top-level aggregate: the S16 full-sweep gate pulls this in. The S01
+// summary mentions test-resource-xml-roundtrip and test-dxt-tolerance as
+// members of this family, but neither is registered as a b.step in build.zig
+// yet (grep -n 'test-resource-xml-roundtrip\|dxt-tolerance' build.zig returns
+// no hits). Rather than fail the build with an orelse panic, this aggregate
+// depends only on what is actually registered today (test-resource-model);
+// when the S01 steps land, add them here. The BK_RESOURCE_MODEL_ONLY=1 env var
+// is a hint for a future agent reading this that the exclusion is deliberate
+// and tied to S01's own slice work (step registration still pending), not a
+// build-system bug.
+fn addResourcesAllAggregateStep(b: *std.Build) void {
+    const step = b.step("test-resources-all", "Aggregate every resource-side tier S16's full-sweep gate pulls in (today: test-resource-model; test-resource-xml-roundtrip and test-dxt-tolerance will be added by S01 when their b.step registrations land)");
+    const resource_model = &(b.top_level_steps.get("test-resource-model") orelse @panic("test-resource-model is defined by addResourceModelAggregateStep")).step;
+    step.dependOn(resource_model);
 }
 
 fn linkSdlRuntime(

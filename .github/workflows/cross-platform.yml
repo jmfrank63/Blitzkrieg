@@ -109,6 +109,12 @@ jobs:
       - name: Editor core tier
         run: zig build test-editor-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
+      # project extension, references/combos/localization lists and the
+      # per-stats-type comparator with its planted-unknown abort path.
+      - name: Resource model tier
+        run: zig build test-resource-model -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
 
@@ -454,6 +460,12 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-rmg-determinism -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
+      # project extension, references/combos/localization lists and the
+      # per-stats-type comparator with its planted-unknown abort path.
+      - name: Resource model tier
+        run: zig build test-resource-model -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       # Saved here, not at job end: by now the debug engine and the release
       # game are built, and a job cut off later still leaves the next run warm.
       - name: Save Zig build cache
@@ -783,6 +795,12 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-determinism -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
+
+      # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
+      # project extension, references/combos/localization lists and the
+      # per-stats-type comparator with its planted-unknown abort path.
+      - name: Resource model tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-model -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos
@@ -1134,6 +1152,12 @@ jobs:
 
       - name: Editor core tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-core -Dtarget=x86_64-macos -Dtest-mode=run
+
+      # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
+      # project extension, references/combos/localization lists and the
+      # per-stats-type comparator with its planted-unknown abort path.
+      - name: Resource model tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-model -Dtarget=x86_64-macos -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=x86_64-macos
