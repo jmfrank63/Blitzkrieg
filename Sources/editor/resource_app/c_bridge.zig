@@ -427,6 +427,8 @@ pub const RealResBridge = struct {
         return switch (channel) {
             .passability_cells => .{ &c.BkResGetPassabilityCells, &c.BkResSetPassabilityCells },
             .locked_tiles => .{ &c.BkResGetLockedTiles, &c.BkResSetLockedTiles },
+            .transparency_cells => .{ &c.BkResGetTransparencyCells, &c.BkResSetTransparencyCells },
+            .fence_transparences => .{ &c.BkResGetFenceTransparences, &c.BkResSetFenceTransparences },
             else => unreachable,
         };
     }
@@ -448,6 +450,7 @@ pub const RealResBridge = struct {
             .zero_point => .{ &c.BkResGetZeroPoint, &c.BkResSetZeroPoint },
             .entrance => .{ &c.BkResGetEntrance, &c.BkResSetEntrance },
             .formation_direction => .{ &c.BkResGetFormationDirection, &c.BkResSetFormationDirection },
+            .sprite_pos => .{ &c.BkResGetSpritePos, &c.BkResSetSpritePos },
             else => unreachable,
         };
     }

@@ -298,6 +298,15 @@ pub const GeometryChannel = enum(c_int) {
     /// keeps one float on the formation item; it rides the zero point's
     /// Point2 shape with the angle in x (radians, as stored) and y unused.
     formation_direction = 16,
+    /// An object root's transparency grid in the tile frame (values 0..7),
+    /// the visibility half of desc without the one-way tiles.
+    transparency_cells = 17,
+    /// A fence segment's Transparences list, the same grid shape as
+    /// `locked_tiles`.
+    fence_transparences = 18,
+    /// The sprite's place: an object root's sprite_pos or a fence segment's
+    /// SpritePos, one Point2 like the zero point.
+    sprite_pos = 19,
 
     /// The payload family the channel carries, as the `GeometryValue` tag.
     /// Formation positions and bridge span marks are flat Point2 lists in
@@ -308,9 +317,9 @@ pub const GeometryChannel = enum(c_int) {
     /// keyframe lists keep a third component and are the vec3 family.
     pub fn family(self: GeometryChannel) std.meta.Tag(GeometryValue) {
         return switch (self) {
-            .passability_cells, .locked_tiles => .bytes_grid,
+            .passability_cells, .locked_tiles, .transparency_cells, .fence_transparences => .bytes_grid,
             .transparency_lines, .formation_positions, .bridge_span_marks, .mission_objectives, .chapter_crosses, .campaign_crosses => .points2,
-            .zero_point, .entrance, .formation_direction => .point2,
+            .zero_point, .entrance, .formation_direction, .sprite_pos => .point2,
             .shoot_points, .fire_points, .smoke_points, .directed_explosion_points => .aimed,
             .particle_keyframes, .effect_keyframes => .vec3,
         };

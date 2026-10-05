@@ -771,7 +771,7 @@ static void ItemGeometryInMfcLayout( BkResSession *pSession, const std::string &
 		// column carry one each: a read grid ends at the furthest set tile.
 		const unsigned char locked[6] = { 0, 1, 0, 2, 0, 1 };
 		Check( nProps > 1 && BkResSetLockedTiles( pSession, nProps, locked, 3, 2 ) == BK_EDITOR_OK, "fnc-geometry: set a segment's locked tiles" );
-		Check( BkResSetPassabilityCells( pSession, nProps, locked, 3, 2 ) == BK_EDITOR_REFUSED, "fnc-geometry: a fence segment has no passability grid" );
+		Check( BkResSetPassabilityCells( pSession, nProps, locked, 3, 2 ) == BK_EDITOR_OK, "fnc-geometry: a fence segment's passability is its locked tiles" );
 		if ( !Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "fnc-geometry: save" ) )
 			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
 		Check( HasNoPrivateGeometry( szSaved ), "fnc-geometry: the saved XML has no private geometry element" );
@@ -5311,6 +5311,178 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 
 }
 
+// S09 T04: the grid channels the Object and Fence sub-editors edit. Each one
+// is read, set, read, saved, reopened and read again; an object's passability
+// then ends with the origin of the zero point it was saved with.
+namespace S09Channels
+{
+
+namespace fs = std::filesystem;
+
+typedef BkEditorStatus ( *GetGridFn )( BkResSession *, int, unsigned char *, int, int *, int * );
+typedef BkEditorStatus ( *SetGridFn )( BkResSession *, int, const unsigned char *, int, int );
+
+static bool GridIs( BkResSession *pSession, GetGridFn pGet, int nNode, int nW, int nH, const std::vector<unsigned char> &want )
+{
+	std::vector<unsigned char> got( 256 );
+	int w = -1, h = -1;
+	return pGet( pSession, nNode, got.data(), int( got.size() ), &w, &h ) == BK_EDITOR_OK && w == nW && h == nH &&
+	       std::equal( want.begin(), want.end(), got.begin() ) && int( want.size() ) == w * h;
+}
+
+static bool PointIs( BkResSession *pSession, int nNode, bool bSprite, float x, float y )
+{
+	BkResPoint2 p = { -1, -1 };
+	const BkEditorStatus status = bSprite ? BkResGetSpritePos( pSession, nNode, &p ) : BkResGetZeroPoint( pSession, nNode, &p );
+	return status == BK_EDITOR_OK && std::fabs( p.x - x ) < 1e-4f && std::fabs( p.y - y ) < 1e-4f;
+}
+
+static int FindNode( BkResSession *pSession, int nClassType )
+{
+	for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+		if ( node.class_type == nClassType )
+			return node.id;
+	return -1;
+}
+
+static bool SaveAndReopen( BkResSession *pSession, const fs::path &project )
+{
+	return BkResSave( pSession, project.string().c_str() ) == BK_EDITOR_OK && BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK;
+}
+
+// One grid channel: get -> set -> get -> save -> reopen -> get, a refusal of
+// the values the cells cannot hold, then the undo's way back (set the first
+// read again) and one more read.
+static void GridRoundTrip( BkResSession *pSession, const fs::path &project, const char *pszWhat, GetGridFn pGet, SetGridFn pSet, int nNode,
+                           int nMaxValue, int nW, int nH, const std::vector<unsigned char> &cells )
+{
+	const std::string szWhat = pszWhat;
+	std::vector<unsigned char> first( 256 );
+	int nFirstW = -1, nFirstH = -1;
+	if ( !Check( pGet( pSession, nNode, first.data(), int( first.size() ), &nFirstW, &nFirstH ) == BK_EDITOR_OK, ( szWhat + ": the first get" ).c_str() ) )
+		return;
+	first.resize( size_t( nFirstW * nFirstH ) );
+	Check( pSet( pSession, nNode, cells.data(), nW, nH ) == BK_EDITOR_OK, ( szWhat + ": set" ).c_str() );
+	Check( GridIs( pSession, pGet, nNode, nW, nH, cells ), ( szWhat + ": get after set is the set grid" ).c_str() );
+	if ( nMaxValue < 255 )
+	{
+		std::vector<unsigned char> bad( cells );
+		bad[0] = (unsigned char) ( nMaxValue + 1 );
+		Check( pSet( pSession, nNode, bad.data(), nW, nH ) == BK_EDITOR_BAD_ARGUMENT && std::strstr( BkEditorLastMessage( pSession ), "0..7" ) != 0,
+		       ( szWhat + ": a value above " + std::to_string( nMaxValue ) + " is refused and says so" ).c_str() );
+		Check( GridIs( pSession, pGet, nNode, nW, nH, cells ), ( szWhat + ": a refused set leaves the grid" ).c_str() );
+	}
+	Check( SaveAndReopen( pSession, project ), ( szWhat + ": save and reopen" ).c_str() );
+	Check( GridIs( pSession, pGet, nNode, nW, nH, cells ), ( szWhat + ": get after reopen is the set grid" ).c_str() );
+	Check( pSet( pSession, nNode, first.data(), nFirstW, nFirstH ) == BK_EDITOR_OK && GridIs( pSession, pGet, nNode, nFirstW, nFirstH, first ),
+	       ( szWhat + ": setting the first grid back restores it" ).c_str() );
+	Check( pSet( pSession, nNode, cells.data(), nW, nH ) == BK_EDITOR_OK, ( szWhat + ": set again for the next step" ).c_str() );
+}
+
+static bool ReadOrigin( const fs::path &xml, float *px, float *py )
+{
+	std::string szText;
+	if ( !ReadBytes( xml.string(), szText ) )
+		return false;
+	const std::string::size_type n = szText.find( "<origin x=\"" );
+	return n != std::string::npos && std::sscanf( szText.c_str() + n, "<origin x=\"%f\" y=\"%f\"", px, py ) == 2;
+}
+
+static void Object( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s09-channels-object";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch / "object", ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / "obt", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), scratch / "object" / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const fs::path project = scratch / "object" / "project.obt";
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "channels object: the fixture opens" ) )
+		return;
+	const int nRoot = FindNode( pSession, NResourceModel::ETIT_OBJECT_ROOT_ITEM );
+	if ( !Check( nRoot >= 0, "channels object: the root is found" ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+
+	// A grid whose first set tile is (1, 1) and whose last row and column hold a set tile: a read grid ends at the furthest set tile.
+	const std::vector<unsigned char> pass = { 0, 0, 0, 0, 1, 1, 0, 0, 1 };
+	const std::vector<unsigned char> trans = { 0, 0, 0, 0, 3, 0, 0, 0, 7 };
+	GridRoundTrip( pSession, project, "channels object passability", &BkResGetPassabilityCells, &BkResSetPassabilityCells, nRoot, 255, 3, 3, pass );
+	GridRoundTrip( pSession, project, "channels object transparency", &BkResGetTransparencyCells, &BkResSetTransparencyCells, nRoot, 7, 3, 3, trans );
+
+	const BkResPoint2 sprite = { 3.5f, 4.25f };
+	Check( BkResSetSpritePos( pSession, nRoot, &sprite ) == BK_EDITOR_OK && PointIs( pSession, nRoot, true, 3.5f, 4.25f ), "channels object: sprite_pos set and get" );
+	Check( SaveAndReopen( pSession, project ) && PointIs( pSession, nRoot, true, 3.5f, 4.25f ), "channels object: sprite_pos survives save and reopen" );
+	Check( GridIs( pSession, &BkResGetPassabilityCells, nRoot, 3, 3, pass ) && GridIs( pSession, &BkResGetTransparencyCells, nRoot, 3, 3, trans ),
+	       "channels object: the grids survive the sprite edit and a reopen" );
+
+	// The zero point set after the grids: the cells stay on their tiles and desc gets the origin of the final zero point.
+	const BkResPoint2 zero = { 24.0f, 12.0f };
+	Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK && PointIs( pSession, nRoot, false, zero.x, zero.y ), "channels object: the zero point is set after the grids" );
+	Check( SaveAndReopen( pSession, project ), "channels object: save and reopen with the new zero point" );
+	Check( GridIs( pSession, &BkResGetPassabilityCells, nRoot, 3, 3, pass ), "channels object: passability keeps its tiles when the zero point moves" );
+
+	const fs::path mod = scratch / "mod";
+	if ( Check( S09Object::ExportStatsOnly( pSession, mod, "S09 channels object" ), "channels object: the edited project exports stats-only" ) )
+	{
+		const fs::path xml = S09Object::FindFile( mod / "data", "1.xml" );
+		const NResourceModel::GridProjection projection( NResourceModel::DefaultEditorCamera() );
+		const NResourceModel::SVec3 want = projection.OriginOfGrid( NResourceModel::SVec3{ zero.x, zero.y, 0 }, 1, 1 );
+		float x = -1, y = -1;
+		const bool bRead = ReadOrigin( xml, &x, &y );
+		std::printf( "OBJECT ORIGIN exported (%g, %g), expected (%g, %g) for zero (%g, %g) and first tile (1, 1)\n", x, y, want.x, want.y, zero.x, zero.y );
+		Check( bRead && std::fabs( x - want.x ) < 1e-3f && std::fabs( y - want.y ) < 1e-3f, "channels object: the exported origin follows the final zero point" );
+	}
+	BkResClose( pSession );
+}
+
+static void Fence( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s09-channels-fence";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch / "fence", ec );
+	fs::copy( fs::path( szFixtureRoot ) / "fnc", scratch / "fence", fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec );
+	const fs::path project = scratch / "fence" / "project.fnc";
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "channels fence: the fixture opens" ) )
+		return;
+	const int nSegment = FindNode( pSession, NResourceModel::ETIT_FENCE_PROPS_ITEM );
+	if ( !Check( nSegment >= 0, "channels fence: a segment is found" ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+	const std::vector<unsigned char> locked = { 1, 0, 0, 0, 0, 1 };
+	const std::vector<unsigned char> trans = { 0, 2, 0, 0, 0, 5 };
+	GridRoundTrip( pSession, project, "channels fence passability", &BkResGetPassabilityCells, &BkResSetPassabilityCells, nSegment, 255, 3, 2, locked );
+	GridRoundTrip( pSession, project, "channels fence transparences", &BkResGetFenceTransparences, &BkResSetFenceTransparences, nSegment, 7, 3, 2, trans );
+	const BkResPoint2 sprite = { 7.5f, -2.25f };
+	Check( BkResSetSpritePos( pSession, nSegment, &sprite ) == BK_EDITOR_OK && PointIs( pSession, nSegment, true, 7.5f, -2.25f ), "channels fence: sprite_pos set and get" );
+	Check( SaveAndReopen( pSession, project ) && PointIs( pSession, nSegment, true, 7.5f, -2.25f ), "channels fence: sprite_pos survives save and reopen" );
+	Check( GridIs( pSession, &BkResGetPassabilityCells, nSegment, 3, 2, locked ) && GridIs( pSession, &BkResGetFenceTransparences, nSegment, 3, 2, trans ),
+	       "channels fence: the grids survive a reopen" );
+
+	// A channel with no home names itself and the kind.
+	std::vector<unsigned char> sink( 16 );
+	int w = 0, h = 0;
+	Check( BkResGetTransparencyCells( pSession, nSegment, sink.data(), 16, &w, &h ) == BK_EDITOR_REFUSED &&
+	       std::strstr( BkEditorLastMessage( pSession ), "transparency_cells" ) != 0 && std::strstr( BkEditorLastMessage( pSession ), "Fence" ) != 0,
+	       "channels fence: an object channel is refused naming the channel and the kind" );
+	BkResClose( pSession );
+
+	Check( BkResOpen( pSession, ( fs::path( szFixtureRoot ) / "obt" / "project.obt" ).string().c_str() ) == BK_EDITOR_OK, "channels: the object fixture opens for the refusal check" );
+	const int nRoot = FindNode( pSession, NResourceModel::ETIT_OBJECT_ROOT_ITEM );
+	Check( BkResGetFenceTransparences( pSession, nRoot, sink.data(), 16, &w, &h ) == BK_EDITOR_REFUSED &&
+	       std::strstr( BkEditorLastMessage( pSession ), "fence_transparences" ) != 0 && std::strstr( BkEditorLastMessage( pSession ), "Object" ) != 0,
+	       "channels object: a fence channel is refused naming the channel and the kind" );
+	BkResClose( pSession );
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -5571,6 +5743,9 @@ int main( int argc, char **argv )
 	S09Fence::Fixture( pSession, szFixtureRoot, szScratchRoot );
 	S09Fence::IndexHole( pSession, szFixtureRoot, szScratchRoot );
 	S09Fence::Shipped( pSession, pszRoot, szScratchRoot );
+	// S09 T04: the grid channels, passability origin consistency and the refusals that name channel and kind.
+	S09Channels::Object( pSession, szFixtureRoot, szScratchRoot );
+	S09Channels::Fence( pSession, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

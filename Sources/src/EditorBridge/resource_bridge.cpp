@@ -257,7 +257,14 @@ enum GeometryChannel
 	CHANNEL_EFFECT_KEYFRAMES = 15,
 	// S06: a squad formation's FormationDir, carried as a point2 (x the
 	// angle, y unused) so it shares the zero point's entry-point shape.
-	CHANNEL_FORMATION_DIRECTION = 16
+	CHANNEL_FORMATION_DIRECTION = 16,
+	// S09: the Object and Fence sub-editors. The object's transparency
+	// cells (its desc visibility grid without the one-way tiles), a fence
+	// segment's Transparences list and the sprite's place (an object's
+	// own_data sprite_pos, a fence segment's SpritePos).
+	CHANNEL_TRANSPARENCY_CELLS = 17,
+	CHANNEL_FENCE_TRANSPARENCES = 18,
+	CHANNEL_SPRITE_POS = 19
 };
 
 std::map<BkEditorSession *, ResourceState> &States()
@@ -726,7 +733,8 @@ enum EGeometryHome
 	HOME_SQUAD_ZERO,     // CSquadFormationPropsItem::vZeroPos
 	HOME_SQUAD_UNITS,    // CSquadFormationPropsItem::units, SUnit::vPos
 	HOME_SQUAD_DIR,      // CSquadFormationPropsItem::fFormationDir
-	HOME_TILE_LIST,      // CFencePropsItem / CBridgePartsItem::lockedTiles
+	HOME_TILE_LIST,      // CFencePropsItem / CBridgePartsItem::lockedTiles (and a fence's transeparences)
+	HOME_FENCE_SPRITE,   // CFencePropsItem::vSpritePos
 	HOME_CROSSES,        // the children's map position values (+ the RPG copy)
 	HOME_EFFECT_PLACES,  // the children's X / Y / Z position values
 	HOME_KEY_FRAMES      // CKeyFrameTreeItem::framesList
@@ -787,11 +795,22 @@ EGeometryHome HomeOf( const ResourceState &state, int nNodeId, int nChannel )
 	switch ( nChannel )
 	{
 	case CHANNEL_PASSABILITY_CELLS:
+		// A fence segment's passability is its locked tiles: MFC keeps no
+		// grid for it, the exporter builds one from them.
+		if ( nType == NResourceModel::ETIT_FENCE_PROPS_ITEM )
+			return HOME_TILE_LIST;
 		return bBuilding || bObject ? HOME_FRAME : HOME_NONE;
 	case CHANNEL_LOCKED_TILES:
 		return nType == NResourceModel::ETIT_FENCE_PROPS_ITEM || nType == NResourceModel::ETIT_BRIDGE_PARTS_ITEM ? HOME_TILE_LIST : HOME_NONE;
 	case CHANNEL_TRANSPARENCY_LINES:
+	case CHANNEL_TRANSPARENCY_CELLS:
 		return bObject ? HOME_FRAME : HOME_NONE;
+	case CHANNEL_FENCE_TRANSPARENCES:
+		return nType == NResourceModel::ETIT_FENCE_PROPS_ITEM ? HOME_TILE_LIST : HOME_NONE;
+	case CHANNEL_SPRITE_POS:
+		if ( bObject )
+			return HOME_FRAME;
+		return nType == NResourceModel::ETIT_FENCE_PROPS_ITEM ? HOME_FENCE_SPRITE : HOME_NONE;
 	case CHANNEL_ZERO_POINT:
 		if ( bBuilding || bObject )
 			return HOME_FRAME;
@@ -810,9 +829,32 @@ EGeometryHome HomeOf( const ResourceState &state, int nNodeId, int nChannel )
 		return dynamic_cast<const NResourceModel::CKeyFrameTreeItem *>( itItem->second ) != nullptr ? HOME_KEY_FRAMES : HOME_NONE;
 	case CHANNEL_EFFECT_KEYFRAMES:
 		return IsEffectPartList( nType ) ? HOME_EFFECT_PLACES : HOME_NONE;
-	default:	// entrance and the four aimed lists
+	case CHANNEL_ENTRANCE:
+	case CHANNEL_SHOOT_POINTS:
+	case CHANNEL_FIRE_POINTS:
+	case CHANNEL_SMOKE_POINTS:
+	case CHANNEL_DIRECTED_EXPLOSION_POINTS:
 		return bBuilding ? HOME_FRAME : HOME_NONE;
+	default:	// a channel integer the bridge does not define
+		return HOME_NONE;
 	}
+}
+
+const char *ChannelName( int nChannel )
+{
+	static const char *const kNames[] = { "passability_cells", "locked_tiles", "transparency_lines", "zero_point", "entrance",
+		"shoot_points", "fire_points", "smoke_points", "directed_explosion_points", "formation_positions", "bridge_span_marks",
+		"mission_objectives", "chapter_crosses", "campaign_crosses", "particle_keyframes", "effect_keyframes", "formation_direction",
+		"transparency_cells", "fence_transparences", "sprite_pos" };
+	return nChannel >= 0 && nChannel < int( sizeof( kNames ) / sizeof( kNames[0] ) ) ? kNames[nChannel] : "unknown";
+}
+
+// The refusal a channel with no MFC home gets: it names the channel and the
+// kind of project, so a caller sees which pair was wrong.
+std::string NoHomeMessage( const ResourceState &state, int nChannel )
+{
+	const char *pszKind = state.nKindOrdinal >= 0 && state.nKindOrdinal < kKindCount ? kKindTable[state.nKindOrdinal].pszTag : "unknown";
+	return std::string( "geometry channel " ) + ChannelName( nChannel ) + " (" + std::to_string( nChannel ) + ") has no MFC home on this node of a " + pszKind + " project";
 }
 
 NResourceXml::Node NewElement( const std::string &szName )
@@ -956,7 +998,7 @@ bool ReadFrameGeometry( const NResourceXml::Node &root, int nChannel, GeometryBl
 {
 	out = GeometryBlob();
 	const bool bOwnData = nChannel == CHANNEL_ZERO_POINT || nChannel == CHANNEL_TRANSPARENCY_LINES
-		|| nChannel == CHANNEL_BRIDGE_SPAN_MARKS;
+		|| nChannel == CHANNEL_BRIDGE_SPAN_MARKS || nChannel == CHANNEL_SPRITE_POS;
 	const NResourceXml::Node *pChunk = NResourceXml::FindChild( root, bOwnData ? "own_data" : "desc" );
 	if ( pChunk == nullptr )
 		return true;
@@ -996,6 +1038,14 @@ bool ReadFrameGeometry( const NResourceXml::Node &root, int nChannel, GeometryBl
 		{
 			float x = 0, y = 0;
 			ReadXY( pKrest, x, y );
+			out.points = { x, y };
+		}
+		return true;
+	case CHANNEL_SPRITE_POS:
+		if ( const NResourceXml::Node *pSprite = NResourceXml::FindChild( *pChunk, "sprite_pos" ) )
+		{
+			float x = 0, y = 0;
+			ReadXY( pSprite, x, y );
 			out.points = { x, y };
 		}
 		return true;
@@ -1081,6 +1131,13 @@ void WriteFrameGeometry( NResourceXml::Node &root, int nChannel, const GeometryB
 		if ( blob.points.size() >= 2 )
 			WriteXY( ChildOrNew( FrameChunk( root, "own_data" ), "krest_pos" ), blob.points[0], blob.points[1], true );
 		return;
+	case CHANNEL_SPRITE_POS:
+		if ( blob.points.size() >= 2 )
+			WriteXY( ChildOrNew( FrameChunk( root, "own_data" ), "sprite_pos" ), blob.points[0], blob.points[1], true );
+		return;
+	case CHANNEL_TRANSPARENCY_CELLS:
+		// Part of the object's grids: RewriteObjectGrids writes them.
+		return;
 	case CHANNEL_TRANSPARENCY_LINES:
 	{
 		NResourceXml::Node &lines = ChildOrNew( FrameChunk( root, "own_data" ), "TransLines" );
@@ -1146,10 +1203,10 @@ void WriteFrameGeometry( NResourceXml::Node &root, int nChannel, const GeometryB
 	}
 }
 
-NResourceModel::CListOfTiles *TileListOf( NResourceModel::CTreeItem *pItem )
+NResourceModel::CListOfTiles *TileListOf( NResourceModel::CTreeItem *pItem, int nChannel )
 {
 	if ( auto *pFence = dynamic_cast<NResourceModel::CFencePropsItem *>( pItem ) )
-		return &pFence->lockedTiles;
+		return nChannel == CHANNEL_FENCE_TRANSPARENCES ? &pFence->transeparences : &pFence->lockedTiles;
 	if ( auto *pPart = dynamic_cast<NResourceModel::CBridgePartsItem *>( pItem ) )
 		return &pPart->lockedTiles;
 	return nullptr;
@@ -1185,6 +1242,121 @@ void GridToTiles( const GeometryBlob &blob, NResourceModel::CListOfTiles &tiles 
 		for ( int x = 0; x < blob.nWidth; ++x )
 			if ( const unsigned char c = blob.bytes[static_cast<std::size_t>( y ) * blob.nWidth + x] )
 				tiles.push_back( { x, y, c } );
+}
+
+// The Object frame's tile grids. MFC's CObjectFrame keeps the locked and
+// transparency tiles as lists and SaveRPGStats crops them to a grid whose
+// origin is the zero point minus the world position of the grid's leftmost
+// corner. The ABI's passability_cells and transparency_cells channels are the
+// tile frame: cell (x, y) is tile (x, y), like a fence's lists. An unedited
+// channel is read from desc through LoadRPGStats' inverse; an edit is held in
+// the tile frame and RewriteObjectGrids crops it with the origin of the zero
+// point the save ends with, so a zero point set after the grid cannot leave
+// the origin stale. The camera is the grid constants' own one: the engine
+// camera is not reachable from the bridge, and the exporter uses the same.
+bool IsObjectTileChannel( const ResourceState &state, int nNodeId, int nChannel )
+{
+	if ( nChannel != CHANNEL_PASSABILITY_CELLS && nChannel != CHANNEL_TRANSPARENCY_CELLS )
+		return false;
+	auto it = state.idToItem.find( nNodeId );
+	return it != state.idToItem.end() && it->second->GetItemType() == NResourceModel::ETIT_OBJECT_ROOT_ITEM;
+}
+
+// The frame's passability and transparency tiles and its one-way tiles, from
+// the grids and origins the document holds (LoadRPGStats).
+void ObjectTiles( const NResourceModel::SObjectFrameData &data, NResourceModel::CListOfTiles &passTiles,
+                  NResourceModel::CListOfTiles &transTiles, NResourceModel::CListOfNormalTiles &dirTiles )
+{
+	const NResourceModel::GridProjection projection( NResourceModel::DefaultEditorCamera() );
+	int nTileX = 0, nTileY = 0;
+	if ( !data.passability.empty() )
+	{
+		projection.FirstTileOfGrid( data.vZeroPos, NResourceModel::SVec3{ data.vOrigin.x, data.vOrigin.y, 0 }, nTileX, nTileY );
+		NResourceModel::GridToTiles( data.passability, nTileX, nTileY, passTiles );
+	}
+	if ( !data.visibility.empty() )
+	{
+		projection.FirstTileOfGrid( data.vZeroPos, NResourceModel::SVec3{ data.vVisOrigin.x, data.vVisOrigin.y, 0 }, nTileX, nTileY );
+		NResourceModel::VisGridToTiles( data.visibility, nTileX, nTileY, transTiles, dirTiles );
+	}
+}
+
+bool ReadObjectTileGrid( const NResourceXml::Node &root, int nChannel, GeometryBlob &out, std::string &szError )
+{
+	NResourceModel::SObjectFrameData data;
+	if ( !NResourceModel::ReadObjectFrameData( root, data, szError ) )
+		return false;
+	NResourceModel::CListOfTiles passTiles, transTiles;
+	NResourceModel::CListOfNormalTiles dirTiles;
+	ObjectTiles( data, passTiles, transTiles, dirTiles );
+	return TilesToGrid( nChannel == CHANNEL_PASSABILITY_CELLS ? passTiles : transTiles, out, szError );
+}
+
+// Writes the object's own_data and desc grids for a save that edited any of
+// the channels they depend on (passability, transparency cells, trans-lines,
+// zero point). The tiles an edit did not touch are read from the document
+// before the new zero point applies, so they stay on their tiles and only
+// their origin follows the zero point. Edited trans-lines give the one-way
+// tiles again, as the editor's mouse-up handler does.
+bool RewriteObjectGrids( const ResourceState &state, NResourceXml::Node &root, std::string &szError )
+{
+	if ( !state.pProject->root || state.pProject->root->GetItemType() != NResourceModel::ETIT_OBJECT_ROOT_ITEM )
+		return true;
+	auto itRoot = state.itemToId.find( state.pProject->root.get() );
+	if ( itRoot == state.itemToId.end() )
+		return true;
+	auto Edit = [&]( int nChannel ) -> const GeometryBlob *
+	{
+		auto it = state.geometry.find( std::make_pair( itRoot->second, nChannel ) );
+		return it == state.geometry.end() ? nullptr : &it->second;
+	};
+	const GeometryBlob *pPass = Edit( CHANNEL_PASSABILITY_CELLS ), *pTrans = Edit( CHANNEL_TRANSPARENCY_CELLS );
+	const GeometryBlob *pLines = Edit( CHANNEL_TRANSPARENCY_LINES ), *pZero = Edit( CHANNEL_ZERO_POINT );
+	if ( pPass == nullptr && pTrans == nullptr && pLines == nullptr && pZero == nullptr )
+		return true;
+
+	NResourceModel::SObjectFrameData data;
+	if ( !NResourceModel::ReadObjectFrameData( root, data, szError ) )
+		return false;
+	NResourceModel::CListOfTiles passTiles, transTiles;
+	NResourceModel::CListOfNormalTiles dirTiles;
+	ObjectTiles( data, passTiles, transTiles, dirTiles );
+	const NResourceModel::GridProjection projection( NResourceModel::DefaultEditorCamera() );
+	if ( pPass != nullptr )
+		GridToTiles( *pPass, passTiles );
+	if ( pTrans != nullptr )
+		GridToTiles( *pTrans, transTiles );
+	if ( pLines != nullptr )
+	{
+		data.transLines.clear();
+		for ( std::size_t i = 0; i + 3 < pLines->points.size(); i += 4 )
+			data.transLines.push_back( { { pLines->points[i], pLines->points[i + 1] }, { pLines->points[i + 2], pLines->points[i + 3] } } );
+		dirTiles.clear();
+		projection.DirTilesFromTransLines( data.transLines, dirTiles );
+	}
+	if ( pZero != nullptr && pZero->points.size() >= 2 )
+	{
+		data.vZeroPos.x = pZero->points[0];
+		data.vZeroPos.y = pZero->points[1];
+	}
+	data.passability = NResourceModel::TilesToGrid( passTiles );
+	data.vOrigin = NResourceModel::SVec2();
+	if ( !data.passability.empty() )
+	{
+		const NResourceModel::SVec3 origin = projection.OriginOfGrid( data.vZeroPos, data.passability.minTileX, data.passability.minTileY );
+		data.vOrigin = { origin.x, origin.y };
+	}
+	data.visibility = NResourceModel::TilesToVisGrid( transTiles, dirTiles );
+	data.vVisOrigin = NResourceModel::SVec2();
+	if ( !data.visibility.empty() )
+	{
+		const NResourceModel::SVec3 origin = projection.OriginOfGrid( data.vZeroPos, data.visibility.minTileX, data.visibility.minTileY );
+		data.vVisOrigin = { origin.x, origin.y };
+	}
+	FrameChunk( root, "own_data" );
+	FrameChunk( root, "desc" );
+	NResourceModel::WriteObjectFrameData( root, data );
+	return true;
 }
 
 NResourceModel::SProp *FindValue( NResourceModel::CTreeItem &item, const char *pszName )
@@ -1317,18 +1489,32 @@ BkEditorStatus LoadGeometry( BkResSession *pSession, ResourceState &state, int n
 	switch ( HomeOf( state, nNodeId, nChannel ) )
 	{
 	case HOME_NONE:
-		pSession->szMessage = "this geometry channel has no MFC home on this node";
+		pSession->szMessage = NoHomeMessage( state, nChannel );
 		return BK_EDITOR_REFUSED;
 	case HOME_FRAME:
 	{
 		auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
 		if ( it != state.geometry.end() )
 			out = it->second;
+		else if ( IsObjectTileChannel( state, nNodeId, nChannel ) )
+		{
+			if ( !ReadObjectTileGrid( state.pProject->document.root, nChannel, out, szError ) )
+			{
+				pSession->szMessage = szError;
+				return BK_EDITOR_FAILED;
+			}
+		}
 		else if ( !ReadFrameGeometry( state.pProject->document.root, nChannel, out, szError ) )
 		{
 			pSession->szMessage = szError;
 			return BK_EDITOR_FAILED;
 		}
+		return BK_EDITOR_OK;
+	}
+	case HOME_FENCE_SPRITE:
+	{
+		const auto *pFence = static_cast<const NResourceModel::CFencePropsItem *>( pItem );
+		out.points = { pFence->vSpritePos.x, pFence->vSpritePos.y };
 		return BK_EDITOR_OK;
 	}
 	case HOME_SQUAD_ZERO:
@@ -1345,7 +1531,7 @@ BkEditorStatus LoadGeometry( BkResSession *pSession, ResourceState &state, int n
 		out.points = { static_cast<const NResourceModel::CSquadFormationPropsItem *>( pItem )->fFormationDir, 0.0f };
 		return BK_EDITOR_OK;
 	case HOME_TILE_LIST:
-		if ( !TilesToGrid( *TileListOf( pItem ), out, szError ) )
+		if ( !TilesToGrid( *TileListOf( pItem, nChannel ), out, szError ) )
 		{
 			pSession->szMessage = szError;
 			return BK_EDITOR_FAILED;
@@ -1370,14 +1556,28 @@ BkEditorStatus LoadGeometry( BkResSession *pSession, ResourceState &state, int n
 BkEditorStatus StoreGeometry( BkResSession *pSession, ResourceState &state, int nNodeId, int nChannel, GeometryBlob blob )
 {
 	NResourceModel::CTreeItem *pItem = state.idToItem[nNodeId];
+	if ( ( nChannel == CHANNEL_TRANSPARENCY_CELLS || nChannel == CHANNEL_FENCE_TRANSPARENCES ) && HomeOf( state, nNodeId, nChannel ) != HOME_NONE )
+		for ( unsigned char c : blob.bytes )
+			if ( c > 7 )
+			{
+				pSession->szMessage = std::string( "geometry channel " ) + ChannelName( nChannel ) + " carries transparency values 0..7, not " + std::to_string( c );
+				return BK_EDITOR_BAD_ARGUMENT;
+			}
 	switch ( HomeOf( state, nNodeId, nChannel ) )
 	{
 	case HOME_NONE:
-		pSession->szMessage = "this geometry channel has no MFC home on this node";
+		pSession->szMessage = NoHomeMessage( state, nChannel );
 		return BK_EDITOR_REFUSED;
 	case HOME_FRAME:
 		state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
 		return BK_EDITOR_OK;
+	case HOME_FENCE_SPRITE:
+	{
+		auto *pFence = static_cast<NResourceModel::CFencePropsItem *>( pItem );
+		pFence->vSpritePos.x = blob.points[0];
+		pFence->vSpritePos.y = blob.points[1];
+		return BK_EDITOR_OK;
+	}
 	case HOME_SQUAD_ZERO:
 	{
 		auto *pFormation = static_cast<NResourceModel::CSquadFormationPropsItem *>( pItem );
@@ -1410,7 +1610,7 @@ BkEditorStatus StoreGeometry( BkResSession *pSession, ResourceState &state, int 
 		static_cast<NResourceModel::CSquadFormationPropsItem *>( pItem )->fFormationDir = blob.points[0];
 		return BK_EDITOR_OK;
 	case HOME_TILE_LIST:
-		GridToTiles( blob, *TileListOf( pItem ) );
+		GridToTiles( blob, *TileListOf( pItem, nChannel ) );
 		return BK_EDITOR_OK;
 	case HOME_CROSSES:
 		return StoreCrosses( pSession, state, *pItem, *CrossListOf( nChannel, pItem->GetItemType() ), blob );
@@ -1493,8 +1693,10 @@ bool RenderForSave( const ResourceState &state, std::string &szOut, std::string 
 			szError = "cannot re-read the rendered project: " + szParseError;
 			return false;
 		}
+		if ( !RewriteObjectGrids( state, doc.root, szError ) )
+			return false;
 		for ( const auto &entry : state.geometry )
-			if ( HomeOf( state, entry.first.first, entry.first.second ) == HOME_FRAME )
+			if ( HomeOf( state, entry.first.first, entry.first.second ) == HOME_FRAME && !IsObjectTileChannel( state, entry.first.first, entry.first.second ) )
 				WriteFrameGeometry( doc.root, entry.first.second, entry.second );
 		WriteCrossesToRpg( state, doc.root );
 		szOut = NResourceXml::Serialise( doc );
@@ -2333,6 +2535,38 @@ BkEditorStatus BkResSetLockedTiles( BkResSession *pSession, int nNodeId, const u
 	} );
 }
 
+BkEditorStatus BkResGetTransparencyCells( BkResSession *pSession, int nNodeId, unsigned char *pOut, int nCapacity, int *pnW, int *pnH )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetBytesGrid( pSession, CHANNEL_TRANSPARENCY_CELLS, nNodeId, pOut, nCapacity, pnW, pnH );
+	} );
+}
+
+BkEditorStatus BkResSetTransparencyCells( BkResSession *pSession, int nNodeId, const unsigned char *pIn, int nW, int nH )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetBytesGrid( pSession, CHANNEL_TRANSPARENCY_CELLS, nNodeId, pIn, nW, nH );
+	} );
+}
+
+BkEditorStatus BkResGetFenceTransparences( BkResSession *pSession, int nNodeId, unsigned char *pOut, int nCapacity, int *pnW, int *pnH )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetBytesGrid( pSession, CHANNEL_FENCE_TRANSPARENCES, nNodeId, pOut, nCapacity, pnW, pnH );
+	} );
+}
+
+BkEditorStatus BkResSetFenceTransparences( BkResSession *pSession, int nNodeId, const unsigned char *pIn, int nW, int nH )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetBytesGrid( pSession, CHANNEL_FENCE_TRANSPARENCES, nNodeId, pIn, nW, nH );
+	} );
+}
+
 /* Points-family helpers: transparency lines, formation positions, bridge
    span marks, mission objectives and chapter/campaign crosses all carry a
    flat Point2 list and differ only in channel id, so one Get/Set pair serves
@@ -2615,6 +2849,22 @@ BkEditorStatus BkResSetZeroPoint( BkResSession *pSession, int nNodeId, const BkR
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		return SetPoint2( pSession, CHANNEL_ZERO_POINT, nNodeId, pIn );
+	} );
+}
+
+BkEditorStatus BkResGetSpritePos( BkResSession *pSession, int nNodeId, BkResPoint2 *pOut )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetPoint2( pSession, CHANNEL_SPRITE_POS, nNodeId, pOut );
+	} );
+}
+
+BkEditorStatus BkResSetSpritePos( BkResSession *pSession, int nNodeId, const BkResPoint2 *pIn )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetPoint2( pSession, CHANNEL_SPRITE_POS, nNodeId, pIn );
 	} );
 }
 
