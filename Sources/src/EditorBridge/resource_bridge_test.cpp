@@ -284,6 +284,115 @@ static bool SameShoot( BkResSession *pSession, int nNode, const BkResAimedPoint 
 		&& got[0].at.x == want.at.x && got[0].at.y == want.at.y && got[0].angle == want.angle && got[0].cone == want.cone;
 }
 
+// The class types of the nodes MFC keeps formation slots and span anchors
+// on: ETIT_BASE (0x11000000) + 166 and + 222..224, from tree_item_types.h.
+static const int kSquadFormationProps = 0x11000000 + 166;
+static const int kBridgeBeginSpans    = 0x11000000 + 222;
+static const int kBridgeCenterSpans   = 0x11000000 + 223;
+static const int kBridgeEndSpans      = 0x11000000 + 224;
+
+typedef BkEditorStatus ( *PointsGetter )( BkResSession *, int, BkResPoint2 *, int, int * );
+typedef BkEditorStatus ( *PointsSetter )( BkResSession *, int, const BkResPoint2 *, int );
+
+static bool SamePoints( BkResSession *pSession, PointsGetter pGet, int nNode, const std::vector<BkResPoint2> &want )
+{
+	int nCount = -1;
+	if ( pGet( pSession, nNode, 0, 0, &nCount ) != BK_EDITOR_OK || nCount != int( want.size() ) )
+		return false;
+	std::vector<BkResPoint2> got( want.size() + 1 );
+	if ( pGet( pSession, nNode, got.data(), int( got.size() ), &nCount ) != BK_EDITOR_OK || nCount != int( want.size() ) )
+		return false;
+	for ( size_t i = 0; i < want.size(); ++i )
+		if ( got[i].x != want[i].x || got[i].y != want[i].y )
+			return false;
+	return true;
+}
+
+// Formation positions on scp and bridge span marks on bdg, each set on the
+// nodes MFC keeps them on (below the root): set -> read, save -> reopen ->
+// read, and a resave of the reopened project is byte-identical.
+static void PointListsOnOwnerNodes( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot,
+                                    const char *pszExt, const char *pszWhat, PointsGetter pGet, PointsSetter pSet,
+                                    const std::vector<int> &ownerTypes )
+{
+	const std::string szIn = szFixtureRoot + "/" + pszExt + "/project." + pszExt;
+	const std::string szDir = szScratchRoot + "/" + pszExt + "-points2";
+	const std::string szSaved = szDir + "/project." + pszExt;
+	const std::string szResaved = szDir + "/project.resaved." + pszExt;
+	std::error_code ec;
+	std::filesystem::remove_all( szDir, ec );
+	std::filesystem::create_directories( szDir, ec );
+	const std::string szTag = std::string( pszWhat ) + ": ";
+	auto What = [&]( const char *pszCheck ) { static std::string s; s = szTag + pszCheck; return s.c_str(); };
+
+	if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, What( "BkResOpen" ) ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	std::vector<int> owners;
+	for ( int nType : ownerTypes )
+		for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+			if ( n.class_type == nType && n.parent != 0 ) { owners.push_back( n.id ); break; }
+	if ( !Check( owners.size() == ownerTypes.size(), What( "the fixture has every owner node below the root" ) ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+	// Distinct lists per owner, in MFC's AI world units (32 per cell), with
+	// fractions that a lossy text form would not bring back.
+	std::vector<std::vector<BkResPoint2>> lists;
+	for ( size_t i = 0; i < owners.size(); ++i )
+	{
+		std::vector<BkResPoint2> list;
+		for ( size_t k = 0; k <= i + 1; ++k )
+			list.push_back( { 16 * 32.0f + float( k ) * 24.5f, 8 * 32.0f - float( i ) * 0.125f } );
+		lists.push_back( list );
+	}
+	for ( size_t i = 0; i < owners.size(); ++i )
+		Check( pSet( pSession, owners[i], lists[i].data(), int( lists[i].size() ) ) == BK_EDITOR_OK, What( "set on an owner node" ) );
+	for ( size_t i = 0; i < owners.size(); ++i )
+		Check( SamePoints( pSession, pGet, owners[i], lists[i] ), What( "read back what was set" ) );
+	Check( SamePoints( pSession, pGet, 1, {} ), What( "the root's list stays empty" ) );
+
+	// Two-pass rules and argument refusals.
+	BkResPoint2 shortBuf[1] = {};
+	int nCount = -1;
+	Check( pGet( pSession, owners.back(), shortBuf, 1, &nCount ) == BK_EDITOR_REFUSED && nCount == int( lists.back().size() ),
+		What( "a short buffer is refused and the total still reported" ) );
+	Check( pSet( pSession, owners[0], lists[0].data(), -1 ) == BK_EDITOR_BAD_ARGUMENT, What( "a negative count is a bad argument" ) );
+	Check( pSet( pSession, owners[0], 0, 2 ) == BK_EDITOR_BAD_ARGUMENT, What( "a null buffer for a non-empty list is a bad argument" ) );
+	Check( pSet( pSession, 99999, lists[0].data(), 1 ) == BK_EDITOR_REFUSED, What( "an unknown node is refused" ) );
+	Check( SamePoints( pSession, pGet, owners[0], lists[0] ), What( "a refused set changes nothing" ) );
+
+	if ( !Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, What( "save" ) ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	BkResClose( pSession );
+	if ( !Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, What( "reopen" ) ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	for ( size_t i = 0; i < owners.size(); ++i )
+		Check( SamePoints( pSession, pGet, owners[i], lists[i] ), What( "an owner node's list survives save+reopen" ) );
+	Check( SamePoints( pSession, pGet, 1, {} ), What( "the root's list is still empty after reopen" ) );
+	Check( BkResSave( pSession, szResaved.c_str() ) == BK_EDITOR_OK, What( "save the reopened project" ) );
+	std::string szA, szB;
+	ReadBytes( szSaved, szA );
+	ReadBytes( szResaved, szB );
+	Check( !szA.empty() && szA == szB, What( "open -> save of a project with the list is byte-identical" ) );
+
+	// Clearing a list (count 0) also persists.
+	Check( pSet( pSession, owners[0], 0, 0 ) == BK_EDITOR_OK, What( "clear one owner's list" ) );
+	Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, What( "save after the clear" ) );
+	BkResClose( pSession );
+	Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, What( "reopen after the clear" ) );
+	Check( SamePoints( pSession, pGet, owners[0], {} ), What( "the cleared list stays empty" ) );
+	if ( owners.size() > 1 )
+		Check( SamePoints( pSession, pGet, owners[1], lists[1] ), What( "the other owners keep their lists" ) );
+	BkResClose( pSession );
+}
+
 static void GeometryOnChildNodes( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
 {
 	const std::string szIn = szFixtureRoot + "/wpn/project.wpn";
@@ -819,6 +928,13 @@ int main( int argc, char **argv )
 	// Geometry on a node below the root is saved in that node's own element,
 	// comes back on reopen, and travels with the node through delete -> restore.
 	GeometryOnChildNodes( pSession, szFixtureRoot, szScratchRoot );
+
+	// The squad editor's formation slots and the bridge editor's span marks,
+	// on the nodes MFC keeps them on.
+	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "scp", "formation", BkResGetFormationPositions,
+		BkResSetFormationPositions, { kSquadFormationProps } );
+	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "bdg", "span-marks", BkResGetBridgeSpanMarks,
+		BkResSetBridgeSpanMarks, { kBridgeBeginSpans, kBridgeCenterSpans, kBridgeEndSpans } );
 
 	// An entry point this slice has not built yet fails loudly instead of
 	// answering OK for work it did not do.

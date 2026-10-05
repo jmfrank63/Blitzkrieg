@@ -556,6 +556,100 @@ test "geometry aimed-point channels undo/redo rewrite the list" {
     }
 }
 
+test "geometry formation_positions and bridge_span_marks undo/redo on a child node" {
+    // The two points2 channels of the squad and bridge editors. MFC keeps
+    // both lists on a node below the root (a formation props node, a spans
+    // node), so the edit goes to an inserted child, and `before` is a real
+    // list so undo has to put the old points back, not just clear.
+    const allocator = std.testing.allocator;
+    const channels = [_]GeometryChannel{ .formation_positions, .bridge_span_marks };
+    for (channels) |channel| {
+        var fake = FakeResBridge.init(allocator);
+        defer fake.deinit();
+        try setupProject(allocator, &fake);
+        const root_id = fake.nodes.items[0].id;
+        var child_id: i32 = 0;
+        try bridge.check(fake.bridge().insertNode(root_id, "Formation", 0, &child_id));
+        try std.testing.expect(child_id != root_id);
+
+        const old_points = [_]Point2{.{ .x = 512, .y = 256 }};
+        const seed: GeometryValue = .{ .points2 = @constCast(&old_points) };
+        try bridge.check(fake.bridge().geometryWrite(child_id, channel, &seed));
+
+        var doc: Document = .{};
+        defer doc.deinit(allocator);
+        try doc.reload(allocator, fake.bridge());
+
+        const before_points = try allocator.dupe(Point2, &old_points);
+        const after_points = try allocator.alloc(Point2, 3);
+        after_points[0] = .{ .x = 496, .y = 240 };
+        after_points[1] = .{ .x = 528, .y = 240 };
+        after_points[2] = .{ .x = 512.5, .y = 272.25 };
+
+        var hist: History = .{};
+        defer hist.deinit(allocator);
+        try hist.reserve(allocator);
+        var cmd: ResourceCommand = .{ .geometry = .{
+            .node = child_id,
+            .channel = channel,
+            .before = .{ .points2 = before_points },
+            .after = .{ .points2 = after_points },
+        } };
+        try doc.apply(allocator, fake.bridge(), &cmd);
+        hist.recordAssumeCapacity(allocator, cmd, 0);
+        {
+            var read: GeometryValue = undefined;
+            try bridge.check(fake.bridge().geometryRead(child_id, channel, &read));
+            defer read.deinit(allocator);
+            try std.testing.expectEqualSlices(Point2, &.{
+                .{ .x = 496, .y = 240 }, .{ .x = 528, .y = 240 }, .{ .x = 512.5, .y = 272.25 },
+            }, read.points2);
+        }
+        {
+            // The root's list on the same channel is untouched.
+            var read: GeometryValue = undefined;
+            try bridge.check(fake.bridge().geometryRead(root_id, channel, &read));
+            defer read.deinit(allocator);
+            try std.testing.expectEqual(@as(usize, 0), read.points2.len);
+        }
+
+        try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+        {
+            var read: GeometryValue = undefined;
+            try bridge.check(fake.bridge().geometryRead(child_id, channel, &read));
+            defer read.deinit(allocator);
+            try std.testing.expectEqualSlices(Point2, &old_points, read.points2);
+        }
+
+        try doc.redoOne(allocator, fake.bridge(), &hist.top().?.command);
+        {
+            var read: GeometryValue = undefined;
+            try bridge.check(fake.bridge().geometryRead(child_id, channel, &read));
+            defer read.deinit(allocator);
+            try std.testing.expectEqual(@as(usize, 3), read.points2.len);
+            try std.testing.expectEqual(@as(f32, 272.25), read.points2[2].y);
+        }
+    }
+}
+
+test "geometry write refuses a payload of the wrong family" {
+    // Bridge span marks were once declared as Vec3; a Vec3 list on that
+    // channel must now be refused rather than silently stored.
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    try setupProject(allocator, &fake);
+    const root_id = fake.nodes.items[0].id;
+    const marks = [_]Vec3{.{ .x = 1, .y = 2, .z = 3 }};
+    const wrong: GeometryValue = .{ .vec3 = @constCast(&marks) };
+    try std.testing.expectEqual(bridge.Status.bad_argument, fake.bridge().geometryWrite(root_id, .bridge_span_marks, &wrong));
+    var read: GeometryValue = undefined;
+    try bridge.check(fake.bridge().geometryRead(root_id, .bridge_span_marks, &read));
+    defer read.deinit(allocator);
+    try std.testing.expectEqual(std.meta.Tag(GeometryValue).points2, std.meta.activeTag(read));
+    try std.testing.expectEqual(@as(usize, 0), read.points2.len);
+}
+
 test "composite collapses two commands into one undo step" {
     const allocator = std.testing.allocator;
     var fake = FakeResBridge.init(allocator);

@@ -187,7 +187,7 @@ BkEditorStatus BkResRefList( BkResSession *session, int type, BkResReferenceEntr
    these around in bare arrays so one entry point serves every kind. */
 typedef struct { float x, y; } BkResPoint2;
 
-/* A 3D vector (bridge-span marks and particle keyframes carry z too). */
+/* A 3D vector (particle and effect keyframes carry z too). */
 typedef struct { float x, y, z; } BkResVec3;
 
 /* The passability cell type (one byte in the map's own data: free / blocked
@@ -224,13 +224,29 @@ BkEditorStatus BkResSetSmokePoints( BkResSession *session, int node, const BkRes
 BkEditorStatus BkResGetDirectedExplosionPoints( BkResSession *session, int node, BkResAimedPoint *out, int capacity, int *out_count );
 BkEditorStatus BkResSetDirectedExplosionPoints( BkResSession *session, int node, const BkResAimedPoint *in, int count );
 
-/* Formation positions, bridge span marks, mission objectives, chapter /
-   campaign crosses, particle / effect keyframes - the point / 3D-vector
-   lists each kind owns. */
+/* Formation positions: the slots of one squad formation (scp), one Point2
+   per soldier in the order of CSquadFormationPropsItem::units. Coordinates
+   are MFC's: absolute AI world units (fWorldCellSize per cell) in the
+   SquadFrm view, the same space as SUnit::vPos and vZeroPos. z is dropped
+   because SquadFrm always sets it to 0; the export, not this list, subtracts
+   vZeroPos to get the offsets the game reads. The owner is normally a
+   formation props node (ETIT_SQUAD_FORMATION_PROPS_ITEM), but like every
+   geometry channel the bridge accepts any node.
+   Bridge span marks: the span anchor crosses of a bridge (bdg) - BridgeFrm's
+   vBeginPos, vCenterKrest, vEndPos and the front/back marks it draws at an
+   anchor + m_fFront / m_fBack - as a flat Point2 list in the same AI world
+   units, z dropped (BridgeFrm keeps it 0). The owner is normally a begin,
+   center or end spans node (ETIT_BRIDGE_*_SPANS_ITEM).
+   Both are two-pass reads like BkResNodes: out_count is always the total and
+   a short buffer is BK_EDITOR_REFUSED. A set replaces the whole list; an
+   un-set list reads as count 0. */
 BkEditorStatus BkResGetFormationPositions( BkResSession *session, int node, BkResPoint2 *out, int capacity, int *out_count );
 BkEditorStatus BkResSetFormationPositions( BkResSession *session, int node, const BkResPoint2 *in, int count );
-BkEditorStatus BkResGetBridgeSpanMarks( BkResSession *session, int node, BkResVec3 *out, int capacity, int *out_count );
-BkEditorStatus BkResSetBridgeSpanMarks( BkResSession *session, int node, const BkResVec3 *in, int count );
+BkEditorStatus BkResGetBridgeSpanMarks( BkResSession *session, int node, BkResPoint2 *out, int capacity, int *out_count );
+BkEditorStatus BkResSetBridgeSpanMarks( BkResSession *session, int node, const BkResPoint2 *in, int count );
+
+/* Mission objectives, chapter / campaign crosses, particle / effect
+   keyframes - the point / 3D-vector lists each kind owns. */
 BkEditorStatus BkResGetMissionObjectives( BkResSession *session, int node, BkResPoint2 *out, int capacity, int *out_count );
 BkEditorStatus BkResSetMissionObjectives( BkResSession *session, int node, const BkResPoint2 *in, int count );
 BkEditorStatus BkResGetChapterCrosses( BkResSession *session, int node, BkResPoint2 *out, int capacity, int *out_count );

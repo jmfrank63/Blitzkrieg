@@ -175,8 +175,9 @@ struct ResourceState
 
 // Channel ids: the C ABI's geometry channel integers (shared with Zig's
 // bridge.GeometryChannel enum). T05 wired channels 0..2 (cells family); T06
-// adds 3..8 (point2 family + aimed-points family). The rest are reserved for
-// T07+. Kept as a plain enum so a test can hand-assert against an integer.
+// adds 3..8 (point2 family + aimed-points family); 9 and 10 join channel 2 in
+// the points family. The rest are reserved for later tasks. Kept as a plain
+// enum so a test can hand-assert against an integer.
 enum GeometryChannel
 {
 	CHANNEL_PASSABILITY_CELLS = 0,
@@ -187,7 +188,9 @@ enum GeometryChannel
 	CHANNEL_SHOOT_POINTS = 5,
 	CHANNEL_FIRE_POINTS = 6,
 	CHANNEL_SMOKE_POINTS = 7,
-	CHANNEL_DIRECTED_EXPLOSION_POINTS = 8
+	CHANNEL_DIRECTED_EXPLOSION_POINTS = 8,
+	CHANNEL_FORMATION_POSITIONS = 9,
+	CHANNEL_BRIDGE_SPAN_MARKS = 10
 };
 
 static bool IsBytesGridChannel( int nChannel )
@@ -1490,7 +1493,7 @@ BkEditorStatus BkResRefList( BkResSession *pSession, int nType, BkResReferenceEn
    channels (points, aimed points, keyframes) stay stubbed below until T06+.
 
    The two bytes_grid channels share one helper (GetBytesGrid / SetBytesGrid)
-   because they only differ in channel id; the points channel has its own
+   because they only differ in channel id; the points channels have their own
    pair because the payload is Point2 structs, not bytes. */
 
 namespace {
@@ -1596,39 +1599,88 @@ BkEditorStatus BkResSetLockedTiles( BkResSession *pSession, int nNodeId, const u
 	} );
 }
 
+/* Points-family helpers: transparency lines, formation positions and
+   bridge span marks all carry a flat Point2 list and differ only in channel
+   id, so one Get/Set pair serves them. */
+
+namespace {
+
+BkEditorStatus GetPoints2( BkResSession *pSession, int nChannel, int nNodeId,
+                           BkResPoint2 *pOut, int nCapacity, int *pnCount )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+	{
+		pSession->szMessage = "unknown node id";
+		return BK_EDITOR_REFUSED;
+	}
+	auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
+	if ( it == state.geometry.end() )
+	{
+		if ( pnCount != nullptr ) *pnCount = 0;
+		return BK_EDITOR_OK;
+	}
+	const int nCount = static_cast<int>( it->second.points.size() / 2 );
+	if ( pnCount != nullptr ) *pnCount = nCount;
+	if ( pOut == nullptr || nCapacity <= 0 )
+		return BK_EDITOR_OK;
+	if ( nCapacity < nCount )
+		return BK_EDITOR_REFUSED;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		pOut[i].x = it->second.points[2*i];
+		pOut[i].y = it->second.points[2*i + 1];
+	}
+	return BK_EDITOR_OK;
+}
+
+BkEditorStatus SetPoints2( BkResSession *pSession, int nChannel, int nNodeId,
+                           const BkResPoint2 *pIn, int nCount )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+	{
+		pSession->szMessage = "unknown node id";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( nCount < 0 )
+	{
+		pSession->szMessage = "negative point count";
+		return BK_EDITOR_BAD_ARGUMENT;
+	}
+	if ( nCount != 0 && pIn == nullptr )
+	{
+		pSession->szMessage = "null buffer for non-empty list";
+		return BK_EDITOR_BAD_ARGUMENT;
+	}
+	GeometryBlob blob;
+	blob.points.reserve( static_cast<std::size_t>( nCount ) * 2 );
+	for ( int i = 0; i < nCount; ++i )
+	{
+		blob.points.push_back( pIn[i].x );
+		blob.points.push_back( pIn[i].y );
+	}
+	state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
+	return BK_EDITOR_OK;
+}
+
+} // namespace
+
 BkEditorStatus BkResGetTransparencyLines( BkResSession *pSession, int nNodeId, BkResPoint2 *pOut, int nCapacity, int *pnCount )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		ResourceState &state = StateOf( pSession );
-		if ( !state.bOpen )
-		{
-			pSession->szMessage = "no project is open";
-			return BK_EDITOR_REFUSED;
-		}
-		if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
-		{
-			pSession->szMessage = "unknown node id";
-			return BK_EDITOR_REFUSED;
-		}
-		auto it = state.geometry.find( std::make_pair( nNodeId, CHANNEL_TRANSPARENCY_LINES ) );
-		if ( it == state.geometry.end() )
-		{
-			if ( pnCount != nullptr ) *pnCount = 0;
-			return BK_EDITOR_OK;
-		}
-		const int nCount = static_cast<int>( it->second.points.size() / 2 );
-		if ( pnCount != nullptr ) *pnCount = nCount;
-		if ( pOut == nullptr || nCapacity <= 0 )
-			return BK_EDITOR_OK;
-		if ( nCapacity < nCount )
-			return BK_EDITOR_REFUSED;
-		for ( int i = 0; i < nCount; ++i )
-		{
-			pOut[i].x = it->second.points[2*i];
-			pOut[i].y = it->second.points[2*i + 1];
-		}
-		return BK_EDITOR_OK;
+		return GetPoints2( pSession, CHANNEL_TRANSPARENCY_LINES, nNodeId, pOut, nCapacity, pnCount );
 	} );
 }
 
@@ -1636,36 +1688,39 @@ BkEditorStatus BkResSetTransparencyLines( BkResSession *pSession, int nNodeId, c
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		ResourceState &state = StateOf( pSession );
-		if ( !state.bOpen )
-		{
-			pSession->szMessage = "no project is open";
-			return BK_EDITOR_REFUSED;
-		}
-		if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
-		{
-			pSession->szMessage = "unknown node id";
-			return BK_EDITOR_REFUSED;
-		}
-		if ( nCount < 0 )
-		{
-			pSession->szMessage = "negative point count";
-			return BK_EDITOR_BAD_ARGUMENT;
-		}
-		if ( nCount != 0 && pIn == nullptr )
-		{
-			pSession->szMessage = "null buffer for non-empty list";
-			return BK_EDITOR_BAD_ARGUMENT;
-		}
-		GeometryBlob blob;
-		blob.points.reserve( static_cast<std::size_t>( nCount ) * 2 );
-		for ( int i = 0; i < nCount; ++i )
-		{
-			blob.points.push_back( pIn[i].x );
-			blob.points.push_back( pIn[i].y );
-		}
-		state.geometry[ std::make_pair( nNodeId, CHANNEL_TRANSPARENCY_LINES ) ] = std::move( blob );
-		return BK_EDITOR_OK;
+		return SetPoints2( pSession, CHANNEL_TRANSPARENCY_LINES, nNodeId, pIn, nCount );
+	} );
+}
+
+BkEditorStatus BkResGetFormationPositions( BkResSession *pSession, int nNodeId, BkResPoint2 *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetPoints2( pSession, CHANNEL_FORMATION_POSITIONS, nNodeId, pOut, nCapacity, pnCount );
+	} );
+}
+
+BkEditorStatus BkResSetFormationPositions( BkResSession *pSession, int nNodeId, const BkResPoint2 *pIn, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetPoints2( pSession, CHANNEL_FORMATION_POSITIONS, nNodeId, pIn, nCount );
+	} );
+}
+
+BkEditorStatus BkResGetBridgeSpanMarks( BkResSession *pSession, int nNodeId, BkResPoint2 *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetPoints2( pSession, CHANNEL_BRIDGE_SPAN_MARKS, nNodeId, pOut, nCapacity, pnCount );
+	} );
+}
+
+BkEditorStatus BkResSetBridgeSpanMarks( BkResSession *pSession, int nNodeId, const BkResPoint2 *pIn, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetPoints2( pSession, CHANNEL_BRIDGE_SPAN_MARKS, nNodeId, pIn, nCount );
 	} );
 }
 
@@ -1917,8 +1972,6 @@ BkEditorStatus fname( BkResSession *pSession, int, const BkResPoint2 *, int ) \
 { \
 	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, #fname ); } ); \
 }
-BKRES_GET_POINT2_STUB( BkResGetFormationPositions )
-BKRES_SET_POINT2_STUB( BkResSetFormationPositions )
 BKRES_GET_POINT2_STUB( BkResGetMissionObjectives )
 BKRES_SET_POINT2_STUB( BkResSetMissionObjectives )
 BKRES_GET_POINT2_STUB( BkResGetChapterCrosses )
@@ -1942,8 +1995,6 @@ BkEditorStatus fname( BkResSession *pSession, int, const BkResVec3 *, int ) \
 { \
 	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, #fname ); } ); \
 }
-BKRES_GET_VEC3_STUB( BkResGetBridgeSpanMarks )
-BKRES_SET_VEC3_STUB( BkResSetBridgeSpanMarks )
 BKRES_GET_VEC3_STUB( BkResGetParticleKeyframes )
 BKRES_SET_VEC3_STUB( BkResSetParticleKeyframes )
 BKRES_GET_VEC3_STUB( BkResGetEffectKeyframes )

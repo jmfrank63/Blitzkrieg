@@ -21,7 +21,9 @@
 //!   no device, no draw. `no GPU device` is simulated by `setNoDevice`;
 //! * geometry channels round-trip through a per-(node, channel) map but
 //!   do no engine-shaped validation - a shoot point far outside a mesh is
-//!   accepted. T04 tightens whichever channels its commands rely on.
+//!   accepted. The one rule kept is the payload family: a value whose tag
+//!   is not `channel.family()` is `BadArgument`, since the C entry point
+//!   for that channel could not even be called with it.
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 const Status = bridge_mod.Status;
@@ -536,6 +538,10 @@ pub const FakeResBridge = struct {
             self.say("node {d} is unknown", .{node});
             return .refused;
         }
+        if (std.meta.activeTag(value.*) != channel.family()) {
+            self.say("channel {s} does not carry a {s} payload", .{ @tagName(channel), @tagName(std.meta.activeTag(value.*)) });
+            return .bad_argument;
+        }
         const duplicated = value.dupe(self.allocator) catch return .failed;
         if (self.indexOfGeometry(node, channel)) |i| {
             var existing = &self.geometry.items[i];
@@ -608,12 +614,12 @@ pub const FakeResBridge = struct {
 };
 
 fn emptyFor(channel: GeometryChannel) GeometryValue {
-    return switch (channel) {
-        .passability_cells, .locked_tiles => .{ .bytes_grid = .{ .bytes = &.{}, .width = 0, .height = 0 } },
-        .transparency_lines, .formation_positions, .mission_objectives, .chapter_crosses, .campaign_crosses => .{ .points2 = &.{} },
-        .zero_point, .entrance => .{ .point2 = .{} },
-        .shoot_points, .fire_points, .smoke_points, .directed_explosion_points => .{ .aimed = &.{} },
-        .bridge_span_marks, .particle_keyframes, .effect_keyframes => .{ .vec3 = &.{} },
+    return switch (channel.family()) {
+        .bytes_grid => .{ .bytes_grid = .{ .bytes = &.{}, .width = 0, .height = 0 } },
+        .points2 => .{ .points2 = &.{} },
+        .point2 => .{ .point2 = .{} },
+        .aimed => .{ .aimed = &.{} },
+        .vec3 => .{ .vec3 = &.{} },
     };
 }
 

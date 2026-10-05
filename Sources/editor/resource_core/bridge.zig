@@ -164,7 +164,7 @@ pub const ReferenceEntry = struct {
 /// BkResPoint2: a 2D point in map/scene units.
 pub const Point2 = extern struct { x: f32 = 0, y: f32 = 0 };
 
-/// BkResVec3: a 3D vector (bridge span marks and particle keyframes carry z).
+/// BkResVec3: a 3D vector (particle and effect keyframes carry z).
 pub const Vec3 = extern struct { x: f32 = 0, y: f32 = 0, z: f32 = 0 };
 
 /// BkResAimedPoint: a point with an angle and a cone (shoot/fire/smoke/
@@ -195,6 +195,20 @@ pub const GeometryChannel = enum(c_int) {
     campaign_crosses = 13,
     particle_keyframes = 14,
     effect_keyframes = 15,
+
+    /// The payload family the channel carries, as the `GeometryValue` tag.
+    /// Formation positions and bridge span marks are flat Point2 lists in
+    /// MFC's AI world units with z dropped (SquadFrm and BridgeFrm keep it 0),
+    /// so they share the transparency lines' family.
+    pub fn family(self: GeometryChannel) std.meta.Tag(GeometryValue) {
+        return switch (self) {
+            .passability_cells, .locked_tiles => .bytes_grid,
+            .transparency_lines, .formation_positions, .bridge_span_marks, .mission_objectives, .chapter_crosses, .campaign_crosses => .points2,
+            .zero_point, .entrance => .point2,
+            .shoot_points, .fire_points, .smoke_points, .directed_explosion_points => .aimed,
+            .particle_keyframes, .effect_keyframes => .vec3,
+        };
+    }
 };
 
 /// A geometry channel's payload - the three value families BkRes[Get|Set]*
