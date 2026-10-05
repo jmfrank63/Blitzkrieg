@@ -184,13 +184,11 @@ pub const Docks = struct {
 
     /// Run (F5): MFC's Run button exported the project and played it.
     pub fn runPreview(self: *Docks) void {
-        if (self.preview.run(self.real.bridge())) _ = self.real.previewPlayback(true);
+        _ = self.preview.run(self.real.bridge());
     }
 
     pub fn stopPreview(self: *Docks) void {
-        if (!self.preview.running) return;
-        _ = self.real.previewPlayback(false);
-        self.preview.running = false;
+        self.preview.halt(self.real.bridge());
     }
 
     // --- Menus and keys -----------------------------------------------------
@@ -237,10 +235,10 @@ pub const Docks = struct {
 
     /// The docks and the preview's line; `project_folder` is what an empty
     /// thumbnail folder follows.
-    pub fn drawDocks(self: *Docks, project_folder: ?[]const u8) void {
+    pub fn drawDocks(self: *Docks, project_folder: ?[]const u8, life: *logic.Lifecycle, selected: ?i32) void {
         self.takeFolder();
         self.first_thumbnail = null;
-        if (self.show_thumbnails) self.drawThumbnails(project_folder);
+        if (self.show_thumbnails) self.drawThumbnails(project_folder, life, selected);
         if (self.show_direction) self.drawDirection();
         if (self.show_function) self.drawFunction();
         self.drawPreviewLine();
@@ -267,7 +265,7 @@ pub const Docks = struct {
         return if (self.fixed) ig.ImGuiWindowFlags_NoSavedSettings else 0;
     }
 
-    fn drawThumbnails(self: *Docks, project_folder: ?[]const u8) void {
+    fn drawThumbnails(self: *Docks, project_folder: ?[]const u8, life: *logic.Lifecycle, selected: ?i32) void {
         const display = ig.igGetIO().*.DisplaySize;
         self.place(fixed_layout.thumbnails, display.x - 268, 28, 260, @max(200, display.y * 0.5));
         if (!ig.igBegin("Thumbnails###thumbnails", &self.show_thumbnails, self.windowFlags())) {
@@ -290,6 +288,12 @@ pub const Docks = struct {
         }
         ig.igSameLine();
         if (ig.igButton("Rescan")) self.scan(folder);
+        // WM_THUMB_LIST_DELETE: Delete removes the frame selected in the tree.
+        if (ig.igIsWindowFocused(ig.ImGuiFocusedFlags_RootAndChildWindows) and !ig.igGetIO().*.WantTextInput and ig.igIsKeyPressedEx(ig.ImGuiKey_Delete, false)) {
+            dl.deleteSelectedFrame(self.gpa, self.real.bridge(), life, selected) catch |err| {
+                if (err != error.Refused) self.thumbs.say("delete frame: {s}", .{@errorName(err)});
+            };
+        }
         if (self.thumbs.note_len != 0) ig.igTextDisabled("%.*s", @as(c_int, @intCast(self.thumbs.note_len)), &self.thumbs.note);
 
         var device: ?*anyopaque = null;
@@ -312,7 +316,7 @@ pub const Docks = struct {
             if (ig.igInvisibleButton("cell", .{ .x = side, .y = side + line }, 0)) self.thumbs.selected = i;
             if (ig.igIsItemHovered(0) and ig.igIsMouseDoubleClicked(0)) {
                 self.thumbs.activated = i;
-                self.thumbs.say("{s}: the sub-editor that takes a picture comes with its slice", .{name});
+                self.frameFromPicture(life, selected, name);
             }
             // LoadImageToImageList's black cell, the picture fitted in it.
             ig.ImDrawList_AddRectFilled(draw_list, top_left, .{ .x = top_left.x + side, .y = top_left.y + side }, 0xff000000);
@@ -334,6 +338,15 @@ pub const Docks = struct {
             ig.ImDrawList_AddTextEx(draw_list, .{ .x = top_left.x, .y = top_left.y + side + 1 }, ig.igGetColorU32(ig.ImGuiCol_Text), name.ptr, name.ptr + name.len);
             ig.ImDrawList_PopClipRect(draw_list);
         }
+    }
+
+    /// A double-click on a picture: a sprite or an infantry project takes it
+    /// as a frame (SpriteFrm and AnimationFrm DoubleClickOnThumbList).
+    fn frameFromPicture(self: *Docks, life: *logic.Lifecycle, selected: ?i32, name: []const u8) void {
+        dl.addFrameFromPicture(self.gpa, self.real.bridge(), life, selected, name) catch |err| switch (err) {
+            error.Refused => self.thumbs.say("{s}: only a sprite or an infantry project takes a frame, and not read-only", .{name}),
+            else => self.thumbs.say("{s}: the frame was not added ({s})", .{ name, @errorName(err) }),
+        };
     }
 
     /// Reads `folder`'s pictures (LoadAllImagesFromDir), sorted by name.

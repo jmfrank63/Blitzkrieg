@@ -48,6 +48,16 @@ pub const item_type = struct {
     pub const squad_root: i32 = base + 161;
     pub const squad_formations: i32 = base + 165;
     pub const squad_formation_props: i32 = base + 166;
+    pub const animation_root: i32 = base + 1;
+    pub const unit_directory_props: i32 = base + 7;
+    pub const unit_season_props: i32 = base + 8;
+    pub const unit_directories: i32 = base + 9;
+    pub const unit_animations: i32 = base + 10;
+    pub const unit_animation_props: i32 = base + 11;
+    pub const unit_frame_props: i32 = base + 12;
+    pub const sprite_root: i32 = base + 21;
+    pub const sprites: i32 = base + 22;
+    pub const sprite_props: i32 = base + 23;
 };
 
 // --- Reading the mirror ------------------------------------------------------
@@ -382,6 +392,89 @@ pub fn trenchRemoveSource(doc: *const Document, source: i32) EditError!ResourceC
     const node = findNode(doc, source) orelse return error.Refused;
     if (!isClass(node, item_type.trench_source_props)) return error.Refused;
     return deleteNode(doc, source);
+}
+
+// --- Sprite and Infantry (SpriteFrm, AnimationFrm) -----------------------------
+
+/// A new frame item named after `picture` (a listed file name without its
+/// extension) at the end of `parent`: MFC's thumbnail double-click makes the
+/// item, calls SetItemName and AddChild. The name rides on the insert, so
+/// the add is one undo step.
+fn addFrame(allocator: std.mem.Allocator, doc: *const Document, parent: i32, parent_class: i32, frame_class: i32, picture: []const u8) EditError!ResourceCommand {
+    const node = findNode(doc, parent) orelse return error.Refused;
+    if (!isClass(node, parent_class)) return error.Refused;
+    if (picture.len == 0 or picture.len >= bridge_mod.name_capacity) return error.BadArgument;
+    var command = try appendChild(allocator, doc, parent, frame_class);
+    errdefer command.deinit(allocator);
+    command.insert_node.name = try OwnedBytes.fromSlice(allocator, picture);
+    return command;
+}
+
+/// SpriteFrm's DoubleClickOnThumbList: a CSpritePropsItem under the
+/// "Sprites" item.
+pub fn spriteAddFrame(allocator: std.mem.Allocator, doc: *const Document, sprites_node: i32, picture_name: []const u8) EditError!ResourceCommand {
+    return addFrame(allocator, doc, sprites_node, item_type.sprites, item_type.sprite_props, picture_name);
+}
+
+/// AnimationFrm's DoubleClickOnThumbList: a CUnitFramePropsItem under the
+/// active animation.
+pub fn infantryAddFrame(allocator: std.mem.Allocator, doc: *const Document, animation_node: i32, picture_name: []const u8) EditError!ResourceCommand {
+    return addFrame(allocator, doc, animation_node, item_type.unit_animation_props, item_type.unit_frame_props, picture_name);
+}
+
+/// DeleteFrameInTree: only a frame item goes; the unt tree's directories,
+/// animations, actions, exposures and acks are static (bStaticElements) and
+/// the sprite's "Sprites" item is the root's only child.
+pub fn deleteFrame(doc: *const Document, frame: i32) EditError!ResourceCommand {
+    const node = findNode(doc, frame) orelse return error.Refused;
+    if (!isClass(node, item_type.sprite_props) and !isClass(node, item_type.unit_frame_props)) return error.Refused;
+    return deleteNode(doc, frame);
+}
+
+/// The sprite directory ("Directory" of the Sprites item).
+pub fn spriteSetDirectory(allocator: std.mem.Allocator, doc: *const Document, sprites_node: i32, text: []const u8) EditError!ResourceCommand {
+    return spriteEdit(allocator, doc, sprites_node, "Directory", text);
+}
+
+/// The time every frame is shown for, in milliseconds.
+pub fn spriteSetFrameTime(allocator: std.mem.Allocator, doc: *const Document, sprites_node: i32, text: []const u8) EditError!ResourceCommand {
+    return spriteEdit(allocator, doc, sprites_node, "Frame time", text);
+}
+
+/// The frame's hot spot, X and Y position, as one undo step.
+pub fn spriteSetPosition(allocator: std.mem.Allocator, doc: *const Document, sprites_node: i32, x: []const u8, y: []const u8) EditError!ResourceCommand {
+    var steps: std.ArrayListUnmanaged(ResourceCommand) = .empty;
+    errdefer {
+        for (steps.items) |*step| step.deinit(allocator);
+        steps.deinit(allocator);
+    }
+    try steps.ensureTotalCapacity(allocator, 2);
+    steps.appendAssumeCapacity(try spriteEdit(allocator, doc, sprites_node, "X position", x));
+    steps.appendAssumeCapacity(try spriteEdit(allocator, doc, sprites_node, "Y position", y));
+    return .{ .composite = .{ .steps = steps } };
+}
+
+fn spriteEdit(allocator: std.mem.Allocator, doc: *const Document, sprites_node: i32, default_name: []const u8, text: []const u8) EditError!ResourceCommand {
+    const node = findNode(doc, sprites_node) orelse return error.Refused;
+    if (!isClass(node, item_type.sprites)) return error.Refused;
+    return setPropByName(allocator, doc, sprites_node, default_name, text);
+}
+
+/// A property of one animation ("Frame time", "Action frame", "Animation
+/// speed", "Is cycled?", "Number of directions", "Sound file name").
+pub fn infantrySetAnimationProp(allocator: std.mem.Allocator, doc: *const Document, animation_node: i32, default_name: []const u8, text: []const u8) EditError!ResourceCommand {
+    const node = findNode(doc, animation_node) orelse return error.Refused;
+    if (!isClass(node, item_type.unit_animation_props)) return error.Refused;
+    return setPropByName(allocator, doc, animation_node, default_name, text);
+}
+
+/// The directory of one of a season's directions (Right Up, Up, ...), by its
+/// place among the season's children.
+pub fn infantrySetSeasonDir(allocator: std.mem.Allocator, doc: *const Document, season_node: i32, direction: usize, text: []const u8) EditError!ResourceCommand {
+    const node = findNode(doc, season_node) orelse return error.Refused;
+    if (!isClass(node, item_type.unit_season_props)) return error.Refused;
+    const dir = childOfClass(doc, season_node, item_type.unit_directory_props, direction) orelse return error.Refused;
+    return setPropByName(allocator, doc, dir, "Directory", text);
 }
 
 // --- Tests (fake bridge) -----------------------------------------------------
@@ -811,4 +904,109 @@ test "tool: a geometry set with no MFC home is refused and leaves the history un
     defer h.allocator.free(after);
     try expectState("no MFC home", "refused set leaves the project", before, after, true);
     _ = formation;
+}
+
+/// A sprite project: the Sprites item with MFC's four properties and one frame.
+fn spriteProject(h: *Harness) !struct { sprites: i32, frame: i32 } {
+    try bridge_mod.check(h.bridge().new(.sprite));
+    try h.doc.reload(h.allocator, h.bridge());
+    const root = h.fake.nodes.items[0].id;
+    const sprites = try h.node(root, item_type.sprites, "Sprites");
+    try h.prop(sprites, 1, "Directory", "_.");
+    try h.prop(sprites, 2, "Frame time", "125");
+    try h.prop(sprites, 3, "X position", "32");
+    try h.prop(sprites, 4, "Y position", "32");
+    const frame = try h.node(sprites, item_type.sprite_props, "walk_00");
+    return .{ .sprites = sprites, .frame = frame };
+}
+
+/// An infantry project: static directories (a season with two directions),
+/// the animations list with one animation holding one frame, and the acks.
+fn infantryProject(h: *Harness) !struct { season: i32, animation: i32, frame: i32, animations: i32, acks: i32 } {
+    try bridge_mod.check(h.bridge().new(.animation_infantry));
+    try h.doc.reload(h.allocator, h.bridge());
+    const root = h.fake.nodes.items[0].id;
+    const directories = try h.node(root, item_type.unit_directories, "Directories");
+    const season = try h.node(directories, item_type.unit_season_props, "Summer");
+    for ([_][]const u8{ "Right Up", "Up" }) |name| {
+        const dir = try h.node(season, item_type.unit_directory_props, name);
+        try h.prop(dir, 1, "Directory", "_.");
+    }
+    const animations = try h.node(root, item_type.unit_animations, "Animations");
+    const animation = try h.node(animations, item_type.unit_animation_props, "Run");
+    try h.prop(animation, 1, "Frame time", "125");
+    try h.prop(animation, 2, "Animation speed", "1");
+    const frame = try h.node(animation, item_type.unit_frame_props, "run_00");
+    const acks = try h.node(root, item_type.base + 16, "Acks");
+    return .{ .season = season, .animation = animation, .frame = frame, .animations = animations, .acks = acks };
+}
+
+test "tool: sprite frame add is named after its picture, undoable, and delete restores it" {
+    var h = Harness.init(testing.allocator);
+    defer h.deinit();
+    const p = try spriteProject(&h);
+    try h.runTool("sprite add frame", try spriteAddFrame(h.allocator, &h.doc, p.sprites, "walk_01"));
+    try testing.expectEqual(@as(i32, 2), childCount(&h.doc, p.sprites));
+    const added = childOfClass(&h.doc, p.sprites, item_type.sprite_props, 1).?;
+    try testing.expectEqualStrings("walk_01", findNode(&h.doc, added).?.displaySlice());
+    try h.runTool("sprite delete frame", try deleteFrame(&h.doc, p.frame));
+}
+
+test "tool: sprite directory, frame time and position" {
+    var h = Harness.init(testing.allocator);
+    defer h.deinit();
+    const p = try spriteProject(&h);
+    try h.runTool("sprite directory", try spriteSetDirectory(h.allocator, &h.doc, p.sprites, "units\\walk\\"));
+    try h.runTool("sprite frame time", try spriteSetFrameTime(h.allocator, &h.doc, p.sprites, "80"));
+    // Position is two writes and one undo step.
+    try h.runTool("sprite position", try spriteSetPosition(h.allocator, &h.doc, p.sprites, "16", "48"));
+    try testing.expectEqualStrings("16", propValue(&h.doc, p.sprites, propIdByName(&h.doc, p.sprites, "X position").?).?);
+}
+
+test "tool: infantry frame add, delete and animation and season edits" {
+    var h = Harness.init(testing.allocator);
+    defer h.deinit();
+    const p = try infantryProject(&h);
+    try h.runTool("infantry add frame", try infantryAddFrame(h.allocator, &h.doc, p.animation, "run_01"));
+    const added = childOfClass(&h.doc, p.animation, item_type.unit_frame_props, 1).?;
+    try testing.expectEqualStrings("run_01", findNode(&h.doc, added).?.displaySlice());
+    try h.runTool("infantry delete frame", try deleteFrame(&h.doc, p.frame));
+    try h.runTool("infantry frame time", try infantrySetAnimationProp(h.allocator, &h.doc, p.animation, "Frame time", "60"));
+    try h.runTool("infantry animation speed", try infantrySetAnimationProp(h.allocator, &h.doc, p.animation, "Animation speed", "2"));
+    try h.runTool("infantry season dir", try infantrySetSeasonDir(h.allocator, &h.doc, p.season, 1, "units\\up\\"));
+}
+
+test "tool: frame tools refuse static items, wrong parents and bad names, leaving the project as it was" {
+    var h = Harness.init(testing.allocator);
+    defer h.deinit();
+    const s = try spriteProject(&h);
+    const before_sprite = try h.dump();
+    defer h.allocator.free(before_sprite);
+    const root = h.fake.nodes.items[0].id;
+    try testing.expectError(error.Refused, spriteAddFrame(h.allocator, &h.doc, root, "x"));
+    try testing.expectError(error.Refused, spriteAddFrame(h.allocator, &h.doc, 9999, "x"));
+    try testing.expectError(error.BadArgument, spriteAddFrame(h.allocator, &h.doc, s.sprites, ""));
+    try testing.expectError(error.BadArgument, spriteAddFrame(h.allocator, &h.doc, s.sprites, "n" ** 64));
+    try testing.expectError(error.Refused, deleteFrame(&h.doc, s.sprites));
+    try testing.expectError(error.Refused, deleteFrame(&h.doc, root));
+    try testing.expectError(error.Refused, spriteSetDirectory(h.allocator, &h.doc, root, "x"));
+    const after_sprite = try h.dump();
+    defer h.allocator.free(after_sprite);
+    try expectState("refused sprite tools", "nothing changed", before_sprite, after_sprite, true);
+
+    var u = Harness.init(testing.allocator);
+    defer u.deinit();
+    const p = try infantryProject(&u);
+    // Directories, animations, acks and the root are static: not deletable here.
+    try testing.expectError(error.Refused, deleteFrame(&u.doc, p.animation));
+    try testing.expectError(error.Refused, deleteFrame(&u.doc, p.animations));
+    try testing.expectError(error.Refused, deleteFrame(&u.doc, p.acks));
+    try testing.expectError(error.Refused, deleteFrame(&u.doc, p.season));
+    // A frame goes under an animation only, and a season takes only its directions.
+    try testing.expectError(error.Refused, infantryAddFrame(u.allocator, &u.doc, p.animations, "x"));
+    try testing.expectError(error.Refused, infantryAddFrame(u.allocator, &u.doc, p.frame, "x"));
+    try testing.expectError(error.Refused, infantrySetAnimationProp(u.allocator, &u.doc, p.season, "Frame time", "1"));
+    try testing.expectError(error.Refused, infantrySetAnimationProp(u.allocator, &u.doc, p.animation, "No such property", "1"));
+    try testing.expectError(error.Refused, infantrySetSeasonDir(u.allocator, &u.doc, p.season, 2, "x"));
+    try testing.expectError(error.Refused, infantrySetSeasonDir(u.allocator, &u.doc, p.animation, 0, "x"));
 }

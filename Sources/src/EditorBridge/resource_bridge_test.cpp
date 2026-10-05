@@ -2409,6 +2409,12 @@ static const int kWeaponCraters     = 0x11000000 + 281;
 static const int kWeaponCraterProps = 0x11000000 + 282;
 static const int kTrenchSources     = 0x11000000 + 153;
 static const int kTrenchSourceProps = 0x11000000 + 154;
+static const int kUnitSeasonProps   = 0x11000000 + 8;
+static const int kUnitAnimationsItem= 0x11000000 + 10;
+static const int kUnitAnimationProps= 0x11000000 + 11;
+static const int kUnitFrameProps    = 0x11000000 + 12;
+static const int kSpritesItem       = 0x11000000 + 22;
+static const int kSpriteProps       = 0x11000000 + 23;
 
 struct SAction
 {
@@ -2771,6 +2777,90 @@ static void Trench( BkResSession *pSession, const std::string &szFixtureRoot, co
 	}
 }
 
+// S07 T09: the frame tools. A thumbnail double-click inserts a frame item and
+// names it after the picture (one undo step); redo restores it from the blob,
+// name included.
+static SAction InsertNamed( BkResSession *pSession, int nParent, int nClass, int nIndex, const std::string &szName )
+{
+	auto pId = std::make_shared<int>( 0 );
+	SAction action = Insert( pSession, nParent, nClass, nIndex, pId );
+	const std::function<bool()> insert = action.apply;
+	action.apply = [=]() { return insert() && BkResSetNodeName( pSession, *pId, szName.c_str() ) == BK_EDITOR_OK; };
+	return action;
+}
+
+static std::string NameOf( BkResSession *pSession, int nNode )
+{
+	for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+		if ( n.id == nNode )
+			return n.display_name;
+	return "";
+}
+
+static void Frames( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	if ( Open( pSession, szFixtureRoot, "spt" ) )
+	{
+		const int nSprites = FirstNodeOfType( pSession, kSpritesItem );
+		const int nBefore = ChildCount( pSession, nSprites );
+		RunTool( pSession, szScratchRoot, "spt", "sprite add frame", InsertNamed( pSession, nSprites, kSpriteProps, nBefore, "walk_07" ) );
+		Check( ChildCount( pSession, FirstNodeOfType( pSession, kSpritesItem ) ) == nBefore + 1, "s07-tool sprite add frame: one more frame" );
+		Check( NameOf( pSession, NthChildOfType( pSession, FirstNodeOfType( pSession, kSpritesItem ), kSpriteProps, nBefore ) ) == "walk_07", "s07-tool sprite add frame: the frame is named after its picture, also after save and reopen" );
+		BkResClose( pSession );
+	}
+	if ( Open( pSession, szFixtureRoot, "spt" ) )
+	{
+		RunTool( pSession, szScratchRoot, "spt", "sprite delete frame", Delete( pSession, FirstNodeOfType( pSession, kSpriteProps ) ) );
+		Check( FirstNodeOfType( pSession, kSpriteProps ) == 0, "s07-tool sprite delete frame: no frame left" );
+		BkResClose( pSession );
+	}
+	const struct { const char *pszTool; const char *pszProp; const char *pszValue; } kSpriteEdits[] = {
+		{ "sprite directory", "Directory", "units\\walk\\" }, { "sprite frame time", "Frame time", "80" },
+		{ "sprite x position", "X position", "16" }, { "sprite y position", "Y position", "48" },
+	};
+	for ( const auto &edit : kSpriteEdits )
+		if ( Open( pSession, szFixtureRoot, "spt" ) )
+		{
+			RunTool( pSession, szScratchRoot, "spt", edit.pszTool, SetProp( pSession, FirstNodeOfType( pSession, kSpritesItem ), edit.pszProp, edit.pszValue ) );
+			BkResClose( pSession );
+		}
+
+	if ( Open( pSession, szFixtureRoot, "unt" ) )
+	{
+		const int nAnimation = FirstNodeOfType( pSession, kUnitAnimationProps );
+		const int nBefore = ChildCount( pSession, nAnimation );
+		RunTool( pSession, szScratchRoot, "unt", "infantry add frame", InsertNamed( pSession, nAnimation, kUnitFrameProps, nBefore, "run_09" ) );
+		Check( NameOf( pSession, NthChildOfType( pSession, FirstNodeOfType( pSession, kUnitAnimationProps ), kUnitFrameProps, nBefore ) ) == "run_09", "s07-tool infantry add frame: the frame is named after its picture" );
+		BkResClose( pSession );
+	}
+	if ( Open( pSession, szFixtureRoot, "unt" ) )
+	{
+		const int nFrame = FirstNodeOfType( pSession, kUnitFrameProps );
+		if ( nFrame != 0 )
+		{
+			RunTool( pSession, szScratchRoot, "unt", "infantry delete frame", Delete( pSession, nFrame ) );
+			Check( ChildCount( pSession, FirstNodeOfType( pSession, kUnitAnimationProps ) ) >= 0, "s07-tool infantry delete frame: the animation stays" );
+		}
+		BkResClose( pSession );
+	}
+	const struct { const char *pszTool; const char *pszProp; const char *pszValue; } kAnimationEdits[] = {
+		{ "infantry frame time", "Frame time", "60" }, { "infantry action frame", "Action frame", "2" },
+		{ "infantry animation speed", "Animation speed", "2" }, { "infantry is cycled", "Is cycled?", "true" },
+	};
+	for ( const auto &edit : kAnimationEdits )
+		if ( Open( pSession, szFixtureRoot, "unt" ) )
+		{
+			RunTool( pSession, szScratchRoot, "unt", edit.pszTool, SetProp( pSession, FirstNodeOfType( pSession, kUnitAnimationProps ), edit.pszProp, edit.pszValue ) );
+			BkResClose( pSession );
+		}
+	if ( Open( pSession, szFixtureRoot, "unt" ) )
+	{
+		const int nSeason = FirstNodeOfType( pSession, kUnitSeasonProps );
+		RunTool( pSession, szScratchRoot, "unt", "infantry season dir", SetProp( pSession, NthChildOfType( pSession, nSeason, 0x11000000 + 7, 1 ), "Directory", "units\\up\\" ) );
+		BkResClose( pSession );
+	}
+}
+
 static void Run( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
 {
 	std::error_code ec;
@@ -2778,6 +2868,7 @@ static void Run( BkResSession *pSession, const std::string &szFixtureRoot, const
 	Squad( pSession, szFixtureRoot, szScratchRoot );
 	Weapon( pSession, szFixtureRoot, szScratchRoot );
 	Trench( pSession, szFixtureRoot, szScratchRoot );
+	Frames( pSession, szFixtureRoot, szScratchRoot );
 }
 
 }

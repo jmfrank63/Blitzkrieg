@@ -375,7 +375,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         // skeleton's read-only tree window in the interactive mode.
         panels.draw(gpa, ui.real.bridge(), &ui.session.life, host.window);
         const project_path = if (ui.session.life.is_open) ui.session.life.doc.pathSlice() else null;
-        docks.drawDocks(if (project_path) |p| std.fs.path.dirname(p) else null);
+        docks.drawDocks(if (project_path) |p| std.fs.path.dirname(p) else null, &ui.session.life, panels.selection.primary);
         docks.drawDialogs(ui, host.window);
         tools.drawModals();
         ui.drawModals();

@@ -180,6 +180,7 @@ pub const Document = struct {
                 var new_id: i32 = -1;
                 try bridge_mod.check(bridge.insertNode(c.parent, c.class_name, c.index, &new_id));
                 c.new_id = new_id;
+                if (c.name.bytes.len != 0) try bridge_mod.check(bridge.setNodeName(new_id, c.name.bytes));
             },
             .delete_node => |*c| {
                 var size: usize = 0;
@@ -248,6 +249,7 @@ pub const Document = struct {
                     try bridge_mod.check(bridge.restoreNode(c.undo_blob.bytes, c.parent, c.index, &new_id));
                 } else {
                     try bridge_mod.check(bridge.insertNode(c.parent, c.class_name, c.index, &new_id));
+                    if (c.name.bytes.len != 0) try bridge_mod.check(bridge.setNodeName(new_id, c.name.bytes));
                 }
                 c.new_id = new_id;
             },

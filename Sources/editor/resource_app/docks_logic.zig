@@ -9,6 +9,7 @@ const std = @import("std");
 const core = @import("resource_core");
 const logic = @import("panels_logic.zig");
 
+const tools = core.sub_editor_tools;
 const bridge = core.bridge;
 const Kind = bridge.Kind;
 const ResBridge = bridge.ResBridge;
@@ -93,6 +94,48 @@ pub fn thumbnailDecodePath(buffer: []u8, folder: []const u8, name: []const u8) ?
     return std.fmt.bufPrintZ(buffer, "{s}{s}{s}.xml", .{ folder, sep, stem }) catch null;
 }
 
+/// The name a frame item takes from a listed picture (CThumbList's item
+/// text is the file name without its extension; the exporters add ".tga"
+/// back when they look for the frame).
+pub fn frameNameOf(picture: []const u8) []const u8 {
+    const ext = std.fs.path.extension(picture);
+    return picture[0 .. picture.len - ext.len];
+}
+
+/// The animation a double-clicked picture joins (AnimationFrm's
+/// m_pActiveAnimation): the selected animation, or the animation of the
+/// selected frame, else the first animation of the tree.
+pub fn activeAnimation(doc: *const core.document.Document, selected: ?i32) ?i32 {
+    if (selected) |id| if (tools.findNode(doc, id)) |node| {
+        if (tools.isClass(node, tools.item_type.unit_animation_props)) return id;
+        if (tools.isClass(node, tools.item_type.unit_frame_props)) return node.parent;
+    };
+    return tools.firstOfClass(doc, tools.item_type.unit_animation_props);
+}
+
+/// A double-click on a listed picture (CThumbList's WM_THUMB_LIST_DBLCLK):
+/// a sprite takes a frame under its Sprites item, an infantry project one
+/// under the active animation. One undo step; a kind without frames, a
+/// read-only project and a picture that does not fit are refused.
+pub fn addFrameFromPicture(gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle, selected: ?i32, picture: []const u8) bridge.EditError!void {
+    if (!life.is_open or life.read_only) return error.Refused;
+    const name = frameNameOf(picture);
+    const command = switch (life.doc.kind) {
+        .sprite => try tools.spriteAddFrame(gpa, &life.doc, tools.firstOfClass(&life.doc, tools.item_type.sprites) orelse return error.Refused, name),
+        .animation_infantry => try tools.infantryAddFrame(gpa, &life.doc, activeAnimation(&life.doc, selected) orelse return error.Refused, name),
+        else => return error.Refused,
+    };
+    try tools.commit(gpa, b, &life.doc, &life.history, command, 0);
+}
+
+/// The thumbnail list's Delete (WM_THUMB_LIST_DELETE, DeleteFrameInTree):
+/// the selected frame goes, as one undo step.
+pub fn deleteSelectedFrame(gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle, selected: ?i32) bridge.EditError!void {
+    if (!life.is_open or life.read_only) return error.Refused;
+    const command = try tools.deleteFrame(&life.doc, selected orelse return error.Refused);
+    try tools.commit(gpa, b, &life.doc, &life.history, command, 0);
+}
+
 /// The rectangle a w x h picture takes inside a `side` square cell.
 pub const Fit = struct { x: f32, y: f32, w: f32, h: f32 };
 
@@ -160,8 +203,8 @@ pub const PreviewSync = struct {
         }
     }
 
-    /// Run (F5): export the project into the preview and build it. The
-    /// caller starts the playback when this answers true.
+    /// Run (F5): export the project into the preview, build it and start
+    /// its animation through the bridge, as MFC's Run button did.
     pub fn run(self: *PreviewSync, b: ResBridge) bool {
         if (self.begun == null) {
             if (self.message_len == 0) self.say("no preview for this project", .{});
@@ -174,7 +217,19 @@ pub const PreviewSync = struct {
         }
         self.running = true;
         self.say("showing the project: {s}", .{b.lastMessage()});
+        if (b.previewPlayback(true) != .ok) {
+            self.running = false;
+            self.say("the animation did not start: {s}", .{b.lastMessage()});
+            return false;
+        }
         return true;
+    }
+
+    /// Stop: the animation stops, the scene stays begun.
+    pub fn halt(self: *PreviewSync, b: ResBridge) void {
+        if (!self.running) return;
+        _ = b.previewPlayback(false);
+        self.running = false;
     }
 
     /// Tears the scene down; at exit too, before the engine's modules unload.
@@ -347,6 +402,81 @@ test "thumbnails: a picture is fitted by the smaller rate and centred, up or dow
     try testing.expectEqual(Fit{ .x = 0, .y = 0, .w = 0, .h = 0 }, fitThumbnail(0, 16, 64));
 }
 
+test "thumbnails: a frame is named after its picture without the extension" {
+    try testing.expectEqualStrings("walk_01", frameNameOf("walk_01.tga"));
+    try testing.expectEqualStrings("a.b", frameNameOf("a.b.TGA"));
+    try testing.expectEqualStrings("plain", frameNameOf("plain"));
+}
+
+/// A fake project of `kind` with `classes` inserted under the root, each
+/// under the one before it (parent chain), and the lifecycle adopting it.
+fn framesRig(fake: *FakeResBridge, life: *logic.Lifecycle, kind: Kind, classes: []const i32) ![4]i32 {
+    const b = fake.bridge();
+    try life.newProject(testing.allocator, b, kind);
+    var ids = [_]i32{ fake.nodes.items[0].id, 0, 0, 0 };
+    var parent = ids[0];
+    for (classes, 1..) |class_type, i| {
+        var name: [16]u8 = undefined;
+        try bridge.check(b.insertNode(parent, try std.fmt.bufPrint(&name, "{d}", .{class_type}), 0, &ids[i]));
+        parent = ids[i];
+    }
+    try life.doc.reload(testing.allocator, b);
+    return ids;
+}
+
+test "thumbnails: a double-click adds a named frame, Delete removes it, both undoable" {
+    const item = tools.item_type;
+    var fake = FakeResBridge.init(testing.allocator);
+    defer fake.deinit();
+    var life: logic.Lifecycle = .{};
+    defer life.deinit(testing.allocator);
+    const ids = try framesRig(&fake, &life, .sprite, &.{item.sprites});
+    const b = fake.bridge();
+
+    try addFrameFromPicture(testing.allocator, b, &life, null, "walk_03.tga");
+    const frame = tools.childOfClass(&life.doc, ids[1], item.sprite_props, 0).?;
+    try testing.expectEqualStrings("walk_03", tools.findNode(&life.doc, frame).?.displaySlice());
+    try testing.expect(life.dirty());
+    try deleteSelectedFrame(testing.allocator, b, &life, frame);
+    try testing.expectEqual(@as(i32, 0), tools.childCount(&life.doc, ids[1]));
+    try testing.expectError(error.Refused, deleteSelectedFrame(testing.allocator, b, &life, ids[1]));
+    try testing.expectError(error.Refused, deleteSelectedFrame(testing.allocator, b, &life, null));
+    try testing.expectEqual(@as(usize, 2), life.history.undo_stack.items.len);
+    try life.doc.undoOne(testing.allocator, b, &life.history.undo_stack.items[1].command);
+    try testing.expectEqual(@as(i32, 1), tools.childCount(&life.doc, ids[1]));
+}
+
+test "thumbnails: an infantry frame goes under the selected animation, else the first; other kinds and read-only refuse" {
+    const item = tools.item_type;
+    var fake = FakeResBridge.init(testing.allocator);
+    defer fake.deinit();
+    var life: logic.Lifecycle = .{};
+    defer life.deinit(testing.allocator);
+    const ids = try framesRig(&fake, &life, .animation_infantry, &.{ item.unit_animations, item.unit_animation_props });
+    const b = fake.bridge();
+    const second = blk: {
+        var id: i32 = 0;
+        try bridge.check(b.insertNode(ids[1], "285212683", 1, &id));
+        break :blk id;
+    };
+    try life.doc.reload(testing.allocator, b);
+
+    try addFrameFromPicture(testing.allocator, b, &life, null, "a.tga");
+    try testing.expectEqual(@as(i32, 1), tools.childCount(&life.doc, ids[2]));
+    try addFrameFromPicture(testing.allocator, b, &life, second, "b.tga");
+    try testing.expectEqual(@as(i32, 1), tools.childCount(&life.doc, second));
+    // A selected frame stands for its animation.
+    const frame = tools.childOfClass(&life.doc, ids[2], item.unit_frame_props, 0).?;
+    try addFrameFromPicture(testing.allocator, b, &life, frame, "c.tga");
+    try testing.expectEqual(@as(i32, 2), tools.childCount(&life.doc, ids[2]));
+
+    life.read_only = true;
+    try testing.expectError(error.Refused, addFrameFromPicture(testing.allocator, b, &life, null, "d.tga"));
+    life.read_only = false;
+    life.doc.kind = .weapon;
+    try testing.expectError(error.Refused, addFrameFromPicture(testing.allocator, b, &life, null, "d.tga"));
+}
+
 test "thumbnails: names sort without regard to case" {
     var names = [_][]const u8{ "b.tga", "A.tga", "c.TGA", "a2.tga" };
     sortThumbnailNames(&names);
@@ -374,6 +504,11 @@ test "preview: begun once per kind, stopped with no project, Run needs a begun s
     try testing.expectEqual(bridge.Status.ok, b.new(.sprite));
     try testing.expect(preview.run(b));
     try testing.expect(preview.running);
+    try testing.expect(fake.preview_playing);
+    preview.halt(b);
+    try testing.expect(!preview.running);
+    try testing.expect(!fake.preview_playing);
+    try testing.expect(preview.run(b));
 
     try testing.expectEqual(PreviewSync.Change.begun, preview.sync(b, true, .effect));
     try testing.expect(!preview.running);

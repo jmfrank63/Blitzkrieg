@@ -153,11 +153,6 @@ pub const RealResBridge = struct {
         return status(c.BkResLockTakeOver(self.session));
     }
 
-    /// BkResPreviewPlayback: run (true) or stop the preview's animation.
-    pub fn previewPlayback(self: *RealResBridge, run: bool) Status {
-        return status(c.BkResPreviewPlayback(self.session, @intFromBool(run)));
-    }
-
     /// BkResPreviewCamera: the preview camera's anchor and zoom step.
     pub fn previewCamera(self: *RealResBridge, wx: f32, wy: f32, zoom: i32) Status {
         return status(c.BkResPreviewCamera(self.session, wx, wy, zoom));
@@ -194,6 +189,7 @@ pub const RealResBridge = struct {
         .previewBegin = previewBegin,
         .previewShow = previewShow,
         .previewStop = previewStop,
+        .previewPlayback = previewPlayback,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -643,6 +639,12 @@ pub const RealResBridge = struct {
         const self = from(ptr);
         return status(c.BkResPreviewStop(self.session));
     }
+
+    /// BkResPreviewPlayback: run (true) or stop the preview's animation.
+    fn previewPlayback(ptr: *anyopaque, run: bool) Status {
+        const self = from(ptr);
+        return status(c.BkResPreviewPlayback(self.session, @intFromBool(run)));
+    }
 };
 
 /// Forces semantic analysis of every vtable entry and C call even where no
@@ -652,7 +654,6 @@ pub const RealResBridge = struct {
 pub fn analyse() void {
     _ = &RealResBridge.vtable;
     _ = &RealResBridge.lockTakeOver;
-    _ = &RealResBridge.previewPlayback;
     _ = &RealResBridge.previewCamera;
 }
 

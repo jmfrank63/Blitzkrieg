@@ -107,6 +107,8 @@ pub const FakeResBridge = struct {
     /// previewBegin, `.showing` after previewShow. previewStop goes back to
     /// `.closed`.
     preview_state: PreviewState = .closed,
+    /// Whether the last previewPlayback asked for the animation to run.
+    preview_playing: bool = false,
     /// Rolling file store the test can read saved blobs out of. Keyed by
     /// path. Owns its values.
     files: std.StringHashMapUnmanaged([]u8) = .empty,
@@ -923,6 +925,18 @@ pub const FakeResBridge = struct {
         const self = from(ptr);
         self.clearMessage();
         self.preview_state = .closed;
+        self.preview_playing = false;
+        return .ok;
+    }
+
+    fn previewPlayback(ptr: *anyopaque, run: bool) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        if (self.preview_state != .showing) {
+            self.say("the preview is not showing", .{});
+            return .refused;
+        }
+        self.preview_playing = run;
         return .ok;
     }
 
@@ -957,6 +971,7 @@ pub const FakeResBridge = struct {
         .previewBegin = previewBegin,
         .previewShow = previewShow,
         .previewStop = previewStop,
+        .previewPlayback = previewPlayback,
     };
 };
 

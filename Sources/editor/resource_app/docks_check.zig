@@ -80,12 +80,30 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, host: *host_mod.Host, kind: Kind,
     // The preview scene behind the docks, begun for the imported project.
     docks.syncPreview(&life);
     if (docks.preview.begun != .animation_infantry) return fail("the .unt preview was not begun: {s}", .{docks.preview.message()});
+    // An unsaved import has no folder to read its frames from, so the bridge
+    // refuses before the exporter runs.
     docks.runPreview();
-    if (docks.preview.running or std.mem.indexOf(u8, docks.preview.message(), "not shown") == null)
-        return fail("Run on an unsaved .unt with no ported exporter did not report why: {s}", .{docks.preview.message()});
+    if (docks.preview.running or std.mem.indexOf(u8, docks.preview.message(), "save the project first") == null)
+        return fail("Run on an unsaved .unt did not ask for a save: {s}", .{docks.preview.message()});
+
+    // Saved into a scratch folder with no art beside it, the exporter runs
+    // and gives its own reason (infantry composes no valid animation), no
+    // longer "not ported".
+    const directory = std.fs.path.dirname(output) orelse ".";
+    var import_buffer: [logic.path_capacity]u8 = undefined;
+    const import_folder = std.fmt.bufPrint(&import_buffer, "{s}/import", .{directory}) catch return fail("the output path is too long", .{});
+    std.Io.Dir.cwd().deleteTree(io, import_folder) catch {};
+    try std.Io.Dir.cwd().createDirPath(io, import_folder);
+    var saved_buffer: [logic.path_capacity]u8 = undefined;
+    const saved = std.fmt.bufPrint(&saved_buffer, "{s}/imported.unt", .{import_folder}) catch return fail("the output path is too long", .{});
+    life.saveProject(gpa, b, saved) catch return fail("saving the import to {s} failed: {s}", .{ saved, b.lastMessage() });
+    docks.runPreview();
+    const reason = docks.preview.message();
+    if (docks.preview.running or std.mem.indexOf(u8, reason, "not shown") == null or std.mem.indexOf(u8, reason, "not ported") != null)
+        return fail("Run on the saved .unt with no art did not report the exporter's reason: {s}", .{reason});
+    std.debug.print("resource-editor: the saved .unt Run says: {s}\n", .{reason});
 
     // The thumbnail list over a copy of the tracked fixture picture.
-    const directory = std.fs.path.dirname(output) orelse ".";
     var folder_buffer: [logic.path_capacity]u8 = undefined;
     const folder = std.fmt.bufPrint(&folder_buffer, "{s}/thumbs", .{directory}) catch return fail("the output path is too long", .{});
     std.Io.Dir.cwd().deleteTree(io, folder) catch {};
@@ -108,7 +126,7 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, host: *host_mod.Host, kind: Kind,
         var event: sdl3.c.SDL_Event = undefined;
         while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
         host.beginFrame();
-        docks.drawDocks(null);
+        docks.drawDocks(null, &life, null);
         app.drawProbe();
         host.endFrame() catch |err| return fail("docks frame {d}: {s}: {s}", .{ frame, @errorName(err), b.lastMessage() });
         if (docks.first_thumbnail != null) drawn_after += 1;
@@ -145,7 +163,89 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, host: *host_mod.Host, kind: Kind,
             samples += 1;
         }
     }
+
+    // Run on a saved .spt, last because it draws into the preview's middle.
+    if (!try runSavedSprite(gpa, io, host, &docks, &life, b, directory, fixture, stem)) return null;
     return .{ .thumbnail = thumbnail, .preview_samples = samples };
+}
+
+/// The tracked sprite project and its one frame copied into a scratch folder
+/// (the project's directory pointed at frames\\, where the frame is), opened
+/// as the lifecycle's project, and Run on it. False after printing why not.
+fn runSavedSprite(gpa: std.mem.Allocator, io: std.Io, host: *host_mod.Host, docks: *docks_mod.Docks, life: *logic.Lifecycle, b: core.bridge.ResBridge, directory: []const u8, picture: []const u8, stem: []const u8) !bool {
+    var folder_buffer: [logic.path_capacity]u8 = undefined;
+    const folder = std.fmt.bufPrint(&folder_buffer, "{s}/sprite", .{directory}) catch return failed("the output path is too long", .{});
+    std.Io.Dir.cwd().deleteTree(io, folder) catch {};
+    var frames_buffer: [logic.path_capacity]u8 = undefined;
+    const frames = std.fmt.bufPrint(&frames_buffer, "{s}/frames", .{folder}) catch return failed("the output path is too long", .{});
+    try std.Io.Dir.cwd().createDirPath(io, frames);
+
+    const picture_bytes = try std.Io.Dir.cwd().readFileAlloc(io, picture, gpa, .limited(1 << 20));
+    defer gpa.free(picture_bytes);
+    var frame_buffer: [logic.path_capacity]u8 = undefined;
+    const frame = std.fmt.bufPrint(&frame_buffer, "{s}/{s}", .{ frames, std.fs.path.basename(picture) }) catch return failed("the output path is too long", .{});
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = frame, .data = picture_bytes });
+
+    var source_buffer: [logic.path_capacity]u8 = undefined;
+    const source = std.fmt.bufPrint(&source_buffer, "{s}/project.spt", .{std.fs.path.dirname(picture) orelse "."}) catch return failed("the picture path is too long", .{});
+    const text = try std.Io.Dir.cwd().readFileAlloc(io, source, gpa, .limited(1 << 20));
+    defer gpa.free(text);
+    const needle = "<string_value>_.</string_value>";
+    const at = std.mem.indexOf(u8, text, needle) orelse return failed("{s} has no default directory to point at the frame", .{source});
+    const edited = try std.mem.concat(gpa, u8, &.{ text[0..at], "<string_value>frames\\</string_value>", text[at + needle.len ..] });
+    defer gpa.free(edited);
+    var project_buffer: [logic.path_capacity]u8 = undefined;
+    const project = std.fmt.bufPrint(&project_buffer, "{s}/project.spt", .{folder}) catch return failed("the output path is too long", .{});
+    try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = project, .data = edited });
+
+    _ = life.openProject(gpa, b, project, "resource-editor-check") catch return failed("opening {s} failed: {s}", .{ project, b.lastMessage() });
+    docks.syncPreview(life);
+    if (docks.preview.begun != .sprite) return failed("the .spt preview was not begun: {s}", .{docks.preview.message()});
+    docks.runPreview();
+    if (!docks.preview.running or std.mem.indexOf(u8, docks.preview.message(), "showing the project") == null)
+        return failed("Run on the saved .spt did not show the preview: {s}", .{docks.preview.message()});
+
+    // The sprite is drawn in the preview's middle: measured in a capture by
+    // counting the pixels there that are not the scene's clear colour.
+    docks.show_thumbnails = false;
+    docks.show_direction = false;
+    docks.show_function = false;
+    var drawn_frames: u32 = 0;
+    while (drawn_frames < 30) : (drawn_frames += 1) {
+        var event: sdl3.c.SDL_Event = undefined;
+        while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
+        host.beginFrame();
+        docks.drawDocks(null, life, null);
+        host.endFrame() catch |err| return failed("sprite frame {d}: {s}: {s}", .{ drawn_frames, @errorName(err), b.lastMessage() });
+    }
+    var capture_buffer: [logic.path_capacity]u8 = undefined;
+    const capture = std.fmt.bufPrintZ(&capture_buffer, "{s}-sprite.tga", .{stem}) catch return failed("the output path is too long", .{});
+    if (c.BkEditorCaptureFrame(docks.real.session, capture.ptr) != c.BK_EDITOR_OK) return failed("the sprite frame was not captured: {s}", .{b.lastMessage()});
+    const bytes = try std.Io.Dir.cwd().readFileAlloc(io, capture, gpa, .limited(64 << 20));
+    defer gpa.free(bytes);
+    const image = app.Tga.parse(bytes) catch |err| return failed("{s} is not an uncompressed 32-bit TGA ({s})", .{ capture, @errorName(err) });
+    const cx: i64 = @divTrunc(image.width, 2);
+    const cy: i64 = @divTrunc(image.height, 2);
+    var drawn: usize = 0;
+    var y: i64 = cy - preview_half_h;
+    while (y <= cy + preview_half_h) : (y += 1) {
+        var x: i64 = cx - preview_half_w;
+        while (x <= cx + preview_half_w) : (x += 1) {
+            const pixel = image.pixel(@intCast(x), @intCast(y)) orelse continue;
+            if (!pixel.near(app.clear_colour)) drawn += 1;
+        }
+    }
+    std.debug.print("resource-editor: the .spt preview drew {d} pixels in the scene's middle ({s})\n", .{ drawn, capture });
+    if (drawn < 50) return failed("the .spt preview drew {d} pixels in the scene's middle, expected a sprite", .{drawn});
+
+    docks.stopPreview();
+    if (docks.preview.running) return failed("Stop left the .spt preview running", .{});
+    return true;
+}
+
+fn failed(comptime format: []const u8, args: anytype) bool {
+    std.debug.print("resource-editor: host check FAIL: " ++ format ++ "\n", args);
+    return false;
 }
 
 /// The first pixel of an uncompressed true-colour TGA (the fixtures are

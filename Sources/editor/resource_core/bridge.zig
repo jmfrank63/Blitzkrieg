@@ -427,6 +427,9 @@ pub const ResBridge = struct {
         previewShow: *const fn (ptr: *anyopaque) Status,
         /// BkResPreviewStop: tear the preview scene down.
         previewStop: *const fn (ptr: *anyopaque) Status,
+        /// BkResPreviewPlayback: run (true) or stop the shown preview's
+        /// animation (MFC's Run and Stop buttons).
+        previewPlayback: *const fn (ptr: *anyopaque, run: bool) Status,
     };
 
     pub fn lastMessage(self: ResBridge) []const u8 {
@@ -518,6 +521,9 @@ pub const ResBridge = struct {
     }
     pub fn previewStop(self: ResBridge) Status {
         return self.vtable.previewStop(self.ptr);
+    }
+    pub fn previewPlayback(self: ResBridge, run: bool) Status {
+        return self.vtable.previewPlayback(self.ptr, run);
     }
 };
 

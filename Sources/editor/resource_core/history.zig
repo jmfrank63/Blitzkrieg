@@ -58,6 +58,11 @@ pub const ResourceCommand = union(enum) {
         index: i32,
         new_id: i32,
         undo_blob: OwnedBytes = .{},
+        /// The displayed name the new node takes right after the insert
+        /// (MFC's SetItemName before AddChild, as a thumbnail double-click
+        /// names a frame after its picture); empty keeps the class default.
+        /// A redo from `undo_blob` already carries it.
+        name: OwnedBytes = .{},
     },
     /// A node delete: the parent/index it was at, and the serialised subtree
     /// bytes BkResDeleteNode wrote. Undo re-inserts the subtree at
@@ -109,6 +114,7 @@ pub const ResourceCommand = union(enum) {
             .insert_node => |*c| {
                 allocator.free(c.class_name);
                 c.undo_blob.deinit(allocator);
+                c.name.deinit(allocator);
             },
             .delete_node => |*c| c.blob.deinit(allocator),
             .move_node => {},
