@@ -4173,6 +4173,239 @@ void InfantryStatsToTree( const SInfantryRPGStats &rpgStats, NResourceModel::CTr
 	}
 }
 
+// CWeaponFrame::GetRPGStats (WeaponFrm.cpp:184), onto the port's items. The
+// slots are the property order of weapon.cpp, which is the index the
+// exporter reads back. MFC asserted that the tree had a shoot type for every
+// shell, which a new project does not (its Shoot types is empty): one is
+// made per shell, as the frame's insert handler makes them, named "Shell".
+void WeaponStatsToTree( const SWeaponRPGStats &rpgStats, NResourceModel::CTreeItem &root )
+{
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_WEAPON_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 0, rpgStats.szKeyName );
+	SetSlot( pCommonProps, 1, int( rpgStats.wDeltaAngle ) );
+	SetSlot( pCommonProps, 2, rpgStats.nAmmoPerBurst );
+	SetSlot( pCommonProps, 3, rpgStats.fAimingTime );
+	SetSlot( pCommonProps, 4, rpgStats.fDispersion );
+	SetSlot( pCommonProps, 5, rpgStats.fRangeMin );
+	SetSlot( pCommonProps, 6, rpgStats.fRangeMax );
+	SetSlot( pCommonProps, 7, rpgStats.nCeiling );
+	SetSlot( pCommonProps, 8, rpgStats.fRevealRadius );
+
+	NResourceModel::CTreeItem *pShootTypes = ChildOfType( root, NResourceModel::ETIT_WEAPON_SHOOT_TYPES_ITEM );
+	if ( pShootTypes == nullptr )
+		return;
+	auto &factory = NResourceModel::CTreeItemFactory::Instance();
+	for ( const SWeaponRPGStats::SShell &damage : rpgStats.shells )
+	{
+		auto pDamage = factory.Create( NResourceModel::ETIT_WEAPON_DAMAGE_PROPS_ITEM );
+		if ( !pDamage )
+			continue;
+		pDamage->SetItemName( "Shell" );
+		NResourceModel::CTreeItem *pItem = pDamage.get();
+		pShootTypes->AddChild( std::move( pDamage ) );
+
+		const char *pszTrajectory = "line";
+		switch ( damage.trajectory )
+		{
+			case SWeaponRPGStats::SShell::TRAJECTORY_HOWITZER: pszTrajectory = "howitzer"; break;
+			case SWeaponRPGStats::SShell::TRAJECTORY_BOMB:     pszTrajectory = "bomb";     break;
+			case SWeaponRPGStats::SShell::TRAJECTORY_CANNON:   pszTrajectory = "cannon";   break;
+			case SWeaponRPGStats::SShell::TRAJECTORY_ROCKET:   pszTrajectory = "rocket";   break;
+			case SWeaponRPGStats::SShell::TRAJECTORY_GRENADE:  pszTrajectory = "grenade";  break;
+			default: break;
+		}
+		const char *pszDamageType = "damage";
+		if ( damage.eDamageType == SWeaponRPGStats::SShell::DAMAGE_MORALE )
+			pszDamageType = "morale";
+		else if ( damage.eDamageType == SWeaponRPGStats::SShell::DAMAGE_FOG )
+			pszDamageType = "smoke";
+		SetSlot( pItem, 0, std::string( pszTrajectory ) );
+		SetSlot( pItem, 1, damage.nPiercing );
+		SetSlot( pItem, 2, damage.nPiercingRandom );
+		SetSlot( pItem, 3, int( damage.fDamagePower ) );
+		SetSlot( pItem, 4, damage.nDamageRandom );
+		SetSlot( pItem, 5, damage.fArea );
+		SetSlot( pItem, 6, damage.fArea2 );
+		SetSlot( pItem, 7, damage.fSpeed );
+		SetSlot( pItem, 8, bool( damage.specials.GetData( 0 ) ) );
+		SetSlot( pItem, 9, damage.fDetonationPower );
+		SetSlot( pItem, 10, damage.fFireRate );
+		SetSlot( pItem, 11, damage.fRelaxTime );
+		SetSlot( pItem, 12, std::string( pszDamageType ) );
+		// SetTraceProbability: the percentage the tree shows.
+		SetSlot( pItem, 13, damage.fTraceProbability * 100.0f );
+		SetSlot( pItem, 14, damage.fTraceSpeedCoeff );
+		SetSlot( pItem, 15, damage.fBrokeTrackProbability );
+
+		if ( NResourceModel::CTreeItem *pCraters = ChildOfType( *pItem, NResourceModel::ETIT_WEAPON_CRATERS_ITEM ) )
+			for ( const std::string &szCrater : damage.szCraters )
+			{
+				auto pCrater = factory.Create( NResourceModel::ETIT_WEAPON_CRATER_PROPS_ITEM );
+				if ( !pCrater )
+					continue;
+				pCrater->SetItemName( szCrater );
+				NResourceModel::CTreeItem *pCraterItem = pCrater.get();
+				pCraters->AddChild( std::move( pCrater ) );
+				SetSlot( pCraterItem, 0, szCrater );
+			}
+
+		if ( NResourceModel::CTreeItem *pEffects = ChildOfType( *pItem, NResourceModel::ETIT_WEAPON_EFFECTS_ITEM ) )
+		{
+			SetSlot( pEffects, 0, damage.szFireSound );
+			SetSlot( pEffects, 1, damage.szEffectGunFire );
+			SetSlot( pEffects, 2, damage.szEffectTrajectory );
+			SetSlot( pEffects, 3, damage.szEffectHitDirect );
+			SetSlot( pEffects, 4, damage.szEffectHitMiss );
+			SetSlot( pEffects, 5, damage.szEffectHitReflect );
+			SetSlot( pEffects, 6, damage.szEffectHitGround );
+			SetSlot( pEffects, 7, damage.szEffectHitWater );
+			SetSlot( pEffects, 8, damage.szEffectHitAir );
+		}
+
+		// Flash fire, then flash explosion: the two children of that type.
+		int nFlash = 0;
+		for ( const auto &pChild : pItem->GetChildren() )
+			if ( pChild->GetItemType() == NResourceModel::ETIT_WEAPON_FLASH_PROPS_ITEM && nFlash < 2 )
+			{
+				const SFlashEffect &effect = nFlash == 0 ? damage.flashFire : damage.flashExplosion;
+				SetSlot( pChild.get(), 0, effect.nPower );
+				SetSlot( pChild.get(), 1, effect.nDuration );
+				++nFlash;
+			}
+	}
+}
+
+// CMineFrame::GetRPGStats (MineFrm.cpp:92): the name and the weight, the only
+// two things the mine's tree holds. The weight is a whole number there.
+void MineStatsToTree( const SMineRPGStats &rpgStats, NResourceModel::CTreeItem &root )
+{
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_MINE_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 0, rpgStats.szKeyName );
+	SetSlot( pCommonProps, 1, int( rpgStats.fWeight ) );
+}
+
+// CTrenchFrame::LoadRPGStats (TrenchFrm.cpp:363): the name, the health and
+// each defence's armour. MFC's load did not read the segments back either: a
+// segment is a model file the project points at, which a runtime stats file
+// does not say, so an imported trench has none.
+void TrenchStatsToTree( const SEntrenchmentRPGStats &rpgStats, NResourceModel::CTreeItem &root )
+{
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_TRENCH_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 0, rpgStats.szKeyName );
+	SetSlot( pCommonProps, 1, int( rpgStats.fMaxHP ) );
+	NResourceModel::CTreeItem *pDefences = ChildOfType( root, NResourceModel::ETIT_TRENCH_DEFENCES_ITEM );
+	if ( pDefences == nullptr )
+		return;
+	for ( const auto &pDefence : pDefences->GetChildren() )
+	{
+		const std::string &szName = pDefence->GetDisplayName();
+		int nIndex = 0;
+		if ( szName == "Left" )        nIndex = RPG_LEFT;
+		else if ( szName == "Right" )  nIndex = RPG_RIGHT;
+		else if ( szName == "Top" )    nIndex = RPG_TOP;
+		else if ( szName == "Bottom" ) nIndex = RPG_BOTTOM;
+		else if ( szName == "Front" )  nIndex = RPG_FRONT;
+		else if ( szName == "Back" )   nIndex = RPG_BACK;
+		SetSlot( pDefence.get(), 0, rpgStats.defences[nIndex].nArmorMin );
+		SetSlot( pDefence.get(), 1, rpgStats.defences[nIndex].nArmorMax );
+	}
+}
+
+// The squad's member as the tree names it: the path under units\humans\ the
+// objects database knows the key by (what CSquadFrame::SaveRPGStats's
+// MakeName searched in the other direction), or the key itself when the
+// database has no such unit, which MakeName also takes as it stands.
+std::string SquadMemberName( const std::string &szKey )
+{
+	if ( IObjectsDB *pObjDB = GetSingleton<IObjectsDB>() )
+	{
+		const int nNumDescs = pObjDB->GetNumDescs();
+		const SGDBObjectDesc *pObjDescs = pObjDB->GetAllDescs();
+		const std::string szPrefix = "units\\humans\\";
+		for ( int i = 0; i < nNumDescs; i++ )
+			if ( pObjDescs[i].eVisType == SGVOT_SPRITE && pObjDescs[i].eGameType == SGVOGT_UNIT && pObjDescs[i].szKey == szKey )
+			{
+				const std::string szPath = pObjDescs[i].szPath;
+				if ( Fold( szPath ).compare( 0, szPrefix.size(), szPrefix ) == 0 )
+					return szPath.substr( szPrefix.size() );
+			}
+	}
+	return szKey;
+}
+
+// The inverse of CSquadFrame::SaveRPGStats (SquadFrm.cpp:216), which MFC
+// never wrote: its LoadRPGStats is commented out. Members and each
+// formation's soldiers come back by name, the formation's numbers into its
+// slots. The export makes a slot's position relative to the formation's zero
+// point plus the cross icon's shift on screen; the zero point is put where
+// that sum is the world origin, so the stored relative position is the slot's
+// position as it stands, bit for bit. The direction is stored in radians.
+void SquadStatsToTree( const SSquadRPGStats &rpgStats, NResourceModel::CTreeItem &root )
+{
+	static const char *const kTypes[] = { "riflemans", "infantry", "submachine gunners", "machine gunners", "AT team", "mortar team", "snipers", "gunners", "engineers" };
+	static const char *const kFormations[] = { "default", "movement", "defensive", "offensive", "sneak" };
+	static const char *const kLie[] = { "standart", "always stand", "always lie" };
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_SQUAD_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 1, rpgStats.szIcon );
+	if ( rpgStats.type >= 0 && rpgStats.type < int( sizeof( kTypes ) / sizeof( kTypes[0] ) ) )
+		SetSlot( pCommonProps, 2, std::string( kTypes[rpgStats.type] ) );
+
+	auto &factory = NResourceModel::CTreeItemFactory::Instance();
+	NResourceModel::CTreeItem *pMembers = ChildOfType( root, NResourceModel::ETIT_SQUAD_MEMBERS_ITEM );
+	std::vector<NResourceModel::CTreeItem *> members;
+	if ( pMembers != nullptr )
+		for ( const std::string &szKey : rpgStats.memberNames )
+		{
+			auto pMember = factory.Create( NResourceModel::ETIT_SQUAD_MEMBER_PROPS_ITEM );
+			if ( !pMember )
+				continue;
+			const std::string szName = SquadMemberName( szKey );
+			pMember->SetItemName( szName );
+			NResourceModel::CTreeItem *pItem = pMember.get();
+			pMembers->AddChild( std::move( pMember ) );
+			SetSlot( pItem, 0, szName );
+			members.push_back( pItem );
+		}
+
+	NResourceModel::CTreeItem *pFormations = ChildOfType( root, NResourceModel::ETIT_SQUAD_FORMATIONS_ITEM );
+	if ( pFormations == nullptr )
+		return;
+	const float fCos45 = std::cos( ToRadian( 45.0f ) );
+	const float fSin30 = std::sin( ToRadian( 30.0f ) );
+	// squad_export.cpp's ShiftedZero, as it computes the shift.
+	const float fSum = 15.4f / fCos45;
+	const float fDiff = 15.4f / ( fCos45 * fSin30 );
+	const float fShiftX = ( fSum + fDiff ) / 2, fShiftY = ( fSum - fDiff ) / 2;
+	for ( const SSquadRPGStats::SFormation &form : rpgStats.formations )
+	{
+		auto pFormation = factory.Create( NResourceModel::ETIT_SQUAD_FORMATION_PROPS_ITEM );
+		if ( !pFormation )
+			continue;
+		const int nType = int( form.type );
+		pFormation->SetItemName( nType >= 0 && nType < 5 ? kFormations[nType] : "default" );
+		auto *pItem = static_cast<NResourceModel::CSquadFormationPropsItem *>( pFormation.get() );
+		pFormations->AddChild( std::move( pFormation ) );
+		SetSlot( pItem, 0, std::string( nType >= 0 && nType < 5 ? kFormations[nType] : "default" ) );
+		SetSlot( pItem, 1, form.changesByEvent.empty() ? -1 : form.changesByEvent[0] );
+		SetSlot( pItem, 2, std::string( form.cLieFlag < 3 ? kLie[form.cLieFlag] : kLie[0] ) );
+		SetSlot( pItem, 3, form.fSpeedBonus );
+		SetSlot( pItem, 4, form.fDispersionBonus );
+		SetSlot( pItem, 5, form.fFireRateBonus );
+		SetSlot( pItem, 6, form.fRelaxTimeBonus );
+		SetSlot( pItem, 7, form.fCoverBonus );
+		SetSlot( pItem, 8, form.fVisibleBonus );
+		pItem->vZeroPos = NResourceModel::Vec3{ -fShiftX, -fShiftY, 0 };
+		pItem->units.clear();
+		for ( const SSquadRPGStats::SFormation::SEntry &entry : form.order )
+		{
+			NResourceModel::CSquadFormationPropsItem::SUnit unit;
+			unit.vPos = NResourceModel::Vec3{ entry.vPos.x, entry.vPos.y, 0 };
+			unit.fDir = ToRadian( entry.fDir );
+			pItem->units.push_back( unit );
+		}
+	}
+}
+
 // The runtime folder's 1.xml, its name matched case-insensitively.
 std::filesystem::path StatsFileIn( const std::filesystem::path &dir )
 {
@@ -4186,6 +4419,46 @@ std::filesystem::path StatsFileIn( const std::filesystem::path &dir )
 } // namespace
 } // extern "C++"
 
+extern "C++" {
+namespace
+{
+
+// The stats the engine's own operator& reads from the runtime folder's 1.xml
+// (or, for a weapon, from the flat file itself), named by the struct that
+// reads them. False with the status and message the import answers.
+template <class TStats>
+bool ReadRuntimeStats( const std::filesystem::path &statsFile, TStats &stats, BkResSession *pSession, BkEditorStatus &status )
+{
+	CPtr<IDataStorage> pStorage = OpenStorage( StorageDir( statsFile.parent_path() ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( statsFile.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+	CPtr<IDataTree> pDT = pStream != 0 ? CreateDataTreeSaver( pStream, IDataTree::READ ) : 0;
+	if ( pDT == 0 )
+	{
+		pSession->szMessage = "the engine cannot read " + statsFile.string();
+		status = BK_EDITOR_DATA_MISSING;
+		return false;
+	}
+	CTreeAccessor tree = pDT;
+	tree.Add( "RPG", &stats );
+	return true;
+}
+
+// The weapon's stats are a flat file named after the weapon (weapons\mg_37t.xml),
+// every other kind's a 1.xml in a folder of its own.
+std::filesystem::path RuntimeStatsFile( BkResKind kind, const char *pszPath )
+{
+	if ( kind == 0 )
+	{
+		std::error_code ec;
+		if ( std::filesystem::is_regular_file( pszPath, ec ) )
+			return std::filesystem::path( pszPath );
+	}
+	return StatsFileIn( pszPath );
+}
+
+}
+} // extern "C++"
+
 BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, const char *pszPath )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
@@ -4193,7 +4466,8 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
 		const std::string szExtension = kKindExtensions[kind];
-		if ( kind != kInfantryKind )
+		const bool bPorted = kind <= 3 || kind == kInfantryKind;
+		if ( !bPorted )
 		{
 			pSession->szMessage = kind == 4
 				? std::string( "importing .spt is refused: MFC's sprite export only composes .san packs and has no reverse path" )
@@ -4205,29 +4479,10 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 			pSession->szMessage = "the engine is not started";
 			return BK_EDITOR_REFUSED;
 		}
-		const std::filesystem::path statsFile = StatsFileIn( pszPath );
+		const std::filesystem::path statsFile = RuntimeStatsFile( kind, pszPath );
 		if ( statsFile.empty() )
 		{
-			pSession->szMessage = std::string( "no 1.xml in " ) + pszPath;
-			return BK_EDITOR_DATA_MISSING;
-		}
-		// CAnimationFrame::LoadRPGStats: the engine's own operator& reads it.
-		SInfantryRPGStats rpgStats;
-		{
-			CPtr<IDataStorage> pStorage = OpenStorage( StorageDir( statsFile.parent_path() ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
-			CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( statsFile.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
-			CPtr<IDataTree> pDT = pStream != 0 ? CreateDataTreeSaver( pStream, IDataTree::READ ) : 0;
-			if ( pDT == 0 )
-			{
-				pSession->szMessage = "the engine cannot read " + statsFile.string();
-				return BK_EDITOR_DATA_MISSING;
-			}
-			CTreeAccessor tree = pDT;
-			tree.Add( "RPG", &rpgStats );
-		}
-		if ( rpgStats.szKeyName.empty() )
-		{
-			pSession->szMessage = statsFile.string() + " holds no infantry RPG stats";
+			pSession->szMessage = kind == 0 ? std::string( "no weapon file " ) + pszPath : std::string( "no 1.xml in " ) + pszPath;
 			return BK_EDITOR_DATA_MISSING;
 		}
 		auto pRoot = NResourceModel::CTreeItemFactory::Instance().Create( kKindTable[kind].nRootType );
@@ -4238,7 +4493,68 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		}
 		// MFC's CreateTrees: the default tree the frame then fills.
 		pRoot->CreateDefaultChilds();
-		InfantryStatsToTree( rpgStats, *pRoot );
+		BkEditorStatus status = BK_EDITOR_OK;
+		std::string szKeyName;
+		// The KeyName is what the engine's reader found; a file that holds
+		// none of this kind's stats leaves it empty.
+		switch ( kind )
+		{
+			case 0:
+			{
+				SWeaponRPGStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
+					return status;
+				szKeyName = rpgStats.szKeyName;
+				if ( !szKeyName.empty() )
+					WeaponStatsToTree( rpgStats, *pRoot );
+				break;
+			}
+			case 1:
+			{
+				SMineRPGStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
+					return status;
+				szKeyName = rpgStats.szKeyName;
+				MineStatsToTree( rpgStats, *pRoot );
+				break;
+			}
+			case 2:
+			{
+				SEntrenchmentRPGStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
+					return status;
+				// A shipped trench's stats carry no key name: it is its folder's.
+				szKeyName = rpgStats.szKeyName.empty() ? statsFile.parent_path().filename().string() : rpgStats.szKeyName;
+				TrenchStatsToTree( rpgStats, *pRoot );
+				break;
+			}
+			case 3:
+			{
+				SSquadRPGStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
+					return status;
+				// A squad has no name of its own in its stats: it is its folder's.
+				szKeyName = rpgStats.memberNames.empty() ? std::string() : statsFile.parent_path().filename().string();
+				SquadStatsToTree( rpgStats, *pRoot );
+				break;
+			}
+			default:
+			{
+				// CAnimationFrame::LoadRPGStats: the engine's own operator& reads it.
+				SInfantryRPGStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
+					return status;
+				szKeyName = rpgStats.szKeyName;
+				if ( !szKeyName.empty() )
+					InfantryStatsToTree( rpgStats, *pRoot );
+				break;
+			}
+		}
+		if ( szKeyName.empty() )
+		{
+			pSession->szMessage = statsFile.string() + " holds no " + szExtension + " RPG stats";
+			return BK_EDITOR_DATA_MISSING;
+		}
 		auto pProject = std::make_unique<NResourceModel::Project>();
 		pProject->document.hasDeclaration = true;
 		pProject->document.declaration = " version=\"1.0\"";
@@ -4251,7 +4567,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		state.bOpen = true;
 		state.nKindOrdinal = kind;
 		RebuildIds( state );
-		pSession->szMessage = "imported " + rpgStats.szKeyName + " from " + statsFile.string();
+		pSession->szMessage = "imported " + szKeyName + " from " + statsFile.string();
 		return BK_EDITOR_OK;
 	} );
 }

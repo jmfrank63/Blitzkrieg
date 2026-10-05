@@ -464,7 +464,8 @@ const SStaleField kStaleFields[] = {
 	{ EExportKind::MISSION, "RPG/Script", "as RPG/BGImage" },
 };
 
-bool IsStale( EExportKind kind, const std::string &szNode )
+// A node path with every container index replaced by item[*].
+std::string GenericPath( const std::string &szNode )
 {
 	std::string szGeneric;
 	for ( size_t i = 0; i < szNode.size(); )
@@ -477,19 +478,25 @@ bool IsStale( EExportKind kind, const std::string &szNode )
 		else
 			szGeneric += szNode[i++];
 	}
+	return szGeneric;
+}
+
+// Whether szPath (as GenericPath made it) is the node szPattern names: the
+// node itself and what is below it, or, for a pattern ending in '/', only
+// what is below it.
+bool PathMatches( const std::string &szGeneric, const std::string &szPath )
+{
+	if ( szPath.back() == '/' )
+		return szGeneric.compare( 0, szPath.size(), szPath ) == 0 && szGeneric.size() > szPath.size();
+	return szGeneric == szPath || szGeneric.compare( 0, szPath.size() + 1, szPath + "/" ) == 0;
+}
+
+bool IsStale( EExportKind kind, const std::string &szNode )
+{
+	const std::string szGeneric = GenericPath( szNode );
 	for ( const SStaleField &stale : kStaleFields )
-	{
-		if ( stale.kind != kind )
-			continue;
-		const std::string szPath = stale.pszPath;
-		if ( szPath.back() == '/' )
-		{
-			if ( szGeneric.compare( 0, szPath.size(), szPath ) == 0 && szGeneric.size() > szPath.size() )
-				return true;
-		}
-		else if ( szGeneric == szPath || szGeneric.compare( 0, szPath.size() + 1, szPath + "/" ) == 0 )
+		if ( stale.kind == kind && PathMatches( szGeneric, stale.pszPath ) )
 			return true;
-	}
 	return false;
 }
 
@@ -735,6 +742,65 @@ SCompareResult CompareStats( EExportKind kind, const std::string &szPortFile, co
 	result.nFieldsCompared = static_cast<int>( compared.size() );
 	if ( result.status == ECompareStatus::EQUAL && !result.messages.empty() )
 		result.status = ECompareStatus::DIFFERENT;
+	return result;
+}
+
+// What MFC's own import and export lose, field by field, between a shipped
+// runtime stats file and the same stats after BkResImportFromGame and
+// BkResExport (D-13). Each is a limit of the MFC frame the port ports line
+// for line, not of the port: the project tree has no place for the field, so
+// the export writes the struct's default. The path is the one a "field"
+// message names; a path ending in '/' covers what is below it. Nothing is
+// listed here for a field the tree does hold.
+struct SRoundTripLoss
+{
+	EExportKind kind;
+	const char *pszPath;
+	const char *pszWhy;
+};
+const SRoundTripLoss kRoundTripLosses[] = {
+	{ EExportKind::ENTRENCHMENT, "RPG/Segments", "CTrenchFrame::LoadRPGStats (TrenchFrm.cpp:363) never read the segments back: a segment is a model file the project points at, which a runtime stats file does not say" },
+	{ EExportKind::ENTRENCHMENT, "RPG/Segments#count", "CTrenchFrame::LoadRPGStats (TrenchFrm.cpp:363) never read the segments back: a segment is a model file the project points at, which a runtime stats file does not say" },
+	{ EExportKind::ENTRENCHMENT, "RPG/Lines", "derived from the segments the import cannot read back (see RPG/Segments)" },
+	{ EExportKind::ENTRENCHMENT, "RPG/Lines#count", "derived from the segments the import cannot read back (see RPG/Segments)" },
+	{ EExportKind::ENTRENCHMENT, "RPG/FirePlaces", "derived from the segments the import cannot read back (see RPG/Segments)" },
+	{ EExportKind::ENTRENCHMENT, "RPG/FirePlaces#count", "derived from the segments the import cannot read back (see RPG/Segments)" },
+	{ EExportKind::ENTRENCHMENT, "RPG/Terminators", "derived from the segments the import cannot read back (see RPG/Segments)" },
+	{ EExportKind::ENTRENCHMENT, "RPG/Terminators#count", "derived from the segments the import cannot read back (see RPG/Segments)" },
+	{ EExportKind::ENTRENCHMENT, "RPG/Arcs", "derived from the segments the import cannot read back (see RPG/Segments)" },
+	{ EExportKind::ENTRENCHMENT, "RPG/Arcs#count", "derived from the segments the import cannot read back (see RPG/Segments)" },
+	{ EExportKind::SQUAD, "RPG/Formations/item[*]/Order/item[*]/Pos", "CSquadFrame::SaveRPGStats rebuilds each slot from the zero point with float arithmetic, so an imported slot differs from the shipped one by a few 1e-5" },
+	{ EExportKind::SQUAD, "RPG/Formations/item[*]/Order/item[*]/Dir", "CSquadFrame::SaveRPGStats rebuilds each slot from the zero point with float arithmetic, so an imported slot differs from the shipped one by a few 1e-6" },
+};
+
+const SRoundTripLoss *FindRoundTripLoss( EExportKind kind, const std::string &szMessage )
+{
+	// "field <path>: ...", "dropped field <path>: ...", "extra field <path>: ..."
+	const size_t nField = szMessage.find( "field " );
+	if ( nField == std::string::npos )
+		return nullptr;
+	const size_t nStart = nField + 6;
+	const std::string szPath = GenericPath( szMessage.substr( nStart, szMessage.find( ':', nStart ) - nStart ) );
+	for ( const SRoundTripLoss &loss : kRoundTripLosses )
+		if ( loss.kind == kind && PathMatches( szPath, loss.pszPath ) )
+			return &loss;
+	return nullptr;
+}
+
+SCompareResult CompareRoundTrip( EExportKind kind, const std::string &szExportedFile, const std::string &szShippedFile )
+{
+	SCompareResult result = CompareStats( kind, szExportedFile, szShippedFile );
+	if ( result.status != ECompareStatus::DIFFERENT )
+		return result;
+	std::vector<std::string> remaining;
+	for ( const std::string &szMessage : result.messages )
+		if ( const SRoundTripLoss *pLoss = FindRoundTripLoss( kind, szMessage ) )
+			result.excused.push_back( szMessage + " [" + pLoss->pszWhy + "]" );
+		else
+			remaining.push_back( szMessage );
+	result.messages.swap( remaining );
+	if ( result.messages.empty() )
+		result.status = ECompareStatus::EQUAL;
 	return result;
 }
 

@@ -38,6 +38,7 @@
 #include "bridge_session.h"
 #include "../ResourceModel/references.h"
 #include "../ResourceModel/exporter.h"
+#include "../ResourceModel/comparator.h"
 #include "../ResourceModel/project.h"
 #include "../ResourceModel/items/squad/squad.h"
 #include "../ResourceModel/items/fence/fence.h"
@@ -1930,8 +1931,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 		Check( BkResImportFromGame( pSession, 4, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".san" ) != 0,
 		       "import: sprite is refused with the reason" );
-		Check( BkResImportFromGame( pSession, 0, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
-		       "import: wpn is refused as not ported yet" );
+		Check( BkResImportFromGame( pSession, 6, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
+		       "import: msh is refused as not ported yet" );
 		Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 5, "import: a refused import keeps the open project" );
 		Check( BkResImportFromGame( pSession, 5, ( scratch / "no-such" ).string().c_str() ) == BK_EDITOR_DATA_MISSING, "import: a folder without 1.xml is DATA_MISSING" );
 		Check( BkResImportFromGame( pSession, 5, 0 ) == BK_EDITOR_BAD_ARGUMENT, "import: a null path is a bad argument" );
@@ -2880,9 +2881,108 @@ static void ShippedTrench( BkResSession *pSession, const std::string &szRoot, co
 	}
 }
 
+// B-03.6, B-04.3, B-05.3, B-13.4: a shipped runtime stats file imported into
+// a new project of its kind, the project saved, exported stats-only, and the
+// exported file compared with the shipped one through the comparator, both
+// read by the engine's own readers. A field MFC's frame could not round-trip
+// is in the comparator's kRoundTripLosses with its reason and printed as
+// EXCUSED; anything else fails the case and prints its field path.
+struct SRoundTrip
+{
+	const char *pszCase;            // named in the tier output
+	BkResKind kind;
+	const char *pszExtension;
+	NResourceModel::EExportKind exportKind;
+	const char *pszShipped;         // below Data/, matched case-insensitively
+	bool bFlatFile;                 // a weapon is one file, not a folder holding 1.xml
+	const char *pszExported;        // below the mod's data/, with <folder> for the project's folder
+};
+
+static const SRoundTrip kRoundTrips[] = {
+	{ "wpn weapons/mg_37t.xml", 0, "wpn", NResourceModel::EExportKind::WEAPON, "Weapons/mg_37t.xml", true, "weapons/<folder>.xml" },
+	{ "mcp mine/mine_at", 1, "mcp", NResourceModel::EExportKind::MINE, "Objects/SimpleObjects/common/summer/mine/mine_at", false,
+	  "objects/simpleobjects/common/summer/mine/<folder>/1.xml" },
+	{ "trc entrenchment", 2, "trc", NResourceModel::EExportKind::ENTRENCHMENT, "Units/Technics/Common/Entrenchment", false,
+	  "units/technics/common/entrenchment/<folder>/1.xml" },
+	{ "scp squads/german_rifle_45", 3, "scp", NResourceModel::EExportKind::SQUAD, "Squads/german_rifle_45", false, "squads/<folder>/1.xml" },
+};
+
+static void RoundTripOne( BkResSession *pSession, const SRoundTrip &trip, const std::string &szRoot, const std::filesystem::path &scratch )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const std::string szCase = std::string( "roundtrip " ) + trip.pszCase;
+	const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", trip.pszShipped );
+	// The sample is copied: nothing below reads or writes Data/ twice, and
+	// the import is of the copy.
+	const fs::path copyDir = scratch / trip.pszExtension / "shipped";
+	fs::create_directories( copyDir, ec );
+	fs::path imported = copyDir;
+	if ( trip.bFlatFile )
+	{
+		imported = copyDir / shipped.filename();
+		fs::copy_file( shipped, imported, fs::copy_options::overwrite_existing, ec );
+	}
+	else
+		fs::copy_file( T11::FoldedPath( shipped, "1.xml" ), copyDir / "1.xml", fs::copy_options::overwrite_existing, ec );
+	const fs::path shippedCopy = trip.bFlatFile ? imported : copyDir / "1.xml";
+	if ( !Check( !ec && fs::is_regular_file( shippedCopy, ec ), ( szCase + ": the shipped sample " + shipped.string() + " is copied" ).c_str() ) )
+		return;
+
+	if ( !Check( BkResImportFromGame( pSession, trip.kind, imported.string().c_str() ) == BK_EDITOR_OK, ( szCase + ": imported into a new project" ).c_str() ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	const fs::path projectDir = scratch / trip.pszExtension / "project";
+	fs::create_directories( projectDir, ec );
+	const fs::path project = projectDir / ( std::string( "project." ) + trip.pszExtension );
+	if ( !Check( BkResSave( pSession, project.string().c_str() ) == BK_EDITOR_OK, ( szCase + ": the imported project saves" ).c_str() ) )
+		return;
+	const fs::path modDir = scratch / trip.pszExtension / "mod";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S06 round trip" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, ( szCase + ": the mod folder is set" ).c_str() );
+	BkResExportReport report = {};
+	if ( !Check( BkResExportStatsOnly( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK && report.written >= 1, ( szCase + ": exported stats-only" ).c_str() ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return;
+	}
+	BkResClose( pSession );
+
+	std::string szExported = trip.pszExported;
+	szExported.replace( szExported.find( "<folder>" ), 8, "project" );
+	const fs::path exported = modDir / "data" / szExported;
+	const NResourceModel::SCompareResult result = NResourceModel::CompareRoundTrip( trip.exportKind, exported.string(), shippedCopy.string() );
+	std::printf( "ROUNDTRIP %s: shipped %s, %s, %d fields compared\n", trip.pszCase, trip.pszShipped, NResourceModel::CompareStatusName( result.status ), result.nFieldsCompared );
+	for ( const std::string &szExcused : result.excused )
+		std::printf( "   EXCUSED %s\n", szExcused.c_str() );
+	for ( const std::string &szMessage : result.messages )
+		std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+	Check( result.status == NResourceModel::ECompareStatus::EQUAL,
+	       ( szCase + ": the exported stats equal the shipped file" + ( result.messages.empty() ? "" : ", first difference " + result.messages[0] ) ).c_str() );
+}
+
+static void RoundTrips( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s06-roundtrip";
+	fs::remove_all( scratch, ec );
+	std::string szError;
+	if ( !Check( NResourceModel::StartEngineReaders( &szError ), ( "roundtrip: the comparator's engine readers start " + szError ).c_str() ) )
+		return;
+	for ( const SRoundTrip &trip : kRoundTrips )
+		RoundTripOne( pSession, trip, szRoot, scratch );
+}
+
 static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
 {
 	ShippedTrench( pSession, szRoot, szFixtureRoot, szScratchRoot );
+	RoundTrips( pSession, szRoot, szScratchRoot );
 }
 
 }
