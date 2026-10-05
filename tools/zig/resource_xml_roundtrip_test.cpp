@@ -125,7 +125,8 @@ static bool SameTree( const NResourceXml::Node &a, const NResourceXml::Node &b, 
 	return true;
 }
 
-// An MFC-written project keeps every element, attribute and value through our parse and serialise.
+// An MFC-written project keeps every element, attribute and value through our parse and serialise,
+// byte for byte.
 static bool MfcProjectSurvives( const fs::path &src, const fs::path &outBase )
 {
 	std::string xml, err;
@@ -138,6 +139,8 @@ static bool MfcProjectSurvives( const fs::path &src, const fs::path &outBase )
 	bool ok = d1.declaration == d2.declaration && SameTree( d1.root, d2.root, where );
 	if ( !ok ) std::fprintf( stderr, "FAIL %s: tree changed at %s\n", src.string().c_str(), where.c_str() );
 	if ( ok ) ok = Compare( src.filename().string() + " rtout1 vs rtout2", out1, NResourceXml::Serialise( d2 ) );
+	// MSXML wrote it, so the writer must give back the same bytes.
+	if ( ok ) ok = Compare( src.filename().string() + " MFC file vs rtout1", xml, out1 );
 	if ( !ok ) WriteFile( outBase.string() + ".rtout1", out1 );
 	return ok;
 }
@@ -167,6 +170,24 @@ static bool EdgeCases()
 	a.root.name = "r";
 	a.root.attrs.emplace_back( "v", "a\tb\r\nc" );
 	check( "attribute whitespace", NResourceXml::Parse( NResourceXml::Serialise( a ), d, err ) && d.root.attrs.size() == 1 && d.root.attrs[0].second == "a\tb\r\nc" );
+	// MSXML's compact save, as CDataTreeXML writes every MFC project: read as the Mfc layout and
+	// written back byte for byte, an empty string chunk (<a></a>) apart from an empty container (<a/>).
+	const std::string compact = "<?xml version=\"1.0\"?>\r\n<P expand=\"1\"><default_name></default_name><values/><childs><item ClassTypeID=\"7\"><s>x</s></item></childs></P>\r\n";
+	check( "compact parses", NResourceXml::Parse( compact, d, err ) && d.layout == NResourceXml::Document::Mfc );
+	const NResourceXml::Node *dn = NResourceXml::FindChild( d.root, "default_name" ), *vs = NResourceXml::FindChild( d.root, "values" );
+	check( "empty string chunk keeps its text node", dn && dn->children.size() == 1 && dn->children[0].kind == NResourceXml::Node::Text && dn->children[0].text.empty() );
+	check( "empty container has no children", vs && vs->children.empty() );
+	check( "compact is byte-identical", NResourceXml::Serialise( d ) == compact );
+	// A document built in memory (a new project) is written in MSXML's layout too.
+	NResourceXml::Document fresh;
+	fresh.hasDeclaration = true;
+	fresh.declaration = " version=\"1.0\"";
+	fresh.root.name = "P";
+	fresh.root.children.push_back( dn ? *dn : NResourceXml::Node() );
+	fresh.root.children.push_back( vs ? *vs : NResourceXml::Node() );
+	check( "new document in MFC layout", NResourceXml::Serialise( fresh ) == "<?xml version=\"1.0\"?>\r\n<P><default_name></default_name><values/></P>\r\n" );
+	// A tab-indented file (a port-authored fixture) keeps its layout.
+	check( "indented detected", NResourceXml::Parse( "<r>\r\n\t<a></a>\r\n\t<b/>\r\n</r>\r\n", d, err ) && d.layout == NResourceXml::Document::Indented && NResourceXml::Serialise( d ) == "<r>\r\n\t<a></a>\r\n\t<b/>\r\n</r>\r\n" );
 	if ( ok ) std::fprintf( stderr, "PASS parser edge cases\n" );
 	return ok;
 }

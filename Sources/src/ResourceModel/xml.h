@@ -23,15 +23,23 @@ struct Node
 
 struct Document
 {
+	// Mfc is what CDataTreeXML's MSXML save writes: the declaration, a line
+	// break, then the whole tree on one line with no layout whitespace. Indented
+	// is the tab-indented layout of the port-authored fixtures, kept so that
+	// re-saving one of them leaves it byte-identical and its diffs readable.
+	enum Layout { Mfc, Indented };
 	std::string declaration;	// the text between "<?xml" and "?>", empty when the file has none
 	bool hasDeclaration = false;
+	Layout layout = Mfc;
 	Node root;
 };
 
-// Returns false and fills szError (with a byte offset) on malformed input.
+// Returns false and fills szError (with a byte offset) on malformed input. A document with
+// whitespace between its elements is read as Indented, any other as Mfc. <a></a> reads as an
+// element with one empty text child and <a/> as one with no children, as MSXML tells them apart.
 bool Parse( const std::string &szXml, Document &doc, std::string &szError );
-// Tab-indented, CRLF line ends, the layout of the shipped project files. Re-parsing the output and
-// serialising again yields the same bytes.
+// Writes doc.layout, CRLF line ends. Re-parsing the output and serialising again yields the same
+// bytes, and an unedited MFC project comes back byte-identical.
 std::string Serialise( const Document &doc );
 // First child element of pParent with the given name, or nullptr.
 const Node *FindChild( const Node &parent, const std::string &szName );

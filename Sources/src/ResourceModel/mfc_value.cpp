@@ -68,18 +68,17 @@ std::string ElementText( const NResourceXml::Node &node )
 	return out;
 }
 
+// CDataTreeXML::StringData appends a text node even for an empty string, so
+// MSXML writes <name></name>, never <name/>; the empty text child keeps that.
 NResourceXml::Node StringElement( const std::string &name, const std::string &text )
 {
 	NResourceXml::Node n;
 	n.kind = NResourceXml::Node::Element;
 	n.name = name;
-	if ( !text.empty() )
-	{
-		NResourceXml::Node t;
-		t.kind = NResourceXml::Node::Text;
-		t.text = text;
-		n.children.push_back( std::move( t ) );
-	}
+	NResourceXml::Node t;
+	t.kind = NResourceXml::Node::Text;
+	t.text = text;
+	n.children.push_back( std::move( t ) );
 	return n;
 }
 
@@ -203,6 +202,38 @@ void EncodeMfcValue( const CVariant &v, const NResourceXml::Node *pStored, NReso
 	}
 	default: break;
 	}
+}
+
+// DTHelper.h writes a CVec3 as an element with x, y and z attributes, each a
+// double through "%lg".
+NResourceXml::Node Vec3Element( const std::string &name, const Vec3 &v )
+{
+	NResourceXml::Node n;
+	n.kind = NResourceXml::Node::Element;
+	n.name = name;
+	SetAttr( n, "x", MfcFloat( v.x ) );
+	SetAttr( n, "y", MfcFloat( v.y ) );
+	SetAttr( n, "z", MfcFloat( v.z ) );
+	return n;
+}
+
+void ReadFloat( const NResourceXml::Node &node, const char *name, float &f )
+{
+	if ( const std::string *v = FindAttr( node, name ) )
+		f = (float)std::strtod( v->c_str(), nullptr );
+}
+
+void ReadInt( const NResourceXml::Node &node, const char *name, int &n )
+{
+	if ( const std::string *v = FindAttr( node, name ) )
+		n = (int)std::strtol( v->c_str(), nullptr, 0 );
+}
+
+void ReadVec3( const NResourceXml::Node &node, Vec3 &v )
+{
+	ReadFloat( node, "x", v.x );
+	ReadFloat( node, "y", v.y );
+	ReadFloat( node, "z", v.z );
 }
 
 }

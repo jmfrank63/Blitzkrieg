@@ -14,6 +14,7 @@ struct Parser
 	const std::string &s;
 	size_t i = 0;
 	std::string err;
+	bool sawLayout = false;	// whitespace between elements, so the file is not MSXML's compact layout
 	explicit Parser( const std::string &str ) : s( str ) {}
 
 	bool Fail( const char *szWhat )
@@ -122,6 +123,14 @@ struct Parser
 			if ( i >= s.size() ) return Fail( "unclosed element" );
 			if ( At( "</" ) )
 			{
+				// MSXML writes an element holding an empty text node (an empty
+				// string chunk) as <a></a>; keep that node so it is written back so.
+				if ( el.children.empty() )
+				{
+					Node empty;
+					empty.kind = Node::Text;
+					el.children.push_back( std::move( empty ) );
+				}
 				i += 2;
 				std::string close;
 				if ( !ParseName( close ) ) return false;
@@ -190,7 +199,10 @@ struct Parser
 				if ( c.kind == Node::Text )
 				{
 					if ( IsWs( c.text ) )
+					{
+						sawLayout = true;
 						continue; // layout whitespace is not data
+					}
 					size_t b = c.text.find_first_not_of( " \t\r\n" ), e = c.text.find_last_not_of( " \t\r\n" );
 					c.text = c.text.substr( b, e - b + 1 );
 				}
@@ -256,6 +268,32 @@ void WriteNode( std::string &out, const Node &n, int depth )
 	out += pad + "</" + n.name + ">\r\n";
 }
 
+// IXMLDOMDocument::save without indentation: no whitespace between nodes, an
+// element with no child nodes as <a/>, one with only an empty text node as <a></a>.
+void WriteCompact( std::string &out, const Node &n )
+{
+	switch ( n.kind )
+	{
+	case Node::Text: Escape( out, n.text, false ); return;
+	case Node::Comment: out += "<!--" + n.text + "-->"; return;
+	case Node::CData: out += "<![CDATA[" + n.text + "]]>"; return;
+	case Node::Pi: out += "<?" + n.name + ( n.text.empty() ? "" : " " + n.text ) + "?>"; return;
+	case Node::Element: break;
+	}
+	out += "<" + n.name;
+	for ( const auto &a : n.attrs )
+	{
+		out += " " + a.first + "=\"";
+		Escape( out, a.second, true );
+		out += "\"";
+	}
+	if ( n.children.empty() ) { out += "/>"; return; }
+	out += ">";
+	for ( const Node &c : n.children )
+		WriteCompact( out, c );
+	out += "</" + n.name + ">";
+}
+
 }
 
 bool Parse( const std::string &szXml, Document &doc, std::string &szError )
@@ -291,6 +329,7 @@ bool Parse( const std::string &szXml, Document &doc, std::string &szError )
 		p.SkipWs();
 	}
 	if ( p.err.empty() && !haveRoot ) p.Fail( "no root element" );
+	doc.layout = p.sawLayout ? Document::Indented : Document::Mfc;
 	szError = p.err;
 	return p.err.empty();
 }
@@ -300,7 +339,14 @@ std::string Serialise( const Document &doc )
 	std::string out;
 	if ( doc.hasDeclaration )
 		out += "<?xml" + doc.declaration + "?>\r\n";
-	WriteNode( out, doc.root, 0 );
+	if ( doc.layout == Document::Indented )
+		WriteNode( out, doc.root, 0 );
+	else
+	{
+		// MSXML ends the saved document with a line break after the root.
+		WriteCompact( out, doc.root );
+		out += "\r\n";
+	}
 	return out;
 }
 

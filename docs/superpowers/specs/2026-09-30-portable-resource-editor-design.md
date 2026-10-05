@@ -440,3 +440,42 @@ one, the newer instruction wins, and record the change in the spec").
   absolute paths. This extends D-10 (which pinned the location of
   `editor.ini`/`editor2.ini` equivalents) to **all** user content, not
   just settings. See D002.
+- **Project file layout (D-07), S03 T05, 2026-10-05.** The port writes a
+  project the way `CDataTreeXML` saves it through MSXML: `<?xml
+  version="1.0"?>`, CRLF, the whole tree on one line with no whitespace
+  between nodes, CRLF. Elements and attributes come in the order the item's
+  `operator&` writes them. An empty string chunk is `<a></a>`, because
+  `StringData` always appends a text node, even an empty one. An empty
+  container or an element with only attributes is `<a/>`. The reader keeps
+  that difference. A project opened and saved without edits is
+  byte-identical to the MFC file; an edited one keeps the same layout. The
+  proof is both MFC projects in `Data/Editor/TestProjects`
+  (`WinSniper.unt`, `current.msh`): `roundtrip-bytes` in
+  `test-resource-model-fidelity` and the MFC check in
+  `test-resource-xml-roundtrip`. A new project is written in the same
+  layout. The repo-owned fixtures under `tools/zig/fixtures/resource_editor/`
+  were written tab-indented by the port so their diffs stay readable. The
+  reader detects that layout (whitespace between elements) and the writer
+  keeps it, so they re-save byte-identically too. MSXML ignores whitespace
+  between elements, so MFC reads either layout. The cases below cannot be
+  proved byte for byte. Each one is equal in content, and no tracked
+  project contains any of them, so `roundtrip-bytes` is asserted for every
+  tracked project with no exception list:
+  - **Escaped characters.** No MFC project in the repo contains `&`, `<`,
+    `>`, `"` or a control character, so MSXML's exact escaping is not
+    measured. The port writes `&amp;`, `&lt;`, `&gt;` in text, the same
+    plus `&quot;` in attributes, and tab, LF and CR in attributes as
+    `&#9;`, `&#10;`, `&#13;`. An MFC file that writes them in another form
+    reads back to the same values.
+  - **Text beside child elements** is stored trimmed. No `IDataTree` chunk
+    writes mixed content, so only a hand-edited file has it.
+  - **Values written before `int64low`/`int64high`.** The TestProjects
+    values have no int64 slots. They are kept exactly as read, stale slots
+    included. A value the port creates carries the slots, as the current
+    `DTHelper.h` writes it. Floats it writes use `%g` with the MSVC
+    three-digit exponent (`MfcFloat`), as `DataChunk( double )` does.
+  - **MFC reading a port-written project.** The port keeps MFC's element
+    names, `ClassTypeID`, `expand` and the `item`/`childs`/`values` shape;
+    `roundtrip-typed` checks this. Opening a port-written project in the
+    MFC `editor.exe` runs only on `win-home` and is pending there (S03
+    UAT).
