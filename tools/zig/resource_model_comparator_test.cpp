@@ -10,8 +10,12 @@
 //      has no unknown field.
 //   2. Planted changes to a copy must fail with a precise message: a float one
 //      ulp off, a dropped field, an extra field the reader does not read, a
-//      byte of an _h.dds, a DXT header and a DXT pixel block.
-//   3. The golden comparison: each fixture's golden/ folder against the port's
+//      byte of an _h.dds and a DXT header.
+//   3. The DXT gate: listed shipped _c.dds re-encoded by NDxt are within
+//      dxt-tolerance.json; planted colour and alpha regions, lost DXT1
+//      punch-through, a truncated file, a changed uncompressed DDS and a
+//      missing or malformed tolerance fail precisely.
+//   4. The golden comparison: each fixture's golden/ folder against the port's
 //      export. Goldens come from MFC editor.exe on win-home
 //      (tools/zig/win-home/export-goldens.ps1). An extension without them is
 //      "pending: golden missing", never PASS.
@@ -422,17 +426,128 @@ static void BytesAndDxt( const fs::path &data, const fs::path &scratch )
 	if ( Check( !colour.empty() && ReadBytes( colour, &bytes ) && bytes.size() > 160 && WriteBytes( scratch / "bytes" / "a_c.dds", bytes ), "a shipped _c.dds: " + colour.generic_string() ) )
 	{
 		const fs::path copy = scratch / "bytes" / "a_c.dds";
-		Check( CompareDxt( copy.string(), copy.string() ).status == ECompareStatus::EQUAL, "_c.dds equal to itself" );
-		std::string pixels = bytes;
-		pixels[128 + 4] ^= 0x55;
-		WriteBytes( scratch / "bytes" / "pixels_c.dds", pixels );
-		const SCompareResult pending = CompareDxt( ( scratch / "bytes" / "pixels_c.dds" ).string(), copy.string() );
-		Check( pending.status == ECompareStatus::PENDING_DXT_GATE, std::string( "_c.dds with a changed block is PENDING_DXT_GATE, not EQUAL: " ) + CompareStatusName( pending.status ) );
+		Check( CompareDxt( copy.string(), copy.string(), SDxtTolerance() ).status == ECompareStatus::EQUAL, "_c.dds equal to itself, even with no tolerance loaded" );
 		std::string header = bytes;
 		header[28] = static_cast<char>( header[28] + 1 );
 		WriteBytes( scratch / "bytes" / "mips_c.dds", header );
-		const SCompareResult mips = CompareDxt( ( scratch / "bytes" / "mips_c.dds" ).string(), copy.string() );
+		const SCompareResult mips = CompareDxt( ( scratch / "bytes" / "mips_c.dds" ).string(), copy.string(), SDxtTolerance() );
 		Check( mips.status == ECompareStatus::DIFFERENT && HasMessage( mips, "DDS mip count" ), std::string( "_c.dds with another mip count fails: " ) + CompareStatusName( mips.status ) + Messages( mips ) );
+	}
+}
+
+// The DXT gate (S03 T07): dxt-tolerance.json, measured on shipped textures by
+// `zig build measure-dxt-tolerance`, bounds the decoded deltas of a port
+// _c.dds against its golden. A listed texture re-encoded by NDxt must pass it
+// (the gate is the largest per-file measurement), and planted colour and alpha
+// changes, a missing or malformed tolerance and a truncated file must fail.
+static void DxtGate( const fs::path &data, const fs::path &scratch, const fs::path &fixtures )
+{
+	const fs::path dir = scratch / "dxt";
+	SDxtTolerance tolerance;
+	std::string szError;
+	if ( !Check( LoadDxtTolerance( ( fixtures / "dxt-tolerance.json" ).string(), &tolerance, &szError ) && tolerance.Find( "DXT1" ) &&
+	             tolerance.Find( "DXT3" ) && tolerance.Find( "DXT5" ),
+	             "dxt-tolerance.json loads with DXT1/DXT3/DXT5 gates " + szError ) )
+		return;
+	for ( const auto &bad : { std::make_pair( std::string( "{ \"schema_version\": 1, \"formats\": {} }" ), std::string( "schema_version" ) ),
+	                          std::make_pair( std::string( "{ \"schema_version\": 2, \"gate\": { \"DXT5\": { \"colour_max_delta\": 1, \"colour_p99\": 1, \"alpha_max_delta\": 1 } } }" ),
+	                                          std::string( "alpha_p99" ) ),
+	                          std::make_pair( std::string( "{ \"schema_version\": 2, \"gate\": { } }" ), std::string( "empty" ) ) } )
+	{
+		WriteBytes( dir / "bad-tolerance.json", bad.first );
+		SDxtTolerance rejected;
+		Check( !LoadDxtTolerance( ( dir / "bad-tolerance.json" ).string(), &rejected, &szError ) && !rejected.bLoaded && szError.find( bad.second ) != std::string::npos,
+		       "a malformed tolerance is refused naming " + bad.second + ": " + szError );
+	}
+	SDxtTolerance missing;
+	Check( !LoadDxtTolerance( ( dir / "missing.json" ).string(), &missing, &szError ) && szError.find( "cannot open" ) != std::string::npos,
+	       "a missing tolerance file is refused: " + szError );
+
+	// Listed textures, one per format, alpha in each: DXT1 punch-through, DXT3 explicit, DXT5 interpolated.
+	static const char *const kListed[] = { "Terrain\\sets\\1\\tileset_c.dds", "Scenarios\\Chapters\\Allies\\Ardennes\\map_c.dds", "Units\\Humans\\Allies\\Bren\\1_c.dds" };
+	for ( const char *pszListed : kListed )
+	{
+		szError.clear();
+		const fs::path original = FindNoCase( data, pszListed );
+		std::string bytes, reencoded;
+		SDdsImage image;
+		if ( !Check( !original.empty() && ReadBytes( original, &bytes ) && DecodeDds( bytes, &image, &szError ), std::string( "a listed _c.dds decodes: " ) + pszListed + " " + szError ) )
+			continue;
+		const std::string szName = image.szFourCC;
+		const fs::path golden = dir / ( szName + "-golden_c.dds" );
+		WriteBytes( golden, bytes );
+		Check( EncodeDds( bytes, image, &reencoded, &szError ) && reencoded.size() == bytes.size() && WriteBytes( dir / ( szName + "-reencoded_c.dds" ), reencoded ),
+		       szName + " re-encodes by NDxt to the same size " + szError );
+		const SCompareResult within = CompareDxt( ( dir / ( szName + "-reencoded_c.dds" ) ).string(), golden.string(), tolerance );
+		Check( within.status == ECompareStatus::EQUAL && HasMessage( within, "within the " + szName + " gate" ),
+		       szName + " re-encoded by NDxt is within its gate: " + CompareStatusName( within.status ) + Messages( within ) );
+		const SCompareResult unloaded = CompareDxt( ( dir / ( szName + "-reencoded_c.dds" ) ).string(), golden.string(), SDxtTolerance() );
+		Check( reencoded == bytes || unloaded.status == ECompareStatus::UNREADABLE,
+		       szName + " pixels that differ with no tolerance loaded are UNREADABLE, never EQUAL: " + CompareStatusName( unloaded.status ) );
+
+		// A 16x16 region pushed to the far end of each channel: colour deltas of at least 128.
+		SDdsImage planted = image;
+		SDdsMip &mip = planted.mips[0];
+		const bool bAlpha = szName != "DXT1";
+		for ( int y = 0; y < std::min( 16, mip.nHeight ); ++y )
+			for ( int x = 0; x < std::min( 16, mip.nWidth ); ++x )
+			{
+				unsigned &nPixel = mip.pixels[static_cast<size_t>( y ) * mip.nWidth + x];
+				unsigned nFlipped = 0;
+				for ( int nShift = 0; nShift < 32; nShift += 8 )
+				{
+					const unsigned nChannel = ( nPixel >> nShift ) & 0xff;
+					const bool bFlip = nShift < 24 || bAlpha;
+					nFlipped |= ( bFlip ? ( nChannel < 128 ? 255u : 0u ) : nChannel ) << nShift;
+				}
+				nPixel = nFlipped;
+			}
+		std::string szPlanted;
+		EncodeDds( bytes, planted, &szPlanted, &szError );
+		WriteBytes( dir / ( szName + "-planted_c.dds" ), szPlanted );
+		const SCompareResult far = CompareDxt( ( dir / ( szName + "-planted_c.dds" ) ).string(), golden.string(), tolerance );
+		Check( far.status == ECompareStatus::DIFFERENT && HasMessage( far, szName + " colour max delta" ) && HasMessage( far, "largest delta" ) &&
+		           ( !bAlpha || HasMessage( far, szName + " alpha max delta" ) ),
+		       szName + " with a planted 16x16 region fails the gate: " + CompareStatusName( far.status ) + Messages( far ) );
+
+		const std::string truncated = bytes.substr( 0, 128 + ( bytes.size() - 128 ) / 2 );
+		WriteBytes( dir / ( szName + "-truncated_c.dds" ), truncated );
+		const SCompareResult cut = CompareDxt( ( dir / ( szName + "-truncated_c.dds" ) ).string(), golden.string(), tolerance );
+		Check( cut.status == ECompareStatus::UNREADABLE && HasMessage( cut, "mip 0 needs" ), szName + " cut short is UNREADABLE: " + CompareStatusName( cut.status ) + Messages( cut ) );
+	}
+
+	// DXT1 punch-through survives NDxt: an alpha-0 pixel that turns opaque is an alpha difference.
+	{
+		const fs::path original = FindNoCase( data, "Terrain\\sets\\1\\tileset_c.dds" );
+		std::string bytes, szOpaque;
+		SDdsImage image;
+		if ( ReadBytes( original, &bytes ) && DecodeDds( bytes, &image, &szError ) )
+		{
+			int nCleared = 0;
+			for ( unsigned &nPixel : image.mips[0].pixels )
+				if ( ( nPixel >> 24 ) == 0 )
+				{
+					nPixel |= 0xff000000u;
+					++nCleared;
+				}
+			EncodeDds( bytes, image, &szOpaque, &szError );
+			WriteBytes( dir / "DXT1-opaque_c.dds", szOpaque );
+			const SCompareResult opaque = CompareDxt( ( dir / "DXT1-opaque_c.dds" ).string(), ( dir / "DXT1-golden_c.dds" ).string(), tolerance );
+			Check( nCleared > 0 && opaque.status == ECompareStatus::DIFFERENT && HasMessage( opaque, "DXT1 alpha max delta 255 exceeds the gate 0" ),
+			       "a DXT1 tileset that lost its punch-through fails the alpha gate: " + std::to_string( nCleared ) + " pixels, " + CompareStatusName( opaque.status ) + Messages( opaque ) );
+		}
+	}
+
+	// An uncompressed DDS has no pixel tolerance: a changed byte is a difference.
+	const fs::path rgb = FindNoCase( data, "UI\\container_c.dds" );
+	std::string bytes;
+	if ( Check( !rgb.empty() && ReadBytes( rgb, &bytes ) && bytes.size() > 200, "an uncompressed shipped _c.dds: " + rgb.generic_string() ) )
+	{
+		WriteBytes( dir / "rgb-golden_c.dds", bytes );
+		bytes[bytes.size() - 1] ^= 1;
+		WriteBytes( dir / "rgb-port_c.dds", bytes );
+		const SCompareResult result = CompareDxt( ( dir / "rgb-port_c.dds" ).string(), ( dir / "rgb-golden_c.dds" ).string(), tolerance );
+		Check( result.status == ECompareStatus::DIFFERENT && HasMessage( result, "uncompressed" ), std::string( "an uncompressed DDS with one byte changed fails: " ) + CompareStatusName( result.status ) + Messages( result ) );
 	}
 }
 
@@ -485,6 +600,7 @@ int main( int argc, char **argv )
 	ShippedSelfCompare( data, scratch, &samples );
 	PlantedChanges( scratch, samples );
 	BytesAndDxt( data, scratch );
+	DxtGate( data, scratch, fixtures );
 	Goldens( fixtures );
 
 	Log( g_nFailures == 0 ? "VERDICT=PASS (goldens pending)" : "VERDICT=FAIL failures=" + std::to_string( g_nFailures ) );

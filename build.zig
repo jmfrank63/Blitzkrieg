@@ -1281,9 +1281,10 @@ pub fn build(b: *std.Build) void {
     resource_xml_roundtrip_step.dependOn(&resource_xml_roundtrip_test.step);
     if (test_mode == .run) resource_xml_roundtrip_step.dependOn(&resource_xml_roundtrip_run.step);
 
-    // DXT tolerance measurement (spec D-11 / R019): the MFC-era S3TC encoder ported into
-    // Sources/src/ResourceModel/spike/legacy_dxt.* vs the shipping NDxt encoder. Writes a stable
-    // tolerance JSON for downstream golden tests to read programmatically.
+    // DXT tolerance measurement (spec D-11 / R019, S03 T07): shipped _c.dds textures re-encoded by
+    // NDxt and by the MFC-era S3TC encoder (Sources/src/ResourceModel/spike/legacy_dxt.*). The
+    // measure step writes the tolerance JSON the D-11 comparator's DXT gate reads; the test step
+    // measures again and fails unless the committed JSON is unchanged.
     const dxt_tolerance_module = b.createModule(.{
         .target = target,
         .optimize = .Debug,
@@ -1299,6 +1300,7 @@ pub fn build(b: *std.Build) void {
     dxt_tolerance_module.addCSourceFiles(.{
         .files = &.{
             "tools/zig/dxt_tolerance_test.cpp",
+            "Sources/src/ResourceModel/dxt_gate.cpp",
             "Sources/src/ResourceModel/spike/legacy_dxt.cpp",
             "Sources/src/Image/DxtCodec.cpp",
         },
@@ -1312,9 +1314,18 @@ pub fn build(b: *std.Build) void {
     dxt_tolerance_run.setCwd(b.path("."));
     dxt_tolerance_run.addArg("tools/zig/fixtures/resource_editor/dxt-tolerance.json");
     dxt_tolerance_run.addArg("zig-out/local-test/resource_editor/dxt");
-    const dxt_tolerance_step = b.step("test-dxt-tolerance", "Measure max_delta and p99 between the MFC-era DXT encoder and NDxt for DXT1/DXT3/DXT5");
+    dxt_tolerance_run.addArg("--check");
+    dxt_tolerance_run.has_side_effects = true;
+    const dxt_tolerance_step = b.step("test-dxt-tolerance", "Re-measure the DXT tolerance on shipped _c.dds (DXT1/3/5, colour and alpha) and require dxt-tolerance.json unchanged");
     dxt_tolerance_step.dependOn(&dxt_tolerance_test.step);
     if (test_mode == .run) dxt_tolerance_step.dependOn(&dxt_tolerance_run.step);
+    const dxt_measure_run = b.addRunArtifact(dxt_tolerance_test);
+    dxt_measure_run.setCwd(b.path("."));
+    dxt_measure_run.addArg("tools/zig/fixtures/resource_editor/dxt-tolerance.json");
+    dxt_measure_run.addArg("zig-out/local-test/resource_editor/dxt");
+    dxt_measure_run.has_side_effects = true;
+    const dxt_measure_step = b.step("measure-dxt-tolerance", "Measure the DXT tolerance on shipped _c.dds textures and write tools/zig/fixtures/resource_editor/dxt-tolerance.json");
+    dxt_measure_step.dependOn(&dxt_measure_run.step);
 
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
@@ -1451,9 +1462,7 @@ pub fn build(b: *std.Build) void {
     addRuntimeHeadersTest(b, target, test_mode, toolchain);
     addResourceModelScaffoldTest(b, target, test_mode, toolchain);
     addResourceModelReferencesTest(b, target, test_mode, toolchain);
-    addResourceModelComparatorTest(b, target, test_mode, toolchain);
     addResourceModelFidelityTest(b, target, test_mode, toolchain);
-    addResourceModelAggregateStep(b);
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = dependency_target,
@@ -1873,7 +1882,6 @@ pub fn build(b: *std.Build) void {
     );
     resource_editor_fixtures_test_step.dependOn(&resource_editor_fixtures_tests.step);
     if (test_mode == .run) resource_editor_fixtures_test_step.dependOn(&b.addRunArtifact(resource_editor_fixtures_tests).step);
-    addResourcesAllAggregateStep(b);
     // StreamIOOptionsAbi ships in the same directory as the shared SDL3
     // library and is loaded alongside it. It must share the game's one SDL3
     // image on every platform: a *static* SDL3 here is a second, private SDL
@@ -2320,6 +2328,10 @@ pub fn build(b: *std.Build) void {
     // into the same install directory so NPlatform::Paths derives the right
     // roots. The step compiles unconditionally and runs only in test_mode==.run.
     addResourceBridge(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    // S03 T06: the D-11 comparator, hosted the same way; test-resource-model aggregates it.
+    addResourceModelComparatorTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    addResourceModelAggregateStep(b);
+    addResourcesAllAggregateStep(b);
     // The editor's platforms: macOS on Apple Silicon and Intel, Linux x64 and
     // Windows x64 (MSVC); everywhere else there is no MapEditor.
     const map_editor_platform = (target.result.os.tag == .macos and (target.result.cpu.arch == .aarch64 or target.result.cpu.arch == .x86_64)) or
@@ -4019,21 +4031,24 @@ fn addEditorBridge(
             // CTreeItemFactory and the typed root classes without needing a
             // separate static library. The test tiers that already compile
             // these sources into their own executables (test-resource-model,
-            // -references, -comparator) continue to do so; the compile cost
+            // -references, -fidelity) continue to do so; the compile cost
             // of a second copy is negligible against the integration shape
             // this archive gives the resource bridge.
             "Sources/src/ResourceModel/combos.cpp",
-            "Sources/src/ResourceModel/comparator.cpp",
             "Sources/src/ResourceModel/factory.cpp",
             "Sources/src/ResourceModel/future_blob.cpp",
             "Sources/src/ResourceModel/key_frame_tree_item.cpp",
             "Sources/src/ResourceModel/localization.cpp",
+            "Sources/src/ResourceModel/localization_item.cpp",
+            "Sources/src/ResourceModel/editor_env.cpp",
+            "Sources/src/ResourceModel/mfc_value.cpp",
             "Sources/src/ResourceModel/project.cpp",
             "Sources/src/ResourceModel/references.cpp",
             "Sources/src/ResourceModel/tree_item.cpp",
             "Sources/src/ResourceModel/variant.cpp",
             "Sources/src/ResourceModel/xml.cpp",
             "Sources/src/ResourceModel/items/stats_item.cpp",
+            "Sources/src/ResourceModel/items/ai_tiles.cpp",
             "Sources/src/ResourceModel/items/bridge/bridge.cpp",
             "Sources/src/ResourceModel/items/building/building.cpp",
             "Sources/src/ResourceModel/items/campaign/campaign.cpp",
@@ -8364,7 +8379,13 @@ const resource_model_sources = [_][]const u8{
     "Sources/src/ResourceModel/future_blob.cpp",
     "Sources/src/ResourceModel/xml.cpp",
     "Sources/src/ResourceModel/project.cpp",
+    "Sources/src/ResourceModel/mfc_value.cpp",
+    "Sources/src/ResourceModel/editor_env.cpp",
+    "Sources/src/ResourceModel/localization.cpp",
+    "Sources/src/ResourceModel/localization_item.cpp",
+    "Sources/src/ResourceModel/combos.cpp",
     "Sources/src/ResourceModel/items/stats_item.cpp",
+    "Sources/src/ResourceModel/items/ai_tiles.cpp",
     "Sources/src/ResourceModel/items/weapon/weapon.cpp",
     "Sources/src/ResourceModel/items/mine/mine.cpp",
     "Sources/src/ResourceModel/items/trench/trench.cpp",
@@ -8501,6 +8522,7 @@ fn addResourceModelReferencesTest(
         .files = &.{
             "Sources/src/ResourceModel/references.cpp",
             "Sources/src/ResourceModel/combos.cpp",
+            "Sources/src/ResourceModel/editor_env.cpp",
             "Sources/src/ResourceModel/localization.cpp",
             "tools/zig/resource_model_references_test.cpp",
         },
@@ -8534,66 +8556,123 @@ fn addResourceModelReferencesTest(
     if (test_mode == .run) step.dependOn(&run.step);
 }
 
-// T05 test: per-stats-type comparator sweep over every repo-owned project
-// fixture + the planted synthetic-unknown abort path. Writes
-// zig-out/local-test/resource_model/comparator.log with one line per
-// (ext, stats_type) + the planted-abort outcome. The comparator stands for the
-// engine's typed readers (ReadRPGStats<T>, GetAddStats, GetGameStats,
-// SParticleSourceData/SSmokinParticleSourceData, fmtEffect, fmtTerrain,
-// fmtVSO) and uses field tables enumerated from the engine's own
-// operator&(IDataTree&) bodies.
+// S03 T06 (D-11): the comparator over exported game data. Stats files are
+// read by the engine's own StreamIO tree and each struct's operator&, so this
+// is an engine-hosted executable like test-resource-bridge, but data-only: it
+// loads StreamIO and nothing that needs a window or a GPU, so it never skips.
+// It proves the comparator on the shipped Data (copied to zig-out/local-test),
+// plants a one-ulp float, a dropped and an unknown field, and reports the
+// golden comparison as pending until win-home has produced the goldens.
 fn addResourceModelComparatorTest(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    test_mode: build_support.TestMode,
+    optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
-    const flags: []const []const u8 = if (target.result.os.tag == .windows)
-        &(cppflags_debug.* ++ .{"-std=c++17"})
-    else
-        &.{"-std=c++17"};
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addIncludePath(b.path("Sources/src/GFX"));
+    // The Scene sources compiled in below take their StdAfx.h from Scene,
+    // which names the StreamIO headers bare, as the Scene module's own build
+    // resolves them.
+    module.addIncludePath(b.path("Sources/src/StreamIO"));
+    module.addIncludePath(sdl_include);
     module.addCSourceFiles(.{
+        // The particle structs live in the Scene module, which a data-only
+        // host does not load; their readers are compiled in instead. xml.cpp
+        // comes with the EditorBridge archive. The DXT gate decodes with NDxt,
+        // which lives in the Image module the host does not load either.
         .files = &.{
-            "Sources/src/ResourceModel/xml.cpp",
             "Sources/src/ResourceModel/comparator.cpp",
+            "Sources/src/ResourceModel/dxt_gate.cpp",
+            "Sources/src/Image/DxtCodec.cpp",
+            "Sources/src/Scene/ParticleSourceData.cpp",
+            "Sources/src/Scene/SmokinParticleSourceData.cpp",
+            "Sources/src/Scene/Track.cpp",
             "tools/zig/resource_model_comparator_test.cpp",
         },
-        .flags = flags,
+        .flags = cppflagsForOptimize(optimize),
     });
-    switch (target.result.os.tag) {
-        .windows => {
-            addMsvcIncludePaths(b, module, toolchain);
-            addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
-        },
-        .linux => module.linkSystemLibrary("stdc++", .{}),
-        .macos => {
-            addMacosSysrootPaths(b, module, target);
-            module.linkSystemLibrary("c++", .{});
-        },
-        else => {},
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addMacosSysrootPaths(b, module, target);
+    linkMsvcRuntime(module, optimize);
+    if (target.result.os.tag == .windows) {
+        linkComSupport(module, optimize);
+        module.linkSystemLibrary("version", .{});
+        module.linkSystemLibrary("winmm", .{});
+        module.linkSystemLibrary("odbc32", .{});
+        module.linkSystemLibrary("odbccp32", .{});
+        module.linkSystemLibrary("shlwapi", .{});
+        module.linkSystemLibrary("advapi32", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("gdi32", .{});
+        module.linkSystemLibrary("shell32", .{});
     }
+    module.linkLibrary(editor_bridge);
+    module.linkLibrary(map_file);
+    module.linkLibrary(main_lib);
+    module.linkLibrary(randommapgen);
+    module.linkLibrary(formats);
+    module.linkLibrary(misc);
+    module.linkLibrary(lualib);
+    module.linkLibrary(zlib);
+    module.linkLibrary(platform_runtime);
+    linkSdlImport(module, target, sdl_dynamic);
+
     const exe = b.addExecutable(.{ .name = "resource-model-comparator-test", .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    // rdynamic and a loader-relative rpath, as for every executable that loads
+    // engine modules (AGENTS.md).
+    if (target.result.os.tag == .linux) exe.rdynamic = true;
+    switch (target.result.os.tag) {
+        .macos => exe.root_module.addRPathSpecial("@executable_path"),
+        .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
+        else => {},
+    }
+    const stage_suffix = stage_root["zig-out/".len..];
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
+    install_exe.step.dependOn(install_game_step);
+
     const run = b.addRunArtifact(exe);
-    // Fixtures and the comparator.log output are repo-root-relative; the
-    // sweep + planted modes both resolve paths from the project root.
-    run.setCwd(b.path("."));
+    run.setCwd(b.path(stage_root));
+    run.addArg(".");
+    run.addArg(b.pathFromRoot("zig-out/local-test"));
+    // The tracked Data and fixtures, read in place and copied before any edit.
+    run.addArg(b.pathFromRoot("Data"));
+    run.addArg(b.pathFromRoot("tools/zig/fixtures/resource_editor"));
     run.has_side_effects = true;
-    const step = b.step("test-resource-model-comparator", "Per-stats-type comparator sweep (ReadRPGStats<T>/GetGameStats<T>/fmtEffect/fmtTerrain/fmtVSO/ParticleSourceData) + planted-unknown abort verification");
+    run.step.dependOn(&install_exe.step);
+    const step = b.step("test-resource-model-comparator", "D-11 comparator: shipped stats read by the engine's own readers equal themselves, planted float/dropped/unknown/byte/DXT changes fail, goldens reported pending");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }
 
-// S03 T06 aggregate step. The slice-level success-criteria sentence
-// ("test-resource-model is green on five engine targets") must map to a single
-// invocation, so this step depends on every underlying tool T01/T04/T05 added:
-// resource-model-scaffold-test (T01, extended to every project extension),
-// test-resource-model-references (T04), and test-resource-model-comparator (T05).
+// The S03 aggregate: the slice's "test-resource-model is green" is this one
+// invocation. The scaffold, references and fidelity tiers need no engine; the
+// comparator (D-11) hosts the engine's StreamIO data-only, without a window
+// or a GPU, so it runs wherever the engine builds.
 fn addResourceModelAggregateStep(b: *std.Build) void {
-    const step = b.step("test-resource-model", "Aggregate ResourceModel sweep: scaffold round-trip over every project extension, references/combos/localization lists, and per-stats-type comparator with planted-unknown abort");
+    const step = b.step("test-resource-model", "Aggregate ResourceModel sweep: scaffold round trip, references/combos/localization lists, MFC fidelity, and the D-11 comparator over exported game data");
     const scaffold = &(b.top_level_steps.get("resource-model-scaffold-test") orelse @panic("resource-model-scaffold-test is defined by addResourceModelScaffoldTest")).step;
     const references = &(b.top_level_steps.get("test-resource-model-references") orelse @panic("test-resource-model-references is defined by addResourceModelReferencesTest")).step;
     const comparator = &(b.top_level_steps.get("test-resource-model-comparator") orelse @panic("test-resource-model-comparator is defined by addResourceModelComparatorTest")).step;
@@ -8605,12 +8684,13 @@ fn addResourceModelAggregateStep(b: *std.Build) void {
 }
 
 // S03 T06 top-level aggregate: the S16 full-sweep gate pulls this in. Every
-// resource-side tier that needs no engine or GPU: the ResourceModel sweep, the
+// resource-side tier that needs no window or GPU: the ResourceModel sweep (its
+// comparator hosts the engine data-only), the
 // project-XML round trip, the DXT tolerance measurement and the fixture
 // generator's own tests. The engine-hosted resource tiers (test-resource-bridge,
 // preview-scene-spike) stay separate steps, like the Map Editor's.
 fn addResourcesAllAggregateStep(b: *std.Build) void {
-    const step = b.step("test-resources-all", "Aggregate every resource-side tier that needs no engine: test-resource-model, test-resource-xml-roundtrip, test-dxt-tolerance and test-resource-editor-fixtures");
+    const step = b.step("test-resources-all", "Aggregate every resource-side tier that needs no window or GPU: test-resource-model, test-resource-xml-roundtrip, test-dxt-tolerance and test-resource-editor-fixtures");
     for ([_][]const u8{ "test-resource-model", "test-resource-xml-roundtrip", "test-dxt-tolerance", "test-resource-editor-fixtures" }) |name| {
         const member = b.top_level_steps.get(name) orelse std.debug.panic("{s} must be registered before test-resources-all", .{name});
         step.dependOn(&member.step);

@@ -1,349 +1,264 @@
-// T04: measures the per-pixel delta between the MFC-era DXT encoder (ported into
-// Sources/src/ResourceModel/spike/legacy_dxt.cpp from Sources/src/Image/S3TC.cpp @ 40645ad29^) and
-// the portable NDxt encoder. Deterministic: three fixed 256x256 ARGB8888 images (smooth gradient,
-// high-frequency hashed noise, sharp mask) are encoded by both encoders and decoded by NDxt, the
-// absolute per-channel delta is collected, and the max_delta / p99 for each of DXT1, DXT3, DXT5 is
-// written to tools/zig/fixtures/resource_editor/dxt-tolerance.json with the schema
-//   { "schema_version": 1, "formats": { "DXT1": {"max_delta":N,"p99":M}, "DXT3": {...}, "DXT5": {...} } }
-// Per-format histograms land in zig-out/local-test/resource_editor/dxt/histogram-<fmt>.csv so a
-// future golden regression can be read as a distribution, not a scalar.
+// S03 T07: measures the DXT tolerance the D-11 comparator's _c.dds gate reads, on shipped textures.
+//
+// For every file in kFiles (shipped _c.dds per format, picked across content kinds and including
+// real alpha: DXT1 punch-through tilesets, DXT3 chapter maps, fonts and cursors, DXT5 units,
+// buildings, particles and roads), every mip is decoded with NDxt into ARGB8888, the reference.
+// The reference is then encoded twice, by NDxt (the port's encoder) and by NLegacyDxt (the MFC-era
+// S3TC encoder in Sources/src/ResourceModel/spike/legacy_dxt.cpp), and decoded again with NDxt:
+//
+//   ndxt_reencode   reference against NDxt(reference): what re-encoding a shipped texture costs;
+//   legacy_vs_ndxt  NLegacyDxt(reference) against NDxt(reference): the port's export against an
+//                   MFC golden made from the same source image.
+//
+// Absolute per-channel deltas are reduced per file to colour (R, G, B pooled) and alpha max and
+// p99 (NResourceModel::SDxtDelta). The gate per format is the largest of each statistic over its
+// files and both measurements, so every listed file re-encoded by NDxt passes it.
+//
+// argv: <json> <histogram dir> [--check]
+//   without --check  writes <json> (zig build measure-dxt-tolerance);
+//   with --check     measures again and fails unless <json> is byte-identical (zig build
+//                    test-dxt-tolerance), so the committed numbers cannot drift from the code.
+// Paths in kFiles are relative to the working directory, the repository root.
+#include "ResourceModel/dxt_gate.h"
 #include "ResourceModel/spike/legacy_dxt.h"
 #include "Image/DxtCodec.h"
 
 #include <algorithm>
-#include <cstdint>
 #include <cstdio>
-#include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <string>
 #include <vector>
 
 namespace fs = std::filesystem;
+using namespace NResourceModel;
 
 namespace
 {
-	constexpr int kImageSize = 256;
-	constexpr int kPixelsPerImage = kImageSize * kImageSize;
-
-	struct Image
+	struct SFile
 	{
-		std::string name;
-		std::vector<uint32_t> pixels; // ARGB8888, row-major, tightly packed
+		const char *pszFormat;
+		const char *pszPath;
 	};
 
-	// Small LCG so the fixture is reproducible across platforms and compilers; std::mt19937 is
-	// deterministic but needlessly heavy for this seed-and-sample use.
-	class Lcg
+	const SFile kFiles[] = {
+		{ "DXT1", "Data/Terrain/sets/1/tileset_c.dds" },                                   // punch-through alpha
+		{ "DXT1", "Data/Terrain/sets/4/tileset_c.dds" },                                   // punch-through alpha
+		{ "DXT1", "Data/Units/Technics/USSR/Artillery/57_mm_ZIS_2/2_c.dds" },
+		{ "DXT1", "Data/Units/Technics/Allies/SPG/Sexton_II_GB/2a_c.dds" },
+		{ "DXT1", "Data/Units/Technics/German/Artillery/CoastBattery_Todt/1_c.dds" },
+		{ "DXT1", "Data/Scenarios/ScenarioMissions/ussr/moscow/map_c.dds" },
+		{ "DXT3", "Data/Scenarios/Chapters/Allies/Ardennes/map_c.dds" },                   // alpha
+		{ "DXT3", "Data/Scenarios/Campaigns/Allies/map_c.dds" },                           // alpha
+		{ "DXT3", "Data/Fonts/medium/1_c.dds" },                                           // alpha
+		{ "DXT3", "Data/Effects/Particles/smokeSEQ2_c.dds" },                              // alpha
+		{ "DXT3", "Data/Cursor/attack_c.dds" },                                            // alpha
+		{ "DXT3", "Data/Effects/Sprites/Flash/1_c.dds" },                                  // opaque
+		{ "DXT5", "Data/Units/Humans/Allies/Bren/1_c.dds" },                               // alpha
+		{ "DXT5", "Data/Buildings/ussr/summer/admhouse/1_c.dds" },                         // alpha
+		{ "DXT5", "Data/Bridges/asphaltbridge/01/1_c.dds" },                               // alpha
+		{ "DXT5", "Data/Objects/Flora/Africa/Summer/Palm01/1_c.dds" },                     // alpha
+		{ "DXT5", "Data/Effects/Particles/Oblomok01_c.dds" },                              // alpha
+		{ "DXT5", "Data/Terrain/sets/4/Roads3D/road_asphalt_ground_c.dds" },               // alpha
+		{ "DXT5", "Data/Medals/German/Africa/1_c.dds" },                                   // alpha
+		{ "DXT5", "Data/Water/water_c.dds" },                                              // opaque
+	};
+	const char *const kFormats[] = { "DXT1", "DXT3", "DXT5" };
+
+	struct SMeasured
 	{
-	public:
-		explicit Lcg( uint32_t seed ) : m_state( seed ? seed : 1u ) {}
-		uint32_t Next()
-		{
-			m_state = m_state * 1664525u + 1013904223u;
-			return m_state;
-		}
-	private:
-		uint32_t m_state;
+		const SFile *pFile;
+		int nWidth, nHeight, nMips;
+		long long nAlphaPixels; // reference pixels with alpha below 255
+		SDxtStats ndxt, legacy;
 	};
 
-	uint32_t Pack( uint8_t a, uint8_t r, uint8_t g, uint8_t b )
+	NLegacyDxt::Format ToLegacy( const std::string &szFormat )
 	{
-		return ( uint32_t( a ) << 24 ) | ( uint32_t( r ) << 16 ) | ( uint32_t( g ) << 8 ) | uint32_t( b );
+		return szFormat == "DXT1" ? NLegacyDxt::Format::DXT1 : szFormat == "DXT3" ? NLegacyDxt::Format::DXT3 : NLegacyDxt::Format::DXT5;
 	}
 
-	Image MakeGradient()
+	NDxt::Format ToNDxt( const std::string &szFormat )
 	{
-		Image img;
-		img.name = "gradient";
-		img.pixels.resize( kPixelsPerImage );
-		for ( int y = 0; y < kImageSize; ++y )
-		{
-			for ( int x = 0; x < kImageSize; ++x )
-			{
-				const uint8_t r = uint8_t( x );                           // horizontal red ramp
-				const uint8_t g = uint8_t( y );                           // vertical green ramp
-				const uint8_t b = uint8_t( ( x + y ) / 2 );               // diagonal blue ramp
-				const uint8_t a = uint8_t( std::min( 255, x + y ) );      // alpha ramp
-				img.pixels[y * kImageSize + x] = Pack( a, r, g, b );
-			}
-		}
-		return img;
+		return szFormat == "DXT1" ? NDxt::Format::DXT1 : szFormat == "DXT3" ? NDxt::Format::DXT3 : NDxt::Format::DXT5;
 	}
 
-	Image MakeNoise()
+	[[noreturn]] void Fail( const std::string &szMessage )
 	{
-		Image img;
-		img.name = "noise";
-		img.pixels.resize( kPixelsPerImage );
-		Lcg rng( 0xC0FFEEu );
-		for ( int i = 0; i < kPixelsPerImage; ++i )
-		{
-			const uint32_t r0 = rng.Next();
-			const uint32_t r1 = rng.Next();
-			img.pixels[i] = Pack(
-				uint8_t( r1 >> 24 ),
-				uint8_t( r0 >> 24 ),
-				uint8_t( r0 >> 16 ),
-				uint8_t( r0 >> 8 ) );
-		}
-		return img;
+		std::fprintf( stderr, "measure-dxt-tolerance: %s\n", szMessage.c_str() );
+		std::exit( 2 );
 	}
 
-	Image MakeMask()
+	// Encodes one mip with the given encoder and decodes it back with NDxt.
+	SDdsMip RoundTrip( const SDdsMip &reference, const std::string &szFormat, bool bLegacy )
 	{
-		Image img;
-		img.name = "mask";
-		img.pixels.resize( kPixelsPerImage );
-		// Sharp alpha mask with a hard circular edge plus bands of RGB; punchthrough content
-		// is where DXT1 (1-bit alpha) and DXT3/5 encoders disagree most visibly.
-		const int cx = kImageSize / 2;
-		const int cy = kImageSize / 2;
-		const int radiusSq = ( kImageSize / 3 ) * ( kImageSize / 3 );
-		for ( int y = 0; y < kImageSize; ++y )
+		const NDxt::Format format = ToNDxt( szFormat );
+		std::vector<unsigned char> blocks( static_cast<size_t>( NDxt::GetEncodedSize( reference.nWidth, reference.nHeight, format ) ) );
+		if ( bLegacy )
 		{
-			for ( int x = 0; x < kImageSize; ++x )
-			{
-				const int dx = x - cx;
-				const int dy = y - cy;
-				const bool inside = ( dx * dx + dy * dy ) < radiusSq;
-				const uint8_t a = inside ? 255u : 0u;
-				const uint8_t r = ( ( x >> 4 ) & 1 ) ? 255u : 32u;
-				const uint8_t g = ( ( y >> 4 ) & 1 ) ? 224u : 16u;
-				const uint8_t b = ( ( ( x + y ) >> 5 ) & 1 ) ? 192u : 48u;
-				img.pixels[y * kImageSize + x] = Pack( a, r, g, b );
-			}
+			if ( NLegacyDxt::GetEncodedSize( reference.nWidth, reference.nHeight, ToLegacy( szFormat ) ) != static_cast<int>( blocks.size() ) )
+				Fail( "NLegacyDxt and NDxt disagree on the encoded size of " + szFormat );
+			const NLegacyDxt::SurfaceDesc in = { reference.nWidth, reference.nHeight, reference.nWidth * 4, reference.pixels.data() };
+			NLegacyDxt::Encode( in, ToLegacy( szFormat ), blocks.data() );
 		}
-		return img;
+		else
+		{
+			const NDxt::DxtSurfaceDesc in = { reference.nWidth, reference.nHeight, reference.nWidth * 4, reference.pixels.data() };
+			NDxt::Encode( in, format, blocks.data() );
+		}
+		SDdsMip decoded;
+		decoded.nWidth = reference.nWidth;
+		decoded.nHeight = reference.nHeight;
+		decoded.pixels.resize( reference.pixels.size() );
+		const NDxt::DxtSurfaceDesc in = { reference.nWidth, reference.nHeight, 0, blocks.data() };
+		NDxt::Decode( in, format, decoded.pixels.data() );
+		return decoded;
 	}
 
-	const char *FormatName( NDxt::Format f )
+	void AddHistogram( std::vector<long long> &total, const std::vector<long long> &add )
 	{
-		switch ( f )
-		{
-			case NDxt::Format::DXT1: return "DXT1";
-			case NDxt::Format::DXT3: return "DXT3";
-			case NDxt::Format::DXT5: return "DXT5";
-			default: return "DXT?";
-		}
+		for ( size_t i = 0; i < total.size(); ++i )
+			total[i] += add[i];
 	}
 
-	NLegacyDxt::Format ToLegacy( NDxt::Format f )
+	std::string Stats( const SDxtStats &stats )
 	{
-		switch ( f )
-		{
-			case NDxt::Format::DXT1: return NLegacyDxt::Format::DXT1;
-			case NDxt::Format::DXT3: return NLegacyDxt::Format::DXT3;
-			case NDxt::Format::DXT5: return NLegacyDxt::Format::DXT5;
-			default: return NLegacyDxt::Format::DXT1;
-		}
+		std::ostringstream out;
+		out << "{ \"colour_max_delta\": " << stats.nColourMax << ", \"colour_p99\": " << stats.nColourP99
+		    << ", \"alpha_max_delta\": " << stats.nAlphaMax << ", \"alpha_p99\": " << stats.nAlphaP99 << " }";
+		return out.str();
 	}
 
-	bool DecodeAll(
-		const std::vector<uint32_t> &pixels,
-		NDxt::Format format,
-		std::vector<uint32_t> &legacyDecoded,
-		std::vector<uint32_t> &modernDecoded,
-		std::string &diagnostic )
+	void Widen( SDxtStats &gate, const SDxtStats &stats )
 	{
-		const int ndxtEncodedSize = NDxt::GetEncodedSize( kImageSize, kImageSize, format );
-		const int legacyEncodedSize = NLegacyDxt::GetEncodedSize(
-			kImageSize, kImageSize, ToLegacy( format ) );
-		if ( ndxtEncodedSize != legacyEncodedSize )
-		{
-			std::ostringstream msg;
-			msg << "encoded size mismatch for " << FormatName( format )
-				<< ": ndxt=" << ndxtEncodedSize << " legacy=" << legacyEncodedSize;
-			diagnostic = msg.str();
-			return false;
-		}
-
-		std::vector<uint8_t> legacyEncoded;
-		legacyEncoded.resize( size_t( legacyEncodedSize ) );
-		std::vector<uint8_t> modernEncoded;
-		modernEncoded.resize( size_t( ndxtEncodedSize ) );
-
-		NLegacyDxt::SurfaceDesc legacyIn;
-		legacyIn.width = kImageSize;
-		legacyIn.height = kImageSize;
-		legacyIn.pitch = kImageSize * 4;
-		legacyIn.data = pixels.data();
-		NLegacyDxt::Encode( legacyIn, ToLegacy( format ), legacyEncoded.data() );
-
-		NDxt::DxtSurfaceDesc modernIn;
-		modernIn.width = kImageSize;
-		modernIn.height = kImageSize;
-		modernIn.pitch = kImageSize * 4;
-		modernIn.data = pixels.data();
-		NDxt::Encode( modernIn, format, modernEncoded.data() );
-
-		legacyDecoded.assign( kPixelsPerImage, 0u );
-		modernDecoded.assign( kPixelsPerImage, 0u );
-
-		NDxt::DxtSurfaceDesc legacyDecIn;
-		legacyDecIn.width = kImageSize;
-		legacyDecIn.height = kImageSize;
-		legacyDecIn.pitch = 0;
-		legacyDecIn.data = legacyEncoded.data();
-		NDxt::Decode( legacyDecIn, format, legacyDecoded.data() );
-
-		NDxt::DxtSurfaceDesc modernDecIn = legacyDecIn;
-		modernDecIn.data = modernEncoded.data();
-		NDxt::Decode( modernDecIn, format, modernDecoded.data() );
-
-		return true;
-	}
-
-	struct FormatResult
-	{
-		int maxDelta;
-		int p99;
-		std::vector<int> histogram; // 256 bins, counts per absolute delta value
-	};
-
-	FormatResult MeasureFormat( const std::vector<Image> &images, NDxt::Format format )
-	{
-		FormatResult r;
-		r.maxDelta = 0;
-		r.p99 = 0;
-		r.histogram.assign( 256, 0 );
-		for ( const Image &img : images )
-		{
-			std::vector<uint32_t> legacyDecoded;
-			std::vector<uint32_t> modernDecoded;
-			std::string diag;
-			if ( !DecodeAll( img.pixels, format, legacyDecoded, modernDecoded, diag ) )
-			{
-				std::fprintf( stderr, "encode/decode fault: format=%s image=%s detail=%s\n",
-					FormatName( format ), img.name.c_str(), diag.c_str() );
-				std::exit( 2 );
-			}
-			bool firstFaultLogged = false;
-			for ( int i = 0; i < kPixelsPerImage; ++i )
-			{
-				const uint32_t a = legacyDecoded[size_t( i )];
-				const uint32_t b = modernDecoded[size_t( i )];
-				const uint8_t deltas[4] = {
-					uint8_t( std::abs( int( ( a >> 24 ) & 0xff ) - int( ( b >> 24 ) & 0xff ) ) ),
-					uint8_t( std::abs( int( ( a >> 16 ) & 0xff ) - int( ( b >> 16 ) & 0xff ) ) ),
-					uint8_t( std::abs( int( ( a >>  8 ) & 0xff ) - int( ( b >>  8 ) & 0xff ) ) ),
-					uint8_t( std::abs( int( ( a       ) & 0xff ) - int( ( b       ) & 0xff ) ) )
-				};
-				for ( int c = 0; c < 4; ++c )
-				{
-					r.histogram[deltas[c]] += 1;
-					if ( deltas[c] > 0 && !firstFaultLogged && deltas[c] >= 32 )
-					{
-						// Diagnostics gate: large per-channel deltas are rare and useful. Log at
-						// most one per image/format so a future regression surfaces the pixel.
-						const int x = i % kImageSize;
-						const int y = i / kImageSize;
-						std::fprintf( stderr,
-							"delta>=32 format=%s image=%s pixel=(%d,%d) legacy=%08x modern=%08x\n",
-							FormatName( format ), img.name.c_str(), x, y, a, b );
-						firstFaultLogged = true;
-					}
-				}
-			}
-		}
-		// max_delta is the highest bin with a nonzero count; p99 is the smallest D such that
-		// 99% of the collected per-channel deltas are <= D.
-		long long total = 0;
-		for ( int bin : r.histogram )
-			total += bin;
-		long long threshold = ( total * 99 + 99 ) / 100; // ceil(total * 0.99)
-		long long running = 0;
-		bool p99Set = false;
-		for ( int d = 0; d < 256; ++d )
-		{
-			running += r.histogram[d];
-			if ( r.histogram[d] > 0 )
-				r.maxDelta = d;
-			if ( !p99Set && running >= threshold )
-			{
-				r.p99 = d;
-				p99Set = true;
-			}
-		}
-		return r;
-	}
-
-	void WriteHistogram( const fs::path &outDir, const char *formatName, const FormatResult &r )
-	{
-		std::error_code ec;
-		fs::create_directories( outDir, ec );
-		fs::path path = outDir / ( std::string( "histogram-" ) + formatName + ".csv" );
-		std::ofstream f( path, std::ios::binary );
-		if ( !f )
-		{
-			std::fprintf( stderr, "cannot open %s\n", path.string().c_str() );
-			std::exit( 2 );
-		}
-		// CRLF so matches .gitattributes if ever tracked; the output lives under zig-out but
-		// stays consistent with the rest of the tree.
-		f << "delta,count\r\n";
-		for ( int d = 0; d < 256; ++d )
-			f << d << "," << r.histogram[size_t( d )] << "\r\n";
+		gate.nColourMax = std::max( gate.nColourMax, stats.nColourMax );
+		gate.nColourP99 = std::max( gate.nColourP99, stats.nColourP99 );
+		gate.nAlphaMax = std::max( gate.nAlphaMax, stats.nAlphaMax );
+		gate.nAlphaP99 = std::max( gate.nAlphaP99, stats.nAlphaP99 );
 	}
 }
 
 int main( int argc, char **argv )
 {
-	fs::path jsonOut = "tools/zig/fixtures/resource_editor/dxt-tolerance.json";
-	fs::path histogramDir = "zig-out/local-test/resource_editor/dxt";
-	if ( argc >= 2 ) jsonOut = argv[1];
-	if ( argc >= 3 ) histogramDir = argv[2];
-
-	const std::vector<Image> images = { MakeGradient(), MakeNoise(), MakeMask() };
-
-	const NDxt::Format formats[3] = { NDxt::Format::DXT1, NDxt::Format::DXT3, NDxt::Format::DXT5 };
-	FormatResult results[3];
-	for ( int i = 0; i < 3; ++i )
+	if ( argc < 3 )
 	{
-		results[i] = MeasureFormat( images, formats[i] );
-		WriteHistogram( histogramDir, FormatName( formats[i] ), results[i] );
+		std::fprintf( stderr, "usage: %s <json> <histogram dir> [--check]\n", argv[0] );
+		return 2;
+	}
+	const fs::path jsonPath = argv[1], histogramDir = argv[2];
+	const bool bCheck = argc >= 4 && std::string( argv[3] ) == "--check";
+
+	std::vector<SMeasured> measured;
+	// Pooled histograms per format: ndxt colour, ndxt alpha, legacy colour, legacy alpha.
+	std::vector<std::vector<std::vector<long long>>> pooled( 3, std::vector<std::vector<long long>>( 4, std::vector<long long>( 256, 0 ) ) );
+	for ( const SFile &file : kFiles )
+	{
+		std::ifstream in( file.pszPath, std::ios::binary );
+		if ( !in )
+			Fail( std::string( "cannot open " ) + file.pszPath + " (run from the repository root)" );
+		const std::string bytes( ( std::istreambuf_iterator<char>( in ) ), std::istreambuf_iterator<char>() );
+		SDdsImage image;
+		std::string szError;
+		if ( !DecodeDds( bytes, &image, &szError ) )
+			Fail( std::string( file.pszPath ) + ": " + szError );
+		if ( image.szFourCC != file.pszFormat )
+			Fail( std::string( file.pszPath ) + " is " + image.szFourCC + ", listed as " + file.pszFormat );
+		SDxtDelta ndxt, legacy;
+		long long nAlphaPixels = 0;
+		for ( size_t i = 0; i < image.mips.size(); ++i )
+		{
+			const SDdsMip &reference = image.mips[i];
+			for ( unsigned nPixel : reference.pixels )
+				nAlphaPixels += ( nPixel >> 24 ) != 0xff;
+			const SDdsMip modern = RoundTrip( reference, image.szFourCC, false );
+			ndxt.Add( static_cast<int>( i ), reference, modern );
+			legacy.Add( static_cast<int>( i ), RoundTrip( reference, image.szFourCC, true ), modern );
+		}
+		const int nFormat = static_cast<int>( std::find( std::begin( kFormats ), std::end( kFormats ), image.szFourCC ) - std::begin( kFormats ) );
+		AddHistogram( pooled[nFormat][0], ndxt.colour );
+		AddHistogram( pooled[nFormat][1], ndxt.alpha );
+		AddHistogram( pooled[nFormat][2], legacy.colour );
+		AddHistogram( pooled[nFormat][3], legacy.alpha );
+		measured.push_back( { &file, image.mips[0].nWidth, image.mips[0].nHeight, static_cast<int>( image.mips.size() ), nAlphaPixels,
+		                      ndxt.Stats(), legacy.Stats() } );
+		std::fprintf( stderr, "%s %s %dx%d mips=%zu alpha_pixels=%lld ndxt_reencode %s legacy_vs_ndxt %s\n", file.pszFormat, file.pszPath,
+		              image.mips[0].nWidth, image.mips[0].nHeight, image.mips.size(), nAlphaPixels, Stats( measured.back().ndxt ).c_str(),
+		              Stats( measured.back().legacy ).c_str() );
 	}
 
-	std::ostringstream json;
-	// CRLF to match .gitattributes `* text=auto eol=crlf`. Writing LF would make the test
-	// non-idempotent across a fresh checkout (git would materialise CRLF, the test would then
-	// overwrite with LF).
+	// CRLF, as .gitattributes materialises tracked text; LF would make --check fail on a fresh checkout.
 	const char *const eol = "\r\n";
+	std::ostringstream json;
 	json << "{" << eol;
-	json << "  \"schema_version\": 1," << eol;
-	json << "  \"formats\": {" << eol;
-	for ( int i = 0; i < 3; ++i )
+	json << "  \"schema_version\": 2," << eol;
+	json << "  \"measured_by\": \"zig build measure-dxt-tolerance (tools/zig/dxt_tolerance_test.cpp); zig build test-dxt-tolerance re-measures and requires this file unchanged\"," << eol;
+	json << "  \"method\": \"Every mip of each listed shipped _c.dds is decoded with NDxt into ARGB8888, the reference. "
+	        "ndxt_reencode compares the reference with NDxt::Encode then NDxt::Decode of it. "
+	        "legacy_vs_ndxt compares NLegacyDxt::Encode (the MFC-era S3TC encoder) with NDxt::Encode of the same reference, both decoded by NDxt. "
+	        "Absolute per-channel deltas: colour pools R, G and B, alpha is A alone. max is the largest delta, p99 the smallest D with at least 99 percent of deltas <= D, per file. "
+	        "The gate per format is the largest of each statistic over its files and both measurements; the D-11 comparator holds a port _c.dds to it against the golden.\"," << eol;
+	json << "  \"files\": [" << eol;
+	for ( size_t i = 0; i < measured.size(); ++i )
 	{
-		json << "    \"" << FormatName( formats[i] ) << "\": {" << eol;
-		json << "      \"max_delta\": " << results[i].maxDelta << "," << eol;
-		json << "      \"p99\": " << results[i].p99 << eol;
-		json << "    }";
-		if ( i + 1 < 3 )
-			json << ",";
-		json << eol;
+		const SMeasured &m = measured[i];
+		json << "    { \"path\": \"" << m.pFile->pszPath << "\", \"format\": \"" << m.pFile->pszFormat << "\", \"width\": " << m.nWidth
+		     << ", \"height\": " << m.nHeight << ", \"mips\": " << m.nMips << ", \"alpha_pixels\": " << m.nAlphaPixels << "," << eol;
+		json << "      \"ndxt_reencode\": " << Stats( m.ndxt ) << "," << eol;
+		json << "      \"legacy_vs_ndxt\": " << Stats( m.legacy ) << " }" << ( i + 1 < measured.size() ? "," : "" ) << eol;
+	}
+	json << "  ]," << eol;
+	json << "  \"gate\": {" << eol;
+	for ( int f = 0; f < 3; ++f )
+	{
+		SDxtStats gate;
+		for ( const SMeasured &m : measured )
+			if ( m.pFile->pszFormat == std::string( kFormats[f] ) )
+			{
+				Widen( gate, m.ndxt );
+				Widen( gate, m.legacy );
+			}
+		json << "    \"" << kFormats[f] << "\": " << Stats( gate ) << ( f + 1 < 3 ? "," : "" ) << eol;
+		std::fprintf( stderr, "gate %s %s\n", kFormats[f], Stats( gate ).c_str() );
 	}
 	json << "  }" << eol;
 	json << "}" << eol;
-	std::string body = json.str();
+	const std::string body = json.str();
 
-	std::error_code ec;
-	fs::create_directories( jsonOut.parent_path(), ec );
-	std::ofstream f( jsonOut, std::ios::binary );
-	if ( !f )
+	// Pooled histograms, so a failing golden can be read as a distribution.
+	std::error_code error;
+	fs::create_directories( histogramDir, error );
+	for ( int f = 0; f < 3; ++f )
 	{
-		std::fprintf( stderr, "cannot open %s\n", jsonOut.string().c_str() );
-		return 2;
+		std::ofstream csv( histogramDir / ( std::string( "histogram-" ) + kFormats[f] + ".csv" ), std::ios::binary );
+		csv << "delta,ndxt_colour,ndxt_alpha,legacy_colour,legacy_alpha\r\n";
+		for ( int d = 0; d < 256; ++d )
+			csv << d << "," << pooled[f][0][d] << "," << pooled[f][1][d] << "," << pooled[f][2][d] << "," << pooled[f][3][d] << "\r\n";
 	}
-	f.write( body.data(), std::streamsize( body.size() ) );
-	if ( !f )
+
+	if ( bCheck )
 	{
-		std::fprintf( stderr, "write failed for %s\n", jsonOut.string().c_str() );
-		return 2;
+		std::ifstream in( jsonPath, std::ios::binary );
+		const std::string committed( ( std::istreambuf_iterator<char>( in ) ), std::istreambuf_iterator<char>() );
+		if ( committed != body )
+		{
+			size_t nAt = 0;
+			while ( nAt < committed.size() && nAt < body.size() && committed[nAt] == body[nAt] )
+				++nAt;
+			const size_t nLine = body.rfind( '\n', nAt ) == std::string::npos ? 0 : body.rfind( '\n', nAt ) + 1;
+			std::fprintf( stderr, "FAIL %s differs from the measurement at byte %zu; run zig build measure-dxt-tolerance and review.\n  measured: %s\n",
+			              jsonPath.string().c_str(), nAt, body.substr( nLine, body.find( '\n', nAt ) - nLine ).c_str() );
+			return 1;
+		}
+		std::fprintf( stderr, "PASS %s matches the measurement of %zu shipped textures\n", jsonPath.string().c_str(), measured.size() );
+		return 0;
 	}
-	std::fprintf( stderr, "wrote %s (%zu bytes)\n", jsonOut.string().c_str(), body.size() );
-	for ( int i = 0; i < 3; ++i )
-		std::fprintf( stderr, "  %s: max_delta=%d p99=%d\n",
-			FormatName( formats[i] ), results[i].maxDelta, results[i].p99 );
+	fs::create_directories( jsonPath.parent_path(), error );
+	std::ofstream out( jsonPath, std::ios::binary | std::ios::trunc );
+	out.write( body.data(), static_cast<std::streamsize>( body.size() ) );
+	if ( !out )
+		Fail( "write failed for " + jsonPath.string() );
+	std::fprintf( stderr, "wrote %s (%zu bytes)\n", jsonPath.string().c_str(), body.size() );
 	return 0;
 }

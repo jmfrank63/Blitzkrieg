@@ -545,7 +545,6 @@ const char *CompareStatusName( ECompareStatus status )
 		case ECompareStatus::DIFFERENT:        return "DIFFERENT";
 		case ECompareStatus::UNKNOWN_FIELD:    return "UNKNOWN_FIELD";
 		case ECompareStatus::UNREADABLE:       return "UNREADABLE";
-		case ECompareStatus::PENDING_DXT_GATE: return "PENDING_DXT_GATE";
 	}
 	return "?";
 }
@@ -759,7 +758,7 @@ SCompareResult CompareBytes( const std::string &szPortFile, const std::string &s
 	return result;
 }
 
-SCompareResult CompareDxt( const std::string &szPortFile, const std::string &szGoldenFile )
+SCompareResult CompareDxt( const std::string &szPortFile, const std::string &szGoldenFile, const SDxtTolerance &tolerance )
 {
 	std::string port, golden;
 	if ( !ReadFileBytes( szPortFile, &port ) )
@@ -793,11 +792,55 @@ SCompareResult CompareDxt( const std::string &szPortFile, const std::string &szG
 		result.status = ECompareStatus::DIFFERENT;
 		return result;
 	}
-	if ( port != golden )
+	if ( port == golden )
+		return result;
+	// The pixels differ: decode both and hold the deltas to the gate.
+	SDdsImage portImage, goldenImage;
+	std::string szError;
+	if ( !DecodeDds( port, &portImage, &szError ) || !DecodeDds( golden, &goldenImage, &szError ) )
 	{
-		result.status = ECompareStatus::PENDING_DXT_GATE;
-		result.messages.push_back( "DXT pixels differ; the decoded-pixel tolerance gate is S03 T07's" );
+		if ( portImage.szFourCC.empty() && goldenImage.szFourCC.empty() && szError.find( "uncompressed" ) != std::string::npos )
+		{
+			result.status = ECompareStatus::DIFFERENT;
+			result.messages.push_back( "uncompressed DDS bytes differ; only DXT textures have a pixel tolerance" );
+			return result;
+		}
+		return Unreadable( "DXT decode: " + szError );
 	}
+	const SDxtStats *pGate = tolerance.Find( portImage.szFourCC );
+	if ( !tolerance.bLoaded )
+		return Unreadable( "DXT pixels differ and no DXT tolerance is loaded (LoadDxtTolerance)" );
+	if ( pGate == nullptr )
+	{
+		result.status = ECompareStatus::DIFFERENT;
+		result.messages.push_back( "DXT pixels differ and dxt-tolerance.json has no gate for " + portImage.szFourCC );
+		return result;
+	}
+	SDxtDelta delta;
+	for ( size_t i = 0; i < portImage.mips.size(); ++i )
+		delta.Add( static_cast<int>( i ), portImage.mips[i], goldenImage.mips[i] );
+	++result.nFieldsCompared;
+	const SDxtStats stats = delta.Stats();
+	const struct { const char *pszName; int nValue, nGate; } kChecks[] = {
+		{ "colour max delta", stats.nColourMax, pGate->nColourMax }, { "colour p99", stats.nColourP99, pGate->nColourP99 },
+		{ "alpha max delta", stats.nAlphaMax, pGate->nAlphaMax }, { "alpha p99", stats.nAlphaP99, pGate->nAlphaP99 },
+	};
+	for ( const auto &check : kChecks )
+		if ( check.nValue > check.nGate )
+			result.messages.push_back( portImage.szFourCC + " " + check.pszName + " " + std::to_string( check.nValue ) + " exceeds the gate " +
+			                           std::to_string( check.nGate ) );
+	char szWorst[160];
+	snprintf( szWorst, sizeof( szWorst ), "largest delta %d at mip %d pixel (%d,%d): port %08x, golden %08x", delta.nWorst, delta.nWorstMip,
+	          delta.nWorstX, delta.nWorstY, delta.nWorstLeft, delta.nWorstRight );
+	if ( !result.messages.empty() )
+	{
+		result.status = ECompareStatus::DIFFERENT;
+		result.messages.push_back( szWorst );
+		return result;
+	}
+	result.messages.push_back( "DXT pixels differ within the " + portImage.szFourCC + " gate: colour max " + std::to_string( stats.nColourMax ) +
+	                           " p99 " + std::to_string( stats.nColourP99 ) + ", alpha max " + std::to_string( stats.nAlphaMax ) + " p99 " +
+	                           std::to_string( stats.nAlphaP99 ) + "; " + szWorst );
 	return result;
 }
 
