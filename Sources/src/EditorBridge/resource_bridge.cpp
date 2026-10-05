@@ -2282,9 +2282,91 @@ std::vector<std::string> FilesBelow( const std::filesystem::path &dir )
 	return files;
 }
 
+// Moves every staged file into data/, all or nothing (D-09). Each live file
+// about to be replaced is first copied into backup; if any move then fails,
+// the files already moved are taken out again (restored from their backup,
+// or removed when they are new, with the folders made for them), so data/ is
+// as it was. A failed restore keeps the backup folder and says where it is.
+bool PromoteStaged( const std::filesystem::path &staging, const std::filesystem::path &backup,
+                    const std::filesystem::path &dataDir, std::string &szError )
+{
+	std::error_code ec;
+	const std::vector<std::string> files = FilesBelow( staging );
+	std::filesystem::remove_all( backup, ec );
+	std::vector<bool> backedUp( files.size(), false );
+	for ( std::size_t i = 0; i < files.size(); ++i )
+	{
+		const std::filesystem::path target = dataDir / files[i];
+		if ( !std::filesystem::is_regular_file( target, ec ) )
+			continue;
+		const std::filesystem::path copy = backup / files[i];
+		std::filesystem::create_directories( copy.parent_path(), ec );
+		if ( ec || !std::filesystem::copy_file( target, copy, std::filesystem::copy_options::overwrite_existing, ec ) )
+		{
+			szError = "cannot back up " + files[i] + " before replacing it: " + ec.message() + "; nothing was exported";
+			std::filesystem::remove_all( backup, ec );
+			return false;
+		}
+		backedUp[i] = true;
+	}
+
+	std::vector<std::filesystem::path> createdDirs;
+	std::size_t nPromoted = 0;
+	std::string szFailure;
+	for ( ; nPromoted < files.size(); ++nPromoted )
+	{
+		const std::filesystem::path target = dataDir / files[nPromoted];
+		std::vector<std::filesystem::path> missing;
+		for ( std::filesystem::path dir = target.parent_path(); !dir.empty() && !std::filesystem::exists( dir, ec ); dir = dir.parent_path() )
+		{
+			missing.push_back( dir );
+			if ( dir == dir.parent_path() )
+				break;
+		}
+		std::filesystem::create_directories( target.parent_path(), ec );
+		createdDirs.insert( createdDirs.end(), missing.rbegin(), missing.rend() );
+		if ( !ec )
+			std::filesystem::rename( staging / files[nPromoted], target, ec );
+		if ( ec )
+		{
+			szFailure = "cannot move " + files[nPromoted] + " into " + dataDir.string() + ": " + ec.message();
+			break;
+		}
+	}
+	if ( nPromoted == files.size() )
+	{
+		std::filesystem::remove_all( backup, ec );
+		return true;
+	}
+
+	std::vector<std::string> unrestored;
+	for ( std::size_t i = nPromoted; i-- > 0; )
+	{
+		const std::filesystem::path target = dataDir / files[i];
+		if ( backedUp[i] )
+			std::filesystem::rename( backup / files[i], target, ec );
+		else
+			std::filesystem::remove( target, ec );
+		if ( ec )
+			unrestored.push_back( files[i] );
+	}
+	for ( std::size_t i = createdDirs.size(); i-- > 0; )
+		std::filesystem::remove( createdDirs[i], ec );
+	if ( unrestored.empty() )
+	{
+		std::filesystem::remove_all( backup, ec );
+		szError = szFailure + "; the export was rolled back, " + dataDir.string() + " is as it was";
+	}
+	else
+		szError = szFailure + "; the export was rolled back except " + unrestored.front() + ( unrestored.size() > 1 ? " and others" : "" ) +
+		          ", whose originals are kept in " + backup.string();
+	return false;
+}
+
 // One project through its kind's exporter: the exporter writes into a
 // staging folder beside data/, and only when it succeeds are its files
-// moved into data/, so a failed export leaves no half-written resource.
+// promoted into data/, all or nothing, so a failed export leaves no
+// half-written resource.
 bool ExportOne( const NResourceModel::Project &project, const std::string &szProjectPath, const std::string &szExtension,
                 const std::filesystem::path &dataDir, int nFlags, bool bStatsOnly,
                 NResourceModel::SExportOutcome &outcome, std::string &szError )
@@ -2315,20 +2397,9 @@ bool ExportOne( const NResourceModel::Project &project, const std::string &szPro
 		szError = outcome.szError.empty() ? std::string( "the exporter failed" ) : outcome.szError;
 		return false;
 	}
-	for ( const std::string &szRelative : FilesBelow( staging ) )
-	{
-		const std::filesystem::path target = dataDir / szRelative;
-		std::filesystem::create_directories( target.parent_path(), ec );
-		std::filesystem::rename( staging / szRelative, target, ec );
-		if ( ec )
-		{
-			szError = "cannot move " + szRelative + " into " + dataDir.string() + ": " + ec.message();
-			std::filesystem::remove_all( staging, ec );
-			return false;
-		}
-	}
+	const bool bPromoted = PromoteStaged( staging, dataDir.parent_path() / ".bk-export-backup", dataDir, szError );
 	std::filesystem::remove_all( staging, ec );
-	return true;
+	return bPromoted;
 }
 
 // Fills the caller's report. The export has already happened, so a short

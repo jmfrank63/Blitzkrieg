@@ -286,6 +286,10 @@ MFC's dialog fields (export dir, name, version, description), not invented bake 
   sub-folders and file names as MFC. All files of one export are written
   into a staging folder first and moved into place only when the whole
   export succeeded, so a failed export never leaves a half-written resource.
+  The move into place is all or nothing too (D014): every live file it
+  replaces is backed up first (`.bk-export-backup` beside `data/`), and if
+  any move fails the moved files are taken back out, the backups restored,
+  and the message names the failing file and says the export was rolled back.
   Export never writes into shipped `Data/`.
 - **MOD and PAK:** MOD settings write `mod.xml` and seed `modobjects.xml`
   from `editor\modobjects.xml`. "Compress MOD to PAK" writes the archive with

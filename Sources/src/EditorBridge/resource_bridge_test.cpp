@@ -163,6 +163,53 @@ static bool RoundTripOne( BkResSession *pSession, const std::string &szFixtureRo
 	return ok;
 }
 
+// D014 item 4: BkResSave onto a destination that already exists. The safe-save
+// renames <path>.tmp over it, so this proves std::filesystem::rename replaces
+// an existing file (POSIX here; MSVC uses MoveFileEx with replace on Windows,
+// which CI must confirm). The old bytes must land in <path>.bak, no .tmp stays,
+// and saving onto the project's own open path must work the same way.
+static void SaveOverExisting( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const std::string szDir = szScratchRoot + "/save_over_existing";
+	const std::string szIn = szFixtureRoot + "/wpn/project.wpn";
+	const std::string szOut = szDir + "/project.wpn";
+	fs::remove_all( szDir, ec );
+	fs::create_directories( szDir, ec );
+	std::printf( "save-over-existing: start dir=%s\n", szDir.c_str() );
+
+	std::string szExpected;
+	if ( !Check( ReadBytes( szIn, szExpected ), "save-over-existing: fixture readable" ) )
+		return;
+	const std::string szStale = "stale bytes that are not a project\n";
+	{
+		std::ofstream f( szOut, std::ios::binary | std::ios::trunc );
+		f << szStale;
+	}
+
+	// 1. A different file sits at the destination.
+	if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "save-over-existing: opens the fixture" ) )
+		return;
+	Check( BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK, "save-over-existing: BkResSave over an existing file answers OK" );
+	std::string szGot, szBak;
+	Check( ReadBytes( szOut, szGot ) && szGot == szExpected, "save-over-existing: the destination holds the new bytes" );
+	Check( ReadBytes( szOut + ".bak", szBak ) && szBak == szStale, "save-over-existing: .bak holds the replaced bytes" );
+	Check( !fs::exists( szOut + ".tmp", ec ), "save-over-existing: no .tmp is left" );
+
+	// 2. Onto the project's own open path: the session now points at szOut, so
+	// the second save replaces the file just written; .bak becomes the previous save.
+	Check( BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK, "save-over-existing: BkResSave onto the open path answers OK" );
+	szGot.clear();
+	szBak.clear();
+	Check( ReadBytes( szOut, szGot ) && szGot == szExpected, "save-over-existing: the own-path save keeps the bytes" );
+	Check( ReadBytes( szOut + ".bak", szBak ) && szBak == szExpected, "save-over-existing: .bak holds the previous save, replaced not appended" );
+	Check( !fs::exists( szOut + ".tmp", ec ), "save-over-existing: no .tmp is left after the own-path save" );
+	Check( BkResOpen( pSession, szOut.c_str() ) == BK_EDITOR_OK, "save-over-existing: the replaced file re-opens" );
+	BkResClose( pSession );
+	std::printf( "save-over-existing: done\n" );
+}
+
 static bool DeleteRestoreOne( BkResSession *pSession, const std::string &szFixtureRoot,
                               const std::string &szScratchRoot, const Fixture &fx )
 {
@@ -937,6 +984,142 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 }
 
+// S05 T01: export promotion is all-or-nothing (D-09, D014 item 1). A
+// stand-in exporter stages several files; a directory standing at the second
+// file's target makes its move fail on Linux and Windows alike. The files
+// moved before it must go back - a replaced file restored from its backup, a
+// new file and its new folders removed - so the export root is byte-identical
+// to before, with no staging or backup folder left.
+
+namespace ExportRollback
+{
+
+// What the stand-in exporter stages, in promotion (sorted) order.
+static std::vector<std::string> g_staged;
+
+static bool StagingExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &context,
+                             NResourceModel::SExportOutcome &outcome )
+{
+	for ( const std::string &szRelative : g_staged )
+		T10::WriteText( std::filesystem::path( context.szStagingRoot ) / szRelative, "new " + szRelative );
+	outcome.nWritten = int( g_staged.size() );
+	return true;
+}
+
+// Every file and folder below root: generic relative path -> bytes, folders
+// marked with a trailing slash.
+static std::vector<std::pair<std::string, std::string>> Snapshot( const std::filesystem::path &root )
+{
+	std::vector<std::pair<std::string, std::string>> tree;
+	std::error_code ec;
+	for ( std::filesystem::recursive_directory_iterator it( root, ec ), end; !ec && it != end; it.increment( ec ) )
+	{
+		const std::string szRelative = std::filesystem::relative( it->path(), root, ec ).generic_string();
+		std::string szBytes;
+		if ( it->is_directory( ec ) )
+			tree.push_back( std::make_pair( szRelative + "/", std::string() ) );
+		else if ( ReadBytes( it->path().string(), szBytes ) )
+			tree.push_back( std::make_pair( szRelative, szBytes ) );
+		else
+			tree.push_back( std::make_pair( szRelative, std::string( "<unreadable>" ) ) );
+	}
+	std::sort( tree.begin(), tree.end() );
+	return tree;
+}
+
+static void PrintDifference( const std::vector<std::pair<std::string, std::string>> &before,
+                             const std::vector<std::pair<std::string, std::string>> &after )
+{
+	for ( const auto &entry : before )
+		if ( std::find( after.begin(), after.end(), entry ) == after.end() )
+			std::printf( "   before only: %s\n", entry.first.c_str() );
+	for ( const auto &entry : after )
+		if ( std::find( before.begin(), before.end(), entry ) == before.end() )
+			std::printf( "   after only: %s\n", entry.first.c_str() );
+}
+
+// One forced failure: stage files, export, expect FAILED naming szBlocked and
+// the rollback, and an export root identical to the snapshot taken before.
+static void ExpectRollback( BkResSession *pSession, const std::filesystem::path &modDir, const char *pszCase, const std::string &szBlocked )
+{
+	const auto before = Snapshot( modDir );
+	BkResExportReport report = {};
+	const BkEditorStatus status = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
+	const std::string szMessage = BkEditorLastMessage( pSession );
+	if ( !Check( status == BK_EDITOR_FAILED, ( std::string( "export-rollback: " ) + pszCase + ": a blocked move fails the export" ).c_str() ) )
+		std::printf( "   detail: status %d, %s\n", int( status ), szMessage.c_str() );
+	if ( !Check( szMessage.find( szBlocked ) != std::string::npos && szMessage.find( "rolled back" ) != std::string::npos,
+	             ( std::string( "export-rollback: " ) + pszCase + ": the message names the failing file and the rollback" ).c_str() ) )
+		std::printf( "   detail: %s\n", szMessage.c_str() );
+	const auto after = Snapshot( modDir );
+	if ( !Check( before == after, ( std::string( "export-rollback: " ) + pszCase + ": the export root is byte-identical to before" ).c_str() ) )
+		PrintDifference( before, after );
+	std::error_code ec;
+	Check( !std::filesystem::exists( modDir / ".bk-export-staging", ec ) && !std::filesystem::exists( modDir / ".bk-export-backup", ec ),
+	       ( std::string( "export-rollback: " ) + pszCase + ": no staging or backup folder is left" ).c_str() );
+}
+
+static void Run( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "export_rollback";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch, ec );
+	const fs::path modDir = scratch / "RollbackMod";
+	const fs::path data = modDir / "data";
+
+	BkResModSettings settings = {};
+	std::snprintf( settings.export_dir, sizeof( settings.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( settings.name, sizeof( settings.name ), "Rollback Mod" );
+	if ( !Check( BkResModSettingsSet( pSession, &settings ) == BK_EDITOR_OK, "export-rollback: the mod settings point at the scratch mod" ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	const fs::path project = scratch / "project.mdc";
+	fs::copy_file( szFixtureRoot + "/mdc/project.mdc", project, fs::copy_options::overwrite_existing, ec );
+	Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "export-rollback: open the mdc copy" );
+	NResourceModel::RegisterExporter( "mdc", &StagingExporter );
+
+	// Live files the export would replace or leave alone, and a folder (with
+	// a file in it) where the second staged file wants to go.
+	T10::WriteText( data / "medals/rb/1-replaced.xml", "old 1" );
+	T10::WriteText( data / "medals/rb/2-blocked.xml/inside.txt", "a folder in the way" );
+	T10::WriteText( data / "medals/rb/3-replaced.xml", "old 3" );
+	T10::WriteText( data / "medals/rb/untouched.txt", "not part of the export" );
+
+	// Case 1: the first file replaces a live file, the second is blocked.
+	g_staged = { "medals/rb/1-replaced.xml", "medals/rb/2-blocked.xml", "medals/rb/3-replaced.xml", "medals/rb/4-new.xml" };
+	ExpectRollback( pSession, modDir, "replace-then-fail", "medals/rb/2-blocked.xml" );
+
+	// Case 2: the first file is new, in folders that did not exist; both
+	// the file and its folders must go.
+	g_staged = { "medals/a-new/deep/0-new.xml", "medals/rb/2-blocked.xml", "medals/rb/3-replaced.xml" };
+	ExpectRollback( pSession, modDir, "new-then-fail", "medals/rb/2-blocked.xml" );
+
+	// With the folder out of the way the same export goes through whole and
+	// leaves no backup behind.
+	fs::remove_all( data / "medals/rb/2-blocked.xml", ec );
+	g_staged = { "medals/rb/1-replaced.xml", "medals/rb/2-blocked.xml", "medals/rb/3-replaced.xml", "medals/rb/4-new.xml" };
+	BkResExportReport report = {};
+	if ( !Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK, "export-rollback: the unblocked export succeeds" ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	bool bAll = true;
+	for ( const std::string &szRelative : g_staged )
+	{
+		std::string szBytes;
+		bAll = bAll && ReadBytes( ( data / szRelative ).string(), szBytes ) && szBytes == "new " + szRelative;
+	}
+	std::string szUntouched;
+	Check( bAll && ReadBytes( ( data / "medals/rb/untouched.txt" ).string(), szUntouched ) && szUntouched == "not part of the export",
+	       "export-rollback: every staged file is promoted, other files stay" );
+	Check( !fs::exists( modDir / ".bk-export-staging", ec ) && !fs::exists( modDir / ".bk-export-backup", ec ),
+	       "export-rollback: a successful export leaves no staging or backup folder" );
+
+	NResourceModel::RegisterExporter( "mdc", nullptr );
+	BkResClose( pSession );
+}
+
+}
+
 // T11: the preview group (D-16). The real exporters come with each kind's
 // sub-editor slice, so the preview's own path - export into the preview
 // folder, mount it over the data, build through IVisObjBuilder, draw on the
@@ -1298,6 +1481,7 @@ int main( int argc, char **argv )
 	// Round-trip every fixture.
 	for ( int i = 0; i < kFixtureCount; ++i )
 		RoundTripOne( pSession, szFixtureRoot, szScratchRoot, kFixtures[i] );
+	SaveOverExisting( pSession, szFixtureRoot, szScratchRoot );
 
 	// Delete->restore->save on three kinds whose fixture is an MFC item tree
 	// (S03 T02); msh and pcp join when T03/T04 replace their stub fixtures.
@@ -1664,6 +1848,8 @@ int main( int argc, char **argv )
 		BkResSetEffectKeyframes, { kEffectAnimations } );
 
 	T10::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+
+	ExportRollback::Run( pSession, szFixtureRoot, szScratchRoot );
 
 	T11::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 
