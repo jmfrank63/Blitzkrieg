@@ -25,7 +25,7 @@ the file bytes.
 | 8 | `obt` | `ObjectFrm.cpp` | Object Editor | `Object_Composer_Project` | 5313 | `718c7c6` | `mesh-2x2x2.obj` (mesh) | 231 | `c0e3a08` |
 | 9 | `fnc` | `FenceFrm.cpp` | Fence Editor | `Fence_Composer_Project` | 8681 | `fa59853` | `art-16x16.tga` (picture) | 786 | `c702751` |
 | 10 | `bld` | `BuildFrm.cpp` | Building Editor | `Building_Composer_Project` | 17587 | `69176d7` | `art-16x16.tga` (picture) | 786 | `93d2fe6` |
-| 11 | `bdg` | `BridgeFrm.cpp` | Bridge Editor | `Bridge_Composer_Project` | 11704 | `48a051e` | `art-16x16.tga` (picture) | 786 | `5d086cf` |
+| 11 | `bdg` | `BridgeFrm.cpp` | Bridge Editor | `Bridge_Composer_Project` | 27561 | `f9ccb29` | `art-16x16.tga` (picture) | 786 | `5d086cf` |
 | 12 | `pcp` | `ParticleFrm.cpp` | Particle Editor | `Particle_Composer_Project` | 11386 | `76569d7` | `particle-2key.txt` (particle) | 82 | `b19fd48` |
 | 13 | `eff` | `EffectFrm.cpp` | Effect Editor | `Effect_Composer_Project` | 3822 | `2fec21b` | `particle-2key.txt` (particle) | 82 | `b19fd48` |
 | 14 | `til` | `TileSetFrm.cpp` | Terrain Editor | `TileSet_Composer_Project` | 9036 | `811200e` | `art-16x16.tga` (picture) | 786 | `82013ca` |
@@ -76,3 +76,13 @@ damaged and destroyed ones (`2`, `2s`, `2g`, `3`, `3s`, `3g` and the same with a
 `w`: `2w`, `2ws`, `2wg`, `3w`, `3ws`, `3wg`). This tool generates all sixteen as
 16 x 16 32-bit targas like the obt art. The project file is the seed's default
 tree; the tests give it grids and points through the bridge's channels.
+
+## Bridge (bdg) source art
+
+`bdg/project.bdg` has all three damage stages (Whole, Damaged, Destroyed), each with one
+begin, one center and one end span (span indices 0, 1 and 2). Every span names a back
+girder, a front girder and a slab picture `<stage>-<kind>-<part>.tga` (`1-begin-back.tga`,
+`3-end-slab.tga`, ...) with its shadow `<stage>-<kind>-<part>s.tga` beside it. This tool
+generates all fifty-four as 16 x 16 32-bit targas like the obt art. The tiles sit on the
+Whole stage's three spans, the only ones the export reads. The project file is hand-edited,
+not regenerated; it has no own_data and no RPG chunk (the tests give it marks and points).

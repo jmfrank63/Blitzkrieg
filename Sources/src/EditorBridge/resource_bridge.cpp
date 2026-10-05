@@ -44,6 +44,7 @@
 #include "../ResourceModel/items/mesh/mesh.h"
 #include "../ResourceModel/items/object/object_export.h"
 #include "../ResourceModel/items/building/building_export.h"
+#include "../ResourceModel/items/bridge/bridge_export.h"
 #include "../ResourceModel/combos.h"
 #include "../Main/RPGStats.h"
 #include "../Main/iMain.h"
@@ -4105,6 +4106,7 @@ const PreviewKind kPreviewKinds[] =
 	{ 7,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // obt: the composed object sprite, ObjectFrm.cpp:1295
 	{ 8,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // fnc: the active segment's sprite, FenceFrm.cpp:665
 	{ 9,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // bld: the composed whole building sprite "1", BuildFrm.cpp:535
+	{ 10, SGVOT_SPRITE, SGVOGT_UNIT,   false },  // bdg: the first picture of the whole stage's sprite set "1" (the measured shot comes with the preview task)
 };
 
 const PreviewKind *FindPreviewKind( int nKind )
@@ -4931,6 +4933,7 @@ const int kMeshKind = 6;     // "msh", the Unit (mesh) project
 const int kObjectKind = 7;   // "obt", the Object project
 const int kFenceKind = 8;    // "fnc", the Fence project
 const int kBuildingKind = 9; // "bld", the Building project
+const int kBridgeKind = 10;  // "bdg", the Bridge project
 
 NResourceModel::CTreeItem *ChildOfType( NResourceModel::CTreeItem &item, int nType )
 {
@@ -5708,7 +5711,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
 		const std::string szExtension = kKindExtensions[kind];
-		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind;
+		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind || kind == kBridgeKind;
 		if ( !bPorted )
 		{
 			pSession->szMessage = kind == 4
@@ -5741,6 +5744,8 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		bool bObjectFrame = false;
 		SBuildingRPGStats buildingStats;
 		bool bBuildingFrame = false;
+		SBridgeRPGStats bridgeStats;
+		bool bBridgeFrame = false;
 		// The KeyName is what the engine's reader found; a file that holds
 		// none of this kind's stats leaves it empty.
 		switch ( kind )
@@ -5822,6 +5827,24 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				bBuildingFrame = true;
 				break;
 			}
+			case kBridgeKind:
+			{
+				// CBridgeFrame::LoadRPGStats: the engine's own operator& reads it. A
+				// bridge has no name in its stats, so it is its folder's, and the
+				// grids' tiles are placed with the editor camera, as the export reads
+				// them back.
+				if ( !ReadRuntimeStats( statsFile, bridgeStats, pSession, status ) )
+					return status;
+				if ( !bridgeStats.segments.empty() )
+					szKeyName = statsFile.parent_path().filename().string();
+				NResourceModel::SGroundCamera camera;
+				if ( !SceneGroundCamera( camera ) )
+					camera = NResourceModel::DefaultEditorCamera();
+				if ( !szKeyName.empty() )
+					NResourceModel::BridgeStatsToTree( bridgeStats, *pRoot, NResourceModel::GridProjection( camera ), szKeyName );
+				bBridgeFrame = true;
+				break;
+			}
 			case kFenceKind:
 			{
 				// CFenceFrame::LoadRPGStats: the engine's own operator& reads it. The
@@ -5861,7 +5884,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		pProject->document.root.kind = NResourceXml::Node::Element;
 		pProject->document.root.name = kKindTable[kind].pszTag;
 		pProject->root = std::move( pRoot );
-		if ( bObjectFrame || bBuildingFrame )
+		if ( bObjectFrame || bBuildingFrame || bBridgeFrame )
 		{
 			// The frame's chunks sit beside the tree and only a project read from
 			// text keeps such elements (in the root's layout), so the imported
@@ -5875,6 +5898,8 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 			}
 			if ( bBuildingFrame )
 				NResourceModel::WriteBuildingFrameData( pStaged->document.root, buildingStats );
+			else if ( bBridgeFrame )
+				NResourceModel::WriteBridgeFrameData( pStaged->document.root, bridgeStats );
 			else
 				NResourceModel::WriteObjectFrameData( *pStaged, objectFrame );
 			szRendered = NResourceXml::Serialise( pStaged->document );

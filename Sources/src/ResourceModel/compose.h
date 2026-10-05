@@ -97,6 +97,30 @@ bool ComposeNoisePack( const SExportContext &context, const NImageExport::SGamma
 // asserted) or the result cannot be written.
 bool SaveShadowFile( const std::string &szSprite, const std::string &szShadow, const std::string &szTempShadow, SExportOutcome &outcome );
 
+// One picture of a bridge's sprite set (CBridgeFrame::AddSpriteAndShadow): the
+// sprite and its shadow, both already read and of one size, the zero cross in
+// the picture, and the passability grid drawn into the pack (a bridge draws
+// one, for the slab of the first span) with its origin, which MFC passed to
+// the pack builder as the world origin cast to int.
+struct SPackPicture
+{
+	CPtr<IImage> pSprite;
+	CPtr<IImage> pShadow;
+	CVec2 zeroPos = VNULL2;
+	CArray2D<BYTE> pass;
+	CVec2 vPassOrigin = VNULL2;
+};
+
+// CBridgeFrame::ExportFrameData's BuildSpritesPack calls for one damage
+// stage: every picture packed into one sprite set written as <szName>.san with
+// <szName>_c/_l/_h.dds, and the shadows (the shadow with its alpha multiplied
+// by the inverse of the sprite's sharpened alpha, colour cleared) as
+// <szName>s.san with <szName>s_c/_l/_h.dds. A failed pack of the shadows is
+// MFC's silent skip: it leaves the sprites and returns true with
+// *pbShadowFailed set, so the caller can warn.
+bool ComposeSpritesPack( const SExportContext &context, const NImageExport::SGamma &gamma, EGFXPixelFormat lowFormat,
+                         std::vector<SPackPicture> &pictures, const std::string &szName, bool *pbShadowFailed, SExportOutcome &outcome );
+
 // CGridFrame::SaveIconFile: the picture cropped to the bounding box of its
 // non-transparent pixels, scaled to fit 64 x 64 and centred on grey with
 // zero alpha, saved as the TGA szName. A picture with no alpha at all fails.

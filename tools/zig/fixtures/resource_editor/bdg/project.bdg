@@ -235,7 +235,7 @@
 										<item>
 											<default_name>Picture</default_name>
 											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-												<string_value/>
+												<string_value>1-begin-back.tga</string_value>
 											</value>
 										</item>
 									</values>
@@ -248,7 +248,7 @@
 										<item>
 											<default_name>Picture</default_name>
 											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-												<string_value/>
+												<string_value>1-begin-front.tga</string_value>
 											</value>
 										</item>
 									</values>
@@ -261,7 +261,7 @@
 										<item>
 											<default_name>Picture</default_name>
 											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-												<string_value/>
+												<string_value>1-begin-slab.tga</string_value>
 											</value>
 										</item>
 									</values>
@@ -284,13 +284,128 @@
 					<default_name>Center spans</default_name>
 					<display_name>Center spans</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212897" expand="0" SpanIndex="1">
+							<default_name>Span parts</default_name>
+							<display_name>Span parts</display_name>
+							<values/>
+							<childs>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Back girder</default_name>
+									<display_name>Back girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>1-center-back.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Front girder</default_name>
+									<display_name>Front girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>1-center-front.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Slab</default_name>
+									<display_name>Slab</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>1-center-slab.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+							</childs>
+							<LockedTiles>
+								<item x="4" y="5" val="1"/>
+								<item x="5" y="5" val="2"/>
+							</LockedTiles>
+							<Transparences>
+								<item x="4" y="6" val="1"/>
+							</Transparences>
+							<UnLockedTiles>
+								<item x="4" y="4" val="1"/>
+								<item x="5" y="4" val="1"/>
+							</UnLockedTiles>
+						</item>
+					</childs>
 				</item>
 				<item ClassTypeID="285212896" expand="0">
 					<default_name>End spans</default_name>
 					<display_name>End spans</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212897" expand="0" SpanIndex="2">
+							<default_name>Span parts</default_name>
+							<display_name>Span parts</display_name>
+							<values/>
+							<childs>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Back girder</default_name>
+									<display_name>Back girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>1-end-back.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Front girder</default_name>
+									<display_name>Front girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>1-end-front.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Slab</default_name>
+									<display_name>Slab</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>1-end-slab.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+							</childs>
+							<LockedTiles>
+								<item x="6" y="7" val="1"/>
+							</LockedTiles>
+							<Transparences>
+								<item x="6" y="8" val="2"/>
+								<item x="7" y="8" val="1"/>
+							</Transparences>
+							<UnLockedTiles>
+								<item x="7" y="7" val="1"/>
+							</UnLockedTiles>
+						</item>
+					</childs>
 				</item>
 			</childs>
 		</item>
@@ -303,19 +418,169 @@
 					<default_name>Begin spans</default_name>
 					<display_name>Begin spans</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212897" expand="0" SpanIndex="0">
+							<default_name>Span parts</default_name>
+							<display_name>Span parts</display_name>
+							<values/>
+							<childs>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Back girder</default_name>
+									<display_name>Back girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>2-begin-back.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Front girder</default_name>
+									<display_name>Front girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>2-begin-front.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Slab</default_name>
+									<display_name>Slab</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>2-begin-slab.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+							</childs>
+							<LockedTiles/>
+							<Transparences/>
+							<UnLockedTiles/>
+						</item>
+					</childs>
 				</item>
 				<item ClassTypeID="285212895" expand="0">
 					<default_name>Center spans</default_name>
 					<display_name>Center spans</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212897" expand="0" SpanIndex="1">
+							<default_name>Span parts</default_name>
+							<display_name>Span parts</display_name>
+							<values/>
+							<childs>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Back girder</default_name>
+									<display_name>Back girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>2-center-back.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Front girder</default_name>
+									<display_name>Front girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>2-center-front.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Slab</default_name>
+									<display_name>Slab</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>2-center-slab.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+							</childs>
+							<LockedTiles/>
+							<Transparences/>
+							<UnLockedTiles/>
+						</item>
+					</childs>
 				</item>
 				<item ClassTypeID="285212896" expand="0">
 					<default_name>End spans</default_name>
 					<display_name>End spans</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212897" expand="0" SpanIndex="2">
+							<default_name>Span parts</default_name>
+							<display_name>Span parts</display_name>
+							<values/>
+							<childs>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Back girder</default_name>
+									<display_name>Back girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>2-end-back.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Front girder</default_name>
+									<display_name>Front girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>2-end-front.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Slab</default_name>
+									<display_name>Slab</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>2-end-slab.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+							</childs>
+							<LockedTiles/>
+							<Transparences/>
+							<UnLockedTiles/>
+						</item>
+					</childs>
 				</item>
 			</childs>
 		</item>
@@ -328,19 +593,169 @@
 					<default_name>Begin spans</default_name>
 					<display_name>Begin spans</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212897" expand="0" SpanIndex="0">
+							<default_name>Span parts</default_name>
+							<display_name>Span parts</display_name>
+							<values/>
+							<childs>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Back girder</default_name>
+									<display_name>Back girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>3-begin-back.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Front girder</default_name>
+									<display_name>Front girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>3-begin-front.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Slab</default_name>
+									<display_name>Slab</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>3-begin-slab.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+							</childs>
+							<LockedTiles/>
+							<Transparences/>
+							<UnLockedTiles/>
+						</item>
+					</childs>
 				</item>
 				<item ClassTypeID="285212895" expand="0">
 					<default_name>Center spans</default_name>
 					<display_name>Center spans</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212897" expand="0" SpanIndex="1">
+							<default_name>Span parts</default_name>
+							<display_name>Span parts</display_name>
+							<values/>
+							<childs>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Back girder</default_name>
+									<display_name>Back girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>3-center-back.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Front girder</default_name>
+									<display_name>Front girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>3-center-front.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Slab</default_name>
+									<display_name>Slab</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>3-center-slab.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+							</childs>
+							<LockedTiles/>
+							<Transparences/>
+							<UnLockedTiles/>
+						</item>
+					</childs>
 				</item>
 				<item ClassTypeID="285212896" expand="0">
 					<default_name>End spans</default_name>
 					<display_name>End spans</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212897" expand="0" SpanIndex="2">
+							<default_name>Span parts</default_name>
+							<display_name>Span parts</display_name>
+							<values/>
+							<childs>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Back girder</default_name>
+									<display_name>Back girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>3-end-back.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Front girder</default_name>
+									<display_name>Front girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>3-end-front.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Slab</default_name>
+									<display_name>Slab</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>3-end-slab.tga</string_value>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+							</childs>
+							<LockedTiles/>
+							<Transparences/>
+							<UnLockedTiles/>
+						</item>
+					</childs>
 				</item>
 			</childs>
 		</item>
@@ -348,7 +763,27 @@
 			<default_name>Fire points</default_name>
 			<display_name>Fire points</display_name>
 			<values/>
-			<childs/>
+			<childs>
+				<item ClassTypeID="285213003" expand="0">
+					<default_name>Fire point</default_name>
+					<display_name>Fire point</display_name>
+					<values>
+						<item>
+							<default_name>Direction</default_name>
+							<value type="2" flag="2" float_value="45" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Fire effect</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>fixture_fire</string_value>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
 		</item>
 		<item ClassTypeID="285213006" expand="0">
 			<default_name>Smoke points</default_name>
@@ -357,11 +792,25 @@
 				<item>
 					<default_name>Effect explosion</default_name>
 					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-						<string_value/>
+						<string_value>fixture_smoke</string_value>
 					</value>
 				</item>
 			</values>
-			<childs/>
+			<childs>
+				<item ClassTypeID="285213007" expand="0">
+					<default_name>Smoke point</default_name>
+					<display_name>Smoke point</display_name>
+					<values>
+						<item>
+							<default_name>Direction</default_name>
+							<value type="2" flag="2" float_value="90" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
 		</item>
 	</childs>
 </Bridge_Composer_Project>

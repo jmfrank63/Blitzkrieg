@@ -355,6 +355,56 @@ bool ComposeNoisePack( const SExportContext &context, const NImageExport::SGamma
 	       NImageExport::SaveSpritesPack( context, noisePack, szName + ".san", outcome );
 }
 
+bool ComposeSpritesPack( const SExportContext &context, const NImageExport::SGamma &gamma, EGFXPixelFormat lowFormat,
+                         std::vector<SPackPicture> &pictures, const std::string &szName, bool *pbShadowFailed, SExportOutcome &outcome )
+{
+	if ( pbShadowFailed != 0 )
+		*pbShadowFailed = false;
+	CSpritesPackBuilder::CPackParameters spriteParams, shadowParams;
+	for ( SPackPicture &picture : pictures )
+	{
+		CSpritesPackBuilder::SPackParameter param;
+		param.pImage = picture.pSprite;
+		param.center = CTPoint<int>( picture.zeroPos.x, picture.zeroPos.y );
+		param.lockedTiles = picture.pass;
+		param.lockedTilesCenter = CTPoint<int>( picture.vPassOrigin.x, picture.vPassOrigin.y );
+		spriteParams.push_back( param );
+
+		CPtr<IImage> pInverseSprite = picture.pSprite->Duplicate();
+		pInverseSprite->SharpenAlpha( 128 );
+		pInverseSprite->InvertAlpha();
+		RECT rc = { 0, 0, pInverseSprite->GetSizeX(), pInverseSprite->GetSizeY() };
+		picture.pShadow->ModulateAlphaFrom( pInverseSprite, &rc, 0, 0 );
+		picture.pShadow->SetColor( DWORD( 0 ) );
+		CSpritesPackBuilder::SPackParameter shadow;
+		shadow.pImage = picture.pShadow;
+		shadow.center = param.center;
+		shadowParams.push_back( shadow );
+	}
+
+	SSpritesPack spritePack;
+	CPtr<IImage> pPackedSprite = CSpritesPackBuilder::Pack( &spritePack, spriteParams, 256, 5 );
+	if ( pPackedSprite == 0 )
+	{
+		outcome.szError = "cannot pack the sprites of " + szName;
+		return false;
+	}
+	if ( !NImageExport::SaveCompressedTexture( context, pPackedSprite, szName, gamma, lowFormat, outcome ) ||
+	     !NImageExport::SaveSpritesPack( context, spritePack, szName + ".san", outcome ) )
+		return false;
+
+	SSpritesPack shadowPack;
+	CPtr<IImage> pPackedShadow = CSpritesPackBuilder::Pack( &shadowPack, shadowParams, 256, 5 );
+	if ( pPackedShadow == 0 )
+	{
+		if ( pbShadowFailed != 0 )
+			*pbShadowFailed = true;
+		return true;
+	}
+	return NImageExport::SaveShadowTexture( context, pPackedShadow, szName + "s", outcome ) &&
+	       NImageExport::SaveSpritesPack( context, shadowPack, szName + "s.san", outcome );
+}
+
 bool SaveShadowFile( const std::string &szSprite, const std::string &szShadow, const std::string &szTempShadow, SExportOutcome &outcome )
 {
 	CPtr<IImage> pSpriteImage = NImageExport::LoadPicture( szSprite, outcome );

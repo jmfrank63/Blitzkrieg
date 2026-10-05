@@ -277,6 +277,14 @@ const bld_pictures = [_][]const u8{
     "1w.tga", "1ws.tga", "2w.tga", "2ws.tga", "2wg.tga", "3w.tga", "3ws.tga", "3wg.tga",
 };
 
+/// The bdg project's part pictures: per damage stage (1..3) and span kind a back
+/// girder, a front girder and a slab, each with the shadow the exporter derives
+/// from its name (an s before the extension). Same pixels as the obt art
+/// (writeAlphaTga).
+const bdg_stages = [_][]const u8{ "1", "2", "3" };
+const bdg_kinds = [_][]const u8{ "begin", "center", "end" };
+const bdg_parts = [_][]const u8{ "back", "front", "slab" };
+
 /// The fence segments the fnc project names, one sprite and one shadow picture
 /// each in the Fences directory (`fnc/fences/`): <item>.tga and <item>s.tga for
 /// every FENCE_PROPS item, which is where ComposeFences looks. Same pixels as
@@ -442,6 +450,16 @@ fn writeExtensionsMd(buf: *Buf, rows: []const ExtensionsRow) !void {
     try buf.push("`w`: `2w`, `2ws`, `2wg`, `3w`, `3ws`, `3wg`). This tool generates all sixteen as\r\n");
     try buf.push("16 x 16 32-bit targas like the obt art. The project file is the seed's default\r\n");
     try buf.push("tree; the tests give it grids and points through the bridge's channels.\r\n");
+    try buf.push("\r\n");
+    try buf.push("## Bridge (bdg) source art\r\n");
+    try buf.push("\r\n");
+    try buf.push("`bdg/project.bdg` has all three damage stages (Whole, Damaged, Destroyed), each with one\r\n");
+    try buf.push("begin, one center and one end span (span indices 0, 1 and 2). Every span names a back\r\n");
+    try buf.push("girder, a front girder and a slab picture `<stage>-<kind>-<part>.tga` (`1-begin-back.tga`,\r\n");
+    try buf.push("`3-end-slab.tga`, ...) with its shadow `<stage>-<kind>-<part>s.tga` beside it. This tool\r\n");
+    try buf.push("generates all fifty-four as 16 x 16 32-bit targas like the obt art. The tiles sit on the\r\n");
+    try buf.push("Whole stage's three spans, the only ones the export reads. The project file is hand-edited,\r\n");
+    try buf.push("not regenerated; it has no own_data and no RPG chunk (the tests give it marks and points).\r\n");
 }
 
 const RunStats = struct {
@@ -589,6 +607,24 @@ pub fn main(init: std.process.Init) !void {
                 const picture_result = try writeIfChanged(io, out_dir, picture_sub, tga.items());
                 stats.note(picture_result.changed, picture_result.bytes);
                 try log.pushFmt("fixture ext=bld art={s} bytes={d} hash={s}\n", .{ picture_sub, picture_result.bytes, picture_result.tag[0..] });
+            }
+        }
+
+        if (std.mem.eql(u8, fx.ext, "bdg")) {
+            for (bdg_stages) |stage| {
+                for (bdg_kinds) |kind| {
+                    for (bdg_parts) |part| {
+                        for ([_]bool{ false, true }) |shadow| {
+                            var tga: Buf = .{ .a = arena };
+                            const picture = try std.fmt.allocPrint(arena, "{s}-{s}-{s}{s}.tga", .{ stage, kind, part, if (shadow) "s" else "" });
+                            try writeAlphaTga(&tga, picture, shadow);
+                            const picture_sub = try std.fmt.allocPrint(arena, "bdg/{s}", .{picture});
+                            const picture_result = try writeIfChanged(io, out_dir, picture_sub, tga.items());
+                            stats.note(picture_result.changed, picture_result.bytes);
+                            try log.pushFmt("fixture ext=bdg art={s} bytes={d} hash={s}\n", .{ picture_sub, picture_result.bytes, picture_result.tag[0..] });
+                        }
+                    }
+                }
             }
         }
 

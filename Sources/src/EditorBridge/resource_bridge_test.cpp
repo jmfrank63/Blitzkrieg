@@ -1835,6 +1835,11 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// The fixture carries its art (S10 T03); the S10 building tests prove the files.
 				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .bld exports through its S10 exporter" );
 			}
+			else if ( szExt == "bdg" )
+			{
+				// The fixture carries its art (S11 T01); the S11 bridge tests prove the files.
+				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .bdg exports through its S11 exporter" );
+			}
 			else if ( IsPortedExport( szExt ) )
 			{
 				if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S06 exporter" ).c_str() ) )
@@ -1973,8 +1978,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 		Check( BkResImportFromGame( pSession, 4, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".san" ) != 0,
 		       "import: sprite is refused with the reason" );
-		Check( BkResImportFromGame( pSession, 10, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
-		       "import: bdg is refused as not ported yet" );
+		Check( BkResImportFromGame( pSession, 11, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
+		       "import: pcp is refused as not ported yet" );
 		Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 5, "import: a refused import keeps the open project" );
 		Check( BkResImportFromGame( pSession, 5, ( scratch / "no-such" ).string().c_str() ) == BK_EDITOR_DATA_MISSING, "import: a folder without 1.xml is DATA_MISSING" );
 		Check( BkResImportFromGame( pSession, 5, 0 ) == BK_EDITOR_BAD_ARGUMENT, "import: a null path is a bad argument" );
@@ -5383,6 +5388,141 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 
 }
 
+// S11 T01: the bridge exporter and importer on the fixture (a copy under
+// local-test): the three damage stages write their packs, a second forced export is
+// byte-identical, export -> import -> stats-only export is field-equal, and a deleted
+// picture or a sprite and shadow of two sizes are refusals that name the file.
+namespace S11Bridge
+{
+
+namespace fs = std::filesystem;
+
+static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s11-bridge";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "bridge";
+	fs::create_directories( projectDir, ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / "bdg", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), projectDir / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / "project.bdg";
+	if ( !Check( fs::is_regular_file( project, ec ) && fs::is_regular_file( projectDir / "1-begin-slab.tga", ec ), "bridge: the fixture and its source art are copied" ) )
+		return;
+
+	const fs::path modDir = scratch / "mod";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S11 bridge" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "bridge: the mod folder is set" );
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "bridge: project.bdg opens" ) )
+		return;
+	BkResExportReport report = {};
+	BkResWarning warnings[32] = {};
+	const auto Export = [&]( unsigned flags ) {
+		report = {};
+		report.warnings = warnings;
+		report.warnings_capacity = 32;
+		return BkResExport( pSession, flags, &report );
+	};
+	if ( !Check( Export( BK_RES_EXPORT_FORCE ) == BK_EDITOR_OK && report.written >= 1, "bridge: the fixture exports" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return;
+	}
+	BkResClose( pSession );
+	const fs::path xml = S09Object::FindFile( modDir / "data", "1.xml" );
+	if ( !Check( !xml.empty(), "bridge: a 1.xml is written" ) )
+		return;
+	const fs::path outDir = xml.parent_path();
+	const NResourceModel::SCompareResult self = NResourceModel::CompareStats( NResourceModel::EExportKind::BRIDGE, xml.string(), xml.string() );
+	Check( self.nFieldsCompared > 5 && self.messages.empty(), "bridge: the engine reads the exported 1.xml" );
+	bool bStages = true;
+	for ( const char *pszStage : { "1", "2", "3" } )
+		for ( const char *pszSuffix : { "_c.dds", "_h.dds", "_l.dds", ".san", "s_c.dds", "s_h.dds", "s_l.dds", "s.san" } )
+			bStages = bStages && fs::is_regular_file( outDir / ( std::string( pszStage ) + pszSuffix ), ec );
+	Check( bStages && fs::is_regular_file( outDir / "icon.tga", ec ), "bridge: three damage stages write {_c.dds,_h.dds,_l.dds,.san} and the shadow set, and icon.tga" );
+
+	std::map<std::string, std::string> first;
+	for ( fs::directory_iterator it( outDir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			ReadBytes( it->path().string(), first[it->path().filename().string()] );
+	Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK && Export( BK_RES_EXPORT_FORCE ) == BK_EDITOR_OK, "bridge: the second forced export succeeds" );
+	bool bSame = !first.empty();
+	for ( const auto &entry : first )
+	{
+		std::string szAgain;
+		bSame = bSame && ReadBytes( ( outDir / entry.first ).string(), szAgain ) && szAgain == entry.second;
+		if ( !bSame )
+			std::printf( "   differs after the second export: %s\n", entry.first.c_str() );
+	}
+	Check( bSame, "bridge: a second forced export is byte-identical" );
+	BkResClose( pSession );
+
+	// Refusals name the file: a missing picture, then a shadow of another size.
+	const fs::path broken = scratch / "broken";
+	fs::create_directories( broken, ec );
+	for ( fs::directory_iterator it( projectDir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), broken / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	fs::remove( broken / "1-begin-slab.tga", ec );
+	BkResModSettings mod3 = mod;
+	std::snprintf( mod3.export_dir, sizeof( mod3.export_dir ), "%s", ( scratch / "mod3" ).string().c_str() );
+	BkResModSettingsSet( pSession, &mod3 );
+	if ( Check( BkResOpen( pSession, ( broken / "project.bdg" ).string().c_str() ) == BK_EDITOR_OK, "bridge: the broken copy opens" ) )
+	{
+		const BkEditorStatus status = Export( BK_RES_EXPORT_FORCE );
+		Check( status != BK_EDITOR_OK && std::strstr( BkEditorLastMessage( pSession ), "1-begin-slab" ) != nullptr, "bridge: a missing picture is a refusal naming the file" );
+		BkResClose( pSession );
+	}
+	fs::copy_file( projectDir / "1-begin-slab.tga", broken / "1-begin-slab.tga", fs::copy_options::overwrite_existing, ec );
+	fs::copy_file( fs::path( szFixtureRoot ) / "bdg/art-16x16.tga", broken / "1-begin-slabs.tga", fs::copy_options::overwrite_existing, ec );
+	{
+		// A 17 x 16 shadow: widen the 16 x 16 targa's header so the pair differs in size.
+		std::string szTga;
+		if ( ReadBytes( ( broken / "1-begin-slabs.tga" ).string(), szTga ) && szTga.size() > 18 )
+		{
+			szTga[12] = 17;
+			szTga.append( 4 * 16, '\0' );
+			std::ofstream( broken / "1-begin-slabs.tga", std::ios::binary ).write( szTga.data(), std::streamsize( szTga.size() ) );
+		}
+	}
+	if ( Check( BkResOpen( pSession, ( broken / "project.bdg" ).string().c_str() ) == BK_EDITOR_OK, "bridge: the size-mismatch copy opens" ) )
+	{
+		const BkEditorStatus status = Export( BK_RES_EXPORT_FORCE );
+		Check( status != BK_EDITOR_OK && std::strstr( BkEditorLastMessage( pSession ), "1-begin-slab" ) != nullptr, "bridge: a sprite and shadow of two sizes is a refusal naming the file" );
+		BkResClose( pSession );
+	}
+
+	if ( Check( BkResImportFromGame( pSession, 10, outDir.string().c_str() ) == BK_EDITOR_OK, "bridge: the exported folder imports" ) )
+	{
+		const fs::path mod2 = scratch / "mod2";
+		const bool bExported = S09Object::ExportStatsOnly( pSession, mod2, "S11 bridge re-export", "bdg" );
+		BkResClose( pSession );
+		const fs::path xml2 = S09Object::FindFile( mod2 / "data", "1.xml" );
+		if ( Check( bExported && !xml2.empty(), "bridge: the imported project exports stats-only" ) )
+		{
+			const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::BRIDGE, xml2.string(), xml.string() );
+			int nDifferent = 0;
+			for ( const std::string &szMessage : result.messages )
+				if ( !S09Object::NearFloat( szMessage ) )
+				{
+					++nDifferent;
+					std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+				}
+			std::printf( "ROUNDTRIP bdg fixture: %d fields compared, %d differences\n", result.nFieldsCompared, nDifferent );
+			Check( result.nFieldsCompared > 5 && nDifferent == 0, "bridge: import -> export -> import is field-equal" );
+		}
+	}
+	else
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	std::printf( "GOLDEN bdg pending: the MFC export of bdg/project.bdg is made on win-home only\n" );
+}
+
+}
+
 // S10 T03: the building exporter and importer on the fixture (a copy under
 // local-test): the packs are written, a second forced export is byte-identical,
 // a deleted picture warns, and export -> import -> stats-only export is field-equal.
@@ -6248,6 +6388,8 @@ int main( int argc, char **argv )
 	S10Building::GogBrandenburgertor( pSession, szFixtureRoot, szScratchRoot );
 	// S10 T02: the building's tile-frame grids, sprite position and point children.
 	S09Channels::Building( pSession, szFixtureRoot, szScratchRoot );
+	// S11 T01: the bridge exporter and importer.
+	S11Bridge::Fixture( pSession, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

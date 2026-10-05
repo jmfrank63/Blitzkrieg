@@ -28,6 +28,7 @@ std::map<std::string, FExporter> &Exporters()
 		{ "obt", &ExportObject },
 		{ "fnc", &ExportFence },
 		{ "bld", &ExportBuilding },
+		{ "bdg", &ExportBridge },
 	};
 	return exporters;
 }

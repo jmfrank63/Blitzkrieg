@@ -23,3 +23,6 @@ Re-make the golden whenever `../project.bdg` or its source art changes.
 
 `zig build test-resource-model -Dtest-mode=run` reports `GOLDEN bdg pending: golden missing`. That is
 not a pass: the golden comparison stays open until this folder is filled on win-home.
+
+The project names 54 pictures `<stage>-<kind>-<part>.tga` (with `s` shadows) beside it; `make-resource-fixtures` generates them
+(see `../EXTENSIONS.md`). Status: golden pending win-home.
