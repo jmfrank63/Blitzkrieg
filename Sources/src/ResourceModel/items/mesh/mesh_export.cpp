@@ -15,9 +15,19 @@
 // cannot be loaded fails the export, a platform or gun part that is no node of
 // the model is a warning naming it (MFC stored -1 and went on).
 //
-// Only the stats half is here; the graphics half of ExportFrameData joins it
-// in the next task, so a stats-only export and the full one write the same
-// 1.xml.
+// The graphics half is ExportFrameData (MeshFrm.cpp:1313-1545): every .mod of
+// the combat model's folder copied beside the stats, the six alive and dead
+// season textures, the icons and the localisation texts. As in MFC a texture
+// that cannot be converted does not fail the export: it is a warning (MFC's
+// message box) and the stats are written all the same, so a stats-only export
+// and the full one write the same 1.xml.
+//
+// The up-to-date check ports FindMaximalSourceTime and FindMinimalExportFileTime
+// (MeshFrm.cpp:2137-2306) with two corrections of MFC's own slips. It looked
+// for 1.tga ... 2a.tga in the export, which the export never writes (it
+// writes .dds), so a mesh was never up to date; the port looks for the
+// textures' _c/_l/_h.dds. And the icon's time was read from the previous
+// texture's path; the port reads icon.tga itself.
 #include "StdAfx.h"
 
 #include <algorithm>
@@ -26,6 +36,7 @@
 #include <filesystem>
 
 #include "../stats_export.h"
+#include "../../image_export.h"
 #include "../tree_item_types.h"
 #include "../../../Main/RPGStats.h"
 #include "../../../Formats/fmtMesh.h"
@@ -712,6 +723,190 @@ bool FillRPGStats( SMechUnitRPGStats &rpgStats, const CTreeItem &rootItem, const
 	return true;
 }
 
+// The warning for a picture or model the export could not take: outcome's
+// error moved to the warnings, as MFC's message box did not stop the export.
+void WarnLastError( SExportOutcome &outcome, const std::string &szPrefix )
+{
+	outcome.warnings.push_back( szPrefix + outcome.szError );
+	outcome.szError.clear();
+}
+
+// The alive and dead textures of the Graphics Info item and the file each is
+// written as, in MFC's order.
+struct STexture
+{
+	int nValue;
+	const char *pszName;
+	const char *pszWhat;
+};
+const STexture kTextures[] =
+{
+	{ 3, "1", "alive summer texture" }, { 4, "1w", "alive winter texture" }, { 5, "1a", "alive africa texture" },
+	{ 6, "2", "dead summer texture" }, { 7, "2w", "dead winter texture" }, { 8, "2a", "dead africa texture" },
+};
+
+// The pictures of the project folder MFC converted without asking whether
+// they exist: an absent one was no error.
+const char *const kOptionalPictures[][2] =
+{
+	{ "icon512", "icon512.tga" }, { "1p", "1p.tga" }, { "1pw", "1pw.tga" }, { "1pa", "1pa.tga" },
+};
+
+bool IsFile( const fs::path &file )
+{
+	std::error_code ec;
+	return fs::is_regular_file( file, ec );
+}
+
+// ConvertAndSaveImage( source, dest ) with a warning for what MFC's version
+// returned false for.
+void ConvertPicture( const SExportContext &context, const fs::path &source, const std::string &szName, const std::string &szWhat,
+                     const NImageExport::SGamma &gamma, SExportOutcome &outcome )
+{
+	if ( !NImageExport::ConvertAndSaveImage( context, source.string(), szName, gamma, outcome ) )
+		WarnLastError( outcome, szWhat + ": " );
+}
+
+// The two icons of ExportFrameData from <project folder>\icon.tga: icon.tga
+// at 64 x 64 on grey, and icon at 128 x 128 holding the 90 x 90 picture.
+void ExportIcons( const SExportContext &context, const std::string &szResultDir, const NImageExport::SGamma &gamma, SExportOutcome &outcome )
+{
+	const fs::path source = FoldedFile( ProjectDirectory( context ) + "icon.tga" );
+	if ( !IsFile( source ) )
+		return;
+	CPtr<IImage> pImage = NImageExport::LoadPicture( source.string(), outcome );
+	if ( pImage == 0 )
+	{
+		WarnLastError( outcome, "icon: " );
+		return;
+	}
+	IImageProcessor *pIP = GetImageProcessor();
+	{
+		CPtr<IImage> pSmallImage = pIP->CreateScaleBySize( pImage, 64, 64, ISM_LANCZOS3 );
+		CPtr<IImage> p64Image = pIP->CreateImage( 64, 64 );
+		SColor col;
+		col.r = col.g = col.b = 146;
+		col.a = 0;
+		p64Image->Set( col );
+		RECT rc = { 0, 0, 64, 64 };
+		p64Image->CopyFromAB( pSmallImage, &rc, 0, 0 );
+		if ( !NImageExport::SaveTga( context, p64Image, szResultDir + "icon.tga", outcome ) )
+			WarnLastError( outcome, "icon.tga: " );
+	}
+	{
+		if ( pImage->GetSizeX() != 90 || pImage->GetSizeY() != 90 )
+			pImage = pIP->CreateScaleBySize( pImage, 90, 90, ISM_LANCZOS3 );
+		CPtr<IImage> p128Image = pIP->CreateImage( 128, 128 );
+		p128Image->Set( SColor( 0 ) );
+		RECT rc = { 0, 0, 90, 90 };
+		p128Image->CopyFrom( pImage, &rc, 0, 0 );
+		if ( !NImageExport::SaveCompressedTexture( context, p128Image, szResultDir + "icon", gamma, outcome ) )
+			WarnLastError( outcome, "icon: " );
+	}
+}
+
+// MyCopyFile of one localisation source beside the exported unit; a source
+// that is not there is a warning.
+void CopyLocalization( const SExportContext &context, const std::string &szSource, const std::string &szName, SExportOutcome &outcome )
+{
+	if ( !NImageExport::CopyFileInto( context, ModelFile( context, szSource ).string(), szName, outcome ) )
+		WarnLastError( outcome, "" );
+}
+
+// The *.mod files of one folder, as NFile::EnumerateFiles found them, by name.
+std::vector<fs::path> ModFiles( const fs::path &dir )
+{
+	std::vector<fs::path> files;
+	std::error_code ec;
+	for ( fs::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+	{
+		std::string szExtension = it->path().extension().string();
+		std::transform( szExtension.begin(), szExtension.end(), szExtension.begin(), []( unsigned char c ) { return char( std::tolower( c ) ); } );
+		if ( szExtension == ".mod" && it->is_regular_file( ec ) )
+			files.push_back( it->path() );
+	}
+	std::sort( files.begin(), files.end() );
+	return files;
+}
+
+// FindMaximalSourceTime: the project and everything the export is made from.
+fs::file_time_type MaximalSourceTime( const SExportContext &context, const CTreeItem &graphics )
+{
+	fs::file_time_type newest = ChangeTime( fs::path( context.szProjectPath ) );
+	for ( int nValue : { 0, 1, 2, 3, 4, 5, 6, 7, 8 } )
+		if ( !ValueStr( graphics, nValue ).empty() )
+			newest = std::max( newest, ChangeTime( ModelFile( context, ValueStr( graphics, nValue ) ) ) );
+	newest = std::max( newest, ChangeTime( FoldedFile( ProjectDirectory( context ) + "icon.tga" ) ) );
+	return newest;
+}
+
+// FindMinimalExportFileTime: the oldest file this export writes. A texture
+// the project does not name, a model it does not have and an icon it does not
+// ship are not written, so they do not hold the export back.
+fs::file_time_type MinimalExportTime( const SExportContext &context, const CTreeItem &graphics, const std::string &szResultDir )
+{
+	const fs::path exported = FoldedFile( ( fs::path( context.szDataRoot ) / ToSlashes( szResultDir ) ).string() );
+	fs::file_time_type oldest = ChangeTime( FoldedChild( exported, "1.xml" ) );
+	for ( int nModel = 0; nModel < 3; nModel++ )
+		if ( nModel == 0 || IsFile( ModelFile( context, ValueStr( graphics, nModel ) ) ) )
+			oldest = std::min( oldest, ChangeTime( FoldedChild( exported, std::to_string( nModel + 1 ) + ".mod" ) ) );
+	for ( const STexture &texture : kTextures )
+		if ( !ValueStr( graphics, texture.nValue ).empty() )
+			for ( const char *pszSuffix : { "_c.dds", "_l.dds", "_h.dds" } )
+				oldest = std::min( oldest, ChangeTime( FoldedChild( exported, std::string( texture.pszName ) + pszSuffix ) ) );
+	if ( IsFile( FoldedFile( ProjectDirectory( context ) + "icon.tga" ) ) )
+		oldest = std::min( oldest, ChangeTime( FoldedChild( exported, "icon.tga" ) ) );
+	return oldest;
+}
+
+// ExportFrameData after the stats, up to the localisation texts.
+void ExportGraphics( const SExportContext &context, const CTreeItem &graphics, const std::string &szResultDir, SExportOutcome &outcome )
+{
+	const NImageExport::SGamma gamma = NImageExport::ReadGammaConfig( ProjectDirectory( context ) );
+
+	const fs::path combatFile = ModelFile( context, ValueStr( graphics, 0 ) );
+	for ( const fs::path &mod : ModFiles( combatFile.parent_path() ) )
+		if ( !NImageExport::CopyFileInto( context, mod.string(), szResultDir + mod.filename().string(), outcome ) )
+			WarnLastError( outcome, "model: " );
+	// The install and transportable models are copied only when they sit in
+	// the combat model's folder; one that sits elsewhere is not exported.
+	for ( int nModel = 1; nModel < 3; nModel++ )
+	{
+		const std::string szRel = ValueStr( graphics, nModel );
+		if ( szRel.empty() )
+			continue;
+		const fs::path file = ModelFile( context, szRel );
+		if ( !IsFile( file ) )
+			outcome.warnings.push_back( std::string( nModel == 1 ? "install" : "transportable" ) + " model " + file.string() + " is not there" );
+		else if ( file.parent_path() != combatFile.parent_path() )
+			outcome.warnings.push_back( std::string( nModel == 1 ? "install" : "transportable" ) + " model " + file.string() + " is not in the combat model's folder and is not exported" );
+	}
+
+	for ( const STexture &texture : kTextures )
+	{
+		const std::string szRel = ValueStr( graphics, texture.nValue );
+		if ( !szRel.empty() )
+			ConvertPicture( context, ModelFile( context, szRel ), szResultDir + texture.pszName, std::string( texture.pszWhat ) + " " + szRel, gamma, outcome );
+	}
+
+	ExportIcons( context, szResultDir, gamma, outcome );
+	for ( const auto &picture : kOptionalPictures )
+	{
+		const fs::path source = FoldedFile( ProjectDirectory( context ) + picture[1] );
+		if ( IsFile( source ) )
+			ConvertPicture( context, source, szResultDir + picture[0], picture[1], gamma, outcome );
+	}
+}
+
+// The localisation texts, copied by a stats-only export too: they are not
+// graphics.
+void CopyLocalizations( const SExportContext &context, const CTreeItem &localization, const std::string &szResultDir, SExportOutcome &outcome )
+{
+	CopyLocalization( context, ValueStr( localization, 0 ), szResultDir + "name.txt", outcome );
+	CopyLocalization( context, ValueStr( localization, 1 ), szResultDir + "desc.txt", outcome );
+	CopyLocalization( context, ValueStr( localization, 2 ), szResultDir + "stats.txt", outcome );
+}
+
 }
 
 bool ExportMesh( const Project &project, const SExportContext &context, SExportOutcome &outcome )
@@ -723,13 +918,33 @@ bool ExportMesh( const Project &project, const SExportContext &context, SExportO
 	if ( !FillRPGStats( rpgStats, *pProject->root, context, outcome ) )
 		return false;
 
+	const CTreeItem *pGraphics = ChildItem( *pProject->root, ETIT_MESH_GRAPHICS_ITEM );
+	const CTreeItem *pLocalization = RequireChild( *pProject->root, ETIT_LOCALIZATION_ITEM, 0, "Localization", outcome );
+	if ( pGraphics == nullptr || pLocalization == nullptr )
+		return false;
+
 	const std::string szFile = StatsFileName( project, context, kMeshAddDir, false );
-	outcome.szObjectName = DirectoryOf( szFile ) + "1";
-	return WriteStats( context, szFile, [&]( IDataTree *pDT )
+	const std::string szResultDir = DirectoryOf( szFile );
+	outcome.szObjectName = szResultDir + "1";
+
+	if ( !context.bForce && !context.bStatsOnly && !context.szDataRoot.empty() &&
+	     MinimalExportTime( context, *pGraphics, szResultDir ) >= MaximalSourceTime( context, *pGraphics ) )
+	{
+		++outcome.nSkipped;
+		return true;
+	}
+
+	if ( !WriteStats( context, szFile, [&]( IDataTree *pDT )
 	{
 		CTreeAccessor tree = pDT;
 		tree.Add( "RPG", &rpgStats );
-	}, outcome );
+	}, outcome ) )
+		return false;
+
+	if ( !context.bStatsOnly )
+		ExportGraphics( context, *pGraphics, szResultDir, outcome );
+	CopyLocalizations( context, *pLocalization, szResultDir, outcome );
+	return true;
 }
 
 }

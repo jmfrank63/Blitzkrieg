@@ -19,6 +19,14 @@ Goldens are made on win-home only; the MFC `editor.exe` does not run on Linux or
 
 Re-make the golden whenever `../project.msh` or its source art changes.
 
+## Source art
+
+The export needs the project's models and pictures beside `../project.msh`: `1.mod`, `2.mod` and
+`3.mod` copied unchanged from the shipped `Data/Units/Technics/German/Artillery/8_8_cm_FlaK18`
+(a unit that ships all three variants), and the generated 16 x 16 targas `1.tga`, `1w.tga`,
+`1a.tga`, `2.tga`, `2w.tga`, `2a.tga` and `icon.tga` (`zig build make-resource-fixtures`). The
+scratch copy win-home makes of the fixture folder carries all of them.
+
 ## Until a golden exists
 
 `zig build test-resource-model -Dtest-mode=run` reports `GOLDEN msh pending: golden missing`. That is

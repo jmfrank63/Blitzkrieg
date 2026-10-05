@@ -1813,10 +1813,10 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			}
 			else if ( szExt == "msh" )
 			{
-				// The fixture names models that do not sit next to it: MFC's "Can not load
-				// combat mechanics file" (S08Mesh proves the export with the shipped models).
-				Check( status == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "Can not load combat mechanics file" ) != 0 && report.written == 0,
-				       "export: .msh without its combat model fails with MFC's message" );
+				// The fixture now carries its models and art (S08 T03): the export succeeds, with
+				// warnings for its locator references. S08Mesh proves the files and the missing
+				// combat model's message on a project without models.
+				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .msh exports through its S08 exporter" );
 			}
 			else if ( IsPortedExport( szExt ) )
 			{
@@ -3410,6 +3410,144 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 	}
 }
 
+
+// A 24-bit targa of the fixture generator, as ARGB. Solid colour, so one pixel
+// is the whole picture.
+static bool ReadSolidTga( const std::filesystem::path &file, unsigned *pArgb )
+{
+	std::string szBytes;
+	if ( !ReadBytes( file.string(), szBytes ) || szBytes.size() < 21 )
+		return false;
+	*pArgb = 0xff000000u | ( unsigned( (unsigned char)szBytes[20] ) << 16 ) | ( unsigned( (unsigned char)szBytes[19] ) << 8 ) | unsigned( (unsigned char)szBytes[18] );
+	return true;
+}
+
+// ExportFrameData on the fixture project: the models, the converted
+// textures, the up-to-date skip and MFC's warning for a missing picture.
+static void Graphics( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s08-mesh-graphics";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "unit";
+	fs::create_directories( projectDir, ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / "msh", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), projectDir / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / "project.msh";
+	if ( !Check( fs::is_regular_file( project, ec ) && fs::is_regular_file( projectDir / "3.mod", ec ), "mesh graphics: the fixture and its source art are copied" ) )
+		return;
+
+	const fs::path modDir = scratch / "mod";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S08 mesh graphics" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "mesh graphics: the mod folder is set" );
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "mesh graphics: project.msh opens" ) )
+		return;
+	BkResExportReport report = {};
+	BkResWarning warnings[32] = {};
+	const auto Export = [&]( unsigned flags ) {
+		report = {};
+		report.warnings = warnings;
+		report.warnings_capacity = 32;
+		return BkResExport( pSession, flags, &report );
+	};
+	if ( !Check( Export( BK_RES_EXPORT_FORCE ) == BK_EDITOR_OK && report.written >= 1, "mesh graphics: the fixture exports" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return;
+	}
+	for ( int i = 0; i < report.warning_count && i < 32; ++i )
+		std::printf( "   mesh graphics warning: %s\n", warnings[i].text );
+
+	fs::path outDir;
+	for ( fs::recursive_directory_iterator it( modDir / "data", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->path().filename() == "1.xml" )
+			outDir = it->path().parent_path();
+	if ( !Check( !outDir.empty(), "mesh graphics: a 1.xml is written" ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+
+	for ( const char *pszModel : { "1.mod", "2.mod", "3.mod" } )
+	{
+		std::string a, b;
+		Check( ReadBytes( ( projectDir / pszModel ).string(), a ) && ReadBytes( ( outDir / pszModel ).string(), b ) && !a.empty() && a == b,
+		       ( std::string( "mesh graphics: " ) + pszModel + " is copied byte-equal" ).c_str() );
+	}
+
+	NResourceModel::SDxtTolerance tolerance;
+	std::string szError;
+	const bool bGate = NResourceModel::LoadDxtTolerance( ( fs::path( szFixtureRoot ) / "dxt-tolerance.json" ).string(), &tolerance, &szError );
+	Check( bGate, ( "mesh graphics: the dxt gate loads " + szError ).c_str() );
+	for ( const char *pszName : { "1", "1w", "1a", "2", "2w", "2a" } )
+	{
+		unsigned nSource = 0;
+		std::string szDds;
+		NResourceModel::SDdsImage decoded;
+		const std::string szLabel = std::string( "mesh graphics: " ) + pszName + "_c.dds";
+		if ( !Check( ReadSolidTga( projectDir / ( std::string( pszName ) + ".tga" ), &nSource ) &&
+		             ReadBytes( ( outDir / ( std::string( pszName ) + "_c.dds" ) ).string(), szDds ) &&
+		             NResourceModel::DecodeDds( szDds, &decoded, &szError ) && !decoded.mips.empty(), ( szLabel + " is written and decodes " + szError ).c_str() ) )
+			continue;
+		const NResourceModel::SDxtStats *pGate = bGate ? tolerance.Find( decoded.szFourCC ) : nullptr;
+		if ( !Check( pGate != nullptr, ( szLabel + " has a gate for " + decoded.szFourCC ).c_str() ) )
+			continue;
+		NResourceModel::SDdsMip source;
+		source.nWidth = decoded.mips[0].nWidth;
+		source.nHeight = decoded.mips[0].nHeight;
+		source.pixels.assign( decoded.mips[0].pixels.size(), nSource );
+		NResourceModel::SDxtDelta delta;
+		delta.Add( 0, decoded.mips[0], source );
+		const NResourceModel::SDxtStats stats = delta.Stats();
+		std::printf( "MESH GRAPHICS %s %s: colour max %d p99 %d, alpha max %d p99 %d (gate %d %d %d %d)\n", pszName, decoded.szFourCC.c_str(), stats.nColourMax, stats.nColourP99,
+		             stats.nAlphaMax, stats.nAlphaP99, pGate->nColourMax, pGate->nColourP99, pGate->nAlphaMax, pGate->nAlphaP99 );
+		Check( stats.nColourMax <= pGate->nColourMax && stats.nColourP99 <= pGate->nColourP99 && stats.nAlphaMax <= pGate->nAlphaMax && stats.nAlphaP99 <= pGate->nAlphaP99,
+		       ( szLabel + " is within the " + decoded.szFourCC + " gate of its source" ).c_str() );
+	}
+	Check( fs::is_regular_file( outDir / "icon.tga", ec ), "mesh graphics: the icon is written" );
+	for ( const char *pszText : { "name.txt", "desc.txt" } )
+	{
+		std::string a, b;
+		Check( ReadBytes( ( projectDir / pszText ).string(), a ) && ReadBytes( ( outDir / pszText ).string(), b ) && !a.empty() && a == b,
+		       ( std::string( "mesh graphics: " ) + pszText + " is copied" ).c_str() );
+	}
+
+	// A second forced export writes the same bytes.
+	std::map<std::string, std::string> first;
+	for ( fs::directory_iterator it( outDir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			ReadBytes( it->path().string(), first[it->path().filename().string()] );
+	Check( Export( BK_RES_EXPORT_FORCE ) == BK_EDITOR_OK, "mesh graphics: the second forced export succeeds" );
+	bool bSame = !first.empty();
+	for ( const auto &entry : first )
+	{
+		std::string szAgain;
+		bSame = bSame && ReadBytes( ( outDir / entry.first ).string(), szAgain ) && szAgain == entry.second;
+		if ( !bSame )
+			std::printf( "   differs after the second export: %s\n", entry.first.c_str() );
+	}
+	Check( bSame, "mesh graphics: a second forced export is byte-identical" );
+
+	// Over an up-to-date export the plain export skips.
+	Check( Export( 0 ) == BK_EDITOR_OK && report.skipped > 0, "mesh graphics: a plain export over an up-to-date one reports skipped" );
+	std::printf( "MESH GRAPHICS skipped=%d written=%d\n", report.skipped, report.written );
+
+	// MFC's message box for a missing picture is a warning and no DDS.
+	fs::remove( projectDir / "1w.tga", ec );
+	fs::remove( outDir / "1w_c.dds", ec );
+	Check( Export( BK_RES_EXPORT_FORCE ) == BK_EDITOR_OK, "mesh graphics: an export with a picture missing still succeeds" );
+	bool bWarned = false;
+	for ( int i = 0; i < report.warning_count && i < 32; ++i )
+		bWarned = bWarned || std::strstr( warnings[i].text, "1w" ) != nullptr;
+	Check( bWarned && !fs::exists( outDir / "1w_c.dds", ec ), "mesh graphics: a deleted 1w.tga warns and leaves no 1w DDS" );
+	BkResClose( pSession );
+}
+
 }
 
 // S06 T05: the preview captures of the mine, trench and squad (D015: MFC's
@@ -4397,6 +4535,7 @@ int main( int argc, char **argv )
 	// S08 T01: the unit exporter against the shipped 8_cm_GrWr34.
 	S08Mesh::Run( pSession, pszRoot, szScratchRoot );
 	S08Mesh::ImportRoundTrips( pSession, pszRoot, szScratchRoot );
+	S08Mesh::Graphics( pSession, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );
