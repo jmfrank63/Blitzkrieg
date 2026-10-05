@@ -41,9 +41,11 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -150,6 +152,9 @@ struct ResourceState
 	// is the root (parent == 0). Kept so BkResNodes can emit the parent id in
 	// one pass without a tree walk.
 	std::unordered_map<int, int> parentOf;
+	// Every live id in tree pre-order, root first. Ids are stable rather than
+	// dense, so BkResNodes walks this instead of 1..nNextNodeId.
+	std::vector<int> preorder;
 	// The lock, if this session holds one. Tracked here rather than on disk so
 	// a lost process cannot leave a stale sentinel pinned to a path; the file
 	// is removed on BkResClose.
@@ -238,6 +243,7 @@ void ResetState( ResourceState &state )
 	state.idToItem.clear();
 	state.itemToId.clear();
 	state.parentOf.clear();
+	state.preorder.clear();
 	state.geometry.clear();
 }
 
@@ -312,7 +318,7 @@ NResourceXml::Node EmitGeometryChild( int nChannel, const GeometryBlob &blob )
 		if ( nHas != 0 )
 		{
 			char buf[64];
-			std::snprintf( buf, sizeof( buf ), "%g,%g", blob.points[0], blob.points[1] );
+			std::snprintf( buf, sizeof( buf ), "%.9g,%.9g", blob.points[0], blob.points[1] );
 			text = buf;
 		}
 	}
@@ -325,7 +331,7 @@ NResourceXml::Node EmitGeometryChild( int nChannel, const GeometryBlob &blob )
 		{
 			if ( i != 0 ) text.push_back( ';' );
 			char buf[96];
-			std::snprintf( buf, sizeof( buf ), "%g,%g,%d,%d",
+			std::snprintf( buf, sizeof( buf ), "%.9g,%.9g,%d,%d",
 				blob.aimed[i].x, blob.aimed[i].y, blob.aimed[i].nAngle, blob.aimed[i].nCone );
 			text += buf;
 		}
@@ -339,7 +345,7 @@ NResourceXml::Node EmitGeometryChild( int nChannel, const GeometryBlob &blob )
 		{
 			if ( i != 0 ) text.push_back( ';' );
 			char buf[64];
-			std::snprintf( buf, sizeof( buf ), "%g,%g", blob.points[2*i], blob.points[2*i + 1] );
+			std::snprintf( buf, sizeof( buf ), "%.9g,%.9g", blob.points[2*i], blob.points[2*i + 1] );
 			text += buf;
 		}
 	}
@@ -473,15 +479,21 @@ bool ParseGeometryChild( const NResourceXml::Node &node, int &nChannel, Geometry
 	return true;
 }
 
-// Walks the tree, hands each item (root first, then descendants in storage
-// order) an id. Called once on Open/New and after any Insert/Delete/Restore
-// that invalidates existing ids - the simplest invariant.
+// Walks the tree (root first, then descendants in storage order) and rebuilds
+// the id tables. Ids are stable: an item keeps the id it already has, and only
+// an item new since the last walk takes the next unused one, so an id the
+// undo history or the geometry map holds still names the same node after an
+// insert, delete, restore or move elsewhere in the tree. Called on Open/New
+// (after ResetState, so numbering starts at 1) and after every structural
+// edit. Every edit that frees an item calls this before allocating another,
+// so a recycled address never inherits a dead item's id.
 void RebuildIds( ResourceState &state )
 {
-	state.nNextNodeId = 0;
+	std::unordered_map<const NResourceModel::CTreeItem *, int> previous;
+	previous.swap( state.itemToId );
 	state.idToItem.clear();
-	state.itemToId.clear();
 	state.parentOf.clear();
+	state.preorder.clear();
 	if ( !state.pProject || !state.pProject->root )
 		return;
 	struct Frame { NResourceModel::CTreeItem *pItem; int nParentId; };
@@ -491,7 +503,9 @@ void RebuildIds( ResourceState &state )
 	{
 		Frame f = stack.back();
 		stack.pop_back();
-		const int nId = ++state.nNextNodeId;
+		auto itPrevious = previous.find( f.pItem );
+		const int nId = itPrevious != previous.end() ? itPrevious->second : ++state.nNextNodeId;
+		state.preorder.push_back( nId );
 		state.idToItem[nId] = f.pItem;
 		state.itemToId[f.pItem] = nId;
 		state.parentOf[nId] = f.nParentId;
@@ -605,6 +619,46 @@ std::unique_ptr<NResourceModel::CTreeItem> ParseSubtree( const std::string &szBl
 	return p;
 }
 
+// The subtree's items in the pre-order RebuildIds numbers them in.
+void CollectPreorder( NResourceModel::CTreeItem *pItem, std::vector<NResourceModel::CTreeItem *> &out )
+{
+	out.push_back( pItem );
+	for ( auto &pChild : pItem->MutableChildren() )
+		CollectPreorder( pChild.get(), out );
+}
+
+// A delete blob leads with the subtree's ids, so BkResRestoreNode can give
+// every node its old id back and the undo history's ids stay valid (the
+// fake bridge does the same). The XML parser skips a leading comment.
+const char *kIdsPrefix = "<!--bk_ids:";
+
+std::string IdsHeader( ResourceState &state, NResourceModel::CTreeItem *pItem )
+{
+	std::vector<NResourceModel::CTreeItem *> items;
+	CollectPreorder( pItem, items );
+	std::string out = kIdsPrefix;
+	for ( std::size_t i = 0; i < items.size(); ++i )
+		out += ( i ? "," : "" ) + std::to_string( state.itemToId[items[i]] );
+	return out + "-->";
+}
+
+std::vector<int> ReadIdsHeader( const std::string &szBlob )
+{
+	std::vector<int> ids;
+	if ( szBlob.compare( 0, std::strlen( kIdsPrefix ), kIdsPrefix ) != 0 )
+		return ids;
+	const std::size_t nEnd = szBlob.find( "-->" );
+	std::size_t i = std::strlen( kIdsPrefix );
+	while ( i < nEnd )
+	{
+		ids.push_back( std::atoi( szBlob.c_str() + i ) );
+		i = szBlob.find( ',', i );
+		if ( i == std::string::npos || i > nEnd ) break;
+		++i;
+	}
+	return ids;
+}
+
 // Finds the container (parent's children vector) that owns the node with id
 // nNodeId, plus its index in it. Returns false if nNodeId is the root or
 // unknown.
@@ -662,36 +716,54 @@ void ExtractGeometryFromTree( ResourceState &state )
 {
 	if ( !state.pProject || !state.pProject->root )
 		return;
-	for ( auto &kv : state.idToItem )
+	// Walk the tree itself, not idToItem: the `_bk_geometry` children erased
+	// below are entries of idToItem too, so iterating it would visit freed
+	// items. Owners are remembered by pointer and keyed by id once the erase
+	// is done and the id tables are rebuilt.
+	struct Found { const NResourceModel::CTreeItem *pOwner; int nChannel; GeometryBlob blob; };
+	std::vector<Found> found;
+	std::vector<NResourceModel::CTreeItem *> stack{ state.pProject->root.get() };
+	while ( !stack.empty() )
 	{
-		const int nNodeId = kv.first;
-		auto &children = kv.second->MutableChildren();
+		NResourceModel::CTreeItem *pOwner = stack.back();
+		stack.pop_back();
+		auto &children = pOwner->MutableChildren();
 		for ( std::size_t i = 0; i < children.size(); )
 		{
 			if ( !NResourceModel::FutureBlob::IsFutureBlob( *children[i] ) )
 			{
+				stack.push_back( children[i].get() );
 				++i;
 				continue;
 			}
 			const auto &node = static_cast<const NResourceModel::FutureBlob &>( *children[i] ).GetNode();
 			if ( node.kind != NResourceXml::Node::Element || node.name != kGeometryTag )
 			{
+				stack.push_back( children[i].get() );
 				++i;
 				continue;
 			}
 			int nChannel = -1;
 			GeometryBlob blob;
 			if ( ParseGeometryChild( node, nChannel, blob ) )
-				state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
+				found.push_back( { pOwner, nChannel, std::move( blob ) } );
 			// Whether parsing succeeded or not, drop the magic child so a
 			// garbled one does not leak into save output.
 			children.erase( children.begin() + i );
 		}
 	}
-	// The erase above invalidated node parent/child relations the id tables
-	// cached; recompute them so a BkResNodes immediately after Open does not
-	// surface a `_bk_geometry` node id that no longer exists.
+	// The erase above freed items the id tables still name. Number the tree
+	// afresh (Open has no ids worth keeping yet) so a BkResNodes right after
+	// Open neither surfaces a `_bk_geometry` node nor leaves a gap.
+	state.itemToId.clear();
+	state.nNextNodeId = 0;
 	RebuildIds( state );
+	for ( Found &f : found )
+	{
+		auto itId = state.itemToId.find( f.pOwner );
+		if ( itId != state.itemToId.end() )
+			state.geometry[ std::make_pair( itId->second, f.nChannel ) ] = std::move( f.blob );
+	}
 }
 
 // Pre-save walker: injects one FutureBlob child per (node_id, channel) in
@@ -920,17 +992,29 @@ BkEditorStatus BkResLock( BkResSession *pSession )
 			return BK_EDITOR_REFUSED;
 		}
 		const std::string szLock = state.szPath + ".lock";
-		std::error_code ec;
-		if ( std::filesystem::exists( szLock, ec ) )
+		// Exclusive create ("x"): the check and the create are one step, so two
+		// editors racing for the same project cannot both get the lock.
+		std::FILE *pLock = std::fopen( szLock.c_str(), "wbx" );
+		if ( pLock == nullptr )
 		{
+			std::error_code ec;
+			if ( !std::filesystem::exists( szLock, ec ) )
+			{
+				pSession->szMessage = "cannot write lock file";
+				return BK_EDITOR_FAILED;
+			}
 			std::string szOwner;
 			ReadFileBytes( szLock, szOwner );
 			pSession->szMessage = szOwner.empty() ? std::string( "lock already held" )
 				: std::string( "lock already held by " ) + szOwner;
 			return BK_EDITOR_REFUSED;
 		}
-		if ( !WriteFileBytes( szLock, FormatLockOwner() ) )
+		const std::string szOwner = FormatLockOwner();
+		const bool bWritten = std::fwrite( szOwner.data(), 1, szOwner.size(), pLock ) == szOwner.size();
+		if ( std::fclose( pLock ) != 0 || !bWritten )
 		{
+			std::error_code ec;
+			std::filesystem::remove( szLock, ec );
 			pSession->szMessage = "cannot write lock file";
 			return BK_EDITOR_FAILED;
 		}
@@ -973,11 +1057,11 @@ BkEditorStatus BkResNodes( BkResSession *pSession, BkResNodeRecord *pOut, int nC
 		{
 			if ( pnCount != nullptr )
 				*pnCount = 0;
-			return BK_EDITOR_OK;
+			pSession->szMessage = "no project is open";
+			return BK_EDITOR_REFUSED;
 		}
-		// Preorder walk, root first - RebuildIds already laid them out in id
-		// order, so iterating 1..nNextNodeId gives the same shape.
-		const int nTotal = state.nNextNodeId;
+		// Preorder walk, root first, as RebuildIds recorded it.
+		const int nTotal = static_cast<int>( state.preorder.size() );
 		if ( pnCount != nullptr )
 			*pnCount = nTotal;
 		if ( pOut == nullptr || nCapacity <= 0 )
@@ -985,7 +1069,7 @@ BkEditorStatus BkResNodes( BkResSession *pSession, BkResNodeRecord *pOut, int nC
 		if ( nCapacity < nTotal )
 			return BK_EDITOR_REFUSED;
 		int nWritten = 0;
-		for ( int nId = 1; nId <= nTotal; ++nId )
+		for ( const int nId : state.preorder )
 		{
 			auto itItem = state.idToItem.find( nId );
 			if ( itItem == state.idToItem.end() )
@@ -1146,7 +1230,7 @@ BkEditorStatus BkResDeleteNode( BkResSession *pSession, int nNodeId, unsigned ch
 			return BK_EDITOR_REFUSED;
 		}
 		// Two-pass size: a null buffer gets just the byte count.
-		const std::string szBlob = SerialiseSubtree( *itItem->second );
+		const std::string szBlob = IdsHeader( state, itItem->second ) + SerialiseSubtree( *itItem->second );
 		const int nTotal = static_cast<int>( szBlob.size() );
 		if ( pnSize != nullptr )
 			*pnSize = nTotal;
@@ -1166,6 +1250,10 @@ BkEditorStatus BkResDeleteNode( BkResSession *pSession, int nNodeId, unsigned ch
 		}
 		pContainer->erase( pContainer->begin() + nAt );
 		RebuildIds( state );
+		// Ids are never reused, so geometry of the removed subtree can never be
+		// reached again; drop it rather than carry it to every later save.
+		for ( auto it = state.geometry.begin(); it != state.geometry.end(); )
+			it = state.idToItem.count( it->first.first ) ? std::next( it ) : state.geometry.erase( it );
 		return BK_EDITOR_OK;
 	} );
 }
@@ -1202,6 +1290,15 @@ BkEditorStatus BkResRestoreNode( BkResSession *pSession, const unsigned char *pB
 		std::size_t nAt = static_cast<std::size_t>( nIndex );
 		if ( nAt > children.size() ) nAt = children.size();
 		NResourceModel::CTreeItem *pInserted = pItem.get();
+		// Seed the old ids where they are still free; RebuildIds keeps a
+		// seeded id and numbers anything else afresh.
+		const std::vector<int> ids = ReadIdsHeader( szBlob );
+		std::vector<NResourceModel::CTreeItem *> items;
+		CollectPreorder( pInserted, items );
+		if ( ids.size() == items.size() )
+			for ( std::size_t i = 0; i < items.size(); ++i )
+				if ( ids[i] > 0 && ids[i] <= state.nNextNodeId && state.idToItem.count( ids[i] ) == 0 )
+					state.itemToId[items[i]] = ids[i];
 		children.insert( children.begin() + nAt, std::move( pItem ) );
 		RebuildIds( state );
 		if ( pnOutId != nullptr )
@@ -1253,6 +1350,15 @@ BkEditorStatus BkResMoveNode( BkResSession *pSession, int nNodeId, int nNewParen
 	} );
 }
 
+/* Entry points the header declares but this slice has not built yet answer
+   BK_EDITOR_FAILED with a message, never a silent OK: a caller must not take
+   an export, a preview or a geometry write that did nothing for success. */
+static BkEditorStatus NotImplemented( BkResSession *pSession, const char *pszWhat )
+{
+	pSession->szMessage = std::string( pszWhat ) + " is not implemented yet";
+	return BK_EDITOR_FAILED;
+}
+
 /* ---- References ------------------------------------------------------- */
 
 BkEditorStatus BkResRefList( BkResSession *pSession, int nType, BkResReferenceEntry *, int, int *pnCount )
@@ -1263,7 +1369,7 @@ BkEditorStatus BkResRefList( BkResSession *pSession, int nType, BkResReferenceEn
 			return BK_EDITOR_BAD_ARGUMENT;
 		if ( pnCount != nullptr )
 			*pnCount = 0;
-		return BK_EDITOR_OK;
+		return NotImplemented( pSession, "BkResRefList" );
 	} );
 }
 
@@ -1695,13 +1801,13 @@ BkEditorStatus fname( BkResSession *pSession, int, BkResPoint2 *, int, int *pnCo
 	return Guarded( pSession, [=]() -> BkEditorStatus \
 	{ \
 		if ( pnCount != 0 ) *pnCount = 0; \
-		return BK_EDITOR_OK; \
+		return NotImplemented( pSession, #fname ); \
 	} ); \
 }
 #define BKRES_SET_POINT2_STUB( fname ) \
 BkEditorStatus fname( BkResSession *pSession, int, const BkResPoint2 *, int ) \
 { \
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } ); \
+	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, #fname ); } ); \
 }
 BKRES_GET_POINT2_STUB( BkResGetFormationPositions )
 BKRES_SET_POINT2_STUB( BkResSetFormationPositions )
@@ -1720,13 +1826,13 @@ BkEditorStatus fname( BkResSession *pSession, int, BkResVec3 *, int, int *pnCoun
 	return Guarded( pSession, [=]() -> BkEditorStatus \
 	{ \
 		if ( pnCount != 0 ) *pnCount = 0; \
-		return BK_EDITOR_OK; \
+		return NotImplemented( pSession, #fname ); \
 	} ); \
 }
 #define BKRES_SET_VEC3_STUB( fname ) \
 BkEditorStatus fname( BkResSession *pSession, int, const BkResVec3 *, int ) \
 { \
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } ); \
+	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, #fname ); } ); \
 }
 BKRES_GET_VEC3_STUB( BkResGetBridgeSpanMarks )
 BKRES_SET_VEC3_STUB( BkResSetBridgeSpanMarks )
@@ -1753,7 +1859,7 @@ BkEditorStatus BkResExport( BkResSession *pSession, int, BkResExportReport *pRep
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		ClearReport( pReport );
-		return BK_EDITOR_OK;
+		return NotImplemented( pSession, "BkResExport" );
 	} );
 }
 
@@ -1762,7 +1868,7 @@ BkEditorStatus BkResExportStatsOnly( BkResSession *pSession, int, BkResExportRep
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		ClearReport( pReport );
-		return BK_EDITOR_OK;
+		return NotImplemented( pSession, "BkResExportStatsOnly" );
 	} );
 }
 
@@ -1771,7 +1877,7 @@ BkEditorStatus BkResBatch( BkResSession *pSession, int, const char *, const char
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		ClearReport( pReport );
-		return BK_EDITOR_OK;
+		return NotImplemented( pSession, "BkResBatch" );
 	} );
 }
 
@@ -1788,45 +1894,45 @@ BkEditorStatus BkResModSettingsGet( BkResSession *pSession, BkResModSettings *pO
 			pOut->bake_compressed = 0;
 			pOut->bake_packed = 0;
 		}
-		return BK_EDITOR_OK;
+		return NotImplemented( pSession, "BkResModSettingsGet" );
 	} );
 }
 
 BkEditorStatus BkResModSettingsSet( BkResSession *pSession, const BkResModSettings * )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
+	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResModSettingsSet" ); } );
 }
 
 BkEditorStatus BkResPackMod( BkResSession *pSession, const char * )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
+	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPackMod" ); } );
 }
 
 /* ---- Preview --------------------------------------------------------- */
 
 BkEditorStatus BkResPreviewBegin( BkResSession *pSession, BkResKind )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
+	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPreviewBegin" ); } );
 }
 
 BkEditorStatus BkResPreviewShow( BkResSession *pSession )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
+	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPreviewShow" ); } );
 }
 
 BkEditorStatus BkResPreviewStop( BkResSession *pSession )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
+	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPreviewStop" ); } );
 }
 
 BkEditorStatus BkResPreviewPlayback( BkResSession *pSession, int )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
+	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPreviewPlayback" ); } );
 }
 
 BkEditorStatus BkResPreviewCamera( BkResSession *pSession, float, float, int )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
+	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPreviewCamera" ); } );
 }
 
 /* ---- Import ----------------------------------------------------------- */
@@ -1837,7 +1943,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind, const cha
 	{
 		if ( pszPath == 0 )
 			return BK_EDITOR_BAD_ARGUMENT;
-		return BK_EDITOR_OK;
+		return NotImplemented( pSession, "BkResImportFromGame" );
 	} );
 }
 

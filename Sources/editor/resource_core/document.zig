@@ -215,9 +215,12 @@ pub const Document = struct {
                 c.undo_blob.deinit(allocator);
                 c.undo_blob = .{ .bytes = scratch };
             },
-            .delete_node => |c| {
+            .delete_node => |*c| {
+                // Both bridges give the node its old id back when it is free,
+                // but the redo must delete whatever id the restore answered.
                 var restored_id: i32 = -1;
                 try bridge_mod.check(bridge.restoreNode(c.blob.bytes, c.parent, c.index, &restored_id));
+                c.node = restored_id;
             },
             .move_node => |c| try bridge_mod.check(bridge.moveNode(c.node, c.before_parent, c.before_index)),
             .geometry => |c| try bridge_mod.check(bridge.geometryWrite(c.node, c.channel, &c.before)),

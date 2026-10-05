@@ -348,7 +348,10 @@ int main( int argc, char **argv )
 		char owner[256] = {};
 		Check( BkResLockOwner( pSession, owner, (int)sizeof( owner ) ) == BK_EDITOR_OK, "BkResLockOwner reads" );
 		Check( owner[0] != 0, "owner string is non-empty" );
+		Check( BkResLock( pSession ) == BK_EDITOR_REFUSED, "a second BkResLock on a held lock is refused" );
 		Check( BkResClose( pSession ) == BK_EDITOR_OK, "BkResClose releases lock" );
+		std::error_code ec;
+		Check( !std::filesystem::exists( szOut + ".lock", ec ), "BkResClose removes the lock file" );
 	}
 
 	// T05: cells family round-trip against bld. Writes passability, locked
@@ -465,7 +468,8 @@ int main( int argc, char **argv )
 		{
 			const int nRoot = 1;
 
-			BkResPoint2 zero = { 1.25f, -2.5f };
+			// 1.2345678f needs nine significant digits: a six-digit %g would lose it.
+			BkResPoint2 zero = { 1.2345678f, -2.5f };
 			Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK, "points: BkResSetZeroPoint" );
 			BkResPoint2 read_zero = { 0, 0 };
 			Check( BkResGetZeroPoint( pSession, nRoot, &read_zero ) == BK_EDITOR_OK, "points: BkResGetZeroPoint" );
@@ -563,6 +567,78 @@ int main( int argc, char **argv )
 				"points-scp: fire points survive save+reopen" );
 			BkResClose( pSession );
 		}
+	}
+
+	// Node ids are stable: a delete or restore elsewhere in the tree leaves
+	// every other id - and the geometry keyed by it - where it was, and a
+	// restored node gets its old id back, so the undo history stays valid.
+	{
+		const std::string szIn = szFixtureRoot + "/bld/project.bld";
+		if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "ids: BkResOpen bld" ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		else
+		{
+			const int nRoot = 1;
+			BkResPoint2 zero = { 3.0f, 4.0f };
+			Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK, "ids: BkResSetZeroPoint" );
+			// The fixture root has one child; give it a second sibling to delete around.
+			const char szExtra[] = "<extra/>";
+			int nExtra = 0;
+			Check( BkResRestoreNode( pSession, reinterpret_cast<const unsigned char *>( szExtra ), int( sizeof( szExtra ) - 1 ), nRoot, 1, &nExtra ) == BK_EDITOR_OK,
+				"ids: add a second child" );
+			int nCount = 0;
+			BkResNodes( pSession, 0, 0, &nCount );
+			std::vector<BkResNodeRecord> nodes( nCount > 0 ? nCount : 1 );
+			BkResNodes( pSession, nodes.data(), nCount, &nCount );
+			std::vector<int> children;
+			for ( int i = 0; i < nCount; ++i )
+				if ( nodes[i].parent == nRoot )
+					children.push_back( nodes[i].id );
+			if ( Check( children.size() >= 2, "ids: the fixture root has two children" ) )
+			{
+				const int nFirst = children[0], nSecond = children[1];
+				int nBlobSize = 0;
+				BkResDeleteNode( pSession, nFirst, 0, 0, &nBlobSize );
+				std::vector<unsigned char> blob( nBlobSize > 0 ? nBlobSize : 1 );
+				Check( BkResDeleteNode( pSession, nFirst, blob.data(), nBlobSize, &nBlobSize ) == BK_EDITOR_OK, "ids: BkResDeleteNode" );
+				int nAfter = 0;
+				BkResNodes( pSession, 0, 0, &nAfter );
+				Check( nAfter == nCount - 1, "ids: the delete removed exactly one node" );
+				std::vector<BkResNodeRecord> after( nAfter > 0 ? nAfter : 1 );
+				BkResNodes( pSession, after.data(), nAfter, &nAfter );
+				bool bSecondKept = false, bFirstGone = true;
+				for ( int i = 0; i < nAfter; ++i )
+				{
+					if ( after[i].id == nSecond && after[i].parent == nRoot ) bSecondKept = true;
+					if ( after[i].id == nFirst ) bFirstGone = false;
+				}
+				Check( bSecondKept, "ids: the surviving sibling keeps its id" );
+				Check( bFirstGone, "ids: the deleted id is gone" );
+				BkResPoint2 read_zero = { 0, 0 };
+				Check( BkResGetZeroPoint( pSession, nRoot, &read_zero ) == BK_EDITOR_OK && read_zero.x == zero.x && read_zero.y == zero.y,
+					"ids: the root's geometry survives a child delete" );
+				int nRestored = 0;
+				Check( BkResRestoreNode( pSession, blob.data(), nBlobSize, nRoot, 0, &nRestored ) == BK_EDITOR_OK, "ids: BkResRestoreNode" );
+				Check( nRestored == nFirst, "ids: a restored node gets its old id back" );
+				BkResNodes( pSession, after.data(), 0, &nAfter );
+				Check( nAfter == nCount, "ids: the restore brought the node count back" );
+			}
+			BkResClose( pSession );
+		}
+		int nClosedCount = -1;
+		Check( BkResNodes( pSession, 0, 0, &nClosedCount ) == BK_EDITOR_REFUSED && nClosedCount == 0, "BkResNodes refuses when no project is open" );
+	}
+
+	// An entry point this slice has not built yet fails loudly instead of
+	// answering OK for work it did not do.
+	{
+		Check( BkResNew( pSession, 0 ) == BK_EDITOR_OK, "stubs: BkResNew" );
+		BkResExportReport report = {};
+		Check( BkResExport( pSession, 0, &report ) == BK_EDITOR_FAILED, "stubs: BkResExport is not a silent OK" );
+		Check( std::strlen( BkEditorLastMessage( pSession ) ) > 0, "stubs: the failure says why" );
+		BkResVec3 key = { 1.0f, 2.0f, 3.0f };
+		Check( BkResSetParticleKeyframes( pSession, 1, &key, 1 ) == BK_EDITOR_FAILED, "stubs: an unbuilt geometry setter is not a silent OK" );
+		BkResClose( pSession );
 	}
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
