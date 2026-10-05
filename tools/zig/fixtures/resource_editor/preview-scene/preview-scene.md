@@ -1,10 +1,11 @@
 # Preview-scene spike (M001 / S01 / T05)
 
-This directory holds the artifacts of the preview-scene spike: the committed
-test harness `tools/zig/preview_scene_spike.cpp`, the one captured TGA per
-preview kind (`mesh.tga`, `sprite.tga`, `particle.tga`) and the per-run log
-`spike.log` produced beside them under `zig-out/local-test/resource_editor/`
-and copied here for each committed capture.
+This note documents the preview-scene spike: the test harness
+`tools/zig/preview_scene_spike.cpp` writes one captured TGA per preview kind
+(`mesh.tga`, `sprite.tga`, `particle.tga`) and a `spike.log` under
+`zig-out/local-test/preview-scene/`. The captures are build output and are not
+committed: while the per-kind visual is missing they are three identical
+empty frames.
 
 Spec cross-reference: D-16 and D-17 of
 `docs/superpowers/specs/2026-09-30-portable-resource-editor-design.md` and
@@ -19,8 +20,7 @@ R018 of `.planning/phases/06-resource-editor-portable-port/06-CONTEXT.md`.
   the engine's own default clear path already produces a measurable share
   of non-black-non-magenta pixels (~0.25 on the Linux agent). The three
   per-kind captures and the `spike.log` live under
-  `zig-out/local-test/preview-scene/`; the committed copies here are from
-  the same run, carried over so a reader without a GPU can see the shape.
+  `zig-out/local-test/preview-scene/`.
 - **The preview-scene bridge path is deferred to S04.** The design (D-16)
   calls for a new `BkResPreviewBegin( kind )` / `BkResPreviewShow( project )`
   pair that mounts an in-memory preview storage over the data, exports the
@@ -30,12 +30,9 @@ R018 of `.planning/phases/06-resource-editor-portable-port/06-CONTEXT.md`.
   stand-in: the camera, the capture, the readback and the TGA layout are
   all exercised; the only thing missing is the per-kind visual object.
 - **No map is opened by this spike.** D-16 says the preview scene is an
-  empty `IScene` without terrain (except road and river, in S13). Not
-  opening a map also keeps the spike away from a Zig 0.16 Linux debug-build
-  trap in `CArray2D::SetZero` (`memset(nullptr, 0, 0)`) that the AI
-  editor's `Clear` path hits before the war fog is sized - the same trap
-  the map-opening tiers (`test-editor-bridge`) hit today. The capture path
-  does not need a map and the preview spec says it should not have one.
+  empty `IScene` without terrain (except road and river, in S13). The
+  capture path does not need a map and the preview spec says it should not
+  have one.
 - **Non-black-non-magenta share on the empty scene is informational, not
   asserted.** The 1 % floor the task plan names is the stronger assertion
   S04 inherits once `IVisObjBuilder` is wired - a mesh / sprite / particle
@@ -133,9 +130,6 @@ The harness writes `spike.log` and `mesh.tga` / `sprite.tga` /
 GPU-capable run (Linux included - the Linux agent that ran this slice
 produced those files). A runner with no GPU logs
 `preview-scene: skipped: no GPU device (...)` to the same path and exits 0.
-The committed copies under this directory are the ones carried over from
-the slice's own run so a reader without the engine built can still read
-the shape; S04 will overwrite them with real per-kind captures.
 
 ## Hand-off to S04
 
@@ -150,8 +144,7 @@ S04 (ResourceEditor preview-scene bridge path) must:
 3. Promote the per-capture non-black-non-magenta share from logged-only to
    a hard `Check( >= 0.01 )` assertion in the spike. The spike's log
    format should stay the same - S04's own tests can parse it.
-4. Fix the Linux debug-build `CArray2D::SetZero` null-pointer trap
-   (`memset(nullptr, 0, 0)` in `Sources/src/Misc/2Darray.h:33`) that blocks
-   `BkEditorOpenMap` on Linux today. Once fixed, S13 (preview road / river)
-   can open `maps\road3d` / `maps\river3d` as the preview terrain the
-   runbook names, without needing to work around this trap.
+4. The Linux debug-build `CArray2D::SetZero` null-pointer trap that used to
+   block `BkEditorOpenMap` is fixed (`3e8afc8a7`), so S13 (preview road /
+   river) can open `maps\road3d` / `maps\river3d` as the preview terrain
+   the runbook names.
