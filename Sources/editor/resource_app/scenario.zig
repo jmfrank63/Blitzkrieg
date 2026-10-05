@@ -59,6 +59,13 @@
 //!   do=keyframe:delete/<i>  key i made the active one and Delete pressed (key 0 is protected)
 //!   do=keyframe:reset       the dock's Reset all
 //!   do=keyframe:zoomx_in|zoomx_out|zoomy_in|zoomy_out   the curve's zoom menu (view only, no undo step)
+//!   do=function_open        the Function window opened by Ctrl+F through the event queue, the docks drawn from then on (do=curve first)
+//!   do=curve_click:<t>/<v>  a left press and release on empty graph space of the displayed widget: adds a key (read back, then undone and redone)
+//!   do=curve_drag:<i>/<t>/<v>   key i pressed on its displayed handle, moved over four frames, released (read back, undone, redone)
+//!   do=curve_delete:<i>     key i selected by a click on its handle, then the Delete key event (read back, undone, redone)
+//!   do=function_close       the Function window closed
+//!   The curve gestures are real SDL mouse and key events on the host's queue, aimed by the widget's own key-to-pixel
+//!   mapping, one frame per step; the stored keys are asserted within one pixel's worth of value.
 //!   do=camera               the preview's Camera button (horizontal against default camera)
 //!   do=particle_info        the Get particle info button, through docks_logic.ParticleStatus; prints the four numbers
 //!   do=source_mode:complex|simple   the Particle source button (docks_logic.SourceToggle: one undo step, the tree items open or close); prints the mode read back
@@ -84,6 +91,7 @@
 //!          span_mark:<begin|end|front|back>=moved|home  the Bridge's mark against the frame's default
 //!          keys:<n>  the curve's stored key count  key:<i>=<x>/<y>  one stored key (within 0.02)
 //!          effect_angle:<deg>  the Direction dock's degrees text for the bridge's stored angle (within 0.1)
+//!          shot_curve_handle:<shot>/<i>  the displayed handle of key i is in the shot, measured at its drawn place
 //!          zoom:<xs>/<ys>  the curve's pixels per step  camera:horizontal|default  the Camera button's state
 //!
 //! `{dir}` (the scratch folder), `{fix}` (the fixtures folder) and `{mods}`
@@ -112,6 +120,7 @@ const docks_logic = @import("docks_logic.zig");
 const mesh = @import("mesh_logic.zig");
 const grid = @import("grid_logic.zig");
 const keyframe = @import("keyframe_logic.zig");
+const docks_mod = @import("docks.zig");
 
 const c = c_bridge.c;
 
@@ -134,10 +143,20 @@ const max_tga_bytes = 64 << 20;
 /// One frame of the interactive loop's drawing: events, the panels over the
 /// engine's frame.
 fn drawFrame(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) host_mod.HostError!void {
+    return drawFrameWithDocks(host, panels, gpa, b, life, null, null);
+}
+
+/// The same frame with the docks drawn after the panels, as the interactive
+/// loop does, once do=function_open has made them.
+fn drawFrameWithDocks(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle, docks: ?*docks_mod.Docks, selected: ?i32) host_mod.HostError!void {
     var event: sdl3.c.SDL_Event = undefined;
     while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
     host.beginFrame();
     panels.draw(gpa, b, life, host.window);
+    if (docks) |d| {
+        d.handleShortcuts();
+        d.drawDocks(null, life, selected);
+    }
     try host.endFrame();
 }
 
@@ -349,6 +368,9 @@ const Runner = struct {
     /// (CParticleFrame::bHorizontalCamera) that do=camera flips.
     curve: ?keyframe.Editor = null,
     horizontal_camera: bool = false,
+    /// The docks, drawn from do=function_open on, so the Function window's
+    /// widget takes the pointer events the pointer verbs queue.
+    docks: ?docks_mod.Docks = null,
     /// The Get particle info button's numbers (do=particle_info), the ones the
     /// status bar shows.
     particle_status: docks_logic.ParticleStatus = .{},
@@ -705,6 +727,15 @@ const Runner = struct {
         if (eql(u8, name, "sprite_move")) return self.spriteMove(named.arg);
         if (eql(u8, name, "curve")) return self.selectCurve(named.arg);
         if (eql(u8, name, "keyframe")) return self.keyframeVerb(named.arg);
+        if (eql(u8, name, "function_open")) return self.functionOpen();
+        if (eql(u8, name, "function_close")) {
+            const docks = if (self.docks) |*d| d else return self.fail("function_close: the Function window is not open", .{});
+            docks.show_function = false;
+            return null;
+        }
+        if (eql(u8, name, "curve_click")) return self.curveClick(named.arg);
+        if (eql(u8, name, "curve_drag")) return self.curveDrag(named.arg);
+        if (eql(u8, name, "curve_delete")) return self.curveDelete(named.arg);
         if (eql(u8, name, "camera")) {
             const was = self.horizontal_camera;
             self.horizontal_camera = docks_logic.toggledCamera(b, was);
@@ -839,6 +870,283 @@ const Runner = struct {
         editor.load(b) catch return self.fail("keyframe:{s}: {s}", .{ text, b.lastMessage() });
         std.debug.print("resource-editor: auto: keyframe {s}: {d} keys -> {d}, zoom {d:.0}/{d} px per step\n", .{ text, before, editor.keys.items.len, editor.xs, editor.ys });
         return null;
+    }
+
+    // --- Pointer-driven curve gestures -------------------------------------
+
+    /// The Function window as the auto tier places it: tall, so the keys of a
+    /// curve are on screen and never scroll.
+    const function_window = docks_mod.Rect{ .x = 330, .y = 40, .w = 930, .h = 740 };
+
+    /// One frame of the loop, with the docks once they exist.
+    fn drawFrame(self: *Runner) host_mod.HostError!void {
+        const selected: ?i32 = if (self.curve) |curve| curve.node else null;
+        const docks: ?*docks_mod.Docks = if (self.docks) |*d| d else null;
+        try drawFrameWithDocks(self.host, &self.panels, self.gpa, self.bridge(), &self.life, docks, selected);
+    }
+
+    fn pumpFrame(self: *Runner, what: []const u8) ?[]const u8 {
+        self.drawFrame() catch |err| return self.fail("{s}: frame: {s}: {s}", .{ what, @errorName(err), self.bridge().lastMessage() });
+        return null;
+    }
+
+    /// An SDL event on the queue the host reads real input from.
+    fn push(self: *Runner, event: *sdl3.c.SDL_Event) void {
+        _ = self;
+        _ = sdl3.c.SDL_PushEvent(event);
+    }
+
+    fn windowId(self: *Runner) sdl3.c.SDL_WindowID {
+        return sdl3.c.SDL_GetWindowID(self.host.window);
+    }
+
+    fn windowWidth(self: *Runner) f32 {
+        var w: c_int = 0;
+        var h: c_int = 0;
+        _ = sdl3.c.SDL_GetWindowSize(self.host.window, &w, &h);
+        return @floatFromInt(@max(1, w));
+    }
+
+    fn pushMotion(self: *Runner, x: f32, y: f32) void {
+        var event = std.mem.zeroes(sdl3.c.SDL_Event);
+        event.motion = .{ .type = sdl3.c.SDL_EVENT_MOUSE_MOTION, .windowID = self.windowId(), .x = x, .y = y };
+        self.push(&event);
+    }
+
+    fn pushButton(self: *Runner, x: f32, y: f32, down: bool) void {
+        var event = std.mem.zeroes(sdl3.c.SDL_Event);
+        event.button = .{
+            .type = if (down) sdl3.c.SDL_EVENT_MOUSE_BUTTON_DOWN else sdl3.c.SDL_EVENT_MOUSE_BUTTON_UP,
+            .windowID = self.windowId(),
+            .button = sdl3.c.SDL_BUTTON_LEFT,
+            .down = down,
+            .clicks = 1,
+            .x = x,
+            .y = y,
+        };
+        self.push(&event);
+    }
+
+    fn pushKey(self: *Runner, key: sdl3.c.SDL_Keycode, scancode: sdl3.c.SDL_Scancode, mod: sdl3.c.SDL_Keymod, down: bool) void {
+        var event = std.mem.zeroes(sdl3.c.SDL_Event);
+        event.key = .{
+            .type = if (down) sdl3.c.SDL_EVENT_KEY_DOWN else sdl3.c.SDL_EVENT_KEY_UP,
+            .windowID = self.windowId(),
+            .scancode = scancode,
+            .key = key,
+            .mod = mod,
+            .down = down,
+        };
+        self.push(&event);
+    }
+
+    /// do=function_open: the View menu's Function window, opened by the
+    /// Ctrl+F shortcut the way the keyboard does it (Ctrl down, F down, both
+    /// up, a frame each), with the docks created on first use.
+    fn functionOpen(self: *Runner) ?[]const u8 {
+        if (self.curve == null) return self.fail("function_open: no curve was selected (do=curve first)", .{});
+        if (self.docks == null) self.docks = docks_mod.Docks.init(self.gpa, self.io, &self.real);
+        const docks = &self.docks.?;
+        docks.function_override = function_window;
+        if (self.pumpFrame("function_open")) |why| return why;
+        if (docks.show_function) return self.fail("function_open: the Function window was open already", .{});
+        const ctrl = sdl3.c.SDL_KMOD_LCTRL;
+        self.pushKey(sdl3.c.SDLK_LCTRL, sdl3.c.SDL_SCANCODE_LCTRL, ctrl, true);
+        if (self.pumpFrame("function_open")) |why| return why;
+        self.pushKey(sdl3.c.SDLK_F, sdl3.c.SDL_SCANCODE_F, ctrl, true);
+        if (self.pumpFrame("function_open")) |why| return why;
+        self.pushKey(sdl3.c.SDLK_F, sdl3.c.SDL_SCANCODE_F, ctrl, false);
+        self.pushKey(sdl3.c.SDLK_LCTRL, sdl3.c.SDL_SCANCODE_LCTRL, 0, false);
+        if (self.pumpFrame("function_open")) |why| return why;
+        if (self.pumpFrame("function_open")) |why| return why;
+        if (!docks.show_function) return self.fail("function_open: Ctrl+F did not open the Function window", .{});
+        const rect = docks.curve_rect orelse return self.fail("function_open: the Function window drew no curve", .{});
+        std.debug.print("resource-editor: auto: function window open, curve widget at {d:.0},{d:.0} {d:.0}x{d:.0}\n", .{ rect.x, rect.y, rect.w, rect.h });
+        return null;
+    }
+
+    /// The screen point of a curve value in the displayed widget, or why it is
+    /// not on it. Frames are drawn first so the widget shows the stored keys.
+    fn aim(self: *Runner, what: []const u8, x: f32, y: f32) union(enum) { at: struct { x: f32, y: f32 }, refused: []const u8 } {
+        const docks = if (self.docks) |*d| d else return .{ .refused = self.fail("{s}: the Function window is not open (do=function_open first)", .{what}) };
+        const rect = docks.curve_rect orelse return .{ .refused = self.fail("{s}: the Function window shows no curve", .{what}) };
+        const at = docks.curveScreen(x, y) orelse return .{ .refused = self.fail("{s}: the widget has no curve", .{what}) };
+        // The ranges' margins (left, bottom) are the widget's own axes.
+        if (at.x < rect.x + @as(f32, @floatFromInt(keyframe.left)) or at.x > rect.x + rect.w or at.y < rect.y or at.y > rect.y + rect.h - @as(f32, @floatFromInt(keyframe.bottom)))
+            return .{ .refused = self.fail("{s}: value {d:.3}/{d:.1} is at {d:.0},{d:.0}, off the widget {d:.0},{d:.0} {d:.0}x{d:.0}", .{ what, x, y, at.x, at.y, rect.x, rect.y, rect.w, rect.h }) };
+        return .{ .at = .{ .x = at.x, .y = at.y } };
+    }
+
+    /// The widget's value per pixel, the tolerance of a gesture that lands on a
+    /// whole pixel: one pixel in x and in y plus the float noise.
+    fn pixelTolerance(self: *Runner) [2]f32 {
+        const e = self.docks.?.curve.?;
+        return .{ e.knobs.step_x / e.xs + 0.001, e.knobs.step_y / @as(f32, @floatFromInt(e.ys)) + 0.001 };
+    }
+
+    /// The stored keys, through the bridge; the caller frees.
+    fn storedKeys(self: *Runner, what: []const u8) ?[]core.bridge.Vec3 {
+        const node = self.curve.?.node;
+        var read = sub_tools.readGeometry(self.bridge(), node, .particle_keyframes) catch {
+            _ = self.fail("{s}: {s}", .{ what, self.bridge().lastMessage() });
+            return null;
+        };
+        defer read.deinit(self.gpa);
+        return self.gpa.dupe(core.bridge.Vec3, read.vec3) catch {
+            _ = self.fail("{s}: out of memory", .{what});
+            return null;
+        };
+    }
+
+    fn printKeys(label: []const u8, keys: []const core.bridge.Vec3) void {
+        std.debug.print("resource-editor: auto:   {s}: {d} keys", .{ label, keys.len });
+        for (keys, 0..) |k, i| std.debug.print("{s}{d}={d:.3}/{d:.1}", .{ if (i == 0) " " else ", ", i, k.x, k.y });
+        std.debug.print("\n", .{});
+    }
+
+    fn sameKeys(a: []const core.bridge.Vec3, b: []const core.bridge.Vec3, tolerance: [2]f32) bool {
+        if (a.len != b.len) return false;
+        for (a, b) |p, q| {
+            if (@abs(p.x - q.x) > tolerance[0] or @abs(p.y - q.y) > tolerance[1]) return false;
+        }
+        return true;
+    }
+
+    /// One press, optional move steps and a release, a frame each, so ImGui
+    /// sees down, move and up on separate frames.
+    fn gesture(self: *Runner, what: []const u8, from: [2]f32, to: ?[2]f32) ?[]const u8 {
+        self.pushMotion(from[0], from[1]);
+        if (self.pumpFrame(what)) |why| return why;
+        self.pushButton(from[0], from[1], true);
+        if (self.pumpFrame(what)) |why| return why;
+        if (to) |end| {
+            const steps = 4;
+            var i: u32 = 1;
+            while (i <= steps) : (i += 1) {
+                const t = @as(f32, @floatFromInt(i)) / steps;
+                self.pushMotion(from[0] + (end[0] - from[0]) * t, from[1] + (end[1] - from[1]) * t);
+                if (self.pumpFrame(what)) |why| return why;
+            }
+        }
+        const last = to orelse from;
+        self.pushButton(last[0], last[1], false);
+        if (self.pumpFrame(what)) |why| return why;
+        return self.pumpFrame(what);
+    }
+
+    /// After a gesture: the stored keys must equal `want` (within the pixel
+    /// tolerance), then undo returns `before`, redo returns `want` again, each
+    /// read back through the bridge and printed.
+    fn gestureUndoRedo(self: *Runner, what: []const u8, before: []const core.bridge.Vec3, want: []const core.bridge.Vec3, tolerance: [2]f32) ?[]const u8 {
+        const b = self.bridge();
+        const after = self.storedKeys(what) orelse return self.failure;
+        defer self.gpa.free(after);
+        printKeys("after the gesture", after);
+        if (!sameKeys(after, want, tolerance)) return self.fail("{s}: the stored keys are not the expected ones (within {d:.4} x, {d:.3} y)", .{ what, tolerance[0], tolerance[1] });
+        const moved_undo = edit.undo(self.target()) catch return self.fail("{s}: undo: {s}", .{ what, b.lastMessage() });
+        if (!moved_undo) return self.fail("{s}: nothing to undo after the gesture", .{what});
+        if (self.pumpFrame(what)) |why| return why;
+        const undone = self.storedKeys(what) orelse return self.failure;
+        defer self.gpa.free(undone);
+        printKeys("after undo", undone);
+        if (!sameKeys(undone, before, tolerance)) return self.fail("{s}: undo did not restore the keys of before the gesture", .{what});
+        const moved_redo = edit.redo(self.target()) catch return self.fail("{s}: redo: {s}", .{ what, b.lastMessage() });
+        if (!moved_redo) return self.fail("{s}: nothing to redo", .{what});
+        if (self.pumpFrame(what)) |why| return why;
+        const redone = self.storedKeys(what) orelse return self.failure;
+        defer self.gpa.free(redone);
+        printKeys("after redo", redone);
+        if (!sameKeys(redone, after, tolerance)) return self.fail("{s}: redo did not return the keys of the gesture", .{what});
+        return null;
+    }
+
+    /// do=curve_click:<t>/<v>: a click on empty graph space at that value adds
+    /// a key there, as the widget does; the stored key is within one pixel.
+    fn curveClick(self: *Runner, text: []const u8) ?[]const u8 {
+        const want = parsePoint(text) orelse return self.fail("curve_click needs <t>/<v>", .{});
+        if (self.pumpFrame("curve_click")) |why| return why;
+        const at = switch (self.aim("curve_click", want.x, want.y)) {
+            .at => |p| p,
+            .refused => |why| return why,
+        };
+        const before = self.storedKeys("curve_click") orelse return self.failure;
+        defer self.gpa.free(before);
+        printKeys("before curve_click", before);
+        // The press lands on a whole pixel, so a value is within a pixel's worth.
+        const tolerance = self.pixelTolerance();
+        if (self.gesture("curve_click", .{ at.x, at.y }, null)) |why| return why;
+        var expected = std.ArrayList(core.bridge.Vec3).initCapacity(self.gpa, before.len + 1) catch return self.fail("curve_click: out of memory", .{});
+        defer expected.deinit(self.gpa);
+        const index = for (before, 0..) |k, i| {
+            if (k.x > want.x) break i;
+        } else before.len;
+        expected.appendSlice(self.gpa, before[0..index]) catch unreachable;
+        expected.appendAssumeCapacity(.{ .x = want.x, .y = want.y, .z = 0 });
+        expected.appendSlice(self.gpa, before[index..]) catch unreachable;
+        return self.gestureUndoRedo("curve_click", before, expected.items, tolerance);
+    }
+
+    /// do=curve_drag:<i>/<t>/<v>: key i pressed on its displayed handle,
+    /// dragged over four frames to that value and released.
+    fn curveDrag(self: *Runner, text: []const u8) ?[]const u8 {
+        var numbers: [3]f32 = undefined;
+        var parts = std.mem.splitScalar(u8, text, '/');
+        for (&numbers) |*n| n.* = std.fmt.parseFloat(f32, parts.next() orelse return self.fail("curve_drag needs <i>/<t>/<v>", .{})) catch return self.fail("curve_drag needs <i>/<t>/<v>", .{});
+        const index: usize = @intFromFloat(numbers[0]);
+        if (self.pumpFrame("curve_drag")) |why| return why;
+        const before = self.storedKeys("curve_drag") orelse return self.failure;
+        defer self.gpa.free(before);
+        printKeys("before curve_drag", before);
+        if (index >= before.len) return self.fail("curve_drag: the curve holds {d} keys", .{before.len});
+        const from = switch (self.aim("curve_drag", before[index].x, before[index].y)) {
+            .at => |p| p,
+            .refused => |why| return why,
+        };
+        const to = switch (self.aim("curve_drag", numbers[1], numbers[2])) {
+            .at => |p| p,
+            .refused => |why| return why,
+        };
+        const tolerance = self.pixelTolerance();
+        if (self.gesture("curve_drag", .{ from.x, from.y }, .{ to.x, to.y })) |why| return why;
+        const expected = self.gpa.dupe(core.bridge.Vec3, before) catch return self.fail("curve_drag: out of memory", .{});
+        defer self.gpa.free(expected);
+        // Key 0 only moves in y; the others keep x between their neighbours.
+        if (index != 0) expected[index].x = numbers[1];
+        expected[index].y = numbers[2];
+        return self.gestureUndoRedo("curve_drag", before, expected, tolerance);
+    }
+
+    /// do=curve_delete:<i>: a click on key i's handle makes it the active
+    /// key, then the Delete key goes through the event queue, as MFC's
+    /// CKeyFrameEditor takes it. Key 0 is protected.
+    fn curveDelete(self: *Runner, text: []const u8) ?[]const u8 {
+        const index = std.fmt.parseInt(usize, text, 10) catch return self.fail("curve_delete needs <i>", .{});
+        if (index == 0) return self.fail("curve_delete: key 0 is protected", .{});
+        if (self.pumpFrame("curve_delete")) |why| return why;
+        const first = self.storedKeys("curve_delete") orelse return self.failure;
+        defer self.gpa.free(first);
+        if (index >= first.len) return self.fail("curve_delete: the curve holds {d} keys", .{first.len});
+        const at = switch (self.aim("curve_delete", first[index].x, first[index].y)) {
+            .at => |p| p,
+            .refused => |why| return why,
+        };
+        const tolerance = self.pixelTolerance();
+        if (self.gesture("curve_delete", .{ at.x, at.y }, null)) |why| return why;
+        // The click itself may snap the key's y to its pixel row, so the keys
+        // the delete starts from are read after it.
+        const before = self.storedKeys("curve_delete") orelse return self.failure;
+        defer self.gpa.free(before);
+        printKeys("before curve_delete", before);
+        if (before.len != first.len) return self.fail("curve_delete: the selecting click changed the key count", .{});
+        self.pushKey(sdl3.c.SDLK_DELETE, sdl3.c.SDL_SCANCODE_DELETE, 0, true);
+        if (self.pumpFrame("curve_delete")) |why| return why;
+        self.pushKey(sdl3.c.SDLK_DELETE, sdl3.c.SDL_SCANCODE_DELETE, 0, false);
+        if (self.pumpFrame("curve_delete")) |why| return why;
+        const expected = self.gpa.alloc(core.bridge.Vec3, before.len - 1) catch return self.fail("curve_delete: out of memory", .{});
+        defer self.gpa.free(expected);
+        @memcpy(expected[0..index], before[0..index]);
+        @memcpy(expected[index..], before[index + 1 ..]);
+        return self.gestureUndoRedo("curve_delete", before, expected, tolerance);
     }
 
     /// The stored keys of the selected curve, read through the bridge.
@@ -1147,6 +1455,72 @@ const Runner = struct {
         return null;
     }
 
+    /// `<shot>/<i>`: the displayed handle of stored key i is in the shot. The
+    /// 5x5 pixels at the handle's drawn place (the widget's own key-to-pixel
+    /// mapping, scaled to the capture) must hold one colour, at least 20 of
+    /// them, and that colour must not be the widget's background, sampled at
+    /// its far corner. The counts are printed.
+    fn shotCurveHandle(self: *Runner, arg: []const u8) ?[]const u8 {
+        const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return self.fail("shot_curve_handle needs <shot>/<i>", .{});
+        const index = std.fmt.parseInt(usize, arg[slash + 1 ..], 10) catch return self.fail("shot_curve_handle needs <shot>/<i>", .{});
+        const docks = if (self.docks) |*d| d else return self.fail("shot_curve_handle: the Function window is not open", .{});
+        const rect = docks.curve_rect orelse return self.fail("shot_curve_handle: the Function window shows no curve", .{});
+        const keys = self.storedKeys("shot_curve_handle") orelse return self.failure;
+        defer self.gpa.free(keys);
+        if (index >= keys.len) return self.fail("shot_curve_handle: the curve holds {d} keys", .{keys.len});
+        const at = docks.curveScreen(keys[index].x, keys[index].y) orelse return self.fail("shot_curve_handle: the widget has no curve", .{});
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const path = self.shotPath(&path_buffer, arg[0..slash]) orelse return self.fail("shot_curve_handle: the path is too long", .{});
+        const bytes = readFile(self.io, self.gpa, path) catch |err| return self.fail("shot_curve_handle: {s}: {s}", .{ path, @errorName(err) });
+        defer self.gpa.free(bytes);
+        const tga = schedule.Tga.parse(bytes) catch return self.fail("shot_curve_handle: {s} is not a TGA", .{path});
+        const scale = @as(f32, @floatFromInt(tga.width)) / self.windowWidth();
+        const cx: i32 = @intFromFloat(@round(at.x * scale));
+        const cy: i32 = @intFromFloat(@round(at.y * scale));
+        const bx: i32 = @intFromFloat((rect.x + rect.w - 12) * scale);
+        const by: i32 = @intFromFloat((rect.y + 12) * scale);
+        if (cx < 2 or cy < 2 or cx + 2 >= tga.width or cy + 2 >= tga.height or bx >= tga.width or by >= tga.height)
+            return self.fail("shot_curve_handle: key {d} at {d},{d} is outside the {d}x{d} shot", .{ index, cx, cy, tga.width, tga.height });
+        const background = tga.pixel(@intCast(bx), @intCast(by));
+        // The capture is of the swapchain image, so the handle may sit a pixel or two from the computed place:
+        // the best 5x5 block within 4 pixels of it counts.
+        var same: u32 = 0;
+        var contrast: u32 = 0;
+        var best_dx: i32 = 0;
+        var best_dy: i32 = 0;
+        var oy: i32 = -4;
+        while (oy <= 4) : (oy += 1) {
+            var ox: i32 = -4;
+            while (ox <= 4) : (ox += 1) {
+                const mx = cx + ox;
+                const my = cy + oy;
+                if (mx < 2 or my < 2 or mx + 2 >= tga.width or my + 2 >= tga.height) continue;
+                const centre = tga.pixel(@intCast(mx), @intCast(my));
+                var count: u32 = 0;
+                var dy: i32 = -2;
+                while (dy <= 2) : (dy += 1) {
+                    var dx: i32 = -2;
+                    while (dx <= 2) : (dx += 1) {
+                        const p = tga.pixel(@intCast(mx + dx), @intCast(my + dy));
+                        if (std.mem.eql(u8, &p, &centre)) count += 1;
+                    }
+                }
+                var diff: u32 = 0;
+                for (0..3) |i| diff = @max(diff, @abs(@as(i32, centre[i]) - @as(i32, background[i])));
+                if (diff >= 30 and count > same) {
+                    same = count;
+                    contrast = diff;
+                    best_dx = ox;
+                    best_dy = oy;
+                }
+            }
+        }
+        std.debug.print("resource-editor: auto: {s}: key {d} handle at {d},{d} (found {d},{d} away, scale {d:.2}): {d}/25 pixels of one colour (min 20), contrast {d} against the background (min 30)\n", .{ arg[0..slash], index, cx, cy, best_dx, best_dy, scale, same, contrast });
+        if (same < 20) return self.fail("expect=shot_curve_handle:{s} was false: only {d} of the 25 pixels at the handle are one colour", .{ arg, same });
+        if (contrast < 30) return self.fail("expect=shot_curve_handle:{s} was false: the handle's colour differs from the background by only {d}", .{ arg, contrast });
+        return null;
+    }
+
     fn runGame(self: *Runner) ?[]const u8 {
         const b = self.bridge();
         var mod: core.bridge.ModSettings = .{};
@@ -1397,6 +1771,7 @@ const Runner = struct {
         if (eql(u8, name, "export_complex")) return self.exportFlag(arg, "1");
         if (eql(u8, name, "export_simple")) return self.exportFlag(arg, "0");
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
+        if (eql(u8, name, "shot_curve_handle")) return self.shotCurveHandle(arg);
         return self.fail("unknown predicate '{s}'", .{name});
     }
 };
@@ -1489,6 +1864,8 @@ pub fn auto(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ho
     defer runner.panels.deinit(gpa);
     defer if (runner.curve) |*curve| curve.deinit();
     defer _ = runner.bridge().close();
+    // Before the bridge closes, like the preview: the docks' textures belong to the engine.
+    defer if (runner.docks) |*d| d.deinit();
     // Before the bridge closes: the preview scene belongs to the engine's modules.
     defer runner.preview.stop(runner.bridge());
     defer if (runner.running) |*r| r.terminate(io);
@@ -1503,7 +1880,7 @@ pub fn auto(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ho
         if (runner.preview_on) _ = runner.preview.sync(runner.bridge(), runner.life.is_open, runner.life.doc.kind);
         for ([_]bool{ true, false }) |before_draw| {
             if (!before_draw) {
-                drawFrame(host, &runner.panels, gpa, runner.bridge(), &runner.life) catch |err|
+                runner.drawFrame() catch |err|
                     return failLine("auto", "frame {d}: {s}: {s}", .{ runner.frame, @errorName(err), runner.bridge().lastMessage() });
             }
             for (entries) |entry| {

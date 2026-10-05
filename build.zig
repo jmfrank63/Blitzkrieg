@@ -9025,45 +9025,64 @@ const resource_auto_schedule =
     "524:expect=shot_lit:pcp_edit," ++
     "524:differ=pcp_idle/pcp_edit@0.05," ++
     "525:do=preview_stop," ++
-    "526:do=import_file:pcp/{mods}/../Data/Effects/Particles/flame.xml," ++
-    "527:expect=kind:pcp," ++
-    "527:expect=nodes_min:5," ++
-    "527:expect=untitled," ++
-    "527:do=copy:{fix}/pcp/project.pcp>{dir}/imported/seed.pcp," ++
-    "528:saveas={dir}/imported/project.pcp," ++
-    "529:do=export," ++
-    "529:expect=exported," ++
-    "529:expect=file:{mods}/reseditor_auto12/data/effects/particles/imported.xml," ++
-    "530:do=import_refused:eff/{mods}/../Data/Effects/Particles/flame.xml," ++
-    "532:do=copy:{fix}/eff/project.eff>{dir}/eff-1/project.eff," ++
-    "533:open={dir}/eff-1/project.eff," ++
-    "534:expect=kind:eff," ++
+    // S13 T04: the same Opacity curve edited through the displayed Function window with real pointer and key
+    // events (Ctrl+F opens it): a click on empty graph space adds a key, a drag over four frames moves it, a click
+    // then the Delete key removes it. Each gesture reads the stored keys back through the bridge, then undoes and
+    // redoes them; the widget's key handle is measured in the captured frame at its drawn place.
+    "525:do=function_open," ++
+    "525:expect=keys:3," ++
+    "526:do=curve_click:0.6/150," ++
+    "526:expect=keys:4," ++
+    "527:shot=pcp_fn_add," ++
+    "527:expect=shot_curve_handle:pcp_fn_add/2," ++
+    "528:do=curve_drag:2/0.65/90," ++
+    "528:expect=keys:4," ++
+    "529:shot=pcp_fn_drag," ++
+    "529:expect=shot_curve_handle:pcp_fn_drag/2," ++
+    "530:do=curve_delete:2," ++
+    "530:expect=keys:3," ++
+    "531:shot=pcp_fn_delete," ++
+    "531:expect=shot_lit:pcp_fn_delete," ++
+    "532:do=function_close," ++
+    "533:do=import_file:pcp/{mods}/../Data/Effects/Particles/flame.xml," ++
+    "534:expect=kind:pcp," ++
     "534:expect=nodes_min:5," ++
-    "535:do=export," ++
-    "535:expect=exported," ++
-    "536:do=preview_refused:particle-2key," ++
+    "534:expect=untitled," ++
+    "534:do=copy:{fix}/pcp/project.pcp>{dir}/imported/seed.pcp," ++
+    "535:saveas={dir}/imported/project.pcp," ++
+    "536:do=export," ++
+    "536:expect=exported," ++
+    "536:expect=file:{mods}/reseditor_auto12/data/effects/particles/imported.xml," ++
+    "537:do=import_refused:eff/{mods}/../Data/Effects/Particles/flame.xml," ++
+    "539:do=copy:{fix}/eff/project.eff>{dir}/eff-1/project.eff," ++
+    "540:open={dir}/eff-1/project.eff," ++
+    "541:expect=kind:eff," ++
+    "541:expect=nodes_min:5," ++
+    "542:do=export," ++
+    "542:expect=exported," ++
+    "543:do=preview_refused:particle-2key," ++
     // S13 T03: the Effect editor. A child's X position is a whole number: the edit reads back, is one undo
     // step and exports; the Direction dock's needle is view state (45 degrees on open, turned to 90 and back,
     // never dirty, never undone).
-    "537:expect=effect_angle:0," ++
-    "537:do=set_prop:X_position=120," ++
-    "537:expect=prop:X_position=120," ++
-    "537:expect=dirty:true," ++
-    "537:do=effect_direction:90," ++
-    "537:expect=effect_angle:90," ++
-    "537:do=undo," ++
-    "537:expect=prop:X_position=0," ++
-    "537:expect=effect_angle:90," ++
-    "537:do=redo," ++
-    "537:expect=prop:X_position=120," ++
-    "537:do=set_prop:X_position=7.9," ++
-    "537:expect=prop:X_position=7," ++
-    "537:do=effect_direction:0," ++
-    "537:expect=effect_angle:0," ++
-    "537:do=export," ++
-    "537:expect=exported," ++
-    "538:expect=file:{mods}/reseditor_auto12/data/effects/effects/eff-1.xml," ++
-    "550:exit";
+    "544:expect=effect_angle:0," ++
+    "544:do=set_prop:X_position=120," ++
+    "544:expect=prop:X_position=120," ++
+    "544:expect=dirty:true," ++
+    "544:do=effect_direction:90," ++
+    "544:expect=effect_angle:90," ++
+    "544:do=undo," ++
+    "544:expect=prop:X_position=0," ++
+    "544:expect=effect_angle:90," ++
+    "544:do=redo," ++
+    "544:expect=prop:X_position=120," ++
+    "544:do=set_prop:X_position=7.9," ++
+    "544:expect=prop:X_position=7," ++
+    "544:do=effect_direction:0," ++
+    "544:expect=effect_angle:0," ++
+    "544:do=export," ++
+    "544:expect=exported," ++
+    "545:expect=file:{mods}/reseditor_auto12/data/effects/effects/eff-1.xml," ++
+    "557:exit";
 
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static

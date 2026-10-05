@@ -144,6 +144,13 @@ pub const Docks = struct {
     curve_revision: u32 = 0,
     curve_note: [160]u8 = undefined,
     curve_note_len: usize = 0,
+    /// Where the curve widget was drawn in the last frame (screen pixels), for
+    /// the auto tier to aim its pointer at; null while the Function window is
+    /// closed or shows no curve.
+    curve_rect: ?Rect = null,
+    /// The auto tier's own placement of the Function window (a tall one, so
+    /// every key is on screen); null leaves the layout to `place`.
+    function_override: ?Rect = null,
     /// CParticleFrame::bHorizontalCamera, shared by the Particle and Effect previews.
     horizontal_camera: bool = false,
     /// The Get particle info button's four numbers, shown in the status bar.
@@ -283,6 +290,7 @@ pub const Docks = struct {
     pub fn drawDocks(self: *Docks, project_folder: ?[]const u8, life: *logic.Lifecycle, selected: ?i32) void {
         self.takeFolder();
         self.first_thumbnail = null;
+        self.curve_rect = null;
         if (self.show_thumbnails) self.drawThumbnails(project_folder, life, selected);
         if (self.show_direction) self.drawDirection(life.is_open and life.active == .mesh_unit, life.is_open and life.active == .effect);
         if (self.show_function) self.drawFunction(life, selected);
@@ -519,7 +527,10 @@ pub const Docks = struct {
 
     fn drawFunction(self: *Docks, life: *logic.Lifecycle, selected: ?i32) void {
         const display = ig.igGetIO().*.DisplaySize;
-        self.place(fixed_layout.function, 316, display.y - 200, @max(300, display.x - 520), 170);
+        if (self.function_override) |r| {
+            ig.igSetNextWindowPos(.{ .x = r.x, .y = r.y }, ig.ImGuiCond_Always);
+            ig.igSetNextWindowSize(.{ .x = r.w, .y = r.h }, ig.ImGuiCond_Always);
+        } else self.place(fixed_layout.function, 316, display.y - 200, @max(300, display.x - 520), 170);
         if (!ig.igBegin("Function###function", &self.show_function, self.windowFlags())) {
             ig.igEnd();
             return;
@@ -538,10 +549,22 @@ pub const Docks = struct {
         const hovered = ig.igIsItemHovered(0);
         editor.setSize(@intFromFloat(w), @intFromFloat(h));
         const mouse = ig.igGetMousePos();
-        const px: i32 = @intFromFloat(@trunc(mouse.x - top_left.x));
-        const py: i32 = @intFromFloat(@trunc(mouse.y - top_left.y));
+        // ImGui reports the pointer as -FLT_MAX until the first motion event arrives.
+        const px: i32 = if (mouse.x > -1.0e6) @intFromFloat(@trunc(mouse.x - top_left.x)) else -1;
+        const py: i32 = if (mouse.y > -1.0e6) @intFromFloat(@trunc(mouse.y - top_left.y)) else -1;
         self.curveInput(editor, life, hovered, px, py);
         self.drawCurve(editor, top_left, w, h);
+        self.curve_rect = .{ .x = top_left.x, .y = top_left.y, .w = w, .h = h };
+    }
+
+    /// The screen pixel (in the window's coordinates) of a curve value as the
+    /// widget draws it, so a pointer can be aimed at a key's handle; null
+    /// while no curve was drawn.
+    pub fn curveScreen(self: *const Docks, x: f32, y: f32) ?struct { x: f32, y: f32 } {
+        const rect = self.curve_rect orelse return null;
+        const editor = self.curve orelse return null;
+        const s = editor.screenByValue(x, y);
+        return .{ .x = rect.x + s.x, .y = rect.y + s.y };
     }
 
     /// The mouse and keys of CKeyFrameEditor: left press adds or grabs a key,
