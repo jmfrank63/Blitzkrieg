@@ -284,7 +284,7 @@ pub const Docks = struct {
         self.takeFolder();
         self.first_thumbnail = null;
         if (self.show_thumbnails) self.drawThumbnails(project_folder, life, selected);
-        if (self.show_direction) self.drawDirection(life.is_open and life.active == .mesh_unit);
+        if (self.show_direction) self.drawDirection(life.is_open and life.active == .mesh_unit, life.is_open and life.active == .effect);
         if (self.show_function) self.drawFunction(life, selected);
         self.drawPreviewLine();
         self.drawParticleStatus();
@@ -450,8 +450,11 @@ pub const Docks = struct {
     }
 
     /// `turns_unit`: the open project is a unit, whose preview follows the needle
-    /// (MFC's direction button turned the combat object).
-    fn drawDirection(self: *Docks, turns_unit: bool) void {
+    /// (MFC's direction button turned the combat object); `turns_effect`: the
+    /// open project is an effect, whose running preview takes the needle's
+    /// angle (CEffectFrame::UpdateEffectAngle) and whose dock starts at 45
+    /// degrees, so the needle shows the bridge's stored angle.
+    fn drawDirection(self: *Docks, turns_unit: bool, turns_effect: bool) void {
         const display = ig.igGetIO().*.DisplaySize;
         self.place(fixed_layout.direction, display.x - 188, display.y - 230, 180, 190);
         if (!ig.igBegin("Direction###direction", &self.show_direction, self.windowFlags())) {
@@ -463,12 +466,14 @@ pub const Docks = struct {
         const side = @max(40, @min(avail.x, avail.y - ig.igGetTextLineHeightWithSpacing()));
         const top_left = ig.igGetCursorScreenPos();
         _ = ig.igInvisibleButton("button", .{ .x = side, .y = side }, 0);
+        if (turns_effect) _ = dl.syncEffectAngle(self.real.bridge(), &self.direction_angle);
         // OnLButtonDown and OnMouseMove with the button held: the angle
         // follows the mouse while it drags.
         if (ig.igIsItemActive()) {
             const mouse = ig.igGetMousePos();
             self.direction_angle = dl.directionAngleAt(mouse.x - top_left.x, mouse.y - top_left.y, side, side);
             if (turns_unit) mesh_logic.turnPreview(self.real.bridge(), self.direction_angle) catch {};
+            if (turns_effect) dl.turnEffect(self.real.bridge(), self.direction_angle) catch {};
         }
         const draw_list = ig.igGetWindowDrawList();
         ig.ImDrawList_AddRectFilled(draw_list, top_left, .{ .x = top_left.x + side, .y = top_left.y + side }, ig.igGetColorU32(ig.ImGuiCol_FrameBg));

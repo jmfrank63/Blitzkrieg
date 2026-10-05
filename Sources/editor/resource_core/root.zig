@@ -1159,3 +1159,24 @@ test "keyframe knobs come from the fake per curve node, and the camera mode need
     try bridge.check(res.previewCameraMode(false));
     try std.testing.expect(!fake.preview_horizontal);
 }
+
+test "the effect direction is view state: 45 degrees on open, refused for other kinds, not finite refused" {
+    var fake = FakeResBridge.init(std.testing.allocator);
+    defer fake.deinit();
+    const res = fake.bridge();
+
+    try bridge.check(res.new(.weapon));
+    try std.testing.expectEqual(bridge.Status.refused, res.effectSetDirection(1.0));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), "eff") != null);
+    try bridge.check(res.new(.effect));
+    var angle: f32 = 0;
+    try bridge.check(res.effectGetDirection(&angle));
+    try std.testing.expectApproxEqAbs(std.math.pi / 4.0, angle, 1e-6);
+    try bridge.check(res.effectSetDirection(-2.0));
+    try bridge.check(res.effectGetDirection(&angle));
+    try std.testing.expectEqual(@as(f32, -2.0), angle);
+    try std.testing.expectEqual(bridge.Status.bad_argument, res.effectSetDirection(std.math.nan(f32)));
+    try bridge.check(res.new(.effect));
+    try bridge.check(res.effectGetDirection(&angle));
+    try std.testing.expectApproxEqAbs(std.math.pi / 4.0, angle, 1e-6);
+}

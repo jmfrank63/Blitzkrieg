@@ -489,6 +489,10 @@ pub const ResBridge = struct {
         previewDirection: *const fn (ptr: *anyopaque, angle: i32) Status,
         /// BkResPreviewShowLocators: the locator sprites and the bounding
         /// boxes, independent of each other.
+        /// BkResEffectSetDirection / BkResEffectGetDirection: the Effect
+        /// editor's direction dock angle in radians (view state, no undo step).
+        effectSetDirection: *const fn (ptr: *anyopaque, angle: f32) Status,
+        effectGetDirection: *const fn (ptr: *anyopaque, angle: *f32) Status,
         previewShowLocators: *const fn (ptr: *anyopaque, locators: bool, bounding_boxes: bool) Status,
         /// BkResMeshLocators: two-pass read of the shown model's skeleton
         /// nodes with their positions.
@@ -610,6 +614,12 @@ pub const ResBridge = struct {
     }
     pub fn previewDirection(self: ResBridge, angle: i32) Status {
         return self.vtable.previewDirection(self.ptr, angle);
+    }
+    pub fn effectSetDirection(self: ResBridge, angle: f32) Status {
+        return self.vtable.effectSetDirection(self.ptr, angle);
+    }
+    pub fn effectGetDirection(self: ResBridge, angle: *f32) Status {
+        return self.vtable.effectGetDirection(self.ptr, angle);
     }
     pub fn previewShowLocators(self: ResBridge, locators: bool, bounding_boxes: bool) Status {
         return self.vtable.previewShowLocators(self.ptr, locators, bounding_boxes);

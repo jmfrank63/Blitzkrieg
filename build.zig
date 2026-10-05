@@ -9042,6 +9042,26 @@ const resource_auto_schedule =
     "535:do=export," ++
     "535:expect=exported," ++
     "536:do=preview_refused:particle-2key," ++
+    // S13 T03: the Effect editor. A child's X position is a whole number: the edit reads back, is one undo
+    // step and exports; the Direction dock's needle is view state (45 degrees on open, turned to 90 and back,
+    // never dirty, never undone).
+    "537:expect=effect_angle:0," ++
+    "537:do=set_prop:X_position=120," ++
+    "537:expect=prop:X_position=120," ++
+    "537:expect=dirty:true," ++
+    "537:do=effect_direction:90," ++
+    "537:expect=effect_angle:90," ++
+    "537:do=undo," ++
+    "537:expect=prop:X_position=0," ++
+    "537:expect=effect_angle:90," ++
+    "537:do=redo," ++
+    "537:expect=prop:X_position=120," ++
+    "537:do=set_prop:X_position=7.9," ++
+    "537:expect=prop:X_position=7," ++
+    "537:do=effect_direction:0," ++
+    "537:expect=effect_angle:0," ++
+    "537:do=export," ++
+    "537:expect=exported," ++
     "538:expect=file:{mods}/reseditor_auto12/data/effects/effects/eff-1.xml," ++
     "550:exit";
 

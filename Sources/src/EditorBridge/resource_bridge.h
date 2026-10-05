@@ -578,6 +578,21 @@ BkEditorStatus BkResPreviewMeshVariant( BkResSession *session, int variant );
    moves the locator sprites with it. BK_EDITOR_REFUSED when no unit shows. */
 BkEditorStatus BkResPreviewDirection( BkResSession *session, int angle );
 
+/* The Effect editor's direction dock (CEffectFrame, ID_SHOW_DIRECTION_BUTTON).
+   The angle (radians, the dock's -pi..pi with 0 pointing right) is view state:
+   it is not saved, not an undo step, starts at 45 degrees and returns to it
+   whenever a project is opened or created. While the effect preview runs
+   (BkResPreviewPlayback 1) a set applies UpdateEffectAngle's turn through the
+   running effect's SetEffectDirection; Run applies the stored angle again;
+   a stopped preview only stores it. BK_EDITOR_REFUSED unless a .eff project
+   is open (Set), BK_EDITOR_BAD_ARGUMENT for a non-finite angle or null out. */
+BkEditorStatus BkResEffectSetDirection( BkResSession *session, float angle );
+BkEditorStatus BkResEffectGetDirection( BkResSession *session, float *angle );
+
+/* UpdateEffectAngle's matrix for an angle, row-major 4x4 into out[16]: the
+   same math the running effect receives, exposed so a test can pin it. */
+BkEditorStatus BkResEffectDirectionMatrix( float angle, float *out );
+
 /* MFC's OnShowLocatorsInfo: locators != 0 draws one editor\locator\1 sprite
    at every skeleton node, bounding_boxes != 0 turns on the scene's
    SCENE_SHOW_BBS. The two are independent here (MFC tied both to one toggle).

@@ -2572,6 +2572,44 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		}
 		if ( szLabel == "particle" )
 			CheckKeyframeKnobs( pSession );
+		if ( szLabel == "effect" )
+		{
+			// The direction dock (S13 T03): 45 degrees on open, a stopped
+			// preview only stores the angle, a running one turns its particles.
+			float fAngle = 0;
+			Check( BkResEffectGetDirection( pSession, &fAngle ) == BK_EDITOR_OK && std::fabs( fAngle - 0.78539816f ) < 1e-6f, "preview: the effect direction starts at 45 degrees" );
+			Check( BkResEffectSetDirection( pSession, 0.5f ) == BK_EDITOR_OK && BkResEffectGetDirection( pSession, &fAngle ) == BK_EDITOR_OK && fAngle == 0.5f,
+			       "preview: a stopped effect stores the direction" );
+			Check( BkResEffectSetDirection( pSession, std::nanf( "" ) ) == BK_EDITOR_BAD_ARGUMENT, "preview: a non-finite direction is a bad argument" );
+			Check( BkResEffectGetDirection( pSession, nullptr ) == BK_EDITOR_BAD_ARGUMENT, "preview: no out pointer for the direction is a bad argument" );
+			Check( BkResEffectSetDirection( pSession, 0.78539816f ) == BK_EDITOR_OK && BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, "preview: the effect runs again at 45 degrees" );
+			auto Pump = [&]( int nMs )
+			{
+				const auto begin = std::chrono::steady_clock::now();
+				while ( std::chrono::steady_clock::now() - begin < std::chrono::milliseconds( nMs ) )
+					BkEditorFrame( pSession );
+			};
+			auto Shoot = [&]( const char *pszName, std::vector<unsigned char> &out )
+			{
+				const fs::path path = scratch / ( std::string( "effect-direction-" ) + pszName + ".tga" );
+				int nShotW = 0, nShotH = 0;
+				return BkEditorCaptureFrame( pSession, path.string().c_str() ) == BK_EDITOR_OK && ReadCapture( path.string(), out, nShotW, nShotH );
+			};
+			std::vector<unsigned char> before, same, turned;
+			Pump( 1000 );
+			const bool bBefore = Shoot( "before", before );
+			Pump( 300 );
+			const bool bSame = Shoot( "same", same );
+			Check( BkResEffectSetDirection( pSession, -2.0f ) == BK_EDITOR_OK, "preview: a running effect takes a new direction" );
+			Pump( 300 );
+			const bool bTurned = Shoot( "turned", turned );
+			Check( bBefore && bSame && bTurned, "preview: the direction frames capture" );
+			const double fNoise = bBefore && bSame ? ChangedShare( same, before ) : -1.0;
+			const double fTurn = bSame && bTurned ? ChangedShare( turned, same ) : -1.0;
+			Log( "preview-scene: effect direction angle=0.785398->-2.0 same-angle-changed=" + std::to_string( fNoise ) + " turned-changed=" + std::to_string( fTurn ) + " threshold=0.001" );
+			Check( fTurn >= 0.001, "preview: turning the running effect changes the frame (>= 0.1%)" );
+			Check( BkResPreviewPlayback( pSession, 0 ) == BK_EDITOR_OK, "preview: the effect stops again" );
+		}
 
 		Check( BkResPreviewCamera( pSession, 12 * 32.0f + 64.0f, 12 * 32.0f, 2 ) == BK_EDITOR_OK, ( "preview: Camera " + szLabel ).c_str() );
 		// What the table held before this stand-in came and went (a kind ported
@@ -6885,8 +6923,146 @@ static fs::path FirstEffect( const fs::path &modData )
 	return found;
 }
 
+static int PropIdOf( BkResSession *pSession, int nNode, const char *pszName )
+{
+	int nCount = 0;
+	BkResProps( pSession, nNode, nullptr, 0, &nCount );
+	std::vector<BkResPropRecord> props( nCount );
+	if ( nCount > 0 )
+		BkResProps( pSession, nNode, props.data(), nCount, &nCount );
+	for ( const BkResPropRecord &prop : props )
+		if ( std::strcmp( prop.default_name, pszName ) == 0 )
+			return prop.id;
+	return -1;
+}
+
+static int ChildOfClass( BkResSession *pSession, int nClassType )
+{
+	int nCount = 0;
+	BkResNodes( pSession, nullptr, 0, &nCount );
+	std::vector<BkResNodeRecord> nodes( nCount );
+	if ( nCount > 0 )
+		BkResNodes( pSession, nodes.data(), nCount, &nCount );
+	for ( const BkResNodeRecord &node : nodes )
+		if ( node.class_type == nClassType )
+			return node.id;
+	return -1;
+}
+
+static bool SetPositions( BkResSession *pSession, int nNode, const char *const texts[3] )
+{
+	static const char *const kAxes[3] = { "X position", "Y position", "Z position" };
+	for ( int i = 0; i < 3; ++i )
+	{
+		const int nProp = PropIdOf( pSession, nNode, kAxes[i] );
+		if ( nProp < 0 || BkResSetProp( pSession, nNode, nProp, texts[i] ) != BK_EDITOR_OK )
+			return false;
+	}
+	return true;
+}
+
+static bool ExportedPositions( BkResSession *pSession, const fs::path &xml, int nSprite[3], int nParticle[3] )
+{
+	BkResExportReport report = {};
+	SEffectDesc desc;
+	if ( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) != BK_EDITOR_OK || !ReadEffect( xml, desc ) || desc.sprites.size() != 1 || desc.particles.size() != 1 )
+		return false;
+	// vPos is a float vector; the whole-number edit must arrive unchanged.
+	const CVec3 &s = desc.sprites[0].vPos;
+	const CVec3 &p = desc.particles[0].vPos;
+	nSprite[0] = int( s.x ); nSprite[1] = int( s.y ); nSprite[2] = int( s.z );
+	nParticle[0] = int( p.x ); nParticle[1] = int( p.y ); nParticle[2] = int( p.z );
+	return s.x == float( nSprite[0] ) && s.y == float( nSprite[1] ) && s.z == float( nSprite[2] ) &&
+	       p.x == float( nParticle[0] ) && p.y == float( nParticle[1] ) && p.z == float( nParticle[2] );
+}
+
+// S13 T03: the child X / Y / Z positions are DT_DEC, edited as whole numbers.
+// A fractional text keeps its integer part (BkResSetProp parses an int prop
+// with strtol, as MFC's integer edit did). Each edit is one SetProp; undo and
+// redo replay the old and new texts, as resource_core's history does.
+static void PositionEdits( BkResSession *pSession, const fs::path &xml )
+{
+	const int nSprite = ChildOfClass( pSession, NResourceModel::ETIT_EFFECT_ANIMATION_PROPS_ITEM );
+	const int nParticle = ChildOfClass( pSession, NResourceModel::ETIT_EFFECT_FUNC_PROPS_ITEM );
+	if ( !Check( nSprite >= 0 && nParticle >= 0, "effect positions: the fixture has a sprite and a function particle child" ) )
+		return;
+	const char *const spriteText[3] = { "120", "-45", "7.9" };
+	const char *const particleText[3] = { "2.5", "-3", "400" };
+	const char *const zero[3] = { "0", "0", "0" };
+	int s[3] = {}, p[3] = {};
+	Check( ExportedPositions( pSession, xml, s, p ) && s[0] == 0 && s[1] == 0 && s[2] == 0 && p[0] == 0 && p[1] == 0 && p[2] == 0, "effect positions: the fixture starts at the origin" );
+	Check( SetPositions( pSession, nSprite, spriteText ) && SetPositions( pSession, nParticle, particleText ), "effect positions: X, Y and Z of both children are set" );
+	const bool bSet = ExportedPositions( pSession, xml, s, p );
+	std::printf( "   effect positions: sprite vPos=(%d,%d,%d) particle vPos=(%d,%d,%d)\n", s[0], s[1], s[2], p[0], p[1], p[2] );
+	Check( bSet && s[0] == 120 && s[1] == -45 && s[2] == 7 && p[0] == 2 && p[1] == -3 && p[2] == 400,
+	       "effect positions: the exporter writes the integers (a fractional text keeps its integer part)" );
+	Check( SetPositions( pSession, nSprite, zero ) && SetPositions( pSession, nParticle, zero ) && ExportedPositions( pSession, xml, s, p ) && s[0] == 0 && s[2] == 0 && p[0] == 0 && p[2] == 0,
+	       "effect positions: undo restores the origin" );
+	Check( SetPositions( pSession, nSprite, spriteText ) && SetPositions( pSession, nParticle, particleText ) && ExportedPositions( pSession, xml, s, p ) && s[0] == 120 && p[2] == 400,
+	       "effect positions: redo writes the integers again" );
+	Check( SetPositions( pSession, nSprite, zero ) && SetPositions( pSession, nParticle, zero ), "effect positions: the fixture is back at the origin" );
+}
+
+// UpdateEffectAngle's matrix, pinned without its quaternion code: 45 degrees
+// is no turn, 0 and 90 degrees turn by +/- 45 degrees about (-1, 1, 0), which
+// is a rotation (orthogonal, trace 1 + 2 cos 45) that keeps the axis fixed;
+// the 2 pi wrap is taken for angles far below -pi + 45.
+static void DirectionMatrix()
+{
+	const float fPi = 3.14159265f;
+	float m[3][16] = {};
+	Check( BkResEffectDirectionMatrix( 0.0f, m[0] ) == BK_EDITOR_OK && BkResEffectDirectionMatrix( fPi / 4, m[1] ) == BK_EDITOR_OK && BkResEffectDirectionMatrix( fPi / 2, m[2] ) == BK_EDITOR_OK,
+	       "effect direction: the matrix is built for 0, 45 and 90 degrees" );
+	Check( BkResEffectDirectionMatrix( 0.0f, nullptr ) == BK_EDITOR_BAD_ARGUMENT, "effect direction: a null matrix is a bad argument" );
+	bool bIdentity = true;
+	for ( int i = 0; i < 16; ++i )
+		bIdentity = bIdentity && std::fabs( m[1][i] - ( i % 5 == 0 ? 1.0f : 0.0f ) ) < 1e-5f;
+	Check( bIdentity, "effect direction: 45 degrees is the identity" );
+	const float fSqrt2 = std::sqrt( 2.0f );
+	for ( int k = 0; k < 3; k += 2 )
+	{
+		const float *a = m[k];
+		const float fTrace = a[0] + a[5] + a[10];
+		bool bOrthogonal = true;
+		for ( int r = 0; r < 3; ++r )
+			for ( int c = 0; c < 3; ++c )
+			{
+				float fDot = 0;
+				for ( int i = 0; i < 3; ++i )
+					fDot += a[r * 4 + i] * a[c * 4 + i];
+				bOrthogonal = bOrthogonal && std::fabs( fDot - ( r == c ? 1.0f : 0.0f ) ) < 1e-5f;
+			}
+		// Row vector times matrix and matrix times column vector.
+		const float v[3] = { -1 / fSqrt2, 1 / fSqrt2, 0 };
+		float row[3] = {}, column[3] = {};
+		for ( int i = 0; i < 3; ++i )
+			for ( int j = 0; j < 3; ++j )
+			{
+				row[j] += v[i] * a[i * 4 + j];
+				column[i] += a[i * 4 + j] * v[j];
+			}
+		bool bAxis = true;
+		for ( int i = 0; i < 3; ++i )
+			bAxis = bAxis && std::fabs( row[i] - v[i] ) < 1e-5f && std::fabs( column[i] - v[i] ) < 1e-5f;
+		Check( std::fabs( fTrace - ( 1.0f + 2.0f * std::cos( fPi / 4 ) ) ) < 1e-4f && bOrthogonal && bAxis,
+		       k == 0 ? "effect direction: 0 degrees is a 45 degree turn about (-1, 1, 0)" : "effect direction: 90 degrees is a 45 degree turn about (-1, 1, 0)" );
+	}
+	bool bTransposed = true;
+	for ( int r = 0; r < 4; ++r )
+		for ( int c = 0; c < 4; ++c )
+			bTransposed = bTransposed && std::fabs( m[2][r * 4 + c] - m[0][c * 4 + r] ) < 1e-5f;
+	Check( bTransposed, "effect direction: 90 degrees turns the other way than 0 degrees" );
+	float low[16] = {}, wrapped[16] = {};
+	const bool bBuilt = BkResEffectDirectionMatrix( -6.0f, low ) == BK_EDITOR_OK && BkResEffectDirectionMatrix( 2 * fPi - 6.0f, wrapped ) == BK_EDITOR_OK;
+	bool bSame = bBuilt;
+	for ( int i = 0; i < 16; ++i )
+		bSame = bSame && std::fabs( low[i] - wrapped[i] ) < 1e-4f;
+	Check( bSame, "effect direction: an angle of -6 wraps by 2 pi as UpdateEffectAngle does" );
+}
+
 static void Fixture( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
 {
+	DirectionMatrix();
 	std::error_code ec;
 	const fs::path scratch = fs::path( szScratchRoot ) / "s12-effect";
 	fs::remove_all( scratch, ec );
@@ -6944,6 +7120,7 @@ static void Fixture( BkResSession *pSession, const std::string &szRoot, const st
 	       "effect: a second forced export is byte-identical" );
 	const NResourceModel::SCompareResult self = NResourceModel::CompareStats( NResourceModel::EExportKind::EFFECT, xml.string(), xml.string() );
 	Check( self.nFieldsCompared > 3 && self.messages.empty(), "effect: the comparator reads the exported effect" );
+	PositionEdits( pSession, xml );
 
 	// A smokin source goes to the other list.
 	PutSource( szRoot, modData, "aa_smoke4_of_expplane.xml" );

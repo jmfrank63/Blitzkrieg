@@ -196,6 +196,8 @@ pub const RealResBridge = struct {
         .previewPlayback = previewPlayback,
         .previewMeshVariant = previewMeshVariant,
         .previewDirection = previewDirection,
+        .effectSetDirection = effectSetDirection,
+        .effectGetDirection = effectGetDirection,
         .previewShowLocators = previewShowLocators,
         .meshLocators = meshLocators,
         .keyframeKnobs = keyframeKnobs,
@@ -672,6 +674,18 @@ pub const RealResBridge = struct {
     fn previewDirection(ptr: *anyopaque, angle: i32) Status {
         const self = from(ptr);
         return status(c.BkResPreviewDirection(self.session, angle));
+    }
+
+    /// BkResEffectSetDirection: the direction dock's angle in radians.
+    fn effectSetDirection(ptr: *anyopaque, angle: f32) Status {
+        const self = from(ptr);
+        return status(c.BkResEffectSetDirection(self.session, angle));
+    }
+
+    /// BkResEffectGetDirection: the stored dock angle.
+    fn effectGetDirection(ptr: *anyopaque, angle: *f32) Status {
+        const self = from(ptr);
+        return status(c.BkResEffectGetDirection(self.session, angle));
     }
 
     /// BkResPreviewShowLocators: locator sprites and bounding boxes.

@@ -357,7 +357,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
                 imgui.c.igEndMenu();
             }
             if (imgui.c.igBeginMenuEx("Preview", true)) {
-                docks.drawPreviewMenuItems();
+                docks.drawPreviewMenuItems(&ui.session.life);
                 imgui.c.igEndMenu();
             }
             if (imgui.c.igBeginMenuEx("Help", true)) {

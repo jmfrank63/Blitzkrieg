@@ -62,6 +62,7 @@
 //!   do=camera               the preview's Camera button (horizontal against default camera)
 //!   do=particle_info        the Get particle info button, through docks_logic.ParticleStatus; prints the four numbers
 //!   do=source_mode:complex|simple   the Particle source button (docks_logic.SourceToggle: one undo step, the tree items open or close); prints the mode read back
+//!   do=effect_direction:<deg>   the Effect Direction dock's needle turned to that value of its degrees text (docks_logic.turnEffect); prints the angle read back
 //!   do=import_file:<ext>/<path>   Import a runtime file (a shipped particle xml for pcp) as a new project, through the bridge's reader
 //!   do=import_refused:<ext>/<path>   the same for a kind with no import (eff): refused, with the bridge's reason
 //!   The grid verbs need a frame drawn since the project opened (the grid editor lives in the panels)
@@ -82,6 +83,7 @@
 //!          entrance_tile:<x>/<y>  the Building's entrance tile
 //!          span_mark:<begin|end|front|back>=moved|home  the Bridge's mark against the frame's default
 //!          keys:<n>  the curve's stored key count  key:<i>=<x>/<y>  one stored key (within 0.02)
+//!          effect_angle:<deg>  the Direction dock's degrees text for the bridge's stored angle (within 0.1)
 //!          zoom:<xs>/<ys>  the curve's pixels per step  camera:horizontal|default  the Camera button's state
 //!
 //! `{dir}` (the scratch folder), `{fix}` (the fixtures folder) and `{mods}`
@@ -488,9 +490,16 @@ const Runner = struct {
         return null;
     }
 
-    fn findProp(self: *Runner, name: []const u8) ?struct { node: i32, record: PropRecord } {
+    /// A token holds no space, so '_' stands for one: X_position finds "X position".
+    fn findProp(self: *Runner, token: []const u8) ?struct { node: i32, record: PropRecord } {
+        var spaced: [64]u8 = undefined;
+        const name = if (token.len <= spaced.len) blk: {
+            for (token, 0..) |ch, i| spaced[i] = if (ch == '_') ' ' else ch;
+            break :blk spaced[0..token.len];
+        } else token;
         for (self.life.doc.tree.props.items) |entry| {
-            if (std.ascii.eqlIgnoreCase(entry.record.defaultSlice(), name) or std.ascii.eqlIgnoreCase(entry.record.displaySlice(), name))
+            if (std.ascii.eqlIgnoreCase(entry.record.defaultSlice(), name) or std.ascii.eqlIgnoreCase(entry.record.displaySlice(), name) or
+                std.ascii.eqlIgnoreCase(entry.record.defaultSlice(), token) or std.ascii.eqlIgnoreCase(entry.record.displaySlice(), token))
                 return .{ .node = entry.node, .record = entry.record };
         }
         return null;
@@ -708,6 +717,15 @@ const Runner = struct {
             const info = self.particle_status.info.?;
             var line: [160]u8 = undefined;
             std.debug.print("resource-editor: auto: particle info: {s} (max_count={d} max_size={d} average_size={d} average_count={d})\n", .{ docks_logic.infoLine(&line, info), info.max_count, info.max_size, info.average_size, info.average_count });
+            return null;
+        }
+        if (eql(u8, name, "effect_direction")) {
+            const degrees = std.fmt.parseFloat(f32, named.arg) catch return self.fail("effect_direction needs degrees, got '{s}'", .{named.arg});
+            const angle = docks_logic.angleOfDegrees(degrees);
+            docks_logic.turnEffect(b, angle) catch return self.fail("effect_direction: {s}", .{b.lastMessage()});
+            var stored: f32 = 0;
+            if (!docks_logic.syncEffectAngle(b, &stored)) return self.fail("effect_direction: {s}", .{b.lastMessage()});
+            std.debug.print("resource-editor: auto: effect direction: dock {d:.2} degrees = {d:.4} rad, bridge reads {d:.4} rad\n", .{ degrees, angle, stored });
             return null;
         }
         if (eql(u8, name, "source_mode")) {
@@ -1359,6 +1377,15 @@ const Runner = struct {
             const info = self.particle_status.info orelse return self.fail("expect=particle_info:{s} was false: do=particle_info has not succeeded", .{arg});
             const finite = std.math.isFinite(info.max_count) and std.math.isFinite(info.max_size) and std.math.isFinite(info.average_size) and std.math.isFinite(info.average_count);
             if (!finite or info.max_count <= 0) return self.fail("expect=particle_info:{s} was false: max_count {d}, max_size {d}, average_size {d}, average_count {d}", .{ arg, info.max_count, info.max_size, info.average_size, info.average_count });
+            return null;
+        }
+        if (eql(u8, name, "effect_angle")) {
+            const want = std.fmt.parseFloat(f32, arg) catch return self.fail("expect=effect_angle needs degrees, got '{s}'", .{arg});
+            var stored: f32 = 0;
+            if (!docks_logic.syncEffectAngle(self.bridge(), &stored)) return self.fail("expect=effect_angle:{s}: {s}", .{ arg, self.bridge().lastMessage() });
+            const have = docks_logic.directionDegrees(stored);
+            // The text of the dock reads 360 where 0 is meant (MFC's boundary), so compare around the circle.
+            if (@abs(@mod(have - want + 180, 360) - 180) > 0.1) return self.fail("expect=effect_angle:{s} was false: the dock reads {d:.2} degrees", .{ arg, have });
             return null;
         }
         if (eql(u8, name, "source_mode")) {

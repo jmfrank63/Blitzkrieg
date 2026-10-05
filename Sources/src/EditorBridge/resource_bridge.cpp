@@ -225,6 +225,10 @@ struct ResourceState
 	std::vector<IVisObj *> previewMembers;
 	bool bPreviewEffect = false;
 	bool bPreviewRunning = false;
+	// The Effect editor's direction dock angle, radians (CDirectionButtonDockBar
+	// held it in MFC): view state, neither saved nor undone, back at 45 degrees
+	// whenever a project is opened or begun (SpecificClearBeforeBatchMode).
+	float fEffectAngle = 0.78539816f;
 	// The unit (msh) preview: the export's folder as the engine names it (with
 	// a trailing backslash), the three model names of Graphics Info without
 	// folder and extension, the variant drawn, its direction in degrees and
@@ -308,6 +312,7 @@ void ResetState( ResourceState &state )
 	state.preorder.clear();
 	state.geometry.clear();
 	state.editedCrossLists.clear();
+	state.fEffectAngle = ToRadian( 45.0f );
 }
 
 // Upper-case hex of a byte buffer, two chars per byte and no separators, as
@@ -4233,6 +4238,29 @@ void PreviewBeforeDraw( SEditorSession *pBase )
 		pMember->Update( time );
 }
 
+// CEffectFrame::UpdateEffectAngle's matrix: the quarter turn the dock's 45
+// degrees start from is taken out, the rest turns about (-1, 1, 0) / sqrt 2.
+void EffectDirectionOf( float fAngle, SHMatrix &matrix )
+{
+	float fAlpha = -fAngle;
+	fAlpha += ToRadian( 45.0f );
+	if ( fAlpha >= FP_2PI )
+		fAlpha -= FP_2PI;
+	const float fTemp = float( 1.0 / sqrt( 2.0 ) );
+	CQuat quat( fAlpha, CVec3( -fTemp, fTemp, 0 ) );
+	matrix.Set( quat );
+}
+
+// UpdateEffectAngle: nothing unless the effect plays.
+void ApplyEffectDirection( ResourceState &state )
+{
+	if ( !state.bPreviewRunning || !state.bPreviewEffect || state.pPreviewObj == nullptr )
+		return;
+	SHMatrix matrix;
+	EffectDirectionOf( state.fEffectAngle, matrix );
+	static_cast<IEffectVisObj *>( state.pPreviewObj )->SetEffectDirection( matrix );
+}
+
 // Restarts the object's own animation: an effect from the current game time,
 // a sprite or mesh from its first animation.
 void RestartPreviewObject( ResourceState &state )
@@ -4930,8 +4958,51 @@ BkEditorStatus BkResPreviewPlayback( BkResSession *pSession, int nRun )
 			RestartPreviewObject( state );
 		state.bPreviewRunning = nRun != 0;
 		pSession->pfnBeforeDraw = state.bPreviewRunning ? &PreviewBeforeDraw : nullptr;
+		ApplyEffectDirection( state );
 		return BK_EDITOR_OK;
 	} );
+}
+
+BkEditorStatus BkResEffectSetDirection( BkResSession *pSession, float fAngle )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bOpen || state.nKindOrdinal != 12 )
+		{
+			pSession->szMessage = "the direction dock belongs to an open .eff project";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( !std::isfinite( fAngle ) )
+		{
+			pSession->szMessage = "the direction angle is not a number";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		state.fEffectAngle = fAngle;
+		ApplyEffectDirection( state );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResEffectGetDirection( BkResSession *pSession, float *pAngle )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pAngle == nullptr )
+			return BK_EDITOR_BAD_ARGUMENT;
+		*pAngle = StateOf( pSession ).fEffectAngle;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResEffectDirectionMatrix( float fAngle, float *pMatrix )
+{
+	if ( pMatrix == nullptr )
+		return BK_EDITOR_BAD_ARGUMENT;
+	SHMatrix matrix;
+	EffectDirectionOf( fAngle, matrix );
+	std::memcpy( pMatrix, matrix.m, sizeof( float ) * 16 );
+	return BK_EDITOR_OK;
 }
 
 BkEditorStatus BkResPreviewCamera( BkResSession *pSession, float fX, float fY, int nZoom )

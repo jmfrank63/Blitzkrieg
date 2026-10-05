@@ -94,6 +94,11 @@ pub const item_type = struct {
     pub const bridge_dir_explosion_props: i32 = base + 333;
     pub const bridge_smokes: i32 = base + 334;
     pub const bridge_smoke_props: i32 = base + 335;
+    pub const particle_root: i32 = base + 131;
+    pub const particle_source_props: i32 = base + 133;
+    pub const particle_props: i32 = base + 141;
+    pub const particle_complex_source: i32 = base + 149;
+    pub const particle_complex: i32 = base + 342;
 };
 
 // --- Reading the mirror ------------------------------------------------------

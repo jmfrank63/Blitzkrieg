@@ -52,6 +52,31 @@ pub fn directionDegrees(angle: f32) f32 {
     return a * 180.0 / pi;
 }
 
+/// The dock turned the needle: the Effect editor's running preview follows
+/// (UpdateEffectAngle) and the bridge keeps the angle as view state.
+pub fn turnEffect(b: ResBridge, angle: f32) bridge.EditError!void {
+    try bridge.check(b.effectSetDirection(angle));
+}
+
+/// The needle follows the bridge's stored angle (45 degrees on open), since
+/// the dock of an effect project owns no angle of its own; false when the
+/// bridge has none to give.
+pub fn syncEffectAngle(b: ResBridge, angle: *f32) bool {
+    var stored: f32 = 0;
+    if (b.effectGetDirection(&stored) != .ok) return false;
+    angle.* = stored;
+    return true;
+}
+
+/// directionDegrees backwards: the needle angle (-pi..pi) whose degrees text
+/// reads `degrees`.
+pub fn angleOfDegrees(degrees: f32) f32 {
+    const pi = std.math.pi;
+    var a = degrees * pi / 180.0 + pi / 4.0;
+    if (a > pi) a -= 2 * pi;
+    return a;
+}
+
 /// GetQuadrant, line for line, for the sub-editors that ask it (06-06,
 /// 06-08, 06-12). Its 3 and 4 branches cannot match an atan2 angle; they
 /// are kept as MFC wrote them.
@@ -904,4 +929,24 @@ test "particle source toggle: complex needs a name, each switch is one undo step
     try testing.expectEqual(SourceToggle.Outcome.switched, toggle.toggle(target, null));
     try testing.expectEqual(@as(?bool, true), SourceToggle.mode(b));
     try testing.expectEqual(@as(usize, 3), hist.undo_stack.items.len);
+}
+
+test "the effect dock turns the bridge angle and reads it back, 45 degrees on open" {
+    var fake = FakeResBridge.init(testing.allocator);
+    defer fake.deinit();
+    const res = fake.bridge();
+    var angle: f32 = 0;
+    try bridge.check(res.new(.effect));
+    try testing.expect(syncEffectAngle(res, &angle));
+    try testing.expectApproxEqAbs(std.math.pi / 4.0, angle, 1e-6);
+    // 0 degrees on the button is the quarter-pi diagonal, as MFC's text reads.
+    try testing.expectApproxEqAbs(@as(f32, 0), @mod(directionDegrees(angle) + 0.5, 360) - 0.5, 1e-3);
+    try testing.expectApproxEqAbs(@as(f32, 30), directionDegrees(angleOfDegrees(30)), 1e-3);
+    try testing.expectApproxEqAbs(@as(f32, 300), directionDegrees(angleOfDegrees(300)), 1e-3);
+    try turnEffect(res, std.math.pi / 2.0);
+    try testing.expect(syncEffectAngle(res, &angle));
+    try testing.expectApproxEqAbs(std.math.pi / 2.0, angle, 1e-6);
+    try testing.expectError(bridge.EditError.BadArgument, turnEffect(res, std.math.inf(f32)));
+    try bridge.check(res.new(.weapon));
+    try testing.expectError(bridge.EditError.Refused, turnEffect(res, 1.0));
 }

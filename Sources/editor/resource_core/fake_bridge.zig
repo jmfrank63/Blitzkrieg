@@ -123,6 +123,8 @@ pub const FakeResBridge = struct {
     /// The unit preview's model variant, turn in degrees and display flags.
     mesh_variant: u8 = 0,
     mesh_direction: i32 = 0,
+    /// The direction dock angle of an .eff project, radians; 45 degrees on open.
+    effect_angle: f32 = std.math.pi / 4.0,
     show_locators: bool = false,
     show_bounding_boxes: bool = false,
     /// Whether the last previewCameraMode asked for the horizontal camera.
@@ -456,6 +458,7 @@ pub const FakeResBridge = struct {
         self.geometry.clearRetainingCapacity();
         self.geometry_homes.clearRetainingCapacity();
         self.kind = kind;
+        self.effect_angle = std.math.pi / 4.0;
         self.has_path = false;
         var root: FakeNode = .{ .id = self.next_id, .parent = -1 };
         _ = putName(&root.class, "Root");
@@ -1161,6 +1164,28 @@ pub const FakeResBridge = struct {
         return .ok;
     }
 
+    fn effectSetDirection(ptr: *anyopaque, angle: f32) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        if (self.kind != .effect) {
+            self.say("the direction dock belongs to an open .eff project", .{});
+            return .refused;
+        }
+        if (!std.math.isFinite(angle)) {
+            self.say("the direction angle is not a number", .{});
+            return .bad_argument;
+        }
+        self.effect_angle = angle;
+        return .ok;
+    }
+
+    fn effectGetDirection(ptr: *anyopaque, angle: *f32) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        angle.* = self.effect_angle;
+        return .ok;
+    }
+
     fn previewDirection(ptr: *anyopaque, angle: i32) Status {
         const self = from(ptr);
         self.clearMessage();
@@ -1325,6 +1350,8 @@ pub const FakeResBridge = struct {
         .previewPlayback = previewPlayback,
         .previewMeshVariant = previewMeshVariant,
         .previewDirection = previewDirection,
+        .effectSetDirection = effectSetDirection,
+        .effectGetDirection = effectGetDirection,
         .previewShowLocators = previewShowLocators,
         .meshLocators = meshLocators,
         .keyframeKnobs = keyframeKnobs,
