@@ -121,28 +121,28 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-03.1 | Tree: Common (picture, type), Members, Formations | todo |
-| B-03.2 | Formation layout: drag members | todo |
-| B-03.3 | Set zero point (toolbar) | todo |
-| B-03.4 | Direction arrow dock | todo |
-| B-03.5 | Export: `SSquadRPGStats` + copied icon | todo |
-| B-03.6 | Import from game data | todo |
+| B-03.1 | Tree: Common (picture, type), Members, Formations | done: tree in panels; resource-editor-auto S06 block (scp) |
+| B-03.2 | Formation layout: drag members | done: FormationDrag one undo step; sub_editor_tools tests (fake + real bridge), squad_logic tests, auto `squad_drag` + `expect=slot` |
+| B-03.3 | Set zero point (toolbar) | done: setZeroPoint undoable; sub_editor_tools tests, auto `squad_zero` |
+| B-03.4 | Direction arrow dock | done: formation_direction arrow, one composite undo step; sub_editor_tools tests, auto `squad_dir` + `expect=direction` |
+| B-03.5 | Export: `SSquadRPGStats` + copied icon | done: scp exporter (stats + icon copy) read back by engine; test-resource-bridge, auto `do=export`; golden parity pending win-home (export-goldens.ps1 -Extensions wpn,mcp,trc,scp) |
+| B-03.6 | Import from game data | done: import-then-export round trip german_rifle_45 in test-resource-bridge |
 
 ### B-04 Weapon editor (`CWeaponFrame`, `.wpn`, `weapons\`) — 06-06
 
 | # | Feature | Status |
 |---|---|---|
-| B-04.1 | Tree: Common, Shoot types, Damage, Sound, Effect, Flash, Craters, Effects | todo |
-| B-04.2 | Export: `SWeaponRPGStats` to `weapons\<name>.xml` | todo |
-| B-04.3 | Import from game data | todo |
+| B-04.1 | Tree: Common, Shoot types, Damage, Sound, Effect, Flash, Craters, Effects | done: shoot/damage/sound/effect/flash/craters tree; sub_editor_tools weapon tests, auto `tree:add_shoot_type` (undo/redo/save/export); preview: no behaviour in MFC (D015) |
+| B-04.2 | Export: `SWeaponRPGStats` to `weapons\<name>.xml` | done: wpn exporter read back field-equal by CTreeAccessor; test-resource-bridge, auto `do=export`; golden parity pending win-home (export-goldens.ps1 -Extensions wpn,mcp,trc,scp) |
+| B-04.3 | Import from game data | done: round trip mg_37t in test-resource-bridge |
 
 ### B-05 Mine editor (`CMineFrame`, `.mcp`) — 06-06
 
 | # | Feature | Status |
 |---|---|---|
-| B-05.1 | Tree: Common (name, weight) | todo |
-| B-05.2 | Export: `SMineRPGStats`, `ComposeSingleObject` from `1.tga`/`1s.tga` | todo |
-| B-05.3 | Import from game data | todo |
+| B-05.1 | Tree: Common (name, weight) | done: name/weight tree; auto `set_prop:Weight` undo/redo (mcp) |
+| B-05.2 | Export: `SMineRPGStats`, `ComposeSingleObject` from `1.tga`/`1s.tga` | done: mine exporter with ComposeSingleObject (_c/_l/_h.dds + .san); test-resource-bridge, auto `do=export` + shot=mine; golden parity pending win-home (export-goldens.ps1 -Extensions wpn,mcp,trc,scp) |
+| B-05.3 | Import from game data | done: round trip mine_at in test-resource-bridge |
 
 ### B-06 Particle editor (`CParticleFrame`, `.pcp`, `effects\particles\`) — 06-12
 
@@ -231,10 +231,10 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-13.1 | Tree: Common, Sources (`.mod` models), Defences | todo |
-| B-13.2 | Preview of the entrenchment models | todo |
-| B-13.3 | Export: `SEntrenchmentRPGStats`, copied `.mod`, `1/1w/1a` DDS | todo |
-| B-13.4 | Import from game data | todo |
+| B-13.1 | Tree: Common, Sources (`.mod` models), Defences | done: sources tree; sub_editor_tools trench tests, auto `tree:add_source` (undo/redo) |
+| B-13.2 | Preview of the entrenchment models | done: preview measured by captured frame; auto `shot=trench` + `expect=shot_lit` + `differ` |
+| B-13.3 | Export: `SEntrenchmentRPGStats`, copied `.mod`, `1/1w/1a` DDS | done: trc exporter (stats, .mod copies, 1/1w/1a DDS); test-resource-bridge, auto `do=export`; golden parity pending win-home (export-goldens.ps1 -Extensions wpn,mcp,trc,scp) |
+| B-13.4 | Import from game data | done: round trip Entrenchment in test-resource-bridge |
 
 ### B-14 Mission editor (`CMissionFrame`, `.mip`, `scenarios\`) — 06-14
 

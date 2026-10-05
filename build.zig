@@ -8303,7 +8303,90 @@ const resource_auto_schedule =
     // The exported mod played in the real Game.
     "35:do=run_game," ++
     "36:waitgame=240," ++
-    "37:exit";
+    // S06: the four stats sub-editors, one block each on a copy of the tracked
+    // project, a mod folder of their own (the Game has left the first one).
+    // Per kind: open, the kind's tool, undo, redo, save, export. Squad, trench
+    // and mine also shoot the frame (the preview) and differ it from the last.
+    "40:do=mod_dir:{mods}/reseditor_auto_s06," ++
+    // Weapon (WeaponFrm): a shoot type inserted into the tree. MFC draws no
+    // preview for it (D015), so no shot.
+    "41:do=copy:{fix}/wpn/project.wpn>{dir}/wpn/project.wpn," ++
+    "42:open={dir}/wpn/project.wpn," ++
+    "43:expect=kind:wpn," ++
+    "44:expect=dirty:false," ++
+    "45:do=tree:add_shoot_type," ++
+    "46:expect=dirty:true," ++
+    "47:do=undo," ++
+    "48:expect=dirty:false," ++
+    "49:do=redo," ++
+    "50:expect=dirty:true," ++
+    "51:save," ++
+    "52:do=export," ++
+    "53:expect=exported," ++
+    // Mine (MineFrm): the weight, then the preview of the compose.
+    "60:do=copy:{fix}/mcp/project.mcp>{dir}/mcp/project.mcp," ++
+    "61:do=copy:{fix}/mcp/1.tga>{dir}/mcp/1.tga," ++
+    "62:do=copy:{fix}/mcp/1s.tga>{dir}/mcp/1s.tga," ++
+    "63:open={dir}/mcp/project.mcp," ++
+    "64:expect=kind:mcp," ++
+    "65:shot=mine," ++
+    "66:expect=shot_lit:mine," ++
+    "67:differ=opened/mine@0.05," ++
+    "68:do=set_prop:Weight=11," ++
+    "69:expect=prop:Weight=11," ++
+    "70:do=undo," ++
+    "71:expect=prop:Weight=10," ++
+    "72:do=redo," ++
+    "73:expect=prop:Weight=11," ++
+    "74:save," ++
+    "75:do=export," ++
+    "76:expect=exported," ++
+    // Trench (TrenchFrm): a source added to a side, then the preview.
+    "80:do=copy:{fix}/trc/project.trc>{dir}/trc/project.trc," ++
+    "81:do=copy:{fix}/trc/1.tga>{dir}/trc/1.tga," ++
+    "82:do=copy:{fix}/trc/1w.tga>{dir}/trc/1w.tga," ++
+    "83:do=copy:{fix}/trc/1a.tga>{dir}/trc/1a.tga," ++
+    "84:open={dir}/trc/project.trc," ++
+    "85:expect=kind:trc," ++
+    "86:shot=trench," ++
+    "87:expect=shot_lit:trench," ++
+    "88:differ=mine/trench@0.05," ++
+    "89:do=tree:add_source," ++
+    "90:expect=dirty:true," ++
+    "91:do=undo," ++
+    "92:expect=dirty:false," ++
+    "93:do=redo," ++
+    "94:expect=dirty:true," ++
+    "95:save," ++
+    "96:do=export," ++
+    "97:expect=exported," ++
+    // Squad (SquadFrm): a member dragged, the zero point, the direction arrow,
+    // each one undo step, then the formation overlay's frame.
+    "100:do=copy:{fix}/scp/project.scp>{dir}/scp/project.scp," ++
+    "101:do=copy:{fix}/scp/sprite-1frame.tga>{dir}/scp/sprite-1frame.tga," ++
+    "102:open={dir}/scp/project.scp," ++
+    "103:expect=kind:scp," ++
+    "104:do=squad_drag:0/25/-15," ++
+    "105:expect=slot:0=moved," ++
+    "106:do=undo," ++
+    "107:expect=slot:0=home," ++
+    "108:do=redo," ++
+    "109:expect=slot:0=moved," ++
+    "110:do=squad_zero:5/5," ++
+    "111:do=squad_dir:1.0," ++
+    "112:expect=direction:1.0," ++
+    "113:do=undo," ++
+    "114:do=undo," ++
+    "115:do=redo," ++
+    "116:do=redo," ++
+    "117:expect=direction:1.0," ++
+    "118:shot=squad," ++
+    "119:expect=shot_lit:squad," ++
+    "120:differ=trench/squad@0.05," ++
+    "121:save," ++
+    "122:do=export," ++
+    "123:expect=exported," ++
+    "124:exit";
 
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static

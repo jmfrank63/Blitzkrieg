@@ -25,9 +25,15 @@
 //!   do=export_refused       the same while the kind has no exporter: refused, naming the kind
 //!   do=pack:<file.pak>      Compress to PAK, read back by the engine
 //!   do=run_game             Game with -mod=<export folder>, then waitgame=<s>
+//!   do=tree:<action>        a weapon or trench tree action on the first fitting node:
+//!                           add_shoot_type, add_crater, add_source (one undo step)
+//!   do=squad_drag:<slot>/<dx>/<dy>   a formation member dragged by a world offset
+//!   do=squad_zero:<x>/<y>   do=squad_dir:<radians>   the zero point, the direction arrow
 //!   open=<path> save saveas=<path> shot=<name> differ=<a>/<b>@<percent> exit
 //!   expect=kind:<ext>  dirty:<true|false>  untitled  nodes_min:<n>
 //!          prop:<name>=<value>  exported  file:<path>  shot_lit:<name>
+//!          slot:<n>=moved|home  the formation member against where the drag found it
+//!          direction:<radians>  the formation's direction
 //!
 //! `{dir}` (the scratch folder), `{fix}` (the fixtures folder) and `{mods}`
 //! (the installation's mods folder) are replaced in every path and argument,
@@ -50,12 +56,15 @@ const edit = @import("edit_logic.zig");
 const logic = @import("panels_logic.zig");
 const panels_mod = @import("panels.zig");
 const tools = @import("tools_logic.zig");
+const squad = @import("squad_logic.zig");
 
 const c = c_bridge.c;
 
 const Kind = core.bridge.Kind;
 const ResBridge = core.bridge.ResBridge;
 const PropRecord = core.bridge.PropRecord;
+const sub_tools = core.sub_editor_tools;
+const Point2 = core.bridge.Point2;
 
 const owner = "resource-editor-auto";
 const gunner_folder = "Data/Units/Humans/German/Gunner";
@@ -271,6 +280,8 @@ const Runner = struct {
     base_root: []const u8,
     running: ?testlaunch.Running = null,
     exported: bool = false,
+    /// The slot a squad_drag moved and where it stood before, for expect=slot.
+    dragged: ?struct { formation: i32, slot: usize, home: Point2 } = null,
     frame: u32 = 0,
     message: [768]u8 = undefined,
 
@@ -462,6 +473,7 @@ const Runner = struct {
             return null;
         }
         if (eql(u8, name, "export")) {
+            self.exported = false;
             var outcome: tools.ExportOutcome = .{};
             tools.runExport(b, &self.life, false, false, true, &outcome);
             if (outcome.status != .ok) return self.fail("export: {s}", .{outcome.message()});
@@ -486,8 +498,72 @@ const Runner = struct {
             if (b.packMod(path) != .ok) return self.fail("pack {s}: {s}", .{ path, b.lastMessage() });
             return null;
         }
+        if (eql(u8, name, "tree")) return self.treeAction(named.arg);
+        if (eql(u8, name, "squad_drag")) return self.squadDrag(named.arg);
+        if (eql(u8, name, "squad_zero")) {
+            const at = parsePoint(named.arg) orelse return self.fail("squad_zero needs <x>/<y>", .{});
+            const node = self.firstFormation() orelse return self.fail("squad_zero: the project has no formation", .{});
+            const step = sub_tools.setZeroPoint(self.gpa, b, node, at) catch return self.fail("squad_zero: {s}", .{b.lastMessage()});
+            sub_tools.commit(self.gpa, b, &self.life.doc, &self.life.history, step, 0) catch return self.fail("squad_zero: {s}", .{b.lastMessage()});
+            return null;
+        }
+        if (eql(u8, name, "squad_dir")) {
+            const angle = std.fmt.parseFloat(f32, named.arg) catch return self.fail("squad_dir needs radians", .{});
+            const node = self.firstFormation() orelse return self.fail("squad_dir: the project has no formation", .{});
+            const step = sub_tools.setFormationDirection(self.gpa, b, node, angle, null) catch return self.fail("squad_dir: {s}", .{b.lastMessage()});
+            sub_tools.commit(self.gpa, b, &self.life.doc, &self.life.history, step, 0) catch return self.fail("squad_dir: {s}", .{b.lastMessage()});
+            return null;
+        }
         if (eql(u8, name, "run_game")) return self.runGame();
         return self.fail("unknown command '{s}'", .{name});
+    }
+
+    fn firstFormation(self: *Runner) ?i32 {
+        return sub_tools.firstOfClass(&self.life.doc, sub_tools.item_type.squad_formation_props);
+    }
+
+    /// The tree action on the first node it applies to, through the same
+    /// squad_logic entry the tree's context menu uses.
+    fn treeAction(self: *Runner, arg: []const u8) ?[]const u8 {
+        const item = sub_tools.item_type;
+        const Choice = struct { action: squad.TreeAction, class: i32 };
+        const choice: Choice = if (std.mem.eql(u8, arg, "add_shoot_type"))
+            .{ .action = .add_shoot_type, .class = item.weapon_shoot_types }
+        else if (std.mem.eql(u8, arg, "add_crater"))
+            .{ .action = .add_crater, .class = item.weapon_damage_props }
+        else if (std.mem.eql(u8, arg, "add_source"))
+            .{ .action = .add_source, .class = item.trench_sources }
+        else
+            return self.fail("tree: '{s}' is not add_shoot_type, add_crater or add_source", .{arg});
+        const node = sub_tools.firstOfClass(&self.life.doc, choice.class) orelse return self.fail("tree:{s}: the project has no such node", .{arg});
+        squad.runTreeAction(self.gpa, self.bridge(), &self.life.doc, &self.life.history, choice.action, node) catch return self.fail("tree:{s}: {s}", .{ arg, self.bridge().lastMessage() });
+        return null;
+    }
+
+    /// One member dragged by a world offset: the same FormationDrag the
+    /// overlay feeds, so it is one undo step.
+    fn squadDrag(self: *Runner, arg: []const u8) ?[]const u8 {
+        const b = self.bridge();
+        var parts = std.mem.splitScalar(u8, arg, '/');
+        const slot = std.fmt.parseInt(usize, parts.next() orelse "", 10) catch return self.fail("squad_drag needs <slot>/<dx>/<dy>", .{});
+        const dx = std.fmt.parseFloat(f32, parts.next() orelse "") catch return self.fail("squad_drag needs <slot>/<dx>/<dy>", .{});
+        const dy = std.fmt.parseFloat(f32, parts.next() orelse "") catch return self.fail("squad_drag needs <slot>/<dx>/<dy>", .{});
+        const node = self.firstFormation() orelse return self.fail("squad_drag: the project has no formation", .{});
+        var drag = sub_tools.FormationDrag.begin(self.gpa, b, node) catch return self.fail("squad_drag: {s}", .{b.lastMessage()});
+        if (slot >= drag.current.len) {
+            const count = drag.current.len;
+            drag.deinit(self.gpa);
+            return self.fail("squad_drag: slot {d} of {d}", .{ slot, count });
+        }
+        const home = drag.current[slot];
+        drag.moveSlot(b, slot, .{ .x = home.x + dx, .y = home.y + dy }) catch {
+            drag.cancel(self.gpa, b);
+            return self.fail("squad_drag: {s}", .{b.lastMessage()});
+        };
+        const step = drag.finish(self.gpa) orelse return self.fail("squad_drag: the member did not move", .{});
+        sub_tools.commit(self.gpa, b, &self.life.doc, &self.life.history, step, 0) catch return self.fail("squad_drag: {s}", .{b.lastMessage()});
+        self.dragged = .{ .formation = node, .slot = slot, .home = home };
+        return null;
     }
 
     fn runGame(self: *Runner) ?[]const u8 {
@@ -567,9 +643,35 @@ const Runner = struct {
             std.debug.print("resource-editor: auto: {s} has {d:.1}% of its frame drawn\n", .{ arg, lit });
             return null;
         }
+        if (eql(u8, name, "slot")) {
+            const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return self.fail("slot needs <n>=moved|home", .{});
+            const drag = self.dragged orelse return self.fail("expect=slot:{s}: no squad_drag ran", .{arg});
+            const want_moved = eql(u8, arg[eq + 1 ..], "moved");
+            var read = sub_tools.readGeometry(self.bridge(), drag.formation, .formation_positions) catch return self.fail("expect=slot:{s}: {s}", .{ arg, self.bridge().lastMessage() });
+            defer read.deinit(self.gpa);
+            if (drag.slot >= read.points2.len) return self.fail("expect=slot:{s}: only {d} members", .{ arg, read.points2.len });
+            const at = read.points2[drag.slot];
+            const moved = @abs(at.x - drag.home.x) > 1e-3 or @abs(at.y - drag.home.y) > 1e-3;
+            if (moved != want_moved) return self.fail("expect=slot:{s} was false: the member is at {d:.3}/{d:.3}, it started at {d:.3}/{d:.3}", .{ arg, at.x, at.y, drag.home.x, drag.home.y });
+            return null;
+        }
+        if (eql(u8, name, "direction")) {
+            const want = std.fmt.parseFloat(f32, arg) catch return self.fail("direction needs radians", .{});
+            const node = self.firstFormation() orelse return self.fail("expect=direction: the project has no formation", .{});
+            const read = sub_tools.readGeometry(self.bridge(), node, .formation_direction) catch return self.fail("expect=direction:{s}: {s}", .{ arg, self.bridge().lastMessage() });
+            if (@abs(read.point2.x - want) > 1e-3) return self.fail("expect=direction:{s} was false: it is {d:.4}", .{ arg, read.point2.x });
+            return null;
+        }
         return self.fail("unknown predicate '{s}'", .{name});
     }
 };
+
+fn parsePoint(text: []const u8) ?Point2 {
+    var parts = std.mem.splitScalar(u8, text, '/');
+    const x = std.fmt.parseFloat(f32, parts.next() orelse return null) catch return null;
+    const y = std.fmt.parseFloat(f32, parts.next() orelse return null) catch return null;
+    return .{ .x = x, .y = y };
+}
 
 /// resource-editor-auto: the schedule in `schedule_text` over the host. The
 /// exit is true for a pass.
