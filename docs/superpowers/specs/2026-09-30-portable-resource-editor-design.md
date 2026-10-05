@@ -303,6 +303,24 @@ For every export, compared with the MFC editor's export of the same project
   `fmtTerrain`, `fmtVSO`) on both sides; every field equal (floats exactly).
   A comparator per stats type, written once in C++, that fails on any field
   it does not know.
+  Implemented in `Sources/src/ResourceModel/comparator.*` (S03 T06), proved
+  by `test-resource-model-comparator`, where every shipped stats file in `Data/`
+  compares equal to itself. What that proof taught it, so a file node is not
+  an unknown field:
+  - each kind opens its own document element (`base`, `effect` for effects,
+    as `CVisObjBuilder` opens them);
+  - a container the reader enters and never indexes was skipped by the reader
+    (`CTreeAccessor::Do2DArray` reads nothing of an empty 2D array);
+  - a name repeated under one parent is read as often as the struct asks for
+    it (`SBuildingRPGStats` writes `AmbientSound` twice);
+  - a short, reviewed table (`kStaleFields`) of nodes older exporters wrote and
+    no current reader reads: object `EffectExplosion`/`EffectDeath` and effect
+    `sound` written as structs, particle `Position` and `GenerateSpinRand`,
+    inline unit `Acks`, and two fields of one 2002 mission. Stale nodes are
+    counted and reported, and a stale node on one side only is a difference.
+  Golden comparison waits on the goldens: until `tools/zig/win-home/export-goldens.ps1`
+  has filled `tools/zig/fixtures/resource_editor/<ext>/golden/` on win-home,
+  the tier reports `pending: golden missing` for each extension, never PASS.
 - **Binary animations (`.san`) and sprite packs:** byte-identical.
 - **DDS:** same size, format, mip count; decoded pixels within a stated
   tolerance, because the checked-in `editor.exe` used a different DXT encoder

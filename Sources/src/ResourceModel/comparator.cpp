@@ -1,12 +1,24 @@
+#include "StdAfx.h"
+
 #include "comparator.h"
 
 #include <cstdio>
-#include <cstdlib>
+#include <cstring>
 #include <fstream>
+#include <iterator>
+#include <map>
+#include <set>
 #include <sstream>
-#include <unordered_set>
 
-#include "project.h"
+#include "../Main/iMain.h"
+#include "../Main/RPGStats.h"
+#include "../Main/GameStats.h"
+#include "../Formats/fmtEffect.h"
+#include "../Formats/fmtTerrain.h"
+#include "../Formats/fmtVSO.h"
+#include "../Scene/ParticleSourceData.h"
+#include "../Scene/SmokinParticleSourceData.h"
+#include "../Scene/PFX.h"
 #include "xml.h"
 
 namespace NResourceModel
@@ -15,583 +27,778 @@ namespace NResourceModel
 namespace
 {
 
-// Per-sub-editor-kind description. engineReader names the exact engine entry
-// point this port stands for; statsType is the engine struct the field table
-// is enumerated from; rootTag is the top-level XML element the editor
-// authored into the project file. fields is the whole-chain allowed set
-// (base-class fields + leaf fields) from the engine's operator&(IDataTree &)
-// bodies, keyed by their XML name - the one argument CTreeAccessor::Add
-// takes. "Chain" means a derived struct's table concatenates every base
-// struct's; this mirrors AddTypedSuper's call order so the comparator
-// recognises the same keys the engine would in a single read.
-struct SKind
+const SExportKindInfo kKinds[] = {
+	{ EExportKind::MECH_UNIT,    "SMechUnitRPGStats",       "ReadRPGStats<SMechUnitRPGStats>",      "RPG", "base" },
+	{ EExportKind::INFANTRY,     "SInfantryRPGStats",       "ReadRPGStats<SInfantryRPGStats>",      "RPG", "base" },
+	{ EExportKind::WEAPON,       "SWeaponRPGStats",         "GetAddStats<SWeaponRPGStats>",         "RPG", "base" },
+	{ EExportKind::SQUAD,        "SSquadRPGStats",          "ReadRPGStats<SSquadRPGStats>",         "RPG", "base" },
+	{ EExportKind::MINE,         "SMineRPGStats",           "ReadRPGStats<SMineRPGStats>",          "RPG", "base" },
+	{ EExportKind::ENTRENCHMENT, "SEntrenchmentRPGStats",   "ReadRPGStats<SEntrenchmentRPGStats>",  "RPG", "base" },
+	{ EExportKind::OBJECT,       "SObjectRPGStats",         "ReadRPGStats<SObjectRPGStats>",        "desc", "base" },
+	{ EExportKind::FENCE,        "SFenceRPGStats",          "ReadRPGStats<SFenceRPGStats>",         "RPG", "base" },
+	{ EExportKind::BUILDING,     "SBuildingRPGStats",       "ReadRPGStats<SBuildingRPGStats>",      "desc", "base" },
+	{ EExportKind::BRIDGE,       "SBridgeRPGStats",         "ReadRPGStats<SBridgeRPGStats>",        "RPG", "base" },
+	{ EExportKind::PARTICLE,     "SParticleSourceData",     "SParticleSourceData::Load",            "KeyData", "base" },
+	{ EExportKind::EFFECT,       "SEffectDesc",             "fmtEffect SEffectDesc::operator&",     "effect", "effect" },
+	{ EExportKind::TILESET,      "STilesetDesc",            "fmtTerrain STilesetDesc::operator&",   "tileset", "base" },
+	{ EExportKind::CROSSET,      "SCrossetDesc",            "fmtTerrain SCrossetDesc::operator&",   "crosset", "base" },
+	{ EExportKind::VSO,          "SVectorStripeObjectDesc", "fmtVSO SVectorStripeObjectDesc::operator&", "VSODescription", "base" },
+	{ EExportKind::MISSION,      "SMissionStats",           "GetGameStats<SMissionStats>",          "RPG", "base" },
+	{ EExportKind::CHAPTER,      "SChapterStats",           "GetGameStats<SChapterStats>",          "RPG", "base" },
+	{ EExportKind::CAMPAIGN,     "SCampaignStats",          "GetGameStats<SCampaignStats>",         "RPG", "base" },
+	{ EExportKind::MEDAL,        "SMedalStats",             "GetGameStats<SMedalStats>",            "RPG", "base" },
+};
+
+// A chunk on the way down: its name, and for a container the item the
+// reader is on. Paths join them with '/', a container item as item[i], which
+// is how EnumerateFile names the same node in the file.
+struct SFrame
 {
-	const char *ext;              // "wpn", "mcp", ...
-	const char *rootTag;          // "Weapon_Composer_Project", "Mine_Composer_Project", ...
-	const char *engineReader;     // "ReadRPGStats<SWeaponRPGStats>" ...
-	const char *statsType;        // "SWeaponRPGStats"
-	bool notApplicable;           // true for gui
-	const char *const *fields;    // null-terminated field name array
+	std::string szName;
+	bool bContainer = false;
+	bool bIndexed = false;
+	int nItem = -1;
+	int nItems = 0;
+	std::map<std::string, int> asked;
 };
 
-// SCommonRPGStats::operator&       KeyName, StatsType.
-// Reused by every RPG-based kind below.
-constexpr const char *kCommonRpgFields[] = {
-	"KeyName", "StatsType", nullptr,
-};
-// SHPObjectRPGStats::operator&     MaxHP + DamagedHPs + RepairCost + Defence0..5.
-constexpr const char *kHpObjectExtraFields[] = {
-	"MaxHP", "DamagedHPs", "RepairCost",
-	"Defence0", "Defence1", "Defence2", "Defence3", "Defence4", "Defence5",
-	nullptr,
-};
-// SStaticObjectRPGStats::operator& extra: AIClasses, Burn, EffectExplosion, EffectDeath.
-constexpr const char *kStaticObjectExtraFields[] = {
-	"AIClasses", "Burn", "EffectExplosion", "EffectDeath", nullptr,
-};
-// SObjectBaseRPGStats::operator&   extra: passability, origin, VisOrigin, visibility, CycledSound, AmbientSound.
-constexpr const char *kObjectBaseExtraFields[] = {
-	"passability", "origin", "VisOrigin", "visibility", "CycledSound", "AmbientSound", nullptr,
-};
-// SUnitBaseRPGStats::operator&     extra: SUnitBase has an engine-side table too; we expose the
-// subset the port surfaces on infantry/mesh (names drawn from the AddTypedSuper chain in RPGStats.cpp).
-constexpr const char *kUnitBaseExtraFields[] = {
-	// SUnitBase keeps the same KeyName/StatsType via SCommonRPGStats; it has no extra top-level fields
-	// at the IDataTree surface - mesh and infantry add their own and chain through AddTypedSuper.
-	nullptr,
-};
-// Fixture framing wrapper the Composer sub-editors author around the authored
-// data. The MFC code emits exactly this when the user hits "Save As Fixture"
-// in the sub-editor; the port's scaffold tests feed fixtures of this shape.
-// Every ext allows these on the root element so a project file whose single
-// child is <fixture><name>...</name></fixture> is not flagged "unknown".
-constexpr const char *kFixtureWrapperFields[] = {
-	"fixture", "name", nullptr,
-};
-
-// SWeaponRPGStats::operator&       SCommonRPGStats + Dispersion/AimingTime/AmmoPerBurst/
-//                                  RangeMax/RangeMin/Ceiling/Shells/DeltaAngle/RevealRadius.
-constexpr const char *kWeaponFields[] = {
-	"KeyName", "StatsType",
-	"Dispersion", "AimingTime", "AmmoPerBurst",
-	"RangeMax", "RangeMin", "Ceiling",
-	"Shells", "DeltaAngle", "RevealRadius",
-	"fixture", "name",
-	nullptr,
-};
-// SMineRPGStats::operator&         SObjectBase chain + Weapon/Weight/FlagModel.
-constexpr const char *kMineFields[] = {
-	"KeyName", "StatsType",
-	"MaxHP", "DamagedHPs", "RepairCost",
-	"Defence0", "Defence1", "Defence2", "Defence3", "Defence4", "Defence5",
-	"AIClasses", "Burn", "EffectExplosion", "EffectDeath",
-	"passability", "origin", "VisOrigin", "visibility", "CycledSound", "AmbientSound",
-	"Weapon", "Weight", "FlagModel",
-	"fixture", "name",
-	nullptr,
-};
-// SEntrenchmentRPGStats::operator& SHPObject chain + Segments/Lines/FirePlaces/Terminators/Arcs.
-constexpr const char *kTrenchFields[] = {
-	"KeyName", "StatsType",
-	"MaxHP", "DamagedHPs", "RepairCost",
-	"Defence0", "Defence1", "Defence2", "Defence3", "Defence4", "Defence5",
-	"Segments", "Lines", "FirePlaces", "Terminators", "Arcs",
-	// CTrenchSourceTreeItem::operator&(IDataTree &).
-	"TrenchIndex",
-	"fixture", "name",
-	nullptr,
-};
-// SSquadRPGStats::operator&        Icon, Type, Members, Formations.
-constexpr const char *kSquadFields[] = {
-	"Icon", "Type", "Members", "Formations",
-	// CSquadTreeFormationItem / formation unit operator&(IDataTree &); x/y/z
-	// are the CVec3 components of Pos and ZeroPos.
-	"units", "ZeroPos", "FormationDir", "Pos", "Dir", "x", "y", "z",
-	"fixture", "name",
-	nullptr,
-};
-// Sprite (SSoundRPGStats surface mirrors the Mesh editor's export - sprite
-// uses the same InfantryRPGStats surface as unt; the Sprite_Composer_Project
-// is a sprite-set authoring file so its field table is the engine's
-// SInfantryRPGStats keys plus the fixture wrapper).
-constexpr const char *kSpriteFields[] = {
-	"KeyName", "StatsType",
-	"MaxHP", "DamagedHPs", "RepairCost",
-	"Defence0", "Defence1", "Defence2", "Defence3", "Defence4", "Defence5",
-	"Armor", "Guns", "CanAttackUp", "CanAttackDown",
-	"WalkSpeed", "CrawlSpeed",
-	"fixture", "name",
-	nullptr,
-};
-// SInfantryRPGStats::operator&     SUnitBase chain + Armor/Guns/CanAttack*/WalkSpeed/CrawlSpeed.
-constexpr const char *kInfantryFields[] = {
-	"KeyName", "StatsType",
-	"MaxHP", "DamagedHPs", "RepairCost",
-	"Defence0", "Defence1", "Defence2", "Defence3", "Defence4", "Defence5",
-	"Armor", "Guns", "CanAttackUp", "CanAttackDown",
-	"WalkSpeed", "CrawlSpeed",
-	"fixture", "name",
-	nullptr,
-};
-// SMechUnitRPGStats::operator&     SUnitBase chain + 50 named mech fields.
-constexpr const char *kMeshFields[] = {
-	"KeyName", "StatsType",
-	"MaxHP", "DamagedHPs", "RepairCost",
-	"Defence0", "Defence1", "Defence2", "Defence3", "Defence4", "Defence5",
-	"Platforms", "Guns",
-	"ArmorLeft", "ArmorRight", "ArmorTop", "ArmorBottom", "ArmorFront", "ArmorBack",
-	"RotateSpeed", "TurnRadius", "TowingForce",
-	"Crew", "Passangers",
-	"BoundTileRadius",
-	"AABBCenter", "AABBHalfSize", "SmallAABBCoeff",
-	"ExhaustPoints", "DamagePoints", "TowPoint", "EntrancePoint",
-	"PeoplePoints", "FatalitySmokePoint", "ShootDustPoint",
-	"TowPoint2D", "HookPoint", "FrontWheel", "BackWheel",
-	"EntrancePoint2D", "PeoplePoints2D", "AmmoPoint2D", "Gunners",
-	"EffectDiesel", "EffectSmoke", "EffectWheelDust", "EffectShootDust",
-	"EffectFatality", "EffectEntrenching", "EffectDisappear",
-	"JoggingX", "JoggingY", "JoggingZ",
-	"LeavesTracks", "TrackOffset", "TrackWidth", "TrackStart", "TrackEnd",
-	"TrackIntensity", "TrackLifetime",
-	"SoundMoveStart", "SoundMove", "SoundMoveStop",
-	"MaxHeight", "DivingAngle", "ClimbAngle", "TiltAngle", "TiltRatio",
-	"DeathCraters",
-	"fixture", "name",
-	nullptr,
-};
-// SObjectRPGStats::operator&       SObjectBase chain (no new fields).
-constexpr const char *kObjectFields[] = {
-	"KeyName", "StatsType",
-	"MaxHP", "DamagedHPs", "RepairCost",
-	"Defence0", "Defence1", "Defence2", "Defence3", "Defence4", "Defence5",
-	"AIClasses", "Burn", "EffectExplosion", "EffectDeath",
-	"passability", "origin", "VisOrigin", "visibility", "CycledSound", "AmbientSound",
-	"fixture", "name",
-	nullptr,
-};
-// SFenceRPGStats::operator&        SStaticObject chain + Stats/Dirs.
-constexpr const char *kFenceFields[] = {
-	"KeyName", "StatsType",
-	"MaxHP", "DamagedHPs", "RepairCost",
-	"Defence0", "Defence1", "Defence2", "Defence3", "Defence4", "Defence5",
-	"AIClasses", "Burn", "EffectExplosion", "EffectDeath",
-	"Stats", "Dirs",
-	"fixture", "name",
-	nullptr,
-};
-// SBuildingRPGStats::operator&     SObjectBase chain + BuildingType/RestSlots/MedicalSlots/FireSlots/
-//                                  Entrances/FirePoints/SmokePoints/SmokeEffect/DirExplosions/
-//                                  DirExplosionEffect/AmbientSound(override).
-constexpr const char *kBuildingFields[] = {
-	"KeyName", "StatsType",
-	"MaxHP", "DamagedHPs", "RepairCost",
-	"Defence0", "Defence1", "Defence2", "Defence3", "Defence4", "Defence5",
-	"AIClasses", "Burn", "EffectExplosion", "EffectDeath",
-	"passability", "origin", "VisOrigin", "visibility", "CycledSound", "AmbientSound",
-	"BuildingType", "RestSlots", "MedicalSlots", "FireSlots",
-	"Entrances", "FirePoints", "SmokePoints", "SmokeEffect",
-	"DirExplosions", "DirExplosionEffect",
-	"fixture", "name",
-	nullptr,
-};
-// SBridgeRPGStats::operator&       SStaticObject chain + Direction/Segments/Damaged/Destroyed/
-//                                  FirePoints/SmokePoints/SmokeEffect/DirExplosions/DirExplosionEffect.
-constexpr const char *kBridgeFields[] = {
-	"KeyName", "StatsType",
-	"MaxHP", "DamagedHPs", "RepairCost",
-	"Defence0", "Defence1", "Defence2", "Defence3", "Defence4", "Defence5",
-	"AIClasses", "Burn", "EffectExplosion", "EffectDeath",
-	"Direction", "Segments", "Damaged", "Destroyed",
-	"FirePoints", "SmokePoints", "SmokeEffect",
-	"DirExplosions", "DirExplosionEffect",
-	"fixture", "name",
-	nullptr,
-};
-
-// Particle: SParticleSourceData::operator&(IDataTree &) + authoring wrapper.
-// Field list is the full track/vector/scalar surface from
-// Sources/src/Scene/ParticleSourceData.cpp.
-constexpr const char *kParticleFields[] = {
-	"KeyData",
-	"lifeTime", "LifeTime", "Gravity",
-	"TextureDX", "TextureDY",
-	"GenerateArea", "Density",
-	"BeginSpeed", "BeginSpeedRandomizer",
-	"GenerateAngel", "ParticleLifeTimeRandomizer",
-	"GenerateSpin", "GenerateSpinRnd",
-	"GenerateOpacity",
-	"Spin", "Wight", "TextureFrame",
-	"Size", "Opacity",
-	"TextureName", "Wind",
-	"Speed", "SpeedRnd", "Direction",
-	"AreaType", "RadialWind",
-	"ComplexParticleSource",
-	"fixture", "name",
-	nullptr,
-};
-
-// Effect: SEffectDesc::operator&     sprites, particles, SmokinParticles, sound.
-constexpr const char *kEffectFields[] = {
-	"sprites", "particles", "SmokinParticles", "sound",
-	"fixture", "name",
-	nullptr,
-};
-// Tileset: STilesetDesc::operator&   name, terrtypes, tilemaps.
-constexpr const char *kTilesetFields[] = {
-	"name", "terrtypes", "tilemaps",
-	"fixture",
-	nullptr,
-};
-// 3rd/3rv/VSO shaped: SVectorStripeObjectDesc::operator&(IDataTree&).
-constexpr const char *kVsoFields[] = {
-	"Type", "Priority", "Passability", "AIClasses",
-	"Bottom", "BottomBorders", "Layers",
-	"MiniMapCenterColor", "MiniMapBorderColor",
-	"AmbientSound", "SoilParams",
-	"fixture", "name",
-	nullptr,
-};
-
-// SMissionStats::operator&          SCommonGameStats chain + TemplateMap/FinalMap/CombatMusics/
-//                                   ExplorMusics/Objectives/SettingName/MODName/MODVersion.
-constexpr const char *kMissionFields[] = {
-	"KeyName", "StatsType", "HeaderText", "SubheaderText", "DescriptionText",
-	"MapImage", "MapImageRect",
-	"TemplateMap", "FinalMap", "CombatMusics", "ExplorMusics",
-	"Objectives", "SettingName", "MODName", "MODVersion",
-	"fixture", "name",
-	nullptr,
-};
-// SChapterStats::operator&          Season/InterfaceMusic/Missions/PlaceHolders/Script/
-//                                   SettingName/ContextName/PlayerSide/MODName/MODVersion.
-constexpr const char *kChapterFields[] = {
-	"KeyName", "StatsType", "HeaderText", "SubheaderText", "DescriptionText",
-	"MapImage", "MapImageRect",
-	"Season", "InterfaceMusic", "Missions", "PlaceHolders",
-	"Script", "SettingName", "ContextName", "PlayerSide",
-	"MODName", "MODVersion",
-	"fixture", "name",
-	nullptr,
-};
-// SCampaignStats::operator&         IntroMovie/OutroMovie/InterfaceMusic/AllChapters/Templates/
-//                                   PlayerAllianceSide/MODName/MODVersion.
-constexpr const char *kCampaignFields[] = {
-	"KeyName", "StatsType", "HeaderText", "SubheaderText", "DescriptionText",
-	"MapImage", "MapImageRect",
-	"IntroMovie", "OutroMovie", "InterfaceMusic",
-	"AllChapters", "Templates", "PlayerAllianceSide",
-	"MODName", "MODVersion",
-	"fixture", "name",
-	nullptr,
-};
-// SMedalStats::operator&            SBasicGameStats chain + Texture/ImageRect/PicturePos/TextPos.
-constexpr const char *kMedalFields[] = {
-	"KeyName", "StatsType", "HeaderText", "SubheaderText", "DescriptionText",
-	"Texture", "ImageRect", "PicturePos", "TextPos",
-	"fixture", "name",
-	nullptr,
-};
-
-constexpr SKind kKinds[] = {
-	{ "wpn", "Weapon_Composer_Project",      "ReadRPGStats<SWeaponRPGStats>",         "SWeaponRPGStats",      false, kWeaponFields },
-	{ "mcp", "Mine_Composer_Project",        "ReadRPGStats<SMineRPGStats>",           "SMineRPGStats",        false, kMineFields },
-	{ "trc", "Trench_Composer_Project",      "ReadRPGStats<SEntrenchmentRPGStats>",   "SEntrenchmentRPGStats",false, kTrenchFields },
-	{ "scp", "Squad_Composer_Project",       "ReadRPGStats<SSquadRPGStats>",          "SSquadRPGStats",       false, kSquadFields },
-	{ "spt", "Sprite_Composer_Project",      "ReadRPGStats<SInfantryRPGStats>",       "SInfantryRPGStats",    false, kSpriteFields },
-	{ "unt", "Animation_Composer_Project",   "ReadRPGStats<SInfantryRPGStats>",       "SInfantryRPGStats",    false, kInfantryFields },
-	{ "msh", "Mesh_Composer_Project",        "ReadRPGStats<SMechUnitRPGStats>",       "SMechUnitRPGStats",    false, kMeshFields },
-	{ "obt", "Object_Composer_Project",      "ReadRPGStats<SObjectRPGStats>",         "SObjectRPGStats",      false, kObjectFields },
-	{ "fnc", "Fence_Composer_Project",       "ReadRPGStats<SFenceRPGStats>",          "SFenceRPGStats",       false, kFenceFields },
-	{ "bld", "Build_Composer_Project",       "ReadRPGStats<SBuildingRPGStats>",       "SBuildingRPGStats",    false, kBuildingFields },
-	{ "bdg", "Bridge_Composer_Project",      "ReadRPGStats<SBridgeRPGStats>",         "SBridgeRPGStats",      false, kBridgeFields },
-	{ "pcp", "Particle_Composer_Project",    "SParticleSourceData::operator&",        "SParticleSourceData",  false, kParticleFields },
-	{ "eff", "Effect_Composer_Project",      "fmtEffect::SEffectDesc::operator&",     "SEffectDesc",          false, kEffectFields },
-	{ "til", "TileSet_Composer_Project",     "fmtTerrain::STilesetDesc::operator&",   "STilesetDesc",         false, kTilesetFields },
-	{ "3rd", "3dRoad_Composer_Project",      "fmtVSO::SVectorStripeObjectDesc::operator&", "SVectorStripeObjectDesc", false, kVsoFields },
-	{ "3rv", "3dRiver_Composer_Project",     "fmtVSO::SVectorStripeObjectDesc::operator&", "SVectorStripeObjectDesc", false, kVsoFields },
-	{ "mip", "Mission_Composer_Project",     "GetGameStats<SMissionStats>",           "SMissionStats",        false, kMissionFields },
-	{ "chc", "Chapter_Composer_Project",     "GetGameStats<SChapterStats>",           "SChapterStats",        false, kChapterFields },
-	{ "cgc", "Campaign_Composer_Project",    "GetGameStats<SCampaignStats>",          "SCampaignStats",       false, kCampaignFields },
-	{ "mdc", "Medal_Composer_Project",       "GetGameStats<SMedalStats>",             "SMedalStats",          false, kMedalFields },
-	{ "gui", "GUIFrame_Composer_Project",    "NOT_APPLICABLE",                        "N/A",                  true,  nullptr },
-};
-
-const SKind *LookupKind( const std::string &ext )
+std::string PathOf( const std::vector<SFrame> &frames )
 {
-	for ( const auto &k : kKinds )
-		if ( ext == k.ext )
-			return &k;
-	return nullptr;
+	std::string szPath;
+	for ( const SFrame &frame : frames )
+	{
+		if ( !szPath.empty() )
+			szPath += '/';
+		szPath += frame.szName;
+		if ( frame.bContainer && frame.nItem >= 0 )
+			szPath += "/item[" + std::to_string( frame.nItem ) + "]";
+	}
+	return szPath;
 }
 
-// Names written by the MFC project framework itself rather than by any one
-// sub-editor: CTreeItem::operator&(IDataTree &) (TreeItem.cpp), the item
-// element with its ClassTypeID attribute (DTHelper.h) and the CVariant value
-// encoding. Every ported project carries them, so every kind accepts them.
-constexpr const char *kMfcProjectFields[] = {
-	"item", "ClassTypeID", "childs", "values", "default_name", "display_name", "expand",
-	"value", "type", "flag", "int_value", "float_value", "string_value", "int64high", "int64low",
-	nullptr,
+std::string Join( const std::string &szPath, const char *pszChunk )
+{
+	return szPath.empty() ? std::string( pszChunk ) : szPath + "/" + pszChunk;
+}
+
+// Sits in front of the engine's CDataTreeXML while the struct reads, passes
+// every call through unchanged and notes each chunk the reader found. The
+// struct reads exactly what it would read without it.
+//
+// A name the reader asks for again under the same parent is noted as name#n,
+// as EnumerateNode names the n-th element of that name: the struct's own
+// writer wrote it n times (SBuildingRPGStats writes AmbientSound twice), so
+// the file's repeats are accounted for. A container the reader enters but
+// never indexes is noted in skipped: CTreeAccessor::Do2DArray reads nothing of
+// an empty 2D array, whose one item only carries size_x and size_y.
+class CVisitTree : public CTRefCount<IDataTree>
+{
+	CPtr<IDataTree> pTree;
+	std::vector<SFrame> frames;
+	std::map<std::string, int> rootAsked;
+
+	std::string Ask( DTChunkID idChunk )
+	{
+		std::map<std::string, int> &asked = frames.empty() ? rootAsked : frames.back().asked;
+		const int nTimes = ++asked[idChunk];
+		return nTimes == 1 ? std::string( idChunk ) : std::string( idChunk ) + "#" + std::to_string( nTimes );
+	}
+public:
+	std::vector<std::string> visited;
+	std::vector<std::string> skipped;
+
+	explicit CVisitTree( IDataTree *_pTree ) : pTree( _pTree ) {}
+
+	virtual bool STDCALL IsReading() const { return true; }
+	virtual int STDCALL StartChunk( DTChunkID idChunk )
+	{
+		const int nResult = pTree->StartChunk( idChunk );
+		if ( nResult == 1 )
+		{
+			SFrame frame;
+			frame.szName = Ask( idChunk );
+			frames.push_back( frame );
+			visited.push_back( PathOf( frames ) );
+		}
+		return nResult;
+	}
+	virtual void STDCALL FinishChunk()
+	{
+		pTree->FinishChunk();
+		if ( !frames.empty() )
+			frames.pop_back();
+	}
+	virtual int STDCALL GetChunkSize() { return pTree->GetChunkSize(); }
+	virtual bool STDCALL RawData( void *pData, int nSize ) { return pTree->RawData( pData, nSize ); }
+	virtual bool STDCALL StringData( char *pData ) { return pTree->StringData( pData ); }
+	virtual bool STDCALL StringData( WORD *pData ) { return pTree->StringData( pData ); }
+	virtual bool STDCALL DataChunk( DTChunkID idChunk, int *pData )
+	{
+		const bool bFound = pTree->DataChunk( idChunk, pData );
+		if ( bFound )
+			visited.push_back( Join( PathOf( frames ), Ask( idChunk ).c_str() ) );
+		return bFound;
+	}
+	virtual bool STDCALL DataChunk( DTChunkID idChunk, double *pData )
+	{
+		const bool bFound = pTree->DataChunk( idChunk, pData );
+		if ( bFound )
+			visited.push_back( Join( PathOf( frames ), Ask( idChunk ).c_str() ) );
+		return bFound;
+	}
+	virtual int STDCALL CountChunks( DTChunkID idChunk ) { return pTree->CountChunks( idChunk ); }
+	virtual bool STDCALL SetChunkCounter( int nCount )
+	{
+		const bool bFound = pTree->SetChunkCounter( nCount );
+		if ( !frames.empty() )
+		{
+			frames.back().nItem = nCount;
+			frames.back().bIndexed = true;
+			frames.back().asked.clear();
+			if ( bFound )
+				visited.push_back( PathOf( frames ) );
+		}
+		return bFound;
+	}
+	virtual int STDCALL StartContainerChunk( DTChunkID idChunk )
+	{
+		const int nResult = pTree->StartContainerChunk( idChunk );
+		if ( nResult != 0 )
+		{
+			SFrame frame;
+			frame.szName = idChunk[0] == '\0' ? "data" : Ask( idChunk );
+			frame.bContainer = true;
+			frames.push_back( frame );
+			visited.push_back( PathOf( frames ) );
+		}
+		return nResult;
+	}
+	virtual void STDCALL FinishContainerChunk()
+	{
+		pTree->FinishContainerChunk();
+		if ( frames.empty() )
+			return;
+		if ( frames.back().bContainer && !frames.back().bIndexed )
+			skipped.push_back( PathOf( frames ) );
+		frames.pop_back();
+	}
 };
 
-bool FieldIsKnown( const SKind &kind, const std::string &name )
+std::string FloatText( double fValue )
 {
-	if ( !kind.fields )
+	char buffer[96];
+	const float fNarrow = static_cast<float>( fValue );
+	if ( static_cast<double>( fNarrow ) == fValue )
+	{
+		DWORD dwBits = 0;
+		std::memcpy( &dwBits, &fNarrow, sizeof( dwBits ) );
+		std::snprintf( buffer, sizeof( buffer ), "%.9g (float 0x%08x)", fValue, static_cast<unsigned>( dwBits ) );
+	}
+	else
+	{
+		unsigned long long nBits = 0;
+		std::memcpy( &nBits, &fValue, sizeof( nBits ) );
+		std::snprintf( buffer, sizeof( buffer ), "%.17g (double 0x%016llx)", fValue, nBits );
+	}
+	return buffer;
+}
+
+// The struct as read, written back through its own operator& into a list of
+// (path, value) pairs. Values are text, but floats carry their bits, so two
+// values are equal exactly when the struct fields are.
+class CRecordTree : public CTRefCount<IDataTree>
+{
+	std::vector<SFrame> frames;
+public:
+	std::vector<std::pair<std::string, std::string>> fields;
+
+	virtual bool STDCALL IsReading() const { return false; }
+	virtual int STDCALL StartChunk( DTChunkID idChunk )
+	{
+		if ( idChunk[0] == '\0' )
+			return -1;
+		SFrame frame;
+		frame.szName = idChunk;
+		frames.push_back( frame );
+		return 1;
+	}
+	virtual void STDCALL FinishChunk()
+	{
+		if ( !frames.empty() )
+			frames.pop_back();
+	}
+	virtual int STDCALL GetChunkSize() { return 0; }
+	virtual bool STDCALL RawData( void *pData, int nSize )
+	{
+		static const char hex[] = "0123456789abcdef";
+		std::string szValue = "raw ";
+		const unsigned char *p = static_cast<const unsigned char *>( pData );
+		for ( int i = 0; i < nSize; ++i )
+		{
+			szValue += hex[p[i] >> 4];
+			szValue += hex[p[i] & 15];
+		}
+		fields.push_back( { PathOf( frames ), szValue } );
 		return true;
-	for ( const char *const *p = kMfcProjectFields; *p; ++p )
-		if ( name == *p )
+	}
+	virtual bool STDCALL StringData( char *pData )
+	{
+		fields.push_back( { PathOf( frames ), std::string( "\"" ) + pData + "\"" } );
+		return true;
+	}
+	virtual bool STDCALL StringData( WORD *pData )
+	{
+		std::string szValue = "L\"";
+		for ( const WORD *p = pData; *p != 0; ++p )
+		{
+			if ( *p < 0x80 )
+				szValue += static_cast<char>( *p );
+			else
+			{
+				char buffer[8];
+				std::snprintf( buffer, sizeof( buffer ), "\\u%04x", static_cast<unsigned>( *p ) );
+				szValue += buffer;
+			}
+		}
+		fields.push_back( { PathOf( frames ), szValue + "\"" } );
+		return true;
+	}
+	virtual bool STDCALL DataChunk( DTChunkID idChunk, int *pData )
+	{
+		fields.push_back( { Join( PathOf( frames ), idChunk ), std::to_string( *pData ) } );
+		return true;
+	}
+	virtual bool STDCALL DataChunk( DTChunkID idChunk, double *pData )
+	{
+		fields.push_back( { Join( PathOf( frames ), idChunk ), FloatText( *pData ) } );
+		return true;
+	}
+	virtual int STDCALL CountChunks( DTChunkID idChunk ) { return 0; }
+	virtual bool STDCALL SetChunkCounter( int nCount )
+	{
+		if ( !frames.empty() )
+		{
+			frames.back().nItem = nCount;
+			if ( nCount + 1 > frames.back().nItems )
+				frames.back().nItems = nCount + 1;
+		}
+		return true;
+	}
+	virtual int STDCALL StartContainerChunk( DTChunkID idChunk )
+	{
+		SFrame frame;
+		frame.szName = idChunk[0] == '\0' ? "data" : idChunk;
+		frame.bContainer = true;
+		frames.push_back( frame );
+		return 1;
+	}
+	virtual void STDCALL FinishContainerChunk()
+	{
+		if ( frames.empty() )
+			return;
+		// The item count is a field too: an empty container and a missing
+		// one read the same, a shorter one does not.
+		SFrame frame = frames.back();
+		frame.nItem = -1;
+		frames.back() = frame;
+		fields.push_back( { PathOf( frames ) + "#count", std::to_string( frame.nItems ) } );
+		frames.pop_back();
+	}
+};
+
+// Every node of the file under <base>, named the way the visit tree names
+// what the reader found: attributes and child elements alike as parent/name
+// (CDataTreeXML::GetTextNode takes either), container items as item[i] in
+// document order, and a repeated name after the first as name#n, which no
+// reader can ask for.
+void EnumerateNode( const NResourceXml::Node &node, const std::string &szPath, std::vector<std::string> &out )
+{
+	for ( const auto &attr : node.attrs )
+		out.push_back( Join( szPath, attr.first.c_str() ) );
+	std::map<std::string, int> seen;
+	for ( const NResourceXml::Node &child : node.children )
+	{
+		if ( child.kind != NResourceXml::Node::Element )
+			continue;
+		const int nIndex = seen[child.name]++;
+		std::string szName = child.name;
+		if ( child.name == "item" )
+			szName = "item[" + std::to_string( nIndex ) + "]";
+		else if ( nIndex > 0 )
+			szName += "#" + std::to_string( nIndex + 1 );
+		const std::string szChild = Join( szPath, szName.c_str() );
+		out.push_back( szChild );
+		EnumerateNode( child, szChild, out );
+	}
+}
+
+bool ReadFileBytes( const std::string &szPath, std::string *pBytes )
+{
+	std::ifstream file( szPath.c_str(), std::ios::binary );
+	if ( !file )
+		return false;
+	pBytes->assign( std::istreambuf_iterator<char>( file ), std::istreambuf_iterator<char>() );
+	return true;
+}
+
+IDataStream *OpenForRead( const std::string &szFile )
+{
+	const std::string::size_type nCut = szFile.find_last_of( "/\\" );
+	const std::string szDir = nCut == std::string::npos ? std::string( "./" ) : szFile.substr( 0, nCut + 1 );
+	const std::string szName = nCut == std::string::npos ? szFile : szFile.substr( nCut + 1 );
+	CPtr<IDataStorage> pStorage = OpenStorage( szDir.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	if ( pStorage == 0 )
+		return 0;
+	return pStorage->OpenStream( szName.c_str(), STREAM_ACCESS_READ );
+}
+
+// SSourceType of ParticleFrm.cpp: which of the two particle structs a
+// KeyData chunk holds.
+struct SParticleKind
+{
+	bool bComplexParticleSource = false;
+	int operator&( IDataTree &ss )
+	{
+		CTreeAccessor saver = &ss;
+		saver.Add( "ComplexParticleSource", &bComplexParticleSource );
+		return 0;
+	}
+};
+
+template <class TYPE>
+void ReadInto( CVisitTree *pVisit, const char *pszRoot, SExportRead *pRead )
+{
+	TYPE stats;
+	{
+		CTreeAccessor tree = pVisit;
+		tree.Add( pszRoot, &stats );
+	}
+	CPtr<CRecordTree> pRecord = new CRecordTree();
+	{
+		CTreeAccessor tree = static_cast<IDataTree *>( pRecord );
+		tree.Add( pszRoot, &stats );
+	}
+	pRead->fields = pRecord->fields;
+}
+
+// The same with the struct on the heap, for the reference-counted shared
+// resources, which must not live on the stack.
+template <class TYPE>
+void ReadIntoShared( CVisitTree *pVisit, const char *pszRoot, SExportRead *pRead )
+{
+	CPtr<TYPE> pStats = new TYPE();
+	{
+		CTreeAccessor tree = pVisit;
+		tree.Add( pszRoot, pStats.GetPtr() );
+	}
+	CPtr<CRecordTree> pRecord = new CRecordTree();
+	{
+		CTreeAccessor tree = static_cast<IDataTree *>( pRecord );
+		tree.Add( pszRoot, pStats.GetPtr() );
+	}
+	pRead->fields = pRecord->fields;
+}
+
+// SSmokinParticleSourceData::operator& ends its read with InitIntegrals,
+// which asks the particle manager for the referenced key-based source only to
+// cache its optimal update time (nUpdateStep). That value is runtime state the
+// struct never writes, so it takes no part in the comparison. The game
+// registers the Scene module's manager, which needs textures; a data-only
+// host registers this one instead, whose source answers that one question.
+class CReaderParticleSource : public CTRefCount<IParticleSource>
+{
+public:
+	IGFXTexture* STDCALL GetTexture() const { return 0; }
+	const int STDCALL GetNumParticles() const { return 0; }
+	void STDCALL FillParticleBuffer( SSimpleParticle * ) const {}
+	const CVec3 STDCALL GetPos() const { return CVec3( 0, 0, 0 ); }
+	void STDCALL SetPos( const CVec3 & ) {}
+	const CVec3 STDCALL GetDirection() const { return CVec3( 0, 0, 1 ); }
+	void STDCALL SetDirection( const SHMatrix & ) {}
+	void STDCALL SetScale( float ) {}
+	void STDCALL Update( const NTimer::STime & ) {}
+	void STDCALL SetStartTime( const NTimer::STime & ) {}
+	const NTimer::STime STDCALL GetStartTime() const { return 0; }
+	const NTimer::STime STDCALL GetEffectLifeTime() const { return 0; }
+	bool STDCALL IsFinished() const { return true; }
+	float STDCALL GetArea() const { return 0; }
+	void STDCALL Stop() {}
+	int STDCALL GetOptimalUpdateTime() const { return 0; }
+	void STDCALL SetSuspendedState( bool ) {}
+};
+
+class CReaderParticleManager : public CTRefCount<IParticleManager>
+{
+public:
+	bool STDCALL Init() { return true; }
+	void STDCALL SetSerialMode( ESharedDataSerialMode ) {}
+	void STDCALL SetShareMode( ESharedDataSharingMode ) {}
+	void STDCALL Clear( const EClearMode, const int, const int ) {}
+	IParticleSource* STDCALL GetKeyBasedSource( const char * ) { return new CReaderParticleSource(); }
+	IParticleSource* STDCALL GetSmokinParticleSource( const char * ) { return new CReaderParticleSource(); }
+	void STDCALL SetQuality( const float ) {}
+};
+
+// Nodes the shipped Data carries that no current reader reads: an older
+// exporter wrote them, and its successor and the struct moved on. Each was
+// found by comparing every shipped file with itself (test-resource-model-
+// comparator). They are not unknown fields, but are not ignored either: a
+// stale node on one side only is a difference. A path ending in '/' covers
+// the node's descendants only; item[*] is any container item.
+struct SStaleField
+{
+	EExportKind kind;
+	const char *pszPath;
+	const char *pszWhy;
+};
+const SStaleField kStaleFields[] = {
+	{ EExportKind::OBJECT, "desc/EffectExplosion/",
+	  "an older SStaticObjectRPGStats wrote the effect as a struct (Effect, Sound, MinDist, MaxDist); the struct now reads the element's text" },
+	{ EExportKind::OBJECT, "desc/EffectDeath/", "as desc/EffectExplosion/" },
+	{ EExportKind::EFFECT, "effect/sound/",
+	  "an older effect export wrote the sound as a struct (Name, MinDist, MaxDist), as in Effects/shell.xml; SEffectDesc reads the element's text" },
+	{ EExportKind::PARTICLE, "KeyData/Position", "an older particle export; SParticleSourceData reads no position" },
+	{ EExportKind::PARTICLE, "KeyData/GenerateSpinRand", "the older name of GenerateSpinRnd, which SParticleSourceData reads" },
+	{ EExportKind::MECH_UNIT, "RPG/Acks", "acknowledgements inline, before SUnitBaseRPGStats read them by reference (AcksRef)" },
+	{ EExportKind::MISSION, "RPG/BGImage", "a 2002 mission export (ScenarioMissions/german/africa) from before SMissionStats dropped it" },
+	{ EExportKind::MISSION, "RPG/Script", "as RPG/BGImage" },
+};
+
+bool IsStale( EExportKind kind, const std::string &szNode )
+{
+	std::string szGeneric;
+	for ( size_t i = 0; i < szNode.size(); )
+	{
+		if ( szNode.compare( i, 5, "item[" ) == 0 && szNode.find( ']', i ) != std::string::npos )
+		{
+			szGeneric += "item[*]";
+			i = szNode.find( ']', i ) + 1;
+		}
+		else
+			szGeneric += szNode[i++];
+	}
+	for ( const SStaleField &stale : kStaleFields )
+	{
+		if ( stale.kind != kind )
+			continue;
+		const std::string szPath = stale.pszPath;
+		if ( szPath.back() == '/' )
+		{
+			if ( szGeneric.compare( 0, szPath.size(), szPath ) == 0 && szGeneric.size() > szPath.size() )
+				return true;
+		}
+		else if ( szGeneric == szPath || szGeneric.compare( 0, szPath.size() + 1, szPath + "/" ) == 0 )
 			return true;
-	for ( const char *const *p = kind.fields; *p; ++p )
-		if ( name == *p )
+	}
+	return false;
+}
+
+bool UnderSkipped( const std::vector<std::string> &skipped, const std::string &szNode )
+{
+	for ( const std::string &szContainer : skipped )
+		if ( szNode.compare( 0, szContainer.size() + 6, szContainer + "/item[" ) == 0 )
 			return true;
 	return false;
 }
 
-// Walk the typed project tree and collect, in order, every (path -> value)
-// pair the engine's operator&(IDataTree &) chain would observe. The port
-// stores authored values as either (a) SProp entries on the typed CTreeItem
-// (name = SProp::szDefaultName; textual value derived from CVariant) or
-// (b) child elements the FutureBlob wrapper kept verbatim (name = element
-// tag; value = concatenated child text, or empty when it is purely nested).
-void HarvestFields(
-	const NResourceXml::Node &node,
-	const std::string &prefix,
-	std::vector<std::pair<std::string, std::string>> &out )
+void Unique( std::vector<std::string> &values )
 {
-	// Attributes on this element are first-class engine-reader keys too
-	// (operator&(IDataTree &) binds "AttrName" against both attributes and
-	// child elements of that name; CDataTreeXML lets both resolve).
-	for ( const auto &attr : node.attrs )
-	{
-		std::string path = prefix + "@" + attr.first;
-		out.push_back( { path, attr.second } );
-	}
-	for ( const auto &child : node.children )
-	{
-		if ( child.kind != NResourceXml::Node::Element )
-			continue;
-		std::string path = prefix + child.name;
-		// For leaf nodes (no element children), the text content is the value
-		// the engine reader would bind to the primitive field.
-		bool hasElementChild = false;
-		for ( const auto &gc : child.children )
-			if ( gc.kind == NResourceXml::Node::Element )
-			{
-				hasElementChild = true;
-				break;
-			}
-		if ( !hasElementChild )
-			out.push_back( { path, child.text } );
-		else
-			out.push_back( { path, std::string() } );
-		HarvestFields( child, path + "/", out );
-	}
-}
-
-// The part of a document that holds game data. A project in MFC's item-tree
-// shape (a childs list under the root) is editor data; the stats MFC keeps in
-// it are the frame's RPG element, which CParentFrame::SaveRPGStats writes
-// through the engine's own operator&. Until S03 T06 compares exported data,
-// that element is what the comparator reads from such a project, and nothing
-// when it has none. Any other document is read whole, as before.
-const NResourceXml::Node *GameDataNode( const NResourceXml::Node &root )
-{
-	if ( !NResourceXml::FindChild( root, "childs" ) )
-		return &root;
-	return NResourceXml::FindChild( root, "RPG" );
-}
-
-std::string ReadFile( const std::string &path )
-{
-	std::ifstream in( path, std::ios::binary );
-	if ( !in.good() )
-		return std::string();
-	std::ostringstream ss;
-	ss << in.rdbuf();
-	return ss.str();
-}
-
-void AbortUnknown( const std::string &path )
-{
-	// The task plan asks for this exact wording on stderr before the abort.
-	// std::abort gives the comparator its own exit code so a sweep script
-	// grepping for "UNKNOWN FIELD" can also assert the comparator died hard.
-	std::fprintf( stderr, "UNKNOWN FIELD %s\n", path.c_str() );
-	std::fflush( stderr );
-	std::abort();
-}
-
-}
-
-CompareReport Compare(
-	const std::string &ext,
-	const std::string &portXml,
-	const std::string &goldenPath )
-{
-	CompareReport rep;
-	rep.ext = ext;
-	const SKind *kind = LookupKind( ext );
-	if ( !kind )
-	{
-		// An ext we do not know about is reported with the engineReader slot
-		// empty - the harness will treat this as a configuration bug not a
-		// data mismatch.
-		rep.engineReader = "<unknown-ext>";
-		rep.statsType = "<unknown-ext>";
-		return rep;
-	}
-	rep.engineReader = kind->engineReader;
-	rep.statsType = kind->statsType;
-	if ( kind->notApplicable )
-	{
-		rep.kind = ReportKind::NOT_APPLICABLE;
-		return rep;
-	}
-
-	// Parse the port XML through NResourceXml - the same library the engine's
-	// CDataTreeXML reads underneath (promoted from the engine's XML parser
-	// into Sources/src/ResourceModel/xml.* in S01). Both sides therefore go
-	// through the engine's own typed read path at the shipped stack layer.
-	NResourceXml::Document portDoc;
-	std::string err;
-	if ( !NResourceXml::Parse( portXml, portDoc, err ) )
-	{
-		std::fprintf( stderr, "COMPARE %s FATAL parse port: %s\n",
-			ext.c_str(), err.c_str() );
-		std::abort();
-	}
-
-	std::vector<std::pair<std::string, std::string>> portFields;
-	if ( const NResourceXml::Node *data = GameDataNode( portDoc.root ) )
-		HarvestFields( *data, "", portFields );
-
-	// First unknown-field pass over the port side. The abort fires here if
-	// the authored project contains an attribute or child name that the
-	// engine reader would not bind. The fail-loud contract covers port-only
-	// drift (the sub-editor emitted something new that the game cannot read).
-	for ( const auto &kv : portFields )
-	{
-		// The engine readers only bind the leaf names; the harvester emits
-		// "parent/child" strings, so compare on the last path segment.
-		std::string tail = kv.first;
-		size_t slash = tail.find_last_of( "/@" );
-		if ( slash != std::string::npos )
-			tail = tail.substr( slash + 1 );
-		if ( tail.empty() )
-			continue;
-		if ( !FieldIsKnown( *kind, tail ) )
-		{
-			rep.unknownFields.push_back( kv.first );
-			AbortUnknown( kv.first );
-		}
-	}
-
-	// Optional golden side. The slice contract tolerates no golden yet.
-	const std::string goldenXml = ReadFile( goldenPath );
-	if ( goldenXml.empty() )
-	{
-		rep.kind = ReportKind::GOLDEN_MISSING;
-		rep.fieldsCompared = static_cast<int>( portFields.size() );
-		return rep;
-	}
-
-	NResourceXml::Document goldenDoc;
-	std::string errGolden;
-	if ( !NResourceXml::Parse( goldenXml, goldenDoc, errGolden ) )
-	{
-		std::fprintf( stderr, "COMPARE %s FATAL parse golden %s: %s\n",
-			ext.c_str(), goldenPath.c_str(), errGolden.c_str() );
-		std::abort();
-	}
-
-	std::vector<std::pair<std::string, std::string>> goldenFields;
-	if ( const NResourceXml::Node *data = GameDataNode( goldenDoc.root ) )
-		HarvestFields( *data, "", goldenFields );
-
-	// Second unknown-field pass over the golden side (MFC-authored). An
-	// MFC-only field that the port never produced is still "unknown" to the
-	// engine reader + port chain - abort too. This is the fail-loud contract
-	// for golden-only drift (the authoring tool emitted something new that
-	// the port's model does not know about).
-	for ( const auto &kv : goldenFields )
-	{
-		std::string tail = kv.first;
-		size_t slash = tail.find_last_of( "/@" );
-		if ( slash != std::string::npos )
-			tail = tail.substr( slash + 1 );
-		if ( tail.empty() )
-			continue;
-		if ( !FieldIsKnown( *kind, tail ) )
-		{
-			rep.unknownFields.push_back( kv.first );
-			AbortUnknown( kv.first );
-		}
-	}
-
-	// Field-by-field compare on the leaves present in either side. Use a
-	// stable ordered walk over the port side plus a lookup on the golden
-	// side. Missing-on-golden shows up as "<missing>" so the diagnostic names
-	// what the port emitted that the MFC side does not have.
-	std::unordered_set<std::string> seen;
-	for ( const auto &kv : portFields )
-		seen.insert( kv.first );
-
-	// Build a path -> value map for the golden side.
-	std::vector<std::pair<std::string, std::string>> gIndex = goldenFields;
-	auto lookupGolden = [&]( const std::string &path ) -> const std::string * {
-		for ( const auto &g : gIndex )
-			if ( g.first == path )
-				return &g.second;
-		return nullptr;
-	};
-
-	for ( const auto &kv : portFields )
-	{
-		++rep.fieldsCompared;
-		const std::string *gv = lookupGolden( kv.first );
-		if ( !gv )
-		{
-			FieldMismatch m;
-			m.field = kv.first;
-			m.port = kv.second;
-			m.golden = "<missing>";
-			rep.mismatches.push_back( std::move( m ) );
-			continue;
-		}
-		if ( kv.second != *gv )
-		{
-			FieldMismatch m;
-			m.field = kv.first;
-			m.port = kv.second;
-			m.golden = *gv;
-			rep.mismatches.push_back( std::move( m ) );
-		}
-	}
-
-	// Golden-only paths - things the MFC author added that the port did not
-	// produce. These are not unknown fields (they are in the kind's allowed
-	// set) but they are mismatches.
-	for ( const auto &g : goldenFields )
-	{
-		if ( seen.count( g.first ) )
-			continue;
-		FieldMismatch m;
-		m.field = g.first;
-		m.port = "<missing>";
-		m.golden = g.second;
-		rep.mismatches.push_back( std::move( m ) );
-	}
-
-	rep.kind = ReportKind::OK;
-	return rep;
-}
-
-std::vector<std::string> ExtensionList()
-{
+	std::set<std::string> seen;
 	std::vector<std::string> out;
-	for ( const auto &k : kKinds )
-		out.emplace_back( k.ext );
-	return out;
+	for ( const std::string &value : values )
+		if ( seen.insert( value ).second )
+			out.push_back( value );
+	values.swap( out );
+}
+
+SCompareResult Unreadable( const std::string &szWhat )
+{
+	SCompareResult result;
+	result.status = ECompareStatus::UNREADABLE;
+	result.messages.push_back( szWhat );
+	return result;
+}
+
+}
+
+const SExportKindInfo &GetExportKindInfo( EExportKind kind )
+{
+	for ( const SExportKindInfo &info : kKinds )
+		if ( info.kind == kind )
+			return info;
+	return kKinds[0];
+}
+
+std::vector<EExportKind> AllExportKinds()
+{
+	std::vector<EExportKind> kinds;
+	for ( const SExportKindInfo &info : kKinds )
+		kinds.push_back( info.kind );
+	return kinds;
+}
+
+const char *CompareStatusName( ECompareStatus status )
+{
+	switch ( status )
+	{
+		case ECompareStatus::EQUAL:            return "EQUAL";
+		case ECompareStatus::DIFFERENT:        return "DIFFERENT";
+		case ECompareStatus::UNKNOWN_FIELD:    return "UNKNOWN_FIELD";
+		case ECompareStatus::UNREADABLE:       return "UNREADABLE";
+		case ECompareStatus::PENDING_DXT_GATE: return "PENDING_DXT_GATE";
+	}
+	return "?";
+}
+
+bool StartEngineReaders( std::string *pszError )
+{
+	NMain::EnsureGlobalHooks();
+	if ( GetSLS() == 0 || GetSingletonGlobal() == 0 )
+	{
+		if ( pszError )
+			*pszError = "the engine's StreamIO module did not load beside the executable";
+		return false;
+	}
+	if ( GetSingleton<IParticleManager>() == 0 )
+		RegisterSingleton( IParticleManager::tidTypeID, new CReaderParticleManager() );
+	return true;
+}
+
+SExportRead ReadExport( EExportKind kind, const std::string &szFile )
+{
+	SExportRead read;
+	std::string szBytes;
+	if ( !ReadFileBytes( szFile, &szBytes ) )
+	{
+		read.szError = "cannot open " + szFile;
+		return read;
+	}
+	NResourceXml::Document doc;
+	std::string szParseError;
+	if ( !NResourceXml::Parse( szBytes, doc, szParseError ) )
+	{
+		read.szError = "not XML: " + szFile + ": " + szParseError;
+		return read;
+	}
+	const SExportKindInfo &info = GetExportKindInfo( kind );
+	if ( doc.root.name != info.pszBase )
+	{
+		read.szError = "root element is <" + doc.root.name + ">, " + info.pszReader + " opens <" + info.pszBase + ">: " + szFile;
+		return read;
+	}
+	if ( !NResourceXml::FindChild( doc.root, info.pszRoot ) )
+	{
+		read.szError = std::string( "no <" ) + info.pszRoot + "> under <" + info.pszBase + ">, which " + info.pszReader + " reads: " + szFile;
+		return read;
+	}
+
+	CPtr<IDataStream> pStream = OpenForRead( szFile );
+	if ( pStream == 0 )
+	{
+		read.szError = "the engine's storage cannot open " + szFile;
+		return read;
+	}
+	CPtr<IDataTree> pTree = CreateDataTreeSaver( pStream, IDataTree::READ, info.pszBase );
+	if ( pTree == 0 )
+	{
+		read.szError = "the engine's CDataTreeXML cannot parse " + szFile;
+		return read;
+	}
+	CPtr<CVisitTree> pVisit = new CVisitTree( pTree );
+	read.szVariant = info.pszName;
+	switch ( kind )
+	{
+		case EExportKind::MECH_UNIT:    ReadInto<SMechUnitRPGStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::INFANTRY:     ReadInto<SInfantryRPGStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::WEAPON:       ReadInto<SWeaponRPGStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::SQUAD:        ReadInto<SSquadRPGStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::MINE:         ReadInto<SMineRPGStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::ENTRENCHMENT: ReadInto<SEntrenchmentRPGStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::OBJECT:       ReadInto<SObjectRPGStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::FENCE:        ReadInto<SFenceRPGStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::BUILDING:     ReadInto<SBuildingRPGStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::BRIDGE:       ReadInto<SBridgeRPGStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::EFFECT:       ReadInto<SEffectDesc>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::TILESET:      ReadInto<STilesetDesc>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::CROSSET:      ReadInto<SCrossetDesc>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::VSO:          ReadInto<SVectorStripeObjectDesc>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::MISSION:      ReadInto<SMissionStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::CHAPTER:      ReadInto<SChapterStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::CAMPAIGN:     ReadInto<SCampaignStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::MEDAL:        ReadInto<SMedalStats>( pVisit, info.pszRoot, &read ); break;
+		case EExportKind::PARTICLE:
+		{
+			// The particle editor's own test (CParticleFrame::LoadRPGStats):
+			// KeyData/ComplexParticleSource picks the struct.
+			SParticleKind particleKind;
+			{
+				CTreeAccessor tree = pTree.GetPtr();
+				tree.Add( info.pszRoot, &particleKind );
+			}
+			if ( particleKind.bComplexParticleSource )
+			{
+				read.szVariant = "SSmokinParticleSourceData";
+				ReadIntoShared<SSmokinParticleSourceData>( pVisit, info.pszRoot, &read );
+			}
+			else
+				ReadIntoShared<SParticleSourceData>( pVisit, info.pszRoot, &read );
+			break;
+		}
+	}
+	read.present = pVisit->visited;
+	Unique( read.present );
+
+	// MFC's export starts every file with <History>, the transaction log
+	// CParentFrame::SaveTransactions writes: who exported what, when. No game
+	// reader opens it and its dates differ on every export, so it is neither
+	// an unknown field nor compared.
+	NResourceXml::Node gameData = doc.root;
+	gameData.attrs.clear();
+	gameData.children.clear();
+	for ( const NResourceXml::Node &child : doc.root.children )
+		if ( !( child.kind == NResourceXml::Node::Element && child.name == "History" ) )
+			gameData.children.push_back( child );
+	gameData.attrs = doc.root.attrs;
+	std::vector<std::string> nodes;
+	EnumerateNode( gameData, "", nodes );
+	const std::set<std::string> visited( read.present.begin(), read.present.end() );
+	for ( const std::string &szNode : nodes )
+	{
+		if ( visited.find( szNode ) != visited.end() || UnderSkipped( pVisit->skipped, szNode ) )
+			continue;
+		if ( IsStale( kind, szNode ) )
+			read.stale.push_back( szNode );
+		else
+			read.unknown.push_back( szNode );
+	}
+	read.bReadable = true;
+	return read;
+}
+
+SCompareResult CompareStats( EExportKind kind, const std::string &szPortFile, const std::string &szGoldenFile )
+{
+	const SExportRead port = ReadExport( kind, szPortFile );
+	if ( !port.bReadable )
+		return Unreadable( "port: " + port.szError );
+	const SExportRead golden = ReadExport( kind, szGoldenFile );
+	if ( !golden.bReadable )
+		return Unreadable( "golden: " + golden.szError );
+
+	SCompareResult result;
+	for ( const std::string &szNode : port.unknown )
+		result.messages.push_back( "UNKNOWN FIELD port " + szNode + ": " + GetExportKindInfo( kind ).pszReader + " does not read it" );
+	for ( const std::string &szNode : golden.unknown )
+		result.messages.push_back( "UNKNOWN FIELD golden " + szNode + ": " + GetExportKindInfo( kind ).pszReader + " does not read it" );
+	if ( !result.messages.empty() )
+	{
+		// Loud: a field nobody reads is either port drift the game cannot see or
+		// an MFC field this comparator was never taught; both stop the run.
+		for ( const std::string &szMessage : result.messages )
+			std::fprintf( stderr, "%s\n", szMessage.c_str() );
+		result.status = ECompareStatus::UNKNOWN_FIELD;
+	}
+	if ( port.szVariant != golden.szVariant )
+		result.messages.push_back( "struct: port reads as " + port.szVariant + ", golden as " + golden.szVariant );
+
+	result.nStale = static_cast<int>( port.stale.size() );
+	const std::set<std::string> portStale( port.stale.begin(), port.stale.end() ), goldenStale( golden.stale.begin(), golden.stale.end() );
+	for ( const std::string &szNode : golden.stale )
+		if ( portStale.find( szNode ) == portStale.end() )
+			result.messages.push_back( "stale field " + szNode + ": in the golden, not in the port export" );
+	for ( const std::string &szNode : port.stale )
+		if ( goldenStale.find( szNode ) == goldenStale.end() )
+			result.messages.push_back( "stale field " + szNode + ": in the port export, not in the golden" );
+
+	const std::set<std::string> portPresent( port.present.begin(), port.present.end() );
+	const std::set<std::string> goldenPresent( golden.present.begin(), golden.present.end() );
+	for ( const std::string &szPath : golden.present )
+		if ( portPresent.find( szPath ) == portPresent.end() )
+			result.messages.push_back( "dropped field " + szPath + ": in the golden, not in the port export" );
+	for ( const std::string &szPath : port.present )
+		if ( goldenPresent.find( szPath ) == goldenPresent.end() )
+			result.messages.push_back( "extra field " + szPath + ": in the port export, not in the golden" );
+
+	std::map<std::string, std::string> goldenValues( golden.fields.begin(), golden.fields.end() );
+	std::set<std::string> compared;
+	for ( const auto &field : port.fields )
+	{
+		if ( !compared.insert( field.first ).second )
+			continue;
+		const auto pos = goldenValues.find( field.first );
+		if ( pos == goldenValues.end() )
+			result.messages.push_back( "field " + field.first + ": port " + field.second + ", golden has no such field" );
+		else if ( pos->second != field.second )
+			result.messages.push_back( "field " + field.first + ": port " + field.second + ", golden " + pos->second );
+	}
+	for ( const auto &field : golden.fields )
+		if ( compared.insert( field.first ).second )
+			result.messages.push_back( "field " + field.first + ": golden " + field.second + ", port has no such field" );
+	result.nFieldsCompared = static_cast<int>( compared.size() );
+	if ( result.status == ECompareStatus::EQUAL && !result.messages.empty() )
+		result.status = ECompareStatus::DIFFERENT;
+	return result;
+}
+
+SCompareResult CompareBytes( const std::string &szPortFile, const std::string &szGoldenFile )
+{
+	std::string port, golden;
+	if ( !ReadFileBytes( szPortFile, &port ) )
+		return Unreadable( "port: cannot open " + szPortFile );
+	if ( !ReadFileBytes( szGoldenFile, &golden ) )
+		return Unreadable( "golden: cannot open " + szGoldenFile );
+	SCompareResult result;
+	result.nFieldsCompared = 1;
+	if ( port == golden )
+		return result;
+	size_t nAt = 0;
+	while ( nAt < port.size() && nAt < golden.size() && port[nAt] == golden[nAt] )
+		++nAt;
+	result.status = ECompareStatus::DIFFERENT;
+	result.messages.push_back( "bytes differ at offset " + std::to_string( nAt ) + " (port " + std::to_string( port.size() ) +
+	                           " bytes, golden " + std::to_string( golden.size() ) + ")" );
+	return result;
+}
+
+SCompareResult CompareDxt( const std::string &szPortFile, const std::string &szGoldenFile )
+{
+	std::string port, golden;
+	if ( !ReadFileBytes( szPortFile, &port ) )
+		return Unreadable( "port: cannot open " + szPortFile );
+	if ( !ReadFileBytes( szGoldenFile, &golden ) )
+		return Unreadable( "golden: cannot open " + szGoldenFile );
+	// DDS_HEADER after the "DDS " magic: height at 12, width at 16, mip count
+	// at 28, pixel format flags at 80 and FourCC at 84.
+	auto field = []( const std::string &bytes, size_t nOffset ) -> unsigned {
+		unsigned nValue = 0;
+		for ( int i = 3; i >= 0; --i )
+			nValue = ( nValue << 8 ) | static_cast<unsigned char>( bytes[nOffset + i] );
+		return nValue;
+	};
+	for ( const std::string *pBytes : { &port, &golden } )
+		if ( pBytes->size() < 128 || pBytes->compare( 0, 4, "DDS " ) != 0 )
+			return Unreadable( std::string( pBytes == &port ? "port" : "golden" ) + ": not a DDS file" );
+	SCompareResult result;
+	static const struct { size_t nOffset; const char *pszName; } kHeader[] = {
+		{ 12, "height" }, { 16, "width" }, { 28, "mip count" }, { 80, "pixel format flags" }, { 84, "FourCC" },
+	};
+	for ( const auto &header : kHeader )
+	{
+		++result.nFieldsCompared;
+		if ( field( port, header.nOffset ) != field( golden, header.nOffset ) )
+			result.messages.push_back( std::string( "DDS " ) + header.pszName + ": port " + std::to_string( field( port, header.nOffset ) ) +
+			                           ", golden " + std::to_string( field( golden, header.nOffset ) ) );
+	}
+	if ( !result.messages.empty() )
+	{
+		result.status = ECompareStatus::DIFFERENT;
+		return result;
+	}
+	if ( port != golden )
+	{
+		result.status = ECompareStatus::PENDING_DXT_GATE;
+		result.messages.push_back( "DXT pixels differ; the decoded-pixel tolerance gate is S03 T07's" );
+	}
+	return result;
 }
 
 }
