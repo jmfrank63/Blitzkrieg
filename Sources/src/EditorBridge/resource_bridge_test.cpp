@@ -1805,7 +1805,13 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// nothing is composed (S07Sprite proves the export with real frames).
 				Check( status == BK_EDITOR_OK && report.written == 0, "export: .spt exports through its S07 exporter; the fixture's default directory finds no frame, so nothing is composed" );
 			}
-			else 			if ( IsPortedExport( szExt ) )
+			else if ( szExt == "unt" )
+			{
+				// The fixture has no frame files: the compose finds no valid animation, which is a warning
+				// as in MFC, and the stats are written (S07Infantry proves the frames).
+				Check( status == BK_EDITOR_OK, "export: .unt exports through its S07 exporter" );
+			}
+			else if ( IsPortedExport( szExt ) )
 			{
 				if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S06 exporter" ).c_str() ) )
 					std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
@@ -1853,14 +1859,14 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		Check( !fs::exists( modData / "medals/t10/half.xml", ec ) && !fs::exists( modDir / ".bk-export-staging", ec ),
 		       "export: a failed export leaves no file in data/ and no staging" );
 
-		// Batch: an mdc and a wpn (exported), a unt (not ported: skipped with
+		// Batch: an mdc and a wpn (exported), a msh (not ported: skipped with
 		// a warning), then -os re-saving a wpn unchanged.
 		NResourceModel::RegisterExporter( "mdc", &GoodExporter );
 		const fs::path src = scratch / "batch-src";
 		fs::create_directories( src / "nested", ec );
 		fs::copy_file( szFixtureRoot + "/mdc/project.mdc", src / "nested" / "medal.mdc", fs::copy_options::overwrite_existing, ec );
 		fs::copy_file( szFixtureRoot + "/wpn/project.wpn", src / "weapon.wpn", fs::copy_options::overwrite_existing, ec );
-		fs::copy_file( szFixtureRoot + "/unt/project.unt", src / "unit.unt", fs::copy_options::overwrite_existing, ec );
+		fs::copy_file( szFixtureRoot + "/msh/project.msh", src / "mesh.msh", fs::copy_options::overwrite_existing, ec );
 		const fs::path dst = scratch / "BatchOut";
 		BkResWarning batchWarnings[8] = {};
 		report = BkResExportReport();
@@ -1873,7 +1879,7 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		for ( int i = 0; i < report.warning_count && i < 8; ++i )
 			if ( std::strstr( batchWarnings[i].text, "not ported yet" ) != 0 )
 				++nNotPorted;
-		Check( report.written == 3 && report.skipped == 1 && nNotPorted == 1, "batch: mdc and wpn exported, unt skipped as not ported" );
+		Check( report.written == 3 && report.skipped == 1 && nNotPorted == 1, "batch: mdc and wpn exported, msh skipped as not ported" );
 		Check( fs::is_regular_file( dst / "data" / "weapons" / "batch-src.xml", ec ), "batch: the weapon lands in dst/data/weapons/<project folder>.xml" );
 		Check( fs::is_regular_file( dst / "data" / "medals/t10/1.xml", ec ), "batch: the export lands in dst/data/" );
 		std::string szBefore, szResaved;
@@ -3569,6 +3575,174 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 }
 
+// S07 T07: the infantry exporter on the real bridge. The fixture project is
+// given three season folders of generated frames: Run has two frames in each
+// of 8 directions, Death two frames in 4 directions of which the second
+// frame file is missing, to show MFC's frame numbering quirk. A blood\ folder
+// holds a bigger Death frame, so the blood pass is told apart by the rect.
+namespace S07Infantry
+{
+
+// The fixture with each season's directory set to s<N>\, the Run item given
+// frames f0 f1 and the Death item d0 d1 in 4 directions.
+static std::string Project( const std::string &szFixture )
+{
+	std::string szXml = szFixture;
+	const std::string szSeason = "<item ClassTypeID=\"285212680\"";
+	std::vector<std::string::size_type> starts;
+	for ( std::string::size_type n = szXml.find( szSeason ); n != std::string::npos; n = szXml.find( szSeason, n + 1 ) )
+		starts.push_back( n );
+	starts.push_back( szXml.find( "<item ClassTypeID=\"285212682\"" ) );
+	for ( int i = int( starts.size() ) - 2; i >= 0; --i )
+	{
+		std::string szPart = szXml.substr( starts[i], starts[i + 1] - starts[i] );
+		const std::string szOld = "<string_value>_.</string_value>";
+		for ( std::string::size_type n = szPart.find( szOld ); n != std::string::npos; n = szPart.find( szOld, n + 1 ) )
+			szPart.replace( n, szOld.size(), "<string_value>s" + std::to_string( i ) + "\\</string_value>" );
+		szXml.replace( starts[i], starts[i + 1] - starts[i], szPart );
+	}
+	auto Frames = [&]( const char *pszAnim, const std::vector<std::string> &names, const char *pszDirs )
+	{
+		std::string::size_type nStart = szXml.find( std::string( "<display_name>" ) + pszAnim + "</display_name>" );
+		const std::string::size_type nChilds = szXml.find( "<childs/>", nStart );
+		std::string szItems = "<childs>";
+		for ( const std::string &szName : names )
+			szItems += "<item ClassTypeID=\"285212684\" expand=\"0\"><default_name>" + szName + "</default_name><display_name>" + szName +
+			           "</display_name><values/><childs/></item>";
+		szItems += "</childs>";
+		szXml.replace( nChilds, 9, szItems );
+		const std::string szOld = "<string_value>8</string_value>";
+		const std::string::size_type nDirs = szXml.find( szOld, nStart );
+		if ( nDirs < nChilds )
+			szXml.replace( nDirs, szOld.size(), std::string( "<string_value>" ) + pszDirs + "</string_value>" );
+	};
+	Frames( "Run", { "f0", "f1" }, "8" );
+	Frames( "Death", { "d0", "d1" }, "4" );
+	return szXml;
+}
+
+static std::vector<std::string> Warnings( BkResSession *pSession, int nFlags, bool bStatsOnly, BkResExportReport &report, BkEditorStatus &status )
+{
+	return S07Sprite::Warnings( pSession, nFlags, bStatsOnly, report, status );
+}
+
+static void Run( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s07-infantry";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "inf";
+	std::string szFixture;
+	ReadBytes( szFixtureRoot + "/unt/project.unt", szFixture );
+	const fs::path project = projectDir / "project.unt";
+	const fs::path modDir = scratch / "mod";
+	const fs::path outDir = modDir / "data" / "units" / "humans" / "inf";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S07 infantry" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "infantry: the mod folder is set" );
+
+	// Season s<N>: the colours differ, the frame d1 of Death is not there.
+	for ( int nSeason = 0; nSeason < 3; ++nSeason )
+	{
+		fs::create_directories( projectDir / ( "s" + std::to_string( nSeason ) ), ec );
+		for ( const char *pszName : { "f0", "f1", "d0" } )
+			S07Sprite::WriteFrame( projectDir / ( "s" + std::to_string( nSeason ) ) / ( std::string( pszName ) + ".tga" ), 16, 2, 60 * ( nSeason + 1 ), 120, 200 );
+	}
+	fs::create_directories( projectDir / "blood" / "s0", ec );
+	S07Sprite::WriteFrame( projectDir / "blood" / "s0" / "d0.tga", 24, 4, 200, 20, 20 );
+	T10::WriteText( projectDir / "name.txt", "Infantry name" );
+	T10::WriteText( projectDir / "desc.txt", "Infantry description" );
+	T10::WriteText( project, Project( szFixture ) );
+
+	BkResExportReport report;
+	BkEditorStatus status;
+	std::vector<std::string> warnings;
+	auto Files = [&]( const fs::path &dir )
+	{
+		std::string szList;
+		for ( const char *pszSuffix : { "", "b" } )
+			for ( const char *pszSeason : { "", "w", "a" } )
+			{
+				const std::string szStem = std::string( "1" ) + pszSuffix + pszSeason;
+				szList += fs::is_regular_file( dir / ( szStem + ".san" ), ec ) ? '1' : '0';
+				for ( const char *pszTexture : { "_c.dds", "_l.dds", "_h.dds" } )
+					szList += fs::is_regular_file( dir / ( szStem + pszTexture ), ec ) ? '1' : '0';
+			}
+		for ( const char *pszName : { "1.xml", "name.txt", "desc.txt", "stats.txt" } )
+			szList += fs::is_regular_file( dir / pszName, ec ) ? '1' : '0';
+		return szList;
+	};
+	auto RectWidth = [&]( const fs::path &san, int nAnim, int nRect )
+	{
+		SSpriteAnimationFormat fmt;
+		if ( !S07Compose::LoadSan( san, fmt ) || nAnim >= int( fmt.animations.size() ) || nRect >= int( fmt.animations[nAnim].rects.size() ) )
+			return -1;
+		const SSpriteRect &rect = fmt.animations[nAnim].rects[nRect];
+		return rect.rect.maxx - rect.rect.minx;
+	};
+
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "infantry: the project opens" ) )
+		return;
+	warnings = Warnings( pSession, BK_RES_EXPORT_FORCE, false, report, status );
+	Check( status == BK_EDITOR_OK, ( "infantry export: OK " + std::string( BkEditorLastMessage( pSession ) ) ).c_str() );
+	const std::string szAll = "111111" "111111" "111111" "111111" "111111" "111111";
+	const std::string szExpected = std::string( 24, '1' ) + "1110";
+	Check( Files( outDir ) == szExpected, ( "infantry export: 6 .san with 3 .dds each, 1.xml, name.txt, desc.txt and no stats.txt (" + Files( outDir ) + ")" ).c_str() );
+	(void) szAll;
+	Check( S07Sprite::HasWarning( warnings, "stats.txt" ), "infantry export: the missing localisation source is a warning" );
+	Check( S07Sprite::HasWarning( warnings, "d1.tga" ), "infantry export: the missing frame is named in a warning" );
+	for ( const std::string &sz : warnings )
+		std::printf( "INFANTRY warning: %.*s\n", 1500, sz.c_str() );
+
+	SSpriteAnimationFormat fmt;
+	if ( Check( S07Compose::LoadSan( outDir / "1.san", fmt ), "infantry export: the engine reads 1.san" ) )
+	{
+		const bool bRun = ANIMATION_MOVE < int( fmt.animations.size() ) && fmt.animations[ANIMATION_MOVE].dirs.size() == 8;
+		const bool bDeath = ANIMATION_DEATH < int( fmt.animations.size() ) && fmt.animations[ANIMATION_DEATH].dirs.size() == 4;
+		Check( bRun && bDeath, "infantry export: Run has 8 directions, Death 4" );
+		if ( bRun && bDeath )
+		{
+			const auto &run = fmt.animations[ANIMATION_MOVE];
+			const auto &death = fmt.animations[ANIMATION_DEATH];
+			// BuildAnimations numbers the frames of an animation from its own first one.
+			// Run: both frames in every direction. Death: d1 is missing, so the counter
+			// moved only for d0 and the four directions share the frames written; the
+			// animation holds 2 pictures, not the 8 of its frame items.
+			bool bRunFrames = run.rects.size() == 2;
+			for ( int d = 0; d < 8; ++d )
+				bRunFrames = bRunFrames && run.dirs[d].frames == std::vector<short>( { 0, 1 } );
+			Check( bRunFrames, "infantry export: Run has 2 pictures, both in every direction" );
+			bool bDeathFrames = death.rects.size() == 2;
+			for ( int d = 0; d < 4; ++d )
+				for ( short nFrame : death.dirs[d].frames )
+					bDeathFrames = bDeathFrames && nFrame >= 0 && nFrame < 2;
+			Check( bDeathFrames, "infantry export: Death holds 2 pictures for its 8 frame slots, the missing-file quirk" );
+			std::printf( "INFANTRY san: Run %zu rects, Death %zu rects\n", run.rects.size(), death.rects.size() );
+		}
+	}
+	Check( RectWidth( outDir / "1.san", ANIMATION_DEATH, 0 ) == 11 && RectWidth( outDir / "1.san", ANIMATION_DEATH, 1 ) == 11, "infantry blood: pass 0 Death has only plain frames" );
+	Check( RectWidth( outDir / "1b.san", ANIMATION_DEATH, 0 ) == 15 || RectWidth( outDir / "1b.san", ANIMATION_DEATH, 1 ) == 15, "infantry blood: pass 1 Death takes the blood\\ frame" );
+	Check( RectWidth( outDir / "1b.san", ANIMATION_MOVE, 0 ) == 11, "infantry blood: pass 1 Run is the plain frame" );
+
+	// Stats-only: no game file, the stats are written and said so.
+	fs::remove_all( modDir / "data", ec );
+	warnings = Warnings( pSession, BK_RES_EXPORT_FORCE, true, report, status );
+	Check( status == BK_EDITOR_OK && Files( outDir ).substr( 0, 24 ) == std::string( 24, '0' ), "infantry stats-only: no .san and no .dds" );
+
+	// Up to date: the second export skips; a newer frame exports again.
+	warnings = Warnings( pSession, BK_RES_EXPORT_FORCE, false, report, status );
+	warnings = Warnings( pSession, 0, false, report, status );
+	Check( status == BK_EDITOR_OK && report.written == 0 && report.skipped >= 1, "infantry skip: up to date is skipped" );
+	fs::last_write_time( projectDir / "s0" / "f0.tga", fs::file_time_type::clock::now() + std::chrono::seconds( 5 ), ec );
+	warnings = Warnings( pSession, 0, false, report, status );
+	Check( status == BK_EDITOR_OK && report.written >= 1 && report.skipped == 0, "infantry skip: a newer frame exports again" );
+	BkResClose( pSession );
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -3813,6 +3987,7 @@ int main( int argc, char **argv )
 	S07Compose::Run( pszRoot, szFixtureRoot, szScratchRoot );
 	// S07 T06: the sprite exporter and its preview.
 	S07Sprite::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+	S07Infantry::Run( pSession, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

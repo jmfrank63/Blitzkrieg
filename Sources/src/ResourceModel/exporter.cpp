@@ -23,6 +23,7 @@ std::map<std::string, FExporter> &Exporters()
 		{ "trc", &ExportTrench },
 		{ "scp", &ExportSquad },
 		{ "spt", &ExportSprite },
+		{ "unt", &ExportInfantry },
 	};
 	return exporters;
 }

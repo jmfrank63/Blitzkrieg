@@ -1028,6 +1028,78 @@ static void Exporters( const fs::path &fixtures, const fs::path &data, const fs:
 		       "export scp: an unknown member is MFC's \"Can't find stats\": " + runUnknown.outcome.szError );
 	}
 
+	// Infantry: AnimationFrm.cpp FillRPGStats over the fixture's 24
+	// animations (frame time 125, action frame 0, speed 1). No frame file exists, so
+	// the compose finds no valid animation: a warning, as MFC's message box,
+	// and the stats are written all the same.
+	{
+		const fs::path project = CopyFixture( fixtures, scratch, "unt" );
+		const SExportRun run = RunExporter( "unt", project, scratch / "unt" / "data", context );
+		SInfantryRPGStats expected;
+		expected.szKeyName = "Unknown unit";
+		expected.type = RPG_TYPE_SOLDIER;
+		expected.fMaxHP = 100.0f;
+		expected.nMinArmor = expected.nMaxArmor = 4;
+		expected.fSight = 20.0f;
+		expected.fCamouflage = 1.0f;
+		expected.fSpeed = 2.0f;
+		expected.fPassability = 100.0f;
+		expected.bCanAttackUp = true;
+		expected.bCanAttackDown = true;
+		expected.fPrice = 1.0f;
+		expected.fSightPower = 1.0f;
+		expected.szAcksNames.resize( 2 );
+		expected.availCommands.Clear();
+		expected.availExposures.Clear();
+		expected.fRotateSpeed = 0.0f;
+		expected.nPriority = 0;
+		expected.nUninstallRotate = 0;
+		expected.nUninstallTransport = 0;
+		// An empty grenade collapses to one gun: the generic weapon of the Weapon item.
+		expected.guns.resize( 1 );
+		expected.guns[0].szWeapon = "generic";
+		expected.guns[0].nAmmo = 100;
+		expected.guns[0].fReloadCost = 100.0f;
+		expected.fRunSpeed = 1.0f;
+		expected.fCrawlSpeed = 1.0f;
+		// The //CRAP +1: one slot more than the 24 animations. Only Idle has a frame item, "frame-1":
+		// 125 ms for it, in its animtimes slot and in its description's length.
+		expected.animtimes.assign( 25, 0 );
+		expected.animtimes[ANIMATION_IDLE] = 125;
+		expected.animdescs.resize( ANIMATION_LAST_ANIMATION );
+		static const int kTypes[24] =
+		{
+			ANIMATION_MOVE, ANIMATION_CRAWL, ANIMATION_SHOOT, ANIMATION_SHOOT_DOWN, ANIMATION_SHOOT_TRENCH, ANIMATION_AIMING, ANIMATION_AIMING_DOWN,
+			ANIMATION_AIMING_TRENCH, ANIMATION_THROW, ANIMATION_THROW_DOWN, ANIMATION_THROW_TRENCH, ANIMATION_DEATH, ANIMATION_DEATH_DOWN,
+			ANIMATION_PRISONING, ANIMATION_IDLE, ANIMATION_IDLE_DOWN, ANIMATION_IDLE2, ANIMATION_LIE, ANIMATION_STAND, ANIMATION_USE_DOWN,
+			ANIMATION_USE, ANIMATION_POINTING, ANIMATION_BINOCULARS, ANIMATION_RADIO,
+		};
+		for ( int i = 0; i < 24; ++i )
+		{
+			SUnitBaseRPGStats::SAnimDesc desc;
+			desc.nIndex = i;
+			desc.nAction = 0;
+			desc.nLength = 0;
+			desc.nAABB_A = -1;
+			desc.nAABB_D = -1;
+			if ( kTypes[i] == ANIMATION_IDLE )
+				desc.nLength = 125;
+			expected.animdescs[kTypes[i]].push_back( desc );
+		}
+		CheckExported( EExportKind::INFANTRY, "unt", run, "units/humans/unt/1.xml", expected, scratch );
+		bool bNoAnimations = false;
+		for ( const std::string &szWarning : run.outcome.warnings )
+			bNoAnimations = bNoAnimations || szWarning.find( "no valid animations" ) != std::string::npos;
+		Check( bNoAnimations && CountFiles( run.data, ".san" ) == 0, "export unt: no frames is MFC's \"no valid animations\" warning and no .san" );
+
+		SExportContext statsOnly = context;
+		statsOnly.bStatsOnly = true;
+		const SExportRun runStats = RunExporter( "unt", project, scratch / "unt" / "data-stats", statsOnly );
+		std::string szFull, szStats;
+		Check( runStats.bExported && ReadBytes( run.data / "units/humans/unt/1.xml", &szFull ) && ReadBytes( runStats.data / "units/humans/unt/1.xml", &szStats ) && szFull == szStats,
+		       "export unt: stats only writes the same 1.xml " + runStats.outcome.szError );
+	}
+
 	Check( FindExporter( "mdc" ) == nullptr, "export: a kind S06 did not port (mdc) still has no exporter" );
 }
 

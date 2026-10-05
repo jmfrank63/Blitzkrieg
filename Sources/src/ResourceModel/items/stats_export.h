@@ -13,6 +13,7 @@
 // n ). The exporters do the same on a copy of the project, so a value an
 // older project lacks has its default, as it had in MFC.
 
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
@@ -30,6 +31,7 @@ bool ExportMine( const Project &project, const SExportContext &context, SExportO
 bool ExportTrench( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportSquad( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportSprite( const Project &project, const SExportContext &context, SExportOutcome &outcome );
+bool ExportInfantry( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 
 namespace NStatsExport
 {
@@ -64,6 +66,27 @@ std::string ValueStr( const CTreeItem &item, int nIndex );
 // relative path. bFileNamedAfterFolder: the shipped weapons are flat files
 // named after their project folder (weapons\<name>.xml), not <name>\1.xml.
 std::string StatsFileName( const Project &project, const SExportContext &context, const std::string &szAddDir, bool bFileNamedAfterFolder );
+
+// File-name helpers the frame exporters share. Windows file systems ignored
+// case and the shipped data keeps MFC-era mixed case, so a name is looked up
+// ignoring case on Linux.
+std::string ToSlashes( std::string s );
+// The entry of dir named szName, ignoring case, or the plain join when there
+// is none.
+std::filesystem::path FoldedChild( const std::filesystem::path &dir, const std::string &szName );
+// A whole path (any separators) with each component folded in turn; the part
+// that does not exist is kept as written.
+std::filesystem::path FoldedFile( const std::string &szPath );
+// MFC's IsRelatedPath: neither a drive nor a root.
+bool IsRelatedPath( const std::string &szPath );
+// MakeFullPath( szFullDirName, szRelName ) of editor/frames.cpp, backslashes
+// throughout; the caller converts.
+std::string MakeFullPath( const std::string &szFullDirName, const std::string &szRelName );
+// The stand-in picture of a missing frame, editor\invalid.tga of the data
+// the export root holds; empty when there is none.
+std::filesystem::path InvalidPicture( const SExportContext &context );
+// GetFileChangeTime: the change time; min() for a file that is not there.
+std::filesystem::file_time_type ChangeTime( const std::filesystem::path &file );
 
 // The folder of a storage-relative file name, with its trailing backslash
 // (MFC's GetDirectory).

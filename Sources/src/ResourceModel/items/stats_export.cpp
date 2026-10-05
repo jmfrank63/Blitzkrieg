@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm>
 #include <filesystem>
 
 #include "../mfc_value.h"
@@ -122,6 +123,89 @@ std::string ValueStr( const CTreeItem &item, int nIndex )
 		default:
 			return std::string();
 	}
+}
+
+namespace
+{
+
+std::string Lower( std::string s )
+{
+	std::transform( s.begin(), s.end(), s.begin(), []( unsigned char c ) { return char( std::tolower( c ) ); } );
+	return s;
+}
+
+}
+
+std::string ToSlashes( std::string s )
+{
+	std::replace( s.begin(), s.end(), '\\', '/' );
+	return s;
+}
+
+std::filesystem::path FoldedChild( const std::filesystem::path &dir, const std::string &szName )
+{
+	std::error_code ec;
+	std::filesystem::path plain = dir / szName;
+	if ( std::filesystem::exists( plain, ec ) )
+		return plain;
+	const std::string szWanted = Lower( szName );
+	for ( std::filesystem::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( Lower( it->path().filename().string() ) == szWanted )
+			return it->path();
+	return plain;
+}
+
+bool IsRelatedPath( const std::string &szPath )
+{
+	return szPath.empty() || ( szPath[0] != '\\' && szPath[0] != '/' && szPath.find( ':' ) == std::string::npos );
+}
+
+// A name without a backslash is appended to the folder as is, otherwise the
+// folder loses its last component, one more per "..\", and the rest is joined
+// with a backslash.
+std::string MakeFullPath( const std::string &szFullDirName, const std::string &szRelName )
+{
+	if ( szRelName.empty() )
+		return szFullDirName;
+	if ( szRelName.find( '\\' ) == std::string::npos )
+		return szFullDirName + szRelName;
+	std::string szResult = szFullDirName.substr( 0, szFullDirName.rfind( '\\' ) );
+	std::string::size_type nRest = 0, nFound;
+	while ( ( nFound = szRelName.find( "..\\", nRest ) ) != std::string::npos )
+	{
+		const std::string::size_type nPos = szResult.rfind( '\\' );
+		if ( nPos == std::string::npos )
+			return szFullDirName + szRelName;
+		szResult = szResult.substr( 0, nPos );
+		nRest = nFound + 3;
+	}
+	return szResult + '\\' + szRelName.substr( nRest );
+}
+
+std::filesystem::path InvalidPicture( const SExportContext &context )
+{
+	if ( context.szDataRoot.empty() )
+		return std::filesystem::path();
+	std::error_code ec;
+	const std::filesystem::path editorDir = FoldedChild( std::filesystem::path( context.szDataRoot ), "editor" );
+	const std::filesystem::path picture = FoldedChild( editorDir, "invalid.tga" );
+	return std::filesystem::is_regular_file( picture, ec ) ? picture : std::filesystem::path();
+}
+
+std::filesystem::file_time_type ChangeTime( const std::filesystem::path &file )
+{
+	std::error_code ec;
+	const std::filesystem::file_time_type time = std::filesystem::last_write_time( file, ec );
+	return ec ? std::filesystem::file_time_type::min() : time;
+}
+
+std::filesystem::path FoldedFile( const std::string &szPath )
+{
+	const std::filesystem::path whole( ToSlashes( szPath ) );
+	std::filesystem::path result = whole.root_path();
+	for ( const std::filesystem::path &part : whole.relative_path() )
+		result = result.empty() ? part : FoldedChild( result, part.string() );
+	return result;
 }
 
 namespace

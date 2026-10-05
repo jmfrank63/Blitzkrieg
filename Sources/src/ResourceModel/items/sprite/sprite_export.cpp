@@ -38,62 +38,6 @@ namespace fs = std::filesystem;
 
 const char kSpriteAddDir[] = "effects\\sprites\\";
 
-std::string Lower( std::string s )
-{
-	std::transform( s.begin(), s.end(), s.begin(), []( unsigned char c ) { return char( std::tolower( c ) ); } );
-	return s;
-}
-
-std::string ToSlashes( std::string s )
-{
-	std::replace( s.begin(), s.end(), '\\', '/' );
-	return s;
-}
-
-// The entry of szDir named szName, ignoring case (Windows file systems did,
-// and the shipped data keeps MFC-era mixed case), or the plain join when
-// there is none.
-fs::path FoldedChild( const fs::path &dir, const std::string &szName )
-{
-	std::error_code ec;
-	fs::path plain = dir / szName;
-	if ( fs::exists( plain, ec ) )
-		return plain;
-	const std::string szWanted = Lower( szName );
-	for ( fs::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
-		if ( Lower( it->path().filename().string() ) == szWanted )
-			return it->path();
-	return plain;
-}
-
-bool IsRelatedPath( const std::string &szPath )
-{
-	return szPath.empty() || ( szPath[0] != '\\' && szPath[0] != '/' && szPath.find( ':' ) == std::string::npos );
-}
-
-// MakeFullPath( szFullDirName, szRelName ) of editor/frames.cpp: a name
-// without a backslash is appended to the folder as is, otherwise the folder
-// loses its last component, one more per "..\", and the rest is joined
-// with a backslash. Backslashes throughout; the caller converts.
-std::string MakeFullPath( const std::string &szFullDirName, const std::string &szRelName )
-{
-	if ( szRelName.empty() )
-		return szFullDirName;
-	if ( szRelName.find( '\\' ) == std::string::npos )
-		return szFullDirName + szRelName;
-	std::string szResult = szFullDirName.substr( 0, szFullDirName.rfind( '\\' ) );
-	std::string::size_type nRest = 0, nFound;
-	while ( ( nFound = szRelName.find( "..\\", nRest ) ) != std::string::npos )
-	{
-		const std::string::size_type nPos = szResult.rfind( '\\' );
-		if ( nPos == std::string::npos )
-			return szFullDirName + szRelName;
-		szResult = szResult.substr( 0, nPos );
-		nRest = nFound + 3;
-	}
-	return szResult + '\\' + szRelName.substr( nRest );
-}
-
 // The frame folder the Sprites item names, with backslashes and no
 // guarantee of a trailing one (MFC concatenated the frame name directly).
 std::string FrameDirectory( const CTreeItem &spritesItem, const SExportContext &context )
@@ -107,29 +51,6 @@ std::string FrameDirectory( const CTreeItem &spritesItem, const SExportContext &
 		szDirName = MakeFullPath( szProjectDir, szDirName );
 	}
 	return szDirName;
-}
-
-// The stand-in picture of a missing frame, editor\invalid.tga of the data the
-// export root holds. Empty when the export has no data folder to look in (the
-// preview's) or it holds none.
-fs::path InvalidPicture( const SExportContext &context )
-{
-	if ( context.szDataRoot.empty() )
-		return fs::path();
-	std::error_code ec;
-	const fs::path editorDir = FoldedChild( fs::path( context.szDataRoot ), "editor" );
-	const fs::path picture = FoldedChild( editorDir, "invalid.tga" );
-	return fs::is_regular_file( picture, ec ) ? picture : fs::path();
-}
-
-// GetFileChangeTime: the later of the change times; zero (the epoch) for a
-// file that is not there, as MFC's. last_write_time is the one both file
-// systems have.
-fs::file_time_type ChangeTime( const fs::path &file )
-{
-	std::error_code ec;
-	const fs::file_time_type time = fs::last_write_time( file, ec );
-	return ec ? fs::file_time_type::min() : time;
 }
 
 // FindMaximalSourceTime: the newest of the frame files that exist; min() when
