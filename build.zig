@@ -3889,6 +3889,47 @@ fn addEditorBridge(
             // by T02..T06. One archive beside bridge.cpp so a resource editor
             // process links EditorBridge and gets both ABIs.
             "Sources/src/EditorBridge/resource_bridge.cpp",
+            // S04 T02: ResourceModel's Project+Tree model, pulled into the
+            // bridge archive so resource_bridge.cpp links against Load, Save,
+            // CTreeItemFactory and the typed root classes without needing a
+            // separate static library. The test tiers that already compile
+            // these sources into their own executables (test-resource-model,
+            // -references, -comparator) continue to do so; the compile cost
+            // of a second copy is negligible against the integration shape
+            // this archive gives the resource bridge.
+            "Sources/src/ResourceModel/combos.cpp",
+            "Sources/src/ResourceModel/comparator.cpp",
+            "Sources/src/ResourceModel/factory.cpp",
+            "Sources/src/ResourceModel/future_blob.cpp",
+            "Sources/src/ResourceModel/key_frame_tree_item.cpp",
+            "Sources/src/ResourceModel/localization.cpp",
+            "Sources/src/ResourceModel/project.cpp",
+            "Sources/src/ResourceModel/references.cpp",
+            "Sources/src/ResourceModel/tree_item.cpp",
+            "Sources/src/ResourceModel/variant.cpp",
+            "Sources/src/ResourceModel/xml.cpp",
+            "Sources/src/ResourceModel/items/stats_item.cpp",
+            "Sources/src/ResourceModel/items/bridge/bridge.cpp",
+            "Sources/src/ResourceModel/items/building/building.cpp",
+            "Sources/src/ResourceModel/items/campaign/campaign.cpp",
+            "Sources/src/ResourceModel/items/chapter/chapter.cpp",
+            "Sources/src/ResourceModel/items/effect/effect.cpp",
+            "Sources/src/ResourceModel/items/fence/fence.cpp",
+            "Sources/src/ResourceModel/items/gui/gui.cpp",
+            "Sources/src/ResourceModel/items/infantry/infantry.cpp",
+            "Sources/src/ResourceModel/items/medal/medal.cpp",
+            "Sources/src/ResourceModel/items/mesh/mesh.cpp",
+            "Sources/src/ResourceModel/items/mine/mine.cpp",
+            "Sources/src/ResourceModel/items/mission/mission.cpp",
+            "Sources/src/ResourceModel/items/object/object.cpp",
+            "Sources/src/ResourceModel/items/particle/particle.cpp",
+            "Sources/src/ResourceModel/items/river3d/river3d.cpp",
+            "Sources/src/ResourceModel/items/road3d/road3d.cpp",
+            "Sources/src/ResourceModel/items/sprite/sprite.cpp",
+            "Sources/src/ResourceModel/items/squad/squad.cpp",
+            "Sources/src/ResourceModel/items/tileset/tileset.cpp",
+            "Sources/src/ResourceModel/items/trench/trench.cpp",
+            "Sources/src/ResourceModel/items/weapon/weapon.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
     });
@@ -6126,11 +6167,16 @@ fn addResourceBridge(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path(stage_root));
     run.addArg(".");
+    // T02: the Project+Tree sub-step needs the 21 fixture folders. The source
+    // dir of the fixture tree is handed as argv[2]; the test writes its
+    // temporary round-trip copies under argv[3] (zig-out/local-test/...).
+    run.addArg(b.path("tools/zig/fixtures/resource_editor").getPath(b));
+    run.addArg(b.path("zig-out/local-test/resource_editor/t02").getPath(b));
     // Reads the staged Data and modules, neither a file input of this step:
     // a cached pass would say nothing about the installation now.
     run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
-    const step = b.step("test-resource-bridge", "Smoke the resource bridge through the engine: start, BkResNew(wpn), BkResClose, stop");
+    const step = b.step("test-resource-bridge", "Smoke the resource bridge through the engine: Project+Tree over every fixture");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }

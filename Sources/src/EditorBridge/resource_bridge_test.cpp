@@ -1,15 +1,32 @@
-// The resource bridge smoke tier (S04 T01): starts the engine the same way
-// test-editor-bridge does, calls BkResNew on a wpn project, BkResClose,
-// BkEditorStop. On a host without a GPU (CI's Linux runner, three of the six)
-// the start reports BK_EDITOR_NO_DEVICE and this exits 0 with a one-line
-// "skipped: no GPU device" message - the same gate editor_bridge_test.cpp uses.
-// CI runners that do have a device set BK_REQUIRE_ENGINE=1, where a skip is
-// then a failure, so a regression on the real runners cannot hide as a skip.
+// test-resource-bridge: Project+Tree C ABI tier.
+//
+// T01 scaffolded this file as a smoke that stops after BkResNew(wpn) +
+// BkResClose. T02 extends it: open each of the 21 fixtures through
+// BkResOpen, save it back through BkResSave (safe-save read-back), and
+// byte-compare the saved file against the fixture. For a representative
+// subset (wpn, msh, pcp - stats-only, keyframe, image fronts) it also
+// exercises delete -> restore -> save and asserts byte-identity.
+//
+// On a host without a GPU the start reports BK_EDITOR_NO_DEVICE and the
+// test exits 0 with "skipped: no GPU device", mirroring editor_bridge_test.cpp.
+// CI runners that have a device set BK_REQUIRE_ENGINE=1; a skip is then a
+// failure, so a regression on those runners cannot hide as a skip.
+//
+// argv:
+//   [0] self
+//   [1] staged install root (contains Data/consts.xml); defaults to the
+//       executable's own directory, like the editor_bridge test.
+//   [2] fixture source root: tools/zig/fixtures/resource_editor
+//   [3] scratch output root: zig-out/local-test/resource_editor/t02
 #include "StdAfx.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <string>
+#include <vector>
 #include <SDL3/SDL.h>
 #include "resource_bridge.h"
 
@@ -48,6 +65,179 @@ static int SkipOrFail( const std::string &szWhy )
 	return 0;
 }
 
+static bool ReadBytes( const std::string &szPath, std::string &out )
+{
+	std::ifstream f( szPath, std::ios::binary );
+	if ( !f ) return false;
+	std::ostringstream ss;
+	ss << f.rdbuf();
+	out = ss.str();
+	return true;
+}
+
+// The 21 fixture extensions, in EXTENSIONS.md / kind-table order. The index
+// here must match the BkResKind ordinal: a mismatch between the test's table
+// and the bridge's would silently align with the wrong root.
+struct Fixture { const char *pszExt; int nKindOrdinal; };
+static const Fixture kFixtures[] = {
+	{ "wpn", 0  }, { "mcp", 1  }, { "trc", 2  }, { "scp", 3  },
+	{ "spt", 4  }, { "unt", 5  }, { "msh", 6  }, { "obt", 7  },
+	{ "fnc", 8  }, { "bld", 9  }, { "bdg", 10 }, { "pcp", 11 },
+	{ "eff", 12 }, { "til", 13 }, { "3rd", 14 }, { "3rv", 15 },
+	{ "mip", 16 }, { "chc", 17 }, { "cgc", 18 }, { "mdc", 19 },
+	{ "gui", 20 },
+};
+static const int kFixtureCount = int( sizeof(kFixtures) / sizeof(kFixtures[0]) );
+
+static bool RoundTripOne( BkResSession *pSession, const std::string &szFixtureRoot,
+                          const std::string &szScratchRoot, const Fixture &fx )
+{
+	const std::string szIn = szFixtureRoot + "/" + fx.pszExt + "/project." + fx.pszExt;
+	const std::string szOutDir = szScratchRoot + "/" + fx.pszExt;
+	const std::string szOut = szOutDir + "/project." + fx.pszExt;
+	std::error_code ec;
+	std::filesystem::create_directories( szOutDir, ec );
+	// Make sure stale state from a prior run cannot mask a regression.
+	std::filesystem::remove( szOut, ec );
+	std::filesystem::remove( szOut + ".bak", ec );
+	std::filesystem::remove( szOut + ".tmp", ec );
+
+	std::string szWhat;
+	bool ok = true;
+
+	szWhat = std::string( fx.pszExt ) + ": BkResOpen";
+	if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, szWhat.c_str() ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return false;
+	}
+
+	BkResKind kind = -2;
+	szWhat = std::string( fx.pszExt ) + ": BkResKindOf";
+	ok = Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK, szWhat.c_str() ) && ok;
+	szWhat = std::string( fx.pszExt ) + ": kind ordinal matches";
+	ok = Check( kind == fx.nKindOrdinal, szWhat.c_str() ) && ok;
+
+	// Count nodes so the two-pass contract exercises both branches.
+	int nCount = -1;
+	szWhat = std::string( fx.pszExt ) + ": BkResNodes count (null buffer)";
+	ok = Check( BkResNodes( pSession, 0, 0, &nCount ) == BK_EDITOR_OK, szWhat.c_str() ) && ok;
+	szWhat = std::string( fx.pszExt ) + ": at least a root node";
+	ok = Check( nCount >= 1, szWhat.c_str() ) && ok;
+	std::vector<BkResNodeRecord> nodes( nCount );
+	szWhat = std::string( fx.pszExt ) + ": BkResNodes fill";
+	ok = Check( BkResNodes( pSession, nodes.data(), nCount, &nCount ) == BK_EDITOR_OK, szWhat.c_str() ) && ok;
+
+	szWhat = std::string( fx.pszExt ) + ": BkResSave";
+	if ( !Check( BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK, szWhat.c_str() ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return false;
+	}
+
+	std::string szBefore, szAfter;
+	if ( !Check( ReadBytes( szIn, szBefore ), "fixture readable" ) ) { BkResClose( pSession ); return false; }
+	if ( !Check( ReadBytes( szOut, szAfter ), "saved file readable" ) ) { BkResClose( pSession ); return false; }
+	szWhat = std::string( fx.pszExt ) + ": byte-identical round-trip";
+	if ( !Check( szBefore == szAfter, szWhat.c_str() ) )
+	{
+		std::printf( "   in=%zu bytes, out=%zu bytes\n", szBefore.size(), szAfter.size() );
+		ok = false;
+	}
+
+	// A re-open of the saved copy must round-trip too - "the game reads it unchanged"
+	// invariant extended to the editor's own reader.
+	szWhat = std::string( fx.pszExt ) + ": re-open saved copy";
+	ok = Check( BkResOpen( pSession, szOut.c_str() ) == BK_EDITOR_OK, szWhat.c_str() ) && ok;
+	BkResClose( pSession );
+	return ok;
+}
+
+static bool DeleteRestoreOne( BkResSession *pSession, const std::string &szFixtureRoot,
+                              const std::string &szScratchRoot, const Fixture &fx )
+{
+	const std::string szIn = szFixtureRoot + "/" + fx.pszExt + "/project." + fx.pszExt;
+	const std::string szOutDir = szScratchRoot + "/" + fx.pszExt;
+	const std::string szOut = szOutDir + "/project.deleterestore." + fx.pszExt;
+	std::error_code ec;
+	std::filesystem::create_directories( szOutDir, ec );
+	std::filesystem::remove( szOut, ec );
+	std::filesystem::remove( szOut + ".bak", ec );
+	std::filesystem::remove( szOut + ".tmp", ec );
+
+	std::string szWhat;
+	bool ok = true;
+
+	szWhat = std::string( fx.pszExt ) + " [dr]: BkResOpen";
+	if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, szWhat.c_str() ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return false;
+	}
+
+	int nCount = 0;
+	BkResNodes( pSession, 0, 0, &nCount );
+	if ( !Check( nCount >= 2, "has at least one non-root node to delete" ) ) { BkResClose( pSession ); return false; }
+	std::vector<BkResNodeRecord> nodes( nCount );
+	BkResNodes( pSession, nodes.data(), nCount, &nCount );
+	// Find the first direct child of root. The root has id 1.
+	int nVictim = 0, nParent = 0, nIndex = 0;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		if ( nodes[i].parent == 1 )
+		{
+			nVictim = nodes[i].id;
+			nParent = nodes[i].parent;
+			break;
+		}
+	}
+	if ( !Check( nVictim != 0, "found a victim node under the root" ) ) { BkResClose( pSession ); return false; }
+
+	// Two-pass size then write.
+	int nBlobSize = 0;
+	szWhat = std::string( fx.pszExt ) + " [dr]: BkResDeleteNode (size)";
+	ok = Check( BkResDeleteNode( pSession, nVictim, 0, 0, &nBlobSize ) == BK_EDITOR_OK, szWhat.c_str() ) && ok;
+	ok = Check( nBlobSize > 0, "blob size is positive" ) && ok;
+	// At this point the node is already removed (second phase of DeleteNode).
+	// Re-open to get a clean copy and then exercise the "size + fill in one call"
+	// shape callers actually use.
+	BkResClose( pSession );
+	BkResOpen( pSession, szIn.c_str() );
+	BkResNodes( pSession, nodes.data(), nCount, &nCount );
+	for ( int i = 0; i < nCount; ++i )
+		if ( nodes[i].parent == 1 ) { nVictim = nodes[i].id; nParent = nodes[i].parent; nIndex = 0; break; }
+	std::vector<unsigned char> blob( nBlobSize );
+	int nWrittenSize = 0;
+	szWhat = std::string( fx.pszExt ) + " [dr]: BkResDeleteNode (fill)";
+	ok = Check( BkResDeleteNode( pSession, nVictim, blob.data(), (int)blob.size(), &nWrittenSize ) == BK_EDITOR_OK, szWhat.c_str() ) && ok;
+	ok = Check( nWrittenSize == nBlobSize, "written size matches sized pass" ) && ok;
+
+	int nRestoredId = 0;
+	szWhat = std::string( fx.pszExt ) + " [dr]: BkResRestoreNode";
+	ok = Check( BkResRestoreNode( pSession, blob.data(), nWrittenSize, nParent, nIndex, &nRestoredId ) == BK_EDITOR_OK, szWhat.c_str() ) && ok;
+	ok = Check( nRestoredId != 0, "restored id is non-zero" ) && ok;
+
+	szWhat = std::string( fx.pszExt ) + " [dr]: BkResSave";
+	if ( !Check( BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK, szWhat.c_str() ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return false;
+	}
+	std::string szBefore, szAfter;
+	ReadBytes( szIn, szBefore );
+	ReadBytes( szOut, szAfter );
+	szWhat = std::string( fx.pszExt ) + " [dr]: byte-identical after delete+restore+save";
+	if ( !Check( szBefore == szAfter, szWhat.c_str() ) )
+	{
+		std::printf( "   in=%zu bytes, out=%zu bytes\n", szBefore.size(), szAfter.size() );
+		ok = false;
+	}
+	BkResClose( pSession );
+	return ok;
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -79,15 +269,11 @@ int main( int argc, char **argv )
 		return 1;
 	}
 
-	// The installation to edit is this executable's own directory, like
-	// editor-bridge-test: every engine module derives its roots from the
-	// running executable's location, so running from anywhere else gives
-	// each module a different root. The run step passes "." as that root
-	// (the executable's cwd is set to the install directory).
 	const std::string szSelfDir = DirectoryOf( argv[0] != 0 ? argv[0] : "." );
 	const char *pszRoot = argc > 1 ? argv[1] : szSelfDir.c_str();
-	// A probe for the staged game: without a staged install this cannot run
-	// and the tier skips rather than failing (same shape as editor-bridge).
+	const std::string szFixtureRoot = argc > 2 ? argv[2] : ( szSelfDir + "/fixtures/resource_editor" );
+	const std::string szScratchRoot = argc > 3 ? argv[3] : ( szSelfDir + "/local-test/resource_editor/t02" );
+
 	FILE *pProbe = std::fopen( ( std::string( pszRoot ) + "/Data/consts.xml" ).c_str(), "rb" );
 	if ( pProbe == 0 )
 	{
@@ -97,6 +283,18 @@ int main( int argc, char **argv )
 		return nSkipped;
 	}
 	std::fclose( pProbe );
+	// Also need the fixtures. Without them the Project+Tree sub-step cannot run;
+	// still a skip (not a fail) because this tier runs on hosts that only have
+	// the staged install laid down.
+	FILE *pFixProbe = std::fopen( ( szFixtureRoot + "/EXTENSIONS.md" ).c_str(), "rb" );
+	if ( pFixProbe == 0 )
+	{
+		const int nSkipped = SkipOrFail( std::string( "no resource fixtures at " ) + szFixtureRoot );
+		SDL_DestroyWindow( pWindow );
+		SDL_Quit();
+		return nSkipped;
+	}
+	std::fclose( pFixProbe );
 
 	BkEditorSession *pSession = 0;
 	const BkEditorStatus start = BkEditorStart( pWindow, pszRoot, &pSession );
@@ -117,25 +315,48 @@ int main( int argc, char **argv )
 		return 1;
 	}
 
-	// The smoke sequence: BkResNew on wpn (kind code 0 - the first entry of
-	// EResourceKind), read the kind back, close it. Stubs today (T01), but
-	// the host must compile and link against them, and a later task will
-	// replace them without breaking this sequence.
+	// Smoke: BkResNew works for a fresh wpn project, kind round-trips, close.
 	Check( BkResNew( pSession, 0 ) == BK_EDITOR_OK, "BkResNew(wpn) answers OK" );
-	BkResKind kind = -1;
-	Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK, "BkResKindOf answers OK" );
-	// Two-pass count read with no project open semantics: an empty tree answers 0.
-	int nNodes = -1;
-	Check( BkResNodes( pSession, 0, 0, &nNodes ) == BK_EDITOR_OK, "BkResNodes answers OK with a null buffer" );
-	Check( nNodes == 0, "BkResNodes answers a count of 0 for the stub" );
+	BkResKind newKind = -1;
+	Check( BkResKindOf( pSession, &newKind ) == BK_EDITOR_OK, "BkResKindOf after New answers OK" );
+	Check( newKind == 0, "KindOf after BkResNew(wpn) is 0" );
+	int nFreshCount = -1;
+	Check( BkResNodes( pSession, 0, 0, &nFreshCount ) == BK_EDITOR_OK, "BkResNodes answers OK with a null buffer" );
+	Check( nFreshCount == 1, "a fresh project exposes just the root node" );
 	Check( BkResClose( pSession ) == BK_EDITOR_OK, "BkResClose answers OK" );
+
+	// Round-trip every fixture.
+	for ( int i = 0; i < kFixtureCount; ++i )
+		RoundTripOne( pSession, szFixtureRoot, szScratchRoot, kFixtures[i] );
+
+	// Delete->restore->save on the three representative kinds.
+	const char *pszRep[] = { "wpn", "msh", "pcp" };
+	for ( int r = 0; r < 3; ++r )
+	{
+		Fixture fx = {};
+		for ( int i = 0; i < kFixtureCount; ++i )
+			if ( std::strcmp( kFixtures[i].pszExt, pszRep[r] ) == 0 ) { fx = kFixtures[i]; break; }
+		DeleteRestoreOne( pSession, szFixtureRoot, szScratchRoot, fx );
+	}
+
+	// Lock/unlock on a saved copy.
+	{
+		Fixture fx = kFixtures[0]; // wpn
+		const std::string szOut = szScratchRoot + "/" + fx.pszExt + "/project." + fx.pszExt;
+		BkResOpen( pSession, szOut.c_str() );
+		Check( BkResLock( pSession ) == BK_EDITOR_OK, "BkResLock on a saved project" );
+		char owner[256] = {};
+		Check( BkResLockOwner( pSession, owner, (int)sizeof( owner ) ) == BK_EDITOR_OK, "BkResLockOwner reads" );
+		Check( owner[0] != 0, "owner string is non-empty" );
+		Check( BkResClose( pSession ) == BK_EDITOR_OK, "BkResClose releases lock" );
+	}
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );
 	SDL_Quit();
 
 	if ( g_nFailures == 0 )
-		std::printf( "resource-bridge: smoke OK\n" );
+		std::printf( "resource-bridge: Project+Tree OK (%d fixtures)\n", kFixtureCount );
 	else
 		std::printf( "resource-bridge: %d failures\n", g_nFailures );
 	return g_nFailures == 0 ? 0 : 1;
