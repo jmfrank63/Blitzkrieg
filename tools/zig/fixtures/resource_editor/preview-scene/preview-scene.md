@@ -247,3 +247,23 @@ The particle source is a small flame at the anchor (the changed pixels lie
 in a box of about 23 x 41 pixels at the frame's centre), so its share sits
 near the empty scene's 0.25. A host without a GPU device still skips the
 whole tier ("skipped: no GPU device"); a skip is not a pass.
+
+## S06 captures (M001 / S06 / T05, committed by S07 / T04, D016 item 2)
+
+The mine, trench and squad previews of S06 were only ever written under
+`zig-out/local-test/resource_editor/t02/s06-preview/`, which the test deletes
+and recreates. `mine.tga`, `trench.tga` and `squad.tga` beside this note are
+copies of that run's captures. The `s06-preview` group of `test-resource-bridge`
+(`resource_bridge_test.cpp`, `Capture`) writes them and gates each on >= 1 %
+non-black-non-magenta and >= 0.01 % changed against the empty preview frame.
+
+| Capture     | Source fixture                                            | non-black-non-magenta | changed vs empty |
+|-------------|-----------------------------------------------------------|-----------------------|------------------|
+| `mine.tga`  | `mcp/project.mcp` (+ `1.tga`, `1s.tga`)                   | 0.248649              | 0.000732         |
+| `trench.tga`| `trc/project.trc` (+ `.mod` and `.tga` files)             | 0.258910              | 0.010993         |
+| `squad.tga` | `scp/project.scp` (+ shipped `Squads/german_rifle_45/1.xml`) | 0.254395           | 0.006019         |
+
+Measured on the Linux x64 agent (640 x 480) by
+`zig build test-resource-bridge -Dtest-mode=run`, which printed these values as
+`preview-scene:` lines. The mine is a small object, so its share of changed
+pixels is the smallest of the three.
