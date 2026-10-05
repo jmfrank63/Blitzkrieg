@@ -1,6 +1,30 @@
 <?xml version="1.0"?>
-<Medal_Composer_Project>
-	<fixture>
-		<name>minimal</name>
-	</fixture>
+<Medal_Composer_Project expand="1">
+	<childs>
+		<item ClassTypeID="285212983" expand="0">
+			<default_name>Basic info</default_name>
+			<display_name>Basic info</display_name>
+			<values>
+				<item>
+					<default_name>Name</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>name</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Description</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>desc</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Medal image</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>medal</string_value>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+	</childs>
 </Medal_Composer_Project>

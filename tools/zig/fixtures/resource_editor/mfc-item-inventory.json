@@ -2870,9 +2870,10 @@
       "text": ""
      },
      "strings": [
-      {
-       "runtime": "LoadAIClassCombo()"
-      }
+      "wheel",
+      "halftrack",
+      "track",
+      "human"
      ]
     }
    ],
@@ -3343,9 +3344,10 @@
       "text": "track"
      },
      "strings": [
-      {
-       "runtime": "LoadAIClassCombo()"
-      }
+      "wheel",
+      "halftrack",
+      "track",
+      "human"
      ]
     },
     {
@@ -7318,9 +7320,10 @@
       "text": ""
      },
      "strings": [
-      {
-       "runtime": "LoadAIClassCombo()"
-      }
+      "wheel",
+      "halftrack",
+      "track",
+      "human"
      ]
     }
    ],
@@ -12011,11 +12014,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatesTreeItem"
    },
    "inserts": [],
@@ -12046,11 +12048,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatesTreeItem"
    },
    "inserts": [],
@@ -12081,11 +12082,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatesTreeItem"
    },
    "inserts": [],
@@ -12116,11 +12116,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatesTreeItem"
    },
    "inserts": [],
@@ -12151,11 +12150,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatesTreeItem"
    },
    "inserts": [],
@@ -12186,11 +12184,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatesTreeItem"
    },
    "inserts": [],
@@ -12221,11 +12218,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatesTreeItem"
    },
    "inserts": [],
@@ -12256,11 +12252,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatesTreeItem"
    },
    "inserts": [],
@@ -12291,11 +12286,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatePropsTreeItem"
    },
    "inserts": [],
@@ -12326,11 +12320,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatePropsTreeItem"
    },
    "inserts": [],
@@ -12361,11 +12354,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatePropsTreeItem"
    },
    "inserts": [],
@@ -12396,11 +12388,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatePropsTreeItem"
    },
    "inserts": [],
@@ -12431,11 +12422,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatePropsTreeItem"
    },
    "inserts": [],
@@ -12466,11 +12456,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatePropsTreeItem"
    },
    "inserts": [],
@@ -12501,11 +12490,10 @@
     "elements": [
      "default_name",
      "display_name",
-     "values",
-     "childs"
+     "values"
     ],
     "extra_fields": [],
-    "serialize_childs": true,
+    "serialize_childs": false,
     "override_from": "CTemplatePropsTreeItem"
    },
    "inserts": [],

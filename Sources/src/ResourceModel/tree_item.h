@@ -5,21 +5,33 @@
 //   * szDefaultName / szDisplayName - the authored and shown names.
 //   * values - the SProp list the ObjectInspector drives.
 //   * children - a vector of owning pointers (unique_ptr, not CPtr/IRefCount).
-//   * defaultChilds - the list the MFC CreateDefaultChilds walked.
+//   * defaultValues / defaultChilds - what InitDefaultValues sets up, and
+//     CreateDefaultChilds, which reconciles a tree with them as MFC does.
+//   * nNeedExpand, bSerializeChilds, bStaticElements - the flags that change
+//     what is written or what CreateDefaultChilds does.
 // What the port drops: SECTreeCtrl, HTREEITEM, pTreeCtrl, pItemParent, the
-// DECLARE_SERIALIZE binary serialiser (replaced by project-XML round-trip),
-// IsCompatibleWith / CopyItemTo / InsertChildItems - every one of these is a
-// UI concern the Qt port will reintroduce at its own layer. The ETreeItemType
-// values live in Sources/src/editor/TreeItem.h for now and will move to the
-// port in T02 together with the first wave of registered classes.
+// DECLARE_SERIALIZE binary serialiser, IsCompatibleWith / CopyItemTo /
+// InsertChildItems and the key and mouse handlers - UI concerns the editor
+// reintroduces at its own layer.
 //
-// T02 adds a `storedNode` slot on the base. A typed root item that is produced
-// by Load() keeps the raw NResourceXml::Node around so Save() can emit the
-// authored XML byte-for-byte while higher layers see the typed CTreeItem view.
-// This is the same trick FutureBlob plays, generalised one step up: typed
-// items with unknown sub-structure still round-trip without the Save path
-// having to reconstruct every attribute. serialise()/parse() are the
-// prop-walking replacements for CTreeItem::operator&( IDataTree & ).
+// Serialisation is CTreeItem::operator&( IDataTree & ) ported to
+// NResourceXml::Node: ReadData/WriteData are the reading and writing halves,
+// and an item class with its own operator& overrides both, calling the base
+// first as MFC's AddTypedSuper does. The XML shape is CDataTreeXML's: a
+// string is an element holding text, a number an attribute, a container an
+// element with one <item> per entry, an item in a container carries its
+// ClassTypeID attribute.
+//
+// What MFC does not do, and the port adds so a load and save of an unedited
+// project changes nothing: an item read from a file remembers the layout it
+// was read with (attribute and element order, and every element its own
+// operator& does not know, kept whole). Writing it again follows that layout:
+// known fields are written fresh in their stored place and unknown ones are
+// copied back. A field the item writes but the file did not have (an older
+// writer's file) is added at the end only once its content differs from what
+// it was right after the read, so an unedited file keeps its shape and an
+// edit is never dropped. A new item has no stored layout and gets MFC's full
+// shape.
 
 #include <list>
 #include <memory>
@@ -58,43 +70,53 @@ public:
 	const std::string &GetDisplayName() const { return szDisplayName; }
 	void SetDisplayName( std::string s ) { szDisplayName = std::move( s ); }
 	void SetDefaultName( std::string s ) { szDefaultName = std::move( s ); }
+	// MFC's SetItemName, which the insert handlers call: both names.
+	void SetItemName( const std::string &s ) { szDefaultName = s; szDisplayName = s; }
 
-	void AddChild( std::unique_ptr<CTreeItem> p ) { treeItemList.push_back( std::move( p ) ); }
+	bool GetExpand() const { return nNeedExpand != 0; }
+	void SetExpand( bool bExpand ) { nNeedExpand = bExpand ? 1 : 0; }
+
+	// MFC's AddChild: the child joins the list and gets its default values and
+	// default children (CreateDefaultChilds), as an inserted item does in the
+	// editor. AppendChild only appends; the loader uses it, because a read
+	// item already carries what the file says.
+	void AddChild( std::unique_ptr<CTreeItem> p );
+	void AppendChild( std::unique_ptr<CTreeItem> p ) { treeItemList.push_back( std::move( p ) ); }
 	const CTreeItemList &GetChildren() const { return treeItemList; }
 	CTreeItemList &MutableChildren() { return treeItemList; }
 
 	const CPropVector &GetValues() const { return values; }
 	CPropVector &MutableValues() { return values; }
 
-	// The sub-editor overrides fill defaultValues / defaultChilds; the base
-	// hands them back as a template for serialisation (unknown-prop fallback).
 	const CChildItemsList &GetDefaultChilds() const { return defaultChilds; }
 	const CPropVector &GetDefaultValues() const { return defaultValues; }
 
-	// Stored node slot: the typed root items keep the raw project XML around
-	// so Save() can emit it byte-for-byte while higher layers walk the typed
-	// CTreeItem view. HasStoredNode() stays false for in-memory items; the
-	// Project loader sets it on recognised roots.
-	bool HasStoredNode() const { return m_hasStoredNode; }
-	const NResourceXml::Node &GetStoredNode() const { return m_storedNode; }
-	void SetStoredNode( NResourceXml::Node node )
-	{
-		m_storedNode = std::move( node );
-		m_hasStoredNode = true;
-	}
+	// MFC's CreateDefaultChilds (TreeItem.cpp), run by the editor after a load
+	// and on every inserted item: values not in defaultValues are dropped, the
+	// rest sorted into the default order, missing ones added, and each takes
+	// the default's id, label, type, widget and strings. An item with
+	// bStaticElements gets the same treatment for its children against
+	// defaultChilds. Recurses into the children.
+	void CreateDefaultChilds();
 
-	// Prop-walking equivalents of CTreeItem::operator&( IDataTree & ): parse()
-	// pulls each SProp from the XML in declaration order, serialise() emits
-	// them in the same order. The base walks `values`; the typed subclasses
-	// override only when they add out-of-band fields (keyframe curves etc.,
-	// which are not part of the 11 stats-only kinds that T02 covers).
-	virtual void parse( const NResourceXml::Node &node );
-	virtual void serialise( NResourceXml::Node &node ) const;
+	// An item as a container entry: the ClassTypeID attribute the container
+	// writes (DTHelper.h, CPtrBase), then the item's operator&. The caller
+	// names the element ("item").
+	void serialise( NResourceXml::Node &node ) const;
+	// The reading counterpart; the caller has already made the item from the
+	// ClassTypeID. Remembers the node's layout for the next write.
+	void parse( const NResourceXml::Node &node );
+	// The same without ClassTypeID: a project's root item, which the frame
+	// writes straight into the document element.
+	void SerialiseRoot( NResourceXml::Node &node ) const;
 
 protected:
 	int nItemType = 0;                        // ETreeItemType the factory keys on
 	std::string szDefaultName;
 	std::string szDisplayName;
+	int nNeedExpand = 0;                      // the "expand" attribute: tree node open
+	bool bSerializeChilds = true;             // false: operator& does not write childs
+	bool bStaticElements = false;             // children are exactly defaultChilds
 	CChildItemsList defaultChilds;
 	CPropVector defaultValues;
 	CPropVector values;
@@ -102,9 +124,19 @@ protected:
 
 	virtual void InitDefaultValues() {}
 
+	// CTreeItem::operator&( IDataTree & ), reading and writing.
+	virtual void ReadData( const NResourceXml::Node &node );
+	virtual void WriteData( NResourceXml::Node &node ) const;
+	// True for an attribute or element name this item's operator& reads and
+	// writes; everything else in a read node is kept as it was.
+	virtual bool OwnsField( const std::string &name ) const;
+
 private:
-	NResourceXml::Node m_storedNode;
-	bool m_hasStoredNode = false;
+	void MergeLayout( NResourceXml::Node &fresh, NResourceXml::Node &out ) const;
+
+	NResourceXml::Node m_layout;              // the node as read, own fields emptied
+	NResourceXml::Node m_absent;              // own fields the node lacked, as written right after the read
+	bool m_hasLayout = false;
 };
 
 }

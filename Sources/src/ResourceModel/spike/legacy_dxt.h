@@ -9,8 +9,10 @@
 //   - DXT3 alpha truncates (a >> 4) where NDxt rounds ((a*15 + 127)/255).
 //   - Endpoint selection ranks by luma = R + G + B instead of 299/587/114.
 //   - When min and max endpoints collide the legacy encoder nudges c1/c0 to force two distinct
-//     endpoints and the full 4-colour palette, keeping single-colour blocks out of DXT1's 3-colour
-//     punchthrough-alpha mode.
+//     endpoints, so a block keeps the palette mode it asked for.
+//   - DXT1 runs in S3TC's colour-key mode, as MFC's CompressDXTN called it
+//     (S3TC_ENCODE_RGB_COLOR_KEY, alpha reference 0): every block uses the 3-colour palette and
+//     alpha-0 pixels are punch-through. NDxt uses the 4-colour palette for opaque blocks.
 //   - DXT5 alpha with min == max is nudged the same way to keep the 8-step interpolation.
 #include <cstdint>
 

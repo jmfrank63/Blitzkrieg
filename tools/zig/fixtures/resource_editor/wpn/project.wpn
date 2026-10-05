@@ -1,6 +1,292 @@
 <?xml version="1.0"?>
-<Weapon_Composer_Project>
-	<fixture>
-		<name>minimal</name>
-	</fixture>
+<Weapon_Composer_Project expand="1">
+	<default_name></default_name>
+	<display_name></display_name>
+	<values/>
+	<childs>
+		<item ClassTypeID="285212754" expand="0">
+			<default_name>Name</default_name>
+			<display_name>Name</display_name>
+			<values>
+				<item>
+					<default_name>Name</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>Unknown Weapon</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Delta angle</default_name>
+					<value type="1" flag="1" float_value="0" int_value="10" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Ammo per burst</default_name>
+					<value type="1" flag="1" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Aiming time</default_name>
+					<value type="2" flag="2" float_value="100" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Dispertion</default_name>
+					<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Range min</default_name>
+					<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Range max</default_name>
+					<value type="2" flag="2" float_value="100" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Ceiling</default_name>
+					<value type="1" flag="1" float_value="0" int_value="100" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Reveal radius</default_name>
+					<value type="2" flag="2" float_value="10" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212755" expand="0">
+			<default_name>Shoot types</default_name>
+			<display_name>Shoot types</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212756" expand="0">
+					<default_name>Shell</default_name>
+					<display_name>Shell</display_name>
+					<values>
+						<item>
+							<default_name>Trajectory type</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>line</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Piercing power</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Random piercing</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Damage power</default_name>
+							<value type="1" flag="1" float_value="0" int_value="5" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Random damage</default_name>
+							<value type="1" flag="1" float_value="0" int_value="2" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Damage area</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Damage area 2</default_name>
+							<value type="2" flag="2" float_value="2" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Speed</default_name>
+							<value type="2" flag="2" float_value="10" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Track damage flag</default_name>
+							<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Detonation power</default_name>
+							<value type="2" flag="2" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Rate of fire</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Relax time</default_name>
+							<value type="2" flag="2" float_value="100" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Shell type</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>damage</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Trace probability (%)</default_name>
+							<value type="2" flag="2" float_value="10" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Trace speed coefficient</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Chance to break track</default_name>
+							<value type="2" flag="2" float_value="0.01" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs>
+						<item ClassTypeID="285212953" expand="0">
+							<default_name>Picture craters</default_name>
+							<display_name>Picture craters</display_name>
+							<values>
+								<item>
+									<default_name>Craters directory</default_name>
+									<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+							</values>
+							<childs/>
+						</item>
+						<item ClassTypeID="285212758" expand="0">
+							<default_name>Effects</default_name>
+							<display_name>Effects</display_name>
+							<values>
+								<item>
+									<default_name>Human fire sound</default_name>
+									<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+								<item>
+									<default_name>Gun fire effect</default_name>
+									<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+								<item>
+									<default_name>Trajectory effect</default_name>
+									<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+								<item>
+									<default_name>Direct hit effect</default_name>
+									<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+								<item>
+									<default_name>Miss hit effect</default_name>
+									<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+								<item>
+									<default_name>Reflect hit effect</default_name>
+									<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+								<item>
+									<default_name>Ground hit effect</default_name>
+									<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+								<item>
+									<default_name>Water hit effect</default_name>
+									<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+								<item>
+									<default_name>Air hit effect</default_name>
+									<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+							</values>
+							<childs/>
+						</item>
+						<item ClassTypeID="285212760" expand="0">
+							<default_name>Flash fire</default_name>
+							<display_name>Flash fire</display_name>
+							<values>
+								<item>
+									<default_name>Flash power</default_name>
+									<value type="1" flag="1" float_value="0" int_value="100" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+								<item>
+									<default_name>Flash duration</default_name>
+									<value type="1" flag="1" float_value="0" int_value="1000" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+							</values>
+							<childs/>
+						</item>
+						<item ClassTypeID="285212760" expand="0">
+							<default_name>Flash explosion</default_name>
+							<display_name>Flash explosion</display_name>
+							<values>
+								<item>
+									<default_name>Flash power</default_name>
+									<value type="1" flag="1" float_value="0" int_value="100" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+								<item>
+									<default_name>Flash duration</default_name>
+									<value type="1" flag="1" float_value="0" int_value="1000" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+							</values>
+							<childs/>
+						</item>
+					</childs>
+				</item>
+			</childs>
+		</item>
+	</childs>
 </Weapon_Composer_Project>

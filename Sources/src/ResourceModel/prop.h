@@ -13,6 +13,7 @@
 
 #include "domen_id.h"
 #include "variant.h"
+#include "xml.h"
 
 namespace NResourceModel
 {
@@ -25,6 +26,12 @@ struct SProp
 	DomenID nDomenType = DT_ERROR;            // which widget the UI picks for this value
 	CVariant value;                           // the authored value
 	std::vector<std::string> szStrings;       // combo-box entries, only used when nDomenType == DT_COMBO
+
+	// The <value> element the value was read from (mfc_value.h). Saving an
+	// unedited value writes it back unchanged, stale slots included; a new
+	// prop has none and gets the slots MFC's CVariant constructors set.
+	NResourceXml::Node mfcValue;
+	bool bHasMfcValue = false;
 };
 
 using CPropVector = std::vector<SProp>;

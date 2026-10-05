@@ -9,6 +9,7 @@
 // `diff`.
 
 #include "items/stats_item.h"
+#include "localization.h"
 #include "items/bridge/bridge.h"
 #include "items/building/building.h"
 #include "items/campaign/campaign.h"
@@ -50,11 +51,12 @@ namespace
 void PopulateFactory( CTreeItemFactory &factory )
 {
 	// --- Infantry (Unit/Animation) sub-editor -------------------------------
-	// MFC: Sources/src/editor/TreeItemFactory.cpp:36-53 (sans E_LOCALIZATION_ITEM
-	// which the port parks with the Localization owner in references.cpp).
+	// MFC: Sources/src/editor/TreeItemFactory.cpp:36-53. CLocalizationItem is
+	// shared by several sub-editors and lives in localization.h, as in MFC.
 	REGISTER_CLASS( ETIT_ANIMATION_ROOT_ITEM,       CAnimationTreeRootItem );
 	RegisterRootTag( "Unit_Composer_Project", ETIT_ANIMATION_ROOT_ITEM );
 	REGISTER_CLASS( ETIT_UNIT_COMMON_PROPS_ITEM,    CUnitCommonPropsItem );
+	REGISTER_CLASS( ETIT_LOCALIZATION_ITEM,         CLocalizationItem );
 	REGISTER_CLASS( ETIT_UNIT_AI_PROPS_ITEM,        CUnitAIPropsItem );
 	REGISTER_CLASS( ETIT_UNIT_WEAPON_PROPS_ITEM,    CUnitWeaponPropsItem );
 	REGISTER_CLASS( ETIT_UNIT_GRENADE_PROPS_ITEM,   CUnitGrenadePropsItem );

@@ -1,6 +1,367 @@
 <?xml version="1.0"?>
-<Bridge_Composer_Project>
-	<fixture>
-		<name>minimal</name>
-	</fixture>
+<Bridge_Composer_Project expand="1">
+	<childs>
+		<item ClassTypeID="285212893" expand="0">
+			<default_name>Basic Info</default_name>
+			<display_name>Basic Info</display_name>
+			<values>
+				<item>
+					<default_name>Name</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>Unknown Bridge</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Bridge type</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>horizontal</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Health</default_name>
+					<value type="1" flag="1" float_value="0" int_value="100" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Repair cost</default_name>
+					<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Passability for infantry</default_name>
+					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Passability for wheels</default_name>
+					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Passability for halftracks</default_name>
+					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Passability for tracks</default_name>
+					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212900" expand="0">
+			<default_name>Defence</default_name>
+			<display_name>Defence</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212901" expand="0">
+					<default_name>Front</default_name>
+					<display_name>Front</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="40" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="90" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Silhouette</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212901" expand="0">
+					<default_name>Left</default_name>
+					<display_name>Left</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="40" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="90" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Silhouette</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212901" expand="0">
+					<default_name>Right</default_name>
+					<display_name>Right</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="40" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="90" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Silhouette</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212901" expand="0">
+					<default_name>Back</default_name>
+					<display_name>Back</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="40" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="90" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Silhouette</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212901" expand="0">
+					<default_name>Top</default_name>
+					<display_name>Top</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="40" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="90" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Silhouette</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212901" expand="0">
+					<default_name>Bottom</default_name>
+					<display_name>Bottom</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="40" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="90" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Silhouette</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212899" expand="0">
+			<default_name>Whole</default_name>
+			<display_name>Whole</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212894" expand="0">
+					<default_name>Begin spans</default_name>
+					<display_name>Begin spans</display_name>
+					<values/>
+					<childs>
+						<item ClassTypeID="285212897" expand="0" SpanIndex="0">
+							<default_name>Span parts</default_name>
+							<display_name>Span parts</display_name>
+							<values/>
+							<childs>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Back girder</default_name>
+									<display_name>Back girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value/>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Front girder</default_name>
+									<display_name>Front girder</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value/>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+								<item ClassTypeID="285212898" expand="0">
+									<default_name>Slab</default_name>
+									<display_name>Slab</display_name>
+									<values>
+										<item>
+											<default_name>Picture</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value/>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+							</childs>
+							<LockedTiles>
+								<item x="0" y="0" val="1"/>
+							</LockedTiles>
+							<Transparences>
+								<item x="1" y="0" val="1"/>
+							</Transparences>
+							<UnLockedTiles>
+								<item x="0" y="1" val="1"/>
+							</UnLockedTiles>
+						</item>
+					</childs>
+				</item>
+				<item ClassTypeID="285212895" expand="0">
+					<default_name>Center spans</default_name>
+					<display_name>Center spans</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212896" expand="0">
+					<default_name>End spans</default_name>
+					<display_name>End spans</display_name>
+					<values/>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212899" expand="0">
+			<default_name>Damaged</default_name>
+			<display_name>Damaged</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212894" expand="0">
+					<default_name>Begin spans</default_name>
+					<display_name>Begin spans</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212895" expand="0">
+					<default_name>Center spans</default_name>
+					<display_name>Center spans</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212896" expand="0">
+					<default_name>End spans</default_name>
+					<display_name>End spans</display_name>
+					<values/>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212899" expand="0">
+			<default_name>Destroyed</default_name>
+			<display_name>Destroyed</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212894" expand="0">
+					<default_name>Begin spans</default_name>
+					<display_name>Begin spans</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212895" expand="0">
+					<default_name>Center spans</default_name>
+					<display_name>Center spans</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212896" expand="0">
+					<default_name>End spans</default_name>
+					<display_name>End spans</display_name>
+					<values/>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285213002" expand="0">
+			<default_name>Fire points</default_name>
+			<display_name>Fire points</display_name>
+			<values/>
+			<childs/>
+		</item>
+		<item ClassTypeID="285213006" expand="0">
+			<default_name>Smoke points</default_name>
+			<display_name>Smoke points</display_name>
+			<values>
+				<item>
+					<default_name>Effect explosion</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+	</childs>
 </Bridge_Composer_Project>

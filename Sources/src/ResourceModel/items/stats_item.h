@@ -1,13 +1,9 @@
 #pragma once
-// Shared base + helpers for the 11 stats-only sub-editors (Weapon, Mine, Trench,
-// Squad, Sprite, Infantry, Mesh, Object, Fence, Building, Bridge). Each
-// sub-editor ports its CTreeItem subclasses as thin shells: an nItemType value,
-// an inherited serialise/parse walking SProp values, and (for the root item)
-// an XML tag name the Project loader keys on. The prop vectors themselves
-// (CWeaponCommonPropsItem has 9 of them, CWeaponDamagePropsItem 16, etc.) migrate
-// in a later task - the current fixtures are minimal root+<fixture><name>minimal
-// </name></fixture> files, so an empty values vector is correct and still
-// rt-stable: the fixture subtree is handed to FutureBlob verbatim.
+// Shared base for the sub-editor item classes. Each sub-editor ports its MFC
+// CTreeItem subclasses with their InitDefaultValues bodies and, where MFC has
+// one, their own operator& (tree_item.h ReadData/WriteData); the root items
+// also carry the project XML tag the Project loader keys on. S03 T02-T04
+// ported every sub-editor this way.
 //
 // Each per-kind header declares its class list; factory.cpp calls
 // REGISTER_CLASS line-for-line to mirror Sources/src/editor/TreeItemFactory.cpp
@@ -19,6 +15,10 @@
 
 namespace NResourceModel
 {
+
+// Formats/fmtTerrain.h: fCellSizeX * FP_SQRT_2, the diagonal of a map cell.
+// The Squad and Fence items place their default view positions with it.
+const float fWorldCellSize = 16 * 2.0f * 1.41421356f;
 
 // Project loader map: XML root tag -> ETreeItemType the factory keys on.
 // Populated by RegisterRootTag at factory bootstrap time (called inline from

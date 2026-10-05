@@ -21,6 +21,7 @@ namespace
 struct SEnv
 {
 	std::string szEditorDataDir;
+	std::string szGameDataDir;
 	std::string szProjectFileName;
 	bool bHasProject = false;
 };
@@ -36,12 +37,27 @@ SEnv &Env()
 std::string GetEditorDataDir() { return Env().szEditorDataDir; }
 void SetEditorDataDir( const std::string &szDir ) { Env().szEditorDataDir = szDir; }
 
+std::string GetGameDataDir() { return Env().szGameDataDir; }
+void SetGameDataDir( const std::string &szDir ) { Env().szGameDataDir = szDir; }
+
 bool GetActiveProjectFileName( std::string &szFileName )
 {
 	if ( !Env().bHasProject )
 		return false;
 	szFileName = Env().szProjectFileName;
 	return true;
+}
+
+bool HasEditorFrame()
+{
+	return true;
+}
+
+std::string GetFrameProjectFileName()
+{
+	std::string szFileName;
+	GetActiveProjectFileName( szFileName );
+	return szFileName;
 }
 
 void SetActiveProjectFileName( const std::string &szFileName )

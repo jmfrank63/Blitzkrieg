@@ -10,9 +10,13 @@
 namespace NResourceModel
 {
 
+struct SProp;
+
 // "wheel", "halftrack", "track", "human", in the MFC order (the order is the
 // AI_CLASS_* value order the project XML stores).
 const std::vector<std::string> &aiClasses();
+// Reference.cpp LoadAIClassCombo: appends aiClasses() to the prop's combo strings.
+void LoadAIClassCombo( SProp *pProp );
 
 // Party names of the shipped Data/partys.xml (USSR, German, GB, African_GB).
 // The MFC code read them from partys.xml at run time; this static table is
@@ -22,5 +26,10 @@ const std::vector<std::string> &playerSides();
 // Reads the <PartyName> entries of a partys.xml, the same source the MFC code
 // used. Returns an empty vector if the file cannot be read.
 std::vector<std::string> readPlayerSides( const std::filesystem::path &partysXml );
+
+// UnitSide.cpp FillVectorOfSides: appends the party names of the game's
+// partys.xml (GetGameDataDir()) to a combo's strings, as MFC does. Without a
+// game data directory, or when the file cannot be read, it appends playerSides().
+void FillVectorOfSides( std::vector<std::string> &sides );
 
 }

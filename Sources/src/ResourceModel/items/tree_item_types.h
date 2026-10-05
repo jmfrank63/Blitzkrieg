@@ -19,6 +19,7 @@ enum ETreeItemType
 	// per MEM005 and CParentFrame subclass AnimFrm.cpp.
 	ETIT_ANIMATION_ROOT_ITEM      = ETIT_BASE +  1,
 	ETIT_UNIT_COMMON_PROPS_ITEM   = ETIT_BASE +  2,
+	ETIT_LOCALIZATION_ITEM        = ETIT_BASE +  3,	// shared: localization.h
 	ETIT_UNIT_AI_PROPS_ITEM       = ETIT_BASE +  4,
 	ETIT_UNIT_WEAPON_PROPS_ITEM   = ETIT_BASE +  5,
 	ETIT_UNIT_GRENADE_PROPS_ITEM  = ETIT_BASE +  6,

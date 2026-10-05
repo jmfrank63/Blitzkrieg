@@ -249,7 +249,8 @@ def parse_class_headers(paths):
                 "members": members,
                 "base": m.group(2),
                 "header": path.name,
-                "serialize_childs": not re.search(r"bSerializeChilds\s*=\s*false", body),
+                # None when the class does not assign it; then a base's constructor decides.
+                "serialize_childs": (lambda sm: None if not sm else sm[-1] == "true")(re.findall(r"bSerializeChilds\s*=\s*(true|false)", body)),
                 "overrides_data_tree": bool(re.search(r"operator\s*&\s*\(\s*IDataTree\s*&", body)),
                 "inline_init_default_values": bool(re.search(r"InitDefaultValues\s*\(\s*\)\s*\{", body)),
             }
@@ -270,6 +271,15 @@ def parse_data_tree_overrides(paths):
                 "source": path.name,
             }
     return out
+
+
+def ai_class_combo():
+    """The strings Reference.cpp's LoadAIClassCombo pushes, in order."""
+    text = strip_comments(read(EDITOR / "Reference.cpp"))
+    m = re.search(r"void LoadAIClassCombo\(\s*SProp \*pProp\s*\)\s*\{(.*?)\}", text, re.S)
+    if not m:
+        raise SystemExit("Reference.cpp: LoadAIClassCombo not found")
+    return [c_string(a) for a in re.findall(r'pProp->szStrings\.push_back\(\s*("(?:[^"\\]|\\.)*")\s*\)', m.group(1))]
 
 
 class Interp:
@@ -361,9 +371,14 @@ class Interp:
             arg = m.group(1)
             self.prop["strings"][-1]["else"] = c_string(arg) if is_string_literal(arg) else arg
             return True
-        m = re.fullmatch(r"(LoadAIClassCombo)\( ?&prop ?\)|(FillVectorOfSides)\( ?prop\.szStrings ?\)", s)
+        # LoadAIClassCombo (Reference.cpp) appends fixed literals, so they are
+        # read from its body; FillVectorOfSides reads partys.xml at run time.
+        if re.fullmatch(r"LoadAIClassCombo\( ?&prop ?\)", s):
+            self.prop["strings"].extend(ai_class_combo())
+            return True
+        m = re.fullmatch(r"(FillVectorOfSides)\( ?prop\.szStrings ?\)", s)
         if m:
-            self.prop["strings"].append({"runtime": (m.group(1) or m.group(2)) + "()"})
+            self.prop["strings"].append({"runtime": m.group(1) + "()"})
             return True
         m = re.fullmatch(r"(?:std::)?string (\w+) = (.+)", s)
         if m:
@@ -499,7 +514,14 @@ def build_inventory():
             raise SystemExit(f"no class declaration found for {cls}")
         init_owner, init = resolve(cls, "init", {"source": None, "props": [], "childs": [], "unparsed": [], "frame_guard": False, "keyframe": {}, "key_frames": []})
         over_owner, over = resolve(cls, "over", None)
-        serialize_childs = header["serialize_childs"]
+        # A constructor body runs after its base's, so the nearest class that
+        # assigns bSerializeChilds decides (CTemplatesTreeItem's false holds for
+        # CStaticsTreeItem); CTreeItem's own default is true.
+        serialize_childs, seen = None, cls
+        while seen and seen != "CTreeItem" and serialize_childs is None:
+            serialize_childs = headers.get(seen, {}).get("serialize_childs")
+            seen = headers.get(seen, {}).get("base")
+        serialize_childs = True if serialize_childs is None else serialize_childs
         extra = []
         if over:
             if not over["typed_super"]:

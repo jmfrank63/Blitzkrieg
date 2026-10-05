@@ -1,6 +1,125 @@
 <?xml version="1.0"?>
-<Campaign_Composer_Project>
-	<fixture>
-		<name>minimal</name>
-	</fixture>
+<Campaign_Composer_Project expand="1">
+	<childs>
+		<item ClassTypeID="285212923" expand="0">
+			<default_name>Basic info</default_name>
+			<display_name>Basic info</display_name>
+			<values>
+				<item>
+					<default_name>Header text</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>header</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>SubHeader text</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>subheader</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Map image</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>map</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Intro movie</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Outro movie</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Interface music</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Player side</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>German</string_value>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212924" expand="0">
+			<default_name>Chapters</default_name>
+			<display_name>Chapters</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212925" expand="0">
+					<default_name>Chapter</default_name>
+					<display_name>Chapter</display_name>
+					<values>
+						<item>
+							<default_name>Chapter</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Chapter position X</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Chapter position Y</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Is this chapter visible?</default_name>
+							<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Chapter secret flag</default_name>
+							<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212926" expand="0">
+			<default_name>Templates</default_name>
+			<display_name>Templates</display_name>
+			<values>
+				<item>
+					<default_name>Templates directory</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs>
+				<item ClassTypeID="285212927" expand="0">
+					<default_name>Template</default_name>
+					<display_name>Template</display_name>
+					<values>
+						<item>
+							<default_name>Template</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+	</childs>
 </Campaign_Composer_Project>

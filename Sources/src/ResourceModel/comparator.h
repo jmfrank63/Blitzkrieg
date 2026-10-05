@@ -18,9 +18,9 @@
 //
 // Files the game reads as bytes (_h.dds, .san, sprite packs, icons, copied
 // files) are compared byte for byte. A DXT texture (_c.dds) is compared by
-// size, format and mip count; its pixels go through the tolerance S03 T07
-// measures, and until that gate exists a pixel difference reports
-// PENDING_DXT_GATE, never EQUAL.
+// size, format and mip count, then decoded: its pixels must stay within the
+// per-format tolerance measured on shipped textures (dxt_gate.h,
+// dxt-tolerance.json), colour and alpha separately.
 //
 // The comparator needs the engine's StreamIO module, so it runs in an
 // engine-hosted, data-only executable (no window, no GPU): call
@@ -28,6 +28,7 @@
 
 #include <string>
 #include <vector>
+#include "dxt_gate.h"
 
 namespace NResourceModel
 {
@@ -74,7 +75,6 @@ enum class ECompareStatus
 	DIFFERENT,          // values, dropped or extra fields, or bytes differ
 	UNKNOWN_FIELD,      // a side has a node its reader does not read
 	UNREADABLE,         // a side is missing or the engine cannot parse it
-	PENDING_DXT_GATE,   // DXT headers equal, pixels differ, T07's gate not there yet
 };
 const char *CompareStatusName( ECompareStatus status );
 
@@ -111,7 +111,9 @@ SExportRead ReadExport( EExportKind kind, const std::string &szFile );
 SCompareResult CompareStats( EExportKind kind, const std::string &szPortFile, const std::string &szGoldenFile );
 // Files the game reads as bytes.
 SCompareResult CompareBytes( const std::string &szPortFile, const std::string &szGoldenFile );
-// A DXT texture: header equality, then bytes; see the note at the top.
-SCompareResult CompareDxt( const std::string &szPortFile, const std::string &szGoldenFile );
+// A DXT texture: header equality, then the decoded pixels against the
+// tolerance for its format; see the note at the top. A texture without a gate
+// (uncompressed, or a format the tolerance does not list) must be byte-equal.
+SCompareResult CompareDxt( const std::string &szPortFile, const std::string &szGoldenFile, const SDxtTolerance &tolerance );
 
 }

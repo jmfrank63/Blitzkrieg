@@ -1468,6 +1468,22 @@ pub const Driver = union(enum) {
             .auto => {},
         }
     }
+
+    /// A mouse event the OS sent rather than the script pushed. `run` drops
+    /// these while a driver runs, so the person's own pointer cannot move
+    /// ImGui's cursor or the view under the script (the window is also
+    /// hidden and not focusable, which keeps ImGui's backend from reading
+    /// SDL_GetGlobalMouseState). `observe` still sees them first, so a FAIL's
+    /// state line reports that they arrived.
+    pub fn isOsMouse(self: Driver, event: *const sdl.SDL_Event) bool {
+        _ = self;
+        return switch (event.type) {
+            sdl.SDL_EVENT_MOUSE_MOTION => event.motion.which != smoke_mouse_id,
+            sdl.SDL_EVENT_MOUSE_BUTTON_DOWN, sdl.SDL_EVENT_MOUSE_BUTTON_UP => event.button.which != smoke_mouse_id,
+            sdl.SDL_EVENT_MOUSE_WHEEL => event.wheel.which != smoke_mouse_id,
+            else => false,
+        };
+    }
 };
 
 /// BK_EDITOR_AUTO's runner: delivers auto.zig's parsed schedule through the

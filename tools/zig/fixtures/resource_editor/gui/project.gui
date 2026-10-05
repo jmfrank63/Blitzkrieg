@@ -1,6 +1,46 @@
 <?xml version="1.0"?>
-<GUI_Composer_Project>
-	<fixture>
-		<name>minimal</name>
-	</fixture>
+<GUI_Composer_Project expand="1">
+	<childs>
+		<item ClassTypeID="285212844" expand="0">
+			<default_name>Mouse select</default_name>
+			<display_name>Mouse select</display_name>
+			<values/>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212846" expand="0">
+			<default_name>Statics</default_name>
+			<display_name>Statics</display_name>
+			<values/>
+		</item>
+		<item ClassTypeID="285212847" expand="0">
+			<default_name>Buttons</default_name>
+			<display_name>Buttons</display_name>
+			<values/>
+		</item>
+		<item ClassTypeID="285212848" expand="0">
+			<default_name>Sliders</default_name>
+			<display_name>Sliders</display_name>
+			<values/>
+		</item>
+		<item ClassTypeID="285212849" expand="0">
+			<default_name>Scrollbars</default_name>
+			<display_name>Scrollbars</display_name>
+			<values/>
+		</item>
+		<item ClassTypeID="285212850" expand="0">
+			<default_name>Statusbars</default_name>
+			<display_name>Statusbars</display_name>
+			<values/>
+		</item>
+		<item ClassTypeID="285212851" expand="0">
+			<default_name>Lists</default_name>
+			<display_name>Lists</display_name>
+			<values/>
+		</item>
+		<item ClassTypeID="285212852" expand="0">
+			<default_name>Dialogs</default_name>
+			<display_name>Dialogs</display_name>
+			<values/>
+		</item>
+	</childs>
 </GUI_Composer_Project>

@@ -1,6 +1,104 @@
 <?xml version="1.0"?>
-<River3D_Composer_Project>
-	<fixture>
-		<name>minimal</name>
-	</fixture>
+<River3D_Composer_Project expand="1">
+	<childs>
+		<item ClassTypeID="285212974" expand="0">
+			<default_name>Bottom</default_name>
+			<display_name>Bottom</display_name>
+			<values>
+				<item>
+					<default_name>Bottom width</default_name>
+					<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Center opacity</default_name>
+					<value type="1" flag="1" float_value="0" int_value="255" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Border opacity</default_name>
+					<value type="1" flag="1" float_value="0" int_value="255" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Texture step</default_name>
+					<value type="2" flag="2" float_value="0.1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Texture</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>water\bottom</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Ambient sound</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212975" expand="0">
+			<default_name>Layers</default_name>
+			<display_name>Layers</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212973" expand="0">
+					<default_name>Layer</default_name>
+					<display_name>Layer</display_name>
+					<values>
+						<item>
+							<default_name>Center opacity</default_name>
+							<value type="1" flag="1" float_value="0" int_value="255" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Border opacity</default_name>
+							<value type="1" flag="1" float_value="0" int_value="255" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Stream speed</default_name>
+							<value type="2" flag="2" float_value="0.1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Texture step</default_name>
+							<value type="2" flag="2" float_value="0.1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Animated flag</default_name>
+							<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Texture</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>water\water</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Disturbance</default_name>
+							<value type="2" flag="2" float_value="0.3" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+	</childs>
 </River3D_Composer_Project>

@@ -1,6 +1,127 @@
 <?xml version="1.0"?>
-<Road3D_Composer_Project>
-	<fixture>
-		<name>minimal</name>
-	</fixture>
+<Road3D_Composer_Project expand="1">
+	<childs>
+		<item ClassTypeID="285212963" expand="0">
+			<default_name>Basic info</default_name>
+			<display_name>Basic info</display_name>
+			<values>
+				<item>
+					<default_name>Bottom width</default_name>
+					<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Has borders?</default_name>
+					<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Relative border width</default_name>
+					<value type="2" flag="2" float_value="0.1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Visual priority</default_name>
+					<value type="1" flag="1" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Passability coefficient</default_name>
+					<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Passability for infantry</default_name>
+					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Passability for wheels</default_name>
+					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Passability for halftracks</default_name>
+					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Passability for tracks</default_name>
+					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Road type</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>road</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Minimap center color</default_name>
+					<value type="1" flag="1" float_value="0" int_value="-8355712" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Minimap border color</default_name>
+					<value type="1" flag="1" float_value="0" int_value="-8355712" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Has dust effect</default_name>
+					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Units leave tracks</default_name>
+					<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212964" expand="0">
+			<default_name>Central layer</default_name>
+			<display_name>Central layer</display_name>
+			<values>
+				<item>
+					<default_name>Center opacity</default_name>
+					<value type="1" flag="1" float_value="0" int_value="255" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Border opacity</default_name>
+					<value type="1" flag="1" float_value="0" int_value="255" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Texture step</default_name>
+					<value type="2" flag="2" float_value="0.1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Texture</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>terrain\sets\1\roads3d\road_asphalt01</string_value>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+	</childs>
 </Road3D_Composer_Project>

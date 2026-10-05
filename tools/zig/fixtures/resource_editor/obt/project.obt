@@ -1,6 +1,145 @@
 <?xml version="1.0"?>
-<Object_Composer_Project>
-	<fixture>
-		<name>minimal</name>
-	</fixture>
+<Object_Composer_Project expand="1">
+	<childs>
+		<item ClassTypeID="285212724" expand="0">
+			<default_name>Basic Info</default_name>
+			<display_name>Basic Info</display_name>
+			<values>
+				<item>
+					<default_name>Health</default_name>
+					<value type="1" flag="1" float_value="0" int_value="100" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Armor</default_name>
+					<value type="1" flag="1" float_value="0" int_value="2" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Silhouette</default_name>
+					<value type="1" flag="1" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Ambient sound</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Cycled sound</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212729" expand="0">
+			<default_name>AI classes to pass</default_name>
+			<display_name>AI classes to pass</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212730" expand="0">
+					<default_name>AI class to pass</default_name>
+					<display_name>AI class to pass</display_name>
+					<values>
+						<item>
+							<default_name>AI class to pass</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212947" expand="0">
+			<default_name>Effects</default_name>
+			<display_name>Effects</display_name>
+			<values>
+				<item>
+					<default_name>Death with explosion</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Silent death</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212725" expand="0">
+			<default_name>Graphics Info</default_name>
+			<display_name>Graphics Info</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212945" expand="0">
+					<default_name>Summer picture</default_name>
+					<display_name>Summer picture</display_name>
+					<values>
+						<item>
+							<default_name>Sprite</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>1.tga</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Shadow</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>1s.tga</string_value>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212946" expand="0">
+					<default_name>Winter picture</default_name>
+					<display_name>Winter picture</display_name>
+					<values>
+						<item>
+							<default_name>Sprite</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>1w.tga</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Shadow</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>1ws.tga</string_value>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212948" expand="0">
+					<default_name>Africa picture</default_name>
+					<display_name>Africa picture</display_name>
+					<values>
+						<item>
+							<default_name>Sprite</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>1a.tga</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Shadow</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>1as.tga</string_value>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+	</childs>
 </Object_Composer_Project>

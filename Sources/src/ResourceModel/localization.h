@@ -1,15 +1,29 @@
 #pragma once
 // MFC-free port of CLocalizationItem (Sources/src/editor/localization.{h,cpp}).
 // The MFC item is three DT_BROWSE properties (Name/Description/Statistics)
-// pointing at name.txt, desc.txt and stats.txt beside the project. The model
-// part is the three-file read; the bytes are returned raw, never re-encoded,
-// because the comparator treats them as opaque.
+// pointing at name.txt, desc.txt and stats.txt beside the project. The item
+// class carries the property table; loadLocalization is the three-file read,
+// returning the bytes raw, never re-encoded, because the comparator treats
+// them as opaque. MFC's UpdateItemValue (make the chosen path relative to the
+// project, refuse one outside it) is an editor action and stays there.
 
 #include <filesystem>
 #include <string>
 
+#include "items/stats_item.h"
+#include "items/tree_item_types.h"
+
 namespace NResourceModel
 {
+
+class CLocalizationItem : public CStatsItem
+{
+public:
+	CLocalizationItem() : CStatsItem( ETIT_LOCALIZATION_ITEM ) { InitDefaultValues(); }
+
+protected:
+	void InitDefaultValues() override;
+};
 
 struct SLocalizationItem
 {

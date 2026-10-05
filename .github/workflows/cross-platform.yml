@@ -952,6 +952,11 @@ jobs:
       - name: Resource editor core tier
         run: zig build test-resource-core -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
+      # S03 slice gate on the fifth engine target: the MFC fidelity sweep and the
+      # D-11 comparator over shipped Data read through the engine's own readers.
+      - name: Resource model tier
+        run: zig build test-resource-model -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=aarch64-linux-gnu
 

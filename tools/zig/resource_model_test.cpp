@@ -52,6 +52,8 @@
 #include <string>
 #include <vector>
 
+#include "../../Sources/src/ResourceModel/combos.h"
+#include "../../Sources/src/ResourceModel/editor_env.h"
 #include "../../Sources/src/ResourceModel/factory.h"
 #include "../../Sources/src/ResourceModel/future_blob.h"
 #include "../../Sources/src/ResourceModel/items/stats_item.h"
@@ -272,6 +274,7 @@ bool DefaultMatches( const CVariant &v, const Json &def, std::string &actual )
 	case CVariant::VK_STR: return kind == "str" && v.AsStr() == text;
 	case CVariant::VK_REF: return kind == "str" && v.AsRef().value == text;
 	case CVariant::VK_COMBO: return kind == "int" && v.AsCombo().index == std::strtoll( text.c_str(), nullptr, 10 );
+	case CVariant::VK_INT64: return kind == "int" && v.AsInt64() == std::strtoll( text.c_str(), nullptr, 10 );
 	default: return false;
 	}
 }
@@ -341,15 +344,30 @@ std::string CheckInventoryClass( const Json &cls )
 		std::string actual;
 		if ( !DefaultMatches( q.value, p["default"], actual ) )
 			return where + " '" + q.szDefaultName + "': default '" + actual + "', expected " + p["default"]["kind"].Str() + " '" + p["default"]["text"].Str() + "'";
-		const Json &strings = p["strings"];
-		if ( q.szStrings.size() != strings.items.size() )
-			return where + " '" + q.szDefaultName + "': " + std::to_string( q.szStrings.size() ) + " combo/browse strings, expected " + std::to_string( strings.items.size() );
-		for ( size_t s = 0; s < strings.items.size(); ++s )
-			if ( strings.items[s].kind == Json::String && q.szStrings[s] != strings.items[s].Str() )
-				return where + " '" + q.szDefaultName + "': string " + std::to_string( s ) + " '" + q.szStrings[s] + "', expected '" + strings.items[s].Str() + "'";
+		// A literal must match; another runtime entry (a project path, a
+		// filter) stands for one string; FillVectorOfSides() stands for the
+		// party names of the shipped partys.xml, which MFC reads at that point.
+		static const std::vector<std::string> sides = readPlayerSides( "Data/partys.xml" );
+		static const std::string runtime;
+		std::vector<const std::string *> expected;
+		for ( const auto &str : p["strings"].items )
+		{
+			if ( str.kind == Json::String ) expected.push_back( &str.Str() );
+			else if ( str["runtime"].Str() == "FillVectorOfSides()" ) for ( const auto &side : sides ) expected.push_back( &side );
+			else expected.push_back( &runtime );
+		}
+		if ( q.szStrings.size() != expected.size() )
+			return where + " '" + q.szDefaultName + "': " + std::to_string( q.szStrings.size() ) + " combo/browse strings, expected " + std::to_string( expected.size() );
+		for ( size_t s = 0; s < expected.size(); ++s )
+			if ( expected[s] != &runtime && q.szStrings[s] != *expected[s] )
+				return where + " '" + q.szDefaultName + "': string " + std::to_string( s ) + " '" + q.szStrings[s] + "', expected '" + *expected[s] + "'";
 	}
+	// An item MFC creates gets CreateDefaultChilds from AddChild before anyone
+	// sees it; a few InitDefaultValues bodies (CUnitActionPropsItem) leave
+	// values empty until then.
+	item->CreateDefaultChilds();
 	if ( item->GetValues().size() != defaults.size() )
-		return name + ": values has " + std::to_string( item->GetValues().size() ) + " entries after construction, defaultValues " + std::to_string( defaults.size() );
+		return name + ": values has " + std::to_string( item->GetValues().size() ) + " entries after CreateDefaultChilds, defaultValues " + std::to_string( defaults.size() );
 
 	const Json &childs = cls["default_childs"];
 	std::vector<CTreeItem::SChildItem> portChilds( item->GetDefaultChilds().begin(), item->GetDefaultChilds().end() );
@@ -726,6 +744,8 @@ int main()
 	Results r;
 	r.log.open( kLog, std::ios::binary );
 	r.xfail = ReadXFail();
+	// The tracked game data, so the combos MFC fills from it (partys.xml) do too.
+	SetGameDataDir( "Data/" );
 
 	for ( const auto &cls : inventory["classes"].items )
 	{

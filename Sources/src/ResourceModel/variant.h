@@ -62,7 +62,8 @@ public:
 		VK_VEC3,
 		VK_COLOR,
 		VK_COMBO,
-		VK_REF
+		VK_REF,
+		VK_INT64	// MFC's VT_INT64 (DT_ACTION_REF bit masks); written as int64low/int64high
 	};
 
 	CVariant() = default;
@@ -76,6 +77,19 @@ public:
 	explicit CVariant( Color v ) : m_value( v ) {}
 	explicit CVariant( const ComboIndex &v ) : m_value( v ) {}
 	explicit CVariant( const Ref &v ) : m_value( v ) {}
+	explicit CVariant( std::int64_t v ) : m_value( v ) {}
+
+	// MFC's CVariant converts implicitly from these types, so the ported
+	// InitDefaultValues bodies keep their `prop.value = 10;` lines. Each one
+	// picks the EVarialeType the MFC constructor of that type sets: a double
+	// becomes a float (VT_FLOAT), a literal string a string (VT_STR).
+	CVariant &operator=( int v ) { m_value = v; return *this; }
+	CVariant &operator=( float v ) { m_value = v; return *this; }
+	CVariant &operator=( double v ) { m_value = float( v ); return *this; }
+	CVariant &operator=( bool v ) { m_value = v; return *this; }
+	CVariant &operator=( std::int64_t v ) { m_value = v; return *this; }
+	CVariant &operator=( const char *v ) { m_value = std::string( v ); return *this; }
+	CVariant &operator=( const std::string &v ) { m_value = v; return *this; }
 
 	EKind GetKind() const { return (EKind)m_value.index(); }
 	bool IsNull() const { return m_value.index() == VK_NULL; }
@@ -88,6 +102,7 @@ public:
 	Color AsColor() const { return std::get<Color>( m_value ); }
 	const ComboIndex &AsCombo() const { return std::get<ComboIndex>( m_value ); }
 	const Ref &AsRef() const { return std::get<Ref>( m_value ); }
+	std::int64_t AsInt64() const { return std::get<std::int64_t>( m_value ); }
 
 	bool operator==( const CVariant &o ) const { return m_value == o.m_value; }
 	bool operator!=( const CVariant &o ) const { return !( *this == o ); }
@@ -99,10 +114,16 @@ public:
 	std::string ToString() const;
 	static CVariant FromString( EKind kind, const std::string &text );
 
+	// MFC's CVariant::SetType, which CreateDefaultChilds calls to give a value
+	// read from an older project the type the current default has: the value
+	// is converted the way MFC's Optimize* accessors convert it (int() of a
+	// float, atoi/atof of a string, "%i"/"%g" of a number).
+	void SetType( EKind kind );
+
 private:
 	// The order of the alternatives IS the EKind: std::variant::index() returns
 	// the alternative index, so VK_NULL = std::monostate must come first.
-	std::variant<std::monostate, int, float, bool, std::string, Vec3, Color, ComboIndex, Ref> m_value;
+	std::variant<std::monostate, int, float, bool, std::string, Vec3, Color, ComboIndex, Ref, std::int64_t> m_value;
 };
 
 }

@@ -329,8 +329,9 @@ int main( int argc, char **argv )
 	for ( int i = 0; i < kFixtureCount; ++i )
 		RoundTripOne( pSession, szFixtureRoot, szScratchRoot, kFixtures[i] );
 
-	// Delete->restore->save on the three representative kinds.
-	const char *pszRep[] = { "wpn", "msh", "pcp" };
+	// Delete->restore->save on three kinds whose fixture is an MFC item tree
+	// (S03 T02); msh and pcp join when T03/T04 replace their stub fixtures.
+	const char *pszRep[] = { "wpn", "trc", "unt" };
 	for ( int r = 0; r < 3; ++r )
 	{
 		Fixture fx = {};
@@ -581,9 +582,13 @@ int main( int argc, char **argv )
 			const int nRoot = 1;
 			BkResPoint2 zero = { 3.0f, 4.0f };
 			Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK, "ids: BkResSetZeroPoint" );
-			// The fixture root has one child; give it a second sibling to delete around.
+			// The stub fixture's <fixture> element is frame data outside the
+			// childs list, so the root has no child nodes; give it two to
+			// delete around.
 			const char szExtra[] = "<extra/>";
 			int nExtra = 0;
+			Check( BkResRestoreNode( pSession, reinterpret_cast<const unsigned char *>( szExtra ), int( sizeof( szExtra ) - 1 ), nRoot, 0, &nExtra ) == BK_EDITOR_OK,
+				"ids: add a first child" );
 			Check( BkResRestoreNode( pSession, reinterpret_cast<const unsigned char *>( szExtra ), int( sizeof( szExtra ) - 1 ), nRoot, 1, &nExtra ) == BK_EDITOR_OK,
 				"ids: add a second child" );
 			int nCount = 0;

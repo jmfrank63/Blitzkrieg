@@ -105,14 +105,23 @@ namespace
 		}
 	}
 
-	void ChooseColorEndpoints( const uint32_t pixels[16], uint16_t &c0, uint16_t &c1 )
+	// S3TC's DXT1 path ran in colour-key mode (MFC's CompressDXTN passed
+	// S3TC_ENCODE_RGB_COLOR_KEY with alpha reference 0): pixels with alpha <= the
+	// reference are left out of the endpoints and written as punch-through, and every
+	// DXT1 block uses the three-colour palette. DXT3 and DXT5 colour blocks use four.
+	constexpr uint32_t kAlphaReference = 0;
+
+	void ChooseColorEndpoints( const uint32_t pixels[16], bool bAllowTransparent, uint16_t &c0, uint16_t &c1 )
 	{
 		int minLum = 256 * 3;
 		int maxLum = -1;
 		uint32_t minColor = 0;
 		uint32_t maxColor = 0;
+		bool bFound = false;
 		for ( int i = 0; i < 16; ++i )
 		{
+			if ( bAllowTransparent && GetA( pixels[i] ) <= kAlphaReference )
+				continue;
 			const int lum = int( GetR( pixels[i] ) ) + int( GetG( pixels[i] ) ) + int( GetB( pixels[i] ) );
 			if ( lum < minLum )
 			{
@@ -124,11 +133,14 @@ namespace
 				maxLum = lum;
 				maxColor = pixels[i];
 			}
+			bFound = true;
 		}
+		if ( !bFound )
+			minColor = maxColor = 0;
 		c0 = PackRGB565( GetR( maxColor ), GetG( maxColor ), GetB( maxColor ) );
 		c1 = PackRGB565( GetR( minColor ), GetG( minColor ), GetB( minColor ) );
-		// If a block is a single colour the two endpoints collide; nudge one so DXT1 does not
-		// slip into the three-colour punchthrough-alpha mode.
+		// If a block is a single colour the two endpoints collide; nudge one so the block keeps
+		// the palette mode it asked for.
 		if ( c0 == c1 )
 		{
 			if ( c1 > 0 )
@@ -136,24 +148,39 @@ namespace
 			else
 				++c0;
 		}
-		if ( c0 < c1 )
+		if ( bAllowTransparent )
+		{
+			if ( c0 > c1 )
+				std::swap( c0, c1 );
+		}
+		else if ( c0 < c1 )
+		{
 			std::swap( c0, c1 );
+		}
 	}
 
-	uint32_t EncodeColorIndices( const uint32_t pixels[16], const uint32_t palette[4] )
+	uint32_t EncodeColorIndices( const uint32_t pixels[16], const uint32_t palette[4], bool bThreeColorMode )
 	{
 		uint32_t indices = 0;
 		for ( int i = 15; i >= 0; --i )
 		{
 			uint32_t bestIndex = 0;
-			int bestDistance = 0x7fffffff;
-			for ( int j = 0; j < 4; ++j )
+			if ( bThreeColorMode && GetA( pixels[i] ) <= kAlphaReference )
 			{
-				const int distance = ColorDistance( pixels[i], palette[j] );
-				if ( distance < bestDistance )
+				bestIndex = 3;
+			}
+			else
+			{
+				int bestDistance = 0x7fffffff;
+				const int nPaletteSize = bThreeColorMode ? 3 : 4;
+				for ( int j = 0; j < nPaletteSize; ++j )
 				{
-					bestDistance = distance;
-					bestIndex = uint32_t( j );
+					const int distance = ColorDistance( pixels[i], palette[j] );
+					if ( distance < bestDistance )
+					{
+						bestDistance = distance;
+						bestIndex = uint32_t( j );
+					}
 				}
 			}
 			indices = ( indices << 2 ) | bestIndex;
@@ -161,14 +188,14 @@ namespace
 		return indices;
 	}
 
-	void EncodeColorBlock( const uint32_t pixels[16], uint8_t *outBlock )
+	void EncodeColorBlock( const uint32_t pixels[16], bool bThreeColorMode, uint8_t *outBlock )
 	{
 		uint16_t c0 = 0;
 		uint16_t c1 = 0;
-		ChooseColorEndpoints( pixels, c0, c1 );
+		ChooseColorEndpoints( pixels, bThreeColorMode, c0, c1 );
 		uint32_t palette[4];
-		BuildColorPalette( c0, c1, false, palette );
-		const uint32_t indices = EncodeColorIndices( pixels, palette );
+		BuildColorPalette( c0, c1, bThreeColorMode, palette );
+		const uint32_t indices = EncodeColorIndices( pixels, palette, bThreeColorMode );
 		outBlock[0] = uint8_t( c0 & 0xff );
 		outBlock[1] = uint8_t( c0 >> 8 );
 		outBlock[2] = uint8_t( c1 & 0xff );
@@ -333,17 +360,17 @@ namespace NLegacyDxt
 				switch ( format )
 				{
 					case Format::DXT1:
-						EncodeColorBlock( pixels, dst );
+						EncodeColorBlock( pixels, true, dst );
 						dst += 8;
 						break;
 					case Format::DXT3:
 						EncodeDxt3Alpha( pixels, dst );
-						EncodeColorBlock( pixels, dst + 8 );
+						EncodeColorBlock( pixels, false, dst + 8 );
 						dst += 16;
 						break;
 					case Format::DXT5:
 						EncodeDxt5Alpha( pixels, dst );
-						EncodeColorBlock( pixels, dst + 8 );
+						EncodeColorBlock( pixels, false, dst + 8 );
 						dst += 16;
 						break;
 				}

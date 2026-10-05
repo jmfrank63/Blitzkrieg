@@ -570,23 +570,11 @@ void EmitNodeFor( const NResourceModel::CTreeItem &item, NResourceXml::Node &out
 		out = static_cast<const NResourceModel::FutureBlob &>( item ).GetNode();
 		return;
 	}
+	// A typed item is written as the <item> MFC's childs list holds: its
+	// ClassTypeID and its operator&, children included.
 	out.kind = NResourceXml::Node::Element;
-	const auto *stats = dynamic_cast<const NResourceModel::CStatsItem *>( &item );
-	if ( stats != nullptr && !stats->GetXmlTag().empty() )
-		out.name = stats->GetXmlTag();
-	else if ( !item.GetDefaultName().empty() )
-		out.name = item.GetDefaultName();
-	else
-		out.name = "node";
-	// SProp walk first (empty in T02 for every typed shell).
+	out.name = "item";
 	item.serialise( out );
-	// Then every child, in storage order, so the subtree round-trips its shape.
-	for ( const auto &pChild : item.GetChildren() )
-	{
-		NResourceXml::Node emitted;
-		EmitNodeFor( *pChild, emitted );
-		out.children.push_back( std::move( emitted ) );
-	}
 }
 
 std::string SerialiseSubtree( const NResourceModel::CTreeItem &item )
@@ -602,20 +590,21 @@ std::unique_ptr<NResourceModel::CTreeItem> ParseSubtree( const std::string &szBl
 	NResourceXml::Document doc;
 	if ( !NResourceXml::Parse( szBlob, doc, szError ) )
 		return nullptr;
-	// Prefer the factory for a known tag; otherwise wrap as FutureBlob.
+	// An <item> with a ClassTypeID the factory knows comes back typed, read
+	// by its own operator&; anything else is kept whole as a FutureBlob.
 	auto &factory = NResourceModel::CTreeItemFactory::Instance();
-	const int nType = NResourceModel::LookupRootTag( doc.root.name );
 	std::unique_ptr<NResourceModel::CTreeItem> p;
-	if ( nType != 0 )
-		p = factory.Create( nType );
+	if ( doc.root.name == "item" )
+		for ( const auto &attr : doc.root.attrs )
+			if ( attr.first == "ClassTypeID" || attr.first == "type" )
+			{
+				p = factory.Create( (int)std::strtol( attr.second.c_str(), nullptr, 0 ) );
+				if ( attr.first == "ClassTypeID" )
+					break;
+			}
 	if ( !p )
-		p = std::make_unique<NResourceModel::FutureBlob>( doc.root );
-	else
-	{
-		// Adopt children as FutureBlobs so unknown nodes under a typed root round-trip too.
-		for ( const auto &child : doc.root.children )
-			p->AddChild( std::make_unique<NResourceModel::FutureBlob>( child ) );
-	}
+		return std::make_unique<NResourceModel::FutureBlob>( doc.root );
+	p->parse( doc.root );
 	return p;
 }
 
