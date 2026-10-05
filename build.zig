@@ -8902,7 +8902,125 @@ const resource_auto_schedule =
     "455:expect=file:{mods}/reseditor_auto_s11/data/bridges/bdg/1_c.dds," ++
     "457:shot=bdg_saved," ++
     "458:expect=shot_lit:bdg_saved," ++
-    "470:exit";
+    // S12 Particle (ParticleFrm) and Effect (EffectFrm): a copy of the tracked .pcp opened, its Opacity
+    // curve edited in the Function window's editor (add, move, delete, Reset all, each undone and redone with
+    // the keys read back through the bridge; the zoom steps), saved and exported, then Run, Stop and Camera
+    // of the preview measured (the running frames differ, the stopped ones are equal, the horizontal camera
+    // draws another frame) and the curve edited again. A shipped particle imports; the .eff imports not
+    // (MFC has no reverse path); an .eff exports next to its source and its Run names the missing source.
+    "480:do=mod_dir:{mods}/reseditor_auto12," ++
+    "481:do=copy:{fix}/pcp/project.pcp>{dir}/particle-2key/project.pcp," ++
+    "482:open={dir}/particle-2key/project.pcp," ++
+    "483:expect=kind:pcp," ++
+    "483:expect=nodes_min:5," ++
+    "484:do=curve:Opacity," ++
+    "484:expect=keys:1," ++
+    "485:do=keyframe:add/0.5/200," ++
+    "485:expect=keys:2," ++
+    "485:expect=key:1=0.5/200," ++
+    "485:expect=dirty:true," ++
+    "486:do=keyframe:add/0.8/50," ++
+    "486:expect=keys:3," ++
+    "486:expect=key:2=0.8/50," ++
+    "487:do=undo," ++
+    "487:expect=keys:2," ++
+    "488:do=redo," ++
+    "488:expect=keys:3," ++
+    "488:expect=key:2=0.8/50," ++
+    "489:do=keyframe:move/1/0.4/120," ++
+    "489:expect=keys:3," ++
+    "489:expect=key:1=0.4/120," ++
+    "490:do=undo," ++
+    "490:expect=key:1=0.5/200," ++
+    "491:do=redo," ++
+    "491:expect=key:1=0.4/120," ++
+    "492:do=keyframe:delete/2," ++
+    "492:expect=keys:2," ++
+    "493:do=undo," ++
+    "493:expect=keys:3," ++
+    "494:do=redo," ++
+    "494:expect=keys:2," ++
+    "495:do=keyframe:add/0.9/30," ++
+    "495:expect=keys:3," ++
+    "496:do=keyframe:reset," ++
+    "496:expect=keys:1," ++
+    "497:do=undo," ++
+    "497:expect=keys:3," ++
+    "498:do=redo," ++
+    "498:expect=keys:1," ++
+    "499:do=undo," ++
+    "499:expect=keys:3," ++
+    "500:do=keyframe:zoomy_out," ++
+    "500:expect=zoom:29/20," ++
+    "500:do=keyframe:zoomy_in," ++
+    "500:expect=zoom:29/25," ++
+    "500:do=keyframe:zoomy_in," ++
+    "500:expect=zoom:29/50," ++
+    "500:expect=keys:3," ++
+    "500:expect=dirty:true," ++
+    "501:save," ++
+    "501:expect=dirty:false," ++
+    "502:do=export," ++
+    "502:expect=exported," ++
+    "502:expect=file:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
+    "503:shot=pcp_idle," ++
+    "504:do=curve:Life," ++
+    "504:do=keyframe:zoomx_in," ++
+    "504:expect=zoom:29/25," ++
+    "504:do=keyframe:zoomx_out," ++
+    "504:do=keyframe:zoomx_out," ++
+    "504:expect=zoom:29/25," ++
+    "504:do=curve:Opacity," ++
+    "510:do=preview_run," ++
+    "512:do=pause:300," ++
+    "512:shot=pcp_run_a," ++
+    "513:do=pause:400," ++
+    "513:shot=pcp_run_b," ++
+    "513:differ=pcp_run_a/pcp_run_b@0.05," ++
+    "514:do=preview_stop," ++
+    "515:do=pause:100," ++
+    "516:shot=pcp_stop_c," ++
+    "517:do=pause:300," ++
+    "517:shot=pcp_stop_d," ++
+    "517:expect=shot_same:pcp_stop_c/pcp_stop_d," ++
+    "517:expect=shot_lit:pcp_stop_d," ++
+    "518:do=camera," ++
+    "518:expect=camera:horizontal," ++
+    "519:do=pause:100," ++
+    "519:shot=pcp_cam_h," ++
+    "519:differ=pcp_stop_d/pcp_cam_h@0.02," ++
+    "520:do=camera," ++
+    "520:expect=camera:default," ++
+    "521:do=pause:100," ++
+    "521:shot=pcp_cam_d," ++
+    "521:differ=pcp_cam_h/pcp_cam_d@0.02," ++
+    "522:do=keyframe:move/0/0/255," ++
+    "522:expect=key:0=0/255," ++
+    "523:do=preview_run," ++
+    "524:do=pause:300," ++
+    "524:shot=pcp_edit," ++
+    "524:expect=shot_lit:pcp_edit," ++
+    "524:differ=pcp_idle/pcp_edit@0.05," ++
+    "525:do=preview_stop," ++
+    "526:do=import_file:pcp/{mods}/../Data/Effects/Particles/flame.xml," ++
+    "527:expect=kind:pcp," ++
+    "527:expect=nodes_min:5," ++
+    "527:expect=untitled," ++
+    "527:do=copy:{fix}/pcp/project.pcp>{dir}/imported/seed.pcp," ++
+    "528:saveas={dir}/imported/project.pcp," ++
+    "529:do=export," ++
+    "529:expect=exported," ++
+    "529:expect=file:{mods}/reseditor_auto12/data/effects/particles/imported.xml," ++
+    "530:do=import_refused:eff/{mods}/../Data/Effects/Particles/flame.xml," ++
+    "532:do=copy:{fix}/eff/project.eff>{dir}/eff-1/project.eff," ++
+    "533:open={dir}/eff-1/project.eff," ++
+    "534:expect=kind:eff," ++
+    "534:expect=nodes_min:5," ++
+    "535:do=export," ++
+    "535:expect=exported," ++
+    "536:do=preview_refused:particle-2key," ++
+    "538:expect=file:{mods}/reseditor_auto12/data/effects/effects/eff-1.xml," ++
+    "550:exit";
 
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static

@@ -66,12 +66,12 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, host: *host_mod.Host, kind: Kind,
         return fail("the installation path is too long", .{});
     var life: logic.Lifecycle = .{};
     defer life.deinit(gpa);
-    // The bridge's import came with S11, so the first kind still unported is the particle source.
-    if (life.importFromGame(gpa, b, .particle, gunner)) |_| {
-        return fail("importing .pcp was not refused", .{});
+    // Every kind but the effect imports now (MFC's effect editor has no reverse path), so the effect is the refusal.
+    if (life.importFromGame(gpa, b, .effect, gunner)) |_| {
+        return fail("importing .eff was not refused", .{});
     } else |_| {}
-    if (std.mem.indexOf(u8, b.lastMessage(), "not ported yet") == null or std.mem.indexOf(u8, b.lastMessage(), ".pcp") == null)
-        return fail("the .pcp import refusal does not name the kind: {s}", .{b.lastMessage()});
+    if (std.mem.indexOf(u8, b.lastMessage(), "no reverse path") == null or std.mem.indexOf(u8, b.lastMessage(), ".eff") == null)
+        return fail("the .eff import refusal does not name the kind: {s}", .{b.lastMessage()});
     life.importFromGame(gpa, b, .animation_infantry, gunner) catch
         return fail("importing {s} as .unt failed: {s}", .{ gunner, b.lastMessage() });
     if (!life.is_open or life.doc.kind != .animation_infantry or life.doc.pathSlice() != null or !life.dirty())

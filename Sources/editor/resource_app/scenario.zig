@@ -37,6 +37,7 @@
 //!   do=pick_locator:<name>  the right-click of the unit preview at that locator's screen point, through mesh_logic.pickLocator
 //!   do=preview_on           from here the preview scene follows the open project, as in the docks
 //!   do=preview_run          do=preview_stop   Run (F5) and Stop of the preview, through previewPlayback
+//!   do=preview_refused:<text>   Run on a project whose export fails: refused, naming that text
 //!   do=pause:<ms>           real time passes, for the preview's clock
 //!   do=grid_cell:<x>/<y>/<v>   a locked tile of the Object or Fence grid (0 erases), as the Draw grid tool's click
 //!   do=grid_trans:<x>/<y>/<v>  a transparency tile, value 1..7 (0 erases), as the Draw transparency tool's click
@@ -52,6 +53,15 @@
 //!                           (the Angle and cone tool) to where that direction, or that cone, points
 //!   do=generate_points:<smoke|dir>   the Generate points button in that family's mode
 //!   do=span_mark:<begin|end|front|back>/<x>/<y>   the Bridge's Span marks tool clicked on a tile centre, for that mark
+//!   do=curve:<track>        the Function window's curve: the first key-frame node of that display name
+//!   do=keyframe:add/<x>/<y>   a key added by a press and release at that value (one command)
+//!   do=keyframe:move/<i>/<x>/<y>   key i pressed, dragged to that value and released (one command)
+//!   do=keyframe:delete/<i>  key i made the active one and Delete pressed (key 0 is protected)
+//!   do=keyframe:reset       the dock's Reset all
+//!   do=keyframe:zoomx_in|zoomx_out|zoomy_in|zoomy_out   the curve's zoom menu (view only, no undo step)
+//!   do=camera               the preview's Camera button (horizontal against default camera)
+//!   do=import_file:<ext>/<path>   Import a runtime file (a shipped particle xml for pcp) as a new project, through the bridge's reader
+//!   do=import_refused:<ext>/<path>   the same for a kind with no import (eff): refused, with the bridge's reason
 //!   The grid verbs need a frame drawn since the project opened (the grid editor lives in the panels)
 //!   and go through GridEditor's press, move and release, the path of the mouse.
 //!   open=<path> save saveas=<path> shot=<name> differ=<a>/<b>@<percent> exit
@@ -69,6 +79,8 @@
 //!          point:<shoot|fire|smoke|dir>/<i>=<angle>/<cone>  one point's stored direction and cone (angle within 1 degree)
 //!          entrance_tile:<x>/<y>  the Building's entrance tile
 //!          span_mark:<begin|end|front|back>=moved|home  the Bridge's mark against the frame's default
+//!          keys:<n>  the curve's stored key count  key:<i>=<x>/<y>  one stored key (within 0.02)
+//!          zoom:<xs>/<ys>  the curve's pixels per step  camera:horizontal|default  the Camera button's state
 //!
 //! `{dir}` (the scratch folder), `{fix}` (the fixtures folder) and `{mods}`
 //! (the installation's mods folder) are replaced in every path and argument,
@@ -95,6 +107,7 @@ const squad = @import("squad_logic.zig");
 const docks_logic = @import("docks_logic.zig");
 const mesh = @import("mesh_logic.zig");
 const grid = @import("grid_logic.zig");
+const keyframe = @import("keyframe_logic.zig");
 
 const c = c_bridge.c;
 
@@ -106,6 +119,8 @@ const Point2 = core.bridge.Point2;
 
 const owner = "resource-editor-auto";
 const gunner_folder = "Data/Units/Humans/German/Gunner";
+/// The curve window's size for do=curve (the Function window's, made tall).
+const curve_window = [2]i32{ 640, 1400 };
 /// A frame counts as drawn when more than this share of it is not the clear colour.
 const lit_share_percent: f64 = 2.0;
 const max_tga_bytes = 64 << 20;
@@ -326,15 +341,22 @@ const Runner = struct {
     dragged: ?struct { formation: i32, slot: usize, home: Point2 } = null,
     /// Where the sprite stood before the first sprite_move, for expect=sprite.
     sprite_home: ?Point2 = null,
+    /// The Function window's curve for do=curve, and the Camera button's flag
+    /// (CParticleFrame::bHorizontalCamera) that do=camera flips.
+    curve: ?keyframe.Editor = null,
+    horizontal_camera: bool = false,
     frame: u32 = 0,
     message: [768]u8 = undefined,
+    /// The last text `fail` made, for a helper that reports through its caller.
+    failure: []const u8 = "",
 
     fn bridge(self: *Runner) ResBridge {
         return self.real.bridge();
     }
 
     fn fail(self: *Runner, comptime format: []const u8, args: anytype) []const u8 {
-        return std.fmt.bufPrint(&self.message, format, args) catch "the failure text did not fit";
+        self.failure = std.fmt.bufPrint(&self.message, format, args) catch "the failure text did not fit";
+        return self.failure;
     }
 
     fn target(self: *Runner) edit.Target {
@@ -597,6 +619,14 @@ const Runner = struct {
             if (!self.preview.run(b)) return self.fail("preview_run: {s}", .{self.preview.message()});
             return null;
         }
+        if (eql(u8, name, "preview_refused")) {
+            // The effect's function particle names a source the preview's data does not
+            // hold: Run says so, naming the file, and nothing runs.
+            if (self.preview.run(b)) return self.fail("preview_refused: Run showed the project", .{});
+            if (std.mem.indexOf(u8, self.preview.message(), named.arg) == null) return self.fail("preview_refused: the refusal does not name {s}: {s}", .{ named.arg, self.preview.message() });
+            std.debug.print("resource-editor: auto: preview refused as expected: {s}\n", .{self.preview.message()});
+            return null;
+        }
         if (eql(u8, name, "preview_stop")) {
             self.preview.halt(b);
             if (self.preview.running) return self.fail("preview_stop: the preview is still running", .{});
@@ -657,12 +687,127 @@ const Runner = struct {
             return self.gridStroke(name, .span_marks, tile, tile, false);
         }
         if (eql(u8, name, "sprite_move")) return self.spriteMove(named.arg);
+        if (eql(u8, name, "curve")) return self.selectCurve(named.arg);
+        if (eql(u8, name, "keyframe")) return self.keyframeVerb(named.arg);
+        if (eql(u8, name, "camera")) {
+            const was = self.horizontal_camera;
+            self.horizontal_camera = docks_logic.toggledCamera(b, was);
+            if (self.horizontal_camera == was) return self.fail("camera: the engine refused the change: {s}", .{b.lastMessage()});
+            std.debug.print("resource-editor: auto: camera is now {s}\n", .{if (self.horizontal_camera) "horizontal" else "default"});
+            return null;
+        }
+        if (eql(u8, name, "import_file") or eql(u8, name, "import_refused")) {
+            const slash = std.mem.indexOfScalar(u8, named.arg, '/') orelse return self.fail("{s} needs <ext>/<path>", .{name});
+            const kind = logic.kindFromExtension(named.arg[0..slash]) orelse return self.fail("{s}: '{s}' is not a project extension", .{ name, named.arg[0..slash] });
+            const path = self.expand(&buffer, named.arg[slash + 1 ..]) orelse return self.fail("the path is too long", .{});
+            const refused = name[7] == 'r';
+            if (self.life.importFromGame(self.gpa, b, kind, path)) |_| {
+                if (refused) return self.fail("import_refused: importing .{s} from {s} succeeded", .{ named.arg[0..slash], path });
+            } else |_| {
+                if (!refused) return self.fail("import_file {s}: {s}", .{ path, b.lastMessage() });
+                std.debug.print("resource-editor: auto: import refused as expected: {s}\n", .{b.lastMessage()});
+            }
+            return null;
+        }
         if (eql(u8, name, "pause")) {
             const ms = std.fmt.parseInt(i64, named.arg, 10) catch return self.fail("pause needs milliseconds", .{});
             self.io.sleep(.fromMilliseconds(ms), .awake) catch {};
             return null;
         }
         return self.fail("unknown command '{s}'", .{name});
+    }
+
+    /// do=curve: the Function window's editor for the first key-frame node
+    /// named `wanted`; the bridge refuses the knobs of a node that is no curve.
+    fn selectCurve(self: *Runner, wanted: []const u8) ?[]const u8 {
+        const b = self.bridge();
+        for (self.life.doc.tree.nodes.items) |*node| {
+            if (!std.ascii.eqlIgnoreCase(node.displaySlice(), wanted)) continue;
+            var knobs: core.bridge.KeyframeKnobs = .{};
+            if (b.keyframeKnobs(node.id, &knobs) != .ok) continue;
+            if (self.curve) |*old| old.deinit();
+            var editor = keyframe.Editor.init(self.gpa, node.id);
+            // A window tall enough for the whole value range, so the gestures
+            // never scroll and a value maps to one pixel row.
+            editor.setSize(curve_window[0], curve_window[1]);
+            editor.load(b) catch return self.fail("curve:{s}: {s}", .{ wanted, b.lastMessage() });
+            self.curve = editor;
+            std.debug.print("resource-editor: auto: curve {s} is node {d}: {d} keys, x {d:.2}..{d:.2}, y {d:.2}..{d:.2}\n", .{ wanted, node.id, editor.keys.items.len, knobs.min_x, knobs.max_x, knobs.min_y, knobs.max_y });
+            return null;
+        }
+        return self.fail("curve:{s}: the project has no key-frame node of that name", .{wanted});
+    }
+
+    /// do=keyframe: one curve gesture through keyframe_logic, the way the
+    /// Function window drives it. The editor is reloaded first, so an undo or
+    /// redo since the last verb is seen; zoom lives in the editor and stays.
+    fn keyframeVerb(self: *Runner, text: []const u8) ?[]const u8 {
+        const b = self.bridge();
+        const editor = if (self.curve) |*e| e else return self.fail("keyframe:{s}: no curve was selected (do=curve first)", .{text});
+        editor.load(b) catch return self.fail("keyframe:{s}: {s}", .{ text, b.lastMessage() });
+        const before = editor.keys.items.len;
+        var parts = std.mem.splitScalar(u8, text, '/');
+        const verb = parts.next().?;
+        const eql = std.mem.eql;
+        var numbers: [3]f32 = undefined;
+        var count: usize = 0;
+        while (parts.next()) |piece| : (count += 1) {
+            if (count == numbers.len) return self.fail("keyframe:{s}: too many arguments", .{text});
+            numbers[count] = std.fmt.parseFloat(f32, piece) catch return self.fail("keyframe:{s}: '{s}' is not a number", .{ text, piece });
+        }
+        const doc = &self.life.doc;
+        const history = &self.life.history;
+        if (eql(u8, verb, "add")) {
+            if (count != 2) return self.fail("keyframe:add needs <x>/<y>", .{});
+            const at = editor.screenByValue(numbers[0], numbers[1]);
+            editor.press(@intFromFloat(at.x), @intFromFloat(at.y)) catch return self.fail("keyframe:{s}: {s}", .{ text, b.lastMessage() });
+            if (editor.mode != .drag) return self.fail("keyframe:{s}: the press landed outside the curve's ranges", .{text});
+            editor.release(b, doc, history) catch return self.fail("keyframe:{s}: {s}", .{ text, b.lastMessage() });
+        } else if (eql(u8, verb, "move")) {
+            if (count != 3) return self.fail("keyframe:move needs <i>/<x>/<y>", .{});
+            const index: usize = @intFromFloat(numbers[0]);
+            if (index >= editor.keys.items.len) return self.fail("keyframe:{s}: the curve has {d} keys", .{ text, before });
+            const key = editor.keys.items[index];
+            const from = editor.screenByValue(key.x, key.y);
+            editor.press(@intFromFloat(from.x), @intFromFloat(from.y)) catch return self.fail("keyframe:{s}: {s}", .{ text, b.lastMessage() });
+            if (editor.mode != .drag or editor.drag_index != index) return self.fail("keyframe:{s}: the press grabbed key {d}", .{ text, editor.drag_index });
+            const to = editor.screenByValue(numbers[1], numbers[2]);
+            editor.move(@intFromFloat(to.x), @intFromFloat(to.y));
+            editor.release(b, doc, history) catch return self.fail("keyframe:{s}: {s}", .{ text, b.lastMessage() });
+        } else if (eql(u8, verb, "delete")) {
+            if (count != 1) return self.fail("keyframe:delete needs <i>", .{});
+            editor.drag_index = @intFromFloat(numbers[0]);
+            const went = editor.deleteActive(b, doc, history) catch return self.fail("keyframe:{s}: {s}", .{ text, b.lastMessage() });
+            if (!went) return self.fail("keyframe:{s}: nothing was deleted (key 0 is protected)", .{text});
+        } else if (eql(u8, verb, "reset")) {
+            const changed = editor.resetAll(b, doc, history) catch return self.fail("keyframe:reset: {s}", .{b.lastMessage()});
+            if (!changed) return self.fail("keyframe:reset: the curve has one key, nothing to reset", .{});
+        } else if (eql(u8, verb, "zoomx_in") or eql(u8, verb, "zoomx_out") or eql(u8, verb, "zoomy_in") or eql(u8, verb, "zoomy_out")) {
+            const zoom_in = verb[verb.len - 1] == 'n';
+            const changed = if (verb[4] == 'x')
+                editor.zoomX(if (zoom_in) .in else .out)
+            else
+                editor.zoomY(if (zoom_in) .in else .out);
+            // A curve that resizes to fit (every particle curve) ignores Zoom X, and a
+            // level at its end stays: the view is unchanged, and expect=zoom says so.
+            if (!changed) std.debug.print("resource-editor: auto: keyframe {s}: the zoom did not change\n", .{verb});
+        } else return self.fail("keyframe: unknown verb '{s}'", .{verb});
+        // The view after a gesture is the bridge's keys, as the dock reloads it.
+        editor.load(b) catch return self.fail("keyframe:{s}: {s}", .{ text, b.lastMessage() });
+        std.debug.print("resource-editor: auto: keyframe {s}: {d} keys -> {d}, zoom {d:.0}/{d} px per step\n", .{ text, before, editor.keys.items.len, editor.xs, editor.ys });
+        return null;
+    }
+
+    /// The stored keys of the selected curve, read through the bridge.
+    fn curveKeys(self: *Runner, what: []const u8) ?core.bridge.GeometryValue {
+        const editor = if (self.curve) |*e| e else {
+            _ = self.fail("expect={s}: no curve was selected (do=curve first)", .{what});
+            return null;
+        };
+        return sub_tools.readGeometry(self.bridge(), editor.node, .particle_keyframes) catch {
+            _ = self.fail("expect={s}: {s}", .{ what, self.bridge().lastMessage() });
+            return null;
+        };
     }
 
     /// The right-click of the unit preview at the screen point of the named
@@ -1139,6 +1284,34 @@ const Runner = struct {
             if (moved != eql(u8, arg[eq + 1 ..], "moved")) return self.fail("expect=span_mark:{s} was false: the mark is at {d:.2}/{d:.2}", .{ arg, now.x, now.y });
             return null;
         }
+        if (eql(u8, name, "keys")) {
+            const want = std.fmt.parseInt(usize, arg, 10) catch return self.fail("keys needs a count", .{});
+            var read = self.curveKeys(name) orelse return self.failure;
+            defer read.deinit(self.gpa);
+            if (read.vec3.len != want) return self.fail("expect=keys:{s} was false: the curve holds {d} keys", .{ arg, read.vec3.len });
+            return null;
+        }
+        if (eql(u8, name, "key")) {
+            const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return self.fail("key needs <i>=<x>/<y>", .{});
+            const index = std.fmt.parseInt(usize, arg[0..eq], 10) catch return self.fail("key needs <i>=<x>/<y>", .{});
+            const want = parsePoint(arg[eq + 1 ..]) orelse return self.fail("key needs <i>=<x>/<y>", .{});
+            var read = self.curveKeys(name) orelse return self.failure;
+            defer read.deinit(self.gpa);
+            if (index >= read.vec3.len) return self.fail("expect=key:{s} was false: the curve holds {d} keys", .{ arg, read.vec3.len });
+            const got = read.vec3[index];
+            if (@abs(got.x - want.x) > 0.02 or @abs(got.y - want.y) > 0.02) return self.fail("expect=key:{s} was false: key {d} is at {d:.4}/{d:.4}", .{ arg, index, got.x, got.y });
+            return null;
+        }
+        if (eql(u8, name, "zoom")) {
+            const want = parsePoint(arg) orelse return self.fail("zoom needs <xs>/<ys>", .{});
+            const editor = if (self.curve) |*e| e else return self.fail("expect=zoom: no curve was selected", .{});
+            if (@abs(editor.xs - want.x) > 0.5 or @abs(@as(f32, @floatFromInt(editor.ys)) - want.y) > 0.5) return self.fail("expect=zoom:{s} was false: {d:.1}/{d} px per step", .{ arg, editor.xs, editor.ys });
+            return null;
+        }
+        if (eql(u8, name, "camera")) {
+            if ((eql(u8, arg, "horizontal")) != self.horizontal_camera) return self.fail("expect=camera:{s} was false", .{arg});
+            return null;
+        }
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
         return self.fail("unknown predicate '{s}'", .{name});
     }
@@ -1230,6 +1403,7 @@ pub fn auto(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ho
     };
     defer runner.life.deinit(gpa);
     defer runner.panels.deinit(gpa);
+    defer if (runner.curve) |*curve| curve.deinit();
     defer _ = runner.bridge().close();
     // Before the bridge closes: the preview scene belongs to the engine's modules.
     defer runner.preview.stop(runner.bridge());

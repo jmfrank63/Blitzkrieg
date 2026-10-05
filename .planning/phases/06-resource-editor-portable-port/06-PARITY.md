@@ -62,7 +62,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | A-12 | Edit → Set Picture Options (brightness/contrast/gamma, `gamma.cfg` searched upward, preview `SingleIcon`) | `PictureOptions` | 06-05 | done (S05 T11: app-side gamma.cfg in the engine tree format, searched upward like ReadConfigFile, written to the project folder or <source>/<szAddDir>; engine's CreateGammaCorrection ported for the before/after ramps; test-resource-app-logic) |
 | A-13 | View → Toolbar, Status Bar, Project Tree, Object Inspector toggles | `MainFrm.cpp` | 06-05 | todo (not in the S05 task set: no View toggles for the tree and inspector, toolbar or status bar yet) |
 | A-14 | View → Direction Button (Ctrl+D) dock | `DirectionButton*` | 06-05 (widget), 06-06/06-08/06-12 (use) | done for the widget (S05 T12: docks.zig Direction window, Ctrl+D; angle from the drag, squashed needle, degrees text and GetQuadrant ported as written; resource-editor-host-check docks half (resource-editor-check-docks.tga measured by code), test-resource-app-logic (docks_logic.zig)). The sub-editors that read the angle use it in their slices |
-| A-15 | View → Function Window (Ctrl+F) keyframe dock | `KeyFrame*` | 06-12 | dock frame done (S05 T12: docks.zig Function window, Ctrl+F, an empty graph frame; resource-editor-host-check docks half (resource-editor-check-docks.tga measured by code), test-resource-app-logic (docks_logic.zig)). The keyframe editing is 06-12 |
+| A-15 | View → Function Window (Ctrl+F) keyframe dock | `KeyFrame*` | 06-12 | dock frame done (S05 T12: docks.zig Function window, Ctrl+F, an empty graph frame; resource-editor-host-check docks half (resource-editor-check-docks.tga measured by code), test-resource-app-logic (docks_logic.zig)). The keyframe editing is 06-12; S12 T04-T06: key-frame curve widget (grid, polyline, keys, add/move/delete, zoom and Reset all) in the Function window, proved by auto `do=keyframe:` (frames 484-504) |
 | A-16 | View → Set Background Colour | `ParentFrame.cpp` | 06-05 | todo (not in the S05 task set: no Set Background Colour yet) |
 | A-17 | View → Expand/Collapse all (Ctrl+C) | `ETreeCtrl` | 06-05 | todo (not in the S05 task set: no Expand/Collapse all yet) |
 | A-18 | Tools → Set Directories (Ctrl+T): source, export, game exe, game args (registry) → settings file | `SetDirDialog` | 06-05 | done (S05 T11: source folder, game folder (empty = Game beside the editor) and game arguments in resourceeditor.cfg; the export folder is MOD Settings', as in MFC's SetDirDialog) |
@@ -148,13 +148,13 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-06.1 | Tree: Common, Source generate (spin, area, angle, opacity, speed, life, density, random spin), Particle curves (spin, weight, speed, size, opacity, texture frame), Complex source, Random life/speed | todo |
-| B-06.2 | Run/Stop preview, Camera switch | todo |
-| B-06.3 | Get particle info | todo |
-| B-06.4 | Simple / complex source toggle | todo |
-| B-06.5 | Keyframe curve editor: add/move/delete node, Reset all, Zoom in/out X and Y (`IDR_KEYFRAME_ZOOM_MENU`) | todo |
-| B-06.6 | Export: `KeyData` (`SParticleSourceData` / `SSmokinParticleSourceData`) | todo |
-| B-06.7 | Import from game data | todo |
+| B-06.1 | Tree: Common, Source generate (spin, area, angle, opacity, speed, life, density, random spin), Particle curves (spin, weight, speed, size, opacity, texture frame), Complex source, Random life/speed | done: pcp tree opens and exports (Opacity and Life curves read); auto frames 480-484; all 291 shipped sources round-trip (PARTICLES checked=291 unimportable=0, S12 T01) |
+| B-06.2 | Run/Stop preview, Camera switch | done: auto `preview_run`/`preview_stop`/`camera` with measured shots (running frames differ 0.41%, stopped frames equal, horizontal camera differs 0.17%); BkResPreviewCameraMode in test-resource-bridge; frames 510-521 |
+| B-06.3 | Get particle info | not done: Get particle info (S12 T05 did not port it); needs a follow-up task |
+| B-06.4 | Simple / complex source toggle | not done: simple/complex toggle in the UI (exporter derives it from the complex source item, S12 T01); needs a follow-up task |
+| B-06.5 | Keyframe curve editor: add/move/delete node, Reset all, Zoom in/out X and Y (`IDR_KEYFRAME_ZOOM_MENU`) | done: keyframe_logic.zig (17 tests) and the Function window widget; auto `do=keyframe:` add/move/delete/reset each undone and redone with keys read back, zoom steps (frames 484-504). Deviation: MFC zoom handlers are commented out, the port zooms the view only, not an undo step (D026) |
+| B-06.6 | Export: `KeyData` (`SParticleSourceData` / `SSmokinParticleSourceData`) | done: pcp exporter, simple and complex; auto `do=export` (frame 502, 529); golden parity pending win-home (export-goldens.ps1 -Extensions pcp) |
+| B-06.7 | Import from game data | done: import round trip of all 291 shipped sources, 0 differences; auto `do=import_file:pcp` (frame 526) |
 
 ### B-07 Sprite editor (`CSpriteFrame`, `.spt`, `effects\sprites\`) — 06-07
 
@@ -169,12 +169,12 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-08.1 | Tree: Common, Animations (sprites), Meshes, Function particles, Maya particles, Lights | todo |
-| B-08.2 | Run/Stop, Camera switch | todo |
-| B-08.3 | Direction arrow dock | todo |
+| B-08.1 | Tree: Common, Animations (sprites), Meshes, Function particles, Maya particles, Lights | done: eff opens, exports and its tree is measured (nodes_min:5); auto frames 532-535 |
+| B-08.2 | Run/Stop, Camera switch | done in the shared preview: Run names the effect's missing function-particle source (auto `preview_refused`, frame 536); Run/Stop/Camera measured on pcp (B-06.2). Run of an eff with a present source not measured |
+| B-08.3 | Direction arrow dock | not done: direction arrow dock and effect angle/position editing (S12 T05 did not port them); needs a follow-up task |
 | B-08.4 | Interpolate Vector Items (`IDR_INTERPOLATE_TREE_ITEM_MENU`; MFC has the enable handler only) | no behaviour in MFC (`grep -rn -i interpolate Sources/src/editor/*.cpp` shows only `ON_UPDATE_COMMAND_UI` at EffectFrm.cpp:34 and its enable handler at :395; D026) |
-| B-08.5 | Export: root `"effect"` = `SEffectDesc` | todo |
-| B-08.6 | Import from game data | todo |
+| B-08.5 | Export: root `"effect"` = `SEffectDesc` | done: eff exporter (sprites, plain and smokin function particles, root effect); auto `do=export` (frame 535); golden parity pending win-home (export-goldens.ps1 -Extensions eff) |
+| B-08.6 | Import from game data | no behaviour in MFC: import refused naming the missing reverse path (auto `import_refused:eff`, frame 530; D026) |
 
 ### B-09 Building editor (`CBuildingFrame`, `.bld`, `buildings\`) — 06-10
 

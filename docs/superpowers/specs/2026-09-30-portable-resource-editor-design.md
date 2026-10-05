@@ -890,3 +890,14 @@ one, the newer instruction wins, and record the change in the spec").
   `View.toScreen`/`toWorld` and the canvas origin in `panels.zig` now flip Y
   to match. The stored angle convention (D016) is unchanged; input and
   drawing share the View, so the drawn arrow still matches the stored angle.
+
+- **Particle and Effect sub-editors (D026, M001/S12).** The bridge ABI gains `BkResGetKeyframeKnobs` (range, step and resize
+  mode per key-frame node, as CKeyFrameEditor's constructor arguments) and `BkResPreviewCameraMode` (MFC's horizontal against
+  default camera), mirrored in resource_core and the app's c_bridge. Effect import is refused: MFC's effect editor has no reverse
+  path (EffectFrm.cpp has no GetRPGStats/LoadRPGStats), so the error names that. Curve quirks: key 0 is protected from delete; MFC's
+  zoom handlers (OnKeyframeZoomin/outx/y) are commented out, so the port zooms the view only (pixels per step through
+  {5,10,20,25,50,100}, not an undo step) and a curve that resizes to fit ignores Zoom X; each add, move, delete and Reset all is one
+  geometry command. Interpolate Vector Items has no behaviour in MFC. `BK_EDITOR_AUTO` verbs `curve`, `keyframe`, `camera`,
+  `import_file`, `import_refused`, `preview_refused` and predicates `keys`, `key`, `zoom`, `camera` drive and read them; the
+  auto block measures Run, Stop and Camera shots by pixel difference. Not done in S12: Get particle info, the simple/complex
+  toggle UI, and the effect direction arrow and angle/position editing. Goldens pending win-home.
