@@ -3057,6 +3057,7 @@ bool ExportOne( const NResourceModel::Project &project, const std::string &szPro
 	context.szStagingRoot = staging.string();
 	context.bForce = ( nFlags & BK_RES_EXPORT_FORCE ) != 0;
 	context.bStatsOnly = bStatsOnly;
+	context.szDataRoot = dataDir.string();
 	FillEngineLookups( context, dataDir.parent_path() / ".bk-export-mesh" );
 	if ( !pfnExporter( project, context, outcome ) )
 	{

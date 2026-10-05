@@ -4118,6 +4118,7 @@ fn addEditorBridge(
             // CTreeAccessor and stats structs, so they live here and not in
             // resource_model_sources, which the engine-free model tests build.
             "Sources/src/ResourceModel/items/stats_export.cpp",
+            "Sources/src/ResourceModel/image_export.cpp",
             "Sources/src/ResourceModel/items/weapon/weapon_export.cpp",
             "Sources/src/ResourceModel/items/mine/mine_export.cpp",
             "Sources/src/ResourceModel/items/trench/trench_export.cpp",

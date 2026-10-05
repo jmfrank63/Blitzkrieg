@@ -43,9 +43,13 @@
 #include <vector>
 #include "../../Sources/src/ResourceModel/comparator.h"
 #include "../../Sources/src/ResourceModel/xml.h"
+#include "../../Sources/src/ResourceModel/dxt_gate.h"
 #include "../../Sources/src/ResourceModel/exporter.h"
 #include "../../Sources/src/ResourceModel/project.h"
 #include "../../Sources/src/Main/RPGStats.h"
+#include "../../Sources/src/Platform/DynamicLibrary.h"
+#include "../../Sources/src/Platform/Paths.h"
+#include "../../Sources/src/Image/Image.h"
 
 namespace fs = std::filesystem;
 using namespace NResourceModel;
@@ -611,6 +615,89 @@ static bool FixtureUnitKey( const std::string &szPath, std::string &szKey )
 	return true;
 }
 
+// An uncompressed 24-bit bottom-up TGA of a gradient with edges, so the DXT
+// blocks have something to approximate; nWidth x nHeight, any size.
+static std::string MakeTga( int nWidth, int nHeight )
+{
+	std::string tga( 18, '\0' );
+	tga[2] = 2;
+	tga[12] = char( nWidth & 0xff ); tga[13] = char( nWidth >> 8 );
+	tga[14] = char( nHeight & 0xff ); tga[15] = char( nHeight >> 8 );
+	tga[16] = 24;
+	for ( int y = 0; y < nHeight; ++y )
+		for ( int x = 0; x < nWidth; ++x )
+		{
+			const bool bEdge = ( ( x / 4 ) + ( y / 4 ) ) % 2 == 0;
+			tga += char( bEdge ? 200 : 40 + y * 3 );          // B
+			tga += char( x * 255 / std::max( nWidth - 1, 1 ) ); // G
+			tga += char( bEdge ? 30 : 220 - x * 2 );          // R
+		}
+	return tga;
+}
+
+// An uncompressed 24-bit TGA as the ARGB mip the DXT gate compares.
+static bool ReadTga( const fs::path &file, SDdsMip *pMip )
+{
+	std::string tga;
+	if ( !ReadBytes( file, &tga ) || tga.size() < 18 || tga[2] != 2 || tga[16] != 24 )
+		return false;
+	pMip->nWidth = (unsigned char)tga[12] | ( (unsigned char)tga[13] << 8 );
+	pMip->nHeight = (unsigned char)tga[14] | ( (unsigned char)tga[15] << 8 );
+	if ( tga.size() < 18 + size_t( pMip->nWidth ) * pMip->nHeight * 3 )
+		return false;
+	pMip->pixels.assign( size_t( pMip->nWidth ) * pMip->nHeight, 0 );
+	for ( int y = 0; y < pMip->nHeight; ++y )
+		for ( int x = 0; x < pMip->nWidth; ++x )
+		{
+			const unsigned char *p = (const unsigned char *)tga.data() + 18 + ( size_t( y ) * pMip->nWidth + x ) * 3;
+			pMip->pixels[ size_t( pMip->nHeight - 1 - y ) * pMip->nWidth + x ] = 0xff000000u | ( p[2] << 16 ) | ( p[1] << 8 ) | p[0];
+		}
+	return true;
+}
+
+static void PlantTgas( const fs::path &dir, std::initializer_list<const char *> names, int nWidth = 16, int nHeight = 16 )
+{
+	for ( const char *pszName : names )
+		WriteBytes( dir / pszName, MakeTga( nWidth, nHeight ) );
+}
+
+static int CountFiles( const fs::path &dir, const std::string &szExtension )
+{
+	int nCount = 0;
+	std::error_code error;
+	for ( fs::recursive_directory_iterator it( dir, error ), end; !error && it != end; it.increment( error ) )
+		if ( it->is_regular_file() && it->path().extension() == szExtension )
+			++nCount;
+	return nCount;
+}
+
+// The exported DXT file decoded with NDxt against the source TGA, within the
+// measured gate of its format; the measured deltas are logged beside it.
+static void CheckDds( const std::string &szWhat, const fs::path &dds, const fs::path &tga, const std::string &szFourCC, const SDxtTolerance &tolerance )
+{
+	std::string szBytes, szError;
+	SDdsImage image;
+	SDdsMip source;
+	if ( !Check( ReadBytes( dds, &szBytes ) && DecodeDds( szBytes, &image, &szError ) && image.szFourCC == szFourCC && !image.mips.empty(),
+	             szWhat + ": " + dds.filename().string() + " is a " + szFourCC + " DDS " + szError ) )
+		return;
+	if ( !Check( ReadTga( tga, &source ), szWhat + ": the source TGA reads" ) )
+		return;
+	const SDdsMip &mip = image.mips[0];
+	if ( !Check( mip.nWidth == source.nWidth && mip.nHeight == source.nHeight, szWhat + ": the DDS keeps the picture's size, " + std::to_string( mip.nWidth ) + "x" + std::to_string( mip.nHeight ) ) )
+		return;
+	SDxtDelta delta;
+	delta.Add( 0, mip, source );
+	const SDxtStats measured = delta.Stats();
+	const SDxtStats *pGate = tolerance.Find( szFourCC );
+	// The gate's p99 was measured on pictures already DXT-quantised, which an
+	// encoder reproduces almost exactly; a TGA is not, so its own p99 is
+	// logged and only the max is held to the gate.
+	Check( pGate != nullptr && measured.nColourMax <= pGate->nColourMax && measured.nAlphaMax <= pGate->nAlphaMax,
+	       szWhat + ": " + szFourCC + " within the dxt-tolerance max gate (" + ( pGate ? std::to_string( pGate->nColourMax ) + "/" + std::to_string( pGate->nAlphaMax ) : std::string( "none" ) ) + "): colour max " + std::to_string( measured.nColourMax ) + " p99 " + std::to_string( measured.nColourP99 ) +
+	       ", alpha max " + std::to_string( measured.nAlphaMax ) + " p99 " + std::to_string( measured.nAlphaP99 ) );
+}
+
 struct SExportRun
 {
 	bool bExported = false;
@@ -663,6 +750,11 @@ static void Exporters( const fs::path &fixtures, const fs::path &data, const fs:
 	const fs::path scratch = scratchRoot / "export";
 	SExportContext context;
 	context.findUnitKey = &FixtureUnitKey;
+	SDxtTolerance tolerance;
+	{
+		std::string szError;
+		Check( LoadDxtTolerance( ( fixtures / "dxt-tolerance.json" ).string(), &tolerance, &szError ), "export: the DXT gate loads " + szError );
+	}
 
 	// Weapon: WeaponFrm.cpp FillRPGStats over the one shell of the fixture.
 	{
@@ -724,6 +816,7 @@ static void Exporters( const fs::path &fixtures, const fs::path &data, const fs:
 	// Mine: MineFrm.cpp FillRPGStats; the weapon prop names both fields.
 	{
 		const fs::path project = CopyFixture( fixtures, scratch, "mcp" );
+		PlantTgas( project.parent_path(), { "1.tga", "1s.tga" } );
 		const SExportRun run = RunExporter( "mcp", project, scratch / "mcp" / "data", context );
 		SMineRPGStats expected;
 		expected.szKeyName = "";
@@ -733,12 +826,44 @@ static void Exporters( const fs::path &fixtures, const fs::path &data, const fs:
 		CheckExported( EExportKind::MINE, "mcp", run, "objects/simpleobjects/common/summer/mine/mcp/1.xml", expected, scratch );
 		Check( run.outcome.szObjectName == "objects\\simpleobjects\\common\\summer\\mine\\mcp\\1",
 		       "export mcp: names the composed sprite \"1\" beside the stats: " + run.outcome.szObjectName );
+
+		// ComposeSingleObject: the sprite and the shadow, each as _c (DXT5),
+		// _l and _h with its animation file.
+		const fs::path mineDir = run.data / "objects/simpleobjects/common/summer/mine/mcp";
+		for ( const char *pszName : { "1_c.dds", "1_l.dds", "1_h.dds", "1.san", "1s_c.dds", "1s_l.dds", "1s_h.dds", "1s.san" } )
+			Check( fs::is_regular_file( mineDir / pszName ), std::string( "export mcp: composes " ) + pszName );
+		CheckDds( "export mcp", mineDir / "1_c.dds", project.parent_path() / "1.tga", "DXT5", tolerance );
+
+		SExportContext statsOnly = context;
+		statsOnly.bStatsOnly = true;
+		const SExportRun runStats = RunExporter( "mcp", project, scratch / "mcp" / "data-stats", statsOnly );
+		Check( runStats.bExported && CountFiles( runStats.data, ".dds" ) == 0 && CountFiles( runStats.data, ".san" ) == 0 && CountFiles( runStats.data, ".xml" ) == 1,
+		       "export mcp: stats only writes the stats and no image " + runStats.outcome.szError );
+
+		// Negative cases: nothing may be left promoted by a failed compose.
+		fs::remove( project.parent_path() / "1s.tga" );
+		const SExportRun runNoShadow = RunExporter( "mcp", project, scratch / "mcp" / "data-noshadow", context );
+		Check( !runNoShadow.bExported && runNoShadow.outcome.szError.find( "1s.tga" ) != std::string::npos && CountFiles( runNoShadow.data, ".dds" ) == 0,
+		       "export mcp: a missing 1s.tga fails naming it and writes no picture: " + runNoShadow.outcome.szError );
+		PlantTgas( project.parent_path(), { "1s.tga" } );
+		std::string szTga;
+		ReadBytes( project.parent_path() / "1.tga", &szTga );
+		WriteBytes( project.parent_path() / "1.tga", szTga.substr( 0, 18 + 100 ) );
+		const SExportRun runTruncated = RunExporter( "mcp", project, scratch / "mcp" / "data-truncated", context );
+		Check( !runTruncated.bExported && runTruncated.outcome.szError.find( "1.tga" ) != std::string::npos && CountFiles( runTruncated.data, ".dds" ) == 0,
+		       "export mcp: a truncated 1.tga is rejected naming it: " + runTruncated.outcome.szError );
+		PlantTgas( project.parent_path(), { "1.tga", "1s.tga" }, 20, 12 );
+		const SExportRun runOdd = RunExporter( "mcp", project, scratch / "mcp" / "data-odd", context );
+		Log( "export mcp: a 20x12 picture exports " + std::string( runOdd.bExported ? "and writes " : "and fails: " + runOdd.outcome.szError ) +
+		     std::to_string( CountFiles( runOdd.data, ".dds" ) ) + " DDS" );
+		Check( runOdd.bExported && CountFiles( runOdd.data, ".dds" ) == 6, "export mcp: a picture that is not a power of two is composed as MFC did: " + runOdd.outcome.szError );
 	}
 
 	// Trench: TrenchFrm.cpp SaveRPGStats. The fixture's one segment has no
 	// model file: MFC's "Cannot copy file" box, and no segment.
 	{
 		const fs::path project = CopyFixture( fixtures, scratch, "trc" );
+		PlantTgas( project.parent_path(), { "1.tga", "1w.tga", "1a.tga" } );
 		const SExportRun run = RunExporter( "trc", project, scratch / "trc" / "data", context );
 		SEntrenchmentRPGStats expected;
 		expected.szKeyName = "Unknown Trench";
@@ -752,6 +877,28 @@ static void Exporters( const fs::path &fixtures, const fs::path &data, const fs:
 		CheckExported( EExportKind::ENTRENCHMENT, "trc", run, "units/technics/common/entrenchment/trc/1.xml", expected, scratch );
 		Check( run.outcome.warnings.size() == 1 && run.outcome.warnings[0].find( "Cannot copy file" ) != std::string::npos,
 		       "export trc: the empty segment source is MFC's \"Cannot copy file\" warning" );
+		Check( run.outcome.szObjectName == "units\\technics\\common\\entrenchment\\trc\\1", "export trc: names the sprite \"1\" beside the stats: " + run.outcome.szObjectName );
+		const fs::path trenchDir = run.data / "units/technics/common/entrenchment/trc";
+		for ( const char *pszName : { "1", "1w", "1a" } )
+		{
+			for ( const char *pszSuffix : { "_c.dds", "_l.dds", "_h.dds" } )
+				Check( fs::is_regular_file( trenchDir / ( std::string( pszName ) + pszSuffix ) ), std::string( "export trc: converts " ) + pszName + pszSuffix );
+			CheckDds( std::string( "export trc " ) + pszName, trenchDir / ( std::string( pszName ) + "_c.dds" ), project.parent_path() / ( std::string( pszName ) + ".tga" ), "DXT5", tolerance );
+		}
+
+		SExportContext statsOnly = context;
+		statsOnly.bStatsOnly = true;
+		const SExportRun runStats = RunExporter( "trc", project, scratch / "trc" / "data-stats", statsOnly );
+		Check( runStats.bExported && CountFiles( runStats.data, ".dds" ) == 0 && CountFiles( runStats.data, ".xml" ) == 1,
+		       "export trc: stats only writes the stats and no image " + runStats.outcome.szError );
+
+		fs::remove( project.parent_path() / "1w.tga" );
+		const SExportRun runNoWater = RunExporter( "trc", project, scratch / "trc" / "data-nowater", context );
+		bool bWarned = false;
+		for ( const std::string &szWarning : runNoWater.outcome.warnings )
+			bWarned = bWarned || szWarning.find( "1w.tga" ) != std::string::npos;
+		Check( runNoWater.bExported && bWarned && !fs::exists( runNoWater.data / "units/technics/common/entrenchment/trc/1w_c.dds" ) && fs::exists( runNoWater.data / "units/technics/common/entrenchment/trc/1a_c.dds" ),
+		       "export trc: a missing 1w.tga is a warning naming it, the other pictures still convert" );
 
 		// A segment model the export can open: its box from chunk 4 of the
 		// shipped .mod and its fire places from the context's mesh reader.
@@ -767,6 +914,7 @@ static void Exporters( const fs::path &fixtures, const fs::path &data, const fs:
 			std::string szMod;
 			ReadBytes( FindNoCase( data, "Units\\Technics\\Common\\Entrenchment\\5.mod" ), &szMod );
 			WriteBytes( project.parent_path() / "models" / "5.mod", szMod );
+			PlantTgas( project.parent_path() / "models", { "1.tga", "1w.tga", "1a.tga" } );
 
 			const SExportRun runNoMesh = RunExporter( "trc", withModel, scratch / "trc" / "data-nomesh", context );
 			Check( !runNoMesh.bExported && runNoMesh.outcome.szError.find( "5.mod" ) != std::string::npos &&
@@ -795,6 +943,13 @@ static void Exporters( const fs::path &fixtures, const fs::path &data, const fs:
 					bRead = true;
 				}
 			}
+			{
+				std::string szCopy;
+				Check( ReadBytes( runMesh.data / "units/technics/common/entrenchment/trc/5.mod", &szCopy ) && szCopy == szMod,
+				       "export trc: the segment model is copied beside the stats, byte-identical" );
+				Check( fs::is_regular_file( runMesh.data / "units/technics/common/entrenchment/trc/1_c.dds" ),
+				       "export trc: 1/1w/1a come from the first model's folder" );
+			}
 			Check( bRead && read.segments.size() == 1 && read.segments[0].szModel == "5" && read.lines.size() == 1 && read.lines[0] == 0 &&
 			       read.segments[0].eType == SEntrenchmentRPGStats::EST_LINE && read.segments[0].fCoverage == 0.2f &&
 			       read.segments[0].vAABBHalfSize.x > 1.0f && read.segments[0].fireplaces.size() == 1 && read.segments[0].fireplaces[0].x == 1.5f,
@@ -808,6 +963,20 @@ static void Exporters( const fs::path &fixtures, const fs::path &data, const fs:
 	{
 		const fs::path project = CopyFixture( fixtures, scratch, "scp" );
 		const SExportRun run = RunExporter( "scp", project, scratch / "scp" / "data", context );
+		Check( run.bExported && !run.outcome.warnings.empty() && run.outcome.warnings[0].find( "icon.tga" ) != std::string::npos &&
+		       !fs::exists( run.data / "squads/scp/icon.tga" ),
+		       "export scp: a missing icon is a warning naming it and the stats are still written" );
+		std::string szIcon;
+		ReadBytes( project.parent_path() / "sprite-1frame.tga", &szIcon );
+		WriteBytes( project.parent_path() / "icon.tga", szIcon );
+		const SExportRun runIcon = RunExporter( "scp", project, scratch / "scp" / "data-icon", context );
+		std::string szCopy;
+		Check( runIcon.bExported && ReadBytes( runIcon.data / "squads/scp/icon.tga", &szCopy ) && szCopy == szIcon && runIcon.outcome.warnings.empty(),
+		       "export scp: the icon is copied beside the stats, byte-identical" );
+		SExportContext statsOnly = context;
+		statsOnly.bStatsOnly = true;
+		const SExportRun runStats = RunExporter( "scp", project, scratch / "scp" / "data-stats", statsOnly );
+		Check( runStats.bExported && !fs::exists( runStats.data / "squads/scp/icon.tga" ), "export scp: stats only copies no icon" );
 
 		// The shift on screen (15.4, 15.4) in the world, under the squad
 		// frame's camera (SetDefaultCamera: yaw 45, pitch -(90+30)) and one
@@ -907,6 +1076,25 @@ int main( int argc, char **argv )
 	std::string szError;
 	if ( !Check( StartEngineReaders( &szError ), "the engine's StreamIO loads beside the executable " + szError ) )
 		return 1;
+	// The graphics exports go through the engine's image processor, which the
+	// game registers from the Image module at start-up.
+	{
+		static NPlatform::DynamicLibrary image;
+#if defined(_WIN32)
+		const std::string szImage = NPlatform::Paths::ModuleRoot() + "\\Image.dll";
+#elif defined(__APPLE__)
+		const std::string szImage = NPlatform::Paths::ModuleRoot() + "/libImage.dylib";
+#else
+		const std::string szImage = NPlatform::Paths::ModuleRoot() + "/libImage.so";
+#endif
+		typedef const SModuleDescriptor *( STDCALL *FGetDescriptor )();
+		FGetDescriptor pfnGetDescriptor = image.Load( szImage.c_str() ) ? reinterpret_cast<FGetDescriptor>( image.GetFunction( "GetModuleDescriptor" ) ) : nullptr;
+		const SModuleDescriptor *pDesc = pfnGetDescriptor ? pfnGetDescriptor() : nullptr;
+		if ( !Check( pDesc != 0 && pDesc->pFactory != 0, "the engine's Image module loads beside the executable: " + szImage ) )
+			return 1;
+		CPtr<IImageProcessor> pIP = CreateObject<IImageProcessor>( pDesc->pFactory, IMAGE_PROCESSOR );
+		RegisterSingleton( IImageProcessor::tidTypeID, pIP );
+	}
 	std::map<EExportKind, fs::path> samples;
 	ShippedSelfCompare( data, scratch, &samples );
 	PlantedChanges( scratch, samples );

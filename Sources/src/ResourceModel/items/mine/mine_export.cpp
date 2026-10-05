@@ -3,11 +3,16 @@
 // "1" (ComposeSingleObject of 1.tga and 1s.tga) is the graphics half, which
 // a stats-only export leaves alone.
 //
+// MFC's CMineFrame overrides only FindMinimalExportFileTime, so the base
+// class's FindMaximalSourceTime (always newer) made every export compose:
+// bForce changes nothing here and nothing is counted as skipped.
+//
 // As for the weapon, MFC wrote the defaults while bNewProjectJustCreated was
 // set; the bridge exports saved projects only, so the tree is always used.
 #include "StdAfx.h"
 
 #include "../stats_export.h"
+#include "../../image_export.h"
 #include "../tree_item_types.h"
 #include "../../../Main/RPGStats.h"
 
@@ -54,7 +59,11 @@ bool ExportMine( const Project &project, const SExportContext &context, SExportO
 		return false;
 	// The sprite the game builds for the mine, "1" beside the stats.
 	outcome.szObjectName = DirectoryOf( szFile ) + "1";
-	return true;
+	if ( context.bStatsOnly )
+		return true;
+	const std::string szProjectDir = ProjectDirectory( context );
+	return NImageExport::ComposeSingleObject( context, szProjectDir + "1.tga", szProjectDir + "1s.tga", outcome.szObjectName,
+	                                          NImageExport::ReadGammaConfig( szProjectDir ), outcome );
 }
 
 }

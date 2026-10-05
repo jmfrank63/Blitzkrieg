@@ -28,6 +28,12 @@ struct SExportContext
 	std::string szStagingRoot;   // the export root's data/ folder, staged: write below it
 	bool bForce = false;         // MFC's -f: export even when the files are up to date
 	bool bStatsOnly = false;     // D-13: write the stats, leave exported graphics untouched
+	// The export root's data/ folder as it stands before this export, which
+	// the up-to-date check of the graphics reads (MFC compared the source
+	// files with the export it had already made). Empty for an export that
+	// has nothing to compare with, such as the preview's: everything is
+	// written.
+	std::string szDataRoot;
 
 	// D015: the objects database MFC's frames asked through IObjectsDB, which
 	// an exporter does not own. Given a resource path as MFC builds it (lower

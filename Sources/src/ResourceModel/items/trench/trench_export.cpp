@@ -1,7 +1,12 @@
 // The trench exporter: CTrenchFrame::SaveRPGStats (Sources/src/editor/
-// TrenchFrm.cpp:123-370) for the stats. ExportFrameData's graphics half (the
-// segment models copied beside the stats, 1/1w/1a converted from the first
-// model's folder) is left to the graphics export.
+// TrenchFrm.cpp:123-370) for the stats, and ExportFrameData's graphics half:
+// the segment models copied beside the stats by basename and 1/1w/1a converted
+// from the first model's folder.
+//
+// MFC's up-to-date check compares the sources with the export's "1.tga", which
+// the export never writes (it writes 1_c.dds and the like), so that file was
+// always missing and every export ran. The port exports every time as well and
+// counts nothing as skipped.
 //
 // MFC copied each segment model into the editor's temp folder, read its
 // bounding box from chunk 4 of the .mod and built it with IVisObjBuilder to
@@ -14,6 +19,7 @@
 #include <list>
 
 #include "../stats_export.h"
+#include "../../image_export.h"
 #include "../tree_item_types.h"
 #include "trench.h"
 #include "../../../Main/RPGStats.h"
@@ -230,6 +236,56 @@ bool FillRPGStats( SEntrenchmentRPGStats &rpgStats, const CTreeItem &rootItem, c
 	return true;
 }
 
+// A failure of one picture or copy is a line of MFC's output pane, not the end
+// of the export: the stats are written and the rest still tried.
+void Warn( SExportOutcome &outcome )
+{
+	if ( !outcome.szError.empty() )
+		outcome.warnings.push_back( outcome.szError );
+	outcome.szError.clear();
+}
+
+// CTrenchFrame::ExportFrameData after SaveRPGStats.
+void ExportGraphics( const CTreeItem &rootItem, const std::string &szStatsFile, const SExportContext &context, SExportOutcome &outcome )
+{
+	const std::string szResultDir = DirectoryOf( szStatsFile );
+	const NImageExport::SGamma gamma = NImageExport::ReadGammaConfig( ProjectDirectory( context ) );
+	int nCount = 0;
+	for ( int nTrenchIndex = 0; nTrenchIndex < 4; nTrenchIndex++ )
+	{
+		const CTreeItem *pTrenchParts = ChildItem( rootItem, ETIT_TRENCH_SOURCES_ITEM, nTrenchIndex );
+		if ( pTrenchParts == nullptr )
+			continue;
+		for ( const auto &pPart : pTrenchParts->GetChildren() )
+		{
+			const auto *pTrenchProps = dynamic_cast<const CTrenchSourcePropsItem *>( pPart.get() );
+			if ( pTrenchProps == nullptr )
+				continue;
+			const std::string szRel = ValueStr( *pTrenchProps, 0 );
+			const std::string szFullName = SourcePath( context, szRel );
+			const std::string::size_type nPos = szRel.find_last_of( "\\/" );
+			const std::string szShort = nPos != std::string::npos ? szRel.substr( nPos + 1 ) : szRel;
+			// The missing model was reported when the stats were filled.
+			std::error_code ec;
+			if ( std::filesystem::is_regular_file( szFullName, ec ) )
+			{
+				NImageExport::CopyFileInto( context, szFullName, szResultDir + szShort, outcome );
+				Warn( outcome );
+			}
+			if ( nCount == 0 )
+			{
+				const std::string szSourceDir = std::filesystem::path( szFullName ).parent_path().string() + "/";
+				for ( const char *pszName : { "1", "1w", "1a" } )
+				{
+					NImageExport::ConvertAndSaveImage( context, szSourceDir + pszName + ".tga", szResultDir + pszName, gamma, outcome );
+					Warn( outcome );
+				}
+			}
+			nCount++;
+		}
+	}
+}
+
 }
 
 bool ExportTrench( const Project &project, const SExportContext &context, SExportOutcome &outcome )
@@ -248,6 +304,11 @@ bool ExportTrench( const Project &project, const SExportContext &context, SExpor
 		tree.Add( "RPG", &rpgStats );
 	}, outcome ) )
 		return false;
+	if ( context.bStatsOnly )
+		return true;
+	// The sprite the game builds for the trench, "1" beside the stats.
+	outcome.szObjectName = DirectoryOf( szFile ) + "1";
+	ExportGraphics( *pProject->root, szFile, context, outcome );
 	return true;
 }
 

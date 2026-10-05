@@ -2831,6 +2831,9 @@ static void ShippedTrench( BkResSession *pSession, const std::string &szRoot, co
 	const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", "Units/Technics/Common/Entrenchment" );
 	for ( int i = 1; i <= 8; ++i )
 		fs::copy_file( shipped / ( std::to_string( i ) + ".mod" ), projectDir / ( std::to_string( i ) + ".mod" ), fs::copy_options::overwrite_existing, ec );
+	// The pictures the exporter converts from the first model's folder.
+	for ( const char *pszName : { "1.tga", "1w.tga", "1a.tga" } )
+		fs::copy_file( fs::path( szFixtureRoot ) / "trc" / pszName, projectDir / pszName, fs::copy_options::overwrite_existing, ec );
 	std::string szFixture;
 	ReadBytes( szFixtureRoot + "/trc/project.trc", szFixture );
 	const fs::path project = projectDir / "project.trc";

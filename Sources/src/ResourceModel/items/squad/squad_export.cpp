@@ -1,6 +1,7 @@
 // The squad exporter: CSquadFrame::SaveRPGStats (Sources/src/editor/
-// SquadFrm.cpp:216-285) for the stats. ExportFrameData's copy of the squad
-// picture beside the stats is the graphics half, left to the graphics export.
+// SquadFrm.cpp:216-285) for the stats, and ExportFrameData's copy of the squad
+// picture beside the stats. The squad frame did not override the up-to-date
+// check, so MFC exported every time and so does the port.
 //
 // Two things MFC took from the running editor:
 //   - IObjectsDB, to turn a member given as a path ("USSR\Mosin") into the
@@ -16,6 +17,7 @@
 #include <cmath>
 
 #include "../stats_export.h"
+#include "../../image_export.h"
 #include "../tree_item_types.h"
 #include "squad.h"
 #include "../../../Main/RPGStats.h"
@@ -211,11 +213,29 @@ bool ExportSquad( const Project &project, const SExportContext &context, SExport
 	if ( !FillRPGStats( rpgStats, *pProject->root, context, outcome ) )
 		return false;
 	const std::string szFile = StatsFileName( project, context, "squads\\", false );
-	return WriteStats( context, szFile, [&]( IDataTree *pDT )
+	if ( !WriteStats( context, szFile, [&]( IDataTree *pDT )
 	{
 		CTreeAccessor tree = pDT;
 		tree.Add( "RPG", &rpgStats );
-	}, outcome );
+	}, outcome ) )
+		return false;
+	if ( context.bStatsOnly || rpgStats.szIcon.empty() )
+		return true;
+	// A picture given by a backslash path is taken as it stands, any other is
+	// beside the project. MFC ignored a failed copy; the port reports it.
+	std::string szSource = rpgStats.szIcon;
+	std::string szShort = szSource;
+	const std::string::size_type nPos = szSource.rfind( '\\' );
+	if ( nPos != std::string::npos )
+		szShort = szSource.substr( nPos + 1 );
+	else
+		szSource = ProjectDirectory( context ) + szSource;
+	if ( !NImageExport::CopyFileInto( context, szSource, DirectoryOf( szFile ) + szShort, outcome ) )
+	{
+		outcome.warnings.push_back( outcome.szError );
+		outcome.szError.clear();
+	}
+	return true;
 }
 
 }
