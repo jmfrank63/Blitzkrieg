@@ -14,7 +14,10 @@
 //!                            szComposerSaveName as the base node). The body
 //!                            is a single `<fixture>` child item with a
 //!                            `name` chunk, which is as thin as the shape
-//!                            allows while still parsing.
+//!                            allows while still parsing. This file is only
+//!                            seeded: once a sub-editor's port replaces it
+//!                            with a project in MFC's item-tree shape (S03),
+//!                            the committed file is kept and only measured.
 //!
 //! plus one tiny source-art placeholder per editor kind:
 //!   picture   : art-16x16.tga -- 16 x 16 24-bit solid-colour targa (654 B).
@@ -347,6 +350,28 @@ fn writeIfChanged(
     return result;
 }
 
+/// Writes `data` only when `sub_path` does not exist yet; an existing file is
+/// kept and reported with its own size and hash. The project files start as
+/// stubs and are then replaced by projects the ResourceModel tests need in
+/// MFC's shape, which this generator must not overwrite.
+fn seedIfMissing(
+    io: std.Io,
+    out_dir: std.Io.Dir,
+    sub_path: []const u8,
+    data: []const u8,
+) !WriteResult {
+    if (out_dir.readFileAlloc(io, sub_path, std.heap.page_allocator, .limited(1024 * 1024))) |existing| {
+        defer std.heap.page_allocator.free(existing);
+        var kept: WriteResult = .{ .changed = false, .bytes = existing.len, .tag = undefined };
+        hashTag(existing, &kept.tag);
+        return kept;
+    } else |err| switch (err) {
+        error.FileNotFound => {},
+        else => return err,
+    }
+    return writeIfChanged(io, out_dir, sub_path, data);
+}
+
 fn usage() noreturn {
     std.debug.print("usage: resource-editor-fixtures --out <dir> [--log <file>]\n", .{});
     std.process.exit(2);
@@ -387,7 +412,7 @@ pub fn main(init: std.process.Init) !void {
         try out_dir.createDirPath(io, fx.ext);
         const project_bytes = try renderProject(arena, fx.composer_save_name);
         const project_sub = try std.fmt.allocPrint(arena, "{s}/project.{s}", .{ fx.ext, fx.ext });
-        const project_result = try writeIfChanged(io, out_dir, project_sub, project_bytes);
+        const project_result = try seedIfMissing(io, out_dir, project_sub, project_bytes);
         stats.note(project_result.changed, project_result.bytes);
 
         const art_name = artFileName(fx.art);
