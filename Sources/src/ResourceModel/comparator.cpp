@@ -771,6 +771,8 @@ const SRoundTripLoss kRoundTripLosses[] = {
 	{ EExportKind::ENTRENCHMENT, "RPG/Arcs#count", "derived from the segments the import cannot read back (see RPG/Segments)" },
 	{ EExportKind::SQUAD, "RPG/Formations/item[*]/Order/item[*]/Pos", "CSquadFrame::SaveRPGStats rebuilds each slot from the zero point with float arithmetic, so an imported slot differs from the shipped one by a few 1e-5" },
 	{ EExportKind::SQUAD, "RPG/Formations/item[*]/Order/item[*]/Dir", "CSquadFrame::SaveRPGStats rebuilds each slot from the zero point with float arithmetic, so an imported slot differs from the shipped one by a few 1e-6" },
+	{ EExportKind::FENCE, "RPG/Stats/item[*]/Origin", "a segment's origin is the sprite position minus its grid's corner, and the project stores the sprite position with six digits, so an imported origin differs from the shipped one by up to 5e-4" },
+	{ EExportKind::FENCE, "RPG/Stats/item[*]/VisOrigin", "a segment's origin is the sprite position minus its grid's corner, and the project stores the sprite position with six digits, so an imported origin differs from the shipped one by up to 5e-4" },
 	{ EExportKind::INFANTRY, "RPG/Commands", "CUnitActionsItem keeps only the actions of the editor's Actions list, so a shipped unit whose Commands bits lie beyond it comes back with fewer" },
 	{ EExportKind::INFANTRY, "RPG/Commands/Size", "CUnitActionsItem keeps only the actions of the editor's Actions list, so a shipped unit whose Commands bits lie beyond it comes back with fewer" },
 	{ EExportKind::INFANTRY, "RPG/Commands/BitArray", "CUnitActionsItem keeps only the actions of the editor's Actions list, so a shipped unit whose Commands bits lie beyond it comes back with fewer" },

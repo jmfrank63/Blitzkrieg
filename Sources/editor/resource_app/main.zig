@@ -537,7 +537,7 @@ fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, pic
 
     std.debug.print("resource-editor: host check PASS ({s}, {d}x{d}, {s}, {d} nodes)\n", .{ driver, width, height, kind.extension(), tree.total });
     if (docks) |measured| {
-        std.debug.print("resource-editor: docks PASS (import .unt from Gunner, .obt import refused, .unt preview begun, Run refused with the reason, thumbnail ({d},{d},{d}) decoded by the engine, {d} preview samples clear)\n", .{ measured.thumbnail.r, measured.thumbnail.g, measured.thumbnail.b, measured.preview_samples });
+        std.debug.print("resource-editor: docks PASS (import .unt from Gunner, .bld import refused, .unt preview begun, Run refused with the reason, thumbnail ({d},{d},{d}) decoded by the engine, {d} preview samples clear)\n", .{ measured.thumbnail.r, measured.thumbnail.g, measured.thumbnail.b, measured.preview_samples });
     } else std.debug.print("resource-editor: docks half skipped: no fixture picture given\n", .{});
     return true;
 }

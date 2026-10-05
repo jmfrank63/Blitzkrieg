@@ -355,6 +355,22 @@ bool SaveTga( const SExportContext &context, IImage *pImage, const std::string &
 	return true;
 }
 
+bool SaveTgaFile( const std::string &szPath, IImage *pImage, SExportOutcome &outcome )
+{
+	const fs::path file( Slashed( szPath ) );
+	std::string szDir = file.parent_path().string();
+	if ( szDir.empty() || szDir.back() != '/' )
+		szDir += '/';
+	CPtr<IDataStorage> pStorage = CreateStorage( szDir.c_str(), STREAM_ACCESS_WRITE, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->CreateStream( file.filename().string().c_str(), STREAM_ACCESS_WRITE ) : 0;
+	if ( pStream == 0 || !GetImageProcessor()->SaveImageAsTGA( pStream, pImage ) )
+	{
+		outcome.szError = "cannot write " + file.string();
+		return false;
+	}
+	return true;
+}
+
 bool CopyFileInto( const SExportContext &context, const std::string &szSource, const std::string &szName, SExportOutcome &outcome )
 {
 	const fs::path source( Slashed( szSource ) );

@@ -39,4 +39,9 @@ bool ReadObjectFrameData( const Project &project, SObjectFrameData &data, std::s
 // chunks when the project has none and leaving every other field as it was.
 void WriteObjectFrameData( Project &project, const SObjectFrameData &data );
 
+// The same on the project element itself, for a caller that holds only the
+// document (the bridge renders a save into one and recomputes desc there).
+bool ReadObjectFrameData( const NResourceXml::Node &root, SObjectFrameData &data, std::string &szError );
+void WriteObjectFrameData( NResourceXml::Node &root, const SObjectFrameData &data );
+
 }

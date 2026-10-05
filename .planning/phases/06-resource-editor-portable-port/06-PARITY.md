@@ -200,21 +200,21 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-10.1 | Tree: Common, Graphics (sprite/shadow, summer/winter/Africa), Particles, Passes, Effects | todo |
-| B-10.2 | Move, Draw grid, transparency dropdown, Set zero | todo |
-| B-10.3 | One-way transparency lines (`TransLines`) | todo |
-| B-10.4 | Export: `desc` = `SObjectRPGStats`, `1/1s/1w/1ws` `.san` + DDS, icon, `name.txt` | todo |
-| B-10.5 | Import from game data | todo |
+| B-10.1 | Tree: Common, Graphics (sprite/shadow, summer/winter/Africa), Particles, Passes, Effects | done (S05 tree/inspector; resource-editor-auto obt block expect=nodes_min:2) |
+| B-10.2 | Move, Draw grid, transparency dropdown, Set zero | done (S09 T04-T06: grid_tools tests, grid_logic tests, resource-editor-auto obt block draws, undoes, redoes and measures 0xff0000 and 0x606000 shots) |
+| B-10.3 | One-way transparency lines (`TransLines`) | done (S09: trans-line core tests; resource-editor-auto obt trans_line, lines:2 -> 3 -> 2 -> 3) |
+| B-10.4 | Export: `desc` = `SObjectRPGStats`, `1/1s/1w/1ws` `.san` + DDS, icon, `name.txt` | done on repo fixtures (S09 T02: bridge export tests; auto obt export checks 1.xml and 1_c.dds); golden pending win-home |
+| B-10.5 | Import from game data | done (S09 T02: obt importer and its bridge tests; the docks check no longer expects .obt to be refused) |
 
 ### B-11 Fence editor (`CFenceFrame`, `.fnc`, `fences\`) — 06-09
 
 | # | Feature | Status |
 |---|---|---|
-| B-11.1 | Tree: Common, Directions, Insert, per-segment properties | todo |
-| B-11.2 | Move, Draw grid, transparency dropdown, Centre fence on tile | todo |
-| B-11.3 | Thumbnail list | todo |
-| B-11.4 | Export: `SFenceRPGStats`, `ComposeFences` sprites, icon | todo |
-| B-11.5 | Import from game data | todo |
+| B-11.1 | Tree: Common, Directions, Insert, per-segment properties | done (S05 tree/inspector; resource-editor-auto fnc block expect=nodes_min:2) |
+| B-11.2 | Move, Draw grid, transparency dropdown, Centre fence on tile | done (S09 T04-T06: grid_tools and grid_logic tests; resource-editor-auto fnc block draws, centres, undoes, redoes and measures 0xff0000 and 0x808000 shots) |
+| B-11.3 | Thumbnail list | done (S05 thumbnail work and S09 T05 fence lists in panels.zig) |
+| B-11.4 | Export: `SFenceRPGStats`, `ComposeFences` sprites, icon | done on repo fixtures (S09 T03: bridge export tests, index-hole refusal; auto fnc export checks 1.xml and 1_c.dds); golden pending win-home |
+| B-11.5 | Import from game data | done (S09 T03: importer and bridge test) |
 
 ### B-12 Bridge editor (`CBridgeFrame`, `.bdg`, `bridges\`) — 06-11
 

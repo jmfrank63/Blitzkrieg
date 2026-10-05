@@ -66,6 +66,12 @@ pub const item_type = struct {
     pub const mesh_gun_props: i32 = base + 74;
     pub const mesh_locators: i32 = base + 77;
     pub const mesh_locator_props: i32 = base + 78;
+    pub const object_root: i32 = base + 51;
+    pub const fence_root: i32 = base + 121;
+    pub const fence_common_props: i32 = base + 122;
+    pub const fence_direction: i32 = base + 123;
+    pub const fence_insert: i32 = base + 124;
+    pub const fence_props: i32 = base + 125;
 };
 
 // --- Reading the mirror ------------------------------------------------------
@@ -428,6 +434,13 @@ pub fn spriteAddFrame(allocator: std.mem.Allocator, doc: *const Document, sprite
 /// active animation.
 pub fn infantryAddFrame(allocator: std.mem.Allocator, doc: *const Document, animation_node: i32, picture_name: []const u8) EditError!ResourceCommand {
     return addFrame(allocator, doc, animation_node, item_type.unit_animation_props, item_type.unit_frame_props, picture_name);
+}
+
+/// FenceFrm's DoubleClickOnThumbList: a CFencePropsItem named after the
+/// picture under the active insert item (the fence's insert type). MFC also
+/// numbers the segment (GetFreeFenceIndex); the exporter assigns it here.
+pub fn fenceAddSegment(allocator: std.mem.Allocator, doc: *const Document, insert_node: i32, picture_name: []const u8) EditError!ResourceCommand {
+    return addFrame(allocator, doc, insert_node, item_type.fence_insert, item_type.fence_props, picture_name);
 }
 
 /// DeleteFrameInTree: only a frame item goes; the unt tree's directories,

@@ -518,6 +518,11 @@ pub const Panels = struct {
             ig.igTextDisabled("This fence has no segment yet: double-click a picture in Thumbnails.");
             return;
         };
+        // Another kind (an Object project replaced by a Fence one) has other channels and tools.
+        if (self.grid_editor) |*stale| if (stale.registration.kind != registration.kind) {
+            stale.cancel(b);
+            self.grid_editor = null;
+        };
         if (self.grid_editor == null) {
             self.grid_editor = grid.GridEditor.init(gpa, registration, node);
         } else if (self.grid_editor.?.node != node) {

@@ -89,6 +89,9 @@ pub fn tileCorners(tx: i32, ty: i32) Corners {
 /// the MFC callers did; a fractional coordinate below zero is outside, not
 /// tile 0 as the C++ cast would make it.
 pub fn tileAt(point: Point2) ?[2]i32 {
+    // An absent pointer reads as NaN or a huge sentinel; neither is a pixel of the grid.
+    const limit: f32 = 1.0e6;
+    if (!(@abs(point.x) < limit and @abs(point.y) < limit)) return null;
     const f = gridToTileF(@intFromFloat(@trunc(point.x)), @intFromFloat(@trunc(point.y)));
     if (!(f[0] >= 0 and f[1] >= 0)) return null;
     if (f[0] >= @as(f32, @floatFromInt(grid_tiles)) or f[1] >= @as(f32, @floatFromInt(grid_tiles))) return null;

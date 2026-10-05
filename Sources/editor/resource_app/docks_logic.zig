@@ -8,6 +8,7 @@
 const std = @import("std");
 const core = @import("resource_core");
 const logic = @import("panels_logic.zig");
+const grid = @import("grid_logic.zig");
 
 const tools = core.sub_editor_tools;
 const bridge = core.bridge;
@@ -113,9 +114,17 @@ pub fn activeAnimation(doc: *const core.document.Document, selected: ?i32) ?i32 
     return tools.firstOfClass(doc, tools.item_type.unit_animation_props);
 }
 
+/// Whether the fence insert type already has a segment of this name.
+fn fenceSegmentNamed(doc: *const core.document.Document, insert: i32, name: []const u8) bool {
+    for (doc.tree.nodes.items) |*node| {
+        if (node.parent == insert and tools.isClass(node, tools.item_type.fence_props) and std.mem.eql(u8, node.displaySlice(), name)) return true;
+    }
+    return false;
+}
+
 /// A double-click on a listed picture (CThumbList's WM_THUMB_LIST_DBLCLK):
 /// a sprite takes a frame under its Sprites item, an infantry project one
-/// under the active animation. One undo step; a kind without frames, a
+/// under the active animation, a fence a segment under the active insert type. One undo step; a kind without frames, a
 /// read-only project and a picture that does not fit are refused.
 pub fn addFrameFromPicture(gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle, selected: ?i32, picture: []const u8) bridge.EditError!void {
     if (!life.is_open or life.read_only) return error.Refused;
@@ -123,6 +132,12 @@ pub fn addFrameFromPicture(gpa: std.mem.Allocator, b: ResBridge, life: *logic.Li
     const command = switch (life.doc.kind) {
         .sprite => try tools.spriteAddFrame(gpa, &life.doc, tools.firstOfClass(&life.doc, tools.item_type.sprites) orelse return error.Refused, name),
         .animation_infantry => try tools.infantryAddFrame(gpa, &life.doc, activeAnimation(&life.doc, selected) orelse return error.Refused, name),
+        .fence => blk: {
+            const insert = grid.activeInsert(&life.doc, selected) orelse return error.Refused;
+            // FenceFrm skips a picture the insert type already lists.
+            if (fenceSegmentNamed(&life.doc, insert, name)) return error.Refused;
+            break :blk try tools.fenceAddSegment(gpa, &life.doc, insert, name);
+        },
         else => return error.Refused,
     };
     try tools.commit(gpa, b, &life.doc, &life.history, command, 0);

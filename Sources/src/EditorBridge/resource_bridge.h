@@ -243,6 +243,27 @@ BkEditorStatus BkResSetPassabilityCells( BkResSession *session, int node, const 
 BkEditorStatus BkResGetLockedTiles( BkResSession *session, int node, unsigned char *out, int capacity, int *out_w, int *out_h );
 BkEditorStatus BkResSetLockedTiles( BkResSession *session, int node, const unsigned char *in, int w, int h );
 
+/* Object and fence transparency (S09). Both are the tile frame, like the
+   locked tiles: cell (x, y) is tile (x, y), values 0..7 (anything above is
+   BK_EDITOR_BAD_ARGUMENT), and a read grid ends at the furthest set tile.
+   BkResGet/SetTransparencyCells is an object root's transparency grid (the
+   desc visibility without the one-way tiles, which the trans-lines give);
+   BkResGet/SetFenceTransparences a fence segment's Transparences list.
+   BkResGet/SetPassabilityCells on an object root is the same tile frame: the
+   set grid is cropped at save and desc passability gets the origin of the zero
+   point the save ends with, so the pair stays consistent whatever order the
+   edits came in. On a fence segment it is the locked tiles (MFC keeps no
+   passability grid for a fence; the exporter builds one). */
+BkEditorStatus BkResGetTransparencyCells( BkResSession *session, int node, unsigned char *out, int capacity, int *out_w, int *out_h );
+BkEditorStatus BkResSetTransparencyCells( BkResSession *session, int node, const unsigned char *in, int w, int h );
+BkEditorStatus BkResGetFenceTransparences( BkResSession *session, int node, unsigned char *out, int capacity, int *out_w, int *out_h );
+BkEditorStatus BkResSetFenceTransparences( BkResSession *session, int node, const unsigned char *in, int w, int h );
+
+/* The sprite's place: an object root's own_data sprite_pos or a fence
+   segment's SpritePos (x, y; the z stays as stored). */
+BkEditorStatus BkResGetSpritePos( BkResSession *session, int node, BkResPoint2 *point );
+BkEditorStatus BkResSetSpritePos( BkResSession *session, int node, const BkResPoint2 *point );
+
 /* One-way transparency lines: a point list, two points (Point1, Point2) per
    line; an odd count is BK_EDITOR_BAD_ARGUMENT. */
 BkEditorStatus BkResGetTransparencyLines( BkResSession *session, int node, BkResPoint2 *out, int capacity, int *out_count );

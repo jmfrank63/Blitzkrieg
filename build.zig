@@ -8526,7 +8526,129 @@ const resource_auto_schedule =
     "229:do=preview_stop," ++
     "230:do=run_game," ++
     "231:waitgame=240," ++
-    "232:exit";
+    // S09 Object (ObjectFrm): a copy of the tracked fixture and its art opened, a locked tile, a
+    // transparency tile and a one-way line drawn, the zero point moved, each checked in the stored
+    // grid before and after, then undone and redone, saved and exported. The preview shots are
+    // measured: a locked tile is 0xff0000, transparency value 3 is 0x606000 (GridFrm's colours).
+    "240:do=mod_dir:{mods}/reseditor_auto_s09o," ++
+    "241:do=copy:{fix}/obt/project.obt>{dir}/obt/project.obt," ++
+    "241:do=copy:{fix}/obt/1.tga>{dir}/obt/1.tga," ++
+    "241:do=copy:{fix}/obt/1s.tga>{dir}/obt/1s.tga," ++
+    "241:do=copy:{fix}/obt/1w.tga>{dir}/obt/1w.tga," ++
+    "241:do=copy:{fix}/obt/1ws.tga>{dir}/obt/1ws.tga," ++
+    "241:do=copy:{fix}/obt/1a.tga>{dir}/obt/1a.tga," ++
+    "241:do=copy:{fix}/obt/1as.tga>{dir}/obt/1as.tga," ++
+    "242:open={dir}/obt/project.obt," ++
+    "243:expect=kind:obt," ++
+    "243:expect=nodes_min:2," ++
+    "244:expect=dirty:false," ++
+    "244:expect=grid_cell:5/5=0," ++
+    "244:expect=trans_cell:6/4=0," ++
+    "244:expect=lines:2," ++
+    "246:shot=obt_base," ++
+    "247:expect=shot_colour:obt_base/ff0000/max/1750," ++
+    "247:expect=shot_colour:obt_base/606000/max/0," ++
+    "248:do=grid_cell:5/5/1," ++
+    "249:expect=grid_cell:5/5=1," ++
+    "249:expect=dirty:true," ++
+    "250:do=grid_trans:6/4/3," ++
+    "251:expect=trans_cell:6/4=3," ++
+    "252:do=trans_line:4/8/7/8," ++
+    "253:expect=lines:3," ++
+    "256:shot=obt_drawn," ++
+    "257:expect=shot_colour:obt_drawn/ff0000/min/1850," ++
+    "257:expect=shot_colour:obt_drawn/606000/min/150," ++
+    "258:do=grid_zero:3/3," ++
+    "259:expect=zero_tile:3/3," ++
+    "260:do=undo," ++
+    "261:expect=zero_tile:0/0," ++
+    "262:do=undo," ++
+    "263:expect=lines:2," ++
+    "264:do=undo," ++
+    "265:expect=trans_cell:6/4=0," ++
+    "266:do=undo," ++
+    "267:expect=grid_cell:5/5=0," ++
+    "268:expect=dirty:false," ++
+    "270:shot=obt_undone," ++
+    "271:expect=shot_colour:obt_undone/ff0000/max/1750," ++
+    "271:expect=shot_colour:obt_undone/606000/max/0," ++
+    "271:differ=obt_drawn/obt_undone@0.01," ++
+    "272:do=redo," ++
+    "272:do=redo," ++
+    "272:do=redo," ++
+    "272:do=redo," ++
+    "276:expect=grid_cell:5/5=1," ++
+    "276:expect=trans_cell:6/4=3," ++
+    "276:expect=lines:3," ++
+    "276:expect=zero_tile:3/3," ++
+    "277:save," ++
+    "278:expect=dirty:false," ++
+    "279:do=export," ++
+    "280:expect=exported," ++
+    "281:expect=file:{mods}/reseditor_auto_s09o/data/objects/obt/1.xml," ++
+    "281:expect=file:{mods}/reseditor_auto_s09o/data/objects/obt/1_c.dds," ++
+    "284:shot=obt_saved," ++
+    "285:expect=shot_lit:obt_saved," ++
+    // S09 Fence (FenceFrm): the first segment's locked tile and transparency tile drawn, the sprite
+    // centred on a tile, each checked before and after, undone, redone, saved and exported.
+    "290:do=mod_dir:{mods}/reseditor_auto_s09f," ++
+    "291:do=copy:{fix}/fnc/project.fnc>{dir}/fnc/project.fnc," ++
+    "291:do=copy:{fix}/fnc/fences/art-16x16.tga>{dir}/fnc/fences/art-16x16.tga," ++
+    "291:do=copy:{fix}/fnc/fences/art-16x16s.tga>{dir}/fnc/fences/art-16x16s.tga," ++
+    "291:do=copy:{fix}/fnc/fences/ne-left.tga>{dir}/fnc/fences/ne-left.tga," ++
+    "291:do=copy:{fix}/fnc/fences/ne-lefts.tga>{dir}/fnc/fences/ne-lefts.tga," ++
+    "291:do=copy:{fix}/fnc/fences/nw.tga>{dir}/fnc/fences/nw.tga," ++
+    "291:do=copy:{fix}/fnc/fences/nws.tga>{dir}/fnc/fences/nws.tga," ++
+    "291:do=copy:{fix}/fnc/fences/sw.tga>{dir}/fnc/fences/sw.tga," ++
+    "291:do=copy:{fix}/fnc/fences/sws.tga>{dir}/fnc/fences/sws.tga," ++
+    "291:do=copy:{fix}/fnc/fences/se.tga>{dir}/fnc/fences/se.tga," ++
+    "291:do=copy:{fix}/fnc/fences/ses.tga>{dir}/fnc/fences/ses.tga," ++
+    "292:open={dir}/fnc/project.fnc," ++
+    "293:expect=kind:fnc," ++
+    "293:expect=nodes_min:2," ++
+    "294:expect=dirty:false," ++
+    "294:expect=grid_cell:19/17=0," ++
+    "294:expect=trans_cell:18/19=0," ++
+    "294:expect=sprite_tile:16/16," ++
+    "296:shot=fnc_base," ++
+    "297:expect=shot_colour:fnc_base/ff0000/max/0," ++
+    "297:expect=shot_colour:fnc_base/808000/max/0," ++
+    "298:do=grid_cell:19/17/1," ++
+    "299:expect=grid_cell:19/17=1," ++
+    "299:expect=dirty:true," ++
+    "300:do=grid_trans:18/19/4," ++
+    "301:expect=trans_cell:18/19=4," ++
+    "302:do=fence_centre:20/20," ++
+    "303:expect=sprite_tile:20/20," ++
+    "306:shot=fnc_drawn," ++
+    "307:expect=shot_colour:fnc_drawn/ff0000/min/200," ++
+    "307:expect=shot_colour:fnc_drawn/808000/min/150," ++
+    "308:do=undo," ++
+    "309:expect=sprite_tile:16/16," ++
+    "310:do=undo," ++
+    "311:expect=trans_cell:18/19=0," ++
+    "312:do=undo," ++
+    "313:expect=grid_cell:19/17=0," ++
+    "314:expect=dirty:false," ++
+    "316:shot=fnc_undone," ++
+    "317:expect=shot_colour:fnc_undone/ff0000/max/0," ++
+    "317:expect=shot_colour:fnc_undone/808000/max/0," ++
+    "317:differ=fnc_drawn/fnc_undone@0.01," ++
+    "318:do=redo," ++
+    "319:do=redo," ++
+    "320:do=redo," ++
+    "321:expect=grid_cell:19/17=1," ++
+    "321:expect=trans_cell:18/19=4," ++
+    "321:expect=sprite_tile:20/20," ++
+    "322:save," ++
+    "323:expect=dirty:false," ++
+    "324:do=export," ++
+    "325:expect=exported," ++
+    "326:expect=file:{mods}/reseditor_auto_s09f/data/fences/fnc/1.xml," ++
+    "326:expect=file:{mods}/reseditor_auto_s09f/data/fences/fnc/1_c.dds," ++
+    "329:shot=fnc_saved," ++
+    "330:expect=shot_lit:fnc_saved," ++
+    "331:exit";
 
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static

@@ -38,6 +38,14 @@
 //!   do=preview_on           from here the preview scene follows the open project, as in the docks
 //!   do=preview_run          do=preview_stop   Run (F5) and Stop of the preview, through previewPlayback
 //!   do=pause:<ms>           real time passes, for the preview's clock
+//!   do=grid_cell:<x>/<y>/<v>   a locked tile of the Object or Fence grid (0 erases), as the Draw grid tool's click
+//!   do=grid_trans:<x>/<y>/<v>  a transparency tile, value 1..7 (0 erases), as the Draw transparency tool's click
+//!   do=trans_line:<x1>/<y1>/<x2>/<y2>   a one-way line dragged between two tile centres (Object)
+//!   do=grid_zero:<x>/<y>    Set zero clicked on a tile centre (Object)
+//!   do=fence_centre:<x>/<y>   Centre on tile clicked on a tile (Fence)
+//!   do=sprite_move:<dx>/<dy>  Move: the sprite dragged by that many grid pixels
+//!   The grid verbs need a frame drawn since the project opened (the grid editor lives in the panels)
+//!   and go through GridEditor's press, move and release, the path of the mouse.
 //!   open=<path> save saveas=<path> shot=<name> differ=<a>/<b>@<percent> exit
 //!   expect=kind:<ext>  dirty:<true|false>  untitled  nodes_min:<n>
 //!          prop:<name>=<value>  exported  file:<path>  shot_lit:<name>
@@ -45,6 +53,10 @@
 //!          slot:<n>=moved|home  the formation member against where the drag found it
 //!          direction:<radians>  the formation's direction
 //!          selected:<name>  the tree's selected node shows that name (a picked locator)
+//!          grid_cell:<x>/<y>=<v>  trans_cell:<x>/<y>=<v>  the stored locked / transparency value of a tile
+//!          lines:<n>  the Object's one-way line count  zero_tile:<x>/<y>  the zero point's tile (Object)
+//!          sprite_tile:<x>/<y>  the sprite's tile (Fence)  sprite:moved|home  against where sprite_move found it
+//!          shot_colour:<shot>/<RRGGBB>/min|max/<n>  the pixels of exactly that colour in a shot
 //!
 //! `{dir}` (the scratch folder), `{fix}` (the fixtures folder) and `{mods}`
 //! (the installation's mods folder) are replaced in every path and argument,
@@ -70,6 +82,7 @@ const tools = @import("tools_logic.zig");
 const squad = @import("squad_logic.zig");
 const docks_logic = @import("docks_logic.zig");
 const mesh = @import("mesh_logic.zig");
+const grid = @import("grid_logic.zig");
 
 const c = c_bridge.c;
 
@@ -299,6 +312,8 @@ const Runner = struct {
     preview_on: bool = false,
     /// The slot a squad_drag moved and where it stood before, for expect=slot.
     dragged: ?struct { formation: i32, slot: usize, home: Point2 } = null,
+    /// Where the sprite stood before the first sprite_move, for expect=sprite.
+    sprite_home: ?Point2 = null,
     frame: u32 = 0,
     message: [768]u8 = undefined,
 
@@ -575,6 +590,28 @@ const Runner = struct {
             if (self.preview.running) return self.fail("preview_stop: the preview is still running", .{});
             return null;
         }
+        if (eql(u8, name, "grid_cell") or eql(u8, name, "grid_trans")) {
+            const parts = parseInts(3, named.arg) orelse return self.fail("{s} needs <x>/<y>/<value>", .{name});
+            const trans = name[5] == 't';
+            if (parts[2] < 0 or parts[2] > grid_value_max) return self.fail("{s}: the value {d} is out of range", .{ name, parts[2] });
+            const value: u8 = @intCast(parts[2]);
+            if (trans and value != 0) {
+                const editor = self.gridEditor(name) orelse return self.fail("{s}: no grid editor is open (draw a frame after opening an obt or fnc)", .{name});
+                editor.setTransparency(value);
+            }
+            const tile = [2]i32{ parts[0], parts[1] };
+            return self.gridStroke(name, if (trans) .draw_transparency else .draw_grid, tile, tile, value == 0);
+        }
+        if (eql(u8, name, "trans_line")) {
+            const p = parseInts(4, named.arg) orelse return self.fail("trans_line needs <x1>/<y1>/<x2>/<y2>", .{});
+            return self.gridStroke(name, .one_way_line, .{ p[0], p[1] }, .{ p[2], p[3] }, false);
+        }
+        if (eql(u8, name, "grid_zero") or eql(u8, name, "fence_centre")) {
+            const p = parseInts(2, named.arg) orelse return self.fail("{s} needs <x>/<y>", .{name});
+            const tile = [2]i32{ p[0], p[1] };
+            return self.gridStroke(name, if (name[0] == 'g') .set_zero else .centre_on_tile, tile, tile, false);
+        }
+        if (eql(u8, name, "sprite_move")) return self.spriteMove(named.arg);
         if (eql(u8, name, "pause")) {
             const ms = std.fmt.parseInt(i64, named.arg, 10) catch return self.fail("pause needs milliseconds", .{});
             self.io.sleep(.fromMilliseconds(ms), .awake) catch {};
@@ -679,6 +716,109 @@ const Runner = struct {
             return self.fail("squad_arrow: {s}", .{b.lastMessage()});
         };
         overlay.release(b, &self.life.doc, &self.life.history, at) catch return self.fail("squad_arrow: {s}", .{b.lastMessage()});
+        return null;
+    }
+
+    /// The panels' grid editor of the open Object or Fence, null before the
+    /// first frame drawn over such a project.
+    fn gridEditor(self: *Runner, verb: []const u8) ?*grid.GridEditor {
+        _ = verb;
+        if (self.panels.grid_editor) |*editor| return editor;
+        return null;
+    }
+
+    /// One mouse gesture of a grid tool, press at the centre of tile `from`,
+    /// move and release at the centre of `to`, through the editor the panels
+    /// feed the mouse to, so it is the same undo step a click makes.
+    fn gridStroke(self: *Runner, verb: []const u8, tool: grid.Tool, from: [2]i32, to: [2]i32, erase: bool) ?[]const u8 {
+        const b = self.bridge();
+        const editor = self.gridEditor(verb) orelse return self.fail("{s}: no grid editor is open (draw a frame after opening an obt or fnc)", .{verb});
+        for ([_][2]i32{ from, to }) |tile| {
+            if (tile[0] < 0 or tile[1] < 0 or tile[0] >= grid.grid_tiles or tile[1] >= grid.grid_tiles)
+                return self.fail("{s}: tile {d}/{d} is outside the {d} x {d} grid", .{ verb, tile[0], tile[1], grid.grid_tiles, grid.grid_tiles });
+        }
+        editor.setTool(b, tool) catch return self.fail("{s}: the {s} tool is not offered for .{s}", .{ verb, tool.label(), self.life.doc.kind.extension() });
+        const start = editor.view.toScreen(grid.tileCentre(from[0], from[1]));
+        const end = editor.view.toScreen(grid.tileCentre(to[0], to[1]));
+        editor.press(b, start, erase) catch return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
+        editor.move(b, end) catch {
+            editor.cancel(b);
+            return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
+        };
+        editor.release(b, &self.life.doc, &self.life.history, end) catch return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
+        return null;
+    }
+
+    /// The Move tool: press on the sprite's own spot, drag by a grid offset.
+    fn spriteMove(self: *Runner, arg: []const u8) ?[]const u8 {
+        const b = self.bridge();
+        const offset = parsePoint(arg) orelse return self.fail("sprite_move needs <dx>/<dy>", .{});
+        const editor = self.gridEditor("sprite_move") orelse return self.fail("sprite_move: no grid editor is open (draw a frame after opening an obt or fnc)", .{});
+        editor.setTool(b, .move) catch return self.fail("sprite_move: the Move tool is not offered", .{});
+        const home = (sub_tools.readGeometry(b, editor.node, .sprite_pos) catch return self.fail("sprite_move: {s}", .{b.lastMessage()})).point2;
+        if (self.sprite_home == null) self.sprite_home = home;
+        const at = grid.worldToGrid(home);
+        const start = editor.view.toScreen(at);
+        const end = editor.view.toScreen(.{ .x = at.x + offset.x, .y = at.y + offset.y });
+        editor.press(b, start, false) catch return self.fail("sprite_move: {s}", .{b.lastMessage()});
+        editor.move(b, end) catch {
+            editor.cancel(b);
+            return self.fail("sprite_move: {s}", .{b.lastMessage()});
+        };
+        editor.release(b, &self.life.doc, &self.life.history, end) catch return self.fail("sprite_move: {s}", .{b.lastMessage()});
+        return null;
+    }
+
+    /// The stored byte of a tile in the passability or transparency grid.
+    fn cellValue(self: *Runner, comptime transparency: bool, x: i32, y: i32) ?u8 {
+        const editor = self.gridEditor("cell") orelse return null;
+        const channel = if (transparency) editor.registration.transparency else editor.registration.passability;
+        var read = sub_tools.readGeometry(self.bridge(), editor.node, channel) catch return null;
+        defer read.deinit(self.gpa);
+        const width: i32 = @intCast(read.bytes_grid.width);
+        if (x < 0 or y < 0) return null;
+        // The grid grows as tiles are painted, so a tile past its end holds 0.
+        if (x >= width) return 0;
+        const index: usize = @intCast(y * width + x);
+        if (index >= read.bytes_grid.bytes.len) return 0;
+        return read.bytes_grid.bytes[index];
+    }
+
+    /// Pixels of a captured shot that are exactly `rgb`, alpha ignored.
+    fn shotColourCount(self: *Runner, name: []const u8, rgb: u32) ?usize {
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const path = self.shotPath(&path_buffer, name) orelse return null;
+        const bytes = readFile(self.io, self.gpa, path) catch return null;
+        defer self.gpa.free(bytes);
+        const tga = schedule.Tga.parse(bytes) catch return null;
+        var count: usize = 0;
+        var y: u32 = 0;
+        while (y < tga.height) : (y += 1) {
+            var x: u32 = 0;
+            while (x < tga.width) : (x += 1) {
+                const p = tga.pixel(x, y);
+                if (p[2] == (rgb >> 16 & 0xff) and p[1] == (rgb >> 8 & 0xff) and p[0] == (rgb & 0xff)) count += 1;
+            }
+        }
+        return count;
+    }
+
+    /// `<shot>/<RRGGBB>/min|max/<n>`: the shot's count of that exact colour
+    /// against a bound. The count is printed whether the bound holds or not.
+    fn shotColour(self: *Runner, arg: []const u8) ?[]const u8 {
+        var parts = std.mem.splitScalar(u8, arg, '/');
+        const shot = parts.next() orelse "";
+        const hex = parts.next() orelse "";
+        const bound = parts.next() orelse "";
+        const limit_text = parts.next() orelse "";
+        const rgb = std.fmt.parseInt(u32, hex, 16) catch return self.fail("shot_colour needs <shot>/<RRGGBB>/min|max/<n>", .{});
+        const limit = std.fmt.parseInt(usize, limit_text, 10) catch return self.fail("shot_colour needs <shot>/<RRGGBB>/min|max/<n>", .{});
+        const is_min = std.mem.eql(u8, bound, "min");
+        if (!is_min and !std.mem.eql(u8, bound, "max")) return self.fail("shot_colour needs min or max, not '{s}'", .{bound});
+        const count = self.shotColourCount(shot, rgb) orelse return self.fail("expect=shot_colour:{s}: the shot could not be read", .{arg});
+        std.debug.print("resource-editor: auto: {s} has {d} pixels of #{s} ({s} {d})\n", .{ shot, count, hex, bound, limit });
+        if (is_min and count < limit) return self.fail("expect=shot_colour:{s} was false: #{s} fills {d} pixels, at least {d} wanted", .{ arg, hex, count, limit });
+        if (!is_min and count > limit) return self.fail("expect=shot_colour:{s} was false: #{s} fills {d} pixels, at most {d} wanted", .{ arg, hex, count, limit });
         return null;
     }
 
@@ -800,9 +940,55 @@ const Runner = struct {
             if (@abs(read.point2.x - want) > 1e-3) return self.fail("expect=direction:{s} was false: it is {d:.4}", .{ arg, read.point2.x });
             return null;
         }
+        if (eql(u8, name, "grid_cell") or eql(u8, name, "trans_cell")) {
+            const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return self.fail("{s} needs <x>/<y>=<value>", .{name});
+            const at = parseInts(2, arg[0..eq]) orelse return self.fail("{s} needs <x>/<y>=<value>", .{name});
+            const want = std.fmt.parseInt(u8, arg[eq + 1 ..], 10) catch return self.fail("{s} needs a value 0..255", .{name});
+            const got = (if (name[0] == 'g') self.cellValue(false, at[0], at[1]) else self.cellValue(true, at[0], at[1])) orelse return self.fail("expect={s}:{s} was false: the cell cannot be read", .{ name, arg });
+            if (got != want) return self.fail("expect={s}:{s} was false: the tile holds {d}", .{ name, arg, got });
+            return null;
+        }
+        if (eql(u8, name, "lines")) {
+            const want = std.fmt.parseInt(usize, arg, 10) catch return self.fail("lines needs a count", .{});
+            const editor = self.gridEditor("lines") orelse return self.fail("expect=lines: no grid editor is open", .{});
+            var read = sub_tools.readGeometry(self.bridge(), editor.node, .transparency_lines) catch return self.fail("expect=lines:{s}: {s}", .{ arg, self.bridge().lastMessage() });
+            defer read.deinit(self.gpa);
+            if (read.points2.len / 2 != want) return self.fail("expect=lines:{s} was false: {d} lines", .{ arg, read.points2.len / 2 });
+            return null;
+        }
+        if (eql(u8, name, "zero_tile") or eql(u8, name, "sprite_tile")) {
+            const want = parseInts(2, arg) orelse return self.fail("{s} needs <x>/<y>", .{name});
+            const editor = self.gridEditor("tile") orelse return self.fail("expect={s}: no grid editor is open", .{name});
+            const channel: core.bridge.GeometryChannel = if (name[0] == 'z') .zero_point else .sprite_pos;
+            const read = sub_tools.readGeometry(self.bridge(), editor.node, channel) catch return self.fail("expect={s}:{s}: {s}", .{ name, arg, self.bridge().lastMessage() });
+            const tile = grid.tileAt(grid.worldToGrid(read.point2)) orelse return self.fail("expect={s}:{s} was false: the point is off the grid", .{ name, arg });
+            if (tile[0] != want[0] or tile[1] != want[1]) return self.fail("expect={s}:{s} was false: it is tile {d}/{d}", .{ name, arg, tile[0], tile[1] });
+            return null;
+        }
+        if (eql(u8, name, "sprite")) {
+            const home = self.sprite_home orelse return self.fail("expect=sprite:{s}: no sprite_move ran", .{arg});
+            const editor = self.gridEditor("sprite") orelse return self.fail("expect=sprite: no grid editor is open", .{});
+            const at = (sub_tools.readGeometry(self.bridge(), editor.node, .sprite_pos) catch return self.fail("expect=sprite:{s}: {s}", .{ arg, self.bridge().lastMessage() })).point2;
+            const moved = @abs(at.x - home.x) > 1e-3 or @abs(at.y - home.y) > 1e-3;
+            if (moved != eql(u8, arg, "moved")) return self.fail("expect=sprite:{s} was false: it is at {d:.2}/{d:.2}, it started at {d:.2}/{d:.2}", .{ arg, at.x, at.y, home.x, home.y });
+            return null;
+        }
+        if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
         return self.fail("unknown predicate '{s}'", .{name});
     }
 };
+
+/// The grid verbs' largest value: a transparency step (a locked tile is any non-zero value).
+const grid_value_max: i32 = 7;
+
+/// `n` slash-separated whole numbers; null when there are not exactly that many.
+fn parseInts(comptime n: usize, text: []const u8) ?[n]i32 {
+    var out: [n]i32 = undefined;
+    var parts = std.mem.splitScalar(u8, text, '/');
+    for (&out) |*slot| slot.* = std.fmt.parseInt(i32, parts.next() orelse return null, 10) catch return null;
+    if (parts.next() != null) return null;
+    return out;
+}
 
 fn parsePoint(text: []const u8) ?Point2 {
     var parts = std.mem.splitScalar(u8, text, '/');

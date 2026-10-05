@@ -329,8 +329,13 @@ SObjectFrameData::SObjectFrameData()
 
 bool ReadObjectFrameData( const Project &project, SObjectFrameData &data, std::string &szError )
 {
+	return ReadObjectFrameData( project.document.root, data, szError );
+}
+
+bool ReadObjectFrameData( const NResourceXml::Node &root, SObjectFrameData &data, std::string &szError )
+{
 	data = SObjectFrameData();
-	if ( const NResourceXml::Node *pOwnData = NResourceXml::FindChild( project.document.root, "own_data" ) )
+	if ( const NResourceXml::Node *pOwnData = NResourceXml::FindChild( root, "own_data" ) )
 	{
 		ReadVec( NResourceXml::FindChild( *pOwnData, "sprite_pos" ), data.vSpritePos );
 		ReadVec( NResourceXml::FindChild( *pOwnData, "krest_pos" ), data.vZeroPos );
@@ -343,7 +348,7 @@ bool ReadObjectFrameData( const Project &project, SObjectFrameData &data, std::s
 				data.transLines.push_back( line );
 			}
 	}
-	if ( const NResourceXml::Node *pDesc = NResourceXml::FindChild( project.document.root, "desc" ) )
+	if ( const NResourceXml::Node *pDesc = NResourceXml::FindChild( root, "desc" ) )
 	{
 		if ( !ReadGrid( NResourceXml::FindChild( *pDesc, "passability" ), "desc passability", data.passability, szError ) ||
 		     !ReadGrid( NResourceXml::FindChild( *pDesc, "visibility" ), "desc visibility", data.visibility, szError ) )
@@ -356,7 +361,12 @@ bool ReadObjectFrameData( const Project &project, SObjectFrameData &data, std::s
 
 void WriteObjectFrameData( Project &project, const SObjectFrameData &data )
 {
-	NResourceXml::Node &ownData = ChildOrNew( project.document.root, "own_data" );
+	WriteObjectFrameData( project.document.root, data );
+}
+
+void WriteObjectFrameData( NResourceXml::Node &root, const SObjectFrameData &data )
+{
+	NResourceXml::Node &ownData = ChildOrNew( root, "own_data" );
 	WriteVec( ChildOrNew( ownData, "sprite_pos" ), data.vSpritePos.x, data.vSpritePos.y, &data.vSpritePos.z );
 	WriteVec( ChildOrNew( ownData, "krest_pos" ), data.vZeroPos.x, data.vZeroPos.y, &data.vZeroPos.z );
 	NResourceXml::Node &lines = ChildOrNew( ownData, "TransLines" );
@@ -372,7 +382,7 @@ void WriteObjectFrameData( Project &project, const SObjectFrameData &data )
 		lines.children.push_back( std::move( item ) );
 	}
 
-	NResourceXml::Node &desc = ChildOrNew( project.document.root, "desc" );
+	NResourceXml::Node &desc = ChildOrNew( root, "desc" );
 	WriteGrid( ChildOrNew( desc, "passability" ), data.passability );
 	WriteVec( ChildOrNew( desc, "origin" ), data.vOrigin.x, data.vOrigin.y, nullptr );
 	WriteVec( ChildOrNew( desc, "VisOrigin" ), data.vVisOrigin.x, data.vVisOrigin.y, nullptr );

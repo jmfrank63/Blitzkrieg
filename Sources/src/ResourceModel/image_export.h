@@ -84,6 +84,11 @@ bool SaveSpritesPack( const SExportContext &context, SSpritesPack &pack, const s
 // counts the file in outcome.nWritten when it is.
 bool SaveTga( const SExportContext &context, IImage *pImage, const std::string &szName, SExportOutcome &outcome );
 
+// SaveImageAsTGA into any folder (not the staging root): the temporary
+// pictures an export hands to a later step that wants file names, such as the
+// fence shadows ComposeFences feeds to BuildAnimations. The folder must exist.
+bool SaveTgaFile( const std::string &szPath, IImage *pImage, SExportOutcome &outcome );
+
 // MyCopyFile into the staging root: szSource copied to szName, replacing it.
 // False with outcome.szError when the source is not there or the copy fails.
 bool CopyFileInto( const SExportContext &context, const std::string &szSource, const std::string &szName, SExportOutcome &outcome );
