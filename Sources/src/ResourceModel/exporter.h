@@ -52,6 +52,14 @@ struct SExportContext
 	// a segment without fire places. False with szError when the model
 	// cannot be built (MFC's "Cannot create model": the segment is skipped).
 	std::function<bool( const std::string &szModFile, std::vector<std::pair<float, float>> &firePlaces, std::string &szError )> meshFirePlaces;
+
+	// The weapon lookup CMeshFrame::FillRPGStats made through IObjectsDB
+	// (gun.RetrieveShortcuts): whether the weapon fires a howitzer or cannon
+	// shell, which makes the platform's elevation that of the shoot point.
+	// False when the weapon is not known. The bridge fills it from the engine;
+	// tests pass a fixture table. Empty: every weapon is unknown, which the
+	// export reports as a warning and treats as not ballistic.
+	std::function<bool( const std::string &szWeapon, bool &bBallistic )> isBallisticWeapon;
 };
 
 struct SExportOutcome

@@ -1811,6 +1811,13 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// as in MFC, and the stats are written (S07Infantry proves the frames).
 				Check( status == BK_EDITOR_OK, "export: .unt exports through its S07 exporter" );
 			}
+			else if ( szExt == "msh" )
+			{
+				// The fixture names models that do not sit next to it: MFC's "Can not load
+				// combat mechanics file" (S08Mesh proves the export with the shipped models).
+				Check( status == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "Can not load combat mechanics file" ) != 0 && report.written == 0,
+				       "export: .msh without its combat model fails with MFC's message" );
+			}
 			else if ( IsPortedExport( szExt ) )
 			{
 				if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S06 exporter" ).c_str() ) )
@@ -1861,14 +1868,14 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		Check( !fs::exists( modData / "medals/t10/half.xml", ec ) && !fs::exists( modDir / ".bk-export-staging", ec ),
 		       "export: a failed export leaves no file in data/ and no staging" );
 
-		// Batch: an mdc and a wpn (exported), a msh (not ported: skipped with
+		// Batch: an mdc and a wpn (exported), a pcp (not ported: skipped with
 		// a warning), then -os re-saving a wpn unchanged.
 		NResourceModel::RegisterExporter( "mdc", &GoodExporter );
 		const fs::path src = scratch / "batch-src";
 		fs::create_directories( src / "nested", ec );
 		fs::copy_file( szFixtureRoot + "/mdc/project.mdc", src / "nested" / "medal.mdc", fs::copy_options::overwrite_existing, ec );
 		fs::copy_file( szFixtureRoot + "/wpn/project.wpn", src / "weapon.wpn", fs::copy_options::overwrite_existing, ec );
-		fs::copy_file( szFixtureRoot + "/msh/project.msh", src / "mesh.msh", fs::copy_options::overwrite_existing, ec );
+		fs::copy_file( szFixtureRoot + "/pcp/project.pcp", src / "particle.pcp", fs::copy_options::overwrite_existing, ec );
 		const fs::path dst = scratch / "BatchOut";
 		BkResWarning batchWarnings[8] = {};
 		report = BkResExportReport();
@@ -1881,7 +1888,7 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		for ( int i = 0; i < report.warning_count && i < 8; ++i )
 			if ( std::strstr( batchWarnings[i].text, "not ported yet" ) != 0 )
 				++nNotPorted;
-		Check( report.written == 3 && report.skipped == 1 && nNotPorted == 1, "batch: mdc and wpn exported, msh skipped as not ported" );
+		Check( report.written == 3 && report.skipped == 1 && nNotPorted == 1, "batch: mdc and wpn exported, pcp skipped as not ported" );
 		Check( fs::is_regular_file( dst / "data" / "weapons" / "batch-src.xml", ec ), "batch: the weapon lands in dst/data/weapons/<project folder>.xml" );
 		Check( fs::is_regular_file( dst / "data" / "medals/t10/1.xml", ec ), "batch: the export lands in dst/data/" );
 		std::string szBefore, szResaved;
@@ -3165,6 +3172,135 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 }
 
+namespace S08Mesh
+{
+
+// The shipped 8_cm_GrWr34 (its current.msh is the 06_Mesh test project, byte for
+// byte) exported stats-only must be the 1.xml MFC wrote for it: the proof of
+// the FillRPGStats port. The .mod files are the only models it needs; the
+// textures are a warning, a stats-only export writes none of them.
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s08-mesh";
+	fs::remove_all( scratch, ec );
+	const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", "Units/Technics/German/Artillery/8_cm_GrWr34" );
+	const fs::path source = T11::FoldedPath( fs::path( szRoot ) / "Data", "Editor/TestProjects/06_Mesh/current.msh" );
+	const fs::path projectDir = scratch / "8_cm_GrWr34";
+	fs::create_directories( projectDir, ec );
+	for ( const char *pszName : { "1.mod", "2.mod" } )
+		fs::copy_file( T11::FoldedPath( shipped, pszName ), projectDir / pszName, fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / "current.msh";
+	fs::copy_file( source, project, fs::copy_options::overwrite_existing, ec );
+	if ( !Check( !ec && fs::is_regular_file( project, ec ), "mesh: the shipped model files and current.msh are copied" ) )
+		return;
+
+	const fs::path modDir = scratch / "mod";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S08 mesh" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "mesh: the mod folder is set" );
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "mesh: current.msh opens" ) )
+		return;
+	BkResExportReport report = {};
+	BkResWarning warnings[16] = {};
+	report.warnings = warnings;
+	report.warnings_capacity = 16;
+	if ( !Check( BkResExportStatsOnly( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK && report.written >= 1, "mesh: exported stats-only" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return;
+	}
+	for ( int i = 0; i < report.warning_count && i < 16; ++i )
+		std::printf( "   mesh warning: %s\n", warnings[i].text );
+	fs::path xml;
+	int nModels = 0;
+	for ( fs::recursive_directory_iterator it( modDir / "data", ec ), end; !ec && it != end; it.increment( ec ) )
+	{
+		if ( !it->is_regular_file( ec ) )
+			continue;
+		if ( it->path().filename() == "1.xml" )
+			xml = it->path();
+		if ( it->path().extension() == ".mod" || it->path().extension() == ".dds" )
+			++nModels;
+	}
+	Check( !xml.empty() && nModels == 0, "mesh: the stats-only export wrote a 1.xml and no .mod or .dds" );
+	const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::MECH_UNIT, xml.string(), T11::FoldedPath( shipped, "1.xml" ).string() );
+	std::printf( "ROUNDTRIP msh 8_cm_GrWr34: %s, %d fields compared\n", NResourceModel::CompareStatusName( result.status ), result.nFieldsCompared );
+	// What the oracle can and cannot say (the plan assumed more). The shipped
+	// 1.xml is Valencia's 2003 export with floats printed to six digits, and
+	// 06_Mesh/current.msh is a project that was reset to template values after
+	// that export (camouflage 1, empty first platform locator, 6 armor...), so
+	// the fields that come from the project's property values differ by design
+	// and are listed here, never compared. Everything that comes from the .mod
+	// files - boxes, people, ammo and gunner points, node indices, shoot point,
+	// direction, anim descs - must agree with the shipped file to its six digits.
+	// The exact-float proof of the property half is the import-then-export round
+	// trip (T02), where the property values come from the 1.xml itself.
+	static const char *const kProjectFields[] = { "RPG/Camouflage", "RPG/UninstallRotate", "RPG/UninstallTransport", "RPG/Commands",
+		"RPG/DeathCraters", "RPG/Platforms/", "RPG/Armor", "RPG/Track", "RPG/DivingAngle", "RPG/ClimbAngle",
+		"RPG/Guns/item[0]/Priority", "RPG/Guns/item[0]/ReloadCost", "RPG/Guns/item[0]/RecoilShake" };
+	int nModelDifferences = 0;
+	int nProjectDifferences = 0;
+	for ( const std::string &szMessage : result.messages )
+	{
+		const std::string::size_type nPath = szMessage.find( "RPG/" );
+		const std::string::size_type nEnd = szMessage.find_first_of( ":", nPath );
+		const std::string szPath = nPath == std::string::npos ? szMessage : szMessage.substr( nPath, nEnd - nPath );
+		bool bProject = false;
+		for ( const char *pszField : kProjectFields )
+			if ( szPath.compare( 0, std::strlen( pszField ), pszField ) == 0 )
+				bProject = true;
+		if ( bProject )
+		{
+			++nProjectDifferences;
+			continue;
+		}
+		// "port <v> (float 0x..), golden <v> (float 0x..)": the six-digit golden.
+		const std::string::size_type nPort = szMessage.find( "port " ), nGolden = szMessage.find( "golden " );
+		bool bClose = false;
+		if ( nPort != std::string::npos && nGolden != std::string::npos )
+		{
+			const double fPort = std::strtod( szMessage.c_str() + nPort + 5, nullptr );
+			const double fGolden = std::strtod( szMessage.c_str() + nGolden + 7, nullptr );
+			bClose = std::fabs( fPort - fGolden ) <= 2e-5 * std::max( 1.0, std::fabs( fGolden ) );
+		}
+		if ( !bClose )
+		{
+			++nModelDifferences;
+			std::printf( "   MODEL DIFFERENT %s\n", szMessage.c_str() );
+		}
+	}
+	std::printf( "   msh: %d differences in the project's own property values (not compared), %d in the model-derived fields\n", nProjectDifferences, nModelDifferences );
+	Check( result.nFieldsCompared > 200 && nModelDifferences == 0,
+	       "mesh: every field the .mod files give equals the shipped 1.xml to its six printed digits" );
+	BkResClose( pSession );
+
+	// MFC's error box: no combat model, no export and nothing promoted.
+	const fs::path brokenDir = scratch / "broken";
+	fs::create_directories( brokenDir, ec );
+	fs::copy_file( source, brokenDir / "current.msh", fs::copy_options::overwrite_existing, ec );
+	const fs::path brokenMod = scratch / "broken-mod";
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", brokenMod.string().c_str() );
+	BkResModSettingsSet( pSession, &mod );
+	if ( Check( BkResOpen( pSession, ( brokenDir / "current.msh" ).string().c_str() ) == BK_EDITOR_OK, "mesh: the project without models opens" ) )
+	{
+		report = {};
+		Check( BkResExportStatsOnly( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "Can not load combat mechanics file" ) != 0,
+		       "mesh: a missing combat model fails with MFC's message" );
+		bool bPromoted = false;
+		for ( fs::recursive_directory_iterator it( brokenMod / "data", ec ), end; !ec && it != end; it.increment( ec ) )
+			if ( it->path().filename() == "1.xml" )
+				bPromoted = true;
+		Check( !bPromoted, "mesh: a failed export promotes nothing" );
+		BkResClose( pSession );
+	}
+}
+
+}
+
 // S06 T05: the preview captures of the mine, trench and squad (D015: MFC's
 // weapon frame draws nothing, so a weapon has none). Each runs the real
 // exporter into the preview folder and draws on the empty scene, measured by
@@ -4147,6 +4283,8 @@ int main( int argc, char **argv )
 	// S07 T06: the sprite exporter and its preview.
 	S07Sprite::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 	S07Infantry::Run( pSession, szFixtureRoot, szScratchRoot );
+	// S08 T01: the unit exporter against the shipped 8_cm_GrWr34.
+	S08Mesh::Run( pSession, pszRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

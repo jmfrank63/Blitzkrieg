@@ -4126,6 +4126,7 @@ fn addEditorBridge(
             "Sources/src/ResourceModel/items/squad/squad_export.cpp",
             "Sources/src/ResourceModel/items/sprite/sprite_export.cpp",
             "Sources/src/ResourceModel/items/infantry/infantry_export.cpp",
+            "Sources/src/ResourceModel/items/mesh/mesh_export.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
     });

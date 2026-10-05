@@ -2951,6 +2951,20 @@ void FillEngineLookups( NResourceModel::SExportContext &context, const std::file
 			return false;
 		};
 	}
+	if ( GetSingleton<IObjectsDB>() != 0 )
+	{
+		context.isBallisticWeapon = []( const std::string &szWeapon, bool &bBallistic ) -> bool
+		{
+			const SWeaponRPGStats *pWeapon = static_cast<const SWeaponRPGStats *>( GetSingleton<IObjectsDB>()->GetAddStats( szWeapon.c_str(), IObjectsDB::WEAPON ) );
+			if ( pWeapon == 0 )
+				return false;
+			bBallistic = false;
+			for ( const auto &shell : pWeapon->shells )
+				if ( shell.trajectory == SWeaponRPGStats::SShell::TRAJECTORY_HOWITZER || shell.trajectory == SWeaponRPGStats::SShell::TRAJECTORY_CANNON )
+					bBallistic = true;
+			return true;
+		};
+	}
 	if ( GetSingleton<IVisObjBuilder>() != 0 && GetSingleton<IDataStorage>() != 0 )
 	{
 		context.meshFirePlaces = [scratch]( const std::string &szModFile, std::vector<std::pair<float, float>> &firePlaces, std::string &szError ) -> bool

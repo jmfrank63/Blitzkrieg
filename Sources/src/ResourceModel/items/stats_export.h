@@ -32,6 +32,7 @@ bool ExportTrench( const Project &project, const SExportContext &context, SExpor
 bool ExportSquad( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportSprite( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportInfantry( const Project &project, const SExportContext &context, SExportOutcome &outcome );
+bool ExportMesh( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 
 namespace NStatsExport
 {
