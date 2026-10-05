@@ -423,7 +423,8 @@ pub const Panels = struct {
             ig.ImDrawList_AddTextEx(draw_list, .{ .x = at.x + 8, .y = at.y - 6 }, ink, text.ptr, text.ptr + text.len);
         }
         const angle = if (overlay.arrowing) overlay.arrow_angle else direction;
-        const tip: ig.ImVec2 = .{ .x = centre.x + @cos(angle) * 40, .y = centre.y + @sin(angle) * 40 };
+        const toward = squad.arrowDirection(angle);
+        const tip: ig.ImVec2 = .{ .x = centre.x + toward.x * 40, .y = centre.y + toward.y * 40 };
         ig.ImDrawList_AddLineEx(draw_list, .{ .x = centre.x, .y = centre.y }, tip, ink, 2);
         ig.ImDrawList_AddCircleFilled(draw_list, tip, 3, ink, 0);
     }

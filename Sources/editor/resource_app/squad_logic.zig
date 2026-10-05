@@ -59,10 +59,18 @@ pub fn hitSlot(slots: []const Point2, view: View, screen: Point2) ?usize {
     return best;
 }
 
-/// The direction in radians an arrow drawn from `centre` to `cursor` (both
-/// world points) points in.
+/// The world vector a formation direction `a` points along, as MFC draws it
+/// (SquadFrm.cpp:577 UpdateFormationDirection): (-sin a, +cos a). The one
+/// place the vector is defined; the overlay draws it and arrowAngle inverts it.
+pub fn arrowDirection(a: f32) Point2 {
+    return .{ .x = -@sin(a), .y = @cos(a) };
+}
+
+/// The formation direction in radians for an arrow drawn from `centre` to
+/// `cursor` (both world points): MFC's a with arrowDirection(a) pointing at
+/// the cursor, atan2(-dx, dy).
 pub fn arrowAngle(centre: Point2, cursor: Point2) f32 {
-    return std.math.atan2(cursor.y - centre.y, cursor.x - centre.x);
+    return std.math.atan2(centre.x - cursor.x, cursor.y - centre.y);
 }
 
 /// One formation's overlay: the mode, the view and the gesture in progress.
@@ -384,20 +392,53 @@ test "overlay: the direction arrow turns the formation and its slots in one step
     var overlay = Overlay.init(testing.allocator, rig.formation);
     defer overlay.deinit(bridge);
     overlay.setMode(bridge, .direction);
-    // From the zero point (120, 120) straight down: a quarter turn.
-    try overlay.press(bridge, .{ .x = 120, .y = 150 });
+    // From the zero point (120, 120) straight right: MFC's a = atan2(-dx, dy) = -pi/2.
+    try overlay.press(bridge, .{ .x = 150, .y = 120 });
     try testing.expect(overlay.busy());
-    try overlay.move(bridge, .{ .x = 120, .y = 170 });
-    try testing.expectApproxEqAbs(@as(f32, std.math.pi / 2.0), overlay.arrow_angle, 1e-5);
-    try overlay.release(bridge, &rig.doc, &rig.history, .{ .x = 120, .y = 170 });
+    try overlay.move(bridge, .{ .x = 170, .y = 120 });
+    try testing.expectApproxEqAbs(@as(f32, -std.math.pi / 2.0), overlay.arrow_angle, 1e-5);
+    try overlay.release(bridge, &rig.doc, &rig.history, .{ .x = 170, .y = 120 });
     try testing.expectEqual(@as(usize, 1), rig.history.undo_stack.items.len);
     const direction = try rig.read(.formation_direction);
-    try testing.expectApproxEqAbs(@as(f32, std.math.pi / 2.0), direction.point2.x, 1e-5);
+    try testing.expectApproxEqAbs(@as(f32, -std.math.pi / 2.0), direction.point2.x, 1e-5);
     var slots = try rig.read(.formation_positions);
     defer slots.deinit(testing.allocator);
-    // (100, 100) is 20 left and 20 up of the zero point; a quarter turn puts it 20 right and 20 up.
-    try testing.expectApproxEqAbs(@as(f32, 140), slots.points2[0].x, 1e-3);
-    try testing.expectApproxEqAbs(@as(f32, 100), slots.points2[0].y, 1e-3);
+    // (100, 100) is (-20, -20) from the zero point; turned by -pi/2 it is (-20, +20).
+    try testing.expectApproxEqAbs(@as(f32, 100), slots.points2[0].x, 1e-3);
+    try testing.expectApproxEqAbs(@as(f32, 140), slots.points2[0].y, 1e-3);
+}
+
+test "arrow angle: the four axis directions give MFC's angle and arrowDirection points back" {
+    const centre: Point2 = .{ .x = 10, .y = 20 };
+    const pi = std.math.pi;
+    const Case = struct { name: []const u8, cursor: Point2, expected: f32 };
+    const cases = [_]Case{
+        .{ .name = "+y", .cursor = .{ .x = 10, .y = 70 }, .expected = 0 },
+        .{ .name = "-y", .cursor = .{ .x = 10, .y = -30 }, .expected = pi },
+        .{ .name = "+x", .cursor = .{ .x = 60, .y = 20 }, .expected = -pi / 2.0 },
+        .{ .name = "-x", .cursor = .{ .x = -40, .y = 20 }, .expected = pi / 2.0 },
+    };
+    for (cases) |case| {
+        const actual = arrowAngle(centre, case.cursor);
+        // -y is +pi or -pi depending on the sign of zero; compare on the circle.
+        const delta = @abs(std.math.atan2(@sin(actual - case.expected), @cos(actual - case.expected)));
+        const vector = arrowDirection(actual);
+        const want_x = (case.cursor.x - centre.x) / 50;
+        const want_y = (case.cursor.y - centre.y) / 50;
+        if (delta > 1e-5 or @abs(vector.x - want_x) > 1e-5 or @abs(vector.y - want_y) > 1e-5) {
+            std.debug.print("{s}: expected angle {d} vector ({d}, {d}); actual angle {d} vector ({d}, {d})\n", .{ case.name, case.expected, want_x, want_y, actual, vector.x, vector.y });
+            return error.TestExpectedEqual;
+        }
+    }
+}
+
+test "arrow angle: a screen drag goes through toWorld first and gives the same angle" {
+    const view: View = .{ .origin = .{ .x = 300, .y = 200 }, .scale = 2 };
+    const centre: Point2 = .{ .x = 10, .y = 20 };
+    const cursor: Point2 = .{ .x = 40, .y = 60 };
+    const direct = arrowAngle(centre, cursor);
+    const through_view = arrowAngle(centre, view.toWorld(view.toScreen(cursor)));
+    try testing.expectApproxEqAbs(direct, through_view, 1e-5);
 }
 
 test "overlay: changing mode drops the gesture in progress" {
