@@ -15,6 +15,9 @@ apps with Dear ImGui (`Sources/editor`) talking to the engine through the C ABI 
   `map-editor-auto-m2`, `map-editor-m3-auto`, `map-editor-game-reads-it-m3`. Any change to shared editor code must
   keep these green.
 - `zig build --help` lists every step. Long steps: run them with a generous timeout, not in a loop.
+- Never start a long build or test (more than about 10 minutes, e.g. `tools/zig/run-resource-sweep.sh`, about 27 minutes)
+  in the background and then end the session: the session ends, the task stays incomplete, and the next attempt
+  starts a second copy that races the first on `zig-out`. Run it in the foreground with a timeout, or split it.
 
 ## Rules
 
