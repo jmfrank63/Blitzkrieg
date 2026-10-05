@@ -662,14 +662,16 @@ const Runner = struct {
         return null;
     }
 
-    /// The overlay's arrow gesture at a world point: the identity view makes
-    /// the screen point the world point, so the angle goes through the same
-    /// arrowAngle and setFormationDirection a mouse drag uses.
+    /// The overlay's arrow gesture at a world point: the point goes through the
+    /// overlay's view to the screen (world +Y is up there), so the angle goes
+    /// through the same toWorld, arrowAngle and setFormationDirection a mouse
+    /// drag uses.
     fn squadArrow(self: *Runner, arg: []const u8) ?[]const u8 {
         const b = self.bridge();
-        const at = parsePoint(arg) orelse return self.fail("squad_arrow needs <x>/<y>", .{});
+        const world = parsePoint(arg) orelse return self.fail("squad_arrow needs <x>/<y>", .{});
         const node = self.firstFormation() orelse return self.fail("squad_arrow: the project has no formation", .{});
         var overlay = squad.Overlay.init(self.gpa, node);
+        const at = overlay.view.toScreen(world);
         overlay.setMode(b, .direction);
         overlay.press(b, at) catch return self.fail("squad_arrow: {s}", .{b.lastMessage()});
         overlay.move(b, at) catch {

@@ -27,17 +27,21 @@ pub const Mode = enum { drag, set_zero, direction };
 pub const hit_radius_px: f32 = 10;
 
 /// The overlay's window onto the formation's plane: a screen point is the
-/// origin plus the world point times the scale.
+/// origin plus the world point times the scale, with world Y running up the
+/// screen. MFC projects through IScene::GetPos2: the camera looks toward +Y
+/// (Scene/Camera.cpp:10,76-79, pitch -135 degrees) and the viewport matrix
+/// negates Y (GFX/GraphicsEngine.cpp:895), so the formation's far side is at
+/// the top of the screen.
 pub const View = struct {
     origin: Point2 = .{ .x = 0, .y = 0 },
     scale: f32 = 1,
 
     pub fn toScreen(self: View, world: Point2) Point2 {
-        return .{ .x = self.origin.x + world.x * self.scale, .y = self.origin.y + world.y * self.scale };
+        return .{ .x = self.origin.x + world.x * self.scale, .y = self.origin.y - world.y * self.scale };
     }
 
     pub fn toWorld(self: View, screen: Point2) Point2 {
-        return .{ .x = (screen.x - self.origin.x) / self.scale, .y = (screen.y - self.origin.y) / self.scale };
+        return .{ .x = (screen.x - self.origin.x) / self.scale, .y = (self.origin.y - screen.y) / self.scale };
     }
 };
 
@@ -300,18 +304,33 @@ const Rig = struct {
 test "overlay: the view maps both ways" {
     const view: View = .{ .origin = .{ .x = 50, .y = 20 }, .scale = 2 };
     const screen = view.toScreen(.{ .x = 10, .y = 5 });
-    try testing.expectEqual(Point2{ .x = 70, .y = 30 }, screen);
+    try testing.expectEqual(Point2{ .x = 70, .y = 10 }, screen);
     try testing.expectEqual(Point2{ .x = 10, .y = 5 }, view.toWorld(screen));
+}
+
+test "overlay: world +Y runs up the screen as in MFC (D018)" {
+    const view: View = .{ .origin = .{ .x = 100, .y = 100 }, .scale = 2 };
+    // A screen point above the zero point is a world point with larger Y.
+    try testing.expectEqual(Point2{ .x = 0, .y = 20 }, view.toWorld(.{ .x = 100, .y = 60 }));
+    try testing.expectEqual(Point2{ .x = 0, .y = -20 }, view.toWorld(.{ .x = 100, .y = 140 }));
+    // MFC's arrow for a drag straight up the screen is the +Y one: angle 0.
+    const zero: Point2 = .{ .x = 5, .y = 5 };
+    try testing.expectApproxEqAbs(@as(f32, 0), arrowAngle(zero, view.toWorld(.{ .x = 100 + 10, .y = 60 })), 1e-5);
+}
+
+/// The screen point of a world point under the identity scale and origin.
+fn scr(x: f32, y: f32) Point2 {
+    return (View{}).toScreen(.{ .x = x, .y = y });
 }
 
 test "overlay: a press hits the nearest marker within the radius and nothing past it" {
     const slots = [_]Point2{ .{ .x = 100, .y = 100 }, .{ .x = 106, .y = 100 } };
     const view: View = .{};
-    try testing.expectEqual(@as(?usize, 1), hitSlot(&slots, view, .{ .x = 105, .y = 100 }));
-    try testing.expectEqual(@as(?usize, 0), hitSlot(&slots, view, .{ .x = 98, .y = 101 }));
-    try testing.expectEqual(@as(?usize, null), hitSlot(&slots, view, .{ .x = 130, .y = 100 }));
+    try testing.expectEqual(@as(?usize, 1), hitSlot(&slots, view, scr(105, 100)));
+    try testing.expectEqual(@as(?usize, 0), hitSlot(&slots, view, scr(98, 101)));
+    try testing.expectEqual(@as(?usize, null), hitSlot(&slots, view, scr(130, 100)));
     // The radius is in screen pixels: zoomed out, the same world distance is closer.
-    try testing.expectEqual(@as(?usize, 0), hitSlot(&slots, .{ .scale = 0.5 }, .{ .x = 49, .y = 50 }));
+    try testing.expectEqual(@as(?usize, 0), hitSlot(&slots, .{ .scale = 0.5 }, scr(49, 50)));
 }
 
 test "overlay: dragging a member is one undo step and undo puts it back" {
@@ -321,11 +340,11 @@ test "overlay: dragging a member is one undo step and undo puts it back" {
     var overlay = Overlay.init(testing.allocator, rig.formation);
     defer overlay.deinit(bridge);
     // Press 2 px off the marker so the grab offset matters.
-    try overlay.press(bridge, .{ .x = 142, .y = 100 });
+    try overlay.press(bridge, scr(142, 100));
     try testing.expect(overlay.busy());
-    try overlay.move(bridge, .{ .x = 152, .y = 110 });
-    try overlay.move(bridge, .{ .x = 162, .y = 120 });
-    try overlay.release(bridge, &rig.doc, &rig.history, .{ .x = 162, .y = 120 });
+    try overlay.move(bridge, scr(152, 110));
+    try overlay.move(bridge, scr(162, 120));
+    try overlay.release(bridge, &rig.doc, &rig.history, scr(162, 120));
     try testing.expect(!overlay.busy());
     try testing.expectEqual(@as(usize, 1), rig.history.undo_stack.items.len);
     var after = try rig.read(.formation_positions);
@@ -347,11 +366,11 @@ test "overlay: a press on empty space and a click without a move record nothing"
     const bridge = rig.fake.bridge();
     var overlay = Overlay.init(testing.allocator, rig.formation);
     defer overlay.deinit(bridge);
-    try overlay.press(bridge, .{ .x = 300, .y = 300 });
+    try overlay.press(bridge, scr(300, 300));
     try testing.expect(!overlay.busy());
-    try overlay.release(bridge, &rig.doc, &rig.history, .{ .x = 300, .y = 300 });
-    try overlay.press(bridge, .{ .x = 100, .y = 100 });
-    try overlay.release(bridge, &rig.doc, &rig.history, .{ .x = 100, .y = 100 });
+    try overlay.release(bridge, &rig.doc, &rig.history, scr(300, 300));
+    try overlay.press(bridge, scr(100, 100));
+    try overlay.release(bridge, &rig.doc, &rig.history, scr(100, 100));
     try testing.expectEqual(@as(usize, 0), rig.history.undo_stack.items.len);
 }
 
@@ -361,8 +380,8 @@ test "overlay: escape during a drag puts the slots back and records nothing" {
     const bridge = rig.fake.bridge();
     var overlay = Overlay.init(testing.allocator, rig.formation);
     defer overlay.deinit(bridge);
-    try overlay.press(bridge, .{ .x = 100, .y = 100 });
-    try overlay.move(bridge, .{ .x = 200, .y = 200 });
+    try overlay.press(bridge, scr(100, 100));
+    try overlay.move(bridge, scr(200, 200));
     overlay.cancel(bridge);
     var slots = try rig.read(.formation_positions);
     defer slots.deinit(testing.allocator);
@@ -378,8 +397,8 @@ test "overlay: set zero point is one undoable step at the clicked world point" {
     defer overlay.deinit(bridge);
     overlay.view = .{ .origin = .{ .x = 10, .y = 10 }, .scale = 2 };
     overlay.setMode(bridge, .set_zero);
-    try overlay.press(bridge, .{ .x = 70, .y = 50 });
-    try overlay.release(bridge, &rig.doc, &rig.history, .{ .x = 70, .y = 50 });
+    try overlay.press(bridge, .{ .x = 70, .y = -30 });
+    try overlay.release(bridge, &rig.doc, &rig.history, .{ .x = 70, .y = -30 });
     try testing.expectEqual(@as(usize, 1), rig.history.undo_stack.items.len);
     const zero = try rig.read(.zero_point);
     try testing.expectEqual(Point2{ .x = 30, .y = 20 }, zero.point2);
@@ -393,11 +412,11 @@ test "overlay: the direction arrow turns the formation and its slots in one step
     defer overlay.deinit(bridge);
     overlay.setMode(bridge, .direction);
     // From the zero point (120, 120) straight right: MFC's a = atan2(-dx, dy) = -pi/2.
-    try overlay.press(bridge, .{ .x = 150, .y = 120 });
+    try overlay.press(bridge, scr(150, 120));
     try testing.expect(overlay.busy());
-    try overlay.move(bridge, .{ .x = 170, .y = 120 });
+    try overlay.move(bridge, scr(170, 120));
     try testing.expectApproxEqAbs(@as(f32, -std.math.pi / 2.0), overlay.arrow_angle, 1e-5);
-    try overlay.release(bridge, &rig.doc, &rig.history, .{ .x = 170, .y = 120 });
+    try overlay.release(bridge, &rig.doc, &rig.history, scr(170, 120));
     try testing.expectEqual(@as(usize, 1), rig.history.undo_stack.items.len);
     const direction = try rig.read(.formation_direction);
     try testing.expectApproxEqAbs(@as(f32, -std.math.pi / 2.0), direction.point2.x, 1e-5);
@@ -447,8 +466,8 @@ test "overlay: changing mode drops the gesture in progress" {
     const bridge = rig.fake.bridge();
     var overlay = Overlay.init(testing.allocator, rig.formation);
     defer overlay.deinit(bridge);
-    try overlay.press(bridge, .{ .x = 100, .y = 100 });
-    try overlay.move(bridge, .{ .x = 180, .y = 180 });
+    try overlay.press(bridge, scr(100, 100));
+    try overlay.move(bridge, scr(180, 180));
     overlay.setMode(bridge, .set_zero);
     try testing.expect(!overlay.busy());
     var slots = try rig.read(.formation_positions);

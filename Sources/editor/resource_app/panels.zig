@@ -399,7 +399,7 @@ pub const Panels = struct {
         _ = ig.igInvisibleButton("canvas", size, ig.ImGuiButtonFlags_MouseButtonLeft);
         // The zero point stays at the canvas centre while no gesture runs.
         if (!overlay.busy()) overlay.view = .{
-            .origin = .{ .x = top_left.x + size.x / 2 - zero.x * overlay.view.scale, .y = top_left.y + size.y / 2 - zero.y * overlay.view.scale },
+            .origin = .{ .x = top_left.x + size.x / 2 - zero.x * overlay.view.scale, .y = top_left.y + size.y / 2 + zero.y * overlay.view.scale },
             .scale = overlay.view.scale,
         };
         if (can_edit) {
