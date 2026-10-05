@@ -1248,7 +1248,7 @@ static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
 	{
 		{ "wpn", true, EExportKind::WEAPON }, { "mcp", true, EExportKind::MINE }, { "trc", true, EExportKind::ENTRENCHMENT },
 		{ "scp", true, EExportKind::SQUAD }, { "spt", true, EExportKind::WEAPON }, { "unt", true, EExportKind::INFANTRY },
-		{ "msh", false, EExportKind::MECH_UNIT }, { "obt", false, EExportKind::OBJECT }, { "fnc", false, EExportKind::FENCE },
+		{ "msh", false, EExportKind::MECH_UNIT }, { "obt", true, EExportKind::OBJECT }, { "fnc", false, EExportKind::FENCE },
 		{ "bld", false, EExportKind::BUILDING }, { "bdg", false, EExportKind::BRIDGE }, { "pcp", false, EExportKind::PARTICLE },
 		{ "eff", false, EExportKind::EFFECT }, { "til", false, EExportKind::TILESET }, { "3rd", false, EExportKind::VSO },
 		{ "3rv", false, EExportKind::VSO }, { "mip", false, EExportKind::MISSION }, { "chc", false, EExportKind::CHAPTER },

@@ -241,6 +241,29 @@ bool SaveAnimation( const SExportContext &context, SSpriteAnimationFormat &anima
 	return true;
 }
 
+bool SaveShadowTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, SExportOutcome &outcome )
+{
+	return SaveCompressedShadow( context, pSrc, szName, outcome );
+}
+
+bool SaveSpritesPack( const SExportContext &context, SSpritesPack &pack, const std::string &szName, SExportOutcome &outcome )
+{
+	DWORD dwSignature = SSpritesPack::SIGNATURE;
+	{
+		CPtr<IDataStream> pStream = CreateStaged( context, szName, outcome );
+		if ( pStream == 0 )
+			return false;
+		CPtr<IStructureSaver> pSS = CreateStructureSaver( pStream, IStructureSaver::WRITE );
+		CSaverAccessor saver = pSS;
+		saver.Add( 1, &pack );
+		saver.Add( 127, &dwSignature );
+	}
+	if ( !MoveMainChunkFirst( fs::path( context.szStagingRoot ) / Slashed( szName ), outcome ) )
+		return false;
+	++outcome.nWritten;
+	return true;
+}
+
 SGamma ReadGammaConfig( const std::string &szProjectDirectory )
 {
 	fs::path directory( Slashed( szProjectDirectory ) );

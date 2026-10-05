@@ -61,6 +61,29 @@ int GetActionFromName( const std::string &szAnimName, bool *pbKnown = 0 );
 CPtr<IImage> BuildAnimations( std::vector<SAnimationDesc> *pSrc, SSpriteAnimationFormat *pDst, const std::vector<std::string> &szFileNames,
                               bool bProcessImages, DWORD dwMinAlpha, SExportOutcome &outcome );
 
+// CGridFrame's GetOrigin2DPosition (SpriteCompose.cpp): where the grid origin
+// vOrigin lies on screen relative to the sprite, from the camera's linear part.
+CVec2 Origin2DPosition( const SGroundCamera &camera, const CVec2 &vOrigin );
+
+// ComposeSingleObjectPack (BuildCompose.cpp:147-234): an object, fence or
+// building picture packed as a sprite set with its locked tiles drawn in,
+// written as <szName>.san with <szName>_c/_l/_h.dds, and its shadow (the
+// shadow picture with its alpha multiplied by the inverse of the sprite's
+// sharpened alpha, colour cleared) as <szName>s.san with <szName>s_c/_l/_h.dds.
+// zeroPos is the zero cross in the picture, pass the passability grid and
+// vLockedTilesCenter its origin on screen (Origin2DPosition). lowFormat is
+// the frame's m_nLowFormat: ARGB1555 for an object or building, ARGB4444 for
+// a fence. Both pictures are read and compared before anything is written, so
+// a failed compose leaves nothing behind (MFC wrote the sprite half first).
+bool ComposeSingleObjectPack( const SExportContext &context, const NImageExport::SGamma &gamma, EGFXPixelFormat lowFormat,
+                              const std::string &szSprite, const std::string &szShadow, const std::string &szName,
+                              const CVec2 &zeroPos, const CArray2D<BYTE> &pass, const CVec2 &vLockedTilesCenter, SExportOutcome &outcome );
+
+// CGridFrame::SaveIconFile: the picture cropped to the bounding box of its
+// non-transparent pixels, scaled to fit 64 x 64 and centred on grey with
+// zero alpha, saved as the TGA szName. A picture with no alpha at all fails.
+bool SaveIconFile( const SExportContext &context, const std::string &szSource, const std::string &szName, SExportOutcome &outcome );
+
 }
 
 }

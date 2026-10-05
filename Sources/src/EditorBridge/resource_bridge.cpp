@@ -42,6 +42,7 @@
 #include "../ResourceModel/exporter.h"
 #include "../ResourceModel/items/stats_export.h"
 #include "../ResourceModel/items/mesh/mesh.h"
+#include "../ResourceModel/items/object/object_export.h"
 #include "../ResourceModel/combos.h"
 #include "../Main/RPGStats.h"
 #include "../Main/iMain.h"
@@ -3007,6 +3008,26 @@ void FillEngineLookups( NResourceModel::SExportContext &context, const std::file
 			return true;
 		};
 	}
+	if ( GetSingleton<IScene>() != 0 )
+	{
+		// The scene's transform is affine on the ground plane: three probes give the matrix.
+		context.groundCamera = []( NResourceModel::SGroundCamera &camera ) -> bool
+		{
+			IScene *pScene = GetSingleton<IScene>();
+			CVec2 origin, unitX, unitY;
+			pScene->GetPos2( &origin, CVec3( 0, 0, 0 ) );
+			pScene->GetPos2( &unitX, CVec3( 1, 0, 0 ) );
+			pScene->GetPos2( &unitY, CVec3( 0, 1, 0 ) );
+			camera.m11 = unitX.x - origin.x;
+			camera.m21 = unitX.y - origin.y;
+			camera.m12 = unitY.x - origin.x;
+			camera.m22 = unitY.y - origin.y;
+			camera.m13 = camera.m23 = 0;
+			camera.m14 = origin.x;
+			camera.m24 = origin.y;
+			return true;
+		};
+	}
 	if ( GetSingleton<IVisObjBuilder>() != 0 && GetSingleton<IDataStorage>() != 0 )
 	{
 		context.meshFirePlaces = [scratch]( const std::string &szModFile, std::vector<std::pair<float, float>> &firePlaces, std::string &szError ) -> bool
@@ -4572,6 +4593,7 @@ namespace {
 
 const int kInfantryKind = 5; // "unt", kKindTable's Unit_Composer_Project
 const int kMeshKind = 6;     // "msh", the Unit (mesh) project
+const int kObjectKind = 7;   // "obt", the Object project
 
 NResourceModel::CTreeItem *ChildOfType( NResourceModel::CTreeItem &item, int nType )
 {
@@ -4916,7 +4938,7 @@ namespace
 // (or, for a weapon, from the flat file itself), named by the struct that
 // reads them. False with the status and message the import answers.
 template <class TStats>
-bool ReadRuntimeStats( const std::filesystem::path &statsFile, TStats &stats, BkResSession *pSession, BkEditorStatus &status )
+bool ReadRuntimeStats( const std::filesystem::path &statsFile, TStats &stats, BkResSession *pSession, BkEditorStatus &status, const char *pszChunk = "RPG" )
 {
 	CPtr<IDataStorage> pStorage = OpenStorage( StorageDir( statsFile.parent_path() ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
 	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( statsFile.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
@@ -4928,8 +4950,69 @@ bool ReadRuntimeStats( const std::filesystem::path &statsFile, TStats &stats, Bk
 		return false;
 	}
 	CTreeAccessor tree = pDT;
-	tree.Add( "RPG", &stats );
+	tree.Add( pszChunk, &stats );
 	return true;
+}
+
+// CObjectFrame::LoadRPGStats' tree half: the common properties and the
+// effects, which MFC copied back from the stats. The AI classes the object
+// blocks are the port's addition (MFC left the Passes item empty, so a
+// re-export lost them): one pass item per class bit.
+void ObjectStatsToTree( const SObjectRPGStats &rpgStats, NResourceModel::CTreeItem &root )
+{
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_OBJECT_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 0, int( rpgStats.fMaxHP ) );
+	SetSlot( pCommonProps, 1, rpgStats.defences[0].nArmorMax );
+	SetSlot( pCommonProps, 2, int( rpgStats.defences[0].fSilhouette ) );
+	SetSlot( pCommonProps, 3, rpgStats.szAmbientSound );
+	SetSlot( pCommonProps, 4, rpgStats.szCycledSound );
+
+	NResourceModel::CTreeItem *pEffects = ChildOfType( root, NResourceModel::ETIT_OBJECT_EFFECTS_ITEM );
+	SetSlot( pEffects, 0, rpgStats.szEffectExplosion );
+	SetSlot( pEffects, 1, rpgStats.szEffectDeath );
+
+	static const struct { DWORD dwClass; const char *pszName; } kClasses[] =
+	{
+		{ AI_CLASS_WHEEL, "wheel" }, { AI_CLASS_HALFTRACK, "halftrack" }, { AI_CLASS_TRACK, "track" }, { AI_CLASS_HUMAN, "human" },
+	};
+	NResourceModel::CTreeItem *pPasses = ChildOfType( root, NResourceModel::ETIT_OBJECT_PASSES_ITEM );
+	if ( pPasses != nullptr )
+		for ( const auto &entry : kClasses )
+			if ( ( rpgStats.dwAIClasses & entry.dwClass ) != 0 )
+			{
+				auto pPass = NResourceModel::CTreeItemFactory::Instance().Create( NResourceModel::ETIT_OBJECT_PASS_PROPS_ITEM );
+				if ( !pPass )
+					continue;
+				pPass->SetItemName( entry.pszName );
+				NResourceModel::CTreeItem *pItem = pPass.get();
+				pPasses->AddChild( std::move( pPass ) );
+				SetSlot( pItem, 0, std::string( entry.pszName ) );
+			}
+}
+
+NResourceModel::STileGrid GridOf( CArray2D<BYTE> &array )
+{
+	NResourceModel::STileGrid grid;
+	grid.sizeX = array.GetSizeX();
+	grid.sizeY = array.GetSizeY();
+	if ( !grid.empty() )
+		grid.data.assign( array.GetBuffer(), array.GetBuffer() + std::size_t( grid.sizeX ) * grid.sizeY );
+	else
+		grid.sizeX = grid.sizeY = 0;
+	return grid;
+}
+
+// What the frame holds after CObjectFrame::LoadRPGStats: the grids as stored
+// (the tile lists MFC built from them hang off the same origin) and both
+// crosses where the frame starts them.
+NResourceModel::SObjectFrameData ObjectFrameOf( SObjectRPGStats &rpgStats )
+{
+	NResourceModel::SObjectFrameData frame;
+	frame.passability = GridOf( rpgStats.passability );
+	frame.vOrigin = NResourceModel::SVec2{ rpgStats.vOrigin.x, rpgStats.vOrigin.y };
+	frame.visibility = GridOf( rpgStats.visibility );
+	frame.vVisOrigin = NResourceModel::SVec2{ rpgStats.vVisOrigin.x, rpgStats.vVisOrigin.y };
+	return frame;
 }
 
 // CMeshCommonPropsItem::SetMeshType: the combo text of a unit type.
@@ -5193,7 +5276,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
 		const std::string szExtension = kKindExtensions[kind];
-		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind;
+		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind;
 		if ( !bPorted )
 		{
 			pSession->szMessage = kind == 4
@@ -5222,6 +5305,8 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		pRoot->CreateDefaultChilds();
 		BkEditorStatus status = BK_EDITOR_OK;
 		std::string szKeyName;
+		NResourceModel::SObjectFrameData objectFrame;
+		bool bObjectFrame = false;
 		// The KeyName is what the engine's reader found; a file that holds
 		// none of this kind's stats leaves it empty.
 		switch ( kind )
@@ -5278,6 +5363,19 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 					MechStatsToTree( rpgStats, *pRoot );
 				break;
 			}
+			case kObjectKind:
+			{
+				// CObjectFrame::LoadRPGStats: the stats sit in the "desc" chunk.
+				SObjectRPGStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status, "desc" ) )
+					return status;
+				// An object has no name of its own in its stats: it is its folder's.
+				szKeyName = statsFile.parent_path().filename().string();
+				ObjectStatsToTree( rpgStats, *pRoot );
+				objectFrame = ObjectFrameOf( rpgStats );
+				bObjectFrame = true;
+				break;
+			}
 			default:
 			{
 				// CAnimationFrame::LoadRPGStats: the engine's own operator& reads it.
@@ -5301,6 +5399,27 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		pProject->document.root.kind = NResourceXml::Node::Element;
 		pProject->document.root.name = kKindTable[kind].pszTag;
 		pProject->root = std::move( pRoot );
+		if ( bObjectFrame )
+		{
+			// The frame's chunks sit beside the tree and only a project read from
+			// text keeps such elements (in the root's layout), so the imported
+			// tree is rendered, given its own_data and desc, and read back.
+			std::string szRendered = NResourceModel::Save( *pProject ), szParseError;
+			auto pStaged = std::make_unique<NResourceModel::Project>();
+			if ( !NResourceModel::Load( szRendered, *pStaged, szParseError ) )
+			{
+				pSession->szMessage = "cannot stage the imported project: " + szParseError;
+				return BK_EDITOR_FAILED;
+			}
+			NResourceModel::WriteObjectFrameData( *pStaged, objectFrame );
+			szRendered = NResourceXml::Serialise( pStaged->document );
+			pProject = std::make_unique<NResourceModel::Project>();
+			if ( !NResourceModel::Load( szRendered, *pProject, szParseError ) )
+			{
+				pSession->szMessage = "cannot stage the imported project: " + szParseError;
+				return BK_EDITOR_FAILED;
+			}
+		}
 		ResourceState &state = StateOf( pSession );
 		ResetState( state );
 		state.pProject = std::move( pProject );

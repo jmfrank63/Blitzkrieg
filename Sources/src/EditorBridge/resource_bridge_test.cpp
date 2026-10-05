@@ -1819,6 +1819,11 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// combat model's message on a project without models.
 				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .msh exports through its S08 exporter" );
 			}
+			else if ( szExt == "obt" )
+			{
+				// The fixture carries its art (S09 T02); S09Object proves the files.
+				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .obt exports through its S09 exporter" );
+			}
 			else if ( IsPortedExport( szExt ) )
 			{
 				if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S06 exporter" ).c_str() ) )
@@ -1957,8 +1962,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 		Check( BkResImportFromGame( pSession, 4, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".san" ) != 0,
 		       "import: sprite is refused with the reason" );
-		Check( BkResImportFromGame( pSession, 7, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
-		       "import: obt is refused as not ported yet" );
+		Check( BkResImportFromGame( pSession, 8, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
+		       "import: fnc is refused as not ported yet" );
 		Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 5, "import: a refused import keeps the open project" );
 		Check( BkResImportFromGame( pSession, 5, ( scratch / "no-such" ).string().c_str() ) == BK_EDITOR_DATA_MISSING, "import: a folder without 1.xml is DATA_MISSING" );
 		Check( BkResImportFromGame( pSession, 5, 0 ) == BK_EDITOR_BAD_ARGUMENT, "import: a null path is a bad argument" );
@@ -4029,6 +4034,252 @@ static void Run( BkResSession *pSession, const std::string &szFixtureRoot, const
 // trench the shipped entrenchment models, the squad the first formation of the
 // shipped german_rifle_45 imported into a project.
 
+// S09 T02: the object exporter and importer on the fixture (a copy under
+// local-test) and on a shipped object under Data/Objects.
+namespace S09Object
+{
+
+namespace fs = std::filesystem;
+
+// The pixel of the fixture's 16 x 16 32-bit targa at (x, y), as ARGB.
+static bool ReadAlphaTgaPixel( const std::filesystem::path &file, int x, int y, unsigned *pArgb )
+{
+	std::string bytes;
+	if ( !ReadBytes( file.string(), bytes ) || bytes.size() < 18 + 16 * 16 * 4 )
+		return false;
+	// Bottom-up with the origin flag clear: the file's first row is the picture's last.
+	const unsigned char *p = (const unsigned char *) bytes.data() + 18 + ( ( 15 - y ) * 16 + x ) * 4;
+	*pArgb = ( unsigned( p[3] ) << 24 ) | ( unsigned( p[2] ) << 16 ) | ( unsigned( p[1] ) << 8 ) | p[0];
+	return true;
+}
+
+static fs::path FindFile( const fs::path &root, const char *pszName )
+{
+	std::error_code ec;
+	fs::path found;
+	for ( fs::recursive_directory_iterator it( root, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().filename() == pszName )
+			found = it->path();
+	return found;
+}
+
+static bool NearFloat( const std::string &szMessage )
+{
+	// The shipped file prints floats to six digits.
+	const std::string::size_type nPort = szMessage.find( "port " ), nGolden = szMessage.find( "golden " );
+	if ( nPort == std::string::npos || nGolden == std::string::npos )
+		return false;
+	const double fPort = std::strtod( szMessage.c_str() + nPort + 5, nullptr );
+	const double fGolden = std::strtod( szMessage.c_str() + nGolden + 7, nullptr );
+	return std::fabs( fPort - fGolden ) <= 2e-5 * std::max( 1.0, std::fabs( fGolden ) );
+}
+
+// An imported project has no file yet: it is saved and reopened, as the editor does, before it exports.
+static bool ExportStatsOnly( BkResSession *pSession, const fs::path &modDir, const char *pszName )
+{
+	std::error_code ec;
+	const fs::path project = modDir.parent_path() / ( modDir.filename().string() + "-project" ) / "current.obt";
+	fs::create_directories( project.parent_path(), ec );
+	if ( BkResSave( pSession, project.string().c_str() ) != BK_EDITOR_OK || BkResOpen( pSession, project.string().c_str() ) != BK_EDITOR_OK )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return false;
+	}
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "%s", pszName );
+	BkResModSettingsSet( pSession, &mod );
+	BkResExportReport report = {};
+	if ( BkResExportStatsOnly( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK && report.written >= 1 )
+		return true;
+	std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	return false;
+}
+
+static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s09-object";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "object";
+	fs::create_directories( projectDir, ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / "obt", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), projectDir / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / "project.obt";
+	if ( !Check( fs::is_regular_file( project, ec ) && fs::is_regular_file( projectDir / "1as.tga", ec ), "object: the fixture and its source art are copied" ) )
+		return;
+
+	const fs::path modDir = scratch / "mod";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S09 object" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "object: the mod folder is set" );
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "object: project.obt opens" ) )
+		return;
+	BkResExportReport report = {};
+	BkResWarning warnings[32] = {};
+	const auto Export = [&]( unsigned flags ) {
+		report = {};
+		report.warnings = warnings;
+		report.warnings_capacity = 32;
+		return BkResExport( pSession, flags, &report );
+	};
+	if ( !Check( Export( BK_RES_EXPORT_FORCE ) == BK_EDITOR_OK && report.written >= 1, "object: the fixture exports" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return;
+	}
+	for ( int i = 0; i < report.warning_count && i < 32; ++i )
+		std::printf( "   object warning: %s\n", warnings[i].text );
+	BkResClose( pSession );
+
+	const fs::path xml = FindFile( modDir / "data", "1.xml" );
+	if ( !Check( !xml.empty(), "object: a 1.xml is written" ) )
+		return;
+	const fs::path outDir = xml.parent_path();
+
+	// The engine reads the stats back with the fixture's grid.
+	NResourceModel::SCompareResult self = NResourceModel::CompareStats( NResourceModel::EExportKind::OBJECT, xml.string(), xml.string() );
+	Check( self.nFieldsCompared > 5 && self.messages.empty(), "object: the engine reads the exported 1.xml" );
+
+	// The DDS of each season decodes, has a gate, and its opaque square keeps the source colour.
+	NResourceModel::SDxtTolerance tolerance;
+	std::string szError;
+	const bool bGate = NResourceModel::LoadDxtTolerance( ( fs::path( szFixtureRoot ) / "dxt-tolerance.json" ).string(), &tolerance, &szError );
+	Check( bGate, ( "object: the dxt gate loads " + szError ).c_str() );
+	for ( const char *pszName : { "1", "1w", "1a" } )
+	{
+		unsigned nSource = 0;
+		std::string szDds;
+		NResourceModel::SDdsImage decoded;
+		const std::string szLabel = std::string( "object: " ) + pszName + "_c.dds";
+		if ( !Check( ReadAlphaTgaPixel( projectDir / ( std::string( pszName ) + ".tga" ), 8, 8, &nSource ) &&
+		             ReadBytes( ( outDir / ( std::string( pszName ) + "_c.dds" ) ).string(), szDds ) &&
+		             NResourceModel::DecodeDds( szDds, &decoded, &szError ) && !decoded.mips.empty(), ( szLabel + " is written and decodes " + szError ).c_str() ) )
+			continue;
+		const NResourceModel::SDxtStats *pGate = bGate ? tolerance.Find( decoded.szFourCC ) : nullptr;
+		if ( !Check( pGate != nullptr, ( szLabel + " has a gate for " + decoded.szFourCC ).c_str() ) )
+			continue;
+		// Opaque pixels of the picture near the source colour, within the gate's colour maximum.
+		int nOpaque = 0, nNear = 0;
+		for ( unsigned argb : decoded.mips[0].pixels )
+		{
+			if ( ( argb >> 24 ) < 200 )
+				continue;
+			++nOpaque;
+			int nWorst = 0;
+			for ( int nShift : { 0, 8, 16 } )
+				nWorst = std::max( nWorst, std::abs( int( ( argb >> nShift ) & 255 ) - int( ( nSource >> nShift ) & 255 ) ) );
+			if ( nWorst <= pGate->nColourMax )
+				++nNear;
+		}
+		std::printf( "OBJECT GRAPHICS %s %s: %dx%d, %d opaque pixels, %d within colour gate %d\n", pszName, decoded.szFourCC.c_str(),
+		             decoded.mips[0].nWidth, decoded.mips[0].nHeight, nOpaque, nNear, pGate->nColourMax );
+		Check( nOpaque > 0 && nNear * 2 >= nOpaque, ( szLabel + " keeps the source colour within the " + decoded.szFourCC + " gate" ).c_str() );
+		Check( fs::is_regular_file( outDir / ( std::string( pszName ) + "_l.dds" ), ec ) && fs::is_regular_file( outDir / ( std::string( pszName ) + "_h.dds" ), ec ) &&
+		       fs::is_regular_file( outDir / ( std::string( pszName ) + ".san" ), ec ) && fs::is_regular_file( outDir / ( std::string( pszName ) + "s.san" ), ec ),
+		       ( szLabel + ": the _l, _h, .san and shadow .san are written" ).c_str() );
+	}
+	Check( fs::is_regular_file( outDir / "icon.tga", ec ), "object: icon.tga is written" );
+
+	// A second forced export writes the same bytes.
+	std::map<std::string, std::string> first;
+	for ( fs::directory_iterator it( outDir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			ReadBytes( it->path().string(), first[it->path().filename().string()] );
+	Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK && Export( BK_RES_EXPORT_FORCE ) == BK_EDITOR_OK, "object: the second forced export succeeds" );
+	bool bSame = !first.empty();
+	for ( const auto &entry : first )
+	{
+		std::string szAgain;
+		bSame = bSame && ReadBytes( ( outDir / entry.first ).string(), szAgain ) && szAgain == entry.second;
+		if ( !bSame )
+			std::printf( "   differs after the second export: %s\n", entry.first.c_str() );
+	}
+	Check( bSame, "object: a second forced export is byte-identical" );
+
+	// A missing season picture is a warning and no DDS for it.
+	fs::remove( projectDir / "1w.tga", ec );
+	fs::remove( outDir / "1w_c.dds", ec );
+	Check( Export( BK_RES_EXPORT_FORCE ) == BK_EDITOR_OK, "object: an export with a picture missing still succeeds" );
+	bool bWarned = false;
+	for ( int i = 0; i < report.warning_count && i < 32; ++i )
+		bWarned = bWarned || std::strstr( warnings[i].text, "1w" ) != nullptr;
+	Check( bWarned && !fs::exists( outDir / "1w_c.dds", ec ), "object: a deleted 1w.tga warns and leaves no 1w DDS" );
+	BkResClose( pSession );
+
+	// import -> export -> import: the exported 1.xml imports, exports again, and the two read field-equal.
+	if ( Check( BkResImportFromGame( pSession, 7, outDir.string().c_str() ) == BK_EDITOR_OK, "object: the exported folder imports" ) )
+	{
+		const fs::path mod2 = scratch / "mod2";
+		const bool bExported = ExportStatsOnly( pSession, mod2, "S09 object re-export" );
+		BkResClose( pSession );
+		const fs::path xml2 = FindFile( mod2 / "data", "1.xml" );
+		if ( Check( bExported && !xml2.empty(), "object: the imported project exports stats-only" ) )
+		{
+			const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::OBJECT, xml2.string(), xml.string() );
+			for ( const std::string &szMessage : result.messages )
+				std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+			std::printf( "ROUNDTRIP obt fixture: %d fields compared, %d differences\n", result.nFieldsCompared, int( result.messages.size() ) );
+			Check( result.nFieldsCompared > 5 && result.messages.empty(), "object: import -> export -> import is field-equal" );
+		}
+	}
+	else
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+}
+
+// File names and sizes of a folder, to show an import and export left it as it was.
+static std::string ListingOf( const fs::path &dir )
+{
+	std::error_code ec;
+	std::map<std::string, std::uintmax_t> files;
+	for ( fs::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			files[it->path().filename().string()] = it->file_size( ec );
+	std::string szOut;
+	for ( const auto &entry : files )
+		szOut += entry.first + ":" + std::to_string( entry.second ) + ";";
+	return szOut;
+}
+
+// A shipped object imports and exports stats-only to the 1.xml it came from.
+static void Shipped( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s09-object-shipped";
+	fs::remove_all( scratch, ec );
+	const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", "Objects/SimpleObjects/europe/summer/e_milestone/01" );
+	if ( !Check( fs::is_regular_file( T11::FoldedPath( shipped, "1.xml" ), ec ), "object shipped: the shipped 1.xml exists" ) )
+		return;
+	const std::string listingBefore = ListingOf( shipped );
+	if ( !Check( BkResImportFromGame( pSession, 7, shipped.string().c_str() ) == BK_EDITOR_OK, "object shipped: imports" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	const fs::path mod = scratch / "mod";
+	const bool bExported = ExportStatsOnly( pSession, mod, "S09 object shipped" );
+	BkResClose( pSession );
+	const fs::path xml = FindFile( mod / "data", "1.xml" );
+	if ( !Check( bExported && !xml.empty(), "object shipped: exports stats-only" ) )
+		return;
+	const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::OBJECT, xml.string(), T11::FoldedPath( shipped, "1.xml" ).string() );
+	int nDifferent = 0;
+	for ( const std::string &szMessage : result.messages )
+		if ( !NearFloat( szMessage ) )
+		{
+			++nDifferent;
+			std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+		}
+	std::printf( "ROUNDTRIP obt e_milestone/01: %d fields compared, %d differences\n", result.nFieldsCompared, nDifferent );
+	Check( result.nFieldsCompared > 5 && nDifferent == 0, "object shipped: the stats are field-equal to the shipped 1.xml" );
+	Check( ListingOf( shipped ) == listingBefore, "object shipped: nothing was written into Data" );
+}
+
+}
+
 namespace S06Preview
 {
 
@@ -5011,6 +5262,9 @@ int main( int argc, char **argv )
 	S08Preview::Run( pSession, szFixtureRoot, szScratchRoot );
 	// S08 T05: the unit editor's locator references, model switch and platform and gun nodes, undone and redone.
 	S08Undo::Run( pSession, szFixtureRoot, szScratchRoot );
+	// S09 T02: the object exporter and importer.
+	S09Object::Fixture( pSession, szFixtureRoot, szScratchRoot );
+	S09Object::Shipped( pSession, pszRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

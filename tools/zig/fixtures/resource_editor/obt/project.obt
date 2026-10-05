@@ -50,7 +50,7 @@
 						<item>
 							<default_name>AI class to pass</default_name>
 							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-								<string_value/>
+								<string_value>human</string_value>
 							</value>
 						</item>
 					</values>
@@ -142,4 +142,33 @@
 			</childs>
 		</item>
 	</childs>
+	<own_data>
+		<sprite_pos x="24" y="40" z="0"/>
+		<krest_pos x="20" y="12" z="0"/>
+		<TransLines>
+			<item>
+				<Point1 x="1" y="1"/>
+				<Point2 x="3" y="1"/>
+			</item>
+			<item>
+				<Point1 x="0" y="2"/>
+				<Point2 x="2" y="0"/>
+			</item>
+		</TransLines>
+	</own_data>
+	<desc>
+		<passability>
+			<item size_x="4" size_y="3"/>
+			<item>01010100</item>
+			<item>01000101</item>
+			<item>00010101</item>
+		</passability>
+		<origin x="2" y="1"/>
+		<VisOrigin x="1" y="1"/>
+		<visibility>
+			<item size_x="4" size_y="2"/>
+			<item>01020304</item>
+			<item>05060700</item>
+		</visibility>
+	</desc>
 </Object_Composer_Project>

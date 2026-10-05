@@ -254,6 +254,161 @@ CPtr<IImage> BuildAnimations( std::vector<SAnimationDesc> *pSrc, SSpriteAnimatio
 	return pImage;
 }
 
+CVec2 Origin2DPosition( const SGroundCamera &camera, const CVec2 &vOrigin )
+{
+	// The matrix applied to (-vOrigin) and to the origin, subtracted: the
+	// translation cancels and only the camera's linear part is left.
+	const GridProjection projection( camera );
+	const SVec2 vOriginScreen = projection.Pos3To2( SVec3{ -vOrigin.x, -vOrigin.y, 0 } );
+	const SVec2 vSpriteScreen = projection.Pos3To2( SVec3{ 0, 0, 0 } );
+	return CVec2( vOriginScreen.x - vSpriteScreen.x, vOriginScreen.y - vSpriteScreen.y );
+}
+
+namespace
+{
+
+// One half of ComposeSingleObjectPack: the picture packed by the engine's
+// sprite set builder, which draws pass into the packed result around
+// lockedTilesCenter.
+CPtr<IImage> PackSprites( SSpritesPack &pack, IImage *pImage, const CVec2 &zeroPos, const CArray2D<BYTE> &pass, const CVec2 &vLockedTilesCenter, SExportOutcome &outcome )
+{
+	CSpritesPackBuilder::SPackParameter param;
+	param.pImage = pImage;
+	param.center = CTPoint<int>( zeroPos.x, zeroPos.y );
+	param.lockedTiles = pass;
+	param.lockedTilesCenter = CTPoint<int>( vLockedTilesCenter.x, vLockedTilesCenter.y );
+	CPtr<IImage> pPacked = CSpritesPackBuilder::Pack( &pack, param, 256, 5 );
+	if ( pPacked == 0 )
+		outcome.szError = "cannot pack the sprites of the picture";
+	return pPacked;
+}
+
+}
+
+bool ComposeSingleObjectPack( const SExportContext &context, const NImageExport::SGamma &gamma, EGFXPixelFormat lowFormat,
+                              const std::string &szSprite, const std::string &szShadow, const std::string &szName,
+                              const CVec2 &zeroPos, const CArray2D<BYTE> &pass, const CVec2 &vLockedTilesCenter, SExportOutcome &outcome )
+{
+	CPtr<IImage> pSpriteImage = NImageExport::LoadPicture( szSprite, outcome );
+	if ( pSpriteImage == 0 )
+		return false;
+	CPtr<IImage> pShadowImage = NImageExport::LoadPicture( szShadow, outcome );
+	if ( pShadowImage == 0 )
+		return false;
+	if ( pSpriteImage->GetSizeX() != pShadowImage->GetSizeX() || pSpriteImage->GetSizeY() != pShadowImage->GetSizeY() )
+	{
+		outcome.szError = "The size of sprite does not equal the size of shadow: " + szSprite + " is " + std::to_string( pSpriteImage->GetSizeX() ) + "x" +
+		                  std::to_string( pSpriteImage->GetSizeY() ) + ", " + szShadow + " is " + std::to_string( pShadowImage->GetSizeX() ) + "x" + std::to_string( pShadowImage->GetSizeY() );
+		return false;
+	}
+
+	SSpritesPack spritePack;
+	CPtr<IImage> pPackedSprite = PackSprites( spritePack, pSpriteImage, zeroPos, pass, vLockedTilesCenter, outcome );
+	if ( pPackedSprite == 0 )
+		return false;
+	if ( !NImageExport::SaveCompressedTexture( context, pPackedSprite, szName, gamma, lowFormat, outcome ) ||
+	     !NImageExport::SaveSpritesPack( context, spritePack, szName + ".san", outcome ) )
+		return false;
+
+	CPtr<IImage> pInverseSprite = pSpriteImage->Duplicate();
+	pInverseSprite->SharpenAlpha( 128 );
+	pInverseSprite->InvertAlpha();
+	RECT rc = { 0, 0, pInverseSprite->GetSizeX(), pInverseSprite->GetSizeY() };
+	pShadowImage->ModulateAlphaFrom( pInverseSprite, &rc, 0, 0 );
+	pShadowImage->SetColor( DWORD( 0 ) );
+
+	SSpritesPack shadowPack;
+	CPtr<IImage> pPackedShadow = PackSprites( shadowPack, pShadowImage, zeroPos, CArray2D<BYTE>(), VNULL2, outcome );
+	if ( pPackedShadow == 0 )
+		return false;
+	return NImageExport::SaveShadowTexture( context, pPackedShadow, szName + "s", outcome ) &&
+	       NImageExport::SaveSpritesPack( context, shadowPack, szName + "s.san", outcome );
+}
+
+bool SaveIconFile( const SExportContext &context, const std::string &szSource, const std::string &szName, SExportOutcome &outcome )
+{
+	const int ICON_SIZE = 64;
+	CPtr<IImage> pSrcImage = NImageExport::LoadPicture( szSource, outcome );
+	if ( pSrcImage == 0 )
+		return false;
+	IImageProcessor *pIP = GetImageProcessor();
+
+	const int nSizeX = pSrcImage->GetSizeX();
+	const int nSizeY = pSrcImage->GetSizeY();
+	int nMinX = nSizeX, nMinY = -1;
+	int nMaxX = 0, nMaxY = 0;
+	const SColor *pLFB = pSrcImage->GetLFB();
+	for ( int y = 0; y < nSizeY; y++ )
+	{
+		int nCurMinX = -1;
+		int nCurMaxX = 0;
+		for ( int x = 0; x < nSizeX; x++ )
+		{
+			if ( pLFB[x + y * nSizeX].a )
+			{
+				nCurMaxX = x;
+				if ( nCurMinX == -1 )
+					nCurMinX = x;
+			}
+		}
+		if ( nCurMinX >= 0 && nCurMinX < nMinX )
+			nMinX = nCurMinX;
+		if ( nCurMaxX > nMaxX )
+			nMaxX = nCurMaxX;
+		if ( nCurMaxX > 0 )
+		{
+			nMaxY = y;
+			if ( nMinY == -1 )
+				nMinY = y;
+		}
+	}
+	if ( nMinY == -1 )
+	{
+		outcome.szError = "Error: image alpha is empty? " + szSource + ": can not create icon image";
+		return false;
+	}
+
+	// MFC cropped only when the box differed from the picture, and used the
+	// cropped image unconditionally afterwards (a null for a full-size box).
+	CPtr<IImage> pMinImage = pSrcImage;
+	if ( nMaxX - nMinX != nSizeX || nMaxY - nMinY != nSizeY )
+	{
+		pMinImage = pIP->CreateImage( nMaxX - nMinX, nMaxY - nMinY );
+		SColor col;
+		col.r = col.g = col.b = 146;
+		col.a = 0;
+		pMinImage->Set( col );
+		RECT rc = { nMinX, nMinY, nMaxX, nMaxY };
+		pMinImage->CopyFromAB( pSrcImage, &rc, 0, 0 );
+	}
+
+	const double fRateX = (double) ICON_SIZE / pMinImage->GetSizeX();
+	const double fRateY = (double) ICON_SIZE / pMinImage->GetSizeY();
+	const double fRate = std::min( fRateX, fRateY );
+	CPtr<IImage> pScaleImage = pIP->CreateScale( pMinImage, fRate, ISM_LANCZOS3 );
+	if ( pScaleImage == 0 )
+	{
+		outcome.szError = "Error: can not create icon file " + szName + " from " + szSource;
+		return false;
+	}
+
+	CPtr<IImage> pResImage = pIP->CreateImage( ICON_SIZE, ICON_SIZE );
+	SColor col;
+	col.r = col.g = col.b = 146;
+	col.a = 0;
+	pResImage->Set( col );
+	const int nScaledX = pScaleImage->GetSizeX();
+	const int nScaledY = pScaleImage->GetSizeY();
+	RECT rc = { 0, 0, nScaledX, nScaledY };
+	if ( nScaledY < ICON_SIZE )
+		pResImage->CopyFrom( pScaleImage, &rc, 0, ( ICON_SIZE - nScaledY ) / 2 );
+	else if ( nScaledX < ICON_SIZE )
+		pResImage->CopyFrom( pScaleImage, &rc, ( ICON_SIZE - nScaledX ) / 2, 0 );
+	else
+		pResImage = pScaleImage;
+	return NImageExport::SaveTga( context, pResImage, szName, outcome );
+}
+
 }
 
 }

@@ -19,6 +19,7 @@
 
 #include "../Anim/Animation.h"
 #include "../Formats/fmtAnimation.h"
+#include "../Formats/fmtSprite.h"
 #include "../Image/Image.h"
 #include "exporter.h"
 
@@ -69,6 +70,14 @@ bool ConvertAndSaveImage( const SExportContext &context, const std::string &szSo
 // <szName>s_c/_l/_h.dds and <szName>s.san. Both pictures are checked before
 // anything is written, so a failed compose leaves nothing behind.
 bool ComposeSingleObject( const SExportContext &context, const std::string &szSprite, const std::string &szShadow, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome );
+
+// SaveCompressedShadow, the shadow formats of the frame base class (no gamma):
+// <szName>_c.dds (DXT5), _l.dds (ARGB4444) and _h.dds (ARGB8888).
+bool SaveShadowTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, SExportOutcome &outcome );
+
+// A packed sprite set (BuildSpritesPack of SpriteCompose.cpp) as the engine's
+// structure file szName: chunk 1 the pack, chunk 127 its signature.
+bool SaveSpritesPack( const SExportContext &context, SSpritesPack &pack, const std::string &szName, SExportOutcome &outcome );
 
 // SaveImageAsTGA into the staging root: the picture written as szName (the
 // unit's icon.tga). False with outcome.szError when it cannot be written;

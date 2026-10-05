@@ -59,6 +59,12 @@ struct STileGrid
 	bool empty() const { return sizeX == 0 || sizeY == 0; }
 };
 
+// The camera the grid constants imply: world (0, 0) at the grid origin
+// (-622, 296) and one world cell (fWorldCellSize) a tile step of (16, 8)
+// along x and (16, -8) along y. The exporters use it only when the host gives
+// no engine camera (SExportContext::groundCamera).
+SGroundCamera DefaultEditorCamera();
+
 class GridProjection
 {
 public:

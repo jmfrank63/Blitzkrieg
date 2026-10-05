@@ -56,6 +56,20 @@ STileCorners GridProjection::TileCorners( int tileX, int tileY )
 	return r;
 }
 
+SGroundCamera DefaultEditorCamera()
+{
+	// fWorldCellSize of items/stats_item.h.
+	const float fWorldCellSize = 16 * 2.0f * 1.41421356f;
+	SGroundCamera camera;
+	camera.m11 = fCellSizeX / 2 / fWorldCellSize;
+	camera.m12 = fCellSizeX / 2 / fWorldCellSize;
+	camera.m21 = fCellSizeY / 2 / fWorldCellSize;
+	camera.m22 = -fCellSizeY / 2 / fWorldCellSize;
+	camera.m14 = fOX;
+	camera.m24 = fOY;
+	return camera;
+}
+
 SVec2 GridProjection::Pos3To2( const SVec3 &p ) const
 {
 	SVec2 r;

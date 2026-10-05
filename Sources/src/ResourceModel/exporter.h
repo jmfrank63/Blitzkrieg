@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "grid_projection.h"
 #include "project.h"
 
 namespace NResourceModel
@@ -60,6 +61,13 @@ struct SExportContext
 	// tests pass a fixture table. Empty: every weapon is unknown, which the
 	// export reports as a warning and treats as not ballistic.
 	std::function<bool( const std::string &szWeapon, bool &bBallistic )> isBallisticWeapon;
+
+	// The camera of the editor scene, which an object, fence or building
+	// export reads where MFC called IScene::GetPos2 (the sprite's and the
+	// zero cross's screen positions, and the grid origin on screen). The
+	// bridge fills it from the engine's scene. Empty: the exporter uses
+	// DefaultEditorCamera() and says so in a warning.
+	std::function<bool( SGroundCamera &camera )> groundCamera;
 };
 
 struct SExportOutcome
