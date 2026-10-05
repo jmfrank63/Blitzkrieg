@@ -316,6 +316,22 @@ bool ComposeSingleObject( const SExportContext &context, const std::string &szSp
 	return SaveCompressedShadow( context, pPackedShadow, szName + "s", outcome ) && SaveAnimation( context, shadowAnimations, szName + "s.san", outcome );
 }
 
+bool SaveTga( const SExportContext &context, IImage *pImage, const std::string &szName, SExportOutcome &outcome )
+{
+	{
+		CPtr<IDataStream> pStream = CreateStaged( context, szName, outcome );
+		if ( pStream == 0 )
+			return false;
+		if ( !GetImageProcessor()->SaveImageAsTGA( pStream, pImage ) )
+		{
+			outcome.szError = "cannot write " + szName;
+			return false;
+		}
+	}
+	++outcome.nWritten;
+	return true;
+}
+
 bool CopyFileInto( const SExportContext &context, const std::string &szSource, const std::string &szName, SExportOutcome &outcome )
 {
 	const fs::path source( Slashed( szSource ) );

@@ -35,6 +35,7 @@
 #include <cstring>
 #include <filesystem>
 
+#include "mesh.h"
 #include "../stats_export.h"
 #include "../../image_export.h"
 #include "../tree_item_types.h"
@@ -944,6 +945,52 @@ bool ExportMesh( const Project &project, const SExportContext &context, SExportO
 	if ( !context.bStatsOnly )
 		ExportGraphics( context, *pGraphics, szResultDir, outcome );
 	CopyLocalizations( context, *pLocalization, szResultDir, outcome );
+	return true;
+}
+
+
+bool RebuildMeshLocators( CTreeItem &root, const SExportContext &context, int &nNodes, std::string &szModFile, std::string &szMessage )
+{
+	nNodes = 0;
+	CTreeItem *pLocators = nullptr;
+	for ( const auto &pChild : root.GetChildren() )
+		if ( pChild->GetItemType() == ETIT_MESH_LOCATORS_ITEM )
+			pLocators = pChild.get();
+	CTreeItem *pGraphics = nullptr;
+	for ( const auto &pChild : root.GetChildren() )
+		if ( pChild->GetItemType() == ETIT_MESH_GRAPHICS_ITEM )
+			pGraphics = pChild.get();
+	if ( pLocators == nullptr || pGraphics == nullptr )
+	{
+		szMessage = "the unit project has no Graphics Info or Locators item";
+		return false;
+	}
+	pLocators->MutableChildren().clear();
+
+	const std::string szCombat = ValueStr( *pGraphics, 0 );
+	const fs::path combatFile = ModelFile( context, szCombat );
+	szModFile = combatFile.string();
+	CPtr<IDataStream> pStream = szCombat.empty() ? CPtr<IDataStream>( 0 ) : OpenModel( combatFile );
+	if ( pStream == 0 )
+	{
+		szMessage = "cannot load the combat model " + szModFile + ", so there are no locators";
+		NStr::DebugTrace( "msh locators: no combat model %s", szModFile.c_str() );
+		return false;
+	}
+	SModel model;
+	CPtr<IStructureSaver> pSaver = CreateStructureSaver( pStream, IStructureSaver::READ );
+	CSaverAccessor saver = pSaver;
+	saver.Add( 1, &model.skeleton );
+	BuildModel( model );
+	for ( int i = 0; i < model.NumNodes(); ++i )
+	{
+		auto pLocator = std::make_unique<CMeshLocatorPropsItem>();
+		pLocator->nLocatorID = i;
+		pLocator->SetItemName( model.names[i] );
+		pLocators->AddChild( std::move( pLocator ) );
+	}
+	nNodes = model.NumNodes();
+	NStr::DebugTrace( "msh locators: %d nodes from %s", nNodes, szModFile.c_str() );
 	return true;
 }
 

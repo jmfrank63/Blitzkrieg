@@ -34,6 +34,15 @@ bool ExportSprite( const Project &project, const SExportContext &context, SExpor
 bool ExportInfantry( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportMesh( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 
+// CMeshFrame::SetCombatMesh's locator half (MeshFrm.cpp:1762-1885): the root's
+// Locators item gets one child per skeleton node of the combat .mod, named as
+// the node, in skeleton order (nLocatorID is the index). The skeleton is read
+// through the structure loader as the export reads it (D019), so no window or
+// GPU is needed. A model that cannot be read leaves the item empty, as MFC's
+// early return did, and answers false with szMessage naming the file. Counts
+// the nodes in nNodes and names the file in szModFile.
+bool RebuildMeshLocators( CTreeItem &root, const SExportContext &context, int &nNodes, std::string &szModFile, std::string &szMessage );
+
 namespace NStatsExport
 {
 

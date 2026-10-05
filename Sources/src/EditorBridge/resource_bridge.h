@@ -447,6 +447,49 @@ BkEditorStatus BkResPreviewPlayback( BkResSession *session, int run );
    camera's distance step. */
 BkEditorStatus BkResPreviewCamera( BkResSession *session, float wx, float wy, int zoom );
 
+/* ---- Unit (mesh) preview ---------------------------------------------- */
+
+/* One locator of the unit's skeleton: the node id is the skeleton node's
+   index, the same as the tree's Locators child of that position. world is
+   where the node sits in the preview scene now (the object's placement and
+   direction applied); screen is world run through the preview scene's own
+   transform (IScene::GetPos2), in the viewport's pixels. */
+typedef struct
+{
+	int node_id;
+	char name[64];
+	float wx, wy, wz;
+	float sx, sy;
+} BkResLocator;
+
+/* Shows one model variant of the previewed unit, replacing the one drawn:
+   0 is the combat model, 1 the install model and 2 the transportable one -
+   MFC's SetCombatMesh, SetInstallMesh and SetTransportableMesh, which built
+   them from the 1st, 2nd and 3rd model name of Graphics Info. The install and
+   transportable models are built with the combat model's texture, as MFC
+   made them (it saved the alive summer texture for each). The direction and
+   the locator display carry over. BK_EDITOR_REFUSED when the preview shows no
+   unit (BkResPreviewBegin(msh) and BkResPreviewShow first), the variant is
+   outside 0..2, or its model is unavailable (the name is empty or the file
+   was not exported); the message names the file. */
+BkEditorStatus BkResPreviewMeshVariant( BkResSession *session, int variant );
+
+/* Turns the previewed unit to `angle` degrees (0..359; MFC's direction dock
+   gave the engine's 16-bit direction, this is the same turn as degrees) and
+   moves the locator sprites with it. BK_EDITOR_REFUSED when no unit shows. */
+BkEditorStatus BkResPreviewDirection( BkResSession *session, int angle );
+
+/* MFC's OnShowLocatorsInfo: locators != 0 draws one editor\locator\1 sprite
+   at every skeleton node, bounding_boxes != 0 turns on the scene's
+   SCENE_SHOW_BBS. The two are independent here (MFC tied both to one toggle).
+   BK_EDITOR_REFUSED when no unit shows. */
+BkEditorStatus BkResPreviewShowLocators( BkResSession *session, int locators, int bounding_boxes );
+
+/* The skeleton nodes of the shown model variant with their positions. Fills
+   at most cap entries and always stores the total in *count, so a caller can
+   size its buffer with cap = 0. BK_EDITOR_REFUSED when no unit shows. */
+BkEditorStatus BkResMeshLocators( BkResSession *session, BkResLocator *out, int cap, int *count );
+
 /* ---- Import ----------------------------------------------------------- */
 
 /* Import from game data (D-13): builds a new, unsaved project of `kind`

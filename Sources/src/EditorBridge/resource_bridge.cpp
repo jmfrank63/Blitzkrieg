@@ -40,6 +40,8 @@
 #include "../ResourceModel/future_blob.h"
 #include "../ResourceModel/references.h"
 #include "../ResourceModel/exporter.h"
+#include "../ResourceModel/items/stats_export.h"
+#include "../ResourceModel/items/mesh/mesh.h"
 #include "../Main/RPGStats.h"
 #include "../Main/iMain.h"
 #include "../Main/GameTimer.h"
@@ -215,6 +217,17 @@ struct ResourceState
 	std::vector<IVisObj *> previewMembers;
 	bool bPreviewEffect = false;
 	bool bPreviewRunning = false;
+	// The unit (msh) preview: the export's folder as the engine names it (with
+	// a trailing backslash), the three model names of Graphics Info without
+	// folder and extension, the variant drawn, its direction in degrees and
+	// the locator display. The sprites are held like pPreviewObj.
+	std::string szMeshDir;
+	std::string meshModels[3];
+	int nMeshVariant = 0;
+	int nMeshDirection = 0;
+	bool bMeshLocators = false;
+	bool bMeshBoxes = false;
+	std::vector<IVisObj *> locatorSprites;
 };
 
 // Channel ids: the C ABI's geometry channel integers (shared with Zig's
@@ -372,6 +385,25 @@ void RebuildIds( ResourceState &state )
 		for ( auto it = children.rbegin(); it != children.rend(); ++it )
 			stack.push_back( { it->get(), nId } );
 	}
+}
+
+// CMeshFrame::SetCombatMesh rebuilt the Locators children from the combat
+// model on every load and every change of its name. The rebuild is derived
+// data, not an edit: it does not touch the dirty state and the undo history
+// never sees it. A missing model leaves the item empty and is reported in
+// szMessage; the open or the set that triggered it still succeeds, as MFC's
+// SetCombatMesh returned quietly.
+void RebuildMeshLocators( ResourceState &state, std::string &szMessage )
+{
+	if ( !state.pProject || !state.pProject->root || state.pProject->root->GetItemType() != NResourceModel::ETIT_MESH_ROOT_ITEM )
+		return;
+	NResourceModel::SExportContext context;
+	context.szProjectPath = state.szPath;
+	int nNodes = 0;
+	std::string szModFile, szWhy;
+	if ( !NResourceModel::RebuildMeshLocators( *state.pProject->root, context, nNodes, szModFile, szWhy ) )
+		szMessage = szWhy;
+	RebuildIds( state );
 }
 
 bool ReadFileBytes( const std::string &szPath, std::string &out )
@@ -1533,6 +1565,7 @@ BkEditorStatus BkResOpen( BkResSession *pSession, const char *pszPath )
 		state.nKindOrdinal = nOrdinal;
 		state.szPath = pszPath;
 		RebuildIds( state );
+		RebuildMeshLocators( state, pSession->szMessage );
 		return BK_EDITOR_OK;
 	} );
 }
@@ -1779,6 +1812,8 @@ BkEditorStatus BkResSetProp( BkResSession *pSession, int nNodeId, int nPropId, c
 				// Parsed into the kind the prop already holds, so a float stays
 				// a float and the project writes the same element type back.
 				p.value = NResourceModel::CVariant::FromString( p.value.GetKind(), pszText );
+				if ( itItem->second->GetItemType() == NResourceModel::ETIT_MESH_GRAPHICS_ITEM && nPropId == 1 )
+					RebuildMeshLocators( state, pSession->szMessage );
 				return BK_EDITOR_OK;
 			}
 		}
@@ -3822,9 +3857,22 @@ void RestartPreviewObject( ResourceState &state )
 	state.pPreviewObj->Update( time );
 }
 
+void DropLocatorSprites( ResourceState &state )
+{
+	IScene *pScene = GetSingleton<IScene>();
+	for ( IVisObj *pSprite : state.locatorSprites )
+	{
+		if ( pScene )
+			pScene->RemoveObject( pSprite );
+		pSprite->Release();
+	}
+	state.locatorSprites.clear();
+}
+
 void DropPreviewObject( ResourceState &state )
 {
 	IScene *pScene = GetSingleton<IScene>();
+	DropLocatorSprites( state );
 	for ( IVisObj *pMember : state.previewMembers )
 	{
 		if ( pScene )
@@ -3872,6 +3920,109 @@ std::string EngineFolderPattern( const std::filesystem::path &dir )
 	return szDir + "*.pak";
 }
 
+// SCENE_SHOW_BBS as CMeshFrame::UpdateLocatorVisibility drove it: ToggleShow
+// answers the state it switched to, so it is toggled until it is the wanted one.
+void SetMeshBoxes( ResourceState &state, bool bShow )
+{
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == nullptr )
+		return;
+	for ( int nTry = 0; nTry < 2; ++nTry )
+	{
+		const bool bNow = pScene->ToggleShow( SCENE_SHOW_BBS );
+		if ( bNow == bShow )
+			break;
+	}
+	state.bMeshBoxes = bShow;
+}
+
+// The mesh the unit preview draws and its animation, null when none shows.
+IMeshVisObj *PreviewMesh( ResourceState &state )
+{
+	if ( !state.bPreview || state.szMeshDir.empty() || state.pPreviewObj == nullptr )
+		return nullptr;
+	return static_cast<IMeshVisObj *>( static_cast<IObjVisObj *>( state.pPreviewObj ) );
+}
+
+struct SMeshNode
+{
+	std::string szName;
+	CVec3 vPos;
+};
+
+// The skeleton nodes of the drawn model and where they sit now: the object is
+// updated (forced, so a new direction takes) and its matrices read, which is
+// what CMeshFrame::UpdateLocators did with the animation's matrices.
+bool ReadMeshNodes( ResourceState &state, std::vector<SMeshNode> &nodes )
+{
+	IMeshVisObj *pMesh = PreviewMesh( state );
+	if ( pMesh == nullptr )
+		return false;
+	IMeshAnimation *pAnim = static_cast<IMeshAnimation *>( pMesh->GetAnimation() );
+	IMeshAnimationEdit *pAnimEdit = pAnim ? dynamic_cast<IMeshAnimationEdit *>( pAnim ) : nullptr;
+	if ( pAnimEdit == nullptr )
+		return false;
+	pMesh->Update( UpdateGameTimer(), true );
+	const int nNodes = pAnim->GetNumNodes();
+	nodes.clear();
+	if ( nNodes <= 0 )
+		return true;
+	std::vector<const char *> names( nNodes );
+	pAnimEdit->GetAllNodeNames( &names[0], nNodes );
+	const SHMatrix *pMatrices = pMesh->GetMatrices();
+	if ( pMatrices == nullptr )
+		return false;
+	for ( int i = 0; i < nNodes; ++i )
+		nodes.push_back( { names[i], pMatrices[i].GetTrans3() } );
+	return true;
+}
+
+// MFC's locator sprites (editor\\locator\\1, SGVOGT_OBJECT) at the nodes of the
+// drawn model, half transparent; none when the display is off.
+bool UpdateLocatorSprites( ResourceState &state, std::string &szError )
+{
+	if ( !state.bMeshLocators )
+	{
+		DropLocatorSprites( state );
+		return true;
+	}
+	std::vector<SMeshNode> nodes;
+	if ( !ReadMeshNodes( state, nodes ) )
+	{
+		DropLocatorSprites( state );
+		return true;
+	}
+	IScene *pScene = GetSingleton<IScene>();
+	if ( state.locatorSprites.size() != nodes.size() )
+	{
+		DropLocatorSprites( state );
+		for ( std::size_t i = 0; i < nodes.size(); ++i )
+		{
+			IVisObj *pSprite = GetSingleton<IVisObjBuilder>()->BuildObject( "editor\\locator\\1", 0, SGVOT_SPRITE );
+			if ( pSprite == nullptr )
+			{
+				szError = "IVisObjBuilder would not build the locator sprite editor\\locator\\1";
+				DropLocatorSprites( state );
+				return false;
+			}
+			pSprite->AddRef();
+			pScene->AddObject( pSprite, SGVOGT_OBJECT );
+			state.locatorSprites.push_back( pSprite );
+		}
+	}
+	const NTimer::STime time = UpdateGameTimer();
+	for ( std::size_t i = 0; i < nodes.size(); ++i )
+	{
+		IVisObj *pSprite = state.locatorSprites[i];
+		pSprite->SetPosition( nodes[i].vPos );
+		pSprite->SetDirection( 0 );
+		pScene->MoveObject( pSprite, nodes[i].vPos );
+		pSprite->SetOpacity( 120 );
+		pSprite->Update( time, true );
+	}
+	return true;
+}
+
 void StopPreview( BkEditorSession *pSession, ResourceState &state )
 {
 	if ( !state.bPreview )
@@ -3888,6 +4039,14 @@ void StopPreview( BkEditorSession *pSession, ResourceState &state )
 	state.nPreviewKind = -1;
 	state.bPreviewEffect = false;
 	state.bPreviewRunning = false;
+	state.szMeshDir.clear();
+	state.nMeshVariant = 0;
+	state.nMeshDirection = 0;
+	state.bMeshLocators = false;
+	state.bMeshBoxes = false;
+	// The scene is cleared by the next Begin, but the box display is the
+	// scene's own switch and would outlive this preview.
+	SetMeshBoxes( state, false );
 }
 
 // A folder of the system's temp directory for this session's preview export,
@@ -4025,6 +4184,48 @@ int BuildSquadMembers( ResourceState &state, const NResourceModel::Project &proj
 	return int( state.previewMembers.size() );
 }
 
+const int kUnitPreviewKind = 6; // "msh": the kind whose preview has model variants and locators
+
+// The engine's 16-bit direction of an angle in degrees, as IVisObj turns it.
+int DirectionOfDegrees( int nDegrees )
+{
+	nDegrees %= 360;
+	if ( nDegrees < 0 )
+		nDegrees += 360;
+	return ( nDegrees * 65536 / 360 ) & 0xffff;
+}
+
+// A model name of Graphics Info as the export folder names its file: the
+// name without folder and extension, lower case as the engine folds it.
+std::string ModelStem( const std::string &szName )
+{
+	std::string szStem = szName;
+	const std::size_t nSlash = szStem.find_last_of( "\\/" );
+	if ( nSlash != std::string::npos )
+		szStem.erase( 0, nSlash + 1 );
+	const std::size_t nDot = szStem.find_last_of( '.' );
+	if ( nDot != std::string::npos )
+		szStem.erase( nDot );
+	for ( char &c : szStem )
+		c = char( std::tolower( (unsigned char)c ) );
+	return szStem;
+}
+
+// Takes the export's folder and the three model names for the variants.
+void NoteUnitPreview( ResourceState &state, const NResourceModel::Project &project, const std::string &szObjectName )
+{
+	const std::size_t nSlash = szObjectName.find_last_of( '\\' );
+	state.szMeshDir = nSlash == std::string::npos ? std::string() : szObjectName.substr( 0, nSlash + 1 );
+	for ( std::string &szModel : state.meshModels )
+		szModel.clear();
+	if ( project.root )
+		for ( const auto &pChild : project.root->GetChildren() )
+			if ( pChild->GetItemType() == NResourceModel::ETIT_MESH_GRAPHICS_ITEM )
+				for ( int i = 0; i < 3; ++i )
+					state.meshModels[i] = ModelStem( NResourceModel::NStatsExport::ValueStr( *pChild, i ) );
+	state.nMeshVariant = 0;
+}
+
 BkEditorStatus ShowPreview( BkEditorSession *pSession )
 {
 	ResourceState &state = StateOf( pSession );
@@ -4108,6 +4309,8 @@ BkEditorStatus ShowPreview( BkEditorSession *pSession )
 		pSession->szMessage = "the ." + szExtension + " export named no visual to build";
 		return BK_EDITOR_FAILED;
 	}
+	if ( state.nPreviewKind == kUnitPreviewKind )
+		NoteUnitPreview( state, project, outcome.szObjectName );
 	std::string szBuildName = outcome.szObjectName;
 	if ( pKind->bParticleSource )
 	{
@@ -4137,15 +4340,165 @@ BkEditorStatus ShowPreview( BkEditorSession *pSession )
 	ICamera *pCamera = GetSingleton<ICamera>();
 	pCamera->Update();
 	const CVec3 vAnchor = pCamera->GetAnchor();
-	pObj->SetPlacement( CVec3( vAnchor.x, vAnchor.y, 0.0f ), 0 );
+	pObj->SetPlacement( CVec3( vAnchor.x, vAnchor.y, 0.0f ), state.szMeshDir.empty() ? 0 : DirectionOfDegrees( state.nMeshDirection ) );
 	RestartPreviewObject( state );
 	GetSingleton<IScene>()->AddObject( pObj, pKind->eGameType );
+	if ( !state.szMeshDir.empty() )
+	{
+		std::string szWhy;
+		if ( !UpdateLocatorSprites( state, szWhy ) )
+		{
+			pSession->szMessage = szWhy;
+			return BK_EDITOR_FAILED;
+		}
+	}
 	pSession->szMessage = "built \"" + szBuildName + "\" from " + std::to_string( outcome.nWritten ) + " exported files";
+	return BK_EDITOR_OK;
+}
+
+// The mesh of the unit preview, or a refusal naming what is missing.
+IMeshVisObj *RequireUnitPreview( BkEditorSession *pSession, ResourceState &state )
+{
+	IMeshVisObj *pMesh = PreviewMesh( state );
+	if ( pMesh == nullptr )
+		pSession->szMessage = "no unit is previewed: call BkResPreviewBegin for a .msh project and BkResPreviewShow first";
+	return pMesh;
+}
+
+// MFC's SetCombatMesh, SetInstallMesh and SetTransportableMesh: the new model
+// is built before the drawn one goes, so a variant that is not there leaves
+// the preview as it was.
+BkEditorStatus ShowMeshVariant( BkEditorSession *pSession, int nVariant )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( RequireUnitPreview( pSession, state ) == nullptr )
+		return BK_EDITOR_REFUSED;
+	if ( nVariant < 0 || nVariant > 2 )
+	{
+		pSession->szMessage = "the model variant is 0 (combat), 1 (install) or 2 (transportable)";
+		return BK_EDITOR_REFUSED;
+	}
+	static const char *const kVariantNames[3] = { "combat", "install", "transportable" };
+	const std::string szModel = nVariant == 0 ? std::string( "1" ) : state.meshModels[nVariant];
+	if ( szModel.empty() )
+	{
+		pSession->szMessage = std::string( "the project names no " ) + kVariantNames[nVariant] + " model in Graphics Info";
+		return BK_EDITOR_REFUSED;
+	}
+	const std::string szName = state.szMeshDir + szModel;
+	// The install and transportable models wear the combat model's texture.
+	const std::string szTexture = state.szMeshDir + "1";
+	IVisObj *pObj = GetSingleton<IVisObjBuilder>()->BuildObject( szName.c_str(), nVariant == 0 ? nullptr : szTexture.c_str(), SGVOT_MESH );
+	if ( pObj == nullptr )
+	{
+		pSession->szMessage = std::string( "the " ) + kVariantNames[nVariant] + " model " + szName
+			+ ".mod is not in the preview export (a model outside the combat model's folder is not exported)";
+		return BK_EDITOR_REFUSED;
+	}
+	pObj->AddRef();
+	DropPreviewObject( state );
+	state.pPreviewObj = pObj;
+	state.nMeshVariant = nVariant;
+	ICamera *pCamera = GetSingleton<ICamera>();
+	pCamera->Update();
+	const CVec3 vAnchor = pCamera->GetAnchor();
+	pObj->SetPlacement( CVec3( vAnchor.x, vAnchor.y, 0.0f ), DirectionOfDegrees( state.nMeshDirection ) );
+	RestartPreviewObject( state );
+	GetSingleton<IScene>()->AddObject( pObj, SGVOGT_UNIT );
+	std::string szWhy;
+	if ( !UpdateLocatorSprites( state, szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		return BK_EDITOR_FAILED;
+	}
+	pSession->szMessage = std::string( "showing the " ) + kVariantNames[nVariant] + " model " + szName;
 	return BK_EDITOR_OK;
 }
 
 } // namespace
 } // extern "C++"
+
+BkEditorStatus BkResPreviewMeshVariant( BkResSession *pSession, int nVariant )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus { return ShowMeshVariant( pSession, nVariant ); } );
+}
+
+BkEditorStatus BkResPreviewDirection( BkResSession *pSession, int nAngle )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		ResourceState &state = StateOf( pSession );
+		IMeshVisObj *pMesh = RequireUnitPreview( pSession, state );
+		if ( pMesh == nullptr )
+			return BK_EDITOR_REFUSED;
+		state.nMeshDirection = ( ( nAngle % 360 ) + 360 ) % 360;
+		state.pPreviewObj->SetDirection( DirectionOfDegrees( state.nMeshDirection ) );
+		std::string szWhy;
+		if ( !UpdateLocatorSprites( state, szWhy ) )
+		{
+			pSession->szMessage = szWhy;
+			return BK_EDITOR_FAILED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResPreviewShowLocators( BkResSession *pSession, int nLocators, int nBoundingBoxes )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		ResourceState &state = StateOf( pSession );
+		if ( RequireUnitPreview( pSession, state ) == nullptr )
+			return BK_EDITOR_REFUSED;
+		state.bMeshLocators = nLocators != 0;
+		SetMeshBoxes( state, nBoundingBoxes != 0 );
+		std::string szWhy;
+		if ( !UpdateLocatorSprites( state, szWhy ) )
+		{
+			pSession->szMessage = szWhy;
+			return BK_EDITOR_FAILED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResMeshLocators( BkResSession *pSession, BkResLocator *pOut, int nCapacity, int *pnCount )
+{
+	if ( pnCount != nullptr )
+		*pnCount = 0;
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == nullptr || ( pOut == nullptr && nCapacity > 0 ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		ResourceState &state = StateOf( pSession );
+		if ( RequireUnitPreview( pSession, state ) == nullptr )
+			return BK_EDITOR_REFUSED;
+		std::vector<SMeshNode> nodes;
+		if ( !ReadMeshNodes( state, nodes ) )
+		{
+			pSession->szMessage = "the previewed model has no skeleton to read";
+			return BK_EDITOR_FAILED;
+		}
+		GetSingleton<ICamera>()->Update();
+		IScene *pScene = GetSingleton<IScene>();
+		for ( int i = 0; i < int( nodes.size() ) && i < nCapacity; ++i )
+		{
+			BkResLocator &out = pOut[i];
+			std::memset( &out, 0, sizeof out );
+			out.node_id = i;
+			std::snprintf( out.name, sizeof out.name, "%s", nodes[i].szName.c_str() );
+			out.wx = nodes[i].vPos.x;
+			out.wy = nodes[i].vPos.y;
+			out.wz = nodes[i].vPos.z;
+			CVec2 vScreen( 0, 0 );
+			pScene->GetPos2( &vScreen, nodes[i].vPos );
+			out.sx = vScreen.x;
+			out.sy = vScreen.y;
+		}
+		*pnCount = int( nodes.size() );
+		return BK_EDITOR_OK;
+	} );
+}
 
 BkEditorStatus BkResPreviewBegin( BkResSession *pSession, BkResKind kind )
 {
@@ -4948,6 +5301,10 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		state.nKindOrdinal = kind;
 		RebuildIds( state );
 		pSession->szMessage = "imported " + szKeyName + " from " + statsFile.string();
+		std::string szLocators;
+		RebuildMeshLocators( state, szLocators );
+		if ( !szLocators.empty() )
+			pSession->szMessage += "; " + szLocators;
 		return BK_EDITOR_OK;
 	} );
 }

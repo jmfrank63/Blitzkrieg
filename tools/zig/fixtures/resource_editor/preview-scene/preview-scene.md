@@ -267,3 +267,20 @@ Measured on the Linux x64 agent (640 x 480) by
 `zig build test-resource-bridge -Dtest-mode=run`, which printed these values as
 `preview-scene:` lines. The mine is a small object, so its share of changed
 pixels is the smallest of the three.
+
+## Unit (msh) model variants
+
+`mesh-combat.tga`, `mesh-install.tga` and `mesh-transportable.tga` are the three
+variants of the imported shipped `8_8_cm_FlaK18` (1st, 2nd and 3rd model), captured by the
+`s08-mesh-preview` group of `test-resource-bridge` (640 x 480, Linux x64). Each gates on
+>= 1 % non-black-non-magenta; each pair gates on >= 0.1 % changed, except combat vs install,
+which is the same gun with the barrel lowered and gates on >= 0.01 %.
+
+| Capture                  | non-black-non-magenta | pair                          | changed  |
+|--------------------------|-----------------------|-------------------------------|----------|
+| `mesh-combat.tga`        | 0.252445              | combat vs install             | 0.000286 |
+| `mesh-install.tga`       | 0.252562              | combat vs transportable       | 0.006494 |
+| `mesh-transportable.tga` | 0.255241              | install vs transportable      | 0.006644 |
+
+Locator checks in the same group: 11 locators all inside the viewport; showing locator 5
+(LGunner02, screen 307.6,250.3) changes 208 pixels near that point.

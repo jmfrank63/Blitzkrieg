@@ -43,6 +43,7 @@
 #include "../ResourceModel/image_export.h"
 #include "../ResourceModel/comparator.h"
 #include "../ResourceModel/project.h"
+#include "../ResourceModel/items/tree_item_types.h"
 #include "../ResourceModel/items/squad/squad.h"
 #include "../ResourceModel/items/fence/fence.h"
 #include "../ResourceModel/key_frame_tree_item.h"
@@ -3550,6 +3551,248 @@ static void Graphics( BkResSession *pSession, const std::string &szFixtureRoot, 
 
 }
 
+// S08 T04: the unit (msh) preview on the real bridge: the three model
+// variants, the locators the bridge rebuilds from the combat .mod, their
+// world and screen positions, the direction and the locator display. The
+// captures are measured by code like T11's: share of non-black-non-magenta
+// pixels, and the share that changed between two frames.
+namespace S08Preview
+{
+
+struct SLocatorChildren
+{
+	int nLocatorsId = 0;
+	int nGraphicsId = 0;
+	std::vector<std::string> names;
+};
+
+static SLocatorChildren ReadLocatorChildren( BkResSession *pSession )
+{
+	SLocatorChildren result;
+	int nCount = 0;
+	BkResNodes( pSession, 0, 0, &nCount );
+	std::vector<BkResNodeRecord> nodes( nCount > 0 ? nCount : 1 );
+	BkResNodes( pSession, nodes.data(), nCount, &nCount );
+	for ( int i = 0; i < nCount; ++i )
+	{
+		if ( nodes[i].class_type == NResourceModel::ETIT_MESH_LOCATORS_ITEM )
+			result.nLocatorsId = nodes[i].id;
+		if ( nodes[i].class_type == NResourceModel::ETIT_MESH_GRAPHICS_ITEM )
+			result.nGraphicsId = nodes[i].id;
+	}
+	for ( int i = 0; i < nCount; ++i )
+		if ( result.nLocatorsId != 0 && nodes[i].parent == result.nLocatorsId )
+			result.names.push_back( nodes[i].display_name );
+	return result;
+}
+
+static std::vector<BkResLocator> ReadLocators( BkResSession *pSession )
+{
+	int nCount = 0;
+	BkResMeshLocators( pSession, 0, 0, &nCount );
+	std::vector<BkResLocator> locators( nCount > 0 ? nCount : 1 );
+	if ( BkResMeshLocators( pSession, locators.data(), nCount, &nCount ) != BK_EDITOR_OK )
+		nCount = 0;
+	locators.resize( nCount );
+	return locators;
+}
+
+static bool CaptureTo( BkResSession *pSession, const std::filesystem::path &tga, std::vector<unsigned char> &rgb, int &nW, int &nH )
+{
+	for ( int i = 0; i < 3; ++i )
+		BkEditorFrame( pSession );
+	return BkEditorCaptureFrame( pSession, tga.string().c_str() ) == BK_EDITOR_OK && T11::ReadCapture( tga.string(), rgb, nW, nH );
+}
+
+// The pixels that changed by more than 8 in any channel inside the square of
+// the given half size around a screen point.
+static int ChangedAround( const std::vector<unsigned char> &a, const std::vector<unsigned char> &b, int nW, int nH, float fX, float fY, int nHalf )
+{
+	int nChanged = 0;
+	for ( int y = std::max( 0, int( fY ) - nHalf ); y <= std::min( nH - 1, int( fY ) + nHalf ); ++y )
+		for ( int x = std::max( 0, int( fX ) - nHalf ); x <= std::min( nW - 1, int( fX ) + nHalf ); ++x )
+		{
+			const std::size_t i = ( std::size_t( y ) * nW + x ) * 3;
+			if ( std::abs( a[i] - b[i] ) > 8 || std::abs( a[i + 1] - b[i + 1] ) > 8 || std::abs( a[i + 2] - b[i + 2] ) > 8 )
+				++nChanged;
+		}
+	return nChanged;
+}
+
+static void Run( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s08-mesh-preview";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "unit";
+	fs::create_directories( projectDir, ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / "msh", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), projectDir / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / "project.msh";
+	if ( !Check( fs::is_regular_file( project, ec ), "mesh preview: the fixture is copied" ) )
+		return;
+
+	// Before anything is previewed every call is refused.
+	{
+		BkResLocator probe[1];
+		int nProbe = -1;
+		Check( BkResPreviewMeshVariant( pSession, 0 ) == BK_EDITOR_REFUSED, "mesh preview: a variant without a preview is refused" );
+		Check( BkResPreviewDirection( pSession, 90 ) == BK_EDITOR_REFUSED, "mesh preview: a direction without a preview is refused" );
+		Check( BkResPreviewShowLocators( pSession, 1, 1 ) == BK_EDITOR_REFUSED, "mesh preview: showing locators without a preview is refused" );
+		Check( BkResMeshLocators( pSession, probe, 1, &nProbe ) == BK_EDITOR_REFUSED && nProbe == 0, "mesh preview: locators without a preview are refused" );
+	}
+
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "mesh preview: project.msh opens" ) )
+		return;
+	const SLocatorChildren original = ReadLocatorChildren( pSession );
+	std::printf( "MESH locators after open: %d\n", int( original.names.size() ) );
+	Check( !original.names.empty(), "mesh preview: opening rebuilds the Locators children from the combat .mod" );
+
+	if ( !Check( BkResPreviewBegin( pSession, 6 ) == BK_EDITOR_OK, "mesh preview: Begin" ) ||
+	     !Check( BkResPreviewShow( pSession ) == BK_EDITOR_OK, ( std::string( "mesh preview: Show: " ) + BkEditorLastMessage( pSession ) ).c_str() ) )
+	{
+		BkResPreviewStop( pSession );
+		BkResClose( pSession );
+		return;
+	}
+
+	// The locators: as many as skeleton nodes, named as the tree's children.
+	{
+		std::vector<BkResLocator> locators = ReadLocators( pSession );
+		bool bNames = locators.size() == original.names.size();
+		for ( std::size_t i = 0; bNames && i < locators.size(); ++i )
+			bNames = locators[i].node_id == int( i ) && original.names[i] == locators[i].name;
+		Check( bNames, "mesh preview: the locators are the Locators children, by index and name" );
+		int nTotal = -1;
+		BkResLocator one;
+		Check( BkResMeshLocators( pSession, &one, 1, &nTotal ) == BK_EDITOR_OK && nTotal == int( original.names.size() ), "mesh preview: a short buffer still reports the total" );
+	}
+
+	// The three variants, each measured and each different from the others.
+	const char *const kVariants[3] = { "combat", "install", "transportable" };
+	std::vector<unsigned char> rgbs[3];
+	int nW = 0, nH = 0;
+	for ( int nVariant = 0; nVariant < 3; ++nVariant )
+	{
+		const std::string szLabel = std::string( "mesh preview " ) + kVariants[nVariant];
+		Check( BkResPreviewMeshVariant( pSession, nVariant ) == BK_EDITOR_OK, ( szLabel + ": " + BkEditorLastMessage( pSession ) ).c_str() );
+		const fs::path tga = scratch / ( std::string( "mesh-" ) + kVariants[nVariant] + ".tga" );
+		const bool bRead = CaptureTo( pSession, tga, rgbs[nVariant], nW, nH );
+		Check( bRead, ( szLabel + ": the capture reads back" ).c_str() );
+		const double fShare = bRead ? T11::NonBlackNonMagentaShare( rgbs[nVariant] ) : -1.0;
+		std::printf( "MESH PREVIEW %s: non-black-non-magenta=%f path=%s\n", kVariants[nVariant], fShare, tga.string().c_str() );
+		Check( fShare >= 0.01, ( szLabel + ": >= 1% non-black-non-magenta" ).c_str() );
+	}
+	for ( int a = 0; a < 3; ++a )
+		for ( int b = a + 1; b < 3; ++b )
+		{
+			const double fChanged = T11::ChangedShare( rgbs[a], rgbs[b] );
+			std::printf( "MESH PREVIEW %s vs %s: changed=%f\n", kVariants[a], kVariants[b], fChanged );
+			// The shipped FlaK18 install model is the combat model with the barrel
+			// lowered, so that pair differs by a few hundredths of a percent.
+			const double fFloor = ( a == 0 && b == 1 ) ? 0.0001 : 0.001;
+			Check( fChanged >= fFloor, ( std::string( "mesh preview: " ) + kVariants[a] + " and " + kVariants[b] + ( fFloor < 0.001 ? " differ (>= 0.01% of the frame)" : " differ (>= 0.1% of the frame)" ) ).c_str() );
+		}
+	Check( BkResPreviewMeshVariant( pSession, 3 ) == BK_EDITOR_REFUSED, "mesh preview: variant 3 is refused" );
+	Check( BkResPreviewMeshVariant( pSession, 0 ) == BK_EDITOR_OK, "mesh preview: back to the combat model" );
+
+	// A locator's screen point lies in the viewport and the locator sprite
+	// draws there; direction 90 moves it.
+	{
+		std::vector<unsigned char> rgbOff, rgbOn;
+		Check( BkResPreviewShowLocators( pSession, 0, 0 ) == BK_EDITOR_OK, "mesh preview: locators off" );
+		const bool bOff = CaptureTo( pSession, scratch / "locators-off.tga", rgbOff, nW, nH );
+		const std::vector<BkResLocator> locators = ReadLocators( pSession );
+		Check( BkResPreviewShowLocators( pSession, 1, 0 ) == BK_EDITOR_OK, "mesh preview: locators on" );
+		const bool bOn = CaptureTo( pSession, scratch / "locators-on.tga", rgbOn, nW, nH );
+		Check( bOff && bOn && !locators.empty(), "mesh preview: the locator captures read back" );
+		int nPicked = -1, nBest = 0, nInside = 0;
+		for ( std::size_t i = 0; bOff && bOn && i < locators.size(); ++i )
+		{
+			if ( locators[i].sx < 0 || locators[i].sy < 0 || locators[i].sx >= nW || locators[i].sy >= nH )
+				continue;
+			++nInside;
+			const int nChanged = ChangedAround( rgbOff, rgbOn, nW, nH, locators[i].sx, locators[i].sy, 16 );
+			if ( nChanged > nBest )
+			{
+				nBest = nChanged;
+				nPicked = int( i );
+			}
+		}
+		std::printf( "MESH locators: %d, %d inside the %dx%d viewport, locator %d (%s) at screen %.1f,%.1f changed %d pixels\n", int( locators.size() ), nInside, nW, nH,
+		             nPicked, nPicked >= 0 ? locators[nPicked].name : "-", nPicked >= 0 ? locators[nPicked].sx : 0.0f, nPicked >= 0 ? locators[nPicked].sy : 0.0f, nBest );
+		Check( nInside > 0, "mesh preview: a locator's screen point lies inside the viewport" );
+		Check( nPicked >= 0 && nBest >= 4, "mesh preview: showing locators changes the pixels around a locator's screen point" );
+
+		// The locator farthest from the first node (the object's own origin)
+		// is the one a turn must move.
+		int nFar = 0;
+		float fFar = -1.0f;
+		for ( std::size_t i = 1; i < locators.size(); ++i )
+		{
+			const float fD = std::hypot( locators[i].wx - locators[0].wx, locators[i].wy - locators[0].wy );
+			if ( fD > fFar )
+			{
+				fFar = fD;
+				nFar = int( i );
+			}
+		}
+		Check( BkResPreviewDirection( pSession, 90 ) == BK_EDITOR_OK, "mesh preview: direction 90" );
+		const std::vector<BkResLocator> turned = ReadLocators( pSession );
+		if ( Check( turned.size() == locators.size(), "mesh preview: a turn keeps the locator count" ) )
+		{
+			const float fMoved = std::hypot( turned[nFar].sx - locators[nFar].sx, turned[nFar].sy - locators[nFar].sy );
+			std::printf( "MESH direction 90: locator %s moved %.1f px on screen (%.1f,%.1f -> %.1f,%.1f)\n", locators[nFar].name, fMoved,
+			             locators[nFar].sx, locators[nFar].sy, turned[nFar].sx, turned[nFar].sy );
+			Check( fMoved > 2.0f, "mesh preview: direction 90 moves a locator's screen point" );
+		}
+		Check( BkResPreviewDirection( pSession, 0 ) == BK_EDITOR_OK, "mesh preview: direction back to 0" );
+		Check( BkResPreviewShowLocators( pSession, 0, 1 ) == BK_EDITOR_OK, "mesh preview: bounding boxes on" );
+		std::vector<unsigned char> rgbBoxes;
+		const bool bBoxes = CaptureTo( pSession, scratch / "boxes-on.tga", rgbBoxes, nW, nH );
+		Check( bBoxes && T11::ChangedShare( rgbBoxes, rgbOff ) > 0.0, "mesh preview: bounding boxes change the frame" );
+		Check( BkResPreviewShowLocators( pSession, 0, 0 ) == BK_EDITOR_OK, "mesh preview: boxes off" );
+	}
+
+	// Setting the combat model rebuilds the children, and setting the old
+	// name back restores them (an undo replays the old text).
+	{
+		const SLocatorChildren before = ReadLocatorChildren( pSession );
+		Check( BkResSetProp( pSession, before.nGraphicsId, 1, "2.mod" ) == BK_EDITOR_OK, "mesh preview: the combat model is set to 2.mod" );
+		const SLocatorChildren after = ReadLocatorChildren( pSession );
+		std::printf( "MESH locators: 1.mod %d nodes, 2.mod %d nodes\n", int( before.names.size() ), int( after.names.size() ) );
+		Check( !after.names.empty() && after.names != before.names, "mesh preview: a new combat model rebuilds the Locators children" );
+		Check( after.nLocatorsId == before.nLocatorsId, "mesh preview: the Locators item keeps its id" );
+		Check( BkResSetProp( pSession, before.nGraphicsId, 1, "1.mod" ) == BK_EDITOR_OK, "mesh preview: the old model name is set back" );
+		Check( ReadLocatorChildren( pSession ).names == before.names, "mesh preview: setting the old name restores the children" );
+		Check( BkResSetProp( pSession, before.nGraphicsId, 1, "missing.mod" ) == BK_EDITOR_OK && ReadLocatorChildren( pSession ).names.empty(),
+		       "mesh preview: a model that is not there leaves no locators and the set stands" );
+		Check( BkResSetProp( pSession, before.nGraphicsId, 1, "1.mod" ) == BK_EDITOR_OK && ReadLocatorChildren( pSession ).names == before.names, "mesh preview: and back again" );
+	}
+	BkResPreviewStop( pSession );
+	BkResClose( pSession );
+
+	// A unit without its transportable model: the variant is refused and
+	// names the file; the others still show.
+	{
+		fs::remove( projectDir / "3.mod", ec );
+		if ( Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "mesh preview: the project without 3.mod opens" ) &&
+		     Check( BkResPreviewBegin( pSession, 6 ) == BK_EDITOR_OK, "mesh preview: Begin without 3.mod" ) &&
+		     Check( BkResPreviewShow( pSession ) == BK_EDITOR_OK, "mesh preview: Show without 3.mod" ) )
+		{
+			Check( BkResPreviewMeshVariant( pSession, 2 ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "3.mod" ) != 0,
+			       ( std::string( "mesh preview: the transportable model is refused, naming 3.mod: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+			Check( BkResPreviewMeshVariant( pSession, 1 ) == BK_EDITOR_OK, "mesh preview: the install model still shows" );
+		}
+		BkResPreviewStop( pSession );
+		BkResClose( pSession );
+	}
+}
+
+}
+
 // S06 T05: the preview captures of the mine, trench and squad (D015: MFC's
 // weapon frame draws nothing, so a weapon has none). Each runs the real
 // exporter into the preview folder and draws on the empty scene, measured by
@@ -4536,6 +4779,8 @@ int main( int argc, char **argv )
 	S08Mesh::Run( pSession, pszRoot, szScratchRoot );
 	S08Mesh::ImportRoundTrips( pSession, pszRoot, szScratchRoot );
 	S08Mesh::Graphics( pSession, szFixtureRoot, szScratchRoot );
+	// S08 T04: the unit preview's variants, locators and direction.
+	S08Preview::Run( pSession, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

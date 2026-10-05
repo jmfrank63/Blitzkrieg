@@ -70,6 +70,11 @@ bool ConvertAndSaveImage( const SExportContext &context, const std::string &szSo
 // anything is written, so a failed compose leaves nothing behind.
 bool ComposeSingleObject( const SExportContext &context, const std::string &szSprite, const std::string &szShadow, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome );
 
+// SaveImageAsTGA into the staging root: the picture written as szName (the
+// unit's icon.tga). False with outcome.szError when it cannot be written;
+// counts the file in outcome.nWritten when it is.
+bool SaveTga( const SExportContext &context, IImage *pImage, const std::string &szName, SExportOutcome &outcome );
+
 // MyCopyFile into the staging root: szSource copied to szName, replacing it.
 // False with outcome.szError when the source is not there or the copy fails.
 bool CopyFileInto( const SExportContext &context, const std::string &szSource, const std::string &szName, SExportOutcome &outcome );

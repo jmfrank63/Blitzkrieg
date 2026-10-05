@@ -839,7 +839,74 @@
 			<default_name>Locators</default_name>
 			<display_name>Locators</display_name>
 			<values/>
-			<childs/>
+			<childs>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>Basis</default_name>
+					<display_name>Basis</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>Turret</default_name>
+					<display_name>Turret</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>GunCarriage</default_name>
+					<display_name>GunCarriage</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>MainBarrel</default_name>
+					<display_name>MainBarrel</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LGunner01</default_name>
+					<display_name>LGunner01</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LGunner02</default_name>
+					<display_name>LGunner02</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LGunner03</default_name>
+					<display_name>LGunner03</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LAmmo</default_name>
+					<display_name>LAmmo</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LTowingPoint</default_name>
+					<display_name>LTowingPoint</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LGunner04</default_name>
+					<display_name>LGunner04</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LMainGun</default_name>
+					<display_name>LMainGun</display_name>
+					<values/>
+					<childs/>
+				</item>
+			</childs>
 		</item>
 	</childs>
 </Mesh_Composer_Project>
