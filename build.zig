@@ -4135,6 +4135,8 @@ fn addEditorBridge(
             "Sources/src/ResourceModel/items/bridge/bridge_export.cpp",
             "Sources/src/ResourceModel/items/particle/particle_export.cpp",
             "Sources/src/ResourceModel/items/effect/effect_export.cpp",
+            "Sources/src/ResourceModel/items/road3d/road3d_export.cpp",
+            "Sources/src/ResourceModel/items/river3d/river3d_export.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
     });

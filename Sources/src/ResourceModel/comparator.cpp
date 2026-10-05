@@ -800,7 +800,14 @@ const SRoundTripLoss kRoundTripLosses[] = {
 	{ EExportKind::INFANTRY, "RPG/UninstallRotate", "FillRPGStats writes a constant (nUninstallRotate = 0)" },
 	{ EExportKind::INFANTRY, "RPG/UninstallTransport", "FillRPGStats writes a constant (nUninstallTransport = 0)" },
 	{ EExportKind::INFANTRY, "RPG/AnimDescs/item[*]/data/item[*]/AABB_A", "FillRPGStats writes a constant (nAABB_A = -1)" },
-	{ EExportKind::INFANTRY, "RPG/AnimDescs/item[*]/data/item[*]/AABB_D", "FillRPGStats writes a constant (nAABB_D = -1)" },
+	{ EExportKind::INFANTRY, "RPG/AnimDescs/item[*]/data/item[*]/AABB_D", "FillRPGStats writes a constant (nAABB_D = -1)" },	{ EExportKind::VSO, "VSODescription/AIClasses", "FillRPGStats rebuilds the mask from the four passability flags and inverts it, so a file whose mask holds other bits (or none) comes back with the four flags and every higher bit set" },
+	{ EExportKind::VSO, "VSODescription/Type", "C3DRiverFrame::FillRPGStats never sets the type and its GetRPGStats imports nothing, so a river comes back as TYPE_UNKNOUN; the road export sets it from the Road type item and the road tests read it back" },
+	{ EExportKind::VSO, "VSODescription/Priority", "C3DRiverFrame::FillRPGStats never sets the priority, so a river comes back with 0; the road export writes it from Visual priority and the road tests read it back" },
+	{ EExportKind::VSO, "VSODescription/SoilParams", "an older river file omits SoilParams and the struct reads its default (0); the export writes the node" },
+	{ EExportKind::VSO, "VSODescription/Bottom/Disturbance", "FillRPGStats writes a constant (bottom.fDisturbance = 0)" },
+	{ EExportKind::VSO, "VSODescription/Bottom/StreamSpeed", "FillRPGStats writes a constant (bottom.fStreamSpeed = 0)" },
+	{ EExportKind::VSO, "VSODescription/Layers/item[*]/NumCells", "C3DRiverFrame::FillRPGStats gives every layer the bottom width as its cell count" },
+	{ EExportKind::VSO, "VSODescription/Layers/item[*]/RelWidth", "FillRPGStats writes a constant (layer.fRelWidth = 1)" },
 };
 
 const SRoundTripLoss *FindRoundTripLoss( EExportKind kind, const std::string &szMessage )

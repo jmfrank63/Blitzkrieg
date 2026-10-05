@@ -1918,6 +1918,11 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// The particle exporter (S12 T01); the S12 particle tests prove the file.
 				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .pcp exports through its S12 exporter" );
 			}
+			else if ( szExt == "3rd" || szExt == "3rv" )
+			{
+				// The VSO exporters (S13 T05); the S13Vso tests prove the file.
+				Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S13 exporter" ).c_str() );
+			}
 			else if ( szExt == "eff" )
 			{
 				// The fixture's function particle names a source that is not in the mod's data yet:
@@ -6881,6 +6886,215 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 
 }
 
+// S13 T05: the 3D Road and 3D River exporters and importers. The fixtures
+// export, the engine reads the VSODescription back through operator&, a second
+// forced export is byte-identical, and an imported project exports field-equal.
+// Every shipped Roads3D and Rivers file does the same; the scan is strict
+// (D022): an unimportable file fails the test.
+namespace S13Vso
+{
+
+namespace fs = std::filesystem;
+
+static fs::path XmlNamed( const fs::path &dir, const std::string &szStem )
+{
+	std::error_code ec;
+	fs::path found;
+	for ( fs::recursive_directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().extension() == ".xml" && it->path().generic_string().find( "/terrain/" ) != std::string::npos
+		     && ( szStem.empty() || it->path().stem() == szStem ) )
+			found = it->path();
+	return found;
+}
+
+static bool ReadVso( const fs::path &xml, SVectorStripeObjectDesc &desc )
+{
+	CPtr<IDataStorage> pStorage = OpenStorage( ( xml.parent_path().string() + "/" ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( xml.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+	CPtr<IDataTree> pDT = pStream != 0 ? CreateDataTreeSaver( pStream, IDataTree::READ ) : 0;
+	if ( pDT == 0 )
+		return false;
+	CTreeAccessor tree = pDT;
+	tree.Add( "VSODescription", &desc );
+	return true;
+}
+
+static void OneFixture( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot, const char *pszExt, int nKind )
+{
+	const std::string szLabel = pszExt;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / ( "s13-vso-" + szLabel );
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "project";
+	fs::create_directories( projectDir, ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / pszExt, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), projectDir / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / ( std::string( "project." ) + pszExt );
+	if ( !Check( fs::is_regular_file( project, ec ) && BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, ( szLabel + ": the fixture opens" ).c_str() ) )
+		return;
+	const fs::path mod = scratch / "mod";
+	if ( !Check( S12Particle::ExportTo( pSession, mod, "S13 vso" ), ( szLabel + ": the fixture exports" ).c_str() ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+	BkResClose( pSession );
+	const fs::path xml = XmlNamed( mod / "data", "" );
+	if ( !Check( !xml.empty(), ( szLabel + ": the stats file lands under data" ).c_str() ) )
+		return;
+	SVectorStripeObjectDesc desc;
+	const bool bRead = ReadVso( xml, desc );
+	std::printf( "vso %s: %s bottom cells=%d texture=%s layers=%d borders=%d type=%d\n", pszExt, xml.string().c_str(),
+	             int( desc.bottom.nNumCells ), desc.bottom.szTexture.c_str(), int( desc.layers.size() ), int( desc.bottomBorders.size() ), int( desc.eType ) );
+	Check( bRead && desc.bottom.nNumCells > 0 && !desc.bottom.szTexture.empty(), ( szLabel + ": the engine reads the exported VSODescription" ).c_str() );
+	const bool bRoad = nKind == 14;
+	Check( bRoad ? ( desc.eType == SVectorStripeObjectDesc::TYPE_ROAD || desc.eType == SVectorStripeObjectDesc::TYPE_RAILROAD ) : desc.eType != SVectorStripeObjectDesc::TYPE_ROAD,
+	       ( szLabel + ": the exported type is the kind's" ).c_str() );
+
+	BkResOpen( pSession, project.string().c_str() );
+	std::string szFirst, szAgain;
+	ReadBytes( xml.string(), szFirst );
+	Check( S12Particle::ExportTo( pSession, mod, "S13 vso" ) && ReadBytes( xml.string(), szAgain ) && szAgain == szFirst && !szFirst.empty(),
+	       ( szLabel + ": a second forced export is byte-identical" ).c_str() );
+	BkResClose( pSession );
+	const NResourceModel::SCompareResult self = NResourceModel::CompareStats( NResourceModel::EExportKind::VSO, xml.string(), xml.string() );
+	Check( self.nFieldsCompared > 5 && self.messages.empty(), ( szLabel + ": the comparator reads the exported file" ).c_str() );
+
+	if ( Check( BkResImportFromGame( pSession, nKind, xml.string().c_str() ) == BK_EDITOR_OK, ( szLabel + ": the exported file imports" ).c_str() ) )
+	{
+		const fs::path mod2 = scratch / "mod2";
+		const bool bExported = S09Object::ExportStatsOnly( pSession, mod2, "S13 vso re-export", pszExt );
+		BkResClose( pSession );
+		const fs::path xml2 = XmlNamed( mod2 / "data", "" );
+		if ( Check( bExported && !xml2.empty(), ( szLabel + ": the imported project exports stats-only" ).c_str() ) )
+		{
+			const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::VSO, xml2.string(), xml.string() );
+			int nDifferent = 0;
+			for ( const std::string &szMessage : result.messages )
+				if ( !S09Object::NearFloat( szMessage ) )
+				{
+					++nDifferent;
+					std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+				}
+			std::printf( "ROUNDTRIP %s fixture: %d fields compared, %d differences\n", pszExt, result.nFieldsCompared, nDifferent );
+			Check( result.nFieldsCompared > 5 && nDifferent == 0, ( szLabel + ": import -> export is field-equal" ).c_str() );
+		}
+	}
+	else
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	std::printf( "GOLDEN %s pending: the MFC export of %s/project.%s is made on win-home only\n", pszExt, pszExt, pszExt );
+}
+
+// A road imported with its border layer and a river with animated layers keep
+// them; the shipped scan below covers every file, this pins the shape.
+static void Refusals( BkResSession *pSession, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path dir = fs::path( szScratchRoot ) / "s13-vso-refusals";
+	fs::remove_all( dir, ec );
+	fs::create_directories( dir, ec );
+	const fs::path notVso = dir / "not-a-vso.xml";
+	T10::WriteText( notVso, "<?xml version=\"1.0\"?>\n<root><other/></root>\n" );
+	Check( BkResImportFromGame( pSession, 14, notVso.string().c_str() ) != BK_EDITOR_OK && std::strstr( BkEditorLastMessage( pSession ), "not-a-vso" ) != nullptr,
+	       "vso: an xml without VSODescription is refused naming the file" );
+	Check( BkResImportFromGame( pSession, 15, dir.string().c_str() ) == BK_EDITOR_DATA_MISSING && std::strstr( BkEditorLastMessage( pSession ), "runtime .xml itself" ) != nullptr,
+	       "vso: a folder instead of the runtime .xml is refused saying the path is the file" );
+}
+
+static std::vector<fs::path> ShippedFiles( const std::string &szRoot, const char *pszSubDir )
+{
+	std::error_code ec;
+	std::vector<fs::path> files;
+	const fs::path sets = T11::FoldedPath( fs::path( szRoot ) / "Data", "Terrain/sets" );
+	for ( fs::directory_iterator set( sets, ec ), end; !ec && set != end; set.increment( ec ) )
+	{
+		if ( !set->is_directory( ec ) )
+			continue;
+		const fs::path dir = T11::FoldedPath( set->path(), pszSubDir );
+		std::error_code ec2;
+		for ( fs::directory_iterator it( dir, ec2 ), end2; !ec2 && it != end2; it.increment( ec2 ) )
+			if ( it->is_regular_file( ec2 ) && it->path().extension() == ".xml" )
+				files.push_back( it->path() );
+	}
+	std::sort( files.begin(), files.end() );
+	return files;
+}
+
+static void Shipped( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s13-vso-shipped";
+	fs::remove_all( scratch, ec );
+	int nChecked = 0, nFiles = 0, nUnimportable = 0, nFields = 0, nDifferent = 0, nExcused = 0, nIndex = 0;
+	std::string szBefore, szAfter;
+	const struct { const char *pszSubDir; int nKind; const char *pszExt; } kinds[] = { { "Roads3D", 14, "3rd" }, { "Rivers", 15, "3rv" } };
+	for ( const auto &kind : kinds )
+	{
+		const std::vector<fs::path> files = ShippedFiles( szRoot, kind.pszSubDir );
+		szBefore += S12Particle::ListingOfFiles( files );
+		nFiles += int( files.size() );
+		for ( const fs::path &file : files )
+		{
+			const fs::path mod = scratch / ( "mod" + std::to_string( nIndex++ ) );
+			if ( BkResImportFromGame( pSession, kind.nKind, file.string().c_str() ) != BK_EDITOR_OK )
+			{
+				++nUnimportable;
+				std::printf( "   VSO unimportable: %s: %s\n", file.string().c_str(), BkEditorLastMessage( pSession ) );
+				BkResClose( pSession );
+				continue;
+			}
+			const bool bExported = S09Object::ExportStatsOnly( pSession, mod, "S13 vso shipped", kind.pszExt );
+			const std::string szExportMessage = bExported ? "" : BkEditorLastMessage( pSession );
+			BkResClose( pSession );
+			const fs::path xml = XmlNamed( mod / "data", "" );
+			if ( !bExported || xml.empty() )
+			{
+				++nUnimportable;
+				std::printf( "   VSO export failed: %s: %s\n", file.string().c_str(), szExportMessage.c_str() );
+				continue;
+			}
+			const NResourceModel::SCompareResult result = NResourceModel::CompareRoundTrip( NResourceModel::EExportKind::VSO, xml.string(), file.string() );
+			nExcused += int( result.excused.size() );
+			int nHere = 0;
+			for ( const std::string &szMessage : result.messages )
+				if ( !S09Object::NearFloat( szMessage ) )
+				{
+					++nHere;
+					std::printf( "   DIFFERENT %s: %s\n", file.filename().string().c_str(), szMessage.c_str() );
+				}
+			if ( kind.nKind == 14 )
+			{
+				// The comparator excuses Type, Priority and NumCells by path (a river's MFC export
+				// loses them); a road keeps them, so they are read back here.
+				SVectorStripeObjectDesc was, now;
+				if ( !ReadVso( file, was ) || !ReadVso( xml, now ) || was.eType != now.eType || was.nPriority != now.nPriority || was.bottom.nNumCells != now.bottom.nNumCells )
+				{
+					++nHere;
+					std::printf( "   DIFFERENT %s: road type/priority/cells %d/%d/%d became %d/%d/%d\n", file.filename().string().c_str(),
+					             int( was.eType ), int( was.nPriority ), int( was.bottom.nNumCells ), int( now.eType ), int( now.nPriority ), int( now.bottom.nNumCells ) );
+				}
+			}
+			nFields += result.nFieldsCompared;
+			nDifferent += nHere;
+			if ( result.nFieldsCompared <= 5 )
+			{
+				++nUnimportable;
+				std::printf( "   VSO too few fields compared: %s (%d)\n", file.string().c_str(), result.nFieldsCompared );
+				continue;
+			}
+			++nChecked;
+		}
+		szAfter += S12Particle::ListingOfFiles( files );
+	}
+	std::printf( "VSO checked=%d files=%d unimportable=%d fields=%d differences=%d excused=%d\n", nChecked, nFiles, nUnimportable, nFields, nDifferent, nExcused );
+	Check( nFiles > 0 && nChecked == nFiles && nUnimportable == 0, "vso shipped: every shipped road and river was imported and exported" );
+	Check( nDifferent == 0, "vso shipped: every shipped road and river is field-equal after the round trip" );
+	Check( szAfter == szBefore, "vso shipped: nothing was written into Data" );
+}
+
+}
+
 // S12 T02: the Effect project's exporter and the refused import. The fixture
 // holds one animation and one function particle; the particle's source is put
 // into the mod's data (a shipped plain source, then a shipped smokin one) and
@@ -7421,6 +7635,12 @@ int main( int argc, char **argv )
 	S12Particle::Info( pSession, szFixtureRoot, szScratchRoot );
 	// S13 T02: the Particle source toggle.
 	S12Particle::SourceMode( pSession, szFixtureRoot, szScratchRoot );
+
+	// S13 T05: the 3D road and river exporters and importers.
+	S13Vso::OneFixture( pSession, szFixtureRoot, szScratchRoot, "3rd", 14 );
+	S13Vso::OneFixture( pSession, szFixtureRoot, szScratchRoot, "3rv", 15 );
+	S13Vso::Refusals( pSession, szScratchRoot );
+	S13Vso::Shipped( pSession, pszRoot, szScratchRoot );
 
 	// S12 T02: the effect exporter and the refused import.
 	S12Effect::Fixture( pSession, pszRoot, szFixtureRoot, szScratchRoot );

@@ -47,6 +47,9 @@
 #include "../ResourceModel/items/bridge/bridge_export.h"
 #include "../ResourceModel/items/particle/particle_export.h"
 #include "../ResourceModel/items/effect/effect_export.h"
+#include "../ResourceModel/items/road3d/road3d_export.h"
+#include "../ResourceModel/items/river3d/river3d_export.h"
+#include "../Formats/fmtVSO.h"
 #include "../ResourceModel/combos.h"
 #include "../Main/RPGStats.h"
 #include "../Main/iMain.h"
@@ -5237,6 +5240,8 @@ const int kFenceKind = 8;    // "fnc", the Fence project
 const int kBuildingKind = 9; // "bld", the Building project
 const int kBridgeKind = 10;  // "bdg", the Bridge project
 const int kParticleKind = 11; // "pcp", the Particle project
+const int kRoadKind = 14;     // "3rd", the 3D Road project
+const int kRiverKind = 15;    // "3rv", the 3D River project
 
 NResourceModel::CTreeItem *ChildOfType( NResourceModel::CTreeItem &item, int nType )
 {
@@ -5596,6 +5601,20 @@ bool ReadRuntimeStats( const std::filesystem::path &statsFile, TStats &stats, Bk
 	tree.Add( pszChunk, &stats );
 	return true;
 }
+
+// C3DRoadFrame::LoadRPGStats' chunk: bFound tells a file with a VSODescription
+// from any other xml, which reads as an all-default description.
+struct SVsoChunk
+{
+	SVectorStripeObjectDesc &desc;
+	bool bFound = false;
+	explicit SVsoChunk( SVectorStripeObjectDesc &d ) : desc( d ) {}
+	int operator&( IDataTree &ss )
+	{
+		bFound = true;
+		return desc.operator&( ss );
+	}
+};
 
 // SSourceType of ParticleFrm.cpp:463: which of the two particle structs a
 // KeyData chunk holds. bFound tells a file with no KeyData chunk (any other
@@ -6008,11 +6027,12 @@ void MechStatsToTree( const SMechUnitRPGStats &rpgStats, NResourceModel::CTreeIt
 }
 
 // The weapon's stats are a flat file named after the weapon (weapons\mg_37t.xml)
-// and a particle's a flat file named after the source (effects\particles\flame.xml),
+// a particle's a flat file named after the source (effects\particles\flame.xml),
+// and a road's or river's the runtime <name>.xml itself (terrain\sets\1\roads3d\road_pavement.xml),
 // every other kind's a 1.xml in a folder of its own.
 std::filesystem::path RuntimeStatsFile( BkResKind kind, const char *pszPath )
 {
-	if ( kind == 0 || kind == kParticleKind )
+	if ( kind == 0 || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind )
 	{
 		std::error_code ec;
 		if ( std::filesystem::is_regular_file( pszPath, ec ) )
@@ -6031,7 +6051,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
 		const std::string szExtension = kKindExtensions[kind];
-		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind || kind == kBridgeKind || kind == kParticleKind;
+		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind || kind == kBridgeKind || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind;
 		if ( !bPorted )
 		{
 			pSession->szMessage = kind == 4
@@ -6049,7 +6069,9 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( statsFile.empty() )
 		{
 			pSession->szMessage = kind == 0 ? std::string( "no weapon file " ) + pszPath
-				: kind == kParticleKind ? std::string( "no particle file " ) + pszPath : std::string( "no 1.xml in " ) + pszPath;
+				: kind == kParticleKind ? std::string( "no particle file " ) + pszPath
+				: kind == kRoadKind || kind == kRiverKind ? std::string( "no " ) + ( kind == kRoadKind ? "road" : "river" ) + " file " + pszPath + " (the path is the runtime .xml itself)"
+				: std::string( "no 1.xml in " ) + pszPath;
 			return BK_EDITOR_DATA_MISSING;
 		}
 		auto pRoot = NResourceModel::CTreeItemFactory::Instance().Create( kKindTable[kind].nRootType );
@@ -6203,6 +6225,42 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 						return status;
 					NResourceModel::ParticleStatsToTree( *pStats, raw, *pRoot, szKeyName );
 				}
+				break;
+			}
+			case kRoadKind:
+			case kRiverKind:
+			{
+				// C3DRoadFrame::LoadRPGStats: the engine's own operator& reads the
+				// VSODescription chunk. The road or river has no name in its stats:
+				// it is its file's. A file with no such chunk leaves the type unknown.
+				SVectorStripeObjectDesc vsoDesc;
+				SVsoChunk chunk( vsoDesc );
+				if ( !ReadRuntimeStats( statsFile, chunk, pSession, status, "VSODescription" ) )
+					return status;
+				if ( !chunk.bFound )
+				{
+					pSession->szMessage = statsFile.string() + " is not a " + ( kind == kRoadKind ? "3D road" : "3D river" ) + ": it has no VSODescription";
+					return BK_EDITOR_REFUSED;
+				}
+				// MFC's river export never set the type (TYPE_UNKNOUN), so only a type
+				// that is plainly the other kind's is refused.
+				const int nType = vsoDesc.eType;
+				const bool bRoadType = nType == SVectorStripeObjectDesc::TYPE_ROAD || nType == SVectorStripeObjectDesc::TYPE_RAILROAD;
+				if ( nType != SVectorStripeObjectDesc::TYPE_UNKNOUN && bRoadType != ( kind == kRoadKind ) )
+				{
+					pSession->szMessage = statsFile.string() + " is a " + ( bRoadType ? "road" : "river" ) + " (Type=" + std::to_string( nType ) + "), not a ." + szExtension;
+					return BK_EDITOR_REFUSED;
+				}
+				szKeyName = statsFile.stem().string();
+				if ( kind == kRoadKind )
+					NResourceModel::Road3DStatsToTree( vsoDesc, *pRoot );
+				else
+					NResourceModel::River3DStatsToTree( vsoDesc, *pRoot );
+				break;
+				if ( kind == kRoadKind )
+					NResourceModel::Road3DStatsToTree( vsoDesc, *pRoot );
+				else
+					NResourceModel::River3DStatsToTree( vsoDesc, *pRoot );
 				break;
 			}
 			case kFenceKind:
