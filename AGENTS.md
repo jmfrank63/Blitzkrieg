@@ -17,7 +17,10 @@ apps with Dear ImGui (`Sources/editor`) talking to the engine through the C ABI 
 - `zig build --help` lists every step. Long steps: run them with a generous timeout, not in a loop.
 - Never start a long build or test (more than about 10 minutes, e.g. `tools/zig/run-resource-sweep.sh`, about 27 minutes)
   in the background and then end the session: the session ends, the task stays incomplete, and the next attempt
-  starts a second copy that races the first on `zig-out`. Run it in the foreground with a timeout, or split it.
+  starts a second copy that races the first on `zig-out`. A foreground command is capped at 10 minutes, so an agent
+  cannot run the full sweep at all. Run the individual tiers your change touches in the foreground instead (each is
+  well under 10 minutes). The maintainer runs `tools/zig/run-resource-sweep.sh` at the end of each slice; a task whose
+  plan asks for the full sweep records "full sweep left to the maintainer" plus the tiers it did run, and completes.
 
 ## Rules
 
