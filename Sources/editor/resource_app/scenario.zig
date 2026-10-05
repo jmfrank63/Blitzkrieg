@@ -880,8 +880,8 @@ const Runner = struct {
     /// The stored byte of a tile in the passability or transparency grid.
     fn cellValue(self: *Runner, comptime transparency: bool, x: i32, y: i32) ?u8 {
         const editor = self.gridEditor("cell") orelse return null;
-        const channel = if (transparency) editor.registration.transparency else editor.registration.passability;
-        var read = sub_tools.readGeometry(self.bridge(), editor.node, channel) catch return null;
+        const channel = if (transparency) editor.registration.transparency orelse return null else editor.registration.passability;
+        var read = sub_tools.readGeometry(self.bridge(), editor.gridNode() orelse return null, channel) catch return null;
         defer read.deinit(self.gpa);
         const width: i32 = @intCast(read.bytes_grid.width);
         if (x < 0 or y < 0) return null;

@@ -1226,8 +1226,17 @@ pub const FakeResBridge = struct {
 /// A building point item (slot, fire, smoke or directed explosion) is born
 /// with the two properties the editor writes for each point: its direction
 /// and its cone ("Angle" on a slot, "Vertical angle" on the others). A
-/// bridge's point items carry the direction only.
+/// bridge's point items carry the direction only. A bridge's common props
+/// carry the 'Bridge type' combo the span-mark line follows, at its MFC id 2.
 fn seedBuildingPointProps(node: *FakeNode, allocator: std.mem.Allocator) !void {
+    if (FakeResBridge.classIs(node, item_type.bridge_common_props)) {
+        var prop: PropRecord = .{ .id = 2, .domain_type = 0, .value_kind = 0 };
+        _ = prop.setDefault("Bridge type");
+        _ = prop.setDisplay("Bridge type");
+        _ = prop.setValue("horizontal");
+        try node.props.append(allocator, prop);
+        return;
+    }
     if (FakeResBridge.classIs(node, item_type.bridge_fire_point_props) or FakeResBridge.classIs(node, item_type.bridge_smoke_props) or FakeResBridge.classIs(node, item_type.bridge_dir_explosion_props)) {
         var prop: PropRecord = .{ .id = 1, .domain_type = 0, .value_kind = 0 };
         _ = prop.setDefault("Direction");

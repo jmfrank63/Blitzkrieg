@@ -502,8 +502,9 @@ pub const Panels = struct {
         }
     }
 
-    /// GridFrm's tools for the Object and Fence editors: the toolbar window,
-    /// then the grid, tiles, one-way lines and zero drawn over the preview.
+    /// GridFrm's tools for the Object, Fence, Building and Bridge editors: the
+    /// toolbar window, then the grid, tiles, one-way lines, points, span marks
+    /// and zero drawn over the preview.
     /// The tools and their undo steps are grid_logic's GridEditor; this only
     /// draws and feeds it the mouse.
     fn drawGridFrame(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
@@ -515,7 +516,11 @@ pub const Panels = struct {
         if (!ig.igBegin("Grid tools###grid_frame", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
         if (life.doc.kind == .fence) self.drawFenceLists(gpa, life);
         const node = grid.targetNode(&life.doc, life.doc.kind, self.selection.primary) orelse {
-            ig.igTextDisabled("This fence has no segment yet: double-click a picture in Thumbnails.");
+            if (life.doc.kind == .fence) {
+                ig.igTextDisabled("This fence has no segment yet: double-click a picture in Thumbnails.");
+            } else {
+                ig.igTextDisabled("This project has no root item for the grid tools.");
+            }
             return;
         };
         // Another kind (an Object project replaced by a Fence one) has other channels and tools.
@@ -534,13 +539,23 @@ pub const Panels = struct {
         }
         const editor = &self.grid_editor.?;
         const can_edit = !life.read_only;
+        if (life.doc.kind == .bridge) {
+            // CBridgeFrame's pActiveSpansItem follows the tree selection; the
+            // line follows the common props' Bridge type.
+            const part = grid.activePart(&life.doc, self.selection.primary);
+            editor.setPart(b, part);
+            editor.bridge_type = grid.bridgeTypeOf(&life.doc);
+            if (part) |id| editor.span_group = grid.spanGroupOf(&life.doc, id);
+        }
 
         for (registration.tools, 0..) |tool, i| {
-            // The Building's point modes go on a second row, as BuildFrm's toolbar groups them.
-            if (i != 0 and !(tool == .entrance)) ig.igSameLine();
+            // The point modes go on a second row, as BuildFrm's and BridgeFrm's toolbars group them.
+            const new_row = tool == .entrance or (i != 0 and tool.isPointTool() and !registration.tools[i - 1].isPointTool() and registration.tools[i - 1] != .entrance);
+            if (i != 0 and !new_row) ig.igSameLine();
             if (ig.igRadioButton(tool.label().ptr, editor.tool == tool)) editor.setTool(b, tool) catch |err| self.report(b, "grid tool", err);
         }
-        if (registration.has(.shoot) and can_edit) {
+        if (life.doc.kind == .bridge) self.drawBridgeToolbar(life, editor);
+        if (registration.has(.fire) and can_edit) {
             // OnUpdateGeneratePoints: only the smoke and directed-explosion modes.
             ig.igBeginDisabled(!editor.canGenerate());
             if (ig.igButton("Generate points")) editor.generate(b, &life.doc, &life.history) catch |err| self.report(b, "generate points", err);
@@ -564,14 +579,18 @@ pub const Panels = struct {
             }
         }
         if (can_edit) {
-            const channels = [_]struct { label: [:0]const u8, channel: core.bridge.GeometryChannel }{
+            const channels = [_]struct { label: [:0]const u8, channel: ?core.bridge.GeometryChannel }{
                 .{ .label = "Clear locked tiles", .channel = registration.passability },
                 .{ .label = "Clear transparency", .channel = registration.transparency },
             };
-            for (channels, 0..) |entry, i| {
-                if (i != 0) ig.igSameLine();
+            var shown: usize = 0;
+            for (channels) |entry| {
+                const channel = entry.channel orelse continue;
+                const grid_node = editor.gridNode() orelse continue;
+                if (shown != 0) ig.igSameLine();
+                shown += 1;
                 if (!ig.igButton(entry.label.ptr)) continue;
-                const command = core.grid_tools.clearGrid(gpa, b, node, entry.channel) catch |err| {
+                const command = core.grid_tools.clearGrid(gpa, b, grid_node, channel) catch |err| {
                     self.report(b, "clear", err);
                     continue;
                 };
@@ -584,6 +603,29 @@ pub const Panels = struct {
         ig.igTextUnformattedEx(text.ptr, text.ptr + text.len);
 
         self.drawGridOverlay(b, life, editor, node, registration, can_edit);
+    }
+
+    /// CBridgeFrame's span-mark half: which mark a click sets, the active
+    /// span part and the cross its Front and Back are measured from.
+    fn drawBridgeToolbar(self: *Panels, life: *logic.Lifecycle, editor: *grid.GridEditor) void {
+        _ = self;
+        const part_name = if (editor.part) |id| (if (edit.findNode(&life.doc, id)) |n| n.displaySlice() else "") else "(none)";
+        var text: [bridge.name_capacity + 96:0]u8 = undefined;
+        const line = std.fmt.bufPrintZ(&text, "Span part: {s} ({s} spans), {s} bridge", .{ part_name, @tagName(editor.span_group), @tagName(editor.bridge_type) }) catch "";
+        ig.igTextUnformattedEx(line.ptr, line.ptr + line.len);
+        if (editor.tool != .span_marks) return;
+        const marks = [_]struct { mark: core.point_tools.SpanMark, label: [:0]const u8 }{
+            .{ .mark = .begin, .label = "Begin" },
+            .{ .mark = .end, .label = "End" },
+            .{ .mark = .front, .label = "Front" },
+            .{ .mark = .back, .label = "Back" },
+        };
+        for (marks, 0..) |entry, i| {
+            if (i != 0) ig.igSameLine();
+            var label: [24:0]u8 = undefined;
+            const shown = std.fmt.bufPrintZ(&label, "{s}##span_mark", .{entry.label}) catch entry.label;
+            if (ig.igRadioButton(shown.ptr, editor.span_mark == entry.mark)) editor.span_mark = entry.mark;
+        }
     }
 
     /// FenceFrm's two thumbnail lists as tree selections: the insert types
@@ -636,12 +678,13 @@ pub const Panels = struct {
         const view = editor.view;
         const draw_list = ig.igGetBackgroundDrawList();
 
-        const layers = [_]struct { channel: core.bridge.GeometryChannel, transparency: bool }{
+        const layers = [_]struct { channel: ?core.bridge.GeometryChannel, transparency: bool }{
             .{ .channel = registration.transparency, .transparency = true },
             .{ .channel = registration.passability, .transparency = false },
         };
         for (layers) |layer| {
-            var cells = tools.readGeometry(b, node, layer.channel) catch continue;
+            // A bridge's locked tiles are the active span part's, drawn red.
+            var cells = tools.readGeometry(b, editor.gridNode() orelse continue, layer.channel orelse continue) catch continue;
             defer cells.deinit(gpa);
             const width: usize = @intCast(cells.bytes_grid.width);
             for (cells.bytes_grid.bytes, 0..) |value, i| {
@@ -680,7 +723,8 @@ pub const Panels = struct {
         } else {
             ig.ImDrawList_AddCircle(draw_list, marker, 5, grid.toImGui(0xffffffff));
         }
-        if (registration.has(.entrance)) self.drawBuildingPoints(b, editor, node, view, draw_list);
+        if (registration.has(.span_marks)) drawSpanMarks(b, editor, node, view, draw_list);
+        if (registration.has(.fire)) self.drawBuildingPoints(b, editor, node, view, draw_list);
         if (editor.hover) |tile| {
             const corners = tileQuad(view, tile[0], tile[1]);
             ig.ImDrawList_AddQuad(draw_list, corners[0], corners[1], corners[2], corners[3], grid.toImGui(0xffffffff));
@@ -712,8 +756,33 @@ pub const Panels = struct {
         if (ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) editor.cancel(b);
     }
 
-    /// The Building's entrance and aimed points over the grid: the entrance
-    /// green, each point in its family's tint (opaque when active, 120/255
+    /// SetBridgeType's red line and the span marks as labelled crosses: Begin
+    /// and End always, and the active part's group cross with its Front and
+    /// Back, as GFXDraw draws them for the active span.
+    fn drawSpanMarks(b: ResBridge, editor: *grid.GridEditor, node: i32, view: grid.View, draw_list: *ig.ImDrawList) void {
+        const line = grid.spanLine(editor.bridge_type);
+        ig.ImDrawList_AddLineEx(draw_list, screenOf(view, line[0]), screenOf(view, line[1]), grid.toImGui(grid.span_line_color), 1);
+        const marks = grid.readSpanMarks(editor.allocator, b, node) catch return;
+        const papa = grid.spanPapa(marks, editor.span_group);
+        const crosses = [_]struct { at: Point2, label: []const u8 }{
+            .{ .at = marks[0], .label = "Begin" },
+            .{ .at = marks[1], .label = "End" },
+            .{ .at = grid.spanOffset(papa, marks[2].x, editor.bridge_type), .label = "Front" },
+            .{ .at = grid.spanOffset(papa, marks[2].y, editor.bridge_type), .label = "Back" },
+            .{ .at = core.point_tools.centre_span_mark, .label = "Centre" },
+        };
+        const colour = grid.toImGui(grid.span_mark_color);
+        for (crosses) |cross| {
+            if (std.mem.eql(u8, cross.label, "Centre") and editor.span_group != .centre) continue;
+            const at = screenOf(view, grid.worldToGrid(cross.at));
+            ig.ImDrawList_AddLineEx(draw_list, .{ .x = at.x - 7, .y = at.y - 7 }, .{ .x = at.x + 7, .y = at.y + 7 }, colour, 2);
+            ig.ImDrawList_AddLineEx(draw_list, .{ .x = at.x - 7, .y = at.y + 7 }, .{ .x = at.x + 7, .y = at.y - 7 }, colour, 2);
+            ig.ImDrawList_AddTextEx(draw_list, .{ .x = at.x + 9, .y = at.y - 7 }, colour, cross.label.ptr, cross.label.ptr + cross.label.len);
+        }
+    }
+
+    /// The Building's and Bridge's aimed points over the grid (a building's
+    /// entrance too): the entrance green, each point in its family's tint (opaque when active, 120/255
     /// otherwise) and, for the active point, ComputeAngleLines' yellow cone
     /// edges and direction line with the red arrow head at its tip.
     fn drawBuildingPoints(self: *Panels, b: ResBridge, editor: *grid.GridEditor, node: i32, view: grid.View, draw_list: *ig.ImDrawList) void {

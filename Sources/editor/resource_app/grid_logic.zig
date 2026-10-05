@@ -5,7 +5,9 @@
 //! registration the Object and Fence editors share. The Building editor adds
 //! the point modes of BuildFrm (entrance, shoot, fire, smoke, directed
 //! explosion, move point, horizontal position, angle and cone handles, generate
-//! points) and Bridge (S11) adds a `registrationFor` entry. Each gesture ends in
+//! points) and the Bridge editor (S11) the span marks of CBridgeFrame, its
+//! fire and smoke points and the locked tiles of the active span part. Each
+//! gesture ends in
 //! one command from resource_core's grid_tools or point_tools, committed through
 //! `sub_editor_tools.commit`, so the drawing code never builds a command.
 //! Runs under `zig build test-resource-app-logic` against the fake bridge.
@@ -171,6 +173,12 @@ pub const arrow_color: Argb = 0xffff0000;
 /// SetActiveShootPoint: the active point's sprite is opaque, the others 120/255.
 pub const point_color: Argb = 0xffffffff;
 pub const inactive_point_alpha: u32 = 120;
+/// SetBridgeType: the line the bridge runs along is red.
+pub const span_line_color: Argb = 0xffff0000;
+/// The span marks' crosses. MFC drew them with the "editor\krest\1" texture,
+/// which the shipped data does not carry; cyan stands apart from the red
+/// line, the red locked tiles and the points' tints.
+pub const span_mark_color: Argb = 0xff00ffff;
 
 /// A point's marker colour: its family's tint, opaque for the active point,
 /// `inactive_point_alpha` for the rest.
@@ -312,6 +320,9 @@ pub const Tool = enum {
     move_point,
     horizontal,
     angle,
+    // The Bridge editor's span marks (CBridgeFrame's E_SET_ZERO on a span's
+    // props): Begin and End on the red line, Front and Back across it.
+    span_marks,
 
     pub fn label(self: Tool) [:0]const u8 {
         return switch (self) {
@@ -329,6 +340,7 @@ pub const Tool = enum {
             .move_point => "Move point",
             .horizontal => "Horizontal position",
             .angle => "Angle and cone",
+            .span_marks => "Span marks",
         };
     }
 
@@ -349,13 +361,14 @@ pub const Tool = enum {
     }
 };
 
-/// What a kind's grid editor offers. Object and Fence register here; S10 and
-/// S11 add Building and Bridge.
+/// What a kind's grid editor offers: Object, Fence, Building and Bridge.
+/// A bridge paints the locked tiles of its active span part and has no
+/// transparency grid the bridge homes, so `transparency` is null there.
 pub const Registration = struct {
     kind: Kind,
     tools: []const Tool,
     passability: GeometryChannel = .passability_cells,
-    transparency: GeometryChannel,
+    transparency: ?GeometryChannel,
 
     pub fn has(self: Registration, tool: Tool) bool {
         return std.mem.indexOfScalar(Tool, self.tools, tool) != null;
@@ -365,22 +378,29 @@ pub const Registration = struct {
 const object_tools = [_]Tool{ .move, .draw_grid, .draw_transparency, .set_zero, .one_way_line };
 const fence_tools = [_]Tool{ .move, .draw_grid, .draw_transparency, .centre_on_tile };
 const building_tools = [_]Tool{ .move, .draw_grid, .draw_transparency, .set_zero, .entrance, .shoot, .fire, .smoke, .dir_explosion, .move_point, .horizontal, .angle };
+// CBridgeFrame's toolbar less what the bridge has no home for: Draw pass
+// (unlocked tiles) and the transparency combo paint lists the C++ bridge does
+// not carry, and a bridge has no shoot points and no sprite to move.
+const bridge_tools = [_]Tool{ .draw_grid, .set_zero, .span_marks, .fire, .smoke, .dir_explosion, .move_point, .horizontal, .angle };
 
 pub fn registrationFor(kind: Kind) ?Registration {
     return switch (kind) {
         .object => .{ .kind = .object, .tools = &object_tools, .transparency = .transparency_cells },
         .fence => .{ .kind = .fence, .tools = &fence_tools, .transparency = .fence_transparences },
         .build => .{ .kind = .build, .tools = &building_tools, .transparency = .transparency_cells },
+        .bridge => .{ .kind = .bridge, .tools = &bridge_tools, .passability = .locked_tiles, .transparency = null },
         else => null,
     };
 }
 
-/// The node the tools edit: an object's root, a fence's selected segment (else
-/// the first one, as FenceFrm's thumb list selects the first on load).
+/// The node the tools edit: an object's, building's or bridge's root, a
+/// fence's selected segment (else the first one, as FenceFrm's thumb list
+/// selects the first on load). A bridge's locked tiles are on `activePart`.
 pub fn targetNode(doc: *const Document, kind: Kind, selected: ?i32) ?i32 {
     switch (kind) {
         .object => return tools.firstOfClass(doc, tools.item_type.object_root),
         .build => return tools.firstOfClass(doc, tools.item_type.building_root),
+        .bridge => return tools.firstOfClass(doc, tools.item_type.bridge_root),
         .fence => {
             if (selected) |id| if (tools.findNode(doc, id)) |node| {
                 if (tools.isClass(node, tools.item_type.fence_props)) return id;
@@ -399,6 +419,74 @@ pub fn activeInsert(doc: *const Document, selected: ?i32) ?i32 {
         if (tools.isClass(node, tools.item_type.fence_props)) return node.parent;
     };
     return tools.firstOfClass(doc, tools.item_type.fence_insert);
+}
+
+/// CBridgeFrame's pActiveSpansItem: the selected span part, the part a
+/// selected part props item (back, front or slab) belongs to, else the first
+/// part, as SpecificInit makes the first one active.
+pub fn activePart(doc: *const Document, selected: ?i32) ?i32 {
+    if (selected) |id| if (tools.findNode(doc, id)) |node| {
+        if (tools.isClass(node, tools.item_type.bridge_parts)) return id;
+        if (tools.isClass(node, tools.item_type.bridge_part_props)) {
+            if (tools.findNode(doc, node.parent)) |parent| if (tools.isClass(parent, tools.item_type.bridge_parts)) return parent.id;
+        }
+    };
+    return tools.firstOfClass(doc, tools.item_type.bridge_parts);
+}
+
+/// Which spans group a part is in, so which cross its Front and Back are
+/// measured from (GFXDraw's pPapa switch): the Begin mark, the fixed centre
+/// cross or the End mark. A part outside the three groups counts as centre.
+pub const SpanGroup = enum { begin, centre, end };
+
+pub fn spanGroupOf(doc: *const Document, part: i32) SpanGroup {
+    const node = tools.findNode(doc, part) orelse return .centre;
+    const parent = tools.findNode(doc, node.parent) orelse return .centre;
+    if (tools.isClass(parent, tools.item_type.bridge_begin_spans)) return .begin;
+    if (tools.isClass(parent, tools.item_type.bridge_end_spans)) return .end;
+    return .centre;
+}
+
+/// CBridgeCommonPropsItem::GetDirection: "horizontal" (either case) is
+/// horizontal, any other value vertical. With no common props the frame's
+/// constructor value, horizontal, stands.
+pub fn bridgeTypeOf(doc: *const Document) point_tools.BridgeType {
+    const props = tools.firstOfClass(doc, tools.item_type.bridge_common_props) orelse return .horizontal;
+    const id = tools.propIdByName(doc, props, "Bridge type") orelse return .horizontal;
+    const value = tools.propValue(doc, props, id) orelse return .horizontal;
+    return if (std.mem.eql(u8, value, "horizontal") or std.mem.eql(u8, value, "Horizontal")) .horizontal else .vertical;
+}
+
+/// The red line of SetBridgeType in grid space: its two ends.
+pub fn spanLine(kind: point_tools.BridgeType) [2]Point2 {
+    const index: f32 = if (kind == .horizontal) 16 else 14;
+    const x1 = origin_x + cell_size_x * index;
+    const x2 = x1 + 1000;
+    return .{ .{ .x = x1, .y = point_tools.spanLineY(kind, x1) }, .{ .x = x2, .y = point_tools.spanLineY(kind, x2) } };
+}
+
+/// Begin, End and (Front, Back) as the bridge keeps them, or the frame's
+/// defaults when the project has none yet.
+pub fn readSpanMarks(allocator: std.mem.Allocator, bridge: ResBridge, node: i32) Error![3]Point2 {
+    var read = try tools.readGeometry(bridge, node, .bridge_span_marks);
+    defer read.deinit(allocator);
+    if (read.points2.len == 3) return read.points2[0..3].*;
+    return .{ point_tools.default_span_mark, point_tools.default_span_mark, .{} };
+}
+
+/// The world point a group's Front and Back are measured from.
+pub fn spanPapa(marks: [3]Point2, group: SpanGroup) Point2 {
+    return switch (group) {
+        .begin => marks[0],
+        .centre => point_tools.centre_span_mark,
+        .end => marks[1],
+    };
+}
+
+/// Where a Front or Back offset puts its cross, in world units: across the
+/// line from the papa, along y for a horizontal bridge, x for a vertical one.
+pub fn spanOffset(papa: Point2, offset: f32, kind: point_tools.BridgeType) Point2 {
+    return if (kind == .horizontal) .{ .x = papa.x, .y = papa.y + offset } else .{ .x = papa.x + offset, .y = papa.y };
 }
 
 /// One grid editor: the tool, its settings, the view and the gesture in progress.
@@ -423,9 +511,36 @@ pub const GridEditor = struct {
     family: point_tools.Mode = .shoot,
     active: ?usize = null,
     point_drag: ?point_tools.PointDrag = null,
+    /// The Bridge editor's active span part (its locked tiles are what Draw
+    /// grid paints), the span mark the Span marks tool sets, the bridge type
+    /// the line follows and the group whose Front and Back are edited.
+    part: ?i32 = null,
+    span_mark: point_tools.SpanMark = .begin,
+    bridge_type: point_tools.BridgeType = .horizontal,
+    span_group: SpanGroup = .begin,
 
     pub fn init(allocator: std.mem.Allocator, registration: Registration, node: i32) GridEditor {
-        return .{ .allocator = allocator, .registration = registration, .node = node, .line_tool = grid_tools.TransLineTool.init(node) };
+        var editor: GridEditor = .{ .allocator = allocator, .registration = registration, .node = node, .line_tool = grid_tools.TransLineTool.init(node) };
+        // The first tool and the first point family the kind offers: a bridge
+        // has no Move and no shoot points.
+        if (registration.tools.len != 0) editor.tool = registration.tools[0];
+        for (registration.tools) |tool| if (tool.family()) |family| {
+            editor.family = family;
+            break;
+        };
+        return editor;
+    }
+
+    /// The node the brush paints: a bridge's active span part, else the target.
+    pub fn gridNode(self: *const GridEditor) ?i32 {
+        return if (self.registration.kind == .bridge) self.part else self.node;
+    }
+
+    /// Another span part became active: the gesture on the old one goes.
+    pub fn setPart(self: *GridEditor, bridge: ResBridge, part: ?i32) void {
+        if (std.meta.eql(self.part, part)) return;
+        self.cancel(bridge);
+        self.part = part;
     }
 
     /// Drops a gesture in progress, putting the grid back.
@@ -465,7 +580,8 @@ pub const GridEditor = struct {
     }
 
     fn documentTarget(self: *const GridEditor, doc: *const Document) Error!point_tools.Target {
-        return point_tools.buildingTarget(doc, self.node, self.family) orelse error.Refused;
+        const target = if (self.registration.kind == .bridge) point_tools.bridgeTarget(doc, self.node, self.family) else point_tools.buildingTarget(doc, self.node, self.family);
+        return target orelse error.Refused;
     }
 
     /// The hit radius of a point or handle: 10 window pixels, in grid pixels.
@@ -507,9 +623,10 @@ pub const GridEditor = struct {
         switch (self.tool) {
             .draw_grid, .draw_transparency => {
                 const tile = self.hover orelse return;
-                const channel = if (self.tool == .draw_grid) self.registration.passability else self.registration.transparency;
+                const node = self.gridNode() orelse return error.Refused;
+                const channel = if (self.tool == .draw_grid) self.registration.passability else self.registration.transparency orelse return error.Refused;
                 const value: u8 = if (erase) 0 else if (self.tool == .draw_grid) 1 else self.transparency_value;
-                var stroke = try grid_tools.BrushStroke.begin(self.allocator, bridge, self.node, channel, value);
+                var stroke = try grid_tools.BrushStroke.begin(self.allocator, bridge, node, channel, value);
                 errdefer stroke.deinit(self.allocator);
                 try stroke.press(self.allocator, bridge, tile[0], tile[1]);
                 self.stroke = stroke;
@@ -521,7 +638,7 @@ pub const GridEditor = struct {
                 self.grab = .{ .x = drag.before.x - world.x, .y = drag.before.y - world.y };
                 self.drag = drag;
             },
-            .set_zero, .centre_on_tile, .entrance, .shoot, .fire, .smoke, .dir_explosion => {},
+            .set_zero, .centre_on_tile, .entrance, .shoot, .fire, .smoke, .dir_explosion, .span_marks => {},
             .move_point, .horizontal => {
                 var points = try self.readPoints(bridge);
                 defer points.deinit(self.allocator);
@@ -606,6 +723,12 @@ pub const GridEditor = struct {
                 try tools.commit(self.allocator, bridge, doc, history, command, 0);
             },
             .shoot, .fire, .smoke, .dir_explosion => try self.pointClick(bridge, doc, history, grid),
+            .span_marks => {
+                const marks = try readSpanMarks(self.allocator, bridge, self.node);
+                const papa = spanPapa(marks, self.span_group);
+                const command = (try point_tools.setSpanMark(self.allocator, bridge, self.node, self.span_mark, grid, self.bridge_type, papa, generate_frame)) orelse return;
+                try tools.commit(self.allocator, bridge, doc, history, command, 0);
+            },
             .move_point, .horizontal, .angle => {
                 var drag = self.point_drag orelse return;
                 self.point_drag = null;
@@ -663,7 +786,8 @@ pub const GridEditor = struct {
     /// OnUpdateGeneratePoints: the button works in the smoke and
     /// directed-explosion modes only.
     pub fn canGenerate(self: *const GridEditor) bool {
-        return self.registration.kind == .build and self.tool.isPointTool() and (self.family == .smoke or self.family == .dir_explosion);
+        const kind = self.registration.kind;
+        return (kind == .build or kind == .bridge) and self.tool.isPointTool() and (self.family == .smoke or self.family == .dir_explosion);
     }
 
     /// OnGeneratePoints: the smoke points are replaced by ones along the
@@ -774,6 +898,39 @@ const Rig = struct {
         const five = [_]AimedPoint{.{}} ** 5;
         try bridge_mod.check(rig.res().geometryWrite(rig.node, .directed_explosion_points, &.{ .aimed = @constCast(&five) }));
         return rig;
+    }
+
+    /// A bridge as CBridgeFrame's tree has it: common props, a begin and a
+    /// centre spans group with one part each, and the three point containers
+    /// (the directed explosions' five fixed children among them).
+    fn bridgeRig(allocator: std.mem.Allocator) !Rig {
+        var rig = try Rig.init(allocator, .bridge);
+        errdefer rig.deinit(allocator);
+        const item = tools.item_type;
+        _ = try rig.addNode(rig.node, item.bridge_common_props);
+        const begin = try rig.addNode(rig.node, item.bridge_begin_spans);
+        _ = try rig.addNode(begin, item.bridge_parts);
+        const centre = try rig.addNode(rig.node, item.bridge_center_spans);
+        _ = try rig.addNode(centre, item.bridge_parts);
+        _ = try rig.addNode(rig.node, item.bridge_fire_points);
+        _ = try rig.addNode(rig.node, item.bridge_smokes);
+        const explosions = try rig.addNode(rig.node, item.bridge_dir_explosions);
+        var n: usize = 0;
+        while (n < 5) : (n += 1) _ = try rig.addNode(explosions, item.bridge_dir_explosion_props);
+        const five = [_]AimedPoint{.{}} ** 5;
+        try bridge_mod.check(rig.res().geometryWrite(rig.node, .directed_explosion_points, &.{ .aimed = @constCast(&five) }));
+        return rig;
+    }
+
+    /// The `nth` span part of the bridge rig, in tree order.
+    fn part(self: *Rig, nth: usize) i32 {
+        var seen: usize = 0;
+        for (self.doc.tree.nodes.items) |*node| {
+            if (!tools.isClass(node, tools.item_type.bridge_parts)) continue;
+            if (seen == nth) return node.id;
+            seen += 1;
+        }
+        unreachable;
     }
 
     fn undo(self: *Rig) !void {
@@ -922,13 +1079,13 @@ test "colour rules: locked red, unlocked and entrance green, transparency steps,
 test "registration: object and fence tools, kinds without a grid editor" {
     const object = registrationFor(.object).?;
     try testing.expect(object.has(.set_zero) and object.has(.one_way_line) and !object.has(.centre_on_tile));
-    try testing.expectEqual(GeometryChannel.transparency_cells, object.transparency);
+    try testing.expectEqual(GeometryChannel.transparency_cells, object.transparency.?);
     const fence = registrationFor(.fence).?;
     try testing.expect(fence.has(.centre_on_tile) and !fence.has(.set_zero) and !fence.has(.one_way_line));
-    try testing.expectEqual(GeometryChannel.fence_transparences, fence.transparency);
+    try testing.expectEqual(GeometryChannel.fence_transparences, fence.transparency.?);
     try testing.expect(registrationFor(.weapon) == null);
     const building = registrationFor(.build).?;
-    try testing.expectEqual(GeometryChannel.transparency_cells, building.transparency);
+    try testing.expectEqual(GeometryChannel.transparency_cells, building.transparency.?);
     try testing.expectEqual(GeometryChannel.passability_cells, building.passability);
     for ([_]Tool{ .move, .draw_grid, .draw_transparency, .set_zero, .entrance, .shoot, .fire, .smoke, .dir_explosion, .move_point, .horizontal, .angle }) |tool| try testing.expect(building.has(tool));
     try testing.expect(!building.has(.one_way_line) and !building.has(.centre_on_tile));
@@ -1466,4 +1623,190 @@ test "generate points: enabled in smoke and explosion modes only, one undo step 
     defer bare_editor.deinit(bare.res());
     try bare_editor.setTool(bare.res(), .smoke);
     try testing.expectError(error.Refused, bare_editor.generate(bare.res(), &bare.doc, &bare.history));
+}
+
+// --- Bridge ------------------------------------------------------------------
+
+test "bridge registration: draw grid paints locked tiles, span marks and fire and smoke points, no shoot, Move or transparency" {
+    const bridge = registrationFor(.bridge).?;
+    try testing.expectEqual(GeometryChannel.locked_tiles, bridge.passability);
+    try testing.expect(bridge.transparency == null);
+    for ([_]Tool{ .draw_grid, .set_zero, .span_marks, .fire, .smoke, .dir_explosion, .move_point, .horizontal, .angle }) |tool| try testing.expect(bridge.has(tool));
+    for ([_]Tool{ .move, .draw_transparency, .shoot, .entrance, .one_way_line, .centre_on_tile }) |tool| try testing.expect(!bridge.has(tool));
+    try testing.expect(!registrationFor(.build).?.has(.span_marks));
+    try testing.expectEqualStrings("Span marks", Tool.span_marks.label());
+    try testing.expect(!Tool.span_marks.isPointTool());
+}
+
+test "bridge target node is the bridge root, the active part follows the selection, the group and type follow the tree" {
+    var rig = try Rig.bridgeRig(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    try testing.expect(targetNode(&rig.doc, .bridge, null) == null);
+    const root = try rig.addNode(rig.node, tools.item_type.bridge_root);
+    try testing.expectEqual(root, targetNode(&rig.doc, .bridge, null).?);
+
+    const begin_part = rig.part(0);
+    const centre_part = rig.part(1);
+    try testing.expectEqual(begin_part, activePart(&rig.doc, null).?);
+    try testing.expectEqual(centre_part, activePart(&rig.doc, centre_part).?);
+    const slab = try rig.addNode(centre_part, tools.item_type.bridge_part_props);
+    try testing.expectEqual(centre_part, activePart(&rig.doc, slab).?);
+    // A selection that is no part falls back to the first one.
+    try testing.expectEqual(begin_part, activePart(&rig.doc, root).?);
+    try testing.expectEqual(SpanGroup.begin, spanGroupOf(&rig.doc, begin_part));
+    try testing.expectEqual(SpanGroup.centre, spanGroupOf(&rig.doc, centre_part));
+
+    try testing.expectEqual(point_tools.BridgeType.horizontal, bridgeTypeOf(&rig.doc));
+    const props = tools.firstOfClass(&rig.doc, tools.item_type.bridge_common_props).?;
+    try bridge_mod.check(rig.res().setProp(props, tools.propIdByName(&rig.doc, props, "Bridge type").?, "vertical"));
+    try rig.doc.reload(testing.allocator, rig.res());
+    try testing.expectEqual(point_tools.BridgeType.vertical, bridgeTypeOf(&rig.doc));
+}
+
+test "bridge draw grid paints the active span part's locked tiles, not the root, and follows a part switch" {
+    var rig = try Rig.bridgeRig(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    const bridge = rig.res();
+    var editor = GridEditor.init(testing.allocator, registrationFor(.bridge).?, rig.node);
+    defer editor.deinit(bridge);
+    editor.view = test_view;
+    // The first tool and family a bridge offers.
+    try testing.expectEqual(Tool.draw_grid, editor.tool);
+    try testing.expectEqual(point_tools.Mode.fire, editor.family);
+    // With no active part there is nothing to paint.
+    try testing.expectError(error.Refused, editor.press(bridge, onTile(1, 0), false));
+    editor.setPart(bridge, rig.part(0));
+    try gesture(&editor, &rig, onTile(1, 0), onTile(3, 0));
+    var read = try tools.readGeometry(bridge, rig.part(0), .locked_tiles);
+    try testing.expectEqualSlices(u8, &.{ 0, 1, 1, 1 }, read.bytes_grid.bytes);
+    read.deinit(testing.allocator);
+    read = try tools.readGeometry(bridge, rig.part(1), .locked_tiles);
+    try testing.expectEqual(@as(usize, 0), read.bytes_grid.bytes.len);
+    read.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, 1), rig.history.undo_stack.items.len);
+
+    // A part switch mid-stroke drops the stroke; the next one paints the new part.
+    try editor.press(bridge, onTile(5, 5), false);
+    editor.setPart(bridge, rig.part(1));
+    try testing.expect(!editor.busy());
+    try gesture(&editor, &rig, onTile(0, 0), onTile(0, 0));
+    read = try tools.readGeometry(bridge, rig.part(1), .locked_tiles);
+    try testing.expectEqualSlices(u8, &.{1}, read.bytes_grid.bytes);
+    read.deinit(testing.allocator);
+    try rig.undo();
+    read = try tools.readGeometry(bridge, rig.part(1), .locked_tiles);
+    try testing.expectEqual(@as(usize, 0), read.bytes_grid.bytes.len);
+    read.deinit(testing.allocator);
+    try testing.expectError(error.Refused, editor.setTool(bridge, .shoot));
+    try testing.expectError(error.Refused, editor.setTool(bridge, .draw_transparency));
+}
+
+test "bridge fire and smoke clicks add points on the root with tree children; explosions select; generate walks the part" {
+    var rig = try Rig.bridgeRig(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    const bridge = rig.res();
+    var editor = GridEditor.init(testing.allocator, registrationFor(.bridge).?, rig.node);
+    defer editor.deinit(bridge);
+    editor.view = test_view;
+    editor.setPart(bridge, rig.part(0));
+    try editor.setTool(bridge, .fire);
+    try clickAt(&editor, &rig, onTile(4, 2));
+    try editor.setTool(bridge, .smoke);
+    try clickAt(&editor, &rig, onTile(8, 2));
+    try testing.expectEqual(@as(usize, 1), try rig.pointCount(.fire_points));
+    try testing.expectEqual(@as(usize, 1), try rig.pointCount(.smoke_points));
+    const fires = tools.firstOfClass(&rig.doc, tools.item_type.bridge_fire_points).?;
+    try testing.expectEqual(@as(i32, 1), tools.childCount(&rig.doc, fires));
+    const want = gridToWorld(tileCentre(4, 2));
+    try testing.expectApproxEqAbs(want.x, (try rig.pointAt(.fire_points, 0)).at.x, 1e-3);
+
+    // Angle: the active smoke point's direction handle turns it, one step.
+    try editor.setTool(bridge, .angle);
+    const smoke = try rig.pointAt(.smoke_points, 0);
+    try gesture(&editor, &rig, test_view.toScreen(handlesOf(smoke).direction), screenOfWorld(aimTip(smoke.at, 90)));
+    try testing.expectEqual(@as(i32, 90), (try rig.pointAt(.smoke_points, 0)).angle);
+    try testing.expectEqual(@as(usize, 3), rig.history.undo_stack.items.len);
+
+    // The five explosions are fixed: a click on free ground adds none.
+    try editor.setTool(bridge, .dir_explosion);
+    try clickAt(&editor, &rig, onTile(20, 20));
+    try testing.expectEqual(@as(usize, 5), try rig.pointCount(.directed_explosion_points));
+    try testing.expectEqual(@as(usize, 3), rig.history.undo_stack.items.len);
+
+    // Generate: refused with no locked tile, then from the first part's footprint.
+    try editor.setTool(bridge, .smoke);
+    try testing.expect(editor.canGenerate());
+    try testing.expectError(error.Refused, editor.generate(bridge, &rig.doc, &rig.history));
+    try editor.setTool(bridge, .draw_grid);
+    try testing.expect(!editor.canGenerate());
+    try gesture(&editor, &rig, onTile(6, 6), onTile(9, 6));
+    try gesture(&editor, &rig, onTile(6, 7), onTile(9, 7));
+    try editor.setTool(bridge, .smoke);
+    try editor.generate(bridge, &rig.doc, &rig.history);
+    const smokes = tools.firstOfClass(&rig.doc, tools.item_type.bridge_smokes).?;
+    try testing.expectEqual(@as(i32, @intCast(try rig.pointCount(.smoke_points))), tools.childCount(&rig.doc, smokes));
+    try testing.expect(try rig.pointCount(.smoke_points) > 1);
+    try rig.undo();
+    try testing.expectEqual(@as(usize, 1), try rig.pointCount(.smoke_points));
+}
+
+test "span marks: Begin and End land on the line in world units, Front and Back measured from the group's cross, one undo step each" {
+    var rig = try Rig.bridgeRig(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    const bridge = rig.res();
+    var editor = GridEditor.init(testing.allocator, registrationFor(.bridge).?, rig.node);
+    defer editor.deinit(bridge);
+    editor.view = test_view;
+    try editor.setTool(bridge, .span_marks);
+    // Nothing stored yet: the frame's defaults.
+    var marks = try readSpanMarks(testing.allocator, bridge, rig.node);
+    try testing.expectEqual(point_tools.default_span_mark, marks[0]);
+
+    inline for (.{ point_tools.BridgeType.horizontal, point_tools.BridgeType.vertical }) |kind| {
+        editor.bridge_type = kind;
+        editor.span_mark = .begin;
+        const click: Point2 = .{ .x = -300, .y = 40 };
+        try clickAt(&editor, &rig, test_view.toScreen(click));
+        marks = try readSpanMarks(testing.allocator, bridge, rig.node);
+        // Back in grid space the mark sits on the red line under the click.
+        const on_grid = worldToGrid(marks[0]);
+        try testing.expectApproxEqAbs(click.x, on_grid.x, 1e-2);
+        try testing.expectApproxEqAbs(point_tools.spanLineY(kind, click.x), on_grid.y, 1e-2);
+        const line = spanLine(kind);
+        try testing.expectApproxEqAbs(point_tools.spanLineY(kind, line[1].x), line[1].y, 1e-3);
+
+        editor.span_mark = .end;
+        try clickAt(&editor, &rig, test_view.toScreen(.{ .x = 100, .y = 0 }));
+        marks = try readSpanMarks(testing.allocator, bridge, rig.node);
+        try testing.expectApproxEqAbs(@as(f32, 100), worldToGrid(marks[1]).x, 1e-2);
+    }
+
+    // Front on a begin part: the click's world point less the Begin mark, across the line.
+    editor.bridge_type = .horizontal;
+    editor.span_group = .begin;
+    editor.span_mark = .front;
+    const front_world: Point2 = .{ .x = 50, .y = 300 };
+    try clickAt(&editor, &rig, screenOfWorld(front_world));
+    marks = try readSpanMarks(testing.allocator, bridge, rig.node);
+    try testing.expectApproxEqAbs(front_world.y - marks[0].y, marks[2].x, 1e-2);
+    const cross = spanOffset(spanPapa(marks, .begin), marks[2].x, .horizontal);
+    try testing.expectApproxEqAbs(front_world.y, cross.y, 1e-2);
+    // Back on a centre part is measured from the fixed centre cross.
+    editor.span_group = .centre;
+    editor.span_mark = .back;
+    try clickAt(&editor, &rig, screenOfWorld(.{ .x = 0, .y = 700 }));
+    marks = try readSpanMarks(testing.allocator, bridge, rig.node);
+    try testing.expectApproxEqAbs(@as(f32, 700) - point_tools.centre_span_mark.y, marks[2].y, 1e-2);
+
+    // Four Begin/End clicks and two offsets, each one step; a repeat records nothing.
+    try testing.expectEqual(@as(usize, 6), rig.history.undo_stack.items.len);
+    try clickAt(&editor, &rig, screenOfWorld(.{ .x = 0, .y = 700 }));
+    try testing.expectEqual(@as(usize, 6), rig.history.undo_stack.items.len);
+    const final = marks;
+    try rig.undo();
+    marks = try readSpanMarks(testing.allocator, bridge, rig.node);
+    try testing.expect(marks[2].y != final[2].y);
+    try testing.expectEqual(final[0], marks[0]);
+    try rig.redo();
+    try testing.expectEqual(final, try readSpanMarks(testing.allocator, bridge, rig.node));
 }

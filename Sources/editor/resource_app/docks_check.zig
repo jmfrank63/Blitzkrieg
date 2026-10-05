@@ -66,11 +66,12 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, host: *host_mod.Host, kind: Kind,
         return fail("the installation path is too long", .{});
     var life: logic.Lifecycle = .{};
     defer life.deinit(gpa);
-    if (life.importFromGame(gpa, b, .bridge, gunner)) |_| {
-        return fail("importing .bdg was not refused", .{});
+    // The bridge's import came with S11, so the first kind still unported is the particle source.
+    if (life.importFromGame(gpa, b, .particle, gunner)) |_| {
+        return fail("importing .pcp was not refused", .{});
     } else |_| {}
-    if (std.mem.indexOf(u8, b.lastMessage(), "not ported yet") == null or std.mem.indexOf(u8, b.lastMessage(), ".bdg") == null)
-        return fail("the .bdg import refusal does not name the kind: {s}", .{b.lastMessage()});
+    if (std.mem.indexOf(u8, b.lastMessage(), "not ported yet") == null or std.mem.indexOf(u8, b.lastMessage(), ".pcp") == null)
+        return fail("the .pcp import refusal does not name the kind: {s}", .{b.lastMessage()});
     life.importFromGame(gpa, b, .animation_infantry, gunner) catch
         return fail("importing {s} as .unt failed: {s}", .{ gunner, b.lastMessage() });
     if (!life.is_open or life.doc.kind != .animation_infantry or life.doc.pathSlice() != null or !life.dirty())

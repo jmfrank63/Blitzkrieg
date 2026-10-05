@@ -320,7 +320,11 @@ pub fn spanLineY(kind: BridgeType, x: f32) f32 {
 
 // The frame's constructor value for Begin and End (BridgeFrm.cpp:91).
 const world_cell: f32 = 16 * 2.0 * 1.41421356;
-const default_span_mark: Point2 = .{ .x = 16 * world_cell - 300, .y = 16 * world_cell };
+pub const default_span_mark: Point2 = .{ .x = 16 * world_cell - 300, .y = 16 * world_cell };
+
+/// BridgeFrm.cpp's vCenterKrest: the fixed cross the centre spans' Front and
+/// Back are measured from.
+pub const centre_span_mark: Point2 = .{ .x = 596.657, .y = 742.038 };
 
 /// Moves one span mark as one undo step. The geometry is MFC's own_data in the
 /// order Begin, End and (Front, Back as one point): a Begin or End drag keeps
@@ -328,17 +332,21 @@ const default_span_mark: Point2 = .{ .x = 16 * world_cell - 300, .y = 16 * world
 /// Front or Back drag stores the pointer's offset from `papa` (the span's
 /// Begin, End or centre cross) across the line, y for a horizontal bridge and
 /// x for a vertical one. The other marks, a stale Front and Back included, stay
-/// as they are. Null when the mark does not change.
-pub fn setSpanMark(allocator: std.mem.Allocator, bridge: ResBridge, node: i32, mark: SpanMark, to: Point2, kind: BridgeType, papa: Point2) EditError!?ResourceCommand {
+/// as they are. Null when the mark does not change. `to` is a screen point and
+/// `frame` takes it to the channel's world units, as SetZeroCoordinate's
+/// GetPos3 does; `papa` is in world units already.
+pub fn setSpanMark(allocator: std.mem.Allocator, bridge: ResBridge, node: i32, mark: SpanMark, to: Point2, kind: BridgeType, papa: Point2, frame: Frame) EditError!?ResourceCommand {
     var before = try tools.readGeometry(bridge, node, .bridge_span_marks);
     defer before.deinit(allocator);
     var marks: [3]Point2 = .{ default_span_mark, default_span_mark, .{} };
     if (before.points2.len == 3) @memcpy(&marks, before.points2) else if (before.points2.len != 0) return error.BadArgument;
+    const on_line = frame.toChannel(frame.context, .{ .x = to.x, .y = spanLineY(kind, to.x) });
+    const world = frame.toChannel(frame.context, to);
     switch (mark) {
-        .begin => marks[0] = .{ .x = to.x, .y = spanLineY(kind, to.x) },
-        .end => marks[1] = .{ .x = to.x, .y = spanLineY(kind, to.x) },
-        .front => marks[2].x = if (kind == .horizontal) to.y - papa.y else to.x - papa.x,
-        .back => marks[2].y = if (kind == .horizontal) to.y - papa.y else to.x - papa.x,
+        .begin => marks[0] = on_line,
+        .end => marks[1] = on_line,
+        .front => marks[2].x = if (kind == .horizontal) world.y - papa.y else world.x - papa.x,
+        .back => marks[2].y = if (kind == .horizontal) world.y - papa.y else world.x - papa.x,
     }
     if (before.points2.len == 3 and std.mem.eql(u8, std.mem.sliceAsBytes(before.points2), std.mem.sliceAsBytes(&marks))) return null;
     return try tools.setGeometry(allocator, bridge, node, .bridge_span_marks, .{ .points2 = &marks });
@@ -1074,18 +1082,18 @@ test "each span mark moves in one undo step and leaves the others, a stale Front
 
         // Begin and End keep x and take the line's y, whatever y the pointer has.
         var want = stale;
-        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .begin, pt.at(240, 9999), kind, .{})).?);
+        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .begin, pt.at(240, 9999), kind, .{}, .{})).?);
         want[0] = pt.at(240, line_y(240));
         try expectMarks(&rig, want);
-        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .end, pt.at(820, -9999), kind, .{})).?);
+        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .end, pt.at(820, -9999), kind, .{}, .{})).?);
         want[1] = pt.at(820, line_y(820));
         try expectMarks(&rig, want);
         // Front and Back are offsets from the span's papa across the line.
         const papa = pt.at(50, 60);
-        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .front, pt.at(80, 100), kind, papa)).?);
+        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .front, pt.at(80, 100), kind, papa, .{})).?);
         want[2].x = if (kind == .horizontal) 40 else 30;
         try expectMarks(&rig, want);
-        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .back, pt.at(10, 20), kind, papa)).?);
+        try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .back, pt.at(10, 20), kind, papa, .{})).?);
         want[2].y = -40;
         try expectMarks(&rig, want);
         try testing.expectEqual(@as(usize, 4), rig.history.undo_stack.items.len);
@@ -1134,12 +1142,12 @@ test "a span mark with nothing set starts from the frame's defaults, a repeat is
     try testing.expectEqual(@as(usize, 0), read.points2.len);
     read.deinit(testing.allocator);
 
-    try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .front, pt.at(0, 7), .horizontal, .{})).?);
+    try rig.commitCommand((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .front, pt.at(0, 7), .horizontal, .{}, .{})).?);
     const marks = try readMarks(&rig);
     try testing.expectEqual(default_span_mark, marks[0]);
     try testing.expectEqual(default_span_mark, marks[1]);
     try testing.expectEqual(pt.at(7, 0), marks[2]);
-    try testing.expect((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .front, pt.at(0, 7), .horizontal, .{})) == null);
+    try testing.expect((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .front, pt.at(0, 7), .horizontal, .{}, .{})) == null);
     try rig.undo();
     read = try tools.readGeometry(rig.bridge(), rig.root, .bridge_span_marks);
     try testing.expectEqual(@as(usize, 0), read.points2.len);
@@ -1147,7 +1155,7 @@ test "a span mark with nothing set starts from the frame's defaults, a repeat is
 
     const two = [_]Point2{ .{}, .{} };
     try bridge_mod.check(rig.bridge().geometryWrite(rig.root, .bridge_span_marks, &.{ .points2 = @constCast(&two) }));
-    try testing.expectError(error.BadArgument, setSpanMark(testing.allocator, rig.bridge(), rig.root, .begin, pt.at(1, 1), .horizontal, .{}));
+    try testing.expectError(error.BadArgument, setSpanMark(testing.allocator, rig.bridge(), rig.root, .begin, pt.at(1, 1), .horizontal, .{}, .{}));
 }
 
 test "a span part's passability brush and the bridge's set zero undo and redo" {

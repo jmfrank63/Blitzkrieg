@@ -4367,53 +4367,123 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 // while no shipped object needs one, so every shipped object is imported and its
 // passability and transparency cells read. Imports run on the shipped folders in place
 // (read-only, as the case above) and the listings of all of them are compared after.
-static void NegativeTiles( BkResSession *pSession, const std::string &szRoot )
+// The shared scan (D022), used by objects, buildings and bridges so the three cannot drift.
+// The folders are counted first, independently of the import loop. Every one is imported and
+// handed to readGrids, which returns true when a grid refused a tile left of or above (0, 0)
+// and sets szFailure for anything else that went wrong. Any failure fails the test; only that
+// refusal counts as negative. A folder in the allow-list (relative to Data/<szSubfolder>, with
+// the reason) must still fail to import; it counts as checked and unimportable, and one that
+// now imports fails the test so the list cannot go stale.
+typedef std::function<bool( BkResSession *, std::string & )> TGridReader;
+
+static bool ReadRootGrids( BkResSession *pSession, int nRootType, std::string &szFailure )
 {
+	const int nRoot = FirstNodeOfType( pSession, nRootType );
+	if ( nRoot == 0 )
+	{
+		szFailure = "no root node";
+		return false;
+	}
+	bool bNegative = false;
+	for ( int nChannel = 0; nChannel < 2; ++nChannel )
+	{
+		int w = 0, h = 0;
+		const BkEditorStatus status = nChannel == 0 ? BkResGetPassabilityCells( pSession, nRoot, nullptr, 0, &w, &h )
+			: BkResGetTransparencyCells( pSession, nRoot, nullptr, 0, &w, &h );
+		if ( status == BK_EDITOR_OK )
+			continue;
+		if ( std::strstr( BkEditorLastMessage( pSession ), "left of or above" ) )
+			bNegative = true;
+		else
+		{
+			szFailure = BkEditorLastMessage( pSession );
+			return false;
+		}
+	}
+	return bNegative;
+}
+
+static void ScanNegativeTiles( BkResSession *pSession, const std::string &szRoot, const char *pszKind, const char *pszSubfolder,
+	int nImportKind, const std::vector<std::pair<std::string, std::string>> &unimportable, const TGridReader &readGrids, int nMinFolders )
+{
+	const std::string szKind = pszKind;
 	std::error_code ec;
-	const fs::path objects = T11::FoldedPath( fs::path( szRoot ) / "Data", "Objects" );
+	const fs::path top = T11::FoldedPath( fs::path( szRoot ) / "Data", pszSubfolder );
 	std::vector<fs::path> folders;
-	for ( fs::recursive_directory_iterator it( objects, ec ), end; !ec && it != end; it.increment( ec ) )
+	for ( fs::recursive_directory_iterator it( top, ec ), end; !ec && it != end; it.increment( ec ) )
 		if ( it->is_regular_file( ec ) && it->path().filename() == "1.xml" )
 			folders.push_back( it->path().parent_path() );
 	std::sort( folders.begin(), folders.end() );
+	const int nFolders = int( folders.size() );
 	std::string szBefore;
 	for ( const fs::path &folder : folders )
 		szBefore += folder.string() + "|" + ListingOf( folder ) + "\n";
-	int nChecked = 0, nNegative = 0, nImportFailed = 0;
+	int nChecked = 0, nNegative = 0, nUnimportable = 0, nFailed = 0;
 	for ( const fs::path &folder : folders )
 	{
-		if ( BkResImportFromGame( pSession, 7, folder.string().c_str() ) != BK_EDITOR_OK )
+		const std::string szRelative = fs::relative( folder, top, ec ).generic_string();
+		const std::pair<std::string, std::string> *pListed = nullptr;
+		for ( const std::pair<std::string, std::string> &entry : unimportable )
+			if ( entry.first == szRelative )
+				pListed = &entry;
+		const bool bImported = BkResImportFromGame( pSession, nImportKind, folder.string().c_str() ) == BK_EDITOR_OK;
+		if ( pListed )
 		{
-			++nImportFailed;
+			++nChecked;
+			if ( bImported )
+			{
+				++nFailed;
+				std::printf( "   NEGTILES stale allow-list entry, it now imports: %s (%s)\n", szRelative.c_str(), pListed->second.c_str() );
+			}
+			else
+			{
+				++nUnimportable;
+				std::printf( "   NEGTILES unimportable: %s: %s\n", szRelative.c_str(), pListed->second.c_str() );
+			}
+			BkResClose( pSession );
+			continue;
+		}
+		if ( !bImported )
+		{
+			++nFailed;
 			std::printf( "   NEGTILES import failed: %s: %s\n", folder.string().c_str(), BkEditorLastMessage( pSession ) );
 			BkResClose( pSession );
 			continue;
 		}
-		++nChecked;
-		bool bNegative = false;
-		int w = 0, h = 0;
-		const int nRoot = FirstNodeOfType( pSession, NResourceModel::ETIT_OBJECT_ROOT_ITEM );
-		for ( int nChannel = 0; nChannel < 2; ++nChannel )
+		std::string szFailure;
+		const bool bNegative = readGrids( pSession, szFailure );
+		if ( !szFailure.empty() )
 		{
-			const BkEditorStatus status = nChannel == 0 ? BkResGetPassabilityCells( pSession, nRoot, nullptr, 0, &w, &h )
-				: BkResGetTransparencyCells( pSession, nRoot, nullptr, 0, &w, &h );
-			if ( status != BK_EDITOR_OK && std::strstr( BkEditorLastMessage( pSession ), "left of or above" ) )
-				bNegative = true;
+			++nFailed;
+			std::printf( "   NEGTILES read failed: %s: %s\n", folder.string().c_str(), szFailure.c_str() );
 		}
-		if ( bNegative )
+		else
 		{
-			++nNegative;
-			std::printf( "   NEGTILES offender: %s\n", folder.string().c_str() );
+			++nChecked;
+			if ( bNegative )
+			{
+				++nNegative;
+				std::printf( "   NEGTILES offender: %s\n", folder.string().c_str() );
+			}
 		}
 		BkResClose( pSession );
 	}
-	std::printf( "NEGTILES objects checked=%d negative=%d import_failed=%d\n", nChecked, nNegative, nImportFailed );
-	Check( nChecked > 500, "object negtiles: more than 500 shipped objects were checked" );
-	Check( nNegative == 0, "object negtiles: no shipped object has a tile left of or above (0, 0)" );
+	std::printf( "NEGTILES %s checked=%d folders=%d negative=%d unimportable=%d\n", pszKind, nChecked, nFolders, nNegative, nUnimportable );
+	Check( nFolders >= nMinFolders && nFolders > 0, ( szKind + " negtiles: enough shipped folders were found" ).c_str() );
+	Check( nFailed == 0, ( szKind + " negtiles: no import, root or read failure other than the negative-tile refusal" ).c_str() );
+	Check( nChecked == nFolders, ( szKind + " negtiles: every shipped folder was checked" ).c_str() );
+	Check( nNegative == 0, ( szKind + " negtiles: no shipped folder has a tile left of or above (0, 0)" ).c_str() );
 	std::string szAfter;
 	for ( const fs::path &folder : folders )
 		szAfter += folder.string() + "|" + ListingOf( folder ) + "\n";
-	Check( szAfter == szBefore, "object negtiles: nothing was written into Data" );
+	Check( szAfter == szBefore, ( szKind + " negtiles: nothing was written into Data" ).c_str() );
+}
+
+static void NegativeTiles( BkResSession *pSession, const std::string &szRoot )
+{
+	// No shipped object is unimportable, so the allow-list is empty.
+	ScanNegativeTiles( pSession, szRoot, "objects", "Objects", 7, {},
+		[]( BkResSession *pSession, std::string &szFailure ) { return ReadRootGrids( pSession, NResourceModel::ETIT_OBJECT_ROOT_ITEM, szFailure ); }, 500 );
 }
 
 }
@@ -5685,52 +5755,38 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 // folders checked must equal the number found.
 static void NegativeTiles( BkResSession *pSession, const std::string &szRoot )
 {
-	const std::vector<fs::path> folders = ShippedFolders( szRoot );
-	const std::string szBefore = ListingsOf( folders );
-	int nChecked = 0, nNegative = 0, nFailed = 0, nParts = 0;
-	for ( const fs::path &folder : folders )
+	int nParts = 0;
+	// A bridge's grids live on its part nodes; a bridge without a root node is a failure, one
+	// without parts is not.
+	const auto readGrids = [&nParts]( BkResSession *pSession, std::string &szFailure ) -> bool
 	{
-		if ( BkResImportFromGame( pSession, 10, folder.string().c_str() ) != BK_EDITOR_OK )
+		if ( FirstNodeOfType( pSession, NResourceModel::ETIT_BRIDGE_ROOT_ITEM ) == 0 )
 		{
-			++nFailed;
-			std::printf( "   NEGTILES import failed: %s: %s\n", folder.string().c_str(), BkEditorLastMessage( pSession ) );
-			BkResClose( pSession );
-			continue;
+			szFailure = "no bridge root node";
+			return false;
 		}
-		bool bNegative = false, bFailed = false;
+		bool bNegative = false;
 		for ( const BkResNodeRecord &node : AllNodes( pSession ) )
 		{
 			if ( node.class_type != NResourceModel::ETIT_BRIDGE_PARTS_ITEM )
 				continue;
 			++nParts;
 			int w = 0, h = 0;
-			const BkEditorStatus status = BkResGetLockedTiles( pSession, node.id, nullptr, 0, &w, &h );
-			if ( status == BK_EDITOR_OK )
+			if ( BkResGetLockedTiles( pSession, node.id, nullptr, 0, &w, &h ) == BK_EDITOR_OK )
 				continue;
 			if ( std::strstr( BkEditorLastMessage( pSession ), "left of or above" ) )
 				bNegative = true;
 			else
 			{
-				bFailed = true;
-				std::printf( "   NEGTILES read failed: %s: %s\n", folder.string().c_str(), BkEditorLastMessage( pSession ) );
+				szFailure = BkEditorLastMessage( pSession );
+				return false;
 			}
 		}
-		if ( bFailed )
-			++nFailed;
-		else
-			++nChecked;
-		if ( bNegative )
-		{
-			++nNegative;
-			std::printf( "   NEGTILES offender: %s\n", folder.string().c_str() );
-		}
-		BkResClose( pSession );
-	}
-	std::printf( "NEGTILES bridges checked=%d negative=%d failed=%d parts=%d\n", nChecked, nNegative, nFailed, nParts );
-	Check( !folders.empty() && nChecked == int( folders.size() ) && nFailed == 0, "bridge negtiles: every shipped bridge was imported and its part grids read" );
+		return bNegative;
+	};
+	// No shipped bridge is unimportable, so the allow-list is empty.
+	S09Object::ScanNegativeTiles( pSession, szRoot, "bridges", "Bridges", 10, {}, readGrids, 1 );
 	Check( nParts > 0, "bridge negtiles: the shipped bridges have part nodes" );
-	Check( nNegative == 0, "bridge negtiles: no shipped bridge has a tile left of or above (0, 0)" );
-	Check( ListingsOf( folders ) == szBefore, "bridge negtiles: nothing was written into Data" );
 }
 
 }
@@ -5870,51 +5926,25 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 // transparency cells read. Imports run on the shipped folders in place (read-only).
 static void NegativeTiles( BkResSession *pSession, const std::string &szRoot )
 {
-	std::error_code ec;
-	const fs::path buildings = T11::FoldedPath( fs::path( szRoot ) / "Data", "Buildings" );
-	std::vector<fs::path> folders;
-	for ( fs::recursive_directory_iterator it( buildings, ec ), end; !ec && it != end; it.increment( ec ) )
-		if ( it->is_regular_file( ec ) && it->path().filename() == "1.xml" )
-			folders.push_back( it->path().parent_path() );
-	std::sort( folders.begin(), folders.end() );
-	std::string szBefore;
-	for ( const fs::path &folder : folders )
-		szBefore += folder.string() + "|" + S09Object::ListingOf( folder ) + "\n";
-	int nChecked = 0, nNegative = 0, nImportFailed = 0;
-	for ( const fs::path &folder : folders )
-	{
-		if ( BkResImportFromGame( pSession, 9, folder.string().c_str() ) != BK_EDITOR_OK )
-		{
-			++nImportFailed;
-			std::printf( "   NEGTILES import failed: %s: %s\n", folder.string().c_str(), BkEditorLastMessage( pSession ) );
-			BkResClose( pSession );
-			continue;
-		}
-		++nChecked;
-		bool bNegative = false;
-		int w = 0, h = 0;
-		const int nRoot = FirstNodeOfType( pSession, NResourceModel::ETIT_BUILDING_ROOT_ITEM );
-		for ( int nChannel = 0; nChannel < 2; ++nChannel )
-		{
-			const BkEditorStatus status = nChannel == 0 ? BkResGetPassabilityCells( pSession, nRoot, nullptr, 0, &w, &h )
-				: BkResGetTransparencyCells( pSession, nRoot, nullptr, 0, &w, &h );
-			if ( status != BK_EDITOR_OK && std::strstr( BkEditorLastMessage( pSession ), "left of or above" ) )
-				bNegative = true;
-		}
-		if ( bNegative )
-		{
-			++nNegative;
-			std::printf( "   NEGTILES offender: %s\n", folder.string().c_str() );
-		}
-		BkResClose( pSession );
-	}
-	std::printf( "NEGTILES buildings checked=%d negative=%d import_failed=%d\n", nChecked, nNegative, nImportFailed );
-	Check( nChecked > 150, "building negtiles: more than 150 shipped buildings were checked" );
-	Check( nNegative == 0, "building negtiles: no shipped building has a tile left of or above (0, 0)" );
-	std::string szAfter;
-	for ( const fs::path &folder : folders )
-		szAfter += folder.string() + "|" + S09Object::ListingOf( folder ) + "\n";
-	Check( szAfter == szBefore, "building negtiles: nothing was written into Data" );
+	// Twelve shipped building folders carry a 1.xml that is only a batch-export history with no bld RPG stats,
+	// which the importer refuses on purpose; the game never loads them as buildings.
+	const char *pszNoStats = "the shipped 1.xml holds no bld RPG stats (history only)";
+	const std::vector<std::pair<std::string, std::string>> unimportable = {
+		{ "europe/summer/e_ctownhouse01_1", pszNoStats },
+		{ "europe/summer/e_ctownhouse01_2", pszNoStats },
+		{ "europe/summer/e_ctownhouse01_4", pszNoStats },
+		{ "europe/summer/e_ctownhouse02_1", pszNoStats },
+		{ "europe/summer/e_ctownhouse02_4", pszNoStats },
+		{ "europe/summer/e_ctownhouse03_2", pszNoStats },
+		{ "europe/summer/e_ctownhouse03_4", pszNoStats },
+		{ "europe/summer/e_house07_1", pszNoStats },
+		{ "europe/summer/e_house09_1", pszNoStats },
+		{ "europe/summer/e_townhouse04_3", pszNoStats },
+		{ "europe/summer/e_townhouse04_4", pszNoStats },
+		{ "europe/summer/e_townrailwaystation_4", pszNoStats },
+	};
+	S09Object::ScanNegativeTiles( pSession, szRoot, "buildings", "Buildings", 9, unimportable,
+		[]( BkResSession *pSession, std::string &szFailure ) { return S09Object::ReadRootGrids( pSession, NResourceModel::ETIT_BUILDING_ROOT_ITEM, szFailure ); }, 150 );
 }
 
 // The GOG INTEX2 brandenburgertor/current.bld against the MFC export of it made on
