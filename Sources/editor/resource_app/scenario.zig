@@ -61,6 +61,7 @@
 //!   do=keyframe:zoomx_in|zoomx_out|zoomy_in|zoomy_out   the curve's zoom menu (view only, no undo step)
 //!   do=camera               the preview's Camera button (horizontal against default camera)
 //!   do=particle_info        the Get particle info button, through docks_logic.ParticleStatus; prints the four numbers
+//!   do=source_mode:complex|simple   the Particle source button (docks_logic.SourceToggle: one undo step, the tree items open or close); prints the mode read back
 //!   do=import_file:<ext>/<path>   Import a runtime file (a shipped particle xml for pcp) as a new project, through the bridge's reader
 //!   do=import_refused:<ext>/<path>   the same for a kind with no import (eff): refused, with the bridge's reason
 //!   The grid verbs need a frame drawn since the project opened (the grid editor lives in the panels)
@@ -349,6 +350,8 @@ const Runner = struct {
     /// The Get particle info button's numbers (do=particle_info), the ones the
     /// status bar shows.
     particle_status: docks_logic.ParticleStatus = .{},
+    /// The Particle source button (do=source_mode) with its remembered name.
+    particle_source: docks_logic.SourceToggle = .{},
     frame: u32 = 0,
     message: [768]u8 = undefined,
     /// The last text `fail` made, for a helper that reports through its caller.
@@ -707,6 +710,17 @@ const Runner = struct {
             std.debug.print("resource-editor: auto: particle info: {s} (max_count={d} max_size={d} average_size={d} average_count={d})\n", .{ docks_logic.infoLine(&line, info), info.max_count, info.max_size, info.average_size, info.average_count });
             return null;
         }
+        if (eql(u8, name, "source_mode")) {
+            const want_complex = if (eql(u8, named.arg, "complex")) true else if (eql(u8, named.arg, "simple")) false else return self.fail("source_mode needs complex or simple", .{});
+            const have = docks_logic.SourceToggle.mode(b) orelse return self.fail("source_mode: {s}", .{b.lastMessage()});
+            if (have == want_complex) return self.fail("source_mode: the project is already {s}", .{named.arg});
+            // The auto run has no dialog to ask the name in, so it offers one.
+            if (self.particle_source.toggle(self.target(), if (want_complex) "effects\\particles\\flame" else null) != .switched)
+                return self.fail("source_mode: {s}", .{self.particle_source.note()});
+            const now = docks_logic.SourceToggle.mode(b) orelse return self.fail("source_mode: {s}", .{b.lastMessage()});
+            std.debug.print("resource-editor: auto: source mode is now {s} (bridge reads {s}, undo steps {d})\n", .{ named.arg, if (now) "complex" else "simple", self.life.history.undo_stack.items.len });
+            return null;
+        }
         if (eql(u8, name, "import_file") or eql(u8, name, "import_refused")) {
             const slash = std.mem.indexOfScalar(u8, named.arg, '/') orelse return self.fail("{s} needs <ext>/<path>", .{name});
             const kind = logic.kindFromExtension(named.arg[0..slash]) orelse return self.fail("{s}: '{s}' is not a project extension", .{ name, named.arg[0..slash] });
@@ -1059,6 +1073,24 @@ const Runner = struct {
         return read.bytes_grid.bytes[index];
     }
 
+    /// `<path>` with `want` 0 or 1: the ComplexParticleSource flag of the exported particle
+    /// file, the one the game's reader takes as the source's kind. Printed
+    /// with the mode the bridge reads, whether the two agree or not.
+    fn exportFlag(self: *Runner, arg: []const u8, want: []const u8) ?[]const u8 {
+        var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const path = self.expand(&buffer, arg) orelse return self.fail("the path is too long", .{});
+        const bytes = readFile(self.io, self.gpa, path) catch |err| return self.fail("expect=export_complex|export_simple: {s}: {s}", .{ path, @errorName(err) });
+        defer self.gpa.free(bytes);
+        const key = "ComplexParticleSource=\"";
+        const at = std.mem.indexOf(u8, bytes, key) orelse return self.fail("expect=export_complex|export_simple: {s} has no ComplexParticleSource", .{path});
+        const value = bytes[at + key.len ..];
+        const end = std.mem.indexOfScalar(u8, value, '"') orelse value.len;
+        const bridge_mode = docks_logic.SourceToggle.mode(self.bridge());
+        std.debug.print("resource-editor: auto: exported ComplexParticleSource={s}, bridge mode {s}\n", .{ value[0..end], if (bridge_mode == null) "unreadable" else if (bridge_mode.?) "complex" else "simple" });
+        if (!std.mem.eql(u8, value[0..end], want)) return self.fail("expect=export_complex|export_simple:{s} was false: the file says {s}", .{ arg, value[0..end] });
+        return null;
+    }
+
     /// Pixels of a captured shot that are exactly `rgb`, alpha ignored.
     fn shotColourCount(self: *Runner, name: []const u8, rgb: u32) ?usize {
         var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
@@ -1329,6 +1361,14 @@ const Runner = struct {
             if (!finite or info.max_count <= 0) return self.fail("expect=particle_info:{s} was false: max_count {d}, max_size {d}, average_size {d}, average_count {d}", .{ arg, info.max_count, info.max_size, info.average_size, info.average_count });
             return null;
         }
+        if (eql(u8, name, "source_mode")) {
+            const want_complex = if (eql(u8, arg, "complex")) true else if (eql(u8, arg, "simple")) false else return self.fail("source_mode needs complex or simple", .{});
+            const have = docks_logic.SourceToggle.mode(self.bridge()) orelse return self.fail("expect=source_mode:{s}: {s}", .{ arg, self.bridge().lastMessage() });
+            if (have != want_complex) return self.fail("expect=source_mode:{s} was false: the bridge reads {s}", .{ arg, if (have) "complex" else "simple" });
+            return null;
+        }
+        if (eql(u8, name, "export_complex")) return self.exportFlag(arg, "1");
+        if (eql(u8, name, "export_simple")) return self.exportFlag(arg, "0");
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
         return self.fail("unknown predicate '{s}'", .{name});
     }

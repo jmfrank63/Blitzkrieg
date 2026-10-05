@@ -64,6 +64,7 @@ const ModSettings = bridge_mod.ModSettings;
 const ResBridge = bridge_mod.ResBridge;
 const MeshLocator = bridge_mod.MeshLocator;
 const KeyframeKnobs = bridge_mod.KeyframeKnobs;
+const ParticleInfo = bridge_mod.ParticleInfo;
 const putName = bridge_mod.putName;
 const item_type = @import("sub_editor_tools.zig").item_type;
 
@@ -126,6 +127,11 @@ pub const FakeResBridge = struct {
     show_bounding_boxes: bool = false,
     /// Whether the last previewCameraMode asked for the horizontal camera.
     preview_horizontal: bool = false,
+    /// What `particleInfo` answers for a .pcp project; null makes it fail as
+    /// a source that did not build.
+    particle_info: ?ParticleInfo = .{ .max_count = 120, .max_size = 0.5, .average_size = 0.25, .average_count = 60 },
+    /// How many times `particleInfo` ran, for the app's button test.
+    particle_info_calls: u32 = 0,
     /// The knobs `setKeyframeKnobs` declared per node: a node with none is
     /// not a key-frame curve.
     keyframe_knobs: std.AutoHashMapUnmanaged(i32, KeyframeKnobs) = .empty,
@@ -1213,6 +1219,67 @@ pub const FakeResBridge = struct {
         return .ok;
     }
 
+    fn particleInfo(ptr: *anyopaque, out: *ParticleInfo) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const opened = self.requireOpen();
+        if (opened != .ok) return opened;
+        if (self.kind.? != .particle) {
+            self.say("particle info is a .pcp feature; the open project is a .{s}", .{@tagName(self.kind.?)});
+            return .refused;
+        }
+        self.particle_info_calls += 1;
+        out.* = self.particle_info orelse {
+            self.say("the built effect has no particle source", .{});
+            return .failed;
+        };
+        return .ok;
+    }
+
+    /// The complex source item of the open .pcp, or null with the refusal's
+    /// reason said: the precondition both source-mode calls share.
+    fn particleComplexSource(self: *FakeResBridge) ?*FakeNode {
+        if (self.requireOpen() != .ok) return null;
+        if (self.kind.? != .particle) {
+            self.say("the particle source mode is a .pcp feature; the open project is a .{s}", .{@tagName(self.kind.?)});
+            return null;
+        }
+        const index = self.firstNodeOfClass(item_type.particle_complex_source) orelse {
+            self.say("the .pcp project has no complex source item", .{});
+            return null;
+        };
+        if (self.nodes.items[index].props.items.len == 0) {
+            self.say("the .pcp project has no complex source item", .{});
+            return null;
+        }
+        return &self.nodes.items[index];
+    }
+
+    fn particleSourceMode(ptr: *anyopaque, complex: *bool) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        complex.* = false;
+        const node = self.particleComplexSource() orelse return .refused;
+        complex.* = node.props.items[0].value_text[0] != 0;
+        return .ok;
+    }
+
+    fn particleSetSourceMode(ptr: *anyopaque, complex: bool, name: []const u8) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const node = self.particleComplexSource() orelse return .refused;
+        if (complex and name.len == 0) {
+            self.say("a complex source needs the name of the particle it scatters (the complex source's Particle reference is empty)", .{});
+            return .refused;
+        }
+        if (name.len >= value_text_capacity) {
+            self.say("value too long for the particle reference", .{});
+            return .bad_argument;
+        }
+        _ = node.props.items[0].setValue(if (complex) name else "");
+        return .ok;
+    }
+
     fn previewCameraMode(ptr: *anyopaque, horizontal: bool) Status {
         const self = from(ptr);
         self.clearMessage();
@@ -1261,6 +1328,9 @@ pub const FakeResBridge = struct {
         .previewShowLocators = previewShowLocators,
         .meshLocators = meshLocators,
         .keyframeKnobs = keyframeKnobs,
+        .particleInfo = particleInfo,
+        .particleSourceMode = particleSourceMode,
+        .particleSetSourceMode = particleSetSourceMode,
         .previewCameraMode = previewCameraMode,
     };
 };
@@ -1271,6 +1341,14 @@ pub const FakeResBridge = struct {
 /// bridge's point items carry the direction only. A bridge's common props
 /// carry the 'Bridge type' combo the span-mark line follows, at its MFC id 2.
 fn seedBuildingPointProps(node: *FakeNode, allocator: std.mem.Allocator) !void {
+    if (FakeResBridge.classIs(node, item_type.particle_complex_source)) {
+        var prop: PropRecord = .{ .id = 1, .domain_type = 0, .value_kind = 0 };
+        _ = prop.setDefault("Particle reference");
+        _ = prop.setDisplay("Particle reference");
+        _ = prop.setValue("");
+        try node.props.append(allocator, prop);
+        return;
+    }
     if (FakeResBridge.classIs(node, item_type.bridge_common_props)) {
         var prop: PropRecord = .{ .id = 2, .domain_type = 0, .value_kind = 0 };
         _ = prop.setDefault("Bridge type");

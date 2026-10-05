@@ -257,13 +257,18 @@ void CommonToTree( const TData &stats, CTreeItem &root, const std::string &szNam
 
 }
 
+bool IsComplexSource( const CTreeItem &root )
+{
+	const CTreeItem *pComplexSource = ComplexSourceItem( root );
+	return pComplexSource != nullptr && !ValueStr( *pComplexSource, 0 ).empty();
+}
+
 bool ExportParticle( const Project &project, const SExportContext &context, SExportOutcome &outcome )
 {
 	const std::unique_ptr<Project> pProject = PreparedCopy( project, ETIT_PARTICLE_ROOT_ITEM, "particle", outcome );
 	if ( !pProject )
 		return false;
-	const CTreeItem *pComplexSource = ComplexSourceItem( *pProject->root );
-	const bool bComplexSource = pComplexSource != nullptr && !ValueStr( *pComplexSource, 0 ).empty();
+	const bool bComplexSource = IsComplexSource( *pProject->root );
 
 	// The two structs are shared resources: on the heap, as the engine reads them.
 	CPtr<SParticleSourceData> pSimple;

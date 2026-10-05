@@ -1054,6 +1054,79 @@ test "unit locator references and a model switch undo and redo, the Locators chi
     try std.testing.expectEqual(@as(i32, 1), sub_editor_tools.childCount(&doc, guns));
 }
 
+test "particle info is the fake's four numbers for a .pcp and a named refusal otherwise" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    const res = fake.bridge();
+
+    var info: bridge.ParticleInfo = .{};
+    try std.testing.expectEqual(bridge.Status.refused, res.particleInfo(&info));
+    try bridge.check(res.new(.weapon));
+    try std.testing.expectEqual(bridge.Status.refused, res.particleInfo(&info));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), "pcp") != null);
+    try bridge.check(res.new(.particle));
+    try bridge.check(res.particleInfo(&info));
+    try std.testing.expectEqual(@as(f32, 120), info.max_count);
+    try std.testing.expectEqual(@as(f32, 0.5), info.max_size);
+    try std.testing.expectEqual(@as(f32, 0.25), info.average_size);
+    try std.testing.expectEqual(@as(f32, 60), info.average_count);
+    fake.particle_info = null;
+    try std.testing.expectEqual(bridge.Status.failed, res.particleInfo(&info));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), "no particle source") != null);
+}
+
+test "particle source mode is the complex reference, refused for the wrong kind, and undo and redo flip it" {
+    const allocator = std.testing.allocator;
+    const item = sub_editor_tools.item_type;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    const res = fake.bridge();
+
+    var complex = true;
+    try std.testing.expectEqual(bridge.Status.refused, res.particleSourceMode(&complex));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), "no project") != null);
+    try bridge.check(res.new(.weapon));
+    try std.testing.expectEqual(bridge.Status.refused, res.particleSourceMode(&complex));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), "pcp") != null);
+    try std.testing.expectEqual(bridge.Status.refused, res.particleSetSourceMode(true, "effects\\particles\\flame"));
+
+    try bridge.check(res.new(.particle));
+    const root = fake.nodes.items[0].id;
+    const source = try meshItem(&fake, root, item.particle_complex_source, &.{});
+    try bridge.check(res.particleSourceMode(&complex));
+    try std.testing.expect(!complex);
+
+    // The bridge's own switch, both directions, and the empty name refusal.
+    try std.testing.expectEqual(bridge.Status.refused, res.particleSetSourceMode(true, ""));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), "needs the name") != null);
+    try bridge.check(res.particleSourceMode(&complex));
+    try std.testing.expect(!complex);
+    try bridge.check(res.particleSetSourceMode(true, "flame"));
+    try bridge.check(res.particleSourceMode(&complex));
+    try std.testing.expect(complex);
+    try bridge.check(res.particleSetSourceMode(false, ""));
+    try bridge.check(res.particleSourceMode(&complex));
+    try std.testing.expect(!complex);
+
+    // As an undoable property edit: set, undo, redo, each read back through the mode.
+    var doc: Document = .{};
+    defer doc.deinit(allocator);
+    try doc.reload(allocator, res);
+    var hist: History = .{};
+    defer hist.deinit(allocator);
+    const prop = sub_editor_tools.propIdByName(&doc, source, "Particle reference").?;
+    try sub_editor_tools.commit(allocator, res, &doc, &hist, try sub_editor_tools.setProp(allocator, &doc, source, prop, "flame"), 0);
+    try bridge.check(res.particleSourceMode(&complex));
+    try std.testing.expect(complex);
+    try doc.undoOne(allocator, res, &hist.top().?.command);
+    try bridge.check(res.particleSourceMode(&complex));
+    try std.testing.expect(!complex);
+    try doc.redoOne(allocator, res, &hist.top().?.command);
+    try bridge.check(res.particleSourceMode(&complex));
+    try std.testing.expect(complex);
+}
+
 test "keyframe knobs come from the fake per curve node, and the camera mode needs a preview" {
     const allocator = std.testing.allocator;
     var fake = FakeResBridge.init(allocator);

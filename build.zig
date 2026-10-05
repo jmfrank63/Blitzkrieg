@@ -8973,6 +8973,27 @@ const resource_auto_schedule =
     "504:do=curve:Opacity," ++
     "505:do=particle_info," ++
     "505:expect=particle_info:present," ++
+    // S13 T02: the Particle source toggle. The mode the bridge reads equals the flag each export writes, in
+    // both directions, and undo and redo flip it back and forth; the project ends simple, as it began.
+    "506:expect=source_mode:simple," ++
+    "506:do=export," ++
+    "506:expect=export_simple:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
+    "507:do=source_mode:complex," ++
+    "507:expect=source_mode:complex," ++
+    "507:do=export," ++
+    "507:expect=export_complex:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
+    "508:do=undo," ++
+    "508:expect=source_mode:simple," ++
+    "508:do=export," ++
+    "508:expect=export_simple:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
+    "509:do=redo," ++
+    "509:expect=source_mode:complex," ++
+    "509:do=export," ++
+    "509:expect=export_complex:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
+    "509:do=source_mode:simple," ++
+    "509:expect=source_mode:simple," ++
+    "509:do=export," ++
+    "509:expect=export_simple:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
     "510:do=preview_run," ++
     "512:do=pause:300," ++
     "512:shot=pcp_run_a," ++

@@ -185,6 +185,15 @@ pub const KeyframeKnobs = struct {
     resize_mode: bool = false,
 };
 
+/// The four numbers of CParticleFrame::GetParticleInfo (BkResParticleInfo):
+/// the particle source's SParticleSourceInfo.
+pub const ParticleInfo = struct {
+    max_count: f32 = 0.0,
+    max_size: f32 = 0.0,
+    average_size: f32 = 0.0,
+    average_count: f32 = 0.0,
+};
+
 /// One reference entry (BkResReferenceEntry): a stable token the project
 /// writes and the choice offered.
 pub const reference_name_capacity: usize = 128;
@@ -490,6 +499,17 @@ pub const ResBridge = struct {
         /// BkResPreviewCameraMode: MFC's Camera button, the horizontal
         /// camera (true) or the default one (false).
         previewCameraMode: *const fn (ptr: *anyopaque, horizontal: bool) Status,
+        /// BkResGetParticleInfo: MFC's Get particle info, the four numbers of
+        /// the open .pcp's built source. Refused with the reason for another
+        /// kind, no project or no built source.
+        particleInfo: *const fn (ptr: *anyopaque, out: *ParticleInfo) Status,
+        /// BkResParticleSourceMode: whether the open .pcp is complex (its
+        /// complex source names an effect), the one derivation the exporter
+        /// shares. Refused with the reason for another kind or no project.
+        particleSourceMode: *const fn (ptr: *anyopaque, complex: *bool) Status,
+        /// BkResParticleSetSourceMode: complex fills the complex source's
+        /// reference with `name` (refused when empty), simple clears it.
+        particleSetSourceMode: *const fn (ptr: *anyopaque, complex: bool, name: []const u8) Status,
     };
 
     pub fn lastMessage(self: ResBridge) []const u8 {
@@ -599,6 +619,15 @@ pub const ResBridge = struct {
     }
     pub fn keyframeKnobs(self: ResBridge, node: i32, out: *KeyframeKnobs) Status {
         return self.vtable.keyframeKnobs(self.ptr, node, out);
+    }
+    pub fn particleInfo(self: ResBridge, out: *ParticleInfo) Status {
+        return self.vtable.particleInfo(self.ptr, out);
+    }
+    pub fn particleSourceMode(self: ResBridge, complex: *bool) Status {
+        return self.vtable.particleSourceMode(self.ptr, complex);
+    }
+    pub fn particleSetSourceMode(self: ResBridge, complex: bool, name: []const u8) Status {
+        return self.vtable.particleSetSourceMode(self.ptr, complex, name);
     }
     pub fn previewCameraMode(self: ResBridge, horizontal: bool) Status {
         return self.vtable.previewCameraMode(self.ptr, horizontal);

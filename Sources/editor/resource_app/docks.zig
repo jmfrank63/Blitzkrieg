@@ -18,6 +18,7 @@ const core = @import("resource_core");
 const c_bridge = @import("c_bridge.zig");
 const logic = @import("panels_logic.zig");
 const dl = @import("docks_logic.zig");
+const edit = @import("edit_logic.zig");
 const mesh_logic = @import("mesh_logic.zig");
 const keyframe_logic = @import("keyframe_logic.zig");
 const lifecycle = @import("lifecycle.zig");
@@ -147,6 +148,11 @@ pub const Docks = struct {
     horizontal_camera: bool = false,
     /// The Get particle info button's four numbers, shown in the status bar.
     particle_status: dl.ParticleStatus = .{},
+    /// The Particle source button (ID_PARTICLE_SOURCE) and the name it asks
+    /// for the first time a project goes complex in this session.
+    particle_source: dl.SourceToggle = .{},
+    show_source_name: bool = false,
+    source_name: [core.bridge.value_text_capacity]u8 = [_]u8{0} ** core.bridge.value_text_capacity,
     show_thumbnails: bool = false,
     show_direction: bool = false,
     show_function: bool = false,
@@ -217,6 +223,15 @@ pub const Docks = struct {
         _ = self.particle_status.press(self.real.bridge());
     }
 
+    /// The Particle source button (OnSwitchParticleSourceType). Going complex
+    /// with no name known opens the name window instead.
+    pub fn toggleParticleSource(self: *Docks, life: *logic.Lifecycle, name: ?[]const u8) dl.SourceToggle.Outcome {
+        const target: edit.Target = .{ .allocator = self.gpa, .bridge = self.real.bridge(), .doc = &life.doc, .history = &life.history, .read_only = life.read_only };
+        const outcome = self.particle_source.toggle(target, name);
+        if (outcome == .need_name) self.show_source_name = true;
+        return outcome;
+    }
+
     // --- Menus and keys -----------------------------------------------------
 
     /// Import at the top of the File menu (MFC's Ctrl+I, ID_IMPORT_XML_FILE).
@@ -231,11 +246,13 @@ pub const Docks = struct {
         if (ig.igMenuItemEx("Function Window", mod_label ++ "+F", self.show_function, true)) self.show_function = !self.show_function;
     }
 
-    pub fn drawPreviewMenuItems(self: *Docks) void {
+    pub fn drawPreviewMenuItems(self: *Docks, life: *logic.Lifecycle) void {
         if (ig.igMenuItemEx("Run", "F5", false, self.preview.begun != null)) self.runPreview();
         if (ig.igMenuItemEx("Stop", null, false, self.preview.running)) self.stopPreview();
         if (ig.igMenuItemEx("Horizontal camera", null, self.horizontal_camera, self.preview.begun != null)) self.toggleCamera();
         if (ig.igMenuItemEx("Get particle info", null, false, self.preview.begun == .particle)) self.getParticleInfo();
+        const source_mode = if (life.is_open) dl.SourceToggle.mode(self.real.bridge()) else null;
+        if (ig.igMenuItemEx("Particle source: complex", null, source_mode orelse false, source_mode != null)) _ = self.toggleParticleSource(life, null);
         ig.igSeparator();
         const text = self.preview.message();
         ig.igTextDisabled("%.*s", @as(c_int, @intCast(text.len)), text.ptr);
@@ -278,6 +295,26 @@ pub const Docks = struct {
         if (self.show_import) self.drawImport(ui, window);
         if (self.show_help) self.drawHelp();
         if (self.show_about) self.drawAbout();
+        if (self.show_source_name) self.drawSourceName(&ui.session.life);
+    }
+
+    /// The name a complex source scatters, asked once per session (MFC's
+    /// complex source item held it as a property; here the switch needs it).
+    fn drawSourceName(self: *Docks, life: *logic.Lifecycle) void {
+        ig.igSetNextWindowSize(.{ .x = 460, .y = 0 }, ig.ImGuiCond_Appearing);
+        if (!ig.igBegin("Particle source###source_name", &self.show_source_name, ig.ImGuiWindowFlags_NoSavedSettings)) {
+            ig.igEnd();
+            return;
+        }
+        defer ig.igEnd();
+        ig.igTextWrapped("A complex source scatters another particle effect. Name it (for example effects\\particles\\flame).");
+        _ = ig.igInputText("Particle", &self.source_name, self.source_name.len - 1, 0);
+        const name = std.mem.sliceTo(&self.source_name, 0);
+        if (ig.igButton("Switch to complex")) {
+            if (self.toggleParticleSource(life, name) == .switched) self.show_source_name = false;
+        }
+        const note = self.particle_source.note();
+        if (note.len != 0) ig.igTextDisabled("%.*s", @as(c_int, @intCast(note.len)), note.ptr);
     }
 
     fn place(self: *const Docks, fixed: Rect, x: f32, y: f32, w: f32, h: f32) void {

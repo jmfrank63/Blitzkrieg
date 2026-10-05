@@ -531,6 +531,21 @@ typedef struct
    particle source with info. */
 BkEditorStatus BkResGetParticleInfo( BkResSession *session, BkResParticleInfo *out );
 
+/* ---- Particle source mode ---------------------------------------------- */
+
+/* MFC kept simple against complex in the frame (bComplexSource, the Particle
+   source toolbar button). The port reads it from the project: a .pcp is
+   complex when the "Particle reference" of its complex source item is
+   non-empty, which is also what the exporter writes as ComplexParticleSource.
+   BkResParticleSourceMode reads that into *complex (1 or 0);
+   BkResParticleSetSourceMode switches it: complex fills the reference with
+   name, simple clears it. Both are BK_EDITOR_REFUSED with the reason in
+   BkEditorLastMessage when no project is open or it is not a .pcp; setting
+   complex with a null or empty name is refused too. They edit the value in
+   place; the app records the same change as a property edit for undo. */
+BkEditorStatus BkResParticleSourceMode( BkResSession *session, int *complex );
+BkEditorStatus BkResParticleSetSourceMode( BkResSession *session, int complex, const char *name );
+
 /* ---- Unit (mesh) preview ---------------------------------------------- */
 
 /* One locator of the unit's skeleton: the node id is the skeleton node's

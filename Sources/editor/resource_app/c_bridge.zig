@@ -43,6 +43,7 @@ const ExportReport = rb.ExportReport;
 const Warning = rb.Warning;
 const ModSettings = rb.ModSettings;
 const KeyframeKnobs = rb.KeyframeKnobs;
+const ParticleInfo = rb.ParticleInfo;
 const Point2 = rb.Point2;
 const Vec3 = rb.Vec3;
 const AimedPoint = rb.AimedPoint;
@@ -198,6 +199,9 @@ pub const RealResBridge = struct {
         .previewShowLocators = previewShowLocators,
         .meshLocators = meshLocators,
         .keyframeKnobs = keyframeKnobs,
+        .particleInfo = particleInfo,
+        .particleSourceMode = particleSourceMode,
+        .particleSetSourceMode = particleSetSourceMode,
         .previewCameraMode = previewCameraMode,
     };
 
@@ -692,6 +696,38 @@ pub const RealResBridge = struct {
             .resize_mode = knobs.resize_mode != 0,
         };
         return .ok;
+    }
+
+    /// BkResGetParticleInfo: the four numbers of the built particle source.
+    fn particleInfo(ptr: *anyopaque, out: *ParticleInfo) Status {
+        const self = from(ptr);
+        var info: c.BkResParticleInfo = std.mem.zeroes(c.BkResParticleInfo);
+        const result = status(c.BkResGetParticleInfo(self.session, &info));
+        if (result != .ok) return result;
+        out.* = .{
+            .max_count = info.max_count,
+            .max_size = info.max_size,
+            .average_size = info.average_size,
+            .average_count = info.average_count,
+        };
+        return .ok;
+    }
+
+    /// BkResParticleSourceMode: whether the open .pcp is a complex source.
+    fn particleSourceMode(ptr: *anyopaque, complex: *bool) Status {
+        const self = from(ptr);
+        var value: c_int = 0;
+        const result = status(c.BkResParticleSourceMode(self.session, &value));
+        complex.* = value != 0;
+        return result;
+    }
+
+    /// BkResParticleSetSourceMode: complex fills the reference with `name`, simple clears it.
+    fn particleSetSourceMode(ptr: *anyopaque, complex: bool, name: []const u8) Status {
+        const self = from(ptr);
+        var buffer: [rb.value_text_capacity]u8 = undefined;
+        const z = terminated(&buffer, name) orelse return self.fail(.bad_argument, "the particle name is too long or holds a NUL");
+        return status(c.BkResParticleSetSourceMode(self.session, @intFromBool(complex), z));
     }
 
     /// BkResPreviewCameraMode: MFC's Camera button.

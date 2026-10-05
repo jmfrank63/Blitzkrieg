@@ -6674,6 +6674,87 @@ static void Info( BkResSession *pSession, const std::string &szFixtureRoot, cons
 	}
 }
 
+// B-06.4: the Particle source toggle through BkResParticleSourceMode and
+// BkResParticleSetSourceMode. The mode read back equals what the exporter
+// wrote as KeyData/ComplexParticleSource, in both directions, and the app's
+// undo and redo (a BkResSetProp of the complex reference) flip it back.
+static void SourceMode( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path dir = fs::path( szScratchRoot ) / "s13-particle-source-mode";
+	fs::remove_all( dir, ec );
+	fs::create_directories( dir, ec );
+	const fs::path project = dir / "project.pcp";
+	fs::copy_file( fs::path( szFixtureRoot ) / "pcp" / "project.pcp", project, fs::copy_options::overwrite_existing, ec );
+	int nComplex = -1;
+	Check( BkResParticleSourceMode( pSession, &nComplex ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "no project" ) != nullptr,
+	       "source mode: no project is refused naming the reason" );
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "source mode: project.pcp opens" ) )
+		return;
+	Check( BkResParticleSourceMode( pSession, nullptr ) == BK_EDITOR_BAD_ARGUMENT, "source mode: a null out is a bad argument" );
+
+	// The flag the exporter wrote, read back through the engine's operator&.
+	int nExport = 0;
+	const auto ExportedFlag = [&]() -> int {
+		const fs::path mod = dir / ( "mod" + std::to_string( ++nExport ) );
+		if ( !ExportTo( pSession, mod, "S13 source mode" ) )
+			return -1;
+		const fs::path xml = FirstXml( mod / "data" );
+		if ( xml.empty() )
+			return -1;
+		SParticleSourceData simple;
+		SSmokinParticleSourceData complex;
+		// Each struct's operator& builds integrals from its own tracks and aborts on the other kind's file, so the
+		// attribute picks the struct and the engine's read then has to agree with it.
+		std::ifstream in( xml, std::ios::binary );
+		const std::string text( ( std::istreambuf_iterator<char>( in ) ), std::istreambuf_iterator<char>() );
+		const bool bText = text.find( "ComplexParticleSource=\"1\"" ) != std::string::npos;
+		if ( !bText && text.find( "ComplexParticleSource=\"0\"" ) == std::string::npos )
+			return -1;
+		if ( bText )
+			return ReadKeyData( xml, complex ) && complex.bComplexParticleSource ? 1 : -1;
+		return ReadKeyData( xml, simple ) && !simple.bComplexParticleSource ? 0 : -1;
+	};
+	const auto Mode = [&]() -> int {
+		int n = -1;
+		return BkResParticleSourceMode( pSession, &n ) == BK_EDITOR_OK ? n : -1;
+	};
+	const auto Report = [&]( const char *pszStep ) {
+		std::printf( "particle-source-mode: %s: mode=%d exported ComplexParticleSource=%d\n", pszStep, Mode(), ExportedFlag() );
+	};
+	Report( "opened" );
+	Check( Mode() == 0 && ExportedFlag() == 0, "source mode: the fixture is simple and exports a simple source" );
+
+	const char *pszName = "effects\\particles\\flame";
+	Check( BkResParticleSetSourceMode( pSession, 1, "" ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "needs the name" ) != nullptr,
+	       "source mode: complex with an empty name is refused naming the reason" );
+	Check( BkResParticleSetSourceMode( pSession, 1, nullptr ) == BK_EDITOR_REFUSED, "source mode: complex with no name is refused" );
+	Check( Mode() == 0, "source mode: a refused switch leaves the mode alone" );
+
+	Check( BkResParticleSetSourceMode( pSession, 1, pszName ) == BK_EDITOR_OK, "source mode: switching to complex succeeds" );
+	Report( "complex" );
+	Check( Mode() == 1 && ExportedFlag() == 1, "source mode: complex reads back and the exporter writes a complex source" );
+	Check( BkResParticleSetSourceMode( pSession, 0, nullptr ) == BK_EDITOR_OK, "source mode: switching to simple succeeds" );
+	Report( "simple" );
+	Check( Mode() == 0 && ExportedFlag() == 0, "source mode: simple reads back and the exporter writes a simple source" );
+
+	// Undo and redo are the app's property edits: the complex reference's text, before and after.
+	Check( SetNamedProp( pSession, "Particle reference", pszName ) && Mode() == 1 && ExportedFlag() == 1, "source mode: redo (the reference set again) is complex" );
+	Check( SetNamedProp( pSession, "Particle reference", "" ) && Mode() == 0 && ExportedFlag() == 0, "source mode: undo (the reference cleared) is simple" );
+	BkResClose( pSession );
+
+	const fs::path weapon = dir / "project.wpn";
+	fs::copy_file( fs::path( szFixtureRoot ) / "wpn" / "project.wpn", weapon, fs::copy_options::overwrite_existing, ec );
+	if ( Check( BkResOpen( pSession, weapon.string().c_str() ) == BK_EDITOR_OK, "source mode: a weapon project opens" ) )
+	{
+		Check( BkResParticleSourceMode( pSession, &nComplex ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".pcp" ) != nullptr,
+		       "source mode: reading a .wpn project is refused naming .pcp" );
+		Check( BkResParticleSetSourceMode( pSession, 1, pszName ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".pcp" ) != nullptr,
+		       "source mode: switching a .wpn project is refused naming .pcp" );
+		BkResClose( pSession );
+	}
+}
+
 static std::vector<fs::path> ShippedFiles( const std::string &szRoot )
 {
 	std::error_code ec;
@@ -7161,6 +7242,8 @@ int main( int argc, char **argv )
 	S12Particle::Shipped( pSession, pszRoot, szScratchRoot );
 	// S13 T01: Get particle info.
 	S12Particle::Info( pSession, szFixtureRoot, szScratchRoot );
+	// S13 T02: the Particle source toggle.
+	S12Particle::SourceMode( pSession, szFixtureRoot, szScratchRoot );
 
 	// S12 T02: the effect exporter and the refused import.
 	S12Effect::Fixture( pSession, pszRoot, szFixtureRoot, szScratchRoot );

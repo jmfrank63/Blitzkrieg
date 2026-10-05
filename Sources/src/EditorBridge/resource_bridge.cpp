@@ -5050,6 +5050,75 @@ BkEditorStatus BkResGetParticleInfo( BkResSession *pSession, BkResParticleInfo *
 	} );
 }
 
+// The complex source item of the open .pcp, or null with the refusal's reason
+// in the session message: the particle source toggle's shared precondition.
+static NResourceModel::CTreeItem *ParticleComplexSourceItem( BkResSession *pSession )
+{
+	ResourceState &state = StateOf( pSession );
+	const int nParticleKind = 11; // "pcp"
+	if ( !state.bOpen || !state.pProject || !state.pProject->root )
+	{
+		pSession->szMessage = "no project is open";
+		return nullptr;
+	}
+	if ( state.nKindOrdinal != nParticleKind )
+	{
+		pSession->szMessage = std::string( "the particle source mode is a .pcp feature; the open project is a ." ) + kKindExtensions[state.nKindOrdinal];
+		return nullptr;
+	}
+	NResourceModel::CTreeItem *pItem = nullptr;
+	for ( auto &pChild : state.pProject->root->MutableChildren() )
+		if ( pChild->GetItemType() == NResourceModel::ETIT_PARTICLE_COMPLEX_SOURCE_ITEM )
+			pItem = pChild.get();
+	if ( pItem == nullptr || pItem->MutableValues().empty() )
+	{
+		pSession->szMessage = "the .pcp project has no complex source item";
+		return nullptr;
+	}
+	return pItem;
+}
+
+BkEditorStatus BkResParticleSourceMode( BkResSession *pSession, int *pnComplex )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnComplex == nullptr )
+			return BK_EDITOR_BAD_ARGUMENT;
+		*pnComplex = 0;
+		ResourceState &state = StateOf( pSession );
+		if ( ParticleComplexSourceItem( pSession ) == nullptr )
+			return BK_EDITOR_REFUSED;
+		*pnComplex = NResourceModel::IsComplexSource( *state.pProject->root ) ? 1 : 0;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResParticleSetSourceMode( BkResSession *pSession, int nComplex, const char *pszName )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		NResourceModel::CTreeItem *pItem = ParticleComplexSourceItem( pSession );
+		if ( pItem == nullptr )
+			return BK_EDITOR_REFUSED;
+		std::string szName;
+		if ( nComplex != 0 )
+		{
+			if ( pszName != nullptr )
+				szName = pszName;
+			if ( szName.empty() )
+			{
+				pSession->szMessage = "a complex source needs the name of the particle it scatters (the complex source's Particle reference is empty)";
+				return BK_EDITOR_REFUSED;
+			}
+		}
+		// The mode is the value, so writing it is the whole switch: the
+		// exporter and BkResParticleSourceMode read it back from the same place.
+		auto &first = pItem->MutableValues().front();
+		first.value = NResourceModel::CVariant::FromString( first.value.GetKind(), szName );
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkResGetKeyframeKnobs( BkResSession *pSession, int nNodeId, BkResKeyframeKnobs *pOut )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus

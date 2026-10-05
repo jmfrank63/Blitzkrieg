@@ -53,6 +53,12 @@ struct SParticleRawFile
 	int operator&( IDataTree &ss );
 };
 
+// The one place that says whether a project is complex: the "Particle
+// reference" (value 0) of the complex source item is non-empty. The exporter
+// and the editor's source toggle both call it, so what the toolbar shows is
+// what the file gets.
+bool IsComplexSource( const CTreeItem &root );
+
 // The tree half of LoadRPGStats for a simple source. root is a default tree
 // (CreateDefaultChilds has run); szName is the source's name (the file's).
 void ParticleStatsToTree( const SParticleSourceData &stats, const SParticleRawFile &raw, CTreeItem &root, const std::string &szName );

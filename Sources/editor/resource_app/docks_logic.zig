@@ -9,6 +9,7 @@ const std = @import("std");
 const core = @import("resource_core");
 const logic = @import("panels_logic.zig");
 const grid = @import("grid_logic.zig");
+const edit = @import("edit_logic.zig");
 
 const tools = core.sub_editor_tools;
 const bridge = core.bridge;
@@ -362,6 +363,102 @@ pub const ParticleStatus = struct {
         return self.note_buffer[0..self.note_len];
     }
 };
+
+// --- Particle source toggle (ID_PARTICLE_SOURCE, OnSwitchParticleSourceType) --
+
+/// The Particle source button. MFC flipped bComplexSource in the frame; the
+/// port has no frame, so the mode is the complex source's "Particle reference"
+/// and the bridge derives it (the exporter's own rule). A switch is one undo
+/// step, a property edit of that reference: to complex it writes a name (the
+/// last one used in this session, else the app asks), to simple it clears it.
+pub const SourceToggle = struct {
+    last_buffer: [bridge.value_text_capacity]u8 = undefined,
+    last_len: usize = 0,
+    note_buffer: [256]u8 = undefined,
+    note_len: usize = 0,
+
+    pub const Outcome = enum { switched, need_name, refused };
+
+    /// The mode the button shows as checked, or null when the project is not
+    /// a Particle one (the button is disabled then).
+    pub fn mode(b: ResBridge) ?bool {
+        var complex = false;
+        if (b.particleSourceMode(&complex) != .ok) return null;
+        return complex;
+    }
+
+    pub fn lastName(self: *const SourceToggle) []const u8 {
+        return self.last_buffer[0..self.last_len];
+    }
+
+    pub fn note(self: *const SourceToggle) []const u8 {
+        return self.note_buffer[0..self.note_len];
+    }
+
+    fn remember(self: *SourceToggle, name: []const u8) void {
+        if (name.len == 0 or name.len > self.last_buffer.len) return;
+        // The name may already be the stored one (a switch back to complex reuses it).
+        if (name.ptr != &self.last_buffer) @memcpy(self.last_buffer[0..name.len], name);
+        self.last_len = name.len;
+    }
+
+    fn say(self: *SourceToggle, comptime fmt: []const u8, args: anytype) Outcome {
+        const text = std.fmt.bufPrint(&self.note_buffer, fmt, args) catch self.note_buffer[0..];
+        self.note_len = text.len;
+        return .refused;
+    }
+
+    /// Flips the mode. Going complex takes `name` (as the user typed it) or
+    /// else the last name; with neither the outcome is `need_name` and
+    /// nothing changed. The tree items then open or close as UpdateSourceType
+    /// did.
+    pub fn toggle(self: *SourceToggle, t: edit.Target, name: ?[]const u8) Outcome {
+        self.note_len = 0;
+        var complex = false;
+        const status = t.bridge.particleSourceMode(&complex);
+        if (status != .ok) return self.say("particle source: {s}", .{t.bridge.lastMessage()});
+        const node = tools.firstOfClass(t.doc, tools.item_type.particle_complex_source) orelse
+            return self.say("particle source: the project has no complex source item", .{});
+        const prop = tools.propIdByName(t.doc, node, "Particle reference") orelse
+            return self.say("particle source: the complex source has no Particle reference", .{});
+        var text: []const u8 = "";
+        if (!complex) {
+            const typed = if (name) |n| std.mem.trim(u8, n, " \t") else "";
+            text = if (typed.len != 0) typed else if (name == null) self.lastName() else "";
+            if (text.len == 0) {
+                if (name == null) return .need_name;
+                return self.say("particle source: a complex source needs the name of the particle it scatters", .{});
+            }
+        } else if (tools.propValue(t.doc, node, prop)) |current| {
+            self.remember(current);
+        }
+        edit.setProp(t, &.{node}, prop, text, 0) catch |err| {
+            const why = t.bridge.lastMessage();
+            return self.say("particle source: {s}", .{if (why.len != 0) why else @errorName(err)});
+        };
+        if (!complex) self.remember(text);
+        expandFor(t, !complex);
+        return .switched;
+    }
+};
+
+/// UpdateSourceType: a complex source opens the complex source and complex
+/// props items and closes the simple source and props items; a simple one
+/// the reverse. Each item is the project's only one of its class. View
+/// state, so no undo step.
+pub fn expandFor(t: edit.Target, complex: bool) void {
+    const item = tools.item_type;
+    const items = [_]struct { class: i32, open: bool }{
+        .{ .class = item.particle_source_props, .open = !complex },
+        .{ .class = item.particle_props, .open = !complex },
+        .{ .class = item.particle_complex_source, .open = complex },
+        .{ .class = item.particle_complex, .open = complex },
+    };
+    for (items) |entry| {
+        const node = tools.firstOfClass(t.doc, entry.class) orelse continue;
+        edit.setExpand(t, node, entry.open) catch {};
+    }
+}
 
 // --- Import (A-36: Ctrl+I, ID_IMPORT_XML_FILE had no handler in MFC) -------
 
@@ -742,4 +839,69 @@ test "particle info: the four panes carry MFC's labels, and a press keeps the nu
     try testing.expect(std.mem.indexOf(u8, status.note(), "no particle source") != null);
     status.clear();
     try testing.expect(status.info == null);
+}
+
+test "particle source toggle: complex needs a name, each switch is one undo step, the tree items follow the mode" {
+    const gpa = testing.allocator;
+    const item = tools.item_type;
+    var fake = FakeResBridge.init(gpa);
+    defer fake.deinit();
+    const b = fake.bridge();
+    var doc: core.document.Document = .{};
+    defer doc.deinit(gpa);
+    var hist: core.history.History = .{};
+    defer hist.deinit(gpa);
+    var toggle: SourceToggle = .{};
+
+    // No project, then another kind: no mode, the toggle names the reason.
+    try testing.expect(SourceToggle.mode(b) == null);
+    try testing.expectEqual(bridge.Status.ok, b.new(.weapon));
+    try doc.reload(gpa, b);
+    const target: edit.Target = .{ .allocator = gpa, .bridge = b, .doc = &doc, .history = &hist };
+    try testing.expectEqual(SourceToggle.Outcome.refused, toggle.toggle(target, null));
+    try testing.expect(std.mem.indexOf(u8, toggle.note(), "pcp") != null);
+    try testing.expectEqual(bridge.Status.ok, b.close());
+
+    // A Particle project with the four source items.
+    try testing.expectEqual(bridge.Status.ok, b.new(.particle));
+    const root = fake.nodes.items[0].id;
+    var ids: [4]i32 = undefined;
+    for ([_]i32{ item.particle_source_props, item.particle_props, item.particle_complex_source, item.particle_complex }, 0..) |class, i| {
+        var buffer: [16]u8 = undefined;
+        try testing.expectEqual(bridge.Status.ok, b.insertNode(root, try std.fmt.bufPrint(&buffer, "{d}", .{class}), @intCast(i), &ids[i]));
+    }
+    try doc.reload(gpa, b);
+    try testing.expectEqual(@as(?bool, false), SourceToggle.mode(b));
+
+    // Complex with no name asks for one and changes nothing; an empty typed name is refused.
+    try testing.expectEqual(SourceToggle.Outcome.need_name, toggle.toggle(target, null));
+    try testing.expectEqual(@as(?bool, false), SourceToggle.mode(b));
+    try testing.expectEqual(SourceToggle.Outcome.refused, toggle.toggle(target, "  "));
+    try testing.expect(std.mem.indexOf(u8, toggle.note(), "needs the name") != null);
+    try testing.expectEqual(@as(usize, 0), hist.undo_stack.items.len);
+
+    // To complex: one step, the mode and the items follow, undo and redo flip it back and forth.
+    try testing.expectEqual(SourceToggle.Outcome.switched, toggle.toggle(target, "flame"));
+    try testing.expectEqual(@as(?bool, true), SourceToggle.mode(b));
+    try testing.expectEqual(@as(usize, 1), hist.undo_stack.items.len);
+    for (fake.nodes.items) |n| {
+        if (n.id == ids[0] or n.id == ids[1]) try testing.expect(!n.expand);
+        if (n.id == ids[2] or n.id == ids[3]) try testing.expect(n.expand);
+    }
+    try doc.undoOne(gpa, b, &hist.top().?.command);
+    try testing.expectEqual(@as(?bool, false), SourceToggle.mode(b));
+    try doc.redoOne(gpa, b, &hist.top().?.command);
+    try testing.expectEqual(@as(?bool, true), SourceToggle.mode(b));
+
+    // Back to simple: the name is kept as the session's last, so complex again needs no question.
+    try testing.expectEqual(SourceToggle.Outcome.switched, toggle.toggle(target, null));
+    try testing.expectEqual(@as(?bool, false), SourceToggle.mode(b));
+    try testing.expectEqualStrings("flame", toggle.lastName());
+    for (fake.nodes.items) |n| {
+        if (n.id == ids[0] or n.id == ids[1]) try testing.expect(n.expand);
+        if (n.id == ids[2] or n.id == ids[3]) try testing.expect(!n.expand);
+    }
+    try testing.expectEqual(SourceToggle.Outcome.switched, toggle.toggle(target, null));
+    try testing.expectEqual(@as(?bool, true), SourceToggle.mode(b));
+    try testing.expectEqual(@as(usize, 3), hist.undo_stack.items.len);
 }
