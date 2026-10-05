@@ -1462,6 +1462,7 @@ pub fn build(b: *std.Build) void {
     addRuntimeHeadersTest(b, target, test_mode, toolchain);
     addResourceModelScaffoldTest(b, target, test_mode, toolchain);
     addResourceModelReferencesTest(b, target, test_mode, toolchain);
+    addResourceModelGridProjectionTest(b, target, test_mode, toolchain);
     addResourceModelFidelityTest(b, target, test_mode, toolchain);
 
     const sdl3_dep = b.dependency("sdl3", .{
@@ -4085,6 +4086,7 @@ fn addEditorBridge(
             "Sources/src/ResourceModel/localization_item.cpp",
             "Sources/src/ResourceModel/editor_env.cpp",
             "Sources/src/ResourceModel/exporter.cpp",
+            "Sources/src/ResourceModel/grid_projection.cpp",
             "Sources/src/ResourceModel/mfc_value.cpp",
             "Sources/src/ResourceModel/project.cpp",
             "Sources/src/ResourceModel/references.cpp",
@@ -9100,6 +9102,53 @@ fn addResourceModelReferencesTest(
     if (test_mode == .run) step.dependOn(&run.step);
 }
 
+// S09 T01: the AI-tile grid math of the Object, Fence, Building and Bridge editors,
+// headless like the other test-resource-model members.
+fn addResourceModelGridProjectionTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const flags: []const []const u8 = if (target.result.os.tag == .windows)
+        &(cppflags_debug.* ++ .{"-std=c++17"})
+    else
+        &.{"-std=c++17"};
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/ResourceModel/grid_projection.cpp",
+            "Sources/src/ResourceModel/items/ai_tiles.cpp",
+            "Sources/src/ResourceModel/mfc_value.cpp",
+            "Sources/src/ResourceModel/variant.cpp",
+            "Sources/src/ResourceModel/xml.cpp",
+            "tools/zig/resource_grid_projection_test.cpp",
+        },
+        .flags = flags,
+    });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => {
+            addMacosSysrootPaths(b, module, target);
+            module.linkSystemLibrary("c++", .{});
+        },
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "resource-grid-projection-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.has_side_effects = true;
+    const step = b.step("test-resource-grid-projection", "S09 T01: GridProjection tile and screen math, tile-list and grid helpers and one-way line tiles, headless");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
 // S03 T06 (D-11): the comparator over exported game data. Stats files are
 // read by the engine's own StreamIO tree and each struct's operator&, so this
 // is an engine-hosted executable like test-resource-bridge, but data-only: it
@@ -9223,6 +9272,7 @@ fn addResourceModelAggregateStep(b: *std.Build) void {
     const fidelity = &(b.top_level_steps.get("test-resource-model-fidelity") orelse @panic("test-resource-model-fidelity is defined by addResourceModelFidelityTest")).step;
     step.dependOn(scaffold);
     step.dependOn(references);
+    step.dependOn(&(b.top_level_steps.get("test-resource-grid-projection") orelse @panic("test-resource-grid-projection is defined by addResourceModelGridProjectionTest")).step);
     step.dependOn(comparator);
     step.dependOn(fidelity);
 }

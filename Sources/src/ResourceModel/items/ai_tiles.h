@@ -26,6 +26,25 @@ struct SAITile
 };
 using CListOfTiles = std::list<SAITile>;
 
+// SAINormalTile from GridFrm.h: a one-way transparency tile. nVal is the line
+// normal direction 0..15 (sixteenths of a half turn, see GridProjection).
+// MFC's operator& writes x, y and val like SAITile, so the XML shape is the same.
+struct SAINormalTile
+{
+	int nTileX = 0;
+	int nTileY = 0;
+	int nVal = 0;
+};
+using CListOfNormalTiles = std::list<SAINormalTile>;
+
+// CGridFrame::SetTileInListOfTiles without the quad: sets the tile's value, and
+// a value of 0 erases it, so a list never holds a 0 tile after an edit.
+void SetTileInListOfTiles( CListOfTiles &tiles, int nTileX, int nTileY, int nVal );
+// CGridFrame::SetTileInListOfNormalTiles: updates the tile if present, else appends.
+void SetTileInListOfNormalTiles( CListOfNormalTiles &tiles, int nTileX, int nTileY, int nVal );
+// CGridFrame::DeleteTileInListOfNormalTiles.
+void DeleteTileInListOfNormalTiles( CListOfNormalTiles &tiles, int nTileX, int nTileY );
+
 void ReadTiles( const NResourceXml::Node &list, CListOfTiles &tiles );
 NResourceXml::Node TilesElement( const std::string &name, const CListOfTiles &tiles );
 
