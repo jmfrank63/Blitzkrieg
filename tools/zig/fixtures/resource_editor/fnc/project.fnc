@@ -14,7 +14,7 @@
 				<item>
 					<default_name>Fences directory</default_name>
 					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-						<string_value/>
+						<string_value>fences\</string_value>
 					</value>
 				</item>
 				<item>
@@ -31,7 +31,7 @@
 				</item>
 				<item>
 					<default_name>Passability for infantry</default_name>
-					<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
 						<string_value/>
 					</value>
 				</item>
@@ -105,7 +105,22 @@
 					<default_name>Destroyed left</default_name>
 					<display_name>Destroyed left</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212797" expand="0" SegmentIndex="1">
+							<default_name>ne-left</default_name>
+							<display_name>ne-left</display_name>
+							<values/>
+							<childs/>
+							<SpritePos x="724.077" y="724.077" z="0"/>
+							<LockedTiles>
+								<item x="2" y="3" val="1"/>
+								<item x="3" y="3" val="2"/>
+							</LockedTiles>
+							<Transparences>
+								<item x="2" y="4" val="3"/>
+							</Transparences>
+						</item>
+					</childs>
 				</item>
 				<item ClassTypeID="285212796" expand="0">
 					<default_name>Destroyed right</default_name>
@@ -130,7 +145,24 @@
 					<default_name>Safe</default_name>
 					<display_name>Safe</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212797" expand="0" SegmentIndex="2">
+							<default_name>nw</default_name>
+							<display_name>nw</display_name>
+							<values/>
+							<childs/>
+							<SpritePos x="700.5" y="712.25" z="0"/>
+							<LockedTiles>
+								<item x="0" y="0" val="1"/>
+								<item x="0" y="1" val="1"/>
+								<item x="0" y="2" val="1"/>
+							</LockedTiles>
+							<Transparences>
+								<item x="1" y="0" val="4"/>
+								<item x="1" y="2" val="4"/>
+							</Transparences>
+						</item>
+					</childs>
 				</item>
 				<item ClassTypeID="285212796" expand="0">
 					<default_name>Destroyed left</default_name>
@@ -161,7 +193,19 @@
 					<default_name>Safe</default_name>
 					<display_name>Safe</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212797" expand="0" SegmentIndex="3">
+							<default_name>sw</default_name>
+							<display_name>sw</display_name>
+							<values/>
+							<childs/>
+							<SpritePos x="724.077" y="724.077" z="0"/>
+							<LockedTiles>
+								<item x="1" y="1" val="1"/>
+							</LockedTiles>
+							<Transparences/>
+						</item>
+					</childs>
 				</item>
 				<item ClassTypeID="285212796" expand="0">
 					<default_name>Destroyed left</default_name>
@@ -192,7 +236,23 @@
 					<default_name>Safe</default_name>
 					<display_name>Safe</display_name>
 					<values/>
-					<childs/>
+					<childs>
+						<item ClassTypeID="285212797" expand="0" SegmentIndex="4">
+							<default_name>se</default_name>
+							<display_name>se</display_name>
+							<values/>
+							<childs/>
+							<SpritePos x="724.077" y="724.077" z="0"/>
+							<LockedTiles>
+								<item x="0" y="0" val="1"/>
+								<item x="1" y="1" val="1"/>
+							</LockedTiles>
+							<Transparences>
+								<item x="0" y="1" val="2"/>
+								<item x="1" y="0" val="2"/>
+							</Transparences>
+						</item>
+					</childs>
 				</item>
 				<item ClassTypeID="285212796" expand="0">
 					<default_name>Destroyed left</default_name>

@@ -325,6 +325,30 @@ bool ComposeSingleObjectPack( const SExportContext &context, const NImageExport:
 	       NImageExport::SaveSpritesPack( context, shadowPack, szName + "s.san", outcome );
 }
 
+bool SaveShadowFile( const std::string &szSprite, const std::string &szShadow, const std::string &szTempShadow, SExportOutcome &outcome )
+{
+	CPtr<IImage> pSpriteImage = NImageExport::LoadPicture( szSprite, outcome );
+	if ( pSpriteImage == 0 )
+		return false;
+	CPtr<IImage> pInverseSprite = pSpriteImage->Duplicate();
+	pInverseSprite->SharpenAlpha( 100 );
+	pInverseSprite->InvertAlpha();
+
+	CPtr<IImage> pShadowImage = NImageExport::LoadPicture( szShadow, outcome );
+	if ( pShadowImage == 0 )
+		return false;
+	if ( pInverseSprite->GetSizeX() != pShadowImage->GetSizeX() || pInverseSprite->GetSizeY() != pShadowImage->GetSizeY() )
+	{
+		outcome.szError = "The size of sprite does not equal the size of shadow: " + szSprite + " is " + std::to_string( pSpriteImage->GetSizeX() ) + "x" +
+		                  std::to_string( pSpriteImage->GetSizeY() ) + ", " + szShadow + " is " + std::to_string( pShadowImage->GetSizeX() ) + "x" + std::to_string( pShadowImage->GetSizeY() );
+		return false;
+	}
+	RECT rc = { 0, 0, pInverseSprite->GetSizeX(), pInverseSprite->GetSizeY() };
+	pShadowImage->ModulateAlphaFrom( pInverseSprite, &rc, 0, 0 );
+	pShadowImage->SetColor( DWORD( 0 ) );
+	return NImageExport::SaveTgaFile( szTempShadow, pShadowImage, outcome );
+}
+
 bool SaveIconFile( const SExportContext &context, const std::string &szSource, const std::string &szName, SExportOutcome &outcome )
 {
 	const int ICON_SIZE = 64;

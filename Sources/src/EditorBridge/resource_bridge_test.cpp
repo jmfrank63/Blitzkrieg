@@ -47,6 +47,7 @@
 #include "../ResourceModel/items/squad/squad.h"
 #include "../ResourceModel/items/fence/fence.h"
 #include "../ResourceModel/key_frame_tree_item.h"
+#include "../Scene/Scene.h"
 #include "../Main/GameStats.h"
 #include "../Main/RPGStats.h"
 #include "../zlib/zlib.h"
@@ -1824,6 +1825,11 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// The fixture carries its art (S09 T02); S09Object proves the files.
 				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .obt exports through its S09 exporter" );
 			}
+			else if ( szExt == "fnc" )
+			{
+				// The fixture carries its Fences directory (S09 T03); S09Fence proves the files.
+				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .fnc exports through its S09 exporter" );
+			}
 			else if ( IsPortedExport( szExt ) )
 			{
 				if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S06 exporter" ).c_str() ) )
@@ -1962,8 +1968,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 		Check( BkResImportFromGame( pSession, 4, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".san" ) != 0,
 		       "import: sprite is refused with the reason" );
-		Check( BkResImportFromGame( pSession, 8, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
-		       "import: fnc is refused as not ported yet" );
+		Check( BkResImportFromGame( pSession, 9, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
+		       "import: bld is refused as not ported yet" );
 		Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 5, "import: a refused import keeps the open project" );
 		Check( BkResImportFromGame( pSession, 5, ( scratch / "no-such" ).string().c_str() ) == BK_EDITOR_DATA_MISSING, "import: a folder without 1.xml is DATA_MISSING" );
 		Check( BkResImportFromGame( pSession, 5, 0 ) == BK_EDITOR_BAD_ARGUMENT, "import: a null path is a bad argument" );
@@ -4075,10 +4081,10 @@ static bool NearFloat( const std::string &szMessage )
 }
 
 // An imported project has no file yet: it is saved and reopened, as the editor does, before it exports.
-static bool ExportStatsOnly( BkResSession *pSession, const fs::path &modDir, const char *pszName )
+static bool ExportStatsOnly( BkResSession *pSession, const fs::path &modDir, const char *pszName, const char *pszExtension = "obt" )
 {
 	std::error_code ec;
-	const fs::path project = modDir.parent_path() / ( modDir.filename().string() + "-project" ) / "current.obt";
+	const fs::path project = modDir.parent_path() / ( modDir.filename().string() + "-project" ) / ( std::string( "current." ) + pszExtension );
 	fs::create_directories( project.parent_path(), ec );
 	if ( BkResSave( pSession, project.string().c_str() ) != BK_EDITOR_OK || BkResOpen( pSession, project.string().c_str() ) != BK_EDITOR_OK )
 	{
@@ -5009,6 +5015,302 @@ static void Run( BkResSession *pSession, const std::string &szFixtureRoot, const
 
 }
 
+// S09 T03: the fence exporter (FenceFrm.cpp:416, FenceTreeItem.cpp:53) and
+// its import. The fixture's Fences directory holds a sprite and a shadow per
+// segment; the export packs the five segments into one sprite set.
+
+namespace S09Fence
+{
+
+namespace fs = std::filesystem;
+
+static void CopyTree( const fs::path &from, const fs::path &to )
+{
+	std::error_code ec;
+	fs::remove_all( to, ec );
+	fs::create_directories( to, ec );
+	fs::copy( from, to, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec );
+}
+
+// The scene's ground camera, as the bridge hands it to the exporter.
+static NResourceModel::SGroundCamera SceneCamera()
+{
+	NResourceModel::SGroundCamera camera;
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 )
+		return NResourceModel::DefaultEditorCamera();
+	CVec2 origin, unitX, unitY;
+	pScene->GetPos2( &origin, CVec3( 0, 0, 0 ) );
+	pScene->GetPos2( &unitX, CVec3( 1, 0, 0 ) );
+	pScene->GetPos2( &unitY, CVec3( 0, 1, 0 ) );
+	camera.m11 = unitX.x - origin.x;
+	camera.m21 = unitX.y - origin.y;
+	camera.m12 = unitY.x - origin.x;
+	camera.m22 = unitY.y - origin.y;
+	camera.m14 = origin.x;
+	camera.m24 = origin.y;
+	return camera;
+}
+
+static bool SameList( const std::vector<int> &list, std::initializer_list<int> want )
+{
+	return list.size() == want.size() && std::equal( list.begin(), list.end(), want.begin() );
+}
+
+// A forced export of project into modDir; the warnings come back in szWarnings.
+static BkEditorStatus ExportProject( BkResSession *pSession, const fs::path &project, const fs::path &modDir, const char *pszName, std::vector<std::string> &warnings )
+{
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "%s", pszName );
+	BkResModSettingsSet( pSession, &mod );
+	if ( BkResOpen( pSession, project.string().c_str() ) != BK_EDITOR_OK )
+		return BK_EDITOR_FAILED;
+	BkResWarning list[32] = {};
+	BkResExportReport report = {};
+	report.warnings = list;
+	report.warnings_capacity = 32;
+	const BkEditorStatus status = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
+	warnings.clear();
+	for ( int i = 0; i < report.warning_count && i < 32; ++i )
+		warnings.push_back( list[i].text );
+	return status;
+}
+
+static bool Mentions( const std::vector<std::string> &warnings, const char *pszText )
+{
+	for ( const std::string &szWarning : warnings )
+		if ( szWarning.find( pszText ) != std::string::npos )
+			return true;
+	return false;
+}
+
+static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s09-fence";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "fence";
+	CopyTree( fs::path( szFixtureRoot ) / "fnc", projectDir );
+	const fs::path project = projectDir / "project.fnc";
+	if ( !Check( fs::is_regular_file( project, ec ) && fs::is_regular_file( projectDir / "fences" / "se.tga", ec ) &&
+	             fs::is_regular_file( projectDir / "fences" / "ses.tga", ec ), "fence: the fixture and its Fences directory are copied" ) )
+		return;
+
+	const fs::path modDir = scratch / "mod";
+	std::vector<std::string> warnings;
+	if ( !Check( ExportProject( pSession, project, modDir, "S09 fence", warnings ) == BK_EDITOR_OK, "fence: the fixture exports" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return;
+	}
+	for ( const std::string &szWarning : warnings )
+		std::printf( "   fence warning: %s\n", szWarning.c_str() );
+	Check( !Mentions( warnings, "Can not find" ) && !Mentions( warnings, "not composed" ), "fence: no picture is reported missing" );
+	BkResClose( pSession );
+
+	const fs::path xml = S09Object::FindFile( modDir / "data", "1.xml" );
+	if ( !Check( !xml.empty(), "fence: a 1.xml is written" ) )
+		return;
+	const fs::path outDir = xml.parent_path();
+	Check( outDir.parent_path().filename() == "project" || outDir.string().find( "fences" ) != std::string::npos, "fence: the export lands under fences" );
+
+	// The engine reads the stats and finds the fixture's segments in its lists.
+	SFenceRPGStats stats;
+	const bool bRead = ReadChunkAsMfc( xml.string(), "base", "RPG", stats );
+	Check( bRead && stats.szKeyName == "Unknown Fence" && stats.fMaxHP == 100.0f && stats.defences[0].nArmorMax == 20 && ( stats.dwAIClasses & AI_CLASS_HUMAN ) != 0,
+	       "fence: the engine reads the fence's name, health, armor and AI classes" );
+	Check( stats.stats.size() == 5 && stats.dirs.size() == 4 && SameList( stats.dirs[0].centers, { 0 } ) && SameList( stats.dirs[0].ldamages, { 1 } ) &&
+	       SameList( stats.dirs[1].centers, { 2 } ) && SameList( stats.dirs[2].centers, { 3 } ) && SameList( stats.dirs[3].centers, { 4 } ) &&
+	       stats.dirs[0].rdamages.empty() && stats.dirs[0].cdamages.empty(), "fence: the segments are listed under their direction and insert type" );
+	if ( stats.stats.size() == 5 )
+	{
+		auto &first = stats.stats[0], &second = stats.stats[1], &third = stats.stats[2], &fourth = stats.stats[3], &fifth = stats.stats[4];
+		Check( first.passability.GetSizeX() == 2 && first.passability.GetSizeY() == 1 && first.visibility.GetSizeX() == 1 && first.visibility.GetSizeY() == 1 &&
+		       second.passability.GetSizeX() == 2 && second.passability.GetSizeY() == 1 && third.passability.GetSizeX() == 1 && third.passability.GetSizeY() == 3 &&
+		       third.visibility.GetSizeX() == 1 && third.visibility.GetSizeY() == 3 && fourth.passability.GetSizeX() == 1 && fourth.visibility.GetSizeX() == 0 &&
+		       fifth.passability.GetSizeX() == 2 && fifth.passability.GetSizeY() == 2 && fifth.visibility.GetSizeX() == 2 && fifth.visibility.GetSizeY() == 2,
+		       "fence: each segment's passability and visibility grids are the tiles' bounding boxes" );
+		Check( second.passability.GetBuffer()[0] == 1 && second.passability.GetBuffer()[1] == 2 && fifth.visibility.GetBuffer()[1] == 2 && fifth.visibility.GetBuffer()[0] == 0,
+		       "fence: the grid cells hold the tile values, 0 where no tile is set" );
+		// Segment 3 (south-west) has one locked tile (1, 1) and its sprite at the fixture's position.
+		const NResourceModel::GridProjection projection( SceneCamera() );
+		const NResourceModel::SVec3 origin = projection.OriginOfGrid( NResourceModel::SVec3{ 724.077f, 724.077f, 0 }, 1, 1 );
+		std::printf( "FENCE ORIGIN segment 3: port (%f, %f) expected (%f, %f)\n", fourth.vOrigin.x, fourth.vOrigin.y, origin.x, origin.y );
+		Check( std::fabs( fourth.vOrigin.x - origin.x ) < 1e-3f && std::fabs( fourth.vOrigin.y - origin.y ) < 1e-3f && fourth.visibility.GetSizeX() == 0 &&
+		       fourth.vVisOrigin.x == 0 && fourth.vVisOrigin.y == 0, "fence: the origin is the sprite position minus the world position of the grid's leftmost corner, 0 for no grid" );
+	}
+	NResourceModel::SCompareResult self = NResourceModel::CompareStats( NResourceModel::EExportKind::FENCE, xml.string(), xml.string() );
+	Check( self.nFieldsCompared > 5 && self.messages.empty(), "fence: the comparator reads the exported 1.xml" );
+
+	// The five segments are one sprite set, and the DDS decodes within the gate.
+	NResourceModel::SDxtTolerance tolerance;
+	std::string szError;
+	const bool bGate = NResourceModel::LoadDxtTolerance( ( fs::path( szFixtureRoot ) / "dxt-tolerance.json" ).string(), &tolerance, &szError );
+	Check( bGate, ( "fence: the dxt gate loads " + szError ).c_str() );
+	std::string szDds;
+	NResourceModel::SDdsImage decoded;
+	if ( Check( ReadBytes( ( outDir / "1_c.dds" ).string(), szDds ) && NResourceModel::DecodeDds( szDds, &decoded, &szError ) && !decoded.mips.empty(), ( "fence: 1_c.dds is written and decodes " + szError ).c_str() ) )
+	{
+		const NResourceModel::SDxtStats *pGate = bGate ? tolerance.Find( decoded.szFourCC ) : nullptr;
+		if ( Check( pGate != nullptr, ( "fence: 1_c.dds has a gate for " + decoded.szFourCC ).c_str() ) )
+		{
+			// Each segment's square keeps its source colour: opaque pixels within the gate's colour maximum.
+			const char *const kItems[] = { "art-16x16", "ne-left", "nw", "sw", "se" };
+			int nOpaque = 0;
+			for ( unsigned argb : decoded.mips[0].pixels )
+				nOpaque += ( argb >> 24 ) >= 200 ? 1 : 0;
+			std::printf( "FENCE GRAPHICS 1 %s: %dx%d, %d opaque pixels, colour gate %d\n", decoded.szFourCC.c_str(), decoded.mips[0].nWidth, decoded.mips[0].nHeight, nOpaque, pGate->nColourMax );
+			for ( const char *pszItem : kItems )
+			{
+				unsigned nSource = 0;
+				int nNear = 0;
+				const bool bSource = S09Object::ReadAlphaTgaPixel( projectDir / "fences" / ( std::string( pszItem ) + ".tga" ), 8, 8, &nSource );
+				for ( unsigned argb : decoded.mips[0].pixels )
+				{
+					if ( ( argb >> 24 ) < 200 )
+						continue;
+					int nWorst = 0;
+					for ( int nShift : { 0, 8, 16 } )
+						nWorst = std::max( nWorst, std::abs( int( ( argb >> nShift ) & 255 ) - int( ( nSource >> nShift ) & 255 ) ) );
+					nNear += nWorst <= pGate->nColourMax ? 1 : 0;
+				}
+				std::printf( "FENCE GRAPHICS %s: %d pixels within the gate\n", pszItem, nNear );
+				Check( bSource && nNear >= 32, ( std::string( "fence: 1_c.dds holds the colour of " ) + pszItem ).c_str() );
+			}
+			Check( nOpaque >= 5 * 32, "fence: 1_c.dds has the opaque squares of all five segments" );
+		}
+	}
+	for ( const char *pszName : { "1_l.dds", "1_h.dds", "1.san", "1s.san", "1s_c.dds", "1s_l.dds", "1s_h.dds", "icon.tga" } )
+		Check( fs::is_regular_file( outDir / pszName, ec ), ( std::string( "fence: " ) + pszName + " is written" ).c_str() );
+	SSpriteAnimationFormat spriteFormat, shadowFormat;
+	int nRects = 0, nShadowRects = 0;
+	const bool bSan = S07Compose::LoadSan( outDir / "1.san", spriteFormat ) && S07Compose::LoadSan( outDir / "1s.san", shadowFormat );
+	for ( const auto &animation : spriteFormat.animations )
+		nRects += int( animation.rects.size() );
+	for ( const auto &animation : shadowFormat.animations )
+		nShadowRects += int( animation.rects.size() );
+	Check( bSan && nRects == 5 && nShadowRects == 5, "fence: 1.san and 1s.san hold the five segments" );
+
+	// A second forced export writes the same bytes.
+	std::map<std::string, std::string> first;
+	for ( fs::directory_iterator it( outDir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			ReadBytes( it->path().string(), first[it->path().filename().string()] );
+	Check( ExportProject( pSession, project, modDir, "S09 fence", warnings ) == BK_EDITOR_OK, "fence: the second forced export succeeds" );
+	bool bSame = !first.empty();
+	for ( const auto &entry : first )
+	{
+		std::string szAgain;
+		bSame = bSame && ReadBytes( ( outDir / entry.first ).string(), szAgain ) && szAgain == entry.second;
+		if ( !bSame )
+			std::printf( "   differs after the second export: %s\n", entry.first.c_str() );
+	}
+	Check( bSame, "fence: a second forced export is byte-identical" );
+	BkResClose( pSession );
+
+	// A missing picture is a warning that names it; the stats are written whole and no graphics are composed.
+	fs::remove( projectDir / "fences" / "nw.tga", ec );
+	fs::remove( outDir / "1_c.dds", ec );
+	fs::remove( outDir / "1.san", ec );
+	Check( ExportProject( pSession, project, modDir, "S09 fence", warnings ) == BK_EDITOR_OK, "fence: an export with a picture missing still succeeds" );
+	Check( Mentions( warnings, "nw.tga" ) && Mentions( warnings, "not composed" ), "fence: the missing nw.tga is named in a warning and the graphics are not composed" );
+	SFenceRPGStats partial;
+	Check( ReadChunkAsMfc( xml.string(), "base", "RPG", partial ) && partial.stats.size() == 5 && SameList( partial.dirs[1].centers, { 2 } ) && partial.stats[2].passability.GetSizeY() == 3,
+	       "fence: the stats still list every segment" );
+	Check( !fs::exists( outDir / "1_c.dds", ec ) && !fs::exists( outDir / "1.san", ec ), "fence: a missing picture leaves no 1_c.dds or 1.san" );
+	BkResClose( pSession );
+
+	// import -> export -> import: the exported 1.xml imports, exports again, and the two read field-equal.
+	if ( Check( BkResImportFromGame( pSession, 8, outDir.string().c_str() ) == BK_EDITOR_OK, "fence: the exported folder imports" ) )
+	{
+		const fs::path mod2 = scratch / "mod2";
+		const bool bExported = S09Object::ExportStatsOnly( pSession, mod2, "S09 fence re-export", "fnc" );
+		BkResClose( pSession );
+		const fs::path xml2 = S09Object::FindFile( mod2 / "data", "1.xml" );
+		if ( Check( bExported && !xml2.empty(), "fence: the imported project exports stats-only" ) )
+		{
+			const NResourceModel::SCompareResult result = NResourceModel::CompareRoundTrip( NResourceModel::EExportKind::FENCE, xml2.string(), xml.string() );
+			for ( const std::string &szMessage : result.messages )
+				std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+			for ( const std::string &szMessage : result.excused )
+				std::printf( "   excused %s\n", szMessage.c_str() );
+			std::printf( "ROUNDTRIP fnc fixture: %d fields compared, %d differences, %d excused\n", result.nFieldsCompared, int( result.messages.size() ), int( result.excused.size() ) );
+			Check( result.nFieldsCompared > 5 && result.messages.empty(), "fence: import -> export -> import is field-equal" );
+		}
+	}
+	else
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+}
+
+// A deleted segment leaves a hole in the indices: the export is refused, writes
+// nothing and says which indices are missing.
+static void IndexHole( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s09-fence-hole";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "fence";
+	CopyTree( fs::path( szFixtureRoot ) / "fnc", projectDir );
+	const fs::path project = projectDir / "project.fnc";
+	std::string szProject;
+	const std::string szOld = "SegmentIndex=\"4\"";
+	const std::string::size_type nAt = ReadBytes( project.string(), szProject ) ? szProject.find( szOld ) : std::string::npos;
+	if ( !Check( nAt != std::string::npos, "fence hole: the fixture's last segment has index 4" ) )
+		return;
+	szProject.replace( nAt, szOld.size(), "SegmentIndex=\"6\"" );
+	T10::WriteText( project, szProject );
+
+	const fs::path modDir = scratch / "mod";
+	std::vector<std::string> warnings;
+	const BkEditorStatus status = ExportProject( pSession, project, modDir, "S09 fence hole", warnings );
+	const std::string szMessage = BkEditorLastMessage( pSession );
+	Check( status != BK_EDITOR_OK, "fence hole: an export with a hole in the segment indices is refused" );
+	Check( szMessage.find( "deleted some fence items" ) != std::string::npos && szMessage.find( "4, 5" ) != std::string::npos,
+	       ( "fence hole: the message says items were deleted and names indices 4 and 5 (" + szMessage + ")" ).c_str() );
+	int nFiles = 0;
+	for ( fs::recursive_directory_iterator it( modDir / "data", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().filename() != "mod.xml" && it->path().filename() != "modobjects.xml" )
+			++nFiles;
+	std::printf( "FENCE HOLE: %d export files written, message: %s\n", nFiles, szMessage.c_str() );
+	Check( nFiles == 0 && !fs::exists( modDir / ".bk-export-staging", ec ), "fence hole: the refused export writes no file and leaves no staging" );
+	BkResClose( pSession );
+}
+
+// A shipped fence imports and exports stats-only to the 1.xml it came from.
+static void Shipped( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s09-fence-shipped";
+	fs::remove_all( scratch, ec );
+	const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", "Fences/ussr/summer/townfence" );
+	if ( !Check( fs::is_regular_file( T11::FoldedPath( shipped, "1.xml" ), ec ), "fence shipped: the shipped 1.xml exists" ) )
+		return;
+	const std::string listingBefore = S09Object::ListingOf( shipped );
+	if ( !Check( BkResImportFromGame( pSession, 8, shipped.string().c_str() ) == BK_EDITOR_OK, "fence shipped: imports" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	const fs::path mod = scratch / "mod";
+	const bool bExported = S09Object::ExportStatsOnly( pSession, mod, "S09 fence shipped", "fnc" );
+	BkResClose( pSession );
+	const fs::path xml = S09Object::FindFile( mod / "data", "1.xml" );
+	if ( !Check( bExported && !xml.empty(), "fence shipped: exports stats-only" ) )
+		return;
+	const NResourceModel::SCompareResult result = NResourceModel::CompareRoundTrip( NResourceModel::EExportKind::FENCE, xml.string(), T11::FoldedPath( shipped, "1.xml" ).string() );
+	for ( const std::string &szMessage : result.messages )
+		std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+	for ( const std::string &szMessage : result.excused )
+		std::printf( "   excused %s\n", szMessage.c_str() );
+	std::printf( "ROUNDTRIP fnc townfence: %d fields compared, %d differences, %d excused\n", result.nFieldsCompared, int( result.messages.size() ), int( result.excused.size() ) );
+	Check( result.nFieldsCompared > 5 && result.messages.empty(), "fence shipped: the stats are field-equal to the shipped 1.xml" );
+	Check( S09Object::ListingOf( shipped ) == listingBefore, "fence shipped: nothing was written into Data" );
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -5265,6 +5567,10 @@ int main( int argc, char **argv )
 	// S09 T02: the object exporter and importer.
 	S09Object::Fixture( pSession, szFixtureRoot, szScratchRoot );
 	S09Object::Shipped( pSession, pszRoot, szScratchRoot );
+	// S09 T03: the fence exporter and importer.
+	S09Fence::Fixture( pSession, szFixtureRoot, szScratchRoot );
+	S09Fence::IndexHole( pSession, szFixtureRoot, szScratchRoot );
+	S09Fence::Shipped( pSession, pszRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

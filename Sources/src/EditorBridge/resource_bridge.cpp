@@ -2970,6 +2970,28 @@ void ForgetPreviewCaches();
 // The layer a trench segment model is mounted on while it is built.
 const char *const kExportMeshLayer = "RES_EXPORT_MESH";
 
+// The scene's camera as the ground-plane matrix an object, fence or building
+// export reads where MFC called IScene::GetPos2. The scene's transform is
+// affine on the ground plane: three probes give the matrix.
+bool SceneGroundCamera( NResourceModel::SGroundCamera &camera )
+{
+	IScene *pScene = GetSingleton<IScene>();
+	if ( pScene == 0 )
+		return false;
+	CVec2 origin, unitX, unitY;
+	pScene->GetPos2( &origin, CVec3( 0, 0, 0 ) );
+	pScene->GetPos2( &unitX, CVec3( 1, 0, 0 ) );
+	pScene->GetPos2( &unitY, CVec3( 0, 1, 0 ) );
+	camera.m11 = unitX.x - origin.x;
+	camera.m21 = unitX.y - origin.y;
+	camera.m12 = unitY.x - origin.x;
+	camera.m22 = unitY.y - origin.y;
+	camera.m13 = camera.m23 = 0;
+	camera.m14 = origin.x;
+	camera.m24 = origin.y;
+	return true;
+}
+
 // What MFC's frames took from the running editor and an exporter does not
 // own (D015): the objects database CSquadFrame::SaveRPGStats searched for a
 // member's key, and the mesh builder CTrenchFrame::SaveRPGStats read a
@@ -3011,22 +3033,7 @@ void FillEngineLookups( NResourceModel::SExportContext &context, const std::file
 	if ( GetSingleton<IScene>() != 0 )
 	{
 		// The scene's transform is affine on the ground plane: three probes give the matrix.
-		context.groundCamera = []( NResourceModel::SGroundCamera &camera ) -> bool
-		{
-			IScene *pScene = GetSingleton<IScene>();
-			CVec2 origin, unitX, unitY;
-			pScene->GetPos2( &origin, CVec3( 0, 0, 0 ) );
-			pScene->GetPos2( &unitX, CVec3( 1, 0, 0 ) );
-			pScene->GetPos2( &unitY, CVec3( 0, 1, 0 ) );
-			camera.m11 = unitX.x - origin.x;
-			camera.m21 = unitX.y - origin.y;
-			camera.m12 = unitY.x - origin.x;
-			camera.m22 = unitY.y - origin.y;
-			camera.m13 = camera.m23 = 0;
-			camera.m14 = origin.x;
-			camera.m24 = origin.y;
-			return true;
-		};
+		context.groundCamera = &SceneGroundCamera;
 	}
 	if ( GetSingleton<IVisObjBuilder>() != 0 && GetSingleton<IDataStorage>() != 0 )
 	{
@@ -4594,6 +4601,7 @@ namespace {
 const int kInfantryKind = 5; // "unt", kKindTable's Unit_Composer_Project
 const int kMeshKind = 6;     // "msh", the Unit (mesh) project
 const int kObjectKind = 7;   // "obt", the Object project
+const int kFenceKind = 8;    // "fnc", the Fence project
 
 NResourceModel::CTreeItem *ChildOfType( NResourceModel::CTreeItem &item, int nType )
 {
@@ -5015,6 +5023,101 @@ NResourceModel::SObjectFrameData ObjectFrameOf( SObjectRPGStats &rpgStats )
 	return frame;
 }
 
+// The n-th child of a type, as CTreeItem::GetChildItem( type, n ).
+NResourceModel::CTreeItem *NthChildOfType( NResourceModel::CTreeItem &item, int nType, int nIndex )
+{
+	for ( const auto &pChild : item.GetChildren() )
+		if ( pChild->GetItemType() == nType && nIndex-- == 0 )
+			return pChild.get();
+	return nullptr;
+}
+
+// One segment of the stats as a FENCE_PROPS item: the grids as locked tiles
+// and transparences, and the sprite position they hang off. MFC derived the
+// origins from the sprite position and the grids' leftmost corner (FillSegmentProps);
+// here the grids and origins are given, so the first tile follows from a
+// reference position and the sprite position is then the one that reproduces
+// the origin exactly. The segment has no picture names in its stats: it is
+// called seg<index>, which the Fences directory's pictures must use.
+std::unique_ptr<NResourceModel::CTreeItem> FenceSegmentToItem( const SFenceRPGStats::SSegmentRPGStats &segment, int nIndex, const NResourceModel::GridProjection &projection )
+{
+	auto pItem = NResourceModel::CTreeItemFactory::Instance().Create( NResourceModel::ETIT_FENCE_PROPS_ITEM );
+	if ( !pItem )
+		return nullptr;
+	auto *pProps = static_cast<NResourceModel::CFencePropsItem *>( pItem.get() );
+	pProps->SetItemName( "seg" + std::to_string( nIndex ) );
+	pProps->nSegmentIndex = nIndex;
+
+	const NResourceModel::STileGrid pass = GridOf( const_cast<CArray2D<BYTE> &>( segment.passability ) );
+	const NResourceModel::STileGrid vis = GridOf( const_cast<CArray2D<BYTE> &>( segment.visibility ) );
+	const NResourceModel::SVec3 vReference{ pProps->vSpritePos.x, pProps->vSpritePos.y, 0 };
+	const bool bPass = !pass.empty();
+	const NResourceModel::SVec3 origin{ bPass ? segment.vOrigin.x : segment.vVisOrigin.x, bPass ? segment.vOrigin.y : segment.vVisOrigin.y, 0 };
+	if ( bPass || !vis.empty() )
+	{
+		int nTileX = 0, nTileY = 0;
+		projection.FirstTileOfGrid( vReference, origin, nTileX, nTileY );
+		const NResourceModel::SVec3 left = projection.OriginOfGrid( NResourceModel::SVec3{ 0, 0, 0 }, nTileX, nTileY );
+		// OriginOfGrid( 0 ) is minus the corner's world position.
+		pProps->vSpritePos.x = origin.x - left.x;
+		pProps->vSpritePos.y = origin.y - left.y;
+	}
+	const NResourceModel::SVec3 vSprite{ pProps->vSpritePos.x, pProps->vSpritePos.y, 0 };
+	if ( bPass )
+	{
+		int nTileX = 0, nTileY = 0;
+		projection.FirstTileOfGrid( vSprite, origin, nTileX, nTileY );
+		NResourceModel::GridToTiles( pass, nTileX, nTileY, pProps->lockedTiles );
+	}
+	if ( !vis.empty() )
+	{
+		int nTileX = 0, nTileY = 0;
+		projection.FirstTileOfGrid( vSprite, NResourceModel::SVec3{ segment.vVisOrigin.x, segment.vVisOrigin.y, 0 }, nTileX, nTileY );
+		NResourceModel::GridToTiles( vis, nTileX, nTileY, pProps->transeparences );
+	}
+	return pItem;
+}
+
+// CFenceFrame::LoadRPGStats' tree half (FenceFrm.cpp:346): the segments go
+// back under the direction and insert items their lists name, each with the
+// SegmentIndex the export keeps. Beside it the common properties, which MFC
+// read back from the stats too. A shipped stats file lists each index once;
+// one a list names twice stays a single segment per list.
+void FenceStatsToTree( const SFenceRPGStats &rpgStats, NResourceModel::CTreeItem &root, const NResourceModel::GridProjection &projection )
+{
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_FENCE_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 0, rpgStats.szKeyName );
+	SetSlot( pCommonProps, 2, int( rpgStats.fMaxHP ) );
+	SetSlot( pCommonProps, 3, rpgStats.defences[0].nArmorMax );
+	SetSlot( pCommonProps, 4, ( rpgStats.dwAIClasses & AI_CLASS_HUMAN ) != 0 );
+	SetSlot( pCommonProps, 5, ( rpgStats.dwAIClasses & AI_CLASS_WHEEL ) != 0 );
+	SetSlot( pCommonProps, 6, ( rpgStats.dwAIClasses & AI_CLASS_HALFTRACK ) != 0 );
+	SetSlot( pCommonProps, 7, ( rpgStats.dwAIClasses & AI_CLASS_TRACK ) != 0 );
+
+	NResourceModel::CTreeItem *pEffects = ChildOfType( root, NResourceModel::ETIT_OBJECT_EFFECTS_ITEM );
+	SetSlot( pEffects, 0, rpgStats.szEffectExplosion );
+	SetSlot( pEffects, 1, rpgStats.szEffectDeath );
+
+	for ( int nDirection = 0; nDirection < 4 && nDirection < int( rpgStats.dirs.size() ); ++nDirection )
+	{
+		NResourceModel::CTreeItem *pDirection = NthChildOfType( root, NResourceModel::ETIT_FENCE_DIRECTION_ITEM, nDirection );
+		if ( pDirection == nullptr )
+			continue;
+		const SFenceRPGStats::SDir &dir = rpgStats.dirs[nDirection];
+		const std::vector<int> *lists[4] = { &dir.centers, &dir.ldamages, &dir.rdamages, &dir.cdamages };
+		for ( int nType = 0; nType < 4; ++nType )
+		{
+			NResourceModel::CTreeItem *pInsert = NthChildOfType( *pDirection, NResourceModel::ETIT_FENCE_INSERT_ITEM, nType );
+			if ( pInsert == nullptr )
+				continue;
+			for ( int nIndex : *lists[nType] )
+				if ( nIndex >= 0 && nIndex < int( rpgStats.stats.size() ) )
+					if ( auto pSegment = FenceSegmentToItem( rpgStats.stats[nIndex], nIndex, projection ) )
+						pInsert->AddChild( std::move( pSegment ) );
+		}
+	}
+}
+
 // CMeshCommonPropsItem::SetMeshType: the combo text of a unit type.
 const char *MeshTypeName( EUnitRPGType type )
 {
@@ -5276,7 +5379,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
 		const std::string szExtension = kKindExtensions[kind];
-		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind;
+		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind;
 		if ( !bPorted )
 		{
 			pSession->szMessage = kind == 4
@@ -5374,6 +5477,22 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				ObjectStatsToTree( rpgStats, *pRoot );
 				objectFrame = ObjectFrameOf( rpgStats );
 				bObjectFrame = true;
+				break;
+			}
+			case kFenceKind:
+			{
+				// CFenceFrame::LoadRPGStats: the engine's own operator& reads it. The
+				// segments' tiles are placed with the editor camera, as the export
+				// reads them back.
+				SFenceRPGStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
+					return status;
+				szKeyName = rpgStats.szKeyName;
+				NResourceModel::SGroundCamera camera;
+				if ( !SceneGroundCamera( camera ) )
+					camera = NResourceModel::DefaultEditorCamera();
+				if ( !szKeyName.empty() )
+					FenceStatsToTree( rpgStats, *pRoot, NResourceModel::GridProjection( camera ) );
 				break;
 			}
 			default:

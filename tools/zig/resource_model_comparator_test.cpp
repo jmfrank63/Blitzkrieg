@@ -593,9 +593,8 @@ static fs::path CopyFixture( const fs::path &fixtures, const fs::path &scratch, 
 	std::error_code error;
 	fs::remove_all( scratch / szExt, error );
 	fs::create_directories( dir, error );
-	for ( fs::directory_iterator it( fixtures / szExt, error ), end; !error && it != end; it.increment( error ) )
-		if ( it->is_regular_file() )
-			fs::copy_file( it->path(), dir / it->path().filename(), fs::copy_options::overwrite_existing, error );
+	// Recursive: the fence fixture's pictures sit in its Fences directory.
+	fs::copy( fixtures / szExt, dir, fs::copy_options::recursive | fs::copy_options::overwrite_existing, error );
 	return dir / ( "project." + szExt );
 }
 
@@ -1248,7 +1247,7 @@ static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
 	{
 		{ "wpn", true, EExportKind::WEAPON }, { "mcp", true, EExportKind::MINE }, { "trc", true, EExportKind::ENTRENCHMENT },
 		{ "scp", true, EExportKind::SQUAD }, { "spt", true, EExportKind::WEAPON }, { "unt", true, EExportKind::INFANTRY },
-		{ "msh", false, EExportKind::MECH_UNIT }, { "obt", true, EExportKind::OBJECT }, { "fnc", false, EExportKind::FENCE },
+		{ "msh", false, EExportKind::MECH_UNIT }, { "obt", true, EExportKind::OBJECT }, { "fnc", true, EExportKind::FENCE },
 		{ "bld", false, EExportKind::BUILDING }, { "bdg", false, EExportKind::BRIDGE }, { "pcp", false, EExportKind::PARTICLE },
 		{ "eff", false, EExportKind::EFFECT }, { "til", false, EExportKind::TILESET }, { "3rd", false, EExportKind::VSO },
 		{ "3rv", false, EExportKind::VSO }, { "mip", false, EExportKind::MISSION }, { "chc", false, EExportKind::CHAPTER },

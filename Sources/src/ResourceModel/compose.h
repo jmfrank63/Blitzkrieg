@@ -79,6 +79,14 @@ bool ComposeSingleObjectPack( const SExportContext &context, const NImageExport:
                               const std::string &szSprite, const std::string &szShadow, const std::string &szName,
                               const CVec2 &zeroPos, const CArray2D<BYTE> &pass, const CVec2 &vLockedTilesCenter, SExportOutcome &outcome );
 
+// CFenceTreeRootItem::SaveShadowFile (FenceTreeItem.cpp): the shadow picture
+// with its alpha multiplied by the inverse of the sprite's alpha sharpened at
+// 100, colour cleared, saved as the TGA szTempShadow. A fence keeps its
+// shadows as pictures because BuildAnimations takes file names. False with
+// outcome.szError when either picture cannot be read, their sizes differ (MFC
+// asserted) or the result cannot be written.
+bool SaveShadowFile( const std::string &szSprite, const std::string &szShadow, const std::string &szTempShadow, SExportOutcome &outcome );
+
 // CGridFrame::SaveIconFile: the picture cropped to the bounding box of its
 // non-transparent pixels, scaled to fit 64 x 64 and centred on grey with
 // zero alpha, saved as the TGA szName. A picture with no alpha at all fails.
