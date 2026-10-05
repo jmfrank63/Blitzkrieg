@@ -423,8 +423,11 @@ pub const Panels = struct {
             ig.ImDrawList_AddTextEx(draw_list, .{ .x = at.x + 8, .y = at.y - 6 }, ink, text.ptr, text.ptr + text.len);
         }
         const angle = if (overlay.arrowing) overlay.arrow_angle else direction;
+        // MFC's world vector from the zero point, mapped by the view like any other world point.
         const toward = squad.arrowDirection(angle);
-        const tip: ig.ImVec2 = .{ .x = centre.x + toward.x * 40, .y = centre.y + toward.y * 40 };
+        const reach = 40 / overlay.view.scale;
+        const tip_at = overlay.view.toScreen(.{ .x = zero.x + toward.x * reach, .y = zero.y + toward.y * reach });
+        const tip: ig.ImVec2 = .{ .x = tip_at.x, .y = tip_at.y };
         ig.ImDrawList_AddLineEx(draw_list, .{ .x = centre.x, .y = centre.y }, tip, ink, 2);
         ig.ImDrawList_AddCircleFilled(draw_list, tip, 3, ink, 0);
     }

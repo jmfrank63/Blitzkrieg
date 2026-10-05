@@ -29,6 +29,7 @@
 //!                           add_shoot_type, add_crater, add_source (one undo step)
 //!   do=squad_drag:<slot>/<dx>/<dy>   a formation member dragged by a world offset
 //!   do=squad_zero:<x>/<y>   do=squad_dir:<radians>   the zero point, the direction arrow
+//!   do=squad_arrow:<x>/<y>   the arrow gesture (press, move, release) at a world point, through arrowAngle
 //!   open=<path> save saveas=<path> shot=<name> differ=<a>/<b>@<percent> exit
 //!   expect=kind:<ext>  dirty:<true|false>  untitled  nodes_min:<n>
 //!          prop:<name>=<value>  exported  file:<path>  shot_lit:<name>
@@ -514,6 +515,7 @@ const Runner = struct {
             sub_tools.commit(self.gpa, b, &self.life.doc, &self.life.history, step, 0) catch return self.fail("squad_dir: {s}", .{b.lastMessage()});
             return null;
         }
+        if (eql(u8, name, "squad_arrow")) return self.squadArrow(named.arg);
         if (eql(u8, name, "run_game")) return self.runGame();
         return self.fail("unknown command '{s}'", .{name});
     }
@@ -563,6 +565,24 @@ const Runner = struct {
         const step = drag.finish(self.gpa) orelse return self.fail("squad_drag: the member did not move", .{});
         sub_tools.commit(self.gpa, b, &self.life.doc, &self.life.history, step, 0) catch return self.fail("squad_drag: {s}", .{b.lastMessage()});
         self.dragged = .{ .formation = node, .slot = slot, .home = home };
+        return null;
+    }
+
+    /// The overlay's arrow gesture at a world point: the identity view makes
+    /// the screen point the world point, so the angle goes through the same
+    /// arrowAngle and setFormationDirection a mouse drag uses.
+    fn squadArrow(self: *Runner, arg: []const u8) ?[]const u8 {
+        const b = self.bridge();
+        const at = parsePoint(arg) orelse return self.fail("squad_arrow needs <x>/<y>", .{});
+        const node = self.firstFormation() orelse return self.fail("squad_arrow: the project has no formation", .{});
+        var overlay = squad.Overlay.init(self.gpa, node);
+        overlay.setMode(b, .direction);
+        overlay.press(b, at) catch return self.fail("squad_arrow: {s}", .{b.lastMessage()});
+        overlay.move(b, at) catch {
+            overlay.cancel(b);
+            return self.fail("squad_arrow: {s}", .{b.lastMessage()});
+        };
+        overlay.release(b, &self.life.doc, &self.life.history, at) catch return self.fail("squad_arrow: {s}", .{b.lastMessage()});
         return null;
     }
 
@@ -653,6 +673,13 @@ const Runner = struct {
             const at = read.points2[drag.slot];
             const moved = @abs(at.x - drag.home.x) > 1e-3 or @abs(at.y - drag.home.y) > 1e-3;
             if (moved != want_moved) return self.fail("expect=slot:{s} was false: the member is at {d:.3}/{d:.3}, it started at {d:.3}/{d:.3}", .{ arg, at.x, at.y, drag.home.x, drag.home.y });
+            return null;
+        }
+        if (eql(u8, name, "squad_dir")) {
+            const want = std.fmt.parseFloat(f32, arg) catch return self.fail("squad_dir needs radians", .{});
+            const node = self.firstFormation() orelse return self.fail("expect=squad_dir: the project has no formation", .{});
+            const read = sub_tools.readGeometry(self.bridge(), node, .formation_direction) catch return self.fail("expect=squad_dir:{s}: {s}", .{ arg, self.bridge().lastMessage() });
+            if (@abs(read.point2.x - want) > 1e-4) return self.fail("expect=squad_dir:{s} was false: expected {d:.5}, stored {d:.5}", .{ arg, want, read.point2.x });
             return null;
         }
         if (eql(u8, name, "direction")) {

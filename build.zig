@@ -8375,18 +8375,26 @@ const resource_auto_schedule =
     "110:do=squad_zero:5/5," ++
     "111:do=squad_dir:1.0," ++
     "112:expect=direction:1.0," ++
-    "113:do=undo," ++
-    "114:do=undo," ++
-    "115:do=redo," ++
-    "116:do=redo," ++
-    "117:expect=direction:1.0," ++
-    "118:shot=squad," ++
-    "119:expect=shot_lit:squad," ++
-    "120:differ=trench/squad@0.05," ++
-    "121:save," ++
-    "122:do=export," ++
-    "123:expect=exported," ++
-    "124:exit";
+    "113:do=squad_arrow:5/15," ++
+    "114:expect=squad_dir:0," ++
+    "115:do=squad_arrow:15/5," ++
+    "116:expect=squad_dir:-1.5707964," ++
+    "117:do=undo," ++
+    "118:expect=squad_dir:0," ++
+    "119:do=undo," ++
+    "120:expect=squad_dir:1.0," ++
+    "121:do=undo," ++
+    "122:do=undo," ++
+    "123:do=redo," ++
+    "124:do=redo," ++
+    "125:expect=direction:1.0," ++
+    "126:shot=squad," ++
+    "127:expect=shot_lit:squad," ++
+    "128:differ=trench/squad@0.05," ++
+    "129:save," ++
+    "130:do=export," ++
+    "131:expect=exported," ++
+    "132:exit";
 
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static
