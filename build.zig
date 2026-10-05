@@ -8649,7 +8649,119 @@ const resource_auto_schedule =
     "326:expect=file:{mods}/reseditor_auto_s09f/data/fences/fnc/1_c.dds," ++
     "329:shot=fnc_saved," ++
     "330:expect=shot_lit:fnc_saved," ++
-    "331:exit";
+    // S10 Building (BuildFrm): a copy of the tracked fixture and its art opened, locked and
+    // transparency tiles, the entrance and the zero point set, one point of each family placed
+    // (the directed explosions generated), one turned, then undone, redone, saved and exported.
+    // The shots are measured: a locked tile is 0xff0000, transparency value 3 is 0x606000, the
+    // entrance 0x00ff00, the active fire point 0xff8000, the active directed explosion 0xff00ff,
+    // the active point's cone edges and direction line 0xffff00.
+    "340:do=mod_dir:{mods}/reseditor_auto_s10," ++
+    "341:do=copy:{fix}/bld/project.bld>{dir}/bld/project.bld," ++
+    "341:do=copy:{fix}/bld/1.tga>{dir}/bld/1.tga," ++
+    "341:do=copy:{fix}/bld/1s.tga>{dir}/bld/1s.tga," ++
+    "341:do=copy:{fix}/bld/1w.tga>{dir}/bld/1w.tga," ++
+    "341:do=copy:{fix}/bld/1ws.tga>{dir}/bld/1ws.tga," ++
+    "341:do=copy:{fix}/bld/2.tga>{dir}/bld/2.tga," ++
+    "341:do=copy:{fix}/bld/2g.tga>{dir}/bld/2g.tga," ++
+    "341:do=copy:{fix}/bld/2s.tga>{dir}/bld/2s.tga," ++
+    "341:do=copy:{fix}/bld/2w.tga>{dir}/bld/2w.tga," ++
+    "341:do=copy:{fix}/bld/2wg.tga>{dir}/bld/2wg.tga," ++
+    "341:do=copy:{fix}/bld/2ws.tga>{dir}/bld/2ws.tga," ++
+    "341:do=copy:{fix}/bld/3.tga>{dir}/bld/3.tga," ++
+    "341:do=copy:{fix}/bld/3g.tga>{dir}/bld/3g.tga," ++
+    "341:do=copy:{fix}/bld/3s.tga>{dir}/bld/3s.tga," ++
+    "341:do=copy:{fix}/bld/3w.tga>{dir}/bld/3w.tga," ++
+    "341:do=copy:{fix}/bld/3wg.tga>{dir}/bld/3wg.tga," ++
+    "341:do=copy:{fix}/bld/3ws.tga>{dir}/bld/3ws.tga," ++
+    "341:do=copy:{fix}/bld/art-16x16.tga>{dir}/bld/art-16x16.tga," ++
+    "342:open={dir}/bld/project.bld," ++
+    "343:expect=kind:bld," ++
+    "343:expect=nodes_min:2," ++
+    "344:expect=dirty:false," ++
+    "346:shot=bld_base," ++
+    "347:expect=shot_colour:bld_base/ff0000/max/20," ++
+    "347:expect=shot_colour:bld_base/606000/max/0," ++
+    "347:expect=shot_colour:bld_base/c0c0c0/max/12000," ++
+    "348:do=grid_cell:28/28/1," ++
+    "348:do=grid_cell:29/28/1," ++
+    "349:do=grid_trans:30/28/3," ++
+    "350:do=entrance:31/31," ++
+    "351:do=grid_zero:30/30," ++
+    "352:expect=grid_cell:28/28=1," ++
+    "352:expect=trans_cell:30/28=3," ++
+    "352:expect=entrance_tile:31/31," ++
+    "352:expect=zero_tile:30/30," ++
+    "352:expect=dirty:true," ++
+    "355:shot=bld_tiles," ++
+    "356:expect=shot_colour:bld_tiles/ff0000/min/380," ++
+    "356:expect=shot_colour:bld_tiles/606000/min/150," ++
+    "357:do=point:shoot/33/30," ++
+    "358:expect=points:shoot=1," ++
+    "359:do=point:fire/35/30," ++
+    "360:expect=points:fire=1," ++
+    "362:shot=bld_fire," ++
+    "363:expect=shot_colour:bld_fire/ff8000/min/40," ++
+    "364:do=point:smoke/33/33," ++
+    "365:expect=points:smoke=1," ++
+    "366:do=generate_points:smoke," ++
+    "367:expect=points:smoke=2," ++
+    "368:do=point_select:smoke/0," ++
+    "370:shot=bld_dir," ++
+    "371:expect=shot_colour:bld_dir/c0c0c0/min/20000," ++
+    "372:do=point_select:shoot/0," ++
+    "373:do=point_angle:0/90," ++
+    "374:do=point_cone:0/40," ++
+    "375:expect=point:shoot/0=90/40," ++
+    "376:do=point_move:0/34/31," ++
+    "378:shot=bld_points," ++
+    "379:expect=shot_colour:bld_points/ffff00/min/25," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "382:expect=points:shoot=0," ++
+    "382:expect=points:fire=0," ++
+    "382:expect=points:smoke=0," ++
+    "382:expect=grid_cell:28/28=0," ++
+    "382:expect=dirty:false," ++
+    "384:shot=bld_undone," ++
+    "385:expect=shot_colour:bld_undone/ff0000/max/20," ++
+    "385:expect=shot_colour:bld_undone/606000/max/0," ++
+    "385:expect=shot_colour:bld_undone/ff8000/max/0," ++
+    "385:expect=shot_colour:bld_undone/c0c0c0/max/12000," ++
+    "385:expect=shot_colour:bld_undone/ffff00/max/0," ++
+    "385:differ=bld_tiles/bld_undone@0.01," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "390:expect=points:shoot=1," ++
+    "390:expect=points:fire=1," ++
+    "390:expect=points:smoke=2," ++
+    "390:expect=point:shoot/0=90/40," ++
+    "391:save," ++
+    "392:expect=dirty:false," ++
+    "393:do=export," ++
+    "394:expect=exported," ++
+    "397:shot=bld_saved," ++
+    "398:expect=shot_lit:bld_saved," ++
+    "399:exit";
 
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static

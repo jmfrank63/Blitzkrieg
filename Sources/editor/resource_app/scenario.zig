@@ -44,6 +44,13 @@
 //!   do=grid_zero:<x>/<y>    Set zero clicked on a tile centre (Object)
 //!   do=fence_centre:<x>/<y>   Centre on tile clicked on a tile (Fence)
 //!   do=sprite_move:<dx>/<dy>  Move: the sprite dragged by that many grid pixels
+//!   do=entrance:<x>/<y>     the Building's Entrance tool clicked on a tile centre
+//!   do=point:<shoot|fire|smoke|dir>/<x>/<y>   a point of that family clicked on a tile centre (it becomes the active one; dir only selects)
+//!   do=point_select:<mode>/<i>   point i of a family made the active one, by a click on it
+//!   do=point_move:<i>/<x>/<y>   the active family's point i dragged by the Move point tool to a tile centre
+//!   do=point_angle:<i>/<deg>   do=point_cone:<i>/<deg>   its direction handle or its cone handle dragged
+//!                           (the Angle and cone tool) to where that direction, or that cone, points
+//!   do=generate_points:<smoke|dir>   the Generate points button in that family's mode
 //!   The grid verbs need a frame drawn since the project opened (the grid editor lives in the panels)
 //!   and go through GridEditor's press, move and release, the path of the mouse.
 //!   open=<path> save saveas=<path> shot=<name> differ=<a>/<b>@<percent> exit
@@ -57,6 +64,9 @@
 //!          lines:<n>  the Object's one-way line count  zero_tile:<x>/<y>  the zero point's tile (Object)
 //!          sprite_tile:<x>/<y>  the sprite's tile (Fence)  sprite:moved|home  against where sprite_move found it
 //!          shot_colour:<shot>/<RRGGBB>/min|max/<n>  the pixels of exactly that colour in a shot
+//!          points:<shoot|fire|smoke|dir>=<n>  the Building's point count of a family
+//!          point:<shoot|fire|smoke|dir>/<i>=<angle>/<cone>  one point's stored direction and cone (angle within 1 degree)
+//!          entrance_tile:<x>/<y>  the Building's entrance tile
 //!
 //! `{dir}` (the scratch folder), `{fix}` (the fixtures folder) and `{mods}`
 //! (the installation's mods folder) are replaced in every path and argument,
@@ -611,6 +621,30 @@ const Runner = struct {
             const tile = [2]i32{ p[0], p[1] };
             return self.gridStroke(name, if (name[0] == 'g') .set_zero else .centre_on_tile, tile, tile, false);
         }
+        if (eql(u8, name, "entrance")) {
+            const p = parseInts(2, named.arg) orelse return self.fail("entrance needs <x>/<y>", .{});
+            const tile = [2]i32{ p[0], p[1] };
+            return self.gridStroke(name, .entrance, tile, tile, false);
+        }
+        if (eql(u8, name, "point")) {
+            const slash = std.mem.indexOfScalar(u8, named.arg, '/') orelse return self.fail("point needs <mode>/<x>/<y>", .{});
+            const mode = parseMode(named.arg[0..slash]) orelse return self.fail("point: '{s}' is not shoot, fire, smoke or dir", .{named.arg[0..slash]});
+            const p = parseInts(2, named.arg[slash + 1 ..]) orelse return self.fail("point needs <mode>/<x>/<y>", .{});
+            const tile = [2]i32{ p[0], p[1] };
+            return self.gridStroke(name, pointTool(mode), tile, tile, false);
+        }
+        if (eql(u8, name, "point_select")) return self.pointSelect(named.arg);
+        if (eql(u8, name, "point_move")) return self.pointGesture(name, .move, named.arg);
+        if (eql(u8, name, "point_angle")) return self.pointGesture(name, .direction, named.arg);
+        if (eql(u8, name, "point_cone")) return self.pointGesture(name, .cone, named.arg);
+        if (eql(u8, name, "generate_points")) {
+            const mode = parseMode(named.arg) orelse return self.fail("generate_points needs smoke or dir", .{});
+            if (mode != .smoke and mode != .dir_explosion) return self.fail("generate_points needs smoke or dir", .{});
+            const editor = self.gridEditor(name) orelse return self.fail("generate_points: no grid editor is open (draw a frame after opening a bld)", .{});
+            editor.setTool(b, pointTool(mode)) catch return self.fail("generate_points: the {s} tool is not offered for .{s}", .{ pointTool(mode).label(), self.life.doc.kind.extension() });
+            editor.generate(b, &self.life.doc, &self.life.history) catch |err| return self.fail("generate_points:{s}: {s} {s}", .{ named.arg, @errorName(err), b.lastMessage() });
+            return null;
+        }
         if (eql(u8, name, "sprite_move")) return self.spriteMove(named.arg);
         if (eql(u8, name, "pause")) {
             const ms = std.fmt.parseInt(i64, named.arg, 10) catch return self.fail("pause needs milliseconds", .{});
@@ -741,6 +775,80 @@ const Runner = struct {
         const start = editor.view.toScreen(grid.tileCentre(from[0], from[1]));
         const end = editor.view.toScreen(grid.tileCentre(to[0], to[1]));
         editor.press(b, start, erase) catch return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
+        editor.move(b, end) catch {
+            editor.cancel(b);
+            return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
+        };
+        editor.release(b, &self.life.doc, &self.life.history, end) catch return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
+        return null;
+    }
+
+    /// A click of the family's tool on point `i`: it becomes the active one, so
+    /// the next shot draws its cone edges and arrow.
+    fn pointSelect(self: *Runner, arg: []const u8) ?[]const u8 {
+        const b = self.bridge();
+        const editor = self.gridEditor("point_select") orelse return self.fail("point_select: no grid editor is open (draw a frame after opening a bld)", .{});
+        const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return self.fail("point_select needs <mode>/<i>", .{});
+        const mode = parseMode(arg[0..slash]) orelse return self.fail("point_select: '{s}' is not a point family", .{arg[0..slash]});
+        const index = std.fmt.parseInt(usize, arg[slash + 1 ..], 10) catch return self.fail("point_select needs <mode>/<i>", .{});
+        var read = sub_tools.readGeometry(b, editor.node, pointChannel(mode)) catch return self.fail("point_select: {s}", .{b.lastMessage()});
+        defer read.deinit(self.gpa);
+        if (index >= read.aimed.len) return self.fail("point_select: the {s} family has {d} points, not {d}", .{ @tagName(mode), read.aimed.len, index + 1 });
+        editor.setTool(b, pointTool(mode)) catch return self.fail("point_select: the tool is not offered for .{s}", .{self.life.doc.kind.extension()});
+        const at = editor.view.toScreen(grid.worldToGrid(read.aimed[index].at));
+        editor.press(b, at, false) catch return self.fail("point_select: {s}", .{b.lastMessage()});
+        editor.release(b, &self.life.doc, &self.life.history, at) catch return self.fail("point_select: {s}", .{b.lastMessage()});
+        return null;
+    }
+
+    /// The Move point and Angle and cone tools on point `i` of the family the
+    /// last point verb chose: press on the point (or on its direction or cone
+    /// handle), drag to the place the target asks for, release, the gesture
+    /// of the mouse and so one undo step. The angle and cone targets are a
+    /// handle position that GridEditor's own angleToward and coneToward turn
+    /// back into whole degrees.
+    fn pointGesture(self: *Runner, verb: []const u8, part: core.point_tools.Part, arg: []const u8) ?[]const u8 {
+        const b = self.bridge();
+        const editor = self.gridEditor(verb) orelse return self.fail("{s}: no grid editor is open (draw a frame after opening a bld)", .{verb});
+        const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return self.fail("{s} needs <i>/<...>", .{verb});
+        const index = std.fmt.parseInt(usize, arg[0..slash], 10) catch return self.fail("{s} needs a point index", .{verb});
+        var read = sub_tools.readGeometry(b, editor.node, pointChannel(editor.family)) catch return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
+        defer read.deinit(self.gpa);
+        if (index >= read.aimed.len) return self.fail("{s}: the {s} family has {d} points, not {d}", .{ verb, @tagName(editor.family), read.aimed.len, index + 1 });
+        const point = read.aimed[index];
+        const handles = grid.handlesOf(point);
+        var end_grid: Point2 = undefined;
+        switch (part) {
+            .move => {
+                const p = parseInts(2, arg[slash + 1 ..]) orelse return self.fail("point_move needs <i>/<x>/<y>", .{});
+                if (p[0] < 0 or p[1] < 0 or p[0] >= grid.grid_tiles or p[1] >= grid.grid_tiles) return self.fail("point_move: tile {d}/{d} is outside the grid", .{ p[0], p[1] });
+                end_grid = grid.tileCentre(p[0], p[1]);
+            },
+            .direction, .cone => {
+                const deg = std.fmt.parseFloat(f32, arg[slash + 1 ..]) catch return self.fail("{s} needs <i>/<degrees>", .{verb});
+                const angle: f32 = @floatFromInt(point.angle);
+                // The cone handle sits half the cone off the direction; the pointer's offset is half the cone asked for.
+                const toward = if (part == .direction) deg else angle + deg / 2;
+                end_grid = grid.worldToGrid(grid.aimTip(point.at, toward));
+            },
+            .horizontal, .aim => return self.fail("{s}: not a scripted gesture", .{verb}),
+        }
+        const start_grid = switch (part) {
+            .move => handles.origin,
+            .direction => handles.direction,
+            .cone => handles.cone_plus,
+            .horizontal, .aim => unreachable,
+        };
+        // The angle tool grabs a handle of the active point only: select it by a click on the point first.
+        editor.setTool(b, if (part == .move) .move_point else .angle) catch return self.fail("{s}: the tool is not offered for .{s}", .{ verb, self.life.doc.kind.extension() });
+        if (part != .move) {
+            const click = editor.view.toScreen(handles.origin);
+            editor.press(b, click, false) catch return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
+            editor.release(b, &self.life.doc, &self.life.history, click) catch return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
+        }
+        const start = editor.view.toScreen(start_grid);
+        const end = editor.view.toScreen(end_grid);
+        editor.press(b, start, false) catch return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
         editor.move(b, end) catch {
             editor.cancel(b);
             return self.fail("{s}: {s}", .{ verb, b.lastMessage() });
@@ -973,6 +1081,37 @@ const Runner = struct {
             if (moved != eql(u8, arg, "moved")) return self.fail("expect=sprite:{s} was false: it is at {d:.2}/{d:.2}, it started at {d:.2}/{d:.2}", .{ arg, at.x, at.y, home.x, home.y });
             return null;
         }
+        if (eql(u8, name, "points") or eql(u8, name, "point")) {
+            const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return self.fail("{s} needs <mode>...=<value>", .{name});
+            const key = arg[0..eq];
+            const value = arg[eq + 1 ..];
+            const editor = self.gridEditor("points") orelse return self.fail("expect={s}: no grid editor is open", .{name});
+            const b = self.bridge();
+            const family_end = std.mem.indexOfScalar(u8, key, '/') orelse key.len;
+            const mode = parseMode(key[0..family_end]) orelse return self.fail("expect={s}: '{s}' is not a point family", .{ name, key[0..family_end] });
+            var read = sub_tools.readGeometry(b, editor.node, pointChannel(mode)) catch return self.fail("expect={s}:{s}: {s}", .{ name, arg, b.lastMessage() });
+            defer read.deinit(self.gpa);
+            if (name.len == 6) {
+                const want = std.fmt.parseInt(usize, value, 10) catch return self.fail("points needs a count", .{});
+                if (read.aimed.len != want) return self.fail("expect=points:{s} was false: {d} points", .{ arg, read.aimed.len });
+                return null;
+            }
+            const index = std.fmt.parseInt(usize, if (family_end < key.len) key[family_end + 1 ..] else "", 10) catch return self.fail("point needs <mode>/<i>=<angle>/<cone>", .{});
+            const want = parseInts(2, value) orelse return self.fail("point needs <mode>/<i>=<angle>/<cone>", .{});
+            if (index >= read.aimed.len) return self.fail("expect=point:{s} was false: the family has {d} points", .{ arg, read.aimed.len });
+            const got = read.aimed[index];
+            const angle_off = @abs(@mod(got.angle - want[0] + 180, 360) - 180);
+            if (angle_off > 1 or @abs(got.cone - want[1]) > 1) return self.fail("expect=point:{s} was false: the point has angle {d} and cone {d}", .{ arg, got.angle, got.cone });
+            return null;
+        }
+        if (eql(u8, name, "entrance_tile")) {
+            const want = parseInts(2, arg) orelse return self.fail("entrance_tile needs <x>/<y>", .{});
+            const editor = self.gridEditor("entrance_tile") orelse return self.fail("expect=entrance_tile: no grid editor is open", .{});
+            const read = sub_tools.readGeometry(self.bridge(), editor.node, .entrance) catch return self.fail("expect=entrance_tile:{s}: {s}", .{ arg, self.bridge().lastMessage() });
+            const tile = grid.tileAt(grid.worldToGrid(read.point2)) orelse return self.fail("expect=entrance_tile:{s} was false: the entrance is off the grid", .{arg});
+            if (tile[0] != want[0] or tile[1] != want[1]) return self.fail("expect=entrance_tile:{s} was false: it is tile {d}/{d}", .{ arg, tile[0], tile[1] });
+            return null;
+        }
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
         return self.fail("unknown predicate '{s}'", .{name});
     }
@@ -988,6 +1127,33 @@ fn parseInts(comptime n: usize, text: []const u8) ?[n]i32 {
     for (&out) |*slot| slot.* = std.fmt.parseInt(i32, parts.next() orelse return null, 10) catch return null;
     if (parts.next() != null) return null;
     return out;
+}
+
+/// A family's name in the schedule: shoot, fire, smoke or dir.
+fn parseMode(text: []const u8) ?core.point_tools.Mode {
+    if (std.mem.eql(u8, text, "shoot")) return .shoot;
+    if (std.mem.eql(u8, text, "fire")) return .fire;
+    if (std.mem.eql(u8, text, "smoke")) return .smoke;
+    if (std.mem.eql(u8, text, "dir")) return .dir_explosion;
+    return null;
+}
+
+fn pointTool(mode: core.point_tools.Mode) grid.Tool {
+    return switch (mode) {
+        .shoot => .shoot,
+        .fire => .fire,
+        .smoke => .smoke,
+        .dir_explosion => .dir_explosion,
+    };
+}
+
+fn pointChannel(mode: core.point_tools.Mode) core.bridge.GeometryChannel {
+    return switch (mode) {
+        .shoot => .shoot_points,
+        .fire => .fire_points,
+        .smoke => .smoke_points,
+        .dir_explosion => .directed_explosion_points,
+    };
 }
 
 fn parsePoint(text: []const u8) ?Point2 {

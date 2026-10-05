@@ -66,11 +66,11 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, host: *host_mod.Host, kind: Kind,
         return fail("the installation path is too long", .{});
     var life: logic.Lifecycle = .{};
     defer life.deinit(gpa);
-    if (life.importFromGame(gpa, b, .build, gunner)) |_| {
-        return fail("importing .bld was not refused", .{});
+    if (life.importFromGame(gpa, b, .bridge, gunner)) |_| {
+        return fail("importing .bdg was not refused", .{});
     } else |_| {}
-    if (std.mem.indexOf(u8, b.lastMessage(), "not ported yet") == null or std.mem.indexOf(u8, b.lastMessage(), ".bld") == null)
-        return fail("the .bld import refusal does not name the kind: {s}", .{b.lastMessage()});
+    if (std.mem.indexOf(u8, b.lastMessage(), "not ported yet") == null or std.mem.indexOf(u8, b.lastMessage(), ".bdg") == null)
+        return fail("the .bdg import refusal does not name the kind: {s}", .{b.lastMessage()});
     life.importFromGame(gpa, b, .animation_infantry, gunner) catch
         return fail("importing {s} as .unt failed: {s}", .{ gunner, b.lastMessage() });
     if (!life.is_open or life.doc.kind != .animation_infantry or life.doc.pathSlice() != null or !life.dirty())

@@ -204,9 +204,9 @@ digits survive a save.
 
 | Channel | Owner node | MFC home (writer) |
 | --- | --- | --- |
-| passability_cells | building / object root | `desc/passability`: `<item size_x size_y/>`, then one `<item>` of upper-case hex per row (`SObjectBaseRPGStats::operator&`, `Do2DArrayData`, `CDataTreeXML::RawData`) |
+| passability_cells | building / object root | (S10: the building holds it in the tile frame while edited, like the object, and the bridge crops it on save with the zero point's origin) `desc/passability`: `<item size_x size_y/>`, then one `<item>` of upper-case hex per row (`SObjectBaseRPGStats::operator&`, `Do2DArrayData`, `CDataTreeXML::RawData`) |
 | locked_tiles | fence segment (`CFencePropsItem`), bridge part (`CBridgePartsItem`) | the item's `LockedTiles` list, one `<item x y val/>` per set tile (`CFenceFrame` / `CBridgeFrame::SaveMyData`). Grid cell (x, y) is tile (x, y). MFC stores only set tiles, so a read grid ends at the furthest set tile. |
-| transparency_cells | object root | the object's desc visibility grid without the one-way tiles (S09 T04, channel 17): a bytes grid of tile cells, 0..7, rewritten together with passability and the one-way tiles from the trans-lines (`RewriteObjectGrids`), cropped with the origin of the zero point the object ends with. A value above 7 is refused; the channel on another kind returns `BK_EDITOR_REFUSED` naming the channel and the kind. |
+| transparency_cells | object root, building root | the object's desc visibility grid without the one-way tiles (S09 T04, channel 17): a bytes grid of tile cells, 0..7, rewritten together with passability and the one-way tiles from the trans-lines (`RewriteObjectGrids`), cropped with the origin of the zero point the object ends with. A value above 7 is refused; the channel on another kind returns `BK_EDITOR_REFUSED` naming the channel and the kind. |
 | fence_transparences | fence segment (`CFencePropsItem`) | the segment's `Transparences` list (S09 T04, channel 18): a bytes grid in tile coordinates, 0..7. Covered by the get/set/save/reopen round trip; the exported origin is not asserted against an expected value. |
 | sprite_pos | object root, fence segment | the object's `own_data/sprite_pos`, a fence segment's `SpritePos` (S09 T04, channel 19), a Point2 in grid pixels; the Move tool drags it and Centre on tile sets it to a tile's centre (`GridProjection`). |
 | transparency_lines | object root | `own_data/TransLines`, `<item><Point1/><Point2/></item>` per line (`CObjectFrame::SaveFrameOwnData`, `STransLine::operator&`). The ABI list is point pairs, and an odd count is refused. |
@@ -865,6 +865,17 @@ one, the newer instruction wins, and record the change in the spec").
   Buildings (S10 T04): every shipped folder under `Data/Buildings` with a `1.xml` is imported and its
   tile-frame passability and transparency cells read (`S10Building::NegativeTiles`, line
   `NEGTILES buildings checked=N negative=M`, N and M recorded below). It is the same guard for buildings.
+
+- **Building point tools, S10 T02, T05 and T06.** The five point families (shoot, fire, smoke, directed explosion, entrance) are
+  undoable commands in `resource_core/point_tools.zig`: place, move, delete, angle, cone, entrance and generate. A point and its tree
+  child are one undo step, so the list channel and the tree never disagree: placing adds the child to the container and the point
+  to the list, deleting removes both, and the directed explosions have five fixed children and never gain or lose one. The Building
+  registers in `grid_logic.zig` with the grid tools plus these modes and a Generate points button (smoke and explosion modes). The
+  `BK_EDITOR_AUTO` verbs `entrance`, `point`, `point_select`, `point_move`, `point_angle`, `point_cone` and `generate_points`
+  go through the same editor calls as the mouse. The auto block counts overlay colours in captured shots (locked red, transparency
+  0x606000, fire 0xff8000, direction handle 0xffff00) and requires them to vanish after undo. The repo bld fixture has no
+  `DirExplosions` entries in its desc, so the generate step in the auto block is smoke; directed-explosion generation is proved by
+  the `point_tools` tests. The GOG `brandenburgertor` golden is a named test that runs on win-home only.
 
 - Squad overlay screen Y (D018, M001/S08): MFC projects the formation through
   `IScene::GetPos2`. The camera looks toward +Y (`Scene/Camera.cpp:10,76-79`,

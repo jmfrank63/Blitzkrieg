@@ -180,21 +180,21 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-09.1 | Tree: Common, Entrances, Slots, Graphics 1–3 summer/winter, Defences, Passes, Fire points, Directed explosions, Smokes | todo |
-| B-09.2 | Move object | todo |
-| B-09.3 | Draw passability grid (locked/unlocked tiles) | todo |
-| B-09.4 | Transparency dropdown and transparency cells | todo |
-| B-09.5 | Set entrance | todo |
-| B-09.6 | Set zero | todo |
-| B-09.7 | Shoot-point mode (slots) | todo |
-| B-09.8 | Fire-point mode | todo |
-| B-09.9 | Directed-explosion mode | todo |
-| B-09.10 | Smoke-point mode | todo |
-| B-09.11 | Move point, set horizontal position, set angle / cone | todo |
-| B-09.12 | Generate points | todo |
-| B-09.13 | Export: `desc` = `SBuildingRPGStats`, sprite + shadow packs with passability, `icon.tga` | todo |
-| B-09.14 | GOG `INTEX2 brandenburgertor/current.bld` exports equal to its golden (win-home) | todo |
-| B-09.15 | Import from game data | todo |
+| B-09.1 | Tree: Common, Entrances, Slots, Graphics 1–3 summer/winter, Defences, Passes, Fire points, Directed explosions, Smokes | done: bridge tree of the fixture (nodes_min:2 at auto frame 343); test-resource-bridge S10Building::Fixture |
+| B-09.2 | Move object | done: Move tool on the building sprite (grid_logic tests "entrance: ... set zero and Move reach the building too"); sprite_pos home in the bridge |
+| B-09.3 | Draw passability grid (locked/unlocked tiles) | done: tile-frame passability, grid_logic colour test; auto `bld` block (frames 340-399, `resource-editor-auto`) measured locked red 12 to 397 pixels, back to 12 after undo |
+| B-09.4 | Transparency dropdown and transparency cells | done: transparency_cells on the building root; auto `bld` block (frames 340-399, `resource-editor-auto`) measured 0x606000 0 to 183 pixels, back to 0 after undo |
+| B-09.5 | Set entrance | done: grid_logic test "entrance: the click's world point, one undo step"; auto `do=entrance` and `entrance_tile` |
+| B-09.6 | Set zero | done: grid_logic test "set zero: the click's world point, one undo step"; auto `do=grid_zero` and `zero_tile` |
+| B-09.7 | Shoot-point mode (slots) | done: grid_logic test "shoot mode: ..., undo and redo"; auto `do=point:shoot`, measured shot of the active point colour |
+| B-09.8 | Fire-point mode | done: point_tools fire placement test; auto `do=point:fire`, measured 0xff8000 0 to 51 pixels, back to 0 after undo |
+| B-09.9 | Directed-explosion mode | done: point_tools tests "directed explosions have no place and no delete" and "generate directed explosions ..."; the repo fixture holds no DirExplosions entries, so the auto block drives smoke generation and the explosion generate stays covered by the unit tier |
+| B-09.10 | Smoke-point mode | done: point_tools smoke test; auto `do=point:smoke` and `do=generate_points:smoke` (2 generated points, undone with the rest) |
+| B-09.11 | Move point, set horizontal position, set angle / cone | done: grid_logic test "move point and horizontal position: one undo step per drag ..."; point_tools drag and one-shot direction tests; auto `point_move`, `point_angle`, `point_cone` with measured 0xffff00 handle 0 to 33 pixels |
+| B-09.12 | Generate points | done: grid_logic test "generate points: enabled in smoke and explosion modes only, one undo step each"; point_tools generate tests; auto `do=generate_points:smoke` |
+| B-09.13 | Export: `desc` = `SBuildingRPGStats`, sprite + shadow packs with passability, `icon.tga` | done: building exporter (ExportBuilding, BuildingStatsToTree); test-resource-bridge S10Building::Fixture export, determinism, missing-picture and round-trip checks; golden parity pending win-home (export-goldens.ps1 -Extensions bld) |
+| B-09.14 | GOG `INTEX2 brandenburgertor/current.bld` exports equal to its golden (win-home) | pending win-home: bld-gog-brandenburgertor (S10Building::GogBrandenburgertor prints `GOLDEN bld-gog-brandenburgertor pending` without BK_GOG_ROOT and BK_GOG_GOLDEN; the GOG files are never committed) |
+| B-09.15 | Import from game data | done: S10Building::Shipped imports every shipped Data/Buildings folder with a field-equal round trip; D021 guard S10Building::NegativeTiles (182 checked, 0 negative) |
 
 ### B-10 Object editor (`CObjectFrame`, `.obt`, `objects\`) — 06-09
 
