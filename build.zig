@@ -8158,8 +8158,105 @@ fn addResourceEditor(
     const batch_step = b.step("resource-editor-batch", "Run ResourceEditor --batch over copies of the 21 project fixtures and read the results back with the engine's reader");
     batch_step.dependOn(&install_exe.step);
     if (test_mode == .run) batch_step.dependOn(&batch_run.step);
+
+    // The project half of the smoke: a copy of the tracked .unt opened,
+    // edited, saved, undone, saved and compared byte for byte (scenario.zig).
+    const smoke_run = b.addRunArtifact(exe);
+    smoke_run.setCwd(b.path("zig-out"));
+    smoke_run.addArgs(&.{ "--smoke-edit", b.pathFromRoot("tools/zig/fixtures/resource_editor/unt/project.unt"), b.pathFromRoot("zig-out/local-test/resource_editor/smoke") });
+    smoke_run.has_side_effects = true;
+    smoke_run.step.dependOn(&install_exe.step);
+    const smoke_step = b.step("resource-editor-smoke", "Run ResourceEditor's scripted new/save/reopen and edit/undo/save byte-compare on tracked project fixtures");
+    smoke_step.dependOn(&install_exe.step);
+    // The kind-level new/save/reopen first (main.zig --smoke), then the edit one.
+    const smoke_kind_run = b.addRunArtifact(exe);
+    smoke_kind_run.setCwd(b.path("zig-out"));
+    smoke_kind_run.addArgs(&.{ "--smoke", "unt", b.pathFromRoot("zig-out/local-test/resource_editor/smoke-new/smoke.unt") });
+    smoke_kind_run.has_side_effects = true;
+    smoke_kind_run.step.dependOn(&install_exe.step);
+    smoke_run.step.dependOn(&smoke_kind_run.step);
+    if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
+
+    // BK_EDITOR_AUTO's schedule over the resource command registry: new,
+    // open a copy of the tracked .unt, edit, undo, save, export into a mod
+    // folder of the installation, pack it, import from the shipped Gunner and
+    // play the exported mod in the real Game, with captured frames measured by
+    // code. Runs after the smoke, so two engines never start at once.
+    const auto_dir = b.pathFromRoot("zig-out/local-test/resource_editor/auto");
+    const auto_run = b.addRunArtifact(exe);
+    auto_run.setCwd(b.path(stage_root));
+    auto_run.addArgs(&.{ "--auto", b.pathFromRoot("tools/zig/fixtures/resource_editor"), auto_dir });
+    auto_run.setEnvironmentVariable("BK_EDITOR_AUTO", resource_auto_schedule);
+    auto_run.has_side_effects = true;
+    auto_run.step.dependOn(&install_exe.step);
+    auto_run.step.dependOn(&smoke_run.step);
+    // The game's own screenshot dump (BK_AUTO_UI's shot) lands in the stage
+    // root it ran from: swept up like map-editor-auto does.
+    const delete_matching_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/delete_matching_files.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const delete_matching = b.addExecutable(.{ .name = "delete-matching-files", .root_module = delete_matching_module });
+    const cleanup_autoshots = b.addRunArtifact(delete_matching);
+    cleanup_autoshots.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_autoshots.step.dependOn(&auto_run.step);
+    const auto_step = b.step("resource-editor-auto", "Run BK_EDITOR_AUTO's ResourceEditor scenario over the resource command registry");
+    auto_step.dependOn(&install_exe.step);
+    if (test_mode == .run) auto_step.dependOn(&cleanup_autoshots.step);
     return exe;
 }
+
+/// resource-editor-auto's schedule (scenario.zig): one entry per line, frames
+/// ascending, so a later slice appends a block rather than editing one long
+/// string. {dir}, {fix} and {mods} are the scratch folder, the fixtures
+/// folder and the installation's mods folder.
+const resource_auto_schedule =
+    // A new project of another kind first: it draws, and is untitled.
+    "1:do=new:wpn," ++
+    "2:expect=kind:wpn," ++
+    "3:expect=untitled," ++
+    "4:shot=new," ++
+    "5:expect=shot_lit:new," ++
+    // A copy of the tracked .unt opened: its tree and inspector change the frame.
+    "6:do=copy:{fix}/unt/project.unt>{dir}/work/project.unt," ++
+    "7:open={dir}/work/project.unt," ++
+    "8:expect=kind:unt," ++
+    "9:expect=nodes_min:2," ++
+    "10:expect=dirty:false," ++
+    "11:shot=opened," ++
+    "12:differ=new/opened@0.05," ++
+    // Edit, save, undo, save: one property, one undo step, the file follows.
+    "13:do=set_prop:Armor=9," ++
+    "14:expect=prop:Armor=9," ++
+    "15:expect=dirty:true," ++
+    "16:shot=edited," ++
+    "17:expect=shot_lit:edited," ++
+    "18:save," ++
+    "19:expect=dirty:false," ++
+    "20:do=undo," ++
+    "21:expect=prop:Armor=4," ++
+    "22:expect=dirty:true," ++
+    "23:save," ++
+    "24:expect=dirty:false," ++
+    // No kind has an exporter yet, so Export is refused naming the kind (this
+    // entry becomes do=export, expect=exported when the first one is ported).
+    // A tracked file stands in for the exported data so Compress to PAK, which
+    // the engine's own PAK reader reads back, and Run Blitzkrieg have a mod.
+    "25:do=mod_dir:{mods}/reseditor_auto," ++
+    "26:do=export_refused," ++
+    "27:do=copy:{fix}/unt/mesh-2x2x2.obj>{mods}/reseditor_auto/data/x/m.obj," ++
+    "28:do=pack:{dir}/auto.pak," ++
+    "29:expect=file:{dir}/auto.pak," ++
+    "30:do=import:unt," ++
+    "31:expect=untitled," ++
+    "32:expect=dirty:true," ++
+    "33:shot=imported," ++
+    "34:expect=shot_lit:imported," ++
+    // The exported mod played in the real Game.
+    "35:do=run_game," ++
+    "36:waitgame=240," ++
+    "37:exit";
 
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static

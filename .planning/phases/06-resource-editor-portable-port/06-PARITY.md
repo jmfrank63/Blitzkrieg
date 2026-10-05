@@ -48,23 +48,23 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | MFC feature | MFC source | Plan | Status |
 |---|---|---|---|---|
-| A-01 | File → New Project (Ctrl+N), per sub-editor kind, with New Dir dialog | `ParentFrame.cpp`, `NewDirDialog` | 06-05 | todo |
-| A-02 | File → Open Project (Ctrl+O), switches sub-editor by extension | `ActivateFrameByExtension` | 06-05 | todo |
-| A-03 | File → Close Project | `ParentFrame.cpp` | 06-05 | todo |
-| A-04 | File → Save (Ctrl+S) / Save As; project XML format unchanged; `History` list (≤100) | `CTreeDockWnd::SaveTrees` | 06-03 (format), 06-05 (UI) | todo |
-| A-05 | Save keeps a backup (MFC `backup.tmp`) → safe save + `.bak` | `ParentFrame.cpp` | 06-05 | todo |
-| A-06 | Project lock `locked_<username>` on open | `ParentFrame.cpp` | 06-05 | todo |
-| A-07 | Recent files (MFC 7 entries, registry) | `MainFrm.cpp` | 06-05 | todo |
+| A-01 | File → New Project (Ctrl+N), per sub-editor kind, with New Dir dialog | `ParentFrame.cpp`, `NewDirDialog` | 06-05 | done (S05 T09: lifecycle_ui File > New offers all 21 kinds; resource-editor-auto frame 1 do=new:wpn, kind and untitled asserted; resource-editor-host-check) |
+| A-02 | File → Open Project (Ctrl+O), switches sub-editor by extension | `ActivateFrameByExtension` | 06-05 | done (S05 T09/T13: Open by extension switches the kind; resource-editor-auto opens a copy of the tracked .unt and asserts kind:unt and its node count) |
+| A-03 | File → Close Project | `ParentFrame.cpp` | 06-05 | done (S05 T09: Close with the unsaved-changes prompt; test-resource-app-logic) |
+| A-04 | File → Save (Ctrl+S) / Save As; project XML format unchanged; `History` list (≤100) | `CTreeDockWnd::SaveTrees` | 06-03 (format), 06-05 (UI) | done (S05 T09/T13: Save and Save As, format unchanged through the bridge; resource-editor-smoke --smoke-edit edits, saves, undoes, saves again and compares the original 54385 bytes) |
+| A-05 | Save keeps a backup (MFC `backup.tmp`) → safe save + `.bak` | `ParentFrame.cpp` | 06-05 | done (S05 T09/T13: safe save, one .bak per session; test-resource-bridge asserts bytes, .bak and no .tmp; resource-editor-smoke) |
+| A-06 | Project lock `locked_<username>` on open | `ParentFrame.cpp` | 06-05 | done (S05 T09: locked_<user> prompt with take-over; test-resource-app-logic) |
+| A-07 | Recent files (MFC 7 entries, registry) | `MainFrm.cpp` | 06-05 | done (S05 T09: Open Recent from resourceeditor.cfg, kept in the settings file, not a registry; test-resource-app-logic) |
 | A-08 | File → MOD Settings (Ctrl+M): `mod.xml` name/version/description, seed `modobjects.xml` | `MODDialog` | 06-05 | done (S05 T11: tools_ui MOD Settings modal over BkResModSettingsGet/Set, which writes data/mod.xml and seeds modobjects.xml; export folder follows -mod= at start, a change lasts the session) |
 | A-09 | File → Export Result (Ctrl+E) | `OnFileExportFiles` | 06-05 (flow), each sub-editor plan (content) | done (S05 T11 flow: tools_logic.runExport refuses by the app's own path (no project, untitled, recovery copy), report = written/skipped/warnings + missing gamma.cfg; test-resource-app-logic. Content per sub-editor) |
 | A-10 | File → Compress current MOD to PAK (MFC: `zip.exe -9 -R -D`) → native writer | `ParentFrame.cpp` | 06-05 | done (S05 T11: save dialog -> BkResPackMod, .pak added; bridge zip writer read back through the engine) |
-| A-11 | File → Exit (Ctrl+X) with unsaved-changes prompt | `MainFrm.cpp` | 06-05 | todo |
+| A-11 | File → Exit (Ctrl+X) with unsaved-changes prompt | `MainFrm.cpp` | 06-05 | done (S05 T09: Quit guarded by the unsaved-changes prompt; test-resource-app-logic) |
 | A-12 | Edit → Set Picture Options (brightness/contrast/gamma, `gamma.cfg` searched upward, preview `SingleIcon`) | `PictureOptions` | 06-05 | done (S05 T11: app-side gamma.cfg in the engine tree format, searched upward like ReadConfigFile, written to the project folder or <source>/<szAddDir>; engine's CreateGammaCorrection ported for the before/after ramps; test-resource-app-logic) |
-| A-13 | View → Toolbar, Status Bar, Project Tree, Object Inspector toggles | `MainFrm.cpp` | 06-05 | todo |
+| A-13 | View → Toolbar, Status Bar, Project Tree, Object Inspector toggles | `MainFrm.cpp` | 06-05 | todo (not in the S05 task set: no View toggles for the tree and inspector, toolbar or status bar yet) |
 | A-14 | View → Direction Button (Ctrl+D) dock | `DirectionButton*` | 06-05 (widget), 06-06/06-08/06-12 (use) | done for the widget (S05 T12: docks.zig Direction window, Ctrl+D; angle from the drag, squashed needle, degrees text and GetQuadrant ported as written; resource-editor-host-check docks half (resource-editor-check-docks.tga measured by code), test-resource-app-logic (docks_logic.zig)). The sub-editors that read the angle use it in their slices |
 | A-15 | View → Function Window (Ctrl+F) keyframe dock | `KeyFrame*` | 06-12 | dock frame done (S05 T12: docks.zig Function window, Ctrl+F, an empty graph frame; resource-editor-host-check docks half (resource-editor-check-docks.tga measured by code), test-resource-app-logic (docks_logic.zig)). The keyframe editing is 06-12 |
-| A-16 | View → Set Background Colour | `ParentFrame.cpp` | 06-05 | todo |
-| A-17 | View → Expand/Collapse all (Ctrl+C) | `ETreeCtrl` | 06-05 | todo |
+| A-16 | View → Set Background Colour | `ParentFrame.cpp` | 06-05 | todo (not in the S05 task set: no Set Background Colour yet) |
+| A-17 | View → Expand/Collapse all (Ctrl+C) | `ETreeCtrl` | 06-05 | todo (not in the S05 task set: no Expand/Collapse all yet) |
 | A-18 | Tools → Set Directories (Ctrl+T): source, export, game exe, game args (registry) → settings file | `SetDirDialog` | 06-05 | done (S05 T11: source folder, game folder (empty = Game beside the editor) and game arguments in resourceeditor.cfg; the export folder is MOD Settings', as in MFC's SetDirDialog) |
 | A-19 | Tools → Export RPG Stats (Ctrl+R) — MFC wired for Infantry only → every sub-editor | `AnimationFrm.cpp` | 06-05 (flow), sub-editor plans | done (S05 T11 flow: Tools > Export Stats Only, Ctrl+R, for every kind through BkResExportStatsOnly; content per sub-editor) |
 | A-20 | Tools → Batch Mode (Ctrl+B) dialog: src, dst, mask, `-f`, `-os`, progress, failure list, missing `gamma.cfg` list | `BatchModeDialog`, `ProgressDialog` | 06-05 | done (S05 T11: Batch Mode modal (kind or all, src, dst, -f, -os) -> report of projects exported, failed with reasons, warnings, missing gamma.cfg; runs in-frame, no live progress: BkResBatch has no callback) |
@@ -84,9 +84,9 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | A-34 | Localisation items (name/desc/stats `.txt`) | `localization.*` | 06-03 | done (S05 T10: localisation items are ordinary tree items edited in the inspector; the .txt export is S03's) |
 | A-35 | Thumbnail list dock | `ThumbList*` | 06-05 (widget) | done for the widget (S05 T12: View > Thumbnails lists a folder's `*.tga` (else the project's folder), decoded by the engine through BkEditorMinimapImage into kit pictures_cache, fitted on black in 64-pixel cells, select and double-click; resource-editor-host-check docks half (resource-editor-check-docks.tga measured by code), test-resource-app-logic (docks_logic.zig): the fixture picture's colour measured in the capture) |
 | A-36 | Import XML file (Ctrl+I) — no handler in MFC → Import from game data | `ID_IMPORT_XML_FILE` | 06-04 (bridge), 06-05 (UI), sub-editor plans (per kind) | UI done (S05 T12: File > Import from game data (Ctrl+I), a guarded action through the unsaved prompt; unt imports, other kinds show the bridge's refusal naming the kind; test-resource-app-logic (lifecycle.zig), host check imports the shipped Gunner). Per-kind imports come with the sub-editor plans |
-| A-37 | Engine preview window (`CGameWnd`, storage + MOD, `consts.xml`, objects DB) | `GameWnd.*`, `GlobalsLoader.cpp` | 06-01 (spike), 06-04 | todo |
+| A-37 | Engine preview window (`CGameWnd`, storage + MOD, `consts.xml`, objects DB) | `GameWnd.*`, `GlobalsLoader.cpp` | 06-01 (spike), 06-04 | done (S05 T07/T12: the engine preview scene behind the windows; resource-editor-host-check measures the capture by code, resource-editor-auto asserts shot_lit and differ on captured frames) |
 | A-38 | Undo/redo for every edit (new; MFC had none outside GUI) | — | 06-04 + every sub-editor plan | done for the shell (S05 T10: every tree/inspector edit is a ResourceCommand; gestures collapse to one step; a value back at its start drops the step and the unsaved mark; Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z; test-resource-app-logic). Sub-editor slices add their own edits |
-| A-39 | Autosave and crash recovery (new, as the map editor) | — | 06-05 | todo |
+| A-39 | Autosave and crash recovery (new, as the map editor) | — | 06-05 | done (S05 T09: autosave and recovery under <UserRoot>resourceeditor/recovery; test-resource-app-logic) |
 
 ## B. Sub-editors
 

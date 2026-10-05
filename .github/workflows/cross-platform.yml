@@ -425,6 +425,24 @@ jobs:
       - name: Map editor smoke
         run: zig build map-editor-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # S05 slice gate: ResourceEditor installs beside Game and MapEditor.
+      - name: Resource editor install
+        run: zig build install-resource-editor -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # ResourceEditor itself: the engine hidden with ImGui over it, a frame
+      # and a thumbnail measured by code; then its scripted new/save/reopen and
+      # edit/undo/save byte-compare; then BK_EDITOR_AUTO's scenario over the
+      # resource command registry (new, open, edit, undo, save, pack, import,
+      # Run Blitzkrieg). A host with no GPU device logs the skip and passes.
+      - name: Resource editor host
+        run: zig build resource-editor-host-check -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor smoke
+        run: zig build resource-editor-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto
+        run: zig build resource-editor-auto -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       # T-03-14-03: the packaged MapEditor.exe opens no console on a normal
       # double-click (configureMapEditorExecutable's .windows subsystem) -
       # confirmed by reading its own PE header rather than trusting the build
@@ -792,6 +810,24 @@ jobs:
       # paint, place, select, drag, turn, delete, undo it all, save, reopen.
       - name: Map editor smoke
         run: zig build --sysroot "$MACOS_SYSROOT" map-editor-smoke -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # S05 slice gate: ResourceEditor installs beside Game and MapEditor.
+      - name: Resource editor install
+        run: zig build --sysroot "$MACOS_SYSROOT" install-resource-editor -Dtarget=aarch64-macos
+
+      # ResourceEditor itself: the engine hidden with ImGui over it, a frame
+      # and a thumbnail measured by code; then its scripted new/save/reopen and
+      # edit/undo/save byte-compare; then BK_EDITOR_AUTO's scenario over the
+      # resource command registry (new, open, edit, undo, save, pack, import,
+      # Run Blitzkrieg). A host with no GPU device logs the skip and passes.
+      - name: Resource editor host
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-host-check -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor smoke
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-smoke -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto -Dtarget=aarch64-macos -Dtest-mode=run
 
       # The game's SDL event translation, through the real SDLApplication and
       # a real window: wheel deltas (a trackpad swipe's fractions, flipped,

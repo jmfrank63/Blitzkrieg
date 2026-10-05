@@ -4,6 +4,8 @@
 //!   ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]          scripted new/save/reopen
 //!   ResourceEditor [-mod=...] --batch <kind|all> <src> <dst> [-f] [-os]  batch export (batch_cli.zig)
 //!   ResourceEditor [-mod=...] --batch-check <fixtures> <scratch>      the batch tier
+//!   ResourceEditor [-mod=...] --smoke-edit <project.unt> <scratch>    open, edit, save, undo, save, compare
+//!   ResourceEditor [-mod=...] --auto <fixtures> <scratch>             BK_EDITOR_AUTO's schedule (scenario.zig)
 //!
 //! <kind> is a project extension the MFC editor registered (wpn, mcp, trc,
 //! scp, spt, unt, msh, obt, fnc, bld, bdg, pcp, eff, til, 3rd, 3rv, mip, chc,
@@ -63,6 +65,7 @@ const tools_ui = @import("tools_ui.zig");
 const batch_cli = @import("batch_cli.zig");
 const docks_mod = @import("docks.zig");
 const docks_check = @import("docks_check.zig");
+const scenario = @import("scenario.zig");
 
 /// resource_bridge.h, which includes bridge.h: the BkRes* half of the engine's
 /// C ABI. A second translation beside kit.host's own bridge.h one, so the
@@ -145,6 +148,10 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
     }
     if (items.len > 0 and (std.mem.eql(u8, items[0], "--batch") or std.mem.eql(u8, items[0], "--batch-check"))) {
         std.process.exit(batchMode(gpa, io, items[1..], mod, std.mem.eql(u8, items[0], "--batch-check")));
+    }
+    if (items.len > 0 and (std.mem.eql(u8, items[0], "--smoke-edit") or std.mem.eql(u8, items[0], "--auto"))) {
+        if (items.len != 3) usage();
+        std.process.exit(scenarioMode(gpa, io, minimal.environ, items[0], items[1], items[2], mod));
     }
     if (items.len > 1) usage();
     var first_kind: ?Kind = null;
@@ -381,6 +388,37 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     if (hidden) std.debug.print("resource-editor: hidden run PASS ({d} frames, {s})\n", .{ frame, if (ui.session.life.is_open) ui.session.life.doc.kind.extension() else "no project" });
 }
 
+/// --smoke-edit and --auto (scenario.zig): the engine on a hidden window, the
+/// scripted tier on it. A host with no GPU device prints the skip and passes,
+/// the rule the other tiers follow. --auto reads BK_EDITOR_AUTO's schedule
+/// and refuses to run without one.
+fn scenarioMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, mode: []const u8, first: []const u8, scratch: []const u8, mod: ModRequest) u8 {
+    crt.attachParentConsole();
+    const is_auto = std.mem.eql(u8, mode, "--auto");
+    const tier = if (is_auto) "auto" else "smoke";
+    const schedule_text: ?[]const u8 = if (is_auto) (environ.getAlloc(gpa, "BK_EDITOR_AUTO") catch null) else null;
+    defer if (schedule_text) |text| gpa.free(text);
+    if (is_auto and schedule_text == null) {
+        std.debug.print("resource-editor: auto FAIL: BK_EDITOR_AUTO is not set\n", .{});
+        return 2;
+    }
+    var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
+        if (err == error.NoDevice) {
+            std.debug.print("resource-editor: {s} skipped: no GPU device ({s})\n", .{ tier, host_mod.failureReason() });
+            return 0;
+        }
+        std.debug.print("resource-editor: {s} FAIL: the host did not start ({s}: {s})\n", .{ tier, @errorName(err), host_mod.failureReason() });
+        return 1;
+    };
+    defer host.stop();
+    if (applyMod(&host, mod)) |reason| {
+        std.debug.print("resource-editor: {s} FAIL: the mod would not load: {s}\n", .{ tier, reason });
+        return 1;
+    }
+    const passed = if (is_auto) scenario.auto(gpa, io, environ, &host, schedule_text.?, first, scratch) else scenario.smokeEdit(gpa, io, &host, first, scratch);
+    return if (passed) 0 else 1;
+}
+
 /// --batch and --batch-check (batch_cli.zig): the engine on a hidden window,
 /// -mod= applied, nothing drawn and none of the user's settings touched.
 /// Returns the exit code. A host with no GPU device cannot start the engine
@@ -600,7 +638,7 @@ fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
 
 fn usage() noreturn {
     crt.attachParentConsole();
-    std.debug.print("usage: ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>|<project>]\n       ResourceEditor [-mod=...] --check [<kind>] [<out.tga>] [<picture.tga>]\n       ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]\n       " ++ batch_cli.usage_line ++ "\n", .{});
+    std.debug.print("usage: ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>|<project>]\n       ResourceEditor [-mod=...] --check [<kind>] [<out.tga>] [<picture.tga>]\n       ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]\n       ResourceEditor [-mod=...] --smoke-edit <project.unt> <scratch>\n       ResourceEditor [-mod=...] --auto <fixtures> <scratch>  (BK_EDITOR_AUTO)\n       " ++ batch_cli.usage_line ++ "\n", .{});
     std.process.exit(2);
 }
 
