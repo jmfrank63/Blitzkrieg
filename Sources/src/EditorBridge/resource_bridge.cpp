@@ -1378,7 +1378,8 @@ BkEditorStatus StoreGeometry( BkResSession *pSession, ResourceState &state, int 
 		for ( std::size_t i = 0; i < blob.points.size(); ++i )
 		{
 			const float f = blob.points[i];
-			if ( !( std::fabs( f ) <= 2147483647.0f ) || std::floor( f ) != f )
+			// 2147483647 is not a float; the bound is 2^31, exclusive, so the cast below stays in int's range.
+			if ( !( f >= -2147483648.0f && f < 2147483648.0f ) || std::floor( f ) != f )
 			{
 				pSession->szMessage = "an effect part's place is in whole units";
 				return BK_EDITOR_BAD_ARGUMENT;
