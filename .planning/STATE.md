@@ -1,10 +1,10 @@
 ---
 gsd_state_version: "1.0"
 current_plan: 11
-status: phase-2-executed-human-verification-outstanding
-stopped_at: "Completed 05-11-PLAN.md (phase 5 execution done; next: code review and verification)"
-last_updated: "2026-10-03T16:20:14.197Z"
-state_head: 1121c1225e5b028c45133334e0af88e876d9dfa8
+status: phase-5-complete
+stopped_at: "Phase 5 complete: 05-VERIFICATION passed, 05-UAT 14/14 (next: plan phase 6)"
+last_updated: "2026-10-05T14:30:00.000Z"
+state_head: e4e3785da539c006609c35d0869bc5b30a9c7ca4
 progress:
   total_phases: 7
   completed_phases: 0
@@ -17,7 +17,7 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 
 # Project state
 
-- status: phase-2-executed-human-verification-outstanding
+- status: phase-5-complete
 - projectName: Blitzkrieg Reloaded
 - branch: main (feature merged through workspace/variable-zoom)
 - created: 2026-06-06
@@ -30,11 +30,13 @@ Current Plan: 11 (complete)
 Total Plans in Phase: 11
 Progress: [██████████] 100% (phase 5 plans)
 
-Phase 05: all 11 plans executed (11/11 summarized). 05-11 closed the 152 PARITY rows, deleted the MFC editor
-(approved by Johannes 2026-10-03) and ran the gates (CI run 37121998156 green on all six jobs). Execution is done;
-next: the phase code review and verification, and Johannes's hand try (D-40.10). Open: the post-deletion
-random-missions sweep stopped at 180 of 208 cases (0 failed), and macOS `zig build test` is red at the branch tip
-for the WR-A04 single-instance test (see 05-11-SUMMARY.md).
+Phase 05 complete (2026-10-05). All 11 plans executed, the MFC editor deleted (approved by Johannes 2026-10-03),
+35 of 35 review findings fixed (05-REVIEW-FIX.md), 05-VERIFICATION.md passed 10/10, 05-UAT.md 14/14 passed
+(macOS and Windows release builds, minimap shots; G-05-8 fixed by 5c85692b4). CI green at main 1d7264fd6
+(run 37219830755). The open items recorded at the end of 05-11 are closed: a later random-missions cover run
+completed all 208 cases (155 + 53 resumed, 0 failed; 05-VERIFICATION.md) and the single-instance test failure was fixed by the CI fix commits
+1e8760912..da88a73b5. After the phase, MapEditor also builds for Intel macOS and Linux x64 (e5561ca6f, 1d7264fd6).
+Next: Phase 6 (Resource Editor), `/gsd-plan-phase 6`.
 
 ## Current summary
 
@@ -70,8 +72,8 @@ behavior needs the in-game rows).
 
 ## Session
 
-**Last session:** 2026-10-03T16:20:13.845Z
-**Stopped at:** Completed 05-11-PLAN.md (phase 5 execution done; next: code review and verification)
+**Last session:** 2026-10-05T14:30:00.000Z
+**Stopped at:** Phase 5 complete (05-VERIFICATION passed, 05-UAT 14/14); next: plan phase 6
 **Resume file:** None
 
 ## Accumulated Context
@@ -81,6 +83,7 @@ behavior needs the in-game rows).
 - Phase 3 added (2026-09-28): Map editor plan 6: finish M1 — branch feat/map-editor-plan-6, worktree .worktrees/map-editor-6
 - Phase 3 complete (2026-09-29), merged into main 32b9233ce
 - Phase 4 added (2026-09-29): Map editor M2: roads, rivers, bridges, AI groups, scripts — branch feat/map-editor-m2, worktree .worktrees/map-editor-6
+- Phase 5 complete (2026-10-05): verified and UAT 14/14; merged into main e5561ca6f, Linux x64 build 1d7264fd6
 
 ## Performance Metrics
 

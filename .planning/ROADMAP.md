@@ -348,7 +348,7 @@ Plans:
 **Goal:** Map Editor M3 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md`: random map templates and generation from the editor, minimap tools, and every remaining feature of the MFC map editor (`Sources/src/MapEditor`) so the portable editor reaches full parity. When parity is shown by a feature-by-feature checklist against the MFC editor, delete the MFC map editor from the tree.
 **Requirements**: none mapped — CONTEXT D-01..D-40 (05-CONTEXT.md) are the requirements of record; 05-PARITY.md is the checklist of record (D-36) and 05-VALIDATION.md's D-40 exit criteria are the coverage contract
 **Depends on:** Phase 4
-**Plans:** 11/11 plans executed
+**Plans:** 11/11 plans complete. **Complete 2026-10-05** — verified (05-VERIFICATION.md passed, 05-UAT.md 14/14), Johannes's M3 hand try approved on macOS and Windows, MFC map editor deleted, CI run 37219830755 green at main 1d7264fd6.
 
 Plans (per D-39; waves serialized — plans 2-8 all touch bridge.h/editor.zig/fake_bridge.zig/c_bridge.zig/commands.zig/build.zig, so the shared-worktree execution order is plan order; depends_on keeps D-39's logical structure):
 

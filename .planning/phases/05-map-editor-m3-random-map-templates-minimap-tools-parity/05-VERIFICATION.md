@@ -1,8 +1,9 @@
 ---
 phase: 05-map-editor-m3-random-map-templates-minimap-tools-parity
 verified: 2026-10-04T09:00:00Z
-status: human_needed
-score: 9/10 must-haves verified
+status: passed
+score: 10/10 must-haves verified
+human_verified: 2026-10-05
 covered_files:
   - .github/workflows/cross-platform.yml
   - .planning/phases/05-map-editor-m3-random-map-templates-minimap-tools-parity/05-01-PLAN.md
@@ -165,8 +166,8 @@ human_verification:
 # Phase 5: Map editor M3 (random map templates, minimap, tools parity) Verification Report
 
 **Phase Goal:** Map Editor M3: random map templates and generation from the editor, minimap tools, and every remaining MFC map editor feature so the portable editor reaches full parity; then delete the MFC map editor from the tree.
-**Verified:** 2026-10-04
-**Status:** human_needed
+**Verified:** 2026-10-04; human verification closed 2026-10-05
+**Status:** passed
 **Re-verification:** Yes, after the CI fix commits 1e8760912..da88a73b5 (previous report 6391e027c: gaps_found, 8/10)
 
 The ROADMAP defines no success criteria for this phase. The requirements of record are CONTEXT D-01..D-40, and the contract is the D-40 exit criteria (05-VALIDATION.md). The ten D-40 criteria are the truths below; D-01..D-39 are covered through the parity checklist and the evidence under each truth.
@@ -186,9 +187,9 @@ The ROADMAP defines no success criteria for this phase. The requirements of reco
 | 7 | `map-editor-m3-auto` passes locally on macOS arm64 and on win-home | PASSED (override) | macOS arm64: `BK_EDITOR_AUTO: done (666 actions)`, 14/14, post-review-fix (`05-fix-gate-map-editor-m3-auto.log`). win-home: user-waived 2026-10-03 (no GUI over ssh). Additional evidence, not needed for the override: CI run 37165248482 now runs "Map editor scenarios" (`map-editor-m3-auto`) and "Game reads the editor's maps" (`map-editor-game-reads-it-m3`) as steps on windows-platform and macos-platform, both success at the tip |
 | 8 | `test-map-files-all` 1,755 maps, 0 FAIL | VERIFIED | `map-file: sweeping 1755 maps` / `1755 of 1755 maps round-tripped` / PASS in the post-fix engine gate log, plus the M3 map-file tier (`altitude region`, `fill`, `field region`, `object fields`, `players`) |
 | 9 | MFC editor, MapEditor.exe and every build/packaging/CI/VS Code reference gone | VERIFIED | `Sources/src/MapEditor` and `Sources/src/bin/MapEditor.exe` absent. `git grep 'src/MapEditor\|MapEditor.vcxproj\|Editors/MapEditor'` outside `.planning` and `docs/superpowers/plans` finds one hit: prose in the design spec `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md:5` ("It replaces the MFC Map Editor in `Sources/src/MapEditor`"), a historical statement, not a build reference. Remaining `MapEditor.exe` hits are the portable editor's own exe name. `RandomMapGen` and `Data/Editor` kept |
-| 10 | Johannes's hand try on the release build approves M3 | HUMAN | Pending by design |
+| 10 | Johannes's hand try on the release build approves M3 | VERIFIED (human, done) | 05-UAT.md 14/14 passed: tests 1-12 on the macOS release build (Intel Mac, 878630700), test 13 on the Windows x86_64-windows-msvc release build at main 1d7264fd6, test 14 the minimap shots of a map-editor-m3-auto run at 1d7264fd6; approved by Johannes 2026-10-05 (e4e3785da). CI run 37219830755 at 1d7264fd6 green |
 
-**Score:** 9/10 truths verified: truths 1 to 6, 8 and 9 VERIFIED (8) plus truth 7 PASSED (override) = 9. Truth 10 (Johannes's hand try) awaits the human and is human_needed, not a gap. The other two overrides (Depth Complexity, minimap marker filter) are parity waivers inside truth 1.
+**Score:** 10/10 truths verified: truths 1 to 6, 8 and 9 VERIFIED (8), truth 7 PASSED (override) and truth 10 VERIFIED by the human (05-UAT.md, 2026-10-05) = 10. (Before 2026-10-05: 9/10, truth 10 human_needed.) The other two overrides (Depth Complexity, minimap marker filter) are parity waivers inside truth 1.
 
 ### Requirements of record D-01..D-39: spot checks beyond the logs
 
@@ -248,6 +249,16 @@ CI run 37165248482: headSha da88a73b5b8916a9602234535c78d4e4c87579fb equals `git
 ### Gaps Summary
 
 No open gaps. The phase goal is met as far as it can be shown without a human: the code, the local gates, and now CI at the branch tip (six of six jobs, including the Windows-MSVC engine tier and the editor scenarios on both GPU runners) agree. What remains is Johannes's judgment: the hand try on the release build (D-40.10), the OS-level drag-and-drop and Windows double launch, and the visual look of the minimap and terrain. These are listed under human_verification and are not gaps. Recorded user-accepted gaps (Depth Complexity greyed, minimap markers not palette-filtered, Windows GUI legs via CI or by hand, script path relative, wheel by delta) were not re-opened.
+
+### Human Verification (closed 2026-10-05)
+
+All three human_verification items above are done, recorded in 05-UAT.md (status complete, 14/14 passed, 0 issues):
+
+- D-40.10 hand try: UAT tests 1-12 on the macOS release build (Intel Mac) and test 13 on the Windows release build (main 1d7264fd6), approved by Johannes.
+- OS drag and drop and the second-editor launch: UAT test 12 on macOS and again in test 13 on Windows.
+- The minimap shots and the Windows GPU look: UAT test 14 (shots from map-editor-m3-auto at 1d7264fd6) and test 13.
+
+G-05-8 (Test in game crashed in CProgressScreen::Init) was found during the UAT and fixed by 5c85692b4 before the re-test passed. Phase 5 is complete.
 
 ---
 
