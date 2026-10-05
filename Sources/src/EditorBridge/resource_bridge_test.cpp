@@ -44,10 +44,13 @@
 #include "../ResourceModel/comparator.h"
 #include "../ResourceModel/project.h"
 #include "../ResourceModel/items/tree_item_types.h"
+#include "../ResourceModel/items/stats_export.h"
 #include "../ResourceModel/items/squad/squad.h"
 #include "../ResourceModel/items/fence/fence.h"
 #include "../ResourceModel/key_frame_tree_item.h"
 #include "../Scene/Scene.h"
+#include "../Scene/ParticleSourceData.h"
+#include "../Scene/SmokinParticleSourceData.h"
 #include "../Main/GameStats.h"
 #include "../Main/RPGStats.h"
 #include "../zlib/zlib.h"
@@ -1909,6 +1912,11 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// The fixture carries its art (S11 T01); the S11 bridge tests prove the files.
 				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .bdg exports through its S11 exporter" );
 			}
+			else if ( szExt == "pcp" )
+			{
+				// The particle exporter (S12 T01); the S12 particle tests prove the file.
+				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .pcp exports through its S12 exporter" );
+			}
 			else if ( IsPortedExport( szExt ) )
 			{
 				if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S06 exporter" ).c_str() ) )
@@ -1959,8 +1967,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		Check( !fs::exists( modData / "medals/t10/half.xml", ec ) && !fs::exists( modDir / ".bk-export-staging", ec ),
 		       "export: a failed export leaves no file in data/ and no staging" );
 
-		// Batch: an mdc and a wpn (exported), a pcp (not ported: skipped with
-		// a warning), then -os re-saving a wpn unchanged.
+		// Batch: an mdc, a wpn and a pcp (all exported), an eff the batch has
+		// no exporter for is not in the folder; then -os re-saving a wpn unchanged.
 		NResourceModel::RegisterExporter( "mdc", &GoodExporter );
 		const fs::path src = scratch / "batch-src";
 		fs::create_directories( src / "nested", ec );
@@ -1979,7 +1987,13 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		for ( int i = 0; i < report.warning_count && i < 8; ++i )
 			if ( std::strstr( batchWarnings[i].text, "not ported yet" ) != 0 )
 				++nNotPorted;
-		Check( report.written == 3 && report.skipped == 1 && nNotPorted == 1, "batch: mdc and wpn exported, pcp skipped as not ported" );
+		if ( !Check( report.written == 4 && report.skipped == 0 && nNotPorted == 0, "batch: mdc, wpn and pcp exported" ) )
+		{
+			std::printf( "   detail: written=%d skipped=%d warnings=%d\n", report.written, report.skipped, report.warning_count );
+			for ( int i = 0; i < report.warning_count && i < 8; ++i )
+				std::printf( "   warning: %s\n", batchWarnings[i].text );
+		}
+		Check( fs::is_regular_file( dst / "data" / "effects" / "particles" / "batch-src.xml", ec ), "batch: the particle lands under dst/data/effects/particles" );
 		Check( fs::is_regular_file( dst / "data" / "weapons" / "batch-src.xml", ec ), "batch: the weapon lands in dst/data/weapons/<project folder>.xml" );
 		Check( fs::is_regular_file( dst / "data" / "medals/t10/1.xml", ec ), "batch: the export lands in dst/data/" );
 		std::string szBefore, szResaved;
@@ -2047,8 +2061,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 		Check( BkResImportFromGame( pSession, 4, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".san" ) != 0,
 		       "import: sprite is refused with the reason" );
-		Check( BkResImportFromGame( pSession, 11, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
-		       "import: pcp is refused as not ported yet" );
+		Check( BkResImportFromGame( pSession, 12, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
+		       "import: eff is refused as not ported yet" );
 		Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 5, "import: a refused import keeps the open project" );
 		Check( BkResImportFromGame( pSession, 5, ( scratch / "no-such" ).string().c_str() ) == BK_EDITOR_DATA_MISSING, "import: a folder without 1.xml is DATA_MISSING" );
 		Check( BkResImportFromGame( pSession, 5, 0 ) == BK_EDITOR_BAD_ARGUMENT, "import: a null path is a bad argument" );
@@ -2280,21 +2294,6 @@ static bool EffectExporter( const NResourceModel::Project &, const NResourceMode
 	return !ec;
 }
 
-// A particle source is one key-based xml (its texture stays in the shipped
-// data); the bridge wraps it in a one-particle effect, as the MFC frame did.
-static bool ParticleSourceExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &context, NResourceModel::SExportOutcome &outcome )
-{
-	std::error_code ec;
-	const std::filesystem::path target = std::filesystem::path( context.szStagingRoot ) / "editor/preview/particle.xml";
-	std::filesystem::create_directories( target.parent_path(), ec );
-	std::filesystem::copy_file( FoldedPath( g_dataRoot, "Effects/Particles/flame.xml" ), target, std::filesystem::copy_options::overwrite_existing, ec );
-	outcome.nWritten = ec ? 0 : 1;
-	outcome.szObjectName = "editor\\preview\\particle";
-	if ( ec )
-		outcome.szError = "cannot copy flame.xml: " + ec.message();
-	return !ec;
-}
-
 static bool NamelessExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &, NResourceModel::SExportOutcome & )
 {
 	return true;
@@ -2402,7 +2401,7 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 	const Capture kCaptures[] = {
 		{ "mesh",     "msh", 6,  &MeshExporter },
 		{ "sprite",   "spt", 4,  &SpriteExporter },
-		{ "particle", "pcp", 11, &ParticleSourceExporter },
+		{ "particle", "pcp", 11, &NResourceModel::ExportParticle },
 		// The effect project, an extra beside the one particle source.
 		{ "effect",   "eff", 12, &EffectExporter },
 	};
@@ -6344,15 +6343,258 @@ static void Fence( BkResSession *pSession, const std::string &szFixtureRoot, con
 
 }
 
+// S12 T01: the Particle project's exporter and importer. The fixture exports a
+// simple source and, with the complex source's reference set, a complex one;
+// both are read back through the engine's operator& and compared per track with
+// the model. The shipped Data/Effects/Particles sources import and re-export
+// field-equal through the comparator.
+namespace S12Particle
+{
+
+namespace fs = std::filesystem;
+
+static const int kGenerateSpeed = 0x11000000 + 138;
+
+// The exported file's engine read: the chunk's struct with its tracks.
+template <class TStats>
+static bool ReadKeyData( const fs::path &xml, TStats &stats )
+{
+	CPtr<IDataStorage> pStorage = OpenStorage( ( xml.parent_path().string() + "/" ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( xml.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+	CPtr<IDataTree> pDT = pStream != 0 ? CreateDataTreeSaver( pStream, IDataTree::READ ) : 0;
+	if ( pDT == 0 )
+		return false;
+	CTreeAccessor tree = pDT;
+	tree.Add( "KeyData", &stats );
+	return true;
+}
+
+static bool SetNamedProp( BkResSession *pSession, const char *pszName, const char *pszValue )
+{
+	for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+		for ( const BkResPropRecord &prop : T10::AllProps( pSession, node.id ) )
+			if ( std::strcmp( prop.default_name, pszName ) == 0 )
+				return BkResSetProp( pSession, node.id, prop.id, pszValue ) == BK_EDITOR_OK;
+	return false;
+}
+
+static fs::path FirstXml( const fs::path &dir )
+{
+	std::error_code ec;
+	fs::path found;
+	for ( fs::recursive_directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().extension() == ".xml" && it->path().parent_path().filename() == "particles" )
+			found = it->path();
+	return found;
+}
+
+static bool ExportTo( BkResSession *pSession, const fs::path &modDir, const char *pszName )
+{
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "%s", pszName );
+	BkResModSettingsSet( pSession, &mod );
+	BkResExportReport report = {};
+	if ( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK && report.written >= 1 )
+		return true;
+	std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	return false;
+}
+
+static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s12-particle";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "particle";
+	fs::create_directories( projectDir, ec );
+	fs::copy_file( fs::path( szFixtureRoot ) / "pcp" / "project.pcp", projectDir / "project.pcp", fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / "project.pcp";
+	if ( !Check( fs::is_regular_file( project, ec ), "particle: the fixture is copied" ) )
+		return;
+
+	// Simple source.
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "particle: project.pcp opens" ) )
+		return;
+	const fs::path modSimple = scratch / "mod-simple";
+	if ( !Check( ExportTo( pSession, modSimple, "S12 particle" ), "particle: the fixture exports" ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+	const fs::path xml = FirstXml( modSimple / "data" );
+	if ( !Check( !xml.empty() && xml.string().find( "ffects" ) != std::string::npos, "particle: the source lands under data/effects/particles" ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+	CPtr<SParticleSourceData> pSimple = new SParticleSourceData();
+	Check( ReadKeyData( xml, *pSimple ) && pSimple->nLifeTime == 15000 && pSimple->trackBeginSpeed.GetNumKeys() >= 2,
+	       "particle: the engine reads the exported simple source (life 15000, speed track has keys)" );
+	{
+		// The model's speed curve (Generate speed owner) against the engine's track.
+		int nOwner = -1;
+		for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+			if ( node.class_type == kGenerateSpeed )
+				nOwner = node.id;
+		BkResVec3 keys[64] = {};
+		int nCount = 0;
+		const bool bKeys = nOwner >= 0 && BkResGetParticleKeyframes( pSession, nOwner, keys, 64, &nCount ) == BK_EDITOR_OK;
+		bool bSame = bKeys && nCount >= 1 && ( nCount == pSimple->trackBeginSpeed.GetNumKeys() || nCount == 1 );
+		for ( int i = 0; bSame && i < nCount && i < pSimple->trackBeginSpeed.GetNumKeys(); ++i )
+			bSame = std::fabs( keys[i].y - pSimple->trackBeginSpeed.GetValueByIndex( i ) ) < 1e-4 && std::fabs( keys[i].x * 1000 - pSimple->trackBeginSpeed.GetTimeByIndex( i ) ) < 1e-2;
+		Check( bSame, "particle: the engine's speed track equals the model's keys" );
+	}
+	std::string szFirst, szAgain;
+	ReadBytes( xml.string(), szFirst );
+	Check( ExportTo( pSession, modSimple, "S12 particle" ) && ReadBytes( xml.string(), szAgain ) && szAgain == szFirst && !szFirst.empty(),
+	       "particle: a second forced export is byte-identical" );
+	const NResourceModel::SCompareResult self = NResourceModel::CompareStats( NResourceModel::EExportKind::PARTICLE, xml.string(), xml.string() );
+	Check( self.nFieldsCompared > 5 && self.messages.empty(), "particle: the comparator reads the exported source" );
+
+	// Import -> export -> compare.
+	BkResClose( pSession );
+	if ( Check( BkResImportFromGame( pSession, 11, xml.string().c_str() ) == BK_EDITOR_OK, "particle: the exported file imports" ) )
+	{
+		const fs::path mod2 = scratch / "mod2";
+		const bool bExported = S09Object::ExportStatsOnly( pSession, mod2, "S12 particle re-export", "pcp" );
+		BkResClose( pSession );
+		const fs::path xml2 = FirstXml( mod2 / "data" );
+		if ( Check( bExported && !xml2.empty(), "particle: the imported project exports stats-only" ) )
+		{
+			const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::PARTICLE, xml2.string(), xml.string() );
+			int nDifferent = 0;
+			for ( const std::string &szMessage : result.messages )
+				if ( !S09Object::NearFloat( szMessage ) )
+				{
+					++nDifferent;
+					std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+				}
+			std::printf( "ROUNDTRIP pcp fixture: %d fields compared, %d differences\n", result.nFieldsCompared, nDifferent );
+			Check( result.nFieldsCompared > 5 && nDifferent == 0, "particle: import -> export is field-equal" );
+		}
+	}
+	else
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+
+	// Complex source: the reference names the effect it scatters.
+	if ( Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "particle: the fixture reopens for the complex source" ) )
+	{
+		Check( SetNamedProp( pSession, "Particle reference", "effects\\particles\\flame" ), "particle: the complex source's reference is set" );
+		const fs::path modComplex = scratch / "mod-complex";
+		if ( Check( ExportTo( pSession, modComplex, "S12 particle complex" ), "particle: the complex project exports" ) )
+		{
+			const fs::path xmlC = FirstXml( modComplex / "data" );
+			CPtr<SSmokinParticleSourceData> pComplex = new SSmokinParticleSourceData();
+			Check( !xmlC.empty() && ReadKeyData( xmlC, *pComplex ) && pComplex->nLifeTime == 15000 && pComplex->szParticleEffectName.find( "flame" ) != std::string::npos,
+			       "particle: the engine reads the exported complex source and its effect name" );
+			const NResourceModel::SCompareResult selfC = NResourceModel::CompareStats( NResourceModel::EExportKind::PARTICLE, xmlC.string(), xmlC.string() );
+			Check( selfC.nFieldsCompared > 5 && selfC.messages.empty(), "particle: the comparator reads the exported complex source" );
+		}
+		BkResClose( pSession );
+	}
+
+	// A file that is no particle source is refused naming the file.
+	const fs::path notParticle = scratch / "not-a-particle.xml";
+	T10::WriteText( notParticle, "<?xml version=\"1.0\"?>\n<root><other/></root>\n" );
+	Check( BkResImportFromGame( pSession, 11, notParticle.string().c_str() ) != BK_EDITOR_OK && std::strstr( BkEditorLastMessage( pSession ), "not-a-particle" ) != nullptr,
+	       "particle: an xml without KeyData is refused naming the file" );
+	std::printf( "GOLDEN pcp pending: the MFC export of pcp/project.pcp is made on win-home only\n" );
+}
+
+static std::vector<fs::path> ShippedFiles( const std::string &szRoot )
+{
+	std::error_code ec;
+	const fs::path dir = T11::FoldedPath( T11::FoldedPath( fs::path( szRoot ) / "Data", "Effects" ), "Particles" );
+	std::vector<fs::path> files;
+	for ( fs::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().extension() == ".xml" )
+			files.push_back( it->path() );
+	std::sort( files.begin(), files.end() );
+	return files;
+}
+
+static std::string ListingOfFiles( const std::vector<fs::path> &files )
+{
+	std::string szListing;
+	std::error_code ec;
+	for ( const fs::path &file : files )
+		szListing += file.string() + "|" + std::to_string( fs::file_size( file, ec ) ) + "\n";
+	return szListing;
+}
+
+// Every shipped particle source imports and exports stats-only to a file the
+// engine reads field-equal. Strict (D022): a file that is no particle source is
+// counted and named as skipped, never dropped; an unimportable one fails.
+static void Shipped( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s12-particle-shipped";
+	fs::remove_all( scratch, ec );
+	const std::vector<fs::path> files = ShippedFiles( szRoot );
+	const std::string szBefore = ListingOfFiles( files );
+	int nChecked = 0, nSkipped = 0, nUnimportable = 0, nFields = 0, nDifferent = 0, nExcused = 0;
+	for ( const fs::path &file : files )
+	{
+		const fs::path mod = scratch / ( "mod" + std::to_string( nChecked + nSkipped + nUnimportable ) );
+		if ( BkResImportFromGame( pSession, 11, file.string().c_str() ) != BK_EDITOR_OK )
+		{
+			const std::string szMessage = BkEditorLastMessage( pSession );
+			BkResClose( pSession );
+			if ( szMessage.find( "not a particle source" ) != std::string::npos )
+			{
+				++nSkipped;
+				std::printf( "   PARTICLES skipped (not a particle source): %s\n", file.string().c_str() );
+			}
+			else
+			{
+				++nUnimportable;
+				std::printf( "   PARTICLES unimportable: %s: %s\n", file.string().c_str(), szMessage.c_str() );
+			}
+			continue;
+		}
+		const bool bExported = S09Object::ExportStatsOnly( pSession, mod, "S12 particle shipped", "pcp" );
+		const std::string szExportMessage = bExported ? "" : BkEditorLastMessage( pSession );
+		BkResClose( pSession );
+		const fs::path xml = FirstXml( mod / "data" );
+		if ( !bExported || xml.empty() )
+		{
+			++nUnimportable;
+			std::printf( "   PARTICLES export failed: %s: %s\n", file.string().c_str(), szExportMessage.c_str() );
+			continue;
+		}
+		const NResourceModel::SCompareResult result = NResourceModel::CompareRoundTrip( NResourceModel::EExportKind::PARTICLE, xml.string(), file.string() );
+		nExcused += int( result.excused.size() );
+		int nHere = 0;
+		for ( const std::string &szMessage : result.messages )
+			if ( !S09Object::NearFloat( szMessage ) )
+			{
+				++nHere;
+				std::printf( "   DIFFERENT %s: %s\n", file.filename().string().c_str(), szMessage.c_str() );
+			}
+		nFields += result.nFieldsCompared;
+		nDifferent += nHere;
+		if ( result.nFieldsCompared <= 5 )
+		{
+			++nUnimportable;
+			std::printf( "   PARTICLES too few fields compared: %s (%d)\n", file.string().c_str(), result.nFieldsCompared );
+			continue;
+		}
+		++nChecked;
+	}
+	std::printf( "PARTICLES checked=%d files=%d skipped=%d unimportable=%d fields=%d differences=%d excused=%d\n", nChecked, int( files.size() ), nSkipped, nUnimportable, nFields, nDifferent, nExcused );
+	Check( !files.empty() && nChecked + nSkipped == int( files.size() ) && nUnimportable == 0, "particle shipped: every shipped particle source was imported and exported" );
+	Check( nDifferent == 0, "particle shipped: every shipped source is field-equal after the round trip" );
+	Check( ListingOfFiles( files ) == szBefore, "particle shipped: nothing was written into Data" );
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
 	_set_error_mode( _OUT_TO_STDERR );
 	_set_abort_behavior( 0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT );
-	_CrtSetReportMode( _CRT_ASSERT, _CRTDBG_MODE_FILE );
-	_CrtSetReportFile( _CRT_ASSERT, _CRTDBG_FILE_STDERR );
-	_CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_FILE );
-	_CrtSetReportFile( _CRT_ERROR, _CRTDBG_FILE_STDERR );
 #endif
 
 	// A real hidden window, never a null handle. SDL_WINDOW_NOT_FOCUSABLE
@@ -6622,6 +6864,10 @@ int main( int argc, char **argv )
 	// S11 T02: every shipped bridge's round trip and the bridge negative-tile guard.
 	S11Bridge::Shipped( pSession, pszRoot, szScratchRoot );
 	S11Bridge::NegativeTiles( pSession, pszRoot );
+
+	// S12 T01: the particle exporter and importer.
+	S12Particle::Fixture( pSession, szFixtureRoot, szScratchRoot );
+	S12Particle::Shipped( pSession, pszRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

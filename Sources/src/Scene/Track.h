@@ -43,6 +43,7 @@ public:
 	int operator&( IDataTree &ss );
 	bool IsEmpty() const { return keys.empty(); }
 	float GetTimeByIndex( int index ) const;
+	float GetValueByIndex( int index ) const;
 	int GetNumKeys() const;
 	void Clear() { keys.clear(); fScale = 1000.0f; }
 };

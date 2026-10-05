@@ -759,6 +759,23 @@ struct SRoundTripLoss
 	const char *pszWhy;
 };
 const SRoundTripLoss kRoundTripLosses[] = {
+	{ EExportKind::PARTICLE, "KeyData/Position", "an older particle export wrote a position the struct never reads and no project item holds, so an imported source comes back without it" },
+	{ EExportKind::PARTICLE, "KeyData/Position/", "an older particle export wrote a position the struct never reads and no project item holds, so an imported source comes back without it" },
+	{ EExportKind::PARTICLE, "KeyData/GenerateSpinRand", "an older particle export spelled GenerateSpinRnd this way; the struct reads only the new name and the project holds that one" },
+	{ EExportKind::PARTICLE, "KeyData/GenerateSpinRand/", "an older particle export spelled GenerateSpinRnd this way; the struct reads only the new name and the project holds that one" },
+	{ EExportKind::PARTICLE, "KeyData/BeginSpeedRandomizer", "the file omits this track and SParticleSourceData::Init gives the struct a zero track; the project holds the same zero as the curve\'s default key, so the export writes the track the file left out" },
+	{ EExportKind::PARTICLE, "KeyData/BeginSpeedRandomizer/", "the file omits this track and SParticleSourceData::Init gives the struct a zero track; the project holds the same zero as the curve\'s default key, so the export writes the track the file left out" },
+	{ EExportKind::PARTICLE, "KeyData/SpeedRnd", "the file omits this track and SParticleSourceData::Init gives the struct a zero track; the project holds the same zero as the curve\'s default key, so the export writes the track the file left out" },
+	{ EExportKind::PARTICLE, "KeyData/SpeedRnd/", "the file omits this track and SParticleSourceData::Init gives the struct a zero track; the project holds the same zero as the curve\'s default key, so the export writes the track the file left out" },
+	{ EExportKind::PARTICLE, "KeyData/ParticleLifeTimeRandomizer", "the file omits this track and SParticleSourceData::Init gives the struct a zero track; the project holds the same zero as the curve\'s default key, so the export writes the track the file left out" },
+	{ EExportKind::PARTICLE, "KeyData/ParticleLifeTimeRandomizer/", "the file omits this track and SParticleSourceData::Init gives the struct a zero track; the project holds the same zero as the curve\'s default key, so the export writes the track the file left out" },
+	{ EExportKind::PARTICLE, "KeyData/GenerateSpinRnd", "the file omits this track and SParticleSourceData::Init gives the struct a zero track; the project holds the same zero as the curve\'s default key, so the export writes the track the file left out" },
+	{ EExportKind::PARTICLE, "KeyData/GenerateSpinRnd/", "the file omits this track and SParticleSourceData::Init gives the struct a zero track; the project holds the same zero as the curve\'s default key, so the export writes the track the file left out" },
+	{ EExportKind::PARTICLE, "KeyData/TextureFrame", "the file omits this track and SParticleSourceData::Init gives the struct a zero track; the project holds the same zero as the curve\'s default key, so the export writes the track the file left out" },
+	{ EExportKind::PARTICLE, "KeyData/TextureFrame/", "the file omits this track and SParticleSourceData::Init gives the struct a zero track; the project holds the same zero as the curve\'s default key, so the export writes the track the file left out" },
+	{ EExportKind::PARTICLE, "KeyData/AreaType", "an older particle export omitted this attribute and the struct reads its default (0); the project holds that value and the export writes the attribute" },
+	{ EExportKind::PARTICLE, "KeyData/RadialWind", "an older particle export omitted this attribute and the struct reads its default (0); the project holds that value and the export writes the attribute" },
+	{ EExportKind::PARTICLE, "KeyData/ComplexParticleSource", "an older particle export omitted this attribute and the struct reads its default (0); the project holds that value and the export writes the attribute" },
 	{ EExportKind::ENTRENCHMENT, "RPG/Segments", "CTrenchFrame::LoadRPGStats (TrenchFrm.cpp:363) never read the segments back: a segment is a model file the project points at, which a runtime stats file does not say" },
 	{ EExportKind::ENTRENCHMENT, "RPG/Segments#count", "CTrenchFrame::LoadRPGStats (TrenchFrm.cpp:363) never read the segments back: a segment is a model file the project points at, which a runtime stats file does not say" },
 	{ EExportKind::ENTRENCHMENT, "RPG/Lines", "derived from the segments the import cannot read back (see RPG/Segments)" },

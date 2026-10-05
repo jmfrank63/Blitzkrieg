@@ -45,6 +45,7 @@
 #include "../ResourceModel/items/object/object_export.h"
 #include "../ResourceModel/items/building/building_export.h"
 #include "../ResourceModel/items/bridge/bridge_export.h"
+#include "../ResourceModel/items/particle/particle_export.h"
 #include "../ResourceModel/combos.h"
 #include "../Main/RPGStats.h"
 #include "../Main/iMain.h"
@@ -53,6 +54,8 @@
 #include "../Scene/Scene.h"
 #include "../Scene/SceneScreenScale.h"
 #include "../Scene/PFX.h"
+#include "../Scene/ParticleSourceData.h"
+#include "../Scene/SmokinParticleSourceData.h"
 #include "../Anim/Animation.h"
 #include "../zlib/zlib.h"
 
@@ -4961,6 +4964,7 @@ const int kObjectKind = 7;   // "obt", the Object project
 const int kFenceKind = 8;    // "fnc", the Fence project
 const int kBuildingKind = 9; // "bld", the Building project
 const int kBridgeKind = 10;  // "bdg", the Bridge project
+const int kParticleKind = 11; // "pcp", the Particle project
 
 NResourceModel::CTreeItem *ChildOfType( NResourceModel::CTreeItem &item, int nType )
 {
@@ -5320,6 +5324,22 @@ bool ReadRuntimeStats( const std::filesystem::path &statsFile, TStats &stats, Bk
 	tree.Add( pszChunk, &stats );
 	return true;
 }
+
+// SSourceType of ParticleFrm.cpp:463: which of the two particle structs a
+// KeyData chunk holds. bFound tells a file with no KeyData chunk (any other
+// xml) from a simple source, which the flag alone cannot.
+struct SParticleSourceType
+{
+	bool bFound = false;
+	bool bComplexParticleSource = false;
+	int operator&( IDataTree &ss )
+	{
+		bFound = true;
+		CTreeAccessor saver = &ss;
+		saver.Add( "ComplexParticleSource", &bComplexParticleSource );
+		return 0;
+	}
+};
 
 // CObjectFrame::LoadRPGStats' tree half: the common properties and the
 // effects, which MFC copied back from the stats. The AI classes the object
@@ -5715,11 +5735,12 @@ void MechStatsToTree( const SMechUnitRPGStats &rpgStats, NResourceModel::CTreeIt
 	}
 }
 
-// The weapon's stats are a flat file named after the weapon (weapons\mg_37t.xml),
+// The weapon's stats are a flat file named after the weapon (weapons\mg_37t.xml)
+// and a particle's a flat file named after the source (effects\particles\flame.xml),
 // every other kind's a 1.xml in a folder of its own.
 std::filesystem::path RuntimeStatsFile( BkResKind kind, const char *pszPath )
 {
-	if ( kind == 0 )
+	if ( kind == 0 || kind == kParticleKind )
 	{
 		std::error_code ec;
 		if ( std::filesystem::is_regular_file( pszPath, ec ) )
@@ -5738,7 +5759,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
 		const std::string szExtension = kKindExtensions[kind];
-		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind || kind == kBridgeKind;
+		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind || kind == kBridgeKind || kind == kParticleKind;
 		if ( !bPorted )
 		{
 			pSession->szMessage = kind == 4
@@ -5754,7 +5775,8 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		const std::filesystem::path statsFile = RuntimeStatsFile( kind, pszPath );
 		if ( statsFile.empty() )
 		{
-			pSession->szMessage = kind == 0 ? std::string( "no weapon file " ) + pszPath : std::string( "no 1.xml in " ) + pszPath;
+			pSession->szMessage = kind == 0 ? std::string( "no weapon file " ) + pszPath
+				: kind == kParticleKind ? std::string( "no particle file " ) + pszPath : std::string( "no 1.xml in " ) + pszPath;
 			return BK_EDITOR_DATA_MISSING;
 		}
 		auto pRoot = NResourceModel::CTreeItemFactory::Instance().Create( kKindTable[kind].nRootType );
@@ -5871,6 +5893,43 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				if ( !szKeyName.empty() )
 					NResourceModel::BridgeStatsToTree( bridgeStats, *pRoot, NResourceModel::GridProjection( camera ), szKeyName );
 				bBridgeFrame = true;
+				break;
+			}
+			case kParticleKind:
+			{
+				// CParticleFrame::LoadRPGStats: KeyData/ComplexParticleSource picks the
+				// struct and the engine's own operator& reads it. A source has no name
+				// in its stats: it is its file's. The structs are shared resources, so
+				// they live on the heap as the engine reads them.
+				SParticleSourceType sourceType;
+				if ( !ReadRuntimeStats( statsFile, sourceType, pSession, status, "KeyData" ) )
+					return status;
+				if ( !sourceType.bFound )
+				{
+					pSession->szMessage = statsFile.string() + " has no KeyData chunk: it is not a particle source";
+					return BK_EDITOR_FAILED;
+				}
+				szKeyName = statsFile.stem().string();
+				if ( sourceType.bComplexParticleSource )
+				{
+					CPtr<SSmokinParticleSourceData> pStats = new SSmokinParticleSourceData();
+					if ( !ReadRuntimeStats( statsFile, *pStats, pSession, status, "KeyData" ) )
+						return status;
+					NResourceModel::SParticleRawFile raw;
+					if ( !ReadRuntimeStats( statsFile, raw, pSession, status, "KeyData" ) )
+						return status;
+					NResourceModel::ParticleStatsToTree( *pStats, raw, *pRoot, szKeyName );
+				}
+				else
+				{
+					CPtr<SParticleSourceData> pStats = new SParticleSourceData();
+					if ( !ReadRuntimeStats( statsFile, *pStats, pSession, status, "KeyData" ) )
+						return status;
+					NResourceModel::SParticleRawFile raw;
+					if ( !ReadRuntimeStats( statsFile, raw, pSession, status, "KeyData" ) )
+						return status;
+					NResourceModel::ParticleStatsToTree( *pStats, raw, *pRoot, szKeyName );
+				}
 				break;
 			}
 			case kFenceKind:

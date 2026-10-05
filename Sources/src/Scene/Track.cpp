@@ -220,6 +220,10 @@ float CTrack::GetTimeByIndex( int index ) const
 {
 	return keys[index].fTime;
 }
+float CTrack::GetValueByIndex( int index ) const
+{
+	return keys[index].fValue;
+}
 int CTrack::GetNumKeys() const
 {
 	return keys.size();
