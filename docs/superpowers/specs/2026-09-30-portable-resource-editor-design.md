@@ -857,6 +857,12 @@ one, the newer instruction wins, and record the change in the spec").
   colours (0xff0000 locked, 0x606000 and 0x808000 transparency) are counted by code and which
   must disappear after undo.
 
+- **Negative tiles (D021), S10, 2026-10-06.** Measured: all 590 shipped objects under `Data/Objects`
+  import and read their passability and transparency cells with no tile left of or above tile
+  (0, 0) (`NEGTILES objects checked=590 negative=0 import_failed=0`). The grid channels keep
+  refusing such a tile and need no origin in the blob. `S09Object::NegativeTiles` in
+  `resource_bridge_test.cpp` stays as the guard and fails if a shipped object ever needs one.
+
 - Squad overlay screen Y (D018, M001/S08): MFC projects the formation through
   `IScene::GetPos2`. The camera looks toward +Y (`Scene/Camera.cpp:10,76-79`,
   pitch -135 degrees) and the viewport matrix negates Y

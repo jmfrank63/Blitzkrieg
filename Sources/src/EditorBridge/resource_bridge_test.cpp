@@ -4284,6 +4284,59 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 	Check( ListingOf( shipped ) == listingBefore, "object shipped: nothing was written into Data" );
 }
 
+// D021: the grid channels refuse a tile left of or above tile (0, 0). That is only safe
+// while no shipped object needs one, so every shipped object is imported and its
+// passability and transparency cells read. Imports run on the shipped folders in place
+// (read-only, as the case above) and the listings of all of them are compared after.
+static void NegativeTiles( BkResSession *pSession, const std::string &szRoot )
+{
+	std::error_code ec;
+	const fs::path objects = T11::FoldedPath( fs::path( szRoot ) / "Data", "Objects" );
+	std::vector<fs::path> folders;
+	for ( fs::recursive_directory_iterator it( objects, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().filename() == "1.xml" )
+			folders.push_back( it->path().parent_path() );
+	std::sort( folders.begin(), folders.end() );
+	std::string szBefore;
+	for ( const fs::path &folder : folders )
+		szBefore += folder.string() + "|" + ListingOf( folder ) + "\n";
+	int nChecked = 0, nNegative = 0, nImportFailed = 0;
+	for ( const fs::path &folder : folders )
+	{
+		if ( BkResImportFromGame( pSession, 7, folder.string().c_str() ) != BK_EDITOR_OK )
+		{
+			++nImportFailed;
+			std::printf( "   NEGTILES import failed: %s: %s\n", folder.string().c_str(), BkEditorLastMessage( pSession ) );
+			BkResClose( pSession );
+			continue;
+		}
+		++nChecked;
+		bool bNegative = false;
+		int w = 0, h = 0;
+		const int nRoot = FirstNodeOfType( pSession, NResourceModel::ETIT_OBJECT_ROOT_ITEM );
+		for ( int nChannel = 0; nChannel < 2; ++nChannel )
+		{
+			const BkEditorStatus status = nChannel == 0 ? BkResGetPassabilityCells( pSession, nRoot, nullptr, 0, &w, &h )
+				: BkResGetTransparencyCells( pSession, nRoot, nullptr, 0, &w, &h );
+			if ( status != BK_EDITOR_OK && std::strstr( BkEditorLastMessage( pSession ), "left of or above" ) )
+				bNegative = true;
+		}
+		if ( bNegative )
+		{
+			++nNegative;
+			std::printf( "   NEGTILES offender: %s\n", folder.string().c_str() );
+		}
+		BkResClose( pSession );
+	}
+	std::printf( "NEGTILES objects checked=%d negative=%d import_failed=%d\n", nChecked, nNegative, nImportFailed );
+	Check( nChecked > 500, "object negtiles: more than 500 shipped objects were checked" );
+	Check( nNegative == 0, "object negtiles: no shipped object has a tile left of or above (0, 0)" );
+	std::string szAfter;
+	for ( const fs::path &folder : folders )
+		szAfter += folder.string() + "|" + ListingOf( folder ) + "\n";
+	Check( szAfter == szBefore, "object negtiles: nothing was written into Data" );
+}
+
 }
 
 namespace S06Preview
@@ -5753,6 +5806,7 @@ int main( int argc, char **argv )
 	// S09 T02: the object exporter and importer.
 	S09Object::Fixture( pSession, szFixtureRoot, szScratchRoot );
 	S09Object::Shipped( pSession, pszRoot, szScratchRoot );
+	S09Object::NegativeTiles( pSession, pszRoot );
 	// S09 T03: the fence exporter and importer.
 	S09Fence::Fixture( pSession, szFixtureRoot, szScratchRoot );
 	S09Fence::IndexHole( pSession, szFixtureRoot, szScratchRoot );
