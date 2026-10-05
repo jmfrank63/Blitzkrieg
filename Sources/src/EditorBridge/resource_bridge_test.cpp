@@ -5479,6 +5479,180 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
 }
 
+// A shipped building imports and exports stats-only to the 1.xml it came from.
+static void Shipped( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s10-building-shipped";
+	fs::remove_all( scratch, ec );
+	const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", "Buildings/europe/summer/e_stella/01" );
+	if ( !Check( fs::is_regular_file( T11::FoldedPath( shipped, "1.xml" ), ec ), "building shipped: the shipped 1.xml exists" ) )
+		return;
+	const std::string listingBefore = S09Object::ListingOf( shipped );
+	if ( !Check( BkResImportFromGame( pSession, 9, shipped.string().c_str() ) == BK_EDITOR_OK, "building shipped: imports" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	const fs::path mod = scratch / "mod";
+	const bool bExported = S09Object::ExportStatsOnly( pSession, mod, "S10 building shipped", "bld" );
+	BkResClose( pSession );
+	const fs::path xml = S09Object::FindFile( mod / "data", "1.xml" );
+	if ( !Check( bExported && !xml.empty(), "building shipped: exports stats-only" ) )
+		return;
+	const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::BUILDING, xml.string(), T11::FoldedPath( shipped, "1.xml" ).string() );
+	int nDifferent = 0;
+	for ( const std::string &szMessage : result.messages )
+		if ( !S09Object::NearFloat( szMessage ) )
+		{
+			++nDifferent;
+			std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+		}
+	std::printf( "ROUNDTRIP bld e_stella/01: %d fields compared, %d differences\n", result.nFieldsCompared, nDifferent );
+	Check( result.nFieldsCompared > 5 && nDifferent == 0, "building shipped: the stats are field-equal to the shipped 1.xml" );
+	Check( S09Object::ListingOf( shipped ) == listingBefore, "building shipped: nothing was written into Data" );
+}
+
+// D021 for buildings: their grids are tile-frame channels with the same refusal of a tile
+// left of or above (0, 0), so every shipped building is imported and its passability and
+// transparency cells read. Imports run on the shipped folders in place (read-only).
+static void NegativeTiles( BkResSession *pSession, const std::string &szRoot )
+{
+	std::error_code ec;
+	const fs::path buildings = T11::FoldedPath( fs::path( szRoot ) / "Data", "Buildings" );
+	std::vector<fs::path> folders;
+	for ( fs::recursive_directory_iterator it( buildings, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().filename() == "1.xml" )
+			folders.push_back( it->path().parent_path() );
+	std::sort( folders.begin(), folders.end() );
+	std::string szBefore;
+	for ( const fs::path &folder : folders )
+		szBefore += folder.string() + "|" + S09Object::ListingOf( folder ) + "\n";
+	int nChecked = 0, nNegative = 0, nImportFailed = 0;
+	for ( const fs::path &folder : folders )
+	{
+		if ( BkResImportFromGame( pSession, 9, folder.string().c_str() ) != BK_EDITOR_OK )
+		{
+			++nImportFailed;
+			std::printf( "   NEGTILES import failed: %s: %s\n", folder.string().c_str(), BkEditorLastMessage( pSession ) );
+			BkResClose( pSession );
+			continue;
+		}
+		++nChecked;
+		bool bNegative = false;
+		int w = 0, h = 0;
+		const int nRoot = FirstNodeOfType( pSession, NResourceModel::ETIT_BUILDING_ROOT_ITEM );
+		for ( int nChannel = 0; nChannel < 2; ++nChannel )
+		{
+			const BkEditorStatus status = nChannel == 0 ? BkResGetPassabilityCells( pSession, nRoot, nullptr, 0, &w, &h )
+				: BkResGetTransparencyCells( pSession, nRoot, nullptr, 0, &w, &h );
+			if ( status != BK_EDITOR_OK && std::strstr( BkEditorLastMessage( pSession ), "left of or above" ) )
+				bNegative = true;
+		}
+		if ( bNegative )
+		{
+			++nNegative;
+			std::printf( "   NEGTILES offender: %s\n", folder.string().c_str() );
+		}
+		BkResClose( pSession );
+	}
+	std::printf( "NEGTILES buildings checked=%d negative=%d import_failed=%d\n", nChecked, nNegative, nImportFailed );
+	Check( nChecked > 150, "building negtiles: more than 150 shipped buildings were checked" );
+	Check( nNegative == 0, "building negtiles: no shipped building has a tile left of or above (0, 0)" );
+	std::string szAfter;
+	for ( const fs::path &folder : folders )
+		szAfter += folder.string() + "|" + S09Object::ListingOf( folder ) + "\n";
+	Check( szAfter == szBefore, "building negtiles: nothing was written into Data" );
+}
+
+// The GOG INTEX2 brandenburgertor/current.bld against the MFC export of it made on
+// win-home. BK_GOG_ROOT is the GOG install holding the INTEX2 mod projects and
+// BK_GOG_GOLDEN the folder tools/zig/win-home/export-goldens.ps1 -GogProject wrote.
+// GOG files are only read here, never copied into the repository. Without both the
+// case is reported pending, which is not a pass.
+static std::string Lower( std::string sz )
+{
+	for ( char &c : sz )
+		c = char( std::tolower( (unsigned char)c ) );
+	return sz;
+}
+
+static void GogBrandenburgertor( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const char *pszRoot = std::getenv( "BK_GOG_ROOT" ), *pszGolden = std::getenv( "BK_GOG_GOLDEN" );
+	if ( !pszRoot || !*pszRoot || !pszGolden || !*pszGolden || !fs::is_directory( pszRoot, ec ) || !fs::is_directory( pszGolden, ec ) )
+	{
+		std::printf( "GOLDEN bld-gog-brandenburgertor pending: BK_GOG_ROOT/BK_GOG_GOLDEN not set (win-home only)\n" );
+		return;
+	}
+	fs::path project;
+	for ( fs::recursive_directory_iterator it( pszRoot, fs::directory_options::skip_permission_denied, ec ), end; !ec && it != end; it.increment( ec ) )
+	{
+		if ( !it->is_regular_file( ec ) || Lower( it->path().filename().string() ) != "current.bld" )
+			continue;
+		const fs::path parent = it->path().parent_path();
+		if ( Lower( parent.filename().string() ) == "brandenburgertor" && Lower( parent.parent_path().filename().string() ) == "intex2" )
+		{
+			project = it->path();
+			break;
+		}
+	}
+	if ( !Check( !project.empty(), "bld-gog-brandenburgertor: INTEX2/brandenburgertor/current.bld is found under BK_GOG_ROOT" ) )
+		return;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s10-bld-gog";
+	fs::remove_all( scratch, ec );
+	const fs::path modDir = scratch / "mod";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S10 bld gog" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "bld-gog-brandenburgertor: the mod folder is set" );
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "bld-gog-brandenburgertor: current.bld opens" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	BkResExportReport report = {};
+	const bool bExported = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK && report.written >= 1;
+	if ( !Check( bExported, "bld-gog-brandenburgertor: the project exports" ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	BkResClose( pSession );
+	const fs::path xml = S09Object::FindFile( modDir / "data", "1.xml" );
+	const fs::path goldenXml = S09Object::FindFile( pszGolden, "1.xml" );
+	if ( !Check( bExported && !xml.empty() && !goldenXml.empty(), "bld-gog-brandenburgertor: both sides have a 1.xml" ) )
+		return;
+	NResourceModel::SDxtTolerance tolerance;
+	std::string szError;
+	if ( !Check( NResourceModel::LoadDxtTolerance( ( fs::path( szFixtureRoot ) / "dxt-tolerance.json" ).string(), &tolerance, &szError ), ( "bld-gog-brandenburgertor: the DXT gate loads " + szError ).c_str() ) )
+		return;
+	int nFiles = 0, nFailed = 0;
+	for ( fs::directory_iterator it( goldenXml.parent_path(), ec ), end; !ec && it != end; it.increment( ec ) )
+	{
+		if ( !it->is_regular_file( ec ) )
+			continue;
+		const std::string szName = it->path().filename().string(), szLower = Lower( szName );
+		const fs::path port = xml.parent_path() / szName;
+		NResourceModel::SCompareResult result;
+		if ( szLower == "1.xml" )
+			result = NResourceModel::CompareStats( NResourceModel::EExportKind::BUILDING, port.string(), it->path().string() );
+		else if ( szLower.size() > 6 && szLower.compare( szLower.size() - 6, 6, "_h.dds" ) == 0 )
+			result = NResourceModel::CompareBytes( port.string(), it->path().string() );
+		else if ( szLower.size() > 4 && szLower.compare( szLower.size() - 4, 4, ".dds" ) == 0 )
+			result = NResourceModel::CompareDxt( port.string(), it->path().string(), tolerance );
+		else
+			continue;
+		++nFiles;
+		if ( result.status != NResourceModel::ECompareStatus::EQUAL || !result.messages.empty() )
+		{
+			++nFailed;
+			for ( const std::string &szMessage : result.messages )
+				std::printf( "   GOLDEN bld-gog-brandenburgertor FAIL %s: %s\n", szName.c_str(), szMessage.c_str() );
+		}
+	}
+	std::printf( "GOLDEN bld-gog-brandenburgertor %s (%d files, %d differing)\n", nFailed == 0 && nFiles > 0 ? "pass" : "FAIL", nFiles, nFailed );
+	Check( nFiles > 0 && nFailed == 0, "bld-gog-brandenburgertor: the export equals the MFC golden" );
+}
+
 }
 
 // S09 T04: the grid channels the Object and Fence sub-editors edit. Each one
@@ -6068,6 +6242,10 @@ int main( int argc, char **argv )
 	S09Channels::Fence( pSession, szFixtureRoot, szScratchRoot );
 	// S10 T03: the building exporter and importer.
 	S10Building::Fixture( pSession, szFixtureRoot, szScratchRoot );
+	// S10 T04: a shipped building's round trip, the building negative-tile guard and the GOG golden (win-home only).
+	S10Building::Shipped( pSession, pszRoot, szScratchRoot );
+	S10Building::NegativeTiles( pSession, pszRoot );
+	S10Building::GogBrandenburgertor( pSession, szFixtureRoot, szScratchRoot );
 	// S10 T02: the building's tile-frame grids, sprite position and point children.
 	S09Channels::Building( pSession, szFixtureRoot, szScratchRoot );
 

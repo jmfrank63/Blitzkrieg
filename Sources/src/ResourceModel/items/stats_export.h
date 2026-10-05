@@ -35,6 +35,7 @@ bool ExportInfantry( const Project &project, const SExportContext &context, SExp
 bool ExportMesh( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportObject( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportFence( const Project &project, const SExportContext &context, SExportOutcome &outcome );
+bool ExportBuilding( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 
 // CMeshFrame::SetCombatMesh's locator half (MeshFrm.cpp:1762-1885): the root's
 // Locators item gets one child per skeleton node of the combat .mod, named as

@@ -43,5 +43,8 @@ void WriteObjectFrameData( Project &project, const SObjectFrameData &data );
 // document (the bridge renders a save into one and recomputes desc there).
 bool ReadObjectFrameData( const NResourceXml::Node &root, SObjectFrameData &data, std::string &szError );
 void WriteObjectFrameData( NResourceXml::Node &root, const SObjectFrameData &data );
+// Only the grid half of desc (passability, origin, visibility, VisOrigin): a building's frame has no
+// own_data TransLines, so its save must not gain them.
+void WriteObjectGrids( NResourceXml::Node &root, const SObjectFrameData &data );
 
 }

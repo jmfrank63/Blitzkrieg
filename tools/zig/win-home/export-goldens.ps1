@@ -19,7 +19,11 @@ param(
     [string[]]$Extensions = @("wpn", "mcp", "trc", "scp", "spt", "unt", "msh", "obt", "fnc", "bld", "bdg",
                               "pcp", "eff", "til", "3rd", "3rv", "mip", "chc", "cgc", "mdc"),
     [string]$ScratchRoot = "",
-    [int]$TimeoutSeconds = 600
+    [int]$TimeoutSeconds = 600,
+    # Optional GOG mode: batch-export one GOG mod project (a folder holding current.bld) into
+    # -GogOut, which is never inside the repository, and print the BK_GOG_* values to use.
+    [string]$GogProject = "",
+    [string]$GogOut = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,6 +43,32 @@ $commit = (& git -C $repoRoot rev-parse HEAD).Trim()
 Write-Host "editor   $EditorPath"
 Write-Host "commit   $commit"
 Write-Host "scratch  $ScratchRoot"
+
+if (-not [string]::IsNullOrWhiteSpace($GogProject)) {
+    if ([string]::IsNullOrWhiteSpace($GogOut)) { throw "-GogProject needs -GogOut (an uncommitted folder)" }
+    $GogProject = [IO.Path]::GetFullPath($GogProject)
+    $GogOut = [IO.Path]::GetFullPath($GogOut)
+    if ($GogOut.StartsWith($repoRoot, [StringComparison]::OrdinalIgnoreCase)) { throw "-GogOut must be outside the repository: GOG files are never committed" }
+    if (-not (Test-Path (Join-Path $GogProject "current.bld"))) { throw "No current.bld in $GogProject" }
+    # The editor writes backup.tmp and a config file beside the project, so it works on a copy.
+    $gogSource = Join-Path $ScratchRoot "gog/source"
+    New-Item -ItemType Directory -Force -Path $gogSource, $GogOut | Out-Null
+    Get-ChildItem -Path $GogProject -Force | Copy-Item -Destination $gogSource -Recurse -Force
+    $process = Start-Process -FilePath $EditorPath -ArgumentList @("*.bld", "`"$gogSource`"", "`"$GogOut\`"", "-f") `
+        -WorkingDirectory (Split-Path -Parent $EditorPath) -PassThru
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        $process.Kill()
+        Write-Host "FAIL gog timed out after $TimeoutSeconds s (a message box is probably open)"
+        exit 1
+    }
+    $gogFiles = @(Get-ChildItem -Path $GogOut -Recurse -File)
+    if ($gogFiles.Count -eq 0) { Write-Host "FAIL gog exported nothing"; exit 1 }
+    Write-Host ("PASS gog " + $gogFiles.Count + " files in $GogOut")
+    Write-Host "Run the port's check with:"
+    Write-Host "  BK_GOG_ROOT=<the GOG install holding the INTEX2 mod projects>"
+    Write-Host "  BK_GOG_GOLDEN=$GogOut"
+    exit 0
+}
 
 $failed = @()
 foreach ($ext in $Extensions) {

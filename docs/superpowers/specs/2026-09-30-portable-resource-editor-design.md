@@ -862,6 +862,9 @@ one, the newer instruction wins, and record the change in the spec").
   (0, 0) (`NEGTILES objects checked=590 negative=0 import_failed=0`). The grid channels keep
   refusing such a tile and need no origin in the blob. `S09Object::NegativeTiles` in
   `resource_bridge_test.cpp` stays as the guard and fails if a shipped object ever needs one.
+  Buildings (S10 T04): every shipped folder under `Data/Buildings` with a `1.xml` is imported and its
+  tile-frame passability and transparency cells read (`S10Building::NegativeTiles`, line
+  `NEGTILES buildings checked=N negative=M`, N and M recorded below). It is the same guard for buildings.
 
 - Squad overlay screen Y (D018, M001/S08): MFC projects the formation through
   `IScene::GetPos2`. The camera looks toward +Y (`Scene/Camera.cpp:10,76-79`,

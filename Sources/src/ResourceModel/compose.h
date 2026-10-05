@@ -79,6 +79,16 @@ bool ComposeSingleObjectPack( const SExportContext &context, const NImageExport:
                               const std::string &szSprite, const std::string &szShadow, const std::string &szName,
                               const CVec2 &zeroPos, const CArray2D<BYTE> &pass, const CVec2 &vLockedTilesCenter, SExportOutcome &outcome );
 
+// The noise ("g") picture of a damaged or destroyed building
+// (CBuildingTreeRootItem::ComposeAnimations): the noise picture with its alpha
+// multiplied by the inverse of the sprite's sharpened alpha, packed without
+// locked tiles as <szName>.san with <szName>_c/_l/_h.dds. The colour is kept,
+// unlike a shadow's. The two pictures are read and compared before anything is
+// written; a size mismatch is MFC's message box and fails here with szError.
+bool ComposeNoisePack( const SExportContext &context, const NImageExport::SGamma &gamma, EGFXPixelFormat lowFormat,
+                       const std::string &szSprite, const std::string &szNoise, const std::string &szName,
+                       const CVec2 &zeroPos, SExportOutcome &outcome );
+
 // CFenceTreeRootItem::SaveShadowFile (FenceTreeItem.cpp): the shadow picture
 // with its alpha multiplied by the inverse of the sprite's alpha sharpened at
 // 100, colour cleared, saved as the TGA szTempShadow. A fence keeps its

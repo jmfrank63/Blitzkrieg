@@ -325,6 +325,36 @@ bool ComposeSingleObjectPack( const SExportContext &context, const NImageExport:
 	       NImageExport::SaveSpritesPack( context, shadowPack, szName + "s.san", outcome );
 }
 
+bool ComposeNoisePack( const SExportContext &context, const NImageExport::SGamma &gamma, EGFXPixelFormat lowFormat,
+                       const std::string &szSprite, const std::string &szNoise, const std::string &szName,
+                       const CVec2 &zeroPos, SExportOutcome &outcome )
+{
+	CPtr<IImage> pSpriteImage = NImageExport::LoadPicture( szSprite, outcome );
+	if ( pSpriteImage == 0 )
+		return false;
+	CPtr<IImage> pNoiseImage = NImageExport::LoadPicture( szNoise, outcome );
+	if ( pNoiseImage == 0 )
+		return false;
+	if ( pSpriteImage->GetSizeX() != pNoiseImage->GetSizeX() || pSpriteImage->GetSizeY() != pNoiseImage->GetSizeY() )
+	{
+		outcome.szError = "The size of building image is not equal to the size of noise file: " + szSprite + " is " + std::to_string( pSpriteImage->GetSizeX() ) + "x" +
+		                  std::to_string( pSpriteImage->GetSizeY() ) + ", " + szNoise + " is " + std::to_string( pNoiseImage->GetSizeX() ) + "x" + std::to_string( pNoiseImage->GetSizeY() );
+		return false;
+	}
+	CPtr<IImage> pInverseSprite = pSpriteImage->Duplicate();
+	pInverseSprite->SharpenAlpha( 128 );
+	pInverseSprite->InvertAlpha();
+	RECT rc = { 0, 0, pInverseSprite->GetSizeX(), pInverseSprite->GetSizeY() };
+	pNoiseImage->ModulateAlphaFrom( pInverseSprite, &rc, 0, 0 );
+
+	SSpritesPack noisePack;
+	CPtr<IImage> pPackedNoise = PackSprites( noisePack, pNoiseImage, zeroPos, CArray2D<BYTE>(), VNULL2, outcome );
+	if ( pPackedNoise == 0 )
+		return false;
+	return NImageExport::SaveCompressedTexture( context, pPackedNoise, szName, gamma, lowFormat, outcome ) &&
+	       NImageExport::SaveSpritesPack( context, noisePack, szName + ".san", outcome );
+}
+
 bool SaveShadowFile( const std::string &szSprite, const std::string &szShadow, const std::string &szTempShadow, SExportOutcome &outcome )
 {
 	CPtr<IImage> pSpriteImage = NImageExport::LoadPicture( szSprite, outcome );
