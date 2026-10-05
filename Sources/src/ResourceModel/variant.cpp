@@ -109,6 +109,11 @@ void CVariant::SetType( EKind kind )
 		case VK_STR: return AsStr();
 		case VK_REF: return AsRef().value;
 		case VK_NULL: return std::string();
+		// MFC's SetType writes an int64 as _ui64toa( ..., 16 ), which
+		// OptimizeInt64 reads back with MyHexStrTo64: a mask keeps its high bits.
+		case VK_INT64:
+			std::snprintf( buf, sizeof( buf ), "%llx", (unsigned long long)AsInt64() );
+			return buf;
 		case VK_FLOAT:
 			std::snprintf( buf, sizeof( buf ), "%g", AsFloat() );
 			return buf;

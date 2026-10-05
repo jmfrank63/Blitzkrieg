@@ -1956,8 +1956,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 		Check( BkResImportFromGame( pSession, 4, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".san" ) != 0,
 		       "import: sprite is refused with the reason" );
-		Check( BkResImportFromGame( pSession, 6, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
-		       "import: msh is refused as not ported yet" );
+		Check( BkResImportFromGame( pSession, 7, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
+		       "import: obt is refused as not ported yet" );
 		Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 5, "import: a refused import keeps the open project" );
 		Check( BkResImportFromGame( pSession, 5, ( scratch / "no-such" ).string().c_str() ) == BK_EDITOR_DATA_MISSING, "import: a folder without 1.xml is DATA_MISSING" );
 		Check( BkResImportFromGame( pSession, 5, 0 ) == BK_EDITOR_BAD_ARGUMENT, "import: a null path is a bad argument" );
@@ -3175,6 +3175,117 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 namespace S08Mesh
 {
 
+// What CMeshFrame::GetRPGStats (MeshFrm.cpp:1136-1299) does not carry back, so
+// a stats-only export of an imported unit cannot reproduce it. Every field of
+// the shipped 1.xml outside this list must be equal, to the file's six printed
+// digits for a float; the test prints the list and fails on any other
+// difference.
+struct SAllowed
+{
+	const char *pszPrefix;
+	const char *pszReason;
+};
+static const SAllowed kNotCarriedBack[] =
+{
+	{ "RPG/Platforms/item[", "MeshFrm.cpp:1274-1298 sets only the two rotation speeds of a platform; the part, gun carriage 1 and 2 combos stay \"NA\", so ModelPart, the carriage mask and both constraints are the not-found values" },
+	{ "RPG/Guns/item[", "MeshFrm.cpp:1285-1295 sets weapon, priority, recoil and ammo of a gun; the shoot point and shoot part combos stay \"NA\", so ShootPoint, Direction, RecoilLength and ModelPart are the not-found values" },
+};
+
+// The import of several shipped units, one per family, then save, reopen and
+// stats-only export beside the shipped .mod files, against the unit's own 1.xml.
+static void ImportRoundTrips( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s08" / "import";
+	fs::remove_all( scratch, ec );
+	static const char *const kUnits[] =
+	{
+		"German/Artillery/8_8_cm_FlaK18", "German/Artillery/8_cm_GrWr34", "German/Tanks/Pz_III_Ausf_E",
+		"German/Auto/Opel_Blitz_Cargo", "German/Artillery/2_cm_FlaK30_38", "German/Aviation/FW_190",
+	};
+	std::printf( "   msh import: not carried back by GetRPGStats:\n" );
+	for ( const SAllowed &allowed : kNotCarriedBack )
+		std::printf( "      %s* - %s\n", allowed.pszPrefix, allowed.pszReason );
+	for ( const char *pszUnit : kUnits )
+	{
+		const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", ( std::string( "Units/Technics/" ) + pszUnit ).c_str() );
+		const std::string szName = shipped.filename().string();
+		const std::string szCase = "msh import " + szName;
+		const fs::path dir = scratch / szName;
+		fs::create_directories( dir, ec );
+		for ( fs::directory_iterator it( shipped, ec ), end; !ec && it != end; it.increment( ec ) )
+			if ( it->path().extension() == ".mod" )
+				fs::copy_file( it->path(), dir / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+		if ( !Check( BkResImportFromGame( pSession, 6, shipped.string().c_str() ) == BK_EDITOR_OK, ( szCase + ": imports" ).c_str() ) )
+		{
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+			continue;
+		}
+		BkResKind kind = -1;
+		Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 6, ( szCase + ": the open project is a mesh project" ).c_str() );
+		std::set<std::string> names;
+		for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+			names.insert( node.display_name );
+		std::string szMissing;
+		for ( const char *pszChild : { "Basic Info", "Acknowledgments", "Effects", "Defences", "Joggings", "Platforms", "Graphics Info", "Locators", "Aviation property", "Tracks" } )
+			if ( names.count( pszChild ) == 0 )
+				szMissing += std::string( " " ) + pszChild;
+		Check( szMissing.empty(), ( szCase + ": the tree has MFC's child set, missing:" + szMissing ).c_str() );
+		const fs::path project = dir / "current.msh";
+		Check( BkResSave( pSession, project.string().c_str() ) == BK_EDITOR_OK && BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK,
+		       ( szCase + ": saves and reopens" ).c_str() );
+
+		const fs::path modDir = scratch / ( szName + "-mod" );
+		BkResModSettings mod = {};
+		std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+		std::snprintf( mod.name, sizeof( mod.name ), "S08 mesh import" );
+		BkResModSettingsSet( pSession, &mod );
+		BkResExportReport report = {};
+		BkResWarning warnings[32] = {};
+		report.warnings = warnings;
+		report.warnings_capacity = 32;
+		const BkEditorStatus status = BkResExportStatsOnly( pSession, BK_RES_EXPORT_FORCE, &report );
+		const std::string szDetail = BkEditorLastMessage( pSession );
+		BkResClose( pSession );
+		if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( szCase + ": exports stats-only " + szDetail ).c_str() ) )
+			continue;
+		fs::path xml;
+		for ( fs::recursive_directory_iterator it( modDir / "data", ec ), end; !ec && it != end; it.increment( ec ) )
+			if ( it->is_regular_file( ec ) && it->path().filename() == "1.xml" )
+				xml = it->path();
+		const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::MECH_UNIT, xml.string(), T11::FoldedPath( shipped, "1.xml" ).string() );
+		int nExcused = 0, nDifferent = 0;
+		for ( const std::string &szMessage : result.messages )
+		{
+			const std::string::size_type nPath = szMessage.find( "RPG/" );
+			bool bAllowed = false;
+			for ( const SAllowed &allowed : kNotCarriedBack )
+				if ( nPath != std::string::npos && szMessage.compare( nPath, std::strlen( allowed.pszPrefix ), allowed.pszPrefix ) == 0 )
+					bAllowed = true;
+			// The shipped file prints floats to six digits.
+			const std::string::size_type nPort = szMessage.find( "port " ), nGolden = szMessage.find( "golden " );
+			if ( !bAllowed && nPort != std::string::npos && nGolden != std::string::npos )
+			{
+				const double fPort = std::strtod( szMessage.c_str() + nPort + 5, nullptr );
+				const double fGolden = std::strtod( szMessage.c_str() + nGolden + 7, nullptr );
+				bAllowed = std::fabs( fPort - fGolden ) <= 2e-5 * std::max( 1.0, std::fabs( fGolden ) );
+				if ( bAllowed )
+					continue;
+			}
+			if ( bAllowed )
+				++nExcused;
+			else
+			{
+				++nDifferent;
+				std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+			}
+		}
+		std::printf( "ROUNDTRIP msh import %s: %d fields compared, %d allow-listed differences skipped, %d other\n", szName.c_str(), result.nFieldsCompared, nExcused, nDifferent );
+		Check( result.nFieldsCompared > 100 && nDifferent == 0, ( szCase + ": every field outside the allow list equals the shipped 1.xml" ).c_str() );
+	}
+}
+
 // The shipped 8_cm_GrWr34 (its current.msh is the 06_Mesh test project, byte for
 // byte) exported stats-only must be the 1.xml MFC wrote for it: the proof of
 // the FillRPGStats port. The .mod files are the only models it needs; the
@@ -4285,6 +4396,7 @@ int main( int argc, char **argv )
 	S07Infantry::Run( pSession, szFixtureRoot, szScratchRoot );
 	// S08 T01: the unit exporter against the shipped 8_cm_GrWr34.
 	S08Mesh::Run( pSession, pszRoot, szScratchRoot );
+	S08Mesh::ImportRoundTrips( pSession, pszRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

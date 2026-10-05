@@ -4211,6 +4211,7 @@ extern "C++" {
 namespace {
 
 const int kInfantryKind = 5; // "unt", kKindTable's Unit_Composer_Project
+const int kMeshKind = 6;     // "msh", the Unit (mesh) project
 
 NResourceModel::CTreeItem *ChildOfType( NResourceModel::CTreeItem &item, int nType )
 {
@@ -4571,6 +4572,244 @@ bool ReadRuntimeStats( const std::filesystem::path &statsFile, TStats &stats, Bk
 	return true;
 }
 
+// CMeshCommonPropsItem::SetMeshType: the combo text of a unit type.
+const char *MeshTypeName( EUnitRPGType type )
+{
+	static const struct { EUnitRPGType type; const char *pszName; } kTypes[] =
+	{
+		{ RPG_TYPE_TRN_CARRIER, "transport carrier" }, { RPG_TYPE_TRN_SUPPORT, "transport support" },
+		{ RPG_TYPE_TRN_MEDICINE, "transport medicine" }, { RPG_TYPE_TRN_TRACTOR, "transport tractor" },
+		{ RPG_TYPE_TRN_MILITARY_AUTO, "transport military auto" }, { RPG_TYPE_TRN_CIVILIAN_AUTO, "transport civilian auto" },
+		{ RPG_TYPE_ART_GUN, "artillery gun" }, { RPG_TYPE_ART_HOWITZER, "artillery howitzer" },
+		{ RPG_TYPE_ART_HEAVY_GUN, "artillery heavy gun" }, { RPG_TYPE_ART_HEAVY_MG, "artillery heavy machine gun" },
+		{ RPG_TYPE_ART_AAGUN, "artillery antiair gun" }, { RPG_TYPE_ART_ROCKET, "artillery rocket" },
+		{ RPG_TYPE_ART_SUPER, "artillery super" }, { RPG_TYPE_ART_MORTAR, "artillery mortar" },
+		{ RPG_TYPE_SPG_ASSAULT, "SPG assault" }, { RPG_TYPE_SPG_ANTITANK, "SPG antitank" },
+		{ RPG_TYPE_SPG_SUPER, "SPG super" }, { RPG_TYPE_SPG_AAGUN, "SPG antiair" },
+		{ RPG_TYPE_ARM_LIGHT, "armor light" }, { RPG_TYPE_ARM_MEDIUM, "armor medium" },
+		{ RPG_TYPE_ARM_SUPER, "armor super" }, { RPG_TYPE_ARM_HEAVY, "armor heavy" },
+		{ RPG_TYPE_AVIA_SCOUT, "avia scout" }, { RPG_TYPE_AVIA_BOMBER, "avia bomber" },
+		{ RPG_TYPE_AVIA_ATTACK, "avia attack" }, { RPG_TYPE_AVIA_FIGHTER, "avia fighter" },
+		{ RPG_TYPE_AVIA_SUPER, "avia super" }, { RPG_TYPE_AVIA_LANDER, "avia lander" },
+		{ RPG_TYPE_TRAIN_LOCOMOTIVE, "train locomotive" }, { RPG_TYPE_TRAIN_CARGO, "train cargo" },
+		{ RPG_TYPE_TRAIN_CARRIER, "train carrier" }, { RPG_TYPE_TRAIN_SUPER, "train super" },
+		{ RPG_TYPE_TRAIN_ARMOR, "train armor" },
+	};
+	for ( const auto &entry : kTypes )
+		if ( entry.type == type )
+			return entry.pszName;
+	return "transport carrier";
+}
+
+// CMeshFrame::GetRPGStats (MeshFrm.cpp:1136), line for line, onto the port's
+// items; the slots are the property order of mesh.cpp, the index
+// ExportMesh reads back. MFC filled a tree that already had the stats' shape
+// (one platform item per platform, one gun item per gun) and asserted on a
+// mismatch; an import starts from the default tree, so the platforms and guns
+// are made to the stats' counts first, named as MFC's insert handlers name them.
+// The locator combos (platform parts, shoot points) are not stats fields:
+// GetRPGStats leaves them, and so does this.
+void MechStatsToTree( const SMechUnitRPGStats &rpgStats, NResourceModel::CTreeItem &root )
+{
+	auto &factory = NResourceModel::CTreeItemFactory::Instance();
+
+	NResourceModel::CTreeItem *pPlatforms = ChildOfType( root, NResourceModel::ETIT_MESH_PLATFORMS_ITEM );
+	if ( pPlatforms != nullptr )
+	{
+		auto &platformItems = pPlatforms->MutableChildren();
+		if ( platformItems.size() > rpgStats.platforms.size() )
+			platformItems.resize( rpgStats.platforms.size() );
+		while ( platformItems.size() < rpgStats.platforms.size() )
+		{
+			auto pPlatform = factory.Create( NResourceModel::ETIT_MESH_PLATFORM_PROPS_ITEM );
+			if ( !pPlatform )
+				break;
+			pPlatform->CreateDefaultChilds();
+			pPlatform->SetItemName( "Platform" );
+			pPlatforms->AddChild( std::move( pPlatform ) );
+		}
+		int nGun = 0;
+		for ( std::size_t p = 0; p < platformItems.size(); ++p )
+		{
+			NResourceModel::CTreeItem *pGuns = ChildOfType( *platformItems[p], NResourceModel::ETIT_MESH_GUNS_ITEM );
+			if ( pGuns == nullptr )
+				continue;
+			pGuns->MutableChildren().clear();
+			for ( int g = 0; g < rpgStats.platforms[p].nNumGuns; ++g, ++nGun )
+			{
+				auto pGun = factory.Create( NResourceModel::ETIT_MESH_GUN_PROPS_ITEM );
+				if ( !pGun )
+					continue;
+				pGun->SetItemName( "Gun" );
+				pGuns->AddChild( std::move( pGun ) );
+			}
+		}
+	}
+
+	if ( NResourceModel::CTreeItem *pGraphics = ChildOfType( root, NResourceModel::ETIT_MESH_GRAPHICS_ITEM ) )
+		if ( NResourceModel::CTreeItem *pDeathCraters = ChildOfType( *pGraphics, NResourceModel::ETIT_MESH_DEATH_CRATERS_ITEM ) )
+		{
+			pDeathCraters->MutableChildren().clear();
+			for ( const std::string &szCrater : rpgStats.deathCraters )
+			{
+				auto pProps = factory.Create( NResourceModel::ETIT_MESH_DEATH_CRATER_PROPS_ITEM );
+				if ( !pProps )
+					continue;
+				pProps->SetItemName( szCrater );
+				SetSlot( pProps.get(), 0, szCrater );
+				pDeathCraters->AddChild( std::move( pProps ) );
+			}
+		}
+
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_MESH_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 0, rpgStats.szKeyName );
+	SetSlot( pCommonProps, 1, std::string( MeshTypeName( rpgStats.type ) ) );
+	const char *pszAIClass = "track";
+	switch ( rpgStats.aiClass )
+	{
+		case AI_CLASS_WHEEL:     pszAIClass = "wheel";     break;
+		case AI_CLASS_HALFTRACK: pszAIClass = "halftrack"; break;
+		case AI_CLASS_HUMAN:     pszAIClass = "human";     break;
+		default: break;
+	}
+	SetSlot( pCommonProps, 2, std::string( pszAIClass ) );
+	SetSlot( pCommonProps, 4, rpgStats.fMaxHP );
+	SetSlot( pCommonProps, 5, rpgStats.fRepairCost );
+	SetSlot( pCommonProps, 6, rpgStats.fCamouflage );
+	SetSlot( pCommonProps, 7, rpgStats.fSpeed );
+	SetSlot( pCommonProps, 8, rpgStats.fPassability );
+	SetSlot( pCommonProps, 9, rpgStats.fTowingForce );
+	SetSlot( pCommonProps, 10, rpgStats.fUninstallRotate );
+	SetSlot( pCommonProps, 11, rpgStats.fUninstallTransport );
+	SetSlot( pCommonProps, 12, rpgStats.fWeight );
+	SetSlot( pCommonProps, 13, rpgStats.nCrew );
+	SetSlot( pCommonProps, 14, rpgStats.nPassangers );
+	SetSlot( pCommonProps, 15, rpgStats.nPriority );
+	SetSlot( pCommonProps, 16, rpgStats.fRotateSpeed );
+	SetSlot( pCommonProps, 17, rpgStats.nBoundTileRadius );
+	SetSlot( pCommonProps, 18, rpgStats.fTurnRadius );
+	SetSlot( pCommonProps, 19, rpgStats.fSmallAABBCoeff );
+	SetSlot( pCommonProps, 20, rpgStats.fPrice );
+	SetSlot( pCommonProps, 21, rpgStats.fSight );
+	SetSlot( pCommonProps, 22, rpgStats.fSightPower );
+
+	if ( rpgStats.szAcksNames.size() > 0 )
+		SetSlot( ChildOfType( root, NResourceModel::ETIT_UNIT_ACKS_ITEM ), 0, rpgStats.szAcksNames[0] );
+
+	NResourceModel::CTreeItem *pEffects = ChildOfType( root, NResourceModel::ETIT_MESH_EFFECTS_ITEM );
+	SetSlot( pEffects, 0, rpgStats.szEffectDiesel );
+	SetSlot( pEffects, 1, rpgStats.szEffectSmoke );
+	SetSlot( pEffects, 2, rpgStats.szEffectWheelDust );
+	SetSlot( pEffects, 3, rpgStats.szEffectShootDust );
+	SetSlot( pEffects, 4, rpgStats.szEffectFatality );
+	SetSlot( pEffects, 5, rpgStats.szEffectDisappear );
+	SetSlot( pEffects, 6, rpgStats.szSoundMoveStart );
+	SetSlot( pEffects, 7, rpgStats.szSoundMoveCycle );
+	SetSlot( pEffects, 8, rpgStats.szSoundMoveStop );
+	// Old exports had the cycle and stop sounds the wrong way round.
+	if ( std::strstr( rpgStats.szSoundMoveStop.c_str(), "cycle" ) != nullptr )
+	{
+		SetSlot( pEffects, 7, rpgStats.szSoundMoveStop );
+		SetSlot( pEffects, 8, rpgStats.szSoundMoveCycle );
+	}
+
+	if ( NResourceModel::CTreeItem *pAvia = pCommonProps ? ChildOfType( *pCommonProps, NResourceModel::ETIT_MESH_AVIA_ITEM ) : nullptr )
+	{
+		SetSlot( pAvia, 0, rpgStats.fMaxHeight );
+		SetSlot( pAvia, 1, rpgStats.fDivingAngle );
+		SetSlot( pAvia, 2, rpgStats.fClimbAngle );
+		SetSlot( pAvia, 3, rpgStats.fTiltAngle );
+		SetSlot( pAvia, 4, rpgStats.fTiltRatio );
+	}
+	if ( NResourceModel::CTreeItem *pTrack = pCommonProps ? ChildOfType( *pCommonProps, NResourceModel::ETIT_MESH_TRACK_ITEM ) : nullptr )
+	{
+		SetSlot( pTrack, 0, rpgStats.bLeavesTracks );
+		SetSlot( pTrack, 1, rpgStats.fTrackWidth );
+		SetSlot( pTrack, 2, rpgStats.fTrackOffset );
+		SetSlot( pTrack, 3, rpgStats.fTrackStart );
+		SetSlot( pTrack, 4, rpgStats.fTrackEnd );
+		SetSlot( pTrack, 5, rpgStats.fTrackIntensity );
+		SetSlot( pTrack, 6, rpgStats.nTrackLifetime );
+	}
+
+	// CUnitActionsItem::SetActions / CUnitExposuresItem::SetExposures.
+	std::int64_t nActions = 0, nExposures = 0;
+	for ( int i = 0; i < 64; ++i )
+	{
+		if ( rpgStats.HasCommand( i ) )
+			nActions |= std::int64_t( 1 ) << i;
+		if ( i < rpgStats.availExposures.GetSize() && rpgStats.availExposures.GetData( i ) )
+			nExposures |= std::int64_t( 1 ) << i;
+	}
+	SetSlot( ChildOfType( root, NResourceModel::ETIT_UNIT_ACTIONS_ITEM ), 0, nActions );
+	SetSlot( ChildOfType( root, NResourceModel::ETIT_UNIT_EXPOSURES_ITEM ), 0, nExposures );
+
+	if ( NResourceModel::CTreeItem *pDefences = ChildOfType( root, NResourceModel::ETIT_MESH_DEFENCES_ITEM ) )
+		for ( const auto &pDefProps : pDefences->GetChildren() )
+		{
+			const std::string &szSide = pDefProps->GetDisplayName();
+			int nIndex = 0;
+			if ( szSide == "Left" )
+				nIndex = RPG_LEFT;
+			else if ( szSide == "Right" )
+				nIndex = RPG_RIGHT;
+			else if ( szSide == "Top" )
+				nIndex = RPG_TOP;
+			else if ( szSide == "Bottom" )
+				nIndex = RPG_BOTTOM;
+			else if ( szSide == "Front" )
+				nIndex = RPG_FRONT;
+			else if ( szSide == "Back" )
+				nIndex = RPG_BACK;
+			SetSlot( pDefProps.get(), 0, int( rpgStats.armors[nIndex].fMin ) );
+			SetSlot( pDefProps.get(), 1, int( rpgStats.armors[nIndex].fMax ) );
+		}
+
+	if ( NResourceModel::CTreeItem *pJoggings = ChildOfType( root, NResourceModel::ETIT_MESH_JOGGINGS_ITEM ) )
+	{
+		int i = 0;
+		for ( const auto &pJogProps : pJoggings->GetChildren() )
+		{
+			const SMechUnitRPGStats::SJoggingParams &jog = i == 0 ? rpgStats.jx : ( i == 1 ? rpgStats.jy : rpgStats.jz );
+			SetSlot( pJogProps.get(), 0, jog.fPeriod1 );
+			SetSlot( pJogProps.get(), 1, jog.fPeriod2 );
+			SetSlot( pJogProps.get(), 2, jog.fAmp1 );
+			SetSlot( pJogProps.get(), 3, jog.fAmp2 );
+			SetSlot( pJogProps.get(), 4, jog.fPhase1 );
+			SetSlot( pJogProps.get(), 5, jog.fPhase2 );
+			if ( ++i == 3 )
+				break;
+		}
+	}
+
+	if ( pPlatforms != nullptr )
+	{
+		std::size_t nPlatform = 0;
+		std::size_t nGun = 0;
+		for ( const auto &pPlatformProps : pPlatforms->GetChildren() )
+		{
+			SetSlot( pPlatformProps.get(), 3, rpgStats.platforms[nPlatform].fVerticalRotationSpeed );
+			SetSlot( pPlatformProps.get(), 4, rpgStats.platforms[nPlatform].fHorizontalRotationSpeed );
+			if ( NResourceModel::CTreeItem *pGuns = ChildOfType( *pPlatformProps, NResourceModel::ETIT_MESH_GUNS_ITEM ) )
+				for ( const auto &pGunProps : pGuns->GetChildren() )
+				{
+					if ( nGun >= rpgStats.guns.size() )
+						break;
+					const SMechUnitRPGStats::SGun &gun = rpgStats.guns[nGun++];
+					SetSlot( pGunProps.get(), 2, gun.szWeapon );
+					SetSlot( pGunProps.get(), 3, gun.nPriority );
+					SetSlot( pGunProps.get(), 4, gun.bRecoil );
+					SetSlot( pGunProps.get(), 5, int( gun.recoilTime ) );
+					SetSlot( pGunProps.get(), 6, gun.nRecoilShakeTime );
+					SetSlot( pGunProps.get(), 7, gun.fRecoilShakeAngle );
+					SetSlot( pGunProps.get(), 8, gun.nAmmo );
+					SetSlot( pGunProps.get(), 9, gun.fReloadCost );
+				}
+			++nPlatform;
+		}
+	}
+}
+
 // The weapon's stats are a flat file named after the weapon (weapons\mg_37t.xml),
 // every other kind's a 1.xml in a folder of its own.
 std::filesystem::path RuntimeStatsFile( BkResKind kind, const char *pszPath )
@@ -4594,7 +4833,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
 		const std::string szExtension = kKindExtensions[kind];
-		const bool bPorted = kind <= 3 || kind == kInfantryKind;
+		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind;
 		if ( !bPorted )
 		{
 			pSession->szMessage = kind == 4
@@ -4664,6 +4903,19 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				// A squad has no name of its own in its stats: it is its folder's.
 				szKeyName = rpgStats.memberNames.empty() ? std::string() : statsFile.parent_path().filename().string();
 				SquadStatsToTree( rpgStats, *pRoot );
+				break;
+			}
+			case kMeshKind:
+			{
+				// CMeshFrame::LoadRPGStats: the engine's own operator& reads it.
+				// The graphics model names keep their defaults (1.mod, 2.mod,
+				// 3.mod) as in MFC, so the project sits beside the shipped models.
+				SMechUnitRPGStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
+					return status;
+				szKeyName = rpgStats.szKeyName;
+				if ( !szKeyName.empty() )
+					MechStatsToTree( rpgStats, *pRoot );
 				break;
 			}
 			default:

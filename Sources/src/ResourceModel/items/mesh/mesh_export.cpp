@@ -51,7 +51,7 @@ long long ValueInt64( const CTreeItem &item, int nIndex )
 	switch ( value.GetKind() )
 	{
 		case CVariant::VK_INT64: return value.AsInt64();
-		case CVariant::VK_STR:   return std::strtoll( value.AsStr().c_str(), nullptr, 10 );
+		case CVariant::VK_STR:   return (long long) std::strtoull( value.AsStr().c_str(), nullptr, 16 );
 		default:                 return ValueInt( item, nIndex );
 	}
 }
