@@ -38,6 +38,9 @@ apps with Dear ImGui (`Sources/editor`) talking to the engine through the C ABI 
   `rdynamic` and a `$ORIGIN` rpath; worker threads need the default 16 MiB stack on Linux (glibc carves static TLS
   out of the stack); hidden test windows use `SDL_WINDOW_HIDDEN | SDL_WINDOW_NOT_FOCUSABLE`; stop `ISFX` before
   modules unload; resolve Data paths case-insensitively (`DataFile` helper in `tools/zig/editor_bridge_test.cpp`).
+- A task plan's Verify line holds only runnable commands joined by `&&`: no notes in parentheses, no pipes, `;`,
+  redirects or quoted one-liners. GSD's pre-run check rejects anything else and pauses auto mode. Put notes in the
+  task description.
 - `BK_DEBUG_LOG=1` is needed for `DebugTrace` output in release builds.
 - Do not edit `.gitignore`'s GSD lines (`.gsd`, `.gsd-id`, `.bg-shell/`, `.mcp.json`) and do not ignore `vendor/`,
   `build/` or `.vscode/`: they hold tracked files.
