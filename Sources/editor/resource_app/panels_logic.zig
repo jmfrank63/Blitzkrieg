@@ -25,6 +25,7 @@ test {
     _ = @import("tools_logic.zig");
     _ = @import("docks_logic.zig");
     _ = @import("squad_logic.zig");
+    _ = @import("mesh_logic.zig");
 }
 
 // --- Editors menu ---------------------------------------------------------

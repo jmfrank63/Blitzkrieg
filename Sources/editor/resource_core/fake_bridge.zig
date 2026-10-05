@@ -31,7 +31,14 @@
 //!   key name; it builds a root plus one "Basic Info" node whose Name prop
 //!   is that key name. Only infantry imports, as in the real bridge;
 //! * the preview methods only set the message buffer - there is no scene,
-//!   no device, no draw. `no GPU device` is simulated by `setNoDevice`;
+//!   no device, no draw. `no GPU device` is simulated by `setNoDevice`. A
+//!   unit preview keeps its variant, direction and two display flags, and
+//!   `meshLocators` answers the Locators children with positions made up
+//!   from their order;
+//! * a unit project's Locators children follow the Graphics combat model name
+//!   the way the real bridge's rebuild does, from the models a test declared
+//!   (`addMeshModel`: a file name and its skeleton nodes). The three locator
+//!   combos are computed from those children, not stored;
 //! * geometry channels round-trip through a per-(node, channel) map but
 //!   do no engine-shaped validation - a shoot point far outside a mesh is
 //!   accepted. The one rule kept is the payload family: a value whose tag
@@ -55,7 +62,9 @@ const ExportReport = bridge_mod.ExportReport;
 const Warning = bridge_mod.Warning;
 const ModSettings = bridge_mod.ModSettings;
 const ResBridge = bridge_mod.ResBridge;
+const MeshLocator = bridge_mod.MeshLocator;
 const putName = bridge_mod.putName;
+const item_type = @import("sub_editor_tools.zig").item_type;
 
 const name_capacity = bridge_mod.name_capacity;
 const value_text_capacity = bridge_mod.value_text_capacity;
@@ -109,6 +118,13 @@ pub const FakeResBridge = struct {
     preview_state: PreviewState = .closed,
     /// Whether the last previewPlayback asked for the animation to run.
     preview_playing: bool = false,
+    /// The unit preview's model variant, turn in degrees and display flags.
+    mesh_variant: u8 = 0,
+    mesh_direction: i32 = 0,
+    show_locators: bool = false,
+    show_bounding_boxes: bool = false,
+    /// The skeletons `addMeshModel` declared, by combat model file name.
+    mesh_models: std.ArrayListUnmanaged(MeshModel) = .empty,
     /// Rolling file store the test can read saved blobs out of. Keyed by
     /// path. Owns its values.
     files: std.StringHashMapUnmanaged([]u8) = .empty,
@@ -131,6 +147,8 @@ pub const FakeResBridge = struct {
     pub const PreviewState = enum { closed, open, showing };
     pub const PropStrings = struct { node: i32, prop_id: i32, entries: std.ArrayListUnmanaged(ReferenceEntry) = .empty };
     pub const BatchProject = struct { path: []u8, kind: Kind };
+    pub const MeshNodeDef = struct { name: []const u8, locator: bool = false };
+    pub const MeshModel = struct { file: []u8, nodes: []MeshNodeDef };
     pub const GeometryHome = struct { node: i32, channel: GeometryChannel };
 
     pub fn init(allocator: std.mem.Allocator) FakeResBridge {
@@ -158,6 +176,12 @@ pub const FakeResBridge = struct {
             self.allocator.free(e.value_ptr.*);
         }
         self.files.deinit(self.allocator);
+        for (self.mesh_models.items) |m| {
+            for (m.nodes) |n| self.allocator.free(n.name);
+            self.allocator.free(m.nodes);
+            self.allocator.free(m.file);
+        }
+        self.mesh_models.deinit(self.allocator);
         for (self.batch_projects.items) |p| self.allocator.free(p.path);
         self.batch_projects.deinit(self.allocator);
         var folder_it = self.game_folders.iterator();
@@ -170,6 +194,26 @@ pub const FakeResBridge = struct {
 
     pub fn setExportable(self: *FakeResBridge, kind: Kind, ported: bool) void {
         self.exportable.setPresent(kind, ported);
+    }
+
+    /// Declares the skeleton a combat model file holds: the nodes in
+    /// skeleton order, `locator` marking those the skeleton lists as
+    /// locators. A later Graphics model name equal to `file` gets one Locators
+    /// child per node.
+    pub fn addMeshModel(self: *FakeResBridge, file: []const u8, nodes: []const MeshNodeDef) !void {
+        const owned_file = try self.allocator.dupe(u8, file);
+        errdefer self.allocator.free(owned_file);
+        const owned = try self.allocator.alloc(MeshNodeDef, nodes.len);
+        var made: usize = 0;
+        errdefer {
+            for (owned[0..made]) |n| self.allocator.free(n.name);
+            self.allocator.free(owned);
+        }
+        for (nodes, 0..) |n, i| {
+            owned[i] = .{ .name = try self.allocator.dupe(u8, n.name), .locator = n.locator };
+            made += 1;
+        }
+        try self.mesh_models.append(self.allocator, .{ .file = owned_file, .nodes = owned });
     }
 
     pub fn addBatchProject(self: *FakeResBridge, path: []const u8, kind: Kind) !void {
@@ -290,6 +334,92 @@ pub const FakeResBridge = struct {
             return .refused;
         }
         return .ok;
+    }
+
+    fn classIs(node: *const FakeNode, class_type: i32) bool {
+        const value = std.fmt.parseInt(i32, std.mem.sliceTo(&node.class, 0), 10) catch return false;
+        return value == class_type;
+    }
+
+    fn firstNodeOfClass(self: *const FakeResBridge, class_type: i32) ?usize {
+        for (self.nodes.items, 0..) |*n, i| if (classIs(n, class_type)) return i;
+        return null;
+    }
+
+    fn meshModelNamed(self: *const FakeResBridge, file: []const u8) ?*const MeshModel {
+        for (self.mesh_models.items) |*m| if (std.mem.eql(u8, m.file, file)) return m;
+        return null;
+    }
+
+    /// CMeshFrame::SetCombatMesh's rebuild: the Locators children are made
+    /// again from the skeleton of the Graphics combat model. A name no
+    /// declared model matches leaves the item empty, as a missing .mod does.
+    fn rebuildMeshLocators(self: *FakeResBridge, model_name: []const u8) !void {
+        const locators_index = self.firstNodeOfClass(item_type.mesh_locators) orelse return;
+        const locators_id = self.nodes.items[locators_index].id;
+        var i: usize = self.nodes.items.len;
+        while (i > 0) {
+            i -= 1;
+            if (self.nodes.items[i].parent == locators_id) {
+                self.nodes.items[i].deinit(self.allocator);
+                _ = self.nodes.orderedRemove(i);
+            }
+        }
+        const model = self.meshModelNamed(model_name) orelse return;
+        for (model.nodes) |def| {
+            var child: FakeNode = .{ .id = self.next_id, .parent = locators_id };
+            _ = std.fmt.bufPrint(&child.class, "{d}", .{item_type.mesh_locator_props}) catch unreachable;
+            _ = putName(&child.display, def.name);
+            try self.nodes.append(self.allocator, child);
+            self.next_id += 1;
+        }
+    }
+
+    /// The locator combos of the unit editor (LoadGunPointPropsComboBox and
+    /// the three after it), from the Locators children and the skeleton's
+    /// locator flags. Null when the pair is no locator combo.
+    fn meshComboNames(self: *FakeResBridge, node_idx: usize, prop_id: i32, out: *std.ArrayListUnmanaged([]const u8)) !bool {
+        const is_platform = classIs(&self.nodes.items[node_idx], item_type.mesh_platform_props);
+        const is_gun = classIs(&self.nodes.items[node_idx], item_type.mesh_gun_props);
+        const kind: enum { part, carriage, point, shoot_part } = if (is_platform and prop_id == 1)
+            .part
+        else if (is_platform and (prop_id == 2 or prop_id == 3))
+            .carriage
+        else if (is_gun and prop_id == 1)
+            .point
+        else if (is_gun and prop_id == 2)
+            .shoot_part
+        else
+            return false;
+        const locators_index = self.firstNodeOfClass(item_type.mesh_locators);
+        if (locators_index) |li| {
+            const locators_id = self.nodes.items[li].id;
+            const model_name = self.currentMeshModelName();
+            for (self.nodes.items) |*n| {
+                if (n.parent != locators_id) continue;
+                const name = std.mem.sliceTo(&n.display, 0);
+                const flagged = if (self.meshModelNamed(model_name)) |m| for (m.nodes) |def| {
+                    if (std.mem.eql(u8, def.name, name)) break def.locator;
+                } else false else false;
+                const carriage = std.mem.startsWith(u8, name, "GunCarriage");
+                const take = switch (kind) {
+                    .part => !flagged,
+                    .carriage => carriage,
+                    .point => flagged and (std.mem.startsWith(u8, name, "LMainGun") or std.mem.startsWith(u8, name, "LMachineGun")),
+                    .shoot_part => !flagged and name.len > 0 and name[0] != 'L' and !carriage,
+                };
+                if (take) try out.append(self.allocator, name);
+            }
+        }
+        try out.append(self.allocator, "NA");
+        return true;
+    }
+
+    /// The Graphics item's combat model name (its first property).
+    fn currentMeshModelName(self: *const FakeResBridge) []const u8 {
+        const gi = self.firstNodeOfClass(item_type.mesh_graphics) orelse return "";
+        for (self.nodes.items[gi].props.items) |*p| if (p.id == 1) return std.mem.sliceTo(&p.value_text, 0);
+        return "";
     }
 
     /// --- vtable ---------------------------------------------------------
@@ -462,6 +592,9 @@ pub const FakeResBridge = struct {
         }
         @memset(&prop.value_text, 0);
         @memcpy(prop.value_text[0..value_text.len], value_text);
+        if (prop_id == 1 and classIs(&self.nodes.items[node_idx], item_type.mesh_graphics)) {
+            self.rebuildMeshLocators(value_text) catch return .failed;
+        }
         return .ok;
     }
 
@@ -664,6 +797,18 @@ pub const FakeResBridge = struct {
         if (self.indexOfProp(node_idx, prop_id) == null) {
             self.say("prop id {d} is unknown on node {d}", .{ prop_id, node });
             return .refused;
+        }
+        var combo: std.ArrayListUnmanaged([]const u8) = .empty;
+        defer combo.deinit(self.allocator);
+        const is_combo = self.meshComboNames(node_idx, prop_id, &combo) catch return .failed;
+        if (is_combo) {
+            total.* = combo.items.len;
+            if (out.len < total.*) return .refused;
+            for (combo.items, out[0..total.*], 0..) |text, *dst, i| {
+                dst.* = .{ .token = @intCast(i) };
+                _ = dst.setName(text);
+            }
+            return .ok;
         }
         for (self.prop_strings.items) |p| if (p.node == node and p.prop_id == prop_id) {
             total.* = p.entries.items.len;
@@ -926,6 +1071,10 @@ pub const FakeResBridge = struct {
         self.clearMessage();
         self.preview_state = .closed;
         self.preview_playing = false;
+        self.mesh_variant = 0;
+        self.mesh_direction = 0;
+        self.show_locators = false;
+        self.show_bounding_boxes = false;
         return .ok;
     }
 
@@ -937,6 +1086,69 @@ pub const FakeResBridge = struct {
             return .refused;
         }
         self.preview_playing = run;
+        return .ok;
+    }
+
+    fn requireUnitShowing(self: *FakeResBridge) Status {
+        if (self.preview_state != .showing or self.kind != .mesh_unit) {
+            self.say("the preview shows no unit", .{});
+            return .refused;
+        }
+        return .ok;
+    }
+
+    fn previewMeshVariant(ptr: *anyopaque, variant: u8) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const shown = self.requireUnitShowing();
+        if (shown != .ok) return shown;
+        if (variant > 2) {
+            self.say("model variant {d} is outside 0..2", .{variant});
+            return .refused;
+        }
+        self.mesh_variant = variant;
+        return .ok;
+    }
+
+    fn previewDirection(ptr: *anyopaque, angle: i32) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const shown = self.requireUnitShowing();
+        if (shown != .ok) return shown;
+        self.mesh_direction = @mod(angle, 360);
+        return .ok;
+    }
+
+    fn previewShowLocators(ptr: *anyopaque, locators: bool, bounding_boxes: bool) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const shown = self.requireUnitShowing();
+        if (shown != .ok) return shown;
+        self.show_locators = locators;
+        self.show_bounding_boxes = bounding_boxes;
+        return .ok;
+    }
+
+    fn meshLocators(ptr: *anyopaque, out: []MeshLocator, total: *usize) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        total.* = 0;
+        const shown = self.requireUnitShowing();
+        if (shown != .ok) return shown;
+        const li = self.firstNodeOfClass(item_type.mesh_locators) orelse return .ok;
+        const locators_id = self.nodes.items[li].id;
+        var count: usize = 0;
+        for (self.nodes.items) |*n| {
+            if (n.parent != locators_id) continue;
+            if (count < out.len) {
+                const x: f32 = @floatFromInt(count);
+                out[count] = .{ .node_id = @intCast(count), .wx = x * 10, .wy = 0, .wz = 0, .sx = 100 + x * 20, .sy = 200 };
+                _ = putName(&out[count].name, std.mem.sliceTo(&n.display, 0));
+            }
+            count += 1;
+        }
+        total.* = count;
+        if (out.len < count) return .refused;
         return .ok;
     }
 
@@ -972,6 +1184,10 @@ pub const FakeResBridge = struct {
         .previewShow = previewShow,
         .previewStop = previewStop,
         .previewPlayback = previewPlayback,
+        .previewMeshVariant = previewMeshVariant,
+        .previewDirection = previewDirection,
+        .previewShowLocators = previewShowLocators,
+        .meshLocators = meshLocators,
     };
 };
 

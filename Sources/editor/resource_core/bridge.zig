@@ -152,6 +152,25 @@ pub const PropRecord = struct {
     }
 };
 
+/// One skeleton node of the previewed unit (BkResLocator). `node_id` is the
+/// node's index in the skeleton, which is also the position of its child
+/// under the tree's Locators item; the world position is where the node sits
+/// in the preview scene, the screen position that run through the scene's
+/// own transform, in the viewport's pixels.
+pub const MeshLocator = struct {
+    node_id: i32 = 0,
+    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    wx: f32 = 0,
+    wy: f32 = 0,
+    wz: f32 = 0,
+    sx: f32 = 0,
+    sy: f32 = 0,
+
+    pub fn nameSlice(self: *const MeshLocator) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+};
+
 /// One reference entry (BkResReferenceEntry): a stable token the project
 /// writes and the choice offered.
 pub const reference_name_capacity: usize = 128;
@@ -430,6 +449,18 @@ pub const ResBridge = struct {
         /// BkResPreviewPlayback: run (true) or stop the shown preview's
         /// animation (MFC's Run and Stop buttons).
         previewPlayback: *const fn (ptr: *anyopaque, run: bool) Status,
+        /// BkResPreviewMeshVariant: the previewed unit's model variant, 0
+        /// combat, 1 install, 2 transportable.
+        previewMeshVariant: *const fn (ptr: *anyopaque, variant: u8) Status,
+        /// BkResPreviewDirection: turns the previewed unit to `angle`
+        /// degrees (0..359).
+        previewDirection: *const fn (ptr: *anyopaque, angle: i32) Status,
+        /// BkResPreviewShowLocators: the locator sprites and the bounding
+        /// boxes, independent of each other.
+        previewShowLocators: *const fn (ptr: *anyopaque, locators: bool, bounding_boxes: bool) Status,
+        /// BkResMeshLocators: two-pass read of the shown model's skeleton
+        /// nodes with their positions.
+        meshLocators: *const fn (ptr: *anyopaque, out: []MeshLocator, total: *usize) Status,
     };
 
     pub fn lastMessage(self: ResBridge) []const u8 {
@@ -524,6 +555,18 @@ pub const ResBridge = struct {
     }
     pub fn previewPlayback(self: ResBridge, run: bool) Status {
         return self.vtable.previewPlayback(self.ptr, run);
+    }
+    pub fn previewMeshVariant(self: ResBridge, variant: u8) Status {
+        return self.vtable.previewMeshVariant(self.ptr, variant);
+    }
+    pub fn previewDirection(self: ResBridge, angle: i32) Status {
+        return self.vtable.previewDirection(self.ptr, angle);
+    }
+    pub fn previewShowLocators(self: ResBridge, locators: bool, bounding_boxes: bool) Status {
+        return self.vtable.previewShowLocators(self.ptr, locators, bounding_boxes);
+    }
+    pub fn meshLocators(self: ResBridge, out: []MeshLocator, total: *usize) Status {
+        return self.vtable.meshLocators(self.ptr, out, total);
     }
 };
 

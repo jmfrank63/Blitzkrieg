@@ -37,6 +37,7 @@ const Kind = rb.Kind;
 const NodeRecord = rb.NodeRecord;
 const PropRecord = rb.PropRecord;
 const ReferenceEntry = rb.ReferenceEntry;
+const MeshLocator = rb.MeshLocator;
 const ExportFlags = rb.ExportFlags;
 const ExportReport = rb.ExportReport;
 const Warning = rb.Warning;
@@ -64,6 +65,7 @@ comptime {
     std.debug.assert(@sizeOf(@FieldType(c.BkResPropRecord, "display_name")) == rb.name_capacity);
     std.debug.assert(@sizeOf(@FieldType(c.BkResPropRecord, "value_text")) == rb.value_text_capacity);
     std.debug.assert(@sizeOf(@FieldType(c.BkResReferenceEntry, "name")) == rb.reference_name_capacity);
+    std.debug.assert(@sizeOf(@FieldType(c.BkResLocator, "name")) == rb.name_capacity);
     std.debug.assert(@sizeOf(c.BkResWarning) == rb.warning_text_capacity);
     std.debug.assert(@sizeOf(@FieldType(c.BkResModSettings, "export_dir")) == @sizeOf(@FieldType(ModSettings, "export_dir")));
     std.debug.assert(@sizeOf(@FieldType(c.BkResModSettings, "name")) == @sizeOf(@FieldType(ModSettings, "name")));
@@ -190,6 +192,10 @@ pub const RealResBridge = struct {
         .previewShow = previewShow,
         .previewStop = previewStop,
         .previewPlayback = previewPlayback,
+        .previewMeshVariant = previewMeshVariant,
+        .previewDirection = previewDirection,
+        .previewShowLocators = previewShowLocators,
+        .meshLocators = meshLocators,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -644,6 +650,46 @@ pub const RealResBridge = struct {
     fn previewPlayback(ptr: *anyopaque, run: bool) Status {
         const self = from(ptr);
         return status(c.BkResPreviewPlayback(self.session, @intFromBool(run)));
+    }
+
+    /// BkResPreviewMeshVariant: combat (0), install (1) or transportable (2).
+    fn previewMeshVariant(ptr: *anyopaque, variant: u8) Status {
+        const self = from(ptr);
+        return status(c.BkResPreviewMeshVariant(self.session, variant));
+    }
+
+    /// BkResPreviewDirection: the unit's turn in degrees.
+    fn previewDirection(ptr: *anyopaque, angle: i32) Status {
+        const self = from(ptr);
+        return status(c.BkResPreviewDirection(self.session, angle));
+    }
+
+    /// BkResPreviewShowLocators: locator sprites and bounding boxes.
+    fn previewShowLocators(ptr: *anyopaque, locators: bool, bounding_boxes: bool) Status {
+        const self = from(ptr);
+        return status(c.BkResPreviewShowLocators(self.session, @intFromBool(locators), @intFromBool(bounding_boxes)));
+    }
+
+    /// BkResMeshLocators: the two-pass read of the shown model's nodes.
+    fn meshLocators(ptr: *anyopaque, out: []MeshLocator, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        if (out.len == 0) {
+            const sized = status(c.BkResMeshLocators(self.session, null, 0, &count));
+            total.* = countOf(count);
+            if (sized == .ok and total.* > 0) return .refused;
+            return sized;
+        }
+        const scratch = self.allocator.alloc(c.BkResLocator, out.len) catch return self.fail(.failed, "out of memory reading the locators");
+        defer self.allocator.free(scratch);
+        const result = status(c.BkResMeshLocators(self.session, scratch.ptr, capacityOf(scratch.len), &count));
+        total.* = countOf(count);
+        if (result != .ok) return result;
+        for (scratch[0..@min(total.*, out.len)], out[0..@min(total.*, out.len)]) |record, *dst| {
+            dst.* = .{ .node_id = record.node_id, .wx = record.wx, .wy = record.wy, .wz = record.wz, .sx = record.sx, .sy = record.sy };
+            copyFixed(&dst.name, &record.name);
+        }
+        return .ok;
     }
 };
 

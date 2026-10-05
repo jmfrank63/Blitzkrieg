@@ -42,6 +42,7 @@
 #include "../ResourceModel/exporter.h"
 #include "../ResourceModel/items/stats_export.h"
 #include "../ResourceModel/items/mesh/mesh.h"
+#include "../ResourceModel/combos.h"
 #include "../Main/RPGStats.h"
 #include "../Main/iMain.h"
 #include "../Main/GameTimer.h"
@@ -2198,18 +2199,24 @@ BkEditorStatus BkResPropStrings( BkResSession *pSession, int nNodeId, int nPropI
 		{
 			if ( p.nId != nPropId )
 				continue;
-			*pnCount = int( p.szStrings.size() );
+			// The unit editor's locator combos are computed from the Locators
+			// children as MFC did on a click, so they follow a model switch.
+			std::vector<std::string> locatorStrings;
+			const bool bLocatorCombo = state.pProject && state.pProject->root &&
+				NResourceModel::MeshLocatorStrings( *state.pProject->root, itItem->second->GetItemType(), nPropId, locatorStrings );
+			const std::vector<std::string> &strings = bLocatorCombo ? locatorStrings : p.szStrings;
+			*pnCount = int( strings.size() );
 			if ( pOut == nullptr && nCapacity == 0 )
 				return BK_EDITOR_OK;
-			if ( pOut == nullptr || nCapacity < int( p.szStrings.size() ) )
+			if ( pOut == nullptr || nCapacity < int( strings.size() ) )
 			{
-				pSession->szMessage = "the buffer holds " + std::to_string( nCapacity ) + " of " + std::to_string( p.szStrings.size() ) + " strings";
+				pSession->szMessage = "the buffer holds " + std::to_string( nCapacity ) + " of " + std::to_string( strings.size() ) + " strings";
 				return BK_EDITOR_REFUSED;
 			}
-			for ( std::size_t i = 0; i < p.szStrings.size(); ++i )
+			for ( std::size_t i = 0; i < strings.size(); ++i )
 			{
 				pOut[i].token = int( i );
-				CopyField( pOut[i].name, sizeof( pOut[i].name ), p.szStrings[i] );
+				CopyField( pOut[i].name, sizeof( pOut[i].name ), strings[i] );
 			}
 			return BK_EDITOR_OK;
 		}

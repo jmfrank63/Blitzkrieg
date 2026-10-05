@@ -181,6 +181,7 @@ public:
 	CMeshLocatorPropsItem() : CStatsItem( ETIT_MESH_LOCATOR_PROPS_ITEM ) { bStaticElements = true; InitDefaultValues(); }
 
 	int nLocatorID = -1;	// MFC's constructor initialiser; the export assigns it, operator& does not store it
+	bool bLocator = false;	// the node is in the skeleton's locator list (IMeshAnimationEdit::GetAllLocatorNames); derived like nLocatorID
 
 protected:
 	void InitDefaultValues() override;

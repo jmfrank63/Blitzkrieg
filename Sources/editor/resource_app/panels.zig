@@ -12,6 +12,7 @@ const core = @import("resource_core");
 const logic = @import("panels_logic.zig");
 const edit = @import("edit_logic.zig");
 const squad = @import("squad_logic.zig");
+const mesh = @import("mesh_logic.zig");
 
 const ig = imgui.c;
 const bridge = core.bridge;
@@ -106,6 +107,9 @@ pub const Panels = struct {
     tree_focused: bool = false,
     /// SquadFrm's formation view: the gesture in progress and the mode.
     overlay: ?squad.Overlay = null,
+    /// The unit preview's toolbar and the markers it last read.
+    mesh_toolbar: mesh.Toolbar = .{},
+    mesh_locators: [mesh.locator_capacity]bridge.MeshLocator = undefined,
     status: [256]u8 = undefined,
     status_len: usize = 0,
 
@@ -242,6 +246,7 @@ pub const Panels = struct {
         self.drawTree(gpa, b, life);
         self.drawInspector(gpa, b, life, window);
         if (life.active == .squad) self.drawFormation(gpa, b, life) else self.overlay = null;
+        if (life.active == .mesh_unit) self.drawMeshPreview(gpa, b, life) else self.mesh_toolbar.reset();
         self.drawRename(gpa, b, life);
         self.drawPicker(gpa, b, life);
         self.takeBrowse(gpa, b, life);
@@ -430,6 +435,60 @@ pub const Panels = struct {
         const tip: ig.ImVec2 = .{ .x = tip_at.x, .y = tip_at.y };
         ig.ImDrawList_AddLineEx(draw_list, .{ .x = centre.x, .y = centre.y }, tip, ink, 2);
         ig.ImDrawList_AddCircleFilled(draw_list, tip, 3, ink, 0);
+    }
+
+    /// The unit preview's toolbar (MFC's combat, install and transportable
+    /// buttons and the two display toggles) and the locator markers drawn
+    /// over the scene from the screen positions the engine reports. A
+    /// right-click on the scene, not on a window, picks the nearest marker
+    /// and selects its Locators child; nothing is recorded in the history.
+    fn drawMeshPreview(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
+        const display = ig.igGetIO().*.DisplaySize;
+        ig.igSetNextWindowPosEx(.{ .x = display.x / 2, .y = 28 }, ig.ImGuiCond_FirstUseEver, .{ .x = 0.5, .y = 0 });
+        ig.igSetNextWindowSize(.{ .x = 0, .y = 0 }, ig.ImGuiCond_FirstUseEver);
+        const toolbar = &self.mesh_toolbar;
+        if (ig.igBegin("Unit preview###mesh_preview", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+            const variants = [_]mesh.Variant{ .combat, .install, .transportable };
+            for (variants, 0..) |variant, i| {
+                if (i != 0) ig.igSameLine();
+                if (ig.igRadioButton(variant.label().ptr, toolbar.variant == variant)) toolbar.setVariant(b, variant) catch |err| self.report(b, "model variant", err);
+            }
+            var locators = toolbar.show_locators;
+            var boxes = toolbar.show_bounding_boxes;
+            const changed_locators = ig.igCheckbox("Show locators", &locators);
+            ig.igSameLine();
+            const changed_boxes = ig.igCheckbox("Bounding boxes", &boxes);
+            if (changed_locators or changed_boxes) toolbar.setShow(b, locators, boxes) catch |err| self.report(b, "show locators", err);
+        }
+        ig.igEnd();
+        if (!toolbar.show_locators) return;
+
+        const markers = mesh.readLocators(b, &self.mesh_locators) catch |err| return self.report(b, "locators", err);
+        const draw_list = ig.igGetForegroundDrawList();
+        const ink = ig.igGetColorU32(ig.ImGuiCol_PlotHistogram);
+        const active = ig.igGetColorU32(ig.ImGuiCol_Text);
+        var selected: ?i32 = null;
+        if (self.selection.primary) |node| selected = node;
+        for (markers) |marker| {
+            const at: ig.ImVec2 = .{ .x = marker.sx, .y = marker.sy };
+            const is_active = if (selected) |node| (mesh.nodeForLocator(&life.doc, marker) orelse -1) == node else false;
+            ig.ImDrawList_AddCircleFilled(draw_list, at, if (is_active) 5 else 3, if (is_active) active else ink, 0);
+            // The active locator's line runs to the scene's origin marker above it.
+            if (is_active) ig.ImDrawList_AddLineEx(draw_list, at, .{ .x = at.x, .y = at.y - 24 }, active, 2);
+        }
+        const io = ig.igGetIO();
+        if (ig.igIsMouseClickedEx(ig.ImGuiMouseButton_Right, false) and !io.*.WantCaptureMouse) {
+            const mouse = ig.igGetMousePos();
+            const at: Point2 = .{ .x = mouse.x, .y = mouse.y };
+            const pick = mesh.pickAndSelect(gpa, &life.doc, &self.selection, markers, at) catch return;
+            switch (pick) {
+                .node => {},
+                .miss => |nearest| {
+                    var text: [160]u8 = undefined;
+                    self.say("{s}", .{mesh.missText(&text, at, nearest)});
+                },
+            }
+        }
     }
 
     fn drawRename(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {

@@ -986,6 +986,7 @@ bool RebuildMeshLocators( CTreeItem &root, const SExportContext &context, int &n
 	{
 		auto pLocator = std::make_unique<CMeshLocatorPropsItem>();
 		pLocator->nLocatorID = i;
+		pLocator->bLocator = std::find( model.skeleton.locators.begin(), model.skeleton.locators.end(), model.skeleton.nodes[i].nIndex ) != model.skeleton.locators.end();
 		pLocator->SetItemName( model.names[i] );
 		pLocators->AddChild( std::move( pLocator ) );
 	}

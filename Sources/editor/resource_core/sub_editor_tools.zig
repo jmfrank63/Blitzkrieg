@@ -58,6 +58,14 @@ pub const item_type = struct {
     pub const sprite_root: i32 = base + 21;
     pub const sprites: i32 = base + 22;
     pub const sprite_props: i32 = base + 23;
+    pub const mesh_root: i32 = base + 61;
+    pub const mesh_graphics: i32 = base + 65;
+    pub const mesh_platforms: i32 = base + 71;
+    pub const mesh_platform_props: i32 = base + 72;
+    pub const mesh_guns: i32 = base + 73;
+    pub const mesh_gun_props: i32 = base + 74;
+    pub const mesh_locators: i32 = base + 77;
+    pub const mesh_locator_props: i32 = base + 78;
 };
 
 // --- Reading the mirror ------------------------------------------------------

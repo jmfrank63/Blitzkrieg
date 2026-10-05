@@ -944,4 +944,58 @@ void CMeshDeathCraterPropsItem::InitDefaultValues()
 	values = defaultValues;
 }
 
+
+bool MeshLocatorStrings( const CTreeItem &root, int nItemType, int nPropId, std::vector<std::string> &strings )
+{
+	enum EList { LIST_PLATFORM_PART, LIST_CARRIAGE, LIST_SHOOT_POINT, LIST_SHOOT_PART };
+	EList list;
+	if ( nItemType == ETIT_MESH_PLATFORM_PROPS_ITEM && nPropId == 1 )
+		list = LIST_PLATFORM_PART;
+	else if ( nItemType == ETIT_MESH_PLATFORM_PROPS_ITEM && ( nPropId == 2 || nPropId == 3 ) )
+		list = LIST_CARRIAGE;
+	else if ( nItemType == ETIT_MESH_GUN_PROPS_ITEM && nPropId == 1 )
+		list = LIST_SHOOT_POINT;
+	else if ( nItemType == ETIT_MESH_GUN_PROPS_ITEM && nPropId == 2 )
+		list = LIST_SHOOT_PART;
+	else
+		return false;
+
+	strings.clear();
+	const CTreeItem *pLocators = nullptr;
+	for ( const auto &pChild : root.GetChildren() )
+		if ( pChild->GetItemType() == ETIT_MESH_LOCATORS_ITEM )
+			pLocators = pChild.get();
+	if ( pLocators != nullptr )
+	{
+		const std::string szCarriage = "GunCarriage";
+		for ( const auto &pChild : pLocators->GetChildren() )
+		{
+			const CMeshLocatorPropsItem *pNode = dynamic_cast<const CMeshLocatorPropsItem *>( pChild.get() );
+			if ( pNode == nullptr )
+				continue;
+			const std::string &szName = pNode->GetDisplayName();
+			const bool bCarriage = szName.compare( 0, szCarriage.size(), szCarriage ) == 0;
+			bool bTake = false;
+			switch ( list )
+			{
+			case LIST_PLATFORM_PART:
+				bTake = !pNode->bLocator;
+				break;
+			case LIST_CARRIAGE:
+				bTake = bCarriage;
+				break;
+			case LIST_SHOOT_POINT:
+				bTake = pNode->bLocator && ( szName.compare( 0, 8, "LMainGun" ) == 0 || szName.compare( 0, 11, "LMachineGun" ) == 0 );
+				break;
+			case LIST_SHOOT_PART:
+				bTake = !pNode->bLocator && !szName.empty() && szName[0] != 'L' && !bCarriage;
+				break;
+			}
+			if ( bTake )
+				strings.push_back( szName );
+		}
+	}
+	strings.push_back( "NA" );
+	return true;
+}
 }

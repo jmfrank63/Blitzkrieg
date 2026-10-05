@@ -3793,6 +3793,234 @@ static void Run( BkResSession *pSession, const std::string &szFixtureRoot, const
 
 }
 
+// S08 T05: the undo and redo of the unit editor's tools on the real bridge. The
+// app's undo replays the old text through BkResSetProp and the old subtree
+// through BkResRestoreNode, so each case here does the same and reads the
+// value or the tree back after the set, the undo and the redo. A failure
+// prints the property with its value before, after the undo and after the
+// redo.
+namespace S08Undo
+{
+
+struct SNode
+{
+	int nId = 0;
+	int nParent = 0;
+	int nClass = 0;
+	std::string szName;
+};
+
+static std::vector<SNode> ReadNodes( BkResSession *pSession )
+{
+	int nCount = 0;
+	BkResNodes( pSession, 0, 0, &nCount );
+	std::vector<BkResNodeRecord> records( nCount > 0 ? nCount : 1 );
+	BkResNodes( pSession, records.data(), nCount, &nCount );
+	std::vector<SNode> nodes;
+	for ( int i = 0; i < nCount; ++i )
+		nodes.push_back( { records[i].id, records[i].parent, records[i].class_type, records[i].display_name } );
+	return nodes;
+}
+
+static int FirstOfClass( const std::vector<SNode> &nodes, int nClass )
+{
+	for ( const SNode &node : nodes )
+		if ( node.nClass == nClass )
+			return node.nId;
+	return 0;
+}
+
+static int CountChildren( const std::vector<SNode> &nodes, int nParent )
+{
+	int n = 0;
+	for ( const SNode &node : nodes )
+		n += node.nParent == nParent ? 1 : 0;
+	return n;
+}
+
+static std::string GetProp( BkResSession *pSession, int nNode, int nProp )
+{
+	int nCount = 0;
+	BkResProps( pSession, nNode, 0, 0, &nCount );
+	std::vector<BkResPropRecord> props( nCount > 0 ? nCount : 1 );
+	BkResProps( pSession, nNode, props.data(), nCount, &nCount );
+	for ( int i = 0; i < nCount; ++i )
+		if ( props[i].id == nProp )
+			return props[i].value_text;
+	return "<no such property>";
+}
+
+static std::vector<std::string> Strings( BkResSession *pSession, int nNode, int nProp )
+{
+	int nCount = 0;
+	std::vector<std::string> out;
+	if ( BkResPropStrings( pSession, nNode, nProp, 0, 0, &nCount ) != BK_EDITOR_OK )
+		return out;
+	std::vector<BkResReferenceEntry> entries( nCount > 0 ? nCount : 1 );
+	if ( BkResPropStrings( pSession, nNode, nProp, entries.data(), nCount, &nCount ) != BK_EDITOR_OK )
+		return out;
+	for ( int i = 0; i < nCount; ++i )
+		out.push_back( entries[i].name );
+	return out;
+}
+
+static bool StartsWith( const std::string &s, const char *pszPrefix )
+{
+	return s.compare( 0, std::strlen( pszPrefix ), pszPrefix ) == 0;
+}
+
+// set, undo (the old text again) and redo, each read back.
+static void SetUndoRedo( BkResSession *pSession, const char *pszWhat, int nNode, int nProp, const std::string &szAfter )
+{
+	const std::string szBefore = GetProp( pSession, nNode, nProp );
+	const bool bSet = BkResSetProp( pSession, nNode, nProp, szAfter.c_str() ) == BK_EDITOR_OK;
+	const std::string szSet = GetProp( pSession, nNode, nProp );
+	const bool bUndo = BkResSetProp( pSession, nNode, nProp, szBefore.c_str() ) == BK_EDITOR_OK;
+	const std::string szUndone = GetProp( pSession, nNode, nProp );
+	const bool bRedo = BkResSetProp( pSession, nNode, nProp, szAfter.c_str() ) == BK_EDITOR_OK;
+	const std::string szRedone = GetProp( pSession, nNode, nProp );
+	const bool bOk = bSet && bUndo && bRedo && szSet == szAfter && szUndone == szBefore && szRedone == szAfter;
+	if ( !bOk )
+		std::printf( "   %s: before \"%s\", set \"%s\", after undo \"%s\", after redo \"%s\"\n", pszWhat, szBefore.c_str(), szSet.c_str(), szUndone.c_str(), szRedone.c_str() );
+	Check( bOk, ( std::string( "mesh undo: " ) + pszWhat + " sets, undoes and redoes" ).c_str() );
+	BkResSetProp( pSession, nNode, nProp, szBefore.c_str() );
+}
+
+// The first entry of a combo that is not "NA", with its class of list checked.
+static std::string FirstChoice( const std::vector<std::string> &strings )
+{
+	for ( const std::string &s : strings )
+		if ( s != "NA" )
+			return s;
+	return "";
+}
+
+static void InsertDeleteUndo( BkResSession *pSession, const char *pszWhat, int nParent, int nClass )
+{
+	const std::vector<SNode> before = ReadNodes( pSession );
+	int nId = 0;
+	const bool bInserted = BkResInsertNode( pSession, nParent, nClass, CountChildren( before, nParent ), &nId ) == BK_EDITOR_OK && nId != 0;
+	const std::vector<SNode> inserted = ReadNodes( pSession );
+	Check( bInserted && inserted.size() == before.size() + 1 && CountChildren( inserted, nParent ) == CountChildren( before, nParent ) + 1,
+	       ( std::string( "mesh undo: " ) + pszWhat + " is inserted" ).c_str() );
+
+	// Delete it, then restore it (the undo of the insert is a delete, the undo of a delete is a restore).
+	int nSize = 0;
+	BkResDeleteNode( pSession, nId, 0, 0, &nSize );
+	std::vector<unsigned char> blob( nSize > 0 ? nSize : 1 );
+	const bool bDeleted = BkResDeleteNode( pSession, nId, blob.data(), nSize, &nSize ) == BK_EDITOR_OK;
+	Check( bDeleted && ReadNodes( pSession ).size() == before.size(), ( std::string( "mesh undo: " ) + pszWhat + " is deleted again" ).c_str() );
+	int nRestored = 0;
+	const bool bRestored = BkResRestoreNode( pSession, blob.data(), nSize, nParent, CountChildren( before, nParent ), &nRestored ) == BK_EDITOR_OK;
+	Check( bRestored && ReadNodes( pSession ).size() == before.size() + 1, ( std::string( "mesh undo: " ) + pszWhat + " is restored" ).c_str() );
+	int nGone = 0;
+	BkResDeleteNode( pSession, nRestored, 0, 0, &nGone );
+	std::vector<unsigned char> blob2( nGone > 0 ? nGone : 1 );
+	BkResDeleteNode( pSession, nRestored, blob2.data(), nGone, &nGone );
+	Check( ReadNodes( pSession ).size() == before.size(), ( std::string( "mesh undo: " ) + pszWhat + " is gone after the redo of the delete" ).c_str() );
+}
+
+static void Run( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s08-mesh-undo";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch, ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / "msh", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), scratch / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	if ( !Check( BkResOpen( pSession, ( scratch / "project.msh" ).string().c_str() ) == BK_EDITOR_OK, "mesh undo: project.msh opens" ) )
+		return;
+
+	const std::vector<SNode> nodes = ReadNodes( pSession );
+	const int nGraphics = FirstOfClass( nodes, NResourceModel::ETIT_MESH_GRAPHICS_ITEM );
+	const int nLocators = FirstOfClass( nodes, NResourceModel::ETIT_MESH_LOCATORS_ITEM );
+	const int nPlatforms = FirstOfClass( nodes, NResourceModel::ETIT_MESH_PLATFORMS_ITEM );
+	const int nPlatform = FirstOfClass( nodes, NResourceModel::ETIT_MESH_PLATFORM_PROPS_ITEM );
+	const int nGun = FirstOfClass( nodes, NResourceModel::ETIT_MESH_GUN_PROPS_ITEM );
+	const int nGuns = FirstOfClass( nodes, NResourceModel::ETIT_MESH_GUNS_ITEM );
+	if ( !Check( nGraphics && nLocators && nPlatforms && nPlatform && nGun && nGuns, "mesh undo: the fixture has graphics, locators, platforms and guns" ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+	std::vector<std::string> locatorNames;
+	for ( const SNode &node : nodes )
+		if ( node.nParent == nLocators )
+			locatorNames.push_back( node.szName );
+	Check( !locatorNames.empty(), "mesh undo: the Locators children were rebuilt on open" );
+	auto IsLocatorName = [&]( const std::string &s ) { return std::find( locatorNames.begin(), locatorNames.end(), s ) != locatorNames.end(); };
+
+	// The combo lists come from those children, "NA" last, as MFC's four loaders built them.
+	const std::vector<std::string> point = Strings( pSession, nGun, 1 );
+	const std::vector<std::string> shootPart = Strings( pSession, nGun, 2 );
+	const std::vector<std::string> part = Strings( pSession, nPlatform, 1 );
+	const std::vector<std::string> carriage1 = Strings( pSession, nPlatform, 2 );
+	const std::vector<std::string> carriage2 = Strings( pSession, nPlatform, 3 );
+	bool bLists = true;
+	for ( const auto *pList : { &point, &shootPart, &part, &carriage1, &carriage2 } )
+	{
+		bLists = bLists && !pList->empty() && pList->back() == "NA";
+		for ( std::size_t i = 0; i + 1 < pList->size(); ++i )
+			bLists = bLists && IsLocatorName( ( *pList )[i] );
+	}
+	Check( bLists, "mesh undo: every locator combo ends in NA and holds Locators children" );
+	bool bKinds = true;
+	for ( std::size_t i = 0; i + 1 < point.size(); ++i )
+		bKinds = bKinds && ( StartsWith( point[i], "LMainGun" ) || StartsWith( point[i], "LMachineGun" ) );
+	for ( std::size_t i = 0; i + 1 < shootPart.size(); ++i )
+		bKinds = bKinds && shootPart[i][0] != 'L' && !StartsWith( shootPart[i], "GunCarriage" );
+	for ( std::size_t i = 0; i + 1 < carriage1.size(); ++i )
+		bKinds = bKinds && StartsWith( carriage1[i], "GunCarriage" );
+	Check( bKinds, "mesh undo: shoot points, shoot parts and carriages are told apart as MFC did" );
+	std::printf( "MESH combos: %d shoot points, %d shoot parts, %d platform parts, %d carriages of %d nodes\n", int( point.size() - 1 ), int( shootPart.size() - 1 ),
+	             int( part.size() - 1 ), int( carriage1.size() - 1 ), int( locatorNames.size() ) );
+
+	// Locator references.
+	const std::string szPoint = FirstChoice( point );
+	const std::string szShootPart = FirstChoice( shootPart );
+	const std::string szPart = FirstChoice( part );
+	if ( Check( !szPoint.empty() && !szShootPart.empty() && !szPart.empty(), "mesh undo: the combat model offers a shoot point, a shoot part and a platform part" ) )
+	{
+		SetUndoRedo( pSession, "gun shoot point", nGun, 1, szPoint );
+		SetUndoRedo( pSession, "gun shoot part", nGun, 2, szShootPart );
+		SetUndoRedo( pSession, "platform part", nPlatform, 1, szPart );
+	}
+	const std::string szCarriage = FirstChoice( carriage1 );
+	if ( !szCarriage.empty() )
+	{
+		SetUndoRedo( pSession, "platform gun carriage 1", nPlatform, 2, szCarriage );
+		SetUndoRedo( pSession, "platform gun carriage 2", nPlatform, 3, szCarriage );
+	}
+
+	// The combat model name: the children follow it, and the old text brings them back.
+	{
+		const std::string szOld = GetProp( pSession, nGraphics, 1 );
+		const std::vector<std::string> pointsBefore = point;
+		SetUndoRedo( pSession, "combat model name", nGraphics, 1, "2.mod" );
+		BkResSetProp( pSession, nGraphics, 1, "2.mod" );
+		const std::vector<SNode> switched = ReadNodes( pSession );
+		const std::vector<std::string> pointsAfter = Strings( pSession, nGun, 1 );
+		BkResSetProp( pSession, nGraphics, 1, szOld.c_str() );
+		const std::vector<SNode> undone = ReadNodes( pSession );
+		bool bChildren = CountChildren( switched, nLocators ) > 0;
+		bool bBack = CountChildren( undone, nLocators ) == int( locatorNames.size() );
+		for ( std::size_t i = 0, k = 0; bBack && i < undone.size(); ++i )
+			if ( undone[i].nParent == nLocators )
+				bBack = undone[i].szName == locatorNames[k++];
+		Check( bChildren && bBack, "mesh undo: a model switch rebuilds the Locators children and its undo restores them in order" );
+		Check( Strings( pSession, nGun, 1 ) == pointsBefore && !pointsAfter.empty(), "mesh undo: the shoot point list follows the model both ways" );
+	}
+
+	// A platform under Platforms and a gun under a platform's Guns item (MFC's Insert key).
+	InsertDeleteUndo( pSession, "a platform", nPlatforms, NResourceModel::ETIT_MESH_PLATFORM_PROPS_ITEM );
+	InsertDeleteUndo( pSession, "a gun", nGuns, NResourceModel::ETIT_MESH_GUN_PROPS_ITEM );
+	BkResClose( pSession );
+}
+
+}
+
 // S06 T05: the preview captures of the mine, trench and squad (D015: MFC's
 // weapon frame draws nothing, so a weapon has none). Each runs the real
 // exporter into the preview folder and draws on the empty scene, measured by
@@ -4781,6 +5009,8 @@ int main( int argc, char **argv )
 	S08Mesh::Graphics( pSession, szFixtureRoot, szScratchRoot );
 	// S08 T04: the unit preview's variants, locators and direction.
 	S08Preview::Run( pSession, szFixtureRoot, szScratchRoot );
+	// S08 T05: the unit editor's locator references, model switch and platform and gun nodes, undone and redone.
+	S08Undo::Run( pSession, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

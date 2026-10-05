@@ -18,6 +18,7 @@ const core = @import("resource_core");
 const c_bridge = @import("c_bridge.zig");
 const logic = @import("panels_logic.zig");
 const dl = @import("docks_logic.zig");
+const mesh_logic = @import("mesh_logic.zig");
 const lifecycle = @import("lifecycle.zig");
 const lifecycle_ui = @import("lifecycle_ui.zig");
 
@@ -239,7 +240,7 @@ pub const Docks = struct {
         self.takeFolder();
         self.first_thumbnail = null;
         if (self.show_thumbnails) self.drawThumbnails(project_folder, life, selected);
-        if (self.show_direction) self.drawDirection();
+        if (self.show_direction) self.drawDirection(life.is_open and life.active == .mesh_unit);
         if (self.show_function) self.drawFunction();
         self.drawPreviewLine();
     }
@@ -383,7 +384,9 @@ pub const Docks = struct {
         if (self.thumbs.names.items.len == 0) self.thumbs.say("no .tga pictures in this folder", .{});
     }
 
-    fn drawDirection(self: *Docks) void {
+    /// `turns_unit`: the open project is a unit, whose preview follows the needle
+    /// (MFC's direction button turned the combat object).
+    fn drawDirection(self: *Docks, turns_unit: bool) void {
         const display = ig.igGetIO().*.DisplaySize;
         self.place(fixed_layout.direction, display.x - 188, display.y - 230, 180, 190);
         if (!ig.igBegin("Direction###direction", &self.show_direction, self.windowFlags())) {
@@ -400,6 +403,7 @@ pub const Docks = struct {
         if (ig.igIsItemActive()) {
             const mouse = ig.igGetMousePos();
             self.direction_angle = dl.directionAngleAt(mouse.x - top_left.x, mouse.y - top_left.y, side, side);
+            if (turns_unit) mesh_logic.turnPreview(self.real.bridge(), self.direction_angle) catch {};
         }
         const draw_list = ig.igGetWindowDrawList();
         ig.ImDrawList_AddRectFilled(draw_list, top_left, .{ .x = top_left.x + side, .y = top_left.y + side }, ig.igGetColorU32(ig.ImGuiCol_FrameBg));

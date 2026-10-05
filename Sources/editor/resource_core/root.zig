@@ -965,3 +965,89 @@ test "import builds an infantry project the document mirrors, and refuses the ot
     fake.setExportable(.animation_infantry, true);
     try std.testing.expectEqual(bridge.Status.refused, res.exportProject(.{}, false, &report, &.{}));
 }
+
+fn meshItem(fake: *FakeResBridge, parent: i32, class_type: i32, props: []const struct { i32, []const u8 }) !i32 {
+    var class: [16]u8 = undefined;
+    var id: i32 = 0;
+    var siblings: i32 = 0;
+    for (fake.nodes.items) |n| {
+        if (n.parent == parent) siblings += 1;
+    }
+    try bridge.check(fake.bridge().insertNode(parent, try std.fmt.bufPrint(&class, "{d}", .{class_type}), siblings, &id));
+    for (fake.nodes.items) |*n| {
+        if (n.id != id) continue;
+        for (props) |entry| {
+            var prop: PropRecord = .{ .id = entry[0] };
+            _ = prop.setValue(entry[1]);
+            try n.props.append(fake.allocator, prop);
+        }
+    }
+    return id;
+}
+
+fn expectValue(doc: *Document, node: i32, prop: i32, want: []const u8, when: []const u8) !void {
+    const got = sub_editor_tools.propValue(doc, node, prop).?;
+    if (!std.mem.eql(u8, want, got)) {
+        std.debug.print("unit property {d} of node {d} {s}: expected \"{s}\", got \"{s}\"\n", .{ prop, node, when, want, got });
+        return error.TestExpectedEqual;
+    }
+}
+
+test "unit locator references and a model switch undo and redo, the Locators children following the model" {
+    const allocator = std.testing.allocator;
+    const item = sub_editor_tools.item_type;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    try fake.addMeshModel("a.mod", &.{ .{ .name = "Base" }, .{ .name = "LMainGun1", .locator = true } });
+    try fake.addMeshModel("b.mod", &.{.{ .name = "Hull" }});
+    try bridge.check(fake.bridge().new(.mesh_unit));
+    const root = fake.nodes.items[0].id;
+    const graphics = try meshItem(&fake, root, item.mesh_graphics, &.{.{ 1, "a.mod" }});
+    const locators = try meshItem(&fake, root, item.mesh_locators, &.{});
+    const platforms = try meshItem(&fake, root, item.mesh_platforms, &.{});
+    const platform = try meshItem(&fake, platforms, item.mesh_platform_props, &.{ .{ 1, "NA" }, .{ 2, "NA" } });
+    const guns = try meshItem(&fake, platform, item.mesh_guns, &.{});
+    const gun = try meshItem(&fake, guns, item.mesh_gun_props, &.{ .{ 1, "NA" }, .{ 2, "NA" } });
+    try bridge.check(fake.bridge().setProp(graphics, 1, "a.mod"));
+
+    var doc: Document = .{};
+    defer doc.deinit(allocator);
+    try doc.reload(allocator, fake.bridge());
+    var hist: History = .{};
+    defer hist.deinit(allocator);
+    try std.testing.expectEqual(@as(i32, 2), sub_editor_tools.childCount(&doc, locators));
+
+    // Locator references: set, undo, redo, each read back.
+    const refs = [_]struct { node: i32, prop: i32, value: []const u8 }{
+        .{ .node = gun, .prop = 1, .value = "LMainGun1" },
+        .{ .node = platform, .prop = 1, .value = "Base" },
+    };
+    for (refs) |ref| {
+        try sub_editor_tools.commit(allocator, fake.bridge(), &doc, &hist, try sub_editor_tools.setProp(allocator, &doc, ref.node, ref.prop, ref.value), 0);
+        try expectValue(&doc, ref.node, ref.prop, ref.value, "after set");
+        try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+        try expectValue(&doc, ref.node, ref.prop, "NA", "after undo");
+        try doc.redoOne(allocator, fake.bridge(), &hist.top().?.command);
+        try expectValue(&doc, ref.node, ref.prop, ref.value, "after redo");
+    }
+
+    // The model switch: the children are rebuilt from b.mod, and undo brings a.mod's back.
+    try sub_editor_tools.commit(allocator, fake.bridge(), &doc, &hist, try sub_editor_tools.setProp(allocator, &doc, graphics, 1, "b.mod"), 0);
+    try std.testing.expectEqual(@as(i32, 1), sub_editor_tools.childCount(&doc, locators));
+    try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+    try expectValue(&doc, graphics, 1, "a.mod", "after undo of the switch");
+    try std.testing.expectEqual(@as(i32, 2), sub_editor_tools.childCount(&doc, locators));
+    try doc.redoOne(allocator, fake.bridge(), &hist.top().?.command);
+    try std.testing.expectEqual(@as(i32, 1), sub_editor_tools.childCount(&doc, locators));
+
+    // A platform and a gun inserted and deleted.
+    const platforms_before = sub_editor_tools.childCount(&doc, platforms);
+    try sub_editor_tools.commit(allocator, fake.bridge(), &doc, &hist, try sub_editor_tools.appendChild(allocator, &doc, platforms, item.mesh_platform_props), 0);
+    try std.testing.expectEqual(platforms_before + 1, sub_editor_tools.childCount(&doc, platforms));
+    try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+    try std.testing.expectEqual(platforms_before, sub_editor_tools.childCount(&doc, platforms));
+    try sub_editor_tools.commit(allocator, fake.bridge(), &doc, &hist, try sub_editor_tools.deleteNode(&doc, gun), 0);
+    try std.testing.expectEqual(@as(i32, 0), sub_editor_tools.childCount(&doc, guns));
+    try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+    try std.testing.expectEqual(@as(i32, 1), sub_editor_tools.childCount(&doc, guns));
+}
