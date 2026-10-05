@@ -351,6 +351,100 @@ int main( int argc, char **argv )
 		Check( BkResClose( pSession ) == BK_EDITOR_OK, "BkResClose releases lock" );
 	}
 
+	// T05: cells family round-trip against bld. Writes passability, locked
+	// tiles, and transparency lines on the root node of the bld fixture;
+	// reads back; saves; reopens the saved copy; reads again; asserts the
+	// values persisted byte-identically through NResourceModel::Load/Save.
+	{
+		const std::string szIn = szFixtureRoot + "/bld/project.bld";
+		const std::string szOutDir = szScratchRoot + "/bld";
+		const std::string szOut = szOutDir + "/project.cells.bld";
+		std::error_code ec;
+		std::filesystem::create_directories( szOutDir, ec );
+		std::filesystem::remove( szOut, ec );
+		std::filesystem::remove( szOut + ".bak", ec );
+		std::filesystem::remove( szOut + ".tmp", ec );
+
+		if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "cells: BkResOpen bld" ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		else
+		{
+			const int nRoot = 1; // RebuildIds hands the root id 1.
+			// A 3x2 passability grid with a recognisable byte pattern.
+			const int nW = 3, nH = 2;
+			unsigned char cells[6] = { 1, 2, 3, 4, 5, 6 };
+			Check( BkResSetPassabilityCells( pSession, nRoot, cells, nW, nH ) == BK_EDITOR_OK,
+			       "cells: BkResSetPassabilityCells" );
+
+			int rw = 0, rh = 0;
+			unsigned char read_cells[16] = {};
+			Check( BkResGetPassabilityCells( pSession, nRoot, 0, 0, &rw, &rh ) == BK_EDITOR_OK,
+			       "cells: BkResGetPassabilityCells size" );
+			Check( rw == nW && rh == nH, "cells: passability w/h round-trip" );
+			Check( BkResGetPassabilityCells( pSession, nRoot, read_cells, (int)sizeof( read_cells ), &rw, &rh ) == BK_EDITOR_OK,
+			       "cells: BkResGetPassabilityCells read" );
+			Check( std::memcmp( read_cells, cells, 6 ) == 0, "cells: passability bytes round-trip" );
+
+			// A 2x2 locked-tiles grid.
+			unsigned char locked[4] = { 0, 1, 1, 0 };
+			Check( BkResSetLockedTiles( pSession, nRoot, locked, 2, 2 ) == BK_EDITOR_OK,
+			       "cells: BkResSetLockedTiles" );
+			unsigned char read_locked[4] = {};
+			Check( BkResGetLockedTiles( pSession, nRoot, read_locked, 4, &rw, &rh ) == BK_EDITOR_OK,
+			       "cells: BkResGetLockedTiles" );
+			Check( rw == 2 && rh == 2, "cells: locked w/h round-trip" );
+			Check( std::memcmp( read_locked, locked, 4 ) == 0, "cells: locked bytes round-trip" );
+
+			// A short transparency-lines list.
+			BkResPoint2 lines[3] = { { 0.5f, 1.5f }, { 2.0f, 3.0f }, { 4.25f, 5.75f } };
+			Check( BkResSetTransparencyLines( pSession, nRoot, lines, 3 ) == BK_EDITOR_OK,
+			       "cells: BkResSetTransparencyLines" );
+			int nLineCount = -1;
+			Check( BkResGetTransparencyLines( pSession, nRoot, 0, 0, &nLineCount ) == BK_EDITOR_OK,
+			       "cells: BkResGetTransparencyLines size" );
+			Check( nLineCount == 3, "cells: transparency line count" );
+			BkResPoint2 read_lines[3] = {};
+			Check( BkResGetTransparencyLines( pSession, nRoot, read_lines, 3, &nLineCount ) == BK_EDITOR_OK,
+			       "cells: BkResGetTransparencyLines fill" );
+			bool bLinesOk = true;
+			for ( int i = 0; i < 3; ++i )
+				if ( read_lines[i].x != lines[i].x || read_lines[i].y != lines[i].y ) bLinesOk = false;
+			Check( bLinesOk, "cells: transparency bytes round-trip" );
+
+			// Save, reopen, re-read. The values must persist through XML.
+			if ( !Check( BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK, "cells: BkResSave" ) )
+				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+			Check( BkResClose( pSession ) == BK_EDITOR_OK, "cells: BkResClose after save" );
+			if ( !Check( BkResOpen( pSession, szOut.c_str() ) == BK_EDITOR_OK, "cells: re-open saved copy" ) )
+				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+
+			std::memset( read_cells, 0, sizeof( read_cells ) );
+			rw = 0; rh = 0;
+			Check( BkResGetPassabilityCells( pSession, nRoot, read_cells, (int)sizeof( read_cells ), &rw, &rh ) == BK_EDITOR_OK,
+			       "cells: re-read passability" );
+			Check( rw == nW && rh == nH && std::memcmp( read_cells, cells, 6 ) == 0,
+			       "cells: passability survives save+reopen" );
+
+			std::memset( read_locked, 0, sizeof( read_locked ) );
+			rw = 0; rh = 0;
+			Check( BkResGetLockedTiles( pSession, nRoot, read_locked, 4, &rw, &rh ) == BK_EDITOR_OK,
+			       "cells: re-read locked" );
+			Check( rw == 2 && rh == 2 && std::memcmp( read_locked, locked, 4 ) == 0,
+			       "cells: locked tiles survive save+reopen" );
+
+			std::memset( read_lines, 0, sizeof( read_lines ) );
+			nLineCount = 0;
+			Check( BkResGetTransparencyLines( pSession, nRoot, read_lines, 3, &nLineCount ) == BK_EDITOR_OK,
+			       "cells: re-read transparency" );
+			bLinesOk = ( nLineCount == 3 );
+			for ( int i = 0; i < 3 && bLinesOk; ++i )
+				if ( read_lines[i].x != lines[i].x || read_lines[i].y != lines[i].y ) bLinesOk = false;
+			Check( bLinesOk, "cells: transparency lines survive save+reopen" );
+
+			BkResClose( pSession );
+		}
+	}
+
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );
 	SDL_Quit();

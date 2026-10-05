@@ -233,6 +233,171 @@ test "geometry records -> undo -> redo rewrites the channel" {
     }
 }
 
+test "geometry passability_cells undo/redo round-trips the grid" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    try setupProject(allocator, &fake);
+    const root_id = fake.nodes.items[0].id;
+
+    var doc: Document = .{};
+    defer doc.deinit(allocator);
+    try doc.reload(allocator, fake.bridge());
+
+    const before_bytes = try allocator.alloc(u8, 0);
+    const after_bytes = try allocator.alloc(u8, 6);
+    for (after_bytes, 0..) |*b, i| b.* = @intCast(i + 1);
+
+    var hist: History = .{};
+    defer hist.deinit(allocator);
+    try hist.reserve(allocator);
+    var cmd: ResourceCommand = .{ .geometry = .{
+        .node = root_id,
+        .channel = .passability_cells,
+        .before = .{ .bytes_grid = .{ .bytes = before_bytes, .width = 0, .height = 0 } },
+        .after = .{ .bytes_grid = .{ .bytes = after_bytes, .width = 3, .height = 2 } },
+    } };
+    try doc.apply(allocator, fake.bridge(), &cmd);
+    hist.recordAssumeCapacity(allocator, cmd, 0);
+    try std.testing.expect(doc.isDirty(&hist));
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .passability_cells, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(i32, 3), read.bytes_grid.width);
+        try std.testing.expectEqual(@as(i32, 2), read.bytes_grid.height);
+        try std.testing.expectEqualSlices(u8, &.{ 1, 2, 3, 4, 5, 6 }, read.bytes_grid.bytes);
+    }
+
+    try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .passability_cells, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(i32, 0), read.bytes_grid.width);
+        try std.testing.expectEqual(@as(i32, 0), read.bytes_grid.height);
+        try std.testing.expectEqual(@as(usize, 0), read.bytes_grid.bytes.len);
+    }
+
+    try doc.redoOne(allocator, fake.bridge(), &hist.top().?.command);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .passability_cells, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqualSlices(u8, &.{ 1, 2, 3, 4, 5, 6 }, read.bytes_grid.bytes);
+    }
+
+    hist.markClean();
+    try std.testing.expect(!doc.isDirty(&hist));
+}
+
+test "geometry locked_tiles undo/redo round-trips the grid" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    try setupProject(allocator, &fake);
+    const root_id = fake.nodes.items[0].id;
+
+    var doc: Document = .{};
+    defer doc.deinit(allocator);
+    try doc.reload(allocator, fake.bridge());
+
+    const before_bytes = try allocator.alloc(u8, 0);
+    const after_bytes = try allocator.alloc(u8, 4);
+    after_bytes[0] = 0;
+    after_bytes[1] = 1;
+    after_bytes[2] = 1;
+    after_bytes[3] = 0;
+
+    var hist: History = .{};
+    defer hist.deinit(allocator);
+    try hist.reserve(allocator);
+    var cmd: ResourceCommand = .{ .geometry = .{
+        .node = root_id,
+        .channel = .locked_tiles,
+        .before = .{ .bytes_grid = .{ .bytes = before_bytes, .width = 0, .height = 0 } },
+        .after = .{ .bytes_grid = .{ .bytes = after_bytes, .width = 2, .height = 2 } },
+    } };
+    try doc.apply(allocator, fake.bridge(), &cmd);
+    hist.recordAssumeCapacity(allocator, cmd, 0);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .locked_tiles, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqualSlices(u8, &.{ 0, 1, 1, 0 }, read.bytes_grid.bytes);
+    }
+
+    try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .locked_tiles, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(usize, 0), read.bytes_grid.bytes.len);
+    }
+
+    try doc.redoOne(allocator, fake.bridge(), &hist.top().?.command);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .locked_tiles, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqualSlices(u8, &.{ 0, 1, 1, 0 }, read.bytes_grid.bytes);
+    }
+}
+
+test "geometry transparency_lines undo/redo round-trips the point list" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    try setupProject(allocator, &fake);
+    const root_id = fake.nodes.items[0].id;
+
+    var doc: Document = .{};
+    defer doc.deinit(allocator);
+    try doc.reload(allocator, fake.bridge());
+
+    const before_points = try allocator.alloc(Point2, 0);
+    const after_points = try allocator.alloc(Point2, 3);
+    after_points[0] = .{ .x = 0.5, .y = 1.5 };
+    after_points[1] = .{ .x = 2.0, .y = 3.0 };
+    after_points[2] = .{ .x = 4.25, .y = 5.75 };
+
+    var hist: History = .{};
+    defer hist.deinit(allocator);
+    try hist.reserve(allocator);
+    var cmd: ResourceCommand = .{ .geometry = .{
+        .node = root_id,
+        .channel = .transparency_lines,
+        .before = .{ .points2 = before_points },
+        .after = .{ .points2 = after_points },
+    } };
+    try doc.apply(allocator, fake.bridge(), &cmd);
+    hist.recordAssumeCapacity(allocator, cmd, 0);
+    try std.testing.expect(doc.isDirty(&hist));
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .transparency_lines, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(usize, 3), read.points2.len);
+        try std.testing.expectEqual(@as(f32, 4.25), read.points2[2].x);
+    }
+
+    try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .transparency_lines, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(usize, 0), read.points2.len);
+    }
+
+    try doc.redoOne(allocator, fake.bridge(), &hist.top().?.command);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .transparency_lines, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(usize, 3), read.points2.len);
+    }
+}
+
 test "composite collapses two commands into one undo step" {
     const allocator = std.testing.allocator;
     var fake = FakeResBridge.init(allocator);

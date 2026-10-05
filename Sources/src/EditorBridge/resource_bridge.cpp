@@ -2,9 +2,15 @@
 // the shared Guarded template (guarded.h) so no exception crosses into Zig.
 // T01 stubbed every call to BK_EDITOR_OK. T02 fills in the Project+Tree group:
 // New/Open/Save (safe-save read-back), Close, KindOf, Lock/LockOwner, Nodes,
-// Props, SetProp, InsertNode, MoveNode, DeleteNode, RestoreNode. The remaining
-// groups (geometry, references, export, mod, preview, import) stay stubbed and
-// are replaced in T03-T06.
+// Props, SetProp, InsertNode, MoveNode, DeleteNode, RestoreNode. T05 fills in
+// the cells family of geometry (passability, locked tiles, transparency
+// lines): the C ABI entries now serve against an in-session geometry map that
+// hangs off ResourceState, and BkResOpen / BkResSave persist / restore entries
+// as auxiliary `_bk_geometry` XML children under the owning node so a save
+// then reopen keeps the written cells byte-identically. The remaining
+// geometry channels (points, aimed points, keyframes) and the other groups
+// (references, export, mod, preview, import) stay stubbed and are replaced
+// in T06-T10.
 //
 // Per-session state (open project, path, node id maps, lock) lives in a module-
 // private map keyed by the BkEditorSession pointer the lifecycle layer owns.
@@ -94,6 +100,24 @@ int KindOrdinalFromRootType( int nRootType )
 	return -1;
 }
 
+// One geometry entry's shape: the bytes_grid family (passability, locked
+// tiles) stores a width/height plus the row-major grid; the points2 family
+// (transparency lines, formation positions, ...) stores a flat f32 pair
+// list. T05 only exercises the bytes_grid family and transparency_lines; the
+// struct carries both shapes so T06+ can reuse it without a schema change.
+struct GeometryBlob
+{
+	// bytes_grid family: non-empty bytes + w > 0 && h > 0 && w*h == bytes.size.
+	std::vector<unsigned char> bytes;
+	int nWidth = 0;
+	int nHeight = 0;
+	// points family: 2*n floats in order (x0, y0, x1, y1, ...). The two
+	// payload families are mutually exclusive on a given (node, channel) pair
+	// because the channel enum fixes the family; the struct carries both so
+	// a later channel can reuse this blob.
+	std::vector<float> points;
+};
+
 // Per-session state the resource bridge needs on top of BkEditorSession. The
 // shared lifecycle layer (bridge.cpp) owns the session; this map hangs the
 // project-shaped state off it. See the file header for the lifetime contract.
@@ -115,7 +139,34 @@ struct ResourceState
 	// is removed on BkResClose.
 	bool bHoldsLock = false;
 	std::string szLockPath;
+	// Geometry map keyed by (node_id, channel). The channel is the C ABI
+	// integer the Zig GeometryChannel enum uses (BkResPassabilityCells = 0,
+	// BkResLockedTiles = 1, BkResTransparencyLines = 2, etc.). An entry
+	// exists only after a successful BkResSet*; a read of an un-set channel
+	// returns an empty payload (w = h = 0, count = 0). On BkResSave the
+	// entries are injected as `_bk_geometry` child elements under the owning
+	// node so a BkResOpen on the saved file restores the map.
+	std::map<std::pair<int, int>, GeometryBlob> geometry;
 };
+
+// Channel ids: the C ABI's geometry channel integers (shared with Zig's
+// bridge.GeometryChannel enum). Only the three cells channels have real
+// semantics in T05; the rest are reserved for T06+. Kept as a plain enum so a
+// test can hand-assert against an integer.
+enum GeometryChannel
+{
+	CHANNEL_PASSABILITY_CELLS = 0,
+	CHANNEL_LOCKED_TILES = 1,
+	CHANNEL_TRANSPARENCY_LINES = 2
+};
+
+// Reserved child-element name for persisted geometry. The Project loader
+// (adopts children as FutureBlobs under typed roots) hands us the raw XML
+// bytes untouched; we scan for this tag on open and strip the matching
+// children before the caller sees the tree. On save we re-inject them under
+// the owning node's children just before Serialise, then remove them so the
+// in-memory tree stays unchanged across the call.
+const char *kGeometryTag = "_bk_geometry";
 
 std::map<BkEditorSession *, ResourceState> &States()
 {
@@ -149,6 +200,153 @@ void ResetState( ResourceState &state )
 	state.idToItem.clear();
 	state.itemToId.clear();
 	state.parentOf.clear();
+	state.geometry.clear();
+}
+
+// Lower-case hex of a byte buffer; two chars per byte, no separators. Used
+// for serialising the cells grids inside `_bk_geometry` XML children.
+std::string HexEncode( const unsigned char *p, std::size_t n )
+{
+	static const char kDigits[] = "0123456789abcdef";
+	std::string out;
+	out.resize( n * 2 );
+	for ( std::size_t i = 0; i < n; ++i )
+	{
+		out[2*i]     = kDigits[( p[i] >> 4 ) & 0xF];
+		out[2*i + 1] = kDigits[p[i] & 0xF];
+	}
+	return out;
+}
+
+bool HexDecode( const std::string &szHex, std::vector<unsigned char> &out )
+{
+	if ( szHex.size() % 2 != 0 ) return false;
+	out.resize( szHex.size() / 2 );
+	auto Nibble = []( char c, int &v ) -> bool
+	{
+		if ( c >= '0' && c <= '9' ) { v = c - '0'; return true; }
+		if ( c >= 'a' && c <= 'f' ) { v = 10 + ( c - 'a' ); return true; }
+		if ( c >= 'A' && c <= 'F' ) { v = 10 + ( c - 'A' ); return true; }
+		return false;
+	};
+	for ( std::size_t i = 0; i < out.size(); ++i )
+	{
+		int hi = 0, lo = 0;
+		if ( !Nibble( szHex[2*i], hi ) || !Nibble( szHex[2*i + 1], lo ) ) return false;
+		out[i] = static_cast<unsigned char>( ( hi << 4 ) | lo );
+	}
+	return true;
+}
+
+// Finds an attribute by name; returns an empty string when absent.
+std::string FindAttr( const NResourceXml::Node &node, const std::string &szName )
+{
+	for ( const auto &kv : node.attrs )
+		if ( kv.first == szName )
+			return kv.second;
+	return std::string();
+}
+
+// Builds a `_bk_geometry` child element from a stored blob. Shape:
+//   bytes_grid: <_bk_geometry channel="N" w="W" h="H">HEX...</_bk_geometry>
+//   points    : <_bk_geometry channel="N" count="K">x0,y0;x1,y1;...</_bk_geometry>
+// Element content lives as a single Text child node, which is how xml.cpp
+// writes/reads inline text.
+NResourceXml::Node EmitGeometryChild( int nChannel, const GeometryBlob &blob )
+{
+	NResourceXml::Node out;
+	out.kind = NResourceXml::Node::Element;
+	out.name = kGeometryTag;
+	out.attrs.push_back( { "channel", std::to_string( nChannel ) } );
+	std::string text;
+	if ( nChannel == CHANNEL_PASSABILITY_CELLS || nChannel == CHANNEL_LOCKED_TILES )
+	{
+		out.attrs.push_back( { "w", std::to_string( blob.nWidth ) } );
+		out.attrs.push_back( { "h", std::to_string( blob.nHeight ) } );
+		text = HexEncode( blob.bytes.data(), blob.bytes.size() );
+	}
+	else
+	{
+		const int nCount = static_cast<int>( blob.points.size() / 2 );
+		out.attrs.push_back( { "count", std::to_string( nCount ) } );
+		text.reserve( blob.points.size() * 10 );
+		for ( int i = 0; i < nCount; ++i )
+		{
+			if ( i != 0 ) text.push_back( ';' );
+			char buf[64];
+			std::snprintf( buf, sizeof( buf ), "%g,%g", blob.points[2*i], blob.points[2*i + 1] );
+			text += buf;
+		}
+	}
+	if ( !text.empty() )
+	{
+		NResourceXml::Node body;
+		body.kind = NResourceXml::Node::Text;
+		body.text = std::move( text );
+		out.children.push_back( std::move( body ) );
+	}
+	return out;
+}
+
+// Reads a `_bk_geometry` element's single inline Text child; returns the
+// child's text (same shape xml.cpp emits via the single-text-child branch of
+// WriteNode). Empty when the element has no body.
+std::string FindBodyText( const NResourceXml::Node &node )
+{
+	for ( const auto &c : node.children )
+		if ( c.kind == NResourceXml::Node::Text || c.kind == NResourceXml::Node::CData )
+			return c.text;
+	return std::string();
+}
+
+// Parses a `_bk_geometry` child back into a (channel, blob). Returns false on
+// a malformed element (unknown shape, odd attrs, bad hex, bad float).
+bool ParseGeometryChild( const NResourceXml::Node &node, int &nChannel, GeometryBlob &out )
+{
+	if ( node.kind != NResourceXml::Node::Element || node.name != kGeometryTag )
+		return false;
+	const std::string szChannel = FindAttr( node, "channel" );
+	if ( szChannel.empty() ) return false;
+	nChannel = std::atoi( szChannel.c_str() );
+	const std::string body = FindBodyText( node );
+	if ( nChannel == CHANNEL_PASSABILITY_CELLS || nChannel == CHANNEL_LOCKED_TILES )
+	{
+		out.nWidth  = std::atoi( FindAttr( node, "w" ).c_str() );
+		out.nHeight = std::atoi( FindAttr( node, "h" ).c_str() );
+		if ( out.nWidth < 0 || out.nHeight < 0 ) return false;
+		if ( !HexDecode( body, out.bytes ) ) return false;
+		const std::size_t nExpect = static_cast<std::size_t>( out.nWidth ) * static_cast<std::size_t>( out.nHeight );
+		if ( out.bytes.size() != nExpect ) return false;
+		return true;
+	}
+	// points family
+	const std::string szCount = FindAttr( node, "count" );
+	const int nCount = std::atoi( szCount.c_str() );
+	if ( nCount < 0 ) return false;
+	out.points.clear();
+	if ( nCount == 0 ) return true;
+	out.points.reserve( static_cast<std::size_t>( nCount ) * 2 );
+	const char *p = body.c_str();
+	const char *pEnd = p + body.size();
+	for ( int i = 0; i < nCount; ++i )
+	{
+		if ( i != 0 )
+		{
+			if ( p >= pEnd || *p != ';' ) return false;
+			++p;
+		}
+		char *q = nullptr;
+		const float x = std::strtof( p, &q );
+		if ( q == p || q >= pEnd || *q != ',' ) return false;
+		p = q + 1;
+		const float y = std::strtof( p, &q );
+		if ( q == p ) return false;
+		p = q;
+		out.points.push_back( x );
+		out.points.push_back( y );
+	}
+	if ( p != pEnd ) return false;
+	return true;
 }
 
 // Walks the tree, hands each item (root first, then descendants in storage
@@ -332,6 +530,89 @@ bool IsDescendant( const NResourceModel::CTreeItem *pAncestor, const NResourceMo
 	return false;
 }
 
+// Scans every node in the tree for `_bk_geometry` FutureBlob children,
+// consumes them into state.geometry (keyed by (node_id, channel)), and
+// removes them from the tree so later walks see the authored shape. Called
+// once after RebuildIds on BkResOpen.
+void ExtractGeometryFromTree( ResourceState &state )
+{
+	if ( !state.pProject || !state.pProject->root )
+		return;
+	for ( auto &kv : state.idToItem )
+	{
+		const int nNodeId = kv.first;
+		auto &children = kv.second->MutableChildren();
+		for ( std::size_t i = 0; i < children.size(); )
+		{
+			if ( !NResourceModel::FutureBlob::IsFutureBlob( *children[i] ) )
+			{
+				++i;
+				continue;
+			}
+			const auto &node = static_cast<const NResourceModel::FutureBlob &>( *children[i] ).GetNode();
+			if ( node.kind != NResourceXml::Node::Element || node.name != kGeometryTag )
+			{
+				++i;
+				continue;
+			}
+			int nChannel = -1;
+			GeometryBlob blob;
+			if ( ParseGeometryChild( node, nChannel, blob ) )
+				state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
+			// Whether parsing succeeded or not, drop the magic child so a
+			// garbled one does not leak into save output.
+			children.erase( children.begin() + i );
+		}
+	}
+	// The erase above invalidated node parent/child relations the id tables
+	// cached; recompute them so a BkResNodes immediately after Open does not
+	// surface a `_bk_geometry` node id that no longer exists.
+	RebuildIds( state );
+}
+
+// Pre-save walker: injects one FutureBlob child per (node_id, channel) in
+// state.geometry under the owning typed node. Returns the list of (owner,
+// index) pointers so the caller can remove them again after Save.
+struct InjectedChild
+{
+	NResourceModel::CTreeItem *pOwner;
+	std::size_t nIndex;
+};
+
+std::vector<InjectedChild> InjectGeometryIntoTree( ResourceState &state )
+{
+	std::vector<InjectedChild> injected;
+	injected.reserve( state.geometry.size() );
+	for ( const auto &kv : state.geometry )
+	{
+		const int nNodeId = kv.first.first;
+		const int nChannel = kv.first.second;
+		auto it = state.idToItem.find( nNodeId );
+		if ( it == state.idToItem.end() )
+			continue;
+		NResourceXml::Node emitted = EmitGeometryChild( nChannel, kv.second );
+		auto &children = it->second->MutableChildren();
+		children.push_back( std::make_unique<NResourceModel::FutureBlob>( std::move( emitted ) ) );
+		injected.push_back( { it->second, children.size() - 1 } );
+	}
+	return injected;
+}
+
+void RemoveInjectedChildren( std::vector<InjectedChild> &injected )
+{
+	// Remove in reverse so an index remains valid against the owner's list
+	// across the loop (an earlier remove under the same owner would otherwise
+	// shift the later index down).
+	for ( std::size_t i = injected.size(); i-- > 0; )
+	{
+		InjectedChild &c = injected[i];
+		auto &children = c.pOwner->MutableChildren();
+		if ( c.nIndex < children.size() )
+			children.erase( children.begin() + c.nIndex );
+	}
+	injected.clear();
+}
+
 } // namespace
 
 extern "C" {
@@ -397,6 +678,7 @@ BkEditorStatus BkResOpen( BkResSession *pSession, const char *pszPath )
 		state.nKindOrdinal = nOrdinal;
 		state.szPath = pszPath;
 		RebuildIds( state );
+		ExtractGeometryFromTree( state );
 		return BK_EDITOR_OK;
 	} );
 }
@@ -413,6 +695,16 @@ BkEditorStatus BkResSave( BkResSession *pSession, const char *pszPath )
 			pSession->szMessage = "no project is open";
 			return BK_EDITOR_REFUSED;
 		}
+		// Inject the in-memory geometry entries as `_bk_geometry` FutureBlob
+		// children under their owning typed nodes before Serialise runs; the
+		// RAII guard below removes them again so the in-memory tree stays as
+		// the caller sees it, whether the Save succeeded or failed.
+		std::vector<InjectedChild> injected = InjectGeometryIntoTree( state );
+		struct Guard
+		{
+			std::vector<InjectedChild> *p;
+			~Guard() { RemoveInjectedChildren( *p ); }
+		} guard { &injected };
 		const std::string szIntended = NResourceModel::Save( *state.pProject );
 
 		// Safe-save pattern (mirrors SaveSessionMap in session.cpp):
@@ -853,51 +1145,190 @@ BkEditorStatus BkResRefList( BkResSession *pSession, int nType, BkResReferenceEn
 
 /* ---- Geometry --------------------------------------------------------- */
 
-/* All get/set pairs are stubbed. T04 fills them with the real NResourceModel
-   reads. Each returns BK_EDITOR_OK and zeroed outputs for now, which is
-   enough for the smoke tier below to link and run. */
-BkEditorStatus BkResGetPassabilityCells( BkResSession *pSession, int, unsigned char *, int, int *pnW, int *pnH )
+/* T05 implements the cells family (passability, locked tiles, transparency
+   lines) end-to-end: the entries serve against the in-session geometry map
+   on ResourceState, and the Open/Save path persists / restores each entry as
+   a `_bk_geometry` FutureBlob child under the owning node. The rest of the
+   channels (points, aimed points, keyframes) stay stubbed below until T06+.
+
+   The two bytes_grid channels share one helper (GetBytesGrid / SetBytesGrid)
+   because they only differ in channel id; the points channel has its own
+   pair because the payload is Point2 structs, not bytes. */
+
+namespace {
+
+BkEditorStatus GetBytesGrid( BkResSession *pSession, int nChannel, int nNodeId,
+                             unsigned char *pOut, int nCapacity, int *pnW, int *pnH )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+	{
+		pSession->szMessage = "unknown node id";
+		return BK_EDITOR_REFUSED;
+	}
+	auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
+	if ( it == state.geometry.end() )
+	{
+		if ( pnW != nullptr ) *pnW = 0;
+		if ( pnH != nullptr ) *pnH = 0;
+		return BK_EDITOR_OK;
+	}
+	const GeometryBlob &blob = it->second;
+	if ( pnW != nullptr ) *pnW = blob.nWidth;
+	if ( pnH != nullptr ) *pnH = blob.nHeight;
+	if ( pOut == nullptr || nCapacity <= 0 )
+		return BK_EDITOR_OK;
+	const int nNeeded = static_cast<int>( blob.bytes.size() );
+	if ( nCapacity < nNeeded )
+		return BK_EDITOR_REFUSED;
+	if ( nNeeded > 0 )
+		std::memcpy( pOut, blob.bytes.data(), static_cast<std::size_t>( nNeeded ) );
+	return BK_EDITOR_OK;
+}
+
+BkEditorStatus SetBytesGrid( BkResSession *pSession, int nChannel, int nNodeId,
+                             const unsigned char *pIn, int nW, int nH )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+	{
+		pSession->szMessage = "unknown node id";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( nW < 0 || nH < 0 )
+	{
+		pSession->szMessage = "negative grid dimensions";
+		return BK_EDITOR_BAD_ARGUMENT;
+	}
+	const std::size_t nTotal = static_cast<std::size_t>( nW ) * static_cast<std::size_t>( nH );
+	if ( nTotal != 0 && pIn == nullptr )
+	{
+		pSession->szMessage = "null buffer for non-empty grid";
+		return BK_EDITOR_BAD_ARGUMENT;
+	}
+	GeometryBlob blob;
+	blob.nWidth = nW;
+	blob.nHeight = nH;
+	blob.bytes.assign( pIn, pIn + nTotal );
+	state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
+	return BK_EDITOR_OK;
+}
+
+} // namespace
+
+BkEditorStatus BkResGetPassabilityCells( BkResSession *pSession, int nNodeId, unsigned char *pOut, int nCapacity, int *pnW, int *pnH )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		if ( pnW != 0 ) *pnW = 0;
-		if ( pnH != 0 ) *pnH = 0;
+		return GetBytesGrid( pSession, CHANNEL_PASSABILITY_CELLS, nNodeId, pOut, nCapacity, pnW, pnH );
+	} );
+}
+
+BkEditorStatus BkResSetPassabilityCells( BkResSession *pSession, int nNodeId, const unsigned char *pIn, int nW, int nH )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetBytesGrid( pSession, CHANNEL_PASSABILITY_CELLS, nNodeId, pIn, nW, nH );
+	} );
+}
+
+BkEditorStatus BkResGetLockedTiles( BkResSession *pSession, int nNodeId, unsigned char *pOut, int nCapacity, int *pnW, int *pnH )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetBytesGrid( pSession, CHANNEL_LOCKED_TILES, nNodeId, pOut, nCapacity, pnW, pnH );
+	} );
+}
+
+BkEditorStatus BkResSetLockedTiles( BkResSession *pSession, int nNodeId, const unsigned char *pIn, int nW, int nH )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetBytesGrid( pSession, CHANNEL_LOCKED_TILES, nNodeId, pIn, nW, nH );
+	} );
+}
+
+BkEditorStatus BkResGetTransparencyLines( BkResSession *pSession, int nNodeId, BkResPoint2 *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bOpen )
+		{
+			pSession->szMessage = "no project is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+		{
+			pSession->szMessage = "unknown node id";
+			return BK_EDITOR_REFUSED;
+		}
+		auto it = state.geometry.find( std::make_pair( nNodeId, CHANNEL_TRANSPARENCY_LINES ) );
+		if ( it == state.geometry.end() )
+		{
+			if ( pnCount != nullptr ) *pnCount = 0;
+			return BK_EDITOR_OK;
+		}
+		const int nCount = static_cast<int>( it->second.points.size() / 2 );
+		if ( pnCount != nullptr ) *pnCount = nCount;
+		if ( pOut == nullptr || nCapacity <= 0 )
+			return BK_EDITOR_OK;
+		if ( nCapacity < nCount )
+			return BK_EDITOR_REFUSED;
+		for ( int i = 0; i < nCount; ++i )
+		{
+			pOut[i].x = it->second.points[2*i];
+			pOut[i].y = it->second.points[2*i + 1];
+		}
 		return BK_EDITOR_OK;
 	} );
 }
 
-BkEditorStatus BkResSetPassabilityCells( BkResSession *pSession, int, const unsigned char *, int, int )
-{
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
-}
-
-BkEditorStatus BkResGetLockedTiles( BkResSession *pSession, int, unsigned char *, int, int *pnW, int *pnH )
+BkEditorStatus BkResSetTransparencyLines( BkResSession *pSession, int nNodeId, const BkResPoint2 *pIn, int nCount )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		if ( pnW != 0 ) *pnW = 0;
-		if ( pnH != 0 ) *pnH = 0;
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bOpen )
+		{
+			pSession->szMessage = "no project is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+		{
+			pSession->szMessage = "unknown node id";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( nCount < 0 )
+		{
+			pSession->szMessage = "negative point count";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		if ( nCount != 0 && pIn == nullptr )
+		{
+			pSession->szMessage = "null buffer for non-empty list";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		GeometryBlob blob;
+		blob.points.reserve( static_cast<std::size_t>( nCount ) * 2 );
+		for ( int i = 0; i < nCount; ++i )
+		{
+			blob.points.push_back( pIn[i].x );
+			blob.points.push_back( pIn[i].y );
+		}
+		state.geometry[ std::make_pair( nNodeId, CHANNEL_TRANSPARENCY_LINES ) ] = std::move( blob );
 		return BK_EDITOR_OK;
 	} );
-}
-
-BkEditorStatus BkResSetLockedTiles( BkResSession *pSession, int, const unsigned char *, int, int )
-{
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
-}
-
-BkEditorStatus BkResGetTransparencyLines( BkResSession *pSession, int, BkResPoint2 *, int, int *pnCount )
-{
-	return Guarded( pSession, [=]() -> BkEditorStatus
-	{
-		if ( pnCount != 0 ) *pnCount = 0;
-		return BK_EDITOR_OK;
-	} );
-}
-
-BkEditorStatus BkResSetTransparencyLines( BkResSession *pSession, int, const BkResPoint2 *, int )
-{
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
 }
 
 BkEditorStatus BkResGetZeroPoint( BkResSession *pSession, int, BkResPoint2 *pOut )
