@@ -58,7 +58,11 @@ struct Parser
 			else if ( ent.size() > 1 && ent[0] == '#' )
 			{
 				bool hex = ent[1] == 'x';
-				unsigned long cp = std::strtoul( ent.c_str() + ( hex ? 2 : 1 ), nullptr, hex ? 16 : 10 );
+				const char *pDigits = ent.c_str() + ( hex ? 2 : 1 );
+				char *pEnd = nullptr;
+				unsigned long cp = std::strtoul( pDigits, &pEnd, hex ? 16 : 10 );
+				// A malformed or NUL reference is an error, not a silent zero byte.
+				if ( *pDigits == 0 || *pEnd != 0 || cp == 0 || cp > 0x10FFFF ) return Fail( "bad character reference" );
 				AppendUtf8( out, cp );
 			}
 			else return Fail( "unknown entity" );
@@ -152,7 +156,8 @@ struct Parser
 				size_t sp = body.find_first_of( " \t\r\n" );
 				child.kind = Node::Pi;
 				child.name = body.substr( 0, sp );
-				child.text = sp == std::string::npos ? "" : body.substr( body.find_first_not_of( " \t\r\n", sp ) );
+				size_t data = sp == std::string::npos ? std::string::npos : body.find_first_not_of( " \t\r\n", sp );
+				child.text = data == std::string::npos ? "" : body.substr( data );
 				i = e + 2;
 			}
 			else if ( s[i] == '<' )
@@ -167,7 +172,9 @@ struct Parser
 				std::string raw = s.substr( i, e - i ), val;
 				i = e;
 				if ( !Decode( raw, val ) ) return false;
-				if ( IsWs( val ) ) continue; // layout whitespace is not data
+				// Whitespace-only text is the whole value of a leaf element
+				// (<string_value> </string_value>); it is dropped below only when a
+				// sibling element shows it is layout.
 				child.kind = Node::Text;
 				child.text = val;
 			}
@@ -176,12 +183,21 @@ struct Parser
 		// Text beside child elements is layout-padded by the serialiser, so it is stored trimmed.
 		bool mixed = hasElement;
 		if ( mixed )
+		{
+			std::vector<Node> kept;
 			for ( Node &c : el.children )
+			{
 				if ( c.kind == Node::Text )
 				{
+					if ( IsWs( c.text ) )
+						continue; // layout whitespace is not data
 					size_t b = c.text.find_first_not_of( " \t\r\n" ), e = c.text.find_last_not_of( " \t\r\n" );
 					c.text = c.text.substr( b, e - b + 1 );
 				}
+				kept.push_back( std::move( c ) );
+			}
+			el.children = std::move( kept );
+		}
 		return true;
 	}
 };
@@ -196,6 +212,11 @@ void Escape( std::string &out, const std::string &t, bool attr )
 		case '<': out += "&lt;"; break;
 		case '>': out += "&gt;"; break;
 		case '"': if ( attr ) out += "&quot;"; else out += c; break;
+		// A parser normalises literal tabs and line breaks in an attribute value
+		// to spaces; character references keep them.
+		case '\t': if ( attr ) out += "&#9;"; else out += c; break;
+		case '\n': if ( attr ) out += "&#10;"; else out += c; break;
+		case '\r': if ( attr ) out += "&#13;"; else out += c; break;
 		default: out += c;
 		}
 	}
@@ -246,7 +267,7 @@ bool Parse( const std::string &szXml, Document &doc, std::string &szError )
 	bool haveRoot = false;
 	while ( p.i < szXml.size() )
 	{
-		if ( p.At( "<?xml" ) )
+		if ( p.At( "<?xml" ) && p.i + 5 < szXml.size() && ( std::isspace( (unsigned char)szXml[p.i + 5] ) || szXml[p.i + 5] == '?' ) )
 		{
 			size_t e = szXml.find( "?>", p.i );
 			if ( e == std::string::npos ) { p.Fail( "unterminated declaration" ); break; }

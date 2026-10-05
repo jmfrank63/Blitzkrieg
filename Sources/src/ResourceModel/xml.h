@@ -1,10 +1,5 @@
 #pragma once
-// Promoted verbatim from Sources/src/ResourceModel/spike/xml_spike.h; the only
-// change is the namespace (XmlSpike -> NResourceXml), so the spike file stays
-// in-tree for its own test target (slice S01) while the resource-model library
-// talks about NResourceXml::Document and NResourceXml::Node.
-//
-// Portable spike of the project-XML tree the MFC editors read and write through
+// The portable project-XML tree the MFC editors read and write through
 // CDataTreeXML (MSXML). It models only what a round trip needs: elements,
 // attributes, text, comments, CDATA and processing instructions, so an unknown
 // node survives untouched. No MFC, no Windows API.
