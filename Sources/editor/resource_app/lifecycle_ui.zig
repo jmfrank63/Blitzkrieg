@@ -102,6 +102,12 @@ var layout_ini_path: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
 
 const max_offers = 16;
 
+/// A part of the File menu another file draws (`Ui.file_menu_tools`).
+pub const FileMenuHook = struct {
+    ptr: *anyopaque,
+    draw: *const fn (ptr: *anyopaque) void,
+};
+
 pub const Ui = struct {
     gpa: std.mem.Allocator,
     io: std.Io,
@@ -123,6 +129,9 @@ pub const Ui = struct {
     dialog_open: ?lifecycle.Dialog = null,
     title_dirty: ?bool = null,
     title_path_len: usize = std.math.maxInt(usize),
+    /// Drawn in the File menu after Autosave and before Exit: MOD Settings,
+    /// Export Result and Compress to PAK, which tools_ui.zig owns.
+    file_menu_tools: ?FileMenuHook = null,
 
     /// On the heap: the session's path buffers and the offers are tens of
     /// kilobytes.
@@ -261,6 +270,10 @@ pub const Ui = struct {
         if (ig.igMenuItemEx("Autosave", null, self.settings.autosave, true)) {
             self.settings.autosave = !self.settings.autosave;
             self.session.settings_changed = true;
+        }
+        if (self.file_menu_tools) |hook| {
+            ig.igSeparator();
+            hook.draw(hook.ptr);
         }
         ig.igSeparator();
         if (ig.igMenuItemEx("Exit", null, false, true)) self.session.request(&context, .quit);

@@ -383,7 +383,17 @@ pub const Session = struct {
             },
             .open_dialog => self.dialog = .open,
             .open_path => |path| self.openPath(ctx, path.slice()),
-            .import_from_game => |kind| self.say("import of {s} comes with the Import panel", .{kind.extension()}),
+            .import_from_game => |import| {
+                const folder = import.folder.slice();
+                // A refusal (a kind whose import is not ported) keeps the
+                // open project; the bridge's message names the kind.
+                self.life.importFromGame(ctx.allocator, ctx.bridge, import.kind, folder) catch {
+                    self.say("import of {s} from {s} refused: {s}", .{ import.kind.extension(), folder, ctx.bridge.lastMessage() });
+                    return;
+                };
+                self.dropRecovery(ctx);
+                self.say("imported a new, unsaved {s} project from {s}", .{ import.kind.extension(), folder });
+            },
             .close => {
                 self.life.closeProject(ctx.allocator, ctx.bridge) catch {
                     self.say("close failed: {s}", .{ctx.bridge.lastMessage()});
@@ -938,4 +948,33 @@ test "lockUserName follows the engine's order" {
     try testing.expectEqualStrings("u", lockUserName(null, "u", "w"));
     try testing.expectEqualStrings("w", lockUserName("", null, "w"));
     try testing.expectEqualStrings("unknown", lockUserName(null, null, null));
+}
+
+test "Import asks first when dirty, builds an unsaved untitled project, and a refused kind keeps the open one" {
+    var h: Harness = undefined;
+    h.init();
+    defer h.deinit();
+    var ctx = h.ctx();
+    try h.fake.addGameFolder("/game/Data/Units/Humans/German/Gunner", "Gunner");
+    h.session.request(&ctx, .{ .new_project = .weapon });
+    try h.edit();
+
+    const gunner = PathText.fromSlice("/game/Data/Units/Humans/German/Gunner").?;
+    h.session.request(&ctx, .{ .import_from_game = .{ .kind = .animation_infantry, .folder = gunner } });
+    try testing.expect(h.session.prompt.isAsking());
+    h.session.answerUnsaved(&ctx, .dont_save);
+    try testing.expect(h.session.life.is_open);
+    try testing.expectEqual(Kind.animation_infantry, h.session.life.doc.kind);
+    try testing.expect(h.session.life.doc.pathSlice() == null);
+    try testing.expect(h.session.life.dirty());
+    try testing.expect(std.mem.indexOf(u8, h.session.message(), "imported") != null);
+
+    // Another import over the unsaved one asks again; Don't save, then a
+    // kind that has no import yet is refused with the bridge's reason and
+    // the imported project stays.
+    h.session.request(&ctx, .{ .import_from_game = .{ .kind = .mesh_unit, .folder = gunner } });
+    try testing.expect(h.session.prompt.isAsking());
+    h.session.answerUnsaved(&ctx, .dont_save);
+    try testing.expectEqual(Kind.animation_infantry, h.session.life.doc.kind);
+    try testing.expect(std.mem.indexOf(u8, h.session.message(), "not ported yet") != null);
 }

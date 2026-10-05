@@ -1,7 +1,9 @@
 //! ResourceEditor:
 //!   ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>|<project>]  interactive
-//!   ResourceEditor [-mod=...] --check [<kind>] [<out.tga>]            headless host check
+//!   ResourceEditor [-mod=...] --check [<kind>] [<out.tga>] [<picture.tga>]  headless host check
 //!   ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]          scripted new/save/reopen
+//!   ResourceEditor [-mod=...] --batch <kind|all> <src> <dst> [-f] [-os]  batch export (batch_cli.zig)
+//!   ResourceEditor [-mod=...] --batch-check <fixtures> <scratch>      the batch tier
 //!
 //! <kind> is a project extension the MFC editor registered (wpn, mcp, trc,
 //! scp, spt, unt, msh, obt, fnc, bld, bdg, pcp, eff, til, 3rd, 3rv, mip, chc,
@@ -35,6 +37,11 @@
 //! <w>x<h>, <kind>, <n> nodes)". A runner with no GPU device prints
 //! "resource-editor: host check skipped: no GPU device (<reason>)" and exits
 //! 0, the rule map-editor-host-check and the engine tier follow too.
+//! Given <picture.tga> (a tracked fixture), a second half (docks_check.zig)
+//! imports the shipped Gunner as infantry, begins its preview scene behind
+//! the docks, shows a copy of the picture in the thumbnail list and measures
+//! a second capture, <out>-docks.tga: the thumbnail has the picture's colour
+//! and the screen's middle, the preview's, is still the scene's own frame.
 //!
 //! The smoke makes a new project of <kind>, saves it to <out> (deleted first,
 //! so an old file cannot pass), closes it, opens that file again and checks
@@ -52,6 +59,10 @@ const Kind = resource_core.bridge.Kind;
 const lifecycle_ui = @import("lifecycle_ui.zig");
 const panels_logic = @import("panels_logic.zig");
 const panels_mod = @import("panels.zig");
+const tools_ui = @import("tools_ui.zig");
+const batch_cli = @import("batch_cli.zig");
+const docks_mod = @import("docks.zig");
+const docks_check = @import("docks_check.zig");
 
 /// resource_bridge.h, which includes bridge.h: the BkRes* half of the engine's
 /// C ABI. A second translation beside kit.host's own bridge.h one, so the
@@ -67,14 +78,14 @@ const default_smoke_dir = "zig-out/local-test/resource_editor";
 const hidden_frames = 30;
 
 /// The probe window, in screen pixels (a window point is a screen pixel).
-const probe = struct {
-    const x = 40;
-    const y = 40;
-    const w = 120;
-    const h = 80;
+pub const probe = struct {
+    pub const x = 40;
+    pub const y = 40;
+    pub const w = 120;
+    pub const h = 80;
 };
 
-const probe_frames = 10;
+pub const probe_frames = 10;
 
 /// Where the tree window sits: top right, clear of the probe and of the
 /// screen's centre, which the host check measures as the engine's frame.
@@ -117,10 +128,11 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
 
     const items = rest.items;
     if (items.len > 0 and std.mem.eql(u8, items[0], "--check")) {
-        if (items.len > 3) usage();
+        if (items.len > 4) usage();
         const kind = if (items.len > 1) parseKind(items[1]) orelse usage() else default_kind;
         const output = if (items.len > 2) items[2] else default_output;
-        const passed = try check(gpa, io, kind, output, mod);
+        const picture = if (items.len > 3) items[3] else null;
+        const passed = try check(gpa, io, kind, output, picture, mod);
         std.process.exit(if (passed) 0 else 1);
     }
     if (items.len > 0 and std.mem.eql(u8, items[0], "--smoke")) {
@@ -130,6 +142,9 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
         const output = if (items.len > 2) items[2] else std.fmt.bufPrint(&output_buffer, "{s}/smoke.{s}", .{ default_smoke_dir, kind.extension() }) catch unreachable;
         const passed = try smoke(gpa, io, kind, output, mod);
         std.process.exit(if (passed) 0 else 1);
+    }
+    if (items.len > 0 and (std.mem.eql(u8, items[0], "--batch") or std.mem.eql(u8, items[0], "--batch-check"))) {
+        std.process.exit(batchMode(gpa, io, items[1..], mod, std.mem.eql(u8, items[0], "--batch-check")));
     }
     if (items.len > 1) usage();
     var first_kind: ?Kind = null;
@@ -291,6 +306,12 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     var tree: Tree = .{};
     var panels: panels_mod.Panels = .{};
     defer panels.deinit(gpa);
+    // Deinit runs before BkResClose and host.stop: the preview scene and the
+    // thumbnails' textures belong to the engine.
+    var docks = docks_mod.Docks.init(gpa, io, &ui.real);
+    defer docks.deinit();
+    const tools = tools_ui.Tools.create(gpa, io, environ, ui, host.window) catch |err| fatal("the editor state", @errorName(err));
+    defer tools.destroy();
 
     var frame: u32 = 0;
     while (!ui.wantsQuit()) : (frame += 1) {
@@ -308,33 +329,86 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         if (ui.session.life.is_open) {
             if (!tree.read(session)) tree = .{};
         } else tree = .{};
+        // The preview scene behind the windows follows the open project.
+        docks.syncPreview(&ui.session.life);
         host.beginFrame();
         if (imgui.c.igBeginMainMenuBar()) {
             if (imgui.c.igBeginMenuEx("File", true)) {
+                docks.drawFileMenuItems();
                 ui.drawFileMenuItems();
                 imgui.c.igEndMenu();
             }
             if (imgui.c.igBeginMenuEx("Edit", true)) {
                 panels.drawEditMenuItems(gpa, ui.real.bridge(), &ui.session.life);
+                tools.drawEditMenuItems();
                 imgui.c.igEndMenu();
             }
+            tools.drawToolsMenu();
+            tools.drawEditorsMenu();
+            if (imgui.c.igBeginMenuEx("View", true)) {
+                docks.drawViewMenuItems();
+                imgui.c.igEndMenu();
+            }
+            if (imgui.c.igBeginMenuEx("Preview", true)) {
+                docks.drawPreviewMenuItems();
+                imgui.c.igEndMenu();
+            }
+            if (imgui.c.igBeginMenuEx("Help", true)) {
+                docks.drawHelpMenuItems();
+                imgui.c.igEndMenu();
+            }
+            tools.drawEditorCombo();
             imgui.c.igEndMainMenuBar();
         }
         ui.handleShortcuts();
         panels.handleShortcuts(gpa, ui.real.bridge(), &ui.session.life);
+        docks.handleShortcuts();
+        tools.handleShortcuts();
         // The project tree and the inspector (panels.zig) replace the
         // skeleton's read-only tree window in the interactive mode.
         panels.draw(gpa, ui.real.bridge(), &ui.session.life, host.window);
+        const project_path = if (ui.session.life.is_open) ui.session.life.doc.pathSlice() else null;
+        docks.drawDocks(if (project_path) |p| std.fs.path.dirname(p) else null);
+        docks.drawDialogs(ui, host.window);
+        tools.drawModals();
         ui.drawModals();
         host.endFrame() catch |err| {
             std.debug.print("resource-editor: frame {d}: {s}: {s}\n", .{ frame, @errorName(err), lastMessage(&host) });
         };
         ui.afterFrame(sdl3.c.SDL_GetTicks());
+        tools.afterFrame();
     }
     if (hidden) std.debug.print("resource-editor: hidden run PASS ({d} frames, {s})\n", .{ frame, if (ui.session.life.is_open) ui.session.life.doc.kind.extension() else "no project" });
 }
 
-fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, mod: ModRequest) !bool {
+/// --batch and --batch-check (batch_cli.zig): the engine on a hidden window,
+/// -mod= applied, nothing drawn and none of the user's settings touched.
+/// Returns the exit code. A host with no GPU device cannot start the engine
+/// session: --batch-check reports a skip (0), as the other tiers do, and
+/// --batch fails (3), since its work was not done.
+fn batchMode(gpa: std.mem.Allocator, io: std.Io, args: []const []const u8, mod: ModRequest, self_check: bool) u8 {
+    crt.attachParentConsole();
+    if (!self_check) if (batch_cli.refuseArgs(args)) |code| return code;
+    var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
+        if (err == error.NoDevice) {
+            std.debug.print("resource-editor: batch skipped: no GPU device ({s})\n", .{host_mod.failureReason()});
+            return if (self_check) 0 else 3;
+        }
+        std.debug.print("resource-editor: batch: the host did not start ({s}: {s})\n", .{ @errorName(err), host_mod.failureReason() });
+        return 1;
+    };
+    defer host.stop();
+    if (applyMod(&host, mod)) |reason| {
+        std.debug.print("resource-editor: batch: the mod would not load: {s}\n", .{reason});
+        return 1;
+    }
+    if (!self_check) return batch_cli.run(gpa, io, host.session, args);
+    var paths = std.mem.zeroes(c.BkEditorPathSet);
+    _ = c.BkEditorPaths(resSession(&host), &paths);
+    return batch_cli.check(gpa, io, host.session, std.mem.sliceTo(&paths.base_root, 0), args);
+}
+
+fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, picture: ?[]const u8, mod: ModRequest) !bool {
     crt.attachParentConsole();
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
     const output_z = try gpa.dupeZ(u8, output);
@@ -398,8 +472,9 @@ fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, mod
         return fail("the probe window's centre ({d},{d}) is outside the {d}x{d} capture", .{ inside_x, inside_y, image.width, image.height });
     if (!inside.isProbeColour())
         return fail("the probe window's centre ({d},{d}) is ({d},{d},{d}), not orange", .{ inside_x, inside_y, inside.r, inside.g, inside.b });
-    // No preview scene yet, so the engine's frame at the screen's centre is
-    // its clear colour; ImGui drew nothing there.
+    // The preview scene is not begun yet (the docks half begins it), so the
+    // engine's frame at the screen's centre is its clear colour; ImGui drew
+    // nothing there.
     const outside_x: u32 = @intCast(@divTrunc(width, 2));
     const outside_y: u32 = @intCast(@divTrunc(height, 2));
     const outside = image.pixel(outside_x, outside_y) orelse
@@ -418,7 +493,14 @@ fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, mod
     if (builtin.os.tag == .macos and !host_mod.command_w_freed)
         return fail("Cmd+W still belongs to the Window menu's Close, which would quit the editor", .{});
 
+    // The docks over the preview scene, Import and the preview's refusals
+    // (docks_check.zig), in a second capture beside the first.
+    const docks = if (picture) |fixture| (try docks_check.run(gpa, io, &host, kind, output, fixture)) orelse return false else null;
+
     std.debug.print("resource-editor: host check PASS ({s}, {d}x{d}, {s}, {d} nodes)\n", .{ driver, width, height, kind.extension(), tree.total });
+    if (docks) |measured| {
+        std.debug.print("resource-editor: docks PASS (import .unt from Gunner, .msh import refused, .unt preview begun, Run refused with the reason, thumbnail ({d},{d},{d}) decoded by the engine, {d} preview samples clear)\n", .{ measured.thumbnail.r, measured.thumbnail.g, measured.thumbnail.b, measured.preview_samples });
+    } else std.debug.print("resource-editor: docks half skipped: no fixture picture given\n", .{});
     return true;
 }
 
@@ -518,7 +600,7 @@ fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
 
 fn usage() noreturn {
     crt.attachParentConsole();
-    std.debug.print("usage: ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>|<project>]\n       ResourceEditor [-mod=...] --check [<kind>] [<out.tga>]\n       ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]\n", .{});
+    std.debug.print("usage: ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>|<project>]\n       ResourceEditor [-mod=...] --check [<kind>] [<out.tga>] [<picture.tga>]\n       ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]\n       " ++ batch_cli.usage_line ++ "\n", .{});
     std.process.exit(2);
 }
 
@@ -532,7 +614,7 @@ fn smokeFail(comptime format: []const u8, args: anytype) bool {
     return false;
 }
 
-fn drawProbe() void {
+pub fn drawProbe() void {
     imgui.c.igSetNextWindowPos(.{ .x = probe.x, .y = probe.y }, imgui.c.ImGuiCond_Always);
     imgui.c.igSetNextWindowSize(.{ .x = probe.w, .y = probe.h }, imgui.c.ImGuiCond_Always);
     // Orange, as in MapEditor's check: its channels all differ, so a
@@ -543,12 +625,12 @@ fn drawProbe() void {
     imgui.c.igPopStyleColor();
 }
 
-const Rgb = struct {
+pub const Rgb = struct {
     r: u8,
     g: u8,
     b: u8,
 
-    fn near(self: Rgb, other: Rgb) bool {
+    pub fn near(self: Rgb, other: Rgb) bool {
         return close(self.r, other.r) and close(self.g, other.g) and close(self.b, other.b);
     }
 
@@ -556,23 +638,23 @@ const Rgb = struct {
         return @abs(@as(i16, a) - @as(i16, b)) <= 2;
     }
 
-    fn isProbeColour(self: Rgb) bool {
+    pub fn isProbeColour(self: Rgb) bool {
         return self.r > 200 and self.g > 100 and self.g < 160 and self.b < 40;
     }
 };
 
 /// What DrawSessionFrame clears to before the scene is drawn.
-const clear_colour = Rgb{ .r = 0, .g = 0, .b = 0 };
+pub const clear_colour = Rgb{ .r = 0, .g = 0, .b = 0 };
 
 /// An uncompressed 32-bit TGA: an 18-byte header, an optional ID, then BGRA
 /// rows, bottom row first unless bit 5 of the descriptor (byte 17) is set.
-const Tga = struct {
+pub const Tga = struct {
     width: u32,
     height: u32,
     top_first: bool,
     pixels: []const u8,
 
-    fn parse(bytes: []const u8) !Tga {
+    pub fn parse(bytes: []const u8) !Tga {
         if (bytes.len < 18) return error.Truncated;
         if (bytes[1] != 0 or bytes[2] != 2) return error.NotUncompressedTrueColour;
         if (bytes[16] != 32) return error.Not32Bit;
@@ -584,7 +666,7 @@ const Tga = struct {
         return .{ .width = width, .height = height, .top_first = bytes[17] & 0x20 != 0, .pixels = bytes[start .. start + length] };
     }
 
-    fn pixel(self: Tga, x: u32, y: u32) ?Rgb {
+    pub fn pixel(self: Tga, x: u32, y: u32) ?Rgb {
         if (x >= self.width or y >= self.height) return null;
         const row = if (self.top_first) y else self.height - 1 - y;
         const i = (@as(usize, row) * self.width + x) * 4;

@@ -737,3 +737,76 @@ one, the newer instruction wins, and record the change in the spec").
   into a container that holds its class. Browse writes the chosen path
   relative to the property's source folder, else to the project's folder,
   lower case with backslashes, as MFC's sub-editors stored them.
+- **Docks, preview background, Import, Help and About, S05 T12, 2026-10-05.**
+  The preview scene is the main window's background: the app begins it
+  (`BkResPreviewBegin`) for the open project's kind every time the kind
+  changes, stops it when no project is open and at exit, and leaves the
+  bridge to say which kinds have one (a refusal is shown, not hidden). Run
+  (F5, MFC's Run button) is `BkResPreviewShow` plus the playback; until a
+  sub-editor slice registers its exporter, Show refuses and the app shows the
+  bridge's reason on a background-less line above the status line. The docks
+  are floating ImGui windows placed around the screen's middle, never over
+  it: the thumbnail list (View > Thumbnails, `CThumbList`), the direction
+  button (Ctrl+D, `CDirectionButton`: angle, needle, degrees text and
+  `GetQuadrant` ported as written) and the function window's frame (Ctrl+F;
+  the keyframe editing is the Particle and Effect editors'). The thumbnail
+  list reads `*.tga` of a chosen folder, else the project's folder, decoded
+  by the engine's image decoders through `BkEditorMinimapImage` (which reads
+  `<base>.tga` for a `<base>.xml` path) into the kit's picture cache. Its
+  cells are 64 pixels, not MFC's 100, because the kit cache decodes at most
+  64 on a side; the picture is fitted and centred on black as
+  `LoadImageToImageList` did. Import from game data (Ctrl+I, MFC's
+  `ID_IMPORT_XML_FILE` had no handler) is a window at the top of the File
+  menu: a kind and the folder holding its `1.xml`; it is a guarded action
+  (the unsaved-changes prompt asks first) and every kind goes to the bridge,
+  so the refusal of a kind not ported yet names it. Help (F1) lists the
+  shortcuts and links this spec, because `reshelp.chm` is not in the
+  repository; About shows `IDD_ABOUTBOX`'s lines and the port's.
+  `resource-editor-host-check` measures a second capture,
+  `resource-editor-check-docks.tga`: the thumbnail of the tracked
+  `spt/sprite-1frame.tga` has the picture's colour, and the screen's middle,
+  where the preview scene is drawn, is the scene's frame in every sample.
+- **Tools, Batch Mode, Run Blitzkrieg and the Editors menu, S05 T11,
+  2026-10-05.** MOD Settings, Export Result and Compress current MOD to PAK
+  sit in the File menu before Exit, Set Picture Options in Edit, and Set
+  Directories, Export Stats Only, Batch Mode and Run Blitzkrieg in Tools,
+  with MFC's accelerators (Ctrl+M, E, T, R, B and F7); each answers in one
+  report window. Export is refused by the app's own project path, not the
+  bridge's: an untitled project and an autosave recovery copy (whose write
+  moved the bridge's path into the recovery folder) cannot export. The
+  report lists written, skipped and the warnings, and a missing `gamma.cfg`.
+  Picture options are app-side: `gamma.cfg` is written in the engine's tree
+  layout (`<base Brightness=".." Contrast=".." Gamma=".."/>`), searched from
+  the project's folder upward as `ReadConfigFile` did, and written beside the
+  project ("current project only") or into the sub-editor's folder under the
+  source folder (MFC's `szAddDir`); the dialog's before/after preview runs
+  the engine's `CreateGammaCorrection` over a grey ramp. No exporter applies
+  the values yet; each sub-editor slice that converts pictures reads them.
+  Set Directories keeps MFC's three fields in `resourceeditor.cfg`:
+  `source_folder`, `game_folder` (empty: the Game installed beside the
+  editor, D-08) and the shared `game_parameters`. The export folder stays
+  MOD Settings' own; it is not persisted, because re-applying it at start
+  through `BkResModSettingsSet` would rewrite `mod.xml`: it starts as the
+  bridge's default, `<BaseRoot>mods/<the active mod>/`, so `-mod=<Folder>`
+  picks it. Batch Mode, the dialog and `ResourceEditor --batch <kind|*.ext|all>
+  <src> <dst> [-f] [-os]` alike, lists the projects the way `BkResBatch` finds
+  them, runs it, and reports the projects exported (or re-saved), each failed
+  project with its reason (a project `BkResBatch` names in a warning, MFC's
+  error list), other warnings and the projects with no `gamma.cfg` above
+  them (export only). It runs in one frame, without MFC's live progress,
+  because `BkResBatch` has no progress callback. The command line starts the
+  engine on a hidden, never focused window, since `BkEditorStart` needs a
+  window and a device: it is headless in that nothing is shown and no
+  setting is read or written, but a host with no GPU device cannot run it
+  (exit 3). Its exit is 0 with no failed project, 1 otherwise, 2 for a bad
+  command line; unlike MFC an unknown flag is refused. `resource-editor-batch`
+  runs `--batch-check` over copies of the 21 tracked fixtures. Run Blitzkrieg
+  starts Game through `kit/testlaunch` with `-editor-test`, the profile
+  `ResourceEditorTest` (testlaunch's `Options.profile`, which defaults to the
+  Map Editor's) and no map (`Options.map_name = null`), plus `-mod=` with the
+  export folder's name; an export folder outside `<BaseRoot>mods/` is refused,
+  as the game could not load it by name. The Editors menu and a combo in the
+  menu bar list the twenty entries; the active kind is remembered whichever
+  way it became active (Editors, New, Open), the GUI frame excepted.
+  SaveMapObjects is not ported: MFC's `OnSaveObjects` had no menu and no
+  message-map entry, so it had no behaviour a user could reach.

@@ -22,6 +22,8 @@ test {
     _ = @import("lifecycle.zig");
     _ = @import("settings.zig");
     _ = @import("edit_logic.zig");
+    _ = @import("tools_logic.zig");
+    _ = @import("docks_logic.zig");
 }
 
 // --- Editors menu ---------------------------------------------------------
@@ -178,6 +180,13 @@ pub const PathText = struct {
     }
 };
 
+/// Import from game data (D-13): the kind to build and the runtime folder
+/// holding its 1.xml, held by value like `open_path`.
+pub const ImportRequest = struct {
+    kind: Kind,
+    folder: PathText,
+};
+
 /// The action an unsaved-changes prompt is guarding (MFC asked before New,
 /// Open, Close and Exit; switching sub-editors asks too, because one bridge
 /// session holds one project - see `Lifecycle.switchEditor`).
@@ -185,7 +194,7 @@ pub const Pending = union(enum) {
     new_project: Kind,
     open_dialog,
     open_path: PathText,
-    import_from_game: Kind,
+    import_from_game: ImportRequest,
     close,
     quit,
     switch_editor: Kind,

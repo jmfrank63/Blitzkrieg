@@ -2,8 +2,9 @@
 //! kit's `key=value` format. It shares the kit's editor-neutral keys
 //! (`kit.settings.applySharedKey` and the shared writers: scroll speed,
 //! autosave, the interval, game parameters, hidden panels, recent files) and
-//! adds its own: the last active sub-editor (MFC's "Active Frame") and the
-//! folder the Open and Save As dialogs start in. The map-only keys
+//! adds its own: the last active sub-editor (MFC's "Active Frame"), the
+//! folder the Open and Save As dialogs start in, and Set Directories' source
+//! and game folders. The map-only keys
 //! (`default_format`, `maps_folder`) are not written: a project's format is
 //! its kind's extension, and its folder is a project folder, not a map
 //! folder. `mapeditor.cfg` is untouched by any of this.
@@ -40,6 +41,22 @@ pub const Settings = struct {
     last_editor: ?i32 = null,
     /// Where Open and Save As start; empty means the dialog's own default.
     projects_folder: FixedPath = .{},
+    /// Tools > Set Directories (MFC's "Composer Source Directory"): the
+    /// project sources' root, where Batch Mode starts and where Picture
+    /// Options writes a sub-editor's gamma.cfg; empty until set.
+    source_folder: FixedPath = .{},
+    /// Tools > Set Directories (MFC's "Composer Executive Directory"): the
+    /// folder holding the Game that Run Blitzkrieg starts; empty means the
+    /// Game installed beside the editor (D-08).
+    game_folder: FixedPath = .{},
+
+    pub fn sourceFolder(self: *const Settings) []const u8 {
+        return self.source_folder.slice();
+    }
+
+    pub fn gameFolder(self: *const Settings) []const u8 {
+        return self.game_folder.slice();
+    }
 
     pub fn gameParameters(self: *const Settings) []const u8 {
         return self.game_parameters.slice();
@@ -96,6 +113,10 @@ pub fn parse(text: []const u8) Settings {
             settings.last_editor = std.fmt.parseInt(i32, value, 10) catch null;
         } else if (std.mem.eql(u8, key, "projects_folder")) {
             settings.projects_folder.set(value);
+        } else if (std.mem.eql(u8, key, "source_folder")) {
+            settings.source_folder.set(value);
+        } else if (std.mem.eql(u8, key, "game_folder")) {
+            settings.game_folder.set(value);
         }
     }
     return settings;
@@ -108,6 +129,8 @@ pub fn format(settings: *const Settings, writer: *std.Io.Writer) std.Io.Writer.E
     try ks.writeSharedHeadKeys(settings, writer);
     if (settings.last_editor) |value| try writer.print("last_editor={d}\n", .{value});
     if (settings.projectsFolder().len != 0) try writer.print("projects_folder={s}\n", .{settings.projectsFolder()});
+    if (settings.sourceFolder().len != 0) try writer.print("source_folder={s}\n", .{settings.sourceFolder()});
+    if (settings.gameFolder().len != 0) try writer.print("game_folder={s}\n", .{settings.gameFolder()});
     try ks.writeSharedTailKeys(settings, writer);
     try ks.writeRecentLines(settings, writer);
 }
@@ -177,6 +200,23 @@ test "the map-only keys are neither read nor written, malformed values keep defa
     try format(&settings, &writer);
     try testing.expect(std.mem.indexOf(u8, writer.buffered(), "default_format") == null);
     try testing.expect(std.mem.indexOf(u8, writer.buffered(), "maps_folder") == null);
+}
+
+test "Set Directories' source and game folders round-trip after projects_folder, and stay out when empty" {
+    var settings: Settings = .{};
+    settings.source_folder.set("/src/complete");
+    settings.game_folder.set("/opt/blitzkrieg");
+    var buffer: [512]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    try testing.expect(std.mem.indexOf(u8, writer.buffered(), "source_folder=/src/complete\ngame_folder=/opt/blitzkrieg\n") != null);
+    const back = parse(writer.buffered());
+    try testing.expectEqualStrings("/src/complete", back.sourceFolder());
+    try testing.expectEqualStrings("/opt/blitzkrieg", back.gameFolder());
+
+    var empty_writer: std.Io.Writer = .fixed(&buffer);
+    try format(&Settings{}, &empty_writer);
+    try testing.expect(std.mem.indexOf(u8, empty_writer.buffered(), "_folder") == null);
 }
 
 test "forgetRecent drops one entry by path" {

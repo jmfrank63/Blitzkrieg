@@ -1,0 +1,429 @@
+//! What the docks and the Help menu decide (06-PARITY A-14, A-15, A-25,
+//! A-26, A-35, with the Import UI of A-36 and the preview background of
+//! A-37): MFC's CDirectionButton geometry and its angle text, CThumbList's
+//! picture filter and thumbnail fit, when the preview scene is begun and
+//! stopped, the Import form, the Help shortcut list and the About lines.
+//! Pure, tested in test-resource-app-logic through FakeResBridge; docks.zig
+//! only draws and forwards input.
+const std = @import("std");
+const core = @import("resource_core");
+const logic = @import("panels_logic.zig");
+
+const bridge = core.bridge;
+const Kind = bridge.Kind;
+const ResBridge = bridge.ResBridge;
+const PathText = logic.PathText;
+const testing = std.testing;
+
+// --- Direction button (CDirectionButton, DirectionButton.cpp) -------------
+
+/// The angle a click at (x, y) inside a w x h button sets: OnLButtonDown and
+/// OnMouseMove measure from the client centre with y up, atan2(cy, cx), so
+/// the angle runs -pi..pi, 0 pointing right.
+pub fn directionAngleAt(x: f32, y: f32, w: f32, h: f32) f32 {
+    const cx = x - @trunc(w / 2);
+    const cy = @trunc(h / 2) - y;
+    return std.math.atan2(cy, cx);
+}
+
+/// Where OnPaint's needle ends, relative to the button's top left: the
+/// shorter half-side times the angle's cosine across and half its sine up,
+/// a circle squashed to the game's 2:1 ground, with MFC's int truncation.
+pub fn directionNeedleEnd(angle: f32, w: f32, h: f32) struct { x: f32, y: f32 } {
+    const half_w = @trunc(w / 2);
+    const half_h = @trunc(h / 2);
+    const radius = @min(half_w, half_h);
+    const dx = @trunc(radius * @cos(angle));
+    const dy = @trunc(radius * @sin(angle) / 2);
+    return .{ .x = dx + half_w, .y = half_h - dy };
+}
+
+/// The degrees OnPaint writes in the button's corner ("%.2f"): the angle
+/// taken into 0..2pi, then turned a quarter-pi back, so the game's 2:1
+/// view's "up-right" diagonal reads as 0.
+pub fn directionDegrees(angle: f32) f32 {
+    const pi = std.math.pi;
+    var a = angle;
+    a = if (a < 0) 2 * pi - @abs(a) else a;
+    a = if (a > pi / 4.0) a - pi / 4.0 else 2 * pi - (pi / 4.0 - a);
+    return a * 180.0 / pi;
+}
+
+/// GetQuadrant, line for line, for the sub-editors that ask it (06-06,
+/// 06-08, 06-12). Its 3 and 4 branches cannot match an atan2 angle; they
+/// are kept as MFC wrote them.
+pub fn directionQuadrant(angle: f32) u3 {
+    const pi = std.math.pi;
+    if (angle >= 0 and angle < pi / 4.0) return 0;
+    if (angle >= pi / 4.0 and angle < pi / 2.0) return 1;
+    if (angle >= pi / 2.0 and angle < 1.5 * pi) return 2;
+    if (angle >= 1.5 * pi and angle <= pi) return 3;
+    if (angle <= 0 and angle > -pi / 4.0) return 7;
+    if (angle <= pi / 4.0 and angle > -pi / 2.0) return 6;
+    if (angle <= pi / 2.0 and angle > -1.5 * pi) return 5;
+    if (angle <= 1.5 * pi and angle > pi) return 4;
+    return 0;
+}
+
+// --- Thumbnail list (CThumbList, ThumbList.cpp) ----------------------------
+
+/// MFC's thumbnails were 100 x 100; the kit's picture cache decodes at most
+/// 64 on a side, so a cell here is 64 and the picture is fitted into it the
+/// way LoadImageToImageList did (scaled by the smaller of the two rates, up
+/// or down, and centred on black).
+pub const thumbnail_side: f32 = 64;
+
+/// LoadAllImagesFromDir listed `*.tga`; Windows matched that without regard
+/// to case, and so does this.
+pub fn isThumbnailPicture(name: []const u8) bool {
+    const ext = std.fs.path.extension(name);
+    return std.ascii.eqlIgnoreCase(ext, ".tga") and name.len > ext.len;
+}
+
+/// The path BkEditorMinimapImage decodes `<folder>/<name>` through: it takes
+/// a "<base>.xml" path and reads "<base>.tga" with the engine's own image
+/// decoders (the ones CThumbList used, IImageProcessor::LoadImage). Null
+/// for a name whose extension is not exactly ".tga" (the engine opens the
+/// lower-case name, which a case-sensitive file system would not find) or a
+/// path that does not fit.
+pub fn thumbnailDecodePath(buffer: []u8, folder: []const u8, name: []const u8) ?[:0]const u8 {
+    if (!std.mem.endsWith(u8, name, ".tga") or name.len == ".tga".len) return null;
+    const stem = name[0 .. name.len - ".tga".len];
+    const sep: []const u8 = if (folder.len == 0 or folder[folder.len - 1] == '/' or folder[folder.len - 1] == '\\') "" else "/";
+    return std.fmt.bufPrintZ(buffer, "{s}{s}{s}.xml", .{ folder, sep, stem }) catch null;
+}
+
+/// The rectangle a w x h picture takes inside a `side` square cell.
+pub const Fit = struct { x: f32, y: f32, w: f32, h: f32 };
+
+pub fn fitThumbnail(w: f32, h: f32, side: f32) Fit {
+    if (w <= 0 or h <= 0) return .{ .x = 0, .y = 0, .w = 0, .h = 0 };
+    const rate = @min(side / w, side / h);
+    const fw = w * rate;
+    const fh = h * rate;
+    return .{ .x = (side - fw) / 2, .y = (side - fh) / 2, .w = fw, .h = fh };
+}
+
+/// Names in the order the list shows them: case-insensitively by name,
+/// the order NTFS gave FindFirstFile, whatever the host file system does.
+pub fn sortThumbnailNames(names: [][]const u8) void {
+    std.mem.sort([]const u8, names, {}, struct {
+        fn lessThan(_: void, a: []const u8, b: []const u8) bool {
+            return std.ascii.orderIgnoreCase(a, b) == .lt;
+        }
+    }.lessThan);
+}
+
+// --- Preview background (D-16, BkResPreview*) ------------------------------
+
+/// The preview scene behind the windows: begun for the open project's kind,
+/// stopped when no project is open, and run on request (MFC's Run button,
+/// F5). The bridge decides which kinds have a preview, so a kind without one
+/// is told by its refusal, and its message is what the window shows.
+pub const PreviewSync = struct {
+    /// The kind the scene was begun for, or null when there is none.
+    begun: ?Kind = null,
+    /// The kind the last Begin was asked for, refused or not: a refused
+    /// kind is not asked again every frame.
+    asked: ?Kind = null,
+    running: bool = false,
+    message_buffer: [256]u8 = undefined,
+    message_len: usize = 0,
+
+    pub const Change = enum { none, begun, refused, stopped };
+
+    /// Call once per frame with the lifecycle's state.
+    pub fn sync(self: *PreviewSync, b: ResBridge, open: bool, kind: Kind) Change {
+        if (!open) {
+            if (self.asked == null) return .none;
+            self.stop(b);
+            self.say("no project is open", .{});
+            return .stopped;
+        }
+        if (self.asked == kind) return .none;
+        self.asked = kind;
+        self.running = false;
+        switch (b.previewBegin(kind)) {
+            .ok => {
+                self.begun = kind;
+                self.say("preview of .{s} ready: Run (F5) shows the project", .{kind.extension()});
+                return .begun;
+            },
+            else => {
+                // A refused Begin leaves no scene (BeginPreview stops the
+                // old one only once it accepts the kind), so stop it here.
+                if (self.begun != null) _ = b.previewStop();
+                self.begun = null;
+                self.say("no preview: {s}", .{b.lastMessage()});
+                return .refused;
+            },
+        }
+    }
+
+    /// Run (F5): export the project into the preview and build it. The
+    /// caller starts the playback when this answers true.
+    pub fn run(self: *PreviewSync, b: ResBridge) bool {
+        if (self.begun == null) {
+            if (self.message_len == 0) self.say("no preview for this project", .{});
+            return false;
+        }
+        if (b.previewShow() != .ok) {
+            self.running = false;
+            self.say("the preview was not shown: {s}", .{b.lastMessage()});
+            return false;
+        }
+        self.running = true;
+        self.say("showing the project: {s}", .{b.lastMessage()});
+        return true;
+    }
+
+    /// Tears the scene down; at exit too, before the engine's modules unload.
+    pub fn stop(self: *PreviewSync, b: ResBridge) void {
+        if (self.begun != null) _ = b.previewStop();
+        self.begun = null;
+        self.asked = null;
+        self.running = false;
+    }
+
+    pub fn message(self: *const PreviewSync) []const u8 {
+        return self.message_buffer[0..self.message_len];
+    }
+
+    fn say(self: *PreviewSync, comptime format: []const u8, args: anytype) void {
+        const text = std.fmt.bufPrint(&self.message_buffer, format, args) catch self.message_buffer[0..];
+        self.message_len = text.len;
+    }
+};
+
+// --- Import (A-36: Ctrl+I, ID_IMPORT_XML_FILE had no handler in MFC) -------
+
+/// The Import window's choices: the kind to build and the runtime folder
+/// holding its 1.xml. Only infantry imports today; the other kinds go to the
+/// bridge too, so its refusal (naming the kind) is what the user reads.
+pub const ImportForm = struct {
+    kind: Kind = .animation_infantry,
+    folder: [logic.path_capacity]u8 = [_]u8{0} ** logic.path_capacity,
+
+    pub fn folderSlice(self: *const ImportForm) []const u8 {
+        return std.mem.sliceTo(&self.folder, 0);
+    }
+
+    pub fn setFolder(self: *ImportForm, text: []const u8) bool {
+        if (text.len >= self.folder.len) return false;
+        @memset(&self.folder, 0);
+        @memcpy(self.folder[0..text.len], text);
+        return true;
+    }
+
+    /// The guarded action Import asks the lifecycle for, or why not.
+    pub fn request(self: *const ImportForm) union(enum) { go: logic.Pending, why_not: []const u8 } {
+        const folder = std.mem.trim(u8, self.folderSlice(), " \t");
+        if (folder.len == 0) return .{ .why_not = "choose the game folder that holds the resource's 1.xml" };
+        const text = PathText.fromSlice(folder) orelse return .{ .why_not = "the folder's path is too long" };
+        return .{ .go = .{ .import_from_game = .{ .kind = self.kind, .folder = text } } };
+    }
+};
+
+/// The folder the Import window starts in: the installation's Data folder,
+/// where the runtime resources it reads sit.
+pub fn importStartFolder(buffer: []u8, base_root: []const u8) []const u8 {
+    const sep: []const u8 = if (base_root.len == 0 or base_root[base_root.len - 1] == '/' or base_root[base_root.len - 1] == '\\') "" else "/";
+    return std.fmt.bufPrint(buffer, "{s}{s}Data", .{ base_root, sep }) catch "";
+}
+
+// --- Help and About (A-25, A-26) ------------------------------------------
+
+/// One line of Help's shortcut list. `keys` names Ctrl, which macOS shows
+/// as Cmd (`shortcutKeys`).
+pub const Shortcut = struct { keys: []const u8, action: []const u8 };
+
+/// The keys the editor answers today, MFC's accelerators (editor.rc,
+/// IDR_EDITORTYPE) where it had them. reshelp.chm is not in the repository,
+/// so this list and the spec are the help.
+pub const shortcuts = [_]Shortcut{
+    .{ .keys = "Ctrl+O", .action = "Open a project" },
+    .{ .keys = "Ctrl+S", .action = "Save the project" },
+    .{ .keys = "Ctrl+Shift+S", .action = "Save the project as" },
+    .{ .keys = "Ctrl+I", .action = "Import from game data" },
+    .{ .keys = "Ctrl+Z", .action = "Undo" },
+    .{ .keys = "Ctrl+Y, Ctrl+Shift+Z", .action = "Redo" },
+    .{ .keys = "Insert", .action = "Insert an item (project tree)" },
+    .{ .keys = "Delete", .action = "Delete the selected items (project tree)" },
+    .{ .keys = "F2", .action = "Rename the item (project tree)" },
+    .{ .keys = "Ctrl+D", .action = "Show or hide the direction button" },
+    .{ .keys = "Ctrl+F", .action = "Show or hide the function window" },
+    .{ .keys = "F5", .action = "Run the preview" },
+    .{ .keys = "F1", .action = "This help" },
+};
+
+/// `keys` as the platform names the modifier.
+pub fn shortcutKeys(buffer: []u8, keys: []const u8, macos: bool) []const u8 {
+    if (!macos) return keys;
+    const size = std.mem.replacementSize(u8, keys, "Ctrl", "Cmd");
+    if (size > buffer.len) return keys;
+    _ = std.mem.replace(u8, keys, "Ctrl", "Cmd", buffer[0..size]);
+    return buffer[0..size];
+}
+
+pub const spec_path = "docs/superpowers/specs/2026-09-30-portable-resource-editor-design.md";
+pub const spec_url = "https://github.com/jmfrank63/Blitzkrieg/blob/main/" ++ spec_path;
+
+/// IDD_ABOUTBOX's lines, then the port's own (as MapEditor's About has).
+pub const about_title = "Blitzkrieg Resource Editor";
+pub const about_mfc_lines = [_][]const u8{
+    "Version 1.0",
+    "\xc2\xa9 2003 Nival Interactive. All rights reserved.",
+    "Blitzkrieg is a trademark of Nival Interactive.",
+    "Published by CDV Software Entertainment AG.",
+};
+pub const about_port = "Portable editor (Zig, Dear ImGui, the engine through resource_bridge.h), milestone M001";
+pub const about_spec = "Design: " ++ spec_path;
+pub const about_source = "Source: github.com/jmfrank63/Blitzkrieg";
+pub const about_license = "Blitzkrieg and its data belong to Nival International Ltd.; use is licensed for noncommercial purposes only (LICENSE.md).";
+
+/// The Function window's frame (A-15): MFC's CKeyFrameDockWnd edits a
+/// particle or effect track's keys; the editing comes with that sub-editor.
+pub const function_window_note = "Keyframe editing comes with the Particle and Effect editors.";
+
+// --- Tests -------------------------------------------------------------------
+
+const FakeResBridge = core.fake_bridge.FakeResBridge;
+
+test "direction button: a click sets atan2 from the centre with y up, as OnLButtonDown" {
+    try testing.expectApproxEqAbs(@as(f32, 0), directionAngleAt(90, 40, 80, 80), 1e-6);
+    try testing.expectApproxEqAbs(@as(f32, std.math.pi / 2.0), directionAngleAt(40, 0, 80, 80), 1e-6);
+    try testing.expectApproxEqAbs(@as(f32, std.math.pi), directionAngleAt(0, 40, 80, 80), 1e-6);
+    try testing.expectApproxEqAbs(@as(f32, -std.math.pi / 2.0), directionAngleAt(40, 80, 80, 80), 1e-6);
+}
+
+test "direction button: the needle is the shorter half-side across and half of it up, truncated" {
+    const right = directionNeedleEnd(0, 100, 80);
+    try testing.expectEqual(@as(f32, 90), right.x);
+    try testing.expectEqual(@as(f32, 40), right.y);
+    const up = directionNeedleEnd(std.math.pi / 2.0, 100, 80);
+    try testing.expectEqual(@as(f32, 50), up.x);
+    try testing.expectEqual(@as(f32, 20), up.y);
+    const down_wide = directionNeedleEnd(-std.math.pi / 2.0, 60, 100);
+    try testing.expectEqual(@as(f32, 30), down_wide.x);
+    try testing.expectEqual(@as(f32, 65), down_wide.y);
+}
+
+test "direction button: the degrees text turns the angle a quarter-pi back into 0..360" {
+    try testing.expectApproxEqAbs(@as(f32, 0), directionDegrees(std.math.pi / 4.0 + 1e-6), 1e-3);
+    try testing.expectApproxEqAbs(@as(f32, 315), directionDegrees(0), 1e-3);
+    try testing.expectApproxEqAbs(@as(f32, 45), directionDegrees(std.math.pi / 2.0), 1e-3);
+    try testing.expectApproxEqAbs(@as(f32, 225), directionDegrees(-std.math.pi / 2.0), 1e-3);
+}
+
+test "direction button: GetQuadrant as MFC wrote it" {
+    try testing.expectEqual(@as(u3, 0), directionQuadrant(0.1));
+    try testing.expectEqual(@as(u3, 1), directionQuadrant(1.0));
+    try testing.expectEqual(@as(u3, 2), directionQuadrant(3.0));
+    try testing.expectEqual(@as(u3, 2), directionQuadrant(std.math.pi));
+    try testing.expectEqual(@as(u3, 7), directionQuadrant(-0.5));
+    try testing.expectEqual(@as(u3, 6), directionQuadrant(-1.0));
+    try testing.expectEqual(@as(u3, 5), directionQuadrant(-2.0));
+}
+
+test "thumbnails: *.tga in any case, a decode path only for the engine's lower-case name" {
+    try testing.expect(isThumbnailPicture("frame1.tga"));
+    try testing.expect(isThumbnailPicture("FRAME1.TGA"));
+    try testing.expect(!isThumbnailPicture("frame1.dds"));
+    try testing.expect(!isThumbnailPicture(".tga"));
+    var buffer: [64]u8 = undefined;
+    try testing.expectEqualStrings("/a/b/frame1.xml", thumbnailDecodePath(&buffer, "/a/b", "frame1.tga").?);
+    try testing.expectEqualStrings("/a/b/frame1.xml", thumbnailDecodePath(&buffer, "/a/b/", "frame1.tga").?);
+    try testing.expect(thumbnailDecodePath(&buffer, "/a/b", "FRAME1.TGA") == null);
+    var tiny: [8]u8 = undefined;
+    try testing.expect(thumbnailDecodePath(&tiny, "/a/b", "frame1.tga") == null);
+}
+
+test "thumbnails: a picture is fitted by the smaller rate and centred, up or down" {
+    const wide = fitThumbnail(32, 16, 64);
+    try testing.expectEqual(Fit{ .x = 0, .y = 16, .w = 64, .h = 32 }, wide);
+    const tall = fitThumbnail(100, 200, 64);
+    try testing.expectEqual(Fit{ .x = 16, .y = 0, .w = 32, .h = 64 }, tall);
+    try testing.expectEqual(Fit{ .x = 0, .y = 0, .w = 64, .h = 64 }, fitThumbnail(16, 16, 64));
+    try testing.expectEqual(Fit{ .x = 0, .y = 0, .w = 0, .h = 0 }, fitThumbnail(0, 16, 64));
+}
+
+test "thumbnails: names sort without regard to case" {
+    var names = [_][]const u8{ "b.tga", "A.tga", "c.TGA", "a2.tga" };
+    sortThumbnailNames(&names);
+    try testing.expectEqualStrings("A.tga", names[0]);
+    try testing.expectEqualStrings("a2.tga", names[1]);
+    try testing.expectEqualStrings("b.tga", names[2]);
+    try testing.expectEqualStrings("c.TGA", names[3]);
+}
+
+test "preview: begun once per kind, stopped with no project, Run needs a begun scene" {
+    var fake = FakeResBridge.init(testing.allocator);
+    defer fake.deinit();
+    const b = fake.bridge();
+    var preview: PreviewSync = .{};
+
+    try testing.expectEqual(PreviewSync.Change.none, preview.sync(b, false, .weapon));
+    try testing.expect(!preview.run(b));
+    try testing.expectEqual(PreviewSync.Change.begun, preview.sync(b, true, .sprite));
+    try testing.expectEqual(Kind.sprite, preview.begun.?);
+    try testing.expectEqual(PreviewSync.Change.none, preview.sync(b, true, .sprite));
+
+    // Run with no project in the fake is the bridge's refusal, shown.
+    try testing.expect(!preview.run(b));
+    try testing.expect(std.mem.indexOf(u8, preview.message(), "not shown") != null);
+    try testing.expectEqual(bridge.Status.ok, b.new(.sprite));
+    try testing.expect(preview.run(b));
+    try testing.expect(preview.running);
+
+    try testing.expectEqual(PreviewSync.Change.begun, preview.sync(b, true, .effect));
+    try testing.expect(!preview.running);
+    try testing.expectEqual(PreviewSync.Change.stopped, preview.sync(b, false, .effect));
+    try testing.expect(preview.begun == null);
+    try testing.expectEqual(FakeResBridge.PreviewState.closed, fake.preview_state);
+}
+
+test "preview: a refused Begin is shown once and not asked again until the kind changes" {
+    var fake = FakeResBridge.init(testing.allocator);
+    defer fake.deinit();
+    const b = fake.bridge();
+    var preview: PreviewSync = .{};
+    fake.no_device = true;
+    try testing.expectEqual(PreviewSync.Change.refused, preview.sync(b, true, .mesh_unit));
+    try testing.expect(std.mem.indexOf(u8, preview.message(), "no GPU device") != null);
+    try testing.expectEqual(PreviewSync.Change.none, preview.sync(b, true, .mesh_unit));
+    try testing.expect(!preview.run(b));
+    fake.no_device = false;
+    try testing.expectEqual(PreviewSync.Change.begun, preview.sync(b, true, .particle));
+}
+
+test "import: an empty folder is refused before the bridge, a chosen one is the guarded action" {
+    var form: ImportForm = .{};
+    switch (form.request()) {
+        .why_not => |why| try testing.expect(std.mem.indexOf(u8, why, "1.xml") != null),
+        .go => return error.TestUnexpectedResult,
+    }
+    try testing.expect(form.setFolder("  /game/Data/Units/Humans/German/Gunner "));
+    switch (form.request()) {
+        .go => |pending| {
+            try testing.expectEqual(Kind.animation_infantry, pending.import_from_game.kind);
+            try testing.expectEqualStrings("/game/Data/Units/Humans/German/Gunner", pending.import_from_game.folder.slice());
+        },
+        .why_not => return error.TestUnexpectedResult,
+    }
+    var long: [logic.path_capacity + 1]u8 = @splat('a');
+    try testing.expect(!form.setFolder(&long));
+    var buffer: [64]u8 = undefined;
+    try testing.expectEqualStrings("/game/Data", importStartFolder(&buffer, "/game/"));
+    try testing.expectEqualStrings("/game/Data", importStartFolder(&buffer, "/game"));
+}
+
+test "help: every shortcut has keys and an action, Ctrl reads Cmd on macOS, the spec link names the spec" {
+    for (shortcuts) |s| {
+        try testing.expect(s.keys.len != 0 and s.action.len != 0);
+    }
+    var buffer: [64]u8 = undefined;
+    try testing.expectEqualStrings("Cmd+Y, Cmd+Shift+Z", shortcutKeys(&buffer, "Ctrl+Y, Ctrl+Shift+Z", true));
+    try testing.expectEqualStrings("Ctrl+O", shortcutKeys(&buffer, "Ctrl+O", false));
+    try testing.expect(std.mem.endsWith(u8, spec_url, spec_path));
+    try testing.expectEqualStrings("Version 1.0", about_mfc_lines[0]);
+}

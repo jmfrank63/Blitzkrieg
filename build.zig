@@ -8137,13 +8137,27 @@ fn addResourceEditor(
     // the working directory.
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("zig-out"));
-    run.addArgs(&.{ "--check", "wpn", b.pathFromRoot("zig-out/local-test/resource_editor/resource-editor-check.tga") });
+    // The tracked picture the docks half shows in the thumbnail list.
+    run.addArgs(&.{ "--check", "wpn", b.pathFromRoot("zig-out/local-test/resource_editor/resource-editor-check.tga"), b.pathFromRoot("tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
     // Reads the staged installation, not a file input of this step.
     run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
     const check_step = b.step("resource-editor-host-check", "Start ResourceEditor hidden on a new project and check ImGui draws over the engine's frame");
     check_step.dependOn(&install_exe.step);
     if (test_mode == .run) check_step.dependOn(&run.step);
+
+    // The batch mode's command line on the 21 tracked project fixtures,
+    // copied under zig-out/local-test: -os re-saves each byte for byte and
+    // the engine's reader reopens it, an export batch reports its project
+    // and the missing gamma.cfg, the shipped Data folder is refused.
+    const batch_run = b.addRunArtifact(exe);
+    batch_run.setCwd(b.path("zig-out"));
+    batch_run.addArgs(&.{ "--batch-check", b.pathFromRoot("tools/zig/fixtures/resource_editor"), b.pathFromRoot("zig-out/local-test/resource_editor/batch") });
+    batch_run.has_side_effects = true;
+    batch_run.step.dependOn(&install_exe.step);
+    const batch_step = b.step("resource-editor-batch", "Run ResourceEditor --batch over copies of the 21 project fixtures and read the results back with the engine's reader");
+    batch_step.dependOn(&install_exe.step);
+    if (test_mode == .run) batch_step.dependOn(&batch_run.step);
     return exe;
 }
 

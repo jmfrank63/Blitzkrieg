@@ -53,6 +53,14 @@ pub const Options = struct {
     /// and put between the editor's own arguments and the map name, where the
     /// MFC put them (`<parameters> -<map>`). Never a shell string (T-05-11-03).
     game_parameters: []const u8 = "",
+    /// D-02's session-only test profile. Each editor names its own, so a
+    /// Resource Editor launch (ResourceEditorTest) never shares the Map
+    /// Editor's test saves.
+    profile: []const u8 = profile_name,
+    /// The map Game opens straight away, last on its command line. Null
+    /// starts Game at its main menu: the Resource Editor's Run Blitzkrieg
+    /// plays the exported mod, not one map.
+    map_name: ?[]const u8 = map_file_name,
 };
 
 /// The most extra arguments Options' text yields; the rest are dropped.
@@ -119,9 +127,10 @@ pub fn splitParameters(text: []const u8, text_copy: *[max_parameters_text]u8, ou
 /// -windowed, -monitor<n>, Options' extra arguments, the map name.
 pub const max_argv = 7 + max_extra_args;
 
-/// Backing storage for buildArgv's two formatted arguments, owned by the
+/// Backing storage for buildArgv's formatted arguments, owned by the
 /// caller so buildArgv itself takes no allocator.
 pub const ArgvStorage = struct {
+    profile_arg: [96]u8 = undefined,
     mod_arg: [320]u8 = undefined,
     monitor_arg: [16]u8 = undefined,
     parameters_text: [max_parameters_text]u8 = undefined,
@@ -130,7 +139,8 @@ pub const ArgvStorage = struct {
 };
 
 /// `<game_path> -editor-test -profile=MapEditorTest -mod=<folder>|-mod=None
-/// -windowed [-monitor<n>] mapeditor_test.bzm`, as an argv array - never
+/// -windowed [-monitor<n>] [<parameters>] mapeditor_test.bzm` (Options' profile
+/// and map_name change the two editor-specific parts), as an argv array - never
 /// joined into a single command string, so a mod folder with a space in it
 /// (or any shell-meaningful character) stays exactly one element and is
 /// never reinterpreted by a shell (T-03-02-01).
@@ -140,7 +150,7 @@ pub fn buildArgv(storage: *ArgvStorage, options: Options) []const []const u8 {
     n += 1;
     storage.argv[n] = "-editor-test";
     n += 1;
-    storage.argv[n] = "-profile=" ++ profile_name;
+    storage.argv[n] = std.fmt.bufPrint(&storage.profile_arg, "-profile={s}", .{options.profile}) catch "-profile=" ++ profile_name;
     n += 1;
     const mod_arg = if (options.mod_folder) |folder|
         std.fmt.bufPrint(&storage.mod_arg, "-mod={s}", .{folder}) catch "-mod=None"
@@ -159,8 +169,10 @@ pub fn buildArgv(storage: *ArgvStorage, options: Options) []const []const u8 {
         storage.argv[n] = argument;
         n += 1;
     }
-    storage.argv[n] = map_file_name;
-    n += 1;
+    if (options.map_name) |map_name| {
+        storage.argv[n] = map_name;
+        n += 1;
+    }
     return storage.argv[0..n];
 }
 
@@ -930,4 +942,15 @@ test "buildArgv: Options' parameters sit between the editor's arguments and the 
     try std.testing.expectEqualStrings("-nosound", argv[5]);
     try std.testing.expectEqualStrings("-x y", argv[6]);
     try std.testing.expectEqualStrings("mapeditor_test.bzm", argv[7]);
+}
+
+test "buildArgv: another editor's profile and no map - the Resource Editor's Run Blitzkrieg" {
+    var storage: ArgvStorage = .{};
+    const argv = buildArgv(&storage, .{ .game_path = "/stage/Game", .mod_folder = "mymod", .game_parameters = "-nosound", .log_path = "log", .profile = "ResourceEditorTest", .map_name = null });
+    try std.testing.expectEqual(@as(usize, 6), argv.len);
+    try std.testing.expectEqualStrings("-editor-test", argv[1]);
+    try std.testing.expectEqualStrings("-profile=ResourceEditorTest", argv[2]);
+    try std.testing.expectEqualStrings("-mod=mymod", argv[3]);
+    try std.testing.expectEqualStrings("-windowed", argv[4]);
+    try std.testing.expectEqualStrings("-nosound", argv[5]);
 }
