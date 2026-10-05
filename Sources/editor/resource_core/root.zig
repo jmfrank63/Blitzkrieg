@@ -556,13 +556,14 @@ test "geometry aimed-point channels undo/redo rewrite the list" {
     }
 }
 
-test "geometry formation_positions and bridge_span_marks undo/redo on a child node" {
-    // The two points2 channels of the squad and bridge editors. MFC keeps
-    // both lists on a node below the root (a formation props node, a spans
-    // node), so the edit goes to an inserted child, and `before` is a real
-    // list so undo has to put the old points back, not just clear.
+test "geometry points2 owner-node channels undo/redo on a child node" {
+    // The points2 channels of the squad, bridge, mission, chapter and
+    // campaign editors. MFC keeps each list on a node below the root (a
+    // formation props node, a spans node, an objectives or chapters list),
+    // so the edit goes to an inserted child, and `before` is a real list so
+    // undo has to put the old points back, not just clear.
     const allocator = std.testing.allocator;
-    const channels = [_]GeometryChannel{ .formation_positions, .bridge_span_marks };
+    const channels = [_]GeometryChannel{ .formation_positions, .bridge_span_marks, .mission_objectives, .chapter_crosses, .campaign_crosses };
     for (channels) |channel| {
         var fake = FakeResBridge.init(allocator);
         defer fake.deinit();
@@ -629,6 +630,75 @@ test "geometry formation_positions and bridge_span_marks undo/redo on a child no
             try std.testing.expectEqual(@as(usize, 3), read.points2.len);
             try std.testing.expectEqual(@as(f32, 272.25), read.points2[2].y);
         }
+    }
+}
+
+test "geometry particle and effect keyframes undo/redo keep z" {
+    // The vec3 family: a keyframe list on a track node below the root, with
+    // a z that must survive undo and redo rather than be dropped to a Point2.
+    const allocator = std.testing.allocator;
+    const channels = [_]GeometryChannel{ .particle_keyframes, .effect_keyframes };
+    for (channels) |channel| {
+        var fake = FakeResBridge.init(allocator);
+        defer fake.deinit();
+        try setupProject(allocator, &fake);
+        const root_id = fake.nodes.items[0].id;
+        var child_id: i32 = 0;
+        try bridge.check(fake.bridge().insertNode(root_id, "Track", 0, &child_id));
+
+        const old_keys = [_]Vec3{ .{ .x = 0, .y = 1, .z = 0.5 }, .{ .x = 1, .y = 0, .z = -0.25 } };
+        const seed: GeometryValue = .{ .vec3 = @constCast(&old_keys) };
+        try bridge.check(fake.bridge().geometryWrite(child_id, channel, &seed));
+
+        var doc: Document = .{};
+        defer doc.deinit(allocator);
+        try doc.reload(allocator, fake.bridge());
+
+        const before_keys = try allocator.dupe(Vec3, &old_keys);
+        const after_keys = try allocator.alloc(Vec3, 3);
+        after_keys[0] = .{ .x = 0, .y = 0.75, .z = 0 };
+        after_keys[1] = .{ .x = 0.5, .y = 0.125, .z = 2 };
+        after_keys[2] = .{ .x = 1, .y = 0, .z = 3.375 };
+        const new_keys = [_]Vec3{ after_keys[0], after_keys[1], after_keys[2] };
+
+        var hist: History = .{};
+        defer hist.deinit(allocator);
+        try hist.reserve(allocator);
+        var cmd: ResourceCommand = .{ .geometry = .{
+            .node = child_id,
+            .channel = channel,
+            .before = .{ .vec3 = before_keys },
+            .after = .{ .vec3 = after_keys },
+        } };
+        try doc.apply(allocator, fake.bridge(), &cmd);
+        hist.recordAssumeCapacity(allocator, cmd, 0);
+        {
+            var read: GeometryValue = undefined;
+            try bridge.check(fake.bridge().geometryRead(child_id, channel, &read));
+            defer read.deinit(allocator);
+            try std.testing.expectEqualSlices(Vec3, &new_keys, read.vec3);
+        }
+
+        try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+        {
+            var read: GeometryValue = undefined;
+            try bridge.check(fake.bridge().geometryRead(child_id, channel, &read));
+            defer read.deinit(allocator);
+            try std.testing.expectEqualSlices(Vec3, &old_keys, read.vec3);
+        }
+
+        try doc.redoOne(allocator, fake.bridge(), &hist.top().?.command);
+        {
+            var read: GeometryValue = undefined;
+            try bridge.check(fake.bridge().geometryRead(child_id, channel, &read));
+            defer read.deinit(allocator);
+            try std.testing.expectEqualSlices(Vec3, &new_keys, read.vec3);
+        }
+
+        // A Point2 list on a keyframe channel is the wrong family.
+        const flat = [_]Point2{.{ .x = 1, .y = 2 }};
+        const wrong: GeometryValue = .{ .points2 = @constCast(&flat) };
+        try std.testing.expectEqual(bridge.Status.bad_argument, fake.bridge().geometryWrite(child_id, channel, &wrong));
     }
 }
 

@@ -199,7 +199,10 @@ pub const GeometryChannel = enum(c_int) {
     /// The payload family the channel carries, as the `GeometryValue` tag.
     /// Formation positions and bridge span marks are flat Point2 lists in
     /// MFC's AI world units with z dropped (SquadFrm and BridgeFrm keep it 0),
-    /// so they share the transparency lines' family.
+    /// so they share the transparency lines' family. Mission objectives and
+    /// chapter/campaign crosses are map positions MFC stores as one CVec2 per
+    /// child (ChapterFrm, CampaignFrm, MissionFrm), so they join it too. The
+    /// keyframe lists keep a third component and are the vec3 family.
     pub fn family(self: GeometryChannel) std.meta.Tag(GeometryValue) {
         return switch (self) {
             .passability_cells, .locked_tiles => .bytes_grid,

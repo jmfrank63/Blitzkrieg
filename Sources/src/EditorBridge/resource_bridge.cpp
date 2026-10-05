@@ -134,7 +134,8 @@ struct GeometryBlob
 	std::vector<unsigned char> bytes;
 	int nWidth = 0;
 	int nHeight = 0;
-	// points family: 2*n floats in order (x0, y0, x1, y1, ...).
+	// points family: 2*n floats in order (x0, y0, x1, y1, ...); the vec3
+	// family keeps 3*n (x0, y0, z0, ...) in the same vector.
 	std::vector<float> points;
 	// aimed family: one AimedPoint per entry.
 	std::vector<AimedPoint> aimed;
@@ -175,9 +176,9 @@ struct ResourceState
 
 // Channel ids: the C ABI's geometry channel integers (shared with Zig's
 // bridge.GeometryChannel enum). T05 wired channels 0..2 (cells family); T06
-// adds 3..8 (point2 family + aimed-points family); 9 and 10 join channel 2 in
-// the points family. The rest are reserved for later tasks. Kept as a plain
-// enum so a test can hand-assert against an integer.
+// adds 3..8 (point2 family + aimed-points family); 9..13 join channel 2 in
+// the points family; 14 and 15 are the vec3 family. Kept as a plain enum so a
+// test can hand-assert against an integer.
 enum GeometryChannel
 {
 	CHANNEL_PASSABILITY_CELLS = 0,
@@ -190,7 +191,12 @@ enum GeometryChannel
 	CHANNEL_SMOKE_POINTS = 7,
 	CHANNEL_DIRECTED_EXPLOSION_POINTS = 8,
 	CHANNEL_FORMATION_POSITIONS = 9,
-	CHANNEL_BRIDGE_SPAN_MARKS = 10
+	CHANNEL_BRIDGE_SPAN_MARKS = 10,
+	CHANNEL_MISSION_OBJECTIVES = 11,
+	CHANNEL_CHAPTER_CROSSES = 12,
+	CHANNEL_CAMPAIGN_CROSSES = 13,
+	CHANNEL_PARTICLE_KEYFRAMES = 14,
+	CHANNEL_EFFECT_KEYFRAMES = 15
 };
 
 static bool IsBytesGridChannel( int nChannel )
@@ -207,6 +213,18 @@ static bool IsAimedChannel( int nChannel )
 {
 	return nChannel == CHANNEL_SHOOT_POINTS || nChannel == CHANNEL_FIRE_POINTS
 		|| nChannel == CHANNEL_SMOKE_POINTS || nChannel == CHANNEL_DIRECTED_EXPLOSION_POINTS;
+}
+
+static bool IsVec3Channel( int nChannel )
+{
+	return nChannel == CHANNEL_PARTICLE_KEYFRAMES || nChannel == CHANNEL_EFFECT_KEYFRAMES;
+}
+
+// Floats per entry in a list channel's `points` vector: three for the vec3
+// family, two for the points family.
+static int ListStride( int nChannel )
+{
+	return IsVec3Channel( nChannel ) ? 3 : 2;
 }
 
 // Reserved element name for persisted geometry. An item keeps the element in
@@ -299,6 +317,7 @@ std::string FindAttr( const NResourceXml::Node &node, const std::string &szName 
 //   points    : <_bk_geometry channel="N" count="K">x0,y0;x1,y1;...</_bk_geometry>
 //   point2    : <_bk_geometry channel="N">x,y</_bk_geometry>
 //   aimed     : <_bk_geometry channel="N" count="K">x0,y0,a0,c0;x1,y1,a1,c1;...</_bk_geometry>
+//   vec3      : <_bk_geometry channel="N" count="K">x0,y0,z0;x1,y1,z1;...</_bk_geometry>
 // Element content lives as a single Text child node, which is how xml.cpp
 // writes/reads inline text.
 NResourceXml::Node EmitGeometryChild( int nChannel, const GeometryBlob &blob )
@@ -341,15 +360,19 @@ NResourceXml::Node EmitGeometryChild( int nChannel, const GeometryBlob &blob )
 	}
 	else
 	{
-		const int nCount = static_cast<int>( blob.points.size() / 2 );
+		const int nStride = ListStride( nChannel );
+		const int nCount = static_cast<int>( blob.points.size() / nStride );
 		out.attrs.push_back( { "count", std::to_string( nCount ) } );
 		text.reserve( blob.points.size() * 10 );
 		for ( int i = 0; i < nCount; ++i )
 		{
-			if ( i != 0 ) text.push_back( ';' );
-			char buf[64];
-			std::snprintf( buf, sizeof( buf ), "%.9g,%.9g", blob.points[2*i], blob.points[2*i + 1] );
-			text += buf;
+			for ( int k = 0; k < nStride; ++k )
+			{
+				if ( i != 0 || k != 0 ) text.push_back( k == 0 ? ';' : ',' );
+				char buf[32];
+				std::snprintf( buf, sizeof( buf ), "%.9g", blob.points[nStride*i + k] );
+				text += buf;
+			}
 		}
 	}
 	if ( !text.empty() )
@@ -452,31 +475,31 @@ bool ParseGeometryChild( const NResourceXml::Node &node, int &nChannel, Geometry
 		if ( p != pEnd ) return false;
 		return true;
 	}
-	// points family
+	// points and vec3 families: `count` tuples of ListStride floats.
+	const int nStride = ListStride( nChannel );
 	const std::string szCount = FindAttr( node, "count" );
 	const int nCount = std::atoi( szCount.c_str() );
 	if ( nCount < 0 ) return false;
 	out.points.clear();
 	if ( nCount == 0 ) return true;
-	out.points.reserve( static_cast<std::size_t>( nCount ) * 2 );
+	out.points.reserve( static_cast<std::size_t>( nCount ) * nStride );
 	const char *p = body.c_str();
 	const char *pEnd = p + body.size();
 	for ( int i = 0; i < nCount; ++i )
 	{
-		if ( i != 0 )
+		for ( int k = 0; k < nStride; ++k )
 		{
-			if ( p >= pEnd || *p != ';' ) return false;
-			++p;
+			if ( i != 0 || k != 0 )
+			{
+				if ( p >= pEnd || *p != ( k == 0 ? ';' : ',' ) ) return false;
+				++p;
+			}
+			char *q = nullptr;
+			const float v = std::strtof( p, &q );
+			if ( q == p ) return false;
+			p = q;
+			out.points.push_back( v );
 		}
-		char *q = nullptr;
-		const float x = std::strtof( p, &q );
-		if ( q == p || q >= pEnd || *q != ',' ) return false;
-		p = q + 1;
-		const float y = std::strtof( p, &q );
-		if ( q == p ) return false;
-		p = q;
-		out.points.push_back( x );
-		out.points.push_back( y );
 	}
 	if ( p != pEnd ) return false;
 	return true;
@@ -1599,9 +1622,10 @@ BkEditorStatus BkResSetLockedTiles( BkResSession *pSession, int nNodeId, const u
 	} );
 }
 
-/* Points-family helpers: transparency lines, formation positions and
-   bridge span marks all carry a flat Point2 list and differ only in channel
-   id, so one Get/Set pair serves them. */
+/* Points-family helpers: transparency lines, formation positions, bridge
+   span marks, mission objectives and chapter/campaign crosses all carry a
+   flat Point2 list and differ only in channel id, so one Get/Set pair serves
+   them. */
 
 namespace {
 
@@ -1958,49 +1982,123 @@ BkEditorStatus BkResSetDirectedExplosionPoints( BkResSession *pSession, int nNod
 	} );
 }
 
-#define BKRES_GET_POINT2_STUB( fname ) \
-BkEditorStatus fname( BkResSession *pSession, int, BkResPoint2 *, int, int *pnCount ) \
-{ \
-	return Guarded( pSession, [=]() -> BkEditorStatus \
-	{ \
-		if ( pnCount != 0 ) *pnCount = 0; \
-		return NotImplemented( pSession, #fname ); \
-	} ); \
-}
-#define BKRES_SET_POINT2_STUB( fname ) \
-BkEditorStatus fname( BkResSession *pSession, int, const BkResPoint2 *, int ) \
-{ \
-	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, #fname ); } ); \
-}
-BKRES_GET_POINT2_STUB( BkResGetMissionObjectives )
-BKRES_SET_POINT2_STUB( BkResSetMissionObjectives )
-BKRES_GET_POINT2_STUB( BkResGetChapterCrosses )
-BKRES_SET_POINT2_STUB( BkResSetChapterCrosses )
-BKRES_GET_POINT2_STUB( BkResGetCampaignCrosses )
-BKRES_SET_POINT2_STUB( BkResSetCampaignCrosses )
-#undef BKRES_GET_POINT2_STUB
-#undef BKRES_SET_POINT2_STUB
+/* Vec3-family helpers: particle and effect keyframes carry a flat 3D vector
+   list. MFC's framesList entries are (time, value) pairs; z travels through
+   unchanged so a caller can keep a third component without a new channel. */
 
-#define BKRES_GET_VEC3_STUB( fname ) \
-BkEditorStatus fname( BkResSession *pSession, int, BkResVec3 *, int, int *pnCount ) \
+namespace {
+
+BkEditorStatus GetVec3List( BkResSession *pSession, int nChannel, int nNodeId,
+                            BkResVec3 *pOut, int nCapacity, int *pnCount )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+	{
+		pSession->szMessage = "unknown node id";
+		return BK_EDITOR_REFUSED;
+	}
+	auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
+	if ( it == state.geometry.end() )
+	{
+		if ( pnCount != nullptr ) *pnCount = 0;
+		return BK_EDITOR_OK;
+	}
+	const int nCount = static_cast<int>( it->second.points.size() / 3 );
+	if ( pnCount != nullptr ) *pnCount = nCount;
+	if ( pOut == nullptr || nCapacity <= 0 )
+		return BK_EDITOR_OK;
+	if ( nCapacity < nCount )
+		return BK_EDITOR_REFUSED;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		pOut[i].x = it->second.points[3*i];
+		pOut[i].y = it->second.points[3*i + 1];
+		pOut[i].z = it->second.points[3*i + 2];
+	}
+	return BK_EDITOR_OK;
+}
+
+BkEditorStatus SetVec3List( BkResSession *pSession, int nChannel, int nNodeId,
+                            const BkResVec3 *pIn, int nCount )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+	{
+		pSession->szMessage = "unknown node id";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( nCount < 0 )
+	{
+		pSession->szMessage = "negative keyframe count";
+		return BK_EDITOR_BAD_ARGUMENT;
+	}
+	if ( nCount != 0 && pIn == nullptr )
+	{
+		pSession->szMessage = "null buffer for non-empty list";
+		return BK_EDITOR_BAD_ARGUMENT;
+	}
+	GeometryBlob blob;
+	blob.points.reserve( static_cast<std::size_t>( nCount ) * 3 );
+	for ( int i = 0; i < nCount; ++i )
+	{
+		blob.points.push_back( pIn[i].x );
+		blob.points.push_back( pIn[i].y );
+		blob.points.push_back( pIn[i].z );
+	}
+	state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
+	return BK_EDITOR_OK;
+}
+
+} // namespace
+
+#define BKRES_POINTS2_PAIR( name, channel ) \
+BkEditorStatus BkResGet##name( BkResSession *pSession, int nNodeId, BkResPoint2 *pOut, int nCapacity, int *pnCount ) \
 { \
 	return Guarded( pSession, [=]() -> BkEditorStatus \
 	{ \
-		if ( pnCount != 0 ) *pnCount = 0; \
-		return NotImplemented( pSession, #fname ); \
+		return GetPoints2( pSession, channel, nNodeId, pOut, nCapacity, pnCount ); \
+	} ); \
+} \
+BkEditorStatus BkResSet##name( BkResSession *pSession, int nNodeId, const BkResPoint2 *pIn, int nCount ) \
+{ \
+	return Guarded( pSession, [=]() -> BkEditorStatus \
+	{ \
+		return SetPoints2( pSession, channel, nNodeId, pIn, nCount ); \
 	} ); \
 }
-#define BKRES_SET_VEC3_STUB( fname ) \
-BkEditorStatus fname( BkResSession *pSession, int, const BkResVec3 *, int ) \
+BKRES_POINTS2_PAIR( MissionObjectives, CHANNEL_MISSION_OBJECTIVES )
+BKRES_POINTS2_PAIR( ChapterCrosses, CHANNEL_CHAPTER_CROSSES )
+BKRES_POINTS2_PAIR( CampaignCrosses, CHANNEL_CAMPAIGN_CROSSES )
+#undef BKRES_POINTS2_PAIR
+
+#define BKRES_VEC3_PAIR( name, channel ) \
+BkEditorStatus BkResGet##name( BkResSession *pSession, int nNodeId, BkResVec3 *pOut, int nCapacity, int *pnCount ) \
 { \
-	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, #fname ); } ); \
+	return Guarded( pSession, [=]() -> BkEditorStatus \
+	{ \
+		return GetVec3List( pSession, channel, nNodeId, pOut, nCapacity, pnCount ); \
+	} ); \
+} \
+BkEditorStatus BkResSet##name( BkResSession *pSession, int nNodeId, const BkResVec3 *pIn, int nCount ) \
+{ \
+	return Guarded( pSession, [=]() -> BkEditorStatus \
+	{ \
+		return SetVec3List( pSession, channel, nNodeId, pIn, nCount ); \
+	} ); \
 }
-BKRES_GET_VEC3_STUB( BkResGetParticleKeyframes )
-BKRES_SET_VEC3_STUB( BkResSetParticleKeyframes )
-BKRES_GET_VEC3_STUB( BkResGetEffectKeyframes )
-BKRES_SET_VEC3_STUB( BkResSetEffectKeyframes )
-#undef BKRES_GET_VEC3_STUB
-#undef BKRES_SET_VEC3_STUB
+BKRES_VEC3_PAIR( ParticleKeyframes, CHANNEL_PARTICLE_KEYFRAMES )
+BKRES_VEC3_PAIR( EffectKeyframes, CHANNEL_EFFECT_KEYFRAMES )
+#undef BKRES_VEC3_PAIR
 
 /* ---- Export ----------------------------------------------------------- */
 

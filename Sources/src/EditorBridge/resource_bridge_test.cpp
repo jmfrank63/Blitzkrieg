@@ -290,33 +290,60 @@ static const int kSquadFormationProps = 0x11000000 + 166;
 static const int kBridgeBeginSpans    = 0x11000000 + 222;
 static const int kBridgeCenterSpans   = 0x11000000 + 223;
 static const int kBridgeEndSpans      = 0x11000000 + 224;
+// Mission objectives, chapter missions and places, campaign chapters: the
+// containers whose children MFC gives a map cross (+ 232, 242, 246, 252).
+static const int kMissionObjectives   = 0x11000000 + 232;
+static const int kChapterMissions     = 0x11000000 + 242;
+static const int kChapterPlaces       = 0x11000000 + 246;
+static const int kCampaignChapters    = 0x11000000 + 252;
+// Particle tracks MFC keeps a framesList on (generate density + 140, speed
+// + 144), and the effect's animations list (+ 33).
+static const int kParticleDensity     = 0x11000000 + 140;
+static const int kParticleSpeed       = 0x11000000 + 144;
+static const int kEffectAnimations    = 0x11000000 + 33;
 
-typedef BkEditorStatus ( *PointsGetter )( BkResSession *, int, BkResPoint2 *, int, int * );
-typedef BkEditorStatus ( *PointsSetter )( BkResSession *, int, const BkResPoint2 *, int );
+static bool SameEntry( const BkResPoint2 &a, const BkResPoint2 &b ) { return a.x == b.x && a.y == b.y; }
+static bool SameEntry( const BkResVec3 &a, const BkResVec3 &b ) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
-static bool SamePoints( BkResSession *pSession, PointsGetter pGet, int nNode, const std::vector<BkResPoint2> &want )
+// The k-th entry of the i-th owner's test list, with fractions a lossy text
+// form would not bring back.
+static void MakeEntry( BkResPoint2 &out, size_t i, size_t k )
+{
+	out = { 16 * 32.0f + float( k ) * 24.5f, 8 * 32.0f - float( i ) * 0.125f };
+}
+static void MakeEntry( BkResVec3 &out, size_t i, size_t k )
+{
+	out = { float( k ) * 0.1f, 1.0f / float( 3 + i ), -float( i + k ) * 0.375f };
+}
+
+template <typename T>
+static bool SameList( BkResSession *pSession, BkEditorStatus ( *pGet )( BkResSession *, int, T *, int, int * ), int nNode,
+                      const std::vector<T> &want )
 {
 	int nCount = -1;
 	if ( pGet( pSession, nNode, 0, 0, &nCount ) != BK_EDITOR_OK || nCount != int( want.size() ) )
 		return false;
-	std::vector<BkResPoint2> got( want.size() + 1 );
+	std::vector<T> got( want.size() + 1 );
 	if ( pGet( pSession, nNode, got.data(), int( got.size() ), &nCount ) != BK_EDITOR_OK || nCount != int( want.size() ) )
 		return false;
 	for ( size_t i = 0; i < want.size(); ++i )
-		if ( got[i].x != want[i].x || got[i].y != want[i].y )
+		if ( !SameEntry( got[i], want[i] ) )
 			return false;
 	return true;
 }
 
-// Formation positions on scp and bridge span marks on bdg, each set on the
-// nodes MFC keeps them on (below the root): set -> read, save -> reopen ->
-// read, and a resave of the reopened project is byte-identical.
+// A point or vec3 list channel set on the nodes MFC keeps it on (below the
+// root): set -> read, save -> reopen -> read, and a resave of the reopened
+// project is byte-identical.
+template <typename T>
 static void PointListsOnOwnerNodes( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot,
-                                    const char *pszExt, const char *pszWhat, PointsGetter pGet, PointsSetter pSet,
+                                    const char *pszExt, const char *pszWhat,
+                                    BkEditorStatus ( *pGet )( BkResSession *, int, T *, int, int * ),
+                                    BkEditorStatus ( *pSet )( BkResSession *, int, const T *, int ),
                                     const std::vector<int> &ownerTypes )
 {
 	const std::string szIn = szFixtureRoot + "/" + pszExt + "/project." + pszExt;
-	const std::string szDir = szScratchRoot + "/" + pszExt + "-points2";
+	const std::string szDir = szScratchRoot + "/" + pszExt + "-" + pszWhat;
 	const std::string szSaved = szDir + "/project." + pszExt;
 	const std::string szResaved = szDir + "/project.resaved." + pszExt;
 	std::error_code ec;
@@ -339,31 +366,30 @@ static void PointListsOnOwnerNodes( BkResSession *pSession, const std::string &s
 		BkResClose( pSession );
 		return;
 	}
-	// Distinct lists per owner, in MFC's AI world units (32 per cell), with
-	// fractions that a lossy text form would not bring back.
-	std::vector<std::vector<BkResPoint2>> lists;
+	// Distinct lists per owner.
+	std::vector<std::vector<T>> lists;
 	for ( size_t i = 0; i < owners.size(); ++i )
 	{
-		std::vector<BkResPoint2> list;
-		for ( size_t k = 0; k <= i + 1; ++k )
-			list.push_back( { 16 * 32.0f + float( k ) * 24.5f, 8 * 32.0f - float( i ) * 0.125f } );
+		std::vector<T> list( i + 2 );
+		for ( size_t k = 0; k < list.size(); ++k )
+			MakeEntry( list[k], i, k );
 		lists.push_back( list );
 	}
 	for ( size_t i = 0; i < owners.size(); ++i )
 		Check( pSet( pSession, owners[i], lists[i].data(), int( lists[i].size() ) ) == BK_EDITOR_OK, What( "set on an owner node" ) );
 	for ( size_t i = 0; i < owners.size(); ++i )
-		Check( SamePoints( pSession, pGet, owners[i], lists[i] ), What( "read back what was set" ) );
-	Check( SamePoints( pSession, pGet, 1, {} ), What( "the root's list stays empty" ) );
+		Check( SameList<T>( pSession, pGet, owners[i], lists[i] ), What( "read back what was set" ) );
+	Check( SameList<T>( pSession, pGet, 1, {} ), What( "the root's list stays empty" ) );
 
 	// Two-pass rules and argument refusals.
-	BkResPoint2 shortBuf[1] = {};
+	T shortBuf[1] = {};
 	int nCount = -1;
 	Check( pGet( pSession, owners.back(), shortBuf, 1, &nCount ) == BK_EDITOR_REFUSED && nCount == int( lists.back().size() ),
 		What( "a short buffer is refused and the total still reported" ) );
 	Check( pSet( pSession, owners[0], lists[0].data(), -1 ) == BK_EDITOR_BAD_ARGUMENT, What( "a negative count is a bad argument" ) );
 	Check( pSet( pSession, owners[0], 0, 2 ) == BK_EDITOR_BAD_ARGUMENT, What( "a null buffer for a non-empty list is a bad argument" ) );
 	Check( pSet( pSession, 99999, lists[0].data(), 1 ) == BK_EDITOR_REFUSED, What( "an unknown node is refused" ) );
-	Check( SamePoints( pSession, pGet, owners[0], lists[0] ), What( "a refused set changes nothing" ) );
+	Check( SameList<T>( pSession, pGet, owners[0], lists[0] ), What( "a refused set changes nothing" ) );
 
 	if ( !Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, What( "save" ) ) )
 		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
@@ -374,8 +400,8 @@ static void PointListsOnOwnerNodes( BkResSession *pSession, const std::string &s
 		return;
 	}
 	for ( size_t i = 0; i < owners.size(); ++i )
-		Check( SamePoints( pSession, pGet, owners[i], lists[i] ), What( "an owner node's list survives save+reopen" ) );
-	Check( SamePoints( pSession, pGet, 1, {} ), What( "the root's list is still empty after reopen" ) );
+		Check( SameList<T>( pSession, pGet, owners[i], lists[i] ), What( "an owner node's list survives save+reopen" ) );
+	Check( SameList<T>( pSession, pGet, 1, {} ), What( "the root's list is still empty after reopen" ) );
 	Check( BkResSave( pSession, szResaved.c_str() ) == BK_EDITOR_OK, What( "save the reopened project" ) );
 	std::string szA, szB;
 	ReadBytes( szSaved, szA );
@@ -387,9 +413,9 @@ static void PointListsOnOwnerNodes( BkResSession *pSession, const std::string &s
 	Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, What( "save after the clear" ) );
 	BkResClose( pSession );
 	Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, What( "reopen after the clear" ) );
-	Check( SamePoints( pSession, pGet, owners[0], {} ), What( "the cleared list stays empty" ) );
+	Check( SameList<T>( pSession, pGet, owners[0], {} ), What( "the cleared list stays empty" ) );
 	if ( owners.size() > 1 )
-		Check( SamePoints( pSession, pGet, owners[1], lists[1] ), What( "the other owners keep their lists" ) );
+		Check( SameList<T>( pSession, pGet, owners[1], lists[1] ), What( "the other owners keep their lists" ) );
 	BkResClose( pSession );
 }
 
@@ -935,6 +961,18 @@ int main( int argc, char **argv )
 		BkResSetFormationPositions, { kSquadFormationProps } );
 	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "bdg", "span-marks", BkResGetBridgeSpanMarks,
 		BkResSetBridgeSpanMarks, { kBridgeBeginSpans, kBridgeCenterSpans, kBridgeEndSpans } );
+	// Map crosses on missions, chapters and campaigns, and the particle and
+	// effect keyframe lists.
+	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "mip", "objectives", BkResGetMissionObjectives,
+		BkResSetMissionObjectives, { kMissionObjectives } );
+	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "chc", "chapter-crosses", BkResGetChapterCrosses,
+		BkResSetChapterCrosses, { kChapterMissions, kChapterPlaces } );
+	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "cgc", "campaign-crosses", BkResGetCampaignCrosses,
+		BkResSetCampaignCrosses, { kCampaignChapters } );
+	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "pcp", "particle-keyframes", BkResGetParticleKeyframes,
+		BkResSetParticleKeyframes, { kParticleDensity, kParticleSpeed } );
+	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "eff", "effect-keyframes", BkResGetEffectKeyframes,
+		BkResSetEffectKeyframes, { kEffectAnimations } );
 
 	// An entry point this slice has not built yet fails loudly instead of
 	// answering OK for work it did not do.
@@ -943,8 +981,6 @@ int main( int argc, char **argv )
 		BkResExportReport report = {};
 		Check( BkResExport( pSession, 0, &report ) == BK_EDITOR_FAILED, "stubs: BkResExport is not a silent OK" );
 		Check( std::strlen( BkEditorLastMessage( pSession ) ) > 0, "stubs: the failure says why" );
-		BkResVec3 key = { 1.0f, 2.0f, 3.0f };
-		Check( BkResSetParticleKeyframes( pSession, 1, &key, 1 ) == BK_EDITOR_FAILED, "stubs: an unbuilt geometry setter is not a silent OK" );
 		BkResClose( pSession );
 	}
 
