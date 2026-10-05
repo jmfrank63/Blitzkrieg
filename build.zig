@@ -2345,7 +2345,7 @@ pub fn build(b: *std.Build) void {
     const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
     // M001 S05: ResourceEditor, on exactly MapEditor's platforms and staged
     // beside it; the package steps below stage this exact binary too.
-    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
+    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
     addRmgDeterminismTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addComposerRoundtripTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
@@ -8129,6 +8129,7 @@ fn addResourceEditor(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     editor_imgui_module: *std.Build.Module,
+    comparator_lib: *std.Build.Step.Compile,
     editor_bridge: *std.Build.Step.Compile,
     map_file: *std.Build.Step.Compile,
     formats: *std.Build.Step.Compile,
@@ -8179,6 +8180,9 @@ fn addResourceEditor(
     // resource_bridge.h (and the bridge.h it includes), for the app's @cImport.
     module.addIncludePath(b.path("Sources/src/EditorBridge"));
     linkEditorEngine(b, module, target, optimize, toolchain, engine);
+    // The particle and effect exporters read the Scene module's structs, which the
+    // data-only comparator library compiles in.
+    module.linkLibrary(comparator_lib);
     const exe = b.addExecutable(.{ .name = "ResourceEditor", .root_module = module });
     // .windows like MapEditor: no console on a double-click; the automated
     // modes attach to the parent's (crt.attachParentConsole).

@@ -19,6 +19,7 @@ const c_bridge = @import("c_bridge.zig");
 const logic = @import("panels_logic.zig");
 const dl = @import("docks_logic.zig");
 const mesh_logic = @import("mesh_logic.zig");
+const keyframe_logic = @import("keyframe_logic.zig");
 const lifecycle = @import("lifecycle.zig");
 const lifecycle_ui = @import("lifecycle_ui.zig");
 
@@ -135,6 +136,15 @@ pub const Docks = struct {
     io: std.Io,
     real: *c_bridge.RealResBridge,
     preview: dl.PreviewSync = .{},
+    /// The Function window's curve editor for the selected key-frame node, and
+    /// the node and history revision it was loaded at (a changed revision, as
+    /// by undo, reloads it).
+    curve: ?keyframe_logic.Editor = null,
+    curve_revision: u32 = 0,
+    curve_note: [160]u8 = undefined,
+    curve_note_len: usize = 0,
+    /// CParticleFrame::bHorizontalCamera, shared by the Particle and Effect previews.
+    horizontal_camera: bool = false,
     show_thumbnails: bool = false,
     show_direction: bool = false,
     show_function: bool = false,
@@ -161,6 +171,7 @@ pub const Docks = struct {
     /// Before the host stops: the thumbnails' textures and the preview scene
     /// belong to the engine's device and modules.
     pub fn deinit(self: *Docks) void {
+        if (self.curve) |*curve| curve.deinit();
         self.preview.stop(self.real.bridge());
         self.thumbs.freeNames(self.gpa);
         self.thumbs.names.deinit(self.gpa);
@@ -192,6 +203,12 @@ pub const Docks = struct {
         self.preview.halt(self.real.bridge());
     }
 
+    /// The Camera button (OnButtonCamera): flips between MFC's horizontal and
+    /// default camera. The flag only moves when the engine took the change.
+    pub fn toggleCamera(self: *Docks) void {
+        self.horizontal_camera = dl.toggledCamera(self.real.bridge(), self.horizontal_camera);
+    }
+
     // --- Menus and keys -----------------------------------------------------
 
     /// Import at the top of the File menu (MFC's Ctrl+I, ID_IMPORT_XML_FILE).
@@ -209,6 +226,7 @@ pub const Docks = struct {
     pub fn drawPreviewMenuItems(self: *Docks) void {
         if (ig.igMenuItemEx("Run", "F5", false, self.preview.begun != null)) self.runPreview();
         if (ig.igMenuItemEx("Stop", null, false, self.preview.running)) self.stopPreview();
+        if (ig.igMenuItemEx("Horizontal camera", null, self.horizontal_camera, self.preview.begun != null)) self.toggleCamera();
         ig.igSeparator();
         const text = self.preview.message();
         ig.igTextDisabled("%.*s", @as(c_int, @intCast(text.len)), text.ptr);
@@ -241,7 +259,7 @@ pub const Docks = struct {
         self.first_thumbnail = null;
         if (self.show_thumbnails) self.drawThumbnails(project_folder, life, selected);
         if (self.show_direction) self.drawDirection(life.is_open and life.active == .mesh_unit);
-        if (self.show_function) self.drawFunction();
+        if (self.show_function) self.drawFunction(life, selected);
         self.drawPreviewLine();
     }
 
@@ -415,7 +433,39 @@ pub const Docks = struct {
         ig.igText("Quadrant %d", @as(c_int, dl.directionQuadrant(self.direction_angle)));
     }
 
-    fn drawFunction(self: *Docks) void {
+    /// (Re)loads the curve editor when the selection or the document moved;
+    /// null when the selected node is no curve (the bridge refuses its knobs).
+    fn syncCurve(self: *Docks, life: *logic.Lifecycle, selected: ?i32) ?*keyframe_logic.Editor {
+        const node = selected orelse return self.dropCurve();
+        if (!life.is_open) return self.dropCurve();
+        if (self.curve) |*curve| {
+            if (curve.node == node and self.curve_revision == life.history.revision) return curve;
+            if (curve.mode == .drag and curve.node == node) return curve;
+            curve.deinit();
+            self.curve = null;
+        }
+        var editor = keyframe_logic.Editor.init(self.gpa, node);
+        editor.load(self.real.bridge()) catch {
+            editor.deinit();
+            return null;
+        };
+        self.curve = editor;
+        self.curve_revision = life.history.revision;
+        return &self.curve.?;
+    }
+
+    fn dropCurve(self: *Docks) ?*keyframe_logic.Editor {
+        if (self.curve) |*curve| curve.deinit();
+        self.curve = null;
+        return null;
+    }
+
+    fn curveFailed(self: *Docks, err: anyerror) void {
+        const text = std.fmt.bufPrint(&self.curve_note, "the curve was not changed: {s} ({s})", .{ @errorName(err), self.real.bridge().lastMessage() }) catch self.curve_note[0..];
+        self.curve_note_len = text.len;
+    }
+
+    fn drawFunction(self: *Docks, life: *logic.Lifecycle, selected: ?i32) void {
         const display = ig.igGetIO().*.DisplaySize;
         self.place(fixed_layout.function, 316, display.y - 200, @max(300, display.x - 520), 170);
         if (!ig.igBegin("Function###function", &self.show_function, self.windowFlags())) {
@@ -423,22 +473,101 @@ pub const Docks = struct {
             return;
         }
         defer ig.igEnd();
-        ig.igTextDisabled(dl.function_window_note);
-        // The graph's frame: time across, value up, a grid of quarters.
+        const editor = self.syncCurve(life, selected) orelse {
+            ig.igTextDisabled(dl.function_window_note);
+            return;
+        };
+        if (self.curve_note_len != 0) ig.igTextColored(.{ .x = 1, .y = 0.5, .z = 0.5, .w = 1 }, "%.*s", @as(c_int, @intCast(self.curve_note_len)), &self.curve_note);
         const avail = ig.igGetContentRegionAvail();
         const top_left = ig.igGetCursorScreenPos();
-        const w = @max(40, avail.x);
-        const h = @max(30, avail.y);
-        ig.igDummy(.{ .x = w, .y = h });
-        const draw_list = ig.igGetWindowDrawList();
-        ig.ImDrawList_AddRectFilled(draw_list, top_left, .{ .x = top_left.x + w, .y = top_left.y + h }, ig.igGetColorU32(ig.ImGuiCol_FrameBg));
-        const grid = ig.igGetColorU32(ig.ImGuiCol_Border);
-        var i: f32 = 1;
-        while (i < 4) : (i += 1) {
-            ig.ImDrawList_AddLineEx(draw_list, .{ .x = top_left.x + w * i / 4, .y = top_left.y }, .{ .x = top_left.x + w * i / 4, .y = top_left.y + h }, grid, 1);
-            ig.ImDrawList_AddLineEx(draw_list, .{ .x = top_left.x, .y = top_left.y + h * i / 4 }, .{ .x = top_left.x + w, .y = top_left.y + h * i / 4 }, grid, 1);
+        const w = @max(80, avail.x);
+        const h = @max(60, avail.y);
+        _ = ig.igInvisibleButton("curve", .{ .x = w, .y = h }, ig.ImGuiButtonFlags_MouseButtonLeft | ig.ImGuiButtonFlags_MouseButtonRight);
+        const hovered = ig.igIsItemHovered(0);
+        editor.setSize(@intFromFloat(w), @intFromFloat(h));
+        const mouse = ig.igGetMousePos();
+        const px: i32 = @intFromFloat(@trunc(mouse.x - top_left.x));
+        const py: i32 = @intFromFloat(@trunc(mouse.y - top_left.y));
+        self.curveInput(editor, life, hovered, px, py);
+        self.drawCurve(editor, top_left, w, h);
+    }
+
+    /// The mouse and keys of CKeyFrameEditor: left press adds or grabs a key,
+    /// the drag moves it, the release commits one command; Delete removes the
+    /// key last touched; the right-click menu is IDR_KEYFRAME_ZOOM_MENU plus
+    /// the dock's Reset all.
+    fn curveInput(self: *Docks, editor: *keyframe_logic.Editor, life: *logic.Lifecycle, hovered: bool, px: i32, py: i32) void {
+        const b = self.real.bridge();
+        if (editor.mode == .drag) {
+            editor.move(px, py);
+            if (ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) {
+                editor.cancel();
+            } else if (!ig.igIsMouseDown(ig.ImGuiMouseButton_Left)) {
+                editor.release(b, &life.doc, &life.history) catch |err| self.curveFailed(err);
+                self.curve_revision = life.history.revision;
+            }
+            return;
         }
-        ig.ImDrawList_AddRect(draw_list, top_left, .{ .x = top_left.x + w, .y = top_left.y + h }, grid);
+        if (hovered) {
+            editor.hover(px);
+            if (ig.igIsMouseClicked(ig.ImGuiMouseButton_Left)) {
+                self.curve_note_len = 0;
+                editor.press(px, py) catch |err| self.curveFailed(err);
+            }
+            if (ig.igIsKeyPressedEx(ig.ImGuiKey_Delete, false) and !ig.igGetIO().*.WantTextInput) {
+                _ = editor.deleteActive(b, &life.doc, &life.history) catch |err| self.curveFailed(err);
+                self.curve_revision = life.history.revision;
+            }
+            if (ig.igIsMouseClicked(ig.ImGuiMouseButton_Right)) {
+                _ = ig.igOpenPopup("curve_menu", 0);
+            }
+        }
+        if (ig.igBeginPopup("curve_menu", 0)) {
+            if (ig.igMenuItem("Zoom in X")) _ = editor.zoomX(.in);
+            if (ig.igMenuItem("Zoom out X")) _ = editor.zoomX(.out);
+            if (ig.igMenuItem("Zoom in Y")) _ = editor.zoomY(.in);
+            if (ig.igMenuItem("Zoom out Y")) _ = editor.zoomY(.out);
+            ig.igSeparator();
+            if (ig.igMenuItem("Reset all")) {
+                _ = editor.resetAll(b, &life.doc, &life.history) catch |err| self.curveFailed(err);
+                self.curve_revision = life.history.revision;
+            }
+            ig.igEndPopup();
+        }
+    }
+
+    /// The grid, the polyline and the keys, through the editor's own mapping.
+    fn drawCurve(self: *Docks, editor: *keyframe_logic.Editor, top_left: ig.ImVec2, w: f32, h: f32) void {
+        _ = self;
+        const draw_list = ig.igGetWindowDrawList();
+        const bottom_right: ig.ImVec2 = .{ .x = top_left.x + w, .y = top_left.y + h };
+        ig.ImDrawList_AddRectFilled(draw_list, top_left, bottom_right, ig.igGetColorU32(ig.ImGuiCol_FrameBg));
+        ig.ImDrawList_PushClipRect(draw_list, top_left, bottom_right, true);
+        defer ig.ImDrawList_PopClipRect(draw_list);
+        const grid = ig.igGetColorU32(ig.ImGuiCol_Border);
+        const k = editor.knobs;
+        // One grid line per step on each axis, as the MFC editor's ruler.
+        var x = k.min_x;
+        while (x <= k.max_x and k.step_x > 0) : (x += k.step_x) {
+            const s = editor.screenByValue(x, k.min_y);
+            ig.ImDrawList_AddLineEx(draw_list, .{ .x = top_left.x + s.x, .y = top_left.y }, .{ .x = top_left.x + s.x, .y = bottom_right.y }, grid, 1);
+        }
+        var y = k.min_y;
+        while (y <= k.max_y and k.step_y > 0) : (y += k.step_y) {
+            const s = editor.screenByValue(k.min_x, y);
+            ig.ImDrawList_AddLineEx(draw_list, .{ .x = top_left.x, .y = top_left.y + s.y }, .{ .x = bottom_right.x, .y = top_left.y + s.y }, grid, 1);
+        }
+        const line = ig.igGetColorU32(ig.ImGuiCol_PlotLines);
+        const hot = ig.igGetColorU32(ig.ImGuiCol_PlotLinesHovered);
+        var previous: ?ig.ImVec2 = null;
+        for (editor.keys.items, 0..) |key, i| {
+            const s = editor.screenByValue(key.x, key.y);
+            const at: ig.ImVec2 = .{ .x = top_left.x + s.x, .y = top_left.y + s.y };
+            if (previous) |p| ig.ImDrawList_AddLineEx(draw_list, p, at, line, 2);
+            previous = at;
+            const active = editor.high_index == i or (editor.mode == .drag and editor.drag_index == i);
+            ig.ImDrawList_AddRectFilled(draw_list, .{ .x = at.x - 3, .y = at.y - 3 }, .{ .x = at.x + 3, .y = at.y + 3 }, if (active) hot else line);
+        }
     }
 
     /// The preview's state in one line above the status line, with no

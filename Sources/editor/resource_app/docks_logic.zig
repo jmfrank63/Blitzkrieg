@@ -265,6 +265,12 @@ pub const PreviewSync = struct {
     }
 };
 
+/// The Camera button (CParticleFrame::OnButtonCamera): the flag flips only
+/// when the engine took the change, so a closed preview keeps the old camera.
+pub fn toggledCamera(b: ResBridge, horizontal: bool) bool {
+    return if (b.previewCameraMode(!horizontal) == .ok) !horizontal else horizontal;
+}
+
 // --- Import (A-36: Ctrl+I, ID_IMPORT_XML_FILE had no handler in MFC) -------
 
 /// The Import window's choices: the kind to build and the runtime folder
@@ -352,8 +358,8 @@ pub const about_source = "Source: github.com/jmfrank63/Blitzkrieg";
 pub const about_license = "Blitzkrieg and its data belong to Nival International Ltd.; use is licensed for noncommercial purposes only (LICENSE.md).";
 
 /// The Function window's frame (A-15): MFC's CKeyFrameDockWnd edits a
-/// particle or effect track's keys; the editing comes with that sub-editor.
-pub const function_window_note = "Keyframe editing comes with the Particle and Effect editors.";
+/// particle or effect track's keys; the editing is the curve widget in docks.zig over keyframe_logic.zig.
+pub const function_window_note = "Select a key-frame curve of a Particle or Effect project to edit it here.";
 
 // --- Tests -------------------------------------------------------------------
 
@@ -544,6 +550,20 @@ test "preview: a refused Begin is shown once and not asked again until the kind 
     try testing.expect(!preview.run(b));
     fake.no_device = false;
     try testing.expectEqual(PreviewSync.Change.begun, preview.sync(b, true, .particle));
+}
+
+test "camera: the button flips the camera, and a closed preview keeps it" {
+    var fake = FakeResBridge.init(testing.allocator);
+    defer fake.deinit();
+    const b = fake.bridge();
+    try testing.expect(!toggledCamera(b, false));
+    try testing.expect(!fake.preview_horizontal);
+    var preview: PreviewSync = .{};
+    _ = preview.sync(b, true, .particle);
+    try testing.expect(toggledCamera(b, false));
+    try testing.expect(fake.preview_horizontal);
+    try testing.expect(!toggledCamera(b, true));
+    try testing.expect(!fake.preview_horizontal);
 }
 
 test "import: an empty folder is refused before the bridge, a chosen one is the guarded action" {
