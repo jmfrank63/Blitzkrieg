@@ -1452,6 +1452,7 @@ pub fn build(b: *std.Build) void {
     addResourceModelScaffoldTest(b, target, test_mode, toolchain);
     addResourceModelReferencesTest(b, target, test_mode, toolchain);
     addResourceModelComparatorTest(b, target, test_mode, toolchain);
+    addResourceModelFidelityTest(b, target, test_mode, toolchain);
     addResourceModelAggregateStep(b);
 
     const sdl3_dep = b.dependency("sdl3", .{
@@ -8352,6 +8353,41 @@ fn addSdlEventTest(
     if (test_mode == .run) test_step.dependOn(&test_run.step);
 }
 
+// The portable ResourceModel library: the tree items, factory, project XML and
+// variant. Every standalone ResourceModel test executable compiles this list, so
+// a new item source is added here once.
+const resource_model_sources = [_][]const u8{
+    "Sources/src/ResourceModel/variant.cpp",
+    "Sources/src/ResourceModel/tree_item.cpp",
+    "Sources/src/ResourceModel/key_frame_tree_item.cpp",
+    "Sources/src/ResourceModel/factory.cpp",
+    "Sources/src/ResourceModel/future_blob.cpp",
+    "Sources/src/ResourceModel/xml.cpp",
+    "Sources/src/ResourceModel/project.cpp",
+    "Sources/src/ResourceModel/items/stats_item.cpp",
+    "Sources/src/ResourceModel/items/weapon/weapon.cpp",
+    "Sources/src/ResourceModel/items/mine/mine.cpp",
+    "Sources/src/ResourceModel/items/trench/trench.cpp",
+    "Sources/src/ResourceModel/items/squad/squad.cpp",
+    "Sources/src/ResourceModel/items/sprite/sprite.cpp",
+    "Sources/src/ResourceModel/items/infantry/infantry.cpp",
+    "Sources/src/ResourceModel/items/mesh/mesh.cpp",
+    "Sources/src/ResourceModel/items/object/object.cpp",
+    "Sources/src/ResourceModel/items/fence/fence.cpp",
+    "Sources/src/ResourceModel/items/building/building.cpp",
+    "Sources/src/ResourceModel/items/bridge/bridge.cpp",
+    "Sources/src/ResourceModel/items/particle/particle.cpp",
+    "Sources/src/ResourceModel/items/effect/effect.cpp",
+    "Sources/src/ResourceModel/items/tileset/tileset.cpp",
+    "Sources/src/ResourceModel/items/road3d/road3d.cpp",
+    "Sources/src/ResourceModel/items/river3d/river3d.cpp",
+    "Sources/src/ResourceModel/items/mission/mission.cpp",
+    "Sources/src/ResourceModel/items/chapter/chapter.cpp",
+    "Sources/src/ResourceModel/items/campaign/campaign.cpp",
+    "Sources/src/ResourceModel/items/medal/medal.cpp",
+    "Sources/src/ResourceModel/items/gui/gui.cpp",
+};
+
 // Scaffold-shape smoke for Sources/src/ResourceModel/. Compiles the new
 // portable library and the one-fixture round-trip harness as a standalone
 // C++17 translation unit set (no engine, no MFC, no SDL). This is the T01
@@ -8370,38 +8406,7 @@ fn addResourceModelScaffoldTest(
     else
         &.{"-std=c++17"};
     module.addCSourceFiles(.{
-        .files = &.{
-            "Sources/src/ResourceModel/variant.cpp",
-            "Sources/src/ResourceModel/tree_item.cpp",
-            "Sources/src/ResourceModel/key_frame_tree_item.cpp",
-            "Sources/src/ResourceModel/factory.cpp",
-            "Sources/src/ResourceModel/future_blob.cpp",
-            "Sources/src/ResourceModel/xml.cpp",
-            "Sources/src/ResourceModel/project.cpp",
-            "Sources/src/ResourceModel/items/stats_item.cpp",
-            "Sources/src/ResourceModel/items/weapon/weapon.cpp",
-            "Sources/src/ResourceModel/items/mine/mine.cpp",
-            "Sources/src/ResourceModel/items/trench/trench.cpp",
-            "Sources/src/ResourceModel/items/squad/squad.cpp",
-            "Sources/src/ResourceModel/items/sprite/sprite.cpp",
-            "Sources/src/ResourceModel/items/infantry/infantry.cpp",
-            "Sources/src/ResourceModel/items/mesh/mesh.cpp",
-            "Sources/src/ResourceModel/items/object/object.cpp",
-            "Sources/src/ResourceModel/items/fence/fence.cpp",
-            "Sources/src/ResourceModel/items/building/building.cpp",
-            "Sources/src/ResourceModel/items/bridge/bridge.cpp",
-            "Sources/src/ResourceModel/items/particle/particle.cpp",
-            "Sources/src/ResourceModel/items/effect/effect.cpp",
-            "Sources/src/ResourceModel/items/tileset/tileset.cpp",
-            "Sources/src/ResourceModel/items/road3d/road3d.cpp",
-            "Sources/src/ResourceModel/items/river3d/river3d.cpp",
-            "Sources/src/ResourceModel/items/mission/mission.cpp",
-            "Sources/src/ResourceModel/items/chapter/chapter.cpp",
-            "Sources/src/ResourceModel/items/campaign/campaign.cpp",
-            "Sources/src/ResourceModel/items/medal/medal.cpp",
-            "Sources/src/ResourceModel/items/gui/gui.cpp",
-            "tools/zig/resource_model_scaffold_test.cpp",
-        },
+        .files = &(resource_model_sources ++ .{"tools/zig/resource_model_scaffold_test.cpp"}),
         .flags = flags,
     });
     switch (target.result.os.tag) {
@@ -8428,6 +8433,53 @@ fn addResourceModelScaffoldTest(
     // the sweep is where the fixture matrix lives (T06).
     run.has_side_effects = true;
     const step = b.step("resource-model-scaffold-test", "Load and save the wpn fixture through Sources/src/ResourceModel and prove the bytes round-trip");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+// S03 fidelity test (reopened slice, D-04/D-07): every port item class against
+// the MFC inventory tools/zig/mfc_item_inventory.py generates from
+// Sources/src/editor, load/save of every TestProjects and fixture project
+// (byte-identical, content-equal, typed, edit reaches the file) and an
+// insert of every item type. Known gaps are listed in
+// tools/zig/fixtures/resource_editor/resource-model-xfail.txt; T02-T05 empty it.
+fn addResourceModelFidelityTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const flags: []const []const u8 = if (target.result.os.tag == .windows)
+        &(cppflags_debug.* ++ .{"-std=c++17"})
+    else
+        &.{"-std=c++17"};
+    module.addCSourceFiles(.{
+        .files = &(resource_model_sources ++ .{"tools/zig/resource_model_test.cpp"}),
+        .flags = flags,
+    });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => {
+            addMacosSysrootPaths(b, module, target);
+            module.linkSystemLibrary("c++", .{});
+        },
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "resource-model-fidelity-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    // The inventory, the xfail list and the projects are repo-root-relative;
+    // the copies and fidelity.log go to zig-out/local-test/resource_model.
+    run.setCwd(b.path("."));
+    run.has_side_effects = true;
+    const step = b.step("test-resource-model-fidelity", "Port item classes vs the generated MFC inventory, load/save of every TestProjects and fixture project, insert of every item type");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }
@@ -8545,9 +8597,11 @@ fn addResourceModelAggregateStep(b: *std.Build) void {
     const scaffold = &(b.top_level_steps.get("resource-model-scaffold-test") orelse @panic("resource-model-scaffold-test is defined by addResourceModelScaffoldTest")).step;
     const references = &(b.top_level_steps.get("test-resource-model-references") orelse @panic("test-resource-model-references is defined by addResourceModelReferencesTest")).step;
     const comparator = &(b.top_level_steps.get("test-resource-model-comparator") orelse @panic("test-resource-model-comparator is defined by addResourceModelComparatorTest")).step;
+    const fidelity = &(b.top_level_steps.get("test-resource-model-fidelity") orelse @panic("test-resource-model-fidelity is defined by addResourceModelFidelityTest")).step;
     step.dependOn(scaffold);
     step.dependOn(references);
     step.dependOn(comparator);
+    step.dependOn(fidelity);
 }
 
 // S03 T06 top-level aggregate: the S16 full-sweep gate pulls this in. Every
