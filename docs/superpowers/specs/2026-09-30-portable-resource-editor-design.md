@@ -325,6 +325,11 @@ No UI dependency; runs headless against a fake resource bridge.
   the bridge, plus the dirty flag, path, kind and lock state. One open
   project per sub-editor kind, as in MFC; switching sub-editors keeps each
   one's project, selection and history.
+  (S05 T08: the bridge session holds one project at a time, so the app parks
+  a project by its path when another sub-editor is chosen and reopens it on
+  the way back; the unsaved-changes prompt guards the switch, a reopened
+  project starts a fresh history, and an untitled project is closed.
+  `resource_app/panels_logic.zig`, `Lifecycle.switchEditor`.)
 - **Commands** (all undoable; undo/redo from the kit): `SetProp`,
   `InsertNode`, `DeleteNode` (subtree snapshot, restored at the same index),
   `MoveNode`, and one command per geometry edit, recording before/after
@@ -341,9 +346,13 @@ No UI dependency; runs headless against a fake resource bridge.
   (right), preview (the window background, like the map view), bottom dock
   for the thumbnail list and the keyframe curve editor, sub-editor toolbar
   under the menu, status bar.
-- **Editors** menu and a combo switch between the 21 sub-editors; opening a
-  file switches by extension (`ActivateFrameByExtension`). The last active
-  sub-editor is remembered.
+- **Editors** menu and a combo switch between the sub-editors in MFC's
+  order (editor.rc, POPUP "Editors"): 20 entries, because MFC's
+  `CMainFrame::OnCreate` has `CreateGUIFrame` commented out, so the GUI frame
+  has none; New and opening a `.gui` file still reach it. Opening a file
+  switches by extension (`ActivateFrameByExtension`). The last active
+  sub-editor is remembered (default: Infantry, as MFC's
+  `LoadLastActiveModuleID`).
 - **Property inspector:** one generic ImGui widget for every domain type,
   including reference pickers (searchable lists), browse (file dialog
   relative to the source root), colour, and the multi-select dialog.

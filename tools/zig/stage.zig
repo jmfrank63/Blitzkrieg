@@ -23,6 +23,9 @@ pub const Options = struct {
     // present by verifyStagedPayload - so a package missing it fails to stage
     // rather than shipping without the editor test-launch expects beside it.
     map_editor: ?[]const u8 = null,
+    // M001 S05: the built ResourceEditor, staged and required exactly like
+    // map_editor above, so Game, MapEditor and ResourceEditor sit side by side.
+    resource_editor: ?[]const u8 = null,
     // The generated winter/Africa unit textures (tools/zig/season_textures.zig):
     // a directory (absolute, or relative to repo_root) laid out like Data,
     // synced to <install>/SeasonData, which the engine mounts over Data
@@ -95,6 +98,8 @@ fn parseArgs(args: *std.process.Args.Iterator, allocator: std.mem.Allocator) !Pa
             try metadata_files.append(allocator, args.next() orelse return error.InvalidArguments);
         } else if (std.mem.eql(u8, arg, "--map-editor")) {
             options.map_editor = args.next() orelse return error.InvalidArguments;
+        } else if (std.mem.eql(u8, arg, "--resource-editor")) {
+            options.resource_editor = args.next() orelse return error.InvalidArguments;
         } else if (std.mem.eql(u8, arg, "--season-data")) {
             options.season_data = args.next() orelse return error.InvalidArguments;
         } else {
@@ -132,6 +137,9 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         copyGameRuntime(io, binaries, libraries, destination, options.layout) catch |err| return failStep("copyGameRuntime", err);
         if (options.map_editor) |map_editor_path| {
             copyMapEditor(io, repo, map_editor_path, destination) catch |err| return failStep("copyMapEditor", err);
+        }
+        if (options.resource_editor) |resource_editor_path| {
+            copyResourceEditor(io, repo, resource_editor_path, destination) catch |err| return failStep("copyResourceEditor", err);
         }
         copyShaderAssets(io, allocator, repo, destination) catch |err| return failStep("copyShaderAssets", err);
         seedConfigIfMissing(io, repo, destination) catch |err| return failStep("seed config.cfg", err);
@@ -186,6 +194,9 @@ fn verifyStagedPayload(io: std.Io, destination: std.Io.Dir, options: Options) !v
     if (options.map_editor) |map_editor_path| {
         try requireStagedFile(io, destination, std.fs.path.basename(map_editor_path));
     }
+    if (options.resource_editor) |resource_editor_path| {
+        try requireStagedFile(io, destination, std.fs.path.basename(resource_editor_path));
+    }
     if (options.season_data != null) try requireStagedFile(io, destination, season_data_dir);
 }
 
@@ -220,6 +231,18 @@ fn copyMapEditor(io: std.Io, repo: std.Io.Dir, source_path: []const u8, destinat
     copyFile(io, source_dir, source_path, destination, base_name) catch |err| {
         std.debug.print("stage: map editor '{s}' could not be staged: {s}\n", .{ source_path, @errorName(err) });
         return error.MissingMapEditor;
+    };
+}
+
+/// copyMapEditor for the ResourceEditor binary: the same placement beside
+/// Game and the same failure naming the path, with its own error so a log
+/// says which editor was missing.
+fn copyResourceEditor(io: std.Io, repo: std.Io.Dir, source_path: []const u8, destination: std.Io.Dir) !void {
+    const base_name = std.fs.path.basename(source_path);
+    const source_dir = if (std.fs.path.isAbsolute(source_path)) std.Io.Dir.cwd() else repo;
+    copyFile(io, source_dir, source_path, destination, base_name) catch |err| {
+        std.debug.print("stage: resource editor '{s}' could not be staged: {s}\n", .{ source_path, @errorName(err) });
+        return error.MissingResourceEditor;
     };
 }
 

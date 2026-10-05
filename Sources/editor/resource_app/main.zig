@@ -1,0 +1,565 @@
+//! ResourceEditor:
+//!   ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>]      interactive
+//!   ResourceEditor [-mod=...] --check [<kind>] [<out.tga>]            headless host check
+//!   ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]          scripted new/save/reopen
+//!
+//! <kind> is a project extension the MFC editor registered (wpn, mcp, trc,
+//! scp, spt, unt, msh, obt, fnc, bld, bdg, pcp, eff, til, 3rd, 3rv, mip, chc,
+//! cgc, mdc, gui); wpn when it is left out.
+//!
+//! -mod=<Folder> or -mod=None, like the game's own -mod= and MapEditor's, is
+//! pulled out of the argument list first and applied through BkEditorSetMod
+//! right after the engine starts, before anything reads the database. A
+//! refusal fails the mode the way its other startup failures do.
+//!
+//! The interactive mode opens a window, starts the engine on it, makes a new
+//! project of <kind> (BkResNew, MFC's File > New) and shows its tree under a
+//! menu bar until the window closes or File > Quit. --hidden runs the same
+//! loop with the window hidden and not focusable for `hidden_frames` frames
+//! and then quits, so an automated run never pops a window or waits for a
+//! person. A step that fails before there is a window to show anything in is
+//! reported through SDL_ShowSimpleMessageBox and exits non-zero.
+//!
+//! The host check starts the engine hidden with ImGui over it, makes a new
+//! project of <kind>, draws frames with the project tree and an orange probe
+//! window at a known place, captures one frame as it was presented and
+//! measures it: the capture is the screen's size, the probe's centre is
+//! orange and the screen's centre, far from every ImGui window, is still the
+//! engine's own clear colour, so ImGui sits over the engine's frame rather
+//! than replacing it. Prints "resource-editor: host check PASS (<driver>,
+//! <w>x<h>, <kind>, <n> nodes)". A runner with no GPU device prints
+//! "resource-editor: host check skipped: no GPU device (<reason>)" and exits
+//! 0, the rule map-editor-host-check and the engine tier follow too.
+//!
+//! The smoke makes a new project of <kind>, saves it to <out> (deleted first,
+//! so an old file cannot pass), closes it, opens that file again and checks
+//! the kind and the node count survived, with frames of the interactive
+//! loop's own drawing in between. Prints "resource-editor: smoke PASS".
+const std = @import("std");
+const builtin = @import("builtin");
+const sdl3 = @import("sdl3");
+const imgui = @import("editor_imgui");
+const kit = @import("editor_kit");
+const resource_core = @import("resource_core");
+const host_mod = kit.host;
+const crt = kit.crt;
+const Kind = resource_core.bridge.Kind;
+
+/// resource_bridge.h, which includes bridge.h: the BkRes* half of the engine's
+/// C ABI. A second translation beside kit.host's own bridge.h one, so the
+/// session handle crosses between the two by pointer cast (`resSession`).
+const c = @cImport(@cInclude("resource_bridge.h"));
+
+const default_kind: Kind = .weapon;
+const default_output = "zig-out/local-test/resource_editor/resource-editor-check.tga";
+const default_smoke_dir = "zig-out/local-test/resource_editor";
+
+/// How many frames --hidden draws before it quits on its own: enough for
+/// ImGui to lay its windows out and the engine to present several frames.
+const hidden_frames = 30;
+
+/// The probe window, in screen pixels (a window point is a screen pixel).
+const probe = struct {
+    const x = 40;
+    const y = 40;
+    const w = 120;
+    const h = 80;
+};
+
+const probe_frames = 10;
+
+/// Where the tree window sits: top right, clear of the probe and of the
+/// screen's centre, which the host check measures as the engine's frame.
+const tree_window = struct {
+    const w = 260;
+    const h = 220;
+    const margin = 20;
+};
+
+/// The node list read from the bridge each frame; a project bigger than this
+/// shows its first `max_nodes` (BkResNodes refuses a short buffer, so the
+/// count is asked first and the read sized to it).
+const max_nodes = 512;
+
+pub fn main(minimal: std.process.Init.Minimal) !void {
+    crt.routeCrtReportsToStderr();
+    const gpa = std.heap.smp_allocator;
+    var threaded: std.Io.Threaded = .init(gpa, .{ .environ = minimal.environ });
+    defer threaded.deinit();
+    const io = threaded.io();
+
+    var args = try std.process.Args.Iterator.initAllocator(minimal.args, gpa);
+    defer args.deinit();
+    _ = args.next();
+
+    var mod_arg: ?[]const u8 = null; // the raw text after "=", "None" included
+    var hidden = false;
+    var rest: std.ArrayList([]const u8) = .empty;
+    defer rest.deinit(gpa);
+    while (args.next()) |arg| {
+        if (std.mem.startsWith(u8, arg, "-mod=")) {
+            mod_arg = arg["-mod=".len..];
+        } else if (std.mem.eql(u8, arg, "--hidden")) {
+            hidden = true;
+        } else {
+            try rest.append(gpa, arg);
+        }
+    }
+    const mod: ModRequest = if (mod_arg) |raw| (if (std.mem.eql(u8, raw, "None")) .none else .{ .folder = raw }) else .unchanged;
+
+    const items = rest.items;
+    if (items.len > 0 and std.mem.eql(u8, items[0], "--check")) {
+        if (items.len > 3) usage();
+        const kind = if (items.len > 1) parseKind(items[1]) orelse usage() else default_kind;
+        const output = if (items.len > 2) items[2] else default_output;
+        const passed = try check(gpa, io, kind, output, mod);
+        std.process.exit(if (passed) 0 else 1);
+    }
+    if (items.len > 0 and std.mem.eql(u8, items[0], "--smoke")) {
+        if (items.len > 3) usage();
+        const kind = if (items.len > 1) parseKind(items[1]) orelse usage() else default_kind;
+        var output_buffer: [256]u8 = undefined;
+        const output = if (items.len > 2) items[2] else std.fmt.bufPrint(&output_buffer, "{s}/smoke.{s}", .{ default_smoke_dir, kind.extension() }) catch unreachable;
+        const passed = try smoke(gpa, io, kind, output, mod);
+        std.process.exit(if (passed) 0 else 1);
+    }
+    if (items.len > 1) usage();
+    const kind = if (items.len == 1) parseKind(items[0]) orelse usage() else default_kind;
+    interactive(kind, mod, hidden);
+}
+
+/// What -mod= asked for: nothing (leave the engine's own choice), no mod, or
+/// a mod folder.
+const ModRequest = union(enum) {
+    unchanged,
+    none,
+    folder: []const u8,
+};
+
+/// A kind from its project extension, case-insensitively.
+fn parseKind(text: []const u8) ?Kind {
+    for (std.enums.values(Kind)) |kind| {
+        if (std.ascii.eqlIgnoreCase(text, kind.extension())) return kind;
+    }
+    return null;
+}
+
+/// kit.host's session as resource_bridge.h's handle: the same object
+/// (BkResSession is a typedef of BkEditorSession), translated twice.
+fn resSession(host: *const host_mod.Host) *c.BkResSession {
+    return @ptrCast(host.session);
+}
+
+fn lastMessage(host: *const host_mod.Host) []const u8 {
+    return std.mem.span(c.BkEditorLastMessage(resSession(host)));
+}
+
+/// Applies -mod=, or returns the bridge's reason it refused.
+fn applyMod(host: *const host_mod.Host, mod: ModRequest) ?[]const u8 {
+    var buffer: [128]u8 = undefined;
+    const folder: ?[*:0]const u8 = switch (mod) {
+        .unchanged => return null,
+        .none => null,
+        .folder => |name| (std.fmt.bufPrintZ(&buffer, "{s}", .{name}) catch return "the mod folder's name is too long").ptr,
+    };
+    if (c.BkEditorSetMod(resSession(host), folder) != c.BK_EDITOR_OK) return lastMessage(host);
+    return null;
+}
+
+/// The open project's nodes, root first, as BkResNodes lists them.
+const Tree = struct {
+    nodes: [max_nodes]c.BkResNodeRecord = undefined,
+    count: usize = 0,
+    total: usize = 0,
+
+    /// Two-pass read: the total first, then a buffer of that size (capped).
+    fn read(self: *Tree, session: *c.BkResSession) bool {
+        var total: c_int = 0;
+        const counted = c.BkResNodes(session, null, 0, &total);
+        if (counted != c.BK_EDITOR_OK and counted != c.BK_EDITOR_REFUSED) return false;
+        if (total < 0) return false;
+        self.total = @intCast(total);
+        if (self.total > max_nodes) {
+            // A short buffer is refused outright, so a project this large is
+            // shown by its count alone until the tree panel pages it.
+            self.count = 0;
+            return true;
+        }
+        var count: c_int = 0;
+        if (self.total > 0 and c.BkResNodes(session, &self.nodes, @intCast(self.total), &count) != c.BK_EDITOR_OK) return false;
+        self.count = @intCast(@min(count, max_nodes));
+        return true;
+    }
+
+    fn depthOf(self: *const Tree, index: usize) usize {
+        var depth: usize = 0;
+        var parent = self.nodes[index].parent;
+        var guard: usize = 0;
+        while (guard < self.count) : (guard += 1) {
+            const at = self.indexOf(parent) orelse break;
+            depth += 1;
+            parent = self.nodes[at].parent;
+        }
+        return depth;
+    }
+
+    fn indexOf(self: *const Tree, id: c_int) ?usize {
+        for (self.nodes[0..self.count], 0..) |node, i| {
+            if (node.id == id) return i;
+        }
+        return null;
+    }
+};
+
+/// The project tree, indented by depth, in a window at the top right.
+fn drawTree(tree: *const Tree, kind: Kind) void {
+    const io = imgui.c.igGetIO();
+    imgui.c.igSetNextWindowPos(.{ .x = io.*.DisplaySize.x - tree_window.w - tree_window.margin, .y = tree_window.margin + 20 }, imgui.c.ImGuiCond_Always);
+    imgui.c.igSetNextWindowSize(.{ .x = tree_window.w, .y = tree_window.h }, imgui.c.ImGuiCond_Always);
+    var title_buffer: [64]u8 = undefined;
+    const title = std.fmt.bufPrintZ(&title_buffer, "Project ({s})###project", .{kind.extension()}) catch "Project###project";
+    if (imgui.c.igBegin(title.ptr, null, imgui.c.ImGuiWindowFlags_NoSavedSettings)) {
+        if (tree.count == 0 and tree.total != 0) {
+            var line_buffer: [64]u8 = undefined;
+            const line = std.fmt.bufPrintZ(&line_buffer, "{d} nodes", .{tree.total}) catch "";
+            imgui.c.igTextUnformattedEx(line.ptr, line.ptr + line.len);
+        }
+        for (tree.nodes[0..tree.count], 0..) |*node, i| {
+            // igIndentEx(0) indents by the style's default, so depth 0 skips it.
+            const indent = @as(f32, @floatFromInt(tree.depthOf(i))) * 12;
+            if (indent > 0) imgui.c.igIndentEx(indent);
+            const name = std.mem.sliceTo(&node.display_name, 0);
+            imgui.c.igTextUnformattedEx(name.ptr, name.ptr + name.len);
+            if (indent > 0) imgui.c.igUnindentEx(indent);
+        }
+    }
+    imgui.c.igEnd();
+}
+
+/// The main menu: File > New <kind>, File > Quit. Returns the kind asked
+/// for, if any, and sets `quit` on Quit.
+fn drawMenu(quit: *bool) ?Kind {
+    var chosen: ?Kind = null;
+    if (!imgui.c.igBeginMainMenuBar()) return null;
+    if (imgui.c.igBeginMenuEx("File", true)) {
+        if (imgui.c.igBeginMenuEx("New", true)) {
+            for (std.enums.values(Kind)) |kind| {
+                var label_buffer: [16]u8 = undefined;
+                const label = std.fmt.bufPrintZ(&label_buffer, "{s}", .{kind.extension()}) catch unreachable;
+                if (imgui.c.igMenuItemEx(label.ptr, null, false, true)) chosen = kind;
+            }
+            imgui.c.igEndMenu();
+        }
+        imgui.c.igSeparator();
+        if (imgui.c.igMenuItemEx("Quit", null, false, true)) quit.* = true;
+        imgui.c.igEndMenu();
+    }
+    imgui.c.igEndMainMenuBar();
+    return chosen;
+}
+
+fn interactive(initial_kind: Kind, mod: ModRequest, hidden: bool) void {
+    if (hidden) crt.attachParentConsole();
+    var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = hidden }) catch |err| {
+        const reason = host_mod.failureReason();
+        fatal(startupStepName(err), if (reason.len != 0) reason else @errorName(err));
+    };
+    defer host.stop();
+    if (applyMod(&host, mod)) |reason| fatal("the mod", reason);
+
+    const session = resSession(&host);
+    var kind = initial_kind;
+    if (c.BkResNew(session, @intFromEnum(kind)) != c.BK_EDITOR_OK) fatal("the new project", lastMessage(&host));
+    defer _ = c.BkResClose(session);
+    var tree: Tree = .{};
+    if (!tree.read(session)) fatal("the project tree", lastMessage(&host));
+
+    var quit = false;
+    var frame: u32 = 0;
+    while (!quit) : (frame += 1) {
+        if (hidden and frame >= hidden_frames) break;
+        var event: sdl3.c.SDL_Event = undefined;
+        while (sdl3.c.SDL_PollEvent(&event)) {
+            _ = host.handleEvent(&event);
+            switch (event.type) {
+                sdl3.c.SDL_EVENT_QUIT, sdl3.c.SDL_EVENT_WINDOW_CLOSE_REQUESTED => quit = true,
+                else => {},
+            }
+        }
+        host.beginFrame();
+        const asked = drawMenu(&quit);
+        drawTree(&tree, kind);
+        host.endFrame() catch |err| {
+            std.debug.print("resource-editor: frame {d}: {s}: {s}\n", .{ frame, @errorName(err), lastMessage(&host) });
+        };
+        if (asked) |new_kind| {
+            // No unsaved-changes guard yet: nothing edits the tree until the
+            // inspector lands, so a new project loses nothing.
+            if (c.BkResNew(session, @intFromEnum(new_kind)) == c.BK_EDITOR_OK) {
+                kind = new_kind;
+                _ = tree.read(session);
+            } else {
+                std.debug.print("resource-editor: new {s} project refused: {s}\n", .{ new_kind.extension(), lastMessage(&host) });
+            }
+        }
+    }
+    if (hidden) std.debug.print("resource-editor: hidden run PASS ({d} frames, {s})\n", .{ frame, kind.extension() });
+}
+
+fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, mod: ModRequest) !bool {
+    crt.attachParentConsole();
+    if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
+    const output_z = try gpa.dupeZ(u8, output);
+    defer gpa.free(output_z);
+
+    var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
+        if (err == error.NoDevice) {
+            std.debug.print("resource-editor: host check skipped: no GPU device ({s})\n", .{host_mod.failureReason()});
+            return true;
+        }
+        return fail("the host did not start ({s}: {s})", .{ @errorName(err), host_mod.failureReason() });
+    };
+    defer host.stop();
+    if (applyMod(&host, mod)) |reason| return fail("the mod would not load: {s}", .{reason});
+
+    const session = resSession(&host);
+    if (c.BkResNew(session, @intFromEnum(kind)) != c.BK_EDITOR_OK)
+        return fail("BkResNew({s}) refused: {s}", .{ kind.extension(), lastMessage(&host) });
+    defer _ = c.BkResClose(session);
+    var kind_back: c.BkResKind = -1;
+    if (c.BkResKindOf(session, &kind_back) != c.BK_EDITOR_OK or kind_back != @intFromEnum(kind))
+        return fail("BkResKindOf after BkResNew({s}) is {d}", .{ kind.extension(), kind_back });
+    var tree: Tree = .{};
+    if (!tree.read(session)) return fail("BkResNodes failed: {s}", .{lastMessage(&host)});
+    if (tree.count == 0) return fail("the new {s} project has no root node", .{kind.extension()});
+    if (tree.nodes[0].parent == tree.nodes[0].id) return fail("the root node is its own parent", .{});
+
+    var frame: u32 = 0;
+    while (frame < probe_frames) : (frame += 1) {
+        var event: sdl3.c.SDL_Event = undefined;
+        while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
+        host.beginFrame();
+        drawTree(&tree, kind);
+        drawProbe();
+        host.endFrame() catch |err| return fail("frame {d}: {s}: {s}", .{ frame, @errorName(err), lastMessage(&host) });
+    }
+    // The last frame's draw data stays ImGui's until the next igNewFrame, so
+    // the captured frame has the probe over it too.
+    if (c.BkEditorCaptureFrame(session, output_z.ptr) != c.BK_EDITOR_OK)
+        return fail("the frame was not captured: {s}", .{lastMessage(&host)});
+
+    var width: c_int = 0;
+    var height: c_int = 0;
+    if (c.BkEditorScreenSize(session, &width, &height) != c.BK_EDITOR_OK)
+        return fail("no screen size: {s}", .{lastMessage(&host)});
+    var device: ?*anyopaque = null;
+    var format: c_uint = 0;
+    _ = c.BkEditorGpuDevice(session, &device, &format);
+    const driver_name = if (device != null) sdl3.c.SDL_GetGPUDeviceDriver(@ptrCast(device)) else null;
+    const driver: []const u8 = if (driver_name != null) std.mem.span(driver_name) else "unknown";
+
+    const bytes = try std.Io.Dir.cwd().readFileAlloc(io, output, gpa, .limited(64 << 20));
+    defer gpa.free(bytes);
+    const image = Tga.parse(bytes) catch |err| return fail("{s} is not an uncompressed 32-bit TGA ({s})", .{ output, @errorName(err) });
+    if (image.width != width or image.height != height)
+        return fail("{s} is {d}x{d}, the screen {d}x{d}", .{ output, image.width, image.height, width, height });
+
+    const inside_x = probe.x + probe.w / 2;
+    const inside_y = probe.y + probe.h / 2;
+    const inside = image.pixel(inside_x, inside_y) orelse
+        return fail("the probe window's centre ({d},{d}) is outside the {d}x{d} capture", .{ inside_x, inside_y, image.width, image.height });
+    if (!inside.isProbeColour())
+        return fail("the probe window's centre ({d},{d}) is ({d},{d},{d}), not orange", .{ inside_x, inside_y, inside.r, inside.g, inside.b });
+    // No preview scene yet, so the engine's frame at the screen's centre is
+    // its clear colour; ImGui drew nothing there.
+    const outside_x: u32 = @intCast(@divTrunc(width, 2));
+    const outside_y: u32 = @intCast(@divTrunc(height, 2));
+    const outside = image.pixel(outside_x, outside_y) orelse
+        return fail("the screen's centre ({d},{d}) is outside the {d}x{d} capture", .{ outside_x, outside_y, image.width, image.height });
+    if (!outside.near(clear_colour))
+        return fail("the screen's centre ({d},{d}) is ({d},{d},{d}), not the engine's clear colour", .{ outside_x, outside_y, outside.r, outside.g, outside.b });
+    // The tree window's middle is ImGui's, not the clear colour, so a frame
+    // that dropped every window but the probe fails too.
+    const tree_x: u32 = @intCast(width - tree_window.w / 2 - tree_window.margin);
+    const tree_y: u32 = tree_window.margin + 20 + tree_window.h / 2;
+    const tree_pixel = image.pixel(tree_x, tree_y) orelse
+        return fail("the tree window's middle ({d},{d}) is outside the {d}x{d} capture", .{ tree_x, tree_y, image.width, image.height });
+    if (tree_pixel.near(clear_colour) or tree_pixel.isProbeColour())
+        return fail("the tree window's middle ({d},{d}) is ({d},{d},{d}), not the tree window", .{ tree_x, tree_y, tree_pixel.r, tree_pixel.g, tree_pixel.b });
+
+    if (builtin.os.tag == .macos and !host_mod.command_w_freed)
+        return fail("Cmd+W still belongs to the Window menu's Close, which would quit the editor", .{});
+
+    std.debug.print("resource-editor: host check PASS ({s}, {d}x{d}, {s}, {d} nodes)\n", .{ driver, width, height, kind.extension(), tree.total });
+    return true;
+}
+
+fn smoke(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, mod: ModRequest) !bool {
+    crt.attachParentConsole();
+    if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
+    std.Io.Dir.cwd().deleteFile(io, output) catch |err| switch (err) {
+        error.FileNotFound => {},
+        else => return smokeFail("{s} could not be deleted first: {s}", .{ output, @errorName(err) }),
+    };
+    const output_z = try gpa.dupeZ(u8, output);
+    defer gpa.free(output_z);
+
+    var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
+        if (err == error.NoDevice) {
+            std.debug.print("resource-editor: smoke skipped: no GPU device ({s})\n", .{host_mod.failureReason()});
+            return true;
+        }
+        return smokeFail("the host did not start ({s}: {s})", .{ @errorName(err), host_mod.failureReason() });
+    };
+    defer host.stop();
+    if (applyMod(&host, mod)) |reason| return smokeFail("the mod would not load: {s}", .{reason});
+
+    const session = resSession(&host);
+    if (c.BkResNew(session, @intFromEnum(kind)) != c.BK_EDITOR_OK)
+        return smokeFail("BkResNew({s}): {s}", .{ kind.extension(), lastMessage(&host) });
+    var made: Tree = .{};
+    if (!made.read(session)) return smokeFail("BkResNodes on the new project: {s}", .{lastMessage(&host)});
+    if (!smokeFrames(&host, &made, kind)) return false;
+    if (c.BkResSave(session, output_z.ptr) != c.BK_EDITOR_OK)
+        return smokeFail("BkResSave({s}): {s}", .{ output, lastMessage(&host) });
+    _ = c.BkResClose(session);
+    if (c.BkResOpen(session, output_z.ptr) != c.BK_EDITOR_OK)
+        return smokeFail("BkResOpen({s}): {s}", .{ output, lastMessage(&host) });
+    defer _ = c.BkResClose(session);
+    var kind_back: c.BkResKind = -1;
+    if (c.BkResKindOf(session, &kind_back) != c.BK_EDITOR_OK or kind_back != @intFromEnum(kind))
+        return smokeFail("the reopened project's kind is {d}, not {s}", .{ kind_back, kind.extension() });
+    var reopened: Tree = .{};
+    if (!reopened.read(session)) return smokeFail("BkResNodes on the reopened project: {s}", .{lastMessage(&host)});
+    if (reopened.total != made.total)
+        return smokeFail("the reopened project has {d} nodes, the new one {d}", .{ reopened.total, made.total });
+    if (!smokeFrames(&host, &reopened, kind)) return false;
+    std.debug.print("resource-editor: smoke PASS ({s}, {d} nodes, {s})\n", .{ kind.extension(), made.total, output });
+    return true;
+}
+
+fn smokeFrames(host: *host_mod.Host, tree: *const Tree, kind: Kind) bool {
+    var frame: u32 = 0;
+    while (frame < probe_frames) : (frame += 1) {
+        var event: sdl3.c.SDL_Event = undefined;
+        while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
+        host.beginFrame();
+        var quit = false;
+        _ = drawMenu(&quit);
+        drawTree(tree, kind);
+        host.endFrame() catch |err| return smokeFail("frame {d}: {s}: {s}", .{ frame, @errorName(err), lastMessage(host) });
+    }
+    return true;
+}
+
+fn startupStepName(err: host_mod.HostError) []const u8 {
+    return switch (err) {
+        error.SdlInitFailed => "SDL init",
+        error.WindowFailed => "the window",
+        error.EngineFailed => "the engine start",
+        error.NoDevice => "no GPU device",
+        error.ImguiFailed => "ImGui",
+        error.FrameFailed => "the frame",
+    };
+}
+
+/// Names the step that failed through the platform's own message box and
+/// exits; the automated modes print to stderr instead (`fail`).
+fn fatal(step: []const u8, reason: []const u8) noreturn {
+    var buffer: [768]u8 = undefined;
+    const message = std.fmt.bufPrintZ(&buffer, "{s} failed: {s}", .{ step, reason }) catch "Resource Editor failed to start";
+    std.debug.print("resource-editor: {s}\n", .{message});
+    _ = sdl3.c.SDL_ShowSimpleMessageBox(sdl3.c.SDL_MESSAGEBOX_ERROR, "Resource Editor", message, null);
+    std.process.exit(1);
+}
+
+// The C main mainCRTStartup calls on Windows (crt.zig minimalFromPeb says why).
+comptime {
+    if (crt.exports_c_main) @export(&crtMain, .{ .name = "main" });
+}
+
+fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
+    _ = argc;
+    _ = argv;
+    main(crt.minimalFromPeb()) catch |err| {
+        std.debug.print("resource-editor: {s}\n", .{@errorName(err)});
+        return 1;
+    };
+    return 0;
+}
+
+fn usage() noreturn {
+    crt.attachParentConsole();
+    std.debug.print("usage: ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>]\n       ResourceEditor [-mod=...] --check [<kind>] [<out.tga>]\n       ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]\n", .{});
+    std.process.exit(2);
+}
+
+fn fail(comptime format: []const u8, args: anytype) bool {
+    std.debug.print("resource-editor: host check FAIL: " ++ format ++ "\n", args);
+    return false;
+}
+
+fn smokeFail(comptime format: []const u8, args: anytype) bool {
+    std.debug.print("resource-editor: smoke FAIL: " ++ format ++ "\n", args);
+    return false;
+}
+
+fn drawProbe() void {
+    imgui.c.igSetNextWindowPos(.{ .x = probe.x, .y = probe.y }, imgui.c.ImGuiCond_Always);
+    imgui.c.igSetNextWindowSize(.{ .x = probe.w, .y = probe.h }, imgui.c.ImGuiCond_Always);
+    // Orange, as in MapEditor's check: its channels all differ, so a
+    // red/blue swap in the readback fails isProbeColour.
+    imgui.c.igPushStyleColorImVec4(imgui.c.ImGuiCol_WindowBg, .{ .x = 1, .y = 128.0 / 255.0, .z = 0, .w = 1 });
+    _ = imgui.c.igBegin("probe", null, imgui.c.ImGuiWindowFlags_NoDecoration | imgui.c.ImGuiWindowFlags_NoMove | imgui.c.ImGuiWindowFlags_NoSavedSettings);
+    imgui.c.igEnd();
+    imgui.c.igPopStyleColor();
+}
+
+const Rgb = struct {
+    r: u8,
+    g: u8,
+    b: u8,
+
+    fn near(self: Rgb, other: Rgb) bool {
+        return close(self.r, other.r) and close(self.g, other.g) and close(self.b, other.b);
+    }
+
+    fn close(a: u8, b: u8) bool {
+        return @abs(@as(i16, a) - @as(i16, b)) <= 2;
+    }
+
+    fn isProbeColour(self: Rgb) bool {
+        return self.r > 200 and self.g > 100 and self.g < 160 and self.b < 40;
+    }
+};
+
+/// What DrawSessionFrame clears to before the scene is drawn.
+const clear_colour = Rgb{ .r = 0, .g = 0, .b = 0 };
+
+/// An uncompressed 32-bit TGA: an 18-byte header, an optional ID, then BGRA
+/// rows, bottom row first unless bit 5 of the descriptor (byte 17) is set.
+const Tga = struct {
+    width: u32,
+    height: u32,
+    top_first: bool,
+    pixels: []const u8,
+
+    fn parse(bytes: []const u8) !Tga {
+        if (bytes.len < 18) return error.Truncated;
+        if (bytes[1] != 0 or bytes[2] != 2) return error.NotUncompressedTrueColour;
+        if (bytes[16] != 32) return error.Not32Bit;
+        const width = std.mem.readInt(u16, bytes[12..14], .little);
+        const height = std.mem.readInt(u16, bytes[14..16], .little);
+        const start = 18 + @as(usize, bytes[0]);
+        const length = @as(usize, width) * height * 4;
+        if (bytes.len < start + length) return error.Truncated;
+        return .{ .width = width, .height = height, .top_first = bytes[17] & 0x20 != 0, .pixels = bytes[start .. start + length] };
+    }
+
+    fn pixel(self: Tga, x: u32, y: u32) ?Rgb {
+        if (x >= self.width or y >= self.height) return null;
+        const row = if (self.top_first) y else self.height - 1 - y;
+        const i = (@as(usize, row) * self.width + x) * 4;
+        return .{ .r = self.pixels[i + 2], .g = self.pixels[i + 1], .b = self.pixels[i] };
+    }
+};

@@ -2342,6 +2342,9 @@ pub fn build(b: *std.Build) void {
     // every other platform, where there is no MapEditor to package.
     const map_editor: ?MapEditorBuild = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
     const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
+    // M001 S05: ResourceEditor, on exactly MapEditor's platforms and staged
+    // beside it; the package steps below stage this exact binary too.
+    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
     addRmgDeterminismTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addComposerRoundtripTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
@@ -2522,6 +2525,10 @@ pub fn build(b: *std.Build) void {
         stage_package_game_cmd.addArg("--map-editor");
         stage_package_game_cmd.addFileArg(editor_exe.getEmittedBin());
     }
+    if (resource_editor_exe) |editor_exe| {
+        stage_package_game_cmd.addArg("--resource-editor");
+        stage_package_game_cmd.addFileArg(editor_exe.getEmittedBin());
+    }
 
     const package_tool = b.addExecutable(.{
         .name = "package",
@@ -2548,6 +2555,10 @@ pub fn build(b: *std.Build) void {
     // having run at some point.
     if (map_editor_exe) |editor_exe| {
         stage_package_game_editors_cmd.addArg("--map-editor");
+        stage_package_game_editors_cmd.addFileArg(editor_exe.getEmittedBin());
+    }
+    if (resource_editor_exe) |editor_exe| {
+        stage_package_game_editors_cmd.addArg("--resource-editor");
         stage_package_game_editors_cmd.addFileArg(editor_exe.getEmittedBin());
     }
     stage_package_game_editors_cmd.step.dependOn(&package_tool_run.step);
@@ -2969,6 +2980,33 @@ pub fn build(b: *std.Build) void {
     resource_core_step.dependOn(&resource_core_tests.step);
     if (test_mode == .run) resource_core_step.dependOn(&resource_core_tests_run.step);
     test_step.dependOn(resource_core_step);
+    // The resource app's pure logic tier (S05 T08): panels_logic.zig against
+    // the fake resource bridge, built on every target like test-resource-core.
+    // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled
+    // here as an object so every C call it makes is type-checked even where
+    // the engine C++ does not build; its BkRes* symbols resolve only where
+    // ResourceEditor links the engine.
+    const resource_app_logic_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/resource_app/panels_logic.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+        .imports = &.{.{ .name = "resource_core", .module = resource_core_module }},
+    });
+    const resource_app_logic_tests = b.addTest(.{ .root_module = resource_app_logic_module });
+    const resource_app_logic_tests_run = b.addRunArtifact(resource_app_logic_tests);
+    const resource_app_c_bridge_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/resource_app/c_bridge.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+        .imports = &.{.{ .name = "resource_core", .module = resource_core_module }},
+    });
+    resource_app_c_bridge_module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    const resource_app_c_bridge_object = b.addObject(.{ .name = "resource-app-c-bridge", .root_module = resource_app_c_bridge_module });
+    const resource_app_logic_step = b.step("test-resource-app-logic", "Run the Resource Editor app's pure logic tests against the fake resource bridge and compile its real bridge adapter");
+    resource_app_logic_step.dependOn(&resource_app_logic_tests.step);
+    resource_app_logic_step.dependOn(&resource_app_c_bridge_object.step);
+    if (test_mode == .run) resource_app_logic_step.dependOn(&resource_app_logic_tests_run.step);
+    test_step.dependOn(resource_app_logic_step);
     // The map view's pure parts (camera scrolling, the button-to-tool-event
     // mapping): plain Zig, no SDL or engine, so this runs without a GPU or a
     // staged installation.
@@ -6381,46 +6419,9 @@ fn addMapEditor(
         .platform_runtime = platform_runtime,
         .sdl_dynamic = sdl_dynamic,
     };
-    // SDL is not the overlay spike's sdl3 module: that links libc, and on MSVC
-    // Zig's libc is its static release CRT, which the Windows job measured
-    // colliding with the engine's debug DLL CRT (duplicate _cexit, _wctype,
-    // __pctype_func and _invalid_parameter_noinfo: libucrt.lib against
-    // ucrtd.lib). The app takes the headers and library of the SDL the engine
-    // links instead.
-    //
-    // Translated as vendor/zig-sdl3 translates it, not by @cImport: an
-    // @cImport in a compilation without libc has no libc headers on MSVC
-    // ("libc headers not available"), and Zig 0.16's translate-c rejects the
-    // `ui64` suffix of MSVC's SIZE_MAX, which SDL_stdinc.h uses. The
-    // translation step may use libc headers; the module it makes must not
-    // link libc, or the collision above comes back.
-    const sdl_header = b.addWriteFiles().add("sdl3.h", "#include <SDL3/SDL.h>\n");
-    const sdl_translate = b.addTranslateC(.{ .root_source_file = sdl_header, .target = target, .optimize = optimize });
-    sdl_translate.addIncludePath(sdl_include);
-    if (target.result.os.tag == .windows) sdl_translate.defineCMacro("SIZE_MAX", "18446744073709551615ULL");
-    const sdl_c = sdl_translate.createModule();
-    sdl_c.link_libc = false;
-    const sdl_module = b.createModule(.{
-        .root_source_file = b.path("Sources/editor/app/sdl3.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "sdl_c", .module = sdl_c }},
-    });
-    // The editor kit for the app's target. The host-only kit module
-    // (test-editor-kit) is built separately for the test tier.
-    const kit_module = b.createModule(.{
-        .root_source_file = b.path("Sources/editor/kit/root.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "sdl3", .module = sdl_module },
-            .{ .name = "editor_imgui", .module = editor_imgui_module },
-        },
-    });
-    // bridge.h, for kit/host.zig's @cImport.
-    kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
-    addMsvcIncludePaths(b, kit_module, toolchain);
-    addMsvcLibraryPaths(b, kit_module, toolchain);
+    const app_kit = editorAppKit(b, target, optimize, toolchain, editor_imgui_module, sdl_include);
+    const sdl_module = app_kit.sdl;
+    const kit_module = app_kit.kit;
     // The editor core for the app's target. The core tier's module
     // (test-editor-core) is built for the host only. The core imports the
     // kit so later S02 tasks can re-point core submodules at the kit.
@@ -7995,6 +7996,152 @@ fn addMapEditor(
     return .{ .exe = exe, .view_test_step = view_test_step };
 }
 
+/// The SDL and editor-kit modules an editor app is built against, for the
+/// app's target: MapEditor and ResourceEditor share them.
+const EditorAppKit = struct {
+    sdl: *std.Build.Module,
+    kit: *std.Build.Module,
+};
+
+fn editorAppKit(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_imgui_module: *std.Build.Module,
+    sdl_include: std.Build.LazyPath,
+) EditorAppKit {
+    // SDL is not the overlay spike's sdl3 module: that links libc, and on MSVC
+    // Zig's libc is its static release CRT, which the Windows job measured
+    // colliding with the engine's debug DLL CRT (duplicate _cexit, _wctype,
+    // __pctype_func and _invalid_parameter_noinfo: libucrt.lib against
+    // ucrtd.lib). The app takes the headers and library of the SDL the engine
+    // links instead.
+    //
+    // Translated as vendor/zig-sdl3 translates it, not by @cImport: an
+    // @cImport in a compilation without libc has no libc headers on MSVC
+    // ("libc headers not available"), and Zig 0.16's translate-c rejects the
+    // `ui64` suffix of MSVC's SIZE_MAX, which SDL_stdinc.h uses. The
+    // translation step may use libc headers; the module it makes must not
+    // link libc, or the collision above comes back.
+    const sdl_header = b.addWriteFiles().add("sdl3.h", "#include <SDL3/SDL.h>\n");
+    const sdl_translate = b.addTranslateC(.{ .root_source_file = sdl_header, .target = target, .optimize = optimize });
+    sdl_translate.addIncludePath(sdl_include);
+    if (target.result.os.tag == .windows) sdl_translate.defineCMacro("SIZE_MAX", "18446744073709551615ULL");
+    const sdl_c = sdl_translate.createModule();
+    sdl_c.link_libc = false;
+    const sdl_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/sdl3.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "sdl_c", .module = sdl_c }},
+    });
+    // The editor kit for the app's target. The host-only kit module
+    // (test-editor-kit) is built separately for the test tier.
+    const kit_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/kit/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "sdl3", .module = sdl_module },
+            .{ .name = "editor_imgui", .module = editor_imgui_module },
+        },
+    });
+    // bridge.h, for kit/host.zig's @cImport.
+    kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    addMsvcIncludePaths(b, kit_module, toolchain);
+    addMsvcLibraryPaths(b, kit_module, toolchain);
+    return .{ .sdl = sdl_module, .kit = kit_module };
+}
+
+/// M001 S05: ResourceEditor, built and installed the way addMapEditor builds
+/// MapEditor - the same engine libraries, kit, CRT, entry and rpath, beside
+/// Game in the installation - but on the resource core and the BkRes* half
+/// of the bridge instead of the map's. Returns the executable so the package
+/// steps stage this exact binary.
+fn addResourceEditor(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_imgui_module: *std.Build.Module,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+) *std.Build.Step.Compile {
+    const engine: MapEditorEngine = .{
+        .editor_bridge = editor_bridge,
+        .map_file = map_file,
+        .formats = formats,
+        .randommapgen = randommapgen,
+        .misc = misc,
+        .main_lib = main_lib,
+        .lualib = lualib,
+        .zlib = zlib,
+        .platform_runtime = platform_runtime,
+        .sdl_dynamic = sdl_dynamic,
+    };
+    const app_kit = editorAppKit(b, target, optimize, toolchain, editor_imgui_module, sdl_include);
+    // The resource core for the app's target; test-resource-core builds its
+    // own for the host only, against the host kit.
+    const resource_core_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/resource_core/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "editor_kit", .module = app_kit.kit }},
+    });
+    const module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/resource_app/main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "sdl3", .module = app_kit.sdl },
+            .{ .name = "editor_imgui", .module = editor_imgui_module },
+            .{ .name = "editor_kit", .module = app_kit.kit },
+            .{ .name = "resource_core", .module = resource_core_module },
+        },
+    });
+    // resource_bridge.h (and the bridge.h it includes), for the app's @cImport.
+    module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    linkEditorEngine(b, module, target, optimize, toolchain, engine);
+    const exe = b.addExecutable(.{ .name = "ResourceEditor", .root_module = module });
+    // .windows like MapEditor: no console on a double-click; the automated
+    // modes attach to the parent's (crt.attachParentConsole).
+    configureMapEditorExecutable(exe, target, .windows);
+
+    const stage_suffix = stage_root["zig-out/".len..];
+    // Beside Game and MapEditor: the engine's roots are the installation.
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
+    install_exe.step.dependOn(install_game_step);
+    const install_step = b.step("install-resource-editor", "Install ResourceEditor into the game installation");
+    install_step.dependOn(&install_exe.step);
+
+    // Launched from zig-out like map-editor-host-check, for the same reason:
+    // the editor finds its installation beside its own executable, whatever
+    // the working directory.
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("zig-out"));
+    run.addArgs(&.{ "--check", "wpn", b.pathFromRoot("zig-out/local-test/resource_editor/resource-editor-check.tga") });
+    // Reads the staged installation, not a file input of this step.
+    run.has_side_effects = true;
+    run.step.dependOn(&install_exe.step);
+    const check_step = b.step("resource-editor-host-check", "Start ResourceEditor hidden on a new project and check ImGui draws over the engine's frame");
+    check_step.dependOn(&install_exe.step);
+    if (test_mode == .run) check_step.dependOn(&run.step);
+    return exe;
+}
+
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static
 /// libraries, imports and CRT), the ImGui half the overlay spike's (the
@@ -8027,6 +8174,21 @@ fn mapEditorModule(
     // The M2 test script (04-10): game_reads_m2.zig embeds it, so the scenario
     // needs no path to the source tree at run time.
     module.addAnonymousImport("m2_script_lua", .{ .root_source_file = b.path("tools/zig/fixtures/m2_script.lua") });
+    linkEditorEngine(b, module, target, optimize, toolchain, engine);
+    return module;
+}
+
+/// What an editor executable links to host the engine, MapEditor's and
+/// ResourceEditor's alike: the CRT the engine's statics want, the Windows
+/// import libraries, the engine static libraries and SDL.
+fn linkEditorEngine(
+    b: *std.Build,
+    module: *std.Build.Module,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    engine: MapEditorEngine,
+) void {
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
     // The engine's statics are built against the debug CRT in Debug, so the
@@ -8058,7 +8220,6 @@ fn mapEditorModule(
     module.linkLibrary(engine.zlib);
     module.linkLibrary(engine.platform_runtime);
     linkSdlImport(module, target, engine.sdl_dynamic);
-    return module;
 }
 
 /// Entry, symbols and rpath of a MapEditor executable, the test included.
