@@ -4131,6 +4131,7 @@ fn addEditorBridge(
             "Sources/src/ResourceModel/items/mesh/mesh_export.cpp",
             "Sources/src/ResourceModel/items/object/object_export.cpp",
             "Sources/src/ResourceModel/items/fence/fence_export.cpp",
+            "Sources/src/ResourceModel/items/building/building_export.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
     });

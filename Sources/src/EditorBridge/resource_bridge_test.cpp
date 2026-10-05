@@ -1830,6 +1830,11 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// The fixture carries its Fences directory (S09 T03); S09Fence proves the files.
 				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .fnc exports through its S09 exporter" );
 			}
+			else if ( szExt == "bld" )
+			{
+				// The fixture carries its art (S10 T03); the S10 building tests prove the files.
+				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .bld exports through its S10 exporter" );
+			}
 			else if ( IsPortedExport( szExt ) )
 			{
 				if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S06 exporter" ).c_str() ) )
@@ -1968,8 +1973,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 		Check( BkResImportFromGame( pSession, 4, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".san" ) != 0,
 		       "import: sprite is refused with the reason" );
-		Check( BkResImportFromGame( pSession, 9, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
-		       "import: bld is refused as not ported yet" );
+		Check( BkResImportFromGame( pSession, 10, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
+		       "import: bdg is refused as not ported yet" );
 		Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 5, "import: a refused import keeps the open project" );
 		Check( BkResImportFromGame( pSession, 5, ( scratch / "no-such" ).string().c_str() ) == BK_EDITOR_DATA_MISSING, "import: a folder without 1.xml is DATA_MISSING" );
 		Check( BkResImportFromGame( pSession, 5, 0 ) == BK_EDITOR_BAD_ARGUMENT, "import: a null path is a bad argument" );
@@ -5378,6 +5383,104 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 
 }
 
+// S10 T03: the building exporter and importer on the fixture (a copy under
+// local-test): the packs are written, a second forced export is byte-identical,
+// a deleted picture warns, and export -> import -> stats-only export is field-equal.
+namespace S10Building
+{
+
+namespace fs = std::filesystem;
+
+static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s10-building";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "building";
+	fs::create_directories( projectDir, ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / "bld", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), projectDir / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / "project.bld";
+	if ( !Check( fs::is_regular_file( project, ec ) && fs::is_regular_file( projectDir / "1w.tga", ec ), "building: the fixture and its source art are copied" ) )
+		return;
+
+	const fs::path modDir = scratch / "mod";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S10 building" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "building: the mod folder is set" );
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "building: project.bld opens" ) )
+		return;
+	BkResExportReport report = {};
+	BkResWarning warnings[32] = {};
+	const auto Export = [&]( unsigned flags ) {
+		report = {};
+		report.warnings = warnings;
+		report.warnings_capacity = 32;
+		return BkResExport( pSession, flags, &report );
+	};
+	if ( !Check( Export( BK_RES_EXPORT_FORCE ) == BK_EDITOR_OK && report.written >= 1, "building: the fixture exports" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return;
+	}
+	BkResClose( pSession );
+	const fs::path xml = S09Object::FindFile( modDir / "data", "1.xml" );
+	if ( !Check( !xml.empty(), "building: a 1.xml is written" ) )
+		return;
+	const fs::path outDir = xml.parent_path();
+	const NResourceModel::SCompareResult self = NResourceModel::CompareStats( NResourceModel::EExportKind::BUILDING, xml.string(), xml.string() );
+	Check( self.nFieldsCompared > 5 && self.messages.empty(), "building: the engine reads the exported 1.xml" );
+	Check( fs::is_regular_file( outDir / "1_c.dds", ec ) && fs::is_regular_file( outDir / "1w_c.dds", ec ) && fs::is_regular_file( outDir / "icon.tga", ec ),
+	       "building: the season DDS packs and icon.tga are written" );
+
+	std::map<std::string, std::string> first;
+	for ( fs::directory_iterator it( outDir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			ReadBytes( it->path().string(), first[it->path().filename().string()] );
+	Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK && Export( BK_RES_EXPORT_FORCE ) == BK_EDITOR_OK, "building: the second forced export succeeds" );
+	bool bSame = !first.empty();
+	for ( const auto &entry : first )
+	{
+		std::string szAgain;
+		bSame = bSame && ReadBytes( ( outDir / entry.first ).string(), szAgain ) && szAgain == entry.second;
+		if ( !bSame )
+			std::printf( "   differs after the second export: %s\n", entry.first.c_str() );
+	}
+	Check( bSame, "building: a second forced export is byte-identical" );
+
+	fs::remove( projectDir / "1w.tga", ec );
+	fs::remove( outDir / "1w_c.dds", ec );
+	Check( Export( BK_RES_EXPORT_FORCE ) == BK_EDITOR_OK, "building: an export with a picture missing still succeeds" );
+	bool bWarned = false;
+	for ( int i = 0; i < report.warning_count && i < 32; ++i )
+		bWarned = bWarned || std::strstr( warnings[i].text, "1w" ) != nullptr;
+	Check( bWarned && !fs::exists( outDir / "1w_c.dds", ec ), "building: a deleted 1w.tga warns and leaves no 1w DDS" );
+	BkResClose( pSession );
+
+	if ( Check( BkResImportFromGame( pSession, 9, outDir.string().c_str() ) == BK_EDITOR_OK, "building: the exported folder imports" ) )
+	{
+		const fs::path mod2 = scratch / "mod2";
+		const bool bExported = S09Object::ExportStatsOnly( pSession, mod2, "S10 building re-export", "bld" );
+		BkResClose( pSession );
+		const fs::path xml2 = S09Object::FindFile( mod2 / "data", "1.xml" );
+		if ( Check( bExported && !xml2.empty(), "building: the imported project exports stats-only" ) )
+		{
+			const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::BUILDING, xml2.string(), xml.string() );
+			for ( const std::string &szMessage : result.messages )
+				std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+			std::printf( "ROUNDTRIP bld fixture: %d fields compared, %d differences\n", result.nFieldsCompared, int( result.messages.size() ) );
+			Check( result.nFieldsCompared > 5 && result.messages.empty(), "building: import -> export -> import is field-equal" );
+		}
+	}
+	else
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+}
+
+}
+
 // S09 T04: the grid channels the Object and Fence sub-editors edit. Each one
 // is read, set, read, saved, reopened and read again; an object's passability
 // then ends with the origin of the zero point it was saved with.
@@ -5963,6 +6066,8 @@ int main( int argc, char **argv )
 	// S09 T04: the grid channels, passability origin consistency and the refusals that name channel and kind.
 	S09Channels::Object( pSession, szFixtureRoot, szScratchRoot );
 	S09Channels::Fence( pSession, szFixtureRoot, szScratchRoot );
+	// S10 T03: the building exporter and importer.
+	S10Building::Fixture( pSession, szFixtureRoot, szScratchRoot );
 	// S10 T02: the building's tile-frame grids, sprite position and point children.
 	S09Channels::Building( pSession, szFixtureRoot, szScratchRoot );
 

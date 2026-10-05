@@ -43,6 +43,7 @@
 #include "../ResourceModel/items/stats_export.h"
 #include "../ResourceModel/items/mesh/mesh.h"
 #include "../ResourceModel/items/object/object_export.h"
+#include "../ResourceModel/items/building/building_export.h"
 #include "../ResourceModel/combos.h"
 #include "../Main/RPGStats.h"
 #include "../Main/iMain.h"
@@ -4070,8 +4071,8 @@ const float kPreviewCells = 12.0f;
 const float kPreviewCellSize = 32.0f;
 
 // The kinds the preview builds today and what IVisObjBuilder builds them as,
-// with the MFC frame that does it (D-17). The other scene kinds (object,
-// fence, building, bridge) join with their sub-editor slices;
+// with the MFC frame that does it (D-17). The other scene kind (bridge)
+// joins with its sub-editor slice;
 // road and river load maps\road3d / maps\river3d as their terrain (S13).
 // A particle source is no visual of its own: IVisObjBuilder has no particle
 // type, so CParticleFrame::OnRunButton wrapped the exported source in a
@@ -4079,7 +4080,8 @@ const float kPreviewCellSize = 32.0f;
 // (WrapParticleSource). A squad is no visual either: SquadFrm's view builds
 // one sprite per member of the active formation, so the preview does
 // (BuildSquadMembers) and its export names no visual. An object and a fence
-// build the sprite their export composed, as ObjectFrm and FenceFrm do.
+// build the sprite their export composed, as ObjectFrm and FenceFrm do; a
+// building the same, its summer whole picture.
 // A weapon has no entry:
 // WeaponFrm draws nothing (D015).
 struct PreviewKind
@@ -4102,6 +4104,7 @@ const PreviewKind kPreviewKinds[] =
 	{ 3,  SGVOT_SPRITE, SGVOGT_UNIT,   false, true },  // scp: member sprites, SquadFrm.cpp:344-364
 	{ 7,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // obt: the composed object sprite, ObjectFrm.cpp:1295
 	{ 8,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // fnc: the active segment's sprite, FenceFrm.cpp:665
+	{ 9,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // bld: the composed whole building sprite "1", BuildFrm.cpp:535
 };
 
 const PreviewKind *FindPreviewKind( int nKind )
@@ -4927,6 +4930,7 @@ const int kInfantryKind = 5; // "unt", kKindTable's Unit_Composer_Project
 const int kMeshKind = 6;     // "msh", the Unit (mesh) project
 const int kObjectKind = 7;   // "obt", the Object project
 const int kFenceKind = 8;    // "fnc", the Fence project
+const int kBuildingKind = 9; // "bld", the Building project
 
 NResourceModel::CTreeItem *ChildOfType( NResourceModel::CTreeItem &item, int nType )
 {
@@ -5704,7 +5708,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
 		const std::string szExtension = kKindExtensions[kind];
-		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind;
+		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind;
 		if ( !bPorted )
 		{
 			pSession->szMessage = kind == 4
@@ -5735,6 +5739,8 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		std::string szKeyName;
 		NResourceModel::SObjectFrameData objectFrame;
 		bool bObjectFrame = false;
+		SBuildingRPGStats buildingStats;
+		bool bBuildingFrame = false;
 		// The KeyName is what the engine's reader found; a file that holds
 		// none of this kind's stats leaves it empty.
 		switch ( kind )
@@ -5804,6 +5810,18 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				bObjectFrame = true;
 				break;
 			}
+			case kBuildingKind:
+			{
+				// CBuildingFrame::LoadRPGStats: the stats sit in the "desc" chunk and
+				// the engine's own operator& reads them.
+				if ( !ReadRuntimeStats( statsFile, buildingStats, pSession, status, "desc" ) )
+					return status;
+				szKeyName = buildingStats.szKeyName;
+				if ( !szKeyName.empty() )
+					NResourceModel::BuildingStatsToTree( buildingStats, *pRoot );
+				bBuildingFrame = true;
+				break;
+			}
 			case kFenceKind:
 			{
 				// CFenceFrame::LoadRPGStats: the engine's own operator& reads it. The
@@ -5843,7 +5861,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		pProject->document.root.kind = NResourceXml::Node::Element;
 		pProject->document.root.name = kKindTable[kind].pszTag;
 		pProject->root = std::move( pRoot );
-		if ( bObjectFrame )
+		if ( bObjectFrame || bBuildingFrame )
 		{
 			// The frame's chunks sit beside the tree and only a project read from
 			// text keeps such elements (in the root's layout), so the imported
@@ -5855,7 +5873,10 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				pSession->szMessage = "cannot stage the imported project: " + szParseError;
 				return BK_EDITOR_FAILED;
 			}
-			NResourceModel::WriteObjectFrameData( *pStaged, objectFrame );
+			if ( bBuildingFrame )
+				NResourceModel::WriteBuildingFrameData( pStaged->document.root, buildingStats );
+			else
+				NResourceModel::WriteObjectFrameData( *pStaged, objectFrame );
 			szRendered = NResourceXml::Serialise( pStaged->document );
 			pProject = std::make_unique<NResourceModel::Project>();
 			if ( !NResourceModel::Load( szRendered, *pProject, szParseError ) )

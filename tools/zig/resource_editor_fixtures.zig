@@ -267,6 +267,16 @@ const msh_pictures = [_][]const u8{ "1.tga", "1w.tga", "1a.tga", "2.tga", "2w.tg
 /// and right, so the sprite does not hide all of it.
 const obt_pictures = [_][]const u8{ "1.tga", "1s.tga", "1w.tga", "1ws.tga", "1a.tga", "1as.tga" };
 
+/// The pictures the bld project names: sprite, shadow and (damaged and
+/// destroyed) noise picture per season. Same pixels as the obt art
+/// (writeAlphaTga): a shadow is the name ending in "s", a noise picture ("g")
+/// is coloured by its own name like a sprite, so the exporter has alpha to pack
+/// and to modulate the noise by.
+const bld_pictures = [_][]const u8{
+    "1.tga",  "1s.tga",  "2.tga",  "2s.tga",  "2g.tga",  "3.tga",  "3s.tga",  "3g.tga",
+    "1w.tga", "1ws.tga", "2w.tga", "2ws.tga", "2wg.tga", "3w.tga", "3ws.tga", "3wg.tga",
+};
+
 /// The fence segments the fnc project names, one sprite and one shadow picture
 /// each in the Fences directory (`fnc/fences/`): <item>.tga and <item>s.tga for
 /// every FENCE_PROPS item, which is where ComposeFences looks. Same pixels as
@@ -423,6 +433,15 @@ fn writeExtensionsMd(buf: *Buf, rows: []const ExtensionsRow) !void {
     try buf.push("by file name; shadows black at half alpha, shifted). The project file is\r\n");
     try buf.push("hand-edited, not regenerated. The top-level `art-16x16.tga` is the generic\r\n");
     try buf.push("picture every picture kind gets and is not used by the fence export.\r\n");
+    try buf.push("\r\n");
+    try buf.push("## Building (bld) source art\r\n");
+    try buf.push("\r\n");
+    try buf.push("`bld/project.bld` names, per season, a sprite and a shadow for the whole\r\n");
+    try buf.push("building (`1`, `1s`, `1w`, `1ws`) and a sprite, shadow and noise picture for the\r\n");
+    try buf.push("damaged and destroyed ones (`2`, `2s`, `2g`, `3`, `3s`, `3g` and the same with a\r\n");
+    try buf.push("`w`: `2w`, `2ws`, `2wg`, `3w`, `3ws`, `3wg`). This tool generates all sixteen as\r\n");
+    try buf.push("16 x 16 32-bit targas like the obt art. The project file is the seed's default\r\n");
+    try buf.push("tree; the tests give it grids and points through the bridge's channels.\r\n");
 }
 
 const RunStats = struct {
@@ -559,6 +578,17 @@ pub fn main(init: std.process.Init) !void {
                 const picture_result = try writeIfChanged(io, out_dir, picture_sub, tga.items());
                 stats.note(picture_result.changed, picture_result.bytes);
                 try log.pushFmt("fixture ext=obt art={s} bytes={d} hash={s}\n", .{ picture_sub, picture_result.bytes, picture_result.tag[0..] });
+            }
+        }
+
+        if (std.mem.eql(u8, fx.ext, "bld")) {
+            for (bld_pictures) |picture| {
+                var tga: Buf = .{ .a = arena };
+                try writeAlphaTga(&tga, picture, picture.len > 5 and picture[picture.len - 5] == 's');
+                const picture_sub = try std.fmt.allocPrint(arena, "bld/{s}", .{picture});
+                const picture_result = try writeIfChanged(io, out_dir, picture_sub, tga.items());
+                stats.note(picture_result.changed, picture_result.bytes);
+                try log.pushFmt("fixture ext=bld art={s} bytes={d} hash={s}\n", .{ picture_sub, picture_result.bytes, picture_result.tag[0..] });
             }
         }
 
