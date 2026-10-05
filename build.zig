@@ -2832,6 +2832,22 @@ pub fn build(b: *std.Build) void {
     editor_core_step.dependOn(&editor_core_tests.step);
     if (test_mode == .run) editor_core_step.dependOn(&editor_core_tests_run.step);
     test_step.dependOn(editor_core_step);
+    // The resource editor core tier (S04 T03): plain Zig against the fake
+    // resource bridge, so it builds on every target including
+    // x86_64-windows-gnu where the engine C++ does not. Mirrors the map core's
+    // addEditorCore wiring so Resource and Map stay symmetric on the Zig side.
+    const resource_core_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/resource_core/root.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+        .imports = &.{.{ .name = "editor_kit", .module = editor_kit_module }},
+    });
+    const resource_core_tests = b.addTest(.{ .root_module = resource_core_module });
+    const resource_core_tests_run = b.addRunArtifact(resource_core_tests);
+    const resource_core_step = b.step("test-resource-core", "Run the Resource Editor core tests against the fake resource bridge");
+    resource_core_step.dependOn(&resource_core_tests.step);
+    if (test_mode == .run) resource_core_step.dependOn(&resource_core_tests_run.step);
+    test_step.dependOn(resource_core_step);
     // The map view's pure parts (camera scrolling, the button-to-tool-event
     // mapping): plain Zig, no SDL or engine, so this runs without a GPU or a
     // staged installation.
