@@ -1683,7 +1683,7 @@ BkEditorStatus BkResNodes( BkResSession *pSession, BkResNodeRecord *pOut, int nC
 			auto itParent = state.parentOf.find( nId );
 			rec.parent = ( itParent == state.parentOf.end() ) ? 0 : itParent->second;
 			rec.class_type = pItem->GetItemType();
-			rec.expand = 0;
+			rec.expand = pItem->GetExpand() ? 1 : 0;
 			rec.child_count = static_cast<int>( pItem->GetChildren().size() );
 			const std::string &szName = pItem->GetDisplayName().empty()
 				? pItem->GetDefaultName()
@@ -1953,6 +1953,55 @@ BkEditorStatus BkResMoveNode( BkResSession *pSession, int nNodeId, int nNewParen
 	} );
 }
 
+BkEditorStatus BkResSetNodeName( BkResSession *pSession, int nNodeId, const char *pszName )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		// The record's display_name is the limit, so a name the tree could not
+		// show back whole is refused rather than cut.
+		if ( pszName == nullptr || pszName[0] == 0 || std::strlen( pszName ) >= sizeof( BkResNodeRecord().display_name ) )
+		{
+			pSession->szMessage = "a node name must be 1 to 63 characters";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bOpen )
+		{
+			pSession->szMessage = "no project is open";
+			return BK_EDITOR_REFUSED;
+		}
+		auto itItem = state.idToItem.find( nNodeId );
+		if ( itItem == state.idToItem.end() )
+		{
+			pSession->szMessage = "unknown node id";
+			return BK_EDITOR_REFUSED;
+		}
+		itItem->second->SetDisplayName( pszName );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResSetNodeExpand( BkResSession *pSession, int nNodeId, int nExpand )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bOpen )
+		{
+			pSession->szMessage = "no project is open";
+			return BK_EDITOR_REFUSED;
+		}
+		auto itItem = state.idToItem.find( nNodeId );
+		if ( itItem == state.idToItem.end() )
+		{
+			pSession->szMessage = "unknown node id";
+			return BK_EDITOR_REFUSED;
+		}
+		itItem->second->SetExpand( nExpand != 0 );
+		return BK_EDITOR_OK;
+	} );
+}
+
 /* ---- References ------------------------------------------------------- */
 
 extern "C++" {
@@ -2037,7 +2086,26 @@ BkEditorStatus BkResRefList( BkResSession *pSession, int nType, BkResReferenceEn
 		}
 		ResourceState &state = StateOf( pSession );
 		BuildReferenceLists( pSession, state );
-		const std::vector<std::string> &list = state.refLists[nType];
+		// E_ACTIONS_REF is CMultySelDialog's list, not InitLists': the action
+		// types of actions.ini, each keyed by its id (the mask's bit). A data
+		// folder without the file has an empty list, as InitLists' was.
+		std::vector<std::string> actionNames;
+		std::vector<int> actionIds;
+		const bool bActions = nType == int( NResourceModel::EReferenceType::E_ACTIONS_REF );
+		if ( bActions )
+		{
+			std::vector<SActionCommandEntry> actions;
+			std::string szWhy;
+			if ( LoadActionCommands( &actions, &szWhy ) )
+			{
+				for ( const SActionCommandEntry &entry : actions )
+				{
+					actionNames.push_back( entry.szName );
+					actionIds.push_back( entry.nID );
+				}
+			}
+		}
+		const std::vector<std::string> &list = bActions ? actionNames : state.refLists[nType];
 		*pnCount = int( list.size() );
 		if ( pOut == nullptr && nCapacity == 0 )
 			return BK_EDITOR_OK;
@@ -2048,10 +2116,53 @@ BkEditorStatus BkResRefList( BkResSession *pSession, int nType, BkResReferenceEn
 		}
 		for ( std::size_t i = 0; i < list.size(); ++i )
 		{
-			pOut[i].token = int( i );
+			pOut[i].token = bActions ? actionIds[i] : int( i );
 			CopyField( pOut[i].name, sizeof( pOut[i].name ), list[i] );
 		}
 		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResPropStrings( BkResSession *pSession, int nNodeId, int nPropId, BkResReferenceEntry *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount == nullptr || nCapacity < 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		*pnCount = 0;
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bOpen )
+		{
+			pSession->szMessage = "no project is open";
+			return BK_EDITOR_REFUSED;
+		}
+		auto itItem = state.idToItem.find( nNodeId );
+		if ( itItem == state.idToItem.end() )
+		{
+			pSession->szMessage = "unknown node id";
+			return BK_EDITOR_REFUSED;
+		}
+		for ( const NResourceModel::SProp &p : itItem->second->GetValues() )
+		{
+			if ( p.nId != nPropId )
+				continue;
+			*pnCount = int( p.szStrings.size() );
+			if ( pOut == nullptr && nCapacity == 0 )
+				return BK_EDITOR_OK;
+			if ( pOut == nullptr || nCapacity < int( p.szStrings.size() ) )
+			{
+				pSession->szMessage = "the buffer holds " + std::to_string( nCapacity ) + " of " + std::to_string( p.szStrings.size() ) + " strings";
+				return BK_EDITOR_REFUSED;
+			}
+			for ( std::size_t i = 0; i < p.szStrings.size(); ++i )
+			{
+				pOut[i].token = int( i );
+				CopyField( pOut[i].name, sizeof( pOut[i].name ), p.szStrings[i] );
+			}
+			return BK_EDITOR_OK;
+		}
+		pSession->szMessage = "unknown prop id";
+		return BK_EDITOR_REFUSED;
 	} );
 }
 

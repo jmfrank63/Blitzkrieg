@@ -2990,7 +2990,12 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("Sources/editor/resource_app/panels_logic.zig"),
         .target = b.graph.host,
         .optimize = .Debug,
-        .imports = &.{.{ .name = "resource_core", .module = resource_core_module }},
+        // editor_kit for lifecycle.zig and settings.zig (S05 T09): autosave,
+        // shipped, files and the shared settings keys.
+        .imports = &.{
+            .{ .name = "resource_core", .module = resource_core_module },
+            .{ .name = "editor_kit", .module = editor_kit_module },
+        },
     });
     const resource_app_logic_tests = b.addTest(.{ .root_module = resource_app_logic_module });
     const resource_app_logic_tests_run = b.addRunArtifact(resource_app_logic_tests);

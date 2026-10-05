@@ -16,6 +16,14 @@ const History = core.history.History;
 
 pub const kind_count = @typeInfo(Kind).@"enum".fields.len;
 
+// The File menu's lifecycle session and resourceeditor.cfg are their own
+// files; test-resource-app-logic is rooted here, so their tests run with it.
+test {
+    _ = @import("lifecycle.zig");
+    _ = @import("settings.zig");
+    _ = @import("edit_logic.zig");
+}
+
 // --- Editors menu ---------------------------------------------------------
 
 /// One entry of the Editors menu: the kind it switches to, MFC's label, and

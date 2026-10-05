@@ -193,6 +193,7 @@ pub const Document = struct {
                 c.blob = .{ .bytes = scratch };
             },
             .move_node => |c| try bridge_mod.check(bridge.moveNode(c.node, c.after_parent, c.after_index)),
+            .rename_node => |c| try bridge_mod.check(bridge.setNodeName(c.node, c.after.bytes)),
             .geometry => |c| try bridge_mod.check(bridge.geometryWrite(c.node, c.channel, &c.after)),
             .composite => |*c| for (c.steps.items) |*step| try self.apply(allocator, bridge, step),
         }
@@ -224,6 +225,7 @@ pub const Document = struct {
                 c.node = restored_id;
             },
             .move_node => |c| try bridge_mod.check(bridge.moveNode(c.node, c.before_parent, c.before_index)),
+            .rename_node => |c| try bridge_mod.check(bridge.setNodeName(c.node, c.before.bytes)),
             .geometry => |c| try bridge_mod.check(bridge.geometryWrite(c.node, c.channel, &c.before)),
             .composite => |*c| {
                 var i: usize = c.steps.items.len;
@@ -261,6 +263,7 @@ pub const Document = struct {
                 c.blob = .{ .bytes = scratch };
             },
             .move_node => |c| try bridge_mod.check(bridge.moveNode(c.node, c.after_parent, c.after_index)),
+            .rename_node => |c| try bridge_mod.check(bridge.setNodeName(c.node, c.after.bytes)),
             .geometry => |c| try bridge_mod.check(bridge.geometryWrite(c.node, c.channel, &c.after)),
             .composite => |*c| for (c.steps.items) |*step| try self.redoOne(allocator, bridge, step),
         }

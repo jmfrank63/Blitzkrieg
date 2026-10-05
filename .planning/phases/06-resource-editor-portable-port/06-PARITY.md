@@ -74,18 +74,18 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | A-24 | Editors menu: 20 sub-editors in MFC order; last active remembered | `CFrameManager`, `SwitchActiveFrame` | 06-05 | todo |
 | A-25 | Help → About | `IDD_ABOUTBOX` | 06-05 | todo |
 | A-26 | Help → Help (F1) `reshelp.chm` | `ID_HELP` | 06-05 | todo — the `.chm` is not in the repository: Help shows the shortcut list and links the spec |
-| A-27 | Project tree: select, rename display name, expand state saved | `CTreeDockWnd`, `CETreeCtrl` | 06-05 | todo |
-| A-28 | Tree context: Insert item (per-kind child classes), Delete item | `IDR_INSERT_TREE_ITEM_MENU`, `IDR_DELETE_TREE_ITEM` | 06-04 (commands), 06-05 (UI) | todo |
-| A-29 | Object inspector: every domain type (`DT_DEC/STR/BOOL/FLOAT/COMBO/BROWSE/COLOR`) | `COI/*` | 06-05 | todo |
-| A-30 | Reference pickers: all 20 `EReferenceType` lists | `RefDlg` | 06-03 (lists), 06-05 (UI) | todo |
-| A-31 | Multi-select dialog | `MultySelDialog` | 06-05 | todo |
-| A-32 | Browse dialog (source-relative paths) | `BrowseDialog`, `MyOpenFileDialog` | 06-05 | todo |
-| A-33 | AI class combo, player sides combo | `Reference.cpp`, `UnitSide.cpp` | 06-03 | todo |
-| A-34 | Localisation items (name/desc/stats `.txt`) | `localization.*` | 06-03 | todo |
+| A-27 | Project tree: select, rename display name, expand state saved | `CTreeDockWnd`, `CETreeCtrl` | 06-05 | done (S05 T10: panels.zig tree; select/multi-select, rename via BkResSetNodeName, expand via BkResSetNodeExpand kept in `expand` and read back after save+reopen; test-resource-app-logic (edit_logic.zig), test-resource-bridge (T10 tree block)) |
+| A-28 | Tree context: Insert item (per-kind child classes), Delete item | `IDR_INSERT_TREE_ITEM_MENU`, `IDR_DELETE_TREE_ITEM` | 06-04 (commands), 06-05 (UI) | done (S05 T10: Insert offers the class the container already holds, Delete of a multi-selection is one undo step, Move up/down and drag; an empty container offers nothing until its sub-editor slice names the class; test-resource-app-logic (edit_logic.zig), test-resource-bridge (T10 tree block)) |
+| A-29 | Object inspector: every domain type (`DT_DEC/STR/BOOL/FLOAT/COMBO/BROWSE/COLOR`) | `COI/*` | 06-05 | done (S05 T10: edit_logic.widgetFor covers every DT_* incl. HEX and BROWSEDIR; values checked before BkResSetProp; combo/bool strings via BkResPropStrings; test-resource-app-logic) |
+| A-30 | Reference pickers: all 20 `EReferenceType` lists | `RefDlg` | 06-03 (lists), 06-05 (UI) | done (S05 T10: refTypeFor maps all 20 DT_*_REF domains to the 20 lists, searchable picker over BkResRefList; test-resource-app-logic) |
+| A-31 | Multi-select dialog | `MultySelDialog` | 06-05 | done (S05 T10: actions picker = CMultySelDialog; BkResRefList type 5 answers actions.ini with id tokens, mask written in the variant's text; test-resource-bridge, test-resource-app-logic) |
+| A-32 | Browse dialog (source-relative paths) | `BrowseDialog`, `MyOpenFileDialog` | 06-05 | done (S05 T10: SDL file/folder dialog, path made relative to the prop's source folder else the project folder, lower case, backslashes; test-resource-app-logic) |
+| A-33 | AI class combo, player sides combo | `Reference.cpp`, `UnitSide.cpp` | 06-03 | done (S05 T10: the S03 combo lists reach the inspector's combo through BkResPropStrings; test-resource-bridge) |
+| A-34 | Localisation items (name/desc/stats `.txt`) | `localization.*` | 06-03 | done (S05 T10: localisation items are ordinary tree items edited in the inspector; the .txt export is S03's) |
 | A-35 | Thumbnail list dock | `ThumbList*` | 06-05 (widget) | todo |
 | A-36 | Import XML file (Ctrl+I) — no handler in MFC → Import from game data | `ID_IMPORT_XML_FILE` | 06-04 (bridge), 06-05 (UI), sub-editor plans (per kind) | todo |
 | A-37 | Engine preview window (`CGameWnd`, storage + MOD, `consts.xml`, objects DB) | `GameWnd.*`, `GlobalsLoader.cpp` | 06-01 (spike), 06-04 | todo |
-| A-38 | Undo/redo for every edit (new; MFC had none outside GUI) | — | 06-04 + every sub-editor plan | todo |
+| A-38 | Undo/redo for every edit (new; MFC had none outside GUI) | — | 06-04 + every sub-editor plan | done for the shell (S05 T10: every tree/inspector edit is a ResourceCommand; gestures collapse to one step; a value back at its start drops the step and the unsaved mark; Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z; test-resource-app-logic). Sub-editor slices add their own edits |
 | A-39 | Autosave and crash recovery (new, as the map editor) | — | 06-05 | todo |
 
 ## B. Sub-editors

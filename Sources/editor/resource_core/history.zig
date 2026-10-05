@@ -77,6 +77,13 @@ pub const ResourceCommand = union(enum) {
         after_parent: i32,
         after_index: i32,
     },
+    /// A rename: the node's displayed name before and after. Undo writes
+    /// `before`, redo `after`.
+    rename_node: struct {
+        node: i32,
+        before: OwnedBytes,
+        after: OwnedBytes,
+    },
     /// A geometry write (reserved for T04): one GeometryChannel, before and
     /// after payloads. Undo writes `before`, redo writes `after`. T04 will
     /// extend the fake bridge to serve all channels; the shape itself is set
@@ -105,6 +112,10 @@ pub const ResourceCommand = union(enum) {
             },
             .delete_node => |*c| c.blob.deinit(allocator),
             .move_node => {},
+            .rename_node => |*c| {
+                c.before.deinit(allocator);
+                c.after.deinit(allocator);
+            },
             .geometry => |*c| {
                 c.before.deinit(allocator);
                 c.after.deinit(allocator);

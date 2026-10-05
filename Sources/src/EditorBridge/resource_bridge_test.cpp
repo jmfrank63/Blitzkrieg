@@ -1561,6 +1561,9 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		std::size_t nTotal = 0;
 		for ( int t = 0; t < NResourceModel::kReferenceTypeCount; ++t )
 		{
+			// The actions list is CMultySelDialog's, checked on its own below.
+			if ( t == int( NResourceModel::EReferenceType::E_ACTIONS_REF ) )
+				continue;
 			const auto &want = direct.enumerate( static_cast<NResourceModel::EReferenceType>( t ) );
 			nCount = -1;
 			const bool bCounted = BkResRefList( pSession, t, 0, 0, &nCount ) == BK_EDITOR_OK;
@@ -1582,6 +1585,95 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		nCount = 0;
 		BkResRefList( pSession, int( NResourceModel::EReferenceType::E_WEAPONS_REF ), 0, 0, &nCount );
 		Check( nCount > 0 && nTotal > 0, "refs: the staged Data lists weapons" );
+
+		// E_ACTIONS_REF: the action types of Data/Editor/actions.ini, in file
+		// order, each token the action's id (the bit of MultySelDialog's mask),
+		// the list BkEditorActionCommands reads for the map editor too.
+		const int nActions = int( NResourceModel::EReferenceType::E_ACTIONS_REF );
+		nCount = -1;
+		Check( BkResRefList( pSession, nActions, 0, 0, &nCount ) == BK_EDITOR_OK && nCount > 0, "refs: the actions list is actions.ini's" );
+		std::vector<BkResReferenceEntry> actions( nCount > 0 ? nCount : 1 );
+		Check( BkResRefList( pSession, nActions, actions.data(), nCount, &nCount ) == BK_EDITOR_OK, "refs: the actions list reads" );
+		int nMapCount = 0, nDefault = 0;
+		BkEditorActionCommands( pSession, 0, 0, &nMapCount, &nDefault );
+		std::vector<BkEditorActionCommand> mapActions( nMapCount > 0 ? nMapCount : 1 );
+		BkEditorActionCommands( pSession, mapActions.data(), nMapCount, &nMapCount, &nDefault );
+		bool bSameActions = nMapCount == nCount;
+		for ( int i = 0; bSameActions && i < nCount; ++i )
+			bSameActions = actions[i].token == mapActions[i].id && std::strcmp( actions[i].name, mapActions[i].name ) == 0;
+		Check( bSameActions, "refs: each action's token is its actions.ini id" );
+		Check( nCount > 0 && std::strcmp( actions[0].name, "MOVE_TO" ) == 0 && actions[0].token == 0, "refs: MOVE_TO is action 0" );
+		std::printf( "REF %s count=%d\n", NResourceModel::ReferenceTypeName( NResourceModel::EReferenceType::E_ACTIONS_REF ), nCount );
+	}
+
+	// The tree panel's entries (T10): rename, expand and a property's strings,
+	// each written where MFC keeps it and read back by the MFC-layout reader.
+	{
+		const fs::path project = scratch / "tree" / "project.wpn";
+		fs::create_directories( project.parent_path(), ec );
+		fs::copy_file( fs::path( szFixtureRoot ) / "wpn" / "project.wpn", project, fs::copy_options::overwrite_existing, ec );
+		if ( Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "tree: open the wpn copy" ) )
+		{
+			std::vector<BkResNodeRecord> nodes = AllNodes( pSession );
+			const int nNode = nodes.size() > 1 ? nodes[1].id : nodes[0].id;
+			Check( BkResSetNodeName( pSession, nNode, "Renamed node" ) == BK_EDITOR_OK, "tree: BkResSetNodeName" );
+			Check( BkResSetNodeName( pSession, nNode, "" ) == BK_EDITOR_BAD_ARGUMENT, "tree: an empty name is a bad argument" );
+			const std::string szLong( 64, 'n' );
+			Check( BkResSetNodeName( pSession, nNode, szLong.c_str() ) == BK_EDITOR_BAD_ARGUMENT, "tree: a name the record cannot hold is a bad argument" );
+			Check( BkResSetNodeName( pSession, 999999, "x" ) == BK_EDITOR_REFUSED, "tree: renaming an unknown node is refused" );
+			Check( BkResSetNodeExpand( pSession, nNode, 1 ) == BK_EDITOR_OK, "tree: BkResSetNodeExpand" );
+			Check( BkResSetNodeExpand( pSession, 999999, 1 ) == BK_EDITOR_REFUSED, "tree: expanding an unknown node is refused" );
+
+			// The first property with strings anywhere in the project.
+			int nStringsNode = -1, nStringsProp = -1, nStringsCount = 0;
+			for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+			{
+				int nProps = 0;
+				BkResProps( pSession, node.id, 0, 0, &nProps );
+				std::vector<BkResPropRecord> props( nProps > 0 ? nProps : 1 );
+				BkResProps( pSession, node.id, props.data(), nProps, &nProps );
+				for ( int i = 0; i < nProps && nStringsNode < 0; ++i )
+					if ( props[i].combo_count > 0 )
+					{
+						nStringsNode = node.id;
+						nStringsProp = props[i].id;
+						nStringsCount = props[i].combo_count;
+					}
+			}
+			if ( Check( nStringsNode >= 0, "tree: the wpn project has a property with strings" ) )
+			{
+				int nGot = -1;
+				Check( BkResPropStrings( pSession, nStringsNode, nStringsProp, 0, 0, &nGot ) == BK_EDITOR_OK && nGot == nStringsCount,
+					"tree: BkResPropStrings counts combo_count strings" );
+				std::vector<BkResReferenceEntry> strings( nGot > 0 ? nGot : 1 );
+				Check( BkResPropStrings( pSession, nStringsNode, nStringsProp, strings.data(), nGot, &nGot ) == BK_EDITOR_OK && strings[0].name[0] != 0 && strings[0].token == 0,
+					"tree: BkResPropStrings reads the strings" );
+				if ( nGot > 1 )
+				{
+					BkResReferenceEntry one;
+					Check( BkResPropStrings( pSession, nStringsNode, nStringsProp, &one, 1, &nGot ) == BK_EDITOR_REFUSED, "tree: a short strings buffer is refused" );
+				}
+				Check( BkResPropStrings( pSession, nStringsNode, -12345, 0, 0, &nGot ) == BK_EDITOR_REFUSED, "tree: strings of an unknown prop are refused" );
+			}
+
+			Check( BkResSave( pSession, project.string().c_str() ) == BK_EDITOR_OK, "tree: save the renamed project" );
+			BkResClose( pSession );
+			Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "tree: reopen" );
+			bool bName = false, bExpand = false;
+			for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+				if ( node.id == nNode )
+				{
+					bName = std::strcmp( node.display_name, "Renamed node" ) == 0;
+					bExpand = node.expand == 1;
+				}
+			Check( bName, "tree: the new name survives save and reopen" );
+			Check( bExpand, "tree: the expand state survives save and reopen" );
+			BkResClose( pSession );
+			std::string szSaved;
+			ReadBytes( project.string(), szSaved );
+			Check( szSaved.find( "Renamed node" ) != std::string::npos, "tree: the project file holds the new display_name" );
+		}
+		Check( BkResSetNodeName( pSession, 1, "x" ) == BK_EDITOR_REFUSED, "tree: renaming with no project open is refused" );
 	}
 
 	// MOD settings: the default export dir, then MFC's mod.xml written by the

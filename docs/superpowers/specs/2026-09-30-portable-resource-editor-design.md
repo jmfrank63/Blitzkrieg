@@ -674,3 +674,66 @@ one, the newer instruction wins, and record the change in the spec").
   root's three-point own data, not lists on the spans nodes. The crosses
   and effect places are one entry per child of their container, not free
   lists. A particle key's z must be 0.
+- **Settings, the File menu's lifecycle, autosave and recovery, S05 T09,
+  2026-10-05.** `resourceeditor.cfg` is at
+  `<UserRoot>resourceeditor/resourceeditor.cfg`; the environment variable
+  `BK_RESOURCE_EDITOR_SETTINGS` names another file instead. It is the test
+  seam, like the map editor's `BK_EDITOR_SETTINGS`, and only the interactive
+  mode reads it. ImGui's `layout.ini` is in the same folder. A `--hidden`
+  run reads and writes none of these, and no recovery copy either. The file
+  shares the kit's editor-neutral keys (`scroll_speed`, `autosave`,
+  `autosave_minutes`, `game_parameters`, `hidden_panels`, `recent`). The kit
+  now exposes them as `applySharedKey`, `writeSharedHeadKeys` and
+  `writeSharedTailKeys`, and builds its map-editor functions from them, so
+  `mapeditor.cfg` keeps its byte order (a kit test asserts the bytes). It
+  adds `last_editor` (the Editors menu's last choice, MFC's "Active Frame")
+  and `projects_folder` (where Open and Save As start). It does not write the
+  map-only `default_format` and `maps_folder`. Other settings named in
+  section 5 (source and export roots, picture options, background colour)
+  come with the tasks that add their dialogs. Recovery copies are
+  `<UserRoot>resourceeditor/recovery/<stem>.<ext>`, named by the kit's
+  `recoveryName` with the kind's own extension, each with a `<copy>.txt`
+  sidecar (original path, Unix time). They are offered back at start-up
+  (Open, Discard, Later). A copy that is opened back stays on Save As until
+  it is saved outside the recovery folder. Autosave writes into the
+  project's own file when it has a writable one; otherwise (untitled,
+  locked by another user, shipped data, a reopened recovery copy) it writes
+  a recovery copy. The recovery copy is written with `BkResSave`, so the
+  bridge's own notion of the project path moves to the copy. The app's path
+  stays the source of truth for Save. Export (T11) must therefore refuse an
+  untitled project by the app's path, not the bridge's. `BkResSave` copies the
+  file it replaces to `.bak` on every save. The app keeps the phase 3 rule
+  of one `.bak` per file per session: from the second save of a path on, it
+  moves the `.bak` aside around the save and puts it back, and a file the
+  session created keeps none. Save As into shipped data is refused, and Save
+  on a shipped project becomes Save As. Save As adds the kind's extension
+  when the chosen name lacks it. A recent entry that no longer opens is
+  dropped from the list. The lock prompt offers Read-only or Take over
+  (`BkResLockTakeOver`). The app passes the lock user name in the engine's
+  order (`BK_RESOURCE_EDITOR_USER`, then the login).
+- **Tree, inspector and pickers, S05 T10, 2026-10-05.** Three bridge
+  entries were added for the tree panel and the inspector: `BkResSetNodeName`
+  (MFC's `ChangeItemName`: the displayed name only, written as the item's
+  `display_name`; refused rather than cut when it would not fit the 64-byte
+  record), `BkResSetNodeExpand` (the item's `expand` attribute, which MFC's
+  `SaveTree` took from the tree control; `BkResNodes` now answers it instead
+  of always 0) and `BkResPropStrings` (a property's `szStrings`: a combo's or
+  bool's choices, a browse's source folder and filter, which the record only
+  counted). `BkResRefList` type 5 (`E_ACTIONS_REF`) now answers
+  `CMultySelDialog`'s list, the action types of `Data/Editor/actions.ini` with
+  each action's id as the token, because MFC's reference dialog never filled
+  that list and the multi-select dialog keyed its mask by the id. Every edit
+  is a `ResourceCommand`; a rename is the new `rename_node` command. Expand
+  is view state: kept and saved, but not an undo step and not an unsaved
+  change, as in MFC. One gesture is one undo step (the frames of a colour
+  drag merge; an edit box commits once when it loses the keyboard), and a
+  value brought back to where its step began drops the step and, if that was
+  the saved state, the unsaved mark. An inspector edit with several nodes
+  selected writes every selected node of the primary's class that has the
+  property, as one step; a delete of several nodes is one step. Insert offers
+  the class a container already holds (MFC's per-container insert handlers);
+  an empty container offers nothing until its sub-editor slice names the
+  class. A tree drag moves a node only before an item of its own class or
+  into a container that holds its class. Browse writes the chosen path
+  relative to the property's source folder, else to the project's folder,
+  lower case with backslashes, as MFC's sub-editors stored them.

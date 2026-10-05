@@ -17,7 +17,10 @@
 //! own composed Settings use `applyGenericKey` and `writeGenericKeys`, which
 //! duck-type over any struct that has the generic fields by name. The
 //! composed MapEditor Settings in `core/settings.zig` works this way, so the
-//! on-disk format of `mapeditor.cfg` is byte-for-byte unchanged.
+//! on-disk format of `mapeditor.cfg` is byte-for-byte unchanged. An editor
+//! with no map format and no maps folder (the Resource Editor) uses the
+//! narrower `applySharedKey`, `writeSharedHeadKeys` and `writeSharedTailKeys`
+//! the generic ones are built from.
 const std = @import("std");
 const builtin = @import("builtin");
 
@@ -219,6 +222,31 @@ pub fn removeRecentField(storage: *[recent_capacity]FixedPath, count: *usize, in
 /// caller can try its own keys. Unknown keys are never an error: a newer or
 /// hand-edited file may carry keys this build does not understand.
 pub fn applyGenericKey(settings: anytype, key: []const u8, value: []const u8) bool {
+    if (applySharedKey(settings, key, value)) return true;
+    if (std.mem.eql(u8, key, "default_format")) {
+        // D-24 (M3): bzm or xml; anything else is malformed and skipped,
+        // keeping the default, exactly autosave's own rule.
+        if (std.mem.eql(u8, value, "bzm")) {
+            settings.default_format = .bzm;
+        } else if (std.mem.eql(u8, value, "xml")) {
+            settings.default_format = .xml;
+        }
+        return true;
+    } else if (std.mem.eql(u8, key, "maps_folder")) {
+        settings.maps_folder_storage.set(value);
+        return true;
+    }
+    return false;
+}
+
+/// The keys every editor on the kit shares (`scroll_speed`, `autosave`,
+/// `autosave_minutes`, `game_parameters`, `hidden_panels`, `recent`), without
+/// the two that only mean something to a map editor (`default_format`, a map
+/// format, and `maps_folder`). An editor whose composed Settings has no such
+/// fields (the Resource Editor's `resourceeditor.cfg`) parses through this
+/// one; `applyGenericKey` calls it first, so the map editor's parser reads
+/// exactly what it did before the split.
+pub fn applySharedKey(settings: anytype, key: []const u8, value: []const u8) bool {
     if (std.mem.eql(u8, key, "scroll_speed")) {
         const parsed = std.fmt.parseFloat(f32, value) catch return true;
         if (!std.math.isFinite(parsed)) return true;
@@ -236,24 +264,12 @@ pub fn applyGenericKey(settings: anytype, key: []const u8, value: []const u8) bo
         const parsed = std.fmt.parseInt(u32, value, 10) catch return true;
         settings.autosave_minutes = std.math.clamp(parsed, min_autosave_minutes, max_autosave_minutes);
         return true;
-    } else if (std.mem.eql(u8, key, "default_format")) {
-        // D-24 (M3): bzm or xml; anything else is malformed and skipped,
-        // keeping the default, exactly autosave's own rule.
-        if (std.mem.eql(u8, value, "bzm")) {
-            settings.default_format = .bzm;
-        } else if (std.mem.eql(u8, value, "xml")) {
-            settings.default_format = .xml;
-        }
-        return true;
     } else if (std.mem.eql(u8, key, "game_parameters")) {
         setGameParametersField(&settings.game_parameters, value);
         return true;
     } else if (std.mem.eql(u8, key, "hidden_panels")) {
         // A number or nothing: a malformed value keeps every panel shown.
         settings.hidden_panels = std.fmt.parseInt(u32, value, 10) catch return true;
-        return true;
-    } else if (std.mem.eql(u8, key, "maps_folder")) {
-        settings.maps_folder_storage.set(value);
         return true;
     } else if (std.mem.eql(u8, key, "recent")) {
         if (value.len != 0 and settings.recent_count < recent_capacity) {
@@ -274,10 +290,16 @@ pub fn applyGenericKey(settings: anytype, key: []const u8, value: []const u8) bo
 /// so `mapeditor.cfg`'s on-disk layout stays byte-for-byte identical to the
 /// pre-split order.
 pub fn writeGenericKeys(settings: anytype, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+    try writeSharedHeadKeys(settings, writer);
+    try writer.print("default_format={s}\n", .{@tagName(settings.default_format)});
+}
+
+/// The head of the shared keys (`applySharedKey`'s): scroll_speed, autosave
+/// and autosave_minutes, in `mapeditor.cfg`'s own order.
+pub fn writeSharedHeadKeys(settings: anytype, writer: *std.Io.Writer) std.Io.Writer.Error!void {
     try writer.print("scroll_speed={d}\n", .{settings.scroll_speed});
     try writer.print("autosave={s}\n", .{if (settings.autosave) "on" else "off"});
     try writer.print("autosave_minutes={d}\n", .{settings.autosave_minutes});
-    try writer.print("default_format={s}\n", .{@tagName(settings.default_format)});
 }
 
 /// Writes the trailing generic keys that come after a composed caller's own
@@ -292,9 +314,15 @@ pub fn writeGenericKeys(settings: anytype, writer: *std.Io.Writer) std.Io.Writer
 /// keeps the original byte order; the recent lines come last via
 /// `writeRecentLines`.
 pub fn writeGenericTailKeys(settings: anytype, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+    try writeSharedTailKeys(settings, writer);
+    if (settings.mapsFolder().len != 0) try writer.print("maps_folder={s}\n", .{settings.mapsFolder()});
+}
+
+/// The tail of the shared keys: game_parameters and hidden_panels, each only
+/// when it is not its default, in `mapeditor.cfg`'s own order.
+pub fn writeSharedTailKeys(settings: anytype, writer: *std.Io.Writer) std.Io.Writer.Error!void {
     if (settings.gameParameters().len != 0) try writer.print("game_parameters={s}\n", .{settings.gameParameters()});
     if (settings.hidden_panels != 0) try writer.print("hidden_panels={d}\n", .{settings.hidden_panels});
-    if (settings.mapsFolder().len != 0) try writer.print("maps_folder={s}\n", .{settings.mapsFolder()});
 }
 
 /// Writes every recent line in file order (most recent first).
@@ -403,6 +431,30 @@ test "setGameParameters drops control characters and caps length" {
 test "CRLF line endings parse the same as LF, unknown and malformed keys are skipped" {
     const settings = parse("scroll_speed=2\r\nautosave=off\r\nunknown=whatever\nnoequalsline\n");
     try std.testing.expectEqual(@as(f32, 2), settings.scroll_speed);
+    try std.testing.expect(!settings.autosave);
+}
+
+test "the generic writer's bytes and order are what mapeditor.cfg always had" {
+    var settings: Settings = .{};
+    settings.setMapsFolder("/m");
+    settings.setGameParameters("-x");
+    settings.hidden_panels = 3;
+    settings.pushRecent("b.bzm");
+    settings.pushRecent("a.bzm");
+    var buffer: [512]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    try std.testing.expectEqualStrings("scroll_speed=1\nautosave=on\nautosave_minutes=2\ndefault_format=bzm\n" ++
+        "game_parameters=-x\nhidden_panels=3\nmaps_folder=/m\nrecent=a.bzm\nrecent=b.bzm\n", writer.buffered());
+}
+
+test "applySharedKey leaves the map-only keys to applyGenericKey" {
+    var settings: Settings = .{};
+    try std.testing.expect(!applySharedKey(&settings, "default_format", "xml"));
+    try std.testing.expect(!applySharedKey(&settings, "maps_folder", "/m"));
+    try std.testing.expect(applySharedKey(&settings, "autosave", "off"));
+    try std.testing.expect(applyGenericKey(&settings, "default_format", "xml"));
+    try std.testing.expectEqual(Format.xml, settings.default_format);
     try std.testing.expect(!settings.autosave);
 }
 

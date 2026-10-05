@@ -179,6 +179,9 @@ pub const RealResBridge = struct {
         .deleteNode = deleteNode,
         .restoreNode = restoreNode,
         .moveNode = moveNode,
+        .setNodeName = setNodeName,
+        .setNodeExpand = setNodeExpand,
+        .propStrings = propStrings,
         .refList = refList,
         .geometryRead = geometryRead,
         .geometryWrite = geometryWrite,
@@ -349,6 +352,39 @@ pub const RealResBridge = struct {
     fn moveNode(ptr: *anyopaque, node: i32, new_parent: i32, new_index: i32) Status {
         const self = from(ptr);
         return status(c.BkResMoveNode(self.session, node, new_parent, new_index));
+    }
+
+    fn setNodeName(ptr: *anyopaque, node: i32, name: []const u8) Status {
+        const self = from(ptr);
+        var buffer: [rb.name_capacity + 1]u8 = undefined;
+        const z = terminated(&buffer, name) orelse return self.fail(.bad_argument, "the name is too long or holds a NUL");
+        return status(c.BkResSetNodeName(self.session, node, z));
+    }
+
+    fn setNodeExpand(ptr: *anyopaque, node: i32, expand: bool) Status {
+        const self = from(ptr);
+        return status(c.BkResSetNodeExpand(self.session, node, @intFromBool(expand)));
+    }
+
+    fn propStrings(ptr: *anyopaque, node: i32, prop_id: i32, out: []ReferenceEntry, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        if (out.len == 0) {
+            const sized = status(c.BkResPropStrings(self.session, node, prop_id, null, 0, &count));
+            total.* = countOf(count);
+            if (sized == .ok and total.* > 0) return .refused;
+            return sized;
+        }
+        const scratch = self.allocator.alloc(c.BkResReferenceEntry, out.len) catch return self.fail(.failed, "out of memory reading the property's strings");
+        defer self.allocator.free(scratch);
+        const result = status(c.BkResPropStrings(self.session, node, prop_id, scratch.ptr, capacityOf(scratch.len), &count));
+        total.* = countOf(count);
+        if (result != .ok) return result;
+        for (scratch[0..total.*], out[0..total.*]) |entry, *dst| {
+            dst.* = .{ .token = entry.token };
+            copyFixed(&dst.name, &entry.name);
+        }
+        return .ok;
     }
 
     fn refList(ptr: *anyopaque, ref_type: i32, out: []ReferenceEntry, total: *usize) Status {

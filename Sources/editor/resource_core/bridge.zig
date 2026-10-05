@@ -383,6 +383,16 @@ pub const ResBridge = struct {
         /// BkResMoveNode: moves a node to a new parent/index. Refused for
         /// a cycle.
         moveNode: *const fn (ptr: *anyopaque, node: i32, new_parent: i32, new_index: i32) Status,
+        /// BkResSetNodeName: the node's displayed name (MFC's
+        /// ChangeItemName). BadArgument for an empty name or one the
+        /// record's name buffer cannot hold.
+        setNodeName: *const fn (ptr: *anyopaque, node: i32, name: []const u8) Status,
+        /// BkResSetNodeExpand: whether the tree shows the node open, the
+        /// "expand" attribute the project keeps.
+        setNodeExpand: *const fn (ptr: *anyopaque, node: i32, expand: bool) Status,
+        /// BkResPropStrings: two-pass read of a property's strings - a
+        /// combo's or bool's choices, a browse's source folder and filter.
+        propStrings: *const fn (ptr: *anyopaque, node: i32, prop_id: i32, out: []ReferenceEntry, total: *usize) Status,
         /// BkResRefList: two-pass read of a reference list by type.
         refList: *const fn (ptr: *anyopaque, ref_type: i32, out: []ReferenceEntry, total: *usize) Status,
         /// Generic geometry read. Two-pass like `nodes`: `total` is always
@@ -459,6 +469,15 @@ pub const ResBridge = struct {
     }
     pub fn moveNode(self: ResBridge, node: i32, new_parent: i32, new_index: i32) Status {
         return self.vtable.moveNode(self.ptr, node, new_parent, new_index);
+    }
+    pub fn setNodeName(self: ResBridge, node: i32, name: []const u8) Status {
+        return self.vtable.setNodeName(self.ptr, node, name);
+    }
+    pub fn setNodeExpand(self: ResBridge, node: i32, expand: bool) Status {
+        return self.vtable.setNodeExpand(self.ptr, node, expand);
+    }
+    pub fn propStrings(self: ResBridge, node: i32, prop_id: i32, out: []ReferenceEntry, total: *usize) Status {
+        return self.vtable.propStrings(self.ptr, node, prop_id, out, total);
     }
     pub fn refList(self: ResBridge, ref_type: i32, out: []ReferenceEntry, total: *usize) Status {
         return self.vtable.refList(self.ptr, ref_type, out, total);

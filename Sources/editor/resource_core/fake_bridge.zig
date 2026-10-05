@@ -16,7 +16,9 @@
 //!   path, `save` records that the path was written to the message buffer;
 //!   a lock is kept purely in-memory;
 //! * references are returned from a tiny fixed list the test fills
-//!   through `setReferenceList`;
+//!   through `setReferenceList`; a property's strings (combo choices, a
+//!   browse's folder and filter) likewise through `setPropStrings`, kept
+//!   beside the tree, so a delete and restore does not carry them;
 //! * export writes nothing: a kind the test marks with `setExportable` counts
 //!   one written file per export, every other kind is refused as "not
 //!   ported yet" as the real bridge answers until a sub-editor registers its
@@ -89,6 +91,7 @@ pub const FakeResBridge = struct {
     /// A per-process advisory lock owner; null is unlocked.
     lock_owner: ?[]u8 = null,
     references: std.AutoHashMapUnmanaged(i32, std.ArrayListUnmanaged(ReferenceEntry)) = .empty,
+    prop_strings: std.ArrayListUnmanaged(PropStrings) = .empty,
     geometry: std.ArrayListUnmanaged(GeometryEntry) = .empty,
     /// When true, every preview call answers BK_EDITOR_NO_DEVICE - the fake's
     /// stand-in for a headless host without a GPU.
@@ -117,6 +120,7 @@ pub const FakeResBridge = struct {
     game_folders: std.StringHashMapUnmanaged([]u8) = .empty,
 
     pub const PreviewState = enum { closed, open, showing };
+    pub const PropStrings = struct { node: i32, prop_id: i32, entries: std.ArrayListUnmanaged(ReferenceEntry) = .empty };
     pub const BatchProject = struct { path: []u8, kind: Kind };
 
     pub fn init(allocator: std.mem.Allocator) FakeResBridge {
@@ -133,6 +137,8 @@ pub const FakeResBridge = struct {
         var ref_it = self.references.iterator();
         while (ref_it.next()) |entry| entry.value_ptr.deinit(self.allocator);
         self.references.deinit(self.allocator);
+        for (self.prop_strings.items) |*p| p.entries.deinit(self.allocator);
+        self.prop_strings.deinit(self.allocator);
         for (self.geometry.items) |*g| g.value.deinit(self.allocator);
         self.geometry.deinit(self.allocator);
         var file_it = self.files.iterator();
@@ -176,6 +182,24 @@ pub const FakeResBridge = struct {
         if (gop.found_existing) gop.value_ptr.deinit(self.allocator);
         gop.value_ptr.* = .empty;
         try gop.value_ptr.appendSlice(self.allocator, entries);
+    }
+
+    /// Gives a property its strings (SProp::szStrings): the order is kept,
+    /// each entry's token is its index. Replaces earlier strings.
+    pub fn setPropStrings(self: *FakeResBridge, node: i32, prop_id: i32, strings: []const []const u8) !void {
+        var entries: std.ArrayListUnmanaged(ReferenceEntry) = .empty;
+        errdefer entries.deinit(self.allocator);
+        for (strings, 0..) |text, i| {
+            var entry: ReferenceEntry = .{ .token = @intCast(i) };
+            if (!entry.setName(text)) return error.NameTooLong;
+            try entries.append(self.allocator, entry);
+        }
+        for (self.prop_strings.items) |*p| if (p.node == node and p.prop_id == prop_id) {
+            p.entries.deinit(self.allocator);
+            p.entries = entries;
+            return;
+        };
+        try self.prop_strings.append(self.allocator, .{ .node = node, .prop_id = prop_id, .entries = entries });
     }
 
     pub fn setNoDevice(self: *FakeResBridge, value: bool) void {
@@ -558,6 +582,59 @@ pub const FakeResBridge = struct {
         return .ok;
     }
 
+    fn setNodeName(ptr: *anyopaque, node: i32, name: []const u8) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        if (name.len == 0 or name.len >= name_capacity) {
+            self.say("a node name must be 1 to {d} characters", .{name_capacity - 1});
+            return .bad_argument;
+        }
+        const check = self.requireOpen();
+        if (check != .ok) return check;
+        const idx = self.indexOfNode(node) orelse {
+            self.say("node {d} is unknown", .{node});
+            return .refused;
+        };
+        _ = putName(&self.nodes.items[idx].display, name);
+        return .ok;
+    }
+
+    fn setNodeExpand(ptr: *anyopaque, node: i32, expand: bool) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const check = self.requireOpen();
+        if (check != .ok) return check;
+        const idx = self.indexOfNode(node) orelse {
+            self.say("node {d} is unknown", .{node});
+            return .refused;
+        };
+        self.nodes.items[idx].expand = expand;
+        return .ok;
+    }
+
+    fn propStrings(ptr: *anyopaque, node: i32, prop_id: i32, out: []ReferenceEntry, total: *usize) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        total.* = 0;
+        const check = self.requireOpen();
+        if (check != .ok) return check;
+        const node_idx = self.indexOfNode(node) orelse {
+            self.say("node {d} is unknown", .{node});
+            return .refused;
+        };
+        if (self.indexOfProp(node_idx, prop_id) == null) {
+            self.say("prop id {d} is unknown on node {d}", .{ prop_id, node });
+            return .refused;
+        }
+        for (self.prop_strings.items) |p| if (p.node == node and p.prop_id == prop_id) {
+            total.* = p.entries.items.len;
+            if (out.len < total.*) return .refused;
+            @memcpy(out[0..total.*], p.entries.items);
+            return .ok;
+        };
+        return .ok;
+    }
+
     fn refList(ptr: *anyopaque, ref_type: i32, out: []ReferenceEntry, total: *usize) Status {
         const self = from(ptr);
         self.clearMessage();
@@ -824,6 +901,9 @@ pub const FakeResBridge = struct {
         .deleteNode = deleteNode,
         .restoreNode = restoreNode,
         .moveNode = moveNode,
+        .setNodeName = setNodeName,
+        .setNodeExpand = setNodeExpand,
+        .propStrings = propStrings,
         .refList = refList,
         .geometryRead = geometryRead,
         .geometryWrite = geometryWrite,

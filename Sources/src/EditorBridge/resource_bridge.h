@@ -170,6 +170,20 @@ BkEditorStatus BkResRestoreNode( BkResSession *session, const unsigned char *blo
    project is open. */
 BkEditorStatus BkResMoveNode( BkResSession *session, int node, int new_parent, int new_index );
 
+/* Renames a node: CTreeItem::ChangeItemName, the displayed name only (the
+   default name stays what the class gave it). The project writes it as the
+   item's display_name. BK_EDITOR_BAD_ARGUMENT for a null or empty name or
+   one longer than BkResNodeRecord's display_name holds; BK_EDITOR_REFUSED
+   when the node is unknown or no project is open. */
+BkEditorStatus BkResSetNodeName( BkResSession *session, int node, const char *name );
+
+/* Records whether a node is expanded in the tree: the item's "expand"
+   attribute, which MFC's SaveTree took from the tree control's
+   TVIS_EXPANDED state and InsertChildItems opened the node by. BkResNodes
+   answers it in BkResNodeRecord.expand. BK_EDITOR_REFUSED when the node is
+   unknown or no project is open. */
+BkEditorStatus BkResSetNodeExpand( BkResSession *session, int node, int expand );
+
 /* ---- References ------------------------------------------------------- */
 
 /* An entry of a reference list, as NResourceModel::EReferenceType has the
@@ -182,9 +196,21 @@ typedef struct { int token; char name[128]; } BkResReferenceEntry;
    CReferenceDialog::InitLists filled, walked by NResourceModel::References
    over <BaseRoot>Data and, while a mod is active, the mod's data folder
    after it (an entry the mod repeats is listed once). token is the entry's
-   index in its list. BK_EDITOR_BAD_ARGUMENT for a type outside 0..19;
-   BK_EDITOR_REFUSED when the engine is not started. */
+   index in its list. The one exception is type 5 (E_ACTIONS_REF), which
+   MFC's InitLists left empty: its list is CMultySelDialog's, the action
+   types of Data/Editor/actions.ini in file order, and token is the action's
+   id, the bit the property's hex mask sets (MultySelDialog.cpp OnOK).
+   BK_EDITOR_BAD_ARGUMENT for a type outside 0..19; BK_EDITOR_REFUSED when
+   the engine is not started. */
 BkEditorStatus BkResRefList( BkResSession *session, int type, BkResReferenceEntry *out, int capacity, int *out_count );
+
+/* Two-pass read of a property's strings (SProp::szStrings, MFC's
+   SCOIProperties::szStrs), in order: a DT_COMBO's or DT_BOOL's choices,
+   or a DT_BROWSE / DT_BROWSEDIR's source folder [0] and file filter [1].
+   BkResPropRecord.combo_count is their count. token is the index; name is
+   the string. BK_EDITOR_REFUSED when the node or property is unknown, no
+   project is open, or the buffer is short. */
+BkEditorStatus BkResPropStrings( BkResSession *session, int node, int prop_id, BkResReferenceEntry *out, int capacity, int *out_count );
 
 /* ---- Geometry edits ---------------------------------------------------- */
 

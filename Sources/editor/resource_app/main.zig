@@ -1,23 +1,28 @@
 //! ResourceEditor:
-//!   ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>]      interactive
+//!   ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>|<project>]  interactive
 //!   ResourceEditor [-mod=...] --check [<kind>] [<out.tga>]            headless host check
 //!   ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]          scripted new/save/reopen
 //!
 //! <kind> is a project extension the MFC editor registered (wpn, mcp, trc,
 //! scp, spt, unt, msh, obt, fnc, bld, bdg, pcp, eff, til, 3rd, 3rv, mip, chc,
-//! cgc, mdc, gui); wpn when it is left out.
+//! cgc, mdc, gui); wpn when it is left out of --check and --smoke. The
+//! interactive mode starts on <project> when one is named, else on a new
+//! project of <kind>, else of the last sub-editor (resourceeditor.cfg; the
+//! Infantry Editor at first).
 //!
 //! -mod=<Folder> or -mod=None, like the game's own -mod= and MapEditor's, is
 //! pulled out of the argument list first and applied through BkEditorSetMod
 //! right after the engine starts, before anything reads the database. A
 //! refusal fails the mode the way its other startup failures do.
 //!
-//! The interactive mode opens a window, starts the engine on it, makes a new
-//! project of <kind> (BkResNew, MFC's File > New) and shows its tree under a
-//! menu bar until the window closes or File > Quit. --hidden runs the same
-//! loop with the window hidden and not focusable for `hidden_frames` frames
-//! and then quits, so an automated run never pops a window or waits for a
-//! person. A step that fails before there is a window to show anything in is
+//! The interactive mode opens a window, starts the engine on it, opens the
+//! first project and shows its tree under the File menu (lifecycle_ui.zig:
+//! New, Open, Open Recent, Close, Save, Save As, the unsaved-changes and lock
+//! prompts, autosave and recovery) until the window closes or File > Exit,
+//! both through the unsaved-changes prompt. --hidden runs the same loop with
+//! the window hidden and not focusable for `hidden_frames` frames and then
+//! quits, so an automated run never pops a window or waits for a person; it
+//! never reads or writes the user's settings, recovery folder or layout. A step that fails before there is a window to show anything in is
 //! reported through SDL_ShowSimpleMessageBox and exits non-zero.
 //!
 //! The host check starts the engine hidden with ImGui over it, makes a new
@@ -44,6 +49,9 @@ const resource_core = @import("resource_core");
 const host_mod = kit.host;
 const crt = kit.crt;
 const Kind = resource_core.bridge.Kind;
+const lifecycle_ui = @import("lifecycle_ui.zig");
+const panels_logic = @import("panels_logic.zig");
+const panels_mod = @import("panels.zig");
 
 /// resource_bridge.h, which includes bridge.h: the BkRes* half of the engine's
 /// C ABI. A second translation beside kit.host's own bridge.h one, so the
@@ -124,8 +132,16 @@ pub fn main(minimal: std.process.Init.Minimal) !void {
         std.process.exit(if (passed) 0 else 1);
     }
     if (items.len > 1) usage();
-    const kind = if (items.len == 1) parseKind(items[0]) orelse usage() else default_kind;
-    interactive(kind, mod, hidden);
+    var first_kind: ?Kind = null;
+    var first_path: ?[]const u8 = null;
+    if (items.len == 1) {
+        if (parseKind(items[0])) |kind| {
+            first_kind = kind;
+        } else if (panels_logic.kindFromPath(items[0]) != null) {
+            first_path = items[0];
+        } else usage();
+    }
+    interactive(gpa, io, minimal.environ, first_kind, first_path, mod, hidden);
 }
 
 /// What -mod= asked for: nothing (leave the engine's own choice), no mod, or
@@ -258,7 +274,7 @@ fn drawMenu(quit: *bool) ?Kind {
     return chosen;
 }
 
-fn interactive(initial_kind: Kind, mod: ModRequest, hidden: bool) void {
+fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, first_kind: ?Kind, first_path: ?[]const u8, mod: ModRequest, hidden: bool) void {
     if (hidden) crt.attachParentConsole();
     var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = hidden }) catch |err| {
         const reason = host_mod.failureReason();
@@ -268,42 +284,54 @@ fn interactive(initial_kind: Kind, mod: ModRequest, hidden: bool) void {
     if (applyMod(&host, mod)) |reason| fatal("the mod", reason);
 
     const session = resSession(&host);
-    var kind = initial_kind;
-    if (c.BkResNew(session, @intFromEnum(kind)) != c.BK_EDITOR_OK) fatal("the new project", lastMessage(&host));
+    const ui = lifecycle_ui.Ui.create(gpa, io, environ, host.session, host.window, !hidden) catch |err| fatal("the editor state", @errorName(err));
+    defer ui.destroy();
     defer _ = c.BkResClose(session);
+    ui.start(first_path, first_kind);
     var tree: Tree = .{};
-    if (!tree.read(session)) fatal("the project tree", lastMessage(&host));
+    var panels: panels_mod.Panels = .{};
+    defer panels.deinit(gpa);
 
-    var quit = false;
     var frame: u32 = 0;
-    while (!quit) : (frame += 1) {
+    while (!ui.wantsQuit()) : (frame += 1) {
         if (hidden and frame >= hidden_frames) break;
         var event: sdl3.c.SDL_Event = undefined;
         while (sdl3.c.SDL_PollEvent(&event)) {
             _ = host.handleEvent(&event);
             switch (event.type) {
-                sdl3.c.SDL_EVENT_QUIT, sdl3.c.SDL_EVENT_WINDOW_CLOSE_REQUESTED => quit = true,
+                sdl3.c.SDL_EVENT_QUIT, sdl3.c.SDL_EVENT_WINDOW_CLOSE_REQUESTED => ui.requestQuit(),
                 else => {},
             }
         }
+        // The tree is read each frame: any File action may have replaced the
+        // project, and a resource tree is small.
+        if (ui.session.life.is_open) {
+            if (!tree.read(session)) tree = .{};
+        } else tree = .{};
         host.beginFrame();
-        const asked = drawMenu(&quit);
-        drawTree(&tree, kind);
+        if (imgui.c.igBeginMainMenuBar()) {
+            if (imgui.c.igBeginMenuEx("File", true)) {
+                ui.drawFileMenuItems();
+                imgui.c.igEndMenu();
+            }
+            if (imgui.c.igBeginMenuEx("Edit", true)) {
+                panels.drawEditMenuItems(gpa, ui.real.bridge(), &ui.session.life);
+                imgui.c.igEndMenu();
+            }
+            imgui.c.igEndMainMenuBar();
+        }
+        ui.handleShortcuts();
+        panels.handleShortcuts(gpa, ui.real.bridge(), &ui.session.life);
+        // The project tree and the inspector (panels.zig) replace the
+        // skeleton's read-only tree window in the interactive mode.
+        panels.draw(gpa, ui.real.bridge(), &ui.session.life, host.window);
+        ui.drawModals();
         host.endFrame() catch |err| {
             std.debug.print("resource-editor: frame {d}: {s}: {s}\n", .{ frame, @errorName(err), lastMessage(&host) });
         };
-        if (asked) |new_kind| {
-            // No unsaved-changes guard yet: nothing edits the tree until the
-            // inspector lands, so a new project loses nothing.
-            if (c.BkResNew(session, @intFromEnum(new_kind)) == c.BK_EDITOR_OK) {
-                kind = new_kind;
-                _ = tree.read(session);
-            } else {
-                std.debug.print("resource-editor: new {s} project refused: {s}\n", .{ new_kind.extension(), lastMessage(&host) });
-            }
-        }
+        ui.afterFrame(sdl3.c.SDL_GetTicks());
     }
-    if (hidden) std.debug.print("resource-editor: hidden run PASS ({d} frames, {s})\n", .{ frame, kind.extension() });
+    if (hidden) std.debug.print("resource-editor: hidden run PASS ({d} frames, {s})\n", .{ frame, if (ui.session.life.is_open) ui.session.life.doc.kind.extension() else "no project" });
 }
 
 fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, mod: ModRequest) !bool {
@@ -490,7 +518,7 @@ fn crtMain(argc: c_int, argv: ?*anyopaque) callconv(.c) c_int {
 
 fn usage() noreturn {
     crt.attachParentConsole();
-    std.debug.print("usage: ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>]\n       ResourceEditor [-mod=...] --check [<kind>] [<out.tga>]\n       ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]\n", .{});
+    std.debug.print("usage: ResourceEditor [-mod=<Folder>|-mod=None] [--hidden] [<kind>|<project>]\n       ResourceEditor [-mod=...] --check [<kind>] [<out.tga>]\n       ResourceEditor [-mod=...] --smoke [<kind>] [<out.<ext>>]\n", .{});
     std.process.exit(2);
 }
 
