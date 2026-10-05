@@ -865,6 +865,12 @@ one, the newer instruction wins, and record the change in the spec").
   Buildings (S10 T04): every shipped folder under `Data/Buildings` with a `1.xml` is imported and its
   tile-frame passability and transparency cells read (`S10Building::NegativeTiles`, line
   `NEGTILES buildings checked=N negative=M`, N and M recorded below). It is the same guard for buildings.
+  Bridges (S11 T02): every shipped folder under `Data/Bridges` is imported and each part's passability read
+  (`S11Bridge::NegativeTiles`): `NEGTILES bridges checked=21 negative=0 failed=0 parts=226`, strict as D022. The same 21
+  folders round-trip field-equal (`BRIDGES checked=21 folders=21 failed=0 fields=19083 differences=0`). A stats file keeps a
+  slab's grid origin but not the span marks it was computed from, so the importer recovers the Begin, Center and End marks from
+  the origins (own_data `Center` is new, read back by the exporter) and the shipped comparison allows 1e-3 on `Origin` fields,
+  the float cancellation of two world positions of about 700.
 
 - **Building point tools, S10 T02, T05 and T06.** The five point families (shoot, fire, smoke, directed explosion, entrance) are
   undoable commands in `resource_core/point_tools.zig`: place, move, delete, angle, cone, entrance and generate. A point and its tree

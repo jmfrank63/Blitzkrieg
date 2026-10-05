@@ -191,7 +191,7 @@ const CTreeItem *NthChild( const CTreeItem &container, std::size_t nIndex )
 // offsets from the span centre, from the constructor's values where the file has none.
 struct SFrame
 {
-	SVec3 vBegin, vEnd;
+	SVec3 vBegin, vEnd, vCenter = kCenterKrest;
 	float fFront = 0, fBack = 0;
 
 	SFrame()
@@ -207,6 +207,7 @@ SFrame ReadFrame( const NResourceXml::Node &projectElement )
 	{
 		frame.vBegin = ReadVec3( *pOwn, "Begin", frame.vBegin );
 		frame.vEnd = ReadVec3( *pOwn, "End", frame.vEnd );
+		frame.vCenter = ReadVec3( *pOwn, "Center", frame.vCenter );
 		frame.fFront = AttrFloat( *pOwn, "Front", 0 );
 		frame.fBack = AttrFloat( *pOwn, "Back", 0 );
 	}
@@ -225,7 +226,7 @@ SVec3 PapaOf( const GridProjection &projection, const SVec3 &vMark )
 
 const SVec3 &MarkOf( const SFrame &frame, int nKind )
 {
-	return nKind == 0 ? frame.vBegin : nKind == 1 ? kCenterKrest : frame.vEnd;
+	return nKind == 0 ? frame.vBegin : nKind == 1 ? frame.vCenter : frame.vEnd;
 }
 
 // SaveSegmentInformation's grids of one span: the passability grid of its
@@ -766,9 +767,43 @@ float GirderOffset( const SBridgeRPGStats &stats, bool bBack )
 	return 0;
 }
 
-SFrame ImportedFrame( const SBridgeRPGStats &stats )
+// The mark that makes a slab's origin come out of SaveSegmentInformation as the stats
+// have it. A stats file says where a grid starts, not the mark the span stood at, and the
+// origin is the mark minus the corner of the grid's first tile, so any tile gives a mark
+// that reproduces it. The tile is the one the default mark puts the grid on.
+bool MarkOfOrigin( const GridProjection &projection, const TSegment &slab, const SVec3 &vDefault, SVec3 &vMark )
+{
+	if ( slab.passability.GetSizeX() == 0 || slab.passability.GetSizeY() == 0 )
+		return false;
+	int nTileX = 0, nTileY = 0;
+	projection.FirstTileOfGrid( PapaOf( projection, vDefault ), SVec3{ slab.vOrigin.x, slab.vOrigin.y, 0 }, nTileX, nTileY );
+	const SVec3 vCorner = projection.Pos2To3( GridProjection::TileCorners( nTileX, nTileY ).c2 );
+	const SVec3 vPapa{ slab.vOrigin.x + vCorner.x, slab.vOrigin.y + vCorner.y, 0 };
+	SVec2 v2 = projection.Pos3To2( vPapa );
+	v2.x -= kZeroShift;
+	v2.y -= kZeroShift;
+	vMark = projection.Pos2To3( v2 );
+	return true;
+}
+
+SFrame ImportedFrame( const SBridgeRPGStats &stats, const GridProjection &projection )
 {
 	SFrame frame;
+	// Begin and end marks from the first span of the first stage's begin and end lists,
+	// the span that carries the grids. The centre mark is a constant of the editor, but the shipped
+	// centre grids were not all authored from it, so it is recovered as well.
+	const SBridgeRPGStats::SDamageState &first = stats.states[0];
+	for ( int nKind : { 0, 1, 2 } )
+	{
+		const std::vector<int> &list = nKind == 0 ? first.begins : nKind == 1 ? first.lines : first.ends;
+		if ( list.empty() || list[0] < 0 || list[0] >= int( first.spans.size() ) )
+			continue;
+		const int nSlab = first.spans[list[0]].nSlab;
+		if ( nSlab < 0 || nSlab >= int( stats.segments.size() ) )
+			continue;
+		SVec3 &vMark = nKind == 0 ? frame.vBegin : nKind == 1 ? frame.vCenter : frame.vEnd;
+		MarkOfOrigin( projection, stats.segments[nSlab], vMark, vMark );
+	}
 	frame.fBack = GirderOffset( stats, true );
 	frame.fFront = GirderOffset( stats, false );
 	return frame;
@@ -883,7 +918,7 @@ void BridgeStatsToTree( const SBridgeRPGStats &stats, CTreeItem &root, const Gri
 			SetValue( pDefProps, 2, defence.fSilhouette < 0 || defence.fSilhouette > 1 ? 1.0f : defence.fSilhouette );
 		}
 
-	const SFrame frame = ImportedFrame( stats );
+	const SFrame frame = ImportedFrame( stats, projection );
 	for ( int nStage = 0; nStage < 3; ++nStage )
 	{
 		CTreeItem *pStage = MutableChildOfType( root, ETIT_BRIDGE_STAGE_PROPS_ITEM, nStage );
@@ -921,13 +956,13 @@ void BridgeStatsToTree( const SBridgeRPGStats &stats, CTreeItem &root, const Gri
 	}
 }
 
-void WriteBridgeFrameData( NResourceXml::Node &root, const SBridgeRPGStats &stats )
+void WriteBridgeFrameData( NResourceXml::Node &root, const SBridgeRPGStats &stats, const GridProjection &projection )
 {
-	const SFrame frame = ImportedFrame( stats );
+	const SFrame frame = ImportedFrame( stats, projection );
 	NResourceXml::Node &ownData = ChildOrNew( root, "own_data" );
-	for ( const char *pszMark : { "Begin", "End" } )
+	for ( const char *pszMark : { "Begin", "Center", "End" } )
 	{
-		const SVec3 &v = pszMark[0] == 'B' ? frame.vBegin : frame.vEnd;
+		const SVec3 &v = pszMark[0] == 'B' ? frame.vBegin : pszMark[0] == 'C' ? frame.vCenter : frame.vEnd;
 		NResourceXml::Node &node = ChildOrNew( ownData, pszMark );
 		SetAttr( node, "x", MfcFloat( v.x ) );
 		SetAttr( node, "y", MfcFloat( v.y ) );

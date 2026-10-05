@@ -5521,6 +5521,149 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 	std::printf( "GOLDEN bdg pending: the MFC export of bdg/project.bdg is made on win-home only\n" );
 }
 
+// Every shipped bridge folder (Data/Bridges/<kind>/<nn>, the ones holding a 1.xml) imports and
+// exports stats-only to a 1.xml the engine reader finds field-equal to the shipped one. Imports run on
+// the shipped folders in place (read-only) and the listings of all of them are compared after.
+static std::vector<fs::path> ShippedFolders( const std::string &szRoot )
+{
+	std::error_code ec;
+	const fs::path bridges = T11::FoldedPath( fs::path( szRoot ) / "Data", "Bridges" );
+	std::vector<fs::path> folders;
+	for ( fs::recursive_directory_iterator it( bridges, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().filename() == "1.xml" )
+			folders.push_back( it->path().parent_path() );
+	std::sort( folders.begin(), folders.end() );
+	return folders;
+}
+
+static std::string ListingsOf( const std::vector<fs::path> &folders )
+{
+	std::string szListing;
+	for ( const fs::path &folder : folders )
+		szListing += folder.string() + "|" + S09Object::ListingOf( folder ) + "\n";
+	return szListing;
+}
+
+// A grid origin is a world position of about 700 minus another, both single floats, so the
+// recovered one is only good to about a thousandth of a world unit; every other field is
+// held to the six printed digits.
+static bool NearOrigin( const std::string &szMessage )
+{
+	if ( szMessage.find( "/Origin/" ) == std::string::npos )
+		return false;
+	const std::string::size_type nPort = szMessage.find( "port " ), nGolden = szMessage.find( "golden " );
+	if ( nPort == std::string::npos || nGolden == std::string::npos )
+		return false;
+	return std::fabs( std::strtod( szMessage.c_str() + nPort + 5, nullptr ) - std::strtod( szMessage.c_str() + nGolden + 7, nullptr ) ) <= 1e-3;
+}
+
+static void Shipped( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s11-bridge-shipped";
+	fs::remove_all( scratch, ec );
+	const std::vector<fs::path> folders = ShippedFolders( szRoot );
+	const std::string szBefore = ListingsOf( folders );
+	int nChecked = 0, nFailed = 0, nFields = 0, nDifferent = 0;
+	for ( const fs::path &folder : folders )
+	{
+		const fs::path mod = scratch / ( "mod" + std::to_string( nChecked + nFailed ) );
+		const std::string szName = folder.parent_path().filename().string() + "/" + folder.filename().string();
+		if ( BkResImportFromGame( pSession, 10, folder.string().c_str() ) != BK_EDITOR_OK )
+		{
+			++nFailed;
+			std::printf( "   BRIDGES import failed: %s: %s\n", folder.string().c_str(), BkEditorLastMessage( pSession ) );
+			BkResClose( pSession );
+			continue;
+		}
+		const bool bExported = S09Object::ExportStatsOnly( pSession, mod, "S11 bridge shipped", "bdg" );
+		const std::string szExportMessage = bExported ? "" : BkEditorLastMessage( pSession );
+		BkResClose( pSession );
+		const fs::path xml = S09Object::FindFile( mod / "data", "1.xml" );
+		if ( !bExported || xml.empty() )
+		{
+			++nFailed;
+			std::printf( "   BRIDGES export failed: %s: %s\n", folder.string().c_str(), szExportMessage.c_str() );
+			continue;
+		}
+		const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::BRIDGE, xml.string(), T11::FoldedPath( folder, "1.xml" ).string() );
+		int nHere = 0;
+		for ( const std::string &szMessage : result.messages )
+			if ( !S09Object::NearFloat( szMessage ) && !NearOrigin( szMessage ) )
+			{
+				++nHere;
+				std::printf( "   DIFFERENT %s: %s\n", szName.c_str(), szMessage.c_str() );
+			}
+		nFields += result.nFieldsCompared;
+		nDifferent += nHere;
+		if ( result.nFieldsCompared <= 5 )
+		{
+			++nFailed;
+			std::printf( "   BRIDGES too few fields compared: %s (%d)\n", folder.string().c_str(), result.nFieldsCompared );
+			continue;
+		}
+		++nChecked;
+	}
+	std::printf( "BRIDGES checked=%d folders=%d failed=%d fields=%d differences=%d\n", nChecked, int( folders.size() ), nFailed, nFields, nDifferent );
+	Check( !folders.empty() && nChecked == int( folders.size() ) && nFailed == 0, "bridge shipped: every shipped bridge folder was imported and exported" );
+	Check( nDifferent == 0, "bridge shipped: every shipped bridge is field-equal to its 1.xml after the round trip" );
+	Check( ListingsOf( folders ) == szBefore, "bridge shipped: nothing was written into Data" );
+}
+
+// D021 for bridges: a part's passability is a tile-frame channel that refuses a tile left of or
+// above (0, 0). Every shipped bridge is imported and the grid of every part node read. Strict
+// (D022): any failure other than that refusal is a failure of its own, and the number of
+// folders checked must equal the number found.
+static void NegativeTiles( BkResSession *pSession, const std::string &szRoot )
+{
+	const std::vector<fs::path> folders = ShippedFolders( szRoot );
+	const std::string szBefore = ListingsOf( folders );
+	int nChecked = 0, nNegative = 0, nFailed = 0, nParts = 0;
+	for ( const fs::path &folder : folders )
+	{
+		if ( BkResImportFromGame( pSession, 10, folder.string().c_str() ) != BK_EDITOR_OK )
+		{
+			++nFailed;
+			std::printf( "   NEGTILES import failed: %s: %s\n", folder.string().c_str(), BkEditorLastMessage( pSession ) );
+			BkResClose( pSession );
+			continue;
+		}
+		bool bNegative = false, bFailed = false;
+		for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+		{
+			if ( node.class_type != NResourceModel::ETIT_BRIDGE_PARTS_ITEM )
+				continue;
+			++nParts;
+			int w = 0, h = 0;
+			const BkEditorStatus status = BkResGetLockedTiles( pSession, node.id, nullptr, 0, &w, &h );
+			if ( status == BK_EDITOR_OK )
+				continue;
+			if ( std::strstr( BkEditorLastMessage( pSession ), "left of or above" ) )
+				bNegative = true;
+			else
+			{
+				bFailed = true;
+				std::printf( "   NEGTILES read failed: %s: %s\n", folder.string().c_str(), BkEditorLastMessage( pSession ) );
+			}
+		}
+		if ( bFailed )
+			++nFailed;
+		else
+			++nChecked;
+		if ( bNegative )
+		{
+			++nNegative;
+			std::printf( "   NEGTILES offender: %s\n", folder.string().c_str() );
+		}
+		BkResClose( pSession );
+	}
+	std::printf( "NEGTILES bridges checked=%d negative=%d failed=%d parts=%d\n", nChecked, nNegative, nFailed, nParts );
+	Check( !folders.empty() && nChecked == int( folders.size() ) && nFailed == 0, "bridge negtiles: every shipped bridge was imported and its part grids read" );
+	Check( nParts > 0, "bridge negtiles: the shipped bridges have part nodes" );
+	Check( nNegative == 0, "bridge negtiles: no shipped bridge has a tile left of or above (0, 0)" );
+	Check( ListingsOf( folders ) == szBefore, "bridge negtiles: nothing was written into Data" );
+}
+
 }
 
 // S10 T03: the building exporter and importer on the fixture (a copy under
@@ -6390,6 +6533,9 @@ int main( int argc, char **argv )
 	S09Channels::Building( pSession, szFixtureRoot, szScratchRoot );
 	// S11 T01: the bridge exporter and importer.
 	S11Bridge::Fixture( pSession, szFixtureRoot, szScratchRoot );
+	// S11 T02: every shipped bridge's round trip and the bridge negative-tile guard.
+	S11Bridge::Shipped( pSession, pszRoot, szScratchRoot );
+	S11Bridge::NegativeTiles( pSession, pszRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

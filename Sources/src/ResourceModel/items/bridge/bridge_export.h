@@ -42,9 +42,10 @@ namespace NResourceModel
 // run). name is the project's name.
 void BridgeStatsToTree( const SBridgeRPGStats &stats, CTreeItem &root, const GridProjection &projection, const std::string &szName );
 
-// LoadRPGStats' frame half: own_data with the default Begin and End marks and
+// LoadRPGStats' frame half: own_data with the Begin, Center and End marks that reproduce the
+// slabs' grid origins (the ones BridgeStatsToTree places the tiles from) and
 // the Front and Back offsets of the girders' relative positions, and the "RPG"
 // chunk with the stats' fire, smoke and directed-explosion points.
-void WriteBridgeFrameData( NResourceXml::Node &root, const SBridgeRPGStats &stats );
+void WriteBridgeFrameData( NResourceXml::Node &root, const SBridgeRPGStats &stats, const GridProjection &projection );
 
 }

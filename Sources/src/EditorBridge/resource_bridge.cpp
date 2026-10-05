@@ -5899,7 +5899,12 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 			if ( bBuildingFrame )
 				NResourceModel::WriteBuildingFrameData( pStaged->document.root, buildingStats );
 			else if ( bBridgeFrame )
-				NResourceModel::WriteBridgeFrameData( pStaged->document.root, bridgeStats );
+			{
+				NResourceModel::SGroundCamera camera;
+				if ( !SceneGroundCamera( camera ) )
+					camera = NResourceModel::DefaultEditorCamera();
+				NResourceModel::WriteBridgeFrameData( pStaged->document.root, bridgeStats, NResourceModel::GridProjection( camera ) );
+			}
 			else
 				NResourceModel::WriteObjectFrameData( *pStaged, objectFrame );
 			szRendered = NResourceXml::Serialise( pStaged->document );
