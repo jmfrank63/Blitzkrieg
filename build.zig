@@ -2922,7 +2922,7 @@ pub fn build(b: *std.Build) void {
     editor_kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
     const editor_kit_tests = b.addTest(.{ .root_module = editor_kit_module });
     const editor_kit_tests_run = b.addRunArtifact(editor_kit_tests);
-    const editor_kit_step = b.step("test-editor-kit", "Run the Map Editor kit tests (reusable editor plumbing, no engine bridge)");
+    const editor_kit_step = b.step("test-editor-kit", "Run the editor kit tests (reusable editor plumbing shared by the Zig editors)");
     editor_kit_step.dependOn(&editor_kit_tests.step);
     if (test_mode == .run) editor_kit_step.dependOn(&editor_kit_tests_run.step);
     test_step.dependOn(editor_kit_step);

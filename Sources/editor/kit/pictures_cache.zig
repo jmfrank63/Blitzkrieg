@@ -161,6 +161,9 @@ pub const Cache = struct {
     }
 
     pub fn initWith(allocator: std.mem.Allocator, decode_max_side: i32) Cache {
+        // `pump` decodes into a fixed buffer sized for the default side, so a
+        // larger side would let a decoder that trusts it write past the end.
+        std.debug.assert(decode_max_side > 0 and decode_max_side <= default_decode_max_side);
         return .{ .allocator = allocator, .queue = PictureQueue.init(allocator), .decode_max_side = decode_max_side };
     }
 

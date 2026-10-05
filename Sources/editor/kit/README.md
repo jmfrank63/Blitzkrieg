@@ -1,6 +1,7 @@
 # editor_kit — the Zig editor kit
 
-Reusable editor plumbing with no engine-bridge or MapEditor-specific types.
+Reusable editor plumbing with no MapEditor-specific types. Only `host` touches
+the engine: it starts it through the shared `BkEditor*` C ABI (`bridge.h`).
 Any Zig editor on the kit (MapEditor, ResourceEditor, Mission, …) gets the
 same `files`, `shipped`, `script_file`, `autosave`, `history`, `settings`,
 `host`, `crt`, `imgui`, `auto_schedule`, `pictures_cache` and `testlaunch`
@@ -50,8 +51,8 @@ The autosave schedule and target (D-20..D-22): `Autosave` holds `enabled`,
 `interval_ms`, `dirty_since_ms`, `last_write_ms`; `due` returns whether a
 write is now due; `target(needs_save_as)` picks between `map_file` and
 `recovery_copy`. `recoveryName(buffer, doc_path, extension)` builds the
-`<name>.recovery.<ext>` filename beside the map; MapEditor passes `".bzm"`.
-Map-neutral: takes a `comptime extension`-shaped argument so a resource or
+recovery file name `<stem><extension>` from the document's stem; MapEditor
+passes `".bzm"`. The extension is a run-time argument, so a resource or
 mission editor threads its own.
 
 ## history
@@ -75,7 +76,8 @@ every field. Duck-typed helpers (`applyGenericKey`, `writeGenericKeys`,
 `setGameParametersField`, `hasControl`, `formatExtension`) let a composed
 caller like MapEditor's `core/settings.zig` share one parser/writer with its
 own sidecar fields and keep `mapeditor.cfg`'s on-disk byte order unchanged.
-Map-neutral: the generic struct carries no map-only fields.
+Not yet fully map-neutral: `Format` is `bzm`/`xml` and the folder key is
+`maps_folder`; a second editor generalises these when it composes the kit.
 
 ## host
 
@@ -103,22 +105,20 @@ this root. Map-neutral.
 ## auto_schedule
 
 `BK_EDITOR_AUTO="frame:action,frame:action,…"` grammar, parser, synthetic-
-event step driver and TGA-compare primitives: generic over an `Action` enum
-the caller provides and a `dispatch(action) !void` callback the caller plugs
-in. MapEditor's `app/auto.zig` resolves `tool=label` / `do=<named_cmd>` into
-its own action enum and plugs in MapEditor's commands; a different editor can
-plug in its own vocabulary and reuse the whole frame-scheduling, keypress,
-mouse-gesture, TGA-screenshot and exit-code machinery unchanged. Map-neutral:
-takes a `comptime Action` and a dispatch callback.
+event step driver and TGA-compare primitives. The `Action` union is fixed
+(keys, mouse gestures, `tool=` / `do=` labels, screenshots, exit); the caller
+resolves the labels against its own vocabulary. MapEditor's `app/auto.zig`
+re-exports this module unchanged.
 
 ## pictures_cache
 
 Per-name picture cache (D-29): an ordered request queue with a per-frame
 decode budget, one SDL_GPU texture per decoded name, a `missing` set the
 queue refuses to re-queue until `clear`. Parameterised on a decoder callback
-`fn (name, out) !void` — MapEditor plugs in `BkEditorObjectPicture` /
-`BkEditorTilePicture`, another editor plugs in its own decoder. Map-neutral:
-takes a decoder callback and knows nothing of the engine bridge.
+`fn (ctx, name, pixel_buffer, max_side) ?Decoded` — MapEditor plugs in
+`BkEditorObjectPicture` / `BkEditorTilePicture`, another editor plugs in its
+own decoder. Map-neutral: takes a decoder callback and knows nothing of the
+engine bridge.
 
 ## testlaunch
 
