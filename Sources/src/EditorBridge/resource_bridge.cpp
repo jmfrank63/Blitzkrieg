@@ -4007,7 +4007,9 @@ const float kPreviewCellSize = 32.0f;
 // one-particle effect and built that, and so does the preview
 // (WrapParticleSource). A squad is no visual either: SquadFrm's view builds
 // one sprite per member of the active formation, so the preview does
-// (BuildSquadMembers) and its export names no visual. A weapon has no entry:
+// (BuildSquadMembers) and its export names no visual. An object and a fence
+// build the sprite their export composed, as ObjectFrm and FenceFrm do.
+// A weapon has no entry:
 // WeaponFrm draws nothing (D015).
 struct PreviewKind
 {
@@ -4027,6 +4029,8 @@ const PreviewKind kPreviewKinds[] =
 	{ 1,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // mcp: the composed sprite "1" the game builds for the mine
 	{ 2,  SGVOT_MESH,   SGVOGT_ENTRENCHMENT, false },  // trc: the entrenchment model, TrenchFrm.cpp:238
 	{ 3,  SGVOT_SPRITE, SGVOGT_UNIT,   false, true },  // scp: member sprites, SquadFrm.cpp:344-364
+	{ 7,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // obt: the composed object sprite, ObjectFrm.cpp:1295
+	{ 8,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // fnc: the active segment's sprite, FenceFrm.cpp:665
 };
 
 const PreviewKind *FindPreviewKind( int nKind )

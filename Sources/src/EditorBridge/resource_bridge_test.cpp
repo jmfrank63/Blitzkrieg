@@ -4364,6 +4364,20 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		Capture( pSession, { "trench", 2, 0.0001 }, dir / "project.trc", scratch, szFixtureRoot );
 	}
 
+	// The object and the fence: the generated fixture art, composed on export.
+	{
+		const fs::path dir = scratch / "obt";
+		fs::create_directories( dir, ec );
+		fs::copy( fs::path( szFixtureRoot ) / "obt", dir, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec );
+		Capture( pSession, { "object", 7, 0.0001 }, dir / "project.obt", scratch, szFixtureRoot );
+	}
+	{
+		const fs::path dir = scratch / "fnc";
+		fs::create_directories( dir, ec );
+		fs::copy( fs::path( szFixtureRoot ) / "fnc", dir, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec );
+		Capture( pSession, { "fence", 8, 0.0001 }, dir / "project.fnc", scratch, szFixtureRoot );
+	}
+
 	// The squad: the shipped german_rifle_45 imported into a project.
 	{
 		const fs::path dir = scratch / "scp";

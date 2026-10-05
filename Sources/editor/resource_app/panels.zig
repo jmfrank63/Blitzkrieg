@@ -13,6 +13,7 @@ const logic = @import("panels_logic.zig");
 const edit = @import("edit_logic.zig");
 const squad = @import("squad_logic.zig");
 const mesh = @import("mesh_logic.zig");
+const grid = @import("grid_logic.zig");
 
 const ig = imgui.c;
 const bridge = core.bridge;
@@ -110,6 +111,10 @@ pub const Panels = struct {
     /// The unit preview's toolbar and the markers it last read.
     mesh_toolbar: mesh.Toolbar = .{},
     mesh_locators: [mesh.locator_capacity]bridge.MeshLocator = undefined,
+    /// The Object and Fence editors' grid tools: the editor in use and the
+    /// overlay's zoom.
+    grid_editor: ?grid.GridEditor = null,
+    grid_zoom: f32 = 1,
     status: [256]u8 = undefined,
     status_len: usize = 0,
 
@@ -247,6 +252,12 @@ pub const Panels = struct {
         self.drawInspector(gpa, b, life, window);
         if (life.active == .squad) self.drawFormation(gpa, b, life) else self.overlay = null;
         if (life.active == .mesh_unit) self.drawMeshPreview(gpa, b, life) else self.mesh_toolbar.reset();
+        if (grid.registrationFor(life.doc.kind) != null) {
+            self.drawGridFrame(gpa, b, life);
+        } else if (self.grid_editor) |*editor| {
+            editor.cancel(b);
+            self.grid_editor = null;
+        }
         self.drawRename(gpa, b, life);
         self.drawPicker(gpa, b, life);
         self.takeBrowse(gpa, b, life);
@@ -489,6 +500,197 @@ pub const Panels = struct {
                 },
             }
         }
+    }
+
+    /// GridFrm's tools for the Object and Fence editors: the toolbar window,
+    /// then the grid, tiles, one-way lines and zero drawn over the preview.
+    /// The tools and their undo steps are grid_logic's GridEditor; this only
+    /// draws and feeds it the mouse.
+    fn drawGridFrame(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
+        const registration = grid.registrationFor(life.doc.kind) orelse return;
+        const display = ig.igGetIO().*.DisplaySize;
+        ig.igSetNextWindowPosEx(.{ .x = display.x / 2, .y = 28 }, ig.ImGuiCond_FirstUseEver, .{ .x = 0.5, .y = 0 });
+        ig.igSetNextWindowSize(.{ .x = 0, .y = 0 }, ig.ImGuiCond_FirstUseEver);
+        defer ig.igEnd();
+        if (!ig.igBegin("Grid tools###grid_frame", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) return;
+        if (life.doc.kind == .fence) self.drawFenceLists(gpa, life);
+        const node = grid.targetNode(&life.doc, life.doc.kind, self.selection.primary) orelse {
+            ig.igTextDisabled("This fence has no segment yet: double-click a picture in Thumbnails.");
+            return;
+        };
+        if (self.grid_editor == null) {
+            self.grid_editor = grid.GridEditor.init(gpa, registration, node);
+        } else if (self.grid_editor.?.node != node) {
+            // Another segment: the tool and the transparency value stay, the gesture goes.
+            const editor = &self.grid_editor.?;
+            editor.cancel(b);
+            editor.node = node;
+            editor.line_tool = core.grid_tools.TransLineTool.init(node);
+        }
+        const editor = &self.grid_editor.?;
+        const can_edit = !life.read_only;
+
+        for (registration.tools, 0..) |tool, i| {
+            if (i != 0) ig.igSameLine();
+            if (ig.igRadioButton(tool.label().ptr, editor.tool == tool)) editor.setTool(b, tool) catch |err| self.report(b, "grid tool", err);
+        }
+        if (editor.tool == .draw_transparency) {
+            var label: [4:0]u8 = undefined;
+            _ = std.fmt.bufPrintZ(&label, "{d}", .{editor.transparency_value}) catch {};
+            if (ig.igBeginCombo("Transparency", &label, 0)) {
+                var value: u8 = 1;
+                while (value <= core.grid_tools.max_transparency_value) : (value += 1) {
+                    var item: [4:0]u8 = undefined;
+                    _ = std.fmt.bufPrintZ(&item, "{d}", .{value}) catch {};
+                    if (ig.igSelectableEx(&item, value == editor.transparency_value, 0, .{ .x = 0, .y = 0 })) editor.setTransparency(value);
+                }
+                ig.igEndCombo();
+            }
+        }
+        if (can_edit) {
+            const channels = [_]struct { label: [:0]const u8, channel: core.bridge.GeometryChannel }{
+                .{ .label = "Clear locked tiles", .channel = registration.passability },
+                .{ .label = "Clear transparency", .channel = registration.transparency },
+            };
+            for (channels, 0..) |entry, i| {
+                if (i != 0) ig.igSameLine();
+                if (!ig.igButton(entry.label.ptr)) continue;
+                const command = core.grid_tools.clearGrid(gpa, b, node, entry.channel) catch |err| {
+                    self.report(b, "clear", err);
+                    continue;
+                };
+                if (command) |c| core.sub_editor_tools.commit(gpa, b, &life.doc, &life.history, c, 0) catch |err| self.report(b, "clear", err);
+            }
+        }
+        _ = ig.igSliderFloat("Zoom", &self.grid_zoom, 0.25, 3);
+        var line: [96]u8 = undefined;
+        const text = editor.statusLine(&line);
+        ig.igTextUnformattedEx(text.ptr, text.ptr + text.len);
+
+        self.drawGridOverlay(b, life, editor, node, registration, can_edit);
+    }
+
+    /// FenceFrm's two thumbnail lists as tree selections: the insert types
+    /// (SetActiveFenceInsertItem) and the active type's segments
+    /// (ClickOnThumbList). A double-click on a picture in the Thumbnails dock
+    /// adds a segment (DoubleClickOnThumbList).
+    fn drawFenceLists(self: *Panels, gpa: std.mem.Allocator, life: *logic.Lifecycle) void {
+        const insert = grid.activeInsert(&life.doc, self.selection.primary);
+        var current: [bridge.name_capacity + 8:0]u8 = undefined;
+        const current_name = if (insert) |id| (if (edit.findNode(&life.doc, id)) |n| n.displaySlice() else "") else "(none)";
+        _ = std.fmt.bufPrintZ(&current, "{s}", .{current_name}) catch {};
+        if (ig.igBeginCombo("Insert type", &current, 0)) {
+            for (life.doc.tree.nodes.items) |*node| {
+                if (!core.sub_editor_tools.isClass(node, core.sub_editor_tools.item_type.fence_insert)) continue;
+                var label: [bridge.name_capacity + 16:0]u8 = undefined;
+                _ = std.fmt.bufPrintZ(&label, "{s}##insert{d}", .{ node.displaySlice(), node.id }) catch {};
+                if (ig.igSelectableEx(&label, insert != null and insert.? == node.id, 0, .{ .x = 0, .y = 0 })) self.selection.only(gpa, node.id) catch {};
+            }
+            ig.igEndCombo();
+        }
+        const active = insert orelse return;
+        const chosen = grid.targetNode(&life.doc, .fence, self.selection.primary);
+        for (life.doc.tree.nodes.items) |*node| {
+            if (node.parent != active or !core.sub_editor_tools.isClass(node, core.sub_editor_tools.item_type.fence_props)) continue;
+            var label: [bridge.name_capacity + 16:0]u8 = undefined;
+            _ = std.fmt.bufPrintZ(&label, "{s}##segment{d}", .{ node.displaySlice(), node.id }) catch {};
+            if (ig.igSelectableEx(&label, chosen != null and chosen.? == node.id, 0, .{ .x = 0, .y = 0 })) self.selection.only(gpa, node.id) catch {};
+        }
+    }
+
+    /// The overlay over the preview: the 60 x 60 grid, the transparency and
+    /// locked tiles in GridFrm's colours, the one-way lines, the zero point
+    /// (object) or sprite place (fence), then the mouse.
+    fn drawGridOverlay(self: *Panels, b: ResBridge, life: *logic.Lifecycle, editor: *grid.GridEditor, node: i32, registration: grid.Registration, can_edit: bool) void {
+        const tools = core.sub_editor_tools;
+        const gpa = editor.allocator;
+        const io = ig.igGetIO();
+        const display = io.*.DisplaySize;
+        const anchor_channel: core.bridge.GeometryChannel = if (life.doc.kind == .object) .zero_point else .sprite_pos;
+        const anchor = (tools.readGeometry(b, node, anchor_channel) catch return).point2;
+        // The preview puts the object at the middle of the window; its zero
+        // point (object) or sprite place (fence) is the grid's anchor there.
+        if (!editor.busy()) {
+            const at_anchor = grid.worldToGrid(anchor);
+            editor.view = .{
+                .origin = .{ .x = display.x / 2 - at_anchor.x * self.grid_zoom, .y = display.y / 2 - at_anchor.y * self.grid_zoom },
+                .scale = self.grid_zoom,
+            };
+        }
+        const view = editor.view;
+        const draw_list = ig.igGetBackgroundDrawList();
+
+        const layers = [_]struct { channel: core.bridge.GeometryChannel, transparency: bool }{
+            .{ .channel = registration.transparency, .transparency = true },
+            .{ .channel = registration.passability, .transparency = false },
+        };
+        for (layers) |layer| {
+            var cells = tools.readGeometry(b, node, layer.channel) catch continue;
+            defer cells.deinit(gpa);
+            const width: usize = @intCast(cells.bytes_grid.width);
+            for (cells.bytes_grid.bytes, 0..) |value, i| {
+                const colour = (if (layer.transparency) grid.transparencyColor(value) else grid.passabilityColor(value)) orelse continue;
+                const corners = tileQuad(view, @intCast(i % width), @intCast(i / width));
+                ig.ImDrawList_AddQuadFilled(draw_list, corners[0], corners[1], corners[2], corners[3], grid.toImGui(colour));
+            }
+        }
+        const line_colour = grid.toImGui(grid.grid_line_color);
+        var i: i32 = 0;
+        while (i <= grid.grid_tiles) : (i += 1) {
+            const along_x = [2]ig.ImVec2{ screenOf(view, grid.tileCorners(0, i).c2), screenOf(view, grid.tileCorners(grid.grid_tiles, i).c2) };
+            const along_y = [2]ig.ImVec2{ screenOf(view, grid.tileCorners(i, 0).c2), screenOf(view, grid.tileCorners(i, grid.grid_tiles).c2) };
+            ig.ImDrawList_AddLineEx(draw_list, along_x[0], along_x[1], line_colour, 1);
+            ig.ImDrawList_AddLineEx(draw_list, along_y[0], along_y[1], line_colour, 1);
+        }
+        if (registration.has(.one_way_line)) {
+            if (tools.readGeometry(b, node, .transparency_lines)) |lines_value| {
+                var lines = lines_value;
+                defer lines.deinit(gpa);
+                var k: usize = 0;
+                while (k + 1 < lines.points2.len) : (k += 2) {
+                    const selected = editor.line_tool.selected != null and editor.line_tool.selected.? == k / 2;
+                    ig.ImDrawList_AddLineEx(draw_list, screenOf(view, lines.points2[k]), screenOf(view, lines.points2[k + 1]), grid.toImGui(grid.trans_line_color), if (selected) 3 else 1);
+                }
+            } else |_| {}
+            if (editor.line_tool.dragging) {
+                ig.ImDrawList_AddLineEx(draw_list, screenOf(view, editor.line_tool.p1), screenOf(view, editor.line_tool.p2), grid.toImGui(grid.trans_line_color), 2);
+            }
+        }
+        const marker = screenOf(view, grid.worldToGrid(anchor));
+        if (life.doc.kind == .object) {
+            const cross = grid.toImGui(grid.zero_cross_color);
+            ig.ImDrawList_AddLineEx(draw_list, .{ .x = marker.x - 8, .y = marker.y }, .{ .x = marker.x + 8, .y = marker.y }, cross, 2);
+            ig.ImDrawList_AddLineEx(draw_list, .{ .x = marker.x, .y = marker.y - 8 }, .{ .x = marker.x, .y = marker.y + 8 }, cross, 2);
+        } else {
+            ig.ImDrawList_AddCircle(draw_list, marker, 5, grid.toImGui(0xffffffff));
+        }
+        if (editor.hover) |tile| {
+            const corners = tileQuad(view, tile[0], tile[1]);
+            ig.ImDrawList_AddQuad(draw_list, corners[0], corners[1], corners[2], corners[3], grid.toImGui(0xffffffff));
+        }
+
+        const mouse = ig.igGetMousePos();
+        const at: Point2 = .{ .x = mouse.x, .y = mouse.y };
+        if (!can_edit or (io.*.WantCaptureMouse and !editor.busy())) {
+            // The hover still follows over free ground; over a window it does not.
+            if (!io.*.WantCaptureMouse) editor.move(b, at) catch {};
+            return;
+        }
+        const left: c_int = ig.ImGuiMouseButton_Left;
+        const right: c_int = ig.ImGuiMouseButton_Right;
+        if (ig.igIsMouseClickedEx(left, false)) editor.press(b, at, false) catch |err| self.report(b, "grid tool", err);
+        if (ig.igIsMouseClickedEx(right, false)) {
+            if (editor.tool == .one_way_line) {
+                editor.rightClick(b, &life.doc, &life.history) catch |err| self.report(b, "grid tool", err);
+            } else {
+                editor.press(b, at, true) catch |err| self.report(b, "grid tool", err);
+            }
+        }
+        editor.move(b, at) catch |err| self.report(b, "grid tool", err);
+        if (ig.igIsMouseReleased(left)) editor.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "grid tool", err);
+        // The right button's release ends an erase stroke; with no stroke it must not set a zero or centre the sprite.
+        if (ig.igIsMouseReleased(right) and editor.busy()) editor.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "grid tool", err);
+        if (ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) editor.cancel(b);
     }
 
     fn drawRename(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
@@ -772,3 +974,14 @@ pub const Panels = struct {
         }
     }
 };
+
+fn screenOf(view: grid.View, grid_point: Point2) ig.ImVec2 {
+    const p = view.toScreen(grid_point);
+    return .{ .x = p.x, .y = p.y };
+}
+
+/// A tile's four corners in the window, in perimeter order.
+fn tileQuad(view: grid.View, tx: i32, ty: i32) [4]ig.ImVec2 {
+    const c = grid.tileCorners(tx, ty);
+    return .{ screenOf(view, c.c2), screenOf(view, c.c3), screenOf(view, c.c4), screenOf(view, c.c1) };
+}

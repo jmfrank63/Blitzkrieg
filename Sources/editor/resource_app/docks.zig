@@ -345,7 +345,7 @@ pub const Docks = struct {
     /// as a frame (SpriteFrm and AnimationFrm DoubleClickOnThumbList).
     fn frameFromPicture(self: *Docks, life: *logic.Lifecycle, selected: ?i32, name: []const u8) void {
         dl.addFrameFromPicture(self.gpa, self.real.bridge(), life, selected, name) catch |err| switch (err) {
-            error.Refused => self.thumbs.say("{s}: only a sprite or an infantry project takes a frame, and not read-only", .{name}),
+            error.Refused => self.thumbs.say("{s}: only a sprite, infantry or fence project takes a picture (not read-only, and a fence not twice)", .{name}),
             else => self.thumbs.say("{s}: the frame was not added ({s})", .{ name, @errorName(err) }),
         };
     }
