@@ -171,6 +171,20 @@ pub const MeshLocator = struct {
     }
 };
 
+/// BkResKeyframeKnobs: what CKeyFrameEditor::SetDimentions took from a
+/// Particle curve item - the range the curve is clamped to, the step its
+/// nodes snap to, and whether the range grows with the keys. The defaults are
+/// the plain CKeyFrameTreeItem's.
+pub const KeyframeKnobs = struct {
+    min_x: f32 = 0.0,
+    max_x: f32 = 1.0,
+    min_y: f32 = 0.0,
+    max_y: f32 = 1.0,
+    step_x: f32 = 0.1,
+    step_y: f32 = 0.1,
+    resize_mode: bool = false,
+};
+
 /// One reference entry (BkResReferenceEntry): a stable token the project
 /// writes and the choice offered.
 pub const reference_name_capacity: usize = 128;
@@ -470,6 +484,12 @@ pub const ResBridge = struct {
         /// BkResMeshLocators: two-pass read of the shown model's skeleton
         /// nodes with their positions.
         meshLocators: *const fn (ptr: *anyopaque, out: []MeshLocator, total: *usize) Status,
+        /// BkResGetKeyframeKnobs: the range, step and resize mode of a
+        /// key-frame curve node; bad_argument for a node that is not one.
+        keyframeKnobs: *const fn (ptr: *anyopaque, node: i32, out: *KeyframeKnobs) Status,
+        /// BkResPreviewCameraMode: MFC's Camera button, the horizontal
+        /// camera (true) or the default one (false).
+        previewCameraMode: *const fn (ptr: *anyopaque, horizontal: bool) Status,
     };
 
     pub fn lastMessage(self: ResBridge) []const u8 {
@@ -576,6 +596,12 @@ pub const ResBridge = struct {
     }
     pub fn meshLocators(self: ResBridge, out: []MeshLocator, total: *usize) Status {
         return self.vtable.meshLocators(self.ptr, out, total);
+    }
+    pub fn keyframeKnobs(self: ResBridge, node: i32, out: *KeyframeKnobs) Status {
+        return self.vtable.keyframeKnobs(self.ptr, node, out);
+    }
+    pub fn previewCameraMode(self: ResBridge, horizontal: bool) Status {
+        return self.vtable.previewCameraMode(self.ptr, horizontal);
     }
 };
 

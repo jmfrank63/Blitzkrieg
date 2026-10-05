@@ -4954,6 +4954,76 @@ BkEditorStatus BkResPreviewCamera( BkResSession *pSession, float fX, float fY, i
 	} );
 }
 
+BkEditorStatus BkResPreviewCameraMode( BkResSession *pSession, int nHorizontal )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bPreview )
+		{
+			pSession->szMessage = "no preview: call BkResPreviewBegin first";
+			return BK_EDITOR_REFUSED;
+		}
+		ICamera *pCamera = GetSingleton<ICamera>();
+		if ( pCamera == nullptr )
+		{
+			pSession->szMessage = "there is no camera";
+			return BK_EDITOR_FAILED;
+		}
+		pCamera->Update();
+		const CVec3 vAnchor = pCamera->GetAnchor();
+		if ( nHorizontal != 0 )
+		{
+			// SetHorizontalCamera's angles, over the anchor and distance the
+			// preview camera has (MFC's placed it at the origin; the preview
+			// scene is built about its own origin).
+			IGFX *pGFX = GetSingleton<IGFX>();
+			const RECT rcScreen = pGFX != nullptr ? pGFX->GetScreenRect() : RECT();
+			const float fHeight = float( rcScreen.bottom - rcScreen.top );
+			pCamera->SetPlacement( vAnchor, 1024 * 4 + fHeight, -ToRadian( 90.0f ), ToRadian( 45.0f ) );
+			pCamera->Update();
+		}
+		else if ( !SetSessionCamera( pSession, vAnchor.x, vAnchor.y ) )
+			return BK_EDITOR_FAILED;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResGetKeyframeKnobs( BkResSession *pSession, int nNodeId, BkResKeyframeKnobs *pOut )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == nullptr )
+			return BK_EDITOR_BAD_ARGUMENT;
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bOpen )
+		{
+			pSession->szMessage = "no project is open";
+			return BK_EDITOR_REFUSED;
+		}
+		auto itItem = state.idToItem.find( nNodeId );
+		if ( itItem == state.idToItem.end() )
+		{
+			pSession->szMessage = "unknown node id";
+			return BK_EDITOR_REFUSED;
+		}
+		const auto *pKeys = dynamic_cast<const NResourceModel::CKeyFrameTreeItem *>( itItem->second );
+		if ( pKeys == nullptr )
+		{
+			pSession->szMessage = "the node is not a key-frame curve";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		pOut->min_x = pKeys->fMinValX;
+		pOut->max_x = pKeys->fMaxValX;
+		pOut->min_y = pKeys->fMinValY;
+		pOut->max_y = pKeys->fMaxValY;
+		pOut->step_x = pKeys->fStepX;
+		pOut->step_y = pKeys->fStepY;
+		pOut->resize_mode = pKeys->bResizeMode ? 1 : 0;
+		return BK_EDITOR_OK;
+	} );
+}
+
 /* ---- Import ----------------------------------------------------------- */
 
 extern "C++" {

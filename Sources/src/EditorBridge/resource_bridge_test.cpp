@@ -2381,6 +2381,76 @@ static int PreviewFolders()
 	return nFound;
 }
 
+// ParticleTreeItem.cpp's InitDefaultValues, one row per curve item type:
+// min/max/step of X, min/max/step of Y. Every curve is in resize mode and
+// spans x 0..1 in steps of 0.05, which the rows below do not repeat.
+struct KnobRow
+{
+	int nType;
+	float fMinY, fMaxY, fStepY;
+};
+
+static const KnobRow kKnobRows[] = {
+	{ NResourceModel::ETIT_PARTICLE_GENERATE_SPEED_ITEM,       0.0f,   2.0f,    0.1f },
+	{ NResourceModel::ETIT_PARTICLE_RAND_SPEED_ITEM,           0.0f,   1.0f,    0.1f },
+	{ NResourceModel::ETIT_PARTICLE_GENERATE_LIFE_ITEM,        100.0f, 5000.0f, 100.0f },
+	{ NResourceModel::ETIT_PARTICLE_RAND_LIFE_ITEM,            0.0f,   1.0f,    0.1f },
+	{ NResourceModel::ETIT_PARTICLE_GENERATE_SPIN_ITEM,        0.0f,   0.1f,    0.005f },
+	{ NResourceModel::ETIT_PARTICLE_GENERATE_RANDOM_SPIN_ITEM, 0.0f,   1.0f,    0.1f },
+	{ NResourceModel::ETIT_PARTICLE_GENERATE_AREA_ITEM,        0.0f,   100.0f,  5.0f },
+	{ NResourceModel::ETIT_PARTICLE_GENERATE_ANGLE_ITEM,       0.0f,   360.0f,  20.0f },
+	{ NResourceModel::ETIT_PARTICLE_GENERATE_DENSITY_ITEM,     0.0f,   0.5f,    0.005f },
+	{ NResourceModel::ETIT_PARTICLE_GENERATE_OPACITY_ITEM,     0.0f,   255.0f,  10.0f },
+	{ NResourceModel::ETIT_PARTICLE_SPIN_ITEM,                 0.0f,   1.0f,    0.05f },
+	{ NResourceModel::ETIT_PARTICLE_WEIGHT_ITEM,               -5.0f,  5.0f,    0.5f },
+	{ NResourceModel::ETIT_PARTICLE_SPEED_ITEM,                0.0f,   1.0f,    0.05f },
+	{ NResourceModel::ETIT_PARTICLE_C_RANDOM_SPEED_ITEM,       0.0f,   1.0f,    0.05f },
+	{ NResourceModel::ETIT_PARTICLE_SIZE_ITEM,                 0.0f,   200.0f,  10.0f },
+	{ NResourceModel::ETIT_PARTICLE_OPACITY_ITEM,              0.0f,   1.0f,    0.05f },
+	{ NResourceModel::ETIT_PARTICLE_TEXTURE_FRAME_ITEM,        0.0f,   1.0f,    0.05f },
+};
+
+// The open particle project's key-frame nodes against the table, plus the
+// refusals: a node that is not a curve, an unknown id, a null out.
+static void CheckKeyframeKnobs( BkResSession *pSession )
+{
+	int nCount = 0;
+	BkResNodes( pSession, 0, 0, &nCount );
+	std::vector<BkResNodeRecord> nodes( nCount );
+	BkResNodes( pSession, nodes.data(), nCount, &nCount );
+	int nCurves = 0, nPlain = -1;
+	for ( const BkResNodeRecord &node : nodes )
+	{
+		const KnobRow *pRow = nullptr;
+		for ( const KnobRow &row : kKnobRows )
+			if ( row.nType == node.class_type )
+				pRow = &row;
+		BkResKeyframeKnobs knobs;
+		std::memset( &knobs, 0, sizeof knobs );
+		const BkEditorStatus nStatus = BkResGetKeyframeKnobs( pSession, node.id, &knobs );
+		if ( pRow == nullptr )
+		{
+			if ( nPlain < 0 )
+			{
+				nPlain = node.id;
+				Check( nStatus == BK_EDITOR_BAD_ARGUMENT, "knobs: a node that is not a curve is a bad argument" );
+				Check( std::strstr( BkEditorLastMessage( pSession ), "key-frame" ) != 0, "knobs: the refusal says why" );
+			}
+			continue;
+		}
+		++nCurves;
+		const std::string szWhat = "knobs: " + std::string( node.display_name ) + " (type " + std::to_string( node.class_type ) + ")";
+		Check( nStatus == BK_EDITOR_OK, ( szWhat + " reads" ).c_str() );
+		Check( knobs.min_x == 0.0f && knobs.max_x == 1.0f && knobs.step_x == 0.05f && knobs.resize_mode == 1, ( szWhat + " x range, step and resize mode" ).c_str() );
+		Check( knobs.min_y == pRow->fMinY && knobs.max_y == pRow->fMaxY && knobs.step_y == pRow->fStepY, ( szWhat + " y range and step" ).c_str() );
+	}
+	Check( nCurves >= 1, "knobs: the particle project has key-frame curves" );
+	Check( nPlain >= 0, "knobs: the particle project has a node that is not a curve" );
+	BkResKeyframeKnobs knobs;
+	Check( BkResGetKeyframeKnobs( pSession, 1 << 20, &knobs ) == BK_EDITOR_REFUSED, "knobs: an unknown node is refused" );
+	Check( BkResGetKeyframeKnobs( pSession, nodes[0].id, 0 ) == BK_EDITOR_BAD_ARGUMENT, "knobs: a null out is a bad argument" );
+}
+
 struct Capture
 {
 	const char *pszLabel;    // the capture's name, as the S01 spike named it
@@ -2405,6 +2475,7 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		Check( BkResPreviewShow( pSession ) == BK_EDITOR_REFUSED, "preview: Show before Begin is refused" );
 		Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_REFUSED, "preview: Playback before Show is refused" );
 		Check( BkResPreviewCamera( pSession, 0, 0, 0 ) == BK_EDITOR_REFUSED, "preview: Camera before Begin is refused" );
+		Check( BkResPreviewCameraMode( pSession, 1 ) == BK_EDITOR_REFUSED, "preview: Camera mode before Begin is refused" );
 		Check( BkResPreviewBegin( pSession, 21 ) == BK_EDITOR_BAD_ARGUMENT, "preview: kind 21 is a bad argument" );
 		Check( BkResPreviewBegin( pSession, -1 ) == BK_EDITOR_BAD_ARGUMENT, "preview: kind -1 is a bad argument" );
 		Check( BkResPreviewBegin( pSession, 0 ) == BK_EDITOR_REFUSED, "preview: a weapon has no preview" );
@@ -2476,6 +2547,32 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		Check( fShare >= 0.01, ( "preview: the " + szLabel + " capture is >= 1% non-black-non-magenta" ).c_str() );
 		Check( fChanged >= 0.001, ( "preview: the " + szLabel + " object drew (>= 0.1% of the frame changed)" ).c_str() );
 
+		// The Camera button: the horizontal camera draws another frame than the
+		// default one, and the default placement draws the first one back.
+		if ( bRead )
+		{
+			std::vector<unsigned char> horizontalRgb, defaultRgb;
+			int nHW = 0, nHH = 0;
+			Check( BkResPreviewCameraMode( pSession, 1 ) == BK_EDITOR_OK, ( "preview: horizontal camera " + szLabel ).c_str() );
+			BkEditorFrame( pSession );
+			const fs::path horizontal = scratch / ( szLabel + "-horizontal.tga" );
+			const bool bHorizontal = BkEditorCaptureFrame( pSession, horizontal.string().c_str() ) == BK_EDITOR_OK && ReadCapture( horizontal.string(), horizontalRgb, nHW, nHH );
+			Check( bHorizontal, ( "preview: the horizontal " + szLabel + " frame captures" ).c_str() );
+			const double fMode = bHorizontal ? ChangedShare( horizontalRgb, rgb ) : -1.0;
+			Log( "preview-scene: " + szLabel + " camera-horizontal-vs-default changed=" + std::to_string( fMode ) + " threshold=0.001" );
+			const bool bCameraMatters = szLabel != "sprite";
+			Check( !bCameraMatters || fMode >= 0.001, ( "preview: the horizontal camera changes the " + szLabel + " frame (>= 0.1%)" ).c_str() );
+			Check( BkResPreviewCameraMode( pSession, 0 ) == BK_EDITOR_OK, ( "preview: default camera " + szLabel ).c_str() );
+			BkEditorFrame( pSession );
+			const fs::path back = scratch / ( szLabel + "-default.tga" );
+			const bool bBack = BkEditorCaptureFrame( pSession, back.string().c_str() ) == BK_EDITOR_OK && ReadCapture( back.string(), defaultRgb, nHW, nHH );
+			const double fBack = bBack ? ChangedShare( defaultRgb, horizontalRgb ) : -1.0;
+			Log( "preview-scene: " + szLabel + " camera-default-vs-horizontal changed=" + std::to_string( fBack ) + " threshold=0.001" );
+			Check( !bCameraMatters || fBack >= 0.001, ( "preview: the default camera draws the " + szLabel + " frame back (>= 0.1% from the horizontal one)" ).c_str() );
+		}
+		if ( szLabel == "particle" )
+			CheckKeyframeKnobs( pSession );
+
 		Check( BkResPreviewCamera( pSession, 12 * 32.0f + 64.0f, 12 * 32.0f, 2 ) == BK_EDITOR_OK, ( "preview: Camera " + szLabel ).c_str() );
 		// What the table held before this stand-in came and went (a kind ported
 		// since has its real exporter back for the cases after this one).
@@ -2484,6 +2581,7 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		BkResClose( pSession );
 	}
 	Check( BkResPreviewCamera( pSession, 0, 0, 0 ) == BK_EDITOR_REFUSED, "preview: Camera after Stop is refused" );
+	Check( BkResPreviewCameraMode( pSession, 1 ) == BK_EDITOR_REFUSED, "preview: Camera mode after Stop is refused" );
 	Check( PreviewFolders() == 0, "preview: Stop removes the preview folders" );
 
 	// A preview begun for one kind does not show another kind's project.

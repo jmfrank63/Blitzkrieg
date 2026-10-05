@@ -42,6 +42,7 @@ const ExportFlags = rb.ExportFlags;
 const ExportReport = rb.ExportReport;
 const Warning = rb.Warning;
 const ModSettings = rb.ModSettings;
+const KeyframeKnobs = rb.KeyframeKnobs;
 const Point2 = rb.Point2;
 const Vec3 = rb.Vec3;
 const AimedPoint = rb.AimedPoint;
@@ -196,6 +197,8 @@ pub const RealResBridge = struct {
         .previewDirection = previewDirection,
         .previewShowLocators = previewShowLocators,
         .meshLocators = meshLocators,
+        .keyframeKnobs = keyframeKnobs,
+        .previewCameraMode = previewCameraMode,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -671,6 +674,30 @@ pub const RealResBridge = struct {
     fn previewShowLocators(ptr: *anyopaque, locators: bool, bounding_boxes: bool) Status {
         const self = from(ptr);
         return status(c.BkResPreviewShowLocators(self.session, @intFromBool(locators), @intFromBool(bounding_boxes)));
+    }
+
+    /// BkResGetKeyframeKnobs: a curve node's range, step and resize mode.
+    fn keyframeKnobs(ptr: *anyopaque, node: i32, out: *KeyframeKnobs) Status {
+        const self = from(ptr);
+        var knobs: c.BkResKeyframeKnobs = std.mem.zeroes(c.BkResKeyframeKnobs);
+        const result = status(c.BkResGetKeyframeKnobs(self.session, node, &knobs));
+        if (result != .ok) return result;
+        out.* = .{
+            .min_x = knobs.min_x,
+            .max_x = knobs.max_x,
+            .min_y = knobs.min_y,
+            .max_y = knobs.max_y,
+            .step_x = knobs.step_x,
+            .step_y = knobs.step_y,
+            .resize_mode = knobs.resize_mode != 0,
+        };
+        return .ok;
+    }
+
+    /// BkResPreviewCameraMode: MFC's Camera button.
+    fn previewCameraMode(ptr: *anyopaque, horizontal: bool) Status {
+        const self = from(ptr);
+        return status(c.BkResPreviewCameraMode(self.session, @intFromBool(horizontal)));
     }
 
     /// BkResMeshLocators: the two-pass read of the shown model's nodes.

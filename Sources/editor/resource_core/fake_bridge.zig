@@ -63,6 +63,7 @@ const Warning = bridge_mod.Warning;
 const ModSettings = bridge_mod.ModSettings;
 const ResBridge = bridge_mod.ResBridge;
 const MeshLocator = bridge_mod.MeshLocator;
+const KeyframeKnobs = bridge_mod.KeyframeKnobs;
 const putName = bridge_mod.putName;
 const item_type = @import("sub_editor_tools.zig").item_type;
 
@@ -123,6 +124,11 @@ pub const FakeResBridge = struct {
     mesh_direction: i32 = 0,
     show_locators: bool = false,
     show_bounding_boxes: bool = false,
+    /// Whether the last previewCameraMode asked for the horizontal camera.
+    preview_horizontal: bool = false,
+    /// The knobs `setKeyframeKnobs` declared per node: a node with none is
+    /// not a key-frame curve.
+    keyframe_knobs: std.AutoHashMapUnmanaged(i32, KeyframeKnobs) = .empty,
     /// The skeletons `addMeshModel` declared, by combat model file name.
     mesh_models: std.ArrayListUnmanaged(MeshModel) = .empty,
     /// Rolling file store the test can read saved blobs out of. Keyed by
@@ -157,7 +163,13 @@ pub const FakeResBridge = struct {
         return fake;
     }
 
+    /// Declares `node` a key-frame curve with these knobs.
+    pub fn setKeyframeKnobs(self: *FakeResBridge, node: i32, knobs: KeyframeKnobs) !void {
+        try self.keyframe_knobs.put(self.allocator, node, knobs);
+    }
+
     pub fn deinit(self: *FakeResBridge) void {
+        self.keyframe_knobs.deinit(self.allocator);
         for (self.nodes.items) |*n| n.deinit(self.allocator);
         self.nodes.deinit(self.allocator);
         if (self.lock_owner) |owner| self.allocator.free(owner);
@@ -1103,6 +1115,7 @@ pub const FakeResBridge = struct {
         self.clearMessage();
         self.preview_state = .closed;
         self.preview_playing = false;
+        self.preview_horizontal = false;
         self.mesh_variant = 0;
         self.mesh_direction = 0;
         self.show_locators = false;
@@ -1184,6 +1197,33 @@ pub const FakeResBridge = struct {
         return .ok;
     }
 
+    fn keyframeKnobs(ptr: *anyopaque, node: i32, out: *KeyframeKnobs) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const opened = self.requireOpen();
+        if (opened != .ok) return opened;
+        if (self.indexOfNode(node) == null) {
+            self.say("unknown node id", .{});
+            return .refused;
+        }
+        out.* = self.keyframe_knobs.get(node) orelse {
+            self.say("the node is not a key-frame curve", .{});
+            return .bad_argument;
+        };
+        return .ok;
+    }
+
+    fn previewCameraMode(ptr: *anyopaque, horizontal: bool) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        if (self.preview_state == .closed) {
+            self.say("no preview: call previewBegin first", .{});
+            return .refused;
+        }
+        self.preview_horizontal = horizontal;
+        return .ok;
+    }
+
     const vtable: ResBridge.VTable = .{
         .lastMessage = lastMessage,
         .new = new,
@@ -1220,6 +1260,8 @@ pub const FakeResBridge = struct {
         .previewDirection = previewDirection,
         .previewShowLocators = previewShowLocators,
         .meshLocators = meshLocators,
+        .keyframeKnobs = keyframeKnobs,
+        .previewCameraMode = previewCameraMode,
     };
 };
 

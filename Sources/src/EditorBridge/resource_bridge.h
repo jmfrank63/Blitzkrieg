@@ -477,6 +477,37 @@ BkEditorStatus BkResPreviewPlayback( BkResSession *session, int run );
    camera's distance step. */
 BkEditorStatus BkResPreviewCamera( BkResSession *session, float wx, float wy, int zoom );
 
+/* MFC's Camera button (ParticleFrm.cpp OnButtonCamera, EffectFrm.cpp): swaps
+   the scene's default camera (SetDefaultCamera: pitch -120 degrees, yaw 45)
+   for the horizontal one (SetHorizontalCamera: pitch -90 degrees, yaw 45, the
+   view straight down the ground plane's normal), which BkResPreviewCamera's
+   anchor and zoom cannot express. horizontal=1 sets the horizontal camera,
+   0 puts the preview's default placement back. Both keep the anchor the
+   preview was begun with and the zoom step in force. BK_EDITOR_REFUSED when
+   the preview is not open. */
+BkEditorStatus BkResPreviewCameraMode( BkResSession *session, int horizontal );
+
+/* ---- Key-frame curves ------------------------------------------------- */
+
+/* The knobs of one key-frame node (a CKeyFrameTreeItem: the Particle
+   project's curves), which CKeyFrameEditor::SetDimentions took from the
+   item: the range the curve is clamped to, the step the nodes snap to and
+   whether the range grows with the keys (resize_mode, 0 or 1). The values are
+   the ones the item's InitDefaultValues set; they are not stored in the
+   project. */
+typedef struct
+{
+	float min_x, max_x;
+	float min_y, max_y;
+	float step_x, step_y;
+	int resize_mode;
+} BkResKeyframeKnobs;
+
+/* Reads the knobs of `node_id` into *out. BK_EDITOR_BAD_ARGUMENT for a null
+   out or a node that is not a key-frame item; BK_EDITOR_REFUSED when no project
+   is open or the node id is unknown. */
+BkEditorStatus BkResGetKeyframeKnobs( BkResSession *session, int node_id, BkResKeyframeKnobs *out );
+
 /* ---- Unit (mesh) preview ---------------------------------------------- */
 
 /* One locator of the unit's skeleton: the node id is the skeleton node's

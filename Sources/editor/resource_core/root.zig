@@ -1053,3 +1053,36 @@ test "unit locator references and a model switch undo and redo, the Locators chi
     try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
     try std.testing.expectEqual(@as(i32, 1), sub_editor_tools.childCount(&doc, guns));
 }
+
+test "keyframe knobs come from the fake per curve node, and the camera mode needs a preview" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    const res = fake.bridge();
+
+    var knobs: bridge.KeyframeKnobs = .{};
+    try std.testing.expectEqual(bridge.Status.refused, res.keyframeKnobs(1, &knobs));
+    try bridge.check(res.new(.particle));
+    var records: [8]bridge.NodeRecord = undefined;
+    var total: usize = 0;
+    try bridge.check(res.nodes(&records, &total));
+    try std.testing.expect(total >= 1);
+    const root_id = records[0].id;
+
+    try std.testing.expectEqual(bridge.Status.bad_argument, res.keyframeKnobs(root_id, &knobs));
+    try std.testing.expectEqual(bridge.Status.refused, res.keyframeKnobs(9999, &knobs));
+    try fake.setKeyframeKnobs(root_id, .{ .min_y = 100, .max_y = 5000, .step_x = 0.05, .step_y = 100, .resize_mode = true });
+    try bridge.check(res.keyframeKnobs(root_id, &knobs));
+    try std.testing.expectEqual(@as(f32, 100), knobs.min_y);
+    try std.testing.expectEqual(@as(f32, 5000), knobs.max_y);
+    try std.testing.expectEqual(@as(f32, 0.05), knobs.step_x);
+    try std.testing.expectEqual(@as(f32, 100), knobs.step_y);
+    try std.testing.expect(knobs.resize_mode);
+
+    try std.testing.expectEqual(bridge.Status.refused, res.previewCameraMode(true));
+    try bridge.check(res.previewBegin(.particle));
+    try bridge.check(res.previewCameraMode(true));
+    try std.testing.expect(fake.preview_horizontal);
+    try bridge.check(res.previewCameraMode(false));
+    try std.testing.expect(!fake.preview_horizontal);
+}
