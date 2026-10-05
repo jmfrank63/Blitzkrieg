@@ -4989,6 +4989,67 @@ BkEditorStatus BkResPreviewCameraMode( BkResSession *pSession, int nHorizontal )
 	} );
 }
 
+BkEditorStatus BkResGetParticleInfo( BkResSession *pSession, BkResParticleInfo *pOut )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pOut == nullptr )
+			return BK_EDITOR_BAD_ARGUMENT;
+		std::memset( pOut, 0, sizeof *pOut );
+		ResourceState &state = StateOf( pSession );
+		const int nParticleKind = 11; // "pcp"
+		if ( !state.bOpen || !state.pProject )
+		{
+			pSession->szMessage = "no project is open";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( state.nKindOrdinal != nParticleKind )
+		{
+			pSession->szMessage = std::string( "particle info is a .pcp feature; the open project is a ." ) + kKindExtensions[state.nKindOrdinal];
+			return BK_EDITOR_REFUSED;
+		}
+		if ( !state.bPreview || state.nPreviewKind != nParticleKind )
+		{
+			const BkEditorStatus nBegin = BeginPreview( pSession, nParticleKind );
+			if ( nBegin != BK_EDITOR_OK )
+				return nBegin;
+		}
+		const BkEditorStatus nShow = ShowPreview( pSession );
+		if ( nShow != BK_EDITOR_OK )
+		{
+			pSession->szMessage = "particle info needs the built effect: " + pSession->szMessage;
+			return nShow;
+		}
+		IEffectVisObj *pEffect = static_cast<IEffectVisObj *>( state.pPreviewObj );
+		IParticleSource **ppSources = nullptr;
+		int nSources = 0;
+		pEffect->GetParticleEffects( &ppSources, &nSources, true );
+		if ( nSources <= 0 || ppSources == nullptr )
+		{
+			pSession->szMessage = "the built effect has no particle source (the exported source did not load)";
+			return BK_EDITOR_FAILED;
+		}
+		IParticleSourceWithInfo *pWithInfo = dynamic_cast<IParticleSourceWithInfo *>( ppSources[nSources - 1] );
+		if ( pWithInfo == nullptr )
+		{
+			pSession->szMessage = "the built particle source carries no info";
+			return BK_EDITOR_FAILED;
+		}
+		SParticleSourceInfo info;
+		std::memset( &info, 0, sizeof info );
+		pWithInfo->GetInfo( info );
+		pOut->max_count = info.fMaxCount;
+		pOut->max_size = info.fMaxSize;
+		pOut->average_size = info.fAverageSize;
+		pOut->average_count = info.fAverageCount;
+		char szText[160];
+		std::snprintf( szText, sizeof szText, "Max particles %g, Size %g, Average size %g, Average count %g",
+			info.fMaxCount, info.fMaxSize, info.fAverageSize, info.fAverageCount );
+		pSession->szMessage = szText;
+		return BK_EDITOR_OK;
+	} );
+}
+
 BkEditorStatus BkResGetKeyframeKnobs( BkResSession *pSession, int nNodeId, BkResKeyframeKnobs *pOut )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus

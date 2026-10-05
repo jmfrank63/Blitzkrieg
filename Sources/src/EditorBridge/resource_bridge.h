@@ -508,6 +508,29 @@ typedef struct
    is open or the node id is unknown. */
 BkEditorStatus BkResGetKeyframeKnobs( BkResSession *session, int node_id, BkResKeyframeKnobs *out );
 
+/* ---- Particle info ---------------------------------------------------- */
+
+/* CParticleFrame::GetParticleInfo's four numbers: the particle source's
+   SParticleSourceInfo, which the frame's status bar shows as "Max particles",
+   "Size", "Average size" and "Average count". */
+typedef struct
+{
+	float max_count;
+	float max_size;
+	float average_size;
+	float average_count;
+} BkResParticleInfo;
+
+/* Runs the real .pcp exporter into the preview staging folder, builds the
+   effect through IVisObjBuilder as BkResPreviewShow does (beginning the
+   particle preview first when none is begun) and reads the info of the
+   effect's last particle source into *out. BK_EDITOR_BAD_ARGUMENT for a null
+   out; BK_EDITOR_REFUSED, with the reason in BkEditorLastMessage, when no
+   project is open, the open project is not a .pcp, or it was never saved;
+   BK_EDITOR_FAILED when the export or build fails or the effect holds no
+   particle source with info. */
+BkEditorStatus BkResGetParticleInfo( BkResSession *session, BkResParticleInfo *out );
+
 /* ---- Unit (mesh) preview ---------------------------------------------- */
 
 /* One locator of the unit's skeleton: the node id is the skeleton node's

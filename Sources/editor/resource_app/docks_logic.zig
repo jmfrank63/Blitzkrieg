@@ -271,6 +271,98 @@ pub fn toggledCamera(b: ResBridge, horizontal: bool) bool {
     return if (b.previewCameraMode(!horizontal) == .ok) !horizontal else horizontal;
 }
 
+// --- Particle info (CParticleFrame::GetParticleInfo, OnUpdateStatusBar) ----
+
+pub const ParticleInfo = bridge.ParticleInfo;
+
+/// printf's "%g" (six significant digits, trailing zeros dropped, scientific
+/// notation below 1e-4 and from 1e6 up), which MFC's status bar panes used.
+pub fn formatG(buffer: []u8, value: f64) []const u8 {
+    if (std.math.isNan(value)) return std.fmt.bufPrint(buffer, "nan", .{}) catch buffer[0..0];
+    if (std.math.isInf(value)) return std.fmt.bufPrint(buffer, "{s}inf", .{if (value < 0) "-" else ""}) catch buffer[0..0];
+    if (value == 0) return std.fmt.bufPrint(buffer, "0", .{}) catch buffer[0..0];
+    // The exponent after rounding to six digits decides the style, as in C.
+    var probe: [48]u8 = undefined;
+    const scientific = std.fmt.bufPrint(&probe, "{e:.5}", .{value}) catch return buffer[0..0];
+    const e_at = std.mem.indexOfScalar(u8, scientific, 'e') orelse return buffer[0..0];
+    const exponent = std.fmt.parseInt(i32, scientific[e_at + 1 ..], 10) catch return buffer[0..0];
+    var text: [64]u8 = undefined;
+    var len: usize = 0;
+    if (exponent < -4 or exponent >= 6) {
+        const mantissa = trimZeros(scientific[0..e_at]);
+        const sign: u8 = if (exponent < 0) '-' else '+';
+        const out = std.fmt.bufPrint(&text, "{s}e{c}{d:0>2}", .{ mantissa, sign, @abs(exponent) }) catch return buffer[0..0];
+        len = out.len;
+    } else {
+        const decimals: usize = @intCast(5 - exponent);
+        const out = std.fmt.bufPrint(&text, "{d:.[1]}", .{ value, decimals }) catch return buffer[0..0];
+        len = trimZeros(out).len;
+    }
+    const n = @min(len, buffer.len);
+    @memcpy(buffer[0..n], text[0..n]);
+    return buffer[0..n];
+}
+
+fn trimZeros(text: []const u8) []const u8 {
+    if (std.mem.indexOfScalar(u8, text, '.') == null) return text;
+    var end = text.len;
+    while (end > 0 and text[end - 1] == '0') end -= 1;
+    if (end > 0 and text[end - 1] == '.') end -= 1;
+    return text[0..end];
+}
+
+/// The four status bar panes in MFC's order and wording.
+pub fn infoPanes(buffers: *[4][48]u8, info: ParticleInfo) [4][]const u8 {
+    const labels = [4][]const u8{ "Max particles", "Size", "Average size", "Average count" };
+    const values = [4]f32{ info.max_count, info.max_size, info.average_size, info.average_count };
+    var panes: [4][]const u8 = undefined;
+    for (0..4) |i| {
+        var number: [32]u8 = undefined;
+        panes[i] = std.fmt.bufPrint(&buffers[i], "{s} {s}", .{ labels[i], formatG(&number, values[i]) }) catch buffers[i][0..0];
+    }
+    return panes;
+}
+
+/// The one-line status bar text: the four panes side by side.
+pub fn infoLine(buffer: []u8, info: ParticleInfo) []const u8 {
+    var panes_buffers: [4][48]u8 = undefined;
+    const panes = infoPanes(&panes_buffers, info);
+    return std.fmt.bufPrint(buffer, "{s}  |  {s}  |  {s}  |  {s}", .{ panes[0], panes[1], panes[2], panes[3] }) catch buffer[0..0];
+}
+
+/// The Get particle info button's state (m_fNumberOfParticles and its
+/// siblings): the numbers of the last successful press, kept until the next
+/// press or until the project is no longer a Particle one.
+pub const ParticleStatus = struct {
+    info: ?ParticleInfo = null,
+    note_buffer: [256]u8 = undefined,
+    note_len: usize = 0,
+
+    /// The button (OnGetParticleInfo). A refusal leaves the old numbers and
+    /// puts the bridge's reason in the note.
+    pub fn press(self: *ParticleStatus, b: ResBridge) bool {
+        var info: ParticleInfo = .{};
+        const status = b.particleInfo(&info);
+        if (status != .ok) {
+            const text = std.fmt.bufPrint(&self.note_buffer, "particle info: {s}", .{b.lastMessage()}) catch self.note_buffer[0..];
+            self.note_len = text.len;
+            return false;
+        }
+        self.info = info;
+        self.note_len = 0;
+        return true;
+    }
+
+    pub fn clear(self: *ParticleStatus) void {
+        self.info = null;
+        self.note_len = 0;
+    }
+
+    pub fn note(self: *const ParticleStatus) []const u8 {
+        return self.note_buffer[0..self.note_len];
+    }
+};
+
 // --- Import (A-36: Ctrl+I, ID_IMPORT_XML_FILE had no handler in MFC) -------
 
 /// The Import window's choices: the kind to build and the runtime folder
@@ -596,4 +688,58 @@ test "help: every shortcut has keys and an action, Ctrl reads Cmd on macOS, the 
     try testing.expectEqualStrings("Ctrl+O", shortcutKeys(&buffer, "Ctrl+O", false));
     try testing.expect(std.mem.endsWith(u8, spec_url, spec_path));
     try testing.expectEqualStrings("Version 1.0", about_mfc_lines[0]);
+}
+
+test "particle info: %g formatting follows printf" {
+    var buffer: [64]u8 = undefined;
+    try testing.expectEqualStrings("0", formatG(&buffer, 0));
+    try testing.expectEqualStrings("120", formatG(&buffer, 120));
+    try testing.expectEqualStrings("0.5", formatG(&buffer, 0.5));
+    try testing.expectEqualStrings("123.457", formatG(&buffer, 123.456789));
+    try testing.expectEqualStrings("0.0001", formatG(&buffer, 0.0001));
+    try testing.expectEqualStrings("1e-05", formatG(&buffer, 0.00001));
+    try testing.expectEqualStrings("123457", formatG(&buffer, 123456.7));
+    try testing.expectEqualStrings("1e+06", formatG(&buffer, 1000000));
+    try testing.expectEqualStrings("1.5e+07", formatG(&buffer, 15000000));
+    try testing.expectEqualStrings("-2.25", formatG(&buffer, -2.25));
+}
+
+test "particle info: the four panes carry MFC's labels, and a press keeps the numbers or names the refusal" {
+    var fake = FakeResBridge.init(testing.allocator);
+    defer fake.deinit();
+    const b = fake.bridge();
+    var status: ParticleStatus = .{};
+
+    // No project: refused, the reason shown, no numbers.
+    try testing.expect(!status.press(b));
+    try testing.expect(status.info == null);
+    try testing.expect(std.mem.indexOf(u8, status.note(), "no project") != null);
+
+    try testing.expectEqual(bridge.Status.ok, b.new(.weapon));
+    try testing.expect(!status.press(b));
+    try testing.expect(std.mem.indexOf(u8, status.note(), "pcp") != null);
+
+    try testing.expectEqual(bridge.Status.ok, b.close());
+    try testing.expectEqual(bridge.Status.ok, b.new(.particle));
+    try testing.expect(status.press(b));
+    try testing.expectEqual(@as(usize, 0), status.note().len);
+    var line: [160]u8 = undefined;
+    try testing.expectEqualStrings(
+        "Max particles 120  |  Size 0.5  |  Average size 0.25  |  Average count 60",
+        infoLine(&line, status.info.?),
+    );
+    var buffers: [4][48]u8 = undefined;
+    const panes = infoPanes(&buffers, status.info.?);
+    try testing.expectEqualStrings("Max particles 120", panes[0]);
+    try testing.expectEqualStrings("Size 0.5", panes[1]);
+    try testing.expectEqualStrings("Average size 0.25", panes[2]);
+    try testing.expectEqualStrings("Average count 60", panes[3]);
+
+    // A source that did not build keeps the last numbers and says why.
+    fake.particle_info = null;
+    try testing.expect(!status.press(b));
+    try testing.expect(status.info != null);
+    try testing.expect(std.mem.indexOf(u8, status.note(), "no particle source") != null);
+    status.clear();
+    try testing.expect(status.info == null);
 }

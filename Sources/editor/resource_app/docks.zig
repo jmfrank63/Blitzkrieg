@@ -145,6 +145,8 @@ pub const Docks = struct {
     curve_note_len: usize = 0,
     /// CParticleFrame::bHorizontalCamera, shared by the Particle and Effect previews.
     horizontal_camera: bool = false,
+    /// The Get particle info button's four numbers, shown in the status bar.
+    particle_status: dl.ParticleStatus = .{},
     show_thumbnails: bool = false,
     show_direction: bool = false,
     show_function: bool = false,
@@ -209,6 +211,12 @@ pub const Docks = struct {
         self.horizontal_camera = dl.toggledCamera(self.real.bridge(), self.horizontal_camera);
     }
 
+    /// The Get particle info button (OnGetParticleInfo), enabled for a
+    /// Particle project with its preview begun.
+    pub fn getParticleInfo(self: *Docks) void {
+        _ = self.particle_status.press(self.real.bridge());
+    }
+
     // --- Menus and keys -----------------------------------------------------
 
     /// Import at the top of the File menu (MFC's Ctrl+I, ID_IMPORT_XML_FILE).
@@ -227,6 +235,7 @@ pub const Docks = struct {
         if (ig.igMenuItemEx("Run", "F5", false, self.preview.begun != null)) self.runPreview();
         if (ig.igMenuItemEx("Stop", null, false, self.preview.running)) self.stopPreview();
         if (ig.igMenuItemEx("Horizontal camera", null, self.horizontal_camera, self.preview.begun != null)) self.toggleCamera();
+        if (ig.igMenuItemEx("Get particle info", null, false, self.preview.begun == .particle)) self.getParticleInfo();
         ig.igSeparator();
         const text = self.preview.message();
         ig.igTextDisabled("%.*s", @as(c_int, @intCast(text.len)), text.ptr);
@@ -261,6 +270,7 @@ pub const Docks = struct {
         if (self.show_direction) self.drawDirection(life.is_open and life.active == .mesh_unit);
         if (self.show_function) self.drawFunction(life, selected);
         self.drawPreviewLine();
+        self.drawParticleStatus();
     }
 
     /// Import, Help and About: the windows that act on the session.
@@ -581,6 +591,32 @@ pub const Docks = struct {
             ig.ImGuiWindowFlags_NoSavedSettings | ig.ImGuiWindowFlags_AlwaysAutoResize | ig.ImGuiWindowFlags_NoFocusOnAppearing | ig.ImGuiWindowFlags_NoNav;
         if (ig.igBegin("##preview_line", null, flags)) {
             ig.igTextDisabled("Preview: %.*s", @as(c_int, @intCast(text.len)), text.ptr);
+        }
+        ig.igEnd();
+    }
+
+    /// CParticleFrame::OnUpdateStatusBar: four panes along the window's
+    /// bottom edge, "Max particles %g", "Size %g", "Average size %g" and
+    /// "Average count %g". They belong to the Particle frame, so another
+    /// project drops them.
+    fn drawParticleStatus(self: *Docks) void {
+        if (self.preview.begun != .particle) self.particle_status.clear();
+        const note = self.particle_status.note();
+        if (self.particle_status.info == null and note.len == 0) return;
+        const display = ig.igGetIO().*.DisplaySize;
+        ig.igSetNextWindowPosEx(.{ .x = 0, .y = display.y }, ig.ImGuiCond_Always, .{ .x = 0, .y = 1 });
+        const flags = ig.ImGuiWindowFlags_NoDecoration | ig.ImGuiWindowFlags_NoSavedSettings | ig.ImGuiWindowFlags_AlwaysAutoResize |
+            ig.ImGuiWindowFlags_NoFocusOnAppearing | ig.ImGuiWindowFlags_NoNav | ig.ImGuiWindowFlags_NoInputs;
+        if (ig.igBegin("##particle_status", null, flags)) {
+            if (self.particle_status.info) |info| {
+                var buffers: [4][48]u8 = undefined;
+                const panes = dl.infoPanes(&buffers, info);
+                for (panes, 0..) |pane, i| {
+                    if (i != 0) ig.igSameLineEx(0, 24);
+                    ig.igText("%.*s", @as(c_int, @intCast(pane.len)), pane.ptr);
+                }
+            }
+            if (note.len != 0) ig.igTextDisabled("%.*s", @as(c_int, @intCast(note.len)), note.ptr);
         }
         ig.igEnd();
     }

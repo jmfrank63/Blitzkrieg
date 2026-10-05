@@ -60,6 +60,7 @@
 //!   do=keyframe:reset       the dock's Reset all
 //!   do=keyframe:zoomx_in|zoomx_out|zoomy_in|zoomy_out   the curve's zoom menu (view only, no undo step)
 //!   do=camera               the preview's Camera button (horizontal against default camera)
+//!   do=particle_info        the Get particle info button, through docks_logic.ParticleStatus; prints the four numbers
 //!   do=import_file:<ext>/<path>   Import a runtime file (a shipped particle xml for pcp) as a new project, through the bridge's reader
 //!   do=import_refused:<ext>/<path>   the same for a kind with no import (eff): refused, with the bridge's reason
 //!   The grid verbs need a frame drawn since the project opened (the grid editor lives in the panels)
@@ -345,6 +346,9 @@ const Runner = struct {
     /// (CParticleFrame::bHorizontalCamera) that do=camera flips.
     curve: ?keyframe.Editor = null,
     horizontal_camera: bool = false,
+    /// The Get particle info button's numbers (do=particle_info), the ones the
+    /// status bar shows.
+    particle_status: docks_logic.ParticleStatus = .{},
     frame: u32 = 0,
     message: [768]u8 = undefined,
     /// The last text `fail` made, for a helper that reports through its caller.
@@ -694,6 +698,13 @@ const Runner = struct {
             self.horizontal_camera = docks_logic.toggledCamera(b, was);
             if (self.horizontal_camera == was) return self.fail("camera: the engine refused the change: {s}", .{b.lastMessage()});
             std.debug.print("resource-editor: auto: camera is now {s}\n", .{if (self.horizontal_camera) "horizontal" else "default"});
+            return null;
+        }
+        if (eql(u8, name, "particle_info")) {
+            if (!self.particle_status.press(b)) return self.fail("particle_info: {s}", .{self.particle_status.note()});
+            const info = self.particle_status.info.?;
+            var line: [160]u8 = undefined;
+            std.debug.print("resource-editor: auto: particle info: {s} (max_count={d} max_size={d} average_size={d} average_count={d})\n", .{ docks_logic.infoLine(&line, info), info.max_count, info.max_size, info.average_size, info.average_count });
             return null;
         }
         if (eql(u8, name, "import_file") or eql(u8, name, "import_refused")) {
@@ -1310,6 +1321,12 @@ const Runner = struct {
         }
         if (eql(u8, name, "camera")) {
             if ((eql(u8, arg, "horizontal")) != self.horizontal_camera) return self.fail("expect=camera:{s} was false", .{arg});
+            return null;
+        }
+        if (eql(u8, name, "particle_info")) {
+            const info = self.particle_status.info orelse return self.fail("expect=particle_info:{s} was false: do=particle_info has not succeeded", .{arg});
+            const finite = std.math.isFinite(info.max_count) and std.math.isFinite(info.max_size) and std.math.isFinite(info.average_size) and std.math.isFinite(info.average_count);
+            if (!finite or info.max_count <= 0) return self.fail("expect=particle_info:{s} was false: max_count {d}, max_size {d}, average_size {d}, average_count {d}", .{ arg, info.max_count, info.max_size, info.average_size, info.average_count });
             return null;
         }
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);

@@ -6614,6 +6614,66 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 	std::printf( "GOLDEN pcp pending: the MFC export of pcp/project.pcp is made on win-home only\n" );
 }
 
+// B-06.3: CParticleFrame::GetParticleInfo through BkResGetParticleInfo. The
+// fixture's source reports a positive particle count and finite sizes; the
+// density keys drive the count; a project of another kind is refused naming
+// the reason.
+static void Info( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path dir = fs::path( szScratchRoot ) / "s13-particle-info";
+	fs::remove_all( dir, ec );
+	fs::create_directories( dir, ec );
+	const fs::path project = dir / "project.pcp";
+	fs::copy_file( fs::path( szFixtureRoot ) / "pcp" / "project.pcp", project, fs::copy_options::overwrite_existing, ec );
+	BkResParticleInfo info = {};
+	Check( BkResGetParticleInfo( pSession, &info ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "no project" ) != nullptr,
+	       "particle info: no project is refused naming the reason" );
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "particle info: project.pcp opens" ) )
+		return;
+	Check( BkResGetParticleInfo( pSession, nullptr ) == BK_EDITOR_BAD_ARGUMENT, "particle info: a null out is a bad argument" );
+	const BkEditorStatus nFirst = BkResGetParticleInfo( pSession, &info );
+	Check( nFirst == BK_EDITOR_OK, ( std::string( "particle info: the fixture reports: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+	std::printf( "particle-info: max_count=%g max_size=%g average_size=%g average_count=%g\n",
+	             info.max_count, info.max_size, info.average_size, info.average_count );
+	Check( info.max_count > 0 && info.average_count > 0, "particle info: Max particles and Average count are > 0" );
+	Check( std::isfinite( info.max_size ) && std::isfinite( info.average_size ) && info.max_size >= 0 && info.average_size >= 0 && info.max_size >= info.average_size,
+	       "particle info: the sizes are finite and the maximum is not below the average" );
+
+	int nDensity = -1;
+	for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+		if ( nDensity < 0 && node.class_type == 0x11000000 + 140 )
+			nDensity = node.id; // the first is the simple source's, which the fixture's export reads
+	BkResVec3 keys[64] = {};
+	int nCount = 0;
+	if ( Check( nDensity >= 0 && BkResGetParticleKeyframes( pSession, nDensity, keys, 64, &nCount ) == BK_EDITOR_OK && nCount >= 1, "particle info: the density curve is read" ) )
+	{
+		std::vector<BkResVec3> doubled( keys, keys + nCount );
+		for ( BkResVec3 &key : doubled )
+			key.y *= 4.0f;
+		Check( BkResSetParticleKeyframes( pSession, nDensity, doubled.data(), nCount ) == BK_EDITOR_OK, "particle info: the density keys are set to four times" );
+		BkResParticleInfo more = {};
+		Check( BkResGetParticleInfo( pSession, &more ) == BK_EDITOR_OK, "particle info: the changed project reports" );
+		std::printf( "particle-info: density x4 max_count=%g average_count=%g (was %g and %g)\n", more.max_count, more.average_count, info.max_count, info.average_count );
+		Check( more.max_count > info.max_count, "particle info: four times the density gives a larger Max particles" );
+		Check( BkResSetParticleKeyframes( pSession, nDensity, keys, nCount ) == BK_EDITOR_OK, "particle info: the density keys are set back" );
+		BkResParticleInfo back = {};
+		Check( BkResGetParticleInfo( pSession, &back ) == BK_EDITOR_OK && back.max_count == info.max_count, "particle info: the old keys give the old Max particles again" );
+	}
+	BkResPreviewStop( pSession );
+	BkResClose( pSession );
+
+	// A project of another kind is refused with the reason.
+	const fs::path weapon = dir / "project.wpn";
+	fs::copy_file( fs::path( szFixtureRoot ) / "wpn" / "project.wpn", weapon, fs::copy_options::overwrite_existing, ec );
+	if ( Check( BkResOpen( pSession, weapon.string().c_str() ) == BK_EDITOR_OK, "particle info: a weapon project opens" ) )
+	{
+		Check( BkResGetParticleInfo( pSession, &info ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".pcp" ) != nullptr,
+		       "particle info: a .wpn project is refused naming .pcp" );
+		BkResClose( pSession );
+	}
+}
+
 static std::vector<fs::path> ShippedFiles( const std::string &szRoot )
 {
 	std::error_code ec;
@@ -7099,6 +7159,8 @@ int main( int argc, char **argv )
 	// S12 T01: the particle exporter and importer.
 	S12Particle::Fixture( pSession, szFixtureRoot, szScratchRoot );
 	S12Particle::Shipped( pSession, pszRoot, szScratchRoot );
+	// S13 T01: Get particle info.
+	S12Particle::Info( pSession, szFixtureRoot, szScratchRoot );
 
 	// S12 T02: the effect exporter and the refused import.
 	S12Effect::Fixture( pSession, pszRoot, szFixtureRoot, szScratchRoot );
