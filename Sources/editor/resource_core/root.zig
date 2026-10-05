@@ -841,3 +841,126 @@ test "markClean then undo past it drops the clean_depth, matching the kit" {
     hist.recordAssumeCapacity(allocator, cmd2, 0);
     try std.testing.expect(hist.dirty());
 }
+
+test "export is refused until the kind's exporter is ported, then reaches it" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    const res = fake.bridge();
+    var report: bridge.ExportReport = .{};
+    var warnings: [2]bridge.Warning = .{ .{}, .{} };
+
+    try std.testing.expectEqual(bridge.Status.refused, res.exportProject(.{}, false, &report, &warnings));
+    try bridge.check(res.new(.medal));
+    try std.testing.expectEqual(bridge.Status.refused, res.exportProject(.{}, false, &report, &warnings));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), "save the project first") != null);
+    try bridge.check(res.save("medal.mdc"));
+    try std.testing.expectEqual(bridge.Status.refused, res.exportProject(.{}, false, &report, &warnings));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), ".mdc projects is not ported yet") != null);
+    try std.testing.expectEqual(@as(i32, 0), report.written);
+
+    fake.setExportable(.medal, true);
+    try bridge.check(res.exportProject(.{ .force = true }, false, &report, &warnings));
+    try std.testing.expectEqual(@as(i32, 1), report.written);
+    try std.testing.expect(fake.last_flags.force and !fake.last_stats_only);
+    try bridge.check(res.exportProject(.{}, true, &report, &warnings));
+    try std.testing.expect(fake.last_stats_only and !fake.last_flags.force);
+    try std.testing.expectEqual(@as(u32, 2), fake.exports);
+}
+
+test "batch exports the ported kinds and warns for the rest" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    const res = fake.bridge();
+    try fake.addBatchProject("src/nested/medal.mdc", .medal);
+    try fake.addBatchProject("src/weapon.wpn", .weapon);
+    try fake.addBatchProject("src/unit.unt", .animation_infantry);
+    try fake.addBatchProject("elsewhere/other.mdc", .medal);
+    fake.setExportable(.medal, true);
+
+    var report: bridge.ExportReport = .{};
+    var warnings: [1]bridge.Warning = .{.{}};
+    try bridge.check(res.batch(null, "src/", "out", .{ .force = true }, &report, &warnings));
+    try std.testing.expectEqual(@as(i32, 1), report.written);
+    try std.testing.expectEqual(@as(i32, 2), report.skipped);
+    // Two warnings, one slot: the total still counts both.
+    try std.testing.expectEqual(@as(usize, 2), report.warning_total);
+    try std.testing.expect(std.mem.indexOf(u8, warnings[0].textSlice(), "not ported yet") != null);
+
+    try bridge.check(res.batch(.weapon, "src/", "out", .{ .open_save = true }, &report, &warnings));
+    try std.testing.expectEqual(@as(i32, 1), report.written);
+    try std.testing.expectEqual(@as(i32, 0), report.skipped);
+    try std.testing.expectEqual(bridge.Status.data_missing, res.batch(null, "nowhere/", "out", .{}, &report, &warnings));
+    try std.testing.expectEqual(bridge.Status.refused, res.batch(null, "src/", "game/Data", .{}, &report, &warnings));
+    try std.testing.expectEqual(bridge.Status.bad_argument, res.batch(null, "", "out", .{}, &report, &warnings));
+}
+
+test "mod settings round-trip, refuse the shipped Data, and gate the pack" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    const res = fake.bridge();
+
+    var current: bridge.ModSettings = .{};
+    try bridge.check(res.modSettingsGet(&current));
+    try std.testing.expectEqualStrings("mods/mymod", current.exportDirSlice());
+    try std.testing.expectEqual(bridge.Status.refused, res.packMod("out.pak"));
+
+    var shipped: bridge.ModSettings = .{};
+    try std.testing.expect(shipped.setExportDir("game"));
+    try std.testing.expectEqual(bridge.Status.refused, res.modSettingsSet(&shipped));
+    try std.testing.expect(shipped.setExportDir("Game/data/"));
+    try std.testing.expectEqual(bridge.Status.refused, res.modSettingsSet(&shipped));
+    const empty: bridge.ModSettings = .{};
+    try std.testing.expectEqual(bridge.Status.bad_argument, res.modSettingsSet(&empty));
+
+    var mine: bridge.ModSettings = .{};
+    try std.testing.expect(mine.setExportDir("mods/t10"));
+    try std.testing.expect(mine.setName("T10 Mod"));
+    try std.testing.expect(mine.setVersion("1.2"));
+    try std.testing.expect(mine.setDesc("a test mod"));
+    var too_long: [64]u8 = undefined;
+    @memset(&too_long, 'n');
+    try std.testing.expect(!mine.setName(&too_long));
+    try bridge.check(res.modSettingsSet(&mine));
+    var back: bridge.ModSettings = .{};
+    try bridge.check(res.modSettingsGet(&back));
+    try std.testing.expectEqualStrings("T10 Mod", back.nameSlice());
+    try std.testing.expectEqualStrings("1.2", back.versionSlice());
+    try std.testing.expectEqualStrings("a test mod", back.descSlice());
+
+    try bridge.check(res.packMod("mods/t10.pak"));
+    try std.testing.expect(fake.files.get("mods/t10.pak") != null);
+    try std.testing.expectEqual(bridge.Status.refused, res.packMod("mods/t10/data/inside.pak"));
+    try std.testing.expectEqual(bridge.Status.bad_argument, res.packMod(""));
+}
+
+test "import builds an infantry project the document mirrors, and refuses the other kinds" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    const res = fake.bridge();
+    try fake.addGameFolder("Data/Units/Humans/German/Gunner", "German_Gunner");
+
+    try std.testing.expectEqual(bridge.Status.refused, res.importFromGame(.sprite, "Data/Units/Humans/German/Gunner"));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), ".san") != null);
+    try std.testing.expectEqual(bridge.Status.refused, res.importFromGame(.weapon, "Data/Units/Humans/German/Gunner"));
+    try std.testing.expectEqual(bridge.Status.data_missing, res.importFromGame(.animation_infantry, "Data/nowhere"));
+    try std.testing.expectEqual(bridge.Status.bad_argument, res.importFromGame(.animation_infantry, ""));
+
+    try bridge.check(res.importFromGame(.animation_infantry, "Data/Units/Humans/German/Gunner"));
+    var doc: Document = .{};
+    defer doc.deinit(allocator);
+    try doc.reload(allocator, fake.bridge());
+    try doc.refreshKind(fake.bridge());
+    try std.testing.expectEqual(Kind.animation_infantry, doc.kind);
+    var props: [4]PropRecord = undefined;
+    var total: usize = 0;
+    try bridge.check(res.props(fake.nodes.items[1].id, &props, &total));
+    try std.testing.expectEqualStrings("German_Gunner", props[0].valueSlice());
+    // An imported project has no file yet: export asks for a save first.
+    var report: bridge.ExportReport = .{};
+    fake.setExportable(.animation_infantry, true);
+    try std.testing.expectEqual(bridge.Status.refused, res.exportProject(.{}, false, &report, &.{}));
+}

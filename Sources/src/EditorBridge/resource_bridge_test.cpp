@@ -30,6 +30,9 @@
 #include <SDL3/SDL.h>
 #include "resource_bridge.h"
 #include "bridge_session.h"
+#include "../ResourceModel/references.h"
+#include "../ResourceModel/exporter.h"
+#include "../zlib/zlib.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <crtdbg.h>
@@ -519,6 +522,416 @@ static void GeometryOnChildNodes( BkResSession *pSession, const std::string &szF
 	BkResClose( pSession );
 }
 
+// T10: References, MOD settings + PAK, Export (+ batch), Import.
+//
+// The exporters themselves are ported by each sub-editor's slice; until then
+// every kind answers REFUSED, which this tier pins for all 21 fixtures, and
+// the golden comparison is reported as pending, never as a pass. The export
+// plumbing (export root, staging, move into place, report) is proved with
+// test-only exporters registered through NResourceModel::RegisterExporter.
+
+namespace T10
+{
+
+static bool g_bLastForce = false, g_bLastStatsOnly = false;
+
+static bool WriteText( const std::filesystem::path &file, const std::string &szText )
+{
+	std::error_code ec;
+	std::filesystem::create_directories( file.parent_path(), ec );
+	std::ofstream f( file, std::ios::binary | std::ios::trunc );
+	f.write( szText.data(), std::streamsize( szText.size() ) );
+	return bool( f );
+}
+
+// A stand-in exporter: two files and a warning, and what it was asked.
+static bool GoodExporter( const NResourceModel::Project &project, const NResourceModel::SExportContext &context,
+                          NResourceModel::SExportOutcome &outcome )
+{
+	g_bLastForce = context.bForce;
+	g_bLastStatsOnly = context.bStatsOnly;
+	const std::filesystem::path root( context.szStagingRoot );
+	WriteText( root / "medals/t10/1.xml", project.document.root.name );
+	WriteText( root / "medals/t10/name.txt", "T10" );
+	outcome.nWritten = 2;
+	outcome.warnings.push_back( "seeded warning" );
+	return true;
+}
+
+// Writes half an export, then fails: none of it may reach data/.
+static bool FailingExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &context,
+                             NResourceModel::SExportOutcome &outcome )
+{
+	WriteText( std::filesystem::path( context.szStagingRoot ) / "medals/t10/half.xml", "half" );
+	outcome.szError = "planted failure";
+	return false;
+}
+
+static std::vector<BkResPropRecord> AllProps( BkResSession *pSession, int nNode )
+{
+	int nCount = 0;
+	BkResProps( pSession, nNode, 0, 0, &nCount );
+	std::vector<BkResPropRecord> props( nCount > 0 ? nCount : 0 );
+	if ( nCount > 0 )
+		BkResProps( pSession, nNode, props.data(), nCount, &nCount );
+	return props;
+}
+
+// The value text of the first property named szName anywhere in the tree.
+static bool FindProp( BkResSession *pSession, const char *pszName, std::string &szValue )
+{
+	for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+		for ( const BkResPropRecord &prop : AllProps( pSession, node.id ) )
+			if ( std::strcmp( prop.default_name, pszName ) == 0 )
+			{
+				szValue = prop.value_text;
+				return true;
+			}
+	return false;
+}
+
+static unsigned Get16( const std::string &s, std::size_t n ) { return (unsigned char)s[n] | ( (unsigned char)s[n + 1] << 8 ); }
+static unsigned long Get32( const std::string &s, std::size_t n ) { return Get16( s, n ) | ( (unsigned long)Get16( s, n + 2 ) << 16 ); }
+
+// An independent reader of the archive BkResPackMod wrote: the central
+// directory, then every entry inflated with zlib and compared with its
+// source file and CRC. Collects the methods seen.
+static bool ReadZipBack( const std::string &szZip, const std::filesystem::path &dataDir, std::size_t nExpected,
+                         bool &bSawDeflate, bool &bSawStored, std::string &szWhy )
+{
+	std::string zip;
+	if ( !ReadBytes( szZip, zip ) || zip.size() < 22 || Get32( zip, zip.size() - 22 ) != 0x06054b50 )
+	{
+		szWhy = "no end of central directory";
+		return false;
+	}
+	const std::size_t nEntries = Get16( zip, zip.size() - 12 );
+	std::size_t nPos = Get32( zip, zip.size() - 6 );
+	if ( nEntries != nExpected )
+	{
+		szWhy = "entries " + std::to_string( nEntries ) + " != files " + std::to_string( nExpected );
+		return false;
+	}
+	for ( std::size_t i = 0; i < nEntries; ++i )
+	{
+		if ( Get32( zip, nPos ) != 0x02014b50 )
+		{
+			szWhy = "bad central header";
+			return false;
+		}
+		const unsigned nMethod = Get16( zip, nPos + 10 );
+		const unsigned long nCrc = Get32( zip, nPos + 16 ), nPacked = Get32( zip, nPos + 20 ), nSize = Get32( zip, nPos + 24 );
+		const unsigned nName = Get16( zip, nPos + 28 ), nExtra = Get16( zip, nPos + 30 ), nComment = Get16( zip, nPos + 32 );
+		const std::size_t nLocal = Get32( zip, nPos + 42 );
+		const std::string szName = zip.substr( nPos + 46, nName );
+		nPos += 46 + nName + nExtra + nComment;
+		if ( szName.empty() || szName.back() == '/' || szName.find( '\\' ) != std::string::npos )
+		{
+			szWhy = "entry name '" + szName + "' is a directory or has backslashes";
+			return false;
+		}
+		const std::size_t nData = nLocal + 30 + Get16( zip, nLocal + 26 ) + Get16( zip, nLocal + 28 );
+		std::string szGot;
+		if ( nMethod == 0 )
+		{
+			bSawStored = true;
+			szGot = zip.substr( nData, nPacked );
+		}
+		else if ( nMethod == 8 )
+		{
+			bSawDeflate = true;
+			std::string szIn = zip.substr( nData, nPacked );
+			szIn.push_back( 0 );   // zlib 1.1.x raw inflate wants one byte past the stream
+			szGot.assign( nSize, '\0' );
+			z_stream z;
+			std::memset( &z, 0, sizeof( z ) );
+			inflateInit2( &z, -MAX_WBITS );
+			z.next_in = reinterpret_cast<Bytef *>( &szIn[0] );
+			z.avail_in = uInt( szIn.size() );
+			z.next_out = reinterpret_cast<Bytef *>( szGot.empty() ? &szIn[0] : &szGot[0] );
+			z.avail_out = uInt( szGot.size() );
+			const int nResult = inflate( &z, Z_FINISH );
+			inflateEnd( &z );
+			if ( nResult != Z_STREAM_END && !( nResult == Z_BUF_ERROR && z.total_out == nSize ) )
+			{
+				szWhy = szName + ": inflate " + std::to_string( nResult );
+				return false;
+			}
+		}
+		std::string szWant;
+		ReadBytes( ( dataDir / szName ).string(), szWant );
+		const unsigned long nWantCrc = crc32( crc32( 0L, Z_NULL, 0 ), reinterpret_cast<const Bytef *>( szWant.data() ), uInt( szWant.size() ) );
+		if ( szGot != szWant || nCrc != nWantCrc || nSize != szWant.size() )
+		{
+			szWhy = szName + " differs from its source";
+			return false;
+		}
+	}
+	return true;
+}
+
+static int GoldenFiles( const std::filesystem::path &golden )
+{
+	int nFiles = 0;
+	std::error_code ec;
+	for ( std::filesystem::recursive_directory_iterator it( golden, ec ), end; !ec && it != end; it.increment( ec ) )
+	{
+		const std::string szName = it->path().filename().string();
+		if ( it->is_regular_file( ec ) && szName != "README.md" && szName != ".gitkeep" )
+			++nFiles;
+	}
+	return nFiles;
+}
+
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "t10";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch, ec );
+
+	// References: every list as NResourceModel::References walks the staged
+	// Data (no mod is active), handed through the ABI with index tokens.
+	{
+		int nCount = -1;
+		Check( BkResRefList( pSession, 20, 0, 0, &nCount ) == BK_EDITOR_BAD_ARGUMENT, "refs: type 20 is a bad argument" );
+		Check( BkResRefList( pSession, 0, 0, 0, 0 ) == BK_EDITOR_BAD_ARGUMENT, "refs: a null count is a bad argument" );
+		NResourceModel::References direct;
+		std::error_code ecData;
+		fs::path data = fs::path( szRoot ) / "Data";
+		direct.rebuild( data );
+		std::size_t nTotal = 0;
+		for ( int t = 0; t < NResourceModel::kReferenceTypeCount; ++t )
+		{
+			const auto &want = direct.enumerate( static_cast<NResourceModel::EReferenceType>( t ) );
+			nCount = -1;
+			const bool bCounted = BkResRefList( pSession, t, 0, 0, &nCount ) == BK_EDITOR_OK;
+			std::vector<BkResReferenceEntry> got( nCount > 0 ? nCount : 0 );
+			const bool bRead = got.empty() || BkResRefList( pSession, t, got.data(), nCount, &nCount ) == BK_EDITOR_OK;
+			bool bSame = bCounted && bRead && nCount == int( want.size() );
+			for ( std::size_t i = 0; bSame && i < want.size(); ++i )
+				bSame = got[i].token == int( i ) && want[i].compare( 0, sizeof( got[i].name ) - 1, got[i].name ) == 0;
+			Check( bSame, ( "refs: list " + std::string( NResourceModel::ReferenceTypeName( static_cast<NResourceModel::EReferenceType>( t ) ) ) +
+			                " matches References over Data" ).c_str() );
+			std::printf( "REF %s count=%d\n", NResourceModel::ReferenceTypeName( static_cast<NResourceModel::EReferenceType>( t ) ), nCount );
+			nTotal += want.size();
+			if ( nCount > 1 )
+			{
+				BkResReferenceEntry one;
+				Check( BkResRefList( pSession, t, &one, 1, &nCount ) == BK_EDITOR_REFUSED, "refs: a short buffer is refused" );
+			}
+		}
+		nCount = 0;
+		BkResRefList( pSession, int( NResourceModel::EReferenceType::E_WEAPONS_REF ), 0, 0, &nCount );
+		Check( nCount > 0 && nTotal > 0, "refs: the staged Data lists weapons" );
+	}
+
+	// MOD settings: the default export dir, then MFC's mod.xml written by the
+	// engine's saver and read back by its reader; never into shipped Data.
+	const fs::path modDir = scratch / "MyTestMod";
+	const fs::path modData = modDir / "data";
+	{
+		BkResModSettings settings;
+		Check( BkResModSettingsGet( pSession, &settings ) == BK_EDITOR_OK, "mod: Get answers OK" );
+		Check( std::strstr( settings.export_dir, "mymod" ) != 0, "mod: the default export dir is mods/mymod, as MFC" );
+		Check( BkResModSettingsGet( pSession, 0 ) == BK_EDITOR_BAD_ARGUMENT, "mod: a null Get is a bad argument" );
+
+		std::string szShippedModXml;
+		ReadBytes( szRoot + "/Data/mod.xml", szShippedModXml );
+		BkResModSettings shipped = {};
+		std::snprintf( shipped.export_dir, sizeof( shipped.export_dir ), "%s", szRoot.c_str() );
+		std::snprintf( shipped.name, sizeof( shipped.name ), "must not land" );
+		Check( BkResModSettingsSet( pSession, &shipped ) == BK_EDITOR_REFUSED, "mod: the base root (its data is Data/) is refused" );
+		std::snprintf( shipped.export_dir, sizeof( shipped.export_dir ), "%s/Data", szRoot.c_str() );
+		Check( BkResModSettingsSet( pSession, &shipped ) == BK_EDITOR_REFUSED, "mod: Data/ itself is refused" );
+		std::string szAfter;
+		ReadBytes( szRoot + "/Data/mod.xml", szAfter );
+		Check( szAfter == szShippedModXml, "mod: the shipped Data/mod.xml is untouched" );
+		BkResModSettings empty = {};
+		Check( BkResModSettingsSet( pSession, &empty ) == BK_EDITOR_BAD_ARGUMENT, "mod: an empty export dir is a bad argument" );
+
+		BkResModSettings mine = {};
+		std::snprintf( mine.export_dir, sizeof( mine.export_dir ), "%s", modDir.string().c_str() );
+		std::snprintf( mine.name, sizeof( mine.name ), "T10 Mod" );
+		std::snprintf( mine.version, sizeof( mine.version ), "1.2" );
+		std::snprintf( mine.desc, sizeof( mine.desc ), "a test mod" );
+		if ( !Check( BkResModSettingsSet( pSession, &mine ) == BK_EDITOR_OK, "mod: Set answers OK" ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		std::string szModXml;
+		Check( ReadBytes( ( modData / "mod.xml" ).string(), szModXml ) && szModXml.find( "T10 Mod" ) != std::string::npos,
+		       "mod: data/mod.xml holds MODName" );
+		Check( fs::is_regular_file( modData / "modobjects.xml", ec ), "mod: modobjects.xml is seeded from editor\\modobjects.xml" );
+		BkResModSettings back;
+		Check( BkResModSettingsGet( pSession, &back ) == BK_EDITOR_OK && std::strcmp( back.export_dir, mine.export_dir ) == 0 &&
+		       std::strcmp( back.name, "T10 Mod" ) == 0 && std::strcmp( back.version, "1.2" ) == 0 && std::strcmp( back.desc, "a test mod" ) == 0,
+		       "mod: Get reads back what Set wrote" );
+	}
+
+	// Export: the open project's kind has no exporter yet - refused, and the
+	// golden comparison is pending for every fixture.
+	{
+		BkResExportReport report = {};
+		BkResClose( pSession );
+		Check( BkResExport( pSession, 0, &report ) == BK_EDITOR_REFUSED, "export: no project is refused" );
+		Check( BkResNew( pSession, 19 ) == BK_EDITOR_OK, "export: BkResNew(mdc)" );
+		NResourceModel::RegisterExporter( "mdc", &GoodExporter );
+		Check( BkResExport( pSession, 0, &report ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "save the project first" ) != 0,
+		       "export: an unsaved project is refused" );
+		NResourceModel::RegisterExporter( "mdc", nullptr );
+
+		int nPending = 0;
+		for ( int i = 0; i < kFixtureCount; ++i )
+		{
+			const std::string szExt = kFixtures[i].pszExt;
+			const std::string szProject = szFixtureRoot + "/" + szExt + "/project." + szExt;
+			if ( BkResOpen( pSession, szProject.c_str() ) != BK_EDITOR_OK )
+			{
+				Check( false, ( "export: open " + szExt ).c_str() );
+				continue;
+			}
+			report = BkResExportReport();
+			const BkEditorStatus status = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
+			Check( status == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0 && report.written == 0,
+			       ( "export: ." + szExt + " says its exporter is not ported yet" ).c_str() );
+			const int nGolden = GoldenFiles( fs::path( szFixtureRoot ) / szExt / "golden" );
+			if ( nGolden == 0 )
+				std::printf( "GOLDEN %s pending: golden missing (run tools/zig/win-home/export-goldens.ps1 on win-home)\n", szExt.c_str() );
+			else
+				std::printf( "GOLDEN %s pending: %d golden files, the port has no exporter to compare them with yet\n", szExt.c_str(), nGolden );
+			++nPending;
+		}
+		std::printf( "GOLDEN_SUMMARY extensions=%d pass=0 pending=%d\n", kFixtureCount, nPending );
+
+		// The plumbing with a stand-in exporter: staged, moved into data/,
+		// reported; a failing exporter leaves nothing behind.
+		const fs::path project = scratch / "export" / "project.mdc";
+		fs::create_directories( project.parent_path(), ec );
+		fs::copy_file( szFixtureRoot + "/mdc/project.mdc", project, fs::copy_options::overwrite_existing, ec );
+		Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "export: open the mdc copy" );
+		NResourceModel::RegisterExporter( "mdc", &GoodExporter );
+		BkResWarning warnings[4] = {};
+		report = BkResExportReport();
+		report.warnings = warnings;
+		report.warnings_capacity = 4;
+		if ( !Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK, "export: a registered exporter exports" ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		Check( report.written == 2 && report.warning_count == 1 && std::strcmp( warnings[0].text, "seeded warning" ) == 0,
+		       "export: the report carries the exporter's counts and warning" );
+		std::string szExported;
+		Check( ReadBytes( ( modData / "medals/t10/1.xml" ).string(), szExported ) && szExported == "Medal_Composer_Project" &&
+		       fs::is_regular_file( modData / "medals/t10/name.txt", ec ), "export: the files are moved into the export root's data/" );
+		Check( !fs::exists( modDir / ".bk-export-staging", ec ), "export: the staging folder is gone" );
+		Check( g_bLastForce && !g_bLastStatsOnly, "export: FORCE reaches the exporter" );
+		report = BkResExportReport();
+		Check( BkResExportStatsOnly( pSession, 0, &report ) == BK_EDITOR_OK && g_bLastStatsOnly && !g_bLastForce && report.warning_count == 1,
+		       "export: stats only reaches the exporter; a null warnings buffer still gets the total" );
+
+		NResourceModel::RegisterExporter( "mdc", &FailingExporter );
+		Check( BkResExport( pSession, 0, &report ) == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "planted failure" ) != 0,
+		       "export: a failing exporter is FAILED with its reason" );
+		Check( !fs::exists( modData / "medals/t10/half.xml", ec ) && !fs::exists( modDir / ".bk-export-staging", ec ),
+		       "export: a failed export leaves no file in data/ and no staging" );
+
+		// Batch: an mdc (exported), a wpn and a unt (not ported: skipped with
+		// a warning each), then -os re-saving a wpn unchanged.
+		NResourceModel::RegisterExporter( "mdc", &GoodExporter );
+		const fs::path src = scratch / "batch-src";
+		fs::create_directories( src / "nested", ec );
+		fs::copy_file( szFixtureRoot + "/mdc/project.mdc", src / "nested" / "medal.mdc", fs::copy_options::overwrite_existing, ec );
+		fs::copy_file( szFixtureRoot + "/wpn/project.wpn", src / "weapon.wpn", fs::copy_options::overwrite_existing, ec );
+		fs::copy_file( szFixtureRoot + "/unt/project.unt", src / "unit.unt", fs::copy_options::overwrite_existing, ec );
+		const fs::path dst = scratch / "BatchOut";
+		BkResWarning batchWarnings[8] = {};
+		report = BkResExportReport();
+		report.warnings = batchWarnings;
+		report.warnings_capacity = 8;
+		if ( !Check( BkResBatch( pSession, -1, src.string().c_str(), dst.string().c_str(), BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK,
+		             "batch: all kinds answers OK" ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		int nNotPorted = 0;
+		for ( int i = 0; i < report.warning_count && i < 8; ++i )
+			if ( std::strstr( batchWarnings[i].text, "not ported yet" ) != 0 )
+				++nNotPorted;
+		Check( report.written == 2 && report.skipped == 2 && nNotPorted == 2, "batch: mdc exported, wpn and unt skipped as not ported" );
+		Check( fs::is_regular_file( dst / "data" / "medals/t10/1.xml", ec ), "batch: the export lands in dst/data/" );
+		std::string szBefore, szResaved;
+		ReadBytes( ( src / "weapon.wpn" ).string(), szBefore );
+		report = BkResExportReport();
+		Check( BkResBatch( pSession, 0, src.string().c_str(), dst.string().c_str(), BK_RES_EXPORT_OPEN_SAVE, &report ) == BK_EDITOR_OK && report.written == 1,
+		       "batch: -os re-saves the one wpn" );
+		Check( ReadBytes( ( src / "weapon.wpn" ).string(), szResaved ) && szResaved == szBefore, "batch: -os leaves an unedited project byte-identical" );
+		Check( BkResBatch( pSession, 21, src.string().c_str(), dst.string().c_str(), 0, &report ) == BK_EDITOR_BAD_ARGUMENT, "batch: kind 21 is a bad argument" );
+		Check( BkResBatch( pSession, -1, ( scratch / "no-such" ).string().c_str(), dst.string().c_str(), 0, &report ) == BK_EDITOR_DATA_MISSING,
+		       "batch: a missing source folder is DATA_MISSING" );
+		Check( BkResBatch( pSession, -1, src.string().c_str(), szRoot.c_str(), 0, &report ) == BK_EDITOR_REFUSED, "batch: the shipped Data as destination is refused" );
+		NResourceModel::RegisterExporter( "mdc", nullptr );
+		BkResClose( pSession );
+	}
+
+	// PAK: the mod's data/ zipped natively (the bridge mounts it through the
+	// engine's zip storage itself); read back here with zlib, independently.
+	{
+		std::string szNoise( 4096, '\0' );
+		unsigned nSeed = 12345;
+		for ( char &c : szNoise )
+		{
+			nSeed = nSeed * 1103515245u + 12345u;
+			c = char( nSeed >> 24 );
+		}
+		WriteText( modData / "units/humans/t10/noise.bin", szNoise );   // incompressible: stored
+		WriteText( modData / "units/humans/t10/1.xml", std::string( 2000, 'x' ) );
+		const std::string szZip = ( scratch / "MyTestMod.pak" ).string();
+		if ( !Check( BkResPackMod( pSession, szZip.c_str() ) == BK_EDITOR_OK, "pak: BkResPackMod answers OK" ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		std::size_t nFiles = 0;
+		for ( fs::recursive_directory_iterator it( modData, ec ), end; !ec && it != end; it.increment( ec ) )
+			if ( it->is_regular_file( ec ) )
+				++nFiles;
+		bool bDeflate = false, bStored = false;
+		std::string szWhy;
+		if ( !Check( ReadZipBack( szZip, modData, nFiles, bDeflate, bStored, szWhy ), "pak: every entry inflates to its source" ) )
+			std::printf( "   detail: %s\n", szWhy.c_str() );
+		Check( bDeflate && bStored, "pak: deflate where it is smaller, stored where it is not" );
+		Check( !fs::exists( scratch / ".bk-pack-verify", ec ), "pak: no verification folder is left" );
+		Check( BkResPackMod( pSession, ( modData / "inside.pak" ).string().c_str() ) == BK_EDITOR_REFUSED, "pak: an archive inside data/ is refused" );
+		Check( BkResPackMod( pSession, 0 ) == BK_EDITOR_BAD_ARGUMENT, "pak: a null path is a bad argument" );
+	}
+
+	// Import from game data: a shipped infantry folder, read by the engine's
+	// operator&, put into a fresh tree by the GetRPGStats port.
+	{
+		const std::string szGunner = szRoot + "/Data/Units/Humans/German/Gunner";
+		if ( !Check( BkResImportFromGame( pSession, 5, szGunner.c_str() ) == BK_EDITOR_OK, "import: unt from Gunner" ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResKind kind = -1;
+		Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 5, "import: the open project is an infantry project" );
+		Check( AllNodes( pSession ).size() > 1, "import: the default tree is built" );
+		std::string szName, szType, szHealth, szWeapon;
+		Check( FindProp( pSession, "Name", szName ) && szName == "German_Gunner", ( "import: Name is the KeyName (" + szName + ")" ).c_str() );
+		Check( FindProp( pSession, "Type", szType ) && szType == "engineer", ( "import: Type is engineer (" + szType + ")" ).c_str() );
+		Check( FindProp( pSession, "Health", szHealth ) && std::strtof( szHealth.c_str(), 0 ) == 10.0f, ( "import: Health is MaxHP 10 (" + szHealth + ")" ).c_str() );
+		const fs::path saved = scratch / "import" / "gunner.unt";
+		fs::create_directories( saved.parent_path(), ec );
+		Check( BkResSave( pSession, saved.string().c_str() ) == BK_EDITOR_OK && BkResOpen( pSession, saved.string().c_str() ) == BK_EDITOR_OK,
+		       "import: the imported project saves and reopens" );
+		std::string szReopened;
+		Check( FindProp( pSession, "Name", szReopened ) && szReopened == "German_Gunner", "import: the KeyName survives save and reopen" );
+
+		Check( BkResImportFromGame( pSession, 4, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".san" ) != 0,
+		       "import: sprite is refused with the reason" );
+		Check( BkResImportFromGame( pSession, 0, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
+		       "import: wpn is refused as not ported yet" );
+		Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 5, "import: a refused import keeps the open project" );
+		Check( BkResImportFromGame( pSession, 5, ( scratch / "no-such" ).string().c_str() ) == BK_EDITOR_DATA_MISSING, "import: a folder without 1.xml is DATA_MISSING" );
+		Check( BkResImportFromGame( pSession, 5, 0 ) == BK_EDITOR_BAD_ARGUMENT, "import: a null path is a bad argument" );
+		Check( BkResImportFromGame( pSession, 21, szGunner.c_str() ) == BK_EDITOR_BAD_ARGUMENT, "import: kind 21 is a bad argument" );
+		BkResClose( pSession );
+	}
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -974,12 +1387,13 @@ int main( int argc, char **argv )
 	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "eff", "effect-keyframes", BkResGetEffectKeyframes,
 		BkResSetEffectKeyframes, { kEffectAnimations } );
 
-	// An entry point this slice has not built yet fails loudly instead of
-	// answering OK for work it did not do.
+	T10::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+
+	// An entry point this slice has not built yet (the preview group, T11)
+	// fails loudly instead of answering OK for work it did not do.
 	{
 		Check( BkResNew( pSession, 0 ) == BK_EDITOR_OK, "stubs: BkResNew" );
-		BkResExportReport report = {};
-		Check( BkResExport( pSession, 0, &report ) == BK_EDITOR_FAILED, "stubs: BkResExport is not a silent OK" );
+		Check( BkResPreviewShow( pSession ) == BK_EDITOR_FAILED, "stubs: BkResPreviewShow is not a silent OK" );
 		Check( std::strlen( BkEditorLastMessage( pSession ) ) > 0, "stubs: the failure says why" );
 		BkResClose( pSession );
 	}

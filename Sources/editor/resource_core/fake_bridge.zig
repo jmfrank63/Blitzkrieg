@@ -17,6 +17,17 @@
 //!   a lock is kept purely in-memory;
 //! * references are returned from a tiny fixed list the test fills
 //!   through `setReferenceList`;
+//! * export writes nothing: a kind the test marks with `setExportable` counts
+//!   one written file per export, every other kind is refused as "not
+//!   ported yet" as the real bridge answers until a sub-editor registers its
+//!   exporter. A batch walks the projects `addBatchProject` declared whose
+//!   path starts with the source folder;
+//! * MOD settings live in memory; `shipped_root` (and its Data folder) stands
+//!   for the shipped game the real bridge refuses to write into. A pack
+//!   stores a marker in `files` and needs a prior `modSettingsSet`;
+//! * import knows only the folders `addGameFolder` declared, each with its
+//!   key name; it builds a root plus one "Basic Info" node whose Name prop
+//!   is that key name. Only infantry imports, as in the real bridge;
 //! * the preview methods only set the message buffer - there is no scene,
 //!   no device, no draw. `no GPU device` is simulated by `setNoDevice`;
 //! * geometry channels round-trip through a per-(node, channel) map but
@@ -33,6 +44,10 @@ const PropRecord = bridge_mod.PropRecord;
 const ReferenceEntry = bridge_mod.ReferenceEntry;
 const GeometryChannel = bridge_mod.GeometryChannel;
 const GeometryValue = bridge_mod.GeometryValue;
+const ExportFlags = bridge_mod.ExportFlags;
+const ExportReport = bridge_mod.ExportReport;
+const Warning = bridge_mod.Warning;
+const ModSettings = bridge_mod.ModSettings;
 const ResBridge = bridge_mod.ResBridge;
 const putName = bridge_mod.putName;
 
@@ -85,11 +100,29 @@ pub const FakeResBridge = struct {
     /// Rolling file store the test can read saved blobs out of. Keyed by
     /// path. Owns its values.
     files: std.StringHashMapUnmanaged([]u8) = .empty,
+    /// True once the open project was opened from or saved to a path: an
+    /// export reads its sources beside the project file, so it needs one.
+    has_path: bool = false,
+    /// Kinds whose exporter the test declares ported (`setExportable`).
+    exportable: std.EnumSet(Kind) = .initEmpty(),
+    /// What the last successful export was asked, and how many there were.
+    exports: u32 = 0,
+    last_flags: ExportFlags = .{},
+    last_stats_only: bool = false,
+    mod: ModSettings = .{},
+    mod_set: bool = false,
+    shipped_root: []const u8 = "game",
+    batch_projects: std.ArrayListUnmanaged(BatchProject) = .empty,
+    /// Runtime folder path -> the KeyName its 1.xml holds. Owns both.
+    game_folders: std.StringHashMapUnmanaged([]u8) = .empty,
 
     pub const PreviewState = enum { closed, open, showing };
+    pub const BatchProject = struct { path: []u8, kind: Kind };
 
     pub fn init(allocator: std.mem.Allocator) FakeResBridge {
-        return .{ .allocator = allocator };
+        var fake: FakeResBridge = .{ .allocator = allocator };
+        _ = fake.mod.setExportDir("mods/mymod");
+        return fake;
     }
 
     pub fn deinit(self: *FakeResBridge) void {
@@ -108,6 +141,32 @@ pub const FakeResBridge = struct {
             self.allocator.free(e.value_ptr.*);
         }
         self.files.deinit(self.allocator);
+        for (self.batch_projects.items) |p| self.allocator.free(p.path);
+        self.batch_projects.deinit(self.allocator);
+        var folder_it = self.game_folders.iterator();
+        while (folder_it.next()) |e| {
+            self.allocator.free(e.key_ptr.*);
+            self.allocator.free(e.value_ptr.*);
+        }
+        self.game_folders.deinit(self.allocator);
+    }
+
+    pub fn setExportable(self: *FakeResBridge, kind: Kind, ported: bool) void {
+        self.exportable.setPresent(kind, ported);
+    }
+
+    pub fn addBatchProject(self: *FakeResBridge, path: []const u8, kind: Kind) !void {
+        const owned = try self.allocator.dupe(u8, path);
+        errdefer self.allocator.free(owned);
+        try self.batch_projects.append(self.allocator, .{ .path = owned, .kind = kind });
+    }
+
+    pub fn addGameFolder(self: *FakeResBridge, path: []const u8, key_name: []const u8) !void {
+        const key = try self.allocator.dupe(u8, path);
+        errdefer self.allocator.free(key);
+        const value = try self.allocator.dupe(u8, key_name);
+        errdefer self.allocator.free(value);
+        try self.game_folders.put(self.allocator, key, value);
     }
 
     /// Preloads a reference list for a given type (0..19 is the real range).
@@ -198,6 +257,7 @@ pub const FakeResBridge = struct {
         for (self.geometry.items) |*g| g.value.deinit(self.allocator);
         self.geometry.clearRetainingCapacity();
         self.kind = kind;
+        self.has_path = false;
         var root: FakeNode = .{ .id = self.next_id, .parent = -1 };
         _ = putName(&root.class, "Root");
         _ = putName(&root.display, "Root");
@@ -214,6 +274,7 @@ pub const FakeResBridge = struct {
                 self.say("could not parse {s}", .{path});
                 return .data_missing;
             }
+            self.has_path = true;
             return .ok;
         }
         self.say("file not found: {s}", .{path});
@@ -240,6 +301,7 @@ pub const FakeResBridge = struct {
             self.allocator.free(blob);
             return .failed;
         };
+        self.has_path = true;
         return .ok;
     }
 
@@ -251,6 +313,7 @@ pub const FakeResBridge = struct {
         for (self.geometry.items) |*g| g.value.deinit(self.allocator);
         self.geometry.clearRetainingCapacity();
         self.kind = null;
+        self.has_path = false;
         return .ok;
     }
 
@@ -557,6 +620,163 @@ pub const FakeResBridge = struct {
         return .ok;
     }
 
+    fn isShipped(self: *const FakeResBridge, dir: []const u8) bool {
+        const trimmed = std.mem.trimEnd(u8, dir, "/");
+        if (std.ascii.eqlIgnoreCase(trimmed, self.shipped_root)) return true;
+        if (trimmed.len < 5 or !std.ascii.eqlIgnoreCase(trimmed[trimmed.len - 5 ..], "/data")) return false;
+        return std.ascii.eqlIgnoreCase(trimmed[0 .. trimmed.len - 5], self.shipped_root);
+    }
+
+    fn notPorted(self: *FakeResBridge, kind: Kind) void {
+        self.say("exporting .{s} projects is not ported yet; the exporter comes with its sub-editor", .{kind.extension()});
+    }
+
+    fn putFile(self: *FakeResBridge, path: []const u8, bytes: []const u8) Status {
+        const blob = self.allocator.dupe(u8, bytes) catch return .failed;
+        if (self.files.fetchRemove(path)) |old| {
+            self.allocator.free(old.key);
+            self.allocator.free(old.value);
+        }
+        const key = self.allocator.dupe(u8, path) catch {
+            self.allocator.free(blob);
+            return .failed;
+        };
+        self.files.put(self.allocator, key, blob) catch {
+            self.allocator.free(key);
+            self.allocator.free(blob);
+            return .failed;
+        };
+        return .ok;
+    }
+
+    fn exportProject(ptr: *anyopaque, flags: ExportFlags, stats_only: bool, report: *ExportReport, warnings: []Warning) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        _ = warnings;
+        report.* = .{};
+        const check = self.requireOpen();
+        if (check != .ok) return check;
+        if (!self.has_path) {
+            self.say("save the project first: an export reads its sources beside the project file", .{});
+            return .refused;
+        }
+        if (!self.exportable.contains(self.kind.?)) {
+            self.notPorted(self.kind.?);
+            return .refused;
+        }
+        self.exports += 1;
+        self.last_flags = flags;
+        self.last_stats_only = stats_only;
+        report.written = 1;
+        return .ok;
+    }
+
+    fn batch(ptr: *anyopaque, kind: ?Kind, src: []const u8, dst: []const u8, flags: ExportFlags, report: *ExportReport, warnings: []Warning) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        report.* = .{};
+        if (src.len == 0 or dst.len == 0) return .bad_argument;
+        if (!flags.open_save and self.isShipped(dst)) {
+            self.say("the batch destination is the shipped Data folder", .{});
+            return .refused;
+        }
+        var any_below = false;
+        for (self.batch_projects.items) |project| {
+            if (!std.mem.startsWith(u8, project.path, src)) continue;
+            any_below = true;
+            if (kind != null and kind.? != project.kind) continue;
+            if (flags.open_save or self.exportable.contains(project.kind)) {
+                report.written += 1;
+                continue;
+            }
+            report.skipped += 1;
+            if (report.warning_total < warnings.len) {
+                var line: [bridge_mod.warning_text_capacity]u8 = undefined;
+                const text = std.fmt.bufPrint(&line, "{s}: exporting .{s} projects is not ported yet", .{ project.path, project.kind.extension() }) catch line[0..];
+                warnings[report.warning_total].setText(text);
+            }
+            report.warning_total += 1;
+        }
+        if (!any_below) {
+            self.say("{s} is not a folder", .{src});
+            return .data_missing;
+        }
+        return .ok;
+    }
+
+    fn modSettingsGet(ptr: *anyopaque, out: *ModSettings) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        out.* = self.mod;
+        return .ok;
+    }
+
+    fn modSettingsSet(ptr: *anyopaque, in: *const ModSettings) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const dir = in.exportDirSlice();
+        if (dir.len == 0) return .bad_argument;
+        if (self.isShipped(dir)) {
+            self.say("the shipped Data folder is not a mod folder", .{});
+            return .refused;
+        }
+        self.mod = in.*;
+        self.mod_set = true;
+        return .ok;
+    }
+
+    fn packMod(ptr: *anyopaque, out_path: []const u8) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        if (out_path.len == 0) return .bad_argument;
+        if (!self.mod_set) {
+            self.say("there is no data folder to pack", .{});
+            return .refused;
+        }
+        const dir = std.mem.trimEnd(u8, self.mod.exportDirSlice(), "/");
+        if (std.mem.startsWith(u8, out_path, dir) and out_path.len > dir.len + 6 and
+            std.ascii.eqlIgnoreCase(out_path[dir.len .. dir.len + 6], "/data/"))
+        {
+            self.say("the archive would be inside the folder it packs", .{});
+            return .refused;
+        }
+        return self.putFile(out_path, "PK\x05\x06");
+    }
+
+    fn importFromGame(ptr: *anyopaque, kind: Kind, path: []const u8) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        if (path.len == 0) return .bad_argument;
+        if (kind == .sprite) {
+            self.say("importing .spt is refused: MFC's sprite export only composes .san packs and has no reverse path", .{});
+            return .refused;
+        }
+        if (kind != .animation_infantry) {
+            self.say("importing .{s} is not ported yet; it comes with its sub-editor", .{kind.extension()});
+            return .refused;
+        }
+        const key_name = self.game_folders.get(path) orelse {
+            self.say("no 1.xml in {s}", .{path});
+            return .data_missing;
+        };
+        const status = new(ptr, kind);
+        if (status != .ok) return status;
+        var info: FakeNode = .{ .id = self.next_id, .parent = self.nodes.items[0].id };
+        _ = putName(&info.class, "UnitCommonProps");
+        _ = putName(&info.display, "Basic Info");
+        var name: PropRecord = .{ .id = 1 };
+        _ = name.setDefault("Name");
+        _ = name.setDisplay("Name");
+        if (!name.setValue(key_name)) return .failed;
+        info.props.append(self.allocator, name) catch return .failed;
+        self.nodes.append(self.allocator, info) catch {
+            info.deinit(self.allocator);
+            return .failed;
+        };
+        self.next_id += 1;
+        return .ok;
+    }
+
     fn previewBegin(ptr: *anyopaque, kind: Kind) Status {
         const self = from(ptr);
         self.clearMessage();
@@ -607,6 +827,12 @@ pub const FakeResBridge = struct {
         .refList = refList,
         .geometryRead = geometryRead,
         .geometryWrite = geometryWrite,
+        .exportProject = exportProject,
+        .batch = batch,
+        .modSettingsGet = modSettingsGet,
+        .modSettingsSet = modSettingsSet,
+        .packMod = packMod,
+        .importFromGame = importFromGame,
         .previewBegin = previewBegin,
         .previewShow = previewShow,
         .previewStop = previewStop,

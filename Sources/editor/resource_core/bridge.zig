@@ -68,6 +68,13 @@ pub const Kind = enum(c_int) {
         if (value < 0 or value > 20) return null;
         return @enumFromInt(value);
     }
+
+    /// The project file extension (no dot), as the C bridge names a kind in
+    /// its messages.
+    pub fn extension(self: Kind) []const u8 {
+        const table = [_][]const u8{ "wpn", "mcp", "trc", "scp", "spt", "unt", "msh", "obt", "fnc", "bld", "bdg", "pcp", "eff", "til", "3rd", "3rv", "mip", "chc", "cgc", "mdc", "gui" };
+        return table[@intCast(@intFromEnum(self))];
+    }
 };
 
 /// Fixed buffer sizes mirror the C ABI's BkRes* records. A write that cannot
@@ -158,6 +165,79 @@ pub const ReferenceEntry = struct {
 
     pub fn setName(self: *ReferenceEntry, text: []const u8) bool {
         return putGeneric(&self.name, text);
+    }
+};
+
+/// The export flags (BK_RES_EXPORT_*): `force` is MFC's batch -f (export
+/// even when up to date); `open_save` is -os (a batch only re-saves).
+pub const ExportFlags = struct {
+    force: bool = false,
+    open_save: bool = false,
+
+    pub fn toCInt(self: ExportFlags) c_int {
+        return (if (self.force) @as(c_int, 1) else 0) | (if (self.open_save) @as(c_int, 2) else 0);
+    }
+};
+
+/// One warning line of an export (BkResWarning).
+pub const Warning = struct {
+    text: [warning_text_capacity]u8 = [_]u8{0} ** warning_text_capacity,
+
+    pub fn textSlice(self: *const Warning) []const u8 {
+        return std.mem.sliceTo(&self.text, 0);
+    }
+
+    /// Unlike the names, a warning is truncated rather than refused: the
+    /// export has already happened when its report is written.
+    pub fn setText(self: *Warning, text: []const u8) void {
+        @memset(&self.text, 0);
+        const n = @min(text.len, warning_text_capacity - 1);
+        @memcpy(self.text[0..n], text[0..n]);
+    }
+};
+
+/// BkResExportReport without its buffer: the caller hands the warnings
+/// slice separately; `warning_total` is the full count even when that
+/// slice was shorter.
+pub const ExportReport = struct {
+    written: i32 = 0,
+    skipped: i32 = 0,
+    warning_total: usize = 0,
+};
+
+/// BkResModSettings: MFC's MOD Settings dialog. The export dir is the mod's
+/// own folder; exports and mod.xml go into its data/ folder.
+pub const ModSettings = struct {
+    export_dir: [260]u8 = [_]u8{0} ** 260,
+    name: [64]u8 = [_]u8{0} ** 64,
+    version: [32]u8 = [_]u8{0} ** 32,
+    desc: [256]u8 = [_]u8{0} ** 256,
+
+    pub fn exportDirSlice(self: *const ModSettings) []const u8 {
+        return std.mem.sliceTo(&self.export_dir, 0);
+    }
+    pub fn nameSlice(self: *const ModSettings) []const u8 {
+        return std.mem.sliceTo(&self.name, 0);
+    }
+    pub fn versionSlice(self: *const ModSettings) []const u8 {
+        return std.mem.sliceTo(&self.version, 0);
+    }
+    pub fn descSlice(self: *const ModSettings) []const u8 {
+        return std.mem.sliceTo(&self.desc, 0);
+    }
+    /// Each setter refuses (false, nothing written) a value that does not
+    /// fit, like `putName`.
+    pub fn setExportDir(self: *ModSettings, text: []const u8) bool {
+        return putGeneric(&self.export_dir, text);
+    }
+    pub fn setName(self: *ModSettings, text: []const u8) bool {
+        return putGeneric(&self.name, text);
+    }
+    pub fn setVersion(self: *ModSettings, text: []const u8) bool {
+        return putGeneric(&self.version, text);
+    }
+    pub fn setDesc(self: *ModSettings, text: []const u8) bool {
+        return putGeneric(&self.desc, text);
     }
 };
 
@@ -311,6 +391,21 @@ pub const ResBridge = struct {
         /// Generic geometry write. Replaces the whole list / grid for the
         /// channel.
         geometryWrite: *const fn (ptr: *anyopaque, node: i32, channel: GeometryChannel, value: *const GeometryValue) Status,
+        /// BkResExport (stats_only false) / BkResExportStatsOnly: the open
+        /// project into the export root's data/ folder. Refused while the
+        /// kind's exporter is not ported yet.
+        exportProject: *const fn (ptr: *anyopaque, flags: ExportFlags, stats_only: bool, report: *ExportReport, warnings: []Warning) Status,
+        /// BkResBatch: every project of `kind` (null: all) under src into
+        /// dst's data/ folder; a failing project is a warning, not a stop.
+        batch: *const fn (ptr: *anyopaque, kind: ?Kind, src: []const u8, dst: []const u8, flags: ExportFlags, report: *ExportReport, warnings: []Warning) Status,
+        /// BkResModSettingsGet / Set: the export dir and mod.xml's fields.
+        modSettingsGet: *const fn (ptr: *anyopaque, out: *ModSettings) Status,
+        modSettingsSet: *const fn (ptr: *anyopaque, in: *const ModSettings) Status,
+        /// BkResPackMod: the export root's data/ folder zipped into a .pak.
+        packMod: *const fn (ptr: *anyopaque, out_path: []const u8) Status,
+        /// BkResImportFromGame: a new, unsaved project of `kind` from a
+        /// runtime resource folder. Refused for a kind not ported yet.
+        importFromGame: *const fn (ptr: *anyopaque, kind: Kind, path: []const u8) Status,
         /// BkResPreviewBegin: empty preview scene for the kind.
         previewBegin: *const fn (ptr: *anyopaque, kind: Kind) Status,
         /// BkResPreviewShow: export the open project into the preview and
@@ -374,6 +469,24 @@ pub const ResBridge = struct {
     pub fn geometryWrite(self: ResBridge, node: i32, channel: GeometryChannel, value: *const GeometryValue) Status {
         return self.vtable.geometryWrite(self.ptr, node, channel, value);
     }
+    pub fn exportProject(self: ResBridge, flags: ExportFlags, stats_only: bool, report: *ExportReport, warnings: []Warning) Status {
+        return self.vtable.exportProject(self.ptr, flags, stats_only, report, warnings);
+    }
+    pub fn batch(self: ResBridge, kind: ?Kind, src: []const u8, dst: []const u8, flags: ExportFlags, report: *ExportReport, warnings: []Warning) Status {
+        return self.vtable.batch(self.ptr, kind, src, dst, flags, report, warnings);
+    }
+    pub fn modSettingsGet(self: ResBridge, out: *ModSettings) Status {
+        return self.vtable.modSettingsGet(self.ptr, out);
+    }
+    pub fn modSettingsSet(self: ResBridge, in: *const ModSettings) Status {
+        return self.vtable.modSettingsSet(self.ptr, in);
+    }
+    pub fn packMod(self: ResBridge, out_path: []const u8) Status {
+        return self.vtable.packMod(self.ptr, out_path);
+    }
+    pub fn importFromGame(self: ResBridge, kind: Kind, path: []const u8) Status {
+        return self.vtable.importFromGame(self.ptr, kind, path);
+    }
     pub fn previewBegin(self: ResBridge, kind: Kind) Status {
         return self.vtable.previewBegin(self.ptr, kind);
     }
@@ -420,6 +533,20 @@ test "check maps the C statuses to EditError" {
     try std.testing.expectError(error.BadArgument, check(.bad_argument));
     try std.testing.expectError(error.Failed, check(.failed));
     try std.testing.expectError(error.Failed, check(.no_device));
+}
+
+test "ExportFlags maps to the BK_RES_EXPORT_* bits" {
+    try std.testing.expectEqual(@as(c_int, 0), (ExportFlags{}).toCInt());
+    try std.testing.expectEqual(@as(c_int, 1), (ExportFlags{ .force = true }).toCInt());
+    try std.testing.expectEqual(@as(c_int, 3), (ExportFlags{ .force = true, .open_save = true }).toCInt());
+}
+
+test "Warning.setText truncates and stays terminated" {
+    var warning: Warning = .{};
+    var long: [warning_text_capacity + 10]u8 = undefined;
+    @memset(&long, 'w');
+    warning.setText(&long);
+    try std.testing.expectEqual(warning_text_capacity - 1, warning.textSlice().len);
 }
 
 test "putName refuses to truncate" {

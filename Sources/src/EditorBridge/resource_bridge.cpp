@@ -41,11 +41,18 @@
 #include "../ResourceModel/items/tree_item_types.h"
 #include "../ResourceModel/xml.h"
 #include "../ResourceModel/future_blob.h"
+#include "../ResourceModel/references.h"
+#include "../ResourceModel/exporter.h"
+#include "../Main/RPGStats.h"
+#include "../zlib/zlib.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -59,6 +66,7 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
+#include <sys/stat.h>
 #else
 #include <pwd.h>
 #include <sys/stat.h>
@@ -172,6 +180,15 @@ struct ResourceState
 	// entries as `_bk_geometry` elements in the owning item's element so a
 	// BkResOpen on the saved file restores the map.
 	std::map<std::pair<int, int>, GeometryBlob> geometry;
+	// Session-level, not project-level: ResetState leaves these alone so a
+	// new project keeps the mod settings and the reference lists. The export
+	// dir is BkResModSettingsSet's ("" until then: the default). The lists
+	// are built on the first BkResRefList and again when the active mod
+	// changes.
+	std::string szExportDir;
+	bool bRefsBuilt = false;
+	std::string szRefsModFolder;
+	std::vector<std::string> refLists[NResourceModel::kReferenceTypeCount];
 };
 
 // Channel ids: the C ABI's geometry channel integers (shared with Zig's
@@ -966,6 +983,30 @@ std::string SerialiseSubtree( const ResourceState &state, NResourceModel::CTreeI
 	return NResourceXml::Serialise( doc );
 }
 
+// The bytes BkResSave writes for the open project: the tree, plus every
+// geometry entry as a `_bk_geometry` element in its owner's element. Export
+// hands its exporter a project parsed from the same bytes, so what is
+// exported is what a save would write. Re-parsing Serialise's output and
+// writing it again gives the same bytes (xml.h), so a project without
+// geometry is not touched.
+bool RenderForSave( const ResourceState &state, std::string &szOut, std::string &szError )
+{
+	szOut = NResourceModel::Save( *state.pProject );
+	if ( state.pProject->root && ( !state.geometry.empty() || szOut.find( kGeometryTag ) != std::string::npos ) )
+	{
+		NResourceXml::Document doc;
+		std::string szParseError;
+		if ( !NResourceXml::Parse( szOut, doc, szParseError ) )
+		{
+			szError = "cannot re-read the rendered project: " + szParseError;
+			return false;
+		}
+		WriteGeometry( state, *state.pProject->root, doc.root );
+		szOut = NResourceXml::Serialise( doc );
+	}
+	return true;
+}
+
 } // namespace
 
 extern "C" {
@@ -1049,21 +1090,9 @@ BkEditorStatus BkResSave( BkResSession *pSession, const char *pszPath )
 			pSession->szMessage = "no project is open";
 			return BK_EDITOR_REFUSED;
 		}
-		std::string szIntended = NResourceModel::Save( *state.pProject );
-		// Re-parsing Serialise's output and writing it again gives the same
-		// bytes (xml.h), so a project without geometry is not touched.
-		if ( state.pProject->root && ( !state.geometry.empty() || szIntended.find( kGeometryTag ) != std::string::npos ) )
-		{
-			NResourceXml::Document doc;
-			std::string szError;
-			if ( !NResourceXml::Parse( szIntended, doc, szError ) )
-			{
-				pSession->szMessage = "cannot re-read the rendered project: " + szError;
-				return BK_EDITOR_FAILED;
-			}
-			WriteGeometry( state, *state.pProject->root, doc.root );
-			szIntended = NResourceXml::Serialise( doc );
-		}
+		std::string szIntended;
+		if ( !RenderForSave( state, szIntended, pSession->szMessage ) )
+			return BK_EDITOR_FAILED;
 
 		// Safe-save pattern (mirrors SaveSessionMap in session.cpp):
 		//  1. Back up any pre-existing destination to <path>.bak.
@@ -1253,14 +1282,13 @@ BkEditorStatus BkResProps( BkResSession *pSession, int nNodeId, BkResPropRecord 
 			BkResPropRecord &rec = pOut[i];
 			rec.id = p.nId;
 			rec.domain_type = static_cast<int>( p.nDomenType );
-			rec.value_kind = 0;
+			rec.value_kind = static_cast<int>( p.value.GetKind() );
 			rec.combo_count = static_cast<int>( p.szStrings.size() );
 			CopyFixed( rec.default_name, sizeof( rec.default_name ), p.szDefaultName );
 			CopyFixed( rec.display_name, sizeof( rec.display_name ), p.szDisplayName );
-			// Text form: T04 fills this against the typed variant. For T02 the
-			// values vectors are empty on every typed shell, so this loop body
-			// does not actually run for the current fixtures.
-			rec.value_text[0] = 0;
+			// The typed value's text form (CVariant::ToString), the same text
+			// BkResSetProp parses back into the prop's kind.
+			CopyFixed( rec.value_text, sizeof( rec.value_text ), p.value.ToString() );
 		}
 		return BK_EDITOR_OK;
 	} );
@@ -1289,9 +1317,9 @@ BkEditorStatus BkResSetProp( BkResSession *pSession, int nNodeId, int nPropId, c
 		{
 			if ( p.nId == nPropId )
 			{
-				// T04 wires the typed CVariant parser against DomenID; here we
-				// stash the text to prove the write path reaches the item.
-				p.szDisplayName = pszText;
+				// Parsed into the kind the prop already holds, so a float stays
+				// a float and the project writes the same element type back.
+				p.value = NResourceModel::CVariant::FromString( p.value.GetKind(), pszText );
 				return BK_EDITOR_OK;
 			}
 		}
@@ -1495,15 +1523,103 @@ static BkEditorStatus NotImplemented( BkResSession *pSession, const char *pszWha
 
 /* ---- References ------------------------------------------------------- */
 
-BkEditorStatus BkResRefList( BkResSession *pSession, int nType, BkResReferenceEntry *, int, int *pnCount )
+extern "C++" {
+namespace {
+
+// A folder's child by name, case-insensitively: an exact match first, then
+// any entry that folds equal (the staged install has both "mods" and "Mods";
+// a mod may say "Data" or "data"). The name as given when nothing matches,
+// so a folder that does not exist yet is created with MFC's spelling.
+std::filesystem::path ChildFolder( const std::filesystem::path &dir, const std::string &szName )
+{
+	std::error_code ec;
+	const std::filesystem::path exact = dir / szName;
+	if ( std::filesystem::is_directory( exact, ec ) )
+		return exact;
+	auto fold = []( std::string s ) { for ( char &c : s ) c = char( std::tolower( (unsigned char)c ) ); return s; };
+	const std::string szWant = fold( szName );
+	for ( std::filesystem::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_directory( ec ) && fold( it->path().filename().string() ) == szWant )
+			return it->path();
+	return exact;
+}
+
+std::filesystem::path ShippedDataFolder( const BkEditorSession *pSession )
+{
+	return ChildFolder( pSession->szDataRoot.empty() ? std::filesystem::path( "." ) : std::filesystem::path( pSession->szDataRoot ), "Data" );
+}
+
+// The active mod's data folder, or an empty path with none active.
+std::filesystem::path ModDataFolder( const BkEditorSession *pSession )
+{
+	if ( pSession->szModFolder.empty() || pSession->szModFolder == "none" )
+		return std::filesystem::path();
+	const std::filesystem::path root = pSession->szDataRoot.empty() ? std::filesystem::path( "." ) : std::filesystem::path( pSession->szDataRoot );
+	return ChildFolder( ChildFolder( ChildFolder( root, "mods" ), pSession->szModFolder ), "data" );
+}
+
+void BuildReferenceLists( BkEditorSession *pSession, ResourceState &state )
+{
+	if ( state.bRefsBuilt && state.szRefsModFolder == pSession->szModFolder )
+		return;
+	NResourceModel::References base, mod;
+	base.rebuild( ShippedDataFolder( pSession ) );
+	const std::filesystem::path modData = ModDataFolder( pSession );
+	if ( !modData.empty() )
+		mod.rebuild( modData );
+	for ( int i = 0; i < NResourceModel::kReferenceTypeCount; ++i )
+	{
+		const auto eType = static_cast<NResourceModel::EReferenceType>( i );
+		std::vector<std::string> list = base.enumerate( eType );
+		for ( const std::string &szEntry : mod.enumerate( eType ) )
+			if ( std::find( list.begin(), list.end(), szEntry ) == list.end() )
+				list.push_back( szEntry );
+		state.refLists[i] = std::move( list );
+	}
+	state.bRefsBuilt = true;
+	state.szRefsModFolder = pSession->szModFolder;
+}
+
+// Copies text into a fixed C field, truncated, always NUL-terminated.
+void CopyField( char *pField, std::size_t nSize, const std::string &szText )
+{
+	const std::size_t n = std::min( nSize - 1, szText.size() );
+	std::memcpy( pField, szText.data(), n );
+	pField[n] = 0;
+}
+
+} // namespace
+} // extern "C++"
+
+BkEditorStatus BkResRefList( BkResSession *pSession, int nType, BkResReferenceEntry *pOut, int nCapacity, int *pnCount )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		if ( nType < 0 || nType > 19 )
+		if ( nType < 0 || nType >= NResourceModel::kReferenceTypeCount || pnCount == nullptr || nCapacity < 0 )
 			return BK_EDITOR_BAD_ARGUMENT;
-		if ( pnCount != nullptr )
-			*pnCount = 0;
-		return NotImplemented( pSession, "BkResRefList" );
+		*pnCount = 0;
+		if ( pSession->szDataRoot.empty() )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		ResourceState &state = StateOf( pSession );
+		BuildReferenceLists( pSession, state );
+		const std::vector<std::string> &list = state.refLists[nType];
+		*pnCount = int( list.size() );
+		if ( pOut == nullptr && nCapacity == 0 )
+			return BK_EDITOR_OK;
+		if ( pOut == nullptr || nCapacity < int( list.size() ) )
+		{
+			pSession->szMessage = "the buffer holds " + std::to_string( nCapacity ) + " of " + std::to_string( list.size() ) + " entries";
+			return BK_EDITOR_REFUSED;
+		}
+		for ( std::size_t i = 0; i < list.size(); ++i )
+		{
+			pOut[i].token = int( i );
+			CopyField( pOut[i].name, sizeof( pOut[i].name ), list[i] );
+		}
+		return BK_EDITOR_OK;
 	} );
 }
 
@@ -2102,67 +2218,680 @@ BKRES_VEC3_PAIR( EffectKeyframes, CHANNEL_EFFECT_KEYFRAMES )
 
 /* ---- Export ----------------------------------------------------------- */
 
-static void ClearReport( BkResExportReport *pReport )
+extern "C++" {
+namespace {
+
+// The project extension of each BkResKind ordinal, kKindTable's order.
+const char *const kKindExtensions[] =
 {
-	if ( pReport == 0 )
+	"wpn", "mcp", "trc", "scp", "spt", "unt", "msh", "obt", "fnc", "bld", "bdg",
+	"pcp", "eff", "til", "3rd", "3rv", "mip", "chc", "cgc", "mdc", "gui"
+};
+static_assert( sizeof( kKindExtensions ) / sizeof( kKindExtensions[0] ) == sizeof( kKindTable ) / sizeof( kKindTable[0] ),
+               "one extension per kind" );
+
+std::string Fold( std::string s )
+{
+	for ( char &c : s )
+		c = char( std::tolower( (unsigned char)c ) );
+	return s;
+}
+
+// The export dir (MFC's clean destination dir, the mod's own folder).
+std::filesystem::path ExportDirOf( BkEditorSession *pSession )
+{
+	const ResourceState &state = StateOf( pSession );
+	if ( !state.szExportDir.empty() )
+		return std::filesystem::path( state.szExportDir );
+	const std::filesystem::path root = pSession->szDataRoot.empty() ? std::filesystem::path( "." ) : std::filesystem::path( pSession->szDataRoot );
+	const bool bMod = !pSession->szModFolder.empty() && pSession->szModFolder != "none";
+	return ChildFolder( ChildFolder( root, "mods" ), bMod ? pSession->szModFolder : std::string( "mymod" ) );
+}
+
+// True when dir is the shipped Data/ folder: no export, mod.xml or batch
+// ever writes there (spec "Saving and exporting").
+bool IsShippedData( const BkEditorSession *pSession, const std::filesystem::path &dir )
+{
+	std::error_code ec;
+	const std::filesystem::path shipped = ShippedDataFolder( pSession );
+	if ( std::filesystem::exists( dir, ec ) && std::filesystem::exists( shipped, ec ) )
+		return std::filesystem::equivalent( dir, shipped, ec );
+	return Fold( std::filesystem::weakly_canonical( dir, ec ).generic_string() ) == Fold( std::filesystem::weakly_canonical( shipped, ec ).generic_string() );
+}
+
+// The regular files below dir, as generic relative paths, sorted.
+std::vector<std::string> FilesBelow( const std::filesystem::path &dir )
+{
+	std::vector<std::string> files;
+	std::error_code ec;
+	for ( std::filesystem::recursive_directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			files.push_back( std::filesystem::relative( it->path(), dir, ec ).generic_string() );
+	std::sort( files.begin(), files.end() );
+	return files;
+}
+
+// One project through its kind's exporter: the exporter writes into a
+// staging folder beside data/, and only when it succeeds are its files
+// moved into data/, so a failed export leaves no half-written resource.
+bool ExportOne( const NResourceModel::Project &project, const std::string &szProjectPath, const std::string &szExtension,
+                const std::filesystem::path &dataDir, int nFlags, bool bStatsOnly,
+                NResourceModel::SExportOutcome &outcome, std::string &szError )
+{
+	const NResourceModel::FExporter pfnExporter = NResourceModel::FindExporter( szExtension );
+	if ( pfnExporter == nullptr )
+	{
+		szError = "exporting ." + szExtension + " projects is not ported yet; the exporter comes with its sub-editor";
+		return false;
+	}
+	std::error_code ec;
+	const std::filesystem::path staging = dataDir.parent_path() / ".bk-export-staging";
+	std::filesystem::remove_all( staging, ec );
+	std::filesystem::create_directories( staging, ec );
+	if ( ec )
+	{
+		szError = "cannot create the staging folder " + staging.string() + ": " + ec.message();
+		return false;
+	}
+	NResourceModel::SExportContext context;
+	context.szProjectPath = szProjectPath;
+	context.szStagingRoot = staging.string();
+	context.bForce = ( nFlags & BK_RES_EXPORT_FORCE ) != 0;
+	context.bStatsOnly = bStatsOnly;
+	if ( !pfnExporter( project, context, outcome ) )
+	{
+		std::filesystem::remove_all( staging, ec );
+		szError = outcome.szError.empty() ? std::string( "the exporter failed" ) : outcome.szError;
+		return false;
+	}
+	for ( const std::string &szRelative : FilesBelow( staging ) )
+	{
+		const std::filesystem::path target = dataDir / szRelative;
+		std::filesystem::create_directories( target.parent_path(), ec );
+		std::filesystem::rename( staging / szRelative, target, ec );
+		if ( ec )
+		{
+			szError = "cannot move " + szRelative + " into " + dataDir.string() + ": " + ec.message();
+			std::filesystem::remove_all( staging, ec );
+			return false;
+		}
+	}
+	std::filesystem::remove_all( staging, ec );
+	return true;
+}
+
+// Fills the caller's report. The export has already happened, so a short
+// warnings buffer gets as many as fit; warning_count is always the total.
+void FillReport( BkResExportReport *pReport, int nWritten, int nSkipped, const std::vector<std::string> &warnings )
+{
+	if ( pReport == nullptr )
 		return;
-	pReport->written = 0;
-	pReport->skipped = 0;
-	pReport->warning_count = 0;
+	pReport->written = nWritten;
+	pReport->skipped = nSkipped;
+	pReport->warning_count = int( warnings.size() );
+	if ( pReport->warnings == nullptr )
+		return;
+	for ( int i = 0; i < pReport->warnings_capacity && i < int( warnings.size() ); ++i )
+		CopyField( pReport->warnings[i].text, sizeof( pReport->warnings[i].text ), warnings[i] );
 }
 
-BkEditorStatus BkResExport( BkResSession *pSession, int, BkResExportReport *pReport )
+BkEditorStatus ExportOpenProject( BkResSession *pSession, int nFlags, bool bStatsOnly, BkResExportReport *pReport )
+{
+	FillReport( pReport, 0, 0, std::vector<std::string>() );
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen || !state.pProject )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.szPath.empty() )
+	{
+		pSession->szMessage = "save the project first: an export reads its sources beside the project file";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.nKindOrdinal < 0 || state.nKindOrdinal >= kKindCount )
+	{
+		pSession->szMessage = "the open project is not of a registered kind";
+		return BK_EDITOR_REFUSED;
+	}
+	const std::string szExtension = kKindExtensions[state.nKindOrdinal];
+	if ( NResourceModel::FindExporter( szExtension ) == nullptr )
+	{
+		pSession->szMessage = "exporting ." + szExtension + " projects is not ported yet; the exporter comes with its sub-editor";
+		return BK_EDITOR_REFUSED;
+	}
+	const std::filesystem::path dataDir = ChildFolder( ExportDirOf( pSession ), "data" );
+	if ( IsShippedData( pSession, dataDir ) )
+	{
+		pSession->szMessage = "the export root is the shipped Data folder; set a mod folder in MOD settings";
+		return BK_EDITOR_REFUSED;
+	}
+	std::string szBytes;
+	if ( !RenderForSave( state, szBytes, pSession->szMessage ) )
+		return BK_EDITOR_FAILED;
+	NResourceModel::Project project;
+	std::string szError;
+	if ( !NResourceModel::Load( szBytes, project, szError ) )
+	{
+		pSession->szMessage = "cannot re-read the project for export: " + szError;
+		return BK_EDITOR_FAILED;
+	}
+	NResourceModel::SExportOutcome outcome;
+	if ( !ExportOne( project, state.szPath, szExtension, dataDir, nFlags, bStatsOnly, outcome, szError ) )
+	{
+		FillReport( pReport, 0, 0, outcome.warnings );
+		pSession->szMessage = szError;
+		return BK_EDITOR_FAILED;
+	}
+	FillReport( pReport, outcome.nWritten, outcome.nSkipped, outcome.warnings );
+	pSession->szMessage = "exported " + std::to_string( outcome.nWritten ) + " files into " + dataDir.string();
+	return BK_EDITOR_OK;
+}
+
+// MFC's -os: a project re-saved through the model, temp + read back +
+// rename like BkResSave, without a .bak (the batch never kept one).
+bool ResaveProject( const std::string &szPath, const std::string &szBytes, std::string &szError )
+{
+	const std::string szTmp = szPath + ".tmp";
+	std::error_code ec;
+	std::string szRead;
+	if ( !WriteFileBytes( szTmp, szBytes ) || !ReadFileBytes( szTmp, szRead ) || szRead != szBytes )
+	{
+		std::filesystem::remove( szTmp, ec );
+		szError = "cannot write " + szTmp;
+		return false;
+	}
+	std::filesystem::rename( szTmp, szPath, ec );
+	if ( ec )
+	{
+		std::filesystem::remove( szTmp, ec );
+		szError = "cannot rename " + szTmp + ": " + ec.message();
+		return false;
+	}
+	return true;
+}
+
+} // namespace
+} // extern "C++"
+
+BkEditorStatus BkResExport( BkResSession *pSession, int nFlags, BkResExportReport *pReport )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus { return ExportOpenProject( pSession, nFlags, false, pReport ); } );
+}
+
+BkEditorStatus BkResExportStatsOnly( BkResSession *pSession, int nFlags, BkResExportReport *pReport )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus { return ExportOpenProject( pSession, nFlags, true, pReport ); } );
+}
+
+BkEditorStatus BkResBatch( BkResSession *pSession, int nKind, const char *pszSrc, const char *pszDst, int nFlags, BkResExportReport *pReport )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		ClearReport( pReport );
-		return NotImplemented( pSession, "BkResExport" );
-	} );
-}
-
-BkEditorStatus BkResExportStatsOnly( BkResSession *pSession, int, BkResExportReport *pReport )
-{
-	return Guarded( pSession, [=]() -> BkEditorStatus
-	{
-		ClearReport( pReport );
-		return NotImplemented( pSession, "BkResExportStatsOnly" );
-	} );
-}
-
-BkEditorStatus BkResBatch( BkResSession *pSession, int, const char *, const char *, int, BkResExportReport *pReport )
-{
-	return Guarded( pSession, [=]() -> BkEditorStatus
-	{
-		ClearReport( pReport );
-		return NotImplemented( pSession, "BkResBatch" );
+		FillReport( pReport, 0, 0, std::vector<std::string>() );
+		if ( pszSrc == nullptr || pszDst == nullptr || *pszDst == 0 || nKind < -1 || nKind >= kKindCount )
+			return BK_EDITOR_BAD_ARGUMENT;
+		std::error_code ec;
+		if ( !std::filesystem::is_directory( pszSrc, ec ) )
+		{
+			pSession->szMessage = std::string( pszSrc ) + " is not a folder";
+			return BK_EDITOR_DATA_MISSING;
+		}
+		const bool bOpenSave = ( nFlags & BK_RES_EXPORT_OPEN_SAVE ) != 0;
+		const std::filesystem::path dataDir = ChildFolder( pszDst, "data" );
+		if ( !bOpenSave && IsShippedData( pSession, dataDir ) )
+		{
+			pSession->szMessage = "the batch destination is the shipped Data folder";
+			return BK_EDITOR_REFUSED;
+		}
+		// Every project of the chosen kinds, in BkResKind order (MFC's frame
+		// order for "all"), then by path.
+		std::vector<std::pair<int, std::string>> projects;
+		for ( std::filesystem::recursive_directory_iterator it( pszSrc, ec ), end; !ec && it != end; it.increment( ec ) )
+		{
+			if ( !it->is_regular_file( ec ) )
+				continue;
+			const std::string szExt = Fold( it->path().extension().string() );
+			for ( int k = 0; k < kKindCount; ++k )
+				if ( ( nKind == -1 || nKind == k ) && szExt == std::string( "." ) + kKindExtensions[k] )
+					projects.push_back( { k, it->path().string() } );
+		}
+		std::sort( projects.begin(), projects.end() );
+		int nWritten = 0, nSkipped = 0;
+		std::vector<std::string> warnings;
+		for ( const auto &entry : projects )
+		{
+			const std::string &szPath = entry.second;
+			std::string szBytes, szError;
+			NResourceModel::Project project;
+			if ( !ReadFileBytes( szPath, szBytes ) || !NResourceModel::Load( szBytes, project, szError ) )
+			{
+				warnings.push_back( szPath + ": cannot read the project " + szError );
+				++nSkipped;
+				continue;
+			}
+			if ( bOpenSave )
+			{
+				if ( ResaveProject( szPath, NResourceModel::Save( project ), szError ) )
+					++nWritten;
+				else
+				{
+					warnings.push_back( szPath + ": " + szError );
+					++nSkipped;
+				}
+				continue;
+			}
+			NResourceModel::SExportOutcome outcome;
+			if ( ExportOne( project, szPath, kKindExtensions[entry.first], dataDir, nFlags, false, outcome, szError ) )
+			{
+				nWritten += outcome.nWritten;
+				nSkipped += outcome.nSkipped;
+			}
+			else
+			{
+				warnings.push_back( szPath + ": " + szError );
+				++nSkipped;
+			}
+			for ( const std::string &szWarning : outcome.warnings )
+				warnings.push_back( szPath + ": " + szWarning );
+		}
+		FillReport( pReport, nWritten, nSkipped, warnings );
+		pSession->szMessage = std::to_string( projects.size() ) + " projects, " + std::to_string( nWritten ) + " written, " +
+		                      std::to_string( nSkipped ) + " skipped";
+		return BK_EDITOR_OK;
 	} );
 }
 
 /* ---- MOD -------------------------------------------------------------- */
 
+extern "C++" {
+namespace {
+
+// A folder path as the engine's file storage takes it: with a trailing
+// separator (comparator.cpp's OpenForRead does the same).
+std::string StorageDir( const std::filesystem::path &dir )
+{
+	std::string s = dir.string();
+	if ( s.empty() || ( s.back() != '/' && s.back() != '\\' ) )
+		s += '/';
+	return s;
+}
+
+// mod.xml read by the engine's tree reader, as CEditorApp::ReadMODFile and
+// the game's mod list do. Fields stay empty when there is no mod.xml.
+void ReadModFile( const std::filesystem::path &dataDir, std::string &szName, std::string &szVersion, std::string &szDesc )
+{
+	std::error_code ec;
+	if ( !std::filesystem::is_regular_file( dataDir / "mod.xml", ec ) )
+		return;
+	CPtr<IDataStorage> pStorage = OpenStorage( StorageDir( dataDir ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	if ( pStorage == 0 )
+		return;
+	CPtr<IDataStream> pStream = pStorage->OpenStream( "mod.xml", STREAM_ACCESS_READ );
+	if ( pStream == 0 )
+		return;
+	CTreeAccessor saver = CreateDataTreeSaver( pStream, IDataTree::READ );
+	saver.Add( "MODName", &szName );
+	saver.Add( "MODVersion", &szVersion );
+	saver.Add( "MODDesc", &szDesc );
+}
+
+// CEditorApp::WriteMODFile: mod.xml through the engine's tree saver, then
+// modobjects.xml seeded from the data storage when the mod has none. False
+// with a reason when mod.xml cannot be written; a missing seed is reported
+// in szNote only (mod.xml is the setting, the seed a convenience).
+bool WriteModFile( const std::filesystem::path &dataDir, const std::string &szName, const std::string &szVersion,
+                   const std::string &szDesc, std::string &szError, std::string &szNote )
+{
+	std::error_code ec;
+	std::filesystem::remove( dataDir / "mod.xml", ec );
+	{
+		CPtr<IDataStorage> pStorage = CreateStorage( StorageDir( dataDir ).c_str(), STREAM_ACCESS_WRITE, STORAGE_TYPE_FILE );
+		CPtr<IDataStream> pXMLStream = pStorage != 0 ? pStorage->CreateStream( "mod.xml", STREAM_ACCESS_WRITE ) : 0;
+		if ( pXMLStream == 0 )
+		{
+			szError = "cannot create " + ( dataDir / "mod.xml" ).string();
+			return false;
+		}
+		CPtr<IDataTree> pDT = CreateDataTreeSaver( pXMLStream, IDataTree::WRITE );
+		if ( pDT == 0 )
+		{
+			szError = "the engine has no tree saver for mod.xml";
+			return false;
+		}
+		std::string szNameTemp = szName, szVersionTemp = szVersion, szDescTemp = szDesc;
+		CTreeAccessor saver = pDT;
+		saver.Add( "MODName", &szNameTemp );
+		saver.Add( "MODVersion", &szVersionTemp );
+		saver.Add( "MODDesc", &szDescTemp );
+	}
+	if ( !std::filesystem::is_regular_file( dataDir / "mod.xml", ec ) )
+	{
+		szError = "mod.xml was not written into " + dataDir.string();
+		return false;
+	}
+	if ( std::filesystem::exists( dataDir / "modobjects.xml", ec ) )
+		return true;
+	CPtr<IDataStorage> pData = GetSingleton<IDataStorage>();
+	CPtr<IDataStream> pSeed = pData != 0 ? pData->OpenStream( "editor\\modobjects.xml", STREAM_ACCESS_READ ) : 0;
+	if ( pSeed == 0 )
+	{
+		szNote = "no editor\\modobjects.xml in the data storage to seed the mod's modobjects.xml from";
+		return true;
+	}
+	std::string szBytes( std::size_t( pSeed->GetSize() ), '\0' );
+	if ( !szBytes.empty() )
+		pSeed->Read( &szBytes[0], int( szBytes.size() ) );
+	if ( !WriteFileBytes( ( dataDir / "modobjects.xml" ).string(), szBytes ) )
+	{
+		szError = "cannot write " + ( dataDir / "modobjects.xml" ).string();
+		return false;
+	}
+	return true;
+}
+
+void Put16( std::string &s, unsigned v ) { s.push_back( char( v & 0xff ) ); s.push_back( char( ( v >> 8 ) & 0xff ) ); }
+void Put32( std::string &s, unsigned long v ) { Put16( s, unsigned( v & 0xffff ) ); Put16( s, unsigned( ( v >> 16 ) & 0xffff ) ); }
+
+// Raw deflate (no zlib header), level 9 - zip's method 8 as `zip -9` wrote it.
+bool Deflate9( const std::string &in, std::string &out )
+{
+	z_stream z;
+	std::memset( &z, 0, sizeof( z ) );
+	if ( deflateInit2( &z, 9, Z_DEFLATED, -MAX_WBITS, 8, Z_DEFAULT_STRATEGY ) != Z_OK )
+		return false;
+	// zlib 1.1.3's bound: the input plus 0.1% plus 12 bytes.
+	out.assign( in.size() + in.size() / 1000 + 64, '\0' );
+	z.next_in = reinterpret_cast<Bytef *>( const_cast<char *>( in.data() ) );
+	z.avail_in = uInt( in.size() );
+	z.next_out = reinterpret_cast<Bytef *>( &out[0] );
+	z.avail_out = uInt( out.size() );
+	const int nResult = deflate( &z, Z_FINISH );
+	out.resize( z.total_out );
+	deflateEnd( &z );
+	return nResult == Z_STREAM_END;
+}
+
+// The file's modification time as the DOS date (high word) and time (low).
+unsigned long DosTime( const std::filesystem::path &file )
+{
+	std::time_t t = 0;
+#if defined(_WIN32)
+	struct _stat64 st;
+	if ( _wstat64( file.wstring().c_str(), &st ) == 0 )
+		t = std::time_t( st.st_mtime );
+#else
+	struct stat st;
+	if ( ::stat( file.string().c_str(), &st ) == 0 )
+		t = st.st_mtime;
+#endif
+	std::tm tm = {};
+#if defined(_WIN32)
+	localtime_s( &tm, &t );
+#else
+	localtime_r( &t, &tm );
+#endif
+	if ( tm.tm_year < 80 )
+		return ( 1u << 21 ) | ( 1u << 16 );   // 1980-01-01, the earliest DOS date
+	const unsigned long nDate = ( unsigned long )( ( ( tm.tm_year - 80 ) << 9 ) | ( ( tm.tm_mon + 1 ) << 5 ) | tm.tm_mday );
+	const unsigned long nTime = ( unsigned long )( ( tm.tm_hour << 11 ) | ( tm.tm_min << 5 ) | ( tm.tm_sec / 2 ) );
+	return ( nDate << 16 ) | nTime;
+}
+
+// Writes the archive of every file below dataDir into szZip. False with a
+// reason on a read or write failure or a size the plain zip format cannot hold.
+bool WriteModZip( const std::filesystem::path &dataDir, const std::vector<std::string> &files, const std::string &szZip,
+                  std::string &szError )
+{
+	if ( files.size() > 0xffff )
+	{
+		szError = "more than 65535 files";
+		return false;
+	}
+	std::ofstream out( szZip, std::ios::binary | std::ios::trunc );
+	if ( !out )
+	{
+		szError = "cannot write " + szZip;
+		return false;
+	}
+	std::string central;
+	unsigned long long nOffset = 0;
+	for ( const std::string &szName : files )
+	{
+		std::string szData, szPacked;
+		if ( !ReadFileBytes( ( dataDir / szName ).string(), szData ) )
+		{
+			szError = "cannot read " + szName;
+			return false;
+		}
+		const unsigned long nCrc = crc32( crc32( 0L, Z_NULL, 0 ), reinterpret_cast<const Bytef *>( szData.data() ), uInt( szData.size() ) );
+		const bool bDeflated = Deflate9( szData, szPacked ) && szPacked.size() < szData.size();
+		const std::string &szStored = bDeflated ? szPacked : szData;
+		if ( szData.size() >= 0xffffffffull || nOffset >= 0xffffffffull )
+		{
+			szError = "the mod is too large for a plain zip";
+			return false;
+		}
+		const unsigned nMethod = bDeflated ? 8 : 0;
+		const unsigned nVersion = bDeflated ? 20 : 10;
+		const unsigned long nWhen = DosTime( dataDir / szName );
+		std::string local;
+		Put32( local, 0x04034b50 );
+		Put16( local, nVersion );
+		Put16( local, 0 );                                // flags
+		Put16( local, nMethod );
+		Put16( local, unsigned( nWhen & 0xffff ) );
+		Put16( local, unsigned( nWhen >> 16 ) );
+		Put32( local, nCrc );
+		Put32( local, ( unsigned long )szStored.size() );
+		Put32( local, ( unsigned long )szData.size() );
+		Put16( local, unsigned( szName.size() ) );
+		Put16( local, 0 );                                // extra
+		local += szName;
+		Put32( central, 0x02014b50 );
+		Put16( central, 20 );                             // made by: MS-DOS, zip 2.0
+		Put16( central, nVersion );
+		Put16( central, 0 );
+		Put16( central, nMethod );
+		Put16( central, unsigned( nWhen & 0xffff ) );
+		Put16( central, unsigned( nWhen >> 16 ) );
+		Put32( central, nCrc );
+		Put32( central, ( unsigned long )szStored.size() );
+		Put32( central, ( unsigned long )szData.size() );
+		Put16( central, unsigned( szName.size() ) );
+		Put16( central, 0 );                              // extra
+		Put16( central, 0 );                              // comment
+		Put16( central, 0 );                              // disk
+		Put16( central, 0 );                              // internal attributes
+		Put32( central, 0x20 );                           // external: archive
+		Put32( central, ( unsigned long )nOffset );
+		central += szName;
+		out.write( local.data(), std::streamsize( local.size() ) );
+		out.write( szStored.data(), std::streamsize( szStored.size() ) );
+		nOffset += local.size() + szStored.size();
+	}
+	std::string end;
+	Put32( end, 0x06054b50 );
+	Put16( end, 0 );
+	Put16( end, 0 );
+	Put16( end, unsigned( files.size() ) );
+	Put16( end, unsigned( files.size() ) );
+	Put32( end, ( unsigned long )central.size() );
+	Put32( end, ( unsigned long )nOffset );
+	Put16( end, 0 );
+	out.write( central.data(), std::streamsize( central.size() ) );
+	out.write( end.data(), std::streamsize( end.size() ) );
+	out.close();
+	if ( !out )
+	{
+		szError = "cannot finish writing " + szZip;
+		return false;
+	}
+	return true;
+}
+
+// Mounts the archive the way the game mounts a mod's data (a storage over
+// the folder, which takes in every *.pak there) and reads every entry back
+// against its source. szFolder holds nothing but the archive, so each name
+// can only come from it.
+bool ReadBackModZip( const std::filesystem::path &dataDir, const std::vector<std::string> &files, const std::filesystem::path &folder,
+                     std::string &szError )
+{
+	CPtr<IDataStorage> pStorage = OpenStorage( ( StorageDir( folder ) + "*.pak" ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
+	if ( pStorage == 0 )
+	{
+		szError = "the engine's storage does not mount " + folder.string();
+		return false;
+	}
+	for ( const std::string &szName : files )
+	{
+		std::string szEngineName = szName;
+		std::replace( szEngineName.begin(), szEngineName.end(), '/', '\\' );
+		CPtr<IDataStream> pStream = pStorage->OpenStream( szEngineName.c_str(), STREAM_ACCESS_READ );
+		std::string szWant;
+		ReadFileBytes( ( dataDir / szName ).string(), szWant );
+		if ( pStream == 0 )
+		{
+			szError = "the mounted archive has no " + szName;
+			return false;
+		}
+		if ( pStream->GetSize() != int( szWant.size() ) )
+		{
+			szError = "the mounted archive holds " + szName + " with " + std::to_string( pStream->GetSize() ) + " bytes, not " + std::to_string( szWant.size() );
+			return false;
+		}
+		std::string szGot( szWant.size(), '\0' );
+		if ( !szGot.empty() )
+			pStream->Read( &szGot[0], int( szGot.size() ) );
+		if ( szGot != szWant )
+		{
+			szError = "the mounted archive reads " + szName + " back different";
+			return false;
+		}
+	}
+	return true;
+}
+
+} // namespace
+} // extern "C++"
+
 BkEditorStatus BkResModSettingsGet( BkResSession *pSession, BkResModSettings *pOut )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		if ( pOut != 0 )
+		if ( pOut == nullptr )
+			return BK_EDITOR_BAD_ARGUMENT;
+		std::memset( pOut, 0, sizeof( *pOut ) );
+		if ( GetSLS() == 0 || pSession->szDataRoot.empty() )
 		{
-			pOut->name[0] = 0;
-			pOut->version[0] = 0;
-			pOut->bake_compressed = 0;
-			pOut->bake_packed = 0;
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
 		}
-		return NotImplemented( pSession, "BkResModSettingsGet" );
+		const std::filesystem::path dir = ExportDirOf( pSession );
+		std::string szName, szVersion, szDesc;
+		ReadModFile( ChildFolder( dir, "data" ), szName, szVersion, szDesc );
+		CopyField( pOut->export_dir, sizeof( pOut->export_dir ), dir.string() );
+		CopyField( pOut->name, sizeof( pOut->name ), szName );
+		CopyField( pOut->version, sizeof( pOut->version ), szVersion );
+		CopyField( pOut->desc, sizeof( pOut->desc ), szDesc );
+		return BK_EDITOR_OK;
 	} );
 }
 
-BkEditorStatus BkResModSettingsSet( BkResSession *pSession, const BkResModSettings * )
+BkEditorStatus BkResModSettingsSet( BkResSession *pSession, const BkResModSettings *pIn )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResModSettingsSet" ); } );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pIn == nullptr || pIn->export_dir[0] == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( GetSLS() == 0 || pSession->szDataRoot.empty() )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		auto field = []( const char *p, std::size_t n ) { return std::string( p, strnlen( p, n ) ); };
+		const std::string szDir = field( pIn->export_dir, sizeof( pIn->export_dir ) );
+		const std::filesystem::path dataDir = ChildFolder( szDir, "data" );
+		if ( IsShippedData( pSession, dataDir ) || IsShippedData( pSession, szDir ) )
+		{
+			pSession->szMessage = "the shipped Data folder is not a mod folder";
+			return BK_EDITOR_REFUSED;
+		}
+		std::error_code ec;
+		std::filesystem::create_directories( dataDir, ec );
+		if ( ec )
+		{
+			pSession->szMessage = "cannot create " + dataDir.string() + ": " + ec.message();
+			return BK_EDITOR_REFUSED;
+		}
+		std::string szError, szNote;
+		if ( !WriteModFile( dataDir, field( pIn->name, sizeof( pIn->name ) ), field( pIn->version, sizeof( pIn->version ) ),
+		                    field( pIn->desc, sizeof( pIn->desc ) ), szError, szNote ) )
+		{
+			pSession->szMessage = szError;
+			return BK_EDITOR_REFUSED;
+		}
+		StateOf( pSession ).szExportDir = szDir;
+		pSession->szMessage = szNote;
+		return BK_EDITOR_OK;
+	} );
 }
 
-BkEditorStatus BkResPackMod( BkResSession *pSession, const char * )
+BkEditorStatus BkResPackMod( BkResSession *pSession, const char *pszZip )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return NotImplemented( pSession, "BkResPackMod" ); } );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszZip == nullptr || *pszZip == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( GetSLS() == 0 || pSession->szDataRoot.empty() )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		const std::filesystem::path dataDir = ChildFolder( ExportDirOf( pSession ), "data" );
+		std::error_code ec;
+		if ( !std::filesystem::is_directory( dataDir, ec ) )
+		{
+			pSession->szMessage = "there is no " + dataDir.string() + " to pack";
+			return BK_EDITOR_REFUSED;
+		}
+		const std::string szDataAbs = Fold( std::filesystem::weakly_canonical( dataDir, ec ).generic_string() ) + "/";
+		const std::string szZipAbs = Fold( std::filesystem::weakly_canonical( pszZip, ec ).generic_string() );
+		if ( szZipAbs.compare( 0, szDataAbs.size(), szDataAbs ) == 0 )
+		{
+			pSession->szMessage = "the archive would be inside the folder it packs";
+			return BK_EDITOR_REFUSED;
+		}
+		const std::vector<std::string> files = FilesBelow( dataDir );
+		if ( files.empty() )
+		{
+			pSession->szMessage = dataDir.string() + " is empty";
+			return BK_EDITOR_REFUSED;
+		}
+		// Written and checked in a folder of its own beside the destination,
+		// then moved into place: a failed pack leaves no archive.
+		const std::filesystem::path verify = std::filesystem::absolute( pszZip, ec ).parent_path() / ".bk-pack-verify";
+		std::filesystem::remove_all( verify, ec );
+		std::filesystem::create_directories( verify, ec );
+		const std::filesystem::path staged = verify / "mod.pak";
+		std::string szError;
+		if ( !WriteModZip( dataDir, files, staged.string(), szError ) || !ReadBackModZip( dataDir, files, verify, szError ) )
+		{
+			std::filesystem::remove_all( verify, ec );
+			pSession->szMessage = szError;
+			return BK_EDITOR_FAILED;
+		}
+		std::filesystem::rename( staged, pszZip, ec );
+		const std::string szRename = ec ? ec.message() : std::string();
+		std::filesystem::remove_all( verify, ec );
+		if ( !szRename.empty() )
+		{
+			pSession->szMessage = "cannot move the archive into place: " + szRename;
+			return BK_EDITOR_FAILED;
+		}
+		pSession->szMessage = "packed " + std::to_string( files.size() ) + " files";
+		return BK_EDITOR_OK;
+	} );
 }
 
 /* ---- Preview --------------------------------------------------------- */
@@ -2194,13 +2923,180 @@ BkEditorStatus BkResPreviewCamera( BkResSession *pSession, float, float, int )
 
 /* ---- Import ----------------------------------------------------------- */
 
-BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind, const char *pszPath )
+extern "C++" {
+namespace {
+
+const int kInfantryKind = 5; // "unt", kKindTable's Unit_Composer_Project
+
+NResourceModel::CTreeItem *ChildOfType( NResourceModel::CTreeItem &item, int nType )
+{
+	for ( const auto &pChild : item.GetChildren() )
+		if ( pChild->GetItemType() == nType )
+			return pChild.get();
+	return nullptr;
+}
+
+// MFC's `values[n].value = v` setters; a slot the item does not have is
+// left alone (MFC asserted on it).
+template <class T>
+void SetSlot( NResourceModel::CTreeItem *pItem, std::size_t nSlot, const T &value )
+{
+	if ( pItem != nullptr && nSlot < pItem->MutableValues().size() )
+		pItem->MutableValues()[nSlot].value = value;
+}
+
+// CAnimationFrame::GetRPGStats (AnimationFrm.cpp), line for line, onto the
+// port's items: the slots are the indices MFC's setters in AnimTreeItem.h use.
+void InfantryStatsToTree( const SInfantryRPGStats &rpgStats, NResourceModel::CTreeItem &root )
+{
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_UNIT_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 0, rpgStats.szKeyName );
+	const char *pszType = "soldier";
+	switch ( rpgStats.type )
+	{
+		case RPG_TYPE_ENGINEER: pszType = "engineer"; break;
+		case RPG_TYPE_SNIPER:   pszType = "sniper";   break;
+		case RPG_TYPE_OFFICER:  pszType = "officer";  break;
+		default: break;
+	}
+	SetSlot( pCommonProps, 1, std::string( pszType ) );
+	SetSlot( pCommonProps, 3, rpgStats.fMaxHP );
+	SetSlot( pCommonProps, 4, rpgStats.nMinArmor );
+	SetSlot( pCommonProps, 5, rpgStats.fCamouflage );
+	SetSlot( pCommonProps, 6, rpgStats.fSpeed );
+	SetSlot( pCommonProps, 7, rpgStats.fPassability );
+	SetSlot( pCommonProps, 8, rpgStats.bCanAttackUp );
+	SetSlot( pCommonProps, 9, rpgStats.bCanAttackDown );
+	SetSlot( pCommonProps, 10, rpgStats.fPrice );
+	SetSlot( pCommonProps, 11, rpgStats.fSight );
+	SetSlot( pCommonProps, 12, rpgStats.fSightPower );
+
+	// CUnitAnimationPropsItem::SetAnimationSpeed: the prop with id 2.
+	if ( NResourceModel::CTreeItem *pAnims = ChildOfType( root, NResourceModel::ETIT_UNIT_ANIMATIONS_ITEM ) )
+		for ( const auto &pAnim : pAnims->GetChildren() )
+		{
+			const std::string &szAnimName = pAnim->GetDefaultName();
+			if ( szAnimName != "Run" && szAnimName != "Crawl" )
+				continue;
+			for ( NResourceModel::SProp &prop : pAnim->MutableValues() )
+				if ( prop.nId == 2 )
+					prop.value = szAnimName == "Run" ? rpgStats.fRunSpeed : rpgStats.fCrawlSpeed;
+		}
+
+	NResourceModel::CTreeItem *pAcks = ChildOfType( root, NResourceModel::ETIT_UNIT_ACKS_ITEM );
+	if ( rpgStats.szAcksNames.size() >= 1 )
+		SetSlot( pAcks, 0, rpgStats.szAcksNames[0] );
+	if ( rpgStats.szAcksNames.size() >= 2 )
+		SetSlot( pAcks, 1, rpgStats.szAcksNames[1] );
+
+	// CUnitActionsItem::SetActions / CUnitExposuresItem::SetExposures.
+	std::int64_t nActions = 0, nExposures = 0;
+	for ( int i = 0; i < 64; ++i )
+	{
+		if ( rpgStats.HasCommand( i ) )
+			nActions |= std::int64_t( 1 ) << i;
+		if ( i < rpgStats.availExposures.GetSize() && rpgStats.availExposures.GetData( i ) )
+			nExposures |= std::int64_t( 1 ) << i;
+	}
+	SetSlot( ChildOfType( root, NResourceModel::ETIT_UNIT_ACTIONS_ITEM ), 0, nActions );
+	SetSlot( ChildOfType( root, NResourceModel::ETIT_UNIT_EXPOSURES_ITEM ), 0, nExposures );
+
+	if ( rpgStats.guns.size() > 0 )
+	{
+		NResourceModel::CTreeItem *pWeaponProps = ChildOfType( root, NResourceModel::ETIT_UNIT_WEAPON_PROPS_ITEM );
+		SetSlot( pWeaponProps, 0, rpgStats.guns[0].szWeapon );
+		SetSlot( pWeaponProps, 1, rpgStats.guns[0].nAmmo );
+		SetSlot( pWeaponProps, 2, rpgStats.guns[0].fReloadCost );
+	}
+	if ( rpgStats.guns.size() > 1 )
+	{
+		NResourceModel::CTreeItem *pGrenadeProps = ChildOfType( root, NResourceModel::ETIT_UNIT_GRENADE_PROPS_ITEM );
+		SetSlot( pGrenadeProps, 0, rpgStats.guns[1].szWeapon );
+		SetSlot( pGrenadeProps, 1, rpgStats.guns[1].nAmmo );
+		SetSlot( pGrenadeProps, 2, rpgStats.guns[1].fReloadCost );
+	}
+}
+
+// The runtime folder's 1.xml, its name matched case-insensitively.
+std::filesystem::path StatsFileIn( const std::filesystem::path &dir )
+{
+	std::error_code ec;
+	for ( std::filesystem::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && Fold( it->path().filename().string() ) == "1.xml" )
+			return it->path();
+	return std::filesystem::path();
+}
+
+} // namespace
+} // extern "C++"
+
+BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, const char *pszPath )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		if ( pszPath == 0 )
+		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
-		return NotImplemented( pSession, "BkResImportFromGame" );
+		const std::string szExtension = kKindExtensions[kind];
+		if ( kind != kInfantryKind )
+		{
+			pSession->szMessage = kind == 4
+				? std::string( "importing .spt is refused: MFC's sprite export only composes .san packs and has no reverse path" )
+				: "importing ." + szExtension + " is not ported yet; it comes with its sub-editor";
+			return BK_EDITOR_REFUSED;
+		}
+		if ( GetSLS() == 0 )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		const std::filesystem::path statsFile = StatsFileIn( pszPath );
+		if ( statsFile.empty() )
+		{
+			pSession->szMessage = std::string( "no 1.xml in " ) + pszPath;
+			return BK_EDITOR_DATA_MISSING;
+		}
+		// CAnimationFrame::LoadRPGStats: the engine's own operator& reads it.
+		SInfantryRPGStats rpgStats;
+		{
+			CPtr<IDataStorage> pStorage = OpenStorage( StorageDir( statsFile.parent_path() ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+			CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( statsFile.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+			CPtr<IDataTree> pDT = pStream != 0 ? CreateDataTreeSaver( pStream, IDataTree::READ ) : 0;
+			if ( pDT == 0 )
+			{
+				pSession->szMessage = "the engine cannot read " + statsFile.string();
+				return BK_EDITOR_DATA_MISSING;
+			}
+			CTreeAccessor tree = pDT;
+			tree.Add( "RPG", &rpgStats );
+		}
+		if ( rpgStats.szKeyName.empty() )
+		{
+			pSession->szMessage = statsFile.string() + " holds no infantry RPG stats";
+			return BK_EDITOR_DATA_MISSING;
+		}
+		auto pRoot = NResourceModel::CTreeItemFactory::Instance().Create( kKindTable[kind].nRootType );
+		if ( !pRoot )
+		{
+			pSession->szMessage = "factory refused the kind";
+			return BK_EDITOR_FAILED;
+		}
+		// MFC's CreateTrees: the default tree the frame then fills.
+		pRoot->CreateDefaultChilds();
+		InfantryStatsToTree( rpgStats, *pRoot );
+		auto pProject = std::make_unique<NResourceModel::Project>();
+		pProject->document.hasDeclaration = true;
+		pProject->document.declaration = " version=\"1.0\"";
+		pProject->document.root.kind = NResourceXml::Node::Element;
+		pProject->document.root.name = kKindTable[kind].pszTag;
+		pProject->root = std::move( pRoot );
+		ResourceState &state = StateOf( pSession );
+		ResetState( state );
+		state.pProject = std::move( pProject );
+		state.bOpen = true;
+		state.nKindOrdinal = kind;
+		RebuildIds( state );
+		pSession->szMessage = "imported " + rpgStats.szKeyName + " from " + statsFile.string();
+		return BK_EDITOR_OK;
 	} );
 }
 

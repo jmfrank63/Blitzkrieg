@@ -4041,6 +4041,7 @@ fn addEditorBridge(
             "Sources/src/ResourceModel/localization.cpp",
             "Sources/src/ResourceModel/localization_item.cpp",
             "Sources/src/ResourceModel/editor_env.cpp",
+            "Sources/src/ResourceModel/exporter.cpp",
             "Sources/src/ResourceModel/mfc_value.cpp",
             "Sources/src/ResourceModel/project.cpp",
             "Sources/src/ResourceModel/references.cpp",

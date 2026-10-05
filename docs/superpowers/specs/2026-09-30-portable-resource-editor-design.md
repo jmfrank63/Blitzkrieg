@@ -263,6 +263,15 @@ found; an export with no graphics sources writes the stats and leaves the
 existing exported graphics untouched ("Export RPG stats only", which MFC
 wired only for infantry, is offered for every sub-editor).
 
+S04 T10 status: the bridge's `BkResImportFromGame` imports infantry (`unt`) through the engine's
+`operator&` and a line-for-line port of `CAnimationFrame::GetRPGStats`. Sprite (`spt`) is refused:
+its export only composes `.san` packs (`CSpriteTreeRootItem::ComposeAnimations`) and MFC has no
+reverse path, so a sprite import would need a `.san` decoder that MFC never had. The other kinds
+are refused, naming the kind, until their sub-editor slice ports theirs; likewise every exporter
+registers itself (`NResourceModel::RegisterExporter`) in its sub-editor slice, and until then
+`BkResExport` refuses the kind instead of writing partial game data. `BkResModSettings` carries
+MFC's dialog fields (export dir, name, version, description), not invented bake knobs.
+
 ## Saving and exporting
 
 - **Project save:** the map editor's safe save — temp file, read back and

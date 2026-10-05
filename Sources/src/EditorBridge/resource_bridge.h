@@ -177,8 +177,13 @@ BkEditorStatus BkResMoveNode( BkResSession *session, int node, int new_parent, i
    stable key the project writes. */
 typedef struct { int token; char name[128]; } BkResReferenceEntry;
 
-/* Two-pass read of a reference list by type. BK_EDITOR_BAD_ARGUMENT for a
-   type outside 0..19; BK_EDITOR_REFUSED when the engine is not started. */
+/* Two-pass read of a reference list by type: out_count is always the total
+   and a short buffer is BK_EDITOR_REFUSED. The lists are the ones MFC's
+   CReferenceDialog::InitLists filled, walked by NResourceModel::References
+   over <BaseRoot>Data and, while a mod is active, the mod's data folder
+   after it (an entry the mod repeats is listed once). token is the entry's
+   index in its list. BK_EDITOR_BAD_ARGUMENT for a type outside 0..19;
+   BK_EDITOR_REFUSED when the engine is not started. */
 BkEditorStatus BkResRefList( BkResSession *session, int type, BkResReferenceEntry *out, int capacity, int *out_count );
 
 /* ---- Geometry edits ---------------------------------------------------- */
@@ -264,9 +269,13 @@ BkEditorStatus BkResSetEffectKeyframes( BkResSession *session, int node, const B
    collected. Fixed buffer; truncated at capacity, NUL-terminated. */
 typedef struct { char text[256]; } BkResWarning;
 
-/* The report BkResExport / BkResExportStatsOnly / BkResBatch all write.
-   warnings is a two-pass list like the trees above: warning_count is the
-   total, a short buffer answers BK_EDITOR_REFUSED. */
+/* The report BkResExport / BkResExportStatsOnly / BkResBatch all write
+   (null: no report). The export has happened by the time it is filled, so
+   unlike the two-pass reads above a short warnings buffer is not refused:
+   at most warnings_capacity lines are copied and warning_count is always the
+   total. written counts files moved into place (BkResBatch with
+   BK_RES_EXPORT_OPEN_SAVE: projects re-saved); skipped counts files left as
+   up to date and, in a batch, projects that failed. */
 typedef struct
 {
 	int written;
@@ -276,37 +285,77 @@ typedef struct
 	int warnings_capacity;
 } BkResExportReport;
 
-/* Exports the open project to the game's runtime resource folder (what the
-   game reads). flags carry the MFC editor's bake toggles (compress, pack,
-   force overwrite). BK_EDITOR_REFUSED when no project is open. */
+/* Export flags. FORCE is MFC's batch -f (export even when up to date);
+   OPEN_SAVE is MFC's -os (BkResBatch only: open and re-save each project,
+   export nothing). */
+#define BK_RES_EXPORT_FORCE 1
+#define BK_RES_EXPORT_OPEN_SAVE 2
+
+/* Exports the open project into the export root's data/ folder (the export
+   dir of BkResModSettings; spec "Saving and exporting"). The kind's exporter
+   (NResourceModel::RegisterExporter, one per sub-editor slice) writes into a
+   staging folder; only when it succeeds are the files moved into place, so
+   a failed export leaves no half-written resource. The project must have
+   been saved (its sources are relative to its file). BK_EDITOR_REFUSED when
+   no project is open, the project has no path yet, the export root is the
+   shipped Data/ folder, or the kind's exporter is not ported yet (the
+   message says so; nothing is written). BK_EDITOR_FAILED when the exporter
+   fails; its reason is the message. */
 BkEditorStatus BkResExport( BkResSession *session, int flags, BkResExportReport *report );
 
-/* Exports only the stats sidecars, without rebaking meshes/textures - a
-   fast iteration path the MFC editor's Stats button used. */
+/* BkResExport with the exporter told to write only the stats and leave the
+   exported graphics untouched - MFC's Infantry-only "Export RPG stats only",
+   offered for every kind (D-13). */
 BkEditorStatus BkResExportStatsOnly( BkResSession *session, int flags, BkResExportReport *report );
 
-/* Batch exports every project under src_folder (or the ones of kind
-   `kind`) into dst_folder. Kind values follow BkResKind; -1 means all. */
+/* MFC's batch mode: every project file under src_folder (recursively) of
+   kind `kind` (-1: all 21 extensions, in BkResKind order) is exported into
+   dst_folder's data/ folder, or with BK_RES_EXPORT_OPEN_SAVE only opened and
+   re-saved. The open project is not touched. As in MFC, a project that
+   fails does not stop the batch: it is counted as skipped and its reason is
+   a warning ("<path>: <reason>"). BK_EDITOR_BAD_ARGUMENT for a null folder
+   or a kind outside -1..20; BK_EDITOR_DATA_MISSING when src_folder is not a
+   folder; BK_EDITOR_REFUSED when dst_folder's data/ is the shipped Data/. */
 BkEditorStatus BkResBatch( BkResSession *session, int kind, const char *src_folder, const char *dst_folder, int flags, BkResExportReport *report );
 
 /* ---- MOD -------------------------------------------------------------- */
 
-/* The mod's settings as the resource editor edits them: the mod name,
-   version, and a few bake knobs the MFC editor's Mod Settings dialog
-   showed. */
+/* The fields of MFC's MOD Settings dialog (CMODDialog): the export dir is
+   the mod's own folder (MFC's "Composer Destination Directory", default
+   mods\mymod\); exports and mod.xml go into its data/ folder. name,
+   version and desc are mod.xml's MODName, MODVersion and MODDesc. All
+   fields are NUL-terminated; a longer value is truncated. */
 typedef struct
 {
+	char export_dir[260];
 	char name[64];
 	char version[32];
-	int bake_compressed;
-	int bake_packed;
+	char desc[256];
 } BkResModSettings;
 
+/* The current settings. Until a Set the export dir is <BaseRoot>mods/<the
+   active mod>/ (mods/mymod/ with none active, as MFC); name, version and
+   desc are read from that folder's data/mod.xml by the engine's own reader
+   and are empty when there is none. */
 BkEditorStatus BkResModSettingsGet( BkResSession *session, BkResModSettings *out );
+
+/* MFC's OnMODSettings: takes the export dir for this session, writes
+   <export dir>/data/mod.xml with the engine's tree saver exactly as
+   CEditorApp::WriteMODFile did, and seeds data/modobjects.xml from the data
+   storage's editor\modobjects.xml when the mod has none. BK_EDITOR_BAD_ARGUMENT
+   for a null input or an empty export dir; BK_EDITOR_REFUSED when the
+   folder is the shipped Data/ or cannot be written. */
 BkEditorStatus BkResModSettingsSet( BkResSession *session, const BkResModSettings *in );
 
-/* Packs the active mod's folder (base root/mods/<folder>) into a
-   distributable .zip beside it. BK_EDITOR_REFUSED when no mod is active. */
+/* "Compress MOD to PAK": zips the export root's data/ folder (MFC ran
+   `zip -9 -R -D <pak> *.*` there) into out_zip_path with the zip writer in
+   the build - deflate level 9 (stored when that is not smaller), forward
+   slashes, no directory entries, CRC and DOS time. The archive is then
+   mounted the way the game mounts a mod's *.pak (an engine storage over a
+   folder holding only it) and every entry read back and compared; a
+   mismatch removes it and answers BK_EDITOR_FAILED.
+   BK_EDITOR_BAD_ARGUMENT for a null path; BK_EDITOR_REFUSED when the data/
+   folder is missing or empty, or out_zip_path lies inside it. */
 BkEditorStatus BkResPackMod( BkResSession *session, const char *out_zip_path );
 
 /* ---- Preview --------------------------------------------------------- */
@@ -337,10 +386,16 @@ BkEditorStatus BkResPreviewCamera( BkResSession *session, float wx, float wy, in
 
 /* ---- Import ----------------------------------------------------------- */
 
-/* Builds a project from an existing runtime resource folder (the game's
-   own stats + meshes) - the reverse of BkResExport. kind picks which
-   project kind to build; path is the folder to read from.
-   BK_EDITOR_DATA_MISSING when the folder is empty or malformed. */
+/* Import from game data (D-13): builds a new, unsaved project of `kind`
+   from a runtime resource folder (path, holding its 1.xml), the reverse of
+   BkResExport. The stats are read by the engine's own operator& and put into
+   the tree by the frame's GetRPGStats, ported line for line; graphics-source
+   fields stay empty. Ported today: infantry (unt, CAnimationFrame). Every
+   other kind answers BK_EDITOR_REFUSED, naming the kind, and keeps the open
+   project: sprite (spt) because its export only composes .san packs and MFC
+   has no reverse path, the rest until their sub-editor slice ports theirs.
+   BK_EDITOR_BAD_ARGUMENT for a null path or an unknown kind;
+   BK_EDITOR_DATA_MISSING when path/1.xml is missing or will not read. */
 BkEditorStatus BkResImportFromGame( BkResSession *session, BkResKind kind, const char *path );
 
 #ifdef __cplusplus
