@@ -6,8 +6,11 @@ This note documents the preview-scene spike: the test harness
 `zig-out/local-test/preview-scene/`. Those spike captures are build output and
 are not committed: they are three readings of the empty scene.
 
-The three `.tga` files committed beside this note are the S04 captures (see
-"S04 result" at the end): the real preview path, one object per kind.
+The four `.tga` files committed beside this note are the preview captures
+(see "S04 result" and "S05 particle source" at the end): the real preview
+path, one object per kind. `particle.tga` is the particle source from the
+`.pcp` fixture; `effect.tga` (the S04 `particle.tga`, renamed) is the `.eff`
+effect project, kept as an extra.
 
 Spec cross-reference: D-16 and D-17 of
 `docs/superpowers/specs/2026-09-30-portable-resource-editor-design.md` and
@@ -180,6 +183,9 @@ staging root, as an exporter would write it:
 | `sprite.tga`   | spt  | `Buildings/europe/summer/e_house11_3`             | `SGVOT_SPRITE` |
 | `particle.tga` | eff  | `Effects/Effects/flame_smoke.xml`                 | `SGVOT_EFFECT` |
 
+(S05 T05 renamed this `.eff` capture `effect.tga` and gave `particle.tga` to
+the `.pcp` particle source; see the next section.)
+
 The fixture projects opened are `msh/project.msh`, `spt/project.spt` and
 `eff/project.eff`. The test asserts two measures on each capture, after
 about a second of playback:
@@ -203,3 +209,41 @@ agent (640 x 480):
 A host without a GPU device skips the whole tier ("skipped: no GPU device").
 `BK_REQUIRE_ENGINE=1` on the CI runners that have a device turns that skip
 into a failure.
+
+## S05 particle source (M001 / S05 / T05, D014 item 3)
+
+The preview requirement names one particle source, and the S04 "particle"
+capture used the `.eff` effect project. `BkResPreviewBegin` now takes the
+particle kind (`pcp`, kind 11). IVisObjBuilder has no particle visual type,
+so `BkResPreviewShow` does what `CParticleFrame::OnRunButton` /
+`CreateEffectDescriptionFile` did: after the export it writes a one-item
+effect beside the exported source (`editor\preview\particle_source_effect`,
+SEffectDesc's own layout: start 0, duration twice the project's life time,
+the project's position and scale) and builds that as `SGVOT_EFFECT`. MFC's
+complex-source switch is a frame toggle, not project data, so the preview
+builds the plain key-based source, as the frame did by default.
+
+The capture runs in the Preview sub-step of `test-resource-bridge` with the
+same two gates as the others (>= 1 % non-black-non-magenta, >= 0.1 % changed
+against the empty frame). The stand-in pcp exporter copies the shipped
+`Effects/Particles/flame.xml` as `editor\preview\particle` (a fainter
+source, `smokeofflame.xml`, changed 0 pixels after a second and failed the
+drew gate, so the gate does catch a source that draws nothing visible).
+
+| Capture        | Kind | Fixture project      | Stand-in export (shipped Data)    | Built as                           |
+|----------------|------|----------------------|-----------------------------------|------------------------------------|
+| `particle.tga` | pcp  | `pcp/project.pcp`    | `Effects/Particles/flame.xml`     | `SGVOT_EFFECT` (one-source wrapper)|
+| `effect.tga`   | eff  | `eff/project.eff`    | `Effects/Effects/flame_smoke.xml` | `SGVOT_EFFECT`                     |
+
+Measured on the Linux x64 agent (640 x 480, `preview.log` under
+`zig-out/local-test/resource_editor/t02/preview-scene/`):
+
+| Capture  | Fixture           | non-black-non-magenta | changed vs empty |
+|----------|-------------------|-----------------------|------------------|
+| particle | `pcp/project.pcp` | 0.250                 | 0.0019           |
+| effect   | `eff/project.eff` | 0.291                 | 0.030            |
+
+The particle source is a small flame at the anchor (the changed pixels lie
+in a box of about 23 x 41 pixels at the frame's centre), so its share sits
+near the empty scene's 0.25. A host without a GPU device still skips the
+whole tier ("skipped: no GPU device"); a skip is not a pass.

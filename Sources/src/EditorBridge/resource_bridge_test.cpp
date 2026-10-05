@@ -2010,6 +2010,21 @@ static bool EffectExporter( const NResourceModel::Project &, const NResourceMode
 	return !ec;
 }
 
+// A particle source is one key-based xml (its texture stays in the shipped
+// data); the bridge wraps it in a one-particle effect, as the MFC frame did.
+static bool ParticleSourceExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &context, NResourceModel::SExportOutcome &outcome )
+{
+	std::error_code ec;
+	const std::filesystem::path target = std::filesystem::path( context.szStagingRoot ) / "editor/preview/particle.xml";
+	std::filesystem::create_directories( target.parent_path(), ec );
+	std::filesystem::copy_file( FoldedPath( g_dataRoot, "Effects/Particles/flame.xml" ), target, std::filesystem::copy_options::overwrite_existing, ec );
+	outcome.nWritten = ec ? 0 : 1;
+	outcome.szObjectName = "editor\\preview\\particle";
+	if ( ec )
+		outcome.szError = "cannot copy flame.xml: " + ec.message();
+	return !ec;
+}
+
 static bool NamelessExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &, NResourceModel::SExportOutcome & )
 {
 	return true;
@@ -2117,7 +2132,9 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 	const Capture kCaptures[] = {
 		{ "mesh",     "msh", 6,  &MeshExporter },
 		{ "sprite",   "spt", 4,  &SpriteExporter },
-		{ "particle", "eff", 12, &EffectExporter },
+		{ "particle", "pcp", 11, &ParticleSourceExporter },
+		// The effect project, an extra beside the one particle source.
+		{ "effect",   "eff", 12, &EffectExporter },
 	};
 	for ( const Capture &capture : kCaptures )
 	{

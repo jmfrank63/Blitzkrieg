@@ -3408,23 +3408,28 @@ const char *const kPreviewLayer = "RES_PREVIEW";
 const float kPreviewCells = 12.0f;
 const float kPreviewCellSize = 32.0f;
 
-// The kinds the preview builds today and what IVisObjBuilder builds them as:
-// the four the MFC frames this slice measures (D-17) build, with the frame
-// that does it. The other scene kinds (object, fence, building, bridge,
-// trench, squad, particle) join with their sub-editor slices; road and river
-// load maps\road3d / maps\river3d as their terrain (S13).
+// The kinds the preview builds today and what IVisObjBuilder builds them as,
+// with the MFC frame that does it (D-17). The other scene kinds (object,
+// fence, building, bridge, trench, squad) join with their sub-editor slices;
+// road and river load maps\road3d / maps\river3d as their terrain (S13).
+// A particle source is no visual of its own: IVisObjBuilder has no particle
+// type, so CParticleFrame::OnRunButton wrapped the exported source in a
+// one-particle effect and built that, and so does the preview
+// (WrapParticleSource).
 struct PreviewKind
 {
 	int nKind;
 	EObjVisType eVisType;
 	EObjGameType eGameType;
+	bool bParticleSource;
 };
 const PreviewKind kPreviewKinds[] =
 {
-	{ 4,  SGVOT_SPRITE, SGVOGT_UNIT   },  // spt: CSpriteFrame::OnRunButton
-	{ 5,  SGVOT_SPRITE, SGVOGT_UNIT   },  // unt: infantry draws as a sprite
-	{ 6,  SGVOT_MESH,   SGVOGT_UNIT   },  // msh: CMeshFrame's combat object
-	{ 12, SGVOT_EFFECT, SGVOGT_EFFECT },  // eff: CEffectFrame::OnRunButton
+	{ 4,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // spt: CSpriteFrame::OnRunButton
+	{ 5,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // unt: infantry draws as a sprite
+	{ 6,  SGVOT_MESH,   SGVOGT_UNIT,   false },  // msh: CMeshFrame's combat object
+	{ 11, SGVOT_EFFECT, SGVOGT_EFFECT, true  },  // pcp: CParticleFrame::OnRunButton
+	{ 12, SGVOT_EFFECT, SGVOGT_EFFECT, false },  // eff: CEffectFrame::OnRunButton
 };
 
 const PreviewKind *FindPreviewKind( int nKind )
@@ -3433,6 +3438,66 @@ const PreviewKind *FindPreviewKind( int nKind )
 		if ( entry.nKind == nKind )
 			return &entry;
 	return nullptr;
+}
+
+// The value in slot nSlot of an item as a number, whichever of int and float
+// the project stored it as; fDefault when the slot is missing or not one.
+float NumberSlot( const NResourceModel::CTreeItem *pItem, std::size_t nSlot, float fDefault )
+{
+	if ( pItem == nullptr || nSlot >= pItem->GetValues().size() )
+		return fDefault;
+	const NResourceModel::CVariant &value = pItem->GetValues()[nSlot].value;
+	if ( value.GetKind() == NResourceModel::CVariant::VK_INT )
+		return float( value.AsInt() );
+	if ( value.GetKind() == NResourceModel::CVariant::VK_FLOAT )
+		return value.AsFloat();
+	return fDefault;
+}
+
+// CParticleFrame::CreateEffectDescriptionFile (ParticleFrm.cpp) for the
+// preview: an effect of one particle item that starts at once, runs for
+// twice the source's life time and sits at its position and scale, read
+// from the project's common props (CParticleCommonPropsItem's slots 1, 2 and
+// 4..6). Written beside the exported source as SEffectDesc's own layout
+// (fmtEffect.cpp, the shipped Effects\Effects\*.xml), which the bridge
+// writes by hand because it does not link Formats. MFC's complex-source
+// switch (a smokin particle item) is a frame toggle, not project data, so
+// the preview builds the plain source as the frame did by default.
+bool WrapParticleSource( const NResourceModel::Project &project, const std::filesystem::path &dataDir,
+                         const std::string &szSourceName, const std::string &szEffectName, std::string &szError )
+{
+	const NResourceModel::CTreeItem *pProps = nullptr;
+	if ( project.root )
+		for ( const auto &pChild : project.root->GetChildren() )
+			if ( pChild->GetItemType() == NResourceModel::ETIT_PARTICLE_COMMON_PROPS_ITEM )
+				pProps = pChild.get();
+	if ( pProps == nullptr )
+	{
+		szError = "the particle project has no common props item";
+		return false;
+	}
+	const int nDuration = int( NumberSlot( pProps, 1, 0.0f ) ) * 2;
+	char szItem[512];
+	std::snprintf( szItem, sizeof szItem,
+		"<item start=\"0\" duration=\"%d\" scale=\"%g\"><path>%s</path><pos x=\"%g\" y=\"%g\" z=\"%g\"/></item>",
+		nDuration, NumberSlot( pProps, 2, 1.0f ), szSourceName.c_str(),
+		NumberSlot( pProps, 4, 0.0f ), NumberSlot( pProps, 5, 0.0f ), NumberSlot( pProps, 6, 0.0f ) );
+	std::string szRelative = szEffectName;
+	for ( char &c : szRelative )
+		if ( c == '\\' ) c = '/';
+	const std::filesystem::path file = dataDir / ( szRelative + ".xml" );
+	std::error_code ec;
+	std::filesystem::create_directories( file.parent_path(), ec );
+	std::ofstream out( file, std::ios::out | std::ios::binary | std::ios::trunc );
+	out << "<?xml version=\"1.0\"?>\r\n<effect><effect><sprites/><particles>" << szItem
+	    << "</particles><SmokinParticles/></effect></effect>\r\n";
+	out.close();
+	if ( !out )
+	{
+		szError = "cannot write the particle preview effect " + file.string();
+		return false;
+	}
+	return true;
 }
 
 // The game timer at the high-precision clock's now, as the map bridge's
@@ -3659,6 +3724,15 @@ BkEditorStatus ShowPreview( BkEditorSession *pSession )
 		pSession->szMessage = "the ." + szExtension + " export named no visual to build";
 		return BK_EDITOR_FAILED;
 	}
+	const PreviewKind *pKind = FindPreviewKind( state.nPreviewKind );
+	std::string szBuildName = outcome.szObjectName;
+	if ( pKind->bParticleSource )
+	{
+		// The export wrote the source; the preview builds its wrapper effect.
+		szBuildName = "editor\\preview\\particle_source_effect";
+		if ( !WrapParticleSource( project, dataDir, outcome.szObjectName, szBuildName, pSession->szMessage ) )
+			return BK_EDITOR_FAILED;
+	}
 	// The folder is enumerated when it is opened, so it is mounted after the
 	// export wrote it, and again after every export.
 	CPtr<IDataStorage> pPreview = OpenStorage( EngineFolderPattern( dataDir ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
@@ -3669,11 +3743,10 @@ BkEditorStatus ShowPreview( BkEditorSession *pSession )
 	}
 	pStorage->AddStorage( pPreview, kPreviewLayer );
 	ForgetPreviewCaches();
-	const PreviewKind *pKind = FindPreviewKind( state.nPreviewKind );
-	IVisObj *pObj = GetSingleton<IVisObjBuilder>()->BuildObject( outcome.szObjectName.c_str(), 0, pKind->eVisType );
+	IVisObj *pObj = GetSingleton<IVisObjBuilder>()->BuildObject( szBuildName.c_str(), 0, pKind->eVisType );
 	if ( pObj == nullptr )
 	{
-		pSession->szMessage = "IVisObjBuilder would not build \"" + outcome.szObjectName + "\" from the export";
+		pSession->szMessage = "IVisObjBuilder would not build \"" + szBuildName + "\" from the export";
 		return BK_EDITOR_FAILED;
 	}
 	pObj->AddRef();
@@ -3684,7 +3757,7 @@ BkEditorStatus ShowPreview( BkEditorSession *pSession )
 	pObj->SetPlacement( CVec3( vAnchor.x, vAnchor.y, 0.0f ), 0 );
 	RestartPreviewObject( state );
 	GetSingleton<IScene>()->AddObject( pObj, pKind->eGameType );
-	pSession->szMessage = "built \"" + outcome.szObjectName + "\" from " + std::to_string( outcome.nWritten ) + " exported files";
+	pSession->szMessage = "built \"" + szBuildName + "\" from " + std::to_string( outcome.nWritten ) + " exported files";
 	return BK_EDITOR_OK;
 }
 
