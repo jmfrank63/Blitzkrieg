@@ -11,6 +11,7 @@ const imgui = @import("editor_imgui");
 const core = @import("resource_core");
 const logic = @import("panels_logic.zig");
 const edit = @import("edit_logic.zig");
+const squad = @import("squad_logic.zig");
 
 const ig = imgui.c;
 const bridge = core.bridge;
@@ -18,6 +19,7 @@ const ResBridge = bridge.ResBridge;
 const ReferenceEntry = bridge.ReferenceEntry;
 const PropRecord = bridge.PropRecord;
 const NodeRecord = bridge.NodeRecord;
+const Point2 = bridge.Point2;
 
 const drag_payload = "BK_RES_NODE";
 const rename_popup = "Rename item";
@@ -102,6 +104,8 @@ pub const Panels = struct {
     picker_open: bool = false,
     browse_for: ?PropKey = null,
     tree_focused: bool = false,
+    /// SquadFrm's formation view: the gesture in progress and the mode.
+    overlay: ?squad.Overlay = null,
     status: [256]u8 = undefined,
     status_len: usize = 0,
 
@@ -237,6 +241,7 @@ pub const Panels = struct {
         if (self.selection.primary == null) if (edit.rootId(&life.doc)) |root| self.selection.only(gpa, root) catch {};
         self.drawTree(gpa, b, life);
         self.drawInspector(gpa, b, life, window);
+        if (life.active == .squad) self.drawFormation(gpa, b, life) else self.overlay = null;
         self.drawRename(gpa, b, life);
         self.drawPicker(gpa, b, life);
         self.takeBrowse(gpa, b, life);
@@ -327,12 +332,100 @@ pub const Panels = struct {
         const place = edit.placeOf(&life.doc, id);
         if (ig.igMenuItemEx("Insert item", "Insert", false, can_edit and edit.insertClassFor(&life.doc, id) != null)) self.insertUnder(gpa, b, life, id);
         if (ig.igMenuItemEx("Delete item", "Delete", false, can_edit and !is_root)) self.deleteSelected(gpa, b, life);
+        const actions = squad.treeActionsFor(&life.doc, id);
+        for (actions.constSlice()) |action| {
+            if (ig.igMenuItemEx(action.label().ptr, null, false, can_edit)) {
+                squad.runTreeAction(gpa, b, &life.doc, &life.history, action, id) catch |err| return self.report(b, "tree action", err);
+                self.selection.prune(&life.doc);
+            }
+        }
         if (ig.igMenuItemEx("Rename item", "F2", false, can_edit)) self.beginRename(life, id);
         ig.igSeparator();
         const up_ok = can_edit and !is_root and place != null and place.?.index > 0;
         const down_ok = can_edit and !is_root and place != null and place.?.index + 1 < edit.childCount(&life.doc, place.?.parent);
         if (ig.igMenuItemEx("Move up", null, false, up_ok)) edit.moveBy(target(life, gpa, b), id, -1) catch |err| self.report(b, "move", err);
         if (ig.igMenuItemEx("Move down", null, false, down_ok)) edit.moveBy(target(life, gpa, b), id, 1) catch |err| self.report(b, "move", err);
+    }
+
+    /// SquadFrm's view of the formation: a marker per member, the zero point
+    /// as a cross and the formation's direction as an arrow. The three
+    /// modes (move a member, set the zero point, turn the arrow) are
+    /// squad_logic's Overlay; this only draws it and feeds it the mouse.
+    fn drawFormation(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
+        const tools = core.sub_editor_tools;
+        const display = ig.igGetIO().*.DisplaySize;
+        ig.igSetNextWindowPos(.{ .x = display.x - 408, .y = 28 }, ig.ImGuiCond_FirstUseEver);
+        ig.igSetNextWindowSize(.{ .x = 400, .y = 360 }, ig.ImGuiCond_FirstUseEver);
+        defer ig.igEnd();
+        if (!ig.igBegin("Formation###formation", null, 0)) return;
+        // The selected formation, else the first one.
+        var formation: ?i32 = null;
+        if (self.selection.primary) |node| if (edit.findNode(&life.doc, node)) |record| {
+            if (tools.isClass(record, tools.item_type.squad_formation_props)) formation = node;
+        };
+        if (formation == null) formation = tools.firstOfClass(&life.doc, tools.item_type.squad_formation_props);
+        const node = formation orelse {
+            ig.igTextDisabled("This squad has no formation.");
+            return;
+        };
+        if (self.overlay == null or self.overlay.?.formation != node) {
+            if (self.overlay) |*old| old.cancel(b);
+            self.overlay = squad.Overlay.init(gpa, node);
+        }
+        const overlay = &self.overlay.?;
+        const can_edit = !life.read_only;
+        const modes = [_]struct { mode: squad.Mode, label: [:0]const u8 }{
+            .{ .mode = .drag, .label = "Move members" },
+            .{ .mode = .set_zero, .label = "Set zero point" },
+            .{ .mode = .direction, .label = "Direction arrow" },
+        };
+        for (modes, 0..) |entry, i| {
+            if (i != 0) ig.igSameLine();
+            if (ig.igRadioButton(entry.label.ptr, overlay.mode == entry.mode)) overlay.setMode(b, entry.mode);
+        }
+        var slots = tools.readGeometry(b, node, .formation_positions) catch return;
+        defer slots.deinit(gpa);
+        const zero = (tools.readGeometry(b, node, .zero_point) catch return).point2;
+        const direction = (tools.readGeometry(b, node, .formation_direction) catch return).point2.x;
+
+        const avail = ig.igGetContentRegionAvail();
+        const size: ig.ImVec2 = .{ .x = @max(60, avail.x), .y = @max(60, avail.y) };
+        const top_left = ig.igGetCursorScreenPos();
+        _ = ig.igInvisibleButton("canvas", size, ig.ImGuiButtonFlags_MouseButtonLeft);
+        // The zero point stays at the canvas centre while no gesture runs.
+        if (!overlay.busy()) overlay.view = .{
+            .origin = .{ .x = top_left.x + size.x / 2 - zero.x * overlay.view.scale, .y = top_left.y + size.y / 2 - zero.y * overlay.view.scale },
+            .scale = overlay.view.scale,
+        };
+        if (can_edit) {
+            const mouse = ig.igGetMousePos();
+            const at: Point2 = .{ .x = mouse.x, .y = mouse.y };
+            if (ig.igIsItemActivated()) overlay.press(b, at) catch |err| self.report(b, "formation", err);
+            if (ig.igIsItemActive()) overlay.move(b, at) catch |err| self.report(b, "formation", err);
+            if (ig.igIsItemDeactivated()) overlay.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "formation", err);
+            if (ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) overlay.cancel(b);
+        }
+
+        const draw_list = ig.igGetWindowDrawList();
+        ig.ImDrawList_PushClipRect(draw_list, top_left, .{ .x = top_left.x + size.x, .y = top_left.y + size.y }, true);
+        defer ig.ImDrawList_PopClipRect(draw_list);
+        ig.ImDrawList_AddRectFilled(draw_list, top_left, .{ .x = top_left.x + size.x, .y = top_left.y + size.y }, ig.igGetColorU32(ig.ImGuiCol_FrameBg));
+        const ink = ig.igGetColorU32(ig.ImGuiCol_Text);
+        const marker = ig.igGetColorU32(ig.ImGuiCol_PlotHistogram);
+        const centre = overlay.view.toScreen(zero);
+        ig.ImDrawList_AddLineEx(draw_list, .{ .x = centre.x - 8, .y = centre.y }, .{ .x = centre.x + 8, .y = centre.y }, ink, 1);
+        ig.ImDrawList_AddLineEx(draw_list, .{ .x = centre.x, .y = centre.y - 8 }, .{ .x = centre.x, .y = centre.y + 8 }, ink, 1);
+        for (slots.points2, 0..) |slot, i| {
+            const at = overlay.view.toScreen(slot);
+            ig.ImDrawList_AddCircleFilled(draw_list, .{ .x = at.x, .y = at.y }, 6, marker, 0);
+            var number: [8]u8 = undefined;
+            const text = std.fmt.bufPrintZ(&number, "{d}", .{i + 1}) catch continue;
+            ig.ImDrawList_AddTextEx(draw_list, .{ .x = at.x + 8, .y = at.y - 6 }, ink, text.ptr, text.ptr + text.len);
+        }
+        const angle = if (overlay.arrowing) overlay.arrow_angle else direction;
+        const tip: ig.ImVec2 = .{ .x = centre.x + @cos(angle) * 40, .y = centre.y + @sin(angle) * 40 };
+        ig.ImDrawList_AddLineEx(draw_list, .{ .x = centre.x, .y = centre.y }, tip, ink, 2);
+        ig.ImDrawList_AddCircleFilled(draw_list, tip, 3, ink, 0);
     }
 
     fn drawRename(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {

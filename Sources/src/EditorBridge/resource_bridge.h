@@ -453,12 +453,15 @@ BkEditorStatus BkResPreviewCamera( BkResSession *session, float wx, float wy, in
    from a runtime resource folder (path, holding its 1.xml), the reverse of
    BkResExport. The stats are read by the engine's own operator& and put into
    the tree by the frame's GetRPGStats, ported line for line; graphics-source
-   fields stay empty. Ported today: infantry (unt, CAnimationFrame). Every
-   other kind answers BK_EDITOR_REFUSED, naming the kind, and keeps the open
+   fields stay empty. Ported: weapon (wpn; path may also be the flat
+   weapons\<name>.xml itself), mine (mcp), trench (trc: no segments, as in
+   MFC), squad (scp: MFC never wrote this one, its load is commented out;
+   the port does the inverse of its export) and infantry (unt). Every other
+   kind answers BK_EDITOR_REFUSED, naming the kind, and keeps the open
    project: sprite (spt) because its export only composes .san packs and MFC
    has no reverse path, the rest until their sub-editor slice ports theirs.
    BK_EDITOR_BAD_ARGUMENT for a null path or an unknown kind;
-   BK_EDITOR_DATA_MISSING when path/1.xml is missing or will not read. */
+   BK_EDITOR_DATA_MISSING when the stats file is missing or will not read. */
 BkEditorStatus BkResImportFromGame( BkResSession *session, BkResKind kind, const char *path );
 
 #ifdef __cplusplus

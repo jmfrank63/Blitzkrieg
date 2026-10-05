@@ -211,6 +211,8 @@ struct ResourceState
 	int nPreviewKind = -1;
 	std::filesystem::path previewRoot;
 	IVisObj *pPreviewObj = nullptr;
+	// A squad previews as its members: one sprite each, held like pPreviewObj.
+	std::vector<IVisObj *> previewMembers;
 	bool bPreviewEffect = false;
 	bool bPreviewRunning = false;
 };
@@ -3664,18 +3666,22 @@ const float kPreviewCellSize = 32.0f;
 
 // The kinds the preview builds today and what IVisObjBuilder builds them as,
 // with the MFC frame that does it (D-17). The other scene kinds (object,
-// fence, building, bridge, trench, squad) join with their sub-editor slices;
+// fence, building, bridge) join with their sub-editor slices;
 // road and river load maps\road3d / maps\river3d as their terrain (S13).
 // A particle source is no visual of its own: IVisObjBuilder has no particle
 // type, so CParticleFrame::OnRunButton wrapped the exported source in a
 // one-particle effect and built that, and so does the preview
-// (WrapParticleSource).
+// (WrapParticleSource). A squad is no visual either: SquadFrm's view builds
+// one sprite per member of the active formation, so the preview does
+// (BuildSquadMembers) and its export names no visual. A weapon has no entry:
+// WeaponFrm draws nothing (D015).
 struct PreviewKind
 {
 	int nKind;
 	EObjVisType eVisType;
 	EObjGameType eGameType;
 	bool bParticleSource;
+	bool bSquad = false;
 };
 const PreviewKind kPreviewKinds[] =
 {
@@ -3684,6 +3690,9 @@ const PreviewKind kPreviewKinds[] =
 	{ 6,  SGVOT_MESH,   SGVOGT_UNIT,   false },  // msh: CMeshFrame's combat object
 	{ 11, SGVOT_EFFECT, SGVOGT_EFFECT, true  },  // pcp: CParticleFrame::OnRunButton
 	{ 12, SGVOT_EFFECT, SGVOGT_EFFECT, false },  // eff: CEffectFrame::OnRunButton
+	{ 1,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // mcp: the composed sprite "1" the game builds for the mine
+	{ 2,  SGVOT_MESH,   SGVOGT_ENTRENCHMENT, false },  // trc: the entrenchment model, TrenchFrm.cpp:238
+	{ 3,  SGVOT_SPRITE, SGVOGT_UNIT,   false, true },  // scp: member sprites, SquadFrm.cpp:344-364
 };
 
 const PreviewKind *FindPreviewKind( int nKind )
@@ -3775,15 +3784,23 @@ void PreviewBeforeDraw( SEditorSession *pBase )
 	const NTimer::STime time = UpdateGameTimer();
 	if ( state.pPreviewObj != nullptr )
 		state.pPreviewObj->Update( time );
+	for ( IVisObj *pMember : state.previewMembers )
+		pMember->Update( time );
 }
 
 // Restarts the object's own animation: an effect from the current game time,
 // a sprite or mesh from its first animation.
 void RestartPreviewObject( ResourceState &state )
 {
+	const NTimer::STime time = UpdateGameTimer();
+	for ( IVisObj *pMember : state.previewMembers )
+	{
+		if ( IAnimation *pAnimation = static_cast<IObjVisObj *>( pMember )->GetAnimation() )
+			pAnimation->SetAnimation( 0 );
+		pMember->Update( time );
+	}
 	if ( state.pPreviewObj == nullptr )
 		return;
-	const NTimer::STime time = UpdateGameTimer();
 	if ( state.bPreviewEffect )
 		static_cast<IEffectVisObj *>( state.pPreviewObj )->SetStartTime( time );
 	else if ( IAnimation *pAnimation = static_cast<IObjVisObj *>( state.pPreviewObj )->GetAnimation() )
@@ -3793,9 +3810,17 @@ void RestartPreviewObject( ResourceState &state )
 
 void DropPreviewObject( ResourceState &state )
 {
+	IScene *pScene = GetSingleton<IScene>();
+	for ( IVisObj *pMember : state.previewMembers )
+	{
+		if ( pScene )
+			pScene->RemoveObject( pMember );
+		pMember->Release();
+	}
+	state.previewMembers.clear();
 	if ( state.pPreviewObj == nullptr )
 		return;
-	if ( IScene *pScene = GetSingleton<IScene>() )
+	if ( pScene )
 		pScene->RemoveObject( state.pPreviewObj );
 	state.pPreviewObj->Release();
 	state.pPreviewObj = nullptr;
@@ -3913,6 +3938,79 @@ BkEditorStatus BeginPreview( BkEditorSession *pSession, int nKind )
 	return BK_EDITOR_OK;
 }
 
+// CSquadFrame::OnFormationChanged (SquadFrm.cpp:344-364) for the preview:
+// the first formation's soldiers as sprites, each member named by a path under
+// units\\humans or by an objects database key, placed about the camera's
+// anchor as the formation lies about its zero point and turned by the slot's
+// direction plus the formation's. The soldiers are paired with the members in
+// order, as CSquadTreeRootItem::CallMeAfterSerialize pairs them. Returns the
+// number of sprites built; a member that does not build is reported, not
+// skipped silently.
+int BuildSquadMembers( ResourceState &state, const NResourceModel::Project &project, const CVec3 &vAnchor, std::string &szError )
+{
+	const NResourceModel::CTreeItem *pMembers = nullptr, *pFormations = nullptr;
+	if ( project.root )
+		for ( const auto &pChild : project.root->GetChildren() )
+		{
+			if ( pChild->GetItemType() == NResourceModel::ETIT_SQUAD_MEMBERS_ITEM )
+				pMembers = pChild.get();
+			else if ( pChild->GetItemType() == NResourceModel::ETIT_SQUAD_FORMATIONS_ITEM )
+				pFormations = pChild.get();
+		}
+	if ( pMembers == nullptr || pFormations == nullptr )
+	{
+		szError = "the squad project has no members or formations item";
+		return -1;
+	}
+	const NResourceModel::CSquadFormationPropsItem *pFormation = nullptr;
+	for ( const auto &pChild : pFormations->GetChildren() )
+		if ( ( pFormation = dynamic_cast<const NResourceModel::CSquadFormationPropsItem *>( pChild.get() ) ) != nullptr )
+			break;
+	if ( pFormation == nullptr )
+	{
+		szError = "the squad has no formation to preview";
+		return -1;
+	}
+	IVisObjBuilder *pVOB = GetSingleton<IVisObjBuilder>();
+	IScene *pScene = GetSingleton<IScene>();
+	const auto &members = pMembers->GetChildren();
+	std::size_t nMember = 0;
+	for ( const NResourceModel::CSquadFormationPropsItem::SUnit &unit : pFormation->units )
+	{
+		if ( nMember >= members.size() )
+			break;
+		const std::string szItemName = members[nMember++]->GetDisplayName();
+		std::string szSprite;
+		if ( szItemName.find( '\\' ) != std::string::npos )
+			szSprite = "units\\humans\\" + szItemName + "\\1";
+		else if ( const IObjectsDB *pDB = GetSingleton<IObjectsDB>() )
+		{
+			const SGDBObjectDesc *pDesc = pDB->GetDesc( szItemName.c_str() );
+			if ( pDesc == nullptr )
+			{
+				szError = "squad member \"" + szItemName + "\" is not a unit of the objects database";
+				return -1;
+			}
+			szSprite = pDesc->szPath + "\\1";
+		}
+		IVisObj *pSprite = szSprite.empty() ? nullptr : pVOB->BuildObject( szSprite.c_str(), 0, SGVOT_SPRITE );
+		if ( pSprite == nullptr )
+		{
+			szError = "IVisObjBuilder would not build the sprite \"" + szSprite + "\" of squad member \"" + szItemName + "\"";
+			return -1;
+		}
+		pSprite->AddRef();
+		float fAngle = unit.fDir + pFormation->fFormationDir;
+		fAngle -= 2.0f * FP_PI * std::floor( fAngle / ( 2.0f * FP_PI ) );
+		pSprite->SetPlacement( CVec3( vAnchor.x + unit.vPos.x - pFormation->vZeroPos.x,
+		                              vAnchor.y + unit.vPos.y - pFormation->vZeroPos.y, 0.0f ),
+		                       int( fAngle / ( 2.0f * FP_PI ) * 65536.0f ) & 0xffff );
+		pScene->AddObject( pSprite, SGVOGT_UNIT );
+		state.previewMembers.push_back( pSprite );
+	}
+	return int( state.previewMembers.size() );
+}
+
 BkEditorStatus ShowPreview( BkEditorSession *pSession )
 {
 	ResourceState &state = StateOf( pSession );
@@ -3974,12 +4072,28 @@ BkEditorStatus ShowPreview( BkEditorSession *pSession )
 		pSession->szMessage = "the preview export failed: " + ( outcome.szError.empty() ? std::string( "the exporter failed" ) : outcome.szError );
 		return BK_EDITOR_FAILED;
 	}
+	const PreviewKind *pKind = FindPreviewKind( state.nPreviewKind );
+	if ( pKind->bSquad )
+	{
+		// The export wrote the stats and the icon; the soldiers' sprites are
+		// the shipped ones, so there is nothing to mount.
+		ICamera *pCamera = GetSingleton<ICamera>();
+		pCamera->Update();
+		const int nBuilt = BuildSquadMembers( state, project, pCamera->GetAnchor(), pSession->szMessage );
+		if ( nBuilt < 0 )
+		{
+			DropPreviewObject( state );
+			return BK_EDITOR_FAILED;
+		}
+		RestartPreviewObject( state );
+		pSession->szMessage = "built " + std::to_string( nBuilt ) + " member sprites of the first formation";
+		return BK_EDITOR_OK;
+	}
 	if ( outcome.szObjectName.empty() )
 	{
 		pSession->szMessage = "the ." + szExtension + " export named no visual to build";
 		return BK_EDITOR_FAILED;
 	}
-	const PreviewKind *pKind = FindPreviewKind( state.nPreviewKind );
 	std::string szBuildName = outcome.szObjectName;
 	if ( pKind->bParticleSource )
 	{
@@ -4043,7 +4157,7 @@ BkEditorStatus BkResPreviewPlayback( BkResSession *pSession, int nRun )
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		ResourceState &state = StateOf( pSession );
-		if ( !state.bPreview || state.pPreviewObj == nullptr )
+		if ( !state.bPreview || ( state.pPreviewObj == nullptr && state.previewMembers.empty() ) )
 		{
 			pSession->szMessage = "no preview object: call BkResPreviewBegin and BkResPreviewShow first";
 			return BK_EDITOR_REFUSED;

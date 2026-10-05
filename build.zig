@@ -2327,7 +2327,7 @@ pub fn build(b: *std.Build) void {
     // the same engine static libraries addEditorBridgeTest links, and is staged
     // into the same install directory so NPlatform::Paths derives the right
     // roots. The step compiles unconditionally and runs only in test_mode==.run.
-    addResourceBridge(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    addResourceBridge(b, target, optimize, toolchain, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     // S03 T06: the D-11 comparator, hosted the same way; test-resource-model aggregates it.
     addResourceModelComparatorTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addResourceModelAggregateStep(b);
@@ -6278,11 +6278,48 @@ fn addEditorBridgeTest(
 // runners that do have a device (so a regression there cannot hide as a
 // skip). The step gates test_mode == .run, so the configure-only build
 // (zig build) compiles the executable but does not run it.
+/// The D-11 comparator as a static library, for the engine-hosted tiers that
+/// compare an export with a shipped file (test-resource-bridge's round trips).
+/// It is compiled apart from them because its Scene sources take their StdAfx.h
+/// from the Scene folder, which the tiers' own include order would not give.
+fn addResourceComparatorLib(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    sdl_include: std.Build.LazyPath,
+) *std.Build.Step.Compile {
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addIncludePath(b.path("Sources/src/GFX"));
+    module.addIncludePath(b.path("Sources/src/StreamIO"));
+    module.addIncludePath(sdl_include);
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/ResourceModel/comparator.cpp",
+            "Sources/src/ResourceModel/dxt_gate.cpp",
+            "Sources/src/Image/DxtCodec.cpp",
+            "Sources/src/Scene/ParticleSourceData.cpp",
+            "Sources/src/Scene/SmokinParticleSourceData.cpp",
+            "Sources/src/Scene/Track.cpp",
+        },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMacosSysrootPaths(b, module, target);
+    return b.addLibrary(.{ .name = "ResourceComparator", .linkage = .static, .root_module = module });
+}
+
 fn addResourceBridge(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
+    comparator_lib: *std.Build.Step.Compile,
     editor_bridge: *std.Build.Step.Compile,
     map_file: *std.Build.Step.Compile,
     formats: *std.Build.Step.Compile,
@@ -6329,6 +6366,7 @@ fn addResourceBridge(
         module.linkSystemLibrary("gdi32", .{});
         module.linkSystemLibrary("shell32", .{});
     }
+    module.linkLibrary(comparator_lib);
     module.linkLibrary(editor_bridge);
     module.linkLibrary(map_file);
     module.linkLibrary(main_lib);

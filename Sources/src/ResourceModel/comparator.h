@@ -87,6 +87,10 @@ struct SCompareResult
 	// (chunk names, item[i] for container items), both values, and for floats
 	// the bits.
 	std::vector<std::string> messages;
+	// CompareRoundTrip only: the differences MFC's own import and export
+	// lose (kRoundTripLosses in comparator.cpp), each with its reason. Not
+	// failures, but never dropped silently.
+	std::vector<std::string> excused;
 };
 
 // Loads the engine's StreamIO module and its globals beside the running
@@ -109,6 +113,10 @@ SExportRead ReadExport( EExportKind kind, const std::string &szFile );
 
 // Port export against the golden, both stats files of the given kind.
 SCompareResult CompareStats( EExportKind kind, const std::string &szPortFile, const std::string &szGoldenFile );
+// A runtime stats file against what BkResImportFromGame then BkResExport
+// wrote from it (D-13): CompareStats, with the fields MFC's frame could not
+// round-trip listed in result.excused instead of messages.
+SCompareResult CompareRoundTrip( EExportKind kind, const std::string &szExportedFile, const std::string &szShippedFile );
 // Files the game reads as bytes.
 SCompareResult CompareBytes( const std::string &szPortFile, const std::string &szGoldenFile );
 // A DXT texture: header equality, then the decoded pixels against the

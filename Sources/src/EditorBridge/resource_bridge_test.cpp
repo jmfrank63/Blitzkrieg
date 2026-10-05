@@ -2987,6 +2987,109 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 }
 
+// S06 T05: the preview captures of the mine, trench and squad (D015: MFC's
+// weapon frame draws nothing, so a weapon has none). Each runs the real
+// exporter into the preview folder and draws on the empty scene, measured by
+// code like T11's captures: neither black nor magenta, and different from the
+// empty frame. The mine is the composed 16x16 sprite of its fixture, the
+// trench the shipped entrenchment models, the squad the first formation of the
+// shipped german_rifle_45 imported into a project.
+
+namespace S06Preview
+{
+
+struct SCase
+{
+	const char *pszLabel;
+	int nKind;
+	double fMinChanged;     // the share of the frame the object must change
+};
+
+static void Capture( BkResSession *pSession, const SCase &c, const std::filesystem::path &project, const std::filesystem::path &scratch, const std::string &szFixtureRoot )
+{
+	namespace fs = std::filesystem;
+	const std::string szLabel = std::string( "preview " ) + c.pszLabel;
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, ( szLabel + ": the project opens" ).c_str() ) )
+		return;
+	Check( BkResPreviewBegin( pSession, c.nKind ) == BK_EDITOR_OK, ( szLabel + ": Begin" ).c_str() );
+	const fs::path empty = scratch / ( std::string( c.pszLabel ) + "-empty.tga" );
+	Check( BkEditorCaptureFrame( pSession, empty.string().c_str() ) == BK_EDITOR_OK, ( szLabel + ": the empty frame captures" ).c_str() );
+	const BkEditorStatus nShow = BkResPreviewShow( pSession );
+	Check( nShow == BK_EDITOR_OK, ( szLabel + ": Show: " + BkEditorLastMessage( pSession ) ).c_str() );
+	Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, ( szLabel + ": Run" ).c_str() );
+	const auto start = std::chrono::steady_clock::now();
+	while ( std::chrono::steady_clock::now() - start < std::chrono::milliseconds( 500 ) )
+		BkEditorFrame( pSession );
+	const fs::path tga = scratch / ( std::string( c.pszLabel ) + ".tga" );
+	const BkEditorStatus nCapture = BkEditorCaptureFrame( pSession, tga.string().c_str() );
+	Check( BkResPreviewPlayback( pSession, 0 ) == BK_EDITOR_OK, ( szLabel + ": Stop playback" ).c_str() );
+	std::vector<unsigned char> emptyRgb, rgb;
+	int nW = 0, nH = 0;
+	const bool bRead = nCapture == BK_EDITOR_OK && T11::ReadCapture( tga.string(), rgb, nW, nH ) && T11::ReadCapture( empty.string(), emptyRgb, nW, nH );
+	Check( bRead, ( szLabel + ": the capture reads back" ).c_str() );
+	const double fShare = bRead ? T11::NonBlackNonMagentaShare( rgb ) : -1.0;
+	const double fChanged = bRead ? T11::ChangedShare( rgb, emptyRgb ) : -1.0;
+	std::printf( "preview-scene: %s show_status=%d capture_status=%d non-black-non-magenta=%f changed-vs-empty=%f path=%s\n",
+	             c.pszLabel, int( nShow ), int( nCapture ), fShare, fChanged, tga.string().c_str() );
+	Check( fShare >= 0.01, ( szLabel + ": the capture is >= 1% non-black-non-magenta" ).c_str() );
+	Check( fChanged >= c.fMinChanged, ( szLabel + ": the object drew (the frame changed by at least " + std::to_string( c.fMinChanged ) + ")" ).c_str() );
+	Check( BkResPreviewStop( pSession ) == BK_EDITOR_OK, ( szLabel + ": Stop" ).c_str() );
+	BkResClose( pSession );
+	(void)szFixtureRoot;
+}
+
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s06-preview";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch, ec );
+	const fs::path dataRoot = fs::path( szRoot ) / "Data";
+
+	Check( BkResPreviewBegin( pSession, 0 ) == BK_EDITOR_REFUSED, "preview: a weapon still has no preview" );
+
+	// The mine: the fixture's pictures beside the project, composed on export.
+	{
+		const fs::path dir = scratch / "mcp";
+		fs::create_directories( dir, ec );
+		for ( const char *pszName : { "project.mcp", "1.tga", "1s.tga" } )
+			fs::copy_file( fs::path( szFixtureRoot ) / "mcp" / pszName, dir / pszName, fs::copy_options::overwrite_existing, ec );
+		Capture( pSession, { "mine", 1, 0.0001 }, dir / "project.mcp", scratch, szFixtureRoot );
+	}
+
+	// The trench: the eight shipped models, as S06Export builds it.
+	{
+		const fs::path dir = scratch / "trc";
+		fs::create_directories( dir, ec );
+		const fs::path shipped = T11::FoldedPath( dataRoot, "Units/Technics/Common/Entrenchment" );
+		for ( int i = 1; i <= 8; ++i )
+			fs::copy_file( shipped / ( std::to_string( i ) + ".mod" ), dir / ( std::to_string( i ) + ".mod" ), fs::copy_options::overwrite_existing, ec );
+		for ( const char *pszName : { "1.tga", "1w.tga", "1a.tga" } )
+			fs::copy_file( fs::path( szFixtureRoot ) / "trc" / pszName, dir / pszName, fs::copy_options::overwrite_existing, ec );
+		std::string szFixture;
+		ReadBytes( szFixtureRoot + "/trc/project.trc", szFixture );
+		T10::WriteText( dir / "project.trc", S06Export::TrenchProject( szFixture ) );
+		Capture( pSession, { "trench", 2, 0.0001 }, dir / "project.trc", scratch, szFixtureRoot );
+	}
+
+	// The squad: the shipped german_rifle_45 imported into a project.
+	{
+		const fs::path dir = scratch / "scp";
+		fs::create_directories( dir / "shipped", ec );
+		fs::copy_file( T11::FoldedPath( dataRoot, "Squads/german_rifle_45/1.xml" ), dir / "shipped" / "1.xml", fs::copy_options::overwrite_existing, ec );
+		if ( Check( BkResImportFromGame( pSession, 3, ( dir / "shipped" ).string().c_str() ) == BK_EDITOR_OK, "preview squad: the shipped squad imports" ) )
+		{
+			const fs::path project = dir / "project.scp";
+			Check( BkResSave( pSession, project.string().c_str() ) == BK_EDITOR_OK, "preview squad: the imported project saves" );
+			BkResClose( pSession );
+			Capture( pSession, { "squad", 3, 0.0001 }, project, scratch, szFixtureRoot );
+		}
+	}
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -3222,6 +3325,8 @@ int main( int argc, char **argv )
 	T11::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 	// S06 T01: the trench exporter against the shipped entrenchment.
 	S06Export::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+	// S06 T05: the mine, trench and squad previews.
+	S06Preview::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 	// S06 T04: the sub-editors' tools, undo, redo and save on the real bridge.
 	S06Tools::Run( pSession, szFixtureRoot, szScratchRoot );
 
