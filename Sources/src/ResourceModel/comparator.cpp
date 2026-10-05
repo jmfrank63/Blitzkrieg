@@ -96,12 +96,17 @@ constexpr const char *kTrenchFields[] = {
 	"MaxHP", "DamagedHPs", "RepairCost",
 	"Defence0", "Defence1", "Defence2", "Defence3", "Defence4", "Defence5",
 	"Segments", "Lines", "FirePlaces", "Terminators", "Arcs",
+	// CTrenchSourceTreeItem::operator&(IDataTree &).
+	"TrenchIndex",
 	"fixture", "name",
 	nullptr,
 };
 // SSquadRPGStats::operator&        Icon, Type, Members, Formations.
 constexpr const char *kSquadFields[] = {
 	"Icon", "Type", "Members", "Formations",
+	// CSquadTreeFormationItem / formation unit operator&(IDataTree &); x/y/z
+	// are the CVec3 components of Pos and ZeroPos.
+	"units", "ZeroPos", "FormationDir", "Pos", "Dir", "x", "y", "z",
 	"fixture", "name",
 	nullptr,
 };
@@ -319,10 +324,23 @@ const SKind *LookupKind( const std::string &ext )
 	return nullptr;
 }
 
+// Names written by the MFC project framework itself rather than by any one
+// sub-editor: CTreeItem::operator&(IDataTree &) (TreeItem.cpp), the item
+// element with its ClassTypeID attribute (DTHelper.h) and the CVariant value
+// encoding. Every ported project carries them, so every kind accepts them.
+constexpr const char *kMfcProjectFields[] = {
+	"item", "ClassTypeID", "childs", "values", "default_name", "display_name", "expand",
+	"value", "type", "flag", "int_value", "float_value", "string_value", "int64high", "int64low",
+	nullptr,
+};
+
 bool FieldIsKnown( const SKind &kind, const std::string &name )
 {
 	if ( !kind.fields )
 		return true;
+	for ( const char *const *p = kMfcProjectFields; *p; ++p )
+		if ( name == *p )
+			return true;
 	for ( const char *const *p = kind.fields; *p; ++p )
 		if ( name == *p )
 			return true;
@@ -368,6 +386,19 @@ void HarvestFields(
 			out.push_back( { path, std::string() } );
 		HarvestFields( child, path + "/", out );
 	}
+}
+
+// The part of a document that holds game data. A project in MFC's item-tree
+// shape (a childs list under the root) is editor data; the stats MFC keeps in
+// it are the frame's RPG element, which CParentFrame::SaveRPGStats writes
+// through the engine's own operator&. Until S03 T06 compares exported data,
+// that element is what the comparator reads from such a project, and nothing
+// when it has none. Any other document is read whole, as before.
+const NResourceXml::Node *GameDataNode( const NResourceXml::Node &root )
+{
+	if ( !NResourceXml::FindChild( root, "childs" ) )
+		return &root;
+	return NResourceXml::FindChild( root, "RPG" );
 }
 
 std::string ReadFile( const std::string &path )
@@ -431,7 +462,8 @@ CompareReport Compare(
 	}
 
 	std::vector<std::pair<std::string, std::string>> portFields;
-	HarvestFields( portDoc.root, "", portFields );
+	if ( const NResourceXml::Node *data = GameDataNode( portDoc.root ) )
+		HarvestFields( *data, "", portFields );
 
 	// First unknown-field pass over the port side. The abort fires here if
 	// the authored project contains an attribute or child name that the
@@ -473,7 +505,8 @@ CompareReport Compare(
 	}
 
 	std::vector<std::pair<std::string, std::string>> goldenFields;
-	HarvestFields( goldenDoc.root, "", goldenFields );
+	if ( const NResourceXml::Node *data = GameDataNode( goldenDoc.root ) )
+		HarvestFields( *data, "", goldenFields );
 
 	// Second unknown-field pass over the golden side (MFC-authored). An
 	// MFC-only field that the port never produced is still "unknown" to the
