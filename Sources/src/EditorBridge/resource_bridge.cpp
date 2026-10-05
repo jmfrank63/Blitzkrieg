@@ -803,12 +803,15 @@ EGeometryHome HomeOf( const ResourceState &state, int nNodeId, int nChannel )
 	case CHANNEL_LOCKED_TILES:
 		return nType == NResourceModel::ETIT_FENCE_PROPS_ITEM || nType == NResourceModel::ETIT_BRIDGE_PARTS_ITEM ? HOME_TILE_LIST : HOME_NONE;
 	case CHANNEL_TRANSPARENCY_LINES:
-	case CHANNEL_TRANSPARENCY_CELLS:
 		return bObject ? HOME_FRAME : HOME_NONE;
+	case CHANNEL_TRANSPARENCY_CELLS:
+		return bObject || bBuilding ? HOME_FRAME : HOME_NONE;
 	case CHANNEL_FENCE_TRANSPARENCES:
 		return nType == NResourceModel::ETIT_FENCE_PROPS_ITEM ? HOME_TILE_LIST : HOME_NONE;
 	case CHANNEL_SPRITE_POS:
-		if ( bObject )
+		// CBuildingFrame keeps m_SpriteLoadPos in own_data like the object; its
+		// Move object drag changes it together with the zero point.
+		if ( bObject || bBuilding )
 			return HOME_FRAME;
 		return nType == NResourceModel::ETIT_FENCE_PROPS_ITEM ? HOME_FENCE_SPRITE : HOME_NONE;
 	case CHANNEL_ZERO_POINT:
@@ -1136,7 +1139,7 @@ void WriteFrameGeometry( NResourceXml::Node &root, int nChannel, const GeometryB
 			WriteXY( ChildOrNew( FrameChunk( root, "own_data" ), "sprite_pos" ), blob.points[0], blob.points[1], true );
 		return;
 	case CHANNEL_TRANSPARENCY_CELLS:
-		// Part of the object's grids: RewriteObjectGrids writes them.
+		// Part of the frame's grids: RewriteFrameGrids writes them.
 		return;
 	case CHANNEL_TRANSPARENCY_LINES:
 	{
@@ -1244,22 +1247,27 @@ void GridToTiles( const GeometryBlob &blob, NResourceModel::CListOfTiles &tiles 
 				tiles.push_back( { x, y, c } );
 }
 
-// The Object frame's tile grids. MFC's CObjectFrame keeps the locked and
-// transparency tiles as lists and SaveRPGStats crops them to a grid whose
-// origin is the zero point minus the world position of the grid's leftmost
-// corner. The ABI's passability_cells and transparency_cells channels are the
+// The Object and Building frames' tile grids. MFC's CObjectFrame and
+// CBuildingFrame keep the locked and transparency tiles as lists and
+// SaveRPGStats crops them to a grid whose origin is the zero point minus the
+// world position of the grid's leftmost corner (SObjectRPGStats and
+// SBuildingRPGStats share the passability, origin, visibility and VisOrigin
+// fields, so one reader and writer serve both). The ABI's passability_cells and transparency_cells channels are the
 // tile frame: cell (x, y) is tile (x, y), like a fence's lists. An unedited
 // channel is read from desc through LoadRPGStats' inverse; an edit is held in
-// the tile frame and RewriteObjectGrids crops it with the origin of the zero
+// the tile frame and RewriteFrameGrids crops it with the origin of the zero
 // point the save ends with, so a zero point set after the grid cannot leave
 // the origin stale. The camera is the grid constants' own one: the engine
 // camera is not reachable from the bridge, and the exporter uses the same.
-bool IsObjectTileChannel( const ResourceState &state, int nNodeId, int nChannel )
+bool IsTileFrameChannel( const ResourceState &state, int nNodeId, int nChannel )
 {
 	if ( nChannel != CHANNEL_PASSABILITY_CELLS && nChannel != CHANNEL_TRANSPARENCY_CELLS )
 		return false;
 	auto it = state.idToItem.find( nNodeId );
-	return it != state.idToItem.end() && it->second->GetItemType() == NResourceModel::ETIT_OBJECT_ROOT_ITEM;
+	if ( it == state.idToItem.end() )
+		return false;
+	const int nType = it->second->GetItemType();
+	return nType == NResourceModel::ETIT_OBJECT_ROOT_ITEM || nType == NResourceModel::ETIT_BUILDING_ROOT_ITEM;
 }
 
 // The frame's passability and transparency tiles and its one-way tiles, from
@@ -1281,7 +1289,7 @@ void ObjectTiles( const NResourceModel::SObjectFrameData &data, NResourceModel::
 	}
 }
 
-bool ReadObjectTileGrid( const NResourceXml::Node &root, int nChannel, GeometryBlob &out, std::string &szError )
+bool ReadFrameTileGrid( const NResourceXml::Node &root, int nChannel, GeometryBlob &out, std::string &szError )
 {
 	NResourceModel::SObjectFrameData data;
 	if ( !NResourceModel::ReadObjectFrameData( root, data, szError ) )
@@ -1292,15 +1300,20 @@ bool ReadObjectTileGrid( const NResourceXml::Node &root, int nChannel, GeometryB
 	return TilesToGrid( nChannel == CHANNEL_PASSABILITY_CELLS ? passTiles : transTiles, out, szError );
 }
 
-// Writes the object's own_data and desc grids for a save that edited any of
+// Writes the frame's own_data and desc grids for a save that edited any of
 // the channels they depend on (passability, transparency cells, trans-lines,
 // zero point). The tiles an edit did not touch are read from the document
 // before the new zero point applies, so they stay on their tiles and only
 // their origin follows the zero point. Edited trans-lines give the one-way
-// tiles again, as the editor's mouse-up handler does.
-bool RewriteObjectGrids( const ResourceState &state, NResourceXml::Node &root, std::string &szError )
+// tiles again, as the editor's mouse-up handler does. A building has no
+// trans-lines and no TransLines element: only its desc grids are written.
+bool RewriteFrameGrids( const ResourceState &state, NResourceXml::Node &root, std::string &szError )
 {
-	if ( !state.pProject->root || state.pProject->root->GetItemType() != NResourceModel::ETIT_OBJECT_ROOT_ITEM )
+	if ( !state.pProject->root )
+		return true;
+	const int nRootType = state.pProject->root->GetItemType();
+	const bool bBuilding = nRootType == NResourceModel::ETIT_BUILDING_ROOT_ITEM;
+	if ( nRootType != NResourceModel::ETIT_OBJECT_ROOT_ITEM && !bBuilding )
 		return true;
 	auto itRoot = state.itemToId.find( state.pProject->root.get() );
 	if ( itRoot == state.itemToId.end() )
@@ -1352,6 +1365,12 @@ bool RewriteObjectGrids( const ResourceState &state, NResourceXml::Node &root, s
 	{
 		const NResourceModel::SVec3 origin = projection.OriginOfGrid( data.vZeroPos, data.visibility.minTileX, data.visibility.minTileY );
 		data.vVisOrigin = { origin.x, origin.y };
+	}
+	if ( bBuilding )
+	{
+		FrameChunk( root, "desc" );
+		NResourceModel::WriteObjectGrids( root, data );
+		return true;
 	}
 	FrameChunk( root, "own_data" );
 	FrameChunk( root, "desc" );
@@ -1496,9 +1515,9 @@ BkEditorStatus LoadGeometry( BkResSession *pSession, ResourceState &state, int n
 		auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
 		if ( it != state.geometry.end() )
 			out = it->second;
-		else if ( IsObjectTileChannel( state, nNodeId, nChannel ) )
+		else if ( IsTileFrameChannel( state, nNodeId, nChannel ) )
 		{
-			if ( !ReadObjectTileGrid( state.pProject->document.root, nChannel, out, szError ) )
+			if ( !ReadFrameTileGrid( state.pProject->document.root, nChannel, out, szError ) )
 			{
 				pSession->szMessage = szError;
 				return BK_EDITOR_FAILED;
@@ -1553,6 +1572,56 @@ BkEditorStatus LoadGeometry( BkResSession *pSession, ResourceState &state, int n
 	return BK_EDITOR_FAILED;
 }
 
+// A building's aimed points are kept twice, as in MFC: the position in the
+// frame (desc) and the direction and cone on a tree child per point
+// (CBuildingSlotPropsItem and its kin, which the editor sets whenever it moves
+// a point's handles and SaveRPGStats reads back). Writing the channel keeps
+// the children's values equal to the list's, point i to child i; a list longer
+// or shorter than the children (a composite that has inserted or removed the
+// child yet, or not) syncs the children both have. Inserting and removing the
+// child is the caller's own step (point_tools.zig), so an undo restores its
+// other properties.
+struct SAimedChildren
+{
+	int nChannel;
+	int nContainerType;
+	const char *pszConeValue;
+};
+const SAimedChildren kAimedChildren[] =
+{
+	{ CHANNEL_SHOOT_POINTS, NResourceModel::ETIT_BUILDING_SLOTS_ITEM, "Angle" },
+	{ CHANNEL_FIRE_POINTS, NResourceModel::ETIT_BUILDING_FIRE_POINTS_ITEM, "Vertical angle" },
+	{ CHANNEL_SMOKE_POINTS, NResourceModel::ETIT_BUILDING_SMOKES_ITEM, "Vertical angle" },
+	{ CHANNEL_DIRECTED_EXPLOSION_POINTS, NResourceModel::ETIT_BUILDING_DIR_EXPLOSIONS_ITEM, "Vertical angle" }
+};
+
+void SyncAimedChildren( const ResourceState &state, int nChannel, const GeometryBlob &blob )
+{
+	for ( const SAimedChildren &entry : kAimedChildren )
+	{
+		if ( entry.nChannel != nChannel )
+			continue;
+		for ( int nId : state.preorder )
+		{
+			NResourceModel::CTreeItem *pContainer = state.idToItem.at( nId );
+			if ( pContainer->GetItemType() != entry.nContainerType )
+				continue;
+			std::size_t i = 0;
+			for ( const auto &pChild : pContainer->MutableChildren() )
+			{
+				if ( i >= blob.aimed.size() )
+					break;
+				if ( NResourceModel::SProp *pDirection = FindValue( *pChild, "Direction" ) )
+					pDirection->value = static_cast<float>( blob.aimed[i].nAngle );
+				if ( NResourceModel::SProp *pCone = FindValue( *pChild, entry.pszConeValue ) )
+					pCone->value = static_cast<float>( blob.aimed[i].nCone );
+				++i;
+			}
+			return;
+		}
+	}
+}
+
 BkEditorStatus StoreGeometry( BkResSession *pSession, ResourceState &state, int nNodeId, int nChannel, GeometryBlob blob )
 {
 	NResourceModel::CTreeItem *pItem = state.idToItem[nNodeId];
@@ -1569,6 +1638,8 @@ BkEditorStatus StoreGeometry( BkResSession *pSession, ResourceState &state, int 
 		pSession->szMessage = NoHomeMessage( state, nChannel );
 		return BK_EDITOR_REFUSED;
 	case HOME_FRAME:
+		if ( !blob.aimed.empty() && pItem->GetItemType() == NResourceModel::ETIT_BUILDING_ROOT_ITEM )
+			SyncAimedChildren( state, nChannel, blob );
 		state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
 		return BK_EDITOR_OK;
 	case HOME_FENCE_SPRITE:
@@ -1693,10 +1764,10 @@ bool RenderForSave( const ResourceState &state, std::string &szOut, std::string 
 			szError = "cannot re-read the rendered project: " + szParseError;
 			return false;
 		}
-		if ( !RewriteObjectGrids( state, doc.root, szError ) )
+		if ( !RewriteFrameGrids( state, doc.root, szError ) )
 			return false;
 		for ( const auto &entry : state.geometry )
-			if ( HomeOf( state, entry.first.first, entry.first.second ) == HOME_FRAME && !IsObjectTileChannel( state, entry.first.first, entry.first.second ) )
+			if ( HomeOf( state, entry.first.first, entry.first.second ) == HOME_FRAME && !IsTileFrameChannel( state, entry.first.first, entry.first.second ) )
 				WriteFrameGeometry( doc.root, entry.first.second, entry.second );
 		WriteCrossesToRpg( state, doc.root );
 		szOut = NResourceXml::Serialise( doc );

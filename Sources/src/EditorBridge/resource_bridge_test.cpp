@@ -5506,6 +5506,155 @@ static void Object( BkResSession *pSession, const std::string &szFixtureRoot, co
 	BkResClose( pSession );
 }
 
+// A property of a node by its default name, as a float (the building point items' Direction, Angle and Vertical angle).
+static bool PropIs( BkResSession *pSession, int nNode, const char *pszName, float want )
+{
+	int nCount = 0;
+	BkResProps( pSession, nNode, 0, 0, &nCount );
+	std::vector<BkResPropRecord> props( size_t( nCount > 0 ? nCount : 1 ) );
+	if ( BkResProps( pSession, nNode, props.data(), nCount, &nCount ) != BK_EDITOR_OK )
+		return false;
+	for ( int i = 0; i < nCount; ++i )
+		if ( std::string( props[size_t( i )].default_name ) == pszName )
+			return std::fabs( float( std::atof( props[size_t( i )].value_text ) ) - want ) < 1e-3f;
+	return false;
+}
+
+static std::vector<int> ChildrenOf( BkResSession *pSession, int nParent )
+{
+	std::vector<int> ids;
+	for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+		if ( node.parent == nParent )
+			ids.push_back( node.id );
+	return ids;
+}
+
+// S10 T02: the building root's channels. Passability and transparency are the
+// tile frame like the object's, the sprite position has a home (Move object
+// changes it with the zero point), and the points keep their tree children's
+// values. get -> set -> get -> save -> reopen -> get for every one, then MFC's
+// own reader on the saved file.
+static void Building( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s10-channels-building";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch / "building", ec );
+	fs::copy( fs::path( szFixtureRoot ) / "bld", scratch / "building", fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec );
+	const fs::path project = scratch / "building" / "project.bld";
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "channels building: the fixture opens" ) )
+		return;
+	const int nRoot = FindNode( pSession, NResourceModel::ETIT_BUILDING_ROOT_ITEM );
+	if ( !Check( nRoot >= 0, "channels building: the root is found" ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+
+	const std::vector<unsigned char> pass = { 0, 0, 0, 0, 1, 1, 0, 0, 1 };
+	const std::vector<unsigned char> trans = { 0, 0, 0, 0, 3, 0, 0, 0, 7 };
+	GridRoundTrip( pSession, project, "channels building passability", &BkResGetPassabilityCells, &BkResSetPassabilityCells, nRoot, 255, 3, 3, pass );
+	GridRoundTrip( pSession, project, "channels building transparency", &BkResGetTransparencyCells, &BkResSetTransparencyCells, nRoot, 7, 3, 3, trans );
+
+	const BkResPoint2 sprite = { 3.5f, 4.25f };
+	Check( BkResSetSpritePos( pSession, nRoot, &sprite ) == BK_EDITOR_OK && PointIs( pSession, nRoot, true, 3.5f, 4.25f ), "channels building: sprite_pos set and get" );
+	const BkResPoint2 zero = { 24.0f, 12.0f };
+	const BkResPoint2 entrance = { 5.5f, -2.0f };
+	Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK && PointIs( pSession, nRoot, false, zero.x, zero.y ), "channels building: the zero point is set after the grids" );
+	Check( BkResSetEntrance( pSession, nRoot, &entrance ) == BK_EDITOR_OK, "channels building: entrance set" );
+
+	// One child per point, as the editor adds them, then the points: the children take each point's direction and cone.
+	struct SAimed { int nListType, nChildType; BkEditorStatus ( *pSet )( BkResSession *, int, const BkResAimedPoint *, int ); BkEditorStatus ( *pGet )( BkResSession *, int, BkResAimedPoint *, int, int * ); const char *pszCone; const char *pszWhat; };
+	const SAimed kinds[] =
+	{
+		{ NResourceModel::ETIT_BUILDING_SLOTS_ITEM, NResourceModel::ETIT_BUILDING_SLOT_PROPS_ITEM, BkResSetShootPoints, BkResGetShootPoints, "Angle", "shoot" },
+		{ NResourceModel::ETIT_BUILDING_FIRE_POINTS_ITEM, NResourceModel::ETIT_BUILDING_FIRE_POINT_PROPS_ITEM, BkResSetFirePoints, BkResGetFirePoints, "Vertical angle", "fire" },
+		{ NResourceModel::ETIT_BUILDING_SMOKES_ITEM, NResourceModel::ETIT_BUILDING_SMOKE_PROPS_ITEM, BkResSetSmokePoints, BkResGetSmokePoints, "Vertical angle", "smoke" }
+	};
+	const std::vector<BkResAimedPoint> points = { { { -2.25f, 35.5f }, 270, 160 }, { { 7.75f, 89.125f }, 90, 30 } };
+	for ( const SAimed &kind : kinds )
+	{
+		const std::string szWhat = std::string( "channels building " ) + kind.pszWhat;
+		const int nList = FindNode( pSession, kind.nListType );
+		if ( !Check( nList >= 0, ( szWhat + ": the container is found" ).c_str() ) )
+			continue;
+		const size_t nBefore = ChildrenOf( pSession, nList ).size();
+		int nNew = -1;
+		Check( BkResInsertNode( pSession, nList, kind.nChildType, int( nBefore ), &nNew ) == BK_EDITOR_OK &&
+		       BkResInsertNode( pSession, nList, kind.nChildType, int( nBefore ) + 1, &nNew ) == BK_EDITOR_OK, ( szWhat + ": two children are inserted" ).c_str() );
+		Check( kind.pSet( pSession, nRoot, points.data(), 2 ) == BK_EDITOR_OK && SameAimedList( pSession, kind.pGet, nRoot, points ), ( szWhat + ": the points are set and read back" ).c_str() );
+		const std::vector<int> children = ChildrenOf( pSession, nList );
+		bool bSynced = children.size() == nBefore + 2;
+		for ( size_t i = 0; bSynced && i < 2; ++i )
+			bSynced = PropIs( pSession, children[nBefore + i], "Direction", float( points[i].angle ) ) &&
+			          PropIs( pSession, children[nBefore + i], kind.pszCone, float( points[i].cone ) );
+		Check( bSynced, ( szWhat + ": each new child holds its point's direction and cone" ).c_str() );
+		// A list with fewer points than children syncs the children it has points for and leaves the rest as they were.
+		Check( kind.pSet( pSession, nRoot, points.data(), 1 ) == BK_EDITOR_OK && PropIs( pSession, children[nBefore + 1], "Direction", float( points[1].angle ) ),
+		       ( szWhat + ": a shorter list leaves the extra child as it was" ).c_str() );
+		Check( kind.pSet( pSession, nRoot, points.data(), 2 ) == BK_EDITOR_OK, ( szWhat + ": the full list again" ).c_str() );
+	}
+	// The five directed explosions are fixed children: set values reach them, the count does not change.
+	const int nExplosions = FindNode( pSession, NResourceModel::ETIT_BUILDING_DIR_EXPLOSIONS_ITEM );
+	const std::vector<BkResAimedPoint> blasts = { { { 1, 2 }, 180, 40 }, { { 3, 4 }, 270, 41 }, { { 5, 6 }, 0, 42 }, { { 7, 8 }, 90, 43 }, { { 9, 10 }, 225, 44 } };
+	Check( nExplosions >= 0 && ChildrenOf( pSession, nExplosions ).size() == 5, "channels building: a building has five directed explosion children" );
+	Check( BkResSetDirectedExplosionPoints( pSession, nRoot, blasts.data(), 5 ) == BK_EDITOR_OK, "channels building: directed explosions set" );
+	{
+		const std::vector<int> children = ChildrenOf( pSession, nExplosions );
+		bool bSynced = children.size() == 5;
+		for ( size_t i = 0; bSynced && i < 5; ++i )
+			bSynced = PropIs( pSession, children[i], "Direction", float( blasts[i].angle ) ) && PropIs( pSession, children[i], "Vertical angle", float( blasts[i].cone ) );
+		Check( bSynced, "channels building: the explosion children hold their direction and vertical angle" );
+	}
+
+	if ( !Check( SaveAndReopen( pSession, project ), "channels building: save and reopen" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return;
+	}
+	Check( GridIs( pSession, &BkResGetPassabilityCells, nRoot, 3, 3, pass ) && GridIs( pSession, &BkResGetTransparencyCells, nRoot, 3, 3, trans ),
+	       "channels building: both grids survive a reopen on their tiles" );
+	Check( PointIs( pSession, nRoot, true, sprite.x, sprite.y ) && PointIs( pSession, nRoot, false, zero.x, zero.y ), "channels building: sprite_pos and zero survive a reopen" );
+	BkResPoint2 gotEntrance = { 0, 0 };
+	Check( BkResGetEntrance( pSession, nRoot, &gotEntrance ) == BK_EDITOR_OK && gotEntrance.x == entrance.x && gotEntrance.y == entrance.y, "channels building: the entrance survives a reopen" );
+	for ( const SAimed &kind : kinds )
+	{
+		const int nList = FindNode( pSession, kind.nListType );
+		Check( SameAimedList( pSession, kind.pGet, nRoot, points ), ( std::string( "channels building " ) + kind.pszWhat + ": the points survive a reopen" ).c_str() );
+		Check( nList >= 0 && ChildrenOf( pSession, nList ).size() >= 2, ( std::string( "channels building " ) + kind.pszWhat + ": the children survive a reopen" ).c_str() );
+	}
+
+	// MFC's reader on the saved file: the cropped grids, the origin of the zero point and the visibility grid.
+	SBuildingRPGStats stats;
+	CVec3 krest( 0, 0, 0 );
+	if ( Check( ReadAsMfc( project.string(), "Building_Composer_Project", stats, krest, 0 ), "channels building: the engine reads desc and own_data" ) )
+	{
+		const NResourceModel::GridProjection projection( NResourceModel::DefaultEditorCamera() );
+		const NResourceModel::SVec3 want = projection.OriginOfGrid( NResourceModel::SVec3{ zero.x, zero.y, 0 }, 1, 1 );
+		std::printf( "BUILDING ORIGIN desc (%g, %g) vis (%g, %g), expected (%g, %g) for zero (%g, %g) and first tile (1, 1)\n",
+			stats.vOrigin.x, stats.vOrigin.y, stats.vVisOrigin.x, stats.vVisOrigin.y, want.x, want.y, zero.x, zero.y );
+		Check( stats.passability.GetSizeX() == 2 && stats.passability.GetSizeY() == 2 && stats.passability.GetBuffer()[0] == 1 && stats.passability.GetBuffer()[1] == 1 &&
+		       stats.passability.GetBuffer()[2] == 0 && stats.passability.GetBuffer()[3] == 1, "channels building: desc passability is the tiles' bounding box" );
+		Check( stats.visibility.GetSizeX() == 2 && stats.visibility.GetSizeY() == 2 && stats.visibility.GetBuffer()[0] == 3 && stats.visibility.GetBuffer()[3] == 7,
+		       "channels building: desc visibility is the transparency tiles' bounding box" );
+		Check( std::fabs( stats.vOrigin.x - want.x ) < 1e-3f && std::fabs( stats.vOrigin.y - want.y ) < 1e-3f &&
+		       std::fabs( stats.vVisOrigin.x - want.x ) < 1e-3f && std::fabs( stats.vVisOrigin.y - want.y ) < 1e-3f,
+		       "channels building: both origins are the final zero point's" );
+		Check( krest.x == zero.x && krest.y == zero.y, "channels building: own_data krest_pos is the zero point" );
+		Check( stats.slots.size() == 2 && stats.firePoints.size() == 2 && stats.smokePoints.size() == 2 && stats.dirExplosions.size() == 5,
+		       "channels building: desc holds the lists with one entry per child" );
+	}
+	Check( HasNoPrivateGeometry( project.string() ), "channels building: the saved XML has no private geometry element" );
+	{
+		// A building has no TransLines in its own_data: the grid rewrite must not add one.
+		std::string szText;
+		ReadBytes( project.string(), szText );
+		Check( szText.find( "TransLines" ) == std::string::npos, "channels building: the saved own_data has no TransLines element" );
+	}
+	BkResClose( pSession );
+}
+
 static void Fence( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
 {
 	std::error_code ec;
@@ -5814,6 +5963,8 @@ int main( int argc, char **argv )
 	// S09 T04: the grid channels, passability origin consistency and the refusals that name channel and kind.
 	S09Channels::Object( pSession, szFixtureRoot, szScratchRoot );
 	S09Channels::Fence( pSession, szFixtureRoot, szScratchRoot );
+	// S10 T02: the building's tile-frame grids, sprite position and point children.
+	S09Channels::Building( pSession, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

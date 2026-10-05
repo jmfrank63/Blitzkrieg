@@ -243,13 +243,14 @@ BkEditorStatus BkResSetPassabilityCells( BkResSession *session, int node, const 
 BkEditorStatus BkResGetLockedTiles( BkResSession *session, int node, unsigned char *out, int capacity, int *out_w, int *out_h );
 BkEditorStatus BkResSetLockedTiles( BkResSession *session, int node, const unsigned char *in, int w, int h );
 
-/* Object and fence transparency (S09). Both are the tile frame, like the
+/* Object, building and fence transparency (S09, S10). All are the tile frame, like the
    locked tiles: cell (x, y) is tile (x, y), values 0..7 (anything above is
    BK_EDITOR_BAD_ARGUMENT), and a read grid ends at the furthest set tile.
-   BkResGet/SetTransparencyCells is an object root's transparency grid (the
-   desc visibility without the one-way tiles, which the trans-lines give);
+   BkResGet/SetTransparencyCells is an object or building root's transparency
+   grid (the desc visibility without the one-way tiles, which an object's
+   trans-lines give and a building has none of);
    BkResGet/SetFenceTransparences a fence segment's Transparences list.
-   BkResGet/SetPassabilityCells on an object root is the same tile frame: the
+   BkResGet/SetPassabilityCells on an object or building root is the same tile frame: the
    set grid is cropped at save and desc passability gets the origin of the zero
    point the save ends with, so the pair stays consistent whatever order the
    edits came in. On a fence segment it is the locked tiles (MFC keeps no
@@ -259,8 +260,10 @@ BkEditorStatus BkResSetTransparencyCells( BkResSession *session, int node, const
 BkEditorStatus BkResGetFenceTransparences( BkResSession *session, int node, unsigned char *out, int capacity, int *out_w, int *out_h );
 BkEditorStatus BkResSetFenceTransparences( BkResSession *session, int node, const unsigned char *in, int w, int h );
 
-/* The sprite's place: an object root's own_data sprite_pos or a fence
-   segment's SpritePos (x, y; the z stays as stored). */
+/* The sprite's place: an object or building root's own_data sprite_pos or a
+   fence segment's SpritePos (x, y; the z stays as stored). A building's Move
+   object drag changes this and the zero point together; the points stay put
+   relative to the zero point. */
 BkEditorStatus BkResGetSpritePos( BkResSession *session, int node, BkResPoint2 *point );
 BkEditorStatus BkResSetSpritePos( BkResSession *session, int node, const BkResPoint2 *point );
 
@@ -290,7 +293,13 @@ BkEditorStatus BkResSetEntrance( BkResSession *session, int node, const BkResPoi
 /* Shoot / fire / smoke / directed-explosion points carry an angle + a cone;
    the Record struct bundles them. angle is the desc entry's Direction; cone
    is a fire slot's Angle and a fire / smoke / explosion point's
-   VerticalAngle, rounded to whole degrees on read. */
+   VerticalAngle, rounded to whole degrees on read. On a building the points
+   also live on tree children (a slot, fire, smoke or explosion item per
+   point): a set copies each point's angle and cone to the same-index child's
+   Direction and Angle / Vertical angle values, and leaves the child count to
+   BkResInsertNode / BkResDeleteNode (the editor does both in one undo step).
+   The five directed-explosion children are fixed, so that list has no insert
+   or delete. */
 typedef struct { BkResPoint2 at; int angle; int cone; } BkResAimedPoint;
 BkEditorStatus BkResGetShootPoints( BkResSession *session, int node, BkResAimedPoint *out, int capacity, int *out_count );
 BkEditorStatus BkResSetShootPoints( BkResSession *session, int node, const BkResAimedPoint *in, int count );

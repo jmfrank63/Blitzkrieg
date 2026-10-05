@@ -622,6 +622,7 @@ pub const FakeResBridge = struct {
         var fresh: FakeNode = .{ .id = self.next_id, .parent = parent };
         _ = putName(&fresh.class, class_name);
         _ = putName(&fresh.display, class_name);
+        seedBuildingPointProps(&fresh, self.allocator) catch return .failed;
         self.nodes.append(self.allocator, fresh) catch return .failed;
         out_id.* = self.next_id;
         self.next_id += 1;
@@ -871,6 +872,7 @@ pub const FakeResBridge = struct {
         const home = self.requireHome(node, channel);
         if (home != .ok) return home;
         const duplicated = value.dupe(self.allocator) catch return .failed;
+        if (self.kind == .build) self.syncBuildingPointChildren(channel, duplicated);
         if (self.indexOfGeometry(node, channel)) |i| {
             var existing = &self.geometry.items[i];
             existing.value.deinit(self.allocator);
@@ -883,6 +885,34 @@ pub const FakeResBridge = struct {
             };
         }
         return .ok;
+    }
+
+    /// The real bridge's SyncAimedChildren: a building keeps each aimed point
+    /// twice, in the list and on a tree child, and a write of the list copies
+    /// point i's angle and cone to child i (children beyond the list keep what
+    /// they hold). Inserting and removing the child is the editor's own step.
+    fn syncBuildingPointChildren(self: *FakeResBridge, channel: GeometryChannel, value: GeometryValue) void {
+        const container_class: i32 = switch (channel) {
+            .shoot_points => item_type.building_slots,
+            .fire_points => item_type.building_fire_points,
+            .smoke_points => item_type.building_smokes,
+            .directed_explosion_points => item_type.building_dir_explosions,
+            else => return,
+        };
+        const container_index = self.firstNodeOfClass(container_class) orelse return;
+        const container_id = self.nodes.items[container_index].id;
+        var i: usize = 0;
+        for (self.nodes.items) |*child| {
+            if (child.parent != container_id) continue;
+            if (i >= value.aimed.len) break;
+            for (child.props.items) |*prop| {
+                const name = prop.defaultSlice();
+                const number: i32 = if (std.mem.eql(u8, name, "Direction")) value.aimed[i].angle else if (std.mem.eql(u8, name, "Angle") or std.mem.eql(u8, name, "Vertical angle")) value.aimed[i].cone else continue;
+                @memset(&prop.value_text, 0);
+                _ = std.fmt.bufPrint(&prop.value_text, "{d}", .{number}) catch unreachable;
+            }
+            i += 1;
+        }
     }
 
     fn isShipped(self: *const FakeResBridge, dir: []const u8) bool {
@@ -1190,6 +1220,26 @@ pub const FakeResBridge = struct {
         .meshLocators = meshLocators,
     };
 };
+
+/// A building point item (slot, fire, smoke or directed explosion) is born
+/// with the two properties the editor writes for each point: its direction
+/// and its cone ("Angle" on a slot, "Vertical angle" on the others).
+fn seedBuildingPointProps(node: *FakeNode, allocator: std.mem.Allocator) !void {
+    const cone_name: []const u8 = if (FakeResBridge.classIs(node, item_type.building_slot_props))
+        "Angle"
+    else if (FakeResBridge.classIs(node, item_type.building_fire_point_props) or FakeResBridge.classIs(node, item_type.building_smoke_props) or FakeResBridge.classIs(node, item_type.building_dir_explosion_props))
+        "Vertical angle"
+    else
+        return;
+    const names = [_][]const u8{ "Direction", cone_name };
+    for (names, 0..) |name, n| {
+        var prop: PropRecord = .{ .id = @intCast(n + 1), .domain_type = 0, .value_kind = 0 };
+        _ = prop.setDefault(name);
+        _ = prop.setDisplay(name);
+        _ = prop.setValue("0");
+        try node.props.append(allocator, prop);
+    }
+}
 
 fn emptyFor(channel: GeometryChannel) GeometryValue {
     return switch (channel.family()) {

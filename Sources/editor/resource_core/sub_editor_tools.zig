@@ -72,6 +72,15 @@ pub const item_type = struct {
     pub const fence_direction: i32 = base + 123;
     pub const fence_insert: i32 = base + 124;
     pub const fence_props: i32 = base + 125;
+    pub const building_root: i32 = base + 91;
+    pub const building_slots: i32 = base + 95;
+    pub const building_slot_props: i32 = base + 96;
+    pub const building_smokes: i32 = base + 260;
+    pub const building_fire_points: i32 = base + 268;
+    pub const building_fire_point_props: i32 = base + 269;
+    pub const building_dir_explosions: i32 = base + 270;
+    pub const building_dir_explosion_props: i32 = base + 271;
+    pub const building_smoke_props: i32 = base + 272;
 };
 
 // --- Reading the mirror ------------------------------------------------------

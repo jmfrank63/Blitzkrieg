@@ -382,6 +382,11 @@ void WriteObjectFrameData( NResourceXml::Node &root, const SObjectFrameData &dat
 		lines.children.push_back( std::move( item ) );
 	}
 
+	WriteObjectGrids( root, data );
+}
+
+void WriteObjectGrids( NResourceXml::Node &root, const SObjectFrameData &data )
+{
 	NResourceXml::Node &desc = ChildOrNew( root, "desc" );
 	WriteGrid( ChildOrNew( desc, "passability" ), data.passability );
 	WriteVec( ChildOrNew( desc, "origin" ), data.vOrigin.x, data.vOrigin.y, nullptr );

@@ -13,6 +13,7 @@ pub const history = @import("history.zig");
 pub const fake_bridge = @import("fake_bridge.zig");
 pub const sub_editor_tools = @import("sub_editor_tools.zig");
 pub const grid_tools = @import("grid_tools.zig");
+pub const point_tools = @import("point_tools.zig");
 
 const ResBridge = bridge.ResBridge;
 const Kind = bridge.Kind;
