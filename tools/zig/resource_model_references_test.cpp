@@ -48,7 +48,7 @@ int main( int argc, char **argv )
 	SLocalizationItem loc;
 	CHECK( loadLocalization( root / "locale", &loc ) );
 	CHECK( loc.hasStats && loc.stats == "Stats\n" );
-	CHECK( loc.name == "Name \xe9\r\n" );  // raw bytes, no re-encoding
+	CHECK( loc.name == "Name \xe9\n" );  // raw bytes, no re-encoding
 	CHECK( !loadLocalization( root / "nope", &loc ) );
 
 	std::fprintf( stderr, g_fail ? "resource-model-references FAILED (%d)\n" : "resource-model-references OK\n", g_fail );
