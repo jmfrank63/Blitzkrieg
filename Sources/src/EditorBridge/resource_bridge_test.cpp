@@ -445,6 +445,126 @@ int main( int argc, char **argv )
 		}
 	}
 
+	// T06: points + aimed-points family round-trip against bld (zero point,
+	// entrance, shoot points) and scp (shoot points). Set each channel on the
+	// root node of the fixture, read back, save, reopen, read again. The
+	// values must round-trip through the `_bk_geometry` persistence layer.
+	{
+		const std::string szIn = szFixtureRoot + "/bld/project.bld";
+		const std::string szOutDir = szScratchRoot + "/bld";
+		const std::string szOut = szOutDir + "/project.points.bld";
+		std::error_code ec;
+		std::filesystem::create_directories( szOutDir, ec );
+		std::filesystem::remove( szOut, ec );
+		std::filesystem::remove( szOut + ".bak", ec );
+		std::filesystem::remove( szOut + ".tmp", ec );
+
+		if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "points: BkResOpen bld" ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		else
+		{
+			const int nRoot = 1;
+
+			BkResPoint2 zero = { 1.25f, -2.5f };
+			Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK, "points: BkResSetZeroPoint" );
+			BkResPoint2 read_zero = { 0, 0 };
+			Check( BkResGetZeroPoint( pSession, nRoot, &read_zero ) == BK_EDITOR_OK, "points: BkResGetZeroPoint" );
+			Check( read_zero.x == zero.x && read_zero.y == zero.y, "points: zero point round-trip" );
+
+			BkResPoint2 entrance = { 7.0f, 11.0f };
+			Check( BkResSetEntrance( pSession, nRoot, &entrance ) == BK_EDITOR_OK, "points: BkResSetEntrance" );
+			BkResPoint2 read_entrance = { 0, 0 };
+			Check( BkResGetEntrance( pSession, nRoot, &read_entrance ) == BK_EDITOR_OK, "points: BkResGetEntrance" );
+			Check( read_entrance.x == entrance.x && read_entrance.y == entrance.y, "points: entrance round-trip" );
+
+			BkResAimedPoint shoots[2] = {
+				{ { 0.5f, 1.5f }, 90, 15 },
+				{ { 3.0f, 4.0f }, 180, 30 },
+			};
+			Check( BkResSetShootPoints( pSession, nRoot, shoots, 2 ) == BK_EDITOR_OK, "points: BkResSetShootPoints" );
+			int nShootCount = -1;
+			Check( BkResGetShootPoints( pSession, nRoot, 0, 0, &nShootCount ) == BK_EDITOR_OK, "points: BkResGetShootPoints size" );
+			Check( nShootCount == 2, "points: shoot count" );
+			BkResAimedPoint read_shoots[2] = {};
+			Check( BkResGetShootPoints( pSession, nRoot, read_shoots, 2, &nShootCount ) == BK_EDITOR_OK, "points: BkResGetShootPoints fill" );
+			bool bShootOk = true;
+			for ( int i = 0; i < 2; ++i )
+				if ( read_shoots[i].at.x != shoots[i].at.x || read_shoots[i].at.y != shoots[i].at.y
+					|| read_shoots[i].angle != shoots[i].angle || read_shoots[i].cone != shoots[i].cone )
+					bShootOk = false;
+			Check( bShootOk, "points: shoot points round-trip" );
+
+			if ( !Check( BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK, "points: BkResSave" ) )
+				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+			Check( BkResClose( pSession ) == BK_EDITOR_OK, "points: BkResClose after save" );
+			if ( !Check( BkResOpen( pSession, szOut.c_str() ) == BK_EDITOR_OK, "points: re-open saved copy" ) )
+				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+
+			read_zero = { 0, 0 };
+			Check( BkResGetZeroPoint( pSession, nRoot, &read_zero ) == BK_EDITOR_OK, "points: re-read zero" );
+			Check( read_zero.x == zero.x && read_zero.y == zero.y, "points: zero point survives save+reopen" );
+
+			read_entrance = { 0, 0 };
+			Check( BkResGetEntrance( pSession, nRoot, &read_entrance ) == BK_EDITOR_OK, "points: re-read entrance" );
+			Check( read_entrance.x == entrance.x && read_entrance.y == entrance.y, "points: entrance survives save+reopen" );
+
+			std::memset( read_shoots, 0, sizeof( read_shoots ) );
+			nShootCount = -1;
+			Check( BkResGetShootPoints( pSession, nRoot, read_shoots, 2, &nShootCount ) == BK_EDITOR_OK, "points: re-read shoot" );
+			bShootOk = ( nShootCount == 2 );
+			for ( int i = 0; i < 2 && bShootOk; ++i )
+				if ( read_shoots[i].at.x != shoots[i].at.x || read_shoots[i].at.y != shoots[i].at.y
+					|| read_shoots[i].angle != shoots[i].angle || read_shoots[i].cone != shoots[i].cone )
+					bShootOk = false;
+			Check( bShootOk, "points: shoot points survive save+reopen" );
+
+			BkResClose( pSession );
+		}
+	}
+
+	// T06: same aimed-points shape against scp (squad). The squad item class
+	// doesn't carry zero/entrance in a general sense; shoot_points stands in
+	// as a representative aimed channel so an scp fixture is covered too.
+	{
+		const std::string szIn = szFixtureRoot + "/scp/project.scp";
+		const std::string szOutDir = szScratchRoot + "/scp";
+		const std::string szOut = szOutDir + "/project.points.scp";
+		std::error_code ec;
+		std::filesystem::create_directories( szOutDir, ec );
+		std::filesystem::remove( szOut, ec );
+		std::filesystem::remove( szOut + ".bak", ec );
+		std::filesystem::remove( szOut + ".tmp", ec );
+
+		if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "points-scp: BkResOpen scp" ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		else
+		{
+			const int nRoot = 1;
+			BkResAimedPoint fires[1] = { { { 2.0f, 6.0f }, 45, 10 } };
+			Check( BkResSetFirePoints( pSession, nRoot, fires, 1 ) == BK_EDITOR_OK, "points-scp: BkResSetFirePoints" );
+			int nFireCount = -1;
+			BkResAimedPoint read_fires[1] = {};
+			Check( BkResGetFirePoints( pSession, nRoot, read_fires, 1, &nFireCount ) == BK_EDITOR_OK, "points-scp: BkResGetFirePoints" );
+			Check( nFireCount == 1 && read_fires[0].at.x == fires[0].at.x && read_fires[0].at.y == fires[0].at.y
+				&& read_fires[0].angle == fires[0].angle && read_fires[0].cone == fires[0].cone,
+				"points-scp: fire points round-trip" );
+
+			if ( !Check( BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK, "points-scp: BkResSave" ) )
+				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+			Check( BkResClose( pSession ) == BK_EDITOR_OK, "points-scp: BkResClose after save" );
+			if ( !Check( BkResOpen( pSession, szOut.c_str() ) == BK_EDITOR_OK, "points-scp: re-open saved copy" ) )
+				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+
+			std::memset( read_fires, 0, sizeof( read_fires ) );
+			nFireCount = -1;
+			Check( BkResGetFirePoints( pSession, nRoot, read_fires, 1, &nFireCount ) == BK_EDITOR_OK, "points-scp: re-read fire" );
+			Check( nFireCount == 1 && read_fires[0].at.x == fires[0].at.x && read_fires[0].at.y == fires[0].at.y
+				&& read_fires[0].angle == fires[0].angle && read_fires[0].cone == fires[0].cone,
+				"points-scp: fire points survive save+reopen" );
+			BkResClose( pSession );
+		}
+	}
+
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );
 	SDL_Quit();

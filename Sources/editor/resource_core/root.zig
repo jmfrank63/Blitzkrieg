@@ -398,6 +398,164 @@ test "geometry transparency_lines undo/redo round-trips the point list" {
     }
 }
 
+test "geometry zero_point undo/redo rewrites the single Point2" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    try setupProject(allocator, &fake);
+    const root_id = fake.nodes.items[0].id;
+
+    var doc: Document = .{};
+    defer doc.deinit(allocator);
+    try doc.reload(allocator, fake.bridge());
+
+    var hist: History = .{};
+    defer hist.deinit(allocator);
+    try hist.reserve(allocator);
+    var cmd: ResourceCommand = .{ .geometry = .{
+        .node = root_id,
+        .channel = .zero_point,
+        .before = .{ .point2 = .{ .x = 0, .y = 0 } },
+        .after = .{ .point2 = .{ .x = 1.25, .y = -2.5 } },
+    } };
+    try doc.apply(allocator, fake.bridge(), &cmd);
+    hist.recordAssumeCapacity(allocator, cmd, 0);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .zero_point, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(f32, 1.25), read.point2.x);
+        try std.testing.expectEqual(@as(f32, -2.5), read.point2.y);
+    }
+
+    try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .zero_point, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(f32, 0), read.point2.x);
+        try std.testing.expectEqual(@as(f32, 0), read.point2.y);
+    }
+
+    try doc.redoOne(allocator, fake.bridge(), &hist.top().?.command);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .zero_point, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(f32, 1.25), read.point2.x);
+    }
+}
+
+test "geometry entrance undo/redo rewrites the single Point2" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    try setupProject(allocator, &fake);
+    const root_id = fake.nodes.items[0].id;
+
+    var doc: Document = .{};
+    defer doc.deinit(allocator);
+    try doc.reload(allocator, fake.bridge());
+
+    var hist: History = .{};
+    defer hist.deinit(allocator);
+    try hist.reserve(allocator);
+    var cmd: ResourceCommand = .{ .geometry = .{
+        .node = root_id,
+        .channel = .entrance,
+        .before = .{ .point2 = .{ .x = 0, .y = 0 } },
+        .after = .{ .point2 = .{ .x = 7, .y = 11 } },
+    } };
+    try doc.apply(allocator, fake.bridge(), &cmd);
+    hist.recordAssumeCapacity(allocator, cmd, 0);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .entrance, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(f32, 7), read.point2.x);
+        try std.testing.expectEqual(@as(f32, 11), read.point2.y);
+    }
+
+    try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .entrance, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(f32, 0), read.point2.y);
+    }
+
+    try doc.redoOne(allocator, fake.bridge(), &hist.top().?.command);
+    {
+        var read: GeometryValue = undefined;
+        try bridge.check(fake.bridge().geometryRead(root_id, .entrance, &read));
+        defer read.deinit(allocator);
+        try std.testing.expectEqual(@as(f32, 11), read.point2.y);
+    }
+}
+
+test "geometry aimed-point channels undo/redo rewrite the list" {
+    // One test loop that exercises each of the four aimed channels in turn.
+    // The angle/cone pair carries the MFC-era degrees semantic the ABI pins;
+    // the fake stores them verbatim.
+    const allocator = std.testing.allocator;
+    const channels = [_]GeometryChannel{
+        .shoot_points, .fire_points, .smoke_points, .directed_explosion_points,
+    };
+    for (channels) |channel| {
+        var fake = FakeResBridge.init(allocator);
+        defer fake.deinit();
+        try setupProject(allocator, &fake);
+        const root_id = fake.nodes.items[0].id;
+
+        var doc: Document = .{};
+        defer doc.deinit(allocator);
+        try doc.reload(allocator, fake.bridge());
+
+        const before_aimed = try allocator.alloc(AimedPoint, 0);
+        const after_aimed = try allocator.alloc(AimedPoint, 2);
+        after_aimed[0] = .{ .at = .{ .x = 0.5, .y = 1.5 }, .angle = 90, .cone = 15 };
+        after_aimed[1] = .{ .at = .{ .x = 3.0, .y = 4.0 }, .angle = 180, .cone = 30 };
+
+        var hist: History = .{};
+        defer hist.deinit(allocator);
+        try hist.reserve(allocator);
+        var cmd: ResourceCommand = .{ .geometry = .{
+            .node = root_id,
+            .channel = channel,
+            .before = .{ .aimed = before_aimed },
+            .after = .{ .aimed = after_aimed },
+        } };
+        try doc.apply(allocator, fake.bridge(), &cmd);
+        hist.recordAssumeCapacity(allocator, cmd, 0);
+        {
+            var read: GeometryValue = undefined;
+            try bridge.check(fake.bridge().geometryRead(root_id, channel, &read));
+            defer read.deinit(allocator);
+            try std.testing.expectEqual(@as(usize, 2), read.aimed.len);
+            try std.testing.expectEqual(@as(i32, 90), read.aimed[0].angle);
+            try std.testing.expectEqual(@as(i32, 15), read.aimed[0].cone);
+            try std.testing.expectEqual(@as(f32, 3.0), read.aimed[1].at.x);
+        }
+
+        try doc.undoOne(allocator, fake.bridge(), &hist.top().?.command);
+        {
+            var read: GeometryValue = undefined;
+            try bridge.check(fake.bridge().geometryRead(root_id, channel, &read));
+            defer read.deinit(allocator);
+            try std.testing.expectEqual(@as(usize, 0), read.aimed.len);
+        }
+
+        try doc.redoOne(allocator, fake.bridge(), &hist.top().?.command);
+        {
+            var read: GeometryValue = undefined;
+            try bridge.check(fake.bridge().geometryRead(root_id, channel, &read));
+            defer read.deinit(allocator);
+            try std.testing.expectEqual(@as(usize, 2), read.aimed.len);
+            try std.testing.expectEqual(@as(i32, 180), read.aimed[1].angle);
+        }
+    }
+}
+
 test "composite collapses two commands into one undo step" {
     const allocator = std.testing.allocator;
     var fake = FakeResBridge.init(allocator);

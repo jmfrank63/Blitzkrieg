@@ -7,10 +7,15 @@
 // lines): the C ABI entries now serve against an in-session geometry map that
 // hangs off ResourceState, and BkResOpen / BkResSave persist / restore entries
 // as auxiliary `_bk_geometry` XML children under the owning node so a save
-// then reopen keeps the written cells byte-identically. The remaining
-// geometry channels (points, aimed points, keyframes) and the other groups
+// then reopen keeps the written cells byte-identically. T06 wires the second
+// geometry family on top of that: the two point2 channels (zero point,
+// entrance) and the four aimed-point channels (shoot/fire/smoke/
+// directed-explosion). Angles cross the ABI as MFC-era degrees - a typed
+// building/squad item class is free to store engine turns internally; the ABI
+// boundary is the one place the unit is pinned. The remaining geometry
+// channels (formation, bridge-spans, keyframes, crosses) and the other groups
 // (references, export, mod, preview, import) stay stubbed and are replaced
-// in T06-T10.
+// in T07-T10.
 //
 // Per-session state (open project, path, node id maps, lock) lives in a module-
 // private map keyed by the BkEditorSession pointer the lifecycle layer owns.
@@ -101,21 +106,32 @@ int KindOrdinalFromRootType( int nRootType )
 }
 
 // One geometry entry's shape: the bytes_grid family (passability, locked
-// tiles) stores a width/height plus the row-major grid; the points2 family
-// (transparency lines, formation positions, ...) stores a flat f32 pair
-// list. T05 only exercises the bytes_grid family and transparency_lines; the
-// struct carries both shapes so T06+ can reuse it without a schema change.
+// tiles) stores a width/height plus the row-major grid; the points family
+// (transparency lines, formation positions, ...) stores a flat f32 pair list;
+// the point2 family (zero point, entrance) stores exactly one Point2 as a
+// 2-element points vector; the aimed family (shoot/fire/smoke/
+// directed-explosion) stores one AimedPoint per entry in the parallel `aimed`
+// vector. The four payload families are mutually exclusive on a given (node,
+// channel) pair because the channel enum fixes the family; the struct
+// carries all of them so a later channel can reuse this blob.
+struct AimedPoint
+{
+	float x = 0;
+	float y = 0;
+	int nAngle = 0;
+	int nCone = 0;
+};
+
 struct GeometryBlob
 {
 	// bytes_grid family: non-empty bytes + w > 0 && h > 0 && w*h == bytes.size.
 	std::vector<unsigned char> bytes;
 	int nWidth = 0;
 	int nHeight = 0;
-	// points family: 2*n floats in order (x0, y0, x1, y1, ...). The two
-	// payload families are mutually exclusive on a given (node, channel) pair
-	// because the channel enum fixes the family; the struct carries both so
-	// a later channel can reuse this blob.
+	// points family: 2*n floats in order (x0, y0, x1, y1, ...).
 	std::vector<float> points;
+	// aimed family: one AimedPoint per entry.
+	std::vector<AimedPoint> aimed;
 };
 
 // Per-session state the resource bridge needs on top of BkEditorSession. The
@@ -150,15 +166,37 @@ struct ResourceState
 };
 
 // Channel ids: the C ABI's geometry channel integers (shared with Zig's
-// bridge.GeometryChannel enum). Only the three cells channels have real
-// semantics in T05; the rest are reserved for T06+. Kept as a plain enum so a
-// test can hand-assert against an integer.
+// bridge.GeometryChannel enum). T05 wired channels 0..2 (cells family); T06
+// adds 3..8 (point2 family + aimed-points family). The rest are reserved for
+// T07+. Kept as a plain enum so a test can hand-assert against an integer.
 enum GeometryChannel
 {
 	CHANNEL_PASSABILITY_CELLS = 0,
 	CHANNEL_LOCKED_TILES = 1,
-	CHANNEL_TRANSPARENCY_LINES = 2
+	CHANNEL_TRANSPARENCY_LINES = 2,
+	CHANNEL_ZERO_POINT = 3,
+	CHANNEL_ENTRANCE = 4,
+	CHANNEL_SHOOT_POINTS = 5,
+	CHANNEL_FIRE_POINTS = 6,
+	CHANNEL_SMOKE_POINTS = 7,
+	CHANNEL_DIRECTED_EXPLOSION_POINTS = 8
 };
+
+static bool IsBytesGridChannel( int nChannel )
+{
+	return nChannel == CHANNEL_PASSABILITY_CELLS || nChannel == CHANNEL_LOCKED_TILES;
+}
+
+static bool IsPoint2Channel( int nChannel )
+{
+	return nChannel == CHANNEL_ZERO_POINT || nChannel == CHANNEL_ENTRANCE;
+}
+
+static bool IsAimedChannel( int nChannel )
+{
+	return nChannel == CHANNEL_SHOOT_POINTS || nChannel == CHANNEL_FIRE_POINTS
+		|| nChannel == CHANNEL_SMOKE_POINTS || nChannel == CHANNEL_DIRECTED_EXPLOSION_POINTS;
+}
 
 // Reserved child-element name for persisted geometry. The Project loader
 // (adopts children as FutureBlobs under typed roots) hands us the raw XML
@@ -250,6 +288,8 @@ std::string FindAttr( const NResourceXml::Node &node, const std::string &szName 
 // Builds a `_bk_geometry` child element from a stored blob. Shape:
 //   bytes_grid: <_bk_geometry channel="N" w="W" h="H">HEX...</_bk_geometry>
 //   points    : <_bk_geometry channel="N" count="K">x0,y0;x1,y1;...</_bk_geometry>
+//   point2    : <_bk_geometry channel="N">x,y</_bk_geometry>
+//   aimed     : <_bk_geometry channel="N" count="K">x0,y0,a0,c0;x1,y1,a1,c1;...</_bk_geometry>
 // Element content lives as a single Text child node, which is how xml.cpp
 // writes/reads inline text.
 NResourceXml::Node EmitGeometryChild( int nChannel, const GeometryBlob &blob )
@@ -259,11 +299,36 @@ NResourceXml::Node EmitGeometryChild( int nChannel, const GeometryBlob &blob )
 	out.name = kGeometryTag;
 	out.attrs.push_back( { "channel", std::to_string( nChannel ) } );
 	std::string text;
-	if ( nChannel == CHANNEL_PASSABILITY_CELLS || nChannel == CHANNEL_LOCKED_TILES )
+	if ( IsBytesGridChannel( nChannel ) )
 	{
 		out.attrs.push_back( { "w", std::to_string( blob.nWidth ) } );
 		out.attrs.push_back( { "h", std::to_string( blob.nHeight ) } );
 		text = HexEncode( blob.bytes.data(), blob.bytes.size() );
+	}
+	else if ( IsPoint2Channel( nChannel ) )
+	{
+		const int nHas = ( blob.points.size() >= 2 ) ? 1 : 0;
+		out.attrs.push_back( { "count", std::to_string( nHas ) } );
+		if ( nHas != 0 )
+		{
+			char buf[64];
+			std::snprintf( buf, sizeof( buf ), "%g,%g", blob.points[0], blob.points[1] );
+			text = buf;
+		}
+	}
+	else if ( IsAimedChannel( nChannel ) )
+	{
+		const int nCount = static_cast<int>( blob.aimed.size() );
+		out.attrs.push_back( { "count", std::to_string( nCount ) } );
+		text.reserve( static_cast<std::size_t>( nCount ) * 24 );
+		for ( int i = 0; i < nCount; ++i )
+		{
+			if ( i != 0 ) text.push_back( ';' );
+			char buf[96];
+			std::snprintf( buf, sizeof( buf ), "%g,%g,%d,%d",
+				blob.aimed[i].x, blob.aimed[i].y, blob.aimed[i].nAngle, blob.aimed[i].nCone );
+			text += buf;
+		}
 	}
 	else
 	{
@@ -309,7 +374,7 @@ bool ParseGeometryChild( const NResourceXml::Node &node, int &nChannel, Geometry
 	if ( szChannel.empty() ) return false;
 	nChannel = std::atoi( szChannel.c_str() );
 	const std::string body = FindBodyText( node );
-	if ( nChannel == CHANNEL_PASSABILITY_CELLS || nChannel == CHANNEL_LOCKED_TILES )
+	if ( IsBytesGridChannel( nChannel ) )
 	{
 		out.nWidth  = std::atoi( FindAttr( node, "w" ).c_str() );
 		out.nHeight = std::atoi( FindAttr( node, "h" ).c_str() );
@@ -317,6 +382,65 @@ bool ParseGeometryChild( const NResourceXml::Node &node, int &nChannel, Geometry
 		if ( !HexDecode( body, out.bytes ) ) return false;
 		const std::size_t nExpect = static_cast<std::size_t>( out.nWidth ) * static_cast<std::size_t>( out.nHeight );
 		if ( out.bytes.size() != nExpect ) return false;
+		return true;
+	}
+	if ( IsPoint2Channel( nChannel ) )
+	{
+		const int nHas = std::atoi( FindAttr( node, "count" ).c_str() );
+		if ( nHas < 0 || nHas > 1 ) return false;
+		out.points.clear();
+		if ( nHas == 0 ) return body.empty();
+		const char *p = body.c_str();
+		const char *pEnd = p + body.size();
+		char *q = nullptr;
+		const float x = std::strtof( p, &q );
+		if ( q == p || q >= pEnd || *q != ',' ) return false;
+		p = q + 1;
+		const float y = std::strtof( p, &q );
+		if ( q == p ) return false;
+		p = q;
+		if ( p != pEnd ) return false;
+		out.points.push_back( x );
+		out.points.push_back( y );
+		return true;
+	}
+	if ( IsAimedChannel( nChannel ) )
+	{
+		const int nCount = std::atoi( FindAttr( node, "count" ).c_str() );
+		if ( nCount < 0 ) return false;
+		out.aimed.clear();
+		if ( nCount == 0 ) return body.empty();
+		out.aimed.reserve( static_cast<std::size_t>( nCount ) );
+		const char *p = body.c_str();
+		const char *pEnd = p + body.size();
+		for ( int i = 0; i < nCount; ++i )
+		{
+			if ( i != 0 )
+			{
+				if ( p >= pEnd || *p != ';' ) return false;
+				++p;
+			}
+			char *q = nullptr;
+			const float x = std::strtof( p, &q );
+			if ( q == p || q >= pEnd || *q != ',' ) return false;
+			p = q + 1;
+			const float y = std::strtof( p, &q );
+			if ( q == p || q >= pEnd || *q != ',' ) return false;
+			p = q + 1;
+			const long nAngle = std::strtol( p, &q, 10 );
+			if ( q == p || q >= pEnd || *q != ',' ) return false;
+			p = q + 1;
+			const long nCone = std::strtol( p, &q, 10 );
+			if ( q == p ) return false;
+			p = q;
+			AimedPoint ap;
+			ap.x = x;
+			ap.y = y;
+			ap.nAngle = static_cast<int>( nAngle );
+			ap.nCone  = static_cast<int>( nCone );
+			out.aimed.push_back( ap );
+		}
+		if ( p != pEnd ) return false;
 		return true;
 	}
 	// points family
@@ -1331,58 +1455,239 @@ BkEditorStatus BkResSetTransparencyLines( BkResSession *pSession, int nNodeId, c
 	} );
 }
 
-BkEditorStatus BkResGetZeroPoint( BkResSession *pSession, int, BkResPoint2 *pOut )
+/* Point2 and aimed-point helpers.
+   T06 adds the second geometry family (zero point, entrance + the four aimed-
+   point channels). The payload crosses the ABI as MFC-era degrees for the
+   angle; a typed building/squad item class is free to store engine turns
+   internally and convert here, but the ABI boundary stays degrees so a
+   caller does not have to know the item class's internal convention. */
+
+namespace {
+
+BkEditorStatus GetPoint2( BkResSession *pSession, int nChannel, int nNodeId, BkResPoint2 *pOut )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+	{
+		pSession->szMessage = "unknown node id";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( pOut == nullptr )
+		return BK_EDITOR_BAD_ARGUMENT;
+	pOut->x = 0;
+	pOut->y = 0;
+	auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
+	if ( it == state.geometry.end() )
+		return BK_EDITOR_OK;
+	const GeometryBlob &blob = it->second;
+	if ( blob.points.size() >= 2 )
+	{
+		pOut->x = blob.points[0];
+		pOut->y = blob.points[1];
+	}
+	return BK_EDITOR_OK;
+}
+
+BkEditorStatus SetPoint2( BkResSession *pSession, int nChannel, int nNodeId, const BkResPoint2 *pIn )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+	{
+		pSession->szMessage = "unknown node id";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( pIn == nullptr )
+		return BK_EDITOR_BAD_ARGUMENT;
+	GeometryBlob blob;
+	blob.points.push_back( pIn->x );
+	blob.points.push_back( pIn->y );
+	state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
+	return BK_EDITOR_OK;
+}
+
+BkEditorStatus GetAimed( BkResSession *pSession, int nChannel, int nNodeId,
+                         BkResAimedPoint *pOut, int nCapacity, int *pnCount )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+	{
+		pSession->szMessage = "unknown node id";
+		return BK_EDITOR_REFUSED;
+	}
+	auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
+	if ( it == state.geometry.end() )
+	{
+		if ( pnCount != nullptr ) *pnCount = 0;
+		return BK_EDITOR_OK;
+	}
+	const int nCount = static_cast<int>( it->second.aimed.size() );
+	if ( pnCount != nullptr ) *pnCount = nCount;
+	if ( pOut == nullptr || nCapacity <= 0 )
+		return BK_EDITOR_OK;
+	if ( nCapacity < nCount )
+		return BK_EDITOR_REFUSED;
+	for ( int i = 0; i < nCount; ++i )
+	{
+		const AimedPoint &src = it->second.aimed[i];
+		pOut[i].at.x  = src.x;
+		pOut[i].at.y  = src.y;
+		pOut[i].angle = src.nAngle;
+		pOut[i].cone  = src.nCone;
+	}
+	return BK_EDITOR_OK;
+}
+
+BkEditorStatus SetAimed( BkResSession *pSession, int nChannel, int nNodeId,
+                         const BkResAimedPoint *pIn, int nCount )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.idToItem.find( nNodeId ) == state.idToItem.end() )
+	{
+		pSession->szMessage = "unknown node id";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( nCount < 0 )
+	{
+		pSession->szMessage = "negative aimed-point count";
+		return BK_EDITOR_BAD_ARGUMENT;
+	}
+	if ( nCount != 0 && pIn == nullptr )
+	{
+		pSession->szMessage = "null buffer for non-empty aimed list";
+		return BK_EDITOR_BAD_ARGUMENT;
+	}
+	GeometryBlob blob;
+	blob.aimed.reserve( static_cast<std::size_t>( nCount ) );
+	for ( int i = 0; i < nCount; ++i )
+	{
+		AimedPoint ap;
+		ap.x = pIn[i].at.x;
+		ap.y = pIn[i].at.y;
+		ap.nAngle = pIn[i].angle;
+		ap.nCone  = pIn[i].cone;
+		blob.aimed.push_back( ap );
+	}
+	state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
+	return BK_EDITOR_OK;
+}
+
+} // namespace
+
+BkEditorStatus BkResGetZeroPoint( BkResSession *pSession, int nNodeId, BkResPoint2 *pOut )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		if ( pOut != 0 ) { pOut->x = 0; pOut->y = 0; }
-		return BK_EDITOR_OK;
+		return GetPoint2( pSession, CHANNEL_ZERO_POINT, nNodeId, pOut );
 	} );
 }
 
-BkEditorStatus BkResSetZeroPoint( BkResSession *pSession, int, const BkResPoint2 * )
-{
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
-}
-
-BkEditorStatus BkResGetEntrance( BkResSession *pSession, int, BkResPoint2 *pOut )
+BkEditorStatus BkResSetZeroPoint( BkResSession *pSession, int nNodeId, const BkResPoint2 *pIn )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		if ( pOut != 0 ) { pOut->x = 0; pOut->y = 0; }
-		return BK_EDITOR_OK;
+		return SetPoint2( pSession, CHANNEL_ZERO_POINT, nNodeId, pIn );
 	} );
 }
 
-BkEditorStatus BkResSetEntrance( BkResSession *pSession, int, const BkResPoint2 * )
+BkEditorStatus BkResGetEntrance( BkResSession *pSession, int nNodeId, BkResPoint2 *pOut )
 {
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } );
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetPoint2( pSession, CHANNEL_ENTRANCE, nNodeId, pOut );
+	} );
 }
 
-#define BKRES_GET_AIMED_STUB( fname ) \
-BkEditorStatus fname( BkResSession *pSession, int, BkResAimedPoint *, int, int *pnCount ) \
-{ \
-	return Guarded( pSession, [=]() -> BkEditorStatus \
-	{ \
-		if ( pnCount != 0 ) *pnCount = 0; \
-		return BK_EDITOR_OK; \
-	} ); \
+BkEditorStatus BkResSetEntrance( BkResSession *pSession, int nNodeId, const BkResPoint2 *pIn )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetPoint2( pSession, CHANNEL_ENTRANCE, nNodeId, pIn );
+	} );
 }
-#define BKRES_SET_AIMED_STUB( fname ) \
-BkEditorStatus fname( BkResSession *pSession, int, const BkResAimedPoint *, int ) \
-{ \
-	return Guarded( pSession, [=]() -> BkEditorStatus { return BK_EDITOR_OK; } ); \
+
+BkEditorStatus BkResGetShootPoints( BkResSession *pSession, int nNodeId, BkResAimedPoint *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetAimed( pSession, CHANNEL_SHOOT_POINTS, nNodeId, pOut, nCapacity, pnCount );
+	} );
 }
-BKRES_GET_AIMED_STUB( BkResGetShootPoints )
-BKRES_SET_AIMED_STUB( BkResSetShootPoints )
-BKRES_GET_AIMED_STUB( BkResGetFirePoints )
-BKRES_SET_AIMED_STUB( BkResSetFirePoints )
-BKRES_GET_AIMED_STUB( BkResGetSmokePoints )
-BKRES_SET_AIMED_STUB( BkResSetSmokePoints )
-BKRES_GET_AIMED_STUB( BkResGetDirectedExplosionPoints )
-BKRES_SET_AIMED_STUB( BkResSetDirectedExplosionPoints )
-#undef BKRES_GET_AIMED_STUB
-#undef BKRES_SET_AIMED_STUB
+
+BkEditorStatus BkResSetShootPoints( BkResSession *pSession, int nNodeId, const BkResAimedPoint *pIn, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetAimed( pSession, CHANNEL_SHOOT_POINTS, nNodeId, pIn, nCount );
+	} );
+}
+
+BkEditorStatus BkResGetFirePoints( BkResSession *pSession, int nNodeId, BkResAimedPoint *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetAimed( pSession, CHANNEL_FIRE_POINTS, nNodeId, pOut, nCapacity, pnCount );
+	} );
+}
+
+BkEditorStatus BkResSetFirePoints( BkResSession *pSession, int nNodeId, const BkResAimedPoint *pIn, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetAimed( pSession, CHANNEL_FIRE_POINTS, nNodeId, pIn, nCount );
+	} );
+}
+
+BkEditorStatus BkResGetSmokePoints( BkResSession *pSession, int nNodeId, BkResAimedPoint *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetAimed( pSession, CHANNEL_SMOKE_POINTS, nNodeId, pOut, nCapacity, pnCount );
+	} );
+}
+
+BkEditorStatus BkResSetSmokePoints( BkResSession *pSession, int nNodeId, const BkResAimedPoint *pIn, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetAimed( pSession, CHANNEL_SMOKE_POINTS, nNodeId, pIn, nCount );
+	} );
+}
+
+BkEditorStatus BkResGetDirectedExplosionPoints( BkResSession *pSession, int nNodeId, BkResAimedPoint *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetAimed( pSession, CHANNEL_DIRECTED_EXPLOSION_POINTS, nNodeId, pOut, nCapacity, pnCount );
+	} );
+}
+
+BkEditorStatus BkResSetDirectedExplosionPoints( BkResSession *pSession, int nNodeId, const BkResAimedPoint *pIn, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetAimed( pSession, CHANNEL_DIRECTED_EXPLOSION_POINTS, nNodeId, pIn, nCount );
+	} );
+}
 
 #define BKRES_GET_POINT2_STUB( fname ) \
 BkEditorStatus fname( BkResSession *pSession, int, BkResPoint2 *, int, int *pnCount ) \
