@@ -189,7 +189,17 @@ BkEditorStatus BkResRefList( BkResSession *session, int type, BkResReferenceEntr
 /* ---- Geometry edits ---------------------------------------------------- */
 
 /* A 2D point, map/scene units; the kind-specific get/set pairs below hand
-   these around in bare arrays so one entry point serves every kind. */
+   these around in bare arrays so one entry point serves every kind.
+   Every geometry channel is stored where MFC keeps it (the table in the
+   phase 6 spec's geometry section): the building / object / bridge
+   project's own_data and desc on the root, the RPG copy of the map
+   crosses, or fields of the tree items (a squad formation's ZeroPos and
+   units, a fence segment's or bridge part's LockedTiles, a particle track's
+   Key_frames, the position values of crosses and effect parts). The values are MFC's as stored
+   (desc positions relative to the zero point, krest_pos in view units,
+   angles in degrees), written with MFC's %g, so six significant digits
+   survive a save. On a node where MFC has no home for the channel a get or
+   set is BK_EDITOR_REFUSED. */
 typedef struct { float x, y; } BkResPoint2;
 
 /* A 3D vector (particle and effect keyframes carry z too). */
@@ -201,11 +211,14 @@ typedef struct { float x, y, z; } BkResVec3;
 BkEditorStatus BkResGetPassabilityCells( BkResSession *session, int node, unsigned char *out, int capacity, int *out_w, int *out_h );
 BkEditorStatus BkResSetPassabilityCells( BkResSession *session, int node, const unsigned char *in, int w, int h );
 
-/* Locked / unlocked tiles (bool grid, same shape). */
+/* Locked tiles (same grid shape): cell (x, y) is AI tile (x, y) of the
+   item's LockedTiles. MFC stores only non-zero tiles, so a read grid ends at
+   the furthest set tile. */
 BkEditorStatus BkResGetLockedTiles( BkResSession *session, int node, unsigned char *out, int capacity, int *out_w, int *out_h );
 BkEditorStatus BkResSetLockedTiles( BkResSession *session, int node, const unsigned char *in, int w, int h );
 
-/* Transparency / one-way transparency lines (point lists). */
+/* One-way transparency lines: a point list, two points (Point1, Point2) per
+   line; an odd count is BK_EDITOR_BAD_ARGUMENT. */
 BkEditorStatus BkResGetTransparencyLines( BkResSession *session, int node, BkResPoint2 *out, int capacity, int *out_count );
 BkEditorStatus BkResSetTransparencyLines( BkResSession *session, int node, const BkResPoint2 *in, int count );
 
@@ -218,7 +231,9 @@ BkEditorStatus BkResGetEntrance( BkResSession *session, int node, BkResPoint2 *p
 BkEditorStatus BkResSetEntrance( BkResSession *session, int node, const BkResPoint2 *point );
 
 /* Shoot / fire / smoke / directed-explosion points carry an angle + a cone;
-   the Record struct bundles them. */
+   the Record struct bundles them. angle is the desc entry's Direction; cone
+   is a fire slot's Angle and a fire / smoke / explosion point's
+   VerticalAngle, rounded to whole degrees on read. */
 typedef struct { BkResPoint2 at; int angle; int cone; } BkResAimedPoint;
 BkEditorStatus BkResGetShootPoints( BkResSession *session, int node, BkResAimedPoint *out, int capacity, int *out_count );
 BkEditorStatus BkResSetShootPoints( BkResSession *session, int node, const BkResAimedPoint *in, int count );
@@ -230,28 +245,40 @@ BkEditorStatus BkResGetDirectedExplosionPoints( BkResSession *session, int node,
 BkEditorStatus BkResSetDirectedExplosionPoints( BkResSession *session, int node, const BkResAimedPoint *in, int count );
 
 /* Formation positions: the slots of one squad formation (scp), one Point2
-   per soldier in the order of CSquadFormationPropsItem::units. Coordinates
-   are MFC's: absolute AI world units (fWorldCellSize per cell) in the
-   SquadFrm view, the same space as SUnit::vPos and vZeroPos. z is dropped
-   because SquadFrm always sets it to 0; the export, not this list, subtracts
-   vZeroPos to get the offsets the game reads. The owner is normally a
-   formation props node (ETIT_SQUAD_FORMATION_PROPS_ITEM), but like every
-   geometry channel the bridge accepts any node.
-   Bridge span marks: the span anchor crosses of a bridge (bdg) - BridgeFrm's
-   vBeginPos, vCenterKrest, vEndPos and the front/back marks it draws at an
-   anchor + m_fFront / m_fBack - as a flat Point2 list in the same AI world
-   units, z dropped (BridgeFrm keeps it 0). The owner is normally a begin,
-   center or end spans node (ETIT_BRIDGE_*_SPANS_ITEM).
+   per soldier in the order of CSquadFormationPropsItem::units (SUnit::vPos).
+   Coordinates are MFC's: absolute AI world units (fWorldCellSize per cell)
+   in the SquadFrm view, the same space as vZeroPos. A slot keeps its z and
+   Dir; a new one gets AddUnit's z = 0 and Dir = 0, and a shorter list drops
+   the tail. The owner is a formation props node
+   (ETIT_SQUAD_FORMATION_PROPS_ITEM); any other node is BK_EDITOR_REFUSED.
+   Bridge span marks: the bridge root's (bdg) CBridgeFrame own data, always
+   three points: Begin (x, y), End (x, y) and (Front, Back), the offsets of
+   the front and back marks from an anchor along the bridge. Any other count
+   is BK_EDITOR_BAD_ARGUMENT; a bridge saved without own data reads as count
+   0. The z of Begin and End stays as read.
    Both are two-pass reads like BkResNodes: out_count is always the total and
-   a short buffer is BK_EDITOR_REFUSED. A set replaces the whole list; an
-   un-set list reads as count 0. */
+   a short buffer is BK_EDITOR_REFUSED. A set replaces the whole list. */
 BkEditorStatus BkResGetFormationPositions( BkResSession *session, int node, BkResPoint2 *out, int capacity, int *out_count );
 BkEditorStatus BkResSetFormationPositions( BkResSession *session, int node, const BkResPoint2 *in, int count );
 BkEditorStatus BkResGetBridgeSpanMarks( BkResSession *session, int node, BkResPoint2 *out, int capacity, int *out_count );
 BkEditorStatus BkResSetBridgeSpanMarks( BkResSession *session, int node, const BkResPoint2 *in, int count );
 
-/* Mission objectives, chapter / campaign crosses, particle / effect
-   keyframes - the point / 3D-vector lists each kind owns. */
+/* Map crosses: one point per child of a mission's Objectives node, a
+   chapter's Missions or Place holders node, or a campaign's Chapters node,
+   in child order - the children's position values (MFC's Get*Position).
+   The list must carry exactly one point per child (BK_EDITOR_BAD_ARGUMENT
+   otherwise). A save also writes them into the project's RPG copy when it
+   has one; while a list is unedited it is read from there, as MFC's
+   LoadRPGStats does. Without an RPG copy MFC keeps only the whole part of
+   a cross across a reopen (the values' default type is int).
+   Particle keyframes: the keys of one particle track (any CKeyFrameTreeItem
+   node: Key_frames), x = time and y = value; z must be 0
+   (BK_EDITOR_BAD_ARGUMENT otherwise) and reads as 0.
+   Effect keyframes: one place per child of an effect's Animations, Meshes,
+   Function Particles or Maya Particles node, its X / Y / Z position values.
+   These are whole numbers in MFC (DT_DEC), so a fraction, or a count that
+   is not one per child, is BK_EDITOR_BAD_ARGUMENT.
+   On any other node these channels are BK_EDITOR_REFUSED. */
 BkEditorStatus BkResGetMissionObjectives( BkResSession *session, int node, BkResPoint2 *out, int capacity, int *out_count );
 BkEditorStatus BkResSetMissionObjectives( BkResSession *session, int node, const BkResPoint2 *in, int count );
 BkEditorStatus BkResGetChapterCrosses( BkResSession *session, int node, BkResPoint2 *out, int capacity, int *out_count );

@@ -2,23 +2,15 @@
 // the shared Guarded template (guarded.h) so no exception crosses into Zig.
 // T01 stubbed every call to BK_EDITOR_OK. T02 fills in the Project+Tree group:
 // New/Open/Save (safe-save read-back), Close, KindOf, Lock/LockOwner, Nodes,
-// Props, SetProp, InsertNode, MoveNode, DeleteNode, RestoreNode. T05 fills in
-// the cells family of geometry (passability, locked tiles, transparency
-// lines): the C ABI entries now serve against an in-session geometry map that
-// hangs off ResourceState, and BkResOpen / BkResSave persist / restore entries
-// as `_bk_geometry` elements inside the owning item's own element (any node,
-// not only the root; see WriteGeometry) so a save then reopen keeps the
-// written cells byte-identically. T06 wires the second
-// geometry family on top of that: the two point2 channels (zero point,
-// entrance) and the four aimed-point channels (shoot/fire/smoke/
-// directed-explosion). Angles cross the ABI as MFC-era degrees - a typed
-// building/squad item class is free to store engine turns internally; the ABI
-// boundary is the one place the unit is pinned. The remaining geometry
-// channels (formation, bridge-spans, keyframes, crosses) and the other groups
-// (references, export, mod, preview, import) stay stubbed and are replaced
-// in T08-T11 (T11: the preview group). T07 replaced the `<path>.lock` sentinel with MFC's per-folder
-// `locked_<user>` (CParentFrame::LockFile, D-08) and made a delete blob carry
-// its subtree's geometry, so BkResRestoreNode brings it back.
+// Props, SetProp, InsertNode, MoveNode, DeleteNode, RestoreNode. T05 and T06
+// add the geometry channels (cells, points, aimed points); angles cross the
+// ABI as MFC-era degrees. T08-T11 fill in the other groups (references,
+// export, mod, preview, import). T07 replaced the `<path>.lock` sentinel with
+// MFC's per-folder `locked_<user>` (CParentFrame::LockFile, D-08). S05 T03
+// and T04 (D014 item 2) store every geometry channel where MFC keeps it: the
+// frame chunks beside the tree (own_data, desc, RPG) or fields of the S03
+// items (HomeOf, and the table in the phase 6 spec); a channel with no MFC
+// home on a node is refused.
 //
 // Per-session state (open project, path, node id maps, lock) lives in a module-
 // private map keyed by the BkEditorSession pointer the lifecycle layer owns.
@@ -39,6 +31,11 @@
 #include "../ResourceModel/factory.h"
 #include "../ResourceModel/items/stats_item.h"
 #include "../ResourceModel/items/tree_item_types.h"
+#include "../ResourceModel/items/squad/squad.h"
+#include "../ResourceModel/items/fence/fence.h"
+#include "../ResourceModel/items/bridge/bridge.h"
+#include "../ResourceModel/key_frame_tree_item.h"
+#include "../ResourceModel/mfc_value.h"
 #include "../ResourceModel/xml.h"
 #include "../ResourceModel/future_blob.h"
 #include "../ResourceModel/references.h"
@@ -55,6 +52,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -66,6 +64,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -183,10 +182,15 @@ struct ResourceState
 	// integer the Zig GeometryChannel enum uses (BkResPassabilityCells = 0,
 	// BkResLockedTiles = 1, BkResTransparencyLines = 2, etc.). An entry
 	// exists only after a successful BkResSet*; a read of an un-set channel
-	// returns an empty payload (w = h = 0, count = 0). BkResSave writes the
-	// entries as `_bk_geometry` elements in the owning item's element so a
-	// BkResOpen on the saved file restores the map.
+	// returns an empty payload (w = h = 0, count = 0). Only the root's frame
+	// homes enter the map, and only once edited (an unedited one is read from
+	// the document): BkResSave writes them into own_data / desc / RPG. The
+	// item-field homes never enter the map.
 	std::map<std::pair<int, int>, GeometryBlob> geometry;
+	// The cross containers (by item type) set through a cross channel since
+	// the open: their crosses are read from the tree, no longer from the RPG
+	// copy, and BkResSave writes them into RPG (WriteCrossesToRpg).
+	std::set<int> editedCrossLists;
 	// Session-level, not project-level: ResetState leaves these alone so a
 	// new project keeps the mod settings and the reference lists. The export
 	// dir is BkResModSettingsSet's ("" until then: the default). The lists
@@ -236,39 +240,6 @@ enum GeometryChannel
 	CHANNEL_EFFECT_KEYFRAMES = 15
 };
 
-static bool IsBytesGridChannel( int nChannel )
-{
-	return nChannel == CHANNEL_PASSABILITY_CELLS || nChannel == CHANNEL_LOCKED_TILES;
-}
-
-static bool IsPoint2Channel( int nChannel )
-{
-	return nChannel == CHANNEL_ZERO_POINT || nChannel == CHANNEL_ENTRANCE;
-}
-
-static bool IsAimedChannel( int nChannel )
-{
-	return nChannel == CHANNEL_SHOOT_POINTS || nChannel == CHANNEL_FIRE_POINTS
-		|| nChannel == CHANNEL_SMOKE_POINTS || nChannel == CHANNEL_DIRECTED_EXPLOSION_POINTS;
-}
-
-static bool IsVec3Channel( int nChannel )
-{
-	return nChannel == CHANNEL_PARTICLE_KEYFRAMES || nChannel == CHANNEL_EFFECT_KEYFRAMES;
-}
-
-// Floats per entry in a list channel's `points` vector: three for the vec3
-// family, two for the points family.
-static int ListStride( int nChannel )
-{
-	return IsVec3Channel( nChannel ) ? 3 : 2;
-}
-
-// Reserved element name for persisted geometry. An item keeps the element in
-// its layout as an unknown field, so it never shows up as a tree node; every
-// write strips the copies and writes the session's map instead.
-const char *kGeometryTag = "_bk_geometry";
-
 std::map<BkEditorSession *, ResourceState> &States()
 {
 	static std::map<BkEditorSession *, ResourceState> m;
@@ -303,13 +274,14 @@ void ResetState( ResourceState &state )
 	state.parentOf.clear();
 	state.preorder.clear();
 	state.geometry.clear();
+	state.editedCrossLists.clear();
 }
 
-// Lower-case hex of a byte buffer; two chars per byte, no separators. Used
-// for serialising the cells grids inside `_bk_geometry` XML children.
+// Upper-case hex of a byte buffer, two chars per byte and no separators, as
+// NStr::BinToString writes CDataTreeXML raw data (a passability grid row).
 std::string HexEncode( const unsigned char *p, std::size_t n )
 {
-	static const char kDigits[] = "0123456789abcdef";
+	static const char kDigits[] = "0123456789ABCDEF";
 	std::string out;
 	out.resize( n * 2 );
 	for ( std::size_t i = 0; i < n; ++i )
@@ -349,197 +321,15 @@ std::string FindAttr( const NResourceXml::Node &node, const std::string &szName 
 	return std::string();
 }
 
-// Builds a `_bk_geometry` child element from a stored blob. Shape:
-//   bytes_grid: <_bk_geometry channel="N" w="W" h="H">HEX...</_bk_geometry>
-//   points    : <_bk_geometry channel="N" count="K">x0,y0;x1,y1;...</_bk_geometry>
-//   point2    : <_bk_geometry channel="N">x,y</_bk_geometry>
-//   aimed     : <_bk_geometry channel="N" count="K">x0,y0,a0,c0;x1,y1,a1,c1;...</_bk_geometry>
-//   vec3      : <_bk_geometry channel="N" count="K">x0,y0,z0;x1,y1,z1;...</_bk_geometry>
-// Element content lives as a single Text child node, which is how xml.cpp
-// writes/reads inline text.
-NResourceXml::Node EmitGeometryChild( int nChannel, const GeometryBlob &blob )
-{
-	NResourceXml::Node out;
-	out.kind = NResourceXml::Node::Element;
-	out.name = kGeometryTag;
-	out.attrs.push_back( { "channel", std::to_string( nChannel ) } );
-	std::string text;
-	if ( IsBytesGridChannel( nChannel ) )
-	{
-		out.attrs.push_back( { "w", std::to_string( blob.nWidth ) } );
-		out.attrs.push_back( { "h", std::to_string( blob.nHeight ) } );
-		text = HexEncode( blob.bytes.data(), blob.bytes.size() );
-	}
-	else if ( IsPoint2Channel( nChannel ) )
-	{
-		const int nHas = ( blob.points.size() >= 2 ) ? 1 : 0;
-		out.attrs.push_back( { "count", std::to_string( nHas ) } );
-		if ( nHas != 0 )
-		{
-			char buf[64];
-			std::snprintf( buf, sizeof( buf ), "%.9g,%.9g", blob.points[0], blob.points[1] );
-			text = buf;
-		}
-	}
-	else if ( IsAimedChannel( nChannel ) )
-	{
-		const int nCount = static_cast<int>( blob.aimed.size() );
-		out.attrs.push_back( { "count", std::to_string( nCount ) } );
-		text.reserve( static_cast<std::size_t>( nCount ) * 24 );
-		for ( int i = 0; i < nCount; ++i )
-		{
-			if ( i != 0 ) text.push_back( ';' );
-			char buf[96];
-			std::snprintf( buf, sizeof( buf ), "%.9g,%.9g,%d,%d",
-				blob.aimed[i].x, blob.aimed[i].y, blob.aimed[i].nAngle, blob.aimed[i].nCone );
-			text += buf;
-		}
-	}
-	else
-	{
-		const int nStride = ListStride( nChannel );
-		const int nCount = static_cast<int>( blob.points.size() / nStride );
-		out.attrs.push_back( { "count", std::to_string( nCount ) } );
-		text.reserve( blob.points.size() * 10 );
-		for ( int i = 0; i < nCount; ++i )
-		{
-			for ( int k = 0; k < nStride; ++k )
-			{
-				if ( i != 0 || k != 0 ) text.push_back( k == 0 ? ';' : ',' );
-				char buf[32];
-				std::snprintf( buf, sizeof( buf ), "%.9g", blob.points[nStride*i + k] );
-				text += buf;
-			}
-		}
-	}
-	if ( !text.empty() )
-	{
-		NResourceXml::Node body;
-		body.kind = NResourceXml::Node::Text;
-		body.text = std::move( text );
-		out.children.push_back( std::move( body ) );
-	}
-	return out;
-}
-
-// Reads a `_bk_geometry` element's single inline Text child; returns the
-// child's text (same shape xml.cpp emits via the single-text-child branch of
-// WriteNode). Empty when the element has no body.
+// The text of an element's single inline Text child (how xml.cpp writes
+// inline text, e.g. a passability row's hex). Empty when the element has no
+// body.
 std::string FindBodyText( const NResourceXml::Node &node )
 {
 	for ( const auto &c : node.children )
 		if ( c.kind == NResourceXml::Node::Text || c.kind == NResourceXml::Node::CData )
 			return c.text;
 	return std::string();
-}
-
-// Parses a `_bk_geometry` child back into a (channel, blob). Returns false on
-// a malformed element (unknown shape, odd attrs, bad hex, bad float).
-bool ParseGeometryChild( const NResourceXml::Node &node, int &nChannel, GeometryBlob &out )
-{
-	if ( node.kind != NResourceXml::Node::Element || node.name != kGeometryTag )
-		return false;
-	const std::string szChannel = FindAttr( node, "channel" );
-	if ( szChannel.empty() ) return false;
-	nChannel = std::atoi( szChannel.c_str() );
-	const std::string body = FindBodyText( node );
-	if ( IsBytesGridChannel( nChannel ) )
-	{
-		out.nWidth  = std::atoi( FindAttr( node, "w" ).c_str() );
-		out.nHeight = std::atoi( FindAttr( node, "h" ).c_str() );
-		if ( out.nWidth < 0 || out.nHeight < 0 ) return false;
-		if ( !HexDecode( body, out.bytes ) ) return false;
-		const std::size_t nExpect = static_cast<std::size_t>( out.nWidth ) * static_cast<std::size_t>( out.nHeight );
-		if ( out.bytes.size() != nExpect ) return false;
-		return true;
-	}
-	if ( IsPoint2Channel( nChannel ) )
-	{
-		const int nHas = std::atoi( FindAttr( node, "count" ).c_str() );
-		if ( nHas < 0 || nHas > 1 ) return false;
-		out.points.clear();
-		if ( nHas == 0 ) return body.empty();
-		const char *p = body.c_str();
-		const char *pEnd = p + body.size();
-		char *q = nullptr;
-		const float x = std::strtof( p, &q );
-		if ( q == p || q >= pEnd || *q != ',' ) return false;
-		p = q + 1;
-		const float y = std::strtof( p, &q );
-		if ( q == p ) return false;
-		p = q;
-		if ( p != pEnd ) return false;
-		out.points.push_back( x );
-		out.points.push_back( y );
-		return true;
-	}
-	if ( IsAimedChannel( nChannel ) )
-	{
-		const int nCount = std::atoi( FindAttr( node, "count" ).c_str() );
-		if ( nCount < 0 ) return false;
-		out.aimed.clear();
-		if ( nCount == 0 ) return body.empty();
-		out.aimed.reserve( static_cast<std::size_t>( nCount ) );
-		const char *p = body.c_str();
-		const char *pEnd = p + body.size();
-		for ( int i = 0; i < nCount; ++i )
-		{
-			if ( i != 0 )
-			{
-				if ( p >= pEnd || *p != ';' ) return false;
-				++p;
-			}
-			char *q = nullptr;
-			const float x = std::strtof( p, &q );
-			if ( q == p || q >= pEnd || *q != ',' ) return false;
-			p = q + 1;
-			const float y = std::strtof( p, &q );
-			if ( q == p || q >= pEnd || *q != ',' ) return false;
-			p = q + 1;
-			const long nAngle = std::strtol( p, &q, 10 );
-			if ( q == p || q >= pEnd || *q != ',' ) return false;
-			p = q + 1;
-			const long nCone = std::strtol( p, &q, 10 );
-			if ( q == p ) return false;
-			p = q;
-			AimedPoint ap;
-			ap.x = x;
-			ap.y = y;
-			ap.nAngle = static_cast<int>( nAngle );
-			ap.nCone  = static_cast<int>( nCone );
-			out.aimed.push_back( ap );
-		}
-		if ( p != pEnd ) return false;
-		return true;
-	}
-	// points and vec3 families: `count` tuples of ListStride floats.
-	const int nStride = ListStride( nChannel );
-	const std::string szCount = FindAttr( node, "count" );
-	const int nCount = std::atoi( szCount.c_str() );
-	if ( nCount < 0 ) return false;
-	out.points.clear();
-	if ( nCount == 0 ) return true;
-	out.points.reserve( static_cast<std::size_t>( nCount ) * nStride );
-	const char *p = body.c_str();
-	const char *pEnd = p + body.size();
-	for ( int i = 0; i < nCount; ++i )
-	{
-		for ( int k = 0; k < nStride; ++k )
-		{
-			if ( i != 0 || k != 0 )
-			{
-				if ( p >= pEnd || *p != ( k == 0 ? ';' : ',' ) ) return false;
-				++p;
-			}
-			char *q = nullptr;
-			const float v = std::strtof( p, &q );
-			if ( q == p ) return false;
-			p = q;
-			out.points.push_back( v );
-		}
-	}
-	if ( p != pEnd ) return false;
-	return true;
 }
 
 // Walks the tree (root first, then descendants in storage order) and rebuilds
@@ -754,7 +544,7 @@ void EmitNodeFor( const NResourceModel::CTreeItem &item, NResourceXml::Node &out
 	item.serialise( out );
 }
 
-std::string SerialiseSubtree( const ResourceState &state, NResourceModel::CTreeItem &item );
+std::string SerialiseSubtree( NResourceModel::CTreeItem &item );
 
 std::unique_ptr<NResourceModel::CTreeItem> ParseSubtree( const std::string &szBlob, NResourceXml::Document &doc, std::string &szError )
 
@@ -868,151 +658,782 @@ bool IsDescendant( const NResourceModel::CTreeItem *pAncestor, const NResourceMo
 	return false;
 }
 
-// Geometry lives in the project as `_bk_geometry` elements inside the
-// element of the item that owns it, beside its default_name/values/childs.
-// It is never part of the item tree: an item keeps an unknown element in its
-// layout, so what Load read comes back out of Save, and every write strips
-// the elements and puts the session's current geometry back. An item whose
-// parent does not write its children (bSerializeChilds off, or a FutureBlob)
-// has no element of its own; its geometry goes on the nearest ancestor that
-// has one, with `path` naming the child indices down to the owner.
-bool IsLayoutSpace( const NResourceXml::Node &node )
+// Every geometry channel lives where MFC keeps it (D014 item 2; the channel
+// -> home table is in the phase 6 spec's geometry section). Two kinds of home:
+//   * Frame chunks. CBuildingFrame, CObjectFrame and CBridgeFrame keep their
+//     geometry in the frame, not in a tree item, and OnFileSave writes it
+//     beside the tree: own_data (SaveFrameOwnData: krest_pos, the object's
+//     TransLines, the bridge's Begin / End / Front / Back) and desc
+//     (SaveRPGStats: the SBuildingRPGStats / SObjectRPGStats copy with
+//     passability, Entrances, FireSlots, FirePoints, SmokePoints and
+//     DirExplosions). No item owns these elements, so the session plays the
+//     frame: an edit is held in the geometry map, a read of an unedited
+//     channel comes from the document as it was read, and a save writes the
+//     edited channels into the chunks, leaving every other field as it was.
+//   * Item fields. A squad formation's zero point and slots are the S03
+//     item's ZeroPos and units, a fence segment's or bridge part's locked
+//     tiles its LockedTiles list, a particle track's keys its Key_frames,
+//     and the map crosses of a mission, chapter or campaign and the places
+//     of an effect's parts are the position values of the container's
+//     children. Get and set go straight to the items, so a save, a delete
+//     blob and a restore carry them like any other field. The crosses also
+//     have a copy in the RPG chunk, which MFC's LoadRPGStats copies over the
+//     tree; see CrossListOf.
+// A channel on a node with no MFC home is refused.
+enum EGeometryHome
 {
-	if ( node.kind != NResourceXml::Node::Text )
-		return false;
-	for ( char c : node.text )
-		if ( c != ' ' && c != '\t' && c != '\r' && c != '\n' )
-			return false;
-	return true;
+	HOME_NONE,           // no MFC home on this node: refused
+	HOME_FRAME,          // own_data / desc beside the root's tree
+	HOME_SQUAD_ZERO,     // CSquadFormationPropsItem::vZeroPos
+	HOME_SQUAD_UNITS,    // CSquadFormationPropsItem::units, SUnit::vPos
+	HOME_TILE_LIST,      // CFencePropsItem / CBridgePartsItem::lockedTiles
+	HOME_CROSSES,        // the children's map position values (+ the RPG copy)
+	HOME_EFFECT_PLACES,  // the children's X / Y / Z position values
+	HOME_KEY_FRAMES      // CKeyFrameTreeItem::framesList
+};
+
+// A container whose children carry a map cross: the two values of each
+// child that hold it (MFC's Get*Position read them by index; these are the
+// names at those indices) and the list and field of the frame's RPG copy
+// (SMissionStats / SChapterStats / SCampaignStats::operator&).
+struct SCrossList
+{
+	int nChannel;
+	int nContainerType;
+	const char *pszX;
+	const char *pszY;
+	const char *pszRpgList;
+	const char *pszRpgField;
+};
+const SCrossList kCrossLists[] =
+{
+	{ CHANNEL_MISSION_OBJECTIVES, NResourceModel::ETIT_MISSION_OBJECTIVES_ITEM, "Objective position X", "Objective position Y", "Objectives", "PosOnMap" },
+	{ CHANNEL_CHAPTER_CROSSES, NResourceModel::ETIT_CHAPTER_MISSIONS_ITEM, "Mission position X", "Mission position Y", "Missions", "PosOnMap" },
+	{ CHANNEL_CHAPTER_CROSSES, NResourceModel::ETIT_CHAPTER_PLACES_ITEM, "Place holder position X", "Place holder position Y", "PlaceHolders", "Position" },
+	{ CHANNEL_CAMPAIGN_CROSSES, NResourceModel::ETIT_CAMPAIGN_CHAPTERS_ITEM, "Chapter position X", "Chapter position Y", "AllChapters", "PosOnMap" }
+};
+
+const SCrossList *CrossListOf( int nChannel, int nType )
+{
+	for ( const SCrossList &list : kCrossLists )
+		if ( list.nChannel == nChannel && list.nContainerType == nType )
+			return &list;
+	return nullptr;
 }
 
-void StripGeometry( NResourceXml::Node &node )
+bool IsCrossChannel( int nChannel )
 {
-	auto &children = node.children;
-	for ( std::size_t i = 0; i < children.size(); )
+	return nChannel == CHANNEL_MISSION_OBJECTIVES || nChannel == CHANNEL_CHAPTER_CROSSES || nChannel == CHANNEL_CAMPAIGN_CROSSES;
+}
+
+// The effect parts CEffectFrame::SaveRPGStats places by their X / Y / Z
+// position values: sprite animations, meshes, function and Maya particles.
+bool IsEffectPartList( int nType )
+{
+	return nType == NResourceModel::ETIT_EFFECT_ANIMATIONS_ITEM || nType == NResourceModel::ETIT_EFFECT_MESHES_ITEM
+		|| nType == NResourceModel::ETIT_EFFECT_FUNC_PARTICLES_ITEM || nType == NResourceModel::ETIT_EFFECT_MAYA_PARTICLES_ITEM;
+}
+
+EGeometryHome HomeOf( const ResourceState &state, int nNodeId, int nChannel )
+{
+	auto itItem = state.idToItem.find( nNodeId );
+	auto itParent = state.parentOf.find( nNodeId );
+	if ( itItem == state.idToItem.end() || itParent == state.parentOf.end() )
+		return HOME_NONE;
+	const int nType = itItem->second->GetItemType();
+	const bool bRoot = itParent->second == 0;
+	const bool bBuilding = bRoot && nType == NResourceModel::ETIT_BUILDING_ROOT_ITEM;
+	const bool bObject = bRoot && nType == NResourceModel::ETIT_OBJECT_ROOT_ITEM;
+	switch ( nChannel )
 	{
-		if ( children[i].kind == NResourceXml::Node::Element && children[i].name == kGeometryTag )
-			children.erase( children.begin() + i );
-		else
-			StripGeometry( children[i++] );
+	case CHANNEL_PASSABILITY_CELLS:
+		return bBuilding || bObject ? HOME_FRAME : HOME_NONE;
+	case CHANNEL_LOCKED_TILES:
+		return nType == NResourceModel::ETIT_FENCE_PROPS_ITEM || nType == NResourceModel::ETIT_BRIDGE_PARTS_ITEM ? HOME_TILE_LIST : HOME_NONE;
+	case CHANNEL_TRANSPARENCY_LINES:
+		return bObject ? HOME_FRAME : HOME_NONE;
+	case CHANNEL_ZERO_POINT:
+		if ( bBuilding || bObject )
+			return HOME_FRAME;
+		return nType == NResourceModel::ETIT_SQUAD_FORMATION_PROPS_ITEM ? HOME_SQUAD_ZERO : HOME_NONE;
+	case CHANNEL_FORMATION_POSITIONS:
+		return nType == NResourceModel::ETIT_SQUAD_FORMATION_PROPS_ITEM ? HOME_SQUAD_UNITS : HOME_NONE;
+	case CHANNEL_BRIDGE_SPAN_MARKS:
+		return bRoot && nType == NResourceModel::ETIT_BRIDGE_ROOT_ITEM ? HOME_FRAME : HOME_NONE;
+	case CHANNEL_MISSION_OBJECTIVES:
+	case CHANNEL_CHAPTER_CROSSES:
+	case CHANNEL_CAMPAIGN_CROSSES:
+		return CrossListOf( nChannel, nType ) != nullptr ? HOME_CROSSES : HOME_NONE;
+	case CHANNEL_PARTICLE_KEYFRAMES:
+		return dynamic_cast<const NResourceModel::CKeyFrameTreeItem *>( itItem->second ) != nullptr ? HOME_KEY_FRAMES : HOME_NONE;
+	case CHANNEL_EFFECT_KEYFRAMES:
+		return IsEffectPartList( nType ) ? HOME_EFFECT_PLACES : HOME_NONE;
+	default:	// entrance and the four aimed lists
+		return bBuilding ? HOME_FRAME : HOME_NONE;
 	}
 }
 
-// The elements of an item's children, in treeItemList order: the entries of
-// its `childs` list, which CTreeItem::WriteData writes one per child. Empty
-// when the item writes no list or the list does not line up with the tree.
-std::vector<NResourceXml::Node *> ChildElements( NResourceModel::CTreeItem &item, NResourceXml::Node &elem )
+NResourceXml::Node NewElement( const std::string &szName )
 {
-	std::vector<NResourceXml::Node *> out;
-	if ( NResourceModel::FutureBlob::IsFutureBlob( item ) || item.MutableChildren().empty() )
-		return out;
-	for ( auto &c : elem.children )
-	{
-		if ( c.kind != NResourceXml::Node::Element || c.name != "childs" )
-			continue;
-		for ( auto &entry : c.children )
-			if ( !IsLayoutSpace( entry ) )
-				out.push_back( &entry );
-		break;
-	}
-	if ( out.size() != item.MutableChildren().size() )
-		out.clear();
+	NResourceXml::Node n;
+	n.kind = NResourceXml::Node::Element;
+	n.name = szName;
+	return n;
+}
+
+NResourceXml::Node *MutableChild( NResourceXml::Node &parent, const std::string &szName )
+{
+	for ( auto &c : parent.children )
+		if ( c.kind == NResourceXml::Node::Element && c.name == szName )
+			return &c;
+	return nullptr;
+}
+
+NResourceXml::Node &ChildOrNew( NResourceXml::Node &parent, const std::string &szName )
+{
+	if ( NResourceXml::Node *p = MutableChild( parent, szName ) )
+		return *p;
+	parent.children.push_back( NewElement( szName ) );
+	return parent.children.back();
+}
+
+// own_data or desc under the project element. A missing one goes where
+// CParentFrame::OnFileSave writes it: own_data first, then desc, then the tree.
+NResourceXml::Node &FrameChunk( NResourceXml::Node &root, const std::string &szName )
+{
+	if ( NResourceXml::Node *p = MutableChild( root, szName ) )
+		return *p;
+	std::size_t nAt = 0;
+	if ( szName == "desc" )
+		for ( std::size_t i = 0; i < root.children.size(); ++i )
+			if ( root.children[i].kind == NResourceXml::Node::Element && root.children[i].name == "own_data" )
+				nAt = i + 1;
+	root.children.insert( root.children.begin() + nAt, NewElement( szName ) );
+	return root.children[nAt];
+}
+
+std::vector<const NResourceXml::Node *> Items( const NResourceXml::Node &list )
+{
+	std::vector<const NResourceXml::Node *> out;
+	for ( const auto &c : list.children )
+		if ( c.kind == NResourceXml::Node::Element && c.name == "item" )
+			out.push_back( &c );
 	return out;
 }
 
-void InjectGeometry( const ResourceState &state, NResourceModel::CTreeItem &item, NResourceXml::Node *pElem,
-                     NResourceXml::Node &anchor, const std::string &szPath )
+float NumberAttr( const NResourceXml::Node &node, const char *pszName )
 {
-	auto itId = state.itemToId.find( &item );
-	if ( itId != state.itemToId.end() )
+	return static_cast<float>( std::strtod( FindAttr( node, pszName ).c_str(), nullptr ) );
+}
+
+// The x and y of a CVec2 / CVec3 chunk (DTHelper: x, y, z attributes).
+void ReadXY( const NResourceXml::Node *pVec, float &x, float &y )
+{
+	x = pVec != nullptr ? NumberAttr( *pVec, "x" ) : 0;
+	y = pVec != nullptr ? NumberAttr( *pVec, "y" ) : 0;
+}
+
+// Sets x and y and keeps z; a new CVec3 gets MFC's z = 0 (the frames zero it).
+void WriteXY( NResourceXml::Node &vec, float x, float y, bool bVec3 )
+{
+	NResourceModel::SetAttr( vec, "x", NResourceModel::MfcFloat( x ) );
+	NResourceModel::SetAttr( vec, "y", NResourceModel::MfcFloat( y ) );
+	if ( bVec3 && FindAttr( vec, "z" ).empty() )
+		NResourceModel::SetAttr( vec, "z", "0" );
+}
+
+NResourceXml::Node NewVec2( const std::string &szName, float x, float y )
+{
+	NResourceXml::Node n = NewElement( szName );
+	WriteXY( n, x, y, false );
+	return n;
+}
+
+NResourceXml::Node NewVec3( const std::string &szName, float x, float y )
+{
+	NResourceXml::Node n = NewElement( szName );
+	WriteXY( n, x, y, true );
+	return n;
+}
+
+// The desc list an aimed channel lives in, and the attribute its cone goes
+// to: SBuildingRPGStats::SSlot's Angle (the fire sector), the vertical angle
+// of an SFirePoint or SDirectionExplosion. Direction is the angle for all.
+const char *AimedListName( int nChannel )
+{
+	switch ( nChannel )
 	{
-		for ( auto it = state.geometry.lower_bound( std::make_pair( itId->second, std::numeric_limits<int>::min() ) );
-		      it != state.geometry.end() && it->first.first == itId->second; ++it )
-		{
-			NResourceXml::Node emitted = EmitGeometryChild( it->first.second, it->second );
-			if ( pElem == nullptr )
-				emitted.attrs.insert( emitted.attrs.begin(), { "path", szPath } );
-			( pElem != nullptr ? *pElem : anchor ).children.push_back( std::move( emitted ) );
-		}
+	case CHANNEL_SHOOT_POINTS: return "FireSlots";
+	case CHANNEL_FIRE_POINTS: return "FirePoints";
+	case CHANNEL_SMOKE_POINTS: return "SmokePoints";
+	default: return "DirExplosions";
 	}
-	const bool bOwnElement = pElem != nullptr && pElem->kind == NResourceXml::Node::Element;
-	std::vector<NResourceXml::Node *> elems;
-	if ( bOwnElement )
-		elems = ChildElements( item, *pElem );
-	NResourceXml::Node &childAnchor = bOwnElement ? *pElem : anchor;
-	const std::string szBase = bOwnElement ? std::string() : szPath + ".";
-	auto &children = item.MutableChildren();
+}
+
+const char *ConeAttr( int nChannel )
+{
+	return nChannel == CHANNEL_SHOOT_POINTS ? "Angle" : "VerticalAngle";
+}
+
+// A new desc list entry: the fields of the struct's operator& with the
+// values its constructor sets (RPGStats.cpp), numbers as attributes.
+NResourceXml::Node NewAimedEntry( int nChannel )
+{
+	NResourceXml::Node item = NewElement( "item" );
+	item.attrs.push_back( { "Direction", "0" } );
+	item.children.push_back( NewVec3( "Position", 0, 0 ) );
+	if ( nChannel == CHANNEL_SHOOT_POINTS )
+	{
+		item.attrs.push_back( { "Angle", "30" } );
+		item.attrs.push_back( { "SightMultiplier", "1" } );
+		item.attrs.push_back( { "Coverage", "1" } );
+		item.attrs.push_back( { "Ammo", "0" } );
+		item.attrs.push_back( { "GunPriority", "1" } );
+		item.attrs.push_back( { "RotationSpeed", "0" } );
+		item.attrs.push_back( { "BeforeSprite", "1" } );
+		item.attrs.push_back( { "ShowFlashes", "1" } );
+		item.children.push_back( NResourceModel::StringElement( "Weapon", std::string() ) );
+	}
+	else
+	{
+		item.attrs.push_back( { "VerticalAngle", "78" } );
+		if ( nChannel != CHANNEL_DIRECTED_EXPLOSION_POINTS )
+			item.children.push_back( NResourceModel::StringElement( "FireEffect", std::string() ) );
+	}
+	item.children.push_back( NewVec2( "PicturePosition", 0, 0 ) );
+	NResourceXml::Node world = NewElement( "WorldPosition" );
+	world.attrs = { { "x", "0" }, { "y", "0" }, { "z", "0" } };
+	item.children.push_back( std::move( world ) );
+	return item;
+}
+
+// Reads a frame-home channel from the project element as MFC's
+// LoadFrameOwnData / LoadRPGStats would. A missing chunk reads as un-set;
+// false with szError on a passability grid CDataTreeXML would reject.
+bool ReadFrameGeometry( const NResourceXml::Node &root, int nChannel, GeometryBlob &out, std::string &szError )
+{
+	out = GeometryBlob();
+	const bool bOwnData = nChannel == CHANNEL_ZERO_POINT || nChannel == CHANNEL_TRANSPARENCY_LINES
+		|| nChannel == CHANNEL_BRIDGE_SPAN_MARKS;
+	const NResourceXml::Node *pChunk = NResourceXml::FindChild( root, bOwnData ? "own_data" : "desc" );
+	if ( pChunk == nullptr )
+		return true;
+	switch ( nChannel )
+	{
+	case CHANNEL_PASSABILITY_CELLS:
+	{
+		// CTreeAccessor::Do2DArrayData: <item size_x size_y/>, then one
+		// <item> of hex bytes per row; one item or none is an empty grid.
+		const NResourceXml::Node *pGrid = NResourceXml::FindChild( *pChunk, "passability" );
+		const std::vector<const NResourceXml::Node *> rows = pGrid != nullptr ? Items( *pGrid ) : std::vector<const NResourceXml::Node *>();
+		if ( rows.size() <= 1 )
+			return true;
+		const int nW = std::atoi( FindAttr( *rows[0], "size_x" ).c_str() );
+		const int nH = std::atoi( FindAttr( *rows[0], "size_y" ).c_str() );
+		if ( nW < 0 || nH < 0 || rows.size() != static_cast<std::size_t>( nH ) + 1 )
+		{
+			szError = "desc passability: the row count does not match size_y";
+			return false;
+		}
+		for ( int y = 0; y < nH; ++y )
+		{
+			std::vector<unsigned char> row;
+			if ( !HexDecode( FindBodyText( *rows[y + 1] ), row ) || row.size() != static_cast<std::size_t>( nW ) )
+			{
+				szError = "desc passability: a row is not size_x hex bytes";
+				return false;
+			}
+			out.bytes.insert( out.bytes.end(), row.begin(), row.end() );
+		}
+		out.nWidth = nW;
+		out.nHeight = nH;
+		return true;
+	}
+	case CHANNEL_ZERO_POINT:
+		if ( const NResourceXml::Node *pKrest = NResourceXml::FindChild( *pChunk, "krest_pos" ) )
+		{
+			float x = 0, y = 0;
+			ReadXY( pKrest, x, y );
+			out.points = { x, y };
+		}
+		return true;
+	case CHANNEL_TRANSPARENCY_LINES:
+		if ( const NResourceXml::Node *pLines = NResourceXml::FindChild( *pChunk, "TransLines" ) )
+			for ( const NResourceXml::Node *pLine : Items( *pLines ) )
+			{
+				float x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+				ReadXY( NResourceXml::FindChild( *pLine, "Point1" ), x1, y1 );
+				ReadXY( NResourceXml::FindChild( *pLine, "Point2" ), x2, y2 );
+				out.points.insert( out.points.end(), { x1, y1, x2, y2 } );
+			}
+		return true;
+	case CHANNEL_BRIDGE_SPAN_MARKS:
+	{
+		// CBridgeFrame::LoadFrameOwnData: Begin, End (CVec3) and the Front /
+		// Back offsets. A field that is missing keeps the frame's
+		// constructor value; with none of them the list is un-set.
+		const NResourceXml::Node *pBegin = NResourceXml::FindChild( *pChunk, "Begin" );
+		const NResourceXml::Node *pEnd = NResourceXml::FindChild( *pChunk, "End" );
+		const std::string szFront = FindAttr( *pChunk, "Front" );
+		const std::string szBack = FindAttr( *pChunk, "Back" );
+		if ( pBegin == nullptr && pEnd == nullptr && szFront.empty() && szBack.empty() )
+			return true;
+		const float fDefaultX = 16 * NResourceModel::fWorldCellSize - 300;
+		const float fDefaultY = 16 * NResourceModel::fWorldCellSize;
+		float bx = fDefaultX, by = fDefaultY, ex = fDefaultX, ey = fDefaultY;
+		if ( pBegin != nullptr )
+			ReadXY( pBegin, bx, by );
+		if ( pEnd != nullptr )
+			ReadXY( pEnd, ex, ey );
+		out.points = { bx, by, ex, ey, NumberAttr( *pChunk, "Front" ), NumberAttr( *pChunk, "Back" ) };
+		return true;
+	}
+	case CHANNEL_ENTRANCE:
+		if ( const NResourceXml::Node *pList = NResourceXml::FindChild( *pChunk, "Entrances" ) )
+		{
+			const std::vector<const NResourceXml::Node *> items = Items( *pList );
+			if ( !items.empty() )
+			{
+				float x = 0, y = 0;
+				ReadXY( NResourceXml::FindChild( *items[0], "Position" ), x, y );
+				out.points = { x, y };
+			}
+		}
+		return true;
+	default:
+		if ( const NResourceXml::Node *pList = NResourceXml::FindChild( *pChunk, AimedListName( nChannel ) ) )
+			for ( const NResourceXml::Node *pItem : Items( *pList ) )
+			{
+				AimedPoint ap;
+				ReadXY( NResourceXml::FindChild( *pItem, "Position" ), ap.x, ap.y );
+				ap.nAngle = static_cast<int>( std::lround( NumberAttr( *pItem, "Direction" ) ) );
+				ap.nCone = static_cast<int>( std::lround( NumberAttr( *pItem, ConeAttr( nChannel ) ) ) );
+				out.aimed.push_back( ap );
+			}
+		return true;
+	}
+}
+
+// Writes an edited frame-home channel into the project element in the
+// shape MFC's SaveFrameOwnData / SaveRPGStats give it. Fields the channel
+// does not carry (an entry's z, weapon, picture position, ...) stay as read.
+void WriteFrameGeometry( NResourceXml::Node &root, int nChannel, const GeometryBlob &blob )
+{
+	switch ( nChannel )
+	{
+	case CHANNEL_PASSABILITY_CELLS:
+	{
+		NResourceXml::Node &grid = ChildOrNew( FrameChunk( root, "desc" ), "passability" );
+		grid.children.clear();
+		const int nW = blob.bytes.empty() ? 0 : blob.nWidth;
+		const int nH = blob.bytes.empty() ? 0 : blob.nHeight;
+		NResourceXml::Node size = NewElement( "item" );
+		size.attrs = { { "size_x", NResourceModel::MfcInt( nW ) }, { "size_y", NResourceModel::MfcInt( nH ) } };
+		grid.children.push_back( std::move( size ) );
+		for ( int y = 0; y < nH; ++y )
+			grid.children.push_back( NResourceModel::StringElement( "item",
+				HexEncode( blob.bytes.data() + static_cast<std::size_t>( y ) * nW, static_cast<std::size_t>( nW ) ) ) );
+		return;
+	}
+	case CHANNEL_ZERO_POINT:
+		if ( blob.points.size() >= 2 )
+			WriteXY( ChildOrNew( FrameChunk( root, "own_data" ), "krest_pos" ), blob.points[0], blob.points[1], true );
+		return;
+	case CHANNEL_TRANSPARENCY_LINES:
+	{
+		NResourceXml::Node &lines = ChildOrNew( FrameChunk( root, "own_data" ), "TransLines" );
+		lines.children.clear();
+		for ( std::size_t i = 0; i + 3 < blob.points.size(); i += 4 )
+		{
+			NResourceXml::Node line = NewElement( "item" );
+			line.children.push_back( NewVec2( "Point1", blob.points[i], blob.points[i + 1] ) );
+			line.children.push_back( NewVec2( "Point2", blob.points[i + 2], blob.points[i + 3] ) );
+			lines.children.push_back( std::move( line ) );
+		}
+		return;
+	}
+	case CHANNEL_BRIDGE_SPAN_MARKS:
+	{
+		// CBridgeFrame::SaveFrameOwnData's Begin, End, Front and Back; z and
+		// the export file name stay as read.
+		if ( blob.points.size() < 6 )
+			return;
+		NResourceXml::Node &ownData = FrameChunk( root, "own_data" );
+		WriteXY( ChildOrNew( ownData, "Begin" ), blob.points[0], blob.points[1], true );
+		WriteXY( ChildOrNew( ownData, "End" ), blob.points[2], blob.points[3], true );
+		NResourceModel::SetAttr( ownData, "Front", NResourceModel::MfcFloat( blob.points[4] ) );
+		NResourceModel::SetAttr( ownData, "Back", NResourceModel::MfcFloat( blob.points[5] ) );
+		return;
+	}
+	case CHANNEL_ENTRANCE:
+	{
+		if ( blob.points.size() < 2 )
+			return;
+		NResourceXml::Node &list = ChildOrNew( FrameChunk( root, "desc" ), "Entrances" );
+		NResourceXml::Node *pItem = MutableChild( list, "item" );
+		if ( pItem == nullptr )
+		{
+			NResourceXml::Node item = NewElement( "item" );
+			item.attrs.push_back( { "Stormable", "0" } );
+			item.children.push_back( NewVec3( "Position", 0, 0 ) );
+			list.children.push_back( std::move( item ) );
+			pItem = &list.children.back();
+		}
+		WriteXY( ChildOrNew( *pItem, "Position" ), blob.points[0], blob.points[1], true );
+		return;
+	}
+	default:
+	{
+		NResourceXml::Node &list = ChildOrNew( FrameChunk( root, "desc" ), AimedListName( nChannel ) );
+		std::vector<NResourceXml::Node> kept;
+		for ( auto &c : list.children )
+			if ( c.kind == NResourceXml::Node::Element && c.name == "item" && kept.size() < blob.aimed.size() )
+				kept.push_back( std::move( c ) );
+		while ( kept.size() < blob.aimed.size() )
+			kept.push_back( NewAimedEntry( nChannel ) );
+		for ( std::size_t i = 0; i < kept.size(); ++i )
+		{
+			const AimedPoint &ap = blob.aimed[i];
+			WriteXY( ChildOrNew( kept[i], "Position" ), ap.x, ap.y, true );
+			NResourceModel::SetAttr( kept[i], "Direction", NResourceModel::MfcFloat( ap.nAngle ) );
+			NResourceModel::SetAttr( kept[i], ConeAttr( nChannel ), NResourceModel::MfcFloat( ap.nCone ) );
+		}
+		list.children = std::move( kept );
+		return;
+	}
+	}
+}
+
+NResourceModel::CListOfTiles *TileListOf( NResourceModel::CTreeItem *pItem )
+{
+	if ( auto *pFence = dynamic_cast<NResourceModel::CFencePropsItem *>( pItem ) )
+		return &pFence->lockedTiles;
+	if ( auto *pPart = dynamic_cast<NResourceModel::CBridgePartsItem *>( pItem ) )
+		return &pPart->lockedTiles;
+	return nullptr;
+}
+
+// A tile list as the ABI's grid: cell (x, y) is tile (x, y), so the grid
+// runs from tile (0, 0) to the furthest stored tile. MFC stores only set
+// tiles (SetTileInListOfTiles drops a zero), so trailing empty rows and
+// columns of a set grid do not come back.
+bool TilesToGrid( const NResourceModel::CListOfTiles &tiles, GeometryBlob &out, std::string &szError )
+{
+	out = GeometryBlob();
+	for ( const auto &tile : tiles )
+	{
+		if ( tile.nTileX < 0 || tile.nTileY < 0 )
+		{
+			szError = "a locked tile lies left of or above tile (0, 0), which the grid cannot carry";
+			return false;
+		}
+		out.nWidth = std::max( out.nWidth, tile.nTileX + 1 );
+		out.nHeight = std::max( out.nHeight, tile.nTileY + 1 );
+	}
+	out.bytes.assign( static_cast<std::size_t>( out.nWidth ) * out.nHeight, 0 );
+	for ( const auto &tile : tiles )
+		out.bytes[static_cast<std::size_t>( tile.nTileY ) * out.nWidth + tile.nTileX] = static_cast<unsigned char>( tile.nVal );
+	return true;
+}
+
+void GridToTiles( const GeometryBlob &blob, NResourceModel::CListOfTiles &tiles )
+{
+	tiles.clear();
+	for ( int y = 0; y < blob.nHeight; ++y )
+		for ( int x = 0; x < blob.nWidth; ++x )
+			if ( const unsigned char c = blob.bytes[static_cast<std::size_t>( y ) * blob.nWidth + x] )
+				tiles.push_back( { x, y, c } );
+}
+
+NResourceModel::SProp *FindValue( NResourceModel::CTreeItem &item, const char *pszName )
+{
+	for ( NResourceModel::SProp &prop : item.MutableValues() )
+		if ( prop.szDefaultName == pszName )
+			return &prop;
+	return nullptr;
+}
+
+// A position value as MFC's Get*Position reads it: CVariant's conversion of
+// whichever type the value holds to a float.
+float NumberOf( const NResourceModel::SProp *pProp )
+{
+	if ( pProp == nullptr )
+		return 0;
+	switch ( pProp->value.GetKind() )
+	{
+	case NResourceModel::CVariant::VK_INT: return static_cast<float>( pProp->value.AsInt() );
+	case NResourceModel::CVariant::VK_FLOAT: return pProp->value.AsFloat();
+	case NResourceModel::CVariant::VK_BOOL: return pProp->value.AsBool() ? 1.0f : 0.0f;
+	default: return 0;
+	}
+}
+
+// The entries of the RPG copy of a cross list, as read. MFC's LoadRPGStats
+// (GetRPGStats) copies entry i over child i, so while a list is unedited
+// its crosses are read from here; a child past the end of the list keeps
+// its own values.
+std::vector<const NResourceXml::Node *> RpgCrossEntries( const ResourceState &state, const SCrossList &list )
+{
+	const NResourceXml::Node *pRpg = NResourceXml::FindChild( state.pProject->document.root, "RPG" );
+	const NResourceXml::Node *pList = pRpg != nullptr ? NResourceXml::FindChild( *pRpg, list.pszRpgList ) : nullptr;
+	return pList != nullptr ? Items( *pList ) : std::vector<const NResourceXml::Node *>();
+}
+
+void LoadCrosses( const ResourceState &state, NResourceModel::CTreeItem &container, const SCrossList &list, GeometryBlob &out )
+{
+	std::vector<const NResourceXml::Node *> rpg;
+	if ( state.editedCrossLists.count( list.nContainerType ) == 0 )
+		rpg = RpgCrossEntries( state, list );
+	std::size_t i = 0;
+	for ( const auto &pChild : container.MutableChildren() )
+	{
+		float x = 0, y = 0;
+		if ( i < rpg.size() )
+			ReadXY( NResourceXml::FindChild( *rpg[i], list.pszRpgField ), x, y );
+		else
+		{
+			x = NumberOf( FindValue( *pChild, list.pszX ) );
+			y = NumberOf( FindValue( *pChild, list.pszY ) );
+		}
+		out.points.insert( out.points.end(), { x, y } );
+		++i;
+	}
+}
+
+// One cross per child, written the way CChapterFrame's drag does it
+// (Set*Position: the values become floats). The RPG copy follows on save.
+BkEditorStatus StoreCrosses( BkResSession *pSession, ResourceState &state, NResourceModel::CTreeItem &container,
+                             const SCrossList &list, const GeometryBlob &blob )
+{
+	auto &children = container.MutableChildren();
+	if ( blob.points.size() != children.size() * 2 )
+	{
+		pSession->szMessage = "a cross list carries one point per child of the node (" + std::to_string( children.size() ) + ")";
+		return BK_EDITOR_BAD_ARGUMENT;
+	}
+	for ( const auto &pChild : children )
+		if ( FindValue( *pChild, list.pszX ) == nullptr || FindValue( *pChild, list.pszY ) == nullptr )
+		{
+			pSession->szMessage = std::string( "a child has no " ) + list.pszX + " value";
+			return BK_EDITOR_FAILED;
+		}
 	for ( std::size_t i = 0; i < children.size(); ++i )
 	{
-		NResourceXml::Node *pChild = i < elems.size() && elems[i]->kind == NResourceXml::Node::Element ? elems[i] : nullptr;
-		InjectGeometry( state, *children[i], pChild, childAnchor, ( bOwnElement ? std::string() : szBase ) + std::to_string( i ) );
+		FindValue( *children[i], list.pszX )->value = blob.points[2*i];
+		FindValue( *children[i], list.pszY )->value = blob.points[2*i + 1];
 	}
+	state.editedCrossLists.insert( list.nContainerType );
+	return BK_EDITOR_OK;
 }
 
-// Puts the session's geometry for the subtree under pItem into elem, the
-// subtree's freshly written XML, after taking out whatever geometry elements
-// the items carried over from the file they were read from.
-void WriteGeometry( const ResourceState &state, NResourceModel::CTreeItem &item, NResourceXml::Node &elem )
+// Writes the edited cross lists into the RPG copy, as CMissionFrame /
+// CChapterFrame / CCampaignFrame::FillRPGStats would: entry i's position is
+// child i's. Every other RPG field, and an entry with no child, stay as read.
+// A project without an RPG chunk gets none (see the spec's limits).
+void WriteCrossesToRpg( const ResourceState &state, NResourceXml::Node &root )
 {
-	StripGeometry( elem );
-	InjectGeometry( state, item, &elem, elem, std::string() );
-}
-
-void ReadGeometry( ResourceState &state, NResourceModel::CTreeItem &item, NResourceXml::Node &elem )
-{
-	for ( const auto &c : elem.children )
+	NResourceXml::Node *pRpg = MutableChild( root, "RPG" );
+	if ( pRpg == nullptr )
+		return;
+	for ( int nType : state.editedCrossLists )
 	{
-		if ( c.kind != NResourceXml::Node::Element || c.name != kGeometryTag )
+		const SCrossList *pList = nullptr;
+		for ( const SCrossList &list : kCrossLists )
+			if ( list.nContainerType == nType )
+				pList = &list;
+		NResourceModel::CTreeItem *pContainer = nullptr;
+		for ( int nId : state.preorder )
+			if ( state.idToItem.at( nId )->GetItemType() == nType )
+			{
+				pContainer = state.idToItem.at( nId );
+				break;
+			}
+		NResourceXml::Node *pEntries = pList != nullptr ? MutableChild( *pRpg, pList->pszRpgList ) : nullptr;
+		if ( pContainer == nullptr || pEntries == nullptr )
 			continue;
-		int nChannel = -1;
-		GeometryBlob blob;
-		// A garbled element is dropped: the next write strips it.
-		if ( !ParseGeometryChild( c, nChannel, blob ) )
-			continue;
-		NResourceModel::CTreeItem *pOwner = &item;
-		const std::string szPath = FindAttr( c, "path" );
-		for ( std::size_t i = 0; pOwner != nullptr && i < szPath.size(); )
+		std::size_t i = 0;
+		for ( NResourceXml::Node &entry : pEntries->children )
 		{
-			const std::size_t nIndex = static_cast<std::size_t>( std::atoi( szPath.c_str() + i ) );
-			auto &children = pOwner->MutableChildren();
-			pOwner = nIndex < children.size() ? children[nIndex].get() : nullptr;
-			i = szPath.find( '.', i );
-			i = i == std::string::npos ? szPath.size() : i + 1;
+			if ( entry.kind != NResourceXml::Node::Element || entry.name != "item" )
+				continue;
+			if ( i >= pContainer->MutableChildren().size() )
+				break;
+			NResourceModel::CTreeItem &child = *pContainer->MutableChildren()[i++];
+			WriteXY( ChildOrNew( entry, pList->pszRpgField ), NumberOf( FindValue( child, pList->pszX ) ),
+				NumberOf( FindValue( child, pList->pszY ) ), false );
 		}
-		if ( pOwner == nullptr )
-			continue;
-		auto itId = state.itemToId.find( pOwner );
-		if ( itId != state.itemToId.end() )
-			state.geometry[ std::make_pair( itId->second, nChannel ) ] = std::move( blob );
 	}
-	std::vector<NResourceXml::Node *> elems = ChildElements( item, elem );
-	auto &children = item.MutableChildren();
-	for ( std::size_t i = 0; i < elems.size(); ++i )
-		if ( elems[i]->kind == NResourceXml::Node::Element )
-			ReadGeometry( state, *children[i], *elems[i] );
 }
 
-// A delete blob holds the subtree with its geometry, so a restore brings
-// both back and a save after delete -> restore matches the one before.
-std::string SerialiseSubtree( const ResourceState &state, NResourceModel::CTreeItem &item )
+// The current value of a channel on an open project's node, from wherever it
+// lives. An un-set channel reads as an empty blob.
+BkEditorStatus LoadGeometry( BkResSession *pSession, ResourceState &state, int nNodeId, int nChannel, GeometryBlob &out )
+{
+	out = GeometryBlob();
+	std::string szError;
+	NResourceModel::CTreeItem *pItem = state.idToItem[nNodeId];
+	switch ( HomeOf( state, nNodeId, nChannel ) )
+	{
+	case HOME_NONE:
+		pSession->szMessage = "this geometry channel has no MFC home on this node";
+		return BK_EDITOR_REFUSED;
+	case HOME_FRAME:
+	{
+		auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
+		if ( it != state.geometry.end() )
+			out = it->second;
+		else if ( !ReadFrameGeometry( state.pProject->document.root, nChannel, out, szError ) )
+		{
+			pSession->szMessage = szError;
+			return BK_EDITOR_FAILED;
+		}
+		return BK_EDITOR_OK;
+	}
+	case HOME_SQUAD_ZERO:
+	{
+		const auto *pFormation = static_cast<const NResourceModel::CSquadFormationPropsItem *>( pItem );
+		out.points = { pFormation->vZeroPos.x, pFormation->vZeroPos.y };
+		return BK_EDITOR_OK;
+	}
+	case HOME_SQUAD_UNITS:
+		for ( const auto &unit : static_cast<const NResourceModel::CSquadFormationPropsItem *>( pItem )->units )
+			out.points.insert( out.points.end(), { unit.vPos.x, unit.vPos.y } );
+		return BK_EDITOR_OK;
+	case HOME_TILE_LIST:
+		if ( !TilesToGrid( *TileListOf( pItem ), out, szError ) )
+		{
+			pSession->szMessage = szError;
+			return BK_EDITOR_FAILED;
+		}
+		return BK_EDITOR_OK;
+	case HOME_CROSSES:
+		LoadCrosses( state, *pItem, *CrossListOf( nChannel, pItem->GetItemType() ), out );
+		return BK_EDITOR_OK;
+	case HOME_EFFECT_PLACES:
+		for ( const auto &pChild : pItem->MutableChildren() )
+			out.points.insert( out.points.end(), { NumberOf( FindValue( *pChild, "X position" ) ),
+				NumberOf( FindValue( *pChild, "Y position" ) ), NumberOf( FindValue( *pChild, "Z position" ) ) } );
+		return BK_EDITOR_OK;
+	case HOME_KEY_FRAMES:
+		for ( const auto &frame : static_cast<const NResourceModel::CKeyFrameTreeItem *>( pItem )->framesList )
+			out.points.insert( out.points.end(), { frame.first, frame.second, 0.0f } );
+		return BK_EDITOR_OK;
+	}
+	return BK_EDITOR_FAILED;
+}
+
+BkEditorStatus StoreGeometry( BkResSession *pSession, ResourceState &state, int nNodeId, int nChannel, GeometryBlob blob )
+{
+	NResourceModel::CTreeItem *pItem = state.idToItem[nNodeId];
+	switch ( HomeOf( state, nNodeId, nChannel ) )
+	{
+	case HOME_NONE:
+		pSession->szMessage = "this geometry channel has no MFC home on this node";
+		return BK_EDITOR_REFUSED;
+	case HOME_FRAME:
+		state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
+		return BK_EDITOR_OK;
+	case HOME_SQUAD_ZERO:
+	{
+		auto *pFormation = static_cast<NResourceModel::CSquadFormationPropsItem *>( pItem );
+		pFormation->vZeroPos.x = blob.points[0];
+		pFormation->vZeroPos.y = blob.points[1];
+		return BK_EDITOR_OK;
+	}
+	case HOME_SQUAD_UNITS:
+	{
+		// Slot i keeps its z and Dir; a new slot gets AddUnit's z = 0 and
+		// Dir = 0, and a shorter list drops the tail.
+		auto &units = static_cast<NResourceModel::CSquadFormationPropsItem *>( pItem )->units;
+		const std::size_t nCount = blob.points.size() / 2;
+		while ( units.size() > nCount )
+			units.pop_back();
+		while ( units.size() < nCount )
+			units.push_back( NResourceModel::CSquadFormationPropsItem::SUnit() );
+		std::size_t i = 0;
+		for ( auto &unit : units )
+		{
+			unit.vPos.x = blob.points[2*i];
+			unit.vPos.y = blob.points[2*i + 1];
+			++i;
+		}
+		return BK_EDITOR_OK;
+	}
+	case HOME_TILE_LIST:
+		GridToTiles( blob, *TileListOf( pItem ) );
+		return BK_EDITOR_OK;
+	case HOME_CROSSES:
+		return StoreCrosses( pSession, state, *pItem, *CrossListOf( nChannel, pItem->GetItemType() ), blob );
+	case HOME_EFFECT_PLACES:
+	{
+		// The X / Y / Z position values are DT_DEC: whole numbers, as the
+		// property inspector writes them.
+		auto &children = pItem->MutableChildren();
+		if ( blob.points.size() != children.size() * 3 )
+		{
+			pSession->szMessage = "an effect part list carries one place per child of the node (" + std::to_string( children.size() ) + ")";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		static const char *const kAxes[3] = { "X position", "Y position", "Z position" };
+		for ( std::size_t i = 0; i < blob.points.size(); ++i )
+		{
+			const float f = blob.points[i];
+			if ( !( std::fabs( f ) <= 2147483647.0f ) || std::floor( f ) != f )
+			{
+				pSession->szMessage = "an effect part's place is in whole units";
+				return BK_EDITOR_BAD_ARGUMENT;
+			}
+			if ( FindValue( *children[i / 3], kAxes[i % 3] ) == nullptr )
+			{
+				pSession->szMessage = std::string( "a child has no " ) + kAxes[i % 3] + " value";
+				return BK_EDITOR_FAILED;
+			}
+		}
+		for ( std::size_t i = 0; i < blob.points.size(); ++i )
+			FindValue( *children[i / 3], kAxes[i % 3] )->value = static_cast<int>( blob.points[i] );
+		return BK_EDITOR_OK;
+	}
+	case HOME_KEY_FRAMES:
+	{
+		// A key is a (time, value) pair; MFC has no third component.
+		NResourceModel::CFramesList frames;
+		for ( std::size_t i = 0; i + 2 < blob.points.size(); i += 3 )
+		{
+			if ( blob.points[i + 2] != 0 )
+			{
+				pSession->szMessage = "a particle key frame is a (time, value) pair: z must be 0";
+				return BK_EDITOR_BAD_ARGUMENT;
+			}
+			frames.push_back( { blob.points[i], blob.points[i + 1] } );
+		}
+		static_cast<NResourceModel::CKeyFrameTreeItem *>( pItem )->framesList = std::move( frames );
+		return BK_EDITOR_OK;
+	}
+	}
+	return BK_EDITOR_FAILED;
+}
+
+// A delete blob holds the subtree as its items write it. Item-field
+// geometry is part of that, and the frame homes belong to the root, which
+// cannot be deleted, so a restore brings everything back.
+std::string SerialiseSubtree( NResourceModel::CTreeItem &item )
 {
 	NResourceXml::Document doc;
 	doc.hasDeclaration = false;
 	EmitNodeFor( item, doc.root );
-	WriteGeometry( state, item, doc.root );
 	return NResourceXml::Serialise( doc );
 }
 
-// The bytes BkResSave writes for the open project: the tree, plus every
-// geometry entry as a `_bk_geometry` element in its owner's element. Export
-// hands its exporter a project parsed from the same bytes, so what is
-// exported is what a save would write. Re-parsing Serialise's output and
-// writing it again gives the same bytes (xml.h), so a project without
-// geometry is not touched.
+// The bytes BkResSave writes for the open project: the tree, with the
+// edited frame homes written into own_data / desc and the edited cross lists
+// into RPG. Export hands its exporter a project parsed from the same bytes,
+// so what is exported is what a save would write. Re-parsing Serialise's
+// output and writing it again gives the same bytes (xml.h), so a project
+// without frame edits is not touched.
 bool RenderForSave( const ResourceState &state, std::string &szOut, std::string &szError )
 {
 	szOut = NResourceModel::Save( *state.pProject );
-	if ( state.pProject->root && ( !state.geometry.empty() || szOut.find( kGeometryTag ) != std::string::npos ) )
+	if ( state.pProject->root && ( !state.geometry.empty() || !state.editedCrossLists.empty() ) )
 	{
 		NResourceXml::Document doc;
 		std::string szParseError;
@@ -1021,7 +1442,10 @@ bool RenderForSave( const ResourceState &state, std::string &szOut, std::string 
 			szError = "cannot re-read the rendered project: " + szParseError;
 			return false;
 		}
-		WriteGeometry( state, *state.pProject->root, doc.root );
+		for ( const auto &entry : state.geometry )
+			if ( HomeOf( state, entry.first.first, entry.first.second ) == HOME_FRAME )
+				WriteFrameGeometry( doc.root, entry.first.second, entry.second );
+		WriteCrossesToRpg( state, doc.root );
 		szOut = NResourceXml::Serialise( doc );
 	}
 	return true;
@@ -1092,8 +1516,6 @@ BkEditorStatus BkResOpen( BkResSession *pSession, const char *pszPath )
 		state.nKindOrdinal = nOrdinal;
 		state.szPath = pszPath;
 		RebuildIds( state );
-		if ( state.pProject->root )
-			ReadGeometry( state, *state.pProject->root, state.pProject->document.root );
 		return BK_EDITOR_OK;
 	} );
 }
@@ -1410,7 +1832,7 @@ BkEditorStatus BkResDeleteNode( BkResSession *pSession, int nNodeId, unsigned ch
 			return BK_EDITOR_REFUSED;
 		}
 		// Two-pass size: a null buffer gets just the byte count.
-		const std::string szBlob = IdsHeader( state, itItem->second ) + SerialiseSubtree( state, *itItem->second );
+		const std::string szBlob = IdsHeader( state, itItem->second ) + SerialiseSubtree( *itItem->second );
 		const int nTotal = static_cast<int>( szBlob.size() );
 		if ( pnSize != nullptr )
 			*pnSize = nTotal;
@@ -1430,8 +1852,8 @@ BkEditorStatus BkResDeleteNode( BkResSession *pSession, int nNodeId, unsigned ch
 		}
 		pContainer->erase( pContainer->begin() + nAt );
 		RebuildIds( state );
-		// The blob carries the removed subtree's geometry; drop it here so it is
-		// not written for a node that is gone. A restore reads it back.
+		// Geometry map entries belong to the root's frame homes; drop any that
+		// name a node that is gone.
 		for ( auto it = state.geometry.begin(); it != state.geometry.end(); )
 			it = state.idToItem.count( it->first.first ) ? std::next( it ) : state.geometry.erase( it );
 		return BK_EDITOR_OK;
@@ -1482,7 +1904,6 @@ BkEditorStatus BkResRestoreNode( BkResSession *pSession, const unsigned char *pB
 					state.itemToId[items[i]] = ids[i];
 		children.insert( children.begin() + nAt, std::move( pItem ) );
 		RebuildIds( state );
-		ReadGeometry( state, *pInserted, doc.root );
 		if ( pnOutId != nullptr )
 		{
 			auto itId = state.itemToId.find( pInserted );
@@ -1636,11 +2057,8 @@ BkEditorStatus BkResRefList( BkResSession *pSession, int nType, BkResReferenceEn
 
 /* ---- Geometry --------------------------------------------------------- */
 
-/* T05 implements the cells family (passability, locked tiles, transparency
-   lines) end-to-end: the entries serve against the in-session geometry map
-   on ResourceState, and the Open/Save path persists / restores each entry as
-   a `_bk_geometry` element in the owning item's element. The rest of the
-   channels (points, aimed points, keyframes) stay stubbed below until T06+.
+/* Every helper reads through LoadGeometry and writes through StoreGeometry,
+   which go to the channel's MFC home (HomeOf).
 
    The two bytes_grid channels share one helper (GetBytesGrid / SetBytesGrid)
    because they only differ in channel id; the points channels have their own
@@ -1662,14 +2080,10 @@ BkEditorStatus GetBytesGrid( BkResSession *pSession, int nChannel, int nNodeId,
 		pSession->szMessage = "unknown node id";
 		return BK_EDITOR_REFUSED;
 	}
-	auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
-	if ( it == state.geometry.end() )
-	{
-		if ( pnW != nullptr ) *pnW = 0;
-		if ( pnH != nullptr ) *pnH = 0;
-		return BK_EDITOR_OK;
-	}
-	const GeometryBlob &blob = it->second;
+	GeometryBlob blob;
+	const BkEditorStatus nLoaded = LoadGeometry( pSession, state, nNodeId, nChannel, blob );
+	if ( nLoaded != BK_EDITOR_OK )
+		return nLoaded;
 	if ( pnW != nullptr ) *pnW = blob.nWidth;
 	if ( pnH != nullptr ) *pnH = blob.nHeight;
 	if ( pOut == nullptr || nCapacity <= 0 )
@@ -1711,8 +2125,7 @@ BkEditorStatus SetBytesGrid( BkResSession *pSession, int nChannel, int nNodeId,
 	blob.nWidth = nW;
 	blob.nHeight = nH;
 	blob.bytes.assign( pIn, pIn + nTotal );
-	state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
-	return BK_EDITOR_OK;
+	return StoreGeometry( pSession, state, nNodeId, nChannel, std::move( blob ) );
 }
 
 } // namespace
@@ -1770,13 +2183,11 @@ BkEditorStatus GetPoints2( BkResSession *pSession, int nChannel, int nNodeId,
 		pSession->szMessage = "unknown node id";
 		return BK_EDITOR_REFUSED;
 	}
-	auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
-	if ( it == state.geometry.end() )
-	{
-		if ( pnCount != nullptr ) *pnCount = 0;
-		return BK_EDITOR_OK;
-	}
-	const int nCount = static_cast<int>( it->second.points.size() / 2 );
+	GeometryBlob blob;
+	const BkEditorStatus nLoaded = LoadGeometry( pSession, state, nNodeId, nChannel, blob );
+	if ( nLoaded != BK_EDITOR_OK )
+		return nLoaded;
+	const int nCount = static_cast<int>( blob.points.size() / 2 );
 	if ( pnCount != nullptr ) *pnCount = nCount;
 	if ( pOut == nullptr || nCapacity <= 0 )
 		return BK_EDITOR_OK;
@@ -1784,8 +2195,8 @@ BkEditorStatus GetPoints2( BkResSession *pSession, int nChannel, int nNodeId,
 		return BK_EDITOR_REFUSED;
 	for ( int i = 0; i < nCount; ++i )
 	{
-		pOut[i].x = it->second.points[2*i];
-		pOut[i].y = it->second.points[2*i + 1];
+		pOut[i].x = blob.points[2*i];
+		pOut[i].y = blob.points[2*i + 1];
 	}
 	return BK_EDITOR_OK;
 }
@@ -1814,6 +2225,18 @@ BkEditorStatus SetPoints2( BkResSession *pSession, int nChannel, int nNodeId,
 		pSession->szMessage = "null buffer for non-empty list";
 		return BK_EDITOR_BAD_ARGUMENT;
 	}
+	// CObjectFrame::STransLine: each line is a Point1 / Point2 pair.
+	if ( nChannel == CHANNEL_TRANSPARENCY_LINES && nCount % 2 != 0 )
+	{
+		pSession->szMessage = "transparency lines come in point pairs";
+		return BK_EDITOR_BAD_ARGUMENT;
+	}
+	// CBridgeFrame's own data: Begin, End and (Front, Back), always all three.
+	if ( nChannel == CHANNEL_BRIDGE_SPAN_MARKS && nCount != 3 )
+	{
+		pSession->szMessage = "bridge span marks are Begin, End and (Front, Back): three points";
+		return BK_EDITOR_BAD_ARGUMENT;
+	}
 	GeometryBlob blob;
 	blob.points.reserve( static_cast<std::size_t>( nCount ) * 2 );
 	for ( int i = 0; i < nCount; ++i )
@@ -1821,8 +2244,7 @@ BkEditorStatus SetPoints2( BkResSession *pSession, int nChannel, int nNodeId,
 		blob.points.push_back( pIn[i].x );
 		blob.points.push_back( pIn[i].y );
 	}
-	state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
-	return BK_EDITOR_OK;
+	return StoreGeometry( pSession, state, nNodeId, nChannel, std::move( blob ) );
 }
 
 } // namespace
@@ -1901,10 +2323,10 @@ BkEditorStatus GetPoint2( BkResSession *pSession, int nChannel, int nNodeId, BkR
 		return BK_EDITOR_BAD_ARGUMENT;
 	pOut->x = 0;
 	pOut->y = 0;
-	auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
-	if ( it == state.geometry.end() )
-		return BK_EDITOR_OK;
-	const GeometryBlob &blob = it->second;
+	GeometryBlob blob;
+	const BkEditorStatus nLoaded = LoadGeometry( pSession, state, nNodeId, nChannel, blob );
+	if ( nLoaded != BK_EDITOR_OK )
+		return nLoaded;
 	if ( blob.points.size() >= 2 )
 	{
 		pOut->x = blob.points[0];
@@ -1931,8 +2353,7 @@ BkEditorStatus SetPoint2( BkResSession *pSession, int nChannel, int nNodeId, con
 	GeometryBlob blob;
 	blob.points.push_back( pIn->x );
 	blob.points.push_back( pIn->y );
-	state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
-	return BK_EDITOR_OK;
+	return StoreGeometry( pSession, state, nNodeId, nChannel, std::move( blob ) );
 }
 
 BkEditorStatus GetAimed( BkResSession *pSession, int nChannel, int nNodeId,
@@ -1949,13 +2370,11 @@ BkEditorStatus GetAimed( BkResSession *pSession, int nChannel, int nNodeId,
 		pSession->szMessage = "unknown node id";
 		return BK_EDITOR_REFUSED;
 	}
-	auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
-	if ( it == state.geometry.end() )
-	{
-		if ( pnCount != nullptr ) *pnCount = 0;
-		return BK_EDITOR_OK;
-	}
-	const int nCount = static_cast<int>( it->second.aimed.size() );
+	GeometryBlob blob;
+	const BkEditorStatus nLoaded = LoadGeometry( pSession, state, nNodeId, nChannel, blob );
+	if ( nLoaded != BK_EDITOR_OK )
+		return nLoaded;
+	const int nCount = static_cast<int>( blob.aimed.size() );
 	if ( pnCount != nullptr ) *pnCount = nCount;
 	if ( pOut == nullptr || nCapacity <= 0 )
 		return BK_EDITOR_OK;
@@ -1963,7 +2382,7 @@ BkEditorStatus GetAimed( BkResSession *pSession, int nChannel, int nNodeId,
 		return BK_EDITOR_REFUSED;
 	for ( int i = 0; i < nCount; ++i )
 	{
-		const AimedPoint &src = it->second.aimed[i];
+		const AimedPoint &src = blob.aimed[i];
 		pOut[i].at.x  = src.x;
 		pOut[i].at.y  = src.y;
 		pOut[i].angle = src.nAngle;
@@ -2007,8 +2426,7 @@ BkEditorStatus SetAimed( BkResSession *pSession, int nChannel, int nNodeId,
 		ap.nCone  = pIn[i].cone;
 		blob.aimed.push_back( ap );
 	}
-	state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
-	return BK_EDITOR_OK;
+	return StoreGeometry( pSession, state, nNodeId, nChannel, std::move( blob ) );
 }
 
 } // namespace
@@ -2109,9 +2527,8 @@ BkEditorStatus BkResSetDirectedExplosionPoints( BkResSession *pSession, int nNod
 	} );
 }
 
-/* Vec3-family helpers: particle and effect keyframes carry a flat 3D vector
-   list. MFC's framesList entries are (time, value) pairs; z travels through
-   unchanged so a caller can keep a third component without a new channel. */
+/* Vec3-family helpers: particle key frames ((time, value, 0) per key) and
+   effect part places (x, y, z per child). */
 
 namespace {
 
@@ -2129,13 +2546,11 @@ BkEditorStatus GetVec3List( BkResSession *pSession, int nChannel, int nNodeId,
 		pSession->szMessage = "unknown node id";
 		return BK_EDITOR_REFUSED;
 	}
-	auto it = state.geometry.find( std::make_pair( nNodeId, nChannel ) );
-	if ( it == state.geometry.end() )
-	{
-		if ( pnCount != nullptr ) *pnCount = 0;
-		return BK_EDITOR_OK;
-	}
-	const int nCount = static_cast<int>( it->second.points.size() / 3 );
+	GeometryBlob blob;
+	const BkEditorStatus nLoaded = LoadGeometry( pSession, state, nNodeId, nChannel, blob );
+	if ( nLoaded != BK_EDITOR_OK )
+		return nLoaded;
+	const int nCount = static_cast<int>( blob.points.size() / 3 );
 	if ( pnCount != nullptr ) *pnCount = nCount;
 	if ( pOut == nullptr || nCapacity <= 0 )
 		return BK_EDITOR_OK;
@@ -2143,9 +2558,9 @@ BkEditorStatus GetVec3List( BkResSession *pSession, int nChannel, int nNodeId,
 		return BK_EDITOR_REFUSED;
 	for ( int i = 0; i < nCount; ++i )
 	{
-		pOut[i].x = it->second.points[3*i];
-		pOut[i].y = it->second.points[3*i + 1];
-		pOut[i].z = it->second.points[3*i + 2];
+		pOut[i].x = blob.points[3*i];
+		pOut[i].y = blob.points[3*i + 1];
+		pOut[i].z = blob.points[3*i + 2];
 	}
 	return BK_EDITOR_OK;
 }
@@ -2182,8 +2597,7 @@ BkEditorStatus SetVec3List( BkResSession *pSession, int nChannel, int nNodeId,
 		blob.points.push_back( pIn[i].y );
 		blob.points.push_back( pIn[i].z );
 	}
-	state.geometry[ std::make_pair( nNodeId, nChannel ) ] = std::move( blob );
-	return BK_EDITOR_OK;
+	return StoreGeometry( pSession, state, nNodeId, nChannel, std::move( blob ) );
 }
 
 } // namespace

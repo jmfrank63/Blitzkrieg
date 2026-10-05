@@ -26,6 +26,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -34,6 +35,12 @@
 #include "bridge_session.h"
 #include "../ResourceModel/references.h"
 #include "../ResourceModel/exporter.h"
+#include "../ResourceModel/project.h"
+#include "../ResourceModel/items/squad/squad.h"
+#include "../ResourceModel/items/fence/fence.h"
+#include "../ResourceModel/key_frame_tree_item.h"
+#include "../Main/GameStats.h"
+#include "../Main/RPGStats.h"
 #include "../zlib/zlib.h"
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -360,17 +367,6 @@ static const int kEffectAnimations    = 0x11000000 + 33;
 static bool SameEntry( const BkResPoint2 &a, const BkResPoint2 &b ) { return a.x == b.x && a.y == b.y; }
 static bool SameEntry( const BkResVec3 &a, const BkResVec3 &b ) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
-// The k-th entry of the i-th owner's test list, with fractions a lossy text
-// form would not bring back.
-static void MakeEntry( BkResPoint2 &out, size_t i, size_t k )
-{
-	out = { 16 * 32.0f + float( k ) * 24.5f, 8 * 32.0f - float( i ) * 0.125f };
-}
-static void MakeEntry( BkResVec3 &out, size_t i, size_t k )
-{
-	out = { float( k ) * 0.1f, 1.0f / float( 3 + i ), -float( i + k ) * 0.375f };
-}
-
 template <typename T>
 static bool SameList( BkResSession *pSession, BkEditorStatus ( *pGet )( BkResSession *, int, T *, int, int * ), int nNode,
                       const std::vector<T> &want )
@@ -387,191 +383,1000 @@ static bool SameList( BkResSession *pSession, BkEditorStatus ( *pGet )( BkResSes
 	return true;
 }
 
-// A point or vec3 list channel set on the nodes MFC keeps it on (below the
-// root): set -> read, save -> reopen -> read, and a resave of the reopened
-// project is byte-identical.
-template <typename T>
-static void PointListsOnOwnerNodes( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot,
-                                    const char *pszExt, const char *pszWhat,
-                                    BkEditorStatus ( *pGet )( BkResSession *, int, T *, int, int * ),
-                                    BkEditorStatus ( *pSet )( BkResSession *, int, const T *, int ),
-                                    const std::vector<int> &ownerTypes )
+// D014 item 2: the cells, point and aimed channels live where MFC keeps
+// them (the table in the phase 6 spec's geometry section), so these tests
+// read the saved file back the way MFC does: the building and object frame
+// chunks through the engine's own CDataTreeXML and RPG stats structs
+// (CBuildingFrame / CObjectFrame LoadRPGStats and LoadFrameOwnData), the
+// item-owned ones through NResourceModel::Load and the S03 items.
+
+// The class types of the nodes the MFC homes hang on (tree_item_types.h).
+static const int kObjectRoot   = 0x11000000 + 51;
+static const int kBuildingRoot = 0x11000000 + 91;
+static const int kFenceProps   = 0x11000000 + 125;
+
+// CObjectFrame::STransLine::operator& (ObjectFrm.cpp).
+struct STestTransLine
 {
-	const std::string szIn = szFixtureRoot + "/" + pszExt + "/project." + pszExt;
-	const std::string szDir = szScratchRoot + "/" + pszExt + "-" + pszWhat;
-	const std::string szSaved = szDir + "/project." + pszExt;
-	const std::string szResaved = szDir + "/project.resaved." + pszExt;
+	CVec2 p1, p2;
+	int operator&( IDataTree &ss )
+	{
+		CTreeAccessor saver = &ss;
+		saver.Add( "Point1", &p1 );
+		saver.Add( "Point2", &p2 );
+		return 0;
+	}
+};
+
+// What MFC's LoadRPGStats and LoadFrameOwnData read from a project: the
+// "desc" stats under the *_Composer_Project base node, and krest_pos (and,
+// for an object, TransLines) in own_data.
+template <class TStats>
+static bool ReadAsMfc( const std::string &szFile, const char *pszBase, TStats &stats, CVec3 &krest,
+                       std::vector<STestTransLine> *pLines )
+{
+	const std::string::size_type nCut = szFile.find_last_of( "/\\" );
+	const std::string szDir = szFile.substr( 0, nCut + 1 );
+	const std::string szName = szFile.substr( nCut + 1 );
+	CPtr<IDataStorage> pStorage = OpenStorage( szDir.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	if ( pStorage == 0 )
+		return false;
+	CPtr<IDataStream> pStream = pStorage->OpenStream( szName.c_str(), STREAM_ACCESS_READ );
+	if ( pStream == 0 )
+		return false;
+	CPtr<IDataTree> pDT = CreateDataTreeSaver( pStream, IDataTree::READ, pszBase );
+	if ( pDT == 0 )
+		return false;
+	{
+		CTreeAccessor tree = pDT;
+		tree.Add( "desc", &stats );
+	}
+	if ( pDT->StartChunk( "own_data" ) == 0 )
+		return false;
+	{
+		CTreeAccessor tree = pDT;
+		tree.Add( "krest_pos", &krest );
+		if ( pLines != 0 )
+			tree.Add( "TransLines", pLines );
+	}
+	pDT->FinishChunk();
+	return true;
+}
+
+static bool SameAimedList( BkResSession *pSession,
+                           BkEditorStatus ( *pGet )( BkResSession *, int, BkResAimedPoint *, int, int * ),
+                           int nNode, const std::vector<BkResAimedPoint> &want )
+{
+	std::vector<BkResAimedPoint> got( want.size() + 1 );
+	int n = -1;
+	if ( pGet( pSession, nNode, got.data(), int( got.size() ), &n ) != BK_EDITOR_OK || n != int( want.size() ) )
+		return false;
+	for ( size_t i = 0; i < want.size(); ++i )
+		if ( got[i].at.x != want[i].at.x || got[i].at.y != want[i].at.y || got[i].angle != want[i].angle || got[i].cone != want[i].cone )
+			return false;
+	return true;
+}
+
+// The element name the port used for geometry before S05 put every channel
+// where MFC keeps it. It is spelt in two parts so the source tree holds no
+// copy of it (the slice's verification greps for one).
+static const std::string kRetiredGeometryTag = std::string( "_bk" ) + "_geometry";
+
+static bool HasNoPrivateGeometry( const std::string &szFile )
+{
+	std::string szBytes;
+	return ReadBytes( szFile, szBytes ) && !szBytes.empty() && szBytes.find( kRetiredGeometryTag ) == std::string::npos;
+}
+
+static int FirstNodeOfType( BkResSession *pSession, int nType )
+{
+	for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+		if ( n.class_type == nType )
+			return n.id;
+	return 0;
+}
+
+static const NResourceModel::CTreeItem *FindItemOfType( const NResourceModel::CTreeItem &item, int nType )
+{
+	if ( item.GetItemType() == nType )
+		return &item;
+	for ( const auto &pChild : item.GetChildren() )
+		if ( const NResourceModel::CTreeItem *p = FindItemOfType( *pChild, nType ) )
+			return p;
+	return 0;
+}
+
+// Opens szFile through the S03 reader and returns the first item of nType.
+static const NResourceModel::CTreeItem *LoadItemOfType( const std::string &szFile, NResourceModel::Project &project, int nType )
+{
+	std::string szBytes, szError;
+	if ( !ReadBytes( szFile, szBytes ) || !NResourceModel::Load( szBytes, project, szError ) || !project.root )
+		return 0;
+	return FindItemOfType( *project.root, nType );
+}
+
+// Deletes the node, restores it at the same place and checks a save after
+// that equals a save before it.
+static void DeleteRestoreKeepsBytes( BkResSession *pSession, int nNode, const std::string &szDir, const std::string &szExt,
+                                     const std::string &szTag )
+{
+	const std::string szBefore = szDir + "/before-delete." + szExt;
+	const std::string szAfter = szDir + "/after-restore." + szExt;
+	Check( BkResSave( pSession, szBefore.c_str() ) == BK_EDITOR_OK, ( szTag + "save before delete" ).c_str() );
+	int nParent = 0, nIndex = 0;
+	for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+		if ( n.id == nNode )
+			nParent = n.parent;
+	for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+	{
+		if ( n.id == nNode )
+			break;
+		if ( n.parent == nParent )
+			++nIndex;
+	}
+	int nSize = 0;
+	BkResDeleteNode( pSession, nNode, 0, 0, &nSize );
+	std::vector<unsigned char> blob( nSize > 0 ? nSize : 1 );
+	Check( BkResDeleteNode( pSession, nNode, blob.data(), nSize, &nSize ) == BK_EDITOR_OK, ( szTag + "delete" ).c_str() );
+	int nRestored = 0;
+	Check( BkResRestoreNode( pSession, blob.data(), nSize, nParent, nIndex, &nRestored ) == BK_EDITOR_OK && nRestored == nNode,
+		( szTag + "restore under the old id" ).c_str() );
+	Check( BkResSave( pSession, szAfter.c_str() ) == BK_EDITOR_OK, ( szTag + "save after restore" ).c_str() );
+	std::string szA, szB;
+	ReadBytes( szBefore, szA );
+	ReadBytes( szAfter, szB );
+	if ( !Check( !szA.empty() && szA == szB, ( szTag + "delete -> restore -> save is byte-identical" ).c_str() ) )
+		std::printf( "   before=%zu bytes, after=%zu bytes\n", szA.size(), szB.size() );
+	Check( HasNoPrivateGeometry( szAfter ), ( szTag + "no private geometry element after delete -> restore" ).c_str() );
+}
+
+// Values with at most six significant digits: MFC writes floats with %lg,
+// so that is what a project file can carry.
+static void BuildingGeometryInMfcLayout( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	const std::string szIn = szFixtureRoot + "/bld/project.bld";
+	const std::string szDir = szScratchRoot + "/mfc-geometry-bld";
+	const std::string szSaved = szDir + "/project.bld";
+	const std::string szResaved = szDir + "/project.resaved.bld";
 	std::error_code ec;
 	std::filesystem::remove_all( szDir, ec );
 	std::filesystem::create_directories( szDir, ec );
-	const std::string szTag = std::string( pszWhat ) + ": ";
-	auto What = [&]( const char *pszCheck ) { static std::string s; s = szTag + pszCheck; return s.c_str(); };
+	if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "bld-geometry: BkResOpen" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	const int nRoot = FirstNodeOfType( pSession, kBuildingRoot );
+	Check( nRoot == 1, "bld-geometry: the root is the building root" );
+	const unsigned char cells[6] = { 1, 0, 1, 2, 3, 0xff };
+	const BkResPoint2 zero = { 724.5f, 362.25f };
+	const BkResPoint2 entrance = { 12.5f, -3.25f };
+	const std::vector<BkResAimedPoint> shoots = { { { -2.25f, 35.5f }, 270, 160 }, { { 7.75f, 89.125f }, 90, 30 } };
+	const std::vector<BkResAimedPoint> fires = { { { 1.5f, 2.5f }, 45, 78 } };
+	const std::vector<BkResAimedPoint> smokes = { { { -4.0f, 8.0f }, 180, 60 }, { { 0.0f, 0.5f }, 0, 78 } };
+	const std::vector<BkResAimedPoint> explosions = { { { 3.0f, -1.0f }, 315, 45 }, { { 6.0f, 2.0f }, 135, 20 } };
+	Check( BkResSetPassabilityCells( pSession, nRoot, cells, 3, 2 ) == BK_EDITOR_OK, "bld-geometry: set passability" );
+	Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK, "bld-geometry: set zero point" );
+	Check( BkResSetEntrance( pSession, nRoot, &entrance ) == BK_EDITOR_OK, "bld-geometry: set entrance" );
+	Check( BkResSetShootPoints( pSession, nRoot, shoots.data(), int( shoots.size() ) ) == BK_EDITOR_OK, "bld-geometry: set shoot points" );
+	Check( BkResSetFirePoints( pSession, nRoot, fires.data(), int( fires.size() ) ) == BK_EDITOR_OK, "bld-geometry: set fire points" );
+	Check( BkResSetSmokePoints( pSession, nRoot, smokes.data(), int( smokes.size() ) ) == BK_EDITOR_OK, "bld-geometry: set smoke points" );
+	Check( BkResSetDirectedExplosionPoints( pSession, nRoot, explosions.data(), int( explosions.size() ) ) == BK_EDITOR_OK,
+		"bld-geometry: set directed explosions" );
+	// The building frame keeps no locked-tiles list of its own (it is saved
+	// as desc passability) and no transparency lines.
+	const unsigned char locked[1] = { 1 };
+	Check( BkResSetLockedTiles( pSession, nRoot, locked, 1, 1 ) == BK_EDITOR_REFUSED, "bld-geometry: locked tiles have no home on a building" );
+	const BkResPoint2 line[2] = { { 0, 0 }, { 1, 1 } };
+	Check( BkResSetTransparencyLines( pSession, nRoot, line, 2 ) == BK_EDITOR_REFUSED, "bld-geometry: transparency lines have no home on a building" );
+	const int nChild = FirstNodeOfType( pSession, 0x11000000 + 92 );	// Basic Info, below the root
+	Check( nChild != 0 && BkResSetZeroPoint( pSession, nChild, &zero ) == BK_EDITOR_REFUSED, "bld-geometry: a non-root building node has no zero point" );
 
+	if ( !Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "bld-geometry: save" ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	Check( HasNoPrivateGeometry( szSaved ), "bld-geometry: the saved XML has no private geometry element" );
+
+	// MFC's reader: CBuildingFrame::LoadRPGStats / LoadFrameOwnData.
+	SBuildingRPGStats stats;
+	CVec3 krest( 0, 0, 0 );
+	if ( Check( ReadAsMfc( szSaved, "Building_Composer_Project", stats, krest, 0 ), "bld-geometry: the engine reads desc and own_data" ) )
+	{
+		bool bCells = stats.passability.GetSizeX() == 3 && stats.passability.GetSizeY() == 2;
+		for ( int i = 0; bCells && i < 6; ++i )
+			bCells = stats.passability[i / 3][i % 3] == cells[i];
+		Check( bCells, "bld-geometry: desc passability is the set grid" );
+		Check( krest.x == zero.x && krest.y == zero.y, "bld-geometry: own_data krest_pos is the zero point" );
+		Check( stats.entrances.size() == 1 && stats.entrances[0].vPos.x == entrance.x && stats.entrances[0].vPos.y == entrance.y,
+			"bld-geometry: desc Entrances[0] is the entrance" );
+		bool bSlots = stats.slots.size() == shoots.size();
+		for ( size_t i = 0; bSlots && i < shoots.size(); ++i )
+			bSlots = stats.slots[i].vPos.x == shoots[i].at.x && stats.slots[i].vPos.y == shoots[i].at.y
+				&& stats.slots[i].fDirection == float( shoots[i].angle ) && stats.slots[i].fAngle == float( shoots[i].cone );
+		Check( bSlots, "bld-geometry: desc FireSlots carry position, direction and cone angle" );
+		auto SameFire = []( const std::vector<SBuildingRPGStats::SFirePoint> &got, const std::vector<BkResAimedPoint> &want )
+		{
+			if ( got.size() != want.size() )
+				return false;
+			for ( size_t i = 0; i < want.size(); ++i )
+				if ( got[i].vPos.x != want[i].at.x || got[i].vPos.y != want[i].at.y
+					|| got[i].fDirection != float( want[i].angle ) || got[i].fVerticalAngle != float( want[i].cone ) )
+					return false;
+			return true;
+		};
+		Check( SameFire( stats.firePoints, fires ), "bld-geometry: desc FirePoints carry position, direction and vertical angle" );
+		Check( SameFire( stats.smokePoints, smokes ), "bld-geometry: desc SmokePoints carry position, direction and vertical angle" );
+		bool bExp = stats.dirExplosions.size() == explosions.size();
+		for ( size_t i = 0; bExp && i < explosions.size(); ++i )
+			bExp = stats.dirExplosions[i].vPos.x == explosions[i].at.x && stats.dirExplosions[i].vPos.y == explosions[i].at.y
+				&& stats.dirExplosions[i].fDirection == float( explosions[i].angle )
+				&& stats.dirExplosions[i].fVerticalAngle == float( explosions[i].cone );
+		Check( bExp, "bld-geometry: desc DirExplosions carry position, direction and vertical angle" );
+	}
+
+	BkResClose( pSession );
+	if ( !Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "bld-geometry: reopen" ) )
+		return;
+	Check( SameCells( pSession, nRoot, cells, 3, 2 ), "bld-geometry: passability survives save+reopen" );
+	Check( SameZero( pSession, nRoot, zero ), "bld-geometry: zero point survives save+reopen" );
+	BkResPoint2 gotEntrance = { 0, 0 };
+	Check( BkResGetEntrance( pSession, nRoot, &gotEntrance ) == BK_EDITOR_OK && gotEntrance.x == entrance.x && gotEntrance.y == entrance.y,
+		"bld-geometry: entrance survives save+reopen" );
+	Check( SameAimedList( pSession, BkResGetShootPoints, nRoot, shoots ), "bld-geometry: shoot points survive save+reopen" );
+	Check( SameAimedList( pSession, BkResGetFirePoints, nRoot, fires ), "bld-geometry: fire points survive save+reopen" );
+	Check( SameAimedList( pSession, BkResGetSmokePoints, nRoot, smokes ), "bld-geometry: smoke points survive save+reopen" );
+	Check( SameAimedList( pSession, BkResGetDirectedExplosionPoints, nRoot, explosions ), "bld-geometry: directed explosions survive save+reopen" );
+	Check( BkResSave( pSession, szResaved.c_str() ) == BK_EDITOR_OK, "bld-geometry: save the reopened project" );
+	std::string szA, szB;
+	ReadBytes( szSaved, szA );
+	ReadBytes( szResaved, szB );
+	Check( !szA.empty() && szA == szB, "bld-geometry: open -> save of the project with geometry is byte-identical" );
+
+	// A shorter list drops the tail, an empty one empties the chunk.
+	Check( BkResSetShootPoints( pSession, nRoot, shoots.data(), 1 ) == BK_EDITOR_OK, "bld-geometry: shorten the shoot points" );
+	Check( BkResSetSmokePoints( pSession, nRoot, 0, 0 ) == BK_EDITOR_OK, "bld-geometry: clear the smoke points" );
+	Check( BkResSave( pSession, szResaved.c_str() ) == BK_EDITOR_OK, "bld-geometry: save the shortened lists" );
+	BkResClose( pSession );
+	Check( BkResOpen( pSession, szResaved.c_str() ) == BK_EDITOR_OK, "bld-geometry: reopen the shortened lists" );
+	Check( SameAimedList( pSession, BkResGetShootPoints, nRoot, { shoots[0] } ), "bld-geometry: the shortened shoot list survives" );
+	Check( SameAimedList( pSession, BkResGetSmokePoints, nRoot, {} ), "bld-geometry: the cleared smoke list survives" );
+	Check( SameAimedList( pSession, BkResGetFirePoints, nRoot, fires ), "bld-geometry: the untouched fire list is kept" );
+
+	// The frame data is the root's; deleting and restoring a child leaves it.
+	DeleteRestoreKeepsBytes( pSession, nChild, szDir, "bld", "bld-geometry: " );
+	BkResClose( pSession );
+}
+
+static void ObjectGeometryInMfcLayout( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	const std::string szIn = szFixtureRoot + "/obt/project.obt";
+	const std::string szDir = szScratchRoot + "/mfc-geometry-obt";
+	const std::string szSaved = szDir + "/project.obt";
+	const std::string szResaved = szDir + "/project.resaved.obt";
+	std::error_code ec;
+	std::filesystem::remove_all( szDir, ec );
+	std::filesystem::create_directories( szDir, ec );
+	if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "obt-geometry: BkResOpen" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	const int nRoot = FirstNodeOfType( pSession, kObjectRoot );
+	Check( nRoot == 1, "obt-geometry: the root is the object root" );
+	const unsigned char cells[4] = { 0, 7, 1, 0 };
+	const BkResPoint2 zero = { 512.25f, 256.5f };
+	// Two lines: a transparency line is a pair of points.
+	const std::vector<BkResPoint2> lines = { { 10.5f, 20.25f }, { 30.0f, 40.75f }, { -5.0f, 6.5f }, { 7.0f, -8.125f } };
+	Check( BkResSetPassabilityCells( pSession, nRoot, cells, 2, 2 ) == BK_EDITOR_OK, "obt-geometry: set passability" );
+	Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK, "obt-geometry: set zero point" );
+	Check( BkResSetTransparencyLines( pSession, nRoot, lines.data(), int( lines.size() ) ) == BK_EDITOR_OK, "obt-geometry: set transparency lines" );
+	Check( BkResSetTransparencyLines( pSession, nRoot, lines.data(), 3 ) == BK_EDITOR_BAD_ARGUMENT, "obt-geometry: an odd point count is a bad argument" );
+	const BkResAimedPoint shoot = { { 1, 1 }, 0, 0 };
+	Check( BkResSetShootPoints( pSession, nRoot, &shoot, 1 ) == BK_EDITOR_REFUSED, "obt-geometry: an object has no shoot points" );
+	if ( !Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "obt-geometry: save" ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	Check( HasNoPrivateGeometry( szSaved ), "obt-geometry: the saved XML has no private geometry element" );
+
+	// MFC's reader: CObjectFrame::LoadRPGStats / LoadFrameOwnData.
+	SObjectRPGStats stats;
+	CVec3 krest( 0, 0, 0 );
+	std::vector<STestTransLine> transLines;
+	if ( Check( ReadAsMfc( szSaved, "Object_Composer_Project", stats, krest, &transLines ), "obt-geometry: the engine reads desc and own_data" ) )
+	{
+		bool bCells = stats.passability.GetSizeX() == 2 && stats.passability.GetSizeY() == 2;
+		for ( int i = 0; bCells && i < 4; ++i )
+			bCells = stats.passability[i / 2][i % 2] == cells[i];
+		Check( bCells, "obt-geometry: desc passability is the set grid" );
+		Check( krest.x == zero.x && krest.y == zero.y, "obt-geometry: own_data krest_pos is the zero point" );
+		bool bLines = transLines.size() == 2;
+		for ( size_t i = 0; bLines && i < 2; ++i )
+			bLines = transLines[i].p1.x == lines[2 * i].x && transLines[i].p1.y == lines[2 * i].y
+				&& transLines[i].p2.x == lines[2 * i + 1].x && transLines[i].p2.y == lines[2 * i + 1].y;
+		Check( bLines, "obt-geometry: own_data TransLines hold the point pairs" );
+	}
+
+	BkResClose( pSession );
+	if ( !Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "obt-geometry: reopen" ) )
+		return;
+	Check( SameCells( pSession, nRoot, cells, 2, 2 ), "obt-geometry: passability survives save+reopen" );
+	Check( SameZero( pSession, nRoot, zero ), "obt-geometry: zero point survives save+reopen" );
+	Check( SameList<BkResPoint2>( pSession, BkResGetTransparencyLines, nRoot, lines ), "obt-geometry: transparency lines survive save+reopen" );
+	Check( BkResSave( pSession, szResaved.c_str() ) == BK_EDITOR_OK, "obt-geometry: save the reopened project" );
+	std::string szA, szB;
+	ReadBytes( szSaved, szA );
+	ReadBytes( szResaved, szB );
+	Check( !szA.empty() && szA == szB, "obt-geometry: open -> save of the project with geometry is byte-identical" );
+	int nChild = 0;
+	for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+		if ( n.parent == nRoot ) { nChild = n.id; break; }
+	if ( Check( nChild != 0, "obt-geometry: the root has a child" ) )
+		DeleteRestoreKeepsBytes( pSession, nChild, szDir, "obt", "obt-geometry: " );
+	BkResClose( pSession );
+}
+
+// Below the root: a squad formation's zero point (CSquadFormationPropsItem
+// ZeroPos) and a fence segment's locked tiles (CFencePropsItem LockedTiles).
+static void ItemGeometryInMfcLayout( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	{
+		const std::string szIn = szFixtureRoot + "/scp/project.scp";
+		const std::string szDir = szScratchRoot + "/mfc-geometry-scp";
+		const std::string szSaved = szDir + "/project.scp";
+		std::error_code ec;
+		std::filesystem::remove_all( szDir, ec );
+		std::filesystem::create_directories( szDir, ec );
+		if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "scp-geometry: BkResOpen" ) )
+			return;
+		const int nFormation = FirstNodeOfType( pSession, kSquadFormationProps );
+		BkResPoint2 read = { 0, 0 };
+		Check( nFormation > 1 && BkResGetZeroPoint( pSession, nFormation, &read ) == BK_EDITOR_OK
+			&& read.x == 724.077f && read.y == 362.039f, "scp-geometry: the formation's zero point reads the fixture's ZeroPos" );
+		const BkResPoint2 zero = { 600.5f, 300.25f };
+		Check( BkResSetZeroPoint( pSession, nFormation, &zero ) == BK_EDITOR_OK, "scp-geometry: set the formation's zero point" );
+		Check( BkResSetZeroPoint( pSession, 1, &zero ) == BK_EDITOR_REFUSED, "scp-geometry: the squad root has no zero point" );
+		const BkResAimedPoint fire = { { 2, 6 }, 45, 10 };
+		Check( BkResSetFirePoints( pSession, 1, &fire, 1 ) == BK_EDITOR_REFUSED, "scp-geometry: a squad has no fire points" );
+		if ( !Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "scp-geometry: save" ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		Check( HasNoPrivateGeometry( szSaved ), "scp-geometry: the saved XML has no private geometry element" );
+		NResourceModel::Project project;
+		const auto *pItem = dynamic_cast<const NResourceModel::CSquadFormationPropsItem *>( LoadItemOfType( szSaved, project, kSquadFormationProps ) );
+		Check( pItem != 0 && pItem->vZeroPos.x == zero.x && pItem->vZeroPos.y == zero.y && pItem->vZeroPos.z == 0,
+			"scp-geometry: the S03 formation item reads the zero point as its ZeroPos" );
+		BkResClose( pSession );
+		Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "scp-geometry: reopen" );
+		Check( SameZero( pSession, nFormation, zero ), "scp-geometry: the formation's zero point survives save+reopen" );
+		DeleteRestoreKeepsBytes( pSession, nFormation, szDir, "scp", "scp-geometry: " );
+		BkResClose( pSession );
+	}
+	{
+		const std::string szIn = szFixtureRoot + "/fnc/project.fnc";
+		const std::string szDir = szScratchRoot + "/mfc-geometry-fnc";
+		const std::string szSaved = szDir + "/project.fnc";
+		std::error_code ec;
+		std::filesystem::remove_all( szDir, ec );
+		std::filesystem::create_directories( szDir, ec );
+		if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "fnc-geometry: BkResOpen" ) )
+			return;
+		const int nProps = FirstNodeOfType( pSession, kFenceProps );
+		// MFC stores only the tiles that are set, so the grid's last row and
+		// column carry one each: a read grid ends at the furthest set tile.
+		const unsigned char locked[6] = { 0, 1, 0, 2, 0, 1 };
+		Check( nProps > 1 && BkResSetLockedTiles( pSession, nProps, locked, 3, 2 ) == BK_EDITOR_OK, "fnc-geometry: set a segment's locked tiles" );
+		Check( BkResSetPassabilityCells( pSession, nProps, locked, 3, 2 ) == BK_EDITOR_REFUSED, "fnc-geometry: a fence segment has no passability grid" );
+		if ( !Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "fnc-geometry: save" ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		Check( HasNoPrivateGeometry( szSaved ), "fnc-geometry: the saved XML has no private geometry element" );
+		NResourceModel::Project project;
+		const auto *pItem = dynamic_cast<const NResourceModel::CFencePropsItem *>( LoadItemOfType( szSaved, project, kFenceProps ) );
+		bool bTiles = pItem != 0 && pItem->lockedTiles.size() == 3;
+		if ( bTiles )
+		{
+			const int want[3][3] = { { 1, 0, 1 }, { 0, 1, 2 }, { 2, 1, 1 } };
+			int i = 0;
+			for ( const NResourceModel::SAITile &tile : pItem->lockedTiles )
+			{
+				bTiles = bTiles && tile.nTileX == want[i][0] && tile.nTileY == want[i][1] && tile.nVal == want[i][2];
+				++i;
+			}
+		}
+		Check( bTiles, "fnc-geometry: the S03 fence item reads the grid as its LockedTiles" );
+		BkResClose( pSession );
+		Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "fnc-geometry: reopen" );
+		unsigned char got[16] = {};
+		int w = 0, h = 0;
+		Check( BkResGetLockedTiles( pSession, nProps, got, (int)sizeof( got ), &w, &h ) == BK_EDITOR_OK && w == 3 && h == 2
+			&& std::memcmp( got, locked, 6 ) == 0, "fnc-geometry: locked tiles survive save+reopen" );
+		DeleteRestoreKeepsBytes( pSession, nProps, szDir, "fnc", "fnc-geometry: " );
+		BkResClose( pSession );
+	}
+	// A weapon has no geometry at all.
+	{
+		const std::string szIn = szFixtureRoot + "/wpn/project.wpn";
+		if ( Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "wpn-geometry: BkResOpen" ) )
+		{
+			const BkResPoint2 zero = { 1, 2 };
+			Check( BkResSetZeroPoint( pSession, 1, &zero ) == BK_EDITOR_REFUSED, "wpn-geometry: a weapon has no zero point" );
+			BkResPoint2 read = { 5, 5 };
+			Check( BkResGetZeroPoint( pSession, 1, &read ) == BK_EDITOR_REFUSED, "wpn-geometry: reading it is refused too" );
+			BkResClose( pSession );
+		}
+	}
+}
+// S05 T04 (D014 item 2): the list channels where MFC keeps them. Each case
+// sets a list on the owner nodes (below the root unless the home is the
+// root's frame), saves, reads the saved file back the way MFC does (the
+// engine's own CDataTreeXML and stats structs for the frame chunks, the S03
+// items through NResourceModel::Load for item fields), reopens and compares,
+// re-saves byte-identically, and deletes -> restores a node.
+
+static const int kBridgeRoot            = 0x11000000 + 220;
+static const int kMissionObjectiveProps = 0x11000000 + 233;
+static const int kChapterMissionProps   = 0x11000000 + 243;
+static const int kChapterPlaceProps     = 0x11000000 + 247;
+static const int kCampaignChapterProps  = 0x11000000 + 253;
+static const int kEffectFuncParticles   = 0x11000000 + 35;
+static const int kEffectAnimationProps  = 0x11000000 + 38;
+static const int kEffectFuncProps       = 0x11000000 + 40;
+
+template <typename T>
+struct SListCase
+{
+	const char *pszExt;
+	const char *pszWhat;
+	BkEditorStatus ( *pGet )( BkResSession *, int, T *, int, int * );
+	BkEditorStatus ( *pSet )( BkResSession *, int, const T *, int );
+	std::vector<int> ownerTypes;		// the first node of each type owns lists[i]
+	std::vector<std::vector<T>> lists;
+	std::string szSplice;				// inserted after the project element's start tag
+};
+
+// A copy of the fixture in szDir, with szSplice (an MFC frame chunk) put
+// where CParentFrame::OnFileSave writes the frame chunks: before the tree.
+static bool CopyFixture( const std::string &szFixtureRoot, const char *pszExt, const std::string &szSplice, const std::string &szTo )
+{
+	std::string szBytes;
+	if ( !ReadBytes( szFixtureRoot + "/" + pszExt + "/project." + pszExt, szBytes ) || szBytes.empty() )
+		return false;
+	if ( !szSplice.empty() )
+	{
+		const std::size_t nStart = szBytes.find( "_Composer_Project" );
+		const std::size_t nLine = nStart == std::string::npos ? nStart : szBytes.find( '\n', nStart );
+		if ( nLine == std::string::npos )
+			return false;
+		szBytes.insert( nLine + 1, "\t" + szSplice + "\r\n" );
+	}
+	std::ofstream f( szTo, std::ios::binary );
+	f.write( szBytes.data(), std::streamsize( szBytes.size() ) );
+	return bool( f );
+}
+
+template <typename T>
+static void ListChannelInMfcLayout( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot,
+                                    const SListCase<T> &test, const std::function<void( const std::string & )> &mfcCheck,
+                                    const std::function<void( const std::vector<int> & )> &extra )
+{
+	const std::string szDir = szScratchRoot + "/mfc-geometry-" + test.pszWhat;
+	const std::string szIn = szDir + "/input." + test.pszExt;
+	const std::string szSaved = szDir + "/project." + test.pszExt;
+	const std::string szResaved = szDir + "/project.resaved." + test.pszExt;
+	const std::string szTag = std::string( test.pszWhat ) + ": ";
+	auto What = [&]( const char *pszCheck ) { static std::string s; s = szTag + pszCheck; return s.c_str(); };
+	std::error_code ec;
+	std::filesystem::remove_all( szDir, ec );
+	std::filesystem::create_directories( szDir, ec );
+	if ( !Check( CopyFixture( szFixtureRoot, test.pszExt, test.szSplice, szIn ), What( "copy the fixture" ) ) )
+		return;
+	if ( !test.szSplice.empty() )
+	{
+		// The engine writes the chunk on one line, the fixture is indented:
+		// one save gives the input a single layout. After that an unedited
+		// project with the frame chunk saves byte-identically.
+		const std::string szSpliced = szDir + "/spliced." + test.pszExt;
+		std::filesystem::rename( szIn, szSpliced, ec );
+		Check( BkResOpen( pSession, szSpliced.c_str() ) == BK_EDITOR_OK && BkResSave( pSession, szIn.c_str() ) == BK_EDITOR_OK,
+			What( "normalise the layout of the spliced project" ) );
+		BkResClose( pSession );
+		Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK && BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK,
+			What( "open and save the project with its frame chunk" ) );
+		std::string szA, szB;
+		ReadBytes( szIn, szA );
+		ReadBytes( szSaved, szB );
+		Check( !szA.empty() && szA == szB, What( "an unedited project with its frame chunk saves byte-identically" ) );
+		BkResClose( pSession );
+	}
 	if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, What( "BkResOpen" ) ) )
 	{
 		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
 		return;
 	}
 	std::vector<int> owners;
-	for ( int nType : ownerTypes )
-		for ( const BkResNodeRecord &n : AllNodes( pSession ) )
-			if ( n.class_type == nType && n.parent != 0 ) { owners.push_back( n.id ); break; }
-	if ( !Check( owners.size() == ownerTypes.size(), What( "the fixture has every owner node below the root" ) ) )
+	for ( int nType : test.ownerTypes )
+		owners.push_back( FirstNodeOfType( pSession, nType ) );
+	if ( !Check( std::find( owners.begin(), owners.end(), 0 ) == owners.end(), What( "the fixture has every owner node" ) ) )
 	{
 		BkResClose( pSession );
 		return;
 	}
-	// Distinct lists per owner.
-	std::vector<std::vector<T>> lists;
 	for ( size_t i = 0; i < owners.size(); ++i )
+		if ( !Check( test.pSet( pSession, owners[i], test.lists[i].data(), int( test.lists[i].size() ) ) == BK_EDITOR_OK, What( "set on an owner node" ) ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	for ( size_t i = 0; i < owners.size(); ++i )
+		Check( SameList<T>( pSession, test.pGet, owners[i], test.lists[i] ), What( "read back what was set" ) );
+	if ( owners[0] != 1 )
 	{
-		std::vector<T> list( i + 2 );
-		for ( size_t k = 0; k < list.size(); ++k )
-			MakeEntry( list[k], i, k );
-		lists.push_back( list );
+		int nCount = -1;
+		Check( test.pGet( pSession, 1, 0, 0, &nCount ) == BK_EDITOR_REFUSED, What( "the root has no home for the channel" ) );
+		Check( test.pSet( pSession, 1, test.lists[0].data(), int( test.lists[0].size() ) ) == BK_EDITOR_REFUSED, What( "a set on the root is refused" ) );
 	}
-	for ( size_t i = 0; i < owners.size(); ++i )
-		Check( pSet( pSession, owners[i], lists[i].data(), int( lists[i].size() ) ) == BK_EDITOR_OK, What( "set on an owner node" ) );
-	for ( size_t i = 0; i < owners.size(); ++i )
-		Check( SameList<T>( pSession, pGet, owners[i], lists[i] ), What( "read back what was set" ) );
-	Check( SameList<T>( pSession, pGet, 1, {} ), What( "the root's list stays empty" ) );
-
-	// Two-pass rules and argument refusals.
 	T shortBuf[1] = {};
 	int nCount = -1;
-	Check( pGet( pSession, owners.back(), shortBuf, 1, &nCount ) == BK_EDITOR_REFUSED && nCount == int( lists.back().size() ),
-		What( "a short buffer is refused and the total still reported" ) );
-	Check( pSet( pSession, owners[0], lists[0].data(), -1 ) == BK_EDITOR_BAD_ARGUMENT, What( "a negative count is a bad argument" ) );
-	Check( pSet( pSession, owners[0], 0, 2 ) == BK_EDITOR_BAD_ARGUMENT, What( "a null buffer for a non-empty list is a bad argument" ) );
-	Check( pSet( pSession, 99999, lists[0].data(), 1 ) == BK_EDITOR_REFUSED, What( "an unknown node is refused" ) );
-	Check( SameList<T>( pSession, pGet, owners[0], lists[0] ), What( "a refused set changes nothing" ) );
+	Check( test.pGet( pSession, owners[0], shortBuf, 1, &nCount ) == ( test.lists[0].size() > 1 ? BK_EDITOR_REFUSED : BK_EDITOR_OK )
+		&& nCount == int( test.lists[0].size() ), What( "the two-pass read reports the total" ) );
+	Check( test.pSet( pSession, owners[0], test.lists[0].data(), -1 ) == BK_EDITOR_BAD_ARGUMENT, What( "a negative count is a bad argument" ) );
+	Check( test.pSet( pSession, 99999, test.lists[0].data(), 1 ) == BK_EDITOR_REFUSED, What( "an unknown node is refused" ) );
+	if ( extra )
+		extra( owners );
+	Check( SameList<T>( pSession, test.pGet, owners[0], test.lists[0] ), What( "a refused set changes nothing" ) );
 
 	if ( !Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, What( "save" ) ) )
 		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	Check( HasNoPrivateGeometry( szSaved ), What( "the saved XML has no private geometry element" ) );
+	mfcCheck( szSaved );
 	BkResClose( pSession );
+
 	if ( !Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, What( "reopen" ) ) )
-	{
-		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
 		return;
-	}
 	for ( size_t i = 0; i < owners.size(); ++i )
-		Check( SameList<T>( pSession, pGet, owners[i], lists[i] ), What( "an owner node's list survives save+reopen" ) );
-	Check( SameList<T>( pSession, pGet, 1, {} ), What( "the root's list is still empty after reopen" ) );
+		Check( SameList<T>( pSession, test.pGet, owners[i], test.lists[i] ), What( "an owner node's list survives save+reopen" ) );
 	Check( BkResSave( pSession, szResaved.c_str() ) == BK_EDITOR_OK, What( "save the reopened project" ) );
 	std::string szA, szB;
 	ReadBytes( szSaved, szA );
 	ReadBytes( szResaved, szB );
-	Check( !szA.empty() && szA == szB, What( "open -> save of a project with the list is byte-identical" ) );
-
-	// Clearing a list (count 0) also persists.
-	Check( pSet( pSession, owners[0], 0, 0 ) == BK_EDITOR_OK, What( "clear one owner's list" ) );
-	Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, What( "save after the clear" ) );
-	BkResClose( pSession );
-	Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, What( "reopen after the clear" ) );
-	Check( SameList<T>( pSession, pGet, owners[0], {} ), What( "the cleared list stays empty" ) );
-	if ( owners.size() > 1 )
-		Check( SameList<T>( pSession, pGet, owners[1], lists[1] ), What( "the other owners keep their lists" ) );
+	Check( !szA.empty() && szA == szB, What( "open -> save of the project with the lists is byte-identical" ) );
+	int nVictim = owners[0];
+	if ( nVictim == 1 )
+		for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+			if ( n.parent == 1 ) { nVictim = n.id; break; }
+	DeleteRestoreKeepsBytes( pSession, nVictim, szDir, test.pszExt, szTag );
 	BkResClose( pSession );
 }
 
-static void GeometryOnChildNodes( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+// A file stream on szFile through a file storage on its folder, as
+// ReadAsMfc opens one (CreateFileStream splits paths at backslashes only).
+static IDataStream *FileStream( const std::string &szFile, bool bWrite )
 {
-	const std::string szIn = szFixtureRoot + "/wpn/project.wpn";
-	const std::string szDir = szScratchRoot + "/geometry";
-	const std::string szSaved = szDir + "/project.wpn";
-	const std::string szResaved = szDir + "/project.resaved.wpn";
-	const std::string szBeforeDelete = szDir + "/project.before-delete.wpn";
-	const std::string szAfterRestore = szDir + "/project.after-restore.wpn";
+	const std::string::size_type nCut = szFile.find_last_of( "/\\" );
+	const std::string szDir = szFile.substr( 0, nCut + 1 );
+	const std::string szName = szFile.substr( nCut + 1 );
+	CPtr<IDataStorage> pStorage = bWrite ? CreateStorage( szDir.c_str(), STREAM_ACCESS_WRITE, STORAGE_TYPE_FILE )
+		: OpenStorage( szDir.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	if ( pStorage == 0 )
+		return 0;
+	return bWrite ? pStorage->CreateStream( szName.c_str(), STREAM_ACCESS_WRITE ) : pStorage->OpenStream( szName.c_str(), STREAM_ACCESS_READ );
+}
+
+// MFC's reader for a frame chunk: CreateDataTreeSaver on the project and the
+// chunk's operator&, as LoadRPGStats does for "RPG".
+template <class TStats>
+static bool ReadChunkAsMfc( const std::string &szFile, const char *pszBase, const char *pszChunk, TStats &stats )
+{
+	CPtr<IDataStream> pStream = FileStream( szFile, false );
+	if ( pStream == 0 )
+		return false;
+	CPtr<IDataTree> pDT = CreateDataTreeSaver( pStream, IDataTree::READ, pszBase );
+	if ( pDT == 0 )
+		return false;
+	CTreeAccessor tree = pDT;
+	tree.Add( pszChunk, &stats );
+	return true;
+}
+
+// The RPG chunk MFC's SaveRPGStats writes for these stats, cut out of a file
+// the engine's CDataTreeXML writes.
+template <class TStats>
+static std::string RpgChunk( const std::string &szScratch, const char *pszBase, TStats &stats )
+{
+	std::error_code ec;
+	std::filesystem::create_directories( szScratch, ec );
+	const std::string szFile = szScratch + "/rpg-chunk.xml";
+	{
+		CPtr<IDataStream> pStream = FileStream( szFile, true );
+		if ( pStream == 0 )
+			return std::string();
+		CPtr<IDataTree> pDT = CreateDataTreeSaver( pStream, IDataTree::WRITE, pszBase );
+		if ( pDT == 0 )
+			return std::string();
+		CTreeAccessor tree = pDT;
+		tree.Add( "RPG", &stats );
+	}
+	std::string szBytes;
+	ReadBytes( szFile, szBytes );
+	const std::size_t nBegin = szBytes.find( "<RPG" );
+	const std::size_t nEnd = szBytes.find( "</RPG>" );
+	if ( nBegin == std::string::npos || nEnd == std::string::npos )
+		return std::string();
+	return szBytes.substr( nBegin, nEnd + 6 - nBegin );
+}
+
+static bool HasValue( const NResourceModel::CTreeItem *pItem, const char *pszName, float f )
+{
+	if ( pItem == 0 )
+		return false;
+	for ( const NResourceModel::SProp &prop : pItem->GetValues() )
+		if ( prop.szDefaultName == pszName )
+		{
+			if ( prop.value.GetKind() == NResourceModel::CVariant::VK_FLOAT )
+				return prop.value.AsFloat() == f;
+			return prop.value.GetKind() == NResourceModel::CVariant::VK_INT && float( prop.value.AsInt() ) == f;
+		}
+	return false;
+}
+
+// A squad formation's slots: CSquadFormationPropsItem::units, SUnit::vPos.
+static void FormationInMfcLayout( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	SListCase<BkResPoint2> test = { "scp", "formation", BkResGetFormationPositions, BkResSetFormationPositions,
+		{ kSquadFormationProps }, { { { 600.5f, 300.25f }, { 632.75f, 300.25f } } }, std::string() };
+	ListChannelInMfcLayout<BkResPoint2>( pSession, szFixtureRoot, szScratchRoot, test, [&]( const std::string &szSaved )
+	{
+		NResourceModel::Project project;
+		const auto *pItem = dynamic_cast<const NResourceModel::CSquadFormationPropsItem *>( LoadItemOfType( szSaved, project, kSquadFormationProps ) );
+		bool bUnits = pItem != 0 && pItem->units.size() == 2;
+		if ( bUnits )
+		{
+			const auto &first = pItem->units.front();
+			const auto &second = pItem->units.back();
+			bUnits = first.vPos.x == 600.5f && first.vPos.y == 300.25f && first.vPos.z == 0 && first.fDir == 0.5f
+				&& second.vPos.x == 632.75f && second.vPos.y == 300.25f && second.vPos.z == 0 && second.fDir == 0;
+		}
+		Check( bUnits, "formation: the S03 item reads the slots as its units (Pos; the old slot keeps its Dir)" );
+	}, nullptr );
+	// A shorter list drops the tail slot.
+	const std::string szSaved = szScratchRoot + "/mfc-geometry-formation/project.scp";
+	const std::string szShort = szScratchRoot + "/mfc-geometry-formation/short.scp";
+	if ( Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "formation: reopen to shorten" ) )
+	{
+		const int nFormation = FirstNodeOfType( pSession, kSquadFormationProps );
+		const BkResPoint2 one = { 1.5f, 2.5f };
+		Check( BkResSetFormationPositions( pSession, nFormation, &one, 1 ) == BK_EDITOR_OK
+			&& BkResSave( pSession, szShort.c_str() ) == BK_EDITOR_OK, "formation: shorten and save" );
+		BkResClose( pSession );
+		NResourceModel::Project project;
+		const auto *pItem = dynamic_cast<const NResourceModel::CSquadFormationPropsItem *>( LoadItemOfType( szShort, project, kSquadFormationProps ) );
+		Check( pItem != 0 && pItem->units.size() == 1 && pItem->units.front().vPos.x == 1.5f && pItem->units.front().fDir == 0.5f,
+			"formation: the shortened list keeps one unit" );
+	}
+}
+
+// A bridge's span anchors: CBridgeFrame's own_data Begin, End, Front, Back.
+struct STestBridgeOwnData
+{
+	CVec3 vBegin, vEnd;
+	float fFront = -1, fBack = -1;
+};
+
+static bool ReadBridgeOwnData( const std::string &szFile, STestBridgeOwnData &out )
+{
+	CPtr<IDataStream> pStream = FileStream( szFile, false );
+	if ( pStream == 0 )
+		return false;
+	CPtr<IDataTree> pDT = CreateDataTreeSaver( pStream, IDataTree::READ, "Bridge_Composer_Project" );
+	if ( pDT == 0 || pDT->StartChunk( "own_data" ) == 0 )
+		return false;
+	{
+		CTreeAccessor tree = pDT;
+		tree.Add( "Begin", &out.vBegin );
+		tree.Add( "End", &out.vEnd );
+		tree.Add( "Front", &out.fFront );
+		tree.Add( "Back", &out.fBack );
+	}
+	pDT->FinishChunk();
+	return true;
+}
+
+static void BridgeSpanMarksInMfcLayout( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	{
+		const std::string szIn = szFixtureRoot + "/bdg/project.bdg";
+		int nCount = -1;
+		Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK && BkResGetBridgeSpanMarks( pSession, 1, 0, 0, &nCount ) == BK_EDITOR_OK
+			&& nCount == 0, "span-marks: a bridge without own_data has no marks" );
+		BkResClose( pSession );
+	}
+	SListCase<BkResPoint2> test = { "bdg", "span-marks", BkResGetBridgeSpanMarks, BkResSetBridgeSpanMarks,
+		{ kBridgeRoot }, { { { 200.5f, 512.25f }, { 800.75f, 512.25f }, { -40.5f, 40.125f } } }, std::string() };
+	ListChannelInMfcLayout<BkResPoint2>( pSession, szFixtureRoot, szScratchRoot, test, [&]( const std::string &szSaved )
+	{
+		STestBridgeOwnData own;
+		Check( ReadBridgeOwnData( szSaved, own ) && own.vBegin.x == 200.5f && own.vBegin.y == 512.25f && own.vBegin.z == 0
+			&& own.vEnd.x == 800.75f && own.vEnd.y == 512.25f && own.fFront == -40.5f && own.fBack == 40.125f,
+			"span-marks: the engine reads own_data Begin, End, Front and Back" );
+	}, [&]( const std::vector<int> &owners )
+	{
+		const BkResPoint2 two[2] = { { 1, 2 }, { 3, 4 } };
+		Check( BkResSetBridgeSpanMarks( pSession, owners[0], two, 2 ) == BK_EDITOR_BAD_ARGUMENT, "span-marks: anything but three points is a bad argument" );
+		const BkResPoint2 three[3] = { { 1, 2 }, { 3, 4 }, { 5, 6 } };
+		const int nBegin = FirstNodeOfType( pSession, kBridgeBeginSpans );
+		Check( nBegin > 1 && BkResSetBridgeSpanMarks( pSession, nBegin, three, 3 ) == BK_EDITOR_REFUSED,
+			"span-marks: a spans node has no home (the anchors are the frame's)" );
+	} );
+}
+
+// Map crosses: the position values of each child of the container, plus the
+// RPG copy MFC's LoadRPGStats copies over them. Without RPG the values are
+// what MFC reads, and CreateDefaultChilds turns them back into the ints the
+// defaults have, so that case uses whole numbers; with RPG the floats survive.
+template <class TStats>
+static void CrossesInMfcLayout( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot,
+                                SListCase<BkResPoint2> test, const char *pszBase, TStats rpgStats,
+                                const std::vector<int> &propsTypes, const std::vector<std::pair<const char *, const char *>> &names,
+                                const std::function<std::vector<CVec2>( const TStats & )> &rpgPositions )
+{
+	auto valuesCheck = [&, test]( const std::string &szSaved )
+	{
+		NResourceModel::Project project;
+		std::string szBytes, szError;
+		bool bValues = ReadBytes( szSaved, szBytes ) && NResourceModel::Load( szBytes, project, szError ) && project.root;
+		for ( size_t i = 0; bValues && i < propsTypes.size(); ++i )
+		{
+			const NResourceModel::CTreeItem *pItem = FindItemOfType( *project.root, propsTypes[i] );
+			bValues = HasValue( pItem, names[i].first, test.lists[i][0].x ) && HasValue( pItem, names[i].second, test.lists[i][0].y );
+		}
+		Check( bValues, ( std::string( test.pszWhat ) + ": the S03 items read the crosses as the children's position values" ).c_str() );
+	};
+	auto extra = [&, test]( const std::vector<int> &owners )
+	{
+		std::vector<BkResPoint2> two( 2, test.lists[0][0] );
+		Check( test.pSet( pSession, owners[0], two.data(), 2 ) == BK_EDITOR_BAD_ARGUMENT,
+			( std::string( test.pszWhat ) + ": a list must carry one cross per child" ).c_str() );
+	};
+	ListChannelInMfcLayout<BkResPoint2>( pSession, szFixtureRoot, szScratchRoot, test, valuesCheck, extra );
+
+	// The same with the RPG chunk an MFC save writes, and fractional crosses.
+	SListCase<BkResPoint2> rpgTest = test;
+	const std::string szWhat = std::string( test.pszWhat ) + "-rpg";
+	rpgTest.pszWhat = szWhat.c_str();
+	for ( auto &list : rpgTest.lists )
+		for ( auto &p : list )
+			p = { p.x + 0.5f, p.y + 0.25f };
+	rpgTest.szSplice = RpgChunk( szScratchRoot + "/rpg-" + test.pszExt, pszBase, rpgStats );
+	if ( !Check( !rpgTest.szSplice.empty(), ( szWhat + ": the engine writes an RPG chunk" ).c_str() ) )
+		return;
+	ListChannelInMfcLayout<BkResPoint2>( pSession, szFixtureRoot, szScratchRoot, rpgTest, [&, rpgTest]( const std::string &szSaved )
+	{
+		TStats read;
+		bool bRpg = ReadChunkAsMfc( szSaved, pszBase, "RPG", read );
+		const std::vector<CVec2> got = bRpg ? rpgPositions( read ) : std::vector<CVec2>();
+		bRpg = bRpg && got.size() == rpgTest.lists.size();
+		for ( size_t i = 0; bRpg && i < got.size(); ++i )
+			bRpg = got[i].x == rpgTest.lists[i][0].x && got[i].y == rpgTest.lists[i][0].y;
+		Check( bRpg, ( szWhat + ": the engine reads the crosses from the RPG chunk" ).c_str() );
+	}, extra );
+}
+
+// Particle tracks: CKeyFrameTreeItem::framesList, (time, value) per key.
+static void ParticleKeyframesInMfcLayout( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	SListCase<BkResVec3> test = { "pcp", "particle-keyframes", BkResGetParticleKeyframes, BkResSetParticleKeyframes,
+		{ kParticleDensity, kParticleSpeed },
+		{ { { 0, 0.5f, 0 }, { 0.25f, 1.5f, 0 }, { 1, 0.125f, 0 } }, { { 0, 2.5f, 0 }, { 0.75f, 3.25f, 0 } } }, std::string() };
+	ListChannelInMfcLayout<BkResVec3>( pSession, szFixtureRoot, szScratchRoot, test, [&]( const std::string &szSaved )
+	{
+		NResourceModel::Project project;
+		std::string szBytes, szError;
+		bool bFrames = ReadBytes( szSaved, szBytes ) && NResourceModel::Load( szBytes, project, szError ) && project.root;
+		const int nTypes[2] = { kParticleDensity, kParticleSpeed };
+		for ( int i = 0; bFrames && i < 2; ++i )
+		{
+			const auto *pItem = dynamic_cast<const NResourceModel::CKeyFrameTreeItem *>( FindItemOfType( *project.root, nTypes[i] ) );
+			bFrames = pItem != 0 && pItem->framesList.size() == test.lists[i].size();
+			size_t k = 0;
+			if ( bFrames )
+				for ( const auto &frame : pItem->framesList )
+				{
+					bFrames = bFrames && frame.first == test.lists[i][k].x && frame.second == test.lists[i][k].y;
+					++k;
+				}
+		}
+		Check( bFrames, "particle-keyframes: the S03 items read the keys as their Key_frames" );
+	}, [&]( const std::vector<int> &owners )
+	{
+		const BkResVec3 key = { 0, 1, 2 };
+		Check( BkResSetParticleKeyframes( pSession, owners[0], &key, 1 ) == BK_EDITOR_BAD_ARGUMENT, "particle-keyframes: a key with z is a bad argument" );
+	} );
+}
+
+// Effect parts: the X / Y / Z position values of each child of an
+// Animations or Function Particles node (DT_DEC, whole numbers).
+static void EffectPlacesInMfcLayout( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	SListCase<BkResVec3> test = { "eff", "effect-keyframes", BkResGetEffectKeyframes, BkResSetEffectKeyframes,
+		{ kEffectAnimations, kEffectFuncParticles }, { { { 12, -4, 3 } }, { { -7, 8, 0 } } }, std::string() };
+	ListChannelInMfcLayout<BkResVec3>( pSession, szFixtureRoot, szScratchRoot, test, [&]( const std::string &szSaved )
+	{
+		NResourceModel::Project project;
+		std::string szBytes, szError;
+		bool bPlaces = ReadBytes( szSaved, szBytes ) && NResourceModel::Load( szBytes, project, szError ) && project.root;
+		const int nTypes[2] = { kEffectAnimationProps, kEffectFuncProps };
+		for ( int i = 0; bPlaces && i < 2; ++i )
+		{
+			const NResourceModel::CTreeItem *pItem = FindItemOfType( *project.root, nTypes[i] );
+			bPlaces = HasValue( pItem, "X position", test.lists[i][0].x ) && HasValue( pItem, "Y position", test.lists[i][0].y )
+				&& HasValue( pItem, "Z position", test.lists[i][0].z );
+		}
+		Check( bPlaces, "effect-keyframes: the S03 items read the places as their X / Y / Z position values" );
+	}, [&]( const std::vector<int> &owners )
+	{
+		const BkResVec3 half = { 0.5f, 1, 2 };
+		Check( BkResSetEffectKeyframes( pSession, owners[0], &half, 1 ) == BK_EDITOR_BAD_ARGUMENT, "effect-keyframes: a fractional place is a bad argument" );
+		const BkResVec3 two[2] = { { 1, 2, 3 }, { 4, 5, 6 } };
+		Check( BkResSetEffectKeyframes( pSession, owners[0], two, 2 ) == BK_EDITOR_BAD_ARGUMENT, "effect-keyframes: one place per child" );
+	} );
+}
+
+static void ListGeometryInMfcLayout( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	FormationInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
+	BridgeSpanMarksInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
+	{
+		SMissionStats stats;
+		stats.objectives.resize( 1 );
+		stats.objectives[0].vPosOnMap = CVec2( 0, 0 );
+		CrossesInMfcLayout<SMissionStats>( pSession, szFixtureRoot, szScratchRoot,
+			{ "mip", "objectives", BkResGetMissionObjectives, BkResSetMissionObjectives, { kMissionObjectives }, { { { 120, 240 } } }, std::string() },
+			"Mission_Composer_Project", stats, { kMissionObjectiveProps }, { { "Objective position X", "Objective position Y" } },
+			[]( const SMissionStats &s ) { std::vector<CVec2> v; for ( const auto &o : s.objectives ) v.push_back( o.vPosOnMap ); return v; } );
+	}
+	{
+		SChapterStats stats;
+		stats.missions.resize( 1 );
+		stats.missions[0].vPosOnMap = CVec2( 0, 0 );
+		stats.placeHolders.resize( 1 );
+		stats.placeHolders[0].vPosOnMap = CVec2( 0, 0 );
+		CrossesInMfcLayout<SChapterStats>( pSession, szFixtureRoot, szScratchRoot,
+			{ "chc", "chapter-crosses", BkResGetChapterCrosses, BkResSetChapterCrosses, { kChapterMissions, kChapterPlaces },
+				{ { { 10, 20 } }, { { 30, 40 } } }, std::string() },
+			"Chapter_Composer_Project", stats, { kChapterMissionProps, kChapterPlaceProps },
+			{ { "Mission position X", "Mission position Y" }, { "Place holder position X", "Place holder position Y" } },
+			[]( const SChapterStats &s )
+			{
+				std::vector<CVec2> v;
+				if ( s.missions.size() == 1 && s.placeHolders.size() == 1 )
+					v = { s.missions[0].vPosOnMap, s.placeHolders[0].vPosOnMap };
+				return v;
+			} );
+	}
+	{
+		SCampaignStats stats;
+		stats.chapters.resize( 1 );
+		CrossesInMfcLayout<SCampaignStats>( pSession, szFixtureRoot, szScratchRoot,
+			{ "cgc", "campaign-crosses", BkResGetCampaignCrosses, BkResSetCampaignCrosses, { kCampaignChapters }, { { { 50, 60 } } }, std::string() },
+			"Campaign_Composer_Project", stats, { kCampaignChapterProps }, { { "Chapter position X", "Chapter position Y" } },
+			[]( const SCampaignStats &s ) { std::vector<CVec2> v; for ( const auto &c : s.chapters ) v.push_back( c.vPosOnMap ); return v; } );
+	}
+	ParticleKeyframesInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
+	EffectPlacesInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
+}
+
+// Every fixture saved after a set of every channel each node supports (a
+// get that is not refused): the written XML has no private geometry element,
+// and the project reopens.
+static void EveryChannelOnEveryFixture( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	const std::string szDir = szScratchRoot + "/every-channel";
 	std::error_code ec;
 	std::filesystem::remove_all( szDir, ec );
 	std::filesystem::create_directories( szDir, ec );
-
-	if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "geometry: BkResOpen wpn" ) )
+	int nTotalSets = 0;
+	for ( const Fixture &fx : kFixtures )
 	{
-		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-		return;
-	}
-	// A child of the root, and the deepest node (last in pre-order) so the
-	// test reaches below the first level whenever the tree has one.
-	std::vector<BkResNodeRecord> nodes = AllNodes( pSession );
-	int nChild = 0, nDeep = 0;
-	for ( const BkResNodeRecord &n : nodes )
-		if ( n.parent == 1 && nChild == 0 && n.child_count > 0 )
-			nChild = n.id;
-	if ( nChild == 0 )
-		for ( const BkResNodeRecord &n : nodes )
-			if ( n.parent == 1 ) { nChild = n.id; break; }
-	if ( !nodes.empty() )
-		nDeep = nodes.back().id;
-	if ( !Check( nChild != 0 && nDeep != 0 && nDeep != 1, "geometry: wpn has nodes below the root" ) )
-	{
+		const std::string szIn = szFixtureRoot + "/" + fx.pszExt + "/project." + fx.pszExt;
+		const std::string szOut = szDir + "/project." + fx.pszExt;
+		const std::string szTag = std::string( "every-channel " ) + fx.pszExt + ": ";
+		if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, ( szTag + "open" ).c_str() ) )
+			continue;
+		int nSets = 0;
+		auto Count = [&]( BkEditorStatus n, const char *pszChannel )
+		{
+			if ( !Check( n == BK_EDITOR_OK, ( szTag + "set " + pszChannel ).c_str() ) )
+				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+			++nSets;
+		};
+		for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+		{
+			const int nId = node.id;
+			typedef BkEditorStatus ( *GridGet )( BkResSession *, int, unsigned char *, int, int *, int * );
+			typedef BkEditorStatus ( *GridSet )( BkResSession *, int, const unsigned char *, int, int );
+			const struct { GridGet pGet; GridSet pSet; const char *pszName; } grids[] = {
+				{ BkResGetPassabilityCells, BkResSetPassabilityCells, "passability" }, { BkResGetLockedTiles, BkResSetLockedTiles, "locked tiles" } };
+			for ( const auto &g : grids )
+			{
+				int w = 0, h = 0;
+				if ( g.pGet( pSession, nId, 0, 0, &w, &h ) != BK_EDITOR_OK )
+					continue;
+				std::vector<unsigned char> cells( size_t( w ) * h + 1 );
+				g.pGet( pSession, nId, cells.data(), int( cells.size() ), &w, &h );
+				if ( w == 0 || h == 0 )
+					cells = { 1, 0 }, w = 2, h = 1;
+				Count( g.pSet( pSession, nId, cells.data(), w, h ), g.pszName );
+			}
+			typedef BkEditorStatus ( *PointGet )( BkResSession *, int, BkResPoint2 * );
+			typedef BkEditorStatus ( *PointSet )( BkResSession *, int, const BkResPoint2 * );
+			const struct { PointGet pGet; PointSet pSet; const char *pszName; } points[] = {
+				{ BkResGetZeroPoint, BkResSetZeroPoint, "zero point" }, { BkResGetEntrance, BkResSetEntrance, "entrance" } };
+			for ( const auto &p : points )
+			{
+				BkResPoint2 at = { 0, 0 };
+				if ( p.pGet( pSession, nId, &at ) == BK_EDITOR_OK )
+					Count( p.pSet( pSession, nId, &at ), p.pszName );
+			}
+			typedef BkEditorStatus ( *ListGet )( BkResSession *, int, BkResPoint2 *, int, int * );
+			typedef BkEditorStatus ( *ListSet )( BkResSession *, int, const BkResPoint2 *, int );
+			const struct { ListGet pGet; ListSet pSet; const char *pszName; int nFresh; } lists[] = {
+				{ BkResGetTransparencyLines, BkResSetTransparencyLines, "transparency lines", 2 },
+				{ BkResGetFormationPositions, BkResSetFormationPositions, "formation positions", 2 },
+				{ BkResGetBridgeSpanMarks, BkResSetBridgeSpanMarks, "bridge span marks", 3 },
+				{ BkResGetMissionObjectives, BkResSetMissionObjectives, "mission objectives", 0 },
+				{ BkResGetChapterCrosses, BkResSetChapterCrosses, "chapter crosses", 0 },
+				{ BkResGetCampaignCrosses, BkResSetCampaignCrosses, "campaign crosses", 0 } };
+			for ( const auto &l : lists )
+			{
+				int n = 0;
+				if ( l.pGet( pSession, nId, 0, 0, &n ) != BK_EDITOR_OK )
+					continue;
+				std::vector<BkResPoint2> v( size_t( n ) + 1 );
+				l.pGet( pSession, nId, v.data(), int( v.size() ), &n );
+				v.resize( size_t( n ) );
+				if ( n == 0 )
+					v.assign( size_t( l.nFresh ), BkResPoint2{ 64, 32 } );
+				Count( l.pSet( pSession, nId, v.data(), int( v.size() ) ), l.pszName );
+			}
+			typedef BkEditorStatus ( *AimedGet )( BkResSession *, int, BkResAimedPoint *, int, int * );
+			typedef BkEditorStatus ( *AimedSet )( BkResSession *, int, const BkResAimedPoint *, int );
+			const struct { AimedGet pGet; AimedSet pSet; const char *pszName; } aimed[] = {
+				{ BkResGetShootPoints, BkResSetShootPoints, "shoot points" }, { BkResGetFirePoints, BkResSetFirePoints, "fire points" },
+				{ BkResGetSmokePoints, BkResSetSmokePoints, "smoke points" },
+				{ BkResGetDirectedExplosionPoints, BkResSetDirectedExplosionPoints, "directed explosions" } };
+			for ( const auto &a : aimed )
+			{
+				int n = 0;
+				if ( a.pGet( pSession, nId, 0, 0, &n ) != BK_EDITOR_OK )
+					continue;
+				std::vector<BkResAimedPoint> v( size_t( n ) + 1 );
+				a.pGet( pSession, nId, v.data(), int( v.size() ), &n );
+				v.resize( size_t( n ) );
+				if ( n == 0 )
+					v.push_back( { { 4, 8 }, 90, 30 } );
+				Count( a.pSet( pSession, nId, v.data(), int( v.size() ) ), a.pszName );
+			}
+			typedef BkEditorStatus ( *Vec3Get )( BkResSession *, int, BkResVec3 *, int, int * );
+			typedef BkEditorStatus ( *Vec3Set )( BkResSession *, int, const BkResVec3 *, int );
+			const struct { Vec3Get pGet; Vec3Set pSet; const char *pszName; int nFresh; } vec3s[] = {
+				{ BkResGetParticleKeyframes, BkResSetParticleKeyframes, "particle keyframes", 2 },
+				{ BkResGetEffectKeyframes, BkResSetEffectKeyframes, "effect keyframes", 0 } };
+			for ( const auto &l : vec3s )
+			{
+				int n = 0;
+				if ( l.pGet( pSession, nId, 0, 0, &n ) != BK_EDITOR_OK )
+					continue;
+				std::vector<BkResVec3> v( size_t( n ) + 1 );
+				l.pGet( pSession, nId, v.data(), int( v.size() ), &n );
+				v.resize( size_t( n ) );
+				if ( n == 0 )
+					v.assign( size_t( l.nFresh ), BkResVec3{ 0.5f, 2, 0 } );
+				Count( l.pSet( pSession, nId, v.data(), int( v.size() ) ), l.pszName );
+			}
+		}
+		nTotalSets += nSets;
+		if ( !Check( BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK, ( szTag + "save" ).c_str() ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
 		BkResClose( pSession );
-		return;
+		Check( HasNoPrivateGeometry( szOut ), ( szTag + "the written XML has no private geometry element" ).c_str() );
+		Check( BkResOpen( pSession, szOut.c_str() ) == BK_EDITOR_OK, ( szTag + "reopen" ).c_str() );
+		BkResClose( pSession );
 	}
-	const BkResPoint2 zeroChild = { 7.5f, -2.25f };
-	const BkResPoint2 zeroDeep = { 1.0f, 2.0f };
-	const BkResPoint2 zeroRoot = { 3.0f, 4.0f };
-	const unsigned char cells[6] = { 9, 8, 7, 6, 5, 4 };
-	const BkResAimedPoint shoot = { { 0.5f, 0.25f }, 90, 30 };
-	Check( BkResSetZeroPoint( pSession, 1, &zeroRoot ) == BK_EDITOR_OK, "geometry: set the root's zero point" );
-	Check( BkResSetZeroPoint( pSession, nChild, &zeroChild ) == BK_EDITOR_OK, "geometry: set a child's zero point" );
-	Check( BkResSetPassabilityCells( pSession, nChild, cells, 3, 2 ) == BK_EDITOR_OK, "geometry: set a child's cells" );
-	Check( BkResSetZeroPoint( pSession, nDeep, &zeroDeep ) == BK_EDITOR_OK, "geometry: set the deepest node's zero point" );
-	Check( BkResSetShootPoints( pSession, nDeep, &shoot, 1 ) == BK_EDITOR_OK, "geometry: set the deepest node's shoot point" );
-	if ( !Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "geometry: save" ) )
-		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-	BkResClose( pSession );
-
-	if ( !Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "geometry: reopen" ) )
-	{
-		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-		return;
-	}
-	Check( AllNodes( pSession ).size() == nodes.size(), "geometry: reopen shows the same nodes, no geometry node" );
-	Check( SameZero( pSession, 1, zeroRoot ), "geometry: the root's zero point survives save+reopen" );
-	Check( SameZero( pSession, nChild, zeroChild ), "geometry: a child's zero point survives save+reopen" );
-	Check( SameCells( pSession, nChild, cells, 3, 2 ), "geometry: a child's cells survive save+reopen" );
-	Check( SameZero( pSession, nDeep, zeroDeep ), "geometry: the deepest node's zero point survives save+reopen" );
-	Check( SameShoot( pSession, nDeep, shoot ), "geometry: the deepest node's shoot point survives save+reopen" );
-	// Saving the reopened project again changes nothing.
-	Check( BkResSave( pSession, szResaved.c_str() ) == BK_EDITOR_OK, "geometry: save the reopened project" );
-	std::string szA, szB;
-	ReadBytes( szSaved, szA );
-	ReadBytes( szResaved, szB );
-	Check( !szA.empty() && szA == szB, "geometry: open -> save of a project with geometry is byte-identical" );
-
-	// Delete the child (its subtree holds the deepest node's geometry too),
-	// then restore it where it was: the save matches the one before.
-	Check( BkResSave( pSession, szBeforeDelete.c_str() ) == BK_EDITOR_OK, "geometry: save before delete" );
-	nodes = AllNodes( pSession );
-	int nIndex = 0;
-	for ( const BkResNodeRecord &n : nodes )
-	{
-		if ( n.id == nChild )
-			break;
-		if ( n.parent == 1 )
-			++nIndex;
-	}
-	int nSize = 0;
-	BkResDeleteNode( pSession, nChild, 0, 0, &nSize );
-	std::vector<unsigned char> blob( nSize > 0 ? nSize : 1 );
-	Check( BkResDeleteNode( pSession, nChild, blob.data(), nSize, &nSize ) == BK_EDITOR_OK, "geometry: delete the child" );
-	BkResPoint2 gone = { 0, 0 };
-	Check( BkResGetZeroPoint( pSession, nChild, &gone ) != BK_EDITOR_OK || ( gone.x == 0 && gone.y == 0 ),
-		"geometry: the deleted node's geometry is gone" );
-	int nRestored = 0;
-	Check( BkResRestoreNode( pSession, blob.data(), nSize, 1, nIndex, &nRestored ) == BK_EDITOR_OK && nRestored == nChild,
-		"geometry: restore the child under its old id" );
-	Check( SameZero( pSession, nChild, zeroChild ) && SameCells( pSession, nChild, cells, 3, 2 ),
-		"geometry: restore brings the child's geometry back" );
-	Check( SameZero( pSession, nDeep, zeroDeep ) && SameShoot( pSession, nDeep, shoot ),
-		"geometry: restore brings the subtree's geometry back" );
-	Check( BkResSave( pSession, szAfterRestore.c_str() ) == BK_EDITOR_OK, "geometry: save after restore" );
-	ReadBytes( szBeforeDelete, szA );
-	ReadBytes( szAfterRestore, szB );
-	if ( !Check( !szA.empty() && szA == szB, "geometry: delete -> restore -> save is byte-identical to before the delete" ) )
-		std::printf( "   before=%zu bytes, after=%zu bytes\n", szA.size(), szB.size() );
-	BkResClose( pSession );
+	std::printf( "every-channel: %d channel sets over %d fixtures\n", nTotalSets, kFixtureCount );
+	Check( nTotalSets > 0, "every-channel: some fixture supports a channel" );
 }
 
 // T10: References, MOD settings + PAK, Export (+ batch), Import.
@@ -1545,221 +2350,6 @@ int main( int argc, char **argv )
 		delete pOther;
 	}
 
-	// T05: cells family round-trip against bld. Writes passability, locked
-	// tiles, and transparency lines on the root node of the bld fixture;
-	// reads back; saves; reopens the saved copy; reads again; asserts the
-	// values persisted byte-identically through NResourceModel::Load/Save.
-	{
-		const std::string szIn = szFixtureRoot + "/bld/project.bld";
-		const std::string szOutDir = szScratchRoot + "/bld";
-		const std::string szOut = szOutDir + "/project.cells.bld";
-		std::error_code ec;
-		std::filesystem::create_directories( szOutDir, ec );
-		std::filesystem::remove( szOut, ec );
-		std::filesystem::remove( szOut + ".bak", ec );
-		std::filesystem::remove( szOut + ".tmp", ec );
-
-		if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "cells: BkResOpen bld" ) )
-			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-		else
-		{
-			const int nRoot = 1; // RebuildIds hands the root id 1.
-			// A 3x2 passability grid with a recognisable byte pattern.
-			const int nW = 3, nH = 2;
-			unsigned char cells[6] = { 1, 2, 3, 4, 5, 6 };
-			Check( BkResSetPassabilityCells( pSession, nRoot, cells, nW, nH ) == BK_EDITOR_OK,
-			       "cells: BkResSetPassabilityCells" );
-
-			int rw = 0, rh = 0;
-			unsigned char read_cells[16] = {};
-			Check( BkResGetPassabilityCells( pSession, nRoot, 0, 0, &rw, &rh ) == BK_EDITOR_OK,
-			       "cells: BkResGetPassabilityCells size" );
-			Check( rw == nW && rh == nH, "cells: passability w/h round-trip" );
-			Check( BkResGetPassabilityCells( pSession, nRoot, read_cells, (int)sizeof( read_cells ), &rw, &rh ) == BK_EDITOR_OK,
-			       "cells: BkResGetPassabilityCells read" );
-			Check( std::memcmp( read_cells, cells, 6 ) == 0, "cells: passability bytes round-trip" );
-
-			// A 2x2 locked-tiles grid.
-			unsigned char locked[4] = { 0, 1, 1, 0 };
-			Check( BkResSetLockedTiles( pSession, nRoot, locked, 2, 2 ) == BK_EDITOR_OK,
-			       "cells: BkResSetLockedTiles" );
-			unsigned char read_locked[4] = {};
-			Check( BkResGetLockedTiles( pSession, nRoot, read_locked, 4, &rw, &rh ) == BK_EDITOR_OK,
-			       "cells: BkResGetLockedTiles" );
-			Check( rw == 2 && rh == 2, "cells: locked w/h round-trip" );
-			Check( std::memcmp( read_locked, locked, 4 ) == 0, "cells: locked bytes round-trip" );
-
-			// A short transparency-lines list.
-			BkResPoint2 lines[3] = { { 0.5f, 1.5f }, { 2.0f, 3.0f }, { 4.25f, 5.75f } };
-			Check( BkResSetTransparencyLines( pSession, nRoot, lines, 3 ) == BK_EDITOR_OK,
-			       "cells: BkResSetTransparencyLines" );
-			int nLineCount = -1;
-			Check( BkResGetTransparencyLines( pSession, nRoot, 0, 0, &nLineCount ) == BK_EDITOR_OK,
-			       "cells: BkResGetTransparencyLines size" );
-			Check( nLineCount == 3, "cells: transparency line count" );
-			BkResPoint2 read_lines[3] = {};
-			Check( BkResGetTransparencyLines( pSession, nRoot, read_lines, 3, &nLineCount ) == BK_EDITOR_OK,
-			       "cells: BkResGetTransparencyLines fill" );
-			bool bLinesOk = true;
-			for ( int i = 0; i < 3; ++i )
-				if ( read_lines[i].x != lines[i].x || read_lines[i].y != lines[i].y ) bLinesOk = false;
-			Check( bLinesOk, "cells: transparency bytes round-trip" );
-
-			// Save, reopen, re-read. The values must persist through XML.
-			if ( !Check( BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK, "cells: BkResSave" ) )
-				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-			Check( BkResClose( pSession ) == BK_EDITOR_OK, "cells: BkResClose after save" );
-			if ( !Check( BkResOpen( pSession, szOut.c_str() ) == BK_EDITOR_OK, "cells: re-open saved copy" ) )
-				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-
-			std::memset( read_cells, 0, sizeof( read_cells ) );
-			rw = 0; rh = 0;
-			Check( BkResGetPassabilityCells( pSession, nRoot, read_cells, (int)sizeof( read_cells ), &rw, &rh ) == BK_EDITOR_OK,
-			       "cells: re-read passability" );
-			Check( rw == nW && rh == nH && std::memcmp( read_cells, cells, 6 ) == 0,
-			       "cells: passability survives save+reopen" );
-
-			std::memset( read_locked, 0, sizeof( read_locked ) );
-			rw = 0; rh = 0;
-			Check( BkResGetLockedTiles( pSession, nRoot, read_locked, 4, &rw, &rh ) == BK_EDITOR_OK,
-			       "cells: re-read locked" );
-			Check( rw == 2 && rh == 2 && std::memcmp( read_locked, locked, 4 ) == 0,
-			       "cells: locked tiles survive save+reopen" );
-
-			std::memset( read_lines, 0, sizeof( read_lines ) );
-			nLineCount = 0;
-			Check( BkResGetTransparencyLines( pSession, nRoot, read_lines, 3, &nLineCount ) == BK_EDITOR_OK,
-			       "cells: re-read transparency" );
-			bLinesOk = ( nLineCount == 3 );
-			for ( int i = 0; i < 3 && bLinesOk; ++i )
-				if ( read_lines[i].x != lines[i].x || read_lines[i].y != lines[i].y ) bLinesOk = false;
-			Check( bLinesOk, "cells: transparency lines survive save+reopen" );
-
-			BkResClose( pSession );
-		}
-	}
-
-	// T06: points + aimed-points family round-trip against bld (zero point,
-	// entrance, shoot points) and scp (shoot points). Set each channel on the
-	// root node of the fixture, read back, save, reopen, read again. The
-	// values must round-trip through the `_bk_geometry` persistence layer.
-	{
-		const std::string szIn = szFixtureRoot + "/bld/project.bld";
-		const std::string szOutDir = szScratchRoot + "/bld";
-		const std::string szOut = szOutDir + "/project.points.bld";
-		std::error_code ec;
-		std::filesystem::create_directories( szOutDir, ec );
-		std::filesystem::remove( szOut, ec );
-		std::filesystem::remove( szOut + ".bak", ec );
-		std::filesystem::remove( szOut + ".tmp", ec );
-
-		if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "points: BkResOpen bld" ) )
-			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-		else
-		{
-			const int nRoot = 1;
-
-			// 1.2345678f needs nine significant digits: a six-digit %g would lose it.
-			BkResPoint2 zero = { 1.2345678f, -2.5f };
-			Check( BkResSetZeroPoint( pSession, nRoot, &zero ) == BK_EDITOR_OK, "points: BkResSetZeroPoint" );
-			BkResPoint2 read_zero = { 0, 0 };
-			Check( BkResGetZeroPoint( pSession, nRoot, &read_zero ) == BK_EDITOR_OK, "points: BkResGetZeroPoint" );
-			Check( read_zero.x == zero.x && read_zero.y == zero.y, "points: zero point round-trip" );
-
-			BkResPoint2 entrance = { 7.0f, 11.0f };
-			Check( BkResSetEntrance( pSession, nRoot, &entrance ) == BK_EDITOR_OK, "points: BkResSetEntrance" );
-			BkResPoint2 read_entrance = { 0, 0 };
-			Check( BkResGetEntrance( pSession, nRoot, &read_entrance ) == BK_EDITOR_OK, "points: BkResGetEntrance" );
-			Check( read_entrance.x == entrance.x && read_entrance.y == entrance.y, "points: entrance round-trip" );
-
-			BkResAimedPoint shoots[2] = {
-				{ { 0.5f, 1.5f }, 90, 15 },
-				{ { 3.0f, 4.0f }, 180, 30 },
-			};
-			Check( BkResSetShootPoints( pSession, nRoot, shoots, 2 ) == BK_EDITOR_OK, "points: BkResSetShootPoints" );
-			int nShootCount = -1;
-			Check( BkResGetShootPoints( pSession, nRoot, 0, 0, &nShootCount ) == BK_EDITOR_OK, "points: BkResGetShootPoints size" );
-			Check( nShootCount == 2, "points: shoot count" );
-			BkResAimedPoint read_shoots[2] = {};
-			Check( BkResGetShootPoints( pSession, nRoot, read_shoots, 2, &nShootCount ) == BK_EDITOR_OK, "points: BkResGetShootPoints fill" );
-			bool bShootOk = true;
-			for ( int i = 0; i < 2; ++i )
-				if ( read_shoots[i].at.x != shoots[i].at.x || read_shoots[i].at.y != shoots[i].at.y
-					|| read_shoots[i].angle != shoots[i].angle || read_shoots[i].cone != shoots[i].cone )
-					bShootOk = false;
-			Check( bShootOk, "points: shoot points round-trip" );
-
-			if ( !Check( BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK, "points: BkResSave" ) )
-				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-			Check( BkResClose( pSession ) == BK_EDITOR_OK, "points: BkResClose after save" );
-			if ( !Check( BkResOpen( pSession, szOut.c_str() ) == BK_EDITOR_OK, "points: re-open saved copy" ) )
-				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-
-			read_zero = { 0, 0 };
-			Check( BkResGetZeroPoint( pSession, nRoot, &read_zero ) == BK_EDITOR_OK, "points: re-read zero" );
-			Check( read_zero.x == zero.x && read_zero.y == zero.y, "points: zero point survives save+reopen" );
-
-			read_entrance = { 0, 0 };
-			Check( BkResGetEntrance( pSession, nRoot, &read_entrance ) == BK_EDITOR_OK, "points: re-read entrance" );
-			Check( read_entrance.x == entrance.x && read_entrance.y == entrance.y, "points: entrance survives save+reopen" );
-
-			std::memset( read_shoots, 0, sizeof( read_shoots ) );
-			nShootCount = -1;
-			Check( BkResGetShootPoints( pSession, nRoot, read_shoots, 2, &nShootCount ) == BK_EDITOR_OK, "points: re-read shoot" );
-			bShootOk = ( nShootCount == 2 );
-			for ( int i = 0; i < 2 && bShootOk; ++i )
-				if ( read_shoots[i].at.x != shoots[i].at.x || read_shoots[i].at.y != shoots[i].at.y
-					|| read_shoots[i].angle != shoots[i].angle || read_shoots[i].cone != shoots[i].cone )
-					bShootOk = false;
-			Check( bShootOk, "points: shoot points survive save+reopen" );
-
-			BkResClose( pSession );
-		}
-	}
-
-	// T06: same aimed-points shape against scp (squad). The squad item class
-	// doesn't carry zero/entrance in a general sense; shoot_points stands in
-	// as a representative aimed channel so an scp fixture is covered too.
-	{
-		const std::string szIn = szFixtureRoot + "/scp/project.scp";
-		const std::string szOutDir = szScratchRoot + "/scp";
-		const std::string szOut = szOutDir + "/project.points.scp";
-		std::error_code ec;
-		std::filesystem::create_directories( szOutDir, ec );
-		std::filesystem::remove( szOut, ec );
-		std::filesystem::remove( szOut + ".bak", ec );
-		std::filesystem::remove( szOut + ".tmp", ec );
-
-		if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "points-scp: BkResOpen scp" ) )
-			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-		else
-		{
-			const int nRoot = 1;
-			BkResAimedPoint fires[1] = { { { 2.0f, 6.0f }, 45, 10 } };
-			Check( BkResSetFirePoints( pSession, nRoot, fires, 1 ) == BK_EDITOR_OK, "points-scp: BkResSetFirePoints" );
-			int nFireCount = -1;
-			BkResAimedPoint read_fires[1] = {};
-			Check( BkResGetFirePoints( pSession, nRoot, read_fires, 1, &nFireCount ) == BK_EDITOR_OK, "points-scp: BkResGetFirePoints" );
-			Check( nFireCount == 1 && read_fires[0].at.x == fires[0].at.x && read_fires[0].at.y == fires[0].at.y
-				&& read_fires[0].angle == fires[0].angle && read_fires[0].cone == fires[0].cone,
-				"points-scp: fire points round-trip" );
-
-			if ( !Check( BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK, "points-scp: BkResSave" ) )
-				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-			Check( BkResClose( pSession ) == BK_EDITOR_OK, "points-scp: BkResClose after save" );
-			if ( !Check( BkResOpen( pSession, szOut.c_str() ) == BK_EDITOR_OK, "points-scp: re-open saved copy" ) )
-				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
-
-			std::memset( read_fires, 0, sizeof( read_fires ) );
-			nFireCount = -1;
-			Check( BkResGetFirePoints( pSession, nRoot, read_fires, 1, &nFireCount ) == BK_EDITOR_OK, "points-scp: re-read fire" );
-			Check( nFireCount == 1 && read_fires[0].at.x == fires[0].at.x && read_fires[0].at.y == fires[0].at.y
-				&& read_fires[0].angle == fires[0].angle && read_fires[0].cone == fires[0].cone,
-				"points-scp: fire points survive save+reopen" );
-			BkResClose( pSession );
-		}
-	}
-
 	// Node ids are stable: a delete or restore elsewhere in the tree leaves
 	// every other id - and the geometry keyed by it - where it was, and a
 	// restored node gets its old id back, so the undo history stays valid.
@@ -1824,28 +2414,15 @@ int main( int argc, char **argv )
 		Check( BkResNodes( pSession, 0, 0, &nClosedCount ) == BK_EDITOR_REFUSED && nClosedCount == 0, "BkResNodes refuses when no project is open" );
 	}
 
-	// Geometry on a node below the root is saved in that node's own element,
-	// comes back on reopen, and travels with the node through delete -> restore.
-	GeometryOnChildNodes( pSession, szFixtureRoot, szScratchRoot );
+	// The cells, point and aimed channels where MFC keeps them (D014 item 2).
+	BuildingGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
+	ObjectGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
+	ItemGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
 
-	// The squad editor's formation slots and the bridge editor's span marks,
-	// on the nodes MFC keeps them on.
-	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "scp", "formation", BkResGetFormationPositions,
-		BkResSetFormationPositions, { kSquadFormationProps } );
-	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "bdg", "span-marks", BkResGetBridgeSpanMarks,
-		BkResSetBridgeSpanMarks, { kBridgeBeginSpans, kBridgeCenterSpans, kBridgeEndSpans } );
-	// Map crosses on missions, chapters and campaigns, and the particle and
-	// effect keyframe lists.
-	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "mip", "objectives", BkResGetMissionObjectives,
-		BkResSetMissionObjectives, { kMissionObjectives } );
-	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "chc", "chapter-crosses", BkResGetChapterCrosses,
-		BkResSetChapterCrosses, { kChapterMissions, kChapterPlaces } );
-	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "cgc", "campaign-crosses", BkResGetCampaignCrosses,
-		BkResSetCampaignCrosses, { kCampaignChapters } );
-	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "pcp", "particle-keyframes", BkResGetParticleKeyframes,
-		BkResSetParticleKeyframes, { kParticleDensity, kParticleSpeed } );
-	PointListsOnOwnerNodes( pSession, szFixtureRoot, szScratchRoot, "eff", "effect-keyframes", BkResGetEffectKeyframes,
-		BkResSetEffectKeyframes, { kEffectAnimations } );
+	// The list channels where MFC keeps them (D014 item 2, part 2), and every
+	// channel on every fixture with no private geometry element written.
+	ListGeometryInMfcLayout( pSession, szFixtureRoot, szScratchRoot );
+	EveryChannelOnEveryFixture( pSession, szFixtureRoot, szScratchRoot );
 
 	T10::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 

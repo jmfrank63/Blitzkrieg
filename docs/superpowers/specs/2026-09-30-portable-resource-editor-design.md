@@ -178,6 +178,145 @@ New groups, prefix `BkRes`:
 - **Import:** `ImportFromGame(path)` — a project built from an existing
   runtime resource (see "Import").
 
+#### Where geometry is stored (D014 item 2)
+
+Each geometry channel in the table is saved where MFC keeps it, so MFC
+reads what the port writes; none is written as a private `_bk_geometry`
+element. The
+resource bridge's `HomeOf` holds this table in code. A get or set on a node
+that has no home for the channel returns `BK_EDITOR_REFUSED`. Building,
+object and bridge geometry sits in the project's frame chunks (`own_data`,
+`desc`), next to the tree, because `CBuildingFrame`, `CObjectFrame` and
+`CBridgeFrame` keep it in the frame and write it in `OnFileSave`
+(`SaveFrameOwnData`, `SaveRPGStats`).
+No tree item owns these chunks, so the bridge session acts as the frame:
+
+- It keeps each edit.
+- It reads a channel nobody has edited from the document as loaded.
+- On save it writes only the edited channels, and leaves every other field
+  of the chunk as it was read.
+
+The other homes are fields of S03 items, and a save, delete or restore
+carries them like any other field. Values are MFC's stored values with no
+transform: `desc` positions relative to the zero point, `krest_pos` in view
+units, angles in degrees. They are written with `%g`, so six significant
+digits survive a save.
+
+| Channel | Owner node | MFC home (writer) |
+| --- | --- | --- |
+| passability_cells | building / object root | `desc/passability`: `<item size_x size_y/>`, then one `<item>` of upper-case hex per row (`SObjectBaseRPGStats::operator&`, `Do2DArrayData`, `CDataTreeXML::RawData`) |
+| locked_tiles | fence segment (`CFencePropsItem`), bridge part (`CBridgePartsItem`) | the item's `LockedTiles` list, one `<item x y val/>` per set tile (`CFenceFrame` / `CBridgeFrame::SaveMyData`). Grid cell (x, y) is tile (x, y). MFC stores only set tiles, so a read grid ends at the furthest set tile. |
+| transparency_lines | object root | `own_data/TransLines`, `<item><Point1/><Point2/></item>` per line (`CObjectFrame::SaveFrameOwnData`, `STransLine::operator&`). The ABI list is point pairs, and an odd count is refused. |
+| zero_point | building / object root | `own_data/krest_pos` (`m_zeroPos`, CVec3; z kept) |
+| zero_point | squad formation (`CSquadFormationPropsItem`) | the item's `ZeroPos` (`vZeroPos`; z kept) |
+| entrance | building root | `desc/Entrances/item[0]/Position` (`SBuildingRPGStats::SEntrance`) |
+| shoot_points | building root | `desc/FireSlots` items: `Position`, `Direction` = angle, `Angle` = cone (`SSlot`) |
+| fire_points | building root | `desc/FirePoints` items: `Position`, `Direction` = angle, `VerticalAngle` = cone (`SFirePoint`) |
+| smoke_points | building root | `desc/SmokePoints` items, the same shape as fire points |
+| directed_explosion_points | building root | `desc/DirExplosions` items: `Position`, `Direction`, `VerticalAngle` = cone (`SDirectionExplosion`) |
+| formation_positions | squad formation (`CSquadFormationPropsItem`) | the item's `units` list, `Pos` x and y of each `SUnit` (`SUnit::operator&`). A slot keeps its z and `Dir`; a new one gets `AddUnit`'s z = 0, `Dir` = 0. |
+| bridge_span_marks | bridge root | `own_data` `Begin`, `End` (CVec3; z kept) and the `Front` / `Back` attributes (`CBridgeFrame::SaveFrameOwnData`). The ABI list is always three points: Begin, End, (Front, Back). |
+| mission_objectives | mission Objectives node | each child's `Objective position X` / `Y` value (`CMissionObjectivePropsItem::Get/SetObjectivePosition`), and `RPG/Objectives/item[i]/PosOnMap` when the project has an RPG chunk (`SMissionStats`) |
+| chapter_crosses | chapter Missions node, Place holders node | each child's `Mission position X` / `Y` or `Place holder position X` / `Y` value (`CChapterMissionPropsItem`, `CChapterPlacePropsItem`), and `RPG/Missions/item[i]/PosOnMap` or `RPG/PlaceHolders/item[i]/Position` (`SChapterStats`) |
+| campaign_crosses | campaign Chapters node | each child's `Chapter position X` / `Y` value (`CCampaignChapterPropsItem`), and `RPG/AllChapters/item[i]/PosOnMap` (`SCampaignStats`) |
+| particle_keyframes | any particle track (`CKeyFrameTreeItem`) | the item's `Key_frames`, `<item first second/>` per key (`CKeyFrameTreeItem::operator&`): x = time, y = value. z has no home and must be 0. |
+| effect_keyframes | effect Animations, Meshes, Function Particles or Maya Particles node | each child's `X position`, `Y position`, `Z position` value (`CEffect*PropsItem::GetPosition`), DT_DEC whole numbers |
+
+The following combinations have no MFC home and are refused:
+
+- **locked_tiles on a building or object.** These frames keep `lockedTiles`
+  only in memory and save it as `desc/passability`, so use
+  passability_cells.
+- **passability_cells on a fence or bridge.** There is no grid; their tiles
+  are lists.
+- **The zero point anywhere else.** Only the building and object frames and
+  the squad formation item save one.
+- **Entrance and aimed points outside a building.** Only
+  `SBuildingRPGStats` has them.
+- **Formation positions anywhere but a formation**, and **bridge span marks
+  anywhere but the bridge root.** The spans nodes hold no anchor:
+  `vBeginPos` and `vEndPos` are the frame's, and the centre cross
+  `vCenterKrest` is a constant in `BridgeFrm.cpp`, so it is not stored.
+- **Crosses and effect places on a node that is not one of the listed
+  containers**, including the children themselves: one container carries
+  the list of its children.
+- **Particle keyframes on a node that is not a track.**
+- **Any of these channels on the other kinds**, for example weapon or
+  sprite.
+
+Two channel names do not match what MFC stores, and the rows above say what
+they carry:
+
+- **effect_keyframes.** An MFC effect has no keyframes. Its only stored
+  per-part geometry is the place of each sprite, mesh or particle part, a
+  3D vector, so that is what the channel carries.
+- **The z of particle_keyframes.** A key is a (time, value) pair, so there
+  is nothing to store z in; a non-zero z is refused rather than dropped.
+
+Limits, recorded because MFC's reader imposes them:
+
+- **One entrance per building.** The ABI carries one point per node, so it
+  addresses `Entrances[0]`. Further entrances are kept as read.
+- **Angles are whole degrees.** MFC stores floats, so a read rounds to the
+  nearest degree.
+- **List lengths must match the tree.** MFC's `LoadRPGStats` walks the
+  `Slots`, `FirePoints`, `Smokes` and `DirExplosions` children and indexes
+  the `desc` list by position. The tool must keep each aimed list as long
+  as its props children, or MFC reads past the end.
+- **A new entry has the struct's constructor defaults.** Weapon, picture
+  and world positions keep those defaults until the building export (its
+  `SaveRPGStats` port) fills them.
+- **Other `desc` fields stay as read.** That includes `origin`,
+  `visibility` and the Basic Info copy. A `desc` the port creates carries
+  only the geometry fields. MFC's `LoadRPGStats` copies the Basic Info
+  fields from `desc` into the tree, so the building and object export slice
+  must write them too.
+- **Bridge `UnLockedTiles` and fence / bridge `Transparences`** have no ABI
+  channel yet. They round-trip as item fields.
+- **A formation needs a slot per squad member.**
+  `CSquadTreeRootItem::CallMeAfterSerialize` walks the members and steps
+  through `units` for each one, so the tool must not make the list shorter
+  than the member count.
+- **One cross or place per child.** The list follows the container's
+  children, so a set with another count is refused. Insert or delete the
+  child to change the count.
+- **The RPG copy of the crosses.** MFC's `LoadRPGStats` (`GetRPGStats`)
+  copies `RPG` entry i over child i, so while a list is unedited the bridge
+  reads it from `RPG`. Once it is edited, the bridge reads the children,
+  and a save writes their positions into the existing `RPG` entries. Other
+  `RPG` fields, and children with no entry, are left to the mission, chapter
+  and campaign export slice (the `FillRPGStats` port). A project with no
+  `RPG` chunk, such as the fixtures, gets none. MFC writes the edited value
+  as a float, but `CreateDefaultChilds` turns it back into the default's int
+  on reopen, so without `RPG` only the whole part survives, as in MFC.
+- **Effect places are whole numbers.** The position values are DT_DEC, so
+  a fraction is refused.
+- **Frame copies MFC rebuilds from the tree.** The particle `KeyData` and
+  the effect `effect` chunks are written by `SaveRPGStats` from the tree on
+  every MFC save and never read back into the tree. The port leaves them as
+  read; the export slices write them.
+
+Proof (`test-resource-bridge`):
+
+- A building and an object project with every channel set are saved and
+  read back with the engine's own `CDataTreeXML` and `SBuildingRPGStats` /
+  `SObjectRPGStats`, the way `LoadRPGStats` and `LoadFrameOwnData` read
+  them. The squad and fence item homes are read back through
+  `NResourceModel::Load` and the S03 items.
+- The list channels are set on the scp, bdg, mip, chc, cgc, pcp and eff
+  fixtures, on nodes below the root except for the bridge's own data. They
+  are read back the same way: the bridge's `own_data` through
+  `CDataTreeXML`, the items through `NResourceModel::Load`. The crosses are
+  also run on a copy of the fixture that carries an RPG chunk written by
+  the engine's `CDataTreeXML`, and read back through `SMissionStats`,
+  `SChapterStats` and `SCampaignStats`.
+- Every fixture is saved after every channel its nodes support has been
+  set.
+- Every saved file is checked to contain no private geometry element.
+- Each project is reopened and its geometry compared.
+- A re-save is byte-identical.
+- Delete followed by restore leaves the saved file byte-identical.
+
 ### 4. Resource core (Zig, `Sources/editor/resource_core`)
 
 No UI dependency; runs headless against a fake resource bridge.
@@ -510,3 +649,19 @@ one, the newer instruction wins, and record the change in the spec").
     `roundtrip-typed` checks this. Opening a port-written project in the
     MFC `editor.exe` runs only on `win-home` and is pending there (S03
     UAT).
+- **Geometry is stored in MFC layout (D014 item 2), S05 T03, 2026-10-05.**
+  The cells, point and aimed channels moved out of the private
+  `_bk_geometry` elements into the MFC homes listed in "Where geometry is
+  stored" (section 3). On a node without such a home the channel is now
+  refused, where before any node was accepted. An older port file's
+  `_bk_geometry` copy of these channels is dropped on read; no released
+  build wrote one.
+- **The list channels are stored in MFC layout too (D014 item 2), S05 T04,
+  2026-10-05.** Formation positions, bridge span marks, the map crosses and
+  the particle and effect keyframes moved to the homes in the same table,
+  and the `_bk_geometry` reader and writer were removed. A file an earlier
+  port build wrote with such elements keeps them as unknown fields of the
+  item; no released build wrote one. The span marks are now the bridge
+  root's three-point own data, not lists on the spans nodes. The crosses
+  and effect places are one entry per child of their container, not free
+  lists. A particle key's z must be 0.
