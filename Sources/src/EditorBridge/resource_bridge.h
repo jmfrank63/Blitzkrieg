@@ -82,14 +82,20 @@ BkEditorStatus BkResClose( BkResSession *session );
 /* BkResKind: the kind of the open project, written through *out. */
 BkEditorStatus BkResKindOf( BkResSession *session, BkResKind *out );
 
-/* BkResLock / BkResLockOwner: a cooperative advisory lock in the project
-   file's own folder (<path>.lock). BkResLock sets the current process as the
-   owner (name/pid combined); BkResLockOwner reads it. BK_EDITOR_REFUSED
-   when another process already holds it; the owner's name/pid is in
-   BkEditorLastMessage then. The lock file is removed by BkResClose or
-   BkResSave on a path that becomes the project's new path. */
+/* BkResLock / BkResLockOwner / BkResLockTakeOver: MFC's cooperative lock
+   (CParentFrame::LockFile, D-08): an empty `locked_<user>` file in the
+   project's folder, where <user> is the login name (the test seam
+   BK_RESOURCE_EDITOR_USER overrides it). BkResLock creates it; a lock this
+   user already holds is OK. BK_EDITOR_REFUSED when another user's
+   `locked_*` is present; the owners are in BkEditorLastMessage and
+   BkResLockOwner then, and the host warns and either stays read-only or
+   calls BkResLockTakeOver, which removes every other `locked_*` and takes
+   the lock. BkResLockOwner writes the owners of every `locked_*` in the
+   folder, comma-separated, or "" when there is none. BkResClose removes
+   this session's lock file. */
 BkEditorStatus BkResLock( BkResSession *session );
 BkEditorStatus BkResLockOwner( BkResSession *session, char *out_owner, int capacity );
+BkEditorStatus BkResLockTakeOver( BkResSession *session );
 
 /* ---- Tree -------------------------------------------------------------- */
 

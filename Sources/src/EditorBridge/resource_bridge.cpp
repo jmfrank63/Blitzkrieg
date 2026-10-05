@@ -6,8 +6,9 @@
 // the cells family of geometry (passability, locked tiles, transparency
 // lines): the C ABI entries now serve against an in-session geometry map that
 // hangs off ResourceState, and BkResOpen / BkResSave persist / restore entries
-// as auxiliary `_bk_geometry` XML children under the owning node so a save
-// then reopen keeps the written cells byte-identically. T06 wires the second
+// as `_bk_geometry` elements inside the owning item's own element (any node,
+// not only the root; see WriteGeometry) so a save then reopen keeps the
+// written cells byte-identically. T06 wires the second
 // geometry family on top of that: the two point2 channels (zero point,
 // entrance) and the four aimed-point channels (shoot/fire/smoke/
 // directed-explosion). Angles cross the ABI as MFC-era degrees - a typed
@@ -15,7 +16,9 @@
 // boundary is the one place the unit is pinned. The remaining geometry
 // channels (formation, bridge-spans, keyframes, crosses) and the other groups
 // (references, export, mod, preview, import) stay stubbed and are replaced
-// in T07-T10.
+// in T08-T11. T07 replaced the `<path>.lock` sentinel with MFC's per-folder
+// `locked_<user>` (CParentFrame::LockFile, D-08) and made a delete blob carry
+// its subtree's geometry, so BkResRestoreNode brings it back.
 //
 // Per-session state (open project, path, node id maps, lock) lives in a module-
 // private map keyed by the BkEditorSession pointer the lifecycle layer owns.
@@ -46,6 +49,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -54,9 +58,9 @@
 #include <vector>
 
 #if defined(_WIN32) || defined(_WIN64)
-#include <process.h>
 #include <windows.h>
 #else
+#include <pwd.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -155,18 +159,17 @@ struct ResourceState
 	// Every live id in tree pre-order, root first. Ids are stable rather than
 	// dense, so BkResNodes walks this instead of 1..nNextNodeId.
 	std::vector<int> preorder;
-	// The lock, if this session holds one. Tracked here rather than on disk so
-	// a lost process cannot leave a stale sentinel pinned to a path; the file
-	// is removed on BkResClose.
+	// The `locked_<user>` file, if this session holds it; BkResClose removes
+	// it, as MFC's UnLockFile does when the frame closes the project.
 	bool bHoldsLock = false;
 	std::string szLockPath;
 	// Geometry map keyed by (node_id, channel). The channel is the C ABI
 	// integer the Zig GeometryChannel enum uses (BkResPassabilityCells = 0,
 	// BkResLockedTiles = 1, BkResTransparencyLines = 2, etc.). An entry
 	// exists only after a successful BkResSet*; a read of an un-set channel
-	// returns an empty payload (w = h = 0, count = 0). On BkResSave the
-	// entries are injected as `_bk_geometry` child elements under the owning
-	// node so a BkResOpen on the saved file restores the map.
+	// returns an empty payload (w = h = 0, count = 0). BkResSave writes the
+	// entries as `_bk_geometry` elements in the owning item's element so a
+	// BkResOpen on the saved file restores the map.
 	std::map<std::pair<int, int>, GeometryBlob> geometry;
 };
 
@@ -203,12 +206,9 @@ static bool IsAimedChannel( int nChannel )
 		|| nChannel == CHANNEL_SMOKE_POINTS || nChannel == CHANNEL_DIRECTED_EXPLOSION_POINTS;
 }
 
-// Reserved child-element name for persisted geometry. The Project loader
-// (adopts children as FutureBlobs under typed roots) hands us the raw XML
-// bytes untouched; we scan for this tag on open and strip the matching
-// children before the caller sees the tree. On save we re-inject them under
-// the owning node's children just before Serialise, then remove them so the
-// in-memory tree stays unchanged across the call.
+// Reserved element name for persisted geometry. An item keeps the element in
+// its layout as an unknown field, so it never shows up as a tree node; every
+// write strips the copies and writes the session's map instead.
 const char *kGeometryTag = "_bk_geometry";
 
 std::map<BkEditorSession *, ResourceState> &States()
@@ -538,24 +538,138 @@ bool WriteFileBytes( const std::string &szPath, const std::string &bytes )
 	return f.good();
 }
 
-std::string FormatLockOwner()
+// The login name MFC's LockFile puts in `locked_<user>` (GetUserName). The
+// test seam BK_RESOURCE_EDITOR_USER stands in for it so a test can play two
+// users without touching the real account. Path separators and the other
+// characters a file name cannot hold become '_'.
+std::string LockUserName()
 {
+	std::string szUser;
+	if ( const char *pszSeam = std::getenv( "BK_RESOURCE_EDITOR_USER" ) )
+		szUser = pszSeam;
 #if defined(_WIN32) || defined(_WIN64)
-	char host[256] = {};
-	DWORD n = sizeof(host);
-	GetComputerNameA( host, &n );
-	const int pid = static_cast<int>( _getpid() );
+	if ( szUser.empty() )
+	{
+		char buf[256] = {};
+		DWORD n = sizeof( buf );
+		if ( GetUserNameA( buf, &n ) )
+			szUser = buf;
+	}
 #else
-	char host[256] = {};
-	gethostname( host, sizeof(host) - 1 );
-	const int pid = static_cast<int>( getpid() );
+	if ( szUser.empty() )
+		if ( const passwd *pw = getpwuid( geteuid() ) )
+			if ( pw->pw_name != nullptr )
+				szUser = pw->pw_name;
+	if ( szUser.empty() )
+		if ( const char *pszEnv = std::getenv( "USER" ) )
+			szUser = pszEnv;
 #endif
-	std::string out;
-	out.reserve( 320 );
-	out.append( host );
-	out.append( ":" );
-	out.append( std::to_string( pid ) );
+	if ( szUser.empty() )
+		szUser = "unknown";
+	for ( char &c : szUser )
+		if ( c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|' )
+			c = '_';
+	return szUser;
+}
+
+const char *kLockPrefix = "locked_";
+
+// Every `locked_*` file in the project's folder, as (path, user) pairs - what
+// MFC's NFile::EnumerateFiles( szDir, "locked_*" ) finds. The lock is per
+// folder, as in MFC: two projects in one folder share it.
+std::vector<std::pair<std::string, std::string>> LockFilesIn( const std::filesystem::path &dir )
+{
+	std::vector<std::pair<std::string, std::string>> out;
+	std::error_code ec;
+	for ( std::filesystem::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+	{
+		const std::string szName = it->path().filename().string();
+		if ( szName.compare( 0, std::strlen( kLockPrefix ), kLockPrefix ) != 0 )
+			continue;
+		out.emplace_back( it->path().string(), szName.substr( std::strlen( kLockPrefix ) ) );
+	}
 	return out;
+}
+
+std::filesystem::path ProjectFolder( const std::string &szPath )
+{
+	std::filesystem::path dir = std::filesystem::path( szPath ).parent_path();
+	return dir.empty() ? std::filesystem::path( "." ) : dir;
+}
+
+std::string JoinOwners( const std::vector<std::pair<std::string, std::string>> &locks, const std::string &szExcept )
+{
+	std::string out;
+	for ( const auto &l : locks )
+	{
+		if ( l.second == szExcept )
+			continue;
+		if ( !out.empty() )
+			out += ",";
+		out += l.second;
+	}
+	return out;
+}
+
+// Takes `locked_<user>` for the session. MFC's LockFile checks for other
+// locks, then creates its own; two editors can both pass the check. The
+// exclusive create plus a second look afterwards closes that window: an
+// editor that finds another user's lock next to its own backs off, so two
+// racing users may both be refused but never both hold the lock.
+BkEditorStatus AcquireLock( BkEditorSession *pSession, ResourceState &state, bool bTakeOver )
+{
+	if ( !state.bOpen || state.szPath.empty() )
+	{
+		pSession->szMessage = "no on-disk project to lock";
+		return BK_EDITOR_REFUSED;
+	}
+	const std::string szUser = LockUserName();
+	const std::filesystem::path dir = ProjectFolder( state.szPath );
+	const std::string szMine = ( dir / ( std::string( kLockPrefix ) + szUser ) ).string();
+	std::error_code ec;
+	auto locks = LockFilesIn( dir );
+	if ( bTakeOver )
+	{
+		for ( const auto &l : locks )
+			if ( l.second != szUser )
+				std::filesystem::remove( l.first, ec );
+		locks = LockFilesIn( dir );
+	}
+	std::string szOthers = JoinOwners( locks, szUser );
+	if ( !szOthers.empty() )
+	{
+		pSession->szMessage = "the project is locked by " + szOthers;
+		return BK_EDITOR_REFUSED;
+	}
+	bool bCreated = false;
+	if ( std::FILE *pLock = std::fopen( szMine.c_str(), "wbx" ) )
+	{
+		bCreated = true;
+		if ( std::fclose( pLock ) != 0 )
+		{
+			std::filesystem::remove( szMine, ec );
+			pSession->szMessage = "cannot write lock file";
+			return BK_EDITOR_FAILED;
+		}
+	}
+	else if ( !std::filesystem::exists( szMine, ec ) )
+	{
+		pSession->szMessage = "cannot write lock file";
+		return BK_EDITOR_FAILED;
+	}
+	szOthers = JoinOwners( LockFilesIn( dir ), szUser );
+	if ( !szOthers.empty() )
+	{
+		if ( bCreated )
+			std::filesystem::remove( szMine, ec );
+		pSession->szMessage = "the project is locked by " + szOthers;
+		return BK_EDITOR_REFUSED;
+	}
+	// A `locked_<user>` that was already there is this user's own, as MFC
+	// treats it; the session takes charge of removing it on close.
+	state.bHoldsLock = true;
+	state.szLockPath = szMine;
+	return BK_EDITOR_OK;
 }
 
 // A removed subtree is written as its own one-node Document so Serialise can
@@ -577,17 +691,11 @@ void EmitNodeFor( const NResourceModel::CTreeItem &item, NResourceXml::Node &out
 	item.serialise( out );
 }
 
-std::string SerialiseSubtree( const NResourceModel::CTreeItem &item )
-{
-	NResourceXml::Document doc;
-	doc.hasDeclaration = false;
-	EmitNodeFor( item, doc.root );
-	return NResourceXml::Serialise( doc );
-}
+std::string SerialiseSubtree( const ResourceState &state, NResourceModel::CTreeItem &item );
 
-std::unique_ptr<NResourceModel::CTreeItem> ParseSubtree( const std::string &szBlob, std::string &szError )
+std::unique_ptr<NResourceModel::CTreeItem> ParseSubtree( const std::string &szBlob, NResourceXml::Document &doc, std::string &szError )
+
 {
-	NResourceXml::Document doc;
 	if ( !NResourceXml::Parse( szBlob, doc, szError ) )
 		return nullptr;
 	// An <item> with a ClassTypeID the factory knows comes back typed, read
@@ -697,105 +805,139 @@ bool IsDescendant( const NResourceModel::CTreeItem *pAncestor, const NResourceMo
 	return false;
 }
 
-// Scans every node in the tree for `_bk_geometry` FutureBlob children,
-// consumes them into state.geometry (keyed by (node_id, channel)), and
-// removes them from the tree so later walks see the authored shape. Called
-// once after RebuildIds on BkResOpen.
-void ExtractGeometryFromTree( ResourceState &state )
+// Geometry lives in the project as `_bk_geometry` elements inside the
+// element of the item that owns it, beside its default_name/values/childs.
+// It is never part of the item tree: an item keeps an unknown element in its
+// layout, so what Load read comes back out of Save, and every write strips
+// the elements and puts the session's current geometry back. An item whose
+// parent does not write its children (bSerializeChilds off, or a FutureBlob)
+// has no element of its own; its geometry goes on the nearest ancestor that
+// has one, with `path` naming the child indices down to the owner.
+bool IsLayoutSpace( const NResourceXml::Node &node )
 {
-	if ( !state.pProject || !state.pProject->root )
-		return;
-	// Walk the tree itself, not idToItem: the `_bk_geometry` children erased
-	// below are entries of idToItem too, so iterating it would visit freed
-	// items. Owners are remembered by pointer and keyed by id once the erase
-	// is done and the id tables are rebuilt.
-	struct Found { const NResourceModel::CTreeItem *pOwner; int nChannel; GeometryBlob blob; };
-	std::vector<Found> found;
-	std::vector<NResourceModel::CTreeItem *> stack{ state.pProject->root.get() };
-	while ( !stack.empty() )
+	if ( node.kind != NResourceXml::Node::Text )
+		return false;
+	for ( char c : node.text )
+		if ( c != ' ' && c != '\t' && c != '\r' && c != '\n' )
+			return false;
+	return true;
+}
+
+void StripGeometry( NResourceXml::Node &node )
+{
+	auto &children = node.children;
+	for ( std::size_t i = 0; i < children.size(); )
 	{
-		NResourceModel::CTreeItem *pOwner = stack.back();
-		stack.pop_back();
-		auto &children = pOwner->MutableChildren();
-		for ( std::size_t i = 0; i < children.size(); )
-		{
-			if ( !NResourceModel::FutureBlob::IsFutureBlob( *children[i] ) )
-			{
-				stack.push_back( children[i].get() );
-				++i;
-				continue;
-			}
-			const auto &node = static_cast<const NResourceModel::FutureBlob &>( *children[i] ).GetNode();
-			if ( node.kind != NResourceXml::Node::Element || node.name != kGeometryTag )
-			{
-				stack.push_back( children[i].get() );
-				++i;
-				continue;
-			}
-			int nChannel = -1;
-			GeometryBlob blob;
-			if ( ParseGeometryChild( node, nChannel, blob ) )
-				found.push_back( { pOwner, nChannel, std::move( blob ) } );
-			// Whether parsing succeeded or not, drop the magic child so a
-			// garbled one does not leak into save output.
+		if ( children[i].kind == NResourceXml::Node::Element && children[i].name == kGeometryTag )
 			children.erase( children.begin() + i );
+		else
+			StripGeometry( children[i++] );
+	}
+}
+
+// The elements of an item's children, in treeItemList order: the entries of
+// its `childs` list, which CTreeItem::WriteData writes one per child. Empty
+// when the item writes no list or the list does not line up with the tree.
+std::vector<NResourceXml::Node *> ChildElements( NResourceModel::CTreeItem &item, NResourceXml::Node &elem )
+{
+	std::vector<NResourceXml::Node *> out;
+	if ( NResourceModel::FutureBlob::IsFutureBlob( item ) || item.MutableChildren().empty() )
+		return out;
+	for ( auto &c : elem.children )
+	{
+		if ( c.kind != NResourceXml::Node::Element || c.name != "childs" )
+			continue;
+		for ( auto &entry : c.children )
+			if ( !IsLayoutSpace( entry ) )
+				out.push_back( &entry );
+		break;
+	}
+	if ( out.size() != item.MutableChildren().size() )
+		out.clear();
+	return out;
+}
+
+void InjectGeometry( const ResourceState &state, NResourceModel::CTreeItem &item, NResourceXml::Node *pElem,
+                     NResourceXml::Node &anchor, const std::string &szPath )
+{
+	auto itId = state.itemToId.find( &item );
+	if ( itId != state.itemToId.end() )
+	{
+		for ( auto it = state.geometry.lower_bound( std::make_pair( itId->second, std::numeric_limits<int>::min() ) );
+		      it != state.geometry.end() && it->first.first == itId->second; ++it )
+		{
+			NResourceXml::Node emitted = EmitGeometryChild( it->first.second, it->second );
+			if ( pElem == nullptr )
+				emitted.attrs.insert( emitted.attrs.begin(), { "path", szPath } );
+			( pElem != nullptr ? *pElem : anchor ).children.push_back( std::move( emitted ) );
 		}
 	}
-	// The erase above freed items the id tables still name. Number the tree
-	// afresh (Open has no ids worth keeping yet) so a BkResNodes right after
-	// Open neither surfaces a `_bk_geometry` node nor leaves a gap.
-	state.itemToId.clear();
-	state.nNextNodeId = 0;
-	RebuildIds( state );
-	for ( Found &f : found )
+	const bool bOwnElement = pElem != nullptr && pElem->kind == NResourceXml::Node::Element;
+	std::vector<NResourceXml::Node *> elems;
+	if ( bOwnElement )
+		elems = ChildElements( item, *pElem );
+	NResourceXml::Node &childAnchor = bOwnElement ? *pElem : anchor;
+	const std::string szBase = bOwnElement ? std::string() : szPath + ".";
+	auto &children = item.MutableChildren();
+	for ( std::size_t i = 0; i < children.size(); ++i )
 	{
-		auto itId = state.itemToId.find( f.pOwner );
-		if ( itId != state.itemToId.end() )
-			state.geometry[ std::make_pair( itId->second, f.nChannel ) ] = std::move( f.blob );
+		NResourceXml::Node *pChild = i < elems.size() && elems[i]->kind == NResourceXml::Node::Element ? elems[i] : nullptr;
+		InjectGeometry( state, *children[i], pChild, childAnchor, ( bOwnElement ? std::string() : szBase ) + std::to_string( i ) );
 	}
 }
 
-// Pre-save walker: injects one FutureBlob child per (node_id, channel) in
-// state.geometry under the owning typed node. Returns the list of (owner,
-// index) pointers so the caller can remove them again after Save.
-struct InjectedChild
+// Puts the session's geometry for the subtree under pItem into elem, the
+// subtree's freshly written XML, after taking out whatever geometry elements
+// the items carried over from the file they were read from.
+void WriteGeometry( const ResourceState &state, NResourceModel::CTreeItem &item, NResourceXml::Node &elem )
 {
-	NResourceModel::CTreeItem *pOwner;
-	std::size_t nIndex;
-};
+	StripGeometry( elem );
+	InjectGeometry( state, item, &elem, elem, std::string() );
+}
 
-std::vector<InjectedChild> InjectGeometryIntoTree( ResourceState &state )
+void ReadGeometry( ResourceState &state, NResourceModel::CTreeItem &item, NResourceXml::Node &elem )
 {
-	std::vector<InjectedChild> injected;
-	injected.reserve( state.geometry.size() );
-	for ( const auto &kv : state.geometry )
+	for ( const auto &c : elem.children )
 	{
-		const int nNodeId = kv.first.first;
-		const int nChannel = kv.first.second;
-		auto it = state.idToItem.find( nNodeId );
-		if ( it == state.idToItem.end() )
+		if ( c.kind != NResourceXml::Node::Element || c.name != kGeometryTag )
 			continue;
-		NResourceXml::Node emitted = EmitGeometryChild( nChannel, kv.second );
-		auto &children = it->second->MutableChildren();
-		children.push_back( std::make_unique<NResourceModel::FutureBlob>( std::move( emitted ) ) );
-		injected.push_back( { it->second, children.size() - 1 } );
+		int nChannel = -1;
+		GeometryBlob blob;
+		// A garbled element is dropped: the next write strips it.
+		if ( !ParseGeometryChild( c, nChannel, blob ) )
+			continue;
+		NResourceModel::CTreeItem *pOwner = &item;
+		const std::string szPath = FindAttr( c, "path" );
+		for ( std::size_t i = 0; pOwner != nullptr && i < szPath.size(); )
+		{
+			const std::size_t nIndex = static_cast<std::size_t>( std::atoi( szPath.c_str() + i ) );
+			auto &children = pOwner->MutableChildren();
+			pOwner = nIndex < children.size() ? children[nIndex].get() : nullptr;
+			i = szPath.find( '.', i );
+			i = i == std::string::npos ? szPath.size() : i + 1;
+		}
+		if ( pOwner == nullptr )
+			continue;
+		auto itId = state.itemToId.find( pOwner );
+		if ( itId != state.itemToId.end() )
+			state.geometry[ std::make_pair( itId->second, nChannel ) ] = std::move( blob );
 	}
-	return injected;
+	std::vector<NResourceXml::Node *> elems = ChildElements( item, elem );
+	auto &children = item.MutableChildren();
+	for ( std::size_t i = 0; i < elems.size(); ++i )
+		if ( elems[i]->kind == NResourceXml::Node::Element )
+			ReadGeometry( state, *children[i], *elems[i] );
 }
 
-void RemoveInjectedChildren( std::vector<InjectedChild> &injected )
+// A delete blob holds the subtree with its geometry, so a restore brings
+// both back and a save after delete -> restore matches the one before.
+std::string SerialiseSubtree( const ResourceState &state, NResourceModel::CTreeItem &item )
 {
-	// Remove in reverse so an index remains valid against the owner's list
-	// across the loop (an earlier remove under the same owner would otherwise
-	// shift the later index down).
-	for ( std::size_t i = injected.size(); i-- > 0; )
-	{
-		InjectedChild &c = injected[i];
-		auto &children = c.pOwner->MutableChildren();
-		if ( c.nIndex < children.size() )
-			children.erase( children.begin() + c.nIndex );
-	}
-	injected.clear();
+	NResourceXml::Document doc;
+	doc.hasDeclaration = false;
+	EmitNodeFor( item, doc.root );
+	WriteGeometry( state, item, doc.root );
+	return NResourceXml::Serialise( doc );
 }
 
 } // namespace
@@ -863,7 +1005,8 @@ BkEditorStatus BkResOpen( BkResSession *pSession, const char *pszPath )
 		state.nKindOrdinal = nOrdinal;
 		state.szPath = pszPath;
 		RebuildIds( state );
-		ExtractGeometryFromTree( state );
+		if ( state.pProject->root )
+			ReadGeometry( state, *state.pProject->root, state.pProject->document.root );
 		return BK_EDITOR_OK;
 	} );
 }
@@ -880,17 +1023,21 @@ BkEditorStatus BkResSave( BkResSession *pSession, const char *pszPath )
 			pSession->szMessage = "no project is open";
 			return BK_EDITOR_REFUSED;
 		}
-		// Inject the in-memory geometry entries as `_bk_geometry` FutureBlob
-		// children under their owning typed nodes before Serialise runs; the
-		// RAII guard below removes them again so the in-memory tree stays as
-		// the caller sees it, whether the Save succeeded or failed.
-		std::vector<InjectedChild> injected = InjectGeometryIntoTree( state );
-		struct Guard
+		std::string szIntended = NResourceModel::Save( *state.pProject );
+		// Re-parsing Serialise's output and writing it again gives the same
+		// bytes (xml.h), so a project without geometry is not touched.
+		if ( state.pProject->root && ( !state.geometry.empty() || szIntended.find( kGeometryTag ) != std::string::npos ) )
 		{
-			std::vector<InjectedChild> *p;
-			~Guard() { RemoveInjectedChildren( *p ); }
-		} guard { &injected };
-		const std::string szIntended = NResourceModel::Save( *state.pProject );
+			NResourceXml::Document doc;
+			std::string szError;
+			if ( !NResourceXml::Parse( szIntended, doc, szError ) )
+			{
+				pSession->szMessage = "cannot re-read the rendered project: " + szError;
+				return BK_EDITOR_FAILED;
+			}
+			WriteGeometry( state, *state.pProject->root, doc.root );
+			szIntended = NResourceXml::Serialise( doc );
+		}
 
 		// Safe-save pattern (mirrors SaveSessionMap in session.cpp):
 		//  1. Back up any pre-existing destination to <path>.bak.
@@ -974,42 +1121,15 @@ BkEditorStatus BkResLock( BkResSession *pSession )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
-		ResourceState &state = StateOf( pSession );
-		if ( !state.bOpen || state.szPath.empty() )
-		{
-			pSession->szMessage = "no on-disk project to lock";
-			return BK_EDITOR_REFUSED;
-		}
-		const std::string szLock = state.szPath + ".lock";
-		// Exclusive create ("x"): the check and the create are one step, so two
-		// editors racing for the same project cannot both get the lock.
-		std::FILE *pLock = std::fopen( szLock.c_str(), "wbx" );
-		if ( pLock == nullptr )
-		{
-			std::error_code ec;
-			if ( !std::filesystem::exists( szLock, ec ) )
-			{
-				pSession->szMessage = "cannot write lock file";
-				return BK_EDITOR_FAILED;
-			}
-			std::string szOwner;
-			ReadFileBytes( szLock, szOwner );
-			pSession->szMessage = szOwner.empty() ? std::string( "lock already held" )
-				: std::string( "lock already held by " ) + szOwner;
-			return BK_EDITOR_REFUSED;
-		}
-		const std::string szOwner = FormatLockOwner();
-		const bool bWritten = std::fwrite( szOwner.data(), 1, szOwner.size(), pLock ) == szOwner.size();
-		if ( std::fclose( pLock ) != 0 || !bWritten )
-		{
-			std::error_code ec;
-			std::filesystem::remove( szLock, ec );
-			pSession->szMessage = "cannot write lock file";
-			return BK_EDITOR_FAILED;
-		}
-		state.bHoldsLock = true;
-		state.szLockPath = szLock;
-		return BK_EDITOR_OK;
+		return AcquireLock( pSession, StateOf( pSession ), false );
+	} );
+}
+
+BkEditorStatus BkResLockTakeOver( BkResSession *pSession )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return AcquireLock( pSession, StateOf( pSession ), true );
 	} );
 }
 
@@ -1026,11 +1146,8 @@ BkEditorStatus BkResLockOwner( BkResSession *pSession, char *pOut, int nCapacity
 			pSession->szMessage = "no on-disk project";
 			return BK_EDITOR_REFUSED;
 		}
-		const std::string szLock = state.szPath + ".lock";
-		std::string szOwner;
-		if ( !ReadFileBytes( szLock, szOwner ) )
-			return BK_EDITOR_OK; // empty string = no owner
-		CopyFixed( pOut, nCapacity, szOwner );
+		// Empty string = no owner.
+		CopyFixed( pOut, nCapacity, JoinOwners( LockFilesIn( ProjectFolder( state.szPath ) ), std::string() ) );
 		return BK_EDITOR_OK;
 	} );
 }
@@ -1219,7 +1336,7 @@ BkEditorStatus BkResDeleteNode( BkResSession *pSession, int nNodeId, unsigned ch
 			return BK_EDITOR_REFUSED;
 		}
 		// Two-pass size: a null buffer gets just the byte count.
-		const std::string szBlob = IdsHeader( state, itItem->second ) + SerialiseSubtree( *itItem->second );
+		const std::string szBlob = IdsHeader( state, itItem->second ) + SerialiseSubtree( state, *itItem->second );
 		const int nTotal = static_cast<int>( szBlob.size() );
 		if ( pnSize != nullptr )
 			*pnSize = nTotal;
@@ -1239,8 +1356,8 @@ BkEditorStatus BkResDeleteNode( BkResSession *pSession, int nNodeId, unsigned ch
 		}
 		pContainer->erase( pContainer->begin() + nAt );
 		RebuildIds( state );
-		// Ids are never reused, so geometry of the removed subtree can never be
-		// reached again; drop it rather than carry it to every later save.
+		// The blob carries the removed subtree's geometry; drop it here so it is
+		// not written for a node that is gone. A restore reads it back.
 		for ( auto it = state.geometry.begin(); it != state.geometry.end(); )
 			it = state.idToItem.count( it->first.first ) ? std::next( it ) : state.geometry.erase( it );
 		return BK_EDITOR_OK;
@@ -1269,7 +1386,8 @@ BkEditorStatus BkResRestoreNode( BkResSession *pSession, const unsigned char *pB
 		}
 		const std::string szBlob( reinterpret_cast<const char *>( pBlob ), static_cast<std::size_t>( nSize ) );
 		std::string szError;
-		auto pItem = ParseSubtree( szBlob, szError );
+		NResourceXml::Document doc;
+		auto pItem = ParseSubtree( szBlob, doc, szError );
 		if ( !pItem )
 		{
 			pSession->szMessage = std::string( "parse failed: " ) + szError;
@@ -1290,6 +1408,7 @@ BkEditorStatus BkResRestoreNode( BkResSession *pSession, const unsigned char *pB
 					state.itemToId[items[i]] = ids[i];
 		children.insert( children.begin() + nAt, std::move( pItem ) );
 		RebuildIds( state );
+		ReadGeometry( state, *pInserted, doc.root );
 		if ( pnOutId != nullptr )
 		{
 			auto itId = state.itemToId.find( pInserted );
@@ -1367,7 +1486,7 @@ BkEditorStatus BkResRefList( BkResSession *pSession, int nType, BkResReferenceEn
 /* T05 implements the cells family (passability, locked tiles, transparency
    lines) end-to-end: the entries serve against the in-session geometry map
    on ResourceState, and the Open/Save path persists / restores each entry as
-   a `_bk_geometry` FutureBlob child under the owning node. The rest of the
+   a `_bk_geometry` element in the owning item's element. The rest of the
    channels (points, aimed points, keyframes) stay stubbed below until T06+.
 
    The two bytes_grid channels share one helper (GetBytesGrid / SetBytesGrid)

@@ -29,6 +29,7 @@
 #include <vector>
 #include <SDL3/SDL.h>
 #include "resource_bridge.h"
+#include "bridge_session.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <crtdbg.h>
@@ -238,6 +239,151 @@ static bool DeleteRestoreOne( BkResSession *pSession, const std::string &szFixtu
 	return ok;
 }
 
+// Plays a user for the lock tests (BK_RESOURCE_EDITOR_USER); null clears it.
+static void SetLockUser( const char *pszUser )
+{
+#if defined(_WIN32) || defined(_WIN64)
+	_putenv_s( "BK_RESOURCE_EDITOR_USER", pszUser != 0 ? pszUser : "" );
+#else
+	if ( pszUser != 0 )
+		setenv( "BK_RESOURCE_EDITOR_USER", pszUser, 1 );
+	else
+		unsetenv( "BK_RESOURCE_EDITOR_USER" );
+#endif
+}
+
+static std::vector<BkResNodeRecord> AllNodes( BkResSession *pSession )
+{
+	int nCount = 0;
+	BkResNodes( pSession, 0, 0, &nCount );
+	std::vector<BkResNodeRecord> nodes( nCount > 0 ? nCount : 0 );
+	if ( nCount > 0 )
+		BkResNodes( pSession, nodes.data(), nCount, &nCount );
+	return nodes;
+}
+
+static bool SameZero( BkResSession *pSession, int nNode, const BkResPoint2 &want )
+{
+	BkResPoint2 got = { -1.0f, -1.0f };
+	return BkResGetZeroPoint( pSession, nNode, &got ) == BK_EDITOR_OK && got.x == want.x && got.y == want.y;
+}
+
+static bool SameCells( BkResSession *pSession, int nNode, const unsigned char *pWant, int nW, int nH )
+{
+	unsigned char got[64] = {};
+	int w = 0, h = 0;
+	return BkResGetPassabilityCells( pSession, nNode, got, (int)sizeof( got ), &w, &h ) == BK_EDITOR_OK
+		&& w == nW && h == nH && std::memcmp( got, pWant, size_t( nW * nH ) ) == 0;
+}
+
+static bool SameShoot( BkResSession *pSession, int nNode, const BkResAimedPoint &want )
+{
+	BkResAimedPoint got[2] = {};
+	int n = 0;
+	return BkResGetShootPoints( pSession, nNode, got, 2, &n ) == BK_EDITOR_OK && n == 1
+		&& got[0].at.x == want.at.x && got[0].at.y == want.at.y && got[0].angle == want.angle && got[0].cone == want.cone;
+}
+
+static void GeometryOnChildNodes( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	const std::string szIn = szFixtureRoot + "/wpn/project.wpn";
+	const std::string szDir = szScratchRoot + "/geometry";
+	const std::string szSaved = szDir + "/project.wpn";
+	const std::string szResaved = szDir + "/project.resaved.wpn";
+	const std::string szBeforeDelete = szDir + "/project.before-delete.wpn";
+	const std::string szAfterRestore = szDir + "/project.after-restore.wpn";
+	std::error_code ec;
+	std::filesystem::remove_all( szDir, ec );
+	std::filesystem::create_directories( szDir, ec );
+
+	if ( !Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK, "geometry: BkResOpen wpn" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	// A child of the root, and the deepest node (last in pre-order) so the
+	// test reaches below the first level whenever the tree has one.
+	std::vector<BkResNodeRecord> nodes = AllNodes( pSession );
+	int nChild = 0, nDeep = 0;
+	for ( const BkResNodeRecord &n : nodes )
+		if ( n.parent == 1 && nChild == 0 && n.child_count > 0 )
+			nChild = n.id;
+	if ( nChild == 0 )
+		for ( const BkResNodeRecord &n : nodes )
+			if ( n.parent == 1 ) { nChild = n.id; break; }
+	if ( !nodes.empty() )
+		nDeep = nodes.back().id;
+	if ( !Check( nChild != 0 && nDeep != 0 && nDeep != 1, "geometry: wpn has nodes below the root" ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+	const BkResPoint2 zeroChild = { 7.5f, -2.25f };
+	const BkResPoint2 zeroDeep = { 1.0f, 2.0f };
+	const BkResPoint2 zeroRoot = { 3.0f, 4.0f };
+	const unsigned char cells[6] = { 9, 8, 7, 6, 5, 4 };
+	const BkResAimedPoint shoot = { { 0.5f, 0.25f }, 90, 30 };
+	Check( BkResSetZeroPoint( pSession, 1, &zeroRoot ) == BK_EDITOR_OK, "geometry: set the root's zero point" );
+	Check( BkResSetZeroPoint( pSession, nChild, &zeroChild ) == BK_EDITOR_OK, "geometry: set a child's zero point" );
+	Check( BkResSetPassabilityCells( pSession, nChild, cells, 3, 2 ) == BK_EDITOR_OK, "geometry: set a child's cells" );
+	Check( BkResSetZeroPoint( pSession, nDeep, &zeroDeep ) == BK_EDITOR_OK, "geometry: set the deepest node's zero point" );
+	Check( BkResSetShootPoints( pSession, nDeep, &shoot, 1 ) == BK_EDITOR_OK, "geometry: set the deepest node's shoot point" );
+	if ( !Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "geometry: save" ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	BkResClose( pSession );
+
+	if ( !Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, "geometry: reopen" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	Check( AllNodes( pSession ).size() == nodes.size(), "geometry: reopen shows the same nodes, no geometry node" );
+	Check( SameZero( pSession, 1, zeroRoot ), "geometry: the root's zero point survives save+reopen" );
+	Check( SameZero( pSession, nChild, zeroChild ), "geometry: a child's zero point survives save+reopen" );
+	Check( SameCells( pSession, nChild, cells, 3, 2 ), "geometry: a child's cells survive save+reopen" );
+	Check( SameZero( pSession, nDeep, zeroDeep ), "geometry: the deepest node's zero point survives save+reopen" );
+	Check( SameShoot( pSession, nDeep, shoot ), "geometry: the deepest node's shoot point survives save+reopen" );
+	// Saving the reopened project again changes nothing.
+	Check( BkResSave( pSession, szResaved.c_str() ) == BK_EDITOR_OK, "geometry: save the reopened project" );
+	std::string szA, szB;
+	ReadBytes( szSaved, szA );
+	ReadBytes( szResaved, szB );
+	Check( !szA.empty() && szA == szB, "geometry: open -> save of a project with geometry is byte-identical" );
+
+	// Delete the child (its subtree holds the deepest node's geometry too),
+	// then restore it where it was: the save matches the one before.
+	Check( BkResSave( pSession, szBeforeDelete.c_str() ) == BK_EDITOR_OK, "geometry: save before delete" );
+	nodes = AllNodes( pSession );
+	int nIndex = 0;
+	for ( const BkResNodeRecord &n : nodes )
+	{
+		if ( n.id == nChild )
+			break;
+		if ( n.parent == 1 )
+			++nIndex;
+	}
+	int nSize = 0;
+	BkResDeleteNode( pSession, nChild, 0, 0, &nSize );
+	std::vector<unsigned char> blob( nSize > 0 ? nSize : 1 );
+	Check( BkResDeleteNode( pSession, nChild, blob.data(), nSize, &nSize ) == BK_EDITOR_OK, "geometry: delete the child" );
+	BkResPoint2 gone = { 0, 0 };
+	Check( BkResGetZeroPoint( pSession, nChild, &gone ) != BK_EDITOR_OK || ( gone.x == 0 && gone.y == 0 ),
+		"geometry: the deleted node's geometry is gone" );
+	int nRestored = 0;
+	Check( BkResRestoreNode( pSession, blob.data(), nSize, 1, nIndex, &nRestored ) == BK_EDITOR_OK && nRestored == nChild,
+		"geometry: restore the child under its old id" );
+	Check( SameZero( pSession, nChild, zeroChild ) && SameCells( pSession, nChild, cells, 3, 2 ),
+		"geometry: restore brings the child's geometry back" );
+	Check( SameZero( pSession, nDeep, zeroDeep ) && SameShoot( pSession, nDeep, shoot ),
+		"geometry: restore brings the subtree's geometry back" );
+	Check( BkResSave( pSession, szAfterRestore.c_str() ) == BK_EDITOR_OK, "geometry: save after restore" );
+	ReadBytes( szBeforeDelete, szA );
+	ReadBytes( szAfterRestore, szB );
+	if ( !Check( !szA.empty() && szA == szB, "geometry: delete -> restore -> save is byte-identical to before the delete" ) )
+		std::printf( "   before=%zu bytes, after=%zu bytes\n", szA.size(), szB.size() );
+	BkResClose( pSession );
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -340,19 +486,55 @@ int main( int argc, char **argv )
 		DeleteRestoreOne( pSession, szFixtureRoot, szScratchRoot, fx );
 	}
 
-	// Lock/unlock on a saved copy.
+	// MFC's lock (D-08): `locked_<user>` in the project's folder. Two
+	// sessions play two users through the BK_RESOURCE_EDITOR_USER seam; the
+	// second session is a bare BkEditorSession, which the data-only lock
+	// entries accept as well as a started one.
 	{
-		Fixture fx = kFixtures[0]; // wpn
-		const std::string szOut = szScratchRoot + "/" + fx.pszExt + "/project." + fx.pszExt;
-		BkResOpen( pSession, szOut.c_str() );
-		Check( BkResLock( pSession ) == BK_EDITOR_OK, "BkResLock on a saved project" );
-		char owner[256] = {};
-		Check( BkResLockOwner( pSession, owner, (int)sizeof( owner ) ) == BK_EDITOR_OK, "BkResLockOwner reads" );
-		Check( owner[0] != 0, "owner string is non-empty" );
-		Check( BkResLock( pSession ) == BK_EDITOR_REFUSED, "a second BkResLock on a held lock is refused" );
-		Check( BkResClose( pSession ) == BK_EDITOR_OK, "BkResClose releases lock" );
+		const std::string szDir = szScratchRoot + "/lock";
+		const std::string szProject = szDir + "/project.wpn";
 		std::error_code ec;
-		Check( !std::filesystem::exists( szOut + ".lock", ec ), "BkResClose removes the lock file" );
+		std::filesystem::remove_all( szDir, ec );
+		std::filesystem::create_directories( szDir, ec );
+		std::filesystem::copy_file( szFixtureRoot + "/wpn/project.wpn", szProject, ec );
+		BkEditorSession *pOther = new BkEditorSession();
+
+		SetLockUser( "alice" );
+		Check( BkResOpen( pSession, szProject.c_str() ) == BK_EDITOR_OK, "lock: alice opens" );
+		Check( BkResLock( pSession ) == BK_EDITOR_OK, "lock: alice locks" );
+		Check( std::filesystem::exists( szDir + "/locked_alice", ec ), "lock: locked_alice is in the project's folder" );
+		Check( !std::filesystem::exists( szProject + ".lock", ec ), "lock: no <path>.lock" );
+		Check( BkResLock( pSession ) == BK_EDITOR_OK, "lock: alice's own lock is hers again, as in MFC" );
+		char owner[256] = {};
+		Check( BkResLockOwner( pSession, owner, (int)sizeof( owner ) ) == BK_EDITOR_OK && std::strcmp( owner, "alice" ) == 0,
+			"lock: BkResLockOwner names alice" );
+
+		SetLockUser( "bob" );
+		Check( BkResOpen( pOther, szProject.c_str() ) == BK_EDITOR_OK, "lock: bob opens" );
+		Check( BkResLock( pOther ) == BK_EDITOR_REFUSED, "lock: bob is refused while alice holds it" );
+		Check( std::strstr( BkEditorLastMessage( pOther ), "alice" ) != 0, "lock: the refusal names alice" );
+		Check( !std::filesystem::exists( szDir + "/locked_bob", ec ), "lock: a refused lock leaves no file" );
+		owner[0] = 0;
+		Check( BkResLockOwner( pOther, owner, (int)sizeof( owner ) ) == BK_EDITOR_OK && std::strcmp( owner, "alice" ) == 0,
+			"lock: bob sees alice as the owner" );
+		Check( BkResLockTakeOver( pOther ) == BK_EDITOR_OK, "lock: bob takes the lock over" );
+		Check( !std::filesystem::exists( szDir + "/locked_alice", ec ), "lock: the take-over removes locked_alice" );
+		Check( std::filesystem::exists( szDir + "/locked_bob", ec ), "lock: the take-over writes locked_bob" );
+		Check( BkResClose( pOther ) == BK_EDITOR_OK, "lock: bob closes" );
+		Check( !std::filesystem::exists( szDir + "/locked_bob", ec ), "lock: close removes locked_bob" );
+
+		SetLockUser( "alice" );
+		Check( BkResClose( pSession ) == BK_EDITOR_OK, "lock: alice closes" );
+		bool bStray = false;
+		for ( const auto &entry : std::filesystem::directory_iterator( szDir, ec ) )
+		{
+			const std::string szName = entry.path().filename().string();
+			if ( szName.compare( 0, 7, "locked_" ) == 0 || szName.find( ".lock" ) != std::string::npos )
+				bStray = true;
+		}
+		Check( !bStray, "lock: no lock file is left behind" );
+		SetLockUser( 0 );
+		delete pOther;
 	}
 
 	// T05: cells family round-trip against bld. Writes passability, locked
@@ -633,6 +815,10 @@ int main( int argc, char **argv )
 		int nClosedCount = -1;
 		Check( BkResNodes( pSession, 0, 0, &nClosedCount ) == BK_EDITOR_REFUSED && nClosedCount == 0, "BkResNodes refuses when no project is open" );
 	}
+
+	// Geometry on a node below the root is saved in that node's own element,
+	// comes back on reopen, and travels with the node through delete -> restore.
+	GeometryOnChildNodes( pSession, szFixtureRoot, szScratchRoot );
 
 	// An entry point this slice has not built yet fails loudly instead of
 	// answering OK for work it did not do.

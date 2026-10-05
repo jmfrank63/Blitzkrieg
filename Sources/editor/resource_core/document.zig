@@ -17,9 +17,10 @@ const ResourceCommand = history_mod.ResourceCommand;
 const OwnedBytes = history_mod.OwnedBytes;
 const History = history_mod.History;
 
-/// A lock owner, as `BkResLockOwner` writes it: a short name/pid string that
-/// the status bar shows and that other sessions compare against. The buffer
-/// is owned - deinit frees it.
+/// A lock owner, as `BkResLockOwner` writes it: the user names of the
+/// folder's `locked_*` files, comma-separated, that the status bar shows
+/// and that other sessions compare against. The buffer is owned - deinit
+/// frees it.
 pub const LockOwner = struct {
     name: []u8,
 
