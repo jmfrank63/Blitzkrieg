@@ -6,8 +6,9 @@
 # Writes one line per tier to zig-out/local-test/resource_editor/resource-sweep.log:
 #   TIER=<name> EXIT=<code> ELAPSED_MS=<n> RESULT=<PASS|FAIL>[ HINT=...]
 # and a last line VERDICT=<PASS|FAIL>. Any failing tier is FAIL: nothing is
-# classified as pre-existing. A failing tier's stderr is kept next to the log
-# as <tier>.stderr.log. Exits 0 only on VERDICT=PASS.
+# classified as pre-existing. A failing tier's output, stdout and stderr (the
+# test hosts report their failures on stdout), is kept next to the log as
+# <tier>.stderr.log. Exits 0 only on VERDICT=PASS.
 #
 # The scripted Map Editor runs (map-editor-smoke, -auto, -auto-m2, -m3-auto)
 # drop OS mouse events and run in a hidden, unfocusable window, so the real
@@ -62,7 +63,7 @@ run_step() {
   local exit_code=0
   # 9>&- keeps the lock out of the tier: an orphaned tier process must not
   # hold it and block the next sweep forever.
-  timeout "${TIER_TIMEOUT}" "$@" >/dev/null 2>"${tmp_err}" 9>&- || exit_code=$?
+  timeout "${TIER_TIMEOUT}" "$@" >"${tmp_err}" 2>&1 9>&- || exit_code=$?
   local end_ms
   end_ms=$(date +%s%3N)
   local elapsed=$((end_ms - start_ms))
