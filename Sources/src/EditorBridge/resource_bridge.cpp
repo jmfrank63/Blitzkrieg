@@ -5848,9 +5848,10 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				// the engine's own operator& reads them.
 				if ( !ReadRuntimeStats( statsFile, buildingStats, pSession, status, "desc" ) )
 					return status;
-				szKeyName = buildingStats.szKeyName;
-				if ( !szKeyName.empty() )
-					NResourceModel::BuildingStatsToTree( buildingStats, *pRoot );
+				// Twelve shipped europe/summer buildings carry an empty KeyName in a valid desc; the
+				// name only labels the message, so the folder's stands in and the stats keep theirs.
+				szKeyName = buildingStats.szKeyName.empty() ? statsFile.parent_path().filename().string() : buildingStats.szKeyName;
+				NResourceModel::BuildingStatsToTree( buildingStats, *pRoot );
 				bBuildingFrame = true;
 				break;
 			}

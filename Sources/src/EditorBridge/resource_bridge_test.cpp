@@ -5887,13 +5887,15 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
 }
 
-// A shipped building imports and exports stats-only to the 1.xml it came from.
-static void Shipped( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot )
+// A shipped building imports and exports stats-only to the 1.xml it came from. D023: e_house07_1
+// is one of twelve whose desc has an empty KeyName and which the importer once refused.
+static void Shipped( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot,
+	const char *pszFolder = "europe/summer/e_stella/01" )
 {
 	std::error_code ec;
-	const fs::path scratch = fs::path( szScratchRoot ) / "s10-building-shipped";
+	const fs::path scratch = fs::path( szScratchRoot ) / ( std::string( "s10-building-shipped-" ) + fs::path( pszFolder ).filename().string() );
 	fs::remove_all( scratch, ec );
-	const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", "Buildings/europe/summer/e_stella/01" );
+	const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", ( std::string( "Buildings/" ) + pszFolder ).c_str() );
 	if ( !Check( fs::is_regular_file( T11::FoldedPath( shipped, "1.xml" ), ec ), "building shipped: the shipped 1.xml exists" ) )
 		return;
 	const std::string listingBefore = S09Object::ListingOf( shipped );
@@ -5916,7 +5918,7 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 			++nDifferent;
 			std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
 		}
-	std::printf( "ROUNDTRIP bld e_stella/01: %d fields compared, %d differences\n", result.nFieldsCompared, nDifferent );
+	std::printf( "ROUNDTRIP bld %s: %d fields compared, %d differences\n", pszFolder, result.nFieldsCompared, nDifferent );
 	Check( result.nFieldsCompared > 5 && nDifferent == 0, "building shipped: the stats are field-equal to the shipped 1.xml" );
 	Check( S09Object::ListingOf( shipped ) == listingBefore, "building shipped: nothing was written into Data" );
 }
@@ -5926,24 +5928,8 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 // transparency cells read. Imports run on the shipped folders in place (read-only).
 static void NegativeTiles( BkResSession *pSession, const std::string &szRoot )
 {
-	// Twelve shipped building folders carry a 1.xml that is only a batch-export history with no bld RPG stats,
-	// which the importer refuses on purpose; the game never loads them as buildings.
-	const char *pszNoStats = "the shipped 1.xml holds no bld RPG stats (history only)";
-	const std::vector<std::pair<std::string, std::string>> unimportable = {
-		{ "europe/summer/e_ctownhouse01_1", pszNoStats },
-		{ "europe/summer/e_ctownhouse01_2", pszNoStats },
-		{ "europe/summer/e_ctownhouse01_4", pszNoStats },
-		{ "europe/summer/e_ctownhouse02_1", pszNoStats },
-		{ "europe/summer/e_ctownhouse02_4", pszNoStats },
-		{ "europe/summer/e_ctownhouse03_2", pszNoStats },
-		{ "europe/summer/e_ctownhouse03_4", pszNoStats },
-		{ "europe/summer/e_house07_1", pszNoStats },
-		{ "europe/summer/e_house09_1", pszNoStats },
-		{ "europe/summer/e_townhouse04_3", pszNoStats },
-		{ "europe/summer/e_townhouse04_4", pszNoStats },
-		{ "europe/summer/e_townrailwaystation_4", pszNoStats },
-	};
-	S09Object::ScanNegativeTiles( pSession, szRoot, "buildings", "Buildings", 9, unimportable,
+	// Every shipped building imports (D023), so the allow-list is empty.
+	S09Object::ScanNegativeTiles( pSession, szRoot, "buildings", "Buildings", 9, {},
 		[]( BkResSession *pSession, std::string &szFailure ) { return S09Object::ReadRootGrids( pSession, NResourceModel::ETIT_BUILDING_ROOT_ITEM, szFailure ); }, 150 );
 }
 
@@ -6626,6 +6612,7 @@ int main( int argc, char **argv )
 	S10Building::Fixture( pSession, szFixtureRoot, szScratchRoot );
 	// S10 T04: a shipped building's round trip, the building negative-tile guard and the GOG golden (win-home only).
 	S10Building::Shipped( pSession, pszRoot, szScratchRoot );
+	S10Building::Shipped( pSession, pszRoot, szScratchRoot, "europe/summer/e_house07_1" );
 	S10Building::NegativeTiles( pSession, pszRoot );
 	S10Building::GogBrandenburgertor( pSession, szFixtureRoot, szScratchRoot );
 	// S10 T02: the building's tile-frame grids, sprite position and point children.
