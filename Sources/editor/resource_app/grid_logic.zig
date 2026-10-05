@@ -2,9 +2,11 @@
 //! mapping between the overlay's pixels and the AI tile grid, the tool modes of
 //! GridFrm's toolbar (move, draw grid, draw transparency, set zero, one-way
 //! line, centre on tile), the colours the overlay paints and the per-kind
-//! registration the Object and Fence editors share. Building and Bridge (S10,
-//! S11) add a `registrationFor` entry and reuse the rest. Each gesture ends in
-//! one command from resource_core's grid_tools, committed through
+//! registration the Object and Fence editors share. The Building editor adds
+//! the point modes of BuildFrm (entrance, shoot, fire, smoke, directed
+//! explosion, move point, horizontal position, angle and cone handles, generate
+//! points) and Bridge (S11) adds a `registrationFor` entry. Each gesture ends in
+//! one command from resource_core's grid_tools or point_tools, committed through
 //! `sub_editor_tools.commit`, so the drawing code never builds a command.
 //! Runs under `zig build test-resource-app-logic` against the fake bridge.
 //!
@@ -19,9 +21,11 @@ const core = @import("resource_core");
 
 const tools = core.sub_editor_tools;
 const grid_tools = core.grid_tools;
+const point_tools = core.point_tools;
 const bridge_mod = core.bridge;
 const ResBridge = bridge_mod.ResBridge;
 const Point2 = bridge_mod.Point2;
+const AimedPoint = bridge_mod.AimedPoint;
 const Kind = bridge_mod.Kind;
 const GeometryChannel = bridge_mod.GeometryChannel;
 const Document = core.document.Document;
@@ -160,6 +164,25 @@ pub const trans_line_color: Argb = 0xff0000ff;
 pub const normal_tile_color: Argb = 0xff008000;
 pub const zero_cross_color: Argb = 0xffff0000;
 pub const grid_line_color: Argb = 0xffc0c0c0;
+/// BuildShoot/Fire/Smoke/DirExp.cpp ComputeAngleLines: the direction line and
+/// the two cone edges are yellow, the arrow head at the direction's tip red.
+pub const cone_line_color: Argb = 0xffffff00;
+pub const arrow_color: Argb = 0xffff0000;
+/// SetActiveShootPoint: the active point's sprite is opaque, the others 120/255.
+pub const point_color: Argb = 0xffffffff;
+pub const inactive_point_alpha: u32 = 120;
+
+/// A point's marker colour: its family's tint, opaque for the active point,
+/// `inactive_point_alpha` for the rest.
+pub fn pointColor(mode: point_tools.Mode, active: bool) Argb {
+    const rgb: u32 = switch (mode) {
+        .shoot => point_color,
+        .fire => 0xffff8000,
+        .smoke => 0xffc0c0c0,
+        .dir_explosion => 0xffff00ff,
+    } & 0x00ffffff;
+    return (if (active) @as(u32, 0xff) else inactive_point_alpha) << 24 | rgb;
+}
 
 /// A transparency tile's colour: 0x202000 per step from value 1; null for 0
 /// (no tile) and for what the bridge refuses.
@@ -178,6 +201,95 @@ pub fn toImGui(argb: Argb) u32 {
     return (argb & 0xff00ff00) | ((argb & 0x00ff0000) >> 16) | ((argb & 0x000000ff) << 16);
 }
 
+// --- Aimed points: handles and hit-testing -----------------------------------
+
+/// BuildShoot.cpp's EDGE_LENGTH, in world units: how far the direction line and
+/// the cone edges reach from the point.
+pub const edge_length: f32 = 200;
+
+/// A point's direction in world space: ComputeAngleLines steps (-sin a, cos a).
+pub fn aimDirection(angle_degrees: f32) Point2 {
+    const a = std.math.degreesToRadians(angle_degrees);
+    return .{ .x = -@sin(a), .y = @cos(a) };
+}
+
+/// Where along a point's aim a handle sits, in world space.
+pub fn aimTip(at: Point2, angle_degrees: f32) Point2 {
+    const d = aimDirection(angle_degrees);
+    return .{ .x = at.x + edge_length * d.x, .y = at.y + edge_length * d.y };
+}
+
+/// The three handles of one point, in grid space: the direction's tip (where the
+/// red arrow is) and the two cone edges' tips (direction -/+ half the cone).
+pub const Handles = struct { origin: Point2, direction: Point2, cone_minus: Point2, cone_plus: Point2 };
+
+pub fn handlesOf(point: AimedPoint) Handles {
+    const angle: f32 = @floatFromInt(point.angle);
+    const half: f32 = @as(f32, @floatFromInt(point.cone)) / 2;
+    return .{
+        .origin = worldToGrid(point.at),
+        .direction = worldToGrid(aimTip(point.at, angle)),
+        .cone_minus = worldToGrid(aimTip(point.at, angle - half)),
+        .cone_plus = worldToGrid(aimTip(point.at, angle + half)),
+    };
+}
+
+fn distance(a: Point2, b: Point2) f32 {
+    return @sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y));
+}
+
+/// The point under a grid-space position, the nearest within `radius` (a later
+/// point wins a tie, as the one drawn on top). Null when none is.
+pub fn hitPoint(points: []const AimedPoint, grid: Point2, radius: f32) ?usize {
+    var best: ?usize = null;
+    var best_distance = radius;
+    for (points, 0..) |point, i| {
+        const d = distance(worldToGrid(point.at), grid);
+        if (d <= best_distance) {
+            best = i;
+            best_distance = d;
+        }
+    }
+    return best;
+}
+
+/// The handle of one point under a grid-space position. The direction's tip
+/// wins over a cone edge's when they coincide (a zero cone).
+pub fn hitHandle(point: AimedPoint, grid: Point2, radius: f32) ?point_tools.Part {
+    const handles = handlesOf(point);
+    const dd = distance(handles.direction, grid);
+    const dm = distance(handles.cone_minus, grid);
+    const dp = distance(handles.cone_plus, grid);
+    if (dd <= radius and dd <= dm and dd <= dp) return .direction;
+    if (dm <= radius or dp <= radius) return .cone;
+    return null;
+}
+
+/// The whole degree of the direction from `centre` to `pointer` (world), 0..359,
+/// the inverse of `aimDirection`. The same point gives 0.
+pub fn angleToward(centre: Point2, pointer: Point2) i32 {
+    const dx = pointer.x - centre.x;
+    const dy = pointer.y - centre.y;
+    if (dx == 0 and dy == 0) return 0;
+    const degrees = std.math.radiansToDegrees(std.math.atan2(-dx, dy));
+    const whole: i32 = @intFromFloat(@round(degrees));
+    return @mod(whole, 360);
+}
+
+/// The cone the pointer asks for with the direction `angle`: twice the way the
+/// pointer's direction differs from it, 0..360.
+pub fn coneToward(centre: Point2, angle: i32, pointer: Point2) i32 {
+    const diff = @mod(angleToward(centre, pointer) - angle + 180, 360) - 180;
+    return std.math.clamp(2 * @as(i32, @intCast(@abs(diff))), 0, 360);
+}
+
+fn gridFrameToChannel(_: ?*anyopaque, screen: Point2) Point2 {
+    return gridToWorld(screen);
+}
+
+/// How GenerateSmokePoints' grid pixels become the channel's world positions.
+pub const generate_frame: point_tools.Frame = .{ .toChannel = gridFrameToChannel };
+
 // --- Tools -------------------------------------------------------------------
 
 /// GridFrm's toolbar: what a click on the preview does.
@@ -188,6 +300,18 @@ pub const Tool = enum {
     set_zero,
     one_way_line,
     centre_on_tile,
+    // The Building editor's point modes (BuildFrm SetActiveMode). The four
+    // aimed families place, select and delete their points; the other three
+    // act on the active family's active point, as E_SUB_MOVE, E_SUB_HOR and
+    // E_SUB_DIR do.
+    entrance,
+    shoot,
+    fire,
+    smoke,
+    dir_explosion,
+    move_point,
+    horizontal,
+    angle,
 
     pub fn label(self: Tool) [:0]const u8 {
         return switch (self) {
@@ -197,7 +321,31 @@ pub const Tool = enum {
             .set_zero => "Set zero",
             .one_way_line => "One-way line",
             .centre_on_tile => "Centre on tile",
+            .entrance => "Entrance",
+            .shoot => "Shoot points",
+            .fire => "Fire points",
+            .smoke => "Smoke points",
+            .dir_explosion => "Directed explosions",
+            .move_point => "Move point",
+            .horizontal => "Horizontal position",
+            .angle => "Angle and cone",
         };
+    }
+
+    /// The aimed family a place/select mode works on.
+    pub fn family(self: Tool) ?point_tools.Mode {
+        return switch (self) {
+            .shoot => .shoot,
+            .fire => .fire,
+            .smoke => .smoke,
+            .dir_explosion => .dir_explosion,
+            else => null,
+        };
+    }
+
+    /// Whether the tool works on the points of the active family.
+    pub fn isPointTool(self: Tool) bool {
+        return self.family() != null or self == .move_point or self == .horizontal or self == .angle;
     }
 };
 
@@ -216,11 +364,13 @@ pub const Registration = struct {
 
 const object_tools = [_]Tool{ .move, .draw_grid, .draw_transparency, .set_zero, .one_way_line };
 const fence_tools = [_]Tool{ .move, .draw_grid, .draw_transparency, .centre_on_tile };
+const building_tools = [_]Tool{ .move, .draw_grid, .draw_transparency, .set_zero, .entrance, .shoot, .fire, .smoke, .dir_explosion, .move_point, .horizontal, .angle };
 
 pub fn registrationFor(kind: Kind) ?Registration {
     return switch (kind) {
         .object => .{ .kind = .object, .tools = &object_tools, .transparency = .transparency_cells },
         .fence => .{ .kind = .fence, .tools = &fence_tools, .transparency = .fence_transparences },
+        .build => .{ .kind = .build, .tools = &building_tools, .transparency = .transparency_cells },
         else => null,
     };
 }
@@ -230,6 +380,7 @@ pub fn registrationFor(kind: Kind) ?Registration {
 pub fn targetNode(doc: *const Document, kind: Kind, selected: ?i32) ?i32 {
     switch (kind) {
         .object => return tools.firstOfClass(doc, tools.item_type.object_root),
+        .build => return tools.firstOfClass(doc, tools.item_type.building_root),
         .fence => {
             if (selected) |id| if (tools.findNode(doc, id)) |node| {
                 if (tools.isClass(node, tools.item_type.fence_props)) return id;
@@ -266,6 +417,12 @@ pub const GridEditor = struct {
     grab: Point2 = .{},
     /// The tile under the cursor, for the status line.
     hover: ?[2]i32 = null,
+    /// The Building editor's aimed family (the last of the four place modes
+    /// chosen, which Move point, Horizontal position and Angle then act on) and
+    /// its active point, MFC's pActiveShootPoint and kin.
+    family: point_tools.Mode = .shoot,
+    active: ?usize = null,
+    point_drag: ?point_tools.PointDrag = null,
 
     pub fn init(allocator: std.mem.Allocator, registration: Registration, node: i32) GridEditor {
         return .{ .allocator = allocator, .registration = registration, .node = node, .line_tool = grid_tools.TransLineTool.init(node) };
@@ -277,7 +434,7 @@ pub const GridEditor = struct {
     }
 
     pub fn busy(self: *const GridEditor) bool {
-        return self.stroke != null or self.drag != null or self.line_tool.dragging;
+        return self.stroke != null or self.drag != null or self.line_tool.dragging or self.point_drag != null;
     }
 
     /// Switching tool abandons the gesture; a tool the kind does not offer is refused.
@@ -285,7 +442,48 @@ pub const GridEditor = struct {
         if (!self.registration.has(tool)) return error.Refused;
         self.cancel(bridge);
         self.line_tool.selected = null;
+        if (tool.family()) |family| {
+            if (family != self.family) self.active = null;
+            self.family = family;
+        }
         self.tool = tool;
+    }
+
+    fn channelOf(mode: point_tools.Mode) GeometryChannel {
+        return switch (mode) {
+            .shoot => .shoot_points,
+            .fire => .fire_points,
+            .smoke => .smoke_points,
+            .dir_explosion => .directed_explosion_points,
+        };
+    }
+
+    /// What a drag needs of the family: the container and child class matter
+    /// only to place and delete, which have the document.
+    fn dragTarget(self: *const GridEditor) point_tools.Target {
+        return .{ .node = self.node, .channel = channelOf(self.family), .container = 0, .child_class = 0 };
+    }
+
+    fn documentTarget(self: *const GridEditor, doc: *const Document) Error!point_tools.Target {
+        return point_tools.buildingTarget(doc, self.node, self.family) orelse error.Refused;
+    }
+
+    /// The hit radius of a point or handle: 10 window pixels, in grid pixels.
+    fn hitRadius(self: *const GridEditor) f32 {
+        return 10 / self.view.scale;
+    }
+
+    fn readPoints(self: *const GridEditor, bridge: ResBridge) Error!bridge_mod.GeometryValue {
+        return tools.readGeometry(bridge, self.node, channelOf(self.family));
+    }
+
+    /// The active point, dropped when the list no longer has it (an undo).
+    fn activePoint(self: *GridEditor, points: []const AimedPoint) ?usize {
+        if (self.active) |index| {
+            if (index < points.len) return index;
+            self.active = null;
+        }
+        return null;
     }
 
     pub fn setTransparency(self: *GridEditor, value: u8) void {
@@ -323,7 +521,29 @@ pub const GridEditor = struct {
                 self.grab = .{ .x = drag.before.x - world.x, .y = drag.before.y - world.y };
                 self.drag = drag;
             },
-            .set_zero, .centre_on_tile => {},
+            .set_zero, .centre_on_tile, .entrance, .shoot, .fire, .smoke, .dir_explosion => {},
+            .move_point, .horizontal => {
+                var points = try self.readPoints(bridge);
+                defer points.deinit(self.allocator);
+                const index = hitPoint(points.aimed, grid, self.hitRadius()) orelse return;
+                self.active = index;
+                const at = points.aimed[index].at;
+                const world = gridToWorld(grid);
+                self.grab = .{ .x = at.x - world.x, .y = at.y - world.y };
+                const part: point_tools.Part = if (self.tool == .move_point) .move else .horizontal;
+                self.point_drag = try point_tools.PointDrag.begin(self.allocator, bridge, self.dragTarget(), index, part);
+            },
+            .angle => {
+                var points = try self.readPoints(bridge);
+                defer points.deinit(self.allocator);
+                if (self.activePoint(points.aimed)) |index| {
+                    if (hitHandle(points.aimed[index], grid, self.hitRadius())) |part| {
+                        self.point_drag = try point_tools.PointDrag.begin(self.allocator, bridge, self.dragTarget(), index, part);
+                        return;
+                    }
+                }
+                if (hitPoint(points.aimed, grid, self.hitRadius())) |index| self.active = index;
+            },
         }
     }
 
@@ -335,6 +555,16 @@ pub const GridEditor = struct {
         } else if (self.drag) |*drag| {
             const world = gridToWorld(self.gridPoint(screen));
             try drag.move(bridge, .{ .x = world.x + self.grab.x, .y = world.y + self.grab.y });
+        } else if (self.point_drag) |*drag| {
+            const world = gridToWorld(self.gridPoint(screen));
+            const held = drag.current[drag.index];
+            const sample: point_tools.Sample = switch (drag.part) {
+                .move, .horizontal => .{ .at = .{ .x = world.x + self.grab.x, .y = world.y + self.grab.y } },
+                .direction => .{ .angle = angleToward(held.at, world) },
+                .cone => .{ .cone = coneToward(held.at, held.angle, world) },
+                .aim => .{ .angle = angleToward(held.at, world), .cone = held.cone },
+            };
+            try drag.move(bridge, sample);
         } else {
             self.line_tool.move(self.gridPoint(screen));
         }
@@ -371,7 +601,84 @@ pub const GridEditor = struct {
                 const command = try grid_tools.centreSpriteOnTile(self.allocator, bridge, self.node, gridToWorld(tileCentre(tile[0], tile[1])));
                 try tools.commit(self.allocator, bridge, doc, history, command, 0);
             },
+            .entrance => {
+                const command = try point_tools.setEntrance(self.allocator, bridge, self.node, gridToWorld(grid));
+                try tools.commit(self.allocator, bridge, doc, history, command, 0);
+            },
+            .shoot, .fire, .smoke, .dir_explosion => try self.pointClick(bridge, doc, history, grid),
+            .move_point, .horizontal, .angle => {
+                var drag = self.point_drag orelse return;
+                self.point_drag = null;
+                const command = drag.finish(self.allocator) orelse return;
+                try tools.commit(self.allocator, bridge, doc, history, command, 0);
+            },
         }
+    }
+
+    /// AddOrSelect...Point: a click on a point makes it the active one, a click
+    /// on free ground adds a point there (copying the active one's direction)
+    /// and makes that the active one. The directed explosions are five fixed
+    /// points: a click only selects.
+    fn pointClick(self: *GridEditor, bridge: ResBridge, doc: *Document, history: *History, grid: Point2) Error!void {
+        var points = try self.readPoints(bridge);
+        defer points.deinit(self.allocator);
+        if (hitPoint(points.aimed, grid, self.hitRadius())) |index| {
+            self.active = index;
+            return;
+        }
+        if (self.family == .dir_explosion) return;
+        const target = try self.documentTarget(doc);
+        const command = try point_tools.placePoint(self.allocator, doc, bridge, target, gridToWorld(grid), self.activePoint(points.aimed));
+        try tools.commit(self.allocator, bridge, doc, history, command, 0);
+        self.active = points.aimed.len;
+    }
+
+    /// A right click with a point mode: the point under the cursor is deleted
+    /// with its tree child, as DeleteShootPoint does. A no-op on free ground and
+    /// for the directed explosions, which MFC never deletes.
+    pub fn deletePointAt(self: *GridEditor, bridge: ResBridge, doc: *Document, history: *History, screen: Point2) Error!void {
+        if (!self.tool.isPointTool() or self.family == .dir_explosion) return;
+        var points = try self.readPoints(bridge);
+        defer points.deinit(self.allocator);
+        const index = hitPoint(points.aimed, self.gridPoint(screen), self.hitRadius()) orelse return;
+        try self.deleteIndex(bridge, doc, history, index);
+    }
+
+    /// The Delete key: the active point goes.
+    pub fn deleteActive(self: *GridEditor, bridge: ResBridge, doc: *Document, history: *History) Error!void {
+        if (!self.tool.isPointTool() or self.family == .dir_explosion) return;
+        const index = self.active orelse return;
+        try self.deleteIndex(bridge, doc, history, index);
+    }
+
+    fn deleteIndex(self: *GridEditor, bridge: ResBridge, doc: *Document, history: *History, index: usize) Error!void {
+        const target = try self.documentTarget(doc);
+        const command = try point_tools.deletePoint(self.allocator, doc, bridge, target, index);
+        try tools.commit(self.allocator, bridge, doc, history, command, 0);
+        if (self.active) |active| {
+            if (active == index) self.active = null else if (active > index) self.active = active - 1;
+        }
+    }
+
+    /// OnUpdateGeneratePoints: the button works in the smoke and
+    /// directed-explosion modes only.
+    pub fn canGenerate(self: *const GridEditor) bool {
+        return self.registration.kind == .build and self.tool.isPointTool() and (self.family == .smoke or self.family == .dir_explosion);
+    }
+
+    /// OnGeneratePoints: the smoke points are replaced by ones along the
+    /// footprint's edges, the five explosions are put at their places. One undo
+    /// step, none when the explosions are there already.
+    pub fn generate(self: *GridEditor, bridge: ResBridge, doc: *Document, history: *History) Error!void {
+        if (!self.canGenerate()) return error.Refused;
+        const target = try self.documentTarget(doc);
+        const command = switch (self.family) {
+            .smoke => try point_tools.generateSmokePoints(self.allocator, doc, bridge, target, generate_frame),
+            .dir_explosion => (try point_tools.generateDirExpPoints(self.allocator, bridge, target, generate_frame)) orelse return,
+            else => return error.Refused,
+        };
+        try tools.commit(self.allocator, bridge, doc, history, command, 0);
+        self.active = null;
     }
 
     /// A right click with the line tool: cancels the dragged line or deletes the
@@ -388,12 +695,19 @@ pub const GridEditor = struct {
         self.stroke = null;
         if (self.drag) |*drag| drag.cancel(bridge);
         self.drag = null;
+        if (self.point_drag) |*drag| drag.cancel(self.allocator, bridge);
+        self.point_drag = null;
         self.line_tool.cancel();
     }
 
     /// The status line: the active tool and the tile under the cursor.
     pub fn statusLine(self: *const GridEditor, buffer: []u8) []const u8 {
         const tool = self.tool.label();
+        if (self.tool.isPointTool()) {
+            if (self.active) |index| {
+                return std.fmt.bufPrint(buffer, "{s}: point {d} of the {s} list is active", .{ tool, index + 1, @tagName(self.family) }) catch tool;
+            }
+        }
         if (self.hover) |tile| {
             return std.fmt.bufPrint(buffer, "{s}: tile ({d}, {d})", .{ tool, tile[0], tile[1] }) catch tool;
         }
@@ -444,7 +758,70 @@ const Rig = struct {
     fn grid(self: *Rig, channel: GeometryChannel) !GeometryValue {
         return tools.readGeometry(self.res(), self.node, channel);
     }
+
+    /// A building with the four point containers of its tree and the five
+    /// fixed directed-explosion children (zero points, as a new project has).
+    fn building(allocator: std.mem.Allocator) !Rig {
+        var rig = try Rig.init(allocator, .build);
+        errdefer rig.deinit(allocator);
+        const item = tools.item_type;
+        _ = try rig.addNode(rig.node, item.building_slots);
+        _ = try rig.addNode(rig.node, item.building_fire_points);
+        _ = try rig.addNode(rig.node, item.building_smokes);
+        const explosions = try rig.addNode(rig.node, item.building_dir_explosions);
+        var n: usize = 0;
+        while (n < 5) : (n += 1) _ = try rig.addNode(explosions, item.building_dir_explosion_props);
+        const five = [_]AimedPoint{.{}} ** 5;
+        try bridge_mod.check(rig.res().geometryWrite(rig.node, .directed_explosion_points, &.{ .aimed = @constCast(&five) }));
+        return rig;
+    }
+
+    fn undo(self: *Rig) !void {
+        try self.history.redo_stack.ensureUnusedCapacity(testing.allocator, 1);
+        var entry = self.history.undo_stack.pop().?;
+        try self.doc.undoOne(testing.allocator, self.res(), &entry.command);
+        self.history.redo_stack.appendAssumeCapacity(entry);
+    }
+
+    fn redo(self: *Rig) !void {
+        try self.history.undo_stack.ensureUnusedCapacity(testing.allocator, 1);
+        var entry = self.history.redo_stack.pop().?;
+        try self.doc.redoOne(testing.allocator, self.res(), &entry.command);
+        self.history.undo_stack.appendAssumeCapacity(entry);
+    }
+
+    fn points(self: *Rig, channel: GeometryChannel) !GeometryValue {
+        return self.grid(channel);
+    }
+
+    fn pointCount(self: *Rig, channel: GeometryChannel) !usize {
+        var read = try self.points(channel);
+        defer read.deinit(testing.allocator);
+        return read.aimed.len;
+    }
+
+    fn pointAt(self: *Rig, channel: GeometryChannel, index: usize) !AimedPoint {
+        var read = try self.points(channel);
+        defer read.deinit(testing.allocator);
+        return read.aimed[index];
+    }
 };
+
+/// A gesture of the editor's mouse: press at `from`, move and release at `to`.
+fn gesture(editor: *GridEditor, rig: *Rig, from: Point2, to: Point2) !void {
+    const bridge = rig.res();
+    try editor.press(bridge, from, false);
+    try editor.move(bridge, to);
+    try editor.release(bridge, &rig.doc, &rig.history, to);
+}
+
+fn clickAt(editor: *GridEditor, rig: *Rig, at: Point2) !void {
+    try gesture(editor, rig, at, at);
+}
+
+fn screenOfWorld(world: Point2) Point2 {
+    return test_view.toScreen(worldToGrid(world));
+}
 
 /// A view whose window point is the grid-space point plus (50, 20), so the tests
 /// also prove the view's offset and scale are applied.
@@ -527,6 +904,10 @@ test "colour rules: locked red, unlocked and entrance green, transparency steps,
     try testing.expect(passabilityColor(0) == null);
     try testing.expectEqual(@as(Argb, 0xff00ff00), unlocked_color);
     try testing.expectEqual(@as(Argb, 0xff00ff00), entrance_color);
+    try testing.expectEqual(@as(Argb, 0xffffff00), cone_line_color);
+    try testing.expectEqual(@as(Argb, 0xffff0000), arrow_color);
+    try testing.expectEqual(@as(Argb, 0xffffffff), pointColor(.shoot, true));
+    try testing.expectEqual(@as(Argb, 0x78ff8000), pointColor(.fire, false));
     try testing.expectEqual(@as(Argb, 0xff0000ff), trans_line_color);
     const want = [_]Argb{ 0xff202000, 0xff404000, 0xff606000, 0xff808000, 0xffa0a000, 0xffc0c000, 0xffe0e000 };
     for (want, 1..) |colour, v| try testing.expectEqual(colour, transparencyColor(@intCast(v)).?);
@@ -546,6 +927,12 @@ test "registration: object and fence tools, kinds without a grid editor" {
     try testing.expect(fence.has(.centre_on_tile) and !fence.has(.set_zero) and !fence.has(.one_way_line));
     try testing.expectEqual(GeometryChannel.fence_transparences, fence.transparency);
     try testing.expect(registrationFor(.weapon) == null);
+    const building = registrationFor(.build).?;
+    try testing.expectEqual(GeometryChannel.transparency_cells, building.transparency);
+    try testing.expectEqual(GeometryChannel.passability_cells, building.passability);
+    for ([_]Tool{ .move, .draw_grid, .draw_transparency, .set_zero, .entrance, .shoot, .fire, .smoke, .dir_explosion, .move_point, .horizontal, .angle }) |tool| try testing.expect(building.has(tool));
+    try testing.expect(!building.has(.one_way_line) and !building.has(.centre_on_tile));
+    try testing.expect(!object.has(.shoot) and !fence.has(.angle));
 }
 
 test "target node: an object's root, a fence's selected segment else the first, the active insert" {
@@ -740,4 +1127,343 @@ test "tool transitions: a switch drops the gesture, an unregistered tool is refu
     try testing.expectEqualStrings("Draw transparency: tile (7, 9)", editor.statusLine(&buffer));
     try editor.move(bridge, test_view.toScreen(.{ .x = 5000, .y = 5000 }));
     try testing.expectEqualStrings("Draw transparency: outside the grid", editor.statusLine(&buffer));
+}
+
+// --- Building point modes ----------------------------------------------------
+
+test "building target node is the building root; point tools and families" {
+    var rig = try Rig.building(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    try testing.expect(targetNode(&rig.doc, .build, null) == null);
+    const root = try rig.addNode(rig.node, tools.item_type.building_root);
+    try testing.expectEqual(root, targetNode(&rig.doc, .build, null).?);
+    try testing.expectEqual(point_tools.Mode.smoke, Tool.smoke.family().?);
+    try testing.expect(Tool.angle.family() == null and Tool.angle.isPointTool());
+    try testing.expect(!Tool.entrance.isPointTool() and !Tool.draw_grid.isPointTool());
+}
+
+test "aim geometry: directions follow ComputeAngleLines, handles and angles invert, hits find the nearest" {
+    // Angle 0 steps along +y, 90 along -x, 180 along -y, 270 along +x.
+    const d0 = aimDirection(0);
+    const d90 = aimDirection(90);
+    try testing.expectApproxEqAbs(@as(f32, 0), d0.x, 1e-5);
+    try testing.expectApproxEqAbs(@as(f32, 1), d0.y, 1e-5);
+    try testing.expectApproxEqAbs(@as(f32, -1), d90.x, 1e-5);
+    const centre: Point2 = .{ .x = 30, .y = -20 };
+    for ([_]i32{ 0, 1, 45, 90, 179, 180, 270, 359 }) |angle| {
+        try testing.expectEqual(angle, angleToward(centre, aimTip(centre, @floatFromInt(angle))));
+    }
+    try testing.expectEqual(@as(i32, 0), angleToward(centre, centre));
+    // The cone is twice the way the pointer is off the direction, on either side.
+    try testing.expectEqual(@as(i32, 80), coneToward(centre, 10, aimTip(centre, 50)));
+    try testing.expectEqual(@as(i32, 80), coneToward(centre, 10, aimTip(centre, 330)));
+    try testing.expectEqual(@as(i32, 0), coneToward(centre, 10, aimTip(centre, 10)));
+
+    const points = [_]AimedPoint{ .{ .at = .{ .x = 0, .y = 0 }, .angle = 0, .cone = 80 }, .{ .at = .{ .x = 3, .y = 0 }, .angle = 90, .cone = 40 } };
+    const at_first = worldToGrid(points[0].at);
+    try testing.expectEqual(@as(?usize, 0), hitPoint(&points, at_first, 1));
+    // Between two points the nearer wins; the radius bounds the hit.
+    const near_second: Point2 = .{ .x = worldToGrid(points[1].at).x + 0.5, .y = worldToGrid(points[1].at).y };
+    try testing.expectEqual(@as(?usize, 1), hitPoint(&points, near_second, 5));
+    try testing.expectEqual(@as(?usize, null), hitPoint(&points, .{ .x = at_first.x + 100, .y = at_first.y }, 5));
+    try testing.expectEqual(@as(?usize, null), hitPoint(&.{}, at_first, 5));
+
+    const handles = handlesOf(points[0]);
+    try testing.expectEqual(@as(?point_tools.Part, .direction), hitHandle(points[0], handles.direction, 3));
+    try testing.expectEqual(@as(?point_tools.Part, .cone), hitHandle(points[0], handles.cone_plus, 3));
+    try testing.expectEqual(@as(?point_tools.Part, .cone), hitHandle(points[0], handles.cone_minus, 3));
+    try testing.expectEqual(@as(?point_tools.Part, null), hitHandle(points[0], handles.origin, 3));
+    // A zero cone puts all three tips together: the direction handle wins.
+    const flat: AimedPoint = .{ .angle = 30, .cone = 0 };
+    try testing.expectEqual(@as(?point_tools.Part, .direction), hitHandle(flat, handlesOf(flat).direction, 3));
+}
+
+test "shoot mode: a click on free ground adds a point and its child, a click on a point selects, undo and redo" {
+    var rig = try Rig.building(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    const bridge = rig.res();
+    var editor = GridEditor.init(testing.allocator, registrationFor(.build).?, rig.node);
+    defer editor.deinit(bridge);
+    editor.view = test_view;
+    try editor.setTool(bridge, .shoot);
+    try clickAt(&editor, &rig, onTile(4, 2));
+    try testing.expectEqual(@as(usize, 1), try rig.pointCount(.shoot_points));
+    try testing.expectEqual(@as(?usize, 0), editor.active);
+    const first = try rig.pointAt(.shoot_points, 0);
+    const want = gridToWorld(tileCentre(4, 2));
+    try testing.expectApproxEqAbs(want.x, first.at.x, 1e-3);
+    try testing.expectEqual(@as(i32, 80), first.cone);
+    const slots = tools.firstOfClass(&rig.doc, tools.item_type.building_slots).?;
+    try testing.expectEqual(@as(i32, 1), tools.childCount(&rig.doc, slots));
+
+    // Aim the first point, then add a second: it copies direction and cone.
+    try editor.setTool(bridge, .angle);
+    const tip = test_view.toScreen(handlesOf(first).direction);
+    try gesture(&editor, &rig, tip, screenOfWorld(aimTip(first.at, 90)));
+    try testing.expectEqual(@as(i32, 90), (try rig.pointAt(.shoot_points, 0)).angle);
+    try editor.setTool(bridge, .shoot);
+    try clickAt(&editor, &rig, onTile(10, 6));
+    try testing.expectEqual(@as(usize, 2), try rig.pointCount(.shoot_points));
+    try testing.expectEqual(@as(?usize, 1), editor.active);
+    var line: [96]u8 = undefined;
+    try testing.expect(std.mem.indexOf(u8, editor.statusLine(&line), "point 2") != null);
+    try testing.expectEqual(@as(i32, 90), (try rig.pointAt(.shoot_points, 1)).angle);
+
+    // A click on the first point selects it and adds nothing.
+    const steps = rig.history.undo_stack.items.len;
+    try clickAt(&editor, &rig, onTile(4, 2));
+    try testing.expectEqual(@as(?usize, 0), editor.active);
+    try testing.expectEqual(@as(usize, 2), try rig.pointCount(.shoot_points));
+    try testing.expectEqual(steps, rig.history.undo_stack.items.len);
+
+    try rig.undo();
+    try testing.expectEqual(@as(usize, 1), try rig.pointCount(.shoot_points));
+    try testing.expectEqual(@as(i32, 1), tools.childCount(&rig.doc, slots));
+    try rig.redo();
+    try testing.expectEqual(@as(usize, 2), try rig.pointCount(.shoot_points));
+    try testing.expectEqual(@as(i32, 2), tools.childCount(&rig.doc, slots));
+}
+
+test "fire and smoke modes edit their own lists; the explosions are fixed and only select" {
+    var rig = try Rig.building(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    const bridge = rig.res();
+    var editor = GridEditor.init(testing.allocator, registrationFor(.build).?, rig.node);
+    defer editor.deinit(bridge);
+    editor.view = test_view;
+    try editor.setTool(bridge, .fire);
+    try clickAt(&editor, &rig, onTile(3, 3));
+    try editor.setTool(bridge, .smoke);
+    try testing.expectEqual(@as(?usize, null), editor.active);
+    try clickAt(&editor, &rig, onTile(6, 3));
+    try clickAt(&editor, &rig, onTile(8, 8));
+    try testing.expectEqual(@as(usize, 1), try rig.pointCount(.fire_points));
+    try testing.expectEqual(@as(usize, 2), try rig.pointCount(.smoke_points));
+    try testing.expectEqual(@as(usize, 0), try rig.pointCount(.shoot_points));
+    // A fire or smoke point copies the direction, not the cone.
+    try testing.expectEqual(@as(i32, 0), (try rig.pointAt(.smoke_points, 1)).cone);
+
+    // The explosions sit at the origin: a click there selects, one elsewhere does nothing.
+    try editor.setTool(bridge, .dir_explosion);
+    const steps = rig.history.undo_stack.items.len;
+    try clickAt(&editor, &rig, screenOfWorld(.{ .x = 0, .y = 0 }));
+    try testing.expect(editor.active != null);
+    try clickAt(&editor, &rig, onTile(20, 20));
+    try testing.expectEqual(@as(usize, 5), try rig.pointCount(.directed_explosion_points));
+    try testing.expectEqual(steps, rig.history.undo_stack.items.len);
+    try editor.deleteActive(bridge, &rig.doc, &rig.history);
+    try testing.expectEqual(steps, rig.history.undo_stack.items.len);
+}
+
+test "delete: a right click or the Delete key removes the point and its child, undoable" {
+    var rig = try Rig.building(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    const bridge = rig.res();
+    var editor = GridEditor.init(testing.allocator, registrationFor(.build).?, rig.node);
+    defer editor.deinit(bridge);
+    editor.view = test_view;
+    try editor.setTool(bridge, .shoot);
+    try clickAt(&editor, &rig, onTile(4, 2));
+    try clickAt(&editor, &rig, onTile(10, 6));
+    try clickAt(&editor, &rig, onTile(14, 14));
+    const slots = tools.firstOfClass(&rig.doc, tools.item_type.building_slots).?;
+    const before = try rig.pointAt(.shoot_points, 2);
+    // Free ground deletes nothing.
+    try editor.deletePointAt(bridge, &rig.doc, &rig.history, onTile(30, 30));
+    try testing.expectEqual(@as(usize, 3), try rig.pointCount(.shoot_points));
+    // The first point goes; the active (third) point's index follows it down.
+    try editor.deletePointAt(bridge, &rig.doc, &rig.history, onTile(4, 2));
+    try testing.expectEqual(@as(usize, 2), try rig.pointCount(.shoot_points));
+    try testing.expectEqual(@as(i32, 2), tools.childCount(&rig.doc, slots));
+    try testing.expectEqual(@as(?usize, 1), editor.active);
+    try testing.expectEqual(before.at.x, (try rig.pointAt(.shoot_points, 1)).at.x);
+    // The Delete key removes the active one.
+    try editor.deleteActive(bridge, &rig.doc, &rig.history);
+    try testing.expectEqual(@as(usize, 1), try rig.pointCount(.shoot_points));
+    try testing.expectEqual(@as(?usize, null), editor.active);
+    try rig.undo();
+    try rig.undo();
+    try testing.expectEqual(@as(usize, 3), try rig.pointCount(.shoot_points));
+    try testing.expectEqual(@as(i32, 3), tools.childCount(&rig.doc, slots));
+    try rig.redo();
+    try testing.expectEqual(@as(usize, 2), try rig.pointCount(.shoot_points));
+}
+
+test "move point and horizontal position: one undo step per drag, the grab offset kept, x fixed when horizontal" {
+    var rig = try Rig.building(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    const bridge = rig.res();
+    var editor = GridEditor.init(testing.allocator, registrationFor(.build).?, rig.node);
+    defer editor.deinit(bridge);
+    editor.view = test_view;
+    try editor.setTool(bridge, .fire);
+    try clickAt(&editor, &rig, onTile(4, 4));
+    const home = try rig.pointAt(.fire_points, 0);
+    const steps = rig.history.undo_stack.items.len;
+
+    // Press off the point's centre by a few pixels: it does not jump.
+    try editor.setTool(bridge, .move_point);
+    const grab = Point2{ .x = onTile(4, 4).x + 4, .y = onTile(4, 4).y };
+    try editor.press(bridge, grab, false);
+    try editor.move(bridge, .{ .x = grab.x + 20, .y = grab.y + 10 });
+    try editor.move(bridge, .{ .x = grab.x + 40, .y = grab.y + 20 });
+    try editor.release(bridge, &rig.doc, &rig.history, .{ .x = grab.x + 40, .y = grab.y + 20 });
+    try testing.expectEqual(steps + 1, rig.history.undo_stack.items.len);
+    const moved = try rig.pointAt(.fire_points, 0);
+    const delta = test_view.toGrid(.{ .x = 40, .y = 20 });
+    const origin = test_view.toGrid(.{ .x = 0, .y = 0 });
+    const want = worldToGrid(home.at);
+    const got = worldToGrid(moved.at);
+    try testing.expectApproxEqAbs(want.x + delta.x - origin.x, got.x, 0.05);
+    try testing.expectApproxEqAbs(want.y + delta.y - origin.y, got.y, 0.05);
+    try rig.undo();
+    try testing.expectEqual(home.at.x, (try rig.pointAt(.fire_points, 0)).at.x);
+    try rig.redo();
+
+    // Horizontal: only the world y follows.
+    try editor.setTool(bridge, .horizontal);
+    const start = screenOfWorld(moved.at);
+    try gesture(&editor, &rig, start, .{ .x = start.x + 30, .y = start.y - 30 });
+    const slid = try rig.pointAt(.fire_points, 0);
+    try testing.expectEqual(moved.at.x, slid.at.x);
+    try testing.expect(slid.at.y != moved.at.y);
+    try testing.expectEqual(steps + 2, rig.history.undo_stack.items.len);
+
+    // A press off every point starts nothing; a click without a move records nothing.
+    try editor.press(bridge, onTile(30, 30), false);
+    try testing.expect(!editor.busy());
+    try clickAt(&editor, &rig, start);
+    try testing.expectEqual(steps + 2, rig.history.undo_stack.items.len);
+}
+
+test "angle mode: the direction handle and the cone handle drag, a press elsewhere selects, Escape puts it back" {
+    var rig = try Rig.building(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    const bridge = rig.res();
+    var editor = GridEditor.init(testing.allocator, registrationFor(.build).?, rig.node);
+    defer editor.deinit(bridge);
+    editor.view = test_view;
+    try editor.setTool(bridge, .shoot);
+    try clickAt(&editor, &rig, onTile(4, 4));
+    try clickAt(&editor, &rig, onTile(20, 4));
+    try editor.setTool(bridge, .angle);
+    try testing.expectEqual(@as(?usize, 1), editor.active);
+    try clickAt(&editor, &rig, onTile(4, 4));
+    try testing.expectEqual(@as(?usize, 0), editor.active);
+    const steps = rig.history.undo_stack.items.len;
+
+    const home = try rig.pointAt(.shoot_points, 0);
+    // Direction: the tip is dragged round to 90 degrees; the cone keeps its 80.
+    try gesture(&editor, &rig, test_view.toScreen(handlesOf(home).direction), screenOfWorld(aimTip(home.at, 90)));
+    var aimed = try rig.pointAt(.shoot_points, 0);
+    try testing.expectEqual(@as(i32, 90), aimed.angle);
+    try testing.expectEqual(@as(i32, 80), aimed.cone);
+    // The tree child's own properties follow the list.
+    try testing.expectEqual(steps + 1, rig.history.undo_stack.items.len);
+
+    // Cone: the plus edge's tip dragged to 60 degrees off the direction makes it 120.
+    try gesture(&editor, &rig, test_view.toScreen(handlesOf(aimed).cone_plus), screenOfWorld(aimTip(aimed.at, 90 + 60)));
+    aimed = try rig.pointAt(.shoot_points, 0);
+    try testing.expectEqual(@as(i32, 90), aimed.angle);
+    try testing.expectEqual(@as(i32, 120), aimed.cone);
+    try testing.expectEqual(steps + 2, rig.history.undo_stack.items.len);
+    try rig.undo();
+    try testing.expectEqual(@as(i32, 80), (try rig.pointAt(.shoot_points, 0)).cone);
+    try rig.undo();
+    try testing.expectEqual(@as(i32, 0), (try rig.pointAt(.shoot_points, 0)).angle);
+
+    // Escape in the middle of a drag: nothing recorded, the list is as it was.
+    const now = rig.history.undo_stack.items.len;
+    const tip = test_view.toScreen(handlesOf(home).direction);
+    try editor.press(bridge, tip, false);
+    try editor.move(bridge, screenOfWorld(aimTip(home.at, 200)));
+    try testing.expectEqual(@as(i32, 200), (try rig.pointAt(.shoot_points, 0)).angle);
+    editor.cancel(bridge);
+    try testing.expect(!editor.busy());
+    try testing.expectEqual(@as(i32, 0), (try rig.pointAt(.shoot_points, 0)).angle);
+    try testing.expectEqual(now, rig.history.undo_stack.items.len);
+}
+
+test "entrance: the click's world point, one undo step; set zero and Move reach the building too" {
+    var rig = try Rig.building(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    const bridge = rig.res();
+    var editor = GridEditor.init(testing.allocator, registrationFor(.build).?, rig.node);
+    defer editor.deinit(bridge);
+    editor.view = test_view;
+    try editor.setTool(bridge, .entrance);
+    try clickAt(&editor, &rig, onTile(5, 7));
+    const want = gridToWorld(tileCentre(5, 7));
+    var entrance = try rig.grid(.entrance);
+    try testing.expectApproxEqAbs(want.x, entrance.point2.x, 1e-3);
+    try testing.expectApproxEqAbs(want.y, entrance.point2.y, 1e-3);
+    try testing.expectEqual(@as(usize, 1), rig.history.undo_stack.items.len);
+    try rig.undo();
+    entrance = try rig.grid(.entrance);
+    try testing.expectEqual(@as(f32, 0), entrance.point2.x);
+    try rig.redo();
+    try editor.setTool(bridge, .set_zero);
+    try clickAt(&editor, &rig, onTile(2, 2));
+    try testing.expectEqual(@as(usize, 2), rig.history.undo_stack.items.len);
+    try editor.setTool(bridge, .draw_grid);
+    try clickAt(&editor, &rig, onTile(3, 3));
+    try testing.expectEqual(@as(usize, 3), rig.history.undo_stack.items.len);
+}
+
+test "generate points: enabled in smoke and explosion modes only, one undo step each" {
+    var rig = try Rig.building(testing.allocator);
+    defer rig.deinit(testing.allocator);
+    const bridge = rig.res();
+    var editor = GridEditor.init(testing.allocator, registrationFor(.build).?, rig.node);
+    defer editor.deinit(bridge);
+    editor.view = test_view;
+    // A 4 x 4 locked footprint at tile (6, 6), the way the draw grid tool paints it.
+    try editor.setTool(bridge, .draw_grid);
+    try gesture(&editor, &rig, onTile(6, 6), onTile(6, 9));
+    try gesture(&editor, &rig, onTile(7, 6), onTile(7, 9));
+    try gesture(&editor, &rig, onTile(8, 6), onTile(8, 9));
+    try gesture(&editor, &rig, onTile(9, 6), onTile(9, 9));
+    const painted = rig.history.undo_stack.items.len;
+
+    try testing.expect(!editor.canGenerate());
+    try editor.setTool(bridge, .shoot);
+    try testing.expect(!editor.canGenerate());
+    try testing.expectError(error.Refused, editor.generate(bridge, &rig.doc, &rig.history));
+    try editor.setTool(bridge, .draw_grid);
+    try testing.expect(!editor.canGenerate());
+
+    try editor.setTool(bridge, .smoke);
+    try testing.expect(editor.canGenerate());
+    try clickAt(&editor, &rig, onTile(25, 25));
+    try testing.expectEqual(@as(usize, 1), try rig.pointCount(.smoke_points));
+    try editor.generate(bridge, &rig.doc, &rig.history);
+    // Half as many points as an edge has tiles, on all four edges, the old one gone.
+    try testing.expectEqual(@as(usize, 8), try rig.pointCount(.smoke_points));
+    const smokes = tools.firstOfClass(&rig.doc, tools.item_type.building_smokes).?;
+    try testing.expectEqual(@as(i32, 8), tools.childCount(&rig.doc, smokes));
+    try testing.expectEqual(painted + 2, rig.history.undo_stack.items.len);
+    try rig.undo();
+    try testing.expectEqual(@as(usize, 1), try rig.pointCount(.smoke_points));
+    try rig.redo();
+
+    // Explosions: moved to their places, once; the second press changes nothing.
+    try editor.setTool(bridge, .dir_explosion);
+    try testing.expect(editor.canGenerate());
+    try editor.generate(bridge, &rig.doc, &rig.history);
+    var five = try rig.points(.directed_explosion_points);
+    defer five.deinit(testing.allocator);
+    try testing.expectEqual(@as(i32, 225), five.aimed[4].angle);
+    const steps = rig.history.undo_stack.items.len;
+    try editor.generate(bridge, &rig.doc, &rig.history);
+    try testing.expectEqual(steps, rig.history.undo_stack.items.len);
+    try rig.undo();
+    try testing.expectEqual(@as(i32, 0), (try rig.pointAt(.directed_explosion_points, 4)).angle);
+
+    // An empty footprint cannot be generated from (MFC asserts there is a locked tile).
+    var bare = try Rig.building(testing.allocator);
+    defer bare.deinit(testing.allocator);
+    var bare_editor = GridEditor.init(testing.allocator, registrationFor(.build).?, bare.node);
+    defer bare_editor.deinit(bare.res());
+    try bare_editor.setTool(bare.res(), .smoke);
+    try testing.expectError(error.Refused, bare_editor.generate(bare.res(), &bare.doc, &bare.history));
 }

@@ -536,8 +536,19 @@ pub const Panels = struct {
         const can_edit = !life.read_only;
 
         for (registration.tools, 0..) |tool, i| {
-            if (i != 0) ig.igSameLine();
+            // The Building's point modes go on a second row, as BuildFrm's toolbar groups them.
+            if (i != 0 and !(tool == .entrance)) ig.igSameLine();
             if (ig.igRadioButton(tool.label().ptr, editor.tool == tool)) editor.setTool(b, tool) catch |err| self.report(b, "grid tool", err);
+        }
+        if (registration.has(.shoot) and can_edit) {
+            // OnUpdateGeneratePoints: only the smoke and directed-explosion modes.
+            ig.igBeginDisabled(!editor.canGenerate());
+            if (ig.igButton("Generate points")) editor.generate(b, &life.doc, &life.history) catch |err| self.report(b, "generate points", err);
+            ig.igEndDisabled();
+            ig.igSameLine();
+            ig.igBeginDisabled(!(editor.tool.isPointTool() and editor.active != null and editor.family != .dir_explosion));
+            if (ig.igButton("Delete point")) editor.deleteActive(b, &life.doc, &life.history) catch |err| self.report(b, "delete point", err);
+            ig.igEndDisabled();
         }
         if (editor.tool == .draw_transparency) {
             var label: [4:0]u8 = undefined;
@@ -611,7 +622,7 @@ pub const Panels = struct {
         const gpa = editor.allocator;
         const io = ig.igGetIO();
         const display = io.*.DisplaySize;
-        const anchor_channel: core.bridge.GeometryChannel = if (life.doc.kind == .object) .zero_point else .sprite_pos;
+        const anchor_channel: core.bridge.GeometryChannel = if (life.doc.kind == .fence) .sprite_pos else .zero_point;
         const anchor = (tools.readGeometry(b, node, anchor_channel) catch return).point2;
         // The preview puts the object at the middle of the window; its zero
         // point (object) or sprite place (fence) is the grid's anchor there.
@@ -662,13 +673,14 @@ pub const Panels = struct {
             }
         }
         const marker = screenOf(view, grid.worldToGrid(anchor));
-        if (life.doc.kind == .object) {
+        if (life.doc.kind != .fence) {
             const cross = grid.toImGui(grid.zero_cross_color);
             ig.ImDrawList_AddLineEx(draw_list, .{ .x = marker.x - 8, .y = marker.y }, .{ .x = marker.x + 8, .y = marker.y }, cross, 2);
             ig.ImDrawList_AddLineEx(draw_list, .{ .x = marker.x, .y = marker.y - 8 }, .{ .x = marker.x, .y = marker.y + 8 }, cross, 2);
         } else {
             ig.ImDrawList_AddCircle(draw_list, marker, 5, grid.toImGui(0xffffffff));
         }
+        if (registration.has(.entrance)) self.drawBuildingPoints(b, editor, node, view, draw_list);
         if (editor.hover) |tile| {
             const corners = tileQuad(view, tile[0], tile[1]);
             ig.ImDrawList_AddQuad(draw_list, corners[0], corners[1], corners[2], corners[3], grid.toImGui(0xffffffff));
@@ -687,6 +699,8 @@ pub const Panels = struct {
         if (ig.igIsMouseClickedEx(right, false)) {
             if (editor.tool == .one_way_line) {
                 editor.rightClick(b, &life.doc, &life.history) catch |err| self.report(b, "grid tool", err);
+            } else if (editor.tool.isPointTool()) {
+                editor.deletePointAt(b, &life.doc, &life.history, at) catch |err| self.report(b, "delete point", err);
             } else {
                 editor.press(b, at, true) catch |err| self.report(b, "grid tool", err);
             }
@@ -696,6 +710,52 @@ pub const Panels = struct {
         // The right button's release ends an erase stroke; with no stroke it must not set a zero or centre the sprite.
         if (ig.igIsMouseReleased(right) and editor.busy()) editor.release(b, &life.doc, &life.history, at) catch |err| self.report(b, "grid tool", err);
         if (ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) editor.cancel(b);
+    }
+
+    /// The Building's entrance and aimed points over the grid: the entrance
+    /// green, each point in its family's tint (opaque when active, 120/255
+    /// otherwise) and, for the active point, ComputeAngleLines' yellow cone
+    /// edges and direction line with the red arrow head at its tip.
+    fn drawBuildingPoints(self: *Panels, b: ResBridge, editor: *grid.GridEditor, node: i32, view: grid.View, draw_list: *ig.ImDrawList) void {
+        _ = self;
+        const gpa = editor.allocator;
+        if (core.sub_editor_tools.readGeometry(b, node, .entrance)) |entrance| {
+            const at = screenOf(view, grid.worldToGrid(entrance.point2));
+            ig.ImDrawList_AddCircleFilled(draw_list, at, 5, grid.toImGui(grid.entrance_color), 0);
+        } else |_| {}
+        const families = [_]struct { mode: core.point_tools.Mode, channel: core.bridge.GeometryChannel }{
+            .{ .mode = .shoot, .channel = .shoot_points },
+            .{ .mode = .fire, .channel = .fire_points },
+            .{ .mode = .smoke, .channel = .smoke_points },
+            .{ .mode = .dir_explosion, .channel = .directed_explosion_points },
+        };
+        for (families) |family| {
+            var read = core.sub_editor_tools.readGeometry(b, node, family.channel) catch continue;
+            defer read.deinit(gpa);
+            const current = editor.tool.isPointTool() and editor.family == family.mode;
+            for (read.aimed, 0..) |point, i| {
+                const is_active = current and editor.active != null and editor.active.? == i;
+                const handles = grid.handlesOf(point);
+                const at = screenOf(view, handles.origin);
+                ig.ImDrawList_AddCircleFilled(draw_list, at, if (is_active) 5 else 4, grid.toImGui(grid.pointColor(family.mode, is_active)), 0);
+                if (!is_active) continue;
+                const yellow = grid.toImGui(grid.cone_line_color);
+                const tip = screenOf(view, handles.direction);
+                ig.ImDrawList_AddLineEx(draw_list, at, screenOf(view, handles.cone_minus), yellow, 1);
+                ig.ImDrawList_AddLineEx(draw_list, at, screenOf(view, handles.cone_plus), yellow, 1);
+                ig.ImDrawList_AddLineEx(draw_list, at, tip, yellow, 1);
+                // The arrow head: two short lines back from the tip, 5 degrees either side of the direction.
+                const angle: f32 = @floatFromInt(point.angle);
+                const red = grid.toImGui(grid.arrow_color);
+                for ([_]f32{ -5, 5 }) |side| {
+                    const back = screenOf(view, grid.worldToGrid(grid.aimTip(point.at, angle + side)));
+                    const head = at.x + (back.x - at.x) * 0.9;
+                    const head_y = at.y + (back.y - at.y) * 0.9;
+                    ig.ImDrawList_AddLineEx(draw_list, .{ .x = head, .y = head_y }, tip, red, 2);
+                }
+                ig.ImDrawList_AddCircle(draw_list, tip, 4, red);
+            }
+        }
     }
 
     fn drawRename(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
