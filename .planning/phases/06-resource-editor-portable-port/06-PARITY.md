@@ -220,12 +220,12 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-12.1 | Tree: Common, Defences, Begin/Center/End spans, Parts, Stages (damage states), Fire points, Directed explosions, Smokes | todo |
-| B-12.2 | Draw grid, draw bridge passability, transparency dropdown, Set zero | todo |
-| B-12.3 | Span marks `Begin/End/Front/Back` | todo |
-| B-12.4 | Fire points, smoke points, move point, horizontal position, angle, generate points | todo |
-| B-12.5 | Export: `SBridgeRPGStats` (segments/spans/states), sprite + shadow packs, `icon.tga` | todo |
-| B-12.6 | Import from game data | todo |
+| B-12.1 | Tree: Common, Defences, Begin/Center/End spans, Parts, Stages (damage states), Fire points, Directed explosions, Smokes | done (S11 T01-T02: the importer builds the tree from stats for all 21 shipped Data/Bridges folders, `BRIDGES checked=21 differences=0`; the app's tree and the resource-editor-auto bdg block open the fixture with expect=nodes_min:2) |
+| B-12.2 | Draw grid, draw bridge passability, transparency dropdown, Set zero | done for Draw grid on the active span part's locked tiles and Set zero (S11 T03-T05: undo/redo tests in point_tools and grid_logic; auto bdg block brushes two tiles, measures the 0xff0000 shot 263 -> 629 pixels, undoes back to 263). Not ported: Draw pass (unlocked tiles) and the transparency dropdown, because the C++ bridge homes only the locked tiles on a bridge part (S11 T04 decision) |
+| B-12.3 | Span marks `Begin/End/Front/Back` | done (S11 T03-T05: `setSpanMark` undo/redo tests; auto bdg block moves all four marks, measures the cyan 0x00ffff crosses 179 -> 377 pixels, undoes to the home marks and redoes. The auto run exposed that undoing the first mark wrote an empty list, which the channel refuses: undo now restores the frame's defaults) |
+| B-12.4 | Fire points, smoke points, move point, horizontal position, angle, generate points | done (S11 T03-T05: bridge fire, smoke and directed-explosion channels with undo/redo tests; auto bdg block places a fire point (0xff8000, 51 pixels, 0 after undo) and a smoke point, undoes and redoes both). Shoot points do not exist on a bridge, as in CBridgeFrame |
+| B-12.5 | Export: `SBridgeRPGStats` (segments/spans/states), sprite + shadow packs, `icon.tga` | done on repo fixtures (S11 T01: export tests over the 54-picture fixture; auto bdg block exports and checks data/bridges/bdg/1.xml and 1_c.dds); golden pending win-home |
+| B-12.6 | Import from game data | done (S11 T02: every shipped Data/Bridges folder (21) imports and exports stats-only field-equal, `BRIDGES checked=21 folders=21 failed=0 differences=0`; `NEGTILES bridges checked=21 negative=0`) |
 
 ### B-13 Trench editor (`CTrenchFrame`, `.trc`) — 06-06
 

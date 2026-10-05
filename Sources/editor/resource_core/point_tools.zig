@@ -349,7 +349,16 @@ pub fn setSpanMark(allocator: std.mem.Allocator, bridge: ResBridge, node: i32, m
         .back => marks[2].y = if (kind == .horizontal) world.y - papa.y else world.x - papa.x,
     }
     if (before.points2.len == 3 and std.mem.eql(u8, std.mem.sliceAsBytes(before.points2), std.mem.sliceAsBytes(&marks))) return null;
-    return try tools.setGeometry(allocator, bridge, node, .bridge_span_marks, .{ .points2 = &marks });
+    var command = try tools.setGeometry(allocator, bridge, node, .bridge_span_marks, .{ .points2 = &marks });
+    errdefer command.deinit(allocator);
+    // Nothing stored yet reads back empty, and the channel refuses to be written with anything but
+    // all three marks, so undo restores the frame's defaults, which is what the Bridge shows then.
+    if (before.points2.len == 0) {
+        const defaults = try allocator.dupe(Point2, &.{ default_span_mark, default_span_mark, .{} });
+        allocator.free(command.geometry.before.points2);
+        command.geometry.before.points2 = defaults;
+    }
+    return command;
 }
 
 // --- Generate points -----------------------------------------------------------
@@ -1149,8 +1158,9 @@ test "a span mark with nothing set starts from the frame's defaults, a repeat is
     try testing.expectEqual(pt.at(7, 0), marks[2]);
     try testing.expect((try setSpanMark(testing.allocator, rig.bridge(), rig.root, .front, pt.at(0, 7), .horizontal, .{}, .{})) == null);
     try rig.undo();
+    // The channel cannot be written empty, so undo puts the frame's defaults back: what the Bridge shows.
     read = try tools.readGeometry(rig.bridge(), rig.root, .bridge_span_marks);
-    try testing.expectEqual(@as(usize, 0), read.points2.len);
+    try testing.expectEqualSlices(Point2, &.{ default_span_mark, default_span_mark, .{} }, read.points2);
     read.deinit(testing.allocator);
 
     const two = [_]Point2{ .{}, .{} };

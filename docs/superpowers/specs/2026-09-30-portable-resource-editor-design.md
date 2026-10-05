@@ -210,16 +210,16 @@ digits survive a save.
 | fence_transparences | fence segment (`CFencePropsItem`) | the segment's `Transparences` list (S09 T04, channel 18): a bytes grid in tile coordinates, 0..7. Covered by the get/set/save/reopen round trip; the exported origin is not asserted against an expected value. |
 | sprite_pos | object root, fence segment | the object's `own_data/sprite_pos`, a fence segment's `SpritePos` (S09 T04, channel 19), a Point2 in grid pixels; the Move tool drags it and Centre on tile sets it to a tile's centre (`GridProjection`). |
 | transparency_lines | object root | `own_data/TransLines`, `<item><Point1/><Point2/></item>` per line (`CObjectFrame::SaveFrameOwnData`, `STransLine::operator&`). The ABI list is point pairs, and an odd count is refused. |
-| zero_point | building / object root | `own_data/krest_pos` (`m_zeroPos`, CVec3; z kept) |
+| zero_point | building / object root, bridge root | `own_data/krest_pos` (`m_zeroPos`, CVec3; z kept). S11: the bridge root homes it as frame data too (`CBridgeFrame` Set zero). |
 | zero_point | squad formation (`CSquadFormationPropsItem`) | the item's `ZeroPos` (`vZeroPos`; z kept) |
 | entrance | building root | `desc/Entrances/item[0]/Position` (`SBuildingRPGStats::SEntrance`) |
 | shoot_points | building root | `desc/FireSlots` items: `Position`, `Direction` = angle, `Angle` = cone (`SSlot`) |
-| fire_points | building root | `desc/FirePoints` items: `Position`, `Direction` = angle, `VerticalAngle` = cone (`SFirePoint`) |
-| smoke_points | building root | `desc/SmokePoints` items, the same shape as fire points |
-| directed_explosion_points | building root | `desc/DirExplosions` items: `Position`, `Direction`, `VerticalAngle` = cone (`SDirectionExplosion`) |
+| fire_points | building root, bridge root | `desc/FirePoints` items: `Position`, `Direction` = angle, `VerticalAngle` = cone (`SFirePoint`). S11: a bridge keeps its points in its RPG chunk the same way. |
+| smoke_points | building root, bridge root | `desc/SmokePoints` items, the same shape as fire points (S11: a bridge smoke point has no `FireEffect`) |
+| directed_explosion_points | building root, bridge root | `desc/DirExplosions` items: `Position`, `Direction`, `VerticalAngle` = cone (`SDirectionExplosion`). S11: a bridge has the same five fixed points, and no shoot points. |
 | formation_positions | squad formation (`CSquadFormationPropsItem`) | the item's `units` list, `Pos` x and y of each `SUnit` (`SUnit::operator&`). A slot keeps its z and `Dir`; a new one gets `AddUnit`'s z = 0, `Dir` = 0. |
 | formation_direction | squad formation (`CSquadFormationPropsItem`) | the item's `FormationDir` attribute (`fFormationDir`, radians). Added in S06 T04 for SquadFrm's direction arrow: the ABI carries it as a Point2, x the angle, y unused (reads 0). A set writes only the angle; the arrow's tool also turns the slots about the zero point (`CalculateNewPositions`) through formation_positions in the same undo step. A slot's own `Dir` (the arrow in drag mode) has no channel yet. |
-| bridge_span_marks | bridge root | `own_data` `Begin`, `End` (CVec3; z kept) and the `Front` / `Back` attributes (`CBridgeFrame::SaveFrameOwnData`). The ABI list is always three points: Begin, End, (Front, Back). |
+| bridge_span_marks | bridge root | `own_data` `Begin`, `End` (CVec3; z kept) and the `Front` / `Back` attributes (`CBridgeFrame::SaveFrameOwnData`). The ABI list is always three points: Begin, End, (Front, Back). Nothing stored reads back empty and an empty write is refused, so the undo of the first edit restores the frame's default marks (S11 T05). |
 | mission_objectives | mission Objectives node | each child's `Objective position X` / `Y` value (`CMissionObjectivePropsItem::Get/SetObjectivePosition`), and `RPG/Objectives/item[i]/PosOnMap` when the project has an RPG chunk (`SMissionStats`) |
 | chapter_crosses | chapter Missions node, Place holders node | each child's `Mission position X` / `Y` or `Place holder position X` / `Y` value (`CChapterMissionPropsItem`, `CChapterPlacePropsItem`), and `RPG/Missions/item[i]/PosOnMap` or `RPG/PlaceHolders/item[i]/Position` (`SChapterStats`) |
 | campaign_crosses | campaign Chapters node | each child's `Chapter position X` / `Y` value (`CCampaignChapterPropsItem`), and `RPG/AllChapters/item[i]/PosOnMap` (`SCampaignStats`) |

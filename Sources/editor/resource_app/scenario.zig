@@ -51,6 +51,7 @@
 //!   do=point_angle:<i>/<deg>   do=point_cone:<i>/<deg>   its direction handle or its cone handle dragged
 //!                           (the Angle and cone tool) to where that direction, or that cone, points
 //!   do=generate_points:<smoke|dir>   the Generate points button in that family's mode
+//!   do=span_mark:<begin|end|front|back>/<x>/<y>   the Bridge's Span marks tool clicked on a tile centre, for that mark
 //!   The grid verbs need a frame drawn since the project opened (the grid editor lives in the panels)
 //!   and go through GridEditor's press, move and release, the path of the mouse.
 //!   open=<path> save saveas=<path> shot=<name> differ=<a>/<b>@<percent> exit
@@ -67,6 +68,7 @@
 //!          points:<shoot|fire|smoke|dir>=<n>  the Building's point count of a family
 //!          point:<shoot|fire|smoke|dir>/<i>=<angle>/<cone>  one point's stored direction and cone (angle within 1 degree)
 //!          entrance_tile:<x>/<y>  the Building's entrance tile
+//!          span_mark:<begin|end|front|back>=moved|home  the Bridge's mark against the frame's default
 //!
 //! `{dir}` (the scratch folder), `{fix}` (the fixtures folder) and `{mods}`
 //! (the installation's mods folder) are replaced in every path and argument,
@@ -645,6 +647,15 @@ const Runner = struct {
             editor.generate(b, &self.life.doc, &self.life.history) catch |err| return self.fail("generate_points:{s}: {s} {s}", .{ named.arg, @errorName(err), b.lastMessage() });
             return null;
         }
+        if (eql(u8, name, "span_mark")) {
+            const slash = std.mem.indexOfScalar(u8, named.arg, '/') orelse return self.fail("span_mark needs <mark>/<x>/<y>", .{});
+            const mark = parseSpanMark(named.arg[0..slash]) orelse return self.fail("span_mark: '{s}' is not begin, end, front or back", .{named.arg[0..slash]});
+            const p = parseInts(2, named.arg[slash + 1 ..]) orelse return self.fail("span_mark needs <mark>/<x>/<y>", .{});
+            const editor = self.gridEditor(name) orelse return self.fail("span_mark: no grid editor is open (draw a frame after opening a bdg)", .{});
+            editor.span_mark = mark;
+            const tile = [2]i32{ p[0], p[1] };
+            return self.gridStroke(name, .span_marks, tile, tile, false);
+        }
         if (eql(u8, name, "sprite_move")) return self.spriteMove(named.arg);
         if (eql(u8, name, "pause")) {
             const ms = std.fmt.parseInt(i64, named.arg, 10) catch return self.fail("pause needs milliseconds", .{});
@@ -1112,6 +1123,22 @@ const Runner = struct {
             if (tile[0] != want[0] or tile[1] != want[1]) return self.fail("expect=entrance_tile:{s} was false: it is tile {d}/{d}", .{ arg, tile[0], tile[1] });
             return null;
         }
+        if (eql(u8, name, "span_mark")) {
+            const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return self.fail("span_mark needs <mark>=moved|home", .{});
+            const mark = parseSpanMark(arg[0..eq]) orelse return self.fail("expect=span_mark: '{s}' is not begin, end, front or back", .{arg[0..eq]});
+            const editor = self.gridEditor("span_mark") orelse return self.fail("expect=span_mark: no grid editor is open", .{});
+            const marks = grid.readSpanMarks(self.gpa, self.bridge(), editor.node) catch return self.fail("expect=span_mark:{s}: {s}", .{ arg, self.bridge().lastMessage() });
+            const now: Point2 = switch (mark) {
+                .begin => marks[0],
+                .end => marks[1],
+                .front => .{ .x = marks[2].x },
+                .back => .{ .x = marks[2].y },
+            };
+            const home: Point2 = if (mark == .begin or mark == .end) core.point_tools.default_span_mark else .{ .x = 0 };
+            const moved = now.x != home.x or (mark != .front and mark != .back and now.y != home.y);
+            if (moved != eql(u8, arg[eq + 1 ..], "moved")) return self.fail("expect=span_mark:{s} was false: the mark is at {d:.2}/{d:.2}", .{ arg, now.x, now.y });
+            return null;
+        }
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
         return self.fail("unknown predicate '{s}'", .{name});
     }
@@ -1135,6 +1162,14 @@ fn parseMode(text: []const u8) ?core.point_tools.Mode {
     if (std.mem.eql(u8, text, "fire")) return .fire;
     if (std.mem.eql(u8, text, "smoke")) return .smoke;
     if (std.mem.eql(u8, text, "dir")) return .dir_explosion;
+    return null;
+}
+
+fn parseSpanMark(text: []const u8) ?core.point_tools.SpanMark {
+    if (std.mem.eql(u8, text, "begin")) return .begin;
+    if (std.mem.eql(u8, text, "end")) return .end;
+    if (std.mem.eql(u8, text, "front")) return .front;
+    if (std.mem.eql(u8, text, "back")) return .back;
     return null;
 }
 
