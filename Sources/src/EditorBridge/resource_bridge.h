@@ -252,6 +252,16 @@ BkEditorStatus BkResSetTransparencyLines( BkResSession *session, int node, const
 BkEditorStatus BkResGetZeroPoint( BkResSession *session, int node, BkResPoint2 *point );
 BkEditorStatus BkResSetZeroPoint( BkResSession *session, int node, const BkResPoint2 *point );
 
+/* A squad formation's direction (CSquadFormationPropsItem::fFormationDir,
+   the FormationDir attribute; SquadFrm's direction arrow in Set Zero mode).
+   x is the angle in radians as MFC stores it; y is ignored on a set and reads
+   0. A set writes only the angle: MFC also turns the slots about the zero
+   point (CalculateNewPositions), which the editor writes through
+   BkResSetFormationPositions in the same undo step. The owner is a formation
+   props node; any other node is BK_EDITOR_REFUSED. */
+BkEditorStatus BkResGetFormationDirection( BkResSession *session, int node, BkResPoint2 *direction );
+BkEditorStatus BkResSetFormationDirection( BkResSession *session, int node, const BkResPoint2 *direction );
+
 /* The entrance point, same shape as the zero point. */
 BkEditorStatus BkResGetEntrance( BkResSession *session, int node, BkResPoint2 *point );
 BkEditorStatus BkResSetEntrance( BkResSession *session, int node, const BkResPoint2 *point );

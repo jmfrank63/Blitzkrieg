@@ -9,9 +9,12 @@
 //
 // A kind with no registered exporter is not exported: BkResExport answers
 // BK_EDITOR_REFUSED and says the exporter is not ported yet. Nothing pretends
-// to have written game data it did not write.
+// to have written game data it did not write. The table starts with the
+// exporters ported so far (S06: wpn, mcp, trc, scp; items/stats_export.h).
 
+#include <functional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "project.h"
@@ -25,6 +28,24 @@ struct SExportContext
 	std::string szStagingRoot;   // the export root's data/ folder, staged: write below it
 	bool bForce = false;         // MFC's -f: export even when the files are up to date
 	bool bStatsOnly = false;     // D-13: write the stats, leave exported graphics untouched
+
+	// D015: the objects database MFC's frames asked through IObjectsDB, which
+	// an exporter does not own. Given a resource path as MFC builds it (lower
+	// case, backslashes, e.g. "units\humans\ussr\mosin"), the key name of the
+	// sprite unit stored there, or false when no such unit is known. The
+	// bridge fills it from the engine's IObjectsDB; tests pass a fixture
+	// table. Empty: a squad member given as a path cannot be resolved and the
+	// squad export fails, naming the member.
+	std::function<bool( const std::string &szPath, std::string &szKey )> findUnitKey;
+
+	// The fire places of a trench segment model (a .mod file): the positions
+	// of its locators with the mesh at the origin, as CTrenchFrame::SaveRPGStats
+	// reads them from the mesh IVisObjBuilder builds. That needs the engine's
+	// mesh builder, which the bridge has and a data-only host does not; empty
+	// here, a trench with a segment model fails its export instead of writing
+	// a segment without fire places. False with szError when the model
+	// cannot be built (MFC's "Cannot create model": the segment is skipped).
+	std::function<bool( const std::string &szModFile, std::vector<std::pair<float, float>> &firePlaces, std::string &szError )> meshFirePlaces;
 };
 
 struct SExportOutcome

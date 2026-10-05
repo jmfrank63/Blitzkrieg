@@ -27,6 +27,9 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <cmath>
+#include <map>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -1382,8 +1385,9 @@ static void EveryChannelOnEveryFixture( BkResSession *pSession, const std::strin
 // T10: References, MOD settings + PAK, Export (+ batch), Import.
 //
 // The exporters themselves are ported by each sub-editor's slice; until then
-// every kind answers REFUSED, which this tier pins for all 21 fixtures, and
-// the golden comparison is reported as pending, never as a pass. The export
+// a kind answers REFUSED, which this tier pins for every fixture whose kind
+// is not ported (S06 ported wpn, mcp, trc and scp: those export), and the
+// golden comparison is reported as pending, never as a pass. The export
 // plumbing (export root, staging, move into place, report) is proved with
 // test-only exporters registered through NResourceModel::RegisterExporter.
 
@@ -1399,6 +1403,55 @@ static bool WriteText( const std::filesystem::path &file, const std::string &szT
 	std::ofstream f( file, std::ios::binary | std::ios::trunc );
 	f.write( szText.data(), std::streamsize( szText.size() ) );
 	return bool( f );
+}
+
+// The kinds S06 ported: their fixtures export for real.
+static bool IsPortedExport( const std::string &szExt )
+{
+	return szExt == "wpn" || szExt == "mcp" || szExt == "trc" || szExt == "scp";
+}
+
+// The stats file a fixture's export moved into data/, read back with the
+// engine's own reader (the struct's operator&, as GameDB does). Field-equal
+// proof against hand-derived structs is test-resource-model-comparator's;
+// here: the file is where MFC's folders put it, and what only the running
+// engine supplies - the squad member resolved through IObjectsDB - is in it.
+static void ExportedStatsRead( const std::string &szExt, const std::filesystem::path &modData, const BkResExportReport &report )
+{
+	if ( szExt == "wpn" )
+	{
+		SWeaponRPGStats stats;
+		const std::string szFile = ( modData / "weapons" / "wpn.xml" ).string();
+		Check( ReadChunkAsMfc( szFile, "base", "RPG", stats ) && stats.szKeyName == "Unknown Weapon" && stats.wDeltaAngle == 10 &&
+		       stats.shells.size() == 1 && stats.shells[0].fDamagePower == 5.0f && stats.shells[0].fTraceProbability == 0.1f &&
+		       stats.shells[0].flashFire.nPower == 100 && stats.shells[0].flashExplosion.nDuration == 1000,
+		       "export: wpn lands in weapons/<project folder>.xml and the engine reads the fixture's weapon" );
+	}
+	else if ( szExt == "mcp" )
+	{
+		SMineRPGStats stats;
+		const std::string szFile = ( modData / "objects/simpleobjects/common/summer/mine/mcp/1.xml" ).string();
+		Check( ReadChunkAsMfc( szFile, "base", "RPG", stats ) && stats.fWeight == 10.0f && stats.szFlagModel == "1" && stats.szWeapon.empty(),
+		       "export: mcp lands in objects/simpleobjects/common/summer/mine/<folder>/1.xml with weight 10 and flag model 1" );
+	}
+	else if ( szExt == "trc" )
+	{
+		SEntrenchmentRPGStats stats;
+		const std::string szFile = ( modData / "units/technics/common/entrenchment/trc/1.xml" ).string();
+		Check( ReadChunkAsMfc( szFile, "base", "RPG", stats ) && stats.fMaxHP == 100.0f && stats.szKeyName == "Unknown Trench" &&
+		       stats.segments.empty() && stats.defences[RPG_FRONT].nArmorMin == 300 && stats.defences[RPG_TOP].fSilhouette == 1.0f,
+		       "export: trc lands in units/technics/common/entrenchment/<folder>/1.xml" );
+		Check( report.warning_count == 1, "export: trc warns, as MFC's message box did, that its empty segment source cannot be copied" );
+	}
+	else if ( szExt == "scp" )
+	{
+		SSquadRPGStats stats;
+		const std::string szFile = ( modData / "squads" / "scp" / "1.xml" ).string();
+		Check( ReadChunkAsMfc( szFile, "base", "RPG", stats ) && stats.szIcon == "icon.tga" && stats.memberNames.size() == 1 &&
+		       stats.memberNames[0] == "USSR_Mosin" && stats.formations.size() == 1 && stats.formations[0].order.size() == 1 &&
+		       stats.formations[0].order[0].szSoldier == "USSR_Mosin",
+		       "export: scp lands in squads/<folder>/1.xml and USSR\\Mosin resolves to USSR_Mosin through the engine's IObjectsDB" );
+	}
 }
 
 // A stand-in exporter: two files and a warning, and what it was asked.
@@ -1741,8 +1794,15 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			}
 			report = BkResExportReport();
 			const BkEditorStatus status = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
-			Check( status == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0 && report.written == 0,
-			       ( "export: ." + szExt + " says its exporter is not ported yet" ).c_str() );
+			if ( IsPortedExport( szExt ) )
+			{
+				if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S06 exporter" ).c_str() ) )
+					std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+				ExportedStatsRead( szExt, modData, report );
+			}
+			else
+				Check( status == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0 && report.written == 0,
+				       ( "export: ." + szExt + " says its exporter is not ported yet" ).c_str() );
 			const int nGolden = GoldenFiles( fs::path( szFixtureRoot ) / szExt / "golden" );
 			if ( nGolden == 0 )
 				std::printf( "GOLDEN %s pending: golden missing (run tools/zig/win-home/export-goldens.ps1 on win-home)\n", szExt.c_str() );
@@ -1782,8 +1842,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		Check( !fs::exists( modData / "medals/t10/half.xml", ec ) && !fs::exists( modDir / ".bk-export-staging", ec ),
 		       "export: a failed export leaves no file in data/ and no staging" );
 
-		// Batch: an mdc (exported), a wpn and a unt (not ported: skipped with
-		// a warning each), then -os re-saving a wpn unchanged.
+		// Batch: an mdc and a wpn (exported), a unt (not ported: skipped with
+		// a warning), then -os re-saving a wpn unchanged.
 		NResourceModel::RegisterExporter( "mdc", &GoodExporter );
 		const fs::path src = scratch / "batch-src";
 		fs::create_directories( src / "nested", ec );
@@ -1802,7 +1862,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		for ( int i = 0; i < report.warning_count && i < 8; ++i )
 			if ( std::strstr( batchWarnings[i].text, "not ported yet" ) != 0 )
 				++nNotPorted;
-		Check( report.written == 2 && report.skipped == 2 && nNotPorted == 2, "batch: mdc exported, wpn and unt skipped as not ported" );
+		Check( report.written == 3 && report.skipped == 1 && nNotPorted == 1, "batch: mdc and wpn exported, unt skipped as not ported" );
+		Check( fs::is_regular_file( dst / "data" / "weapons" / "batch-src.xml", ec ), "batch: the weapon lands in dst/data/weapons/<project folder>.xml" );
 		Check( fs::is_regular_file( dst / "data" / "medals/t10/1.xml", ec ), "batch: the export lands in dst/data/" );
 		std::string szBefore, szResaved;
 		ReadBytes( ( src / "weapon.wpn" ).string(), szBefore );
@@ -2305,6 +2366,524 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 }
 
+// S06 T04: the squad, weapon and trench sub-editors' tools on the real
+// bridge, the same sequences test-resource-core runs on the fake through
+// resource_core's sub_editor_tools: get-before, apply, get-after, undo ==
+// before, redo == after, save and reopen == after. Undo and redo replay the
+// bridge calls resource_core's Document makes for each command (a geometry
+// write of before / after, an insert undone by a delete and redone by a
+// restore of its blob, a delete undone by a restore, a property write of the
+// old / new text). The state is the whole tree (classes, names, props) plus
+// every formation's slots, zero point and direction, with floats at the six
+// significant digits a project file keeps (MFC's %g).
+namespace S06Tools
+{
+
+static const int kWeaponShootTypes  = 0x11000000 + 83;
+static const int kWeaponDamageProps = 0x11000000 + 84;
+static const int kWeaponEffects     = 0x11000000 + 86;
+static const int kWeaponFlashProps  = 0x11000000 + 88;
+static const int kWeaponCraters     = 0x11000000 + 281;
+static const int kWeaponCraterProps = 0x11000000 + 282;
+static const int kTrenchSources     = 0x11000000 + 153;
+static const int kTrenchSourceProps = 0x11000000 + 154;
+
+struct SAction
+{
+	std::function<bool()> apply, undo, redo;
+};
+
+static std::vector<BkResPropRecord> PropsOf( BkResSession *pSession, int nNode )
+{
+	int nCount = 0;
+	BkResProps( pSession, nNode, 0, 0, &nCount );
+	std::vector<BkResPropRecord> props( nCount > 0 ? nCount : 0 );
+	if ( nCount > 0 )
+		BkResProps( pSession, nNode, props.data(), nCount, &nCount );
+	return props;
+}
+
+static std::vector<BkResPoint2> SlotsOf( BkResSession *pSession, int nNode )
+{
+	int nCount = 0;
+	BkResGetFormationPositions( pSession, nNode, 0, 0, &nCount );
+	std::vector<BkResPoint2> slots( nCount > 0 ? nCount : 0 );
+	if ( nCount > 0 )
+		BkResGetFormationPositions( pSession, nNode, slots.data(), nCount, &nCount );
+	return slots;
+}
+
+static std::string State( BkResSession *pSession )
+{
+	std::ostringstream out;
+	out.precision( 6 );
+	std::map<int, int> depth;
+	for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+	{
+		const int nDepth = depth.count( n.parent ) != 0 ? depth[n.parent] + 1 : 0;
+		depth[n.id] = nDepth;
+		const std::string szIndent( size_t( nDepth * 2 ), ' ' );
+		out << szIndent << n.class_type << " \"" << n.display_name << "\"\n";
+		for ( const BkResPropRecord &p : PropsOf( pSession, n.id ) )
+			out << szIndent << "  " << p.default_name << " = " << p.value_text << "\n";
+		if ( n.class_type != kSquadFormationProps )
+			continue;
+		out << szIndent << "  channel formation_positions:";
+		for ( const BkResPoint2 &slot : SlotsOf( pSession, n.id ) )
+			out << " (" << slot.x << "," << slot.y << ")";
+		BkResPoint2 zero = { 0, 0 }, direction = { 0, 0 };
+		BkResGetZeroPoint( pSession, n.id, &zero );
+		BkResGetFormationDirection( pSession, n.id, &direction );
+		out << "\n" << szIndent << "  channel zero_point: (" << zero.x << "," << zero.y << ")\n";
+		out << szIndent << "  channel formation_direction: " << direction.x << "\n";
+	}
+	return out.str();
+}
+
+static void SameState( const std::string &szWhat, const std::string &szWant, const std::string &szGot, bool bEqual )
+{
+	if ( !Check( ( szWant == szGot ) == bEqual, szWhat.c_str() ) )
+		std::printf( "--- expected (%s) ---\n%s--- got ---\n%s", bEqual ? "equal" : "a change", szWant.c_str(), szGot.c_str() );
+}
+
+static int NthChildOfType( BkResSession *pSession, int nParent, int nType, int nNth )
+{
+	int nSeen = 0;
+	for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+		if ( n.parent == nParent && n.class_type == nType && nSeen++ == nNth )
+			return n.id;
+	return 0;
+}
+
+static int RootOf( BkResSession *pSession )
+{
+	const std::vector<BkResNodeRecord> nodes = AllNodes( pSession );
+	return nodes.empty() ? 0 : nodes[0].id;
+}
+
+static int ChildCount( BkResSession *pSession, int nParent )
+{
+	int nCount = 0;
+	for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+		if ( n.parent == nParent )
+			++nCount;
+	return nCount;
+}
+
+static bool DeleteInto( BkResSession *pSession, int nNode, std::vector<unsigned char> &blob )
+{
+	int nSize = 0;
+	BkResDeleteNode( pSession, nNode, 0, 0, &nSize );
+	blob.assign( size_t( nSize > 0 ? nSize : 1 ), 0 );
+	if ( BkResDeleteNode( pSession, nNode, blob.data(), nSize, &nSize ) != BK_EDITOR_OK )
+		return false;
+	blob.resize( size_t( nSize ) );
+	return true;
+}
+
+// insert_node: undo deletes the new node, redo restores it from that blob.
+static SAction Insert( BkResSession *pSession, int nParent, int nClass, int nIndex, std::shared_ptr<int> pId )
+{
+	auto pBlob = std::make_shared<std::vector<unsigned char>>();
+	SAction action;
+	action.apply = [=]() { return BkResInsertNode( pSession, nParent, nClass, nIndex, pId.get() ) == BK_EDITOR_OK; };
+	action.undo = [=]() { return DeleteInto( pSession, *pId, *pBlob ); };
+	action.redo = [=]() { return BkResRestoreNode( pSession, pBlob->data(), int( pBlob->size() ), nParent, nIndex, pId.get() ) == BK_EDITOR_OK; };
+	return action;
+}
+
+// delete_node: the parent and index come from the tree, as the core's
+// deleteNode builder takes them from the mirror.
+static SAction Delete( BkResSession *pSession, int nNode )
+{
+	int nParent = 0, nIndex = 0;
+	for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+		if ( n.id == nNode )
+			nParent = n.parent;
+	for ( const BkResNodeRecord &n : AllNodes( pSession ) )
+	{
+		if ( n.id == nNode )
+			break;
+		if ( n.parent == nParent )
+			++nIndex;
+	}
+	auto pId = std::make_shared<int>( nNode );
+	auto pBlob = std::make_shared<std::vector<unsigned char>>();
+	SAction action;
+	action.apply = [=]() { return DeleteInto( pSession, *pId, *pBlob ); };
+	action.undo = [=]() { return BkResRestoreNode( pSession, pBlob->data(), int( pBlob->size() ), nParent, nIndex, pId.get() ) == BK_EDITOR_OK; };
+	action.redo = action.apply;
+	return action;
+}
+
+// set_prop by MFC's default name, from the value the tree holds now.
+static SAction SetProp( BkResSession *pSession, int nNode, const char *pszName, const std::string &szAfter )
+{
+	int nProp = -1;
+	std::string szBefore;
+	for ( const BkResPropRecord &p : PropsOf( pSession, nNode ) )
+		if ( std::strcmp( p.default_name, pszName ) == 0 )
+		{
+			nProp = p.id;
+			szBefore = p.value_text;
+		}
+	Check( nProp != -1, ( std::string( "s06-tool: the node has a \"" ) + pszName + "\" property" ).c_str() );
+	SAction action;
+	action.apply = [=]() { return BkResSetProp( pSession, nNode, nProp, szAfter.c_str() ) == BK_EDITOR_OK; };
+	action.undo = [=]() { return BkResSetProp( pSession, nNode, nProp, szBefore.c_str() ) == BK_EDITOR_OK; };
+	action.redo = action.apply;
+	return action;
+}
+
+static bool SetSlots( BkResSession *pSession, int nNode, const std::vector<BkResPoint2> &slots )
+{
+	return BkResSetFormationPositions( pSession, nNode, slots.empty() ? 0 : slots.data(), int( slots.size() ) ) == BK_EDITOR_OK;
+}
+
+// The sequence: get-before, apply, get-after, undo, redo, save, reopen.
+// Leaves the reopened copy open.
+static void RunTool( BkResSession *pSession, const std::string &szScratchRoot, const char *pszExt, const std::string &szTool, const SAction &action )
+{
+	const std::string szTag = "s06-tool " + szTool + ": ";
+	const std::string szBefore = State( pSession );
+	if ( !Check( action.apply(), ( szTag + "apply" ).c_str() ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	const std::string szAfter = State( pSession );
+	SameState( szTag + "apply changes the project", szBefore, szAfter, false );
+	if ( Check( action.undo(), ( szTag + "undo" ).c_str() ) )
+		SameState( szTag + "undo == before", szBefore, State( pSession ), true );
+	else
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	if ( Check( action.redo(), ( szTag + "redo" ).c_str() ) )
+		SameState( szTag + "redo == after", szAfter, State( pSession ), true );
+	else
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+
+	std::string szSlug = szTool;
+	std::replace( szSlug.begin(), szSlug.end(), ' ', '-' );
+	const std::string szDir = szScratchRoot + "/s06-tools";
+	const std::string szSaved = szDir + "/" + szSlug + "." + pszExt;
+	std::error_code ec;
+	std::filesystem::create_directories( szDir, ec );
+	std::filesystem::remove( szSaved, ec );
+	if ( !Check( BkResSave( pSession, szSaved.c_str() ) == BK_EDITOR_OK, ( szTag + "save" ).c_str() ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	BkResClose( pSession );
+	if ( Check( BkResOpen( pSession, szSaved.c_str() ) == BK_EDITOR_OK, ( szTag + "reopen" ).c_str() ) )
+		SameState( szTag + "save and reopen == after", szAfter, State( pSession ), true );
+}
+
+static bool Open( BkResSession *pSession, const std::string &szFixtureRoot, const char *pszExt )
+{
+	const std::string szIn = szFixtureRoot + "/" + pszExt + "/project." + pszExt;
+	const bool bOpen = BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK;
+	if ( !Check( bOpen, ( std::string( "s06-tool: opens the " ) + pszExt + " fixture" ).c_str() ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	return bOpen;
+}
+
+static void Squad( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	// Formation drag: three live writes while the mouse moves, one step
+	// from the press to the release.
+	if ( Open( pSession, szFixtureRoot, "scp" ) )
+	{
+		const int nFormation = FirstNodeOfType( pSession, kSquadFormationProps );
+		const std::vector<BkResPoint2> pressed = SlotsOf( pSession, nFormation );
+		Check( pressed.size() == 1, "s06-tool squad formation drag: the fixture has one slot" );
+		std::vector<BkResPoint2> released = pressed;
+		released.push_back( { 760.5f, 380.25f } );
+		SAction action;
+		action.apply = [=]()
+		{
+			std::vector<BkResPoint2> moving = released;
+			moving[1] = { 740.0f, 370.0f };
+			bool bOk = SetSlots( pSession, nFormation, moving );
+			moving[1] = { 750.0f, 375.5f };
+			bOk = SetSlots( pSession, nFormation, moving ) && bOk;
+			return SetSlots( pSession, nFormation, released ) && bOk;
+		};
+		action.undo = [=]() { return SetSlots( pSession, nFormation, pressed ); };
+		action.redo = [=]() { return SetSlots( pSession, nFormation, released ); };
+		RunTool( pSession, szScratchRoot, "scp", "squad formation drag", action );
+		BkResClose( pSession );
+	}
+	// Zero point.
+	if ( Open( pSession, szFixtureRoot, "scp" ) )
+	{
+		const int nFormation = FirstNodeOfType( pSession, kSquadFormationProps );
+		BkResPoint2 before = { 0, 0 };
+		Check( BkResGetZeroPoint( pSession, nFormation, &before ) == BK_EDITOR_OK, "s06-tool squad zero point: get" );
+		const BkResPoint2 after = { 600.5f, 300.25f };
+		SAction action;
+		action.apply = [=]() { return BkResSetZeroPoint( pSession, nFormation, &after ) == BK_EDITOR_OK; };
+		action.undo = [=]() { return BkResSetZeroPoint( pSession, nFormation, &before ) == BK_EDITOR_OK; };
+		action.redo = action.apply;
+		RunTool( pSession, szScratchRoot, "scp", "squad zero point", action );
+		Check( SameZero( pSession, FirstNodeOfType( pSession, kSquadFormationProps ), after ), "s06-tool squad zero point: reads the new point" );
+		BkResClose( pSession );
+	}
+	// Direction arrow: FormationDir and the slots turned about the zero
+	// point, one composite step (undo in reverse order).
+	if ( Open( pSession, szFixtureRoot, "scp" ) )
+	{
+		const int nFormation = FirstNodeOfType( pSession, kSquadFormationProps );
+		BkResPoint2 direction = { -1, -1 }, zero = { 0, 0 };
+		Check( BkResGetFormationDirection( pSession, nFormation, &direction ) == BK_EDITOR_OK && direction.x == 0.25f && direction.y == 0,
+			"s06-tool squad direction arrow: reads the fixture's FormationDir" );
+		BkResGetZeroPoint( pSession, nFormation, &zero );
+		const std::vector<BkResPoint2> before = SlotsOf( pSession, nFormation );
+		const float fAngle = 0.25f + 3.14159265f / 2.0f;
+		const float fDelta = fAngle - direction.x;
+		std::vector<BkResPoint2> after;
+		for ( const BkResPoint2 &slot : before )
+		{
+			const float dx = slot.x - zero.x, dy = slot.y - zero.y;
+			after.push_back( { zero.x + dx * std::cos( fDelta ) - dy * std::sin( fDelta ), zero.y + dx * std::sin( fDelta ) + dy * std::cos( fDelta ) } );
+		}
+		const BkResPoint2 dirBefore = direction, dirAfter = { fAngle, 0 };
+		SAction action;
+		action.apply = [=]()
+		{
+			return BkResSetFormationDirection( pSession, nFormation, &dirAfter ) == BK_EDITOR_OK && SetSlots( pSession, nFormation, after );
+		};
+		action.undo = [=]()
+		{
+			return SetSlots( pSession, nFormation, before ) && BkResSetFormationDirection( pSession, nFormation, &dirBefore ) == BK_EDITOR_OK;
+		};
+		action.redo = action.apply;
+		RunTool( pSession, szScratchRoot, "scp", "squad direction arrow", action );
+		const std::string szSaved = szScratchRoot + "/s06-tools/squad-direction-arrow.scp";
+		NResourceModel::Project project;
+		const auto *pItem = dynamic_cast<const NResourceModel::CSquadFormationPropsItem *>( LoadItemOfType( szSaved, project, kSquadFormationProps ) );
+		Check( pItem != 0 && std::fabs( pItem->fFormationDir - fAngle ) < 1e-5f,
+			"s06-tool squad direction arrow: the S03 formation item reads the angle as its FormationDir" );
+		BkResClose( pSession );
+	}
+	// No MFC home: the squad root takes none of the three channels, and a
+	// refused set changes nothing.
+	if ( Open( pSession, szFixtureRoot, "scp" ) )
+	{
+		const std::string szBefore = State( pSession );
+		const int nRoot = RootOf( pSession );
+		const BkResPoint2 point = { 1, 2 };
+		Check( BkResSetFormationDirection( pSession, nRoot, &point ) == BK_EDITOR_REFUSED, "s06-tool no home: the squad root has no formation direction" );
+		Check( BkResSetZeroPoint( pSession, nRoot, &point ) == BK_EDITOR_REFUSED, "s06-tool no home: the squad root has no zero point" );
+		Check( BkResSetFormationPositions( pSession, nRoot, &point, 1 ) == BK_EDITOR_REFUSED, "s06-tool no home: the squad root has no slots" );
+		BkResPoint2 read = { 0, 0 };
+		Check( BkResGetFormationDirection( pSession, nRoot, &read ) == BK_EDITOR_REFUSED, "s06-tool no home: reading the root's direction is refused" );
+		SameState( "s06-tool no home: a refused set leaves the project as it was", szBefore, State( pSession ), true );
+		BkResClose( pSession );
+	}
+}
+
+static void Weapon( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	if ( Open( pSession, szFixtureRoot, "wpn" ) )
+	{
+		const int nShootTypes = FirstNodeOfType( pSession, kWeaponShootTypes );
+		RunTool( pSession, szScratchRoot, "wpn", "weapon shoot type insert",
+			Insert( pSession, nShootTypes, kWeaponDamageProps, ChildCount( pSession, nShootTypes ), std::make_shared<int>( 0 ) ) );
+		Check( ChildCount( pSession, FirstNodeOfType( pSession, kWeaponShootTypes ) ) == 2, "s06-tool weapon shoot type insert: two shoot types" );
+		BkResClose( pSession );
+	}
+	if ( Open( pSession, szFixtureRoot, "wpn" ) )
+	{
+		RunTool( pSession, szScratchRoot, "wpn", "weapon shoot type delete", Delete( pSession, FirstNodeOfType( pSession, kWeaponDamageProps ) ) );
+		Check( FirstNodeOfType( pSession, kWeaponDamageProps ) == 0, "s06-tool weapon shoot type delete: no shoot type left" );
+		BkResClose( pSession );
+	}
+	struct SEdit { const char *pszTool; int nPartType; int nNth; const char *pszProp; const char *pszValue; };
+	const SEdit kEdits[] = {
+		{ "weapon damage edit", kWeaponDamageProps, -1, "Damage power", "40" },
+		{ "weapon sound edit", kWeaponEffects, 0, "Human fire sound", "rifle_shot" },
+		{ "weapon effect edit", kWeaponEffects, 0, "Gun fire effect", "gun_smoke" },
+		{ "weapon flash edit", kWeaponFlashProps, 1, "Flash power", "250" },
+	};
+	for ( const SEdit &edit : kEdits )
+	{
+		if ( !Open( pSession, szFixtureRoot, "wpn" ) )
+			continue;
+		const int nShell = FirstNodeOfType( pSession, kWeaponDamageProps );
+		const int nNode = edit.nNth < 0 ? nShell : NthChildOfType( pSession, nShell, edit.nPartType, edit.nNth );
+		Check( nNode != 0, ( std::string( "s06-tool " ) + edit.pszTool + ": finds the part" ).c_str() );
+		RunTool( pSession, szScratchRoot, "wpn", edit.pszTool, SetProp( pSession, nNode, edit.pszProp, edit.pszValue ) );
+		BkResClose( pSession );
+	}
+	// Craters: insert one, then edit and delete it in the reopened copy.
+	if ( Open( pSession, szFixtureRoot, "wpn" ) )
+	{
+		const int nCraters = FirstNodeOfType( pSession, kWeaponCraters );
+		RunTool( pSession, szScratchRoot, "wpn", "weapon crater insert",
+			Insert( pSession, nCraters, kWeaponCraterProps, ChildCount( pSession, nCraters ), std::make_shared<int>( 0 ) ) );
+		const int nCrater = FirstNodeOfType( pSession, kWeaponCraterProps );
+		if ( Check( nCrater != 0, "s06-tool weapon crater insert: the crater is there after reopen" ) )
+		{
+			RunTool( pSession, szScratchRoot, "wpn", "weapon crater edit", SetProp( pSession, nCrater, "Crater file", "craters\\big" ) );
+			RunTool( pSession, szScratchRoot, "wpn", "weapon crater delete", Delete( pSession, FirstNodeOfType( pSession, kWeaponCraterProps ) ) );
+			Check( FirstNodeOfType( pSession, kWeaponCraterProps ) == 0, "s06-tool weapon crater delete: no crater left" );
+		}
+		BkResClose( pSession );
+	}
+}
+
+static void Trench( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	// The fixture's source lists: with embrasure, line (one source), ends, arcs.
+	if ( Open( pSession, szFixtureRoot, "trc" ) )
+	{
+		const int nEnds = NthChildOfType( pSession, RootOf( pSession ), kTrenchSources, 2 );
+		RunTool( pSession, szScratchRoot, "trc", "trench source add",
+			Insert( pSession, nEnds, kTrenchSourceProps, ChildCount( pSession, nEnds ), std::make_shared<int>( 0 ) ) );
+		Check( ChildCount( pSession, NthChildOfType( pSession, RootOf( pSession ), kTrenchSources, 2 ) ) == 1, "s06-tool trench source add: Trench ends has a source" );
+		BkResClose( pSession );
+	}
+	if ( Open( pSession, szFixtureRoot, "trc" ) )
+	{
+		RunTool( pSession, szScratchRoot, "trc", "trench source remove", Delete( pSession, FirstNodeOfType( pSession, kTrenchSourceProps ) ) );
+		Check( FirstNodeOfType( pSession, kTrenchSourceProps ) == 0, "s06-tool trench source remove: no source left" );
+		BkResClose( pSession );
+	}
+}
+
+static void Run( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	std::filesystem::remove_all( szScratchRoot + "/s06-tools", ec );
+	Squad( pSession, szFixtureRoot, szScratchRoot );
+	Weapon( pSession, szFixtureRoot, szScratchRoot );
+	Trench( pSession, szFixtureRoot, szScratchRoot );
+}
+
+}
+
+// S06 T01: the trench exporter against the shipped entrenchment. A trench
+// project naming the eight shipped segment models in the folders and order
+// of Data/Units/Technics/Common/Entrenchment/1.xml is exported through
+// BkResExport, whose mesh reader builds each model with the engine's
+// IVisObjBuilder as CTrenchFrame::SaveRPGStats did. The engine reads the
+// export and the shipped file into SEntrenchmentRPGStats and every segment
+// must match: model, type, coverage, bounding box and fire places. The
+// shipped file holds MFC's six-digit "%g" floats, so values agree to that.
+
+namespace S06Export
+{
+
+static bool Near( float a, float b )
+{
+	return std::fabs( a - b ) <= 1e-5f * std::max( 1.0f, std::fabs( b ) ) * 10.0f;
+}
+
+// One <item> source block per model, in the folder order MFC numbers them.
+static std::string TrenchProject( const std::string &szFixture )
+{
+	std::string szXml = szFixture;
+	const std::string::size_type nStart = szXml.find( "<item ClassTypeID=\"285212826\"" );
+	const std::string::size_type nEnd = szXml.find( "</item>", szXml.find( "<childs/>", nStart ) ) + std::string( "</item>" ).size();
+	std::string szTemplate = szXml.substr( nStart, nEnd - nStart );
+	szXml.erase( nStart, nEnd - nStart );
+	const std::string szIndex = " TrenchIndex=\"0\"";
+	szTemplate.erase( szTemplate.find( szIndex ), szIndex.size() );
+	szTemplate.replace( szTemplate.find( "float_value=\"0.2\"" ), std::string( "float_value=\"0.2\"" ).size(), "float_value=\"1\"" );
+	auto Segment = [&]( const char *pszModel )
+	{
+		std::string szItem = szTemplate;
+		szItem.replace( szItem.find( "<string_value/>" ), std::string( "<string_value/>" ).size(), std::string( "<string_value>" ) + pszModel + ".mod</string_value>" );
+		return szItem;
+	};
+	const char *const kFolders[] = { "Trenches with embrasure", "Trenches line", "Trench ends", "Trench arcs" };
+	const std::vector<std::vector<const char *>> models = { { "2", "7", "8" }, { "1", "5", "6" }, { "3" }, { "4" } };
+	for ( int i = 0; i < 4; ++i )
+	{
+		std::string szChilds = "<childs>";
+		for ( const char *pszModel : models[i] )
+			szChilds += Segment( pszModel );
+		szChilds += "</childs>";
+		const std::string::size_type nName = szXml.find( std::string( "<default_name>" ) + kFolders[i] + "</default_name>" );
+		const std::string::size_type nChilds = szXml.find( "<childs", nName );
+		const std::string::size_type nChildsEnd = szXml.compare( nChilds, 9, "<childs/>" ) == 0 ? nChilds + 9
+			: szXml.find( "</childs>", nChilds ) + std::string( "</childs>" ).size();
+		szXml.replace( nChilds, nChildsEnd - nChilds, szChilds );
+	}
+	auto ReplaceAfter = [&]( const std::string &szAnchor, const std::string &szOld, const std::string &szNew )
+	{
+		const std::string::size_type nAt = szXml.find( szOld, szXml.find( szAnchor ) );
+		szXml.replace( nAt, szOld.size(), szNew );
+	};
+	ReplaceAfter( "<default_name>Name</default_name>", "<string_value>Unknown Trench</string_value>", "<string_value/>" );
+	ReplaceAfter( "<default_name>Health</default_name>", "int_value=\"100\"", "int_value=\"1000\"" );
+	ReplaceAfter( "<default_name>Top</default_name>", "int_value=\"300\"", "int_value=\"0\"" );
+	ReplaceAfter( "<default_name>Top</default_name>", "int_value=\"300\"", "int_value=\"0\"" );
+	return szXml;
+}
+
+static void ShippedTrench( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s06-export";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "entrenchment";
+	fs::create_directories( projectDir, ec );
+	const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", "Units/Technics/Common/Entrenchment" );
+	for ( int i = 1; i <= 8; ++i )
+		fs::copy_file( shipped / ( std::to_string( i ) + ".mod" ), projectDir / ( std::to_string( i ) + ".mod" ), fs::copy_options::overwrite_existing, ec );
+	std::string szFixture;
+	ReadBytes( szFixtureRoot + "/trc/project.trc", szFixture );
+	const fs::path project = projectDir / "project.trc";
+	T10::WriteText( project, TrenchProject( szFixture ) );
+
+	const fs::path modDir = scratch / "mod";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S06 export" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "s06-export: the mod folder is set" );
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "s06-export: the trench built from the shipped models opens" ) )
+		return;
+	BkResExportReport report = {};
+	if ( !Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK && report.warning_count == 0,
+	             "s06-export: the trench exports with every segment model built by the engine, no warning" ) )
+		std::printf( "   detail: %s (warnings %d)\n", BkEditorLastMessage( pSession ), report.warning_count );
+	BkResClose( pSession );
+
+	SEntrenchmentRPGStats port, game;
+	const bool bPort = ReadChunkAsMfc( ( modDir / "data/units/technics/common/entrenchment/entrenchment/1.xml" ).string(), "base", "RPG", port );
+	const bool bGame = ReadChunkAsMfc( ( shipped / "1.xml" ).string(), "base", "RPG", game );
+	if ( !Check( bPort && bGame && port.segments.size() == game.segments.size() && port.segments.size() == 8,
+	             "s06-export: the engine reads 8 segments from the export and the shipped 1.xml" ) )
+		return;
+	Check( port.lines == game.lines && port.fireplaces == game.fireplaces && port.terminators == game.terminators && port.arcs == game.arcs,
+	       "s06-export: the line, fire place, terminator and arc lists are the shipped ones" );
+	Check( port.fMaxHP == game.fMaxHP && port.szKeyName == game.szKeyName && port.defences[RPG_TOP].nArmorMax == game.defences[RPG_TOP].nArmorMax &&
+	       port.defences[RPG_FRONT].nArmorMin == game.defences[RPG_FRONT].nArmorMin && port.defences[RPG_BACK].fSilhouette == game.defences[RPG_BACK].fSilhouette,
+	       "s06-export: health, name and defences are the shipped ones" );
+	for ( std::size_t i = 0; i < port.segments.size(); ++i )
+	{
+		const SEntrenchmentRPGStats::SSegmentRPGStats &a = port.segments[i], &b = game.segments[i];
+		bool bFire = a.fireplaces.size() == b.fireplaces.size();
+		for ( std::size_t f = 0; bFire && f < a.fireplaces.size(); ++f )
+			bFire = Near( a.fireplaces[f].x, b.fireplaces[f].x ) && Near( a.fireplaces[f].y, b.fireplaces[f].y );
+		const bool bBox = Near( a.vAABBCenter.x, b.vAABBCenter.x ) && Near( a.vAABBCenter.y, b.vAABBCenter.y ) && Near( a.vAABBHalfSize.x, b.vAABBHalfSize.x ) &&
+		                  Near( a.vAABBHalfSize.y, b.vAABBHalfSize.y ) && Near( a.vAABBHalfSize.z, b.vAABBHalfSize.z );
+		if ( !Check( a.szModel == b.szModel && a.eType == b.eType && a.fCoverage == b.fCoverage && bBox && bFire,
+		             ( "s06-export: segment " + std::to_string( i ) + " (model " + b.szModel + ") has the shipped type, coverage, box and " +
+		               std::to_string( b.fireplaces.size() ) + " fire places" ).c_str() ) )
+			std::printf( "   detail: port model %s type %d box %g %g %g fire places %d%s\n", a.szModel.c_str(), int( a.eType ), a.vAABBHalfSize.x, a.vAABBHalfSize.y,
+			             a.vAABBHalfSize.z, int( a.fireplaces.size() ), a.fireplaces.empty() ? "" : ( " first " + std::to_string( a.fireplaces[0].x ) + "," +
+			             std::to_string( a.fireplaces[0].y ) ).c_str() );
+	}
+}
+
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	ShippedTrench( pSession, szRoot, szFixtureRoot, szScratchRoot );
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -2538,6 +3117,10 @@ int main( int argc, char **argv )
 	ExportRollback::Run( pSession, szFixtureRoot, szScratchRoot );
 
 	T11::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+	// S06 T01: the trench exporter against the shipped entrenchment.
+	S06Export::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+	// S06 T04: the sub-editors' tools, undo, redo and save on the real bridge.
+	S06Tools::Run( pSession, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

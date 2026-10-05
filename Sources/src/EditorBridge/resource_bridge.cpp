@@ -237,7 +237,10 @@ enum GeometryChannel
 	CHANNEL_CHAPTER_CROSSES = 12,
 	CHANNEL_CAMPAIGN_CROSSES = 13,
 	CHANNEL_PARTICLE_KEYFRAMES = 14,
-	CHANNEL_EFFECT_KEYFRAMES = 15
+	CHANNEL_EFFECT_KEYFRAMES = 15,
+	// S06: a squad formation's FormationDir, carried as a point2 (x the
+	// angle, y unused) so it shares the zero point's entry-point shape.
+	CHANNEL_FORMATION_DIRECTION = 16
 };
 
 std::map<BkEditorSession *, ResourceState> &States()
@@ -686,6 +689,7 @@ enum EGeometryHome
 	HOME_FRAME,          // own_data / desc beside the root's tree
 	HOME_SQUAD_ZERO,     // CSquadFormationPropsItem::vZeroPos
 	HOME_SQUAD_UNITS,    // CSquadFormationPropsItem::units, SUnit::vPos
+	HOME_SQUAD_DIR,      // CSquadFormationPropsItem::fFormationDir
 	HOME_TILE_LIST,      // CFencePropsItem / CBridgePartsItem::lockedTiles
 	HOME_CROSSES,        // the children's map position values (+ the RPG copy)
 	HOME_EFFECT_PLACES,  // the children's X / Y / Z position values
@@ -758,6 +762,8 @@ EGeometryHome HomeOf( const ResourceState &state, int nNodeId, int nChannel )
 		return nType == NResourceModel::ETIT_SQUAD_FORMATION_PROPS_ITEM ? HOME_SQUAD_ZERO : HOME_NONE;
 	case CHANNEL_FORMATION_POSITIONS:
 		return nType == NResourceModel::ETIT_SQUAD_FORMATION_PROPS_ITEM ? HOME_SQUAD_UNITS : HOME_NONE;
+	case CHANNEL_FORMATION_DIRECTION:
+		return nType == NResourceModel::ETIT_SQUAD_FORMATION_PROPS_ITEM ? HOME_SQUAD_DIR : HOME_NONE;
 	case CHANNEL_BRIDGE_SPAN_MARKS:
 		return bRoot && nType == NResourceModel::ETIT_BRIDGE_ROOT_ITEM ? HOME_FRAME : HOME_NONE;
 	case CHANNEL_MISSION_OBJECTIVES:
@@ -1299,6 +1305,9 @@ BkEditorStatus LoadGeometry( BkResSession *pSession, ResourceState &state, int n
 		for ( const auto &unit : static_cast<const NResourceModel::CSquadFormationPropsItem *>( pItem )->units )
 			out.points.insert( out.points.end(), { unit.vPos.x, unit.vPos.y } );
 		return BK_EDITOR_OK;
+	case HOME_SQUAD_DIR:
+		out.points = { static_cast<const NResourceModel::CSquadFormationPropsItem *>( pItem )->fFormationDir, 0.0f };
+		return BK_EDITOR_OK;
 	case HOME_TILE_LIST:
 		if ( !TilesToGrid( *TileListOf( pItem ), out, szError ) )
 		{
@@ -1359,6 +1368,11 @@ BkEditorStatus StoreGeometry( BkResSession *pSession, ResourceState &state, int 
 		}
 		return BK_EDITOR_OK;
 	}
+	case HOME_SQUAD_DIR:
+		// Only the angle: MFC's WM_ANGLE_CHANGED also turns the slots about
+		// the zero point, which the editor writes as its own channel.
+		static_cast<NResourceModel::CSquadFormationPropsItem *>( pItem )->fFormationDir = blob.points[0];
+		return BK_EDITOR_OK;
 	case HOME_TILE_LIST:
 		GridToTiles( blob, *TileListOf( pItem ) );
 		return BK_EDITOR_OK;
@@ -2559,6 +2573,22 @@ BkEditorStatus BkResSetZeroPoint( BkResSession *pSession, int nNodeId, const BkR
 	} );
 }
 
+BkEditorStatus BkResGetFormationDirection( BkResSession *pSession, int nNodeId, BkResPoint2 *pOut )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return GetPoint2( pSession, CHANNEL_FORMATION_DIRECTION, nNodeId, pOut );
+	} );
+}
+
+BkEditorStatus BkResSetFormationDirection( BkResSession *pSession, int nNodeId, const BkResPoint2 *pIn )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		return SetPoint2( pSession, CHANNEL_FORMATION_DIRECTION, nNodeId, pIn );
+	} );
+}
+
 BkEditorStatus BkResGetEntrance( BkResSession *pSession, int nNodeId, BkResPoint2 *pOut )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
@@ -2889,6 +2919,116 @@ bool PromoteStaged( const std::filesystem::path &staging, const std::filesystem:
 	return false;
 }
 
+std::string EngineFolderPattern( const std::filesystem::path &dir );
+void ForgetPreviewCaches();
+
+// The layer a trench segment model is mounted on while it is built.
+const char *const kExportMeshLayer = "RES_EXPORT_MESH";
+
+// What MFC's frames took from the running editor and an exporter does not
+// own (D015): the objects database CSquadFrame::SaveRPGStats searched for a
+// member's key, and the mesh builder CTrenchFrame::SaveRPGStats read a
+// segment's locators from. Each is set only when the engine has it running.
+// scratch is a folder of the bridge's own beside the export, where a model
+// is mounted while it is built.
+void FillEngineLookups( NResourceModel::SExportContext &context, const std::filesystem::path &scratch )
+{
+	if ( GetSingleton<IObjectsDB>() != 0 )
+	{
+		context.findUnitKey = []( const std::string &szPath, std::string &szKey ) -> bool
+		{
+			IObjectsDB *pObjDB = GetSingleton<IObjectsDB>();
+			const int nNumDescs = pObjDB->GetNumDescs();
+			const SGDBObjectDesc *pObjDescs = pObjDB->GetAllDescs();
+			for ( int i = 0; i < nNumDescs; i++ )
+				if ( pObjDescs[i].eVisType == SGVOT_SPRITE && pObjDescs[i].eGameType == SGVOGT_UNIT && Fold( pObjDescs[i].szPath ) == Fold( szPath ) )
+				{
+					szKey = pObjDescs[i].szKey;
+					return true;
+				}
+			return false;
+		};
+	}
+	if ( GetSingleton<IVisObjBuilder>() != 0 && GetSingleton<IDataStorage>() != 0 )
+	{
+		context.meshFirePlaces = [scratch]( const std::string &szModFile, std::vector<std::pair<float, float>> &firePlaces, std::string &szError ) -> bool
+		{
+			// MFC copied the model to the editor's temp folder as 1.mod and
+			// built "<temp>\1". A new name each time keeps the builder's and
+			// the mesh manager's caches from answering with an earlier model.
+			static int nModel = 0;
+			++nModel;
+			std::error_code ec;
+			std::filesystem::remove_all( scratch, ec );
+			const std::filesystem::path folder = scratch / "bkexportmesh" / std::to_string( nModel );
+			std::filesystem::create_directories( folder, ec );
+			if ( ec || !std::filesystem::copy_file( szModFile, folder / "1.mod", std::filesystem::copy_options::overwrite_existing, ec ) )
+			{
+				szError = "cannot copy " + szModFile + " to " + folder.string();
+				std::filesystem::remove_all( scratch, ec );
+				return false;
+			}
+			IDataStorage *pStorage = GetSingleton<IDataStorage>();
+			CPtr<IDataStorage> pLayer = OpenStorage( EngineFolderPattern( scratch ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_COMMON );
+			if ( pLayer == 0 )
+			{
+				szError = "cannot mount " + scratch.string();
+				std::filesystem::remove_all( scratch, ec );
+				return false;
+			}
+			pStorage->AddStorage( pLayer, kExportMeshLayer );
+			ForgetPreviewCaches();
+			bool bBuilt = false;
+			{
+				const std::string szName = "bkexportmesh\\" + std::to_string( nModel ) + "\\1";
+				CPtr<IObjVisObj> pReadyObject = static_cast<IObjVisObj *>( GetSingleton<IVisObjBuilder>()->BuildObject( szName.c_str(), 0, SGVOT_MESH ) );
+				IMeshAnimation *pMeshAnim = pReadyObject ? static_cast<IMeshAnimation *>( pReadyObject->GetAnimation() ) : 0;
+				IMeshAnimationEdit *pMeshAnimEdit = pMeshAnim ? dynamic_cast<IMeshAnimationEdit *>( pMeshAnim ) : 0;
+				if ( pMeshAnimEdit == 0 )
+					szError = "IVisObjBuilder would not build the mesh";
+				else
+				{
+					const int nNumLocators = pMeshAnimEdit->GetNumLocators();
+					std::vector<const char *> locatorNamesVector( std::max( nNumLocators, 1 ) );
+					if ( nNumLocators > 0 )
+						pMeshAnimEdit->GetAllLocatorNames( &( locatorNamesVector[0] ), nNumLocators );
+					const int nNumNodes = pMeshAnim->GetNumNodes();
+					std::vector<const char *> allNamesVector( std::max( nNumNodes, 1 ) );
+					if ( nNumNodes > 0 )
+						pMeshAnimEdit->GetAllNodeNames( &( allNamesVector[0] ), nNumNodes );
+					bBuilt = true;
+					for ( int i = 0; i < nNumLocators; i++ )
+					{
+						// MFC compared the name pointers, which point into the
+						// same skeleton; the strings say the same.
+						int nFireLocatorIndex = 0;
+						for ( ; nFireLocatorIndex < nNumNodes; nFireLocatorIndex++ )
+							if ( std::strcmp( allNamesVector[nFireLocatorIndex], locatorNamesVector[i] ) == 0 )
+								break;
+						if ( nFireLocatorIndex == nNumNodes )
+						{
+							szError = std::string( "locator " ) + locatorNamesVector[i] + " is no node of the mesh";
+							bBuilt = false;
+							break;
+						}
+						pReadyObject->SetPosition( CVec3( 0, 0, 0 ) );
+						pReadyObject->SetDirection( 0 );
+						IMeshAnimation *pPlaced = static_cast<IMeshAnimation *>( pReadyObject->GetAnimation() );
+						const SHMatrix *pMatrix = pPlaced->GetMatrices( MONE );
+						const CVec3 vFireTrans = pMatrix[ nFireLocatorIndex ].GetTrans3();
+						firePlaces.push_back( std::make_pair( vFireTrans.x, vFireTrans.y ) );
+					}
+				}
+			}
+			pStorage->RemoveStorage( kExportMeshLayer );
+			pLayer = 0;
+			ForgetPreviewCaches();
+			std::filesystem::remove_all( scratch, ec );
+			return bBuilt;
+		};
+	}
+}
+
 // One project through its kind's exporter: the exporter writes into a
 // staging folder beside data/, and only when it succeeds are its files
 // promoted into data/, all or nothing, so a failed export leaves no
@@ -2917,6 +3057,7 @@ bool ExportOne( const NResourceModel::Project &project, const std::string &szPro
 	context.szStagingRoot = staging.string();
 	context.bForce = ( nFlags & BK_RES_EXPORT_FORCE ) != 0;
 	context.bStatsOnly = bStatsOnly;
+	FillEngineLookups( context, dataDir.parent_path() / ".bk-export-mesh" );
 	if ( !pfnExporter( project, context, outcome ) )
 	{
 		std::filesystem::remove_all( staging, ec );
@@ -3825,6 +3966,7 @@ BkEditorStatus ShowPreview( BkEditorSession *pSession )
 	context.szProjectPath = state.szPath;
 	context.szStagingRoot = dataDir.string();
 	context.bForce = true;
+	FillEngineLookups( context, state.previewRoot / "mesh" );
 	NResourceModel::SExportOutcome outcome;
 	if ( !pfnExporter( project, context, outcome ) )
 	{

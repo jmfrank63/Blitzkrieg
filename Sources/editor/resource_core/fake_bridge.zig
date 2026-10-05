@@ -36,7 +36,11 @@
 //!   do no engine-shaped validation - a shoot point far outside a mesh is
 //!   accepted. The one rule kept is the payload family: a value whose tag
 //!   is not `channel.family()` is `BadArgument`, since the C entry point
-//!   for that channel could not even be called with it.
+//!   for that channel could not even be called with it. The real bridge
+//!   also refuses a channel on a node where MFC has no home for it; the
+//!   fake does that only once a test declares homes (`addGeometryHome`),
+//!   so the older tests that write any channel on the root keep working.
+//!   A save carries the geometry map, so a reopen reads it back.
 const std = @import("std");
 const bridge_mod = @import("bridge.zig");
 const Status = bridge_mod.Status;
@@ -93,6 +97,9 @@ pub const FakeResBridge = struct {
     references: std.AutoHashMapUnmanaged(i32, std.ArrayListUnmanaged(ReferenceEntry)) = .empty,
     prop_strings: std.ArrayListUnmanaged(PropStrings) = .empty,
     geometry: std.ArrayListUnmanaged(GeometryEntry) = .empty,
+    /// The (node, channel) pairs a test declared as MFC homes. Empty means
+    /// every node takes every channel, as before homes existed.
+    geometry_homes: std.ArrayListUnmanaged(GeometryHome) = .empty,
     /// When true, every preview call answers BK_EDITOR_NO_DEVICE - the fake's
     /// stand-in for a headless host without a GPU.
     no_device: bool = false,
@@ -122,6 +129,7 @@ pub const FakeResBridge = struct {
     pub const PreviewState = enum { closed, open, showing };
     pub const PropStrings = struct { node: i32, prop_id: i32, entries: std.ArrayListUnmanaged(ReferenceEntry) = .empty };
     pub const BatchProject = struct { path: []u8, kind: Kind };
+    pub const GeometryHome = struct { node: i32, channel: GeometryChannel };
 
     pub fn init(allocator: std.mem.Allocator) FakeResBridge {
         var fake: FakeResBridge = .{ .allocator = allocator };
@@ -141,6 +149,7 @@ pub const FakeResBridge = struct {
         self.prop_strings.deinit(self.allocator);
         for (self.geometry.items) |*g| g.value.deinit(self.allocator);
         self.geometry.deinit(self.allocator);
+        self.geometry_homes.deinit(self.allocator);
         var file_it = self.files.iterator();
         while (file_it.next()) |e| {
             self.allocator.free(e.key_ptr.*);
@@ -200,6 +209,21 @@ pub const FakeResBridge = struct {
             return;
         };
         try self.prop_strings.append(self.allocator, .{ .node = node, .prop_id = prop_id, .entries = entries });
+    }
+
+    /// Declares that MFC keeps `channel` on `node` (a squad formation's
+    /// slots and zero point, say). From the first declaration on, a channel
+    /// read or write on any undeclared pair is refused, as the real bridge
+    /// refuses a channel with no MFC home. `new` and `close` forget them.
+    pub fn addGeometryHome(self: *FakeResBridge, node: i32, channel: GeometryChannel) !void {
+        try self.geometry_homes.append(self.allocator, .{ .node = node, .channel = channel });
+    }
+
+    fn requireHome(self: *FakeResBridge, node: i32, channel: GeometryChannel) Status {
+        if (self.geometry_homes.items.len == 0) return .ok;
+        for (self.geometry_homes.items) |home| if (home.node == node and home.channel == channel) return .ok;
+        self.say("this geometry channel has no MFC home on this node", .{});
+        return .refused;
     }
 
     pub fn setNoDevice(self: *FakeResBridge, value: bool) void {
@@ -280,6 +304,7 @@ pub const FakeResBridge = struct {
         self.nodes.clearRetainingCapacity();
         for (self.geometry.items) |*g| g.value.deinit(self.allocator);
         self.geometry.clearRetainingCapacity();
+        self.geometry_homes.clearRetainingCapacity();
         self.kind = kind;
         self.has_path = false;
         var root: FakeNode = .{ .id = self.next_id, .parent = -1 };
@@ -336,6 +361,7 @@ pub const FakeResBridge = struct {
         self.nodes.clearRetainingCapacity();
         for (self.geometry.items) |*g| g.value.deinit(self.allocator);
         self.geometry.clearRetainingCapacity();
+        self.geometry_homes.clearRetainingCapacity();
         self.kind = null;
         self.has_path = false;
         return .ok;
@@ -513,7 +539,17 @@ pub const FakeResBridge = struct {
             self.say("parent {d} is unknown", .{parent});
             return .refused;
         }
-        _ = index;
+        // The subtree goes back in front of the parent's index-th child, so
+        // the children read back in the order they had before the delete.
+        var at: usize = self.nodes.items.len;
+        var sibling: i32 = 0;
+        for (self.nodes.items, 0..) |n, i| if (n.parent == parent) {
+            if (sibling == index) {
+                at = i;
+                break;
+            }
+            sibling += 1;
+        };
         const restored = parseSubtree(self.allocator, blob) catch |err| switch (err) {
             error.BadBlob => {
                 self.say("could not parse blob", .{});
@@ -543,9 +579,10 @@ pub const FakeResBridge = struct {
         for (self.nodes.items[self.nodes.items.len - restored.len ..]) |*node| {
             if (remap.get(node.parent)) |remapped| node.parent = remapped;
         }
-        const first = &self.nodes.items[self.nodes.items.len - restored.len];
-        first.parent = parent;
-        out_id.* = first.id;
+        self.nodes.items[self.nodes.items.len - restored.len].parent = parent;
+        const moved = self.nodes.items[at..];
+        std.mem.rotate(FakeNode, moved, moved.len - restored.len);
+        out_id.* = self.nodes.items[at].id;
         return .ok;
     }
 
@@ -661,6 +698,8 @@ pub const FakeResBridge = struct {
             self.say("node {d} is unknown", .{node});
             return .refused;
         }
+        const home = self.requireHome(node, channel);
+        if (home != .ok) return home;
         if (self.indexOfGeometry(node, channel)) |i| {
             out.* = self.geometry.items[i].value.dupe(self.allocator) catch return .failed;
         } else {
@@ -682,6 +721,8 @@ pub const FakeResBridge = struct {
             self.say("channel {s} does not carry a {s} payload", .{ @tagName(channel), @tagName(std.meta.activeTag(value.*)) });
             return .bad_argument;
         }
+        const home = self.requireHome(node, channel);
+        if (home != .ok) return home;
         const duplicated = value.dupe(self.allocator) catch return .failed;
         if (self.indexOfGeometry(node, channel)) |i| {
             var existing = &self.geometry.items[i];
@@ -933,13 +974,86 @@ fn emptyFor(channel: GeometryChannel) GeometryValue {
 /// per node: `[id:i32][parent:i32][class:64][display:64][expand:u8]
 /// [prop_count:u32]` followed by one PropRecord per prop. Enough to let
 /// delete -> restore round-trip - a real XML serialiser is the C adapter's
-/// problem.
+/// problem. A whole-project save adds the geometry map after the nodes:
+/// `[count:u32]` then per entry `[node:i32][channel:i32][family:u8]` and the
+/// payload (a grid's `[w:i32][h:i32][len:u32]` and bytes, a list's
+/// `[count:u32]` and its records, a single Point2's 8 bytes).
 fn serialiseAll(self: *FakeResBridge) ![]u8 {
     var out: std.ArrayListUnmanaged(u8) = .empty;
     errdefer out.deinit(self.allocator);
     try writeU32(self.allocator, &out, @intCast(self.nodes.items.len));
     for (self.nodes.items) |node| try writeNode(self.allocator, &out, &node);
+    try writeU32(self.allocator, &out, @intCast(self.geometry.items.len));
+    for (self.geometry.items) |entry| try writeGeometry(self.allocator, &out, entry);
     return out.toOwnedSlice(self.allocator);
+}
+
+fn writeGeometry(allocator: std.mem.Allocator, out: *std.ArrayListUnmanaged(u8), entry: GeometryEntry) !void {
+    try writeI32(allocator, out, entry.node);
+    try writeI32(allocator, out, @intFromEnum(entry.channel));
+    try out.append(allocator, @intFromEnum(std.meta.activeTag(entry.value)));
+    switch (entry.value) {
+        .bytes_grid => |g| {
+            try writeI32(allocator, out, g.width);
+            try writeI32(allocator, out, g.height);
+            try writeU32(allocator, out, @intCast(g.bytes.len));
+            try out.appendSlice(allocator, g.bytes);
+        },
+        .points2 => |list| {
+            try writeU32(allocator, out, @intCast(list.len));
+            try out.appendSlice(allocator, std.mem.sliceAsBytes(list));
+        },
+        .aimed => |list| {
+            try writeU32(allocator, out, @intCast(list.len));
+            try out.appendSlice(allocator, std.mem.sliceAsBytes(list));
+        },
+        .vec3 => |list| {
+            try writeU32(allocator, out, @intCast(list.len));
+            try out.appendSlice(allocator, std.mem.sliceAsBytes(list));
+        },
+        .point2 => |p| {
+            var copy = p;
+            try out.appendSlice(allocator, std.mem.asBytes(&copy));
+        },
+    }
+}
+
+/// Reads one list of extern records written by `writeGeometry`.
+fn readRecords(comptime T: type, allocator: std.mem.Allocator, blob: []const u8, cursor: *usize) ![]T {
+    const count = try readU32(blob, cursor);
+    const size = @as(usize, count) * @sizeOf(T);
+    if (cursor.* + size > blob.len) return error.BadBlob;
+    const list = try allocator.alloc(T, count);
+    @memcpy(std.mem.sliceAsBytes(list), blob[cursor.*..][0..size]);
+    cursor.* += size;
+    return list;
+}
+
+fn readGeometry(allocator: std.mem.Allocator, blob: []const u8, cursor: *usize) !GeometryEntry {
+    const node = try readI32(blob, cursor);
+    const channel_int = try readI32(blob, cursor);
+    const channel = std.enums.fromInt(GeometryChannel, channel_int) orelse return error.BadBlob;
+    if (cursor.* >= blob.len) return error.BadBlob;
+    const family = std.enums.fromInt(std.meta.Tag(GeometryValue), blob[cursor.*]) orelse return error.BadBlob;
+    cursor.* += 1;
+    const value: GeometryValue = switch (family) {
+        .bytes_grid => blk: {
+            const width = try readI32(blob, cursor);
+            const height = try readI32(blob, cursor);
+            break :blk .{ .bytes_grid = .{ .bytes = try readRecords(u8, allocator, blob, cursor), .width = width, .height = height } };
+        },
+        .points2 => .{ .points2 = try readRecords(bridge_mod.Point2, allocator, blob, cursor) },
+        .aimed => .{ .aimed = try readRecords(bridge_mod.AimedPoint, allocator, blob, cursor) },
+        .vec3 => .{ .vec3 = try readRecords(bridge_mod.Vec3, allocator, blob, cursor) },
+        .point2 => blk: {
+            var p: bridge_mod.Point2 = .{};
+            if (cursor.* + @sizeOf(bridge_mod.Point2) > blob.len) return error.BadBlob;
+            @memcpy(std.mem.asBytes(&p), blob[cursor.*..][0..@sizeOf(bridge_mod.Point2)]);
+            cursor.* += @sizeOf(bridge_mod.Point2);
+            break :blk .{ .point2 = p };
+        },
+    };
+    return .{ .node = node, .channel = channel, .value = value };
 }
 
 fn serialiseSubtree(self: *FakeResBridge, ids: []const i32) ![]u8 {
@@ -967,6 +1081,21 @@ fn deserialiseInto(self: *FakeResBridge, blob: []const u8) bool {
         }
         self.nodes.append(self.allocator, node) catch return false;
         self.next_id = @max(self.next_id, node.id + 1);
+    }
+    // The geometry map is the file's, not what the session last held. A
+    // file saved before the fake carried geometry simply ends here.
+    for (self.geometry.items) |*g| g.value.deinit(self.allocator);
+    self.geometry.clearRetainingCapacity();
+    if (cursor < blob.len) {
+        const geometry_count = readU32(blob, &cursor) catch return false;
+        var g: u32 = 0;
+        while (g < geometry_count) : (g += 1) {
+            var entry = readGeometry(self.allocator, blob, &cursor) catch return false;
+            self.geometry.append(self.allocator, entry) catch {
+                entry.value.deinit(self.allocator);
+                return false;
+            };
+        }
     }
     if (self.kind == null) self.kind = .weapon;
     return true;

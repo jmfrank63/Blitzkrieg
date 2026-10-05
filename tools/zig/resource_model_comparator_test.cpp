@@ -15,7 +15,12 @@
 //      dxt-tolerance.json; planted colour and alpha regions, lost DXT1
 //      punch-through, a truncated file, a changed uncompressed DDS and a
 //      missing or malformed tolerance fail precisely.
-//   4. The golden comparison: each fixture's golden/ folder against the port's
+//   4. The S06 exporters (wpn, mcp, trc, scp): each fixture project is
+//      exported through FindExporter and its stats file read back by the
+//      engine: no unknown field, and field-equal (CompareStats) with the
+//      struct derived by hand from the fixture's values and written by the
+//      engine's own writer. Their refusals and warnings name what is missing.
+//   5. The golden comparison: each fixture's golden/ folder against the port's
 //      export. Goldens come from MFC editor.exe on win-home
 //      (tools/zig/win-home/export-goldens.ps1). An extension without them is
 //      "pending: golden missing", never PASS.
@@ -38,6 +43,9 @@
 #include <vector>
 #include "../../Sources/src/ResourceModel/comparator.h"
 #include "../../Sources/src/ResourceModel/xml.h"
+#include "../../Sources/src/ResourceModel/exporter.h"
+#include "../../Sources/src/ResourceModel/project.h"
+#include "../../Sources/src/Main/RPGStats.h"
 
 namespace fs = std::filesystem;
 using namespace NResourceModel;
@@ -551,6 +559,309 @@ static void DxtGate( const fs::path &data, const fs::path &scratch, const fs::pa
 	}
 }
 
+// The S06 exporters over their fixtures. The expected structs are the
+// fixture projects' values put through the MFC frames' SaveRPGStats by hand
+// (WeaponFrm.cpp, MineFrm.cpp, TrenchFrm.cpp, SquadFrm.cpp), written by the
+// engine's own writer, so the comparison is the game's reader on both sides.
+
+template <class TStats>
+static bool WriteExpected( const fs::path &file, TStats &stats )
+{
+	std::error_code error;
+	fs::create_directories( file.parent_path(), error );
+	CPtr<IDataStorage> pStorage = CreateStorage( ( file.parent_path().string() + "/" ).c_str(), STREAM_ACCESS_WRITE, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->CreateStream( file.filename().string().c_str(), STREAM_ACCESS_WRITE ) : 0;
+	if ( pStream == 0 )
+		return false;
+	CPtr<IDataTree> pDT = CreateDataTreeSaver( pStream, IDataTree::WRITE );
+	if ( pDT == 0 )
+		return false;
+	CTreeAccessor tree = pDT;
+	tree.Add( "RPG", &stats );
+	return true;
+}
+
+// A copy of a fixture folder at <scratch>/<ext>/<ext>/, so the project's
+// folder name, which names the exported file, is the extension.
+static fs::path CopyFixture( const fs::path &fixtures, const fs::path &scratch, const std::string &szExt )
+{
+	const fs::path dir = scratch / szExt / szExt;
+	std::error_code error;
+	fs::remove_all( scratch / szExt, error );
+	fs::create_directories( dir, error );
+	for ( fs::directory_iterator it( fixtures / szExt, error ), end; !error && it != end; it.increment( error ) )
+		if ( it->is_regular_file() )
+			fs::copy_file( it->path(), dir / it->path().filename(), fs::copy_options::overwrite_existing, error );
+	return dir / ( "project." + szExt );
+}
+
+static bool LoadProject( const fs::path &file, Project *pProject )
+{
+	std::string szBytes, szError;
+	return ReadBytes( file, &szBytes ) && Load( szBytes, *pProject, szError );
+}
+
+// The objects database a squad export asks, as a fixture: the one infantry
+// unit the scp fixture names, under its path and key in Data/objects.xml.
+static bool FixtureUnitKey( const std::string &szPath, std::string &szKey )
+{
+	if ( szPath != "units\\humans\\ussr\\mosin" )
+		return false;
+	szKey = "USSR_Mosin";
+	return true;
+}
+
+struct SExportRun
+{
+	bool bExported = false;
+	SExportOutcome outcome;
+	fs::path data;
+};
+
+static SExportRun RunExporter( const std::string &szExt, const fs::path &project, const fs::path &data, SExportContext context )
+{
+	SExportRun run;
+	run.data = data;
+	std::error_code error;
+	fs::remove_all( data, error );
+	fs::create_directories( data, error );
+	Project loaded;
+	const FExporter pfnExporter = FindExporter( szExt );
+	if ( !Check( pfnExporter != nullptr, "export " + szExt + ": FindExporter has a production exporter" ) )
+		return run;
+	if ( !Check( LoadProject( project, &loaded ), "export " + szExt + ": the fixture loads" ) )
+		return run;
+	context.szProjectPath = project.string();
+	context.szStagingRoot = data.string();
+	run.bExported = pfnExporter( loaded, context, run.outcome );
+	return run;
+}
+
+// The exported file read by the engine: readable, every node read, none of
+// an older layout, then field-equal with the expected struct.
+template <class TStats>
+static void CheckExported( EExportKind kind, const std::string &szExt, const SExportRun &run, const std::string &szFile, TStats &expected, const fs::path &scratch )
+{
+	const fs::path file = run.data / szFile;
+	if ( !Check( run.bExported && fs::is_regular_file( file ), "export " + szExt + ": writes " + szFile + " " + run.outcome.szError ) )
+		return;
+	const SExportRead read = ReadExport( kind, file.string() );
+	Check( read.bReadable && read.unknown.empty() && read.stale.empty(),
+	       "export " + szExt + ": " + GetExportKindInfo( kind ).pszReader + " reads every node of the export (" + std::to_string( read.unknown.size() ) +
+	       " unknown, " + std::to_string( read.stale.size() ) + " stale) " + read.szError );
+	const fs::path golden = scratch / szExt / "expected.xml";
+	if ( !Check( WriteExpected( golden, expected ), "export " + szExt + ": the engine writes the hand-derived expectation" ) )
+		return;
+	const SCompareResult result = CompareStats( kind, file.string(), golden.string() );
+	Check( result.status == ECompareStatus::EQUAL && result.nFieldsCompared > 0,
+	       "export " + szExt + ": field-equal with the fixture's values as MFC's SaveRPGStats fills them (" + std::to_string( result.nFieldsCompared ) +
+	       " fields): " + CompareStatusName( result.status ) + Messages( result ) );
+}
+
+static void Exporters( const fs::path &fixtures, const fs::path &data, const fs::path &scratchRoot )
+{
+	const fs::path scratch = scratchRoot / "export";
+	SExportContext context;
+	context.findUnitKey = &FixtureUnitKey;
+
+	// Weapon: WeaponFrm.cpp FillRPGStats over the one shell of the fixture.
+	{
+		const fs::path project = CopyFixture( fixtures, scratch, "wpn" );
+		const SExportRun run = RunExporter( "wpn", project, scratch / "wpn" / "data", context );
+		SWeaponRPGStats expected;
+		expected.szKeyName = "Unknown Weapon";
+		expected.wDeltaAngle = 10;
+		expected.nAmmoPerBurst = 1;
+		expected.fDispersion = 1.0f;
+		expected.fRangeMin = 1.0f;
+		expected.fRangeMax = 100.0f;
+		expected.nCeiling = 100;
+		expected.fAimingTime = 100.0f;
+		expected.fRevealRadius = 10.0f;
+		SWeaponRPGStats::SShell &shell = expected.shells[0];
+		shell.trajectory = SWeaponRPGStats::SShell::TRAJECTORY_LINE;
+		shell.nPiercing = 0;
+		shell.nPiercingRandom = 0;
+		shell.fDamagePower = 5.0f;
+		shell.nDamageRandom = 2;
+		shell.fArea = 1.0f;
+		shell.fArea2 = 2.0f;
+		shell.fSpeed = 10.0f;
+		shell.fDetonationPower = 0.0f;
+		shell.fFireRate = 1.0f;
+		shell.fRelaxTime = 100.0f;
+		shell.eDamageType = SWeaponRPGStats::SShell::DAMAGE_HEALTH;
+		shell.fTraceProbability = 10.0f / 100.0f;   // "Trace probability (%)"
+		shell.fTraceSpeedCoeff = 1.0f;
+		shell.fBrokeTrackProbability = 0.01f;
+		shell.specials.RemoveData( 0 );
+		shell.flashFire.nPower = 100;
+		shell.flashFire.nDuration = 1000;
+		shell.flashExplosion.nPower = 100;
+		shell.flashExplosion.nDuration = 1000;
+		CheckExported( EExportKind::WEAPON, "wpn", run, "weapons/wpn.xml", expected, scratch );
+
+		// Stats only writes the same stats: a weapon has no graphics.
+		SExportContext statsOnly = context;
+		statsOnly.bStatsOnly = true;
+		const SExportRun runStats = RunExporter( "wpn", project, scratch / "wpn" / "data-stats", statsOnly );
+		std::string szFull, szStats;
+		Check( runStats.bExported && ReadBytes( run.data / "weapons/wpn.xml", &szFull ) && ReadBytes( runStats.data / "weapons/wpn.xml", &szStats ) &&
+		       szFull == szStats && runStats.outcome.nWritten == 1, "export wpn: stats only writes the same weapons/wpn.xml" );
+
+		// own_data/export_file_name, as MFC's Export stored it, names the file.
+		std::string szXml;
+		ReadBytes( project, &szXml );
+		const std::string::size_type nOpen = szXml.find( '>', szXml.find( "<Weapon_Composer_Project" ) );
+		szXml.insert( nOpen + 1, "<own_data><export_file_name>custom\\named.xml</export_file_name></own_data>" );
+		const fs::path named = project.parent_path() / "named.wpn";
+		WriteBytes( named, szXml );
+		const SExportRun runNamed = RunExporter( "wpn", named, scratch / "wpn" / "data-named", context );
+		Check( runNamed.bExported && fs::is_regular_file( runNamed.data / "weapons/custom/named.xml" ),
+		       "export wpn: own_data/export_file_name puts the file at weapons\\custom\\named.xml " + runNamed.outcome.szError );
+	}
+
+	// Mine: MineFrm.cpp FillRPGStats; the weapon prop names both fields.
+	{
+		const fs::path project = CopyFixture( fixtures, scratch, "mcp" );
+		const SExportRun run = RunExporter( "mcp", project, scratch / "mcp" / "data", context );
+		SMineRPGStats expected;
+		expected.szKeyName = "";
+		expected.fWeight = 10.0f;
+		expected.szFlagModel = "1";
+		expected.szWeapon = "";
+		CheckExported( EExportKind::MINE, "mcp", run, "objects/simpleobjects/common/summer/mine/mcp/1.xml", expected, scratch );
+		Check( run.outcome.szObjectName == "objects\\simpleobjects\\common\\summer\\mine\\mcp\\1",
+		       "export mcp: names the composed sprite \"1\" beside the stats: " + run.outcome.szObjectName );
+	}
+
+	// Trench: TrenchFrm.cpp SaveRPGStats. The fixture's one segment has no
+	// model file: MFC's "Cannot copy file" box, and no segment.
+	{
+		const fs::path project = CopyFixture( fixtures, scratch, "trc" );
+		const SExportRun run = RunExporter( "trc", project, scratch / "trc" / "data", context );
+		SEntrenchmentRPGStats expected;
+		expected.szKeyName = "Unknown Trench";
+		expected.fMaxHP = 100.0f;
+		for ( int i = 0; i < 6; ++i )
+		{
+			expected.defences[i].nArmorMin = 300;
+			expected.defences[i].nArmorMax = 300;
+			expected.defences[i].fSilhouette = 1.0f;
+		}
+		CheckExported( EExportKind::ENTRENCHMENT, "trc", run, "units/technics/common/entrenchment/trc/1.xml", expected, scratch );
+		Check( run.outcome.warnings.size() == 1 && run.outcome.warnings[0].find( "Cannot copy file" ) != std::string::npos,
+		       "export trc: the empty segment source is MFC's \"Cannot copy file\" warning" );
+
+		// A segment model the export can open: its box from chunk 4 of the
+		// shipped .mod and its fire places from the context's mesh reader.
+		std::string szXml;
+		ReadBytes( project, &szXml );
+		const std::string szEmpty = "<default_name>Source file</default_name>";
+		const std::string::size_type nSource = szXml.find( "<string_value/>", szXml.find( szEmpty ) );
+		if ( Check( nSource != std::string::npos, "export trc: the fixture has a segment source" ) )
+		{
+			szXml.replace( nSource, std::string( "<string_value/>" ).size(), "<string_value>models\\5.mod</string_value>" );
+			const fs::path withModel = project.parent_path() / "model.trc";
+			WriteBytes( withModel, szXml );
+			std::string szMod;
+			ReadBytes( FindNoCase( data, "Units\\Technics\\Common\\Entrenchment\\5.mod" ), &szMod );
+			WriteBytes( project.parent_path() / "models" / "5.mod", szMod );
+
+			const SExportRun runNoMesh = RunExporter( "trc", withModel, scratch / "trc" / "data-nomesh", context );
+			Check( !runNoMesh.bExported && runNoMesh.outcome.szError.find( "5.mod" ) != std::string::npos &&
+			       runNoMesh.outcome.szError.find( "mesh builder" ) != std::string::npos,
+			       "export trc: without a mesh reader the export fails, naming the model: " + runNoMesh.outcome.szError );
+
+			SExportContext withMesh = context;
+			withMesh.meshFirePlaces = []( const std::string &szModFile, std::vector<std::pair<float, float>> &firePlaces, std::string & )
+			{
+				firePlaces.push_back( std::make_pair( 1.5f, -2.5f ) );
+				return szModFile.find( "5.mod" ) != std::string::npos;
+			};
+			const SExportRun runMesh = RunExporter( "trc", withModel, scratch / "trc" / "data-mesh", withMesh );
+			SEntrenchmentRPGStats read;
+			bool bRead = false;
+			if ( runMesh.bExported )
+			{
+				const fs::path exported = runMesh.data / "units/technics/common/entrenchment/trc";
+				CPtr<IDataStorage> pStorage = OpenStorage( ( exported.string() + "/" ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+				CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( "1.xml", STREAM_ACCESS_READ ) : 0;
+				CPtr<IDataTree> pDT = pStream != 0 ? CreateDataTreeSaver( pStream, IDataTree::READ, "base" ) : 0;
+				if ( pDT != 0 )
+				{
+					CTreeAccessor tree = pDT;
+					tree.Add( "RPG", &read );
+					bRead = true;
+				}
+			}
+			Check( bRead && read.segments.size() == 1 && read.segments[0].szModel == "5" && read.lines.size() == 1 && read.lines[0] == 0 &&
+			       read.segments[0].eType == SEntrenchmentRPGStats::EST_LINE && read.segments[0].fCoverage == 0.2f &&
+			       read.segments[0].vAABBHalfSize.x > 1.0f && read.segments[0].fireplaces.size() == 1 && read.segments[0].fireplaces[0].x == 1.5f,
+			       "export trc: a line segment with model 5, coverage 0.2, the .mod's box and the reader's fire place " + runMesh.outcome.szError );
+		}
+	}
+
+	// Squad: SquadFrm.cpp SaveRPGStats. The member is a path, resolved by
+	// the objects database; the soldier is placed relative to the formation's
+	// zero point moved by the cross icon's half size on screen.
+	{
+		const fs::path project = CopyFixture( fixtures, scratch, "scp" );
+		const SExportRun run = RunExporter( "scp", project, scratch / "scp" / "data", context );
+
+		// The shift on screen (15.4, 15.4) in the world, under the squad
+		// frame's camera (SetDefaultCamera: yaw 45, pitch -(90+30)) and one
+		// world unit per pixel: x + y = 15.4 / cos45, x - y = 15.4 / (cos45 sin30).
+		const float fCos45 = std::cos( ToRadian( 45.0f ) );
+		const float fSin30 = std::sin( ToRadian( 30.0f ) );
+		const float fSum = 15.4f / fCos45, fDiff = 15.4f / ( fCos45 * fSin30 );
+		const float fShiftX = ( fSum + fDiff ) / 2, fShiftY = ( fSum - fDiff ) / 2;
+		// The same shift through the engine's own view matrix: back on screen
+		// it is 15.4 pixels right and 15.4 down (the viewport flips y).
+		{
+			SHMatrix view;
+			CreateViewMatrixRH( &view, VNULL3, CQuat( ToRadian( 45.0f ), V3_AXIS_Z ) * CQuat( -ToRadian( 90.0f + 30.0f ), V3_AXIS_X ) );
+			CVec3 vCamera;
+			view.RotateHVector( &vCamera, CVec3( fShiftX, fShiftY, 0 ) );
+			Check( std::fabs( vCamera.x - 15.4f ) < 1e-3f && std::fabs( -vCamera.y - 15.4f ) < 1e-3f,
+			       "export scp: the zero point's shift is (15.4, 15.4) pixels on the squad frame's screen: (" + std::to_string( vCamera.x ) + ", " +
+			       std::to_string( -vCamera.y ) + ")" );
+		}
+		SSquadRPGStats expected;
+		expected.szIcon = "icon.tga";
+		expected.type = SSquadRPGStats::RIFLEMANS;
+		expected.memberNames.push_back( "USSR_Mosin" );
+		SSquadRPGStats::SFormation form;
+		form.type = SSquadRPGStats::SFormation::DEFAULT;
+		form.changesByEvent.resize( 1 );
+		form.changesByEvent[0] = -1;
+		form.cLieFlag = 0;
+		form.fSpeedBonus = form.fDispersionBonus = form.fFireRateBonus = form.fRelaxTimeBonus = form.fCoverBonus = 1.0f;
+		SSquadRPGStats::SFormation::SEntry entry;
+		entry.szSoldier = "USSR_Mosin";
+		const CVec3 vRealZero( 724.077f + fShiftX, 362.039f + fShiftY, 0 );
+		entry.vPos.x = 723.42f - vRealZero.x;
+		entry.vPos.y = 361.71f - vRealZero.y;
+		entry.fDir = ToDegree( 0.5f );
+		form.order.push_back( entry );
+		expected.formations.push_back( form );
+		CheckExported( EExportKind::SQUAD, "scp", run, "squads/scp/1.xml", expected, scratch );
+
+		SExportContext noLookup = context;
+		noLookup.findUnitKey = nullptr;
+		const SExportRun runNoLookup = RunExporter( "scp", project, scratch / "scp" / "data-nolookup", noLookup );
+		Check( !runNoLookup.bExported && runNoLookup.outcome.szError.find( "USSR\\Mosin" ) != std::string::npos,
+		       "export scp: without an objects database the member cannot be resolved, and the error names it: " + runNoLookup.outcome.szError );
+		SExportContext unknown = context;
+		unknown.findUnitKey = []( const std::string &, std::string & ) { return false; };
+		const SExportRun runUnknown = RunExporter( "scp", project, scratch / "scp" / "data-unknown", unknown );
+		Check( !runUnknown.bExported && runUnknown.outcome.szError.find( "Can't find stats for \"units\\humans\\ussr\\mosin\"" ) != std::string::npos,
+		       "export scp: an unknown member is MFC's \"Can't find stats\": " + runUnknown.outcome.szError );
+	}
+
+	Check( FindExporter( "mdc" ) == nullptr, "export: a kind S06 did not port (mdc) still has no exporter" );
+}
+
 // The golden comparison. A golden folder holds MFC's export of the fixture
 // project; the port's export of the same project is compared with it file by
 // file. Neither the goldens (win-home) nor the port's exporter exist on this
@@ -601,6 +912,7 @@ int main( int argc, char **argv )
 	PlantedChanges( scratch, samples );
 	BytesAndDxt( data, scratch );
 	DxtGate( data, scratch, fixtures );
+	Exporters( fixtures, data, scratch );
 	Goldens( fixtures );
 
 	Log( g_nFailures == 0 ? "VERDICT=PASS (goldens pending)" : "VERDICT=FAIL failures=" + std::to_string( g_nFailures ) );

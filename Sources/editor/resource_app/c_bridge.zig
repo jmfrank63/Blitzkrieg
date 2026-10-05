@@ -445,6 +445,7 @@ pub const RealResBridge = struct {
         return switch (channel) {
             .zero_point => .{ &c.BkResGetZeroPoint, &c.BkResSetZeroPoint },
             .entrance => .{ &c.BkResGetEntrance, &c.BkResSetEntrance },
+            .formation_direction => .{ &c.BkResGetFormationDirection, &c.BkResSetFormationDirection },
             else => unreachable,
         };
     }

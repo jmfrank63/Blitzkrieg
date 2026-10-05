@@ -275,6 +275,10 @@ pub const GeometryChannel = enum(c_int) {
     campaign_crosses = 13,
     particle_keyframes = 14,
     effect_keyframes = 15,
+    /// A squad formation's FormationDir (SquadFrm's direction arrow). MFC
+    /// keeps one float on the formation item; it rides the zero point's
+    /// Point2 shape with the angle in x (radians, as stored) and y unused.
+    formation_direction = 16,
 
     /// The payload family the channel carries, as the `GeometryValue` tag.
     /// Formation positions and bridge span marks are flat Point2 lists in
@@ -287,7 +291,7 @@ pub const GeometryChannel = enum(c_int) {
         return switch (self) {
             .passability_cells, .locked_tiles => .bytes_grid,
             .transparency_lines, .formation_positions, .bridge_span_marks, .mission_objectives, .chapter_crosses, .campaign_crosses => .points2,
-            .zero_point, .entrance => .point2,
+            .zero_point, .entrance, .formation_direction => .point2,
             .shoot_points, .fire_points, .smoke_points, .directed_explosion_points => .aimed,
             .particle_keyframes, .effect_keyframes => .vec3,
         };

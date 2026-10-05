@@ -215,6 +215,7 @@ digits survive a save.
 | smoke_points | building root | `desc/SmokePoints` items, the same shape as fire points |
 | directed_explosion_points | building root | `desc/DirExplosions` items: `Position`, `Direction`, `VerticalAngle` = cone (`SDirectionExplosion`) |
 | formation_positions | squad formation (`CSquadFormationPropsItem`) | the item's `units` list, `Pos` x and y of each `SUnit` (`SUnit::operator&`). A slot keeps its z and `Dir`; a new one gets `AddUnit`'s z = 0, `Dir` = 0. |
+| formation_direction | squad formation (`CSquadFormationPropsItem`) | the item's `FormationDir` attribute (`fFormationDir`, radians). Added in S06 T04 for SquadFrm's direction arrow: the ABI carries it as a Point2, x the angle, y unused (reads 0). A set writes only the angle; the arrow's tool also turns the slots about the zero point (`CalculateNewPositions`) through formation_positions in the same undo step. A slot's own `Dir` (the arrow in drag mode) has no channel yet. |
 | bridge_span_marks | bridge root | `own_data` `Begin`, `End` (CVec3; z kept) and the `Front` / `Back` attributes (`CBridgeFrame::SaveFrameOwnData`). The ABI list is always three points: Begin, End, (Front, Back). |
 | mission_objectives | mission Objectives node | each child's `Objective position X` / `Y` value (`CMissionObjectivePropsItem::Get/SetObjectivePosition`), and `RPG/Objectives/item[i]/PosOnMap` when the project has an RPG chunk (`SMissionStats`) |
 | chapter_crosses | chapter Missions node, Place holders node | each child's `Mission position X` / `Y` or `Place holder position X` / `Y` value (`CChapterMissionPropsItem`, `CChapterPlacePropsItem`), and `RPG/Missions/item[i]/PosOnMap` or `RPG/PlaceHolders/item[i]/Position` (`SChapterStats`) |
@@ -233,7 +234,7 @@ The following combinations have no MFC home and are refused:
   the squad formation item save one.
 - **Entrance and aimed points outside a building.** Only
   `SBuildingRPGStats` has them.
-- **Formation positions anywhere but a formation**, and **bridge span marks
+- **Formation positions or direction anywhere but a formation**, and **bridge span marks
   anywhere but the bridge root.** The spans nodes hold no anchor:
   `vBeginPos` and `vEndPos` are the frame's, and the centre cross
   `vCenterKrest` is a constant in `BridgeFrm.cpp`, so it is not stored.
@@ -810,3 +811,24 @@ one, the newer instruction wins, and record the change in the spec").
   way it became active (Editors, New, Open), the GUI frame excepted.
   SaveMapObjects is not ported: MFC's `OnSaveObjects` had no menu and no
   message-map entry, so it had no behaviour a user could reach.
+- **Stats exporters for wpn, mcp, trc and scp, S06 T01, 2026-10-05.** The
+  four exporters port SaveRPGStats line for line and write the stats with the
+  engine's own `CTreeAccessor` (`ResourceModel/items/stats_export.h`). They
+  need the engine's headers and StreamIO, so they are built into the
+  EditorBridge archive and not into `resource_model_sources` (the
+  engine-free model tests); `exporter.cpp` starts its table with them, since a
+  static initialiser in an unreferenced archive member would be dropped by
+  the linker. What MFC's frames took from the running editor comes through
+  `SExportContext` (D015): `findUnitKey` (the squad member's key from
+  `IObjectsDB`) and `meshFirePlaces` (a trench segment model's locators from
+  `IVisObjBuilder`); the bridge fills both when the engine runs them, and an
+  export that needs a missing one fails, naming the member or model. The
+  stats file goes where MFC's Export put it: the project's
+  `own_data/export_file_name` below the kind's folder, else that folder plus
+  the project's folder name (weapons: `weapons\<folder>.xml`, as the shipped
+  weapons are flat files; the others `<folder>\1.xml`), because the port has
+  no source root to take MFC's relative path from. MFC's `<History>` node
+  (user, dates) is not written: no reader reads it and the comparator skips
+  it. The squad's zero point shift (`zeroShiftX/Y`, screen pixels) is turned
+  into the world with the squad frame's camera in closed form, checked
+  against the engine's view matrix in the comparator tier.

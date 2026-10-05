@@ -2,6 +2,8 @@
 
 #include <map>
 
+#include "items/stats_export.h"
+
 namespace NResourceModel
 {
 
@@ -9,10 +11,18 @@ namespace
 {
 
 // A function-local map so a registration from another translation unit's
-// static initialiser never meets an unconstructed table.
+// static initialiser never meets an unconstructed table. It starts with the
+// exporters the sub-editor slices have ported, named here rather than
+// registered by their own static initialisers: those would sit in a static
+// archive that nothing references, and the linker would drop them.
 std::map<std::string, FExporter> &Exporters()
 {
-	static std::map<std::string, FExporter> exporters;
+	static std::map<std::string, FExporter> exporters = {
+		{ "wpn", &ExportWeapon },
+		{ "mcp", &ExportMine },
+		{ "trc", &ExportTrench },
+		{ "scp", &ExportSquad },
+	};
 	return exporters;
 }
 
