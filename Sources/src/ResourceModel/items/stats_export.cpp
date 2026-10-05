@@ -267,7 +267,7 @@ std::string ProjectDirectory( const SExportContext &context )
 	return nCut == std::string::npos ? std::string( "./" ) : context.szProjectPath.substr( 0, nCut + 1 );
 }
 
-bool WriteStats( const SExportContext &context, const std::string &szName, const std::function<void( IDataTree * )> &write, SExportOutcome &outcome )
+bool WriteStats( const SExportContext &context, const std::string &szName, const std::function<void( IDataTree * )> &write, SExportOutcome &outcome, const char *pszRootName )
 {
 	std::string szRelative = szName;
 	for ( char &c : szRelative )
@@ -292,7 +292,7 @@ bool WriteStats( const SExportContext &context, const std::string &szName, const
 			outcome.szError = "Error: can not create stream: " + file.string();
 			return false;
 		}
-		CPtr<IDataTree> pDT = CreateDataTreeSaver( pStream, IDataTree::WRITE );
+		CPtr<IDataTree> pDT = CreateDataTreeSaver( pStream, IDataTree::WRITE, pszRootName );
 		if ( pDT == 0 )
 		{
 			outcome.szError = "the engine has no tree saver for " + file.string();

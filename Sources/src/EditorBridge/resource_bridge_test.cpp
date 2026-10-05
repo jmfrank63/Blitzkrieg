@@ -50,6 +50,7 @@
 #include "../ResourceModel/key_frame_tree_item.h"
 #include "../Scene/Scene.h"
 #include "../Scene/ParticleSourceData.h"
+#include "../Formats/fmtEffect.h"
 #include "../Scene/SmokinParticleSourceData.h"
 #include "../Main/GameStats.h"
 #include "../Main/RPGStats.h"
@@ -1917,6 +1918,13 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// The particle exporter (S12 T01); the S12 particle tests prove the file.
 				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .pcp exports through its S12 exporter" );
 			}
+			else if ( szExt == "eff" )
+			{
+				// The fixture's function particle names a source that is not in the mod's data yet:
+				// the export refuses, naming the file (S12Effect proves the file once it is there).
+				Check( status == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "particle-2key" ) != 0,
+				       "export: .eff without its particle source is refused, naming the file" );
+			}
 			else if ( IsPortedExport( szExt ) )
 			{
 				if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S06 exporter" ).c_str() ) )
@@ -2061,8 +2069,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 		Check( BkResImportFromGame( pSession, 4, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), ".san" ) != 0,
 		       "import: sprite is refused with the reason" );
-		Check( BkResImportFromGame( pSession, 12, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0,
-		       "import: eff is refused as not ported yet" );
+		Check( BkResImportFromGame( pSession, 12, szGunner.c_str() ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "importing .eff is refused" ) != 0,
+		       "import: eff is refused, MFC has no reverse path" );
 		Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 5, "import: a refused import keeps the open project" );
 		Check( BkResImportFromGame( pSession, 5, ( scratch / "no-such" ).string().c_str() ) == BK_EDITOR_DATA_MISSING, "import: a folder without 1.xml is DATA_MISSING" );
 		Check( BkResImportFromGame( pSession, 5, 0 ) == BK_EDITOR_BAD_ARGUMENT, "import: a null path is a bad argument" );
@@ -2280,18 +2288,24 @@ static bool SpriteExporter( const NResourceModel::Project &, const NResourceMode
 	return CopyFolder( "Buildings/europe/summer/e_house11_3", std::filesystem::path( context.szStagingRoot ) / "editor/preview/sprite", outcome );
 }
 
-// An effect is one xml whose particles stay in the shipped data below.
-static bool EffectExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &context, NResourceModel::SExportOutcome &outcome )
+// The effect's function particle names a source the preview's data folder does
+// not hold, so the preview stages a shipped one beside the effect, where the
+// exporter looks second.
+static bool EffectPreviewExporter( const NResourceModel::Project &project, const NResourceModel::SExportContext &context, NResourceModel::SExportOutcome &outcome )
 {
 	std::error_code ec;
-	const std::filesystem::path target = std::filesystem::path( context.szStagingRoot ) / "editor/preview/effect.xml";
-	std::filesystem::create_directories( target.parent_path(), ec );
-	std::filesystem::copy_file( FoldedPath( g_dataRoot, "Effects/Effects/flame_smoke.xml" ), target, std::filesystem::copy_options::overwrite_existing, ec );
-	outcome.nWritten = ec ? 0 : 1;
-	outcome.szObjectName = "editor\\preview\\effect";
-	if ( ec )
-		outcome.szError = "cannot copy flame_smoke.xml: " + ec.message();
-	return !ec;
+	const std::filesystem::path dir = std::filesystem::path( context.szStagingRoot ) / "Effects/particles";
+	std::filesystem::create_directories( dir, ec );
+	std::filesystem::copy_file( FoldedPath( FoldedPath( FoldedPath( g_dataRoot, "Effects" ), "Particles" ), "aa_smoke1_of_expground.xml" ), dir / "particle-2key.xml",
+	                            std::filesystem::copy_options::overwrite_existing, ec );
+	// The fixture's animation names a sprite folder the same way.
+	NResourceModel::SExportOutcome spriteOutcome;
+	if ( !CopyFolder( "Effects/Sprites/bomb1", std::filesystem::path( context.szStagingRoot ) / "Effects/sprites/Animation", spriteOutcome ) )
+	{
+		outcome.szError = spriteOutcome.szError;
+		return false;
+	}
+	return NResourceModel::ExportEffect( project, context, outcome );
 }
 
 static bool NamelessExporter( const NResourceModel::Project &, const NResourceModel::SExportContext &, NResourceModel::SExportOutcome & )
@@ -2403,7 +2417,7 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		{ "sprite",   "spt", 4,  &SpriteExporter },
 		{ "particle", "pcp", 11, &NResourceModel::ExportParticle },
 		// The effect project, an extra beside the one particle source.
-		{ "effect",   "eff", 12, &EffectExporter },
+		{ "effect",   "eff", 12, &EffectPreviewExporter },
 	};
 	for ( const Capture &capture : kCaptures )
 	{
@@ -6590,6 +6604,125 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 
 }
 
+// S12 T02: the Effect project's exporter and the refused import. The fixture
+// holds one animation and one function particle; the particle's source is put
+// into the mod's data (a shipped plain source, then a shipped smokin one) and
+// the effect the engine reads back must carry the tree's fields in the list the
+// source's kind picks.
+namespace S12Effect
+{
+
+namespace fs = std::filesystem;
+
+static bool ReadEffect( const fs::path &xml, SEffectDesc &desc )
+{
+	CPtr<IDataStorage> pStorage = OpenStorage( ( xml.parent_path().string() + "/" ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( xml.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+	CPtr<IDataTree> pDT = pStream != 0 ? CreateDataTreeSaver( pStream, IDataTree::READ ) : 0;
+	if ( pDT == 0 )
+		return false;
+	CTreeAccessor tree = pDT;
+	tree.Add( "effect", &desc );
+	return true;
+}
+
+static void PutSource( const std::string &szRoot, const fs::path &modData, const char *pszShipped )
+{
+	std::error_code ec;
+	const fs::path dir = modData / "effects" / "particles";
+	fs::create_directories( dir, ec );
+	const fs::path from = T11::FoldedPath( T11::FoldedPath( fs::path( szRoot ) / "Data", "Effects" ), "Particles" ) / pszShipped;
+	fs::copy_file( from, dir / "particle-2key.xml", fs::copy_options::overwrite_existing, ec );
+}
+
+static fs::path FirstEffect( const fs::path &modData )
+{
+	std::error_code ec;
+	fs::path found;
+	for ( fs::recursive_directory_iterator it( modData, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().extension() == ".xml" && it->path().parent_path().filename() == "effects" &&
+		     it->path().parent_path().parent_path().filename() != "particles" )
+			found = it->path();
+	return found;
+}
+
+static void Fixture( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s12-effect";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "effect";
+	fs::create_directories( projectDir, ec );
+	fs::copy_file( fs::path( szFixtureRoot ) / "eff" / "project.eff", projectDir / "project.eff", fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / "project.eff";
+	if ( !Check( fs::is_regular_file( project, ec ), "effect: the fixture is copied" ) )
+		return;
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "effect: project.eff opens" ) )
+		return;
+	const fs::path modDir = scratch / "mod";
+	const fs::path modData = modDir / "data";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S12 effect" );
+	BkResModSettingsSet( pSession, &mod );
+
+	BkResExportReport report = {};
+	Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) != BK_EDITOR_OK && std::strstr( BkEditorLastMessage( pSession ), "particle-2key" ) != 0,
+	       "effect: a function particle without its source file is refused, naming the file" );
+
+	PutSource( szRoot, modData, "aa_flame1_of_fatality.xml" );
+	report = BkResExportReport();
+	const BkEditorStatus nExport = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
+	if ( !Check( nExport == BK_EDITOR_OK && report.written >= 1, "effect: the fixture exports" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return;
+	}
+	const fs::path xml = FirstEffect( modData );
+	if ( !Check( !xml.empty(), "effect: the effect lands under data/effects/effects" ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+	SEffectDesc plain;
+	const bool bPlain = ReadEffect( xml, plain );
+	Check( bPlain && plain.sprites.size() == 1 && plain.particles.size() == 1 && plain.smokinParticles.empty(),
+	       "effect: the engine reads one sprite and one plain particle" );
+	if ( bPlain && plain.sprites.size() == 1 && plain.particles.size() == 1 )
+	{
+		const SSpriteEffectDesc &sprite = plain.sprites[0];
+		const SParticleEffectDesc &particle = plain.particles[0];
+		Check( sprite.nStart == 0 && sprite.nRepeat == 1 && sprite.vPos.x == 0 && sprite.vPos.y == 0 && sprite.vPos.z == 0 &&
+		       sprite.szPath.find( "ffects\\sprites\\" ) != std::string::npos, "effect: the sprite carries the animation's fields" );
+		Check( particle.nStart == 0 && particle.nDuration == 15000 && particle.fScale == 1.0f && particle.vPos.x == 0 &&
+		       particle.szPath.find( "particle-2key" ) != std::string::npos, "effect: the particle carries the function particle's fields" );
+	}
+	std::string szFirst, szAgain;
+	ReadBytes( xml.string(), szFirst );
+	report = BkResExportReport();
+	Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK && ReadBytes( xml.string(), szAgain ) && szAgain == szFirst && !szFirst.empty(),
+	       "effect: a second forced export is byte-identical" );
+	const NResourceModel::SCompareResult self = NResourceModel::CompareStats( NResourceModel::EExportKind::EFFECT, xml.string(), xml.string() );
+	Check( self.nFieldsCompared > 3 && self.messages.empty(), "effect: the comparator reads the exported effect" );
+
+	// A smokin source goes to the other list.
+	PutSource( szRoot, modData, "aa_smoke4_of_expplane.xml" );
+	report = BkResExportReport();
+	Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK, "effect: the fixture exports with a smokin source" );
+	SEffectDesc smokin;
+	Check( ReadEffect( xml, smokin ) && smokin.particles.empty() && smokin.smokinParticles.size() == 1 && smokin.smokinParticles[0].nDuration == 15000,
+	       "effect: a complex source lands in the smokin particles" );
+	BkResClose( pSession );
+
+	// There is no reverse path.
+	Check( BkResImportFromGame( pSession, 12, xml.string().c_str() ) == BK_EDITOR_REFUSED &&
+	       std::strstr( BkEditorLastMessage( pSession ), "importing .eff is refused" ) != 0 &&
+	       std::strstr( BkEditorLastMessage( pSession ), "GetRPGStats" ) != 0, "effect: importing a .eff is refused, naming MFC's reason" );
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -6868,6 +7001,9 @@ int main( int argc, char **argv )
 	// S12 T01: the particle exporter and importer.
 	S12Particle::Fixture( pSession, szFixtureRoot, szScratchRoot );
 	S12Particle::Shipped( pSession, pszRoot, szScratchRoot );
+
+	// S12 T02: the effect exporter and the refused import.
+	S12Effect::Fixture( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

@@ -23,3 +23,8 @@ Re-make the golden whenever `../project.eff` or its source art changes.
 
 `zig build test-resource-model -Dtest-mode=run` reports `GOLDEN eff pending: golden missing`. That is
 not a pass: the golden comparison stays open until this folder is filled on win-home.
+
+## Effect import
+
+The port refuses importing `.eff`: MFC's `EffectFrm.cpp` has no `GetRPGStats`/`LoadRPGStats`, so there is no reverse path.
+The exporter writes `SEffectDesc` (sprites and particles only, as MFC does; meshes, Maya particles and lights are not exported).

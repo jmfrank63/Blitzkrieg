@@ -38,6 +38,7 @@ bool ExportFence( const Project &project, const SExportContext &context, SExport
 bool ExportBuilding( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportBridge( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportParticle( const Project &project, const SExportContext &context, SExportOutcome &outcome );
+bool ExportEffect( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 
 // CMeshFrame::SetCombatMesh's locator half (MeshFrm.cpp:1762-1885): the root's
 // Locators item gets one child per skeleton node of the combat .mod, named as
@@ -116,7 +117,7 @@ std::string ProjectDirectory( const SExportContext &context );
 // CreateDataTreeSaver( WRITE ), and hands write the tree to fill. False with
 // outcome.szError naming the path when it cannot be written; counts the file
 // in outcome.nWritten when it is.
-bool WriteStats( const SExportContext &context, const std::string &szName, const std::function<void( IDataTree * )> &write, SExportOutcome &outcome );
+bool WriteStats( const SExportContext &context, const std::string &szName, const std::function<void( IDataTree * )> &write, SExportOutcome &outcome, const char *pszRootName = nullptr );
 
 }
 

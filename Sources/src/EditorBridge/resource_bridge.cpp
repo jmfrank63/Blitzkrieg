@@ -46,6 +46,7 @@
 #include "../ResourceModel/items/building/building_export.h"
 #include "../ResourceModel/items/bridge/bridge_export.h"
 #include "../ResourceModel/items/particle/particle_export.h"
+#include "../ResourceModel/items/effect/effect_export.h"
 #include "../ResourceModel/combos.h"
 #include "../Main/RPGStats.h"
 #include "../Main/iMain.h"
@@ -5764,6 +5765,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		{
 			pSession->szMessage = kind == 4
 				? std::string( "importing .spt is refused: MFC's sprite export only composes .san packs and has no reverse path" )
+				: kind == 12 ? std::string( NResourceModel::EffectImportRefusal() )
 				: "importing ." + szExtension + " is not ported yet; it comes with its sub-editor";
 			return BK_EDITOR_REFUSED;
 		}

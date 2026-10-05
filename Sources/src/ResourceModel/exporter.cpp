@@ -30,6 +30,7 @@ std::map<std::string, FExporter> &Exporters()
 		{ "bld", &ExportBuilding },
 		{ "bdg", &ExportBridge },
 		{ "pcp", &ExportParticle },
+		{ "eff", &ExportEffect },
 	};
 	return exporters;
 }

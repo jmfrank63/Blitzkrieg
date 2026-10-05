@@ -172,7 +172,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-08.1 | Tree: Common, Animations (sprites), Meshes, Function particles, Maya particles, Lights | todo |
 | B-08.2 | Run/Stop, Camera switch | todo |
 | B-08.3 | Direction arrow dock | todo |
-| B-08.4 | Interpolate Vector Items (`IDR_INTERPOLATE_TREE_ITEM_MENU`; MFC has the enable handler only) | todo — recover intent; port if clear, else "no behaviour in MFC" |
+| B-08.4 | Interpolate Vector Items (`IDR_INTERPOLATE_TREE_ITEM_MENU`; MFC has the enable handler only) | no behaviour in MFC (`grep -rn -i interpolate Sources/src/editor/*.cpp` shows only `ON_UPDATE_COMMAND_UI` at EffectFrm.cpp:34 and its enable handler at :395; D026) |
 | B-08.5 | Export: root `"effect"` = `SEffectDesc` | todo |
 | B-08.6 | Import from game data | todo |
 
@@ -281,7 +281,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-18.1 | Tree: Common, Terrains/Tiles, Crossets/Tiles, Ambient sounds, Looped sounds | todo |
 | B-18.2 | Import terrains, Import crossets (toolbar) | todo |
 | B-18.3 | Thumbnail list of tiles | todo |
-| B-18.4 | Crosset edit mode (`ID_EDIT_CROSSETS` appears only in the toolbar map) | todo — recover intent; port if clear, else "no behaviour in MFC" |
+| B-18.4 | Crosset edit mode (`ID_EDIT_CROSSETS` appears only in the toolbar map) | no behaviour in MFC (`grep -rn -i interpolate Sources/src/editor/*.cpp` shows only `ON_UPDATE_COMMAND_UI` at EffectFrm.cpp:34 and its enable handler at :395; D026) |
 | B-18.5 | Export: `<name>.xml` `"tileset"` = `STilesetDesc` + tileset DDS; `crosset.xml` + DDS | todo |
 | B-18.6 | Import from game data | todo |
 
