@@ -1103,33 +1103,210 @@ static void Exporters( const fs::path &fixtures, const fs::path &data, const fs:
 	Check( FindExporter( "mdc" ) == nullptr, "export: a kind S06 did not port (mdc) still has no exporter" );
 }
 
+static bool EndsWith( const std::string &sz, const std::string &szSuffix )
+{
+	return sz.size() >= szSuffix.size() && SameNoCase( sz.substr( sz.size() - szSuffix.size() ), szSuffix );
+}
+
+// One golden file against the port's file of the same relative path, by the
+// kind of file: stats through the engine's reader, .san and _h.dds as bytes,
+// _c.dds within the DXT tolerance, _l.dds (uncompressed, no gate) and
+// everything else (name.txt, icons, ...) byte for byte.
+static SCompareResult CompareGoldenFile( EExportKind kind, const std::string &szRelative, const fs::path &port, const fs::path &golden, const SDxtTolerance &tolerance )
+{
+	if ( EndsWith( szRelative, ".xml" ) )
+		return CompareStats( kind, port.string(), golden.string() );
+	if ( EndsWith( szRelative, "_c.dds" ) || EndsWith( szRelative, "_l.dds" ) )
+		return CompareDxt( port.string(), golden.string(), tolerance );
+	return CompareBytes( port.string(), golden.string() );
+}
+
+struct SGoldenResult
+{
+	int nFiles = 0;
+	std::vector<std::string> failures;   // "<file>: <reason>"
+};
+
+// Every file of a golden folder (README.md and .gitkeep aside) must exist in
+// the port's data folder and compare equal.
+static SGoldenResult CompareGoldenFolder( EExportKind kind, const fs::path &portData, const fs::path &golden, const SDxtTolerance &tolerance )
+{
+	SGoldenResult result;
+	std::error_code error;
+	for ( fs::recursive_directory_iterator it( golden, error ), end; !error && it != end; it.increment( error ) )
+	{
+		const std::string szName = it->path().filename().string();
+		if ( !it->is_regular_file() || szName == ".gitkeep" || szName == "README.md" )
+			continue;
+		++result.nFiles;
+		const std::string szRelative = fs::relative( it->path(), golden ).generic_string();
+		const fs::path port = FindNoCase( portData, szRelative );
+		if ( port.empty() )
+		{
+			result.failures.push_back( szRelative + ": the port did not export this file" );
+			continue;
+		}
+		const SCompareResult compared = CompareGoldenFile( kind, szRelative, port, it->path(), tolerance );
+		if ( compared.status != ECompareStatus::EQUAL )
+			result.failures.push_back( szRelative + ": " + CompareStatusName( compared.status ) + Messages( compared ) );
+	}
+	return result;
+}
+
+// The sprite fixture with its Directory set to a frames folder that holds the
+// fixture's one frame, so the port composes a real 1.san and DDS set.
+static fs::path CopySpriteWithFrame( const fs::path &fixtures, const fs::path &scratch )
+{
+	const fs::path project = CopyFixture( fixtures, scratch, "spt" );
+	std::string szXml;
+	ReadBytes( project, &szXml );
+	const std::string szOld = "<string_value>_.</string_value>";
+	const std::string::size_type nAt = szXml.find( szOld );
+	if ( nAt != std::string::npos )
+		szXml.replace( nAt, szOld.size(), "<string_value>frames\\</string_value>" );
+	WriteBytes( project, szXml );
+	std::error_code error;
+	fs::create_directories( project.parent_path() / "frames", error );
+	fs::copy_file( project.parent_path() / "sprite-1frame.tga", project.parent_path() / "frames" / "sprite-1frame.tga", fs::copy_options::overwrite_existing, error );
+	return project;
+}
+
+static void CopyTree( const fs::path &from, const fs::path &to )
+{
+	std::error_code error;
+	fs::remove_all( to, error );
+	fs::create_directories( to, error );
+	fs::copy( from, to, fs::copy_options::recursive | fs::copy_options::overwrite_existing, error );
+}
+
+static bool FlipByte( const fs::path &file, size_t nOffset )
+{
+	std::string bytes;
+	if ( !ReadBytes( file, &bytes ) || nOffset >= bytes.size() )
+		return false;
+	bytes[nOffset] ^= 0x01;
+	return WriteBytes( file, bytes );
+}
+
+// The comparison must be able to fail. A stand-in golden folder is the port's
+// own export; unchanged it passes, with one byte of 1.san (sprite) or one stats
+// field of 1.xml (infantry) changed it must report exactly that file.
+static void GoldenNegatives( const fs::path &fixtures, const fs::path &scratchRoot, const SDxtTolerance &tolerance, const SExportContext &context )
+{
+	const fs::path scratch = scratchRoot / "golden-negative";
+	{
+		const fs::path project = CopySpriteWithFrame( fixtures, scratch );
+		const SExportRun run = RunExporter( "spt", project, scratch / "spt" / "data", context );
+		Check( run.bExported && CountFiles( run.data, ".san" ) == 1 && CountFiles( run.data, ".dds" ) == 3,
+		       "golden negative spt: the port exports 1.san and three DDS from the frame " + run.outcome.szError );
+		const fs::path stand = scratch / "spt" / "stand-in-golden";
+		CopyTree( run.data, stand );
+		const SGoldenResult same = CompareGoldenFolder( EExportKind::WEAPON, run.data, stand, tolerance );
+		Check( same.nFiles == 4 && same.failures.empty(), "golden negative spt: the port's own export passes as a golden (" + std::to_string( same.nFiles ) + " files)" );
+		std::error_code error;
+		fs::path sanFile;
+		for ( fs::recursive_directory_iterator it( stand, error ), end; sanFile.empty() && !error && it != end; it.increment( error ) )
+			if ( it->is_regular_file() && it->path().filename() == "1.san" )
+				sanFile = it->path();
+		Check( !sanFile.empty() && FlipByte( sanFile, 40 ), "golden negative spt: one byte of the stand-in 1.san is flipped" );
+		const SGoldenResult bad = CompareGoldenFolder( EExportKind::WEAPON, run.data, stand, tolerance );
+		bool bNamed = false;
+		for ( const std::string &szFailure : bad.failures )
+			bNamed = bNamed || szFailure.find( "1.san" ) != std::string::npos;
+		Check( bad.failures.size() == 1 && bNamed, "golden negative spt: the flipped 1.san is reported as FAIL " + ( bad.failures.empty() ? std::string( "(nothing reported)" ) : bad.failures[0] ) );
+	}
+	{
+		const fs::path project = CopyFixture( fixtures, scratch, "unt" );
+		const SExportRun run = RunExporter( "unt", project, scratch / "unt" / "data", context );
+		const fs::path stand = scratch / "unt" / "stand-in-golden";
+		CopyTree( run.data, stand );
+		const SGoldenResult same = CompareGoldenFolder( EExportKind::INFANTRY, run.data, stand, tolerance );
+		Check( run.bExported && same.nFiles >= 1 && same.failures.empty(), "golden negative unt: the port's own export passes as a golden (" + std::to_string( same.nFiles ) + " files)" );
+		const fs::path xml = FindNoCase( stand, "units/humans/unt/1.xml" );
+		std::string szXml;
+		const std::string szOld = "MaxHP=\"100\"";
+		bool bChanged = !xml.empty() && ReadBytes( xml, &szXml );
+		const std::string::size_type nAt = bChanged ? szXml.find( szOld ) : std::string::npos;
+		if ( nAt != std::string::npos )
+			szXml.replace( nAt, szOld.size(), "MaxHP=\"101\"" );
+		Check( nAt != std::string::npos && WriteBytes( xml, szXml ), "golden negative unt: the stand-in 1.xml has MaxHP changed from 100 to 101" );
+		const SGoldenResult bad = CompareGoldenFolder( EExportKind::INFANTRY, run.data, stand, tolerance );
+		Check( bad.failures.size() == 1 && bad.failures[0].find( "1.xml" ) != std::string::npos && bad.failures[0].find( "MaxHP" ) != std::string::npos,
+		       "golden negative unt: the changed stats field is reported as FAIL " + ( bad.failures.empty() ? std::string( "(nothing reported)" ) : bad.failures[0] ) );
+	}
+}
+
 // The golden comparison. A golden folder holds MFC's export of the fixture
 // project; the port's export of the same project is compared with it file by
-// file. Neither the goldens (win-home) nor the port's exporter exist on this
-// machine yet: report pending and do not pass.
-static void Goldens( const fs::path &fixtures )
+// file, for every extension that has an exporter. An extension without a
+// golden is pending (the goldens come from win-home), never a pass; one
+// without an exporter is pending too. A FAIL fails the tier.
+static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
 {
-	static const char *const kExtensions[] = { "wpn", "mcp", "trc", "scp", "spt", "unt", "msh", "obt", "fnc", "bld", "bdg",
-	                                           "pcp", "eff", "til", "3rd", "3rv", "mip", "chc", "cgc", "mdc" };
-	int nPending = 0;
-	for ( const char *pszExt : kExtensions )
+	struct SGolden { const char *pszExt; bool bExporter; EExportKind kind; };
+	static const SGolden kExtensions[] =
 	{
-		const fs::path golden = fixtures / pszExt / "golden";
-		int nFiles = 0;
+		{ "wpn", true, EExportKind::WEAPON }, { "mcp", true, EExportKind::MINE }, { "trc", true, EExportKind::ENTRENCHMENT },
+		{ "scp", true, EExportKind::SQUAD }, { "spt", true, EExportKind::WEAPON }, { "unt", true, EExportKind::INFANTRY },
+		{ "msh", false, EExportKind::MECH_UNIT }, { "obt", false, EExportKind::OBJECT }, { "fnc", false, EExportKind::FENCE },
+		{ "bld", false, EExportKind::BUILDING }, { "bdg", false, EExportKind::BRIDGE }, { "pcp", false, EExportKind::PARTICLE },
+		{ "eff", false, EExportKind::EFFECT }, { "til", false, EExportKind::TILESET }, { "3rd", false, EExportKind::VSO },
+		{ "3rv", false, EExportKind::VSO }, { "mip", false, EExportKind::MISSION }, { "chc", false, EExportKind::CHAPTER },
+		{ "cgc", false, EExportKind::CAMPAIGN }, { "mdc", false, EExportKind::MEDAL },
+	};
+	const fs::path scratch = scratchRoot / "golden";
+	SDxtTolerance tolerance;
+	std::string szError;
+	Check( LoadDxtTolerance( ( fixtures / "dxt-tolerance.json" ).string(), &tolerance, &szError ), "golden: the DXT gate loads " + szError );
+	SExportContext context;
+	context.findUnitKey = &FixtureUnitKey;
+	int nPass = 0, nFail = 0, nPending = 0;
+	for ( const SGolden &entry : kExtensions )
+	{
+		const std::string szExt = entry.pszExt;
+		const fs::path goldenDir = fixtures / szExt / "golden";
+		bool bAny = false;
 		std::error_code error;
-		for ( fs::recursive_directory_iterator it( golden, error ), end; !error && it != end; it.increment( error ) )
+		for ( fs::recursive_directory_iterator it( goldenDir, error ), end; !error && it != end; it.increment( error ) )
 		{
 			const std::string szName = it->path().filename().string();
-			if ( it->is_regular_file() && szName != ".gitkeep" && szName != "README.md" )
-				++nFiles;
+			bAny = bAny || ( it->is_regular_file() && szName != ".gitkeep" && szName != "README.md" );
 		}
-		++nPending;
-		if ( nFiles == 0 )
-			Log( std::string( "GOLDEN " ) + pszExt + " pending: golden missing (run tools/zig/win-home/export-goldens.ps1 on win-home)" );
-		else
-			Log( std::string( "GOLDEN " ) + pszExt + " pending: " + std::to_string( nFiles ) + " golden files, the port has no exporter to compare them with yet" );
+		if ( !bAny )
+		{
+			Log( "GOLDEN " + szExt + " pending: golden missing (run tools/zig/win-home/export-goldens.ps1 on win-home)" );
+			++nPending;
+			continue;
+		}
+		if ( !entry.bExporter )
+		{
+			Log( "GOLDEN " + szExt + " pending: the port has no exporter to compare the golden with yet" );
+			++nPending;
+			continue;
+		}
+		const fs::path project = szExt == "spt" ? CopySpriteWithFrame( fixtures, scratch ) : CopyFixture( fixtures, scratch, szExt );
+		const SExportRun run = RunExporter( szExt, project, scratch / szExt / "data", context );
+		if ( !run.bExported )
+		{
+			Log( "GOLDEN " + szExt + " FAIL: the port's export failed: " + run.outcome.szError );
+			++nFail;
+			++g_nFailures;
+			continue;
+		}
+		const SGoldenResult result = CompareGoldenFolder( entry.kind, run.data, goldenDir, tolerance );
+		if ( result.failures.empty() )
+		{
+			Log( "GOLDEN " + szExt + " pass (" + std::to_string( result.nFiles ) + " files)" );
+			++nPass;
+			continue;
+		}
+		for ( const std::string &szFailure : result.failures )
+			Log( "GOLDEN " + szExt + " FAIL " + szFailure );
+		++nFail;
+		++g_nFailures;
 	}
-	Log( "GOLDEN_SUMMARY extensions=20 pass=0 pending=" + std::to_string( nPending ) );
+	Log( "GOLDEN_SUMMARY extensions=20 pass=" + std::to_string( nPass ) + " fail=" + std::to_string( nFail ) + " pending=" + std::to_string( nPending ) );
+	GoldenNegatives( fixtures, scratchRoot, tolerance, context );
 }
 
 int main( int argc, char **argv )
@@ -1173,9 +1350,9 @@ int main( int argc, char **argv )
 	BytesAndDxt( data, scratch );
 	DxtGate( data, scratch, fixtures );
 	Exporters( fixtures, data, scratch );
-	Goldens( fixtures );
+	Goldens( fixtures, scratch );
 
-	Log( g_nFailures == 0 ? "VERDICT=PASS (goldens pending)" : "VERDICT=FAIL failures=" + std::to_string( g_nFailures ) );
+	Log( g_nFailures == 0 ? "VERDICT=PASS" : "VERDICT=FAIL failures=" + std::to_string( g_nFailures ) );
 	std::ofstream log( fs::path( argv[2] ) / "resource_model" / "comparator.log", std::ios::binary | std::ios::trunc );
 	log << g_szLog;
 	return g_nFailures == 0 ? 0 : 1;

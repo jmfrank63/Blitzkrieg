@@ -1820,14 +1820,16 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			else
 				Check( status == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "not ported yet" ) != 0 && report.written == 0,
 				       ( "export: ." + szExt + " says its exporter is not ported yet" ).c_str() );
+			// The comparison itself is the comparator tier's Goldens(); this tier
+			// only says what it sees, so the two reports agree.
 			const int nGolden = GoldenFiles( fs::path( szFixtureRoot ) / szExt / "golden" );
 			if ( nGolden == 0 )
 				std::printf( "GOLDEN %s pending: golden missing (run tools/zig/win-home/export-goldens.ps1 on win-home)\n", szExt.c_str() );
 			else
-				std::printf( "GOLDEN %s pending: %d golden files, the port has no exporter to compare them with yet\n", szExt.c_str(), nGolden );
+				std::printf( "GOLDEN %s pending: %d golden files, compared by test-resource-model-comparator\n", szExt.c_str(), nGolden );
 			++nPending;
 		}
-		std::printf( "GOLDEN_SUMMARY extensions=%d pass=0 pending=%d\n", kFixtureCount, nPending );
+		std::printf( "GOLDEN_SUMMARY extensions=%d pass=0 fail=0 pending=%d (this tier does not compare; see test-resource-model-comparator)\n", kFixtureCount, nPending );
 
 		// The plumbing with a stand-in exporter: staged, moved into data/,
 		// reported; a failing exporter leaves nothing behind.
@@ -2924,6 +2926,7 @@ static const SRoundTrip kRoundTrips[] = {
 	{ "trc entrenchment", 2, "trc", NResourceModel::EExportKind::ENTRENCHMENT, "Units/Technics/Common/Entrenchment", false,
 	  "units/technics/common/entrenchment/<folder>/1.xml" },
 	{ "scp squads/german_rifle_45", 3, "scp", NResourceModel::EExportKind::SQUAD, "Squads/german_rifle_45", false, "squads/<folder>/1.xml" },
+	{ "unt humans/german/gunner", 5, "unt", NResourceModel::EExportKind::INFANTRY, "Units/Humans/German/Gunner", false, "units/humans/<folder>/1.xml" },
 };
 
 static void RoundTripOne( BkResSession *pSession, const SRoundTrip &trip, const std::string &szRoot, const std::filesystem::path &scratch )
@@ -2998,10 +3001,75 @@ static void RoundTrips( BkResSession *pSession, const std::string &szRoot, const
 		RoundTripOne( pSession, trip, szRoot, scratch );
 }
 
+// Every .unt that ships (Data/Old and the WinSniper test project), copied,
+// opened and exported: no source TGAs ship, so no .san is composed and the
+// compose result is a warning, as in MFC. The stats are still written and the
+// engine's own reader must read them.
+static void UntRoundTrips( BkResSession *pSession, const std::string &szRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s07-unt-roundtrip";
+	fs::remove_all( scratch, ec );
+	std::vector<fs::path> sources;
+	for ( fs::recursive_directory_iterator it( fs::path( szRoot ) / "Data" / "Old", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().extension() == ".unt" )
+			sources.push_back( it->path() );
+	std::sort( sources.begin(), sources.end() );
+	Check( sources.size() == 14, ( "unt round trips: Data/Old holds 14 .unt (" + std::to_string( sources.size() ) + ")" ).c_str() );
+	sources.push_back( T11::FoldedPath( fs::path( szRoot ) / "Data", "Editor/TestProjects/02_InfantryAnimation/WinSniper.unt" ) );
+	int nIndex = 0;
+	for ( const fs::path &source : sources )
+	{
+		const std::string szCase = "unt round trip " + source.filename().string();
+		const fs::path dir = scratch / std::to_string( nIndex++ );
+		const fs::path project = dir / "project" / source.filename();
+		fs::create_directories( project.parent_path(), ec );
+		fs::copy_file( source, project, fs::copy_options::overwrite_existing, ec );
+		if ( !Check( !ec && BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, ( szCase + ": opens" ).c_str() ) )
+			continue;
+		const fs::path modDir = dir / "mod";
+		BkResModSettings mod = {};
+		std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+		std::snprintf( mod.name, sizeof( mod.name ), "S07 unt round trip" );
+		BkResModSettingsSet( pSession, &mod );
+		BkResWarning warnings[16] = {};
+		BkResExportReport report = {};
+		report.warnings = warnings;
+		report.warnings_capacity = 16;
+		const BkEditorStatus status = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
+		BkResClose( pSession );
+		if ( !Check( status == BK_EDITOR_OK, ( szCase + ": exports " + BkEditorLastMessage( pSession ) ).c_str() ) )
+			continue;
+		fs::path xml;
+		int nSan = 0;
+		for ( fs::recursive_directory_iterator it( modDir / "data", ec ), end; !ec && it != end; it.increment( ec ) )
+		{
+			if ( !it->is_regular_file( ec ) )
+				continue;
+			if ( it->path().filename() == "1.xml" )
+				xml = it->path();
+			if ( it->path().extension() == ".san" )
+				++nSan;
+		}
+		SInfantryRPGStats stats;
+		Check( !xml.empty() && ReadChunkAsMfc( xml.string(), "base", "RPG", stats ), ( szCase + ": 1.xml is written and the engine reads it as SInfantryRPGStats" ).c_str() );
+		Check( nSan == 0 && report.warning_count >= 1, ( szCase + ": no .san is composed (no source TGAs ship) and the compose result is a warning" ).c_str() );
+	}
+}
+
+// A shipped human imported and exported stats-only must equal the shipped
+// 1.xml. MFC's FillRPGStats writes some fields as constants, so a unit that
+// MFC did not make with those constants differs there; they are listed in the
+// comparator's kRoundTripLosses (fRotateSpeed, nPriority, nUninstallRotate,
+// nUninstallTransport, animdescs nAABB_A / nAABB_D) and printed as EXCUSED.
+// The round trip of Gunner is the kRoundTrips entry "unt humans/german/gunner".
+
 static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
 {
 	ShippedTrench( pSession, szRoot, szFixtureRoot, szScratchRoot );
 	RoundTrips( pSession, szRoot, szScratchRoot );
+	UntRoundTrips( pSession, szRoot, szScratchRoot );
 }
 
 }

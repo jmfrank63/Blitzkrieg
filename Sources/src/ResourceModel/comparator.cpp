@@ -771,6 +771,17 @@ const SRoundTripLoss kRoundTripLosses[] = {
 	{ EExportKind::ENTRENCHMENT, "RPG/Arcs#count", "derived from the segments the import cannot read back (see RPG/Segments)" },
 	{ EExportKind::SQUAD, "RPG/Formations/item[*]/Order/item[*]/Pos", "CSquadFrame::SaveRPGStats rebuilds each slot from the zero point with float arithmetic, so an imported slot differs from the shipped one by a few 1e-5" },
 	{ EExportKind::SQUAD, "RPG/Formations/item[*]/Order/item[*]/Dir", "CSquadFrame::SaveRPGStats rebuilds each slot from the zero point with float arithmetic, so an imported slot differs from the shipped one by a few 1e-6" },
+	{ EExportKind::INFANTRY, "RPG/Commands", "CUnitActionsItem keeps only the actions of the editor's Actions list, so a shipped unit whose Commands bits lie beyond it comes back with fewer" },
+	{ EExportKind::INFANTRY, "RPG/Commands/Size", "CUnitActionsItem keeps only the actions of the editor's Actions list, so a shipped unit whose Commands bits lie beyond it comes back with fewer" },
+	{ EExportKind::INFANTRY, "RPG/Commands/BitArray", "CUnitActionsItem keeps only the actions of the editor's Actions list, so a shipped unit whose Commands bits lie beyond it comes back with fewer" },
+	{ EExportKind::INFANTRY, "RPG/Commands/BitArray#count", "CUnitActionsItem keeps only the actions of the editor's Actions list, so a shipped unit whose Commands bits lie beyond it comes back with fewer" },
+	{ EExportKind::INFANTRY, "RPG/AnimDescs/item[*]/data/item[*]/Length", "CUnitAnimationItem::FillRPGStats computes Length from the frame count and frame time; a stats-only import has no frames, so it is 0" },
+	{ EExportKind::INFANTRY, "RPG/RotateSpeed", "FillRPGStats writes a constant (fRotateSpeed = 0)" },
+	{ EExportKind::INFANTRY, "RPG/Priority", "FillRPGStats writes a constant (nPriority = 0)" },
+	{ EExportKind::INFANTRY, "RPG/UninstallRotate", "FillRPGStats writes a constant (nUninstallRotate = 0)" },
+	{ EExportKind::INFANTRY, "RPG/UninstallTransport", "FillRPGStats writes a constant (nUninstallTransport = 0)" },
+	{ EExportKind::INFANTRY, "RPG/AnimDescs/item[*]/data/item[*]/AABB_A", "FillRPGStats writes a constant (nAABB_A = -1)" },
+	{ EExportKind::INFANTRY, "RPG/AnimDescs/item[*]/data/item[*]/AABB_D", "FillRPGStats writes a constant (nAABB_D = -1)" },
 };
 
 const SRoundTripLoss *FindRoundTripLoss( EExportKind kind, const std::string &szMessage )
