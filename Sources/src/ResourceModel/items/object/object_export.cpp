@@ -261,7 +261,9 @@ bool FillRPGStats( SObjectRPGStats &stats, const CTreeItem &root, const SObjectF
 	stats.fMaxHP = float( ValueInt( *pCommonProps, 0 ) );
 	for ( int i = 0; i < 6; ++i )
 	{
-		stats.defences[i].nArmorMin = ValueInt( *pCommonProps, 1 );
+		// The range a shipped object held stands while the item still says its maximum (a stub without Defence nodes
+		// reads as 40 to 90, which one armor item cannot hold).
+		stats.defences[i].nArmorMin = frame.nArmorMin >= 0 && frame.nArmorMax == ValueInt( *pCommonProps, 1 ) ? frame.nArmorMin : ValueInt( *pCommonProps, 1 );
 		stats.defences[i].nArmorMax = ValueInt( *pCommonProps, 1 );
 		stats.defences[i].fSilhouette = float( ValueInt( *pCommonProps, 2 ) );
 	}
@@ -355,6 +357,12 @@ bool ReadObjectFrameData( const NResourceXml::Node &root, SObjectFrameData &data
 			return false;
 		ReadVec( NResourceXml::FindChild( *pDesc, "origin" ), data.vOrigin );
 		ReadVec( NResourceXml::FindChild( *pDesc, "VisOrigin" ), data.vVisOrigin );
+		const std::string *pMin = FindAttr( *pDesc, "ArmorMin" ), *pMax = FindAttr( *pDesc, "ArmorMax" );
+		if ( pMin != nullptr && pMax != nullptr )
+		{
+			data.nArmorMin = std::atoi( pMin->c_str() );
+			data.nArmorMax = std::atoi( pMax->c_str() );
+		}
 	}
 	return true;
 }
@@ -383,6 +391,12 @@ void WriteObjectFrameData( NResourceXml::Node &root, const SObjectFrameData &dat
 	}
 
 	WriteObjectGrids( root, data );
+	if ( data.nArmorMin >= 0 )
+	{
+		NResourceXml::Node &desc = ChildOrNew( root, "desc" );
+		SetAttr( desc, "ArmorMin", MfcInt( data.nArmorMin ) );
+		SetAttr( desc, "ArmorMax", MfcInt( data.nArmorMax ) );
+	}
 }
 
 void WriteObjectGrids( NResourceXml::Node &root, const SObjectFrameData &data )

@@ -60,6 +60,19 @@ std::string Validate( const CTreeItem &commonProps, const CTreeItem &chapters, c
 
 }
 
+// Whether a name starts with the data root's scenarios folder, compared case folded as the engine's file names are.
+static bool NameStartsWithDataFolder( const std::string &szName )
+{
+	static const char szFolder[] = "scenarios\\";
+	const std::size_t nLength = sizeof( szFolder ) - 1;
+	if ( szName.size() <= nLength )
+		return false;
+	for ( std::size_t i = 0; i < nLength; ++i )
+		if ( std::tolower( (unsigned char)szName[i] ) != szFolder[i] )
+			return false;
+	return true;
+}
+
 bool ExportCampaign( const Project &project, const SExportContext &context, SExportOutcome &outcome )
 {
 	const std::unique_ptr<Project> pProject = PreparedCopy( project, ETIT_CAMPAIGN_ROOT_ITEM, "campaign", outcome );
@@ -87,11 +100,15 @@ bool ExportCampaign( const Project &project, const SExportContext &context, SExp
 	// ExportFrameData, which sets it), so the cached paths are the tree's own values; the
 	// export prefixes them. A cache that held the prefixed paths would reload into the tree.
 	const std::string szStatsPrefix = context.bSaveCache ? std::string() : szPrefix;
+	// A map picture the project names from the data root (a mod's campaign keeps it under scenarios\custom, not beside
+	// the stats) is the path the game reads: prefixing it again would point the game at a file that does not exist.
+	// MFC's relative names never start with the data folder, so none of them changes.
+	const std::string szImagePrefix = NameStartsWithDataFolder( szMapImage ) ? std::string() : szPrefix;
 
 	SCampaignStats rpgStats;
 	rpgStats.szHeaderText = szStatsPrefix + szHeader;
 	rpgStats.szSubheaderText = szStatsPrefix + szSubHeader;
-	rpgStats.szMapImage = szStatsPrefix + szMapImage;
+	rpgStats.szMapImage = ( szImagePrefix.empty() ? std::string() : szStatsPrefix ) + szMapImage;
 	rpgStats.szIntroMovie = ValueStr( *pCommonProps, 3 );
 	rpgStats.szOutroMovie = ValueStr( *pCommonProps, 4 );
 	rpgStats.szInterfaceMusic = ValueStr( *pCommonProps, 5 );
@@ -121,6 +138,9 @@ bool ExportCampaign( const Project &project, const SExportContext &context, SExp
 			return false;
 		outcome.warnings.push_back( outcome.szError );
 		outcome.szError.clear();
+		float keptRect[4];
+		if ( KeptImageRect( pProject->document.root, keptRect ) )
+			rpgStats.mapImageRect = CTRect<float>( keptRect[0], keptRect[1], keptRect[2], keptRect[3] );
 	}
 	else
 		rpgStats.mapImageRect = NImageExport::GetImageSize( szSourcePicture, outcome );
@@ -141,8 +161,8 @@ bool ExportCampaign( const Project &project, const SExportContext &context, SExp
 			outcome.szError.clear();
 		}
 
-	outcome.szObjectName = szPrefix + szMapImage;
-	return NImageExport::ComposeImageToTexture( context, szSourcePicture, szPrefix + szMapImage, NImageExport::ReadGammaConfig( szProjectDir ), GFXPF_DXT3, GFXPF_ARGB4444, true, outcome );
+	outcome.szObjectName = szImagePrefix + szMapImage;
+	return NImageExport::ComposeImageToTexture( context, szSourcePicture, szImagePrefix + szMapImage, NImageExport::ReadGammaConfig( szProjectDir ), GFXPF_DXT3, GFXPF_ARGB4444, true, outcome );
 }
 
 }

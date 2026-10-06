@@ -26,6 +26,10 @@ struct SObjectFrameData
 	SVec2 vOrigin;
 	STileGrid visibility;
 	SVec2 vVisOrigin;
+	// The armor range a shipped object held (the frame's one armor item is min and max in one): kept in desc as
+	// ArmorMin and ArmorMax and used by the export while the item still says ArmorMax. -1: none kept.
+	int nArmorMin = -1;
+	int nArmorMax = -1;
 
 	SObjectFrameData();
 };

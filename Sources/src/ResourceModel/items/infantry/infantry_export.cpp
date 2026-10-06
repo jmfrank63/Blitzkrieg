@@ -24,6 +24,8 @@
 #include <filesystem>
 
 #include "../stats_export.h"
+#include "../../mfc_value.h"
+#include "../../xml.h"
 #include "../../compose.h"
 #include "../../image_export.h"
 #include "../tree_item_types.h"
@@ -39,6 +41,10 @@ using namespace NStatsExport;
 namespace fs = std::filesystem;
 
 const char kInfantryAddDir[] = "units\\humans\\";
+
+// The frame data of an imported unit: its element name, the Lengths the import read (item type="<animation slot>"
+// Length="<n>", in the order of the slot's descriptions).
+const char kFrameData[] = "desc";
 
 // A value as MFC's int64 conversion: the default of the actions and
 // exposures is an empty string, which is 0.
@@ -99,7 +105,7 @@ int NumberOfDirections( const CTreeItem &anim ) { return ValueStr( anim, 4 ) == 
 int FrameCount( const CTreeItem &anim ) { return int( anim.GetChildren().size() ); }
 
 // CAnimationFrame::FillRPGStats.
-bool FillRPGStats( SInfantryRPGStats &rpgStats, const CTreeItem &rootItem, SExportOutcome &outcome )
+bool FillRPGStats( SInfantryRPGStats &rpgStats, const CTreeItem &rootItem, SExportOutcome &outcome, const NResourceXml::Node *pProjectElement )
 {
 	const CTreeItem *pCommonProps = RequireChild( rootItem, ETIT_UNIT_COMMON_PROPS_ITEM, 0, "Basic Info", outcome );
 	const CTreeItem *pAcks = RequireChild( rootItem, ETIT_UNIT_ACKS_ITEM, 0, "Acknowledgments", outcome );
@@ -200,6 +206,21 @@ bool FillRPGStats( SInfantryRPGStats &rpgStats, const CTreeItem &rootItem, SExpo
 		}
 	}
 
+	// The Lengths an import kept, by animation slot and position in the slot.
+	std::vector<std::vector<int>> keptLengths;
+	if ( const NResourceXml::Node *pFrame = pProjectElement != nullptr ? NResourceXml::FindChild( *pProjectElement, kFrameData ) : nullptr )
+		for ( const NResourceXml::Node &item : pFrame->children )
+		{
+			const std::string *pType = item.kind == NResourceXml::Node::Element ? FindAttr( item, "type" ) : nullptr;
+			const std::string *pLength = pType != nullptr ? FindAttr( item, "Length" ) : nullptr;
+			const int nType = pType != nullptr ? std::atoi( pType->c_str() ) : -1;
+			if ( pLength == nullptr || nType < 0 || nType >= ANIMATION_LAST_ANIMATION )
+				continue;
+			if ( int( keptLengths.size() ) <= nType )
+				keptLengths.resize( nType + 1 );
+			keptLengths[nType].push_back( std::atoi( pLength->c_str() ) );
+		}
+
 	int nIndex = 0;
 	rpgStats.animdescs.resize( ANIMATION_LAST_ANIMATION );
 	for ( const auto &pAnim : anims )
@@ -211,6 +232,9 @@ bool FillRPGStats( SInfantryRPGStats &rpgStats, const CTreeItem &rootItem, SExpo
 		desc.nAABB_A = -1;
 		desc.nAABB_D = -1;
 		const int nType = AnimationType( pAnim->GetDisplayName() );
+		// An animation with no frames (a stats-only import) has the Length the shipped stats held, when it kept one.
+		if ( FrameCount( *pAnim ) == 0 && nType >= 0 && nType < int( keptLengths.size() ) && rpgStats.animdescs[nType].size() < keptLengths[nType].size() )
+			desc.nLength = keptLengths[nType][rpgStats.animdescs[nType].size()];
 		if ( nType >= 0 && nType < int( rpgStats.animdescs.size() ) )
 			rpgStats.animdescs[nType].push_back( desc );
 		else
@@ -467,6 +491,30 @@ void CopyLocalization( const SExportContext &context, const std::string &szSourc
 
 }
 
+void WriteInfantryFrameData( NResourceXml::Node &root, const SInfantryRPGStats &rpgStats )
+{
+	NResourceXml::Node frame;
+	frame.kind = NResourceXml::Node::Element;
+	frame.name = kFrameData;
+	for ( std::size_t nType = 0; nType < rpgStats.animdescs.size(); ++nType )
+		for ( const SUnitBaseRPGStats::SAnimDesc &desc : rpgStats.animdescs[nType] )
+		{
+			NResourceXml::Node item;
+			item.kind = NResourceXml::Node::Element;
+			item.name = "item";
+			SetAttr( item, "type", MfcInt( int( nType ) ) );
+			SetAttr( item, "Length", MfcInt( desc.nLength ) );
+			frame.children.push_back( std::move( item ) );
+		}
+	for ( NResourceXml::Node &child : root.children )
+		if ( child.kind == NResourceXml::Node::Element && child.name == kFrameData )
+		{
+			child = std::move( frame );
+			return;
+		}
+	root.children.push_back( std::move( frame ) );
+}
+
 bool ExportInfantry( const Project &project, const SExportContext &context, SExportOutcome &outcome )
 {
 	const std::unique_ptr<Project> pProject = PreparedCopy( project, ETIT_ANIMATION_ROOT_ITEM, "infantry", outcome );
@@ -474,7 +522,7 @@ bool ExportInfantry( const Project &project, const SExportContext &context, SExp
 		return false;
 	const CTreeItem &root = *pProject->root;
 	SInfantryRPGStats rpgStats;
-	if ( !FillRPGStats( rpgStats, root, outcome ) )
+	if ( !FillRPGStats( rpgStats, root, outcome, &pProject->document.root ) )
 		return false;
 	const CTreeItem *pLocItem = RequireChild( root, ETIT_LOCALIZATION_ITEM, 0, "Localization", outcome );
 	if ( pLocItem == nullptr )

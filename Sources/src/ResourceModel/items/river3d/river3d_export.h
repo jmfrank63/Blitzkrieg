@@ -16,6 +16,7 @@
 #include <string>
 
 #include "../../tree_item.h"
+#include "../../xml.h"
 
 struct SVectorStripeObjectDesc;
 
@@ -24,7 +25,13 @@ namespace NResourceModel
 
 // FillRPGStats: the descriptor the project's tree says. False with szError
 // naming what is missing. root is a project root with CreateDefaultChilds run.
-bool FillRiver3DDesc( const CTreeItem &root, SVectorStripeObjectDesc &desc, std::string &szError );
+// pProjectElement, when given, is the project's root element: an imported river keeps in its desc child what the
+// engine's reader reads and the frame has no item for (minimap colours, type, priority, soil...), and the export
+// writes it back (S17/T03). A project authored in the editor has none, so MFC's constants stand.
+bool FillRiver3DDesc( const CTreeItem &root, SVectorStripeObjectDesc &desc, std::string &szError, const NResourceXml::Node *pProjectElement = nullptr );
+
+// The import's half of that: the desc element of the project's root element.
+void WriteRiverFrameData( NResourceXml::Node &root, const SVectorStripeObjectDesc &desc );
 
 // The tree half of an import: root is a default tree (CreateDefaultChilds
 // has run).

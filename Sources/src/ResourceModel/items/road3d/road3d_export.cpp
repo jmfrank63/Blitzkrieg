@@ -10,6 +10,8 @@
 
 #include "../stats_export.h"
 #include "../../factory.h"
+#include "../../mfc_value.h"
+#include "../../xml.h"
 #include "../tree_item_types.h"
 #include "../../../Formats/fmtVSO.h"
 #include "../../../Main/RPGStats.h"
@@ -23,6 +25,9 @@ namespace
 using namespace NStatsExport;
 
 const char kRoadAddDir[] = "terrain\\sets\\";
+
+// The frame data of an imported road, as the river keeps its own (river3d_export.cpp).
+const char kFrameData[] = "desc";
 
 // C3DRoadCommonPropsItem::GetRoadType: a name that is neither road nor
 // railroad asserted in MFC and fell back to a road.
@@ -50,7 +55,7 @@ void SetSlot( CTreeItem *pItem, std::size_t nSlot, const CVariant &value )
 
 }
 
-bool FillRoad3DDesc( const CTreeItem &root, SVectorStripeObjectDesc &desc, std::string &szError )
+bool FillRoad3DDesc( const CTreeItem &root, SVectorStripeObjectDesc &desc, std::string &szError, const NResourceXml::Node *pProjectElement )
 {
 	const CTreeItem *pCommon = ChildItem( root, ETIT_3DROAD_COMMON_PROPS_ITEM );
 	const CTreeItem *pLayer = ChildItem( root, ETIT_3DROAD_LAYER_PROPS_ITEM );
@@ -83,6 +88,17 @@ bool FillRoad3DDesc( const CTreeItem &root, SVectorStripeObjectDesc &desc, std::
 	if ( ValueBool( *pCommon, 8 ) )
 		desc.dwAIClasses |= AI_CLASS_TRACK;
 	desc.dwAIClasses = ~desc.dwAIClasses;
+	// The mask a shipped road holds may carry bits the four flags do not (the mod's holds none above them: 0 where the
+	// flags give 0xfffffff0); the kept mask stands while its four class bits are what the flags say.
+	const DWORD dwClassBits = AI_CLASS_ANY;
+	const NResourceXml::Node *pFrame = pProjectElement != nullptr ? NResourceXml::FindChild( *pProjectElement, kFrameData ) : nullptr;
+	if ( pFrame != nullptr )
+		if ( const std::string *pKept = FindAttr( *pFrame, "AIClasses" ) )
+		{
+			const DWORD dwKept = DWORD( std::strtoul( pKept->c_str(), nullptr, 10 ) );
+			if ( ( dwKept & dwClassBits ) == ( desc.dwAIClasses & dwClassBits ) )
+				desc.dwAIClasses = dwKept;
+		}
 
 	// MFC set the type to a road first and overwrote it with the item's.
 	desc.eType = SVectorStripeObjectDesc::TYPE_ROAD;
@@ -131,7 +147,7 @@ bool ExportRoad3D( const Project &project, const SExportContext &context, SExpor
 	if ( !pProject )
 		return false;
 	SVectorStripeObjectDesc desc;
-	if ( !FillRoad3DDesc( *pProject->root, desc, outcome.szError ) )
+	if ( !FillRoad3DDesc( *pProject->root, desc, outcome.szError, &pProject->document.root ) )
 		return false;
 
 	const std::string szFile = StatsFileName( project, context, kRoadAddDir, false );
@@ -148,6 +164,21 @@ bool ExportRoad3D( const Project &project, const SExportContext &context, SExpor
 		szObject.resize( nDot );
 	outcome.szObjectName = szObject;
 	return true;
+}
+
+void WriteRoadFrameData( NResourceXml::Node &root, const SVectorStripeObjectDesc &desc )
+{
+	NResourceXml::Node frame;
+	frame.kind = NResourceXml::Node::Element;
+	frame.name = kFrameData;
+	SetAttr( frame, "AIClasses", std::to_string( desc.dwAIClasses ) );
+	for ( NResourceXml::Node &child : root.children )
+		if ( child.kind == NResourceXml::Node::Element && child.name == kFrameData )
+		{
+			child = std::move( frame );
+			return;
+		}
+	root.children.push_back( std::move( frame ) );
 }
 
 void Road3DStatsToTree( const SVectorStripeObjectDesc &desc, CTreeItem &root )

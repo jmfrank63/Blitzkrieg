@@ -69,8 +69,11 @@ bool ExportMedal( const Project &project, const SExportContext &context, SExport
 			outcome.szError.clear();
 		}
 	}
+	float keptRect[4];
 	if ( pPicture != 0 )
 		rpgStats.mapImageRect = NImageExport::GetImageSize( szSourcePicture, outcome );
+	else if ( context.bStatsOnly && KeptImageRect( pProject->document.root, keptRect ) )
+		rpgStats.mapImageRect = CTRect<float>( keptRect[0], keptRect[1], keptRect[2], keptRect[3] );
 
 	if ( !WriteStats( context, szFile, [&]( IDataTree *pDT )
 	{

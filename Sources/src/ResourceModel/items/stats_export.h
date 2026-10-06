@@ -20,8 +20,12 @@
 
 #include "../exporter.h"
 #include "../tree_item.h"
+#include "../xml.h"
 
 struct IDataTree;
+struct SInfantryRPGStats;
+struct SMechUnitRPGStats;
+struct SFenceRPGStats;
 
 namespace NResourceModel
 {
@@ -46,6 +50,30 @@ bool ExportMedal( const Project &project, const SExportContext &context, SExport
 bool ExportChapter( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportCampaign( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportMission( const Project &project, const SExportContext &context, SExportOutcome &outcome );
+
+// What an import keeps of a shipped infantry unit that the project cannot say: the animations' Length (the export
+// computes it from the frames, and a stats-only import has none). WriteInfantryFrameData puts them in the
+// project's desc element; ExportInfantry writes them back for an animation with no frames (S17/T03).
+void WriteInfantryFrameData( NResourceXml::Node &root, const SInfantryRPGStats &rpgStats );
+
+// A shipped fence's segment origins as they were read: the project places a segment's grids as tiles on the editor
+// camera's lattice, and the mod's maker had another camera, so a visibility grid may sit a whole tile away from where
+// the lattice puts it. The import keeps each segment's origins and a fingerprint of its two grids in the project's
+// desc element; the export writes the kept origin of a grid whose cut-out is still the one imported (S17/T03).
+void WriteFenceFrameData( NResourceXml::Node &root, const SFenceRPGStats &rpgStats );
+
+// The same for a shipped mesh unit: the platforms' and guns' locator numbers (part, gun carriage parts, constraints,
+// shoot point, direction, recoil length) that MFC's frame derived from locator names the stats do not hold. A
+// platform or gun whose combos still say "NA" is exported with the numbers the import kept (S17/T03).
+void WriteMeshFrameData( NResourceXml::Node &root, const SMechUnitRPGStats &rpgStats, const std::string &szStatsFolder, const NResourceXml::Node *pSourceStats );
+
+// Everything else the export takes from the .mod models beside the stats (the boxes, the animation list, every locator
+// point) is what the models say, and a mod's stats may have been made against other models or by another build of the
+// editor. The import keeps the stats' own RPG element and a fingerprint of the models beside them (their content, as
+// the three model slots of a new project name them); an export whose slots still resolve to those very models writes
+// the kept values for those fields, so a unit re-exports as it was imported. Another model, or a changed slot, derives
+// them from the model again (S17/T03).
+std::string MeshModelFingerprint( const std::filesystem::path &combat, const std::filesystem::path &install, const std::filesystem::path &trans );
 
 // CMeshFrame::SetCombatMesh's locator half (MeshFrm.cpp:1762-1885): the root's
 // Locators item gets one child per skeleton node of the combat .mod, named as
@@ -114,6 +142,13 @@ std::filesystem::file_time_type ChangeTime( const std::filesystem::path &file );
 // The folder of a storage-relative file name, with its trailing backslash
 // (MFC's GetDirectory).
 std::string DirectoryOf( const std::string &szName );
+
+// The picture rectangle (the stats' ImageRect or MapImageRect: x1, y1 the picture's size in pixels, x2, y2 its share of
+// the padded texture) an import keeps in the project's image_rect element. The export measures the source picture;
+// a stats-only export of a project whose picture is not there (a mod ships the compiled .dds, not the .tga) writes
+// the kept rectangle instead of MFC's all-zero one (S17/T03). KeptImageRect is false when there is none.
+void KeepImageRect( NResourceXml::Node &root, const float ( &rect )[4] );
+bool KeptImageRect( const NResourceXml::Node &root, float ( &rect )[4] );
 
 // The project folder (MFC's GetDirectory( pszProjectName )), with a trailing
 // separator.

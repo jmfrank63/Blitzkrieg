@@ -156,6 +156,9 @@ bool ExportChapter( const Project &project, const SExportContext &context, SExpo
 			return false;
 		outcome.warnings.push_back( outcome.szError );
 		outcome.szError.clear();
+		float keptRect[4];
+		if ( KeptImageRect( pProject->document.root, keptRect ) )
+			rpgStats.mapImageRect = CTRect<float>( keptRect[0], keptRect[1], keptRect[2], keptRect[3] );
 	}
 	else
 		rpgStats.mapImageRect = NImageExport::GetImageSize( szSourcePicture, outcome );

@@ -191,13 +191,28 @@ bool FillRPGStats2( SSmokinParticleSourceData &particleSetup, const CTreeItem &r
 }
 
 // A curve item's frames from the keys the file lists for its chunk. A chunk
-// the file lacks leaves the item's default key. The angle track is stored in
-// radians and shown in degrees.
-void FramesFromRaw( CTreeItem &parent, int nType, const SParticleRawFile &raw, const char *pszChunk, bool bAngle = false )
+// the file lacks leaves the item's default key, except for the five randomiser
+// tracks (bZeroWhenAbsent): SParticleSourceData::Init gives a source that omits
+// one a track of zeros (SParticleSourceData.cpp:100), which is what the game
+// reads, while the project's default key holds ones. The angle track is stored
+// in radians and shown in degrees.
+void FramesFromRaw( CTreeItem &parent, int nType, const SParticleRawFile &raw, const char *pszChunk, bool bAngle = false, bool bZeroWhenAbsent = false )
 {
 	const auto found = raw.tracks.find( pszChunk );
 	if ( found == raw.tracks.end() || found->second.empty() )
+	{
+		if ( !bZeroWhenAbsent )
+			return;
+		for ( const auto &pChild : parent.GetChildren() )
+			if ( pChild->GetItemType() == nType )
+			{
+				if ( CKeyFrameTreeItem *pCurve = dynamic_cast<CKeyFrameTreeItem *>( pChild.get() ) )
+					for ( auto &frame : pCurve->framesList )
+						frame.second = 0;
+				return;
+			}
 		return;
+	}
 	for ( const auto &pChild : parent.GetChildren() )
 	{
 		if ( pChild->GetItemType() != nType )
@@ -377,14 +392,14 @@ void ParticleStatsToTree( const SParticleSourceData &stats, const SParticleRawFi
 		SetSlot( pSourceProps, 1, CVariant( int( stats.nTextureDX ) ) );
 		SetSlot( pSourceProps, 2, CVariant( int( stats.nTextureDY ) ) );
 		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_GENERATE_SPEED_ITEM, raw, "BeginSpeed" );
-		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_RAND_SPEED_ITEM, raw, "BeginSpeedRandomizer" );
+		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_RAND_SPEED_ITEM, raw, "BeginSpeedRandomizer", false, true );
 		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_GENERATE_AREA_ITEM, raw, "GenerateArea" );
 		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_GENERATE_ANGLE_ITEM, raw, "GenerateAngel", true );
 		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_GENERATE_DENSITY_ITEM, raw, "Density" );
 		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_GENERATE_LIFE_ITEM, raw, "lifeTime" );
-		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_RAND_LIFE_ITEM, raw, "ParticleLifeTimeRandomizer" );
+		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_RAND_LIFE_ITEM, raw, "ParticleLifeTimeRandomizer", false, true );
 		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_GENERATE_SPIN_ITEM, raw, "GenerateSpin" );
-		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_GENERATE_RANDOM_SPIN_ITEM, raw, "GenerateSpinRnd" );
+		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_GENERATE_RANDOM_SPIN_ITEM, raw, "GenerateSpinRnd", false, true );
 		FramesFromRaw( *pSourceProps, ETIT_PARTICLE_GENERATE_OPACITY_ITEM, raw, "GenerateOpacity" );
 	}
 	CTreeItem *pParticleProps = MutableChild( root, ETIT_PARTICLE_PROP_ITEMS );
@@ -393,10 +408,10 @@ void ParticleStatsToTree( const SParticleSourceData &stats, const SParticleRawFi
 		FramesFromRaw( *pParticleProps, ETIT_PARTICLE_SPIN_ITEM, raw, "Spin" );
 		FramesFromRaw( *pParticleProps, ETIT_PARTICLE_WEIGHT_ITEM, raw, "Wight" );
 		FramesFromRaw( *pParticleProps, ETIT_PARTICLE_SPEED_ITEM, raw, "Speed" );
-		FramesFromRaw( *pParticleProps, ETIT_PARTICLE_C_RANDOM_SPEED_ITEM, raw, "SpeedRnd" );
+		FramesFromRaw( *pParticleProps, ETIT_PARTICLE_C_RANDOM_SPEED_ITEM, raw, "SpeedRnd", false, true );
 		FramesFromRaw( *pParticleProps, ETIT_PARTICLE_SIZE_ITEM, raw, "Size" );
 		FramesFromRaw( *pParticleProps, ETIT_PARTICLE_OPACITY_ITEM, raw, "Opacity" );
-		FramesFromRaw( *pParticleProps, ETIT_PARTICLE_TEXTURE_FRAME_ITEM, raw, "TextureFrame" );
+		FramesFromRaw( *pParticleProps, ETIT_PARTICLE_TEXTURE_FRAME_ITEM, raw, "TextureFrame", false, true );
 	}
 }
 
@@ -414,7 +429,7 @@ void ParticleStatsToTree( const SSmokinParticleSourceData &stats, const SParticl
 	{
 		SetSlot( pComplexSource, 0, CVariant( stats.szParticleEffectName ) );
 		FramesFromRaw( *pComplexSource, ETIT_PARTICLE_GENERATE_SPEED_ITEM, raw, "BeginSpeed" );
-		FramesFromRaw( *pComplexSource, ETIT_PARTICLE_RAND_SPEED_ITEM, raw, "BeginSpeedRandomizer" );
+		FramesFromRaw( *pComplexSource, ETIT_PARTICLE_RAND_SPEED_ITEM, raw, "BeginSpeedRandomizer", false, true );
 		FramesFromRaw( *pComplexSource, ETIT_PARTICLE_GENERATE_AREA_ITEM, raw, "GenerateArea" );
 		FramesFromRaw( *pComplexSource, ETIT_PARTICLE_GENERATE_ANGLE_ITEM, raw, "BeginAngleRandomizer", true );
 		FramesFromRaw( *pComplexSource, ETIT_PARTICLE_GENERATE_DENSITY_ITEM, raw, "Density" );
@@ -424,7 +439,7 @@ void ParticleStatsToTree( const SSmokinParticleSourceData &stats, const SParticl
 	{
 		FramesFromRaw( *pComplexProps, ETIT_PARTICLE_WEIGHT_ITEM, raw, "Weight" );
 		FramesFromRaw( *pComplexProps, ETIT_PARTICLE_SPEED_ITEM, raw, "Speed" );
-		FramesFromRaw( *pComplexProps, ETIT_PARTICLE_C_RANDOM_SPEED_ITEM, raw, "SpeedRnd" );
+		FramesFromRaw( *pComplexProps, ETIT_PARTICLE_C_RANDOM_SPEED_ITEM, raw, "SpeedRnd", false, true );
 	}
 }
 
