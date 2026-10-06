@@ -23,3 +23,10 @@ Re-make the golden whenever `../project.til` or its source art changes.
 
 `zig build test-resource-model -Dtest-mode=run` reports `GOLDEN til pending: golden missing`. That is
 not a pass: the golden comparison stays open until this folder is filled on win-home.
+
+## Export details
+
+The port's tileset exporter (S13 T07, `ExportTileSet`) writes `<name>.xml`, `<name>_c/_l/_h.dds` and, when the project has crosset
+tiles, `crosset.xml` with `crosset_c/_l/_h.dds`. The first file name follows the project's stored export file name (`1.xml` for
+a new project, `tileset.xml` for the shipped sets). The `_c.dds` atlases are compared by decoded pixels against the DXT tolerance
+gate, never byte for byte. Importing `.til` from game data is refused: MFC has no reverse path.

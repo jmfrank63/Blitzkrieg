@@ -44,6 +44,7 @@
 #include "../ResourceModel/comparator.h"
 #include "../ResourceModel/project.h"
 #include "../ResourceModel/items/tree_item_types.h"
+#include "../ResourceModel/items/tileset/tileset_export.h"
 #include "../ResourceModel/items/stats_export.h"
 #include "../ResourceModel/items/squad/squad.h"
 #include "../ResourceModel/items/fence/fence.h"
@@ -1925,6 +1926,11 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			{
 				// The VSO exporters (S13 T05); the S13Vso tests prove the file.
 				Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S13 exporter" ).c_str() );
+			}
+			else if ( szExt == "til" )
+			{
+				// The tileset exporter (S13 T07); S13Til proves the files.
+				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .til exports through its S13 exporter" );
 			}
 			else if ( szExt == "eff" )
 			{
@@ -7098,6 +7104,266 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 
 }
 
+// S13 T07: the tileset exporter (ComposeTiles) and the refused import.
+namespace S13Til
+{
+
+namespace fs = std::filesystem;
+
+static fs::path FindFile( const fs::path &dir, const std::string &szName )
+{
+	std::error_code ec;
+	fs::path found;
+	for ( fs::recursive_directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().filename() == szName )
+			found = it->path();
+	return found;
+}
+
+template <class T>
+static bool ReadDesc( const fs::path &xml, const char *pszRoot, T &desc )
+{
+	CPtr<IDataStorage> pStorage = OpenStorage( ( xml.parent_path().string() + "/" ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( xml.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+	CPtr<IDataTree> pDT = pStream != 0 ? CreateDataTreeSaver( pStream, IDataTree::READ ) : 0;
+	if ( pDT == 0 )
+		return false;
+	CTreeAccessor tree = pDT;
+	tree.Add( pszRoot, &desc );
+	return true;
+}
+
+static std::vector<BkResNodeRecord> Nodes( BkResSession *pSession )
+{
+	int nCount = 0;
+	BkResNodes( pSession, nullptr, 0, &nCount );
+	std::vector<BkResNodeRecord> nodes( nCount );
+	BkResNodes( pSession, nodes.data(), nCount, &nCount );
+	return nodes;
+}
+
+static int FirstOfClass( const std::vector<BkResNodeRecord> &nodes, int nClass )
+{
+	for ( const BkResNodeRecord &node : nodes )
+		if ( node.class_type == nClass )
+			return node.id;
+	return -1;
+}
+
+// The TileIndex / CrossIndex attributes of a saved project, in file order.
+static std::vector<int> SavedIndexes( BkResSession *pSession, const fs::path &file, const char *pszAttribute )
+{
+	std::vector<int> indexes;
+	std::string szText;
+	if ( BkResSave( pSession, file.string().c_str() ) != BK_EDITOR_OK || !ReadBytes( file.string(), szText ) )
+		return indexes;
+	const std::string szKey = std::string( pszAttribute ) + "=\"";
+	for ( std::string::size_type n = szText.find( szKey ); n != std::string::npos; n = szText.find( szKey, n + 1 ) )
+		indexes.push_back( std::atoi( szText.c_str() + n + szKey.size() ) );
+	return indexes;
+}
+
+static bool IndexesAre( const std::vector<int> &got, std::initializer_list<int> want )
+{
+	return got == std::vector<int>( want );
+}
+
+static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	using namespace NResourceModel;
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s13-til";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "project";
+	fs::create_directories( projectDir, ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / "til", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), projectDir / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / "project.til";
+	if ( !Check( fs::is_regular_file( project, ec ) && BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "til: the fixture opens" ) )
+		return;
+
+	// Give the terrain the AI class flags that make the inversion visible: Human and the water bit.
+	const std::vector<BkResNodeRecord> nodes = Nodes( pSession );
+	const int nTerrain = FirstOfClass( nodes, ETIT_TILESET_TERRAIN_PROPS_ITEM );
+	int nPropCount = 0;
+	BkResProps( pSession, nTerrain, nullptr, 0, &nPropCount );
+	std::vector<BkResPropRecord> props( nPropCount );
+	BkResProps( pSession, nTerrain, props.data(), nPropCount, &nPropCount );
+	const auto IsOn = [&]( int nProp ) { return std::strcmp( props[nProp].value_text, "1" ) == 0 || std::strcmp( props[nProp].value_text, "true" ) == 0; };
+	Check( BkResSetProp( pSession, nTerrain, props[4].id, IsOn( 4 ) ? "0" : "1" ) == BK_EDITOR_OK && BkResSetProp( pSession, nTerrain, props[13].id, IsOn( 13 ) ? "0" : "1" ) == BK_EDITOR_OK,
+	       "til: the AI class flags edit" );
+	BkResProps( pSession, nTerrain, props.data(), nPropCount, &nPropCount );
+
+	const fs::path mod = scratch / "mod";
+	BkResModSettings settings = {};
+	std::snprintf( settings.export_dir, sizeof( settings.export_dir ), "%s", mod.string().c_str() );
+	std::snprintf( settings.name, sizeof( settings.name ), "S13 til" );
+	BkResModSettingsSet( pSession, &settings );
+	BkResWarning warnings[16] = {};
+	BkResExportReport report = {};
+	report.warnings = warnings;
+	report.warnings_capacity = 16;
+	const BkEditorStatus status = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
+	if ( !Check( status == BK_EDITOR_OK && report.written >= 3, "til: the fixture exports the tileset and the crosset" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return;
+	}
+	Check( report.warning_count == 0, "til: no warning for a fixture whose pictures are all there" );
+	fs::path tileset;
+	for ( fs::recursive_directory_iterator it( mod / "data", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().extension() == ".xml" && it->path().filename() != "crosset.xml" &&
+		     it->path().generic_string().find( "/terrain/sets/" ) != std::string::npos )
+			tileset = it->path();
+	const fs::path crosset = FindFile( mod / "data", "crosset.xml" );
+	std::string szStem = tileset.stem().string();
+	const fs::path atlas = tileset.parent_path() / ( szStem + "_c.dds" );
+	std::printf( "til: tileset %s crosset %s\n", tileset.string().c_str(), crosset.string().c_str() );
+	Check( !tileset.empty() && !crosset.empty() && fs::is_regular_file( atlas, ec ) && fs::is_regular_file( tileset.parent_path() / ( szStem + "_l.dds" ), ec ) &&
+	       fs::is_regular_file( tileset.parent_path() / ( szStem + "_h.dds" ), ec ) && fs::is_regular_file( crosset.parent_path() / "crosset_c.dds", ec ) &&
+	       fs::is_regular_file( crosset.parent_path() / "crosset_l.dds", ec ) && fs::is_regular_file( crosset.parent_path() / "crosset_h.dds", ec ),
+	       "til: tileset xml, crosset.xml and their _c/_l/_h textures are written where the shipped sets keep them" );
+
+	// The engine's own readers.
+	STilesetDesc tileSetDesc;
+	SCrossetDesc crossSetDesc;
+	const bool bTileRead = ReadDesc( tileset, "tileset", tileSetDesc );
+	const bool bCrossRead = ReadDesc( crosset, "crosset", crossSetDesc );
+	Check( bTileRead && tileSetDesc.szName == "Unknown Tile Set" && tileSetDesc.terrtypes.size() == 1 && !tileSetDesc.tilemaps.empty(), "til: the engine reads the exported STilesetDesc" );
+	Check( bCrossRead && !crossSetDesc.crosses.empty() && !crossSetDesc.tilemaps.empty(), "til: the engine reads the exported SCrossetDesc" );
+	if ( tileSetDesc.terrtypes.size() == 1 )
+	{
+		const STerrTypeDesc &terr = tileSetDesc.terrtypes[0];
+		DWORD dwWant = 0;
+		if ( IsOn( 4 ) ) dwWant |= AI_CLASS_HUMAN;
+		if ( IsOn( 5 ) ) dwWant |= AI_CLASS_WHEEL;
+		if ( IsOn( 6 ) ) dwWant |= AI_CLASS_HALFTRACK;
+		if ( IsOn( 7 ) ) dwWant |= AI_CLASS_TRACK;
+		dwWant = ~dwWant;
+		dwWant = IsOn( 13 ) ? ( dwWant | 0x80000000u ) : ( dwWant & 0x7fffffffu );
+		std::printf( "til: terrain %s crosset %d AIClasses %08x (want %08x) tiles %d\n", terr.szName.c_str(), terr.nCrosset, unsigned( terr.dwAIClasses ), unsigned( dwWant ), int( terr.tiles.size() ) );
+		Check( terr.dwAIClasses == dwWant, "til: AIClasses are the inverted flags with bit 31 for water" );
+		if ( terr.tiles.size() == 2 )
+			std::printf( "til: tiles %d/%g/%g and %d/%g/%g\n", terr.tiles[0].nIndex, terr.tiles[0].fProbFrom, terr.tiles[0].fProbTo, terr.tiles[1].nIndex, terr.tiles[1].fProbFrom, terr.tiles[1].fProbTo );
+		Check( terr.tiles.size() == 2 && terr.tiles[0].nIndex == 0 && terr.tiles[1].nIndex == 1 && terr.tiles[0].fProbFrom == 0.0f && terr.tiles[0].fProbTo == 50.0f && terr.tiles[1].fProbFrom == 50.0f && terr.tiles[1].fProbTo == 100.0f,
+		       "til: a 'normal and flipped' tile gives engine entries 2*index and 2*index+1, each with its 25 as the engine ranges them" );
+	}
+
+	// The atlas pixels at the place tile 0 goes: 16 x 16 art times the mask.
+	std::string szDds, szArt, szMask, szError;
+	NResourceModel::SDdsImage decoded;
+	NResourceModel::SDxtTolerance tolerance;
+	const bool bGate = NResourceModel::LoadDxtTolerance( ( fs::path( szFixtureRoot ) / "dxt-tolerance.json" ).string(), &tolerance, &szError );
+	if ( Check( ReadBytes( atlas.string(), szDds ) && NResourceModel::DecodeDds( szDds, &decoded, &szError ) && !decoded.mips.empty() && bGate &&
+	            ReadBytes( ( projectDir / "art-16x16.tga" ).string(), szArt ) && ReadBytes( ( fs::path( szFixtureRoot ).parent_path().parent_path().parent_path().parent_path() / "Data/Editor/Terrain/tilemask.tga" ).string(), szMask ),
+	            "til: the atlas decodes and the mask and art are read" ) )
+	{
+		const NResourceModel::SDdsMip &mip = decoded.mips[0];
+		const NResourceModel::SDxtStats *pGate = tolerance.Find( decoded.szFourCC );
+		const int nExpectedHeight = TileSetAtlasHeight( 0 );
+		Check( decoded.szFourCC == "DXT1" && mip.nWidth == 256 && mip.nHeight == nExpectedHeight && pGate != nullptr, "til: the tileset atlas is DXT1, 256 wide and as high as the index asks" );
+		int nWorst = 0, nCompared = 0, nOutside = 0;
+		if ( pGate != nullptr && szMask.size() >= 18 + 64 * 32 * 4 && szArt.size() >= 18 + 16 * 16 * 3 )
+		{
+			for ( int y = 0; y < 16; ++y )
+				for ( int x = 0; x < 16; ++x )
+				{
+					// Both files are bottom-up; the art is 24 bit BGR, the mask 32 bit BGRA.
+					const unsigned char *pArt = reinterpret_cast<const unsigned char *>( szArt.data() ) + 18 + ( ( 15 - y ) * 16 + x ) * 3;
+					const unsigned char *pMask = reinterpret_cast<const unsigned char *>( szMask.data() ) + 18 + ( ( 31 - y ) * 64 + x ) * 4;
+					const unsigned nGot = mip.pixels[size_t( y ) * mip.nWidth + x];
+					const int nExpected[3] = { pArt[2] * pMask[2] / 255, pArt[1] * pMask[1] / 255, pArt[0] * pMask[0] / 255 };
+					const int nGotRgb[3] = { int( ( nGot >> 16 ) & 0xff ), int( ( nGot >> 8 ) & 0xff ), int( nGot & 0xff ) };
+					for ( int c = 0; c < 3; ++c )
+						nWorst = std::max( nWorst, std::abs( nExpected[c] - nGotRgb[c] ) );
+					++nCompared;
+				}
+			// Tile 2 is not in the project: its slot stays zero.
+			for ( int y = 0; y < 16; ++y )
+				for ( int x = 128; x < 144; ++x )
+					if ( mip.pixels[size_t( y ) * mip.nWidth + x] & 0x00ffffffu )
+						++nOutside;
+		}
+		std::printf( "TIL ATLAS tile 0: %d pixels compared, worst colour delta %d (gate %d, plus 4 for the mask product), %d lit pixels in an empty slot\n", nCompared, nWorst,
+		             pGate != nullptr ? pGate->nColourMax : -1, nOutside );
+		Check( nCompared == 256 && pGate != nullptr && nWorst <= pGate->nColourMax + 4 && nOutside == 0, "til: tile 0 sits at the computed place, equal to the masked art within the DXT gate" );
+	}
+
+	// A forced second export is byte-identical.
+	std::string szFirst, szAgain, szCrossFirst, szCrossAgain;
+	ReadBytes( tileset.string(), szFirst );
+	ReadBytes( crosset.string(), szCrossFirst );
+	std::string szAtlasFirst, szAtlasAgain;
+	ReadBytes( atlas.string(), szAtlasFirst );
+	BkResExportReport again = {};
+	Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &again ) == BK_EDITOR_OK && ReadBytes( tileset.string(), szAgain ) && ReadBytes( crosset.string(), szCrossAgain ) &&
+	       ReadBytes( atlas.string(), szAtlasAgain ) && szAgain == szFirst && szCrossAgain == szCrossFirst && szAtlasAgain == szAtlasFirst && !szFirst.empty(),
+	       "til: a second forced export is byte-identical" );
+
+	// The free-index pools.
+	const int nTiles = FirstOfClass( Nodes( pSession ), ETIT_TILESET_TILES_ITEM );
+	const int nCrossTiles = FirstOfClass( Nodes( pSession ), ETIT_CROSSET_TILES_ITEM );
+	const fs::path saved = scratch / "saved.til";
+	int nA = -1, nB = -1, nC = -1;
+	Check( BkResInsertNode( pSession, nTiles, ETIT_TILESET_TILE_PROPS_ITEM, 1, &nA ) == BK_EDITOR_OK && BkResInsertNode( pSession, nTiles, ETIT_TILESET_TILE_PROPS_ITEM, 2, &nB ) == BK_EDITOR_OK,
+	       "til: two tile props insert" );
+	const std::vector<int> two = SavedIndexes( pSession, saved, "TileIndex" );
+	Check( IndexesAre( two, { 0, 1, 2 } ), "til: two inserted tiles take the two lowest free indexes, distinct" );
+	int nSize = 0;
+	BkResDeleteNode( pSession, nA, nullptr, 0, &nSize );
+	std::vector<unsigned char> blob( nSize );
+	Check( BkResDeleteNode( pSession, nA, blob.data(), nSize, &nSize ) == BK_EDITOR_OK, "til: a tile deletes" );
+	Check( IndexesAre( SavedIndexes( pSession, saved, "TileIndex" ), { 0, 2 } ), "til: deleting a tile frees its index" );
+	Check( BkResInsertNode( pSession, nTiles, ETIT_TILESET_TILE_PROPS_ITEM, 1, &nC ) == BK_EDITOR_OK && IndexesAre( SavedIndexes( pSession, saved, "TileIndex" ), { 0, 1, 2 } ),
+	       "til: the next insert reuses the freed index" );
+	BkResDeleteNode( pSession, nC, nullptr, 0, &nSize );
+	std::vector<unsigned char> blobC( nSize );
+	BkResDeleteNode( pSession, nC, blobC.data(), nSize, &nSize );
+	// Undo of the delete puts the first tile back with the index it had; redo deletes it again.
+	int nRestored = -1;
+	Check( BkResRestoreNode( pSession, blob.data(), int( blob.size() ), nTiles, 1, &nRestored ) == BK_EDITOR_OK && IndexesAre( SavedIndexes( pSession, saved, "TileIndex" ), { 0, 1, 2 } ),
+	       "til: undo of a delete restores the index the tile had" );
+	int nCrossA = -1, nCrossB = -1;
+	Check( BkResInsertNode( pSession, nCrossTiles, ETIT_CROSSET_TILE_PROPS_ITEM, 1, &nCrossA ) == BK_EDITOR_OK && BkResInsertNode( pSession, nCrossTiles, ETIT_CROSSET_TILE_PROPS_ITEM, 2, &nCrossB ) == BK_EDITOR_OK &&
+	       IndexesAre( SavedIndexes( pSession, saved, "CrossIndex" ), { 0, 1, 2 } ), "til: crosset tiles take their own pool of free indexes" );
+	BkResClose( pSession );
+
+	// A missing picture is a warning that names the file, the export still writes.
+	const fs::path projectDir2 = scratch / "missing";
+	fs::create_directories( projectDir2, ec );
+	fs::copy_file( project, projectDir2 / "project.til", fs::copy_options::overwrite_existing, ec );
+	if ( Check( BkResOpen( pSession, ( projectDir2 / "project.til" ).string().c_str() ) == BK_EDITOR_OK, "til: the project without its art opens" ) )
+	{
+		const fs::path mod2 = scratch / "mod2";
+		std::snprintf( settings.export_dir, sizeof( settings.export_dir ), "%s", mod2.string().c_str() );
+		BkResModSettingsSet( pSession, &settings );
+		BkResWarning missingWarnings[16] = {};
+		BkResExportReport missing = {};
+		missing.warnings = missingWarnings;
+		missing.warnings_capacity = 16;
+		const BkEditorStatus st = BkResExport( pSession, BK_RES_EXPORT_FORCE, &missing );
+		bool bNamed = false;
+		for ( int i = 0; i < missing.warning_count && i < 16; ++i )
+			if ( std::strstr( missingWarnings[i].text, "art-16x16.tga" ) != 0 )
+				bNamed = true;
+		std::printf( "til: missing art -> status %d, %d warnings\n", int( st ), int( missing.warning_count ) );
+		Check( st == BK_EDITOR_OK && bNamed && missing.written >= 1, "til: a missing tile picture is a warning naming art-16x16.tga and the export is still written" );
+		BkResClose( pSession );
+	}
+
+	// There is no import.
+	std::printf( "til import: " );
+	const BkEditorStatus imp = BkResImportFromGame( pSession, 13, tileset.string().c_str() );
+	std::printf( "%s\n", BkEditorLastMessage( pSession ) );
+	Check( imp == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "no reverse path in MFC" ) != 0 && std::strstr( BkEditorLastMessage( pSession ), "CTileSetFrame::LoadRPGStats" ) != 0,
+	       "til: importing .til from game data is refused with the reason" );
+	std::printf( "GOLDEN til pending: the MFC export of til/project.til is made on win-home only\n" );
+}
+
+}
+
 // S13 T06: the road and river previews draw the maps\road3d and maps\river3d
 // terrain, not an object. Measured: the bare terrain against the road and the
 // river, the wire frame against the filled terrain, two river shots at
@@ -7778,6 +8044,8 @@ int main( int argc, char **argv )
 	S13Vso::Shipped( pSession, pszRoot, szScratchRoot );
 	// S13 T06: the road and river previews on their terrain.
 	S13Terrain::Run( pSession, szFixtureRoot, szScratchRoot );
+	// S13 T07: the tileset exporter and the refused import.
+	S13Til::Fixture( pSession, szFixtureRoot, szScratchRoot );
 
 	// S12 T02: the effect exporter and the refused import.
 	S12Effect::Fixture( pSession, pszRoot, szFixtureRoot, szScratchRoot );

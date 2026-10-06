@@ -1,5 +1,8 @@
 #include "tileset.h"
 
+#include <set>
+#include <vector>
+
 #include "../../mfc_value.h"
 
 #include "../../editor_env.h"
@@ -427,6 +430,93 @@ void CCrossetTilePropsItem::WriteData( NResourceXml::Node &node ) const
 {
 	CStatsItem::WriteData( node );
 	SetAttr( node, "CrossIndex", MfcInt( nCrossIndex ) );
+}
+
+namespace
+{
+
+// The tile props items of the terrains (bCrossets false: terrain > Tiles > tile)
+// or of the crossets (crosset > a..f' > tile), in tree order, as the Init
+// passes walked them.
+std::vector<CStatsItem *> TileItems( const CTreeItem &root, bool bCrossets )
+{
+	std::vector<CStatsItem *> tiles;
+	for ( const auto &pTop : root.GetChildren() )
+	{
+		if ( pTop->GetItemType() != ( bCrossets ? ETIT_CROSSETS_ITEM : ETIT_TILESET_TERRAINS_ITEM ) )
+			continue;
+		for ( const auto &pGroup : pTop->GetChildren() )
+		{
+			if ( !bCrossets )
+			{
+				for ( const auto &pTiles : pGroup->GetChildren() )
+					if ( pTiles->GetItemType() == ETIT_TILESET_TILES_ITEM )
+						for ( const auto &pTile : pTiles->GetChildren() )
+							if ( pTile->GetItemType() == ETIT_TILESET_TILE_PROPS_ITEM )
+								tiles.push_back( static_cast<CStatsItem *>( pTile.get() ) );
+				continue;
+			}
+			for ( const auto &pTiles : pGroup->GetChildren() )
+				for ( const auto &pTile : pTiles->GetChildren() )
+					if ( pTile->GetItemType() == ETIT_CROSSET_TILE_PROPS_ITEM )
+						tiles.push_back( static_cast<CStatsItem *>( pTile.get() ) );
+		}
+	}
+	return tiles;
+}
+
+int &IndexOf( CStatsItem *pTile, bool bCrossets )
+{
+	return bCrossets ? static_cast<CCrossetTilePropsItem *>( pTile )->nCrossIndex : static_cast<CTileSetTilePropsItem *>( pTile )->nTileIndex;
+}
+
+int FreeIndex( const CTreeItem &root, bool bCrossets )
+{
+	std::set<int> used;
+	for ( CStatsItem *pTile : TileItems( root, bCrossets ) )
+		used.insert( IndexOf( pTile, bCrossets ) );
+	int nFree = 0;
+	for ( const int nUsed : used )
+	{
+		if ( nUsed < 0 )
+			continue;
+		if ( nUsed != nFree )
+			break;
+		++nFree;
+	}
+	return nFree;
+}
+
+}
+
+int AssignMissingTileIndexes( CTreeItem &root )
+{
+	int nAssigned = 0;
+	for ( const bool bCrossets : { false, true } )
+	{
+		int nIndex = 0;
+		for ( CStatsItem *pTile : TileItems( root, bCrossets ) )
+		{
+			int &nTile = IndexOf( pTile, bCrossets );
+			if ( nTile == -1 )
+			{
+				nTile = nIndex;
+				++nAssigned;
+			}
+			++nIndex;
+		}
+	}
+	return nAssigned;
+}
+
+int GetFreeTerrainIndex( const CTreeItem &root )
+{
+	return FreeIndex( root, false );
+}
+
+int GetFreeCrossetIndex( const CTreeItem &root )
+{
+	return FreeIndex( root, true );
 }
 
 }

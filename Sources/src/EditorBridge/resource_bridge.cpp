@@ -47,6 +47,8 @@
 #include "../ResourceModel/items/bridge/bridge_export.h"
 #include "../ResourceModel/items/particle/particle_export.h"
 #include "../ResourceModel/items/effect/effect_export.h"
+#include "../ResourceModel/items/tileset/tileset.h"
+#include "../ResourceModel/items/tileset/tileset_export.h"
 #include "../ResourceModel/items/road3d/road3d_export.h"
 #include "../ResourceModel/items/river3d/river3d_export.h"
 #include "../Formats/fmtVSO.h"
@@ -1887,6 +1889,9 @@ BkEditorStatus BkResOpen( BkResSession *pSession, const char *pszPath )
 		state.bOpen = true;
 		state.nKindOrdinal = nOrdinal;
 		state.szPath = pszPath;
+		// CTileSetFrame::InitFreeTerrainIndexes / InitFreeCrossetIndexes ran on every open.
+		if ( state.pProject->root && state.pProject->root->GetItemType() == NResourceModel::ETIT_TILESET_ROOT_ITEM )
+			NResourceModel::AssignMissingTileIndexes( *state.pProject->root );
 		RebuildIds( state );
 		RebuildMeshLocators( state, pSession->szMessage );
 		return BK_EDITOR_OK;
@@ -2173,6 +2178,12 @@ BkEditorStatus BkResInsertNode( BkResSession *pSession, int nParentId, int nClas
 		auto &children = itParent->second->MutableChildren();
 		std::size_t nAt = static_cast<std::size_t>( nIndex );
 		if ( nAt > children.size() ) nAt = children.size();
+		// CTileSetFrame::GetFreeTerrainIndex / GetFreeCrossetIndex: a new tile
+		// takes the lowest index no tile of its list has.
+		if ( nClassType == NResourceModel::ETIT_TILESET_TILE_PROPS_ITEM )
+			static_cast<NResourceModel::CTileSetTilePropsItem *>( pNew.get() )->nTileIndex = NResourceModel::GetFreeTerrainIndex( *state.pProject->root );
+		else if ( nClassType == NResourceModel::ETIT_CROSSET_TILE_PROPS_ITEM )
+			static_cast<NResourceModel::CCrossetTilePropsItem *>( pNew.get() )->nCrossIndex = NResourceModel::GetFreeCrossetIndex( *state.pProject->root );
 		children.insert( children.begin() + nAt, std::move( pNew ) );
 		RebuildIds( state );
 		if ( pnOutId != nullptr )
@@ -3489,7 +3500,7 @@ void FillEngineLookups( NResourceModel::SExportContext &context, const std::file
 // promoted into data/, all or nothing, so a failed export leaves no
 // half-written resource.
 bool ExportOne( const NResourceModel::Project &project, const std::string &szProjectPath, const std::string &szExtension,
-                const std::filesystem::path &dataDir, int nFlags, bool bStatsOnly,
+                const std::filesystem::path &dataDir, const std::filesystem::path &editorDataDir, int nFlags, bool bStatsOnly,
                 NResourceModel::SExportOutcome &outcome, std::string &szError )
 {
 	const NResourceModel::FExporter pfnExporter = NResourceModel::FindExporter( szExtension );
@@ -3513,6 +3524,7 @@ bool ExportOne( const NResourceModel::Project &project, const std::string &szPro
 	context.bForce = ( nFlags & BK_RES_EXPORT_FORCE ) != 0;
 	context.bStatsOnly = bStatsOnly;
 	context.szDataRoot = dataDir.string();
+	context.szEditorDataDir = editorDataDir.string();
 	FillEngineLookups( context, dataDir.parent_path() / ".bk-export-mesh" );
 	if ( !pfnExporter( project, context, outcome ) )
 	{
@@ -3582,7 +3594,7 @@ BkEditorStatus ExportOpenProject( BkResSession *pSession, int nFlags, bool bStat
 		return BK_EDITOR_FAILED;
 	}
 	NResourceModel::SExportOutcome outcome;
-	if ( !ExportOne( project, state.szPath, szExtension, dataDir, nFlags, bStatsOnly, outcome, szError ) )
+	if ( !ExportOne( project, state.szPath, szExtension, dataDir, ShippedDataFolder( pSession ), nFlags, bStatsOnly, outcome, szError ) )
 	{
 		FillReport( pReport, 0, 0, outcome.warnings );
 		pSession->szMessage = szError;
@@ -3687,7 +3699,7 @@ BkEditorStatus BkResBatch( BkResSession *pSession, int nKind, const char *pszSrc
 				continue;
 			}
 			NResourceModel::SExportOutcome outcome;
-			if ( ExportOne( project, szPath, kKindExtensions[entry.first], dataDir, nFlags, false, outcome, szError ) )
+			if ( ExportOne( project, szPath, kKindExtensions[entry.first], dataDir, ShippedDataFolder( pSession ), nFlags, false, outcome, szError ) )
 			{
 				nWritten += outcome.nWritten;
 				nSkipped += outcome.nSkipped;
@@ -6260,6 +6272,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 			pSession->szMessage = kind == 4
 				? std::string( "importing .spt is refused: MFC's sprite export only composes .san packs and has no reverse path" )
 				: kind == 12 ? std::string( NResourceModel::EffectImportRefusal() )
+				: kind == 13 ? std::string( NResourceModel::TileSetImportRefusal() )
 				: "importing ." + szExtension + " is not ported yet; it comes with its sub-editor";
 			return BK_EDITOR_REFUSED;
 		}
