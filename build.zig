@@ -2950,7 +2950,7 @@ pub fn build(b: *std.Build) void {
     // second build.zig edit.
     const editor_kit_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/kit/root.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
         .imports = &.{
             .{ .name = "sdl3", .module = sdl3 },
@@ -2960,12 +2960,12 @@ pub fn build(b: *std.Build) void {
     // bridge.h: the engine's C ABI; kit/host.zig @cImports it so any editor
     // on the kit (ResourceEditor, future tier editors) shares one wrapper.
     editor_kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
-    // The kit links ImGui's C++ objects, which need the C++ runtime (thread-safe
-    // statics, terminate) that a Zig test does not bring on its own on Windows.
+    // The test tiers build for the requested target. Only an MSVC target needs
+    // the Visual Studio library paths (Zig's own libc supplies the runtime, and
+    // naming vcruntimed too fails to link); MinGW has everything built in.
     // The core tiers import the kit, so the same applies to them below.
-    if (b.graph.host.result.os.tag == .windows) {
+    if (target.result.abi == .msvc) {
         addMsvcLibraryPaths(b, editor_kit_module, toolchain);
-        editor_kit_module.linkSystemLibrary("vcruntimed", .{});
     }
     const editor_kit_tests = b.addTest(.{ .root_module = editor_kit_module });
     const editor_kit_tests_run = b.addRunArtifact(editor_kit_tests);
@@ -2977,13 +2977,12 @@ pub fn build(b: *std.Build) void {
     // every target, the MinGW job included.
     const editor_core_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/core/root.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
         .imports = &.{.{ .name = "editor_kit", .module = editor_kit_module }},
     });
-    if (b.graph.host.result.os.tag == .windows) {
+    if (target.result.abi == .msvc) {
         addMsvcLibraryPaths(b, editor_core_module, toolchain);
-        editor_core_module.linkSystemLibrary("vcruntimed", .{});
     }
     const editor_core_tests = b.addTest(.{ .root_module = editor_core_module });
     const editor_core_tests_run = b.addRunArtifact(editor_core_tests);
@@ -2997,13 +2996,12 @@ pub fn build(b: *std.Build) void {
     // addEditorCore wiring so Resource and Map stay symmetric on the Zig side.
     const resource_core_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/resource_core/root.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
         .imports = &.{.{ .name = "editor_kit", .module = editor_kit_module }},
     });
-    if (b.graph.host.result.os.tag == .windows) {
+    if (target.result.abi == .msvc) {
         addMsvcLibraryPaths(b, resource_core_module, toolchain);
-        resource_core_module.linkSystemLibrary("vcruntimed", .{});
     }
     const resource_core_tests = b.addTest(.{ .root_module = resource_core_module });
     const resource_core_tests_run = b.addRunArtifact(resource_core_tests);
@@ -3019,7 +3017,7 @@ pub fn build(b: *std.Build) void {
     // ResourceEditor links the engine.
     const resource_app_logic_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/resource_app/panels_logic.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
         // editor_kit for lifecycle.zig and settings.zig (S05 T09): autosave,
         // shipped, files and the shared settings keys.
@@ -3032,7 +3030,7 @@ pub fn build(b: *std.Build) void {
     const resource_app_logic_tests_run = b.addRunArtifact(resource_app_logic_tests);
     const resource_app_c_bridge_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/resource_app/c_bridge.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
         .imports = &.{.{ .name = "resource_core", .module = resource_core_module }},
     });
@@ -3048,7 +3046,7 @@ pub fn build(b: *std.Build) void {
     // staged installation.
     const view_math_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/view_math.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
     });
     const view_math_tests = b.addTest(.{ .root_module = view_math_module });
@@ -3065,7 +3063,7 @@ pub fn build(b: *std.Build) void {
     // against the core's fake bridge, no SDL, ImGui or engine.
     const panels_logic_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/panels_logic.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
         .imports = &.{
             .{ .name = "editor_core", .module = editor_core_module },
@@ -3083,7 +3081,7 @@ pub fn build(b: *std.Build) void {
     // runs on every target with no engine, GPU or staged installation.
     const testlaunch_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/kit/testlaunch.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
     });
     const testlaunch_tests = b.addTest(.{ .root_module = testlaunch_module });
@@ -3097,7 +3095,7 @@ pub fn build(b: *std.Build) void {
     // runs on every target with no engine, GPU or staged installation.
     const auto_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/kit/auto_schedule.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
     });
     const auto_tests = b.addTest(.{ .root_module = auto_module });
