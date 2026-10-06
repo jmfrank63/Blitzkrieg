@@ -96,6 +96,7 @@ TIERS=(
   "test-resource-model"
   "test-resource-core"
   "test-resource-bridge"
+  "test-resource-mod-roundtrip"
   "test-editor-kit"
   "test-editor-core"
   "test-map-editor-view"

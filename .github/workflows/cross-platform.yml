@@ -127,6 +127,10 @@ jobs:
       - name: Resource bridge tier
         run: zig build test-resource-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
+      - name: Resource mod round-trip tier
+        run: zig build test-resource-mod-roundtrip -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
 
@@ -360,6 +364,12 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-resource-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
+      - name: Resource mod round-trip tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-resource-mod-roundtrip -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # The scripted editor scenarios (Map editor scenarios below) place their
       # clicks for the editor's own 1280x800 window, the size it gets on the
@@ -858,6 +868,12 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-resource-bridge -Dtarget=aarch64-macos -Dtest-mode=run
 
+      # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
+      - name: Resource mod round-trip tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-mod-roundtrip -Dtarget=aarch64-macos -Dtest-mode=run
+
       # MapEditor itself: the engine started hidden with ImGui over it, one
       # frame captured as presented and checked for both.
       - name: Map editor host
@@ -1133,6 +1149,10 @@ jobs:
       - name: Resource bridge tier
         run: zig build test-resource-bridge -Dtarget=aarch64-linux-gnu -Dtest-mode=run
 
+      # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
+      - name: Resource mod round-trip tier
+        run: zig build test-resource-mod-roundtrip -Dtarget=aarch64-linux-gnu -Dtest-mode=run
+
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=aarch64-linux-gnu
 
@@ -1381,6 +1401,10 @@ jobs:
       # prints "skipped: no GPU device" and exits 0; it still has to build.
       - name: Resource bridge tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-resource-bridge -Dtarget=x86_64-macos -Dtest-mode=run
+
+      # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
+      - name: Resource mod round-trip tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-mod-roundtrip -Dtarget=x86_64-macos -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=x86_64-macos

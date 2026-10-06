@@ -2328,7 +2328,22 @@ pub fn build(b: *std.Build) void {
     // the same engine static libraries addEditorBridgeTest links, and is staged
     // into the same install directory so NPlatform::Paths derives the right
     // roots. The step compiles unconditionally and runs only in test_mode==.run.
-    addResourceBridge(b, target, optimize, toolchain, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    addResourceBridge(b, target, optimize, toolchain, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, .{
+        .exe_name = "resource-bridge-test",
+        .source = "Sources/src/EditorBridge/resource_bridge_test.cpp",
+        .step_name = "test-resource-bridge",
+        .step_description = "Drive the resource bridge through the engine: every fixture, geometry, export, references and the preview captures",
+    });
+    // M001 S17 (D053): a third-party mod's game data through import and export, hosted the same way.
+    // -Dmod-root names the mod's data folder; without one only the tracked mini-mod runs.
+    addResourceBridge(b, target, optimize, toolchain, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, .{
+        .exe_name = "resource-mod-roundtrip-test",
+        .source = "tools/zig/resource_mod_roundtrip_test.cpp",
+        .step_name = "test-resource-mod-roundtrip",
+        .step_description = "Import every resource of a third-party mod (-Dmod-root or BK_MOD_ROOT), export it again and compare field by field; always runs the tracked mini-mod first",
+        .mod_root = b.option([]const u8, "mod-root", "test-resource-mod-roundtrip: the third-party mod's data folder (exported as BK_MOD_ROOT)"),
+        .mod_roundtrip = true,
+    });
     // S03 T06: the D-11 comparator, hosted the same way; test-resource-model aggregates it.
     addResourceModelComparatorTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addResourceModelAggregateStep(b);
@@ -6335,6 +6350,19 @@ fn addResourceComparatorLib(
     return b.addLibrary(.{ .name = "ResourceComparator", .linkage = .static, .root_module = module });
 }
 
+/// What differs between the engine-hosted resource tiers that share addResourceBridge's
+/// build: the executable and its source, the step, and what the run is handed.
+const ResourceBridgeTier = struct {
+    exe_name: []const u8,
+    source: []const u8,
+    step_name: []const u8,
+    step_description: []const u8,
+    /// The third-party mod's data folder (-Dmod-root), exported as BK_MOD_ROOT to the mod
+    /// round-trip tier; null for the bridge tier, whose arguments are the fixture folders.
+    mod_root: ?[]const u8 = null,
+    mod_roundtrip: bool = false,
+};
+
 fn addResourceBridge(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -6355,6 +6383,7 @@ fn addResourceBridge(
     stage_root: []const u8,
     install_game_step: *std.Build.Step,
     test_mode: build_support.TestMode,
+    tier: ResourceBridgeTier,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
     addProjectIncludePaths(b, module);
@@ -6367,7 +6396,7 @@ fn addResourceBridge(
     module.addIncludePath(b.path("Sources/src/EditorBridge"));
     module.addIncludePath(sdl_include);
     module.addCSourceFiles(.{
-        .files = &.{"Sources/src/EditorBridge/resource_bridge_test.cpp"},
+        .files = &.{tier.source},
         .flags = cppflagsForOptimize(optimize),
     });
     addMsvcIncludePaths(b, module, toolchain);
@@ -6399,7 +6428,7 @@ fn addResourceBridge(
     module.linkLibrary(platform_runtime);
     linkSdlImport(module, target, sdl_dynamic);
 
-    const exe = b.addExecutable(.{ .name = "resource-bridge-test", .root_module = module });
+    const exe = b.addExecutable(.{ .name = tier.exe_name, .root_module = module });
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     // Linux loader pitfalls the Map Editor already solved (AGENTS.md):
@@ -6419,16 +6448,25 @@ fn addResourceBridge(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path(stage_root));
     run.addArg(".");
-    // T02: the Project+Tree sub-step needs the 21 fixture folders. The source
-    // dir of the fixture tree is handed as argv[2]; the test writes its
-    // temporary round-trip copies under argv[3] (zig-out/local-test/...).
-    run.addArg(b.path("tools/zig/fixtures/resource_editor").getPath(b));
-    run.addArg(b.path("zig-out/local-test/resource_editor/t02").getPath(b));
+    if (tier.mod_roundtrip) {
+        // The tracked mini-mod's data folder, then the scratch root. The real mod, when there
+        // is one, reaches the run as BK_MOD_ROOT (the build option -Dmod-root sets it here;
+        // an environment variable already set passes through).
+        run.addArg(b.path("tools/zig/fixtures/mod-roundtrip/data").getPath(b));
+        run.addArg(b.path("zig-out/local-test/mod-roundtrip").getPath(b));
+        if (tier.mod_root) |mod_root| run.setEnvironmentVariable("BK_MOD_ROOT", mod_root);
+    } else {
+        // T02: the Project+Tree sub-step needs the 21 fixture folders. The source
+        // dir of the fixture tree is handed as argv[2]; the test writes its
+        // temporary round-trip copies under argv[3] (zig-out/local-test/...).
+        run.addArg(b.path("tools/zig/fixtures/resource_editor").getPath(b));
+        run.addArg(b.path("zig-out/local-test/resource_editor/t02").getPath(b));
+    }
     // Reads the staged Data and modules, neither a file input of this step:
     // a cached pass would say nothing about the installation now.
     run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
-    const step = b.step("test-resource-bridge", "Drive the resource bridge through the engine: every fixture, geometry, export, references and the preview captures");
+    const step = b.step(tier.step_name, tier.step_description);
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
 }

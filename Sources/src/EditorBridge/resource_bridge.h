@@ -639,20 +639,25 @@ BkEditorStatus BkResMeshLocators( BkResSession *session, BkResLocator *out, int 
    from a runtime resource folder (path, holding its 1.xml), the reverse of
    BkResExport. The stats are read by the engine's own operator& and put into
    the tree by the frame's GetRPGStats, ported line for line; graphics-source
-   fields stay empty. Ported: weapon (wpn; path may also be the flat
-   weapons\<name>.xml itself), mine (mcp), trench (trc: no segments, as in
-   MFC), squad (scp: MFC never wrote this one, its load is commented out;
-   the port does the inverse of its export), infantry (unt) and medal (mdc:
-   MFC's GetRPGStats is commented out too; the port reads the name,
+   fields stay empty. Ported, by what BkResImportFromGame accepts: weapon
+   (wpn; path may also be the flat weapons\<name>.xml itself), mine (mcp),
+   trench (trc: no segments, as in MFC), squad (scp: MFC never wrote this one,
+   its load is commented out; the port does the inverse of its export),
+   infantry (unt), mesh (msh), object (obt), fence (fnc), building (bld),
+   bridge (bdg), particle (pcp; path is the source's .xml itself), medal
+   (mdc: MFC's GetRPGStats is commented out too; the port reads the name,
    description and picture back from the stats and keeps the file's place
-   below medals\ as the project's export file name). The 3D road
-   (3rd) and 3D river (3rv) take the runtime <name>.xml file itself as path
+   below medals\ as the project's export file name), mission (mip), chapter
+   (chc) and campaign (cgc; path is the campaign's .xml itself, the others
+   keep their place below scenarios\ the same way). The 3D road (3rd) and 3D
+   river (3rv) take the runtime <name>.xml file itself as path
    (terrain\sets\1\roads3d\road_pavement.xml), not a folder holding 1.xml;
-   a file of the other kind is refused naming its type. Every other
-   kind answers BK_EDITOR_REFUSED, naming the kind, and keeps the open
-   project: sprite (spt) because its export only composes .san packs and MFC
-   has no reverse path, the rest until their sub-editor slice ports theirs.
-   BK_EDITOR_BAD_ARGUMENT for a null path or an unknown kind;
+   a file of the other kind is refused naming its type. Every other kind
+   answers BK_EDITOR_REFUSED, naming the kind, and keeps the open project:
+   sprite (spt) because its export only composes .san packs and MFC has no
+   reverse path, effect (eff) and tileset (til) with the reason their
+   refusal text gives, and the GUI screen (gui), which is no runtime stats
+   file. BK_EDITOR_BAD_ARGUMENT for a null path or an unknown kind;
    BK_EDITOR_DATA_MISSING when the stats file is missing or will not read. */
 BkEditorStatus BkResImportFromGame( BkResSession *session, BkResKind kind, const char *path );
 
