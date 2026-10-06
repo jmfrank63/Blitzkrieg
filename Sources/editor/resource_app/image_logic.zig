@@ -65,7 +65,7 @@ pub const too_large_message = "the picture is 2048 pixels or more on a side; pos
 /// The path BkEditorMinimapImage decodes (it takes "<base>.xml" and reads
 /// "<base>.tga", then "<base>_h.dds"): the Mission's own map_h.dds beside the
 /// project, or the picture named by the Chapter, Campaign or Medal's common
-/// properties (ChapterFrm id 3, CampaignFrm id 2, MedalFrm id 2) as a .tga
+/// properties (property ids 4, 3 and 3: they count from 1, unlike the exporters' value indexes) as a .tga
 /// in the project folder. Null while the name is empty or the path does not fit.
 pub fn sourcePath(buffer: []u8, doc: *const Document, kind: Kind, project_folder: []const u8) ?[:0]const u8 {
     const name: []const u8 = switch (kind) {
@@ -76,7 +76,7 @@ pub fn sourcePath(buffer: []u8, doc: *const Document, kind: Kind, project_folder
                 .campaign => tools.firstOfClass(doc, tools.item_type.campaign_common_props),
                 else => tools.firstOfClass(doc, tools.item_type.medal_common_props),
             } orelse return null;
-            const id: i32 = if (kind == .chapter) 3 else 2;
+            const id: i32 = if (kind == .chapter) 4 else 3;
             break :blk tools.propValue(doc, common, id) orelse return null;
         },
     };
@@ -599,7 +599,7 @@ test "image: the source path is the mission's map or the named picture, slashes 
     var common: i32 = 0;
     try bridge_mod.check(rig.fake.bridge().insertNode(root, try std.fmt.bufPrint(&buf, "{d}", .{tools.item_type.chapter_common_props}), 2, &common));
     for (rig.fake.nodes.items) |*n| if (n.id == common) {
-        var record: bridge_mod.PropRecord = .{ .id = 3 };
+        var record: bridge_mod.PropRecord = .{ .id = 4 };
         _ = record.setDefault("Map image");
         _ = record.setDisplay("Map image");
         _ = record.setValue("Sub\\chapter1");

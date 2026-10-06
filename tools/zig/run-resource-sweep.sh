@@ -126,6 +126,10 @@ TIERS=(
   "resource-editor-auto-til"
   "resource-editor-auto-3rd"
   "resource-editor-auto-3rv"
+  "resource-editor-auto-mip"
+  "resource-editor-auto-chc"
+  "resource-editor-auto-cgc"
+  "resource-editor-auto-mdc"
 )
 
 for tier in "${TIERS[@]}"; do

@@ -57,6 +57,12 @@
 //!   do=keyframe:add/<x>/<y>   a key added by a press and release at that value (one command)
 //!   do=keyframe:move/<i>/<x>/<y>   key i pressed, dragged to that value and released (one command)
 //!   do=keyframe:delete/<i>  key i made the active one and Delete pressed (key 0 is protected)
+//!   {dir}, {fix}, {mods} and {data} stand in a path for the scratch folder, the fixtures, the installation's mods and Data folders
+//!   do=image_open           the Image window drawn over the open mip, chc, cgc or mdc, placed clear of the tree
+//!   do=image_select         the first objective, mission or chapter made the active item (the tree's selection)
+//!   do=image_click:<x>/<y>  a pointer click on that picture pixel (place mode: the active item goes there)
+//!   do=image_crosses:<on|off>   the Show crosses checkbox clicked
+//!   do=image_drag_cross:<dx>/<dy>   the first cross pressed on, dragged by that many picture pixels, released
 //!   do=keyframe:reset       the dock's Reset all
 //!   do=keyframe:zoomx_in|zoomx_out|zoomy_in|zoomy_out   the curve's zoom menu (view only, no undo step)
 //!   do=function_open        the Function window opened by Ctrl+F through the event queue, the docks drawn from then on (do=curve first)
@@ -132,6 +138,7 @@ const Kind = core.bridge.Kind;
 const ResBridge = core.bridge.ResBridge;
 const PropRecord = core.bridge.PropRecord;
 const sub_tools = core.sub_editor_tools;
+const il = @import("image_logic.zig");
 const Point2 = core.bridge.Point2;
 
 const owner = "resource-editor-auto";
@@ -147,19 +154,19 @@ const max_tga_bytes = 64 << 20;
 /// One frame of the interactive loop's drawing: events, the panels over the
 /// engine's frame.
 fn drawFrame(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) host_mod.HostError!void {
-    return drawFrameWithDocks(host, panels, gpa, b, life, null, null);
+    return drawFrameWithDocks(host, panels, gpa, b, life, null, null, null);
 }
 
 /// The same frame with the docks drawn after the panels, as the interactive
 /// loop does, once do=function_open has made them.
-fn drawFrameWithDocks(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle, docks: ?*docks_mod.Docks, selected: ?i32) host_mod.HostError!void {
+fn drawFrameWithDocks(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle, docks: ?*docks_mod.Docks, folder: ?[]const u8, selected: ?i32) host_mod.HostError!void {
     var event: sdl3.c.SDL_Event = undefined;
     while (sdl3.c.SDL_PollEvent(&event)) _ = host.handleEvent(&event);
     host.beginFrame();
     panels.draw(gpa, b, life, host.window);
     if (docks) |d| {
         d.handleShortcuts();
-        d.drawDocks(null, life, selected);
+        d.drawDocks(folder, life, selected);
     }
     try host.endFrame();
 }
@@ -375,6 +382,9 @@ const Runner = struct {
     /// The docks, drawn from do=function_open on, so the Function window's
     /// widget takes the pointer events the pointer verbs queue.
     docks: ?docks_mod.Docks = null,
+    /// From do=image_open on, the frames pass the docks the project's folder and the tree's selection,
+    /// as main.zig's loop does, so the Image window finds its picture and its active item.
+    image_on: bool = false,
     /// The Get particle info button's numbers (do=particle_info), the ones the
     /// status bar shows.
     particle_status: docks_logic.ParticleStatus = .{},
@@ -407,6 +417,7 @@ const Runner = struct {
                 .{ .token = "{dir}", .value = self.dir, .suffix = "" },
                 .{ .token = "{fix}", .value = self.fixtures, .suffix = "" },
                 .{ .token = "{mods}", .value = self.base_root, .suffix = "mods" },
+                .{ .token = "{data}", .value = self.base_root, .suffix = "Data" },
             };
             var matched = false;
             for (tokens) |t| {
@@ -732,6 +743,11 @@ const Runner = struct {
         if (eql(u8, name, "curve")) return self.selectCurve(named.arg);
         if (eql(u8, name, "keyframe")) return self.keyframeVerb(named.arg);
         if (eql(u8, name, "function_open")) return self.functionOpen();
+        if (eql(u8, name, "image_open")) return self.imageOpen();
+        if (eql(u8, name, "image_select")) return self.imageSelect();
+        if (eql(u8, name, "image_click")) return self.imageClick(named.arg);
+        if (eql(u8, name, "image_crosses")) return self.imageCrosses(named.arg);
+        if (eql(u8, name, "image_drag_cross")) return self.imageDragCross(named.arg);
         if (eql(u8, name, "function_close")) {
             const docks = if (self.docks) |*d| d else return self.fail("function_close: the Function window is not open", .{});
             docks.show_function = false;
@@ -914,9 +930,10 @@ const Runner = struct {
 
     /// One frame of the loop, with the docks once they exist.
     fn drawFrame(self: *Runner) host_mod.HostError!void {
-        const selected: ?i32 = if (self.curve) |curve| curve.node else null;
+        const selected: ?i32 = if (self.curve) |curve| curve.node else if (self.image_on) self.panels.selection.primary else null;
         const docks: ?*docks_mod.Docks = if (self.docks) |*d| d else null;
-        try drawFrameWithDocks(self.host, &self.panels, self.gpa, self.bridge(), &self.life, docks, selected);
+        const folder: ?[]const u8 = if (self.image_on) (if (self.life.doc.pathSlice()) |p| std.fs.path.dirname(p) else null) else null;
+        try drawFrameWithDocks(self.host, &self.panels, self.gpa, self.bridge(), &self.life, docks, folder, selected);
     }
 
     fn pumpFrame(self: *Runner, what: []const u8) ?[]const u8 {
@@ -996,6 +1013,208 @@ const Runner = struct {
         if (!docks.show_function) return self.fail("function_open: Ctrl+F did not open the Function window", .{});
         const rect = docks.curve_rect orelse return self.fail("function_open: the Function window drew no curve", .{});
         std.debug.print("resource-editor: auto: function window open, curve widget at {d:.0},{d:.0} {d:.0}x{d:.0}\n", .{ rect.x, rect.y, rect.w, rect.h });
+        return null;
+    }
+
+    // --- Image window ---------------------------------------------------------
+
+    /// The Image window as the auto tier places it: left of the tree window and
+    /// clear of the project panel, so no other window takes its pointer events.
+    const image_window = docks_mod.Rect{ .x = 330, .y = 40, .w = 530, .h = 440 };
+
+    /// do=image_open: the docks exist and draw the Image window over the open
+    /// project; its picture must have loaded (a Mission without one has the
+    /// engine make it), and the size it was drawn at is printed.
+    fn imageOpen(self: *Runner) ?[]const u8 {
+        if (!self.life.is_open or il.Kind.of(self.life.doc.kind) == null) return self.fail("image_open: the project has no image frame (mip, chc, cgc and mdc have)", .{});
+        if (self.docks == null) self.docks = docks_mod.Docks.init(self.gpa, self.io, &self.real);
+        const docks = &self.docks.?;
+        docks.image_override = image_window;
+        self.image_on = true;
+        var pumped: u32 = 0;
+        while (pumped < 3) : (pumped += 1) if (self.pumpFrame("image_open")) |why| return why;
+        const frame = &docks.image;
+        if (frame.texture == null) return self.fail("image_open: no picture is shown: {s}", .{frame.note[0..frame.note_len]});
+        const shown = frame.shown orelse return self.fail("image_open: the picture was not drawn", .{});
+        std.debug.print("resource-editor: auto: image window shows a {d}x{d} picture at {d:.0},{d:.0}\n", .{ frame.width, frame.height, shown.x, shown.y });
+        return null;
+    }
+
+    /// The screen point of a picture pixel, or why the picture is not shown.
+    fn imageScreen(self: *Runner, what: []const u8, x: f32, y: f32) union(enum) { at: [2]f32, refused: []const u8 } {
+        const docks = if (self.docks) |*d| d else return .{ .refused = self.fail("{s}: the Image window is not open (do=image_open first)", .{what}) };
+        const shown = docks.image.shown orelse return .{ .refused = self.fail("{s}: the Image window shows no picture", .{what}) };
+        return .{ .at = .{ shown.x + x, shown.y + y } };
+    }
+
+    /// The first item of the picture's first list, the one every image verb works on.
+    fn imageFirstCross(self: *Runner, what: []const u8) ?struct { kind: il.Kind, list: il.List, point: Point2 } {
+        const kind = il.Kind.of(self.life.doc.kind) orelse {
+            _ = self.fail("{s}: the project has no image frame", .{what});
+            return null;
+        };
+        var lists: [2]il.List = undefined;
+        const found = il.crossLists(&self.life.doc, kind, &lists);
+        if (found.len == 0) {
+            _ = self.fail("{s}: the project has no list of positions", .{what});
+            return null;
+        }
+        var read = sub_tools.readGeometry(self.bridge(), found[0].node, found[0].channel) catch {
+            _ = self.fail("{s}: {s}", .{ what, self.bridge().lastMessage() });
+            return null;
+        };
+        defer read.deinit(self.gpa);
+        if (read.points2.len == 0) {
+            _ = self.fail("{s}: the first list holds no position", .{what});
+            return null;
+        }
+        return .{ .kind = kind, .list = found[0], .point = read.points2[0] };
+    }
+
+    /// do=image_select: the first objective, mission or chapter is the tree's selection.
+    fn imageSelect(self: *Runner) ?[]const u8 {
+        const kind = il.Kind.of(self.life.doc.kind) orelse return self.fail("image_select: the project has no image frame", .{});
+        const item = sub_tools.item_type;
+        const class = switch (kind) {
+            .mission => item.mission_objective_props,
+            .chapter => item.chapter_mission_props,
+            .campaign => item.campaign_chapter_props,
+            .medal => return self.fail("image_select: a Medal has no positions", .{}),
+        };
+        const id = sub_tools.firstOfClass(&self.life.doc, class) orelse return self.fail("image_select: the project has no such item", .{});
+        self.panels.selection.only(self.gpa, id) catch return self.fail("image_select: out of memory", .{});
+        return self.pumpFrame("image_select");
+    }
+
+    /// do=image_click:<x>/<y>: press and release on that picture pixel, through the window's pointer path.
+    fn imageClick(self: *Runner, arg: []const u8) ?[]const u8 {
+        const want = parsePoint(arg) orelse return self.fail("image_click needs <x>/<y>", .{});
+        const at = switch (self.imageScreen("image_click", want.x, want.y)) {
+            .at => |p| p,
+            .refused => |why| return why,
+        };
+        std.debug.print("resource-editor: auto: image_click at picture {d:.0}/{d:.0}, screen {d:.0}/{d:.0}\n", .{ want.x, want.y, at[0], at[1] });
+        return self.gesture("image_click", at, null);
+    }
+
+    /// do=image_crosses:<on|off>: the Show crosses checkbox clicked when it is not in that state already.
+    fn imageCrosses(self: *Runner, arg: []const u8) ?[]const u8 {
+        const want = std.mem.eql(u8, arg, "on");
+        if (!want and !std.mem.eql(u8, arg, "off")) return self.fail("image_crosses needs on or off", .{});
+        const docks = if (self.docks) |*d| d else return self.fail("image_crosses: the Image window is not open", .{});
+        const box = docks.image.crosses_toggle orelse return self.fail("image_crosses: the Image window has no Show crosses checkbox", .{});
+        if (self.gesture("image_crosses", .{ box.x + box.w / 2, box.y + box.h / 2 }, null)) |why| return why;
+        const mode = if (docks.image.overlay) |o| o.mode else il.Mode.place;
+        if ((mode == .drag_crosses) != want) return self.fail("image_crosses:{s}: the checkbox click left the mode at {s}", .{ arg, @tagName(mode) });
+        return null;
+    }
+
+    /// do=image_drag_cross:<dx>/<dy>: the first cross pressed on its drawn place and dragged by that many
+    /// picture pixels over four frames, then released: one gesture, so one undo step.
+    fn imageDragCross(self: *Runner, arg: []const u8) ?[]const u8 {
+        const delta = parsePoint(arg) orelse return self.fail("image_drag_cross needs <dx>/<dy>", .{});
+        const first = self.imageFirstCross("image_drag_cross") orelse return self.failure;
+        const from = switch (self.imageScreen("image_drag_cross", first.point.x, first.point.y)) {
+            .at => |p| p,
+            .refused => |why| return why,
+        };
+        const to = switch (self.imageScreen("image_drag_cross", first.point.x + delta.x, first.point.y + delta.y)) {
+            .at => |p| p,
+            .refused => |why| return why,
+        };
+        std.debug.print("resource-editor: auto: image_drag_cross from {d:.1}/{d:.1} by {d:.0}/{d:.0}\n", .{ first.point.x, first.point.y, delta.x, delta.y });
+        return self.gesture("image_drag_cross", from, to);
+    }
+
+    /// `<x>/<y>`: the first position of the picture's first list is there, within a pixel.
+    fn crossAt(self: *Runner, arg: []const u8) ?[]const u8 {
+        const want = parsePoint(arg) orelse return self.fail("expect=cross needs <x>/<y>", .{});
+        const first = self.imageFirstCross("expect=cross") orelse return self.failure;
+        std.debug.print("resource-editor: auto: first cross is at {d:.1}/{d:.1}, expected {d:.1}/{d:.1}\n", .{ first.point.x, first.point.y, want.x, want.y });
+        if (@abs(first.point.x - want.x) > 1.0 or @abs(first.point.y - want.y) > 1.0)
+            return self.fail("expect=cross:{s} was false: the cross is at {d:.2}/{d:.2}", .{ arg, first.point.x, first.point.y });
+        return null;
+    }
+
+    /// The capture and the scale from screen points to its pixels.
+    fn loadShot(self: *Runner, what: []const u8, name: []const u8, bytes_out: *[]u8) ?struct { tga: schedule.Tga, scale: f32 } {
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const path = self.shotPath(&path_buffer, name) orelse {
+            _ = self.fail("{s}: the path is too long", .{what});
+            return null;
+        };
+        const bytes = readFile(self.io, self.gpa, path) catch |err| {
+            _ = self.fail("{s}: {s}: {s}", .{ what, path, @errorName(err) });
+            return null;
+        };
+        const tga = schedule.Tga.parse(bytes) catch {
+            self.gpa.free(bytes);
+            _ = self.fail("{s}: {s} is not a TGA", .{ what, path });
+            return null;
+        };
+        bytes_out.* = bytes;
+        return .{ .tga = tga, .scale = @as(f32, @floatFromInt(tga.width)) / self.windowWidth() };
+    }
+
+    /// The cross's colours: the red of a cross and the yellow of the active one.
+    fn isMarker(p: [4]u8) bool {
+        return p[2] >= 200 and p[0] <= 80;
+    }
+
+    /// `<shot>/<x>/<y>/<on|off>`: the 3x3 pixels at that picture pixel hold a cross's colour (on) or none (off).
+    /// The centre pixel's colour and the marker count are printed either way, so a failure names the frame and position.
+    fn shotMarker(self: *Runner, arg: []const u8) ?[]const u8 {
+        var parts = std.mem.splitScalar(u8, arg, '/');
+        const shot = parts.next() orelse "";
+        const x = std.fmt.parseFloat(f32, parts.next() orelse "") catch return self.fail("shot_marker needs <shot>/<x>/<y>/on|off", .{});
+        const y = std.fmt.parseFloat(f32, parts.next() orelse "") catch return self.fail("shot_marker needs <shot>/<x>/<y>/on|off", .{});
+        const state = parts.next() orelse "";
+        const want_on = std.mem.eql(u8, state, "on");
+        if (!want_on and !std.mem.eql(u8, state, "off")) return self.fail("shot_marker needs on or off, not '{s}'", .{state});
+        const at = switch (self.imageScreen("shot_marker", x, y)) {
+            .at => |p| p,
+            .refused => |why| return why,
+        };
+        var bytes: []u8 = undefined;
+        const loaded = self.loadShot("shot_marker", shot, &bytes) orelse return self.failure;
+        defer self.gpa.free(bytes);
+        const cx: i32 = @intFromFloat(@round(at[0] * loaded.scale));
+        const cy: i32 = @intFromFloat(@round(at[1] * loaded.scale));
+        if (cx < 1 or cy < 1 or cx + 1 >= loaded.tga.width or cy + 1 >= loaded.tga.height)
+            return self.fail("shot_marker:{s}: {d},{d} is outside the {d}x{d} shot", .{ arg, cx, cy, loaded.tga.width, loaded.tga.height });
+        var marked: u32 = 0;
+        var oy: i32 = -1;
+        while (oy <= 1) : (oy += 1) {
+            var ox: i32 = -1;
+            while (ox <= 1) : (ox += 1) {
+                if (isMarker(loaded.tga.pixel(@intCast(cx + ox), @intCast(cy + oy)))) marked += 1;
+            }
+        }
+        const centre = loaded.tga.pixel(@intCast(cx), @intCast(cy));
+        std.debug.print("resource-editor: auto: {s} at picture {d:.0}/{d:.0} (pixel {d},{d}): R{d} G{d} B{d}, {d} of 9 pixels are a cross's colour, wanted {s}\n", .{ shot, x, y, cx, cy, centre[2], centre[1], centre[0], marked, state });
+        if (want_on and marked == 0) return self.fail("expect=shot_marker:{s} was false: no cross at {d},{d} of {s}", .{ arg, cx, cy, shot });
+        if (!want_on and marked != 0) return self.fail("expect=shot_marker:{s} was false: a cross is still at {d},{d} of {s}", .{ arg, cx, cy, shot });
+        return null;
+    }
+
+    /// `<shot>`: the picture is on screen: its centre differs from the window's own background, sampled just
+    /// right of it, by at least 30 over the three channels. Both colours are printed.
+    fn shotPicture(self: *Runner, arg: []const u8) ?[]const u8 {
+        const docks = if (self.docks) |*d| d else return self.fail("shot_picture: the Image window is not open", .{});
+        const shown = docks.image.shown orelse return self.fail("shot_picture: the Image window shows no picture", .{});
+        var bytes: []u8 = undefined;
+        const loaded = self.loadShot("shot_picture", arg, &bytes) orelse return self.failure;
+        defer self.gpa.free(bytes);
+        const px: u32 = @intFromFloat(@round((shown.x + shown.w / 2) * loaded.scale));
+        const py: u32 = @intFromFloat(@round((shown.y + shown.h / 2) * loaded.scale));
+        const bx: u32 = @intFromFloat(@round((shown.x + shown.w + 4) * loaded.scale));
+        if (px >= loaded.tga.width or py >= loaded.tga.height or bx >= loaded.tga.width) return self.fail("shot_picture: the picture is outside the {d}x{d} shot", .{ loaded.tga.width, loaded.tga.height });
+        const picture = loaded.tga.pixel(px, py);
+        const ground = loaded.tga.pixel(bx, py);
+        var contrast: u32 = 0;
+        for (0..3) |i| contrast += @abs(@as(i32, picture[i]) - @as(i32, ground[i]));
+        std.debug.print("resource-editor: auto: {s}: picture centre R{d} G{d} B{d}, background R{d} G{d} B{d}, contrast {d}\n", .{ arg, picture[2], picture[1], picture[0], ground[2], ground[1], ground[0], contrast });
+        if (contrast < 30) return self.fail("expect=shot_picture:{s} was false: the picture's centre differs from the background by only {d}", .{ arg, contrast });
         return null;
     }
 
@@ -1809,6 +2028,9 @@ const Runner = struct {
         }
         if (eql(u8, name, "export_complex")) return self.exportFlag(arg, "1");
         if (eql(u8, name, "export_simple")) return self.exportFlag(arg, "0");
+        if (eql(u8, name, "cross")) return self.crossAt(arg);
+        if (eql(u8, name, "shot_marker")) return self.shotMarker(arg);
+        if (eql(u8, name, "shot_picture")) return self.shotPicture(arg);
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
         if (eql(u8, name, "shot_curve_handle")) return self.shotCurveHandle(arg);
         return self.fail("unknown predicate '{s}'", .{name});

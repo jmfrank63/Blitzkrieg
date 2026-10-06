@@ -119,6 +119,8 @@ const ImageFrame = struct {
     note_len: usize = 0,
     /// Where the picture was drawn in the last frame, for the auto tier.
     shown: ?Rect = null,
+    /// The Show crosses checkbox as drawn in the last frame, for the auto tier.
+    crosses_toggle: ?Rect = null,
 
     fn overlayFor(self: *ImageFrame, gpa: std.mem.Allocator) *il.Overlay {
         if (self.overlay == null) self.overlay = il.Overlay.init(gpa);
@@ -219,6 +221,8 @@ pub const Docks = struct {
     /// The auto tier's own placement of the Function window (a tall one, so
     /// every key is on screen); null leaves the layout to `place`.
     function_override: ?Rect = null,
+    /// The same for the Image window, which the default layout puts over the tree.
+    image_override: ?Rect = null,
     /// CParticleFrame::bHorizontalCamera, shared by the Particle and Effect previews.
     horizontal_camera: bool = false,
     /// The Get particle info button's four numbers, shown in the status bar.
@@ -430,9 +434,15 @@ pub const Docks = struct {
             return;
         };
         const b = self.real.bridge();
+        frame.crosses_toggle = null;
         const display = ig.igGetIO().*.DisplaySize;
-        ig.igSetNextWindowPos(.{ .x = display.x - 520, .y = 28 }, ig.ImGuiCond_FirstUseEver);
-        ig.igSetNextWindowSize(.{ .x = 500, .y = 420 }, ig.ImGuiCond_FirstUseEver);
+        if (self.image_override) |r| {
+            ig.igSetNextWindowPos(.{ .x = r.x, .y = r.y }, ig.ImGuiCond_Always);
+            ig.igSetNextWindowSize(.{ .x = r.w, .y = r.h }, ig.ImGuiCond_Always);
+        } else {
+            ig.igSetNextWindowPos(.{ .x = display.x - 520, .y = 28 }, ig.ImGuiCond_FirstUseEver);
+            ig.igSetNextWindowSize(.{ .x = 500, .y = 420 }, ig.ImGuiCond_FirstUseEver);
+        }
         defer ig.igEnd();
         if (!ig.igBegin("Image###image_frame", null, 0)) return;
 
@@ -443,6 +453,9 @@ pub const Docks = struct {
         if (picked.hasShowCrosses()) {
             var show = frame.overlayFor(self.gpa).mode == .drag_crosses;
             if (ig.igCheckbox("Show crosses", &show)) frame.overlayFor(self.gpa).setMode(b, if (show) .drag_crosses else .place);
+            const low = ig.igGetItemRectMin();
+            const high = ig.igGetItemRectMax();
+            frame.crosses_toggle = .{ .x = low.x, .y = low.y, .w = high.x - low.x, .h = high.y - low.y };
             ig.igSameLine();
         }
         if (ig.igButton("Reload picture")) frame.forget();

@@ -914,3 +914,19 @@ one, the newer instruction wins, and record the change in the spec").
   `import_file`, `import_refused`, `preview_refused` and predicates `keys`, `key`, `zoom`, `camera` drive and read them; the
   auto block measures Run, Stop and Camera shots by pixel difference. Not done in S12: Get particle info, the simple/complex
   toggle UI, and the effect direction arrow and angle/position editing. Goldens pending win-home.
+
+- **Mission, Chapter, Campaign and Medal sub-editors (D030, M001/S14).** The exporters are ports of MissionFrm, ChapterFrm,
+  CampaignFrm and MedalFrm, with `ComposeImageToTexture`/`GetImageSize` in `NImageExport`. Where the MFC Mission export wrote the
+  converted map and the minimap into the installation, the port never writes into shipped Data: `BkResMissionMinimap` writes
+  `map_{h,c,l}.dds` beside the open `.mip` (a project that lives in shipped Data is refused, naming the path), and the map `.xml`
+  to `.bzm` conversion lands in the export root's `maps\<FinalMap>.bzm` (`SExportContext::convertMapToBzm`; a missing callback
+  fails naming it). The exporter copies the `.bzm` only when no maps folder has it. The ported validation quirks are kept: the last
+  failing message wins, and both music checks read the combat list, so the exploration message is the one shown. The image frame
+  (`image_logic.zig`, the Image window in `docks.zig`) shows the picture at real size and refuses one of 2048 pixels or more on
+  a side, whose positions would not be real pixels. One gesture is one undo step: a click that places, and a Show crosses drag from
+  press to release, each commit one geometry command on release; Escape or a mode switch restores the position with no history
+  entry. Property ids count from 1 (Chapter map image 4, Campaign 3, Medal 3), unlike the exporters' value indexes. `BK_EDITOR_AUTO`
+  verbs `image_open`, `image_select`, `image_click`, `image_crosses`, `image_drag_cross`, the `{data}` path token and predicates
+  `cross`, `shot_marker`, `shot_picture` drive and measure it with real pointer events; one `resource-editor-auto-<kind>` step per
+  kind. Goldens and the GOG `INTEX2 ardennen40/current.mip` row stay pending win-home.
+

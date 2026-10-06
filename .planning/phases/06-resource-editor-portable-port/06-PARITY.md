@@ -240,39 +240,39 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-14.1 | Tree: Common, Objectives, Musics | todo |
-| B-14.2 | Generate map image (`MinimapCreation`) | todo |
-| B-14.3 | Place objectives by clicking on the image | todo |
-| B-14.4 | Export: `SMissionStats`, copied `.txt`, map image via `ComposeImageToTexture`, map DDS, map `.xml` → `.bzm` | todo |
-| B-14.5 | GOG `INTEX2 ardennen40/current.mip` exports equal to its golden (win-home) | todo |
-| B-14.6 | Import from game data | todo |
+| B-14.1 | Tree: Common, Objectives, Musics | done (S14 T04: mission model and tree, bridge tests `S14MissionExport` and the ussr/finland import; `resource-editor-auto-mip` opens mip/final-map with expect=kind:mip and selects the first objective) |
+| B-14.2 | Generate map image (`MinimapCreation`) | done (S14 T03 `BkResMissionMinimap`, test `MISSION MINIMAP map_c/l/h.dds 512x512: 1`; `resource-editor-auto-mip` opens the project without a map.tga, the Image window makes and shows a 512x512 picture, centre R192 G220 B65 against background R14 G14 B14) |
+| B-14.3 | Place objectives by clicking on the image | done (S14 T05 image_logic.zig tests: click places, undo/redo, edge clamp, one undo step per gesture; `resource-editor-auto-mip` clicks picture 200/150 with pointer events, the cross colour is measured at the pixel: absent R177 G203 B68, placed R255 G255 B0 (9 of 9 pixels), undone absent, redone present) |
+| B-14.4 | Export: `SMissionStats`, copied `.txt`, map image via `ComposeImageToTexture`, map DDS, map `.xml` → `.bzm` | done on repo fixtures (S14 T03-T04: `S14MissionExport` reads the stats with the engine, checks the texts, map_{h,c,l}.dds, `MISSION BZM` sizes equal in chunk 1 and the quick-load chunk, the four validation refusals; auto mip exports 12 files and expects data/maps/road3d.bzm and data/scenarios/mip/map_h.dds in the export root, never in shipped Data); golden pending win-home. Ported MFC quirks kept: the last failing validation message wins, and both music checks read the combat list, so the exploration message is the one shown |
+| B-14.5 | GOG `INTEX2 ardennen40/current.mip` exports equal to its golden (win-home) | pending win-home (`S14Mission::GogArdennen40` prints `pending: win-home only`; mip/golden holds the README only) |
+| B-14.6 | Import from game data | done (S14 T04: BkResImportFromGame reads shipped ScenarioMissions 1.xml; ussr and finland import then export field-equal, MODName/MODVersion/ImageRect drift tolerated; MFC left objective headers empty, the port fills the header slot) |
 
 ### B-15 Chapter editor (`CChapterFrame`, `.chc`) — 06-14
 
 | # | Feature | Status |
 |---|---|---|
-| B-15.1 | Tree: Common, Missions, Placeholders | todo |
-| B-15.2 | Show crosses mode: place mission markers on the map image | todo |
-| B-15.3 | Export: `SChapterStats`, copied `.txt` and `.lua`, image | todo |
-| B-15.4 | Import from game data | todo |
+| B-15.1 | Tree: Common, Missions, Placeholders | done (S14 T02: chapter tree and bridge tests; `resource-editor-auto-chc` opens the fixture with expect=kind:chc and selects the first mission) |
+| B-15.2 | Show crosses mode: place mission markers on the map image | done (S14 T05 image_logic.zig tests, hit box and cross drag as one step; `resource-editor-auto-chc` clicks picture 10/6 (cross R255 G255 B0, 5 of 9 pixels, absent after undo), ticks the Show crosses checkbox with a pointer click, drags the cross by 5/3 to 15/9 (marker there, gone at 10/6), one undo returns it to 10/6, redo to 15/9) |
+| B-15.3 | Export: `SChapterStats`, copied `.txt` and `.lua`, image | done on repo fixtures (S14 T02: bridge export tests read the stats with the engine, `CHAPTER rect ...` line; auto chc exports 9 files); golden pending win-home |
+| B-15.4 | Import from game data | done (S14 T02: shipped chapters round trip field-equal, German/Kharkov42 46 fields, 0 differences; ImageRect excluded because the shipped DDS has no source picture) |
 
 ### B-16 Campaign editor (`CCampaignFrame`, `.cgc`) — 06-14
 
 | # | Feature | Status |
 |---|---|---|
-| B-16.1 | Tree: Common, Chapters, Templates | todo |
-| B-16.2 | Position chapters by clicking on the map image | todo |
-| B-16.3 | Export: `SCampaignStats`, copied `.txt`, image | todo |
-| B-16.4 | Import from game data | todo |
+| B-16.1 | Tree: Common, Chapters, Templates | done (S14 T02: campaign tree and bridge tests; `resource-editor-auto-cgc` opens the fixture with expect=kind:cgc and selects the first chapter) |
+| B-16.2 | Position chapters by clicking on the map image | done (S14 T05 image_logic.zig tests; `resource-editor-auto-cgc` clicks picture 10/6 (R255 G255 B0, 5 of 9 pixels, absent after undo, present after redo) and drags the cross in Show crosses mode as one undo step) |
+| B-16.3 | Export: `SCampaignStats`, copied `.txt`, image | done on repo fixtures (S14 T02: `CAMPAIGN rect ... chapters` bridge test; auto cgc exports); golden pending win-home |
+| B-16.4 | Import from game data | done (S14 T02: shipped campaign German round trips field-equal, 134 fields, 0 differences) |
 
 ### B-17 Medal editor (`CMedalFrame`, `.mdc`, `medals\`) — 06-14
 
 | # | Feature | Status |
 |---|---|---|
-| B-17.1 | Tree: Common, Picture, Text | todo |
-| B-17.2 | Image preview | todo |
-| B-17.3 | Export: `SMedalStats`, copied `.txt`, image | todo |
-| B-17.4 | Import from game data | todo |
+| B-17.1 | Tree: Common, Picture, Text | done (S14 T01: medal tree and bridge tests; `resource-editor-auto-mdc` opens the fixture with expect=kind:mdc) |
+| B-17.2 | Image preview | done (S14 T05 Image window; `resource-editor-auto-mdc` shows the 20x12 picture and measures its centre R107 G73 B156 against background R14 G15 B15, contrast 292). The auto run found that the picture's property id was read 0-based (it showed the description); ids count from 1 (chapter 4, campaign 3, medal 3) and image_logic.zig now uses them |
+| B-17.3 | Export: `SMedalStats`, copied `.txt`, image | done on repo fixtures (S14 T01: `MEDAL rect ...` and `MEDAL _h ...` pixel checks; auto mdc exports 6 files); golden pending win-home |
+| B-17.4 | Import from game data | done (S14 T01: shipped medal round trip, the 6-digit ImageRect tolerated through NearFloat, a supplied 4.tga because Data holds only DDS) |
 
 ### B-18 Terrain editor (`CTileSetFrame`, `.til`, `terrain\sets\`) — 06-13
 

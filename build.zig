@@ -8336,13 +8336,18 @@ const resource_auto_steps = [_]ResourceAutoStep{
     .{ .name = "til", .about = "Run BK_EDITOR_AUTO's Terrain (.til) scenario", .schedule = resource_auto_til, .exit_frame = 40 },
     .{ .name = "3rd", .about = "Run BK_EDITOR_AUTO's 3D Road (.3rd) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_3rd, .exit_frame = 60 },
     .{ .name = "3rv", .about = "Run BK_EDITOR_AUTO's 3D River (.3rv) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_3rv, .exit_frame = 60 },
+    .{ .name = "mip", .about = "Run BK_EDITOR_AUTO's Mission (.mip) scenario: the generated map image, a click-placed objective, undo and redo, export with the .bzm", .schedule = resource_auto_mip, .exit_frame = 17 },
+    .{ .name = "chc", .about = "Run BK_EDITOR_AUTO's Chapter (.chc) scenario: a click-placed mission, Show crosses drag, undo and redo, export", .schedule = resource_auto_chc, .exit_frame = 23 },
+    .{ .name = "cgc", .about = "Run BK_EDITOR_AUTO's Campaign (.cgc) scenario: a click-placed chapter, Show crosses drag, undo and redo, export", .schedule = resource_auto_cgc, .exit_frame = 23 },
+    .{ .name = "mdc", .about = "Run BK_EDITOR_AUTO's Medal (.mdc) scenario: the picture shown and measured, export", .schedule = resource_auto_mdc, .exit_frame = 9 },
 };
 
 /// The old single schedule's order. Nothing but the per-step constants' concatenation may stand here: the
 /// comptime check below keeps the table above equal to it, so a block cannot be dropped or reordered.
 const resource_auto_all = resource_auto_core ++ resource_auto_wpn ++ resource_auto_spt ++ resource_auto_unt ++
     resource_auto_msh ++ resource_auto_obt ++ resource_auto_fnc ++ resource_auto_bld ++ resource_auto_bdg ++
-    resource_auto_pcp ++ resource_auto_eff ++ resource_auto_til ++ resource_auto_3rd ++ resource_auto_3rv;
+    resource_auto_pcp ++ resource_auto_eff ++ resource_auto_til ++ resource_auto_3rd ++ resource_auto_3rv ++
+    resource_auto_mip ++ resource_auto_chc ++ resource_auto_cgc ++ resource_auto_mdc;
 
 comptime {
     @setEvalBranchQuota(2_000_000);
@@ -9302,6 +9307,163 @@ const resource_auto_3rv =
     "22:saveas={dir}/3rv/imported.3rv," ++
     "23:do=export," ++
     "23:expect=exported,";
+
+// The Mission, Chapter, Campaign and Medal image frames (S14): each opens a copy of its tracked fixture, shows the
+// Image window, places or drags a cross with real pointer events, captures the frame and measures the cross's colour
+// at the picture pixel by code (before, after, undone, redone), then saves and exports. mip starts without its
+// map.tga, so the picture the window shows is the one the engine's minimap makes from the final map.
+
+const resource_auto_mip =
+    "1:do=mod_dir:{dir}/mod," ++
+    "2:do=copy:{fix}/mip/final-map/project.mip>{dir}/mip/project.mip," ++
+    "2:do=copy:{fix}/mip/final-map/header.txt>{dir}/mip/header.txt," ++
+    "2:do=copy:{fix}/mip/final-map/subheader.txt>{dir}/mip/subheader.txt," ++
+    "2:do=copy:{fix}/mip/final-map/desc.txt>{dir}/mip/desc.txt," ++
+    "2:do=copy:{fix}/mip/final-map/obj1h.txt>{dir}/mip/obj1h.txt," ++
+    "2:do=copy:{fix}/mip/final-map/obj1t.txt>{dir}/mip/obj1t.txt," ++
+    "2:do=copy:{fix}/mip/final-map/sub/obj2h.txt>{dir}/mip/sub/obj2h.txt," ++
+    "2:do=copy:{fix}/mip/final-map/sub/obj2t.txt>{dir}/mip/sub/obj2t.txt," ++
+    "3:open={dir}/mip/project.mip," ++
+    "4:expect=kind:mip," ++
+    "4:expect=dirty:false," ++
+    "5:do=image_open," ++
+    "6:do=image_select," ++
+    "7:shot=mip_a," ++
+    "7:expect=shot_picture:mip_a," ++
+    "7:expect=shot_marker:mip_a/200/150/off," ++
+    "8:do=image_click:200/150," ++
+    "9:shot=mip_b," ++
+    "9:expect=shot_marker:mip_b/200/150/on," ++
+    "9:expect=cross:200/150," ++
+    "9:expect=dirty:true," ++
+    "10:do=undo," ++
+    "11:shot=mip_c," ++
+    "11:expect=shot_marker:mip_c/200/150/off," ++
+    "11:expect=cross:40/30," ++
+    "12:do=redo," ++
+    "13:shot=mip_d," ++
+    "13:expect=shot_marker:mip_d/200/150/on," ++
+    "13:expect=cross:200/150," ++
+    "14:do=copy:{fix}/mip/final-map/map.tga>{dir}/mip/map.tga," ++
+    "14:do=copy:{data}/Maps/road3d.xml>{dir}/mod/data/maps/road3d.xml," ++
+    "15:save," ++
+    "16:do=export," ++
+    "16:expect=exported," ++
+    "16:expect=file:{dir}/mod/data/maps/road3d.bzm," ++
+    "16:expect=file:{dir}/mod/data/scenarios/mip/map_h.dds,";
+
+const resource_auto_chc =
+    "1:do=mod_dir:{mods}/reseditor_auto15_chc," ++
+    "2:do=copy:{fix}/chc/project.chc>{dir}/chc/project.chc," ++
+    "2:do=copy:{fix}/chc/header.txt>{dir}/chc/header.txt," ++
+    "2:do=copy:{fix}/chc/subheader.txt>{dir}/chc/subheader.txt," ++
+    "2:do=copy:{fix}/chc/desc.txt>{dir}/chc/desc.txt," ++
+    "2:do=copy:{fix}/chc/map.tga>{dir}/chc/map.tga," ++
+    "2:do=copy:{fix}/chc/script.lua>{dir}/chc/script.lua," ++
+    "2:do=copy:{fix}/chc/context.xml>{dir}/chc/context.xml," ++
+    "2:do=copy:{fix}/chc/art-16x16.tga>{dir}/chc/art-16x16.tga," ++
+    "3:open={dir}/chc/project.chc," ++
+    "4:expect=kind:chc," ++
+    "4:expect=dirty:false," ++
+    "5:do=image_open," ++
+    "6:do=image_select," ++
+    "7:shot=chc_a," ++
+    "7:expect=shot_picture:chc_a," ++
+    "7:expect=shot_marker:chc_a/10/6/off," ++
+    "8:do=image_click:10/6," ++
+    "9:shot=chc_b," ++
+    "9:expect=shot_marker:chc_b/10/6/on," ++
+    "9:expect=cross:10/6," ++
+    "9:expect=dirty:true," ++
+    "10:do=undo," ++
+    "11:shot=chc_c," ++
+    "11:expect=shot_marker:chc_c/10/6/off," ++
+    "11:expect=cross:40/30," ++
+    "12:do=redo," ++
+    "13:shot=chc_d," ++
+    "13:expect=shot_marker:chc_d/10/6/on," ++
+    "13:expect=cross:10/6," ++
+    "14:do=image_crosses:on," ++
+    "15:do=image_drag_cross:5/3," ++
+    "16:shot=chc_e," ++
+    "16:expect=shot_marker:chc_e/15/9/on," ++
+    "16:expect=shot_marker:chc_e/10/6/off," ++
+    "16:expect=cross:15/9," ++
+    "17:do=undo," ++
+    "18:shot=chc_f," ++
+    "18:expect=shot_marker:chc_f/15/9/off," ++
+    "18:expect=shot_marker:chc_f/10/6/on," ++
+    "18:expect=cross:10/6," ++
+    "19:do=redo," ++
+    "20:shot=chc_g," ++
+    "20:expect=shot_marker:chc_g/15/9/on," ++
+    "20:expect=cross:15/9," ++
+    "21:save," ++
+    "22:do=export," ++
+    "22:expect=exported,";
+
+const resource_auto_cgc =
+    "1:do=mod_dir:{mods}/reseditor_auto16_cgc," ++
+    "2:do=copy:{fix}/cgc/project.cgc>{dir}/cgc/project.cgc," ++
+    "2:do=copy:{fix}/cgc/header.txt>{dir}/cgc/header.txt," ++
+    "2:do=copy:{fix}/cgc/subheader.txt>{dir}/cgc/subheader.txt," ++
+    "2:do=copy:{fix}/cgc/map.tga>{dir}/cgc/map.tga," ++
+    "2:do=copy:{fix}/cgc/art-16x16.tga>{dir}/cgc/art-16x16.tga," ++
+    "3:open={dir}/cgc/project.cgc," ++
+    "4:expect=kind:cgc," ++
+    "4:expect=dirty:false," ++
+    "5:do=image_open," ++
+    "6:do=image_select," ++
+    "7:shot=cgc_a," ++
+    "7:expect=shot_picture:cgc_a," ++
+    "7:expect=shot_marker:cgc_a/10/6/off," ++
+    "8:do=image_click:10/6," ++
+    "9:shot=cgc_b," ++
+    "9:expect=shot_marker:cgc_b/10/6/on," ++
+    "9:expect=cross:10/6," ++
+    "9:expect=dirty:true," ++
+    "10:do=undo," ++
+    "11:shot=cgc_c," ++
+    "11:expect=shot_marker:cgc_c/10/6/off," ++
+    "11:expect=cross:50/60," ++
+    "12:do=redo," ++
+    "13:shot=cgc_d," ++
+    "13:expect=shot_marker:cgc_d/10/6/on," ++
+    "13:expect=cross:10/6," ++
+    "14:do=image_crosses:on," ++
+    "15:do=image_drag_cross:5/3," ++
+    "16:shot=cgc_e," ++
+    "16:expect=shot_marker:cgc_e/15/9/on," ++
+    "16:expect=shot_marker:cgc_e/10/6/off," ++
+    "16:expect=cross:15/9," ++
+    "17:do=undo," ++
+    "18:shot=cgc_f," ++
+    "18:expect=shot_marker:cgc_f/15/9/off," ++
+    "18:expect=shot_marker:cgc_f/10/6/on," ++
+    "18:expect=cross:10/6," ++
+    "19:do=redo," ++
+    "20:shot=cgc_g," ++
+    "20:expect=shot_marker:cgc_g/15/9/on," ++
+    "20:expect=cross:15/9," ++
+    "21:save," ++
+    "22:do=export," ++
+    "22:expect=exported,";
+
+const resource_auto_mdc =
+    "1:do=mod_dir:{mods}/reseditor_auto17_mdc," ++
+    "2:do=copy:{fix}/mdc/project.mdc>{dir}/mdc/project.mdc," ++
+    "2:do=copy:{fix}/mdc/name.txt>{dir}/mdc/name.txt," ++
+    "2:do=copy:{fix}/mdc/desc.txt>{dir}/mdc/desc.txt," ++
+    "2:do=copy:{fix}/mdc/medal.tga>{dir}/mdc/medal.tga," ++
+    "2:do=copy:{fix}/mdc/art-16x16.tga>{dir}/mdc/art-16x16.tga," ++
+    "3:open={dir}/mdc/project.mdc," ++
+    "4:expect=kind:mdc," ++
+    "4:expect=dirty:false," ++
+    "5:do=image_open," ++
+    "7:shot=mdc_a," ++
+    "7:expect=shot_picture:mdc_a," ++
+    "8:do=export," ++
+    "8:expect=exported,";
 
 
 /// A module of MapEditor's, with everything its executables link. The union
