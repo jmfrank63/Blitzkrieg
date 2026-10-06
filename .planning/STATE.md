@@ -26,15 +26,28 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 
 ## Current Position
 
-Current Plan: 11 (complete)
-Total Plans in Phase: 11
-Progress: [██████████] 100% (phase 5 plans)
+Milestone M001 (phase 6, Resource Editor portable port): S01 to S15 complete, S16 in progress (T01 to T05, T08, T09 and
+T06 done; T07, the MFC deletion, is held by D043).
+Branch: feat/resource-editor.
 
-Phase 05: all 11 plans executed (11/11 summarized). 05-11 closed the 152 PARITY rows, deleted the MFC editor
-(approved by Johannes 2026-10-03) and ran the gates (CI run 37121998156 green on all six jobs). Execution is done;
-next: the phase code review and verification, and Johannes's hand try (D-40.10). Open: the post-deletion
-random-missions sweep stopped at 180 of 208 cases (0 failed), and macOS `zig build test` is red at the branch tip
-for the WR-A04 single-instance test (see 05-11-SUMMARY.md).
+Verified on Linux (S16/T05, every tier in the foreground, exit 0): install-game, install-map-editor, install-resource-editor,
+`test-resources-all`, `test-resource-model`, `-comparator`, `-bridge`, `test-resource-core`, `test-resource-app-logic`,
+`test-editor-core`, `test-editor-kit`, `test-editor-bridge`, `resource-editor-host-check`, `resource-editor-smoke`, the 19
+`resource-editor-auto-<ext>` tiers, `resource-editor-game-reads-it` (21 kinds PASS, 10 by the real Game, 11 by the engine's reader),
+`map-editor-smoke`, `map-editor-auto`, `map-editor-game-reads-it-m3`. Golden comparator: pass=3 accepted=2 fail=0 pending=15.
+No macOS or Windows result has been seen.
+
+Open:
+- Johannes's hand try of the macOS and Windows release builds.
+- win-home: the 20 MFC goldens regenerated from the re-saved fixtures (44094bf22) and compared; the GOG goldens (B-09.14, B-14.5).
+- The MFC deletion (S16/T07, approved D037, held by D043) waits for the golden comparison, traced against `Sources/src/editor`.
+- CI on macOS and Windows after the maintainer pushes.
+- The full sweep (`tools/zig/run-resource-sweep.sh`), left to the maintainer.
+
+Spec: the closing entry is "Amendment (S16 T06, 2026-10-06)" in `docs/superpowers/specs/2026-09-30-portable-resource-editor-design.md`.
+
+Older phase 5 position (historical): all 11 plans executed; the MFC Map Editor was deleted (approved 2026-10-03; CI run
+37121998156 green on all six jobs).
 
 ## Current summary
 

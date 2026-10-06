@@ -369,7 +369,7 @@ Plans (per D-39; waves serialized — plans 2-8 all touch bridge.h/editor.zig/fa
 **Goal:** Port the MFC resource editor (`Sources/src/editor`, `editor.exe`, about 64,000 lines, more than 20 sub-editors: units, weapons, buildings, objects, effects, bridges, fences, entrenchments, particles, animations and the rest) to the portable editor stack (Zig app + Dear ImGui + C bridge to the engine) on macOS and Windows, with its own design spec, undo, safe save, output the game reads unchanged, and CI tiers like the map editor. Every sub-editor is ported; the MFC resource editor is deleted when parity is shown.
 **Requirements**: TBD
 **Depends on:** Phase 5
-**Plans:** 0 plans
+**Plans:** tracked as GSD milestone M001 (S01 to S16); status in `.planning/STATE.md`: Linux verified, macOS and Windows hand try, win-home goldens and the MFC deletion open
 
 Plans:
 

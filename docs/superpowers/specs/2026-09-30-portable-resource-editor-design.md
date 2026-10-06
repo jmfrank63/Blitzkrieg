@@ -1086,3 +1086,49 @@ the block from the tree as well.
 **Left to the maintainer.** The goldens of the D041 'pending regeneration' kinds (wpn, trc, msh, obt, bld) and of the kinds the
 MFC editor crashed on (bdg, 3rd, 3rv, mip, chc, cgc) can be regenerated on win-home with `tools/zig/win-home/export-goldens.ps1`
 from the re-saved fixtures; MFC can now open all of them. The full resource sweep is also left to the maintainer.
+
+## Amendment (S16 T06, 2026-10-06): M001 closing entry
+
+Linux-first-class and the user-data root were recorded in S01; this entry records what S16 added.
+
+**`resource-editor-game-reads-it`.** One exported resource per project kind is shown to be read by the game. Ten kinds are
+proved by the real Game (wpn, unt, msh, obt, fnc, bld, scp, mcp, bdg, gui): the Game runs with the new `BK_MOD_TRACE`, which the
+Zig StreamIO overlay lookup (the Game's real data path) logs, and the log must show each exported file opened from the mod. The
+other eleven are proved by the engine's own reader (`BkResReadBack`), each with a stated reason the Game cannot be driven to the
+file (spt, pcp, eff, trc, til, 3rd, 3rv, mip, chc, cgc, mdc). `zig-out/local-test/resource-editor-game-reads-it/result.log` has
+one `KIND` line per kind: the proof (`game` or `reader`), the file read and PASS or FAIL. 06-PARITY.md section D holds the table.
+The step runs on the Windows and macOS GPU jobs of CI, in `run-resource-sweep.sh` and in AGENTS.md's tier list.
+
+**Paste ElementID rule (T01).** A pasted window keeps its ElementID while no window of the screen has it; otherwise it gets the
+next free id above the old one, and the app reports each change in the status line and the log (see D031 above). ElementID -1
+and an absent attribute never change.
+
+**A-13, A-16, A-17 (T02).** View menu toggles for Toolbar, Status Bar, Project Tree and Object Inspector, Set Background
+Colour, and Expand/Collapse all (Ctrl+C), all kept in `resourceeditor.cfg`. Proved by `test-resource-app-logic` and
+`resource-editor-auto-core`.
+
+**`mfc-item-inventory.json` is the frozen source of truth.** Once `Sources/src/editor` is deleted, `tools/zig/mfc_item_inventory.py`
+can only run against git history. `test-resource-model-fidelity` reads the JSON (`tools/zig/resource_model_test.cpp`, line 69),
+so it keeps working.
+
+**Deletion scope (D-26).** The scope is `Sources/src/editor/` (with `bin/editor2.exe`), `Sources/src/bin/editor.exe`, the `A7.sln`
+entry and the `copyEditors` row in `tools/zig/stage.zig`. Johannes approved it (D037). It is held by D043 (S16/T07) and is
+waiting for the golden comparison: the maintainer regenerates the MFC goldens on win-home from the re-saved fixtures
+(44094bf22), and any difference is traced against `Sources/src/editor` first. It is not waiting on approval. `PRE_DELETE` in the
+early-deletion amendment is still unfilled.
+
+**Verified on Linux (T05).** Every tier ran in the foreground and exited 0: the three installs, `test-resources-all`,
+the logic tiers, `test-editor-bridge`, `resource-editor-host-check`, `resource-editor-smoke`, the 19
+`resource-editor-auto-<ext>` tiers, `resource-editor-game-reads-it`, `map-editor-smoke`, `map-editor-auto` and
+`map-editor-game-reads-it-m3`. The golden comparator reports pass=3 accepted=2 fail=0 pending=15 (see the T08 amendment). No macOS or
+Windows result has been seen.
+
+**Open.**
+
+- Johannes's hand try on macOS and Windows release builds.
+- win-home: all 20 MFC goldens regenerated from the re-saved fixtures (44094bf22), then compared again; the GOG goldens
+  B-09.14 (`INTEX2 brandenburgertor/current.bld`) and B-14.5 (`INTEX2 ardennen40/current.mip`).
+- The MFC deletion (T07), held by D043.
+- CI results of macOS and Windows after the maintainer pushes.
+- The full resource sweep (`tools/zig/run-resource-sweep.sh`), left to the maintainer.
+- Whether the bridge can hand the export the engine's camera (fence, object and building exports differ from MFC there; T08).
