@@ -97,6 +97,8 @@ pub const FakeResBridge = struct {
     allocator: std.mem.Allocator,
     message_buffer: [message_capacity]u8 = [_]u8{0} ** message_capacity,
     message_len: usize = 0,
+    /// How many times missionMinimap was asked for.
+    minimap_requests: u32 = 0,
     /// Null when no project is open; otherwise the project kind.
     kind: ?Kind = null,
     nodes: std.ArrayListUnmanaged(FakeNode) = .empty,
@@ -1166,6 +1168,16 @@ pub const FakeResBridge = struct {
         return .ok;
     }
 
+    /// BkResMissionMinimap: counted, and refused without an open project
+    /// like the real bridge; the fake writes no pictures.
+    fn missionMinimap(ptr: *anyopaque) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        if (self.requireOpen() != .ok) return .refused;
+        self.minimap_requests += 1;
+        return .ok;
+    }
+
     fn previewShow(ptr: *anyopaque) Status {
         const self = from(ptr);
         self.clearMessage();
@@ -1424,6 +1436,7 @@ pub const FakeResBridge = struct {
         .tileSetAddTile = tileSetAddTile,
         .previewBegin = previewBegin,
         .previewShow = previewShow,
+        .missionMinimap = missionMinimap,
         .previewStop = previewStop,
         .previewPlayback = previewPlayback,
         .previewMeshVariant = previewMeshVariant,

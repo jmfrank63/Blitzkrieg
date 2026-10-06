@@ -36,6 +36,7 @@
 #include <SDL3/SDL.h>
 #include "resource_bridge.h"
 #include "bridge_session.h"
+#include "map_tools.h"
 #include "../ResourceModel/references.h"
 #include "../ResourceModel/exporter.h"
 #include "../ResourceModel/compose.h"
@@ -8175,6 +8176,188 @@ static void Fixture( BkResSession *pSession, const std::string &szRoot, const st
 
 }
 
+namespace S14Mission
+{
+
+namespace fs = std::filesystem;
+
+// The Final map name the stand-in exporter hands the export context's map callbacks.
+static std::string g_szFinalMap;
+static std::string g_szStandInError;
+
+// MissionFrm.cpp's ExportFrameData map half, without the stats: the pictures beside the
+// staged root's files and the .bzm under maps\.
+static bool StandInExport( const NResourceModel::Project &, const NResourceModel::SExportContext &context, NResourceModel::SExportOutcome &outcome )
+{
+	if ( !context.createMinimap || !context.convertMapToBzm )
+	{
+		outcome.szError = "the bridge gave the export no map callbacks";
+		return false;
+	}
+	std::string szError;
+	if ( !context.createMinimap( g_szFinalMap, context.szStagingRoot + "/map", szError ) ||
+	     !context.convertMapToBzm( g_szFinalMap, context.szStagingRoot + "/maps/" + g_szFinalMap + ".bzm", szError ) )
+	{
+		g_szStandInError = szError;
+		outcome.szError = szError;
+		return false;
+	}
+	outcome.nWritten = 4;
+	return true;
+}
+
+static bool DdsIs( const fs::path &file, int nSize )
+{
+	std::string szBytes;
+	if ( !ReadBytes( file.string(), szBytes ) || szBytes.size() < 20 || szBytes.compare( 0, 4, "DDS " ) != 0 )
+		return false;
+	const auto Le32 = [&]( std::size_t n ) { unsigned v = 0; for ( int i = 3; i >= 0; --i ) v = ( v << 8 ) | (unsigned char)szBytes[n + i]; return v; };
+	return int( Le32( 12 ) ) == nSize && int( Le32( 16 ) ) == nSize;
+}
+
+static bool ReadQuickLoad( const fs::path &bzm, SQuickLoadMapInfo &quick )
+{
+	const std::string szDir = bzm.parent_path().string() + "/";
+	CPtr<IDataStorage> pStorage = OpenStorage( szDir.c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( bzm.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+	if ( pStream == 0 )
+		return false;
+	CPtr<IStructureSaver> pSS = CreateStructureSaver( pStream, IStructureSaver::READ );
+	CSaverAccessor saver = pSS;
+	saver.Add( RMGC_QUICK_LOAD_MAP_INFO_CHUNK_NUMBER, &quick );
+	return true;
+}
+
+static int ChildOfType( BkResSession *pSession, int nClassType )
+{
+	int nCount = 0;
+	BkResNodes( pSession, nullptr, 0, &nCount );
+	std::vector<BkResNodeRecord> nodes( nCount );
+	if ( nCount > 0 )
+		BkResNodes( pSession, nodes.data(), nCount, &nCount );
+	for ( const BkResNodeRecord &node : nodes )
+		if ( node.class_type == nClassType )
+			return node.id;
+	return -1;
+}
+
+static bool SetFinalMap( BkResSession *pSession, const char *pszName )
+{
+	const int nCommon = ChildOfType( pSession, 0x11000000 + 231 );
+	int nCount = 0;
+	BkResProps( pSession, nCommon, nullptr, 0, &nCount );
+	std::vector<BkResPropRecord> props( nCount );
+	if ( nCount > 0 )
+		BkResProps( pSession, nCommon, props.data(), nCount, &nCount );
+	for ( const BkResPropRecord &prop : props )
+		if ( std::strcmp( prop.default_name, "Final map" ) == 0 )
+			return BkResSetProp( pSession, nCommon, prop.id, pszName ) == BK_EDITOR_OK;
+	return false;
+}
+
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s14-mission";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "mission";
+	const fs::path modDir = scratch / "mod";
+	fs::create_directories( projectDir, ec );
+	fs::create_directories( modDir / "data" / "maps", ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / "mip", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), projectDir / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / "project.mip";
+	// The shipped map as the mod's own: the export root's maps folder is searched first, and nothing is written into Data.
+	const fs::path shippedXml = S09Object::FindFile( fs::path( szRoot ) / "Data", "road3d.xml" );
+	if ( !Check( fs::is_regular_file( project, ec ) && !shippedXml.empty() &&
+	             fs::copy_file( shippedXml, modDir / "data" / "maps" / "road3d.xml", fs::copy_options::overwrite_existing, ec ), "mission: the fixture and the map road3d.xml are copied" ) )
+		return;
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S14 mission" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "mission: the mod folder is set" );
+
+	// No project is open.
+	BkResClose( pSession );
+	Check( BkResMissionMinimap( pSession ) == BK_EDITOR_REFUSED, "mission minimap: refused with no project open" );
+	// A new project has no path.
+	Check( BkResNew( pSession, 16 ) == BK_EDITOR_OK && BkResMissionMinimap( pSession ) == BK_EDITOR_REFUSED &&
+	       std::string( BkEditorLastMessage( pSession ) ).find( "save the project" ) != std::string::npos, "mission minimap: refused for an unsaved project, naming why" );
+	BkResClose( pSession );
+
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "mission: project.mip opens" ) )
+		return;
+	Check( BkResMissionMinimap( pSession ) == BK_EDITOR_REFUSED && std::string( BkEditorLastMessage( pSession ) ).find( "no Final map" ) != std::string::npos,
+	       "mission minimap: refused without a Final map, naming why" );
+	Check( SetFinalMap( pSession, "NoSuchMap" ) && BkResMissionMinimap( pSession ) == BK_EDITOR_REFUSED &&
+	       std::string( BkEditorLastMessage( pSession ) ).find( "NoSuchMap" ) != std::string::npos, "mission minimap: refused for a map that is not there, naming it" );
+
+	// The pictures: the map name is given in another case than the file's.
+	Check( SetFinalMap( pSession, "ROAD3D" ), "mission: the Final map is set" );
+	const BkEditorStatus made = BkResMissionMinimap( pSession );
+	if ( !Check( made == BK_EDITOR_OK, "mission minimap: writes the pictures" ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	const bool bPictures = DdsIs( projectDir / "map_c.dds", 512 ) && DdsIs( projectDir / "map_l.dds", 512 ) && DdsIs( projectDir / "map_h.dds", 512 );
+	std::printf( "MISSION MINIMAP map_c/l/h.dds 512x512: %d\n", bPictures ? 1 : 0 );
+	Check( bPictures, "mission minimap: map_c.dds, map_l.dds and map_h.dds are 512 x 512 by their headers" );
+	// Up to date: the pictures are kept as they are.
+	const auto before = fs::last_write_time( projectDir / "map_h.dds", ec );
+	Check( BkResMissionMinimap( pSession ) == BK_EDITOR_OK && fs::last_write_time( projectDir / "map_h.dds", ec ) == before &&
+	       std::string( BkEditorLastMessage( pSession ) ).find( "newer" ) != std::string::npos, "mission minimap: pictures newer than the map are left alone" );
+
+	// The export asks for the same pictures and the .bzm through its context.
+	NResourceModel::RegisterExporter( "mip", &StandInExport );
+	g_szFinalMap = "road3d";
+	BkResExportReport report = {};
+	const BkEditorStatus exported = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
+	if ( !Check( exported == BK_EDITOR_OK, "mission: the stand-in export with the map callbacks succeeds" ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	const fs::path bzm = S09Object::FindFile( modDir / "data", "road3d.bzm" );
+	if ( Check( !bzm.empty() && bzm.parent_path().filename() == "maps", "mission: road3d.bzm is promoted into maps\\" ) )
+	{
+		CMapInfo fromXml, fromBzm;
+		std::string szError;
+		SQuickLoadMapInfo quick;
+		const auto EnginePath = []( const fs::path &file ) { std::string sz = file.string(); std::replace( sz.begin(), sz.end(), '/', '\\' ); return sz; };
+		const bool bRead = NMapFile::Read( EnginePath( modDir / "data" / "maps" / "road3d.xml" ).c_str(), &fromXml, &szError ) &&
+		                   NMapFile::Read( EnginePath( bzm ).c_str(), &fromBzm, &szError ) && ReadQuickLoad( bzm, quick );
+		if ( !bRead )
+			std::printf( "   detail: %s\n", szError.c_str() );
+		Check( bRead, "mission: the .bzm loads through the structure saver, chunk 1 and the quick-load chunk" );
+		std::printf( "MISSION BZM size xml %dx%d, chunk 1 %dx%d, quick %dx%d\n", fromXml.terrain.patches.GetSizeX(), fromXml.terrain.patches.GetSizeY(),
+		             fromBzm.terrain.patches.GetSizeX(), fromBzm.terrain.patches.GetSizeY(), quick.size.x, quick.size.y );
+		Check( bRead && quick.size.x == fromXml.terrain.patches.GetSizeX() && quick.size.y == fromXml.terrain.patches.GetSizeY() &&
+		       fromBzm.terrain.patches.GetSizeX() == fromXml.terrain.patches.GetSizeX() && fromBzm.terrain.patches.GetSizeY() == fromXml.terrain.patches.GetSizeY(),
+		       "mission: the .bzm's map size equals the .xml's, in chunk 1 and in the quick-load chunk" );
+	}
+	// A map that is not there fails the export, naming it.
+	g_szFinalMap = "NoSuchMap";
+	Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_FAILED && g_szStandInError.find( "NoSuchMap" ) != std::string::npos,
+	       "mission: an export whose map is missing fails, naming the map" );
+	NResourceModel::RegisterExporter( "mip", nullptr );
+	BkResClose( pSession );
+
+	// A project inside the shipped Data is refused: the session's data root is moved to a stand-in installation for the call.
+	const fs::path fakeRoot = scratch / "install";
+	fs::create_directories( fakeRoot / "Data" / "Scenarios" / "m", ec );
+	for ( fs::directory_iterator it( projectDir, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && it->path().extension() == ".mip" )
+			fs::copy_file( it->path(), fakeRoot / "Data" / "Scenarios" / "m" / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const std::string szSavedRoot = pSession->szDataRoot;
+	pSession->szDataRoot = fakeRoot.string();
+	if ( Check( BkResOpen( pSession, ( fakeRoot / "Data" / "Scenarios" / "m" / "project.mip" ).string().c_str() ) == BK_EDITOR_OK, "mission: a project in a stand-in shipped Data opens" ) )
+	{
+		Check( SetFinalMap( pSession, "road3d" ) && BkResMissionMinimap( pSession ) == BK_EDITOR_REFUSED &&
+		       std::string( BkEditorLastMessage( pSession ) ).find( "shipped Data" ) != std::string::npos &&
+		       !fs::exists( fakeRoot / "Data" / "Scenarios" / "m" / "map_h.dds", ec ), "mission minimap: refused inside the shipped Data, naming why, and nothing written" );
+		BkResClose( pSession );
+	}
+	pSession->szDataRoot = szSavedRoot;
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -8441,6 +8624,8 @@ int main( int argc, char **argv )
 	S14Medal::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 	// S14 T02: the chapter and campaign exporters and importers.
 	S14ChapterCampaign::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+	// S14 T03: the mission's minimap pictures and the map .xml to .bzm conversion.
+	S14Mission::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 	// S10 T04: a shipped building's round trip, the building negative-tile guard and the GOG golden (win-home only).
 	S10Building::Shipped( pSession, pszRoot, szScratchRoot );
 	S10Building::Shipped( pSession, pszRoot, szScratchRoot, "europe/summer/e_house07_1" );

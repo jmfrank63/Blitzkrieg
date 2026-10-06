@@ -401,6 +401,18 @@ BkEditorStatus BkResExport( BkResSession *session, int flags, BkResExportReport 
    offered for every kind (D-13). */
 BkEditorStatus BkResExportStatsOnly( BkResSession *session, int flags, BkResExportReport *report );
 
+/* The open Mission's map pictures (MinimapCreation.cpp's Create1Minimap):
+   map_c.dds, map_l.dds and map_h.dds, 512x512, written beside the project
+   file from its Final map (found ignoring case in the export root's maps
+   folder, then the shipped Data's), through the engine's minimap code. Left
+   alone, still OK, when map_h.dds is newer than the map. BK_EDITOR_REFUSED,
+   with the message naming why, when the open project is not a Mission, has no
+   path yet, lies inside the shipped Data (never written), has no Final map or
+   its map is not found; BK_EDITOR_FAILED when the engine cannot read the map
+   or write the pictures. The Mission export asks for the same pictures and
+   for the map's .xml converted to .bzm through the export context. */
+BkEditorStatus BkResMissionMinimap( BkResSession *session );
+
 /* MFC's batch mode: every project file under src_folder (recursively) of
    kind `kind` (-1: all 21 extensions, in BkResKind order) is exported into
    dst_folder's data/ folder, or with BK_RES_EXPORT_OPEN_SAVE only opened and

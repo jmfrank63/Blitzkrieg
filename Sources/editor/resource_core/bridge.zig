@@ -485,6 +485,10 @@ pub const ResBridge = struct {
         /// BkResPreviewShow: export the open project into the preview and
         /// build it.
         previewShow: *const fn (ptr: *anyopaque) Status,
+        /// BkResMissionMinimap: map_c/l/h.dds of the open Mission's Final
+        /// map, written beside the project file. Refused (message names why)
+        /// inside the shipped Data, without a path or a Final map.
+        missionMinimap: *const fn (ptr: *anyopaque) Status,
         /// BkResPreviewStop: tear the preview scene down.
         previewStop: *const fn (ptr: *anyopaque) Status,
         /// BkResPreviewPlayback: run (true) or stop the shown preview's
@@ -620,6 +624,9 @@ pub const ResBridge = struct {
     }
     pub fn previewShow(self: ResBridge) Status {
         return self.vtable.previewShow(self.ptr);
+    }
+    pub fn missionMinimap(self: ResBridge) Status {
+        return self.vtable.missionMinimap(self.ptr);
     }
     pub fn previewStop(self: ResBridge) Status {
         return self.vtable.previewStop(self.ptr);

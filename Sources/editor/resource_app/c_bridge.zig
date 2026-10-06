@@ -194,6 +194,7 @@ pub const RealResBridge = struct {
         .tileSetAddTile = tileSetAddTile,
         .previewBegin = previewBegin,
         .previewShow = previewShow,
+        .missionMinimap = missionMinimap,
         .previewStop = previewStop,
         .previewPlayback = previewPlayback,
         .previewMeshVariant = previewMeshVariant,
@@ -674,6 +675,12 @@ pub const RealResBridge = struct {
     fn previewShow(ptr: *anyopaque) Status {
         const self = from(ptr);
         return status(c.BkResPreviewShow(self.session));
+    }
+
+    /// BkResMissionMinimap: the Mission's map pictures beside the project.
+    fn missionMinimap(ptr: *anyopaque) Status {
+        const self = from(ptr);
+        return status(c.BkResMissionMinimap(self.session));
     }
 
     fn previewStop(ptr: *anyopaque) Status {

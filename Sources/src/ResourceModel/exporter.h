@@ -77,6 +77,19 @@ struct SExportContext
 	// bridge fills it from the engine's scene. Empty: the exporter uses
 	// DefaultEditorCamera() and says so in a warning.
 	std::function<bool( SGroundCamera &camera )> groundCamera;
+
+	// The map half of CMissionFrame::ExportFrameData, which needs the engine's
+	// map and terrain code (D030). szFinalMap is the project's Final map name
+	// as typed (relative to maps\\, no extension), found in the export root's
+	// and the shipped data's maps folder ignoring case.
+	// createMinimap writes <szPictureBase>_c.dds, _l.dds and _h.dds (the
+	// 512x512 pictures MinimapCreation.cpp's Create1Minimap makes) from it,
+	// leaving them alone when _h.dds is already newer than the map.
+	// convertMapToBzm writes the map as the .bzm file szBzmPath (the map and
+	// its SQuickLoadMapInfo chunk). Each fails with szError naming the path
+	// and why. Empty: the bridge is not there to ask, and the exporter says so.
+	std::function<bool( const std::string &szFinalMap, const std::string &szPictureBase, std::string &szError )> createMinimap;
+	std::function<bool( const std::string &szFinalMap, const std::string &szBzmPath, std::string &szError )> convertMapToBzm;
 };
 
 struct SExportOutcome

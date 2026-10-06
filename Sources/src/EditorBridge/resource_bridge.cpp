@@ -25,6 +25,7 @@
 #include "resource_bridge.h"
 #include "session.h"
 #include "bridge_session.h"
+#include "map_tools.h"
 #include "guarded.h"
 
 #include "../ResourceModel/project.h"
@@ -3498,6 +3499,71 @@ void FillEngineLookups( NResourceModel::SExportContext &context, const std::file
 	}
 }
 
+// The map named by a mission's Final map, as <folder>/maps/<name> without the
+// extension, looked up ignoring case in each root in turn; empty when no root
+// has a .xml or .bzm of that name. The name may carry sub-folders.
+std::string FindFinalMap( const std::vector<std::filesystem::path> &roots, const std::string &szName )
+{
+	std::string szSlashes = NResourceModel::NStatsExport::ToSlashes( szName );
+	std::vector<std::string> parts;
+	for ( std::size_t pos = 0; pos <= szSlashes.size(); )
+	{
+		std::size_t next = szSlashes.find( '/', pos );
+		if ( next == std::string::npos )
+			next = szSlashes.size();
+		if ( next > pos )
+			parts.push_back( szSlashes.substr( pos, next - pos ) );
+		pos = next + 1;
+	}
+	if ( parts.empty() )
+		return std::string();
+	std::error_code ec;
+	for ( const std::filesystem::path &root : roots )
+	{
+		std::filesystem::path folder = NResourceModel::NStatsExport::FoldedChild( root, "maps" );
+		for ( std::size_t i = 0; i + 1 < parts.size(); ++i )
+			folder = NResourceModel::NStatsExport::FoldedChild( folder, parts[i] );
+		const std::filesystem::path xml = NResourceModel::NStatsExport::FoldedChild( folder, parts.back() + ".xml" );
+		const std::filesystem::path bzm = NResourceModel::NStatsExport::FoldedChild( folder, parts.back() + ".bzm" );
+		if ( std::filesystem::exists( xml, ec ) || std::filesystem::exists( bzm, ec ) )
+		{
+			std::string szBase = ( std::filesystem::exists( xml, ec ) ? xml : bzm ).generic_string();
+			return szBase.substr( 0, szBase.size() - 4 );
+		}
+	}
+	return std::string();
+}
+
+// The Mission export's map callbacks (SExportContext::createMinimap and
+// convertMapToBzm): the map is found in the roots (the export root's data/
+// first, then the shipped Data), and the engine's own map code does the work.
+void FillMapCallbacks( NResourceModel::SExportContext &context, const std::vector<std::filesystem::path> &roots )
+{
+	context.createMinimap = [roots]( const std::string &szFinalMap, const std::string &szPictureBase, std::string &szError ) -> bool
+	{
+		const std::string szBase = FindFinalMap( roots, szFinalMap );
+		if ( szBase.empty() )
+		{
+			szError = "the final map " + szFinalMap + " is not in any maps folder (neither .xml nor .bzm); no minimap can be made";
+			return false;
+		}
+		bool bSkipped = false;
+		return NMapTools::CreateMissionMinimap( szBase, szPictureBase, bSkipped, szError );
+	};
+	context.convertMapToBzm = [roots]( const std::string &szFinalMap, const std::string &szBzmPath, std::string &szError ) -> bool
+	{
+		const std::string szBase = FindFinalMap( roots, szFinalMap );
+		const std::string szXml = szBase + ".xml";
+		std::error_code ec;
+		if ( szBase.empty() || !std::filesystem::exists( szXml, ec ) )
+		{
+			szError = "the final map " + szFinalMap + " has no .xml in any maps folder to convert to " + szBzmPath;
+			return false;
+		}
+		return NMapTools::ConvertMapToBzm( szXml, szBzmPath, szError );
+	};
+}
+
 // One project through its kind's exporter: the exporter writes into a
 // staging folder beside data/, and only when it succeeds are its files
 // promoted into data/, all or nothing, so a failed export leaves no
@@ -3533,6 +3599,7 @@ bool ExportOne( const NResourceModel::Project &project, const std::string &szPro
 	std::string szModDesc;
 	ReadModFile( dataDir, context.szModName, context.szModVersion, szModDesc );
 	FillEngineLookups( context, dataDir.parent_path() / ".bk-export-mesh" );
+	FillMapCallbacks( context, { dataDir, editorDataDir } );
 	if ( !pfnExporter( project, context, outcome ) )
 	{
 		std::filesystem::remove_all( staging, ec );
@@ -3635,8 +3702,79 @@ bool ResaveProject( const std::string &szPath, const std::string &szBytes, std::
 	return true;
 }
 
+// True when path lies inside dir (or is it), ignoring case: the shipped Data
+// is never written, and a mission's pictures go beside its project file.
+bool IsInsideFolder( const std::filesystem::path &path, const std::filesystem::path &dir )
+{
+	std::error_code ec;
+	std::string szPath = Fold( std::filesystem::weakly_canonical( path, ec ).generic_string() );
+	std::string szDir = Fold( std::filesystem::weakly_canonical( dir, ec ).generic_string() );
+	if ( szDir.empty() )
+		return false;
+	if ( szDir.back() != '/' )
+		szDir += '/';
+	if ( szPath.size() + 1 == szDir.size() )
+		szPath += '/';
+	return szPath.compare( 0, szDir.size(), szDir ) == 0;
+}
+
+BkEditorStatus MissionMinimap( BkResSession *pSession )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen || !state.pProject || !state.pProject->root )
+	{
+		pSession->szMessage = "no project is open";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.nKindOrdinal < 0 || state.nKindOrdinal >= kKindCount || std::string( kKindExtensions[state.nKindOrdinal] ) != "mip" )
+	{
+		pSession->szMessage = "the minimap is made for a Mission (.mip) project";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( state.szPath.empty() )
+	{
+		pSession->szMessage = "save the project first: the minimap pictures are written beside the project file";
+		return BK_EDITOR_REFUSED;
+	}
+	const std::filesystem::path folder = std::filesystem::path( state.szPath ).parent_path();
+	if ( IsInsideFolder( folder, ShippedDataFolder( pSession ) ) )
+	{
+		pSession->szMessage = "the project " + state.szPath + " is inside the shipped Data folder, which is never written: save a copy elsewhere first";
+		return BK_EDITOR_REFUSED;
+	}
+	std::string szFinalMap;
+	for ( const auto &pChild : state.pProject->root->GetChildren() )
+		if ( pChild->GetItemType() == NResourceModel::ETIT_MISSION_COMMON_PROPS_ITEM )
+			szFinalMap = NResourceModel::NStatsExport::ValueStr( *pChild, 4 );
+	if ( szFinalMap.empty() )
+	{
+		pSession->szMessage = "the mission has no Final map: set it before making the minimap";
+		return BK_EDITOR_REFUSED;
+	}
+	const std::string szBase = FindFinalMap( { ChildFolder( ExportDirOf( pSession ), "data" ), ShippedDataFolder( pSession ) }, szFinalMap );
+	if ( szBase.empty() )
+	{
+		pSession->szMessage = "the final map " + szFinalMap + " is not in the export root's or the shipped maps folder (neither .xml nor .bzm)";
+		return BK_EDITOR_REFUSED;
+	}
+	bool bSkipped = false;
+	std::string szWhy;
+	if ( !NMapTools::CreateMissionMinimap( szBase, ( folder / "map" ).generic_string(), bSkipped, szWhy ) )
+	{
+		pSession->szMessage = szWhy;
+		return BK_EDITOR_FAILED;
+	}
+	pSession->szMessage = bSkipped ? "the minimap pictures are newer than the map: left as they are" : "wrote map_c.dds, map_l.dds and map_h.dds beside " + state.szPath;
+	return BK_EDITOR_OK;
+}
+
 } // namespace
 } // extern "C++"
+
+BkEditorStatus BkResMissionMinimap( BkResSession *pSession )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus { return MissionMinimap( pSession ); } );
+}
 
 BkEditorStatus BkResExport( BkResSession *pSession, int nFlags, BkResExportReport *pReport )
 {
