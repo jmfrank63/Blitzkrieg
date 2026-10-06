@@ -110,6 +110,19 @@ TIERS=(
   "map-editor-auto-m2"
   "map-editor-m3-auto"
   "map-editor-game-reads-it-m3"
+  "resource-editor-host-check"
+  "resource-editor-smoke"
+  "resource-editor-auto-core"
+  "resource-editor-auto-wpn"
+  "resource-editor-auto-unt"
+  "resource-editor-auto-spt"
+  "resource-editor-auto-msh"
+  "resource-editor-auto-obt"
+  "resource-editor-auto-fnc"
+  "resource-editor-auto-bld"
+  "resource-editor-auto-bdg"
+  "resource-editor-auto-pcp"
+  "resource-editor-auto-eff"
 )
 
 for tier in "${TIERS[@]}"; do

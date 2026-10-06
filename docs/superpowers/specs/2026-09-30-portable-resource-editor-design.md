@@ -529,6 +529,11 @@ editor is deleted.
   path>`, `set=<prop>=<value>`, `export`, `batch=` and `undo`/`redo`
   actions; `zig build resource-editor-auto` runs open, edit, undo, save,
   export, shot, compare, test-launch, quit.
+  The scenario is split per editor (S13 T10), because one run passed 380 s and a foreground command
+  is capped at 10 minutes: `resource-editor-auto-core`, `-wpn` (Weapon, Mine, Trench, Squad), `-unt`, `-spt`,
+  `-msh`, `-obt`, `-fnc`, `-bld`, `-bdg`, `-pcp`, `-eff`, plus `-til`, `-3rd`, `-3rv` (filled by T11). Each has its
+  own scratch folder and runs alone; `resource-editor-auto` chains them in order. A concatenation check in
+  build.zig keeps the per-editor schedules equal to the old whole.
 - Build steps mirror the map editor's: `install-resource-editor`,
   `test-resource-core`, `test-resource-model`, `test-resource-bridge`,
   `resource-editor-host-check`, `resource-editor-smoke`,

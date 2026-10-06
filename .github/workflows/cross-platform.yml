@@ -443,6 +443,39 @@ jobs:
       - name: Resource editor auto
         run: zig build resource-editor-auto -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      - name: Resource editor auto core
+        run: zig build resource-editor-auto-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto wpn
+        run: zig build resource-editor-auto-wpn -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto unt
+        run: zig build resource-editor-auto-unt -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto spt
+        run: zig build resource-editor-auto-spt -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto msh
+        run: zig build resource-editor-auto-msh -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto obt
+        run: zig build resource-editor-auto-obt -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto fnc
+        run: zig build resource-editor-auto-fnc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto bld
+        run: zig build resource-editor-auto-bld -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto bdg
+        run: zig build resource-editor-auto-bdg -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto pcp
+        run: zig build resource-editor-auto-pcp -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto eff
+        run: zig build resource-editor-auto-eff -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       # T-03-14-03: the packaged MapEditor.exe opens no console on a normal
       # double-click (configureMapEditorExecutable's .windows subsystem) -
       # confirmed by reading its own PE header rather than trusting the build
@@ -828,6 +861,39 @@ jobs:
 
       - name: Resource editor auto
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto core
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-core -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto wpn
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-wpn -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto unt
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-unt -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto spt
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-spt -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto msh
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-msh -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto obt
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-obt -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto fnc
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-fnc -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto bld
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-bld -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto bdg
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-bdg -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto pcp
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-pcp -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor auto eff
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-eff -Dtarget=aarch64-macos -Dtest-mode=run
 
       # The game's SDL event translation, through the real SDLApplication and
       # a real window: wheel deltas (a trackpad swipe's fractions, flipped,

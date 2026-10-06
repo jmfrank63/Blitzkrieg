@@ -12,7 +12,7 @@ apps with Dear ImGui (`Sources/editor`) talking to the engine through the C ABI 
 - Build: `zig build install-game install-map-editor`. The Linux install is `zig-out/game/linux/x86_64/release/`.
 - Map Editor tiers: `test-editor-core`, `test-map-editor-view`, `-panels`, `-testlaunch`, `-auto`,
   `test-map-editor-engine`, `test-editor-bridge`, `map-editor-host-check`, `map-editor-smoke`, `map-editor-auto`,
-  `map-editor-auto-m2`, `map-editor-m3-auto`, `map-editor-game-reads-it-m3`. Any change to shared editor code must
+  `map-editor-auto-m2`, `map-editor-m3-auto`, `map-editor-game-reads-it-m3`. Resource Editor: `resource-editor-host-check`, `resource-editor-smoke` and `resource-editor-auto-<editor>` (core, wpn, unt, spt, msh, obt, fnc, bld, bdg, pcp, eff, til, 3rd, 3rv; each under about 3 minutes, the aggregate `resource-editor-auto` chains them and is too long for one foreground command). Any change to shared editor code must
   keep these green.
 - `zig build --help` lists every step. Long steps: run them with a generous timeout, not in a loop.
 - Never start a long build or test (more than about 10 minutes, e.g. `tools/zig/run-resource-sweep.sh`, about 27 minutes)

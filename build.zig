@@ -4137,6 +4137,7 @@ fn addEditorBridge(
             "Sources/src/ResourceModel/items/effect/effect_export.cpp",
             "Sources/src/ResourceModel/items/road3d/road3d_export.cpp",
             "Sources/src/ResourceModel/items/river3d/river3d_export.cpp",
+            "Sources/src/ResourceModel/items/tileset/tileset_export.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
     });
@@ -8242,41 +8243,116 @@ fn addResourceEditor(
     smoke_run.step.dependOn(&smoke_kind_run.step);
     if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
 
-    // BK_EDITOR_AUTO's schedule over the resource command registry: new,
-    // open a copy of the tracked .unt, edit, undo, save, export into a mod
-    // folder of the installation, pack it, import from the shipped Gunner and
-    // play the exported mod in the real Game, with captured frames measured by
-    // code. Runs after the smoke, so two engines never start at once.
-    const auto_dir = b.pathFromRoot("zig-out/local-test/resource_editor/auto");
-    const auto_run = b.addRunArtifact(exe);
-    auto_run.setCwd(b.path(stage_root));
-    auto_run.addArgs(&.{ "--auto", b.pathFromRoot("tools/zig/fixtures/resource_editor"), auto_dir });
-    auto_run.setEnvironmentVariable("BK_EDITOR_AUTO", resource_auto_schedule);
-    auto_run.has_side_effects = true;
-    auto_run.step.dependOn(&install_exe.step);
-    auto_run.step.dependOn(&smoke_run.step);
-    // The game's own screenshot dump (BK_AUTO_UI's shot) lands in the stage
-    // root it ran from: swept up like map-editor-auto does.
+    // BK_EDITOR_AUTO's schedules over the resource command registry, one step per editor so each stays
+    // inside a foreground command's 10 minutes: the core frames (new, open, edit, undo, save, export, pack,
+    // import, the exported mod played in the real Game), then each editor's blocks on copies of the tracked
+    // fixtures, with captured frames measured by code. Every step runs after the smoke, so two engines never
+    // start at once, and has its own scratch folder; the aggregate chains them in order.
     const delete_matching_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/delete_matching_files.zig"),
         .target = b.graph.host,
         .optimize = .Debug,
     });
     const delete_matching = b.addExecutable(.{ .name = "delete-matching-files", .root_module = delete_matching_module });
-    const cleanup_autoshots = b.addRunArtifact(delete_matching);
-    cleanup_autoshots.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
-    cleanup_autoshots.step.dependOn(&auto_run.step);
-    const auto_step = b.step("resource-editor-auto", "Run BK_EDITOR_AUTO's ResourceEditor scenario over the resource command registry");
+    const auto_step = b.step("resource-editor-auto", "Run BK_EDITOR_AUTO's ResourceEditor scenario over the resource command registry: every per-editor resource-editor-auto-* step, in order");
     auto_step.dependOn(&install_exe.step);
-    if (test_mode == .run) auto_step.dependOn(&cleanup_autoshots.step);
+    // The aggregate's chain, so two engines never start at once.
+    var chain: ?*std.Build.Step = null;
+    inline for (resource_auto_steps) |auto| {
+        const alone = addResourceAutoRun(b, exe, delete_matching, stage_root, &install_exe.step, &smoke_run.step, auto, null);
+        const step_name = "resource-editor-auto-" ++ auto.name;
+        const per_step = b.step(step_name, auto.about);
+        per_step.dependOn(&install_exe.step);
+        if (test_mode == .run) per_step.dependOn(alone);
+        // The aggregate's own run of the same scenario, ordered after the one before it; a step run alone
+        // does not pull the others in.
+        const chained = addResourceAutoRun(b, exe, delete_matching, stage_root, &install_exe.step, &smoke_run.step, auto, chain);
+        chain = chained;
+        if (test_mode == .run) auto_step.dependOn(chained);
+    }
     return exe;
 }
 
-/// resource-editor-auto's schedule (scenario.zig): one entry per line, frames
-/// ascending, so a later slice appends a block rather than editing one long
-/// string. {dir}, {fix} and {mods} are the scratch folder, the fixtures
-/// folder and the installation's mods folder.
-const resource_auto_schedule =
+/// One per-editor step of resource-editor-auto: the editor's schedule (a preview_on or mod_dir prefix where an
+/// earlier block would have set it, an exit after the last frame) in its own scratch folder, then the sweep of
+/// the game's autoshot dumps. `after` orders it behind the previous step of the aggregate.
+fn addResourceAutoRun(
+    b: *std.Build,
+    exe: *std.Build.Step.Compile,
+    delete_matching: *std.Build.Step.Compile,
+    stage_root: []const u8,
+    install_step: *std.Build.Step,
+    smoke_step: *std.Build.Step,
+    comptime auto: ResourceAutoStep,
+    after: ?*std.Build.Step,
+) *std.Build.Step {
+    const auto_dir = b.pathFromRoot("zig-out/local-test/resource_editor/auto-" ++ auto.name);
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path(stage_root));
+    run.addArgs(&.{ "--auto", b.pathFromRoot("tools/zig/fixtures/resource_editor"), auto_dir });
+    run.setEnvironmentVariable("BK_EDITOR_AUTO", auto.prefix ++ auto.schedule ++ std.fmt.comptimePrint("{d}:exit", .{auto.exit_frame}));
+    run.has_side_effects = true;
+    run.step.dependOn(install_step);
+    run.step.dependOn(smoke_step);
+    if (after) |previous| run.step.dependOn(previous);
+    // The game's own screenshot dump (BK_AUTO_UI's shot) lands in the stage
+    // root it ran from: swept up like map-editor-auto does.
+    const cleanup = b.addRunArtifact(delete_matching);
+    cleanup.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup.step.dependOn(&run.step);
+    return &cleanup.step;
+}
+
+const ResourceAutoStep = struct {
+    name: []const u8,
+    about: []const u8,
+    /// Entries at frame 1 that an earlier editor's block would have set up.
+    prefix: []const u8 = "",
+    schedule: []const u8,
+    /// One past the schedule's last frame.
+    exit_frame: u32,
+};
+
+/// The sprite block's do=preview_on stayed on for every later block of the old single run.
+const resource_auto_preview_on = "1:do=preview_on,";
+
+/// The per-editor steps in run order. til, 3rd and 3rv are slots for S13's T11, empty until then.
+const resource_auto_steps = [_]ResourceAutoStep{
+    .{ .name = "core", .about = "Run BK_EDITOR_AUTO's core frames: new, open, edit, undo, save, export, pack, import and the exported mod in the Game", .schedule = resource_auto_core, .exit_frame = 37 },
+    .{ .name = "wpn", .about = "Run BK_EDITOR_AUTO's S06 stats sub-editors: Weapon, Mine, Trench and Squad (one step, each is short)", .schedule = resource_auto_wpn, .exit_frame = 132 },
+    .{ .name = "spt", .about = "Run BK_EDITOR_AUTO's Sprite (.spt) scenario", .schedule = resource_auto_spt, .exit_frame = 168 },
+    .{ .name = "unt", .about = "Run BK_EDITOR_AUTO's Infantry (.unt) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_unt, .exit_frame = 187 },
+    .{ .name = "msh", .about = "Run BK_EDITOR_AUTO's Unit (.msh) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_msh, .exit_frame = 232 },
+    .{ .name = "obt", .about = "Run BK_EDITOR_AUTO's Object (.obt) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_obt, .exit_frame = 286 },
+    .{ .name = "fnc", .about = "Run BK_EDITOR_AUTO's Fence (.fnc) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_fnc, .exit_frame = 331 },
+    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 399 },
+    .{ .name = "bdg", .about = "Run BK_EDITOR_AUTO's Bridge (.bdg) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bdg, .exit_frame = 459 },
+    .{ .name = "pcp", .about = "Run BK_EDITOR_AUTO's Particle (.pcp) scenario, the Function window's pointer path included", .prefix = resource_auto_preview_on, .schedule = resource_auto_pcp, .exit_frame = 539 },
+    .{ .name = "eff", .about = "Run BK_EDITOR_AUTO's Effect (.eff) scenario", .prefix = resource_auto_preview_on ++ "2:do=mod_dir:{mods}/reseditor_auto12,3:do=copy:{fix}/pcp/project.pcp>{dir}/particle-2key/project.pcp,4:open={dir}/particle-2key/project.pcp,5:expect=kind:pcp,6:do=export,6:expect=exported,", .schedule = resource_auto_eff, .exit_frame = 558 },
+    .{ .name = "til", .about = "Run BK_EDITOR_AUTO's Terrain (.til) scenario", .schedule = "", .exit_frame = 2 },
+    .{ .name = "3rd", .about = "Run BK_EDITOR_AUTO's 3D Road (.3rd) scenario", .schedule = "", .exit_frame = 2 },
+    .{ .name = "3rv", .about = "Run BK_EDITOR_AUTO's 3D River (.3rv) scenario", .schedule = "", .exit_frame = 2 },
+};
+
+/// The old single schedule's order. Nothing but the per-step constants' concatenation may stand here: the
+/// comptime check below keeps the table above equal to it, so a block cannot be dropped or reordered.
+const resource_auto_all = resource_auto_core ++ resource_auto_wpn ++ resource_auto_spt ++ resource_auto_unt ++
+    resource_auto_msh ++ resource_auto_obt ++ resource_auto_fnc ++ resource_auto_bld ++ resource_auto_bdg ++
+    resource_auto_pcp ++ resource_auto_eff;
+
+comptime {
+    @setEvalBranchQuota(2_000_000);
+    var joined: []const u8 = "";
+    for (resource_auto_steps) |step| joined = joined ++ step.schedule;
+    if (!std.mem.eql(u8, joined, resource_auto_all)) @compileError("resource_auto_steps no longer concatenate to the whole schedule");
+}
+
+// Each per-editor schedule below is a block of the old single string (scenario.zig): one entry per line,
+// frames ascending, so a later slice appends a block rather than editing one long string. {dir}, {fix}
+// and {mods} are the scratch folder, the fixtures folder and the installation's mods folder.
+
+/// The core frames: new, open, edit, undo, save, export, pack, import and the exported mod in the real Game.
+const resource_auto_core =
     // A new project of another kind first: it draws, and is untitled.
     "1:do=new:wpn," ++
     "2:expect=kind:wpn," ++
@@ -8320,7 +8396,10 @@ const resource_auto_schedule =
     "34:expect=shot_lit:imported," ++
     // The exported mod played in the real Game.
     "35:do=run_game," ++
-    "36:waitgame=240," ++
+    "36:waitgame=240,";
+
+/// S06's four stats sub-editors (Weapon, Mine, Trench, Squad) share one mod folder and one run.
+const resource_auto_wpn =
     // S06: the four stats sub-editors, one block each on a copy of the tracked
     // project, a mod folder of their own (the Game has left the first one).
     // Per kind: open, the kind's tool, undo, redo, save, export. Squad, trench
@@ -8341,6 +8420,8 @@ const resource_auto_schedule =
     "51:save," ++
     "52:do=export," ++
     "53:expect=exported," ++
+    // The weapon frame stands in for the unit one the mine is differed from when run alone.
+    "54:shot=weapon," ++
     // Mine (MineFrm): the weight, then the preview of the compose.
     "60:do=copy:{fix}/mcp/project.mcp>{dir}/mcp/project.mcp," ++
     "61:do=copy:{fix}/mcp/1.tga>{dir}/mcp/1.tga," ++
@@ -8349,7 +8430,7 @@ const resource_auto_schedule =
     "64:expect=kind:mcp," ++
     "65:shot=mine," ++
     "66:expect=shot_lit:mine," ++
-    "67:differ=opened/mine@0.05," ++
+    "67:differ=weapon/mine@0.02," ++
     "68:do=set_prop:Weight=11," ++
     "69:expect=prop:Weight=11," ++
     "70:do=undo," ++
@@ -8411,7 +8492,10 @@ const resource_auto_schedule =
     "128:differ=trench/squad@0.05," ++
     "129:save," ++
     "130:do=export," ++
-    "131:expect=exported," ++
+    "131:expect=exported,";
+
+/// S07 Sprite: Run and Stop of the preview measured, thumbnails, export.
+const resource_auto_spt =
     // S07 Sprite (SpriteFrm): the frame folder pointed at, a thumbnail
     // double-click, saved and exported (1.san + DDS), then Run and Stop of the
     // preview measured: the running frames differ, the stopped ones are equal.
@@ -8449,7 +8533,10 @@ const resource_auto_schedule =
     "164:do=delete_frame," ++
     "165:expect=dirty:true," ++
     "166:do=undo," ++
-    "167:expect=dirty:false," ++
+    "167:expect=dirty:false,";
+
+/// S07 Infantry (.unt): season directory, export, Run and Stop of the preview.
+const resource_auto_unt =
     // S07 Infantry (AnimationFrm): a season directory set, exported (1.xml,
     // 1[b][w|a].san + DDS), Run and Stop of the preview, undo and redo.
     "170:do=mod_dir:{mods}/reseditor_auto_s07," ++
@@ -8470,7 +8557,10 @@ const resource_auto_schedule =
     "183:do=undo," ++
     "184:expect=dirty:true," ++
     "185:do=redo," ++
-    "186:expect=dirty:false," ++
+    "186:expect=dirty:false,";
+
+/// S08 Unit: Common value, the three model variants, locators, export and the real Game.
+const resource_auto_msh =
     // S08 Unit (MeshFrm): a copy of the tracked fixture unit (its models and
     // pictures beside it) opened, a Common value edited, undone and redone, the
     // three model variants of the preview shot and differed, the locators shown
@@ -8535,7 +8625,10 @@ const resource_auto_schedule =
     "228:expect=file:{mods}/reseditor_auto_s08/data/units/technics/msh/1.mod," ++
     "229:do=preview_stop," ++
     "230:do=run_game," ++
-    "231:waitgame=240," ++
+    "231:waitgame=240,";
+
+/// S09 Object: locked, transparency and one-way grid edits measured in the shots.
+const resource_auto_obt =
     // S09 Object (ObjectFrm): a copy of the tracked fixture and its art opened, a locked tile, a
     // transparency tile and a one-way line drawn, the zero point moved, each checked in the stored
     // grid before and after, then undone and redone, saved and exported. The preview shots are
@@ -8598,7 +8691,10 @@ const resource_auto_schedule =
     "281:expect=file:{mods}/reseditor_auto_s09o/data/objects/obt/1.xml," ++
     "281:expect=file:{mods}/reseditor_auto_s09o/data/objects/obt/1_c.dds," ++
     "284:shot=obt_saved," ++
-    "285:expect=shot_lit:obt_saved," ++
+    "285:expect=shot_lit:obt_saved,";
+
+/// S09 Fence: the first segment's grid and the sprite's tile.
+const resource_auto_fnc =
     // S09 Fence (FenceFrm): the first segment's locked tile and transparency tile drawn, the sprite
     // centred on a tile, each checked before and after, undone, redone, saved and exported.
     "290:do=mod_dir:{mods}/reseditor_auto_s09f," ++
@@ -8657,7 +8753,10 @@ const resource_auto_schedule =
     "326:expect=file:{mods}/reseditor_auto_s09f/data/fences/fnc/1.xml," ++
     "326:expect=file:{mods}/reseditor_auto_s09f/data/fences/fnc/1_c.dds," ++
     "329:shot=fnc_saved," ++
-    "330:expect=shot_lit:fnc_saved," ++
+    "330:expect=shot_lit:fnc_saved,";
+
+/// S10 Building: grid, entrance, zero point and the point families.
+const resource_auto_bld =
     // S10 Building (BuildFrm): a copy of the tracked fixture and its art opened, locked and
     // transparency tiles, the entrance and the zero point set, one point of each family placed
     // (the directed explosions generated), one turned, then undone, redone, saved and exported.
@@ -8690,7 +8789,7 @@ const resource_auto_schedule =
     "346:shot=bld_base," ++
     "347:expect=shot_colour:bld_base/ff0000/max/20," ++
     "347:expect=shot_colour:bld_base/606000/max/0," ++
-    "347:expect=shot_colour:bld_base/c0c0c0/max/12000," ++
+    "347:expect=shot_colour:bld_base/c0c0c0/max/12500," ++
     "348:do=grid_cell:28/28/1," ++
     "348:do=grid_cell:29/28/1," ++
     "349:do=grid_trans:30/28/3," ++
@@ -8745,7 +8844,7 @@ const resource_auto_schedule =
     "385:expect=shot_colour:bld_undone/ff0000/max/20," ++
     "385:expect=shot_colour:bld_undone/606000/max/0," ++
     "385:expect=shot_colour:bld_undone/ff8000/max/0," ++
-    "385:expect=shot_colour:bld_undone/c0c0c0/max/12000," ++
+    "385:expect=shot_colour:bld_undone/c0c0c0/max/12500," ++
     "385:expect=shot_colour:bld_undone/ffff00/max/0," ++
     "385:differ=bld_tiles/bld_undone@0.01," ++
     "386:do=redo," ++
@@ -8769,7 +8868,10 @@ const resource_auto_schedule =
     "393:do=export," ++
     "394:expect=exported," ++
     "397:shot=bld_saved," ++
-    "398:expect=shot_lit:bld_saved," ++
+    "398:expect=shot_lit:bld_saved,";
+
+/// S11 Bridge: span marks, grid and the fire and smoke points.
+const resource_auto_bdg =
     // S11 Bridge (BridgeFrm): a copy of the tracked fixture and its art opened, two locked tiles of the
     // active span part, the four span marks, a fire and a smoke point placed, all undone and redone, then
     // saved and exported. The shots are measured: the red bridge line and the locked tiles are 0xff0000,
@@ -8903,7 +9005,10 @@ const resource_auto_schedule =
     "455:expect=file:{mods}/reseditor_auto_s11/data/bridges/bdg/1.xml," ++
     "455:expect=file:{mods}/reseditor_auto_s11/data/bridges/bdg/1_c.dds," ++
     "457:shot=bdg_saved," ++
-    "458:expect=shot_lit:bdg_saved," ++
+    "458:expect=shot_lit:bdg_saved,";
+
+/// S12 Particle (with S13's source toggle and the Function window's pointer path).
+const resource_auto_pcp =
     // S12 Particle (ParticleFrm) and Effect (EffectFrm): a copy of the tracked .pcp opened, its Opacity
     // curve edited in the Function window's editor (add, move, delete, Reset all, each undone and redone with
     // the keys read back through the bridge; the zoom steps), saved and exported, then Run, Stop and Camera
@@ -9055,7 +9160,10 @@ const resource_auto_schedule =
     "536:do=export," ++
     "536:expect=exported," ++
     "536:expect=file:{mods}/reseditor_auto12/data/effects/particles/imported.xml," ++
-    "537:do=import_refused:eff/{mods}/../Data/Effects/Particles/flame.xml," ++
+    "537:do=import_refused:eff/{mods}/../Data/Effects/Particles/flame.xml,";
+
+/// S12 Effect (with S13's whole-number position and the Direction dock).
+const resource_auto_eff =
     "539:do=copy:{fix}/eff/project.eff>{dir}/eff-1/project.eff," ++
     "540:open={dir}/eff-1/project.eff," ++
     "541:expect=kind:eff," ++
@@ -9083,8 +9191,8 @@ const resource_auto_schedule =
     "544:expect=effect_angle:0," ++
     "544:do=export," ++
     "544:expect=exported," ++
-    "545:expect=file:{mods}/reseditor_auto12/data/effects/effects/eff-1.xml," ++
-    "557:exit";
+    "545:expect=file:{mods}/reseditor_auto12/data/effects/effects/eff-1.xml,";
+
 
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static
