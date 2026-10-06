@@ -59,13 +59,13 @@
 			<values/>
 			<childs>
 				<item ClassTypeID="285212836" expand="0">
-					<default_name>USSR\Mosin</default_name>
-					<display_name>USSR\Mosin</display_name>
+					<default_name>USSR_Mosin</default_name>
+					<display_name>USSR_Mosin</display_name>
 					<values>
 						<item>
 							<default_name>Soldier</default_name>
 							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-								<string_value>USSR\Mosin</string_value>
+								<string_value>USSR_Mosin</string_value>
 							</value>
 						</item>
 					</values>

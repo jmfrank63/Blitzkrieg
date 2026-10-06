@@ -89,7 +89,7 @@ SGroundCamera MfcEditorCamera( const SVec3 &anchor )
 		vAxisX[i] /= fLenX;
 		vAxisY[i] /= fLenY;
 	}
-	float fComponentX = vAxisX[0] * anchor.x + vAxisX[1] * anchor.y;
+	float fComponentX = float( double( vAxisX[0] ) * anchor.x + double( vAxisX[1] ) * anchor.y );
 	float fComponentY = vAxisY[0] * anchor.x + vAxisY[1] * anchor.y;
 	fComponentX = float( int( fComponentX ) );
 	fComponentY = float( int( fComponentY / 2.0f ) ) * 2.0f;

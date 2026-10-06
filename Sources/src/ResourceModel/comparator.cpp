@@ -589,7 +589,11 @@ SExportRead ReadExport( EExportKind kind, const std::string &szFile )
 		return read;
 	}
 	const SExportKindInfo &info = GetExportKindInfo( kind );
-	if ( doc.root.name != info.pszBase )
+	// The shipped editor's batch export (CParentFrame::ExportSingleFile) opens every kind's tree as <base>,
+	// an effect included, while its File menu export and the shipped effect data use <effect>. Both name the
+	// same <effect> chunk, so a golden made by batch mode is read under the root it has.
+	const bool bBatchEffectRoot = kind == EExportKind::EFFECT && doc.root.name == "base" && NResourceXml::FindChild( doc.root, "effect" ) != 0;
+	if ( doc.root.name != info.pszBase && !bBatchEffectRoot )
 	{
 		read.szError = "root element is <" + doc.root.name + ">, " + info.pszReader + " opens <" + info.pszBase + ">: " + szFile;
 		return read;
@@ -606,7 +610,7 @@ SExportRead ReadExport( EExportKind kind, const std::string &szFile )
 		read.szError = "the engine's storage cannot open " + szFile;
 		return read;
 	}
-	CPtr<IDataTree> pTree = CreateDataTreeSaver( pStream, IDataTree::READ, info.pszBase );
+	CPtr<IDataTree> pTree = CreateDataTreeSaver( pStream, IDataTree::READ, doc.root.name.c_str() );
 	if ( pTree == 0 )
 	{
 		read.szError = "the engine's CDataTreeXML cannot parse " + szFile;
@@ -887,6 +891,10 @@ const SGoldenDifference kGoldenDifferences[] = {
 	{ EExportKind::OBJECT, "desc/VisOrigin", BK_ENGINE_NOISE " (CObjectFrame::SaveRPGStats, ObjectFrm.cpp:729)", true, kEnginePositionNoise },
 	{ EExportKind::FENCE, "RPG/Stats/item[*]/Origin", BK_ENGINE_NOISE " (CFenceFrame::SaveRPGStats, FenceFrm.cpp:1009: the segment's origin is the sprite position minus GetPos3 of the grid's leftmost corner)", true, kEnginePositionNoise },
 	{ EExportKind::FENCE, "RPG/Stats/item[*]/VisOrigin", BK_ENGINE_NOISE " (CFenceFrame::SaveRPGStats, FenceFrm.cpp:1070)", true, kEnginePositionNoise },
+	{ EExportKind::BRIDGE, "RPG/Segments/item[*]/Origin", BK_ENGINE_NOISE " (CBridgeFrame::SaveRPGStats, BridgeFrm.cpp:1155: the origin is the sprite position minus GetPos3 of the center cross)", true, kEnginePositionNoise },
+	{ EExportKind::BRIDGE, "RPG/Segments/item[*]/VisOrigin", BK_ENGINE_NOISE " (CBridgeFrame::SaveRPGStats, BridgeFrm.cpp:1155)", true, kEnginePositionNoise },
+	{ EExportKind::BRIDGE, "RPG/FirePoints/", BK_ENGINE_NOISE " (CBridgeFrame::SaveRPGStats, BridgeFrm.cpp:1090: the fire point's position and picture position come back through GetPos2 and GetPos3 as +-1e-4 where the port has exactly 0)", true, kEnginePositionNoise },
+	{ EExportKind::BRIDGE, "RPG/SmokePoints/", BK_ENGINE_NOISE " (CBridgeFrame::SaveRPGStats, BridgeFrm.cpp:1115, the same round trip as the fire points)", true, kEnginePositionNoise },
 };
 
 #undef BK_ENGINE_NOISE

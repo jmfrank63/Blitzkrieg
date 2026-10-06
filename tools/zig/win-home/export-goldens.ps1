@@ -72,12 +72,19 @@ if (-not [string]::IsNullOrWhiteSpace($GogProject)) {
     exit 0
 }
 
-# The editor reads two things from its own data folder, <editor folder>\data\ (CEditorApp::GetEditorDataDir;
+# The editor reads these from its own data folder, <editor folder>\data\ (CEditorApp::GetEditorDataDir;
 # the editor's working directory is the folder of editor.exe): the tileset export's mask
-# editor\terrain\tilemask.tga (TileSetFrm.cpp:610) and the function particles of an effect,
-# Effects\particles\<name>.xml (EffectFrm.cpp:215). Without them the .til golden holds only the History and the
-# .eff golden has no particles. The mask is the tracked Data/Editor/Terrain/tilemask.tga and the particle source
-# of the effect fixture, particle-2key, is the shipped Data/Effects/Particles/aa_smoke1_of_expground.xml (the file
+# editor\terrain\tilemask.tga (TileSetFrm.cpp:610), the function particles of an effect,
+# Effects\particles\<name>.xml (EffectFrm.cpp:215), and the terrain the 3d road and river frames show their
+# stripes on (3dRoadFrm.cpp:243-289, 3dRiverFrm.cpp:204-225: maps\road3d.xml and maps\river3d.xml, then the
+# terrain set those name). The GOG install has them only inside data.pak, where the batch export did not find
+# them and MFC crashed (0xC0000005) on the .3rd and .3rv fixtures. Without the mask the .til golden holds only the
+# History and without the particle the .eff golden has none. The files placed, all from the tracked Data/:
+#   Maps\road3d.xml, Maps\river3d.xml
+#   Terrain\sets\1\* (every tracked file of the set the maps name: tileset, crosset, roadset and noise with their
+#     _c/_h/_l.dds, RoadLevel.xml, RiverLevel.xml, minimap.xml, and the Roads3D and Rivers stripe textures)
+# The folders made for them stay behind, empty, once the files are removed. The mask is the tracked
+# Data/Editor/Terrain/tilemask.tga and the particle source of the effect fixture, particle-2key, is the shipped Data/Effects/Particles/aa_smoke1_of_expground.xml (the file
 # the port's tests give it too). A file the folder already has is left alone; the ones put there are removed again.
 $editorData = Join-Path (Split-Path -Parent $EditorPath) "data"
 $placed = @()
@@ -95,6 +102,15 @@ function Remove-PlacedEditorData {
 }
 Place-EditorDataFile "editor\terrain\tilemask.tga" (Join-Path $repoRoot "Data/Editor/Terrain/tilemask.tga")
 Place-EditorDataFile "Effects\particles\particle-2key.xml" (Join-Path $repoRoot "Data/Effects/Particles/aa_smoke1_of_expground.xml")
+foreach ($map in @("road3d.xml", "river3d.xml")) {
+    Place-EditorDataFile ("Maps\" + $map) (Join-Path $repoRoot ("Data/Maps/" + $map))
+}
+# Every tracked file of the terrain set the maps name; the folder is read here, so a file the set gains is placed too.
+$terrainSet = Join-Path $repoRoot "Data/Terrain/sets/1"
+foreach ($file in (Get-ChildItem -Path $terrainSet -Recurse -File)) {
+    $relative = $file.FullName.Substring($terrainSet.Length).TrimStart("\", "/")
+    Place-EditorDataFile ("Terrain\sets\1\" + ($relative -replace "/", "\")) $file.FullName
+}
 
 $failed = @()
 foreach ($ext in $Extensions) {
@@ -104,7 +120,14 @@ foreach ($ext in $Extensions) {
     $source = Join-Path $ScratchRoot "$ext/source"
     $dest = Join-Path $ScratchRoot "$ext/export"
     New-Item -ItemType Directory -Force -Path $source, $dest | Out-Null
-    Get-ChildItem -Path $fixture -Force | Where-Object { $_.Name -ne "golden" } |
+    # Batch mode enumerates the projects below the source folder too (CParentFrame::RunBatchExporter), so a
+    # second project inside a fixture is opened, saved and exported as well. mip/final-map/project.mip is one:
+    # a hand-seeded mission that names a final map (the tests export it from there), whose open path
+    # (CMissionFrame::LoadRPGStats makes the map's minimap) is the suspect for the editor crashing on open-and-save
+    # of the mip fixture, so the scratch copy leaves it out.
+    $skip = @("golden")
+    if ($ext -eq "mip") { $skip += "final-map" }
+    Get-ChildItem -Path $fixture -Force | Where-Object { $skip -notcontains $_.Name } |
         Copy-Item -Destination $source -Recurse -Force
     # The fixtures carry no export path, and batch mode refuses a project without a relative one
     # (CParentFrame::ExportSingleFile returns -3 or -4). The port's comparator compares the files at

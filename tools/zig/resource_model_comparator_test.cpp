@@ -1017,14 +1017,35 @@ static void Exporters( const fs::path &fixtures, const fs::path &data, const fs:
 		expected.formations.push_back( form );
 		CheckExported( EExportKind::SQUAD, "scp", run, "squads/scp/1.xml", expected, scratch );
 
+		// The fixture names its member by key (USSR_Mosin), which MFC's MakeName returns as it is, so the export
+		// needs no objects database: the shipped editor's database on win-home could not resolve the member's
+		// path form, USSR\Mosin, and its golden held only the History. The path form, which the editor gives a
+		// member inserted by default, is exercised on a copy of the project.
+		const fs::path pathProject = project.parent_path() / "path-form.scp";
+		{
+			std::string szXml;
+			ReadBytes( project, &szXml );
+			for ( const char *pszTag : { "default_name", "display_name", "string_value" } )
+			{
+				const std::string szOld = std::string( "<" ) + pszTag + ">USSR_Mosin</" + pszTag + ">";
+				const std::string::size_type nAt = szXml.find( szOld );
+				Check( nAt != std::string::npos, std::string( "export scp: the fixture's member is named by key in its " ) + pszTag );
+				if ( nAt != std::string::npos )
+					szXml.replace( nAt, szOld.size(), std::string( "<" ) + pszTag + ">USSR\\Mosin</" + pszTag + ">" );
+			}
+			WriteBytes( pathProject, szXml );
+		}
+		const SExportRun runPath = RunExporter( "scp", pathProject, scratch / "scp" / "data-path", context );
+		CheckExported( EExportKind::SQUAD, "scp", runPath, "squads/scp/1.xml", expected, scratch );
+
 		SExportContext noLookup = context;
 		noLookup.findUnitKey = nullptr;
-		const SExportRun runNoLookup = RunExporter( "scp", project, scratch / "scp" / "data-nolookup", noLookup );
+		const SExportRun runNoLookup = RunExporter( "scp", pathProject, scratch / "scp" / "data-nolookup", noLookup );
 		Check( !runNoLookup.bExported && runNoLookup.outcome.szError.find( "USSR\\Mosin" ) != std::string::npos,
 		       "export scp: without an objects database the member cannot be resolved, and the error names it: " + runNoLookup.outcome.szError );
 		SExportContext unknown = context;
 		unknown.findUnitKey = []( const std::string &, std::string & ) { return false; };
-		const SExportRun runUnknown = RunExporter( "scp", project, scratch / "scp" / "data-unknown", unknown );
+		const SExportRun runUnknown = RunExporter( "scp", pathProject, scratch / "scp" / "data-unknown", unknown );
 		Check( !runUnknown.bExported && runUnknown.outcome.szError.find( "Can't find stats for \"units\\humans\\ussr\\mosin\"" ) != std::string::npos,
 		       "export scp: an unknown member is MFC's \"Can't find stats\": " + runUnknown.outcome.szError );
 	}
@@ -1458,7 +1479,7 @@ static void GoldenNegatives( const fs::path &fixtures, const fs::path &scratchRo
 			if ( bFence )
 				wrong.groundCamera = []( NResourceModel::SGroundCamera &camera )
 				{
-					const float fAnchor = 8 * 16 * 2.0f * 1.41421356f;
+					const float fAnchor = 24 * 16 * 2.0f * 1.41421356f;
 					camera = NResourceModel::MfcEditorCamera( NResourceModel::SVec3{ fAnchor, fAnchor, 0 } );
 					return true;
 				};
@@ -1517,14 +1538,13 @@ static bool GoldenHasCampaignPrefixTwice( const fs::path &golden )
 // its symptom; a kind without a check is pending only while its golden has none.
 static const SPendingGolden kPending[] =
 {
-	{ "bdg", "the MFC editor crashed (0xC0000005) on opening the old fixture, so no golden exists: its cached <RPG> block listed no fire or smoke point while the tree has one of each, and CBridgeFrame::GetRPGStats (BridgeFrm.cpp:1149) indexes the block's lists by the tree's children (NI_ASSERT only); the bridge exporter now writes one entry per child and the fixture is re-saved with them; regenerate the golden on win-home (S16 T10)", nullptr },
-	{ "3rd", "the MFC editor crashed (0xC0000005) on the old fixture, so no golden exists: its texture terrain\\sets\\1\\roads3d\\road_asphalt01 is not in the installed data (shipped: road_asphalt_city); the fixture names road_asphalt_city now; regenerate the golden on win-home (S16 T10)", nullptr },
-	{ "3rv", "the MFC editor crashed (0xC0000005) on the old fixture, so no golden exists: its texture water\\bottom is not in the installed data (shipped: water\\a_bottom); the fixture names water\\a_bottom now; regenerate the golden on win-home (S16 T10)", nullptr },
-	{ "mip", "the golden holds only MFC's <History>: MFC refused the old fixture at its export validation (no template or final map, no setting, no music file, an objective without a header; MissionFrm.cpp ExportFrameData); the fixture is a valid mission now (template map, setting, music, objective header) and its cached <RPG> block holds the tree's own paths; regenerate the golden on win-home (S16 T10)", &GoldenIsHistoryOnly },
+	{ "3rd", "the golden does not exist yet: the MFC editor crashed (0xC0000005) on the 3d road fixture, first on a texture the installed data lacks (the fixture names road_asphalt_city now) and then on maps\\road3d.xml and its terrain, which 3dRoadFrm.cpp:243-289 loads from the editor's data folder and the GOG install has only inside data.pak; export-goldens.ps1 places the tracked Data/Maps/road3d.xml and Data/Terrain/sets/1 there now; regenerate the golden on win-home (S16 T11)", nullptr },
+	{ "3rv", "the golden does not exist yet: the MFC editor crashed (0xC0000005) on the 3d river fixture, first on a texture the installed data lacks (the fixture names water\\a_bottom now) and then on maps\\river3d.xml and its terrain, which 3dRiverFrm.cpp:204-225 loads from the editor's data folder and the GOG install has only inside data.pak; export-goldens.ps1 places the tracked Data/Maps/river3d.xml and Data/Terrain/sets/1 there now; regenerate the golden on win-home (S16 T11)", nullptr },
 	{ "chc", "the golden was made from a fixture whose cached <RPG> block held the export's prefixed paths (scenarios\\chc\\header): MFC loads the block into the tree (CChapterFrame::LoadRPGStats) and prefixes again, so the golden says scenarios\\scenarios\\chc\\header and a zero MapImageRect (the picture was looked up under the doubled name); a save writes the tree's own paths (the prefix is empty outside ExportFrameData), the bridge refreshes the block that way now and the fixture is re-saved; regenerate the golden on win-home (S16 T10)", &GoldenHasChapterPrefixTwice },
 	{ "cgc", "the golden was made from a fixture whose cached <RPG> block held the export's prefixed paths (scenarios\\campaigns\\cgc\\header): MFC loads the block into the tree (CCampaignFrame::LoadRPGStats) and prefixes again, so the golden says scenarios\\campaigns\\scenarios\\campaigns\\cgc\\header and a zero MapImageRect; the bridge writes the tree's own paths into the block now and the fixture is re-saved; regenerate the golden on win-home (S16 T10)", &GoldenHasCampaignPrefixTwice },
-	{ "scp", "the golden holds only MFC's <History>: CSquadFrame::SaveRPGStats (SquadFrm.cpp:216) stops at MakeName (SquadFrm.cpp:198) when a member is not in the editor's objects database; the member USSR\\Mosin is in the tracked Data/objects.xml (USSR_Mosin, sprite, unit, path units\\Humans\\USSR\\Mosin), so the installed objects database on win-home must lack it: check that the editor's objects.xml holds USSR_Mosin, or give the fixture a member it holds (Allies_Bren is a unit there), then regenerate the golden (S16 T10)", &GoldenIsHistoryOnly },
-	{ "til", "the golden holds only MFC's <History>: the tileset export needs editor\\terrain\\tilemask.tga in the editor's data folder (<editor folder>\\data\\editor\\terrain\\tilemask.tga, CTileSetFrame, TileSetFrm.cpp:610), which the installed data does not have; export-goldens.ps1 puts the tracked Data/Editor/Terrain/tilemask.tga there now; regenerate the golden on win-home (S16 T10)", &GoldenIsHistoryOnly },
+	{ "spt", "the golden holds only MFC's <History>: MFC found no frame file (\"Can not find files total count 1 ...\\_.sprite-1frame.tga\", SpriteTreeItem.cpp:89, :220: the directory value \"_.\" is a prefix of the frame name), so it composed no sprite; the fixture carries _.sprite-1frame.tga beside sprite-1frame.tga now; regenerate the golden on win-home (S16 T11)", &GoldenIsHistoryOnly },
+	{ "scp", "the golden holds only MFC's <History>: CSquadFrame::SaveRPGStats (SquadFrm.cpp:216) stops at MakeName (SquadFrm.cpp:198) when a member given as a path (USSR\\Mosin) is not in the editor's objects database, which the installed data on win-home did not resolve; the fixture names its member by key, USSR_Mosin, which MakeName returns as it is, so the export needs no database; regenerate the golden on win-home (S16 T11)", &GoldenIsHistoryOnly },
+	{ "til", "the golden holds only MFC's <History> and a crosset without tiles: the tileset export needs editor\\terrain\\tilemask.tga in the editor's data folder (TileSetFrm.cpp:610; export-goldens.ps1 places the tracked Data/Editor/Terrain/tilemask.tga there now), and the tile art art-16x16.tga could not be opened (\"Some of files can not be opened\", TileTreeItem.cpp:232, :364: the golden's crosset.xml has no tiles); the fixture's tile is a 32-bit targa now, the format of the fence art MFC did read, which is a guess at the cause until the golden is regenerated (S16 T11)", &GoldenIsHistoryOnly },
 	{ "eff", "MFC skipped the function particle \"particle-2key\" (EffectFrm.cpp:215: no stream, an error box, continue) because the editor's data folder has no Effects\\particles\\particle-2key.xml (<editor folder>\\data\\), so the golden's <particles/> is empty; export-goldens.ps1 puts a shipped particle there as particle-2key.xml now; regenerate the golden on win-home (S16 T10)", &GoldenEffectHasNoParticles },
 };
 
@@ -1623,6 +1643,17 @@ static void Goldens( const fs::path &fixtures, const fs::path &data, const fs::p
 		const fs::path project = CopyFixture( fixtures, scratch, szExt );
 		InjectExportFileName( project );
 		SExportContext kindContext = context;
+		// The bridge golden agrees with the editor camera anchored at 24 world cells to the last step: that anchor
+		// puts the camera's X component at exactly 1536, on the integer the editor's CCamera::Update cuts it to
+		// (Camera.cpp:94), and its quaternion-built axes land one ulp low, so the maker's camera sits at 1535, one
+		// step (0.7071 on each ground axis) from the port's. The anchor one ulp down is that camera.
+		if ( szExt == "bdg" )
+			kindContext.groundCamera = []( NResourceModel::SGroundCamera &camera )
+			{
+				const float fAnchor = std::nextafter( 24 * 16 * 2.0f * 1.41421356f, 0.0f );
+				camera = NResourceModel::MfcEditorCamera( NResourceModel::SVec3{ fAnchor, fAnchor, 0 } );
+				return true;
+			};
 		if ( szExt == "eff" || szExt == "til" )
 			kindContext.szDataRoot = kindContext.szEditorDataDir = editorData.string();
 		const SExportRun run = RunExporter( szExt, project, scratch / szExt / "data", kindContext );

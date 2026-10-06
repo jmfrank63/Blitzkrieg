@@ -59,6 +59,11 @@ pub const ArtKind = enum {
     /// at some stage (toolbar icons, UI tiles, overlay stamps). The TGA is
     /// a conservative drop-in that any image loader will accept.
     picture,
+    /// The same picture as a 32-bit TGA with an alpha channel (descriptor 8
+    /// alpha bits), the Tileset composer's art: the shipped editor's tile
+    /// export could not open the 24-bit one (the golden's crosset had no
+    /// tiles), while the 32-bit fence and building art it did read.
+    picture32,
     /// A 2 x 2 x 2 cube in Wavefront OBJ for the Mesh / Object / Unit
     /// composers. OBJ is text; CRLF-terminated to match .gitattributes.
     mesh,
@@ -101,7 +106,7 @@ pub const fixtures = [_]Fixture{
     .{ .ext = "bdg", .frame_cpp = "BridgeFrm.cpp", .composer_name = "Bridge Editor", .composer_save_name = "Bridge_Composer_Project", .art = .picture },
     .{ .ext = "pcp", .frame_cpp = "ParticleFrm.cpp", .composer_name = "Particle Editor", .composer_save_name = "Particle_Composer_Project", .art = .particle },
     .{ .ext = "eff", .frame_cpp = "EffectFrm.cpp", .composer_name = "Effect Editor", .composer_save_name = "Effect_Composer_Project", .art = .particle },
-    .{ .ext = "til", .frame_cpp = "TileSetFrm.cpp", .composer_name = "Terrain Editor", .composer_save_name = "TileSet_Composer_Project", .art = .picture },
+    .{ .ext = "til", .frame_cpp = "TileSetFrm.cpp", .composer_name = "Terrain Editor", .composer_save_name = "TileSet_Composer_Project", .art = .picture32 },
     .{ .ext = "3rd", .frame_cpp = "3dRoadFrm.cpp", .composer_name = "Road Editor", .composer_save_name = "Road3D_Composer_Project", .art = .picture },
     .{ .ext = "3rv", .frame_cpp = "3dRiverFrm.cpp", .composer_name = "River Editor", .composer_save_name = "River3D_Composer_Project", .art = .picture },
     .{ .ext = "mip", .frame_cpp = "MissionFrm.cpp", .composer_name = "Mission Editor", .composer_save_name = "Mission_Composer_Project", .art = .picture },
@@ -188,6 +193,29 @@ fn writeSolidTga(buf: *Buf, seed: []const u8) !void {
         row[x * 3 + 0] = b;
         row[x * 3 + 1] = g;
         row[x * 3 + 2] = r;
+    }
+    var y: usize = 0;
+    while (y < 16) : (y += 1) try buf.push(&row);
+}
+
+/// writeSolidTga as a 32-bit Targa, alpha opaque, descriptor with 8 alpha bits.
+fn writeSolidTga32(buf: *Buf, seed: []const u8) !void {
+    var header = [_]u8{0} ** 18;
+    header[2] = 2;
+    std.mem.writeInt(u16, header[12..14], 16, .little);
+    std.mem.writeInt(u16, header[14..16], 16, .little);
+    header[16] = 32;
+    header[17] = 0x08;
+    try buf.push(&header);
+    var hash: [sha256.digest_length]u8 = undefined;
+    sha256.hash(seed, &hash, .{});
+    var row: [16 * 4]u8 = undefined;
+    var x: usize = 0;
+    while (x < 16) : (x += 1) {
+        row[x * 4 + 0] = hash[0];
+        row[x * 4 + 1] = hash[1];
+        row[x * 4 + 2] = hash[2];
+        row[x * 4 + 3] = 0xff;
     }
     var y: usize = 0;
     while (y < 16) : (y += 1) try buf.push(&row);
@@ -444,7 +472,7 @@ const import_crossets_xml =
 
 fn artFileName(kind: ArtKind) []const u8 {
     return switch (kind) {
-        .picture => "art-16x16.tga",
+        .picture, .picture32 => "art-16x16.tga",
         .mesh => "mesh-2x2x2.obj",
         .sprite => "sprite-1frame.tga",
         .particle => "particle-2key.txt",
@@ -457,6 +485,7 @@ fn renderArt(allocator: std.mem.Allocator, kind: ArtKind, seed: []const u8) ![]u
     errdefer buf.deinit();
     switch (kind) {
         .picture, .sprite => try writeSolidTga(&buf, seed),
+        .picture32 => try writeSolidTga32(&buf, seed),
         .mesh => try writeMeshObj(&buf),
         .particle => try writeParticleKeys(&buf),
     }
@@ -706,6 +735,13 @@ pub fn main(init: std.process.Init) !void {
         const art_result = try writeIfChanged(io, out_dir, art_sub, art_bytes);
         stats.note(art_result.changed, art_result.bytes);
 
+        if (std.mem.eql(u8, fx.ext, "spt")) {
+            // The frame as the shipped editor looks for it: the Sprites directory value "_." is a prefix of the
+            // frame name, so "sprite-1frame" is "_.sprite-1frame.tga" beside the project (SpriteTreeItem.cpp:89, :220).
+            const frame_result = try writeIfChanged(io, out_dir, "spt/_.sprite-1frame.tga", art_bytes);
+            stats.note(frame_result.changed, frame_result.bytes);
+        }
+
         if (std.mem.eql(u8, fx.ext, "msh")) {
             // The localisation files the project names, one line each.
             for ([_][]const u8{ "name.txt", "desc.txt", "stats.txt" }) |text_name| {
@@ -928,6 +964,16 @@ test "solid-colour TGA has a valid 18-byte header and 16x16 24-bit pixel block" 
     try std.testing.expectEqual(@as(u16, 16), std.mem.readInt(u16, bytes[12..14], .little));
     try std.testing.expectEqual(@as(u16, 16), std.mem.readInt(u16, bytes[14..16], .little));
     try std.testing.expectEqual(@as(u8, 24), bytes[16]);
+}
+
+test "32-bit solid-colour TGA has an opaque BGRA pixel block and 8 alpha bits" {
+    const bytes = try renderArt(std.testing.allocator, .picture32, "til");
+    defer std.testing.allocator.free(bytes);
+    try std.testing.expectEqual(@as(usize, 18 + 16 * 16 * 4), bytes.len);
+    try std.testing.expectEqual(@as(u8, 2), bytes[2]);
+    try std.testing.expectEqual(@as(u8, 32), bytes[16]);
+    try std.testing.expectEqual(@as(u8, 0x08), bytes[17]);
+    try std.testing.expectEqual(@as(u8, 0xff), bytes[18 + 3]);
 }
 
 test "mesh OBJ has 8 vertices and 12 triangle faces, CRLF-terminated" {

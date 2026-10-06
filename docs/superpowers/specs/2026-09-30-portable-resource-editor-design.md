@@ -1214,3 +1214,48 @@ and mdc need no new goldens.
 
 **Not claimed.** No macOS or Windows result. The full resource sweep is left to the maintainer. T07 (the MFC deletion) still waits
 for the regenerated goldens of the nine kinds above.
+
+## Amendment (S16 T11, 2026-10-06): golden round 3, the five fixture problems
+
+Commit `ae04873da` holds MFC goldens for 18 kinds made from the T10 fixtures. `test-resource-model-comparator` compares them for real:
+pass=8 accepted=7 fail=0 pending=5 (wpn mcp unt mdc eff mip chc cgc pass or are accepted as before; bdg moved from pending to accepted).
+The pending five (spt, scp, til, 3rd, 3rv) wait for goldens the maintainer regenerates from this commit; each carries its reason.
+
+**bdg, now compared.** The bridge golden agrees with the editor camera anchored at 24 world cells, not 16 as the fence and object
+goldens do. At 24 cells the camera's X component is exactly 1536 (`24 * 16 * 4`), the integer `CCamera::Update` cuts it to
+(`Camera.cpp:94`), and MFC's quaternion-built axes land one ulp low, so its camera sits at 1535: one step, 0.7071 on each ground axis,
+from the port's. The comparison gives the bridge the anchor one ulp below 24 cells; the remaining differences are the engine's
+`GetPos2`/`GetPos3` round trip (at most 5e-4 on segment origins near 227, 1e-4 around 0 for the fire and smoke points), accepted under
+the existing 1e-3 noise bound with their `BridgeFrm.cpp:1090`, `:1115`, `:1155` reasons. 105 differences, all accepted, none pending.
+`MfcEditorCamera` now takes the component of its X axis in double, as the anchor's cut is on an integer boundary.
+
+**eff.** MFC's batch export opens every kind's tree as `<base>`, an effect included, while its File menu export and the shipped effect
+data use `<effect>`; the comparator reads an effect golden under the root it has when that `<base>` holds an `<effect>`. A weapon read
+as an effect is still refused (negative test).
+
+**The five fixture problems MFC showed on win-home:**
+
+1. `spt`: `CSpriteFrame` joins the directory value `_.` (a prefix, not a folder) to the frame name (`SpriteTreeItem.cpp:89`, `:220`), so it
+   wants `_.sprite-1frame.tga` beside the project. The fixture carries that file (and keeps `sprite-1frame.tga`, which the scenarios and
+   the squad fixture use); the generator writes both. The port's export now composes the frame, and the bridge test expects files.
+2. `art-16x16.tga` (til): MFC's "Some of files can not be opened" comes from the tile export (`TileTreeItem.cpp:232`, `:364`); the til
+   golden's `crosset.xml` has no tiles, so the 24-bit art was not read. A 24-bit map image of chc, cgc and mdc is read, and 32-bit fence
+   and building art is read, and the loader's code (`ImageTGA.cpp`) accepts both, so the cause is **not proven**: the tileset's art is a
+   32-bit targa with 8 alpha bits now (generator kind `picture32`), the format MFC is known to read. The golden of til shows whether it
+   was the cause. fnc's top-level art is unchanged (its golden passes).
+3. `3rd` and `3rv`: `export-goldens.ps1` places the tracked `Data/Maps/road3d.xml`, `river3d.xml` and every tracked file of
+   `Data/Terrain/sets/1` (tileset, crosset, roadset, noise, level files, minimap, the Roads3D and Rivers textures) in the editor's data
+   folder, and removes the files again; the script's comment lists them.
+4. `mip`: the cause of the crash on open-and-save could not be found from the open path (`MissionFrm.cpp` `LoadRPGStats`, `FillRPGStats`;
+   the tree, the values and `GetImageSize` of `map.tga` match the working chc and cgc fixtures). The batch runner enumerates projects
+   recursively (`CParentFrame::RunBatchExporter`), so it also opens `mip/final-map/project.mip`, a hand-seeded mission naming a final map
+   whose minimap `LoadRPGStats` creates. That is the one difference left; the script's scratch copy leaves `final-map` out. **A
+   hypothesis, to be confirmed by the next run.**
+5. `scp`: the member is named by key, `USSR_Mosin`, which `MakeName` (`SquadFrm.cpp:198`) returns as it is, so the export needs no
+   objects database; the path form `USSR\Mosin` is what the editor inserts by default and what the win-home database did not resolve.
+   The GOG paks are not on this machine, so no unit could be checked against them. The comparator keeps the path form covered on a copy
+   of the project (resolution, no database, unknown member).
+
+**For the maintainer: regenerate on win-home** (`export-goldens.ps1 -Extensions spt,scp,til,3rd,3rv`, and mip if it crashed again) from
+this commit. If 3rd or 3rv still crash, the crash offset says what is still missing; if til's crosset still has no tiles, the art was
+not the cause. **Not claimed:** no macOS or Windows result; the full resource sweep is left to the maintainer. T07 still waits.

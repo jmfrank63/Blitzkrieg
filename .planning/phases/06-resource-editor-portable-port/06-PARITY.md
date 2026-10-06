@@ -386,3 +386,12 @@ pending with the reason that keeps it open. The per-kind table and the maintaine
 | golden scp | pending: MFC wrote only History at `MakeName`; `USSR_Mosin` is in the tracked `Data/objects.xml` (unit, sprite), so the editor's objects database on win-home lacks it: see the spec's amendment "S16 T10" |
 | msh DDS format | fixed in T08: formats chosen by the picture as `SaveCompressedTexture` does for the mesh frame |
 | port keeps `<RPG>` unchanged on save | fixed in T09: the block is rewritten from the tree on every save |
+| T11 golden round 3 | `test-resource-model-comparator`: pass=8 accepted=7 fail=0 pending=5 (spt, scp, til, 3rd, 3rv); see the spec's amendment "S16 T11" |
+| golden bdg | accepted (T11): 26 files; the camera anchor of the golden's maker is 24 world cells with its X component on the integer 1536, one step low; 105 float-noise differences accepted (bound 1e-3) |
+| golden eff | passes (T11): MFC's batch export roots an effect at `<base>`; read under it when it holds an `<effect>` |
+| golden mip, chc, cgc | compared (T11): the T10 regeneration holds; pass |
+| golden spt | pending (T11): MFC found no frame (`_.sprite-1frame.tga`); the fixture carries it now, golden to regenerate |
+| golden scp | pending (T11): the member is named by key (`USSR_Mosin`), no objects database needed; golden to regenerate |
+| golden til | pending (T11): tile art is a 32-bit targa now (cause unproven); golden to regenerate |
+| golden 3rd, 3rv | pending (T11): `export-goldens.ps1` places `maps\road3d.xml`, `river3d.xml` and the terrain set in the editor's data folder; golden to regenerate |
+| mip open-and-save crash | hypothesis (T11): the nested `mip/final-map` project, left out of the script's scratch copy; to confirm on win-home |

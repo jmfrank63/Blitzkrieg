@@ -1653,7 +1653,7 @@ static void ExportedStatsRead( const std::string &szExt, const std::filesystem::
 		Check( ReadChunkAsMfc( szFile, "base", "RPG", stats ) && stats.szIcon == "icon.tga" && stats.memberNames.size() == 1 &&
 		       stats.memberNames[0] == "USSR_Mosin" && stats.formations.size() == 1 && stats.formations[0].order.size() == 1 &&
 		       stats.formations[0].order[0].szSoldier == "USSR_Mosin",
-		       "export: scp lands in squads/<folder>/1.xml and USSR\\Mosin resolves to USSR_Mosin through the engine's IObjectsDB" );
+		       "export: scp lands in squads/<folder>/1.xml with its member USSR_Mosin, named by key as MFC's MakeName takes it as it is" );
 	}
 }
 
@@ -1999,10 +1999,10 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			const BkEditorStatus status = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
 			if ( szExt == "spt" )
 			{
-				// The fixture's directory is MFC's default "_.", which MFC joins to the
-				// frame name as "<project folder>\_.sprite-1frame.tga": no such file, so
-				// nothing is composed (S07Sprite proves the export with real frames).
-				Check( status == BK_EDITOR_OK && report.written == 0, "export: .spt exports through its S07 exporter; the fixture's default directory finds no frame, so nothing is composed" );
+				// The fixture's directory is MFC's default "_.", which MFC joins to the frame
+				// name as "<project folder>\_.sprite-1frame.tga": the fixture carries that file
+				// (S16 T11, so the shipped editor finds the frame too), and the export composes it.
+				Check( status == BK_EDITOR_OK && report.written > 0, "export: .spt exports through its S07 exporter; the fixture's default directory finds the frame _.sprite-1frame.tga and composes it" );
 			}
 			else if ( szExt == "unt" )
 			{
@@ -7734,13 +7734,15 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 		const int nExpectedHeight = TileSetAtlasHeight( 0 );
 		Check( decoded.szFourCC == "DXT1" && mip.nWidth == 256 && mip.nHeight == nExpectedHeight && pGate != nullptr, "til: the tileset atlas is DXT1, 256 wide and as high as the index asks" );
 		int nWorst = 0, nCompared = 0, nOutside = 0;
-		if ( pGate != nullptr && szMask.size() >= 18 + 64 * 32 * 4 && szArt.size() >= 18 + 16 * 16 * 3 )
+		// The art is a 32-bit targa since S16 T11 (the 24-bit one could not be opened by the shipped editor's tile export).
+		const int nArtBytes = szArt.size() > 16 ? static_cast<unsigned char>( szArt[16] ) / 8 : 3;
+		if ( pGate != nullptr && szMask.size() >= 18 + 64 * 32 * 4 && ( nArtBytes == 3 || nArtBytes == 4 ) && szArt.size() >= size_t( 18 + 16 * 16 * nArtBytes ) )
 		{
 			for ( int y = 0; y < 16; ++y )
 				for ( int x = 0; x < 16; ++x )
 				{
-					// Both files are bottom-up; the art is 24 bit BGR, the mask 32 bit BGRA.
-					const unsigned char *pArt = reinterpret_cast<const unsigned char *>( szArt.data() ) + 18 + ( ( 15 - y ) * 16 + x ) * 3;
+					// Both files are bottom-up; the art is BGR or BGRA, the mask 32 bit BGRA.
+					const unsigned char *pArt = reinterpret_cast<const unsigned char *>( szArt.data() ) + 18 + ( ( 15 - y ) * 16 + x ) * nArtBytes;
 					const unsigned char *pMask = reinterpret_cast<const unsigned char *>( szMask.data() ) + 18 + ( ( 31 - y ) * 64 + x ) * 4;
 					const unsigned nGot = mip.pixels[size_t( y ) * mip.nWidth + x];
 					const int nExpected[3] = { pArt[2] * pMask[2] / 255, pArt[1] * pMask[1] / 255, pArt[0] * pMask[0] / 255 };
