@@ -307,14 +307,14 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-21.1 | Tree/palette: Statics, Buttons, Sliders, Scrollbars, Status bars, Lists, Dialogs (templates from `Data/Editor/UI`) | todo |
-| B-21.2 | Place, move, resize controls on the screen preview | todo |
-| B-21.3 | Copy / Cut / Paste | todo |
-| B-21.4 | Undo (`GUIundo.h` `CSaveAllUndo`) | todo |
-| B-21.5 | Template tree (`TemplateTree`, `IDR_TEMPLATE_MENU`) | todo |
-| B-21.6 | Align menu (`IDR_ALIGN_MENU`) | todo |
-| B-21.7 | Property tree for controls (`MTree ctrl/`, `PropertyDockBar`) | todo |
-| B-21.8 | Opens and saves the game's current UI screen XML (`Data/UI/*.xml`); the game loads an edited screen | todo |
+| B-21.1 | Tree/palette: Statics, Buttons, Sliders, Scrollbars, Status bars, Lists, Dialogs (templates from `Data/Editor/UI`) | done (S15 T02, T05, T06): CUiScreen lists the Data/Editor/UI templates; the palette dock shows them by folder; auto-gui drags Buttons/Button00 onto MainMenu |
+| B-21.2 | Place, move, resize controls on the screen preview | done (S15 T04-T06): anchored PositionFlag move and resize; auto-gui places at 200,400, moves +40,+30, resizes right-bottom +30,+20 and prints each measured rect |
+| B-21.3 | Copy / Cut / Paste | done (S15 T02, T05): CopyText/Paste and Cut in the clipboard dock; gui_logic and gui_tools tests against the fake bridge |
+| B-21.4 | Undo (`GUIundo.h` `CSaveAllUndo`) | done (S15 T04, T06): each edit is one ResourceCommand.gui; auto-gui undoes four steps back to the placed state and redoes them to the final state, both compared by rects |
+| B-21.5 | Template tree (`TemplateTree`, `IDR_TEMPLATE_MENU`) | done (S15 T05): template palette tree by folder; "Create new template" writes only to the settings templates folder |
+| B-21.6 | Align menu (`IDR_ALIGN_MENU`) | done (S15 T04-T06): align menu with equal size in gui_geometry; auto-gui aligns left. MFC has no handler for Set equal size or the align items (no behaviour in MFC); the port defines them as aligning to the first selected window and copying its size. "Create radio button from selected" has no behaviour in MFC and is not ported |
+| B-21.7 | Property tree for controls (`MTree ctrl/`, `PropertyDockBar`) | done (S15 T05): inspector dock edits PositionFlag and attributes through BkResGuiSetAttribute, one undo step each |
+| B-21.8 | Opens and saves the game's current UI screen XML (`Data/UI/*.xml`); the game loads an edited screen | done (S15 T02, T03, T06): unedited save is byte-identical (checked on every shipped screen); the gui exporter writes <mod>/data/ui/<Screen>.xml as <base>; auto-gui exports, run_game loads it with a clean log and the frames are measured. MFC Run and Test-button live mode is replaced by F7 Run Blitzkrieg with the exported mod. Linux local; macOS and Windows by CI only |
 
 ## C. MFC internals not ported as such
 

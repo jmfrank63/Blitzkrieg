@@ -130,6 +130,7 @@ TIERS=(
   "resource-editor-auto-chc"
   "resource-editor-auto-cgc"
   "resource-editor-auto-mdc"
+  "resource-editor-auto-gui"
 )
 
 for tier in "${TIERS[@]}"; do

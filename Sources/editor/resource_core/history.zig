@@ -8,6 +8,7 @@ const kit_history = @import("editor_kit").history;
 const bridge_mod = @import("bridge.zig");
 const GeometryChannel = bridge_mod.GeometryChannel;
 const GeometryValue = bridge_mod.GeometryValue;
+const GuiRect = bridge_mod.GuiRect;
 
 /// What a bridge-logged edit changed, so a replay knows what to refresh. The
 /// `.geometry` variant below has one of these so T04 can wire a specific
@@ -26,6 +27,92 @@ pub const OwnedBytes = struct {
     pub fn deinit(self: *OwnedBytes, allocator: std.mem.Allocator) void {
         if (self.bytes.len != 0) allocator.free(self.bytes);
         self.bytes = &.{};
+    }
+};
+
+/// The GUI sub-editor's edits of an open screen (kind gui). Window ids in a
+/// command are LOGICAL: the id a window had when the command first ran. The
+/// bridge never reuses an id, so an undo of an insert or a delete and its
+/// redo bring a window back under a new one; `gui_tools.IdMap` maps each
+/// logical id to the window's current id, and every replay translates
+/// through it, so the commands recorded after an insert still find its
+/// window.
+pub const GuiCommand = union(enum) {
+    /// A gesture's rects: every touched window's flag and rect before and
+    /// after. Undo writes `before`, redo `after`, each in one bridge call.
+    set_rects: struct {
+        before: []GuiRect,
+        after: []GuiRect,
+    },
+    /// Windows made under `parent`, from a template file or from clipboard
+    /// text (a paste). Empty `ids` means not yet applied. Undo copies the
+    /// created windows' text into `undo_text` and deletes them; redo pastes
+    /// that text back, as the bridge has no insert at a given id.
+    create: struct {
+        parent: i32,
+        from_template: bool,
+        /// The template path, or the clipboard text.
+        source: OwnedBytes,
+        /// The template's position, or the paste's offset.
+        x: i32,
+        y: i32,
+        /// The outermost windows made, then every window made in document
+        /// order (the outermost ones included).
+        tops: []i32 = &.{},
+        ids: []i32 = &.{},
+        undo_text: OwnedBytes = .{},
+    },
+    /// Windows deleted with their subtrees, one entry per outermost window.
+    /// Undo pastes each entry's text back under its parent.
+    delete: struct { items: []GuiDeleted },
+    /// One XML attribute of a window. `had_before` is false when the window
+    /// had no such attribute; the bridge cannot remove one, so undo then
+    /// writes an empty value.
+    set_attr: struct {
+        id: i32,
+        name: OwnedBytes,
+        had_before: bool,
+        before: OwnedBytes,
+        after: OwnedBytes,
+    },
+
+    pub fn deinit(self: *GuiCommand, allocator: std.mem.Allocator) void {
+        switch (self.*) {
+            .set_rects => |*c| {
+                allocator.free(c.before);
+                allocator.free(c.after);
+            },
+            .create => |*c| {
+                c.source.deinit(allocator);
+                if (c.tops.len != 0) allocator.free(c.tops);
+                if (c.ids.len != 0) allocator.free(c.ids);
+                c.undo_text.deinit(allocator);
+            },
+            .delete => |*c| {
+                for (c.items) |*item| item.deinit(allocator);
+                allocator.free(c.items);
+            },
+            .set_attr => |*c| {
+                c.name.deinit(allocator);
+                c.before.deinit(allocator);
+                c.after.deinit(allocator);
+            },
+        }
+    }
+};
+
+/// One outermost window of a GUI delete: its logical id and parent, the
+/// clipboard text of its subtree, and the logical ids of the subtree's
+/// windows in document order.
+pub const GuiDeleted = struct {
+    id: i32,
+    parent: i32,
+    text: OwnedBytes,
+    subtree: []i32,
+
+    pub fn deinit(self: *GuiDeleted, allocator: std.mem.Allocator) void {
+        self.text.deinit(allocator);
+        allocator.free(self.subtree);
     }
 };
 
@@ -104,6 +191,8 @@ pub const ResourceCommand = union(enum) {
     /// multi-node delete). Owns the inner commands - deinit frees them in
     /// reverse order.
     composite: struct { steps: std.ArrayListUnmanaged(ResourceCommand) = .empty },
+    /// An edit of a game UI screen (the GUI sub-editor).
+    gui: GuiCommand,
 
     pub fn deinit(self: *ResourceCommand, allocator: std.mem.Allocator) void {
         switch (self.*) {
@@ -134,6 +223,7 @@ pub const ResourceCommand = union(enum) {
                 }
                 c.steps.deinit(allocator);
             },
+            .gui => |*c| c.deinit(allocator),
         }
     }
 };

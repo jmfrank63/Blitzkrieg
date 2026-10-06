@@ -489,6 +489,8 @@ jobs:
         run: zig build resource-editor-auto-cgc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
       - name: Resource editor auto mdc
         run: zig build resource-editor-auto-mdc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto gui
+        run: zig build resource-editor-auto-gui -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # T-03-14-03: the packaged MapEditor.exe opens no console on a normal
       # double-click (configureMapEditorExecutable's .windows subsystem) -
@@ -922,6 +924,8 @@ jobs:
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-cgc -Dtarget=aarch64-macos -Dtest-mode=run
       - name: Resource editor auto mdc
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-mdc -Dtarget=aarch64-macos -Dtest-mode=run
+      - name: Resource editor auto gui
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-gui -Dtarget=aarch64-macos -Dtest-mode=run
 
       # The game's SDL event translation, through the real SDLApplication and
       # a real window: wheel deltas (a trackpad swipe's fractions, flipped,

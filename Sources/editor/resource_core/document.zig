@@ -16,6 +16,7 @@ const EditError = bridge_mod.EditError;
 const ResourceCommand = history_mod.ResourceCommand;
 const OwnedBytes = history_mod.OwnedBytes;
 const History = history_mod.History;
+const gui_tools = @import("gui_tools.zig");
 
 /// A lock owner, as `BkResLockOwner` writes it: the user names of the
 /// folder's `locked_*` files, comma-separated, that the status bar shows
@@ -82,8 +83,13 @@ pub const Document = struct {
     kind: Kind = .weapon,
     tree: Tree = .{},
     lock_owner: ?LockOwner = null,
+    /// Which window each logical id of a GUI screen's commands is now; empty
+    /// until an undo of an insert or a delete brings windows back under new
+    /// ids. Cleared by the caller when a screen is opened or closed.
+    gui_ids: gui_tools.IdMap = .{},
 
     pub fn deinit(self: *Document, allocator: std.mem.Allocator) void {
+        self.gui_ids.deinit(allocator);
         if (self.path) |*p| p.deinit(allocator);
         self.path = null;
         self.tree.deinit(allocator);
@@ -197,6 +203,8 @@ pub const Document = struct {
             .rename_node => |c| try bridge_mod.check(bridge.setNodeName(c.node, c.after.bytes)),
             .geometry => |c| try bridge_mod.check(bridge.geometryWrite(c.node, c.channel, &c.after)),
             .composite => |*c| for (c.steps.items) |*step| try self.apply(allocator, bridge, step),
+            // A screen has no tree to mirror, so there is nothing to reload.
+            .gui => |*c| return gui_tools.apply(allocator, bridge, &self.gui_ids, c),
         }
         try self.reload(allocator, bridge);
     }
@@ -235,6 +243,7 @@ pub const Document = struct {
                     try self.undoOne(allocator, bridge, &c.steps.items[i]);
                 }
             },
+            .gui => |*c| return gui_tools.undo(allocator, bridge, &self.gui_ids, c),
         }
         try self.reload(allocator, bridge);
     }
@@ -268,6 +277,7 @@ pub const Document = struct {
             .rename_node => |c| try bridge_mod.check(bridge.setNodeName(c.node, c.after.bytes)),
             .geometry => |c| try bridge_mod.check(bridge.geometryWrite(c.node, c.channel, &c.after)),
             .composite => |*c| for (c.steps.items) |*step| try self.redoOne(allocator, bridge, step),
+            .gui => |*c| return gui_tools.redo(allocator, bridge, &self.gui_ids, c),
         }
         try self.reload(allocator, bridge);
     }

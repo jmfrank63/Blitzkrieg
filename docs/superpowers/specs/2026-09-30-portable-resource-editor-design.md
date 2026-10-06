@@ -930,3 +930,13 @@ one, the newer instruction wins, and record the change in the spec").
   `cross`, `shot_marker`, `shot_picture` drive and measure it with real pointer events; one `resource-editor-auto-<kind>` step per
   kind. Goldens and the GOG `INTEX2 ardennen40/current.mip` row stay pending win-home.
 
+- D031 (S15, GUI screen editor): the open screen is the document. `CUiScreen` keeps the screen's text and edits only the touched
+  attributes, so an unedited save is byte-identical; it opens a `<base>` root or MFC's `GUI_Composer_Project` root and refuses an
+  unknown root, an unbalanced element or a missing `WindowPos`, naming the file, line and reason. The exporter writes the screen as a
+  `<base>` file to `<mod>/data/ui/<Screen>.xml` and refuses shipped Data. The canvas outlines the windows at the engine's
+  `CSimpleWindow::Reposition` geometry instead of rendering through the engine; the Game frame is the measured truth. Proof is local
+  on Linux (this machine; the roadmap's "macOS local" becomes "Linux local"); macOS and Windows are proved by CI only.
+  `resource-editor-auto-gui` runs a baseline Game frame, place, move, resize, align, undo, redo, save, reopen, export and a second
+  Game frame, and requires the frames to differ at the moved label's old and new rects and the placed button, and nowhere else.
+- D032 (S15 T01, Mission image frame): as `CMissionFrame` does, the frame always shows the project's `map_h.dds` when the Final map
+  exists, and creates the file first when missing (`BkResMissionMinimap`; a refused minimap shows its message).

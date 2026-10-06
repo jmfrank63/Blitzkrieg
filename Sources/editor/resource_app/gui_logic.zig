@@ -27,8 +27,8 @@ const History = core.history.History;
 pub const Error = bridge_mod.EditError;
 
 /// The canvas the UI screens are laid out on (the game's 1024 x 768).
-pub const canvas_width: f32 = 1024;
-pub const canvas_height: f32 = 768;
+pub const canvas_width = geometry.canvas_width;
+pub const canvas_height = geometry.canvas_height;
 
 /// GUIFrame2's modes: nothing in progress, a rubber band, moving the
 /// selection, resizing the primary, drawing a new control from the palette.
@@ -235,7 +235,8 @@ pub const Palette = struct {
         var none: [0]u8 = .{};
         const sizing = bridge.guiTemplates(user_folder, &none, &size);
         if (sizing != .ok and (sizing != .refused or size == 0)) try bridge_mod.check(sizing);
-        const buffer = try allocator.alloc(u8, size);
+        // The bridge writes a closing NUL after the text, so the buffer holds one byte more than the size.
+        const buffer = try allocator.alloc(u8, size + 1);
         errdefer allocator.free(buffer);
         try bridge_mod.check(bridge.guiTemplates(user_folder, buffer, &size));
         const text = buffer[0..@min(size, buffer.len)];
@@ -689,6 +690,80 @@ pub fn readAttr(bridge: ResBridge, id: i32, name: []const u8, buffer: []u8) []co
     return buffer[0..@min(size, buffer.len)];
 }
 
+// --- The Game's frame ---------------------------------------------------------------
+
+/// A pixel box of a captured Game frame, `x2` and `y2` one past the last pixel.
+pub const PixelRect = struct { x1: u32, y1: u32, x2: u32, y2: u32 };
+
+/// Where a canvas rect lands in a Game shot of `width` x `height`: the Game
+/// draws its 1024 x 768 screen at the largest uniform scale that fits the
+/// window, centred (measured on a 1920 x 1000 shot: 1333 pixels wide, 293
+/// from the left). The box is widened by `margin` pixels and clamped.
+pub fn gameRect(rc: Rect, width: u32, height: u32, margin: u32) PixelRect {
+    const w: f32 = @floatFromInt(width);
+    const h: f32 = @floatFromInt(height);
+    const scale = @min(w / canvas_width, h / canvas_height);
+    const left = (w - canvas_width * scale) / 2;
+    const top = (h - canvas_height * scale) / 2;
+    const m: f32 = @floatFromInt(margin);
+    return .{
+        .x1 = clampPixel(@floor(left + rc.x1 * scale - m), width),
+        .y1 = clampPixel(@floor(top + rc.y1 * scale - m), height),
+        .x2 = clampPixel(@ceil(left + rc.x2 * scale + m), width),
+        .y2 = clampPixel(@ceil(top + rc.y2 * scale + m), height),
+    };
+}
+
+fn clampPixel(v: f32, limit: u32) u32 {
+    if (v <= 0) return 0;
+    const top: f32 = @floatFromInt(limit);
+    return @intFromFloat(@min(v, top));
+}
+
+/// How many pixels of two RGBA frames of one size differ by more than
+/// `tolerance` in some channel: those inside `inside` (the whole frame when
+/// null) and outside every box of `holes`.
+pub fn differing(a: []const u8, b: []const u8, width: u32, height: u32, tolerance: u8, inside: ?PixelRect, holes: []const PixelRect) usize {
+    var count: usize = 0;
+    var y: u32 = 0;
+    while (y < height) : (y += 1) {
+        var x: u32 = 0;
+        while (x < width) : (x += 1) {
+            if (inside) |box| {
+                if (x < box.x1 or x >= box.x2 or y < box.y1 or y >= box.y2) continue;
+            }
+            var held = false;
+            for (holes) |hole| {
+                if (x >= hole.x1 and x < hole.x2 and y >= hole.y1 and y < hole.y2) held = true;
+            }
+            if (held) continue;
+            const at = (@as(usize, y) * width + x) * 4;
+            var changed = false;
+            for (0..3) |channel| {
+                const d = @as(i32, a[at + channel]) - @as(i32, b[at + channel]);
+                if (@abs(d) > tolerance) changed = true;
+            }
+            if (changed) count += 1;
+        }
+    }
+    return count;
+}
+
+/// The size in an `autoshot_<frame>_<w>x<h>.rgba` file name, the Game's BK_AUTO_UI shot.
+pub fn autoshotSize(name: []const u8) ?struct { width: u32, height: u32 } {
+    const prefix = "autoshot_";
+    const suffix = ".rgba";
+    if (!std.mem.startsWith(u8, name, prefix) or !std.mem.endsWith(u8, name, suffix)) return null;
+    const middle = name[prefix.len .. name.len - suffix.len];
+    const underscore = std.mem.indexOfScalar(u8, middle, '_') orelse return null;
+    const size = middle[underscore + 1 ..];
+    const x = std.mem.indexOfScalar(u8, size, 'x') orelse return null;
+    const width = std.fmt.parseInt(u32, size[0..x], 10) catch return null;
+    const height = std.fmt.parseInt(u32, size[x + 1 ..], 10) catch return null;
+    if (width == 0 or height == 0) return null;
+    return .{ .width = width, .height = height };
+}
+
 // --- Tests ------------------------------------------------------------------
 
 const testing = std.testing;
@@ -1051,4 +1126,40 @@ test "the status line names the mode, the selection and the last command" {
     try rig.overlay.selection.ids.append(allocator, 1);
     try rig.overlay.nudge(rig.b(), &rig.doc, &rig.hist, 2, 0);
     try testing.expectEqualStrings("mode free | 1 selected (first is primary) | nudged 1", rig.overlay.status(&buffer));
+}
+
+test "a canvas rect lands in the Game's centred, uniformly scaled screen" {
+    // 1920 x 1000: scale 1000 / 768, the 4:3 area starts at x = (1920 - 1333.33) / 2.
+    const whole = gameRect(.{ .x1 = 0, .y1 = 0, .x2 = 1024, .y2 = 768 }, 1920, 1000, 0);
+    try testing.expectEqual(@as(u32, 293), whole.x1);
+    try testing.expectEqual(@as(u32, 0), whole.y1);
+    try testing.expectEqual(@as(u32, 1627), whole.x2);
+    try testing.expectEqual(@as(u32, 1000), whole.y2);
+    const part = gameRect(.{ .x1 = 100, .y1 = 100, .x2 = 200, .y2 = 150 }, 1024, 768, 2);
+    try testing.expectEqual(PixelRect{ .x1 = 98, .y1 = 98, .x2 = 202, .y2 = 152 }, part);
+    // A margin never leaves the frame.
+    const edge = gameRect(.{ .x1 = 0, .y1 = 0, .x2 = 1024, .y2 = 768 }, 1024, 768, 8);
+    try testing.expectEqual(PixelRect{ .x1 = 0, .y1 = 0, .x2 = 1024, .y2 = 768 }, edge);
+}
+
+test "differing pixels are counted inside a box and outside the holes" {
+    var a = [_]u8{0} ** (4 * 4 * 4);
+    var b = a;
+    // Pixels (1,1) and (3,3) change, the second by less than the tolerance.
+    b[(1 * 4 + 1) * 4] = 100;
+    b[(3 * 4 + 3) * 4 + 1] = 3;
+    try testing.expectEqual(@as(usize, 1), differing(&a, &b, 4, 4, 8, null, &.{}));
+    try testing.expectEqual(@as(usize, 2), differing(&a, &b, 4, 4, 2, null, &.{}));
+    try testing.expectEqual(@as(usize, 1), differing(&a, &b, 4, 4, 2, .{ .x1 = 0, .y1 = 0, .x2 = 2, .y2 = 2 }, &.{}));
+    try testing.expectEqual(@as(usize, 1), differing(&a, &b, 4, 4, 2, null, &.{.{ .x1 = 0, .y1 = 0, .x2 = 2, .y2 = 2 }}));
+    try testing.expectEqual(@as(usize, 0), differing(&a, &b, 4, 4, 2, .{ .x1 = 2, .y1 = 0, .x2 = 4, .y2 = 2 }, &.{}));
+}
+
+test "the Game's shot name gives the frame size" {
+    const size = autoshotSize("autoshot_400_1920x1000.rgba").?;
+    try testing.expectEqual(@as(u32, 1920), size.width);
+    try testing.expectEqual(@as(u32, 1000), size.height);
+    try testing.expect(autoshotSize("autoshot_400_1920.rgba") == null);
+    try testing.expect(autoshotSize("shot_400_2x2.rgba") == null);
+    try testing.expect(autoshotSize("autoshot_400_0x5.rgba") == null);
 }

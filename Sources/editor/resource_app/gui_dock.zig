@@ -29,6 +29,9 @@ const ink_selected: u32 = 0xffffff00;
 const ink_preview: u32 = 0xffffffff;
 const ink_text: u32 = 0xffd0d0d0;
 
+/// The canvas, palette and inspector windows as the auto tier places them.
+pub const Layout = struct { canvas: Rect, palette: Rect, inspector: Rect };
+
 pub const GuiDock = struct {
     gpa: std.mem.Allocator,
     io: std.Io,
@@ -48,6 +51,12 @@ pub const GuiDock = struct {
     shown: ?Rect = null,
     /// The same for the screen's 1024 x 768 area and its scale.
     view: gl.View = .{},
+    /// Where the auto tier puts the three windows, so its pointer aims at known places and no other
+    /// window covers them; null leaves them to the user's layout.
+    layout: ?Layout = null,
+    /// Where each palette entry was drawn in the last frame (parallel to `palette.entries`; a zero
+    /// width marks one that was not drawn, a folded folder), for the auto tier to start a drag on.
+    entry_rects: std.ArrayListUnmanaged(Rect) = .empty,
 
     pub fn init(gpa: std.mem.Allocator, io: std.Io) GuiDock {
         return .{ .gpa = gpa, .io = io };
@@ -57,6 +66,19 @@ pub const GuiDock = struct {
         if (self.overlay) |*overlay| overlay.deinit();
         self.overlay = null;
         self.palette.deinit(self.gpa);
+        self.entry_rects.deinit(self.gpa);
+    }
+
+    /// The screen rect a palette entry (`folder`, then the file's name without its extension) was drawn
+    /// at in the last frame, or null when it was not drawn.
+    pub fn entryRect(self: *const GuiDock, folder: []const u8, stem: []const u8) ?Rect {
+        for (self.palette.entries, 0..) |entry, index| {
+            if (!std.mem.eql(u8, entry.folder, folder)) continue;
+            if (!std.mem.eql(u8, std.fs.path.stem(entry.file), stem)) continue;
+            if (index >= self.entry_rects.items.len or self.entry_rects.items[index].w <= 0) return null;
+            return self.entry_rects.items[index];
+        }
+        return null;
     }
 
     /// The project is not a GUI screen any more: nothing of it stays.
@@ -128,8 +150,12 @@ pub const GuiDock = struct {
 
     fn drawCanvas(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay, windows: []const GuiWindow) void {
         const display = ig.igGetIO().*.DisplaySize;
-        ig.igSetNextWindowPos(.{ .x = 320, .y = 28 }, ig.ImGuiCond_FirstUseEver);
-        ig.igSetNextWindowSize(.{ .x = @max(400, display.x - 640), .y = @max(300, display.y - 80) }, ig.ImGuiCond_FirstUseEver);
+        if (self.layout) |layout| {
+            place(layout.canvas);
+        } else {
+            ig.igSetNextWindowPos(.{ .x = 320, .y = 28 }, ig.ImGuiCond_FirstUseEver);
+            ig.igSetNextWindowSize(.{ .x = @max(400, display.x - 640), .y = @max(300, display.y - 80) }, ig.ImGuiCond_FirstUseEver);
+        }
         defer ig.igEnd();
         self.shown = null;
         if (!ig.igBegin("GUI canvas###gui_canvas", null, 0)) return;
@@ -159,6 +185,11 @@ pub const GuiDock = struct {
         var status_buffer: [320]u8 = undefined;
         const status = overlay.status(&status_buffer);
         ig.igTextDisabled("%.*s", @as(c_int, @intCast(status.len)), status.ptr);
+    }
+
+    fn place(rect: Rect) void {
+        ig.igSetNextWindowPos(.{ .x = rect.x, .y = rect.y }, ig.ImGuiCond_Always);
+        ig.igSetNextWindowSize(.{ .x = rect.w, .y = rect.h }, ig.ImGuiCond_Always);
     }
 
     fn drawAlignButtons(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay) void {
@@ -334,9 +365,15 @@ pub const GuiDock = struct {
     // --- The palette -----------------------------------------------------------
 
     fn drawPalette(self: *GuiDock, overlay: *gl.Overlay) void {
-        ig.igSetNextWindowPos(.{ .x = 8, .y = 340 }, ig.ImGuiCond_FirstUseEver);
-        ig.igSetNextWindowSize(.{ .x = 300, .y = 300 }, ig.ImGuiCond_FirstUseEver);
+        if (self.layout) |layout| {
+            place(layout.palette);
+        } else {
+            ig.igSetNextWindowPos(.{ .x = 8, .y = 340 }, ig.ImGuiCond_FirstUseEver);
+            ig.igSetNextWindowSize(.{ .x = 300, .y = 300 }, ig.ImGuiCond_FirstUseEver);
+        }
         defer ig.igEnd();
+        self.entry_rects.clearRetainingCapacity();
+        self.entry_rects.appendNTimes(self.gpa, .{ .x = 0, .y = 0, .w = 0, .h = 0 }, self.palette.entries.len) catch {};
         if (!ig.igBegin("Templates###gui_palette", null, 0)) return;
         if (self.palette.entries.len == 0) {
             ig.igTextDisabled("No templates found.");
@@ -359,6 +396,11 @@ pub const GuiDock = struct {
             const label = std.fmt.bufPrintZ(&name_buffer, "{s}##t{d}", .{ entry.file, index }) catch continue;
             const armed = if (overlay.armed) |path| std.mem.eql(u8, path, entry.path) else false;
             if (ig.igSelectableEx(label.ptr, armed, 0, .{ .x = 0, .y = 0 })) overlay.arm(entry.path) catch {};
+            if (index < self.entry_rects.items.len) {
+                const low = ig.igGetItemRectMin();
+                const high = ig.igGetItemRectMax();
+                self.entry_rects.items[index] = .{ .x = low.x, .y = low.y, .w = high.x - low.x, .h = high.y - low.y };
+            }
             if (ig.igBeginDragDropSource(0)) {
                 var path_buffer: [logic.path_capacity]u8 = undefined;
                 const len = @min(entry.path.len, path_buffer.len - 1);
@@ -376,8 +418,12 @@ pub const GuiDock = struct {
 
     fn drawInspector(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay, windows: []const GuiWindow) void {
         const display = ig.igGetIO().*.DisplaySize;
-        ig.igSetNextWindowPos(.{ .x = display.x - 300, .y = 28 }, ig.ImGuiCond_FirstUseEver);
-        ig.igSetNextWindowSize(.{ .x = 290, .y = 420 }, ig.ImGuiCond_FirstUseEver);
+        if (self.layout) |layout| {
+            place(layout.inspector);
+        } else {
+            ig.igSetNextWindowPos(.{ .x = display.x - 300, .y = 28 }, ig.ImGuiCond_FirstUseEver);
+            ig.igSetNextWindowSize(.{ .x = 290, .y = 420 }, ig.ImGuiCond_FirstUseEver);
+        }
         defer ig.igEnd();
         if (!ig.igBegin("GUI properties###gui_inspector", null, 0)) return;
         const id = overlay.selection.primary() orelse {

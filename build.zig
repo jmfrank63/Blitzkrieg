@@ -8342,6 +8342,7 @@ const resource_auto_steps = [_]ResourceAutoStep{
     .{ .name = "chc", .about = "Run BK_EDITOR_AUTO's Chapter (.chc) scenario: a click-placed mission, Show crosses drag, undo and redo, export", .schedule = resource_auto_chc, .exit_frame = 23 },
     .{ .name = "cgc", .about = "Run BK_EDITOR_AUTO's Campaign (.cgc) scenario: a click-placed chapter, Show crosses drag, undo and redo, export", .schedule = resource_auto_cgc, .exit_frame = 23 },
     .{ .name = "mdc", .about = "Run BK_EDITOR_AUTO's Medal (.mdc) scenario: the picture shown and measured, export", .schedule = resource_auto_mdc, .exit_frame = 9 },
+    .{ .name = "gui", .about = "Run BK_EDITOR_AUTO's GUI screen (.gui) scenario: a template dragged onto MainMenu, moved, resized, aligned, undone, redone, saved, exported and shown by the Game, with its frame measured", .schedule = resource_auto_gui, .exit_frame = 48 },
 };
 
 /// The old single schedule's order. Nothing but the per-step constants' concatenation may stand here: the
@@ -8349,7 +8350,7 @@ const resource_auto_steps = [_]ResourceAutoStep{
 const resource_auto_all = resource_auto_core ++ resource_auto_wpn ++ resource_auto_spt ++ resource_auto_unt ++
     resource_auto_msh ++ resource_auto_obt ++ resource_auto_fnc ++ resource_auto_bld ++ resource_auto_bdg ++
     resource_auto_pcp ++ resource_auto_eff ++ resource_auto_til ++ resource_auto_3rd ++ resource_auto_3rv ++
-    resource_auto_mip ++ resource_auto_chc ++ resource_auto_cgc ++ resource_auto_mdc;
+    resource_auto_mip ++ resource_auto_chc ++ resource_auto_cgc ++ resource_auto_mdc ++ resource_auto_gui;
 
 comptime {
     @setEvalBranchQuota(2_000_000);
@@ -10391,3 +10392,69 @@ fn linkComSupport(module: *std.Build.Module, optimize: std.builtin.OptimizeMode)
     module.linkSystemLibrary("ole32", .{});
     module.linkSystemLibrary("uuid", .{});
 }
+
+/// The GUI screen (.gui): MainMenu opened as a project, exported and shown by the Game as the baseline; a
+/// template dragged onto the canvas, moved, resized, a shipped label moved and the two aligned, each by pointer
+/// events, undone to the placed state and redone, saved and reopened, exported and shown by the Game again. The two
+/// Game frames must differ at the moved label's old and new rect and at the placed button, and nowhere else.
+const resource_auto_gui =
+    "1:do=mod_dir:{mods}/reseditor_auto_gui," ++
+    "1:do=game_shot_clear," ++
+    "2:do=copy:{data}/UI/MainMenu.xml>{dir}/gui/MainMenu.gui," ++
+    "3:open={dir}/gui/MainMenu.gui," ++
+    "4:expect=kind:gui," ++
+    "4:expect=dirty:false," ++
+    "5:do=gui_open," ++
+    "5:do=gui_snapshot:start," ++
+    "6:do=export," ++
+    "6:expect=exported," ++
+    "6:expect=file:{mods}/reseditor_auto_gui/data/ui/MainMenu.xml," ++
+    "7:do=run_game," ++
+    "8:waitgame=120," ++
+    "9:expect=game_log_clean," ++
+    "9:do=game_shot:base," ++
+    "10:do=gui_place:Buttons/Button00/700/640," ++
+    "11:expect=gui_rect:primary/700/640/771/733/3," ++
+    "11:expect=dirty:true," ++
+    "11:do=gui_snapshot:placed," ++
+    "11:shot=gui_a," ++
+    "12:do=gui_drag:20/-10," ++
+    "13:expect=gui_rect:primary/720/630/791/723/3," ++
+    "13:shot=gui_b," ++
+    "13:differ=gui_a/gui_b@0.01," ++
+    "14:do=gui_resize:right_bottom/30/20," ++
+    "15:expect=gui_rect:primary/720/630/821/743/3," ++
+    "16:do=gui_pick:el21000," ++
+    "17:do=gui_mark:old=el21000," ++
+    "18:do=gui_drag:300/0," ++
+    "19:do=gui_mark:new=el21000," ++
+    "20:do=gui_pick:last/add," ++
+    "21:do=gui_align:left," ++
+    "22:expect=gui_rect:last/310/630/411/743/3," ++
+    "22:do=gui_mark:placed=last," ++
+    "22:do=gui_snapshot:final," ++
+    "22:expect=gui_same:placed=differs," ++
+    "23:do=undo," ++
+    "24:do=undo," ++
+    "25:do=undo," ++
+    "26:do=undo," ++
+    "27:expect=gui_same:placed=same," ++
+    "27:expect=gui_same:final=differs," ++
+    "28:do=redo," ++
+    "29:do=redo," ++
+    "30:do=redo," ++
+    "31:do=redo," ++
+    "32:expect=gui_same:final=same," ++
+    "33:save," ++
+    "34:expect=dirty:false," ++
+    "34:do=close," ++
+    "35:open={dir}/gui/MainMenu.gui," ++
+    "36:do=gui_open," ++
+    "36:expect=gui_same:final=same," ++
+    "37:do=export," ++
+    "37:expect=exported," ++
+    "38:do=run_game," ++
+    "39:waitgame=120," ++
+    "40:expect=game_log_clean," ++
+    "40:do=game_shot:edited," ++
+    "41:expect=game_frames:base/edited/old/new/placed,";

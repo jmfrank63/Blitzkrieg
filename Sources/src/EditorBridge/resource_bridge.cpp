@@ -2132,6 +2132,13 @@ BkEditorStatus BkResNodes( BkResSession *pSession, BkResNodeRecord *pOut, int nC
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		ResourceState &state = StateOf( pSession );
+		// A UI screen has windows (BkResGuiWindows), not tree items: an empty tree, so Open's reload works.
+		if ( state.bOpen && state.pScreen )
+		{
+			if ( pnCount != nullptr )
+				*pnCount = 0;
+			return BK_EDITOR_OK;
+		}
 		if ( !state.bOpen || !state.pProject )
 		{
 			if ( pnCount != nullptr )

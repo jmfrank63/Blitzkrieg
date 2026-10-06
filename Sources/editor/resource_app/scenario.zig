@@ -139,7 +139,11 @@ const ResBridge = core.bridge.ResBridge;
 const PropRecord = core.bridge.PropRecord;
 const sub_tools = core.sub_editor_tools;
 const il = @import("image_logic.zig");
+const gui_logic = @import("gui_logic.zig");
+const gui_dock = @import("gui_dock.zig");
 const Point2 = core.bridge.Point2;
+const GeoRect = core.gui_geometry.Rect;
+const gui_tools = core.gui_tools;
 
 const owner = "resource-editor-auto";
 const gunner_folder = "Data/Units/Humans/German/Gunner";
@@ -148,6 +152,30 @@ const curve_window = [2]i32{ 640, 1400 };
 /// A frame counts as drawn when more than this share of it is not the clear colour.
 const lit_share_percent: f64 = 2.0;
 const max_tga_bytes = 64 << 20;
+/// The GUI verbs' named snapshots, marks and Game shots.
+const gui_slots = 4;
+/// The fewest pixels of a Game frame that must differ inside an edited rect for the edit to count as drawn.
+const game_frame_min_inside = 150;
+
+/// One named thing the GUI verbs keep: a snapshot of the windows' rects, one rect, or a Game shot.
+const Slot = struct {
+    name: [16]u8 = undefined,
+    name_len: usize = 0,
+    rects: []GeoRect = &.{},
+    rect: GeoRect = .{ .x1 = 0, .y1 = 0, .x2 = 0, .y2 = 0 },
+    pixels: []u8 = &.{},
+    width: u32 = 0,
+    height: u32 = 0,
+
+    fn nameSlice(self: *const Slot) []const u8 {
+        return self.name[0..self.name_len];
+    }
+
+    fn setName(self: *Slot, text: []const u8) void {
+        self.name_len = @min(text.len, self.name.len);
+        @memcpy(self.name[0..self.name_len], text[0..self.name_len]);
+    }
+};
 
 // --- Shared pieces -----------------------------------------------------------
 
@@ -390,6 +418,9 @@ const Runner = struct {
     particle_status: docks_logic.ParticleStatus = .{},
     /// The Particle source button (do=source_mode) with its remembered name.
     particle_source: docks_logic.SourceToggle = .{},
+    gui_snapshots: [gui_slots]Slot = [_]Slot{.{}} ** gui_slots,
+    gui_marks: [gui_slots]Slot = [_]Slot{.{}} ** gui_slots,
+    game_shots: [gui_slots]Slot = [_]Slot{.{}} ** gui_slots,
     frame: u32 = 0,
     message: [768]u8 = undefined,
     /// The last text `fail` made, for a helper that reports through its caller.
@@ -743,6 +774,15 @@ const Runner = struct {
         if (eql(u8, name, "curve")) return self.selectCurve(named.arg);
         if (eql(u8, name, "keyframe")) return self.keyframeVerb(named.arg);
         if (eql(u8, name, "function_open")) return self.functionOpen();
+        if (eql(u8, name, "gui_open")) return self.guiOpen();
+        if (eql(u8, name, "gui_place")) return self.guiPlace(named.arg);
+        if (eql(u8, name, "gui_pick")) return self.guiPick(named.arg);
+        if (eql(u8, name, "gui_drag") or eql(u8, name, "gui_resize")) return self.guiDrag(name, named.arg);
+        if (eql(u8, name, "gui_align") or eql(u8, name, "gui_equal")) return self.guiAlign(name, named.arg);
+        if (eql(u8, name, "gui_snapshot")) return self.guiSnapshot(named.arg);
+        if (eql(u8, name, "gui_mark")) return self.guiMark(named.arg);
+        if (eql(u8, name, "game_shot_clear")) return self.gameShotClear();
+        if (eql(u8, name, "game_shot")) return self.gameShot(named.arg);
         if (eql(u8, name, "image_open")) return self.imageOpen();
         if (eql(u8, name, "image_select")) return self.imageSelect();
         if (eql(u8, name, "image_click")) return self.imageClick(named.arg);
@@ -1013,6 +1053,427 @@ const Runner = struct {
         if (!docks.show_function) return self.fail("function_open: Ctrl+F did not open the Function window", .{});
         const rect = docks.curve_rect orelse return self.fail("function_open: the Function window drew no curve", .{});
         std.debug.print("resource-editor: auto: function window open, curve widget at {d:.0},{d:.0} {d:.0}x{d:.0}\n", .{ rect.x, rect.y, rect.w, rect.h });
+        return null;
+    }
+
+    // --- GUI screen ------------------------------------------------------------
+
+    /// The GUI windows as the auto tier places them: the canvas in the middle, the palette and the
+    /// inspector in the right column, clear of the project tree and the properties on the left.
+    const gui_layout = gui_dock.Layout{
+        .canvas = .{ .x = 320, .y = 28, .w = 640, .h = 520 },
+        .palette = .{ .x = 970, .y = 28, .w = 300, .h = 400 },
+        .inspector = .{ .x = 970, .y = 440, .w = 300, .h = 340 },
+    };
+
+    /// do=gui_open: the docks exist and draw the canvas, palette and inspector over the open screen.
+    fn guiOpen(self: *Runner) ?[]const u8 {
+        if (!self.life.is_open or self.life.doc.kind != .gui_frame) return self.fail("gui_open: the project is not a GUI screen", .{});
+        if (self.docks == null) self.docks = docks_mod.Docks.init(self.gpa, self.io, &self.real);
+        const gui = &self.docks.?.gui;
+        gui.layout = gui_layout;
+        var pumped: u32 = 0;
+        while (pumped < 3) : (pumped += 1) if (self.pumpFrame("gui_open")) |why| return why;
+        const shown = gui.shown orelse return self.fail("gui_open: the canvas was not drawn", .{});
+        const windows = gui_tools.readWindows(self.gpa, self.bridge()) catch return self.fail("gui_open: windows: {s}", .{self.bridge().lastMessage()});
+        defer self.gpa.free(windows);
+        std.debug.print("resource-editor: auto: GUI canvas at {d:.0},{d:.0} {d:.0}x{d:.0}, scale {d:.3}, {d} windows, {d} templates\n", .{ shown.x, shown.y, shown.w, shown.h, gui.view.scale, windows.len, gui.palette.entries.len });
+        return null;
+    }
+
+    fn guiDock(self: *Runner, what: []const u8) ?*gui_dock.GuiDock {
+        const docks = if (self.docks) |*d| d else {
+            _ = self.fail("{s}: the GUI windows are not open (do=gui_open first)", .{what});
+            return null;
+        };
+        if (docks.gui.shown == null) {
+            _ = self.fail("{s}: the canvas is not drawn", .{what});
+            return null;
+        }
+        return &docks.gui;
+    }
+
+    /// The window a schedule entry names: `primary` is the canvas selection's first window, `last` the last of the
+    /// document (a window just placed), `el<n>` the first with that ElementID.
+    fn guiWindow(self: *Runner, what: []const u8, windows: []const core.bridge.GuiWindow, which: []const u8) ?core.bridge.GuiWindow {
+        if (std.mem.eql(u8, which, "primary")) {
+            const gui = self.guiDock(what) orelse return null;
+            const id = (gui.overlay orelse {
+                _ = self.fail("{s}: nothing is selected", .{what});
+                return null;
+            }).selection.primary() orelse {
+                _ = self.fail("{s}: nothing is selected", .{what});
+                return null;
+            };
+            return core.gui_geometry.find(windows, id) orelse {
+                _ = self.fail("{s}: the selected window {d} is gone", .{ what, id });
+                return null;
+            };
+        }
+        if (std.mem.eql(u8, which, "last")) {
+            if (windows.len < 2) {
+                _ = self.fail("{s}: the screen has no window but its root", .{what});
+                return null;
+            }
+            return windows[windows.len - 1];
+        }
+        if (std.mem.startsWith(u8, which, "el")) {
+            const element = std.fmt.parseInt(i32, which[2..], 10) catch {
+                _ = self.fail("{s}: '{s}' is not el<ElementID>", .{ what, which });
+                return null;
+            };
+            for (windows) |w| if (w.parent >= 0 and w.element_id == element) return w;
+            _ = self.fail("{s}: the screen has no window with ElementID {d}", .{ what, element });
+            return null;
+        }
+        _ = self.fail("{s}: '{s}' is neither primary nor el<ElementID>", .{ what, which });
+        return null;
+    }
+
+    /// A canvas point inside window `id` that the canvas's own hit test gives to that window (a later
+    /// window on top of its middle is stepped around), or null when none of its pixels does.
+    fn guiPointOn(windows: []const core.bridge.GuiWindow, id: i32) ?Point2 {
+        const rc = core.gui_geometry.canvasRect(windows, id) orelse return null;
+        var fy: f32 = 0.5;
+        while (fy < 1) : (fy += 0.25) {
+            var fx: f32 = 0.5;
+            while (fx < 1) : (fx += 0.25) {
+                const at: Point2 = .{ .x = @floor(rc.x1 + (rc.x2 - rc.x1) * fx), .y = @floor(rc.y1 + (rc.y2 - rc.y1) * fy) };
+                if (gui_logic.hit(windows, at) == id) return at;
+            }
+        }
+        var y = @floor(rc.y1);
+        while (y < rc.y2) : (y += 1) {
+            var x = @floor(rc.x1);
+            while (x < rc.x2) : (x += 1) {
+                const at: Point2 = .{ .x = x, .y = y };
+                if (gui_logic.hit(windows, at) == id) return at;
+            }
+        }
+        return null;
+    }
+
+    fn guiRead(self: *Runner, what: []const u8) ?[]core.bridge.GuiWindow {
+        return gui_tools.readWindows(self.gpa, self.bridge()) catch {
+            _ = self.fail("{s}: windows: {s}", .{ what, self.bridge().lastMessage() });
+            return null;
+        };
+    }
+
+    fn printGuiRect(label: []const u8, w: core.bridge.GuiWindow, windows: []const core.bridge.GuiWindow) void {
+        const rc = core.gui_geometry.canvasRect(windows, w.id) orelse return;
+        std.debug.print("resource-editor: auto: {s}: window {d} (ElementID {d}) at {d:.0},{d:.0} to {d:.0},{d:.0} (local {d},{d} {d}x{d}, flag 0x{x})\n", .{ label, w.id, w.element_id, rc.x1, rc.y1, rc.x2, rc.y2, w.x, w.y, w.w, w.h, w.flag });
+    }
+
+    /// do=gui_place:<Folder>/<Template>/<x>/<y>: the palette entry dragged with the pointer from where it
+    /// is drawn to that canvas point and dropped: one new window, selected, at that point.
+    fn guiPlace(self: *Runner, arg: []const u8) ?[]const u8 {
+        var parts = std.mem.splitScalar(u8, arg, '/');
+        const folder = parts.next() orelse "";
+        const stem = parts.next() orelse "";
+        const x = std.fmt.parseFloat(f32, parts.next() orelse "") catch return self.fail("gui_place needs <Folder>/<Template>/<x>/<y>", .{});
+        const y = std.fmt.parseFloat(f32, parts.next() orelse "") catch return self.fail("gui_place needs <Folder>/<Template>/<x>/<y>", .{});
+        const gui = self.guiDock("gui_place") orelse return self.failure;
+        const entry = gui.entryRect(folder, stem) orelse return self.fail("gui_place: the palette shows no {s}/{s}", .{ folder, stem });
+        const before = self.guiRead("gui_place") orelse return self.failure;
+        defer self.gpa.free(before);
+        const to = gui.view.toScreen(.{ .x = x, .y = y });
+        std.debug.print("resource-editor: auto: gui_place {s}/{s}: palette entry at {d:.0},{d:.0} dragged to canvas {d:.0},{d:.0} (screen {d:.0},{d:.0}), {d} windows before\n", .{ folder, stem, entry.x, entry.y, x, y, to.x, to.y, before.len });
+        if (self.gesture("gui_place", .{ entry.x + entry.w / 2, entry.y + entry.h / 2 }, .{ to.x, to.y })) |why| return why;
+        const after = self.guiRead("gui_place") orelse return self.failure;
+        defer self.gpa.free(after);
+        if (after.len != before.len + 1) return self.fail("gui_place: the screen has {d} windows after the drop, {d} before: nothing was placed (canvas says: {s})", .{ after.len, before.len, if (gui.overlay) |o| o.lastSaid() else "" });
+        const placed = self.guiWindow("gui_place", after, "primary") orelse return self.failure;
+        printGuiRect("placed", placed, after);
+        return null;
+    }
+
+    /// do=gui_pick:<which>[/add]: a pointer click on that window (shift held for `add`), at a point
+    /// the canvas's hit test gives to it.
+    fn guiPick(self: *Runner, arg: []const u8) ?[]const u8 {
+        const add = std.mem.endsWith(u8, arg, "/add");
+        const which = if (add) arg[0 .. arg.len - 4] else arg;
+        const gui = self.guiDock("gui_pick") orelse return self.failure;
+        const windows = self.guiRead("gui_pick") orelse return self.failure;
+        defer self.gpa.free(windows);
+        const picked = self.guiWindow("gui_pick", windows, which) orelse return self.failure;
+        const at = guiPointOn(windows, picked.id) orelse return self.fail("gui_pick: window {d} (ElementID {d}) is covered by later windows everywhere", .{ picked.id, picked.element_id });
+        const screen = gui.view.toScreen(at);
+        std.debug.print("resource-editor: auto: gui_pick {s}: canvas {d:.0},{d:.0}, screen {d:.0},{d:.0}{s}\n", .{ which, at.x, at.y, screen.x, screen.y, if (add) ", shift held" else "" });
+        const shift = sdl3.c.SDL_KMOD_LSHIFT;
+        if (add) {
+            self.pushKey(sdl3.c.SDLK_LSHIFT, sdl3.c.SDL_SCANCODE_LSHIFT, shift, true);
+            if (self.pumpFrame("gui_pick")) |why| return why;
+        }
+        if (self.gesture("gui_pick", .{ screen.x, screen.y }, null)) |why| return why;
+        if (add) {
+            self.pushKey(sdl3.c.SDLK_LSHIFT, sdl3.c.SDL_SCANCODE_LSHIFT, 0, false);
+            if (self.pumpFrame("gui_pick")) |why| return why;
+        }
+        const overlay = gui.overlay orelse return self.fail("gui_pick: the canvas has no selection state", .{});
+        std.debug.print("resource-editor: auto: gui_pick: {d} selected\n", .{overlay.selection.ids.items.len});
+        return null;
+    }
+
+    /// do=gui_drag:<dx>/<dy> (a move) and do=gui_resize:<handle>/<dx>/<dy>: the primary window pressed
+    /// on a point of its own (or on that handle), dragged by that many canvas pixels over four frames and
+    /// released. The rect before and after is printed; one gesture is one undo step.
+    fn guiDrag(self: *Runner, name: []const u8, arg: []const u8) ?[]const u8 {
+        const resizing = std.mem.eql(u8, name, "gui_resize");
+        var parts = std.mem.splitScalar(u8, arg, '/');
+        const handle: []const u8 = if (resizing) (parts.next() orelse "") else "";
+        const dx = std.fmt.parseFloat(f32, parts.next() orelse "") catch return self.fail("{s} needs {s}<dx>/<dy>", .{ name, if (resizing) "<handle>/" else "" });
+        const dy = std.fmt.parseFloat(f32, parts.next() orelse "") catch return self.fail("{s} needs {s}<dx>/<dy>", .{ name, if (resizing) "<handle>/" else "" });
+        const gui = self.guiDock(name) orelse return self.failure;
+        const before = self.guiRead(name) orelse return self.failure;
+        defer self.gpa.free(before);
+        const moving = self.guiWindow(name, before, "primary") orelse return self.failure;
+        const rc = core.gui_geometry.canvasRect(before, moving.id) orelse return self.fail("{s}: window {d} has no rect", .{ name, moving.id });
+        var from: Point2 = undefined;
+        if (resizing) {
+            if (!std.mem.eql(u8, handle, "right_bottom")) return self.fail("resize: only the right_bottom handle is scheduled, not '{s}'", .{handle});
+            from = .{ .x = rc.x2, .y = rc.y2 };
+        } else {
+            from = guiPointOn(before, moving.id) orelse return self.fail("move: window {d} is covered by later windows everywhere", .{moving.id});
+        }
+        const start = gui.view.toScreen(from);
+        const end = gui.view.toScreen(.{ .x = from.x + dx, .y = from.y + dy });
+        printGuiRect("before the drag", moving, before);
+        if (self.gesture(name, .{ start.x, start.y }, .{ end.x, end.y })) |why| return why;
+        const after = self.guiRead(name) orelse return self.failure;
+        defer self.gpa.free(after);
+        const now = core.gui_geometry.find(after, moving.id) orelse return self.fail("{s}: window {d} is gone after the drag", .{ name, moving.id });
+        printGuiRect("after the drag", now, after);
+        return null;
+    }
+
+    /// do=gui_align:<left|top|right|bottom> and do=gui_equal:<width|height|size>: the Align menu's
+    /// functions on the canvas selection (the first selected window is the reference).
+    fn guiAlign(self: *Runner, name: []const u8, arg: []const u8) ?[]const u8 {
+        const gui = self.guiDock(name) orelse return self.failure;
+        const overlay = gui.overlayFor();
+        if (overlay.selection.ids.items.len < 2) return self.fail("{s}: {d} windows are selected, two are needed", .{ name, overlay.selection.ids.items.len });
+        const before = self.guiRead(name) orelse return self.failure;
+        defer self.gpa.free(before);
+        for (overlay.selection.ids.items) |id| if (core.gui_geometry.find(before, id)) |w| printGuiRect("before align", w, before);
+        const life = &self.life;
+        if (std.mem.eql(u8, name, "gui_align")) {
+            const mode = std.meta.stringToEnum(core.gui_geometry.Align, arg) orelse return self.fail("gui_align needs left, top, right or bottom", .{});
+            overlay.alignSelection(self.bridge(), &life.doc, &life.history, mode) catch return self.fail("{s}: {s}", .{ name, self.bridge().lastMessage() });
+        } else {
+            const mode = std.meta.stringToEnum(core.gui_geometry.Equal, arg) orelse return self.fail("gui_equal needs width, height or size", .{});
+            overlay.equalize(self.bridge(), &life.doc, &life.history, mode) catch return self.fail("{s}: {s}", .{ name, self.bridge().lastMessage() });
+        }
+        if (self.pumpFrame(name)) |why| return why;
+        const after = self.guiRead(name) orelse return self.failure;
+        defer self.gpa.free(after);
+        for (overlay.selection.ids.items) |id| if (core.gui_geometry.find(after, id)) |w| printGuiRect("after align", w, after);
+        return null;
+    }
+
+    /// do=gui_snapshot:<name>: every window's canvas rect, in document order, kept under that name.
+    fn guiSnapshot(self: *Runner, name: []const u8) ?[]const u8 {
+        const windows = self.guiRead("gui_snapshot") orelse return self.failure;
+        defer self.gpa.free(windows);
+        const rects = self.gpa.alloc(GeoRect, windows.len) catch return self.fail("gui_snapshot: out of memory", .{});
+        for (windows, rects) |w, *out| out.* = core.gui_geometry.canvasRect(windows, w.id) orelse .{ .x1 = 0, .y1 = 0, .x2 = 0, .y2 = 0 };
+        for (&self.gui_snapshots) |*slot| {
+            if (slot.name_len != 0 and !std.mem.eql(u8, slot.nameSlice(), name)) continue;
+            self.gpa.free(slot.rects);
+            slot.* = .{ .rects = rects };
+            slot.setName(name);
+            std.debug.print("resource-editor: auto: gui_snapshot {s}: {d} windows\n", .{ name, rects.len });
+            return null;
+        }
+        self.gpa.free(rects);
+        return self.fail("gui_snapshot: all {d} slots are taken", .{gui_slots});
+    }
+
+    /// `<name>=same|differs`: the screen's rects against the snapshot of that name.
+    fn guiSame(self: *Runner, arg: []const u8) ?[]const u8 {
+        const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return self.fail("gui_same needs <snapshot>=same|differs", .{});
+        const want_same = std.mem.eql(u8, arg[eq + 1 ..], "same");
+        if (!want_same and !std.mem.eql(u8, arg[eq + 1 ..], "differs")) return self.fail("gui_same needs same or differs", .{});
+        const slot = for (&self.gui_snapshots) |*s| {
+            if (s.name_len != 0 and std.mem.eql(u8, s.nameSlice(), arg[0..eq])) break s;
+        } else return self.fail("expect=gui_same: no snapshot named {s}", .{arg[0..eq]});
+        const windows = self.guiRead("gui_same") orelse return self.failure;
+        defer self.gpa.free(windows);
+        var differing: usize = 0;
+        if (windows.len != slot.rects.len) {
+            differing = @max(windows.len, slot.rects.len);
+        } else for (windows, slot.rects) |w, was| {
+            const rc = core.gui_geometry.canvasRect(windows, w.id) orelse continue;
+            if (!rc.eql(was)) differing += 1;
+        }
+        std.debug.print("resource-editor: auto: gui_same {s}: {d} windows now, {d} then, {d} rects differ\n", .{ arg[0..eq], windows.len, slot.rects.len, differing });
+        if ((differing == 0) != want_same) return self.fail("expect=gui_same:{s} was false: {d} of the rects differ from the snapshot", .{ arg, differing });
+        return null;
+    }
+
+    /// `<which>/<x1>/<y1>/<x2>/<y2>/<tolerance>`: that window's canvas rect, within the tolerance in every number.
+    fn guiRect(self: *Runner, arg: []const u8) ?[]const u8 {
+        const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return self.fail("gui_rect needs <which>/<x1>/<y1>/<x2>/<y2>/<tolerance>", .{});
+        const numbers = parseInts(5, arg[slash + 1 ..]) orelse return self.fail("gui_rect needs <which>/<x1>/<y1>/<x2>/<y2>/<tolerance>", .{});
+        const windows = self.guiRead("gui_rect") orelse return self.failure;
+        defer self.gpa.free(windows);
+        const w = self.guiWindow("gui_rect", windows, arg[0..slash]) orelse return self.failure;
+        const rc = core.gui_geometry.canvasRect(windows, w.id) orelse return self.fail("gui_rect: window {d} has no rect", .{w.id});
+        const tolerance: f32 = @floatFromInt(numbers[4]);
+        const want = [4]f32{ @floatFromInt(numbers[0]), @floatFromInt(numbers[1]), @floatFromInt(numbers[2]), @floatFromInt(numbers[3]) };
+        const have = [4]f32{ rc.x1, rc.y1, rc.x2, rc.y2 };
+        for (want, have) |a, b| {
+            if (@abs(a - b) > tolerance) return self.fail("expect=gui_rect:{s} was false: the rect is {d:.0},{d:.0} to {d:.0},{d:.0}", .{ arg, rc.x1, rc.y1, rc.x2, rc.y2 });
+        }
+        std.debug.print("resource-editor: auto: gui_rect {s}: {d:.0},{d:.0} to {d:.0},{d:.0} (wanted within {d:.0})\n", .{ arg[0..slash], rc.x1, rc.y1, rc.x2, rc.y2, tolerance });
+        return null;
+    }
+
+    /// do=gui_mark:<name>=<which>: that window's canvas rect kept under that name, for the Game frame check.
+    fn guiMark(self: *Runner, arg: []const u8) ?[]const u8 {
+        const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return self.fail("gui_mark needs <name>=<which>", .{});
+        const windows = self.guiRead("gui_mark") orelse return self.failure;
+        defer self.gpa.free(windows);
+        const w = self.guiWindow("gui_mark", windows, arg[eq + 1 ..]) orelse return self.failure;
+        const rc = core.gui_geometry.canvasRect(windows, w.id) orelse return self.fail("gui_mark: window {d} has no rect", .{w.id});
+        for (&self.gui_marks) |*slot| {
+            if (slot.name_len != 0 and !std.mem.eql(u8, slot.nameSlice(), arg[0..eq])) continue;
+            slot.rect = rc;
+            slot.setName(arg[0..eq]);
+            std.debug.print("resource-editor: auto: gui_mark {s}: {d:.0},{d:.0} to {d:.0},{d:.0}\n", .{ arg[0..eq], rc.x1, rc.y1, rc.x2, rc.y2 });
+            return null;
+        }
+        return self.fail("gui_mark: all {d} slots are taken", .{gui_slots});
+    }
+
+    fn markRect(self: *Runner, name: []const u8) ?GeoRect {
+        for (&self.gui_marks) |*slot| if (slot.name_len != 0 and std.mem.eql(u8, slot.nameSlice(), name)) return slot.rect;
+        _ = self.fail("no mark named {s} (do=gui_mark first)", .{name});
+        return null;
+    }
+
+    // --- The Game's frame of the screen ------------------------------------------
+
+    /// do=game_shot_clear: the Game's shot dumps of earlier runs are removed from its folder.
+    fn gameShotClear(self: *Runner) ?[]const u8 {
+        var installed_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const installed = testlaunch.gamePath(self.io, &installed_buffer) catch |err| return self.fail("the Game beside the editor: {s}", .{@errorName(err)});
+        const game_dir = std.fs.path.dirname(installed) orelse return self.fail("the Game has no folder", .{});
+        var dir = std.Io.Dir.cwd().openDir(self.io, game_dir, .{ .iterate = true }) catch |err| return self.fail("{s}: {s}", .{ game_dir, @errorName(err) });
+        defer dir.close(self.io);
+        var it = dir.iterate();
+        while (it.next(self.io) catch null) |entry| {
+            if (entry.kind == .file and gui_logic.autoshotSize(entry.name) != null) dir.deleteFile(self.io, entry.name) catch {};
+        }
+        return null;
+    }
+
+    /// do=game_shot:<name>: the Game's BK_AUTO_UI shot of the run that just ended is taken out of the
+    /// Game's folder and kept (in memory, and as <scratch>/<name>.rgba).
+    fn gameShot(self: *Runner, name: []const u8) ?[]const u8 {
+        var installed_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const installed = testlaunch.gamePath(self.io, &installed_buffer) catch |err| return self.fail("the Game beside the editor: {s}", .{@errorName(err)});
+        const game_dir = std.fs.path.dirname(installed) orelse return self.fail("the Game has no folder", .{});
+        var dir = std.Io.Dir.cwd().openDir(self.io, game_dir, .{ .iterate = true }) catch |err| return self.fail("{s}: {s}", .{ game_dir, @errorName(err) });
+        defer dir.close(self.io);
+        var it = dir.iterate();
+        while (it.next(self.io) catch null) |entry| {
+            if (entry.kind != .file) continue;
+            const size = gui_logic.autoshotSize(entry.name) orelse continue;
+            const bytes = dir.readFileAlloc(self.io, entry.name, self.gpa, .limited(max_tga_bytes)) catch |err| return self.fail("{s}: {s}", .{ entry.name, @errorName(err) });
+            const want = @as(usize, size.width) * size.height * 4;
+            if (bytes.len != want) {
+                self.gpa.free(bytes);
+                return self.fail("{s} holds {d} bytes, {d} wanted for {d}x{d}", .{ entry.name, bytes.len, want, size.width, size.height });
+            }
+            const slot = for (&self.game_shots) |*candidate| {
+                if (candidate.name_len == 0 or std.mem.eql(u8, candidate.nameSlice(), name)) break candidate;
+            } else {
+                self.gpa.free(bytes);
+                return self.fail("game_shot: all {d} slots are taken", .{gui_slots});
+            };
+            self.gpa.free(slot.pixels);
+            slot.* = .{ .pixels = bytes, .width = size.width, .height = size.height };
+            slot.setName(name);
+            var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+            if (std.fmt.bufPrint(&path_buffer, "{s}{c}{s}.rgba", .{ self.dir, std.fs.path.sep, name })) |path| {
+                std.Io.Dir.cwd().writeFile(self.io, .{ .sub_path = path, .data = bytes }) catch {};
+            } else |_| {}
+            dir.deleteFile(self.io, entry.name) catch {};
+            std.debug.print("resource-editor: auto: game_shot {s}: {s} ({d}x{d})\n", .{ name, entry.name, size.width, size.height });
+            return null;
+        }
+        return self.fail("game_shot: the Game left no autoshot_*.rgba in {s} (did it reach BK_AUTO_UI's shot?)", .{game_dir});
+    }
+
+    fn gameShotIndex(self: *Runner, name: []const u8) ?usize {
+        for (&self.game_shots, 0..) |*slot, i| if (slot.name_len != 0 and std.mem.eql(u8, slot.nameSlice(), name)) return i;
+        return null;
+    }
+
+    /// The Game's own log of the last run: no screen-load failure and no assertion in it.
+    fn gameLogClean(self: *Runner) ?[]const u8 {
+        var log_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const log = std.fmt.bufPrint(&log_buffer, "{s}{c}testgame.log", .{ self.dir, std.fs.path.sep }) catch return self.fail("the log path is too long", .{});
+        const bytes = readFile(self.io, self.gpa, log) catch |err| return self.fail("expect=game_log_clean: {s}: {s}", .{ log, @errorName(err) });
+        defer self.gpa.free(bytes);
+        const needles = [_][]const u8{ "can not be loaded", "NI_ASSERT", "ASSERT", "Assertion", "UIScreen" };
+        var lines: usize = 0;
+        var bad: usize = 0;
+        var rows = std.mem.splitScalar(u8, bytes, '\n');
+        while (rows.next()) |row| {
+            lines += 1;
+            for (needles) |needle| {
+                if (std.mem.indexOf(u8, row, needle) == null) continue;
+                bad += 1;
+                std.debug.print("resource-editor: auto: game log line {d}: {s}\n", .{ lines, std.mem.trim(u8, row, "\r ") });
+                break;
+            }
+        }
+        std.debug.print("resource-editor: auto: game log {s}: {d} lines, {d} screen-load or assertion lines\n", .{ log, lines, bad });
+        if (bad != 0) return self.fail("expect=game_log_clean was false: {d} line(s) of {s} report a screen that did not load or an assertion", .{ bad, log });
+        return null;
+    }
+
+    /// `<base>/<edited>/<moved old>/<moved new>/<placed>`: the two Game frames (do=game_shot) compared.
+    /// The frames must differ inside the moved window's old and new rects and the placed window's
+    /// rect (each a gui_mark, scaled from the 1024 x 768 canvas to the shot) and stay nearly equal
+    /// everywhere else.
+    fn gameFrames(self: *Runner, arg: []const u8) ?[]const u8 {
+        var parts = std.mem.splitScalar(u8, arg, '/');
+        const base_name = parts.next() orelse "";
+        const edited_name = parts.next() orelse "";
+        const old_name = parts.next() orelse "";
+        const new_name = parts.next() orelse "";
+        const placed_name = parts.next() orelse "";
+        if (placed_name.len == 0) return self.fail("game_frames needs <base>/<edited>/<old>/<new>/<placed>", .{});
+        const base = &self.game_shots[self.gameShotIndex(base_name) orelse return self.fail("expect=game_frames: no game shot named {s}", .{base_name})];
+        const edited = &self.game_shots[self.gameShotIndex(edited_name) orelse return self.fail("expect=game_frames: no game shot named {s}", .{edited_name})];
+        if (base.width != edited.width or base.height != edited.height) return self.fail("expect=game_frames: the shots are {d}x{d} and {d}x{d}", .{ base.width, base.height, edited.width, edited.height });
+        const marks = [3]GeoRect{
+            self.markRect(old_name) orelse return self.failure,
+            self.markRect(new_name) orelse return self.failure,
+            self.markRect(placed_name) orelse return self.failure,
+        };
+        const labels = [3][]const u8{ "old rect", "new rect", "placed rect" };
+        const tolerance = 24;
+        var boxes: [3]gui_logic.PixelRect = undefined;
+        var inside: [3]usize = undefined;
+        for (marks, 0..) |rc, i| {
+            boxes[i] = gui_logic.gameRect(rc, base.width, base.height, 0);
+            inside[i] = gui_logic.differing(base.pixels, edited.pixels, base.width, base.height, tolerance, boxes[i], &.{});
+            std.debug.print("resource-editor: auto: game frames: {s} {d},{d} to {d},{d}: {d} of {d} pixels differ\n", .{ labels[i], boxes[i].x1, boxes[i].y1, boxes[i].x2, boxes[i].y2, inside[i], @as(usize, boxes[i].x2 - boxes[i].x1) * (boxes[i].y2 - boxes[i].y1) });
+        }
+        // Everything outside the three boxes (a margin wider, for the edges of text and of the outline).
+        var holes: [3]gui_logic.PixelRect = undefined;
+        for (marks, 0..) |rc, i| holes[i] = gui_logic.gameRect(rc, base.width, base.height, 8);
+        const outside = gui_logic.differing(base.pixels, edited.pixels, base.width, base.height, tolerance, null, &holes);
+        const total = @as(usize, base.width) * base.height;
+        std.debug.print("resource-editor: auto: game frames: {d} of {d} pixels differ outside the three rects (at most {d} allowed)\n", .{ outside, total, total / 2000 });
+        for (inside, labels) |count, label| {
+            if (count < game_frame_min_inside) return self.fail("expect=game_frames:{s} was false: only {d} pixels differ inside the {s}, at least {d} wanted: the Game did not draw the edit there", .{ arg, count, label, game_frame_min_inside });
+        }
+        if (outside > total / 2000) return self.fail("expect=game_frames:{s} was false: {d} pixels differ outside the edited rects, at most {d} allowed", .{ arg, outside, total / 2000 });
         return null;
     }
 
@@ -2105,6 +2566,10 @@ const Runner = struct {
         if (eql(u8, name, "shot_minimap")) return self.shotMinimap(arg);
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
         if (eql(u8, name, "shot_curve_handle")) return self.shotCurveHandle(arg);
+        if (eql(u8, name, "gui_rect")) return self.guiRect(arg);
+        if (eql(u8, name, "gui_same")) return self.guiSame(arg);
+        if (eql(u8, name, "game_log_clean")) return self.gameLogClean();
+        if (eql(u8, name, "game_frames")) return self.gameFrames(arg);
         return self.fail("unknown predicate '{s}'", .{name});
     }
 };
@@ -2196,6 +2661,8 @@ pub fn auto(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, ho
     defer runner.life.deinit(gpa);
     defer runner.panels.deinit(gpa);
     defer if (runner.curve) |*curve| curve.deinit();
+    defer for (&runner.gui_snapshots) |slot| gpa.free(slot.rects);
+    defer for (&runner.game_shots) |slot| gpa.free(slot.pixels);
     defer _ = runner.bridge().close();
     // Before the bridge closes, like the preview: the docks' textures belong to the engine.
     defer if (runner.docks) |*d| d.deinit();
