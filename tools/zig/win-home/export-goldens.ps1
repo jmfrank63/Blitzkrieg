@@ -54,7 +54,7 @@ if (-not [string]::IsNullOrWhiteSpace($GogProject)) {
     $gogSource = Join-Path $ScratchRoot "gog/source"
     New-Item -ItemType Directory -Force -Path $gogSource, $GogOut | Out-Null
     Get-ChildItem -Path $GogProject -Force | Copy-Item -Destination $gogSource -Recurse -Force
-    $process = Start-Process -FilePath $EditorPath -ArgumentList @("*.bld", "`"$gogSource`"", "`"$GogOut\`"", "-f") `
+    $process = Start-Process -FilePath $EditorPath -ArgumentList @("*.bld", "`"$gogSource`"", "`"$GogOut\\`"", "-f") `
         -WorkingDirectory (Split-Path -Parent $EditorPath) -PassThru
     if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
         $process.Kill()
@@ -80,8 +80,27 @@ foreach ($ext in $Extensions) {
     New-Item -ItemType Directory -Force -Path $source, $dest | Out-Null
     Get-ChildItem -Path $fixture -Force | Where-Object { $_.Name -ne "golden" } |
         Copy-Item -Destination $source -Recurse -Force
+    # The fixtures carry no export path, and batch mode refuses a project without a relative one
+    # (CParentFrame::ExportSingleFile returns -3 or -4). The port's comparator compares the files at
+    # the top of its export folder, so the scratch copy gets <own_data><export_file_name>1.xml. A
+    # gamma.cfg with MFC's defaults (all 0) keeps ReadConfigFile from reporting a missing config.
+    # Only the scratch copy changes; the tracked fixture stays as it is.
+    $latin1 = [Text.Encoding]::GetEncoding(28591)
+    $projectFile = Join-Path $source "project.$ext"
+    $text = [IO.File]::ReadAllText($projectFile, $latin1)
+    if ($text -notmatch "<export_file_name>") {
+        if ($text -match "<own_data>") {
+            $text = ([regex]"<own_data>").Replace($text, "<own_data><export_file_name>1.xml</export_file_name>", 1)
+        } else {
+            $text = $text.Insert($text.LastIndexOf("</"), "<own_data><export_file_name>1.xml</export_file_name></own_data>`r`n")
+        }
+        [IO.File]::WriteAllText($projectFile, $text, $latin1)
+    }
+    [IO.File]::WriteAllText((Join-Path $source "gamma.cfg"), "<?xml version=`"1.0`"?>`r`n<base Brightness=`"0`" Contrast=`"0`" Gamma=`"0`"/>`r`n", $latin1)
 
-    $process = Start-Process -FilePath $EditorPath -ArgumentList @("*.$ext", "`"$source`"", "`"$dest\`"", "-f") `
+    # The destination keeps its trailing backslash doubled: in "dir\" Windows reads the backslash
+    # before the closing quote as an escaped quote, so -f was swallowed and batch mode skipped the export.
+    $process = Start-Process -FilePath $EditorPath -ArgumentList @("*.$ext", "`"$source`"", "`"$dest\\`"", "-f") `
         -WorkingDirectory (Split-Path -Parent $EditorPath) -PassThru
     if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
         $process.Kill()
@@ -91,7 +110,7 @@ foreach ($ext in $Extensions) {
     }
     $files = @(Get-ChildItem -Path $dest -Recurse -File)
     if ($files.Count -eq 0) {
-        Write-Host "FAIL $ext exported nothing"
+        Write-Host ("FAIL $ext exported nothing (editor exit code " + $process.ExitCode + ")")
         $failed += $ext
         continue
     }
