@@ -91,6 +91,10 @@ struct SCompareResult
 	// lose (kRoundTripLosses in comparator.cpp), each with its reason. Not
 	// failures, but never dropped silently.
 	std::vector<std::string> excused;
+	// CompareGolden only: differences whose cause is not proven, each with the
+	// reason it is pending (a fixture MFC never saved, a camera the port
+	// lacks). Not failures and not accepted: they wait for a regenerated golden.
+	std::vector<std::string> pending;
 };
 
 // Loads the engine's StreamIO module and its globals beside the running

@@ -848,7 +848,9 @@ SCompareResult CompareRoundTrip( EExportKind kind, const std::string &szExported
 // the port deliberately or unavoidably does not reproduce. A path is the one a
 // "field" message names; a path without a trailing '/' covers the node and
 // what is below it. Every entry says why; the golden comparison lists each
-// excused difference with that reason, so none is silent.
+// difference with that reason as pending, never as accepted: a cause that is
+// not proven from MFC's source and the golden bytes waits for a regenerated
+// golden, so none is silent and none counts as a pass.
 struct SGoldenDifference
 {
 	EExportKind kind;
@@ -856,8 +858,8 @@ struct SGoldenDifference
 	const char *pszWhy;
 };
 
-#define BK_NO_PROJECT_STATS "MFC's batch export reloads the stats from the project's own stats element (CParentFrame::ExportSingleFile -> LoadRPGStats), which MFC's own save writes and the fixture does not hold, so MFC exports the stats struct's constructor defaults and not the tree's values; the port exports the tree, as MFC does for a project it saved"
-#define BK_SCENE_CAMERA "MFC takes positions and grids from the live editor scene (IScene::GetPos2 / GetPos3 through the editor's camera); the port has no engine camera in this tier (SExportContext::groundCamera is unset) and uses DefaultEditorCamera, so the values differ"
+#define BK_NO_PROJECT_STATS "pending regeneration: MFC's batch export reloads the stats from the project's own stats element (CParentFrame::ExportSingleFile -> LoadRPGStats), which MFC's own save writes and the fixture does not hold, so MFC exports the stats struct's constructor defaults and not the tree's values; the port exports the tree, as MFC does for a project it saved"
+#define BK_SCENE_CAMERA "pending, camera-dependent and not proven: MFC takes positions and grids from the live editor scene (IScene::GetPos2 / GetPos3 through the editor's camera); the port has no engine camera in this tier (SExportContext::groundCamera is unset) and uses DefaultEditorCamera, so the values differ"
 
 const SGoldenDifference kGoldenDifferences[] = {
 	{ EExportKind::WEAPON, "RPG", BK_NO_PROJECT_STATS " (CWeaponFrame::LoadRPGStats, WeaponFrm.cpp:264; the golden's values are SWeaponRPGStats's: RangeMax 30, AimingTime 1, no name)" },
@@ -922,7 +924,7 @@ SCompareResult CompareGolden( EExportKind kind, const std::string &szPortFile, c
 	std::vector<std::string> remaining;
 	for ( const std::string &szMessage : result.messages )
 		if ( const SGoldenDifference *pDifference = FindGoldenDifference( kind, szMessage ) )
-			result.excused.push_back( szMessage + " [" + pDifference->pszWhy + "]" );
+			result.pending.push_back( szMessage + " [" + pDifference->pszWhy + "]" );
 		else if ( IsMfcSixDigitFloat( szMessage ) )
 			result.excused.push_back( szMessage + " [MFC's XML writer prints a float with six significant digits (%lg, DataTreeXML.cpp:326), the golden holds the port's value rounded that way]" );
 		else

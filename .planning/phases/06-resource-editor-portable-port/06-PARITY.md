@@ -361,8 +361,8 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 ## MFC golden comparison status (S16 T08, 2026-10-06)
 
-`zig build test-resource-model-comparator -Dtest-mode=run`: `GOLDEN_SUMMARY extensions=20 pass=3 accepted=8 fail=0 pending=9`.
-The reasons and the per-kind table are in the spec's amendment "S16 T08". Not a claim of parity where marked. Superseded by the hard steer of 2026-10-06T06:23 (D041, done in S16/T05): the 'accepted' counts below are being reduced to the proven classes; the struct-defaults and camera classes are pending. The figures in this block are the T08 ones until T05 reruns the comparator.
+`zig build test-resource-model-comparator -Dtest-mode=run`: `GOLDEN_SUMMARY extensions=20 pass=3 accepted=2 fail=0 pending=15` (S16 T05 rerun after D041; T08 had accepted=8 pending=9). Accepted: spt (History only) and pcp (six-digit floats); trc is counted pending for its 4 stats differences and lists its 6 proven DXT5 solid blocks as accepted beside them.
+The reasons and the per-kind table are in the spec's amendment "S16 T08". Not a claim of parity where marked. Superseded by the hard steer of 2026-10-06T06:23 (D041, done in S16/T05): the struct-defaults and camera classes are now reported pending, not accepted, by the comparator (rerun in T05).
 
 | Row | Status |
 |---|---|

@@ -1026,7 +1026,7 @@ Pending, with the reason the comparator logs:
 | scp | 0 | pending: golden holds only History |
 | spt | 1 | accepted: History only |
 | unt | 1 | pass |
-| msh | 29 | accepted: six-digit floats; missing-element differences pending regeneration; 12 DDS equal after the format fix |
+| msh | 29 | pending regeneration: 121 missing-element differences; 12 DDS equal after the format fix |
 | obt | 26 | pending: 16 regeneration, 24 camera and grid |
 | fnc | 10 | pending: 18 camera |
 | bld | 50 | pending: 4 regeneration, 20 camera |

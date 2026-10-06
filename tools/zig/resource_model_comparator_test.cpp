@@ -1129,7 +1129,7 @@ static SCompareResult CompareGoldenFile( EExportKind kind, const std::string &sz
 // own. Both are listed in the log and the spec; the default accepts nothing.
 struct SGoldenRules
 {
-	std::vector<std::pair<std::string, std::string>> acceptedSuffixes;   // file name suffix, reason
+	std::vector<std::pair<std::string, std::string>> pendingSuffixes;   // file name suffix, reason; reported pending, not accepted
 	const SDxtTolerance *pTolerance = nullptr;
 	const char *szToleranceReason = "";
 };
@@ -1137,7 +1137,8 @@ struct SGoldenRules
 struct SGoldenResult
 {
 	int nFiles = 0;
-	std::vector<std::string> accepted;   // "<file>: <difference> [<reason>]", explained, not failures
+	std::vector<std::string> accepted;   // "<file>: <difference> [<reason>]", proven from MFC's source and the golden bytes
+	std::vector<std::string> pending;    // "<file>: <difference> [<reason>]", cause not proven, waits for a regenerated golden
 	std::vector<std::string> failures;   // "<file>: <reason>"
 	std::vector<std::string> details;    // every difference line of every failed file, "<file>: <message>"
 };
@@ -1242,16 +1243,18 @@ static SGoldenResult CompareGoldenFolder( EExportKind kind, const fs::path &port
 		}
 		for ( const std::string &szExcused : compared.excused )
 			result.accepted.push_back( szRelative + ": " + szExcused );
+		for ( const std::string &szPending : compared.pending )
+			result.pending.push_back( szRelative + ": " + szPending );
 		if ( compared.status == ECompareStatus::EQUAL )
 			continue;
 		const std::pair<std::string, std::string> *pRule = nullptr;
-		for ( const auto &rule : rules.acceptedSuffixes )
+		for ( const auto &rule : rules.pendingSuffixes )
 			if ( EndsWith( szRelative, rule.first ) )
 				pRule = &rule;
 		if ( pRule != nullptr && compared.status == ECompareStatus::DIFFERENT )
 		{
 			for ( const std::string &szMessage : compared.messages )
-				result.accepted.push_back( szRelative + ": " + szMessage + " [" + pRule->second + "]" );
+				result.pending.push_back( szRelative + ": " + szMessage + " [" + pRule->second + "]" );
 			continue;
 		}
 		result.failures.push_back( szRelative + ": " + CompareStatusName( compared.status ) + Messages( compared ) );
@@ -1560,38 +1563,47 @@ static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
 		}
 		if ( szExt == "obt" )
 		{
-			static const char kReason[] = "the sprite packs follow the zero cross, the passability grid and its origin, which MFC takes from its live scene camera and tile lists and the port from DefaultEditorCamera and the project's desc (the fixture has none), so the packed pictures and animations differ in size";
+			static const char kReason[] = "pending, camera-dependent and not proven: the sprite packs follow the zero cross, the passability grid and its origin, which MFC takes from its live scene camera and tile lists and the port from DefaultEditorCamera and the project's desc (the fixture has none), so the packed pictures and animations differ in size";
 			for ( const char *pszSuffix : { ".san", "_c.dds", "_l.dds", "_h.dds" } )
-				rules.acceptedSuffixes.push_back( { pszSuffix, kReason } );
+				rules.pendingSuffixes.push_back( { pszSuffix, kReason } );
 		}
 		const SGoldenResult result = CompareGoldenFolder( entry.kind, run.data, goldenDir, tolerance, rules );
-		std::string szAccepted;
-		std::map<std::string, int> reasons;
-		for ( const std::string &szLine : result.accepted )
-		{
-			szAccepted += szLine + "\n";
-			const std::string::size_type nReason = szLine.rfind( " [" );
-			std::string szReason = nReason == std::string::npos ? szLine : szLine.substr( nReason + 2 );
-			if ( !szReason.empty() && szReason.back() == ']' )
-				szReason.pop_back();
-			++reasons[szReason];
-		}
+		auto summarise = []( const std::vector<std::string> &lines, std::string *pszAll, std::map<std::string, int> *pReasons ) {
+			for ( const std::string &szLine : lines )
+			{
+				*pszAll += szLine + "\n";
+				const std::string::size_type nReason = szLine.rfind( " [" );
+				std::string szReason = nReason == std::string::npos ? szLine : szLine.substr( nReason + 2 );
+				if ( !szReason.empty() && szReason.back() == ']' )
+					szReason.pop_back();
+				++( *pReasons )[szReason];
+			}
+		};
+		std::string szAccepted, szPendingLines;
+		std::map<std::string, int> reasons, pendingReasons;
+		summarise( result.accepted, &szAccepted, &reasons );
+		summarise( result.pending, &szPendingLines, &pendingReasons );
 		if ( !result.accepted.empty() )
 			WriteBytes( scratch / szExt / "accepted.txt", szAccepted );
+		if ( !result.pending.empty() )
+			WriteBytes( scratch / szExt / "pending.txt", szPendingLines );
 		if ( result.failures.empty() )
 		{
-			if ( result.accepted.empty() )
+			if ( result.accepted.empty() && result.pending.empty() )
 			{
 				Log( "GOLDEN " + szExt + " pass (" + std::to_string( result.nFiles ) + " files)" );
 				++nPass;
+				continue;
 			}
-			else
-			{
-				Log( "GOLDEN " + szExt + " accepted (" + std::to_string( result.nFiles ) + " files, " + std::to_string( result.accepted.size() ) + " explained differences, listed in golden/" + szExt + "/accepted.txt)" );
-				for ( const auto &reason : reasons )
-					Log( "GOLDEN " + szExt + " accepted " + std::to_string( reason.second ) + " x: " + reason.first );
-				++nAccepted;
-			}
+			// A kind with any unproven difference is pending, whatever else
+			// was accepted: the accepted part is listed beside it.
+			const bool bPendingKind = !result.pending.empty();
+			Log( "GOLDEN " + szExt + ( bPendingKind ? " pending (" : " accepted (" ) + std::to_string( result.nFiles ) + " files, " + std::to_string( result.accepted.size() ) + " accepted and " + std::to_string( result.pending.size() ) + " pending differences, listed in golden/" + szExt + "/accepted.txt and pending.txt)" );
+			for ( const auto &reason : reasons )
+				Log( "GOLDEN " + szExt + " accepted " + std::to_string( reason.second ) + " x: " + reason.first );
+			for ( const auto &reason : pendingReasons )
+				Log( "GOLDEN " + szExt + " pending " + std::to_string( reason.second ) + " x: " + reason.first );
+			++( bPendingKind ? nPending : nAccepted );
 			continue;
 		}
 		std::string szDetails;
