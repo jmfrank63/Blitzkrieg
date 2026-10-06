@@ -1034,7 +1034,7 @@ Pending, with the reason the comparator logs:
 | eff | 0 | pending: particle source missing in the golden's run |
 | til | 0 | pending: golden holds only History |
 | mdc | 6 | pass |
-| bdg 3rd 3rv mip chc cgc | 0 | pending: the MFC editor crashed |
+| bdg 3rd 3rv mip chc cgc | 0 | resolved later: all goldens exist (3rd, 3rv exported by hand in MFC's GUI) |
 
 ## Amendment (S16 T09, 2026-10-06): saving in MFC's form (D042)
 
