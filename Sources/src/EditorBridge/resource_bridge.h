@@ -618,7 +618,10 @@ BkEditorStatus BkResMeshLocators( BkResSession *session, BkResLocator *out, int 
    fields stay empty. Ported: weapon (wpn; path may also be the flat
    weapons\<name>.xml itself), mine (mcp), trench (trc: no segments, as in
    MFC), squad (scp: MFC never wrote this one, its load is commented out;
-   the port does the inverse of its export) and infantry (unt). The 3D road
+   the port does the inverse of its export), infantry (unt) and medal (mdc:
+   MFC's GetRPGStats is commented out too; the port reads the name,
+   description and picture back from the stats and keeps the file's place
+   below medals\ as the project's export file name). The 3D road
    (3rd) and 3D river (3rv) take the runtime <name>.xml file itself as path
    (terrain\sets\1\roads3d\road_pavement.xml), not a folder holding 1.xml;
    a file of the other kind is refused naming its type. Every other

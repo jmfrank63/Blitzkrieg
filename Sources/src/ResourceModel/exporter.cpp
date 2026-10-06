@@ -34,6 +34,7 @@ std::map<std::string, FExporter> &Exporters()
 		{ "til", &ExportTileSet },
 		{ "3rd", &ExportRoad3D },
 		{ "3rv", &ExportRiver3D },
+		{ "mdc", &ExportMedal },
 	};
 	return exporters;
 }

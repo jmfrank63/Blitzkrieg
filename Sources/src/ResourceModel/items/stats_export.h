@@ -42,6 +42,7 @@ bool ExportEffect( const Project &project, const SExportContext &context, SExpor
 bool ExportRoad3D( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportRiver3D( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 bool ExportTileSet( const Project &project, const SExportContext &context, SExportOutcome &outcome );
+bool ExportMedal( const Project &project, const SExportContext &context, SExportOutcome &outcome );
 
 // CMeshFrame::SetCombatMesh's locator half (MeshFrm.cpp:1762-1885): the root's
 // Locators item gets one child per skeleton node of the combat .mod, named as

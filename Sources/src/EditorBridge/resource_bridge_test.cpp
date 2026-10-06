@@ -5957,6 +5957,165 @@ static void NegativeTiles( BkResSession *pSession, const std::string &szRoot )
 // S10 T03: the building exporter and importer on the fixture (a copy under
 // local-test): the packs are written, a second forced export is byte-identical,
 // a deleted picture warns, and export -> import -> stats-only export is field-equal.
+// S14 T01: the medal exporter and importer (MedalFrm.cpp), on the fixture's 20 x 12 picture
+// that ComposeImageToTexture pads to 32 x 16, and on a shipped medal.
+namespace S14Medal
+{
+
+namespace fs = std::filesystem;
+
+static unsigned ReadLe32( const std::string &szBytes, std::size_t nOffset )
+{
+	unsigned n = 0;
+	for ( int i = 3; i >= 0; --i )
+		n = ( n << 8 ) | (unsigned char)szBytes[nOffset + i];
+	return n;
+}
+
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	// Earlier tiers swap stand-ins in and out of the "mdc" slot; this one wants the real exporter.
+	NResourceModel::RegisterExporter( "mdc", &NResourceModel::ExportMedal );
+	const fs::path scratch = fs::path( szScratchRoot ) / "s14-medal";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "medal";
+	fs::create_directories( projectDir, ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / "mdc", ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), projectDir / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / "project.mdc";
+	if ( !Check( fs::is_regular_file( project, ec ) && fs::is_regular_file( projectDir / "medal.tga", ec ) && fs::is_regular_file( projectDir / "name.txt", ec ),
+	             "medal: the fixture, its picture and its texts are copied" ) )
+		return;
+
+	const fs::path modDir = scratch / "mod";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S14 medal" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "medal: the mod folder is set" );
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "medal: project.mdc opens" ) )
+		return;
+	BkResExportReport report = {};
+	BkResWarning warnings[8] = {};
+	report.warnings = warnings;
+	report.warnings_capacity = 8;
+	if ( !Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK && report.written >= 5, "medal: the fixture exports" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		return;
+	}
+	Check( report.warning_count == 0, "medal: a complete project exports without warnings" );
+	const fs::path xml = S09Object::FindFile( modDir / "data", "1.xml" );
+	if ( !Check( !xml.empty(), "medal: a 1.xml is written" ) )
+	{
+		BkResClose( pSession );
+		return;
+	}
+	const fs::path outDir = xml.parent_path();
+	SMedalStats stats;
+	Check( ReadChunkAsMfc( xml.string(), "base", "RPG", stats ) && stats.szTexture.size() >= 5 && stats.szTexture.compare( stats.szTexture.size() - 5, 5, "medal" ) == 0 &&
+	       stats.szHeaderText.find( "name" ) != std::string::npos && stats.szDescriptionText.find( "desc" ) != std::string::npos,
+	       "medal: the engine reads the stats with the picture, name and description under the folder" );
+	// GetImageSize: the picture's size, and (size + 0.5) over the padded size.
+	std::printf( "MEDAL rect %g %g %g %g\n", stats.mapImageRect.x1, stats.mapImageRect.y1, stats.mapImageRect.x2, stats.mapImageRect.y2 );
+	Check( stats.mapImageRect.x1 == 20.0f && stats.mapImageRect.y1 == 12.0f && stats.mapImageRect.x2 == 20.5f / 32.0f && stats.mapImageRect.y2 == 12.5f / 16.0f,
+	       "medal: ImageRect is 20 x 12 over the 32 x 16 padding" );
+	Check( fs::is_regular_file( outDir / "medal_c.dds", ec ) && fs::is_regular_file( outDir / "medal_l.dds", ec ) && fs::is_regular_file( outDir / "medal_h.dds", ec ),
+	       "medal: the three DDS packs are written" );
+	Check( fs::is_regular_file( outDir / "name.txt", ec ) && fs::is_regular_file( outDir / "desc.txt", ec ), "medal: the name and description texts are copied" );
+
+	// The uncompressed pack is the picture on 32 x 16 white, alpha 0 outside the picture.
+	std::string szHigh;
+	if ( Check( ReadBytes( ( outDir / "medal_h.dds" ).string(), szHigh ) && szHigh.size() >= 128 + 32 * 16 * 4, "medal: _h.dds is a 32 x 16 ARGB8888 DDS" ) )
+	{
+		const unsigned nHeight = ReadLe32( szHigh, 12 ), nWidth = ReadLe32( szHigh, 16 );
+		const auto Alpha = [&]( int x, int y ) { return (unsigned char)szHigh[128 + ( y * 32 + x ) * 4 + 3]; };
+		const auto Rgb = [&]( int x, int y ) { return ReadLe32( szHigh, 128 + ( y * 32 + x ) * 4 ) & 0xffffff; };
+		std::printf( "MEDAL _h %ux%u alpha inside %d, right %d, below %d, corner rgb %06x\n", nWidth, nHeight, Alpha( 5, 5 ), Alpha( 25, 5 ), Alpha( 5, 14 ), Rgb( 31, 15 ) );
+		Check( nWidth == 32 && nHeight == 16, "medal: the pack is padded to the next power of two" );
+		Check( Alpha( 5, 5 ) == 255 && Alpha( 19, 11 ) == 255 && Alpha( 20, 5 ) == 0 && Alpha( 31, 15 ) == 0 && Alpha( 5, 12 ) == 0 && Alpha( 5, 14 ) == 0,
+		       "medal: the picture is opaque and the padding has alpha 0" );
+		Check( Rgb( 31, 15 ) == 0xffffff && Rgb( 25, 5 ) == 0xffffff, "medal: the padding is white" );
+	}
+	BkResClose( pSession );
+
+	// Stats-only: the same stats and no graphics.
+	const fs::path modStats = scratch / "mod-stats";
+	BkResModSettings modOs = {};
+	std::snprintf( modOs.export_dir, sizeof( modOs.export_dir ), "%s", modStats.string().c_str() );
+	std::snprintf( modOs.name, sizeof( modOs.name ), "S14 medal stats" );
+	BkResModSettingsSet( pSession, &modOs );
+	if ( Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "medal: reopens for the stats-only export" ) )
+	{
+		report = {};
+		Check( BkResExportStatsOnly( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK && report.written == 1, "medal: stats-only writes the stats file alone" );
+		const fs::path xmlStats = S09Object::FindFile( modStats / "data", "1.xml" );
+		Check( !xmlStats.empty() && !fs::exists( xmlStats.parent_path() / "medal_c.dds", ec ), "medal: stats-only leaves the DDS files out" );
+		BkResClose( pSession );
+	}
+
+	// A missing picture fails the export naming the file and writes nothing.
+	fs::remove( projectDir / "medal.tga", ec );
+	const fs::path modMissing = scratch / "mod-missing";
+	BkResModSettings modMiss = {};
+	std::snprintf( modMiss.export_dir, sizeof( modMiss.export_dir ), "%s", modMissing.string().c_str() );
+	std::snprintf( modMiss.name, sizeof( modMiss.name ), "S14 medal missing" );
+	BkResModSettingsSet( pSession, &modMiss );
+	if ( Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, "medal: reopens without its picture" ) )
+	{
+		report = {};
+		Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "medal.tga" ) != nullptr,
+		       "medal: a missing picture fails the export, naming medal.tga" );
+		Check( S09Object::FindFile( modMissing / "data", "1.xml" ).empty(), "medal: a failed export leaves no stats behind" );
+		BkResClose( pSession );
+	}
+
+	// A shipped medal imports and exports stats-only to the 1.xml it came from.
+	const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", "Medals/German/as1" );
+	if ( !Check( fs::is_regular_file( T11::FoldedPath( shipped, "1.xml" ), ec ), "medal shipped: the shipped 1.xml exists" ) )
+		return;
+	const std::string szListing = S09Object::ListingOf( shipped );
+	if ( !Check( BkResImportFromGame( pSession, 19, shipped.string().c_str() ) == BK_EDITOR_OK, "medal shipped: imports" ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	// The shipped folder keeps only the packed DDS, so the 256 x 256 source picture the
+	// stats' ImageRect comes from sits beside the imported project, as an author has it.
+	const fs::path mod2 = scratch / "mod2";
+	fs::create_directories( scratch / "mod2-project", ec );
+	{
+		std::string szTga( 18, '\0' );
+		szTga[2] = 2;
+		szTga[13] = 1;
+		szTga[15] = 1;
+		szTga[16] = 24;
+		szTga.append( 256 * 256 * 3, char( 0x80 ) );
+		std::ofstream( scratch / "mod2-project" / "4.tga", std::ios::binary ) << szTga;
+	}
+	const bool bExported = S09Object::ExportStatsOnly( pSession, mod2, "S14 medal shipped", "mdc" );
+	BkResClose( pSession );
+	const fs::path xml2 = S09Object::FindFile( mod2 / "data", "1.xml" );
+	if ( !Check( bExported && !xml2.empty(), "medal shipped: exports stats-only" ) )
+		return;
+	const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::MEDAL, xml2.string(), T11::FoldedPath( shipped, "1.xml" ).string() );
+	// The shipped file keeps ImageRect's x2 and y2 at six digits (1.00195), the port's float is exact.
+	int nDifferent = 0;
+	for ( const std::string &szMessage : result.messages )
+		if ( !S09Object::NearFloat( szMessage ) )
+		{
+			++nDifferent;
+			std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+		}
+	std::printf( "ROUNDTRIP mdc German/as1: %d fields compared, %d differences\n", result.nFieldsCompared, nDifferent );
+	Check( result.nFieldsCompared >= 3 && nDifferent == 0, "medal shipped: the stats are field-equal to the shipped 1.xml" );
+	Check( S09Object::ListingOf( shipped ) == szListing, "medal shipped: nothing was written into Data" );
+}
+
+}
+
 namespace S10Building
 {
 
@@ -8107,6 +8266,8 @@ int main( int argc, char **argv )
 	S09Channels::Fence( pSession, szFixtureRoot, szScratchRoot );
 	// S10 T03: the building exporter and importer.
 	S10Building::Fixture( pSession, szFixtureRoot, szScratchRoot );
+	// S14 T01: the medal exporter and importer.
+	S14Medal::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 	// S10 T04: a shipped building's round trip, the building negative-tile guard and the GOG golden (win-home only).
 	S10Building::Shipped( pSession, pszRoot, szScratchRoot );
 	S10Building::Shipped( pSession, pszRoot, szScratchRoot, "europe/summer/e_house07_1" );

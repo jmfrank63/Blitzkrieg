@@ -1099,7 +1099,8 @@ static void Exporters( const fs::path &fixtures, const fs::path &data, const fs:
 		       "export unt: stats only writes the same 1.xml " + runStats.outcome.szError );
 	}
 
-	Check( FindExporter( "mdc" ) == nullptr, "export: a kind S06 did not port (mdc) still has no exporter" );
+	Check( FindExporter( "mip" ) == nullptr, "export: a kind not ported yet (mip) still has no exporter" );
+	Check( FindExporter( "mdc" ) != nullptr, "export: the medal exporter is registered (S14 T01)" );
 }
 
 static bool EndsWith( const std::string &sz, const std::string &szSuffix )

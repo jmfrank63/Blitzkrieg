@@ -56,6 +56,7 @@
 #include "../Formats/fmtVSO.h"
 #include "../ResourceModel/combos.h"
 #include "../Main/RPGStats.h"
+#include "../Main/GameStats.h"
 #include "../Main/iMain.h"
 #include "../Main/GameTimer.h"
 #include "../Misc/HPTimer.h"
@@ -4156,6 +4157,7 @@ struct PreviewKind
 const int kTilesetKind = 13;  // "til", the Terrain tileset project
 const int kRoadKind = 14;     // "3rd", the 3D Road project
 const int kRiverKind = 15;    // "3rv", the 3D River project
+const int kMedalKind = 19;    // "mdc", the Medal project
 
 const PreviewKind kPreviewKinds[] =
 {
@@ -5341,6 +5343,51 @@ void SetSlot( NResourceModel::CTreeItem *pItem, std::size_t nSlot, const T &valu
 {
 	if ( pItem != nullptr && nSlot < pItem->MutableValues().size() )
 		pItem->MutableValues()[nSlot].value = value;
+}
+
+// The last component of a runtime stats name: MFC's FillRPGStats prefixed the
+// folder the stats are exported to, which the project keeps out of its fields.
+std::string LastPathComponent( const std::string &szName )
+{
+	const std::string::size_type nCut = szName.find_last_of( "\\/" );
+	return nCut == std::string::npos ? szName : szName.substr( nCut + 1 );
+}
+
+// CMedalFrame::GetRPGStats (MedalFrm.cpp:86). MFC's body is commented out, so
+// a medal opened from the game left the default tree. The port fills the three
+// fields FillRPGStats wrote: name, description and picture, each without the
+// folder prefix the export put in front of it.
+void MedalStatsToTree( const SMedalStats &rpgStats, NResourceModel::CTreeItem &root )
+{
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_MEDAL_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 0, LastPathComponent( rpgStats.szHeaderText ) );
+	SetSlot( pCommonProps, 1, LastPathComponent( rpgStats.szDescriptionText ) );
+	SetSlot( pCommonProps, 2, LastPathComponent( rpgStats.szTexture ) );
+}
+
+// CMedalFrame::LoadRPGStats (MedalFrm.cpp:99): the stats file's place below
+// the kind's folder (szAddDir "medals\\"), which becomes the project's
+// own_data/export_file_name, as MFC kept it in szPrevExportFileName. Empty
+// when the file does not lie below a medals folder; the export then names the
+// stats after the project's own folder.
+std::string MedalExportFileName( const std::filesystem::path &statsFile )
+{
+	std::vector<std::string> parts;
+	for ( const auto &part : statsFile.lexically_normal() )
+		parts.push_back( part.string() );
+	for ( std::size_t i = 0; i + 1 < parts.size(); ++i )
+	{
+		std::string szLower = parts[i];
+		for ( char &c : szLower )
+			c = char( std::tolower( (unsigned char)c ) );
+		if ( szLower != "medals" )
+			continue;
+		std::string szRelative;
+		for ( std::size_t j = i + 1; j < parts.size(); ++j )
+			szRelative += ( j > i + 1 ? "\\" : "" ) + parts[j];
+		return szRelative;
+	}
+	return std::string();
 }
 
 // CAnimationFrame::GetRPGStats (AnimationFrm.cpp), line for line, onto the
@@ -6605,7 +6652,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
 		const std::string szExtension = kKindExtensions[kind];
-		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind || kind == kBridgeKind || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind;
+		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind || kind == kBridgeKind || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind || kind == kMedalKind;
 		if ( !bPorted )
 		{
 			pSession->szMessage = kind == 4
@@ -6645,6 +6692,8 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		bool bBuildingFrame = false;
 		SBridgeRPGStats bridgeStats;
 		bool bBridgeFrame = false;
+		std::string szMedalExportFile;
+		bool bMedalFrame = false;
 		// The KeyName is what the engine's reader found; a file that holds
 		// none of this kind's stats leaves it empty.
 		switch ( kind )
@@ -6834,6 +6883,18 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 					FenceStatsToTree( rpgStats, *pRoot, NResourceModel::GridProjection( camera ) );
 				break;
 			}
+			case kMedalKind:
+			{
+				SMedalStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
+					return status;
+				// A medal has no name of its own in its stats: it is its folder's.
+				szKeyName = rpgStats.szHeaderText.empty() && rpgStats.szTexture.empty() ? std::string() : statsFile.parent_path().filename().string();
+				MedalStatsToTree( rpgStats, *pRoot );
+				szMedalExportFile = MedalExportFileName( statsFile );
+				bMedalFrame = !szMedalExportFile.empty();
+				break;
+			}
 			default:
 			{
 				// CAnimationFrame::LoadRPGStats: the engine's own operator& reads it.
@@ -6857,7 +6918,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		pProject->document.root.kind = NResourceXml::Node::Element;
 		pProject->document.root.name = kKindTable[kind].pszTag;
 		pProject->root = std::move( pRoot );
-		if ( bObjectFrame || bBuildingFrame || bBridgeFrame )
+		if ( bObjectFrame || bBuildingFrame || bBridgeFrame || bMedalFrame )
 		{
 			// The frame's chunks sit beside the tree and only a project read from
 			// text keeps such elements (in the root's layout), so the imported
@@ -6871,6 +6932,16 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 			}
 			if ( bBuildingFrame )
 				NResourceModel::WriteBuildingFrameData( pStaged->document.root, buildingStats );
+			else if ( bMedalFrame )
+			{
+				NResourceXml::Node &ownData = FrameChunk( pStaged->document.root, "own_data" );
+				NResourceXml::Node file = NewElement( "export_file_name" );
+				NResourceXml::Node text;
+				text.kind = NResourceXml::Node::Text;
+				text.text = szMedalExportFile;
+				file.children.push_back( text );
+				ownData.children.push_back( file );
+			}
 			else if ( bBridgeFrame )
 			{
 				NResourceModel::SGroundCamera camera;

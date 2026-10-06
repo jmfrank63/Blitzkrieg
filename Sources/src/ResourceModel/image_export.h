@@ -79,6 +79,25 @@ bool ComposeSingleObject( const SExportContext &context, const std::string &szSp
 // <szName>_c.dds (DXT5), _l.dds (ARGB4444) and _h.dds (ARGB8888).
 bool SaveShadowTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, SExportOutcome &outcome );
 
+// ComposeImageToTexture (BuildCompose.cpp:235): the picture padded to the next
+// power of two on each side, the padding white with alpha 0, written as
+// <szName>_c.dds, _l.dds and _h.dds after the gamma correction (bCorrect, with
+// the frame's compressed and low formats: the medal frame DXT5 and ARGB1555,
+// the chapter and campaign frames DXT3 and ARGB4444, the mission frame DXT3 and
+// ARGB1555), or, without bCorrect, as _h.dds alone, which is what the editor's
+// own preview of the picture wrote. False with outcome.szError naming the
+// source and why when nothing could be written.
+bool ComposeImageToTexture( const SExportContext &context, const std::string &szSource, const std::string &szName, const SGamma &gamma, EGFXPixelFormat compressedFormat, EGFXPixelFormat lowFormat, bool bCorrect, SExportOutcome &outcome );
+// The same padding on a picture in memory, without writing: what the
+// preview shows and the exporter packs.
+CPtr<IImage> PadToPowerOfTwo( IImage *pSource );
+
+// GetImageSize (BuildCompose.cpp:302): x1 and y1 the picture's size in pixels,
+// x2 and y2 the used part of the padded texture, (size + 0.5) / padded size,
+// which is what the stats' ImageRect holds. All zero with outcome.szError when
+// the picture cannot be read.
+CTRect<float> GetImageSize( const std::string &szImage, SExportOutcome &outcome );
+
 // A packed sprite set (BuildSpritesPack of SpriteCompose.cpp) as the engine's
 // structure file szName: chunk 1 the pack, chunk 127 its signature.
 bool SaveSpritesPack( const SExportContext &context, SSpritesPack &pack, const std::string &szName, SExportOutcome &outcome );

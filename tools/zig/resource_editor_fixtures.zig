@@ -259,6 +259,52 @@ fn writeParticleKeys(buf: *Buf) !void {
 /// looks for in the project folder.
 const msh_pictures = [_][]const u8{ "1.tga", "1w.tga", "1a.tga", "2.tga", "2w.tga", "2a.tga", "icon.tga" };
 
+/// The image-frame projects (mdc, chc, cgc, mip) name a picture and some text
+/// files beside the project: the medal's "medal", the chapter's, the
+/// campaign's and the mission's "map" (MissionFrm.cpp reads a fixed map.tga),
+/// and the texts their basic info holds. The picture is 20 x 12, not a power of
+/// two, so ComposeImageToTexture's padding to 32 x 16 is exercised.
+const ImageFrameSources = struct {
+    ext: []const u8,
+    picture: []const u8,
+    texts: []const []const u8,
+};
+const image_frame_sources = [_]ImageFrameSources{
+    .{ .ext = "mdc", .picture = "medal.tga", .texts = &.{ "name.txt", "desc.txt" } },
+    .{ .ext = "chc", .picture = "map.tga", .texts = &.{ "header.txt", "subheader.txt", "desc.txt" } },
+    .{ .ext = "cgc", .picture = "map.tga", .texts = &.{ "header.txt", "subheader.txt" } },
+    .{ .ext = "mip", .picture = "map.tga", .texts = &.{ "header.txt", "subheader.txt", "desc.txt", "1.txt" } },
+};
+
+/// A 20 x 12 24-bit solid-colour targa, RGB565-exact like writeExactSolidTga.
+fn writeImageFramePicture(buf: *Buf, seed: []const u8) !void {
+    const w = 20;
+    const h = 12;
+    var header = [_]u8{0} ** 18;
+    header[2] = 2;
+    std.mem.writeInt(u16, header[12..14], w, .little);
+    std.mem.writeInt(u16, header[14..16], h, .little);
+    header[16] = 24;
+    try buf.push(&header);
+    var hash: [sha256.digest_length]u8 = undefined;
+    sha256.hash(seed, &hash, .{});
+    const b5: u8 = hash[0] >> 3;
+    const g6: u8 = hash[1] >> 2;
+    const r5: u8 = hash[2] >> 3;
+    const b = (b5 << 3) | (b5 >> 2);
+    const g = (g6 << 2) | (g6 >> 4);
+    const r = (r5 << 3) | (r5 >> 2);
+    var row: [w * 3]u8 = undefined;
+    var x: usize = 0;
+    while (x < w) : (x += 1) {
+        row[x * 3 + 0] = b;
+        row[x * 3 + 1] = g;
+        row[x * 3 + 2] = r;
+    }
+    var y: usize = 0;
+    while (y < h) : (y += 1) try buf.push(&row);
+}
+
 /// The art filename (without directory) a given ArtKind writes.
 /// The pictures the obt project names: a sprite and its shadow per season.
 /// 32-bit so the object exporter has alpha to pack, build the shadow from and
@@ -668,6 +714,22 @@ pub fn main(init: std.process.Init) !void {
                 const picture_result = try writeIfChanged(io, out_dir, picture_sub, tga.items());
                 stats.note(picture_result.changed, picture_result.bytes);
                 try log.pushFmt("fixture ext=msh art={s} bytes={d} hash={s}\n", .{ picture_sub, picture_result.bytes, picture_result.tag[0..] });
+            }
+        }
+
+        for (image_frame_sources) |source| {
+            if (!std.mem.eql(u8, fx.ext, source.ext)) continue;
+            var tga: Buf = .{ .a = arena };
+            try writeImageFramePicture(&tga, source.picture);
+            const picture_sub = try std.fmt.allocPrint(arena, "{s}/{s}", .{ source.ext, source.picture });
+            const picture_result = try writeIfChanged(io, out_dir, picture_sub, tga.items());
+            stats.note(picture_result.changed, picture_result.bytes);
+            try log.pushFmt("fixture ext={s} art={s} bytes={d} hash={s}\n", .{ source.ext, picture_sub, picture_result.bytes, picture_result.tag[0..] });
+            for (source.texts) |text_name| {
+                const text_sub = try std.fmt.allocPrint(arena, "{s}/{s}", .{ source.ext, text_name });
+                const text = try std.fmt.allocPrint(arena, "fixture {s} {s}\r\n", .{ source.ext, text_name });
+                const text_result = try writeIfChanged(io, out_dir, text_sub, text);
+                stats.note(text_result.changed, text_result.bytes);
             }
         }
 

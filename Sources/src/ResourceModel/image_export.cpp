@@ -347,6 +347,62 @@ bool ComposeSingleObject( const SExportContext &context, const std::string &szSp
 	return SaveCompressedShadow( context, pPackedShadow, szName + "s", outcome ) && SaveAnimation( context, shadowAnimations, szName + "s.san", outcome );
 }
 
+CPtr<IImage> PadToPowerOfTwo( IImage *pSource )
+{
+	IImageProcessor *pIP = GetImageProcessor();
+	const int nTempX = pSource->GetSizeX(), nTempY = pSource->GetSizeY();
+	const int nSizeX = GetNextPow2( nTempX ), nSizeY = GetNextPow2( nTempY );
+	RECT sourceRC = { 0, 0, nTempX, nTempY };
+	CPtr<IImage> pDestImage = pIP->CreateImage( nSizeX, nSizeY );
+	if ( pDestImage == 0 )
+		return 0;
+	pDestImage->CopyFrom( pSource, &sourceRC, 0, 0 );
+
+	SColor *pDest = pDestImage->GetLFB();
+	const SColor col( 0, 0xff, 0xff, 0xff );
+	if ( nSizeX > nTempX )
+	{
+		for ( int y = 0; y < nTempY; y++ )
+			for ( int x = nTempX; x < nSizeX; x++ )
+				pDest[y * nSizeX + x] = col;
+	}
+	for ( int y = nTempY; y < nSizeY; y++ )
+		for ( int x = 0; x < nSizeX; x++ )
+			pDest[y * nSizeX + x] = col;
+	return pDestImage;
+}
+
+bool ComposeImageToTexture( const SExportContext &context, const std::string &szSource, const std::string &szName, const SGamma &gamma, EGFXPixelFormat compressedFormat, EGFXPixelFormat lowFormat, bool bCorrect, SExportOutcome &outcome )
+{
+	CPtr<IImage> pSourceImage = LoadPicture( szSource, outcome );
+	if ( pSourceImage == 0 )
+		return false;
+	CPtr<IImage> pDestImage = PadToPowerOfTwo( pSourceImage );
+	if ( pDestImage == 0 )
+	{
+		outcome.szError = "cannot create the padded image for " + szSource;
+		return false;
+	}
+	if ( bCorrect )
+		return SaveCompressedTexture( context, pDestImage, szName, gamma, compressedFormat, lowFormat, outcome );
+	return SaveDds( context, pDestImage, GFXPF_ARGB8888, szName + "_h.dds", outcome );
+}
+
+CTRect<float> GetImageSize( const std::string &szImage, SExportOutcome &outcome )
+{
+	CTRect<float> res( 0.0f, 0.0f, 0.0f, 0.0f );
+	CPtr<IImage> pImage = LoadPicture( szImage, outcome );
+	if ( pImage == 0 )
+		return res;
+	const float fSizeX = float( GetNextPow2( pImage->GetSizeX() ) );
+	const float fSizeY = float( GetNextPow2( pImage->GetSizeY() ) );
+	res.x1 = float( pImage->GetSizeX() );
+	res.y1 = float( pImage->GetSizeY() );
+	res.x2 = ( float( pImage->GetSizeX() ) + 0.5f ) / fSizeX;
+	res.y2 = ( float( pImage->GetSizeY() ) + 0.5f ) / fSizeY;
+	return res;
+}
+
 bool SaveTga( const SExportContext &context, IImage *pImage, const std::string &szName, SExportOutcome &outcome )
 {
 	{
