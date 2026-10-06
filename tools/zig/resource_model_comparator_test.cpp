@@ -54,6 +54,8 @@
 namespace fs = std::filesystem;
 using namespace NResourceModel;
 
+void RunUiScreenTests( const fs::path &data, const fs::path &scratchRoot, bool ( *Check )( bool, const std::string & ) );
+
 static int g_nFailures = 0;
 static std::string g_szLog;
 
@@ -1351,6 +1353,7 @@ int main( int argc, char **argv )
 	DxtGate( data, scratch, fixtures );
 	Exporters( fixtures, data, scratch );
 	Goldens( fixtures, scratch );
+	RunUiScreenTests( data, scratch, Check );
 
 	Log( g_nFailures == 0 ? "VERDICT=PASS" : "VERDICT=FAIL failures=" + std::to_string( g_nFailures ) );
 	std::ofstream log( fs::path( argv[2] ) / "resource_model" / "comparator.log", std::ios::binary | std::ios::trunc );
