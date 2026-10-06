@@ -46,6 +46,9 @@ apps with Dear ImGui (`Sources/editor`) talking to the engine through the C ABI 
   `build/` or `.vscode/`: they hold tracked files.
 - `CArray2D::SetZero` used to trap in debug builds (fixed in `3e8afc8a7`); the Map Editor tiers that open a map now pass
   on a Linux debug build too. A tier failure there is a real regression, not a known pre-existing failure.
+- Before a task completes, `git status` must show nothing the task touched as modified or untracked: headers,
+  fixtures and docs included. GSD's task commit can leave files out; a clean checkout (CI, the maintainer's sweep
+  worktree) then fails to compile, as at S13 (`affe58ffd`).
 - Commit messages: conventional prefix with a scope, e.g. `feat(resource-editor): ...`, `fix(editor): ...`,
   `test(...)`, `docs(...)`. Do not push; the maintainer merges and pushes.
 - Deleting legacy MFC code or shipped binaries is part of a phase's end only after its parity checklist is fully
