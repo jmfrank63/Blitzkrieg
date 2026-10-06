@@ -148,6 +148,16 @@ foreach ($ext in $Extensions) {
         }
         [IO.File]::WriteAllText($projectFile, $text, $latin1)
     }
+    # MFC's batch export of a squad crashes on a formation that lists units: CSquadFrame::SaveRPGStats reads
+    # each unit's pMemberProps (SquadFrm.cpp:275), which only CSquadTreeRootItem::CallMeAfterSerialize sets
+    # (ETreeCtrl.cpp:454, the GUI and open-and-save load), and the export run loads the project without it,
+    # so MFC stops with the History alone. The scratch copy lists no units in its formation; the port gets
+    # the same copy (resource_model_comparator_test.cpp, EmptyFormationUnits).
+    if ($ext -eq "scp") {
+        $text = [IO.File]::ReadAllText($projectFile, $latin1)
+        $text = [regex]::Replace($text, "(?s)<units>.*?</units>", "<units/>")
+        [IO.File]::WriteAllText($projectFile, $text, $latin1)
+    }
     [IO.File]::WriteAllText((Join-Path $source "gamma.cfg"), "<?xml version=`"1.0`"?>`r`n<base Brightness=`"0`" Contrast=`"0`" Gamma=`"0`"/>`r`n", $latin1)
 
     # Batch export reads the stats from the project's own cached <RPG>/<desc> block, which MFC writes

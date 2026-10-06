@@ -1249,7 +1249,16 @@ static SGoldenResult CompareGoldenFolder( EExportKind kind, const fs::path &port
 			result.failures.push_back( szRelative + ": the port did not export this file" );
 			continue;
 		}
-		SCompareResult compared = CompareGoldenFile( kind, szRelative, port, it->path(), defaultTolerance );
+		if ( kind == EExportKind::TILESET && SameNoCase( szRelative, "1.xml" ) && IsHistoryOnly( it->path() ) )
+		{
+			// CTileSetFrame::ExportFrameData writes nothing into the batch's stream (TileSetFrm.cpp:434-440); the
+			// tileset's own XML comes from CTileSetTreeRootItem::ComposeTiles through a second stream on the same
+			// file name (TileTreeItem.cpp:243-248), and the batch's History stream, saved last, replaces it: the
+			// golden bytes show the History alone beside a crosset.xml that holds tiles.
+			result.accepted.push_back( szRelative + ": the golden holds only MFC's <History> where the port writes the tileset's stats [MFC's batch History stream replaces the tileset XML ComposeTiles wrote to the same file (TileSetFrm.cpp:434, TileTreeItem.cpp:243); the tileset stats are not in the golden]" );
+			continue;
+		}
+		SCompareResult compared = CompareGoldenFile( kind == EExportKind::TILESET && SameNoCase( szRelative, "crosset.xml" ) ? EExportKind::CROSSET : kind, szRelative, port, it->path(), defaultTolerance );
 		if ( compared.status == ECompareStatus::DIFFERENT && rules.pTolerance != nullptr && EndsWith( szRelative, "_c.dds" ) )
 		{
 			// A gate of the kind's own: the difference is listed with its reason when it passes that one.
@@ -1353,6 +1362,23 @@ static void InjectExportFileName( const fs::path &project )
 			return;
 		szXml.insert( nLast, "<own_data>" + szInjected + "</own_data>\r\n" );
 	}
+	WriteBytes( project, szXml );
+}
+
+// What export-goldens.ps1 does to the squad's scratch copy: MFC's batch export of a squad crashes on a
+// formation that lists units (CSquadFrame::SaveRPGStats reads each unit's pMemberProps, SquadFrm.cpp:275, which
+// only CSquadTreeRootItem::CallMeAfterSerialize sets, from ETreeCtrl.cpp:454, and the export run loads the
+// project without it), so the copy lists none and both sides export a squad whose formation has no order.
+static void EmptyFormationUnits( const fs::path &project )
+{
+	std::string szXml;
+	if ( !ReadBytes( project, &szXml ) )
+		return;
+	const std::string::size_type nOpen = szXml.find( "<units>" );
+	const std::string::size_type nClose = szXml.find( "</units>" );
+	if ( nOpen == std::string::npos || nClose == std::string::npos || nClose < nOpen )
+		return;
+	szXml.replace( nOpen, nClose + 8 - nOpen, "<units/>" );
 	WriteBytes( project, szXml );
 }
 
@@ -1538,13 +1564,9 @@ static bool GoldenHasCampaignPrefixTwice( const fs::path &golden )
 // its symptom; a kind without a check is pending only while its golden has none.
 static const SPendingGolden kPending[] =
 {
-	{ "3rd", "the golden does not exist yet: the MFC editor crashed (0xC0000005) on the 3d road fixture, first on a texture the installed data lacks (the fixture names road_asphalt_city now) and then on maps\\road3d.xml and its terrain, which 3dRoadFrm.cpp:243-289 loads from the editor's data folder and the GOG install has only inside data.pak; export-goldens.ps1 places the tracked Data/Maps/road3d.xml and Data/Terrain/sets/1 there now; regenerate the golden on win-home (S16 T11)", nullptr },
-	{ "3rv", "the golden does not exist yet: the MFC editor crashed (0xC0000005) on the 3d river fixture, first on a texture the installed data lacks (the fixture names water\\a_bottom now) and then on maps\\river3d.xml and its terrain, which 3dRiverFrm.cpp:204-225 loads from the editor's data folder and the GOG install has only inside data.pak; export-goldens.ps1 places the tracked Data/Maps/river3d.xml and Data/Terrain/sets/1 there now; regenerate the golden on win-home (S16 T11)", nullptr },
 	{ "chc", "the golden was made from a fixture whose cached <RPG> block held the export's prefixed paths (scenarios\\chc\\header): MFC loads the block into the tree (CChapterFrame::LoadRPGStats) and prefixes again, so the golden says scenarios\\scenarios\\chc\\header and a zero MapImageRect (the picture was looked up under the doubled name); a save writes the tree's own paths (the prefix is empty outside ExportFrameData), the bridge refreshes the block that way now and the fixture is re-saved; regenerate the golden on win-home (S16 T10)", &GoldenHasChapterPrefixTwice },
 	{ "cgc", "the golden was made from a fixture whose cached <RPG> block held the export's prefixed paths (scenarios\\campaigns\\cgc\\header): MFC loads the block into the tree (CCampaignFrame::LoadRPGStats) and prefixes again, so the golden says scenarios\\campaigns\\scenarios\\campaigns\\cgc\\header and a zero MapImageRect; the bridge writes the tree's own paths into the block now and the fixture is re-saved; regenerate the golden on win-home (S16 T10)", &GoldenHasCampaignPrefixTwice },
-	{ "spt", "the golden holds only MFC's <History>: MFC found no frame file (\"Can not find files total count 1 ...\\_.sprite-1frame.tga\", SpriteTreeItem.cpp:89, :220: the directory value \"_.\" is a prefix of the frame name), so it composed no sprite; the fixture carries _.sprite-1frame.tga beside sprite-1frame.tga now; regenerate the golden on win-home (S16 T11)", &GoldenIsHistoryOnly },
-	{ "scp", "the golden holds only MFC's <History>: CSquadFrame::SaveRPGStats (SquadFrm.cpp:216) stops at MakeName (SquadFrm.cpp:198) when a member given as a path (USSR\\Mosin) is not in the editor's objects database, which the installed data on win-home did not resolve; the fixture names its member by key, USSR_Mosin, which MakeName returns as it is, so the export needs no database; regenerate the golden on win-home (S16 T11)", &GoldenIsHistoryOnly },
-	{ "til", "the golden holds only MFC's <History> and a crosset without tiles: the tileset export needs editor\\terrain\\tilemask.tga in the editor's data folder (TileSetFrm.cpp:610; export-goldens.ps1 places the tracked Data/Editor/Terrain/tilemask.tga there now), and the tile art art-16x16.tga could not be opened (\"Some of files can not be opened\", TileTreeItem.cpp:232, :364: the golden's crosset.xml has no tiles); the fixture's tile is a 32-bit targa now, the format of the fence art MFC did read, which is a guess at the cause until the golden is regenerated (S16 T11)", &GoldenIsHistoryOnly },
+	{ "scp", "the golden holds only MFC's <History>, and the cause is in MFC's source: its batch export loads the project without CSquadTreeRootItem::CallMeAfterSerialize (ParentFrame.cpp:1403 reads the root with operator&; the call is in ETreeCtrl.cpp:454, the GUI and open-and-save load), so a formation unit's pMemberProps stays null and CSquadFrame::SaveRPGStats (SquadFrm.cpp:275) stops before it writes the RPG node; a squad whose formation lists no units does not reach that line, and export-goldens.ps1 and this test now export that copy; regenerate the golden on win-home (S16 T12)", &GoldenIsHistoryOnly },
 	{ "eff", "MFC skipped the function particle \"particle-2key\" (EffectFrm.cpp:215: no stream, an error box, continue) because the editor's data folder has no Effects\\particles\\particle-2key.xml (<editor folder>\\data\\), so the golden's <particles/> is empty; export-goldens.ps1 puts a shipped particle there as particle-2key.xml now; regenerate the golden on win-home (S16 T10)", &GoldenEffectHasNoParticles },
 };
 
@@ -1627,6 +1649,15 @@ static void Goldens( const fs::path &fixtures, const fs::path &data, const fs::p
 				pPending = &pending;
 		if ( pPending != nullptr && ( !bAny || ( pPending->pfnHolds != nullptr && pPending->pfnHolds( goldenDir ) ) ) )
 		{
+			if ( szExt == "scp" )
+			{
+				// The scratch copy the next win-home run exports must export with the port too.
+				const fs::path batchCopy = CopyFixture( fixtures, scratch, szExt );
+				InjectExportFileName( batchCopy );
+				EmptyFormationUnits( batchCopy );
+				const SExportRun batchRun = RunExporter( szExt, batchCopy, scratch / szExt / "data", context );
+				Check( batchRun.bExported, "golden scp: the batch-safe copy (no formation units) exports with the port: " + batchRun.outcome.szError );
+			}
 			Log( "GOLDEN " + szExt + " pending: " + pPending->pszReason );
 			++nPending;
 			continue;
@@ -1670,6 +1701,8 @@ static void Goldens( const fs::path &fixtures, const fs::path &data, const fs::p
 			rules.pTolerance = &trenchTolerance;
 			rules.szToleranceReason = "the shipped editor's DXT5 encoder writes a solid-colour 4x4 block with both endpoints moved (colour 0xaf7e and 0xb79e, alpha ff and 00 for the source colour 0xb2f1f8) where NDxt writes one endpoint twice; the decoded colour is off by 3 to 6, the gate for this kind is 6. NLegacyDxt, the MFC-era source code, writes a third block, so the shipped encoder is neither";
 		}
+		if ( szExt == "til" )
+			rules.pendingSuffixes.push_back( { ".dds", "the golden's tile art was 16 x 16 while the tile mask is 64 x 32, and MFC runs the mask over a mask-sized rectangle of every tile (TileTreeItem.cpp:189-192), so it read and wrote past the image and the atlas holds memory that followed it (the golden's terrain atlas has no tile, its crosset atlas has random alpha); the fixture's art is 64 x 32 now; regenerate the golden on win-home (S16 T12)" } );
 		const SGoldenResult result = CompareGoldenFolder( entry.kind, run.data, goldenDir, tolerance, rules );
 		auto summarise = []( const std::vector<std::string> &lines, std::string *pszAll, std::map<std::string, int> *pReasons ) {
 			for ( const std::string &szLine : lines )

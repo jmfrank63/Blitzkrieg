@@ -199,26 +199,32 @@ fn writeSolidTga(buf: *Buf, seed: []const u8) !void {
 }
 
 /// writeSolidTga as a 32-bit Targa, alpha opaque, descriptor with 8 alpha bits.
+/// The size is the tile mask's, 64 x 32: the tileset export runs the mask over
+/// a rectangle of the mask's size on every tile (TileTreeItem.cpp:189-192), so
+/// a smaller tile makes MFC read and write past the image and its atlas holds
+/// whatever memory followed it.
 fn writeSolidTga32(buf: *Buf, seed: []const u8) !void {
+    const width = 64;
+    const height = 32;
     var header = [_]u8{0} ** 18;
     header[2] = 2;
-    std.mem.writeInt(u16, header[12..14], 16, .little);
-    std.mem.writeInt(u16, header[14..16], 16, .little);
+    std.mem.writeInt(u16, header[12..14], width, .little);
+    std.mem.writeInt(u16, header[14..16], height, .little);
     header[16] = 32;
     header[17] = 0x08;
     try buf.push(&header);
     var hash: [sha256.digest_length]u8 = undefined;
     sha256.hash(seed, &hash, .{});
-    var row: [16 * 4]u8 = undefined;
+    var row: [width * 4]u8 = undefined;
     var x: usize = 0;
-    while (x < 16) : (x += 1) {
+    while (x < width) : (x += 1) {
         row[x * 4 + 0] = hash[0];
         row[x * 4 + 1] = hash[1];
         row[x * 4 + 2] = hash[2];
         row[x * 4 + 3] = 0xff;
     }
     var y: usize = 0;
-    while (y < 16) : (y += 1) try buf.push(&row);
+    while (y < height) : (y += 1) try buf.push(&row);
 }
 
 /// Like writeSolidTga, but each channel is snapped to a value that RGB565
@@ -941,15 +947,16 @@ test "project XML round-trips the composer save name as the root tag" {
     }
 }
 
-test "every art generator stays under 4 KB and is deterministic" {
-    const limit = 4 * 1024;
+test "every art generator stays under 4 KB (the tile art under 9 KB) and is deterministic" {
+    const limit: usize = 4 * 1024;
+    const tile_limit: usize = 9 * 1024;
     for (fixtures) |fx| {
         const project = try renderProject(std.testing.allocator, fx.composer_save_name);
         defer std.testing.allocator.free(project);
         try std.testing.expect(project.len < limit);
         const art_a = try renderArt(std.testing.allocator, fx.art, fx.ext);
         defer std.testing.allocator.free(art_a);
-        try std.testing.expect(art_a.len < limit);
+        try std.testing.expect(art_a.len < (if (fx.art == .picture32) tile_limit else limit));
         const art_b = try renderArt(std.testing.allocator, fx.art, fx.ext);
         defer std.testing.allocator.free(art_b);
         try std.testing.expectEqualSlices(u8, art_a, art_b);
@@ -969,7 +976,7 @@ test "solid-colour TGA has a valid 18-byte header and 16x16 24-bit pixel block" 
 test "32-bit solid-colour TGA has an opaque BGRA pixel block and 8 alpha bits" {
     const bytes = try renderArt(std.testing.allocator, .picture32, "til");
     defer std.testing.allocator.free(bytes);
-    try std.testing.expectEqual(@as(usize, 18 + 16 * 16 * 4), bytes.len);
+    try std.testing.expectEqual(@as(usize, 18 + 64 * 32 * 4), bytes.len);
     try std.testing.expectEqual(@as(u8, 2), bytes[2]);
     try std.testing.expectEqual(@as(u8, 32), bytes[16]);
     try std.testing.expectEqual(@as(u8, 0x08), bytes[17]);

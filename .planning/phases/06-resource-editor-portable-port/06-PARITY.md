@@ -395,3 +395,10 @@ pending with the reason that keeps it open. The per-kind table and the maintaine
 | golden til | pending (T11): tile art is a 32-bit targa now (cause unproven); golden to regenerate |
 | golden 3rd, 3rv | pending (T11): `export-goldens.ps1` places `maps\road3d.xml`, `river3d.xml` and the terrain set in the editor's data folder; golden to regenerate |
 | mip open-and-save crash | hypothesis (T11): the nested `mip/final-map` project, left out of the script's scratch copy; to confirm on win-home |
+| T12 golden round 4 | `test-resource-model-comparator`: pass=9 accepted=8 fail=0 pending=3 (3rd, til, scp); see the spec's amendment "S16 T12" |
+| golden 3rd, 3rv exported by hand | the two goldens were exported by hand in MFC's GUI: MFC's batch export of 3D roads and rivers crashes even for projects MFC made itself (T12) |
+| golden 3rv | passes (T12) |
+| golden 3rd | pending (T12): `SoilParams` is 0 in the golden, 16 in the port; MFC's source gives 16 (`3dRoadFrm.cpp:187`, `:231`); cause not proven, re-export by hand and note the two soil items |
+| golden spt | accepted (T12): `1.san` and the three DDS equal; the golden's `1.xml` is the batch history |
+| golden til | pending (T12): the tile art (16 x 16) was smaller than the mask (64 x 32), so MFC read past it (`TileTreeItem.cpp:189-192`); fixture art is 64 x 32 now; regenerate on win-home |
+| golden scp | pending (T12): MFC's batch export never calls `CallMeAfterSerialize`, so a formation unit's `pMemberProps` is null at `SquadFrm.cpp:275`; the scratch copy lists no formation units; regenerate on win-home |

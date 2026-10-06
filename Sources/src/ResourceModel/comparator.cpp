@@ -894,6 +894,7 @@ const SGoldenDifference kGoldenDifferences[] = {
 	{ EExportKind::BRIDGE, "RPG/Segments/item[*]/Origin", BK_ENGINE_NOISE " (CBridgeFrame::SaveRPGStats, BridgeFrm.cpp:1155: the origin is the sprite position minus GetPos3 of the center cross)", true, kEnginePositionNoise },
 	{ EExportKind::BRIDGE, "RPG/Segments/item[*]/VisOrigin", BK_ENGINE_NOISE " (CBridgeFrame::SaveRPGStats, BridgeFrm.cpp:1155)", true, kEnginePositionNoise },
 	{ EExportKind::BRIDGE, "RPG/FirePoints/", BK_ENGINE_NOISE " (CBridgeFrame::SaveRPGStats, BridgeFrm.cpp:1090: the fire point's position and picture position come back through GetPos2 and GetPos3 as +-1e-4 where the port has exactly 0)", true, kEnginePositionNoise },
+	{ EExportKind::VSO, "VSODescription/SoilParams", "the golden holds 0 for a road whose project has Has dust effect on (cached SoilParams 16): C3DRoadFrame::GetRPGStats sets that item from the cached block (3dRoadFrm.cpp:231, 3dRoadTreeItem.h:49) and FillRPGStats writes it back as ESP_DUST 0x10 (3dRoadFrm.cpp:187, 3dRoadTreeItem.cpp:261), so MFC's source gives 16 as the port does; the golden was exported by hand in the GUI from a project the GUI had saved, and what its two soil items held is not recorded; not proven, the golden waits for a win-home re-export that notes both items (S16 T12)" },
 	{ EExportKind::BRIDGE, "RPG/SmokePoints/", BK_ENGINE_NOISE " (CBridgeFrame::SaveRPGStats, BridgeFrm.cpp:1115, the same round trip as the fire points)", true, kEnginePositionNoise },
 };
 
@@ -925,9 +926,19 @@ bool IsMfcSixDigitFloat( const std::string &szMessage )
 	float fPort, fGolden;
 	if ( !TwoFloatsOf( szMessage, &fPort, &fGolden ) )
 		return false;
-	char szText[64];
-	std::snprintf( szText, sizeof( szText ), "%lg", static_cast<double>( fPort ) );
-	return static_cast<float>( std::strtod( szText, nullptr ) ) == fGolden;
+	// A value that sits exactly between two six-digit decimals (0.001953125) is printed up by the shipped
+	// editor's C runtime (the til golden holds 0.00195313) and to even by glibc (0.00195312), so the digit
+	// string is tried for the value and for the value one step further from zero.
+	const double fValue = fPort;
+	const double fAway = std::nextafter( fValue, fValue < 0 ? -HUGE_VAL : HUGE_VAL );
+	for ( const double fCandidate : { fValue, fAway } )
+	{
+		char szText[64];
+		std::snprintf( szText, sizeof( szText ), "%lg", fCandidate );
+		if ( static_cast<float>( std::strtod( szText, nullptr ) ) == fGolden )
+			return true;
+	}
+	return false;
 }
 
 const SGoldenDifference *FindGoldenDifference( EExportKind kind, const std::string &szMessage )

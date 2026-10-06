@@ -7720,7 +7720,7 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 		       "til: a 'normal and flipped' tile gives engine entries 2*index and 2*index+1, each with its 25 as the engine ranges them" );
 	}
 
-	// The atlas pixels at the place tile 0 goes: 16 x 16 art times the mask.
+	// The atlas pixels at the place tile 0 goes: 64 x 32 art times the mask.
 	std::string szDds, szArt, szMask, szError;
 	NResourceModel::SDdsImage decoded;
 	NResourceModel::SDxtTolerance tolerance;
@@ -7734,18 +7734,23 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 		const int nExpectedHeight = TileSetAtlasHeight( 0 );
 		Check( decoded.szFourCC == "DXT1" && mip.nWidth == 256 && mip.nHeight == nExpectedHeight && pGate != nullptr, "til: the tileset atlas is DXT1, 256 wide and as high as the index asks" );
 		int nWorst = 0, nCompared = 0, nOutside = 0;
-		// The art is a 32-bit targa since S16 T11 (the 24-bit one could not be opened by the shipped editor's tile export).
+		// A tile is 32 rows high, and CImage::CopyFromAB refuses a rectangle that does not fit (the shipped editor's atlas of tile
+		// index 0 is 16 rows high, so its golden holds no tile): the slot stays empty then, as MFC leaves it.
+		const bool bFits = nExpectedHeight >= 32;
+		const int nRows = std::min( 32, mip.nHeight );
+		// The art is a 32-bit targa since S16 T11 (the 24-bit one could not be opened by the shipped editor's tile export) and
+		// as large as the mask, 64 x 32, since S16 T12 (MFC runs the mask over a mask-sized rectangle of every tile).
 		const int nArtBytes = szArt.size() > 16 ? static_cast<unsigned char>( szArt[16] ) / 8 : 3;
-		if ( pGate != nullptr && szMask.size() >= 18 + 64 * 32 * 4 && ( nArtBytes == 3 || nArtBytes == 4 ) && szArt.size() >= size_t( 18 + 16 * 16 * nArtBytes ) )
+		if ( pGate != nullptr && szMask.size() >= 18 + 64 * 32 * 4 && ( nArtBytes == 3 || nArtBytes == 4 ) && szArt.size() >= size_t( 18 + 64 * 32 * nArtBytes ) )
 		{
-			for ( int y = 0; y < 16; ++y )
-				for ( int x = 0; x < 16; ++x )
+			for ( int y = 0; y < nRows; ++y )
+				for ( int x = 0; x < 64; ++x )
 				{
 					// Both files are bottom-up; the art is BGR or BGRA, the mask 32 bit BGRA.
-					const unsigned char *pArt = reinterpret_cast<const unsigned char *>( szArt.data() ) + 18 + ( ( 15 - y ) * 16 + x ) * nArtBytes;
+					const unsigned char *pArt = reinterpret_cast<const unsigned char *>( szArt.data() ) + 18 + ( ( 31 - y ) * 64 + x ) * nArtBytes;
 					const unsigned char *pMask = reinterpret_cast<const unsigned char *>( szMask.data() ) + 18 + ( ( 31 - y ) * 64 + x ) * 4;
 					const unsigned nGot = mip.pixels[size_t( y ) * mip.nWidth + x];
-					const int nExpected[3] = { pArt[2] * pMask[2] / 255, pArt[1] * pMask[1] / 255, pArt[0] * pMask[0] / 255 };
+					const int nExpected[3] = { bFits ? pArt[2] * pMask[2] / 255 : 0, bFits ? pArt[1] * pMask[1] / 255 : 0, bFits ? pArt[0] * pMask[0] / 255 : 0 };
 					const int nGotRgb[3] = { int( ( nGot >> 16 ) & 0xff ), int( ( nGot >> 8 ) & 0xff ), int( nGot & 0xff ) };
 					for ( int c = 0; c < 3; ++c )
 						nWorst = std::max( nWorst, std::abs( nExpected[c] - nGotRgb[c] ) );
@@ -7759,7 +7764,7 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 		}
 		std::printf( "TIL ATLAS tile 0: %d pixels compared, worst colour delta %d (gate %d, plus 4 for the mask product), %d lit pixels in an empty slot\n", nCompared, nWorst,
 		             pGate != nullptr ? pGate->nColourMax : -1, nOutside );
-		Check( nCompared == 256 && pGate != nullptr && nWorst <= pGate->nColourMax + 4 && nOutside == 0, "til: tile 0 sits at the computed place, equal to the masked art within the DXT gate" );
+		Check( nCompared == 64 * nRows && nRows >= 16 && pGate != nullptr && nWorst <= pGate->nColourMax + 4 && nOutside == 0, "til: tile 0 sits at the computed place, equal to the masked art within the DXT gate (or the slot is empty when the atlas is too low for a tile)" );
 	}
 
 	// A forced second export is byte-identical.

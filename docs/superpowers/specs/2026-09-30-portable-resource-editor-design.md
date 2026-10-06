@@ -1259,3 +1259,40 @@ as an effect is still refused (negative test).
 **For the maintainer: regenerate on win-home** (`export-goldens.ps1 -Extensions spt,scp,til,3rd,3rv`, and mip if it crashed again) from
 this commit. If 3rd or 3rv still crash, the crash offset says what is still missing; if til's crosset still has no tiles, the art was
 not the cause. **Not claimed:** no macOS or Windows result; the full resource sweep is left to the maintainer. T07 still waits.
+
+## Amendment (S16 T12, 2026-10-06): golden round 4, 3rd and 3rv by hand, spt compared, til and scp causes
+
+**3rd and 3rv goldens were exported by hand in MFC's GUI.** MFC's batch export of 3D roads and rivers crashes even for projects MFC made
+itself, so `export-goldens.ps1` cannot make these two; the maintainer opened `project.3rd` and `project.3rv` in the shipped editor and used
+its export (their `<History>` says "Exported as", not "Batch exported as"). Commit `22a9eba5b` holds all 20 goldens. Remake these two
+the same way.
+
+**Result of `test-resource-model-comparator`: pass=9 accepted=8 fail=0 pending=3** (was pass=9 accepted=7 fail=1 pending=3).
+
+- **3rv: pass.**
+- **spt: accepted.** The golden's `1.san` and `_c/_h/_l.dds` equal the port's; its `1.xml` is the batch history (a sprite exports no stats).
+- **3rd: pending, not proven.** The golden holds `SoilParams="0"`, the port 16 (`ESP_DUST`, from the project's "Has dust effect" item, on, cached
+  `SoilParams="16"`). MFC's source gives 16 as well: `C3DRoadFrame::GetRPGStats` sets the item from the cached block (`3dRoadFrm.cpp:231`,
+  `3dRoadTreeItem.h:49`), and `FillRPGStats` writes it back (`3dRoadFrm.cpp:187`, `3dRoadTreeItem.cpp:261`). The river code never touches
+  soil params (and 3rv passes). `CVariant` reads a loaded bool correctly (`Variant.cpp`). The golden's project was saved by the GUI before
+  the export, so the two soil items may have been changed there; nothing records it. The port is not changed: it follows MFC's source. The
+  re-export on win-home should note what "Has dust effect" and "Units leave tracks" show before it exports.
+- **til: pending, cause found.** The tile art was 16 x 16 and the tile mask is 64 x 32. MFC runs the mask over a mask-sized rectangle of every
+  tile (`TileTreeItem.cpp:189-192`: `ModulateColorFrom`, `CopyFromAB`), so it read and wrote past the image: the golden's terrain atlas holds
+  no tile and its crosset atlas has random alpha in rows below the tile. The fixture's art is 64 x 32 now (generator `writeSolidTga32`; the
+  file keeps its name `art-16x16.tga`, which the project names; `EXTENSIONS.md` has the new size and hash). The three differences accepted:
+  MFC's six-digit floats (392 values of `crosset.xml`; the comparator now also accepts the other rounding of an exact decimal tie, as the
+  shipped editor's C runtime rounds `0.001953125` up and glibc to even), and `1.xml`, which holds the History alone: `ExportFrameData`
+  writes nothing into the batch stream (`TileSetFrm.cpp:434`), `ComposeTiles` writes the tileset XML through a second stream on the same
+  name (`TileTreeItem.cpp:243`), and the History stream replaces it; the tileset's stats are not in the golden. The comparator reads
+  `crosset.xml` as a crosset (it read it as a tileset before). The five DDS files stay pending until the golden is regenerated.
+- **scp: pending, cause found.** The key-named member was not the cause. MFC's batch export loads the project with
+  `pRootItem->operator&` (`ParentFrame.cpp:1403`), and only `CSquadTreeRootItem::CallMeAfterSerialize` (`SquadTreeItem.cpp:32`, called from
+  `ETreeCtrl.cpp:454` in the GUI and open-and-save load) sets each formation unit's `pMemberProps`. In the export run it stays null and
+  `CSquadFrame::SaveRPGStats` dereferences it at `SquadFrm.cpp:275`, so only the History is written. The same missing call would stop any
+  squad that has units in a formation. The fixture is unchanged (the bridge tests need its unit); `export-goldens.ps1` and the comparator
+  test both make a scratch copy whose formation lists no units, and the comparator checks that the port exports that copy.
+
+**For the maintainer: regenerate on win-home** `export-goldens.ps1 -Extensions scp,til` from this commit, and re-export `3rd` by hand
+(noting the two soil items). Nothing else is open in the goldens. Not claimed: no macOS or Windows result; the full resource sweep is left to
+the maintainer. T07 still waits.
