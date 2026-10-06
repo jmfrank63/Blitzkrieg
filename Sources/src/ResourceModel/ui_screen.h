@@ -31,6 +31,15 @@ struct SUiWindow
 	float x = 0, y = 0, w = 0, h = 0;
 };
 
+// One ElementID a paste changed: the game tells controls apart by ElementID
+// (UI_NOTIFY_WINDOW_CLICKED carries it), so a pasted window whose id the screen
+// already uses gets a free one. nWindow is the pasted window's model id.
+struct SUiElementIdChange
+{
+	int nWindow = 0;
+	int nOld = -1, nNew = -1;
+};
+
 class CUiScreen
 {
 public:
@@ -63,8 +72,14 @@ public:
 	// The clipboard form of the outermost windows among ids, as text; Paste reads it back,
 	// moves each pasted window by (dx, dy) and appends them to nParent. newIds, when given,
 	// gets the ids of the pasted top-level windows.
+	// With bUniqueIds every pasted window (nested ones included) keeps its ElementID only
+	// while no window of the screen and no window pasted before it in this paste has it;
+	// otherwise it gets the next free id above the old one, and pChanged (when given) lists
+	// each change in document order. ElementID -1 (the engine's "none") and an absent
+	// attribute are never changed. Without bUniqueIds the ids stay as they are: an undo that
+	// puts deleted windows back, or a redo of a paste, must restore the same bytes.
 	std::string CopyText( const std::vector<int> &ids ) const;
-	bool Paste( int nParent, const std::string &szClipboard, float dx, float dy, std::vector<int> *pNewIds, std::string &szError );
+	bool Paste( int nParent, const std::string &szClipboard, float dx, float dy, bool bUniqueIds, std::vector<int> *pNewIds, std::vector<SUiElementIdChange> *pChanged, std::string &szError );
 
 	const std::string &Save() const { return m_szText; }
 	// The same screen under a <base> root, which is what the game loads from a mod.
@@ -72,7 +87,7 @@ public:
 
 private:
 	bool Reindex( std::string &szError );
-	bool InsertChunks( int nParent, const std::vector<std::string> &chunks, std::vector<int> *pNewIds, std::string &szError );
+	bool InsertChunks( int nParent, const std::vector<std::string> &chunks, std::vector<int> *pNewIds, std::vector<int> *pAllNew, std::string &szError );
 
 	std::string m_szText, m_szName, m_szRoot;
 	std::vector<SUiWindow> m_windows;

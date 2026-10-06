@@ -4054,7 +4054,8 @@ BkEditorStatus BkResGuiCopy( BkResSession *pSession, const int *pIds, int nCount
 	} );
 }
 
-BkEditorStatus BkResGuiPaste( BkResSession *pSession, int nParent, const char *pszClipboard, int dx, int dy, int *pOutIds, int nCapacity, int *pnCount )
+BkEditorStatus BkResGuiPaste( BkResSession *pSession, int nParent, const char *pszClipboard, int dx, int dy, int nUniqueIds, int *pOutIds, int nCapacity, int *pnCount,
+                              int *pOutChanges, int nChangeCapacity, int *pnChangeCount )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
@@ -4062,14 +4063,17 @@ BkEditorStatus BkResGuiPaste( BkResSession *pSession, int nParent, const char *p
 		NResourceModel::CUiScreen *pScreen = OpenScreen( pSession, status );
 		if ( pnCount != nullptr )
 			*pnCount = 0;
+		if ( pnChangeCount != nullptr )
+			*pnChangeCount = 0;
 		if ( pScreen == nullptr )
 			return status;
 		if ( pszClipboard == nullptr || pScreen->Find( nParent ) == nullptr )
 			return BK_EDITOR_BAD_ARGUMENT;
-		GuiTrace( "paste under %d moved by %d,%d", nParent, dx, dy );
+		GuiTrace( "paste under %d moved by %d,%d%s", nParent, dx, dy, nUniqueIds != 0 ? "" : ", ElementIDs kept" );
 		std::vector<int> ids;
+		std::vector<NResourceModel::SUiElementIdChange> changes;
 		std::string szError;
-		if ( !pScreen->Paste( nParent, pszClipboard, float( dx ), float( dy ), &ids, szError ) )
+		if ( !pScreen->Paste( nParent, pszClipboard, float( dx ), float( dy ), nUniqueIds != 0, &ids, &changes, szError ) )
 		{
 			pSession->szMessage = szError;
 			return BK_EDITOR_REFUSED;
@@ -4078,6 +4082,17 @@ BkEditorStatus BkResGuiPaste( BkResSession *pSession, int nParent, const char *p
 			*pnCount = int( ids.size() );
 		for ( int i = 0; pOutIds != nullptr && i < nCapacity && i < int( ids.size() ); ++i )
 			pOutIds[i] = ids[i];
+		if ( pnChangeCount != nullptr )
+			*pnChangeCount = int( changes.size() );
+		for ( int i = 0; i < int( changes.size() ); ++i )
+		{
+			GuiTrace( "paste: ElementID %d -> %d (window %d)", changes[i].nOld, changes[i].nNew, changes[i].nWindow );
+			if ( pOutChanges == nullptr || i >= nChangeCapacity )
+				continue;
+			pOutChanges[i * 3] = changes[i].nWindow;
+			pOutChanges[i * 3 + 1] = changes[i].nOld;
+			pOutChanges[i * 3 + 2] = changes[i].nNew;
+		}
 		return BK_EDITOR_OK;
 	} );
 }

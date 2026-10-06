@@ -7,12 +7,15 @@
 //      changes, the window count changing by the inserts and deletes;
 //   3. a GUI_Composer_Project root opens, saves as itself and as <base>, and the engine reads
 //      the <base> one; moving a window back restores the original bytes;
-//   4. malformed input and bad requests fail with the line or the reason.
+//   4. malformed input and bad requests fail with the line or the reason;
+//   5. a paste gives a window whose ElementID the screen (or the paste) already uses the next
+//      free one and reports it, keeps unused ids, and the engine reads the ids back unique.
 #include "StdAfx.h"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <set>
 #include <string>
 #include <vector>
 #include "ui_screen.h"
@@ -29,15 +32,17 @@ struct SEngineWindow
 {
 	CVec2 vPos, vSize;
 	int nFlag;
+	int nElementID;
 	std::vector<SEngineWindow> children;
 
-	SEngineWindow() : vPos( 0, 0 ), vSize( 0, 0 ), nFlag( 0x0011 ) {}
+	SEngineWindow() : vPos( 0, 0 ), vSize( 0, 0 ), nFlag( 0x0011 ), nElementID( -1 ) {}
 	int operator&( IDataTree &ss )
 	{
 		CTreeAccessor saver = &ss;
 		saver.Add( "WindowPos", &vPos );
 		saver.Add( "WindowSize", &vSize );
 		saver.Add( "PositionFlag", &nFlag );
+		saver.Add( "ElementID", &nElementID );
 		saver.Add( "Children", &children );
 		return 0;
 	}
@@ -47,12 +52,13 @@ struct SFlat
 {
 	float x, y, w, h;
 	int nFlag;
+	int nElementID;	// not compared: the geometry checks predate it
 	bool operator==( const SFlat &o ) const { return x == o.x && y == o.y && w == o.w && h == o.h && nFlag == o.nFlag; }
 };
 
 void Flatten( const SEngineWindow &win, std::vector<SFlat> *pOut )
 {
-	SFlat flat = { win.vPos.x, win.vPos.y, win.vSize.x, win.vSize.y, win.nFlag };
+	SFlat flat = { win.vPos.x, win.vPos.y, win.vSize.x, win.vSize.y, win.nFlag, win.nElementID };
 	pOut->push_back( flat );
 	for ( const SEngineWindow &child : win.children )
 		Flatten( child, pOut );
@@ -93,7 +99,7 @@ bool EngineRead( const fs::path &file, const char *pszRoot, std::vector<SFlat> *
 
 SFlat Of( const SUiWindow &w )
 {
-	SFlat flat = { w.x, w.y, w.w, w.h, w.nPositionFlag };
+	SFlat flat = { w.x, w.y, w.w, w.h, w.nPositionFlag, w.nElementID };
 	return flat;
 }
 
@@ -219,7 +225,7 @@ void RunUiScreenTests( const fs::path &data, const fs::path &scratchRoot, FCheck
 	expected[leaves[1]].h += 3;
 	expected[leaves[1]].nFlag = 0x0012;
 	expected.erase( expected.begin() + leaves[2] );
-	const SFlat button = { 300, 200, 71, 93, 17 };
+	const SFlat button = { 300, 200, 71, 93, 17, -1 };
 	expected.push_back( button );
 	Check( bRead && after.size() == before.size() && after == std::vector<SFlat>( expected ) && ModelEqualsEngine( screen, after ) == true,
 	       "ui_screen: the engine reads exactly the move, the resize+flag, the inserted Button00 and the delete (" + std::to_string( before.size() ) + " windows before, " +
@@ -234,14 +240,14 @@ void RunUiScreenTests( const fs::path &data, const fs::path &scratchRoot, FCheck
 		const std::string szClip = screen.CopyText( { moved.nId, nNew, 0 } );
 		std::vector<int> pasted;
 		const size_t nBefore = screen.Windows().size();
-		Check( screen.Paste( 0, szClip, 20, 30, &pasted, szError ) && pasted.size() == 2 && screen.Windows().size() == nBefore + 2 &&
+		Check( screen.Paste( 0, szClip, 20, 30, true, &pasted, nullptr, szError ) && pasted.size() == 2 && screen.Windows().size() == nBefore + 2 &&
 		       screen.Find( pasted[0] )->x == screen.Find( moved.nId )->x + 20 && screen.Find( pasted[1] )->y == screen.Find( nNew )->y + 30,
 		       "ui_screen: copy and paste adds both windows shifted by 20,30 " + szError );
 		std::vector<SFlat> engine;
 		WriteBytes( scratch / "pasted.xml", screen.Save() );
 		Check( EngineRead( scratch / "pasted.xml", "base", &engine ) && ModelEqualsEngine( screen, engine ) && engine.size() == nBefore + 2,
 		       "ui_screen: the engine reads the pasted windows where the model says" );
-		Check( !screen.Paste( 0, "<other/>", 0, 0, nullptr, szError ) && Contains( szError, "clipboard" ), "ui_screen: a clipboard that is not windows is refused: " + szError );
+		Check( !screen.Paste( 0, "<other/>", 0, 0, true, nullptr, nullptr, szError ) && Contains( szError, "clipboard" ), "ui_screen: a clipboard that is not windows is refused: " + szError );
 		Check( screen.Delete( pasted, szError ) && screen.Windows().size() == nBefore, "ui_screen: the pasted windows delete again" );
 	}
 
@@ -320,5 +326,130 @@ void RunUiScreenTests( const fs::path &data, const fs::path &scratchRoot, FCheck
 		Check( !s.SetRect( 9999, 0, 0, 0, 0, 0, szError ) && Contains( szError, "9999" ), "ui_screen: an unknown id is refused: " + szError );
 		Check( s.InsertFromTemplate( 0, "<GUI_Composer_Project/>", 0, 0, szError ) < 0 && Contains( szError, "<base>" ), "ui_screen: a template that is not <base> is refused: " + szError );
 		Check( s.Save() == szOriginal, "ui_screen: refused edits leave the screen untouched" );
+	}
+
+	// 5. ElementIDs stay unique across a paste (the S15 review: two controls sending the same
+	// id in UI_NOTIFY_WINDOW_CLICKED).
+	{
+		szError.clear();
+		// (a) The same subtree of the shipped MainMenu.xml pasted twice: the first paste collides
+		// with the original, the second with both.
+		CUiScreen menu;
+		menu.Open( szOriginal, "MainMenu.xml", szError );
+		std::vector<SFlat> original;
+		EngineRead( mainMenu, "base", &original );
+		int nSubtree = -1, nSubtreeIds = 0;
+		for ( size_t i = 1; i < menu.Windows().size(); ++i )
+		{
+			const SUiWindow &w = menu.Windows()[i];
+			if ( w.nParent != 0 )
+				continue;
+			int nIds = w.nElementID != -1 ? 1 : 0;
+			for ( size_t j = i + 1; j < menu.Windows().size(); ++j )
+			{
+				bool bUnder = false;
+				for ( const SUiWindow *p = menu.Find( menu.Windows()[j].nParent ); p != nullptr; p = menu.Find( p->nParent ) )
+					bUnder = bUnder || p->nId == w.nId;
+				if ( bUnder && menu.Windows()[j].nElementID != -1 )
+					++nIds;
+			}
+			if ( nIds > nSubtreeIds )
+			{
+				nSubtree = w.nId;
+				nSubtreeIds = nIds;
+			}
+		}
+		Check( nSubtree > 0 && nSubtreeIds >= 2, "ui_screen: MainMenu.xml has a subtree with " + std::to_string( nSubtreeIds ) + " ElementIDs to paste" );
+		const std::string szClip = menu.CopyText( { nSubtree } );
+		const size_t nOriginal = menu.Windows().size();
+		std::vector<int> first, second;
+		std::vector<SUiElementIdChange> firstChanges, secondChanges;
+		const bool bPasted = menu.Paste( 0, szClip, 10, 10, true, &first, &firstChanges, szError ) && menu.Paste( 0, szClip, 20, 20, true, &second, &secondChanges, szError );
+		Check( bPasted && first.size() == 1 && second.size() == 1 && int( firstChanges.size() ) == nSubtreeIds && int( secondChanges.size() ) == nSubtreeIds,
+		       "ui_screen: each paste of the subtree changes all " + std::to_string( nSubtreeIds ) + " of its ElementIDs (" + std::to_string( firstChanges.size() ) + ", " +
+		       std::to_string( secondChanges.size() ) + ") " + szError );
+		bool bReported = true;
+		for ( const std::vector<SUiElementIdChange> *pChanges : { &firstChanges, &secondChanges } )
+			for ( const SUiElementIdChange &c : *pChanges )
+				bReported = bReported && menu.Find( c.nWindow ) != nullptr && menu.Find( c.nWindow )->nElementID == c.nNew && c.nNew != c.nOld;
+		Check( bReported, "ui_screen: each reported change names a pasted window that now has the new ElementID" );
+		WriteBytes( scratch / "pasted_twice.xml", menu.Save() );
+		std::vector<SFlat> twice;
+		const bool bRead = EngineRead( scratch / "pasted_twice.xml", "base", &twice ) && twice.size() == menu.Windows().size() && ModelEqualsEngine( menu, twice );
+		// The original windows come first in document order up to the appended pastes.
+		bool bOriginalsKept = bRead;
+		for ( size_t i = 0; bOriginalsKept && i < nOriginal; ++i )
+			bOriginalsKept = twice[i].nElementID == original[i].nElementID;
+		std::set<int> others;
+		for ( size_t i = 0; bRead && i < nOriginal; ++i )
+			others.insert( twice[i].nElementID );
+		bool bUnique = bRead;
+		std::set<int> pastedIds;
+		for ( size_t i = nOriginal; bRead && i < twice.size(); ++i )
+			if ( twice[i].nElementID != -1 )
+				bUnique = bUnique && others.count( twice[i].nElementID ) == 0 && pastedIds.insert( twice[i].nElementID ).second;
+		for ( size_t i = 0; bRead && i < twice.size(); ++i )
+			bUnique = bUnique && twice[i].nElementID == menu.Windows()[i].nElementID;
+		Check( bRead && bOriginalsKept && bUnique && int( pastedIds.size() ) == 2 * nSubtreeIds,
+		       "ui_screen: the engine reads the original ElementIDs unchanged and the " + std::to_string( pastedIds.size() ) + " pasted ones unique, none used elsewhere in the screen" );
+		// Undo is a delete of the pasted windows: the screen's bytes come back.
+		Check( menu.Delete( { first[0], second[0] }, szError ) && menu.Save() == szOriginal, "ui_screen: deleting both pastes restores MainMenu.xml byte for byte " + szError );
+
+		// Without bUniqueIds (an undo of a delete, a redo of a paste) the ids stay.
+		std::vector<int> subtreeIds;
+		for ( size_t i = 0; i < nOriginal; ++i )
+		{
+			bool bUnder = menu.Windows()[i].nId == nSubtree;
+			for ( const SUiWindow *p = menu.Find( menu.Windows()[i].nParent ); p != nullptr; p = menu.Find( p->nParent ) )
+				bUnder = bUnder || p->nId == nSubtree;
+			if ( bUnder )
+				subtreeIds.push_back( menu.Windows()[i].nElementID );
+		}
+		std::vector<SUiElementIdChange> kept;
+		const bool bKept = menu.Paste( 0, szClip, 0, 0, false, nullptr, &kept, szError );
+		std::vector<int> restoredIds;
+		for ( size_t i = nOriginal; i < menu.Windows().size(); ++i )
+			restoredIds.push_back( menu.Windows()[i].nElementID );
+		Check( bKept && kept.empty() && restoredIds == subtreeIds,
+		       "ui_screen: a paste that restores keeps the ElementIDs and reports none " + szError );
+
+		// (b) No collision: the ids are kept.
+		const std::string szIds = "<base>\r\n\t<Children>\r\n\t\t<item ClassTypeID=\"0x10001103\" ElementID=\"500\">\r\n\t\t\t<WindowPos x=\"1\" y=\"2\"/>\r\n"
+		                          "\t\t\t<Children>\r\n\t\t\t\t<item ClassTypeID=\"0x10001103\" ElementID=\"501\"><WindowPos x=\"0\" y=\"0\"/></item>\r\n\t\t\t</Children>\r\n\t\t</item>\r\n"
+		                          "\t\t<item ClassTypeID=\"0x10001105\" ElementID=\"-1\"><WindowPos x=\"5\" y=\"5\"/></item>\r\n\t</Children>\r\n</base>";
+		CUiScreen source, target;
+		source.Open( szIds, "ids.xml", szError );
+		const std::string szIdsClip = source.CopyText( { 1, 3 } );
+		target.Open( "<base>\r\n\t<Children>\r\n\t\t<item ClassTypeID=\"0x10001103\" ElementID=\"7\"><WindowPos x=\"0\" y=\"0\"/></item>\r\n\t</Children>\r\n</base>", "target.xml", szError );
+		std::vector<SUiElementIdChange> none;
+		std::vector<int> fresh;
+		Check( target.Paste( 0, szIdsClip, 0, 0, true, &fresh, &none, szError ) && none.empty() && target.Windows().size() == 5 && target.Windows()[2].nElementID == 500 &&
+		       target.Windows()[3].nElementID == 501 && target.Windows()[4].nElementID == -1,
+		       "ui_screen: a paste with no collision keeps ElementIDs 500, 501 and -1 and reports nothing " + szError );
+
+		// The same paste again: 500 and 501 are taken, -1 stays (the engine's "no id").
+		std::vector<SUiElementIdChange> again;
+		Check( target.Paste( 0, szIdsClip, 0, 0, true, nullptr, &again, szError ) && again.size() == 2 && again[0].nOld == 500 && again[0].nNew == 502 && again[1].nOld == 501 &&
+		       again[1].nNew == 503 && target.Windows()[7].nElementID == -1,
+		       "ui_screen: the second paste moves 500 and 501 to 502 and 503 and leaves -1 alone " + szError );
+
+		// (c) A clipboard with the same id three times, one nested: one keeps it, the others
+		// take the next free ones, skipping the 8 the screen uses.
+		CUiScreen dup;
+		dup.Open( "<base>\r\n\t<Children>\r\n\t\t<item ClassTypeID=\"0x10001103\" ElementID=\"8\"><WindowPos x=\"0\" y=\"0\"/></item>\r\n\t</Children>\r\n</base>", "dup.xml", szError );
+		const std::string szDupClip = "<BlitzkriegUiClip>\n<item ClassTypeID=\"0x10001103\" ElementID=\"7\"><WindowPos x=\"0\" y=\"0\"/><Children><item ClassTypeID=\"0x10001103\" ElementID=\"7\">"
+		                              "<WindowPos x=\"1\" y=\"1\"/></item></Children></item>\n<item ClassTypeID=\"0x10001103\" ElementID=\"0x7\"><WindowPos x=\"2\" y=\"2\"/></item>\n</BlitzkriegUiClip>";
+		std::vector<SUiElementIdChange> dupChanges;
+		std::string szHex;
+		const bool bDup = dup.Paste( 0, szDupClip, 0, 0, true, nullptr, &dupChanges, szError );
+		dup.GetAttribute( dup.Windows()[4].nId, "ElementID", szHex, szError );
+		Check( bDup && dup.Windows().size() == 5 && dup.Windows()[2].nElementID == 7 && dup.Windows()[3].nElementID == 9 && dup.Windows()[4].nElementID == 10 && dupChanges.size() == 2 &&
+		       dupChanges[0].nWindow == dup.Windows()[3].nId && szHex == "0xA",
+		       "ui_screen: a clipboard holding ElementID 7 three times pastes as 7, 9 and 10 (0xA, its notation kept) " + szError );
+		WriteBytes( scratch / "dup.xml", dup.Save() );
+		std::vector<SFlat> dupEngine;
+		Check( EngineRead( scratch / "dup.xml", "base", &dupEngine ) && dupEngine.size() == 5 && dupEngine[1].nElementID == 8 && dupEngine[2].nElementID == 7 && dupEngine[3].nElementID == 9 &&
+		       dupEngine[4].nElementID == 10,
+		       "ui_screen: the engine reads ElementIDs 8, 7, 9, 10" );
 	}
 }

@@ -8704,7 +8704,7 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 	BkResKind kind = -1;
 	Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 20, "gui: the screen is kind gui (20)" );
 	int nNodes = -1;
-	Check( BkResNodes( pSession, 0, 0, &nNodes ) == BK_EDITOR_REFUSED, "gui: a screen has no palette tree nodes" );
+	Check( BkResNodes( pSession, 0, 0, &nNodes ) == BK_EDITOR_OK && nNodes == 0, "gui: a screen has an empty palette tree (no nodes, so the app's reload after Open works)" );
 
 	// The windows list is the T02 model's.
 	NResourceModel::CUiScreen model;
@@ -8806,15 +8806,35 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 	Check( Row( ints, nButton ) == nullptr, "gui: a new id is never one of the old ones" );
 	std::vector<int> pasted( 4 );
 	int nPasted = 0;
+	// The button gets an ElementID the screen does not use, so its paste must change it.
+	int nFreeId = 4242;
+	for ( bool bTaken = true; bTaken; )
+	{
+		bTaken = false;
+		for ( size_t i = 3; i < withButton.size(); i += 10 )
+			bTaken = bTaken || withButton[i] == nFreeId || withButton[i] == nFreeId + 1;
+		nFreeId += bTaken ? 10 : 0;
+	}
+	const std::string szFreeId = std::to_string( nFreeId );
+	Check( BkResGuiSetAttr( pSession, nButton, "ElementID", szFreeId.c_str() ) == BK_EDITOR_OK, ( "gui: the button's ElementID is set to " + szFreeId ).c_str() );
 	const std::string szClip = Clipboard( pSession, { nButton } );
-	Check( !szClip.empty() && BkResGuiPaste( pSession, 0, szClip.c_str(), 12, 5, pasted.data(), 4, &nPasted ) == BK_EDITOR_OK && nPasted == 1, "gui: the button is copied and pasted" );
+	int changes[3] = { 0, 0, 0 };
+	int nChanges = 0;
+	Check( !szClip.empty() && BkResGuiPaste( pSession, 0, szClip.c_str(), 12, 5, 1, pasted.data(), 4, &nPasted, changes, 1, &nChanges ) == BK_EDITOR_OK && nPasted == 1, "gui: the button is copied and pasted" );
 	const std::vector<int> withPaste = Windows( pSession );
 	const int *pPasted = Row( withPaste, pasted[0] );
 	Check( withPaste.size() == withButton.size() + nAdded * 10 && pPasted != nullptr && pPasted[5] == 42 && pPasted[6] == 45 && pasted[0] != nButton, "gui: the paste adds the same windows moved by 12, 5 under new ids" );
+	Check( nChanges == 1 && changes[0] == pasted[0] && changes[1] == nFreeId && changes[2] == nFreeId + 1 && pPasted != nullptr && pPasted[3] == nFreeId + 1 &&
+	       Row( withPaste, nButton )[3] == nFreeId,
+	       ( "gui: the pasted button's ElementID " + szFreeId + " is taken, so it gets the next free one and the change is reported (" + std::to_string( nChanges ) + " changes)" ).c_str() );
+	int kept = -1;
+	Check( BkResGuiPaste( pSession, 0, szClip.c_str(), 0, 0, 0, &kept, 1, &nPasted, changes, 1, &nChanges ) == BK_EDITOR_OK && nChanges == 0 && Row( Windows( pSession ), kept ) != nullptr &&
+	       Row( Windows( pSession ), kept )[3] == nFreeId,
+	       "gui: a paste with unique_ids 0 keeps the ElementID and reports no change" );
 	int bogus = 0;
-	Check( BkResGuiPaste( pSession, 0, "not a clipboard", 0, 0, &bogus, 1, &nPasted ) == BK_EDITOR_REFUSED, "gui: text that holds no windows is not pasted" );
-	const int toDelete[2] = { nButton, pasted[0] };
-	Check( BkResGuiDelete( pSession, toDelete, 2 ) == BK_EDITOR_OK && Windows( pSession ) == movedList, "gui: deleting both buttons brings the list back" );
+	Check( BkResGuiPaste( pSession, 0, "not a clipboard", 0, 0, 1, &bogus, 1, &nPasted, nullptr, 0, nullptr ) == BK_EDITOR_REFUSED, "gui: text that holds no windows is not pasted" );
+	const int toDelete[3] = { nButton, pasted[0], kept };
+	Check( BkResGuiDelete( pSession, toDelete, 3 ) == BK_EDITOR_OK && Windows( pSession ) == movedList, "gui: deleting the three buttons brings the list back" );
 	const int root = 0;
 	Check( BkResGuiDelete( pSession, &root, 1 ) == BK_EDITOR_REFUSED, "gui: the root cannot be deleted" );
 	int userButton = -1;

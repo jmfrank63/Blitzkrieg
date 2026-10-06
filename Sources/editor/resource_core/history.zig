@@ -9,6 +9,7 @@ const bridge_mod = @import("bridge.zig");
 const GeometryChannel = bridge_mod.GeometryChannel;
 const GeometryValue = bridge_mod.GeometryValue;
 const GuiRect = bridge_mod.GuiRect;
+const GuiIdChange = bridge_mod.GuiIdChange;
 
 /// What a bridge-logged edit changed, so a replay knows what to refresh. The
 /// `.geometry` variant below has one of these so T04 can wire a specific
@@ -61,6 +62,10 @@ pub const GuiCommand = union(enum) {
         tops: []i32 = &.{},
         ids: []i32 = &.{},
         undo_text: OwnedBytes = .{},
+        /// The ElementIDs the first run of a paste changed, so they stay
+        /// unique in the screen. A redo pastes `undo_text`, which already
+        /// holds the new ids, and keeps them; `window` is a logical id.
+        id_changes: []GuiIdChange = &.{},
     },
     /// Windows deleted with their subtrees, one entry per outermost window.
     /// Undo pastes each entry's text back under its parent.
@@ -87,6 +92,7 @@ pub const GuiCommand = union(enum) {
                 if (c.tops.len != 0) allocator.free(c.tops);
                 if (c.ids.len != 0) allocator.free(c.ids);
                 c.undo_text.deinit(allocator);
+                if (c.id_changes.len != 0) allocator.free(c.id_changes);
             },
             .delete => |*c| {
                 for (c.items) |*item| item.deinit(allocator);

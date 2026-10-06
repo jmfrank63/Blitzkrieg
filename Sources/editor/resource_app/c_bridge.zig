@@ -821,6 +821,7 @@ pub const RealResBridge = struct {
     comptime {
         std.debug.assert(@sizeOf(rb.GuiWindow) == 10 * @sizeOf(c_int));
         std.debug.assert(@sizeOf(rb.GuiRect) == 6 * @sizeOf(c_int));
+        std.debug.assert(@sizeOf(rb.GuiIdChange) == 3 * @sizeOf(c_int));
     }
 
     /// BkResGuiWindows: ten ints per window, read straight into the slice.
@@ -871,14 +872,18 @@ pub const RealResBridge = struct {
         return result;
     }
 
-    /// BkResGuiPaste: clipboard text under `parent`, moved by dx, dy.
-    fn guiPaste(ptr: *anyopaque, parent: i32, clipboard: []const u8, dx: i32, dy: i32, out_ids: []i32, total: *usize) Status {
+    /// BkResGuiPaste: clipboard text under `parent`, moved by dx, dy; the
+    /// ElementID changes come back as the bridge's three ints each.
+    fn guiPaste(ptr: *anyopaque, parent: i32, clipboard: []const u8, dx: i32, dy: i32, unique_ids: bool, out_ids: []i32, total: *usize, changes: []rb.GuiIdChange, changes_total: *usize) Status {
         const self = from(ptr);
         const z = self.allocator.dupeZ(u8, clipboard) catch return self.fail(.failed, "out of memory pasting the clipboard");
         defer self.allocator.free(z);
         var count: c_int = 0;
-        const result = status(c.BkResGuiPaste(self.session, parent, z.ptr, dx, dy, if (out_ids.len == 0) null else out_ids.ptr, capacityOf(out_ids.len), &count));
+        var change_count: c_int = 0;
+        const change_ints: ?[*]c_int = if (changes.len == 0) null else @ptrCast(changes.ptr);
+        const result = status(c.BkResGuiPaste(self.session, parent, z.ptr, dx, dy, @intFromBool(unique_ids), if (out_ids.len == 0) null else out_ids.ptr, capacityOf(out_ids.len), &count, change_ints, capacityOf(changes.len), &change_count));
         total.* = countOf(count);
+        changes_total.* = countOf(change_count);
         return result;
     }
 

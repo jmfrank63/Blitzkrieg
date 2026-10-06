@@ -22,6 +22,7 @@ const ResBridge = bridge_mod.ResBridge;
 const EditError = bridge_mod.EditError;
 const GuiWindow = bridge_mod.GuiWindow;
 const GuiRect = bridge_mod.GuiRect;
+const GuiIdChange = bridge_mod.GuiIdChange;
 const ResourceCommand = history_mod.ResourceCommand;
 const GuiCommand = history_mod.GuiCommand;
 const GuiDeleted = history_mod.GuiDeleted;
@@ -273,12 +274,20 @@ fn adopt(allocator: std.mem.Allocator, bridge: ResBridge, map: *IdMap, new_tops:
     for (logical_ids, made) |l, a| try map.set(allocator, l, a);
 }
 
-fn pasteText(allocator: std.mem.Allocator, bridge: ResBridge, parent: i32, text: []const u8, dx: i32, dy: i32) EditError![]i32 {
+/// Pastes `text` and returns the outermost new windows. Only a user's paste
+/// (`changes` given) makes the ElementIDs unique; the replays (an undone
+/// delete, a redone paste) put back exactly the text they kept.
+fn pasteText(allocator: std.mem.Allocator, bridge: ResBridge, parent: i32, text: []const u8, dx: i32, dy: i32, changes: ?*[]GuiIdChange) EditError![]i32 {
     var buffer: [max_pasted]i32 = undefined;
     var total: usize = 0;
-    try bridge_mod.check(bridge.guiPaste(parent, text, dx, dy, &buffer, &total));
-    if (total > buffer.len) return error.Failed;
-    return allocator.dupe(i32, buffer[0..total]);
+    var change_buffer: [max_pasted]GuiIdChange = undefined;
+    var changed: usize = 0;
+    try bridge_mod.check(bridge.guiPaste(parent, text, dx, dy, changes != null, &buffer, &total, &change_buffer, &changed));
+    if (total > buffer.len or changed > change_buffer.len) return error.Failed;
+    const tops = try allocator.dupe(i32, buffer[0..total]);
+    errdefer allocator.free(tops);
+    if (changes) |out| out.* = try allocator.dupe(GuiIdChange, change_buffer[0..changed]);
+    return tops;
 }
 
 /// Runs the command forwards: the first time it is applied, and as a redo.
@@ -306,7 +315,9 @@ fn applyCreate(allocator: std.mem.Allocator, bridge: ResBridge, map: *IdMap, c: 
             try bridge_mod.check(bridge.guiInsertTemplate(parent, c.source.bytes, c.x, c.y, &id));
             tops = try allocator.dupe(i32, &.{id});
         } else {
-            tops = try pasteText(allocator, bridge, parent, c.source.bytes, c.x, c.y);
+            if (c.id_changes.len != 0) allocator.free(c.id_changes);
+            c.id_changes = &.{};
+            tops = try pasteText(allocator, bridge, parent, c.source.bytes, c.x, c.y, &c.id_changes);
         }
         errdefer allocator.free(tops);
         const windows = try readWindows(allocator, bridge);
@@ -318,7 +329,7 @@ fn applyCreate(allocator: std.mem.Allocator, bridge: ResBridge, map: *IdMap, c: 
     }
     // A redo: the bridge cannot insert at an id, so the windows come back from
     // the text the undo kept and take over their logical ids.
-    const new_tops = try pasteText(allocator, bridge, parent, c.undo_text.bytes, 0, 0);
+    const new_tops = try pasteText(allocator, bridge, parent, c.undo_text.bytes, 0, 0, null);
     defer allocator.free(new_tops);
     try adopt(allocator, bridge, map, new_tops, c.ids);
 }
@@ -337,7 +348,7 @@ pub fn undo(allocator: std.mem.Allocator, bridge: ResBridge, map: *IdMap, comman
         },
         .delete => |c| {
             for (c.items) |item| {
-                const new_tops = try pasteText(allocator, bridge, map.actual(item.parent), item.text.bytes, 0, 0);
+                const new_tops = try pasteText(allocator, bridge, map.actual(item.parent), item.text.bytes, 0, 0, null);
                 defer allocator.free(new_tops);
                 try adopt(allocator, bridge, map, new_tops, item.subtree);
             }
@@ -624,6 +635,52 @@ test "cut and paste: the clipboard carries the windows, a paste is one undo step
     const bad = try paste(allocator, &fx.doc.gui_ids, 0, "not a window", 0, 0);
     try testing.expectError(error.Refused, fx.commit(allocator, bad));
     try testing.expectEqual(@as(usize, 2), fx.hist.undo_stack.items.len);
+}
+
+test "paste gives taken ElementIDs the next free ones, undo restores the screen exactly, redo keeps the new ids" {
+    const allocator = testing.allocator;
+    var fx: Fixture = undefined;
+    try fx.init(allocator);
+    defer fx.deinit(allocator);
+    const original = try allocator.dupe(GuiWindow, fx.fake.gui_windows.items);
+    defer allocator.free(original);
+
+    // Window 1 (ElementID 11) with its child 3 (13): 11 and 13 are taken, as
+    // are 12 and, once the parent has it, 14.
+    var clip = try copy(allocator, fx.fake.bridge(), &.{1});
+    defer clip.deinit(allocator);
+    try fx.commit(allocator, try paste(allocator, &fx.doc.gui_ids, 0, clip.bytes, 5, 5));
+    try testing.expectEqual(@as(usize, 6), fx.fake.gui_windows.items.len);
+    try testing.expectEqual(@as(i32, 14), fx.fake.gui_windows.items[4].element_id);
+    try testing.expectEqual(@as(i32, 15), fx.fake.gui_windows.items[5].element_id);
+    const changes = fx.hist.undo_stack.items[0].command.gui.create.id_changes;
+    try testing.expectEqual(@as(usize, 2), changes.len);
+    try testing.expectEqual(GuiIdChange{ .window = 4, .old = 11, .new = 14 }, changes[0]);
+    try testing.expectEqual(GuiIdChange{ .window = 5, .old = 13, .new = 15 }, changes[1]);
+    try testing.expectEqual(@as(i32, 11), fx.window(1).element_id);
+    try testing.expectEqual(@as(i32, 13), fx.window(3).element_id);
+
+    try fx.undoAt(allocator, 0);
+    try testing.expectEqualSlices(GuiWindow, original, fx.fake.gui_windows.items);
+    // The redo puts back the text the undo kept: the new ids, not a third pair.
+    try fx.redoAt(allocator, 0);
+    try testing.expectEqual(@as(usize, 6), fx.fake.gui_windows.items.len);
+    try testing.expectEqual(@as(i32, 14), fx.fake.gui_windows.items[4].element_id);
+    try testing.expectEqual(@as(i32, 15), fx.fake.gui_windows.items[5].element_id);
+    try fx.undoAt(allocator, 0);
+    try testing.expectEqualSlices(GuiWindow, original, fx.fake.gui_windows.items);
+}
+
+test "undo of a delete keeps an ElementID another window shares" {
+    const allocator = testing.allocator;
+    var fx: Fixture = undefined;
+    try fx.init(allocator);
+    defer fx.deinit(allocator);
+    // Shipped screens repeat ids across dialogs; window 2 shares window 1's 11.
+    fx.fake.gui_windows.items[2].element_id = 11;
+    try fx.commit(allocator, try delete(allocator, fx.fake.bridge(), &fx.doc.gui_ids, &.{2}));
+    try fx.undoAt(allocator, 0);
+    try testing.expectEqual(@as(i32, 11), fx.window(fx.doc.gui_ids.actual(2)).element_id);
 }
 
 test "set attribute undoes to the previous value, or to empty when there was none" {

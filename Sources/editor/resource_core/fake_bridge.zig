@@ -1581,10 +1581,19 @@ pub const FakeResBridge = struct {
         return .ok;
     }
 
-    fn guiPaste(ptr: *anyopaque, parent: i32, clipboard: []const u8, dx: i32, dy: i32, out_ids: []i32, total: *usize) Status {
+    /// The real bridge's ElementID rule: with `unique_ids` a pasted id the
+    /// screen or an earlier pasted window has moves to the next free one
+    /// above it; -1 (no id) never moves.
+    fn guiElementIdUsed(self: *const FakeResBridge, element_id: i32) bool {
+        for (self.gui_windows.items) |w| if (w.element_id == element_id) return true;
+        return false;
+    }
+
+    fn guiPaste(ptr: *anyopaque, parent: i32, clipboard: []const u8, dx: i32, dy: i32, unique_ids: bool, out_ids: []i32, total: *usize, changes: []bridge_mod.GuiIdChange, changes_total: *usize) Status {
         const self = from(ptr);
         self.clearMessage();
         total.* = 0;
+        changes_total.* = 0;
         const check = self.requireGui();
         if (check != .ok) return check;
         if (self.guiIndex(parent) == null) {
@@ -1613,11 +1622,17 @@ pub const FakeResBridge = struct {
             const top = v[0] < 0;
             const owner: i32 = if (top) parent else made.items[@intCast(v[0])];
             const id = self.gui_next_id;
+            var element_id = v[2];
+            if (unique_ids and element_id != -1 and self.guiElementIdUsed(element_id)) {
+                while (element_id == -1 or self.guiElementIdUsed(element_id)) element_id +%= 1;
+                if (changes_total.* < changes.len) changes[changes_total.*] = .{ .window = id, .old = v[2], .new = element_id };
+                changes_total.* += 1;
+            }
             self.gui_windows.append(self.allocator, .{
                 .id = id,
                 .parent = owner,
                 .class_type = v[1],
-                .element_id = v[2],
+                .element_id = element_id,
                 .flag = v[3],
                 .x = if (top) v[4] + dx else v[4],
                 .y = if (top) v[5] + dy else v[5],
@@ -2068,10 +2083,12 @@ test "fake gui windows: insert, set rects, copy, paste and delete keep MFC's id 
     var size: usize = 0;
     try std.testing.expectEqual(Status.ok, b.guiCopy(&.{1}, &clip, &size));
     var pasted: [2]i32 = undefined;
-    try std.testing.expectEqual(Status.ok, b.guiPaste(0, clip[0..size], 5, 5, &pasted, &total));
+    var changes: [2]bridge_mod.GuiIdChange = undefined;
+    var changed: usize = 0;
+    try std.testing.expectEqual(Status.ok, b.guiPaste(0, clip[0..size], 5, 5, true, &pasted, &total, &changes, &changed));
     try std.testing.expectEqual(@as(usize, 1), total);
     try std.testing.expectEqual(@as(i32, 2), pasted[0]);
-    try std.testing.expectEqual(Status.refused, b.guiPaste(0, "garbage", 0, 0, &pasted, &total));
+    try std.testing.expectEqual(Status.refused, b.guiPaste(0, "garbage", 0, 0, true, &pasted, &total, &changes, &changed));
 
     try std.testing.expectEqual(Status.ok, b.guiSetAttr(1, "Name", "Ok"));
     var text: [8]u8 = undefined;

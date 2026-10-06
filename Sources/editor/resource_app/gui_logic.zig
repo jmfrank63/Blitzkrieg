@@ -10,6 +10,7 @@
 //! "Create new template" writes (the user's own folder only).
 //! Runs under `zig build test-resource-app-logic` against the fake bridge.
 const std = @import("std");
+const builtin = @import("builtin");
 const core = @import("resource_core");
 
 const tools = core.sub_editor_tools;
@@ -312,8 +313,12 @@ pub const Overlay = struct {
     clip: ?[]u8 = null,
     clip_origin: Point2 = .{ .x = 0, .y = 0 },
     /// What the canvas status line says was done last.
-    last: [128]u8 = undefined,
+    last: [256]u8 = undefined,
     last_len: usize = 0,
+    /// The last paste's ElementID changes, one `paste: ElementID <old> ->
+    /// <new> (<window name>)` line each. They go to the status line and to
+    /// the log (stderr, where the app's other reports go).
+    paste_log: std.ArrayListUnmanaged(u8) = .empty,
 
     pub fn init(allocator: std.mem.Allocator) Overlay {
         return .{ .allocator = allocator };
@@ -323,6 +328,7 @@ pub const Overlay = struct {
         self.selection.deinit(self.allocator);
         if (self.armed) |armed| self.allocator.free(armed);
         if (self.clip) |clip| self.allocator.free(clip);
+        self.paste_log.deinit(self.allocator);
         self.* = undefined;
     }
 
@@ -641,7 +647,53 @@ pub const Overlay = struct {
         const command = try gui_tools.paste(self.allocator, &doc.gui_ids, 0, text, dx, dy);
         try tools.commit(self.allocator, bridge, doc, history, command, 0);
         try self.selectLastCreated(history);
-        self.say("pasted", .{});
+        try self.reportIdChanges(bridge, doc, history);
+    }
+
+    /// A pasted control whose ElementID the screen already used got a free
+    /// one (the game tells controls apart by it); each change is said, so the
+    /// user knows which id a script must now listen for.
+    fn reportIdChanges(self: *Overlay, bridge: ResBridge, doc: *const Document, history: *const History) Error!void {
+        self.paste_log.clearRetainingCapacity();
+        const changes: []const bridge_mod.GuiIdChange = if (history.undo_stack.items.len == 0) &.{} else switch (history.undo_stack.items[history.undo_stack.items.len - 1].command) {
+            .gui => |g| switch (g) {
+                .create => |c| c.id_changes,
+                else => &.{},
+            },
+            else => &.{},
+        };
+        if (changes.len == 0) {
+            self.say("pasted", .{});
+            return;
+        }
+        const windows = try self.windowsOf(bridge);
+        defer self.allocator.free(windows);
+        for (changes, 0..) |c, i| {
+            const name = if (geometry.find(windows, doc.gui_ids.actual(c.window))) |w| className(w.class_type) else "Window";
+            if (i != 0) try self.paste_log.append(self.allocator, '\n');
+            const start = self.paste_log.items.len;
+            try self.paste_log.print(self.allocator, "paste: ElementID {d} -> {d} ({s})", .{ c.old, c.new, name });
+            if (!builtin.is_test) std.debug.print("{s}\n", .{self.paste_log.items[start..]});
+        }
+        // The status line holds what fits, the lines joined by "; ".
+        var len: usize = 0;
+        var lines = std.mem.splitScalar(u8, self.paste_log.items, '\n');
+        var first = true;
+        while (lines.next()) |line| : (first = false) {
+            const sep: []const u8 = if (first) "" else "; ";
+            if (len + sep.len + line.len > self.last.len) break;
+            @memcpy(self.last[len..][0..sep.len], sep);
+            len += sep.len;
+            @memcpy(self.last[len..][0..line.len], line);
+            len += line.len;
+        }
+        self.last_len = len;
+    }
+
+    /// The last paste's ElementID change lines, newline separated; empty when
+    /// it kept every id.
+    pub fn pasteLog(self: *const Overlay) []const u8 {
+        return self.paste_log.items;
     }
 
     /// Edits a window's own ints (the inspector's Pos, Size and
@@ -973,10 +1025,17 @@ test "paste puts the copied group 50 inside the root, as one undo step, and sele
     try testing.expectEqual(@as(usize, 2), rig.overlay.selection.ids.items.len);
     try testing.expectEqual(first.id, rig.overlay.selection.ids.items[0]);
 
+    // Their ElementIDs 11 and 13 are taken: 12 and 13 are too, so 14 and 15.
+    try testing.expectEqual(@as(i32, 14), first.element_id);
+    try testing.expectEqual(@as(i32, 15), second.element_id);
+    try testing.expectEqualStrings("paste: ElementID 11 -> 14 (Button)\npaste: ElementID 13 -> 15 (Button)", rig.overlay.pasteLog());
+    try testing.expectEqualStrings("paste: ElementID 11 -> 14 (Button); paste: ElementID 13 -> 15 (Button)", rig.overlay.lastSaid());
+
     try rig.undo(allocator);
     try testing.expectEqual(@as(usize, 4), rig.fake.gui_windows.items.len);
     try rig.redo(allocator);
     try testing.expectEqual(@as(usize, 6), rig.fake.gui_windows.items.len);
+    try testing.expectEqual(@as(i32, 14), rig.fake.gui_windows.items[4].element_id);
 }
 
 test "cut leaves the clipboard and one delete step, delete refuses nothing selected" {
@@ -998,6 +1057,10 @@ test "cut leaves the clipboard and one delete step, delete refuses nothing selec
     try rig.redo(allocator);
     try rig.overlay.pasteClipboard(rig.b(), &rig.doc, &rig.hist);
     try testing.expectEqual(@as(usize, 4), rig.fake.gui_windows.items.len);
+    // A cut control's ElementID is free again: the paste keeps it.
+    try testing.expectEqual(@as(i32, 13), rig.fake.gui_windows.items[3].element_id);
+    try testing.expectEqualStrings("", rig.overlay.pasteLog());
+    try testing.expectEqualStrings("pasted", rig.overlay.lastSaid());
 }
 
 test "Escape cancels a gesture with no history entry" {

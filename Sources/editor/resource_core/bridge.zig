@@ -404,6 +404,15 @@ pub const GuiWindow = extern struct {
     visible: i32,
 };
 
+/// One ElementID a BkResGuiPaste changed (three ints): the pasted window's
+/// id, the ElementID it had in the clipboard and the free one it got, so no
+/// two controls send the same id in UI_NOTIFY_WINDOW_CLICKED.
+pub const GuiIdChange = extern struct {
+    window: i32,
+    old: i32,
+    new: i32,
+};
+
 /// One entry of BkResGuiSetRects: a window's anchor flag and rect.
 pub const GuiRect = extern struct {
     id: i32,
@@ -573,8 +582,11 @@ pub const ResBridge = struct {
         guiCopy: *const fn (ptr: *anyopaque, ids: []const i32, out: []u8, out_size: *usize) Status,
         /// BkResGuiPaste: clipboard text under `parent`, each window moved by
         /// dx, dy; `total` counts the new top-level windows, `out_ids` gets
-        /// as many as fit.
-        guiPaste: *const fn (ptr: *anyopaque, parent: i32, clipboard: []const u8, dx: i32, dy: i32, out_ids: []i32, total: *usize) Status,
+        /// as many as fit. With `unique_ids` a pasted ElementID the screen
+        /// already uses moves to the next free one, each change in `changes`
+        /// (`changes_total` counts them all); without, the ids are kept, as
+        /// an undo or redo needs.
+        guiPaste: *const fn (ptr: *anyopaque, parent: i32, clipboard: []const u8, dx: i32, dy: i32, unique_ids: bool, out_ids: []i32, total: *usize, changes: []GuiIdChange, changes_total: *usize) Status,
         /// BkResGuiGetAttr / BkResGuiSetAttr: one XML attribute of a window.
         guiGetAttr: *const fn (ptr: *anyopaque, id: i32, name: []const u8, out: []u8, out_size: *usize) Status,
         guiSetAttr: *const fn (ptr: *anyopaque, id: i32, name: []const u8, value: []const u8) Status,
@@ -737,8 +749,8 @@ pub const ResBridge = struct {
     pub fn guiCopy(self: ResBridge, ids: []const i32, out: []u8, out_size: *usize) Status {
         return self.vtable.guiCopy(self.ptr, ids, out, out_size);
     }
-    pub fn guiPaste(self: ResBridge, parent: i32, clipboard: []const u8, dx: i32, dy: i32, out_ids: []i32, total: *usize) Status {
-        return self.vtable.guiPaste(self.ptr, parent, clipboard, dx, dy, out_ids, total);
+    pub fn guiPaste(self: ResBridge, parent: i32, clipboard: []const u8, dx: i32, dy: i32, unique_ids: bool, out_ids: []i32, total: *usize, changes: []GuiIdChange, changes_total: *usize) Status {
+        return self.vtable.guiPaste(self.ptr, parent, clipboard, dx, dy, unique_ids, out_ids, total, changes, changes_total);
     }
     pub fn guiGetAttr(self: ResBridge, id: i32, name: []const u8, out: []u8, out_size: *usize) Status {
         return self.vtable.guiGetAttr(self.ptr, id, name, out, out_size);

@@ -724,9 +724,17 @@ BkEditorStatus BkResGuiDelete( BkResSession *session, const int *ids, int count 
    outermost windows among ids; Paste appends them under parent, each moved by
    (dx, dy), and writes the new top-level windows' ids to out_ids (capacity
    ints; *out_count is the total). BK_EDITOR_REFUSED for text that holds no
-   windows. */
+   windows.
+   With unique_ids nonzero (a user's paste) a pasted window, nested ones
+   included, whose ElementID the screen or an earlier window of the same paste
+   already uses gets the next free id above it; ElementID -1 is never changed.
+   Each change is three ints in out_changes - the pasted window's id, the old
+   and the new ElementID - in document order; change_capacity counts changes
+   and *out_change_count (may be null) is the total. unique_ids zero keeps
+   every id, for an undo or redo that must restore the same bytes. */
 BkEditorStatus BkResGuiCopy( BkResSession *session, const int *ids, int count, char *out, int capacity, int *out_size );
-BkEditorStatus BkResGuiPaste( BkResSession *session, int parent, const char *clipboard, int dx, int dy, int *out_ids, int capacity, int *out_count );
+BkEditorStatus BkResGuiPaste( BkResSession *session, int parent, const char *clipboard, int dx, int dy, int unique_ids, int *out_ids, int capacity, int *out_count,
+                              int *out_changes, int change_capacity, int *out_change_count );
 
 /* BkResGuiGetAttr / BkResGuiSetAttr: one XML attribute of a window's element
    (Name, ElementID, PositionFlag ...). Get is BK_EDITOR_DATA_MISSING when the

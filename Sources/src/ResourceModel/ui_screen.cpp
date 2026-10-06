@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
+#include <set>
 
 namespace NResourceModel
 {
@@ -649,7 +650,7 @@ bool CUiScreen::SetRect( int nId, int nPositionFlag, float x, float y, float w, 
 }
 
 // Inserts the chunks (each one <item> element) as the last children of window nParent.
-bool CUiScreen::InsertChunks( int nParent, const std::vector<std::string> &chunks, std::vector<int> *pNewIds, std::string &szError )
+bool CUiScreen::InsertChunks( int nParent, const std::vector<std::string> &chunks, std::vector<int> *pNewIds, std::vector<int> *pAllNew, std::string &szError )
 {
 	size_t nIndex = 0;
 	while ( nIndex < m_windows.size() && m_windows[nIndex].nId != nParent )
@@ -778,6 +779,8 @@ bool CUiScreen::InsertChunks( int nParent, const std::vector<std::string> &chunk
 			if ( Find( nId )->nParent == nParent )
 				pNewIds->push_back( nId );
 	}
+	if ( pAllNew != nullptr )
+		*pAllNew = fresh;
 	return true;
 }
 
@@ -802,7 +805,7 @@ int CUiScreen::InsertFromTemplate( int nParent, const std::string &szTemplate, f
 	if ( !item.Load( szError ) || !SetPair( item, 0, "WindowPos", x, y, szError ) )
 		return -1;
 	std::vector<int> ids;
-	if ( !InsertChunks( nParent, { item.szText }, &ids, szError ) || ids.empty() )
+	if ( !InsertChunks( nParent, { item.szText }, &ids, nullptr, szError ) || ids.empty() )
 		return -1;
 	return ids[0];
 }
@@ -907,8 +910,17 @@ std::string CUiScreen::CopyText( const std::vector<int> &ids ) const
 	return szOut + "\n</" + s_pszClipboardRoot + ">";
 }
 
-bool CUiScreen::Paste( int nParent, const std::string &szClipboard, float dx, float dy, std::vector<int> *pNewIds, std::string &szError )
+bool CUiScreen::Paste( int nParent, const std::string &szClipboard, float dx, float dy, bool bUniqueIds, std::vector<int> *pNewIds, std::vector<SUiElementIdChange> *pChanged, std::string &szError )
 {
+	if ( pChanged != nullptr )
+		pChanged->clear();
+	// The ElementIDs the screen uses, nested windows included; -1 is the engine's "no id".
+	std::set<int> used;
+	for ( const SUiWindow &w : m_windows )
+		if ( w.nElementID != -1 )
+			used.insert( w.nElementID );
+	std::vector<SUiElementIdChange> changes;
+	int nPastedWindow = 0;	// the pasted windows in document order, all chunks together
 	SDoc clip;
 	clip.szText = szClipboard;
 	clip.szName = "clipboard";
@@ -933,6 +945,38 @@ bool CUiScreen::Paste( int nParent, const std::string &szClipboard, float dx, fl
 		ReadWindow( item, 0, w );
 		if ( ( dx != 0 || dy != 0 || !w.bHasPos ) && !SetPair( item, 0, "WindowPos", w.x + dx, w.y + dy, szError ) )
 			return false;
+		// SetAttr re-parses and adds no element, so window k stays item.win[k].
+		for ( size_t k = 0; k < item.win.size(); ++k, ++nPastedWindow )
+		{
+			std::string szId;
+			double v = 0;
+			if ( !bUniqueIds || !item.GetAttr( item.win[k], "ElementID", &szId ) || !ParseNumber( szId, &v ) )
+				continue;
+			const int nOld = ToInt32( v );
+			if ( nOld == -1 )
+				continue;
+			if ( used.insert( nOld ).second )
+				continue;
+			// The next free id above the old one, wrapping past INT_MAX; -1 is skipped.
+			int nNew = nOld;
+			do
+				nNew = static_cast<int>( static_cast<unsigned>( nNew ) + 1u );
+			while ( nNew == -1 || used.count( nNew ) != 0 );
+			used.insert( nNew );
+			char sz[32];
+			const bool bHex = szId.size() > 1 && ( szId[1] == 'x' || szId[1] == 'X' );
+			if ( bHex )
+				std::snprintf( sz, sizeof( sz ), "0x%X", static_cast<unsigned>( nNew ) );
+			else
+				std::snprintf( sz, sizeof( sz ), "%d", nNew );
+			if ( !item.SetAttr( item.win[k], "ElementID", sz, szError ) )
+				return false;
+			SUiElementIdChange change;
+			change.nWindow = nPastedWindow;	// an index here, the model id once inserted
+			change.nOld = nOld;
+			change.nNew = nNew;
+			changes.push_back( change );
+		}
 		chunks.push_back( item.szText );
 	}
 	if ( chunks.empty() )
@@ -940,7 +984,14 @@ bool CUiScreen::Paste( int nParent, const std::string &szClipboard, float dx, fl
 		szError = "clipboard: holds no windows";
 		return false;
 	}
-	return InsertChunks( nParent, chunks, pNewIds, szError );
+	std::vector<int> made;
+	if ( !InsertChunks( nParent, chunks, pNewIds, &made, szError ) )
+		return false;
+	for ( SUiElementIdChange &change : changes )
+		change.nWindow = made[change.nWindow];
+	if ( pChanged != nullptr )
+		*pChanged = changes;
+	return true;
 }
 
 std::string CUiScreen::SaveAsBase() const

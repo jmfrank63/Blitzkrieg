@@ -940,6 +940,14 @@ one, the newer instruction wins, and record the change in the spec").
   Game frame, and requires the frames to differ at the moved label's old and new rects and the placed button, and nowhere else.
 - D032 (S15 T01, Mission image frame): as `CMissionFrame` does, the frame always shows the project's `map_h.dds` when the Final map
   exists, and creates the file first when missing (`BkResMissionMinimap`; a refused minimap shows its message).
+- D031 follow-up (S16 T01, 2026-10-06, unique ElementIDs on paste): MFC has no GUI copy and paste that renumbers, so the port
+  defines it. The game tells controls apart by ElementID (`UI_NOTIFY_WINDOW_CLICKED` carries it), so a user's paste keeps a
+  window's ElementID only while no window of the screen and no earlier window of the same paste has it; otherwise the window,
+  nested ones included, gets the next free id above the old one (hex notation kept). ElementID -1 (the engine's "none") and an
+  absent attribute never change. Ids the shipped screens already repeat stay as they are. `BkResGuiPaste` takes `unique_ids` and
+  returns each change (window, old, new); the app says `paste: ElementID <old> -> <new> (<window name>)` in the canvas status
+  line and on stderr, and `BK_DEBUG_LOG=1` traces it in the bridge. The undo of an earlier delete and the redo of a paste paste
+  with `unique_ids` 0, so they restore the same bytes; undoing a paste deletes it and restores the screen byte for byte.
 
 ## Amendment (S16, 2026-10-06): early MFC deletion
 
