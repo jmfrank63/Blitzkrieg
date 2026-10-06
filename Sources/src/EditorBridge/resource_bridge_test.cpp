@@ -5549,24 +5549,11 @@ static void CopyTree( const fs::path &from, const fs::path &to )
 	fs::copy( from, to, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec );
 }
 
-// The scene's ground camera, as the bridge hands it to the exporter.
+// The ground camera, as the bridge hands it to the exporter: always the editor camera, never the
+// live scene's, so an export does not depend on the view.
 static NResourceModel::SGroundCamera SceneCamera()
 {
-	NResourceModel::SGroundCamera camera;
-	IScene *pScene = GetSingleton<IScene>();
-	if ( pScene == 0 )
-		return NResourceModel::DefaultEditorCamera();
-	CVec2 origin, unitX, unitY;
-	pScene->GetPos2( &origin, CVec3( 0, 0, 0 ) );
-	pScene->GetPos2( &unitX, CVec3( 1, 0, 0 ) );
-	pScene->GetPos2( &unitY, CVec3( 0, 1, 0 ) );
-	camera.m11 = unitX.x - origin.x;
-	camera.m21 = unitX.y - origin.y;
-	camera.m12 = unitY.x - origin.x;
-	camera.m22 = unitY.y - origin.y;
-	camera.m14 = origin.x;
-	camera.m24 = origin.y;
-	return camera;
+	return NResourceModel::DefaultEditorCamera();
 }
 
 static bool SameList( const std::vector<int> &list, std::initializer_list<int> want )
@@ -9064,6 +9051,301 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 }
 
+// S16 T15: the batch exports every kind, from a file alone. Each kind's fixture
+// folder is copied under one source folder; BkResExport (the app's own export)
+// writes each project into its own mod, and BkResBatch must write the same
+// files, byte for byte, with nothing open and with a project of the same kind
+// open and edited in the session. A mixed folder shows the batch naming each
+// project that fails and going on.
+namespace S16Batch
+{
+namespace fs = std::filesystem;
+
+typedef std::map<std::string, std::string> TTree;
+
+// Where a kind's project sits under the source folder. The particle is named as the effect fixture
+// refers to it, and the effect needs that particle in the same mod to export at all.
+static std::string KindFolder( const char *pszExt )
+{
+	return std::strcmp( pszExt, "pcp" ) == 0 ? std::string( "pcp/particle-2key" ) : std::string( pszExt );
+}
+
+static const char *ProjectFile( const char *pszExt )
+{
+	static std::string sz;
+	sz = std::strcmp( pszExt, "gui" ) == 0 ? std::string( "MainMenu.gui" ) : std::string( "project." ) + pszExt;
+	return sz.c_str();
+}
+
+// The fixture folder without its goldens and the nested mission project, which has its own final map to find.
+static void CopyKindFolder( const fs::path &from, const fs::path &to )
+{
+	std::error_code ec;
+	fs::create_directories( to, ec );
+	for ( fs::recursive_directory_iterator it( from, ec ), end; !ec && it != end; it.increment( ec ) )
+	{
+		const fs::path rel = fs::relative( it->path(), from, ec );
+		const std::string szFirst = rel.begin()->string();
+		if ( szFirst == "golden" || szFirst == "final-map" )
+			continue;
+		if ( it->is_directory( ec ) )
+			fs::create_directories( to / rel, ec );
+		else
+		{
+			fs::create_directories( ( to / rel ).parent_path(), ec );
+			fs::copy_file( it->path(), to / rel, fs::copy_options::overwrite_existing, ec );
+		}
+	}
+}
+
+// Every file under a mod's data/ except the two the settings write, by relative path.
+static void Snapshot( const fs::path &dataDir, TTree &out )
+{
+	out.clear();
+	std::error_code ec;
+	for ( fs::recursive_directory_iterator it( dataDir, ec ), end; !ec && it != end; it.increment( ec ) )
+	{
+		if ( !it->is_regular_file( ec ) )
+			continue;
+		const std::string szName = it->path().filename().string();
+		if ( szName == "mod.xml" || szName == "modobjects.xml" )
+			continue;
+		std::string szBytes;
+		ReadBytes( it->path().string(), szBytes );
+		out[fs::relative( it->path(), dataDir, ec ).generic_string()] = szBytes;
+	}
+}
+
+static std::string Difference( const TTree &want, const TTree &got )
+{
+	for ( const auto &entry : want )
+	{
+		const auto it = got.find( entry.first );
+		if ( it == got.end() )
+			return entry.first + " is missing";
+		if ( it->second != entry.second )
+			return entry.first + " differs (" + std::to_string( it->second.size() ) + " bytes, the single export " + std::to_string( entry.second.size() ) + ")";
+	}
+	for ( const auto &entry : got )
+		if ( want.find( entry.first ) == want.end() )
+			return entry.first + " is extra";
+	return std::string();
+}
+
+static void PutText( const fs::path &file, const std::string &szText )
+{
+	std::ofstream f( file, std::ios::binary );
+	f << szText;
+}
+
+static void SetExportDir( BkResSession *pSession, const fs::path &dir )
+{
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", dir.string().c_str() );
+	BkResModSettingsSet( pSession, &mod );
+}
+
+static bool SameNodes( const std::vector<BkResNodeRecord> &a, const std::vector<BkResNodeRecord> &b )
+{
+	if ( a.size() != b.size() )
+		return false;
+	for ( size_t i = 0; i < a.size(); ++i )
+		if ( std::memcmp( &a[i], &b[i], sizeof( BkResNodeRecord ) ) != 0 )
+			return false;
+	return true;
+}
+
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	// Earlier cases stand their own exporters in and take them out again; the batch runs the real ones.
+	NResourceModel::RegisterExporter( "mdc", &NResourceModel::ExportMedal );
+	NResourceModel::RegisterExporter( "chc", &NResourceModel::ExportChapter );
+	NResourceModel::RegisterExporter( "cgc", &NResourceModel::ExportCampaign );
+	NResourceModel::RegisterExporter( "mip", &NResourceModel::ExportMission );
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s16-batch";
+	fs::remove_all( scratch, ec );
+	const fs::path src = scratch / "src";
+	for ( int i = 0; i < kFixtureCount; ++i )
+		CopyKindFolder( fs::path( szFixtureRoot ) / kFixtures[i].pszExt, src / KindFolder( kFixtures[i].pszExt ) );
+	// The palette project is not a screen; the GUI kind is a screen, as the Game's own.
+	fs::remove( src / "gui" / "project.gui", ec );
+	const fs::path shippedScreen = S09Object::FindFile( fs::path( szRoot ) / "Data" / "UI", "MainMenu.xml" );
+	if ( !Check( !shippedScreen.empty() && fs::copy_file( shippedScreen, src / "gui" / "MainMenu.gui", fs::copy_options::overwrite_existing, ec ), "batch-all: the screen is copied" ) )
+		return;
+
+	// The single export of each project, into a mod of its own.
+	TTree singles[kFixtureCount], all;
+	for ( int i = 0; i < kFixtureCount; ++i )
+	{
+		const std::string szExt = kFixtures[i].pszExt;
+		const fs::path project = src / KindFolder( kFixtures[i].pszExt ) / ProjectFile( kFixtures[i].pszExt );
+		SetExportDir( pSession, scratch / "single" / szExt );
+		if ( szExt == "eff" )
+			CopyKindFolder( scratch / "single" / "pcp" / "data", scratch / "single" / "eff" / "data" );
+		BkResExportReport report = {};
+		const bool bOpened = BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK;
+		const BkEditorStatus status = bOpened ? BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) : BK_EDITOR_FAILED;
+		if ( !Check( status == BK_EDITOR_OK && report.written >= 1, ( "batch-all: the single export of " + szExt ).c_str() ) )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+		Snapshot( scratch / "single" / szExt / "data", singles[i] );
+		for ( const auto &entry : singles[i] )
+			all[entry.first] = entry.second;
+	}
+
+	// 1. Nothing open: one batch over the folder of all 21 kinds.
+	{
+		SetExportDir( pSession, scratch / "unused" );
+		BkResClose( pSession );
+		BkResWarning warnings[64] = {};
+		BkResExportReport report = {};
+		report.warnings = warnings;
+		report.warnings_capacity = 64;
+		const BkEditorStatus status = BkResBatch( pSession, -1, src.string().c_str(), ( scratch / "batch-all" ).string().c_str(), BK_RES_EXPORT_FORCE, &report );
+		if ( !Check( status == BK_EDITOR_OK, "batch-all: the batch over all kinds, nothing open, succeeds (no project fails)" ) )
+		{
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+			for ( int i = 0; i < report.warning_count && i < 64; ++i )
+				std::printf( "   warning: %s\n", warnings[i].text );
+		}
+		TTree batched;
+		Snapshot( scratch / "batch-all" / "data", batched );
+		const std::string szWhy = Difference( all, batched );
+		if ( !Check( szWhy.empty(), "batch-all: the batch writes what the 21 single exports write, byte for byte" ) )
+			std::printf( "   detail: %s\n", szWhy.c_str() );
+		std::printf( "BATCH all kinds: %d files in data/, the 21 single exports' union %d\n", int( batched.size() ), int( all.size() ) );
+	}
+
+	// The engine's own readers open what the batch wrote: the stats the Game's loaders read
+	// (BkResReadBack goes through the tree reader, or the animation structure for a .san).
+	{
+		struct SRead { const char *pszExt, *pszFile, *pszRoot, *pszChunk; };
+		const SRead reads[] = {
+			{ "wpn", "weapons/wpn.xml", "base", "RPG" },
+			{ "mcp", "objects/simpleobjects/common/summer/mine/mcp/1.xml", "base", "RPG" },
+			{ "trc", "units/technics/common/entrenchment/trc/1.xml", "base", "RPG" },
+			{ "scp", "squads/scp/1.xml", "base", "RPG" },
+			{ "spt", "effects/sprites/spt/1.san", "", "" },
+			{ "unt", "units/humans/unt/1.xml", "base", "RPG" },
+			{ "msh", "units/technics/msh/1.xml", "base", "RPG" },
+			{ "obt", "objects/obt/1.xml", "base", "desc" },
+			{ "fnc", "fences/fnc/1.xml", "base", "RPG" },
+			{ "bld", "buildings/bld/1.xml", "base", "desc" },
+			{ "bdg", "bridges/bdg/1.xml", "base", "RPG" },
+			{ "pcp", "effects/particles/particle-2key.xml", "base", "KeyData" },
+			{ "eff", "effects/effects/eff.xml", "effect", "effect" },
+			{ "til", "terrain/sets/til/1.xml", "base", "tileset" },
+			{ "3rd", "terrain/sets/3rd/1.xml", "base", "VSODescription" },
+			{ "3rv", "terrain/sets/3rv/1.xml", "base", "VSODescription" },
+			{ "mip", "scenarios/mip/1.xml", "base", "RPG" },
+			{ "chc", "scenarios/chc/1.xml", "base", "RPG" },
+			{ "cgc", "scenarios/campaigns/cgc/1.xml", "base", "RPG" },
+			{ "mdc", "medals/mdc/1.xml", "base", "RPG" },
+			{ "gui", "ui/MainMenu.xml", "base", "Children" },
+		};
+		SetExportDir( pSession, scratch / "batch-all" );
+		int nRead = 0;
+		for ( const SRead &read : reads )
+		{
+			int nFound = 0;
+			if ( Check( BkResReadBack( pSession, read.pszFile, read.pszRoot, read.pszChunk, &nFound ) == BK_EDITOR_OK && nFound >= 1, ( std::string( "batch-all: the engine's reader opens the exported " ) + read.pszExt ).c_str() ) )
+				++nRead;
+			else
+				std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		}
+		std::printf( "BATCH all kinds: %d of %d exported files read back by the engine's reader\n", nRead, int( sizeof( reads ) / sizeof( reads[0] ) ) );
+	}
+
+	// 2. A project of the same kind open, and edited: the batch reads the files, so the
+	// session's tree is neither read nor changed, and the output is the saved file's.
+	int nEdited = 0;
+	for ( int i = 0; i < kFixtureCount; ++i )
+	{
+		const std::string szExt = kFixtures[i].pszExt;
+		const fs::path project = src / KindFolder( kFixtures[i].pszExt ) / ProjectFile( kFixtures[i].pszExt );
+		SetExportDir( pSession, scratch / "unused" );
+		if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, ( "batch-open: open " + szExt ).c_str() ) )
+			continue;
+		const std::vector<BkResNodeRecord> opened = AllNodes( pSession );
+		if ( !opened.empty() && BkResSetNodeName( pSession, opened[0].id, "edited in the session" ) == BK_EDITOR_OK )
+			++nEdited;
+		const std::vector<BkResNodeRecord> before = AllNodes( pSession );
+		BkResKind kindBefore = -1;
+		BkResKindOf( pSession, &kindBefore );
+		BkResModSettings settingsBefore = {}, settingsAfter = {};
+		BkResModSettingsGet( pSession, &settingsBefore );
+		BkResExportReport report = {};
+		const fs::path dst = scratch / "batch-open" / szExt;
+		if ( szExt == "eff" )
+			CopyKindFolder( scratch / "single" / "pcp" / "data", dst / "data" );
+		const BkEditorStatus status = BkResBatch( pSession, kFixtures[i].nKindOrdinal, src.string().c_str(), dst.string().c_str(), BK_RES_EXPORT_FORCE, &report );
+		Check( status == BK_EDITOR_OK, ( "batch-open: the batch of " + szExt + " with a " + szExt + " open succeeds" ).c_str() );
+		TTree batched;
+		Snapshot( dst / "data", batched );
+		const std::string szWhy = Difference( singles[i], batched );
+		if ( !Check( szWhy.empty(), ( "batch-open: " + szExt + " with the project open equals the single export" ).c_str() ) )
+			std::printf( "   detail: %s\n", szWhy.c_str() );
+		BkResKind kindAfter = -1;
+		BkResKindOf( pSession, &kindAfter );
+		BkResModSettingsGet( pSession, &settingsAfter );
+		Check( SameNodes( before, AllNodes( pSession ) ) && kindBefore == kindAfter && std::strcmp( settingsBefore.export_dir, settingsAfter.export_dir ) == 0,
+		       ( "batch-open: the open " + szExt + " project and the export settings are as they were" ).c_str() );
+		BkResClose( pSession );
+		std::printf( "BATCH %s: %d files in the batch's data/, the single export's %d, session unchanged\n", szExt.c_str(), int( batched.size() ), int( singles[i].size() ) );
+	}
+	Check( nEdited >= 1, "batch-open: at least one kind took an edit before its batch" );
+
+	// 3. A mixed folder: a valid project, a corrupt one, a project of another kind
+	// under the wrong extension, and files that are no project. The batch names each
+	// failure, goes on to the rest and answers FAILED.
+	{
+		const fs::path mixed = scratch / "mixed";
+		fs::create_directories( mixed / "a-good", ec );
+		fs::create_directories( mixed / "b-corrupt", ec );
+		fs::create_directories( mixed / "c-wrong-kind", ec );
+		fs::create_directories( mixed / "d-last", ec );
+		fs::copy_file( src / "wpn" / "project.wpn", mixed / "a-good" / "project.wpn", ec );
+		PutText( mixed / "b-corrupt" / "project.wpn", "<Weapon_Composer_Project><childs" );
+		fs::copy_file( src / "mdc" / "project.mdc", mixed / "c-wrong-kind" / "project.wpn", ec );
+		fs::copy_file( src / "mcp" / "project.mcp", mixed / "d-last" / "project.mcp", ec );
+		fs::copy_file( src / "mcp" / "1.tga", mixed / "d-last" / "1.tga", ec );
+		fs::copy_file( src / "mcp" / "1s.tga", mixed / "d-last" / "1s.tga", ec );
+		fs::copy_file( src / "mcp" / "art-16x16.tga", mixed / "d-last" / "art-16x16.tga", ec );
+		PutText( mixed / "notes.txt", "not a project" );
+		PutText( mixed / "project.xyz", "<a/>" );
+		BkResWarning warnings[16] = {};
+		BkResExportReport report = {};
+		report.warnings = warnings;
+		report.warnings_capacity = 16;
+		const BkEditorStatus status = BkResBatch( pSession, -1, mixed.string().c_str(), ( scratch / "mixed-out" ).string().c_str(), BK_RES_EXPORT_FORCE, &report );
+		Check( status == BK_EDITOR_FAILED, "batch-mixed: a failing project makes the batch answer FAILED" );
+		Check( std::strstr( BkEditorLastMessage( pSession ), "4 projects" ) != nullptr && std::strstr( BkEditorLastMessage( pSession ), "2 failed" ) != nullptr, "batch-mixed: the status line counts the projects and the failures" );
+		bool bCorrupt = false, bWrong = false, bGoodNamed = false;
+		for ( int i = 0; i < report.warning_count && i < 16; ++i )
+		{
+			const std::string szLine = warnings[i].text;
+			bCorrupt = bCorrupt || ( szLine.find( "b-corrupt" ) != std::string::npos && szLine.find( "cannot read the project" ) != std::string::npos );
+			bWrong = bWrong || ( szLine.find( "c-wrong-kind" ) != std::string::npos && szLine.find( "Medal_Composer_Project" ) != std::string::npos );
+			bGoodNamed = bGoodNamed || szLine.find( "a-good" ) != std::string::npos || szLine.find( "d-last" ) != std::string::npos;
+		}
+		Check( bCorrupt && bWrong && !bGoodNamed, "batch-mixed: the corrupt and the wrong-kind project are named with a reason, the good ones are not" );
+		TTree batched;
+		Snapshot( scratch / "mixed-out" / "data", batched );
+		bool bWeapon = false, bMine = false;
+		for ( const auto &entry : batched )
+		{
+			bWeapon = bWeapon || entry.first.find( "a-good" ) != std::string::npos;
+			bMine = bMine || entry.first.find( "d-last" ) != std::string::npos;
+		}
+		Check( bWeapon && bMine, "batch-mixed: the projects before and after the failures were exported" );
+		Check( report.written >= 2, "batch-mixed: the report counts the files of the good projects" );
+		std::printf( "BATCH mixed: FAILED as expected, %d files written, %d warnings\n", report.written, report.warning_count );
+	}
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -9372,6 +9654,9 @@ int main( int argc, char **argv )
 
 	// S15 T03: the GUI screen through BkResGui*, its export and the palette fixture.
 	S15Gui::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+
+	// S16 T15: the batch exports every kind from the files alone, as the single export does.
+	S16Batch::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );

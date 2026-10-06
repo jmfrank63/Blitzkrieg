@@ -26,12 +26,12 @@
 					<item>01</item>
 					<item>10</item>
 				</Passability>
-				<Origin x="1381.48" y="764.677"/>
+				<Origin x="489.414" y="702.298"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1365.48" y="772.677"/>
+				<VisOrigin x="444.159" y="702.298"/>
 				<Model>1</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -41,12 +41,12 @@
 					<item>01</item>
 					<item>10</item>
 				</Passability>
-				<Origin x="1381.48" y="764.677"/>
+				<Origin x="489.414" y="702.298"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1365.48" y="772.677"/>
+				<VisOrigin x="444.159" y="702.298"/>
 				<Model>1</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -56,12 +56,12 @@
 					<item>01</item>
 					<item>10</item>
 				</Passability>
-				<Origin x="1381.48" y="764.677"/>
+				<Origin x="489.414" y="702.298"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1365.48" y="772.677"/>
+				<VisOrigin x="444.159" y="702.298"/>
 				<Model>1</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -71,12 +71,12 @@
 					<item>1010</item>
 					<item>0102</item>
 				</Passability>
-				<Origin x="1426.06" y="782.638"/>
+				<Origin x="480.974" y="539.24"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1394.06" y="766.638"/>
+				<VisOrigin x="480.974" y="448.73"/>
 				<Model>1</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -86,12 +86,12 @@
 					<item>1010</item>
 					<item>0102</item>
 				</Passability>
-				<Origin x="1426.06" y="782.638"/>
+				<Origin x="480.974" y="539.24"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1394.06" y="766.638"/>
+				<VisOrigin x="480.974" y="448.73"/>
 				<Model>1</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -101,12 +101,12 @@
 					<item>1010</item>
 					<item>0102</item>
 				</Passability>
-				<Origin x="1426.06" y="782.638"/>
+				<Origin x="480.974" y="539.24"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1394.06" y="766.638"/>
+				<VisOrigin x="480.974" y="448.73"/>
 				<Model>1</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -115,12 +115,12 @@
 					<item size_x="2" size_y="1"/>
 					<item>0110</item>
 				</Passability>
-				<Origin x="1173.48" y="756.677"/>
+				<Origin x="217.885" y="385.514"/>
 				<Visibility>
 					<item size_x="2" size_y="1"/>
 					<item>0201</item>
 				</Visibility>
-				<VisOrigin x="1157.48" y="748.677"/>
+				<VisOrigin x="217.885" y="340.259"/>
 				<Model>1</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -129,12 +129,12 @@
 					<item size_x="2" size_y="1"/>
 					<item>0110</item>
 				</Passability>
-				<Origin x="1173.48" y="756.677"/>
+				<Origin x="217.885" y="385.514"/>
 				<Visibility>
 					<item size_x="2" size_y="1"/>
 					<item>0201</item>
 				</Visibility>
-				<VisOrigin x="1157.48" y="748.677"/>
+				<VisOrigin x="217.885" y="340.259"/>
 				<Model>1</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -143,12 +143,12 @@
 					<item size_x="2" size_y="1"/>
 					<item>0110</item>
 				</Passability>
-				<Origin x="1173.48" y="756.677"/>
+				<Origin x="217.885" y="385.514"/>
 				<Visibility>
 					<item size_x="2" size_y="1"/>
 					<item>0201</item>
 				</Visibility>
-				<VisOrigin x="1157.48" y="748.677"/>
+				<VisOrigin x="217.885" y="340.259"/>
 				<Model>1</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -158,12 +158,12 @@
 					<item>01</item>
 					<item>10</item>
 				</Passability>
-				<Origin x="1381.48" y="764.677"/>
+				<Origin x="489.414" y="702.298"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1365.48" y="772.677"/>
+				<VisOrigin x="444.159" y="702.298"/>
 				<Model>2</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -173,12 +173,12 @@
 					<item>01</item>
 					<item>10</item>
 				</Passability>
-				<Origin x="1381.48" y="764.677"/>
+				<Origin x="489.414" y="702.298"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1365.48" y="772.677"/>
+				<VisOrigin x="444.159" y="702.298"/>
 				<Model>2</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -188,12 +188,12 @@
 					<item>01</item>
 					<item>10</item>
 				</Passability>
-				<Origin x="1381.48" y="764.677"/>
+				<Origin x="489.414" y="702.298"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1365.48" y="772.677"/>
+				<VisOrigin x="444.159" y="702.298"/>
 				<Model>2</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -203,12 +203,12 @@
 					<item>1010</item>
 					<item>0102</item>
 				</Passability>
-				<Origin x="1426.06" y="782.638"/>
+				<Origin x="480.974" y="539.24"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1394.06" y="766.638"/>
+				<VisOrigin x="480.974" y="448.73"/>
 				<Model>2</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -218,12 +218,12 @@
 					<item>1010</item>
 					<item>0102</item>
 				</Passability>
-				<Origin x="1426.06" y="782.638"/>
+				<Origin x="480.974" y="539.24"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1394.06" y="766.638"/>
+				<VisOrigin x="480.974" y="448.73"/>
 				<Model>2</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -233,12 +233,12 @@
 					<item>1010</item>
 					<item>0102</item>
 				</Passability>
-				<Origin x="1426.06" y="782.638"/>
+				<Origin x="480.974" y="539.24"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1394.06" y="766.638"/>
+				<VisOrigin x="480.974" y="448.73"/>
 				<Model>2</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -247,12 +247,12 @@
 					<item size_x="2" size_y="1"/>
 					<item>0110</item>
 				</Passability>
-				<Origin x="1173.48" y="756.677"/>
+				<Origin x="217.885" y="385.514"/>
 				<Visibility>
 					<item size_x="2" size_y="1"/>
 					<item>0201</item>
 				</Visibility>
-				<VisOrigin x="1157.48" y="748.677"/>
+				<VisOrigin x="217.885" y="340.259"/>
 				<Model>2</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -261,12 +261,12 @@
 					<item size_x="2" size_y="1"/>
 					<item>0110</item>
 				</Passability>
-				<Origin x="1173.48" y="756.677"/>
+				<Origin x="217.885" y="385.514"/>
 				<Visibility>
 					<item size_x="2" size_y="1"/>
 					<item>0201</item>
 				</Visibility>
-				<VisOrigin x="1157.48" y="748.677"/>
+				<VisOrigin x="217.885" y="340.259"/>
 				<Model>2</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -275,12 +275,12 @@
 					<item size_x="2" size_y="1"/>
 					<item>0110</item>
 				</Passability>
-				<Origin x="1173.48" y="756.677"/>
+				<Origin x="217.885" y="385.514"/>
 				<Visibility>
 					<item size_x="2" size_y="1"/>
 					<item>0201</item>
 				</Visibility>
-				<VisOrigin x="1157.48" y="748.677"/>
+				<VisOrigin x="217.885" y="340.259"/>
 				<Model>2</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -290,12 +290,12 @@
 					<item>01</item>
 					<item>10</item>
 				</Passability>
-				<Origin x="1381.48" y="764.677"/>
+				<Origin x="489.414" y="702.298"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1365.48" y="772.677"/>
+				<VisOrigin x="444.159" y="702.298"/>
 				<Model>3</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -305,12 +305,12 @@
 					<item>01</item>
 					<item>10</item>
 				</Passability>
-				<Origin x="1381.48" y="764.677"/>
+				<Origin x="489.414" y="702.298"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1365.48" y="772.677"/>
+				<VisOrigin x="444.159" y="702.298"/>
 				<Model>3</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -320,12 +320,12 @@
 					<item>01</item>
 					<item>10</item>
 				</Passability>
-				<Origin x="1381.48" y="764.677"/>
+				<Origin x="489.414" y="702.298"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1365.48" y="772.677"/>
+				<VisOrigin x="444.159" y="702.298"/>
 				<Model>3</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -335,12 +335,12 @@
 					<item>1010</item>
 					<item>0102</item>
 				</Passability>
-				<Origin x="1426.06" y="782.638"/>
+				<Origin x="480.974" y="539.24"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1394.06" y="766.638"/>
+				<VisOrigin x="480.974" y="448.73"/>
 				<Model>3</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -350,12 +350,12 @@
 					<item>1010</item>
 					<item>0102</item>
 				</Passability>
-				<Origin x="1426.06" y="782.638"/>
+				<Origin x="480.974" y="539.24"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1394.06" y="766.638"/>
+				<VisOrigin x="480.974" y="448.73"/>
 				<Model>3</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -365,12 +365,12 @@
 					<item>1010</item>
 					<item>0102</item>
 				</Passability>
-				<Origin x="1426.06" y="782.638"/>
+				<Origin x="480.974" y="539.24"/>
 				<Visibility>
 					<item size_x="1" size_y="1"/>
 					<item>01</item>
 				</Visibility>
-				<VisOrigin x="1394.06" y="766.638"/>
+				<VisOrigin x="480.974" y="448.73"/>
 				<Model>3</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -379,12 +379,12 @@
 					<item size_x="2" size_y="1"/>
 					<item>0110</item>
 				</Passability>
-				<Origin x="1173.48" y="756.677"/>
+				<Origin x="217.885" y="385.514"/>
 				<Visibility>
 					<item size_x="2" size_y="1"/>
 					<item>0201</item>
 				</Visibility>
-				<VisOrigin x="1157.48" y="748.677"/>
+				<VisOrigin x="217.885" y="340.259"/>
 				<Model>3</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -393,12 +393,12 @@
 					<item size_x="2" size_y="1"/>
 					<item>0110</item>
 				</Passability>
-				<Origin x="1173.48" y="756.677"/>
+				<Origin x="217.885" y="385.514"/>
 				<Visibility>
 					<item size_x="2" size_y="1"/>
 					<item>0201</item>
 				</Visibility>
-				<VisOrigin x="1157.48" y="748.677"/>
+				<VisOrigin x="217.885" y="340.259"/>
 				<Model>3</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>
@@ -407,12 +407,12 @@
 					<item size_x="2" size_y="1"/>
 					<item>0110</item>
 				</Passability>
-				<Origin x="1173.48" y="756.677"/>
+				<Origin x="217.885" y="385.514"/>
 				<Visibility>
 					<item size_x="2" size_y="1"/>
 					<item>0201</item>
 				</Visibility>
-				<VisOrigin x="1157.48" y="748.677"/>
+				<VisOrigin x="217.885" y="340.259"/>
 				<Model>3</Model>
 				<RelPos x="0" y="0" z="0"/>
 			</item>

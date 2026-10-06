@@ -444,6 +444,13 @@ pub const BatchSummary = struct {
         return self.message_buffer[0..self.message_len];
     }
 
+    /// Whether the batch ran over its projects: BkResBatch answers ok when all
+    /// went through and failed when some did not, with the report filled either
+    /// way; any other answer is a refusal before a project was touched.
+    pub fn ran(self: *const BatchSummary) bool {
+        return self.status == .ok or self.status == .failed;
+    }
+
     /// Projects that were exported (or, with -os, re-saved) without a failure.
     pub fn succeeded(self: *const BatchSummary) usize {
         return self.project_count - @min(self.project_count, self.failed_projects);
@@ -467,7 +474,7 @@ pub fn runBatch(allocator: std.mem.Allocator, b: ResBridge, files: Files, reques
     const text = b.lastMessage();
     summary.message_len = @min(text.len, summary.message_buffer.len);
     @memcpy(summary.message_buffer[0..summary.message_len], text[0..summary.message_len]);
-    if (summary.status != .ok) return summary;
+    if (!summary.ran()) return summary;
 
     var named = try allocator.alloc(bool, projects.len);
     defer allocator.free(named);
@@ -508,7 +515,7 @@ pub fn formatBatchReport(summary: *const BatchSummary, writer: *std.Io.Writer) s
     const request = summary.request;
     const verb = if (request.flags.open_save) "open and save" else "export";
     try writer.print("batch {s} {s}: {s} -> {s}{s}\n", .{ verb, request.mask.label(), request.src, request.dst, if (request.flags.force) " (forced)" else "" });
-    if (summary.status != .ok) {
+    if (!summary.ran()) {
         try writer.print("refused: {s}\n", .{summary.message()});
         return;
     }

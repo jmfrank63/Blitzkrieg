@@ -462,3 +462,13 @@ file names and stored paths it saves. The comparison already pairs a golden file
 `SameNoCase`) and the engine's reader folds the case of a stored name, so a difference of case alone never reaches the golden rules and no entry
 is needed. `test-resource-model-comparator` now proves both: a golden file named `1.XML` pairs with the port's `1.xml`, a lowercase `Chapter` value compares
 equal to the port's mixed-case one, and a value that differs by more than case still fails (`golden negative case`).
+
+## Batch export, every kind (S16 T15, 2026-10-06)
+
+| Item | Result | Reason |
+|---|---|---|
+| batch exports all 21 kinds | pass | `resource-editor-batch` and `test-resource-bridge`: one folder of every fixture, force, nothing open: the single export's files byte for byte |
+| 3rd and 3rv | pass, differs from MFC | MFC's batch crashed (`UpdateRoadView` / `UpdateRiverView` dereference the GUI tree, null in batch); the port's export never depends on UI or view state |
+| batch with a project of the kind open and edited | pass | the output is unchanged and the open project and export settings are untouched |
+| mixed folder (corrupt, wrong kind, unsupported file) | pass | each failure named, the batch continues, `BkResBatch` answers FAILED, exit status 1 |
+| scene camera in exports | removed | objects, fences, buildings and bridges use the editor camera, not the live scene's |

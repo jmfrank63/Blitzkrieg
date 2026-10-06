@@ -3464,25 +3464,12 @@ void ForgetPreviewCaches();
 // The layer a trench segment model is mounted on while it is built.
 const char *const kExportMeshLayer = "RES_EXPORT_MESH";
 
-// The scene's camera as the ground-plane matrix an object, fence or building
-// export reads where MFC called IScene::GetPos2. The scene's transform is
-// affine on the ground plane: three probes give the matrix.
-bool SceneGroundCamera( NResourceModel::SGroundCamera &camera )
+// The camera an object, fence or building export reads where MFC called IScene::GetPos2:
+// always the grid constants' own editor camera, never the live scene's, so that what an export
+// writes does not depend on a window, a preview or the view the editor happens to show.
+bool EditorGroundCamera( NResourceModel::SGroundCamera &camera )
 {
-	IScene *pScene = GetSingleton<IScene>();
-	if ( pScene == 0 )
-		return false;
-	CVec2 origin, unitX, unitY;
-	pScene->GetPos2( &origin, CVec3( 0, 0, 0 ) );
-	pScene->GetPos2( &unitX, CVec3( 1, 0, 0 ) );
-	pScene->GetPos2( &unitY, CVec3( 0, 1, 0 ) );
-	camera.m11 = unitX.x - origin.x;
-	camera.m21 = unitX.y - origin.y;
-	camera.m12 = unitY.x - origin.x;
-	camera.m22 = unitY.y - origin.y;
-	camera.m13 = camera.m23 = 0;
-	camera.m14 = origin.x;
-	camera.m24 = origin.y;
+	camera = NResourceModel::DefaultEditorCamera();
 	return true;
 }
 
@@ -3527,7 +3514,7 @@ void FillEngineLookups( NResourceModel::SExportContext &context, const std::file
 	if ( GetSingleton<IScene>() != 0 )
 	{
 		// The scene's transform is affine on the ground plane: three probes give the matrix.
-		context.groundCamera = &SceneGroundCamera;
+		context.groundCamera = &EditorGroundCamera;
 	}
 	if ( GetSingleton<IVisObjBuilder>() != 0 && GetSingleton<IDataStorage>() != 0 )
 	{
@@ -4312,50 +4299,101 @@ BkEditorStatus BkResBatch( BkResSession *pSession, int nKind, const char *pszSrc
 					projects.push_back( { k, it->path().string() } );
 		}
 		std::sort( projects.begin(), projects.end() );
-		int nWritten = 0, nSkipped = 0;
+		// The batch reads each project from its file and exports it with the
+		// kind's exporter alone: it never looks at the open project, its
+		// selection or any view, so what it writes is what BkResExport writes
+		// for the same file, and it leaves the session as it found it. A
+		// project that fails (unreadable, of another kind, refused or thrown
+		// by its exporter) is named in the warnings and the batch goes on.
+		int nWritten = 0, nSkipped = 0, nFailed = 0;
 		std::vector<std::string> warnings;
+		const auto fail = [&]( const std::string &szPath, const std::string &szReason )
+		{
+			warnings.push_back( szPath + ": " + szReason );
+			++nSkipped;
+			++nFailed;
+		};
 		for ( const auto &entry : projects )
 		{
 			const std::string &szPath = entry.second;
-			std::string szBytes, szError;
-			NResourceModel::Project project;
-			if ( !ReadFileBytes( szPath, szBytes ) || !NResourceModel::Load( szBytes, project, szError ) )
+			const std::string szExtension = kKindExtensions[entry.first];
+			try
 			{
-				warnings.push_back( szPath + ": cannot read the project " + szError );
-				++nSkipped;
-				continue;
-			}
-			if ( bOpenSave )
-			{
-				std::string szResaved = NResourceModel::Save( project );
-				RefreshFrameData( pSession, nullptr, entry.first, szPath, szResaved );
-				if ( ResaveProject( szPath, szResaved, szError ) )
-					++nWritten;
-				else
+				std::string szBytes, szError;
+				NResourceModel::Project project;
+				if ( !ReadFileBytes( szPath, szBytes ) )
 				{
-					warnings.push_back( szPath + ": " + szError );
-					++nSkipped;
+					fail( szPath, "cannot read the project" );
+					continue;
 				}
-				continue;
+				// A GUI screen is the screen text itself, exported by its name as
+				// BkResExport does; a palette project loads as a tree like any kind.
+				const bool bScreen = szExtension == "gui" && LooksLikeScreen( szBytes );
+				if ( !bScreen || bOpenSave )
+				{
+					if ( !NResourceModel::Load( szBytes, project, szError ) )
+					{
+						fail( szPath, "cannot read the project " + szError );
+						continue;
+					}
+					if ( !bScreen && project.document.root.name != kKindTable[entry.first].pszTag )
+					{
+						fail( szPath, "the project is a " + project.document.root.name + ", not a ." + szExtension + " project (" + kKindTable[entry.first].pszTag + ")" );
+						continue;
+					}
+				}
+				if ( bOpenSave )
+				{
+					// What opening the file and saving it writes: the state BkResOpen builds (without
+					// the mesh locators, which would change a mesh's bytes), then BkResSave's own
+					// render and refresh, on a state of the batch's own.
+					ResourceState state;
+					state.pProject = std::make_unique<NResourceModel::Project>( std::move( project ) );
+					state.bOpen = true;
+					state.nKindOrdinal = entry.first;
+					state.szPath = szPath;
+					if ( state.pProject->root && state.pProject->root->GetItemType() == NResourceModel::ETIT_TILESET_ROOT_ITEM )
+						NResourceModel::AssignMissingTileIndexes( *state.pProject->root );
+					RebuildIds( state );
+					std::string szResaved;
+					if ( !RenderForSave( state, szResaved, szError ) )
+					{
+						fail( szPath, szError );
+						continue;
+					}
+					RefreshFrameData( pSession, &state, entry.first, szPath, szResaved );
+					if ( ResaveProject( szPath, szResaved, szError ) )
+						++nWritten;
+					else
+						fail( szPath, szError );
+					continue;
+				}
+				NResourceModel::SExportOutcome outcome;
+				if ( ExportOne( project, szPath, szExtension, dataDir, ShippedDataFolder( pSession ), nFlags, false,
+				                bScreen ? szBytes : std::string(), bScreen ? ScreenNameOf( szPath ) : std::string(), outcome, szError ) )
+				{
+					nWritten += outcome.nWritten;
+					nSkipped += outcome.nSkipped;
+				}
+				else
+					fail( szPath, szError );
+				for ( const std::string &szWarning : outcome.warnings )
+					warnings.push_back( szPath + " (warning): " + szWarning ); // not "<path>: ", which names a failed project
 			}
-			NResourceModel::SExportOutcome outcome;
-			if ( ExportOne( project, szPath, kKindExtensions[entry.first], dataDir, ShippedDataFolder( pSession ), nFlags, false, std::string(), std::string(), outcome, szError ) )
+			catch ( const std::exception &e )
 			{
-				nWritten += outcome.nWritten;
-				nSkipped += outcome.nSkipped;
+				fail( szPath, std::string( "the exporter threw: " ) + e.what() );
 			}
-			else
+			catch ( ... )
 			{
-				warnings.push_back( szPath + ": " + szError );
-				++nSkipped;
+				fail( szPath, "the exporter threw" );
 			}
-			for ( const std::string &szWarning : outcome.warnings )
-				warnings.push_back( szPath + ": " + szWarning );
 		}
 		FillReport( pReport, nWritten, nSkipped, warnings );
 		pSession->szMessage = std::to_string( projects.size() ) + " projects, " + std::to_string( nWritten ) + " written, " +
-		                      std::to_string( nSkipped ) + " skipped";
-		return BK_EDITOR_OK;
+		                      std::to_string( nSkipped ) + " skipped, " + std::to_string( nFailed ) + " failed";
+		// The report is filled either way; FAILED tells the caller that a project did not make it.
+		return nFailed == 0 ? BK_EDITOR_OK : BK_EDITOR_FAILED;
 	} );
 }
 
@@ -7638,9 +7676,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 					return status;
 				if ( !bridgeStats.segments.empty() )
 					szKeyName = statsFile.parent_path().filename().string();
-				NResourceModel::SGroundCamera camera;
-				if ( !SceneGroundCamera( camera ) )
-					camera = NResourceModel::DefaultEditorCamera();
+				NResourceModel::SGroundCamera camera = NResourceModel::DefaultEditorCamera();
 				if ( !szKeyName.empty() )
 					NResourceModel::BridgeStatsToTree( bridgeStats, *pRoot, NResourceModel::GridProjection( camera ), szKeyName );
 				bBridgeFrame = true;
@@ -7728,9 +7764,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
 					return status;
 				szKeyName = rpgStats.szKeyName;
-				NResourceModel::SGroundCamera camera;
-				if ( !SceneGroundCamera( camera ) )
-					camera = NResourceModel::DefaultEditorCamera();
+				NResourceModel::SGroundCamera camera = NResourceModel::DefaultEditorCamera();
 				if ( !szKeyName.empty() )
 					FenceStatsToTree( rpgStats, *pRoot, NResourceModel::GridProjection( camera ) );
 				break;
@@ -7831,9 +7865,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 			}
 			else if ( bBridgeFrame )
 			{
-				NResourceModel::SGroundCamera camera;
-				if ( !SceneGroundCamera( camera ) )
-					camera = NResourceModel::DefaultEditorCamera();
+				NResourceModel::SGroundCamera camera = NResourceModel::DefaultEditorCamera();
 				NResourceModel::WriteBridgeFrameData( pStaged->document.root, bridgeStats, NResourceModel::GridProjection( camera ) );
 			}
 			else

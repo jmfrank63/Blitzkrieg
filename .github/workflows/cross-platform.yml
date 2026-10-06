@@ -440,6 +440,9 @@ jobs:
       - name: Resource editor smoke
         run: zig build resource-editor-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      - name: Resource editor batch
+        run: zig build resource-editor-batch -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Resource editor auto
         run: zig build resource-editor-auto -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
@@ -879,6 +882,9 @@ jobs:
 
       - name: Resource editor smoke
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-smoke -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Resource editor batch
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-batch -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Resource editor auto
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto -Dtarget=aarch64-macos -Dtest-mode=run

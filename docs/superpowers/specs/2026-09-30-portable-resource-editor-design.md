@@ -1371,3 +1371,22 @@ Final per-kind golden table (`test-resource-model-comparator`: `GOLDEN_SUMMARY e
 `gui` has no golden: the GUI editor is switched off in MFC. Total over the 20 goldens: pass=10 accepted=10 fail=0 pending=0.
 
 Not claimed: no macOS or Windows result; the full resource sweep is left to the maintainer. T07 (the MFC deletion) still waits for Johannes's approval.
+
+## Amendment (S16 T15, 2026-10-06): the batch exports every kind and does not depend on the UI or the view
+
+Decision (Johannes: the port's batch must work, whatever MFC did). `BkResBatch`, which the command line `--batch` and the app's Tools > Batch share,
+reads each project from its file and exports it with the kind's exporter alone: every one of the 21 kinds, including 3rd and 3rv, from one folder
+with force. MFC's batch export crashed on 3rd and 3rv (`UpdateRoadView` / `UpdateRiverView` dereference the GUI tree, which is null in batch); the
+port has no path of that class.
+
+- The batch never reads the open project, its selection or any view, and leaves the session as it found it. `resource-editor-batch` (`--batch-check`)
+  proves it for all 21 kinds: with nothing open, and with a project of the kind open and edited, the batch writes the single export's (`BkResExport`)
+  files byte for byte. `test-resource-bridge` proves the same through the C ABI.
+- A dependency on view state was found and removed: the object, fence, building and bridge exports took the live scene's camera (`GetPos2`) when a scene
+  existed, so the cached origins and the grids' origins changed with the window. They now always use the editor camera of the grid constants
+  (`DefaultEditorCamera`). The `bdg` fixture's cached block was re-saved with it.
+- A project that fails (unreadable, of another kind, refused or thrown by its exporter) is named in the report as `<path>: <reason>` and the batch goes on;
+  `BkResBatch` answers `FAILED` and the exit status is 1. An exporter's own warnings are reported as `<path> (warning): ...` and do not count as failures.
+- `resource-editor-batch` is in `.github/workflows/cross-platform.yml` (Windows and macOS) and `tools/zig/run-resource-sweep.sh`, after the smoke.
+
+Not claimed: no macOS or Windows result; the full resource sweep is left to the maintainer. T07 still waits for Johannes's approval.

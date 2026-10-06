@@ -112,6 +112,7 @@ TIERS=(
   "map-editor-game-reads-it-m3"
   "resource-editor-host-check"
   "resource-editor-smoke"
+  "resource-editor-batch"
   "resource-editor-auto-core"
   "resource-editor-auto-wpn"
   "resource-editor-auto-unt"
