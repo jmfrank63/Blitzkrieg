@@ -100,6 +100,19 @@ foreach ($ext in $Extensions) {
     }
     [IO.File]::WriteAllText((Join-Path $source "gamma.cfg"), "<?xml version=`"1.0`"?>`r`n<base Brightness=`"0`" Contrast=`"0`" Gamma=`"0`"/>`r`n", $latin1)
 
+    # Batch export reads the stats from the project's own cached <RPG>/<desc> block, which MFC writes
+    # whenever it saves a project (CParentFrame::ExportSingleFile -> LoadRPGStats). The fixtures are
+    # written by the port and lack it, so let the editor open and save the scratch copy first (-os).
+    $openSave = Start-Process -FilePath $EditorPath -ArgumentList @("*.$ext", "`"$source`"", "`"$dest\\`"", "-os") `
+        -WorkingDirectory (Split-Path -Parent $EditorPath) -PassThru
+    if (-not $openSave.WaitForExit($TimeoutSeconds * 1000)) {
+        $openSave.Kill()
+        Write-Host "FAIL $ext open-and-save timed out after $TimeoutSeconds s (a message box is probably open)"
+        $failed += $ext
+        continue
+    }
+    if ($openSave.ExitCode -ne 0) { Write-Host ("WARN $ext open-and-save exit code " + $openSave.ExitCode + "; exporting the unsaved fixture") }
+    Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $source "backup.tmp")
     # The destination keeps its trailing backslash doubled: in "dir\" Windows reads the backslash
     # before the closing quote as an escaped quote, so -f was swallowed and batch mode skipped the export.
     $process = Start-Process -FilePath $EditorPath -ArgumentList @("*.$ext", "`"$source`"", "`"$dest\\`"", "-f") `
