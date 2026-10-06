@@ -447,8 +447,16 @@ pub const Docks = struct {
         if (!ig.igBegin("Image###image_frame", null, 0)) return;
 
         var path_buffer: [logic.path_capacity + 64]u8 = undefined;
-        const path = if (project_folder) |folder| il.sourcePath(&path_buffer, &life.doc, picked, folder) else null;
-        self.loadImage(life, picked, path);
+        var mission: il.MissionPicture = .{ .action = .no_final_map, .path = null };
+        const path = if (project_folder) |folder| blk: {
+            if (picked != .mission) break :blk il.sourcePath(&path_buffer, &life.doc, picked, folder);
+            // CMissionFrame: the Mission always shows map_h.dds, made first when it is missing.
+            const without = il.missionPicture(&path_buffer, &life.doc, folder, false);
+            const exists = if (without.path) |file| fileExists(self.io, file) else false;
+            mission = il.missionPicture(&path_buffer, &life.doc, folder, exists);
+            break :blk mission.path;
+        } else null;
+        self.loadImage(life, picked, path, mission);
 
         if (picked.hasShowCrosses()) {
             var show = frame.overlayFor(self.gpa).mode == .drag_crosses;
@@ -461,7 +469,9 @@ pub const Docks = struct {
         if (ig.igButton("Reload picture")) frame.forget();
         if (frame.note_len != 0) ig.igTextDisabled("%.*s", @as(c_int, @intCast(frame.note_len)), &frame.note);
         const texture = frame.texture orelse {
-            if (project_folder == null) ig.igTextDisabled("Save the project to show its picture.") else if (path == null) ig.igTextDisabled("This project names no picture yet.");
+            if (project_folder == null) ig.igTextDisabled("Save the project to show its picture.") else if (path == null) {
+                if (picked == .mission) ig.igTextDisabled("%s", il.no_final_map_message.ptr) else ig.igTextDisabled("This project names no picture yet.");
+            }
             return;
         };
 
@@ -505,8 +515,10 @@ pub const Docks = struct {
     }
 
     /// Decodes the picture at `path` once; a Mission whose map_h.dds is
-    /// missing has the engine create it first. Failures stay in the note.
-    fn loadImage(self: *Docks, life: *const logic.Lifecycle, kind: il.Kind, path: ?[:0]const u8) void {
+    /// missing has the engine create it first (the decision is
+    /// image_logic.missionPicture's). The note names the file decoded and
+    /// whether it was just created; failures stay in the note too.
+    fn loadImage(self: *Docks, life: *const logic.Lifecycle, kind: il.Kind, path: ?[:0]const u8, mission: il.MissionPicture) void {
         const frame = &self.image;
         const wanted = path orelse {
             frame.forget();
@@ -529,17 +541,13 @@ pub const Docks = struct {
         defer self.gpa.free(pixels);
         var width: c_int = 0;
         var height: c_int = 0;
-        var status = c.BkEditorMinimapImage(self.real.session, wanted.ptr, pixels.ptr, @intCast(pixels.len), il.max_side, &width, &height);
-        if (status != c.BK_EDITOR_OK and kind == .mission and !life.read_only) {
-            // MinimapCreation: the Mission's pictures are made on first use.
-            const made = self.real.bridge().missionMinimap();
-            if (made == .ok) {
-                status = c.BkEditorMinimapImage(self.real.session, wanted.ptr, pixels.ptr, @intCast(pixels.len), il.max_side, &width, &height);
-            } else {
-                frame.say("minimap: {s}", .{self.real.bridge().lastMessage()});
-                return;
-            }
+        const created = kind == .mission and mission.action == .create_then_show and !life.read_only;
+        if (kind == .mission and il.prepareMission(self.real.bridge(), mission, life.read_only) == .refused) {
+            // A refused minimap shows the bridge's message and no picture.
+            frame.say("minimap: {s}", .{self.real.bridge().lastMessage()});
+            return;
         }
+        const status = c.BkEditorMinimapImage(self.real.session, wanted.ptr, pixels.ptr, @intCast(pixels.len), il.max_side, &width, &height);
         if (status != c.BK_EDITOR_OK) {
             const why = std.mem.span(c.BkEditorLastMessage(self.real.session));
             frame.say("{s}: {s}", .{ wanted, why });
@@ -558,6 +566,7 @@ pub const Docks = struct {
         frame.device = device;
         frame.width = width;
         frame.height = height;
+        if (kind == .mission) frame.say("decoded {s}{s}", .{ wanted, if (created) " (created)" else "" });
     }
 
     /// Import, Help and About: the windows that act on the session.
@@ -1101,6 +1110,12 @@ pub const Docks = struct {
         }
     }
 };
+
+/// Whether a file is there, MFC's GetFileAttributes != -1.
+fn fileExists(io: std.Io, path: []const u8) bool {
+    std.Io.Dir.cwd().access(io, path, .{}) catch return false;
+    return true;
+}
 
 /// The engine's own image decoders through BkEditorMinimapImage, which reads
 /// "<base>.tga" for a "<base>.xml" path (docks_logic.thumbnailDecodePath):

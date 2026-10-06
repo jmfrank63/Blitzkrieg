@@ -8307,6 +8307,35 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 	const bool bPictures = DdsIs( projectDir / "map_c.dds", 512 ) && DdsIs( projectDir / "map_l.dds", 512 ) && DdsIs( projectDir / "map_h.dds", 512 );
 	std::printf( "MISSION MINIMAP map_c/l/h.dds 512x512: %d\n", bPictures ? 1 : 0 );
 	Check( bPictures, "mission minimap: map_c.dds, map_l.dds and map_h.dds are 512 x 512 by their headers" );
+	// D032: the project has a map.tga beside the map_h.dds just made. Naming the .dds decodes that file alone, so
+	// the Mission frame's picture is the generated minimap, never the map.tga the .xml spelling would prefer.
+	{
+		const int nSide = 2048;
+		std::vector<unsigned char> dds( size_t( nSide ) * nSide * 4 ), tga( size_t( nSide ) * nSide * 4 );
+		int nDdsW = 0, nDdsH = 0, nTgaW = 0, nTgaH = 0;
+		const std::string szDds = ( projectDir / "map_h.dds" ).generic_string();
+		const std::string szXml = ( projectDir / "map.xml" ).generic_string();
+		const bool bDds = BkEditorMinimapImage( pSession, szDds.c_str(), dds.data(), int( dds.size() ), nSide, &nDdsW, &nDdsH ) == BK_EDITOR_OK;
+		const bool bTga = BkEditorMinimapImage( pSession, szXml.c_str(), tga.data(), int( tga.size() ), nSide, &nTgaW, &nTgaH ) == BK_EDITOR_OK;
+		Check( bDds && nDdsW == 512 && nDdsH == 512, "mission minimap: map_h.dds decodes by its own name at 512 x 512" );
+		Check( bTga && fs::is_regular_file( projectDir / "map.tga", ec ), "mission minimap: map.tga decodes beside it" );
+		size_t nDiffer = 0;
+		if ( bDds && bTga )
+		{
+			if ( nTgaW != nDdsW || nTgaH != nDdsH )
+				nDiffer = 1;
+			else
+				for ( size_t i = 0; i < size_t( nDdsW ) * nDdsH * 4; ++i )
+					if ( dds[i] != tga[i] )
+						++nDiffer;
+		}
+		std::printf( "MISSION MINIMAP map_h.dds %dx%d, map.tga %dx%d, %zu differing bytes\n", nDdsW, nDdsH, nTgaW, nTgaH, nDiffer );
+		Check( nDiffer > 0, "mission minimap: the decoded map_h.dds is not the map.tga picture" );
+		// Naming a .dds that is not there is a refusal with the engine's message, not another picture.
+		const std::string szMissing = ( projectDir / "nothing_h.dds" ).generic_string();
+		Check( BkEditorMinimapImage( pSession, szMissing.c_str(), dds.data(), int( dds.size() ), nSide, &nDdsW, &nDdsH ) == BK_EDITOR_REFUSED,
+		       "mission minimap: a missing .dds is refused" );
+	}
 	// Up to date: the pictures are kept as they are.
 	const auto before = fs::last_write_time( projectDir / "map_h.dds", ec );
 	Check( BkResMissionMinimap( pSession ) == BK_EDITOR_OK && fs::last_write_time( projectDir / "map_h.dds", ec ) == before &&

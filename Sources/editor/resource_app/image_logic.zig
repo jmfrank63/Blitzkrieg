@@ -63,13 +63,14 @@ pub fn realSize(width: i32, height: i32) bool {
 pub const too_large_message = "the picture is 2048 pixels or more on a side; positions would not be real pixels";
 
 /// The path BkEditorMinimapImage decodes (it takes "<base>.xml" and reads
-/// "<base>.tga", then "<base>_h.dds"): the Mission's own map_h.dds beside the
-/// project, or the picture named by the Chapter, Campaign or Medal's common
-/// properties (property ids 4, 3 and 3: they count from 1, unlike the exporters' value indexes) as a .tga
-/// in the project folder. Null while the name is empty or the path does not fit.
+/// "<base>.tga"): the picture named by the Chapter, Campaign or Medal's
+/// common properties (property ids 4, 3 and 3: they count from 1, unlike the
+/// exporters' value indexes) as a .tga in the project folder. Null while the
+/// name is empty or the path does not fit, and always for a Mission, whose
+/// picture is map_h.dds and goes through `missionPicture`.
 pub fn sourcePath(buffer: []u8, doc: *const Document, kind: Kind, project_folder: []const u8) ?[:0]const u8 {
     const name: []const u8 = switch (kind) {
-        .mission => "map",
+        .mission => return null,
         else => blk: {
             const common = switch (kind) {
                 .chapter => tools.firstOfClass(doc, tools.item_type.chapter_common_props),
@@ -87,6 +88,56 @@ pub fn sourcePath(buffer: []u8, doc: *const Document, kind: Kind, project_folder
         ch.* = '/';
     };
     return text;
+}
+
+/// The Mission common property that names the Final map (id 5; the exporter
+/// reads it as value index 4).
+pub const mission_final_map_id: i32 = 5;
+
+/// What the Mission frame does for its picture.
+pub const MissionAction = enum {
+    /// map_h.dds is beside the project: show it, make nothing.
+    show,
+    /// The Final map is set and map_h.dds is missing: the engine makes it first.
+    create_then_show,
+    /// No Final map: nothing to show.
+    no_final_map,
+};
+
+pub const MissionPicture = struct {
+    action: MissionAction,
+    /// The map_h.dds beside the project, forward slashes; null for no_final_map
+    /// or a path that does not fit.
+    path: ?[:0]const u8,
+};
+
+pub const no_final_map_message = "This mission has no Final map yet; set it to show its minimap.";
+
+/// CMissionFrame::ComposeEditor (MissionFrm.cpp:206-226): with a Final map the
+/// frame always shows map_h.dds beside the project and makes it first when it
+/// is missing, whatever other picture (a map.tga) lies there. `picture_exists`
+/// is MFC's GetFileAttributes check, made by the caller so this stays pure.
+pub fn missionPicture(buffer: []u8, doc: *const Document, project_folder: []const u8, picture_exists: bool) MissionPicture {
+    const common = tools.firstOfClass(doc, tools.item_type.mission_common_props);
+    const final_map = if (common) |node| tools.propValue(doc, node, mission_final_map_id) orelse "" else "";
+    if (final_map.len == 0) return .{ .action = .no_final_map, .path = null };
+    const sep: []const u8 = if (project_folder.len == 0 or project_folder[project_folder.len - 1] == '/' or project_folder[project_folder.len - 1] == '\\') "" else "/";
+    const text = std.fmt.bufPrintZ(buffer, "{s}{s}map_h.dds", .{ project_folder, sep }) catch return .{ .action = .no_final_map, .path = null };
+    for (text) |*ch| if (ch.* == '\\') {
+        ch.* = '/';
+    };
+    return .{ .action = if (picture_exists) .show else .create_then_show, .path = text };
+}
+
+pub const Prepared = enum { ready, refused };
+
+/// Runs the action's side effect: for create_then_show on a writable document
+/// the engine makes the minimap (BkResMissionMinimap); a refusal leaves its
+/// message on the bridge for the frame to show. A read-only document makes
+/// nothing and lets the decode say that the picture is missing.
+pub fn prepareMission(bridge: ResBridge, picture: MissionPicture, read_only: bool) Prepared {
+    if (picture.action != .create_then_show or read_only) return .ready;
+    return if (bridge.missionMinimap() == .ok) .ready else .refused;
 }
 
 /// MFC's cross: the hit box is 32 x 32 around the position shifted by 15.4
@@ -585,14 +636,14 @@ test "image: a picture's real size is only trusted below the decode side" {
     try testing.expect(!realSize(0, 10));
 }
 
-test "image: the source path is the mission's map or the named picture, slashes forward" {
+test "image: the source path is the named picture of a chapter, campaign or medal, slashes forward" {
     var rig = try Rig.init(testing.allocator, .chapter);
     defer rig.deinit(testing.allocator);
     var buffer: [256]u8 = undefined;
     // No common properties node yet: no picture to show.
     try testing.expect(sourcePath(&buffer, &rig.doc, .chapter, "/p") == null);
-    try testing.expectEqualStrings("/p/map.xml", sourcePath(&buffer, &rig.doc, .mission, "/p").?);
-    try testing.expectEqualStrings("C:/p/map.xml", sourcePath(&buffer, &rig.doc, .mission, "C:\\p\\").?);
+    // A Mission's picture is map_h.dds, decided by missionPicture.
+    try testing.expect(sourcePath(&buffer, &rig.doc, .mission, "/p") == null);
 
     const root = rig.fake.nodes.items[0].id;
     var buf: [16]u8 = undefined;
@@ -609,4 +660,69 @@ test "image: the source path is the mission's map or the named picture, slashes 
     try testing.expectEqualStrings("/p/Sub/chapter1.xml", sourcePath(&buffer, &rig.doc, .chapter, "/p").?);
     var tiny: [8]u8 = undefined;
     try testing.expect(sourcePath(&tiny, &rig.doc, .chapter, "/p") == null);
+}
+
+/// Sets the Final map of a rig's mission, adding the common properties node.
+fn setFinalMap(rig: *Rig, name: []const u8) !void {
+    const root = rig.fake.nodes.items[0].id;
+    var buf: [16]u8 = undefined;
+    var common: i32 = 0;
+    try bridge_mod.check(rig.fake.bridge().insertNode(root, try std.fmt.bufPrint(&buf, "{d}", .{tools.item_type.mission_common_props}), 0, &common));
+    for (rig.fake.nodes.items) |*n| if (n.id == common) {
+        var record: bridge_mod.PropRecord = .{ .id = mission_final_map_id };
+        _ = record.setDefault("Final map");
+        _ = record.setDisplay("Final map");
+        _ = record.setValue(name);
+        try n.props.append(testing.allocator, record);
+    };
+    try rig.doc.reload(testing.allocator, rig.fake.bridge());
+}
+
+test "image: a mission with a Final map shows map_h.dds and makes it when missing (D032)" {
+    var rig = try Rig.init(testing.allocator, .mission);
+    defer rig.deinit(testing.allocator);
+    const bridge = rig.fake.bridge();
+    var buffer: [256]u8 = undefined;
+
+    // No Final map: nothing to show, and the message says why.
+    var picture = missionPicture(&buffer, &rig.doc, "/p", false);
+    try testing.expectEqual(MissionAction.no_final_map, picture.action);
+    try testing.expect(picture.path == null);
+    try testing.expect(std.mem.indexOf(u8, no_final_map_message, "Final map") != null);
+    try testing.expectEqual(Prepared.ready, prepareMission(bridge, picture, false));
+    try testing.expectEqual(@as(u32, 0), rig.fake.minimap_requests);
+
+    try setFinalMap(&rig, "road3d");
+    // map_h.dds missing (a map.tga may lie beside it, which is never shown): make it, then show it.
+    picture = missionPicture(&buffer, &rig.doc, "C:\\p\\", false);
+    try testing.expectEqual(MissionAction.create_then_show, picture.action);
+    try testing.expectEqualStrings("C:/p/map_h.dds", picture.path.?);
+    try testing.expectEqual(Prepared.ready, prepareMission(bridge, picture, false));
+    try testing.expectEqual(@as(u32, 1), rig.fake.minimap_requests);
+
+    // The second selection finds map_h.dds: shown, not regenerated.
+    picture = missionPicture(&buffer, &rig.doc, "/p", true);
+    try testing.expectEqual(MissionAction.show, picture.action);
+    try testing.expectEqualStrings("/p/map_h.dds", picture.path.?);
+    try testing.expectEqual(Prepared.ready, prepareMission(bridge, picture, false));
+    try testing.expectEqual(@as(u32, 1), rig.fake.minimap_requests);
+
+    // A read-only document makes nothing.
+    picture = missionPicture(&buffer, &rig.doc, "/p", false);
+    try testing.expectEqual(Prepared.ready, prepareMission(bridge, picture, true));
+    try testing.expectEqual(@as(u32, 1), rig.fake.minimap_requests);
+
+    var tiny: [8]u8 = undefined;
+    try testing.expect(missionPicture(&tiny, &rig.doc, "/p", true).path == null);
+}
+
+test "image: a refused minimap is reported, not shown as a picture" {
+    var rig = try Rig.init(testing.allocator, .mission);
+    defer rig.deinit(testing.allocator);
+    var buffer: [256]u8 = undefined;
+    try setFinalMap(&rig, "road3d");
+    const picture = missionPicture(&buffer, &rig.doc, "/p", false);
+    // A closed project makes the fake refuse like the real bridge.
+    rig.fake.kind = null;
+    try testing.expectEqual(Prepared.refused, prepareMission(rig.fake.bridge(), picture, false));
 }

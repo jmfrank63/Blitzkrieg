@@ -1218,6 +1218,77 @@ const Runner = struct {
         return null;
     }
 
+    /// `<shot>`: the Image window shows the project's map_h.dds, not the map.tga beside it (CMissionFrame). The
+    /// path the frame decoded must end in map_h.dds; then 16 x 16 picture pixels of the shot are compared with that
+    /// file decoded by the engine and with map.tga decoded the same way. The mean differences and the counts of samples
+    /// within 12 of each file are printed; the shot must match map_h.dds and map.tga clearly less.
+    fn shotMinimap(self: *Runner, arg: []const u8) ?[]const u8 {
+        const docks = if (self.docks) |*d| d else return self.fail("shot_minimap: the Image window is not open", .{});
+        const shown = docks.image.shown orelse return self.fail("shot_minimap: the Image window shows no picture", .{});
+        const loaded_path = docks.image.key[0..docks.image.key_len];
+        if (!std.mem.endsWith(u8, loaded_path, "/map_h.dds")) return self.fail("expect=shot_minimap:{s} was false: the frame decoded {s}, not map_h.dds", .{ arg, loaded_path });
+        var bytes: []u8 = undefined;
+        const loaded = self.loadShot("shot_minimap", arg, &bytes) orelse return self.failure;
+        defer self.gpa.free(bytes);
+        const side: usize = @intCast(il.max_side);
+        const hd = self.gpa.alloc(u8, side * side * 4) catch return self.fail("shot_minimap: out of memory", .{});
+        defer self.gpa.free(hd);
+        const tga = self.gpa.alloc(u8, side * side * 4) catch return self.fail("shot_minimap: out of memory", .{});
+        defer self.gpa.free(tga);
+        var hd_w: c_int = 0;
+        var hd_h: c_int = 0;
+        var tga_w: c_int = 0;
+        var tga_h: c_int = 0;
+        const session = self.real.session;
+        var dds_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const dds = std.fmt.bufPrintZ(&dds_buffer, "{s}", .{loaded_path}) catch return self.fail("shot_minimap: the path is too long", .{});
+        if (c.BkEditorMinimapImage(session, dds.ptr, hd.ptr, @intCast(hd.len), il.max_side, &hd_w, &hd_h) != c.BK_EDITOR_OK) return self.fail("shot_minimap: map_h.dds does not decode: {s}", .{self.bridge().lastMessage()});
+        var xml_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const stem = loaded_path[0 .. loaded_path.len - "_h.dds".len];
+        const xml = std.fmt.bufPrintZ(&xml_buffer, "{s}.xml", .{stem}) catch return self.fail("shot_minimap: the path is too long", .{});
+        if (c.BkEditorMinimapImage(session, xml.ptr, tga.ptr, @intCast(tga.len), il.max_side, &tga_w, &tga_h) != c.BK_EDITOR_OK) return self.fail("shot_minimap: map.tga does not decode: {s}", .{self.bridge().lastMessage()});
+        if (hd_w != tga_w or hd_h != tga_h) std.debug.print("resource-editor: auto: {s}: map_h.dds is {d}x{d}, map.tga is {d}x{d}\n", .{ arg, hd_w, hd_h, tga_w, tga_h });
+        var diff_hd: u64 = 0;
+        var diff_tga: u64 = 0;
+        var samples: u64 = 0;
+        var near_hd: u32 = 0;
+        var near_tga: u32 = 0;
+        for (0..16) |gy| {
+            for (0..16) |gx| {
+                const ix: usize = @min(@as(usize, @intCast(hd_w)) - 1, (gx * 2 + 1) * @as(usize, @intCast(hd_w)) / 32);
+                const iy: usize = @min(@as(usize, @intCast(hd_h)) - 1, (gy * 2 + 1) * @as(usize, @intCast(hd_h)) / 32);
+                const px: u32 = @intFromFloat(@round((shown.x + @as(f32, @floatFromInt(ix)) + 0.5) * loaded.scale));
+                const py: u32 = @intFromFloat(@round((shown.y + @as(f32, @floatFromInt(iy)) + 0.5) * loaded.scale));
+                if (px >= loaded.tga.width or py >= loaded.tga.height) return self.fail("shot_minimap: picture pixel {d},{d} is outside the shot", .{ ix, iy });
+                const seen = loaded.tga.pixel(px, py);
+                const hd_at = (iy * @as(usize, @intCast(hd_w)) + ix) * 4;
+                const tx: usize = @min(@as(usize, @intCast(tga_w)) - 1, ix);
+                const ty: usize = @min(@as(usize, @intCast(tga_h)) - 1, iy);
+                const tga_at = (ty * @as(usize, @intCast(tga_w)) + tx) * 4;
+                // The shot's channels are B, G, R; the decoder's are R, G, B.
+                var point_hd: u32 = 0;
+                var point_tga: u32 = 0;
+                for (0..3) |ch| {
+                    point_hd += @abs(@as(i32, seen[2 - ch]) - @as(i32, hd[hd_at + ch]));
+                    point_tga += @abs(@as(i32, seen[2 - ch]) - @as(i32, tga[tga_at + ch]));
+                }
+                diff_hd += point_hd;
+                diff_tga += point_tga;
+                if (point_hd <= 3 * 12) near_hd += 1;
+                if (point_tga <= 3 * 12) near_tga += 1;
+                samples += 3;
+            }
+        }
+        const mean_hd = @as(f64, @floatFromInt(diff_hd)) / @as(f64, @floatFromInt(samples));
+        const mean_tga = @as(f64, @floatFromInt(diff_tga)) / @as(f64, @floatFromInt(samples));
+        std.debug.print("resource-editor: auto: {s}: the picture shown is {s} ({d}x{d}); mean channel difference from map_h.dds {d:.2}, from map.tga {d:.2}; samples within 12 of map_h.dds {d}/256, of map.tga {d}/256\n", .{ arg, loaded_path, hd_w, hd_h, mean_hd, mean_tga, near_hd, near_tga });
+        // The window may clip the picture's edge, so only samples that lie in view can agree: most must match map_h.dds
+        // and no more than a quarter as many may match map.tga.
+        if (near_hd * 2 < 256) return self.fail("expect=shot_minimap:{s} was false: only {d} of 256 samples match map_h.dds", .{ arg, near_hd });
+        if (near_tga * 4 > near_hd) return self.fail("expect=shot_minimap:{s} was false: {d} samples match map.tga against {d} for map_h.dds", .{ arg, near_tga, near_hd });
+        return null;
+    }
+
     /// The screen point of a curve value in the displayed widget, or why it is
     /// not on it. Frames are drawn first so the widget shows the stored keys.
     fn aim(self: *Runner, what: []const u8, x: f32, y: f32) union(enum) { at: struct { x: f32, y: f32 }, refused: []const u8 } {
@@ -2031,6 +2102,7 @@ const Runner = struct {
         if (eql(u8, name, "cross")) return self.crossAt(arg);
         if (eql(u8, name, "shot_marker")) return self.shotMarker(arg);
         if (eql(u8, name, "shot_picture")) return self.shotPicture(arg);
+        if (eql(u8, name, "shot_minimap")) return self.shotMinimap(arg);
         if (eql(u8, name, "shot_colour")) return self.shotColour(arg);
         if (eql(u8, name, "shot_curve_handle")) return self.shotCurveHandle(arg);
         return self.fail("unknown predicate '{s}'", .{name});

@@ -2163,8 +2163,20 @@ BkEditorStatus BkEditorMinimapImage( BkEditorSession *pSession, const char *pszM
 			pSession->szMessage = "the engine is not started";
 			return BK_EDITOR_REFUSED;
 		}
+		// A path that names a .dds is that one picture and nothing else: the
+		// Mission frame shows map_h.dds even where a map.tga lies beside it
+		// (CMissionFrame::ComposeEditor).
+		std::string szDdsFile;
+		{
+			const std::string szGiven = pszMapPath;
+			const std::string::size_type nDdsDot = szGiven.find_last_of( '.' );
+			std::string szGivenExtension = nDdsDot == std::string::npos ? std::string() : szGiven.substr( nDdsDot );
+			NStr::ToLower( szGivenExtension );
+			if ( szGivenExtension == ".dds" )
+				szDdsFile = EnginePathOf( szGiven );
+		}
 		std::string szBase;
-		if ( !MapBaseOf( pszMapPath, &szBase ) )
+		if ( szDdsFile.empty() && !MapBaseOf( pszMapPath, &szBase ) )
 		{
 			pSession->szMessage = "the map path does not end in .bzm or .xml";
 			return BK_EDITOR_BAD_ARGUMENT;
@@ -2181,13 +2193,26 @@ BkEditorStatus BkEditorMinimapImage( BkEditorSession *pSession, const char *pszM
 		CPtr<IImage> pImage;
 		try
 		{
-			if ( std::filesystem::exists( HostPathOf( szBase + ".tga" ), error ) )
+			if ( !szDdsFile.empty() )
+			{
+				if ( std::filesystem::exists( HostPathOf( szDdsFile ), error ) )
+				{
+					CPtr<IDataStream> pStream = OpenFileStream( szDdsFile, STREAM_ACCESS_READ );
+					if ( pStream != 0 )
+					{
+						CPtr<IDDSImage> pDDS = pImages->LoadDDSImage( pStream );
+						if ( pDDS != 0 )
+							pImage = pImages->Decompress( pDDS );
+					}
+				}
+			}
+			else if ( std::filesystem::exists( HostPathOf( szBase + ".tga" ), error ) )
 			{
 				CPtr<IDataStream> pStream = OpenFileStream( szBase + ".tga", STREAM_ACCESS_READ );
 				if ( pStream != 0 )
 					pImage = pImages->LoadImage( pStream );
 			}
-			if ( pImage == 0 && std::filesystem::exists( HostPathOf( szBase + "_h.dds" ), error ) )
+			if ( pImage == 0 && szDdsFile.empty() && std::filesystem::exists( HostPathOf( szBase + "_h.dds" ), error ) )
 			{
 				CPtr<IDataStream> pStream = OpenFileStream( szBase + "_h.dds", STREAM_ACCESS_READ );
 				if ( pStream != 0 )

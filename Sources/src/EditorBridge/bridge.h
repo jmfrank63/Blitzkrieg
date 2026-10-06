@@ -669,7 +669,9 @@ BkEditorStatus BkEditorMinimapAreas( BkEditorSession *session, BkEditorMinimapAr
    REFUSED-with-the-size rules). BK_EDITOR_REFUSED when the map has no
    picture or it will not decode (a malformed image is a refusal, never a
    crash); BK_EDITOR_BAD_ARGUMENT for a null pointer or max_side outside
-   8..2048. */
+   8..2048. A map_path ending in .dds names that one picture: it alone is
+   decoded, with no .tga tried first (the Resource Editor's Mission frame
+   shows map_h.dds even where a map.tga lies beside it). */
 BkEditorStatus BkEditorMinimapImage( BkEditorSession *session, const char *map_path,
                                      unsigned char *out_rgba, int capacity_bytes, int max_side,
                                      int *out_width, int *out_height );

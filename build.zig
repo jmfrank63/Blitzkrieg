@@ -4091,6 +4091,7 @@ fn addEditorBridge(
             "Sources/src/ResourceModel/project.cpp",
             "Sources/src/ResourceModel/references.cpp",
             "Sources/src/ResourceModel/tree_item.cpp",
+            "Sources/src/ResourceModel/ui_screen.cpp",
             "Sources/src/ResourceModel/variant.cpp",
             "Sources/src/ResourceModel/xml.cpp",
             "Sources/src/ResourceModel/items/stats_item.cpp",
@@ -9310,12 +9311,14 @@ const resource_auto_3rv =
 
 // The Mission, Chapter, Campaign and Medal image frames (S14): each opens a copy of its tracked fixture, shows the
 // Image window, places or drags a cross with real pointer events, captures the frame and measures the cross's colour
-// at the picture pixel by code (before, after, undone, redone), then saves and exports. mip starts without its
-// map.tga, so the picture the window shows is the one the engine's minimap makes from the final map.
+// at the picture pixel by code (before, after, undone, redone), then saves and exports. mip starts with a map.tga
+// and no map_h.dds, so selecting makes the minimap from the final map and the picture the window shows must be
+// that map_h.dds, not the map.tga (D032, CMissionFrame).
 
 const resource_auto_mip =
     "1:do=mod_dir:{dir}/mod," ++
     "2:do=copy:{fix}/mip/final-map/project.mip>{dir}/mip/project.mip," ++
+    "2:do=copy:{fix}/mip/final-map/map.tga>{dir}/mip/map.tga," ++
     "2:do=copy:{fix}/mip/final-map/header.txt>{dir}/mip/header.txt," ++
     "2:do=copy:{fix}/mip/final-map/subheader.txt>{dir}/mip/subheader.txt," ++
     "2:do=copy:{fix}/mip/final-map/desc.txt>{dir}/mip/desc.txt," ++
@@ -9328,8 +9331,10 @@ const resource_auto_mip =
     "4:expect=dirty:false," ++
     "5:do=image_open," ++
     "6:do=image_select," ++
+    "6:expect=file:{dir}/mip/map_h.dds," ++
     "7:shot=mip_a," ++
     "7:expect=shot_picture:mip_a," ++
+    "7:expect=shot_minimap:mip_a," ++
     "7:expect=shot_marker:mip_a/200/150/off," ++
     "8:do=image_click:200/150," ++
     "9:shot=mip_b," ++
@@ -9344,7 +9349,6 @@ const resource_auto_mip =
     "13:shot=mip_d," ++
     "13:expect=shot_marker:mip_d/200/150/on," ++
     "13:expect=cross:200/150," ++
-    "14:do=copy:{fix}/mip/final-map/map.tga>{dir}/mip/map.tga," ++
     "14:do=copy:{data}/Maps/road3d.xml>{dir}/mod/data/maps/road3d.xml," ++
     "15:save," ++
     "16:do=export," ++
@@ -10140,6 +10144,7 @@ fn addResourceModelComparatorTest(
             "Sources/src/Scene/SmokinParticleSourceData.cpp",
             "Sources/src/Scene/Track.cpp",
             "tools/zig/resource_model_comparator_test.cpp",
+            "Sources/src/ResourceModel/ui_screen_test.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
     });
