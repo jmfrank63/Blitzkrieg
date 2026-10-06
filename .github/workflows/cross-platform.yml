@@ -475,6 +475,12 @@ jobs:
 
       - name: Resource editor auto eff
         run: zig build resource-editor-auto-eff -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto til
+        run: zig build resource-editor-auto-til -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto 3rd
+        run: zig build resource-editor-auto-3rd -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto 3rv
+        run: zig build resource-editor-auto-3rv -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # T-03-14-03: the packaged MapEditor.exe opens no console on a normal
       # double-click (configureMapEditorExecutable's .windows subsystem) -
@@ -894,6 +900,12 @@ jobs:
 
       - name: Resource editor auto eff
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-eff -Dtarget=aarch64-macos -Dtest-mode=run
+      - name: Resource editor auto til
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-til -Dtarget=aarch64-macos -Dtest-mode=run
+      - name: Resource editor auto 3rd
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-3rd -Dtarget=aarch64-macos -Dtest-mode=run
+      - name: Resource editor auto 3rv
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-3rv -Dtarget=aarch64-macos -Dtest-mode=run
 
       # The game's SDL event translation, through the real SDLApplication and
       # a real window: wheel deltas (a trackpad swipe's fractions, flipped,

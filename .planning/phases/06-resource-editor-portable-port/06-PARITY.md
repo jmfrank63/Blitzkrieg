@@ -151,7 +151,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-06.1 | Tree: Common, Source generate (spin, area, angle, opacity, speed, life, density, random spin), Particle curves (spin, weight, speed, size, opacity, texture frame), Complex source, Random life/speed | done: pcp tree opens and exports (Opacity and Life curves read); auto frames 480-484; all 291 shipped sources round-trip (PARTICLES checked=291 unimportable=0, S12 T01) |
 | B-06.2 | Run/Stop preview, Camera switch | done: auto `preview_run`/`preview_stop`/`camera` with measured shots (running frames differ 0.41%, stopped frames equal, horizontal camera differs 0.17%); BkResPreviewCameraMode in test-resource-bridge; frames 510-521 |
 | B-06.3 | Get particle info | done (S13 T01): BkResGetParticleInfo runs the real pcp exporter, builds the effect and reads IParticleSourceWithInfo::GetInfo of the last source; resource-bridge-test `particle info` checks (fixture Max particles 5, Size 0.01687, Average size 0.0130261, Average count 4.48826; density x4 gives Max particles 20; a .wpn project is refused naming .pcp); resource-editor-auto pcp frame 505 `do=particle_info` + `expect=particle_info:present` prints the four values; app status bar shows MFC's four panes (docks_logic ParticleStatus tests) |
-| B-06.4 | Simple / complex source toggle | not done: simple/complex toggle in the UI (exporter derives it from the complex source item, S12 T01); needs a follow-up task |
+| B-06.4 | Simple / complex source toggle | done (S13 T02): BkResParticleSourceMode / BkResParticleSetSourceMode, one undo step per switch (complex needs a non-empty complex particle name, simple clears it), one IsComplexSource derivation shared with ExportParticle; toolbar checkbox (docks_logic.SourceToggle); resource-bridge-test, test-resource-app-logic and resource-editor-auto-pcp `do=source_mode:` with the exported flag checked (export_complex / export_simple); golden pending win-home |
 | B-06.5 | Keyframe curve editor: add/move/delete node, Reset all, Zoom in/out X and Y (`IDR_KEYFRAME_ZOOM_MENU`) | done: keyframe_logic.zig (17 tests) and the Function window widget; auto `do=keyframe:` add/move/delete/reset each undone and redone with keys read back, zoom steps (frames 484-504). Deviation: MFC zoom handlers are commented out, the port zooms the view only, not an undo step (D026) S13 T04: pointer-driven: add/drag/delete through the displayed widget (resource-editor-auto frames 525-532: Ctrl+F opens the Function window, SDL pointer and Delete key events on the real event queue, keys read back after each gesture, undo and redo; pcp_fn_add and pcp_fn_drag handle pixels measured at the drawn place). |
 | B-06.6 | Export: `KeyData` (`SParticleSourceData` / `SSmokinParticleSourceData`) | done: pcp exporter, simple and complex; auto `do=export` (frame 502, 529); golden parity pending win-home (export-goldens.ps1 -Extensions pcp) |
 | B-06.7 | Import from game data | done: import round trip of all 291 shipped sources, 0 differences; auto `do=import_file:pcp` (frame 526) |
@@ -278,30 +278,30 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 
 | # | Feature | Status |
 |---|---|---|
-| B-18.1 | Tree: Common, Terrains/Tiles, Crossets/Tiles, Ambient sounds, Looped sounds | todo |
-| B-18.2 | Import terrains, Import crossets (toolbar) | todo |
-| B-18.3 | Thumbnail list of tiles | todo |
-| B-18.4 | Crosset edit mode (`ID_EDIT_CROSSETS` appears only in the toolbar map) | no behaviour in MFC (`grep -rn -i interpolate Sources/src/editor/*.cpp` shows only `ON_UPDATE_COMMAND_UI` at EffectFrm.cpp:34 and its enable handler at :395; D026) |
-| B-18.5 | Export: `<name>.xml` `"tileset"` = `STilesetDesc` + tileset DDS; `crosset.xml` + DDS | todo |
-| B-18.6 | Import from game data | todo |
+| B-18.1 | Tree: Common, Terrains/Tiles, Crossets/Tiles, Ambient sounds, Looped sounds | done (S13 T07-T09): the tileset model and tree, tile index pools on insert/delete; resource-editor-auto-til opens the fixture, adds a tile (nodes 21 -> 22), undo, redo; golden pending win-home |
+| B-18.2 | Import terrains, Import crossets (toolbar) | done (S13 T08, T09): BkResTileSetImport, fixtures til/import/terrains.xml + crossets.xml; auto `do=tile_import:terrains/` adds 4 nodes (22 -> 26); bridge tests; golden pending win-home |
+| B-18.3 | Thumbnail list of tiles | done (S13 T09): terrain_logic.zig lists, crosset mode driven by tree selection (SwitchToEditCrossetsMode), double-click adds a tile (BkResTileSetAddTile); resource-editor-auto-til `do=tile_add:`; the tileset has no game preview (GameWnd hidden in MFC); golden pending win-home |
+| B-18.4 | Crosset edit mode (`ID_EDIT_CROSSETS` appears only in the toolbar map) | no behaviour in MFC: `grep -rn ID_EDIT_CROSSETS Sources/src/editor` shows only MainFrm.cpp:184 toolbar map, editor.rc and resource.h, no ON_COMMAND; the mode itself is tree-selection driven (SwitchToEditCrossetsMode), ported under B-18.3 |
+| B-18.5 | Export: `<name>.xml` `"tileset"` = `STilesetDesc` + tileset DDS; `crosset.xml` + DDS | done (S13 T07): tileset_export.cpp ported from ComposeTiles; resource-editor-auto-til exports and expects 1.xml, 1_c/_h/_l.dds, crosset.xml, crosset_c.dds, mod.xml; golden pending win-home |
+| B-18.6 | Import from game data | no behaviour in MFC (LoadRPGStats only rebuilds the index pools); the port refuses .til import from game data with the reason (S13 T07) |
 
 ### B-19 3D Road editor (`C3DRoadFrame`, `.3rd`) — 06-13
 
 | # | Feature | Status |
 |---|---|---|
-| B-19.1 | Tree: Common, Layer | todo |
-| B-19.2 | Preview on `maps\road3d` terrain; wireframe toggle | todo |
-| B-19.3 | Export: `VSODescription` = `SVectorStripeObjectDesc` | todo |
-| B-19.4 | Import from game data | todo |
+| B-19.1 | Tree: Common, Layer | done (S13 T05, T11): road3d model and tree; resource-editor-auto-3rd set_prop, undo, redo; golden pending win-home |
+| B-19.2 | Preview on `maps\road3d` terrain; wireframe toggle | done (S13 T06, T11): BkResPreviewWireframe; auto-3rd shots road_solid 93.8% drawn, road_wire 30.7% drawn, solid vs wire differ 65.55%, wire vs solid again 65.55%; golden pending win-home |
+| B-19.3 | Export: `VSODescription` = `SVectorStripeObjectDesc` | done (S13 T05): road3d_export.cpp through the engine's serializer; auto-3rd export; golden pending win-home |
+| B-19.4 | Import from game data | done (S13 T05, T11): single-file import; shipped scan VSO checked=40 files=40 unimportable=0; auto-3rd imports Roads3D/rail_road_grass.xml, saves and exports |
 
 ### B-20 3D River editor (`C3DRiverFrame`, `.3rv`) — 06-13
 
 | # | Feature | Status |
 |---|---|---|
-| B-20.1 | Tree: Bottom layer, Layers | todo |
-| B-20.2 | Animated preview on `maps\river3d` terrain; wireframe toggle | todo |
-| B-20.3 | Export: `VSODescription` = `SVectorStripeObjectDesc` | todo |
-| B-20.4 | Import from game data | todo |
+| B-20.1 | Tree: Bottom layer, Layers | done (S13 T05, T11): river3d model and tree; resource-editor-auto-3rv opens, exports; golden pending win-home |
+| B-20.2 | Animated preview on `maps\river3d` terrain; wireframe toggle | done (S13 T06, T11): auto-3rv river_a 93.8% drawn, river_a vs river_b (1.5 s apart) differ (animated, 0.001% of the frame, threshold 0.0005%), river_c = river_d after Stop, wireframe differs 64.50%; golden pending win-home |
+| B-20.3 | Export: `VSODescription` = `SVectorStripeObjectDesc` | done (S13 T05): river3d_export.cpp; auto-3rv export; golden pending win-home |
+| B-20.4 | Import from game data | done (S13 T05, T11): single-file import; shipped scan VSO checked=40 files=40 unimportable=0; auto-3rv imports Rivers/water.xml, saves and exports |
 
 ### B-21 GUI editor (`CGUIFrame`, `GUIFrame2.cpp`, `.gui`; switched off in MFC) — 06-15
 

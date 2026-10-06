@@ -8316,7 +8316,7 @@ const ResourceAutoStep = struct {
 /// The sprite block's do=preview_on stayed on for every later block of the old single run.
 const resource_auto_preview_on = "1:do=preview_on,";
 
-/// The per-editor steps in run order. til, 3rd and 3rv are slots for S13's T11, empty until then.
+/// The per-editor steps in run order.
 const resource_auto_steps = [_]ResourceAutoStep{
     .{ .name = "core", .about = "Run BK_EDITOR_AUTO's core frames: new, open, edit, undo, save, export, pack, import and the exported mod in the Game", .schedule = resource_auto_core, .exit_frame = 37 },
     .{ .name = "wpn", .about = "Run BK_EDITOR_AUTO's S06 stats sub-editors: Weapon, Mine, Trench and Squad (one step, each is short)", .schedule = resource_auto_wpn, .exit_frame = 132 },
@@ -8329,16 +8329,16 @@ const resource_auto_steps = [_]ResourceAutoStep{
     .{ .name = "bdg", .about = "Run BK_EDITOR_AUTO's Bridge (.bdg) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bdg, .exit_frame = 459 },
     .{ .name = "pcp", .about = "Run BK_EDITOR_AUTO's Particle (.pcp) scenario, the Function window's pointer path included", .prefix = resource_auto_preview_on, .schedule = resource_auto_pcp, .exit_frame = 539 },
     .{ .name = "eff", .about = "Run BK_EDITOR_AUTO's Effect (.eff) scenario", .prefix = resource_auto_preview_on ++ "2:do=mod_dir:{mods}/reseditor_auto12,3:do=copy:{fix}/pcp/project.pcp>{dir}/particle-2key/project.pcp,4:open={dir}/particle-2key/project.pcp,5:expect=kind:pcp,6:do=export,6:expect=exported,", .schedule = resource_auto_eff, .exit_frame = 558 },
-    .{ .name = "til", .about = "Run BK_EDITOR_AUTO's Terrain (.til) scenario", .schedule = "", .exit_frame = 2 },
-    .{ .name = "3rd", .about = "Run BK_EDITOR_AUTO's 3D Road (.3rd) scenario", .schedule = "", .exit_frame = 2 },
-    .{ .name = "3rv", .about = "Run BK_EDITOR_AUTO's 3D River (.3rv) scenario", .schedule = "", .exit_frame = 2 },
+    .{ .name = "til", .about = "Run BK_EDITOR_AUTO's Terrain (.til) scenario", .schedule = resource_auto_til, .exit_frame = 40 },
+    .{ .name = "3rd", .about = "Run BK_EDITOR_AUTO's 3D Road (.3rd) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_3rd, .exit_frame = 60 },
+    .{ .name = "3rv", .about = "Run BK_EDITOR_AUTO's 3D River (.3rv) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_3rv, .exit_frame = 60 },
 };
 
 /// The old single schedule's order. Nothing but the per-step constants' concatenation may stand here: the
 /// comptime check below keeps the table above equal to it, so a block cannot be dropped or reordered.
 const resource_auto_all = resource_auto_core ++ resource_auto_wpn ++ resource_auto_spt ++ resource_auto_unt ++
     resource_auto_msh ++ resource_auto_obt ++ resource_auto_fnc ++ resource_auto_bld ++ resource_auto_bdg ++
-    resource_auto_pcp ++ resource_auto_eff;
+    resource_auto_pcp ++ resource_auto_eff ++ resource_auto_til ++ resource_auto_3rd ++ resource_auto_3rv;
 
 comptime {
     @setEvalBranchQuota(2_000_000);
@@ -9192,6 +9192,112 @@ const resource_auto_eff =
     "544:do=export," ++
     "544:expect=exported," ++
     "545:expect=file:{mods}/reseditor_auto12/data/effects/effects/eff-1.xml,";
+
+
+/// S13 Terrain (.til, TileSetFrm): a copy of the tracked fixture opened, a tile added by the thumbnail
+/// double-click and undone and redone with the item count asserted, the T08 terrains import, then the
+/// export (tileset xml and its DDS atlas). The tileset has no preview (its GameWnd is hidden in MFC).
+const resource_auto_til =
+    "1:do=mod_dir:{mods}/reseditor_auto13_til," ++
+    "2:do=copy:{fix}/til/project.til>{dir}/til/project.til," ++
+    "2:do=copy:{fix}/til/art-16x16.tga>{dir}/til/art-16x16.tga," ++
+    "3:open={dir}/til/project.til," ++
+    "4:expect=kind:til," ++
+    "4:expect=dirty:false," ++
+    "4:expect=nodes_min:20," ++
+    "5:do=tile_add:Added.tga," ++
+    "6:expect=nodes:22," ++
+    "6:expect=dirty:true," ++
+    "7:do=undo," ++
+    "8:expect=nodes:21," ++
+    "9:do=redo," ++
+    "10:expect=nodes:22," ++
+    "11:do=copy:{fix}/til/import/terrains.xml>{dir}/til/import/terrains.xml," ++
+    "11:do=copy:{fix}/til/import/terrains.tga>{dir}/til/import/terrains.tga," ++
+    "12:do=tile_import:terrains/{dir}/til/import/terrains.xml," ++
+    "13:expect=nodes:26," ++
+    "13:expect=dirty:true," ++
+    "14:do=export," ++
+    "15:expect=exported," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/1.xml," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/1_c.dds," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/1_h.dds," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/1_l.dds," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/crosset.xml," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/crosset_c.dds," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/mod.xml,";
+
+/// S13 3D Road (.3rd, 3DRoadFrm): a property edit undone and redone, the preview on the maps\road3d terrain
+/// (it shows without playing), the wireframe on and off with the frames measured, the export and the import
+/// of a shipped road description (a single file).
+const resource_auto_3rd =
+    "1:do=mod_dir:{mods}/reseditor_auto13_3rd," ++
+    "2:do=copy:{fix}/3rd/project.3rd>{dir}/3rd/project.3rd," ++
+    "2:do=copy:{fix}/3rd/art-16x16.tga>{dir}/3rd/art-16x16.tga," ++
+    "3:open={dir}/3rd/project.3rd," ++
+    "4:expect=kind:3rd," ++
+    "4:expect=dirty:false," ++
+    "5:do=set_prop:Passability_coefficient=0.75," ++
+    "6:expect=prop:Passability_coefficient=0.75," ++
+    "6:expect=dirty:true," ++
+    "7:do=undo," ++
+    "8:do=redo," ++
+    "9:expect=prop:Passability_coefficient=0.75," ++
+    "10:do=export," ++
+    "10:expect=exported," ++
+    "11:do=preview_run," ++
+    "13:do=pause:200," ++
+    "14:shot=road_solid," ++
+    "14:expect=shot_lit:road_solid," ++
+    "15:do=wireframe:on," ++
+    "16:do=pause:200," ++
+    "17:shot=road_wire," ++
+    "17:expect=shot_lit:road_wire," ++
+    "17:differ=road_solid/road_wire@0.005," ++
+    "18:do=wireframe:off," ++
+    "19:do=pause:200," ++
+    "20:shot=road_solid_again," ++
+    "20:differ=road_wire/road_solid_again@0.005," ++
+    "21:do=import_file:3rd/{mods}/../Data/Terrain/sets/1/Roads3D/rail_road_grass.xml," ++
+    "22:expect=kind:3rd," ++
+    "22:saveas={dir}/3rd/imported.3rd," ++
+    "23:do=export," ++
+    "23:expect=exported,";
+
+/// S13 3D River (.3rv, 3DRiverFrm): the preview on the maps\river3d terrain, Run twice a pause apart (the
+/// water animates), Stop, the wireframe, the export and the import of a shipped river description.
+const resource_auto_3rv =
+    "1:do=mod_dir:{mods}/reseditor_auto13_3rv," ++
+    "2:do=copy:{fix}/3rv/project.3rv>{dir}/3rv/project.3rv," ++
+    "2:do=copy:{fix}/3rv/art-16x16.tga>{dir}/3rv/art-16x16.tga," ++
+    "3:open={dir}/3rv/project.3rv," ++
+    "4:expect=kind:3rv," ++
+    "4:expect=dirty:false," ++
+    "5:do=export," ++
+    "5:expect=exported," ++
+    "6:do=preview_run," ++
+    "8:do=pause:200," ++
+    "9:shot=river_a," ++
+    "9:expect=shot_lit:river_a," ++
+    "10:do=pause:1500," ++
+    "11:shot=river_b," ++
+    "11:differ=river_a/river_b@0.0005," ++
+    "12:do=preview_stop," ++
+    "13:do=pause:100," ++
+    "14:shot=river_c," ++
+    "15:do=pause:300," ++
+    "15:shot=river_d," ++
+    "15:expect=shot_same:river_c/river_d," ++
+    "16:do=wireframe:on," ++
+    "17:do=pause:200," ++
+    "18:shot=river_wire," ++
+    "18:differ=river_d/river_wire@0.005," ++
+    "19:do=wireframe:off," ++
+    "20:do=import_file:3rv/{mods}/../Data/Terrain/sets/1/Rivers/water.xml," ++
+    "21:expect=kind:3rv," ++
+    "22:saveas={dir}/3rv/imported.3rv," ++
+    "23:do=export," ++
+    "23:expect=exported,";
 
 
 /// A module of MapEditor's, with everything its executables link. The union

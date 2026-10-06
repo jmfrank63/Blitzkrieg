@@ -70,12 +70,15 @@
 //!   do=particle_info        the Get particle info button, through docks_logic.ParticleStatus; prints the four numbers
 //!   do=source_mode:complex|simple   the Particle source button (docks_logic.SourceToggle: one undo step, the tree items open or close); prints the mode read back
 //!   do=effect_direction:<deg>   the Effect Direction dock's needle turned to that value of its degrees text (docks_logic.turnEffect); prints the angle read back
+//!   do=wireframe:on|off     the Wireframe check of a road or river preview, through the bridge (the flag only moves when the engine took it)
+//!   do=tile_add:<picture>   a thumbnail double-click of the terrains list on the first Tiles item: one undo step (terrain_logic.addTile)
+//!   do=tile_import:<terrains|crossets>/<path>   Import terrains / Import crossets of the tileset editor (terrain_logic.importFile); prints the tile count
 //!   do=import_file:<ext>/<path>   Import a runtime file (a shipped particle xml for pcp) as a new project, through the bridge's reader
 //!   do=import_refused:<ext>/<path>   the same for a kind with no import (eff): refused, with the bridge's reason
 //!   The grid verbs need a frame drawn since the project opened (the grid editor lives in the panels)
 //!   and go through GridEditor's press, move and release, the path of the mouse.
 //!   open=<path> save saveas=<path> shot=<name> differ=<a>/<b>@<percent> exit
-//!   expect=kind:<ext>  dirty:<true|false>  untitled  nodes_min:<n>
+//!   expect=kind:<ext>  dirty:<true|false>  untitled  nodes_min:<n>  nodes:<n>
 //!          prop:<name>=<value>  exported  file:<path>  shot_lit:<name>
 //!          shot_same:<a>/<b>  the two frames are pixel for pixel equal
 //!          slot:<n>=moved|home  the formation member against where the drag found it
@@ -121,6 +124,7 @@ const mesh = @import("mesh_logic.zig");
 const grid = @import("grid_logic.zig");
 const keyframe = @import("keyframe_logic.zig");
 const docks_mod = @import("docks.zig");
+const terrain = @import("terrain_logic.zig");
 
 const c = c_bridge.c;
 
@@ -770,6 +774,27 @@ const Runner = struct {
             std.debug.print("resource-editor: auto: source mode is now {s} (bridge reads {s}, undo steps {d})\n", .{ named.arg, if (now) "complex" else "simple", self.life.history.undo_stack.items.len });
             return null;
         }
+        if (eql(u8, name, "wireframe")) {
+            const on = if (eql(u8, named.arg, "on")) true else if (eql(u8, named.arg, "off")) false else return self.fail("wireframe needs on or off", .{});
+            if (b.previewWireframe(on) != .ok) return self.fail("wireframe:{s}: {s}", .{ named.arg, b.lastMessage() });
+            std.debug.print("resource-editor: auto: wireframe is now {s}\n", .{named.arg});
+            return null;
+        }
+        if (eql(u8, name, "tile_add")) {
+            const tiles = self.firstOfClass(sub_tools.item_type.tileset_tiles) orelse return self.fail("tile_add: the project has no Tiles item", .{});
+            const before = self.life.doc.tree.nodes.items.len;
+            terrain.addTile(self.gpa, b, &self.life, tiles, .terrains, named.arg) catch return self.fail("tile_add:{s}: {s}", .{ named.arg, b.lastMessage() });
+            std.debug.print("resource-editor: auto: tile {s} added: {d} nodes -> {d}, undo steps {d}\n", .{ named.arg, before, self.life.doc.tree.nodes.items.len, self.life.history.undo_stack.items.len });
+            return null;
+        }
+        if (eql(u8, name, "tile_import")) {
+            const slash = std.mem.indexOfScalar(u8, named.arg, '/') orelse return self.fail("tile_import needs <terrains|crossets>/<path>", .{});
+            const mode: terrain.Mode = if (eql(u8, named.arg[0..slash], "terrains")) .terrains else if (eql(u8, named.arg[0..slash], "crossets")) .crossets else return self.fail("tile_import needs terrains or crossets, not '{s}'", .{named.arg[0..slash]});
+            const path = self.expand(&buffer, named.arg[slash + 1 ..]) orelse return self.fail("the path is too long", .{});
+            const count = terrain.importFile(self.gpa, b, &self.life, path, mode) catch return self.fail("tile_import {s}: {s}", .{ path, b.lastMessage() });
+            std.debug.print("resource-editor: auto: imported {d} {s} tiles from {s}, {d} nodes\n", .{ count, named.arg[0..slash], path, self.life.doc.tree.nodes.items.len });
+            return null;
+        }
         if (eql(u8, name, "import_file") or eql(u8, name, "import_refused")) {
             const slash = std.mem.indexOfScalar(u8, named.arg, '/') orelse return self.fail("{s} needs <ext>/<path>", .{name});
             const kind = logic.kindFromExtension(named.arg[0..slash]) orelse return self.fail("{s}: '{s}' is not a project extension", .{ name, named.arg[0..slash] });
@@ -789,6 +814,15 @@ const Runner = struct {
             return null;
         }
         return self.fail("unknown command '{s}'", .{name});
+    }
+
+    /// The id of the first tree node of class `class`, or null.
+    fn firstOfClass(self: *Runner, class: i32) ?i32 {
+        for (self.life.doc.tree.nodes.items) |node| {
+            const have = std.fmt.parseInt(i32, node.classSlice(), 10) catch continue;
+            if (have == class) return node.id;
+        }
+        return null;
     }
 
     /// do=curve: the Function window's editor for the first key-frame node
@@ -1563,6 +1597,11 @@ const Runner = struct {
         }
         if (eql(u8, name, "untitled")) {
             if (!self.life.is_open or self.life.doc.pathSlice() != null) return self.fail("expect=untitled was false", .{});
+            return null;
+        }
+        if (eql(u8, name, "nodes")) {
+            const want = std.fmt.parseInt(usize, arg, 10) catch return self.fail("nodes needs a number", .{});
+            if (self.life.doc.tree.nodes.items.len != want) return self.fail("expect=nodes:{d} was false: {d} nodes", .{ want, self.life.doc.tree.nodes.items.len });
             return null;
         }
         if (eql(u8, name, "nodes_min")) {

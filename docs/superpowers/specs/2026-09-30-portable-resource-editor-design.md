@@ -531,9 +531,17 @@ editor is deleted.
   export, shot, compare, test-launch, quit.
   The scenario is split per editor (S13 T10), because one run passed 380 s and a foreground command
   is capped at 10 minutes: `resource-editor-auto-core`, `-wpn` (Weapon, Mine, Trench, Squad), `-unt`, `-spt`,
-  `-msh`, `-obt`, `-fnc`, `-bld`, `-bdg`, `-pcp`, `-eff`, plus `-til`, `-3rd`, `-3rv` (filled by T11). Each has its
+  `-msh`, `-obt`, `-fnc`, `-bld`, `-bdg`, `-pcp`, `-eff`, plus `-til`, `-3rd`, `-3rv`. Each has its
   own scratch folder and runs alone; `resource-editor-auto` chains them in order. A concatenation check in
   build.zig keeps the per-editor schedules equal to the old whole.
+- S13 additions. Road (.3rd) and River (.3rv) previews load `maps\road3d` / `maps\river3d` as the scene terrain and
+  draw the exported description read back; `BkResPreviewWireframe` toggles wireframe; the river animates on Run.
+  Tileset ABI: `BkResTileSetImport` (Import terrains / crossets), `BkResTileSetAddTile` (thumbnail double-click);
+  the tileset has no game preview (GameWnd hidden in MFC) and its preview is the thumbnail lists, crosset mode
+  following the tree selection. `.3rd` / `.3rv` import is a single file (a shipped Roads3D / Rivers xml); `.til`
+  import from game data is refused with the reason. T01-T03: `BkResGetParticleInfo`; particle source mode
+  (`BkResParticleSourceMode` / `BkResParticleSetSourceMode`) with one `IsComplexSource` derivation shared with the
+  exporter; effect direction is view state (`BkResEffectSetDirection`) and child positions are whole numbers.
 - Build steps mirror the map editor's: `install-resource-editor`,
   `test-resource-core`, `test-resource-model`, `test-resource-bridge`,
   `resource-editor-host-check`, `resource-editor-smoke`,
