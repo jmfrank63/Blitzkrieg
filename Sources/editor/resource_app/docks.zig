@@ -24,6 +24,7 @@ const mesh_logic = @import("mesh_logic.zig");
 const keyframe_logic = @import("keyframe_logic.zig");
 const lifecycle = @import("lifecycle.zig");
 const il = @import("image_logic.zig");
+const gui_dock = @import("gui_dock.zig");
 const lifecycle_ui = @import("lifecycle_ui.zig");
 
 const ig = imgui.c;
@@ -259,9 +260,11 @@ pub const Docks = struct {
     first_thumbnail: ?Rect = null,
     /// ImageFrm's view of the Mission, Chapter, Campaign and Medal picture.
     image: ImageFrame = .{},
+    /// GUIFrame's canvas, template palette and inspector for a game UI screen.
+    gui: gui_dock.GuiDock,
 
     pub fn init(gpa: std.mem.Allocator, io: std.Io, real: *c_bridge.RealResBridge) Docks {
-        return .{ .gpa = gpa, .io = io, .real = real, .thumbs = .{ .cache = Cache.init(gpa) } };
+        return .{ .gpa = gpa, .io = io, .real = real, .thumbs = .{ .cache = Cache.init(gpa) }, .gui = gui_dock.GuiDock.init(gpa, io) };
     }
 
     /// Before the host stops: the thumbnails' textures and the preview scene
@@ -273,6 +276,7 @@ pub const Docks = struct {
         self.thumbs.names.deinit(self.gpa);
         self.thumbs.cache.deinit();
         self.image.release();
+        self.gui.deinit();
     }
 
     /// A mod switch: the pictures may differ under the new mod.
@@ -416,6 +420,7 @@ pub const Docks = struct {
         if (self.show_direction) self.drawDirection(life.is_open and life.active == .mesh_unit, life.is_open and life.active == .effect);
         if (self.show_function) self.drawFunction(life, selected);
         self.drawImageFrame(project_folder, life, selected);
+        self.gui.draw(self.real.bridge(), life);
         self.drawPreviewLine();
         self.drawParticleStatus();
     }

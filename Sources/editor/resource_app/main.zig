@@ -64,6 +64,7 @@ const panels_mod = @import("panels.zig");
 const tools_ui = @import("tools_ui.zig");
 const batch_cli = @import("batch_cli.zig");
 const docks_mod = @import("docks.zig");
+const settings_mod = @import("settings.zig");
 const docks_check = @import("docks_check.zig");
 const scenario = @import("scenario.zig");
 
@@ -317,6 +318,9 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     // thumbnails' textures belong to the engine.
     var docks = docks_mod.Docks.init(gpa, io, &ui.real);
     defer docks.deinit();
+    // The GUI editor's own templates sit beside the settings file; an automated run has none.
+    var templates_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    if (ui.settings_path) |path| if (settings_mod.templatesPath(&templates_buffer, path)) |folder| docks.gui.setUserFolder(folder);
     const tools = tools_ui.Tools.create(gpa, io, environ, ui, host.window) catch |err| fatal("the editor state", @errorName(err));
     defer tools.destroy();
 
@@ -348,6 +352,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
             if (imgui.c.igBeginMenuEx("Edit", true)) {
                 panels.drawEditMenuItems(gpa, ui.real.bridge(), &ui.session.life);
                 tools.drawEditMenuItems();
+                docks.gui.drawEditMenuItems(ui.real.bridge(), &ui.session.life);
                 imgui.c.igEndMenu();
             }
             tools.drawToolsMenu();

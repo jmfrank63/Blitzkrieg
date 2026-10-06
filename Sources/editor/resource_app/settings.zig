@@ -26,6 +26,7 @@ pub const settings_env = "BK_RESOURCE_EDITOR_SETTINGS";
 pub const user_folder = "resourceeditor";
 pub const file_name = "resourceeditor.cfg";
 pub const layout_name = "layout.ini";
+pub const templates_name = "templates";
 
 pub const Settings = struct {
     scroll_speed: f32 = ks.default_scroll_speed,
@@ -148,6 +149,14 @@ pub fn settingsPath(buffer: []u8, override: ?[]const u8, user_root: []const u8) 
     return std.fmt.bufPrint(buffer, "{s}{s}{c}{s}", .{ user_root, user_folder, std.fs.path.sep, file_name }) catch null;
 }
 
+/// The GUI sub-editor's own templates ("Create new template" writes here,
+/// the palette lists it after Data/Editor/UI), in the settings file's folder.
+/// Never under Data.
+pub fn templatesPath(buffer: []u8, settings_path: []const u8) ?[]const u8 {
+    const folder = std.fs.path.dirname(settings_path) orelse return null;
+    return std.fmt.bufPrint(buffer, "{s}{c}{s}", .{ folder, std.fs.path.sep, templates_name }) catch null;
+}
+
 /// ImGui's `layout.ini`, in the settings file's own folder.
 pub fn layoutPath(buffer: []u8, settings_path: []const u8) ?[]const u8 {
     const folder = std.fs.path.dirname(settings_path) orelse return null;
@@ -240,4 +249,11 @@ test "settings and layout paths: the seam wins, otherwise the user root's resour
     var layout_buffer: [256]u8 = undefined;
     try testing.expectEqualStrings("/tmp/cfg" ++ sep ++ "layout.ini", layoutPath(&layout_buffer, "/tmp/cfg/x.cfg").?);
     try testing.expect(layoutPath(&layout_buffer, "x.cfg") == null);
+}
+
+test "the user's template folder sits beside the settings file" {
+    var buffer: [256]u8 = undefined;
+    const sep = [_]u8{std.fs.path.sep};
+    try testing.expectEqualStrings("/tmp/cfg" ++ sep ++ "templates", templatesPath(&buffer, "/tmp/cfg/x.cfg").?);
+    try testing.expect(templatesPath(&buffer, "x.cfg") == null);
 }
