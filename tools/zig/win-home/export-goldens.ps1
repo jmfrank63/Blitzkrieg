@@ -72,6 +72,30 @@ if (-not [string]::IsNullOrWhiteSpace($GogProject)) {
     exit 0
 }
 
+# The editor reads two things from its own data folder, <editor folder>\data\ (CEditorApp::GetEditorDataDir;
+# the editor's working directory is the folder of editor.exe): the tileset export's mask
+# editor\terrain\tilemask.tga (TileSetFrm.cpp:610) and the function particles of an effect,
+# Effects\particles\<name>.xml (EffectFrm.cpp:215). Without them the .til golden holds only the History and the
+# .eff golden has no particles. The mask is the tracked Data/Editor/Terrain/tilemask.tga and the particle source
+# of the effect fixture, particle-2key, is the shipped Data/Effects/Particles/aa_smoke1_of_expground.xml (the file
+# the port's tests give it too). A file the folder already has is left alone; the ones put there are removed again.
+$editorData = Join-Path (Split-Path -Parent $EditorPath) "data"
+$placed = @()
+function Place-EditorDataFile([string]$relative, [string]$source) {
+    $target = Join-Path $editorData $relative
+    if (Test-Path $target) { return }
+    if (-not (Test-Path $source)) { throw "Tracked data file is missing: $source" }
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
+    Copy-Item -Path $source -Destination $target
+    $script:placed += $target
+}
+function Remove-PlacedEditorData {
+    foreach ($file in $script:placed) { Remove-Item -Force -ErrorAction SilentlyContinue $file }
+    $script:placed = @()
+}
+Place-EditorDataFile "editor\terrain\tilemask.tga" (Join-Path $repoRoot "Data/Editor/Terrain/tilemask.tga")
+Place-EditorDataFile "Effects\particles\particle-2key.xml" (Join-Path $repoRoot "Data/Effects/Particles/aa_smoke1_of_expground.xml")
+
 $failed = @()
 foreach ($ext in $Extensions) {
     $fixture = Join-Path $fixtureRoot $ext
@@ -141,6 +165,7 @@ foreach ($ext in $Extensions) {
     Write-Host ("PASS $ext " + $files.Count + " files")
 }
 
+Remove-PlacedEditorData
 if ($failed.Count -gt 0) {
     Write-Host ("VERDICT=FAIL " + ($failed -join " "))
     exit 1

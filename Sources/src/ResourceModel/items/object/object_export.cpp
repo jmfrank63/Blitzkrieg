@@ -394,6 +394,42 @@ void WriteObjectGrids( NResourceXml::Node &root, const SObjectFrameData &data )
 	WriteGrid( ChildOrNew( desc, "visibility" ), data.visibility );
 }
 
+// CObjectFrame::LoadRPGStats followed by SaveRPGStats, which every MFC batch export runs: the
+// cached grids become tile lists placed from the grid's origin on the camera's screen, and the
+// save cuts new grids and origins from the tiles. A grid and origin the editor itself saved come
+// back as they were (the origin is then a tile corner); a hand-made origin moves to the corner
+// of the tile that holds the grid's first cell, and a grid loses the all-zero rows and columns
+// at its edge, because only the non-zero cells became tiles.
+void RequantiseGrids( const GridProjection &projection, SObjectFrameData &frame )
+{
+	const SVec2 vZero2 = projection.Pos3To2( frame.vZeroPos );
+	const SVec3 vRealZero3 = projection.Pos2To3( SVec2{ vZero2.x + kZeroShift, vZero2.y + kZeroShift } );
+
+	CListOfTiles locked;
+	int nTileX = 0, nTileY = 0;
+	projection.FirstTileOfGrid( vRealZero3, SVec3{ frame.vOrigin.x, frame.vOrigin.y, 0 }, nTileX, nTileY );
+	GridToTiles( frame.passability, nTileX, nTileY, locked );
+	frame.passability = TilesToGrid( locked );
+	frame.vOrigin = SVec2();
+	if ( !frame.passability.empty() )
+	{
+		const SVec3 vOrigin = projection.OriginOfGrid( vRealZero3, frame.passability.minTileX, frame.passability.minTileY );
+		frame.vOrigin = SVec2{ vOrigin.x, vOrigin.y };
+	}
+
+	CListOfTiles transparences;
+	CListOfNormalTiles dirTiles;
+	projection.FirstTileOfGrid( vRealZero3, SVec3{ frame.vVisOrigin.x, frame.vVisOrigin.y, 0 }, nTileX, nTileY );
+	VisGridToTiles( frame.visibility, nTileX, nTileY, transparences, dirTiles );
+	frame.visibility = TilesToVisGrid( transparences, dirTiles );
+	frame.vVisOrigin = SVec2();
+	if ( !frame.visibility.empty() )
+	{
+		const SVec3 vOrigin = projection.OriginOfGrid( vRealZero3, frame.visibility.minTileX, frame.visibility.minTileY );
+		frame.vVisOrigin = SVec2{ vOrigin.x, vOrigin.y };
+	}
+}
+
 bool ExportObject( const Project &project, const SExportContext &context, SExportOutcome &outcome )
 {
 	const std::unique_ptr<Project> pProject = PreparedCopy( project, ETIT_OBJECT_ROOT_ITEM, "object", outcome );
@@ -402,6 +438,16 @@ bool ExportObject( const Project &project, const SExportContext &context, SExpor
 	SObjectFrameData frame;
 	if ( !ReadObjectFrameData( *pProject, frame, outcome.szError ) )
 		return false;
+	SGroundCamera camera;
+	if ( !context.groundCamera || !context.groundCamera( camera ) )
+	{
+		camera = DefaultEditorCamera();
+		if ( !context.bStatsOnly )
+			outcome.warnings.push_back( "no engine camera: the zero cross and grid origin use the default editor camera" );
+	}
+	const GridProjection projection( camera );
+	if ( context.bRequantiseGrids )
+		RequantiseGrids( projection, frame );
 	SObjectRPGStats rpgStats;
 	if ( !FillRPGStats( rpgStats, *pProject->root, frame, outcome ) )
 		return false;
@@ -429,13 +475,6 @@ bool ExportObject( const Project &project, const SExportContext &context, SExpor
 
 	if ( !context.bStatsOnly )
 	{
-		SGroundCamera camera;
-		if ( !context.groundCamera || !context.groundCamera( camera ) )
-		{
-			camera = DefaultEditorCamera();
-			outcome.warnings.push_back( "no engine camera: the zero cross and grid origin use the default editor camera" );
-		}
-		const GridProjection projection( camera );
 		const SVec2 vZero2 = projection.Pos3To2( frame.vZeroPos );
 		const SVec2 vSprite2 = projection.Pos3To2( frame.vSpritePos );
 		const CVec2 zeroPos2( std::ceil( vZero2.x + kZeroShift - vSprite2.x ), std::ceil( vZero2.y + kZeroShift - vSprite2.y ) );

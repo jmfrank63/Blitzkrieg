@@ -70,6 +70,42 @@ SGroundCamera DefaultEditorCamera()
 	return camera;
 }
 
+SGroundCamera MfcEditorCamera( const SVec3 &anchor )
+{
+	// Specific.h: the game window; CCamera::SetPlacement's three angles of SetDefaultCamera.
+	const float fWidth = 800, fHeight = 600;
+	const float fYaw = 45.0f * kPi / 180.0f, fPitch = -( 90.0f + 30.0f ) * kPi / 180.0f;
+	// The axes of Rz( yaw ) * Rx( pitch ), which CCamera::Update takes from CQuat( yaw, Z ) * CQuat( pitch, X ).
+	const float cy = std::cos( fYaw ), sy = std::sin( fYaw ), cp = std::cos( fPitch ), sp = std::sin( fPitch );
+	const float vX[3] = { cy, sy, 0 };
+	const float vY[3] = { -sy * cp, cy * cp, sp };
+	const float vZ[3] = { sy * sp, -cy * sp, cp };
+	// Update: the anchor is cut to whole steps along the ground projections of the camera's X and Z axes.
+	float vAxisX[3] = { vX[0], vX[1], 0 }, vAxisY[3] = { vZ[0], vZ[1], 0 };
+	const float fLenX = std::sqrt( vAxisX[0] * vAxisX[0] + vAxisX[1] * vAxisX[1] );
+	const float fLenY = std::sqrt( vAxisY[0] * vAxisY[0] + vAxisY[1] * vAxisY[1] );
+	for ( int i = 0; i < 2; ++i )
+	{
+		vAxisX[i] /= fLenX;
+		vAxisY[i] /= fLenY;
+	}
+	float fComponentX = vAxisX[0] * anchor.x + vAxisX[1] * anchor.y;
+	float fComponentY = vAxisY[0] * anchor.x + vAxisY[1] * anchor.y;
+	fComponentX = float( int( fComponentX ) );
+	fComponentY = float( int( fComponentY / 2.0f ) ) * 2.0f;
+	const float vAnchor1[3] = { fComponentX * vAxisX[0] + fComponentY * vAxisY[0], fComponentX * vAxisX[1] + fComponentY * vAxisY[1], 0 };
+	// The view looks along vZ from vAnchor1 - 700 vZ (the distance does not move a point on the ground in an
+	// orthographic view): screen x = width / 2 + X . ( p - anchor ), screen y = height / 2 + Y . ( p - anchor ).
+	SGroundCamera camera;
+	camera.m11 = vX[0];
+	camera.m12 = vX[1];
+	camera.m14 = fWidth / 2 - ( vX[0] * vAnchor1[0] + vX[1] * vAnchor1[1] );
+	camera.m21 = vY[0];
+	camera.m22 = vY[1];
+	camera.m24 = fHeight / 2 - ( vY[0] * vAnchor1[0] + vY[1] * vAnchor1[1] );
+	return camera;
+}
+
 SVec2 GridProjection::Pos3To2( const SVec3 &p ) const
 {
 	SVec2 r;

@@ -602,29 +602,36 @@ bool FillRPGStats( SBridgeRPGStats &stats, const CTreeItem &root, const NResourc
 	const NResourceXml::Node *pRpg = NResourceXml::FindChild( projectElement, "RPG" );
 	auto List = [&]( const char *pszName ) { return pRpg != nullptr ? Items( NResourceXml::FindChild( *pRpg, pszName ) ) : std::vector<const NResourceXml::Node *>(); };
 
-	std::size_t nPoint = 0;
-	for ( const NResourceXml::Node *pItem : List( "FirePoints" ) )
+	// MFC keeps one entry per fire and smoke child of the tree (GetRPGStats indexes the
+	// chunk's list by the child's number and the shipped editor crashes on a shorter
+	// one), so a child the chunk does not hold yet gets an entry at the origin.
+	const std::vector<const NResourceXml::Node *> fireItems = List( "FirePoints" );
+	for ( std::size_t nPoint = 0; nPoint < std::max( fireItems.size(), pFires->GetChildren().size() ); ++nPoint )
 	{
-		const CTreeItem *pChild = NthChild( *pFires, nPoint++ );
+		const NResourceXml::Node *pItem = nPoint < fireItems.size() ? fireItems[nPoint] : nullptr;
+		const CTreeItem *pChild = NthChild( *pFires, nPoint );
 		SBridgeRPGStats::SFirePoint fire;
-		ReadAimed( *pItem, fire );
+		if ( pItem != nullptr )
+			ReadAimed( *pItem, fire );
 		if ( pChild != nullptr )
 		{
 			fire.fDirection = ValueFloat( *pChild, 0 );
 			fire.szFireEffect = ValueStr( *pChild, 1 );
 		}
-		else if ( const NResourceXml::Node *pEffect = NResourceXml::FindChild( *pItem, "FireEffect" ) )
+		else if ( const NResourceXml::Node *pEffect = pItem != nullptr ? NResourceXml::FindChild( *pItem, "FireEffect" ) : nullptr )
 			fire.szFireEffect = BodyText( *pEffect );
 		stats.firePoints.push_back( fire );
 	}
 
 	stats.szSmokeEffect = ValueStr( *pSmokes, 0 );
-	nPoint = 0;
-	for ( const NResourceXml::Node *pItem : List( "SmokePoints" ) )
+	const std::vector<const NResourceXml::Node *> smokeItems = List( "SmokePoints" );
+	for ( std::size_t nPoint = 0; nPoint < std::max( smokeItems.size(), pSmokes->GetChildren().size() ); ++nPoint )
 	{
-		const CTreeItem *pChild = NthChild( *pSmokes, nPoint++ );
+		const NResourceXml::Node *pItem = nPoint < smokeItems.size() ? smokeItems[nPoint] : nullptr;
+		const CTreeItem *pChild = NthChild( *pSmokes, nPoint );
 		SBridgeRPGStats::SFirePoint smoke;
-		ReadAimed( *pItem, smoke );
+		if ( pItem != nullptr )
+			ReadAimed( *pItem, smoke );
 		if ( pChild != nullptr )
 			smoke.fDirection = ValueFloat( *pChild, 0 );
 		stats.smokePoints.push_back( smoke );

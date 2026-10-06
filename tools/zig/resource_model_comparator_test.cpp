@@ -1444,6 +1444,35 @@ static void GoldenNegatives( const fs::path &fixtures, const fs::path &scratchRo
 		else
 			Check( false, "golden negative digits: the port's unt 1.xml holds MaxHP=\"100\"" );
 	}
+	{
+		// The camera is part of what the goldens prove: the fence golden holds absolute positions, so the
+		// same export through a camera anchored 8 world cells away (the parent frame's anchor) is reported
+		// as FAIL on the origins, and the object golden's origin, cut from tiles of the camera, does not
+		// survive the wrong camera either (the port's DefaultEditorCamera has half the scale).
+		for ( const char *pszExt : { "fnc", "obt" } )
+		{
+			const bool bFence = std::string( pszExt ) == "fnc";
+			const fs::path project = CopyFixture( fixtures, scratch, pszExt );
+			InjectExportFileName( project );
+			SExportContext wrong = context;
+			if ( bFence )
+				wrong.groundCamera = []( NResourceModel::SGroundCamera &camera )
+				{
+					const float fAnchor = 8 * 16 * 2.0f * 1.41421356f;
+					camera = NResourceModel::MfcEditorCamera( NResourceModel::SVec3{ fAnchor, fAnchor, 0 } );
+					return true;
+				};
+			else
+				wrong.groundCamera = []( NResourceModel::SGroundCamera &camera ) { camera = NResourceModel::DefaultEditorCamera(); return true; };
+			const SExportRun run = RunExporter( pszExt, project, scratch / pszExt / "data-wrong-camera", wrong );
+			const SGoldenResult result = CompareGoldenFolder( bFence ? EExportKind::FENCE : EExportKind::OBJECT, run.data, fixtures / pszExt / "golden", tolerance );
+			bool bOrigin = false;
+			for ( const std::string &szFailure : result.failures )
+				bOrigin = bOrigin || szFailure.find( "rigin" ) != std::string::npos;
+			Check( run.bExported && bOrigin, std::string( "golden negative camera: the " ) + pszExt + " golden rejects the export through the wrong camera " +
+			       ( result.failures.empty() ? std::string( "(nothing reported)" ) : result.failures[0].substr( 0, 160 ) ) );
+		}
+	}
 }
 
 // The kinds whose golden cannot be compared yet, each with the verified
@@ -1468,15 +1497,35 @@ static bool GoldenEffectHasNoParticles( const fs::path &golden )
 	return ReadBytes( golden / "1.xml", &szXml ) && szXml.find( "<particles/>" ) != std::string::npos && szXml.find( "<sprites><item" ) != std::string::npos;
 }
 
-static const char kCrashReason[] = "the MFC editor crashed (0xC0000005) making this golden (commit 734245b31), so none exists; regenerate it on win-home with tools/zig/win-home/export-goldens.ps1 from a commit before the MFC editor's deletion";
+static bool GoldenHolds( const fs::path &golden, const char *pszNeedle )
+{
+	std::string szXml;
+	return ReadBytes( golden / "1.xml", &szXml ) && szXml.find( pszNeedle ) != std::string::npos;
+}
 
+static bool GoldenHasChapterPrefixTwice( const fs::path &golden )
+{
+	return GoldenHolds( golden, "scenarios\\scenarios\\chc\\header" );
+}
+
+static bool GoldenHasCampaignPrefixTwice( const fs::path &golden )
+{
+	return GoldenHolds( golden, "scenarios\\campaigns\\scenarios\\campaigns\\cgc\\header" );
+}
+
+// No pending reason below applies once the golden has files that no longer show
+// its symptom; a kind without a check is pending only while its golden has none.
 static const SPendingGolden kPending[] =
 {
-	{ "bdg", kCrashReason, nullptr }, { "3rd", kCrashReason, nullptr }, { "3rv", kCrashReason, nullptr },
-	{ "mip", kCrashReason, nullptr }, { "chc", kCrashReason, nullptr }, { "cgc", kCrashReason, nullptr },
-	{ "scp", "the golden holds only MFC's <History>: CSquadFrame::SaveRPGStats (SquadFrm.cpp:216) stops at MakeName (SquadFrm.cpp:198) when a member such as \"USSR\\Mosin\" is not in the objects database of the installed game, so the editor wrote no stats; regenerate the golden on win-home with a member the installed data has", &GoldenIsHistoryOnly },
-	{ "til", "the golden holds only MFC's <History>: the tileset export needs editor\\terrain\\tilemask.tga in the editor data folder, which the installed data does not have, and the port refuses for the same reason (\"Cannot open terrain mask file\"); regenerate the golden on win-home with the mask installed", &GoldenIsHistoryOnly },
-	{ "eff", "MFC skipped the function particle \"particle-2key\" (EffectFrm.cpp:215: no stream, an error box, continue) because the installed data has no Effects\\particles\\particle-2key.xml, so the golden's <particles/> is empty; the port stops with an error for a missing source; regenerate the golden on win-home after exporting the particle fixture into the editor data folder", &GoldenEffectHasNoParticles },
+	{ "bdg", "the MFC editor crashed (0xC0000005) on opening the old fixture, so no golden exists: its cached <RPG> block listed no fire or smoke point while the tree has one of each, and CBridgeFrame::GetRPGStats (BridgeFrm.cpp:1149) indexes the block's lists by the tree's children (NI_ASSERT only); the bridge exporter now writes one entry per child and the fixture is re-saved with them; regenerate the golden on win-home (S16 T10)", nullptr },
+	{ "3rd", "the MFC editor crashed (0xC0000005) on the old fixture, so no golden exists: its texture terrain\\sets\\1\\roads3d\\road_asphalt01 is not in the installed data (shipped: road_asphalt_city); the fixture names road_asphalt_city now; regenerate the golden on win-home (S16 T10)", nullptr },
+	{ "3rv", "the MFC editor crashed (0xC0000005) on the old fixture, so no golden exists: its texture water\\bottom is not in the installed data (shipped: water\\a_bottom); the fixture names water\\a_bottom now; regenerate the golden on win-home (S16 T10)", nullptr },
+	{ "mip", "the golden holds only MFC's <History>: MFC refused the old fixture at its export validation (no template or final map, no setting, no music file, an objective without a header; MissionFrm.cpp ExportFrameData); the fixture is a valid mission now (template map, setting, music, objective header) and its cached <RPG> block holds the tree's own paths; regenerate the golden on win-home (S16 T10)", &GoldenIsHistoryOnly },
+	{ "chc", "the golden was made from a fixture whose cached <RPG> block held the export's prefixed paths (scenarios\\chc\\header): MFC loads the block into the tree (CChapterFrame::LoadRPGStats) and prefixes again, so the golden says scenarios\\scenarios\\chc\\header and a zero MapImageRect (the picture was looked up under the doubled name); a save writes the tree's own paths (the prefix is empty outside ExportFrameData), the bridge refreshes the block that way now and the fixture is re-saved; regenerate the golden on win-home (S16 T10)", &GoldenHasChapterPrefixTwice },
+	{ "cgc", "the golden was made from a fixture whose cached <RPG> block held the export's prefixed paths (scenarios\\campaigns\\cgc\\header): MFC loads the block into the tree (CCampaignFrame::LoadRPGStats) and prefixes again, so the golden says scenarios\\campaigns\\scenarios\\campaigns\\cgc\\header and a zero MapImageRect; the bridge writes the tree's own paths into the block now and the fixture is re-saved; regenerate the golden on win-home (S16 T10)", &GoldenHasCampaignPrefixTwice },
+	{ "scp", "the golden holds only MFC's <History>: CSquadFrame::SaveRPGStats (SquadFrm.cpp:216) stops at MakeName (SquadFrm.cpp:198) when a member is not in the editor's objects database; the member USSR\\Mosin is in the tracked Data/objects.xml (USSR_Mosin, sprite, unit, path units\\Humans\\USSR\\Mosin), so the installed objects database on win-home must lack it: check that the editor's objects.xml holds USSR_Mosin, or give the fixture a member it holds (Allies_Bren is a unit there), then regenerate the golden (S16 T10)", &GoldenIsHistoryOnly },
+	{ "til", "the golden holds only MFC's <History>: the tileset export needs editor\\terrain\\tilemask.tga in the editor's data folder (<editor folder>\\data\\editor\\terrain\\tilemask.tga, CTileSetFrame, TileSetFrm.cpp:610), which the installed data does not have; export-goldens.ps1 puts the tracked Data/Editor/Terrain/tilemask.tga there now; regenerate the golden on win-home (S16 T10)", &GoldenIsHistoryOnly },
+	{ "eff", "MFC skipped the function particle \"particle-2key\" (EffectFrm.cpp:215: no stream, an error box, continue) because the editor's data folder has no Effects\\particles\\particle-2key.xml (<editor folder>\\data\\), so the golden's <particles/> is empty; export-goldens.ps1 puts a shipped particle there as particle-2key.xml now; regenerate the golden on win-home (S16 T10)", &GoldenEffectHasNoParticles },
 };
 
 // The golden comparison. A golden folder holds MFC's export of the fixture
@@ -1485,7 +1534,7 @@ static const SPendingGolden kPending[] =
 // extension that has an exporter. The result per kind is pass, accepted (equal
 // but for differences the comparator lists with a verified reason), pending
 // (no usable golden; the reason is logged) or FAIL, which fails the tier.
-static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
+static void Goldens( const fs::path &fixtures, const fs::path &data, const fs::path &scratchRoot )
 {
 	struct SGolden { const char *pszExt; EExportKind kind; };
 	static const SGolden kExtensions[] =
@@ -1514,6 +1563,32 @@ static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
 			format.second.nColourMax = format.second.nColourP99 = std::max( format.second.nColourMax, 6 );
 	SExportContext context;
 	context.findUnitKey = &FixtureUnitKey;
+	// The camera of the editor the golden's maker ran: the scene's default placement over the editor's
+	// 800 x 600 window, anchored at 16 world cells as the object frame anchors it (ObjectFrm.cpp:221).
+	// The fence golden holds absolute positions and agrees with this anchor to float rounding and with no
+	// other one (an anchor of 8 cells moves its origins by 362); the object and building values are
+	// differences that do not move with the anchor.
+	context.bRequantiseGrids = true;
+	context.groundCamera = []( NResourceModel::SGroundCamera &camera )
+	{
+		const float fAnchor = 16 * 16 * 2.0f * 1.41421356f;   // 16 world cells, fWorldCellSize of stats_item.h
+		camera = NResourceModel::MfcEditorCamera( NResourceModel::SVec3{ fAnchor, fAnchor, 0 } );
+		return true;
+	};
+	// MFC reads two things from the editor's own data folder (<editor folder>\data\): the tileset's
+	// mask and the function particles' sources. export-goldens.ps1 puts the tracked Data's mask and
+	// the shipped particle this folder gets as particle-2key.xml there, so the port's export finds them
+	// where the golden's maker did.
+	const fs::path editorData = scratch / "editor-data";
+	{
+		std::error_code ec;
+		fs::create_directories( editorData / "editor" / "terrain", ec );
+		fs::create_directories( editorData / "Effects" / "particles", ec );
+		fs::copy_file( data / "Editor" / "Terrain" / "tilemask.tga", editorData / "editor" / "terrain" / "tilemask.tga", fs::copy_options::overwrite_existing, ec );
+		fs::copy_file( data / "Effects" / "Particles" / "aa_smoke1_of_expground.xml", editorData / "Effects" / "particles" / "particle-2key.xml", fs::copy_options::overwrite_existing, ec );
+		Check( fs::is_regular_file( editorData / "editor" / "terrain" / "tilemask.tga", ec ) && fs::is_regular_file( editorData / "Effects" / "particles" / "particle-2key.xml", ec ),
+		       "golden: the editor's data folder holds the tileset mask and the particle source" );
+	}
 	int nPass = 0, nAccepted = 0, nFail = 0, nPending = 0;
 	for ( const SGolden &entry : kExtensions )
 	{
@@ -1530,7 +1605,7 @@ static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
 		for ( const SPendingGolden &pending : kPending )
 			if ( szExt == pending.pszExt )
 				pPending = &pending;
-		if ( pPending != nullptr && ( !bAny || pPending->pfnHolds == nullptr || pPending->pfnHolds( goldenDir ) ) )
+		if ( pPending != nullptr && ( !bAny || ( pPending->pfnHolds != nullptr && pPending->pfnHolds( goldenDir ) ) ) )
 		{
 			Log( "GOLDEN " + szExt + " pending: " + pPending->pszReason );
 			++nPending;
@@ -1547,7 +1622,10 @@ static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
 			Log( "GOLDEN " + szExt + " note: the recorded pending reason no longer holds for this golden, comparing it" );
 		const fs::path project = CopyFixture( fixtures, scratch, szExt );
 		InjectExportFileName( project );
-		const SExportRun run = RunExporter( szExt, project, scratch / szExt / "data", context );
+		SExportContext kindContext = context;
+		if ( szExt == "eff" || szExt == "til" )
+			kindContext.szDataRoot = kindContext.szEditorDataDir = editorData.string();
+		const SExportRun run = RunExporter( szExt, project, scratch / szExt / "data", kindContext );
 		if ( !run.bExported )
 		{
 			Log( "GOLDEN " + szExt + " FAIL: the port's export failed: " + run.outcome.szError );
@@ -1560,12 +1638,6 @@ static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
 		{
 			rules.pTolerance = &trenchTolerance;
 			rules.szToleranceReason = "the shipped editor's DXT5 encoder writes a solid-colour 4x4 block with both endpoints moved (colour 0xaf7e and 0xb79e, alpha ff and 00 for the source colour 0xb2f1f8) where NDxt writes one endpoint twice; the decoded colour is off by 3 to 6, the gate for this kind is 6. NLegacyDxt, the MFC-era source code, writes a third block, so the shipped encoder is neither";
-		}
-		if ( szExt == "obt" )
-		{
-			static const char kReason[] = "pending, camera-dependent and not proven: the sprite packs follow the zero cross, the passability grid and its origin, which MFC takes from its live scene camera and tile lists and the port from DefaultEditorCamera and the project's desc (the fixture has none), so the packed pictures and animations differ in size";
-			for ( const char *pszSuffix : { ".san", "_c.dds", "_l.dds", "_h.dds" } )
-				rules.pendingSuffixes.push_back( { pszSuffix, kReason } );
 		}
 		const SGoldenResult result = CompareGoldenFolder( entry.kind, run.data, goldenDir, tolerance, rules );
 		auto summarise = []( const std::vector<std::string> &lines, std::string *pszAll, std::map<std::string, int> *pReasons ) {
@@ -1660,7 +1732,7 @@ int main( int argc, char **argv )
 	BytesAndDxt( data, scratch );
 	DxtGate( data, scratch, fixtures );
 	Exporters( fixtures, data, scratch );
-	Goldens( fixtures, scratch );
+	Goldens( fixtures, data, scratch );
 	RunUiScreenTests( data, scratch, Check );
 
 	Log( g_nFailures == 0 ? "VERDICT=PASS" : "VERDICT=FAIL failures=" + std::to_string( g_nFailures ) );

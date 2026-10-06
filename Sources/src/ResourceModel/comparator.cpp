@@ -850,41 +850,53 @@ SCompareResult CompareRoundTrip( EExportKind kind, const std::string &szExported
 // what is below it. Every entry says why; the golden comparison lists each
 // difference with that reason as pending, never as accepted: a cause that is
 // not proven from MFC's source and the golden bytes waits for a regenerated
-// golden, so none is silent and none counts as a pass.
+// golden, so none is silent and none counts as a pass. A difference marked
+// proven has its cause shown from MFC's source and from a project the shipped
+// editor itself saved, and is listed as accepted.
 struct SGoldenDifference
 {
 	EExportKind kind;
 	const char *pszPath;
 	const char *pszWhy;
+	bool bProven = false;
+	// More than zero: the difference is the float rounding of the engine's GetPos2 and GetPos3 and is
+	// accepted when the two floats are no further apart than this, whatever the cause says otherwise.
+	float fNoise = 0;
 };
 
-#define BK_NO_PROJECT_STATS "pending regeneration: MFC's batch export reloads the stats from the project's own stats element (CParentFrame::ExportSingleFile -> LoadRPGStats), which MFC's own save writes and the fixture does not hold, so MFC exports the stats struct's constructor defaults and not the tree's values; the port exports the tree, as MFC does for a project it saved"
-#define BK_SCENE_CAMERA "pending, camera-dependent and not proven: MFC takes positions and grids from the live editor scene (IScene::GetPos2 / GetPos3 through the editor's camera); the port has no engine camera in this tier (SExportContext::groundCamera is unset) and uses DefaultEditorCamera, so the values differ"
+// GetPos3 casts a ray through the screen point between the near and the far plane of the editor's
+// projection (z from -600 to 1800, MainFrm.cpp) and meets the ground plane on it, so the coordinates
+// it computes with reach 2500, where a float step is 2.4e-4 (6.1e-5 from 512 to 1024, 1.2e-4 up to
+// 2048), and an origin is that result minus another one: a handful of roundings, at most 1e-3. The
+// differences measured in the goldens are 1.6e-4 to 5.5e-4 for the grids' origins and 1.5e-5 for the
+// explosion points at the origin, and the tiles and cells they come from are a whole 1 to 45 units
+// apart, so a difference above the bound is a different value and stays a failure.
+const float kEnginePositionNoise = 1e-3f;
+
+#define BK_NO_DESC_BLOCK "CBuildingFrame::SaveRPGStats returns at once while no sprite is loaded or the project is new (BuildFrm.cpp:560), so a building the shipped editor saved has no cached <desc> block (mfc-new/buildingtest.bld has none) and its batch export's LoadRPGStats (BuildFrm.cpp:922) reads the struct's defaults: an empty KeyName, no rest or medical slots, and a MaxHP below 1 that SHPObjectRPGStats::operator& (RPGStats.cpp:215) resets to 100; the golden holds exactly those"
+
+#define BK_ENGINE_NOISE "float rounding of the engine's GetPos2 / GetPos3 (see kEnginePositionNoise): the port computes the same value from the editor camera of the golden's maker (MfcEditorCamera) and the two floats differ by less than the bound"
 
 const SGoldenDifference kGoldenDifferences[] = {
-	{ EExportKind::WEAPON, "RPG", BK_NO_PROJECT_STATS " (CWeaponFrame::LoadRPGStats, WeaponFrm.cpp:264; the golden's values are SWeaponRPGStats's: RangeMax 30, AimingTime 1, no name)" },
-	{ EExportKind::ENTRENCHMENT, "RPG/KeyName", BK_NO_PROJECT_STATS " (CTrenchFrame::LoadRPGStats, TrenchFrm.cpp:363)" },
-	{ EExportKind::ENTRENCHMENT, "RPG/MaxHP", BK_NO_PROJECT_STATS " (CTrenchFrame::LoadRPGStats, TrenchFrm.cpp:363)" },
-	{ EExportKind::ENTRENCHMENT, "RPG/Defence4", BK_NO_PROJECT_STATS " (CTrenchFrame::LoadRPGStats, TrenchFrm.cpp:363)" },
-	{ EExportKind::MECH_UNIT, "RPG", BK_NO_PROJECT_STATS " (CMeshFrame::LoadRPGStats, MeshFrm.cpp:1301)" },
-	{ EExportKind::OBJECT, "desc", BK_NO_PROJECT_STATS " (CObjectFrame::LoadRPGStats, ObjectFrm.cpp:738), and the origins and grids MFC then takes from its scene camera and tile lists, which the port copies from the project's desc (object_export.cpp)" },
-	{ EExportKind::BUILDING, "desc/KeyName", BK_NO_PROJECT_STATS " (CBuildingFrame::LoadRPGStats, BuildFrm.cpp:922)" },
-	{ EExportKind::BUILDING, "desc/MaxHP", BK_NO_PROJECT_STATS " (CBuildingFrame::LoadRPGStats, BuildFrm.cpp:922)" },
-	{ EExportKind::BUILDING, "desc/RestSlots", BK_NO_PROJECT_STATS " (CBuildingFrame::LoadRPGStats, BuildFrm.cpp:922)" },
-	{ EExportKind::BUILDING, "desc/MedicalSlots", BK_NO_PROJECT_STATS " (CBuildingFrame::LoadRPGStats, BuildFrm.cpp:922)" },
-	{ EExportKind::BUILDING, "desc/DirExplosions/", BK_SCENE_CAMERA ": MFC's explosion positions went through GetPos2 and GetPos3 and carry their float noise (-3e-5), the port's are exactly 0" },
-	{ EExportKind::FENCE, "RPG/Stats/item[*]/Origin", BK_SCENE_CAMERA " (CFenceFrame::SaveRPGStats, FenceFrm.cpp:1009: the segment's origin is the sprite position minus GetPos3 of the grid's leftmost corner)" },
-	{ EExportKind::FENCE, "RPG/Stats/item[*]/VisOrigin", BK_SCENE_CAMERA " (CFenceFrame::SaveRPGStats, FenceFrm.cpp:1070)" },
+	{ EExportKind::BUILDING, "desc/KeyName", BK_NO_DESC_BLOCK, true },
+	{ EExportKind::BUILDING, "desc/MaxHP", BK_NO_DESC_BLOCK, true },
+	{ EExportKind::BUILDING, "desc/RestSlots", BK_NO_DESC_BLOCK, true },
+	{ EExportKind::BUILDING, "desc/MedicalSlots", BK_NO_DESC_BLOCK, true },
+	{ EExportKind::BUILDING, "desc/DirExplosions/", BK_ENGINE_NOISE " (BuildFrm.cpp: the explosion points pass GetPos2 and GetPos3 and come back as +-1.5e-5 where the port has exactly 0)", true, kEnginePositionNoise },
+	{ EExportKind::OBJECT, "desc/origin", BK_ENGINE_NOISE " (CObjectFrame::SaveRPGStats, ObjectFrm.cpp:625: realZeroPos3 minus the GetPos3 of the grid's leftmost corner)", true, kEnginePositionNoise },
+	{ EExportKind::OBJECT, "desc/VisOrigin", BK_ENGINE_NOISE " (CObjectFrame::SaveRPGStats, ObjectFrm.cpp:729)", true, kEnginePositionNoise },
+	{ EExportKind::FENCE, "RPG/Stats/item[*]/Origin", BK_ENGINE_NOISE " (CFenceFrame::SaveRPGStats, FenceFrm.cpp:1009: the segment's origin is the sprite position minus GetPos3 of the grid's leftmost corner)", true, kEnginePositionNoise },
+	{ EExportKind::FENCE, "RPG/Stats/item[*]/VisOrigin", BK_ENGINE_NOISE " (CFenceFrame::SaveRPGStats, FenceFrm.cpp:1070)", true, kEnginePositionNoise },
 };
 
-#undef BK_NO_PROJECT_STATS
-#undef BK_SCENE_CAMERA
+#undef BK_ENGINE_NOISE
+#undef BK_NO_DESC_BLOCK
 
 // "field <path>: port <v> (float 0x<bits>), golden <v> (float 0x<bits>)": the
 // golden's float is the port's float printed with six significant digits and
 // read back, which is what MFC's XML writer does to every float (it formats a
 // double with %lg, StreamIOLib/DataTreeXML.cpp:326) and the port's does not.
-bool IsMfcSixDigitFloat( const std::string &szMessage )
+bool TwoFloatsOf( const std::string &szMessage, float *pfPort, float *pfGolden )
 {
 	const std::string szMark = "(float 0x";
 	const size_t nPort = szMessage.find( szMark );
@@ -895,9 +907,16 @@ bool IsMfcSixDigitFloat( const std::string &szMessage )
 		return false;
 	auto bitsAt = [&]( size_t nAt ) { return static_cast<uint32_t>( std::strtoul( szMessage.c_str() + nAt + szMark.size(), nullptr, 16 ) ); };
 	const uint32_t nPortBits = bitsAt( nPort ), nGoldenBits = bitsAt( nGolden );
+	std::memcpy( pfPort, &nPortBits, sizeof( float ) );
+	std::memcpy( pfGolden, &nGoldenBits, sizeof( float ) );
+	return true;
+}
+
+bool IsMfcSixDigitFloat( const std::string &szMessage )
+{
 	float fPort, fGolden;
-	std::memcpy( &fPort, &nPortBits, sizeof( float ) );
-	std::memcpy( &fGolden, &nGoldenBits, sizeof( float ) );
+	if ( !TwoFloatsOf( szMessage, &fPort, &fGolden ) )
+		return false;
 	char szText[64];
 	std::snprintf( szText, sizeof( szText ), "%lg", static_cast<double>( fPort ) );
 	return static_cast<float>( std::strtod( szText, nullptr ) ) == fGolden;
@@ -924,7 +943,13 @@ SCompareResult CompareGolden( EExportKind kind, const std::string &szPortFile, c
 	std::vector<std::string> remaining;
 	for ( const std::string &szMessage : result.messages )
 		if ( const SGoldenDifference *pDifference = FindGoldenDifference( kind, szMessage ) )
-			result.pending.push_back( szMessage + " [" + pDifference->pszWhy + "]" );
+		{
+			float fPort = 0, fGolden = 0;
+			if ( pDifference->fNoise > 0 && !( TwoFloatsOf( szMessage, &fPort, &fGolden ) && std::fabs( fPort - fGolden ) <= pDifference->fNoise ) )
+				remaining.push_back( szMessage );
+			else
+				( pDifference->bProven ? result.excused : result.pending ).push_back( szMessage + " [" + pDifference->pszWhy + "]" );
+		}
 		else if ( IsMfcSixDigitFloat( szMessage ) )
 			result.excused.push_back( szMessage + " [MFC's XML writer prints a float with six significant digits (%lg, DataTreeXML.cpp:326), the golden holds the port's value rounded that way]" );
 		else

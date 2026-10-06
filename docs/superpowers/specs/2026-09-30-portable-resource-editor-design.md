@@ -1132,3 +1132,85 @@ Windows result has been seen.
 - CI results of macOS and Windows after the maintainer pushes.
 - The full resource sweep (`tools/zig/run-resource-sweep.sh`), left to the maintainer.
 - Whether the bridge can hand the export the engine's camera (fence, object and building exports differ from MFC there; T08).
+
+## Amendment (S16 T10, 2026-10-06): the goldens compared for real, fixtures fixed, the editor's camera reproduced
+
+Hard steer 2026-10-06T08:50, D044. The goldens of commit 3e98ebc19 were made by the shipped editor from the re-saved fixtures
+(17 of 20 kinds). Until then 13 of the 20 kinds were listed pending, most of them on rules that were stale (struct defaults, 'MFC
+crashed'). This entry removes those rules and records, per kind, what the comparison says now.
+
+**Result:** `GOLDEN_SUMMARY extensions=20 pass=4 accepted=7 fail=0 pending=9`. No stale pending rule remains: a pending reason is
+checked against the golden it names and falls away when the golden stops showing it (a regenerated golden is compared at once).
+
+| Kind | Result | Why |
+|---|---|---|
+| wpn, mcp, unt, mdc | pass | equal to MFC's export; the stats-reload rule for wpn is gone, MFC's own save wrote the cached block |
+| msh | accepted | 29 files compared for real, the 38 stats differences are six-digit floats (`%lg`, `DataTreeXML.cpp:326`) |
+| pcp | accepted | 2 six-digit floats |
+| trc | accepted | stats equal, 6 DXT5 solid-colour blocks: the shipped editor's block is neither NDxt's nor NLegacyDxt's (proven from the golden's bytes, gate 6) |
+| spt | accepted | a sprite's export is graphics only, MFC's 1.xml is the batch history |
+| obt | accepted | 26 files; the `.san` and DDS packs are byte-equal and the grids equal; 4 origin floats are float noise (see camera) |
+| fnc | accepted | 10 files; 15 origin floats are float noise (measured up to 5.5e-4) |
+| bld | accepted | 50 files; 4 stats equal MFC's struct defaults because MFC's own save of a building writes no `desc` block (`BuildFrm.cpp:560` returns while no sprite is loaded, `mfc-new/buildingtest.bld` has none, so `LoadRPGStats` (`BuildFrm.cpp:922`) reads defaults: an empty KeyName, no rest or medical slots, MaxHP below 1 reset to 100 by `SHPObjectRPGStats::operator&`, `RPGStats.cpp:215`); 15 explosion positions are float noise (1.5e-5 against the port's 0) |
+| scp | pending | the golden holds only History (see below) |
+| bdg, 3rd, 3rv | pending | no golden: the editor crashed on the old fixtures; fixed (see below) |
+| eff, til | pending | the golden shows the missing particle source and tileset mask; the script supplies them now |
+| mip, chc, cgc | pending regeneration | the goldens were made from fixtures that are fixed now |
+
+**The editor's camera (fnc origins, bld explosion noise, obt grids and packs).** The goldens were made with the editor's own scene,
+and the port exported with `DefaultEditorCamera`, a camera of half the scale. `MfcEditorCamera( anchor )` (grid_projection.cpp)
+is the ground part of that scene's `matTransform`, from the engine's code: `SetDefaultCamera` (distance 700, pitch -120 degrees, yaw
+45 degrees), the orthographic projection `MainFrm.cpp:1714` builds from the 800 x 600 game window (`Specific.h`), one world unit per
+pixel, and the anchor snapped as `CCamera::Update` snaps it; `GetPos2` maps a ground point to
+`(400 + X.(p - a), 300 + Y.(p - a))` with X, Y the camera's axes. With the object frame's anchor of 16 world cells
+(`ObjectFrm.cpp:221`) the translation is (-624, 300). Three facts prove it, none of them fitted: (1) the fence golden's origins differ
+from the port's by exactly the screen offset (2, -4) a camera translated by (-624, 300) predicts, and agree with it to float rounding
+(an anchor of 8 cells moves them by 362 and fails, which a negative test pins); (2) the object golden's origin (11.6562, -5.96064)
+is reproduced from the fixture's hand-made origin (2, 1) by what every MFC batch export does, `LoadRPGStats` then `SaveRPGStats`: the
+grid becomes tiles placed through the camera and the origin is cut anew from the corner of the tile that holds its first cell
+(`SExportContext::bRequantiseGrids`, off for ordinary exports, where the desc is copied); (3) with that camera the object's
+`.san` and DDS packs come out byte-equal to the golden's, which depend on the camera's scale and on the origin of the grid, so the
+scale and the tile placement are right too. What stays is float rounding of `GetPos2` and `GetPos3`: the ray `GetPos3` casts
+runs between the projection's near and far planes (-600, 1800), where a float step is up to 2.4e-4, so an origin (one such result
+minus another) is exact to about 1e-3. The comparator accepts a difference of that kind only when the two floats are no further
+apart than 1e-3 (`kEnginePositionNoise`), whatever else it says; the measured ones are 1.6e-4 to 5.5e-4 for origins and 1.5e-5 for
+explosion points. A tile or a cell is 1 to 45 units apart, so a value off by more is a different value and fails.
+
+**The chapter, campaign and mission block (found by the comparison).** MFC saves with the frame's prefix empty (`szPrefix` is set
+only inside `ExportFrameData`), so the cached `RPG` block holds the tree's own paths. The port's refresh (T09) wrote the
+export's prefixed paths (`scenarios\chc\header`); MFC's batch export loads the block into the tree (`LoadRPGStats`) and prefixes
+again, so the golden says `scenarios\scenarios\chc\header` and a zero `MapImageRect`, because the picture was looked up under
+the doubled name. `chc`, `cgc` and `mip` exporters write the tree's own paths into the block now (`bSaveCache`), and the three
+fixtures are re-saved.
+
+**Fixtures fixed.**
+
+- `mip`: not a valid mission (no template or final map, no setting, an empty music file, an objective without a header), so
+  MFC refused it at its export validation and the golden holds only History. It names a template map, a setting, one music and an
+  objective header now. Two bridge tests that used the plain fixture as the refused one build the refused case from it.
+- `bdg`: the crash on opening. The cached block listed no fire or smoke point while the tree has one of each, and
+  `CBridgeFrame::GetRPGStats` (`BridgeFrm.cpp:1149`) indexes the block's lists by the tree's children (`NI_ASSERT` only). The bridge
+  exporter gives each fire and smoke child its own entry now (at the origin when the block has none), and the fixture is re-saved
+  with them. The span parts (three items per span: back girder, front girder, slab, in that order) and their pictures were
+  already complete. `resource-editor-auto-bdg` counts the fixture's own point in its expectations.
+- `3rd`: texture `terrain\sets\1\roads3d\road_asphalt_city`. `3rv`: texture `water\a_bottom`. The installed data lacks the old names.
+- `eff`: its function particle `particle-2key` is in the editor's own data folder only, `<editor folder>\data\Effects\particles\`
+  (`EffectFrm.cpp:215`), which the installed game does not have. The fixture's reference stays (the bridge tests build their cases on
+  it); `export-goldens.ps1` puts the shipped `Data/Effects/Particles/aa_smoke1_of_expground.xml` there as `particle-2key.xml`, the file
+  the port's tests give it, and removes it again. The port's comparison gives its export the same folder.
+- `til`: the mask `editor\terrain\tilemask.tga` is read from `<editor folder>\data\` (`TileSetFrm.cpp:610`). The script puts the tracked
+  `Data/Editor/Terrain/tilemask.tga` there and removes it again; the port's comparison does the same in its scratch folder.
+- `scp`: not changed. Its member `USSR\Mosin` is a unit of the tracked `Data/objects.xml` (`USSR_Mosin`, sprite, unit, path
+  `units\Humans\USSR\Mosin`), and `MakeName` compares the lower-cased path with the objects database's, so on win-home the editor's
+  database does not have it. Another member would not help if the database is empty.
+
+**For the maintainer: regenerate on win-home** (`powershell -ExecutionPolicy Bypass -File tools/zig/win-home/export-goldens.ps1
+-Extensions bdg,eff,til,3rd,3rv,mip,chc,cgc,scp`) from this commit. bdg, 3rd and 3rv crashed MFC: if one still does, the
+editor's message or the crash offset says what the port's fixture still lacks. eff and til need the script's data files (it places
+them). mip, chc and cgc are for the changed fixtures; their old goldens no longer match. scp: first look at the objects database the
+editor loads (does it hold `USSR_Mosin` as a sprite unit? `Allies_Bren` is another unit of the tracked data to try as the member);
+if scp still holds only History, the message box of the batch run names the member. wpn, mcp, trc, spt, unt, msh, obt, fnc, bld, pcp
+and mdc need no new goldens.
+
+**Not claimed.** No macOS or Windows result. The full resource sweep is left to the maintainer. T07 (the MFC deletion) still waits
+for the regenerated goldens of the nine kinds above.

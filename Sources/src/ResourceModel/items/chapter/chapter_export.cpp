@@ -113,17 +113,21 @@ bool ExportChapter( const Project &project, const SExportContext &context, SExpo
 	const std::string szFile = StatsFileName( project, context, kChapterAddDir, false );
 	const std::string szPrefix = DirectoryOf( szFile );
 	const std::string szProjectDir = ProjectDirectory( context );
+	// A save writes the cache with the frame's prefix still empty (SaveRPGStats runs outside
+	// ExportFrameData, which sets it), so the cached paths are the tree's own values; the
+	// export prefixes them. A cache that held the prefixed paths would reload into the tree.
+	const std::string szStatsPrefix = context.bSaveCache ? std::string() : szPrefix;
 
 	SChapterStats rpgStats;
-	rpgStats.szHeaderText = szPrefix + szHeader;
-	rpgStats.szSubheaderText = szPrefix + szSubHeader;
-	rpgStats.szDescriptionText = szPrefix + szDescription;
-	rpgStats.szMapImage = szPrefix + szMapImage;
-	rpgStats.szScript = szPrefix + szScript;
-	rpgStats.szInterfaceMusic = szPrefix + ValueStr( *pCommonProps, 5 );
+	rpgStats.szHeaderText = szStatsPrefix + szHeader;
+	rpgStats.szSubheaderText = szStatsPrefix + szSubHeader;
+	rpgStats.szDescriptionText = szStatsPrefix + szDescription;
+	rpgStats.szMapImage = szStatsPrefix + szMapImage;
+	rpgStats.szScript = szStatsPrefix + szScript;
+	rpgStats.szInterfaceMusic = szStatsPrefix + ValueStr( *pCommonProps, 5 );
 	rpgStats.nSeason = nSeason;
 	rpgStats.szSettingName = ValueStr( *pCommonProps, 7 );
-	rpgStats.szContextName = szPrefix + szContext;
+	rpgStats.szContextName = szStatsPrefix + szContext;
 	rpgStats.szSideName = ValueStr( *pCommonProps, 9 );
 	rpgStats.szMODName = context.szModName;
 	rpgStats.szMODVersion = context.szModVersion;
