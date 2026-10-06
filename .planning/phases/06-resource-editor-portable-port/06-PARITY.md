@@ -2,13 +2,12 @@
 
 Every sub-editor and every user-visible feature of the MFC resource editor
 (`Sources/src/editor`, `editor.exe`), with the plan that ports it. The MFC
-editor was deleted early by approval (S16/T07, D037), with the golden rows still pending,
-instead of at 06-16 when every row is **done** with evidence.
+editor was deleted at S16/T07 (commit c6b4329c6, approved D037, released D050; `PRE_DELETE = b8aa895bb00efb2fdac28096656dcf26984e3f87`).
+Every row is **done** with evidence, with one open item: the hand try on macOS and Windows, deferred by D052.
 
-> **Update 2026-10-06 (D037):** Johannes approved deleting the MFC editor at S16/T07 before the
-> win-home hand try and MFC goldens, since it stays in git history and upstream. Rows marked
-> "golden pending win-home" stay pending: the goldens are generated on win-home from the commit
-> before the deletion, `PRE_DELETE = b8aa895bb00efb2fdac28096656dcf26984e3f87`, so the golden comparison can still run later.
+> **Update 2026-10-07 (M001 end state):** all 20 MFC goldens exist and compare `pass=10 accepted=10 fail=0 pending=0` (final golden table
+> below). No row waits for win-home any more. The two GOG INTEX2 rows (B-09.14, B-14.5) are replaced by the AchtungPanzer2 mod round trip
+> (D053, "Mod round trip" below). The hand try on macOS and Windows is deferred until CI works (D052); no macOS or Windows result has been seen.
 
 Status values: `todo` → `done (<evidence>)`: a test name, a golden
 comparison, or a shot in `zig-out/local-test`. The evidence column is filled
@@ -106,7 +105,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-01.5 | Gun point, gun part, carriage, platform dropdowns | done: mesh_logic tests "the locator combos follow the combat model's skeleton" and the undo/redo tests for a gun point, part and carriage locator reference and a platform's locator choice |
 | B-01.6 | Combat / install / transportable model switch | done: mesh_logic test "undo and redo: a model switch rebuilds the locator children both ways"; auto frames 205-213 (mesh_variant 0, 1, 2) |
 | B-01.7 | Direction arrow dock | done: mesh_logic test "the direction dock's angle turns the previewed unit by the degrees it shows" |
-| B-01.8 | Export: `1.xml` `SMechUnitRPGStats`, copied `*.mod`, `1/1w/1a/2/2w/2a/1p*` DDS, `icon.tga` 64 px, `icon` DDS 128 px, `icon512`, `name/desc.txt`; auto DXT format choice | done except golden: msh exporter tests in resource_bridge_test (S08 T01, T03); auto frames 226-228 (export, 1.xml, 1.mod); golden pending win-home |
+| B-01.8 | Export: `1.xml` `SMechUnitRPGStats`, copied `*.mod`, `1/1w/1a/2/2w/2a/1p*` DDS, `icon.tga` 64 px, `icon` DDS 128 px, `icon512`, `name/desc.txt`; auto DXT format choice | done except golden: msh exporter tests in resource_bridge_test (S08 T01, T03); auto frames 226-228 (export, 1.xml, 1.mod); golden compared, see the final golden table (S16 T14) |
 | B-01.9 | Import from game data | done: six shipped units import, save, reopen and export stats-only field-equal to their 1.xml (S08 T02) |
 
 ### B-02 Infantry editor (`CAnimationFrame`, `.unt`, `units\humans\`) — 06-07
@@ -118,7 +117,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-02.3 | Frame thumbnail list | done: infantryAddFrame/delete undoable (sub_editor_tools tests); auto `frame:`/`delete_frame` |
 | B-02.4 | Ack Import/Export (`IDR_ACK_MENU`; MFC has enable handlers only) | no behaviour in MFC: IDR_ACK_MENU items ID_IMPORT_ACK_FILE and ID_EXPORT_ACK_FILE have only always-Enable ON_UPDATE_COMMAND_UI handlers in AnimationFrm.cpp and MeshFrm.cpp, DisplayAcksMenu has no caller, CUnitAckTypesItem and CUnitAckTypePropsItem are empty; the Ack set references are already pickers |
 | B-02.5 | Export RPG Stats only (Ctrl+R) | done: unt exporter stats-only path; test-resource-bridge |
-| B-02.6 | Export: `1.xml` `SInfantryRPGStats`, `1[b][w\|a].san` + DDS per season/blood variant, `name/desc/stats.txt` | done: unt exporter (1.xml, 1[b][w|a].san + DDS, localisation copies) with comparator and bridge tests, auto `do=export` + `expect=exported` (frame 177); golden parity pending win-home (export-goldens.ps1 -Extensions spt,unt) |
+| B-02.6 | Export: `1.xml` `SInfantryRPGStats`, `1[b][w\|a].san` + DDS per season/blood variant, `name/desc/stats.txt` | done: unt exporter (1.xml, 1[b][w|a].san + DDS, localisation copies) with comparator and bridge tests, auto `do=export` + `expect=exported` (frame 177); golden compared, see the final golden table (S16 T14) |
 | B-02.7 | Opens every `.unt` in `Data/Old` and `WinSniper.unt` | done: 15-file .unt round-trip loop over Data/Old + WinSniper.unt (test-resource-core, test-resource-bridge) |
 | B-02.8 | Import from game data | done: shipped-human import comparison (test-resource-bridge) |
 
@@ -130,7 +129,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-03.2 | Formation layout: drag members | done: FormationDrag one undo step; sub_editor_tools tests (fake + real bridge), squad_logic tests, auto `squad_drag` + `expect=slot` |
 | B-03.3 | Set zero point (toolbar) | done: setZeroPoint undoable; sub_editor_tools tests, auto `squad_zero` |
 | B-03.4 | Direction arrow dock | done: formation_direction arrow, one composite undo step; sub_editor_tools tests, auto `squad_dir` + `expect=direction`; MFC angle convention atan2(-dx, dy): T01-T03 tests print expected/actual angle and vector, auto `squad_arrow` + `expect=squad_dir` |
-| B-03.5 | Export: `SSquadRPGStats` + copied icon | done: scp exporter (stats + icon copy) read back by engine; test-resource-bridge, auto `do=export`; golden parity pending win-home (export-goldens.ps1 -Extensions wpn,mcp,trc,scp) |
+| B-03.5 | Export: `SSquadRPGStats` + copied icon | done: scp exporter (stats + icon copy) read back by engine; test-resource-bridge, auto `do=export`; golden compared, see the final golden table (S16 T14) |
 | B-03.6 | Import from game data | done: import-then-export round trip german_rifle_45 in test-resource-bridge |
 
 ### B-04 Weapon editor (`CWeaponFrame`, `.wpn`, `weapons\`) — 06-06
@@ -138,7 +137,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | # | Feature | Status |
 |---|---|---|
 | B-04.1 | Tree: Common, Shoot types, Damage, Sound, Effect, Flash, Craters, Effects | done: shoot/damage/sound/effect/flash/craters tree; sub_editor_tools weapon tests, auto `tree:add_shoot_type` (undo/redo/save/export); preview: no behaviour in MFC (D015) |
-| B-04.2 | Export: `SWeaponRPGStats` to `weapons\<name>.xml` | done: wpn exporter read back field-equal by CTreeAccessor; test-resource-bridge, auto `do=export`; golden parity pending win-home (export-goldens.ps1 -Extensions wpn,mcp,trc,scp) |
+| B-04.2 | Export: `SWeaponRPGStats` to `weapons\<name>.xml` | done: wpn exporter read back field-equal by CTreeAccessor; test-resource-bridge, auto `do=export`; golden compared, see the final golden table (S16 T14) |
 | B-04.3 | Import from game data | done: round trip mg_37t in test-resource-bridge |
 
 ### B-05 Mine editor (`CMineFrame`, `.mcp`) — 06-06
@@ -146,7 +145,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | # | Feature | Status |
 |---|---|---|
 | B-05.1 | Tree: Common (name, weight) | done: name/weight tree; auto `set_prop:Weight` undo/redo (mcp) |
-| B-05.2 | Export: `SMineRPGStats`, `ComposeSingleObject` from `1.tga`/`1s.tga` | done: mine exporter with ComposeSingleObject (_c/_l/_h.dds + .san); test-resource-bridge, auto `do=export` + shot=mine; golden parity pending win-home (export-goldens.ps1 -Extensions wpn,mcp,trc,scp) |
+| B-05.2 | Export: `SMineRPGStats`, `ComposeSingleObject` from `1.tga`/`1s.tga` | done: mine exporter with ComposeSingleObject (_c/_l/_h.dds + .san); test-resource-bridge, auto `do=export` + shot=mine; golden compared, see the final golden table (S16 T14) |
 | B-05.3 | Import from game data | done: round trip mine_at in test-resource-bridge |
 
 ### B-06 Particle editor (`CParticleFrame`, `.pcp`, `effects\particles\`) — 06-12
@@ -156,9 +155,9 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-06.1 | Tree: Common, Source generate (spin, area, angle, opacity, speed, life, density, random spin), Particle curves (spin, weight, speed, size, opacity, texture frame), Complex source, Random life/speed | done: pcp tree opens and exports (Opacity and Life curves read); auto frames 480-484; all 291 shipped sources round-trip (PARTICLES checked=291 unimportable=0, S12 T01) |
 | B-06.2 | Run/Stop preview, Camera switch | done: auto `preview_run`/`preview_stop`/`camera` with measured shots (running frames differ 0.41%, stopped frames equal, horizontal camera differs 0.17%); BkResPreviewCameraMode in test-resource-bridge; frames 510-521 |
 | B-06.3 | Get particle info | done (S13 T01): BkResGetParticleInfo runs the real pcp exporter, builds the effect and reads IParticleSourceWithInfo::GetInfo of the last source; resource-bridge-test `particle info` checks (fixture Max particles 5, Size 0.01687, Average size 0.0130261, Average count 4.48826; density x4 gives Max particles 20; a .wpn project is refused naming .pcp); resource-editor-auto pcp frame 505 `do=particle_info` + `expect=particle_info:present` prints the four values; app status bar shows MFC's four panes (docks_logic ParticleStatus tests) |
-| B-06.4 | Simple / complex source toggle | done (S13 T02): BkResParticleSourceMode / BkResParticleSetSourceMode, one undo step per switch (complex needs a non-empty complex particle name, simple clears it), one IsComplexSource derivation shared with ExportParticle; toolbar checkbox (docks_logic.SourceToggle); resource-bridge-test, test-resource-app-logic and resource-editor-auto-pcp `do=source_mode:` with the exported flag checked (export_complex / export_simple); golden pending win-home |
+| B-06.4 | Simple / complex source toggle | done (S13 T02): BkResParticleSourceMode / BkResParticleSetSourceMode, one undo step per switch (complex needs a non-empty complex particle name, simple clears it), one IsComplexSource derivation shared with ExportParticle; toolbar checkbox (docks_logic.SourceToggle); resource-bridge-test, test-resource-app-logic and resource-editor-auto-pcp `do=source_mode:` with the exported flag checked (export_complex / export_simple); golden compared, see the final golden table (S16 T14) |
 | B-06.5 | Keyframe curve editor: add/move/delete node, Reset all, Zoom in/out X and Y (`IDR_KEYFRAME_ZOOM_MENU`) | done: keyframe_logic.zig (17 tests) and the Function window widget; auto `do=keyframe:` add/move/delete/reset each undone and redone with keys read back, zoom steps (frames 484-504). Deviation: MFC zoom handlers are commented out, the port zooms the view only, not an undo step (D026) S13 T04: pointer-driven: add/drag/delete through the displayed widget (resource-editor-auto frames 525-532: Ctrl+F opens the Function window, SDL pointer and Delete key events on the real event queue, keys read back after each gesture, undo and redo; pcp_fn_add and pcp_fn_drag handle pixels measured at the drawn place). |
-| B-06.6 | Export: `KeyData` (`SParticleSourceData` / `SSmokinParticleSourceData`) | done: pcp exporter, simple and complex; auto `do=export` (frame 502, 529); golden parity pending win-home (export-goldens.ps1 -Extensions pcp) |
+| B-06.6 | Export: `KeyData` (`SParticleSourceData` / `SSmokinParticleSourceData`) | done: pcp exporter, simple and complex; auto `do=export` (frame 502, 529); golden compared, see the final golden table (S16 T14) |
 | B-06.7 | Import from game data | done: import round trip of all 291 shipped sources, 0 differences; auto `do=import_file:pcp` (frame 526) |
 
 ### B-07 Sprite editor (`CSpriteFrame`, `.spt`, `effects\sprites\`) — 06-07
@@ -167,7 +166,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 |---|---|---|
 | B-07.1 | Tree: Sprites, Sprite properties | done: sub_editor_tools tests; auto frames 143-145 |
 | B-07.2 | Run/Stop preview; thumbnail list | done: measured Run/Stop shots in test-resource-bridge; auto `preview_run`, `shot_lit`, `differ`, `shot_same` (frames 151-159) |
-| B-07.3 | Export: `1.san` + DDS (`BuildAnimations`, `SSpriteAnimationFormat`) | done: spt exporter (1.san + 1_c/1_l/1_h DDS), .san byte-identical to shipped Mp43 1.san; test-resource-bridge, auto `do=export` (frame 150); golden parity pending win-home (export-goldens.ps1 -Extensions spt,unt) |
+| B-07.3 | Export: `1.san` + DDS (`BuildAnimations`, `SSpriteAnimationFormat`) | done: spt exporter (1.san + 1_c/1_l/1_h DDS), .san byte-identical to shipped Mp43 1.san; test-resource-bridge, auto `do=export` (frame 150); golden compared, see the final golden table (S16 T14) |
 | B-07.4 | Import from game data | no behaviour in MFC (no reverse path for sprites) |
 
 ### B-08 Effect editor (`CEffectFrame`, `.eff`, `effects\effects\`) — 06-12
@@ -178,7 +177,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-08.2 | Run/Stop, Camera switch | done in the shared preview: Run names the effect's missing function-particle source (auto `preview_refused`, frame 536); Run/Stop/Camera measured on pcp (B-06.2). Run of an eff with a present source not measured |
 | B-08.3 | Direction arrow dock | done (S13 T03): the Direction dock drives .eff projects (BkResEffectSetDirection/GetDirection, view state, 45 degrees on open, UpdateEffectAngle's matrix through the running effect's SetEffectDirection); child X/Y/Z positions are whole numbers (a fractional text keeps its integer part), one undo step each, exported unchanged into vPos. Evidence: test-resource-bridge (matrix for 0/45/90 degrees and the 2 pi wrap, vPos read back through operator&, undo/redo, running preview frames differ by 3.2%, though a same-angle pair differs by 3.3% from the particles' own motion, so the frame measure alone does not prove the turn; the matrix test does), test-resource-core, test-resource-app-logic, resource-editor-auto (do=effect_direction, expect=effect_angle, X_position edit, undo, redo, export) |
 | B-08.4 | Interpolate Vector Items (`IDR_INTERPOLATE_TREE_ITEM_MENU`; MFC has the enable handler only) | no behaviour in MFC (`grep -rn -i interpolate Sources/src/editor/*.cpp` shows only `ON_UPDATE_COMMAND_UI` at EffectFrm.cpp:34 and its enable handler at :395; D026) |
-| B-08.5 | Export: root `"effect"` = `SEffectDesc` | done: eff exporter (sprites, plain and smokin function particles, root effect); auto `do=export` (frame 535); golden parity pending win-home (export-goldens.ps1 -Extensions eff) |
+| B-08.5 | Export: root `"effect"` = `SEffectDesc` | done: eff exporter (sprites, plain and smokin function particles, root effect); auto `do=export` (frame 535); golden compared, see the final golden table (S16 T14) |
 | B-08.6 | Import from game data | no behaviour in MFC: import refused naming the missing reverse path (auto `import_refused:eff`, frame 530; D026) |
 
 ### B-09 Building editor (`CBuildingFrame`, `.bld`, `buildings\`) — 06-10
@@ -197,8 +196,8 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-09.10 | Smoke-point mode | done: point_tools smoke test; auto `do=point:smoke` and `do=generate_points:smoke` (2 generated points, undone with the rest) |
 | B-09.11 | Move point, set horizontal position, set angle / cone | done: grid_logic test "move point and horizontal position: one undo step per drag ..."; point_tools drag and one-shot direction tests; auto `point_move`, `point_angle`, `point_cone` with measured 0xffff00 handle 0 to 33 pixels |
 | B-09.12 | Generate points | done: grid_logic test "generate points: enabled in smoke and explosion modes only, one undo step each"; point_tools generate tests; auto `do=generate_points:smoke` |
-| B-09.13 | Export: `desc` = `SBuildingRPGStats`, sprite + shadow packs with passability, `icon.tga` | done: building exporter (ExportBuilding, BuildingStatsToTree); test-resource-bridge S10Building::Fixture export, determinism, missing-picture and round-trip checks; golden parity pending win-home (export-goldens.ps1 -Extensions bld) |
-| B-09.14 | GOG `INTEX2 brandenburgertor/current.bld` exports equal to its golden (win-home) | pending win-home: bld-gog-brandenburgertor (S10Building::GogBrandenburgertor prints `GOLDEN bld-gog-brandenburgertor pending` without BK_GOG_ROOT and BK_GOG_GOLDEN; the GOG files are never committed) |
+| B-09.13 | Export: `desc` = `SBuildingRPGStats`, sprite + shadow packs with passability, `icon.tga` | done: building exporter (ExportBuilding, BuildingStatsToTree); test-resource-bridge S10Building::Fixture export, determinism, missing-picture and round-trip checks; golden compared, see the final golden table (S16 T14) |
+| B-09.14 | Replaced (D053): a round trip on the third-party AchtungPanzer2 mod covers the .bld kind (the GOG INTEX2 files are unobtainable) | done: `test-resource-mod-roundtrip` with `-Dmod-root`, bld found=377 imported=377 equal=377 accepted=0 failed=0; see "Mod round trip" below |
 | B-09.15 | Import from game data | done: S10Building::Shipped imports every shipped Data/Buildings folder with a field-equal round trip; D021 guard S10Building::NegativeTiles (182 checked, 0 negative) |
 
 ### B-10 Object editor (`CObjectFrame`, `.obt`, `objects\`) — 06-09
@@ -208,7 +207,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-10.1 | Tree: Common, Graphics (sprite/shadow, summer/winter/Africa), Particles, Passes, Effects | done (S05 tree/inspector; resource-editor-auto obt block expect=nodes_min:2) |
 | B-10.2 | Move, Draw grid, transparency dropdown, Set zero | done (S09 T04-T06: grid_tools tests, grid_logic tests, resource-editor-auto obt block draws, undoes, redoes and measures 0xff0000 and 0x606000 shots) |
 | B-10.3 | One-way transparency lines (`TransLines`) | done (S09: trans-line core tests; resource-editor-auto obt trans_line, lines:2 -> 3 -> 2 -> 3) |
-| B-10.4 | Export: `desc` = `SObjectRPGStats`, `1/1s/1w/1ws` `.san` + DDS, icon, `name.txt` | done on repo fixtures (S09 T02: bridge export tests; auto obt export checks 1.xml and 1_c.dds); golden pending win-home |
+| B-10.4 | Export: `desc` = `SObjectRPGStats`, `1/1s/1w/1ws` `.san` + DDS, icon, `name.txt` | done on repo fixtures (S09 T02: bridge export tests; auto obt export checks 1.xml and 1_c.dds); golden compared, see the final golden table (S16 T14) |
 | B-10.5 | Import from game data | done (S09 T02: obt importer and its bridge tests; the docks check no longer expects .obt to be refused) |
 
 ### B-11 Fence editor (`CFenceFrame`, `.fnc`, `fences\`) — 06-09
@@ -218,7 +217,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-11.1 | Tree: Common, Directions, Insert, per-segment properties | done (S05 tree/inspector; resource-editor-auto fnc block expect=nodes_min:2) |
 | B-11.2 | Move, Draw grid, transparency dropdown, Centre fence on tile | done (S09 T04-T06: grid_tools and grid_logic tests; resource-editor-auto fnc block draws, centres, undoes, redoes and measures 0xff0000 and 0x808000 shots) |
 | B-11.3 | Thumbnail list | done (S05 thumbnail work and S09 T05 fence lists in panels.zig) |
-| B-11.4 | Export: `SFenceRPGStats`, `ComposeFences` sprites, icon | done on repo fixtures (S09 T03: bridge export tests, index-hole refusal; auto fnc export checks 1.xml and 1_c.dds); golden pending win-home |
+| B-11.4 | Export: `SFenceRPGStats`, `ComposeFences` sprites, icon | done on repo fixtures (S09 T03: bridge export tests, index-hole refusal; auto fnc export checks 1.xml and 1_c.dds); golden compared, see the final golden table (S16 T14) |
 | B-11.5 | Import from game data | done (S09 T03: importer and bridge test) |
 
 ### B-12 Bridge editor (`CBridgeFrame`, `.bdg`, `bridges\`) — 06-11
@@ -229,7 +228,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-12.2 | Draw grid, draw bridge passability, transparency dropdown, Set zero | done for Draw grid on the active span part's locked tiles and Set zero (S11 T03-T05: undo/redo tests in point_tools and grid_logic; auto bdg block brushes two tiles, measures the 0xff0000 shot 263 -> 629 pixels, undoes back to 263). Not ported: Draw pass (unlocked tiles) and the transparency dropdown, because the C++ bridge homes only the locked tiles on a bridge part (S11 T04 decision) |
 | B-12.3 | Span marks `Begin/End/Front/Back` | done (S11 T03-T05: `setSpanMark` undo/redo tests; auto bdg block moves all four marks, measures the cyan 0x00ffff crosses 179 -> 377 pixels, undoes to the home marks and redoes. The auto run exposed that undoing the first mark wrote an empty list, which the channel refuses: undo now restores the frame's defaults) |
 | B-12.4 | Fire points, smoke points, move point, horizontal position, angle, generate points | done (S11 T03-T05: bridge fire, smoke and directed-explosion channels with undo/redo tests; auto bdg block places a fire point (0xff8000, 51 pixels, 0 after undo) and a smoke point, undoes and redoes both). Shoot points do not exist on a bridge, as in CBridgeFrame |
-| B-12.5 | Export: `SBridgeRPGStats` (segments/spans/states), sprite + shadow packs, `icon.tga` | done on repo fixtures (S11 T01: export tests over the 54-picture fixture; auto bdg block exports and checks data/bridges/bdg/1.xml and 1_c.dds); golden pending win-home |
+| B-12.5 | Export: `SBridgeRPGStats` (segments/spans/states), sprite + shadow packs, `icon.tga` | done on repo fixtures (S11 T01: export tests over the 54-picture fixture; auto bdg block exports and checks data/bridges/bdg/1.xml and 1_c.dds); golden compared, see the final golden table (S16 T14) |
 | B-12.6 | Import from game data | done (S11 T02: every shipped Data/Bridges folder (21) imports and exports stats-only field-equal, `BRIDGES checked=21 folders=21 failed=0 differences=0`; `NEGTILES bridges checked=21 negative=0`) |
 
 ### B-13 Trench editor (`CTrenchFrame`, `.trc`) — 06-06
@@ -238,7 +237,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 |---|---|---|
 | B-13.1 | Tree: Common, Sources (`.mod` models), Defences | done: sources tree; sub_editor_tools trench tests, auto `tree:add_source` (undo/redo) |
 | B-13.2 | Preview of the entrenchment models | done: preview measured by captured frame; auto `shot=trench` + `expect=shot_lit` + `differ` |
-| B-13.3 | Export: `SEntrenchmentRPGStats`, copied `.mod`, `1/1w/1a` DDS | done: trc exporter (stats, .mod copies, 1/1w/1a DDS); test-resource-bridge, auto `do=export`; golden parity pending win-home (export-goldens.ps1 -Extensions wpn,mcp,trc,scp) |
+| B-13.3 | Export: `SEntrenchmentRPGStats`, copied `.mod`, `1/1w/1a` DDS | done: trc exporter (stats, .mod copies, 1/1w/1a DDS); test-resource-bridge, auto `do=export`; golden compared, see the final golden table (S16 T14) |
 | B-13.4 | Import from game data | done: round trip Entrenchment in test-resource-bridge |
 
 ### B-14 Mission editor (`CMissionFrame`, `.mip`, `scenarios\`) — 06-14
@@ -248,8 +247,8 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | B-14.1 | Tree: Common, Objectives, Musics | done (S14 T04: mission model and tree, bridge tests `S14MissionExport` and the ussr/finland import; `resource-editor-auto-mip` opens mip/final-map with expect=kind:mip and selects the first objective) |
 | B-14.2 | Generate map image (`MinimapCreation`) | done (S14 T03 `BkResMissionMinimap`, test `MISSION MINIMAP map_c/l/h.dds 512x512: 1`; D032 S15 T01: the Image frame always shows map_h.dds and makes it when missing, as CMissionFrame does; tests `image: a mission with a Final map shows map_h.dds and makes it when missing (D032)`, `image: a refused minimap is reported, not shown as a picture` and bridge `MISSION MINIMAP map_h.dds ... differing bytes`; `resource-editor-auto-mip` starts with a map.tga and no map_h.dds, expects the file after selection and `shot_minimap` measures the shot against map_h.dds and map.tga; earlier S14: the Image window shows a 512x512 picture, centre R192 G220 B65 against background R14 G14 B14) |
 | B-14.3 | Place objectives by clicking on the image | done (S14 T05 image_logic.zig tests: click places, undo/redo, edge clamp, one undo step per gesture; `resource-editor-auto-mip` clicks picture 200/150 with pointer events, the cross colour is measured at the pixel: absent R177 G203 B68, placed R255 G255 B0 (9 of 9 pixels), undone absent, redone present) |
-| B-14.4 | Export: `SMissionStats`, copied `.txt`, map image via `ComposeImageToTexture`, map DDS, map `.xml` → `.bzm` | done on repo fixtures (S14 T03-T04: `S14MissionExport` reads the stats with the engine, checks the texts, map_{h,c,l}.dds, `MISSION BZM` sizes equal in chunk 1 and the quick-load chunk, the four validation refusals; auto mip exports 12 files and expects data/maps/road3d.bzm and data/scenarios/mip/map_h.dds in the export root, never in shipped Data); golden pending win-home. Ported MFC quirks kept: the last failing validation message wins, and both music checks read the combat list, so the exploration message is the one shown |
-| B-14.5 | GOG `INTEX2 ardennen40/current.mip` exports equal to its golden (win-home) | pending win-home (`S14Mission::GogArdennen40` prints `pending: win-home only`; mip/golden holds the README only) |
+| B-14.4 | Export: `SMissionStats`, copied `.txt`, map image via `ComposeImageToTexture`, map DDS, map `.xml` → `.bzm` | done on repo fixtures (S14 T03-T04: `S14MissionExport` reads the stats with the engine, checks the texts, map_{h,c,l}.dds, `MISSION BZM` sizes equal in chunk 1 and the quick-load chunk, the four validation refusals; auto mip exports 12 files and expects data/maps/road3d.bzm and data/scenarios/mip/map_h.dds in the export root, never in shipped Data); golden compared, see the final golden table (S16 T14). Ported MFC quirks kept: the last failing validation message wins, and both music checks read the combat list, so the exploration message is the one shown |
+| B-14.5 | Replaced (D053): a round trip on the third-party AchtungPanzer2 mod covers the .mip kind (the GOG INTEX2 files are unobtainable) | done: `test-resource-mod-roundtrip` with `-Dmod-root`, mip found=51 imported=51 equal=51 accepted=0 failed=0; see "Mod round trip" below |
 | B-14.6 | Import from game data | done (S14 T04: BkResImportFromGame reads shipped ScenarioMissions 1.xml; ussr and finland import then export field-equal, MODName/MODVersion/ImageRect drift tolerated; MFC left objective headers empty, the port fills the header slot) |
 
 ### B-15 Chapter editor (`CChapterFrame`, `.chc`) — 06-14
@@ -258,7 +257,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 |---|---|---|
 | B-15.1 | Tree: Common, Missions, Placeholders | done (S14 T02: chapter tree and bridge tests; `resource-editor-auto-chc` opens the fixture with expect=kind:chc and selects the first mission) |
 | B-15.2 | Show crosses mode: place mission markers on the map image | done (S14 T05 image_logic.zig tests, hit box and cross drag as one step; `resource-editor-auto-chc` clicks picture 10/6 (cross R255 G255 B0, 5 of 9 pixels, absent after undo), ticks the Show crosses checkbox with a pointer click, drags the cross by 5/3 to 15/9 (marker there, gone at 10/6), one undo returns it to 10/6, redo to 15/9) |
-| B-15.3 | Export: `SChapterStats`, copied `.txt` and `.lua`, image | done on repo fixtures (S14 T02: bridge export tests read the stats with the engine, `CHAPTER rect ...` line; auto chc exports 9 files); golden pending win-home |
+| B-15.3 | Export: `SChapterStats`, copied `.txt` and `.lua`, image | done on repo fixtures (S14 T02: bridge export tests read the stats with the engine, `CHAPTER rect ...` line; auto chc exports 9 files); golden compared, see the final golden table (S16 T14) |
 | B-15.4 | Import from game data | done (S14 T02: shipped chapters round trip field-equal, German/Kharkov42 46 fields, 0 differences; ImageRect excluded because the shipped DDS has no source picture) |
 
 ### B-16 Campaign editor (`CCampaignFrame`, `.cgc`) — 06-14
@@ -267,7 +266,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 |---|---|---|
 | B-16.1 | Tree: Common, Chapters, Templates | done (S14 T02: campaign tree and bridge tests; `resource-editor-auto-cgc` opens the fixture with expect=kind:cgc and selects the first chapter) |
 | B-16.2 | Position chapters by clicking on the map image | done (S14 T05 image_logic.zig tests; `resource-editor-auto-cgc` clicks picture 10/6 (R255 G255 B0, 5 of 9 pixels, absent after undo, present after redo) and drags the cross in Show crosses mode as one undo step) |
-| B-16.3 | Export: `SCampaignStats`, copied `.txt`, image | done on repo fixtures (S14 T02: `CAMPAIGN rect ... chapters` bridge test; auto cgc exports); golden pending win-home |
+| B-16.3 | Export: `SCampaignStats`, copied `.txt`, image | done on repo fixtures (S14 T02: `CAMPAIGN rect ... chapters` bridge test; auto cgc exports); golden compared, see the final golden table (S16 T14) |
 | B-16.4 | Import from game data | done (S14 T02: shipped campaign German round trips field-equal, 134 fields, 0 differences) |
 
 ### B-17 Medal editor (`CMedalFrame`, `.mdc`, `medals\`) — 06-14
@@ -276,36 +275,36 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 |---|---|---|
 | B-17.1 | Tree: Common, Picture, Text | done (S14 T01: medal tree and bridge tests; `resource-editor-auto-mdc` opens the fixture with expect=kind:mdc) |
 | B-17.2 | Image preview | done (S14 T05 Image window; `resource-editor-auto-mdc` shows the 20x12 picture and measures its centre R107 G73 B156 against background R14 G15 B15, contrast 292). The auto run found that the picture's property id was read 0-based (it showed the description); ids count from 1 (chapter 4, campaign 3, medal 3) and image_logic.zig now uses them |
-| B-17.3 | Export: `SMedalStats`, copied `.txt`, image | done on repo fixtures (S14 T01: `MEDAL rect ...` and `MEDAL _h ...` pixel checks; auto mdc exports 6 files); golden pending win-home |
+| B-17.3 | Export: `SMedalStats`, copied `.txt`, image | done on repo fixtures (S14 T01: `MEDAL rect ...` and `MEDAL _h ...` pixel checks; auto mdc exports 6 files); golden compared, see the final golden table (S16 T14) |
 | B-17.4 | Import from game data | done (S14 T01: shipped medal round trip, the 6-digit ImageRect tolerated through NearFloat, a supplied 4.tga because Data holds only DDS) |
 
 ### B-18 Terrain editor (`CTileSetFrame`, `.til`, `terrain\sets\`) — 06-13
 
 | # | Feature | Status |
 |---|---|---|
-| B-18.1 | Tree: Common, Terrains/Tiles, Crossets/Tiles, Ambient sounds, Looped sounds | done (S13 T07-T09): the tileset model and tree, tile index pools on insert/delete; resource-editor-auto-til opens the fixture, adds a tile (nodes 21 -> 22), undo, redo; golden pending win-home |
-| B-18.2 | Import terrains, Import crossets (toolbar) | done (S13 T08, T09): BkResTileSetImport, fixtures til/import/terrains.xml + crossets.xml; auto `do=tile_import:terrains/` adds 4 nodes (22 -> 26); bridge tests; golden pending win-home |
-| B-18.3 | Thumbnail list of tiles | done (S13 T09): terrain_logic.zig lists, crosset mode driven by tree selection (SwitchToEditCrossetsMode), double-click adds a tile (BkResTileSetAddTile); resource-editor-auto-til `do=tile_add:`; the tileset has no game preview (GameWnd hidden in MFC); golden pending win-home |
+| B-18.1 | Tree: Common, Terrains/Tiles, Crossets/Tiles, Ambient sounds, Looped sounds | done (S13 T07-T09): the tileset model and tree, tile index pools on insert/delete; resource-editor-auto-til opens the fixture, adds a tile (nodes 21 -> 22), undo, redo; golden compared, see the final golden table (S16 T14) |
+| B-18.2 | Import terrains, Import crossets (toolbar) | done (S13 T08, T09): BkResTileSetImport, fixtures til/import/terrains.xml + crossets.xml; auto `do=tile_import:terrains/` adds 4 nodes (22 -> 26); bridge tests; golden compared, see the final golden table (S16 T14) |
+| B-18.3 | Thumbnail list of tiles | done (S13 T09): terrain_logic.zig lists, crosset mode driven by tree selection (SwitchToEditCrossetsMode), double-click adds a tile (BkResTileSetAddTile); resource-editor-auto-til `do=tile_add:`; the tileset has no game preview (GameWnd hidden in MFC); golden compared, see the final golden table (S16 T14) |
 | B-18.4 | Crosset edit mode (`ID_EDIT_CROSSETS` appears only in the toolbar map) | no behaviour in MFC: `grep -rn ID_EDIT_CROSSETS Sources/src/editor` shows only MainFrm.cpp:184 toolbar map, editor.rc and resource.h, no ON_COMMAND; the mode itself is tree-selection driven (SwitchToEditCrossetsMode), ported under B-18.3 |
-| B-18.5 | Export: `<name>.xml` `"tileset"` = `STilesetDesc` + tileset DDS; `crosset.xml` + DDS | done (S13 T07): tileset_export.cpp ported from ComposeTiles; resource-editor-auto-til exports and expects 1.xml, 1_c/_h/_l.dds, crosset.xml, crosset_c.dds, mod.xml; golden pending win-home |
+| B-18.5 | Export: `<name>.xml` `"tileset"` = `STilesetDesc` + tileset DDS; `crosset.xml` + DDS | done (S13 T07): tileset_export.cpp ported from ComposeTiles; resource-editor-auto-til exports and expects 1.xml, 1_c/_h/_l.dds, crosset.xml, crosset_c.dds, mod.xml; golden compared, see the final golden table (S16 T14) |
 | B-18.6 | Import from game data | no behaviour in MFC (LoadRPGStats only rebuilds the index pools); the port refuses .til import from game data with the reason (S13 T07) |
 
 ### B-19 3D Road editor (`C3DRoadFrame`, `.3rd`) — 06-13
 
 | # | Feature | Status |
 |---|---|---|
-| B-19.1 | Tree: Common, Layer | done (S13 T05, T11): road3d model and tree; resource-editor-auto-3rd set_prop, undo, redo; golden pending win-home |
-| B-19.2 | Preview on `maps\road3d` terrain; wireframe toggle | done (S13 T06, T11): BkResPreviewWireframe; auto-3rd shots road_solid 93.8% drawn, road_wire 30.7% drawn, solid vs wire differ 65.55%, wire vs solid again 65.55%; golden pending win-home |
-| B-19.3 | Export: `VSODescription` = `SVectorStripeObjectDesc` | done (S13 T05): road3d_export.cpp through the engine's serializer; auto-3rd export; golden pending win-home |
+| B-19.1 | Tree: Common, Layer | done (S13 T05, T11): road3d model and tree; resource-editor-auto-3rd set_prop, undo, redo; golden compared, see the final golden table (S16 T14) |
+| B-19.2 | Preview on `maps\road3d` terrain; wireframe toggle | done (S13 T06, T11): BkResPreviewWireframe; auto-3rd shots road_solid 93.8% drawn, road_wire 30.7% drawn, solid vs wire differ 65.55%, wire vs solid again 65.55%; golden compared, see the final golden table (S16 T14) |
+| B-19.3 | Export: `VSODescription` = `SVectorStripeObjectDesc` | done (S13 T05): road3d_export.cpp through the engine's serializer; auto-3rd export; golden compared, see the final golden table (S16 T14) |
 | B-19.4 | Import from game data | done (S13 T05, T11): single-file import; shipped scan VSO checked=40 files=40 unimportable=0; auto-3rd imports Roads3D/rail_road_grass.xml, saves and exports |
 
 ### B-20 3D River editor (`C3DRiverFrame`, `.3rv`) — 06-13
 
 | # | Feature | Status |
 |---|---|---|
-| B-20.1 | Tree: Bottom layer, Layers | done (S13 T05, T11): river3d model and tree; resource-editor-auto-3rv opens, exports; golden pending win-home |
-| B-20.2 | Animated preview on `maps\river3d` terrain; wireframe toggle | done (S13 T06, T11): auto-3rv river_a 93.8% drawn, river_a vs river_b (1.5 s apart) differ (animated, 0.001% of the frame, threshold 0.0005%), river_c = river_d after Stop, wireframe differs 64.50%; golden pending win-home |
-| B-20.3 | Export: `VSODescription` = `SVectorStripeObjectDesc` | done (S13 T05): river3d_export.cpp; auto-3rv export; golden pending win-home |
+| B-20.1 | Tree: Bottom layer, Layers | done (S13 T05, T11): river3d model and tree; resource-editor-auto-3rv opens, exports; golden compared, see the final golden table (S16 T14) |
+| B-20.2 | Animated preview on `maps\river3d` terrain; wireframe toggle | done (S13 T06, T11): auto-3rv river_a 93.8% drawn, river_a vs river_b (1.5 s apart) differ (animated, 0.001% of the frame, threshold 0.0005%), river_c = river_d after Stop, wireframe differs 64.50%; golden compared, see the final golden table (S16 T14) |
+| B-20.3 | Export: `VSODescription` = `SVectorStripeObjectDesc` | done (S13 T05): river3d_export.cpp; auto-3rv export; golden compared, see the final golden table (S16 T14) |
 | B-20.4 | Import from game data | done (S13 T05, T11): single-file import; shipped scan VSO checked=40 files=40 unimportable=0; auto-3rv imports Rivers/water.xml, saves and exports |
 
 ### B-21 GUI editor (`CGUIFrame`, `GUIFrame2.cpp`, `.gui`; switched off in MFC) — 06-15
@@ -329,7 +328,7 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | Registry `HKCU\Software\Nival Interactive\...` | `resourceeditor.cfg` |
 | `zip.exe` | native PAK writer |
 | `KeyBasedData.cpp`, `RoadEditorWnd.cpp`, `COI/OIDlg.cpp` (not compiled) | nothing — dead code |
-| `Sources/src/bin/editor.exe`, `Sources/src/editor/bin/editor2.exe` | deleted in 06-16 after the goldens exist |
+| `Sources/src/bin/editor.exe`, `Sources/src/editor/bin/editor2.exe` | deleted at S16/T07 (c6b4329c6); the goldens exist and compare |
 
 ## D. Game reads it unchanged (S16 T03, T04, 2026-10-06, Linux)
 
@@ -472,3 +471,35 @@ equal to the port's mixed-case one, and a value that differs by more than case s
 | batch with a project of the kind open and edited | pass | the output is unchanged and the open project and export settings are untouched |
 | mixed folder (corrupt, wrong kind, unsupported file) | pass | each failure named, the batch continues, `BkResBatch` answers FAILED, exit status 1 |
 | scene camera in exports | removed | objects, fences, buildings and bridges use the editor camera, not the live scene's |
+
+## Mod round trip (S17, 2026-10-07)
+
+`zig build test-resource-mod-roundtrip -Dmod-root=<AchtungPanzer2>/data` (or `BK_MOD_ROOT`) replaces the GOG rows B-09.14 and B-14.5 (D053). Each
+resource of every kind `BkResImportFromGame` supports is imported from the mod (read-only, game data only), exported again into `zig-out/local-test`
+and compared field by field through the engine's own readers; every difference is accepted only with a proof from the engine source or the
+mod's own bytes (D054, `BK_MOD_DETAIL=1` lists each field per file). Without a mod the tier prints `skipped: no mod`. `failed=0` for every kind.
+
+| Kind | found | imported | equal | accepted | failed | accepted because |
+|---|---|---|---|---|---|---|
+| wpn | 196 | 196 | 112 | 84 | 0 | the engine's writer emits default-valued fields the older export omitted |
+| scp | 86 | 86 | 0 | 86 | 0 | slot position noise, max 4.6e-5 |
+| unt | 67 | 67 | 67 | 0 | 0 | |
+| msh | 377 | 377 | 342 | 35 | 0 | UninstallRotate/Transport written as 1.4013e-045, proved by the mod's bytes |
+| obt | 621 | 621 | 614 | 7 | 0 | stubs' struct-form effects, unread; default-valued fields |
+| fnc | 2 | 2 | 2 | 0 | 0 | |
+| bld | 377 | 377 | 377 | 0 | 0 | |
+| bdg | 23 | 23 | 0 | 23 | 0 | origin noise at the six-digit sprite position, max 5.95e-4 |
+| pcp | 6 | 6 | 0 | 6 | 0 | six-digit print noise, max 1.9e-6 |
+| 3rd | 35 | 35 | 21 | 14 | 0 | six-digit print noise, max 1.9e-6 |
+| 3rv | 8 | 8 | 5 | 3 | 0 | default-valued fields the engine's writer emits |
+| mip | 51 | 51 | 51 | 0 | 0 | |
+| chc | 12 | 12 | 0 | 12 | 0 | MFC's own export check (no placeholders / player side), proved by each file's empty PlaceHolders |
+| cgc | 1 | 1 | 1 | 0 | 0 | |
+| mdc | 17 | 17 | 17 | 0 | 0 | |
+| total | 1879 | 1879 | 1609 | 270 | 0 | |
+
+Port bugs the round trip found and S17/T03 fixed (each with a fixture that fails without its fix): cgc MapImage under `scenarios\` prefixed twice;
+3rv fields lost on import (type, priority, passability, AI mask, soil, minimap colours, layer widths); unt, msh and fnc refused an empty KeyName; unt animation
+Length of frame-less animations; 3rd AI class mask; obt armor min/max; msh platform and gun locator numbers, model-derived fields (boxes, animations,
+locator points); fnc segment origins (VisOrigin); picture rectangles of mdc/mip/chc/cgc when the .tga is missing; pcp omitted randomiser track
+(zeros as `SParticleSourceData::Init` reads it, was 1).

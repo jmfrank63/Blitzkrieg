@@ -26,23 +26,20 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 
 ## Current Position
 
-Milestone M001 (phase 6, Resource Editor portable port): S01 to S15 complete, S16 in progress (T01 to T05, T08, T09 and
-T06 done; T07, the MFC deletion, was released by D050 and performed; PRE_DELETE b8aa895bb00efb2fdac28096656dcf26984e3f87).
+Milestone M001 (phase 6, Resource Editor portable port): S01 to S16 complete, S17 (validation remediation) in progress, T05 (this refresh) last.
+The MFC editor was deleted in c6b4329c6 (S16/T07, D037, released D050); PRE_DELETE b8aa895bb00efb2fdac28096656dcf26984e3f87.
 Branch: feat/resource-editor.
 
-Verified on Linux (S16/T05, every tier in the foreground, exit 0): install-game, install-map-editor, install-resource-editor,
-`test-resources-all`, `test-resource-model`, `-comparator`, `-bridge`, `test-resource-core`, `test-resource-app-logic`,
-`test-editor-core`, `test-editor-kit`, `test-editor-bridge`, `resource-editor-host-check`, `resource-editor-smoke`, the 19
-`resource-editor-auto-<ext>` tiers, `resource-editor-game-reads-it` (21 kinds PASS, 10 by the real Game, 11 by the engine's reader),
-`map-editor-smoke`, `map-editor-auto`, `map-editor-game-reads-it-m3`. Golden comparator: pass=3 accepted=2 fail=0 pending=15.
-No macOS or Windows result has been seen.
+Verified on Linux: the maintainer's full sweep (`tools/zig/run-resource-sweep.sh`) at c6b4329c6 gave VERDICT=PASS with 41 tiers. Golden comparator:
+pass=10 accepted=10 fail=0 pending=0 (all 20 MFC goldens exist). S17: the AchtungPanzer2 mod round trip (`test-resource-mod-roundtrip`, D053, D054)
+replaced the GOG rows B-09.14 and B-14.5; found/imported/equal/accepted/failed total 1879/1879/1609/270/0, port bugs fixed in T03 (counts per kind in
+06-PARITY "Mod round trip"). T04 (D055) fixed the CI sparse-checkout lists, missing-folder handling and the Windows MSVC editor test tiers (proven on win-home).
+No macOS or Windows result has been seen by an agent.
 
 Open:
-- Johannes's hand try of the macOS and Windows release builds.
-- win-home: the 20 MFC goldens regenerated from the re-saved fixtures (44094bf22) and compared; the GOG goldens (B-09.14, B-14.5).
-- The MFC editor was deleted at S16/T07 (approved D037, released D050); MFC goldens can be regenerated from PRE_DELETE b8aa895bb00efb2fdac28096656dcf26984e3f87.
-- CI on macOS and Windows after the maintainer pushes.
-- The full sweep (`tools/zig/run-resource-sweep.sh`), left to the maintainer.
+- The hand try of the macOS and Windows release builds, deferred until CI works (D052).
+- CI on macOS and Windows: the maintainer pushes and relays the result; it is not claimed here.
+- The next full sweep after S17, left to the maintainer.
 
 Spec: the closing entry is "Amendment (S16 T06, 2026-10-06)" in `docs/superpowers/specs/2026-09-30-portable-resource-editor-design.md`.
 

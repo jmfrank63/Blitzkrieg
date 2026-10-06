@@ -1390,3 +1390,30 @@ port has no path of that class.
 Not claimed: no macOS or Windows result; the full resource sweep is left to the maintainer. T07 still waits for Johannes's approval.
 
 **S16 amendment 2026-10-06: the MFC editor is deleted (T07, D037, D050).** Johannes approved the deletion before the hand try. `PRE_DELETE = b8aa895bb00efb2fdac28096656dcf26984e3f87` is the commit just before the deletion commit: check it out (git worktree) on win-home, build `editor.exe` from it and run `tools/zig/win-home/export-goldens.ps1` to regenerate the MFC goldens. The goldens, fixtures, comparator and `mfc-item-inventory.json` stay. The hand try on macOS and Windows and the GOG goldens remain open and are not claimed done. Not claimed: no macOS or Windows result.
+
+## Amendment (S17, 2026-10-07): M001 end state, the mod round trip replaces the GOG rows
+
+- **D053, replaces B-09.14 and B-14.5.** The GOG INTEX2 projects are unobtainable, so a third-party mod, AchtungPanzer2, is round-tripped instead:
+  `zig build test-resource-mod-roundtrip -Dmod-root=<mod>/data` (or `BK_MOD_ROOT`; `skipped: no mod` without it) imports every resource of each kind
+  `BkResImportFromGame` supports, reads the mod read-only, exports each one again under `zig-out/local-test` and compares it with the mod's file
+  through the engine's readers. A tracked mini-mod fixture (`tools/zig/fixtures/mod-roundtrip`) keeps the tier runnable without the mod.
+- **D054, port bugs are fixed, not accepted.** The counts after T03 (found/imported/equal/accepted/failed): wpn 196/196/112/84/0, scp 86/86/0/86/0,
+  unt 67/67/67/0/0, msh 377/377/342/35/0, obt 621/621/614/7/0, fnc 2/2/2/0/0, bld 377/377/377/0/0, bdg 23/23/0/23/0, pcp 6/6/0/6/0, 3rd 35/35/21/14/0,
+  3rv 8/8/5/3/0, mip 51/51/51/0/0, chc 12/12/0/12/0, cgc 1/1/1/0/0, mdc 17/17/17/0/0; total 1879/1879/1609/270/0. Every accepted difference has a
+  proof from the engine source or the mod's own bytes (`BK_MOD_DETAIL=1` lists each field). T02's class-level accept table is superseded.
+- **Fixes (each with a fixture that fails without it):** cgc MapImage under `scenarios\` prefixed twice; 3rv fields lost on import (stored in the project's
+  desc element and written back); unt/msh/fnc empty KeyName (labelled by the folder); unt Length of frame-less animations; 3rd AI class mask; obt armor;
+  msh locator numbers, kept stats and a 1/2/3.mod fingerprint for the model-derived fields; fnc VisOrigin with a grid fingerprint; picture rectangles of
+  mdc/mip/chc/cgc; pcp omitted randomiser track imports as zeros. Rule: what the reader reads but the frame has no item for is kept in the project's
+  desc element and written back while the tree still agrees.
+- **D052, hand try deferred.** The macOS and Windows hand try waits until CI works; M001 records it as a decision, not as missing evidence. The maintainer
+  relays CI results; none is claimed here.
+- **D055, CI fixes (S17/T04).** Every resource-tier job's sparse checkout lists exactly the Data it reads (the Windows job's measured list plus Medals and Old;
+  ELK, AmericanELK, movies, Music and Bugs are not needed). A resource tier with a missing folder reports `FAIL folder-present:<path>` instead of aborting.
+  The Windows MSVC editor test tiers link (imm32, vcruntime, an `_fltused` shim, no thread-safe statics in the ImGui lib); proven on win-home with Zig 0.16
+  for test-editor-core, -kit, test-resource-core and the map-editor view, panels, testlaunch and auto tiers. The Linux-hosted cross build of these tiers
+  needs the MSVC paths and is not a proof. No CI result was seen by the agent.
+- **Goldens.** All 20 MFC goldens exist: `test-resource-model-comparator` gives pass=10 accepted=10 fail=0 pending=0. The GOG-only pending cases
+  (`GogBrandenburgertor`, `GogArdennen40`) were removed from `resource_bridge_test.cpp`.
+- **End state.** The MFC editor was deleted in c6b4329c6 (`PRE_DELETE b8aa895bb`). The maintainer's full Linux sweep at c6b4329c6 gave VERDICT=PASS with 41 tiers.
+  Not claimed: any macOS or Windows result.
