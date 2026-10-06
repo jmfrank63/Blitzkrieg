@@ -258,6 +258,11 @@ pub const PreviewSync = struct {
         }
         self.running = true;
         self.say("showing the project: {s}", .{b.lastMessage()});
+        // C3DRoadFrame draws a still terrain: Run only shows it, nothing plays.
+        if (self.begun.? == .road_3d) {
+            self.running = false;
+            return true;
+        }
         if (b.previewPlayback(true) != .ok) {
             self.running = false;
             self.say("the animation did not start: {s}", .{b.lastMessage()});
@@ -744,6 +749,14 @@ test "preview: begun once per kind, stopped with no project, Run needs a begun s
     try testing.expect(!preview.running);
     try testing.expect(!fake.preview_playing);
     try testing.expect(preview.run(b));
+
+    // A road is shown once and never plays; a river plays.
+    try testing.expectEqual(PreviewSync.Change.begun, preview.sync(b, true, .road_3d));
+    try testing.expect(preview.run(b));
+    try testing.expect(!preview.running);
+    try testing.expectEqual(PreviewSync.Change.begun, preview.sync(b, true, .river_3d));
+    try testing.expect(preview.run(b));
+    try testing.expect(preview.running);
 
     try testing.expectEqual(PreviewSync.Change.begun, preview.sync(b, true, .effect));
     try testing.expect(!preview.running);

@@ -18,6 +18,7 @@ const core = @import("resource_core");
 const c_bridge = @import("c_bridge.zig");
 const logic = @import("panels_logic.zig");
 const dl = @import("docks_logic.zig");
+const tl = @import("terrain_logic.zig");
 const edit = @import("edit_logic.zig");
 const mesh_logic = @import("mesh_logic.zig");
 const keyframe_logic = @import("keyframe_logic.zig");
@@ -46,7 +47,7 @@ const FolderSlot = struct {
     len: usize = 0,
 
     const State = enum(u8) { idle, waiting, arrived, cancelled };
-    const Target = enum { thumbnails, import };
+    const Target = enum { thumbnails, import, import_terrains, import_crossets };
 
     fn request(self: *FolderSlot, target: Target) bool {
         if (self.state.cmpxchgStrong(@intFromEnum(State.idle), @intFromEnum(State.waiting), .acquire, .monotonic) != null) return false;
@@ -160,6 +161,13 @@ pub const Docks = struct {
     particle_source: dl.SourceToggle = .{},
     show_source_name: bool = false,
     source_name: [core.bridge.value_text_capacity]u8 = [_]u8{0} ** core.bridge.value_text_capacity,
+    /// The Terrain editor's lists: the mode the tree selection chose, and
+    /// whether the lists were opened for the current .til yet (they open
+    /// themselves once, as MFC's frame showed them in place of its scene).
+    terrain: tl.Lists = .{},
+    terrain_shown: bool = false,
+    /// ID_SWITCH_WIREFRAME: the road and river preview's wire frame.
+    wireframe: bool = false,
     show_thumbnails: bool = false,
     show_direction: bool = false,
     show_function: bool = false,
@@ -206,7 +214,40 @@ pub const Docks = struct {
 
     /// Begins or stops the preview scene for the open project; once a frame.
     pub fn syncPreview(self: *Docks, life: *const logic.Lifecycle) void {
-        _ = self.preview.sync(self.real.bridge(), life.is_open, life.doc.kind);
+        const change = self.preview.sync(self.real.bridge(), life.is_open, life.doc.kind);
+        // A new scene starts with a solid terrain.
+        if (change != .none) self.wireframe = false;
+        const is_til = life.is_open and life.doc.kind == .tile_set;
+        if (is_til and !self.terrain_shown) self.show_thumbnails = true;
+        self.terrain_shown = is_til;
+    }
+
+    /// The Wireframe check (ID_SWITCH_WIREFRAME); the flag only moves when
+    /// the engine took the change.
+    pub fn toggleWireframe(self: *Docks) void {
+        const b = self.real.bridge();
+        if (b.previewWireframe(!self.wireframe) == .ok) {
+            self.wireframe = !self.wireframe;
+        } else self.thumbs.say("wireframe: {s}", .{b.lastMessage()});
+    }
+
+    /// Import terrains / Import crossets (OnImportTerrains, OnImportCrossets):
+    /// asks for the tileset editor's xml; takeFolder runs the import.
+    fn requestTileImport(self: *Docks, mode: tl.Mode) void {
+        _ = self;
+        if (!folder_slot.request(if (mode == .crossets) .import_crossets else .import_terrains)) return;
+        sdl3.c.SDL_ShowOpenFileDialog(folderCallback, &folder_slot, null, null, 0, null, false);
+    }
+
+    fn importTiles(self: *Docks, life: *logic.Lifecycle, path: []const u8, mode: tl.Mode) void {
+        const b = self.real.bridge();
+        const count = tl.importFile(self.gpa, b, life, path, mode) catch |err| {
+            self.thumbs.say("import {s}: {s}", .{ @tagName(mode), if (b.lastMessage().len != 0) b.lastMessage() else @errorName(err) });
+            return;
+        };
+        self.thumbs.say("imported {d} {s} tiles from {s}", .{ count, @tagName(mode), std.fs.path.basename(path) });
+        // The tiles on disk changed: read the list again.
+        self.thumbs.scanned_once = false;
     }
 
     /// Run (F5): MFC's Run button exported the project and played it.
@@ -251,12 +292,18 @@ pub const Docks = struct {
         if (ig.igMenuItemEx("Thumbnails", null, self.show_thumbnails, true)) self.show_thumbnails = !self.show_thumbnails;
         if (ig.igMenuItemEx("Direction Button", mod_label ++ "+D", self.show_direction, true)) self.show_direction = !self.show_direction;
         if (ig.igMenuItemEx("Function Window", mod_label ++ "+F", self.show_function, true)) self.show_function = !self.show_function;
+        const terrain_preview = self.preview.begun == .road_3d or self.preview.begun == .river_3d;
+        if (ig.igMenuItemEx("Wireframe", null, self.wireframe, terrain_preview)) self.toggleWireframe();
     }
 
     pub fn drawPreviewMenuItems(self: *Docks, life: *logic.Lifecycle) void {
         if (ig.igMenuItemEx("Run", "F5", false, self.preview.begun != null)) self.runPreview();
         if (ig.igMenuItemEx("Stop", null, false, self.preview.running)) self.stopPreview();
+        if (ig.igMenuItemEx("Wireframe", null, self.wireframe, self.preview.begun == .road_3d or self.preview.begun == .river_3d)) self.toggleWireframe();
         if (ig.igMenuItemEx("Horizontal camera", null, self.horizontal_camera, self.preview.begun != null)) self.toggleCamera();
+        const til = life.is_open and life.doc.kind == .tile_set and !life.read_only;
+        if (ig.igMenuItemEx("Import terrains...", null, false, til)) self.requestTileImport(.terrains);
+        if (ig.igMenuItemEx("Import crossets...", null, false, til)) self.requestTileImport(.crossets);
         if (ig.igMenuItemEx("Get particle info", null, false, self.preview.begun == .particle)) self.getParticleInfo();
         const source_mode = if (life.is_open) dl.SourceToggle.mode(self.real.bridge()) else null;
         if (ig.igMenuItemEx("Particle source: complex", null, source_mode orelse false, source_mode != null)) _ = self.toggleParticleSource(life, null);
@@ -288,7 +335,7 @@ pub const Docks = struct {
     /// The docks and the preview's line; `project_folder` is what an empty
     /// thumbnail folder follows.
     pub fn drawDocks(self: *Docks, project_folder: ?[]const u8, life: *logic.Lifecycle, selected: ?i32) void {
-        self.takeFolder();
+        self.takeFolder(life);
         self.first_thumbnail = null;
         self.curve_rect = null;
         if (self.show_thumbnails) self.drawThumbnails(project_folder, life, selected);
@@ -347,17 +394,26 @@ pub const Docks = struct {
             return;
         }
         defer ig.igEnd();
+        // The Terrain editor's list is the terrains or crossets folder of the
+        // project, whichever the tree selection chose (TileTreeItem.cpp).
+        const terrain = life.is_open and life.doc.kind == .tile_set;
+        var terrain_buffer: [logic.path_capacity + 16]u8 = undefined;
+        if (terrain) _ = self.terrain.follow(&life.doc, selected);
         const typed = std.mem.sliceTo(&self.thumbs.folder, 0);
-        const folder = if (typed.len != 0) typed else project_folder orelse "";
+        const folder = if (terrain) (tl.listFolder(&terrain_buffer, project_folder, self.terrain.mode) orelse "") else if (typed.len != 0) typed else project_folder orelse "";
         if (!self.thumbs.scanned_once or !std.mem.eql(u8, folder, self.thumbs.scannedFolder())) self.scan(folder);
 
-        _ = ig.igInputText("##folder", &self.thumbs.folder, self.thumbs.folder.len, 0);
-        ig.igSameLine();
-        if (ig.igButton("Folder...")) {
-            if (folder_slot.request(.thumbnails)) {
-                var start: [logic.path_capacity + 1]u8 = undefined;
-                const location = std.fmt.bufPrintZ(&start, "{s}", .{folder}) catch null;
-                sdl3.c.SDL_ShowOpenFolderDialog(folderCallback, &folder_slot, null, if (location) |l| l.ptr else null, false);
+        if (terrain) {
+            ig.igText("%s", if (self.terrain.mode == .crossets) "Crossets" else "Terrains");
+        } else {
+            _ = ig.igInputText("##folder", &self.thumbs.folder, self.thumbs.folder.len, 0);
+            ig.igSameLine();
+            if (ig.igButton("Folder...")) {
+                if (folder_slot.request(.thumbnails)) {
+                    var start: [logic.path_capacity + 1]u8 = undefined;
+                    const location = std.fmt.bufPrintZ(&start, "{s}", .{folder}) catch null;
+                    sdl3.c.SDL_ShowOpenFolderDialog(folderCallback, &folder_slot, null, if (location) |l| l.ptr else null, false);
+                }
             }
         }
         ig.igSameLine();
@@ -390,7 +446,7 @@ pub const Docks = struct {
             if (ig.igInvisibleButton("cell", .{ .x = side, .y = side + line }, 0)) self.thumbs.selected = i;
             if (ig.igIsItemHovered(0) and ig.igIsMouseDoubleClicked(0)) {
                 self.thumbs.activated = i;
-                self.frameFromPicture(life, selected, name);
+                if (terrain) self.tileFromPicture(life, selected, name) else self.frameFromPicture(life, selected, name);
             }
             // LoadImageToImageList's black cell, the picture fitted in it.
             ig.ImDrawList_AddRectFilled(draw_list, top_left, .{ .x = top_left.x + side, .y = top_left.y + side }, 0xff000000);
@@ -412,6 +468,42 @@ pub const Docks = struct {
             ig.ImDrawList_AddTextEx(draw_list, .{ .x = top_left.x, .y = top_left.y + side + 1 }, ig.igGetColorU32(ig.ImGuiCol_Text), name.ptr, name.ptr + name.len);
             ig.ImDrawList_PopClipRect(draw_list);
         }
+        if (terrain) self.drawSelectedTiles(life, selected);
+    }
+
+    /// The second list: the tiles of the active terrain or crosset.
+    fn drawSelectedTiles(self: *Docks, life: *const logic.Lifecycle, selected: ?i32) void {
+        _ = self;
+        ig.igSeparator();
+        const target = tl.addTarget(&life.doc, selected) orelse {
+            ig.igTextDisabled("Select a terrain or crosset to see its tiles");
+            return;
+        };
+        ig.igText("Tiles of the selected %s", if (target.mode == .crossets) "crosset" else "terrain");
+        for (life.doc.tree.nodes.items) |node| {
+            if (node.parent != target.id) continue;
+            const name = node.displaySlice();
+            ig.igText("%.*s", @as(c_int, @intCast(name.len)), name.ptr);
+        }
+    }
+
+    /// A double-click on a picture of the Terrain editor's list: the tile goes
+    /// under the active terrain or crosset (DoubleClickOnThumbList).
+    fn tileFromPicture(self: *Docks, life: *logic.Lifecycle, selected: ?i32, name: []const u8) void {
+        const target = tl.addTarget(&life.doc, selected) orelse {
+            self.thumbs.say("{s}: select a terrain's Tiles or a crosset first", .{name});
+            return;
+        };
+        if (target.mode != self.terrain.mode) {
+            self.thumbs.say("{s}: the selected item takes {s} pictures", .{ name, if (target.mode == .crossets) "crosset" else "terrain" });
+            return;
+        }
+        const b = self.real.bridge();
+        tl.addTile(self.gpa, b, life, selected, self.terrain.mode, name) catch |err| {
+            self.thumbs.say("{s}: the tile was not added ({s})", .{ name, if (b.lastMessage().len != 0) b.lastMessage() else @errorName(err) });
+            return;
+        };
+        self.thumbs.say("{s} added", .{name});
     }
 
     /// A double-click on a picture: a sprite or an infantry project takes it
@@ -783,12 +875,14 @@ pub const Docks = struct {
         if (ig.igButton("OK")) self.show_about = false;
     }
 
-    fn takeFolder(self: *Docks) void {
+    fn takeFolder(self: *Docks, life: *logic.Lifecycle) void {
         const taken = folder_slot.take() orelse return;
         if (taken.path.len == 0) return;
         switch (taken.target) {
             .thumbnails => self.setThumbnailFolder(taken.path),
             .import => _ = self.import_form.setFolder(taken.path),
+            .import_terrains => self.importTiles(life, taken.path, .terrains),
+            .import_crossets => self.importTiles(life, taken.path, .crossets),
         }
     }
 };

@@ -28,6 +28,7 @@ test {
     _ = @import("mesh_logic.zig");
     _ = @import("grid_logic.zig");
     _ = @import("keyframe_logic.zig");
+    _ = @import("terrain_logic.zig");
 }
 
 // --- Editors menu ---------------------------------------------------------
