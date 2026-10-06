@@ -760,11 +760,11 @@ bool IsFile( const fs::path &file )
 }
 
 // ConvertAndSaveImage( source, dest ) with a warning for what MFC's version
-// returned false for.
+// returned false for. The mesh frame chooses its DDS formats by the picture.
 void ConvertPicture( const SExportContext &context, const fs::path &source, const std::string &szName, const std::string &szWhat,
                      const NImageExport::SGamma &gamma, SExportOutcome &outcome )
 {
-	if ( !NImageExport::ConvertAndSaveImage( context, source.string(), szName, gamma, outcome ) )
+	if ( !NImageExport::ConvertAndSaveImageBestFormat( context, source.string(), szName, gamma, outcome ) )
 		WarnLastError( outcome, szWhat + ": " );
 }
 
@@ -801,7 +801,7 @@ void ExportIcons( const SExportContext &context, const std::string &szResultDir,
 		p128Image->Set( SColor( 0 ) );
 		RECT rc = { 0, 0, 90, 90 };
 		p128Image->CopyFrom( pImage, &rc, 0, 0 );
-		if ( !NImageExport::SaveCompressedTexture( context, p128Image, szResultDir + "icon", gamma, outcome ) )
+		if ( !NImageExport::SaveCompressedTextureBestFormat( context, p128Image, szResultDir + "icon", gamma, outcome ) )
 			WarnLastError( outcome, "icon: " );
 	}
 }

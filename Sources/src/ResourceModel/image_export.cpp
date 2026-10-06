@@ -10,6 +10,7 @@
 #include "../Anim/Animation.h"
 #include "../Formats/fmtAnimation.h"
 #include "../Image/Image.h"
+#include "../Image/ImageHelper.h"
 
 namespace NResourceModel
 {
@@ -233,6 +234,14 @@ bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const s
 	return SaveCompressedTexture( context, pSrc, szName, gamma, GFXPF_ARGB1555, outcome );
 }
 
+bool SaveCompressedTextureBestFormat( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome )
+{
+	CPtr<IImage> pImage = GetImageProcessor()->CreateGammaCorrection( pSrc, gamma.fBrightness, gamma.fContrast, gamma.fGamma );
+	return SaveDds( context, pImage, ChooseBestFormat( pImage, COMPRESSION_DXT ), szName + "_c.dds", outcome ) &&
+	       SaveDds( context, pImage, ChooseBestFormat( pImage, COMPRESSION_LOW_QUALITY ), szName + "_l.dds", outcome ) &&
+	       SaveDds( context, pImage, GFXPF_ARGB8888, szName + "_h.dds", outcome );
+}
+
 bool SaveAnimation( const SExportContext &context, SSpriteAnimationFormat &animations, const std::string &szName, SExportOutcome &outcome )
 {
 	{
@@ -307,6 +316,14 @@ bool ConvertAndSaveImage( const SExportContext &context, const std::string &szSo
 	if ( pImage == 0 )
 		return false;
 	return SaveCompressedTexture( context, pImage, szName, gamma, outcome );
+}
+
+bool ConvertAndSaveImageBestFormat( const SExportContext &context, const std::string &szSource, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome )
+{
+	CPtr<IImage> pImage = LoadPicture( szSource, outcome );
+	if ( pImage == 0 )
+		return false;
+	return SaveCompressedTextureBestFormat( context, pImage, szName, gamma, outcome );
 }
 
 bool ComposeSingleObject( const SExportContext &context, const std::string &szSprite, const std::string &szShadow, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome )

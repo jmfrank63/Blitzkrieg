@@ -57,6 +57,12 @@ bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const s
 // swaps in DXT5 and ARGB4444 for the crosset.
 bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, EGFXPixelFormat compressedFormat, EGFXPixelFormat lowFormat, SExportOutcome &outcome );
 
+// The mesh frame's SaveCompressedTexture (SpriteCompose.cpp:522): _c.dds and
+// _l.dds take the format ChooseBestFormat gives the gamma-corrected picture
+// (opaque: DXT1 and ARGB0565; only fully opaque or transparent: DXT1 and
+// ARGB1555; otherwise DXT5 and ARGB4444), _h.dds is ARGB8888.
+bool SaveCompressedTextureBestFormat( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome );
+
 // The animation format written as the engine's structure file szName (chunk
 // 1), which is how MFC wrote every .san.
 bool SaveAnimation( const SExportContext &context, SSpriteAnimationFormat &animations, const std::string &szName, SExportOutcome &outcome );
@@ -67,6 +73,8 @@ bool SaveAnimation( const SExportContext &context, SSpriteAnimationFormat &anima
 // and the reason (missing, not an image or truncated, unsupported) when
 // nothing could be written.
 bool ConvertAndSaveImage( const SExportContext &context, const std::string &szSource, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome );
+// The same for a mesh frame, with SaveCompressedTextureBestFormat.
+bool ConvertAndSaveImageBestFormat( const SExportContext &context, const std::string &szSource, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome );
 
 // ComposeSingleObject( sprite, shadow, szName, VNULL2 ) for the mine: the
 // sprite picture packed into <szName>_c/_l/_h.dds with its <szName>.san

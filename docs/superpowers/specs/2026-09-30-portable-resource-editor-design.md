@@ -961,3 +961,75 @@ golden comparison can still run later. T07 writes that commit's hash here:
 `PRE_DELETE = <filled by S16/T07>`. The hand try (macOS, Windows) and the GOG
 goldens also stay open. Tests and fixtures that do not need the MFC sources
 stay, and the Linux build stays green. Decision D037.
+
+## Amendment (S16 T08, 2026-10-06): the MFC golden comparison
+
+`test-resource-model-comparator` compares the port's export of each fixture with the golden made by the shipped
+`reseditor.exe` in batch mode (commit 734245b31). Two things changed in the comparison itself. The scratch copy of the fixture
+gets `<own_data><export_file_name>1.xml`, as `export-goldens.ps1` does, so the port names its result folders as MFC did (the
+medal's `medals\name`, not `medals\mdc\name`). `CompareGoldenFolder` takes the folder that holds the port's main stats file
+as the port root, compares files by their path below it, and maps the main stats file (`wpn.xml` for a weapon) to the golden's
+`1.xml`; layout alone is no difference. A difference is then a failure, unless it is listed with a reason: a stats path in
+`kGoldenDifferences` (`Sources/src/ResourceModel/comparator.cpp`), a float the golden holds rounded to six digits, or a file rule
+of the kind in `Goldens` (the test). Every explained difference is written with its reason to
+`zig-out/local-test/resource_model/comparator/golden/<ext>/accepted.txt` and counted in `GOLDEN_SUMMARY`. A kind without a usable
+golden is pending with its reason, and the reason is checked against the golden, so a regenerated golden is compared again.
+
+One port fix came out of it: the mesh frame chooses the DDS format of every texture and of the icon by the picture
+(`ChooseBestFormat`, `SpriteCompose.cpp:522`: DXT1 and ARGB0565 for an opaque picture, DXT5 and ARGB4444 for one with alpha). The
+port wrote DXT5 and ARGB1555 always. `SaveCompressedTextureBestFormat` does what MFC does, and all 12 DDS of the msh golden
+(`_c`, `_l`, `_h`, the icon) now match.
+
+Verified reasons for the remaining differences (each from the MFC source and the golden's own bytes, none from a guess):
+
+- **Stats reloaded from a missing element (wpn, trc, msh, obt, bld).** `CParentFrame::ExportSingleFile` calls `LoadRPGStats`, which
+  reads the project's own `<RPG>` (`<desc>` for objects and buildings) into a default-constructed struct and writes the struct into
+  the tree. MFC's own save writes that element (`CParentFrame::OnFileSave` calls `SaveRPGStats`); the fixtures do not hold it.
+  The weapon golden's values are `SWeaponRPGStats`'s constructor defaults (RangeMax 30, AimingTime 1, DeltaAngle 0), not the
+  fixture's (100, 100, 10). The mine and infantry kinds fill the struct from the tree first
+  (`FillRPGStats` before `tree.Add`), which is why `mcp` and `unt` compare equal. The port exports the tree, as MFC does for a
+  project it saved. Open: the port keeps a project's `<RPG>` unchanged on save (`project.cpp`), so MFC's batch export or its
+  `LoadRPGStats` would read stale values from a project the port edited. Tracked in 06-PARITY.md; fixing it means writing the
+  stats element on save for these kinds, and regenerating the goldens from fixtures that carry it.
+- **Six digits (pcp, msh).** MFC's XML writer formats a double with `%lg` (`StreamIOLib/DataTreeXML.cpp:326`), so a float such as
+  1.04719758 is stored as `1.0472`. The comparator accepts a float field whose golden value is the port's value printed that way
+  and read back, and nothing else; the negative test `golden negative digits` pins both sides.
+- **Scene camera (fnc origins, bld explosion positions, obt grids, origins and sprite packs).** MFC asks the live scene
+  (`IScene::GetPos2`, `GetPos3`) for these. The port has no engine camera in this tier (`SExportContext::groundCamera` is never
+  set) and uses `DefaultEditorCamera`. The fence golden's origins are not symmetric in x and y where the port's are, so the real
+  camera differs from the default. Open: whether the bridge can hand the export the engine's camera. Until then the export of
+  fences, objects and buildings carries this difference; the parity row is marked partial.
+- **DXT5 solid blocks (trc `_c.dds`).** All blocks of the 16 x 16 picture are one colour, and the shipped editor writes them with
+  both endpoints moved (colour 0xaf7e and 0xb79e, alpha ff and 00 for the source colour 0xb2f1f8), where NDxt writes one
+  endpoint twice and `NLegacyDxt` (the MFC-era source) a third block. The decoded colour differs by 3 to 6. The gate of this kind
+  is 6; the shared DXT5 gate stays 2.
+- **Sprite (spt).** MFC's `1.xml` holds only the batch `<History>`; the sprite exports graphics only, and its golden has no graphics
+  because the fixture's frames folder is empty.
+
+Pending, with the reason the comparator logs:
+
+- `bdg 3rd 3rv mip chc cgc`: the MFC editor crashed (0xC0000005) making the golden; regenerate on win-home from `PRE_DELETE`.
+- `scp`: the golden holds only `<History>`. `CSquadFrame::SaveRPGStats` stops at `MakeName` when a member such as `USSR\Mosin` is
+  not in the installed objects database.
+- `til`: the golden holds only `<History>`; the tileset export needs `editor\terrain\tilemask.tga`, which the installed data lacks
+  (the port refuses for the same reason).
+- `eff`: MFC skipped the function particle `particle-2key` (no stream, an error box, continue), so the golden's particles are
+  empty; the port stops with an error for a missing particle source.
+
+| Kind | Files compared | Result |
+|---|---|---|
+| wpn | 1 | accepted: 19 differences, all the missing-element defaults |
+| mcp | 2 | pass |
+| trc | 10 | accepted: 4 missing-element, 6 DXT5 solid blocks |
+| scp | 0 | pending: golden holds only History |
+| spt | 1 | accepted: History only |
+| unt | 1 | pass |
+| msh | 29 | accepted: 121 missing-element and six-digit differences; 12 DDS equal after the format fix |
+| obt | 26 | accepted: 16 missing-element, 24 camera and grid |
+| fnc | 10 | accepted: 18 camera |
+| bld | 50 | accepted: 4 missing-element, 20 camera |
+| pcp | 1 | accepted: 2 six-digit floats |
+| eff | 0 | pending: particle source missing in the golden's run |
+| til | 0 | pending: golden holds only History |
+| mdc | 6 | pass |
+| bdg 3rd 3rv mip chc cgc | 0 | pending: the MFC editor crashed |

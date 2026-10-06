@@ -2,7 +2,9 @@
 
 #include "comparator.h"
 
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iterator>
@@ -833,6 +835,96 @@ SCompareResult CompareRoundTrip( EExportKind kind, const std::string &szExported
 	for ( const std::string &szMessage : result.messages )
 		if ( const SRoundTripLoss *pLoss = FindRoundTripLoss( kind, szMessage ) )
 			result.excused.push_back( szMessage + " [" + pLoss->pszWhy + "]" );
+		else
+			remaining.push_back( szMessage );
+	result.messages.swap( remaining );
+	if ( result.messages.empty() )
+		result.status = ECompareStatus::EQUAL;
+	return result;
+}
+
+// What the MFC goldens (tools/zig/fixtures/resource_editor/*/golden, made by
+// the shipped reseditor.exe in batch mode from the tracked fixtures) hold that
+// the port deliberately or unavoidably does not reproduce. A path is the one a
+// "field" message names; a path without a trailing '/' covers the node and
+// what is below it. Every entry says why; the golden comparison lists each
+// excused difference with that reason, so none is silent.
+struct SGoldenDifference
+{
+	EExportKind kind;
+	const char *pszPath;
+	const char *pszWhy;
+};
+
+#define BK_NO_PROJECT_STATS "MFC's batch export reloads the stats from the project's own stats element (CParentFrame::ExportSingleFile -> LoadRPGStats), which MFC's own save writes and the fixture does not hold, so MFC exports the stats struct's constructor defaults and not the tree's values; the port exports the tree, as MFC does for a project it saved"
+#define BK_SCENE_CAMERA "MFC takes positions and grids from the live editor scene (IScene::GetPos2 / GetPos3 through the editor's camera); the port has no engine camera in this tier (SExportContext::groundCamera is unset) and uses DefaultEditorCamera, so the values differ"
+
+const SGoldenDifference kGoldenDifferences[] = {
+	{ EExportKind::WEAPON, "RPG", BK_NO_PROJECT_STATS " (CWeaponFrame::LoadRPGStats, WeaponFrm.cpp:264; the golden's values are SWeaponRPGStats's: RangeMax 30, AimingTime 1, no name)" },
+	{ EExportKind::ENTRENCHMENT, "RPG/KeyName", BK_NO_PROJECT_STATS " (CTrenchFrame::LoadRPGStats, TrenchFrm.cpp:363)" },
+	{ EExportKind::ENTRENCHMENT, "RPG/MaxHP", BK_NO_PROJECT_STATS " (CTrenchFrame::LoadRPGStats, TrenchFrm.cpp:363)" },
+	{ EExportKind::ENTRENCHMENT, "RPG/Defence4", BK_NO_PROJECT_STATS " (CTrenchFrame::LoadRPGStats, TrenchFrm.cpp:363)" },
+	{ EExportKind::MECH_UNIT, "RPG", BK_NO_PROJECT_STATS " (CMeshFrame::LoadRPGStats, MeshFrm.cpp:1301)" },
+	{ EExportKind::OBJECT, "desc", BK_NO_PROJECT_STATS " (CObjectFrame::LoadRPGStats, ObjectFrm.cpp:738), and the origins and grids MFC then takes from its scene camera and tile lists, which the port copies from the project's desc (object_export.cpp)" },
+	{ EExportKind::BUILDING, "desc/KeyName", BK_NO_PROJECT_STATS " (CBuildingFrame::LoadRPGStats, BuildFrm.cpp:922)" },
+	{ EExportKind::BUILDING, "desc/MaxHP", BK_NO_PROJECT_STATS " (CBuildingFrame::LoadRPGStats, BuildFrm.cpp:922)" },
+	{ EExportKind::BUILDING, "desc/RestSlots", BK_NO_PROJECT_STATS " (CBuildingFrame::LoadRPGStats, BuildFrm.cpp:922)" },
+	{ EExportKind::BUILDING, "desc/MedicalSlots", BK_NO_PROJECT_STATS " (CBuildingFrame::LoadRPGStats, BuildFrm.cpp:922)" },
+	{ EExportKind::BUILDING, "desc/DirExplosions/", BK_SCENE_CAMERA ": MFC's explosion positions went through GetPos2 and GetPos3 and carry their float noise (-3e-5), the port's are exactly 0" },
+	{ EExportKind::FENCE, "RPG/Stats/item[*]/Origin", BK_SCENE_CAMERA " (CFenceFrame::SaveRPGStats, FenceFrm.cpp:1009: the segment's origin is the sprite position minus GetPos3 of the grid's leftmost corner)" },
+	{ EExportKind::FENCE, "RPG/Stats/item[*]/VisOrigin", BK_SCENE_CAMERA " (CFenceFrame::SaveRPGStats, FenceFrm.cpp:1070)" },
+};
+
+#undef BK_NO_PROJECT_STATS
+#undef BK_SCENE_CAMERA
+
+// "field <path>: port <v> (float 0x<bits>), golden <v> (float 0x<bits>)": the
+// golden's float is the port's float printed with six significant digits and
+// read back, which is what MFC's XML writer does to every float (it formats a
+// double with %lg, StreamIOLib/DataTreeXML.cpp:326) and the port's does not.
+bool IsMfcSixDigitFloat( const std::string &szMessage )
+{
+	const std::string szMark = "(float 0x";
+	const size_t nPort = szMessage.find( szMark );
+	if ( nPort == std::string::npos )
+		return false;
+	const size_t nGolden = szMessage.find( szMark, nPort + szMark.size() );
+	if ( nGolden == std::string::npos )
+		return false;
+	auto bitsAt = [&]( size_t nAt ) { return static_cast<uint32_t>( std::strtoul( szMessage.c_str() + nAt + szMark.size(), nullptr, 16 ) ); };
+	const uint32_t nPortBits = bitsAt( nPort ), nGoldenBits = bitsAt( nGolden );
+	float fPort, fGolden;
+	std::memcpy( &fPort, &nPortBits, sizeof( float ) );
+	std::memcpy( &fGolden, &nGoldenBits, sizeof( float ) );
+	char szText[64];
+	std::snprintf( szText, sizeof( szText ), "%lg", static_cast<double>( fPort ) );
+	return static_cast<float>( std::strtod( szText, nullptr ) ) == fGolden;
+}
+
+const SGoldenDifference *FindGoldenDifference( EExportKind kind, const std::string &szMessage )
+{
+	const size_t nField = szMessage.find( "field " );
+	if ( nField == std::string::npos )
+		return nullptr;
+	const size_t nStart = nField + 6;
+	const std::string szPath = GenericPath( szMessage.substr( nStart, szMessage.find( ':', nStart ) - nStart ) );
+	for ( const SGoldenDifference &difference : kGoldenDifferences )
+		if ( difference.kind == kind && PathMatches( szPath, difference.pszPath ) )
+			return &difference;
+	return nullptr;
+}
+
+SCompareResult CompareGolden( EExportKind kind, const std::string &szPortFile, const std::string &szGoldenFile )
+{
+	SCompareResult result = CompareStats( kind, szPortFile, szGoldenFile );
+	if ( result.status != ECompareStatus::DIFFERENT )
+		return result;
+	std::vector<std::string> remaining;
+	for ( const std::string &szMessage : result.messages )
+		if ( const SGoldenDifference *pDifference = FindGoldenDifference( kind, szMessage ) )
+			result.excused.push_back( szMessage + " [" + pDifference->pszWhy + "]" );
+		else if ( IsMfcSixDigitFloat( szMessage ) )
+			result.excused.push_back( szMessage + " [MFC's XML writer prints a float with six significant digits (%lg, DataTreeXML.cpp:326), the golden holds the port's value rounded that way]" );
 		else
 			remaining.push_back( szMessage );
 	result.messages.swap( remaining );

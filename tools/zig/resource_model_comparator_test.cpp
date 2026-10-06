@@ -1117,23 +1117,97 @@ static bool EndsWith( const std::string &sz, const std::string &szSuffix )
 static SCompareResult CompareGoldenFile( EExportKind kind, const std::string &szRelative, const fs::path &port, const fs::path &golden, const SDxtTolerance &tolerance )
 {
 	if ( EndsWith( szRelative, ".xml" ) )
-		return CompareStats( kind, port.string(), golden.string() );
+		return CompareGolden( kind, port.string(), golden.string() );
 	if ( EndsWith( szRelative, "_c.dds" ) || EndsWith( szRelative, "_l.dds" ) )
 		return CompareDxt( port.string(), golden.string(), tolerance );
 	return CompareBytes( port.string(), golden.string() );
 }
 
+// What a kind's golden comparison accepts beyond CompareGolden's explained
+// stats differences: files whose difference is explained for the whole file,
+// each with its reason (by the end of the file name), and a DXT gate of its
+// own. Both are listed in the log and the spec; the default accepts nothing.
+struct SGoldenRules
+{
+	std::vector<std::pair<std::string, std::string>> acceptedSuffixes;   // file name suffix, reason
+	const SDxtTolerance *pTolerance = nullptr;
+	const char *szToleranceReason = "";
+};
+
 struct SGoldenResult
 {
 	int nFiles = 0;
+	std::vector<std::string> accepted;   // "<file>: <difference> [<reason>]", explained, not failures
 	std::vector<std::string> failures;   // "<file>: <reason>"
+	std::vector<std::string> details;    // every difference line of every failed file, "<file>: <message>"
 };
 
-// Every file of a golden folder (README.md and .gitkeep aside) must exist in
-// the port's data folder and compare equal.
-static SGoldenResult CompareGoldenFolder( EExportKind kind, const fs::path &portData, const fs::path &golden, const SDxtTolerance &tolerance )
+// A golden 1.xml that holds only the <History> element MFC's batch mode adds:
+// the editor exported no stats (a sprite has none; a failed export leaves
+// just this).
+static bool IsHistoryOnly( const fs::path &xml )
 {
+	std::string szXml;
+	if ( !ReadBytes( xml, &szXml ) )
+		return false;
+	const std::string::size_type nEnd = szXml.find( "</History>" );
+	return nEnd != std::string::npos && szXml.compare( nEnd + 10, 7, "</base>" ) == 0;
+}
+
+// MFC's batch mode writes the project's files at the top of its export folder
+// and names the stats file 1.xml; the port writes the same files under their
+// game-data folders (objects/obt/1.xml, weapons/wpn.xml). The port's root is
+// the folder holding its main stats file, and golden 1.xml is compared with
+// that file whatever the port calls it. A kind without a stats file (sprite)
+// compares by the first file the golden shares with the port's folders.
+static fs::path FindPortStatsFile( const fs::path &portData )
+{
+	std::error_code error;
+	fs::path found;
+	for ( fs::recursive_directory_iterator it( portData, error ), end; !error && it != end; it.increment( error ) )
+	{
+		if ( !it->is_regular_file() )
+			continue;
+		const std::string szName = it->path().filename().string();
+		if ( SameNoCase( szName, "1.xml" ) )
+			return it->path();
+		if ( found.empty() && SameNoCase( szName, "wpn.xml" ) )
+			found = it->path();
+	}
+	return found;
+}
+
+// For a port without a stats file: the folder of the port's own files, which is
+// the one that holds the most of them.
+static fs::path FindPortRoot( const fs::path &portData )
+{
+	const fs::path stats = FindPortStatsFile( portData );
+	if ( !stats.empty() )
+		return stats.parent_path();
+	std::map<fs::path, int> counts;
+	std::error_code error;
+	for ( fs::recursive_directory_iterator it( portData, error ), end; !error && it != end; it.increment( error ) )
+		if ( it->is_regular_file() )
+			++counts[it->path().parent_path()];
+	fs::path best = portData;
+	int nBest = 0;
+	for ( const auto &entry : counts )
+		if ( entry.second > nBest )
+		{
+			best = entry.first;
+			nBest = entry.second;
+		}
+	return best;
+}
+
+// Every file of a golden folder (README.md and .gitkeep aside) must exist in
+// the port's root folder and compare equal.
+static SGoldenResult CompareGoldenFolder( EExportKind kind, const fs::path &portData, const fs::path &golden, const SDxtTolerance &defaultTolerance, const SGoldenRules &rules = SGoldenRules() )
+{
+	const SDxtTolerance &tolerance = rules.pTolerance != nullptr ? *rules.pTolerance : defaultTolerance;
 	SGoldenResult result;
+	const fs::path portStats = FindPortStatsFile( portData );
+	const fs::path portRoot = FindPortRoot( portData );
 	std::error_code error;
 	for ( fs::recursive_directory_iterator it( golden, error ), end; !error && it != end; it.increment( error ) )
 	{
@@ -1142,15 +1216,47 @@ static SGoldenResult CompareGoldenFolder( EExportKind kind, const fs::path &port
 			continue;
 		++result.nFiles;
 		const std::string szRelative = fs::relative( it->path(), golden ).generic_string();
-		const fs::path port = FindNoCase( portData, szRelative );
+		const fs::path port = SameNoCase( szRelative, "1.xml" ) && !portStats.empty() ? portStats : FindNoCase( portRoot, szRelative );
+		if ( port.empty() && SameNoCase( szRelative, "1.xml" ) && IsHistoryOnly( it->path() ) )
+		{
+			result.accepted.push_back( szRelative + ": the golden holds only MFC's <History> and the port exports no stats file for this kind [a sprite's export is graphics only, MFC's 1.xml is the batch history]" );
+			continue;
+		}
 		if ( port.empty() )
 		{
 			result.failures.push_back( szRelative + ": the port did not export this file" );
 			continue;
 		}
-		const SCompareResult compared = CompareGoldenFile( kind, szRelative, port, it->path(), tolerance );
-		if ( compared.status != ECompareStatus::EQUAL )
-			result.failures.push_back( szRelative + ": " + CompareStatusName( compared.status ) + Messages( compared ) );
+		SCompareResult compared = CompareGoldenFile( kind, szRelative, port, it->path(), defaultTolerance );
+		if ( compared.status == ECompareStatus::DIFFERENT && rules.pTolerance != nullptr && EndsWith( szRelative, "_c.dds" ) )
+		{
+			// A gate of the kind's own: the difference is listed with its reason when it passes that one.
+			const SCompareResult within = CompareGoldenFile( kind, szRelative, port, it->path(), tolerance );
+			if ( within.status == ECompareStatus::EQUAL )
+			{
+				for ( const std::string &szMessage : compared.messages )
+					result.accepted.push_back( szRelative + ": " + szMessage + " [" + rules.szToleranceReason + "]" );
+				continue;
+			}
+			compared = within;
+		}
+		for ( const std::string &szExcused : compared.excused )
+			result.accepted.push_back( szRelative + ": " + szExcused );
+		if ( compared.status == ECompareStatus::EQUAL )
+			continue;
+		const std::pair<std::string, std::string> *pRule = nullptr;
+		for ( const auto &rule : rules.acceptedSuffixes )
+			if ( EndsWith( szRelative, rule.first ) )
+				pRule = &rule;
+		if ( pRule != nullptr && compared.status == ECompareStatus::DIFFERENT )
+		{
+			for ( const std::string &szMessage : compared.messages )
+				result.accepted.push_back( szRelative + ": " + szMessage + " [" + pRule->second + "]" );
+			continue;
+		}
+		result.failures.push_back( szRelative + ": " + CompareStatusName( compared.status ) + Messages( compared ) );
+		for ( const std::string &szMessage : compared.messages )
+			result.details.push_back( szRelative + ": " + szMessage );
 	}
 	return result;
 }
@@ -1190,6 +1296,48 @@ static bool FlipByte( const fs::path &file, size_t nOffset )
 	return WriteBytes( file, bytes );
 }
 
+// What tools/zig/win-home/export-goldens.ps1 does to its scratch copy of a
+// fixture: MFC's batch mode refuses a project without a relative export file
+// name, so <own_data><export_file_name>1.xml is put into it. The port gets the
+// same project, which makes it name its stats file and result folders the way
+// MFC did for the golden (medals\name, not medals\mdc\name).
+static void InjectExportFileName( const fs::path &project )
+{
+	std::string szXml;
+	if ( !ReadBytes( project, &szXml ) || szXml.find( "<export_file_name>" ) != std::string::npos )
+		return;
+	const std::string szOpen = "<own_data>";
+	const std::string szInjected = "<export_file_name>1.xml</export_file_name>";
+	const std::string::size_type nAt = szXml.find( szOpen );
+	if ( nAt != std::string::npos )
+		szXml.insert( nAt + szOpen.size(), szInjected );
+	else
+	{
+		const std::string::size_type nLast = szXml.rfind( "</" );
+		if ( nLast == std::string::npos )
+			return;
+		szXml.insert( nLast, "<own_data>" + szInjected + "</own_data>\r\n" );
+	}
+	WriteBytes( project, szXml );
+}
+
+// The port's export laid out as MFC's batch mode lays out its golden: the
+// files of the port's root folder at the top, the stats file named 1.xml.
+static void FlattenAsMfc( const fs::path &portData, const fs::path &stand )
+{
+	std::error_code error;
+	fs::remove_all( stand, error );
+	fs::create_directories( stand, error );
+	const fs::path stats = FindPortStatsFile( portData );
+	for ( fs::directory_iterator it( FindPortRoot( portData ), error ), end; !error && it != end; it.increment( error ) )
+	{
+		if ( !it->is_regular_file() )
+			continue;
+		const bool bStats = !stats.empty() && it->path() == stats;
+		fs::copy_file( it->path(), stand / ( bStats ? std::string( "1.xml" ) : it->path().filename().string() ), fs::copy_options::overwrite_existing, error );
+	}
+}
+
 // The comparison must be able to fail. A stand-in golden folder is the port's
 // own export; unchanged it passes, with one byte of 1.san (sprite) or one stats
 // field of 1.xml (infantry) changed it must report exactly that file.
@@ -1202,7 +1350,7 @@ static void GoldenNegatives( const fs::path &fixtures, const fs::path &scratchRo
 		Check( run.bExported && CountFiles( run.data, ".san" ) == 1 && CountFiles( run.data, ".dds" ) == 3,
 		       "golden negative spt: the port exports 1.san and three DDS from the frame " + run.outcome.szError );
 		const fs::path stand = scratch / "spt" / "stand-in-golden";
-		CopyTree( run.data, stand );
+		FlattenAsMfc( run.data, stand );
 		const SGoldenResult same = CompareGoldenFolder( EExportKind::WEAPON, run.data, stand, tolerance );
 		Check( same.nFiles == 4 && same.failures.empty(), "golden negative spt: the port's own export passes as a golden (" + std::to_string( same.nFiles ) + " files)" );
 		std::error_code error;
@@ -1221,10 +1369,10 @@ static void GoldenNegatives( const fs::path &fixtures, const fs::path &scratchRo
 		const fs::path project = CopyFixture( fixtures, scratch, "unt" );
 		const SExportRun run = RunExporter( "unt", project, scratch / "unt" / "data", context );
 		const fs::path stand = scratch / "unt" / "stand-in-golden";
-		CopyTree( run.data, stand );
+		FlattenAsMfc( run.data, stand );
 		const SGoldenResult same = CompareGoldenFolder( EExportKind::INFANTRY, run.data, stand, tolerance );
 		Check( run.bExported && same.nFiles >= 1 && same.failures.empty(), "golden negative unt: the port's own export passes as a golden (" + std::to_string( same.nFiles ) + " files)" );
-		const fs::path xml = FindNoCase( stand, "units/humans/unt/1.xml" );
+		const fs::path xml = stand / "1.xml";
 		std::string szXml;
 		const std::string szOld = "MaxHP=\"100\"";
 		bool bChanged = !xml.empty() && ReadBytes( xml, &szXml );
@@ -1236,33 +1384,123 @@ static void GoldenNegatives( const fs::path &fixtures, const fs::path &scratchRo
 		Check( bad.failures.size() == 1 && bad.failures[0].find( "1.xml" ) != std::string::npos && bad.failures[0].find( "MaxHP" ) != std::string::npos,
 		       "golden negative unt: the changed stats field is reported as FAIL " + ( bad.failures.empty() ? std::string( "(nothing reported)" ) : bad.failures[0] ) );
 	}
+	{
+		// MFC names a weapon's stats file 1.xml where the port names it wpn.xml,
+		// and the port keeps it in a game-data folder: the layout alone is no
+		// difference, and an unexplained field in it still is one.
+		const fs::path project = CopyFixture( fixtures, scratch, "wpn" );
+		InjectExportFileName( project );
+		const SExportRun run = RunExporter( "wpn", project, scratch / "wpn" / "data", context );
+		const fs::path stand = scratch / "wpn" / "stand-in-golden";
+		FlattenAsMfc( run.data, stand );
+		const SGoldenResult same = CompareGoldenFolder( EExportKind::WEAPON, run.data, stand, tolerance );
+		Check( run.bExported && !FindPortStatsFile( run.data ).empty() && same.nFiles == 1 && same.failures.empty() && same.accepted.empty(),
+		       "golden negative wpn: wpn.xml in its game-data folder equals a golden 1.xml at the top, with nothing to accept (" + std::to_string( same.nFiles ) + " files)" );
+		const SGoldenResult wrongKind = CompareGoldenFolder( EExportKind::WEAPON, run.data, stand / "none", tolerance );
+		Check( wrongKind.nFiles == 0, "golden negative wpn: a golden folder without files compares nothing" );
+	}
+	{
+		// The six-digit rule: the golden holds the port's float as MFC's writer
+		// prints it, not any float near it.
+		const fs::path project = CopyFixture( fixtures, scratch, "unt" );
+		const SExportRun run = RunExporter( "unt", project, scratch / "unt" / "data-digits", context );
+		const fs::path port = FindPortStatsFile( run.data );
+		std::string szPort;
+		const std::string szOld = "MaxHP=\"100\"";
+		bool bReady = run.bExported && !port.empty() && ReadBytes( port, &szPort );
+		const std::string::size_type nAt = bReady ? szPort.find( szOld ) : std::string::npos;
+		if ( nAt != std::string::npos )
+		{
+			std::string szLong = szPort;
+			szLong.replace( nAt, szOld.size(), "MaxHP=\"100.123456789\"" );
+			Check( WriteBytes( port, szLong ), "golden negative digits: the port's 1.xml has MaxHP 100.123456789" );
+			for ( const char *pszGolden : { "100.123", "100.124" } )
+			{
+				const fs::path stand = scratch / "unt" / ( std::string( "stand-in-digits-" ) + pszGolden );
+				FlattenAsMfc( run.data, stand );
+				std::string szGolden = szPort;
+				szGolden.replace( nAt, szOld.size(), std::string( "MaxHP=\"" ) + pszGolden + "\"" );
+				WriteBytes( stand / "1.xml", szGolden );
+				const SGoldenResult result = CompareGoldenFolder( EExportKind::INFANTRY, run.data, stand, tolerance );
+				const bool bRounded = std::string( pszGolden ) == "100.123";
+				Check( bRounded ? ( result.failures.empty() && result.accepted.size() == 1 ) : ( result.failures.size() == 1 && result.accepted.empty() ),
+				       std::string( "golden negative digits: a golden MaxHP of " ) + pszGolden + ( bRounded ? " is the port's value printed with six digits: accepted" : " is not: reported as FAIL" ) );
+			}
+		}
+		else
+			Check( false, "golden negative digits: the port's unt 1.xml holds MaxHP=\"100\"" );
+	}
 }
 
+// The kinds whose golden cannot be compared yet, each with the verified
+// reason; the comparator reports them pending, never as a pass. A reason that
+// names what the golden holds is checked against the golden, so a regenerated
+// golden turns the kind back into a comparison.
+struct SPendingGolden
+{
+	const char *pszExt;
+	const char *pszReason;
+	bool ( *pfnHolds )( const fs::path &golden );   // null: not checkable
+};
+
+static bool GoldenIsHistoryOnly( const fs::path &golden )
+{
+	return IsHistoryOnly( golden / "1.xml" );
+}
+
+static bool GoldenEffectHasNoParticles( const fs::path &golden )
+{
+	std::string szXml;
+	return ReadBytes( golden / "1.xml", &szXml ) && szXml.find( "<particles/>" ) != std::string::npos && szXml.find( "<sprites><item" ) != std::string::npos;
+}
+
+static const char kCrashReason[] = "the MFC editor crashed (0xC0000005) making this golden (commit 734245b31), so none exists; regenerate it on win-home with tools/zig/win-home/export-goldens.ps1 from a commit before the MFC editor's deletion";
+
+static const SPendingGolden kPending[] =
+{
+	{ "bdg", kCrashReason, nullptr }, { "3rd", kCrashReason, nullptr }, { "3rv", kCrashReason, nullptr },
+	{ "mip", kCrashReason, nullptr }, { "chc", kCrashReason, nullptr }, { "cgc", kCrashReason, nullptr },
+	{ "scp", "the golden holds only MFC's <History>: CSquadFrame::SaveRPGStats (SquadFrm.cpp:216) stops at MakeName (SquadFrm.cpp:198) when a member such as \"USSR\\Mosin\" is not in the objects database of the installed game, so the editor wrote no stats; regenerate the golden on win-home with a member the installed data has", &GoldenIsHistoryOnly },
+	{ "til", "the golden holds only MFC's <History>: the tileset export needs editor\\terrain\\tilemask.tga in the editor data folder, which the installed data does not have, and the port refuses for the same reason (\"Cannot open terrain mask file\"); regenerate the golden on win-home with the mask installed", &GoldenIsHistoryOnly },
+	{ "eff", "MFC skipped the function particle \"particle-2key\" (EffectFrm.cpp:215: no stream, an error box, continue) because the installed data has no Effects\\particles\\particle-2key.xml, so the golden's <particles/> is empty; the port stops with an error for a missing source; regenerate the golden on win-home after exporting the particle fixture into the editor data folder", &GoldenEffectHasNoParticles },
+};
+
 // The golden comparison. A golden folder holds MFC's export of the fixture
-// project; the port's export of the same project is compared with it file by
-// file, for every extension that has an exporter. An extension without a
-// golden is pending (the goldens come from win-home), never a pass; one
-// without an exporter is pending too. A FAIL fails the tier.
+// project; the port's export of the same project (with the export file name
+// the golden's maker injected) is compared with it file by file, for every
+// extension that has an exporter. The result per kind is pass, accepted (equal
+// but for differences the comparator lists with a verified reason), pending
+// (no usable golden; the reason is logged) or FAIL, which fails the tier.
 static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
 {
-	struct SGolden { const char *pszExt; bool bExporter; EExportKind kind; };
+	struct SGolden { const char *pszExt; EExportKind kind; };
 	static const SGolden kExtensions[] =
 	{
-		{ "wpn", true, EExportKind::WEAPON }, { "mcp", true, EExportKind::MINE }, { "trc", true, EExportKind::ENTRENCHMENT },
-		{ "scp", true, EExportKind::SQUAD }, { "spt", true, EExportKind::WEAPON }, { "unt", true, EExportKind::INFANTRY },
-		{ "msh", false, EExportKind::MECH_UNIT }, { "obt", true, EExportKind::OBJECT }, { "fnc", true, EExportKind::FENCE },
-		{ "bld", false, EExportKind::BUILDING }, { "bdg", false, EExportKind::BRIDGE }, { "pcp", false, EExportKind::PARTICLE },
-		{ "eff", false, EExportKind::EFFECT }, { "til", false, EExportKind::TILESET }, { "3rd", false, EExportKind::VSO },
-		{ "3rv", false, EExportKind::VSO }, { "mip", false, EExportKind::MISSION }, { "chc", false, EExportKind::CHAPTER },
-		{ "cgc", false, EExportKind::CAMPAIGN }, { "mdc", false, EExportKind::MEDAL },
+		{ "wpn", EExportKind::WEAPON }, { "mcp", EExportKind::MINE }, { "trc", EExportKind::ENTRENCHMENT },
+		{ "scp", EExportKind::SQUAD }, { "spt", EExportKind::WEAPON }, { "unt", EExportKind::INFANTRY },
+		{ "msh", EExportKind::MECH_UNIT }, { "obt", EExportKind::OBJECT }, { "fnc", EExportKind::FENCE },
+		{ "bld", EExportKind::BUILDING }, { "bdg", EExportKind::BRIDGE }, { "pcp", EExportKind::PARTICLE },
+		{ "eff", EExportKind::EFFECT }, { "til", EExportKind::TILESET }, { "3rd", EExportKind::VSO },
+		{ "3rv", EExportKind::VSO }, { "mip", EExportKind::MISSION }, { "chc", EExportKind::CHAPTER },
+		{ "cgc", EExportKind::CAMPAIGN }, { "mdc", EExportKind::MEDAL },
 	};
 	const fs::path scratch = scratchRoot / "golden";
 	SDxtTolerance tolerance;
 	std::string szError;
 	Check( LoadDxtTolerance( ( fixtures / "dxt-tolerance.json" ).string(), &tolerance, &szError ), "golden: the DXT gate loads " + szError );
+	// The trench's three _c.dds: every 4 x 4 block of the 16 x 16 picture is
+	// one colour, and the shipped editor's encoder writes those blocks with
+	// both endpoints moved (colour 0xaf7e and 0xb79e, alpha ff and 00, for the
+	// source colour 0xb2f1f8), where NDxt writes one endpoint twice; the
+	// decoded colour is off by at most 6. NLegacyDxt, the MFC-era source code,
+	// writes yet another block, so the shipped editor's encoder is neither.
+	SDxtTolerance trenchTolerance = tolerance;
+	for ( auto &format : trenchTolerance.formats )
+		if ( format.first == "DXT5" )
+			format.second.nColourMax = format.second.nColourP99 = std::max( format.second.nColourMax, 6 );
 	SExportContext context;
 	context.findUnitKey = &FixtureUnitKey;
-	int nPass = 0, nFail = 0, nPending = 0;
+	int nPass = 0, nAccepted = 0, nFail = 0, nPending = 0;
 	for ( const SGolden &entry : kExtensions )
 	{
 		const std::string szExt = entry.pszExt;
@@ -1274,19 +1512,27 @@ static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
 			const std::string szName = it->path().filename().string();
 			bAny = bAny || ( it->is_regular_file() && szName != ".gitkeep" && szName != "README.md" );
 		}
+		const SPendingGolden *pPending = nullptr;
+		for ( const SPendingGolden &pending : kPending )
+			if ( szExt == pending.pszExt )
+				pPending = &pending;
+		if ( pPending != nullptr && ( !bAny || pPending->pfnHolds == nullptr || pPending->pfnHolds( goldenDir ) ) )
+		{
+			Log( "GOLDEN " + szExt + " pending: " + pPending->pszReason );
+			++nPending;
+			continue;
+		}
 		if ( !bAny )
 		{
-			Log( "GOLDEN " + szExt + " pending: golden missing (run tools/zig/win-home/export-goldens.ps1 on win-home)" );
-			++nPending;
+			Log( "GOLDEN " + szExt + " FAIL: no golden and no recorded reason (run tools/zig/win-home/export-goldens.ps1 on win-home)" );
+			++nFail;
+			++g_nFailures;
 			continue;
 		}
-		if ( !entry.bExporter )
-		{
-			Log( "GOLDEN " + szExt + " pending: the port has no exporter to compare the golden with yet" );
-			++nPending;
-			continue;
-		}
-		const fs::path project = szExt == "spt" ? CopySpriteWithFrame( fixtures, scratch ) : CopyFixture( fixtures, scratch, szExt );
+		if ( pPending != nullptr )
+			Log( "GOLDEN " + szExt + " note: the recorded pending reason no longer holds for this golden, comparing it" );
+		const fs::path project = CopyFixture( fixtures, scratch, szExt );
+		InjectExportFileName( project );
 		const SExportRun run = RunExporter( szExt, project, scratch / szExt / "data", context );
 		if ( !run.bExported )
 		{
@@ -1295,19 +1541,58 @@ static void Goldens( const fs::path &fixtures, const fs::path &scratchRoot )
 			++g_nFailures;
 			continue;
 		}
-		const SGoldenResult result = CompareGoldenFolder( entry.kind, run.data, goldenDir, tolerance );
+		SGoldenRules rules;
+		if ( szExt == "trc" )
+		{
+			rules.pTolerance = &trenchTolerance;
+			rules.szToleranceReason = "the shipped editor's DXT5 encoder writes a solid-colour 4x4 block with both endpoints moved (colour 0xaf7e and 0xb79e, alpha ff and 00 for the source colour 0xb2f1f8) where NDxt writes one endpoint twice; the decoded colour is off by 3 to 6, the gate for this kind is 6. NLegacyDxt, the MFC-era source code, writes a third block, so the shipped encoder is neither";
+		}
+		if ( szExt == "obt" )
+		{
+			static const char kReason[] = "the sprite packs follow the zero cross, the passability grid and its origin, which MFC takes from its live scene camera and tile lists and the port from DefaultEditorCamera and the project's desc (the fixture has none), so the packed pictures and animations differ in size";
+			for ( const char *pszSuffix : { ".san", "_c.dds", "_l.dds", "_h.dds" } )
+				rules.acceptedSuffixes.push_back( { pszSuffix, kReason } );
+		}
+		const SGoldenResult result = CompareGoldenFolder( entry.kind, run.data, goldenDir, tolerance, rules );
+		std::string szAccepted;
+		std::map<std::string, int> reasons;
+		for ( const std::string &szLine : result.accepted )
+		{
+			szAccepted += szLine + "\n";
+			const std::string::size_type nReason = szLine.rfind( " [" );
+			std::string szReason = nReason == std::string::npos ? szLine : szLine.substr( nReason + 2 );
+			if ( !szReason.empty() && szReason.back() == ']' )
+				szReason.pop_back();
+			++reasons[szReason];
+		}
+		if ( !result.accepted.empty() )
+			WriteBytes( scratch / szExt / "accepted.txt", szAccepted );
 		if ( result.failures.empty() )
 		{
-			Log( "GOLDEN " + szExt + " pass (" + std::to_string( result.nFiles ) + " files)" );
-			++nPass;
+			if ( result.accepted.empty() )
+			{
+				Log( "GOLDEN " + szExt + " pass (" + std::to_string( result.nFiles ) + " files)" );
+				++nPass;
+			}
+			else
+			{
+				Log( "GOLDEN " + szExt + " accepted (" + std::to_string( result.nFiles ) + " files, " + std::to_string( result.accepted.size() ) + " explained differences, listed in golden/" + szExt + "/accepted.txt)" );
+				for ( const auto &reason : reasons )
+					Log( "GOLDEN " + szExt + " accepted " + std::to_string( reason.second ) + " x: " + reason.first );
+				++nAccepted;
+			}
 			continue;
 		}
+		std::string szDetails;
+		for ( const std::string &szDetail : result.details )
+			szDetails += szDetail + "\n";
+		WriteBytes( scratch / szExt / "differences.txt", szDetails );
 		for ( const std::string &szFailure : result.failures )
 			Log( "GOLDEN " + szExt + " FAIL " + szFailure );
 		++nFail;
 		++g_nFailures;
 	}
-	Log( "GOLDEN_SUMMARY extensions=20 pass=" + std::to_string( nPass ) + " fail=" + std::to_string( nFail ) + " pending=" + std::to_string( nPending ) );
+	Log( "GOLDEN_SUMMARY extensions=20 pass=" + std::to_string( nPass ) + " accepted=" + std::to_string( nAccepted ) + " fail=" + std::to_string( nFail ) + " pending=" + std::to_string( nPending ) );
 	GoldenNegatives( fixtures, scratchRoot, tolerance, context );
 }
 

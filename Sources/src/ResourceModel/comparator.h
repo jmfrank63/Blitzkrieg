@@ -117,6 +117,13 @@ SCompareResult CompareStats( EExportKind kind, const std::string &szPortFile, co
 // wrote from it (D-13): CompareStats, with the fields MFC's frame could not
 // round-trip listed in result.excused instead of messages.
 SCompareResult CompareRoundTrip( EExportKind kind, const std::string &szExportedFile, const std::string &szShippedFile );
+// Port export against an MFC golden (D-11): CompareStats, with the
+// differences that are known and explained listed in result.excused, each
+// with its reason, instead of messages. What is explained is a float the
+// golden holds rounded to the six digits MFC's XML writer prints, and the
+// per-kind paths of kGoldenDifferences in comparator.cpp. Anything else stays
+// a difference.
+SCompareResult CompareGolden( EExportKind kind, const std::string &szPortFile, const std::string &szGoldenFile );
 // Files the game reads as bytes.
 SCompareResult CompareBytes( const std::string &szPortFile, const std::string &szGoldenFile );
 // A DXT texture: header equality, then the decoded pixels against the

@@ -358,3 +358,20 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | chc | reader | `scenarios/gri_chc/1.xml` | the Game starts no chapter from a mod without a player |
 | cgc | reader | `scenarios/campaigns/gri_cgc/1.xml` | the Game starts no campaign from a mod without a player |
 | mdc | reader | `medals/gri_mdc/1.xml` | the Game shows a medal only after a campaign is won |
+
+## MFC golden comparison status (S16 T08, 2026-10-06)
+
+`zig build test-resource-model-comparator -Dtest-mode=run`: `GOLDEN_SUMMARY extensions=20 pass=3 accepted=8 fail=0 pending=9`.
+The reasons and the per-kind table are in the spec's amendment "S16 T08". Not a claim of parity where marked.
+
+| Row | Status |
+|---|---|
+| golden mcp, unt, mdc | equal to MFC's export |
+| golden wpn, trc, msh, obt, bld | equal but for the stats MFC reloads from a missing `<RPG>`/`<desc>`; the fixtures need that element and a regenerated golden to compare the tree's values |
+| golden pcp, msh floats | equal to six digits, as MFC's XML writer prints them |
+| golden fnc, bld explosions, obt grids and packs | **partial**: they depend on the engine's scene camera, which the port does not have in the export (default editor camera) |
+| golden scp, til | pending: MFC wrote only History; regenerate on win-home |
+| golden eff | pending: the golden was made without the particle source |
+| golden bdg 3rd 3rv mip chc cgc | pending: the MFC editor crashed (0xC0000005) making them |
+| msh DDS format | fixed in T08: formats chosen by the picture as `SaveCompressedTexture` does for the mesh frame |
+| port keeps `<RPG>` unchanged on save | **open**: MFC's `LoadRPGStats` would read the stale stats of a project the port edited |
