@@ -958,7 +958,7 @@ above ("Then the MFC editor is deleted"). The deletion runs as S16/T07 after
 T01-T06 and removes the same files. The MFC goldens remain pending: they are
 generated on win-home from the commit just before the deletion commit, so the
 golden comparison can still run later. T07 writes that commit's hash here:
-`PRE_DELETE = <filled by S16/T07>`. The hand try (macOS, Windows) and the GOG
+`PRE_DELETE = b8aa895bb00efb2fdac28096656dcf26984e3f87`. The hand try (macOS, Windows) and the GOG
 goldens also stay open. Tests and fixtures that do not need the MFC sources
 stay, and the Linux build stays green. Decision D037.
 
@@ -1010,7 +1010,7 @@ Verified reasons for the remaining differences (each from the MFC source and the
 
 Pending, with the reason the comparator logs:
 
-- `bdg 3rd 3rv mip chc cgc`: the MFC editor crashed (0xC0000005) making the golden; regenerate on win-home from `PRE_DELETE`.
+- `bdg 3rd 3rv mip chc cgc`: resolved. All 20 goldens exist now; `3rd` and `3rv` were exported by hand in MFC's GUI because MFC's batch export of them crashes (0xC0000005). Regenerate from `PRE_DELETE` if needed.
 - `scp`: the golden holds only `<History>`. `CSquadFrame::SaveRPGStats` stops at `MakeName` when a member such as `USSR\Mosin` is
   not in the installed objects database.
 - `til`: the golden holds only `<History>`; the tileset export needs `editor\terrain\tilemask.tga`, which the installed data lacks
