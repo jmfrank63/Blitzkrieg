@@ -6,10 +6,10 @@
 	<RPG>
 		<KeyName/>
 		<StatsType>Campaign</StatsType>
-		<HeaderText>scenarios\campaigns\cgc\header</HeaderText>
-		<SubheaderText>scenarios\campaigns\cgc\subheader</SubheaderText>
+		<HeaderText>header</HeaderText>
+		<SubheaderText>subheader</SubheaderText>
 		<DescriptionText/>
-		<MapImage>scenarios\campaigns\cgc\map</MapImage>
+		<MapImage>map</MapImage>
 		<MapImageRect x1="20" y1="12" x2="0.640625" y2="0.78125"/>
 		<IntroMovie>intro</IntroMovie>
 		<OutroMovie>outro</OutroMovie>

@@ -463,8 +463,22 @@
 				<item data="2"/>
 			</Ends>
 		</Destroyed>
-		<FirePoints/>
-		<SmokePoints/>
+		<FirePoints>
+			<item Direction="45" VerticalAngle="78">
+				<Position x="0" y="0" z="0"/>
+				<FireEffect>fixture_fire</FireEffect>
+				<PicturePosition x="0" y="0"/>
+				<WorldPosition x="0" y="0" z="0"/>
+			</item>
+		</FirePoints>
+		<SmokePoints>
+			<item Direction="90" VerticalAngle="78">
+				<Position x="0" y="0" z="0"/>
+				<FireEffect/>
+				<PicturePosition x="0" y="0"/>
+				<WorldPosition x="0" y="0" z="0"/>
+			</item>
+		</SmokePoints>
 		<SmokeEffect>fixture_smoke</SmokeEffect>
 		<DirExplosions>
 			<item Direction="0" VerticalAngle="78">

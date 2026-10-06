@@ -6,25 +6,25 @@
 	<RPG>
 		<KeyName/>
 		<StatsType>Mission</StatsType>
-		<HeaderText>scenarios\mip\header</HeaderText>
-		<SubheaderText>scenarios\mip\subheader</SubheaderText>
-		<DescriptionText>scenarios\mip\desc</DescriptionText>
-		<MapImage>scenarios\mip\map</MapImage>
+		<HeaderText>header</HeaderText>
+		<SubheaderText>subheader</SubheaderText>
+		<DescriptionText>desc</DescriptionText>
+		<MapImage>map</MapImage>
 		<MapImageRect x1="20" y1="12" x2="0.640625" y2="0.78125"/>
-		<TemplateMap/>
+		<TemplateMap>template</TemplateMap>
 		<FinalMap/>
 		<CombatMusics>
-			<item/>
+			<item>music1</item>
 		</CombatMusics>
 		<ExplorMusics/>
 		<Objectives>
 			<item Secret="1" AnchorScriptID="-1">
-				<Header>scenarios\mip\</Header>
-				<DescriptionText>scenarios\mip\1</DescriptionText>
+				<Header>header</Header>
+				<DescriptionText>1</DescriptionText>
 				<PosOnMap x="0" y="0"/>
 			</item>
 		</Objectives>
-		<SettingName/>
+		<SettingName>setting</SettingName>
 		<MODName/>
 		<MODVersion/>
 	</RPG>
@@ -54,7 +54,7 @@
 				<item>
 					<default_name>Template map</default_name>
 					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-						<string_value/>
+						<string_value>template</string_value>
 					</value>
 				</item>
 				<item>
@@ -66,7 +66,7 @@
 				<item>
 					<default_name>Settings file</default_name>
 					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-						<string_value/>
+						<string_value>setting</string_value>
 					</value>
 				</item>
 			</values>
@@ -84,7 +84,7 @@
 						<item>
 							<default_name>Music file</default_name>
 							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-								<string_value/>
+								<string_value>music1</string_value>
 							</value>
 						</item>
 					</values>
@@ -110,7 +110,7 @@
 						<item>
 							<default_name>Objective header</default_name>
 							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-								<string_value/>
+								<string_value>header</string_value>
 							</value>
 						</item>
 						<item>

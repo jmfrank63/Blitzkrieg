@@ -115,12 +115,16 @@ bool ExportMission( const Project &project, const SExportContext &context, SExpo
 	const std::string szFile = StatsFileName( project, context, kMissionAddDir, false );
 	const std::string szPrefix = DirectoryOf( szFile );
 	const std::string szProjectDir = ProjectDirectory( context );
+	// A save writes the cache with the frame's prefix still empty (SaveRPGStats runs outside
+	// ExportFrameData, which sets it), so the cached paths are the tree's own values; the
+	// export prefixes them. A cache that held the prefixed paths would reload into the tree.
+	const std::string szStatsPrefix = context.bSaveCache ? std::string() : szPrefix;
 
 	SMissionStats rpgStats;
-	rpgStats.szHeaderText = szPrefix + szHeader;
-	rpgStats.szSubheaderText = szPrefix + szSubHeader;
-	rpgStats.szDescriptionText = szPrefix + szDescription;
-	rpgStats.szMapImage = szPrefix + kMapName;
+	rpgStats.szHeaderText = szStatsPrefix + szHeader;
+	rpgStats.szSubheaderText = szStatsPrefix + szSubHeader;
+	rpgStats.szDescriptionText = szStatsPrefix + szDescription;
+	rpgStats.szMapImage = szStatsPrefix + kMapName;
 	for ( const auto &pMusic : pCombatMusics->GetChildren() )
 		rpgStats.combatMusics.push_back( ValueStr( *pMusic, 0 ) );
 	for ( const auto &pMusic : pExplorMusics->GetChildren() )
@@ -133,8 +137,8 @@ bool ExportMission( const Project &project, const SExportContext &context, SExpo
 	for ( const auto &pObjective : pObjectives->GetChildren() )
 	{
 		SMissionStats::SObjective objective;
-		objective.szHeader = szPrefix + ValueStr( *pObjective, 0 );
-		objective.szDescriptionText = szPrefix + ValueStr( *pObjective, 1 );
+		objective.szHeader = szStatsPrefix + ValueStr( *pObjective, 0 );
+		objective.szDescriptionText = szStatsPrefix + ValueStr( *pObjective, 1 );
 		objective.vPosOnMap = CVec2( ValueFloat( *pObjective, 2 ), ValueFloat( *pObjective, 3 ) );
 		objective.bSecret = ValueBool( *pObjective, 4 );
 		objective.nAnchorScriptID = ValueInt( *pObjective, 5 );

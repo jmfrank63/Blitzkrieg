@@ -5,7 +5,7 @@
 	</own_data>
 	<VSODescription Type="0" Priority="0" Passability="1" AIClasses="0" SoilParams="0">
 		<Bottom OpacityCenter="255" OpacityBorder="255" StreamSpeed="0" TextureStep="0.1" NumCells="4" Animated="0" Disturbance="0" RelWidth="1">
-			<Texture>water\bottom</Texture>
+			<Texture>water\a_bottom</Texture>
 		</Bottom>
 		<BottomBorders/>
 		<Layers>
@@ -49,7 +49,7 @@
 				<item>
 					<default_name>Texture</default_name>
 					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-						<string_value>water\bottom</string_value>
+						<string_value>water\a_bottom</string_value>
 					</value>
 				</item>
 				<item>

@@ -9190,11 +9190,11 @@ const resource_auto_bdg =
     "427:shot=bdg_marks," ++
     "428:expect=shot_colour:bdg_marks/00ffff/min/300," ++
     "429:do=point:fire/13/10," ++
-    "430:expect=points:fire=1," ++
+    "430:expect=points:fire=2," ++
     "431:shot=bdg_fire," ++
     "432:expect=shot_colour:bdg_fire/ff8000/min/40," ++
     "433:do=point:smoke/12/13," ++
-    "434:expect=points:smoke=1," ++
+    "434:expect=points:smoke=2," ++
     "436:shot=bdg_points," ++
     "437:differ=bdg_fire/bdg_points@0.0001," ++
     "440:do=undo," ++
@@ -9205,8 +9205,8 @@ const resource_auto_bdg =
     "440:do=undo," ++
     "440:do=undo," ++
     "440:do=undo," ++
-    "442:expect=points:fire=0," ++
-    "442:expect=points:smoke=0," ++
+    "442:expect=points:fire=1," ++
+    "442:expect=points:smoke=1," ++
     "442:expect=grid_cell:10/10=0," ++
     "442:expect=span_mark:begin=home," ++
     "442:expect=span_mark:front=home," ++
@@ -9224,8 +9224,8 @@ const resource_auto_bdg =
     "446:do=redo," ++
     "446:do=redo," ++
     "446:do=redo," ++
-    "450:expect=points:fire=1," ++
-    "450:expect=points:smoke=1," ++
+    "450:expect=points:fire=2," ++
+    "450:expect=points:smoke=2," ++
     "450:expect=grid_cell:11/10=1," ++
     "450:expect=span_mark:end=moved," ++
     "451:save," ++

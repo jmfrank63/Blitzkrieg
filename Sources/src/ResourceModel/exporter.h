@@ -90,6 +90,14 @@ struct SExportContext
 	// DefaultEditorCamera() and says so in a warning.
 	std::function<bool( SGroundCamera &camera )> groundCamera;
 
+	// An object export cuts the grids and their origins anew from the tiles they
+	// stand for, as every MFC batch export does (LoadRPGStats then SaveRPGStats
+	// through the scene camera), instead of copying the project's desc. The two
+	// agree for a project the editor saved, whose origins are tile corners of its
+	// own camera; they differ for a hand-made origin, which the golden comparison
+	// must reproduce. Off: the desc is copied.
+	bool bRequantiseGrids = false;
+
 	// The map half of CMissionFrame::ExportFrameData, which needs the engine's
 	// map and terrain code (D030). szFinalMap is the project's Final map name
 	// as typed (relative to maps\\, no extension), found in the export root's

@@ -5,7 +5,7 @@
 	</own_data>
 	<VSODescription Type="2" Priority="1" Passability="1" AIClasses="-16" SoilParams="16">
 		<Bottom OpacityCenter="255" OpacityBorder="255" StreamSpeed="0" TextureStep="0.1" NumCells="4" Animated="0" Disturbance="0" RelWidth="1">
-			<Texture>terrain\sets\1\roads3d\road_asphalt01</Texture>
+			<Texture>terrain\sets\1\roads3d\road_asphalt_city</Texture>
 		</Bottom>
 		<BottomBorders/>
 		<Layers/>
@@ -130,7 +130,7 @@
 				<item>
 					<default_name>Texture</default_name>
 					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-						<string_value>terrain\sets\1\roads3d\road_asphalt01</string_value>
+						<string_value>terrain\sets\1\roads3d\road_asphalt_city</string_value>
 					</value>
 				</item>
 			</values>

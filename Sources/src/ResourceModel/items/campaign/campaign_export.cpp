@@ -83,11 +83,15 @@ bool ExportCampaign( const Project &project, const SExportContext &context, SExp
 	const std::string szFile = StatsFileName( project, context, kCampaignAddDir, false );
 	const std::string szPrefix = DirectoryOf( szFile );
 	const std::string szProjectDir = ProjectDirectory( context );
+	// A save writes the cache with the frame's prefix still empty (SaveRPGStats runs outside
+	// ExportFrameData, which sets it), so the cached paths are the tree's own values; the
+	// export prefixes them. A cache that held the prefixed paths would reload into the tree.
+	const std::string szStatsPrefix = context.bSaveCache ? std::string() : szPrefix;
 
 	SCampaignStats rpgStats;
-	rpgStats.szHeaderText = szPrefix + szHeader;
-	rpgStats.szSubheaderText = szPrefix + szSubHeader;
-	rpgStats.szMapImage = szPrefix + szMapImage;
+	rpgStats.szHeaderText = szStatsPrefix + szHeader;
+	rpgStats.szSubheaderText = szStatsPrefix + szSubHeader;
+	rpgStats.szMapImage = szStatsPrefix + szMapImage;
 	rpgStats.szIntroMovie = ValueStr( *pCommonProps, 3 );
 	rpgStats.szOutroMovie = ValueStr( *pCommonProps, 4 );
 	rpgStats.szInterfaceMusic = ValueStr( *pCommonProps, 5 );

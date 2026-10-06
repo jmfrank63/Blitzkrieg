@@ -6,12 +6,12 @@
 	<RPG Season="0">
 		<KeyName/>
 		<StatsType>Chapter</StatsType>
-		<HeaderText>scenarios\chc\header</HeaderText>
-		<SubheaderText>scenarios\chc\subheader</SubheaderText>
-		<DescriptionText>scenarios\chc\desc</DescriptionText>
-		<MapImage>scenarios\chc\map</MapImage>
+		<HeaderText>header</HeaderText>
+		<SubheaderText>subheader</SubheaderText>
+		<DescriptionText>desc</DescriptionText>
+		<MapImage>map</MapImage>
 		<MapImageRect x1="20" y1="12" x2="0.640625" y2="0.78125"/>
-		<InterfaceMusic>scenarios\chc\music</InterfaceMusic>
+		<InterfaceMusic>music</InterfaceMusic>
 		<Missions>
 			<item Difficulty="0">
 				<Mission>mission1</Mission>
@@ -25,9 +25,9 @@
 				<Position x="12" y="34"/>
 			</item>
 		</PlaceHolders>
-		<Script>scenarios\chc\script</Script>
+		<Script>script</Script>
 		<SettingName>setting</SettingName>
-		<ContextName>scenarios\chc\context</ContextName>
+		<ContextName>context</ContextName>
 		<PlayerSide>German</PlayerSide>
 		<MODName/>
 		<MODVersion/>

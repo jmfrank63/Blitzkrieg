@@ -2059,9 +2059,9 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			}
 			else if ( szExt == "mip" )
 			{
-				// The plain mission fixture names no final map, so MFC's validation refuses it (S14 T04; S14MissionExport proves the passing one).
-				Check( status == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "You should specify" ) != 0,
-				       "export: .mip is refused by the mission validation, with MFC's message" );
+				// The plain mission fixture names a template map, a setting, a music and an objective with texts, so MFC's validation
+				// passes it and the golden comparison has a mission to compare (S16 T10; S14MissionExport proves the files).
+				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .mip exports through its S14 exporter" );
 			}
 			else if ( szExt == "gui" )
 			{
@@ -8642,9 +8642,12 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
 		BkResClose( pSession );
 	}
-	// The plain fixture names no map or music: a message of MFC's list is the result.
+	// The plain fixture with its music taken away: a message of MFC's list is the result.
 	{
-		const BkEditorStatus failed = ExportProject( pSession, fs::path( szFixtureRoot ) / "mip" / "project.mip", scratch / "mod-plain", "plain" );
+		const fs::path plain = scratch / "variant-plain";
+		CopyFolder( fs::path( szFixtureRoot ) / "mip", plain );
+		Replace( plain / "project.mip", "<string_value>music1</string_value>", "<string_value/>" );
+		const BkEditorStatus failed = ExportProject( pSession, plain / "project.mip", scratch / "mod-plain", "plain" );
 		Check( failed == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "You should specify" ) != nullptr, "mission export: a project with no map or music is refused" );
 		BkResClose( pSession );
 	}

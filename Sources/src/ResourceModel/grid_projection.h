@@ -65,6 +65,15 @@ struct STileGrid
 // no engine camera (SExportContext::groundCamera).
 SGroundCamera DefaultEditorCamera();
 
+// The camera the shipped MFC editors had while they batch-exported: the scene's
+// default placement (SetDefaultCamera: distance 700, pitch -120 degrees, yaw 45
+// degrees) over the editor's 800 x 600 game window (GAME_SIZE_X/Y, Specific.h),
+// an orthographic projection of one world unit per pixel (MainFrm.cpp), with the
+// anchor a frame sets in ShowFrameWindows snapped as CCamera::Update snaps it.
+// The ground-plane part of the scene's matTransform is then closed form; the
+// golden comparison feeds it to the exporters as the engine camera.
+SGroundCamera MfcEditorCamera( const SVec3 &anchor );
+
 class GridProjection
 {
 public:

@@ -359,21 +359,30 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | cgc | reader | `scenarios/campaigns/gri_cgc/1.xml` | the Game starts no campaign from a mod without a player |
 | mdc | reader | `medals/gri_mdc/1.xml` | the Game shows a medal only after a campaign is won |
 
-## MFC golden comparison status (S16 T08, 2026-10-06)
+## MFC golden comparison status (S16 T10, 2026-10-06)
 
-`zig build test-resource-model-comparator -Dtest-mode=run`: `GOLDEN_SUMMARY extensions=20 pass=3 accepted=2 fail=0 pending=15` (S16 T05 rerun after D041; T08 had accepted=8 pending=9). Accepted: spt (History only) and pcp (six-digit floats); trc is counted pending for its 4 stats differences and lists its 6 proven DXT5 solid blocks as accepted beside them.
-The reasons and the per-kind table are in the spec's amendment "S16 T08". Not a claim of parity where marked. Superseded by the hard steer of 2026-10-06T06:23 (D041, done in S16/T05): the struct-defaults and camera classes are now reported pending, not accepted, by the comparator (rerun in T05).
+`zig build test-resource-model-comparator -Dtest-mode=run`: `GOLDEN_SUMMARY extensions=20 pass=4 accepted=7 fail=0 pending=9`.
+The goldens of commit 3e98ebc19 (made by the shipped editor from the re-saved fixtures) are compared for real now: the old
+'pending regeneration' rules (struct defaults, D041) and the 'MFC crashed' rules for mip, chc and cgc are gone. Each
+difference is either fixed in the port or a fixture, or accepted with a proof from MFC's source and the golden's bytes, or
+pending with the reason that keeps it open. The per-kind table and the maintainer's list are in the spec's amendment
+"S16 T10".
 
 | Row | Status |
 |---|---|
-| golden mcp, unt, mdc | equal to MFC's export |
-| golden wpn, trc, msh, obt, bld | **pending regeneration**: the old goldens hold struct constructor defaults because MFC had not saved the scratch fixture; `export-goldens.ps1` now lets MFC open and save each fixture (-os) before exporting, and the maintainer regenerates the goldens on win-home. Not an accepted difference (hard steer 2026-10-06T06:23, D041) |
-| save writes MFC's frame data (D-07, D042) | done (S16 T09): every save of every kind writes `<own_data>` and the cached `RPG`/`desc`/`KeyData`/`effect`/`VSODescription` block in MFC's form and order, refreshed from the tree; all 21 fixtures re-saved; 16 of the 21 shipped-editor projects in `fixtures/resource_editor/mfc-new` save back byte for byte, 5 (mcp, mdc, mip, unt, pcp) differ only inside the cached block, whose MFC form is a not-yet-filled struct (`bNewProjectJustCreated`); each reason is in the spec's amendment "S16 T09" and logged by `test-resource-bridge`. Goldens for the pending and crashed kinds are for the maintainer to regenerate on win-home |
-| golden pcp, msh floats | accepted: equal to six digits, as MFC's XML writer prints them (`%lg`, `DataTreeXML.cpp:326`), proven from source and golden bytes |
-| golden trc DXT5 solid blocks | accepted: proven from the golden's bytes (shipped editor's solid-block encoding differs from NDxt and NLegacyDxt) |
-| golden fnc origins, bld explosion noise, obt grids and packs | **pending**: camera-dependent values, not proven; the port exports with the default editor camera, not the engine's scene camera. Not accepted (D041) |
-| golden scp, til | pending: MFC wrote only History; regenerate on win-home |
-| golden eff | pending: the golden was made without the particle source |
-| golden bdg 3rd 3rv mip chc cgc | pending: the MFC editor crashed (0xC0000005) making them |
+| golden wpn, mcp, unt, mdc | equal to MFC's export (pass) |
+| golden msh | accepted: all 29 files, the 38 stats differences are six-digit floats (`%lg`, `DataTreeXML.cpp:326`) |
+| golden pcp | accepted: 2 six-digit floats |
+| golden trc | accepted: 6 DXT5 solid blocks, proven from the golden's bytes (the shipped editor's solid-block encoding is neither NDxt nor NLegacyDxt); stats equal |
+| golden spt | accepted: a sprite's export is graphics only, MFC's 1.xml is the batch history |
+| golden obt | accepted: all 26 files; `.san` and DDS packs equal byte for byte through `MfcEditorCamera` and the origin re-cut from tiles (`bRequantiseGrids`); 4 origin floats within the engine's float noise (1e-3, measured 1.6e-4) |
+| golden fnc | accepted: all 10 files; 15 origin floats within the engine's float noise (measured up to 5.5e-4), the wrong anchor fails (negative test) |
+| golden bld | accepted: all 50 files; 4 stats are MFC's struct defaults because MFC's own save of a building writes no `desc` block (`BuildFrm.cpp:560`; `mfc-new/buildingtest.bld` has none), 15 explosion points are float noise (1.5e-5) |
+| camera of the goldens | proven: `MfcEditorCamera` (orthographic, 800 x 600 window, default placement, anchor 16 world cells) reproduces the fence and object goldens; 8 cells fails (T10) |
+| save writes MFC's frame data (D-07, D042) | done (S16 T09), and in T10 the cached `RPG` block of chc, cgc, mip holds the tree's own paths (MFC saves with an empty prefix; the old block held the export's prefixed paths, MFC loaded them into the tree and prefixed them again) and the bridge block lists one fire and one smoke point per tree child (MFC's `GetRPGStats` indexes the block's lists by the children, the crash on opening `.bdg`) |
+| golden mip, chc, cgc | pending regeneration: the goldens were made from the old fixtures (mip: an invalid mission MFC refused; chc, cgc: a block with prefixed paths); the fixtures are fixed and re-saved in T10, the golden folders no longer match them |
+| golden bdg, 3rd, 3rv | pending: no golden, MFC crashed on the old fixtures; fixed in T10 (bdg: fire and smoke entries; 3rd: texture `road_asphalt_city`; 3rv: texture `water\a_bottom`) |
+| golden eff, til | pending: the editor's data folder lacked the particle source and the tileset mask; `export-goldens.ps1` puts them there now (T10) |
+| golden scp | pending: MFC wrote only History at `MakeName`; `USSR_Mosin` is in the tracked `Data/objects.xml` (unit, sprite), so the editor's objects database on win-home lacks it: see the spec's amendment "S16 T10" |
 | msh DDS format | fixed in T08: formats chosen by the picture as `SaveCompressedTexture` does for the mesh frame |
-| port keeps `<RPG>` unchanged on save | **open**: MFC's `LoadRPGStats` would read the stale stats of a project the port edited |
+| port keeps `<RPG>` unchanged on save | fixed in T09: the block is rewritten from the tree on every save |
