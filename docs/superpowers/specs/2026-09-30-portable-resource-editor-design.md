@@ -1112,10 +1112,8 @@ can only run against git history. `test-resource-model-fidelity` reads the JSON 
 so it keeps working.
 
 **Deletion scope (D-26).** The scope is `Sources/src/editor/` (with `bin/editor2.exe`), `Sources/src/bin/editor.exe`, the `A7.sln`
-entry and the `copyEditors` row in `tools/zig/stage.zig`. Johannes approved it (D037). It is held by D043 (S16/T07) and is
-waiting for the golden comparison: the maintainer regenerates the MFC goldens on win-home from the re-saved fixtures
-(44094bf22), and any difference is traced against `Sources/src/editor` first. It is not waiting on approval. `PRE_DELETE` in the
-early-deletion amendment is still unfilled.
+entry and the `copyEditors` row in `tools/zig/stage.zig`. Johannes approved it (D037). It was held by D043 until the golden comparison was complete, and was released on 2026-10-06 (D050) once all 20 MFC goldens
+were committed and the comparator reported pass=10 accepted=10 fail=0 pending=0 at b8aa895bb.
 
 **Verified on Linux (T05).** Every tier ran in the foreground and exited 0: the three installs, `test-resources-all`,
 the logic tiers, `test-editor-bridge`, `resource-editor-host-check`, `resource-editor-smoke`, the 19
@@ -1390,3 +1388,5 @@ port has no path of that class.
 - `resource-editor-batch` is in `.github/workflows/cross-platform.yml` (Windows and macOS) and `tools/zig/run-resource-sweep.sh`, after the smoke.
 
 Not claimed: no macOS or Windows result; the full resource sweep is left to the maintainer. T07 still waits for Johannes's approval.
+
+**S16 amendment 2026-10-06: the MFC editor is deleted (T07, D037, D050).** Johannes approved the deletion before the hand try. `PRE_DELETE = b8aa895bb00efb2fdac28096656dcf26984e3f87` is the commit just before the deletion commit: check it out (git worktree) on win-home, build `editor.exe` from it and run `tools/zig/win-home/export-goldens.ps1` to regenerate the MFC goldens. The goldens, fixtures, comparator and `mfc-item-inventory.json` stay. The hand try on macOS and Windows and the GOG goldens remain open and are not claimed done. Not claimed: no macOS or Windows result.

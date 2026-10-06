@@ -594,7 +594,6 @@ fn removeTreeIfPresent(io: std.Io, dir: std.Io.Dir, path: []const u8) !void {
 
 fn copyEditors(io: std.Io, repo: std.Io.Dir, destination: std.Io.Dir) !void {
     const editors = [_]struct { source: []const u8, destination: []const u8 }{
-        .{ .source = "Sources/src/bin/editor.exe", .destination = "Editors/editor.exe" },
         .{ .source = "Sources/src/bin/ExcelExporter.exe", .destination = "Editors/ExcelExporter.exe" },
         .{ .source = "Sources/elk/ELK.exe", .destination = "Editors/ELK.exe" },
     };

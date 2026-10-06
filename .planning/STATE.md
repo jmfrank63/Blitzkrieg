@@ -27,7 +27,7 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 ## Current Position
 
 Milestone M001 (phase 6, Resource Editor portable port): S01 to S15 complete, S16 in progress (T01 to T05, T08, T09 and
-T06 done; T07, the MFC deletion, is held by D043).
+T06 done; T07, the MFC deletion, was released by D050 and performed; PRE_DELETE b8aa895bb00efb2fdac28096656dcf26984e3f87).
 Branch: feat/resource-editor.
 
 Verified on Linux (S16/T05, every tier in the foreground, exit 0): install-game, install-map-editor, install-resource-editor,
@@ -40,7 +40,7 @@ No macOS or Windows result has been seen.
 Open:
 - Johannes's hand try of the macOS and Windows release builds.
 - win-home: the 20 MFC goldens regenerated from the re-saved fixtures (44094bf22) and compared; the GOG goldens (B-09.14, B-14.5).
-- The MFC deletion (S16/T07, approved D037, held by D043) waits for the golden comparison, traced against `Sources/src/editor`.
+- The MFC editor was deleted at S16/T07 (approved D037, released D050); MFC goldens can be regenerated from PRE_DELETE b8aa895bb00efb2fdac28096656dcf26984e3f87.
 - CI on macOS and Windows after the maintainer pushes.
 - The full sweep (`tools/zig/run-resource-sweep.sh`), left to the maintainer.
 

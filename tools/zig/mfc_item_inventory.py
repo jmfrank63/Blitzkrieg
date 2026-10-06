@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Generate the MFC tree item inventory the ResourceModel port is checked against.
 
+NOTE (S16/T07): Sources/src/editor was deleted (PRE_DELETE b8aa895bb00efb2fdac28096656dcf26984e3f87), so this script's inputs
+no longer exist; the committed mfc-item-inventory.json is now the source of truth. Run the
+script only from a checkout of PRE_DELETE.
+
 The port of Sources/src/editor's tree items must carry the same property tables
 and write the same project XML as the MFC classes (D-04, D-07). Hand-copied lists
 drift, so this script reads the MFC sources and writes

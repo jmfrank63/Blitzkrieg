@@ -104,7 +104,7 @@ Out of scope: new resource kinds and new editing features beyond MFC parity, apa
 
   A local `test-resources-all` sweeps every shipped resource through import and stats-only export.
 - **D-25:** Packaging: `stage.zig` gets `--resource-editor <bin>`, like `--map-editor`. `ResourceEditor` is staged beside `Game` on macOS and Windows.
-- **D-26:** The MFC editor is deleted only in 06-16, and only after three things: every `06-PARITY.md` row is done with evidence; every golden and `test-resources-all` pass; and Johannes approves a hand try of the release build on macOS and Windows. The deletion covers `Sources/src/editor`, `Sources/src/bin/editor.exe`, `Sources/src/editor/bin/editor2.exe`, the `A7.sln` entry and the `stage.zig` `copyEditors` entry. The goldens stay.
+- **D-26:** The MFC editor is deleted only in 06-16, and only after three things: every `06-PARITY.md` row is done with evidence; every golden and `test-resources-all` pass; and Johannes approves a hand try of the release build on macOS and Windows. The deletion covers `Sources/src/editor`, `Sources/src/bin/editor.exe`, `Sources/src/editor/bin/editor2.exe`, the `A7.sln` entry and the `stage.zig` `copyEditors` entry. The goldens stay. Johannes approved the deletion early on 2026-10-06 (S16 D037, released D050); see the spec's S16 amendment and `PRE_DELETE b8aa895bb00efb2fdac28096656dcf26984e3f87`.
 
 ### Plan split and waves
 - **D-27:** The phase has 16 plans in 6 waves. The shared foundation comes first, so each sub-editor plan is only model, export, preview and tools.
