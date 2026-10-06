@@ -940,3 +940,16 @@ one, the newer instruction wins, and record the change in the spec").
   Game frame, and requires the frames to differ at the moved label's old and new rects and the placed button, and nowhere else.
 - D032 (S15 T01, Mission image frame): as `CMissionFrame` does, the frame always shows the project's `map_h.dds` when the Final map
   exists, and creates the file first when missing (`BkResMissionMinimap`; a refused minimap shows its message).
+
+## Amendment (S16, 2026-10-06): early MFC deletion
+
+Johannes approved deleting the MFC editor on 2026-10-06, before the
+win-home hand try and before the MFC goldens exist, because the MFC editor
+stays in git history and upstream. This overrides the gate in the section
+above ("Then the MFC editor is deleted"). The deletion runs as S16/T07 after
+T01-T06 and removes the same files. The MFC goldens remain pending: they are
+generated on win-home from the commit just before the deletion commit, so the
+golden comparison can still run later. T07 writes that commit's hash here:
+`PRE_DELETE = <filled by S16/T07>`. The hand try (macOS, Windows) and the GOG
+goldens also stay open. Tests and fixtures that do not need the MFC sources
+stay, and the Linux build stays green. Decision D037.

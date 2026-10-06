@@ -5,6 +5,11 @@ Every sub-editor and every user-visible feature of the MFC resource editor
 editor is deleted (06-16) only when every row is **done** with evidence, or
 marked **no behaviour in MFC** with a reason.
 
+> **Update 2026-10-06 (D037):** Johannes approved deleting the MFC editor at S16/T07 before the
+> win-home hand try and MFC goldens, since it stays in git history and upstream. Rows marked
+> "golden pending win-home" stay pending: the goldens are generated on win-home from the commit
+> before the deletion, `PRE_DELETE = <filled by S16/T07>`, so the golden comparison can still run later.
+
 Status values: `todo` → `done (<evidence>)`: a test name, a golden
 comparison, or a shot in `zig-out/local-test`. The evidence column is filled
 by the executing plan.
