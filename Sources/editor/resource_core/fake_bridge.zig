@@ -65,6 +65,8 @@ const ResBridge = bridge_mod.ResBridge;
 const MeshLocator = bridge_mod.MeshLocator;
 const KeyframeKnobs = bridge_mod.KeyframeKnobs;
 const ParticleInfo = bridge_mod.ParticleInfo;
+const GuiWindow = bridge_mod.GuiWindow;
+const GuiRect = bridge_mod.GuiRect;
 const putName = bridge_mod.putName;
 const item_type = @import("sub_editor_tools.zig").item_type;
 
@@ -163,6 +165,14 @@ pub const FakeResBridge = struct {
     batch_projects: std.ArrayListUnmanaged(BatchProject) = .empty,
     /// Runtime folder path -> the KeyName its 1.xml holds. Owns both.
     game_folders: std.StringHashMapUnmanaged([]u8) = .empty,
+    /// The open screen's windows (kind gui_frame), in document order; id 0 is
+    /// the root and ids are never reused, as in the C++ model.
+    gui_windows: std.ArrayListUnmanaged(GuiWindow) = .empty,
+    gui_next_id: i32 = 1,
+    gui_attrs: std.ArrayListUnmanaged(GuiAttr) = .empty,
+    /// The template files `addGuiTemplate` declared; an insert of any other
+    /// path is data_missing, as for an unreadable file.
+    gui_templates: std.ArrayListUnmanaged(GuiTemplate) = .empty,
 
     pub const PreviewState = enum { closed, open, showing };
     pub const PropStrings = struct { node: i32, prop_id: i32, entries: std.ArrayListUnmanaged(ReferenceEntry) = .empty };
@@ -170,6 +180,8 @@ pub const FakeResBridge = struct {
     pub const MeshNodeDef = struct { name: []const u8, locator: bool = false };
     pub const MeshModel = struct { file: []u8, nodes: []MeshNodeDef };
     pub const GeometryHome = struct { node: i32, channel: GeometryChannel };
+    pub const GuiAttr = struct { id: i32, name: []u8, value: []u8 };
+    pub const GuiTemplate = struct { path: []u8, class_type: i32, w: i32, h: i32 };
 
     pub fn init(allocator: std.mem.Allocator) FakeResBridge {
         var fake: FakeResBridge = .{ .allocator = allocator };
@@ -183,6 +195,14 @@ pub const FakeResBridge = struct {
     }
 
     pub fn deinit(self: *FakeResBridge) void {
+        self.gui_windows.deinit(self.allocator);
+        for (self.gui_attrs.items) |a| {
+            self.allocator.free(a.name);
+            self.allocator.free(a.value);
+        }
+        self.gui_attrs.deinit(self.allocator);
+        for (self.gui_templates.items) |t| self.allocator.free(t.path);
+        self.gui_templates.deinit(self.allocator);
         self.keyframe_knobs.deinit(self.allocator);
         for (self.nodes.items) |*n| n.deinit(self.allocator);
         self.nodes.deinit(self.allocator);
@@ -296,6 +316,51 @@ pub const FakeResBridge = struct {
         for (self.geometry_homes.items) |home| if (home.node == node and home.channel == channel) return .ok;
         self.say("this geometry channel has no MFC home on this node", .{});
         return .refused;
+    }
+
+    /// Declares a template file the insert call can read: the window it adds
+    /// has this ClassTypeID and size.
+    pub fn addGuiTemplate(self: *FakeResBridge, path: []const u8, class_type: i32, w: i32, h: i32) !void {
+        const owned = try self.allocator.dupe(u8, path);
+        errdefer self.allocator.free(owned);
+        try self.gui_templates.append(self.allocator, .{ .path = owned, .class_type = class_type, .w = w, .h = h });
+    }
+
+    fn resetGui(self: *FakeResBridge) void {
+        self.gui_windows.clearRetainingCapacity();
+        for (self.gui_attrs.items) |a| {
+            self.allocator.free(a.name);
+            self.allocator.free(a.value);
+        }
+        self.gui_attrs.clearRetainingCapacity();
+        self.gui_next_id = 1;
+        if (self.kind == .gui_frame) {
+            self.gui_windows.append(self.allocator, .{ .id = 0, .parent = -1, .class_type = 0, .element_id = 0, .flag = 0, .x = 0, .y = 0, .w = 800, .h = 600, .visible = 1 }) catch {};
+        }
+    }
+
+    fn requireGui(self: *FakeResBridge) Status {
+        if (self.kind != .gui_frame) {
+            self.say("the open project is not a screen", .{});
+            return .refused;
+        }
+        return .ok;
+    }
+
+    fn guiIndex(self: *const FakeResBridge, id: i32) ?usize {
+        for (self.gui_windows.items, 0..) |w, i| if (w.id == id) return i;
+        return null;
+    }
+
+    /// Whether `id` is `ancestor` or sits under it.
+    fn guiUnder(self: *const FakeResBridge, id: i32, ancestor: i32) bool {
+        var at = id;
+        while (at >= 0) {
+            if (at == ancestor) return true;
+            const index = self.guiIndex(at) orelse return false;
+            at = self.gui_windows.items[index].parent;
+        }
+        return false;
     }
 
     pub fn setNoDevice(self: *FakeResBridge, value: bool) void {
@@ -464,6 +529,7 @@ pub const FakeResBridge = struct {
         self.geometry.clearRetainingCapacity();
         self.geometry_homes.clearRetainingCapacity();
         self.kind = kind;
+        self.resetGui();
         self.effect_angle = std.math.pi / 4.0;
         self.has_path = false;
         var root: FakeNode = .{ .id = self.next_id, .parent = -1 };
@@ -522,6 +588,7 @@ pub const FakeResBridge = struct {
         self.geometry.clearRetainingCapacity();
         self.geometry_homes.clearRetainingCapacity();
         self.kind = null;
+        self.resetGui();
         self.has_path = false;
         return .ok;
     }
@@ -1404,6 +1471,243 @@ pub const FakeResBridge = struct {
         return .ok;
     }
 
+    fn guiWindows(ptr: *anyopaque, out: []GuiWindow, total: *usize) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        total.* = 0;
+        const check = self.requireGui();
+        if (check != .ok) return check;
+        total.* = self.gui_windows.items.len;
+        const n = @min(out.len, self.gui_windows.items.len);
+        @memcpy(out[0..n], self.gui_windows.items[0..n]);
+        return .ok;
+    }
+
+    fn guiSetRects(ptr: *anyopaque, rects: []const GuiRect) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const check = self.requireGui();
+        if (check != .ok) return check;
+        for (rects) |r| if (self.guiIndex(r.id) == null) {
+            self.say("window {d} does not exist", .{r.id});
+            return .bad_argument;
+        };
+        for (rects) |r| {
+            const w = &self.gui_windows.items[self.guiIndex(r.id).?];
+            w.flag = r.flag;
+            w.x = r.x;
+            w.y = r.y;
+            w.w = r.w;
+            w.h = r.h;
+        }
+        return .ok;
+    }
+
+    fn guiInsertTemplate(ptr: *anyopaque, parent: i32, template_path: []const u8, x: i32, y: i32, out_id: *i32) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        out_id.* = -1;
+        const check = self.requireGui();
+        if (check != .ok) return check;
+        if (self.guiIndex(parent) == null) {
+            self.say("window {d} does not exist", .{parent});
+            return .bad_argument;
+        }
+        for (self.gui_templates.items) |t| if (std.mem.eql(u8, t.path, template_path)) {
+            const id = self.gui_next_id;
+            self.gui_windows.append(self.allocator, .{ .id = id, .parent = parent, .class_type = t.class_type, .element_id = 0, .flag = 0, .x = x, .y = y, .w = t.w, .h = t.h, .visible = 1 }) catch return .failed;
+            self.gui_next_id += 1;
+            out_id.* = id;
+            return .ok;
+        };
+        self.say("cannot read the template {s}", .{template_path});
+        return .data_missing;
+    }
+
+    fn guiDelete(ptr: *anyopaque, ids: []const i32) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const check = self.requireGui();
+        if (check != .ok) return check;
+        for (ids) |id| if (id == 0 or self.guiIndex(id) == null) {
+            self.say("window {d} is the root or does not exist", .{id});
+            return .refused;
+        };
+        var i: usize = 0;
+        while (i < self.gui_windows.items.len) {
+            const w = self.gui_windows.items[i];
+            var doomed = false;
+            for (ids) |id| if (self.guiUnder(w.id, id)) {
+                doomed = true;
+            };
+            if (doomed) _ = self.gui_windows.orderedRemove(i) else i += 1;
+        }
+        return .ok;
+    }
+
+    /// Clipboard text of the fake: one `<parent line or -1>\t<class>\t<element>\t<flag>\t<x>\t<y>\t<w>\t<h>`
+    /// line per window, the outermost windows' subtrees in document order.
+    fn guiCopy(ptr: *anyopaque, ids: []const i32, out: []u8, out_size: *usize) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        out_size.* = 0;
+        const check = self.requireGui();
+        if (check != .ok) return check;
+        for (ids) |id| if (id == 0 or self.guiIndex(id) == null) {
+            self.say("window {d} is the root or does not exist", .{id});
+            return .refused;
+        };
+        var text: std.ArrayListUnmanaged(u8) = .empty;
+        defer text.deinit(self.allocator);
+        var line_of: std.AutoHashMapUnmanaged(i32, i32) = .empty;
+        defer line_of.deinit(self.allocator);
+        var lines: i32 = 0;
+        for (self.gui_windows.items) |w| {
+            var chosen = false;
+            for (ids) |id| if (self.guiUnder(w.id, id)) {
+                chosen = true;
+            };
+            if (!chosen) continue;
+            const parent_line: i32 = line_of.get(w.parent) orelse -1;
+            var buffer: [160]u8 = undefined;
+            const line = std.fmt.bufPrint(&buffer, "{d}\t{d}\t{d}\t{d}\t{d}\t{d}\t{d}\t{d}\n", .{ parent_line, w.class_type, w.element_id, w.flag, w.x, w.y, w.w, w.h }) catch return .failed;
+            text.appendSlice(self.allocator, line) catch return .failed;
+            line_of.put(self.allocator, w.id, lines) catch return .failed;
+            lines += 1;
+        }
+        out_size.* = text.items.len;
+        if (out.len < text.items.len) return .refused;
+        @memcpy(out[0..text.items.len], text.items);
+        return .ok;
+    }
+
+    fn guiPaste(ptr: *anyopaque, parent: i32, clipboard: []const u8, dx: i32, dy: i32, out_ids: []i32, total: *usize) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        total.* = 0;
+        const check = self.requireGui();
+        if (check != .ok) return check;
+        if (self.guiIndex(parent) == null) {
+            self.say("window {d} does not exist", .{parent});
+            return .bad_argument;
+        }
+        var made: std.ArrayListUnmanaged(i32) = .empty;
+        defer made.deinit(self.allocator);
+        const first_new = self.gui_windows.items.len;
+        var lines = std.mem.tokenizeScalar(u8, clipboard, '\n');
+        while (lines.next()) |line| {
+            var fields = std.mem.splitScalar(u8, line, '\t');
+            var v: [8]i32 = undefined;
+            for (&v) |*slot| {
+                const text = fields.next() orelse {
+                    self.gui_windows.shrinkRetainingCapacity(first_new);
+                    self.say("the clipboard holds no windows", .{});
+                    return .refused;
+                };
+                slot.* = std.fmt.parseInt(i32, std.mem.trim(u8, text, "\r"), 10) catch {
+                    self.gui_windows.shrinkRetainingCapacity(first_new);
+                    self.say("the clipboard holds no windows", .{});
+                    return .refused;
+                };
+            }
+            const top = v[0] < 0;
+            const owner: i32 = if (top) parent else made.items[@intCast(v[0])];
+            const id = self.gui_next_id;
+            self.gui_windows.append(self.allocator, .{
+                .id = id,
+                .parent = owner,
+                .class_type = v[1],
+                .element_id = v[2],
+                .flag = v[3],
+                .x = if (top) v[4] + dx else v[4],
+                .y = if (top) v[5] + dy else v[5],
+                .w = v[6],
+                .h = v[7],
+                .visible = 1,
+            }) catch return .failed;
+            made.append(self.allocator, id) catch return .failed;
+            self.gui_next_id += 1;
+            if (top) {
+                if (total.* < out_ids.len) out_ids[total.*] = id;
+                total.* += 1;
+            }
+        }
+        if (made.items.len == 0) {
+            self.say("the clipboard holds no windows", .{});
+            return .refused;
+        }
+        return .ok;
+    }
+
+    fn guiGetAttr(ptr: *anyopaque, id: i32, name: []const u8, out: []u8, out_size: *usize) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        out_size.* = 0;
+        const check = self.requireGui();
+        if (check != .ok) return check;
+        if (self.guiIndex(id) == null) {
+            self.say("window {d} does not exist", .{id});
+            return .bad_argument;
+        }
+        for (self.gui_attrs.items) |a| if (a.id == id and std.mem.eql(u8, a.name, name)) {
+            out_size.* = a.value.len;
+            if (out.len < a.value.len) return .refused;
+            @memcpy(out[0..a.value.len], a.value);
+            return .ok;
+        };
+        self.say("window {d} has no attribute {s}", .{ id, name });
+        return .data_missing;
+    }
+
+    fn guiSetAttr(ptr: *anyopaque, id: i32, name: []const u8, value: []const u8) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const check = self.requireGui();
+        if (check != .ok) return check;
+        if (self.guiIndex(id) == null) {
+            self.say("window {d} does not exist", .{id});
+            return .bad_argument;
+        }
+        const new_value = self.allocator.dupe(u8, value) catch return .failed;
+        for (self.gui_attrs.items) |*a| if (a.id == id and std.mem.eql(u8, a.name, name)) {
+            self.allocator.free(a.value);
+            a.value = new_value;
+            return .ok;
+        };
+        const owned_name = self.allocator.dupe(u8, name) catch {
+            self.allocator.free(new_value);
+            return .failed;
+        };
+        self.gui_attrs.append(self.allocator, .{ .id = id, .name = owned_name, .value = new_value }) catch {
+            self.allocator.free(owned_name);
+            self.allocator.free(new_value);
+            return .failed;
+        };
+        return .ok;
+    }
+
+    fn guiTemplates(ptr: *anyopaque, user_folder: []const u8, out: []u8, out_size: *usize) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        _ = user_folder;
+        var text: std.ArrayListUnmanaged(u8) = .empty;
+        defer text.deinit(self.allocator);
+        for (self.gui_templates.items) |t| {
+            const file = std.fs.path.basename(t.path);
+            const folder = std.fs.path.basename(std.fs.path.dirname(t.path) orelse "");
+            text.appendSlice(self.allocator, folder) catch return .failed;
+            text.append(self.allocator, '\t') catch return .failed;
+            text.appendSlice(self.allocator, file) catch return .failed;
+            text.append(self.allocator, '\t') catch return .failed;
+            text.appendSlice(self.allocator, t.path) catch return .failed;
+            text.append(self.allocator, '\n') catch return .failed;
+        }
+        out_size.* = text.items.len;
+        if (out.len < text.items.len) return .refused;
+        @memcpy(out[0..text.items.len], text.items);
+        return .ok;
+    }
+
     const vtable: ResBridge.VTable = .{
         .lastMessage = lastMessage,
         .new = new,
@@ -1451,6 +1755,15 @@ pub const FakeResBridge = struct {
         .particleSetSourceMode = particleSetSourceMode,
         .previewCameraMode = previewCameraMode,
         .previewWireframe = previewWireframe,
+        .guiWindows = guiWindows,
+        .guiSetRects = guiSetRects,
+        .guiInsertTemplate = guiInsertTemplate,
+        .guiDelete = guiDelete,
+        .guiCopy = guiCopy,
+        .guiPaste = guiPaste,
+        .guiGetAttr = guiGetAttr,
+        .guiSetAttr = guiSetAttr,
+        .guiTemplates = guiTemplates,
     };
 };
 
@@ -1726,4 +2039,48 @@ fn readNode(allocator: std.mem.Allocator, blob: []const u8, cursor: *usize, out:
         out.props.appendAssumeCapacity(record);
     }
     return true;
+}
+
+test "fake gui windows: insert, set rects, copy, paste and delete keep MFC's id semantics" {
+    var fake = FakeResBridge.init(std.testing.allocator);
+    defer fake.deinit();
+    try fake.addGuiTemplate("Data/Editor/UI/Buttons/Simple.xml", 3, 80, 20);
+    const b = fake.bridge();
+    try std.testing.expectEqual(Status.refused, b.guiDelete(&.{1}));
+    try std.testing.expectEqual(Status.ok, b.new(.gui_frame));
+
+    var id: i32 = -1;
+    try std.testing.expectEqual(Status.ok, b.guiInsertTemplate(0, "Data/Editor/UI/Buttons/Simple.xml", 10, 20, &id));
+    try std.testing.expectEqual(@as(i32, 1), id);
+    try std.testing.expectEqual(Status.data_missing, b.guiInsertTemplate(0, "nope.xml", 0, 0, &id));
+
+    try std.testing.expectEqual(Status.ok, b.guiSetRects(&.{.{ .id = 1, .flag = 5, .x = 30, .y = 40, .w = 90, .h = 25 }}));
+    try std.testing.expectEqual(Status.bad_argument, b.guiSetRects(&.{ .{ .id = 1, .flag = 0, .x = 0, .y = 0, .w = 1, .h = 1 }, .{ .id = 9, .flag = 0, .x = 0, .y = 0, .w = 1, .h = 1 } }));
+
+    var windows: [4]GuiWindow = undefined;
+    var total: usize = 0;
+    try std.testing.expectEqual(Status.ok, b.guiWindows(&windows, &total));
+    try std.testing.expectEqual(@as(usize, 2), total);
+    try std.testing.expectEqual(@as(i32, 30), windows[1].x);
+    try std.testing.expectEqual(@as(i32, 1), windows[1].w - 89);
+
+    var clip: [256]u8 = undefined;
+    var size: usize = 0;
+    try std.testing.expectEqual(Status.ok, b.guiCopy(&.{1}, &clip, &size));
+    var pasted: [2]i32 = undefined;
+    try std.testing.expectEqual(Status.ok, b.guiPaste(0, clip[0..size], 5, 5, &pasted, &total));
+    try std.testing.expectEqual(@as(usize, 1), total);
+    try std.testing.expectEqual(@as(i32, 2), pasted[0]);
+    try std.testing.expectEqual(Status.refused, b.guiPaste(0, "garbage", 0, 0, &pasted, &total));
+
+    try std.testing.expectEqual(Status.ok, b.guiSetAttr(1, "Name", "Ok"));
+    var text: [8]u8 = undefined;
+    try std.testing.expectEqual(Status.ok, b.guiGetAttr(1, "Name", &text, &size));
+    try std.testing.expectEqualStrings("Ok", text[0..size]);
+    try std.testing.expectEqual(Status.data_missing, b.guiGetAttr(1, "Other", &text, &size));
+
+    try std.testing.expectEqual(Status.refused, b.guiDelete(&.{0}));
+    try std.testing.expectEqual(Status.ok, b.guiDelete(&.{1}));
+    try std.testing.expectEqual(Status.ok, b.guiWindows(&windows, &total));
+    try std.testing.expectEqual(@as(usize, 2), total);
 }

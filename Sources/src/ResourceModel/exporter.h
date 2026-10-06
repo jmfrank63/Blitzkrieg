@@ -45,6 +45,12 @@ struct SExportContext
 	std::string szModName;
 	std::string szModVersion;
 
+	// The GUI sub-editor's screen: its current text (before any <base> rewrite) and its name, the
+	// opened file's name without extension. A screen is not a project tree, so the bridge fills
+	// these and ExportGui reads nothing else. Empty for every other kind.
+	std::string szScreenText;
+	std::string szScreenName;
+
 	// D015: the objects database MFC's frames asked through IObjectsDB, which
 	// an exporter does not own. Given a resource path as MFC builds it (lower
 	// case, backslashes, e.g. "units\humans\ussr\mosin"), the key name of the

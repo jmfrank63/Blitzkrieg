@@ -41,6 +41,7 @@
 #include "../ResourceModel/future_blob.h"
 #include "../ResourceModel/references.h"
 #include "../ResourceModel/exporter.h"
+#include "../ResourceModel/ui_screen.h"
 #include "../ResourceModel/items/stats_export.h"
 #include "../ResourceModel/items/mesh/mesh.h"
 #include "../ResourceModel/items/object/object_export.h"
@@ -75,6 +76,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -186,6 +188,10 @@ struct ResourceState
 	int nKindOrdinal = -1;
 	std::string szPath;                                    // "" until first Save
 	std::unique_ptr<NResourceModel::Project> pProject;
+	// A GUI screen (kind gui opened from a <base> or window-carrying GUI_Composer_Project
+	// document) is not a project tree: it is held as its own text model and pProject stays
+	// empty. The window ids are the model's.
+	std::unique_ptr<NResourceModel::CUiScreen> pScreen;
 	int nNextNodeId = 0;
 	std::unordered_map<int, NResourceModel::CTreeItem *> idToItem;
 	std::unordered_map<const NResourceModel::CTreeItem *, int> itemToId;
@@ -321,6 +327,7 @@ void ResetState( ResourceState &state )
 	state.nKindOrdinal = -1;
 	state.szPath.clear();
 	state.pProject.reset();
+	state.pScreen.reset();
 	state.nNextNodeId = 0;
 	state.idToItem.clear();
 	state.itemToId.clear();
@@ -1808,6 +1815,14 @@ std::string SerialiseSubtree( NResourceModel::CTreeItem &item )
 // without frame edits is not touched.
 bool RenderForSave( const ResourceState &state, std::string &szOut, std::string &szError )
 {
+	if ( state.pScreen )
+	{
+		// The model's text, which an unedited screen returns byte for byte. Save does not
+		// require a WindowPos on every window (some shipped screens place windows by their
+		// PositionFlag alone); the export does, and names the file and line.
+		szOut = state.pScreen->Save();
+		return true;
+	}
 	szOut = NResourceModel::Save( *state.pProject );
 	if ( state.pProject->root && ( !state.geometry.empty() || !state.editedCrossLists.empty() ) )
 	{
@@ -1827,6 +1842,67 @@ bool RenderForSave( const ResourceState &state, std::string &szOut, std::string 
 		szOut = NResourceXml::Serialise( doc );
 	}
 	return true;
+}
+
+// BK_DEBUG_LOG=1 traces every BkResGui* call, as the engine's DebugTrace does.
+void GuiTrace( const char *pszFormat, ... )
+{
+	static const bool bEnabled = [] { const char *psz = std::getenv( "BK_DEBUG_LOG" ); return psz != nullptr && *psz != 0 && *psz != '0'; }();
+	if ( !bEnabled )
+		return;
+	std::va_list args;
+	va_start( args, pszFormat );
+	std::fprintf( stderr, "BkResGui: " );
+	std::vfprintf( stderr, pszFormat, args );
+	std::fprintf( stderr, "\n" );
+	va_end( args );
+}
+
+// Whether a file is a GUI screen and not a palette project: a <base> root, or a
+// GUI_Composer_Project that carries windows (a <childs> palette tree is the S03 project form).
+// Sets szError, and returns true, when the text claims to be a screen but is not one.
+bool LooksLikeScreen( const std::string &szText )
+{
+	if ( szText.find( "<base" ) != std::string::npos )
+		return true;
+	return szText.find( "<GUI_Composer_Project" ) != std::string::npos && szText.find( "<childs" ) == std::string::npos &&
+	       szText.find( "WindowPos" ) != std::string::npos;
+}
+
+std::string ScreenNameOf( const std::string &szPath )
+{
+	return std::filesystem::path( szPath ).stem().string();
+}
+
+// The open screen, or null with the status and message set.
+NResourceModel::CUiScreen *OpenScreen( BkResSession *pSession, BkEditorStatus &status )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen || !state.pScreen )
+	{
+		pSession->szMessage = state.bOpen ? "the open project is not a GUI screen" : "no project is open";
+		status = BK_EDITOR_REFUSED;
+		return nullptr;
+	}
+	status = BK_EDITOR_OK;
+	return state.pScreen.get();
+}
+
+// Text out through a caller's buffer: *pnSize is the size needed (without the terminator)
+// whatever the capacity, and a buffer too small is refused with nothing written.
+BkEditorStatus GiveText( BkResSession *pSession, const std::string &szText, char *pOut, int nCapacity, int *pnSize )
+{
+	if ( pnSize != nullptr )
+		*pnSize = int( szText.size() );
+	if ( pOut == nullptr || nCapacity <= 0 )
+		return BK_EDITOR_OK;
+	if ( nCapacity < int( szText.size() ) + 1 )
+	{
+		pSession->szMessage = "the buffer holds " + std::to_string( nCapacity ) + " bytes, " + std::to_string( szText.size() + 1 ) + " are needed";
+		return BK_EDITOR_REFUSED;
+	}
+	std::memcpy( pOut, szText.c_str(), szText.size() + 1 );
+	return BK_EDITOR_OK;
 }
 
 } // namespace
@@ -1879,6 +1955,24 @@ BkEditorStatus BkResOpen( BkResSession *pSession, const char *pszPath )
 			pSession->szMessage = std::string( "cannot read " ) + pszPath;
 			return BK_EDITOR_DATA_MISSING;
 		}
+		if ( LooksLikeScreen( bytes ) )
+		{
+			auto pScreen = std::make_unique<NResourceModel::CUiScreen>();
+			std::string szScreenError;
+			if ( !pScreen->Open( bytes, std::filesystem::path( pszPath ).filename().string(), szScreenError ) )
+			{
+				pSession->szMessage = szScreenError;
+				return BK_EDITOR_DATA_MISSING;
+			}
+			ResourceState &screenState = StateOf( pSession );
+			ResetState( screenState );
+			screenState.pScreen = std::move( pScreen );
+			screenState.bOpen = true;
+			screenState.nKindOrdinal = KindOrdinalFromRootType( NResourceModel::ETIT_GUI_ROOT_ITEM );
+			screenState.szPath = pszPath;
+			GuiTrace( "open %s: %d windows, root <%s>", pszPath, int( screenState.pScreen->Windows().size() ), screenState.pScreen->RootName().c_str() );
+			return BK_EDITOR_OK;
+		}
 		auto pProject = std::make_unique<NResourceModel::Project>();
 		std::string szError;
 		if ( !NResourceModel::Load( bytes, *pProject, szError ) )
@@ -1909,7 +2003,7 @@ BkEditorStatus BkResSave( BkResSession *pSession, const char *pszPath )
 		if ( pszPath == nullptr || *pszPath == 0 )
 			return BK_EDITOR_BAD_ARGUMENT;
 		ResourceState &state = StateOf( pSession );
-		if ( !state.bOpen || !state.pProject )
+		if ( !state.bOpen || ( !state.pProject && !state.pScreen ) )
 		{
 			pSession->szMessage = "no project is open";
 			return BK_EDITOR_REFUSED;
@@ -3572,6 +3666,7 @@ void ReadModFile( const std::filesystem::path &dataDir, std::string &szName, std
 
 bool ExportOne( const NResourceModel::Project &project, const std::string &szProjectPath, const std::string &szExtension,
                 const std::filesystem::path &dataDir, const std::filesystem::path &editorDataDir, int nFlags, bool bStatsOnly,
+                const std::string &szScreenText, const std::string &szScreenName,
                 NResourceModel::SExportOutcome &outcome, std::string &szError )
 {
 	const NResourceModel::FExporter pfnExporter = NResourceModel::FindExporter( szExtension );
@@ -3596,6 +3691,8 @@ bool ExportOne( const NResourceModel::Project &project, const std::string &szPro
 	context.bStatsOnly = bStatsOnly;
 	context.szDataRoot = dataDir.string();
 	context.szEditorDataDir = editorDataDir.string();
+	context.szScreenText = szScreenText;
+	context.szScreenName = szScreenName;
 	std::string szModDesc;
 	ReadModFile( dataDir, context.szModName, context.szModVersion, szModDesc );
 	FillEngineLookups( context, dataDir.parent_path() / ".bk-export-mesh" );
@@ -3630,7 +3727,7 @@ BkEditorStatus ExportOpenProject( BkResSession *pSession, int nFlags, bool bStat
 {
 	FillReport( pReport, 0, 0, std::vector<std::string>() );
 	ResourceState &state = StateOf( pSession );
-	if ( !state.bOpen || !state.pProject )
+	if ( !state.bOpen || ( !state.pProject && !state.pScreen ) )
 	{
 		pSession->szMessage = "no project is open";
 		return BK_EDITOR_REFUSED;
@@ -3654,7 +3751,10 @@ BkEditorStatus ExportOpenProject( BkResSession *pSession, int nFlags, bool bStat
 	const std::filesystem::path dataDir = ChildFolder( ExportDirOf( pSession ), "data" );
 	if ( IsShippedData( pSession, dataDir ) )
 	{
-		pSession->szMessage = "the export root is the shipped Data folder; set a mod folder in MOD settings";
+		pSession->szMessage = state.pScreen
+			? "gui export refused: " + ( dataDir / "ui" / ( ScreenNameOf( state.szPath ) + ".xml" ) ).generic_string() +
+			  " is inside the shipped Data folder, which is never written; set a mod folder in MOD settings"
+			: std::string( "the export root is the shipped Data folder; set a mod folder in MOD settings" );
 		return BK_EDITOR_REFUSED;
 	}
 	std::string szBytes;
@@ -3662,13 +3762,27 @@ BkEditorStatus ExportOpenProject( BkResSession *pSession, int nFlags, bool bStat
 		return BK_EDITOR_FAILED;
 	NResourceModel::Project project;
 	std::string szError;
+	if ( state.pScreen )
+	{
+		NResourceModel::SExportOutcome outcome;
+		if ( !ExportOne( project, state.szPath, szExtension, dataDir, ShippedDataFolder( pSession ), nFlags, bStatsOnly, szBytes, ScreenNameOf( state.szPath ), outcome, szError ) )
+		{
+			FillReport( pReport, 0, 0, outcome.warnings );
+			pSession->szMessage = szError;
+			return BK_EDITOR_FAILED;
+		}
+		GuiTrace( "export %s: wrote %d files into %s", state.szPath.c_str(), outcome.nWritten, dataDir.string().c_str() );
+		FillReport( pReport, outcome.nWritten, outcome.nSkipped, outcome.warnings );
+		pSession->szMessage = "exported " + std::to_string( outcome.nWritten ) + " files into " + dataDir.string();
+		return BK_EDITOR_OK;
+	}
 	if ( !NResourceModel::Load( szBytes, project, szError ) )
 	{
 		pSession->szMessage = "cannot re-read the project for export: " + szError;
 		return BK_EDITOR_FAILED;
 	}
 	NResourceModel::SExportOutcome outcome;
-	if ( !ExportOne( project, state.szPath, szExtension, dataDir, ShippedDataFolder( pSession ), nFlags, bStatsOnly, outcome, szError ) )
+	if ( !ExportOne( project, state.szPath, szExtension, dataDir, ShippedDataFolder( pSession ), nFlags, bStatsOnly, std::string(), std::string(), outcome, szError ) )
 	{
 		FillReport( pReport, 0, 0, outcome.warnings );
 		pSession->szMessage = szError;
@@ -3786,6 +3900,265 @@ BkEditorStatus BkResExportStatsOnly( BkResSession *pSession, int nFlags, BkResEx
 	return Guarded( pSession, [=]() -> BkEditorStatus { return ExportOpenProject( pSession, nFlags, true, pReport ); } );
 }
 
+/* ---- GUI screens ------------------------------------------------------ */
+
+BkEditorStatus BkResGuiWindows( BkResSession *pSession, int *pOut, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		BkEditorStatus status;
+		NResourceModel::CUiScreen *pScreen = OpenScreen( pSession, status );
+		if ( pnCount != nullptr )
+			*pnCount = pScreen != nullptr ? int( pScreen->Windows().size() ) : 0;
+		if ( pScreen == nullptr )
+			return status;
+		GuiTrace( "windows: %d", int( pScreen->Windows().size() ) );
+		if ( pOut == nullptr || nCapacity <= 0 )
+			return BK_EDITOR_OK;
+		if ( nCapacity < int( pScreen->Windows().size() ) )
+		{
+			pSession->szMessage = "the buffer holds " + std::to_string( nCapacity ) + " windows, " + std::to_string( pScreen->Windows().size() ) + " are needed";
+			return BK_EDITOR_REFUSED;
+		}
+		int *pDst = pOut;
+		for ( const NResourceModel::SUiWindow &w : pScreen->Windows() )
+		{
+			*pDst++ = w.nId;
+			*pDst++ = w.nParent;
+			*pDst++ = int( w.nClassTypeID );
+			*pDst++ = w.nElementID;
+			*pDst++ = w.nPositionFlag;
+			*pDst++ = int( std::lround( w.x ) );
+			*pDst++ = int( std::lround( w.y ) );
+			*pDst++ = int( std::lround( w.w ) );
+			*pDst++ = int( std::lround( w.h ) );
+			*pDst++ = w.nVisibleFlag;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResGuiSetRects( BkResSession *pSession, const int *pIn, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		BkEditorStatus status;
+		NResourceModel::CUiScreen *pScreen = OpenScreen( pSession, status );
+		if ( pScreen == nullptr )
+			return status;
+		if ( nCount < 0 || ( nCount > 0 && pIn == nullptr ) )
+			return BK_EDITOR_BAD_ARGUMENT;
+		GuiTrace( "set rects: %d", nCount );
+		// All or nothing: the whole batch is applied to a copy and kept only when every
+		// entry took, so a bad id in a batched move leaves the screen as it was.
+		NResourceModel::CUiScreen work = *pScreen;
+		for ( int i = 0; i < nCount; ++i )
+		{
+			const int *p = pIn + 6 * i;
+			std::string szError;
+			if ( !work.SetRect( p[0], p[1], float( p[2] ), float( p[3] ), float( p[4] ), float( p[5] ), szError ) )
+			{
+				pSession->szMessage = szError;
+				return work.Find( p[0] ) == nullptr ? BK_EDITOR_BAD_ARGUMENT : BK_EDITOR_FAILED;
+			}
+			GuiTrace( "  window %d: flag 0x%x rect %d %d %d %d", p[0], p[1], p[2], p[3], p[4], p[5] );
+		}
+		*pScreen = work;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResGuiInsertTemplate( BkResSession *pSession, int nParent, const char *pszTemplate, int x, int y, int *pnId )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		BkEditorStatus status;
+		NResourceModel::CUiScreen *pScreen = OpenScreen( pSession, status );
+		if ( pScreen == nullptr )
+			return status;
+		if ( pnId != nullptr )
+			*pnId = -1;
+		if ( pszTemplate == nullptr || *pszTemplate == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		std::string szTemplate;
+		if ( !ReadFileBytes( pszTemplate, szTemplate ) )
+		{
+			pSession->szMessage = std::string( "cannot read the template " ) + pszTemplate;
+			return BK_EDITOR_DATA_MISSING;
+		}
+		if ( pScreen->Find( nParent ) == nullptr )
+		{
+			pSession->szMessage = "no window with id " + std::to_string( nParent );
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		GuiTrace( "insert template %s under %d at %d,%d", pszTemplate, nParent, x, y );
+		std::string szError;
+		const int nId = pScreen->InsertFromTemplate( nParent, szTemplate, float( x ), float( y ), szError );
+		if ( nId < 0 )
+		{
+			pSession->szMessage = std::string( pszTemplate ) + ": " + szError;
+			return BK_EDITOR_FAILED;
+		}
+		if ( pnId != nullptr )
+			*pnId = nId;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResGuiDelete( BkResSession *pSession, const int *pIds, int nCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		BkEditorStatus status;
+		NResourceModel::CUiScreen *pScreen = OpenScreen( pSession, status );
+		if ( pScreen == nullptr )
+			return status;
+		if ( nCount <= 0 || pIds == nullptr )
+			return BK_EDITOR_BAD_ARGUMENT;
+		GuiTrace( "delete %d windows, first %d", nCount, pIds[0] );
+		std::string szError;
+		if ( !pScreen->Delete( std::vector<int>( pIds, pIds + nCount ), szError ) )
+		{
+			pSession->szMessage = szError;
+			return BK_EDITOR_REFUSED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResGuiCopy( BkResSession *pSession, const int *pIds, int nCount, char *pOut, int nCapacity, int *pnSize )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		BkEditorStatus status;
+		NResourceModel::CUiScreen *pScreen = OpenScreen( pSession, status );
+		if ( pScreen == nullptr )
+			return status;
+		if ( nCount <= 0 || pIds == nullptr )
+			return BK_EDITOR_BAD_ARGUMENT;
+		for ( int i = 0; i < nCount; ++i )
+			if ( pScreen->Find( pIds[i] ) == nullptr )
+			{
+				pSession->szMessage = "no window with id " + std::to_string( pIds[i] );
+				return BK_EDITOR_BAD_ARGUMENT;
+			}
+		GuiTrace( "copy %d windows", nCount );
+		return GiveText( pSession, pScreen->CopyText( std::vector<int>( pIds, pIds + nCount ) ), pOut, nCapacity, pnSize );
+	} );
+}
+
+BkEditorStatus BkResGuiPaste( BkResSession *pSession, int nParent, const char *pszClipboard, int dx, int dy, int *pOutIds, int nCapacity, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		BkEditorStatus status;
+		NResourceModel::CUiScreen *pScreen = OpenScreen( pSession, status );
+		if ( pnCount != nullptr )
+			*pnCount = 0;
+		if ( pScreen == nullptr )
+			return status;
+		if ( pszClipboard == nullptr || pScreen->Find( nParent ) == nullptr )
+			return BK_EDITOR_BAD_ARGUMENT;
+		GuiTrace( "paste under %d moved by %d,%d", nParent, dx, dy );
+		std::vector<int> ids;
+		std::string szError;
+		if ( !pScreen->Paste( nParent, pszClipboard, float( dx ), float( dy ), &ids, szError ) )
+		{
+			pSession->szMessage = szError;
+			return BK_EDITOR_REFUSED;
+		}
+		if ( pnCount != nullptr )
+			*pnCount = int( ids.size() );
+		for ( int i = 0; pOutIds != nullptr && i < nCapacity && i < int( ids.size() ); ++i )
+			pOutIds[i] = ids[i];
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResGuiGetAttr( BkResSession *pSession, int nId, const char *pszName, char *pOut, int nCapacity, int *pnSize )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		BkEditorStatus status;
+		NResourceModel::CUiScreen *pScreen = OpenScreen( pSession, status );
+		if ( pScreen == nullptr )
+			return status;
+		if ( pszName == nullptr || *pszName == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		std::string szValue, szError;
+		if ( !pScreen->GetAttribute( nId, pszName, szValue, szError ) )
+		{
+			if ( pnSize != nullptr )
+				*pnSize = 0;
+			if ( szError.empty() )
+			{
+				pSession->szMessage = "window " + std::to_string( nId ) + " has no attribute " + pszName;
+				return BK_EDITOR_DATA_MISSING;
+			}
+			pSession->szMessage = szError;
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		GuiTrace( "get attr %d.%s", nId, pszName );
+		return GiveText( pSession, szValue, pOut, nCapacity, pnSize );
+	} );
+}
+
+BkEditorStatus BkResGuiSetAttr( BkResSession *pSession, int nId, const char *pszName, const char *pszValue )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		BkEditorStatus status;
+		NResourceModel::CUiScreen *pScreen = OpenScreen( pSession, status );
+		if ( pScreen == nullptr )
+			return status;
+		if ( pszName == nullptr || *pszName == 0 || pszValue == nullptr )
+			return BK_EDITOR_BAD_ARGUMENT;
+		GuiTrace( "set attr %d.%s = %s", nId, pszName, pszValue );
+		std::string szError;
+		if ( !pScreen->SetAttribute( nId, pszName, pszValue, szError ) )
+		{
+			pSession->szMessage = szError;
+			return pScreen->Find( nId ) == nullptr ? BK_EDITOR_BAD_ARGUMENT : BK_EDITOR_FAILED;
+		}
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResGuiTemplates( BkResSession *pSession, const char *pszUserFolder, char *pOut, int nCapacity, int *pnSize )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		struct SEntry { std::string szFolder, szName, szPath; };
+		std::vector<SEntry> entries;
+		std::error_code ec;
+		const auto collect = [&]( const std::filesystem::path &dir, const std::string &szFolder )
+		{
+			std::vector<SEntry> found;
+			for ( std::filesystem::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+				if ( it->is_regular_file( ec ) && Fold( it->path().extension().string() ) == ".xml" )
+					found.push_back( { szFolder, it->path().filename().string(), it->path().generic_string() } );
+			std::sort( found.begin(), found.end(), []( const SEntry &a, const SEntry &b ) { return a.szName < b.szName; } );
+			entries.insert( entries.end(), found.begin(), found.end() );
+		};
+		// Data/Editor/UI/<Folder>/<Template>.xml, folders in name order, then the user's folder.
+		const std::filesystem::path root = ChildFolder( ChildFolder( ShippedDataFolder( pSession ), "Editor" ), "UI" );
+		std::vector<std::filesystem::path> folders;
+		for ( std::filesystem::directory_iterator it( root, ec ), end; !ec && it != end; it.increment( ec ) )
+			if ( it->is_directory( ec ) )
+				folders.push_back( it->path() );
+		std::sort( folders.begin(), folders.end() );
+		for ( const std::filesystem::path &folder : folders )
+			collect( folder, folder.filename().string() );
+		if ( pszUserFolder != nullptr && *pszUserFolder != 0 )
+			collect( pszUserFolder, "User" );
+		std::string szText;
+		for ( const SEntry &e : entries )
+			szText += e.szFolder + "\t" + e.szName + "\t" + e.szPath + "\n";
+		GuiTrace( "templates: %d under %s", int( entries.size() ), root.generic_string().c_str() );
+		return GiveText( pSession, szText, pOut, nCapacity, pnSize );
+	} );
+}
+
 BkEditorStatus BkResBatch( BkResSession *pSession, int nKind, const char *pszSrc, const char *pszDst, int nFlags, BkResExportReport *pReport )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus
@@ -3844,7 +4217,7 @@ BkEditorStatus BkResBatch( BkResSession *pSession, int nKind, const char *pszSrc
 				continue;
 			}
 			NResourceModel::SExportOutcome outcome;
-			if ( ExportOne( project, szPath, kKindExtensions[entry.first], dataDir, ShippedDataFolder( pSession ), nFlags, false, outcome, szError ) )
+			if ( ExportOne( project, szPath, kKindExtensions[entry.first], dataDir, ShippedDataFolder( pSession ), nFlags, false, std::string(), std::string(), outcome, szError ) )
 			{
 				nWritten += outcome.nWritten;
 				nSkipped += outcome.nSkipped;

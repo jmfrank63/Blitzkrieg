@@ -574,6 +574,25 @@ bool CUiScreen::Validate( std::string &szError ) const
 	return true;
 }
 
+bool CUiScreen::GetAttribute( int nId, const std::string &szName, std::string &szValue, std::string &szError ) const
+{
+	size_t nIndex = 0;
+	while ( nIndex < m_windows.size() && m_windows[nIndex].nId != nId )
+		++nIndex;
+	if ( nIndex == m_windows.size() )
+	{
+		szError = m_szName + ": no window with id " + std::to_string( nId );
+		return false;
+	}
+	SDoc doc;
+	doc.szText = m_szText;
+	doc.szName = m_szName;
+	if ( !doc.Load( szError ) )
+		return false;
+	szValue.clear();
+	return doc.GetAttr( doc.win[nIndex], szName.c_str(), &szValue );
+}
+
 bool CUiScreen::SetAttribute( int nId, const std::string &szName, const std::string &szValue, std::string &szError )
 {
 	size_t nIndex = 0;

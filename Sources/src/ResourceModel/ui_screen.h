@@ -50,6 +50,9 @@ public:
 	// Rewrites only PositionFlag and the WindowPos and WindowSize attributes of window nId
 	// (creating the two elements when the window has none).
 	bool SetRect( int nId, int nPositionFlag, float x, float y, float w, float h, std::string &szError );
+	// The value of attribute szName on window nId; false (szError empty) when the window has no
+	// such attribute, false with szError when the window is unknown.
+	bool GetAttribute( int nId, const std::string &szName, std::string &szValue, std::string &szError ) const;
 	bool SetAttribute( int nId, const std::string &szName, const std::string &szValue, std::string &szError );
 	// szTemplate is a Data/Editor/UI/*/*.xml <base> document. Its root becomes an <item>
 	// appended to nParent's Children (made when absent) with WindowPos set to x, y.

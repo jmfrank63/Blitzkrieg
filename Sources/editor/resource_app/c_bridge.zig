@@ -209,6 +209,15 @@ pub const RealResBridge = struct {
         .particleSetSourceMode = particleSetSourceMode,
         .previewCameraMode = previewCameraMode,
         .previewWireframe = previewWireframe,
+        .guiWindows = guiWindows,
+        .guiSetRects = guiSetRects,
+        .guiInsertTemplate = guiInsertTemplate,
+        .guiDelete = guiDelete,
+        .guiCopy = guiCopy,
+        .guiPaste = guiPaste,
+        .guiGetAttr = guiGetAttr,
+        .guiSetAttr = guiSetAttr,
+        .guiTemplates = guiTemplates,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -806,6 +815,105 @@ pub const RealResBridge = struct {
             copyFixed(&dst.name, &record.name);
         }
         return .ok;
+    }
+    // --- game UI screens ---------------------------------------------------
+
+    comptime {
+        std.debug.assert(@sizeOf(rb.GuiWindow) == 10 * @sizeOf(c_int));
+        std.debug.assert(@sizeOf(rb.GuiRect) == 6 * @sizeOf(c_int));
+    }
+
+    /// BkResGuiWindows: ten ints per window, read straight into the slice.
+    fn guiWindows(ptr: *anyopaque, out: []rb.GuiWindow, total: *usize) Status {
+        const self = from(ptr);
+        var count: c_int = 0;
+        if (out.len == 0) {
+            const sized = status(c.BkResGuiWindows(self.session, null, 0, &count));
+            total.* = countOf(count);
+            if (sized == .ok and total.* > 0) return .refused;
+            return sized;
+        }
+        const result = status(c.BkResGuiWindows(self.session, @ptrCast(out.ptr), capacityOf(out.len), &count));
+        total.* = countOf(count);
+        return result;
+    }
+
+    /// BkResGuiSetRects: a batch of six-int entries, all or nothing.
+    fn guiSetRects(ptr: *anyopaque, rects: []const rb.GuiRect) Status {
+        const self = from(ptr);
+        return status(c.BkResGuiSetRects(self.session, @ptrCast(rects.ptr), capacityOf(rects.len)));
+    }
+
+    /// BkResGuiInsertTemplate: a template's window tree under `parent`.
+    fn guiInsertTemplate(ptr: *anyopaque, parent: i32, template_path: []const u8, x: i32, y: i32, out_id: *i32) Status {
+        const self = from(ptr);
+        out_id.* = -1;
+        var buffer: [1024]u8 = undefined;
+        const z = terminated(&buffer, template_path) orelse return self.fail(.bad_argument, "the template path is too long or holds a NUL");
+        var id: c_int = -1;
+        const result = status(c.BkResGuiInsertTemplate(self.session, parent, z, x, y, &id));
+        out_id.* = id;
+        return result;
+    }
+
+    /// BkResGuiDelete: the windows and their subtrees.
+    fn guiDelete(ptr: *anyopaque, ids: []const i32) Status {
+        const self = from(ptr);
+        return status(c.BkResGuiDelete(self.session, ids.ptr, capacityOf(ids.len)));
+    }
+
+    /// BkResGuiCopy: the outermost windows among `ids` as clipboard text.
+    fn guiCopy(ptr: *anyopaque, ids: []const i32, out: []u8, out_size: *usize) Status {
+        const self = from(ptr);
+        var size: c_int = 0;
+        const result = status(c.BkResGuiCopy(self.session, ids.ptr, capacityOf(ids.len), if (out.len == 0) null else out.ptr, capacityOf(out.len), &size));
+        out_size.* = countOf(size);
+        return result;
+    }
+
+    /// BkResGuiPaste: clipboard text under `parent`, moved by dx, dy.
+    fn guiPaste(ptr: *anyopaque, parent: i32, clipboard: []const u8, dx: i32, dy: i32, out_ids: []i32, total: *usize) Status {
+        const self = from(ptr);
+        const z = self.allocator.dupeZ(u8, clipboard) catch return self.fail(.failed, "out of memory pasting the clipboard");
+        defer self.allocator.free(z);
+        var count: c_int = 0;
+        const result = status(c.BkResGuiPaste(self.session, parent, z.ptr, dx, dy, if (out_ids.len == 0) null else out_ids.ptr, capacityOf(out_ids.len), &count));
+        total.* = countOf(count);
+        return result;
+    }
+
+    /// BkResGuiGetAttr: one XML attribute of a window.
+    fn guiGetAttr(ptr: *anyopaque, id: i32, name: []const u8, out: []u8, out_size: *usize) Status {
+        const self = from(ptr);
+        out_size.* = 0;
+        var name_buffer: [rb.name_capacity]u8 = undefined;
+        const z = terminated(&name_buffer, name) orelse return self.fail(.bad_argument, "the attribute name is too long or holds a NUL");
+        var size: c_int = 0;
+        const result = status(c.BkResGuiGetAttr(self.session, id, z, if (out.len == 0) null else out.ptr, capacityOf(out.len), &size));
+        out_size.* = countOf(size);
+        return result;
+    }
+
+    /// BkResGuiSetAttr: one XML attribute of a window.
+    fn guiSetAttr(ptr: *anyopaque, id: i32, name: []const u8, value: []const u8) Status {
+        const self = from(ptr);
+        var name_buffer: [rb.name_capacity]u8 = undefined;
+        const z_name = terminated(&name_buffer, name) orelse return self.fail(.bad_argument, "the attribute name is too long or holds a NUL");
+        const z_value = self.allocator.dupeZ(u8, value) catch return self.fail(.failed, "out of memory setting the attribute");
+        defer self.allocator.free(z_value);
+        return status(c.BkResGuiSetAttr(self.session, id, z_name, z_value.ptr));
+    }
+
+    /// BkResGuiTemplates: the template palette, one tab-separated line per file.
+    fn guiTemplates(ptr: *anyopaque, user_folder: []const u8, out: []u8, out_size: *usize) Status {
+        const self = from(ptr);
+        out_size.* = 0;
+        var buffer: [1024]u8 = undefined;
+        const z = terminated(&buffer, user_folder) orelse return self.fail(.bad_argument, "the user template folder is too long or holds a NUL");
+        var size: c_int = 0;
+        const result = status(c.BkResGuiTemplates(self.session, if (user_folder.len == 0) null else z, if (out.len == 0) null else out.ptr, capacityOf(out.len), &size));
+        out_size.* = countOf(size);
+        return result;
     }
 };
 

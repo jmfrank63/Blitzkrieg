@@ -387,6 +387,33 @@ pub const GeometryValue = union(enum) {
     }
 };
 
+/// One window of an open game UI screen (kind gui_frame), the ten ints
+/// BkResGuiWindows writes per window. The root is id 0; ids are never reused.
+pub const GuiWindow = extern struct {
+    id: i32,
+    /// -1 for the root.
+    parent: i32,
+    class_type: i32,
+    element_id: i32,
+    /// MFC's PositionFlag: which edges the rect is anchored to.
+    flag: i32,
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+    visible: i32,
+};
+
+/// One entry of BkResGuiSetRects: a window's anchor flag and rect.
+pub const GuiRect = extern struct {
+    id: i32,
+    flag: i32,
+    x: i32,
+    y: i32,
+    w: i32,
+    h: i32,
+};
+
 /// The resource core's view of the C bridge, same shape as
 /// `Sources/editor/core/bridge.zig`'s `pub const Bridge = struct { ptr,
 /// vtable }`. Every method mirrors one BkRes* entry point from
@@ -530,6 +557,31 @@ pub const ResBridge = struct {
         /// BkResParticleSetSourceMode: complex fills the complex source's
         /// reference with `name` (refused when empty), simple clears it.
         particleSetSourceMode: *const fn (ptr: *anyopaque, complex: bool, name: []const u8) Status,
+        /// BkResGuiWindows: two-pass read of the open screen's windows in
+        /// document order; `total` is always the full count.
+        guiWindows: *const fn (ptr: *anyopaque, out: []GuiWindow, total: *usize) Status,
+        /// BkResGuiSetRects: all or nothing; a bad entry changes no window.
+        guiSetRects: *const fn (ptr: *anyopaque, rects: []const GuiRect) Status,
+        /// BkResGuiInsertTemplate: the window tree of a template file under
+        /// `parent`, its WindowPos at x, y; the new window's id in *out_id.
+        guiInsertTemplate: *const fn (ptr: *anyopaque, parent: i32, template_path: []const u8, x: i32, y: i32, out_id: *i32) Status,
+        /// BkResGuiDelete: the windows and their subtrees; refused for the
+        /// root or an unknown id.
+        guiDelete: *const fn (ptr: *anyopaque, ids: []const i32) Status,
+        /// BkResGuiCopy: the outermost of `ids` as clipboard text; `out_size`
+        /// is the size needed, a short buffer is refused.
+        guiCopy: *const fn (ptr: *anyopaque, ids: []const i32, out: []u8, out_size: *usize) Status,
+        /// BkResGuiPaste: clipboard text under `parent`, each window moved by
+        /// dx, dy; `total` counts the new top-level windows, `out_ids` gets
+        /// as many as fit.
+        guiPaste: *const fn (ptr: *anyopaque, parent: i32, clipboard: []const u8, dx: i32, dy: i32, out_ids: []i32, total: *usize) Status,
+        /// BkResGuiGetAttr / BkResGuiSetAttr: one XML attribute of a window.
+        guiGetAttr: *const fn (ptr: *anyopaque, id: i32, name: []const u8, out: []u8, out_size: *usize) Status,
+        guiSetAttr: *const fn (ptr: *anyopaque, id: i32, name: []const u8, value: []const u8) Status,
+        /// BkResGuiTemplates: the template palette as text, one
+        /// `<Folder>\t<File>\t<full path>\n` line per file; `user_folder`
+        /// (may be empty) adds the user's own templates.
+        guiTemplates: *const fn (ptr: *anyopaque, user_folder: []const u8, out: []u8, out_size: *usize) Status,
     };
 
     pub fn lastMessage(self: ResBridge) []const u8 {
@@ -669,6 +721,33 @@ pub const ResBridge = struct {
     }
     pub fn previewWireframe(self: ResBridge, on: bool) Status {
         return self.vtable.previewWireframe(self.ptr, on);
+    }
+    pub fn guiWindows(self: ResBridge, out: []GuiWindow, total: *usize) Status {
+        return self.vtable.guiWindows(self.ptr, out, total);
+    }
+    pub fn guiSetRects(self: ResBridge, rects: []const GuiRect) Status {
+        return self.vtable.guiSetRects(self.ptr, rects);
+    }
+    pub fn guiInsertTemplate(self: ResBridge, parent: i32, template_path: []const u8, x: i32, y: i32, out_id: *i32) Status {
+        return self.vtable.guiInsertTemplate(self.ptr, parent, template_path, x, y, out_id);
+    }
+    pub fn guiDelete(self: ResBridge, ids: []const i32) Status {
+        return self.vtable.guiDelete(self.ptr, ids);
+    }
+    pub fn guiCopy(self: ResBridge, ids: []const i32, out: []u8, out_size: *usize) Status {
+        return self.vtable.guiCopy(self.ptr, ids, out, out_size);
+    }
+    pub fn guiPaste(self: ResBridge, parent: i32, clipboard: []const u8, dx: i32, dy: i32, out_ids: []i32, total: *usize) Status {
+        return self.vtable.guiPaste(self.ptr, parent, clipboard, dx, dy, out_ids, total);
+    }
+    pub fn guiGetAttr(self: ResBridge, id: i32, name: []const u8, out: []u8, out_size: *usize) Status {
+        return self.vtable.guiGetAttr(self.ptr, id, name, out, out_size);
+    }
+    pub fn guiSetAttr(self: ResBridge, id: i32, name: []const u8, value: []const u8) Status {
+        return self.vtable.guiSetAttr(self.ptr, id, name, value);
+    }
+    pub fn guiTemplates(self: ResBridge, user_folder: []const u8, out: []u8, out_size: *usize) Status {
+        return self.vtable.guiTemplates(self.ptr, user_folder, out, out_size);
     }
 };
 

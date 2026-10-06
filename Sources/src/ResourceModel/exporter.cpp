@@ -3,6 +3,7 @@
 #include <map>
 
 #include "items/stats_export.h"
+#include "items/gui/gui_export.h"
 
 namespace NResourceModel
 {
@@ -38,6 +39,7 @@ std::map<std::string, FExporter> &Exporters()
 		{ "chc", &ExportChapter },
 		{ "cgc", &ExportCampaign },
 		{ "mip", &ExportMission },
+		{ "gui", &ExportGui },
 	};
 	return exporters;
 }

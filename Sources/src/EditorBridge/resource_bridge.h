@@ -679,6 +679,67 @@ BkEditorStatus BkResTileSetImport( BkResSession *session, const char *path, int 
    records it as an insert command carrying the name. */
 BkEditorStatus BkResTileSetAddTile( BkResSession *session, int parent, const char *picture_path, int *out_id );
 
+/* ---- GUI screens (kind gui, D031) ---------------------------------------
+   BkResOpen opens a game UI screen - a <base> document, or a
+   GUI_Composer_Project that carries windows (WindowPos) rather than the
+   palette <childs> tree - as a gui project: kind 20 (BkResKindOf), no tree
+   nodes (BkResNodes is BK_EDITOR_REFUSED), and the calls below. The screen is
+   kept as its text; an edit rewrites only the bytes it changes, so BkResSave
+   of an unedited screen is byte-identical. BkResExport writes the screen under
+   a <base> root to <export root>/data/ui/<Screen>.xml (refusing a window
+   without a WindowPos, naming file and line), the plain overlay the
+   Game reads for a -mod (items/gui/gui_export.h); <Screen> is the saved
+   file's name without extension. It is refused (BK_EDITOR_REFUSED, message
+   naming the target path) when the export root is the shipped Data folder.
+   A malformed screen is BK_EDITOR_DATA_MISSING with "<file>:<line>: <reason>".
+   Every call is traced under BK_DEBUG_LOG=1 ("BkResGui: ..." on stderr).
+   Window ids are the model's: the root is 0, every other id is handed out on
+   open or insert and is never reused. Each call is BK_EDITOR_REFUSED when
+   the open project is not a screen; an unknown window id is
+   BK_EDITOR_BAD_ARGUMENT. Text outputs write *out_size = the size needed
+   (without the terminator) whatever the capacity, and a buffer too small is
+   BK_EDITOR_REFUSED with nothing written; a null buffer only asks the size. */
+
+/* BkResGuiWindows: ten ints per window in document order - id, parent (-1 for
+   the root), ClassTypeID, ElementID, PositionFlag, x, y, w, h (rounded to
+   whole pixels), visible flag. *out_count is the number of windows; capacity
+   counts windows (not ints). */
+BkEditorStatus BkResGuiWindows( BkResSession *session, int *out, int capacity, int *out_count );
+
+/* BkResGuiSetRects: count entries of six ints - id, PositionFlag, x, y, w, h.
+   All or nothing: a bad entry leaves every window as it was. */
+BkEditorStatus BkResGuiSetRects( BkResSession *session, const int *in, int count );
+
+/* BkResGuiInsertTemplate: adds the window tree of a Data/Editor/UI template
+   file under parent, with its WindowPos set to x, y; *out_id (may be null) is
+   the new window's id (-1 on failure). BK_EDITOR_DATA_MISSING for an
+   unreadable template, BK_EDITOR_FAILED for one that is not a window. */
+BkEditorStatus BkResGuiInsertTemplate( BkResSession *session, int parent, const char *template_path, int x, int y, int *out_id );
+
+/* BkResGuiDelete: removes the windows and their subtrees. BK_EDITOR_REFUSED
+   when an id is the root or unknown. */
+BkEditorStatus BkResGuiDelete( BkResSession *session, const int *ids, int count );
+
+/* BkResGuiCopy / BkResGuiPaste: the clipboard is text. Copy writes the
+   outermost windows among ids; Paste appends them under parent, each moved by
+   (dx, dy), and writes the new top-level windows' ids to out_ids (capacity
+   ints; *out_count is the total). BK_EDITOR_REFUSED for text that holds no
+   windows. */
+BkEditorStatus BkResGuiCopy( BkResSession *session, const int *ids, int count, char *out, int capacity, int *out_size );
+BkEditorStatus BkResGuiPaste( BkResSession *session, int parent, const char *clipboard, int dx, int dy, int *out_ids, int capacity, int *out_count );
+
+/* BkResGuiGetAttr / BkResGuiSetAttr: one XML attribute of a window's element
+   (Name, ElementID, PositionFlag ...). Get is BK_EDITOR_DATA_MISSING when the
+   window has no such attribute. */
+BkEditorStatus BkResGuiGetAttr( BkResSession *session, int id, const char *name, char *out, int capacity, int *out_size );
+BkEditorStatus BkResGuiSetAttr( BkResSession *session, int id, const char *name, const char *value );
+
+/* BkResGuiTemplates: the template palette as text, one line per file -
+   <Folder>\t<File>\t<full path>\n - from <data>/Editor/UI/<Folder>/*.xml in
+   folder-name then file-name order, then the files of user_folder (may be
+   null) under the folder name "User". Needs no open screen. */
+BkEditorStatus BkResGuiTemplates( BkResSession *session, const char *user_folder, char *out, int capacity, int *out_size );
+
 #ifdef __cplusplus
 }
 #endif

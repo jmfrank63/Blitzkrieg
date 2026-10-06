@@ -47,6 +47,8 @@
 #include "../ResourceModel/items/tree_item_types.h"
 #include "../ResourceModel/items/tileset/tileset_export.h"
 #include "../ResourceModel/items/stats_export.h"
+#include "../ResourceModel/items/gui/gui_export.h"
+#include "../ResourceModel/ui_screen.h"
 #include "../ResourceModel/items/squad/squad.h"
 #include "../ResourceModel/items/fence/fence.h"
 #include "../ResourceModel/key_frame_tree_item.h"
@@ -1943,6 +1945,13 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// The plain mission fixture names no final map, so MFC's validation refuses it (S14 T04; S14MissionExport proves the passing one).
 				Check( status == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "You should specify" ) != 0,
 				       "export: .mip is refused by the mission validation, with MFC's message" );
+			}
+			else if ( szExt == "gui" )
+			{
+				// The palette-tree fixture is no screen: the exporter (S15 T03) refuses it, naming the missing screen name
+				// (S15Gui proves the real screen export).
+				Check( status == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "no screen name" ) != 0 && report.written == 0,
+				       "export: .gui palette project is refused, naming the missing screen name" );
 			}
 			else if ( szExt == "eff" )
 			{
@@ -8592,6 +8601,322 @@ static void GogArdennen40()
 
 }
 
+// S15 T03: the GUI screen through the C ABI. A MainMenu.xml copy is opened as kind gui, edited,
+// saved, reopened and exported; the engine's own reader (the route CUIScreen::Load takes) reads the
+// exported <base> file back.
+namespace S15Gui
+{
+namespace fs = std::filesystem;
+
+struct SEngineWindow
+{
+	CVec2 vPos, vSize;
+	int nFlag;
+	std::vector<SEngineWindow> children;
+	SEngineWindow() : vPos( 0, 0 ), vSize( 0, 0 ), nFlag( 0x0011 ) {}
+	int operator&( IDataTree &ss )
+	{
+		CTreeAccessor saver = &ss;
+		saver.Add( "WindowPos", &vPos );
+		saver.Add( "WindowSize", &vSize );
+		saver.Add( "PositionFlag", &nFlag );
+		saver.Add( "Children", &children );
+		return 0;
+	}
+};
+
+static void Flatten( const SEngineWindow &win, std::vector<SEngineWindow> &out )
+{
+	out.push_back( win );
+	for ( const SEngineWindow &child : win.children )
+		Flatten( child, out );
+}
+
+static bool EngineRead( const fs::path &file, std::vector<SEngineWindow> &out )
+{
+	CPtr<IDataStorage> pStorage = OpenStorage( ( file.parent_path().string() + "/" ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+	CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( file.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+	CPtr<IDataTree> pDT = pStream != 0 ? CreateDataTreeSaver( pStream, IDataTree::READ, "base" ) : 0;
+	if ( pDT == 0 )
+		return false;
+	SEngineWindow root;
+	root.operator&( *pDT );
+	out.clear();
+	Flatten( root, out );
+	return true;
+}
+
+// BkResGuiWindows' ten ints per window, empty when the call fails.
+static std::vector<int> Windows( BkResSession *pSession )
+{
+	int nCount = -1;
+	std::vector<int> ints;
+	if ( BkResGuiWindows( pSession, 0, 0, &nCount ) != BK_EDITOR_OK || nCount <= 0 )
+		return ints;
+	ints.resize( nCount * 10 );
+	if ( BkResGuiWindows( pSession, ints.data(), nCount, &nCount ) != BK_EDITOR_OK )
+		ints.clear();
+	return ints;
+}
+
+static std::string Fold( std::string s )
+{
+	for ( char &c : s )
+		c = char( std::tolower( (unsigned char)c ) );
+	return s;
+}
+
+static const int *Row( const std::vector<int> &ints, int nId )
+{
+	for ( size_t i = 0; i + 10 <= ints.size(); i += 10 )
+		if ( ints[i] == nId )
+			return &ints[i];
+	return nullptr;
+}
+
+static std::string Clipboard( BkResSession *pSession, const std::vector<int> &ids )
+{
+	int nSize = 0;
+	if ( BkResGuiCopy( pSession, ids.data(), int( ids.size() ), 0, 0, &nSize ) != BK_EDITOR_OK )
+		return std::string();
+	std::string sz( nSize + 1, 0 );
+	BkResGuiCopy( pSession, ids.data(), int( ids.size() ), &sz[0], nSize + 1, &nSize );
+	sz.resize( nSize );
+	return sz;
+}
+
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "s15-gui";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch / "edit", ec );
+	const fs::path shipped = S09Object::FindFile( fs::path( szRoot ) / "Data" / "UI", "MainMenu.xml" );
+	const fs::path screen = scratch / "edit" / "MainMenu.xml";
+	if ( !Check( !shipped.empty() && fs::copy_file( shipped, screen, ec ), "gui: Data/UI/MainMenu.xml is copied" ) )
+		return;
+	std::string szOriginal;
+	ReadBytes( screen.string(), szOriginal );
+
+	// Open as kind gui; the palette tree does not apply to it.
+	if ( !Check( BkResOpen( pSession, screen.string().c_str() ) == BK_EDITOR_OK, "gui: a <base> screen opens" ) )
+		return;
+	BkResKind kind = -1;
+	Check( BkResKindOf( pSession, &kind ) == BK_EDITOR_OK && kind == 20, "gui: the screen is kind gui (20)" );
+	int nNodes = -1;
+	Check( BkResNodes( pSession, 0, 0, &nNodes ) == BK_EDITOR_REFUSED, "gui: a screen has no palette tree nodes" );
+
+	// The windows list is the T02 model's.
+	NResourceModel::CUiScreen model;
+	std::string szError;
+	Check( model.Open( szOriginal, "MainMenu.xml", szError ), "gui: the model opens the same text" );
+	const std::vector<int> ints = Windows( pSession );
+	bool bSame = ints.size() == model.Windows().size() * 10;
+	for ( size_t i = 0; bSame && i < model.Windows().size(); ++i )
+	{
+		const NResourceModel::SUiWindow &w = model.Windows()[i];
+		const int *p = &ints[i * 10];
+		bSame = p[0] == w.nId && p[1] == w.nParent && p[2] == int( w.nClassTypeID ) && p[3] == w.nElementID && p[4] == w.nPositionFlag &&
+		        p[5] == int( std::lround( w.x ) ) && p[6] == int( std::lround( w.y ) ) && p[7] == int( std::lround( w.w ) ) &&
+		        p[8] == int( std::lround( w.h ) ) && p[9] == w.nVisibleFlag;
+	}
+	const int nWindows = int( ints.size() / 10 );
+	Check( bSame && nWindows > 2, "gui: BkResGuiWindows lists the model's windows" );
+	Check( nWindows > 0 && ints[0] == 0 && ints[1] == -1, "gui: the root is window 0 with no parent" );
+	std::vector<int> tooSmall( 10 );
+	int nCount = 0;
+	Check( BkResGuiWindows( pSession, tooSmall.data(), 1, &nCount ) == BK_EDITOR_REFUSED && nCount == nWindows, "gui: a window buffer too small is refused with the count" );
+
+	// An unedited save is byte-identical.
+	const fs::path saved = scratch / "saved" / "MainMenu.xml";
+	fs::create_directories( saved.parent_path(), ec );
+	Check( BkResSave( pSession, saved.string().c_str() ) == BK_EDITOR_OK, "gui: an unedited screen saves" );
+	std::string szSaved;
+	ReadBytes( saved.string(), szSaved );
+	Check( szSaved == szOriginal, "gui: the unedited save is byte-identical" );
+
+	// Move and resize, all or nothing.
+	int nTarget = -1;
+	for ( size_t i = 1; i < model.Windows().size() && nTarget < 0; ++i )
+		if ( model.Windows()[i].bHasPos && model.Windows()[i].bHasSize )
+			nTarget = model.Windows()[i].nId;
+	const int *pOld = Row( ints, nTarget );
+	if ( !Check( pOld != nullptr, "gui: a positioned window exists" ) )
+		return;
+	const int nFlag = pOld[4], x = pOld[5], y = pOld[6], w = pOld[7], h = pOld[8];
+	const int bad[12] = { nTarget, nFlag, x + 7, y + 9, w + 11, h + 13, 99999, nFlag, 1, 2, 3, 4 };
+	Check( BkResGuiSetRects( pSession, bad, 2 ) == BK_EDITOR_BAD_ARGUMENT, "gui: a batch with an unknown id is refused" );
+	Check( Windows( pSession ) == ints, "gui: the refused batch changed nothing" );
+	const int moved[6] = { nTarget, nFlag, x + 7, y + 9, w + 11, h + 13 };
+	Check( BkResGuiSetRects( pSession, moved, 1 ) == BK_EDITOR_OK, "gui: BkResGuiSetRects moves and resizes" );
+	const std::vector<int> movedList = Windows( pSession );
+	const int *pNew = Row( movedList, nTarget );
+	Check( movedList.size() == ints.size() && pNew != nullptr && pNew[5] == x + 7 && pNew[6] == y + 9 && pNew[7] == w + 11 && pNew[8] == h + 13 && pNew[4] == nFlag,
+	       "gui: the window has the new rect and keeps its flag" );
+
+	// Attributes.
+	char buf[64] = {};
+	int nSize = -1;
+	Check( BkResGuiSetAttr( pSession, nTarget, "ElementID", "4242" ) == BK_EDITOR_OK, "gui: BkResGuiSetAttr sets ElementID" );
+	Check( BkResGuiGetAttr( pSession, nTarget, "ElementID", buf, sizeof( buf ), &nSize ) == BK_EDITOR_OK && std::string( buf ) == "4242" && nSize == 4, "gui: the attribute reads back" );
+	Check( BkResGuiGetAttr( pSession, nTarget, "NoSuchAttr", buf, sizeof( buf ), &nSize ) == BK_EDITOR_DATA_MISSING, "gui: a missing attribute is DATA_MISSING" );
+	Check( BkResGuiSetAttr( pSession, 99999, "ElementID", "1" ) == BK_EDITOR_BAD_ARGUMENT, "gui: an attribute of an unknown window is refused" );
+	Check( BkResGuiGetAttr( pSession, nTarget, "ElementID", buf, 2, &nSize ) == BK_EDITOR_REFUSED && nSize == 4, "gui: a short text buffer is refused with the size" );
+	Check( BkResGuiSetAttr( pSession, nTarget, "ElementID", pOld != nullptr ? std::to_string( pOld[3] ).c_str() : "-1" ) == BK_EDITOR_OK, "gui: ElementID is put back" );
+
+	// Templates: the palette lists Data/Editor/UI folders and a user folder.
+	const fs::path userTemplates = scratch / "user-templates";
+	fs::create_directories( userTemplates, ec );
+	{
+		const fs::path buttonTemplate = S09Object::FindFile( fs::path( szRoot ) / "Data" / "Editor" / "UI", "Button00.xml" );
+		if ( !buttonTemplate.empty() )
+			fs::copy_file( buttonTemplate, userTemplates / "Mine.xml", ec );
+	}
+	int nTemplateSize = 0;
+	BkResGuiTemplates( pSession, userTemplates.string().c_str(), 0, 0, &nTemplateSize );
+	std::string szTemplates( nTemplateSize + 1, 0 );
+	Check( BkResGuiTemplates( pSession, userTemplates.string().c_str(), &szTemplates[0], nTemplateSize + 1, &nTemplateSize ) == BK_EDITOR_OK && nTemplateSize > 0, "gui: BkResGuiTemplates lists the palette" );
+	szTemplates.resize( nTemplateSize );
+	std::string szButtonPath;
+	{
+		std::istringstream lines( szTemplates );
+		std::string szLine;
+		bool bUser = false;
+		while ( std::getline( lines, szLine ) )
+		{
+			const std::string::size_type t1 = szLine.find( '\t' ), t2 = szLine.find( '\t', t1 + 1 );
+			if ( t1 == std::string::npos || t2 == std::string::npos )
+				continue;
+			const std::string szFolder = szLine.substr( 0, t1 ), szName = szLine.substr( t1 + 1, t2 - t1 - 1 );
+			if ( szFolder == "User" && szName == "Mine.xml" )
+				bUser = true;
+			if ( szButtonPath.empty() && Fold( szFolder ) == "buttons" )
+				szButtonPath = szLine.substr( t2 + 1 );
+		}
+		Check( bUser && !szButtonPath.empty(), "gui: the list has the buttons folder and the user's template" );
+	}
+
+	// Insert, then delete, then copy and paste.
+	int nButton = -1;
+	Check( BkResGuiInsertTemplate( pSession, 0, szButtonPath.c_str(), 30, 40, &nButton ) == BK_EDITOR_OK && nButton > 0, "gui: a button template is inserted under the root" );
+	const std::vector<int> withButton = Windows( pSession );
+	const int *pButton = Row( withButton, nButton );
+	Check( withButton.size() > ints.size() && pButton != nullptr && pButton[1] == 0 && pButton[5] == 30 && pButton[6] == 40, "gui: the inserted window is the root's child at 30, 40" );
+	const int nAdded = int( ( withButton.size() - ints.size() ) / 10 );
+	Check( Row( ints, nButton ) == nullptr, "gui: a new id is never one of the old ones" );
+	std::vector<int> pasted( 4 );
+	int nPasted = 0;
+	const std::string szClip = Clipboard( pSession, { nButton } );
+	Check( !szClip.empty() && BkResGuiPaste( pSession, 0, szClip.c_str(), 12, 5, pasted.data(), 4, &nPasted ) == BK_EDITOR_OK && nPasted == 1, "gui: the button is copied and pasted" );
+	const std::vector<int> withPaste = Windows( pSession );
+	const int *pPasted = Row( withPaste, pasted[0] );
+	Check( withPaste.size() == withButton.size() + nAdded * 10 && pPasted != nullptr && pPasted[5] == 42 && pPasted[6] == 45 && pasted[0] != nButton, "gui: the paste adds the same windows moved by 12, 5 under new ids" );
+	int bogus = 0;
+	Check( BkResGuiPaste( pSession, 0, "not a clipboard", 0, 0, &bogus, 1, &nPasted ) == BK_EDITOR_REFUSED, "gui: text that holds no windows is not pasted" );
+	const int toDelete[2] = { nButton, pasted[0] };
+	Check( BkResGuiDelete( pSession, toDelete, 2 ) == BK_EDITOR_OK && Windows( pSession ) == movedList, "gui: deleting both buttons brings the list back" );
+	const int root = 0;
+	Check( BkResGuiDelete( pSession, &root, 1 ) == BK_EDITOR_REFUSED, "gui: the root cannot be deleted" );
+	int userButton = -1;
+	Check( BkResGuiInsertTemplate( pSession, 0, ( userTemplates / "Mine.xml" ).string().c_str(), 5, 6, &userButton ) == BK_EDITOR_OK, "gui: a user template inserts too" );
+	Check( BkResGuiInsertTemplate( pSession, 99999, szButtonPath.c_str(), 0, 0, &userButton ) == BK_EDITOR_BAD_ARGUMENT && userButton == -1, "gui: an unknown parent is refused" );
+	Check( BkResGuiDelete( pSession, &userButton, 1 ) == BK_EDITOR_REFUSED || BkResGuiDelete( pSession, &nButton, 1 ) == BK_EDITOR_REFUSED, "gui: a deleted id cannot be deleted again" );
+
+	// Save, reopen: equal ints.
+	const fs::path editedPath = scratch / "edit" / "MainMenu.xml";
+	Check( BkResSave( pSession, editedPath.string().c_str() ) == BK_EDITOR_OK, "gui: the edited screen saves" );
+	Check( fs::exists( editedPath.string() + ".bak", ec ), "gui: the safe-save keeps a .bak" );
+	const std::vector<int> beforeReopen = Windows( pSession );
+	Check( BkResOpen( pSession, editedPath.string().c_str() ) == BK_EDITOR_OK, "gui: the saved screen reopens" );
+	// A reopen hands out ids again from the file; the rects, flags and classes are what persist.
+	const std::vector<int> reopened = Windows( pSession );
+	bool bEqual = reopened.size() == beforeReopen.size();
+	for ( size_t i = 0; bEqual && i < reopened.size(); ++i )
+		if ( i % 10 != 0 && i % 10 != 1 )
+			bEqual = reopened[i] == beforeReopen[i];
+	Check( bEqual, "gui: after save and reopen the windows list is equal" );
+	const int *pReopened = Row( reopened, nTarget );
+	Check( pReopened != nullptr && pReopened[5] == x + 7 && pReopened[8] == h + 13, "gui: the moved rect survives the reopen" );
+
+	// Export into a mod: the <base> file the game reads, with the edited rect.
+	const fs::path modDir = scratch / "mod";
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S15 gui export" );
+	Check( BkResModSettingsSet( pSession, &mod ) == BK_EDITOR_OK, "gui: the mod folder is set" );
+	BkResExportReport report = {};
+	const BkEditorStatus exported = BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
+	if ( !Check( exported == BK_EDITOR_OK && report.written == 1, "gui: the screen exports into the mod" ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	const fs::path exportedFile = S09Object::FindFile( modDir / "data", "MainMenu.xml" );
+	std::string szExported;
+	Check( !exportedFile.empty() && ReadBytes( exportedFile.string(), szExported ), "gui: data/ui/MainMenu.xml is written" );
+	Check( Fold( exportedFile.parent_path().filename().string() ) == "ui" && Fold( exportedFile.parent_path().parent_path().filename().string() ) == "data",
+	       "gui: it is the plain data/ui overlay the game's storage reads" );
+	Check( szExported.find( "<base" ) != std::string::npos, "gui: the export has a <base> root" );
+	std::vector<SEngineWindow> engine;
+	bool bEngine = EngineRead( exportedFile, engine ) && engine.size() == reopened.size() / 10;
+	for ( size_t i = 0; bEngine && i < engine.size(); ++i )
+	{
+		const int *p = &reopened[i * 10];
+		bEngine = int( std::lround( engine[i].vPos.x ) ) == p[5] && int( std::lround( engine[i].vPos.y ) ) == p[6] &&
+		          int( std::lround( engine[i].vSize.x ) ) == p[7] && int( std::lround( engine[i].vSize.y ) ) == p[8] && engine[i].nFlag == p[4];
+	}
+	Check( bEngine, "gui: the engine's reader sees every window of the exported file at the edited rects" );
+	std::printf( "GUI EXPORT %s: %d windows, target %d at %d,%d %dx%d\n", exportedFile.string().c_str(), int( engine.size() ), nTarget, x + 7, y + 9, w + 11, h + 13 );
+
+	// Refusals: shipped Data, a nameless screen, a window without WindowPos.
+	{
+		NResourceModel::SExportContext context;
+		NResourceModel::SExportOutcome outcome;
+		NResourceModel::Project none;
+		context.szScreenText = szExported;
+		context.szScreenName = "MainMenu";
+		context.szStagingRoot = ( scratch / "staging" ).string();
+		context.szDataRoot = ( fs::path( szRoot ) / "Data" ).string();
+		context.szEditorDataDir = ( fs::path( szRoot ) / "Data" ).string();
+		Check( !NResourceModel::ExportGui( none, context, outcome ) && outcome.szError.find( "shipped Data" ) != std::string::npos && outcome.szError.find( "MainMenu.xml" ) != std::string::npos,
+		       "gui: an export into shipped Data is refused naming the target and why" );
+		context.szDataRoot = ( scratch / "mod" / "data" ).string();
+		context.szScreenName.clear();
+		outcome = NResourceModel::SExportOutcome();
+		Check( !NResourceModel::ExportGui( none, context, outcome ) && outcome.szError.find( "no screen name" ) != std::string::npos, "gui: a screen without a name is refused" );
+		context.szScreenName = "Bare";
+		context.szScreenText = "<base>\n<Children>\n<item ClassTypeID=\"1\"/>\n</Children>\n</base>\n";
+		outcome = NResourceModel::SExportOutcome();
+		Check( !NResourceModel::ExportGui( none, context, outcome ) && outcome.szError.find( "WindowPos" ) != std::string::npos && outcome.szError.find( "Bare.xml:3" ) != std::string::npos,
+		       "gui: a window without WindowPos is refused with file and line" );
+		Check( !fs::exists( scratch / "staging" / "ui" / "Bare.xml", ec ), "gui: a refused export writes nothing" );
+	}
+
+	// A malformed screen names the file and line.
+	{
+		const fs::path broken = scratch / "broken" / "Broken.xml";
+		fs::create_directories( broken.parent_path(), ec );
+		std::ofstream( broken, std::ios::binary ) << "<base>\n<States>\n</base>\n";
+		Check( BkResOpen( pSession, broken.string().c_str() ) == BK_EDITOR_DATA_MISSING && std::string( BkEditorLastMessage( pSession ) ).find( "Broken.xml:3" ) != std::string::npos,
+		       "gui: an unbalanced screen is refused naming the file and line" );
+		BkEditorStatus status = BkResGuiWindows( pSession, 0, 0, &nCount );
+		Check( status == BK_EDITOR_REFUSED || status == BK_EDITOR_OK, "gui: the failed open leaves a defined state" );
+	}
+
+	// The S03 palette-tree fixture still opens as a project, with nodes and no screen.
+	{
+		const std::string szPalette = szFixtureRoot + "/gui/project.gui";
+		Check( BkResOpen( pSession, szPalette.c_str() ) == BK_EDITOR_OK, "gui: the palette fixture opens" );
+		int nPaletteNodes = 0;
+		Check( BkResNodes( pSession, 0, 0, &nPaletteNodes ) == BK_EDITOR_OK && nPaletteNodes > 0, "gui: the palette fixture has its tree nodes" );
+		Check( BkResGuiWindows( pSession, 0, 0, &nCount ) == BK_EDITOR_REFUSED, "gui: the palette fixture is not a screen" );
+		const fs::path resaved = scratch / "palette" / "project.gui";
+		fs::create_directories( resaved.parent_path(), ec );
+		std::string szIn, szOut;
+		Check( BkResSave( pSession, resaved.string().c_str() ) == BK_EDITOR_OK && ReadBytes( szPalette, szIn ) && ReadBytes( resaved.string(), szOut ) && szIn == szOut, "gui: the palette fixture still round-trips byte for byte" );
+	}
+	BkResClose( pSession );
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -8896,6 +9221,9 @@ int main( int argc, char **argv )
 
 	// S12 T02: the effect exporter and the refused import.
 	S12Effect::Fixture( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+
+	// S15 T03: the GUI screen through BkResGui*, its export and the palette fixture.
+	S15Gui::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 
 	Check( BkEditorStop( pSession ) == BK_EDITOR_OK, "the bridge stops" );
 	SDL_DestroyWindow( pWindow );
