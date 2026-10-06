@@ -2960,6 +2960,13 @@ pub fn build(b: *std.Build) void {
     // bridge.h: the engine's C ABI; kit/host.zig @cImports it so any editor
     // on the kit (ResourceEditor, future tier editors) shares one wrapper.
     editor_kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    // The kit links ImGui's C++ objects, which need the C++ runtime (thread-safe
+    // statics, terminate) that a Zig test does not bring on its own on Windows.
+    // The core tiers import the kit, so the same applies to them below.
+    if (b.graph.host.result.os.tag == .windows) {
+        addMsvcLibraryPaths(b, editor_kit_module, toolchain);
+        editor_kit_module.linkSystemLibrary("vcruntimed", .{});
+    }
     const editor_kit_tests = b.addTest(.{ .root_module = editor_kit_module });
     const editor_kit_tests_run = b.addRunArtifact(editor_kit_tests);
     const editor_kit_step = b.step("test-editor-kit", "Run the editor kit tests (reusable editor plumbing shared by the Zig editors)");
@@ -2974,6 +2981,10 @@ pub fn build(b: *std.Build) void {
         .optimize = .Debug,
         .imports = &.{.{ .name = "editor_kit", .module = editor_kit_module }},
     });
+    if (b.graph.host.result.os.tag == .windows) {
+        addMsvcLibraryPaths(b, editor_core_module, toolchain);
+        editor_core_module.linkSystemLibrary("vcruntimed", .{});
+    }
     const editor_core_tests = b.addTest(.{ .root_module = editor_core_module });
     const editor_core_tests_run = b.addRunArtifact(editor_core_tests);
     const editor_core_step = b.step("test-editor-core", "Run the Map Editor core tests against the fake bridge");
@@ -2990,6 +3001,10 @@ pub fn build(b: *std.Build) void {
         .optimize = .Debug,
         .imports = &.{.{ .name = "editor_kit", .module = editor_kit_module }},
     });
+    if (b.graph.host.result.os.tag == .windows) {
+        addMsvcLibraryPaths(b, resource_core_module, toolchain);
+        resource_core_module.linkSystemLibrary("vcruntimed", .{});
+    }
     const resource_core_tests = b.addTest(.{ .root_module = resource_core_module });
     const resource_core_tests_run = b.addRunArtifact(resource_core_tests);
     const resource_core_step = b.step("test-resource-core", "Run the Resource Editor core tests against the fake resource bridge");
@@ -4603,6 +4618,10 @@ fn addEditorImgui(
     addMsvcIncludePaths(b, module, toolchain);
     addLinuxCxxIncludePaths(b, module);
     addMsvcLibraryPaths(b, module, toolchain);
+    // ImGui's default IME hook (imgui.cpp Platform_SetImeDataFn_DefaultImpl)
+    // needs imm32. Naming it here lets every consumer, the test tiers that
+    // compile for the host included, resolve it with the SDK library paths above.
+    if (target.result.os.tag == .windows) module.linkSystemLibrary("imm32", .{});
     // On MSVC the CRT is the consumer's business: Zig links its own libc into
     // the Zig programs that use this library, and naming the MSVC CRT here as
     // well links two of them (duplicate _cexit, _wctype, ...).
@@ -4627,8 +4646,12 @@ fn addEditorImgui(
         // Plain C++17 everywhere: the project's MSVC flag set selects the DLL
         // CRT (-D_MT -D_DLL), which does not match the CRT Zig links into the
         // Zig programs that consume this library. ImGui needs none of it.
-        .flags = &.{"-std=c++17"},
+        // On MSVC the thread-safe static initialisers are left out (ImGui runs on
+        // one thread) because their helpers live in the CRT, which the Zig test
+        // tiers do not link; msvc_fltused.c stands in for the CRT's _fltused.
+        .flags = if (target.result.abi == .msvc) &.{ "-std=c++17", "-fno-threadsafe-statics" } else &.{"-std=c++17"},
     });
+    if (target.result.abi == .msvc) module.addCSourceFile(.{ .file = b.path("Sources/editor/kit/imgui/msvc_fltused.c") });
     return b.addLibrary(.{ .name = "editor-imgui", .linkage = .static, .root_module = module });
 }
 

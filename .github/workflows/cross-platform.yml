@@ -28,18 +28,41 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            # The resource tiers (test-resource-model, test-resource-bridge and the mod
+            # round trip) read the shipped Data through the engine, and install-game stages
+            # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
+            # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
+            # AmericanELK, movies, Music and Bugs are not needed.
             /Data/Maps/
-            /Data/Terrain/sets/*/tileset.xml
-            /Data/Terrain/sets/*/crosset.xml
-            # The map-file tier's road builder test (TestM2VsoBuilder) loads a
-            # road's descriptor through the storage, as the editor does.
-            /Data/Terrain/sets/*/Roads3D/*.xml
-            /Data/Terrain/sets/*/Rivers/*.xml
-            # The mission data tier compares Data/Scenarios (144 MB) against
-            # GOG 1.2's manifest, and the random missions tier's generator
-            # reads templates, settings, chapters, contexts, patches,
-            # scripts, fieldsets and graphs out of it.
             /Data/Scenarios/
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            /Data/*.txt
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Medals/
+            /Data/Objects/
+            /Data/Old/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
           sparse-checkout-cone-mode: false
 
       - name: Install Linux build dependencies
@@ -243,6 +266,9 @@ jobs:
             /Data/Fences/
             /Data/Fonts/
             /Data/Icons/
+            # The resource tiers read the Medals and Old (.unt) folders too.
+            /Data/Medals/
+            /Data/Old/
             /Data/movies/progress/
             /Data/Objects/
             /Data/Sounds/
@@ -759,6 +785,9 @@ jobs:
             /Data/Fences/
             /Data/Fonts/
             /Data/Icons/
+            # The resource tiers read the Medals and Old (.unt) folders too.
+            /Data/Medals/
+            /Data/Old/
             /Data/movies/progress/
             /Data/Objects/
             /Data/Sounds/
@@ -1047,20 +1076,41 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            # The resource tiers (test-resource-model, test-resource-bridge and the mod
+            # round trip) read the shipped Data through the engine, and install-game stages
+            # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
+            # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
+            # AmericanELK, movies, Music and Bugs are not needed.
             /Data/Maps/
-            /Data/Terrain/sets/*/tileset.xml
-            /Data/Terrain/sets/*/crosset.xml
-            # The map-file tier's road builder test (TestM2VsoBuilder) loads a
-            # road's descriptor through the storage, as the editor does.
-            /Data/Terrain/sets/*/Roads3D/*.xml
-            /Data/Terrain/sets/*/Rivers/*.xml
-            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
-            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
-            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
-            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
-            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            /Data/Scenarios/
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            /Data/*.txt
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Medals/
+            /Data/Objects/
+            /Data/Old/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
           sparse-checkout-cone-mode: false
 
       - name: Verify arm64 host
@@ -1301,20 +1351,41 @@ jobs:
             !/Sources/src/data/
             /tools/
             /vendor/
+            # The resource tiers (test-resource-model, test-resource-bridge and the mod
+            # round trip) read the shipped Data through the engine, and install-game stages
+            # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
+            # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
+            # AmericanELK, movies, Music and Bugs are not needed.
             /Data/Maps/
-            /Data/Terrain/sets/*/tileset.xml
-            /Data/Terrain/sets/*/crosset.xml
-            # The map-file tier's road builder test (TestM2VsoBuilder) loads a
-            # road's descriptor through the storage, as the editor does.
-            /Data/Terrain/sets/*/Roads3D/*.xml
-            /Data/Terrain/sets/*/Rivers/*.xml
-            /Data/Scenarios/Patches/Africa/p_settle_E_1.bzm
-            /Data/Scenarios/Patches/common/road_junc/winter/p_junc_gr_asph_W_1.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_army_N_2.bzm
-            /Data/Scenarios/Patches/spring_Ukraine/p_troops_gr_sw_1_2.bzm
-            /Data/Scenarios/Patches/summer_Russia/p_ambush_gr_NS_1.bzm
-            /Data/Scenarios/Patches/summer_Ukraine/p_lg_village_a_10.bzm
-            /Data/Scenarios/Patches/winter_Russia/p_bridge_rail_n_4.bzm
+            /Data/Scenarios/
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            /Data/*.txt
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Medals/
+            /Data/Objects/
+            /Data/Old/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
           sparse-checkout-cone-mode: false
 
       - name: Verify Intel host

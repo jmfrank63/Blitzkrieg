@@ -838,6 +838,20 @@ static void CheckEncodedFlags( Results &r )
 	r.Report( "value-flags:encoder", szBad.empty(), szBad.empty() ? "road bool 9, other bool 8, int 1, float 2, string 4" : "wrong flag for:" + szBad );
 }
 
+// The entries of a folder, or a FAIL line naming it when it is not there: a
+// checkout that lacks part of Data (a sparse one) must say which path is
+// missing, not abort on the filesystem exception.
+static std::vector<fs::directory_entry> ListDirectory( Results &r, const fs::path &dir )
+{
+	std::vector<fs::directory_entry> entries;
+	std::error_code ec;
+	for ( fs::directory_iterator it( dir, ec ), end; !ec && it != end; it.increment( ec ) )
+		entries.push_back( *it );
+	if ( ec )
+		r.Report( "folder-present:" + dir.generic_string(), false, dir.generic_string() + " cannot be listed: " + ec.message() );
+	return entries;
+}
+
 int main()
 {
 	const std::string text = ReadAll( kInventory );
@@ -867,9 +881,9 @@ int main()
 	// Every MFC project in TestProjects, then every fixture project, by path.
 	const std::set<std::string> exts = ProjectExtensions( inventory );
 	std::vector<std::pair<std::string, fs::path>> projects;
-	for ( const auto &dir : fs::directory_iterator( kTestProjects ) )
+	for ( const auto &dir : ListDirectory( r, kTestProjects ) )
 		if ( dir.is_directory() )
-			for ( const auto &f : fs::directory_iterator( dir.path() ) )
+			for ( const auto &f : ListDirectory( r, dir.path() ) )
 			{
 				std::string ext = f.path().extension().string();
 				for ( char &c : ext ) c = char( std::tolower( (unsigned char)c ) );
@@ -890,7 +904,7 @@ int main()
 			r.Report( "fixture-present:" + ext, false, p.string() + " is missing" );
 	}
 	// The projects the shipped MFC editor made (mfc-new): each must save back byte for byte.
-	for ( const auto &f : fs::directory_iterator( fs::path( kFixtures ) / "mfc-new" ) )
+	for ( const auto &f : ListDirectory( r, fs::path( kFixtures ) / "mfc-new" ) )
 		if ( f.is_regular_file() && exts.count( f.path().extension().string() ) )
 			projects.emplace_back( "mfc-new/" + f.path().filename().string(), f.path() );
 	std::sort( projects.begin(), projects.end() );
@@ -898,7 +912,7 @@ int main()
 		RoundTrip( r, p.first, p.second );
 
 	// MFC's own projects: every type and flag pair in them is the rule's.
-	for ( const auto &e : fs::directory_iterator( fs::path( kFixtures ) / "mfc-new" ) )
+	for ( const auto &e : ListDirectory( r, fs::path( kFixtures ) / "mfc-new" ) )
 		if ( e.path().extension().string().size() > 1 && e.path().extension() != ".md" )
 			CheckValueFlags( r, e.path().extension().string().substr( 1 ), e.path(), "mfc-new:" );
 	CheckEncodedFlags( r );
