@@ -27,7 +27,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path
 $fixtureRoot = Join-Path $repoRoot "tools/zig/fixtures/resource_editor"
 if ([string]::IsNullOrWhiteSpace($EditorPath)) {
     $EditorPath = Join-Path $repoRoot "Sources/src/bin/editor.exe"
