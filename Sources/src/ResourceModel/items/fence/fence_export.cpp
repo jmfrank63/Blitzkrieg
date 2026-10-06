@@ -41,6 +41,8 @@
 #include "../../image_export.h"
 #include "../tree_item_types.h"
 #include "../stats_item.h"
+#include "../../mfc_value.h"
+#include "../../xml.h"
 #include "../../../Main/RPGStats.h"
 
 namespace NResourceModel
@@ -153,13 +155,53 @@ void FillGrid( const CListOfTiles &tiles, const SVec3 &vSpritePos, const GridPro
 	vOrigin = CVec2( origin.x, origin.y );
 }
 
+const char kFrameData[] = "desc";
+
+// A grid's size and cells as one text, which tells whether the cut-out of a grid is still the imported one.
+std::string GridFingerprint( const CArray2D<BYTE> &grid )
+{
+	unsigned long long nHash = 1469598103934665603ull;
+	const BYTE *pCells = const_cast<CArray2D<BYTE> &>( grid ).GetBuffer();
+	for ( int i = 0; i < grid.GetSizeX() * grid.GetSizeY(); ++i )
+		nHash = ( nHash ^ pCells[i] ) * 1099511628211ull;
+	return std::to_string( grid.GetSizeX() ) + "x" + std::to_string( grid.GetSizeY() ) + ":" + std::to_string( nHash );
+}
+
+const NResourceXml::Node *KeptSegment( const NResourceXml::Node *pProjectElement, int nIndex )
+{
+	const NResourceXml::Node *pFrame = pProjectElement != nullptr ? NResourceXml::FindChild( *pProjectElement, kFrameData ) : nullptr;
+	const NResourceXml::Node *pSegments = pFrame != nullptr ? NResourceXml::FindChild( *pFrame, "Segments" ) : nullptr;
+	if ( pSegments == nullptr )
+		return nullptr;
+	for ( const NResourceXml::Node &item : pSegments->children )
+		if ( item.kind == NResourceXml::Node::Element )
+			if ( const std::string *pIndex = FindAttr( item, "Index" ) )
+				if ( std::atoi( pIndex->c_str() ) == nIndex )
+					return &item;
+	return nullptr;
+}
+
+void UseKeptOrigin( const NResourceXml::Node &kept, const char *pszGrid, const char *pszOrigin, const CArray2D<BYTE> &grid, CVec2 &vOrigin )
+{
+	const std::string *pPrint = FindAttr( kept, std::string( pszGrid ) + "Grid" );
+	const std::string *pX = FindAttr( kept, std::string( pszOrigin ) + "X" ), *pY = FindAttr( kept, std::string( pszOrigin ) + "Y" );
+	if ( pPrint == nullptr || pX == nullptr || pY == nullptr || *pPrint != GridFingerprint( grid ) )
+		return;
+	vOrigin = CVec2( float( std::strtod( pX->c_str(), nullptr ) ), float( std::strtod( pY->c_str(), nullptr ) ) );
+}
+
 // CFenceFrame::FillSegmentProps.
-void FillSegmentProps( const SSegment &segment, const GridProjection &projection, SFenceRPGStats::SSegmentRPGStats &stats )
+void FillSegmentProps( const SSegment &segment, const GridProjection &projection, SFenceRPGStats::SSegmentRPGStats &stats, const NResourceXml::Node *pProjectElement )
 {
 	stats.nIndex = segment.nIndex;
 	const SVec3 vSpritePos{ segment.pProps->vSpritePos.x, segment.pProps->vSpritePos.y, segment.pProps->vSpritePos.z };
 	FillGrid( segment.pProps->lockedTiles, vSpritePos, projection, stats.passability, stats.vOrigin );
 	FillGrid( segment.pProps->transeparences, vSpritePos, projection, stats.visibility, stats.vVisOrigin );
+	if ( const NResourceXml::Node *pKept = KeptSegment( pProjectElement, segment.nIndex ) )
+	{
+		UseKeptOrigin( *pKept, "Pass", "Origin", stats.passability, stats.vOrigin );
+		UseKeptOrigin( *pKept, "Vis", "VisOrigin", stats.visibility, stats.vVisOrigin );
+	}
 }
 
 // MakeFullPath( project folder, name ) of the fences directory, with the case
@@ -355,6 +397,37 @@ bool ComposeFences( const std::vector<SDirection> &directions, int nMaxIndex, co
 
 }
 
+void WriteFenceFrameData( NResourceXml::Node &root, const SFenceRPGStats &rpgStats )
+{
+	NResourceXml::Node frame, segments;
+	frame.kind = segments.kind = NResourceXml::Node::Element;
+	frame.name = kFrameData;
+	segments.name = "Segments";
+	for ( std::size_t i = 0; i < rpgStats.stats.size(); ++i )
+	{
+		const SFenceRPGStats::SSegmentRPGStats &segment = rpgStats.stats[i];
+		NResourceXml::Node item;
+		item.kind = NResourceXml::Node::Element;
+		item.name = "item";
+		SetAttr( item, "Index", MfcInt( int( i ) ) );
+		SetAttr( item, "PassGrid", GridFingerprint( segment.passability ) );
+		SetAttr( item, "OriginX", MfcFloat( segment.vOrigin.x ) );
+		SetAttr( item, "OriginY", MfcFloat( segment.vOrigin.y ) );
+		SetAttr( item, "VisGrid", GridFingerprint( segment.visibility ) );
+		SetAttr( item, "VisOriginX", MfcFloat( segment.vVisOrigin.x ) );
+		SetAttr( item, "VisOriginY", MfcFloat( segment.vVisOrigin.y ) );
+		segments.children.push_back( std::move( item ) );
+	}
+	frame.children.push_back( std::move( segments ) );
+	for ( NResourceXml::Node &child : root.children )
+		if ( child.kind == NResourceXml::Node::Element && child.name == kFrameData )
+		{
+			child = std::move( frame );
+			return;
+		}
+	root.children.push_back( std::move( frame ) );
+}
+
 bool ExportFence( const Project &project, const SExportContext &context, SExportOutcome &outcome )
 {
 	const std::unique_ptr<Project> pProject = PreparedCopy( project, ETIT_FENCE_ROOT_ITEM, "fence", outcome );
@@ -421,7 +494,7 @@ bool ExportFence( const Project &project, const SExportContext &context, SExport
 		{
 			if ( !used.insert( segment.nIndex ).second )
 				outcome.warnings.push_back( "segment index " + std::to_string( segment.nIndex ) + " is used by more than one item (" + segment.pProps->GetDisplayName() + ")" );
-			FillSegmentProps( segment, projection, rpgStats.stats[segment.nIndex] );
+			FillSegmentProps( segment, projection, rpgStats.stats[segment.nIndex], &pProject->document.root );
 			std::vector<int> &list = segment.nType == 0 ? dir.centers : segment.nType == 1 ? dir.ldamages : segment.nType == 2 ? dir.rdamages : dir.cdamages;
 			list.push_back( segment.nIndex );
 		}

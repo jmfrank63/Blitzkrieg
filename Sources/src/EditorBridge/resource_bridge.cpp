@@ -6841,6 +6841,8 @@ NResourceModel::SObjectFrameData ObjectFrameOf( SObjectRPGStats &rpgStats )
 	frame.vOrigin = NResourceModel::SVec2{ rpgStats.vOrigin.x, rpgStats.vOrigin.y };
 	frame.visibility = GridOf( rpgStats.visibility );
 	frame.vVisOrigin = NResourceModel::SVec2{ rpgStats.vVisOrigin.x, rpgStats.vVisOrigin.y };
+	frame.nArmorMin = rpgStats.defences[0].nArmorMin;
+	frame.nArmorMax = rpgStats.defences[0].nArmorMax;
 	return frame;
 }
 
@@ -7580,6 +7582,19 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		bool bBuildingFrame = false;
 		SBridgeRPGStats bridgeStats;
 		bool bBridgeFrame = false;
+		SVectorStripeObjectDesc riverDesc;
+		bool bRiverFrame = false;
+		bool bRoadFrame = false;
+		SInfantryRPGStats infantryKept;
+		SMechUnitRPGStats meshKept;
+		std::string szMeshFolder;
+		NResourceXml::Node meshSourceRpg;
+		SFenceRPGStats fenceKept;
+		bool bFenceFrame = false;
+		float imageRect[4] = { 0, 0, 0, 0 };
+		bool bImageRect = false;
+		bool bMeshFrame = false;
+		bool bInfantryFrame = false;
 		// The stats file's place below the kind's folder (medal, chapter and
 		// campaign), which the project keeps as its export file name.
 		std::string szFrameExportFile;
@@ -7635,9 +7650,22 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				SMechUnitRPGStats rpgStats;
 				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
 					return status;
-				szKeyName = rpgStats.szKeyName;
-				if ( !szKeyName.empty() )
-					MechStatsToTree( rpgStats, *pRoot );
+				// An empty KeyName is a valid value (as for buildings): the folder labels the import and the stats keep theirs.
+				szKeyName = rpgStats.szKeyName.empty() ? statsFile.parent_path().filename().string() : rpgStats.szKeyName;
+				MechStatsToTree( rpgStats, *pRoot );
+				// The platforms' and guns' locator numbers are kept beside the tree: its combos hold names, which the stats do not.
+				meshKept = rpgStats;
+				bMeshFrame = true;
+				szMeshFolder = statsFile.parent_path().string();
+				{
+					// The stats' own RPG element, which the export writes back for what the models derive.
+					std::string szSource;
+					NResourceXml::Document sourceDoc;
+					std::string szSourceError;
+					if ( ReadFileBytes( statsFile.string(), szSource ) && NResourceXml::Parse( szSource, sourceDoc, szSourceError ) )
+						if ( const NResourceXml::Node *pRpg = NResourceXml::FindChild( sourceDoc.root, "RPG" ) )
+							meshSourceRpg = *pRpg;
+				}
 				break;
 			}
 			case kObjectKind:
@@ -7745,14 +7773,18 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				}
 				szKeyName = statsFile.stem().string();
 				if ( kind == kRoadKind )
+				{
 					NResourceModel::Road3DStatsToTree( vsoDesc, *pRoot );
+					riverDesc = vsoDesc;
+					bRoadFrame = true;
+				}
 				else
+				{
 					NResourceModel::River3DStatsToTree( vsoDesc, *pRoot );
-				break;
-				if ( kind == kRoadKind )
-					NResourceModel::Road3DStatsToTree( vsoDesc, *pRoot );
-				else
-					NResourceModel::River3DStatsToTree( vsoDesc, *pRoot );
+					// What the river frame holds no item for (the minimap colours...) is kept beside the tree.
+					riverDesc = vsoDesc;
+					bRiverFrame = true;
+				}
 				break;
 			}
 			case kFenceKind:
@@ -7763,10 +7795,16 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				SFenceRPGStats rpgStats;
 				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
 					return status;
-				szKeyName = rpgStats.szKeyName;
+				// An empty KeyName is a valid value (as for buildings): a fence with segments is labelled by its folder.
+				szKeyName = rpgStats.szKeyName.empty() && !rpgStats.stats.empty() ? statsFile.parent_path().filename().string() : rpgStats.szKeyName;
 				NResourceModel::SGroundCamera camera = NResourceModel::DefaultEditorCamera();
 				if ( !szKeyName.empty() )
+				{
 					FenceStatsToTree( rpgStats, *pRoot, NResourceModel::GridProjection( camera ) );
+					// The segments' origins are kept beside the tree, which places the grids on the editor camera's lattice.
+					fenceKept = rpgStats;
+					bFenceFrame = true;
+				}
 				break;
 			}
 			case kMedalKind:
@@ -7779,6 +7817,8 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				MedalStatsToTree( rpgStats, *pRoot );
 				szFrameExportFile = ExportFileNameBelow( statsFile, "medals" );
 				bFrameExport = !szFrameExportFile.empty();
+				imageRect[0] = rpgStats.mapImageRect.x1, imageRect[1] = rpgStats.mapImageRect.y1, imageRect[2] = rpgStats.mapImageRect.x2, imageRect[3] = rpgStats.mapImageRect.y2;
+				bImageRect = true;
 				break;
 			}
 			case kMissionKind:
@@ -7791,6 +7831,8 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				szFrameExportFile = ExportFileNameBelow( statsFile, "scenarios" );
 				bFrameExport = !szFrameExportFile.empty();
 				MissionStatsToTree( rpgStats, *pRoot, ExportPrefix( "scenarios\\", szFrameExportFile ) );
+				imageRect[0] = rpgStats.mapImageRect.x1, imageRect[1] = rpgStats.mapImageRect.y1, imageRect[2] = rpgStats.mapImageRect.x2, imageRect[3] = rpgStats.mapImageRect.y2;
+				bImageRect = true;
 				break;
 			}
 			case kChapterKind:
@@ -7803,6 +7845,8 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				szFrameExportFile = ExportFileNameBelow( statsFile, "scenarios" );
 				bFrameExport = !szFrameExportFile.empty();
 				ChapterStatsToTree( rpgStats, *pRoot, ExportPrefix( "scenarios\\", szFrameExportFile ) );
+				imageRect[0] = rpgStats.mapImageRect.x1, imageRect[1] = rpgStats.mapImageRect.y1, imageRect[2] = rpgStats.mapImageRect.x2, imageRect[3] = rpgStats.mapImageRect.y2;
+				bImageRect = true;
 				break;
 			}
 			case kCampaignKind:
@@ -7814,6 +7858,8 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				szFrameExportFile = ExportFileNameBelow( statsFile, "campaigns" );
 				bFrameExport = !szFrameExportFile.empty();
 				CampaignStatsToTree( rpgStats, *pRoot, ExportPrefix( "scenarios\\campaigns\\", szFrameExportFile ) );
+				imageRect[0] = rpgStats.mapImageRect.x1, imageRect[1] = rpgStats.mapImageRect.y1, imageRect[2] = rpgStats.mapImageRect.x2, imageRect[3] = rpgStats.mapImageRect.y2;
+				bImageRect = true;
 				break;
 			}
 			default:
@@ -7822,9 +7868,12 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				SInfantryRPGStats rpgStats;
 				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
 					return status;
-				szKeyName = rpgStats.szKeyName;
-				if ( !szKeyName.empty() )
-					InfantryStatsToTree( rpgStats, *pRoot );
+				// An empty KeyName is a valid value (as for buildings): the folder labels the import and the stats keep theirs.
+				szKeyName = rpgStats.szKeyName.empty() ? statsFile.parent_path().filename().string() : rpgStats.szKeyName;
+				InfantryStatsToTree( rpgStats, *pRoot );
+				// The animations' Length is kept beside the tree: a stats-only import has no frames to compute it from.
+				infantryKept = rpgStats;
+				bInfantryFrame = true;
 				break;
 			}
 		}
@@ -7839,7 +7888,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		pProject->document.root.kind = NResourceXml::Node::Element;
 		pProject->document.root.name = kKindTable[kind].pszTag;
 		pProject->root = std::move( pRoot );
-		if ( bObjectFrame || bBuildingFrame || bBridgeFrame || bFrameExport )
+		if ( bObjectFrame || bBuildingFrame || bBridgeFrame || bRiverFrame || bRoadFrame || bInfantryFrame || bMeshFrame || bFenceFrame || bFrameExport )
 		{
 			// The frame's chunks sit beside the tree and only a project read from
 			// text keeps such elements (in the root's layout), so the imported
@@ -7862,12 +7911,24 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				text.text = szFrameExportFile;
 				file.children.push_back( text );
 				ownData.children.push_back( file );
+				if ( bImageRect )
+					NResourceModel::NStatsExport::KeepImageRect( pStaged->document.root, imageRect );
 			}
 			else if ( bBridgeFrame )
 			{
 				NResourceModel::SGroundCamera camera = NResourceModel::DefaultEditorCamera();
 				NResourceModel::WriteBridgeFrameData( pStaged->document.root, bridgeStats, NResourceModel::GridProjection( camera ) );
 			}
+			else if ( bRiverFrame )
+				NResourceModel::WriteRiverFrameData( pStaged->document.root, riverDesc );
+			else if ( bRoadFrame )
+				NResourceModel::WriteRoadFrameData( pStaged->document.root, riverDesc );
+			else if ( bInfantryFrame )
+				NResourceModel::WriteInfantryFrameData( pStaged->document.root, infantryKept );
+			else if ( bMeshFrame )
+				NResourceModel::WriteMeshFrameData( pStaged->document.root, meshKept, szMeshFolder, meshSourceRpg.name.empty() ? nullptr : &meshSourceRpg );
+			else if ( bFenceFrame )
+				NResourceModel::WriteFenceFrameData( pStaged->document.root, fenceKept );
 			else
 				NResourceModel::WriteObjectFrameData( *pStaged, objectFrame );
 			szRendered = NResourceXml::Serialise( pStaged->document );

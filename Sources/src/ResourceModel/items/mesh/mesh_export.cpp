@@ -34,10 +34,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 
 #include "mesh.h"
 #include "../stats_export.h"
 #include "../../image_export.h"
+#include "../../mfc_value.h"
+#include "../../xml.h"
 #include "../tree_item_types.h"
 #include "../../../Main/RPGStats.h"
 #include "../../../Formats/fmtMesh.h"
@@ -242,13 +245,84 @@ int FindNode( const std::vector<std::string> &names, const std::string &szName )
 	return i;
 }
 
+// The stats' own RPG element read back through the engine (written to a file of the staging folder, as the bridge reads a
+// shipped file), and the fields the export took from the models taken from it instead.
+void KeepImportedLocators( SMechUnitRPGStats &rpgStats, const NResourceXml::Node &rpgElement, const SExportContext &context )
+{
+	NResourceXml::Document doc;
+	doc.hasDeclaration = true;
+	doc.declaration = " version=\"1.0\"";
+	doc.root.kind = NResourceXml::Node::Element;
+	doc.root.name = "base";
+	doc.root.children.push_back( rpgElement );
+	const fs::path file = fs::path( context.szStagingRoot ) / "kept-mesh.xml";
+	{
+		std::ofstream out( file, std::ios::binary | std::ios::trunc );
+		const std::string szXml = NResourceXml::Serialise( doc );
+		out.write( szXml.data(), std::streamsize( szXml.size() ) );
+	}
+	SMechUnitRPGStats kept;
+	{
+		CPtr<IDataStorage> pStorage = OpenStorage( ( file.parent_path().string() + "/" ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+		CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( file.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+		CPtr<IDataTree> pDT = pStream != 0 ? CreateDataTreeSaver( pStream, IDataTree::READ ) : 0;
+		if ( pDT == 0 )
+			return;
+		CTreeAccessor tree = pDT;
+		tree.Add( "RPG", &kept );
+	}
+	std::error_code ec;
+	fs::remove( file, ec );
+	rpgStats.vAABBCenter = kept.vAABBCenter;
+	rpgStats.vAABBHalfSize = kept.vAABBHalfSize;
+	rpgStats.aabb_as = kept.aabb_as;
+	rpgStats.aabb_ds = kept.aabb_ds;
+	rpgStats.animdescs = kept.animdescs;
+	rpgStats.damagePoints = kept.damagePoints;
+	rpgStats.exhaustPoints = kept.exhaustPoints;
+	rpgStats.nEntrancePoint = kept.nEntrancePoint;
+	rpgStats.vEntrancePoint = kept.vEntrancePoint;
+	rpgStats.peoplePointIndices = kept.peoplePointIndices;
+	rpgStats.vPeoplePoints = kept.vPeoplePoints;
+	rpgStats.vAmmoPoint = kept.vAmmoPoint;
+	rpgStats.nShootDustPoint = kept.nShootDustPoint;
+	rpgStats.vGunners = kept.vGunners;
+	rpgStats.nTowPoint = kept.nTowPoint;
+	rpgStats.vTowPoint = kept.vTowPoint;
+	rpgStats.vFrontWheel = kept.vFrontWheel;
+	rpgStats.vBackWheel = kept.vBackWheel;
+	rpgStats.vHookPoint = kept.vHookPoint;
+	rpgStats.nFatalitySmokePoint = kept.nFatalitySmokePoint;
+}
+
+// A platform or gun part combo no locator was chosen for: MFC's "NA", which an import leaves.
+bool IsUnsetPart( const std::string &szName )
+{
+	return szName.empty() || szName == "NA";
+}
+
+// The frame data of an imported unit: its element name and the readers of its attributes.
+const char kFrameData[] = "desc";
+
+int AttrInt( const NResourceXml::Node &node, const char *pszName, int nDefault )
+{
+	const std::string *pValue = FindAttr( node, pszName );
+	return pValue != nullptr ? int( std::strtoll( pValue->c_str(), nullptr, 10 ) ) : nDefault;
+}
+
+float AttrFloat( const NResourceXml::Node &node, const char *pszName, float fDefault )
+{
+	const std::string *pValue = FindAttr( node, pszName );
+	return pValue != nullptr ? float( std::strtod( pValue->c_str(), nullptr ) ) : fDefault;
+}
+
 bool StartsWith( const std::string &sz, const char *pszPrefix )
 {
 	return sz.compare( 0, std::strlen( pszPrefix ), pszPrefix ) == 0;
 }
 
 // CMeshFrame::FillRPGStats.
-bool FillRPGStats( SMechUnitRPGStats &rpgStats, const CTreeItem &rootItem, const SExportContext &context, SExportOutcome &outcome )
+bool FillRPGStats( SMechUnitRPGStats &rpgStats, const CTreeItem &rootItem, const SExportContext &context, SExportOutcome &outcome, const NResourceXml::Node *pProjectElement )
 {
 	SSkeletonFormat skeleton;
 	SAABBFormat aabb;
@@ -475,13 +549,37 @@ bool FillRPGStats( SMechUnitRPGStats &rpgStats, const CTreeItem &rootItem, const
 
 	rpgStats.guns.clear();
 	rpgStats.platforms.resize( pPlatforms->GetChildren().size() );
+	// What an import kept of the platforms and guns, in the stats' order.
+	std::vector<const NResourceXml::Node *> keptPlatforms, keptGuns;
+	if ( const NResourceXml::Node *pFrame = pProjectElement != nullptr ? NResourceXml::FindChild( *pProjectElement, kFrameData ) : nullptr )
+	{
+		if ( const NResourceXml::Node *pList = NResourceXml::FindChild( *pFrame, "Platforms" ) )
+			for ( const NResourceXml::Node &item : pList->children )
+				if ( item.kind == NResourceXml::Node::Element )
+					keptPlatforms.push_back( &item );
+		if ( const NResourceXml::Node *pList = NResourceXml::FindChild( *pFrame, "Guns" ) )
+			for ( const NResourceXml::Node &item : pList->children )
+				if ( item.kind == NResourceXml::Node::Element )
+					keptGuns.push_back( &item );
+	}
 	int nPlatformIndex = 0;
 	for ( const auto &pPlatformProps : pPlatforms->GetChildren() )
 	{
 		SMechUnitRPGStats::SPlatform &platform = rpgStats.platforms[nPlatformIndex];
 		platform.fVerticalRotationSpeed = ValueFloat( *pPlatformProps, 3 );
 		platform.fHorizontalRotationSpeed = ValueFloat( *pPlatformProps, 4 );
-		if ( nNumNodes != 0 )
+		const bool bKeptPlatform = nPlatformIndex < int( keptPlatforms.size() ) && IsUnsetPart( ValueStr( *pPlatformProps, 0 ) ) && IsUnsetPart( ValueStr( *pPlatformProps, 1 ) ) && IsUnsetPart( ValueStr( *pPlatformProps, 2 ) );
+		if ( bKeptPlatform )
+		{
+			const NResourceXml::Node &kept = *keptPlatforms[nPlatformIndex];
+			platform.nModelPart = AttrInt( kept, "ModelPart", platform.nModelPart );
+			platform.dwGunCarriageParts = DWORD( AttrInt( kept, "GunCarriageParts", int( platform.dwGunCarriageParts ) ) );
+			platform.constraint.fMin = AttrFloat( kept, "ConstraintMin", platform.constraint.fMin );
+			platform.constraint.fMax = AttrFloat( kept, "ConstraintMax", platform.constraint.fMax );
+			platform.constraintVertical.fMin = AttrFloat( kept, "ConstraintVerticalMin", platform.constraintVertical.fMin );
+			platform.constraintVertical.fMax = AttrFloat( kept, "ConstraintVerticalMax", platform.constraintVertical.fMax );
+		}
+		else if ( nNumNodes != 0 )
 		{
 			std::string szPartName = ValueStr( *pPlatformProps, 0 );
 			int i = FindNode( allNames, szPartName );
@@ -532,7 +630,16 @@ bool FillRPGStats( SMechUnitRPGStats &rpgStats, const CTreeItem &rootItem, const
 			for ( const auto &pGunProps : pGuns->GetChildren() )
 			{
 				SMechUnitRPGStats::SGun gun;
-				if ( nNumNodes != 0 )
+				const std::size_t nKeptGun = rpgStats.guns.size();
+				if ( nKeptGun < keptGuns.size() && IsUnsetPart( ValueStr( *pGunProps, 0 ) ) && IsUnsetPart( ValueStr( *pGunProps, 1 ) ) )
+				{
+					const NResourceXml::Node &kept = *keptGuns[nKeptGun];
+					gun.nShootPoint = AttrInt( kept, "ShootPoint", -1 );
+					gun.wDirection = WORD( AttrInt( kept, "Direction", gun.wDirection ) );
+					gun.nModelPart = AttrInt( kept, "ModelPart", gun.nModelPart );
+					gun.fRecoilLength = AttrFloat( kept, "RecoilLength", gun.fRecoilLength );
+				}
+				else if ( nNumNodes != 0 )
 				{
 					const std::string szPointName = ValueStr( *pGunProps, 0 );
 					int i = FindNode( allNames, szPointName );
@@ -683,6 +790,17 @@ bool FillRPGStats( SMechUnitRPGStats &rpgStats, const CTreeItem &rootItem, const
 			else if ( cMode == '2' )
 				rpgStats.vGunners[2].push_back( v2 );
 		}
+	}
+
+	// The unit as it was imported, while its models are the ones it was imported with.
+	if ( const NResourceXml::Node *pFrame = pProjectElement != nullptr ? NResourceXml::FindChild( *pProjectElement, kFrameData ) : nullptr )
+	{
+		const std::string *pModels = FindAttr( *pFrame, "Models" );
+		const NResourceXml::Node *pKept = NResourceXml::FindChild( *pFrame, "Kept" );
+		const NResourceXml::Node *pRpg = pKept != nullptr ? NResourceXml::FindChild( *pKept, "RPG" ) : nullptr;
+		if ( pModels != nullptr && pRpg != nullptr && !context.szStagingRoot.empty() &&
+		     *pModels == MeshModelFingerprint( ModelFile( context, ValueStr( *pGraphicsItem, 0 ) ), ModelFile( context, ValueStr( *pGraphicsItem, 1 ) ), ModelFile( context, ValueStr( *pGraphicsItem, 2 ) ) ) )
+			KeepImportedLocators( rpgStats, *pRpg, context );
 	}
 
 	// A platform with no vertical limit of its own takes the elevation of
@@ -910,13 +1028,88 @@ void CopyLocalizations( const SExportContext &context, const CTreeItem &localiza
 
 }
 
+std::string MeshModelFingerprint( const fs::path &combat, const fs::path &install, const fs::path &trans )
+{
+	std::string szPrint;
+	for ( const fs::path *pFile : { &combat, &install, &trans } )
+	{
+		std::string szPart = "-";
+		std::ifstream in( pFile->empty() ? fs::path( "-" ) : FoldedFile( pFile->string() ), std::ios::binary );
+		if ( in )
+		{
+			unsigned long long nHash = 1469598103934665603ull, nSize = 0;
+			char buffer[4096];
+			while ( in.read( buffer, sizeof buffer ) || in.gcount() > 0 )
+				for ( std::streamsize i = 0; i < in.gcount(); ++i, ++nSize )
+					nHash = ( nHash ^ (unsigned char) buffer[i] ) * 1099511628211ull;
+			szPart = std::to_string( nSize ) + ":" + std::to_string( nHash );
+		}
+		szPrint += ( szPrint.empty() ? "" : ";" ) + szPart;
+	}
+	return szPrint;
+}
+
+void WriteMeshFrameData( NResourceXml::Node &root, const SMechUnitRPGStats &rpgStats, const std::string &szStatsFolder, const NResourceXml::Node *pSourceStats )
+{
+	NResourceXml::Node frame;
+	frame.kind = NResourceXml::Node::Element;
+	frame.name = kFrameData;
+	NResourceXml::Node platforms, guns;
+	platforms.kind = guns.kind = NResourceXml::Node::Element;
+	platforms.name = "Platforms";
+	guns.name = "Guns";
+	for ( const SMechUnitRPGStats::SPlatform &platform : rpgStats.platforms )
+	{
+		NResourceXml::Node item;
+		item.kind = NResourceXml::Node::Element;
+		item.name = "item";
+		SetAttr( item, "ModelPart", MfcInt( platform.nModelPart ) );
+		SetAttr( item, "GunCarriageParts", MfcInt( int( platform.dwGunCarriageParts ) ) );
+		SetAttr( item, "ConstraintMin", MfcFloat( platform.constraint.fMin ) );
+		SetAttr( item, "ConstraintMax", MfcFloat( platform.constraint.fMax ) );
+		SetAttr( item, "ConstraintVerticalMin", MfcFloat( platform.constraintVertical.fMin ) );
+		SetAttr( item, "ConstraintVerticalMax", MfcFloat( platform.constraintVertical.fMax ) );
+		platforms.children.push_back( std::move( item ) );
+	}
+	for ( const SMechUnitRPGStats::SGun &gun : rpgStats.guns )
+	{
+		NResourceXml::Node item;
+		item.kind = NResourceXml::Node::Element;
+		item.name = "item";
+		SetAttr( item, "ShootPoint", MfcInt( gun.nShootPoint ) );
+		SetAttr( item, "Direction", MfcInt( int( gun.wDirection ) ) );
+		SetAttr( item, "ModelPart", MfcInt( gun.nModelPart ) );
+		SetAttr( item, "RecoilLength", MfcFloat( gun.fRecoilLength ) );
+		guns.children.push_back( std::move( item ) );
+	}
+	frame.children.push_back( std::move( platforms ) );
+	frame.children.push_back( std::move( guns ) );
+	if ( pSourceStats != nullptr )
+	{
+		const fs::path folder( szStatsFolder );
+		SetAttr( frame, "Models", MeshModelFingerprint( folder / "1.mod", folder / "2.mod", folder / "3.mod" ) );
+		NResourceXml::Node kept;
+		kept.kind = NResourceXml::Node::Element;
+		kept.name = "Kept";
+		kept.children.push_back( *pSourceStats );
+		frame.children.push_back( std::move( kept ) );
+	}
+	for ( NResourceXml::Node &child : root.children )
+		if ( child.kind == NResourceXml::Node::Element && child.name == kFrameData )
+		{
+			child = std::move( frame );
+			return;
+		}
+	root.children.push_back( std::move( frame ) );
+}
+
 bool ExportMesh( const Project &project, const SExportContext &context, SExportOutcome &outcome )
 {
 	const std::unique_ptr<Project> pProject = PreparedCopy( project, ETIT_MESH_ROOT_ITEM, "mesh", outcome );
 	if ( !pProject )
 		return false;
 	SMechUnitRPGStats rpgStats;
-	if ( !FillRPGStats( rpgStats, *pProject->root, context, outcome ) )
+	if ( !FillRPGStats( rpgStats, *pProject->root, context, outcome, &pProject->document.root ) )
 		return false;
 
 	const CTreeItem *pGraphics = ChildItem( *pProject->root, ETIT_MESH_GRAPHICS_ITEM );

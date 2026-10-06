@@ -34,6 +34,40 @@ std::unique_ptr<Project> PreparedCopy( const Project &project, int nRootType, co
 	return pCopy;
 }
 
+static const char kImageRect[] = "image_rect";
+static const char *const kRectAttrs[4] = { "x1", "y1", "x2", "y2" };
+
+void KeepImageRect( NResourceXml::Node &root, const float ( &rect )[4] )
+{
+	NResourceXml::Node element;
+	element.kind = NResourceXml::Node::Element;
+	element.name = kImageRect;
+	for ( int i = 0; i < 4; ++i )
+		SetAttr( element, kRectAttrs[i], MfcFloat( rect[i] ) );
+	for ( NResourceXml::Node &child : root.children )
+		if ( child.kind == NResourceXml::Node::Element && child.name == kImageRect )
+		{
+			child = std::move( element );
+			return;
+		}
+	root.children.push_back( std::move( element ) );
+}
+
+bool KeptImageRect( const NResourceXml::Node &root, float ( &rect )[4] )
+{
+	const NResourceXml::Node *pElement = NResourceXml::FindChild( root, kImageRect );
+	if ( pElement == nullptr )
+		return false;
+	for ( int i = 0; i < 4; ++i )
+	{
+		const std::string *pValue = FindAttr( *pElement, kRectAttrs[i] );
+		if ( pValue == nullptr )
+			return false;
+		rect[i] = float( std::strtod( pValue->c_str(), nullptr ) );
+	}
+	return true;
+}
+
 const CTreeItem *ChildItem( const CTreeItem &item, int nType, int nIndex )
 {
 	for ( const auto &pChild : item.GetChildren() )
