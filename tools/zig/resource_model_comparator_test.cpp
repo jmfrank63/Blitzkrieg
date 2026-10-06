@@ -1492,6 +1492,50 @@ static void GoldenNegatives( const fs::path &fixtures, const fs::path &scratchRo
 			Check( false, "golden negative digits: the port's unt 1.xml holds MaxHP=\"100\"" );
 	}
 	{
+		// MFC lowercases the file names and the names it stores; the port keeps the case written. A stand-in
+		// golden with its file named 1.XML and a lowercase value must pair with the port's mixed case value
+		// (accepted, with the reason), and a value that differs by more than case must fail.
+		const fs::path project = CopyFixture( fixtures, scratch, "cgc" );
+		const SExportRun run = RunExporter( "cgc", project, scratch / "cgc" / "data", context );
+		const fs::path port = FindPortStatsFile( run.data );
+		std::string szPort;
+		const std::string szLower = "<Chapter>chapter1</Chapter>";
+		const bool bReady = run.bExported && !port.empty() && ReadBytes( port, &szPort );
+		const std::string::size_type nAt = bReady ? szPort.find( szLower ) : std::string::npos;
+		if ( nAt != std::string::npos )
+		{
+			std::string szMixed = szPort;
+			szMixed.replace( nAt, szLower.size(), "<Chapter>Chapter1</Chapter>" );
+			Check( WriteBytes( port, szMixed ), "golden negative case: the port's 1.xml keeps a mixed-case value" );
+			for ( const char *pszGolden : { "chapter1", "chapter2" } )
+			{
+				const bool bSame = std::string( pszGolden ) == "chapter1";
+				const fs::path stand = scratch / "cgc" / ( std::string( "stand-in-case-" ) + ( bSame ? "same" : "other" ) );
+				FlattenAsMfc( run.data, stand );
+				std::error_code error;
+				fs::path golden1;
+				for ( fs::recursive_directory_iterator it( stand, error ), end; golden1.empty() && !error && it != end; it.increment( error ) )
+					if ( it->is_regular_file() && it->path().filename() == "1.xml" )
+						golden1 = it->path();
+				std::string szGolden = szPort;
+				szGolden.replace( nAt, szLower.size(), std::string( "<Chapter>" ) + pszGolden + "</Chapter>" );
+				const fs::path renamed = golden1.parent_path() / "1.XML";
+				const bool bFound = !golden1.empty() && WriteBytes( golden1, szGolden );
+				if ( bFound )
+					fs::rename( golden1, renamed, error );
+				Check( bFound && !error, std::string( "golden negative case: the stand-in golden holds " ) + pszGolden + " in a file named 1.XML" );
+				const SGoldenResult result = CompareGoldenFolder( EExportKind::CAMPAIGN, run.data, stand, tolerance );
+				size_t nStatsFailures = 0;
+				for ( const std::string &szFailure : result.failures )
+					nStatsFailures += szFailure.rfind( "1.XML", 0 ) == 0 ? 1 : 0;
+				Check( bSame ? ( nStatsFailures == 0 && result.nFiles == 6 ) : ( nStatsFailures == 1 ),
+				       std::string( "golden negative case: a golden Chapter " ) + pszGolden + ( bSame ? " differs in case alone: equal" : " is a different value: reported as FAIL" ) );
+			}
+		}
+		else
+			Check( false, "golden negative case: the port's cgc 1.xml holds <Chapter>chapter1</Chapter>" );
+	}
+	{
 		// The camera is part of what the goldens prove: the fence golden holds absolute positions, so the
 		// same export through a camera anchored 8 world cells away (the parent frame's anchor) is reported
 		// as FAIL on the origins, and the object golden's origin, cut from tiles of the camera, does not

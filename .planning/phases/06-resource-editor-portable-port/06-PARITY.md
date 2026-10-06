@@ -406,3 +406,59 @@ pending with the reason that keeps it open. The per-kind table and the maintaine
 | golden scp | pass (T13): compared against the batch-safe copy |
 | golden til | accepted (T13): 392 float differences at six significant digits (`DataTreeXML.cpp:326`) and the tileset XML MFC's batch History replaced (`TileSetFrm.cpp:434`) |
 | win-home re-export after T13 | `export-goldens.ps1 -Extensions wpn,cgc,mip` (batch) and `3rd`, `3rv` by hand in MFC's GUI: these five fixtures were re-saved with MFC's flags; the other 15 goldens are unaffected |
+
+## MFC golden comparison, final table (S16 T14, 2026-10-06)
+
+`zig build test-resource-model-comparator -Dtest-mode=run`: `GOLDEN_SUMMARY extensions=20 pass=10 accepted=10 fail=0 pending=0`.
+
+| Kind | Result | Reason |
+|---|---|---|
+| wpn | pass | |
+| mcp | pass | |
+| trc | accepted (6) | the shipped editor's DXT5 encoder writes a solid-colour 4x4 block with both endpoints moved (decoded colour off by at most 6) |
+| scp | pass | compared against the batch-safe copy (no formation units, T12) |
+| spt | accepted (1) | the golden's 1.xml holds only MFC's batch History; a sprite's export is graphics only; the 1.san and the DDS files are byte-compared and equal |
+| unt | pass | |
+| msh | accepted (38) | float values printed by MFC's XML writer with six significant digits (`DataTreeXML.cpp:326`) |
+| obt | accepted (4) | float rounding of GetPos2 / GetPos3 (bound 1e-3), measured 1.6e-4 to 5.5e-4 |
+| fnc | accepted (15) | the same GetPos3 float rounding |
+| bld | accepted (19) | no cached desc block in a building MFC saved (`BuildFrm.cpp:560`, 4 fields) and GetPos2 / GetPos3 rounding (15) |
+| bdg | accepted (105) | the same GetPos3 float rounding; camera anchor one ulp below 24 world cells (T11) |
+| pcp | accepted (2) | six-digit floats of MFC's XML writer |
+| eff | pass | |
+| til | accepted (393) | 392 six-digit floats, and the tileset XML that MFC's batch History stream replaced (`TileSetFrm.cpp:434`) |
+| 3rd | accepted (1) | SoilParams: an upstream MFC precedence bug in `SetSoilParams` (below); the port keeps the stored 16 |
+| 3rv | pass | |
+| mip | pass | |
+| chc | pass | |
+| cgc | pass | |
+| mdc | pass | |
+
+`gui` has no golden: the GUI editor is switched off in MFC. Total over the 20 goldens: pass=10 accepted=10 fail=0 pending=0.
+
+3rd SoilParams is accepted as a proven upstream MFC bug. `C3DRoadCommonPropsItem::SetSoilParams` (`3dRoadTreeItem.h` at `7f0f4be5c`) reads
+`values[12].value = ( nVal & SVectorStripeObjectDesc::ESP_DUST != 0x0 )`, which C++ parses as `nVal & ( ESP_DUST != 0 )`, that is `nVal & 1`. With
+`ESP_DUST` 0x10 and `ESP_TRACE` 0x01 MFC loads dust as false (and both flags true when the trace bit is set) on every project load (`LoadRPGStats`,
+`GetRPGStats`, `SetSoilParams`). Johannes verified it on win-home with six test files: a new project shows dust on and saves SoilParams 16; after
+reopening it shows dust off and exports 0. This repo fixed the precedence in `aea2ebc4c`. The port keeps the stored 16 by Johannes' decision: "we are
+not taking over this bug, we are going to fix it". This replaces the T13 reading that the 0 came from the flag-8 bools alone: the hand export from the
+re-saved project (flag 9) still holds 0. The rule is in `kGoldenDifferences` (`comparator.cpp`), marked proven. 3rv has no such path: the river
+editor has no soil flags, its `SoilParams` difference is a default the river export writes.
+
+Precedence audit of the upstream MFC editor sources (`git grep` at `7f0f4be5c`, every file under `Sources/src/editor`), for a bitwise
+`&`, `|` or `^`, or a shift, whose right operand is compared in the same expression without parentheses (`x & FLAG != 0`, `x & FLAG == 0`,
+`x | FLAG == ...`, `x ^ FLAG != ...`, `x << n == ...`). Searched with `[&|^]\s*<operand>\s*(!=|==|<=|>=)` and `(<<|>>)\s*<operand>\s*(!=|==)`, then
+the hits not part of `&&` or `||` were read.
+
+| Hit | Fixed here | Port |
+|---|---|---|
+| `3dRoadTreeItem.h:51` `SetSoilParams`, twice on the line (`nVal & ESP_DUST != 0x0`, `nVal & ESP_TRACE != 0x0`) | yes, `aea2ebc4c` (`3dRoadTreeItem.h:49` now has the parentheses) | the port reads `( cSoilParams & ESP_DUST ) != 0` (`road3d_export.cpp:170`, `:171`), so it is the fixed form |
+
+No other hit: every other match of the search is `&&` with `!= 0` or `== 0` on a separate operand. No port divergence found, so no port change.
+The one hit is the cause of the 3rd golden's SoilParams 0.
+
+File-name case (decision by Johannes): the port keeps names and paths in the case written, 'appropriate for modern OS'; MFC lowercases the
+file names and stored paths it saves. The comparison already pairs a golden file with the port's file case-insensitively (`FindNoCase`,
+`SameNoCase`) and the engine's reader folds the case of a stored name, so a difference of case alone never reaches the golden rules and no entry
+is needed. `test-resource-model-comparator` now proves both: a golden file named `1.XML` pairs with the port's `1.xml`, a lowercase `Chapter` value compares
+equal to the port's mixed-case one, and a value that differs by more than case still fails (`golden negative case`).
