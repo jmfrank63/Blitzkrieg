@@ -629,6 +629,41 @@ BkEditorStatus BkResMeshLocators( BkResSession *session, BkResLocator *out, int 
    BK_EDITOR_DATA_MISSING when the stats file is missing or will not read. */
 BkEditorStatus BkResImportFromGame( BkResSession *session, BkResKind kind, const char *path );
 
+/* CTileSetFrame::OnImportTerrains / OnImportCrossets (TileSetFrm.cpp:557, 782):
+   reads the tileset editor file `path` (an .xml holding a "tileset" tree, or a
+   "crosset" tree when crossets != 0) and the .tga atlas of the same name
+   beside it, cuts the atlas into 64 x 32 tiles with the tile mask
+   (editor\terrain\tilemask.tga of the shipped Data folder) and writes them
+   as <index>.tga into the project folder's terrains\ (crossets\) folder,
+   never into Data. The open .til's Terrains (Crossets) item loses its
+   children and takes one props item per terrain type (crosset) with its tile
+   items, and its directory value becomes "terrains\\" ("crossets\\"). The
+   whole tree is built and every tile written before the old children go, so
+   a refusal leaves the project as it was. *out_count (may be null) is the
+   number of tiles written. The editor records the replacement as delete,
+   set-property and insert commands, which is one undo step; the tile files
+   stay on disk. BK_EDITOR_REFUSED when no .til is open, the project has
+   no path yet, or the file holds no terrain types (crossets); the message
+   names the file. BK_EDITOR_DATA_MISSING for a missing or unreadable xml,
+   atlas or mask. BK_EDITOR_FAILED when a tile lies outside the atlas, a
+   crosset names a group the crosset does not have, or a tile cannot be
+   written. BK_EDITOR_BAD_ARGUMENT for a null or empty path. */
+BkEditorStatus BkResTileSetImport( BkResSession *session, const char *path, int crossets, int *out_count );
+
+/* The thumbnail double-click (CTileSetFrame::DoubleClickOnThumbList): adds a
+   tile props item named after the picture file (its name without folder and
+   extension) at the end of the terrain's Tiles item (a CTileSetTilePropsItem
+   with GetFreeTerrainIndex) or of a crosset group (a CCrossetTilePropsItem
+   with GetFreeCrossetIndex), writes its id through *out_id and leaves the
+   index to the pool: the lowest no tile of its list uses, so removing the
+   item frees it. `parent` is a Tiles item, a crosset group item, or a terrain
+   props item (its Tiles item is meant). BK_EDITOR_BAD_ARGUMENT when parent is
+   any other item or the picture name is empty; BK_EDITOR_REFUSED when no .til
+   is open, the node is unknown, or the list already has a tile of that name
+   (MFC ignored the second click). The call is not recorded: the editor
+   records it as an insert command carrying the name. */
+BkEditorStatus BkResTileSetAddTile( BkResSession *session, int parent, const char *picture_path, int *out_id );
+
 #ifdef __cplusplus
 }
 #endif

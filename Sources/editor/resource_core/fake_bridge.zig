@@ -1065,6 +1065,60 @@ pub const FakeResBridge = struct {
         return self.putFile(out_path, "PK\x05\x06");
     }
 
+    /// Records the import: the fake has no atlas to cut, so it reports the
+    /// tiles an import file named with `tiles` would give, set by the test.
+    fn tileSetImport(ptr: *anyopaque, path: []const u8, crossets: bool, out_count: *i32) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        out_count.* = 0;
+        if (path.len == 0) return .bad_argument;
+        const check = self.requireOpen();
+        if (check != .ok) return check;
+        const key = self.game_folders.get(path) orelse {
+            self.say("Error: Cannot open file: {s}", .{path});
+            return .data_missing;
+        };
+        out_count.* = std.fmt.parseInt(i32, key, 10) catch 0;
+        self.say("imported {s} from {s}", .{ if (crossets) "crossets" else "terrains", path });
+        return .ok;
+    }
+
+    fn tileSetAddTile(ptr: *anyopaque, parent: i32, picture_path: []const u8, out_id: *i32) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        out_id.* = 0;
+        const check = self.requireOpen();
+        if (check != .ok) return check;
+        const parent_idx = self.indexOfNode(parent) orelse {
+            self.say("unknown parent id {d}", .{parent});
+            return .refused;
+        };
+        const is_terrain = classIs(&self.nodes.items[parent_idx], item_type.tileset_tiles);
+        if (!is_terrain and !classIs(&self.nodes.items[parent_idx], item_type.crosset_tiles)) {
+            self.say("node {d} is not a terrain or crosset tiles item", .{parent});
+            return .bad_argument;
+        }
+        var name = picture_path;
+        if (std.mem.lastIndexOfAny(u8, name, "/\\")) |slash| name = name[slash + 1 ..];
+        if (std.mem.lastIndexOfScalar(u8, name, '.')) |dot| if (dot > 0) {
+            name = name[0..dot];
+        };
+        if (name.len == 0) return .bad_argument;
+        for (self.nodes.items) |n| if (n.parent == parent and std.mem.eql(u8, std.mem.sliceTo(&n.display, 0), name)) {
+            self.say("the tile \"{s}\" is already in node {d}", .{ name, parent });
+            return .refused;
+        };
+        var fresh: FakeNode = .{ .id = self.next_id, .parent = parent };
+        var class: [16]u8 = undefined;
+        const tile_type: i32 = if (is_terrain) item_type.base + 105 else item_type.base + 109;
+        _ = putName(&fresh.class, std.fmt.bufPrint(&class, "{d}", .{tile_type}) catch return .failed);
+        _ = putName(&fresh.display, name);
+        self.nodes.append(self.allocator, fresh) catch return .failed;
+        out_id.* = self.next_id;
+        self.next_id += 1;
+        return .ok;
+    }
+
     fn importFromGame(ptr: *anyopaque, kind: Kind, path: []const u8) Status {
         const self = from(ptr);
         self.clearMessage();
@@ -1366,6 +1420,8 @@ pub const FakeResBridge = struct {
         .modSettingsSet = modSettingsSet,
         .packMod = packMod,
         .importFromGame = importFromGame,
+        .tileSetImport = tileSetImport,
+        .tileSetAddTile = tileSetAddTile,
         .previewBegin = previewBegin,
         .previewShow = previewShow,
         .previewStop = previewStop,

@@ -471,6 +471,15 @@ pub const ResBridge = struct {
         /// BkResImportFromGame: a new, unsaved project of `kind` from a
         /// runtime resource folder. Refused for a kind not ported yet.
         importFromGame: *const fn (ptr: *anyopaque, kind: Kind, path: []const u8) Status,
+        /// BkResTileSetImport: MFC's Import terrains (crossets false) or Import
+        /// crossets, the tileset editor file at `path` cut into the open .til's
+        /// project folder; the tile count written comes back in out_count.
+        /// The editor records the replaced tree as one undo step.
+        tileSetImport: *const fn (ptr: *anyopaque, path: []const u8, crossets: bool, out_count: *i32) Status,
+        /// BkResTileSetAddTile: the thumbnail double-click, a tile item named
+        /// after `picture_path` with the lowest free index under a terrain's
+        /// Tiles item or a crosset group. Bad argument for any other parent.
+        tileSetAddTile: *const fn (ptr: *anyopaque, parent: i32, picture_path: []const u8, out_id: *i32) Status,
         /// BkResPreviewBegin: empty preview scene for the kind.
         previewBegin: *const fn (ptr: *anyopaque, kind: Kind) Status,
         /// BkResPreviewShow: export the open project into the preview and
@@ -599,6 +608,12 @@ pub const ResBridge = struct {
     }
     pub fn importFromGame(self: ResBridge, kind: Kind, path: []const u8) Status {
         return self.vtable.importFromGame(self.ptr, kind, path);
+    }
+    pub fn tileSetImport(self: ResBridge, path: []const u8, crossets: bool, out_count: *i32) Status {
+        return self.vtable.tileSetImport(self.ptr, path, crossets, out_count);
+    }
+    pub fn tileSetAddTile(self: ResBridge, parent: i32, picture_path: []const u8, out_id: *i32) Status {
+        return self.vtable.tileSetAddTile(self.ptr, parent, picture_path, out_id);
     }
     pub fn previewBegin(self: ResBridge, kind: Kind) Status {
         return self.vtable.previewBegin(self.ptr, kind);

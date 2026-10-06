@@ -49,6 +49,8 @@
 #include "../ResourceModel/items/effect/effect_export.h"
 #include "../ResourceModel/items/tileset/tileset.h"
 #include "../ResourceModel/items/tileset/tileset_export.h"
+#include "../ResourceModel/image_export.h"
+#include "../Formats/fmtTerrain.h"
 #include "../ResourceModel/items/road3d/road3d_export.h"
 #include "../ResourceModel/items/river3d/river3d_export.h"
 #include "../Formats/fmtVSO.h"
@@ -5322,6 +5324,7 @@ const int kFenceKind = 8;    // "fnc", the Fence project
 const int kBuildingKind = 9; // "bld", the Building project
 const int kBridgeKind = 10;  // "bdg", the Bridge project
 const int kParticleKind = 11; // "pcp", the Particle project
+const int kTileSetKind = 13;  // "til", the TileSet project
 
 NResourceModel::CTreeItem *ChildOfType( NResourceModel::CTreeItem &item, int nType )
 {
@@ -6256,6 +6259,342 @@ std::filesystem::path RuntimeStatsFile( BkResKind kind, const char *pszPath )
 	return StatsFileIn( pszPath );
 }
 
+// ---- Tileset import (TileSetFrm.cpp:557, 782) ----------------------------
+
+void SetTileValue( NResourceModel::CTreeItem &item, int nPropId, const NResourceModel::CVariant &value )
+{
+	for ( auto &prop : item.MutableValues() )
+		if ( prop.nId == nPropId )
+		{
+			prop.value = value;
+			return;
+		}
+}
+
+// The tiles written for an import, named by their file, held until every one
+// of them is cut so a failure leaves the project folder with no half set.
+struct STileFile
+{
+	std::filesystem::path file;
+	CPtr<IImage> pImage;
+};
+
+// What both imports read: the atlas beside the xml, the tile mask and the
+// folder the cut tiles go to. False with the status and message the import
+// answers.
+struct STileSetSource
+{
+	CPtr<IImage> pAtlas;
+	CPtr<IImage> pMask;
+	std::filesystem::path xmlFile;
+	std::filesystem::path atlasFile;
+	std::filesystem::path outDir;
+};
+
+bool OpenTileSetSource( BkResSession *pSession, const char *pszXml, bool bCrossets, STileSetSource &src, BkEditorStatus &status )
+{
+	ResourceState &state = StateOf( pSession );
+	if ( !state.bOpen || !state.pProject || !state.pProject->root || state.nKindOrdinal != kTileSetKind )
+	{
+		pSession->szMessage = "importing terrains and crossets is a .til feature: open a tileset project first";
+		status = BK_EDITOR_REFUSED;
+		return false;
+	}
+	if ( state.szPath.empty() )
+	{
+		pSession->szMessage = "save the project first: the cut tiles go to its terrains\\ and crossets\\ folders beside it";
+		status = BK_EDITOR_REFUSED;
+		return false;
+	}
+	src.xmlFile = std::filesystem::path( pszXml );
+	std::error_code ec;
+	if ( !std::filesystem::is_regular_file( src.xmlFile, ec ) )
+	{
+		pSession->szMessage = std::string( "Error: Cannot open file: " ) + src.xmlFile.string();
+		status = BK_EDITOR_DATA_MISSING;
+		return false;
+	}
+	src.atlasFile = src.xmlFile;
+	src.atlasFile.replace_extension( ".tga" );
+	NResourceModel::SExportOutcome outcome;
+	src.pAtlas = NResourceModel::NImageExport::LoadPicture( src.atlasFile.string(), outcome );
+	if ( src.pAtlas == 0 )
+	{
+		pSession->szMessage = "Error: " + outcome.szError;
+		status = BK_EDITOR_DATA_MISSING;
+		return false;
+	}
+	const std::filesystem::path maskFile = NResourceModel::NStatsExport::FoldedChild( NResourceModel::NStatsExport::FoldedChild( NResourceModel::NStatsExport::FoldedChild( ShippedDataFolder( pSession ), "editor" ), "terrain" ), "tilemask.tga" );
+	src.pMask = NResourceModel::NImageExport::LoadPicture( maskFile.string(), outcome );
+	if ( src.pMask == 0 )
+	{
+		pSession->szMessage = "Error: Cannot open terrain mask file: " + maskFile.string();
+		status = BK_EDITOR_DATA_MISSING;
+		return false;
+	}
+	src.outDir = std::filesystem::path( state.szPath ).parent_path() / ( bCrossets ? "crossets" : "terrains" );
+	return true;
+}
+
+// One 64 x 32 tile of the atlas, the 256-wide layout of MFC, or null with the
+// message when the place lies outside the picture (MFC read past it).
+CPtr<IImage> CutTile( BkResSession *pSession, const STileSetSource &src, int nBeginX, int nBeginY, bool bKeepAlpha, const std::string &szWhat )
+{
+	const int nSizeX = 64, nSizeY = 32;
+	IImage *pAtlas = src.pAtlas;
+	if ( nBeginX + nSizeX > pAtlas->GetSizeX() || nBeginY + nSizeY > pAtlas->GetSizeY() )
+	{
+		pSession->szMessage = szWhat + " lies at " + std::to_string( nBeginX ) + "," + std::to_string( nBeginY ) + " outside the " + std::to_string( pAtlas->GetSizeX() ) + " x " +
+		                      std::to_string( pAtlas->GetSizeY() ) + " picture " + src.atlasFile.string();
+		return 0;
+	}
+	CPtr<IImage> pTile = GetImageProcessor()->CreateImage( nSizeX, nSizeY );
+	pTile->Set( bKeepAlpha ? SColor( 0, 0, 0, 0 ) : SColor( 255, 0, 0, 0 ) );
+	SColor *pRes = pTile->GetLFB();
+	const SColor *pSrc = pAtlas->GetLFB();
+	const int nStride = pAtlas->GetSizeX();
+	for ( int y = 0; y < nSizeY; ++y )
+		for ( int x = 0; x < nSizeX; ++x )
+		{
+			SColor &dst = pRes[y * nSizeX + x];
+			const SColor &from = pSrc[( nBeginY + y ) * nStride + nBeginX + x];
+			if ( bKeepAlpha )
+				dst = from;
+			else
+			{
+				dst.r = from.r;
+				dst.g = from.g;
+				dst.b = from.b;
+				dst.a = 255;
+			}
+		}
+	RECT rc;
+	rc.left = 0;
+	rc.top = 0;
+	rc.right = src.pMask->GetSizeX();
+	rc.bottom = src.pMask->GetSizeY();
+	pTile->ModulateAlphaFrom( src.pMask, &rc, 0, 0 );
+	return pTile;
+}
+
+std::string TileFileName( int nIndex )
+{
+	char sz[32];
+	std::snprintf( sz, sizeof sz, "%.3d", nIndex );
+	return sz;
+}
+
+// Writes the held tiles; false with the message of the first that fails.
+bool WriteTileFiles( BkResSession *pSession, const STileSetSource &src, const std::vector<STileFile> &tiles )
+{
+	std::error_code ec;
+	std::filesystem::create_directories( src.outDir, ec );
+	if ( ec )
+	{
+		pSession->szMessage = "cannot create the folder " + src.outDir.string() + ": " + ec.message();
+		return false;
+	}
+	for ( const STileFile &tile : tiles )
+	{
+		NResourceModel::SExportOutcome outcome;
+		if ( !NResourceModel::NImageExport::SaveTgaFile( tile.file.string(), tile.pImage, outcome ) )
+		{
+			pSession->szMessage = outcome.szError;
+			return false;
+		}
+	}
+	return true;
+}
+
+BkEditorStatus ImportTerrains( BkResSession *pSession, const char *pszXml, int *pnCount )
+{
+	STileSetSource src;
+	BkEditorStatus status = BK_EDITOR_OK;
+	if ( !OpenTileSetSource( pSession, pszXml, false, src, status ) )
+		return status;
+	STilesetDesc tileSetDesc;
+	if ( !ReadRuntimeStats( src.xmlFile, tileSetDesc, pSession, status, "tileset" ) )
+		return status;
+	if ( tileSetDesc.terrtypes.empty() )
+	{
+		pSession->szMessage = src.xmlFile.string() + " holds no terrain types: it is not a tileset editor file";
+		return BK_EDITOR_REFUSED;
+	}
+
+	NResourceModel::CTileSetTerrainsItem scratch;
+	std::vector<STileFile> tiles;
+	for ( const STerrTypeDesc &terrDesc : tileSetDesc.terrtypes )
+	{
+		auto pTerrain = std::make_unique<NResourceModel::CTileSetTerrainPropsItem>();
+		NResourceModel::CTreeItem &terrain = *pTerrain;
+		scratch.AddChild( std::move( pTerrain ) );
+		SetTileValue( terrain, 1, NResourceModel::CVariant( terrDesc.szName ) );
+		SetTileValue( terrain, 2, NResourceModel::CVariant( terrDesc.nCrosset ) );
+		SetTileValue( terrain, 3, NResourceModel::CVariant( terrDesc.nPriority ) );
+		SetTileValue( terrain, 4, NResourceModel::CVariant( terrDesc.fPassability ) );
+		SetTileValue( terrain, 5, NResourceModel::CVariant( !( terrDesc.dwAIClasses & AI_CLASS_HUMAN ) ) );
+		SetTileValue( terrain, 6, NResourceModel::CVariant( !( terrDesc.dwAIClasses & AI_CLASS_WHEEL ) ) );
+		SetTileValue( terrain, 7, NResourceModel::CVariant( !( terrDesc.dwAIClasses & AI_CLASS_HALFTRACK ) ) );
+		SetTileValue( terrain, 8, NResourceModel::CVariant( !( terrDesc.dwAIClasses & AI_CLASS_TRACK ) ) );
+		SetTileValue( terrain, 9, NResourceModel::CVariant( bool( terrDesc.bMicroTexture ) ) );
+		SetTileValue( terrain, 10, NResourceModel::CVariant( terrDesc.fSoundVolume ) );
+		SetTileValue( terrain, 11, NResourceModel::CVariant( terrDesc.szSound ) );
+		SetTileValue( terrain, 12, NResourceModel::CVariant( terrDesc.szLoopedSound ) );
+		SetTileValue( terrain, 13, NResourceModel::CVariant( bool( terrDesc.bCanEntrench ) ) );
+		SetTileValue( terrain, 14, NResourceModel::CVariant( ( terrDesc.dwAIClasses & 0x80000000 ) != 0 ) );
+		SetTileValue( terrain, 15, NResourceModel::CVariant( ( terrDesc.cSoilParams & STerrTypeDesc::ESP_TRACE ) != 0 ) );
+		SetTileValue( terrain, 16, NResourceModel::CVariant( ( terrDesc.cSoilParams & STerrTypeDesc::ESP_DUST ) != 0 ) );
+		terrain.SetItemName( terrDesc.szName );
+
+		NResourceModel::CTreeItem *pTiles = ChildOfType( terrain, NResourceModel::ETIT_TILESET_TILES_ITEM );
+		if ( pTiles == nullptr )
+		{
+			pSession->szMessage = "the terrain \"" + terrDesc.szName + "\" has no Tiles item";
+			return BK_EDITOR_FAILED;
+		}
+		for ( size_t k = 0; k < terrDesc.tiles.size(); ++k )
+		{
+			const SMainTileDesc &tileDesc = terrDesc.tiles[k];
+			auto pTile = std::make_unique<NResourceModel::CTileSetTilePropsItem>();
+			NResourceModel::CTileSetTilePropsItem &tile = *pTile;
+			const int nTileIndex = tileDesc.nIndex / 2;
+			tile.nTileIndex = nTileIndex;
+			tile.SetItemName( TileFileName( nTileIndex ) );
+			// MFC's flip state: an odd engine index is the flipped twin, and a
+			// normal tile followed by its twin is both.
+			std::string szFlipped = ( tileDesc.nIndex & 0x01 ) ? "flipped" : "normal";
+			if ( !( k & 0x01 ) && k + 1 < terrDesc.tiles.size() && terrDesc.tiles[k + 1].nIndex == tileDesc.nIndex + 1 )
+			{
+				szFlipped = "normal and flipped";
+				++k;
+			}
+			pTiles->AddChild( std::move( pTile ) );
+			SetTileValue( tile, 1, NResourceModel::CVariant( tileDesc.fProbTo - tileDesc.fProbFrom ) );
+			SetTileValue( tile, 2, NResourceModel::CVariant( szFlipped ) );
+
+			int nBeginX, nBeginY;
+			const int nMod7 = nTileIndex % 7;
+			if ( nMod7 < 4 )
+			{
+				nBeginX = nMod7 * 64;
+				nBeginY = ( nTileIndex / 7 ) * 32;
+			}
+			else
+			{
+				nBeginX = ( nMod7 - 4 ) * 64 + 32;
+				nBeginY = ( nTileIndex / 7 ) * 32 + 16;
+			}
+			CPtr<IImage> pImage = CutTile( pSession, src, nBeginX, nBeginY, false, "tile " + TileFileName( nTileIndex ) + " of terrain \"" + terrDesc.szName + "\"" );
+			if ( pImage == 0 )
+				return BK_EDITOR_FAILED;
+			tiles.push_back( { src.outDir / ( TileFileName( nTileIndex ) + ".tga" ), pImage } );
+		}
+	}
+	if ( !WriteTileFiles( pSession, src, tiles ) )
+		return BK_EDITOR_FAILED;
+
+	ResourceState &state = StateOf( pSession );
+	NResourceModel::CTreeItem *pTerrains = ChildOfType( *state.pProject->root, NResourceModel::ETIT_TILESET_TERRAINS_ITEM );
+	if ( pTerrains == nullptr )
+	{
+		pSession->szMessage = "the project has no Terrains item";
+		return BK_EDITOR_FAILED;
+	}
+	pTerrains->MutableChildren().clear();
+	for ( auto &pChild : scratch.MutableChildren() )
+		pTerrains->MutableChildren().push_back( std::move( pChild ) );
+	SetTileValue( *pTerrains, 1, NResourceModel::CVariant( std::string( "terrains\\" ) ) );
+	RebuildIds( state );
+	if ( pnCount != nullptr )
+		*pnCount = int( tiles.size() );
+	pSession->szMessage = "imported " + std::to_string( tileSetDesc.terrtypes.size() ) + " terrains and wrote " + std::to_string( tiles.size() ) + " tiles to " + src.outDir.string();
+	return BK_EDITOR_OK;
+}
+
+BkEditorStatus ImportCrossets( BkResSession *pSession, const char *pszXml, int *pnCount )
+{
+	STileSetSource src;
+	BkEditorStatus status = BK_EDITOR_OK;
+	if ( !OpenTileSetSource( pSession, pszXml, true, src, status ) )
+		return status;
+	SCrossetDesc crossSetDesc;
+	if ( !ReadRuntimeStats( src.xmlFile, crossSetDesc, pSession, status, "crosset" ) )
+		return status;
+	if ( crossSetDesc.crosses.empty() )
+	{
+		pSession->szMessage = src.xmlFile.string() + " holds no crossets: it is not a crosset editor file";
+		return BK_EDITOR_REFUSED;
+	}
+
+	NResourceModel::CCrossetsItem scratch;
+	std::vector<STileFile> tiles;
+	for ( const SCrossDesc &crossDesc : crossSetDesc.crosses )
+	{
+		auto pCrosset = std::make_unique<NResourceModel::CCrossetPropsItem>();
+		NResourceModel::CTreeItem &crosset = *pCrosset;
+		scratch.AddChild( std::move( pCrosset ) );
+		SetTileValue( crosset, 1, NResourceModel::CVariant( crossDesc.szName ) );
+		crosset.SetItemName( crossDesc.szName );
+		for ( const SCrossTileTypeDesc &typeDesc : crossDesc.tiles )
+		{
+			NResourceModel::CTreeItem *pGroup = nullptr;
+			for ( const auto &pChild : crosset.GetChildren() )
+				if ( pChild->GetItemType() == NResourceModel::ETIT_CROSSET_TILES_ITEM && pChild->GetDisplayName() == typeDesc.szName )
+					pGroup = pChild.get();
+			if ( pGroup == nullptr )
+			{
+				pSession->szMessage = "the crosset \"" + crossDesc.szName + "\" has no tile group named \"" + typeDesc.szName + "\" (a to l)";
+				return BK_EDITOR_FAILED;
+			}
+			for ( const SMainTileDesc &tileDesc : typeDesc.tiles )
+			{
+				auto pTile = std::make_unique<NResourceModel::CCrossetTilePropsItem>();
+				NResourceModel::CCrossetTilePropsItem &tile = *pTile;
+				tile.nCrossIndex = tileDesc.nIndex;
+				tile.SetItemName( TileFileName( tileDesc.nIndex ) );
+				pGroup->AddChild( std::move( pTile ) );
+				SetTileValue( tile, 1, NResourceModel::CVariant( tileDesc.fProbTo - tileDesc.fProbFrom ) );
+
+				int nBeginX, nBeginY;
+				const int nMod7 = ( tileDesc.nIndex / 2 ) % 7;
+				if ( nMod7 < 4 )
+				{
+					nBeginX = nMod7 * 64;
+					nBeginY = ( tileDesc.nIndex / 14 ) * 32;
+				}
+				else
+				{
+					nBeginX = ( nMod7 - 4 ) * 64 + 32;
+					nBeginY = ( tileDesc.nIndex / 14 ) * 32 + 16;
+				}
+				CPtr<IImage> pImage = CutTile( pSession, src, nBeginX, nBeginY, true, "tile " + TileFileName( tileDesc.nIndex ) + " of crosset \"" + crossDesc.szName + "\"" );
+				if ( pImage == 0 )
+					return BK_EDITOR_FAILED;
+				tiles.push_back( { src.outDir / ( TileFileName( tileDesc.nIndex ) + ".tga" ), pImage } );
+			}
+		}
+	}
+	if ( !WriteTileFiles( pSession, src, tiles ) )
+		return BK_EDITOR_FAILED;
+
+	ResourceState &state = StateOf( pSession );
+	NResourceModel::CTreeItem *pCrossets = ChildOfType( *state.pProject->root, NResourceModel::ETIT_CROSSETS_ITEM );
+	if ( pCrossets == nullptr )
+	{
+		pSession->szMessage = "the project has no Crossets item";
+		return BK_EDITOR_FAILED;
+	}
+	pCrossets->MutableChildren().clear();
+	for ( auto &pChild : scratch.MutableChildren() )
+		pCrossets->MutableChildren().push_back( std::move( pChild ) );
+	SetTileValue( *pCrossets, 1, NResourceModel::CVariant( std::string( "crossets\\" ) ) );
+	RebuildIds( state );
+	if ( pnCount != nullptr )
+		*pnCount = int( tiles.size() );
+	pSession->szMessage = "imported " + std::to_string( crossSetDesc.crosses.size() ) + " crossets and wrote " + std::to_string( tiles.size() ) + " tiles to " + src.outDir.string();
+	return BK_EDITOR_OK;
+}
+
 }
 } // extern "C++"
 
@@ -6560,6 +6899,94 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		RebuildMeshLocators( state, szLocators );
 		if ( !szLocators.empty() )
 			pSession->szMessage += "; " + szLocators;
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResTileSetImport( BkResSession *pSession, const char *pszPath, int nCrossets, int *pnCount )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnCount != nullptr )
+			*pnCount = 0;
+		if ( pszPath == nullptr || *pszPath == 0 )
+			return BK_EDITOR_BAD_ARGUMENT;
+		if ( GetSLS() == 0 )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		return nCrossets != 0 ? ImportCrossets( pSession, pszPath, pnCount ) : ImportTerrains( pSession, pszPath, pnCount );
+	} );
+}
+
+BkEditorStatus BkResTileSetAddTile( BkResSession *pSession, int nParentId, const char *pszPicture, int *pnOutId )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pnOutId != nullptr )
+			*pnOutId = 0;
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bOpen || !state.pProject || !state.pProject->root || state.nKindOrdinal != kTileSetKind )
+		{
+			pSession->szMessage = "adding a tile is a .til feature: open a tileset project first";
+			return BK_EDITOR_REFUSED;
+		}
+		auto itParent = state.idToItem.find( nParentId );
+		if ( itParent == state.idToItem.end() )
+		{
+			pSession->szMessage = "unknown parent id " + std::to_string( nParentId );
+			return BK_EDITOR_REFUSED;
+		}
+		NResourceModel::CTreeItem *pList = itParent->second;
+		if ( pList->GetItemType() == NResourceModel::ETIT_TILESET_TERRAIN_PROPS_ITEM )
+			pList = ChildOfType( *pList, NResourceModel::ETIT_TILESET_TILES_ITEM );
+		const bool bTerrain = pList != nullptr && pList->GetItemType() == NResourceModel::ETIT_TILESET_TILES_ITEM;
+		const bool bCrosset = pList != nullptr && pList->GetItemType() == NResourceModel::ETIT_CROSSET_TILES_ITEM;
+		if ( !bTerrain && !bCrosset )
+		{
+			pSession->szMessage = "node " + std::to_string( nParentId ) + " (\"" + itParent->second->GetDisplayName() + "\") is not a terrain or crosset tiles item: a tile goes under a terrain's Tiles or a crosset group";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		// The name is the picture's file name without folder and extension.
+		std::string szName = pszPicture != nullptr ? pszPicture : "";
+		const std::string::size_type nSlash = szName.find_last_of( "/\\" );
+		if ( nSlash != std::string::npos )
+			szName.erase( 0, nSlash + 1 );
+		const std::string::size_type nDot = szName.find_last_of( '.' );
+		if ( nDot != std::string::npos && nDot > 0 )
+			szName.resize( nDot );
+		if ( szName.empty() )
+		{
+			pSession->szMessage = "the picture has no file name to name the tile after";
+			return BK_EDITOR_BAD_ARGUMENT;
+		}
+		for ( const auto &pChild : pList->GetChildren() )
+			if ( pChild->GetDisplayName() == szName )
+			{
+				pSession->szMessage = "the tile \"" + szName + "\" is already in \"" + itParent->second->GetDisplayName() + "\"";
+				return BK_EDITOR_REFUSED;
+			}
+		std::unique_ptr<NResourceModel::CTreeItem> pNew;
+		if ( bTerrain )
+		{
+			auto pTile = std::make_unique<NResourceModel::CTileSetTilePropsItem>();
+			pTile->nTileIndex = NResourceModel::GetFreeTerrainIndex( *state.pProject->root );
+			pNew = std::move( pTile );
+		}
+		else
+		{
+			auto pTile = std::make_unique<NResourceModel::CCrossetTilePropsItem>();
+			pTile->nCrossIndex = NResourceModel::GetFreeCrossetIndex( *state.pProject->root );
+			pNew = std::move( pTile );
+		}
+		pNew->SetItemName( szName );
+		NResourceModel::CTreeItem *pRaw = pNew.get();
+		pList->AddChild( std::move( pNew ) );
+		RebuildIds( state );
+		auto itId = state.itemToId.find( pRaw );
+		if ( pnOutId != nullptr )
+			*pnOutId = itId == state.itemToId.end() ? 0 : itId->second;
 		return BK_EDITOR_OK;
 	} );
 }

@@ -939,6 +939,33 @@ test "mod settings round-trip, refuse the shipped Data, and gate the pack" {
     try std.testing.expectEqual(bridge.Status.bad_argument, res.packMod(""));
 }
 
+test "tileset import and add-tile calls reach the bridge and refuse a wrong parent" {
+    const allocator = std.testing.allocator;
+    var fake = FakeResBridge.init(allocator);
+    defer fake.deinit();
+    const res = fake.bridge();
+    var count: i32 = -1;
+    try std.testing.expectEqual(bridge.Status.bad_argument, res.tileSetImport("", false, &count));
+    try bridge.check(res.new(.tile_set));
+    try std.testing.expectEqual(bridge.Status.data_missing, res.tileSetImport("til/import/none.xml", false, &count));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), "none.xml") != null);
+    try fake.addGameFolder("til/import/terrains.xml", "4");
+    try bridge.check(res.tileSetImport("til/import/terrains.xml", false, &count));
+    try std.testing.expectEqual(@as(i32, 4), count);
+
+    const root = fake.nodes.items[0].id;
+    var tiles: i32 = 0;
+    var class: [16]u8 = undefined;
+    try bridge.check(res.insertNode(root, try std.fmt.bufPrint(&class, "{d}", .{sub_editor_tools.item_type.tileset_tiles}), 0, &tiles));
+    var added: i32 = 0;
+    try bridge.check(res.tileSetAddTile(tiles, "C:\\art\\Fresh.tga", &added));
+    try std.testing.expect(added > tiles);
+    try std.testing.expectEqual(bridge.Status.refused, res.tileSetAddTile(tiles, "Fresh.tga", &added));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), "Fresh") != null);
+    try std.testing.expectEqual(bridge.Status.bad_argument, res.tileSetAddTile(root, "x.tga", &added));
+    try std.testing.expect(std.mem.indexOf(u8, res.lastMessage(), "not a terrain or crosset") != null);
+}
+
 test "import builds an infantry project the document mirrors, and refuses the other kinds" {
     const allocator = std.testing.allocator;
     var fake = FakeResBridge.init(allocator);

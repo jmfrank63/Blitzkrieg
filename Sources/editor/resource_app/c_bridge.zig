@@ -190,6 +190,8 @@ pub const RealResBridge = struct {
         .modSettingsSet = modSettingsSet,
         .packMod = packMod,
         .importFromGame = importFromGame,
+        .tileSetImport = tileSetImport,
+        .tileSetAddTile = tileSetAddTile,
         .previewBegin = previewBegin,
         .previewShow = previewShow,
         .previewStop = previewStop,
@@ -642,6 +644,26 @@ pub const RealResBridge = struct {
         var buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
         const z = terminated(&buffer, path) orelse return self.fail(.bad_argument, "the path is too long or holds a NUL");
         return status(c.BkResImportFromGame(self.session, @intFromEnum(kind), z));
+    }
+
+    fn tileSetImport(ptr: *anyopaque, path: []const u8, crossets: bool, out_count: *i32) Status {
+        const self = from(ptr);
+        var buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+        const z = terminated(&buffer, path) orelse return self.fail(.bad_argument, "the path is too long or holds a NUL");
+        var count: c_int = 0;
+        const result = status(c.BkResTileSetImport(self.session, z, @intFromBool(crossets), &count));
+        out_count.* = count;
+        return result;
+    }
+
+    fn tileSetAddTile(ptr: *anyopaque, parent: i32, picture_path: []const u8, out_id: *i32) Status {
+        const self = from(ptr);
+        var buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+        const z = terminated(&buffer, picture_path) orelse return self.fail(.bad_argument, "the path is too long or holds a NUL");
+        var id: c_int = 0;
+        const result = status(c.BkResTileSetAddTile(self.session, parent, z, &id));
+        if (result == .ok) out_id.* = id;
+        return result;
     }
 
     fn previewBegin(ptr: *anyopaque, kind: Kind) Status {

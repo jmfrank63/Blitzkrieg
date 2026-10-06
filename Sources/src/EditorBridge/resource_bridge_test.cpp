@@ -7163,6 +7163,12 @@ static std::vector<int> SavedIndexes( BkResSession *pSession, const fs::path &fi
 	return indexes;
 }
 
+static std::vector<int> Sorted( std::vector<int> v )
+{
+	std::sort( v.begin(), v.end() );
+	return v;
+}
+
 static bool IndexesAre( const std::vector<int> &got, std::initializer_list<int> want )
 {
 	return got == std::vector<int>( want );
@@ -7351,6 +7357,91 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 		std::printf( "til: missing art -> status %d, %d warnings\n", int( st ), int( missing.warning_count ) );
 		Check( st == BK_EDITOR_OK && bNamed && missing.written >= 1, "til: a missing tile picture is a warning naming art-16x16.tga and the export is still written" );
 		BkResClose( pSession );
+	}
+
+	// OnImportTerrains / OnImportCrossets and the thumbnail double-click.
+	{
+		const fs::path importDir = scratch / "import";
+		fs::create_directories( importDir, ec );
+		fs::copy_file( project, importDir / "project.til", fs::copy_options::overwrite_existing, ec );
+		const fs::path fixtureImport = fs::path( szFixtureRoot ) / "til" / "import";
+		if ( Check( BkResOpen( pSession, ( importDir / "project.til" ).string().c_str() ) == BK_EDITOR_OK, "til import: the project opens" ) )
+		{
+			int nTiles = -1;
+			const BkEditorStatus stTerr = BkResTileSetImport( pSession, ( fixtureImport / "terrains.xml" ).string().c_str(), 0, &nTiles );
+			std::printf( "til import: terrains -> status %d, %d tiles, %s\n", int( stTerr ), nTiles, BkEditorLastMessage( pSession ) );
+			Check( stTerr == BK_EDITOR_OK && nTiles == 4, "til import: the terrains fixture cuts four tiles" );
+			const std::vector<BkResNodeRecord> after = Nodes( pSession );
+			int nTerrains = 0, nTileItems = 0;
+			for ( const BkResNodeRecord &node : after )
+			{
+				nTerrains += node.class_type == ETIT_TILESET_TERRAIN_PROPS_ITEM;
+				nTileItems += node.class_type == ETIT_TILESET_TILE_PROPS_ITEM;
+			}
+			Check( nTerrains == 2 && nTileItems == 4, "til import: two terrain items with four tile items replace the old ones" );
+			const fs::path saved = importDir / "saved.til";
+			Check( IndexesAre( Sorted( SavedIndexes( pSession, saved, "TileIndex" ) ), { 0, 2, 3, 6 } ), "til import: the tile items take the distinct indexes 0, 2, 3 and 6 (the engine's 0/1 pair, 4, 6 and 12 halved)" );
+			// Each cut tile is the atlas tile times the mask, so its centre is the atlas colour.
+			bool bCentres = true;
+			const int expectedIndex[4] = { 0, 2, 3, 6 };
+			for ( int index : expectedIndex )
+			{
+				char szName[16];
+				std::snprintf( szName, sizeof szName, "%.3d.tga", index );
+				const fs::path tile = importDir / "terrains" / szName;
+				std::string szTga;
+				if ( !ReadBytes( tile.string(), szTga ) || szTga.size() < 18 + 64 * 32 * 3 )
+				{
+					std::printf( "til import: missing or short %s\n", tile.string().c_str() );
+					bCentres = false;
+				}
+			}
+			Check( bCentres, "til import: the four tiles are written as <index>.tga under the project's terrains folder" );
+			Check( !fs::exists( fixtureImport / "terrains", ec ), "til import: nothing is written beside the source files" );
+
+			int nCrossTiles = -1;
+			const BkEditorStatus stCross = BkResTileSetImport( pSession, ( fixtureImport / "crossets.xml" ).string().c_str(), 1, &nCrossTiles );
+			std::printf( "til import: crossets -> status %d, %d tiles, %s\n", int( stCross ), nCrossTiles, BkEditorLastMessage( pSession ) );
+			Check( stCross == BK_EDITOR_OK && nCrossTiles == 3, "til import: the crossets fixture cuts three tiles" );
+			Check( IndexesAre( Sorted( SavedIndexes( pSession, saved, "CrossIndex" ) ), { 0, 2, 4 } ), "til import: the crosset tile items keep the engine indexes 0, 2 and 4" );
+			Check( fs::is_regular_file( importDir / "crossets" / "000.tga", ec ) && fs::is_regular_file( importDir / "crossets" / "004.tga", ec ), "til import: the crosset tiles are written under the crossets folder" );
+
+			// Refusals name the file or the reason, and leave the project as it was.
+			const std::vector<BkResNodeRecord> before = Nodes( pSession );
+			Check( BkResTileSetImport( pSession, nullptr, 0, nullptr ) == BK_EDITOR_BAD_ARGUMENT, "til import: a null path is a bad argument" );
+			const fs::path missing = fixtureImport / "nothere.xml";
+			Check( BkResTileSetImport( pSession, missing.string().c_str(), 0, nullptr ) == BK_EDITOR_DATA_MISSING && std::strstr( BkEditorLastMessage( pSession ), "nothere.xml" ) != 0,
+			       "til import: a missing xml is DATA_MISSING and names the file" );
+			Check( BkResTileSetImport( pSession, ( fixtureImport / "crossets.xml" ).string().c_str(), 0, nullptr ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "crossets.xml" ) != 0,
+			       "til import: a crosset file read as terrains is refused naming the file" );
+			Check( Nodes( pSession ).size() == before.size(), "til import: a refusal leaves the tree as it was" );
+
+			// Adding a tile: the lowest free index, freed again on delete.
+			int nTilesItem = -1, nGroup = -1;
+			for ( const BkResNodeRecord &node : Nodes( pSession ) )
+			{
+				if ( nTilesItem < 0 && node.class_type == ETIT_TILESET_TILES_ITEM )
+					nTilesItem = node.id;
+				if ( nGroup < 0 && node.class_type == ETIT_CROSSET_TILES_ITEM )
+					nGroup = node.id;
+			}
+			int nAdded = 0, nAdded2 = 0;
+			Check( BkResTileSetAddTile( pSession, nTilesItem, "C:\\art\\Fresh.tga", &nAdded ) == BK_EDITOR_OK && nAdded > 0, "til import: a picture double-click adds a tile item" );
+			Check( IndexesAre( Sorted( SavedIndexes( pSession, saved, "TileIndex" ) ), { 0, 1, 2, 3, 6 } ), "til import: the new terrain tile takes the lowest free index, 1" );
+			Check( BkResTileSetAddTile( pSession, nTilesItem, "Fresh.tga", &nAdded2 ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "Fresh" ) != 0, "til import: the same picture twice is refused naming it" );
+			std::vector<unsigned char> blob( 65536 );
+			int nBlob = 0;
+			Check( BkResDeleteNode( pSession, nAdded, blob.data(), int( blob.size() ), &nBlob ) == BK_EDITOR_OK && nBlob > 0, "til import: the added tile deletes" );
+			int nAgain = 0;
+			Check( BkResTileSetAddTile( pSession, nTilesItem, "Other.tga", &nAgain ) == BK_EDITOR_OK && IndexesAre( Sorted( SavedIndexes( pSession, saved, "TileIndex" ) ), { 0, 1, 2, 3, 6 } ),
+			       "til import: deleting the added tile frees its index for the next one" );
+			int nCrossAdded = 0;
+			Check( BkResTileSetAddTile( pSession, nGroup, "Cr.tga", &nCrossAdded ) == BK_EDITOR_OK && IndexesAre( Sorted( SavedIndexes( pSession, saved, "CrossIndex" ) ), { 0, 1, 2, 4 } ),
+			       "til import: a crosset tile takes its own pool, index 1" );
+			Check( BkResTileSetAddTile( pSession, FirstOfClass( Nodes( pSession ), ETIT_TILESET_COMMON_PROPS_ITEM ), "x.tga", nullptr ) == BK_EDITOR_BAD_ARGUMENT && std::strstr( BkEditorLastMessage( pSession ), "not a terrain or crosset" ) != 0,
+			       "til import: a parent that is not a tiles item is a bad argument" );
+			BkResClose( pSession );
+		}
 	}
 
 	// There is no import.
