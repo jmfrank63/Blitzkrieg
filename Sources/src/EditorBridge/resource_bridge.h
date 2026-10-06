@@ -487,6 +487,11 @@ BkEditorStatus BkResPreviewCamera( BkResSession *session, float wx, float wy, in
    the preview is not open. */
 BkEditorStatus BkResPreviewCameraMode( BkResSession *session, int horizontal );
 
+/* The wire frame of the road and river previews (the frames' OnSwitchWireframeMode):
+   a render state, drawn from the next frame on, back off by BkResPreviewStop.
+   BK_EDITOR_REFUSED unless a .3rd or .3rv preview has begun. */
+BkEditorStatus BkResPreviewWireframe( BkResSession *session, int on );
+
 /* ---- Key-frame curves ------------------------------------------------- */
 
 /* The knobs of one key-frame node (a CKeyFrameTreeItem: the Particle
@@ -613,7 +618,10 @@ BkEditorStatus BkResMeshLocators( BkResSession *session, BkResLocator *out, int 
    fields stay empty. Ported: weapon (wpn; path may also be the flat
    weapons\<name>.xml itself), mine (mcp), trench (trc: no segments, as in
    MFC), squad (scp: MFC never wrote this one, its load is commented out;
-   the port does the inverse of its export) and infantry (unt). Every other
+   the port does the inverse of its export) and infantry (unt). The 3D road
+   (3rd) and 3D river (3rv) take the runtime <name>.xml file itself as path
+   (terrain\sets\1\roads3d\road_pavement.xml), not a folder holding 1.xml;
+   a file of the other kind is refused naming its type. Every other
    kind answers BK_EDITOR_REFUSED, naming the kind, and keeps the open
    project: sprite (spt) because its export only composes .san packs and MFC
    has no reverse path, the rest until their sub-editor slice ports theirs.

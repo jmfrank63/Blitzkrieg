@@ -503,6 +503,9 @@ pub const ResBridge = struct {
         /// BkResPreviewCameraMode: MFC's Camera button, the horizontal
         /// camera (true) or the default one (false).
         previewCameraMode: *const fn (ptr: *anyopaque, horizontal: bool) Status,
+        /// BkResPreviewWireframe: the road and river frames' wire frame
+        /// switch; refused unless a .3rd or .3rv preview has begun.
+        previewWireframe: *const fn (ptr: *anyopaque, on: bool) Status,
         /// BkResGetParticleInfo: MFC's Get particle info, the four numbers of
         /// the open .pcp's built source. Refused with the reason for another
         /// kind, no project or no built source.
@@ -641,6 +644,9 @@ pub const ResBridge = struct {
     }
     pub fn previewCameraMode(self: ResBridge, horizontal: bool) Status {
         return self.vtable.previewCameraMode(self.ptr, horizontal);
+    }
+    pub fn previewWireframe(self: ResBridge, on: bool) Status {
+        return self.vtable.previewWireframe(self.ptr, on);
     }
 };
 

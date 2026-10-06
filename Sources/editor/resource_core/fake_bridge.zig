@@ -129,6 +129,10 @@ pub const FakeResBridge = struct {
     show_bounding_boxes: bool = false,
     /// Whether the last previewCameraMode asked for the horizontal camera.
     preview_horizontal: bool = false,
+    /// The kind the preview was begun for, and the wire frame flag of a road
+    /// or river preview.
+    preview_kind: ?Kind = null,
+    preview_wireframe: bool = false,
     /// What `particleInfo` answers for a .pcp project; null makes it fail as
     /// a source that did not build.
     particle_info: ?ParticleInfo = .{ .max_count = 120, .max_size = 0.5, .average_size = 0.25, .average_count = 60 },
@@ -1098,11 +1102,12 @@ pub const FakeResBridge = struct {
     fn previewBegin(ptr: *anyopaque, kind: Kind) Status {
         const self = from(ptr);
         self.clearMessage();
-        _ = kind;
         if (self.no_device) {
             self.say("no GPU device", .{});
             return .no_device;
         }
+        self.preview_kind = kind;
+        self.preview_wireframe = false;
         self.preview_state = .open;
         return .ok;
     }
@@ -1125,6 +1130,8 @@ pub const FakeResBridge = struct {
         self.preview_state = .closed;
         self.preview_playing = false;
         self.preview_horizontal = false;
+        self.preview_kind = null;
+        self.preview_wireframe = false;
         self.mesh_variant = 0;
         self.mesh_direction = 0;
         self.show_locators = false;
@@ -1316,6 +1323,21 @@ pub const FakeResBridge = struct {
         return .ok;
     }
 
+    fn previewWireframe(ptr: *anyopaque, on: bool) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        const kind = self.preview_kind orelse {
+            self.say("no preview: call previewBegin first", .{});
+            return .refused;
+        };
+        if (kind != .road_3d and kind != .river_3d) {
+            self.say("the wire frame belongs to the road and river previews", .{});
+            return .refused;
+        }
+        self.preview_wireframe = on;
+        return .ok;
+    }
+
     const vtable: ResBridge.VTable = .{
         .lastMessage = lastMessage,
         .new = new,
@@ -1359,6 +1381,7 @@ pub const FakeResBridge = struct {
         .particleSourceMode = particleSourceMode,
         .particleSetSourceMode = particleSetSourceMode,
         .previewCameraMode = previewCameraMode,
+        .previewWireframe = previewWireframe,
     };
 };
 

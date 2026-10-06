@@ -12,7 +12,7 @@ Goldens are made on win-home only; the MFC `editor.exe` does not run on Linux or
 1. Build or take the MFC editor (`Sources/src/bin/editor.exe` with its DLLs).
 2. From the repository root run
    `powershell -ExecutionPolicy Bypass -File tools/zig/win-home/export-goldens.ps1 -Extensions 3rv`
-   (no `-Extensions` exports all 20). The script copies this fixture to a scratch folder, runs the
+   (no `-Extensions` exports all 20; for both VSO kinds use `-Extensions 3rd,3rv`). The script copies this fixture to a scratch folder, runs the
    editor's batch mode (`editor.exe *.3rv <source> <destination> -f`), clears this folder except
    `README.md` and `.gitkeep`, and copies the export here.
 3. Check that the editor showed no error message box, then commit the folder.
@@ -23,3 +23,11 @@ Re-make the golden whenever `../project.3rv` or its source art changes.
 
 `zig build test-resource-model -Dtest-mode=run` reports `GOLDEN 3rv pending: golden missing`. That is
 not a pass: the golden comparison stays open until this folder is filled on win-home.
+
+## What the port tests prove meanwhile
+
+`zig build test-resource-bridge -Dtest-mode=run` (S13 T05) exports `../project.3rv`, reads the river
+back through the engine's `SVectorStripeObjectDesc` operator&, checks a second forced export is byte-identical,
+imports the exported file and re-exports it field-equal, and prints `GOLDEN 3rv pending`. It also imports and
+re-exports every shipped Roads3D and Rivers file (`VSO checked=N files=N unimportable=U`). This is not the MFC
+golden comparison, which stays open until this folder is filled on win-home.

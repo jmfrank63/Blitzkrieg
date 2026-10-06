@@ -56,6 +56,9 @@
 #include "../Main/GameTimer.h"
 #include "../Misc/HPTimer.h"
 #include "../Scene/Scene.h"
+#include "../Scene/Terrain.h"
+#include "../MapFile/MapFile.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 #include "../Scene/SceneScreenScale.h"
 #include "../Scene/PFX.h"
 #include "../Scene/ParticleSourceData.h"
@@ -228,6 +231,10 @@ struct ResourceState
 	std::vector<IVisObj *> previewMembers;
 	bool bPreviewEffect = false;
 	bool bPreviewRunning = false;
+	// A road or river preview (kinds 14 and 15) draws the terrain of
+	// maps\road3d / maps\river3d, not an object: the scene's terrain is the
+	// preview and Stop takes it out again.
+	bool bPreviewTerrain = false;
 	// The Effect editor's direction dock angle, radians (CDirectionButtonDockBar
 	// held it in MFC): view state, neither saved nor undone, back at 45 degrees
 	// whenever a project is opened or begun (SpecificClearBeforeBatchMode).
@@ -4132,6 +4139,10 @@ struct PreviewKind
 	bool bParticleSource;
 	bool bSquad = false;
 };
+const int kTilesetKind = 13;  // "til", the Terrain tileset project
+const int kRoadKind = 14;     // "3rd", the 3D Road project
+const int kRiverKind = 15;    // "3rv", the 3D River project
+
 const PreviewKind kPreviewKinds[] =
 {
 	{ 4,  SGVOT_SPRITE, SGVOGT_UNIT,   false },  // spt: CSpriteFrame::OnRunButton
@@ -4455,6 +4466,20 @@ void StopPreview( BkEditorSession *pSession, ResourceState &state )
 	if ( !state.bPreview )
 		return;
 	DropPreviewObject( state );
+	if ( state.bPreviewTerrain )
+	{
+		// The terrain was the preview: the scene must not keep drawing it, and
+		// the wire frame is the road and river frames' own switch.
+		if ( IScene *pScene = GetSingleton<IScene>() )
+		{
+			pScene->SetTerrain( nullptr );
+			pScene->Clear();
+		}
+		state.bPreviewTerrain = false;
+		pSession->nLayerBits &= ~( 1u << BK_EDITOR_LAYER_WIREFRAME );
+		if ( IGFX *pGFX = GetSingleton<IGFX>() )
+			pGFX->SetWireframe( false );
+	}
 	if ( IDataStorage *pStorage = GetSingleton<IDataStorage>() )
 		pStorage->RemoveStorage( kPreviewLayer );
 	pSession->pfnBeforeDraw = nullptr;
@@ -4492,6 +4517,9 @@ std::filesystem::path NewPreviewRoot( const BkEditorSession *pSession )
 	return std::filesystem::temp_directory_path( ec ) / szName;
 }
 
+BkEditorStatus BeginTerrainPreview( BkEditorSession *pSession, int nKind );
+BkEditorStatus ShowTerrainPreview( BkEditorSession *pSession );
+
 BkEditorStatus BeginPreview( BkEditorSession *pSession, int nKind )
 {
 	if ( nKind < 0 || nKind >= kKindCount )
@@ -4508,6 +4536,13 @@ BkEditorStatus BeginPreview( BkEditorSession *pSession, int nKind )
 		pSession->szMessage = "a map is open in this session; the preview draws on an empty scene";
 		return BK_EDITOR_REFUSED;
 	}
+	if ( nKind == kTilesetKind )
+	{
+		pSession->szMessage = "tileset has no scene preview; the thumbnail list is its preview (CTileSetFrame hides its GameWnd)";
+		return BK_EDITOR_REFUSED;
+	}
+	if ( nKind == kRoadKind || nKind == kRiverKind )
+		return BeginTerrainPreview( pSession, nKind );
 	const PreviewKind *pKind = FindPreviewKind( nKind );
 	if ( pKind == nullptr )
 	{
@@ -4677,6 +4712,8 @@ BkEditorStatus ShowPreview( BkEditorSession *pSession )
 		pSession->szMessage = "save the project first: an export reads its sources beside the project file";
 		return BK_EDITOR_REFUSED;
 	}
+	if ( state.bPreviewTerrain )
+		return ShowTerrainPreview( pSession );
 	const std::string szExtension = kKindExtensions[state.nKindOrdinal];
 	const NResourceModel::FExporter pfnExporter = NResourceModel::FindExporter( szExtension );
 	if ( pfnExporter == nullptr )
@@ -4951,6 +4988,19 @@ BkEditorStatus BkResPreviewPlayback( BkResSession *pSession, int nRun )
 	return Guarded( pSession, [=]() -> BkEditorStatus
 	{
 		ResourceState &state = StateOf( pSession );
+		if ( state.bPreview && state.bPreviewTerrain )
+		{
+			// Only the river moves: C3DRiverFrame's GFXDraw advanced the game
+			// timer on every draw, and the road frame has no Run button.
+			if ( state.nPreviewKind == kRoadKind )
+			{
+				pSession->szMessage = "a 3D road has no Run in MFC (C3DRoadFrame draws a still terrain); only the river plays";
+				return BK_EDITOR_REFUSED;
+			}
+			state.bPreviewRunning = nRun != 0;
+			pSession->pfnBeforeDraw = state.bPreviewRunning ? &PreviewBeforeDraw : nullptr;
+			return BK_EDITOR_OK;
+		}
 		if ( !state.bPreview || ( state.pPreviewObj == nullptr && state.previewMembers.empty() ) )
 		{
 			pSession->szMessage = "no preview object: call BkResPreviewBegin and BkResPreviewShow first";
@@ -4962,6 +5012,26 @@ BkEditorStatus BkResPreviewPlayback( BkResSession *pSession, int nRun )
 		state.bPreviewRunning = nRun != 0;
 		pSession->pfnBeforeDraw = state.bPreviewRunning ? &PreviewBeforeDraw : nullptr;
 		ApplyEffectDirection( state );
+		return BK_EDITOR_OK;
+	} );
+}
+
+BkEditorStatus BkResPreviewWireframe( BkResSession *pSession, int nOn )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		ResourceState &state = StateOf( pSession );
+		if ( !state.bPreview || !state.bPreviewTerrain )
+		{
+			pSession->szMessage = "the wire frame belongs to the road and river previews: call BkResPreviewBegin for a .3rd or .3rv project first";
+			return BK_EDITOR_REFUSED;
+		}
+		// The wire frame is a render state said inside every frame by
+		// ApplyWireframeForFrame, which reads the session's layer bit.
+		if ( nOn != 0 )
+			pSession->nLayerBits |= ( 1u << BK_EDITOR_LAYER_WIREFRAME );
+		else
+			pSession->nLayerBits &= ~( 1u << BK_EDITOR_LAYER_WIREFRAME );
 		return BK_EDITOR_OK;
 	} );
 }
@@ -5240,8 +5310,6 @@ const int kFenceKind = 8;    // "fnc", the Fence project
 const int kBuildingKind = 9; // "bld", the Building project
 const int kBridgeKind = 10;  // "bdg", the Bridge project
 const int kParticleKind = 11; // "pcp", the Particle project
-const int kRoadKind = 14;     // "3rd", the 3D Road project
-const int kRiverKind = 15;    // "3rv", the 3D River project
 
 NResourceModel::CTreeItem *ChildOfType( NResourceModel::CTreeItem &item, int nType )
 {
@@ -5615,6 +5683,141 @@ struct SVsoChunk
 		return desc.operator&( ss );
 	}
 };
+
+// C3DRoadFrame::LoadRoadMap / C3DRiverFrame::LoadRiverMap: the terrain the
+// preview draws on is maps\\road3d or maps\\river3d, read through the engine's
+// storage like any map and loaded into a fresh terrain that becomes the
+// scene's. Not BkEditorOpenMap: no map is open, so the editor's world, layers
+// and save machinery stay out of it.
+BkEditorStatus BeginTerrainPreview( BkEditorSession *pSession, int nKind )
+{
+	ResourceState &state = StateOf( pSession );
+	const char *pszMap = nKind == kRoadKind ? "maps\\road3d" : "maps\\river3d";
+	CMapInfo mapinfo;
+	std::string szError;
+	if ( !NMapFile::ReadNewest( pszMap, &mapinfo, &szError ) )
+	{
+		pSession->szMessage = std::string( "cannot load " ) + pszMap + ".xml for the preview: " + szError;
+		return BK_EDITOR_DATA_MISSING;
+	}
+	StopPreview( pSession, state );
+	const std::filesystem::path root = NewPreviewRoot( pSession );
+	std::error_code ec;
+	std::filesystem::create_directories( root, ec );
+	if ( ec )
+	{
+		pSession->szMessage = "cannot create the preview folder " + root.string() + ": " + ec.message();
+		return BK_EDITOR_FAILED;
+	}
+	IScene *pScene = GetSingleton<IScene>();
+	pScene->Clear();
+	GetSingleton<IVisObjBuilder>()->Clear();
+	CPtr<ITerrain> pTerrain = CreateTerrain();
+	pTerrain->Load( pszMap, mapinfo.terrain );
+	pScene->SetTerrain( pTerrain );
+	// ShowFrameWindows: the terrain is shown, and the camera looks at 16 cells in.
+	for ( int i = 0; i < 2; ++i )
+		if ( pScene->ToggleShow( SCENE_SHOW_TERRAIN ) )
+			break;
+	SetSessionCamera( pSession, 16 * fWorldCellSize, 16 * fWorldCellSize );
+	state.bPreview = true;
+	state.bPreviewTerrain = true;
+	state.nPreviewKind = nKind;
+	state.previewRoot = root;
+	state.bPreviewEffect = false;
+	pSession->szMessage = std::string( "preview of ." ) + kKindExtensions[nKind] + " begun on " + pszMap;
+	return BK_EDITOR_OK;
+}
+
+// UpdateRoadView / UpdateRiverView: the terrain editor's road entries take the
+// project's descriptor and are rebuilt. The descriptor is the real export read
+// back through the engine's operator& (D-16: the preview tests the export), so
+// what is drawn is what the game would read.
+BkEditorStatus ShowTerrainPreview( BkEditorSession *pSession )
+{
+	ResourceState &state = StateOf( pSession );
+	const bool bRoad = state.nPreviewKind == kRoadKind;
+	const std::string szExtension = kKindExtensions[state.nPreviewKind];
+	const NResourceModel::FExporter pfnExporter = NResourceModel::FindExporter( szExtension );
+	if ( pfnExporter == nullptr )
+	{
+		pSession->szMessage = "exporting ." + szExtension + " projects is not ported yet";
+		return BK_EDITOR_REFUSED;
+	}
+	std::string szBytes;
+	if ( !RenderForSave( state, szBytes, pSession->szMessage ) )
+		return BK_EDITOR_FAILED;
+	NResourceModel::Project project;
+	std::string szError;
+	if ( !NResourceModel::Load( szBytes, project, szError ) )
+	{
+		pSession->szMessage = "cannot re-read the project for the preview: " + szError;
+		return BK_EDITOR_FAILED;
+	}
+	const std::filesystem::path dataDir = state.previewRoot / "data";
+	std::error_code ec;
+	std::filesystem::remove_all( dataDir, ec );
+	std::filesystem::create_directories( dataDir, ec );
+	NResourceModel::SExportContext context;
+	context.szProjectPath = state.szPath;
+	context.szStagingRoot = dataDir.string();
+	context.bForce = true;
+	FillEngineLookups( context, state.previewRoot / "mesh" );
+	NResourceModel::SExportOutcome outcome;
+	if ( !pfnExporter( project, context, outcome ) )
+	{
+		pSession->szMessage = "the preview export failed: " + ( outcome.szError.empty() ? std::string( "the exporter failed" ) : outcome.szError );
+		return BK_EDITOR_FAILED;
+	}
+	std::string szRelative = outcome.szObjectName + ".xml";
+	for ( char &c : szRelative )
+		if ( c == '\\' ) c = '/';
+	SVectorStripeObjectDesc desc;
+	SVsoChunk chunk( desc );
+	BkEditorStatus status = BK_EDITOR_OK;
+	if ( !ReadRuntimeStats( dataDir / szRelative, chunk, pSession, status, "VSODescription" ) )
+		return status;
+	if ( !chunk.bFound )
+	{
+		pSession->szMessage = ( dataDir / szRelative ).string() + " has no VSODescription";
+		return BK_EDITOR_FAILED;
+	}
+	IScene *pScene = GetSingleton<IScene>();
+	ITerrain *pTerrain = pScene != nullptr ? pScene->GetTerrain() : nullptr;
+	ITerrainEditor *pEditor = pTerrain != nullptr ? pTerrain->GetEditor() : nullptr;
+	if ( pEditor == nullptr )
+	{
+		pSession->szMessage = "the preview terrain is gone: call BkResPreviewBegin again";
+		return BK_EDITOR_REFUSED;
+	}
+	STerrainInfo &info = const_cast<STerrainInfo &>( pEditor->GetTerrainInfo() );
+	TVSOList &list = bRoad ? info.roads3 : info.rivers;
+	// UpdateRoadView fills roads3[0] and [1], UpdateRiverView rivers[0].
+	const std::size_t nWanted = bRoad ? 2 : 1;
+	if ( list.size() < nWanted )
+	{
+		pSession->szMessage = std::string( bRoad ? "maps\\road3d" : "maps\\river3d" ) + " has " + std::to_string( list.size() )
+			+ ( bRoad ? " roads, the preview needs 2" : " rivers, the preview needs 1" );
+		return BK_EDITOR_FAILED;
+	}
+	for ( std::size_t i = 0; i < nWanted; ++i )
+	{
+		// The descriptor only: the map's own nID and points stay, as FillRPGStats
+		// left them. A river's type is the map's (the river export sets none).
+		const int nType = list[i].eType;
+		static_cast<SVectorStripeObjectDesc &>( list[i] ) = desc;
+		if ( !bRoad )
+			list[i].eType = nType;
+		const bool bUpdated = bRoad ? pEditor->UpdateRoad( list[i].nID ) : pEditor->UpdateRiver( list[i].nID );
+		if ( !bUpdated )
+		{
+			pSession->szMessage = "the terrain would not rebuild " + std::string( bRoad ? "road " : "river " ) + std::to_string( i );
+			return BK_EDITOR_FAILED;
+		}
+	}
+	pSession->szMessage = std::string( "preview shows the exported " ) + ( bRoad ? "road on both map roads" : "river on the map river" );
+	return BK_EDITOR_OK;
+}
 
 // SSourceType of ParticleFrm.cpp:463: which of the two particle structs a
 // KeyData chunk holds. bFound tells a file with no KeyData chunk (any other

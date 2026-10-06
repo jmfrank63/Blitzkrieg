@@ -1160,6 +1160,26 @@ test "keyframe knobs come from the fake per curve node, and the camera mode need
     try std.testing.expect(!fake.preview_horizontal);
 }
 
+test "the wire frame belongs to the road and river previews and is off again after Stop" {
+    var fake = FakeResBridge.init(std.testing.allocator);
+    defer fake.deinit();
+    const res = fake.bridge();
+    try std.testing.expectEqual(bridge.Status.refused, res.previewWireframe(true));
+    try bridge.check(res.previewBegin(.particle));
+    try std.testing.expectEqual(bridge.Status.refused, res.previewWireframe(true));
+    try std.testing.expect(!fake.preview_wireframe);
+    try bridge.check(res.previewBegin(.road_3d));
+    try bridge.check(res.previewWireframe(true));
+    try std.testing.expect(fake.preview_wireframe);
+    try bridge.check(res.previewStop());
+    try std.testing.expect(!fake.preview_wireframe);
+    try std.testing.expectEqual(bridge.Status.refused, res.previewWireframe(true));
+    try bridge.check(res.previewBegin(.river_3d));
+    try bridge.check(res.previewWireframe(true));
+    try bridge.check(res.previewBegin(.river_3d));
+    try std.testing.expect(!fake.preview_wireframe);
+}
+
 test "the effect direction is view state: 45 degrees on open, refused for other kinds, not finite refused" {
     var fake = FakeResBridge.init(std.testing.allocator);
     defer fake.deinit();

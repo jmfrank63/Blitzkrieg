@@ -205,6 +205,7 @@ pub const RealResBridge = struct {
         .particleSourceMode = particleSourceMode,
         .particleSetSourceMode = particleSetSourceMode,
         .previewCameraMode = previewCameraMode,
+        .previewWireframe = previewWireframe,
     };
 
     fn lastMessage(ptr: *anyopaque) []const u8 {
@@ -742,6 +743,12 @@ pub const RealResBridge = struct {
         var buffer: [rb.value_text_capacity]u8 = undefined;
         const z = terminated(&buffer, name) orelse return self.fail(.bad_argument, "the particle name is too long or holds a NUL");
         return status(c.BkResParticleSetSourceMode(self.session, @intFromBool(complex), z));
+    }
+
+    /// BkResPreviewWireframe: the road and river frames' wire frame switch.
+    fn previewWireframe(ptr: *anyopaque, on: bool) Status {
+        const self = from(ptr);
+        return status(c.BkResPreviewWireframe(self.session, @intFromBool(on)));
     }
 
     /// BkResPreviewCameraMode: MFC's Camera button.

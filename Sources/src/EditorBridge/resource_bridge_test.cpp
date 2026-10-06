@@ -49,6 +49,9 @@
 #include "../ResourceModel/items/fence/fence.h"
 #include "../ResourceModel/key_frame_tree_item.h"
 #include "../Scene/Scene.h"
+#include "../Scene/Terrain.h"
+#include "../MapFile/MapFile.h"
+#include "../RandomMapGen/MapInfo_Types.h"
 #include "../Scene/ParticleSourceData.h"
 #include "../Formats/fmtEffect.h"
 #include "../Scene/SmokinParticleSourceData.h"
@@ -7095,6 +7098,138 @@ static void Shipped( BkResSession *pSession, const std::string &szRoot, const st
 
 }
 
+// S13 T06: the road and river previews draw the maps\road3d and maps\river3d
+// terrain, not an object. Measured: the bare terrain against the road and the
+// river, the wire frame against the filled terrain, two river shots at
+// advanced timer, and the refusals. GPU, so it runs from the shell.
+namespace S13Terrain
+{
+
+namespace fs = std::filesystem;
+
+static bool Shot( BkResSession *pSession, const fs::path &tga, std::vector<unsigned char> &rgb )
+{
+	int nW = 0, nH = 0;
+	for ( int i = 0; i < 3; ++i )
+		BkEditorFrame( pSession );
+	return BkEditorCaptureFrame( pSession, tga.string().c_str() ) == BK_EDITOR_OK && T11::ReadCapture( tga.string(), rgb, nW, nH );
+}
+
+static void Frames( BkResSession *pSession, int nMs )
+{
+	const auto start = std::chrono::steady_clock::now();
+	while ( std::chrono::steady_clock::now() - start < std::chrono::milliseconds( nMs ) )
+		BkEditorFrame( pSession );
+}
+
+// The pixels two shots differ in, as a count.
+static long long Changed( const std::vector<unsigned char> &a, const std::vector<unsigned char> &b )
+{
+	const double fShare = T11::ChangedShare( a, b );
+	return fShare < 0 ? -1 : (long long)( fShare * double( a.size() / 3 ) + 0.5 );
+}
+
+// What the engine reads from the two maps: the road map's roads3 and the
+// river map's rivers must hold the entries the preview writes into.
+static void MapEntries( const char *pszMap, bool bRoad )
+{
+	CMapInfo map;
+	std::string szError;
+	const bool bRead = NMapFile::ReadNewest( pszMap, &map, &szError );
+	Check( bRead, ( std::string( pszMap ) + ": the engine reads it (" + szError + ")" ).c_str() );
+	if ( !bRead )
+		return;
+	const std::size_t nCount = bRoad ? map.terrain.roads3.size() : map.terrain.rivers.size();
+	std::printf( "terrain preview: %s has %d roads3 and %d rivers\n", pszMap, int( map.terrain.roads3.size() ), int( map.terrain.rivers.size() ) );
+	Check( bRoad ? nCount >= 2 : nCount >= 1, ( std::string( pszMap ) + ": the entries the preview rewrites are there" ).c_str() );
+}
+
+static bool OpenFixture( BkResSession *pSession, const std::string &szFixtureRoot, const fs::path &scratch, const char *pszExt )
+{
+	std::error_code ec;
+	const fs::path dir = scratch / pszExt;
+	fs::create_directories( dir, ec );
+	const fs::path project = dir / ( std::string( "project." ) + pszExt );
+	fs::copy_file( fs::path( szFixtureRoot ) / pszExt / project.filename(), project, fs::copy_options::overwrite_existing, ec );
+	return Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, ( std::string( "terrain preview: opens the " ) + pszExt + " fixture" ).c_str() );
+}
+
+static void Run( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	const fs::path scratch = fs::path( szScratchRoot ) / "t06" / "preview-scene";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch, ec );
+
+	MapEntries( "maps\\road3d", true );
+	MapEntries( "maps\\river3d", false );
+
+	// Refusals that need no project.
+	Check( BkResPreviewWireframe( pSession, 1 ) == BK_EDITOR_REFUSED, "terrain preview: a wire frame before Begin is refused" );
+	Check( BkResPreviewBegin( pSession, 13 ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "thumbnail list is its preview" ) != nullptr,
+	       "terrain preview: a tileset has no scene preview and the message says why" );
+
+	std::vector<unsigned char> bare, road, roadWire, roadFill;
+	if ( OpenFixture( pSession, szFixtureRoot, scratch, "3rd" ) )
+	{
+		Check( BkResPreviewBegin( pSession, 14 ) == BK_EDITOR_OK, ( std::string( "terrain preview: Begin road: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		const bool bBare = Shot( pSession, scratch / "bare-road.tga", bare );
+		Check( BkResPreviewShow( pSession ) == BK_EDITOR_OK, ( std::string( "terrain preview: Show road: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		const bool bRoad = Shot( pSession, scratch / "road.tga", road );
+		const long long nRoad = bBare && bRoad ? Changed( bare, road ) : -1;
+		std::printf( "terrain preview: road shot differs from the bare terrain in %lld pixels (threshold >= 200)\n", nRoad );
+		Check( nRoad >= 200, "terrain preview: the road shot differs from the bare terrain" );
+		Check( bBare && T11::NonBlackNonMagentaShare( bare ) >= 0.05, "terrain preview: the bare terrain draws (>= 5% of the frame)" );
+
+		Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_REFUSED && std::strstr( BkEditorLastMessage( pSession ), "no Run" ) != nullptr,
+		       "terrain preview: a road has no Run and the message says so" );
+		Check( BkResPreviewWireframe( pSession, 0 ) == BK_EDITOR_OK && Shot( pSession, scratch / "road-fill.tga", roadFill ), "terrain preview: wire frame off" );
+		Check( BkResPreviewWireframe( pSession, 1 ) == BK_EDITOR_OK && Shot( pSession, scratch / "road-wire.tga", roadWire ), "terrain preview: wire frame on" );
+		const long long nWire = Changed( roadFill, roadWire );
+		std::printf( "terrain preview: wire frame on differs from off in %lld pixels (threshold >= 500)\n", nWire );
+		Check( nWire >= 500, "terrain preview: the wire frame changes the picture" );
+		Check( BkResPreviewStop( pSession ) == BK_EDITOR_OK, "terrain preview: Stop road" );
+		Check( BkResPreviewWireframe( pSession, 1 ) == BK_EDITOR_REFUSED, "terrain preview: a wire frame after Stop is refused" );
+		BkResClose( pSession );
+	}
+
+	std::vector<unsigned char> river, riverLater, bareRiver;
+	if ( OpenFixture( pSession, szFixtureRoot, scratch, "3rv" ) )
+	{
+		Check( BkResPreviewShow( pSession ) == BK_EDITOR_REFUSED, "terrain preview: Show after Stop is refused" );
+		Check( BkResPreviewBegin( pSession, 15 ) == BK_EDITOR_OK, ( std::string( "terrain preview: Begin river: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		const bool bBare = Shot( pSession, scratch / "bare-river.tga", bareRiver );
+		Check( BkResPreviewShow( pSession ) == BK_EDITOR_OK, ( std::string( "terrain preview: Show river: " ) + BkEditorLastMessage( pSession ) ).c_str() );
+		Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, "terrain preview: the river runs" );
+		Frames( pSession, 300 );
+		const bool bA = Shot( pSession, scratch / "river-a.tga", river );
+		Frames( pSession, 1200 );
+		const bool bB = Shot( pSession, scratch / "river-b.tga", riverLater );
+		const long long nRiver = bBare && bA ? Changed( bareRiver, river ) : -1;
+		const long long nPlay = bA && bB ? Changed( river, riverLater ) : -1;
+		std::printf( "terrain preview: river shot differs from the bare terrain in %lld pixels (threshold >= 200); two river shots 1.2 s apart differ in %lld pixels (threshold >= 50)\n", nRiver, nPlay );
+		Check( nRiver >= 200, "terrain preview: the river shot differs from the bare terrain" );
+		Check( nPlay >= 50, "terrain preview: the river is animated" );
+		Check( BkResPreviewPlayback( pSession, 0 ) == BK_EDITOR_OK, "terrain preview: the river stops" );
+		Check( BkResPreviewStop( pSession ) == BK_EDITOR_OK, "terrain preview: Stop river" );
+		BkResClose( pSession );
+	}
+
+	// The terrain is gone with the preview: a sprite preview begun now draws
+	// on an empty scene, not on road3d.
+	Check( BkResPreviewBegin( pSession, 4 ) == BK_EDITOR_OK, "terrain preview: a sprite preview begins after the terrain one" );
+	std::vector<unsigned char> after;
+	const bool bAfter = Shot( pSession, scratch / "after-stop.tga", after );
+	// An empty scene still shows the sky gradient, so the measure is the
+	// distance to the terrain shot, not the share of black.
+	const long long nAfter = bAfter && !bareRiver.empty() ? Changed( after, bareRiver ) : -1;
+	std::printf( "terrain preview: the scene after Stop differs from the bare river terrain in %lld pixels (threshold >= 150000)\n", nAfter );
+	Check( nAfter >= 150000, "terrain preview: no terrain is left in the scene after Stop" );
+	BkResPreviewStop( pSession );
+}
+
+}
+
 // S12 T02: the Effect project's exporter and the refused import. The fixture
 // holds one animation and one function particle; the particle's source is put
 // into the mod's data (a shipped plain source, then a shipped smokin one) and
@@ -7641,6 +7776,8 @@ int main( int argc, char **argv )
 	S13Vso::OneFixture( pSession, szFixtureRoot, szScratchRoot, "3rv", 15 );
 	S13Vso::Refusals( pSession, szScratchRoot );
 	S13Vso::Shipped( pSession, pszRoot, szScratchRoot );
+	// S13 T06: the road and river previews on their terrain.
+	S13Terrain::Run( pSession, szFixtureRoot, szScratchRoot );
 
 	// S12 T02: the effect exporter and the refused import.
 	S12Effect::Fixture( pSession, pszRoot, szFixtureRoot, szScratchRoot );
