@@ -26,7 +26,7 @@
 				</item>
 				<item>
 					<default_name>Has borders?</default_name>
-					<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+					<value type="8" flag="9" float_value="0" int_value="0" int64low="0" int64high="0">
 						<string_value/>
 					</value>
 				</item>
@@ -50,25 +50,25 @@
 				</item>
 				<item>
 					<default_name>Passability for infantry</default_name>
-					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+					<value type="8" flag="9" float_value="0" int_value="1" int64low="0" int64high="0">
 						<string_value/>
 					</value>
 				</item>
 				<item>
 					<default_name>Passability for wheels</default_name>
-					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+					<value type="8" flag="9" float_value="0" int_value="1" int64low="0" int64high="0">
 						<string_value/>
 					</value>
 				</item>
 				<item>
 					<default_name>Passability for halftracks</default_name>
-					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+					<value type="8" flag="9" float_value="0" int_value="1" int64low="0" int64high="0">
 						<string_value/>
 					</value>
 				</item>
 				<item>
 					<default_name>Passability for tracks</default_name>
-					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+					<value type="8" flag="9" float_value="0" int_value="1" int64low="0" int64high="0">
 						<string_value/>
 					</value>
 				</item>
@@ -92,13 +92,13 @@
 				</item>
 				<item>
 					<default_name>Has dust effect</default_name>
-					<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+					<value type="8" flag="9" float_value="0" int_value="1" int64low="0" int64high="0">
 						<string_value/>
 					</value>
 				</item>
 				<item>
 					<default_name>Units leave tracks</default_name>
-					<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+					<value type="8" flag="9" float_value="0" int_value="0" int64low="0" int64high="0">
 						<string_value/>
 					</value>
 				</item>

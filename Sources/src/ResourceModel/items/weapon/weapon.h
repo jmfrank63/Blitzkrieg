@@ -47,6 +47,8 @@ public:
 
 protected:
 	void InitDefaultValues() override;
+	// CWeaponFrame::FillRPGStats (WeaponFrm.cpp:134) reads the track damage flag on every save.
+	bool BoolsReadAsInt() const override { return true; }
 };
 
 class CWeaponSoundPropsItem : public CStatsItem

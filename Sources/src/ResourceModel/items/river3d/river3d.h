@@ -47,6 +47,8 @@ public:
 
 protected:
 	void InitDefaultValues() override;
+	// C3DRiverFrame::FillRPGStats (3dRiverFrm.cpp:145) reads the Animated flag of each layer on every save.
+	bool BoolsReadAsInt() const override { return true; }
 };
 
 }

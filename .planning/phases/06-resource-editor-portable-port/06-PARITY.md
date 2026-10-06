@@ -398,7 +398,11 @@ pending with the reason that keeps it open. The per-kind table and the maintaine
 | T12 golden round 4 | `test-resource-model-comparator`: pass=9 accepted=8 fail=0 pending=3 (3rd, til, scp); see the spec's amendment "S16 T12" |
 | golden 3rd, 3rv exported by hand | the two goldens were exported by hand in MFC's GUI: MFC's batch export of 3D roads and rivers crashes even for projects MFC made itself (T12) |
 | golden 3rv | passes (T12) |
-| golden 3rd | pending (T12): `SoilParams` is 0 in the golden, 16 in the port; MFC's source gives 16 (`3dRoadFrm.cpp:187`, `:231`); cause not proven, re-export by hand and note the two soil items |
+| golden 3rd | pending (T12, corrected T13): `SoilParams` is 0 in the golden, 16 in the port. The cause is proven: the port wrote bool values with flag 8, MFC writes flag 9 (VT_BOOL \| VT_INT) and reads a flag-8 bool as false (win-home 2026-10-06, roadtest.3rd). The port writes flag 9 now; re-export by hand in the GUI from the re-saved fixture |
 | golden spt | accepted (T12): `1.san` and the three DDS equal; the golden's `1.xml` is the batch history |
 | golden til | pending (T12): the tile art (16 x 16) was smaller than the mask (64 x 32), so MFC read past it (`TileTreeItem.cpp:189-192`); fixture art is 64 x 32 now; regenerate on win-home |
 | golden scp | pending (T12): MFC's batch export never calls `CallMeAfterSerialize`, so a formation unit's `pMemberProps` is null at `SquadFrm.cpp:275`; the scratch copy lists no formation units; regenerate on win-home |
+| T13 golden round 5 | `test-resource-model-comparator`: pass=10 accepted=9 fail=0 pending=1 (3rd); MFC value flags: a bool is written with flag 9 in the 3rd, 3rv, cgc, mip and wpn projects, flag = type elsewhere; see the spec's amendment "S16 T13" |
+| golden scp | pass (T13): compared against the batch-safe copy |
+| golden til | accepted (T13): 392 float differences at six significant digits (`DataTreeXML.cpp:326`) and the tileset XML MFC's batch History replaced (`TileSetFrm.cpp:434`) |
+| win-home re-export after T13 | `export-goldens.ps1 -Extensions wpn,cgc,mip` (batch) and `3rd`, `3rv` by hand in MFC's GUI: these five fixtures were re-saved with MFC's flags; the other 15 goldens are unaffected |

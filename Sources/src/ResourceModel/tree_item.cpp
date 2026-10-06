@@ -232,7 +232,7 @@ void CTreeItem::WriteData( NResourceXml::Node &node ) const
 		NResourceXml::Node entry = Element( "item" );
 		entry.children.push_back( StringElement( "default_name", prop.szDefaultName ) );
 		NResourceXml::Node value;
-		EncodeMfcValue( prop.value, prop.bHasMfcValue ? &prop.mfcValue : nullptr, value );
+		EncodeMfcValue( prop.value, prop.bHasMfcValue ? &prop.mfcValue : nullptr, value, BoolsReadAsInt() );
 		entry.children.push_back( std::move( value ) );
 		list.children.push_back( std::move( entry ) );
 	}

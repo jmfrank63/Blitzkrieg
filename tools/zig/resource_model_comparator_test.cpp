@@ -1566,7 +1566,6 @@ static const SPendingGolden kPending[] =
 {
 	{ "chc", "the golden was made from a fixture whose cached <RPG> block held the export's prefixed paths (scenarios\\chc\\header): MFC loads the block into the tree (CChapterFrame::LoadRPGStats) and prefixes again, so the golden says scenarios\\scenarios\\chc\\header and a zero MapImageRect (the picture was looked up under the doubled name); a save writes the tree's own paths (the prefix is empty outside ExportFrameData), the bridge refreshes the block that way now and the fixture is re-saved; regenerate the golden on win-home (S16 T10)", &GoldenHasChapterPrefixTwice },
 	{ "cgc", "the golden was made from a fixture whose cached <RPG> block held the export's prefixed paths (scenarios\\campaigns\\cgc\\header): MFC loads the block into the tree (CCampaignFrame::LoadRPGStats) and prefixes again, so the golden says scenarios\\campaigns\\scenarios\\campaigns\\cgc\\header and a zero MapImageRect; the bridge writes the tree's own paths into the block now and the fixture is re-saved; regenerate the golden on win-home (S16 T10)", &GoldenHasCampaignPrefixTwice },
-	{ "scp", "the golden holds only MFC's <History>, and the cause is in MFC's source: its batch export loads the project without CSquadTreeRootItem::CallMeAfterSerialize (ParentFrame.cpp:1403 reads the root with operator&; the call is in ETreeCtrl.cpp:454, the GUI and open-and-save load), so a formation unit's pMemberProps stays null and CSquadFrame::SaveRPGStats (SquadFrm.cpp:275) stops before it writes the RPG node; a squad whose formation lists no units does not reach that line, and export-goldens.ps1 and this test now export that copy; regenerate the golden on win-home (S16 T12)", &GoldenIsHistoryOnly },
 	{ "eff", "MFC skipped the function particle \"particle-2key\" (EffectFrm.cpp:215: no stream, an error box, continue) because the editor's data folder has no Effects\\particles\\particle-2key.xml (<editor folder>\\data\\), so the golden's <particles/> is empty; export-goldens.ps1 puts a shipped particle there as particle-2key.xml now; regenerate the golden on win-home (S16 T10)", &GoldenEffectHasNoParticles },
 };
 
@@ -1649,15 +1648,6 @@ static void Goldens( const fs::path &fixtures, const fs::path &data, const fs::p
 				pPending = &pending;
 		if ( pPending != nullptr && ( !bAny || ( pPending->pfnHolds != nullptr && pPending->pfnHolds( goldenDir ) ) ) )
 		{
-			if ( szExt == "scp" )
-			{
-				// The scratch copy the next win-home run exports must export with the port too.
-				const fs::path batchCopy = CopyFixture( fixtures, scratch, szExt );
-				InjectExportFileName( batchCopy );
-				EmptyFormationUnits( batchCopy );
-				const SExportRun batchRun = RunExporter( szExt, batchCopy, scratch / szExt / "data", context );
-				Check( batchRun.bExported, "golden scp: the batch-safe copy (no formation units) exports with the port: " + batchRun.outcome.szError );
-			}
 			Log( "GOLDEN " + szExt + " pending: " + pPending->pszReason );
 			++nPending;
 			continue;
@@ -1673,6 +1663,10 @@ static void Goldens( const fs::path &fixtures, const fs::path &data, const fs::p
 			Log( "GOLDEN " + szExt + " note: the recorded pending reason no longer holds for this golden, comparing it" );
 		const fs::path project = CopyFixture( fixtures, scratch, szExt );
 		InjectExportFileName( project );
+		// The golden was exported from the batch-safe copy: MFC's batch load never runs CallMeAfterSerialize,
+		// so a formation unit would stop CSquadFrame::SaveRPGStats (SquadFrm.cpp:275) before the RPG node.
+		if ( szExt == "scp" )
+			EmptyFormationUnits( project );
 		SExportContext kindContext = context;
 		// The bridge golden agrees with the editor camera anchored at 24 world cells to the last step: that anchor
 		// puts the camera's X component at exactly 1536, on the integer the editor's CCamera::Update cuts it to

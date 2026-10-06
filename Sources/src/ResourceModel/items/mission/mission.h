@@ -65,6 +65,8 @@ public:
 
 protected:
 	void InitDefaultValues() override;
+	// CMissionFrame::FillRPGStats (MissionFrm.cpp:127) reads the secret flag on every save.
+	bool BoolsReadAsInt() const override { return true; }
 };
 
 }

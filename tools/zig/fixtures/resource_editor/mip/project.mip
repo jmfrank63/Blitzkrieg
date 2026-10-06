@@ -133,7 +133,7 @@
 						</item>
 						<item>
 							<default_name>Objective secret flag</default_name>
-							<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+							<value type="8" flag="9" float_value="0" int_value="1" int64low="0" int64high="0">
 								<string_value/>
 							</value>
 						</item>

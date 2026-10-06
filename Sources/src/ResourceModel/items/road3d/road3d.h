@@ -29,6 +29,8 @@ public:
 
 protected:
 	void InitDefaultValues() override;
+	// GetSoilParams and GetRPGStats (3dRoadTreeItem.cpp) read each of its bools.
+	bool BoolsReadAsInt() const override { return true; }
 };
 
 class C3DRoadLayerPropsItem : public CStatsItem

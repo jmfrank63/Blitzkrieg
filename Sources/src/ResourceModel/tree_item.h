@@ -123,6 +123,9 @@ protected:
 	CTreeItemList treeItemList;
 
 	virtual void InitDefaultValues() {}
+	// True when MFC reads this item's bools through CVariant::operator bool before
+	// a save, so they are written with flag 9 (EncodeMfcValue).
+	virtual bool BoolsReadAsInt() const { return false; }
 
 	// CTreeItem::operator&( IDataTree & ), reading and writing.
 	virtual void ReadData( const NResourceXml::Node &node );

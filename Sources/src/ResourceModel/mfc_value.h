@@ -44,8 +44,11 @@ CVariant DecodeMfcValue( const NResourceXml::Node &value );
 
 // Writes v as a <value> element. With a stored element the write starts from
 // it, as MFC's CVariant::SetNewValue keeps the other slots; without one the
-// slots are the zeros CVariant's constructors set.
-void EncodeMfcValue( const CVariant &v, const NResourceXml::Node *pStored, NResourceXml::Node &out );
+// slots are the zeros CVariant's constructors set. bReadAsInt is true for an
+// item whose MFC code reads its bools through CVariant::operator bool before the
+// save (the Road editor's common properties): that adds VT_INT to the flags, so
+// MFC saves such a bool with flag 9 and, unlike flag 8, reads it back as set.
+void EncodeMfcValue( const CVariant &v, const NResourceXml::Node *pStored, NResourceXml::Node &out, bool bReadAsInt = false );
 
 // Small helpers shared by the item (de)serialisers.
 const NResourceXml::Node *FindElement( const NResourceXml::Node &parent, const std::string &name );

@@ -47,6 +47,8 @@ public:
 
 protected:
 	void InitDefaultValues() override;
+	// CCampaignFrame::FillRPGStats (CampaignFrm.cpp:100) reads the visible and secret flags on every save.
+	bool BoolsReadAsInt() const override { return true; }
 };
 
 class CCampaignTemplatesItem : public CStatsItem

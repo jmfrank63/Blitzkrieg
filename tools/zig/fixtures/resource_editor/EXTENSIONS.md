@@ -15,7 +15,7 @@ the file bytes.
 
 | # | ext | frame | composer | root element | project bytes | project hash | art | art bytes | art hash |
 |---|-----|-------|----------|--------------|---------------|--------------|-----|-----------|----------|
-| 1 | `wpn` | `WeaponFrm.cpp` | Weapon Editor | `Weapon_Composer_Project` | 11208 | `b135baa` | `art-16x16.tga` (picture) | 786 | `135d6c6` |
+| 1 | `wpn` | `WeaponFrm.cpp` | Weapon Editor | `Weapon_Composer_Project` | 11208 | `d088ec3` | `art-16x16.tga` (picture) | 786 | `135d6c6` |
 | 2 | `mcp` | `MineFrm.cpp` | Mine Editor | `Mine_Composer_Project` | 1622 | `57b037f` | `art-16x16.tga` (picture) | 786 | `1465749` |
 | 3 | `trc` | `TrenchFrm.cpp` | Trench Editor | `Trench_Composer_Project` | 7225 | `c201411` | `art-16x16.tga` (picture) | 786 | `fb93bdb` |
 | 4 | `scp` | `SquadFrm.cpp` | Squad Editor | `Squad_Composer_Project` | 4774 | `45541a9` | `sprite-1frame.tga` (sprite) | 786 | `4927622` |
@@ -29,11 +29,11 @@ the file bytes.
 | 12 | `pcp` | `ParticleFrm.cpp` | Particle Editor | `Particle_Composer_Project` | 13833 | `e562559` | `particle-2key.txt` (particle) | 82 | `b19fd48` |
 | 13 | `eff` | `EffectFrm.cpp` | Effect Editor | `Effect_Composer_Project` | 4108 | `755e580` | `particle-2key.txt` (particle) | 82 | `b19fd48` |
 | 14 | `til` | `TileSetFrm.cpp` | Terrain Editor | `TileSet_Composer_Project` | 9104 | `2212a52` | `art-16x16.tga` (picture32) | 8210 | `3814737` |
-| 15 | `3rd` | `3dRoadFrm.cpp` | Road Editor | `Road3D_Composer_Project` | 4825 | `7822004` | `art-16x16.tga` (picture) | 786 | `183a86e` |
-| 16 | `3rv` | `3dRiverFrm.cpp` | River Editor | `River3D_Composer_Project` | 4137 | `8dc48d4` | `art-16x16.tga` (picture) | 786 | `f82eb26` |
-| 17 | `mip` | `MissionFrm.cpp` | Mission Editor | `Mission_Composer_Project` | 4867 | `b5f031d` | `art-16x16.tga` (picture) | 786 | `c3cd6fa` |
+| 15 | `3rd` | `3dRoadFrm.cpp` | Road Editor | `Road3D_Composer_Project` | 4825 | `32fef40` | `art-16x16.tga` (picture) | 786 | `183a86e` |
+| 16 | `3rv` | `3dRiverFrm.cpp` | River Editor | `River3D_Composer_Project` | 4137 | `deb6741` | `art-16x16.tga` (picture) | 786 | `f82eb26` |
+| 17 | `mip` | `MissionFrm.cpp` | Mission Editor | `Mission_Composer_Project` | 4867 | `051090d` | `art-16x16.tga` (picture) | 786 | `c3cd6fa` |
 | 18 | `chc` | `ChapterFrm.cpp` | Chapter Editor | `Chapter_Composer_Project` | 5196 | `845a5a7` | `art-16x16.tga` (picture) | 786 | `b3be010` |
-| 19 | `cgc` | `CampaignFrm.cpp` | Campaign Editor | `Campaign_Composer_Project` | 4869 | `de7506a` | `art-16x16.tga` (picture) | 786 | `0fabb67` |
+| 19 | `cgc` | `CampaignFrm.cpp` | Campaign Editor | `Campaign_Composer_Project` | 4869 | `2db6684` | `art-16x16.tga` (picture) | 786 | `0fabb67` |
 | 20 | `mdc` | `MedalFrm.cpp` | Medal Editor | `Medal_Composer_Project` | 1342 | `3f75738` | `art-16x16.tga` (picture) | 786 | `32ad466` |
 | 21 | `gui` | `GUIFrame.cpp` | GUI Editor | `GUI_Composer_Project` | 1354 | `2e46fb2` | `art-16x16.tga` (picture) | 786 | `4ac0872` |
 

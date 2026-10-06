@@ -141,12 +141,15 @@ CVariant DecodeMfcValue( const NResourceXml::Node &value )
 	}
 }
 
-void EncodeMfcValue( const CVariant &v, const NResourceXml::Node *pStored, NResourceXml::Node &out )
+void EncodeMfcValue( const CVariant &v, const NResourceXml::Node *pStored, NResourceXml::Node &out, bool bReadAsInt )
 {
+	const bool bBoolReadAsInt = bReadAsInt && v.GetKind() == CVariant::VK_BOOL;
 	// An unedited value goes back exactly as it was read, stale slots and all.
 	if ( pStored && DecodeMfcValue( *pStored ) == v )
 	{
 		out = *pStored;
+		if ( bBoolReadAsInt )
+			SetAttr( out, "flag", MfcInt( MFC_VT_BOOL | MFC_VT_INT ) );
 		return;
 	}
 
@@ -173,7 +176,12 @@ void EncodeMfcValue( const CVariant &v, const NResourceXml::Node *pStored, NReso
 	// stays, the slot of that type gets the new value and the flags say only
 	// that slot is current. The other slots keep what they held.
 	SetAttr( out, "type", MfcInt( nType ) );
-	SetAttr( out, "flag", MfcInt( nType ) );
+	// CVariant::operator bool calls OptimizeInt, which adds VT_INT to the flags. The Road
+	// editor reads every bool of its common properties that way before it saves, so MFC
+	// writes them as 9 (VT_BOOL | VT_INT) and reads a flag-8 one back as false, although
+	// int_value is 1. Items nothing reads keep flag == type: MFC's own bridge, fence, unit
+	// and mesh projects hold flag 8.
+	SetAttr( out, "flag", MfcInt( bBoolReadAsInt ? nType | MFC_VT_INT : nType ) );
 	auto setString = [&out]( const std::string &text ) {
 		for ( auto &c : out.children )
 			if ( c.kind == NResourceXml::Node::Element && c.name == "string_value" )

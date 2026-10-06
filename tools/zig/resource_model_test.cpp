@@ -56,6 +56,7 @@
 #include "../../Sources/src/ResourceModel/editor_env.h"
 #include "../../Sources/src/ResourceModel/factory.h"
 #include "../../Sources/src/ResourceModel/future_blob.h"
+#include "../../Sources/src/ResourceModel/mfc_value.h"
 #include "../../Sources/src/ResourceModel/items/stats_item.h"
 #include "../../Sources/src/ResourceModel/project.h"
 #include "../../Sources/src/ResourceModel/xml.h"
@@ -751,6 +752,92 @@ static void CheckFrameData( Results &r, const std::string &ext, const fs::path &
 	          std::string( "own_data " ) + ( bOwnData ? "present" : "absent" ) + ", cached " + ( pszBlock ? pszBlock : "none" ) + ( bBlock ? " present" : " missing" ) );
 }
 
+// The flag attribute of a <value> is CVariant's m_flagsOptimized, the bit set of the slots that
+// are current. A bool read through operator bool gains VT_INT (OptimizeInt), so the editors whose
+// save reads their bools (FillRPGStats: road 3dRoadFrm.cpp:121, river layers 3dRiverFrm.cpp:145,
+// campaign chapters CampaignFrm.cpp:100, mission objectives MissionFrm.cpp:127, weapon damage
+// WeaponFrm.cpp:134) write 9; a bool nothing reads stays 8, as in MFC's own bridge, fence, unit and
+// mesh projects (mfc-new), and the terrain's, which only ComposeTiles reads on export. A bool the port
+// wrote as 8 in a road is read as false by MFC although int_value is 1 (win-home, 2026-10-06).
+static int MfcFlagFor( const std::string &ext, int nType )
+{
+	const bool bSaveReadsBools = ext == "3rd" || ext == "3rv" || ext == "cgc" || ext == "mip" || ext == "wpn";
+	return nType == NResourceModel::MFC_VT_BOOL && bSaveReadsBools ? NResourceModel::MFC_VT_BOOL | NResourceModel::MFC_VT_INT : nType;
+}
+
+static void CollectValueFlags( const std::string &ext, const NResourceXml::Node &node, int &nValues, std::string &szBad )
+{
+	if ( node.kind != NResourceXml::Node::Element )
+		return;
+	if ( node.name == "value" )
+	{
+		const std::string *pType = NResourceModel::FindAttr( node, "type" );
+		const std::string *pFlag = NResourceModel::FindAttr( node, "flag" );
+		if ( pType && pFlag )
+		{
+			++nValues;
+			if ( std::atoi( pFlag->c_str() ) != MfcFlagFor( ext, std::atoi( pType->c_str() ) ) )
+				{ if ( szBad.size() < 120 ) szBad += " type=" + *pType + " flag=" + *pFlag; }
+		}
+	}
+	for ( const auto &c : node.children )
+		CollectValueFlags( ext, c, nValues, szBad );
+}
+
+static void CheckValueFlags( Results &r, const std::string &ext, const fs::path &path, const char *pszSet = "" )
+{
+	std::ifstream in( path, std::ios::binary );
+	std::stringstream ss;
+	ss << in.rdbuf();
+	NResourceXml::Document doc;
+	std::string szError;
+	if ( !NResourceXml::Parse( ss.str(), doc, szError ) )
+	{
+		r.Report( std::string( "value-flags:" ) + pszSet + ext, false, szError );
+		return;
+	}
+	int nValues = 0;
+	std::string szBad;
+	CollectValueFlags( ext, doc.root, nValues, szBad );
+	r.Report( std::string( "value-flags:" ) + pszSet + ext, szBad.empty(), std::to_string( nValues ) + " values" + ( szBad.empty() ? "" : ", not MFC's flag:" + szBad ) );
+}
+
+// A bool the port encodes in an item MFC reads as a bool carries flag 9, new or edited over a
+// stored value or kept; elsewhere and for the other types the flag is the type.
+static void CheckEncodedFlags( Results &r )
+{
+	std::string szBad;
+	auto flagOf = []( const CVariant &v, const NResourceXml::Node *pStored ) {
+		NResourceXml::Node out;
+		NResourceModel::EncodeMfcValue( v, pStored, out );
+		const std::string *p = NResourceModel::FindAttr( out, "flag" );
+		return p ? std::atoi( p->c_str() ) : -1;
+	};
+	NResourceXml::Node stored;
+	stored.kind = NResourceXml::Node::Element;
+	stored.name = "value";
+	NResourceModel::SetAttr( stored, "type", "8" );
+	NResourceModel::SetAttr( stored, "flag", "8" );
+	NResourceModel::SetAttr( stored, "int_value", "0" );
+	auto roadFlagOf = []( const CVariant &v, const NResourceXml::Node *pStored ) {
+		NResourceXml::Node out;
+		NResourceModel::EncodeMfcValue( v, pStored, out, true );
+		const std::string *p = NResourceModel::FindAttr( out, "flag" );
+		return p ? std::atoi( p->c_str() ) : -1;
+	};
+	for ( bool b : { false, true } )
+	{
+		if ( roadFlagOf( CVariant( b ), nullptr ) != 9 ) szBad += " new road bool";
+		if ( roadFlagOf( CVariant( b ), &stored ) != 9 ) szBad += " kept or edited road bool";
+		if ( flagOf( CVariant( b ), nullptr ) != 8 ) szBad += " new bool";
+	}
+	if ( flagOf( CVariant( true ), &stored ) != 8 ) szBad += " kept bool";
+	if ( flagOf( CVariant( 5 ), nullptr ) != 1 ) szBad += " int";
+	if ( flagOf( CVariant( 0.5f ), nullptr ) != 2 ) szBad += " float";
+	if ( flagOf( CVariant( "x" ), nullptr ) != 4 ) szBad += " string";
+	r.Report( "value-flags:encoder", szBad.empty(), szBad.empty() ? "road bool 9, other bool 8, int 1, float 2, string 4" : "wrong flag for:" + szBad );
+}
+
 int main()
 {
 	const std::string text = ReadAll( kInventory );
@@ -797,6 +884,7 @@ int main()
 		{
 			projects.emplace_back( "fixtures/" + ext + "/project." + ext, p );
 			CheckFrameData( r, ext, p );
+			CheckValueFlags( r, ext, p );
 		}
 		else
 			r.Report( "fixture-present:" + ext, false, p.string() + " is missing" );
@@ -808,6 +896,12 @@ int main()
 	std::sort( projects.begin(), projects.end() );
 	for ( const auto &p : projects )
 		RoundTrip( r, p.first, p.second );
+
+	// MFC's own projects: every type and flag pair in them is the rule's.
+	for ( const auto &e : fs::directory_iterator( fs::path( kFixtures ) / "mfc-new" ) )
+		if ( e.path().extension().string().size() > 1 && e.path().extension() != ".md" )
+			CheckValueFlags( r, e.path().extension().string().substr( 1 ), e.path(), "mfc-new:" );
+	CheckEncodedFlags( r );
 
 	for ( const auto &cls : inventory["classes"].items )
 	{

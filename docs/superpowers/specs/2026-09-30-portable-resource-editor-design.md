@@ -1296,3 +1296,20 @@ the same way.
 **For the maintainer: regenerate on win-home** `export-goldens.ps1 -Extensions scp,til` from this commit, and re-export `3rd` by hand
 (noting the two soil items). Nothing else is open in the goldens. Not claimed: no macOS or Windows result; the full resource sweep is left to
 the maintainer. T07 still waits.
+
+## Amendment (S16 T13, 2026-10-06): MFC value flags, scp and til compared, win-home re-export list
+
+Correction to S16 T12: the 3rd golden's `SoilParams` 0 is not an unproven MFC behaviour. MFC writes a bool tree value as `<value type="8" flag="9">`
+(`CVariant::operator bool` calls `OptimizeInt`, which adds VT_INT to the flags) and reads a flag-8 bool back as false in the Road editor, although
+`int_value` is 1; the port wrote flag 8. On win-home MFC's own `mfc-new/roadtest.3rd` (flag 9) exports 16 and the port's old file exported 0.
+
+- The editors whose save reads its bools (road `3dRoadFrm.cpp:121`, river `3dRiverFrm.cpp:145`, campaign `CampaignFrm.cpp:100`, mission
+  `MissionFrm.cpp:127`, weapon `WeaponFrm.cpp:134`) get flag 9 through `CTreeItem::BoolsReadAsInt` and `EncodeMfcValue`; every other value keeps
+  flag = type, as in MFC's own bridge, fence, unit and mesh projects.
+- Fixtures 3rd, 3rv, cgc, mip and wpn were re-saved through the port; their hashes in `EXTENSIONS.md` are updated.
+- `test-resource-model` checks every `<value>` type and flag pair in the fixtures and in `mfc-new`, and the encoder for each type.
+- Goldens: `test-resource-model-comparator` pass=10 accepted=9 fail=0 pending=1. scp passes against the batch-safe copy; til is accepted (392 floats at
+  six significant digits, and the tileset XML MFC's batch History replaced); 3rd stays pending only until it is re-exported.
+
+**For the maintainer: new win-home exports after the re-save:** batch `export-goldens.ps1 -Extensions wpn,cgc,mip`, and `3rd` and `3rv` by hand in
+MFC's GUI. The other goldens are unaffected. Not claimed: no macOS or Windows result; the full resource sweep is left to the maintainer. T07 still waits.
