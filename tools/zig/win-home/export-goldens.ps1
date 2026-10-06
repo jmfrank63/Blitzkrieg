@@ -27,6 +27,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# pwsh -File passes "-Extensions a,b" as one string; split it into the list it means.
+$Extensions = @($Extensions | ForEach-Object { $_ -split "," } | Where-Object { $_ -ne "" })
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../../..")).Path
 $fixtureRoot = Join-Path $repoRoot "tools/zig/fixtures/resource_editor"
 if ([string]::IsNullOrWhiteSpace($EditorPath)) {
