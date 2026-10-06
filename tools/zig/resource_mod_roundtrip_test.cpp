@@ -136,6 +136,8 @@ struct SAcceptRule
 	// Only when the mod ships none of the sibling files (.mod models, .dds pictures) the kind needs
 	// beside its stats: a file the mod references but does not ship.
 	bool bOnlyWithoutSiblings = false;
+	// When set, the rule covers only a float field whose two values differ by at most this much.
+	double fMaxDelta = 0;
 };
 
 static const SAcceptRule kAcceptRules[] =
@@ -157,6 +159,51 @@ static const SAcceptRule kAcceptRules[] =
 	{ "mip", "RPG/MapImageRect", "the mod ships no map picture to measure the rectangle from", true },
 	{ "chc", "RPG/MapImageRect", "the mod ships no map picture to measure the rectangle from", true },
 	{ "cgc", "RPG/MapImageRect", "the mod ships no map picture to measure the rectangle from", true },
+	// What the real mod run found (AchtungPanzer2, D053). Each is a proven difference, not a port defect.
+	// The mod ships compiled textures (1_h.dds), not the source .tga the export measures, and a stats-only
+	// export keeps MFC's all-zero rectangle (medal_export.cpp, the same as for the missing picture).
+	{ "mdc", "RPG/ImageRect", "the mod ships the compiled texture (1_h.dds), not the source .tga the export measures; a stats-only export keeps MFC's all-zero rectangle" },
+	// The campaign's stats were exported from a project under scenarios\custom, so MapImage carries that folder; the
+	// tier places the project at the mod-relative path, and the import keeps a value that lacks the project's prefix whole.
+	{ "cgc", "RPG/MapImage:", "the mod's MapImage names a texture under scenarios\\custom, not under the folder the tier places the project in; the import keeps a value without the project's prefix whole (WithoutPrefix), so the export prefixes it again" },
+	// MiniMapBorderColor of a river: the river frame holds none (C3DRiverFrame::FillRPGStats sets none, GetRPGStats imports none).
+	{ "3rv", "VSODescription/MiniMapBorderColor", "the river editor frame neither holds nor writes the minimap border colour (see the VSO losses in the comparator), so a river the mod authored with one exports 00000000" },
+	// Older object stubs: no Defence nodes and the effect still written as a struct.
+	{ "obt", "stale field desc/EffectExplosion/", "the mod ships the object in the older form that wrote the effect as a struct (Effect, Sound, MinDist, MaxDist); the struct reads the element's text, and the effect is empty" },
+	{ "obt", "stale field desc/EffectDeath/", "as desc/EffectExplosion/" },
+	{ "obt", "desc/Defence", "the mod ships a stub object without the Defence nodes; the reader gives the struct its defaults, while the project holds the object frame's defaults, which the export writes" },
+	{ "obt", "extra field desc/CycledSound", "the mod ships a stub object without sounds; the reader gives the struct empty ones and the export writes the empty elements" },
+	{ "obt", "extra field desc/AmbientSound", "as desc/CycledSound" },
+	// The weapon exporter of the mod's time wrote only some per-shell fields; the reader gives an absent one its default.
+	{ "wpn", "extra field RPG/Shells/item[", "the mod's weapon omits a per-shell field (BrokeTrackProbability, TraceProbability, TraceSpeedCoeff) that SWeaponRPGStats::SShell::operator& reads as its default; the export writes the attribute (a value difference would be a separate field line)" },
+	// A bridge origin is the sprite position minus a grid corner; the project stores the position with six digits.
+	{ "bdg", "/Origin/", "a segment's origin is the sprite position minus the center cross, and the project stores the sprite position with six digits, so an imported origin differs from the shipped one by up to 5e-4 and more where the position is large (as for fences; the mod run saw 5.5e-4)", false, 1e-3 },
+	{ "bdg", "/VisOrigin/", "as the segment's origin", false, 1e-3 },
+	// The mesh export builds the unit from the .mod model beside the stats (mesh_export.cpp, locators by node name),
+	// so a mod whose stats were made against another model, or edited by hand, differs there. G_vt_Opel_Blitz_41x/1.mod
+	// holds no LExhaust node (strings of the file) while its stats list ExhaustPoints 10.
+	{ "msh", "RPG/ExhaustPoints", "the export takes the exhaust points from the LExhaust nodes of the .mod model beside the stats, and the mod's stats list points the shipped model lacks (G_vt_Opel_Blitz_41x/1.mod has no LExhaust node)" },
+	{ "msh", "RPG/EntrancePoint", "the export takes the entrance point from the LPeople node of the .mod model beside the stats, and the mod's stats name another node" },
+	{ "msh", "RPG/AnimDescs", "the export takes the animation list from the .mod model (and its install and transport variants) beside the stats, and the mod's stats list another set" },
+	{ "msh", "RPG/DamagePoints", "the export takes the damage points from the .mod model beside the stats, and the mod's stats hold others" },
+	{ "msh", "RPG/AABB_As", "the export takes the attack boxes from the .mod model beside the stats, and the mod's stats hold others" },
+	{ "msh", "RPG/AABB_Ds", "the export takes the defence boxes from the .mod model beside the stats, and the mod's stats hold others" },
+	{ "msh", "RPG/AABBHalfSize", "the export takes the box from the .mod model beside the stats, and the mod's stats hold others" },
+	{ "msh", "RPG/Gunners", "the export takes the gunner points from the .mod model beside the stats, and the mod's stats hold others" },
+	{ "msh", "RPG/FatalitySmokePoint", "the export takes the fatality smoke point from the .mod model beside the stats, and the mod's stats hold others" },
+	{ "msh", "RPG/TowPoint", "the export takes the point from the locator nodes of the .mod model beside the stats, and the mod's stats name others" },
+	{ "msh", "RPG/PeoplePoints", "the export takes the point from the locator nodes of the .mod model beside the stats, and the mod's stats name others" },
+	{ "msh", "RPG/HookPoint", "the export takes the point from the locator nodes of the .mod model beside the stats, and the mod's stats name others" },
+	{ "msh", "RPG/BackWheel", "the export takes the point from the locator nodes of the .mod model beside the stats, and the mod's stats name others" },
+	{ "msh", "RPG/FrontWheel", "the export takes the point from the locator nodes of the .mod model beside the stats, and the mod's stats name others" },
+	{ "msh", "RPG/ShootDustPoint", "the export takes the point from the locator nodes of the .mod model beside the stats, and the mod's stats name others" },
+	{ "msh", "RPG/AmmoPoint", "the export takes the point from the locator nodes of the .mod model beside the stats, and the mod's stats name others" },
+	{ "msh", "RPG/AABBCenter", "the export takes the box from the .mod model beside the stats, and the mod's stats hold another box" },
+	{ "msh", "RPG/UninstallRotate", "the mod's stats hold 1.4013e-045 (the integer 1 read as a float, MSVC's text for it), an uninitialised value; ToAIUnits turns it into nUninstallRotate = int( 1.4e-45 * 1000 ) = 0, the same as the absent field the export leaves" },
+	{ "msh", "RPG/UninstallTransport", "as UninstallRotate" },
+	// A stub no editor saved: the KeyName is empty, so the engine's reader finds no stats and the import refuses it (the
+	// importer's contract, as MFC's LoadRPGStats treats an empty KeyName).
+	{ "*", " RPG stats", "an empty KeyName marks a stub no editor saved; the import's contract refuses a file the engine's reader finds no stats in" },
 	// MFC's own export check (ExportFrameData) refuses a project that lacks a field, and a shipped
 	// file may lack it: the port keeps the refusal, so there is no export to compare.
 	{ "*", "You should specify", "MFC's own export check refuses a project the mod's file leaves a required field out of; the port keeps that refusal (06-PARITY)" },
@@ -172,22 +219,35 @@ static bool ParseFloatField( const char *pszText, const char *pszLimit, double &
 	return pszEnd != pszText && ( pszEnd == pszLimit || std::strncmp( pszEnd, " (float 0x", 10 ) == 0 );
 }
 
-static bool IsPrintRounding( const std::string &szMessage )
+// The two values of a "field F: port A, golden B" message.
+static bool FloatValues( const std::string &szMessage, double &fPort, double &fMod )
 {
 	const std::string::size_type nPort = szMessage.find( ": port " ), nMod = szMessage.find( ", golden " );
 	if ( nPort == std::string::npos || nMod == std::string::npos || nMod < nPort )
 		return false;
+	return ParseFloatField( szMessage.c_str() + nPort + 7, szMessage.c_str() + nMod, fPort ) &&
+	       ParseFloatField( szMessage.c_str() + nMod + 9, szMessage.c_str() + szMessage.size(), fMod );
+}
+
+static bool IsPrintRounding( const std::string &szMessage )
+{
 	double fPort = 0, fMod = 0;
-	if ( !ParseFloatField( szMessage.c_str() + nPort + 7, szMessage.c_str() + nMod, fPort ) ||
-	     !ParseFloatField( szMessage.c_str() + nMod + 9, szMessage.c_str() + szMessage.size(), fMod ) )
+	if ( !FloatValues( szMessage, fPort, fMod ) )
 		return false;
 	return std::fabs( fPort - fMod ) <= 2e-5 * std::max( 1.0, std::fabs( fMod ) );
+}
+
+static bool WithinDelta( const std::string &szMessage, double fMaxDelta )
+{
+	double fPort = 0, fMod = 0;
+	return FloatValues( szMessage, fPort, fMod ) && std::fabs( fPort - fMod ) <= fMaxDelta;
 }
 
 static const char *AcceptReason( const char *pszExt, const std::string &szMessage, bool bNoSiblings )
 {
 	for ( const SAcceptRule &rule : kAcceptRules )
-		if ( ( std::strcmp( rule.pszExt, "*" ) == 0 || std::strcmp( rule.pszExt, pszExt ) == 0 ) && szMessage.find( rule.pszPath ) != std::string::npos && ( !rule.bOnlyWithoutSiblings || bNoSiblings ) )
+		if ( ( std::strcmp( rule.pszExt, "*" ) == 0 || std::strcmp( rule.pszExt, pszExt ) == 0 ) && szMessage.find( rule.pszPath ) != std::string::npos && ( !rule.bOnlyWithoutSiblings || bNoSiblings ) &&
+		     ( rule.fMaxDelta == 0 || WithinDelta( szMessage, rule.fMaxDelta ) ) )
 			return rule.pszReason;
 	if ( IsPrintRounding( szMessage ) )
 		return "a float the mod's XML prints to six digits";
@@ -429,6 +489,13 @@ static void RoundTripOne( BkResSession *pSession, int nKind, const SResource &re
 	}
 	if ( status != BK_EDITOR_OK )
 	{
+		const std::string szImportMessage = BkEditorLastMessage( pSession );
+		if ( const char *pszReason = AcceptReason( pKind->pszExt, szImportMessage, nSiblings == 0 ) )
+		{
+			++pCounts->nAccepted;
+			std::printf( "MOD %s %s ACCEPTED %s [not imported]\n", pKind->pszExt, res.szRel.c_str(), pszReason );
+			return;
+		}
 		Fail( *pCounts, pKind->pszExt, res.szRel, std::string( "import: " ) + BkEditorLastMessage( pSession ) + " vs imported" );
 		return;
 	}
