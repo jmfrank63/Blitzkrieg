@@ -40,6 +40,10 @@ struct SExportContext
 	// editor\terrain\tilemask.tga there. Empty: the export looks in
 	// szDataRoot only.
 	std::string szEditorDataDir;
+	// mod.xml's MODName and MODVersion of the export root (theApp.GetMODName() and
+	// GetMODVersion()), which a chapter and a campaign write into their stats.
+	std::string szModName;
+	std::string szModVersion;
 
 	// D015: the objects database MFC's frames asked through IObjectsDB, which
 	// an exporter does not own. Given a resource path as MFC builds it (lower

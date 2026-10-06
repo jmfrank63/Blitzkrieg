@@ -271,7 +271,7 @@ const ImageFrameSources = struct {
 };
 const image_frame_sources = [_]ImageFrameSources{
     .{ .ext = "mdc", .picture = "medal.tga", .texts = &.{ "name.txt", "desc.txt" } },
-    .{ .ext = "chc", .picture = "map.tga", .texts = &.{ "header.txt", "subheader.txt", "desc.txt" } },
+    .{ .ext = "chc", .picture = "map.tga", .texts = &.{ "header.txt", "subheader.txt", "desc.txt", "script.lua", "context.xml" } },
     .{ .ext = "cgc", .picture = "map.tga", .texts = &.{ "header.txt", "subheader.txt" } },
     .{ .ext = "mip", .picture = "map.tga", .texts = &.{ "header.txt", "subheader.txt", "desc.txt", "1.txt" } },
 };

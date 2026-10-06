@@ -3502,6 +3502,8 @@ void FillEngineLookups( NResourceModel::SExportContext &context, const std::file
 // staging folder beside data/, and only when it succeeds are its files
 // promoted into data/, all or nothing, so a failed export leaves no
 // half-written resource.
+void ReadModFile( const std::filesystem::path &dataDir, std::string &szName, std::string &szVersion, std::string &szDesc );
+
 bool ExportOne( const NResourceModel::Project &project, const std::string &szProjectPath, const std::string &szExtension,
                 const std::filesystem::path &dataDir, const std::filesystem::path &editorDataDir, int nFlags, bool bStatsOnly,
                 NResourceModel::SExportOutcome &outcome, std::string &szError )
@@ -3528,6 +3530,8 @@ bool ExportOne( const NResourceModel::Project &project, const std::string &szPro
 	context.bStatsOnly = bStatsOnly;
 	context.szDataRoot = dataDir.string();
 	context.szEditorDataDir = editorDataDir.string();
+	std::string szModDesc;
+	ReadModFile( dataDir, context.szModName, context.szModVersion, szModDesc );
 	FillEngineLookups( context, dataDir.parent_path() / ".bk-export-mesh" );
 	if ( !pfnExporter( project, context, outcome ) )
 	{
@@ -4157,6 +4161,8 @@ struct PreviewKind
 const int kTilesetKind = 13;  // "til", the Terrain tileset project
 const int kRoadKind = 14;     // "3rd", the 3D Road project
 const int kRiverKind = 15;    // "3rv", the 3D River project
+const int kChapterKind = 17;  // "chc", the Chapter project
+const int kCampaignKind = 18; // "cgc", the Campaign project
 const int kMedalKind = 19;    // "mdc", the Medal project
 
 const PreviewKind kPreviewKinds[] =
@@ -5365,12 +5371,14 @@ void MedalStatsToTree( const SMedalStats &rpgStats, NResourceModel::CTreeItem &r
 	SetSlot( pCommonProps, 2, LastPathComponent( rpgStats.szTexture ) );
 }
 
-// CMedalFrame::LoadRPGStats (MedalFrm.cpp:99): the stats file's place below
-// the kind's folder (szAddDir "medals\\"), which becomes the project's
+// CMedalFrame::LoadRPGStats (MedalFrm.cpp:99), and the chapter's and the
+// campaign's alike: the stats file's place below the kind's folder (szAddDir
+// "medals\\", "scenarios\\" and "scenarios\\campaigns\\", so the folders "medals",
+// "scenarios" and "campaigns"), which becomes the project's
 // own_data/export_file_name, as MFC kept it in szPrevExportFileName. Empty
-// when the file does not lie below a medals folder; the export then names the
+// when the file does not lie below that folder; the export then names the
 // stats after the project's own folder.
-std::string MedalExportFileName( const std::filesystem::path &statsFile )
+std::string ExportFileNameBelow( const std::filesystem::path &statsFile, const char *pszFolder )
 {
 	std::vector<std::string> parts;
 	for ( const auto &part : statsFile.lexically_normal() )
@@ -5380,7 +5388,7 @@ std::string MedalExportFileName( const std::filesystem::path &statsFile )
 		std::string szLower = parts[i];
 		for ( char &c : szLower )
 			c = char( std::tolower( (unsigned char)c ) );
-		if ( szLower != "medals" )
+		if ( szLower != pszFolder )
 			continue;
 		std::string szRelative;
 		for ( std::size_t j = i + 1; j < parts.size(); ++j )
@@ -5388,6 +5396,107 @@ std::string MedalExportFileName( const std::filesystem::path &statsFile )
 		return szRelative;
 	}
 	return std::string();
+}
+
+// A stats name without the folder the export put in front of it
+// (szAddDir + the stats file's folder, szPrefix of MFC's frames), so that
+// exporting the imported project writes the prefix once. A name that does not
+// start with the prefix (another folder, or a file outside the kind's folder)
+// is kept as it is.
+std::string WithoutPrefix( const std::string &szName, const std::string &szPrefix )
+{
+	if ( szPrefix.empty() || szName.size() < szPrefix.size() )
+		return szName;
+	for ( std::size_t i = 0; i < szPrefix.size(); ++i )
+		if ( std::tolower( (unsigned char)szName[i] ) != std::tolower( (unsigned char)szPrefix[i] ) )
+			return szName;
+	return szName.substr( szPrefix.size() );
+}
+
+// The prefix MFC's export put in front of the names: szAddDir and the folder of
+// the stats file relative to it, with backslashes.
+std::string ExportPrefix( const char *pszAddDir, const std::string &szExportFile )
+{
+	const std::string::size_type nCut = szExportFile.rfind( '\\' );
+	return std::string( pszAddDir ) + ( nCut == std::string::npos ? std::string() : szExportFile.substr( 0, nCut + 1 ) );
+}
+
+// A child item as MFC's GetRPGStats found it: the frame had made one per
+// entry of the stats before it filled them, so the port makes them here.
+NResourceModel::CTreeItem *AddStatsChild( NResourceModel::CTreeItem *pParent, int nType, const char *pszName )
+{
+	if ( pParent == nullptr )
+		return nullptr;
+	auto pChild = NResourceModel::CTreeItemFactory::Instance().Create( nType );
+	if ( !pChild )
+		return nullptr;
+	pChild->SetItemName( pszName );
+	NResourceModel::CTreeItem *pItem = pChild.get();
+	pParent->AddChild( std::move( pChild ) );
+	return pItem;
+}
+
+// CChapterFrame::GetRPGStats (ChapterFrm.cpp:152), line for line onto the
+// port's items: the slots are the indices of ChapterTreeItem.h's setters. The
+// texts, picture, script, music and context lose the export prefix.
+void ChapterStatsToTree( const SChapterStats &rpgStats, NResourceModel::CTreeItem &root, const std::string &szPrefix )
+{
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_CHAPTER_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 0, WithoutPrefix( rpgStats.szHeaderText, szPrefix ) );
+	SetSlot( pCommonProps, 1, WithoutPrefix( rpgStats.szSubheaderText, szPrefix ) );
+	SetSlot( pCommonProps, 2, WithoutPrefix( rpgStats.szDescriptionText, szPrefix ) );
+	SetSlot( pCommonProps, 3, WithoutPrefix( rpgStats.szMapImage, szPrefix ) );
+	SetSlot( pCommonProps, 4, WithoutPrefix( rpgStats.szScript, szPrefix ) );
+	SetSlot( pCommonProps, 5, WithoutPrefix( rpgStats.szInterfaceMusic, szPrefix ) );
+	// CChapterCommonPropsItem::SetSeason: the three seasons by number.
+	static const char *const kSeasons[] = { "summer", "winter", "africa" };
+	if ( rpgStats.nSeason >= 0 && rpgStats.nSeason < 3 )
+		SetSlot( pCommonProps, 6, std::string( kSeasons[rpgStats.nSeason] ) );
+	SetSlot( pCommonProps, 7, rpgStats.szSettingName );
+	SetSlot( pCommonProps, 8, WithoutPrefix( rpgStats.szContextName, szPrefix ) );
+	SetSlot( pCommonProps, 9, rpgStats.szSideName );
+	NResourceModel::CTreeItem *pMissions = ChildOfType( root, NResourceModel::ETIT_CHAPTER_MISSIONS_ITEM );
+	for ( const SChapterStats::SMission &mission : rpgStats.missions )
+	{
+		NResourceModel::CTreeItem *pItem = AddStatsChild( pMissions, NResourceModel::ETIT_CHAPTER_MISSION_PROPS_ITEM, "Mission" );
+		SetSlot( pItem, 0, mission.szMission );
+		SetSlot( pItem, 1, mission.vPosOnMap.x );
+		SetSlot( pItem, 2, mission.vPosOnMap.y );
+	}
+	NResourceModel::CTreeItem *pPlaces = ChildOfType( root, NResourceModel::ETIT_CHAPTER_PLACES_ITEM );
+	for ( const SChapterStats::SPlaceHolder &place : rpgStats.placeHolders )
+	{
+		NResourceModel::CTreeItem *pItem = AddStatsChild( pPlaces, NResourceModel::ETIT_CHAPTER_PLACE_PROPS_ITEM, "Place" );
+		SetSlot( pItem, 0, place.vPosOnMap.x );
+		SetSlot( pItem, 1, place.vPosOnMap.y );
+	}
+}
+
+// CCampaignFrame::GetRPGStats (CampaignFrm.cpp:114); the movies and music were
+// never prefixed, the texts and the picture were.
+void CampaignStatsToTree( const SCampaignStats &rpgStats, NResourceModel::CTreeItem &root, const std::string &szPrefix )
+{
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_CAMPAIGN_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 0, WithoutPrefix( rpgStats.szHeaderText, szPrefix ) );
+	SetSlot( pCommonProps, 1, WithoutPrefix( rpgStats.szSubheaderText, szPrefix ) );
+	SetSlot( pCommonProps, 2, WithoutPrefix( rpgStats.szMapImage, szPrefix ) );
+	SetSlot( pCommonProps, 3, rpgStats.szIntroMovie );
+	SetSlot( pCommonProps, 4, rpgStats.szOutroMovie );
+	SetSlot( pCommonProps, 5, rpgStats.szInterfaceMusic );
+	SetSlot( pCommonProps, 6, rpgStats.szSideName );
+	NResourceModel::CTreeItem *pChapters = ChildOfType( root, NResourceModel::ETIT_CAMPAIGN_CHAPTERS_ITEM );
+	for ( const SCampaignStats::SChapter &chapter : rpgStats.chapters )
+	{
+		NResourceModel::CTreeItem *pItem = AddStatsChild( pChapters, NResourceModel::ETIT_CAMPAIGN_CHAPTER_PROPS_ITEM, "Chapter" );
+		SetSlot( pItem, 0, chapter.szChapter );
+		SetSlot( pItem, 1, chapter.vPosOnMap.x );
+		SetSlot( pItem, 2, chapter.vPosOnMap.y );
+		SetSlot( pItem, 3, chapter.bVisible );
+		SetSlot( pItem, 4, chapter.bSecret );
+	}
+	NResourceModel::CTreeItem *pTemplates = ChildOfType( root, NResourceModel::ETIT_CAMPAIGN_TEMPLATES_ITEM );
+	for ( const std::string &szTemplate : rpgStats.templateMissions )
+		SetSlot( AddStatsChild( pTemplates, NResourceModel::ETIT_CAMPAIGN_TEMPLATE_PROPS_ITEM, "Template" ), 0, szTemplate );
 }
 
 // CAnimationFrame::GetRPGStats (AnimationFrm.cpp), line for line, onto the
@@ -6294,10 +6403,12 @@ void MechStatsToTree( const SMechUnitRPGStats &rpgStats, NResourceModel::CTreeIt
 // The weapon's stats are a flat file named after the weapon (weapons\mg_37t.xml)
 // a particle's a flat file named after the source (effects\particles\flame.xml),
 // and a road's or river's the runtime <name>.xml itself (terrain\sets\1\roads3d\road_pavement.xml),
-// every other kind's a 1.xml in a folder of its own.
+// every other kind's a 1.xml in a folder of its own (and a chapter's or campaign's
+// may be given as the file).
 std::filesystem::path RuntimeStatsFile( BkResKind kind, const char *pszPath )
 {
-	if ( kind == 0 || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind )
+	// A campaign's is german.xml in the folder of its name, a chapter's the 1.xml of its folder.
+	if ( kind == 0 || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind || kind == kChapterKind || kind == kCampaignKind )
 	{
 		std::error_code ec;
 		if ( std::filesystem::is_regular_file( pszPath, ec ) )
@@ -6652,7 +6763,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
 		const std::string szExtension = kKindExtensions[kind];
-		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind || kind == kBridgeKind || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind || kind == kMedalKind;
+		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind || kind == kBridgeKind || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind || kind == kMedalKind || kind == kChapterKind || kind == kCampaignKind;
 		if ( !bPorted )
 		{
 			pSession->szMessage = kind == 4
@@ -6692,8 +6803,10 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		bool bBuildingFrame = false;
 		SBridgeRPGStats bridgeStats;
 		bool bBridgeFrame = false;
-		std::string szMedalExportFile;
-		bool bMedalFrame = false;
+		// The stats file's place below the kind's folder (medal, chapter and
+		// campaign), which the project keeps as its export file name.
+		std::string szFrameExportFile;
+		bool bFrameExport = false;
 		// The KeyName is what the engine's reader found; a file that holds
 		// none of this kind's stats leaves it empty.
 		switch ( kind )
@@ -6891,8 +7004,31 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				// A medal has no name of its own in its stats: it is its folder's.
 				szKeyName = rpgStats.szHeaderText.empty() && rpgStats.szTexture.empty() ? std::string() : statsFile.parent_path().filename().string();
 				MedalStatsToTree( rpgStats, *pRoot );
-				szMedalExportFile = MedalExportFileName( statsFile );
-				bMedalFrame = !szMedalExportFile.empty();
+				szFrameExportFile = ExportFileNameBelow( statsFile, "medals" );
+				bFrameExport = !szFrameExportFile.empty();
+				break;
+			}
+			case kChapterKind:
+			{
+				SChapterStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
+					return status;
+				// The shipped stats have no KeyName: a chapter is its folder's.
+				szKeyName = rpgStats.szHeaderText.empty() && rpgStats.szMapImage.empty() ? std::string() : statsFile.parent_path().filename().string();
+				szFrameExportFile = ExportFileNameBelow( statsFile, "scenarios" );
+				bFrameExport = !szFrameExportFile.empty();
+				ChapterStatsToTree( rpgStats, *pRoot, ExportPrefix( "scenarios\\", szFrameExportFile ) );
+				break;
+			}
+			case kCampaignKind:
+			{
+				SCampaignStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
+					return status;
+				szKeyName = rpgStats.szHeaderText.empty() && rpgStats.szMapImage.empty() ? std::string() : statsFile.stem().string();
+				szFrameExportFile = ExportFileNameBelow( statsFile, "campaigns" );
+				bFrameExport = !szFrameExportFile.empty();
+				CampaignStatsToTree( rpgStats, *pRoot, ExportPrefix( "scenarios\\campaigns\\", szFrameExportFile ) );
 				break;
 			}
 			default:
@@ -6918,7 +7054,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		pProject->document.root.kind = NResourceXml::Node::Element;
 		pProject->document.root.name = kKindTable[kind].pszTag;
 		pProject->root = std::move( pRoot );
-		if ( bObjectFrame || bBuildingFrame || bBridgeFrame || bMedalFrame )
+		if ( bObjectFrame || bBuildingFrame || bBridgeFrame || bFrameExport )
 		{
 			// The frame's chunks sit beside the tree and only a project read from
 			// text keeps such elements (in the root's layout), so the imported
@@ -6932,13 +7068,13 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 			}
 			if ( bBuildingFrame )
 				NResourceModel::WriteBuildingFrameData( pStaged->document.root, buildingStats );
-			else if ( bMedalFrame )
+			else if ( bFrameExport )
 			{
 				NResourceXml::Node &ownData = FrameChunk( pStaged->document.root, "own_data" );
 				NResourceXml::Node file = NewElement( "export_file_name" );
 				NResourceXml::Node text;
 				text.kind = NResourceXml::Node::Text;
-				text.text = szMedalExportFile;
+				text.text = szFrameExportFile;
 				file.children.push_back( text );
 				ownData.children.push_back( file );
 			}

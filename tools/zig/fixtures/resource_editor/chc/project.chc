@@ -32,13 +32,13 @@
 				<item>
 					<default_name>Chapter script</default_name>
 					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-						<string_value/>
+						<string_value>script</string_value>
 					</value>
 				</item>
 				<item>
 					<default_name>Interface music</default_name>
 					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-						<string_value/>
+						<string_value>music</string_value>
 					</value>
 				</item>
 				<item>
@@ -50,7 +50,7 @@
 				<item>
 					<default_name>Setting file</default_name>
 					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-						<string_value/>
+						<string_value>setting</string_value>
 					</value>
 				</item>
 				<item>
@@ -80,18 +80,18 @@
 						<item>
 							<default_name>Mission</default_name>
 							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
-								<string_value/>
+								<string_value>mission1</string_value>
 							</value>
 						</item>
 						<item>
 							<default_name>Mission position X</default_name>
-							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+							<value type="1" flag="1" float_value="0" int_value="40" int64low="0" int64high="0">
 								<string_value/>
 							</value>
 						</item>
 						<item>
 							<default_name>Mission position Y</default_name>
-							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+							<value type="1" flag="1" float_value="0" int_value="30" int64low="0" int64high="0">
 								<string_value/>
 							</value>
 						</item>
@@ -111,13 +111,13 @@
 					<values>
 						<item>
 							<default_name>Place holder position X</default_name>
-							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+							<value type="1" flag="1" float_value="0" int_value="12" int64low="0" int64high="0">
 								<string_value/>
 							</value>
 						</item>
 						<item>
 							<default_name>Place holder position Y</default_name>
-							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+							<value type="1" flag="1" float_value="0" int_value="34" int64low="0" int64high="0">
 								<string_value/>
 							</value>
 						</item>

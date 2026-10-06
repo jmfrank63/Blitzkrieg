@@ -1932,6 +1932,11 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// The tileset exporter (S13 T07); S13Til proves the files.
 				Check( status == BK_EDITOR_OK && report.written >= 1, "export: .til exports through its S13 exporter" );
 			}
+			else if ( szExt == "chc" || szExt == "cgc" )
+			{
+				// The chapter and campaign exporters (S14 T02); S14ChapterCampaign proves the files.
+				Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S14 exporter" ).c_str() );
+			}
 			else if ( szExt == "eff" )
 			{
 				// The fixture's function particle names a source that is not in the mod's data yet:
@@ -6116,6 +6121,172 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 }
 
+// S14 T02: the chapter and campaign exporters and importers (ChapterFrm.cpp, CampaignFrm.cpp) on the
+// fixtures' 16 x 16 map picture, and on the shipped Chapters/German/France and Campaigns/German samples.
+namespace S14ChapterCampaign
+{
+
+namespace fs = std::filesystem;
+
+template <class TStats>
+static fs::path ExportFixture( BkResSession *pSession, const std::string &szFixtureRoot, const fs::path &scratch, const char *pszExt, const char *pszCase, BkResExportReport &report )
+{
+	std::error_code ec;
+	const fs::path projectDir = scratch / pszExt;
+	fs::create_directories( projectDir, ec );
+	for ( fs::directory_iterator it( fs::path( szFixtureRoot ) / pszExt, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) )
+			fs::copy_file( it->path(), projectDir / it->path().filename(), fs::copy_options::overwrite_existing, ec );
+	const fs::path project = projectDir / ( std::string( "project." ) + pszExt );
+	const fs::path modDir = scratch / ( std::string( pszExt ) + "-mod" );
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "S14 %s", pszCase );
+	BkResModSettingsSet( pSession, &mod );
+	if ( !Check( BkResOpen( pSession, project.string().c_str() ) == BK_EDITOR_OK, ( std::string( pszCase ) + ": the fixture opens" ).c_str() ) )
+		return fs::path();
+	report = {};
+	if ( !Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_OK && report.written >= 3, ( std::string( pszCase ) + ": the fixture exports" ).c_str() ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return fs::path();
+	}
+	return S09Object::FindFile( modDir / "data", "1.xml" );
+}
+
+static void ShippedRoundTrip( BkResSession *pSession, const std::string &szRoot, const fs::path &scratch, int nKind, const char *pszExt,
+                              NResourceModel::EExportKind kind, const char *pszRelative, const char *pszStatsName, const char *pszCase )
+{
+	std::error_code ec;
+	const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", pszRelative );
+	const fs::path stats = T11::FoldedPath( shipped, pszStatsName );
+	if ( !Check( fs::is_regular_file( stats, ec ), ( std::string( pszCase ) + ": the shipped stats file exists" ).c_str() ) )
+		return;
+	const std::string szListing = S09Object::ListingOf( shipped );
+	if ( !Check( BkResImportFromGame( pSession, nKind, stats.string().c_str() ) == BK_EDITOR_OK, ( std::string( pszCase ) + ": imports" ).c_str() ) )
+	{
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		return;
+	}
+	// The shipped folder keeps only the packed DDS, so a source picture of the
+	// size the stats' ImageRect came from sits beside the imported project, as an author has it.
+	const fs::path mod = scratch / ( std::string( pszExt ) + "-shipped" );
+	const fs::path projectDir = scratch / ( std::string( pszExt ) + "-shipped-project" );
+	fs::create_directories( projectDir, ec );
+	std::string szTga( 18, '\0' );
+	szTga[2] = 2;
+	szTga[13] = 4;
+	szTga[15] = 3;
+	szTga[16] = 24;
+	szTga.append( 1024 * 768 * 3, char( 0x80 ) );
+	for ( const char *pszName : { "map.tga", "map1.tga" } )
+		std::ofstream( projectDir / pszName, std::ios::binary ) << szTga;
+	const bool bExported = S09Object::ExportStatsOnly( pSession, mod, pszCase, pszExt );
+	BkResClose( pSession );
+	const fs::path xml = S09Object::FindFile( mod / "data", "1.xml" );
+	const fs::path xmlGerman = S09Object::FindFile( mod / "data", pszStatsName );
+	if ( !Check( bExported && ( !xml.empty() || !xmlGerman.empty() ), ( std::string( pszCase ) + ": exports stats-only" ).c_str() ) )
+		return;
+	const NResourceModel::SCompareResult result = NResourceModel::CompareStats( kind, ( xmlGerman.empty() ? xml : xmlGerman ).string(), stats.string() );
+	// ImageRect is the one field that depends on the source picture's size, which the shipped DDS no longer has.
+	int nDifferent = 0;
+	for ( const std::string &szMessage : result.messages )
+		if ( !S09Object::NearFloat( szMessage ) && szMessage.find( "ImageRect" ) == std::string::npos && szMessage.find( "mapImageRect" ) == std::string::npos )
+		{
+			++nDifferent;
+			std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+		}
+	std::printf( "ROUNDTRIP %s %s: %d fields compared, %d differences\n", pszExt, pszRelative, result.nFieldsCompared, nDifferent );
+	Check( result.nFieldsCompared >= 5 && nDifferent == 0, ( std::string( pszCase ) + ": the stats are field-equal to the shipped file" ).c_str() );
+	Check( S09Object::ListingOf( shipped ) == szListing, ( std::string( pszCase ) + ": nothing was written into Data" ).c_str() );
+}
+
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	NResourceModel::RegisterExporter( "chc", &NResourceModel::ExportChapter );
+	NResourceModel::RegisterExporter( "cgc", &NResourceModel::ExportCampaign );
+	const fs::path scratch = fs::path( szScratchRoot ) / "s14-chapter-campaign";
+	fs::remove_all( scratch, ec );
+	fs::create_directories( scratch, ec );
+
+	// Chapter fixture: prefixed texts, the map image, the script, the crosses.
+	BkResExportReport report = {};
+	const fs::path xmlChapter = ExportFixture<SChapterStats>( pSession, szFixtureRoot, scratch, "chc", "chapter", report );
+	if ( !xmlChapter.empty() )
+	{
+		SChapterStats stats;
+		Check( ReadChunkAsMfc( xmlChapter.string(), "base", "RPG", stats ), "chapter: the engine reads the stats" );
+		const fs::path outDir = xmlChapter.parent_path();
+		Check( stats.szHeaderText.size() > 6 && stats.szHeaderText.compare( stats.szHeaderText.size() - 6, 6, "header" ) == 0 &&
+		       stats.szMapImage.size() > 3 && stats.szMapImage.compare( stats.szMapImage.size() - 3, 3, "map" ) == 0 && stats.szMapImage.size() > 3,
+		       "chapter: the texts and the picture are prefixed with the export folder" );
+		std::printf( "CHAPTER rect %g %g %g %g, %d missions, %d places\n", stats.mapImageRect.x1, stats.mapImageRect.y1, stats.mapImageRect.x2, stats.mapImageRect.y2,
+		             (int)stats.missions.size(), (int)stats.placeHolders.size() );
+		Check( stats.mapImageRect.x1 > 0.0f && stats.mapImageRect.y1 > 0.0f, "chapter: ImageRect carries the picture's size" );
+		Check( fs::is_regular_file( outDir / "map_c.dds", ec ) && fs::is_regular_file( outDir / "map_l.dds", ec ) && fs::is_regular_file( outDir / "map_h.dds", ec ),
+		       "chapter: the map DDS packs are written" );
+		Check( fs::is_regular_file( outDir / "header.txt", ec ) && fs::is_regular_file( outDir / "desc.txt", ec ), "chapter: the texts are copied" );
+		const std::size_t nMissions = stats.missions.size();
+		// Moving the first mission cross through the bridge changes the exported vPosOnMap.
+		if ( nMissions > 0 )
+		{
+			const BkResPoint2 moved[1] = { { 321.0f, 123.0f } };
+			BkResExportReport again = {};
+			int nNode = -1;
+			for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+				if ( node.class_type == kChapterMissions )
+					nNode = node.id;
+			const bool bSet = nNode >= 0 && BkResSetChapterCrosses( pSession, nNode, moved, 1 ) == BK_EDITOR_OK;
+			Check( bSet && BkResExport( pSession, BK_RES_EXPORT_FORCE, &again ) == BK_EDITOR_OK, "chapter: a moved cross exports again" );
+			SChapterStats stats2;
+			Check( ReadChunkAsMfc( xmlChapter.string(), "base", "RPG", stats2 ) && !stats2.missions.empty() &&
+			       stats2.missions[0].vPosOnMap.x == 321.0f && stats2.missions[0].vPosOnMap.y == 123.0f, "chapter: the moved cross is the exported vPosOnMap" );
+		}
+		BkResClose( pSession );
+	}
+	else
+		BkResClose( pSession );
+
+	// A missing picture fails the export naming it.
+	{
+		const fs::path projectDir = scratch / "chc";
+		fs::remove( projectDir / "map.tga", ec );
+		const fs::path modMissing = scratch / "chc-missing";
+		BkResModSettings modMiss = {};
+		std::snprintf( modMiss.export_dir, sizeof( modMiss.export_dir ), "%s", modMissing.string().c_str() );
+		std::snprintf( modMiss.name, sizeof( modMiss.name ), "S14 chapter missing" );
+		BkResModSettingsSet( pSession, &modMiss );
+		if ( Check( BkResOpen( pSession, ( projectDir / "project.chc" ).string().c_str() ) == BK_EDITOR_OK, "chapter: reopens without its picture" ) )
+		{
+			report = {};
+			Check( BkResExport( pSession, BK_RES_EXPORT_FORCE, &report ) == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "map" ) != nullptr,
+			       "chapter: a missing picture fails the export, naming it" );
+			BkResClose( pSession );
+		}
+	}
+
+	// Campaign fixture.
+	const fs::path xmlCampaign = ExportFixture<SCampaignStats>( pSession, szFixtureRoot, scratch, "cgc", "campaign", report );
+	if ( !xmlCampaign.empty() )
+	{
+		SCampaignStats stats;
+		Check( ReadChunkAsMfc( xmlCampaign.string(), "base", "RPG", stats ), "campaign: the engine reads the stats" );
+		std::printf( "CAMPAIGN rect %g %g, %d chapters\n", stats.mapImageRect.x1, stats.mapImageRect.y1, (int)stats.chapters.size() );
+		Check( stats.mapImageRect.x1 > 0.0f && stats.mapImageRect.y1 > 0.0f && stats.szHeaderText.size() > 6, "campaign: ImageRect and the prefixed header" );
+		Check( fs::is_regular_file( xmlCampaign.parent_path() / "map_c.dds", ec ) && fs::is_regular_file( xmlCampaign.parent_path() / "header.txt", ec ),
+		       "campaign: the map DDS and the texts are written" );
+		BkResClose( pSession );
+	}
+	else
+		BkResClose( pSession );
+
+	ShippedRoundTrip( pSession, szRoot, scratch, 17, "chc", NResourceModel::EExportKind::CHAPTER, "Scenarios/Chapters/German/Kharkov42", "1.xml", "chapter shipped (German/Kharkov42)" );
+	ShippedRoundTrip( pSession, szRoot, scratch, 18, "cgc", NResourceModel::EExportKind::CAMPAIGN, "Scenarios/Campaigns/German", "german.xml", "campaign shipped (German)" );
+}
+
+}
+
 namespace S10Building
 {
 
@@ -8268,6 +8439,8 @@ int main( int argc, char **argv )
 	S10Building::Fixture( pSession, szFixtureRoot, szScratchRoot );
 	// S14 T01: the medal exporter and importer.
 	S14Medal::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+	// S14 T02: the chapter and campaign exporters and importers.
+	S14ChapterCampaign::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 	// S10 T04: a shipped building's round trip, the building negative-tile guard and the GOG golden (win-home only).
 	S10Building::Shipped( pSession, pszRoot, szScratchRoot );
 	S10Building::Shipped( pSession, pszRoot, szScratchRoot, "europe/summer/e_house07_1" );
