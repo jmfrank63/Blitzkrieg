@@ -727,6 +727,30 @@ std::set<std::string> ProjectExtensions( const Json &inventory )
 
 }
 
+// MFC reads <own_data> and the cached stats block unguarded when it opens a project, so every
+// fixture the port saved must hold both (a gui screen has neither, a kind with no cached block
+// only own_data). One log line per fixture.
+static void CheckFrameData( Results &r, const std::string &ext, const fs::path &path )
+{
+	std::ifstream in( path, std::ios::binary );
+	std::stringstream ss;
+	ss << in.rdbuf();
+	NResourceXml::Document doc;
+	std::string szError;
+	if ( !NResourceXml::Parse( ss.str(), doc, szError ) )
+	{
+		r.Report( "frame-data:" + ext, false, szError );
+		return;
+	}
+	const char *pszBlock = NResourceModel::CachedBlockName( ext );
+	const bool bOwnData = NResourceXml::FindChild( doc.root, "own_data" ) != nullptr;
+	const bool bBlock = pszBlock == nullptr || NResourceXml::FindChild( doc.root, pszBlock ) != nullptr;
+	const bool bWanted = ext != "gui";
+	const bool bOk = bOwnData == bWanted && bBlock;
+	r.Report( "frame-data:" + ext, bOk,
+	          std::string( "own_data " ) + ( bOwnData ? "present" : "absent" ) + ", cached " + ( pszBlock ? pszBlock : "none" ) + ( bBlock ? " present" : " missing" ) );
+}
+
 int main()
 {
 	const std::string text = ReadAll( kInventory );
@@ -770,10 +794,17 @@ int main()
 		const std::string ext = f["extension"].Str();
 		const fs::path p = fs::path( kFixtures ) / ext / ( "project." + ext );
 		if ( fs::exists( p ) )
+		{
 			projects.emplace_back( "fixtures/" + ext + "/project." + ext, p );
+			CheckFrameData( r, ext, p );
+		}
 		else
 			r.Report( "fixture-present:" + ext, false, p.string() + " is missing" );
 	}
+	// The projects the shipped MFC editor made (mfc-new): each must save back byte for byte.
+	for ( const auto &f : fs::directory_iterator( fs::path( kFixtures ) / "mfc-new" ) )
+		if ( f.is_regular_file() && exts.count( f.path().extension().string() ) )
+			projects.emplace_back( "mfc-new/" + f.path().filename().string(), f.path() );
 	std::sort( projects.begin(), projects.end() );
 	for ( const auto &p : projects )
 		RoundTrip( r, p.first, p.second );

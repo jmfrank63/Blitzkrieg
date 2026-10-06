@@ -1,5 +1,8 @@
 <?xml version="1.0"?>
 <Fence_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
 	<childs>
 		<item ClassTypeID="285212794" expand="0">
 			<default_name>Basic Info</default_name>

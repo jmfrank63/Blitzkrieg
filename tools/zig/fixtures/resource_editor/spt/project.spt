@@ -1,5 +1,8 @@
 <?xml version="1.0"?>
 <Sprite_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
 	<default_name></default_name>
 	<display_name></display_name>
 	<values/>

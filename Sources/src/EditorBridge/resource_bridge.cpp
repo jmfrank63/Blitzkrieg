@@ -1520,12 +1520,12 @@ BkEditorStatus StoreCrosses( BkResSession *pSession, ResourceState &state, NReso
 // CChapterFrame / CCampaignFrame::FillRPGStats would: entry i's position is
 // child i's. Every other RPG field, and an entry with no child, stay as read.
 // A project without an RPG chunk gets none (see the spec's limits).
-void WriteCrossesToRpg( const ResourceState &state, NResourceXml::Node &root )
+void WriteCrossesToRpg( const ResourceState &state, NResourceXml::Node &root, const std::set<int> &types )
 {
 	NResourceXml::Node *pRpg = MutableChild( root, "RPG" );
 	if ( pRpg == nullptr )
 		return;
-	for ( int nType : state.editedCrossLists )
+	for ( int nType : types )
 	{
 		const SCrossList *pList = nullptr;
 		for ( const SCrossList &list : kCrossLists )
@@ -1838,7 +1838,7 @@ bool RenderForSave( const ResourceState &state, std::string &szOut, std::string 
 		for ( const auto &entry : state.geometry )
 			if ( HomeOf( state, entry.first.first, entry.first.second ) == HOME_FRAME && !IsTileFrameChannel( state, entry.first.first, entry.first.second ) )
 				WriteFrameGeometry( doc.root, entry.first.second, entry.second );
-		WriteCrossesToRpg( state, doc.root );
+		WriteCrossesToRpg( state, doc.root, state.editedCrossLists );
 		szOut = NResourceXml::Serialise( doc );
 	}
 	return true;
@@ -1906,6 +1906,11 @@ BkEditorStatus GiveText( BkResSession *pSession, const std::string &szText, char
 }
 
 } // namespace
+
+namespace {
+// SaveFrame's two elements (own_data, the cached stats block), defined beside ExportOne.
+void RefreshFrameData( BkResSession *pSession, const ResourceState *pState, int nKindOrdinal, const std::string &szSourcePath, std::string &szBytes );
+}
 
 extern "C" {
 
@@ -2011,6 +2016,10 @@ BkEditorStatus BkResSave( BkResSession *pSession, const char *pszPath )
 		std::string szIntended;
 		if ( !RenderForSave( state, szIntended, pSession->szMessage ) )
 			return BK_EDITOR_FAILED;
+		if ( state.pProject && state.nKindOrdinal >= 0 && state.nKindOrdinal < kKindCount )
+			// Sources (images, a mesh's combat model) are found where the project was opened
+			// from, so a Save As to an empty folder refreshes the block as a save in place does.
+			RefreshFrameData( pSession, &state, state.nKindOrdinal, state.szPath.empty() ? std::string( pszPath ) : state.szPath, szIntended );
 
 		// Safe-save pattern (mirrors SaveSessionMap in session.cpp):
 		//  1. Back up any pre-existing destination to <path>.bak.
@@ -3715,6 +3724,95 @@ bool ExportOne( const NResourceModel::Project &project, const std::string &szPro
 	return bPromoted;
 }
 
+// MFC's CParentFrame::SaveFrame writes <own_data> and the cached stats block
+// (SaveRPGStats) before History, and reads both unguarded when it opens the
+// project. The block is refreshed from the tree on every save: the kind's
+// exporter runs stats-only into a scratch folder and the element it wrote is
+// lifted out of its stats file, the one MFC's SaveRPGStats wrote with the same
+// tree.Add. A project whose exporter cannot run (a source it names is missing)
+// keeps the block it had, and the status line says so; the save itself never
+// fails for it.
+void RefreshFrameData( BkResSession *pSession, const ResourceState *pState, int nKindOrdinal, const std::string &szPath, std::string &szBytes )
+{
+	const std::string szExtension = kKindExtensions[nKindOrdinal];
+	NResourceXml::Document doc;
+	std::string szError;
+	if ( !NResourceXml::Parse( szBytes, doc, szError ) )
+		return;
+	const bool bAdded = NResourceModel::EnsureOwnData( doc.root, szExtension );
+	const char *pszBlock = NResourceModel::CachedBlockName( szExtension );
+	std::string szNote;
+	if ( pszBlock != nullptr )
+	{
+		const std::string szWithOwnData = bAdded ? NResourceXml::Serialise( doc ) : szBytes;
+		NResourceModel::Project project;
+		const NResourceModel::FExporter pfnExporter = NResourceModel::FindExporter( szExtension );
+		if ( pfnExporter == nullptr || !NResourceModel::Load( szWithOwnData, project, szError ) )
+			szNote = "the cached " + std::string( pszBlock ) + " block was not refreshed: " + ( pfnExporter == nullptr ? std::string( "no exporter" ) : szError );
+		else
+		{
+			std::error_code ec;
+			static int nScratch = 0;
+			const std::filesystem::path scratch = std::filesystem::temp_directory_path( ec ) / ( "bk-save-" + std::to_string( (unsigned long)getpid() ) + "-" + std::to_string( ++nScratch ) );
+			const std::filesystem::path staging = scratch / "staging";
+			std::filesystem::create_directories( staging, ec );
+			NResourceModel::SExportContext context;
+			context.szProjectPath = szPath;
+			context.szStagingRoot = staging.string();
+			context.bForce = true;
+			context.bStatsOnly = true;
+			context.bSaveCache = true;
+			context.szDataRoot = ChildFolder( ExportDirOf( pSession ), "data" ).string();
+			context.szEditorDataDir = ShippedDataFolder( pSession ).string();
+			std::string szModDesc;
+			ReadModFile( ChildFolder( ExportDirOf( pSession ), "data" ), context.szModName, context.szModVersion, szModDesc );
+			FillEngineLookups( context, scratch / "mesh" );
+			NResourceModel::SExportOutcome outcome;
+			bool bFound = false;
+			if ( !pfnExporter( project, context, outcome ) )
+				szNote = "the cached " + std::string( pszBlock ) + " block was not refreshed: " + ( outcome.szError.empty() ? std::string( "the exporter failed" ) : outcome.szError );
+			else
+			{
+				std::vector<std::filesystem::path> files;
+				for ( std::filesystem::recursive_directory_iterator it( staging, ec ), end; !ec && it != end; it.increment( ec ) )
+					if ( it->is_regular_file( ec ) && Fold( it->path().extension().string() ) == ".xml" )
+						files.push_back( it->path() );
+				std::sort( files.begin(), files.end() );
+				for ( const auto &file : files )
+				{
+					std::string szStats;
+					NResourceXml::Document stats;
+					NResourceXml::Node block;
+					if ( ReadFileBytes( file.string(), szStats ) && NResourceXml::Parse( szStats, stats, szError ) &&
+					     NResourceModel::FindStatsBlock( stats.root, pszBlock, block ) )
+					{
+						block.name = pszBlock;
+						NResourceModel::PutCachedBlock( doc.root, std::move( block ) );
+						bFound = true;
+						break;
+					}
+				}
+				if ( !bFound )
+					szNote = "the cached " + std::string( pszBlock ) + " block was not refreshed: the export wrote no such element";
+			}
+			std::filesystem::remove_all( scratch, ec );
+		}
+	}
+	// The crosses are the tree's children's own positions, which the stats the exporter
+	// wrote do not keep to the digit (a position read as an int loses its fraction): the
+	// RPG copy takes every list from the tree again, edited or not.
+	if ( pState != nullptr )
+	{
+		std::set<int> lists;
+		for ( const SCrossList &list : kCrossLists )
+			lists.insert( list.nContainerType );
+		WriteCrossesToRpg( *pState, doc.root, lists );
+	}
+	szBytes = NResourceXml::Serialise( doc );
+	if ( !szNote.empty() )
+		pSession->szMessage = szNote;
+}
+
 // Fills the caller's report. The export has already happened, so a short
 // warnings buffer gets as many as fit; warning_count is always the total.
 void FillReport( BkResExportReport *pReport, int nWritten, int nSkipped, const std::vector<std::string> &warnings )
@@ -4229,7 +4327,9 @@ BkEditorStatus BkResBatch( BkResSession *pSession, int nKind, const char *pszSrc
 			}
 			if ( bOpenSave )
 			{
-				if ( ResaveProject( szPath, NResourceModel::Save( project ), szError ) )
+				std::string szResaved = NResourceModel::Save( project );
+				RefreshFrameData( pSession, nullptr, entry.first, szPath, szResaved );
+				if ( ResaveProject( szPath, szResaved, szError ) )
 					++nWritten;
 				else
 				{

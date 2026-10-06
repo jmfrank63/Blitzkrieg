@@ -1,5 +1,24 @@
 <?xml version="1.0"?>
 <Trench_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<RPG MaxHP="100" RepairCost="1">
+		<KeyName>Unknown Trench</KeyName>
+		<StatsType>Entrenchment</StatsType>
+		<DamagedHPs/>
+		<Defence0 MinArmor="300" MaxArmor="300" Silhouette="1"/>
+		<Defence1 MinArmor="300" MaxArmor="300" Silhouette="1"/>
+		<Defence2 MinArmor="300" MaxArmor="300" Silhouette="1"/>
+		<Defence3 MinArmor="300" MaxArmor="300" Silhouette="1"/>
+		<Defence4 MinArmor="300" MaxArmor="300" Silhouette="1"/>
+		<Defence5 MinArmor="300" MaxArmor="300" Silhouette="1"/>
+		<Segments/>
+		<Lines/>
+		<FirePlaces/>
+		<Terminators/>
+		<Arcs/>
+	</RPG>
 	<default_name></default_name>
 	<display_name></display_name>
 	<values/>

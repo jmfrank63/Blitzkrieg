@@ -1,5 +1,37 @@
 <?xml version="1.0"?>
 <Weapon_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<RPG Dispersion="1" AimingTime="100" AmmoPerBurst="1" RangeMax="100" RangeMin="1" Ceiling="100" DeltaAngle="10" RevealRadius="10">
+		<KeyName>Unknown Weapon</KeyName>
+		<StatsType>Weapon</StatsType>
+		<Shells>
+			<item TrajectoryType="0" Piercing="0" PiercingRandom="0" DamagePower="5" DamageRandom="2" Area="1" Area2="2" ProjectileSpeed="10" DetonationPower="0" BrokeTrackProbability="0.01" FireRate="1" RelaxTime="100" DamageType="0" TraceProbability="0.1" TraceSpeedCoeff="1">
+				<Specials Size="32">
+					<BitArray>
+						<item data="0"/>
+						<item data="0"/>
+						<item data="0"/>
+						<item data="0"/>
+						<item data="0"/>
+					</BitArray>
+				</Specials>
+				<InfantryFireSound/>
+				<EffectGunFire/>
+				<EffectTrajectory/>
+				<EffectHitDirect/>
+				<EffectHitMiss/>
+				<EffectHitReflect/>
+				<EffectHitGround/>
+				<EffectHitWater/>
+				<EffectHitAir/>
+				<Craters/>
+				<FlashFire Power="100" Duration="1000"/>
+				<FlashExplosion Power="100" Duration="1000"/>
+			</item>
+		</Shells>
+	</RPG>
 	<default_name></default_name>
 	<display_name></display_name>
 	<values/>

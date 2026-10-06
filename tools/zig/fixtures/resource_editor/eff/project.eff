@@ -1,5 +1,19 @@
 <?xml version="1.0"?>
 <Effect_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<effect>
+		<sprites>
+			<item start="0" repeat="1">
+				<path>Effects\sprites\Animation</path>
+				<pos x="0" y="0" z="0"/>
+			</item>
+		</sprites>
+		<particles/>
+		<SmokinParticles/>
+		<sound/>
+	</effect>
 	<childs>
 		<item ClassTypeID="285212704" expand="0">
 			<default_name>Basic Info</default_name>

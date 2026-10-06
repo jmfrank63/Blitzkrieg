@@ -2714,7 +2714,9 @@ const Runner = struct {
                 .back => .{ .x = marks[2].y },
             };
             const home: Point2 = if (mark == .begin or mark == .end) core.point_tools.default_span_mark else .{ .x = 0 };
-            const moved = now.x != home.x or (mark != .front and mark != .back and now.y != home.y);
+            // MFC's save prints a float with six significant digits, so the frame's own value
+            // comes back from a project it saved a few thousandths off.
+            const moved = @abs(now.x - home.x) > 0.01 or (mark != .front and mark != .back and @abs(now.y - home.y) > 0.01);
             if (moved != eql(u8, arg[eq + 1 ..], "moved")) return self.fail("expect=span_mark:{s} was false: the mark is at {d:.2}/{d:.2}", .{ arg, now.x, now.y });
             return null;
         }

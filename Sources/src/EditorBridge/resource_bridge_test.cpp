@@ -172,6 +172,7 @@ static bool RoundTripOne( BkResSession *pSession, const std::string &szFixtureRo
 		return false;
 	}
 
+	std::printf( "resave %s: %s\n", fx.pszExt, BkEditorLastMessage( pSession ) );
 	std::string szBefore, szAfter;
 	if ( !Check( ReadBytes( szIn, szBefore ), "fixture readable" ) ) { BkResClose( pSession ); return false; }
 	if ( !Check( ReadBytes( szOut, szAfter ), "saved file readable" ) ) { BkResClose( pSession ); return false; }
@@ -188,6 +189,88 @@ static bool RoundTripOne( BkResSession *pSession, const std::string &szFixtureRo
 	ok = Check( BkResOpen( pSession, szOut.c_str() ) == BK_EDITOR_OK, szWhat.c_str() ) && ok;
 	BkResClose( pSession );
 	return ok;
+}
+
+// D-07 / T09: every project the shipped MFC editor made (fixtures/mfc-new, one
+// per editor, byte-exact) must save back through the bridge unedited to the
+// same bytes: own_data and the cached stats block are written in MFC's form and
+// refreshed from the tree, and a faithful refresh changes nothing. Five kinds
+// differ, in the cached block only: while bNewProjectJustCreated is set MFC's
+// SaveRPGStats writes the frame's struct as it stood (GetRPGStats, not
+// FillRPGStats), which is not the tree, and holds MFC's uninitialised memory
+// that no tree holds. For those the bytes outside the block must still be
+// equal and the reason is logged. One log line per project: name, bytes, equal,
+// accepted or the first differing offset.
+struct SMfcNewAccepted
+{
+	const char *pszFile;
+	const char *pszBlock;
+	const char *pszReason;
+};
+
+static const SMfcNewAccepted kMfcNewAccepted[] =
+{
+	{ "minetest.mcp", "RPG", "the struct held its default Weapon \"generic\", the tree's Weapon is empty" },
+	{ "medaltest.mdc", "RPG", "the struct held uninitialised ImageRect floats (1.42724e-030 ...) and no localisation keys, the tree gives zeros and the keys medals\\<name>\\name, desc, medal" },
+	{ "infantrytest.unt", "RPG", "the struct held (uninitialised UninstallRotate 1.4013e-045, Commands Size 128, empty AnimDescs and AcksRefs), the tree gives the filled values" },
+	{ "missiontest.mip", "RPG", "the struct held uninitialised MapImageRect floats (4.37419e-030, a NaN) and no scenario prefix, the tree gives zeros and the prefix scenarios\\<folder>\\" },
+	{ "particletest.pcp", "KeyData", "the struct held (uninitialised Gravity 2.8026e-045, LifeTime 2, one key per curve), the tree gives its own defaults" },
+};
+
+static std::string WithoutBlock( const std::string &szXml, const std::string &szName )
+{
+	const size_t nOpen = szXml.find( "<" + szName );
+	const std::string szClose = "</" + szName + ">";
+	const size_t nClose = szXml.find( szClose, nOpen );
+	if ( nOpen == std::string::npos || nClose == std::string::npos )
+		return szXml;
+	return szXml.substr( 0, nOpen ) + szXml.substr( nClose + szClose.size() );
+}
+
+static void MfcNewRoundTrips( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	namespace fs = std::filesystem;
+	std::error_code ec;
+	const fs::path dir = fs::path( szFixtureRoot ) / "mfc-new";
+	const fs::path out = fs::path( szScratchRoot ) / "mfc-new";
+	fs::remove_all( out, ec );
+	fs::create_directories( out, ec );
+	static const char *const kExtensions[] = { ".wpn", ".mcp", ".trc", ".scp", ".spt", ".unt", ".msh", ".obt", ".fnc", ".bld", ".bdg",
+	                                           ".pcp", ".eff", ".til", ".3rd", ".3rv", ".mip", ".chc", ".cgc", ".mdc", ".gui" };
+	std::vector<fs::path> files;
+	for ( const auto &f : fs::directory_iterator( dir, ec ) )
+		if ( f.is_regular_file() && std::find_if( std::begin( kExtensions ), std::end( kExtensions ),
+		                                          [&]( const char *pszExt ) { return f.path().extension() == pszExt; } ) != std::end( kExtensions ) )
+			files.push_back( f.path() );
+	std::sort( files.begin(), files.end() );
+	Check( files.size() >= 21, "mfc-new: the fixtures are present" );
+	for ( const auto &file : files )
+	{
+		const std::string szName = file.filename().string();
+		const std::string szOut = ( out / szName ).string();
+		std::string szBefore, szAfter;
+		const bool bOk = ReadBytes( file.string(), szBefore ) && BkResOpen( pSession, file.string().c_str() ) == BK_EDITOR_OK &&
+		                 BkResSave( pSession, szOut.c_str() ) == BK_EDITOR_OK && ReadBytes( szOut, szAfter );
+		const std::string szNote = bOk ? "" : BkEditorLastMessage( pSession );
+		BkResClose( pSession );
+		const SMfcNewAccepted *pAccepted = nullptr;
+		for ( const auto &entry : kMfcNewAccepted )
+			if ( szName == entry.pszFile )
+				pAccepted = &entry;
+		size_t nAt = 0;
+		while ( bOk && nAt < szBefore.size() && nAt < szAfter.size() && szBefore[nAt] == szAfter[nAt] )
+			++nAt;
+		const bool bEqual = bOk && szBefore == szAfter;
+		const bool bAccepted = bOk && !bEqual && pAccepted != nullptr &&
+		                       WithoutBlock( szBefore, pAccepted->pszBlock ) == WithoutBlock( szAfter, pAccepted->pszBlock );
+		if ( bEqual )
+			std::printf( "mfc-new %s: %zu bytes equal\n", szName.c_str(), szBefore.size() );
+		else if ( bAccepted )
+			std::printf( "mfc-new %s: accepted, only the cached %s block differs (in=%zu out=%zu): %s\n", szName.c_str(), pAccepted->pszBlock, szBefore.size(), szAfter.size(), pAccepted->pszReason );
+		else
+			std::printf( "mfc-new %s: in=%zu out=%zu first difference at %zu %s\n", szName.c_str(), szBefore.size(), szAfter.size(), nAt, szNote.c_str() );
+		Check( bEqual || bAccepted, ( "mfc-new: " + szName + " saves back byte for byte" ).c_str() );
+	}
 }
 
 // D014 item 4: BkResSave onto a destination that already exists. The safe-save
@@ -859,6 +942,24 @@ static bool CopyFixture( const std::string &szFixtureRoot, const char *pszExt, c
 		return false;
 	if ( !szSplice.empty() )
 	{
+		// A fixture the port saved already holds the chunk (a project the shipped editor
+		// saved holds one chunk, not two): the spliced one takes its place.
+		const std::size_t nNameEnd = szSplice.find_first_of( " />", 1 );
+		const std::string szName = szSplice.substr( 1, nNameEnd - 1 );
+		const std::size_t nOld = szBytes.find( "<" + szName );
+		if ( nOld != std::string::npos )
+		{
+			const std::string szClose = "</" + szName + ">";
+			const std::size_t nClose = szBytes.find( szClose, nOld );
+			const std::size_t nTagEnd = szBytes.find( '>', nOld );
+			const bool bSelfClosing = nTagEnd != std::string::npos && szBytes[nTagEnd - 1] == '/';
+			const std::size_t nEnd = bSelfClosing ? nTagEnd + 1 : nClose == std::string::npos ? nClose : nClose + szClose.size();
+			if ( nEnd == std::string::npos )
+				return false;
+			const std::size_t nLineStart = szBytes.rfind( '\n', nOld );
+			const std::size_t nLineEnd = szBytes.find( '\n', nEnd );
+			szBytes.erase( nLineStart + 1, nLineEnd - nLineStart );
+		}
 		const std::size_t nStart = szBytes.find( "_Composer_Project" );
 		const std::size_t nLine = nStart == std::string::npos ? nStart : szBytes.find( '\n', nStart );
 		if ( nLine == std::string::npos )
@@ -1097,9 +1198,25 @@ static bool ReadBridgeOwnData( const std::string &szFile, STestBridgeOwnData &ou
 static void BridgeSpanMarksInMfcLayout( BkResSession *pSession, const std::string &szFixtureRoot, const std::string &szScratchRoot )
 {
 	{
-		const std::string szIn = szFixtureRoot + "/bdg/project.bdg";
+		// The fixture the port saved holds an own_data with zero positions; the case here is a
+		// project that has none (an older save), so the element is cut out of a copy.
+		namespace fs = std::filesystem;
+		std::error_code ec;
+		std::string szBytes;
+		const std::string szDir = szScratchRoot + "/span-marks-no-own-data";
+		fs::create_directories( szDir, ec );
+		const std::string szIn = szDir + "/project.bdg";
+		const std::size_t nOpen = ReadBytes( szFixtureRoot + "/bdg/project.bdg", szBytes ) ? szBytes.find( "<own_data" ) : std::string::npos;
+		const std::size_t nClose = szBytes.find( "</own_data>", nOpen );
 		int nCount = -1;
-		Check( BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK && BkResGetBridgeSpanMarks( pSession, 1, 0, 0, &nCount ) == BK_EDITOR_OK
+		const bool bCut = nOpen != std::string::npos && nClose != std::string::npos;
+		if ( bCut )
+			szBytes.erase( nOpen, nClose + 11 - nOpen );
+		{
+			std::ofstream f( szIn, std::ios::binary | std::ios::trunc );
+			f.write( szBytes.data(), std::streamsize( szBytes.size() ) );
+		}
+		Check( bCut && BkResOpen( pSession, szIn.c_str() ) == BK_EDITOR_OK && BkResGetBridgeSpanMarks( pSession, 1, 0, 0, &nCount ) == BK_EDITOR_OK
 			&& nCount == 0, "span-marks: a bridge without own_data has no marks" );
 		BkResClose( pSession );
 	}
@@ -9024,6 +9141,7 @@ int main( int argc, char **argv )
 	for ( int i = 0; i < kFixtureCount; ++i )
 		RoundTripOne( pSession, szFixtureRoot, szScratchRoot, kFixtures[i] );
 	SaveOverExisting( pSession, szFixtureRoot, szScratchRoot );
+	MfcNewRoundTrips( pSession, szFixtureRoot, szScratchRoot );
 
 	// Delete->restore->save on three kinds whose fixture is an MFC item tree
 	// (S03 T02); msh and pcp join when T03/T04 replace their stub fixtures.

@@ -1,5 +1,37 @@
 <?xml version="1.0"?>
 <Chapter_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<RPG Season="0">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>scenarios\chc\header</HeaderText>
+		<SubheaderText>scenarios\chc\subheader</SubheaderText>
+		<DescriptionText>scenarios\chc\desc</DescriptionText>
+		<MapImage>scenarios\chc\map</MapImage>
+		<MapImageRect x1="20" y1="12" x2="0.640625" y2="0.78125"/>
+		<InterfaceMusic>scenarios\chc\music</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>mission1</Mission>
+				<PosOnMap x="40" y="30"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="12" y="34"/>
+			</item>
+		</PlaceHolders>
+		<Script>scenarios\chc\script</Script>
+		<SettingName>setting</SettingName>
+		<ContextName>scenarios\chc\context</ContextName>
+		<PlayerSide>German</PlayerSide>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
 	<childs>
 		<item ClassTypeID="285212913" expand="0">
 			<default_name>Basic info</default_name>

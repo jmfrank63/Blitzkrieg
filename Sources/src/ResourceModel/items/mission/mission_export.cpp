@@ -101,7 +101,7 @@ bool ExportMission( const Project &project, const SExportContext &context, SExpo
 	const CTreeItem *pObjectives = pExplorMusics != nullptr ? RequireChild( *pProject->root, ETIT_MISSION_OBJECTIVES_ITEM, 0, "Objectives", outcome ) : nullptr;
 	if ( pObjectives == nullptr )
 		return false;
-	const std::string szInvalid = Validate( *pCommonProps, *pCombatMusics, *pObjectives );
+	const std::string szInvalid = context.bSaveCache ? std::string() : Validate( *pCommonProps, *pCombatMusics, *pObjectives );
 	if ( !szInvalid.empty() )
 	{
 		outcome.szError = "mission export refused: " + szInvalid.substr( 0, szInvalid.find_last_not_of( '\n' ) + 1 );

@@ -980,6 +980,8 @@ One port fix came out of it: the mesh frame chooses the DDS format of every text
 port wrote DXT5 and ARGB1555 always. `SaveCompressedTextureBestFormat` does what MFC does, and all 12 DDS of the msh golden
 (`_c`, `_l`, `_h`, the icon) now match.
 
+**Correction (hard steer 2026-10-06T06:23, D041, done in S16/T05).** Only differences proven from MFC source and the golden's bytes are accepted: the six-digit floats and the trc DXT5 solid-block encoding. The stats-reload class (wpn, trc, msh, obt, bld) is a fixture artefact: `export-goldens.ps1` now lets MFC open and save each scratch fixture (`-os`) before exporting, so MFC writes its own cached `<RPG>`/`<desc>`; these kinds are *pending regeneration* on win-home. The scene-camera values (fnc origins, bld explosion noise, obt grids and packs) are not proven and are *pending*, not accepted. Where the two bullets below call them accepted, read pending.
+
 Verified reasons for the remaining differences (each from the MFC source and the golden's own bytes, none from a guess):
 
 - **Stats reloaded from a missing element (wpn, trc, msh, obt, bld).** `CParentFrame::ExportSingleFile` calls `LoadRPGStats`, which
@@ -1018,18 +1020,69 @@ Pending, with the reason the comparator logs:
 
 | Kind | Files compared | Result |
 |---|---|---|
-| wpn | 1 | accepted: 19 differences, all the missing-element defaults |
+| wpn | 1 | pending regeneration (struct defaults, fixture artefact) |
 | mcp | 2 | pass |
-| trc | 10 | accepted: 4 missing-element, 6 DXT5 solid blocks |
+| trc | 10 | accepted: 6 DXT5 solid blocks; 4 stats differences pending regeneration |
 | scp | 0 | pending: golden holds only History |
 | spt | 1 | accepted: History only |
 | unt | 1 | pass |
-| msh | 29 | accepted: 121 missing-element and six-digit differences; 12 DDS equal after the format fix |
-| obt | 26 | accepted: 16 missing-element, 24 camera and grid |
-| fnc | 10 | accepted: 18 camera |
-| bld | 50 | accepted: 4 missing-element, 20 camera |
+| msh | 29 | accepted: six-digit floats; missing-element differences pending regeneration; 12 DDS equal after the format fix |
+| obt | 26 | pending: 16 regeneration, 24 camera and grid |
+| fnc | 10 | pending: 18 camera |
+| bld | 50 | pending: 4 regeneration, 20 camera |
 | pcp | 1 | accepted: 2 six-digit floats |
 | eff | 0 | pending: particle source missing in the golden's run |
 | til | 0 | pending: golden holds only History |
 | mdc | 6 | pass |
 | bdg 3rd 3rv mip chc cgc | 0 | pending: the MFC editor crashed |
+
+## Amendment (S16 T09, 2026-10-06): saving in MFC's form (D042)
+
+`CParentFrame::SaveFrame` writes two elements beside the tree, before `<History>`, and `CParentFrame::LoadComposerFile` reads both
+unguarded: `<own_data>` (`SaveFrameOwnData`: `export_dir`/`export_file_name` and the frame's own data, such as a bridge's
+`Front`, `Back`, `Begin`, `End` or a building's `sprite_pos` and `krest_pos`) and the cached stats block `SaveRPGStats` writes.
+A project without them crashes the shipped editor, which is why the port-written bdg, 3rd, 3rv, mip, chc and cgc fixtures
+could not be opened by it. The port now writes both on every save of every kind:
+
+- `BkResSave` and the batch open-and-save run the kind's exporter stats-only into a scratch folder and lift the block out of
+  the stats file it wrote (`RPG`; `desc` for objects; `KeyData` for particles; `effect`; `VSODescription` for roads and rivers;
+  none for buildings, fences, sprites, tile sets and screens). The block is refreshed from the tree each time, not copied from
+  the loaded text. `NResourceModel::CachedBlockName`, `EnsureOwnData`, `PutCachedBlock` and `FindStatsBlock` in `project.h` do
+  the XML work; the bridge C ABI is unchanged.
+- The engine's stats writer prints floats with every digit and an empty string as `<a/>`. MFC's writer prints six significant
+  digits (`%lg`) and an empty string as `<a></a>`. The block takes MFC's float form, and an empty element takes the form the
+  block already in the project has at the same path. A path the project does not hold keeps `<a/>`; MFC reads both.
+- The save runs with `SExportContext::bSaveCache`: MFC's checks belong to `ExportFrameData` (a mission without header texts is
+  refused) and to the export (an effect particle without a source is skipped, `EffectFrm.cpp:215`), and `SaveFrame` runs none
+  of them, so a save never fails or loses its block for them. A project whose exporter still cannot run keeps the block it
+  had and the status line says why.
+- Sources (images, a mesh's combat model) are found where the project was opened from, so a Save As refreshes the block as a
+  save in place does. The cross lists of a mission, chapter and campaign are written into the block from the tree's
+  children, as before: the exporter reads a position as an int and would lose its fraction.
+- A project with no `<own_data>` gets one with the values an absent element has always read as: zero positions for buildings and
+  objects (as the exporters read them), the frame's constructor value for a bridge's `Begin` and `End` (`BridgeFrm.cpp:91`),
+  an empty `export_file_name`. A kind with no frame data (gui) gets none.
+
+All 21 fixtures were re-saved through the port and now hold both. `export-goldens.ps1` and the comparator treat an empty
+`export_file_name` as absent (they inject `1.xml`), so the goldens stay comparable.
+
+**Round trip of the shipped editor's own projects.** `tools/zig/fixtures/resource_editor/mfc-new/` (one empty project per editor,
+made by the shipped editor) is opened and saved unedited through the bridge by `test-resource-bridge`. Sixteen come back byte
+for byte. Five differ in the cached block only, and the test checks that every byte outside the block is equal: MFC's
+`SaveRPGStats` writes the frame's struct as it stood while `bNewProjectJustCreated` is set (`GetRPGStats`, not `FillRPGStats`;
+`MissionFrm.cpp:140`), which is not the tree.
+
+| File | In the block MFC wrote | The tree gives |
+|---|---|---|
+| minetest.mcp | `Weapon` = `generic` (the struct's default) | an empty `Weapon` |
+| medaltest.mdc | uninitialised `ImageRect` floats (1.42724e-030 ...), no localisation keys | zeros and `medals\<name>\name`, `desc`, `medal` |
+| missiontest.mip | uninitialised `MapImageRect` floats (4.37419e-030, a NaN), no scenario prefix | zeros and `scenarios\<folder>\` |
+| infantrytest.unt | uninitialised `UninstallRotate` (1.4013e-045), `Commands` size 128, empty `AnimDescs` and `AcksRefs` | the filled values |
+| particletest.pcp | uninitialised `Gravity` (2.8026e-045), `LifeTime` 2, one key per curve | the tree's own defaults |
+
+No tolerance is applied to any other file or to any byte outside those blocks. The first edit of such a project in MFC rewrites
+the block from the tree as well.
+
+**Left to the maintainer.** The goldens of the D041 'pending regeneration' kinds (wpn, trc, msh, obt, bld) and of the kinds the
+MFC editor crashed on (bdg, 3rd, 3rv, mip, chc, cgc) can be regenerated on win-home with `tools/zig/win-home/export-goldens.ps1`
+from the re-saved fixtures; MFC can now open all of them. The full resource sweep is also left to the maintainer.

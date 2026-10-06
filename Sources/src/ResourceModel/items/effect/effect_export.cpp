@@ -112,6 +112,8 @@ bool ExportEffect( const Project &project, const SExportContext &context, SExpor
 		std::string szTried;
 		if ( !ReadSourceType( szName, context, sourceType, szTried ) )
 		{
+			if ( context.bSaveCache )
+				continue;
 			outcome.szError = "the effect's function particle \"" + pChild->GetDisplayName() + "\" has no source file: cannot open " + szTried;
 			return false;
 		}

@@ -156,7 +156,18 @@
 			</item>
 		</TransLines>
 	</own_data>
-	<desc>
+	<desc MaxHP="100" RepairCost="1" AIClasses="8" Burn="0">
+		<KeyName/>
+		<StatsType>ObjDesc</StatsType>
+		<DamagedHPs/>
+		<Defence0 MinArmor="2" MaxArmor="2" Silhouette="1"/>
+		<Defence1 MinArmor="2" MaxArmor="2" Silhouette="1"/>
+		<Defence2 MinArmor="2" MaxArmor="2" Silhouette="1"/>
+		<Defence3 MinArmor="2" MaxArmor="2" Silhouette="1"/>
+		<Defence4 MinArmor="2" MaxArmor="2" Silhouette="1"/>
+		<Defence5 MinArmor="2" MaxArmor="2" Silhouette="1"/>
+		<EffectExplosion/>
+		<EffectDeath/>
 		<passability>
 			<item size_x="4" size_y="3"/>
 			<item>01010100</item>
@@ -170,5 +181,7 @@
 			<item>01020304</item>
 			<item>05060700</item>
 		</visibility>
+		<CycledSound/>
+		<AmbientSound/>
 	</desc>
 </Object_Composer_Project>

@@ -1,5 +1,19 @@
 <?xml version="1.0"?>
 <Medal_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<RPG>
+		<KeyName/>
+		<StatsType>Medal</StatsType>
+		<HeaderText>medals\mdc\name</HeaderText>
+		<SubheaderText/>
+		<DescriptionText>medals\mdc\desc</DescriptionText>
+		<Texture>medals\mdc\medal</Texture>
+		<ImageRect x1="20" y1="12" x2="0.640625" y2="0.78125"/>
+		<PicturePos x="0" y="0"/>
+		<TextPos x="0" y="0"/>
+	</RPG>
 	<childs>
 		<item ClassTypeID="285212983" expand="0">
 			<default_name>Basic info</default_name>

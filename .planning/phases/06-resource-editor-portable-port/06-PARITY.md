@@ -362,14 +362,16 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 ## MFC golden comparison status (S16 T08, 2026-10-06)
 
 `zig build test-resource-model-comparator -Dtest-mode=run`: `GOLDEN_SUMMARY extensions=20 pass=3 accepted=8 fail=0 pending=9`.
-The reasons and the per-kind table are in the spec's amendment "S16 T08". Not a claim of parity where marked.
+The reasons and the per-kind table are in the spec's amendment "S16 T08". Not a claim of parity where marked. Superseded by the hard steer of 2026-10-06T06:23 (D041, done in S16/T05): the 'accepted' counts below are being reduced to the proven classes; the struct-defaults and camera classes are pending. The figures in this block are the T08 ones until T05 reruns the comparator.
 
 | Row | Status |
 |---|---|
 | golden mcp, unt, mdc | equal to MFC's export |
-| golden wpn, trc, msh, obt, bld | equal but for the stats MFC reloads from a missing `<RPG>`/`<desc>`; the fixtures need that element and a regenerated golden to compare the tree's values |
-| golden pcp, msh floats | equal to six digits, as MFC's XML writer prints them |
-| golden fnc, bld explosions, obt grids and packs | **partial**: they depend on the engine's scene camera, which the port does not have in the export (default editor camera) |
+| golden wpn, trc, msh, obt, bld | **pending regeneration**: the old goldens hold struct constructor defaults because MFC had not saved the scratch fixture; `export-goldens.ps1` now lets MFC open and save each fixture (-os) before exporting, and the maintainer regenerates the goldens on win-home. Not an accepted difference (hard steer 2026-10-06T06:23, D041) |
+| save writes MFC's frame data (D-07, D042) | done (S16 T09): every save of every kind writes `<own_data>` and the cached `RPG`/`desc`/`KeyData`/`effect`/`VSODescription` block in MFC's form and order, refreshed from the tree; all 21 fixtures re-saved; 16 of the 21 shipped-editor projects in `fixtures/resource_editor/mfc-new` save back byte for byte, 5 (mcp, mdc, mip, unt, pcp) differ only inside the cached block, whose MFC form is a not-yet-filled struct (`bNewProjectJustCreated`); each reason is in the spec's amendment "S16 T09" and logged by `test-resource-bridge`. Goldens for the pending and crashed kinds are for the maintainer to regenerate on win-home |
+| golden pcp, msh floats | accepted: equal to six digits, as MFC's XML writer prints them (`%lg`, `DataTreeXML.cpp:326`), proven from source and golden bytes |
+| golden trc DXT5 solid blocks | accepted: proven from the golden's bytes (shipped editor's solid-block encoding differs from NDxt and NLegacyDxt) |
+| golden fnc origins, bld explosion noise, obt grids and packs | **pending**: camera-dependent values, not proven; the port exports with the default editor camera, not the engine's scene camera. Not accepted (D041) |
 | golden scp, til | pending: MFC wrote only History; regenerate on win-home |
 | golden eff | pending: the golden was made without the particle source |
 | golden bdg 3rd 3rv mip chc cgc | pending: the MFC editor crashed (0xC0000005) making them |

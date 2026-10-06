@@ -29,6 +29,12 @@ struct SExportContext
 	std::string szStagingRoot;   // the export root's data/ folder, staged: write below it
 	bool bForce = false;         // MFC's -f: export even when the files are up to date
 	bool bStatsOnly = false;     // D-13: write the stats, leave exported graphics untouched
+	// The run that refreshes the stats block a save caches in the project (MFC's
+	// SaveFrame -> SaveRPGStats). MFC's checks belong to the export (ExportFrameData
+	// refuses a mission without header texts; EffectFrm.cpp:215 skips a particle it
+	// has no source for) and its save runs none of them, so a save must not fail
+	// or lose its block for them. Implies bStatsOnly.
+	bool bSaveCache = false;
 	// The export root's data/ folder as it stands before this export, which
 	// the up-to-date check of the graphics reads (MFC compared the source
 	// files with the export it had already made). Empty for an export that

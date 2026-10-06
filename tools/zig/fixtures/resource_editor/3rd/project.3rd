@@ -1,5 +1,18 @@
 <?xml version="1.0"?>
 <Road3D_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<VSODescription Type="2" Priority="1" Passability="1" AIClasses="-16" SoilParams="16">
+		<Bottom OpacityCenter="255" OpacityBorder="255" StreamSpeed="0" TextureStep="0.1" NumCells="4" Animated="0" Disturbance="0" RelWidth="1">
+			<Texture>terrain\sets\1\roads3d\road_asphalt01</Texture>
+		</Bottom>
+		<BottomBorders/>
+		<Layers/>
+		<MiniMapCenterColor>808080ff</MiniMapCenterColor>
+		<MiniMapBorderColor>808080ff</MiniMapBorderColor>
+		<AmbientSound/>
+	</VSODescription>
 	<childs>
 		<item ClassTypeID="285212963" expand="0">
 			<default_name>Basic info</default_name>

@@ -1298,13 +1298,24 @@ static bool FlipByte( const fs::path &file, size_t nOffset )
 
 // What tools/zig/win-home/export-goldens.ps1 does to its scratch copy of a
 // fixture: MFC's batch mode refuses a project without a relative export file
-// name, so <own_data><export_file_name>1.xml is put into it. The port gets the
-// same project, which makes it name its stats file and result folders the way
-// MFC did for the golden (medals\name, not medals\mdc\name).
+// name, so <own_data><export_file_name>1.xml is put into it (a project the port
+// saved holds an empty one, as MFC writes a new project's, which it fills). The
+// port gets the same project, which makes it name its stats file and result
+// folders the way MFC did for the golden (medals\name, not medals\mdc\name).
 static void InjectExportFileName( const fs::path &project )
 {
 	std::string szXml;
-	if ( !ReadBytes( project, &szXml ) || szXml.find( "<export_file_name>" ) != std::string::npos )
+	if ( !ReadBytes( project, &szXml ) )
+		return;
+	const std::string szEmpty = "<export_file_name></export_file_name>";
+	const std::string::size_type nEmpty = szXml.find( szEmpty );
+	if ( nEmpty != std::string::npos )
+	{
+		szXml.replace( nEmpty, szEmpty.size(), "<export_file_name>1.xml</export_file_name>" );
+		WriteBytes( project, szXml );
+		return;
+	}
+	if ( szXml.find( "<export_file_name>" ) != std::string::npos )
 		return;
 	const std::string szOpen = "<own_data>";
 	const std::string szInjected = "<export_file_name>1.xml</export_file_name>";

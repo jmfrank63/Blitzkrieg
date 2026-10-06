@@ -90,7 +90,10 @@ foreach ($ext in $Extensions) {
     $latin1 = [Text.Encoding]::GetEncoding(28591)
     $projectFile = Join-Path $source "project.$ext"
     $text = [IO.File]::ReadAllText($projectFile, $latin1)
-    if ($text -notmatch "<export_file_name>") {
+    if ($text -match "<export_file_name></export_file_name>") {
+        $text = $text.Replace("<export_file_name></export_file_name>", "<export_file_name>1.xml</export_file_name>")
+        [IO.File]::WriteAllText($projectFile, $text, $latin1)
+    } elseif ($text -notmatch "<export_file_name>") {
         if ($text -match "<own_data>") {
             $text = ([regex]"<own_data>").Replace($text, "<own_data><export_file_name>1.xml</export_file_name>", 1)
         } else {

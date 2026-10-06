@@ -1,5 +1,11 @@
 <?xml version="1.0"?>
 <Building_Composer_Project expand="1">
+	<own_data>
+		<sprite_pos x="0" y="0" z="0"/>
+		<krest_pos x="0" y="0" z="0"/>
+		<export_dir></export_dir>
+		<export_file_name></export_file_name>
+	</own_data>
 	<childs>
 		<item ClassTypeID="285212764" expand="0">
 			<default_name>Basic Info</default_name>

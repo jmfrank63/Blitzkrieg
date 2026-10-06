@@ -1,5 +1,29 @@
 <?xml version="1.0"?>
 <Squad_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<RPG>
+		<Icon>icon.tga</Icon>
+		<Type>00000000</Type>
+		<Members>
+			<item>USSR_Mosin</item>
+		</Members>
+		<Formations>
+			<item LieFlag="0" SpeedBonus="1" DispersionBonus="1" FireRateBonus="1" RelaxTimeBonus="1" CoverBonus="1" VisibleBonus="1">
+				<Type>00000000</Type>
+				<Order>
+					<item Dir="28.6479">
+						<Soldier>USSR_Mosin</Soldier>
+						<Pos x="-33.3254" y="10.5604"/>
+					</item>
+				</Order>
+				<ChangesByEvent>
+					<item data="-1"/>
+				</ChangesByEvent>
+			</item>
+		</Formations>
+	</RPG>
 	<default_name></default_name>
 	<display_name></display_name>
 	<values/>
