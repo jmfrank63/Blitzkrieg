@@ -65,6 +65,7 @@ const tools_ui = @import("tools_ui.zig");
 const batch_cli = @import("batch_cli.zig");
 const docks_mod = @import("docks.zig");
 const settings_mod = @import("settings.zig");
+const view_logic = @import("view_logic.zig");
 const docks_check = @import("docks_check.zig");
 const scenario = @import("scenario.zig");
 
@@ -312,7 +313,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     defer _ = c.BkResClose(session);
     ui.start(first_path, first_kind);
     var tree: Tree = .{};
-    var panels: panels_mod.Panels = .{};
+    var panels: panels_mod.Panels = .{ .view = view_logic.View.fromSettings(&ui.settings) };
     defer panels.deinit(gpa);
     // Deinit runs before BkResClose and host.stop: the preview scene and the
     // thumbnails' textures belong to the engine.
@@ -359,6 +360,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
             tools.drawEditorsMenu();
             if (imgui.c.igBeginMenuEx("View", true)) {
                 docks.drawViewMenuItems();
+                panels.drawViewMenuItems(gpa, ui.real.bridge(), &ui.session.life);
                 imgui.c.igEndMenu();
             }
             if (imgui.c.igBeginMenuEx("Preview", true)) {
@@ -369,7 +371,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
                 docks.drawHelpMenuItems();
                 imgui.c.igEndMenu();
             }
-            tools.drawEditorCombo();
+            if (panels.view.toolbar) tools.drawEditorCombo();
             imgui.c.igEndMainMenuBar();
         }
         ui.handleShortcuts();
@@ -378,7 +380,14 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
         tools.handleShortcuts();
         // The project tree and the inspector (panels.zig) replace the
         // skeleton's read-only tree window in the interactive mode.
+        panels.preview_showing = docks.preview.running;
+        docks.status_bar = panels.view.status_bar;
         panels.draw(gpa, ui.real.bridge(), &ui.session.life, host.window);
+        if (panels.view_changed) {
+            panels.view_changed = false;
+            panels.view.storeInto(&ui.settings);
+            ui.session.settings_changed = true;
+        }
         const project_path = if (ui.session.life.is_open) ui.session.life.doc.pathSlice() else null;
         docks.drawDocks(if (project_path) |p| std.fs.path.dirname(p) else null, &ui.session.life, panels.selection.primary);
         docks.drawDialogs(ui, host.window);

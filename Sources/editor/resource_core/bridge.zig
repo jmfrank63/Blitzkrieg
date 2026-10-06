@@ -504,6 +504,9 @@ pub const ResBridge = struct {
         modSettingsSet: *const fn (ptr: *anyopaque, in: *const ModSettings) Status,
         /// BkResPackMod: the export root's data/ folder zipped into a .pak.
         packMod: *const fn (ptr: *anyopaque, out_path: []const u8) Status,
+        /// BkResReadBack: a file of the export root's data/ folder read with the engine's own reader;
+        /// `found` is the sprite frames of a .san, or 1 when the XML `chunk` is under `root`.
+        readBack: *const fn (ptr: *anyopaque, file: []const u8, root: []const u8, chunk: []const u8, found: *i32) Status,
         /// BkResImportFromGame: a new, unsaved project of `kind` from a
         /// runtime resource folder. Refused for a kind not ported yet.
         importFromGame: *const fn (ptr: *anyopaque, kind: Kind, path: []const u8) Status,
@@ -673,6 +676,9 @@ pub const ResBridge = struct {
     }
     pub fn packMod(self: ResBridge, out_path: []const u8) Status {
         return self.vtable.packMod(self.ptr, out_path);
+    }
+    pub fn readBack(self: ResBridge, file: []const u8, root: []const u8, chunk: []const u8, found: *i32) Status {
+        return self.vtable.readBack(self.ptr, file, root, chunk, found);
     }
     pub fn importFromGame(self: ResBridge, kind: Kind, path: []const u8) Status {
         return self.vtable.importFromGame(self.ptr, kind, path);

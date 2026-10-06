@@ -189,6 +189,7 @@ pub const RealResBridge = struct {
         .modSettingsGet = modSettingsGet,
         .modSettingsSet = modSettingsSet,
         .packMod = packMod,
+        .readBack = readBack,
         .importFromGame = importFromGame,
         .tileSetImport = tileSetImport,
         .tileSetAddTile = tileSetAddTile,
@@ -645,6 +646,20 @@ pub const RealResBridge = struct {
         var buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
         const z = terminated(&buffer, out_path) orelse return self.fail(.bad_argument, "the path is too long or holds a NUL");
         return status(c.BkResPackMod(self.session, z));
+    }
+
+    fn readBack(ptr: *anyopaque, file: []const u8, root: []const u8, chunk: []const u8, found: *i32) Status {
+        const self = from(ptr);
+        var file_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
+        var root_buffer: [64]u8 = undefined;
+        var chunk_buffer: [64]u8 = undefined;
+        const f = terminated(&file_buffer, file) orelse return self.fail(.bad_argument, "the path is too long or holds a NUL");
+        const r = terminated(&root_buffer, root) orelse return self.fail(.bad_argument, "the root name is too long or holds a NUL");
+        const k = terminated(&chunk_buffer, chunk) orelse return self.fail(.bad_argument, "the chunk name is too long or holds a NUL");
+        var count: c_int = 0;
+        const result = status(c.BkResReadBack(self.session, f, r, k, &count));
+        found.* = count;
+        return result;
     }
 
     // --- import, preview --------------------------------------------------

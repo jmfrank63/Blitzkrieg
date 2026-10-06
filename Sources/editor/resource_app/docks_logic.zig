@@ -545,6 +545,7 @@ pub const shortcuts = [_]Shortcut{
     .{ .keys = "Insert", .action = "Insert an item (project tree)" },
     .{ .keys = "Delete", .action = "Delete the selected items (project tree)" },
     .{ .keys = "F2", .action = "Rename the item (project tree)" },
+    .{ .keys = "Ctrl+C", .action = "Expand or collapse every item of the project tree" },
     .{ .keys = "Ctrl+D", .action = "Show or hide the direction button" },
     .{ .keys = "Ctrl+F", .action = "Show or hide the function window" },
     .{ .keys = "F5", .action = "Run the preview" },

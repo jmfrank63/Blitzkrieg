@@ -240,6 +240,8 @@ pub const Docks = struct {
     terrain_shown: bool = false,
     /// ID_SWITCH_WIREFRAME: the road and river preview's wire frame.
     wireframe: bool = false,
+    /// View > Status Bar: the particle frame's four panes follow it.
+    status_bar: bool = true,
     show_thumbnails: bool = false,
     show_direction: bool = false,
     show_function: bool = false,
@@ -987,6 +989,7 @@ pub const Docks = struct {
     /// project drops them.
     fn drawParticleStatus(self: *Docks) void {
         if (self.preview.begun != .particle) self.particle_status.clear();
+        if (!self.status_bar) return;
         const note = self.particle_status.note();
         if (self.particle_status.info == null and note.len == 0) return;
         const display = ig.igGetIO().*.DisplaySize;

@@ -1134,6 +1134,18 @@ pub const FakeResBridge = struct {
         return self.putFile(out_path, "PK\x05\x06");
     }
 
+    /// The fake has no engine to read with: a file it holds is found once.
+    fn readBack(ptr: *anyopaque, file: []const u8, root: []const u8, chunk: []const u8, found: *i32) Status {
+        const self = from(ptr);
+        self.clearMessage();
+        _ = root;
+        _ = chunk;
+        found.* = 0;
+        if (file.len == 0) return .bad_argument;
+        self.say("the fake bridge cannot read {s}", .{file});
+        return .data_missing;
+    }
+
     /// Records the import: the fake has no atlas to cut, so it reports the
     /// tiles an import file named with `tiles` would give, set by the test.
     fn tileSetImport(ptr: *anyopaque, path: []const u8, crossets: bool, out_count: *i32) Status {
@@ -1750,6 +1762,7 @@ pub const FakeResBridge = struct {
         .modSettingsGet = modSettingsGet,
         .modSettingsSet = modSettingsSet,
         .packMod = packMod,
+        .readBack = readBack,
         .importFromGame = importFromGame,
         .tileSetImport = tileSetImport,
         .tileSetAddTile = tileSetAddTile,

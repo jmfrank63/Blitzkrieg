@@ -463,6 +463,18 @@ BkEditorStatus BkResModSettingsSet( BkResSession *session, const BkResModSetting
    folder is missing or empty, or out_zip_path lies inside it. */
 BkEditorStatus BkResPackMod( BkResSession *session, const char *out_zip_path );
 
+/* Reads one file of the export root's data/ folder, given relative to it,
+   with the engine's own reader and counts what it found: a .san through the
+   structure saver as the Game's animation manager loads it (found is the
+   number of sprite frames, at least one), any other file through the XML
+   tree reader as the Game's stats and descriptor loaders do (found is 1 when
+   <chunk> is there under the root element `root`, "" meaning base).
+   BK_EDITOR_BAD_ARGUMENT for a null argument, BK_EDITOR_REFUSED when the
+   engine is not started, BK_EDITOR_DATA_MISSING when the file is missing and
+   BK_EDITOR_FAILED, with the reason, when the engine cannot read it or finds
+   nothing. Nothing is written. */
+BkEditorStatus BkResReadBack( BkResSession *session, const char *data_file, const char *root, const char *chunk, int *found );
+
 /* ---- Preview --------------------------------------------------------- */
 
 /* Builds an empty preview IScene with the game camera, no terrain (except
