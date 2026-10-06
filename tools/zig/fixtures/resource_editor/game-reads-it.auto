@@ -12,3 +12,18 @@ bld a_h01_1 buildings/a_h01_1 buildings/africa/summer/a_h01_1 buildings/africa/s
 scp german_gunner - - squads/german_gunner/1.xml
 mcp mine_at - - objects/simpleobjects/common/summer/mine/mine_at/1.xml
 bdg asphaltbridge_special bridges/asphaltbridge_special bridges/asphaltbridge_special/02 bridges/asphaltbridge_special/02/1.xml
+# resource-editor-game-reads-it: a kind the Game cannot be driven to load carries three more columns,
+# <root> <chunk> <reason>: the engine's own reader (BkResReadBack) must find <chunk> under <root> in <stream>
+# (a .san: a sprite frame), and the reason is why the Game is not shown to open it (PROOF=reader in result.log).
+spt gri_spt - - effects/sprites/gri_spt/1.san - - no_shipped_map_loads_it_without_a_battle
+pcp particle-2key - - effects/particles/particle-2key.xml base KeyData no_shipped_map_loads_it_without_a_battle
+eff gri_eff - - effects/effects/gri_eff.xml effect effect no_shipped_map_loads_it_without_a_battle
+trc gri_trc - - units/technics/common/entrenchment/gri_trc/1.xml base RPG the_Game_aborts_on_the_fixture_trench_which_has_no_segments
+til gri_til - - terrain/sets/gri_til/1.xml base tileset a_replaced_season_tileset_would_break_the_terrain_of_the_shipped_maps
+3rd gri_3rd - - terrain/sets/gri_3rd/1.xml base VSODescription a_replaced_road_would_break_the_shipped_maps_that_use_it
+3rv gri_3rv - - terrain/sets/gri_3rv/1.xml base VSODescription a_replaced_river_would_break_the_shipped_maps_that_use_it
+mip gri_mip - - scenarios/gri_mip/1.xml base RPG the_Game_starts_no_mission_from_a_mod_without_a_player
+chc gri_chc - - scenarios/gri_chc/1.xml base RPG the_Game_starts_no_chapter_from_a_mod_without_a_player
+cgc gri_cgc - - scenarios/campaigns/gri_cgc/1.xml base RPG the_Game_starts_no_campaign_from_a_mod_without_a_player
+mdc gri_mdc - - medals/gri_mdc/1.xml base RPG the_Game_shows_a_medal_only_after_a_campaign_is_won
+gui MainMenu - - ui/MainMenu.xml

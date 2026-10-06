@@ -4594,6 +4594,72 @@ BkEditorStatus BkResModSettingsSet( BkResSession *pSession, const BkResModSettin
 	} );
 }
 
+BkEditorStatus BkResReadBack( BkResSession *pSession, const char *pszFile, const char *pszRoot, const char *pszChunk, int *pnFound )
+{
+	return Guarded( pSession, [=]() -> BkEditorStatus
+	{
+		if ( pszFile == nullptr || *pszFile == 0 || pszRoot == nullptr || pszChunk == nullptr || pnFound == nullptr )
+			return BK_EDITOR_BAD_ARGUMENT;
+		*pnFound = 0;
+		if ( GetSLS() == 0 || pSession->szDataRoot.empty() )
+		{
+			pSession->szMessage = "the engine is not started";
+			return BK_EDITOR_REFUSED;
+		}
+		const std::filesystem::path file = ChildFolder( ExportDirOf( pSession ), "data" ) / pszFile;
+		std::error_code ec;
+		if ( !std::filesystem::is_regular_file( file, ec ) )
+		{
+			pSession->szMessage = file.string() + " does not exist";
+			return BK_EDITOR_DATA_MISSING;
+		}
+		CPtr<IDataStorage> pStorage = OpenStorage( StorageDir( file.parent_path() ).c_str(), STREAM_ACCESS_READ, STORAGE_TYPE_FILE );
+		CPtr<IDataStream> pStream = pStorage != 0 ? pStorage->OpenStream( file.filename().string().c_str(), STREAM_ACCESS_READ ) : 0;
+		if ( pStream == 0 )
+		{
+			pSession->szMessage = "the engine cannot open " + file.string();
+			return BK_EDITOR_FAILED;
+		}
+		if ( file.extension() == ".san" )
+		{
+			// The structure the Game's animation manager loads (SSpriteAnimationFormat::Load), chunk 1.
+			CPtr<IStructureSaver> pSS = CreateStructureSaver( pStream, IStructureSaver::READ );
+			if ( pSS == 0 )
+			{
+				pSession->szMessage = "the engine cannot read " + file.string();
+				return BK_EDITOR_FAILED;
+			}
+			SSpriteAnimationFormat animations;
+			CSaverAccessor saver = pSS;
+			saver.Add( 1, &animations );
+			size_t nRects = 0;
+			for ( size_t i = 0; i < animations.animations.size(); ++i )
+				nRects += animations.animations[i].rects.size();
+			*pnFound = (int)nRects;
+			if ( nRects == 0 )
+			{
+				pSession->szMessage = file.string() + " holds no sprite frame";
+				return BK_EDITOR_FAILED;
+			}
+			return BK_EDITOR_OK;
+		}
+		CPtr<IDataTree> pDT = CreateDataTreeSaver( pStream, IDataTree::READ, *pszRoot != 0 ? pszRoot : "base" );
+		if ( pDT == 0 )
+		{
+			pSession->szMessage = "the engine cannot read " + file.string();
+			return BK_EDITOR_FAILED;
+		}
+		if ( pDT->StartChunk( pszChunk ) )
+		{
+			pDT->FinishChunk();
+			*pnFound = 1;
+			return BK_EDITOR_OK;
+		}
+		pSession->szMessage = file.string() + " has no <" + pszChunk + "> under <" + ( *pszRoot != 0 ? pszRoot : "base" ) + ">";
+		return BK_EDITOR_FAILED;
+	} );
+}
+
 BkEditorStatus BkResPackMod( BkResSession *pSession, const char *pszZip )
 {
 	return Guarded( pSession, [=]() -> BkEditorStatus

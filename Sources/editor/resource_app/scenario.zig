@@ -33,6 +33,8 @@
 //!   do=gri_mirror:<ext>     that row's export folder copied under the shipped resource's path in the mod
 //!   expect=mod_read:<ext>   the last Game's log shows that row's file opened from the MOD (BK_MOD_TRACE); one
 //!                           KIND=<ext> PROOF=game line of result.log, PASS or FAIL
+//!   expect=reader_read:<ext> the engine's own reader (BkResReadBack) finds that row's root and chunk in the exported file
+//!                           (a .san: a sprite frame); a KIND=<ext> PROOF=reader REASON=<why not the Game> line of result.log
 //!   do=tree:<action>        a weapon or trench tree action on the first fitting node:
 //!                           add_shoot_type, add_crater, add_source (one undo step)
 //!   do=squad_drag:<slot>/<dx>/<dy>   a formation member dragged by a world offset
@@ -2423,7 +2425,7 @@ const Runner = struct {
             return null;
         };
         // The row's slices point into bytes, freed here: keep them in the Runner's own storage.
-        self.gri_row_text = std.fmt.bufPrint(&self.gri_row_storage, "{s} {s} {s} {s} {s}", .{ row.ext, row.folder, row.exported, row.shipped, row.file }) catch {
+        self.gri_row_text = std.fmt.bufPrint(&self.gri_row_storage, "{s} {s} {s} {s} {s} {s} {s} {s}", .{ row.ext, row.folder, row.exported, row.shipped, row.file, row.root, row.chunk, row.reason }) catch {
             _ = self.fail("a row of {s} is too long", .{path});
             return null;
         };
@@ -2443,10 +2445,29 @@ const Runner = struct {
         defer self.gpa.free(bytes);
         const passed = game_reads.modOpened(bytes, file);
         var line_buffer: [512]u8 = undefined;
-        const line = game_reads.resultLine(&line_buffer, kind, "game", file, passed) orelse return self.fail("the result line is too long", .{});
+        const line = game_reads.resultLine(&line_buffer, kind, "game", file, "-", passed) orelse return self.fail("the result line is too long", .{});
         std.debug.print("resource-editor: auto: {s}", .{line});
         self.appendResult(line) orelse return self.fail("result.log would not write", .{});
         if (!passed) return self.fail("expect=mod_read:{s} was false: {s} shows no stream of that file opened from the MOD", .{ arg, log });
+        return null;
+    }
+
+    /// `expect=reader_read:<ext>`: the engine's own reader, the one the Game loads that kind with, reads the
+    /// exported file back from the mod's data folder, for the kinds the Game cannot be driven to load. The
+    /// row names the file, the XML root and chunk to find and, as REASON, why the Game does not do it.
+    fn readerRead(self: *Runner, arg: []const u8) ?[]const u8 {
+        const row = self.griRow(arg) orelse return null;
+        const b = self.bridge();
+        const root = if (std.mem.eql(u8, row.root, "-")) "" else row.root;
+        const chunk = if (std.mem.eql(u8, row.chunk, "-")) "" else row.chunk;
+        var found: i32 = 0;
+        const result = b.readBack(row.file, root, chunk, &found);
+        const passed = result == .ok;
+        var line_buffer: [512]u8 = undefined;
+        const line = game_reads.resultLine(&line_buffer, row.ext, "reader", row.file, row.reason, passed) orelse return self.fail("the result line is too long", .{});
+        std.debug.print("resource-editor: auto: {s}", .{line});
+        self.appendResult(line) orelse return self.fail("result.log would not write", .{});
+        if (!passed) return self.fail("expect=reader_read:{s} was false: {s}", .{ arg, b.lastMessage() });
         return null;
     }
 
@@ -2758,6 +2779,7 @@ const Runner = struct {
         if (eql(u8, name, "gui_same")) return self.guiSame(arg);
         if (eql(u8, name, "game_log_clean")) return self.gameLogClean();
         if (eql(u8, name, "mod_read")) return self.modRead(arg);
+        if (eql(u8, name, "reader_read")) return self.readerRead(arg);
         if (eql(u8, name, "game_frames")) return self.gameFrames(arg);
         return self.fail("unknown predicate '{s}'", .{name});
     }

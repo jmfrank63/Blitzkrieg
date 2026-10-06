@@ -44,6 +44,12 @@ pub const Row = struct {
     exported: []const u8,
     shipped: []const u8,
     file: []const u8,
+    /// The kinds the Game cannot be driven to load are read back with the engine's own reader instead:
+    /// the XML root element and chunk it must find, and why the Game does not do it. All three are `-`
+    /// for a kind the Game opens, and the reason has `_` for spaces.
+    root: []const u8 = "-",
+    chunk: []const u8 = "-",
+    reason: []const u8 = "-",
 };
 
 /// The row of `ext` in the manifest text; `#` lines and blank lines are skipped. Null when there is no row
@@ -62,14 +68,20 @@ pub fn findRow(text: []const u8, ext: []const u8) ?Row {
             .exported = columns.next() orelse return null,
             .shipped = columns.next() orelse return null,
             .file = columns.next() orelse return null,
+            .root = columns.next() orelse "-",
+            .chunk = columns.next() orelse "-",
+            .reason = columns.next() orelse "-",
         };
     }
     return null;
 }
 
-/// One line of result.log: `KIND=<ext> PROOF=<game|reader> FILE=<path> RESULT=<PASS|FAIL>`.
-pub fn resultLine(buffer: []u8, kind: []const u8, proof: []const u8, file: []const u8, passed: bool) ?[]const u8 {
-    return std.fmt.bufPrint(buffer, "KIND={s} PROOF={s} FILE={s} RESULT={s}\n", .{ kind, proof, file, if (passed) "PASS" else "FAIL" }) catch null;
+/// One line of result.log: `KIND=<ext> PROOF=<game|reader> FILE=<path> RESULT=<PASS|FAIL>`, and for a kind
+/// proved by the engine's reader ` REASON=<why not the Game>` before the result.
+pub fn resultLine(buffer: []u8, kind: []const u8, proof: []const u8, file: []const u8, reason: []const u8, passed: bool) ?[]const u8 {
+    const verdict = if (passed) "PASS" else "FAIL";
+    if (std.mem.eql(u8, reason, "-")) return std.fmt.bufPrint(buffer, "KIND={s} PROOF={s} FILE={s} RESULT={s}\n", .{ kind, proof, file, verdict }) catch null;
+    return std.fmt.bufPrint(buffer, "KIND={s} PROOF={s} FILE={s} REASON={s} RESULT={s}\n", .{ kind, proof, file, reason, verdict }) catch null;
 }
 
 test "modOpened finds the traced file whatever the case and separator" {
@@ -95,8 +107,8 @@ test "modOpened refuses a file another overlay answered, a prefix and a missing 
 
 test "resultLine names the kind, the proof, the file and the verdict" {
     var buffer: [128]u8 = undefined;
-    try std.testing.expectEqualStrings("KIND=wpn PROOF=game FILE=weapons/mosin.xml RESULT=PASS\n", resultLine(&buffer, "wpn", "game", "weapons/mosin.xml", true).?);
-    try std.testing.expectEqualStrings("KIND=wpn PROOF=reader FILE=x RESULT=FAIL\n", resultLine(&buffer, "wpn", "reader", "x", false).?);
+    try std.testing.expectEqualStrings("KIND=wpn PROOF=game FILE=weapons/mosin.xml RESULT=PASS\n", resultLine(&buffer, "wpn", "game", "weapons/mosin.xml", "-", true).?);
+    try std.testing.expectEqualStrings("KIND=wpn PROOF=reader FILE=x REASON=no_battle RESULT=FAIL\n", resultLine(&buffer, "wpn", "reader", "x", "no_battle", false).?);
 }
 
 test "findRow reads the kind's five columns and skips comments" {
@@ -108,6 +120,15 @@ test "findRow reads the kind's five columns and skips comments" {
     const unt = findRow(text, "unt").?;
     try std.testing.expectEqualStrings("units/humans/mosin", unt.exported);
     try std.testing.expectEqualStrings("units/humans/ussr/mosin/1.xml", unt.file);
+    try std.testing.expectEqualStrings("-", unt.root);
+    try std.testing.expectEqualStrings("-", unt.reason);
     try std.testing.expect(findRow(text, "msh") == null);
     try std.testing.expect(findRow(text, "short") == null);
+}
+
+test "findRow reads the root, chunk and reason of a kind proved by the reader" {
+    const row = findRow("pcp particle-2key - - effects/particles/particle-2key.xml base KeyData no_map_plays_it\r\n", "pcp").?;
+    try std.testing.expectEqualStrings("base", row.root);
+    try std.testing.expectEqualStrings("KeyData", row.chunk);
+    try std.testing.expectEqualStrings("no_map_plays_it", row.reason);
 }

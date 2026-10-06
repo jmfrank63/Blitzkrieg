@@ -8348,8 +8348,9 @@ const resource_auto_preview_on = "1:do=preview_on,";
 /// of tools/zig/fixtures/resource_editor/game-reads-it.auto), then the real Game plays a multiplayer map with
 /// that mod and BK_MOD_TRACE, and expect=mod_read asks its log whether the exported file was opened from the mod.
 /// The maps are the shipped ones that load the replaced resources at their start; each is the only map to prove
-/// its kinds. Kinds whose resources no shipped map loads without a battle (spt, pcp, eff) or whose fixture the
-/// Game cannot play (trc: an empty trench divides by zero in the entrenchment lookup) are not here; T04 proves them.
+/// its kinds. The kinds the Game cannot be driven to load follow: for each the engine's own reader, through
+/// expect=reader_read, finds the chunk in the exported file, and result.log says why the Game was not used
+/// (PROOF=reader REASON=...). The gui screen is the exception at the end: the Game shows it, no map needed.
 const resource_game_reads_it =
     "1:do=mod_dir:{mods}/reseditor_auto_gri," ++
     // coldwinter loads one weapon, infantry, unit, object and fence of the exports.
@@ -8427,9 +8428,90 @@ const resource_game_reads_it =
     "46:waitgame=240," ++
     "46:expect=game_log_clean," ++
     "46:expect=mod_read:bdg," ++
+    // The kinds the Game cannot be driven to load: the engine reader finds the exported file's chunk.
+    "48:do=gri_copy:pcp," ++
+    "49:expect=kind:pcp," ++
+    "49:expect=dirty:false," ++
+    "50:do=export," ++
+    "51:expect=exported," ++
+    "51:expect=reader_read:pcp," ++
+    "52:do=gri_copy:eff," ++
+    "53:expect=kind:eff," ++
+    "53:expect=dirty:false," ++
+    "54:do=export," ++
+    "55:expect=exported," ++
+    "55:expect=reader_read:eff," ++
+    "56:do=gri_copy:trc," ++
+    "57:expect=kind:trc," ++
+    "57:expect=dirty:false," ++
+    "58:do=export," ++
+    "59:expect=exported," ++
+    "59:expect=reader_read:trc," ++
+    "60:do=gri_copy:til," ++
+    "61:expect=kind:til," ++
+    "61:expect=dirty:false," ++
+    "62:do=export," ++
+    "63:expect=exported," ++
+    "63:expect=reader_read:til," ++
+    "64:do=gri_copy:3rd," ++
+    "65:expect=kind:3rd," ++
+    "65:expect=dirty:false," ++
+    "66:do=export," ++
+    "67:expect=exported," ++
+    "67:expect=reader_read:3rd," ++
+    "68:do=gri_copy:3rv," ++
+    "69:expect=kind:3rv," ++
+    "69:expect=dirty:false," ++
+    "70:do=export," ++
+    "71:expect=exported," ++
+    "71:expect=reader_read:3rv," ++
+    "72:do=gri_copy:chc," ++
+    "73:expect=kind:chc," ++
+    "73:expect=dirty:false," ++
+    "74:do=export," ++
+    "75:expect=exported," ++
+    "75:expect=reader_read:chc," ++
+    "76:do=gri_copy:cgc," ++
+    "77:expect=kind:cgc," ++
+    "77:expect=dirty:false," ++
+    "78:do=export," ++
+    "79:expect=exported," ++
+    "79:expect=reader_read:cgc," ++
+    "80:do=gri_copy:mdc," ++
+    "81:expect=kind:mdc," ++
+    "81:expect=dirty:false," ++
+    "82:do=export," ++
+    "83:expect=exported," ++
+    "83:expect=reader_read:mdc," ++
+    "84:do=gri_copy:spt," ++
+    "84:do=copy:{fix}/spt/sprite-1frame.tga>{dir}/src/spt/gri_spt/frames/s.tga," ++
+    "85:expect=kind:spt," ++
+    "85:do=set_prop:Directory=frames\\," ++
+    "85:do=frame:s," ++
+    "86:expect=dirty:true," ++
+    "86:save," ++
+    "87:do=export," ++
+    "88:expect=exported," ++
+    "88:expect=reader_read:spt," ++
+    "89:do=gri_copy:mip," ++
+    "89:do=copy_tree:{fix}/mip/final-map>{dir}/src/mip/gri_mip," ++
+    "90:open={dir}/src/mip/gri_mip/project.mip," ++
+    "91:expect=kind:mip," ++
+    "91:do=export," ++
+    "92:expect=exported," ++
+    "92:expect=reader_read:mip," ++
+    "93:do=copy:{data}/UI/MainMenu.xml>{dir}/src/gui/MainMenu.gui," ++
+    "94:open={dir}/src/gui/MainMenu.gui," ++
+    "95:expect=kind:gui," ++
+    "95:do=export," ++
+    "96:expect=exported," ++
+    "96:do=run_game," ++
+    "97:waitgame=120," ++
+    "97:expect=game_log_clean," ++
+    "97:expect=mod_read:gui," ++
     "";
 
-const resource_game_reads_it_exit_frame = 47;
+const resource_game_reads_it_exit_frame = 98;
 
 /// The per-editor steps in run order.
 const resource_auto_steps = [_]ResourceAutoStep{

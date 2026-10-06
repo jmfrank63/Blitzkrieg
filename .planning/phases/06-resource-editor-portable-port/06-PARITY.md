@@ -330,3 +330,31 @@ tools as undoable commands, its toolbar, and one `BK_EDITOR_AUTO` scenario.
 | `zip.exe` | native PAK writer |
 | `KeyBasedData.cpp`, `RoadEditorWnd.cpp`, `COI/OIDlg.cpp` (not compiled) | nothing — dead code |
 | `Sources/src/bin/editor.exe`, `Sources/src/editor/bin/editor2.exe` | deleted in 06-16 after the goldens exist |
+
+## D. Game reads it unchanged (S16 T03, T04, 2026-10-06, Linux)
+
+`zig build resource-editor-game-reads-it` exports one resource per kind into a mod and writes `zig-out/local-test/resource-editor-game-reads-it/result.log`, one `KIND=` line per kind. PROOF=game: the real Game, run with `BK_MOD_TRACE`, opened the exported file from the mod. PROOF=reader: the engine's own reader (`BkResReadBack`) found the expected chunk in the exported file, and the reason the Game is not driven to load it is recorded. Linux only; macOS and Windows are left to CI (GPU runners).
+
+| Kind | Proof | File | Reason (reader only) |
+|---|---|---|---|
+| wpn | game | `weapons/generic.xml` | |
+| unt | game | `units/humans/ussr/mosin/1.xml` | |
+| msh | game | `units/technics/german/tanks/pz_v_panther_ausf_g/1.xml` | |
+| obt | game | `objects/simpleobjects/common/summer/roadpost/1.xml` | |
+| fnc | game | `fences/ussr/winter/w_villagefence/1.xml` | |
+| bld | game | `buildings/africa/summer/a_h01_1/1.xml` | |
+| scp | game | `squads/german_gunner/1.xml` | |
+| mcp | game | `objects/simpleobjects/common/summer/mine/mine_at/1.xml` | |
+| bdg | game | `bridges/asphaltbridge_special/02/1.xml` | |
+| gui | game | `ui/MainMenu.xml` | |
+| spt | reader | `effects/sprites/gri_spt/1.san` | no shipped map loads it without a battle |
+| pcp | reader | `effects/particles/particle-2key.xml` | no shipped map loads it without a battle |
+| eff | reader | `effects/effects/gri_eff.xml` | no shipped map loads it without a battle |
+| trc | reader | `units/technics/common/entrenchment/gri_trc/1.xml` | the Game aborts on the fixture trench, which has no segments |
+| til | reader | `terrain/sets/gri_til/1.xml` | a replaced season tileset would break the terrain of the shipped maps |
+| 3rd | reader | `terrain/sets/gri_3rd/1.xml` | a replaced road would break the shipped maps that use it |
+| 3rv | reader | `terrain/sets/gri_3rv/1.xml` | a replaced river would break the shipped maps that use it |
+| mip | reader | `scenarios/gri_mip/1.xml` | the Game starts no mission from a mod without a player |
+| chc | reader | `scenarios/gri_chc/1.xml` | the Game starts no chapter from a mod without a player |
+| cgc | reader | `scenarios/campaigns/gri_cgc/1.xml` | the Game starts no campaign from a mod without a player |
+| mdc | reader | `medals/gri_mdc/1.xml` | the Game shows a medal only after a campaign is won |
