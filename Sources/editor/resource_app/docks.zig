@@ -23,11 +23,13 @@ const edit = @import("edit_logic.zig");
 const mesh_logic = @import("mesh_logic.zig");
 const keyframe_logic = @import("keyframe_logic.zig");
 const lifecycle = @import("lifecycle.zig");
+const il = @import("image_logic.zig");
 const lifecycle_ui = @import("lifecycle_ui.zig");
 
 const ig = imgui.c;
 const c = c_bridge.c;
 const Kind = core.bridge.Kind;
+const ResBridge = core.bridge.ResBridge;
 const Cache = kit.pictures_cache.Cache;
 const macos = builtin.os.tag == .macos;
 const mod_label = if (macos) "Cmd" else "Ctrl";
@@ -100,6 +102,71 @@ pub const fixed_layout = struct {
     pub const thumbnails = Rect{ .x = 40, .y = 150, .w = 240, .h = 200 };
     pub const direction = Rect{ .x = 40, .y = 370, .w = 160, .h = 170 };
     pub const function = Rect{ .x = 40, .y = 560, .w = 360, .h = 150 };
+};
+
+/// The image frame's one picture and gesture state.
+const ImageFrame = struct {
+    overlay: ?il.Overlay = null,
+    texture: ?*sdl3.c.SDL_GPUTexture = null,
+    device: ?*anyopaque = null,
+    width: i32 = 0,
+    height: i32 = 0,
+    /// The path the picture (or its failure) belongs to.
+    key: [logic.path_capacity + 64]u8 = undefined,
+    key_len: usize = 0,
+    has_key: bool = false,
+    note: [320]u8 = undefined,
+    note_len: usize = 0,
+    /// Where the picture was drawn in the last frame, for the auto tier.
+    shown: ?Rect = null,
+
+    fn overlayFor(self: *ImageFrame, gpa: std.mem.Allocator) *il.Overlay {
+        if (self.overlay == null) self.overlay = il.Overlay.init(gpa);
+        return &self.overlay.?;
+    }
+
+    fn loadedFor(self: *const ImageFrame, path: []const u8) bool {
+        return self.has_key and std.mem.eql(u8, self.key[0..self.key_len], path);
+    }
+
+    fn remember(self: *ImageFrame, path: []const u8) void {
+        const len = @min(path.len, self.key.len);
+        @memcpy(self.key[0..len], path[0..len]);
+        self.key_len = len;
+        self.has_key = true;
+    }
+
+    /// The next frame decodes again.
+    fn forget(self: *ImageFrame) void {
+        self.release();
+        self.has_key = false;
+        self.note_len = 0;
+    }
+
+    fn release(self: *ImageFrame) void {
+        if (self.texture) |texture| if (self.device) |device| kit.pictures_cache.releaseTexture(device, texture);
+        self.texture = null;
+        self.width = 0;
+        self.height = 0;
+        self.shown = null;
+    }
+
+    /// The project is not an image kind any more: nothing of the picture stays.
+    fn close(self: *ImageFrame, b: ResBridge) void {
+        if (self.overlay) |*overlay| overlay.cancel(b);
+        self.overlay = null;
+        self.forget();
+    }
+
+    fn say(self: *ImageFrame, comptime fmt: []const u8, args: anytype) void {
+        const text = std.fmt.bufPrint(&self.note, fmt, args) catch self.note[0..];
+        self.note_len = text.len;
+    }
+
+    fn report(self: *ImageFrame, b: ResBridge, what: []const u8, err: core.bridge.EditError) void {
+        const why = b.lastMessage();
+        if (why.len != 0) self.say("{s}: {s}", .{ what, why }) else self.say("{s}: {s}", .{ what, @errorName(err) });
+    }
 };
 
 const Thumbnails = struct {
@@ -186,6 +253,8 @@ pub const Docks = struct {
     /// Where the first thumbnail's picture was drawn in the last frame, for
     /// the host check's measurement; null while it is not decoded yet.
     first_thumbnail: ?Rect = null,
+    /// ImageFrm's view of the Mission, Chapter, Campaign and Medal picture.
+    image: ImageFrame = .{},
 
     pub fn init(gpa: std.mem.Allocator, io: std.Io, real: *c_bridge.RealResBridge) Docks {
         return .{ .gpa = gpa, .io = io, .real = real, .thumbs = .{ .cache = Cache.init(gpa) } };
@@ -199,6 +268,7 @@ pub const Docks = struct {
         self.thumbs.freeNames(self.gpa);
         self.thumbs.names.deinit(self.gpa);
         self.thumbs.cache.deinit();
+        self.image.release();
     }
 
     /// A mod switch: the pictures may differ under the new mod.
@@ -341,8 +411,140 @@ pub const Docks = struct {
         if (self.show_thumbnails) self.drawThumbnails(project_folder, life, selected);
         if (self.show_direction) self.drawDirection(life.is_open and life.active == .mesh_unit, life.is_open and life.active == .effect);
         if (self.show_function) self.drawFunction(life, selected);
+        self.drawImageFrame(project_folder, life, selected);
         self.drawPreviewLine();
         self.drawParticleStatus();
+    }
+
+    // --- Image frame ----------------------------------------------------------
+
+    /// ImageFrm's window: the sub-editor's picture at its real size in a
+    /// scrolling child, the positions drawn as crosses, and the clicks and
+    /// drags fed to image_logic's Overlay. The picture is decoded once per
+    /// path (a Mission without its map_h.dds has the engine make it first).
+    fn drawImageFrame(self: *Docks, project_folder: ?[]const u8, life: *logic.Lifecycle, selected: ?i32) void {
+        const frame = &self.image;
+        const kind = if (life.is_open) il.Kind.of(life.doc.kind) else null;
+        const picked = kind orelse {
+            frame.close(self.real.bridge());
+            return;
+        };
+        const b = self.real.bridge();
+        const display = ig.igGetIO().*.DisplaySize;
+        ig.igSetNextWindowPos(.{ .x = display.x - 520, .y = 28 }, ig.ImGuiCond_FirstUseEver);
+        ig.igSetNextWindowSize(.{ .x = 500, .y = 420 }, ig.ImGuiCond_FirstUseEver);
+        defer ig.igEnd();
+        if (!ig.igBegin("Image###image_frame", null, 0)) return;
+
+        var path_buffer: [logic.path_capacity + 64]u8 = undefined;
+        const path = if (project_folder) |folder| il.sourcePath(&path_buffer, &life.doc, picked, folder) else null;
+        self.loadImage(life, picked, path);
+
+        if (picked.hasShowCrosses()) {
+            var show = frame.overlayFor(self.gpa).mode == .drag_crosses;
+            if (ig.igCheckbox("Show crosses", &show)) frame.overlayFor(self.gpa).setMode(b, if (show) .drag_crosses else .place);
+            ig.igSameLine();
+        }
+        if (ig.igButton("Reload picture")) frame.forget();
+        if (frame.note_len != 0) ig.igTextDisabled("%.*s", @as(c_int, @intCast(frame.note_len)), &frame.note);
+        const texture = frame.texture orelse {
+            if (project_folder == null) ig.igTextDisabled("Save the project to show its picture.") else if (path == null) ig.igTextDisabled("This project names no picture yet.");
+            return;
+        };
+
+        if (!ig.igBeginChild("##image_canvas", .{ .x = 0, .y = 0 }, 0, ig.ImGuiWindowFlags_HorizontalScrollbar)) {
+            ig.igEndChild();
+            return;
+        }
+        defer ig.igEndChild();
+        const overlay = frame.overlayFor(self.gpa);
+        const size = ig.ImVec2{ .x = @floatFromInt(frame.width), .y = @floatFromInt(frame.height) };
+        const top_left = ig.igGetCursorScreenPos();
+        _ = ig.igInvisibleButton("picture", size, ig.ImGuiButtonFlags_MouseButtonLeft);
+        // The cursor position already has the scroll taken off.
+        overlay.view = .{ .origin = .{ .x = top_left.x, .y = top_left.y }, .size = .{ .x = size.x, .y = size.y } };
+        const active = il.activeOf(&life.doc, picked, selected);
+        if (!life.read_only and picked.places()) {
+            const mouse = ig.igGetMousePos();
+            const at: core.bridge.Point2 = .{ .x = mouse.x, .y = mouse.y };
+            if (ig.igIsItemActivated()) overlay.press(b, &life.doc, picked, active, at) catch |err| frame.report(b, "place", err);
+            if (ig.igIsItemActive()) overlay.move(b, at) catch |err| frame.report(b, "place", err);
+            if (ig.igIsItemDeactivated()) overlay.release(b, &life.doc, &life.history, at) catch |err| frame.report(b, "place", err);
+            if (ig.igIsKeyPressedEx(ig.ImGuiKey_Escape, false)) overlay.cancel(b);
+        }
+        const draw_list = ig.igGetWindowDrawList();
+        ig.ImDrawList_AddImage(draw_list, textureRef(texture), top_left, .{ .x = top_left.x + size.x, .y = top_left.y + size.y });
+        frame.shown = .{ .x = top_left.x, .y = top_left.y, .w = size.x, .h = size.y };
+        if (!picked.places()) return;
+        var lists: [2]il.List = undefined;
+        for (il.crossLists(&life.doc, picked, &lists)) |list| {
+            var points = core.sub_editor_tools.readGeometry(b, list.node, list.channel) catch continue;
+            defer points.deinit(self.gpa);
+            for (points.points2, 0..) |point, index| {
+                const here = overlay.view.toScreen(point);
+                const is_active = if (active) |a| a.list.node == list.node and a.index == index else false;
+                const ink: u32 = if (is_active) 0xff00ffff else 0xff0000ff;
+                const arm = il.cross_size / 2;
+                ig.ImDrawList_AddLineEx(draw_list, .{ .x = here.x - arm, .y = here.y }, .{ .x = here.x + arm, .y = here.y }, ink, 2);
+                ig.ImDrawList_AddLineEx(draw_list, .{ .x = here.x, .y = here.y - arm }, .{ .x = here.x, .y = here.y + arm }, ink, 2);
+            }
+        }
+    }
+
+    /// Decodes the picture at `path` once; a Mission whose map_h.dds is
+    /// missing has the engine create it first. Failures stay in the note.
+    fn loadImage(self: *Docks, life: *const logic.Lifecycle, kind: il.Kind, path: ?[:0]const u8) void {
+        const frame = &self.image;
+        const wanted = path orelse {
+            frame.forget();
+            return;
+        };
+        if (frame.loadedFor(wanted)) return;
+        frame.release();
+        frame.remember(wanted);
+        frame.say("", .{});
+        var device: ?*anyopaque = null;
+        var format: c_uint = 0;
+        if (c.BkEditorGpuDevice(self.real.session, &device, &format) != c.BK_EDITOR_OK or device == null) {
+            frame.say("no graphics device to show the picture", .{});
+            return;
+        }
+        const pixels = self.gpa.alloc(u8, @as(usize, @intCast(il.max_side)) * @as(usize, @intCast(il.max_side)) * 4) catch {
+            frame.say("out of memory for the picture", .{});
+            return;
+        };
+        defer self.gpa.free(pixels);
+        var width: c_int = 0;
+        var height: c_int = 0;
+        var status = c.BkEditorMinimapImage(self.real.session, wanted.ptr, pixels.ptr, @intCast(pixels.len), il.max_side, &width, &height);
+        if (status != c.BK_EDITOR_OK and kind == .mission and !life.read_only) {
+            // MinimapCreation: the Mission's pictures are made on first use.
+            const made = self.real.bridge().missionMinimap();
+            if (made == .ok) {
+                status = c.BkEditorMinimapImage(self.real.session, wanted.ptr, pixels.ptr, @intCast(pixels.len), il.max_side, &width, &height);
+            } else {
+                frame.say("minimap: {s}", .{self.real.bridge().lastMessage()});
+                return;
+            }
+        }
+        if (status != c.BK_EDITOR_OK) {
+            const why = std.mem.span(c.BkEditorLastMessage(self.real.session));
+            frame.say("{s}: {s}", .{ wanted, why });
+            return;
+        }
+        if (!il.realSize(width, height)) {
+            frame.say("{s}: {s}", .{ wanted, il.too_large_message });
+            return;
+        }
+        const size: usize = @as(usize, @intCast(width)) * @as(usize, @intCast(height)) * 4;
+        const texture = kit.pictures_cache.upload(device.?, .{ .width = width, .height = height, .bytes = pixels[0..size] }) orelse {
+            frame.say("{s}: the picture could not be uploaded", .{wanted});
+            return;
+        };
+        frame.texture = texture;
+        frame.device = device;
+        frame.width = width;
+        frame.height = height;
     }
 
     /// Import, Help and About: the windows that act on the session.

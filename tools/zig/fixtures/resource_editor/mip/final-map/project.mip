@@ -1,0 +1,181 @@
+<?xml version="1.0"?>
+<Mission_Composer_Project expand="1">
+	<childs>
+		<item ClassTypeID="285212903" expand="0">
+			<default_name>Basic info</default_name>
+			<display_name>Basic info</display_name>
+			<values>
+				<item>
+					<default_name>Header text</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>header</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>SubHeader text</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>subheader</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Description text</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>desc</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Template map</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Final map</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>road3d</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Settings file</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>setting</string_value>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212906" expand="0">
+			<default_name>Combat musics</default_name>
+			<display_name>Combat musics</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212907" expand="0">
+					<default_name>Music</default_name>
+					<display_name>Music</display_name>
+					<values>
+						<item>
+							<default_name>Music file</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>music\combat1</string_value>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212906" expand="0">
+			<default_name>Exploration musics</default_name>
+			<display_name>Exploration musics</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212907" expand="0">
+					<default_name>Music</default_name>
+					<display_name>Music</display_name>
+					<values>
+						<item>
+							<default_name>Music file</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>music\explore1</string_value>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212904" expand="0">
+			<default_name>Objectives</default_name>
+			<display_name>Objectives</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212905" expand="0">
+					<default_name>Objective</default_name>
+					<display_name>Objective</display_name>
+					<values>
+						<item>
+							<default_name>Objective header</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>obj1h</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Objective text</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>obj1t</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Objective position X</default_name>
+							<value type="1" flag="1" float_value="0" int_value="40" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Objective position Y</default_name>
+							<value type="1" flag="1" float_value="0" int_value="30" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Objective secret flag</default_name>
+							<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Objective script ID</default_name>
+							<value type="1" flag="1" float_value="0" int_value="-1" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212905" expand="0">
+					<default_name>Objective</default_name>
+					<display_name>Objective</display_name>
+					<values>
+						<item>
+							<default_name>Objective header</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>sub\obj2h</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Objective text</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>sub\obj2t</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Objective position X</default_name>
+							<value type="1" flag="1" float_value="0" int_value="120" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Objective position Y</default_name>
+							<value type="1" flag="1" float_value="0" int_value="90" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Objective secret flag</default_name>
+							<value type="8" flag="8" float_value="0" int_value="1" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Objective script ID</default_name>
+							<value type="1" flag="1" float_value="0" int_value="7" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+	</childs>
+</Mission_Composer_Project>

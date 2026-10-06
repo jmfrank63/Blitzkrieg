@@ -102,6 +102,18 @@ pub const item_type = struct {
     pub const bridge_dir_explosion_props: i32 = base + 333;
     pub const bridge_smokes: i32 = base + 334;
     pub const bridge_smoke_props: i32 = base + 335;
+    pub const mission_common_props: i32 = base + 231;
+    pub const chapter_common_props: i32 = base + 241;
+    pub const campaign_common_props: i32 = base + 251;
+    pub const medal_common_props: i32 = base + 311;
+    pub const mission_objectives: i32 = base + 232;
+    pub const mission_objective_props: i32 = base + 233;
+    pub const chapter_missions: i32 = base + 242;
+    pub const chapter_mission_props: i32 = base + 243;
+    pub const chapter_places: i32 = base + 246;
+    pub const chapter_place_props: i32 = base + 247;
+    pub const campaign_chapters: i32 = base + 252;
+    pub const campaign_chapter_props: i32 = base + 253;
     pub const particle_root: i32 = base + 131;
     pub const particle_source_props: i32 = base + 133;
     pub const particle_props: i32 = base + 141;
@@ -256,16 +268,26 @@ pub fn commit(allocator: std.mem.Allocator, bridge: ResBridge, doc: *Document, h
 /// step however many moves it took.
 pub const FormationDrag = struct {
     node: i32,
+    /// The Point2 list the drag edits: the formation's slots, or the
+    /// Objectives / Missions / Place holders / Chapters crosses the image
+    /// frames drag (`beginChannel`).
+    channel: GeometryChannel = .formation_positions,
     before: []Point2,
     current: []Point2,
     moved: bool = false,
 
     /// Reads the formation's slots at the press.
     pub fn begin(allocator: std.mem.Allocator, bridge: ResBridge, formation: i32) EditError!FormationDrag {
-        var read = try readGeometry(bridge, formation, .formation_positions);
+        return beginChannel(allocator, bridge, formation, .formation_positions);
+    }
+
+    /// `begin` for any flat Point2 channel (the image frames' crosses).
+    pub fn beginChannel(allocator: std.mem.Allocator, bridge: ResBridge, node: i32, channel: GeometryChannel) EditError!FormationDrag {
+        if (channel.family() != .points2) return error.BadArgument;
+        var read = try readGeometry(bridge, node, channel);
         errdefer read.deinit(allocator);
         const current = try allocator.dupe(Point2, read.points2);
-        return .{ .node = formation, .before = read.points2, .current = current };
+        return .{ .node = node, .channel = channel, .before = read.points2, .current = current };
     }
 
     /// Moves one slot and writes the slots through the bridge.
@@ -274,7 +296,7 @@ pub const FormationDrag = struct {
         self.current[slot] = to;
         self.moved = true;
         const live: GeometryValue = .{ .points2 = self.current };
-        try bridge_mod.check(bridge.geometryWrite(self.node, .formation_positions, &live));
+        try bridge_mod.check(bridge.geometryWrite(self.node, self.channel, &live));
     }
 
     /// The release: the drag's one command, or null when no slot ended
@@ -286,7 +308,7 @@ pub const FormationDrag = struct {
         }
         const command: ResourceCommand = .{ .geometry = .{
             .node = self.node,
-            .channel = .formation_positions,
+            .channel = self.channel,
             .before = .{ .points2 = self.before },
             .after = .{ .points2 = self.current },
         } };
@@ -299,7 +321,7 @@ pub const FormationDrag = struct {
     pub fn cancel(self: *FormationDrag, allocator: std.mem.Allocator, bridge: ResBridge) void {
         if (self.moved) {
             const back: GeometryValue = .{ .points2 = self.before };
-            _ = bridge.geometryWrite(self.node, .formation_positions, &back);
+            _ = bridge.geometryWrite(self.node, self.channel, &back);
         }
         self.deinit(allocator);
     }

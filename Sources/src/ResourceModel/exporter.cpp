@@ -37,6 +37,7 @@ std::map<std::string, FExporter> &Exporters()
 		{ "mdc", &ExportMedal },
 		{ "chc", &ExportChapter },
 		{ "cgc", &ExportCampaign },
+		{ "mip", &ExportMission },
 	};
 	return exporters;
 }

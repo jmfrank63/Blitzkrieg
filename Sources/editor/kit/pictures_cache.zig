@@ -235,7 +235,9 @@ pub const Cache = struct {
     }
 };
 
-fn upload(device: *anyopaque, picture: Decoded) ?*sdl3.c.SDL_GPUTexture {
+/// Uploads one decoded picture into a new texture; the caller owns it and
+/// gives it back through `releaseTexture` (the image frame's single picture).
+pub fn upload(device: *anyopaque, picture: Decoded) ?*sdl3.c.SDL_GPUTexture {
     const gpu: *sdl3.c.SDL_GPUDevice = @ptrCast(@alignCast(device));
     const width: u32 = @intCast(picture.width);
     const height: u32 = @intCast(picture.height);
@@ -302,7 +304,7 @@ fn upload(device: *anyopaque, picture: Decoded) ?*sdl3.c.SDL_GPUTexture {
     return texture;
 }
 
-fn releaseTexture(device: *anyopaque, texture: *sdl3.c.SDL_GPUTexture) void {
+pub fn releaseTexture(device: *anyopaque, texture: *sdl3.c.SDL_GPUTexture) void {
     const gpu: *sdl3.c.SDL_GPUDevice = @ptrCast(@alignCast(device));
     sdl3.c.SDL_ReleaseGPUTexture(gpu, texture);
 }

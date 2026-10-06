@@ -32,8 +32,8 @@ the file bytes.
 | 15 | `3rd` | `3dRoadFrm.cpp` | Road Editor | `Road3D_Composer_Project` | 4269 | `de58877` | `art-16x16.tga` (picture) | 786 | `183a86e` |
 | 16 | `3rv` | `3dRiverFrm.cpp` | River Editor | `River3D_Composer_Project` | 3407 | `6d0dfc3` | `art-16x16.tga` (picture) | 786 | `f82eb26` |
 | 17 | `mip` | `MissionFrm.cpp` | Mission Editor | `Mission_Composer_Project` | 4049 | `5268e05` | `art-16x16.tga` (picture) | 786 | `c3cd6fa` |
-| 18 | `chc` | `ChapterFrm.cpp` | Chapter Editor | `Chapter_Composer_Project` | 4281 | `0e0b3f3` | `art-16x16.tga` (picture) | 786 | `b3be010` |
-| 19 | `cgc` | `CampaignFrm.cpp` | Campaign Editor | `Campaign_Composer_Project` | 4045 | `4ec50c0` | `art-16x16.tga` (picture) | 786 | `0fabb67` |
+| 18 | `chc` | `ChapterFrm.cpp` | Chapter Editor | `Chapter_Composer_Project` | 4367 | `52cf684` | `art-16x16.tga` (picture) | 786 | `b3be010` |
+| 19 | `cgc` | `CampaignFrm.cpp` | Campaign Editor | `Campaign_Composer_Project` | 4149 | `4d41e40` | `art-16x16.tga` (picture) | 786 | `0fabb67` |
 | 20 | `mdc` | `MedalFrm.cpp` | Medal Editor | `Medal_Composer_Project` | 940 | `6a0a0f2` | `art-16x16.tga` (picture) | 786 | `32ad466` |
 | 21 | `gui` | `GUIFrame.cpp` | GUI Editor | `GUI_Composer_Project` | 1354 | `2e46fb2` | `art-16x16.tga` (picture) | 786 | `4ac0872` |
 

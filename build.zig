@@ -4127,6 +4127,7 @@ fn addEditorBridge(
             "Sources/src/ResourceModel/items/medal/medal_export.cpp",
             "Sources/src/ResourceModel/items/chapter/chapter_export.cpp",
             "Sources/src/ResourceModel/items/campaign/campaign_export.cpp",
+            "Sources/src/ResourceModel/items/mission/mission_export.cpp",
             "Sources/src/ResourceModel/items/trench/trench_export.cpp",
             "Sources/src/ResourceModel/items/squad/squad_export.cpp",
             "Sources/src/ResourceModel/items/sprite/sprite_export.cpp",
