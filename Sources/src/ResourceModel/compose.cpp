@@ -488,7 +488,7 @@ bool SaveIconFile( const SExportContext &context, const std::string &szSource, c
 
 	const double fRateX = (double) ICON_SIZE / pMinImage->GetSizeX();
 	const double fRateY = (double) ICON_SIZE / pMinImage->GetSizeY();
-	const double fRate = std::min( fRateX, fRateY );
+	const double fRate = (std::min)( fRateX, fRateY );
 	CPtr<IImage> pScaleImage = pIP->CreateScale( pMinImage, fRate, ISM_LANCZOS3 );
 	if ( pScaleImage == 0 )
 	{

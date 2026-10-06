@@ -230,7 +230,7 @@ std::filesystem::file_time_type ChangeTime( const std::filesystem::path &file )
 {
 	std::error_code ec;
 	const std::filesystem::file_time_type time = std::filesystem::last_write_time( file, ec );
-	return ec ? std::filesystem::file_time_type::min() : time;
+	return ec ? (std::filesystem::file_time_type::min)() : time;
 }
 
 std::filesystem::path FoldedFile( const std::string &szPath )

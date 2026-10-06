@@ -429,7 +429,7 @@ std::string FirstByteDifference( const std::string &want, const std::string &got
 		const size_t line = s.rfind( '\n', at == 0 ? 0 : at - 1 );
 		const size_t from = line == std::string::npos ? 0 : line + 1;
 		const size_t begin = at > from + 60 ? at - 60 : from;
-		std::string out = s.substr( begin, std::min<size_t>( 120, s.size() - std::min( begin, s.size() ) ) );
+		std::string out = s.substr( begin, (std::min<size_t>)( 120, s.size() - (std::min)( begin, s.size() ) ) );
 		for ( char &c : out ) if ( c == '\r' || c == '\n' || c == '\t' ) c = ' ';
 		return out;
 	};

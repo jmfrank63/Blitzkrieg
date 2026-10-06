@@ -40,7 +40,7 @@ bool ToFormat( const std::string &szFourCC, NDxt::Format *pFormat )
 
 int MipCount( const std::string &bytes )
 {
-	return std::max( 1u, Field( bytes, 28 ) );
+	return (std::max)( 1u, Field( bytes, 28 ) );
 }
 
 int P99( const std::vector<long long> &histogram )
@@ -118,8 +118,8 @@ bool DecodeDds( const std::string &bytes, SDdsImage *pImage, std::string *pszErr
 	for ( int i = 0; i < nMips; ++i )
 	{
 		SDdsMip mip;
-		mip.nWidth = std::max( 1, nWidth >> i );
-		mip.nHeight = std::max( 1, nHeight >> i );
+		mip.nWidth = (std::max)( 1, nWidth >> i );
+		mip.nHeight = (std::max)( 1, nHeight >> i );
 		const size_t nSize = static_cast<size_t>( NDxt::GetEncodedSize( mip.nWidth, mip.nHeight, format ) );
 		if ( bytes.size() < nAt + nSize )
 		{
@@ -157,7 +157,7 @@ bool EncodeDds( const std::string &header, const SDdsImage &image, std::string *
 
 void SDxtDelta::Add( int nMip, const SDdsMip &left, const SDdsMip &right )
 {
-	const size_t nPixels = std::min( left.pixels.size(), right.pixels.size() );
+	const size_t nPixels = (std::min)( left.pixels.size(), right.pixels.size() );
 	for ( size_t i = 0; i < nPixels; ++i )
 	{
 		const unsigned a = left.pixels[i], b = right.pixels[i];
@@ -166,7 +166,7 @@ void SDxtDelta::Add( int nMip, const SDdsMip &left, const SDdsMip &right )
 		{
 			const int d = std::abs( static_cast<int>( ( a >> nShift ) & 0xff ) - static_cast<int>( ( b >> nShift ) & 0xff ) );
 			++( nShift == 24 ? alpha : colour )[d];
-			nPixelWorst = std::max( nPixelWorst, d );
+			nPixelWorst = (std::max)( nPixelWorst, d );
 		}
 		if ( nPixelWorst > nWorst )
 		{

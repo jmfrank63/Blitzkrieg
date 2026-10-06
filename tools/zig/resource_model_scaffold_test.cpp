@@ -57,7 +57,7 @@ int TreeDepth( const NResourceXml::Node &n )
 	int d = 0;
 	for ( const auto &c : n.children )
 		if ( c.kind == NResourceXml::Node::Element )
-			d = std::max( d, 1 + TreeDepth( c ) );
+			d = (std::max)( d, 1 + TreeDepth( c ) );
 	return d;
 }
 
@@ -166,7 +166,7 @@ bool RunExt( const std::string &ext, const std::string &path )
 		if ( !rt_equal )
 		{
 			size_t mismatch = 0;
-			size_t n = std::min( in.size(), out1.size() );
+			size_t n = (std::min)( in.size(), out1.size() );
 			while ( mismatch < n && in[mismatch] == out1[mismatch] ) ++mismatch;
 			std::fprintf( stderr, "SCAFFOLD %s first mismatch at byte %zu (in=0x%02X out=0x%02X), sizes in=%zu out=%zu\n",
 				ext.c_str(), mismatch,

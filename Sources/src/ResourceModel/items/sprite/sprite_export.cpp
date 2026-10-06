@@ -57,9 +57,9 @@ std::string FrameDirectory( const CTreeItem &spritesItem, const SExportContext &
 // none does.
 fs::file_time_type MaximalSourceTime( const std::vector<fs::path> &frames )
 {
-	fs::file_time_type newest = fs::file_time_type::min();
+	fs::file_time_type newest = (fs::file_time_type::min)();
 	for ( const fs::path &frame : frames )
-		newest = std::max( newest, ChangeTime( frame ) );
+		newest = (std::max)( newest, ChangeTime( frame ) );
 	return newest;
 }
 
@@ -146,14 +146,14 @@ bool ExportSprite( const Project &project, const SExportContext &context, SExpor
 	if ( !context.bForce && !context.szDataRoot.empty() )
 	{
 		const fs::file_time_type sourceTime = MaximalSourceTime( existing );
-		if ( sourceTime == fs::file_time_type::min() )
+		if ( sourceTime == (fs::file_time_type::min)() )
 		{
 			outcome.warnings.push_back( "no frame file exists: nothing to compose" );
 			return true;
 		}
 		const fs::path exported = fs::path( context.szDataRoot ) / ToSlashes( szResultDir );
-		const fs::file_time_type exportTime = std::min( ChangeTime( FoldedChild( exported, "1.san" ) ), ChangeTime( FoldedChild( exported, "1.tga" ) ) );
-		if ( exportTime >= std::max( sourceTime, ChangeTime( fs::path( context.szProjectPath ) ) ) )
+		const fs::file_time_type exportTime = (std::min)( ChangeTime( FoldedChild( exported, "1.san" ) ), ChangeTime( FoldedChild( exported, "1.tga" ) ) );
+		if ( exportTime >= (std::max)( sourceTime, ChangeTime( fs::path( context.szProjectPath ) ) ) )
 		{
 			++outcome.nSkipped;
 			return true;

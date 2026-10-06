@@ -95,11 +95,11 @@ namespace
 		const uint8_t *base = static_cast<const uint8_t*>( input.data );
 		for ( int y = 0; y < 4; ++y )
 		{
-			const int srcY = std::min( blockY * 4 + y, input.height - 1 );
+			const int srcY = (std::min)( blockY * 4 + y, input.height - 1 );
 			const uint32_t *line = reinterpret_cast<const uint32_t*>( base + srcY * input.pitch );
 			for ( int x = 0; x < 4; ++x )
 			{
-				const int srcX = std::min( blockX * 4 + x, input.width - 1 );
+				const int srcX = (std::min)( blockX * 4 + x, input.width - 1 );
 				pixels[y * 4 + x] = line[srcX];
 			}
 		}
@@ -244,8 +244,8 @@ namespace
 		for ( int i = 0; i < 16; ++i )
 		{
 			const uint8_t alpha = GetA( pixels[i] );
-			alphaMin = std::min<uint8_t>( alphaMin, alpha );
-			alphaMax = std::max<uint8_t>( alphaMax, alpha );
+			alphaMin = (std::min<uint8_t>)( alphaMin, alpha );
+			alphaMax = (std::max<uint8_t>)( alphaMax, alpha );
 		}
 		uint8_t a0 = alphaMax;
 		uint8_t a1 = alphaMin;

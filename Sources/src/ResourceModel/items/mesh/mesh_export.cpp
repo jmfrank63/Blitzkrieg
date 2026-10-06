@@ -954,8 +954,8 @@ fs::file_time_type MaximalSourceTime( const SExportContext &context, const CTree
 	fs::file_time_type newest = ChangeTime( fs::path( context.szProjectPath ) );
 	for ( int nValue : { 0, 1, 2, 3, 4, 5, 6, 7, 8 } )
 		if ( !ValueStr( graphics, nValue ).empty() )
-			newest = std::max( newest, ChangeTime( ModelFile( context, ValueStr( graphics, nValue ) ) ) );
-	newest = std::max( newest, ChangeTime( FoldedFile( ProjectDirectory( context ) + "icon.tga" ) ) );
+			newest = (std::max)( newest, ChangeTime( ModelFile( context, ValueStr( graphics, nValue ) ) ) );
+	newest = (std::max)( newest, ChangeTime( FoldedFile( ProjectDirectory( context ) + "icon.tga" ) ) );
 	return newest;
 }
 
@@ -968,13 +968,13 @@ fs::file_time_type MinimalExportTime( const SExportContext &context, const CTree
 	fs::file_time_type oldest = ChangeTime( FoldedChild( exported, "1.xml" ) );
 	for ( int nModel = 0; nModel < 3; nModel++ )
 		if ( nModel == 0 || IsFile( ModelFile( context, ValueStr( graphics, nModel ) ) ) )
-			oldest = std::min( oldest, ChangeTime( FoldedChild( exported, std::to_string( nModel + 1 ) + ".mod" ) ) );
+			oldest = (std::min)( oldest, ChangeTime( FoldedChild( exported, std::to_string( nModel + 1 ) + ".mod" ) ) );
 	for ( const STexture &texture : kTextures )
 		if ( !ValueStr( graphics, texture.nValue ).empty() )
 			for ( const char *pszSuffix : { "_c.dds", "_l.dds", "_h.dds" } )
-				oldest = std::min( oldest, ChangeTime( FoldedChild( exported, std::string( texture.pszName ) + pszSuffix ) ) );
+				oldest = (std::min)( oldest, ChangeTime( FoldedChild( exported, std::string( texture.pszName ) + pszSuffix ) ) );
 	if ( IsFile( FoldedFile( ProjectDirectory( context ) + "icon.tga" ) ) )
-		oldest = std::min( oldest, ChangeTime( FoldedChild( exported, "icon.tga" ) ) );
+		oldest = (std::min)( oldest, ChangeTime( FoldedChild( exported, "icon.tga" ) ) );
 	return oldest;
 }
 

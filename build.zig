@@ -1405,12 +1405,26 @@ pub fn build(b: *std.Build) void {
     hermeticity_step.dependOn(&hermeticity_test.step);
     if (test_mode == .run) hermeticity_step.dependOn(&hermeticity_run.step);
 
+    // windows.h min/max macros break bare std::min( in the ResourceModel and EditorBridge on MSVC only; this
+    // host-side lint catches it on every platform, including the fast Linux tiers.
+    const minmax_lint_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/windows_minmax_lint.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const minmax_lint_test = b.addTest(.{ .root_module = minmax_lint_module });
+    const minmax_lint_run = b.addRunArtifact(minmax_lint_test);
+    const minmax_lint_step = b.step("audit-windows-minmax", "Reject bare std::min/std::max in ResourceModel and EditorBridge, which windows.h macros break on MSVC");
+    minmax_lint_step.dependOn(&minmax_lint_test.step);
+    if (test_mode == .run) minmax_lint_step.dependOn(&minmax_lint_run.step);
+
     const test_platform_foundation = b.step("test-platform-foundation", "Run the portable foundation test matrix");
     test_platform_foundation.dependOn(build_support_step);
     test_platform_foundation.dependOn(platform_headers_step);
     test_platform_foundation.dependOn(stage_test_step);
     test_platform_foundation.dependOn(shader_tests_step);
     test_platform_foundation.dependOn(hermeticity_step);
+    test_platform_foundation.dependOn(minmax_lint_step);
     test_platform_foundation.dependOn(&foundation_matrix_tests.step);
     test_platform_foundation.dependOn(platform_abi_layout_step);
     test_platform_foundation.dependOn(platform_runtime_step);
@@ -10494,6 +10508,7 @@ fn addResourceModelAggregateStep(b: *std.Build) void {
     const references = &(b.top_level_steps.get("test-resource-model-references") orelse @panic("test-resource-model-references is defined by addResourceModelReferencesTest")).step;
     const comparator = &(b.top_level_steps.get("test-resource-model-comparator") orelse @panic("test-resource-model-comparator is defined by addResourceModelComparatorTest")).step;
     const fidelity = &(b.top_level_steps.get("test-resource-model-fidelity") orelse @panic("test-resource-model-fidelity is defined by addResourceModelFidelityTest")).step;
+    step.dependOn(&(b.top_level_steps.get("audit-windows-minmax") orelse @panic("audit-windows-minmax is defined in build()")).step);
     step.dependOn(scaffold);
     step.dependOn(references);
     step.dependOn(&(b.top_level_steps.get("test-resource-grid-projection") orelse @panic("test-resource-grid-projection is defined by addResourceModelGridProjectionTest")).step);

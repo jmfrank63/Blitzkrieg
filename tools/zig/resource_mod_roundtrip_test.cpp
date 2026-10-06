@@ -309,7 +309,7 @@ static bool IsPrintRounding( const std::string &szMessage )
 	double fPort = 0, fMod = 0;
 	if ( !FloatValues( szMessage, fPort, fMod ) )
 		return false;
-	return std::fabs( fPort - fMod ) <= 2e-5 * std::max( 1.0, std::fabs( fMod ) );
+	return std::fabs( fPort - fMod ) <= 2e-5 * (std::max)( 1.0, std::fabs( fMod ) );
 }
 
 static bool WithinDelta( const std::string &szMessage, double fMaxDelta )

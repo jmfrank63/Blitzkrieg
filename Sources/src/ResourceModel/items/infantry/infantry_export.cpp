@@ -280,7 +280,7 @@ bool IsReadable( const std::string &szFile )
 // FindMaximalSourceTime of the animation tree: the newest frame that exists.
 fs::file_time_type MaximalFrameTime( const CTreeItem &dirsItem, const CTreeItem &animsItem, const SExportContext &context )
 {
-	fs::file_time_type newest = fs::file_time_type::min();
+	fs::file_time_type newest = (fs::file_time_type::min)();
 	for ( const auto &pSeason : dirsItem.GetChildren() )
 		for ( const auto &pAnim : animsItem.GetChildren() )
 		{
@@ -295,7 +295,7 @@ fs::file_time_type MaximalFrameTime( const CTreeItem &dirsItem, const CTreeItem 
 					const fs::path file = FoldedFile( szDirName + pFrame->GetDisplayName() + ".tga" );
 					std::error_code ec;
 					if ( fs::is_regular_file( file, ec ) )
-						newest = std::max( newest, ChangeTime( file ) );
+						newest = (std::max)( newest, ChangeTime( file ) );
 				}
 			}
 		}
@@ -305,9 +305,9 @@ fs::file_time_type MaximalFrameTime( const CTreeItem &dirsItem, const CTreeItem 
 // GetTextureFileChangeTime: the oldest of the three .dds of a picture.
 fs::file_time_type TextureChangeTime( const fs::path &dir, const std::string &szName )
 {
-	fs::file_time_type oldest = fs::file_time_type::max();
+	fs::file_time_type oldest = (fs::file_time_type::max)();
 	for ( const char *pszSuffix : { "_c.dds", "_l.dds", "_h.dds" } )
-		oldest = std::min( oldest, ChangeTime( FoldedChild( dir, szName + pszSuffix ) ) );
+		oldest = (std::min)( oldest, ChangeTime( FoldedChild( dir, szName + pszSuffix ) ) );
 	return oldest;
 }
 
@@ -395,7 +395,7 @@ bool ComposeAnimations( const CTreeItem &root, const SExportContext &context, co
 						const std::string &szName = pAnim->GetDisplayName();
 						if ( bBloodDirExist && nBlood == 1 && ( szName == "Death" || szName == "Death down" ) )
 						{
-							szTempFileName = szTempFileName.substr( 0, szTempFileName.size() - std::min( szTempFileName.size(), szShortDirName.size() ) );
+							szTempFileName = szTempFileName.substr( 0, szTempFileName.size() - (std::min)( szTempFileName.size(), szShortDirName.size() ) );
 							szTempFileName += "blood\\";
 							szTempFileName += szShortDirName;
 						}
@@ -540,14 +540,14 @@ bool ExportInfantry( const Project &project, const SExportContext &context, SExp
 	// of 1.san, the three textures, 1.xml and name.txt of the export.
 	if ( !context.bForce && !context.bStatsOnly && !context.szDataRoot.empty() && pDirsItem != nullptr && pAnimsItem != nullptr )
 	{
-		fs::file_time_type sourceTime = std::max( ChangeTime( fs::path( context.szProjectPath ) ), MaximalFrameTime( *pDirsItem, *pAnimsItem, context ) );
-		sourceTime = std::max( sourceTime, ChangeTime( FoldedFile( ProjectDirectory( context ) + "name.txt" ) ) );
+		fs::file_time_type sourceTime = (std::max)( ChangeTime( fs::path( context.szProjectPath ) ), MaximalFrameTime( *pDirsItem, *pAnimsItem, context ) );
+		sourceTime = (std::max)( sourceTime, ChangeTime( FoldedFile( ProjectDirectory( context ) + "name.txt" ) ) );
 		const fs::path exported = FoldedFile( ( fs::path( context.szDataRoot ) / ToSlashes( szResultDir ) ).string() );
 		fs::file_time_type exportTime = ChangeTime( FoldedChild( exported, "1.san" ) );
 		for ( const char *pszName : { "1", "1w", "1a" } )
-			exportTime = std::min( exportTime, TextureChangeTime( exported, pszName ) );
-		exportTime = std::min( exportTime, ChangeTime( FoldedChild( exported, "1.xml" ) ) );
-		exportTime = std::min( exportTime, ChangeTime( FoldedChild( exported, "name.txt" ) ) );
+			exportTime = (std::min)( exportTime, TextureChangeTime( exported, pszName ) );
+		exportTime = (std::min)( exportTime, ChangeTime( FoldedChild( exported, "1.xml" ) ) );
+		exportTime = (std::min)( exportTime, ChangeTime( FoldedChild( exported, "name.txt" ) ) );
 		if ( exportTime >= sourceTime )
 		{
 			++outcome.nSkipped;

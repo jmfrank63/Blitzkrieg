@@ -503,8 +503,8 @@ static void DxtGate( const fs::path &data, const fs::path &scratch, const fs::pa
 		SDdsImage planted = image;
 		SDdsMip &mip = planted.mips[0];
 		const bool bAlpha = szName != "DXT1";
-		for ( int y = 0; y < std::min( 16, mip.nHeight ); ++y )
-			for ( int x = 0; x < std::min( 16, mip.nWidth ); ++x )
+		for ( int y = 0; y < (std::min)( 16, mip.nHeight ); ++y )
+			for ( int x = 0; x < (std::min)( 16, mip.nWidth ); ++x )
 			{
 				unsigned &nPixel = mip.pixels[static_cast<size_t>( y ) * mip.nWidth + x];
 				unsigned nFlipped = 0;
@@ -519,10 +519,10 @@ static void DxtGate( const fs::path &data, const fs::path &scratch, const fs::pa
 		std::string szPlanted;
 		EncodeDds( bytes, planted, &szPlanted, &szError );
 		WriteBytes( dir / ( szName + "-planted_c.dds" ), szPlanted );
-		const SCompareResult far = CompareDxt( ( dir / ( szName + "-planted_c.dds" ) ).string(), golden.string(), tolerance );
-		Check( far.status == ECompareStatus::DIFFERENT && HasMessage( far, szName + " colour max delta" ) && HasMessage( far, "largest delta" ) &&
-		           ( !bAlpha || HasMessage( far, szName + " alpha max delta" ) ),
-		       szName + " with a planted 16x16 region fails the gate: " + CompareStatusName( far.status ) + Messages( far ) );
+		const SCompareResult farResult = CompareDxt( ( dir / ( szName + "-planted_c.dds" ) ).string(), golden.string(), tolerance );
+		Check( farResult.status == ECompareStatus::DIFFERENT && HasMessage( farResult, szName + " colour max delta" ) && HasMessage( farResult, "largest delta" ) &&
+		           ( !bAlpha || HasMessage( farResult, szName + " alpha max delta" ) ),
+		       szName + " with a planted 16x16 region fails the gate: " + CompareStatusName( farResult.status ) + Messages( farResult ) );
 
 		const std::string truncated = bytes.substr( 0, 128 + ( bytes.size() - 128 ) / 2 );
 		WriteBytes( dir / ( szName + "-truncated_c.dds" ), truncated );
@@ -630,7 +630,7 @@ static std::string MakeTga( int nWidth, int nHeight )
 		{
 			const bool bEdge = ( ( x / 4 ) + ( y / 4 ) ) % 2 == 0;
 			tga += char( bEdge ? 200 : 40 + y * 3 );          // B
-			tga += char( x * 255 / std::max( nWidth - 1, 1 ) ); // G
+			tga += char( x * 255 / (std::max)( nWidth - 1, 1 ) ); // G
 			tga += char( bEdge ? 30 : 220 - x * 2 );          // R
 		}
 	return tga;
@@ -1645,7 +1645,7 @@ static void Goldens( const fs::path &fixtures, const fs::path &data, const fs::p
 	SDxtTolerance trenchTolerance = tolerance;
 	for ( auto &format : trenchTolerance.formats )
 		if ( format.first == "DXT5" )
-			format.second.nColourMax = format.second.nColourP99 = std::max( format.second.nColourMax, 6 );
+			format.second.nColourMax = format.second.nColourP99 = (std::max)( format.second.nColourMax, 6 );
 	SExportContext context;
 	context.findUnitKey = &FixtureUnitKey;
 	// The camera of the editor the golden's maker ran: the scene's default placement over the editor's

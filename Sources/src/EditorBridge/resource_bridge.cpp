@@ -74,6 +74,13 @@
 #include "../zlib/zlib.h"
 
 #include <algorithm>
+// MSVC has no getpid; _getpid from <process.h> is the same call.
+#ifdef _WIN32
+#include <process.h>
+#define getpid _getpid
+#else
+#include <unistd.h>
+#endif
 #include <cctype>
 #include <cmath>
 #include <cstdarg>
@@ -1286,8 +1293,8 @@ bool TilesToGrid( const NResourceModel::CListOfTiles &tiles, GeometryBlob &out, 
 			szError = "a locked tile lies left of or above tile (0, 0), which the grid cannot carry";
 			return false;
 		}
-		out.nWidth = std::max( out.nWidth, tile.nTileX + 1 );
-		out.nHeight = std::max( out.nHeight, tile.nTileY + 1 );
+		out.nWidth = (std::max)( out.nWidth, tile.nTileX + 1 );
+		out.nHeight = (std::max)( out.nHeight, tile.nTileY + 1 );
 	}
 	out.bytes.assign( static_cast<std::size_t>( out.nWidth ) * out.nHeight, 0 );
 	for ( const auto &tile : tiles )
@@ -2564,7 +2571,7 @@ void BuildReferenceLists( BkEditorSession *pSession, ResourceState &state )
 // Copies text into a fixed C field, truncated, always NUL-terminated.
 void CopyField( char *pField, std::size_t nSize, const std::string &szText )
 {
-	const std::size_t n = std::min( nSize - 1, szText.size() );
+	const std::size_t n = (std::min)( nSize - 1, szText.size() );
 	std::memcpy( pField, szText.data(), n );
 	pField[n] = 0;
 }
@@ -3556,11 +3563,11 @@ void FillEngineLookups( NResourceModel::SExportContext &context, const std::file
 				else
 				{
 					const int nNumLocators = pMeshAnimEdit->GetNumLocators();
-					std::vector<const char *> locatorNamesVector( std::max( nNumLocators, 1 ) );
+					std::vector<const char *> locatorNamesVector( (std::max)( nNumLocators, 1 ) );
 					if ( nNumLocators > 0 )
 						pMeshAnimEdit->GetAllLocatorNames( &( locatorNamesVector[0] ), nNumLocators );
 					const int nNumNodes = pMeshAnim->GetNumNodes();
-					std::vector<const char *> allNamesVector( std::max( nNumNodes, 1 ) );
+					std::vector<const char *> allNamesVector( (std::max)( nNumNodes, 1 ) );
 					if ( nNumNodes > 0 )
 						pMeshAnimEdit->GetAllNodeNames( &( allNamesVector[0] ), nNumNodes );
 					bBuilt = true;

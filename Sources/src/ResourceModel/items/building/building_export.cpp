@@ -409,8 +409,8 @@ fs::file_time_type MaximalSourceTime( const SExportContext &context, const std::
 	fs::file_time_type newest = ChangeTime( fs::path( context.szProjectPath ) );
 	for ( const SPicture &picture : pictures )
 	{
-		newest = std::max( newest, ChangeTime( SourceFile( context, picture.szSprite ) ) );
-		newest = std::max( newest, ChangeTime( SourceFile( context, picture.szShadow ) ) );
+		newest = (std::max)( newest, ChangeTime( SourceFile( context, picture.szSprite ) ) );
+		newest = (std::max)( newest, ChangeTime( SourceFile( context, picture.szShadow ) ) );
 	}
 	return newest;
 }
@@ -424,12 +424,12 @@ fs::file_time_type MinimalExportTime( const SExportContext &context, const std::
 	for ( int i = 1; i <= 3; ++i )
 	{
 		const std::string szName = std::to_string( i );
-		oldest = std::min( oldest, ChangeTime( FoldedChild( exported, szName + ".san" ) ) );
-		oldest = std::min( oldest, ChangeTime( FoldedChild( exported, szName + "s.san" ) ) );
+		oldest = (std::min)( oldest, ChangeTime( FoldedChild( exported, szName + ".san" ) ) );
+		oldest = (std::min)( oldest, ChangeTime( FoldedChild( exported, szName + "s.san" ) ) );
 		for ( const char *pszSuffix : { "_c.dds", "_l.dds", "_h.dds" } )
 		{
-			oldest = std::min( oldest, ChangeTime( FoldedChild( exported, szName + pszSuffix ) ) );
-			oldest = std::min( oldest, ChangeTime( FoldedChild( exported, szName + "s" + pszSuffix ) ) );
+			oldest = (std::min)( oldest, ChangeTime( FoldedChild( exported, szName + pszSuffix ) ) );
+			oldest = (std::min)( oldest, ChangeTime( FoldedChild( exported, szName + "s" + pszSuffix ) ) );
 		}
 	}
 	return oldest;
@@ -586,7 +586,7 @@ void BuildingStatsToTree( const SBuildingRPGStats &stats, CTreeItem &root )
 {
 	CTreeItem *pCommonProps = MutableChildOfType( root, ETIT_BUILDING_COMMON_PROPS_ITEM );
 	SetValue( pCommonProps, 0, stats.szKeyName );
-	SetValue( pCommonProps, 1, std::string( kBuildingTypes[std::max( 0, std::min( int( stats.eType ), 3 ) )] ) );
+	SetValue( pCommonProps, 1, std::string( kBuildingTypes[(std::max)( 0, (std::min)( int( stats.eType ), 3 ) )] ) );
 	SetValue( pCommonProps, 2, int( stats.fMaxHP ) );
 	SetValue( pCommonProps, 3, stats.fRepairCost );
 	SetValue( pCommonProps, 4, stats.nRestSlots );

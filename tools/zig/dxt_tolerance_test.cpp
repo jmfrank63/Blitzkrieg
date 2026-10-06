@@ -133,10 +133,10 @@ namespace
 
 	void Widen( SDxtStats &gate, const SDxtStats &stats )
 	{
-		gate.nColourMax = std::max( gate.nColourMax, stats.nColourMax );
-		gate.nColourP99 = std::max( gate.nColourP99, stats.nColourP99 );
-		gate.nAlphaMax = std::max( gate.nAlphaMax, stats.nAlphaMax );
-		gate.nAlphaP99 = std::max( gate.nAlphaP99, stats.nAlphaP99 );
+		gate.nColourMax = (std::max)( gate.nColourMax, stats.nColourMax );
+		gate.nColourP99 = (std::max)( gate.nColourP99, stats.nColourP99 );
+		gate.nAlphaMax = (std::max)( gate.nAlphaMax, stats.nAlphaMax );
+		gate.nAlphaP99 = (std::max)( gate.nAlphaP99, stats.nAlphaP99 );
 	}
 }
 

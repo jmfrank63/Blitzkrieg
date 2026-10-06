@@ -20,6 +20,13 @@
 //   [3] scratch output root: zig-out/local-test/resource_editor/t02
 #include "StdAfx.h"
 #include <algorithm>
+// MSVC has no getpid; _getpid from <process.h> is the same call.
+#ifdef _WIN32
+#include <process.h>
+#define getpid _getpid
+#else
+#include <unistd.h>
+#endif
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -3319,7 +3326,7 @@ namespace S06Export
 
 static bool Near( float a, float b )
 {
-	return std::fabs( a - b ) <= 1e-5f * std::max( 1.0f, std::fabs( b ) ) * 10.0f;
+	return std::fabs( a - b ) <= 1e-5f * (std::max)( 1.0f, std::fabs( b ) ) * 10.0f;
 }
 
 // One <item> source block per model, in the folder order MFC numbers them.
@@ -3694,7 +3701,7 @@ static void ImportRoundTrips( BkResSession *pSession, const std::string &szRoot,
 			{
 				const double fPort = std::strtod( szMessage.c_str() + nPort + 5, nullptr );
 				const double fGolden = std::strtod( szMessage.c_str() + nGolden + 7, nullptr );
-				bAllowed = std::fabs( fPort - fGolden ) <= 2e-5 * std::max( 1.0, std::fabs( fGolden ) );
+				bAllowed = std::fabs( fPort - fGolden ) <= 2e-5 * (std::max)( 1.0, std::fabs( fGolden ) );
 				if ( bAllowed )
 					continue;
 			}
@@ -3801,7 +3808,7 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		{
 			const double fPort = std::strtod( szMessage.c_str() + nPort + 5, nullptr );
 			const double fGolden = std::strtod( szMessage.c_str() + nGolden + 7, nullptr );
-			bClose = std::fabs( fPort - fGolden ) <= 2e-5 * std::max( 1.0, std::fabs( fGolden ) );
+			bClose = std::fabs( fPort - fGolden ) <= 2e-5 * (std::max)( 1.0, std::fabs( fGolden ) );
 		}
 		if ( !bClose )
 		{
@@ -4033,8 +4040,8 @@ static bool CaptureTo( BkResSession *pSession, const std::filesystem::path &tga,
 static int ChangedAround( const std::vector<unsigned char> &a, const std::vector<unsigned char> &b, int nW, int nH, float fX, float fY, int nHalf )
 {
 	int nChanged = 0;
-	for ( int y = std::max( 0, int( fY ) - nHalf ); y <= std::min( nH - 1, int( fY ) + nHalf ); ++y )
-		for ( int x = std::max( 0, int( fX ) - nHalf ); x <= std::min( nW - 1, int( fX ) + nHalf ); ++x )
+	for ( int y = (std::max)( 0, int( fY ) - nHalf ); y <= (std::min)( nH - 1, int( fY ) + nHalf ); ++y )
+		for ( int x = (std::max)( 0, int( fX ) - nHalf ); x <= (std::min)( nW - 1, int( fX ) + nHalf ); ++x )
 		{
 			const std::size_t i = ( std::size_t( y ) * nW + x ) * 3;
 			if ( std::abs( a[i] - b[i] ) > 8 || std::abs( a[i + 1] - b[i + 1] ) > 8 || std::abs( a[i + 2] - b[i + 2] ) > 8 )
@@ -4490,7 +4497,7 @@ static bool NearFloat( const std::string &szMessage )
 		return false;
 	const double fPort = std::strtod( szMessage.c_str() + nPort + 5, nullptr );
 	const double fGolden = std::strtod( szMessage.c_str() + nGolden + 7, nullptr );
-	return std::fabs( fPort - fGolden ) <= 2e-5 * std::max( 1.0, std::fabs( fGolden ) );
+	return std::fabs( fPort - fGolden ) <= 2e-5 * (std::max)( 1.0, std::fabs( fGolden ) );
 }
 
 // An imported project has no file yet: it is saved and reopened, as the editor does, before it exports.
@@ -4590,7 +4597,7 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 			++nOpaque;
 			int nWorst = 0;
 			for ( int nShift : { 0, 8, 16 } )
-				nWorst = std::max( nWorst, std::abs( int( ( argb >> nShift ) & 255 ) - int( ( nSource >> nShift ) & 255 ) ) );
+				nWorst = (std::max)( nWorst, std::abs( int( ( argb >> nShift ) & 255 ) - int( ( nSource >> nShift ) & 255 ) ) );
 			if ( nWorst <= pGate->nColourMax )
 				++nNear;
 		}
@@ -5710,7 +5717,7 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 						continue;
 					int nWorst = 0;
 					for ( int nShift : { 0, 8, 16 } )
-						nWorst = std::max( nWorst, std::abs( int( ( argb >> nShift ) & 255 ) - int( ( nSource >> nShift ) & 255 ) ) );
+						nWorst = (std::max)( nWorst, std::abs( int( ( argb >> nShift ) & 255 ) - int( ( nSource >> nShift ) & 255 ) ) );
 					nNear += nWorst <= pGate->nColourMax ? 1 : 0;
 				}
 				std::printf( "FENCE GRAPHICS %s: %d pixels within the gate\n", pszItem, nNear );
@@ -7669,7 +7676,7 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 		// A tile is 32 rows high, and CImage::CopyFromAB refuses a rectangle that does not fit (the shipped editor's atlas of tile
 		// index 0 is 16 rows high, so its golden holds no tile): the slot stays empty then, as MFC leaves it.
 		const bool bFits = nExpectedHeight >= 32;
-		const int nRows = std::min( 32, mip.nHeight );
+		const int nRows = (std::min)( 32, mip.nHeight );
 		// The art is a 32-bit targa since S16 T11 (the 24-bit one could not be opened by the shipped editor's tile export) and
 		// as large as the mask, 64 x 32, since S16 T12 (MFC runs the mask over a mask-sized rectangle of every tile).
 		const int nArtBytes = szArt.size() > 16 ? static_cast<unsigned char>( szArt[16] ) / 8 : 3;
@@ -7685,7 +7692,7 @@ static void Fixture( BkResSession *pSession, const std::string &szFixtureRoot, c
 					const int nExpected[3] = { bFits ? pArt[2] * pMask[2] / 255 : 0, bFits ? pArt[1] * pMask[1] / 255 : 0, bFits ? pArt[0] * pMask[0] / 255 : 0 };
 					const int nGotRgb[3] = { int( ( nGot >> 16 ) & 0xff ), int( ( nGot >> 8 ) & 0xff ), int( nGot & 0xff ) };
 					for ( int c = 0; c < 3; ++c )
-						nWorst = std::max( nWorst, std::abs( nExpected[c] - nGotRgb[c] ) );
+						nWorst = (std::max)( nWorst, std::abs( nExpected[c] - nGotRgb[c] ) );
 					++nCompared;
 				}
 			// Tile 2 is not in the project: its slot stays zero.

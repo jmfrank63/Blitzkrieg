@@ -252,10 +252,10 @@ void SaveSegmentInformation( TSegment &segment, const CBridgePartsItem &parts, c
 		int nTileMinY = first.nTileY, nTileMaxY = first.nTileY;
 		for ( const SAITile &tile : locked )
 		{
-			nTileMinX = std::min( nTileMinX, tile.nTileX );
-			nTileMaxX = std::max( nTileMaxX, tile.nTileX );
-			nTileMinY = std::min( nTileMinY, tile.nTileY );
-			nTileMaxY = std::max( nTileMaxY, tile.nTileY );
+			nTileMinX = (std::min)( nTileMinX, tile.nTileX );
+			nTileMaxX = (std::max)( nTileMaxX, tile.nTileX );
+			nTileMinY = (std::min)( nTileMinY, tile.nTileY );
+			nTileMaxY = (std::max)( nTileMaxY, tile.nTileY );
 		}
 
 		nUMinX = nUMaxX = nUMinY = nUMaxY = 0;
@@ -266,15 +266,15 @@ void SaveSegmentInformation( TSegment &segment, const CBridgePartsItem &parts, c
 		}
 		for ( const SAITile &tile : unlocked )
 		{
-			nUMinX = std::min( nUMinX, tile.nTileX );
-			nUMaxX = std::max( nUMaxX, tile.nTileX );
-			nUMinY = std::min( nUMinY, tile.nTileY );
-			nUMaxY = std::max( nUMaxY, tile.nTileY );
+			nUMinX = (std::min)( nUMinX, tile.nTileX );
+			nUMaxX = (std::max)( nUMaxX, tile.nTileX );
+			nUMinY = (std::min)( nUMinY, tile.nTileY );
+			nUMaxY = (std::max)( nUMaxY, tile.nTileY );
 		}
-		nTileMinX = std::min( nTileMinX, nUMinX );
-		nTileMaxX = std::max( nTileMaxX, nUMaxX );
-		nTileMinY = std::min( nTileMinY, nUMinY );
-		nTileMaxY = std::max( nTileMaxY, nUMaxY );
+		nTileMinX = (std::min)( nTileMinX, nUMinX );
+		nTileMaxX = (std::max)( nTileMaxX, nUMaxX );
+		nTileMinY = (std::min)( nTileMinY, nUMinY );
+		nTileMaxY = (std::max)( nTileMaxY, nUMaxY );
 
 		const int nWidth = nTileMaxX - nTileMinX + 1;
 		segment.passability.SetSizes( nWidth, nTileMaxY - nTileMinY + 1 );
@@ -312,10 +312,10 @@ void SaveSegmentInformation( TSegment &segment, const CBridgePartsItem &parts, c
 	int nTileMinY = transparences.front().nTileY, nTileMaxY = nTileMinY;
 	for ( const SAITile &tile : transparences )
 	{
-		nTileMinX = std::min( nTileMinX, tile.nTileX );
-		nTileMaxX = std::max( nTileMaxX, tile.nTileX );
-		nTileMinY = std::min( nTileMinY, tile.nTileY );
-		nTileMaxY = std::max( nTileMaxY, tile.nTileY );
+		nTileMinX = (std::min)( nTileMinX, tile.nTileX );
+		nTileMaxX = (std::max)( nTileMaxX, tile.nTileX );
+		nTileMinY = (std::min)( nTileMinY, tile.nTileY );
+		nTileMaxY = (std::max)( nTileMaxY, tile.nTileY );
 	}
 	const int nWidth = nTileMaxX - nTileMinX + 1;
 	segment.visibility.SetSizes( nWidth, nTileMaxY - nTileMinY + 1 );
@@ -606,7 +606,7 @@ bool FillRPGStats( SBridgeRPGStats &stats, const CTreeItem &root, const NResourc
 	// chunk's list by the child's number and the shipped editor crashes on a shorter
 	// one), so a child the chunk does not hold yet gets an entry at the origin.
 	const std::vector<const NResourceXml::Node *> fireItems = List( "FirePoints" );
-	for ( std::size_t nPoint = 0; nPoint < std::max( fireItems.size(), pFires->GetChildren().size() ); ++nPoint )
+	for ( std::size_t nPoint = 0; nPoint < (std::max)( fireItems.size(), pFires->GetChildren().size() ); ++nPoint )
 	{
 		const NResourceXml::Node *pItem = nPoint < fireItems.size() ? fireItems[nPoint] : nullptr;
 		const CTreeItem *pChild = NthChild( *pFires, nPoint );
@@ -625,7 +625,7 @@ bool FillRPGStats( SBridgeRPGStats &stats, const CTreeItem &root, const NResourc
 
 	stats.szSmokeEffect = ValueStr( *pSmokes, 0 );
 	const std::vector<const NResourceXml::Node *> smokeItems = List( "SmokePoints" );
-	for ( std::size_t nPoint = 0; nPoint < std::max( smokeItems.size(), pSmokes->GetChildren().size() ); ++nPoint )
+	for ( std::size_t nPoint = 0; nPoint < (std::max)( smokeItems.size(), pSmokes->GetChildren().size() ); ++nPoint )
 	{
 		const NResourceXml::Node *pItem = nPoint < smokeItems.size() ? smokeItems[nPoint] : nullptr;
 		const CTreeItem *pChild = NthChild( *pSmokes, nPoint );

@@ -291,7 +291,7 @@ fs::file_time_type MaximalSourceTime( const SExportContext &context, const CTree
 	fs::file_time_type newest = ChangeTime( fs::path( context.szProjectPath ) );
 	for ( const auto &pProps : graphics.GetChildren() )
 		for ( int nValue : { 0, 1 } )
-			newest = std::max( newest, ChangeTime( SourceFile( context, ValueStr( *pProps, nValue ) ) ) );
+			newest = (std::max)( newest, ChangeTime( SourceFile( context, ValueStr( *pProps, nValue ) ) ) );
 	return newest;
 }
 
@@ -309,12 +309,12 @@ fs::file_time_type MinimalExportTime( const SExportContext &context, const CTree
 		const std::string szName = kSeasonNames[nSeason++];
 		if ( nSeason > 1 && ValueStr( *pProps, 0 ).empty() )
 			continue;
-		oldest = std::min( oldest, ChangeTime( FoldedChild( exported, szName + ".san" ) ) );
-		oldest = std::min( oldest, ChangeTime( FoldedChild( exported, szName + "s.san" ) ) );
+		oldest = (std::min)( oldest, ChangeTime( FoldedChild( exported, szName + ".san" ) ) );
+		oldest = (std::min)( oldest, ChangeTime( FoldedChild( exported, szName + "s.san" ) ) );
 		for ( const char *pszSuffix : { "_c.dds", "_l.dds", "_h.dds" } )
 		{
-			oldest = std::min( oldest, ChangeTime( FoldedChild( exported, szName + pszSuffix ) ) );
-			oldest = std::min( oldest, ChangeTime( FoldedChild( exported, szName + "s" + pszSuffix ) ) );
+			oldest = (std::min)( oldest, ChangeTime( FoldedChild( exported, szName + pszSuffix ) ) );
+			oldest = (std::min)( oldest, ChangeTime( FoldedChild( exported, szName + "s" + pszSuffix ) ) );
 		}
 	}
 	return oldest;

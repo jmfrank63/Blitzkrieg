@@ -139,8 +139,8 @@ CPtr<IImage> LoadTile( const std::string &szDir, const std::string &szName, IIma
 		return 0;
 	rc.left = 0;
 	rc.top = 0;
-	rc.right = std::min( pMask->GetSizeX(), pTile->GetSizeX() );
-	rc.bottom = std::min( pMask->GetSizeY(), pTile->GetSizeY() );
+	rc.right = (std::min)( pMask->GetSizeX(), pTile->GetSizeX() );
+	rc.bottom = (std::min)( pMask->GetSizeY(), pTile->GetSizeY() );
 	pTile->ModulateColorFrom( pMask, &rc, 0, 0 );
 	return pTile;
 }
@@ -228,7 +228,7 @@ bool ExportTileSet( const Project &project, const SExportContext &context, SExpo
 		if ( const CTreeItem *pTiles = ChildItem( *pTerrain, ETIT_TILESET_TILES_ITEM ) )
 			for ( const auto &pTile : pTiles->GetChildren() )
 				if ( pTile->GetItemType() == ETIT_TILESET_TILE_PROPS_ITEM )
-					nMaxIndex = std::max( nMaxIndex, static_cast<const CTileSetTilePropsItem *>( pTile.get() )->nTileIndex );
+					nMaxIndex = (std::max)( nMaxIndex, static_cast<const CTileSetTilePropsItem *>( pTile.get() )->nTileIndex );
 	const int nSizeY = TileSetAtlasHeight( nMaxIndex );
 
 	IImageProcessor *pImageProcessor = GetImageProcessor();
