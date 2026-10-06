@@ -773,6 +773,34 @@ pub fn setExpand(t: Target, node: i32, expand: bool) EditError!void {
     if (t.doc.tree.findNode(node)) |mirror| mirror.expand = expand;
 }
 
+/// View > Expand/Collapse all (A-17, MFC's OnExpandTree): opens or closes
+/// every item under the root that has children, one `setExpand` each, so it
+/// is view state as well: no undo step, no unsaved mark. The root keeps its
+/// own state, as MFC walks only its children. Returns how many items moved.
+pub fn setExpandAll(t: Target, expand: bool) EditError!usize {
+    const root = rootId(t.doc) orelse return error.Refused;
+    var moved: usize = 0;
+    var i: usize = 0;
+    while (i < t.doc.tree.nodes.items.len) : (i += 1) {
+        const record = t.doc.tree.nodes.items[i];
+        if (record.id == root or record.expand == expand or childCount(t.doc, record.id) == 0) continue;
+        try setExpand(t, record.id, expand);
+        moved += 1;
+    }
+    return moved;
+}
+
+/// The items under the root that have children and are open: what Expand/
+/// Collapse all changes, read back by the auto tier.
+pub fn expandedCount(doc: *const Document) usize {
+    const root = rootId(doc) orelse return 0;
+    var n: usize = 0;
+    for (doc.tree.nodes.items) |record| {
+        if (record.id != root and record.expand and childCount(doc, record.id) != 0) n += 1;
+    }
+    return n;
+}
+
 /// "Insert item" on `parent` (A-28): a new child of the class the container
 /// holds, at the end of its list as MFC's AddChild put it. One undo step.
 /// Returns the new node's id.
@@ -1275,6 +1303,26 @@ test "rename is one undo step; expand is kept but is no edit" {
     try setExpand(fx.target(), fx.shells, false);
     try testing.expect(!findNode(&fx.doc, fx.shells).?.expand);
     for (fx.fake.nodes.items) |node| if (node.id == fx.shells) try testing.expect(!node.expand);
+    try testing.expect(!fx.history.dirty());
+    try testing.expectEqual(@as(usize, 0), fx.history.undo_stack.items.len);
+}
+
+test "Expand/Collapse all moves every container under the root, as view state only" {
+    var fx: Fixture = undefined;
+    try fx.init();
+    defer fx.deinit();
+    fx.history.markClean();
+    // Shells and Craters hold children; Shell and Crater are leaves and the root keeps its own state.
+    _ = try setExpandAll(fx.target(), true);
+    try testing.expectEqual(@as(usize, 2), expandedCount(&fx.doc));
+    try testing.expectEqual(@as(usize, 0), try setExpandAll(fx.target(), true));
+    try testing.expectEqual(@as(usize, 2), try setExpandAll(fx.target(), false));
+    try testing.expectEqual(@as(usize, 0), expandedCount(&fx.doc));
+    for (fx.fake.nodes.items) |node| {
+        if (node.id == fx.shells or node.id == fx.craters) try testing.expect(!node.expand);
+    }
+    try testing.expectEqual(@as(usize, 2), try setExpandAll(fx.target(), true));
+    try testing.expect(findNode(&fx.doc, fx.shells).?.expand);
     try testing.expect(!fx.history.dirty());
     try testing.expectEqual(@as(usize, 0), fx.history.undo_stack.items.len);
 }

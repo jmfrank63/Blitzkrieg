@@ -8324,7 +8324,7 @@ const resource_auto_preview_on = "1:do=preview_on,";
 
 /// The per-editor steps in run order.
 const resource_auto_steps = [_]ResourceAutoStep{
-    .{ .name = "core", .about = "Run BK_EDITOR_AUTO's core frames: new, open, edit, undo, save, export, pack, import and the exported mod in the Game", .schedule = resource_auto_core, .exit_frame = 37 },
+    .{ .name = "core", .about = "Run BK_EDITOR_AUTO's core frames: new, open, edit, undo, save, export, pack, import and the exported mod in the Game", .schedule = resource_auto_core, .exit_frame = 60 },
     .{ .name = "wpn", .about = "Run BK_EDITOR_AUTO's S06 stats sub-editors: Weapon, Mine, Trench and Squad (one step, each is short)", .schedule = resource_auto_wpn, .exit_frame = 132 },
     .{ .name = "spt", .about = "Run BK_EDITOR_AUTO's Sprite (.spt) scenario", .schedule = resource_auto_spt, .exit_frame = 168 },
     .{ .name = "unt", .about = "Run BK_EDITOR_AUTO's Infantry (.unt) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_unt, .exit_frame = 187 },
@@ -8406,9 +8406,36 @@ const resource_auto_core =
     "32:expect=dirty:true," ++
     "33:shot=imported," ++
     "34:expect=shot_lit:imported," ++
+    // View menu (A-13, A-16, A-17) on the imported project: the background
+    // colour paints the frame (pixel count of that colour from none to many),
+    // Collapse all and Expand all move the open items read back from the tree,
+    // and hiding the tree and the inspector changes the frame.
+    "35:expect=shot_colour:imported/336699/max/0," ++
+    "36:do=background:336699," ++
+    "37:expect=background:336699," ++
+    "38:shot=bg_on," ++
+    "39:expect=shot_colour:bg_on/336699/min/20000," ++
+    "40:do=expand_all," ++
+    "41:expect=expanded_min:1," ++
+    "42:do=collapse_all," ++
+    "43:expect=expanded:0," ++
+    "44:do=expand_toggle," ++
+    "45:expect=expanded:0," ++
+    "46:do=expand_toggle," ++
+    "47:expect=expanded_min:1," ++
+    "48:do=view:tree:off," ++
+    "49:do=view:inspector:off," ++
+    "50:expect=view:tree=off," ++
+    "51:shot=panels_off," ++
+    "52:differ=bg_on/panels_off@1," ++
+    "53:do=view:tree:on," ++
+    "54:do=view:inspector:on," ++
+    "55:do=view:status_bar:off," ++
+    "56:expect=view:status_bar=off," ++
+    "57:do=view:status_bar:on," ++
     // The exported mod played in the real Game.
-    "35:do=run_game," ++
-    "36:waitgame=240,";
+    "58:do=run_game," ++
+    "59:waitgame=240,";
 
 /// S06's four stats sub-editors (Weapon, Mine, Trench, Squad) share one mod folder and one run.
 const resource_auto_wpn =

@@ -72,6 +72,10 @@
 //!   do=function_close       the Function window closed
 //!   The curve gestures are real SDL mouse and key events on the host's queue, aimed by the widget's own key-to-pixel
 //!   mapping, one frame per step; the stored keys are asserted within one pixel's worth of value.
+//!   do=view:<toolbar|status_bar|tree|inspector>:<on|off>   a View menu toggle (A-13), through Panels.setView
+//!   do=background:<rrggbb>  View > Set Background Colour (A-16), through Panels.setBackground; the next frame paints it
+//!   do=expand_all|collapse_all|expand_toggle   View > Expand/Collapse all (A-17): the item states set directly, or
+//!                           MFC's flag flipped (Ctrl+C), through edit_logic.setExpandAll; prints the items moved
 //!   do=camera               the preview's Camera button (horizontal against default camera)
 //!   do=particle_info        the Get particle info button, through docks_logic.ParticleStatus; prints the four numbers
 //!   do=source_mode:complex|simple   the Particle source button (docks_logic.SourceToggle: one undo step, the tree items open or close); prints the mode read back
@@ -101,6 +105,8 @@
 //!          keys:<n>  the curve's stored key count  key:<i>=<x>/<y>  one stored key (within 0.02)
 //!          effect_angle:<deg>  the Direction dock's degrees text for the bridge's stored angle (within 0.1)
 //!          shot_curve_handle:<shot>/<i>  the displayed handle of key i is in the shot, measured at its drawn place
+//!          view:<name>=<on|off>  background:<rrggbb>  a View toggle and the background colour as held
+//!          expanded:<n>  expanded_min:<n>  the open items under the root that have children (read back from the tree)
 //!          zoom:<xs>/<ys>  the curve's pixels per step  camera:horizontal|default  the Camera button's state
 //!
 //! `{dir}` (the scratch folder), `{fix}` (the fixtures folder) and `{mods}`
@@ -131,6 +137,7 @@ const grid = @import("grid_logic.zig");
 const keyframe = @import("keyframe_logic.zig");
 const docks_mod = @import("docks.zig");
 const terrain = @import("terrain_logic.zig");
+const view_logic = @import("view_logic.zig");
 
 const c = c_bridge.c;
 
@@ -178,6 +185,10 @@ const Slot = struct {
 };
 
 // --- Shared pieces -----------------------------------------------------------
+
+fn onOff(on: bool) []const u8 {
+    return if (on) "on" else "off";
+}
 
 /// One frame of the interactive loop's drawing: events, the panels over the
 /// engine's frame.
@@ -684,6 +695,27 @@ const Runner = struct {
         }
         if (eql(u8, name, "preview_on")) {
             self.preview_on = true;
+            return null;
+        }
+        if (eql(u8, name, "view")) {
+            const colon = std.mem.indexOfScalar(u8, named.arg, ':') orelse return self.fail("view needs <name>:<on|off>", .{});
+            const part = view_logic.Part.parse(named.arg[0..colon]) orelse return self.fail("view: '{s}' is not toolbar, status_bar, tree or inspector", .{named.arg[0..colon]});
+            const state = named.arg[colon + 1 ..];
+            if (!eql(u8, state, "on") and !eql(u8, state, "off")) return self.fail("view needs on or off, not '{s}'", .{state});
+            self.panels.setView(part, eql(u8, state, "on"));
+            std.debug.print("resource-editor: auto: view toolbar={s} status_bar={s} tree={s} inspector={s}\n", .{ onOff(self.panels.view.toolbar), onOff(self.panels.view.status_bar), onOff(self.panels.view.tree), onOff(self.panels.view.inspector) });
+            return null;
+        }
+        if (eql(u8, name, "background")) {
+            const rgb = view_logic.parseColour(named.arg) orelse return self.fail("background needs <rrggbb>", .{});
+            self.panels.setBackground(rgb);
+            std.debug.print("resource-editor: auto: background colour {x:0>6}\n", .{rgb});
+            return null;
+        }
+        if (eql(u8, name, "expand_all") or eql(u8, name, "collapse_all") or eql(u8, name, "expand_toggle")) {
+            const open_state = if (eql(u8, name, "expand_toggle")) self.panels.view.flipExpand() else eql(u8, name, "expand_all");
+            const moved = edit.setExpandAll(self.target(), open_state) catch return self.fail("{s}: {s}", .{ name, b.lastMessage() });
+            std.debug.print("resource-editor: auto: {s}: {d} items moved, {d} open now\n", .{ name, moved, edit.expandedCount(&self.life.doc) });
             return null;
         }
         if (eql(u8, name, "mesh_variant")) {
@@ -2353,6 +2385,25 @@ const Runner = struct {
         if (eql(u8, name, "nodes")) {
             const want = std.fmt.parseInt(usize, arg, 10) catch return self.fail("nodes needs a number", .{});
             if (self.life.doc.tree.nodes.items.len != want) return self.fail("expect=nodes:{d} was false: {d} nodes", .{ want, self.life.doc.tree.nodes.items.len });
+            return null;
+        }
+        if (eql(u8, name, "view")) {
+            const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return self.fail("view needs <name>=<on|off>", .{});
+            const part = view_logic.Part.parse(arg[0..eq]) orelse return self.fail("expect=view: '{s}' is not a toggle", .{arg[0..eq]});
+            if (self.panels.view.shown(part) != std.mem.eql(u8, arg[eq + 1 ..], "on")) return self.fail("expect=view:{s} was false", .{arg});
+            return null;
+        }
+        if (eql(u8, name, "background")) {
+            const want = view_logic.parseColour(arg) orelse return self.fail("background needs <rrggbb>", .{});
+            if (self.panels.view.background != want) return self.fail("expect=background:{s} was false", .{arg});
+            return null;
+        }
+        if (eql(u8, name, "expanded") or eql(u8, name, "expanded_min")) {
+            const want = std.fmt.parseInt(usize, arg, 10) catch return self.fail("{s} needs a number", .{name});
+            const have = edit.expandedCount(&self.life.doc);
+            std.debug.print("resource-editor: auto: {d} open items under the root\n", .{have});
+            const ok = if (name.len == 8) have == want else have >= want;
+            if (!ok) return self.fail("expect={s}:{d} was false: {d} open", .{ name, want, have });
             return null;
         }
         if (eql(u8, name, "nodes_min")) {

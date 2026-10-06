@@ -50,6 +50,16 @@ pub const Settings = struct {
     /// folder holding the Game that Run Blitzkrieg starts; empty means the
     /// Game installed beside the editor (D-08).
     game_folder: FixedPath = .{},
+    /// View menu (A-13): the toolbar (the Editors combo), the status line,
+    /// the project tree and the object inspector, each shown until hidden.
+    view_toolbar: bool = true,
+    view_status_bar: bool = true,
+    view_tree: bool = true,
+    view_inspector: bool = true,
+    /// View > Set Background Colour (A-16) as 0xRRGGBB; null keeps the
+    /// engine's own clear colour (MFC's default 0x80808080 is not a colour
+    /// the picker can give back).
+    background_colour: ?u32 = null,
 
     pub fn sourceFolder(self: *const Settings) []const u8 {
         return self.source_folder.slice();
@@ -98,6 +108,12 @@ pub const Settings = struct {
     }
 };
 
+fn parseFlag(value: []const u8) ?bool {
+    if (std.mem.eql(u8, value, "on")) return true;
+    if (std.mem.eql(u8, value, "off")) return false;
+    return null;
+}
+
 /// Lenient like the kit's parser: unknown or malformed lines keep defaults.
 pub fn parse(text: []const u8) Settings {
     var settings: Settings = .{};
@@ -118,6 +134,17 @@ pub fn parse(text: []const u8) Settings {
             settings.source_folder.set(value);
         } else if (std.mem.eql(u8, key, "game_folder")) {
             settings.game_folder.set(value);
+        } else if (std.mem.eql(u8, key, "view_toolbar")) {
+            settings.view_toolbar = parseFlag(value) orelse true;
+        } else if (std.mem.eql(u8, key, "view_status_bar")) {
+            settings.view_status_bar = parseFlag(value) orelse true;
+        } else if (std.mem.eql(u8, key, "view_tree")) {
+            settings.view_tree = parseFlag(value) orelse true;
+        } else if (std.mem.eql(u8, key, "view_inspector")) {
+            settings.view_inspector = parseFlag(value) orelse true;
+        } else if (std.mem.eql(u8, key, "background_colour")) {
+            const rgb = std.fmt.parseInt(u32, value, 16) catch null;
+            settings.background_colour = if (rgb) |v| (if (v <= 0xFFFFFF) v else null) else null;
         }
     }
     return settings;
@@ -132,6 +159,12 @@ pub fn format(settings: *const Settings, writer: *std.Io.Writer) std.Io.Writer.E
     if (settings.projectsFolder().len != 0) try writer.print("projects_folder={s}\n", .{settings.projectsFolder()});
     if (settings.sourceFolder().len != 0) try writer.print("source_folder={s}\n", .{settings.sourceFolder()});
     if (settings.gameFolder().len != 0) try writer.print("game_folder={s}\n", .{settings.gameFolder()});
+    // The view keys come last among the own keys and only when they differ from the defaults.
+    if (!settings.view_toolbar) try writer.writeAll("view_toolbar=off\n");
+    if (!settings.view_status_bar) try writer.writeAll("view_status_bar=off\n");
+    if (!settings.view_tree) try writer.writeAll("view_tree=off\n");
+    if (!settings.view_inspector) try writer.writeAll("view_inspector=off\n");
+    if (settings.background_colour) |rgb| try writer.print("background_colour={x:0>6}\n", .{rgb});
     try ks.writeSharedTailKeys(settings, writer);
     try ks.writeRecentLines(settings, writer);
 }
@@ -226,6 +259,29 @@ test "Set Directories' source and game folders round-trip after projects_folder,
     var empty_writer: std.Io.Writer = .fixed(&buffer);
     try format(&Settings{}, &empty_writer);
     try testing.expect(std.mem.indexOf(u8, empty_writer.buffered(), "_folder") == null);
+}
+
+test "the View toggles and the background colour round-trip after game_folder, and stay out at their defaults" {
+    var settings: Settings = .{};
+    settings.game_folder.set("/g");
+    settings.view_status_bar = false;
+    settings.view_tree = false;
+    settings.background_colour = 0x0a1b2c;
+    var buffer: [512]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    try testing.expect(std.mem.indexOf(u8, writer.buffered(), "game_folder=/g\nview_status_bar=off\nview_tree=off\nbackground_colour=0a1b2c\n") != null);
+    const back = parse(writer.buffered());
+    try testing.expect(back.view_toolbar and back.view_inspector);
+    try testing.expect(!back.view_status_bar and !back.view_tree);
+    try testing.expectEqual(@as(u32, 0x0a1b2c), back.background_colour.?);
+
+    var empty_writer: std.Io.Writer = .fixed(&buffer);
+    try format(&Settings{}, &empty_writer);
+    try testing.expect(std.mem.indexOf(u8, empty_writer.buffered(), "view_") == null);
+    try testing.expect(std.mem.indexOf(u8, empty_writer.buffered(), "background_colour") == null);
+    const bad = parse("view_tree=maybe\nbackground_colour=zz\nbackground_colour=1000000\n");
+    try testing.expect(bad.view_tree and bad.background_colour == null);
 }
 
 test "forgetRecent drops one entry by path" {

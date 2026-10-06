@@ -13,6 +13,7 @@ const logic = @import("panels_logic.zig");
 const edit = @import("edit_logic.zig");
 const squad = @import("squad_logic.zig");
 const mesh = @import("mesh_logic.zig");
+const view_logic = @import("view_logic.zig");
 const grid = @import("grid_logic.zig");
 
 const ig = imgui.c;
@@ -117,6 +118,14 @@ pub const Panels = struct {
     grid_zoom: f32 = 1,
     status: [256]u8 = undefined,
     status_len: usize = 0,
+    /// The View menu's state (A-13, A-16, A-17); main.zig loads it from the
+    /// settings and stores it back when `view_changed` is set.
+    view: view_logic.View = .{},
+    view_changed: bool = false,
+    background_open: bool = false,
+    /// The preview scene is showing, so the background colour leaves the
+    /// engine's frame alone (it would hide the scene).
+    preview_showing: bool = false,
 
     const StringsEntry = struct { key: PropKey, entries: []ReferenceEntry };
 
@@ -181,12 +190,68 @@ pub const Panels = struct {
         if (ig.igMenuItemEx("Rename item", "F2", false, can_edit and primary != null)) self.beginRename(life, primary.?);
     }
 
+    /// View menu items that belong to the panels (A-13, A-16, A-17), inside the
+    /// main menu bar's View menu, after the docks' own.
+    pub fn drawViewMenuItems(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
+        ig.igSeparator();
+        inline for (@typeInfo(view_logic.Part).@"enum".fields) |field| {
+            const part = @field(view_logic.Part, field.name);
+            if (ig.igMenuItemEx(part.label().ptr, null, self.view.shown(part), true)) self.setView(part, !self.view.shown(part));
+        }
+        ig.igSeparator();
+        if (ig.igMenuItemEx("Set Background Colour...", null, false, true)) self.background_open = true;
+        if (ig.igMenuItemEx("Expand/Collapse all", mod_label ++ "+C", false, life.is_open)) self.toggleExpandAll(gpa, b, life);
+    }
+
+    pub fn setView(self: *Panels, part: view_logic.Part, on: bool) void {
+        if (self.view.set(part, on)) self.view_changed = true;
+    }
+
+    pub fn setBackground(self: *Panels, rgb: u32) void {
+        if (self.view.background == rgb) return;
+        self.view.background = rgb;
+        self.view_changed = true;
+    }
+
+    /// MFC's OnExpandTree: the flag flips and every item follows it.
+    pub fn toggleExpandAll(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
+        if (!life.is_open) return;
+        const expand = self.view.flipExpand();
+        const moved = edit.setExpandAll(target(life, gpa, b), expand) catch |err| return self.report(b, "expand all", err);
+        self.say("{s} {d} items", .{ if (expand) "expanded" else "collapsed", moved });
+    }
+
+    /// Fills the window behind every ImGui window with the chosen colour,
+    /// unless the preview scene is showing there.
+    fn drawBackground(self: *Panels) void {
+        const rgb = self.view.background orelse return;
+        if (self.preview_showing) return;
+        const size = ig.igGetIO().*.DisplaySize;
+        const colour = 0xff000000 | ((rgb & 0xFF) << 16) | (rgb & 0xFF00) | ((rgb >> 16) & 0xFF);
+        ig.ImDrawList_AddRectFilled(ig.igGetBackgroundDrawList(), .{ .x = 0, .y = 0 }, size, colour);
+    }
+
+    fn drawBackgroundPicker(self: *Panels) void {
+        if (!self.background_open) return;
+        var rgb = view_logic.unpackColour(self.view.background orelse 0x808080);
+        if (ig.igBegin("Set Background Colour", &self.background_open, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
+            if (ig.igColorPicker3("##background", &rgb, 0)) self.setBackground(view_logic.packColour(rgb[0], rgb[1], rgb[2]));
+            if (ig.igButton("Engine colour")) {
+                if (self.view.background != null) self.view_changed = true;
+                self.view.background = null;
+            }
+        }
+        ig.igEnd();
+    }
+
     /// Ctrl/Cmd+Z, +Y and +Shift+Z anywhere; Delete, Insert and F2 while the
     /// tree has the focus. Nothing while a text field has the keyboard.
     pub fn handleShortcuts(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
         const io = ig.igGetIO();
         if (io.*.WantTextInput or !life.is_open) return;
         const ctrl = io.*.KeyCtrl or io.*.KeySuper;
+        // The GUI editor's overlay copies on Ctrl+C while it has the focus.
+        if (ctrl and !io.*.KeyShift and ig.igIsKeyPressedEx(ig.ImGuiKey_C, false) and (life.doc.kind != .gui_frame or self.tree_focused)) self.toggleExpandAll(gpa, b, life);
         const key: edit.Key = if (ig.igIsKeyPressedEx(ig.ImGuiKey_Z, true)) .z else if (ig.igIsKeyPressedEx(ig.ImGuiKey_Y, true)) .y else if (ig.igIsKeyPressedEx(ig.ImGuiKey_Delete, false)) .delete else if (ig.igIsKeyPressedEx(ig.ImGuiKey_Insert, false)) .insert else if (ig.igIsKeyPressedEx(ig.ImGuiKey_F2, false)) .f2 else .other;
         switch (edit.shortcutFor(key, ctrl, io.*.KeyShift, self.tree_focused)) {
             .none => {},
@@ -241,6 +306,8 @@ pub const Panels = struct {
     /// The tree and the inspector, then the dialogs they opened. Call once a
     /// frame while a project may be open.
     pub fn draw(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle, window: ?*sdl3.c.SDL_Window) void {
+        self.drawBackground();
+        self.drawBackgroundPicker();
         if (!life.is_open) {
             self.selection.clear();
             self.active = null;
@@ -248,8 +315,8 @@ pub const Panels = struct {
         }
         self.selection.prune(&life.doc);
         if (self.selection.primary == null) if (edit.rootId(&life.doc)) |root| self.selection.only(gpa, root) catch {};
-        self.drawTree(gpa, b, life);
-        self.drawInspector(gpa, b, life, window);
+        if (self.view.tree) self.drawTree(gpa, b, life) else self.tree_focused = false;
+        if (self.view.inspector) self.drawInspector(gpa, b, life, window);
         if (life.active == .squad) self.drawFormation(gpa, b, life) else self.overlay = null;
         if (life.active == .mesh_unit) self.drawMeshPreview(gpa, b, life) else self.mesh_toolbar.reset();
         if (grid.registrationFor(life.doc.kind) != null) {
@@ -905,7 +972,7 @@ pub const Panels = struct {
             }
             ig.igEndTable();
         }
-        if (self.status_len != 0) {
+        if (self.status_len != 0 and self.view.status_bar) {
             ig.igSeparator();
             ig.igPushTextWrapPos(0);
             ig.igTextUnformattedEx(&self.status, @as([*]const u8, &self.status) + self.status_len);
