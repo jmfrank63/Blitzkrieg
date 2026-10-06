@@ -1,0 +1,14 @@
+# resource-editor-game-reads-it: where each kind's export is and which shipped resource it replaces.
+# Columns: <ext> <project folder> <exported folder> <shipped folder> <stream the Game opens>.
+# The project folder names the export (a project exports into a folder named after the one it sits in);
+# the exported and shipped folders and the stream are relative to the mod's data folder. A '-' needs no copy:
+# the export already has the shipped path. The Game must open <stream> from the mod (BK_MOD_TRACE).
+wpn generic - - weapons/generic.xml
+unt mosin units/humans/mosin units/humans/ussr/mosin units/humans/ussr/mosin/1.xml
+msh pz_v_panther_ausf_g units/technics/pz_v_panther_ausf_g units/technics/german/tanks/pz_v_panther_ausf_g units/technics/german/tanks/pz_v_panther_ausf_g/1.xml
+obt roadpost objects/roadpost objects/simpleobjects/common/summer/roadpost objects/simpleobjects/common/summer/roadpost/1.xml
+fnc w_villagefence fences/w_villagefence fences/ussr/winter/w_villagefence fences/ussr/winter/w_villagefence/1.xml
+bld a_h01_1 buildings/a_h01_1 buildings/africa/summer/a_h01_1 buildings/africa/summer/a_h01_1/1.xml
+scp german_gunner - - squads/german_gunner/1.xml
+mcp mine_at - - objects/simpleobjects/common/summer/mine/mine_at/1.xml
+bdg asphaltbridge_special bridges/asphaltbridge_special bridges/asphaltbridge_special/02 bridges/asphaltbridge_special/02/1.xml

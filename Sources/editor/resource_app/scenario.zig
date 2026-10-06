@@ -20,11 +20,19 @@
 //!   do=set_prop:<name>=<value>                 the first property of that name
 //!   do=close                do=import:unt      the shipped Gunner as infantry
 //!   do=copy:<from>><to>     a tracked fixture to a scratch path, so Open locks the copy
+//!   do=copy_tree:<from>><to>   every file under a folder (a fixture's golden exports aside), to the same relative paths under another
 //!   do=mod_dir:<folder>     the MOD's export folder (MOD Settings)
 //!   do=export               Export Result into it
 //!   do=export_refused       the same while the kind has no exporter: refused, naming the kind
 //!   do=pack:<file.pak>      Compress to PAK, read back by the engine
 //!   do=run_game             Game with -mod=<export folder>, then waitgame=<s>
+//!   do=run_game:<map>       the same on multiplayer\<map>.bzm (BK_MOD_TRACE and BK_DEBUG_LOG on, the Game's frame 300 exits)
+//!   do=gri_copy:<ext>       resource-editor-game-reads-it: the fixture of that kind copied to {dir}/src/<ext>/<folder> and opened,
+//!                           the folder named by its row of {fix}/game-reads-it.auto (an argument holds 64 characters, a
+//!                           shipped path more)
+//!   do=gri_mirror:<ext>     that row's export folder copied under the shipped resource's path in the mod
+//!   expect=mod_read:<ext>   the last Game's log shows that row's file opened from the MOD (BK_MOD_TRACE); one
+//!                           KIND=<ext> PROOF=game line of result.log, PASS or FAIL
 //!   do=tree:<action>        a weapon or trench tree action on the first fitting node:
 //!                           add_shoot_type, add_crater, add_source (one undo step)
 //!   do=squad_drag:<slot>/<dx>/<dy>   a formation member dragged by a world offset
@@ -138,6 +146,7 @@ const keyframe = @import("keyframe_logic.zig");
 const docks_mod = @import("docks.zig");
 const terrain = @import("terrain_logic.zig");
 const view_logic = @import("view_logic.zig");
+const game_reads = @import("game_reads_logic.zig");
 
 const c = c_bridge.c;
 
@@ -405,6 +414,9 @@ const Runner = struct {
     fixtures: []const u8,
     base_root: []const u8,
     running: ?testlaunch.Running = null,
+    /// The manifest row last looked up (griRow), kept as one line so its slices outlive the file's bytes.
+    gri_row_storage: [1024]u8 = undefined,
+    gri_row_text: []const u8 = "",
     exported: bool = false,
     /// The docks' preview state (Run, Stop), driven here the way Docks drives
     /// it, since the auto tier draws only the panels.
@@ -621,6 +633,34 @@ const Runner = struct {
             cwd.writeFile(self.io, .{ .sub_path = to, .data = bytes }) catch |err| return self.fail("copy to {s}: {s}", .{ to, @errorName(err) });
             return null;
         }
+        if (eql(u8, name, "copy_tree")) {
+            const arrow = std.mem.indexOfScalar(u8, named.arg, '>') orelse return self.fail("copy_tree needs <from>><to>", .{});
+            var from_buffer: [logic.path_capacity]u8 = undefined;
+            const from = self.expand(&from_buffer, named.arg[0..arrow]) orelse return self.fail("the path is too long", .{});
+            const to = self.expand(&buffer, named.arg[arrow + 1 ..]) orelse return self.fail("the path is too long", .{});
+            return self.copyTree(from, to);
+        }
+        if (eql(u8, name, "gri_copy")) {
+            const row = self.griRow(named.arg) orelse return null;
+            const from = std.fmt.bufPrint(&buffer, "{s}{c}{s}", .{ self.fixtures, std.fs.path.sep, row.ext }) catch return self.fail("the path is too long", .{});
+            var to_buffer: [logic.path_capacity]u8 = undefined;
+            const to = std.fmt.bufPrint(&to_buffer, "{s}{c}src{c}{s}{c}{s}", .{ self.dir, std.fs.path.sep, std.fs.path.sep, row.ext, std.fs.path.sep, row.folder }) catch return self.fail("the path is too long", .{});
+            if (self.copyTree(from, to)) |reason| return reason;
+            const project = std.fmt.bufPrint(&buffer, "{s}{c}project.{s}", .{ to, std.fs.path.sep, row.ext }) catch return self.fail("the path is too long", .{});
+            const result = self.life.openProject(self.gpa, b, project, owner) catch return self.fail("open {s}: {s}", .{ project, b.lastMessage() });
+            if (result == .read_only) return self.fail("{s} opened read-only", .{project});
+            return null;
+        }
+        if (eql(u8, name, "gri_mirror")) {
+            const row = self.griRow(named.arg) orelse return null;
+            if (std.mem.eql(u8, row.exported, "-")) return null;
+            var mod: core.bridge.ModSettings = .{};
+            if (b.modSettingsGet(&mod) != .ok) return self.fail("MOD settings: {s}", .{b.lastMessage()});
+            var to_buffer: [logic.path_capacity]u8 = undefined;
+            const from = std.fmt.bufPrint(&buffer, "{s}{c}data{c}{s}", .{ std.mem.trimEnd(u8, mod.exportDirSlice(), "/\\"), std.fs.path.sep, std.fs.path.sep, row.exported }) catch return self.fail("the path is too long", .{});
+            const to = std.fmt.bufPrint(&to_buffer, "{s}{c}data{c}{s}", .{ std.mem.trimEnd(u8, mod.exportDirSlice(), "/\\"), std.fs.path.sep, std.fs.path.sep, row.shipped }) catch return self.fail("the path is too long", .{});
+            return self.copyTree(from, to);
+        }
         if (eql(u8, name, "import")) {
             const kind = logic.kindFromExtension(named.arg) orelse return self.fail("import: '{s}' is not a project extension", .{named.arg});
             if (kind != .animation_infantry) return self.fail("import: only .unt has a tracked folder to import from", .{});
@@ -683,7 +723,7 @@ const Runner = struct {
             return null;
         }
         if (eql(u8, name, "squad_arrow")) return self.squadArrow(named.arg);
-        if (eql(u8, name, "run_game")) return self.runGame();
+        if (eql(u8, name, "run_game")) return self.runGame(if (named.arg.len == 0) null else named.arg);
         if (eql(u8, name, "frame")) {
             docks_logic.addFrameFromPicture(self.gpa, b, &self.life, null, named.arg) catch return self.fail("frame:{s}: {s}", .{ named.arg, b.lastMessage() });
             return null;
@@ -2338,7 +2378,91 @@ const Runner = struct {
         return null;
     }
 
-    fn runGame(self: *Runner) ?[]const u8 {
+    /// Every file under `from`, written to the same relative path under `to`. The exports and the
+    /// fixtures' art are a few folders deep, and the Game-reads-it run moves an export to the shipped
+    /// resource's path with it.
+    fn copyTree(self: *Runner, from: []const u8, to: []const u8) ?[]const u8 {
+        const cwd = std.Io.Dir.cwd();
+        var dir = cwd.openDir(self.io, from, .{ .iterate = true }) catch |err| return self.fail("copy_tree {s}: {s}", .{ from, @errorName(err) });
+        defer dir.close(self.io);
+        var walker = dir.walk(self.gpa) catch return self.fail("copy_tree {s}: out of memory", .{from});
+        defer walker.deinit();
+        var count: usize = 0;
+        while (walker.next(self.io) catch |err| return self.fail("copy_tree {s}: {s}", .{ from, @errorName(err) })) |entry| {
+            if (entry.kind != .file) continue;
+            // The fixtures' golden exports are not source art.
+            if (std.mem.startsWith(u8, entry.path, "golden")) continue;
+            var source_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+            var out_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+            const source = std.fmt.bufPrint(&source_buffer, "{s}{c}{s}", .{ from, std.fs.path.sep, entry.path }) catch return self.fail("the path is too long", .{});
+            const out_path = std.fmt.bufPrint(&out_buffer, "{s}{c}{s}", .{ to, std.fs.path.sep, entry.path }) catch return self.fail("the path is too long", .{});
+            const bytes = cwd.readFileAlloc(self.io, source, self.gpa, .limited(64 << 20)) catch |err| return self.fail("copy_tree {s}: {s}", .{ source, @errorName(err) });
+            defer self.gpa.free(bytes);
+            if (std.fs.path.dirname(out_path)) |parent| cwd.createDirPath(self.io, parent) catch |err| return self.fail("{s}: {s}", .{ parent, @errorName(err) });
+            cwd.writeFile(self.io, .{ .sub_path = out_path, .data = bytes }) catch |err| return self.fail("copy_tree to {s}: {s}", .{ out_path, @errorName(err) });
+            count += 1;
+        }
+        if (count == 0) return self.fail("copy_tree {s}: no files", .{from});
+        return null;
+    }
+
+    /// The row of {fix}/game-reads-it.auto for a kind, or null after the failure is reported.
+    fn griRow(self: *Runner, ext: []const u8) ?game_reads.Row {
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const path = std.fmt.bufPrint(&path_buffer, "{s}{c}game-reads-it.auto", .{ self.fixtures, std.fs.path.sep }) catch {
+            _ = self.fail("the manifest path is too long", .{});
+            return null;
+        };
+        const bytes = readFile(self.io, self.gpa, path) catch |err| {
+            _ = self.fail("{s}: {s}", .{ path, @errorName(err) });
+            return null;
+        };
+        defer self.gpa.free(bytes);
+        const row = game_reads.findRow(bytes, ext) orelse {
+            _ = self.fail("{s} has no row for '{s}'", .{ path, ext });
+            return null;
+        };
+        // The row's slices point into bytes, freed here: keep them in the Runner's own storage.
+        self.gri_row_text = std.fmt.bufPrint(&self.gri_row_storage, "{s} {s} {s} {s} {s}", .{ row.ext, row.folder, row.exported, row.shipped, row.file }) catch {
+            _ = self.fail("a row of {s} is too long", .{path});
+            return null;
+        };
+        return game_reads.findRow(self.gri_row_text, ext);
+    }
+
+    /// `expect=mod_read:<ext>`: the last Game's BK_MOD_TRACE shows that kind's file opened from the MOD, so the
+    /// Game read the export and not the shipped file of that name. Its verdict is a line of result.log
+    /// either way; a FAIL also fails the run.
+    fn modRead(self: *Runner, arg: []const u8) ?[]const u8 {
+        const row = self.griRow(arg) orelse return null;
+        const kind = row.ext;
+        const file = row.file;
+        var log_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const log = std.fmt.bufPrint(&log_buffer, "{s}{c}testgame.log", .{ self.dir, std.fs.path.sep }) catch return self.fail("the log path is too long", .{});
+        const bytes = readFile(self.io, self.gpa, log) catch |err| return self.fail("expect=mod_read:{s}: {s}: {s}", .{ arg, log, @errorName(err) });
+        defer self.gpa.free(bytes);
+        const passed = game_reads.modOpened(bytes, file);
+        var line_buffer: [512]u8 = undefined;
+        const line = game_reads.resultLine(&line_buffer, kind, "game", file, passed) orelse return self.fail("the result line is too long", .{});
+        std.debug.print("resource-editor: auto: {s}", .{line});
+        self.appendResult(line) orelse return self.fail("result.log would not write", .{});
+        if (!passed) return self.fail("expect=mod_read:{s} was false: {s} shows no stream of that file opened from the MOD", .{ arg, log });
+        return null;
+    }
+
+    /// One more line at the end of <scratch>/result.log, the per-kind record of the run.
+    fn appendResult(self: *Runner, line: []const u8) ?void {
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const path = std.fmt.bufPrint(&path_buffer, "{s}{c}result.log", .{ self.dir, std.fs.path.sep }) catch return null;
+        const cwd = std.Io.Dir.cwd();
+        const before = cwd.readFileAlloc(self.io, path, self.gpa, .limited(1 << 20)) catch self.gpa.alloc(u8, 0) catch return null;
+        defer self.gpa.free(before);
+        const joined = std.mem.concat(self.gpa, u8, &.{ before, line }) catch return null;
+        defer self.gpa.free(joined);
+        cwd.writeFile(self.io, .{ .sub_path = path, .data = joined }) catch return null;
+    }
+
+    fn runGame(self: *Runner, map: ?[]const u8) ?[]const u8 {
         const b = self.bridge();
         var mod: core.bridge.ModSettings = .{};
         if (b.modSettingsGet(&mod) != .ok) return self.fail("MOD settings: {s}", .{b.lastMessage()});
@@ -2348,14 +2472,27 @@ const Runner = struct {
         const installed = testlaunch.gamePath(self.io, &installed_buffer) catch |err| return self.fail("the Game beside the editor: {s}", .{@errorName(err)});
         var log_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const log = std.fmt.bufPrint(&log_buffer, "{s}{c}testgame.log", .{ self.dir, std.fs.path.sep }) catch return self.fail("the log path is too long", .{});
-        // BK_AUTO_UI: a shot, then exit, the way map-editor-auto's game ends.
-        const environment = [_][2][]const u8{ .{ "BK_AUTO_UI", "400:shot,440:exit" }, .{ "BK_NO_HELP", "1" }, .{ "BK_AUDIO_NULL", "1" } };
+        // BK_AUTO_UI: a shot, then exit, the way map-editor-auto's game ends. On a map (the Game-reads-it
+        // run) there is no shot to take: it exits at frame 300 with BK_MOD_TRACE naming what it read
+        // from the mod.
+        var map_buffer: [128]u8 = undefined;
+        const map_arg: ?[]const u8 = if (map) |stem|
+            std.fmt.bufPrint(&map_buffer, "multiplayer\\{s}.bzm", .{stem}) catch return self.fail("the map name is too long", .{})
+        else
+            null;
+        const environment = [_][2][]const u8{
+            .{ "BK_AUTO_UI", if (map == null) "400:shot,440:exit" else "300:exit" },
+            .{ "BK_NO_HELP", "1" },
+            .{ "BK_AUDIO_NULL", "1" },
+            .{ "BK_MOD_TRACE", "1" },
+            .{ "BK_DEBUG_LOG", "1" },
+        };
         self.running = testlaunch.start(self.gpa, self.io, self.environ, .{
             .game_path = installed,
             .mod_folder = folder,
             .log_path = log,
             .profile = tools.test_profile,
-            .map_name = null,
+            .map_name = map_arg,
             .extra_env = &environment,
         }) catch |err| return self.fail("{s} did not start: {s}", .{ installed, @errorName(err) });
         std.debug.print("resource-editor: auto: Run Blitzkrieg: {s} -mod={s} (log {s})\n", .{ installed, folder, log });
@@ -2620,6 +2757,7 @@ const Runner = struct {
         if (eql(u8, name, "gui_rect")) return self.guiRect(arg);
         if (eql(u8, name, "gui_same")) return self.guiSame(arg);
         if (eql(u8, name, "game_log_clean")) return self.gameLogClean();
+        if (eql(u8, name, "mod_read")) return self.modRead(arg);
         if (eql(u8, name, "game_frames")) return self.gameFrames(arg);
         return self.fail("unknown predicate '{s}'", .{name});
     }

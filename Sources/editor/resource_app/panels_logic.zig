@@ -21,6 +21,8 @@ pub const kind_count = @typeInfo(Kind).@"enum".fields.len;
 test {
     _ = @import("lifecycle.zig");
     _ = @import("settings.zig");
+    _ = @import("view_logic.zig");
+    _ = @import("game_reads_logic.zig");
     _ = @import("edit_logic.zig");
     _ = @import("tools_logic.zig");
     _ = @import("docks_logic.zig");

@@ -8276,6 +8276,27 @@ fn addResourceEditor(
         chain = chained;
         if (test_mode == .run) auto_step.dependOn(chained);
     }
+
+    // resource-editor-game-reads-it: the exports of the object-side kinds played by the real Game. After the
+    // smoke so two engines never start at once; its own scratch folder holds result.log, one KIND= line per
+    // kind, and the user data (profile, settings) lives apart from it so the run never touches the player's own.
+    const game_reads_dir = b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it");
+    const game_reads_run = b.addRunArtifact(exe);
+    game_reads_run.setCwd(b.path(stage_root));
+    game_reads_run.addArgs(&.{ "--auto", b.pathFromRoot("tools/zig/fixtures/resource_editor"), game_reads_dir });
+    game_reads_run.setEnvironmentVariable("BK_EDITOR_AUTO", resource_game_reads_it ++ std.fmt.comptimePrint("{d}:exit", .{resource_game_reads_it_exit_frame}));
+    game_reads_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it-user"));
+    game_reads_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it-user"));
+    game_reads_run.setEnvironmentVariable("BK_DEBUG_LOG", "1");
+    game_reads_run.has_side_effects = true;
+    game_reads_run.step.dependOn(&install_exe.step);
+    game_reads_run.step.dependOn(&smoke_run.step);
+    const cleanup_game_reads = b.addRunArtifact(delete_matching);
+    cleanup_game_reads.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_game_reads.step.dependOn(&game_reads_run.step);
+    const game_reads_step = b.step("resource-editor-game-reads-it", "Export one resource per object-side kind into a mod, play shipped maps with it in the real Game and prove from BK_MOD_TRACE that it read each exported file (result.log)");
+    game_reads_step.dependOn(&install_exe.step);
+    if (test_mode == .run) game_reads_step.dependOn(&cleanup_game_reads.step);
     return exe;
 }
 
@@ -8321,6 +8342,94 @@ const ResourceAutoStep = struct {
 
 /// The sprite block's do=preview_on stayed on for every later block of the old single run.
 const resource_auto_preview_on = "1:do=preview_on,";
+
+/// resource-editor-game-reads-it's schedule: per kind the tracked fixture is opened and exported into one mod
+/// (do=gri_copy, do=export, do=gri_mirror: where each kind lands and which shipped resource it replaces is a row
+/// of tools/zig/fixtures/resource_editor/game-reads-it.auto), then the real Game plays a multiplayer map with
+/// that mod and BK_MOD_TRACE, and expect=mod_read asks its log whether the exported file was opened from the mod.
+/// The maps are the shipped ones that load the replaced resources at their start; each is the only map to prove
+/// its kinds. Kinds whose resources no shipped map loads without a battle (spt, pcp, eff) or whose fixture the
+/// Game cannot play (trc: an empty trench divides by zero in the entrenchment lookup) are not here; T04 proves them.
+const resource_game_reads_it =
+    "1:do=mod_dir:{mods}/reseditor_auto_gri," ++
+    // coldwinter loads one weapon, infantry, unit, object and fence of the exports.
+    "2:do=gri_copy:wpn," ++
+    "3:expect=kind:wpn," ++
+    "3:expect=dirty:false," ++
+    "4:do=export," ++
+    "5:expect=exported," ++
+    "5:do=gri_mirror:wpn," ++
+    "6:do=gri_copy:unt," ++
+    "7:expect=kind:unt," ++
+    "7:expect=dirty:false," ++
+    "8:do=export," ++
+    "9:expect=exported," ++
+    "9:do=gri_mirror:unt," ++
+    "10:do=gri_copy:msh," ++
+    "11:expect=kind:msh," ++
+    "11:expect=dirty:false," ++
+    "12:do=export," ++
+    "13:expect=exported," ++
+    "13:do=gri_mirror:msh," ++
+    "14:do=gri_copy:obt," ++
+    "15:expect=kind:obt," ++
+    "15:expect=dirty:false," ++
+    "16:do=export," ++
+    "17:expect=exported," ++
+    "17:do=gri_mirror:obt," ++
+    "18:do=gri_copy:fnc," ++
+    "19:expect=kind:fnc," ++
+    "19:expect=dirty:false," ++
+    "20:do=export," ++
+    "21:expect=exported," ++
+    "21:do=gri_mirror:fnc," ++
+    "23:do=run_game:coldwinter," ++
+    "24:waitgame=240," ++
+    "24:expect=game_log_clean," ++
+    "24:expect=mod_read:wpn," ++
+    "24:expect=mod_read:unt," ++
+    "24:expect=mod_read:msh," ++
+    "24:expect=mod_read:obt," ++
+    "24:expect=mod_read:fnc," ++
+    // lastchance loads a building, a squad and a mine.
+    "25:do=gri_copy:bld," ++
+    "26:expect=kind:bld," ++
+    "26:expect=dirty:false," ++
+    "27:do=export," ++
+    "28:expect=exported," ++
+    "28:do=gri_mirror:bld," ++
+    "29:do=gri_copy:scp," ++
+    "30:expect=kind:scp," ++
+    "30:expect=dirty:false," ++
+    "31:do=export," ++
+    "32:expect=exported," ++
+    "32:do=gri_mirror:scp," ++
+    "33:do=gri_copy:mcp," ++
+    "34:expect=kind:mcp," ++
+    "34:expect=dirty:false," ++
+    "35:do=export," ++
+    "36:expect=exported," ++
+    "36:do=gri_mirror:mcp," ++
+    "38:do=run_game:lastchance," ++
+    "39:waitgame=240," ++
+    "39:expect=game_log_clean," ++
+    "39:expect=mod_read:bld," ++
+    "39:expect=mod_read:scp," ++
+    "39:expect=mod_read:mcp," ++
+    // arnheim loads the bridge.
+    "40:do=gri_copy:bdg," ++
+    "41:expect=kind:bdg," ++
+    "41:expect=dirty:false," ++
+    "42:do=export," ++
+    "43:expect=exported," ++
+    "43:do=gri_mirror:bdg," ++
+    "45:do=run_game:arnheim," ++
+    "46:waitgame=240," ++
+    "46:expect=game_log_clean," ++
+    "46:expect=mod_read:bdg," ++
+    "";
+
+const resource_game_reads_it_exit_frame = 47;
 
 /// The per-editor steps in run order.
 const resource_auto_steps = [_]ResourceAutoStep{
