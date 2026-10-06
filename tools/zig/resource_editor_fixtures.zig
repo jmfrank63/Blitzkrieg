@@ -276,6 +276,13 @@ const image_frame_sources = [_]ImageFrameSources{
     .{ .ext = "mip", .picture = "map.tga", .texts = &.{ "header.txt", "subheader.txt", "desc.txt", "1.txt" } },
 };
 
+/// The second mission project, mip/final-map/project.mip, which passes the
+/// export's validation: a final map (the shipped Data/Maps/road3d.xml), one
+/// combat and one exploration music and two objectives, the second below a
+/// subfolder. Its project file is seeded by hand like the others; these are the
+/// picture and texts it names.
+const mission_final_map_texts = [_][]const u8{ "header.txt", "subheader.txt", "desc.txt", "obj1h.txt", "obj1t.txt", "sub/obj2h.txt", "sub/obj2t.txt" };
+
 /// A 20 x 12 24-bit solid-colour targa, RGB565-exact like writeExactSolidTga.
 fn writeImageFramePicture(buf: *Buf, seed: []const u8) !void {
     const w = 20;
@@ -728,6 +735,22 @@ pub fn main(init: std.process.Init) !void {
             for (source.texts) |text_name| {
                 const text_sub = try std.fmt.allocPrint(arena, "{s}/{s}", .{ source.ext, text_name });
                 const text = try std.fmt.allocPrint(arena, "fixture {s} {s}\r\n", .{ source.ext, text_name });
+                const text_result = try writeIfChanged(io, out_dir, text_sub, text);
+                stats.note(text_result.changed, text_result.bytes);
+            }
+        }
+
+        if (std.mem.eql(u8, fx.ext, "mip")) {
+            try out_dir.createDirPath(io, "mip/final-map/sub");
+            const final_project = try seedIfMissing(io, out_dir, "mip/final-map/project.mip", project_bytes);
+            stats.note(final_project.changed, final_project.bytes);
+            var tga: Buf = .{ .a = arena };
+            try writeImageFramePicture(&tga, "map.tga");
+            const picture_result = try writeIfChanged(io, out_dir, "mip/final-map/map.tga", tga.items());
+            stats.note(picture_result.changed, picture_result.bytes);
+            for (mission_final_map_texts) |text_name| {
+                const text_sub = try std.fmt.allocPrint(arena, "mip/final-map/{s}", .{text_name});
+                const text = try std.fmt.allocPrint(arena, "fixture mip final-map {s}\r\n", .{text_name});
                 const text_result = try writeIfChanged(io, out_dir, text_sub, text);
                 stats.note(text_result.changed, text_result.bytes);
             }

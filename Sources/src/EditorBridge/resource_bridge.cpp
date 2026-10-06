@@ -4299,6 +4299,7 @@ struct PreviewKind
 const int kTilesetKind = 13;  // "til", the Terrain tileset project
 const int kRoadKind = 14;     // "3rd", the 3D Road project
 const int kRiverKind = 15;    // "3rv", the 3D River project
+const int kMissionKind = 16;  // "mip", the Mission project
 const int kChapterKind = 17;  // "chc", the Chapter project
 const int kCampaignKind = 18; // "cgc", the Campaign project
 const int kMedalKind = 19;    // "mdc", the Medal project
@@ -5637,6 +5638,45 @@ void CampaignStatsToTree( const SCampaignStats &rpgStats, NResourceModel::CTreeI
 		SetSlot( AddStatsChild( pTemplates, NResourceModel::ETIT_CAMPAIGN_TEMPLATE_PROPS_ITEM, "Template" ), 0, szTemplate );
 }
 
+// CMissionFrame::GetRPGStats (MissionFrm.cpp:146): the combat and exploration
+// music lists are the root's first and second Musics item, one child per theme,
+// and an objective per stats objective. MFC set the objective's text slot twice,
+// the second time with the description, and so never the header slot (its import
+// left every header empty, which its own export then refused); the port sets the
+// header into the header slot. The texts lose the export prefix.
+void MissionStatsToTree( const SMissionStats &rpgStats, NResourceModel::CTreeItem &root, const std::string &szPrefix )
+{
+	NResourceModel::CTreeItem *pCommonProps = ChildOfType( root, NResourceModel::ETIT_MISSION_COMMON_PROPS_ITEM );
+	SetSlot( pCommonProps, 0, WithoutPrefix( rpgStats.szHeaderText, szPrefix ) );
+	SetSlot( pCommonProps, 1, WithoutPrefix( rpgStats.szSubheaderText, szPrefix ) );
+	SetSlot( pCommonProps, 2, WithoutPrefix( rpgStats.szDescriptionText, szPrefix ) );
+	SetSlot( pCommonProps, 3, rpgStats.szTemplateMap );
+	SetSlot( pCommonProps, 4, rpgStats.szFinalMap );
+	SetSlot( pCommonProps, 5, rpgStats.szSettingName );
+	int nMusics = 0;
+	for ( const auto &pChild : root.GetChildren() )
+	{
+		if ( pChild->GetItemType() != NResourceModel::ETIT_MISSION_MUSICS_ITEM )
+			continue;
+		const std::vector<std::string> &themes = nMusics == 0 ? rpgStats.combatMusics : rpgStats.explorMusics;
+		for ( const std::string &szTheme : themes )
+			SetSlot( AddStatsChild( pChild.get(), NResourceModel::ETIT_MISSION_MUSIC_PROPS_ITEM, "Music" ), 0, szTheme );
+		if ( ++nMusics == 2 )
+			break;
+	}
+	NResourceModel::CTreeItem *pObjectives = ChildOfType( root, NResourceModel::ETIT_MISSION_OBJECTIVES_ITEM );
+	for ( const SMissionStats::SObjective &objective : rpgStats.objectives )
+	{
+		NResourceModel::CTreeItem *pItem = AddStatsChild( pObjectives, NResourceModel::ETIT_MISSION_OBJECTIVE_PROPS_ITEM, "Objective" );
+		SetSlot( pItem, 0, WithoutPrefix( objective.szHeader, szPrefix ) );
+		SetSlot( pItem, 1, WithoutPrefix( objective.szDescriptionText, szPrefix ) );
+		SetSlot( pItem, 2, objective.vPosOnMap.x );
+		SetSlot( pItem, 3, objective.vPosOnMap.y );
+		SetSlot( pItem, 4, objective.bSecret );
+		SetSlot( pItem, 5, objective.nAnchorScriptID );
+	}
+}
+
 // CAnimationFrame::GetRPGStats (AnimationFrm.cpp), line for line, onto the
 // port's items: the slots are the indices MFC's setters in AnimTreeItem.h use.
 void InfantryStatsToTree( const SInfantryRPGStats &rpgStats, NResourceModel::CTreeItem &root )
@@ -6546,7 +6586,7 @@ void MechStatsToTree( const SMechUnitRPGStats &rpgStats, NResourceModel::CTreeIt
 std::filesystem::path RuntimeStatsFile( BkResKind kind, const char *pszPath )
 {
 	// A campaign's is german.xml in the folder of its name, a chapter's the 1.xml of its folder.
-	if ( kind == 0 || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind || kind == kChapterKind || kind == kCampaignKind )
+	if ( kind == 0 || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind || kind == kMissionKind || kind == kChapterKind || kind == kCampaignKind )
 	{
 		std::error_code ec;
 		if ( std::filesystem::is_regular_file( pszPath, ec ) )
@@ -6901,7 +6941,7 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 		if ( pszPath == nullptr || *pszPath == 0 || kind < 0 || kind >= kKindCount )
 			return BK_EDITOR_BAD_ARGUMENT;
 		const std::string szExtension = kKindExtensions[kind];
-		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind || kind == kBridgeKind || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind || kind == kMedalKind || kind == kChapterKind || kind == kCampaignKind;
+		const bool bPorted = kind <= 3 || kind == kInfantryKind || kind == kMeshKind || kind == kObjectKind || kind == kFenceKind || kind == kBuildingKind || kind == kBridgeKind || kind == kParticleKind || kind == kRoadKind || kind == kRiverKind || kind == kMedalKind || kind == kMissionKind || kind == kChapterKind || kind == kCampaignKind;
 		if ( !bPorted )
 		{
 			pSession->szMessage = kind == 4
@@ -7144,6 +7184,18 @@ BkEditorStatus BkResImportFromGame( BkResSession *pSession, BkResKind kind, cons
 				MedalStatsToTree( rpgStats, *pRoot );
 				szFrameExportFile = ExportFileNameBelow( statsFile, "medals" );
 				bFrameExport = !szFrameExportFile.empty();
+				break;
+			}
+			case kMissionKind:
+			{
+				SMissionStats rpgStats;
+				if ( !ReadRuntimeStats( statsFile, rpgStats, pSession, status ) )
+					return status;
+				// The shipped stats have no KeyName: a mission is its folder's.
+				szKeyName = rpgStats.szHeaderText.empty() && rpgStats.szMapImage.empty() ? std::string() : statsFile.parent_path().filename().string();
+				szFrameExportFile = ExportFileNameBelow( statsFile, "scenarios" );
+				bFrameExport = !szFrameExportFile.empty();
+				MissionStatsToTree( rpgStats, *pRoot, ExportPrefix( "scenarios\\", szFrameExportFile ) );
 				break;
 			}
 			case kChapterKind:

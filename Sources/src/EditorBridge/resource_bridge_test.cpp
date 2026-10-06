@@ -1938,6 +1938,12 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				// The chapter and campaign exporters (S14 T02); S14ChapterCampaign proves the files.
 				Check( status == BK_EDITOR_OK && report.written >= 1, ( "export: ." + szExt + " exports through its S14 exporter" ).c_str() );
 			}
+			else if ( szExt == "mip" )
+			{
+				// The plain mission fixture names no final map, so MFC's validation refuses it (S14 T04; S14MissionExport proves the passing one).
+				Check( status == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "You should specify" ) != 0,
+				       "export: .mip is refused by the mission validation, with MFC's message" );
+			}
 			else if ( szExt == "eff" )
 			{
 				// The fixture's function particle names a source that is not in the mod's data yet:
@@ -8358,6 +8364,205 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 
 }
 
+namespace S14MissionExport
+{
+
+namespace fs = std::filesystem;
+
+static std::string Slurp( const fs::path &file )
+{
+	std::string sz;
+	ReadBytes( file.string(), sz );
+	return sz;
+}
+
+static void Replace( const fs::path &file, const std::string &szFrom, const std::string &szTo )
+{
+	std::string sz = Slurp( file );
+	const std::size_t n = sz.find( szFrom );
+	if ( n == std::string::npos )
+		return;
+	sz.replace( n, szFrom.size(), szTo );
+	std::ofstream( file, std::ios::binary ) << sz;
+}
+
+static void CopyFolder( const fs::path &from, const fs::path &to )
+{
+	std::error_code ec;
+	fs::create_directories( to, ec );
+	for ( fs::recursive_directory_iterator it( from, ec ), end; !ec && it != end; it.increment( ec ) )
+	{
+		const fs::path target = to / fs::relative( it->path(), from, ec );
+		if ( it->is_directory( ec ) )
+			fs::create_directories( target, ec );
+		else
+			fs::copy_file( it->path(), target, fs::copy_options::overwrite_existing, ec );
+	}
+}
+
+static BkEditorStatus ExportProject( BkResSession *pSession, const fs::path &project, const fs::path &modDir, const char *pszName, bool bStatsOnly = false )
+{
+	BkResModSettings mod = {};
+	std::snprintf( mod.export_dir, sizeof( mod.export_dir ), "%s", modDir.string().c_str() );
+	std::snprintf( mod.name, sizeof( mod.name ), "%s", pszName );
+	BkResModSettingsSet( pSession, &mod );
+	if ( BkResOpen( pSession, project.string().c_str() ) != BK_EDITOR_OK )
+		return BK_EDITOR_FAILED;
+	BkResExportReport report = {};
+	const BkEditorStatus status = bStatsOnly ? BkResExportStatsOnly( pSession, BK_RES_EXPORT_FORCE, &report ) : BkResExport( pSession, BK_RES_EXPORT_FORCE, &report );
+	return status;
+}
+
+static void Run( BkResSession *pSession, const std::string &szRoot, const std::string &szFixtureRoot, const std::string &szScratchRoot )
+{
+	std::error_code ec;
+	NResourceModel::RegisterExporter( "mip", &NResourceModel::ExportMission );
+	const fs::path scratch = fs::path( szScratchRoot ) / "s14-mission-export";
+	fs::remove_all( scratch, ec );
+	const fs::path projectDir = scratch / "final-map";
+	CopyFolder( fs::path( szFixtureRoot ) / "mip" / "final-map", projectDir );
+	const fs::path modDir = scratch / "mod";
+	fs::create_directories( modDir / "data" / "maps", ec );
+	const fs::path shippedXml = S09Object::FindFile( fs::path( szRoot ) / "Data", "road3d.xml" );
+	if ( !Check( fs::is_regular_file( projectDir / "project.mip", ec ) && !shippedXml.empty() &&
+	             fs::copy_file( shippedXml, modDir / "data" / "maps" / "road3d.xml", fs::copy_options::overwrite_existing, ec ), "mission export: the final-map fixture and road3d.xml are copied" ) )
+		return;
+
+	// The passing fixture exports stats, the texts, the pictures and the .bzm.
+	const BkEditorStatus status = ExportProject( pSession, projectDir / "project.mip", modDir, "S14 mission export" );
+	if ( !Check( status == BK_EDITOR_OK, "mission export: the validation-passing fixture exports" ) )
+		std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+	const fs::path xml = S09Object::FindFile( modDir / "data", "1.xml" );
+	SMissionStats stats;
+	if ( Check( !xml.empty() && ReadChunkAsMfc( xml.string(), "base", "RPG", stats ), "mission export: the engine reads the stats" ) )
+	{
+		std::printf( "MISSION EXPORT final %s, %d combat, %d exploration, %d objectives, rect %g %g\n", stats.szFinalMap.c_str(), (int)stats.combatMusics.size(),
+		             (int)stats.explorMusics.size(), (int)stats.objectives.size(), stats.mapImageRect.x2, stats.mapImageRect.y2 );
+		Check( stats.szFinalMap == "road3d" && stats.szSettingName == "setting" && stats.combatMusics.size() == 1 && stats.explorMusics.size() == 1 &&
+		       stats.combatMusics[0] == "music\\combat1" && stats.explorMusics[0] == "music\\explore1", "mission export: the map, setting and musics are the project's" );
+		Check( stats.szHeaderText.size() > 6 && stats.szHeaderText.compare( stats.szHeaderText.size() - 6, 6, "header" ) == 0 &&
+		       stats.szMapImage.size() > 3 && stats.szMapImage.compare( stats.szMapImage.size() - 3, 3, "map" ) == 0, "mission export: the texts and the map image carry the export folder" );
+		Check( stats.mapImageRect.x2 > 0.0f && stats.mapImageRect.y2 > 0.0f, "mission export: mapImageRect is the size of map.tga" );
+		Check( stats.objectives.size() == 2 && stats.objectives[0].vPosOnMap.x == 40.0f && stats.objectives[0].vPosOnMap.y == 30.0f && !stats.objectives[0].bSecret &&
+		       stats.objectives[1].vPosOnMap.x == 120.0f && stats.objectives[1].bSecret && stats.objectives[1].nAnchorScriptID == 7, "mission export: the objectives' positions, secrecy and anchors" );
+		const fs::path outDir = xml.parent_path();
+		Check( fs::is_regular_file( outDir / "header.txt", ec ) && fs::is_regular_file( outDir / "subheader.txt", ec ) && fs::is_regular_file( outDir / "desc.txt", ec ) &&
+		       fs::is_regular_file( outDir / "obj1h.txt", ec ) && fs::is_regular_file( outDir / "sub" / "obj2t.txt", ec ), "mission export: the texts are copied, the objective's subfolder created" );
+		Check( !S09Object::FindFile( outDir, "map_h.dds" ).empty() && !S09Object::FindFile( outDir, "map_c.dds" ).empty() && !S09Object::FindFile( outDir, "map_l.dds" ).empty(),
+		       "mission export: the map DDS are made from the final map" );
+	}
+	Check( !S09Object::FindFile( modDir / "data", "road3d.bzm" ).empty(), "mission export: maps/road3d.bzm is made from the final map" );
+
+	// Moving an objective through the bridge changes the exported vPosOnMap.
+	{
+		int nNode = -1;
+		for ( const BkResNodeRecord &node : AllNodes( pSession ) )
+			if ( node.class_type == kMissionObjectives )
+				nNode = node.id;
+		const BkResPoint2 moved[2] = { { 55.0f, 66.0f }, { 120.0f, 90.0f } };
+		BkResExportReport again = {};
+		const bool bSet = nNode >= 0 && BkResSetMissionObjectives( pSession, nNode, moved, 2 ) == BK_EDITOR_OK;
+		SMissionStats stats2;
+		Check( bSet && BkResExport( pSession, BK_RES_EXPORT_FORCE, &again ) == BK_EDITOR_OK && ReadChunkAsMfc( xml.string(), "base", "RPG", stats2 ) &&
+		       stats2.objectives.size() == 2 && stats2.objectives[0].vPosOnMap.x == 55.0f && stats2.objectives[0].vPosOnMap.y == 66.0f, "mission export: a moved objective is the exported vPosOnMap" );
+		BkResClose( pSession );
+	}
+
+	// Each validation failure reports MFC's message.
+	struct SFailure { const char *pszCase, *pszFrom, *pszTo, *pszMessage; };
+	const SFailure failures[] = {
+		{ "no header", "<string_value>header</string_value>", "<string_value/>", "header text reference" },
+		{ "objective without text", "<string_value>obj1t</string_value>", "<string_value/>", "description text for all objectives" },
+		{ "no combat music (the exploration message wins)", "<string_value>music\\combat1</string_value>", "<string_value/>", "all exploration music references" },
+		{ "no setting", "<string_value>road3d</string_value>", "<string_value/>", "either template or final map" },
+	};
+	for ( const SFailure &failure : failures )
+	{
+		const fs::path variant = scratch / ( std::string( "variant-" ) + failure.pszCase );
+		CopyFolder( projectDir, variant );
+		Replace( variant / "project.mip", failure.pszFrom, failure.pszTo );
+		const BkEditorStatus failed = ExportProject( pSession, variant / "project.mip", scratch / "mod-failed", failure.pszCase );
+		Check( failed == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), failure.pszMessage ) != nullptr, ( std::string( "mission export: " ) + failure.pszCase + " is refused with MFC's message" ).c_str() );
+		if ( failed != BK_EDITOR_FAILED || std::strstr( BkEditorLastMessage( pSession ), failure.pszMessage ) == nullptr )
+			std::printf( "   detail: %s\n", BkEditorLastMessage( pSession ) );
+		BkResClose( pSession );
+	}
+	// The plain fixture names no map or music: a message of MFC's list is the result.
+	{
+		const BkEditorStatus failed = ExportProject( pSession, fs::path( szFixtureRoot ) / "mip" / "project.mip", scratch / "mod-plain", "plain" );
+		Check( failed == BK_EDITOR_FAILED && std::strstr( BkEditorLastMessage( pSession ), "You should specify" ) != nullptr, "mission export: a project with no map or music is refused" );
+		BkResClose( pSession );
+	}
+
+	// A shipped mission: import then stats-only export is field-equal.
+	{
+		const fs::path shipped = T11::FoldedPath( fs::path( szRoot ) / "Data", "Scenarios/ScenarioMissions/ussr/finland" );
+		const fs::path stats1 = T11::FoldedPath( shipped, "1.xml" );
+		const std::string szListing = S09Object::ListingOf( shipped );
+		if ( Check( fs::is_regular_file( stats1, ec ) && BkResImportFromGame( pSession, 16, stats1.string().c_str() ) == BK_EDITOR_OK, "mission shipped (ussr/finland): imports" ) )
+		{
+			const fs::path mod = scratch / "mip-shipped";
+			const fs::path shippedProject = scratch / "mip-shipped-project";
+			fs::create_directories( shippedProject, ec );
+			std::string szTga( 18, '\0' );
+			szTga[2] = 2; szTga[13] = 4; szTga[15] = 3; szTga[16] = 24;
+			szTga.append( 1024 * 768 * 3, char( 0x80 ) );
+			std::ofstream( shippedProject / "map.tga", std::ios::binary ) << szTga;
+			const bool bExported = S09Object::ExportStatsOnly( pSession, mod, "mission shipped", "mip" );
+			BkResClose( pSession );
+			const fs::path xmlShipped = S09Object::FindFile( mod / "data", "1.xml" );
+			if ( Check( bExported && !xmlShipped.empty(), "mission shipped (ussr/finland): exports stats-only" ) )
+			{
+				const NResourceModel::SCompareResult result = NResourceModel::CompareStats( NResourceModel::EExportKind::MISSION, xmlShipped.string(), stats1.string() );
+				int nDifferent = 0;
+				for ( const std::string &szMessage : result.messages )
+					if ( !S09Object::NearFloat( szMessage ) && szMessage.find( "ImageRect" ) == std::string::npos && szMessage.find( "mapImageRect" ) == std::string::npos &&
+					     szMessage.find( "MapImage" ) == std::string::npos &&
+				     szMessage.find( "MODName" ) == std::string::npos && szMessage.find( "MODVersion" ) == std::string::npos )
+					{
+						++nDifferent;
+						std::printf( "   DIFFERENT %s\n", szMessage.c_str() );
+					}
+				std::printf( "ROUNDTRIP mip ussr/finland: %d fields compared, %d differences\n", result.nFieldsCompared, nDifferent );
+				Check( result.nFieldsCompared >= 5 && nDifferent == 0, "mission shipped (ussr/finland): the stats are field-equal to the shipped file" );
+			}
+			Check( S09Object::ListingOf( shipped ) == szListing, "mission shipped (ussr/finland): nothing was written into Data" );
+		}
+		else
+			BkResClose( pSession );
+	}
+	NResourceModel::RegisterExporter( "mip", nullptr );
+}
+
+static std::string Lower( std::string sz )
+{
+	for ( char &c : sz )
+		c = char( std::tolower( (unsigned char)c ) );
+	return sz;
+}
+
+static void GogArdennen40()
+{
+	std::error_code ec;
+	const char *pszRoot = std::getenv( "BK_GOG_ROOT" ), *pszGolden = std::getenv( "BK_GOG_GOLDEN" );
+	if ( !pszRoot || !*pszRoot || !pszGolden || !*pszGolden || !fs::is_directory( pszRoot, ec ) || !fs::is_directory( pszGolden, ec ) )
+	{
+		std::printf( "S14Mission::GogArdennen40 pending: win-home only (BK_GOG_ROOT/BK_GOG_GOLDEN not set)\n" );
+		return;
+	}
+	bool bFound = false;
+	for ( fs::recursive_directory_iterator it( pszRoot, fs::directory_options::skip_permission_denied, ec ), end; !ec && it != end; it.increment( ec ) )
+		if ( it->is_regular_file( ec ) && Lower( it->path().filename().string() ) == "current.mip" &&
+		     Lower( it->path().parent_path().filename().string() ) == "ardennen40" && Lower( it->path().parent_path().parent_path().filename().string() ) == "intex2" )
+			bFound = true;
+	if ( !Check( bFound, "S14Mission::GogArdennen40: INTEX2/ardennen40/current.mip is found under BK_GOG_ROOT" ) )
+		return;
+	// The golden compare itself runs on win-home beside the MFC export; here the project's presence is all that is proved.
+	std::printf( "S14Mission::GogArdennen40 pending: golden compare runs on win-home\n" );
+}
+
+}
+
 int main( int argc, char **argv )
 {
 #if defined(_WIN32) || defined(_WIN64)
@@ -8626,6 +8831,9 @@ int main( int argc, char **argv )
 	S14ChapterCampaign::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
 	// S14 T03: the mission's minimap pictures and the map .xml to .bzm conversion.
 	S14Mission::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+	// S14 T04: the mission exporter with its validation, the shipped mission import, and the GOG row (win-home only).
+	S14MissionExport::Run( pSession, pszRoot, szFixtureRoot, szScratchRoot );
+	S14MissionExport::GogArdennen40();
 	// S10 T04: a shipped building's round trip, the building negative-tile guard and the GOG golden (win-home only).
 	S10Building::Shipped( pSession, pszRoot, szScratchRoot );
 	S10Building::Shipped( pSession, pszRoot, szScratchRoot, "europe/summer/e_house07_1" );
