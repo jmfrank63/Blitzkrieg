@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<base><crosset><crosses><item><name>Fixture cross</name><crosstiles><item><tiles><item index="0" probability="50"/><item index="2" probability="50"/></tiles><name>a</name></item><item><tiles><item index="4" probability="100"/></tiles><name>b</name></item></crosstiles></item></crosses><tilemaps/></crosset></base>

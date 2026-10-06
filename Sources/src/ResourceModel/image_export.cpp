@@ -212,6 +212,14 @@ CPtr<IImage> LoadPicture( const std::string &szSource, SExportOutcome &outcome )
 	return pImage;
 }
 
+bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, EGFXPixelFormat compressedFormat, EGFXPixelFormat lowFormat, SExportOutcome &outcome )
+{
+	CPtr<IImage> pImage = GetImageProcessor()->CreateGammaCorrection( pSrc, gamma.fBrightness, gamma.fContrast, gamma.fGamma );
+	return SaveDds( context, pImage, compressedFormat, szName + "_c.dds", outcome ) &&
+	       SaveDds( context, pImage, lowFormat, szName + "_l.dds", outcome ) &&
+	       SaveDds( context, pImage, GFXPF_ARGB8888, szName + "_h.dds", outcome );
+}
+
 bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, EGFXPixelFormat lowFormat, SExportOutcome &outcome )
 {
 	CPtr<IImage> pImage = GetImageProcessor()->CreateGammaCorrection( pSrc, gamma.fBrightness, gamma.fContrast, gamma.fGamma );

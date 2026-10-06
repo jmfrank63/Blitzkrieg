@@ -149,4 +149,23 @@ protected:
 	void InitDefaultValues() override;
 };
 
+// CTileSetFrame::InitFreeTerrainIndexes / InitFreeCrossetIndexes and the
+// Get/RemoveFree*Index pools (TileSetFrm.cpp:332-400, 968-1011). MFC kept a
+// list of the free indexes in the frame: the gaps below the highest index in
+// use, then one open-ended "next" entry. Getting an index took the front of
+// the list (the lowest gap, else the next one up) and removing a tile put its
+// index back in order, so the pool always handed out the lowest index no tile
+// uses. The port derives that from the tree, which is the one place the
+// indexes live: nothing to keep in step through undo, redo and reload, and
+// the same answer as the list.
+//
+// Gives every tile props item that still has index -1 (a project from before
+// the indexes were stored) the running count of tiles, as the Init pass did;
+// returns how many got one. Terrain tiles and crosset tiles count apart.
+int AssignMissingTileIndexes( CTreeItem &root );
+// The index a new CTileSetTilePropsItem / CCrossetTilePropsItem takes in the
+// project whose root is given: the lowest non-negative index no tile has.
+int GetFreeTerrainIndex( const CTreeItem &root );
+int GetFreeCrossetIndex( const CTreeItem &root );
+
 }

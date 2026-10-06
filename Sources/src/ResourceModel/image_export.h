@@ -52,6 +52,10 @@ CPtr<IImage> LoadPicture( const std::string &szSource, SExportOutcome &outcome )
 // ARGB4444; the overload without lowFormat is the ARGB1555 one.
 bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, EGFXPixelFormat lowFormat, SExportOutcome &outcome );
 bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, SExportOutcome &outcome );
+// The same with the frame's own compressed format too: the tileset frame
+// compresses _c.dds as DXT1 and _l.dds as ARGB0565 (TileSetFrm.cpp:60), and
+// swaps in DXT5 and ARGB4444 for the crosset.
+bool SaveCompressedTexture( const SExportContext &context, IImage *pSrc, const std::string &szName, const SGamma &gamma, EGFXPixelFormat compressedFormat, EGFXPixelFormat lowFormat, SExportOutcome &outcome );
 
 // The animation format written as the engine's structure file szName (chunk
 // 1), which is how MFC wrote every .san.

@@ -35,6 +35,11 @@ struct SExportContext
 	// has nothing to compare with, such as the preview's: everything is
 	// written.
 	std::string szDataRoot;
+	// The shipped Data folder, where MFC's editor found its own art
+	// (theApp.GetEditorDataDir()): the tileset export reads
+	// editor\terrain\tilemask.tga there. Empty: the export looks in
+	// szDataRoot only.
+	std::string szEditorDataDir;
 
 	// D015: the objects database MFC's frames asked through IObjectsDB, which
 	// an exporter does not own. Given a resource path as MFC builds it (lower
