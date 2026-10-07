@@ -4882,12 +4882,21 @@ fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
     module.addLibraryPath(.{ .cwd_relative = linuxMultiarchDir(b.graph.host.result.cpu.arch) });
     var versions = std.Io.Dir.openDirAbsolute(b.graph.io, "/usr/include/c++", .{ .iterate = true }) catch return;
     defer std.Io.Dir.close(versions, b.graph.io);
+    // The newest libstdc++ that Zig's clang can parse, compared as numbers ("9" sorts after "16"
+    // as text). Ubuntu 26.04 ships libstdc++ 15 and 16 headers beside 14; clang 21 (Zig 0.16) rejects
+    // their __make_unsigned and constexpr cmath, so anything after 14 is skipped. The shared
+    // libstdc++.so.6 linked below is backward compatible with the older headers.
+    const newest_parsable_libstdcxx = 14;
     var selected: ?[]const u8 = null;
+    var selected_major: u32 = 0;
     var iterator = versions.iterate();
     while (iterator.next(b.graph.io) catch null) |entry| {
         if (entry.kind != .directory) continue;
-        if (selected == null or std.mem.order(u8, selected.?, entry.name) == .lt) {
+        const major = std.fmt.parseInt(u32, entry.name, 10) catch continue;
+        if (major > newest_parsable_libstdcxx) continue;
+        if (selected == null or major > selected_major) {
             selected = b.allocator.dupe(u8, entry.name) catch @panic("OOM");
+            selected_major = major;
         }
     }
     const version = selected orelse return;
