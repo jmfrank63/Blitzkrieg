@@ -46,11 +46,14 @@
 //!                                   `percent` (default 1.0) is the greatest
 //!                                   acceptable percentage of differing
 //!                                   pixels
-//!   differ=<a>/<b>[@<percent>]     compare two shots of this run, `<a>.tga` and
+//!   differ=<a>/<b>[@<percent>[/<tolerance>]]
+//!                                  compare two shots of this run, `<a>.tga` and
 //!                                   `<b>.tga`: the run fails unless MORE than
 //!                                   `percent` (default 0.1) of the pixels
 //!                                   differ - the proof that something drawn
-//!                                   moved (a camera jump, a panel that filled)
+//!                                   moved (a camera jump, a panel that filled);
+//!                                   a pixel differs when a channel moves by more
+//!                                   than `tolerance` (default 24)
 //!   do=<name>[:<arg>]              run a named editor command (commands.zig:
 //!                                   the same one a menu item or panel button
 //!                                   runs); the run fails when the name is
@@ -113,12 +116,16 @@ pub const Compare = struct {
 
 pub const default_compare_percent: f32 = 1.0;
 
-/// `differ=<a>/<b>[@<percent>]`: two shots of this run that must differ by more
-/// than `percent` of their pixels (the opposite of `compare=`'s tolerance).
+/// `differ=<a>/<b>[@<percent>[/<tolerance>]]`: two shots of this run that must
+/// differ by more than `percent` of their pixels (the opposite of `compare=`'s
+/// tolerance). A low-contrast motion, such as a river's water scrolling over
+/// its bottom, moves every pixel by a few levels only, below the default
+/// channel tolerance; such a check names a smaller one.
 pub const Differ = struct {
     a: []const u8,
     b: []const u8,
     percent: f32 = default_differ_percent,
+    channel_tolerance: u8 = default_channel_tolerance,
 };
 
 pub const default_differ_percent: f32 = 0.1;
@@ -388,7 +395,7 @@ fn parseCompare(text: []const u8, entry: []const u8, failure: *Failure) ParseErr
     return .{ .name = name, .percent = percent };
 }
 
-/// `<a>/<b>[@<percent>]`.
+/// `<a>/<b>[@<percent>[/<tolerance>]]`.
 fn parseDiffer(text: []const u8, entry: []const u8, failure: *Failure) ParseError!Differ {
     const at = std.mem.indexOfScalar(u8, text, '@');
     const names = if (at) |i| text[0..i] else text;
@@ -396,9 +403,16 @@ fn parseDiffer(text: []const u8, entry: []const u8, failure: *Failure) ParseErro
     try validateName(names[0..slash], entry, failure);
     try validateName(names[slash + 1 ..], entry, failure);
     var percent: f32 = default_differ_percent;
-    if (at) |i|
-        percent = std.fmt.parseFloat(f32, text[i + 1 ..]) catch return fail(failure, entry, "differ's percent is not a number", error.BadNumber);
-    return .{ .a = names[0..slash], .b = names[slash + 1 ..], .percent = percent };
+    var channel_tolerance: u8 = default_channel_tolerance;
+    if (at) |i| {
+        const limits = text[i + 1 ..];
+        const tolerance_slash = std.mem.indexOfScalar(u8, limits, '/');
+        const percent_text = if (tolerance_slash) |j| limits[0..j] else limits;
+        percent = std.fmt.parseFloat(f32, percent_text) catch return fail(failure, entry, "differ's percent is not a number", error.BadNumber);
+        if (tolerance_slash) |j|
+            channel_tolerance = std.fmt.parseInt(u8, limits[j + 1 ..], 10) catch return fail(failure, entry, "differ's channel tolerance is not a number from 0 to 255", error.BadNumber);
+    }
+    return .{ .a = names[0..slash], .b = names[slash + 1 ..], .percent = percent, .channel_tolerance = channel_tolerance };
 }
 
 /// A tool label: `[a-z_]{1,32}` (the registry's ToolId names).
@@ -549,6 +563,7 @@ test "parse: every action" {
     try expectAction("3:compare=painted@2.5", .{ .compare = .{ .name = "painted", .percent = 2.5 } });
     try expectAction("3:differ=before/after", .{ .differ = .{ .a = "before", .b = "after", .percent = default_differ_percent } });
     try expectAction("3:differ=a-1/b_2@0.5", .{ .differ = .{ .a = "a-1", .b = "b_2", .percent = 0.5 } });
+    try expectAction("3:differ=a/b@1/4", .{ .differ = .{ .a = "a", .b = "b", .percent = 1, .channel_tolerance = 4 } });
     try expectAction("3:rpress=c1x2", .{ .rpress = .{ .x = 1, .y = 2, .from_centre = true } });
     try expectAction("3:rdrag=10x20", .{ .rdrag = .{ .x = 10, .y = 20 } });
     try expectAction("3:rrelease=c0x0", .{ .rrelease = .{ .x = 0, .y = 0, .from_centre = true } });
@@ -612,6 +627,7 @@ test "parse: bad tokens are rejected, naming the entry" {
     try expectBad("3:differ=a/", error.BadName); // an empty second name
     try expectBad("3:differ=a b/c", error.BadName); // a space
     try expectBad("3:differ=a/b@lots", error.BadNumber); // percent not a number
+    try expectBad("3:differ=a/b@1/300", error.BadNumber); // a channel holds 0..255
     try expectBad("3:rclick", error.BadAction); // rclick needs a point
     try expectBad("3:rpress=5", error.BadNumber); // no 'x' separator
     try expectBad("3:rdrag=axb", error.BadNumber);

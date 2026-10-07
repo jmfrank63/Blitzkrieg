@@ -557,8 +557,9 @@ const Runner = struct {
         }
     }
 
-    /// Two captured shots compared into `diff`; null when they could be, else why not.
-    fn compareShots(self: *Runner, a_name: []const u8, b_name: []const u8, diff: *schedule.Diff) ?[]const u8 {
+    /// Two captured shots compared into `diff`, a pixel differing when a channel moves by more than
+    /// `channel_tolerance`; null when they could be, else why not.
+    fn compareShots(self: *Runner, a_name: []const u8, b_name: []const u8, channel_tolerance: u8, diff: *schedule.Diff) ?[]const u8 {
         var a_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         var b_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const a_path = self.shotPath(&a_buffer, a_name) orelse return self.fail("the shot path is too long", .{});
@@ -569,14 +570,14 @@ const Runner = struct {
         defer self.gpa.free(b_bytes);
         const a = schedule.Tga.parse(a_bytes) catch |err| return self.fail("{s}: {s}", .{ a_path, @errorName(err) });
         const b = schedule.Tga.parse(b_bytes) catch |err| return self.fail("{s}: {s}", .{ b_path, @errorName(err) });
-        diff.* = schedule.compareTga(a, b, schedule.default_channel_tolerance);
+        diff.* = schedule.compareTga(a, b, channel_tolerance);
         if (!diff.same_size) return self.fail("{s} and {s} are different sizes", .{ a_name, b_name });
         return null;
     }
 
     fn differ(self: *Runner, d: schedule.Differ) ?[]const u8 {
         var diff: schedule.Diff = undefined;
-        if (self.compareShots(d.a, d.b, &diff)) |reason| return reason;
+        if (self.compareShots(d.a, d.b, d.channel_tolerance, &diff)) |reason| return reason;
         const percent = @as(f64, diff.fraction()) * 100.0;
         if (percent <= d.percent) return self.fail("{s} and {s} differ in {d:.3}% of their pixels, not more than {d:.3}%", .{ d.a, d.b, percent, d.percent });
         std.debug.print("resource-editor: auto: {s} and {s} differ in {d:.2}% of their pixels\n", .{ d.a, d.b, percent });
@@ -2601,7 +2602,7 @@ const Runner = struct {
             const slash = std.mem.indexOfScalar(u8, arg, '/') orelse return self.fail("shot_same needs <a>/<b>", .{});
             // The frames may not differ in a single pixel (past the channel tolerance).
             var diff: schedule.Diff = undefined;
-            if (self.compareShots(arg[0..slash], arg[slash + 1 ..], &diff)) |reason| return reason;
+            if (self.compareShots(arg[0..slash], arg[slash + 1 ..], schedule.default_channel_tolerance, &diff)) |reason| return reason;
             if (diff.differing != 0) return self.fail("expect=shot_same:{s} was false: {d:.3}% of the pixels differ", .{ arg, @as(f64, diff.fraction()) * 100.0 });
             std.debug.print("resource-editor: auto: {s} are equal ({d:.3}% differ)\n", .{ arg, @as(f64, diff.fraction()) * 100.0 });
             return null;
