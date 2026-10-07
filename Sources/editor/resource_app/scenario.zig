@@ -29,7 +29,8 @@
 //!   do=run_game:<map>       the same on multiplayer\<map>.bzm (BK_MOD_TRACE and BK_DEBUG_LOG on, the Game's frame 300 exits)
 //!   do=gri_copy:<ext>       resource-editor-game-reads-it: the fixture of that kind copied to {dir}/src/<ext>/<folder> and opened,
 //!                           the folder named by its row of {fix}/game-reads-it.auto (an argument holds 64 characters, a
-//!                           shipped path more)
+//!                           shipped path more); {fix}/game-reads-it/<ext>/project.<ext>, where there is one, replaces
+//!                           the fixture's project
 //!   do=gri_mirror:<ext>     that row's export folder copied under the shipped resource's path in the mod
 //!   expect=mod_read:<ext>   the last Game's log shows that row's file opened from the MOD (BK_MOD_TRACE); one
 //!                           KIND=<ext> PROOF=game line of result.log, PASS or FAIL
@@ -649,6 +650,16 @@ const Runner = struct {
             var to_buffer: [logic.path_capacity]u8 = undefined;
             const to = std.fmt.bufPrint(&to_buffer, "{s}{c}src{c}{s}{c}{s}", .{ self.dir, std.fs.path.sep, std.fs.path.sep, row.ext, std.fs.path.sep, row.folder }) catch return self.fail("the path is too long", .{});
             if (self.copyTree(from, to)) |reason| return reason;
+            // A kind whose editor fixture the debug Game rejects (the fence's segments cover
+            // other tiles than CFence::InitDirectionInfo accepts) has a project of its own in
+            // {fix}/game-reads-it/<ext>, copied over the fixture's; the art stays the fixture's.
+            const own = std.fmt.bufPrint(&buffer, "{s}{c}game-reads-it{c}{s}{c}project.{s}", .{ self.fixtures, std.fs.path.sep, std.fs.path.sep, row.ext, std.fs.path.sep, row.ext }) catch return self.fail("the path is too long", .{});
+            if (readFile(self.io, self.gpa, own)) |bytes| {
+                defer self.gpa.free(bytes);
+                var project_buffer: [logic.path_capacity]u8 = undefined;
+                const replaced = std.fmt.bufPrint(&project_buffer, "{s}{c}project.{s}", .{ to, std.fs.path.sep, row.ext }) catch return self.fail("the path is too long", .{});
+                std.Io.Dir.cwd().writeFile(self.io, .{ .sub_path = replaced, .data = bytes }) catch |err| return self.fail("copy {s}: {s}", .{ own, @errorName(err) });
+            } else |_| {}
             const project = std.fmt.bufPrint(&buffer, "{s}{c}project.{s}", .{ to, std.fs.path.sep, row.ext }) catch return self.fail("the path is too long", .{});
             const result = self.life.openProject(self.gpa, b, project, owner) catch return self.fail("open {s}: {s}", .{ project, b.lastMessage() });
             if (result == .read_only) return self.fail("{s} opened read-only", .{project});
