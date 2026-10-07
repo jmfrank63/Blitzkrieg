@@ -14,7 +14,7 @@
 #include "../MapFile/MapRecords.h"
 #include "../Main/GameDB.h"
 #include "../Main/GameTimer.h"
-#include "../Misc/HPTimer.h"
+#include "../Platform/Clock.h"
 #include "../AILogic/AILogic.h"
 #include "../Scene/Scene.h"
 #include "../GFX/GFX.H"
@@ -3459,9 +3459,7 @@ bool SetGhostInSession( SEditorSession *pSession, const char *pszName, float fWo
 	// is where it was told to be on the next frame.
 	if ( IGameTimer *pTimer = GetSingleton<IGameTimer>() )
 	{
-		NHPTimer::STime hptime;
-		NHPTimer::GetTime( &hptime );
-		pTimer->Update( DWORD( NHPTimer::GetSeconds( hptime ) * 1000.0f ) );
+		pTimer->Update( NPlatform::MonotonicMilliseconds() );
 		static_cast<IVisObj*>( pSession->pGhost.GetPtr() )->Update( pTimer->GetGameTime() );
 	}
 	return true;

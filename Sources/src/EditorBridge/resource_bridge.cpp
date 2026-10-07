@@ -61,7 +61,7 @@
 #include "../Main/GameStats.h"
 #include "../Main/iMain.h"
 #include "../Main/GameTimer.h"
-#include "../Misc/HPTimer.h"
+#include "../Platform/Clock.h"
 #include "../Scene/Scene.h"
 #include "../Scene/Terrain.h"
 #include "../MapFile/MapFile.h"
@@ -4994,16 +4994,17 @@ bool WrapParticleSource( const NResourceModel::Project &project, const std::file
 	return true;
 }
 
-// The game timer at the high-precision clock's now, as the map bridge's
-// ghost and world do (session.cpp, world.cpp).
+// The game timer at the monotonic clock's now, as the map bridge's ghost and
+// world do (session.cpp, world.cpp). The milliseconds wrap at 32 bits as
+// GetTickCount's did, which the timer's unsigned deltas take in their stride;
+// a cast of the double count to DWORD instead saturates on arm64 once the
+// machine has been up 49.7 days, and the clock stands still.
 NTimer::STime UpdateGameTimer()
 {
 	IGameTimer *pTimer = GetSingleton<IGameTimer>();
 	if ( pTimer == 0 )
 		return 0;
-	NHPTimer::STime hptime;
-	NHPTimer::GetTime( &hptime );
-	pTimer->Update( DWORD( NHPTimer::GetSeconds( hptime ) * 1000.0f ) );
+	pTimer->Update( NPlatform::MonotonicMilliseconds() );
 	return pTimer->GetGameTime();
 }
 

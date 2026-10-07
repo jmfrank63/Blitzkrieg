@@ -8811,6 +8811,10 @@ const resource_auto_spt =
     // S07 Sprite (SpriteFrm): the frame folder pointed at, a thumbnail
     // double-click, saved and exported (1.san + DDS), then Run and Stop of the
     // preview measured: the running frames differ, the stopped ones are equal.
+    // The sprite plays once (bCycled false, as MFC exports it), three frames of
+    // 125 ms: the first shot is the frame Run draws (its first picture), the
+    // second comes after the whole animation and holds its last picture, so the
+    // two differ however slowly the runner draws.
     "139:do=preview_on," ++
     "140:do=mod_dir:{mods}/reseditor_auto_s07," ++
     "141:do=copy:{fix}/spt/project.spt>{dir}/spt/project.spt," ++
@@ -8826,10 +8830,9 @@ const resource_auto_spt =
     "149:do=export," ++
     "150:expect=exported," ++
     "151:do=preview_run," ++
-    "152:do=pause:100," ++
-    "153:shot=sprite_a," ++
-    "154:do=pause:150," ++
-    "154:shot=sprite_b," ++
+    "151:shot=sprite_a," ++
+    "153:do=pause:600," ++
+    "153:shot=sprite_b," ++
     "154:differ=sprite_a/sprite_b@0.001," ++
     "155:do=preview_stop," ++
     "156:do=pause:100," ++
