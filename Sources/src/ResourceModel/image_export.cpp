@@ -469,6 +469,11 @@ bool CopyFileInto( const SExportContext &context, const std::string &szSource, c
 		outcome.szError = "Cannot copy file " + source.string() + " to " + target.string() + ": " + ec.message();
 		return false;
 	}
+	// The copy is written now: the up-to-date checks compare export times with
+	// source times. Windows' CopyFile keeps the source's time, POSIX copies get
+	// the current one; without this a copy older than the project never lets a
+	// plain export skip on Windows.
+	fs::last_write_time( target, fs::file_time_type::clock::now(), ec );
 	++outcome.nWritten;
 	return true;
 }

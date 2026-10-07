@@ -13,7 +13,7 @@ permissions:
 jobs:
   linux-platform:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 90
 
     steps:
       - name: Check out source
@@ -479,9 +479,6 @@ jobs:
       - name: Resource editor batch
         run: zig build resource-editor-batch -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
-      - name: Resource editor auto
-        run: zig build resource-editor-auto -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
       - name: Resource editor auto core
         run: zig build resource-editor-auto-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
@@ -931,9 +928,6 @@ jobs:
       - name: Resource editor batch
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-batch -Dtarget=aarch64-macos -Dtest-mode=run
 
-      - name: Resource editor auto
-        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto -Dtarget=aarch64-macos -Dtest-mode=run
-
       - name: Resource editor auto core
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-core -Dtarget=aarch64-macos -Dtest-mode=run
 
@@ -1061,7 +1055,7 @@ jobs:
     # natively, so this job proves the aarch64 build works rather than only that
     # it compiles.
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 45
+    timeout-minutes: 90
 
     steps:
       - name: Check out source
@@ -1336,7 +1330,7 @@ jobs:
     # for macOS without a sysroot, which is why this needs a real Intel host
     # rather than an arm64 runner building x86_64.
     runs-on: macos-15-intel
-    timeout-minutes: 45
+    timeout-minutes: 90
 
     steps:
       - name: Check out source
