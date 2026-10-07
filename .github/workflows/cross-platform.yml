@@ -355,7 +355,10 @@ jobs:
     # 36397680132 were cut off at 75), and a job that is cut off never saved
     # its cache, so every later run started cold again. The caches are now
     # saved right after the random missions tier instead of at job end.
-    timeout-minutes: 110
+    # Raised to 150: run 37677710944 had every test step green on a cold cache
+    # (engine tier 22 minutes, random missions 29, the Resource Editor tiers
+    # since added) and was cut off at 110 in the release packaging step.
+    timeout-minutes: 150
 
     steps:
       - name: Check out source
