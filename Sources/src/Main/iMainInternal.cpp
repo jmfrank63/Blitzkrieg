@@ -886,9 +886,7 @@ bool CMainLoop::StepApp( bool bActive )
 	ParseWorldStreamCommands();
 	if ( nGuaranteeFPS == -1 ) 
 	{
-		NHPTimer::STime hptime;
-		NHPTimer::GetTime( &hptime );
-		GetSingleton<IGameTimer>()->Update( DWORD(NHPTimer::GetSeconds(hptime) * 1000.0f) );
+		GetSingleton<IGameTimer>()->Update( NPlatform::MonotonicMilliseconds() );
 	}
 	else
 	{
