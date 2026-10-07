@@ -1927,7 +1927,7 @@ pub const AutoRunner = struct {
             return self.fail("differ={s}: the shot is not an uncompressed 32-bit TGA: {s}", .{ differ.a, @errorName(err) });
         const second = auto_mod.Tga.parse(bytes[1]) catch |err|
             return self.fail("differ={s}: the shot is not an uncompressed 32-bit TGA: {s}", .{ differ.b, @errorName(err) });
-        const diff = auto_mod.compareTga(first, second, auto_mod.default_channel_tolerance);
+        const diff = auto_mod.compareTga(first, second, differ.tolerance);
         if (!diff.same_size) return self.fail("differ={s}/{s}: the shots are {d}x{d} and {d}x{d}", .{ differ.a, differ.b, first.width, first.height, second.width, second.height });
         const fraction = diff.fraction() * 100.0;
         std.debug.print("map-editor: BK_EDITOR_AUTO: differ {s}/{s}: {d:.4}% of pixels differ\n", .{ differ.a, differ.b, fraction });

@@ -8802,6 +8802,10 @@ const resource_auto_spt =
     // S07 Sprite (SpriteFrm): the frame folder pointed at, a thumbnail
     // double-click, saved and exported (1.san + DDS), then Run and Stop of the
     // preview measured: the running frames differ, the stopped ones are equal.
+    // The sprite plays once (bCycled false, as MFC exports it), three frames of
+    // 125 ms: the first shot is the frame Run draws (its first picture), the
+    // second comes after the whole animation and holds its last picture, so the
+    // two differ however slowly the runner draws.
     "139:do=preview_on," ++
     "140:do=mod_dir:{mods}/reseditor_auto_s07," ++
     "141:do=copy:{fix}/spt/project.spt>{dir}/spt/project.spt," ++
@@ -8817,10 +8821,9 @@ const resource_auto_spt =
     "149:do=export," ++
     "150:expect=exported," ++
     "151:do=preview_run," ++
-    "152:do=pause:100," ++
-    "153:shot=sprite_a," ++
-    "154:do=pause:150," ++
-    "154:shot=sprite_b," ++
+    "151:shot=sprite_a," ++
+    "153:do=pause:600," ++
+    "153:shot=sprite_b," ++
     "154:differ=sprite_a/sprite_b@0.001," ++
     "155:do=preview_stop," ++
     "156:do=pause:100," ++
@@ -9568,7 +9571,9 @@ const resource_auto_3rd =
     "23:expect=exported,";
 
 /// S13 3D River (.3rv, 3DRiverFrm): the preview on the maps\river3d terrain, Run twice a pause apart (the
-/// water animates), Stop, the wireframe, the export and the import of a shipped river description.
+/// water animates), Stop, the wireframe, the export and the import of a shipped river description. The
+/// water is a smooth texture that scrolls, so its shots are compared at a channel tolerance of 8, as
+/// test-resource-bridge's river shots are: at the default 24 hardly a pixel of it moves far enough.
 const resource_auto_3rv =
     "1:do=mod_dir:{mods}/reseditor_auto13_3rv," ++
     "2:do=copy:{fix}/3rv/project.3rv>{dir}/3rv/project.3rv," ++
@@ -9584,7 +9589,7 @@ const resource_auto_3rv =
     "9:expect=shot_lit:river_a," ++
     "10:do=pause:1500," ++
     "11:shot=river_b," ++
-    "11:differ=river_a/river_b@0.0005," ++
+    "11:differ=river_a/river_b@0.05~8," ++
     "12:do=preview_stop," ++
     "13:do=pause:100," ++
     "14:shot=river_c," ++
