@@ -105,12 +105,21 @@ const tree_window = struct {
 /// count is asked first and the read sized to it).
 const max_nodes = 512;
 
+/// BK_REQUIRE_ENGINE (set by CI on a runner that has a GPU device, software or not) turns the
+/// no-device skip below into a failure, as it does for the C++ tiers: a missing driver must not
+/// pass a tier that never ran.
+var require_engine = false;
+
 pub fn main(minimal: std.process.Init.Minimal) !void {
     crt.routeCrtReportsToStderr();
     const gpa = std.heap.smp_allocator;
     var threaded: std.Io.Threaded = .init(gpa, .{ .environ = minimal.environ });
     defer threaded.deinit();
     const io = threaded.io();
+    if (minimal.environ.getAlloc(gpa, "BK_REQUIRE_ENGINE")) |value| {
+        require_engine = value.len != 0 and !std.mem.eql(u8, value, "0");
+        gpa.free(value);
+    } else |_| {}
 
     var args = try std.process.Args.Iterator.initAllocator(minimal.args, gpa);
     defer args.deinit();
@@ -417,7 +426,7 @@ fn scenarioMode(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ
         return 2;
     }
     var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
-        if (err == error.NoDevice) {
+        if (err == error.NoDevice and !require_engine) {
             std.debug.print("resource-editor: {s} skipped: no GPU device ({s})\n", .{ tier, host_mod.failureReason() });
             return 0;
         }
@@ -442,7 +451,7 @@ fn batchMode(gpa: std.mem.Allocator, io: std.Io, args: []const []const u8, mod: 
     crt.attachParentConsole();
     if (!self_check) if (batch_cli.refuseArgs(args)) |code| return code;
     var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
-        if (err == error.NoDevice) {
+        if (err == error.NoDevice and !require_engine) {
             std.debug.print("resource-editor: batch skipped: no GPU device ({s})\n", .{host_mod.failureReason()});
             return if (self_check) 0 else 3;
         }
@@ -467,7 +476,7 @@ fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, pic
     defer gpa.free(output_z);
 
     var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
-        if (err == error.NoDevice) {
+        if (err == error.NoDevice and !require_engine) {
             std.debug.print("resource-editor: host check skipped: no GPU device ({s})\n", .{host_mod.failureReason()});
             return true;
         }
@@ -567,7 +576,7 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, mod
     defer gpa.free(output_z);
 
     var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
-        if (err == error.NoDevice) {
+        if (err == error.NoDevice and !require_engine) {
             std.debug.print("resource-editor: smoke skipped: no GPU device ({s})\n", .{host_mod.failureReason()});
             return true;
         }

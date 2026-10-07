@@ -13,7 +13,9 @@ permissions:
 jobs:
   linux-platform:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    # 33 minutes before the Resource Editor's engine-hosted tiers joined (run 37603215218);
+    # they render on lavapipe, a CPU rasterizer, so give them room.
+    timeout-minutes: 180
 
     steps:
       - name: Check out source
@@ -32,7 +34,8 @@ jobs:
             # round trip) read the shipped Data through the engine, and install-game stages
             # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
             # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
-            # AmericanELK, movies, Music and Bugs are not needed.
+            # AmericanELK, movies, Music and Bugs are not needed. resource-editor-game-reads-it starts
+            # the game, so ELK, AmericanELK and movies/progress are back, as on the Windows engine job.
             /Data/Maps/
             /Data/Scenarios/
             /Data/*.xml
@@ -46,13 +49,16 @@ jobs:
             /Data/Bridges/
             /Data/Buildings/
             /Data/Configs/
+            /Data/AmericanELK/
             /Data/Cursor/
+            /Data/ELK/
             /Data/Editor/
             /Data/Effects/
             /Data/Fences/
             /Data/Fonts/
             /Data/Icons/
             /Data/Medals/
+            /Data/movies/progress/
             /Data/Objects/
             /Data/Old/
             /Data/Sounds/
@@ -68,7 +74,18 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
+
+      # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
+      # the engine-hosted resource tiers below then run for real, and BK_REQUIRE_ENGINE makes a
+      # "skipped: no GPU device" fail instead of pass.
+      - name: Virtual display and software Vulkan
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
+          sleep 3
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          echo "SDL_VIDEO_DRIVER=x11" >> "$GITHUB_ENV"
+          ls /usr/share/vulkan/icd.d/
 
       - name: Install Zig 0.16.0
         shell: bash
@@ -145,14 +162,136 @@ jobs:
         run: zig build test-resource-model -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       # S04 slice gate: the resource bridge through the engine (Project+Tree,
-      # geometry, export, references, preview). No GPU device here, so it
-      # prints "skipped: no GPU device" and exits 0; it still has to build.
+      # geometry, export, references, preview), on lavapipe.
       - name: Resource bridge tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build test-resource-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
       - name: Resource mod round-trip tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
         run: zig build test-resource-mod-roundtrip -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      # The Resource Editor's own tiers, the engine hidden on the virtual display, as on Windows and macOS.
+      - name: Resource editor install
+        run: zig build install-resource-editor -Dtarget=x86_64-linux-gnu
+
+      - name: Resource editor host
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-host-check -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor smoke
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-smoke -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor batch
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-batch -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto core
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto wpn
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-wpn -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto unt
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-unt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto spt
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-spt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto msh
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-msh -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto obt
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-obt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto fnc
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-fnc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto bld
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-bld -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto bdg
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-bdg -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto pcp
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-pcp -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto eff
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-eff -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto til
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-til -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto 3rd
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-3rd -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto 3rv
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-3rv -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto mip
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-mip -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto chc
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-chc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto cgc
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-cgc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto mdc
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-mdc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto gui
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-gui -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Game reads the Resource Editor's exports
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
