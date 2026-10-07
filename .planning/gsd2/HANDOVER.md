@@ -66,8 +66,12 @@ Next steps:
 
 - `gsd-pi` 3.0.0 under node v23.6.1. Headless: `gsd headless auto`, `gsd headless steer "<text>"`,
   `gsd headless query`. Run steers with `nohup` and a long timeout in the background.
-- `.gsd/` is gitignored: the database (`.gsd/gsd.db`), runtime and preferences do not travel with git. Copy `.gsd/`
-  from the old machine to resume M001 with its history; otherwise recreate the preferences below.
+- `.gsd/` is gitignored, so a snapshot is committed as `.planning/gsd2/gsd-state-2026-10-07.zip`: `gsd-state/` is
+  the project `.gsd` (on the old machine a symlink to `~/.gsd/projects/bc66df5cf5b0`), `gsd-logs-scripts/` the
+  supervisor scripts (`supervise5.sh` is current) and `gsd-patches/` the patched `model-router.js` and
+  `prompts/reactive-execute.md`. Restore: unzip to a temp folder, copy `gsd-state/` to `.gsd/` in the checkout (GSD
+  was stopped when it was taken), and copy the patches over `~/.gsd/agent/extensions/gsd/` and gsd-pi's
+  `dist/resources/extensions/gsd/`.
 - Models: Opus 5.5 is the main (planning, heavy); Sonnet 5.5 for simpler work. Reviews: GPT-6-Luna medium. Cost is
   the most important factor.
 - `.gsd/PREFERENCES.md` as used:
