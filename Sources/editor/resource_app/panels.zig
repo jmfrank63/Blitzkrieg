@@ -877,9 +877,15 @@ pub const Panels = struct {
                 if (!is_active) continue;
                 const yellow = grid.toImGui(grid.cone_line_color);
                 const tip = screenOf(view, handles.direction);
+                // Aliased, as ComputeAngleLines drew them: an anti-aliased 1 px line is mostly
+                // blended pixels whose share each GPU's texture filtering decides, so the pure
+                // yellow the shots measure would vary from one renderer to the next.
+                const flags = draw_list.Flags;
+                draw_list.Flags &= ~@as(c_int, ig.ImDrawListFlags_AntiAliasedLines | ig.ImDrawListFlags_AntiAliasedLinesUseTex);
                 ig.ImDrawList_AddLineEx(draw_list, at, screenOf(view, handles.cone_minus), yellow, 1);
                 ig.ImDrawList_AddLineEx(draw_list, at, screenOf(view, handles.cone_plus), yellow, 1);
                 ig.ImDrawList_AddLineEx(draw_list, at, tip, yellow, 1);
+                draw_list.Flags = flags;
                 // The arrow head: two short lines back from the tip, 5 degrees either side of the direction.
                 const angle: f32 = @floatFromInt(point.angle);
                 const red = grid.toImGui(grid.arrow_color);

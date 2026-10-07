@@ -9569,6 +9569,10 @@ const resource_auto_3rd =
 
 /// S13 3D River (.3rv, 3DRiverFrm): the preview on the maps\river3d terrain, Run twice a pause apart (the
 /// water animates), Stop, the wireframe, the export and the import of a shipped river description.
+/// The water is a low-contrast texture blended over the bottom, so its scroll moves a pixel by a few
+/// levels only: on a GPU hardly any pixel passed the default 24-level tolerance (4 of 1024000), and
+/// the run stood or fell by chance. The differ counts pixels that move by more than 4 levels instead
+/// (about 5% of the frame on Direct3D 12, none while the preview is stopped).
 const resource_auto_3rv =
     "1:do=mod_dir:{mods}/reseditor_auto13_3rv," ++
     "2:do=copy:{fix}/3rv/project.3rv>{dir}/3rv/project.3rv," ++
@@ -9584,7 +9588,7 @@ const resource_auto_3rv =
     "9:expect=shot_lit:river_a," ++
     "10:do=pause:1500," ++
     "11:shot=river_b," ++
-    "11:differ=river_a/river_b@0.0005," ++
+    "11:differ=river_a/river_b@1/4," ++
     "12:do=preview_stop," ++
     "13:do=pause:100," ++
     "14:shot=river_c," ++
