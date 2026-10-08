@@ -418,3 +418,13 @@ Plans:
 Plans:
 
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.3: Windows builds with the GNU toolchain (MinGW) (BACKLOG)
+
+**Goal:** Build the Windows game and editors for `x86_64-windows-gnu` as well as `x86_64-windows-msvc`, so a Windows package can be built with Zig alone on any host (no Visual Studio headers or libraries, which cannot be redistributed) and the installer's release build can be cross-compiled on a cheaper Linux runner. No performance gain is expected: Zig's clang compiles both targets; only the C++ standard library (libc++ instead of Microsoft's) and the debug format (DWARF instead of PDB) differ. Take it up with the installer milestone. Details in `.planning/phases/999.3-windows-builds-with-mingw/999.3-NOTES.md`.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
