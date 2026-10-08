@@ -10,338 +10,13 @@ on:
 permissions:
   contents: read
 
+
+# One job per platform and product, named "<platform> - Game", "- Resource Editor" and
+# "- Map Editor", so a run shows at a glance what works where. A combination that is not
+# tested has a job that never runs (if: false) and says why in its name. Decision 2026-10-08.
 jobs:
-  linux-platform:
-    runs-on: ubuntu-24.04
-    # 33 minutes before the Resource Editor's engine-hosted tiers joined (run 37603215218);
-    # they render on lavapipe, a CPU rasterizer, so give them room.
-    timeout-minutes: 180
-
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          filter: blob:none
-          sparse-checkout: |
-            /*
-            !/*/
-            /Sources/
-            !/Sources/src/data/
-            /tools/
-            /vendor/
-            # The resource tiers (test-resource-model, test-resource-bridge and the mod
-            # round trip) read the shipped Data through the engine, and install-game stages
-            # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
-            # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
-            # AmericanELK, movies, Music and Bugs are not needed. resource-editor-game-reads-it starts
-            # the game, so ELK, AmericanELK and movies/progress are back, as on the Windows engine job.
-            /Data/Maps/
-            /Data/Scenarios/
-            /Data/*.xml
-            /Data/*.arr
-            /Data/*.spp
-            /Data/*.txt
-            /Data/icon.bmp
-            /Data/icon.png
-            /Data/splash.bmp
-            /Data/resource.description
-            /Data/Bridges/
-            /Data/Buildings/
-            /Data/Configs/
-            /Data/AmericanELK/
-            /Data/Cursor/
-            /Data/ELK/
-            /Data/Editor/
-            /Data/Effects/
-            /Data/Fences/
-            /Data/Fonts/
-            /Data/Icons/
-            /Data/Medals/
-            /Data/movies/progress/
-            /Data/Objects/
-            /Data/Old/
-            /Data/Sounds/
-            /Data/Squads/
-            /Data/Terrain/
-            /Data/Textes/
-            /Data/UI/
-            /Data/Units/
-            /Data/Water/
-            /Data/Weapons/
-          sparse-checkout-cone-mode: false
-
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
-
-      # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
-      # the engine-hosted resource tiers below then run for real, and BK_REQUIRE_ENGINE makes a
-      # "skipped: no GPU device" fail instead of pass.
-      - name: Virtual display and software Vulkan
-        run: |
-          Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
-          sleep 3
-          echo "DISPLAY=:99" >> "$GITHUB_ENV"
-          echo "SDL_VIDEO_DRIVER=x11" >> "$GITHUB_ENV"
-          ls /usr/share/vulkan/icd.d/
-
-      - name: Install Zig 0.16.0
-        shell: bash
-        run: |
-          zig_archive="zig-x86_64-linux-0.16.0.tar.xz"
-          curl --fail --location --silent --show-error \
-            "https://ziglang.org/download/0.16.0/${zig_archive}" \
-            --output "${RUNNER_TEMP}/${zig_archive}"
-          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
-          zig_home="${RUNNER_TEMP}/zig-x86_64-linux-0.16.0"
-          export PATH="${zig_home}:$PATH"
-          echo "$zig_home" >> "$GITHUB_PATH"
-          zig version
-
-      - name: Restore Zig build cache
-        uses: actions/cache@v5
-        with:
-          path: .zig-cache
-          key: ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
-          restore-keys: |
-            ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.16.0-
-
-      - name: Restore Unix Zig global cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/zig
-          key: ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
-          restore-keys: |
-            ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.16.0-
-
-      - name: Audit playable native residue
-        run: zig test tools/zig/runtime_platform_audit_test.zig
-
-      - name: Run StreamIO filesystem tests
-        run: zig build test-platform-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Run runtime module contract tests
-        run: zig build test-platform-modules -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Run platform foundation matrix
-        run: zig build test-platform-foundation -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Verify native runtime layout
-        run: zig build verify-runtime -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Run native staging tests
-        run: zig build test-stage -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Run diagnostics facade tests
-        run: zig build test-platform-debug -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Run GFX GPU effect table tests
-        run: zig build test-gfxgpu-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Map file tier
-        run: zig build test-map-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Mission data tier
-        run: zig build test-mission-data -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Editor core tier
-        run: zig build test-editor-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Editor kit tier
-        run: zig build test-editor-kit -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor core tier
-        run: zig build test-resource-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
-      # project extension, references/combos/localization lists and the
-      # per-stats-type comparator with its planted-unknown abort path.
-      - name: Resource model tier
-        run: zig build test-resource-model -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      # S04 slice gate: the resource bridge through the engine (Project+Tree,
-      # geometry, export, references, preview), on lavapipe.
-      - name: Resource bridge tier
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build test-resource-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
-      - name: Resource mod round-trip tier
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build test-resource-mod-roundtrip -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      # The Resource Editor's own tiers, the engine hidden on the virtual display, as on Windows and macOS.
-      - name: Resource editor install
-        run: zig build install-resource-editor -Dtarget=x86_64-linux-gnu
-
-      - name: Resource editor host
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-host-check -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor smoke
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-smoke -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor batch
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-batch -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto core
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto wpn
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-wpn -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto unt
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-unt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto spt
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-spt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto msh
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-msh -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto obt
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-obt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto fnc
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-fnc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto bld
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-bld -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto bdg
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-bdg -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto pcp
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-pcp -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto eff
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-eff -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto til
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-til -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto 3rd
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-3rd -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto 3rv
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-3rv -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto mip
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-mip -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto chc
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-chc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto cgc
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-cgc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto mdc
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-mdc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor auto gui
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-auto-gui -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Game reads the Resource Editor's exports
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Build the Map Editor overlay spike
-        run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
-
-      # Non-gating: reports whether this runner has a GPU device SDL can
-      # use, so the engine and overlay tiers can be scheduled on fact
-      # rather than on assumption. Never fails the build.
-      - name: GPU device probe
-        continue-on-error: true
-        run: zig build gpu-device-probe -Dtarget=x86_64-linux-gnu
-
-      - name: Run GFX GPU factory test
-        id: gfxgpu-factory-test
-        run: zig build gfxgpu-factory-test -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Backtrace the GFX GPU factory test
-        if: failure() && steps.gfxgpu-factory-test.outcome == 'failure'
-        run: |
-          sudo apt-get install -y --no-install-recommends gdb binutils
-          echo "=== ld.so init/fini calls, with the shared-object finalizer tracing its handle"
-          BK_SO_FINALIZE_TRACE=1 LD_DEBUG=files zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so 2>&1 | grep -iE "calling (init|fini)|finalize" | tail -20 || true
-          echo "=== libGFXGPU.so: fini tags, finalizer and dso_handle symbols, handle passed to __cxa_atexit"
-          readelf -dW zig-out/lib/libGFXGPU.so | grep -iE "fini|init" || true
-          nm -C zig-out/lib/libGFXGPU.so | grep -iE "FinalizeSharedObject|__dso_handle|__cxa_(atexit|finalize)" || true
-          readelf -xW .fini_array zig-out/lib/libGFXGPU.so || true
-          objdump -dr -C zig-out/lib/libGFXGPU.so | grep -B6 -E "call.*__cxa_atexit" | grep -E "__dso_handle|__cxa_atexit|lea|mov" | head -30 || true
-          objdump -d -C zig-out/lib/libGFXGPU.so --disassemble='FinalizeSharedObject()' | head -40 || true
-          echo "=== gdb"
-          gdb -batch -ex run -ex 'thread apply all bt' -ex 'info sharedlibrary' --args zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so 2>&1 | tee gdb.log || true
-          echo "=== fault address resolved against the objects the harness listed before dlclose"
-          fault=$(grep -m1 -oE '^#0 +0x[0-9a-f]+' gdb.log | grep -oE '0x[0-9a-f]+' || true)
-          grep 'gfxgpu-factory-test: object ' gdb.log | while read -r _ _ base path; do
-            [ -n "$fault" ] || break
-            off=$(( fault - base ))
-            if [ "$off" -ge 0 ] && [ "$off" -lt 33554432 ]; then
-              printf 'fault %s = %s + 0x%x\n' "$fault" "$path" "$off"
-              [ -f "$path" ] && addr2line -f -C -e "$path" "$(printf 0x%x "$off")" || true
-              [ -f "$path" ] && nm -nC --defined-only "$path" | awk -v o="$off" 'BEGIN{o=o+0} {a=strtonum("0x"$1); if (a<=o) last=$0} END{print "nearest symbol at or below: " last}' || true
-            fi
-          done
-
-      - name: Upload generated outputs
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: linux-platform-outputs
-          path: zig-out
-          if-no-files-found: ignore
-
-  windows-platform:
+  windows-game:
+    name: "Windows x64 MSVC - Game"
     runs-on: windows-latest
     # The cold build of the engine tier takes about 20 minutes here (run
     # 35683754678). The two runs that were cut off at 120 and 240 minutes were
@@ -363,6 +38,7 @@ jobs:
     # windows-resource-editor and windows-map-editor, which leaves the engine
     # tier, the random missions and the packages here (about 85 minutes).
     timeout-minutes: 150
+
 
     steps:
       - name: Check out source
@@ -664,17 +340,19 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: windows-platform-outputs
+          name: windows-game-outputs
           path: zig-out
           if-no-files-found: ignore
 
   windows-resource-editor:
+    name: "Windows x64 MSVC - Resource Editor"
     runs-on: windows-latest
-    # The Resource Editor's engine-hosted steps, split from windows-platform
+    # The Resource Editor's engine-hosted steps, split from windows-game
     # (run 37691999377: 25 minutes of them on top of the shared engine build,
-    # about 23 cold). This job restores the caches windows-platform saves and
+    # about 23 cold). This job restores the caches windows-game saves and
     # does not save its own.
     timeout-minutes: 90
+
 
     steps:
       - name: Check out source
@@ -910,20 +588,28 @@ jobs:
 
       - name: Resource editor auto eff
         run: zig build resource-editor-auto-eff -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Resource editor auto til
         run: zig build resource-editor-auto-til -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Resource editor auto 3rd
         run: zig build resource-editor-auto-3rd -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Resource editor auto 3rv
         run: zig build resource-editor-auto-3rv -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Resource editor auto mip
         run: zig build resource-editor-auto-mip -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Resource editor auto chc
         run: zig build resource-editor-auto-chc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Resource editor auto cgc
         run: zig build resource-editor-auto-cgc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Resource editor auto mdc
         run: zig build resource-editor-auto-mdc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Resource editor auto gui
         run: zig build resource-editor-auto-gui -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
@@ -947,11 +633,13 @@ jobs:
           if-no-files-found: ignore
 
   windows-map-editor:
+    name: "Windows x64 MSVC - Map Editor"
     runs-on: windows-latest
-    # The Map Editor's steps, split from windows-platform (run 37691999377: 18
+    # The Map Editor's steps, split from windows-game (run 37691999377: 18
     # minutes of them on top of the shared engine build, about 23 cold). This
-    # job restores the caches windows-platform saves and does not save its own.
+    # job restores the caches windows-game saves and does not save its own.
     timeout-minutes: 75
+
 
     steps:
       - name: Check out source
@@ -1189,7 +877,150 @@ jobs:
           path: zig-out
           if-no-files-found: ignore
 
-  macos-platform:
+  windows-mingw-platform:
+    name: "Windows x64 MinGW - platform only"
+    # The GNU Windows ABI. Zig ships its own mingw-w64 headers and import
+    # libraries, so unlike the MSVC job this one needs no Visual Studio lookup.
+    # It runs on Windows so the suites execute rather than only link.
+    runs-on: windows-latest
+    timeout-minutes: 60
+
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+          sparse-checkout-cone-mode: false
+
+      - name: Install Zig 0.16.0
+        shell: pwsh
+        run: |
+          $zigVersion = "0.16.0"
+          $zigArchive = "zig-x86_64-windows-$zigVersion.zip"
+          $zigArchivePath = Join-Path $env:RUNNER_TEMP $zigArchive
+          Invoke-WebRequest -Uri "https://ziglang.org/download/$zigVersion/$zigArchive" -OutFile $zigArchivePath
+          Expand-Archive -LiteralPath $zigArchivePath -DestinationPath $env:RUNNER_TEMP -Force
+          $zigHome = Join-Path $env:RUNNER_TEMP "zig-x86_64-windows-$zigVersion"
+          Add-Content -Path $env:GITHUB_PATH -Value $zigHome
+          & (Join-Path $zigHome "zig.exe") version
+
+      - name: Restore Zig build cache
+        uses: actions/cache@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-x86_64-windows-gnu-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-windows-gnu-zig-build-0.16.0-
+
+      - name: Restore Windows Zig global cache
+        uses: actions/cache@v5
+        with:
+          path: ~\AppData\Local\zig
+          key: ${{ runner.os }}-x86_64-windows-gnu-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-windows-gnu-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      - name: Run StreamIO filesystem tests
+        run: zig build test-platform-files -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Run runtime module contract tests
+        run: zig build test-platform-modules -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Run platform foundation matrix
+        run: zig build test-platform-foundation -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Verify native runtime layout
+        run: zig build verify-runtime -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Run native staging tests
+        run: zig build test-stage -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Run diagnostics facade tests
+        run: zig build test-platform-debug -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Run GFX GPU effect table tests
+        run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Editor kit tier
+        run: zig build test-editor-kit -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Resource editor core tier
+        run: zig build test-resource-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
+
+      - name: Build the Map Editor overlay spike
+        run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-gnu
+
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build gpu-device-probe -Dtarget=x86_64-windows-gnu
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-mingw-platform-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  windows-mingw-game:
+    name: "Windows x64 MinGW - Game (not tested: the engine does not build, backlog 999.3)"
+    # Not built: the engine does not compile with MinGW (Platform/LegacyVariant.h
+    # includes MSVC's comutil.h on every _WIN32 target). Backlog 999.3.
+    if: false
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Not tested
+        run: exit 0
+
+  windows-mingw-resource-editor:
+    name: "Windows x64 MinGW - Resource Editor (not tested: the engine does not build, backlog 999.3)"
+    # Not built: the engine does not compile with MinGW (Platform/LegacyVariant.h
+    # includes MSVC's comutil.h on every _WIN32 target). Backlog 999.3.
+    if: false
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Not tested
+        run: exit 0
+
+  windows-mingw-map-editor:
+    name: "Windows x64 MinGW - Map Editor (not tested: the engine does not build, backlog 999.3)"
+    # Not built: the engine does not compile with MinGW (Platform/LegacyVariant.h
+    # includes MSVC's comutil.h on every _WIN32 target). Backlog 999.3.
+    if: false
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Not tested
+        run: exit 0
+
+  windows-arm-game:
+    name: "Windows arm64 - Game, Resource Editor, Map Editor (not tested: no target yet, backlog 999.5)"
+    # No aarch64-windows target in build.zig and no job yet. Backlog 999.5.
+    if: false
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Not tested
+        run: exit 0
+
+  macos-game:
+    name: "macOS arm64 - Game"
     # The standard macOS 14 runner is Apple Silicon. Keep this explicit so
     # native module tests cannot silently run on an Intel host.
     runs-on: macos-14
@@ -1198,6 +1029,7 @@ jobs:
     # step alone took 38 minutes on macos-14 and the job finished in 43 of its
     # 45; windows-latest was still building when it hit 60 and was cancelled.
     timeout-minutes: 90
+
 
     steps:
       - name: Check out source
@@ -1341,16 +1173,170 @@ jobs:
       - name: Resource editor core tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-resource-core -Dtarget=aarch64-macos -Dtest-mode=run
 
-      # The app's own unit tests (see the Windows job's step of this name).
-      - name: Map editor unit tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtarget=aarch64-macos -Dtest-mode=run
-
       - name: Engine tier
         env:
           # This job has a video driver and a GPU device (the probe step below), so a tool that
           # would print "skipped" and exit 0 fails instead, here and in the engine-hosted steps after it.
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-bridge -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # The game's SDL event translation, through the real SDLApplication and
+      # a real window: wheel deltas (a trackpad swipe's fractions, flipped,
+      # finger-marked), keys, text and timestamps. Needs a video driver.
+      - name: SDL event translation
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-events -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Random missions tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
+
+      - name: RMG composer round trip
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-composer-roundtrip -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
+
+      - name: RMG determinism
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-determinism -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
+
+      - name: Build the Map Editor overlay spike
+        run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos
+
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build --sysroot "$MACOS_SYSROOT" gpu-device-probe -Dtarget=aarch64-macos
+
+      - name: Run GFX GPU factory test
+        run: zig build --sysroot "$MACOS_SYSROOT" gfxgpu-factory-test -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: macos-game-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  macos-resource-editor:
+    name: "macOS arm64 - Resource Editor"
+    runs-on: macos-14
+    # Split from macos-game (2026-10-08) so each product shows its own result. It restores
+    # the caches macos-game saves and does not save its own.
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
+            /Data/Scenarios/
+            # The engine tier starts the whole game, so it needs nearly all of Data.
+            # Measured 2026-09-21 by adding trees to a symlink farm until it ran
+            # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
+            # everything but movies, Music, Old, Bugs and Medals. Scenarios is
+            # included too, for the random missions tier. Only the two runners
+            # that have a GPU device pay for it; the other three have none,
+            # would skip, and keep the narrow checkout.
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            # stage.zig copies Data/THIRD-PARTY-NOTICES.txt to the install root
+            # (tools/zig/verify_runtime.zig:40), so install-game fails without it.
+            /Data/*.txt
+            # The rest of the loose files at the top of Data. Listed by name
+            # rather than as /Data/* - that would match the directories too and
+            # pull the whole 2.8 GB tree back in.
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/AmericanELK/
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            # The resource tiers read the Medals and Old (.unt) folders too.
+            /Data/Medals/
+            /Data/Old/
+            /Data/movies/progress/
+            /Data/Objects/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
+          sparse-checkout-cone-mode: false
+
+      - name: Verify Apple Silicon host
+        run: |
+          test "$(uname -m)" = "arm64"
+          sw_vers
+
+      - name: Install Zig 0.16.0
+        shell: bash
+        run: |
+          zig_host_arch="$(uname -m)"
+          case "$zig_host_arch" in
+            arm64) zig_host_arch="aarch64" ;;
+            x86_64) zig_host_arch="x86_64" ;;
+            *) echo "Unsupported macOS host architecture: $zig_host_arch" >&2; exit 1 ;;
+          esac
+          zig_archive="zig-${zig_host_arch}-macos-0.16.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.16.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-${zig_host_arch}-macos-0.16.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Restore Zig build cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-aarch64-macos-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-aarch64-macos-zig-build-0.16.0-
+
+      - name: Restore Unix Zig global cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/zig
+          key: ${{ runner.os }}-aarch64-macos-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-aarch64-macos-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      - name: Configure macOS SDK sysroot
+        run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
 
       # S04 slice gate: the resource bridge through the engine, including the
       # preview captures (mesh, sprite, effect) measured by code.
@@ -1364,16 +1350,6 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-resource-mod-roundtrip -Dtarget=aarch64-macos -Dtest-mode=run
-
-      # MapEditor itself: the engine started hidden with ImGui over it, one
-      # frame captured as presented and checked for both.
-      - name: Map editor host
-        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-host-check -Dtarget=aarch64-macos -Dtest-mode=run
-
-      # MapEditor's interactive loop, hidden, driven by scripted SDL events:
-      # paint, place, select, drag, turn, delete, undo it all, save, reopen.
-      - name: Map editor smoke
-        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-smoke -Dtarget=aarch64-macos -Dtest-mode=run
 
       # S05 slice gate: ResourceEditor installs beside Game and MapEditor.
       - name: Resource editor install
@@ -1425,28 +1401,179 @@ jobs:
 
       - name: Resource editor auto eff
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-eff -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Resource editor auto til
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-til -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Resource editor auto 3rd
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-3rd -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Resource editor auto 3rv
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-3rv -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Resource editor auto mip
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-mip -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Resource editor auto chc
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-chc -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Resource editor auto cgc
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-cgc -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Resource editor auto mdc
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-mdc -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Resource editor auto gui
         run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-auto-gui -Dtarget=aarch64-macos -Dtest-mode=run
 
-      # The game's SDL event translation, through the real SDLApplication and
-      # a real window: wheel deltas (a trackpad swipe's fractions, flipped,
-      # finger-marked), keys, text and timestamps. Needs a video driver.
-      - name: SDL event translation
-        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-events -Dtarget=aarch64-macos -Dtest-mode=run
+      - name: Game reads the Resource Editor's exports
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-game-reads-it -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
+      # project extension, references/combos/localization lists and the
+      # per-stats-type comparator with its planted-unknown abort path.
+      - name: Resource model tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-model -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: macos-resource-editor-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  macos-map-editor:
+    name: "macOS arm64 - Map Editor"
+    runs-on: macos-14
+    # Split from macos-game (2026-10-08) so each product shows its own result. It restores
+    # the caches macos-game saves and does not save its own.
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
+            /Data/Scenarios/
+            # The engine tier starts the whole game, so it needs nearly all of Data.
+            # Measured 2026-09-21 by adding trees to a symlink farm until it ran
+            # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
+            # everything but movies, Music, Old, Bugs and Medals. Scenarios is
+            # included too, for the random missions tier. Only the two runners
+            # that have a GPU device pay for it; the other three have none,
+            # would skip, and keep the narrow checkout.
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            # stage.zig copies Data/THIRD-PARTY-NOTICES.txt to the install root
+            # (tools/zig/verify_runtime.zig:40), so install-game fails without it.
+            /Data/*.txt
+            # The rest of the loose files at the top of Data. Listed by name
+            # rather than as /Data/* - that would match the directories too and
+            # pull the whole 2.8 GB tree back in.
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/AmericanELK/
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            # The resource tiers read the Medals and Old (.unt) folders too.
+            /Data/Medals/
+            /Data/Old/
+            /Data/movies/progress/
+            /Data/Objects/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
+          sparse-checkout-cone-mode: false
+
+      - name: Verify Apple Silicon host
+        run: |
+          test "$(uname -m)" = "arm64"
+          sw_vers
+
+      - name: Install Zig 0.16.0
+        shell: bash
+        run: |
+          zig_host_arch="$(uname -m)"
+          case "$zig_host_arch" in
+            arm64) zig_host_arch="aarch64" ;;
+            x86_64) zig_host_arch="x86_64" ;;
+            *) echo "Unsupported macOS host architecture: $zig_host_arch" >&2; exit 1 ;;
+          esac
+          zig_archive="zig-${zig_host_arch}-macos-0.16.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.16.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-${zig_host_arch}-macos-0.16.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Restore Zig build cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-aarch64-macos-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-aarch64-macos-zig-build-0.16.0-
+
+      - name: Restore Unix Zig global cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/zig
+          key: ${{ runner.os }}-aarch64-macos-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-aarch64-macos-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      - name: Configure macOS SDK sysroot
+        run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+
+      # The app's own unit tests (see the Windows job's step of this name).
+      - name: Map editor unit tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # MapEditor itself: the engine started hidden with ImGui over it, one
+      # frame captured as presented and checked for both.
+      - name: Map editor host
+        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-host-check -Dtarget=aarch64-macos -Dtest-mode=run
+
+      # MapEditor's interactive loop, hidden, driven by scripted SDL events:
+      # paint, place, select, drag, turn, delete, undo it all, save, reopen.
+      - name: Map editor smoke
+        run: zig build --sysroot "$MACOS_SYSROOT" map-editor-smoke -Dtarget=aarch64-macos -Dtest-mode=run
 
       # The editor core driving the real engine through the Zig adapter.
       - name: Map editor engine tier
@@ -1468,59 +1595,854 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" map-editor-game-reads-it-m3 -Dtarget=aarch64-macos -Dtest-mode=run
 
-      - name: Game reads the Resource Editor's exports
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build --sysroot "$MACOS_SYSROOT" resource-editor-game-reads-it -Dtarget=aarch64-macos -Dtest-mode=run
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: macos-map-editor-outputs
+          path: zig-out
+          if-no-files-found: ignore
 
-      - name: Random missions tier
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
+  macos-intel-platform:
+    name: "macOS x64 Intel - platform only"
+    # Intel macOS is a supported target but had no job, so nothing caught that
+    # its Cocoa adapters were never being compiled. SDL refuses to cross-compile
+    # for macOS without a sysroot, which is why this needs a real Intel host
+    # rather than an arm64 runner building x86_64.
+    runs-on: macos-15-intel
+    # Raised to 150: run 37720133938, the first on main and so on a cold cache, was cut off
+    # at 90 in the Resource model tier while it built the engine. Warm, the job takes 9 minutes.
+    timeout-minutes: 150
 
-      - name: RMG composer round trip
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-composer-roundtrip -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
 
-      - name: RMG determinism
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-determinism -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            # The resource tiers (test-resource-model, test-resource-bridge and the mod
+            # round trip) read the shipped Data through the engine, and install-game stages
+            # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
+            # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
+            # AmericanELK, movies, Music and Bugs are not needed.
+            /Data/Maps/
+            /Data/Scenarios/
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            /Data/*.txt
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Medals/
+            /Data/Objects/
+            /Data/Old/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
+          sparse-checkout-cone-mode: false
+
+      - name: Verify Intel host
+        run: |
+          test "$(uname -m)" = "x86_64"
+          sw_vers
+
+      - name: Install Zig 0.16.0
+        shell: bash
+        run: |
+          zig_archive="zig-x86_64-macos-0.16.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.16.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-x86_64-macos-0.16.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Restore Zig build cache
+        uses: actions/cache@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-x86_64-macos-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-macos-zig-build-0.16.0-
+
+      - name: Restore Unix Zig global cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/zig
+          key: ${{ runner.os }}-x86_64-macos-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-macos-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      - name: Configure macOS SDK sysroot
+        run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+
+      - name: Compile StreamIO filesystem tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-files -Dtarget=x86_64-macos -Dtest-mode=compile
+
+      - name: Run runtime module contract tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-modules -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Compile platform foundation matrix
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-foundation -Dtarget=x86_64-macos -Dtest-mode=compile
+
+      - name: Verify native runtime layout
+        run: zig build --sysroot "$MACOS_SYSROOT" verify-runtime -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Run native staging tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-stage -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Run diagnostics facade tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-debug -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Run GFX GPU effect table tests
+        run: zig build --sysroot "$MACOS_SYSROOT" test-gfxgpu-core -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Map file tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Editor core tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-core -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Editor kit tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-kit -Dtarget=x86_64-macos -Dtest-mode=run
+
+      - name: Resource editor core tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-core -Dtarget=x86_64-macos -Dtest-mode=run
 
       # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
       # project extension, references/combos/localization lists and the
       # per-stats-type comparator with its planted-unknown abort path.
       - name: Resource model tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-model -Dtarget=aarch64-macos -Dtest-mode=run
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-model -Dtarget=x86_64-macos -Dtest-mode=run
+
+      # S04 slice gate: the resource bridge through the engine (Project+Tree,
+      # geometry, export, references, preview). No GPU device here, so it
+      # prints "skipped: no GPU device" and exits 0; it still has to build.
+      - name: Resource bridge tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-bridge -Dtarget=x86_64-macos -Dtest-mode=run
+
+      # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
+      - name: Resource mod round-trip tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-mod-roundtrip -Dtarget=x86_64-macos -Dtest-mode=run
 
       - name: Build the Map Editor overlay spike
-        run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos
+        run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=x86_64-macos
 
       # Non-gating: reports whether this runner has a GPU device SDL can
       # use, so the engine and overlay tiers can be scheduled on fact
       # rather than on assumption. Never fails the build.
       - name: GPU device probe
         continue-on-error: true
-        run: zig build --sysroot "$MACOS_SYSROOT" gpu-device-probe -Dtarget=aarch64-macos
+        run: zig build --sysroot "$MACOS_SYSROOT" gpu-device-probe -Dtarget=x86_64-macos
 
-      - name: Run GFX GPU factory test
-        run: zig build --sysroot "$MACOS_SYSROOT" gfxgpu-factory-test -Dtarget=aarch64-macos -Dtest-mode=run
+      - name: Compile GFX GPU factory test
+        run: zig build --sysroot "$MACOS_SYSROOT" gfxgpu-factory-test -Dtarget=x86_64-macos -Dtest-mode=compile
 
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: macos-platform-outputs
+          name: macos-intel-platform-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  macos-intel-game:
+    name: "macOS x64 Intel - Game (not tested: no Metal GPU on the runner)"
+    # Not tested: the macos-15-intel runner has no Metal device, so the engine-hosted
+    # tiers can only skip. A real Intel Mac runs them (32a193718).
+    if: false
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Not tested
+        run: exit 0
+
+  macos-intel-resource-editor:
+    name: "macOS x64 Intel - Resource Editor (not tested: no Metal GPU on the runner)"
+    # Not tested: the macos-15-intel runner has no Metal device, so the engine-hosted
+    # tiers can only skip. A real Intel Mac runs them (32a193718).
+    if: false
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Not tested
+        run: exit 0
+
+  macos-intel-map-editor:
+    name: "macOS x64 Intel - Map Editor (not tested: no Metal GPU on the runner)"
+    # Not tested: the macos-15-intel runner has no Metal device, so the engine-hosted
+    # tiers can only skip. A real Intel Mac runs them (32a193718).
+    if: false
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Not tested
+        run: exit 0
+
+  linux-game:
+    name: "Linux x64 - Game"
+    runs-on: ubuntu-24.04
+    # 33 minutes before the Resource Editor's engine-hosted tiers joined (run 37603215218);
+    # they render on lavapipe, a CPU rasterizer, so give them room.
+    # Split 2026-10-08: the Resource Editor and Map Editor run beside this job, in
+    # linux-resource-editor and linux-map-editor.
+    timeout-minutes: 180
+
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            # The resource tiers (test-resource-model, test-resource-bridge and the mod
+            # round trip) read the shipped Data through the engine, and install-game stages
+            # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
+            # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
+            # AmericanELK, movies, Music and Bugs are not needed. resource-editor-game-reads-it starts
+            # the game, so ELK, AmericanELK and movies/progress are back, as on the Windows engine job.
+            /Data/Maps/
+            /Data/Scenarios/
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            /Data/*.txt
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/AmericanELK/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Medals/
+            /Data/movies/progress/
+            /Data/Objects/
+            /Data/Old/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
+          sparse-checkout-cone-mode: false
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
+
+      # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
+      # the engine-hosted resource tiers below then run for real, and BK_REQUIRE_ENGINE makes a
+      # "skipped: no GPU device" fail instead of pass.
+      - name: Virtual display and software Vulkan
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
+          sleep 3
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          echo "SDL_VIDEO_DRIVER=x11" >> "$GITHUB_ENV"
+          ls /usr/share/vulkan/icd.d/
+
+      - name: Install Zig 0.16.0
+        shell: bash
+        run: |
+          zig_archive="zig-x86_64-linux-0.16.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.16.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-x86_64-linux-0.16.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Restore Zig build cache
+        uses: actions/cache@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.16.0-
+
+      - name: Restore Unix Zig global cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/zig
+          key: ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      - name: Run StreamIO filesystem tests
+        run: zig build test-platform-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Run runtime module contract tests
+        run: zig build test-platform-modules -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Run platform foundation matrix
+        run: zig build test-platform-foundation -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Verify native runtime layout
+        run: zig build verify-runtime -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Run native staging tests
+        run: zig build test-stage -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Run diagnostics facade tests
+        run: zig build test-platform-debug -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Run GFX GPU effect table tests
+        run: zig build test-gfxgpu-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Map file tier
+        run: zig build test-map-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Mission data tier
+        run: zig build test-mission-data -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Editor kit tier
+        run: zig build test-editor-kit -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor core tier
+        run: zig build test-resource-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      # New on Linux (2026-10-08): the Game's own tiers on lavapipe, as on Windows and macOS.
+      - name: Engine tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-editor-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Random missions tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
+
+      - name: RMG composer round trip
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-rmg-composer-roundtrip -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run
+
+      - name: RMG determinism
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-rmg-determinism -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run
+
+      - name: Build the Map Editor overlay spike
+        run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
+
+      # Non-gating: reports whether this runner has a GPU device SDL can
+      # use, so the engine and overlay tiers can be scheduled on fact
+      # rather than on assumption. Never fails the build.
+      - name: GPU device probe
+        continue-on-error: true
+        run: zig build gpu-device-probe -Dtarget=x86_64-linux-gnu
+
+      - name: Run GFX GPU factory test
+        id: gfxgpu-factory-test
+        run: zig build gfxgpu-factory-test -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Backtrace the GFX GPU factory test
+        if: failure() && steps.gfxgpu-factory-test.outcome == 'failure'
+        run: |
+          sudo apt-get install -y --no-install-recommends gdb binutils
+          echo "=== ld.so init/fini calls, with the shared-object finalizer tracing its handle"
+          BK_SO_FINALIZE_TRACE=1 LD_DEBUG=files zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so 2>&1 | grep -iE "calling (init|fini)|finalize" | tail -20 || true
+          echo "=== libGFXGPU.so: fini tags, finalizer and dso_handle symbols, handle passed to __cxa_atexit"
+          readelf -dW zig-out/lib/libGFXGPU.so | grep -iE "fini|init" || true
+          nm -C zig-out/lib/libGFXGPU.so | grep -iE "FinalizeSharedObject|__dso_handle|__cxa_(atexit|finalize)" || true
+          readelf -xW .fini_array zig-out/lib/libGFXGPU.so || true
+          objdump -dr -C zig-out/lib/libGFXGPU.so | grep -B6 -E "call.*__cxa_atexit" | grep -E "__dso_handle|__cxa_atexit|lea|mov" | head -30 || true
+          objdump -d -C zig-out/lib/libGFXGPU.so --disassemble='FinalizeSharedObject()' | head -40 || true
+          echo "=== gdb"
+          gdb -batch -ex run -ex 'thread apply all bt' -ex 'info sharedlibrary' --args zig-out/bin/gfxgpu-factory-test zig-out/lib/libGFXGPU.so 2>&1 | tee gdb.log || true
+          echo "=== fault address resolved against the objects the harness listed before dlclose"
+          fault=$(grep -m1 -oE '^#0 +0x[0-9a-f]+' gdb.log | grep -oE '0x[0-9a-f]+' || true)
+          grep 'gfxgpu-factory-test: object ' gdb.log | while read -r _ _ base path; do
+            [ -n "$fault" ] || break
+            off=$(( fault - base ))
+            if [ "$off" -ge 0 ] && [ "$off" -lt 33554432 ]; then
+              printf 'fault %s = %s + 0x%x\n' "$fault" "$path" "$off"
+              [ -f "$path" ] && addr2line -f -C -e "$path" "$(printf 0x%x "$off")" || true
+              [ -f "$path" ] && nm -nC --defined-only "$path" | awk -v o="$off" 'BEGIN{o=o+0} {a=strtonum("0x"$1); if (a<=o) last=$0} END{print "nearest symbol at or below: " last}' || true
+            fi
+          done
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: linux-game-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  linux-resource-editor:
+    name: "Linux x64 - Resource Editor"
+    runs-on: ubuntu-24.04
+    # Split from linux-game (2026-10-08) so each product shows its own result. It restores
+    # the caches linux-game saves and does not save its own. The engine renders on lavapipe.
+    timeout-minutes: 120
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            # The resource tiers (test-resource-model, test-resource-bridge and the mod
+            # round trip) read the shipped Data through the engine, and install-game stages
+            # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
+            # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
+            # AmericanELK, movies, Music and Bugs are not needed. resource-editor-game-reads-it starts
+            # the game, so ELK, AmericanELK and movies/progress are back, as on the Windows engine job.
+            /Data/Maps/
+            /Data/Scenarios/
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            /Data/*.txt
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/AmericanELK/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Medals/
+            /Data/movies/progress/
+            /Data/Objects/
+            /Data/Old/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
+          sparse-checkout-cone-mode: false
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
+
+      # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
+      # the engine-hosted resource tiers below then run for real, and BK_REQUIRE_ENGINE makes a
+      # "skipped: no GPU device" fail instead of pass.
+      - name: Virtual display and software Vulkan
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
+          sleep 3
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          echo "SDL_VIDEO_DRIVER=x11" >> "$GITHUB_ENV"
+          ls /usr/share/vulkan/icd.d/
+
+      - name: Install Zig 0.16.0
+        shell: bash
+        run: |
+          zig_archive="zig-x86_64-linux-0.16.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.16.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-x86_64-linux-0.16.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Restore Zig build cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.16.0-
+
+      - name: Restore Unix Zig global cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/zig
+          key: ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
+      # project extension, references/combos/localization lists and the
+      # per-stats-type comparator with its planted-unknown abort path.
+      - name: Resource model tier
+        run: zig build test-resource-model -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      # S04 slice gate: the resource bridge through the engine (Project+Tree,
+      # geometry, export, references, preview), on lavapipe.
+      - name: Resource bridge tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-resource-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
+      - name: Resource mod round-trip tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-resource-mod-roundtrip -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      # The Resource Editor's own tiers, the engine hidden on the virtual display, as on Windows and macOS.
+      - name: Resource editor install
+        run: zig build install-resource-editor -Dtarget=x86_64-linux-gnu
+
+      - name: Resource editor host
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-host-check -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor smoke
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-smoke -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor batch
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-batch -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto core
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto wpn
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-wpn -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto unt
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-unt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto spt
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-spt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto msh
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-msh -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto obt
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-obt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto fnc
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-fnc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto bld
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-bld -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto bdg
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-bdg -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto pcp
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-pcp -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto eff
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-eff -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto til
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-til -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto 3rd
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-3rd -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto 3rv
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-3rv -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto mip
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-mip -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto chc
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-chc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto cgc
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-cgc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto mdc
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-mdc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Resource editor auto gui
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-auto-gui -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Game reads the Resource Editor's exports
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: linux-resource-editor-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  linux-map-editor:
+    name: "Linux x64 - Map Editor"
+    runs-on: ubuntu-24.04
+    # Split from linux-game (2026-10-08) so each product shows its own result. It restores
+    # the caches linux-game saves and does not save its own. The engine renders on lavapipe.
+    timeout-minutes: 120
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            # The resource tiers (test-resource-model, test-resource-bridge and the mod
+            # round trip) read the shipped Data through the engine, and install-game stages
+            # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
+            # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
+            # AmericanELK, movies, Music and Bugs are not needed. resource-editor-game-reads-it starts
+            # the game, so ELK, AmericanELK and movies/progress are back, as on the Windows engine job.
+            /Data/Maps/
+            /Data/Scenarios/
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            /Data/*.txt
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/AmericanELK/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            /Data/Medals/
+            /Data/movies/progress/
+            /Data/Objects/
+            /Data/Old/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
+          sparse-checkout-cone-mode: false
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes build-essential clang lld libc++-dev libc++abi-dev curl xz-utils xvfb mesa-vulkan-drivers libvulkan1
+
+      # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
+      # the engine-hosted resource tiers below then run for real, and BK_REQUIRE_ENGINE makes a
+      # "skipped: no GPU device" fail instead of pass.
+      - name: Virtual display and software Vulkan
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
+          sleep 3
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+          echo "SDL_VIDEO_DRIVER=x11" >> "$GITHUB_ENV"
+          ls /usr/share/vulkan/icd.d/
+
+      - name: Install Zig 0.16.0
+        shell: bash
+        run: |
+          zig_archive="zig-x86_64-linux-0.16.0.tar.xz"
+          curl --fail --location --silent --show-error \
+            "https://ziglang.org/download/0.16.0/${zig_archive}" \
+            --output "${RUNNER_TEMP}/${zig_archive}"
+          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
+          zig_home="${RUNNER_TEMP}/zig-x86_64-linux-0.16.0"
+          export PATH="${zig_home}:$PATH"
+          echo "$zig_home" >> "$GITHUB_PATH"
+          zig version
+
+      - name: Restore Zig build cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-linux-gnu-zig-build-0.16.0-
+
+      - name: Restore Unix Zig global cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/.cache/zig
+          key: ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      # New on Linux (2026-10-08): the Map Editor's tiers on the virtual display and lavapipe.
+      # The app's own unit tests (see the Windows job's step of this name).
+      - name: Map editor unit tier
+        run: zig build test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      # MapEditor itself: the engine started hidden with ImGui over it, one
+      # frame captured as presented and checked for both.
+      - name: Map editor host
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build map-editor-host-check -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      # MapEditor's interactive loop, hidden, driven by scripted SDL events:
+      # paint, place, select, drag, turn, delete, undo it all, save, reopen.
+      - name: Map editor smoke
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build map-editor-smoke -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      # The editor core driving the real engine through the Zig adapter.
+      - name: Map editor engine tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-map-editor-engine -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      # The scripted editor scenarios (05-REVIEW WR-D05): BK_EDITOR_AUTO's M1, M2
+      # and M3 scripts, one after the other (each step depends on the one before,
+      # so two engines never start at once), with their do=/expect= predicates.
+      - name: Map editor scenarios
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build map-editor-m3-auto -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      # The real Game playing what the editor saved: M1's placed unit, M2's
+      # BK_MAP_TRACE report, and M3's railroad with fewer than two control
+      # points (D-33, the CRailroadGraphConstructor crash) - its regression gate.
+      - name: Game reads the editor's maps
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build map-editor-game-reads-it-m3 -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: linux-map-editor-outputs
           path: zig-out
           if-no-files-found: ignore
 
   linux-arm-platform:
+    name: "Linux arm64 - platform only"
     # Raspberry Pi class target. GitHub's arm64 Linux runner executes the suites
     # natively, so this job proves the aarch64 build works rather than only that
     # it compiles.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 90
+
 
     steps:
       - name: Check out source
@@ -1683,276 +2605,32 @@ jobs:
           path: zig-out
           if-no-files-found: ignore
 
-  windows-mingw-platform:
-    # The GNU Windows ABI. Zig ships its own mingw-w64 headers and import
-    # libraries, so unlike the MSVC job this one needs no Visual Studio lookup.
-    # It runs on Windows so the suites execute rather than only link.
-    runs-on: windows-latest
-    timeout-minutes: 60
-
+  linux-arm-game:
+    name: "Linux arm64 - Game (not tested yet, backlog 999.4)"
+    # Not tested yet: no virtual display or software Vulkan on this runner so far, so the
+    # engine-hosted tiers would only skip. Backlog 999.4.
+    if: false
+    runs-on: ubuntu-24.04
     steps:
-      - name: Check out source
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          filter: blob:none
-          sparse-checkout: |
-            /*
-            !/*/
-            /Sources/
-            !/Sources/src/data/
-            /tools/
-            /vendor/
-          sparse-checkout-cone-mode: false
+      - name: Not tested
+        run: exit 0
 
-      - name: Install Zig 0.16.0
-        shell: pwsh
-        run: |
-          $zigVersion = "0.16.0"
-          $zigArchive = "zig-x86_64-windows-$zigVersion.zip"
-          $zigArchivePath = Join-Path $env:RUNNER_TEMP $zigArchive
-          Invoke-WebRequest -Uri "https://ziglang.org/download/$zigVersion/$zigArchive" -OutFile $zigArchivePath
-          Expand-Archive -LiteralPath $zigArchivePath -DestinationPath $env:RUNNER_TEMP -Force
-          $zigHome = Join-Path $env:RUNNER_TEMP "zig-x86_64-windows-$zigVersion"
-          Add-Content -Path $env:GITHUB_PATH -Value $zigHome
-          & (Join-Path $zigHome "zig.exe") version
-
-      - name: Restore Zig build cache
-        uses: actions/cache@v5
-        with:
-          path: .zig-cache
-          key: ${{ runner.os }}-x86_64-windows-gnu-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
-          restore-keys: |
-            ${{ runner.os }}-x86_64-windows-gnu-zig-build-0.16.0-
-
-      - name: Restore Windows Zig global cache
-        uses: actions/cache@v5
-        with:
-          path: ~\AppData\Local\zig
-          key: ${{ runner.os }}-x86_64-windows-gnu-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
-          restore-keys: |
-            ${{ runner.os }}-x86_64-windows-gnu-zig-global-0.16.0-
-
-      - name: Audit playable native residue
-        run: zig test tools/zig/runtime_platform_audit_test.zig
-
-      - name: Run StreamIO filesystem tests
-        run: zig build test-platform-files -Dtarget=x86_64-windows-gnu -Dtest-mode=run
-
-      - name: Run runtime module contract tests
-        run: zig build test-platform-modules -Dtarget=x86_64-windows-gnu -Dtest-mode=run
-
-      - name: Run platform foundation matrix
-        run: zig build test-platform-foundation -Dtarget=x86_64-windows-gnu -Dtest-mode=run
-
-      - name: Verify native runtime layout
-        run: zig build verify-runtime -Dtarget=x86_64-windows-gnu -Dtest-mode=run
-
-      - name: Run native staging tests
-        run: zig build test-stage -Dtarget=x86_64-windows-gnu -Dtest-mode=run
-
-      - name: Run diagnostics facade tests
-        run: zig build test-platform-debug -Dtarget=x86_64-windows-gnu -Dtest-mode=run
-
-      - name: Run GFX GPU effect table tests
-        run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
-
-      - name: Editor core tier
-        run: zig build test-editor-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
-
-      - name: Editor kit tier
-        run: zig build test-editor-kit -Dtarget=x86_64-windows-gnu -Dtest-mode=run
-
-      - name: Resource editor core tier
-        run: zig build test-resource-core -Dtarget=x86_64-windows-gnu -Dtest-mode=run
-
-      - name: Build the Map Editor overlay spike
-        run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-gnu
-
-      # Non-gating: reports whether this runner has a GPU device SDL can
-      # use, so the engine and overlay tiers can be scheduled on fact
-      # rather than on assumption. Never fails the build.
-      - name: GPU device probe
-        continue-on-error: true
-        run: zig build gpu-device-probe -Dtarget=x86_64-windows-gnu
-
-      # No factory test on mingw: it links Formats, which cannot build with that
-      # toolchain at all - Platform/LegacyVariant.h reaches for MSVC's
-      # comutil.h on any _WIN32 target and mingw does not ship it. Pre-existing
-      # and unrelated to this test.
-
-      - name: Upload generated outputs
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: windows-mingw-platform-outputs
-          path: zig-out
-          if-no-files-found: ignore
-
-  macos-intel-platform:
-    # Intel macOS is a supported target but had no job, so nothing caught that
-    # its Cocoa adapters were never being compiled. SDL refuses to cross-compile
-    # for macOS without a sysroot, which is why this needs a real Intel host
-    # rather than an arm64 runner building x86_64.
-    runs-on: macos-15-intel
-    timeout-minutes: 90
-
+  linux-arm-resource-editor:
+    name: "Linux arm64 - Resource Editor (not tested yet, backlog 999.4)"
+    # Not tested yet: no virtual display or software Vulkan on this runner so far, so the
+    # engine-hosted tiers would only skip. Backlog 999.4.
+    if: false
+    runs-on: ubuntu-24.04
     steps:
-      - name: Check out source
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          filter: blob:none
-          sparse-checkout: |
-            /*
-            !/*/
-            /Sources/
-            !/Sources/src/data/
-            /tools/
-            /vendor/
-            # The resource tiers (test-resource-model, test-resource-bridge and the mod
-            # round trip) read the shipped Data through the engine, and install-game stages
-            # it. Measured 2026-10-07 in a sparse worktree: this list passes all three, and
-            # dropping Sounds, Cursor, Icons, Fonts or Water makes one of them fail. ELK,
-            # AmericanELK, movies, Music and Bugs are not needed.
-            /Data/Maps/
-            /Data/Scenarios/
-            /Data/*.xml
-            /Data/*.arr
-            /Data/*.spp
-            /Data/*.txt
-            /Data/icon.bmp
-            /Data/icon.png
-            /Data/splash.bmp
-            /Data/resource.description
-            /Data/Bridges/
-            /Data/Buildings/
-            /Data/Configs/
-            /Data/Cursor/
-            /Data/Editor/
-            /Data/Effects/
-            /Data/Fences/
-            /Data/Fonts/
-            /Data/Icons/
-            /Data/Medals/
-            /Data/Objects/
-            /Data/Old/
-            /Data/Sounds/
-            /Data/Squads/
-            /Data/Terrain/
-            /Data/Textes/
-            /Data/UI/
-            /Data/Units/
-            /Data/Water/
-            /Data/Weapons/
-          sparse-checkout-cone-mode: false
+      - name: Not tested
+        run: exit 0
 
-      - name: Verify Intel host
-        run: |
-          test "$(uname -m)" = "x86_64"
-          sw_vers
-
-      - name: Install Zig 0.16.0
-        shell: bash
-        run: |
-          zig_archive="zig-x86_64-macos-0.16.0.tar.xz"
-          curl --fail --location --silent --show-error \
-            "https://ziglang.org/download/0.16.0/${zig_archive}" \
-            --output "${RUNNER_TEMP}/${zig_archive}"
-          tar -xJf "${RUNNER_TEMP}/${zig_archive}" -C "${RUNNER_TEMP}"
-          zig_home="${RUNNER_TEMP}/zig-x86_64-macos-0.16.0"
-          export PATH="${zig_home}:$PATH"
-          echo "$zig_home" >> "$GITHUB_PATH"
-          zig version
-
-      - name: Restore Zig build cache
-        uses: actions/cache@v5
-        with:
-          path: .zig-cache
-          key: ${{ runner.os }}-x86_64-macos-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
-          restore-keys: |
-            ${{ runner.os }}-x86_64-macos-zig-build-0.16.0-
-
-      - name: Restore Unix Zig global cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/zig
-          key: ${{ runner.os }}-x86_64-macos-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
-          restore-keys: |
-            ${{ runner.os }}-x86_64-macos-zig-global-0.16.0-
-
-      - name: Audit playable native residue
-        run: zig test tools/zig/runtime_platform_audit_test.zig
-
-      - name: Configure macOS SDK sysroot
-        run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
-
-      - name: Compile StreamIO filesystem tests
-        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-files -Dtarget=x86_64-macos -Dtest-mode=compile
-
-      - name: Run runtime module contract tests
-        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-modules -Dtarget=x86_64-macos -Dtest-mode=run
-
-      - name: Compile platform foundation matrix
-        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-foundation -Dtarget=x86_64-macos -Dtest-mode=compile
-
-      - name: Verify native runtime layout
-        run: zig build --sysroot "$MACOS_SYSROOT" verify-runtime -Dtarget=x86_64-macos -Dtest-mode=run
-
-      - name: Run native staging tests
-        run: zig build --sysroot "$MACOS_SYSROOT" test-stage -Dtarget=x86_64-macos -Dtest-mode=run
-
-      - name: Run diagnostics facade tests
-        run: zig build --sysroot "$MACOS_SYSROOT" test-platform-debug -Dtarget=x86_64-macos -Dtest-mode=run
-
-      - name: Run GFX GPU effect table tests
-        run: zig build --sysroot "$MACOS_SYSROOT" test-gfxgpu-core -Dtarget=x86_64-macos -Dtest-mode=run
-
-      - name: Map file tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=x86_64-macos -Dtest-mode=run
-
-      - name: Editor core tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-core -Dtarget=x86_64-macos -Dtest-mode=run
-
-      - name: Editor kit tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-kit -Dtarget=x86_64-macos -Dtest-mode=run
-
-      - name: Resource editor core tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-core -Dtarget=x86_64-macos -Dtest-mode=run
-
-      # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
-      # project extension, references/combos/localization lists and the
-      # per-stats-type comparator with its planted-unknown abort path.
-      - name: Resource model tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-model -Dtarget=x86_64-macos -Dtest-mode=run
-
-      # S04 slice gate: the resource bridge through the engine (Project+Tree,
-      # geometry, export, references, preview). No GPU device here, so it
-      # prints "skipped: no GPU device" and exits 0; it still has to build.
-      - name: Resource bridge tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-bridge -Dtarget=x86_64-macos -Dtest-mode=run
-
-      # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
-      - name: Resource mod round-trip tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-mod-roundtrip -Dtarget=x86_64-macos -Dtest-mode=run
-
-      - name: Build the Map Editor overlay spike
-        run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=x86_64-macos
-
-      # Non-gating: reports whether this runner has a GPU device SDL can
-      # use, so the engine and overlay tiers can be scheduled on fact
-      # rather than on assumption. Never fails the build.
-      - name: GPU device probe
-        continue-on-error: true
-        run: zig build --sysroot "$MACOS_SYSROOT" gpu-device-probe -Dtarget=x86_64-macos
-
-      - name: Compile GFX GPU factory test
-        run: zig build --sysroot "$MACOS_SYSROOT" gfxgpu-factory-test -Dtarget=x86_64-macos -Dtest-mode=compile
-
-      - name: Upload generated outputs
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: macos-intel-platform-outputs
-          path: zig-out
-          if-no-files-found: ignore
+  linux-arm-map-editor:
+    name: "Linux arm64 - Map Editor (not tested yet, backlog 999.4)"
+    # Not tested yet: no virtual display or software Vulkan on this runner so far, so the
+    # engine-hosted tiers would only skip. Backlog 999.4.
+    if: false
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Not tested
+        run: exit 0
