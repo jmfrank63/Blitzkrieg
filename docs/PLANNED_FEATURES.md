@@ -46,8 +46,10 @@ Exit criteria:
 ## 2. Localisation
 
 Replace hard-coded or implicitly selected language behavior with an explicit
-localisation system shared by the game, editors, installers, and diagnostics
-where user-facing text is involved.
+localisation system shared by the game, editors, small tools, installers, and
+diagnostics where user-facing text is involved. The Map Editor, the Resource
+Editor, ELK and the small tools (phase 8) are in scope from the start, not
+added later (decision 2026-10-08).
 
 Planned work:
 
@@ -57,7 +59,8 @@ Planned work:
 - Add language selection to settings and persist it at the correct scope:
   installation/user defaults for the launcher, and profile data only where the
   choice is intentionally profile-specific.
-- Localise menus, dialogs, errors, editor UI, installer text, and mod metadata.
+- Localise menus, dialogs, errors, editor UI, the small tools' messages and
+  help, installer text, and mod metadata.
 - Support text expansion, missing-key fallback, sorting rules, and fonts for
   every supported script.
 - Give mods a namespaced localisation table with a deterministic fallback to the

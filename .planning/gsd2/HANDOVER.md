@@ -11,7 +11,8 @@ Babysit the remaining migration through GSD-2 in auto mode until done, in this o
 1. Resource Editor (milestone M001, `feat/resource-editor`) - in progress, see below.
 2. Small tools (phase 8).
 3. ELK (phase 7).
-4. Localization.
+4. Localization: the game, the editors (Map Editor, Resource Editor, ELK) and the small tools, not the game alone
+   (decision 2026-10-08; `docs/PLANNED_FEATURES.md` section 2).
 5. Editor cloud sync.
 6. Installer.
 
