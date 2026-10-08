@@ -74,6 +74,23 @@ static long long ProcessMemoryKb()
 // stays committed, so once the caches are warm (the later rounds of repeat=) a mission that leaks
 // shows here as growth to the byte, on every platform and in release builds.
 struct SHeapUse { long long nBytes = -1; long long nBlocks = -1; };
+#if defined(__APPLE__)
+// The zone walk reads its own process's memory, so an address is already a pointer.
+static kern_return_t HeapReadInProcess( task_t, vm_address_t address, vm_size_t, void **ppMemory )
+{
+	*ppMemory = reinterpret_cast<void*>( address );
+	return KERN_SUCCESS;
+}
+
+static void HeapRecordInUse( task_t, void *pContext, unsigned int, vm_range_t *pRanges, unsigned int nRanges )
+{
+	SHeapUse *pUse = static_cast<SHeapUse*>( pContext );
+	for ( unsigned int i = 0; i < nRanges; ++i )
+		pUse->nBytes += (long long)pRanges[i].size;
+	pUse->nBlocks += nRanges;
+}
+#endif
+
 static SHeapUse HeapUse()
 {
 	SHeapUse use;
@@ -96,10 +113,25 @@ static SHeapUse HeapUse()
 		HeapUnlock( hHeap );
 	}
 #elif defined(__APPLE__)
-	malloc_statistics_t stats = {};
-	malloc_zone_statistics( nullptr, &stats );
-	use.nBytes = (long long)stats.size_in_use;
-	use.nBlocks = (long long)stats.blocks_in_use;
+	// Every block in use, walked the way the heap and leaks tools walk them. The zones' own
+	// statistics (malloc_zone_statistics) keep the bytes right but count blocks that were freed:
+	// on an Intel Mac they grew by 28,000 a round while heap counted no more nodes than before.
+	vm_address_t *pZones = nullptr;
+	unsigned int nZones = 0;
+	if ( malloc_get_all_zones( mach_task_self(), HeapReadInProcess, &pZones, &nZones ) != KERN_SUCCESS )
+		return use;
+	use.nBytes = 0;
+	use.nBlocks = 0;
+	for ( unsigned int i = 0; i < nZones; ++i )
+	{
+		malloc_zone_t *pZone = reinterpret_cast<malloc_zone_t*>( pZones[i] );
+		if ( pZone == nullptr || pZone->introspect == nullptr || pZone->introspect->enumerator == nullptr )
+			continue;
+		// Locked, so no other thread changes the zone mid-walk; the recorder does not allocate.
+		pZone->introspect->force_lock( pZone );
+		pZone->introspect->enumerator( mach_task_self(), &use, MALLOC_PTR_IN_USE_RANGE_TYPE, pZones[i], HeapReadInProcess, HeapRecordInUse );
+		pZone->introspect->force_unlock( pZone );
+	}
 #elif defined(__GLIBC__)
 	const struct mallinfo2 info = mallinfo2();
 	use.nBytes = (long long)( info.uordblks + info.hblkhd );
