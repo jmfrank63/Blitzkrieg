@@ -40,6 +40,22 @@ and buffers in video memory, outside the process's RSS, while lavapipe (a CPU Vu
 memory where the leak shows. So either the leak is Linux-only, or it is everywhere and only Linux makes it visible.
 Find out which.
 
+## Machines
+
+Four real machines can run the game and its editors, each with a real GPU: **Linux x64**, **macOS x64** (an Intel
+Mac), **Windows x64** and **macOS arm64**. CI covers only some of this: its macOS Intel runner has no Metal device
+and Linux runs on lavapipe. Use the machines to answer what CI cannot, per platform, on real hardware:
+
+| Machine | Memory counter | Leak tool |
+| --- | --- | --- |
+| Linux x64 | `VmRSS` in `/proc/self/status` | heaptrack, Valgrind; lavapipe to put GPU memory in RSS |
+| macOS x64 | `task_info` / Activity Monitor | `leaks --atExit -- <tool>`, Instruments (Allocations, Leaks) |
+| macOS arm64 | as macOS x64; unified memory, so GPU allocations show in the process's footprint | as macOS x64 |
+| Windows x64 | `GetProcessMemoryInfo` / Task Manager (and GPU memory per process) | debug CRT `_CrtDumpMemoryLeaks`, UMDH |
+
+Start on Linux x64 (it shows the leak), then run the same `only=` sweep with the per-mission measurement on the other
+three. That answers whether the leak is Linux-only or everywhere.
+
 ## The test
 
 `tools/zig/random_missions_test.cpp`. One engine session for the whole sweep (`BkEditorStart`, line 349); per case
@@ -72,7 +88,8 @@ cd zig-out/game/linux/x86_64/release
    samplers) per mission in GFXGPU; `-Dsdl-debug=true` turns on SDL GPU validation.
 4. Fix the cause, not the symptom. A port bug is fixed, never adopted; a leak that was already in the 2003 code is
    fixed too.
-5. Turn the per-mission measurement into a gate (see below), then let CI prove Linux x64 Game green, then merge
+5. Check the fix on all four machines (see Machines), with the per-mission measurement flat on each.
+6. Turn the per-mission measurement into a gate (see below), then let CI prove Linux x64 Game green, then merge
    `feat/ci-per-product-jobs` (with the fix) into `main` and push.
 
 ## No leaks anywhere: what the gate should become
