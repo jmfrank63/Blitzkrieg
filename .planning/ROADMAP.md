@@ -428,3 +428,23 @@ Plans:
 Plans:
 
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.4: Linux arm64: the editor and Game tiers in CI (BACKLOG)
+
+**Goal:** Run on `linux-arm-platform` (`ubuntu-24.04-arm`) what Linux x64 already runs there on Xvfb and lavapipe: the Resource Editor and Map Editor host, smoke, batch and auto tiers, the scenarios, both game-reads-it tiers and the random missions. Today the arm job builds the engine and runs the platform, editor core/kit and resource model/bridge/mod tiers only. Mostly a copy of the Linux x64 job's steps; first check in the arm logs whether the bridge tier's GPU parts run or skip. Details in `.planning/phases/999.4-linux-arm64-editor-and-game-tiers/999.4-NOTES.md`.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.5: Windows arm64 target and CI job (BACKLOG)
+
+**Goal:** Build the game and editors for `aarch64-windows-msvc` and test them on GitHub's hosted `windows-11-arm` runner (free for this public repository). `build.zig` does not accept the target yet; it needs the arm64 MSVC and Windows SDK libraries, and x86-only engine code (intrinsics, inline assembly) may need porting. Size the port by building first, then add the job. Details in `.planning/phases/999.5-windows-arm64/999.5-NOTES.md`.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
