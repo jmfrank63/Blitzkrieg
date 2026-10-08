@@ -3,10 +3,12 @@
 // read back, checked and opened in the engine. Needs a hidden SDL window and a
 // GPU device, as the engine tier does, and skips honestly where there is none.
 //
-// argv: <installation> <scratch> [all | cover | only=<text>]
+// argv: <installation> <scratch> [all | cover | only=<text>] [repeat=<n>]
 //   all     every gated chapter x every template of its setting x 3 difficulties
 //   cover   every gated chapter x template pair once, the difficulty rotating
 //   only=   the cases whose chapter or template name contains <text>
+//   repeat= the selected cases n times over: the same templates and terrain again, so a cache has
+//           seen them all after the first round and any further growth is a leak
 #include "StdAfx.h"
 #include <cstdlib>
 #include <cstring>
@@ -32,6 +34,9 @@
 #include <mach/mach.h>
 #else
 #include <fstream>
+#if __has_include(<valgrind/memcheck.h>)
+#include <valgrind/memcheck.h>
+#endif
 #endif
 
 // The process's resident memory in KiB, by the platform's own counter: VmRSS on Linux, the
@@ -360,6 +365,7 @@ int main( int argc, char **argv )
 	const char *pszRoot = argc > 1 ? argv[1] : szSelfDir.c_str();
 	const std::filesystem::path scratch = argc > 2 ? argv[2] : szSelfDir;
 	const std::string szSweep = argc > 3 ? argv[3] : "all";
+	const int nRepeat = argc > 4 && strncmp( argv[4], "repeat=", 7 ) == 0 ? std::max( 1, atoi( argv[4] + 7 ) ) : 1;
 	std::filesystem::create_directories( scratch );
 	if ( !std::filesystem::exists( std::string( pszRoot ) + "/Data/consts.xml" ) )
 	{
@@ -396,11 +402,18 @@ int main( int argc, char **argv )
 		int nFailedCases = 0;
 		const long long nMemoryAtStart = ProcessMemoryKb();
 		int nCase = 0;
+		for ( int nRound = 0; nRound < nRepeat; ++nRound )
 		for ( const SCase &c : cases )
 		{
 			if ( !RunCase( pSession, c, scratch ) )
 				++nFailedCases;
 			printf( "random-missions: memory after case %d: %lld KiB\n", ++nCase, ProcessMemoryKb() );
+#if defined(VALGRIND_DO_CHANGED_LEAK_CHECK)
+			// Under Valgrind's memcheck, how each case changed the heap from the case before, grown and
+			// shrunk, block by block and with its stack; outside Valgrind this does nothing. Run with
+			// repeat= so the caches are warm, and sum the changes over the later rounds.
+			VALGRIND_DO_CHANGED_LEAK_CHECK;
+#endif
 			fflush( stdout );
 		}
 		printf( "random-missions: memory %lld KiB before the first case, %lld KiB after the last\n", nMemoryAtStart, ProcessMemoryKb() );
