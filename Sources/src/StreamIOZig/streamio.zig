@@ -68,7 +68,8 @@ const ArchiveMatch = struct { archive: *const LoadedArchive, entry: *const zip.E
 const StorageOverlay = struct { name: [:0]u8, storage: *Storage };
 
 const Storage = struct {
-    base: []u8,
+    // NUL-terminated so bk_storage_name can hand it to C++ as it is, with no copy to free.
+    base: [:0]u8,
     access: u32,
     archives: std.ArrayListUnmanaged(LoadedArchive) = .empty,
     overlays: std.ArrayListUnmanaged(StorageOverlay) = .empty,
@@ -1045,7 +1046,7 @@ fn archiveStream(storage: *Storage, name: []const u8, access: u32) ?*Stream {
 pub export fn bk_storage_create(name: [*:0]const u8, access: c_ulong, _: c_ulong) callconv(.c) ?*anyopaque {
     const source = std.mem.span(name);
     const base = pathBase(source);
-    const owned_base = allocator.dupe(u8, base) catch return null;
+    const owned_base = allocator.dupeZ(u8, base) catch return null;
     const storage = allocator.create(Storage) catch {
         allocator.free(owned_base);
         return null;
@@ -1232,11 +1233,9 @@ test "a saved random generator state restores exactly" {
 
 pub export fn bk_storage_name(handle: ?*anyopaque) callconv(.c) ?[*:0]const u8 {
     const storage = fromHandle(Storage, handle) orelse return null;
-    // Storage bases always originate from a NUL-terminated C string and are
-    // copied without its terminator, so retain a stable terminated copy here.
-    const terminated = allocator.allocSentinel(u8, storage.base.len, 0) catch return null;
-    @memcpy(terminated[0..storage.base.len], storage.base);
-    return terminated.ptr;
+    // The storage's own terminated base, valid while the storage lives. This used to return a
+    // fresh copy per call, which DataStorage::GetName never freed: memcheck's definitely lost.
+    return storage.base.ptr;
 }
 
 pub export fn bk_storage_exists(handle: ?*anyopaque, name: [*:0]const u8) callconv(.c) bool {
