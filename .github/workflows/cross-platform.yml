@@ -358,9 +358,11 @@ jobs:
     # Raised to 150: run 37677710944 had every test step green on a cold cache
     # (engine tier 22 minutes, random missions 29, the Resource Editor tiers
     # since added) and was cut off at 110 in the release packaging step.
-    # Raised to 240: run 37691999377 then finished in 125 of 150 minutes, too
-    # close for a slow runner; GitHub-hosted jobs allow up to 360.
-    timeout-minutes: 240
+    # Split at 240: run 37691999377 took 125 minutes, the Resource Editor and
+    # Map Editor steps 43 of them. They run beside this job now, in
+    # windows-resource-editor and windows-map-editor, which leaves the engine
+    # tier, the random missions and the packages here (about 85 minutes).
+    timeout-minutes: 150
 
     steps:
       - name: Check out source
@@ -512,12 +514,6 @@ jobs:
       - name: Resource editor core tier
         run: zig build test-resource-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
-      # The app's own unit tests: view.zig's SDL event wiring against fake
-      # bridges (WINDOWS.md 2), the panels' logic, Test in game's launch and
-      # exit handling, BK_EDITOR_AUTO's parser. No engine or GPU.
-      - name: Map editor unit tier
-        run: zig build test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
       # Only here and on macos-14: the probe says those are the two runners with
       # a GPU device. The tier skips honestly where there is none, but a runner
       # that only ever skips is a 2.3 GB checkout for a line of output.
@@ -527,196 +523,6 @@ jobs:
           # would print "skipped" and exit 0 fails instead, here and in the engine-hosted steps after it.
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-editor-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      # S04 slice gate: the resource bridge through the engine, including the
-      # preview captures (mesh, sprite, effect) measured by code.
-      - name: Resource bridge tier
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build test-resource-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
-      - name: Resource mod round-trip tier
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build test-resource-mod-roundtrip -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      # The scripted editor scenarios (Map editor scenarios below) place their
-      # clicks for the editor's own 1280x800 window, the size it gets on the
-      # macOS runners. This runner's desktop is 1024x768, which shrinks the
-      # window to 1008x681; there the right-hand panels start at x=688 and
-      # points like M2's dblclick=c200x-250 land on them (CI 37155733296: a
-      # click into the Properties panel's x field left the road tool with no
-      # point in hand). A 1920x1080 desktop gives the window its full size.
-      - name: Desktop large enough for the editor's window
-        shell: pwsh
-        run: |
-          Add-Type -TypeDefinition @"
-          using System;
-          using System.Runtime.InteropServices;
-          public static class BkDisplay {
-              [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-              public struct DEVMODE {
-                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
-                  public short dmSpecVersion; public short dmDriverVersion; public short dmSize; public short dmDriverExtra;
-                  public int dmFields;
-                  public int dmPositionX; public int dmPositionY; public int dmDisplayOrientation; public int dmDisplayFixedOutput;
-                  public short dmColor; public short dmDuplex; public short dmYResolution; public short dmTTOption; public short dmCollate;
-                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
-                  public short dmLogPixels; public int dmBitsPerPel; public int dmPelsWidth; public int dmPelsHeight;
-                  public int dmDisplayFlags; public int dmDisplayFrequency;
-                  public int dmICMMethod; public int dmICMIntent; public int dmMediaType; public int dmDitherType;
-                  public int dmReserved1; public int dmReserved2; public int dmPanningWidth; public int dmPanningHeight;
-              }
-              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool EnumDisplaySettings(string device, int mode, ref DEVMODE dm);
-              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int ChangeDisplaySettings(ref DEVMODE dm, int flags);
-              // The primary display's mode now (ENUM_CURRENT_SETTINGS, device null:
-              // done here, as PowerShell would pass a null string as "").
-              public static DEVMODE Current() {
-                  DEVMODE dm = new DEVMODE();
-                  dm.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
-                  if (!EnumDisplaySettings(null, -1, ref dm)) throw new Exception("EnumDisplaySettings failed: " + Marshal.GetLastWin32Error());
-                  return dm;
-              }
-              public static int Change(int width, int height) {
-                  DEVMODE dm = Current();
-                  dm.dmPelsWidth = width;
-                  dm.dmPelsHeight = height;
-                  dm.dmFields = 0x00080000 | 0x00100000; // DM_PELSWIDTH | DM_PELSHEIGHT
-                  return ChangeDisplaySettings(ref dm, 0);
-              }
-          }
-          "@
-          $before = [BkDisplay]::Current()
-          Write-Host "desktop before: $($before.dmPelsWidth)x$($before.dmPelsHeight)"
-          $result = [BkDisplay]::Change(1920, 1080)
-          if ($result -ne 0) { throw "ChangeDisplaySettings to 1920x1080 returned $result" }
-          $now = [BkDisplay]::Current()
-          Write-Host "desktop now: $($now.dmPelsWidth)x$($now.dmPelsHeight)"
-          if ($now.dmPelsWidth -lt 1280 -or $now.dmPelsHeight -lt 900) { throw "the desktop is still $($now.dmPelsWidth)x$($now.dmPelsHeight)" }
-
-      # MapEditor itself: the engine started hidden with ImGui over it, one
-      # frame captured as presented and checked for both.
-      - name: Map editor host
-        run: zig build map-editor-host-check -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      # MapEditor's interactive loop, hidden, driven by scripted SDL events:
-      # paint, place, select, drag, turn, delete, undo it all, save, reopen.
-      - name: Map editor smoke
-        run: zig build map-editor-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      # S05 slice gate: ResourceEditor installs beside Game and MapEditor.
-      - name: Resource editor install
-        run: zig build install-resource-editor -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      # ResourceEditor itself: the engine hidden with ImGui over it, a frame
-      # and a thumbnail measured by code; then its scripted new/save/reopen and
-      # edit/undo/save byte-compare; then BK_EDITOR_AUTO's scenario over the
-      # resource command registry (new, open, edit, undo, save, pack, import,
-      # Run Blitzkrieg). A host with no GPU device logs the skip and passes.
-      - name: Resource editor host
-        run: zig build resource-editor-host-check -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor smoke
-        run: zig build resource-editor-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor batch
-        run: zig build resource-editor-batch -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor auto core
-        run: zig build resource-editor-auto-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor auto wpn
-        run: zig build resource-editor-auto-wpn -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor auto unt
-        run: zig build resource-editor-auto-unt -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor auto spt
-        run: zig build resource-editor-auto-spt -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor auto msh
-        run: zig build resource-editor-auto-msh -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor auto obt
-        run: zig build resource-editor-auto-obt -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor auto fnc
-        run: zig build resource-editor-auto-fnc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor auto bld
-        run: zig build resource-editor-auto-bld -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor auto bdg
-        run: zig build resource-editor-auto-bdg -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor auto pcp
-        run: zig build resource-editor-auto-pcp -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor auto eff
-        run: zig build resource-editor-auto-eff -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-      - name: Resource editor auto til
-        run: zig build resource-editor-auto-til -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-      - name: Resource editor auto 3rd
-        run: zig build resource-editor-auto-3rd -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-      - name: Resource editor auto 3rv
-        run: zig build resource-editor-auto-3rv -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-      - name: Resource editor auto mip
-        run: zig build resource-editor-auto-mip -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-      - name: Resource editor auto chc
-        run: zig build resource-editor-auto-chc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-      - name: Resource editor auto cgc
-        run: zig build resource-editor-auto-cgc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-      - name: Resource editor auto mdc
-        run: zig build resource-editor-auto-mdc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-      - name: Resource editor auto gui
-        run: zig build resource-editor-auto-gui -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      # T-03-14-03: the packaged MapEditor.exe opens no console on a normal
-      # double-click (configureMapEditorExecutable's .windows subsystem) -
-      # confirmed by reading its own PE header rather than trusting the build
-      # config alone. e_lfanew (the PE signature's offset) sits at DOS header
-      # offset 0x3C; the Subsystem WORD sits 0x44 into the Optional Header,
-      # which itself starts right after the 4-byte PE signature and the
-      # 20-byte COFF header, i.e. at e_lfanew + 0x5C. 2 is
-      # IMAGE_SUBSYSTEM_WINDOWS_GUI (winnt.h) - the map-editor-host-check step
-      # above already built and staged this exact binary.
-      - name: Map editor is a GUI program
-        shell: pwsh
-        run: |
-          $exePath = "zig-out/game/windows/x86_64/debug/MapEditor.exe"
-          if (-not (Test-Path $exePath)) { throw "staged MapEditor.exe not found at $exePath" }
-          $bytes = [System.IO.File]::ReadAllBytes($exePath)
-          $eLfanew = [BitConverter]::ToInt32($bytes, 0x3C)
-          $subsystemOffset = $eLfanew + 0x5C
-          $subsystem = [BitConverter]::ToUInt16($bytes, $subsystemOffset)
-          Write-Host "MapEditor.exe subsystem: $subsystem (2 = IMAGE_SUBSYSTEM_WINDOWS_GUI)"
-          if ($subsystem -ne 2) { throw "MapEditor.exe subsystem is $subsystem, expected 2 (IMAGE_SUBSYSTEM_WINDOWS_GUI)" }
-
-      # The editor core driving the real engine through the Zig adapter.
-      - name: Map editor engine tier
-        run: zig build test-map-editor-engine -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      # The scripted editor scenarios (05-REVIEW WR-D05): BK_EDITOR_AUTO's M1, M2
-      # and M3 scripts, one after the other (each step depends on the one before,
-      # so two engines never start at once), with their do=/expect= predicates.
-      - name: Map editor scenarios
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build map-editor-m3-auto -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      # The real Game playing what the editor saved: M1's placed unit, M2's
-      # BK_MAP_TRACE report, and M3's railroad with fewer than two control
-      # points (D-33, the CRailroadGraphConstructor crash) - its regression gate.
-      - name: Game reads the editor's maps
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build map-editor-game-reads-it-m3 -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Game reads the Resource Editor's exports
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build resource-editor-game-reads-it -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Random missions tier
         env:
@@ -736,12 +542,6 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-rmg-determinism -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
-      # project extension, references/combos/localization lists and the
-      # per-stats-type comparator with its planted-unknown abort path.
-      - name: Resource model tier
-        run: zig build test-resource-model -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # Saved here, not at job end: by now the debug engine and the release
       # game are built, and a job cut off later still leaves the next run warm.
@@ -865,6 +665,527 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: windows-platform-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  windows-resource-editor:
+    runs-on: windows-latest
+    # The Resource Editor's engine-hosted steps, split from windows-platform
+    # (run 37691999377: 25 minutes of them on top of the shared engine build,
+    # about 23 cold). This job restores the caches windows-platform saves and
+    # does not save its own.
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
+            /Data/Scenarios/
+            # The engine tier starts the whole game, so it needs nearly all of Data.
+            # Measured 2026-09-21 by adding trees to a symlink farm until it ran
+            # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
+            # everything but movies, Music, Old, Bugs and Medals. Scenarios is
+            # included too, for the random missions tier. Only the two runners
+            # that have a GPU device pay for it; the other three have none,
+            # would skip, and keep the narrow checkout.
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            # stage.zig copies Data/THIRD-PARTY-NOTICES.txt to the install root
+            # (tools/zig/verify_runtime.zig:40), so install-game fails without it.
+            /Data/*.txt
+            # The rest of the loose files at the top of Data. Listed by name
+            # rather than as /Data/* - that would match the directories too and
+            # pull the whole 2.8 GB tree back in.
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/AmericanELK/
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            # The resource tiers read the Medals and Old (.unt) folders too.
+            /Data/Medals/
+            /Data/Old/
+            /Data/movies/progress/
+            /Data/Objects/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
+          sparse-checkout-cone-mode: false
+
+      - name: Install Zig 0.16.0
+        shell: pwsh
+        run: |
+          $zigVersion = "0.16.0"
+          $zigArchive = "zig-x86_64-windows-$zigVersion.zip"
+          $zigArchivePath = Join-Path $env:RUNNER_TEMP $zigArchive
+          Invoke-WebRequest -Uri "https://ziglang.org/download/$zigVersion/$zigArchive" -OutFile $zigArchivePath
+          Expand-Archive -LiteralPath $zigArchivePath -DestinationPath $env:RUNNER_TEMP -Force
+          $zigHome = Join-Path $env:RUNNER_TEMP "zig-x86_64-windows-$zigVersion"
+          Add-Content -Path $env:GITHUB_PATH -Value $zigHome
+          & (Join-Path $zigHome "zig.exe") version
+
+      - name: Restore Zig build cache
+        id: zig-build-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-x86_64-windows-msvc-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-windows-msvc-zig-build-0.16.0-
+
+      - name: Restore Windows Zig global cache
+        id: zig-global-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~\AppData\Local\zig
+          key: ${{ runner.os }}-x86_64-windows-msvc-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-windows-msvc-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      - name: Resolve MSVC and Windows SDK paths
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsInstall = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          if (-not $vsInstall) { throw "Visual Studio C++ toolchain was not found" }
+
+          $msvcRoot = Get-ChildItem (Join-Path $vsInstall "VC\Tools\MSVC") -Directory |
+            Sort-Object Name -Descending | Select-Object -First 1
+          $sdkRoot = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\Include" -Directory |
+            Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $msvcRoot -or -not $sdkRoot) { throw "MSVC or Windows SDK directories were not found" }
+
+          "MSVC_INCLUDE=$($msvcRoot.FullName)\include" >> $env:GITHUB_ENV
+          "MSVC_LIB=$($msvcRoot.FullName)\lib" >> $env:GITHUB_ENV
+          "WINDOWS_SDK_INCLUDE=$($sdkRoot.FullName)" >> $env:GITHUB_ENV
+          "WINDOWS_SDK_LIB=$(${env:ProgramFiles(x86)})\Windows Kits\10\Lib\$($sdkRoot.Name)" >> $env:GITHUB_ENV
+
+          Write-Host "Using MSVC: $($msvcRoot.FullName)"
+          Write-Host "Using Windows SDK: $($sdkRoot.FullName)"
+
+      # S04 slice gate: the resource bridge through the engine, including the
+      # preview captures (mesh, sprite, effect) measured by code.
+      - name: Resource bridge tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-resource-bridge -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
+      - name: Resource mod round-trip tier
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-resource-mod-roundtrip -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # The scripted editor scenarios (Map editor scenarios below) place their
+      # clicks for the editor's own 1280x800 window, the size it gets on the
+      # macOS runners. This runner's desktop is 1024x768, which shrinks the
+      # window to 1008x681; there the right-hand panels start at x=688 and
+      # points like M2's dblclick=c200x-250 land on them (CI 37155733296: a
+      # click into the Properties panel's x field left the road tool with no
+      # point in hand). A 1920x1080 desktop gives the window its full size.
+      - name: Desktop large enough for the editor's window
+        shell: pwsh
+        run: |
+          Add-Type -TypeDefinition @"
+          using System;
+          using System.Runtime.InteropServices;
+          public static class BkDisplay {
+              [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+              public struct DEVMODE {
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+                  public short dmSpecVersion; public short dmDriverVersion; public short dmSize; public short dmDriverExtra;
+                  public int dmFields;
+                  public int dmPositionX; public int dmPositionY; public int dmDisplayOrientation; public int dmDisplayFixedOutput;
+                  public short dmColor; public short dmDuplex; public short dmYResolution; public short dmTTOption; public short dmCollate;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+                  public short dmLogPixels; public int dmBitsPerPel; public int dmPelsWidth; public int dmPelsHeight;
+                  public int dmDisplayFlags; public int dmDisplayFrequency;
+                  public int dmICMMethod; public int dmICMIntent; public int dmMediaType; public int dmDitherType;
+                  public int dmReserved1; public int dmReserved2; public int dmPanningWidth; public int dmPanningHeight;
+              }
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool EnumDisplaySettings(string device, int mode, ref DEVMODE dm);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int ChangeDisplaySettings(ref DEVMODE dm, int flags);
+              // The primary display's mode now (ENUM_CURRENT_SETTINGS, device null:
+              // done here, as PowerShell would pass a null string as "").
+              public static DEVMODE Current() {
+                  DEVMODE dm = new DEVMODE();
+                  dm.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+                  if (!EnumDisplaySettings(null, -1, ref dm)) throw new Exception("EnumDisplaySettings failed: " + Marshal.GetLastWin32Error());
+                  return dm;
+              }
+              public static int Change(int width, int height) {
+                  DEVMODE dm = Current();
+                  dm.dmPelsWidth = width;
+                  dm.dmPelsHeight = height;
+                  dm.dmFields = 0x00080000 | 0x00100000; // DM_PELSWIDTH | DM_PELSHEIGHT
+                  return ChangeDisplaySettings(ref dm, 0);
+              }
+          }
+          "@
+          $before = [BkDisplay]::Current()
+          Write-Host "desktop before: $($before.dmPelsWidth)x$($before.dmPelsHeight)"
+          $result = [BkDisplay]::Change(1920, 1080)
+          if ($result -ne 0) { throw "ChangeDisplaySettings to 1920x1080 returned $result" }
+          $now = [BkDisplay]::Current()
+          Write-Host "desktop now: $($now.dmPelsWidth)x$($now.dmPelsHeight)"
+          if ($now.dmPelsWidth -lt 1280 -or $now.dmPelsHeight -lt 900) { throw "the desktop is still $($now.dmPelsWidth)x$($now.dmPelsHeight)" }
+
+      # S05 slice gate: ResourceEditor installs beside Game and MapEditor.
+      - name: Resource editor install
+        run: zig build install-resource-editor -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # ResourceEditor itself: the engine hidden with ImGui over it, a frame
+      # and a thumbnail measured by code; then its scripted new/save/reopen and
+      # edit/undo/save byte-compare; then BK_EDITOR_AUTO's scenario over the
+      # resource command registry (new, open, edit, undo, save, pack, import,
+      # Run Blitzkrieg). A host with no GPU device logs the skip and passes.
+      - name: Resource editor host
+        run: zig build resource-editor-host-check -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor smoke
+        run: zig build resource-editor-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor batch
+        run: zig build resource-editor-batch -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto core
+        run: zig build resource-editor-auto-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto wpn
+        run: zig build resource-editor-auto-wpn -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto unt
+        run: zig build resource-editor-auto-unt -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto spt
+        run: zig build resource-editor-auto-spt -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto msh
+        run: zig build resource-editor-auto-msh -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto obt
+        run: zig build resource-editor-auto-obt -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto fnc
+        run: zig build resource-editor-auto-fnc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto bld
+        run: zig build resource-editor-auto-bld -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto bdg
+        run: zig build resource-editor-auto-bdg -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto pcp
+        run: zig build resource-editor-auto-pcp -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Resource editor auto eff
+        run: zig build resource-editor-auto-eff -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto til
+        run: zig build resource-editor-auto-til -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto 3rd
+        run: zig build resource-editor-auto-3rd -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto 3rv
+        run: zig build resource-editor-auto-3rv -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto mip
+        run: zig build resource-editor-auto-mip -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto chc
+        run: zig build resource-editor-auto-chc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto cgc
+        run: zig build resource-editor-auto-cgc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto mdc
+        run: zig build resource-editor-auto-mdc -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+      - name: Resource editor auto gui
+        run: zig build resource-editor-auto-gui -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Game reads the Resource Editor's exports
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build resource-editor-game-reads-it -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
+      # project extension, references/combos/localization lists and the
+      # per-stats-type comparator with its planted-unknown abort path.
+      - name: Resource model tier
+        run: zig build test-resource-model -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-resource-editor-outputs
+          path: zig-out
+          if-no-files-found: ignore
+
+  windows-map-editor:
+    runs-on: windows-latest
+    # The Map Editor's steps, split from windows-platform (run 37691999377: 18
+    # minutes of them on top of the shared engine build, about 23 cold). This
+    # job restores the caches windows-platform saves and does not save its own.
+    timeout-minutes: 75
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout: |
+            /*
+            !/*/
+            /Sources/
+            !/Sources/src/data/
+            /tools/
+            /vendor/
+            /Data/Maps/
+            /Data/Terrain/sets/*/tileset.xml
+            /Data/Terrain/sets/*/crosset.xml
+            /Data/Scenarios/
+            # The engine tier starts the whole game, so it needs nearly all of Data.
+            # Measured 2026-09-21 by adding trees to a symlink farm until it ran
+            # and taking them away until it stopped: 2.3 GB of the 2.8 GB tree,
+            # everything but movies, Music, Old, Bugs and Medals. Scenarios is
+            # included too, for the random missions tier. Only the two runners
+            # that have a GPU device pay for it; the other three have none,
+            # would skip, and keep the narrow checkout.
+            /Data/*.xml
+            /Data/*.arr
+            /Data/*.spp
+            # stage.zig copies Data/THIRD-PARTY-NOTICES.txt to the install root
+            # (tools/zig/verify_runtime.zig:40), so install-game fails without it.
+            /Data/*.txt
+            # The rest of the loose files at the top of Data. Listed by name
+            # rather than as /Data/* - that would match the directories too and
+            # pull the whole 2.8 GB tree back in.
+            /Data/icon.bmp
+            /Data/icon.png
+            /Data/splash.bmp
+            /Data/resource.description
+            /Data/AmericanELK/
+            /Data/Bridges/
+            /Data/Buildings/
+            /Data/Configs/
+            /Data/Cursor/
+            /Data/ELK/
+            /Data/Editor/
+            /Data/Effects/
+            /Data/Fences/
+            /Data/Fonts/
+            /Data/Icons/
+            # The resource tiers read the Medals and Old (.unt) folders too.
+            /Data/Medals/
+            /Data/Old/
+            /Data/movies/progress/
+            /Data/Objects/
+            /Data/Sounds/
+            /Data/Squads/
+            /Data/Terrain/
+            /Data/Textes/
+            /Data/UI/
+            /Data/Units/
+            /Data/Water/
+            /Data/Weapons/
+          sparse-checkout-cone-mode: false
+
+      - name: Install Zig 0.16.0
+        shell: pwsh
+        run: |
+          $zigVersion = "0.16.0"
+          $zigArchive = "zig-x86_64-windows-$zigVersion.zip"
+          $zigArchivePath = Join-Path $env:RUNNER_TEMP $zigArchive
+          Invoke-WebRequest -Uri "https://ziglang.org/download/$zigVersion/$zigArchive" -OutFile $zigArchivePath
+          Expand-Archive -LiteralPath $zigArchivePath -DestinationPath $env:RUNNER_TEMP -Force
+          $zigHome = Join-Path $env:RUNNER_TEMP "zig-x86_64-windows-$zigVersion"
+          Add-Content -Path $env:GITHUB_PATH -Value $zigHome
+          & (Join-Path $zigHome "zig.exe") version
+
+      - name: Restore Zig build cache
+        id: zig-build-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .zig-cache
+          key: ${{ runner.os }}-x86_64-windows-msvc-zig-build-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-windows-msvc-zig-build-0.16.0-
+
+      - name: Restore Windows Zig global cache
+        id: zig-global-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: ~\AppData\Local\zig
+          key: ${{ runner.os }}-x86_64-windows-msvc-zig-global-0.16.0-${{ hashFiles('build.zig', 'build.zig.zon', 'tools/zig/*.zig', 'Sources/src/StreamIOZig/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-windows-msvc-zig-global-0.16.0-
+
+      - name: Audit playable native residue
+        run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      - name: Resolve MSVC and Windows SDK paths
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsInstall = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath).Trim()
+          if (-not $vsInstall) { throw "Visual Studio C++ toolchain was not found" }
+
+          $msvcRoot = Get-ChildItem (Join-Path $vsInstall "VC\Tools\MSVC") -Directory |
+            Sort-Object Name -Descending | Select-Object -First 1
+          $sdkRoot = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\Include" -Directory |
+            Sort-Object Name -Descending | Select-Object -First 1
+          if (-not $msvcRoot -or -not $sdkRoot) { throw "MSVC or Windows SDK directories were not found" }
+
+          "MSVC_INCLUDE=$($msvcRoot.FullName)\include" >> $env:GITHUB_ENV
+          "MSVC_LIB=$($msvcRoot.FullName)\lib" >> $env:GITHUB_ENV
+          "WINDOWS_SDK_INCLUDE=$($sdkRoot.FullName)" >> $env:GITHUB_ENV
+          "WINDOWS_SDK_LIB=$(${env:ProgramFiles(x86)})\Windows Kits\10\Lib\$($sdkRoot.Name)" >> $env:GITHUB_ENV
+
+          Write-Host "Using MSVC: $($msvcRoot.FullName)"
+          Write-Host "Using Windows SDK: $($sdkRoot.FullName)"
+
+      # The app's own unit tests: view.zig's SDL event wiring against fake
+      # bridges (WINDOWS.md 2), the panels' logic, Test in game's launch and
+      # exit handling, BK_EDITOR_AUTO's parser. No engine or GPU.
+      - name: Map editor unit tier
+        run: zig build test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # The scripted editor scenarios (Map editor scenarios below) place their
+      # clicks for the editor's own 1280x800 window, the size it gets on the
+      # macOS runners. This runner's desktop is 1024x768, which shrinks the
+      # window to 1008x681; there the right-hand panels start at x=688 and
+      # points like M2's dblclick=c200x-250 land on them (CI 37155733296: a
+      # click into the Properties panel's x field left the road tool with no
+      # point in hand). A 1920x1080 desktop gives the window its full size.
+      - name: Desktop large enough for the editor's window
+        shell: pwsh
+        run: |
+          Add-Type -TypeDefinition @"
+          using System;
+          using System.Runtime.InteropServices;
+          public static class BkDisplay {
+              [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+              public struct DEVMODE {
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmDeviceName;
+                  public short dmSpecVersion; public short dmDriverVersion; public short dmSize; public short dmDriverExtra;
+                  public int dmFields;
+                  public int dmPositionX; public int dmPositionY; public int dmDisplayOrientation; public int dmDisplayFixedOutput;
+                  public short dmColor; public short dmDuplex; public short dmYResolution; public short dmTTOption; public short dmCollate;
+                  [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string dmFormName;
+                  public short dmLogPixels; public int dmBitsPerPel; public int dmPelsWidth; public int dmPelsHeight;
+                  public int dmDisplayFlags; public int dmDisplayFrequency;
+                  public int dmICMMethod; public int dmICMIntent; public int dmMediaType; public int dmDitherType;
+                  public int dmReserved1; public int dmReserved2; public int dmPanningWidth; public int dmPanningHeight;
+              }
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool EnumDisplaySettings(string device, int mode, ref DEVMODE dm);
+              [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int ChangeDisplaySettings(ref DEVMODE dm, int flags);
+              // The primary display's mode now (ENUM_CURRENT_SETTINGS, device null:
+              // done here, as PowerShell would pass a null string as "").
+              public static DEVMODE Current() {
+                  DEVMODE dm = new DEVMODE();
+                  dm.dmSize = (short)Marshal.SizeOf(typeof(DEVMODE));
+                  if (!EnumDisplaySettings(null, -1, ref dm)) throw new Exception("EnumDisplaySettings failed: " + Marshal.GetLastWin32Error());
+                  return dm;
+              }
+              public static int Change(int width, int height) {
+                  DEVMODE dm = Current();
+                  dm.dmPelsWidth = width;
+                  dm.dmPelsHeight = height;
+                  dm.dmFields = 0x00080000 | 0x00100000; // DM_PELSWIDTH | DM_PELSHEIGHT
+                  return ChangeDisplaySettings(ref dm, 0);
+              }
+          }
+          "@
+          $before = [BkDisplay]::Current()
+          Write-Host "desktop before: $($before.dmPelsWidth)x$($before.dmPelsHeight)"
+          $result = [BkDisplay]::Change(1920, 1080)
+          if ($result -ne 0) { throw "ChangeDisplaySettings to 1920x1080 returned $result" }
+          $now = [BkDisplay]::Current()
+          Write-Host "desktop now: $($now.dmPelsWidth)x$($now.dmPelsHeight)"
+          if ($now.dmPelsWidth -lt 1280 -or $now.dmPelsHeight -lt 900) { throw "the desktop is still $($now.dmPelsWidth)x$($now.dmPelsHeight)" }
+
+      # MapEditor itself: the engine started hidden with ImGui over it, one
+      # frame captured as presented and checked for both.
+      - name: Map editor host
+        run: zig build map-editor-host-check -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # MapEditor's interactive loop, hidden, driven by scripted SDL events:
+      # paint, place, select, drag, turn, delete, undo it all, save, reopen.
+      - name: Map editor smoke
+        run: zig build map-editor-smoke -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # T-03-14-03: the packaged MapEditor.exe opens no console on a normal
+      # double-click (configureMapEditorExecutable's .windows subsystem) -
+      # confirmed by reading its own PE header rather than trusting the build
+      # config alone. e_lfanew (the PE signature's offset) sits at DOS header
+      # offset 0x3C; the Subsystem WORD sits 0x44 into the Optional Header,
+      # which itself starts right after the 4-byte PE signature and the
+      # 20-byte COFF header, i.e. at e_lfanew + 0x5C. 2 is
+      # IMAGE_SUBSYSTEM_WINDOWS_GUI (winnt.h) - the map-editor-host-check step
+      # above already built and staged this exact binary.
+      - name: Map editor is a GUI program
+        shell: pwsh
+        run: |
+          $exePath = "zig-out/game/windows/x86_64/debug/MapEditor.exe"
+          if (-not (Test-Path $exePath)) { throw "staged MapEditor.exe not found at $exePath" }
+          $bytes = [System.IO.File]::ReadAllBytes($exePath)
+          $eLfanew = [BitConverter]::ToInt32($bytes, 0x3C)
+          $subsystemOffset = $eLfanew + 0x5C
+          $subsystem = [BitConverter]::ToUInt16($bytes, $subsystemOffset)
+          Write-Host "MapEditor.exe subsystem: $subsystem (2 = IMAGE_SUBSYSTEM_WINDOWS_GUI)"
+          if ($subsystem -ne 2) { throw "MapEditor.exe subsystem is $subsystem, expected 2 (IMAGE_SUBSYSTEM_WINDOWS_GUI)" }
+
+      # The editor core driving the real engine through the Zig adapter.
+      - name: Map editor engine tier
+        run: zig build test-map-editor-engine -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # The scripted editor scenarios (05-REVIEW WR-D05): BK_EDITOR_AUTO's M1, M2
+      # and M3 scripts, one after the other (each step depends on the one before,
+      # so two engines never start at once), with their do=/expect= predicates.
+      - name: Map editor scenarios
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build map-editor-m3-auto -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      # The real Game playing what the editor saved: M1's placed unit, M2's
+      # BK_MAP_TRACE report, and M3's railroad with fewer than two control
+      # points (D-33, the CRailroadGraphConstructor crash) - its regression gate.
+      - name: Game reads the editor's maps
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build map-editor-game-reads-it-m3 -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Upload generated outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-map-editor-outputs
           path: zig-out
           if-no-files-found: ignore
 
