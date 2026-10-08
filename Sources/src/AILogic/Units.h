@@ -53,8 +53,10 @@ class CUnits : public IRefCount
 	void AddUnitToLeveledCells( CAIUnit *pUnit, const SVector &bigCell, const int nVis );
 	void DelUnitFromLeveledCells( CAIUnit *pUnit, const SVector &bigCell, const int nVis );
 	const bool IsUnitInCell( const int nUnitID ) const;
+	void DetachTurrets();
 public:
 	CUnits() { }
+	~CUnits() { DetachTurrets(); }
 	
 	void Init();
 	void Clear() { DestroyContents(); }

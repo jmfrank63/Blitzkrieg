@@ -80,6 +80,8 @@ pub const Renderer = struct {
     // command buffer submitted per draw: a D3D12 queue submission costs enough
     // that hundreds a frame - one per UI rectangle - was the whole frame budget.
     frame_upload_command: ?*sdl.GpuCommandBuffer = null,
+    // Command buffers submitted since SDL last retired finished ones (noteSubmitOutsideFrame).
+    unretired_submits: u32 = 0,
     next_resource_handle: u64 = 1,
     window: ?*anyopaque = null,
     window_claimed: bool = false,
@@ -720,6 +722,8 @@ pub const Renderer = struct {
             return error.SubmitFailed;
         }
         try self.frame.present();
+        // A presenting submit is where SDL retires the finished ones.
+        self.unretired_submits = 0;
         self.releaseTemporaryBuffers();
     }
 
@@ -791,6 +795,24 @@ pub const Renderer = struct {
         // that reads the buffer, and the transfer buffer's release is deferred
         // by SDL until the copy actually finishes.
         if (!sdl.submitCommandBuffer(command)) return error.SubmitFailed;
+        self.noteSubmitOutsideFrame(gpu_device);
+    }
+
+    /// The most command buffers left unretired before the renderer waits for the GPU once.
+    const max_unretired_submits = 256;
+
+    /// Counts a command buffer submitted outside a presented frame, and retires them all every
+    /// `max_unretired_submits`. SDL's Vulkan backend frees finished command buffers, their fences
+    /// and the transfer buffers released into them only on a submit that presents to a claimed
+    /// window, or in a wait. A map load uploads thousands of buffers and textures before the next
+    /// frame, and a tool that never presents (test-random-missions) kept every one of them for the
+    /// whole process: memcheck showed the command pool growing with every map. One wait per 256
+    /// uploads is not the per-upload wait that stalled the frame (see uploadBuffer).
+    fn noteSubmitOutsideFrame(self: *Renderer, gpu_device: *sdl.GpuDevice) void {
+        self.unretired_submits += 1;
+        if (self.unretired_submits < max_unretired_submits) return;
+        _ = sdl.waitForIdle(gpu_device);
+        self.unretired_submits = 0;
     }
 
     pub fn destroyBuffer(self: *Renderer, id: u64) !void {
@@ -813,6 +835,8 @@ pub const Renderer = struct {
         const info = sdl.c.SDL_GPUTextureCreateInfo{ .type = sdl.c.SDL_GPU_TEXTURETYPE_2D, .format = texture_format, .usage = sdl.c.SDL_GPU_TEXTUREUSAGE_SAMPLER, .width = width, .height = height, .layer_count_or_depth = 1, .num_levels = 1, .sample_count = sdl.c.SDL_GPU_SAMPLECOUNT_1, .props = 0 };
         const gpu = sdl.c.SDL_CreateGPUTexture(@ptrCast(@alignCast(device.handle.?)), &info) orelse return error.TextureCreateFailed;
         errdefer sdl.releaseTexture(@ptrCast(@alignCast(device.handle.?)), gpu);
+        // SDL_CreateGPUTexture submits a command buffer of its own (the Vulkan backend's layout transition).
+        self.noteSubmitOutsideFrame(@ptrCast(@alignCast(device.handle.?)));
         const id = self.next_resource_handle;
         self.next_resource_handle += 1;
         try self.textures.put(self.allocator, id, .{ .gpu = gpu, .width = width, .height = height });
@@ -840,6 +864,7 @@ pub const Renderer = struct {
         // pipeline - badly during video, which uploads a frame-sized texture
         // every frame.
         if (!sdl.submitCommandBuffer(command)) return error.SubmitFailed;
+        self.noteSubmitOutsideFrame(gpu_device);
     }
 
     pub fn destroyTexture(self: *Renderer, id: u64) !void {
@@ -1546,6 +1571,7 @@ pub const Renderer = struct {
         }
         if (!sdl.submitCommandBuffer(command)) return error.SubmitFailed;
         if (!sdl.waitForIdle(gpu_device)) return error.WaitForIdleFailed;
+        self.unretired_submits = 0;
         const mapped = sdl.mapTransferBuffer(gpu_device, transfer) orelse return error.TransferBufferMapFailed;
         @memcpy(destination[0 .. @as(usize, row_pitch) * height], @as([*]const u8, @ptrCast(mapped))[0 .. @as(usize, row_pitch) * height]);
         sdl.unmapTransferBuffer(gpu_device, transfer);

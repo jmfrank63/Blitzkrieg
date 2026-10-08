@@ -253,6 +253,10 @@ void CGlobalWarFog::Clear()
 
 	areasOpenTiles.Clear();
 	areas.clear();
+	// Units the fog had not yet taken in or let go of. Left here, every map's IDs piled up in the
+	// next one, and the deleted ones held their world objects (CObj) alive with them.
+	newUnits.clear();
+	deletedUnits.clear();
 }
 void CGlobalWarFog::AddUnit( const int id, int nParty, const SFogInfo &fogInfo )
 {

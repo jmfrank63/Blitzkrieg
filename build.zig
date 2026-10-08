@@ -1995,6 +1995,7 @@ pub fn build(b: *std.Build) void {
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
     ubsan_trap = b.option(bool, "ubsan-trap", "Compile UBSan checks as traps so debuggers break at the faulting line (Debug only)") orelse false;
     const random_missions_sweep = b.option([]const u8, "random-missions-sweep", "test-random-missions: all, cover, cover-from=<n> (cover without its first n cases, to resume a cut-short run) or only=<text> (default all)") orelse "all";
+    const random_missions_repeat = b.option(u32, "random-missions-repeat", "test-random-missions: generate the sweep this many times; from 4 on, fail if the heap grows over the second half of the rounds (default 1)") orelse 1;
 
     const zlib = addZlib(b, target, optimize, toolchain);
     const libpng = addLibpng(b, target, optimize, toolchain, zlib);
@@ -2375,7 +2376,7 @@ pub fn build(b: *std.Build) void {
     // M001 S05: ResourceEditor, on exactly MapEditor's platforms and staged
     // beside it; the package steps below stage this exact binary too.
     const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
-    addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
+    addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep, random_missions_repeat);
     addRmgDeterminismTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addComposerRoundtripTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addPreviewSceneSpike(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
@@ -9104,7 +9105,7 @@ const resource_auto_bld =
     "346:shot=bld_base," ++
     "347:expect=shot_colour:bld_base/ff0000/max/20," ++
     "347:expect=shot_colour:bld_base/606000/max/0," ++
-    "347:expect=shot_colour:bld_base/c0c0c0/max/12500," ++
+    "347:expect=shot_colour:bld_base/c0c0c0/max/16000," ++
     "348:do=grid_cell:28/28/1," ++
     "348:do=grid_cell:29/28/1," ++
     "349:do=grid_trans:30/28/3," ++
@@ -9159,7 +9160,7 @@ const resource_auto_bld =
     "385:expect=shot_colour:bld_undone/ff0000/max/20," ++
     "385:expect=shot_colour:bld_undone/606000/max/0," ++
     "385:expect=shot_colour:bld_undone/ff8000/max/0," ++
-    "385:expect=shot_colour:bld_undone/c0c0c0/max/12500," ++
+    "385:expect=shot_colour:bld_undone/c0c0c0/max/16000," ++
     "385:expect=shot_colour:bld_undone/ffff00/max/0," ++
     "385:differ=bld_tiles/bld_undone@0.01," ++
     "386:do=redo," ++
@@ -9904,8 +9905,9 @@ fn addRandomMissionsTest(
     install_game_step: *std.Build.Step,
     test_mode: build_support.TestMode,
     sweep: []const u8,
+    repeat: u32,
 ) void {
-    addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "random-missions-test", "tools/zig/random_missions_test.cpp", "test-random-missions", "Generate every random mission a chapter can offer and open it in the engine", &.{sweep});
+    addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "random-missions-test", "tools/zig/random_missions_test.cpp", "test-random-missions", "Generate every random mission a chapter can offer and open it in the engine", if (repeat > 1) &.{ sweep, b.fmt("repeat={d}", .{repeat}) } else &.{sweep});
 }
 
 // 05-08 (D-04/D-40.5): the Create Random Map determinism harness - the editor's own

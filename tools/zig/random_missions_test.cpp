@@ -3,10 +3,12 @@
 // read back, checked and opened in the engine. Needs a hidden SDL window and a
 // GPU device, as the engine tier does, and skips honestly where there is none.
 //
-// argv: <installation> <scratch> [all | cover | only=<text>]
+// argv: <installation> <scratch> [all | cover | only=<text>] [repeat=<n>]
 //   all     every gated chapter x every template of its setting x 3 difficulties
 //   cover   every gated chapter x template pair once, the difficulty rotating
 //   only=   the cases whose chapter or template name contains <text>
+//   repeat= the selected cases n times over: the same templates and terrain again, so a cache has
+//           seen them all after the first round and any further growth is a leak
 #include "StdAfx.h"
 #include <cstdlib>
 #include <cstring>
@@ -27,7 +29,116 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <crtdbg.h>
+#include <psapi.h>
+#elif defined(__APPLE__)
+#include <mach/mach.h>
+#include <malloc/malloc.h>
+#else
+#include <fstream>
+#include <malloc.h>
+#if __has_include(<valgrind/memcheck.h>)
+#include <valgrind/memcheck.h>
 #endif
+#endif
+
+// The process's resident memory in KiB, by the platform's own counter: VmRSS on Linux, the
+// physical footprint on macOS (which includes GPU allocations on unified memory), the private
+// bytes on Windows. -1 where it cannot be read. Printed after every case, so a leak shows as
+// growth per mission rather than as the runner killing the sweep.
+static long long ProcessMemoryKb()
+{
+#if defined(_WIN32) || defined(_WIN64)
+	PROCESS_MEMORY_COUNTERS_EX counters = {};
+	if ( !K32GetProcessMemoryInfo( GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>( &counters ), sizeof( counters ) ) )
+		return -1;
+	return (long long)( counters.PrivateUsage / 1024 );
+#elif defined(__APPLE__)
+	task_vm_info_data_t info = {};
+	mach_msg_type_number_t nCount = TASK_VM_INFO_COUNT;
+	if ( task_info( mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>( &info ), &nCount ) != KERN_SUCCESS )
+		return -1;
+	return (long long)( info.phys_footprint / 1024 );
+#else
+	std::ifstream status( "/proc/self/status" );
+	std::string szLine;
+	while ( std::getline( status, szLine ) )
+		if ( szLine.compare( 0, 6, "VmRSS:" ) == 0 )
+			return std::atoll( szLine.c_str() + 6 );
+	return -1;
+#endif
+}
+
+// The bytes the program holds in live heap allocations, and how many allocations: every busy block
+// of every process heap on Windows, every malloc zone on macOS, all of glibc's arenas and mmapped
+// chunks on Linux. Unlike the resident counters above it does not include heap that was freed but
+// stays committed, so once the caches are warm (the later rounds of repeat=) a mission that leaks
+// shows here as growth to the byte, on every platform and in release builds.
+struct SHeapUse { long long nBytes = -1; long long nBlocks = -1; };
+#if defined(__APPLE__)
+// The zone walk reads its own process's memory, so an address is already a pointer.
+static kern_return_t HeapReadInProcess( task_t, vm_address_t address, vm_size_t, void **ppMemory )
+{
+	*ppMemory = reinterpret_cast<void*>( address );
+	return KERN_SUCCESS;
+}
+
+static void HeapRecordInUse( task_t, void *pContext, unsigned int, vm_range_t *pRanges, unsigned int nRanges )
+{
+	SHeapUse *pUse = static_cast<SHeapUse*>( pContext );
+	for ( unsigned int i = 0; i < nRanges; ++i )
+		pUse->nBytes += (long long)pRanges[i].size;
+	pUse->nBlocks += nRanges;
+}
+#endif
+
+static SHeapUse HeapUse()
+{
+	SHeapUse use;
+#if defined(_WIN32) || defined(_WIN64)
+	std::vector<HANDLE> heaps( GetProcessHeaps( 0, 0 ) + 16 );
+	heaps.resize( GetProcessHeaps( DWORD( heaps.size() ), heaps.data() ) );
+	use.nBytes = 0;
+	use.nBlocks = 0;
+	for ( HANDLE hHeap : heaps )
+	{
+		if ( !HeapLock( hHeap ) )
+			continue;
+		PROCESS_HEAP_ENTRY entry = {};
+		while ( HeapWalk( hHeap, &entry ) )
+			if ( entry.wFlags & PROCESS_HEAP_ENTRY_BUSY )
+			{
+				use.nBytes += entry.cbData;
+				++use.nBlocks;
+			}
+		HeapUnlock( hHeap );
+	}
+#elif defined(__APPLE__)
+	// Every block in use, walked the way the heap and leaks tools walk them. The zones' own
+	// statistics (malloc_zone_statistics) keep the bytes right but count blocks that were freed:
+	// on an Intel Mac they grew by 28,000 a round while heap counted no more nodes than before.
+	vm_address_t *pZones = nullptr;
+	unsigned int nZones = 0;
+	if ( malloc_get_all_zones( mach_task_self(), HeapReadInProcess, &pZones, &nZones ) != KERN_SUCCESS )
+		return use;
+	use.nBytes = 0;
+	use.nBlocks = 0;
+	for ( unsigned int i = 0; i < nZones; ++i )
+	{
+		malloc_zone_t *pZone = reinterpret_cast<malloc_zone_t*>( pZones[i] );
+		if ( pZone == nullptr || pZone->introspect == nullptr || pZone->introspect->enumerator == nullptr )
+			continue;
+		// Locked, so no other thread changes the zone mid-walk; the recorder does not allocate.
+		pZone->introspect->force_lock( pZone );
+		pZone->introspect->enumerator( mach_task_self(), &use, MALLOC_PTR_IN_USE_RANGE_TYPE, pZones[i], HeapReadInProcess, HeapRecordInUse );
+		pZone->introspect->force_unlock( pZone );
+	}
+#elif defined(__GLIBC__)
+	const struct mallinfo2 info = mallinfo2();
+	use.nBytes = (long long)( info.uordblks + info.hblkhd );
+	// glibc does not count busy chunks; the per-case memcheck report below names them.
+#endif
+	return use;
+}
 
 static int g_nFailures = 0;
 
@@ -328,6 +439,7 @@ int main( int argc, char **argv )
 	const char *pszRoot = argc > 1 ? argv[1] : szSelfDir.c_str();
 	const std::filesystem::path scratch = argc > 2 ? argv[2] : szSelfDir;
 	const std::string szSweep = argc > 3 ? argv[3] : "all";
+	const int nRepeat = argc > 4 && strncmp( argv[4], "repeat=", 7 ) == 0 ? (std::max)( 1, atoi( argv[4] + 7 ) ) : 1;
 	std::filesystem::create_directories( scratch );
 	if ( !std::filesystem::exists( std::string( pszRoot ) + "/Data/consts.xml" ) )
 	{
@@ -362,9 +474,50 @@ int main( int argc, char **argv )
 		// A sweep that selects nothing (a mistyped only= filter) tests nothing and must not pass.
 		Check( !cases.empty() && ( szSweep.compare( 0, 5, "only=" ) == 0 || szSweep.compare( 0, 11, "cover-from=" ) == 0 || cases.size() > 150 ), "the sweep found the chapters' templates (" + std::to_string( cases.size() ) + ")" );
 		int nFailedCases = 0;
+		const long long nMemoryAtStart = ProcessMemoryKb();
+		int nCase = 0;
+		std::vector<SHeapUse> roundEnds;
+		for ( int nRound = 0; nRound < nRepeat; ++nRound )
 		for ( const SCase &c : cases )
+		{
+			// With repeat=, every round restarts both random generators, so each round generates the same
+			// maps with the same graphs and angles, and the heap after a case is comparable to the byte
+			// with the heap after the same case a round earlier.
+			if ( nRepeat > 1 && &c == &cases.front() )
+			{
+				srand( 1 );
+				CPtr<IRandomGenSeed> pSeed = CreateObject<IRandomGenSeed>( STREAMIO_RANDOM_GEN_SEED );
+				pSeed->InitByZeroSeed();
+				GetSingleton<IRandomGen>()->SetSeed( pSeed );
+			}
 			if ( !RunCase( pSession, c, scratch ) )
 				++nFailedCases;
+			const SHeapUse heap = HeapUse();
+			printf( "random-missions: memory after case %d: %lld KiB, heap %lld bytes in %lld blocks\n", ++nCase, ProcessMemoryKb(), heap.nBytes, heap.nBlocks );
+			if ( &c == &cases.back() )
+				roundEnds.push_back( heap );
+#if defined(VALGRIND_DO_CHANGED_LEAK_CHECK)
+			// Under Valgrind's memcheck, how each case changed the heap from the case before, grown and
+			// shrunk, block by block and with its stack; outside Valgrind this does nothing. Run with
+			// repeat= so the caches are warm, and sum the changes over the later rounds.
+			VALGRIND_DO_CHANGED_LEAK_CHECK;
+#endif
+			fflush( stdout );
+		}
+		printf( "random-missions: memory %lld KiB before the first case, %lld KiB after the last\n", nMemoryAtStart, ProcessMemoryKb() );
+		// The leak gate. Every round generates and opens the same maps, so once the caches are warm a
+		// round must end with the heap it ended with before. The first half of the rounds warms them
+		// (Windows still settled a container by one block in round 11 of 20); the second half must
+		// not grow by more than kHeapGateBytes, which covers glibc's few KB of noise between rounds on
+		// Linux. A planted leak of 100 bytes per map exceeded it (4,560 bytes over 10 rounds).
+		if ( nRepeat >= 4 && roundEnds.size() == size_t( nRepeat ) && roundEnds.back().nBytes >= 0 )
+		{
+			const long long kHeapGateBytes = 4096;
+			const SHeapUse &warm = roundEnds[nRepeat / 2 - 1];
+			const SHeapUse &last = roundEnds.back();
+			printf( "random-missions: heap %lld bytes after round %d, %lld after round %d\n", warm.nBytes, nRepeat / 2, last.nBytes, nRepeat );
+			Check( last.nBytes - warm.nBytes <= kHeapGateBytes, "the heap does not grow once the caches are warm (" + std::to_string( last.nBytes - warm.nBytes ) + " bytes over " + std::to_string( nRepeat - nRepeat / 2 ) + " rounds)" );
+		}
 		const long long nSeconds = std::chrono::duration_cast<std::chrono::seconds>( std::chrono::steady_clock::now() - start ).count();
 		printf( "random-missions: %d cases, %d failed, %lld s\n", int( cases.size() ), nFailedCases, nSeconds );
 	}

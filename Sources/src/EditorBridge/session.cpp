@@ -14,6 +14,7 @@
 #include "../MapFile/MapRecords.h"
 #include "../Main/GameDB.h"
 #include "../Main/GameTimer.h"
+#include "../Input/Input.h"
 #include "../Platform/Clock.h"
 #include "../AILogic/AILogic.h"
 #include "../Scene/Scene.h"
@@ -530,6 +531,17 @@ void UpdateSessionWorld( SEditorSession *pSession )
 	ShowHiddenForUpdate( pSession );
 	if ( pSession->pWorld != 0 )
 		pSession->pWorld->UpdateNow();
+	// The world posts game messages for the Game's interface as it updates (a soldier joining a
+	// squad sends MC_UPDATE_WHO_IN_CONTAINER, CMOUnitInfantry::SetSquad), and the Game's main loop
+	// takes them. Nothing in an editor reads them, so they are taken here, or the queue grows for the
+	// whole session. GetMessage only pops: ClearMessages would also pump platform input, which is
+	// the editor's.
+	if ( IInput *pInput = GetSingleton<IInput>() )
+	{
+		SGameMessage message;
+		while ( pInput->GetMessage( &message ) )
+			;
+	}
 	pSession->linkByAI.clear();
 	for ( std::unordered_map<int, CPtr<IRefCount> >::const_iterator it = pSession->byLinkID.begin(); it != pSession->byLinkID.end(); ++it )
 		pSession->linkByAI[it->second.GetPtr()] = it->first;
