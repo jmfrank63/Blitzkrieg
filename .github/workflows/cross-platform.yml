@@ -178,15 +178,6 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
-      - name: Editor core tier
-        run: zig build test-editor-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Editor kit tier
-        run: zig build test-editor-kit -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Resource editor core tier
-        run: zig build test-resource-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
       # Only here and on macos-14: the probe says those are the two runners with
       # a GPU device. The tier skips honestly where there is none, but a runner
       # that only ever skips is a 2.3 GB checkout for a line of output.
@@ -449,6 +440,9 @@ jobs:
 
           Write-Host "Using MSVC: $($msvcRoot.FullName)"
           Write-Host "Using Windows SDK: $($sdkRoot.FullName)"
+
+      - name: Resource editor core tier
+        run: zig build test-resource-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # S04 slice gate: the resource bridge through the engine, including the
       # preview captures (mesh, sprite, effect) measured by code.
@@ -739,6 +733,13 @@ jobs:
 
           Write-Host "Using MSVC: $($msvcRoot.FullName)"
           Write-Host "Using Windows SDK: $($sdkRoot.FullName)"
+
+      # The shared editor core and ImGui kit, used by both editors; run once, here.
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Editor kit tier
+        run: zig build test-editor-kit -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Map file tier
         run: zig build test-map-files -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
@@ -1189,15 +1190,6 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build --sysroot "$MACOS_SYSROOT" test-gfxgpu-core -Dtarget=aarch64-macos -Dtest-mode=run
 
-      - name: Editor core tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-core -Dtarget=aarch64-macos -Dtest-mode=run
-
-      - name: Editor kit tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-kit -Dtarget=aarch64-macos -Dtest-mode=run
-
-      - name: Resource editor core tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-core -Dtarget=aarch64-macos -Dtest-mode=run
-
       - name: Engine tier
         env:
           # This job has a video driver and a GPU device (the probe step below), so a tool that
@@ -1377,6 +1369,9 @@ jobs:
 
       - name: Configure macOS SDK sysroot
         run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+
+      - name: Resource editor core tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-resource-core -Dtarget=aarch64-macos -Dtest-mode=run
 
       # S04 slice gate: the resource bridge through the engine, including the
       # preview captures (mesh, sprite, effect) measured by code.
@@ -1603,6 +1598,13 @@ jobs:
 
       - name: Configure macOS SDK sysroot
         run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+
+      # The shared editor core and ImGui kit, used by both editors; run once, here.
+      - name: Editor core tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-core -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Editor kit tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-editor-kit -Dtarget=aarch64-macos -Dtest-mode=run
 
       - name: Map file tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=aarch64-macos -Dtest-mode=run
@@ -2015,15 +2017,6 @@ jobs:
       - name: Mission data tier
         run: zig build test-mission-data -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
-      - name: Editor core tier
-        run: zig build test-editor-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Editor kit tier
-        run: zig build test-editor-kit -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
-      - name: Resource editor core tier
-        run: zig build test-resource-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
       # New on Linux (2026-10-08): the Game's own tiers on lavapipe, as on Windows and macOS.
       - name: Engine tier
         env:
@@ -2216,6 +2209,9 @@ jobs:
 
       - name: Audit playable native residue
         run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      - name: Resource editor core tier
+        run: zig build test-resource-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
       # project extension, references/combos/localization lists and the
@@ -2474,6 +2470,13 @@ jobs:
 
       - name: Audit playable native residue
         run: zig test tools/zig/runtime_platform_audit_test.zig
+
+      # The shared editor core and ImGui kit, used by both editors; run once, here.
+      - name: Editor core tier
+        run: zig build test-editor-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Editor kit tier
+        run: zig build test-editor-kit -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Map file tier
         run: zig build test-map-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
