@@ -1,18 +1,14 @@
 ---
-status: testing
+status: complete
 phase: 05-map-editor-m3-random-map-templates-minimap-tools-parity
 source: [05-VERIFICATION.md, 05-11-SUMMARY.md]
 started: 2026-10-04T02:05:40Z
-updated: 2026-10-04T09:30:05Z
+updated: 2026-10-05T16:00:00Z
 ---
 
 ## Current Test
 
-number: 13
-name: Windows release build - repeat 1-12 and the GPU look
-expected: |
-  Tests 1-12 pass on Windows. Roads, rivers, wire frame and the minimap look right on D3D12/Vulkan.
-awaiting: user response
+[testing complete]
 
 ## Tests
 
@@ -71,18 +67,20 @@ result: pass
 
 ### 13. Windows release build - repeat 1-12 and the GPU look
 expected: Tests 1-12 pass on Windows. Roads, rivers, wire frame and the minimap look right on D3D12/Vulkan.
-result: [pending]
+result: pass
+note: "Approved by Johannes 2026-10-05 on main 1d7264fd6, Windows x86_64-windows-msvc release build (zig build install-game install-map-editor --release=fast)."
 
 ### 14. Minimap shots look right
 expected: `m3-minimap-before`, `-after`, `-game` and `-heights` from map-editor-m3-auto look like plausible minimaps. The automated compare only shows that the pixels change, not that they look right.
-result: [pending]
+result: pass
+note: "Approved by Johannes 2026-10-05."
 
 ## Summary
 
 total: 14
-passed: 12
+passed: 14
 issues: 0
-pending: 2
+pending: 0
 skipped: 0
 blocked: 0
 

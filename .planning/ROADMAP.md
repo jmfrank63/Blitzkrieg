@@ -208,8 +208,9 @@ Plans:
 - [x] 02 — cursor-anchored zoom application and terrain rebuild trigger (complete)
 - [x] 03 — minimap cluster sizing, texture recreation (complete)
 
-Executed and verified (source level); in-game sign-off rows outstanding —
-see `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`.
+**Complete 2026-10-05** — executed, verified (source level), and the in-game sign-off
+approved by Johannes (variable zoom and minimap layout); see
+`.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md` (status passed).
 
 ### Phase 3: Map editor plan 6: finish M1
 
@@ -288,7 +289,7 @@ Plans:
 **Goal:** Map Editor M2 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md` ("The editor set"): edit what M1 only preserves — roads and rivers, bridges (including rotating them, deferred from M1) and entrenchments, AI and unit groups (reinforcements, start commands, reserve positions, AI general data), scripts and script areas — with the same undo, save-preservation, test-in-game and CI standards as M1. Revisit free camera rotation (D-12, deferred with evidence in 03-06). Scope to be settled in discuss-phase; may split into several phases.
 **Requirements**: CONTEXT D-01..D-25 (04-CONTEXT.md) and the M2 rows of 04-PARITY.md
 **Depends on:** Phase 3
-**Plans:** 13/13 plans executed (D-24's eight split for one agent context each; executed one after another in the shared worktree)
+**Plans:** 13/13 plans complete (D-24's eight split for one agent context each; executed one after another in the shared worktree). **Complete 2026-09-30** — verified (04-VERIFICATION.md passed 12/12, autonomous run with no human items required), 30 of 30 review findings fixed, CI run 36713320474 green; the Windows GPU look of roads and rivers was later approved in 05-UAT test 13 (2026-10-05).
 
 Plans:
 **Wave 1**
@@ -348,7 +349,7 @@ Plans:
 **Goal:** Map Editor M3 of `docs/superpowers/specs/2026-09-19-portable-map-editor-design.md`: random map templates and generation from the editor, minimap tools, and every remaining feature of the MFC map editor (`Sources/src/MapEditor`) so the portable editor reaches full parity. When parity is shown by a feature-by-feature checklist against the MFC editor, delete the MFC map editor from the tree.
 **Requirements**: none mapped — CONTEXT D-01..D-40 (05-CONTEXT.md) are the requirements of record; 05-PARITY.md is the checklist of record (D-36) and 05-VALIDATION.md's D-40 exit criteria are the coverage contract
 **Depends on:** Phase 4
-**Plans:** 11/11 plans executed
+**Plans:** 11/11 plans complete. **Complete 2026-10-05** — verified (05-VERIFICATION.md passed, 05-UAT.md 14/14), Johannes's M3 hand try approved on macOS and Windows, MFC map editor deleted, CI run 37219830755 green at main 1d7264fd6.
 
 Plans (per D-39; waves serialized — plans 2-8 all touch bridge.h/editor.zig/fake_bridge.zig/c_bridge.zig/commands.zig/build.zig, so the shared-worktree execution order is plan order; depends_on keeps D-39's logical structure):
 

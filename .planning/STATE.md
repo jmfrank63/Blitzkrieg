@@ -1,23 +1,23 @@
 ---
 gsd_state_version: "1.0"
 current_plan: 11
-status: phase-2-executed-human-verification-outstanding
-stopped_at: "Completed 05-11-PLAN.md (phase 5 execution done; next: code review and verification)"
-last_updated: "2026-10-03T16:20:14.197Z"
-state_head: 1121c1225e5b028c45133334e0af88e876d9dfa8
+status: phase-5-complete
+stopped_at: "Phase 5 complete: 05-VERIFICATION passed, 05-UAT 14/14 (next: plan phase 6)"
+last_updated: "2026-10-05T14:30:00.000Z"
+state_head: e4e3785da539c006609c35d0869bc5b30a9c7ca4
 progress:
   total_phases: 7
-  completed_phases: 0
+  completed_phases: 4
   total_plans: 43
   completed_plans: 43
-  percent: 0
+  percent: 57
 current_phase: 05
 current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 ---
 
 # Project state
 
-- status: phase-2-executed-human-verification-outstanding
+- status: phase-5-complete
 - projectName: Blitzkrieg Reloaded
 - branch: main (feature merged through workspace/variable-zoom)
 - created: 2026-06-06
@@ -34,17 +34,22 @@ Verified on Linux: the maintainer's full sweep (`tools/zig/run-resource-sweep.sh
 pass=10 accepted=10 fail=0 pending=0 (all 20 MFC goldens exist). S17: the AchtungPanzer2 mod round trip (`test-resource-mod-roundtrip`, D053, D054)
 replaced the GOG rows B-09.14 and B-14.5; found/imported/equal/accepted/failed total 1879/1879/1609/270/0, port bugs fixed in T03 (counts per kind in
 06-PARITY "Mod round trip"). T04 (D055) fixed the CI sparse-checkout lists, missing-folder handling and the Windows MSVC editor test tiers (proven on win-home).
-No macOS or Windows result has been seen by an agent.
 
 Open:
 - The hand try of the macOS and Windows release builds, deferred until CI works (D052).
-- CI on macOS and Windows: the maintainer pushes and relays the result; it is not claimed here.
+- CI: green on all eight jobs at 87122af73 (run 37712856614, 2026-10-08, seen with gh), after the Windows job was split in three; merged into main.
 - The next full sweep after S17, left to the maintainer.
 
 Spec: the closing entry is "Amendment (S16 T06, 2026-10-06)" in `docs/superpowers/specs/2026-09-30-portable-resource-editor-design.md`.
 
-Older phase 5 position (historical): all 11 plans executed; the MFC Map Editor was deleted (approved 2026-10-03; CI run
-37121998156 green on all six jobs).
+Phase 5 (historical):
+Phase 05 complete (2026-10-05). All 11 plans executed, the MFC editor deleted (approved by Johannes 2026-10-03),
+35 of 35 review findings fixed (05-REVIEW-FIX.md), 05-VERIFICATION.md passed 10/10, 05-UAT.md 14/14 passed
+(macOS and Windows release builds, minimap shots; G-05-8 fixed by 5c85692b4). CI green at main 1d7264fd6
+(run 37219830755). The open items recorded at the end of 05-11 are closed: a later random-missions cover run
+completed all 208 cases (155 + 53 resumed, 0 failed; 05-VERIFICATION.md) and the single-instance test failure was fixed by the CI fix commits
+1e8760912..da88a73b5. After the phase, MapEditor also builds for Intel macOS and Linux x64 (e5561ca6f, 1d7264fd6).
+Next: Phase 6 (Resource Editor), `/gsd-plan-phase 6`.
 
 ## Current summary
 
@@ -52,10 +57,10 @@ Phase 2 (variable zoom and minimap scaling) executed: all 3 plans complete.
 Two review rounds applied: (1) zoom bound matches floored render scale, (2)
 minimap flex with idempotent absolute baselines + 4:3 negative-size guard,
 (3) fixup geometry applied immediately. Zig cross-compile (full game incl.
-Metal shaders) clean. In-game sign-off rows outstanding — see
+Metal shaders) clean. In-game sign-off done 2026-10-05: Johannes confirmed
+variable zoom works and the minimap layout is correct; all rows of
 `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md`
-(its 10/10 source claims superseded by the review findings; corrected
-behavior needs the in-game rows).
+PASS and Phase 2 is complete.
 
 ## Phase 4 runtime stability closeout (prior milestone work — historical)
 
@@ -75,13 +80,12 @@ behavior needs the in-game rows).
 
 ## Next actions
 
-1. Run in-game sign-off rows from `.planning/phases/02-variable-zoom-and-minimap-scaling/02-VERIFICATION.md` on the Windows build: zoom bounds at 640/1024/1920/3440, cursor anchoring, Shift+wheel (both shifts), J/K hold-repeat, L reset, mission restart/load reset, mid-mission resolution change, minimap cluster geometry + 2:1 diamond, fractional-zoom visuals, 1024×768 z=1 regression.
-2. Record PASS/FAIL per row in the verification report; finalize Phase 2 status.
+1. Plan Phase 6 (Resource Editor): `/gsd-plan-phase 6`.
 
 ## Session
 
-**Last session:** 2026-10-03T16:20:13.845Z
-**Stopped at:** Completed 05-11-PLAN.md (phase 5 execution done; next: code review and verification)
+**Last session:** 2026-10-05T14:30:00.000Z
+**Stopped at:** Phase 5 complete (05-VERIFICATION passed, 05-UAT 14/14); next: plan phase 6
 **Resume file:** None
 
 ## Accumulated Context
@@ -91,6 +95,8 @@ behavior needs the in-game rows).
 - Phase 3 added (2026-09-28): Map editor plan 6: finish M1 — branch feat/map-editor-plan-6, worktree .worktrees/map-editor-6
 - Phase 3 complete (2026-09-29), merged into main 32b9233ce
 - Phase 4 added (2026-09-29): Map editor M2: roads, rivers, bridges, AI groups, scripts — branch feat/map-editor-m2, worktree .worktrees/map-editor-6
+- Phase 4 complete (2026-09-30): 04-VERIFICATION passed 12/12, merged into main
+- Phase 5 complete (2026-10-05): verified and UAT 14/14; merged into main e5561ca6f, Linux x64 build 1d7264fd6
 
 ## Performance Metrics
 

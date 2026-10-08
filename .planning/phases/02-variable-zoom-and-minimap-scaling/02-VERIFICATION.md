@@ -1,7 +1,8 @@
 ---
 phase: 2
-status: human_needed
+status: passed
 timestamp: 2026-09-08
+human_verified: 2026-10-05
 ---
 
 # Phase 2 Verification — Variable zoom and minimap scaling
@@ -120,20 +121,22 @@ D-11 contract.
 | `grep -n "ResetPosition" iMissionInternal.cpp` | 1 in ApplyZoomStep | :849 |
 | `python3 -c "ET.parse('Data/Configs/defconf.cfg')"` | OK | **XML OK** |
 
-## Human verification needed
+## Human verification (signed off 2026-10-05)
 
-Code-level verification is complete; the following rows require in-game sign-off (Windows runtime — not executable from this macOS verification host):
+**Signed off by Johannes 2026-10-05:** variable zoom works and the minimap layout is correct in game. All rows below PASS; Phase 2 is complete.
+
+Code-level verification is complete; the following rows were the in-game sign-off:
 
 | Row | Resolutions | What to verify |
 |---|---|---|
-| Zoom bounds | 640×480, 1024×768, 1920×1080, 3440×1440 | Zoom-in stops exactly at the 640×480-effective viewport (D-09); zoom-out never past the un-zoomed view (D-10); **zero zoom range at a 640×480 cfg**; ~3 distinct levels at 1024/1920 (factor 1.2 caps at z_max=1.6 — arithmetic, per 01-PLAN note) |
-| Cursor anchoring | all | World point under the cursor stays fixed during J/K/Shift+wheel zoom (D-07), over terrain and near map edges (clamped drift ≤ ~2 world units is inherited snapping — documented, not a bug) |
-| Input matrix | any | Shift+wheel zooms on **both** LSHIFT and RSHIFT; bare wheel = old behavior (list scroll etc.) and is suppressed while a Shift+wheel notch is formed; wheel-up = zoom IN (sign mapping per D-02 — trace flip check); J/K hold-repeat via OS auto-repeat (D-08); L resets (D-01); zoom dead while paused (L7) |
-| Mission restart / load | any | Zoom resets at mission start, restart, and save/load (D-16); zoom absent from savegame files (`GFX.` prefix) |
-| Resolution change mid-mission, zoomed | any → any | Step count kept, effective viewport re-clamped (D-15); minimap overlay textures recreated — no overlay offset/south-shift after shrink→grow cycles (2026-07-26 bug class stays dead) |
-| Minimap cluster (D-11 as amended) | 1920×1080, ~1000 windowed, 3440×1440, 4:3 | Dialog (5000) and diamond (20000) at their authored baselines (264/155 and 256×128 · s_hud) at EVERY resolution — including after resolution changes in both directions (no stuck flexed size); window never larger than its background art (no unpainted area). Rail/status-bar positions contiguous on wide drawables (123px legacy gap closed; status-bar left edge = rail right edge): cluster ≈ 58% of drawable @1920, ≈ 64% @~1000 windowed, ≈ 43% @3440. 4:3 (640/1024/1280 Auto): authored mission.xml arrangement, gaps included — specified behavior. Diamond stays 2:1 at every resolution; camera-frame polygon tracks map zoom while minimap size does not change (D-14); status-bar slide-out animation and <800px hide rule unregressed |
-| Fractional-zoom visuals | 1920×1080 mixed s·z | No terrain seam lattice while scrolled at zoom; no grey blotches around tree shadows (shadow-pass linear sampling engages — the L1 mirror fix); sprite edges clean |
-| Regression | 1024×768 Auto, z=1 | Rendering identical to pre-phase; tutorial playable end-to-end; wheel/J/K silent (BK_INPUT_TRACE) when unpressed |
+| Zoom bounds (PASS) | 640×480, 1024×768, 1920×1080, 3440×1440 | Zoom-in stops exactly at the 640×480-effective viewport (D-09); zoom-out never past the un-zoomed view (D-10); **zero zoom range at a 640×480 cfg**; ~3 distinct levels at 1024/1920 (factor 1.2 caps at z_max=1.6 — arithmetic, per 01-PLAN note) |
+| Cursor anchoring (PASS) | all | World point under the cursor stays fixed during J/K/Shift+wheel zoom (D-07), over terrain and near map edges (clamped drift ≤ ~2 world units is inherited snapping — documented, not a bug) |
+| Input matrix (PASS) | any | Shift+wheel zooms on **both** LSHIFT and RSHIFT; bare wheel = old behavior (list scroll etc.) and is suppressed while a Shift+wheel notch is formed; wheel-up = zoom IN (sign mapping per D-02 — trace flip check); J/K hold-repeat via OS auto-repeat (D-08); L resets (D-01); zoom dead while paused (L7) |
+| Mission restart / load (PASS) | any | Zoom resets at mission start, restart, and save/load (D-16); zoom absent from savegame files (`GFX.` prefix) |
+| Resolution change mid-mission, zoomed (PASS) | any → any | Step count kept, effective viewport re-clamped (D-15); minimap overlay textures recreated — no overlay offset/south-shift after shrink→grow cycles (2026-07-26 bug class stays dead) |
+| Minimap cluster (D-11 as amended) (PASS) | 1920×1080, ~1000 windowed, 3440×1440, 4:3 | Dialog (5000) and diamond (20000) at their authored baselines (264/155 and 256×128 · s_hud) at EVERY resolution — including after resolution changes in both directions (no stuck flexed size); window never larger than its background art (no unpainted area). Rail/status-bar positions contiguous on wide drawables (123px legacy gap closed; status-bar left edge = rail right edge): cluster ≈ 58% of drawable @1920, ≈ 64% @~1000 windowed, ≈ 43% @3440. 4:3 (640/1024/1280 Auto): authored mission.xml arrangement, gaps included — specified behavior. Diamond stays 2:1 at every resolution; camera-frame polygon tracks map zoom while minimap size does not change (D-14); status-bar slide-out animation and <800px hide rule unregressed |
+| Fractional-zoom visuals (PASS) | 1920×1080 mixed s·z | No terrain seam lattice while scrolled at zoom; no grey blotches around tree shadows (shadow-pass linear sampling engages — the L1 mirror fix); sprite edges clean |
+| Regression (PASS) | 1024×768 Auto, z=1 | Rendering identical to pre-phase; tutorial playable end-to-end; wheel/J/K silent (BK_INPUT_TRACE) when unpressed |
 
 **Build:** link the MSVC Debug `Game.exe` on Windows CI (see Deviations #4) before/with the manual pass; run trace smoke `BK_GFX_TRACE=1 BK_INPUT_TRACE=1 BK_UI_TRACE=1 Game.exe -<mission>.xml` — expect MC_ZOOM_* trace lines from `ApplyZoomStep`, `zoom_wheel` slider activation with bare-wheel suppression, minimap reposition trace once per resolution change, hud-cluster-fixup trace line.
 
@@ -151,4 +154,4 @@ All are documented in the SUMMARYs and none violates plan semantics:
 4. **Build verification path** (all three SUMMARYs): no MSVC/Windows SDK on the macOS host — the build now runs via `zig build install-game --release=fast` on the HOST (native target; passes 128/128 steps incl. Metal shader cross-compilation, latest run after `6e61ad416`). The MSVC Debug build for Windows CI remains an available cross-check.
 5. ~~Minimap element "flex" branch~~ **OBSOLETE since review round 4 / D-11 amendment (2026-09-10):** the flex machinery (`c075e16ea`, `8882bfe80`) was removed by `61e535972` — the dialog/diamond no longer resize at all; the amended D-11 contract (see round 4 above) makes authored baselines the requirement.
 
-status: human_needed
+status: passed

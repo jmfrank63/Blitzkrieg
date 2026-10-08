@@ -8,6 +8,8 @@ pull before merging.
 
 Babysit the remaining migration through GSD-2 in auto mode until done, in this order:
 
+0. Memory leaks first (decision 2026-10-08): the Linux random missions leak and then no leaks anywhere, on any
+   platform, in the game or the editors. See `HANDOVER-memory-leaks.md`.
 1. Resource Editor (milestone M001, `feat/resource-editor`) - in progress, see below.
 2. Small tools (phase 8).
 3. ELK (phase 7).
@@ -153,3 +155,4 @@ reactive_execution:
 - File names stay case sensitive (MFC lowercased them).
 - Never write into shipped `Data/`; never touch the user's profile, saves, settings or cloud sync.
 - CRLF for all text files. Conventional commit messages with a scope.
+- No memory leaks anywhere: game, editors and tools, on every platform (decision 2026-10-08).

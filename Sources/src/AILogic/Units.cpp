@@ -6,6 +6,7 @@
 #include "Diplomacy.h"
 #include "Technics.h"
 #include "Aviation.h"
+#include "Turret.h"
 #include "Formation.h"
 #include "General.h"
 #include "UnitsIterators.h"
@@ -22,6 +23,32 @@ const SVector GetLeveledCell( const SVector &bigCell, const int nCellLevel )
 const bool CUnits::IsUnitInCell( const int nUnitID ) const
 {
 	return posUnitInCell[nUnitID].nUnitPos != 0 || posUnitInCell[nUnitID].nCellID != 0;
+}
+// A turret holds a counted reference back to the unit that owns it, and the unit holds its
+// turrets: a cycle. Destroyed as it stands, a turret releases its owner from inside the owner's
+// destructor, through a vtable whose Release is still pure, and the process aborts. The graveyard
+// breaks the cycle per wreck (CMilitaryCar::PrepareToDelete); a cleared map has to break it for
+// every unit still alive, before any of them is destroyed. ~CUnits does it, which covers Clear (its
+// DestroyContents runs the destructor) and the global CUnits at process exit. CAILogic::Clear used to
+// stop deleting refcounted objects instead, which kept every map's objects for the rest of the process.
+void CUnits::DetachTurrets()
+{
+	for ( int nList = 0; nList < units.GetListsNum(); ++nList )
+	{
+		for ( int nPos = units.begin( nList ); nPos != units.end(); nPos = units.GetNext( nPos ) )
+		{
+			CAIUnit *pUnit = units.GetEl( nPos );
+			if ( pUnit == 0 )
+				continue;
+			for ( int i = 0; i < pUnit->GetNTurrets(); ++i )
+				if ( CTurret *pTurret = pUnit->GetTurret( i ) )
+					pTurret->DetachOwner();
+		}
+	}
+	for ( std::list< CObj<CAviation> >::iterator iter = planes.begin(); iter != planes.end(); ++iter )
+		for ( int i = 0; i < (*iter)->GetNTurrets(); ++i )
+			if ( CTurret *pTurret = (*iter)->GetTurret( i ) )
+				pTurret->DetachOwner();
 }
 void CUnits::Init()
 {
