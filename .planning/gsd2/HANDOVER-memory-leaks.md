@@ -4,6 +4,14 @@ Written on win-home for a Linux x64 machine. Finding the leak below comes before
 (`HANDOVER.md`), Small tools included, by the maintainer's decision of 2026-10-08: "we should make sure we have no
 leaks at all, nowhere on any platform and not on game or editors."
 
+## Rules for this work
+
+- A leak is a bug to fix. Never work around it with a smaller sweep, a bigger runner or a longer limit.
+- A leak seen on one platform is assumed to exist on the others until a measurement on that platform shows otherwise.
+- A result counts only for the machine it was measured on. An agent asks the maintainer to run a check on a machine
+  it cannot reach, and never claims a result for a platform nobody ran.
+- The rule covers the game, the Map Editor, the Resource Editor, ELK and the small tools.
+
 ## Where the branches are
 
 - `main` at `036bd9eb6`: M001 (the Resource Editor) merged. Its first CI run (37720133938) was red only because
