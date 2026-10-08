@@ -178,9 +178,6 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
-      - name: Map file tier
-        run: zig build test-map-files -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
       - name: Editor core tier
         run: zig build test-editor-core -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
@@ -209,12 +206,12 @@ jobs:
       # container and field set read, written and read again through the editor's
       # own records and compared (bytes included), and an authored set generated
       # from twice with one seed and compared byte for byte.
-      - name: RMG composer round trip
+      - name: RMG composer round trip (Map Editor code, here for the release build)
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-rmg-composer-roundtrip -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
-      - name: RMG determinism
+      - name: RMG determinism (Map Editor code, here for the release build)
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-rmg-determinism -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
@@ -247,9 +244,6 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc -Dtest-mode=run -Drandom-missions-sweep=only=kharkov42 "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: Build the Map Editor overlay spike
-        run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       # Non-gating: reports whether this runner has a GPU device SDL can
       # use, so the engine and overlay tiers can be scheduled on fact
@@ -758,6 +752,9 @@ jobs:
           Write-Host "Using MSVC: $($msvcRoot.FullName)"
           Write-Host "Using Windows SDK: $($sdkRoot.FullName)"
 
+      - name: Map file tier
+        run: zig build test-map-files -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       # The app's own unit tests: view.zig's SDL event wiring against fake
       # bridges (WINDOWS.md 2), the panels' logic, Test in game's launch and
       # exit handling, BK_EDITOR_AUTO's parser. No engine or GPU.
@@ -868,6 +865,9 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build map-editor-game-reads-it-m3 -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: Build the Map Editor overlay spike
+        run: zig build editor-overlay-spike-build -Dtarget=x86_64-windows-msvc "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
       - name: Upload generated outputs
         if: always()
@@ -1161,9 +1161,6 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build --sysroot "$MACOS_SYSROOT" test-gfxgpu-core -Dtarget=aarch64-macos -Dtest-mode=run
 
-      - name: Map file tier
-        run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=aarch64-macos -Dtest-mode=run
-
       - name: Editor core tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-editor-core -Dtarget=aarch64-macos -Dtest-mode=run
 
@@ -1191,18 +1188,15 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
 
-      - name: RMG composer round trip
+      - name: RMG composer round trip (Map Editor code, here for the release build)
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-composer-roundtrip -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
 
-      - name: RMG determinism
+      - name: RMG determinism (Map Editor code, here for the release build)
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-determinism -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
-
-      - name: Build the Map Editor overlay spike
-        run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos
 
       # Non-gating: reports whether this runner has a GPU device SDL can
       # use, so the engine and overlay tiers can be scheduled on fact
@@ -1561,6 +1555,9 @@ jobs:
       - name: Configure macOS SDK sysroot
         run: echo "MACOS_SYSROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
 
+      - name: Map file tier
+        run: zig build --sysroot "$MACOS_SYSROOT" test-map-files -Dtarget=aarch64-macos -Dtest-mode=run
+
       # The app's own unit tests (see the Windows job's step of this name).
       - name: Map editor unit tier
         run: zig build --sysroot "$MACOS_SYSROOT" test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtarget=aarch64-macos -Dtest-mode=run
@@ -1594,6 +1591,9 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" map-editor-game-reads-it-m3 -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: Build the Map Editor overlay spike
+        run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos
 
       - name: Upload generated outputs
         if: always()
@@ -1938,9 +1938,6 @@ jobs:
       - name: Run GFX GPU effect table tests
         run: zig build test-gfxgpu-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
-      - name: Map file tier
-        run: zig build test-map-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
-
       - name: Mission data tier
         run: zig build test-mission-data -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
@@ -1964,18 +1961,15 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
 
-      - name: RMG composer round trip
+      - name: RMG composer round trip (Map Editor code, here for the release build)
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-rmg-composer-roundtrip -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run
 
-      - name: RMG determinism
+      - name: RMG determinism (Map Editor code, here for the release build)
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-rmg-determinism -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run
-
-      - name: Build the Map Editor overlay spike
-        run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
 
       # Non-gating: reports whether this runner has a GPU device SDL can
       # use, so the engine and overlay tiers can be scheduled on fact
@@ -2386,6 +2380,9 @@ jobs:
       - name: Audit playable native residue
         run: zig test tools/zig/runtime_platform_audit_test.zig
 
+      - name: Map file tier
+        run: zig build test-map-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
       # New on Linux (2026-10-08): the Map Editor's tiers on the virtual display and lavapipe.
       # The app's own unit tests (see the Windows job's step of this name).
       - name: Map editor unit tier
@@ -2426,6 +2423,9 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build map-editor-game-reads-it-m3 -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: Build the Map Editor overlay spike
+        run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
 
       - name: Upload generated outputs
         if: always()
