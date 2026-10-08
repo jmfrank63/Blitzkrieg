@@ -117,15 +117,10 @@ CAILogic::CAILogic()
 }
 void CAILogic::Clear()
 {
-	// Arm leak-on-exit for AILogic's own refcount machinery before ANY world
-	// teardown. The tank/turret/CAIUnit graph contains reference cycles
-	// (turrets hold CPtr<CAIUnit> back-pointers); destroying it in-place
-	// re-enters ~CTank via the back-pointer Release and double-frees. The
-	// original release build survived this because its CRT never validated the
-	// heap at teardown. Leak instead — CLinkObject::Clear below still resets
-	// the link registries, so the next mission starts with a clean slate; only
-	// cost is retained memory across missions within a session.
-	NRefCount::LeakObjectsOnExit() = true;
+	// The world is destroyed for real: CUnits breaks the turret-to-owner cycles before its units go
+	// (CUnits::DetachTurrets). Arming NRefCount::LeakObjectsOnExit here instead, as this did, kept
+	// every map's objects to the end of the process - on Linux, where the flag is one symbol for all
+	// modules, every refcounted object of every module after the first map.
 	CQueueUnit::Clear();
 	NGlobalObjects::Clear();
 	CLinkObject::Clear();

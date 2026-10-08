@@ -27,7 +27,39 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 #include <crtdbg.h>
+#include <psapi.h>
+#elif defined(__APPLE__)
+#include <mach/mach.h>
+#else
+#include <fstream>
 #endif
+
+// The process's resident memory in KiB, by the platform's own counter: VmRSS on Linux, the
+// physical footprint on macOS (which includes GPU allocations on unified memory), the private
+// bytes on Windows. -1 where it cannot be read. Printed after every case, so a leak shows as
+// growth per mission rather than as the runner killing the sweep.
+static long long ProcessMemoryKb()
+{
+#if defined(_WIN32) || defined(_WIN64)
+	PROCESS_MEMORY_COUNTERS_EX counters = {};
+	if ( !K32GetProcessMemoryInfo( GetCurrentProcess(), reinterpret_cast<PROCESS_MEMORY_COUNTERS*>( &counters ), sizeof( counters ) ) )
+		return -1;
+	return (long long)( counters.PrivateUsage / 1024 );
+#elif defined(__APPLE__)
+	task_vm_info_data_t info = {};
+	mach_msg_type_number_t nCount = TASK_VM_INFO_COUNT;
+	if ( task_info( mach_task_self(), TASK_VM_INFO, reinterpret_cast<task_info_t>( &info ), &nCount ) != KERN_SUCCESS )
+		return -1;
+	return (long long)( info.phys_footprint / 1024 );
+#else
+	std::ifstream status( "/proc/self/status" );
+	std::string szLine;
+	while ( std::getline( status, szLine ) )
+		if ( szLine.compare( 0, 6, "VmRSS:" ) == 0 )
+			return std::atoll( szLine.c_str() + 6 );
+	return -1;
+#endif
+}
 
 static int g_nFailures = 0;
 
@@ -362,9 +394,16 @@ int main( int argc, char **argv )
 		// A sweep that selects nothing (a mistyped only= filter) tests nothing and must not pass.
 		Check( !cases.empty() && ( szSweep.compare( 0, 5, "only=" ) == 0 || szSweep.compare( 0, 11, "cover-from=" ) == 0 || cases.size() > 150 ), "the sweep found the chapters' templates (" + std::to_string( cases.size() ) + ")" );
 		int nFailedCases = 0;
+		const long long nMemoryAtStart = ProcessMemoryKb();
+		int nCase = 0;
 		for ( const SCase &c : cases )
+		{
 			if ( !RunCase( pSession, c, scratch ) )
 				++nFailedCases;
+			printf( "random-missions: memory after case %d: %lld KiB\n", ++nCase, ProcessMemoryKb() );
+			fflush( stdout );
+		}
+		printf( "random-missions: memory %lld KiB before the first case, %lld KiB after the last\n", nMemoryAtStart, ProcessMemoryKb() );
 		const long long nSeconds = std::chrono::duration_cast<std::chrono::seconds>( std::chrono::steady_clock::now() - start ).count();
 		printf( "random-missions: %d cases, %d failed, %lld s\n", int( cases.size() ), nFailedCases, nSeconds );
 	}
