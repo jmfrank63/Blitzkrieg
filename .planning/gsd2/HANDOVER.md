@@ -1,5 +1,9 @@
 # Handover: GSD auto run of the remaining migration (2026-10-07)
 
+Update 2026-10-09: every branch is merged; only `main` remains (`1eaf95723`, CI run 37836080796 green, one job per
+platform and product). The "Where M001 stands" and "CI: next job" sections below describe 2026-10-07 and are kept
+for their notes.
+
 Written when the work moved to another machine during a system upgrade. Branch `feat/resource-editor` is pushed at
 `d44d957a4` (plus this file); the tree is clean. Local `main` on the old machine was 4 commits behind `origin/main`:
 pull before merging.
@@ -9,8 +13,10 @@ pull before merging.
 Babysit the remaining migration through GSD-2 in auto mode until done, in this order:
 
 0. Memory leaks first (decision 2026-10-08): the Linux random missions leak and then no leaks anywhere, on any
-   platform, in the game or the editors. See `HANDOVER-memory-leaks.md`.
-1. Resource Editor (milestone M001, `feat/resource-editor`) - in progress, see below.
+   platform, in the game or the editors. See `HANDOVER-memory-leaks.md`. The per-map leak is fixed on all four
+   machines and gated in CI (2026-10-09); the exit-time leaks and the editor gates are still open.
+1. Resource Editor (milestone M001) - merged into `main`, with `32a193718`, on 2026-10-09; GSD's M001 validation and
+   completion are still to run.
 2. Small tools (phase 8).
 3. ELK (phase 7).
 4. Localization: the game, the editors (Map Editor, Resource Editor, ELK) and the small tools, not the game alone

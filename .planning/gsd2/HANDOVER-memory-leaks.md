@@ -12,20 +12,54 @@ leaks at all, nowhere on any platform and not on game or editors."
   it cannot reach, and never claims a result for a platform nobody ran.
 - The rule covers the game, the Map Editor, the Resource Editor, ELK and the small tools.
 
-## Where the branches are
+## Status (2026-10-09): the per-map leak is fixed and gated
 
-- `main` at `036bd9eb6`: M001 (the Resource Editor) merged. Its first CI run (37720133938) was red only because
-  macos-intel ran out of time on a cold cache; fixed on the CI branch below.
-- `feat/ci-per-product-jobs` at the commit that adds this file, pushed, **not merged**. It is the CI rework of
-  2026-10-08: one job per platform and product ("Windows x64 MSVC - Game", "- Resource Editor", "- Map Editor", the
-  same for macOS arm64 and Linux x64), never-running jobs that name what is not tested and why, caches saved from
-  main only, the release Windows package only, slimmer uploads. Windows x64 Game went from 1 h 22 min to 35 min.
-  Every job is green except **Linux x64 - Game**, which fails on the leak. Merge it into `main` once that job is
-  green.
-- `feat/resource-editor` has one commit not on `main`: `32a193718` (auto-bld grey-pixel limit, from a real Intel Mac).
-  Merge or cherry-pick it before M001 is closed.
+Everything below "The leak we have seen" is the original brief, kept for reference. Its steps 1 to 6 are done.
+All branches are merged; only `main` remains (`1eaf95723`, CI run 37836080796 green on the same tree).
 
-Start from `feat/ci-per-product-jobs`; work on a branch `fix/memory-leaks` from it (CI runs on `fix/**`).
+The causes found and fixed, all of them in the engine and present on every platform:
+
+- `CAILogic::Clear` set `NRefCount::LeakObjectsOnExit()`, so every AI object of every map was kept on purpose
+  (the bulk of the 32 MB per mission). Removing it exposed a reference cycle between a vehicle and its turrets
+  (`CTurret` holds its owner): `CUnits::DetachTurrets` breaks it before clearing and in `~CUnits` (`56073a38c`).
+- GFXGPU uploads outside a frame were never retired by SDL's Vulkan backend: at most 256 now, then a wait for idle
+  (`1c8482d80`).
+- The editor bridge never took the game messages the world posts for the Game's interface (`e97e809d2`).
+- The war fog kept its pending new and deleted units across maps (`b745d3250`).
+- `bk_storage_name` returned a new copy of the storage name per call (`bcfe6c657`).
+
+How it is measured: `random-missions-test ... repeat=<n>` (or `-Drandom-missions-repeat=<n>`) generates and opens
+the same maps every round (both random generators restart) and prints after every case the platform's memory
+counter and the live heap to the byte: every busy block of every process heap on Windows, every in-use block of
+every malloc zone on macOS (walked as `heap` does; `malloc_zone_statistics` miscounts blocks), glibc's arenas on
+Linux. Under Valgrind it also prints a memcheck change report per case.
+
+Results with `only=summer_ukraine\securearea00 repeat=20`, each on its own machine:
+
+| Machine | Heap at the end of each round, once warm |
+| --- | --- |
+| Linux x64 (AMD GPU) | within 4 KB from round 6, no trend; memcheck: +0 definitely and indirectly lost per case |
+| Windows x64 (win-home) | identical rounds 11-18 and 19-20; -71 KB from round 2 to 20 |
+| macOS x64 (macbook-air-frank) | 115,601,136 bytes in 135,222 blocks, identical in rounds 2-20 |
+| macOS arm64 (macbook-pro-johannes) | 114,727,264 bytes in 147,703 blocks, identical in rounds 9-20 |
+
+The gate: the Linux x64, Windows x64 MSVC and macOS arm64 Game jobs run "Random missions leak gate" (20 rounds),
+which fails when the heap after round 20 is more than 4 KiB above the heap after round 10. A planted leak of 100
+bytes per map fails it. First CI results: Linux +1,136 bytes, Windows +160, macOS arm64 -9,856.
+
+The full 624-case sweep still rises (Linux CI 177 to 547 MB): new chapters bring new textures, meshes, sprites and
+stats into the caches. That is caching, not a leak; whether those caches should be bounded is a separate decision.
+
+## Still open
+
+- Exit-time leaks (not growth): the `CLinkObject` registries (`LinkObject.cpp`, about 90 KB including the last
+  map's objects) are never destroyed; the Game sets `LeakObjectsOnExit` at quit (`GameMain.cpp`,
+  `MainLoopCommands.cpp` `ArmAllModulesLeakOnExit`) and needs a safe shutdown order instead; about 240 KB in
+  fontconfig, Pango and GTK through libdecor for SDL's Wayland decorations, which hidden test windows need not load.
+- The rest of "No leaks anywhere" below: gates for the Map Editor and Resource Editor tiers, GPU object counts,
+  `DebugAllocator` for the Zig editors (they use `smp_allocator`, `c_bridge.zig` `c_allocator`/`page_allocator`).
+- Run the measurement from the machines over ssh: `macbook-air-frank`, `macbook-pro-johannes` and win-home are
+  reachable; the test needs the desktop session (macOS: `launchctl asuser`, Windows: a scheduled task with `/it`).
 
 ## The leak we have seen
 
