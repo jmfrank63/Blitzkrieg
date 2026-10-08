@@ -476,6 +476,7 @@ int main( int argc, char **argv )
 		int nFailedCases = 0;
 		const long long nMemoryAtStart = ProcessMemoryKb();
 		int nCase = 0;
+		std::vector<SHeapUse> roundEnds;
 		for ( int nRound = 0; nRound < nRepeat; ++nRound )
 		for ( const SCase &c : cases )
 		{
@@ -493,6 +494,8 @@ int main( int argc, char **argv )
 				++nFailedCases;
 			const SHeapUse heap = HeapUse();
 			printf( "random-missions: memory after case %d: %lld KiB, heap %lld bytes in %lld blocks\n", ++nCase, ProcessMemoryKb(), heap.nBytes, heap.nBlocks );
+			if ( &c == &cases.back() )
+				roundEnds.push_back( heap );
 #if defined(VALGRIND_DO_CHANGED_LEAK_CHECK)
 			// Under Valgrind's memcheck, how each case changed the heap from the case before, grown and
 			// shrunk, block by block and with its stack; outside Valgrind this does nothing. Run with
@@ -502,6 +505,19 @@ int main( int argc, char **argv )
 			fflush( stdout );
 		}
 		printf( "random-missions: memory %lld KiB before the first case, %lld KiB after the last\n", nMemoryAtStart, ProcessMemoryKb() );
+		// The leak gate. Every round generates and opens the same maps, so once the caches are warm a
+		// round must end with the heap it ended with before. The first half of the rounds warms them
+		// (Windows still settled a container by one block in round 11 of 20); the second half must
+		// not grow by more than kHeapGateBytes, which covers glibc's few KB of noise between rounds on
+		// Linux. A planted leak of 100 bytes per map exceeded it (4,560 bytes over 10 rounds).
+		if ( nRepeat >= 4 && roundEnds.size() == size_t( nRepeat ) && roundEnds.back().nBytes >= 0 )
+		{
+			const long long kHeapGateBytes = 4096;
+			const SHeapUse &warm = roundEnds[nRepeat / 2 - 1];
+			const SHeapUse &last = roundEnds.back();
+			printf( "random-missions: heap %lld bytes after round %d, %lld after round %d\n", warm.nBytes, nRepeat / 2, last.nBytes, nRepeat );
+			Check( last.nBytes - warm.nBytes <= kHeapGateBytes, "the heap does not grow once the caches are warm (" + std::to_string( last.nBytes - warm.nBytes ) + " bytes over " + std::to_string( nRepeat - nRepeat / 2 ) + " rounds)" );
+		}
 		const long long nSeconds = std::chrono::duration_cast<std::chrono::seconds>( std::chrono::steady_clock::now() - start ).count();
 		printf( "random-missions: %d cases, %d failed, %lld s\n", int( cases.size() ), nFailedCases, nSeconds );
 	}

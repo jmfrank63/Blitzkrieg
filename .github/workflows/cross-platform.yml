@@ -193,6 +193,13 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run -Drandom-missions-sweep=all "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # The leak gate: one template generated and opened 20 times over, the same maps every round;
+      # the test fails if the heap grows over the last 10 rounds (tools/zig/random_missions_test.cpp).
+      - name: Random missions leak gate
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-random-missions -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Drandom-missions-sweep=only=summer_ukraine\securearea00" -Drandom-missions-repeat=20 "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       # Saved from main only (2026-10-08): every branch saving its own set took
       # the repository's caches to 13.4 GB, over GitHub's 10 GB, and evicted them.
       # Any branch can restore main's caches.
@@ -1211,6 +1218,13 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
 
+      # The leak gate: one template generated and opened 20 times over, the same maps every round;
+      # the test fails if the heap grows over the last 10 rounds (tools/zig/random_missions_test.cpp).
+      - name: Random missions leak gate
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run "-Drandom-missions-sweep=only=summer_ukraine\securearea00" -Drandom-missions-repeat=20
+
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
@@ -2038,6 +2052,13 @@ jobs:
         run: |
           ( while sleep 20; do echo "memory: $(free -m | awk '/Mem:/ {print $3 " MiB used, " $7 " MiB available"}'), largest: $(ps -eo rss=,comm= --sort=-rss | head -1)"; done ) &
           zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
+
+      # The leak gate: one template generated and opened 20 times over, the same maps every round;
+      # the test fails if the heap grows over the last 10 rounds (tools/zig/random_missions_test.cpp).
+      - name: Random missions leak gate
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run "-Drandom-missions-sweep=only=summer_ukraine\securearea00" -Drandom-missions-repeat=20
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
