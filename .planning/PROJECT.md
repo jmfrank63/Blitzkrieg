@@ -40,7 +40,8 @@ Out of scope for this initialization phase:
 
 - full Zig rewrite of the game engine
 - replacing the complete game asset pipeline in this first project
-- multiplayer or new game content beyond runtime stability
+- multiplayer or new game content beyond runtime stability (multiplayer is planned since 2026-10-08, after editor
+  cloud sync and before the installer: `docs/PLANNED_FEATURES.md` section 4)
 
 ## Current constraints
 

@@ -37,4 +37,5 @@ Port the legacy Blitzkrieg single-player source code to a modern Windows develop
 
 - Full rewrite of the game engine in a new language.
 - Replacing all game content or adding new campaigns.
-- Multiplayer networking work.
+- Multiplayer networking work. (Planned since 2026-10-08 as its own milestone, after editor cloud sync and before the
+  installer: `docs/PLANNED_FEATURES.md` section 4.)

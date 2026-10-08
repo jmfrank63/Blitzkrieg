@@ -12,6 +12,7 @@ already implemented or scheduled.
   the appropriate profile or installation settings.
 - Make mods installable, selectable, loadable, playable, and isolated from the
   base game and from one another.
+- Let players play together again, across platforms, after GameSpy's shutdown.
 - Produce repeatable, versioned releases with an installer or package for each
   supported platform.
 
@@ -113,7 +114,39 @@ Exit criteria:
 - Cloud sync never overwrites a save from a different active mod set without an
   explicit user decision.
 
-## 4. Releases and installers
+## 4. Multiplayer
+
+The engine already has a network layer (`Sources/src/Net`), portable sockets
+(`Sources/src/Platform/Socket.h`, Win32 and POSIX) and the multiplayer game
+creation and chat screens (`Main`, `GameTT`). Internet games went through
+GameSpy, whose servers shut down in 2014. Whether LAN play works in the port is
+unknown: no test or CI tier covers it yet. Added to the plan 2026-10-08, after
+editor cloud sync and before the installer.
+
+Planned work:
+
+- Prove LAN play in the port with an automated test: two Game instances on one
+  machine or runner, a mission started, played for a while and checked for
+  agreement.
+- Cross-platform play between Windows, macOS and Linux, x64 and arm64. If the
+  game keeps players in step by simulating the same commands on every machine,
+  the simulation must give identical results on every compiler and CPU
+  (floating point included); find out first and test it.
+- Replace GameSpy for internet games: direct connect at least, then a small
+  lobby or master server, with no dependency on a dead service.
+- Make the mod set part of a multiplayer game: every player must have the same
+  mods at the same versions (section 3), checked before the game starts.
+- Localise the multiplayer screens and messages (section 2).
+
+Exit criteria:
+
+- A LAN game between two different supported platforms plays a mission to the
+  end without desynchronising.
+- Players can find or join an internet game without GameSpy.
+- A player with a different mod set is told so before the game starts, not
+  after a desync.
+
+## 5. Releases and installers
 
 Turn the existing target matrix and package steps into reproducible, user-facing
 releases. Each artifact must identify its target, architecture, build mode,
@@ -152,8 +185,11 @@ Exit criteria:
    mod UI.
 3. Implement the mod manifest, virtual filesystem, dependency resolver, and
    profile/save identity together.
-4. Build release packaging around the resolved game/editor/mod/localisation
-   layout, then add signing and platform-specific installers.
+4. Bring back multiplayer: LAN first, then cross-platform and internet play,
+   with the mod set part of the game.
+5. Build release packaging around the resolved game/editor/mod/localisation/
+   multiplayer layout, then add signing and platform-specific installers. The
+   installer comes last (decision 2026-10-08).
 
 The boundaries are intentionally coupled: editor output defines mod inputs,
 localisation is part of both the base game and mod contract, profile identity

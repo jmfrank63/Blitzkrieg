@@ -14,7 +14,8 @@ Babysit the remaining migration through GSD-2 in auto mode until done, in this o
 4. Localization: the game, the editors (Map Editor, Resource Editor, ELK) and the small tools, not the game alone
    (decision 2026-10-08; `docs/PLANNED_FEATURES.md` section 2).
 5. Editor cloud sync.
-6. Installer.
+6. Multiplayer (`docs/PLANNED_FEATURES.md` section 4).
+7. Installer, last, so it packages everything above (decision 2026-10-08).
 
 Each milestone ends with `git merge --no-ff` into `main`, then a push. GSD never pushes (`auto_push: false`); the
 maintainer (or the babysitting agent) pushes.
