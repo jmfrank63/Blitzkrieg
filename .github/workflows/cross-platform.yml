@@ -2029,10 +2029,15 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-editor-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
+      # Run 37738226423 lost the runner twice here, both times after about 466 missions
+      # (leningrad securearea05), with no message: the memory is logged every 20 seconds
+      # to see whether it runs out.
       - name: Random missions tier
         env:
           BK_REQUIRE_ENGINE: "1"
-        run: zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
+        run: |
+          ( while sleep 20; do echo "memory: $(free -m | awk '/Mem:/ {print $3 " MiB used, " $7 " MiB available"}'), largest: $(ps -eo rss=,comm= --sort=-rss | head -1)"; done ) &
+          zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
