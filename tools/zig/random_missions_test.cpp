@@ -365,7 +365,7 @@ int main( int argc, char **argv )
 	const char *pszRoot = argc > 1 ? argv[1] : szSelfDir.c_str();
 	const std::filesystem::path scratch = argc > 2 ? argv[2] : szSelfDir;
 	const std::string szSweep = argc > 3 ? argv[3] : "all";
-	const int nRepeat = argc > 4 && strncmp( argv[4], "repeat=", 7 ) == 0 ? std::max( 1, atoi( argv[4] + 7 ) ) : 1;
+	const int nRepeat = argc > 4 && strncmp( argv[4], "repeat=", 7 ) == 0 ? (std::max)( 1, atoi( argv[4] + 7 ) ) : 1;
 	std::filesystem::create_directories( scratch );
 	if ( !std::filesystem::exists( std::string( pszRoot ) + "/Data/consts.xml" ) )
 	{
