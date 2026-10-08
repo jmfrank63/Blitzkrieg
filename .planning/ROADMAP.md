@@ -370,7 +370,7 @@ Plans (per D-39; waves serialized — plans 2-8 all touch bridge.h/editor.zig/fa
 **Goal:** Port the MFC resource editor (`Sources/src/editor`, `editor.exe`, about 64,000 lines, more than 20 sub-editors: units, weapons, buildings, objects, effects, bridges, fences, entrenchments, particles, animations and the rest) to the portable editor stack (Zig app + Dear ImGui + C bridge to the engine) on macOS and Windows, with its own design spec, undo, safe save, output the game reads unchanged, and CI tiers like the map editor. Every sub-editor is ported; the MFC resource editor is deleted when parity is shown.
 **Requirements**: TBD
 **Depends on:** Phase 5
-**Plans:** 0 plans
+**Plans:** tracked as GSD milestone M001 (S01 to S16); status in `.planning/STATE.md`: Linux verified, macOS and Windows hand try, win-home goldens and the MFC deletion open
 
 Plans:
 
@@ -413,6 +413,36 @@ Plans:
 ### Phase 999.2: Smaller installer: derive textures instead of shipping them, modern compression (BACKLOG)
 
 **Goal:** Make the **download** as small as possible; installed size does not matter (decision 2026-09-29: a few GB on disk is fine). Ship only what cannot be derived — drop the `_c` (DXT) and `_l` (16-bit) copies of every texture (about 910 MB, a third of `Data`) and the generated season textures (about 67 MB) from the download and recreate them at install time (or have the renderer use `_h` directly), never touching Nival's hand-painted season textures. Compress the download as hard as possible (xz or zstd at maximum settings, long window), then unpack fully on install; `.pak` stays supported (mods, GeneratedData), and a `.pak` can travel inside the compressed download and be written back out as `.pak` at install. Take it up after map editor plan 6 (Phase 3). Details in `.planning/phases/999.2-smaller-installer-derived-textures-modern-compression/999.2-NOTES.md`.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.3: Windows builds with the GNU toolchain (MinGW) (BACKLOG)
+
+**Goal:** Build the Windows game and editors for `x86_64-windows-gnu` as well as `x86_64-windows-msvc`, so a Windows package can be built with Zig alone on any host (no Visual Studio headers or libraries, which cannot be redistributed) and the installer's release build can be cross-compiled on a cheaper Linux runner. No performance gain is expected: Zig's clang compiles both targets; only the C++ standard library (libc++ instead of Microsoft's) and the debug format (DWARF instead of PDB) differ. Take it up with the installer milestone. Details in `.planning/phases/999.3-windows-builds-with-mingw/999.3-NOTES.md`.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.4: Linux arm64: the editor and Game tiers in CI (BACKLOG)
+
+**Goal:** Run on `linux-arm-platform` (`ubuntu-24.04-arm`) what Linux x64 already runs there on Xvfb and lavapipe: the Resource Editor and Map Editor host, smoke, batch and auto tiers, the scenarios, both game-reads-it tiers and the random missions. Today the arm job builds the engine and runs the platform, editor core/kit and resource model/bridge/mod tiers only. Mostly a copy of the Linux x64 job's steps; first check in the arm logs whether the bridge tier's GPU parts run or skip. Details in `.planning/phases/999.4-linux-arm64-editor-and-game-tiers/999.4-NOTES.md`.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.5: Windows arm64 target and CI job (BACKLOG)
+
+**Goal:** Build the game and editors for `aarch64-windows-msvc` and test them on GitHub's hosted `windows-11-arm` runner (free for this public repository). `build.zig` does not accept the target yet; it needs the arm64 MSVC and Windows SDK libraries, and x86-only engine code (intrinsics, inline assembly) may need porting. Size the port by building first, then add the job. Details in `.planning/phases/999.5-windows-arm64/999.5-NOTES.md`.
 **Requirements:** TBD
 **Plans:** 0 plans
 

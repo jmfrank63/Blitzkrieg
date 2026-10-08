@@ -6,6 +6,7 @@ const std = @import("std");
 const imgui = @import("editor_imgui");
 const sdl3 = @import("sdl3");
 const core = @import("editor_core");
+const kit = @import("editor_kit");
 const panels = @import("panels.zig");
 const commands = @import("commands.zig");
 const marker_logic = @import("marker_logic.zig");
@@ -481,14 +482,14 @@ pub const script_help = "The game runs <name>.lua from the folder of the map. Ch
 fn warnIfMissing(state: *State, value: []const u8) void {
     if (value.len == 0) return;
     const files = state.editor.files orelse return;
-    const name = core.script_file.gameScriptName(value) orelse {
+    const name = kit.script_file.gameScriptName(value) orelse {
         ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, .{ .x = 1, .y = 0.7, .z = 0.2, .w = 1 });
         panels.text("warning: this name does not name a file the game can load");
         ig.igPopStyleColor();
         return;
     };
-    var path_buffer: [core.files.max_path]u8 = undefined;
-    const path = core.script_file.scriptPathBeside(&path_buffer, state.editor.document.path.items, name) orelse return;
+    var path_buffer: [kit.files.max_path]u8 = undefined;
+    const path = kit.script_file.scriptPathBeside(&path_buffer, state.editor.document.path.items, name) orelse return;
     if (files.exists(path)) return;
     var line: [160:0]u8 = undefined;
     ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, .{ .x = 1, .y = 0.7, .z = 0.2, .w = 1 });
@@ -530,7 +531,7 @@ pub fn drawScriptModals(state: *State) void {
     }
     if (ig.igBeginPopupModal(overwrite_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
         var line: [200:0]u8 = undefined;
-        const name = core.script_file.pickedName(state.script_pick.slice()) orelse "the script";
+        const name = kit.script_file.pickedName(state.script_pick.slice()) orelse "the script";
         panels.text(std.fmt.bufPrintZ(&line, "{s}.lua is already beside the map. Replace it?", .{name}) catch "Replace the script beside the map?");
         if (ig.igButton("Replace")) {
             _ = commands.run(state, "script_overwrite_yes", "");

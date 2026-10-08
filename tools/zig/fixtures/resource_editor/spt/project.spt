@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<Sprite_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<default_name></default_name>
+	<display_name></display_name>
+	<values/>
+	<childs>
+		<item ClassTypeID="285212694" expand="0">
+			<default_name>Sprites</default_name>
+			<display_name>Sprites</display_name>
+			<values>
+				<item>
+					<default_name>Directory</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>_.</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Frame time</default_name>
+					<value type="1" flag="1" float_value="0" int_value="125" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>X position</default_name>
+					<value type="1" flag="1" float_value="0" int_value="32" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Y position</default_name>
+					<value type="1" flag="1" float_value="0" int_value="32" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs>
+				<item ClassTypeID="285212695" expand="0">
+					<default_name>sprite-1frame</default_name>
+					<display_name>sprite-1frame</display_name>
+					<values/>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+	</childs>
+</Sprite_Composer_Project>

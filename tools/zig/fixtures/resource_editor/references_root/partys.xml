@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<!-- Minimal partys.xml fixture for Sources/src/ResourceModel/combos.cpp. The
+     four PartyName entries match the static playerSides() fallback so the T04
+     test can prove readPlayerSides() picks the names up in the shipped order. -->
+<base>
+	<PartyInfo>
+		<item>
+			<PartyName>USSR</PartyName>
+			<GeneralPartyName>USSR</GeneralPartyName>
+		</item>
+		<item>
+			<PartyName>German</PartyName>
+			<GeneralPartyName>German</GeneralPartyName>
+		</item>
+		<item>
+			<PartyName>GB</PartyName>
+			<GeneralPartyName>Allies</GeneralPartyName>
+		</item>
+		<item>
+			<PartyName>African_GB</PartyName>
+			<GeneralPartyName>Allies</GeneralPartyName>
+		</item>
+	</PartyInfo>
+</base>

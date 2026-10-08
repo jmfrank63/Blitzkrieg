@@ -30,7 +30,7 @@ public:
 	const CArray2D& operator=( const CArray2D &a ) { Destroy(); Copy( a ); return *this; }
 	void SetSizes( int xsize, int ysize ) { if ( nSizeX == xsize && nSizeY == ysize ) return; Destroy(); nSizeX = xsize; nSizeY = ysize; Create(); }
 	void Clear() { Destroy(); }
-	void SetZero() { memset( data, 0, sizeof(T) * static_cast<size_t>(nSizeX) * static_cast<size_t>(nSizeY) ); }
+	void SetZero() { if ( data ) memset( data, 0, sizeof(T) * static_cast<size_t>(nSizeX) * static_cast<size_t>(nSizeY) ); }
 	void Set( const T &a ) { for ( int i=0; i<static_cast<int>(static_cast<size_t>(nSizeX) * static_cast<size_t>(nSizeY)); ++i ) data[i] = a; }
 #ifdef _DEBUG
 	CBoundCheck operator[]( int i ) const { NI_ASSERT_SLOW_T( i>=0 && i<nSizeY, NStr::Format("Y size (%d) miss in 2D array (%d)", nSizeY, i) ); return CBoundCheck( pData[i], nSizeX ); }

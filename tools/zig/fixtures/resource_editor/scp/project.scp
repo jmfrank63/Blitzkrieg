@@ -1,0 +1,151 @@
+<?xml version="1.0"?>
+<Squad_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<RPG>
+		<Icon>icon.tga</Icon>
+		<Type>00000000</Type>
+		<Members>
+			<item>USSR_Mosin</item>
+		</Members>
+		<Formations>
+			<item LieFlag="0" SpeedBonus="1" DispersionBonus="1" FireRateBonus="1" RelaxTimeBonus="1" CoverBonus="1" VisibleBonus="1">
+				<Type>00000000</Type>
+				<Order>
+					<item Dir="28.6479">
+						<Soldier>USSR_Mosin</Soldier>
+						<Pos x="-33.3254" y="10.5604"/>
+					</item>
+				</Order>
+				<ChangesByEvent>
+					<item data="-1"/>
+				</ChangesByEvent>
+			</item>
+		</Formations>
+	</RPG>
+	<default_name></default_name>
+	<display_name></display_name>
+	<values/>
+	<childs>
+		<item ClassTypeID="285212834" expand="0">
+			<default_name>Basic Info</default_name>
+			<display_name>Basic Info</display_name>
+			<values>
+				<item>
+					<default_name>Name</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>Unknown Squad</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Squad picture</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>icon.tga</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Squad type</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>riflemans</string_value>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212835" expand="0">
+			<default_name>Members</default_name>
+			<display_name>Members</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212836" expand="0">
+					<default_name>USSR_Mosin</default_name>
+					<display_name>USSR_Mosin</display_name>
+					<values>
+						<item>
+							<default_name>Soldier</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>USSR_Mosin</string_value>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212837" expand="0">
+			<default_name>Formations</default_name>
+			<display_name>Formations</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212838" expand="0" FormationDir="0.25">
+					<default_name>Formation</default_name>
+					<display_name>Formation</display_name>
+					<values>
+						<item>
+							<default_name>Formation type</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>default</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Hit switch formation</default_name>
+							<value type="1" flag="1" float_value="0" int_value="-1" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Lie state</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>standart</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Speed bonus</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Dispersion bonus</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Fire rate bonus</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Relax time bonus</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Cover bonus</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Visible bonus</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+					<units>
+						<item Dir="0.5">
+							<Pos x="723.42" y="361.71" z="0"/>
+						</item>
+					</units>
+					<ZeroPos x="724.077" y="362.039" z="0"/>
+				</item>
+			</childs>
+		</item>
+	</childs>
+</Squad_Composer_Project>

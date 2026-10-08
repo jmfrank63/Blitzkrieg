@@ -114,11 +114,11 @@ namespace
 		return dr * dr + dg * dg + db * db;
 	}
 
-	int FindNearestColor( const Color &color, const Color palette[4] )
+	int FindNearestColor( const Color &color, const Color palette[4], int paletteSize )
 	{
 		int bestIndex = 0;
 		int bestDistance = ColorDistance( color, palette[0] );
-		for ( int i = 1; i != 4; ++i )
+		for ( int i = 1; i != paletteSize; ++i )
 		{
 			const int distance = ColorDistance( color, palette[i] );
 			if ( distance < bestDistance )
@@ -173,14 +173,24 @@ namespace
 			pixels[i] = palette[( indices >> ( i * 2 ) ) & 3];
 	}
 
+	// A DXT1 block with a fully transparent pixel is written in punch-through mode, as MFC's
+	// S3TC colour-key encode did (alpha reference 0): the 3-colour palette, the transparent
+	// pixels as index 3 and left out of the endpoints. Other DXT1 blocks keep the 4-colour
+	// palette; if their endpoints still pack to the 3-colour order, index 3 (transparent black)
+	// is never chosen for an opaque pixel.
 	void EncodeColorBlock( const Color pixels[16], bool dxt1, uint8_t *block )
 	{
-		Color minColor = pixels[0];
-		Color maxColor = pixels[0];
+		bool punchThrough = false;
+		for ( int i = 0; dxt1 && i != 16; ++i )
+			punchThrough = punchThrough || pixels[i].a == 0;
+		Color minColor = { 0, 0, 0, 255 };
+		Color maxColor = { 0, 0, 0, 255 };
 		int minLuma = 1000000;
 		int maxLuma = -1;
 		for ( int i = 0; i != 16; ++i )
 		{
+			if ( punchThrough && pixels[i].a == 0 )
+				continue;
 			const int luma = int( pixels[i].r ) * 299 + int( pixels[i].g ) * 587 + int( pixels[i].b ) * 114;
 			if ( luma < minLuma )
 			{
@@ -196,15 +206,19 @@ namespace
 
 		uint16_t color0 = Pack565( maxColor );
 		uint16_t color1 = Pack565( minColor );
-		if ( !dxt1 && color0 < color1 )
+		if ( punchThrough ? color0 > color1 : !dxt1 && color0 < color1 )
 			std::swap( color0, color1 );
 
 		Color palette[4];
 		BuildColorPalette( color0, color1, dxt1, palette );
+		const int paletteSize = dxt1 && color0 <= color1 ? 3 : 4;
 
 		uint32_t indices = 0;
 		for ( int i = 0; i != 16; ++i )
-			indices |= uint32_t( FindNearestColor( pixels[i], palette ) ) << ( i * 2 );
+		{
+			const int index = punchThrough && pixels[i].a == 0 ? 3 : FindNearestColor( pixels[i], palette, paletteSize );
+			indices |= uint32_t( index ) << ( i * 2 );
+		}
 
 		block[0] = uint8_t( color0 & 0xff );
 		block[1] = uint8_t( color0 >> 8 );

@@ -1,0 +1,132 @@
+<?xml version="1.0"?>
+<Effect_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<effect>
+		<sprites>
+			<item start="0" repeat="1">
+				<path>Effects\sprites\Animation</path>
+				<pos x="0" y="0" z="0"/>
+			</item>
+		</sprites>
+		<particles/>
+		<SmokinParticles/>
+		<sound/>
+	</effect>
+	<childs>
+		<item ClassTypeID="285212704" expand="0">
+			<default_name>Basic Info</default_name>
+			<display_name>Basic Info</display_name>
+			<values>
+				<item>
+					<default_name>Name</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>Unknown effect</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Ambient sound</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212705" expand="0">
+			<default_name>Animations</default_name>
+			<display_name>Animations</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212710" expand="0">
+					<default_name>Animation</default_name>
+					<display_name>Animation</display_name>
+					<values>
+						<item>
+							<default_name>Begin time</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>X position</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Y position</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Z position</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Repeat Count</default_name>
+							<value type="1" flag="1" float_value="0" int_value="1" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212707" expand="0">
+			<default_name>Function Particles</default_name>
+			<display_name>Function Particles</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212712" expand="0">
+					<default_name>particle-2key</default_name>
+					<display_name>particle-2key</display_name>
+					<values>
+						<item>
+							<default_name>Begin time</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Duration</default_name>
+							<value type="1" flag="1" float_value="0" int_value="15000" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>X position</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Y position</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Z position</default_name>
+							<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Scale factor</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+	</childs>
+</Effect_Composer_Project>

@@ -864,9 +864,21 @@ fn overlayStream(storage: *Storage, name: []const u8, access: u32) ?*Stream {
     while (index > 0) {
         index -= 1;
         const child = storage.overlays.items[index].storage;
-        if (openStream(child, name, access, false) orelse archiveStream(child, name, access)) |stream| return stream;
+        if (openStream(child, name, access, false) orelse archiveStream(child, name, access)) |stream| {
+            if (modTraceEnabled()) std.debug.print("BK_MOD_TRACE: open \"{s}\" from {s}\n", .{ name, storage.overlays.items[index].name });
+            return stream;
+        }
     }
     return null;
+}
+
+// BK_MOD_TRACE=1 names every stream an overlay storage (the MOD, ELK) answered
+// instead of the base data, so a test can prove the Game read a mod's file and
+// not the shipped one it replaces. Off unless the variable is set.
+var mod_trace: enum { unknown, off, on } = .unknown;
+fn modTraceEnabled() bool {
+    if (mod_trace == .unknown) mod_trace = if (getenv("BK_MOD_TRACE") != null) .on else .off;
+    return mod_trace == .on;
 }
 
 // The loose-file half of an existence probe: exact case first (the only case

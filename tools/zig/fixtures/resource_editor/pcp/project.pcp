@@ -1,0 +1,492 @@
+<?xml version="1.0"?>
+<Particle_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<KeyData LifeTime="15000" Gravity="0.0001" TextureDX="1" TextureDY="1" AreaType="0" RadialWind="0" ComplexParticleSource="0">
+		<lifeTime>
+			<keys>
+				<item value="500" time="0"/>
+				<item value="500" time="1000"/>
+			</keys>
+		</lifeTime>
+		<GenerateArea>
+			<keys>
+				<item value="10" time="0"/>
+				<item value="10" time="1000"/>
+			</keys>
+		</GenerateArea>
+		<Density>
+			<keys>
+				<item value="0.01" time="0"/>
+				<item value="0.01" time="1000"/>
+			</keys>
+		</Density>
+		<BeginSpeed>
+			<keys>
+				<item value="0.2" time="0"/>
+				<item value="0.2" time="1000"/>
+			</keys>
+		</BeginSpeed>
+		<BeginSpeedRandomizer>
+			<keys>
+				<item value="0" time="0"/>
+				<item value="0" time="1000"/>
+			</keys>
+		</BeginSpeedRandomizer>
+		<GenerateAngel>
+			<keys>
+				<item value="1.0472" time="0"/>
+				<item value="1.0472" time="1000"/>
+			</keys>
+		</GenerateAngel>
+		<ParticleLifeTimeRandomizer>
+			<keys>
+				<item value="0" time="0"/>
+				<item value="0" time="1000"/>
+			</keys>
+		</ParticleLifeTimeRandomizer>
+		<GenerateSpin>
+			<keys>
+				<item value="0.01" time="0"/>
+				<item value="0.01" time="1000"/>
+			</keys>
+		</GenerateSpin>
+		<GenerateSpinRnd>
+			<keys>
+				<item value="0" time="0"/>
+				<item value="0" time="1000"/>
+			</keys>
+		</GenerateSpinRnd>
+		<GenerateOpacity>
+			<keys>
+				<item value="200" time="0"/>
+				<item value="200" time="1000"/>
+			</keys>
+		</GenerateOpacity>
+		<Spin>
+			<keys>
+				<item value="1" time="0"/>
+				<item value="1" time="1000"/>
+			</keys>
+		</Spin>
+		<Wight>
+			<keys>
+				<item value="1" time="0"/>
+				<item value="1" time="1000"/>
+			</keys>
+		</Wight>
+		<TextureFrame>
+			<keys>
+				<item value="0" time="0"/>
+				<item value="0" time="1000"/>
+			</keys>
+		</TextureFrame>
+		<Size>
+			<keys>
+				<item value="50" time="0"/>
+				<item value="25.5" time="1000"/>
+			</keys>
+		</Size>
+		<Opacity>
+			<keys>
+				<item value="1" time="0"/>
+				<item value="1" time="1000"/>
+			</keys>
+		</Opacity>
+		<TextureName/>
+		<Wind x="0" y="0" z="0"/>
+		<Speed>
+			<keys>
+				<item value="1" time="0"/>
+				<item value="1" time="1000"/>
+			</keys>
+		</Speed>
+		<SpeedRnd>
+			<keys>
+				<item value="1" time="0"/>
+				<item value="1" time="1000"/>
+			</keys>
+		</SpeedRnd>
+		<Direction x="0" y="0" z="1"/>
+	</KeyData>
+	<childs>
+		<item ClassTypeID="285212804" expand="0">
+			<default_name>Basic info</default_name>
+			<display_name>Basic info</display_name>
+			<values>
+				<item>
+					<default_name>Name</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>Unknown Particle</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Life time</default_name>
+					<value type="1" flag="1" float_value="0" int_value="15000" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Scale factor</default_name>
+					<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Gravity</default_name>
+					<value type="2" flag="2" float_value="0.0001" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>X position</default_name>
+					<value type="2" flag="2" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Y position</default_name>
+					<value type="2" flag="2" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Z position</default_name>
+					<value type="2" flag="2" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>X direction</default_name>
+					<value type="2" flag="2" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Y direction</default_name>
+					<value type="2" flag="2" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Z direction</default_name>
+					<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>X wind</default_name>
+					<value type="2" flag="2" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Y wind</default_name>
+					<value type="2" flag="2" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Z wind</default_name>
+					<value type="2" flag="2" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Radial wind power</default_name>
+					<value type="2" flag="2" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Generate area type</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>square</string_value>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212805" expand="0">
+			<default_name>Particle source props</default_name>
+			<display_name>Particle source props</display_name>
+			<values>
+				<item>
+					<default_name>Texture file</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Texture X size</default_name>
+					<value type="1" flag="1" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Texture Y size</default_name>
+					<value type="1" flag="1" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs>
+				<item ClassTypeID="285212811" expand="0">
+					<default_name>Life</default_name>
+					<display_name>Life</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="500"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285213012" expand="0">
+					<default_name>Random life</default_name>
+					<display_name>Random life</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="0"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212810" expand="0">
+					<default_name>Speed</default_name>
+					<display_name>Speed</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="0.2"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285213013" expand="0">
+					<default_name>Random speed</default_name>
+					<display_name>Random speed</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="0"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212806" expand="0">
+					<default_name>Spin</default_name>
+					<display_name>Spin</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="0.01"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212819" expand="0">
+					<default_name>Random spin</default_name>
+					<display_name>Random spin</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="0"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212807" expand="0">
+					<default_name>Area</default_name>
+					<display_name>Area</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="10"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212808" expand="0">
+					<default_name>Angle</default_name>
+					<display_name>Angle</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="60"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212812" expand="0">
+					<default_name>Density</default_name>
+					<display_name>Density</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="0.01"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212809" expand="0">
+					<default_name>Opacity</default_name>
+					<display_name>Opacity</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="200"/>
+					</Key_frames>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212821" expand="0">
+			<default_name>Particle complex source props</default_name>
+			<display_name>Particle complex source props</display_name>
+			<values>
+				<item>
+					<default_name>Particle reference</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs>
+				<item ClassTypeID="285212810" expand="0">
+					<default_name>Speed</default_name>
+					<display_name>Speed</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="0.2"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285213013" expand="0">
+					<default_name>Random speed</default_name>
+					<display_name>Random speed</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="0"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212807" expand="0">
+					<default_name>Area</default_name>
+					<display_name>Area</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="10"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212808" expand="0">
+					<default_name>Angle</default_name>
+					<display_name>Angle</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="60"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212812" expand="0">
+					<default_name>Density</default_name>
+					<display_name>Density</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="0.01"/>
+					</Key_frames>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212813" expand="0">
+			<default_name>Particle props</default_name>
+			<display_name>Particle props</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212814" expand="0">
+					<default_name>Spin</default_name>
+					<display_name>Spin</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="1"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212815" expand="0">
+					<default_name>Weight</default_name>
+					<display_name>Weight</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="1"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212816" expand="0">
+					<default_name>Speed</default_name>
+					<display_name>Speed</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="1"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285213015" expand="0">
+					<default_name>Random speed</default_name>
+					<display_name>Random speed</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="1"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212817" expand="0">
+					<default_name>Size</default_name>
+					<display_name>Size</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="50"/>
+						<item first="1" second="25.5"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212818" expand="0">
+					<default_name>Opacity</default_name>
+					<display_name>Opacity</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="1"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212820" expand="0">
+					<default_name>Texture frame</default_name>
+					<display_name>Texture frame</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="0"/>
+					</Key_frames>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285213014" expand="0">
+			<default_name>Particle complex props</default_name>
+			<display_name>Particle complex props</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212815" expand="0">
+					<default_name>Weight</default_name>
+					<display_name>Weight</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="1"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285212816" expand="0">
+					<default_name>Speed</default_name>
+					<display_name>Speed</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="1"/>
+					</Key_frames>
+				</item>
+				<item ClassTypeID="285213015" expand="0">
+					<default_name>Random speed</default_name>
+					<display_name>Random speed</display_name>
+					<values/>
+					<childs/>
+					<Key_frames>
+						<item first="0" second="1"/>
+					</Key_frames>
+				</item>
+			</childs>
+		</item>
+	</childs>
+</Particle_Composer_Project>

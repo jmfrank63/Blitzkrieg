@@ -26,10 +26,23 @@ current_phase_name: map-editor-m3-random-map-templates-minimap-tools-parity
 
 ## Current Position
 
-Current Plan: 11 (complete)
-Total Plans in Phase: 11
-Progress: [██████████] 100% (phase 5 plans)
+Milestone M001 (phase 6, Resource Editor portable port): S01 to S16 complete, S17 (validation remediation) in progress, T05 (this refresh) last.
+The MFC editor was deleted in c6b4329c6 (S16/T07, D037, released D050); PRE_DELETE b8aa895bb00efb2fdac28096656dcf26984e3f87.
+Branch: feat/resource-editor.
 
+Verified on Linux: the maintainer's full sweep (`tools/zig/run-resource-sweep.sh`) at c6b4329c6 gave VERDICT=PASS with 41 tiers. Golden comparator:
+pass=10 accepted=10 fail=0 pending=0 (all 20 MFC goldens exist). S17: the AchtungPanzer2 mod round trip (`test-resource-mod-roundtrip`, D053, D054)
+replaced the GOG rows B-09.14 and B-14.5; found/imported/equal/accepted/failed total 1879/1879/1609/270/0, port bugs fixed in T03 (counts per kind in
+06-PARITY "Mod round trip"). T04 (D055) fixed the CI sparse-checkout lists, missing-folder handling and the Windows MSVC editor test tiers (proven on win-home).
+
+Open:
+- The hand try of the macOS and Windows release builds, deferred until CI works (D052).
+- CI: green on all eight jobs at 87122af73 (run 37712856614, 2026-10-08, seen with gh), after the Windows job was split in three; merged into main.
+- The next full sweep after S17, left to the maintainer.
+
+Spec: the closing entry is "Amendment (S16 T06, 2026-10-06)" in `docs/superpowers/specs/2026-09-30-portable-resource-editor-design.md`.
+
+Phase 5 (historical):
 Phase 05 complete (2026-10-05). All 11 plans executed, the MFC editor deleted (approved by Johannes 2026-10-03),
 35 of 35 review findings fixed (05-REVIEW-FIX.md), 05-VERIFICATION.md passed 10/10, 05-UAT.md 14/14 passed
 (macOS and Windows release builds, minimap shots; G-05-8 fixed by 5c85692b4). CI green at main 1d7264fd6

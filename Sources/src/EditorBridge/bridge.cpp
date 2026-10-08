@@ -7,6 +7,9 @@
 #include "StdAfx.h"
 #include "bridge.h"
 #include "session.h"
+#include "bridge_session.h"
+#include "map_tools.h"
+#include "guarded.h"
 #include "world.h"
 #include "../MapFile/MapOverlay.h"
 #include "../MapFile/MapRecords.h"
@@ -58,29 +61,11 @@ ISaveLoadSystem *g_pGlobalSaveLoadSystem = 0;
 ISingleton *g_pGlobalSingleton = 0;
 GETTEMPRAWBUFFER_HOOK g_pfnGlobalGetTempRawBuffer = 0;
 
-// The window the session was started on, which BkEditorResize reads the new
-// size of. The caller owns it and keeps it alive for the session.
-struct BkEditorSession : public SEditorSession
-{
-	void *pWindow;
-	// The active mod (03-08, D-26): folder exactly as BkEditorSetMod was
-	// given (never lower-cased), and mod.xml's own name/version - all empty
-	// when none is active. BkEditorSaveMap reads these to stamp
-	// szMODName/szMODVersion (D-28).
-	std::string szModFolder, szModName, szModVersion;
-	// BkEditorTilePicture's cache (03-15 gap fix): the tileset last asked
-	// about, by its storage name, with its texture decoded once and its
-	// description as its own .xml has it. Dropped by BkEditorSetMod - the same
-	// name may be another file in the new mod's storage.
-	std::string szTileAtlasName;
-	CPtr<IImage> pTileAtlas;
-	STilesetDesc tileAtlasDesc;
-	// The mod's data storage while a mod is active (the layer the data storage
-	// holds as "MOD"), kept so the user RMG root can be remounted below it
-	// (session_rmg.cpp MountRmgRoot).
-	CPtr<IDataStorage> pModStorage;
-	BkEditorSession() : pWindow( 0 ) {  }
-};
+// BkEditorSession's struct body moved to bridge_session.h so resource_bridge.cpp
+// can accept the same pointer and the shared Guarded template (guarded.h) sees
+// the inheritance from SEditorSession. The window the session was started on,
+// which BkEditorResize reads the new size of, is still owned by the caller and
+// kept alive for the session - see the header's own comments for every field.
 
 namespace {
 
@@ -141,25 +126,12 @@ bool ZoomAtScreenPoint( BkEditorSession *pSession, int nSteps, float fSx, float 
 	return true;
 }
 
-// Every entry point that needs a session goes through this. The catch is not
-// decoration: an engine throw escaping here would unwind out of this module and
-// into a Zig caller.
-template<class F>
-BkEditorStatus Guarded( BkEditorSession *pSession, F body )
-{
-	if ( pSession == 0 )
-		return BK_EDITOR_NO_SESSION;
-	try
-	{
-		pSession->szMessage.clear();
-		return body();
-	}
-	catch ( ... )
-	{
-		pSession->szMessage = "the engine threw";
-		return BK_EDITOR_FAILED;
-	}
-}
+// Guarded has moved into Sources/src/EditorBridge/guarded.h so both bridge.cpp
+// (the map bridge) and resource_bridge.cpp (the resource bridge) go through the
+// one wrapper; see the header's own comment for the reason the catch is not
+// decoration. The template is at namespace scope now rather than in this
+// anonymous namespace, which costs nothing: it is a function template, no
+// alternative overload is in sight, and ADL on a BkEditorSession* lands on it.
 
 // A frame as an uncompressed 32-bit TGA: type 2, top-left origin (descriptor
 // 0x28: 8 alpha bits and the top-to-bottom flag), BGRA, alpha forced opaque
@@ -2191,8 +2163,20 @@ BkEditorStatus BkEditorMinimapImage( BkEditorSession *pSession, const char *pszM
 			pSession->szMessage = "the engine is not started";
 			return BK_EDITOR_REFUSED;
 		}
+		// A path that names a .dds is that one picture and nothing else: the
+		// Mission frame shows map_h.dds even where a map.tga lies beside it
+		// (CMissionFrame::ComposeEditor).
+		std::string szDdsFile;
+		{
+			const std::string szGiven = pszMapPath;
+			const std::string::size_type nDdsDot = szGiven.find_last_of( '.' );
+			std::string szGivenExtension = nDdsDot == std::string::npos ? std::string() : szGiven.substr( nDdsDot );
+			NStr::ToLower( szGivenExtension );
+			if ( szGivenExtension == ".dds" )
+				szDdsFile = EnginePathOf( szGiven );
+		}
 		std::string szBase;
-		if ( !MapBaseOf( pszMapPath, &szBase ) )
+		if ( szDdsFile.empty() && !MapBaseOf( pszMapPath, &szBase ) )
 		{
 			pSession->szMessage = "the map path does not end in .bzm or .xml";
 			return BK_EDITOR_BAD_ARGUMENT;
@@ -2209,13 +2193,26 @@ BkEditorStatus BkEditorMinimapImage( BkEditorSession *pSession, const char *pszM
 		CPtr<IImage> pImage;
 		try
 		{
-			if ( std::filesystem::exists( HostPathOf( szBase + ".tga" ), error ) )
+			if ( !szDdsFile.empty() )
+			{
+				if ( std::filesystem::exists( HostPathOf( szDdsFile ), error ) )
+				{
+					CPtr<IDataStream> pStream = OpenFileStream( szDdsFile, STREAM_ACCESS_READ );
+					if ( pStream != 0 )
+					{
+						CPtr<IDDSImage> pDDS = pImages->LoadDDSImage( pStream );
+						if ( pDDS != 0 )
+							pImage = pImages->Decompress( pDDS );
+					}
+				}
+			}
+			else if ( std::filesystem::exists( HostPathOf( szBase + ".tga" ), error ) )
 			{
 				CPtr<IDataStream> pStream = OpenFileStream( szBase + ".tga", STREAM_ACCESS_READ );
 				if ( pStream != 0 )
 					pImage = pImages->LoadImage( pStream );
 			}
-			if ( pImage == 0 && std::filesystem::exists( HostPathOf( szBase + "_h.dds" ), error ) )
+			if ( pImage == 0 && szDdsFile.empty() && std::filesystem::exists( HostPathOf( szBase + "_h.dds" ), error ) )
 			{
 				CPtr<IDataStream> pStream = OpenFileStream( szBase + "_h.dds", STREAM_ACCESS_READ );
 				if ( pStream != 0 )
@@ -2239,6 +2236,115 @@ BkEditorStatus BkEditorMinimapImage( BkEditorSession *pSession, const char *pszM
 		}
 		return WritePicture( pSession, pImages, pImage, "the minimap picture", nMaxSide, pOutRgba, nCapacityBytes, pnOutWidth, pnOutHeight );
 	} );
+}
+
+extern "C++" {
+
+namespace NMapTools
+{
+
+// One picture CreateMiniMapImage is expected to leave: the file name is
+// <base><pszName><pszSuffix>, a .tga or a .dds, nSize pixels square.
+struct SMiniMapOutput { const char *pszName; const char *pszSuffix; bool bDDS; int nSize; };
+
+// Runs the engine's minimap code for the parameters and reads every expected
+// picture back by its header, the BkEditorSaveMap habit: what was written is
+// compared with what was meant before the call says OK. Stale pictures of an
+// earlier run are removed first so they cannot pass the check.
+bool CreateMinimapPictures( CMapInfo &mapInfo, const std::string &szEngineBase, const CRMImageCreateParameterList &parameters,
+                            const SMiniMapOutput *pOutputs, size_t nOutputs, std::string &szWhy )
+{
+	std::error_code error;
+	for ( size_t i = 0; i < nOutputs; ++i )
+		std::filesystem::remove( HostPathOf( szEngineBase + pOutputs[i].pszName + pOutputs[i].pszSuffix ), error );
+	if ( !mapInfo.CreateMiniMapImage( parameters ) )
+	{
+		szWhy = "CMapInfo::CreateMiniMapImage failed for " + szEngineBase;
+		return false;
+	}
+	for ( size_t i = 0; i < nOutputs; ++i )
+	{
+		const std::string szFile = szEngineBase + pOutputs[i].pszName + pOutputs[i].pszSuffix;
+		int nWidth = 0, nHeight = 0;
+		if ( !ImageFileSize( HostPathOf( szFile ), pOutputs[i].bDDS, &nWidth, &nHeight ) )
+		{
+			szWhy = "the minimap picture " + szFile + " was not written";
+			return false;
+		}
+		if ( nWidth != pOutputs[i].nSize || nHeight != pOutputs[i].nSize )
+		{
+			szWhy = NStr::Format( "the minimap picture %s is %dx%d, not %dx%d", szFile.c_str(), nWidth, nHeight, pOutputs[i].nSize, pOutputs[i].nSize );
+			return false;
+		}
+	}
+	return true;
+}
+
+bool CreateMissionMinimap( const std::string &szMapBase, const std::string &szPictureBase, bool &bSkipped, std::string &szWhy )
+{
+	bSkipped = false;
+	std::error_code error;
+	const std::string szXml = HostPathOf( szMapBase + ".xml" ), szBzm = HostPathOf( szMapBase + ".bzm" );
+	const bool bHasXml = std::filesystem::exists( szXml, error ), bHasBzm = std::filesystem::exists( szBzm, error );
+	if ( !bHasXml && !bHasBzm )
+	{
+		szWhy = "the map " + szMapBase + " is not there: neither .xml nor .bzm";
+		return false;
+	}
+	// MinimapCreation.cpp: the .xml is read only when strictly newer than the .bzm.
+	const bool bReadXml = bHasXml && ( !bHasBzm || std::filesystem::last_write_time( szXml, error ) > std::filesystem::last_write_time( szBzm, error ) );
+	const std::string szMap = bReadXml ? szXml : szBzm;
+	const std::string szHigh = HostPathOf( szPictureBase + "_h.dds" );
+	if ( std::filesystem::exists( szHigh, error ) && std::filesystem::last_write_time( szMap, error ) < std::filesystem::last_write_time( szHigh, error ) )
+	{
+		bSkipped = true;
+		return true;
+	}
+	CMapInfo mapInfo;
+	std::string szReadError;
+	if ( !NMapFile::Read( EnginePathOf( szMap ).c_str(), &mapInfo, &szReadError ) )
+	{
+		szWhy = "the map does not read: " + szReadError;
+		return false;
+	}
+	mapInfo.UnpackFrameIndices();
+	const std::string szEngineBase = EnginePathOf( szPictureBase );
+	CRMImageCreateParameterList parameters;
+	parameters.push_back( SRMImageCreateParameter( szEngineBase, CTPoint<int>( 0x200, 0x200 ), true, false,
+		SRMImageCreateParameter::INTERMISSION_IMAGE_BRIGHTNESS, SRMImageCreateParameter::INTERMISSION_IMAGE_CONSTRAST, SRMImageCreateParameter::INTERMISSION_IMAGE_GAMMA ) );
+	static const SMiniMapOutput outputs[] = { { "", "_c.dds", true, 512 }, { "", "_l.dds", true, 512 }, { "", "_h.dds", true, 512 } };
+	return CreateMinimapPictures( mapInfo, szEngineBase, parameters, outputs, sizeof outputs / sizeof outputs[0], szWhy );
+}
+
+bool ConvertMapToBzm( const std::string &szXmlPath, const std::string &szBzmPath, std::string &szWhy )
+{
+	std::error_code error;
+	if ( !std::filesystem::exists( HostPathOf( szXmlPath ), error ) )
+	{
+		szWhy = "the map " + szXmlPath + " is not there to convert to .bzm";
+		return false;
+	}
+	CMapInfo mapInfo;
+	std::string szReadError;
+	if ( !NMapFile::Read( EnginePathOf( szXmlPath ).c_str(), &mapInfo, &szReadError ) )
+	{
+		szWhy = "the map does not read: " + szReadError;
+		return false;
+	}
+	std::filesystem::create_directories( std::filesystem::path( HostPathOf( szBzmPath ) ).parent_path(), error );
+	// NMapFile::Write is the Map Editor's own writer: chunk 1 (the map) and
+	// the SQuickLoadMapInfo chunk, the pair ExportFrameData wrote.
+	std::string szWriteError;
+	if ( !NMapFile::Write( EnginePathOf( szBzmPath ).c_str(), mapInfo, &szWriteError ) )
+	{
+		szWhy = "cannot write " + szBzmPath + ": " + szWriteError;
+		return false;
+	}
+	return true;
+}
+
+}
+
 }
 
 BkEditorStatus BkEditorCreateMiniMapImage( BkEditorSession *pSession, const char *pszMapPath )
@@ -2287,16 +2393,11 @@ BkEditorStatus BkEditorCreateMiniMapImage( BkEditorSession *pSession, const char
 
 		// What this writes, and the size of each: the MFC's own four
 		// parameters, the DDS ones writing the engine's "_c/_l/_h" trio.
-		struct SOutput { const char *pszName; const char *pszSuffix; bool bDDS; int nSize; };
-		static const SOutput outputs[] =
+		static const NMapTools::SMiniMapOutput outputs[] =
 		{
 			{ "_large", ".tga", false, 512 }, { "_large", "_c.dds", true, 512 }, { "_large", "_l.dds", true, 512 }, { "_large", "_h.dds", true, 512 },
 			{ "", ".tga", false, 256 }, { "", "_c.dds", true, 256 }, { "", "_l.dds", true, 256 }, { "", "_h.dds", true, 256 },
 		};
-		// Stale pictures from an earlier run must not pass the check below.
-		for ( size_t i = 0; i < sizeof outputs / sizeof outputs[0]; ++i )
-			std::filesystem::remove( HostPathOf( szEngineBase + outputs[i].pszName + outputs[i].pszSuffix ), error );
-
 		CRMImageCreateParameterList imageCreateParameterList;
 		imageCreateParameterList.push_back( SRMImageCreateParameter( szEngineBase + "_large", CTPoint<int>( 0x200, 0x200 ), true, false,
 			SRMImageCreateParameter::INTERMISSION_IMAGE_BRIGHTNESS, SRMImageCreateParameter::INTERMISSION_IMAGE_CONSTRAST, SRMImageCreateParameter::INTERMISSION_IMAGE_GAMMA ) );
@@ -2304,27 +2405,11 @@ BkEditorStatus BkEditorCreateMiniMapImage( BkEditorSession *pSession, const char
 		imageCreateParameterList.push_back( SRMImageCreateParameter( szEngineBase + "_large", CTPoint<int>( 0x200, 0x200 ), false, false,
 			SRMImageCreateParameter::INTERMISSION_IMAGE_BRIGHTNESS, SRMImageCreateParameter::INTERMISSION_IMAGE_CONSTRAST, SRMImageCreateParameter::INTERMISSION_IMAGE_GAMMA ) );
 		imageCreateParameterList.push_back( SRMImageCreateParameter( szEngineBase, CTPoint<int>( 0x100, 0x100 ), false ) );
-		if ( !mapInfo.CreateMiniMapImage( imageCreateParameterList ) )
+		std::string szWhy;
+		if ( !NMapTools::CreateMinimapPictures( mapInfo, szEngineBase, imageCreateParameterList, outputs, sizeof outputs / sizeof outputs[0], szWhy ) )
 		{
-			pSession->szMessage = "CMapInfo::CreateMiniMapImage failed";
+			pSession->szMessage = szWhy;
 			return BK_EDITOR_FAILED;
-		}
-		// The BkEditorSaveMap habit: what was written is read back and
-		// compared with what was meant before the call says OK.
-		for ( size_t i = 0; i < sizeof outputs / sizeof outputs[0]; ++i )
-		{
-			const std::string szFile = szEngineBase + outputs[i].pszName + outputs[i].pszSuffix;
-			int nWidth = 0, nHeight = 0;
-			if ( !ImageFileSize( HostPathOf( szFile ), outputs[i].bDDS, &nWidth, &nHeight ) )
-			{
-				pSession->szMessage = "the minimap picture " + szFile + " was not written";
-				return BK_EDITOR_FAILED;
-			}
-			if ( nWidth != outputs[i].nSize || nHeight != outputs[i].nSize )
-			{
-				pSession->szMessage = NStr::Format( "the minimap picture %s is %dx%d, not %dx%d", szFile.c_str(), nWidth, nHeight, outputs[i].nSize, outputs[i].nSize );
-				return BK_EDITOR_FAILED;
-			}
 		}
 		return BK_EDITOR_OK;
 	} );

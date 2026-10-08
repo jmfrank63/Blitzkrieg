@@ -11,17 +11,16 @@ const shader_build_closure = [_][]const u8{
     "tools/zig/compare_trees.zig",
 };
 
-fn isTokenChar(value: u8) bool {
-    return std.ascii.isAlphanumeric(value) or value == '_' or value == '.';
-}
-
+/// A forbidden executable counts only as a whole string literal, which is how
+/// a command names it (`addSystemCommand(&.{"make"})`). A step or file name
+/// that merely starts with the word, such as "make-resource-fixtures", is not
+/// a process and must not fail the audit.
 fn containsToken(text: []const u8, token: []const u8) bool {
     var start: usize = 0;
     while (std.mem.indexOfPos(u8, text, start, token)) |position| {
-        const left_ok = position == 0 or !isTokenChar(text[position - 1]);
         const end = position + token.len;
-        const right_ok = end == text.len or !isTokenChar(text[end]);
-        if (left_ok and right_ok) return true;
+        const quoted = position > 0 and text[position - 1] == '"' and end < text.len and text[end] == '"';
+        if (quoted) return true;
         start = end;
     }
     return false;
@@ -55,6 +54,7 @@ pub fn main(init: std.process.Init) !void {
 
 test "rejects forbidden process executable" {
     try std.testing.expectError(error.ForbiddenBuildProcess, auditText("fixture", "b.addSystemCommand(&.{\"pwsh\"})"));
+    try auditText("fixture", "b.addSystemCommand(&.{\"zig\"}); b.step(\"make-resource-fixtures\", \"x\"); _ = \"make-fixtures.log\";");
 }
 
 test "accepts Zig artifact process" {

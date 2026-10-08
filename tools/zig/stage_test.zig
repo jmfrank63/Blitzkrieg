@@ -296,6 +296,49 @@ test "a missing map editor binary fails the stage naming the path" {
     try std.testing.expectError(error.MissingMapEditor, stage.stage(io, allocator, options));
 }
 
+test "--resource-editor stages the file beside the game and the map editor" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/bin/MapEditor" }),
+        .data = "map editor fixture",
+    });
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/bin/ResourceEditor" }),
+        .data = "resource editor fixture",
+    });
+    var options = fixture.options;
+    options.map_editor = "zig-out/bin/MapEditor";
+    options.resource_editor = "zig-out/bin/ResourceEditor";
+    try stage.stage(io, allocator, options);
+
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedFile(destination, io, allocator, "Game", "game fixture");
+    try expectStagedFile(destination, io, allocator, "MapEditor", "map editor fixture");
+    try expectStagedFile(destination, io, allocator, "ResourceEditor", "resource editor fixture");
+}
+
+test "a missing resource editor binary fails the stage naming the path" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    var options = fixture.options;
+    options.resource_editor = "zig-out/bin/NoSuchResourceEditor";
+    try std.testing.expectError(error.MissingResourceEditor, stage.stage(io, allocator, options));
+}
+
 test "a mods directory in the repository is never staged" {
     const io = std.testing.io;
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);

@@ -20,6 +20,8 @@
 # Legacy game data text is UTF-16LE; CRLF normalization corrupts the byte pairs.
 Data/**/*.txt -text -eol
 Sources/src/data/**/*.txt -text -eol
+# The Resource Editor reference-list fixtures stand in for Data files and are compared byte for byte.
+tools/zig/fixtures/resource_editor/references_root/** -text -eol
 
 # Visual Studio project files
 *.sln text eol=crlf

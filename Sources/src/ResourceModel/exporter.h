@@ -1,0 +1,138 @@
+#pragma once
+// The per-kind export skeleton. MFC's CParentFrame::ExportProject asked the
+// active frame to write its game data (SaveRPGStats + ExportFrameData); each
+// sub-editor's slice ports its frame's half as one exporter function and
+// registers it here under the project extension. The bridge owns everything
+// around it (the export root from MOD settings, the staging folder, moving the
+// files into place only when the whole export succeeded, the report), so an
+// exporter only writes files below SExportContext::szStagingRoot.
+//
+// A kind with no registered exporter is not exported: BkResExport answers
+// BK_EDITOR_REFUSED and says the exporter is not ported yet. Nothing pretends
+// to have written game data it did not write. The table starts with the
+// exporters ported so far (S06: wpn, mcp, trc, scp; items/stats_export.h).
+
+#include <functional>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "grid_projection.h"
+#include "project.h"
+
+namespace NResourceModel
+{
+
+struct SExportContext
+{
+	std::string szProjectPath;   // the project file; sources are relative to its folder
+	std::string szStagingRoot;   // the export root's data/ folder, staged: write below it
+	bool bForce = false;         // MFC's -f: export even when the files are up to date
+	bool bStatsOnly = false;     // D-13: write the stats, leave exported graphics untouched
+	// The run that refreshes the stats block a save caches in the project (MFC's
+	// SaveFrame -> SaveRPGStats). MFC's checks belong to the export (ExportFrameData
+	// refuses a mission without header texts; EffectFrm.cpp:215 skips a particle it
+	// has no source for) and its save runs none of them, so a save must not fail
+	// or lose its block for them. Implies bStatsOnly.
+	bool bSaveCache = false;
+	// The export root's data/ folder as it stands before this export, which
+	// the up-to-date check of the graphics reads (MFC compared the source
+	// files with the export it had already made). Empty for an export that
+	// has nothing to compare with, such as the preview's: everything is
+	// written.
+	std::string szDataRoot;
+	// The shipped Data folder, where MFC's editor found its own art
+	// (theApp.GetEditorDataDir()): the tileset export reads
+	// editor\terrain\tilemask.tga there. Empty: the export looks in
+	// szDataRoot only.
+	std::string szEditorDataDir;
+	// mod.xml's MODName and MODVersion of the export root (theApp.GetMODName() and
+	// GetMODVersion()), which a chapter and a campaign write into their stats.
+	std::string szModName;
+	std::string szModVersion;
+
+	// The GUI sub-editor's screen: its current text (before any <base> rewrite) and its name, the
+	// opened file's name without extension. A screen is not a project tree, so the bridge fills
+	// these and ExportGui reads nothing else. Empty for every other kind.
+	std::string szScreenText;
+	std::string szScreenName;
+
+	// D015: the objects database MFC's frames asked through IObjectsDB, which
+	// an exporter does not own. Given a resource path as MFC builds it (lower
+	// case, backslashes, e.g. "units\humans\ussr\mosin"), the key name of the
+	// sprite unit stored there, or false when no such unit is known. The
+	// bridge fills it from the engine's IObjectsDB; tests pass a fixture
+	// table. Empty: a squad member given as a path cannot be resolved and the
+	// squad export fails, naming the member.
+	std::function<bool( const std::string &szPath, std::string &szKey )> findUnitKey;
+
+	// The fire places of a trench segment model (a .mod file): the positions
+	// of its locators with the mesh at the origin, as CTrenchFrame::SaveRPGStats
+	// reads them from the mesh IVisObjBuilder builds. That needs the engine's
+	// mesh builder, which the bridge has and a data-only host does not; empty
+	// here, a trench with a segment model fails its export instead of writing
+	// a segment without fire places. False with szError when the model
+	// cannot be built (MFC's "Cannot create model": the segment is skipped).
+	std::function<bool( const std::string &szModFile, std::vector<std::pair<float, float>> &firePlaces, std::string &szError )> meshFirePlaces;
+
+	// The weapon lookup CMeshFrame::FillRPGStats made through IObjectsDB
+	// (gun.RetrieveShortcuts): whether the weapon fires a howitzer or cannon
+	// shell, which makes the platform's elevation that of the shoot point.
+	// False when the weapon is not known. The bridge fills it from the engine;
+	// tests pass a fixture table. Empty: every weapon is unknown, which the
+	// export reports as a warning and treats as not ballistic.
+	std::function<bool( const std::string &szWeapon, bool &bBallistic )> isBallisticWeapon;
+
+	// The camera of the editor scene, which an object, fence or building
+	// export reads where MFC called IScene::GetPos2 (the sprite's and the
+	// zero cross's screen positions, and the grid origin on screen). The
+	// bridge fills it from the engine's scene. Empty: the exporter uses
+	// DefaultEditorCamera() and says so in a warning.
+	std::function<bool( SGroundCamera &camera )> groundCamera;
+
+	// An object export cuts the grids and their origins anew from the tiles they
+	// stand for, as every MFC batch export does (LoadRPGStats then SaveRPGStats
+	// through the scene camera), instead of copying the project's desc. The two
+	// agree for a project the editor saved, whose origins are tile corners of its
+	// own camera; they differ for a hand-made origin, which the golden comparison
+	// must reproduce. Off: the desc is copied.
+	bool bRequantiseGrids = false;
+
+	// The map half of CMissionFrame::ExportFrameData, which needs the engine's
+	// map and terrain code (D030). szFinalMap is the project's Final map name
+	// as typed (relative to maps\\, no extension), found in the export root's
+	// and the shipped data's maps folder ignoring case.
+	// createMinimap writes <szPictureBase>_c.dds, _l.dds and _h.dds (the
+	// 512x512 pictures MinimapCreation.cpp's Create1Minimap makes) from it,
+	// leaving them alone when _h.dds is already newer than the map.
+	// convertMapToBzm writes the map as the .bzm file szBzmPath (the map and
+	// its SQuickLoadMapInfo chunk). Each fails with szError naming the path
+	// and why. Empty: the bridge is not there to ask, and the exporter says so.
+	std::function<bool( const std::string &szFinalMap, const std::string &szPictureBase, std::string &szError )> createMinimap;
+	std::function<bool( const std::string &szFinalMap, const std::string &szBzmPath, std::string &szError )> convertMapToBzm;
+};
+
+struct SExportOutcome
+{
+	int nWritten = 0;                    // files written below the staging root
+	int nSkipped = 0;                    // files left alone as up to date
+	std::vector<std::string> warnings;   // what MFC's output pane collected
+	std::string szError;                 // why the export failed, when it returns false
+	// The data name of the visual the export wrote, as IVisObjBuilder::
+	// BuildObject takes it (backslashes, no extension, relative to the staging
+	// root, e.g. "units\technics\tiger\1"). BkResPreviewShow builds this
+	// from the preview storage (D-16); empty for a kind with nothing to draw.
+	std::string szObjectName;
+};
+
+// Exports project into context.szStagingRoot. False with outcome.szError on a
+// failure; the bridge then discards the staging folder.
+using FExporter = bool ( * )( const Project &project, const SExportContext &context, SExportOutcome &outcome );
+
+// Registers (or, with a null function, removes) the exporter of an extension
+// ("wpn", lower case, no dot). The last registration wins.
+void RegisterExporter( const std::string &szExtension, FExporter pfnExporter );
+// The exporter of an extension, or null when that kind is not ported yet.
+FExporter FindExporter( const std::string &szExtension );
+
+}

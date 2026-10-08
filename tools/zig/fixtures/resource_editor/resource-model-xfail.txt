@@ -1,0 +1,19 @@
+# Known fidelity gaps of Sources/src/ResourceModel, one check id per line.
+# tools/zig/resource_model_test.cpp (zig build test-resource-model-fidelity) reports a listed
+# check that fails as XFAIL and one that passes as XPASS, which fails the run: delete the
+# line when the gap closes. S03 T02-T05 empty this list; nothing may be added to hide a
+# regression.
+#
+# Recorded by S03 T01 on 2026-10-05 from the first run against the MFC inventory.
+# Grouped by the task whose sub-editors own the check; byte-identical saves of the two
+# real MFC projects (roundtrip-bytes) are T05's.
+
+# --- T02 --- (emptied by S03 T02: Weapon, Mine, Trench, Squad, Sprite, Infantry)
+
+# --- T03 --- (emptied by S03 T03: Mesh, Object, Fence, Building, Bridge)
+
+# --- T04 --- (emptied by S03 T04: Particle, Effect, TileSet/Crosset, 3D Road, 3D River, Mission,
+# Chapter, Campaign, Medal, GUI)
+
+# --- T05 --- (emptied by S03 T05: the writer emits MSXML's compact layout, so both MFC projects
+# save byte-identically)

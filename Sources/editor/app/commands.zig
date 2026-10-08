@@ -9,10 +9,11 @@
 //! and arguments printable ASCII without comma or space (auto.zig's grammar).
 const std = @import("std");
 const core = @import("editor_core");
+const kit = @import("editor_kit");
 const panels = @import("panels.zig");
 const logic = @import("panels_logic.zig");
 const marker_logic = @import("marker_logic.zig");
-const testlaunch = @import("testlaunch.zig");
+const testlaunch = kit.testlaunch;
 const minimap = @import("minimap.zig");
 
 const State = panels.State;
@@ -722,8 +723,8 @@ fn saveAsFormat(state: *State, arg: []const u8, which: core.settings.Format) Out
         panels.requestSaveAsFormat(state, which);
         return .ok;
     }
-    if (arg.len >= core.files.max_path) return .bad_arg;
-    var path_buffer: [core.files.max_path]u8 = undefined;
+    if (arg.len >= kit.files.max_path) return .bad_arg;
+    var path_buffer: [kit.files.max_path]u8 = undefined;
     var len = arg.len;
     @memcpy(path_buffer[0..len], arg);
     const extension = core.settings.formatExtension(which);
@@ -1552,7 +1553,7 @@ fn scriptOpen(state: *State, _: []const u8) Outcome {
 /// (`script_overwrite_yes` / `_no`). A name that is not a bare name is bad.
 fn scriptChoose(state: *State, arg: []const u8) Outcome {
     if (arg.len == 0) return .bad_arg;
-    if (core.script_file.pickedName(arg) == null) return .bad_arg;
+    if (kit.script_file.pickedName(arg) == null) return .bad_arg;
     if (!panels.mapIsOpen(state.editor)) return .refused;
     // WR-C04: the pick's own answer, never the map's state afterwards - a
     // refused copy of a script the map already names must not read as OK.
@@ -1569,11 +1570,11 @@ fn scriptChoose(state: *State, arg: []const u8) Outcome {
 /// `expect=script_beside:<name>` (04-13): `<name>.lua` is a file beside the
 /// open map - what Choose other and Save As's copy-along put there.
 fn scriptBeside(state: *State, arg: []const u8) Outcome {
-    if (arg.len == 0 or !core.script_file.isBareName(arg)) return .bad_arg;
+    if (arg.len == 0 or !kit.script_file.isBareName(arg)) return .bad_arg;
     if (!panels.mapIsOpen(state.editor)) return .refused;
     const files = state.editor.files orelse return .refused;
-    var path_buffer: [core.files.max_path]u8 = undefined;
-    const path = core.script_file.scriptPathBeside(&path_buffer, state.editor.document.path.items, arg) orelse return .bad_arg;
+    var path_buffer: [kit.files.max_path]u8 = undefined;
+    const path = kit.script_file.scriptPathBeside(&path_buffer, state.editor.document.path.items, arg) orelse return .bad_arg;
     if (files.exists(path)) return .ok;
     var note: [160]u8 = undefined;
     state.editor.note(std.fmt.bufPrint(&note, "{s}.lua is not beside the map", .{arg}) catch "the script is not beside the map");
@@ -1586,7 +1587,7 @@ fn scriptBeside(state: *State, arg: []const u8) Outcome {
 /// the test map. The game must have been started with BK_MAP_TRACE
 /// (BK_EDITOR_AUTO_GAME_TRACE) and have exited (`waitgame`).
 fn testGameScript(state: *State, arg: []const u8) Outcome {
-    if (arg.len == 0 or !core.script_file.isBareName(arg)) return .bad_arg;
+    if (arg.len == 0 or !kit.script_file.isBareName(arg)) return .bad_arg;
     if (state.test_game_log_len == 0) {
         state.editor.note("no test game has been started");
         return .refused;
@@ -3259,7 +3260,7 @@ fn minimapFilesExist(state: *State, arg: []const u8) Outcome {
     if (arg.len != 0) return .bad_arg;
     const files = state.editor.files orelse return .refused;
     var os_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const path = core.files.osPathFromEngine(&os_buffer, state.editor.document.path.items) orelse return .refused;
+    const path = kit.files.osPathFromEngine(&os_buffer, state.editor.document.path.items) orelse return .refused;
     const base = logic.minimapImageBase(path) orelse return .refused;
     const suffixes = [_][]const u8{ "_large.tga", "_large_c.dds", "_large_l.dds", "_large_h.dds", ".tga", "_c.dds", "_l.dds", "_h.dds" };
     var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;

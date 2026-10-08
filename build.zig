@@ -1245,6 +1245,88 @@ pub fn build(b: *std.Build) void {
     const legacy_variant_step = b.step("test-legacy-variant", "Run portable legacy variant ownership and conversion tests");
     legacy_variant_step.dependOn(&legacy_variant_test.step);
     if (test_mode == .run) legacy_variant_step.dependOn(&legacy_variant_run.step);
+    // Project-XML round trip (spec D-07): Sources/src/ResourceModel/xml.cpp over the 21 ResourceEditor
+    // fixtures plus an unknown-node preservation check and the MFC editor's own saved projects. No engine modules are loaded, so no rdynamic;
+    // the $ORIGIN rpath keeps the AGENTS.md Linux pattern.
+    const resource_xml_roundtrip_module = b.createModule(.{
+        .target = target,
+        .optimize = .Debug,
+    });
+    resource_xml_roundtrip_module.link_libc = !build_support.usesMsvc(platform);
+    resource_xml_roundtrip_module.link_libcpp = !build_support.usesMsvc(platform);
+    resource_xml_roundtrip_module.addIncludePath(b.path("Sources/src"));
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, resource_xml_roundtrip_module, toolchain);
+        addMsvcLibraryPaths(b, resource_xml_roundtrip_module, toolchain);
+        linkMsvcRuntime(resource_xml_roundtrip_module, .Debug);
+    }
+    resource_xml_roundtrip_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/resource_xml_roundtrip_test.cpp",
+            "Sources/src/ResourceModel/xml.cpp",
+        },
+        .flags = if (platform == .windows_x64) cppflags_debug else &.{"-std=c++17"},
+    });
+    const resource_xml_roundtrip_test = b.addExecutable(.{ .name = "resource-xml-roundtrip-test", .root_module = resource_xml_roundtrip_module });
+    resource_xml_roundtrip_test.subsystem = .console;
+    if (platform == .windows_x64) resource_xml_roundtrip_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    applyLoaderPath(target, resource_xml_roundtrip_module);
+    const resource_xml_roundtrip_run = b.addRunArtifact(resource_xml_roundtrip_test);
+    resource_xml_roundtrip_run.setCwd(b.path("."));
+    resource_xml_roundtrip_run.addArg("tools/zig/fixtures/resource_editor");
+    resource_xml_roundtrip_run.addArg("zig-out/local-test/resource_editor/roundtrip");
+    // The MFC editor's own saved projects, read only.
+    resource_xml_roundtrip_run.addArg("Data/Editor/TestProjects");
+    const resource_xml_roundtrip_step = b.step("test-resource-xml-roundtrip", "Round-trip the 21 ResourceEditor project XML fixtures and check unknown-node preservation");
+    resource_xml_roundtrip_step.dependOn(&resource_xml_roundtrip_test.step);
+    if (test_mode == .run) resource_xml_roundtrip_step.dependOn(&resource_xml_roundtrip_run.step);
+
+    // DXT tolerance measurement (spec D-11 / R019, S03 T07): shipped _c.dds textures re-encoded by
+    // NDxt and by the MFC-era S3TC encoder (Sources/src/ResourceModel/spike/legacy_dxt.*). The
+    // measure step writes the tolerance JSON the D-11 comparator's DXT gate reads; the test step
+    // measures again and fails unless the committed JSON is unchanged.
+    const dxt_tolerance_module = b.createModule(.{
+        .target = target,
+        .optimize = .Debug,
+    });
+    dxt_tolerance_module.link_libc = !build_support.usesMsvc(platform);
+    dxt_tolerance_module.link_libcpp = !build_support.usesMsvc(platform);
+    dxt_tolerance_module.addIncludePath(b.path("Sources/src"));
+    if (platform == .windows_x64) {
+        addMsvcIncludePaths(b, dxt_tolerance_module, toolchain);
+        addMsvcLibraryPaths(b, dxt_tolerance_module, toolchain);
+        linkMsvcRuntime(dxt_tolerance_module, .Debug);
+    }
+    dxt_tolerance_module.addCSourceFiles(.{
+        .files = &.{
+            "tools/zig/dxt_tolerance_test.cpp",
+            "Sources/src/ResourceModel/dxt_gate.cpp",
+            "Sources/src/ResourceModel/spike/legacy_dxt.cpp",
+            "Sources/src/Image/DxtCodec.cpp",
+        },
+        .flags = if (platform == .windows_x64) cppflags_debug else &.{"-std=c++17"},
+    });
+    const dxt_tolerance_test = b.addExecutable(.{ .name = "dxt-tolerance-test", .root_module = dxt_tolerance_module });
+    dxt_tolerance_test.subsystem = .console;
+    if (platform == .windows_x64) dxt_tolerance_test.entry = .{ .symbol_name = "mainCRTStartup" };
+    applyLoaderPath(target, dxt_tolerance_module);
+    const dxt_tolerance_run = b.addRunArtifact(dxt_tolerance_test);
+    dxt_tolerance_run.setCwd(b.path("."));
+    dxt_tolerance_run.addArg("tools/zig/fixtures/resource_editor/dxt-tolerance.json");
+    dxt_tolerance_run.addArg("zig-out/local-test/resource_editor/dxt");
+    dxt_tolerance_run.addArg("--check");
+    dxt_tolerance_run.has_side_effects = true;
+    const dxt_tolerance_step = b.step("test-dxt-tolerance", "Re-measure the DXT tolerance on shipped _c.dds (DXT1/3/5, colour and alpha) and require dxt-tolerance.json unchanged");
+    dxt_tolerance_step.dependOn(&dxt_tolerance_test.step);
+    if (test_mode == .run) dxt_tolerance_step.dependOn(&dxt_tolerance_run.step);
+    const dxt_measure_run = b.addRunArtifact(dxt_tolerance_test);
+    dxt_measure_run.setCwd(b.path("."));
+    dxt_measure_run.addArg("tools/zig/fixtures/resource_editor/dxt-tolerance.json");
+    dxt_measure_run.addArg("zig-out/local-test/resource_editor/dxt");
+    dxt_measure_run.has_side_effects = true;
+    const dxt_measure_step = b.step("measure-dxt-tolerance", "Measure the DXT tolerance on shipped _c.dds textures and write tools/zig/fixtures/resource_editor/dxt-tolerance.json");
+    dxt_measure_step.dependOn(&dxt_measure_run.step);
+
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
         .target = b.graph.host,
@@ -1323,12 +1405,26 @@ pub fn build(b: *std.Build) void {
     hermeticity_step.dependOn(&hermeticity_test.step);
     if (test_mode == .run) hermeticity_step.dependOn(&hermeticity_run.step);
 
+    // windows.h min/max macros break bare std::min( in the ResourceModel and EditorBridge on MSVC only; this
+    // host-side lint catches it on every platform, including the fast Linux tiers.
+    const minmax_lint_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/windows_minmax_lint.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const minmax_lint_test = b.addTest(.{ .root_module = minmax_lint_module });
+    const minmax_lint_run = b.addRunArtifact(minmax_lint_test);
+    const minmax_lint_step = b.step("audit-windows-minmax", "Reject bare std::min/std::max in ResourceModel and EditorBridge, which windows.h macros break on MSVC");
+    minmax_lint_step.dependOn(&minmax_lint_test.step);
+    if (test_mode == .run) minmax_lint_step.dependOn(&minmax_lint_run.step);
+
     const test_platform_foundation = b.step("test-platform-foundation", "Run the portable foundation test matrix");
     test_platform_foundation.dependOn(build_support_step);
     test_platform_foundation.dependOn(platform_headers_step);
     test_platform_foundation.dependOn(stage_test_step);
     test_platform_foundation.dependOn(shader_tests_step);
     test_platform_foundation.dependOn(hermeticity_step);
+    test_platform_foundation.dependOn(minmax_lint_step);
     test_platform_foundation.dependOn(&foundation_matrix_tests.step);
     test_platform_foundation.dependOn(platform_abi_layout_step);
     test_platform_foundation.dependOn(platform_runtime_step);
@@ -1378,6 +1474,10 @@ pub fn build(b: *std.Build) void {
     addNetworkWorkersTest(b, target, test_mode, toolchain);
     addNetworkSystemGateTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
     addRuntimeHeadersTest(b, target, test_mode, toolchain);
+    addResourceModelScaffoldTest(b, target, test_mode, toolchain);
+    addResourceModelReferencesTest(b, target, test_mode, toolchain);
+    addResourceModelGridProjectionTest(b, target, test_mode, toolchain);
+    addResourceModelFidelityTest(b, target, test_mode, toolchain);
 
     const sdl3_dep = b.dependency("sdl3", .{
         .target = dependency_target,
@@ -1405,12 +1505,12 @@ pub fn build(b: *std.Build) void {
     const editor_imgui_step = b.step("editor-imgui", "Build Dear ImGui with its SDL3 backends for the editor");
     editor_imgui_step.dependOn(&editor_imgui.step);
     const editor_imgui_module = b.createModule(.{
-        .root_source_file = b.path("Sources/editor/imgui/imgui.zig"),
+        .root_source_file = b.path("Sources/editor/kit/imgui/imgui.zig"),
         .target = target,
         .optimize = optimize,
     });
     editor_imgui_module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
-    editor_imgui_module.addIncludePath(b.path("Sources/editor/imgui"));
+    editor_imgui_module.addIncludePath(b.path("Sources/editor/kit/imgui"));
     // cimgui.h includes <assert.h>. A consumer that does not link libc
     // (MapEditor, whose CRT is the engine's) gets no libc headers from Zig for
     // its @cImport on MSVC, so name the MSVC and UCRT ones here.
@@ -1761,6 +1861,42 @@ pub fn build(b: *std.Build) void {
     // install-map-editor and every tier staged on it, package-game and
     // package-game-editors, with or without -Dcopy-data): see addSeasonData.
     const season_data = addSeasonData(b, season_textures);
+
+    // ResourceEditor fixture generator. See
+    // tools/zig/resource_editor_fixtures.zig for the design rationale and
+    // the 21-row Fixture table it mirrors from Sources/src/editor/*Frm.cpp.
+    const resource_editor_fixtures_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/resource_editor_fixtures.zig"),
+        .target = b.graph.host,
+        .optimize = .ReleaseFast,
+    });
+    const resource_editor_fixtures_exe = b.addExecutable(.{
+        .name = "resource-editor-fixtures",
+        .root_module = resource_editor_fixtures_module,
+    });
+    const resource_editor_fixtures_run = b.addRunArtifact(resource_editor_fixtures_exe);
+    resource_editor_fixtures_run.setCwd(b.path("."));
+    resource_editor_fixtures_run.addArg("--out");
+    resource_editor_fixtures_run.addArg("tools/zig/fixtures/resource_editor");
+    resource_editor_fixtures_run.addArg("--log");
+    resource_editor_fixtures_run.addArg("zig-out/local-test/resource_editor/make-fixtures.log");
+    const resource_editor_fixtures_step = b.step(
+        "make-resource-fixtures",
+        "Regenerate repo-owned ResourceEditor fixtures (21 extensions, project.<ext> + source art, deterministic)",
+    );
+    resource_editor_fixtures_step.dependOn(&resource_editor_fixtures_run.step);
+    const resource_editor_fixtures_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/resource_editor_fixtures.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const resource_editor_fixtures_tests = b.addTest(.{ .root_module = resource_editor_fixtures_test_module });
+    const resource_editor_fixtures_test_step = b.step(
+        "test-resource-editor-fixtures",
+        "Run the ResourceEditor fixture generator's in-memory tests",
+    );
+    resource_editor_fixtures_test_step.dependOn(&resource_editor_fixtures_tests.step);
+    if (test_mode == .run) resource_editor_fixtures_test_step.dependOn(&b.addRunArtifact(resource_editor_fixtures_tests).step);
     // StreamIOOptionsAbi ships in the same directory as the shared SDL3
     // library and is loaded alongside it. It must share the game's one SDL3
     // image on every platform: a *static* SDL3 here is a second, private SDL
@@ -2202,6 +2338,30 @@ pub fn build(b: *std.Build) void {
     // After install-game, whose step it depends on: the tier's executable is
     // staged into the layout that step creates.
     addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step);
+    // S04 T01: the resource bridge's smoke tier (test-resource-bridge). Reuses
+    // the same engine static libraries addEditorBridgeTest links, and is staged
+    // into the same install directory so NPlatform::Paths derives the right
+    // roots. The step compiles unconditionally and runs only in test_mode==.run.
+    addResourceBridge(b, target, optimize, toolchain, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, .{
+        .exe_name = "resource-bridge-test",
+        .source = "Sources/src/EditorBridge/resource_bridge_test.cpp",
+        .step_name = "test-resource-bridge",
+        .step_description = "Drive the resource bridge through the engine: every fixture, geometry, export, references and the preview captures",
+    });
+    // M001 S17 (D053): a third-party mod's game data through import and export, hosted the same way.
+    // -Dmod-root names the mod's data folder; without one only the tracked mini-mod runs.
+    addResourceBridge(b, target, optimize, toolchain, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, .{
+        .exe_name = "resource-mod-roundtrip-test",
+        .source = "tools/zig/resource_mod_roundtrip_test.cpp",
+        .step_name = "test-resource-mod-roundtrip",
+        .step_description = "Import every resource of a third-party mod (-Dmod-root or BK_MOD_ROOT), export it again and compare field by field; always runs the tracked mini-mod first",
+        .mod_root = b.option([]const u8, "mod-root", "test-resource-mod-roundtrip: the third-party mod's data folder (exported as BK_MOD_ROOT)"),
+        .mod_roundtrip = true,
+    });
+    // S03 T06: the D-11 comparator, hosted the same way; test-resource-model aggregates it.
+    addResourceModelComparatorTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    addResourceModelAggregateStep(b);
+    addResourcesAllAggregateStep(b);
     // The editor's platforms: macOS on Apple Silicon and Intel, Linux x64 and
     // Windows x64 (MSVC); everywhere else there is no MapEditor.
     const map_editor_platform = (target.result.os.tag == .macos and (target.result.cpu.arch == .aarch64 or target.result.cpu.arch == .x86_64)) or
@@ -2212,9 +2372,13 @@ pub fn build(b: *std.Build) void {
     // every other platform, where there is no MapEditor to package.
     const map_editor: ?MapEditorBuild = if (map_editor_platform) addMapEditor(b, target, optimize, toolchain, editor_imgui_module, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step) else null;
     const map_editor_exe: ?*std.Build.Step.Compile = if (map_editor) |built| built.exe else null;
+    // M001 S05: ResourceEditor, on exactly MapEditor's platforms and staged
+    // beside it; the package steps below stage this exact binary too.
+    const resource_editor_exe: ?*std.Build.Step.Compile = if (map_editor_platform) addResourceEditor(b, target, optimize, toolchain, editor_imgui_module, addResourceComparatorLib(b, target, optimize, toolchain, sdl_dynamic_dep.path("include")), editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode) else null;
     addRandomMissionsTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, random_missions_sweep);
     addRmgDeterminismTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
     addComposerRoundtripTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
+    addPreviewSceneSpike(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode);
 
     // Backwards-compatible alias for the older command used in project scripts.
     const game_install_step = b.step("game-install", "Create runnable game install layout with binaries and Data");
@@ -2391,6 +2555,10 @@ pub fn build(b: *std.Build) void {
         stage_package_game_cmd.addArg("--map-editor");
         stage_package_game_cmd.addFileArg(editor_exe.getEmittedBin());
     }
+    if (resource_editor_exe) |editor_exe| {
+        stage_package_game_cmd.addArg("--resource-editor");
+        stage_package_game_cmd.addFileArg(editor_exe.getEmittedBin());
+    }
 
     const package_tool = b.addExecutable(.{
         .name = "package",
@@ -2417,6 +2585,10 @@ pub fn build(b: *std.Build) void {
     // having run at some point.
     if (map_editor_exe) |editor_exe| {
         stage_package_game_editors_cmd.addArg("--map-editor");
+        stage_package_game_editors_cmd.addFileArg(editor_exe.getEmittedBin());
+    }
+    if (resource_editor_exe) |editor_exe| {
+        stage_package_game_editors_cmd.addArg("--resource-editor");
         stage_package_game_editors_cmd.addFileArg(editor_exe.getEmittedBin());
     }
     stage_package_game_editors_cmd.step.dependOn(&package_tool_run.step);
@@ -2783,25 +2955,112 @@ pub fn build(b: *std.Build) void {
     test_gfxgpu_step.dependOn(gfx_gpu_smoke_step);
     const test_step = b.step("test", "Run Zig unit tests and the Blitz64 ABI smoke test");
     test_step.dependOn(wheel_scroll_step);
+    // The editor kit tier: reusable editor plumbing (files, shipped, autosave,
+    // history stack primitive, settings primitive, host, crt, imgui wrapper,
+    // BK_EDITOR_AUTO schedule driver, pictures-cache, testlaunch) without any
+    // engine-bridge dependency. T01 scaffolds the module; later S02 tasks move
+    // submodules in. The kit must not import editor_core; editor_core imports
+    // the kit so core submodules can be re-pointed at the kit later without a
+    // second build.zig edit.
+    const editor_kit_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/kit/root.zig"),
+        .target = target,
+        .optimize = .Debug,
+        .imports = &.{
+            .{ .name = "sdl3", .module = sdl3 },
+            .{ .name = "editor_imgui", .module = editor_imgui_module },
+        },
+    });
+    // bridge.h: the engine's C ABI; kit/host.zig @cImports it so any editor
+    // on the kit (ResourceEditor, future tier editors) shares one wrapper.
+    editor_kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    // The test tiers build for the requested target. Only an MSVC target needs
+    // the Visual Studio library paths (Zig's own libc supplies the runtime, and
+    // naming vcruntimed too fails to link); MinGW has everything built in.
+    // The core tiers import the kit, so the same applies to them below.
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, editor_kit_module, toolchain);
+    }
+    const editor_kit_tests = b.addTest(.{ .root_module = editor_kit_module });
+    const editor_kit_tests_run = b.addRunArtifact(editor_kit_tests);
+    const editor_kit_step = b.step("test-editor-kit", "Run the editor kit tests (reusable editor plumbing shared by the Zig editors)");
+    editor_kit_step.dependOn(&editor_kit_tests.step);
+    if (test_mode == .run) editor_kit_step.dependOn(&editor_kit_tests_run.step);
+    test_step.dependOn(editor_kit_step);
     // The editor core tier: plain Zig against the fake bridge, so it runs on
     // every target, the MinGW job included.
     const editor_core_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/core/root.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
+        .imports = &.{.{ .name = "editor_kit", .module = editor_kit_module }},
     });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, editor_core_module, toolchain);
+    }
     const editor_core_tests = b.addTest(.{ .root_module = editor_core_module });
     const editor_core_tests_run = b.addRunArtifact(editor_core_tests);
     const editor_core_step = b.step("test-editor-core", "Run the Map Editor core tests against the fake bridge");
     editor_core_step.dependOn(&editor_core_tests.step);
     if (test_mode == .run) editor_core_step.dependOn(&editor_core_tests_run.step);
     test_step.dependOn(editor_core_step);
+    // The resource editor core tier (S04 T03): plain Zig against the fake
+    // resource bridge, so it builds on every target including
+    // x86_64-windows-gnu where the engine C++ does not. Mirrors the map core's
+    // addEditorCore wiring so Resource and Map stay symmetric on the Zig side.
+    const resource_core_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/resource_core/root.zig"),
+        .target = target,
+        .optimize = .Debug,
+        .imports = &.{.{ .name = "editor_kit", .module = editor_kit_module }},
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, resource_core_module, toolchain);
+    }
+    const resource_core_tests = b.addTest(.{ .root_module = resource_core_module });
+    const resource_core_tests_run = b.addRunArtifact(resource_core_tests);
+    const resource_core_step = b.step("test-resource-core", "Run the Resource Editor core tests against the fake resource bridge");
+    resource_core_step.dependOn(&resource_core_tests.step);
+    if (test_mode == .run) resource_core_step.dependOn(&resource_core_tests_run.step);
+    test_step.dependOn(resource_core_step);
+    // The resource app's pure logic tier (S05 T08): panels_logic.zig against
+    // the fake resource bridge, built on every target like test-resource-core.
+    // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled
+    // here as an object so every C call it makes is type-checked even where
+    // the engine C++ does not build; its BkRes* symbols resolve only where
+    // ResourceEditor links the engine.
+    const resource_app_logic_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/resource_app/panels_logic.zig"),
+        .target = target,
+        .optimize = .Debug,
+        // editor_kit for lifecycle.zig and settings.zig (S05 T09): autosave,
+        // shipped, files and the shared settings keys.
+        .imports = &.{
+            .{ .name = "resource_core", .module = resource_core_module },
+            .{ .name = "editor_kit", .module = editor_kit_module },
+        },
+    });
+    const resource_app_logic_tests = b.addTest(.{ .root_module = resource_app_logic_module });
+    const resource_app_logic_tests_run = b.addRunArtifact(resource_app_logic_tests);
+    const resource_app_c_bridge_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/resource_app/c_bridge.zig"),
+        .target = target,
+        .optimize = .Debug,
+        .imports = &.{.{ .name = "resource_core", .module = resource_core_module }},
+    });
+    resource_app_c_bridge_module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    const resource_app_c_bridge_object = b.addObject(.{ .name = "resource-app-c-bridge", .root_module = resource_app_c_bridge_module });
+    const resource_app_logic_step = b.step("test-resource-app-logic", "Run the Resource Editor app's pure logic tests against the fake resource bridge and compile its real bridge adapter");
+    resource_app_logic_step.dependOn(&resource_app_logic_tests.step);
+    resource_app_logic_step.dependOn(&resource_app_c_bridge_object.step);
+    if (test_mode == .run) resource_app_logic_step.dependOn(&resource_app_logic_tests_run.step);
+    test_step.dependOn(resource_app_logic_step);
     // The map view's pure parts (camera scrolling, the button-to-tool-event
     // mapping): plain Zig, no SDL or engine, so this runs without a GPU or a
     // staged installation.
     const view_math_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/view_math.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
     });
     const view_math_tests = b.addTest(.{ .root_module = view_math_module });
@@ -2818,9 +3077,12 @@ pub fn build(b: *std.Build) void {
     // against the core's fake bridge, no SDL, ImGui or engine.
     const panels_logic_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/panels_logic.zig"),
-        .target = b.graph.host,
+        .target = target,
         .optimize = .Debug,
-        .imports = &.{.{ .name = "editor_core", .module = editor_core_module }},
+        .imports = &.{
+            .{ .name = "editor_core", .module = editor_core_module },
+            .{ .name = "editor_kit", .module = editor_kit_module },
+        },
     });
     const panels_logic_tests = b.addTest(.{ .root_module = panels_logic_module });
     const panels_logic_tests_run = b.addRunArtifact(panels_logic_tests);
@@ -2832,8 +3094,8 @@ pub fn build(b: *std.Build) void {
     // no sdl3 and no c_bridge (testlaunch.zig's own doc comment), so this
     // runs on every target with no engine, GPU or staged installation.
     const testlaunch_module = b.createModule(.{
-        .root_source_file = b.path("Sources/editor/app/testlaunch.zig"),
-        .target = b.graph.host,
+        .root_source_file = b.path("Sources/editor/kit/testlaunch.zig"),
+        .target = target,
         .optimize = .Debug,
     });
     const testlaunch_tests = b.addTest(.{ .root_module = testlaunch_module });
@@ -2843,11 +3105,11 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) testlaunch_step.dependOn(&testlaunch_tests_run.step);
     test_step.dependOn(testlaunch_step);
     // BK_EDITOR_AUTO's schedule parser and TGA comparison: plain Zig, no
-    // sdl3 and no c_bridge (auto.zig's own doc comment), so this runs on
-    // every target with no engine, GPU or staged installation.
+    // sdl3 and no c_bridge (auto_schedule.zig's own doc comment), so this
+    // runs on every target with no engine, GPU or staged installation.
     const auto_module = b.createModule(.{
-        .root_source_file = b.path("Sources/editor/app/auto.zig"),
-        .target = b.graph.host,
+        .root_source_file = b.path("Sources/editor/kit/auto_schedule.zig"),
+        .target = target,
         .optimize = .Debug,
     });
     const auto_tests = b.addTest(.{ .root_module = auto_module });
@@ -3846,6 +4108,84 @@ fn addEditorBridge(
             "Sources/src/EditorBridge/session_fields.cpp",
             "Sources/src/EditorBridge/session_layers.cpp",
             "Sources/src/EditorBridge/world.cpp",
+            // S04 T01: the resource bridge's C ABI, stubbed today, filled in
+            // by T02..T06. One archive beside bridge.cpp so a resource editor
+            // process links EditorBridge and gets both ABIs.
+            "Sources/src/EditorBridge/resource_bridge.cpp",
+            // S04 T02: ResourceModel's Project+Tree model, pulled into the
+            // bridge archive so resource_bridge.cpp links against Load, Save,
+            // CTreeItemFactory and the typed root classes without needing a
+            // separate static library. The test tiers that already compile
+            // these sources into their own executables (test-resource-model,
+            // -references, -fidelity) continue to do so; the compile cost
+            // of a second copy is negligible against the integration shape
+            // this archive gives the resource bridge.
+            "Sources/src/ResourceModel/combos.cpp",
+            "Sources/src/ResourceModel/factory.cpp",
+            "Sources/src/ResourceModel/future_blob.cpp",
+            "Sources/src/ResourceModel/key_frame_tree_item.cpp",
+            "Sources/src/ResourceModel/localization.cpp",
+            "Sources/src/ResourceModel/localization_item.cpp",
+            "Sources/src/ResourceModel/editor_env.cpp",
+            "Sources/src/ResourceModel/exporter.cpp",
+            "Sources/src/ResourceModel/grid_projection.cpp",
+            "Sources/src/ResourceModel/mfc_value.cpp",
+            "Sources/src/ResourceModel/project.cpp",
+            "Sources/src/ResourceModel/references.cpp",
+            "Sources/src/ResourceModel/tree_item.cpp",
+            "Sources/src/ResourceModel/ui_screen.cpp",
+            "Sources/src/ResourceModel/variant.cpp",
+            "Sources/src/ResourceModel/xml.cpp",
+            "Sources/src/ResourceModel/items/stats_item.cpp",
+            "Sources/src/ResourceModel/items/ai_tiles.cpp",
+            "Sources/src/ResourceModel/items/bridge/bridge.cpp",
+            "Sources/src/ResourceModel/items/building/building.cpp",
+            "Sources/src/ResourceModel/items/campaign/campaign.cpp",
+            "Sources/src/ResourceModel/items/chapter/chapter.cpp",
+            "Sources/src/ResourceModel/items/effect/effect.cpp",
+            "Sources/src/ResourceModel/items/fence/fence.cpp",
+            "Sources/src/ResourceModel/items/gui/gui.cpp",
+            "Sources/src/ResourceModel/items/infantry/infantry.cpp",
+            "Sources/src/ResourceModel/items/medal/medal.cpp",
+            "Sources/src/ResourceModel/items/mesh/mesh.cpp",
+            "Sources/src/ResourceModel/items/mine/mine.cpp",
+            "Sources/src/ResourceModel/items/mission/mission.cpp",
+            "Sources/src/ResourceModel/items/object/object.cpp",
+            "Sources/src/ResourceModel/items/particle/particle.cpp",
+            "Sources/src/ResourceModel/items/river3d/river3d.cpp",
+            "Sources/src/ResourceModel/items/road3d/road3d.cpp",
+            "Sources/src/ResourceModel/items/sprite/sprite.cpp",
+            "Sources/src/ResourceModel/items/squad/squad.cpp",
+            "Sources/src/ResourceModel/items/tileset/tileset.cpp",
+            "Sources/src/ResourceModel/items/trench/trench.cpp",
+            "Sources/src/ResourceModel/items/weapon/weapon.cpp",
+            // S06: the stats exporters. They write through the engine's
+            // CTreeAccessor and stats structs, so they live here and not in
+            // resource_model_sources, which the engine-free model tests build.
+            "Sources/src/ResourceModel/items/stats_export.cpp",
+            "Sources/src/ResourceModel/image_export.cpp",
+            "Sources/src/ResourceModel/compose.cpp",
+            "Sources/src/ResourceModel/items/weapon/weapon_export.cpp",
+            "Sources/src/ResourceModel/items/mine/mine_export.cpp",
+            "Sources/src/ResourceModel/items/medal/medal_export.cpp",
+            "Sources/src/ResourceModel/items/chapter/chapter_export.cpp",
+            "Sources/src/ResourceModel/items/campaign/campaign_export.cpp",
+            "Sources/src/ResourceModel/items/mission/mission_export.cpp",
+            "Sources/src/ResourceModel/items/gui/gui_export.cpp",
+            "Sources/src/ResourceModel/items/trench/trench_export.cpp",
+            "Sources/src/ResourceModel/items/squad/squad_export.cpp",
+            "Sources/src/ResourceModel/items/sprite/sprite_export.cpp",
+            "Sources/src/ResourceModel/items/infantry/infantry_export.cpp",
+            "Sources/src/ResourceModel/items/mesh/mesh_export.cpp",
+            "Sources/src/ResourceModel/items/object/object_export.cpp",
+            "Sources/src/ResourceModel/items/fence/fence_export.cpp",
+            "Sources/src/ResourceModel/items/building/building_export.cpp",
+            "Sources/src/ResourceModel/items/bridge/bridge_export.cpp",
+            "Sources/src/ResourceModel/items/particle/particle_export.cpp",
+            "Sources/src/ResourceModel/items/effect/effect_export.cpp",
+            "Sources/src/ResourceModel/items/road3d/road3d_export.cpp",
+            "Sources/src/ResourceModel/items/river3d/river3d_export.cpp",
+            "Sources/src/ResourceModel/items/tileset/tileset_export.cpp",
         },
         .flags = cppflagsForOptimize(optimize),
     });
@@ -4285,11 +4625,15 @@ fn addEditorImgui(
     });
     module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
     module.addIncludePath(b.path("vendor/dcimgui/backends"));
-    module.addIncludePath(b.path("Sources/editor/imgui"));
+    module.addIncludePath(b.path("Sources/editor/kit/imgui"));
     module.addIncludePath(sdl_include);
     addMsvcIncludePaths(b, module, toolchain);
     addLinuxCxxIncludePaths(b, module);
     addMsvcLibraryPaths(b, module, toolchain);
+    // ImGui's default IME hook (imgui.cpp Platform_SetImeDataFn_DefaultImpl)
+    // needs imm32. Naming it here lets every consumer, the test tiers that
+    // compile for the host included, resolve it with the SDK library paths above.
+    if (target.result.os.tag == .windows) module.linkSystemLibrary("imm32", .{});
     // On MSVC the CRT is the consumer's business: Zig links its own libc into
     // the Zig programs that use this library, and naming the MSVC CRT here as
     // well links two of them (duplicate _cexit, _wctype, ...).
@@ -4309,13 +4653,17 @@ fn addEditorImgui(
             "vendor/dcimgui/src-docking/cimgui.cpp",
             "vendor/dcimgui/backends/imgui_impl_sdl3.cpp",
             "vendor/dcimgui/backends/imgui_impl_sdlgpu3.cpp",
-            "Sources/editor/imgui/imgui_backend.cpp",
+            "Sources/editor/kit/imgui/imgui_backend.cpp",
         },
         // Plain C++17 everywhere: the project's MSVC flag set selects the DLL
         // CRT (-D_MT -D_DLL), which does not match the CRT Zig links into the
         // Zig programs that consume this library. ImGui needs none of it.
-        .flags = &.{"-std=c++17"},
+        // On MSVC the thread-safe static initialisers are left out (ImGui runs on
+        // one thread) because their helpers live in the CRT, which the Zig test
+        // tiers do not link; msvc_fltused.c stands in for the CRT's _fltused.
+        .flags = if (target.result.abi == .msvc) &.{ "-std=c++17", "-fno-threadsafe-statics" } else &.{"-std=c++17"},
     });
+    if (target.result.abi == .msvc) module.addCSourceFile(.{ .file = b.path("Sources/editor/kit/imgui/msvc_fltused.c") });
     return b.addLibrary(.{ .name = "editor-imgui", .linkage = .static, .root_module = module });
 }
 
@@ -4534,12 +4882,21 @@ fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
     module.addLibraryPath(.{ .cwd_relative = linuxMultiarchDir(b.graph.host.result.cpu.arch) });
     var versions = std.Io.Dir.openDirAbsolute(b.graph.io, "/usr/include/c++", .{ .iterate = true }) catch return;
     defer std.Io.Dir.close(versions, b.graph.io);
+    // The newest libstdc++ that Zig's clang can parse, compared as numbers ("9" sorts after "16"
+    // as text). Ubuntu 26.04 ships libstdc++ 15 and 16 headers beside 14; clang 21 (Zig 0.16) rejects
+    // their __make_unsigned and constexpr cmath, so anything after 14 is skipped. The shared
+    // libstdc++.so.6 linked below is backward compatible with the older headers.
+    const newest_parsable_libstdcxx = 14;
     var selected: ?[]const u8 = null;
+    var selected_major: u32 = 0;
     var iterator = versions.iterate();
     while (iterator.next(b.graph.io) catch null) |entry| {
         if (entry.kind != .directory) continue;
-        if (selected == null or std.mem.order(u8, selected.?, entry.name) == .lt) {
+        const major = std.fmt.parseInt(u32, entry.name, 10) catch continue;
+        if (major > newest_parsable_libstdcxx) continue;
+        if (selected == null or major > selected_major) {
             selected = b.allocator.dupe(u8, entry.name) catch @panic("OOM");
+            selected_major = major;
         }
     }
     const version = selected orelse return;
@@ -5990,6 +6347,174 @@ fn addEditorBridgeTest(
     }
 }
 
+// S04 T01: the resource bridge's smoke tier. One executable linking the same
+// static libraries test-editor-bridge links (the "five engine targets" the
+// slice plan names: EditorBridge, MapFile, Main, RandomMapGen, Formats, Misc,
+// PlatformRuntime and SDL - a bake of the game's engine), staged beside Game
+// so NPlatform::Paths derives the right roots on every runner. On a host
+// without a GPU (CI's Linux runner, three of the six) the executable prints
+// "skipped: no GPU device" and exits 0 - the same gate editor_bridge_test
+// uses, with BK_REQUIRE_ENGINE=1 turning a skip into a failure on the
+// runners that do have a device (so a regression there cannot hide as a
+// skip). The step gates test_mode == .run, so the configure-only build
+// (zig build) compiles the executable but does not run it.
+/// The D-11 comparator as a static library, for the engine-hosted tiers that
+/// compare an export with a shipped file (test-resource-bridge's round trips).
+/// It is compiled apart from them because its Scene sources take their StdAfx.h
+/// from the Scene folder, which the tiers' own include order would not give.
+fn addResourceComparatorLib(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    sdl_include: std.Build.LazyPath,
+) *std.Build.Step.Compile {
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addIncludePath(b.path("Sources/src/GFX"));
+    module.addIncludePath(b.path("Sources/src/StreamIO"));
+    module.addIncludePath(sdl_include);
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/ResourceModel/comparator.cpp",
+            "Sources/src/ResourceModel/dxt_gate.cpp",
+            "Sources/src/Image/DxtCodec.cpp",
+            "Sources/src/Scene/ParticleSourceData.cpp",
+            "Sources/src/Scene/SmokinParticleSourceData.cpp",
+            "Sources/src/Scene/Track.cpp",
+        },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMacosSysrootPaths(b, module, target);
+    return b.addLibrary(.{ .name = "ResourceComparator", .linkage = .static, .root_module = module });
+}
+
+/// What differs between the engine-hosted resource tiers that share addResourceBridge's
+/// build: the executable and its source, the step, and what the run is handed.
+const ResourceBridgeTier = struct {
+    exe_name: []const u8,
+    source: []const u8,
+    step_name: []const u8,
+    step_description: []const u8,
+    /// The third-party mod's data folder (-Dmod-root), exported as BK_MOD_ROOT to the mod
+    /// round-trip tier; null for the bridge tier, whose arguments are the fixture folders.
+    mod_root: ?[]const u8 = null,
+    mod_roundtrip: bool = false,
+};
+
+fn addResourceBridge(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    comparator_lib: *std.Build.Step.Compile,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+    tier: ResourceBridgeTier,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Formats"));
+    module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addIncludePath(b.path("Sources/src/GFX"));
+    module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    module.addIncludePath(sdl_include);
+    module.addCSourceFiles(.{
+        .files = &.{tier.source},
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addMacosSysrootPaths(b, module, target);
+    linkMsvcRuntime(module, optimize);
+    if (target.result.os.tag == .windows) {
+        linkComSupport(module, optimize);
+        module.linkSystemLibrary("version", .{});
+        module.linkSystemLibrary("winmm", .{});
+        module.linkSystemLibrary("odbc32", .{});
+        module.linkSystemLibrary("odbccp32", .{});
+        module.linkSystemLibrary("shlwapi", .{});
+        module.linkSystemLibrary("advapi32", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("gdi32", .{});
+        module.linkSystemLibrary("shell32", .{});
+    }
+    module.linkLibrary(comparator_lib);
+    module.linkLibrary(editor_bridge);
+    module.linkLibrary(map_file);
+    module.linkLibrary(main_lib);
+    module.linkLibrary(randommapgen);
+    module.linkLibrary(formats);
+    module.linkLibrary(misc);
+    module.linkLibrary(lualib);
+    module.linkLibrary(zlib);
+    module.linkLibrary(platform_runtime);
+    linkSdlImport(module, target, sdl_dynamic);
+
+    const exe = b.addExecutable(.{ .name = tier.exe_name, .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    // Linux loader pitfalls the Map Editor already solved (AGENTS.md):
+    // rdynamic so engine modules resolve host RTTI and $ORIGIN rpath so the
+    // staged binary finds libStreamIO etc. beside itself.
+    if (target.result.os.tag == .linux) exe.rdynamic = true;
+    switch (target.result.os.tag) {
+        .macos => exe.root_module.addRPathSpecial("@executable_path"),
+        .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
+        else => {},
+    }
+
+    const stage_suffix = stage_root["zig-out/".len..];
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
+    install_exe.step.dependOn(install_game_step);
+
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path(stage_root));
+    run.addArg(".");
+    if (tier.mod_roundtrip) {
+        // The tracked mini-mod's data folder, then the scratch root. The real mod, when there
+        // is one, reaches the run as BK_MOD_ROOT (the build option -Dmod-root sets it here;
+        // an environment variable already set passes through).
+        run.addArg(b.path("tools/zig/fixtures/mod-roundtrip/data").getPath(b));
+        run.addArg(b.path("zig-out/local-test/mod-roundtrip").getPath(b));
+        if (tier.mod_root) |mod_root| run.setEnvironmentVariable("BK_MOD_ROOT", mod_root);
+    } else {
+        // T02: the Project+Tree sub-step needs the 21 fixture folders. The source
+        // dir of the fixture tree is handed as argv[2]; the test writes its
+        // temporary round-trip copies under argv[3] (zig-out/local-test/...).
+        run.addArg(b.path("tools/zig/fixtures/resource_editor").getPath(b));
+        run.addArg(b.path("zig-out/local-test/resource_editor/t02").getPath(b));
+    }
+    // Reads the staged Data and modules, neither a file input of this step:
+    // a cached pass would say nothing about the installation now.
+    run.has_side_effects = true;
+    run.step.dependOn(&install_exe.step);
+    const step = b.step(tier.step_name, tier.step_description);
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
 /// The static libraries MapEditor's executables link: the engine
 /// addEditorBridgeTest hosts, with the bridge in front.
 const MapEditorEngine = struct {
@@ -6049,37 +6574,17 @@ fn addMapEditor(
         .platform_runtime = platform_runtime,
         .sdl_dynamic = sdl_dynamic,
     };
-    // SDL is not the overlay spike's sdl3 module: that links libc, and on MSVC
-    // Zig's libc is its static release CRT, which the Windows job measured
-    // colliding with the engine's debug DLL CRT (duplicate _cexit, _wctype,
-    // __pctype_func and _invalid_parameter_noinfo: libucrt.lib against
-    // ucrtd.lib). The app takes the headers and library of the SDL the engine
-    // links instead.
-    //
-    // Translated as vendor/zig-sdl3 translates it, not by @cImport: an
-    // @cImport in a compilation without libc has no libc headers on MSVC
-    // ("libc headers not available"), and Zig 0.16's translate-c rejects the
-    // `ui64` suffix of MSVC's SIZE_MAX, which SDL_stdinc.h uses. The
-    // translation step may use libc headers; the module it makes must not
-    // link libc, or the collision above comes back.
-    const sdl_header = b.addWriteFiles().add("sdl3.h", "#include <SDL3/SDL.h>\n");
-    const sdl_translate = b.addTranslateC(.{ .root_source_file = sdl_header, .target = target, .optimize = optimize });
-    sdl_translate.addIncludePath(sdl_include);
-    if (target.result.os.tag == .windows) sdl_translate.defineCMacro("SIZE_MAX", "18446744073709551615ULL");
-    const sdl_c = sdl_translate.createModule();
-    sdl_c.link_libc = false;
-    const sdl_module = b.createModule(.{
-        .root_source_file = b.path("Sources/editor/app/sdl3.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "sdl_c", .module = sdl_c }},
-    });
+    const app_kit = editorAppKit(b, target, optimize, toolchain, editor_imgui_module, sdl_include);
+    const sdl_module = app_kit.sdl;
+    const kit_module = app_kit.kit;
     // The editor core for the app's target. The core tier's module
-    // (test-editor-core) is built for the host only.
+    // (test-editor-core) is built for the host only. The core imports the
+    // kit so later S02 tasks can re-point core submodules at the kit.
     const core_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/core/root.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{.{ .name = "editor_kit", .module = kit_module }},
     });
     const stage_suffix = stage_root["zig-out/".len..];
 
@@ -6101,6 +6606,7 @@ fn addMapEditor(
         .imports = &.{
             .{ .name = "sdl3", .module = sdl_module },
             .{ .name = "editor_core", .module = core_module },
+            .{ .name = "editor_kit", .module = kit_module },
             .{ .name = "editor_imgui", .module = view_imgui_stub },
         },
     });
@@ -6110,7 +6616,7 @@ fn addMapEditor(
     view_test_step.dependOn(&view_tests.step);
     if (test_mode == .run) view_test_step.dependOn(&view_tests_run.step);
 
-    const module = mapEditorModule(b, "Sources/editor/app/main.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, engine);
+    const module = mapEditorModule(b, "Sources/editor/app/main.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, kit_module, engine);
     const exe = b.addExecutable(.{ .name = "MapEditor", .root_module = module });
     // .windows: the packaged, player-facing binary opens no console on a
     // normal double-click (crt.attachParentConsole in main.zig keeps its
@@ -7620,7 +8126,7 @@ fn addMapEditor(
     // MapEditor is and staged beside it, because on Windows the engine's roots
     // are the running executable's directory (SDL_GetBasePath). A Run step
     // runs an artifact's installed copy once it has been installed.
-    const engine_test_module = mapEditorModule(b, "Sources/editor/app/c_bridge_test.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, engine);
+    const engine_test_module = mapEditorModule(b, "Sources/editor/app/c_bridge_test.zig", target, optimize, toolchain, sdl_module, editor_imgui_module, core_module, kit_module, engine);
     const engine_test = b.addTest(.{ .name = "map-editor-engine-test", .root_module = engine_test_module });
     // .console: a CI/local test tool, never packaged - its output is read
     // straight off the console it always had.
@@ -7645,6 +8151,1634 @@ fn addMapEditor(
     return .{ .exe = exe, .view_test_step = view_test_step };
 }
 
+/// The SDL and editor-kit modules an editor app is built against, for the
+/// app's target: MapEditor and ResourceEditor share them.
+const EditorAppKit = struct {
+    sdl: *std.Build.Module,
+    kit: *std.Build.Module,
+};
+
+fn editorAppKit(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_imgui_module: *std.Build.Module,
+    sdl_include: std.Build.LazyPath,
+) EditorAppKit {
+    // SDL is not the overlay spike's sdl3 module: that links libc, and on MSVC
+    // Zig's libc is its static release CRT, which the Windows job measured
+    // colliding with the engine's debug DLL CRT (duplicate _cexit, _wctype,
+    // __pctype_func and _invalid_parameter_noinfo: libucrt.lib against
+    // ucrtd.lib). The app takes the headers and library of the SDL the engine
+    // links instead.
+    //
+    // Translated as vendor/zig-sdl3 translates it, not by @cImport: an
+    // @cImport in a compilation without libc has no libc headers on MSVC
+    // ("libc headers not available"), and Zig 0.16's translate-c rejects the
+    // `ui64` suffix of MSVC's SIZE_MAX, which SDL_stdinc.h uses. The
+    // translation step may use libc headers; the module it makes must not
+    // link libc, or the collision above comes back.
+    const sdl_header = b.addWriteFiles().add("sdl3.h", "#include <SDL3/SDL.h>\n");
+    const sdl_translate = b.addTranslateC(.{ .root_source_file = sdl_header, .target = target, .optimize = optimize });
+    sdl_translate.addIncludePath(sdl_include);
+    if (target.result.os.tag == .windows) sdl_translate.defineCMacro("SIZE_MAX", "18446744073709551615ULL");
+    const sdl_c = sdl_translate.createModule();
+    sdl_c.link_libc = false;
+    const sdl_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/app/sdl3.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "sdl_c", .module = sdl_c }},
+    });
+    // The editor kit for the app's target. The host-only kit module
+    // (test-editor-kit) is built separately for the test tier.
+    const kit_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/kit/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "sdl3", .module = sdl_module },
+            .{ .name = "editor_imgui", .module = editor_imgui_module },
+        },
+    });
+    // bridge.h, for kit/host.zig's @cImport.
+    kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    addMsvcIncludePaths(b, kit_module, toolchain);
+    addMsvcLibraryPaths(b, kit_module, toolchain);
+    return .{ .sdl = sdl_module, .kit = kit_module };
+}
+
+/// M001 S05: ResourceEditor, built and installed the way addMapEditor builds
+/// MapEditor - the same engine libraries, kit, CRT, entry and rpath, beside
+/// Game in the installation - but on the resource core and the BkRes* half
+/// of the bridge instead of the map's. Returns the executable so the package
+/// steps stage this exact binary.
+fn addResourceEditor(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_imgui_module: *std.Build.Module,
+    comparator_lib: *std.Build.Step.Compile,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+) *std.Build.Step.Compile {
+    const engine: MapEditorEngine = .{
+        .editor_bridge = editor_bridge,
+        .map_file = map_file,
+        .formats = formats,
+        .randommapgen = randommapgen,
+        .misc = misc,
+        .main_lib = main_lib,
+        .lualib = lualib,
+        .zlib = zlib,
+        .platform_runtime = platform_runtime,
+        .sdl_dynamic = sdl_dynamic,
+    };
+    const app_kit = editorAppKit(b, target, optimize, toolchain, editor_imgui_module, sdl_include);
+    // The resource core for the app's target; test-resource-core builds its
+    // own for the host only, against the host kit.
+    const resource_core_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/resource_core/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "editor_kit", .module = app_kit.kit }},
+    });
+    const module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/resource_app/main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "sdl3", .module = app_kit.sdl },
+            .{ .name = "editor_imgui", .module = editor_imgui_module },
+            .{ .name = "editor_kit", .module = app_kit.kit },
+            .{ .name = "resource_core", .module = resource_core_module },
+        },
+    });
+    // resource_bridge.h (and the bridge.h it includes), for the app's @cImport.
+    module.addIncludePath(b.path("Sources/src/EditorBridge"));
+    linkEditorEngine(b, module, target, optimize, toolchain, engine);
+    // The particle and effect exporters read the Scene module's structs, which the
+    // data-only comparator library compiles in.
+    module.linkLibrary(comparator_lib);
+    const exe = b.addExecutable(.{ .name = "ResourceEditor", .root_module = module });
+    // .windows like MapEditor: no console on a double-click; the automated
+    // modes attach to the parent's (crt.attachParentConsole).
+    configureMapEditorExecutable(exe, target, .windows);
+
+    const stage_suffix = stage_root["zig-out/".len..];
+    // Beside Game and MapEditor: the engine's roots are the installation.
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
+    install_exe.step.dependOn(install_game_step);
+    const install_step = b.step("install-resource-editor", "Install ResourceEditor into the game installation");
+    install_step.dependOn(&install_exe.step);
+
+    // Launched from zig-out like map-editor-host-check, for the same reason:
+    // the editor finds its installation beside its own executable, whatever
+    // the working directory.
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path("zig-out"));
+    // The tracked picture the docks half shows in the thumbnail list.
+    run.addArgs(&.{ "--check", "wpn", b.pathFromRoot("zig-out/local-test/resource_editor/resource-editor-check.tga"), b.pathFromRoot("tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
+    // Reads the staged installation, not a file input of this step.
+    run.has_side_effects = true;
+    run.step.dependOn(&install_exe.step);
+    const check_step = b.step("resource-editor-host-check", "Start ResourceEditor hidden on a new project and check ImGui draws over the engine's frame");
+    check_step.dependOn(&install_exe.step);
+    if (test_mode == .run) check_step.dependOn(&run.step);
+
+    // The batch mode's command line on the 21 tracked project fixtures,
+    // copied under zig-out/local-test: -os re-saves each byte for byte and
+    // the engine's reader reopens it, an export batch reports its project
+    // and the missing gamma.cfg, the shipped Data folder is refused.
+    const batch_run = b.addRunArtifact(exe);
+    batch_run.setCwd(b.path("zig-out"));
+    batch_run.addArgs(&.{ "--batch-check", b.pathFromRoot("tools/zig/fixtures/resource_editor"), b.pathFromRoot("zig-out/local-test/resource_editor/batch") });
+    batch_run.has_side_effects = true;
+    batch_run.step.dependOn(&install_exe.step);
+    const batch_step = b.step("resource-editor-batch", "Run ResourceEditor --batch over copies of the 21 project fixtures and read the results back with the engine's reader");
+    batch_step.dependOn(&install_exe.step);
+    if (test_mode == .run) batch_step.dependOn(&batch_run.step);
+
+    // The project half of the smoke: a copy of the tracked .unt opened,
+    // edited, saved, undone, saved and compared byte for byte (scenario.zig).
+    const smoke_run = b.addRunArtifact(exe);
+    smoke_run.setCwd(b.path("zig-out"));
+    smoke_run.addArgs(&.{ "--smoke-edit", b.pathFromRoot("tools/zig/fixtures/resource_editor/unt/project.unt"), b.pathFromRoot("zig-out/local-test/resource_editor/smoke") });
+    smoke_run.has_side_effects = true;
+    smoke_run.step.dependOn(&install_exe.step);
+    const smoke_step = b.step("resource-editor-smoke", "Run ResourceEditor's scripted new/save/reopen and edit/undo/save byte-compare on tracked project fixtures");
+    smoke_step.dependOn(&install_exe.step);
+    // The kind-level new/save/reopen first (main.zig --smoke), then the edit one.
+    const smoke_kind_run = b.addRunArtifact(exe);
+    smoke_kind_run.setCwd(b.path("zig-out"));
+    smoke_kind_run.addArgs(&.{ "--smoke", "unt", b.pathFromRoot("zig-out/local-test/resource_editor/smoke-new/smoke.unt") });
+    smoke_kind_run.has_side_effects = true;
+    smoke_kind_run.step.dependOn(&install_exe.step);
+    smoke_run.step.dependOn(&smoke_kind_run.step);
+    if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
+
+    // BK_EDITOR_AUTO's schedules over the resource command registry, one step per editor so each stays
+    // inside a foreground command's 10 minutes: the core frames (new, open, edit, undo, save, export, pack,
+    // import, the exported mod played in the real Game), then each editor's blocks on copies of the tracked
+    // fixtures, with captured frames measured by code. Every step runs after the smoke, so two engines never
+    // start at once, and has its own scratch folder; the aggregate chains them in order.
+    const delete_matching_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/delete_matching_files.zig"),
+        .target = b.graph.host,
+        .optimize = .Debug,
+    });
+    const delete_matching = b.addExecutable(.{ .name = "delete-matching-files", .root_module = delete_matching_module });
+    const auto_step = b.step("resource-editor-auto", "Run BK_EDITOR_AUTO's ResourceEditor scenario over the resource command registry: every per-editor resource-editor-auto-* step, in order");
+    auto_step.dependOn(&install_exe.step);
+    // The aggregate's chain, so two engines never start at once.
+    var chain: ?*std.Build.Step = null;
+    inline for (resource_auto_steps) |auto| {
+        const alone = addResourceAutoRun(b, exe, delete_matching, stage_root, &install_exe.step, &smoke_run.step, auto, null);
+        const step_name = "resource-editor-auto-" ++ auto.name;
+        const per_step = b.step(step_name, auto.about);
+        per_step.dependOn(&install_exe.step);
+        if (test_mode == .run) per_step.dependOn(alone);
+        // The aggregate's own run of the same scenario, ordered after the one before it; a step run alone
+        // does not pull the others in.
+        const chained = addResourceAutoRun(b, exe, delete_matching, stage_root, &install_exe.step, &smoke_run.step, auto, chain);
+        chain = chained;
+        if (test_mode == .run) auto_step.dependOn(chained);
+    }
+
+    // resource-editor-game-reads-it: the exports of the object-side kinds played by the real Game. After the
+    // smoke so two engines never start at once; its own scratch folder holds result.log, one KIND= line per
+    // kind, and the user data (profile, settings) lives apart from it so the run never touches the player's own.
+    const game_reads_dir = b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it");
+    const game_reads_run = b.addRunArtifact(exe);
+    game_reads_run.setCwd(b.path(stage_root));
+    game_reads_run.addArgs(&.{ "--auto", b.pathFromRoot("tools/zig/fixtures/resource_editor"), game_reads_dir });
+    game_reads_run.setEnvironmentVariable("BK_EDITOR_AUTO", resource_game_reads_it ++ std.fmt.comptimePrint("{d}:exit", .{resource_game_reads_it_exit_frame}));
+    game_reads_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it-user"));
+    game_reads_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it-user"));
+    game_reads_run.setEnvironmentVariable("BK_DEBUG_LOG", "1");
+    game_reads_run.has_side_effects = true;
+    game_reads_run.step.dependOn(&install_exe.step);
+    game_reads_run.step.dependOn(&smoke_run.step);
+    const cleanup_game_reads = b.addRunArtifact(delete_matching);
+    cleanup_game_reads.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup_game_reads.step.dependOn(&game_reads_run.step);
+    const game_reads_step = b.step("resource-editor-game-reads-it", "Export one resource per object-side kind into a mod, play shipped maps with it in the real Game and prove from BK_MOD_TRACE that it read each exported file (result.log)");
+    game_reads_step.dependOn(&install_exe.step);
+    if (test_mode == .run) game_reads_step.dependOn(&cleanup_game_reads.step);
+    return exe;
+}
+
+/// One per-editor step of resource-editor-auto: the editor's schedule (a preview_on or mod_dir prefix where an
+/// earlier block would have set it, an exit after the last frame) in its own scratch folder, then the sweep of
+/// the game's autoshot dumps. `after` orders it behind the previous step of the aggregate.
+fn addResourceAutoRun(
+    b: *std.Build,
+    exe: *std.Build.Step.Compile,
+    delete_matching: *std.Build.Step.Compile,
+    stage_root: []const u8,
+    install_step: *std.Build.Step,
+    smoke_step: *std.Build.Step,
+    comptime auto: ResourceAutoStep,
+    after: ?*std.Build.Step,
+) *std.Build.Step {
+    const auto_dir = b.pathFromRoot("zig-out/local-test/resource_editor/auto-" ++ auto.name);
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path(stage_root));
+    run.addArgs(&.{ "--auto", b.pathFromRoot("tools/zig/fixtures/resource_editor"), auto_dir });
+    run.setEnvironmentVariable("BK_EDITOR_AUTO", auto.prefix ++ auto.schedule ++ std.fmt.comptimePrint("{d}:exit", .{auto.exit_frame}));
+    run.has_side_effects = true;
+    run.step.dependOn(install_step);
+    run.step.dependOn(smoke_step);
+    if (after) |previous| run.step.dependOn(previous);
+    // The game's own screenshot dump (BK_AUTO_UI's shot) lands in the stage
+    // root it ran from: swept up like map-editor-auto does.
+    const cleanup = b.addRunArtifact(delete_matching);
+    cleanup.addArgs(&.{ stage_root, "autoshot_", ".rgba" });
+    cleanup.step.dependOn(&run.step);
+    return &cleanup.step;
+}
+
+const ResourceAutoStep = struct {
+    name: []const u8,
+    about: []const u8,
+    /// Entries at frame 1 that an earlier editor's block would have set up.
+    prefix: []const u8 = "",
+    schedule: []const u8,
+    /// One past the schedule's last frame.
+    exit_frame: u32,
+};
+
+/// The sprite block's do=preview_on stayed on for every later block of the old single run.
+const resource_auto_preview_on = "1:do=preview_on,";
+
+/// resource-editor-game-reads-it's schedule: per kind the tracked fixture is opened and exported into one mod
+/// (do=gri_copy, do=export, do=gri_mirror: where each kind lands and which shipped resource it replaces is a row
+/// of tools/zig/fixtures/resource_editor/game-reads-it.auto), then the real Game plays a multiplayer map with
+/// that mod and BK_MOD_TRACE, and expect=mod_read asks its log whether the exported file was opened from the mod.
+/// The maps are the shipped ones that load the replaced resources at their start; each is the only map to prove
+/// its kinds. The kinds the Game cannot be driven to load follow: for each the engine's own reader, through
+/// expect=reader_read, finds the chunk in the exported file, and result.log says why the Game was not used
+/// (PROOF=reader REASON=...). The gui screen is the exception at the end: the Game shows it, no map needed.
+const resource_game_reads_it =
+    "1:do=mod_dir:{mods}/reseditor_auto_gri," ++
+    // coldwinter loads one weapon, infantry, unit, object and fence of the exports.
+    "2:do=gri_copy:wpn," ++
+    "3:expect=kind:wpn," ++
+    "3:expect=dirty:false," ++
+    "4:do=export," ++
+    "5:expect=exported," ++
+    "5:do=gri_mirror:wpn," ++
+    "6:do=gri_copy:unt," ++
+    "7:expect=kind:unt," ++
+    "7:expect=dirty:false," ++
+    "8:do=export," ++
+    "9:expect=exported," ++
+    "9:do=gri_mirror:unt," ++
+    "10:do=gri_copy:msh," ++
+    "11:expect=kind:msh," ++
+    "11:expect=dirty:false," ++
+    "12:do=export," ++
+    "13:expect=exported," ++
+    "13:do=gri_mirror:msh," ++
+    "14:do=gri_copy:obt," ++
+    "15:expect=kind:obt," ++
+    "15:expect=dirty:false," ++
+    "16:do=export," ++
+    "17:expect=exported," ++
+    "17:do=gri_mirror:obt," ++
+    "18:do=gri_copy:fnc," ++
+    "19:expect=kind:fnc," ++
+    "19:expect=dirty:false," ++
+    "20:do=export," ++
+    "21:expect=exported," ++
+    "21:do=gri_mirror:fnc," ++
+    "23:do=run_game:coldwinter," ++
+    "24:waitgame=240," ++
+    "24:expect=game_log_clean," ++
+    "24:expect=mod_read:wpn," ++
+    "24:expect=mod_read:unt," ++
+    "24:expect=mod_read:msh," ++
+    "24:expect=mod_read:obt," ++
+    "24:expect=mod_read:fnc," ++
+    // lastchance loads a building, a squad and a mine.
+    "25:do=gri_copy:bld," ++
+    "26:expect=kind:bld," ++
+    "26:expect=dirty:false," ++
+    "27:do=export," ++
+    "28:expect=exported," ++
+    "28:do=gri_mirror:bld," ++
+    "29:do=gri_copy:scp," ++
+    "30:expect=kind:scp," ++
+    "30:expect=dirty:false," ++
+    "31:do=export," ++
+    "32:expect=exported," ++
+    "32:do=gri_mirror:scp," ++
+    "33:do=gri_copy:mcp," ++
+    "34:expect=kind:mcp," ++
+    "34:expect=dirty:false," ++
+    "35:do=export," ++
+    "36:expect=exported," ++
+    "36:do=gri_mirror:mcp," ++
+    "38:do=run_game:lastchance," ++
+    "39:waitgame=240," ++
+    "39:expect=game_log_clean," ++
+    "39:expect=mod_read:bld," ++
+    "39:expect=mod_read:scp," ++
+    "39:expect=mod_read:mcp," ++
+    // arnheim loads the bridge.
+    "40:do=gri_copy:bdg," ++
+    "41:expect=kind:bdg," ++
+    "41:expect=dirty:false," ++
+    "42:do=export," ++
+    "43:expect=exported," ++
+    "43:do=gri_mirror:bdg," ++
+    "45:do=run_game:arnheim," ++
+    "46:waitgame=240," ++
+    "46:expect=game_log_clean," ++
+    "46:expect=mod_read:bdg," ++
+    // The kinds the Game cannot be driven to load: the engine reader finds the exported file's chunk.
+    "48:do=gri_copy:pcp," ++
+    "49:expect=kind:pcp," ++
+    "49:expect=dirty:false," ++
+    "50:do=export," ++
+    "51:expect=exported," ++
+    "51:expect=reader_read:pcp," ++
+    "52:do=gri_copy:eff," ++
+    "53:expect=kind:eff," ++
+    "53:expect=dirty:false," ++
+    "54:do=export," ++
+    "55:expect=exported," ++
+    "55:expect=reader_read:eff," ++
+    "56:do=gri_copy:trc," ++
+    "57:expect=kind:trc," ++
+    "57:expect=dirty:false," ++
+    "58:do=export," ++
+    "59:expect=exported," ++
+    "59:expect=reader_read:trc," ++
+    "60:do=gri_copy:til," ++
+    "61:expect=kind:til," ++
+    "61:expect=dirty:false," ++
+    "62:do=export," ++
+    "63:expect=exported," ++
+    "63:expect=reader_read:til," ++
+    "64:do=gri_copy:3rd," ++
+    "65:expect=kind:3rd," ++
+    "65:expect=dirty:false," ++
+    "66:do=export," ++
+    "67:expect=exported," ++
+    "67:expect=reader_read:3rd," ++
+    "68:do=gri_copy:3rv," ++
+    "69:expect=kind:3rv," ++
+    "69:expect=dirty:false," ++
+    "70:do=export," ++
+    "71:expect=exported," ++
+    "71:expect=reader_read:3rv," ++
+    "72:do=gri_copy:chc," ++
+    "73:expect=kind:chc," ++
+    "73:expect=dirty:false," ++
+    "74:do=export," ++
+    "75:expect=exported," ++
+    "75:expect=reader_read:chc," ++
+    "76:do=gri_copy:cgc," ++
+    "77:expect=kind:cgc," ++
+    "77:expect=dirty:false," ++
+    "78:do=export," ++
+    "79:expect=exported," ++
+    "79:expect=reader_read:cgc," ++
+    "80:do=gri_copy:mdc," ++
+    "81:expect=kind:mdc," ++
+    "81:expect=dirty:false," ++
+    "82:do=export," ++
+    "83:expect=exported," ++
+    "83:expect=reader_read:mdc," ++
+    "84:do=gri_copy:spt," ++
+    "84:do=copy:{fix}/spt/sprite-1frame.tga>{dir}/src/spt/gri_spt/frames/s.tga," ++
+    "85:expect=kind:spt," ++
+    "85:do=set_prop:Directory=frames\\," ++
+    "85:do=frame:s," ++
+    "86:expect=dirty:true," ++
+    "86:save," ++
+    "87:do=export," ++
+    "88:expect=exported," ++
+    "88:expect=reader_read:spt," ++
+    "89:do=gri_copy:mip," ++
+    "89:do=copy_tree:{fix}/mip/final-map>{dir}/src/mip/gri_mip," ++
+    "90:open={dir}/src/mip/gri_mip/project.mip," ++
+    "91:expect=kind:mip," ++
+    "91:do=export," ++
+    "92:expect=exported," ++
+    "92:expect=reader_read:mip," ++
+    "93:do=copy:{data}/UI/MainMenu.xml>{dir}/src/gui/MainMenu.gui," ++
+    "94:open={dir}/src/gui/MainMenu.gui," ++
+    "95:expect=kind:gui," ++
+    "95:do=export," ++
+    "96:expect=exported," ++
+    "96:do=run_game," ++
+    "97:waitgame=120," ++
+    "97:expect=game_log_clean," ++
+    "97:expect=mod_read:gui," ++
+    "";
+
+const resource_game_reads_it_exit_frame = 98;
+
+/// The per-editor steps in run order.
+const resource_auto_steps = [_]ResourceAutoStep{
+    .{ .name = "core", .about = "Run BK_EDITOR_AUTO's core frames: new, open, edit, undo, save, export, pack, import and the exported mod in the Game", .schedule = resource_auto_core, .exit_frame = 60 },
+    .{ .name = "wpn", .about = "Run BK_EDITOR_AUTO's S06 stats sub-editors: Weapon, Mine, Trench and Squad (one step, each is short)", .schedule = resource_auto_wpn, .exit_frame = 132 },
+    .{ .name = "spt", .about = "Run BK_EDITOR_AUTO's Sprite (.spt) scenario", .schedule = resource_auto_spt, .exit_frame = 168 },
+    .{ .name = "unt", .about = "Run BK_EDITOR_AUTO's Infantry (.unt) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_unt, .exit_frame = 187 },
+    .{ .name = "msh", .about = "Run BK_EDITOR_AUTO's Unit (.msh) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_msh, .exit_frame = 232 },
+    .{ .name = "obt", .about = "Run BK_EDITOR_AUTO's Object (.obt) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_obt, .exit_frame = 286 },
+    .{ .name = "fnc", .about = "Run BK_EDITOR_AUTO's Fence (.fnc) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_fnc, .exit_frame = 331 },
+    .{ .name = "bld", .about = "Run BK_EDITOR_AUTO's Building (.bld) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bld, .exit_frame = 399 },
+    .{ .name = "bdg", .about = "Run BK_EDITOR_AUTO's Bridge (.bdg) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_bdg, .exit_frame = 459 },
+    .{ .name = "pcp", .about = "Run BK_EDITOR_AUTO's Particle (.pcp) scenario, the Function window's pointer path included", .prefix = resource_auto_preview_on, .schedule = resource_auto_pcp, .exit_frame = 539 },
+    .{ .name = "eff", .about = "Run BK_EDITOR_AUTO's Effect (.eff) scenario", .prefix = resource_auto_preview_on ++ "2:do=mod_dir:{mods}/reseditor_auto12,3:do=copy:{fix}/pcp/project.pcp>{dir}/particle-2key/project.pcp,4:open={dir}/particle-2key/project.pcp,5:expect=kind:pcp,6:do=export,6:expect=exported,", .schedule = resource_auto_eff, .exit_frame = 558 },
+    .{ .name = "til", .about = "Run BK_EDITOR_AUTO's Terrain (.til) scenario", .schedule = resource_auto_til, .exit_frame = 40 },
+    .{ .name = "3rd", .about = "Run BK_EDITOR_AUTO's 3D Road (.3rd) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_3rd, .exit_frame = 60 },
+    .{ .name = "3rv", .about = "Run BK_EDITOR_AUTO's 3D River (.3rv) scenario", .prefix = resource_auto_preview_on, .schedule = resource_auto_3rv, .exit_frame = 60 },
+    .{ .name = "mip", .about = "Run BK_EDITOR_AUTO's Mission (.mip) scenario: the generated map image, a click-placed objective, undo and redo, export with the .bzm", .schedule = resource_auto_mip, .exit_frame = 17 },
+    .{ .name = "chc", .about = "Run BK_EDITOR_AUTO's Chapter (.chc) scenario: a click-placed mission, Show crosses drag, undo and redo, export", .schedule = resource_auto_chc, .exit_frame = 23 },
+    .{ .name = "cgc", .about = "Run BK_EDITOR_AUTO's Campaign (.cgc) scenario: a click-placed chapter, Show crosses drag, undo and redo, export", .schedule = resource_auto_cgc, .exit_frame = 23 },
+    .{ .name = "mdc", .about = "Run BK_EDITOR_AUTO's Medal (.mdc) scenario: the picture shown and measured, export", .schedule = resource_auto_mdc, .exit_frame = 9 },
+    .{ .name = "gui", .about = "Run BK_EDITOR_AUTO's GUI screen (.gui) scenario: a template dragged onto MainMenu, moved, resized, aligned, undone, redone, saved, exported and shown by the Game, with its frame measured", .schedule = resource_auto_gui, .exit_frame = 48 },
+};
+
+/// The old single schedule's order. Nothing but the per-step constants' concatenation may stand here: the
+/// comptime check below keeps the table above equal to it, so a block cannot be dropped or reordered.
+const resource_auto_all = resource_auto_core ++ resource_auto_wpn ++ resource_auto_spt ++ resource_auto_unt ++
+    resource_auto_msh ++ resource_auto_obt ++ resource_auto_fnc ++ resource_auto_bld ++ resource_auto_bdg ++
+    resource_auto_pcp ++ resource_auto_eff ++ resource_auto_til ++ resource_auto_3rd ++ resource_auto_3rv ++
+    resource_auto_mip ++ resource_auto_chc ++ resource_auto_cgc ++ resource_auto_mdc ++ resource_auto_gui;
+
+comptime {
+    @setEvalBranchQuota(2_000_000);
+    var joined: []const u8 = "";
+    for (resource_auto_steps) |step| joined = joined ++ step.schedule;
+    if (!std.mem.eql(u8, joined, resource_auto_all)) @compileError("resource_auto_steps no longer concatenate to the whole schedule");
+}
+
+// Each per-editor schedule below is a block of the old single string (scenario.zig): one entry per line,
+// frames ascending, so a later slice appends a block rather than editing one long string. {dir}, {fix}
+// and {mods} are the scratch folder, the fixtures folder and the installation's mods folder.
+
+/// The core frames: new, open, edit, undo, save, export, pack, import and the exported mod in the real Game.
+const resource_auto_core =
+    // A new project of another kind first: it draws, and is untitled.
+    "1:do=new:wpn," ++
+    "2:expect=kind:wpn," ++
+    "3:expect=untitled," ++
+    "4:shot=new," ++
+    "5:expect=shot_lit:new," ++
+    // A copy of the tracked .unt opened: its tree and inspector change the frame.
+    "6:do=copy:{fix}/unt/project.unt>{dir}/work/project.unt," ++
+    "7:open={dir}/work/project.unt," ++
+    "8:expect=kind:unt," ++
+    "9:expect=nodes_min:2," ++
+    "10:expect=dirty:false," ++
+    "11:shot=opened," ++
+    "12:differ=new/opened@0.05," ++
+    // Edit, save, undo, save: one property, one undo step, the file follows.
+    "13:do=set_prop:Armor=9," ++
+    "14:expect=prop:Armor=9," ++
+    "15:expect=dirty:true," ++
+    "16:shot=edited," ++
+    "17:expect=shot_lit:edited," ++
+    "18:save," ++
+    "19:expect=dirty:false," ++
+    "20:do=undo," ++
+    "21:expect=prop:Armor=4," ++
+    "22:expect=dirty:true," ++
+    "23:save," ++
+    "24:expect=dirty:false," ++
+    // The infantry exporter (S07) writes this project into the mod folder; a
+    // tracked file stands in for further data so Compress to PAK, which the
+    // engine's own PAK reader reads back, and Run Blitzkrieg have a mod.
+    "25:do=mod_dir:{mods}/reseditor_auto," ++
+    "26:do=export," ++
+    "26:expect=exported," ++
+    "27:do=copy:{fix}/unt/mesh-2x2x2.obj>{mods}/reseditor_auto/data/x/m.obj," ++
+    "28:do=pack:{dir}/auto.pak," ++
+    "29:expect=file:{dir}/auto.pak," ++
+    "30:do=import:unt," ++
+    "31:expect=untitled," ++
+    "32:expect=dirty:true," ++
+    "33:shot=imported," ++
+    "34:expect=shot_lit:imported," ++
+    // View menu (A-13, A-16, A-17) on the imported project: the background
+    // colour paints the frame (pixel count of that colour from none to many),
+    // Collapse all and Expand all move the open items read back from the tree,
+    // and hiding the tree and the inspector changes the frame.
+    "35:expect=shot_colour:imported/336699/max/0," ++
+    "36:do=background:336699," ++
+    "37:expect=background:336699," ++
+    "38:shot=bg_on," ++
+    "39:expect=shot_colour:bg_on/336699/min/20000," ++
+    "40:do=expand_all," ++
+    "41:expect=expanded_min:1," ++
+    "42:do=collapse_all," ++
+    "43:expect=expanded:0," ++
+    "44:do=expand_toggle," ++
+    "45:expect=expanded:0," ++
+    "46:do=expand_toggle," ++
+    "47:expect=expanded_min:1," ++
+    "48:do=view:tree:off," ++
+    "49:do=view:inspector:off," ++
+    "50:expect=view:tree=off," ++
+    "51:shot=panels_off," ++
+    "52:differ=bg_on/panels_off@1," ++
+    "53:do=view:tree:on," ++
+    "54:do=view:inspector:on," ++
+    "55:do=view:status_bar:off," ++
+    "56:expect=view:status_bar=off," ++
+    "57:do=view:status_bar:on," ++
+    // The exported mod played in the real Game.
+    "58:do=run_game," ++
+    "59:waitgame=240,";
+
+/// S06's four stats sub-editors (Weapon, Mine, Trench, Squad) share one mod folder and one run.
+const resource_auto_wpn =
+    // S06: the four stats sub-editors, one block each on a copy of the tracked
+    // project, a mod folder of their own (the Game has left the first one).
+    // Per kind: open, the kind's tool, undo, redo, save, export. Squad, trench
+    // and mine also shoot the frame (the preview) and differ it from the last.
+    "40:do=mod_dir:{mods}/reseditor_auto_s06," ++
+    // Weapon (WeaponFrm): a shoot type inserted into the tree. MFC draws no
+    // preview for it (D015), so no shot.
+    "41:do=copy:{fix}/wpn/project.wpn>{dir}/wpn/project.wpn," ++
+    "42:open={dir}/wpn/project.wpn," ++
+    "43:expect=kind:wpn," ++
+    "44:expect=dirty:false," ++
+    "45:do=tree:add_shoot_type," ++
+    "46:expect=dirty:true," ++
+    "47:do=undo," ++
+    "48:expect=dirty:false," ++
+    "49:do=redo," ++
+    "50:expect=dirty:true," ++
+    "51:save," ++
+    "52:do=export," ++
+    "53:expect=exported," ++
+    // The weapon frame stands in for the unit one the mine is differed from when run alone.
+    "54:shot=weapon," ++
+    // Mine (MineFrm): the weight, then the preview of the compose.
+    "60:do=copy:{fix}/mcp/project.mcp>{dir}/mcp/project.mcp," ++
+    "61:do=copy:{fix}/mcp/1.tga>{dir}/mcp/1.tga," ++
+    "62:do=copy:{fix}/mcp/1s.tga>{dir}/mcp/1s.tga," ++
+    "63:open={dir}/mcp/project.mcp," ++
+    "64:expect=kind:mcp," ++
+    "65:shot=mine," ++
+    "66:expect=shot_lit:mine," ++
+    "67:differ=weapon/mine@0.02," ++
+    "68:do=set_prop:Weight=11," ++
+    "69:expect=prop:Weight=11," ++
+    "70:do=undo," ++
+    "71:expect=prop:Weight=10," ++
+    "72:do=redo," ++
+    "73:expect=prop:Weight=11," ++
+    "74:save," ++
+    "75:do=export," ++
+    "76:expect=exported," ++
+    // Trench (TrenchFrm): a source added to a side, then the preview.
+    "80:do=copy:{fix}/trc/project.trc>{dir}/trc/project.trc," ++
+    "81:do=copy:{fix}/trc/1.tga>{dir}/trc/1.tga," ++
+    "82:do=copy:{fix}/trc/1w.tga>{dir}/trc/1w.tga," ++
+    "83:do=copy:{fix}/trc/1a.tga>{dir}/trc/1a.tga," ++
+    "84:open={dir}/trc/project.trc," ++
+    "85:expect=kind:trc," ++
+    "86:shot=trench," ++
+    "87:expect=shot_lit:trench," ++
+    "88:differ=mine/trench@0.05," ++
+    "89:do=tree:add_source," ++
+    "90:expect=dirty:true," ++
+    "91:do=undo," ++
+    "92:expect=dirty:false," ++
+    "93:do=redo," ++
+    "94:expect=dirty:true," ++
+    "95:save," ++
+    "96:do=export," ++
+    "97:expect=exported," ++
+    // Squad (SquadFrm): a member dragged, the zero point, the direction arrow,
+    // each one undo step, then the formation overlay's frame.
+    "100:do=copy:{fix}/scp/project.scp>{dir}/scp/project.scp," ++
+    "101:do=copy:{fix}/scp/sprite-1frame.tga>{dir}/scp/sprite-1frame.tga," ++
+    "102:open={dir}/scp/project.scp," ++
+    "103:expect=kind:scp," ++
+    "104:do=squad_drag:0/25/-15," ++
+    "105:expect=slot:0=moved," ++
+    "106:do=undo," ++
+    "107:expect=slot:0=home," ++
+    "108:do=redo," ++
+    "109:expect=slot:0=moved," ++
+    "110:do=squad_zero:5/5," ++
+    "111:do=squad_dir:1.0," ++
+    "112:expect=direction:1.0," ++
+    "113:do=squad_arrow:5/15," ++
+    "114:expect=squad_dir:0," ++
+    "115:do=squad_arrow:15/5," ++
+    "116:expect=squad_dir:-1.5707964," ++
+    "117:do=undo," ++
+    "118:expect=squad_dir:0," ++
+    "119:do=undo," ++
+    "120:expect=squad_dir:1.0," ++
+    "121:do=undo," ++
+    "122:do=undo," ++
+    "123:do=redo," ++
+    "124:do=redo," ++
+    "125:expect=direction:1.0," ++
+    "126:shot=squad," ++
+    "127:expect=shot_lit:squad," ++
+    "128:differ=trench/squad@0.05," ++
+    "129:save," ++
+    "130:do=export," ++
+    "131:expect=exported,";
+
+/// S07 Sprite: Run and Stop of the preview measured, thumbnails, export.
+const resource_auto_spt =
+    // S07 Sprite (SpriteFrm): the frame folder pointed at, a thumbnail
+    // double-click, saved and exported (1.san + DDS), then Run and Stop of the
+    // preview measured: the running frames differ, the stopped ones are equal.
+    // The sprite plays once (bCycled false, as MFC exports it), three frames of
+    // 125 ms: the first shot is the frame Run draws (its first picture), the
+    // second comes after the whole animation and holds its last picture, so the
+    // two differ however slowly the runner draws.
+    "139:do=preview_on," ++
+    "140:do=mod_dir:{mods}/reseditor_auto_s07," ++
+    "141:do=copy:{fix}/spt/project.spt>{dir}/spt/project.spt," ++
+    "142:do=copy:{fix}/spt/sprite-1frame.tga>{dir}/spt/frames/sprite-1frame.tga," ++
+    "142:do=copy:{fix}/mcp/art-16x16.tga>{dir}/spt/frames/art-16x16.tga," ++
+    "143:open={dir}/spt/project.spt," ++
+    "144:expect=kind:spt," ++
+    "145:do=set_prop:Directory=frames\\," ++
+    "146:do=frame:sprite-1frame," ++
+    "146:do=frame:art-16x16," ++
+    "147:expect=dirty:true," ++
+    "148:save," ++
+    "149:do=export," ++
+    "150:expect=exported," ++
+    "151:do=preview_run," ++
+    "151:shot=sprite_a," ++
+    "153:do=pause:600," ++
+    "153:shot=sprite_b," ++
+    "154:differ=sprite_a/sprite_b@0.001," ++
+    "155:do=preview_stop," ++
+    "156:do=pause:100," ++
+    "157:shot=sprite_c," ++
+    "158:do=pause:200," ++
+    "158:shot=sprite_d," ++
+    "158:expect=shot_same:sprite_c/sprite_d," ++
+    "159:expect=shot_lit:sprite_d," ++
+    "160:do=undo," ++
+    "161:expect=dirty:true," ++
+    "162:do=redo," ++
+    "163:expect=dirty:false," ++
+    "164:do=delete_frame," ++
+    "165:expect=dirty:true," ++
+    "166:do=undo," ++
+    "167:expect=dirty:false,";
+
+/// S07 Infantry (.unt): season directory, export, Run and Stop of the preview.
+const resource_auto_unt =
+    // S07 Infantry (AnimationFrm): a season directory set, exported (1.xml,
+    // 1[b][w|a].san + DDS), Run and Stop of the preview, undo and redo.
+    "170:do=mod_dir:{mods}/reseditor_auto_s07," ++
+    "171:do=copy:{fix}/unt/project.unt>{dir}/unt/project.unt," ++
+    "172:open={dir}/unt/project.unt," ++
+    "173:expect=kind:unt," ++
+    "174:do=set_prop:Directory=frames\\," ++
+    "174:do=copy:{fix}/spt/sprite-1frame.tga>{dir}/unt/frames/sprite-1frame.tga," ++
+    "174:do=frame:sprite-1frame," ++
+    "175:save," ++
+    "176:do=export," ++
+    "177:expect=exported," ++
+    "178:do=preview_run," ++
+    "179:do=pause:150," ++
+    "180:shot=infantry," ++
+    "181:expect=shot_lit:infantry," ++
+    "182:do=preview_stop," ++
+    "183:do=undo," ++
+    "184:expect=dirty:true," ++
+    "185:do=redo," ++
+    "186:expect=dirty:false,";
+
+/// S08 Unit: Common value, the three model variants, locators, export and the real Game.
+const resource_auto_msh =
+    // S08 Unit (MeshFrm): a copy of the tracked fixture unit (its models and
+    // pictures beside it) opened, a Common value edited, undone and redone, the
+    // three model variants of the preview shot and differed, the locators shown
+    // and one picked at its screen point (the tree selects its node), then
+    // saved, exported (1.xml, the .mod copies) and played in the real Game.
+    "190:do=mod_dir:{mods}/reseditor_auto_s08," ++
+    "191:do=copy:{fix}/msh/project.msh>{dir}/msh/project.msh," ++
+    "191:do=copy:{fix}/msh/1.mod>{dir}/msh/1.mod," ++
+    "191:do=copy:{fix}/msh/2.mod>{dir}/msh/2.mod," ++
+    "191:do=copy:{fix}/msh/3.mod>{dir}/msh/3.mod," ++
+    "191:do=copy:{fix}/msh/1.tga>{dir}/msh/1.tga," ++
+    "191:do=copy:{fix}/msh/1w.tga>{dir}/msh/1w.tga," ++
+    "191:do=copy:{fix}/msh/1a.tga>{dir}/msh/1a.tga," ++
+    "191:do=copy:{fix}/msh/2.tga>{dir}/msh/2.tga," ++
+    "191:do=copy:{fix}/msh/2w.tga>{dir}/msh/2w.tga," ++
+    "191:do=copy:{fix}/msh/2a.tga>{dir}/msh/2a.tga," ++
+    "191:do=copy:{fix}/msh/icon.tga>{dir}/msh/icon.tga," ++
+    "191:do=copy:{fix}/msh/name.txt>{dir}/msh/name.txt," ++
+    "191:do=copy:{fix}/msh/desc.txt>{dir}/msh/desc.txt," ++
+    "192:open={dir}/msh/project.msh," ++
+    "193:expect=kind:msh," ++
+    "194:expect=nodes_min:20," ++
+    "195:expect=dirty:false," ++
+    "196:do=set_prop:Health=120," ++
+    "197:expect=prop:Health=120," ++
+    "198:expect=dirty:true," ++
+    "199:do=undo," ++
+    "200:expect=prop:Health=100," ++
+    "201:do=redo," ++
+    "202:expect=prop:Health=120," ++
+    "203:do=preview_run," ++
+    "204:do=pause:200," ++
+    "205:do=mesh_variant:0," ++
+    "206:do=pause:150," ++
+    "206:shot=unit_combat," ++
+    "207:expect=shot_lit:unit_combat," ++
+    "208:do=mesh_variant:1," ++
+    "209:do=pause:150," ++
+    "209:shot=unit_install," ++
+    "210:expect=shot_lit:unit_install," ++
+    "211:do=mesh_variant:2," ++
+    "212:do=pause:150," ++
+    "212:shot=unit_transportable," ++
+    "213:expect=shot_lit:unit_transportable," ++
+    "214:differ=unit_combat/unit_transportable@0.1," ++
+    "214:differ=unit_combat/unit_install@0.005," ++
+    "215:do=mesh_variant:0," ++
+    "216:do=locators:1," ++
+    "217:do=pause:150," ++
+    "217:shot=unit_locators," ++
+    "218:differ=unit_combat/unit_locators@0.001," ++
+    "219:do=pick_locator:LMainGun," ++
+    "220:expect=selected:LMainGun," ++
+    "221:do=pick_locator:Turret," ++
+    "222:expect=selected:Turret," ++
+    "223:expect=dirty:true," ++
+    "224:save," ++
+    "225:expect=dirty:false," ++
+    "226:do=export," ++
+    "227:expect=exported," ++
+    "228:expect=file:{mods}/reseditor_auto_s08/data/units/technics/msh/1.xml," ++
+    "228:expect=file:{mods}/reseditor_auto_s08/data/units/technics/msh/1.mod," ++
+    "229:do=preview_stop," ++
+    "230:do=run_game," ++
+    "231:waitgame=240,";
+
+/// S09 Object: locked, transparency and one-way grid edits measured in the shots.
+const resource_auto_obt =
+    // S09 Object (ObjectFrm): a copy of the tracked fixture and its art opened, a locked tile, a
+    // transparency tile and a one-way line drawn, the zero point moved, each checked in the stored
+    // grid before and after, then undone and redone, saved and exported. The preview shots are
+    // measured: a locked tile is 0xff0000, transparency value 3 is 0x606000 (GridFrm's colours).
+    "240:do=mod_dir:{mods}/reseditor_auto_s09o," ++
+    "241:do=copy:{fix}/obt/project.obt>{dir}/obt/project.obt," ++
+    "241:do=copy:{fix}/obt/1.tga>{dir}/obt/1.tga," ++
+    "241:do=copy:{fix}/obt/1s.tga>{dir}/obt/1s.tga," ++
+    "241:do=copy:{fix}/obt/1w.tga>{dir}/obt/1w.tga," ++
+    "241:do=copy:{fix}/obt/1ws.tga>{dir}/obt/1ws.tga," ++
+    "241:do=copy:{fix}/obt/1a.tga>{dir}/obt/1a.tga," ++
+    "241:do=copy:{fix}/obt/1as.tga>{dir}/obt/1as.tga," ++
+    "242:open={dir}/obt/project.obt," ++
+    "243:expect=kind:obt," ++
+    "243:expect=nodes_min:2," ++
+    "244:expect=dirty:false," ++
+    "244:expect=grid_cell:5/5=0," ++
+    "244:expect=trans_cell:6/4=0," ++
+    "244:expect=lines:2," ++
+    "246:shot=obt_base," ++
+    "247:expect=shot_colour:obt_base/ff0000/max/1750," ++
+    "247:expect=shot_colour:obt_base/606000/max/0," ++
+    "248:do=grid_cell:5/5/1," ++
+    "249:expect=grid_cell:5/5=1," ++
+    "249:expect=dirty:true," ++
+    "250:do=grid_trans:6/4/3," ++
+    "251:expect=trans_cell:6/4=3," ++
+    "252:do=trans_line:4/8/7/8," ++
+    "253:expect=lines:3," ++
+    "256:shot=obt_drawn," ++
+    "257:expect=shot_colour:obt_drawn/ff0000/min/1850," ++
+    "257:expect=shot_colour:obt_drawn/606000/min/150," ++
+    "258:do=grid_zero:3/3," ++
+    "259:expect=zero_tile:3/3," ++
+    "260:do=undo," ++
+    "261:expect=zero_tile:0/0," ++
+    "262:do=undo," ++
+    "263:expect=lines:2," ++
+    "264:do=undo," ++
+    "265:expect=trans_cell:6/4=0," ++
+    "266:do=undo," ++
+    "267:expect=grid_cell:5/5=0," ++
+    "268:expect=dirty:false," ++
+    "270:shot=obt_undone," ++
+    "271:expect=shot_colour:obt_undone/ff0000/max/1750," ++
+    "271:expect=shot_colour:obt_undone/606000/max/0," ++
+    "271:differ=obt_drawn/obt_undone@0.01," ++
+    "272:do=redo," ++
+    "272:do=redo," ++
+    "272:do=redo," ++
+    "272:do=redo," ++
+    "276:expect=grid_cell:5/5=1," ++
+    "276:expect=trans_cell:6/4=3," ++
+    "276:expect=lines:3," ++
+    "276:expect=zero_tile:3/3," ++
+    "277:save," ++
+    "278:expect=dirty:false," ++
+    "279:do=export," ++
+    "280:expect=exported," ++
+    "281:expect=file:{mods}/reseditor_auto_s09o/data/objects/obt/1.xml," ++
+    "281:expect=file:{mods}/reseditor_auto_s09o/data/objects/obt/1_c.dds," ++
+    "284:shot=obt_saved," ++
+    "285:expect=shot_lit:obt_saved,";
+
+/// S09 Fence: the first segment's grid and the sprite's tile.
+const resource_auto_fnc =
+    // S09 Fence (FenceFrm): the first segment's locked tile and transparency tile drawn, the sprite
+    // centred on a tile, each checked before and after, undone, redone, saved and exported.
+    "290:do=mod_dir:{mods}/reseditor_auto_s09f," ++
+    "291:do=copy:{fix}/fnc/project.fnc>{dir}/fnc/project.fnc," ++
+    "291:do=copy:{fix}/fnc/fences/art-16x16.tga>{dir}/fnc/fences/art-16x16.tga," ++
+    "291:do=copy:{fix}/fnc/fences/art-16x16s.tga>{dir}/fnc/fences/art-16x16s.tga," ++
+    "291:do=copy:{fix}/fnc/fences/ne-left.tga>{dir}/fnc/fences/ne-left.tga," ++
+    "291:do=copy:{fix}/fnc/fences/ne-lefts.tga>{dir}/fnc/fences/ne-lefts.tga," ++
+    "291:do=copy:{fix}/fnc/fences/nw.tga>{dir}/fnc/fences/nw.tga," ++
+    "291:do=copy:{fix}/fnc/fences/nws.tga>{dir}/fnc/fences/nws.tga," ++
+    "291:do=copy:{fix}/fnc/fences/sw.tga>{dir}/fnc/fences/sw.tga," ++
+    "291:do=copy:{fix}/fnc/fences/sws.tga>{dir}/fnc/fences/sws.tga," ++
+    "291:do=copy:{fix}/fnc/fences/se.tga>{dir}/fnc/fences/se.tga," ++
+    "291:do=copy:{fix}/fnc/fences/ses.tga>{dir}/fnc/fences/ses.tga," ++
+    "292:open={dir}/fnc/project.fnc," ++
+    "293:expect=kind:fnc," ++
+    "293:expect=nodes_min:2," ++
+    "294:expect=dirty:false," ++
+    "294:expect=grid_cell:19/17=0," ++
+    "294:expect=trans_cell:18/19=0," ++
+    "294:expect=sprite_tile:16/16," ++
+    "296:shot=fnc_base," ++
+    "297:expect=shot_colour:fnc_base/ff0000/max/0," ++
+    "297:expect=shot_colour:fnc_base/808000/max/0," ++
+    "298:do=grid_cell:19/17/1," ++
+    "299:expect=grid_cell:19/17=1," ++
+    "299:expect=dirty:true," ++
+    "300:do=grid_trans:18/19/4," ++
+    "301:expect=trans_cell:18/19=4," ++
+    "302:do=fence_centre:20/20," ++
+    "303:expect=sprite_tile:20/20," ++
+    "306:shot=fnc_drawn," ++
+    "307:expect=shot_colour:fnc_drawn/ff0000/min/200," ++
+    "307:expect=shot_colour:fnc_drawn/808000/min/150," ++
+    "308:do=undo," ++
+    "309:expect=sprite_tile:16/16," ++
+    "310:do=undo," ++
+    "311:expect=trans_cell:18/19=0," ++
+    "312:do=undo," ++
+    "313:expect=grid_cell:19/17=0," ++
+    "314:expect=dirty:false," ++
+    "316:shot=fnc_undone," ++
+    "317:expect=shot_colour:fnc_undone/ff0000/max/0," ++
+    "317:expect=shot_colour:fnc_undone/808000/max/0," ++
+    "317:differ=fnc_drawn/fnc_undone@0.01," ++
+    "318:do=redo," ++
+    "319:do=redo," ++
+    "320:do=redo," ++
+    "321:expect=grid_cell:19/17=1," ++
+    "321:expect=trans_cell:18/19=4," ++
+    "321:expect=sprite_tile:20/20," ++
+    "322:save," ++
+    "323:expect=dirty:false," ++
+    "324:do=export," ++
+    "325:expect=exported," ++
+    "326:expect=file:{mods}/reseditor_auto_s09f/data/fences/fnc/1.xml," ++
+    "326:expect=file:{mods}/reseditor_auto_s09f/data/fences/fnc/1_c.dds," ++
+    "329:shot=fnc_saved," ++
+    "330:expect=shot_lit:fnc_saved,";
+
+/// S10 Building: grid, entrance, zero point and the point families.
+const resource_auto_bld =
+    // S10 Building (BuildFrm): a copy of the tracked fixture and its art opened, locked and
+    // transparency tiles, the entrance and the zero point set, one point of each family placed
+    // (the directed explosions generated), one turned, then undone, redone, saved and exported.
+    // The shots are measured: a locked tile is 0xff0000, transparency value 3 is 0x606000, the
+    // entrance 0x00ff00, the active fire point 0xff8000, the active directed explosion 0xff00ff,
+    // the active point's cone edges and direction line 0xffff00.
+    "340:do=mod_dir:{mods}/reseditor_auto_s10," ++
+    "341:do=copy:{fix}/bld/project.bld>{dir}/bld/project.bld," ++
+    "341:do=copy:{fix}/bld/1.tga>{dir}/bld/1.tga," ++
+    "341:do=copy:{fix}/bld/1s.tga>{dir}/bld/1s.tga," ++
+    "341:do=copy:{fix}/bld/1w.tga>{dir}/bld/1w.tga," ++
+    "341:do=copy:{fix}/bld/1ws.tga>{dir}/bld/1ws.tga," ++
+    "341:do=copy:{fix}/bld/2.tga>{dir}/bld/2.tga," ++
+    "341:do=copy:{fix}/bld/2g.tga>{dir}/bld/2g.tga," ++
+    "341:do=copy:{fix}/bld/2s.tga>{dir}/bld/2s.tga," ++
+    "341:do=copy:{fix}/bld/2w.tga>{dir}/bld/2w.tga," ++
+    "341:do=copy:{fix}/bld/2wg.tga>{dir}/bld/2wg.tga," ++
+    "341:do=copy:{fix}/bld/2ws.tga>{dir}/bld/2ws.tga," ++
+    "341:do=copy:{fix}/bld/3.tga>{dir}/bld/3.tga," ++
+    "341:do=copy:{fix}/bld/3g.tga>{dir}/bld/3g.tga," ++
+    "341:do=copy:{fix}/bld/3s.tga>{dir}/bld/3s.tga," ++
+    "341:do=copy:{fix}/bld/3w.tga>{dir}/bld/3w.tga," ++
+    "341:do=copy:{fix}/bld/3wg.tga>{dir}/bld/3wg.tga," ++
+    "341:do=copy:{fix}/bld/3ws.tga>{dir}/bld/3ws.tga," ++
+    "341:do=copy:{fix}/bld/art-16x16.tga>{dir}/bld/art-16x16.tga," ++
+    "342:open={dir}/bld/project.bld," ++
+    "343:expect=kind:bld," ++
+    "343:expect=nodes_min:2," ++
+    "344:expect=dirty:false," ++
+    "346:shot=bld_base," ++
+    "347:expect=shot_colour:bld_base/ff0000/max/20," ++
+    "347:expect=shot_colour:bld_base/606000/max/0," ++
+    "347:expect=shot_colour:bld_base/c0c0c0/max/12500," ++
+    "348:do=grid_cell:28/28/1," ++
+    "348:do=grid_cell:29/28/1," ++
+    "349:do=grid_trans:30/28/3," ++
+    "350:do=entrance:31/31," ++
+    "351:do=grid_zero:30/30," ++
+    "352:expect=grid_cell:28/28=1," ++
+    "352:expect=trans_cell:30/28=3," ++
+    "352:expect=entrance_tile:31/31," ++
+    "352:expect=zero_tile:30/30," ++
+    "352:expect=dirty:true," ++
+    "355:shot=bld_tiles," ++
+    "356:expect=shot_colour:bld_tiles/ff0000/min/380," ++
+    "356:expect=shot_colour:bld_tiles/606000/min/150," ++
+    "357:do=point:shoot/33/30," ++
+    "358:expect=points:shoot=1," ++
+    "359:do=point:fire/35/30," ++
+    "360:expect=points:fire=1," ++
+    "362:shot=bld_fire," ++
+    "363:expect=shot_colour:bld_fire/ff8000/min/40," ++
+    "364:do=point:smoke/33/33," ++
+    "365:expect=points:smoke=1," ++
+    "366:do=generate_points:smoke," ++
+    "367:expect=points:smoke=2," ++
+    "368:do=point_select:smoke/0," ++
+    "370:shot=bld_dir," ++
+    "371:expect=shot_colour:bld_dir/c0c0c0/min/20000," ++
+    "372:do=point_select:shoot/0," ++
+    "373:do=point_angle:0/90," ++
+    "374:do=point_cone:0/40," ++
+    "375:expect=point:shoot/0=90/40," ++
+    "376:do=point_move:0/34/31," ++
+    "378:shot=bld_points," ++
+    "379:expect=shot_colour:bld_points/ffff00/min/25," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "380:do=undo," ++
+    "382:expect=points:shoot=0," ++
+    "382:expect=points:fire=0," ++
+    "382:expect=points:smoke=0," ++
+    "382:expect=grid_cell:28/28=0," ++
+    "382:expect=dirty:false," ++
+    "384:shot=bld_undone," ++
+    "385:expect=shot_colour:bld_undone/ff0000/max/20," ++
+    "385:expect=shot_colour:bld_undone/606000/max/0," ++
+    "385:expect=shot_colour:bld_undone/ff8000/max/0," ++
+    "385:expect=shot_colour:bld_undone/c0c0c0/max/12500," ++
+    "385:expect=shot_colour:bld_undone/ffff00/max/0," ++
+    "385:differ=bld_tiles/bld_undone@0.01," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "386:do=redo," ++
+    "390:expect=points:shoot=1," ++
+    "390:expect=points:fire=1," ++
+    "390:expect=points:smoke=2," ++
+    "390:expect=point:shoot/0=90/40," ++
+    "391:save," ++
+    "392:expect=dirty:false," ++
+    "393:do=export," ++
+    "394:expect=exported," ++
+    "397:shot=bld_saved," ++
+    "398:expect=shot_lit:bld_saved,";
+
+/// S11 Bridge: span marks, grid and the fire and smoke points.
+const resource_auto_bdg =
+    // S11 Bridge (BridgeFrm): a copy of the tracked fixture and its art opened, two locked tiles of the
+    // active span part, the four span marks, a fire and a smoke point placed, all undone and redone, then
+    // saved and exported. The shots are measured: the red bridge line and the locked tiles are 0xff0000,
+    // the span-mark crosses 0x00ffff, the active fire point 0xff8000, the active smoke point 0xc0c0c0.
+    "410:do=mod_dir:{mods}/reseditor_auto_s11," ++
+    "411:do=copy:{fix}/bdg/1-begin-back.tga>{dir}/bdg/1-begin-back.tga," ++
+    "411:do=copy:{fix}/bdg/1-begin-backs.tga>{dir}/bdg/1-begin-backs.tga," ++
+    "411:do=copy:{fix}/bdg/1-begin-front.tga>{dir}/bdg/1-begin-front.tga," ++
+    "411:do=copy:{fix}/bdg/1-begin-fronts.tga>{dir}/bdg/1-begin-fronts.tga," ++
+    "411:do=copy:{fix}/bdg/1-begin-slab.tga>{dir}/bdg/1-begin-slab.tga," ++
+    "411:do=copy:{fix}/bdg/1-begin-slabs.tga>{dir}/bdg/1-begin-slabs.tga," ++
+    "411:do=copy:{fix}/bdg/1-center-back.tga>{dir}/bdg/1-center-back.tga," ++
+    "411:do=copy:{fix}/bdg/1-center-backs.tga>{dir}/bdg/1-center-backs.tga," ++
+    "411:do=copy:{fix}/bdg/1-center-front.tga>{dir}/bdg/1-center-front.tga," ++
+    "411:do=copy:{fix}/bdg/1-center-fronts.tga>{dir}/bdg/1-center-fronts.tga," ++
+    "411:do=copy:{fix}/bdg/1-center-slab.tga>{dir}/bdg/1-center-slab.tga," ++
+    "411:do=copy:{fix}/bdg/1-center-slabs.tga>{dir}/bdg/1-center-slabs.tga," ++
+    "411:do=copy:{fix}/bdg/1-end-back.tga>{dir}/bdg/1-end-back.tga," ++
+    "411:do=copy:{fix}/bdg/1-end-backs.tga>{dir}/bdg/1-end-backs.tga," ++
+    "411:do=copy:{fix}/bdg/1-end-front.tga>{dir}/bdg/1-end-front.tga," ++
+    "411:do=copy:{fix}/bdg/1-end-fronts.tga>{dir}/bdg/1-end-fronts.tga," ++
+    "411:do=copy:{fix}/bdg/1-end-slab.tga>{dir}/bdg/1-end-slab.tga," ++
+    "411:do=copy:{fix}/bdg/1-end-slabs.tga>{dir}/bdg/1-end-slabs.tga," ++
+    "411:do=copy:{fix}/bdg/2-begin-back.tga>{dir}/bdg/2-begin-back.tga," ++
+    "411:do=copy:{fix}/bdg/2-begin-backs.tga>{dir}/bdg/2-begin-backs.tga," ++
+    "411:do=copy:{fix}/bdg/2-begin-front.tga>{dir}/bdg/2-begin-front.tga," ++
+    "411:do=copy:{fix}/bdg/2-begin-fronts.tga>{dir}/bdg/2-begin-fronts.tga," ++
+    "411:do=copy:{fix}/bdg/2-begin-slab.tga>{dir}/bdg/2-begin-slab.tga," ++
+    "411:do=copy:{fix}/bdg/2-begin-slabs.tga>{dir}/bdg/2-begin-slabs.tga," ++
+    "411:do=copy:{fix}/bdg/2-center-back.tga>{dir}/bdg/2-center-back.tga," ++
+    "411:do=copy:{fix}/bdg/2-center-backs.tga>{dir}/bdg/2-center-backs.tga," ++
+    "411:do=copy:{fix}/bdg/2-center-front.tga>{dir}/bdg/2-center-front.tga," ++
+    "411:do=copy:{fix}/bdg/2-center-fronts.tga>{dir}/bdg/2-center-fronts.tga," ++
+    "411:do=copy:{fix}/bdg/2-center-slab.tga>{dir}/bdg/2-center-slab.tga," ++
+    "411:do=copy:{fix}/bdg/2-center-slabs.tga>{dir}/bdg/2-center-slabs.tga," ++
+    "411:do=copy:{fix}/bdg/2-end-back.tga>{dir}/bdg/2-end-back.tga," ++
+    "411:do=copy:{fix}/bdg/2-end-backs.tga>{dir}/bdg/2-end-backs.tga," ++
+    "411:do=copy:{fix}/bdg/2-end-front.tga>{dir}/bdg/2-end-front.tga," ++
+    "411:do=copy:{fix}/bdg/2-end-fronts.tga>{dir}/bdg/2-end-fronts.tga," ++
+    "411:do=copy:{fix}/bdg/2-end-slab.tga>{dir}/bdg/2-end-slab.tga," ++
+    "411:do=copy:{fix}/bdg/2-end-slabs.tga>{dir}/bdg/2-end-slabs.tga," ++
+    "411:do=copy:{fix}/bdg/3-begin-back.tga>{dir}/bdg/3-begin-back.tga," ++
+    "411:do=copy:{fix}/bdg/3-begin-backs.tga>{dir}/bdg/3-begin-backs.tga," ++
+    "411:do=copy:{fix}/bdg/3-begin-front.tga>{dir}/bdg/3-begin-front.tga," ++
+    "411:do=copy:{fix}/bdg/3-begin-fronts.tga>{dir}/bdg/3-begin-fronts.tga," ++
+    "411:do=copy:{fix}/bdg/3-begin-slab.tga>{dir}/bdg/3-begin-slab.tga," ++
+    "411:do=copy:{fix}/bdg/3-begin-slabs.tga>{dir}/bdg/3-begin-slabs.tga," ++
+    "411:do=copy:{fix}/bdg/3-center-back.tga>{dir}/bdg/3-center-back.tga," ++
+    "411:do=copy:{fix}/bdg/3-center-backs.tga>{dir}/bdg/3-center-backs.tga," ++
+    "411:do=copy:{fix}/bdg/3-center-front.tga>{dir}/bdg/3-center-front.tga," ++
+    "411:do=copy:{fix}/bdg/3-center-fronts.tga>{dir}/bdg/3-center-fronts.tga," ++
+    "411:do=copy:{fix}/bdg/3-center-slab.tga>{dir}/bdg/3-center-slab.tga," ++
+    "411:do=copy:{fix}/bdg/3-center-slabs.tga>{dir}/bdg/3-center-slabs.tga," ++
+    "411:do=copy:{fix}/bdg/3-end-back.tga>{dir}/bdg/3-end-back.tga," ++
+    "411:do=copy:{fix}/bdg/3-end-backs.tga>{dir}/bdg/3-end-backs.tga," ++
+    "411:do=copy:{fix}/bdg/3-end-front.tga>{dir}/bdg/3-end-front.tga," ++
+    "411:do=copy:{fix}/bdg/3-end-fronts.tga>{dir}/bdg/3-end-fronts.tga," ++
+    "411:do=copy:{fix}/bdg/3-end-slab.tga>{dir}/bdg/3-end-slab.tga," ++
+    "411:do=copy:{fix}/bdg/3-end-slabs.tga>{dir}/bdg/3-end-slabs.tga," ++
+    "411:do=copy:{fix}/bdg/art-16x16.tga>{dir}/bdg/art-16x16.tga," ++
+    "411:do=copy:{fix}/bdg/project.bdg>{dir}/bdg/project.bdg," ++
+    "412:open={dir}/bdg/project.bdg," ++
+    "413:expect=kind:bdg," ++
+    "413:expect=nodes_min:2," ++
+    "414:expect=dirty:false," ++
+    "416:shot=bdg_base," ++
+    "417:expect=shot_colour:bdg_base/ff0000/max/300," ++
+    "417:expect=shot_colour:bdg_base/00ffff/min/150," ++
+    "417:expect=shot_colour:bdg_base/ff8000/max/0," ++
+    "417:expect=span_mark:begin=home," ++
+    "417:expect=span_mark:front=home," ++
+    "418:do=grid_cell:10/10/1," ++
+    "418:do=grid_cell:11/10/1," ++
+    "419:expect=grid_cell:10/10=1," ++
+    "419:expect=dirty:true," ++
+    "421:shot=bdg_tiles," ++
+    "422:expect=shot_colour:bdg_tiles/ff0000/min/550," ++
+    "423:do=span_mark:begin/17/17," ++
+    "423:do=span_mark:end/20/17," ++
+    "424:do=span_mark:front/18/19," ++
+    "424:do=span_mark:back/18/15," ++
+    "425:expect=span_mark:begin=moved," ++
+    "425:expect=span_mark:end=moved," ++
+    "425:expect=span_mark:front=moved," ++
+    "425:expect=span_mark:back=moved," ++
+    "427:shot=bdg_marks," ++
+    "428:expect=shot_colour:bdg_marks/00ffff/min/300," ++
+    "429:do=point:fire/13/10," ++
+    "430:expect=points:fire=2," ++
+    "431:shot=bdg_fire," ++
+    "432:expect=shot_colour:bdg_fire/ff8000/min/40," ++
+    "433:do=point:smoke/12/13," ++
+    "434:expect=points:smoke=2," ++
+    "436:shot=bdg_points," ++
+    "437:differ=bdg_fire/bdg_points@0.0001," ++
+    "440:do=undo," ++
+    "440:do=undo," ++
+    "440:do=undo," ++
+    "440:do=undo," ++
+    "440:do=undo," ++
+    "440:do=undo," ++
+    "440:do=undo," ++
+    "440:do=undo," ++
+    "442:expect=points:fire=1," ++
+    "442:expect=points:smoke=1," ++
+    "442:expect=grid_cell:10/10=0," ++
+    "442:expect=span_mark:begin=home," ++
+    "442:expect=span_mark:front=home," ++
+    "442:expect=dirty:false," ++
+    "444:shot=bdg_undone," ++
+    "445:expect=shot_colour:bdg_undone/ff0000/max/300," ++
+    "445:expect=shot_colour:bdg_undone/00ffff/min/150," ++
+    "445:expect=shot_colour:bdg_undone/ff8000/max/0," ++
+    "445:differ=bdg_tiles/bdg_undone@0.01," ++
+    "446:do=redo," ++
+    "446:do=redo," ++
+    "446:do=redo," ++
+    "446:do=redo," ++
+    "446:do=redo," ++
+    "446:do=redo," ++
+    "446:do=redo," ++
+    "446:do=redo," ++
+    "450:expect=points:fire=2," ++
+    "450:expect=points:smoke=2," ++
+    "450:expect=grid_cell:11/10=1," ++
+    "450:expect=span_mark:end=moved," ++
+    "451:save," ++
+    "452:expect=dirty:false," ++
+    "453:do=export," ++
+    "454:expect=exported," ++
+    "455:expect=file:{mods}/reseditor_auto_s11/data/bridges/bdg/1.xml," ++
+    "455:expect=file:{mods}/reseditor_auto_s11/data/bridges/bdg/1_c.dds," ++
+    "457:shot=bdg_saved," ++
+    "458:expect=shot_lit:bdg_saved,";
+
+/// S12 Particle (with S13's source toggle and the Function window's pointer path).
+const resource_auto_pcp =
+    // S12 Particle (ParticleFrm) and Effect (EffectFrm): a copy of the tracked .pcp opened, its Opacity
+    // curve edited in the Function window's editor (add, move, delete, Reset all, each undone and redone with
+    // the keys read back through the bridge; the zoom steps), saved and exported, then Run, Stop and Camera
+    // of the preview measured (the running frames differ, the stopped ones are equal, the horizontal camera
+    // draws another frame) and the curve edited again. A shipped particle imports; the .eff imports not
+    // (MFC has no reverse path); an .eff exports next to its source and its Run names the missing source.
+    "480:do=mod_dir:{mods}/reseditor_auto12," ++
+    "481:do=copy:{fix}/pcp/project.pcp>{dir}/particle-2key/project.pcp," ++
+    "482:open={dir}/particle-2key/project.pcp," ++
+    "483:expect=kind:pcp," ++
+    "483:expect=nodes_min:5," ++
+    "484:do=curve:Opacity," ++
+    "484:expect=keys:1," ++
+    "485:do=keyframe:add/0.5/200," ++
+    "485:expect=keys:2," ++
+    "485:expect=key:1=0.5/200," ++
+    "485:expect=dirty:true," ++
+    "486:do=keyframe:add/0.8/50," ++
+    "486:expect=keys:3," ++
+    "486:expect=key:2=0.8/50," ++
+    "487:do=undo," ++
+    "487:expect=keys:2," ++
+    "488:do=redo," ++
+    "488:expect=keys:3," ++
+    "488:expect=key:2=0.8/50," ++
+    "489:do=keyframe:move/1/0.4/120," ++
+    "489:expect=keys:3," ++
+    "489:expect=key:1=0.4/120," ++
+    "490:do=undo," ++
+    "490:expect=key:1=0.5/200," ++
+    "491:do=redo," ++
+    "491:expect=key:1=0.4/120," ++
+    "492:do=keyframe:delete/2," ++
+    "492:expect=keys:2," ++
+    "493:do=undo," ++
+    "493:expect=keys:3," ++
+    "494:do=redo," ++
+    "494:expect=keys:2," ++
+    "495:do=keyframe:add/0.9/30," ++
+    "495:expect=keys:3," ++
+    "496:do=keyframe:reset," ++
+    "496:expect=keys:1," ++
+    "497:do=undo," ++
+    "497:expect=keys:3," ++
+    "498:do=redo," ++
+    "498:expect=keys:1," ++
+    "499:do=undo," ++
+    "499:expect=keys:3," ++
+    "500:do=keyframe:zoomy_out," ++
+    "500:expect=zoom:29/20," ++
+    "500:do=keyframe:zoomy_in," ++
+    "500:expect=zoom:29/25," ++
+    "500:do=keyframe:zoomy_in," ++
+    "500:expect=zoom:29/50," ++
+    "500:expect=keys:3," ++
+    "500:expect=dirty:true," ++
+    "501:save," ++
+    "501:expect=dirty:false," ++
+    "502:do=export," ++
+    "502:expect=exported," ++
+    "502:expect=file:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
+    "503:shot=pcp_idle," ++
+    "504:do=curve:Life," ++
+    "504:do=keyframe:zoomx_in," ++
+    "504:expect=zoom:29/25," ++
+    "504:do=keyframe:zoomx_out," ++
+    "504:do=keyframe:zoomx_out," ++
+    "504:expect=zoom:29/25," ++
+    "504:do=curve:Opacity," ++
+    "505:do=particle_info," ++
+    "505:expect=particle_info:present," ++
+    // S13 T02: the Particle source toggle. The mode the bridge reads equals the flag each export writes, in
+    // both directions, and undo and redo flip it back and forth; the project ends simple, as it began.
+    "506:expect=source_mode:simple," ++
+    "506:do=export," ++
+    "506:expect=export_simple:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
+    "507:do=source_mode:complex," ++
+    "507:expect=source_mode:complex," ++
+    "507:do=export," ++
+    "507:expect=export_complex:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
+    "508:do=undo," ++
+    "508:expect=source_mode:simple," ++
+    "508:do=export," ++
+    "508:expect=export_simple:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
+    "509:do=redo," ++
+    "509:expect=source_mode:complex," ++
+    "509:do=export," ++
+    "509:expect=export_complex:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
+    "509:do=source_mode:simple," ++
+    "509:expect=source_mode:simple," ++
+    "509:do=export," ++
+    "509:expect=export_simple:{mods}/reseditor_auto12/data/effects/particles/particle-2key.xml," ++
+    "510:do=preview_run," ++
+    "512:do=pause:300," ++
+    "512:shot=pcp_run_a," ++
+    "513:do=pause:400," ++
+    "513:shot=pcp_run_b," ++
+    "513:differ=pcp_run_a/pcp_run_b@0.05," ++
+    "514:do=preview_stop," ++
+    "515:do=pause:100," ++
+    "516:shot=pcp_stop_c," ++
+    "517:do=pause:300," ++
+    "517:shot=pcp_stop_d," ++
+    "517:expect=shot_same:pcp_stop_c/pcp_stop_d," ++
+    "517:expect=shot_lit:pcp_stop_d," ++
+    "518:do=camera," ++
+    "518:expect=camera:horizontal," ++
+    "519:do=pause:100," ++
+    "519:shot=pcp_cam_h," ++
+    "519:differ=pcp_stop_d/pcp_cam_h@0.02," ++
+    "520:do=camera," ++
+    "520:expect=camera:default," ++
+    "521:do=pause:100," ++
+    "521:shot=pcp_cam_d," ++
+    "521:differ=pcp_cam_h/pcp_cam_d@0.02," ++
+    "522:do=keyframe:move/0/0/255," ++
+    "522:expect=key:0=0/255," ++
+    "523:do=preview_run," ++
+    "524:do=pause:300," ++
+    "524:shot=pcp_edit," ++
+    "524:expect=shot_lit:pcp_edit," ++
+    "524:differ=pcp_idle/pcp_edit@0.05," ++
+    "525:do=preview_stop," ++
+    // S13 T04: the same Opacity curve edited through the displayed Function window with real pointer and key
+    // events (Ctrl+F opens it): a click on empty graph space adds a key, a drag over four frames moves it, a click
+    // then the Delete key removes it. Each gesture reads the stored keys back through the bridge, then undoes and
+    // redoes them; the widget's key handle is measured in the captured frame at its drawn place.
+    "525:do=function_open," ++
+    "525:expect=keys:3," ++
+    "526:do=curve_click:0.6/150," ++
+    "526:expect=keys:4," ++
+    "527:shot=pcp_fn_add," ++
+    "527:expect=shot_curve_handle:pcp_fn_add/2," ++
+    "528:do=curve_drag:2/0.65/90," ++
+    "528:expect=keys:4," ++
+    "529:shot=pcp_fn_drag," ++
+    "529:expect=shot_curve_handle:pcp_fn_drag/2," ++
+    "530:do=curve_delete:2," ++
+    "530:expect=keys:3," ++
+    "531:shot=pcp_fn_delete," ++
+    "531:expect=shot_lit:pcp_fn_delete," ++
+    "532:do=function_close," ++
+    "533:do=import_file:pcp/{mods}/../Data/Effects/Particles/flame.xml," ++
+    "534:expect=kind:pcp," ++
+    "534:expect=nodes_min:5," ++
+    "534:expect=untitled," ++
+    "534:do=copy:{fix}/pcp/project.pcp>{dir}/imported/seed.pcp," ++
+    "535:saveas={dir}/imported/project.pcp," ++
+    "536:do=export," ++
+    "536:expect=exported," ++
+    "536:expect=file:{mods}/reseditor_auto12/data/effects/particles/imported.xml," ++
+    "537:do=import_refused:eff/{mods}/../Data/Effects/Particles/flame.xml,";
+
+/// S12 Effect (with S13's whole-number position and the Direction dock).
+const resource_auto_eff =
+    "539:do=copy:{fix}/eff/project.eff>{dir}/eff-1/project.eff," ++
+    "540:open={dir}/eff-1/project.eff," ++
+    "541:expect=kind:eff," ++
+    "541:expect=nodes_min:5," ++
+    "542:do=export," ++
+    "542:expect=exported," ++
+    "543:do=preview_refused:particle-2key," ++
+    // S13 T03: the Effect editor. A child's X position is a whole number: the edit reads back, is one undo
+    // step and exports; the Direction dock's needle is view state (45 degrees on open, turned to 90 and back,
+    // never dirty, never undone).
+    "544:expect=effect_angle:0," ++
+    "544:do=set_prop:X_position=120," ++
+    "544:expect=prop:X_position=120," ++
+    "544:expect=dirty:true," ++
+    "544:do=effect_direction:90," ++
+    "544:expect=effect_angle:90," ++
+    "544:do=undo," ++
+    "544:expect=prop:X_position=0," ++
+    "544:expect=effect_angle:90," ++
+    "544:do=redo," ++
+    "544:expect=prop:X_position=120," ++
+    "544:do=set_prop:X_position=7.9," ++
+    "544:expect=prop:X_position=7," ++
+    "544:do=effect_direction:0," ++
+    "544:expect=effect_angle:0," ++
+    "544:do=export," ++
+    "544:expect=exported," ++
+    "545:expect=file:{mods}/reseditor_auto12/data/effects/effects/eff-1.xml,";
+
+
+/// S13 Terrain (.til, TileSetFrm): a copy of the tracked fixture opened, a tile added by the thumbnail
+/// double-click and undone and redone with the item count asserted, the T08 terrains import, then the
+/// export (tileset xml and its DDS atlas). The tileset has no preview (its GameWnd is hidden in MFC).
+const resource_auto_til =
+    "1:do=mod_dir:{mods}/reseditor_auto13_til," ++
+    "2:do=copy:{fix}/til/project.til>{dir}/til/project.til," ++
+    "2:do=copy:{fix}/til/art-16x16.tga>{dir}/til/art-16x16.tga," ++
+    "3:open={dir}/til/project.til," ++
+    "4:expect=kind:til," ++
+    "4:expect=dirty:false," ++
+    "4:expect=nodes_min:20," ++
+    "5:do=tile_add:Added.tga," ++
+    "6:expect=nodes:22," ++
+    "6:expect=dirty:true," ++
+    "7:do=undo," ++
+    "8:expect=nodes:21," ++
+    "9:do=redo," ++
+    "10:expect=nodes:22," ++
+    "11:do=copy:{fix}/til/import/terrains.xml>{dir}/til/import/terrains.xml," ++
+    "11:do=copy:{fix}/til/import/terrains.tga>{dir}/til/import/terrains.tga," ++
+    "12:do=tile_import:terrains/{dir}/til/import/terrains.xml," ++
+    "13:expect=nodes:26," ++
+    "13:expect=dirty:true," ++
+    "14:do=export," ++
+    "15:expect=exported," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/1.xml," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/1_c.dds," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/1_h.dds," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/1_l.dds," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/crosset.xml," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/terrain/sets/til/crosset_c.dds," ++
+    "15:expect=file:{mods}/reseditor_auto13_til/data/mod.xml,";
+
+/// S13 3D Road (.3rd, 3DRoadFrm): a property edit undone and redone, the preview on the maps\road3d terrain
+/// (it shows without playing), the wireframe on and off with the frames measured, the export and the import
+/// of a shipped road description (a single file).
+const resource_auto_3rd =
+    "1:do=mod_dir:{mods}/reseditor_auto13_3rd," ++
+    "2:do=copy:{fix}/3rd/project.3rd>{dir}/3rd/project.3rd," ++
+    "2:do=copy:{fix}/3rd/art-16x16.tga>{dir}/3rd/art-16x16.tga," ++
+    "3:open={dir}/3rd/project.3rd," ++
+    "4:expect=kind:3rd," ++
+    "4:expect=dirty:false," ++
+    "5:do=set_prop:Passability_coefficient=0.75," ++
+    "6:expect=prop:Passability_coefficient=0.75," ++
+    "6:expect=dirty:true," ++
+    "7:do=undo," ++
+    "8:do=redo," ++
+    "9:expect=prop:Passability_coefficient=0.75," ++
+    "10:do=export," ++
+    "10:expect=exported," ++
+    "11:do=preview_run," ++
+    "13:do=pause:200," ++
+    "14:shot=road_solid," ++
+    "14:expect=shot_lit:road_solid," ++
+    "15:do=wireframe:on," ++
+    "16:do=pause:200," ++
+    "17:shot=road_wire," ++
+    "17:expect=shot_lit:road_wire," ++
+    "17:differ=road_solid/road_wire@0.005," ++
+    "18:do=wireframe:off," ++
+    "19:do=pause:200," ++
+    "20:shot=road_solid_again," ++
+    "20:differ=road_wire/road_solid_again@0.005," ++
+    "21:do=import_file:3rd/{mods}/../Data/Terrain/sets/1/Roads3D/rail_road_grass.xml," ++
+    "22:expect=kind:3rd," ++
+    "22:saveas={dir}/3rd/imported.3rd," ++
+    "23:do=export," ++
+    "23:expect=exported,";
+
+/// S13 3D River (.3rv, 3DRiverFrm): the preview on the maps\river3d terrain, Run twice a pause apart (the
+/// water animates), Stop, the wireframe, the export and the import of a shipped river description.
+/// The water is a low-contrast texture blended over the bottom, so its scroll moves a pixel by a few
+/// levels only: on a GPU hardly any pixel passed the default 24-level tolerance (4 of 1024000), and
+/// the run stood or fell by chance. The differ counts pixels that move by more than 4 levels instead
+/// (about 5% of the frame on Direct3D 12, none while the preview is stopped).
+const resource_auto_3rv =
+    "1:do=mod_dir:{mods}/reseditor_auto13_3rv," ++
+    "2:do=copy:{fix}/3rv/project.3rv>{dir}/3rv/project.3rv," ++
+    "2:do=copy:{fix}/3rv/art-16x16.tga>{dir}/3rv/art-16x16.tga," ++
+    "3:open={dir}/3rv/project.3rv," ++
+    "4:expect=kind:3rv," ++
+    "4:expect=dirty:false," ++
+    "5:do=export," ++
+    "5:expect=exported," ++
+    "6:do=preview_run," ++
+    "8:do=pause:200," ++
+    "9:shot=river_a," ++
+    "9:expect=shot_lit:river_a," ++
+    "10:do=pause:1500," ++
+    "11:shot=river_b," ++
+    "11:differ=river_a/river_b@1/4," ++
+    "12:do=preview_stop," ++
+    "13:do=pause:100," ++
+    "14:shot=river_c," ++
+    "15:do=pause:300," ++
+    "15:shot=river_d," ++
+    "15:expect=shot_same:river_c/river_d," ++
+    "16:do=wireframe:on," ++
+    "17:do=pause:200," ++
+    "18:shot=river_wire," ++
+    "18:differ=river_d/river_wire@0.005," ++
+    "19:do=wireframe:off," ++
+    "20:do=import_file:3rv/{mods}/../Data/Terrain/sets/1/Rivers/water.xml," ++
+    "21:expect=kind:3rv," ++
+    "22:saveas={dir}/3rv/imported.3rv," ++
+    "23:do=export," ++
+    "23:expect=exported,";
+
+// The Mission, Chapter, Campaign and Medal image frames (S14): each opens a copy of its tracked fixture, shows the
+// Image window, places or drags a cross with real pointer events, captures the frame and measures the cross's colour
+// at the picture pixel by code (before, after, undone, redone), then saves and exports. mip starts with a map.tga
+// and no map_h.dds, so selecting makes the minimap from the final map and the picture the window shows must be
+// that map_h.dds, not the map.tga (D032, CMissionFrame).
+
+const resource_auto_mip =
+    "1:do=mod_dir:{dir}/mod," ++
+    "2:do=copy:{fix}/mip/final-map/project.mip>{dir}/mip/project.mip," ++
+    "2:do=copy:{fix}/mip/final-map/map.tga>{dir}/mip/map.tga," ++
+    "2:do=copy:{fix}/mip/final-map/header.txt>{dir}/mip/header.txt," ++
+    "2:do=copy:{fix}/mip/final-map/subheader.txt>{dir}/mip/subheader.txt," ++
+    "2:do=copy:{fix}/mip/final-map/desc.txt>{dir}/mip/desc.txt," ++
+    "2:do=copy:{fix}/mip/final-map/obj1h.txt>{dir}/mip/obj1h.txt," ++
+    "2:do=copy:{fix}/mip/final-map/obj1t.txt>{dir}/mip/obj1t.txt," ++
+    "2:do=copy:{fix}/mip/final-map/sub/obj2h.txt>{dir}/mip/sub/obj2h.txt," ++
+    "2:do=copy:{fix}/mip/final-map/sub/obj2t.txt>{dir}/mip/sub/obj2t.txt," ++
+    "3:open={dir}/mip/project.mip," ++
+    "4:expect=kind:mip," ++
+    "4:expect=dirty:false," ++
+    "5:do=image_open," ++
+    "6:do=image_select," ++
+    "6:expect=file:{dir}/mip/map_h.dds," ++
+    "7:shot=mip_a," ++
+    "7:expect=shot_picture:mip_a," ++
+    "7:expect=shot_minimap:mip_a," ++
+    "7:expect=shot_marker:mip_a/200/150/off," ++
+    "8:do=image_click:200/150," ++
+    "9:shot=mip_b," ++
+    "9:expect=shot_marker:mip_b/200/150/on," ++
+    "9:expect=cross:200/150," ++
+    "9:expect=dirty:true," ++
+    "10:do=undo," ++
+    "11:shot=mip_c," ++
+    "11:expect=shot_marker:mip_c/200/150/off," ++
+    "11:expect=cross:40/30," ++
+    "12:do=redo," ++
+    "13:shot=mip_d," ++
+    "13:expect=shot_marker:mip_d/200/150/on," ++
+    "13:expect=cross:200/150," ++
+    "14:do=copy:{data}/Maps/road3d.xml>{dir}/mod/data/maps/road3d.xml," ++
+    "15:save," ++
+    "16:do=export," ++
+    "16:expect=exported," ++
+    "16:expect=file:{dir}/mod/data/maps/road3d.bzm," ++
+    "16:expect=file:{dir}/mod/data/scenarios/mip/map_h.dds,";
+
+const resource_auto_chc =
+    "1:do=mod_dir:{mods}/reseditor_auto15_chc," ++
+    "2:do=copy:{fix}/chc/project.chc>{dir}/chc/project.chc," ++
+    "2:do=copy:{fix}/chc/header.txt>{dir}/chc/header.txt," ++
+    "2:do=copy:{fix}/chc/subheader.txt>{dir}/chc/subheader.txt," ++
+    "2:do=copy:{fix}/chc/desc.txt>{dir}/chc/desc.txt," ++
+    "2:do=copy:{fix}/chc/map.tga>{dir}/chc/map.tga," ++
+    "2:do=copy:{fix}/chc/script.lua>{dir}/chc/script.lua," ++
+    "2:do=copy:{fix}/chc/context.xml>{dir}/chc/context.xml," ++
+    "2:do=copy:{fix}/chc/art-16x16.tga>{dir}/chc/art-16x16.tga," ++
+    "3:open={dir}/chc/project.chc," ++
+    "4:expect=kind:chc," ++
+    "4:expect=dirty:false," ++
+    "5:do=image_open," ++
+    "6:do=image_select," ++
+    "7:shot=chc_a," ++
+    "7:expect=shot_picture:chc_a," ++
+    "7:expect=shot_marker:chc_a/10/6/off," ++
+    "8:do=image_click:10/6," ++
+    "9:shot=chc_b," ++
+    "9:expect=shot_marker:chc_b/10/6/on," ++
+    "9:expect=cross:10/6," ++
+    "9:expect=dirty:true," ++
+    "10:do=undo," ++
+    "11:shot=chc_c," ++
+    "11:expect=shot_marker:chc_c/10/6/off," ++
+    "11:expect=cross:40/30," ++
+    "12:do=redo," ++
+    "13:shot=chc_d," ++
+    "13:expect=shot_marker:chc_d/10/6/on," ++
+    "13:expect=cross:10/6," ++
+    "14:do=image_crosses:on," ++
+    "15:do=image_drag_cross:5/3," ++
+    "16:shot=chc_e," ++
+    "16:expect=shot_marker:chc_e/15/9/on," ++
+    "16:expect=shot_marker:chc_e/10/6/off," ++
+    "16:expect=cross:15/9," ++
+    "17:do=undo," ++
+    "18:shot=chc_f," ++
+    "18:expect=shot_marker:chc_f/15/9/off," ++
+    "18:expect=shot_marker:chc_f/10/6/on," ++
+    "18:expect=cross:10/6," ++
+    "19:do=redo," ++
+    "20:shot=chc_g," ++
+    "20:expect=shot_marker:chc_g/15/9/on," ++
+    "20:expect=cross:15/9," ++
+    "21:save," ++
+    "22:do=export," ++
+    "22:expect=exported,";
+
+const resource_auto_cgc =
+    "1:do=mod_dir:{mods}/reseditor_auto16_cgc," ++
+    "2:do=copy:{fix}/cgc/project.cgc>{dir}/cgc/project.cgc," ++
+    "2:do=copy:{fix}/cgc/header.txt>{dir}/cgc/header.txt," ++
+    "2:do=copy:{fix}/cgc/subheader.txt>{dir}/cgc/subheader.txt," ++
+    "2:do=copy:{fix}/cgc/map.tga>{dir}/cgc/map.tga," ++
+    "2:do=copy:{fix}/cgc/art-16x16.tga>{dir}/cgc/art-16x16.tga," ++
+    "3:open={dir}/cgc/project.cgc," ++
+    "4:expect=kind:cgc," ++
+    "4:expect=dirty:false," ++
+    "5:do=image_open," ++
+    "6:do=image_select," ++
+    "7:shot=cgc_a," ++
+    "7:expect=shot_picture:cgc_a," ++
+    "7:expect=shot_marker:cgc_a/10/6/off," ++
+    "8:do=image_click:10/6," ++
+    "9:shot=cgc_b," ++
+    "9:expect=shot_marker:cgc_b/10/6/on," ++
+    "9:expect=cross:10/6," ++
+    "9:expect=dirty:true," ++
+    "10:do=undo," ++
+    "11:shot=cgc_c," ++
+    "11:expect=shot_marker:cgc_c/10/6/off," ++
+    "11:expect=cross:50/60," ++
+    "12:do=redo," ++
+    "13:shot=cgc_d," ++
+    "13:expect=shot_marker:cgc_d/10/6/on," ++
+    "13:expect=cross:10/6," ++
+    "14:do=image_crosses:on," ++
+    "15:do=image_drag_cross:5/3," ++
+    "16:shot=cgc_e," ++
+    "16:expect=shot_marker:cgc_e/15/9/on," ++
+    "16:expect=shot_marker:cgc_e/10/6/off," ++
+    "16:expect=cross:15/9," ++
+    "17:do=undo," ++
+    "18:shot=cgc_f," ++
+    "18:expect=shot_marker:cgc_f/15/9/off," ++
+    "18:expect=shot_marker:cgc_f/10/6/on," ++
+    "18:expect=cross:10/6," ++
+    "19:do=redo," ++
+    "20:shot=cgc_g," ++
+    "20:expect=shot_marker:cgc_g/15/9/on," ++
+    "20:expect=cross:15/9," ++
+    "21:save," ++
+    "22:do=export," ++
+    "22:expect=exported,";
+
+const resource_auto_mdc =
+    "1:do=mod_dir:{mods}/reseditor_auto17_mdc," ++
+    "2:do=copy:{fix}/mdc/project.mdc>{dir}/mdc/project.mdc," ++
+    "2:do=copy:{fix}/mdc/name.txt>{dir}/mdc/name.txt," ++
+    "2:do=copy:{fix}/mdc/desc.txt>{dir}/mdc/desc.txt," ++
+    "2:do=copy:{fix}/mdc/medal.tga>{dir}/mdc/medal.tga," ++
+    "2:do=copy:{fix}/mdc/art-16x16.tga>{dir}/mdc/art-16x16.tga," ++
+    "3:open={dir}/mdc/project.mdc," ++
+    "4:expect=kind:mdc," ++
+    "4:expect=dirty:false," ++
+    "5:do=image_open," ++
+    "7:shot=mdc_a," ++
+    "7:expect=shot_picture:mdc_a," ++
+    "8:do=export," ++
+    "8:expect=exported,";
+
+
 /// A module of MapEditor's, with everything its executables link. The union
 /// of two recipes: the engine half is addEditorBridgeTest's (the same static
 /// libraries, imports and CRT), the ImGui half the overlay spike's (the
@@ -7658,6 +9792,7 @@ fn mapEditorModule(
     sdl_module: *std.Build.Module,
     editor_imgui_module: *std.Build.Module,
     core_module: *std.Build.Module,
+    kit_module: *std.Build.Module,
     engine: MapEditorEngine,
 ) *std.Build.Module {
     const module = b.createModule(.{
@@ -7668,6 +9803,7 @@ fn mapEditorModule(
             .{ .name = "sdl3", .module = sdl_module },
             .{ .name = "editor_imgui", .module = editor_imgui_module },
             .{ .name = "editor_core", .module = core_module },
+            .{ .name = "editor_kit", .module = kit_module },
         },
     });
     // bridge.h, for c_bridge.zig's @cImport.
@@ -7675,6 +9811,21 @@ fn mapEditorModule(
     // The M2 test script (04-10): game_reads_m2.zig embeds it, so the scenario
     // needs no path to the source tree at run time.
     module.addAnonymousImport("m2_script_lua", .{ .root_source_file = b.path("tools/zig/fixtures/m2_script.lua") });
+    linkEditorEngine(b, module, target, optimize, toolchain, engine);
+    return module;
+}
+
+/// What an editor executable links to host the engine, MapEditor's and
+/// ResourceEditor's alike: the CRT the engine's statics want, the Windows
+/// import libraries, the engine static libraries and SDL.
+fn linkEditorEngine(
+    b: *std.Build,
+    module: *std.Build.Module,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    engine: MapEditorEngine,
+) void {
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
     // The engine's statics are built against the debug CRT in Debug, so the
@@ -7706,7 +9857,6 @@ fn mapEditorModule(
     module.linkLibrary(engine.zlib);
     module.linkLibrary(engine.platform_runtime);
     linkSdlImport(module, target, engine.sdl_dynamic);
-    return module;
 }
 
 /// Entry, symbols and rpath of a MapEditor executable, the test included.
@@ -7809,6 +9959,34 @@ fn addComposerRoundtripTest(
     test_mode: build_support.TestMode,
 ) void {
     addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "composer-roundtrip-test", "tools/zig/composer_roundtrip_test.cpp", "test-rmg-composer-roundtrip", "Read, write and re-read every shipped RMG container and graph through the composers' records and compare them and their bytes", &.{});
+}
+
+// M001 S01 T05: the ResourceEditor preview-scene spike - a GPU-hosted
+// capture harness that proves BkEditorStart -> camera -> BkEditorCaptureFrame
+// writes a usable TGA; the three per-kind captures (mesh / sprite / particle)
+// and the runbook live beside the harness so S04 inherits a measured camera.
+// Skips honestly where there is no GPU, like every other engine-hosted tier.
+fn addPreviewSceneSpike(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+) void {
+    addEngineHostedTool(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main_lib, lualib, zlib, platform_runtime, sdl_dynamic, sdl_include, stage_root, install_game_step, test_mode, "preview-scene-spike", "tools/zig/preview_scene_spike.cpp", "preview-scene-spike", "ResourceEditor preview-scene spike: capture mesh/sprite/particle frames and measure non-black-non-magenta pixels (skips with exit 0 on a GPU-less runner)", &.{});
 }
 
 // Both engine-hosted C++ tools of the editor's data-only tier (the random missions and
@@ -7989,6 +10167,385 @@ fn addSdlEventTest(
     if (test_mode == .run) test_step.dependOn(&test_run.step);
 }
 
+// The portable ResourceModel library: the tree items, factory, project XML and
+// variant. Every standalone ResourceModel test executable compiles this list, so
+// a new item source is added here once.
+const resource_model_sources = [_][]const u8{
+    "Sources/src/ResourceModel/variant.cpp",
+    "Sources/src/ResourceModel/tree_item.cpp",
+    "Sources/src/ResourceModel/key_frame_tree_item.cpp",
+    "Sources/src/ResourceModel/factory.cpp",
+    "Sources/src/ResourceModel/future_blob.cpp",
+    "Sources/src/ResourceModel/xml.cpp",
+    "Sources/src/ResourceModel/project.cpp",
+    "Sources/src/ResourceModel/mfc_value.cpp",
+    "Sources/src/ResourceModel/editor_env.cpp",
+    "Sources/src/ResourceModel/localization.cpp",
+    "Sources/src/ResourceModel/localization_item.cpp",
+    "Sources/src/ResourceModel/combos.cpp",
+    "Sources/src/ResourceModel/items/stats_item.cpp",
+    "Sources/src/ResourceModel/items/ai_tiles.cpp",
+    "Sources/src/ResourceModel/items/weapon/weapon.cpp",
+    "Sources/src/ResourceModel/items/mine/mine.cpp",
+    "Sources/src/ResourceModel/items/trench/trench.cpp",
+    "Sources/src/ResourceModel/items/squad/squad.cpp",
+    "Sources/src/ResourceModel/items/sprite/sprite.cpp",
+    "Sources/src/ResourceModel/items/infantry/infantry.cpp",
+    "Sources/src/ResourceModel/items/mesh/mesh.cpp",
+    "Sources/src/ResourceModel/items/object/object.cpp",
+    "Sources/src/ResourceModel/items/fence/fence.cpp",
+    "Sources/src/ResourceModel/items/building/building.cpp",
+    "Sources/src/ResourceModel/items/bridge/bridge.cpp",
+    "Sources/src/ResourceModel/items/particle/particle.cpp",
+    "Sources/src/ResourceModel/items/effect/effect.cpp",
+    "Sources/src/ResourceModel/items/tileset/tileset.cpp",
+    "Sources/src/ResourceModel/items/road3d/road3d.cpp",
+    "Sources/src/ResourceModel/items/river3d/river3d.cpp",
+    "Sources/src/ResourceModel/items/mission/mission.cpp",
+    "Sources/src/ResourceModel/items/chapter/chapter.cpp",
+    "Sources/src/ResourceModel/items/campaign/campaign.cpp",
+    "Sources/src/ResourceModel/items/medal/medal.cpp",
+    "Sources/src/ResourceModel/items/gui/gui.cpp",
+};
+
+// Scaffold-shape smoke for Sources/src/ResourceModel/. Compiles the new
+// portable library and the one-fixture round-trip harness as a standalone
+// C++17 translation unit set (no engine, no MFC, no SDL). This is the T01
+// verification surface - it proves the files compile standalone and the wpn
+// fixture round-trips byte-identically. T06 adds the sweep over every repo
+// fixture as test-resource-model.
+fn addResourceModelScaffoldTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const flags: []const []const u8 = if (target.result.os.tag == .windows)
+        &(cppflags_debug.* ++ .{"-std=c++17"})
+    else
+        &.{"-std=c++17"};
+    module.addCSourceFiles(.{
+        .files = &(resource_model_sources ++ .{"tools/zig/resource_model_scaffold_test.cpp"}),
+        .flags = flags,
+    });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => {
+            addMacosSysrootPaths(b, module, target);
+            module.linkSystemLibrary("c++", .{});
+        },
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "resource-model-scaffold-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    // Fixtures live at repo-root-relative paths; the test defaults to the wpn
+    // fixture and the CI run step passes no args so that default lands.
+    run.setCwd(b.path("."));
+    // The fixture is a file input, not a step input; the test is cheap and
+    // the sweep is where the fixture matrix lives (T06).
+    run.has_side_effects = true;
+    const step = b.step("resource-model-scaffold-test", "Load and save the wpn fixture through Sources/src/ResourceModel and prove the bytes round-trip");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+// S03 fidelity test (reopened slice, D-04/D-07): every port item class against
+// the MFC inventory tools/zig/mfc_item_inventory.py generates from
+// Sources/src/editor, load/save of every TestProjects and fixture project
+// (byte-identical, content-equal, typed, edit reaches the file) and an
+// insert of every item type. Known gaps are listed in
+// tools/zig/fixtures/resource_editor/resource-model-xfail.txt; T02-T05 empty it.
+fn addResourceModelFidelityTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const flags: []const []const u8 = if (target.result.os.tag == .windows)
+        &(cppflags_debug.* ++ .{"-std=c++17"})
+    else
+        &.{"-std=c++17"};
+    module.addCSourceFiles(.{
+        .files = &(resource_model_sources ++ .{"tools/zig/resource_model_test.cpp"}),
+        .flags = flags,
+    });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => {
+            addMacosSysrootPaths(b, module, target);
+            module.linkSystemLibrary("c++", .{});
+        },
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "resource-model-fidelity-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    // The inventory, the xfail list and the projects are repo-root-relative;
+    // the copies and fidelity.log go to zig-out/local-test/resource_model.
+    run.setCwd(b.path("."));
+    run.has_side_effects = true;
+    const step = b.step("test-resource-model-fidelity", "Port item classes vs the generated MFC inventory, load/save of every TestProjects and fixture project, insert of every item type");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+// T04 test: reference, combo and localization lists of Sources/src/ResourceModel
+// over tools/zig/fixtures/resource_editor/references_root.
+fn addResourceModelReferencesTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const flags: []const []const u8 = if (target.result.os.tag == .windows)
+        &(cppflags_debug.* ++ .{"-std=c++17"})
+    else
+        &.{"-std=c++17"};
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/ResourceModel/references.cpp",
+            "Sources/src/ResourceModel/combos.cpp",
+            "Sources/src/ResourceModel/editor_env.cpp",
+            "Sources/src/ResourceModel/localization.cpp",
+            "tools/zig/resource_model_references_test.cpp",
+        },
+        .flags = flags,
+    });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => {
+            addMacosSysrootPaths(b, module, target);
+            module.linkSystemLibrary("c++", .{});
+        },
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "resource-model-references-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    // Fixtures live at repo-root-relative paths; the test defaults to the wpn
+    // fixture and the CI run step passes no args so that default lands.
+    run.setCwd(b.path("."));
+    // The fixture is a file input, not a step input; the test is cheap and
+    // the sweep is where the fixture matrix lives (T06).
+    run.has_side_effects = true;
+    const step = b.step("test-resource-model-references", "Enumerate every EReferenceType list, the AI-class and player-sides combos and the localization read over the tracked references_root fixture");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+// S09 T01: the AI-tile grid math of the Object, Fence, Building and Bridge editors,
+// headless like the other test-resource-model members.
+fn addResourceModelGridProjectionTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    test_mode: build_support.TestMode,
+    toolchain: ToolchainIncludes,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const flags: []const []const u8 = if (target.result.os.tag == .windows)
+        &(cppflags_debug.* ++ .{"-std=c++17"})
+    else
+        &.{"-std=c++17"};
+    module.addCSourceFiles(.{
+        .files = &.{
+            "Sources/src/ResourceModel/grid_projection.cpp",
+            "Sources/src/ResourceModel/items/ai_tiles.cpp",
+            "Sources/src/ResourceModel/mfc_value.cpp",
+            "Sources/src/ResourceModel/variant.cpp",
+            "Sources/src/ResourceModel/xml.cpp",
+            "tools/zig/resource_grid_projection_test.cpp",
+        },
+        .flags = flags,
+    });
+    switch (target.result.os.tag) {
+        .windows => {
+            addMsvcIncludePaths(b, module, toolchain);
+            addMsvcLibraryPaths(b, module, toolchain);
+            linkMsvcRuntime(module, .Debug);
+        },
+        .linux => module.linkSystemLibrary("stdc++", .{}),
+        .macos => {
+            addMacosSysrootPaths(b, module, target);
+            module.linkSystemLibrary("c++", .{});
+        },
+        else => {},
+    }
+    const exe = b.addExecutable(.{ .name = "resource-grid-projection-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    const run = b.addRunArtifact(exe);
+    run.has_side_effects = true;
+    const step = b.step("test-resource-grid-projection", "S09 T01: GridProjection tile and screen math, tile-list and grid helpers and one-way line tiles, headless");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+// S03 T06 (D-11): the comparator over exported game data. Stats files are
+// read by the engine's own StreamIO tree and each struct's operator&, so this
+// is an engine-hosted executable like test-resource-bridge, but data-only: it
+// loads StreamIO and nothing that needs a window or a GPU, so it never skips.
+// It proves the comparator on the shipped Data (copied to zig-out/local-test),
+// plants a one-ulp float, a dropped and an unknown field, and reports the
+// golden comparison as pending until win-home has produced the goldens.
+fn addResourceModelComparatorTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    editor_bridge: *std.Build.Step.Compile,
+    map_file: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+    stage_root: []const u8,
+    install_game_step: *std.Build.Step,
+    test_mode: build_support.TestMode,
+) void {
+    const module = b.createModule(.{ .target = target, .optimize = optimize });
+    addProjectIncludePaths(b, module);
+    module.addIncludePath(b.path("Sources/src/Common"));
+    module.addIncludePath(b.path("Sources/src/Main"));
+    module.addIncludePath(b.path("Sources/src/Image"));
+    module.addIncludePath(b.path("Sources/src/GFX"));
+    // The Scene sources compiled in below take their StdAfx.h from Scene,
+    // which names the StreamIO headers bare, as the Scene module's own build
+    // resolves them.
+    module.addIncludePath(b.path("Sources/src/StreamIO"));
+    module.addIncludePath(sdl_include);
+    module.addCSourceFiles(.{
+        // The particle structs live in the Scene module, which a data-only
+        // host does not load; their readers are compiled in instead. xml.cpp
+        // comes with the EditorBridge archive. The DXT gate decodes with NDxt,
+        // which lives in the Image module the host does not load either.
+        .files = &.{
+            "Sources/src/ResourceModel/comparator.cpp",
+            "Sources/src/ResourceModel/dxt_gate.cpp",
+            "Sources/src/Image/DxtCodec.cpp",
+            "Sources/src/Scene/ParticleSourceData.cpp",
+            "Sources/src/Scene/SmokinParticleSourceData.cpp",
+            "Sources/src/Scene/Track.cpp",
+            "tools/zig/resource_model_comparator_test.cpp",
+            "Sources/src/ResourceModel/ui_screen_test.cpp",
+        },
+        .flags = cppflagsForOptimize(optimize),
+    });
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    addMacosSysrootPaths(b, module, target);
+    linkMsvcRuntime(module, optimize);
+    if (target.result.os.tag == .windows) {
+        linkComSupport(module, optimize);
+        module.linkSystemLibrary("version", .{});
+        module.linkSystemLibrary("winmm", .{});
+        module.linkSystemLibrary("odbc32", .{});
+        module.linkSystemLibrary("odbccp32", .{});
+        module.linkSystemLibrary("shlwapi", .{});
+        module.linkSystemLibrary("advapi32", .{});
+        module.linkSystemLibrary("user32", .{});
+        module.linkSystemLibrary("gdi32", .{});
+        module.linkSystemLibrary("shell32", .{});
+    }
+    module.linkLibrary(editor_bridge);
+    module.linkLibrary(map_file);
+    module.linkLibrary(main_lib);
+    module.linkLibrary(randommapgen);
+    module.linkLibrary(formats);
+    module.linkLibrary(misc);
+    module.linkLibrary(lualib);
+    module.linkLibrary(zlib);
+    module.linkLibrary(platform_runtime);
+    linkSdlImport(module, target, sdl_dynamic);
+
+    const exe = b.addExecutable(.{ .name = "resource-model-comparator-test", .root_module = module });
+    exe.subsystem = .console;
+    if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    // rdynamic and a loader-relative rpath, as for every executable that loads
+    // engine modules (AGENTS.md).
+    if (target.result.os.tag == .linux) exe.rdynamic = true;
+    switch (target.result.os.tag) {
+        .macos => exe.root_module.addRPathSpecial("@executable_path"),
+        .linux => exe.root_module.addRPathSpecial("$ORIGIN"),
+        else => {},
+    }
+    const stage_suffix = stage_root["zig-out/".len..];
+    const install_exe = b.addInstallArtifact(exe, .{ .dest_dir = .{ .override = .{ .custom = stage_suffix } } });
+    install_exe.step.dependOn(install_game_step);
+
+    const run = b.addRunArtifact(exe);
+    run.setCwd(b.path(stage_root));
+    run.addArg(".");
+    run.addArg(b.pathFromRoot("zig-out/local-test"));
+    // The tracked Data and fixtures, read in place and copied before any edit.
+    run.addArg(b.pathFromRoot("Data"));
+    run.addArg(b.pathFromRoot("tools/zig/fixtures/resource_editor"));
+    run.has_side_effects = true;
+    run.step.dependOn(&install_exe.step);
+    const step = b.step("test-resource-model-comparator", "D-11 comparator: shipped stats read by the engine's own readers equal themselves, planted float/dropped/unknown/byte/DXT changes fail, goldens reported pending");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) step.dependOn(&run.step);
+}
+
+// The S03 aggregate: the slice's "test-resource-model is green" is this one
+// invocation. The scaffold, references and fidelity tiers need no engine; the
+// comparator (D-11) hosts the engine's StreamIO data-only, without a window
+// or a GPU, so it runs wherever the engine builds.
+fn addResourceModelAggregateStep(b: *std.Build) void {
+    const step = b.step("test-resource-model", "Aggregate ResourceModel sweep: scaffold round trip, references/combos/localization lists, MFC fidelity, and the D-11 comparator over exported game data");
+    const scaffold = &(b.top_level_steps.get("resource-model-scaffold-test") orelse @panic("resource-model-scaffold-test is defined by addResourceModelScaffoldTest")).step;
+    const references = &(b.top_level_steps.get("test-resource-model-references") orelse @panic("test-resource-model-references is defined by addResourceModelReferencesTest")).step;
+    const comparator = &(b.top_level_steps.get("test-resource-model-comparator") orelse @panic("test-resource-model-comparator is defined by addResourceModelComparatorTest")).step;
+    const fidelity = &(b.top_level_steps.get("test-resource-model-fidelity") orelse @panic("test-resource-model-fidelity is defined by addResourceModelFidelityTest")).step;
+    step.dependOn(&(b.top_level_steps.get("audit-windows-minmax") orelse @panic("audit-windows-minmax is defined in build()")).step);
+    step.dependOn(scaffold);
+    step.dependOn(references);
+    step.dependOn(&(b.top_level_steps.get("test-resource-grid-projection") orelse @panic("test-resource-grid-projection is defined by addResourceModelGridProjectionTest")).step);
+    step.dependOn(comparator);
+    step.dependOn(fidelity);
+}
+
+// S03 T06 top-level aggregate: the S16 full-sweep gate pulls this in. Every
+// resource-side tier that needs no window or GPU: the ResourceModel sweep (its
+// comparator hosts the engine data-only), the
+// project-XML round trip, the DXT tolerance measurement and the fixture
+// generator's own tests. The engine-hosted resource tiers (test-resource-bridge,
+// preview-scene-spike) stay separate steps, like the Map Editor's.
+fn addResourcesAllAggregateStep(b: *std.Build) void {
+    const step = b.step("test-resources-all", "Aggregate every resource-side tier that needs no window or GPU: test-resource-model, test-resource-xml-roundtrip, test-dxt-tolerance and test-resource-editor-fixtures");
+    for ([_][]const u8{ "test-resource-model", "test-resource-xml-roundtrip", "test-dxt-tolerance", "test-resource-editor-fixtures" }) |name| {
+        const member = b.top_level_steps.get(name) orelse std.debug.panic("{s} must be registered before test-resources-all", .{name});
+        step.dependOn(&member.step);
+    }
+}
+
 fn linkSdlRuntime(
     module: *std.Build.Module,
     target: std.Build.ResolvedTarget,
@@ -8143,3 +10700,69 @@ fn linkComSupport(module: *std.Build.Module, optimize: std.builtin.OptimizeMode)
     module.linkSystemLibrary("ole32", .{});
     module.linkSystemLibrary("uuid", .{});
 }
+
+/// The GUI screen (.gui): MainMenu opened as a project, exported and shown by the Game as the baseline; a
+/// template dragged onto the canvas, moved, resized, a shipped label moved and the two aligned, each by pointer
+/// events, undone to the placed state and redone, saved and reopened, exported and shown by the Game again. The two
+/// Game frames must differ at the moved label's old and new rect and at the placed button, and nowhere else.
+const resource_auto_gui =
+    "1:do=mod_dir:{mods}/reseditor_auto_gui," ++
+    "1:do=game_shot_clear," ++
+    "2:do=copy:{data}/UI/MainMenu.xml>{dir}/gui/MainMenu.gui," ++
+    "3:open={dir}/gui/MainMenu.gui," ++
+    "4:expect=kind:gui," ++
+    "4:expect=dirty:false," ++
+    "5:do=gui_open," ++
+    "5:do=gui_snapshot:start," ++
+    "6:do=export," ++
+    "6:expect=exported," ++
+    "6:expect=file:{mods}/reseditor_auto_gui/data/ui/MainMenu.xml," ++
+    "7:do=run_game," ++
+    "8:waitgame=120," ++
+    "9:expect=game_log_clean," ++
+    "9:do=game_shot:base," ++
+    "10:do=gui_place:Buttons/Button00/700/640," ++
+    "11:expect=gui_rect:primary/700/640/771/733/3," ++
+    "11:expect=dirty:true," ++
+    "11:do=gui_snapshot:placed," ++
+    "11:shot=gui_a," ++
+    "12:do=gui_drag:20/-10," ++
+    "13:expect=gui_rect:primary/720/630/791/723/3," ++
+    "13:shot=gui_b," ++
+    "13:differ=gui_a/gui_b@0.01," ++
+    "14:do=gui_resize:right_bottom/30/20," ++
+    "15:expect=gui_rect:primary/720/630/821/743/3," ++
+    "16:do=gui_pick:el21000," ++
+    "17:do=gui_mark:old=el21000," ++
+    "18:do=gui_drag:300/0," ++
+    "19:do=gui_mark:new=el21000," ++
+    "20:do=gui_pick:last/add," ++
+    "21:do=gui_align:left," ++
+    "22:expect=gui_rect:last/310/630/411/743/3," ++
+    "22:do=gui_mark:placed=last," ++
+    "22:do=gui_snapshot:final," ++
+    "22:expect=gui_same:placed=differs," ++
+    "23:do=undo," ++
+    "24:do=undo," ++
+    "25:do=undo," ++
+    "26:do=undo," ++
+    "27:expect=gui_same:placed=same," ++
+    "27:expect=gui_same:final=differs," ++
+    "28:do=redo," ++
+    "29:do=redo," ++
+    "30:do=redo," ++
+    "31:do=redo," ++
+    "32:expect=gui_same:final=same," ++
+    "33:save," ++
+    "34:expect=dirty:false," ++
+    "34:do=close," ++
+    "35:open={dir}/gui/MainMenu.gui," ++
+    "36:do=gui_open," ++
+    "36:expect=gui_same:final=same," ++
+    "37:do=export," ++
+    "37:expect=exported," ++
+    "38:do=run_game," ++
+    "39:waitgame=120," ++
+    "40:expect=game_log_clean," ++
+    "40:do=game_shot:edited," ++
+    "41:expect=game_frames:base/edited/old/new/placed,";

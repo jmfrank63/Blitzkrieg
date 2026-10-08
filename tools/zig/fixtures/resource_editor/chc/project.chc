@@ -1,0 +1,162 @@
+<?xml version="1.0"?>
+<Chapter_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<RPG Season="0">
+		<KeyName/>
+		<StatsType>Chapter</StatsType>
+		<HeaderText>header</HeaderText>
+		<SubheaderText>subheader</SubheaderText>
+		<DescriptionText>desc</DescriptionText>
+		<MapImage>map</MapImage>
+		<MapImageRect x1="20" y1="12" x2="0.640625" y2="0.78125"/>
+		<InterfaceMusic>music</InterfaceMusic>
+		<Missions>
+			<item Difficulty="0">
+				<Mission>mission1</Mission>
+				<PosOnMap x="40" y="30"/>
+				<MissionBonus/>
+				<AllBonuses/>
+			</item>
+		</Missions>
+		<PlaceHolders>
+			<item>
+				<Position x="12" y="34"/>
+			</item>
+		</PlaceHolders>
+		<Script>script</Script>
+		<SettingName>setting</SettingName>
+		<ContextName>context</ContextName>
+		<PlayerSide>German</PlayerSide>
+		<MODName/>
+		<MODVersion/>
+	</RPG>
+	<childs>
+		<item ClassTypeID="285212913" expand="0">
+			<default_name>Basic info</default_name>
+			<display_name>Basic info</display_name>
+			<values>
+				<item>
+					<default_name>Header text</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>header</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>SubHeader text</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>subheader</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Description text</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>desc</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Map image</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>map</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Chapter script</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>script</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Interface music</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>music</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Season</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>summer</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Setting file</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>setting</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Context file</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>context</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Player side</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>German</string_value>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212914" expand="0">
+			<default_name>Missions</default_name>
+			<display_name>Missions</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212915" expand="0">
+					<default_name>Mission</default_name>
+					<display_name>Mission</display_name>
+					<values>
+						<item>
+							<default_name>Mission</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>mission1</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Mission position X</default_name>
+							<value type="1" flag="1" float_value="0" int_value="40" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Mission position Y</default_name>
+							<value type="1" flag="1" float_value="0" int_value="30" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212918" expand="0">
+			<default_name>Place holders</default_name>
+			<display_name>Place holders</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212919" expand="0">
+					<default_name>Place</default_name>
+					<display_name>Place</display_name>
+					<values>
+						<item>
+							<default_name>Place holder position X</default_name>
+							<value type="1" flag="1" float_value="0" int_value="12" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Place holder position Y</default_name>
+							<value type="1" flag="1" float_value="0" int_value="34" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+	</childs>
+</Chapter_Composer_Project>

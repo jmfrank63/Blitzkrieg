@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<base>
+    <RPG>
+        <KeyName></KeyName>
+        <StatsType>Campaign</StatsType>
+        <HeaderText>scenarios\campaigns\test\header</HeaderText>
+        <SubheaderText>scenarios\campaigns\test\subheader</SubheaderText>
+        <DescriptionText></DescriptionText>
+        <MapImage>scenarios\custom\campaigns\test\map</MapImage>
+        <MapImageRect x1="0" y1="0" x2="0" y2="0"/>
+        <IntroMovie>movies\test_in</IntroMovie>
+        <OutroMovie>movies\test_out</OutroMovie>
+        <InterfaceMusic>music\brief_test</InterfaceMusic>
+        <AllChapters>
+            <item Visible="1" Secret="0">
+                <Chapter>scenarios\chapters\test\first\1</Chapter>
+                <PosOnMap x="56" y="331"/>
+            </item>
+        </AllChapters>
+        <Templates>
+            <item>scenarios\templatemissions\test\defend00\1</item>
+        </Templates>
+        <PlayerAllianceSide>German</PlayerAllianceSide>
+    </RPG>
+</base>

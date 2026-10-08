@@ -1,0 +1,1 @@
+fixture mip 1.txt

@@ -23,6 +23,8 @@ VideoAssets/Movies/
 
 # Visual Studio / MSVC build artifacts
 *.obj
+# The Resource Editor fixtures include a hand-sized OBJ mesh; it is test data, not a build artifact.
+!tools/zig/fixtures/resource_editor/**/*.obj
 *.pch
 *.pdb
 *.idb
@@ -94,3 +96,9 @@ node_modules/
 
 # macOS Finder metadata
 .DS_Store
+
+# GSD workflow state (local only)
+.gsd
+.gsd-id
+.bg-shell/
+.mcp.json

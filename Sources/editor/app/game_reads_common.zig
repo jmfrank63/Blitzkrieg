@@ -10,11 +10,12 @@
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const core = @import("editor_core");
-const host_mod = @import("host.zig");
+const kit = @import("editor_kit");
+const host_mod = kit.host;
 const c_bridge = @import("c_bridge.zig");
 const panels_logic = @import("panels_logic.zig");
-const crt = @import("crt.zig");
-const testlaunch = @import("testlaunch.zig");
+const crt = kit.crt;
+const testlaunch = kit.testlaunch;
 const c = host_mod.c;
 
 /// The hidden host, the real bridge on it and the core Editor on that. The
@@ -24,7 +25,7 @@ pub const Rig = struct {
     host: host_mod.Host = undefined,
     real: c_bridge.RealBridge = undefined,
     editor: core.editor.Editor = undefined,
-    std_files: core.files.StdFiles = undefined,
+    std_files: kit.files.StdFiles = undefined,
     host_started: bool = false,
     editor_started: bool = false,
 

@@ -38,7 +38,7 @@
 const std = @import("std");
 const core = @import("editor_core");
 const common = @import("game_reads_common.zig");
-const testlaunch = @import("testlaunch.zig");
+const testlaunch = @import("editor_kit").testlaunch;
 const panels_logic = @import("panels_logic.zig");
 
 const label = "game reads it M3";

@@ -20,6 +20,7 @@
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const core = @import("editor_core");
+const kit = @import("editor_kit");
 const c_bridge = @import("c_bridge.zig");
 const view_mod = @import("view.zig");
 const view_math = @import("view_math.zig");
@@ -1059,8 +1060,8 @@ pub const Script = struct {
             },
             .foreign_read_only => {
                 if (editor.status().len != 0) return self.stepFail(step, "{s}", .{editor.status()});
-                var os_buffer: [core.files.max_path]u8 = undefined;
-                const doc_os = core.files.osPathFromEngine(&os_buffer, editor.document.path.items) orelse return self.stepFail(step, "the document path does not fit", .{});
+                var os_buffer: [kit.files.max_path]u8 = undefined;
+                const doc_os = kit.files.osPathFromEngine(&os_buffer, editor.document.path.items) orelse return self.stepFail(step, "the document path does not fit", .{});
                 if (!std.mem.eql(u8, doc_os, self.foreign_path.slice()))
                     return self.stepFail(step, "the document is {s}, want {s}", .{ doc_os, self.foreign_path.slice() });
                 if (!panels.documentIsShipped(self.state)) return self.stepFail(step, "{s} is not read-only", .{self.foreign_path.slice()});
@@ -1466,6 +1467,22 @@ pub const Driver = union(enum) {
             .table => |s| s.observe(event),
             .auto => {},
         }
+    }
+
+    /// A mouse event the OS sent rather than the script pushed. `run` drops
+    /// these while a driver runs, so the person's own pointer cannot move
+    /// ImGui's cursor or the view under the script (the window is also
+    /// hidden and not focusable, which keeps ImGui's backend from reading
+    /// SDL_GetGlobalMouseState). `observe` still sees them first, so a FAIL's
+    /// state line reports that they arrived.
+    pub fn isOsMouse(self: Driver, event: *const sdl.SDL_Event) bool {
+        _ = self;
+        return switch (event.type) {
+            sdl.SDL_EVENT_MOUSE_MOTION => event.motion.which != smoke_mouse_id,
+            sdl.SDL_EVENT_MOUSE_BUTTON_DOWN, sdl.SDL_EVENT_MOUSE_BUTTON_UP => event.button.which != smoke_mouse_id,
+            sdl.SDL_EVENT_MOUSE_WHEEL => event.wheel.which != smoke_mouse_id,
+            else => false,
+        };
     }
 };
 
@@ -1910,7 +1927,7 @@ pub const AutoRunner = struct {
             return self.fail("differ={s}: the shot is not an uncompressed 32-bit TGA: {s}", .{ differ.a, @errorName(err) });
         const second = auto_mod.Tga.parse(bytes[1]) catch |err|
             return self.fail("differ={s}: the shot is not an uncompressed 32-bit TGA: {s}", .{ differ.b, @errorName(err) });
-        const diff = auto_mod.compareTga(first, second, auto_mod.default_channel_tolerance);
+        const diff = auto_mod.compareTga(first, second, differ.channel_tolerance);
         if (!diff.same_size) return self.fail("differ={s}/{s}: the shots are {d}x{d} and {d}x{d}", .{ differ.a, differ.b, first.width, first.height, second.width, second.height });
         const fraction = diff.fraction() * 100.0;
         std.debug.print("map-editor: BK_EDITOR_AUTO: differ {s}/{s}: {d:.4}% of pixels differ\n", .{ differ.a, differ.b, fraction });

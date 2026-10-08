@@ -1,0 +1,1127 @@
+<?xml version="1.0"?>
+<Mesh_Composer_Project expand="1">
+	<own_data>
+		<export_file_name></export_file_name>
+	</own_data>
+	<RPG MaxHP="100" RepairCost="1" Sight="20" SightPower="1" Speed="5" Passability="100" Priority="1" Camouflage="1" Weight="20" Price="1" UninstallRotate="5" UninstallTransport="5" RotateSpeed="20" TurnRadius="5" TowingForce="3" Crew="4" Passangers="0" BoundTileRadius="1" SmallAABBCoeff="1" TowPoint="5" EntrancePoint="-1" FatalitySmokePoint="-1" ShootDustPoint="-1" LeavesTracks="0" TrackOffset="0.1" TrackWidth="1" TrackStart="0.1" TrackEnd="0.1" TrackIntensity="1" TrackLifetime="100" MaxHeight="500" DivingAngle="45" ClimbAngle="45" TiltAngle="30" TiltRatio="2">
+		<KeyName>Default mesh object</KeyName>
+		<StatsType>Mech</StatsType>
+		<DamagedHPs/>
+		<Defence0 MinArmor="40" MaxArmor="90" Silhouette="1"/>
+		<Defence1 MinArmor="40" MaxArmor="90" Silhouette="1"/>
+		<Defence2 MinArmor="40" MaxArmor="90" Silhouette="1"/>
+		<Defence3 MinArmor="40" MaxArmor="90" Silhouette="1"/>
+		<Defence4 MinArmor="40" MaxArmor="90" Silhouette="1"/>
+		<Defence5 MinArmor="40" MaxArmor="90" Silhouette="1"/>
+		<Type>arm_light</Type>
+		<AIClass>track</AIClass>
+		<Commands Size="0">
+			<BitArray/>
+		</Commands>
+		<Exposures Size="0">
+			<BitArray/>
+		</Exposures>
+		<AnimDescs>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data>
+					<item Length="1187" Action="0" Index="2" AABB_A="-1" AABB_D="-1"/>
+					<item Length="1187" Action="0" Index="3" AABB_A="-1" AABB_D="-1"/>
+					<item Length="1187" Action="0" Index="4" AABB_A="-1" AABB_D="-1"/>
+					<item Length="1187" Action="0" Index="5" AABB_A="-1" AABB_D="-1"/>
+					<item Length="1187" Action="0" Index="6" AABB_A="-1" AABB_D="-1"/>
+					<item Length="1187" Action="0" Index="7" AABB_A="-1" AABB_D="-1"/>
+				</data>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data>
+					<item Length="3125" Action="0" Index="0" AABB_A="-1" AABB_D="-1"/>
+				</data>
+			</item>
+			<item>
+				<data>
+					<item Length="3125" Action="0" Index="1" AABB_A="-1" AABB_D="-1"/>
+				</data>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+			<item>
+				<data/>
+			</item>
+		</AnimDescs>
+		<AABB_As/>
+		<AABB_Ds/>
+		<AcksRefs>
+			<item/>
+		</AcksRefs>
+		<AcksRef/>
+		<Platforms>
+			<item VerticalRotateSpeed="1" HorizontalRotationSpeed="1" ModelPart="-1" GunCarriageParts="-1" FirstGun="0" NumGuns="1">
+				<Constraint Min="0" Max="0"/>
+				<ConstraintVertical Min="0" Max="0"/>
+			</item>
+		</Platforms>
+		<Guns>
+			<item Priority="1" Ammo="100" Direction="0" ReloadCost="1" ShootPoint="-1" Recoil="0" RecoilLength="0" RecoilTime="50" ModelPart="-1" RecoilShakeTime="500" RecoilShakeAngle="0">
+				<Weapon/>
+			</item>
+		</Guns>
+		<ArmorLeft Min="4" Max="4"/>
+		<ArmorRight Min="4" Max="4"/>
+		<ArmorTop Min="4" Max="4"/>
+		<ArmorBottom Min="4" Max="4"/>
+		<ArmorFront Min="4" Max="4"/>
+		<ArmorBack Min="4" Max="4"/>
+		<AABBCenter x="0" y="-5.94539"/>
+		<AABBHalfSize x="21.6374" y="35.3844"/>
+		<ExhaustPoints/>
+		<DamagePoints/>
+		<PeoplePoints>
+			<item data="4"/>
+			<item data="5"/>
+			<item data="6"/>
+			<item data="9"/>
+		</PeoplePoints>
+		<TowPoint2D x="0" y="-58.9892"/>
+		<HookPoint x="0" y="0"/>
+		<FrontWheel x="0" y="0"/>
+		<BackWheel x="0" y="0"/>
+		<EntrancePoint2D x="0" y="0"/>
+		<PeoplePoints2D>
+			<item x="-11.1387" y="-7.29765"/>
+			<item x="5.75987" y="-23.2575"/>
+			<item x="11.0381" y="-7.6117"/>
+			<item x="-9.43921" y="-17.3298"/>
+		</PeoplePoints2D>
+		<AmmoPoint2D x="15.5754" y="-34.8354"/>
+		<Gunners>
+			<item>
+				<data>
+					<item x="-11.1387" y="-7.29765"/>
+					<item x="5.75987" y="-23.2575"/>
+					<item x="11.0381" y="-7.6117"/>
+					<item x="-9.43921" y="-17.3298"/>
+				</data>
+			</item>
+			<item>
+				<data>
+					<item x="-11.1387" y="-7.29765"/>
+					<item x="5.75987" y="-23.2575"/>
+					<item x="11.0381" y="-7.6117"/>
+					<item x="-7.79895" y="-23.8633"/>
+				</data>
+			</item>
+			<item>
+				<data>
+					<item x="-11.1387" y="-7.29765"/>
+					<item x="5.75987" y="-23.2575"/>
+					<item x="11.0381" y="-7.6117"/>
+					<item x="-7.79895" y="-23.8633"/>
+				</data>
+			</item>
+		</Gunners>
+		<EffectDiesel/>
+		<EffectSmoke/>
+		<EffectWheelDust/>
+		<EffectShootDust/>
+		<EffectFatality/>
+		<EffectEntrenching/>
+		<EffectDisappear/>
+		<JoggingX Period1="1" Period2="1" Amp1="1" Amp2="1" Phase1="1" Phase2="1"/>
+		<JoggingY Period1="1" Period2="1" Amp1="1" Amp2="1" Phase1="1" Phase2="1"/>
+		<JoggingZ Period1="1" Period2="1" Amp1="1" Amp2="1" Phase1="1" Phase2="1"/>
+		<SoundMoveStart/>
+		<SoundMove/>
+		<SoundMoveStop/>
+		<DeathCraters>
+			<item/>
+		</DeathCraters>
+	</RPG>
+	<childs>
+		<item ClassTypeID="285212734" expand="0">
+			<default_name>Basic Info</default_name>
+			<display_name>Basic Info</display_name>
+			<values>
+				<item>
+					<default_name>Name</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>Default mesh object</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Type</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>armor light</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>AI class</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>track</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Picture</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Health</default_name>
+					<value type="2" flag="2" float_value="100" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Repair cost</default_name>
+					<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Camouflage</default_name>
+					<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Speed</default_name>
+					<value type="2" flag="2" float_value="5" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Passability</default_name>
+					<value type="2" flag="2" float_value="100" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Pulling power</default_name>
+					<value type="2" flag="2" float_value="3" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Uninstall rotate time</default_name>
+					<value type="2" flag="2" float_value="5" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Uninstall transport time</default_name>
+					<value type="2" flag="2" float_value="5" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Weight</default_name>
+					<value type="2" flag="2" float_value="20" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Crew</default_name>
+					<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Passangers</default_name>
+					<value type="1" flag="1" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Priority</default_name>
+					<value type="1" flag="1" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Rotate speed</default_name>
+					<value type="2" flag="2" float_value="20" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Bound tile radius</default_name>
+					<value type="1" flag="1" float_value="0" int_value="1" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Turn radius</default_name>
+					<value type="2" flag="2" float_value="5" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Silhouette</default_name>
+					<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>AI price</default_name>
+					<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Sight</default_name>
+					<value type="2" flag="2" float_value="20" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Sight power</default_name>
+					<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs>
+				<item ClassTypeID="285212751" expand="0">
+					<default_name>Aviation property</default_name>
+					<display_name>Aviation property</display_name>
+					<values>
+						<item>
+							<default_name>Maximal flight height</default_name>
+							<value type="2" flag="2" float_value="500" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Diving angle</default_name>
+							<value type="2" flag="2" float_value="45" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Climb angle</default_name>
+							<value type="2" flag="2" float_value="45" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Tilt angle</default_name>
+							<value type="2" flag="2" float_value="30" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Tilt ratio</default_name>
+							<value type="2" flag="2" float_value="2" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212742" expand="0">
+					<default_name>Tracks</default_name>
+					<display_name>Tracks</display_name>
+					<values>
+						<item>
+							<default_name>Does leave tracks?</default_name>
+							<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Relative width</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Relative offset</default_name>
+							<value type="2" flag="2" float_value="0.1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Relative start</default_name>
+							<value type="2" flag="2" float_value="0.1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Relative end</default_name>
+							<value type="2" flag="2" float_value="0.1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Intensity</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Life time</default_name>
+							<value type="1" flag="1" float_value="0" int_value="100" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212688" expand="0">
+			<default_name>Acknowledgments</default_name>
+			<display_name>Acknowledgments</display_name>
+			<values>
+				<item>
+					<default_name>Acks file</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Acks file 2</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212739" expand="0">
+			<default_name>Effects</default_name>
+			<display_name>Effects</display_name>
+			<values>
+				<item>
+					<default_name>Effect diesel</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Effect smoke</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Effect wheel dust</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Effect shoot dust</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Fatality effect</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Disappear effect</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Start move sound</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Cycle move sound</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+				<item>
+					<default_name>Stop move sound</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212675" expand="0">
+			<default_name>Localization</default_name>
+			<display_name>Localization</display_name>
+			<values>
+				<item>
+					<default_name>Name</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>name.txt</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Description</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>desc.txt</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Statistics</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>stats.txt</string_value>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212685" expand="0">
+			<default_name>Actions</default_name>
+			<display_name>Actions</display_name>
+			<values>
+				<item>
+					<default_name>Available actions</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212687" expand="0">
+			<default_name>Exposures</default_name>
+			<display_name>Exposures</display_name>
+			<values>
+				<item>
+					<default_name>Available exposures</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value/>
+					</value>
+				</item>
+			</values>
+			<childs/>
+		</item>
+		<item ClassTypeID="285212735" expand="0">
+			<default_name>Defences</default_name>
+			<display_name>Defences</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212736" expand="0">
+					<default_name>Front</default_name>
+					<display_name>Front</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212736" expand="0">
+					<default_name>Left</default_name>
+					<display_name>Left</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212736" expand="0">
+					<default_name>Right</default_name>
+					<display_name>Right</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212736" expand="0">
+					<default_name>Back</default_name>
+					<display_name>Back</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212736" expand="0">
+					<default_name>Top</default_name>
+					<display_name>Top</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212736" expand="0">
+					<default_name>Bottom</default_name>
+					<display_name>Bottom</display_name>
+					<values>
+						<item>
+							<default_name>Min armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Max armor</default_name>
+							<value type="1" flag="1" float_value="0" int_value="4" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212747" expand="0">
+			<default_name>Joggings</default_name>
+			<display_name>Joggings</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212748" expand="0">
+					<default_name>X Jogging</default_name>
+					<display_name>X Jogging</display_name>
+					<values>
+						<item>
+							<default_name>Period 1</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Period 2</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Amplitude 1</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Amplitude 2</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Phase 1</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Phase 2</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212748" expand="0">
+					<default_name>Y Jogging</default_name>
+					<display_name>Y Jogging</display_name>
+					<values>
+						<item>
+							<default_name>Period 1</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Period 2</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Amplitude 1</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Amplitude 2</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Phase 1</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Phase 2</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212748" expand="0">
+					<default_name>Z Jogging</default_name>
+					<display_name>Z Jogging</display_name>
+					<values>
+						<item>
+							<default_name>Period 1</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Period 2</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Amplitude 1</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Amplitude 2</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Phase 1</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Phase 2</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212743" expand="0">
+			<default_name>Platforms</default_name>
+			<display_name>Platforms</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212744" expand="0">
+					<default_name>Base</default_name>
+					<display_name>Base</display_name>
+					<values>
+						<item>
+							<default_name>Part</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>NA</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Gun carriage 1</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>NA</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Gun carriage 2</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value>NA</string_value>
+							</value>
+						</item>
+						<item>
+							<default_name>Vertical rotation speed</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Horizontal rotation speed</default_name>
+							<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+						<item>
+							<default_name>Rotation sound</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs>
+						<item ClassTypeID="285212745" expand="0">
+							<default_name>Guns</default_name>
+							<display_name>Guns</display_name>
+							<values/>
+							<childs>
+								<item ClassTypeID="285212746" expand="0">
+									<default_name>Gun 0</default_name>
+									<display_name>Gun 0</display_name>
+									<values>
+										<item>
+											<default_name>Shoot point</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>NA</string_value>
+											</value>
+										</item>
+										<item>
+											<default_name>Shoot part</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value>NA</string_value>
+											</value>
+										</item>
+										<item>
+											<default_name>Weapon</default_name>
+											<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value/>
+											</value>
+										</item>
+										<item>
+											<default_name>Gun priority</default_name>
+											<value type="1" flag="1" float_value="0" int_value="1" int64low="0" int64high="0">
+												<string_value/>
+											</value>
+										</item>
+										<item>
+											<default_name>Recoil flag</default_name>
+											<value type="8" flag="8" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value/>
+											</value>
+										</item>
+										<item>
+											<default_name>Recoil time</default_name>
+											<value type="1" flag="1" float_value="0" int_value="50" int64low="0" int64high="0">
+												<string_value/>
+											</value>
+										</item>
+										<item>
+											<default_name>Recoil shake time</default_name>
+											<value type="1" flag="1" float_value="0" int_value="500" int64low="0" int64high="0">
+												<string_value/>
+											</value>
+										</item>
+										<item>
+											<default_name>Recoil shake angle</default_name>
+											<value type="2" flag="2" float_value="0" int_value="0" int64low="0" int64high="0">
+												<string_value/>
+											</value>
+										</item>
+										<item>
+											<default_name>Ammo count</default_name>
+											<value type="1" flag="1" float_value="0" int_value="100" int64low="0" int64high="0">
+												<string_value/>
+											</value>
+										</item>
+										<item>
+											<default_name>Reload cost</default_name>
+											<value type="2" flag="2" float_value="1" int_value="0" int64low="0" int64high="0">
+												<string_value/>
+											</value>
+										</item>
+									</values>
+									<childs/>
+								</item>
+							</childs>
+						</item>
+					</childs>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212737" expand="0">
+			<default_name>Graphics Info</default_name>
+			<display_name>Graphics Info</display_name>
+			<values>
+				<item>
+					<default_name>3D model ready</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>1.mod</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>3D model install</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>2.mod</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>3D model transportable</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>3.mod</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Alive summer texture</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>1.tga</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Alive winter texture</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>1w.tga</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Alive afrika texture</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>1a.tga</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Dead summer texture</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>2.tga</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Dead winter texture</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>2w.tga</string_value>
+					</value>
+				</item>
+				<item>
+					<default_name>Dead afrika texture</default_name>
+					<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+						<string_value>2a.tga</string_value>
+					</value>
+				</item>
+			</values>
+			<childs>
+				<item ClassTypeID="285212740" expand="0">
+					<default_name>Death craters</default_name>
+					<display_name>Death craters</display_name>
+					<values>
+						<item>
+							<default_name>Craters directory</default_name>
+							<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+								<string_value/>
+							</value>
+						</item>
+					</values>
+					<childs>
+						<item ClassTypeID="285212741" expand="0">
+							<default_name>Death crater</default_name>
+							<display_name>Death crater</display_name>
+							<values>
+								<item>
+									<default_name>Crater file</default_name>
+									<value type="4" flag="4" float_value="0" int_value="0" int64low="0" int64high="0">
+										<string_value/>
+									</value>
+								</item>
+							</values>
+							<childs/>
+						</item>
+					</childs>
+				</item>
+			</childs>
+		</item>
+		<item ClassTypeID="285212749" expand="0">
+			<default_name>Locators</default_name>
+			<display_name>Locators</display_name>
+			<values/>
+			<childs>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>Basis</default_name>
+					<display_name>Basis</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>Turret</default_name>
+					<display_name>Turret</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>GunCarriage</default_name>
+					<display_name>GunCarriage</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>MainBarrel</default_name>
+					<display_name>MainBarrel</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LGunner01</default_name>
+					<display_name>LGunner01</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LGunner02</default_name>
+					<display_name>LGunner02</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LGunner03</default_name>
+					<display_name>LGunner03</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LAmmo</default_name>
+					<display_name>LAmmo</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LTowingPoint</default_name>
+					<display_name>LTowingPoint</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LGunner04</default_name>
+					<display_name>LGunner04</display_name>
+					<values/>
+					<childs/>
+				</item>
+				<item ClassTypeID="285212750" expand="0">
+					<default_name>LMainGun</default_name>
+					<display_name>LMainGun</display_name>
+					<values/>
+					<childs/>
+				</item>
+			</childs>
+		</item>
+	</childs>
+</Mesh_Composer_Project>
