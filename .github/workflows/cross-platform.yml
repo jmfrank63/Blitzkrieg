@@ -193,20 +193,6 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run -Drandom-missions-sweep=all "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
-      # The map editor's composers (05-09, 05-10): every shipped template, graph,
-      # container and field set read, written and read again through the editor's
-      # own records and compared (bytes included), and an authored set generated
-      # from twice with one seed and compared byte for byte.
-      - name: RMG composer round trip (Map Editor code, here for the release build)
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build test-rmg-composer-roundtrip -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
-      - name: RMG determinism (Map Editor code, here for the release build)
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build test-rmg-determinism -Dtarget=x86_64-windows-msvc --release=fast -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
-
       # Saved from main only (2026-10-08): every branch saving its own set took
       # the repository's caches to 13.4 GB, over GitHub's 10 GB, and evicted them.
       # Any branch can restore main's caches.
@@ -873,6 +859,23 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-windows-msvc -Dtest-mode=run -Drandom-missions-sweep=only=kharkov42 "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
 
+      # Moved from the Game job (2026-10-08) and run on the debug build, which this job
+      # makes anyway: in release they reused the Game job's release build (under a minute
+      # each), and the debug build checks the engine's asserts too.
+      # The map editor's composers (05-09, 05-10): every shipped template, graph,
+      # container and field set read, written and read again through the editor's
+      # own records and compared (bytes included), and an authored set generated
+      # from twice with one seed and compared byte for byte.
+      - name: RMG composer round trip
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-rmg-composer-roundtrip -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
+      - name: RMG determinism
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-rmg-determinism -Dtarget=x86_64-windows-msvc -Dtest-mode=run "-Dmsvc-include=$env:MSVC_INCLUDE" "-Dwindows-sdk-include=$env:WINDOWS_SDK_INCLUDE" "-Dmsvc-lib=$env:MSVC_LIB" "-Dwindows-sdk-lib=$env:WINDOWS_SDK_LIB"
+
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v6
@@ -1207,16 +1210,6 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build --sysroot "$MACOS_SYSROOT" test-random-missions -Dtarget=aarch64-macos --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
-
-      - name: RMG composer round trip (Map Editor code, here for the release build)
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-composer-roundtrip -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
-
-      - name: RMG determinism (Map Editor code, here for the release build)
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-determinism -Dtarget=aarch64-macos --release=fast -Dtest-mode=run
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
@@ -1646,6 +1639,19 @@ jobs:
       - name: Build the Map Editor overlay spike
         run: zig build --sysroot "$MACOS_SYSROOT" editor-overlay-spike-build -Dtarget=aarch64-macos
 
+      # Moved from the Game job (2026-10-08) and run on the debug build, which this job
+      # makes anyway: in release they reused the Game job's release build (under a minute
+      # each), and the debug build checks the engine's asserts too.
+      - name: RMG composer round trip
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-composer-roundtrip -Dtarget=aarch64-macos -Dtest-mode=run
+
+      - name: RMG determinism
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build --sysroot "$MACOS_SYSROOT" test-rmg-determinism -Dtarget=aarch64-macos -Dtest-mode=run
+
       - name: Upload generated outputs
         if: always()
         uses: actions/upload-artifact@v6
@@ -2027,16 +2033,6 @@ jobs:
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
-
-      - name: RMG composer round trip (Map Editor code, here for the release build)
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build test-rmg-composer-roundtrip -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run
-
-      - name: RMG determinism (Map Editor code, here for the release build)
-        env:
-          BK_REQUIRE_ENGINE: "1"
-        run: zig build test-rmg-determinism -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
@@ -2524,6 +2520,19 @@ jobs:
 
       - name: Build the Map Editor overlay spike
         run: zig build editor-overlay-spike-build -Dtarget=x86_64-linux-gnu
+
+      # Moved from the Game job (2026-10-08) and run on the debug build, which this job
+      # makes anyway: in release they reused the Game job's release build (under a minute
+      # each), and the debug build checks the engine's asserts too.
+      - name: RMG composer round trip
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-rmg-composer-roundtrip -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+
+      - name: RMG determinism
+        env:
+          BK_REQUIRE_ENGINE: "1"
+        run: zig build test-rmg-determinism -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Upload generated outputs
         if: always()
