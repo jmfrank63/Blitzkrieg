@@ -32,8 +32,10 @@
 #include <psapi.h>
 #elif defined(__APPLE__)
 #include <mach/mach.h>
+#include <malloc/malloc.h>
 #else
 #include <fstream>
+#include <malloc.h>
 #if __has_include(<valgrind/memcheck.h>)
 #include <valgrind/memcheck.h>
 #endif
@@ -64,6 +66,46 @@ static long long ProcessMemoryKb()
 			return std::atoll( szLine.c_str() + 6 );
 	return -1;
 #endif
+}
+
+// The bytes the program holds in live heap allocations, and how many allocations: every busy block
+// of every process heap on Windows, every malloc zone on macOS, all of glibc's arenas and mmapped
+// chunks on Linux. Unlike the resident counters above it does not include heap that was freed but
+// stays committed, so once the caches are warm (the later rounds of repeat=) a mission that leaks
+// shows here as growth to the byte, on every platform and in release builds.
+struct SHeapUse { long long nBytes = -1; long long nBlocks = -1; };
+static SHeapUse HeapUse()
+{
+	SHeapUse use;
+#if defined(_WIN32) || defined(_WIN64)
+	std::vector<HANDLE> heaps( GetProcessHeaps( 0, 0 ) + 16 );
+	heaps.resize( GetProcessHeaps( DWORD( heaps.size() ), heaps.data() ) );
+	use.nBytes = 0;
+	use.nBlocks = 0;
+	for ( HANDLE hHeap : heaps )
+	{
+		if ( !HeapLock( hHeap ) )
+			continue;
+		PROCESS_HEAP_ENTRY entry = {};
+		while ( HeapWalk( hHeap, &entry ) )
+			if ( entry.wFlags & PROCESS_HEAP_ENTRY_BUSY )
+			{
+				use.nBytes += entry.cbData;
+				++use.nBlocks;
+			}
+		HeapUnlock( hHeap );
+	}
+#elif defined(__APPLE__)
+	malloc_statistics_t stats = {};
+	malloc_zone_statistics( nullptr, &stats );
+	use.nBytes = (long long)stats.size_in_use;
+	use.nBlocks = (long long)stats.blocks_in_use;
+#elif defined(__GLIBC__)
+	const struct mallinfo2 info = mallinfo2();
+	use.nBytes = (long long)( info.uordblks + info.hblkhd );
+	// glibc does not count busy chunks; the per-case memcheck report below names them.
+#endif
+	return use;
 }
 
 static int g_nFailures = 0;
@@ -405,9 +447,20 @@ int main( int argc, char **argv )
 		for ( int nRound = 0; nRound < nRepeat; ++nRound )
 		for ( const SCase &c : cases )
 		{
+			// With repeat=, every round restarts both random generators, so each round generates the same
+			// maps with the same graphs and angles, and the heap after a case is comparable to the byte
+			// with the heap after the same case a round earlier.
+			if ( nRepeat > 1 && &c == &cases.front() )
+			{
+				srand( 1 );
+				CPtr<IRandomGenSeed> pSeed = CreateObject<IRandomGenSeed>( STREAMIO_RANDOM_GEN_SEED );
+				pSeed->InitByZeroSeed();
+				GetSingleton<IRandomGen>()->SetSeed( pSeed );
+			}
 			if ( !RunCase( pSession, c, scratch ) )
 				++nFailedCases;
-			printf( "random-missions: memory after case %d: %lld KiB\n", ++nCase, ProcessMemoryKb() );
+			const SHeapUse heap = HeapUse();
+			printf( "random-missions: memory after case %d: %lld KiB, heap %lld bytes in %lld blocks\n", ++nCase, ProcessMemoryKb(), heap.nBytes, heap.nBlocks );
 #if defined(VALGRIND_DO_CHANGED_LEAK_CHECK)
 			// Under Valgrind's memcheck, how each case changed the heap from the case before, grown and
 			// shrunk, block by block and with its stack; outside Valgrind this does nothing. Run with
