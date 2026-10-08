@@ -358,7 +358,9 @@ jobs:
     # Raised to 150: run 37677710944 had every test step green on a cold cache
     # (engine tier 22 minutes, random missions 29, the Resource Editor tiers
     # since added) and was cut off at 110 in the release packaging step.
-    timeout-minutes: 150
+    # Raised to 240: run 37691999377 then finished in 125 of 150 minutes, too
+    # close for a slow runner; GitHub-hosted jobs allow up to 360.
+    timeout-minutes: 240
 
     steps:
       - name: Check out source
