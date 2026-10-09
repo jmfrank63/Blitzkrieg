@@ -61,3 +61,7 @@ The two longest tiers sit at 80% and 57% of the bound; m3-auto is the one to wat
 | resource-editor-smoke | `zig build resource-editor-smoke -Dtest-mode=run` | 0 | 60 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
 | resource-editor-batch | `zig build resource-editor-batch -Dtest-mode=run` | 0 | 72 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
 | resource-editor-game-reads-it | `zig build resource-editor-game-reads-it -Dtest-mode=run` | 0 | 156 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-core | `zig build resource-editor-auto-core -Dtest-mode=run` | 0 | 129 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-wpn | `zig build resource-editor-auto-wpn -Dtest-mode=run` | 0 | 67 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-unt | `zig build resource-editor-auto-unt -Dtest-mode=run` | 0 | 65 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-spt | `zig build resource-editor-auto-spt -Dtest-mode=run` | 0 | 68 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
