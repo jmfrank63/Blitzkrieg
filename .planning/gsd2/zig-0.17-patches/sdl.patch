@@ -1,0 +1,45 @@
+Upstream: https://github.com/castholm/SDL (tag v0.4.0+3.4.0)
+Commit: ae5deb068787bd71d9aadbc054ff1af54f5d058c
+Package dir: zig-pkg/sdl-0.4.0+3.4.0-SDL--u6yowGyvoiJ5qkFm_T1-MpmvnHShh2q2mTZf1fo
+Pinned at: build.zig.zon:7, vendor/zig-sdl3/build.zig.zon:12
+Reason: Zig 0.17 no longer exposes --sysroot to build.zig (b.sysroot is gone), so the two uses
+        (macOS non-native, Emscripten) read a new `sysroot` package option (-Dsysroot) instead.
+        The include/framework path logic is unchanged. On Windows and Linux it stays null.
+Consumers (S02/S05): pass .sysroot via the dependency args or -Dsysroot; CI macOS --sysroot becomes -Dsysroot.
+Apply: git apply sdl.patch inside the package dir (build.zig, CRLF line endings).
+Upstream release-3.4.x still uses b.sysroot as of 2026-10-10; fork and repin per D059.
+
+diff --git a/build.zig b/build.zig
+index db7d224..c945244 100644
+--- a/build.zig
++++ b/build.zig
+@@ -53,6 +53,11 @@ pub fn build(b: *std.Build) void {
+         "Additionally install 'SDL_build_config.h' when installing SDL (default: false)",
+     ) orelse false;
+ 
++    const sysroot_option = b.option(
++        []const u8,
++        "sysroot",
++        "System root for macOS/Emscripten headers and frameworks (Zig 0.17 no longer exposes --sysroot to build.zig)",
++    );
+     var windows = false;
+     var linux = false;
+     var linux_deps_values: ?LinuxDepsValues = null;
+@@ -77,7 +82,7 @@ pub fn build(b: *std.Build) void {
+         },
+         .macos => {
+             macos = true;
+-            if (b.sysroot) |sysroot| {
++            if (sysroot_option) |sysroot| {
+                 system_include_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "usr/include" }) };
+                 system_framework_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) };
+                 library_path = .{ .cwd_relative = "/usr/lib" }; // ???
+@@ -88,7 +93,7 @@ pub fn build(b: *std.Build) void {
+         },
+         .emscripten => {
+             emscripten = true;
+-            if (b.sysroot) |sysroot| {
++            if (sysroot_option) |sysroot| {
+                 system_include_path = .{ .cwd_relative = b.pathJoin(&.{ sysroot, "include" }) };
+             } else {
+                 std.log.err("'--sysroot' is required when building SDL for Emscripten", .{});

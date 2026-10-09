@@ -1,0 +1,64 @@
+Upstream: https://github.com/Gota7/dxc-build (branch zig-sdl3)
+Commit: a60f9fae53dac7a792f6407f8b0352e8b1f1a22e
+Package dir: zig-pkg/dxc-1.8.2505-siU2n6P4FQJNhZ0or2qPUx0C72_CdWUU15vI1h54sQC5
+Pinned at: build.zig.zon:24, vendor/zig-sdl3/build.zig.zon:7
+Reason: Zig 0.17 removed Type.Struct.decls (now decl_names) and custom Step makeFn/id,
+        so the three inline-for loops use decl_names and the version step is a plain step.
+Apply: git apply dxc.patch inside the package dir (build.zig, CRLF line endings).
+Upstream has no fix as of 2026-10-10; fork and repin per D059.
+
+diff --git a/build.zig b/build.zig
+index e512a2f..f139f5f 100644
+--- a/build.zig
++++ b/build.zig
+@@ -204,18 +204,18 @@ pub fn build(b: *std.Build) !void {
+         lib.installConfigHeader(config_header);
+     }
+ 
+-    inline for (@typeInfo(sources).@"struct".decls) |decl| {
++    inline for (@typeInfo(sources).@"struct".decl_names) |decl_name| {
+         llvm_root_module.addCSourceFiles(.{
+-            .files = @field(sources, decl.name),
+-            .root = lib_path.path(b, decl.name),
++            .files = @field(sources, decl_name),
++            .root = lib_path.path(b, decl_name),
+             .flags = cxx_flags,
+         });
+     }
+ 
+-    inline for (@typeInfo(sources_c).@"struct".decls) |decl| {
++    inline for (@typeInfo(sources_c).@"struct".decl_names) |decl_name| {
+         llvm_root_module.addCSourceFiles(.{
+-            .files = @field(sources_c, decl.name),
+-            .root = lib_path.path(b, decl.name),
++            .files = @field(sources_c, decl_name),
++            .root = lib_path.path(b, decl_name),
+             .flags = &.{
+                 "-std=c11",                  "-Wno-unused-command-line-argument",
+                 "-Wno-unused-variable",      "-Wno-missing-exception-spec",
+@@ -266,10 +266,10 @@ pub fn build(b: *std.Build) !void {
+         .include_extensions = include_extensions,
+     });
+ 
+-    inline for (@typeInfo(clang_sources).@"struct".decls) |decl| {
++    inline for (@typeInfo(clang_sources).@"struct".decl_names) |decl_name| {
+         clang_root_module.addCSourceFiles(.{
+-            .files = @field(clang_sources, decl.name),
+-            .root = clang_lib_path.path(b, decl.name),
++            .files = @field(clang_sources, decl_name),
++            .root = clang_lib_path.path(b, decl_name),
+             .flags = cxx_flags,
+         });
+     }
+@@ -498,9 +498,8 @@ pub fn build(b: *std.Build) !void {
+     });
+     b.installArtifact(dxil);
+ 
+-    const version = try Version.init(b);
+-    const version_step = b.step("version", "Get build version");
+-    version_step.dependOn(&version.step);
++    // Zig 0.17 removed custom make functions, so the step that printed the version is now a plain no-op step.
++    _ = b.step("version", "Get build version");
+ }
+ 
+ pub const sources = struct {
