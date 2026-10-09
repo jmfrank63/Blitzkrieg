@@ -13,8 +13,18 @@
 | test-editor-bridge | `zig build test-editor-bridge -Dtest-mode=run` (debug) | TIMEOUT (no result; wrapper printed "exit 1" at 899 s under the earlier 900 s bound) | 899 s | 900 s (earlier bound) | Fails locally on 0.16.0 at 4d7645fc5 too, in ..\Blitzkrieg-zig016: my run TIMEOUT at 901 s; maintainer's runs (D069) exited 255 after 1.7 min and after 14.8 min. All stop at `adding game type 100 (4385 in the catalogue) as 20mm_aviacannon`. CI windows-game passes this tier at 4d7645fc5. Pre-existing local failure on win-home, not a 0.17 regression; CI is the proof, re-checked in S05. |
 | test-editor-kit | `zig build test-editor-kit -Dtest-mode=run` | 0 | 1 s (cache hit, "run test cached"; identical inputs already passed under 0.17.0) | 480 s | CI green at 4d7645fc5 (windows-map-editor / windows-resource-editor) |
 | test-map-files | `zig build test-map-files -Dtest-mode=run` | 0 | 45 s | 480 s | CI green at 4d7645fc5 (windows-game) |
-| test-random-missions only=kharkov42 | `zig build test-random-missions -Dtest-mode=run -Drandom-missions-sweep=only=kharkov42` | TIMEOUT | 481 s | 480 s | 0.16 baseline pending (running next) |
+| test-random-missions only=kharkov42 | `zig build test-random-missions -Dtest-mode=run -Drandom-missions-sweep=only=kharkov42` | TIMEOUT | 481 s (22 missions done) | 480 s | 0.16.0 at 4d7645fc5 in ..\Blitzkrieg-zig016, same command: TIMEOUT at 481 s (21 missions done, includes cold compile). Same pace, so the debug sweep is simply longer than 480 s locally; pre-existing, not a 0.17 regression. CI windows-game runs it as a full sweep at 4d7645fc5 and is green. |
+| test-random-missions leak gate | `zig build test-random-missions --release=fast -Dtest-mode=run -Drandom-missions-sweep=only=summer_ukraine\securearea00 -Drandom-missions-repeat=20` | 0 | 171 s (6 cases, 0 failed, 116 s of run time) | 480 s | Heap flat: 112469994 bytes after round 10, 112470154 after round 20 (+160 bytes). CI green at 4d7645fc5 (windows-game runs this gate). |
 
 ## rootPath fix
 
-(to be filled in)
+`rootPath(b, sub)` returns the build root joined with `sub` as an absolute string for run-step arguments and environment variables.
+
+- Before (0.17 port, `b.root.joinString`): the sub path is kept as written, so `rootPath(b, "zig-out/local-test/x")` was `C:\...\Blitzkrieg\zig-out/local-test/x`: a "/" inside a Windows path.
+- After (`b.pathResolve(&.{joined})`): native separators only, `C:\...\Blitzkrieg\zig-out\local-test\x`.
+
+Which tier failed without it: **map-editor-smoke** (and map-editor-auto, which runs the same smoke step), measured on 0.17.0 with the fix reverted and build.zig restored afterwards (`git status` clean):
+
+- `map-editor: smoke FAIL: another installation's map opens read-only: the document is C:\...\zig-out\local-test\map-editor-smoke-foreign\Data\Maps\Multiplayer\coldwinter.bzm, want C:\...\zig-out/local-test\map-editor-smoke-foreign\Data\Maps\Multiplayer\coldwinter.bzm` (exit 1, 62 s). The editor compares the path it built (backslashes) with the string build.zig passed (mixed separators), so the two equal paths differ.
+- With the fix: `zig build map-editor-smoke -Dtest-mode=run` exit 0, 81 s.
+- map-editor-host-check passes both with and without the fix (78 s and 91 s), it only writes the mixed path into a log line.
