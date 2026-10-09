@@ -4,7 +4,7 @@
 - Machine: win-home (Windows 11 x64)
 - Zig: 0.17.0
 - Commit at start: 0a474bea4 (branch chore/zig-0.17)
-- Bound: 900 s per tier, whole process tree killed on expiry
+- Bound: 480 s per tier from the 2026-10-09T22:19 steer (D068; the first two rows ran under the earlier 900 s bound), whole process tree killed on expiry
 
 | Tier | Command | Exit | Duration | Limit | 0.16 comparison |
 |------|---------|------|----------|-------|-----------------|
