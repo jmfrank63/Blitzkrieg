@@ -47,3 +47,15 @@ Which tier failed without it: **map-editor-smoke** (and map-editor-auto, which r
 | map-editor-game-reads-it-m3 | `zig build map-editor-game-reads-it-m3 -Dtest-mode=run` | 0 | 274 s | 480 s | CI windows-map-editor green at 4d7645fc5 |
 
 The two longest tiers sit at 80% and 57% of the bound; m3-auto is the one to watch if the machine is loaded.
+
+## Resource Editor (part 1) (S04 / T04)
+
+- Date: 2026-10-10
+- Zig: 0.17.0, debug, win-home real desktop, commit at start 03e0824bf
+- Bound: 480 s per tier (run-bounded.ps1), whole process tree killed on expiry
+- 0.16 comparison: every step below is listed in the windows-resource-editor job of .github/workflows/cross-platform.yml, green at 4d7645fc5
+
+| Tier | Command | Exit | Duration | Limit | 0.16 comparison |
+|------|---------|------|----------|-------|-----------------|
+| resource-editor-host-check | `zig build resource-editor-host-check -Dtest-mode=run` | 0 | 59 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-smoke | `zig build resource-editor-smoke -Dtest-mode=run` | 0 | 60 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
