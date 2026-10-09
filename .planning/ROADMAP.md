@@ -449,3 +449,13 @@ Plans:
 Plans:
 
 - [ ] TBD (promote with /gsd-review-backlog when ready)
+
+### Phase 999.6: Single-player replays: save and play back any mission (BACKLOG)
+
+**Goal:** Offer "Save Replay" after every mission, not only after a multiplayer match, and play single-player replays back through Main Menu, Load Game, "Load Replay Demo" with the same battle as recorded. The single-player game already records every command and the replay list already starts single-player playback; what is missing is the start seed (multiplayer zeroes it at game start, single-player does not, and the code that stores it in the replay is commented out) and the button (`Stats.cpp` shows it for multiplayer only). Proved by a headless record-and-replay test that compares the end state by code. Captured 2026-10-10 (Johannes: "We want it later"). Details in `.planning/phases/999.6-single-player-replays/999.6-NOTES.md`.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (promote with /gsd-review-backlog when ready)
