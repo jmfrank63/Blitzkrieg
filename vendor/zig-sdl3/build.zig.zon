@@ -4,13 +4,13 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .dxc = .{
-            .url = "git+https://github.com/Gota7/dxc-build?ref=zig-sdl3#a60f9fae53dac7a792f6407f8b0352e8b1f1a22e",
-            .hash = "dxc-1.8.2505-siU2n6P4FQJNhZ0or2qPUx0C72_CdWUU15vI1h54sQC5",
+            .url = "git+https://github.com/jmfrank63/dxc-build?ref=zig-0.17#c3736c65dfe8e28a3e3e0f5bec6905710b45b5ab",
+            .hash = "dxc-1.8.2505-siU2nxj6FQL41nA-6CuCVRSkKgv5gOTi5dzhELP2PGQz",
             .lazy = true,
         },
         .sdl = .{
-            .url = "git+https://github.com/castholm/SDL.git?ref=v0.4.0%2B3.4.0#ae5deb068787bd71d9aadbc054ff1af54f5d058c",
-            .hash = "sdl-0.4.0+3.4.0-SDL--u6yowGyvoiJ5qkFm_T1-MpmvnHShh2q2mTZf1fo",
+            .url = "git+https://github.com/castholm/SDL.git?ref=v0.6.0%2B3.4.18#dbcb19aa3583c318556ecae3ecbeb29b102d37c5",
+            .hash = "sdl-0.6.0+3.4.18-SDL--p-gqAGWpnfTLlhs0dgjDtc4P4_CHeNLGY_SX_Fv",
             .lazy = true,
         },
         .sdl_image = .{

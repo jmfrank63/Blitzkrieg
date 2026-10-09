@@ -733,9 +733,12 @@ const cppflags_game_release = &.{
     "-Wno-unused-command-line-argument",
 };
 
-/// Zig 0.17 no longer exposes --sysroot to build.zig, so macOS CI passes
-/// -Dsysroot instead. Declared once in build(); options may not be declared twice.
-var sysroot_option: ?[]const u8 = null;
+/// Zig 0.17 no longer exposes --sysroot to build.zig, so a macOS build against an explicit SDK passes
+/// these three paths instead; they are also forwarded to the sdl package, which has the same options.
+/// Declared once in build(); options may not be declared twice.
+var system_include_path_option: ?std.Build.LazyPath = null;
+var system_framework_path_option: ?std.Build.LazyPath = null;
+var library_path_option: ?std.Build.LazyPath = null;
 
 /// Absolute path of `sub` under a package's build root. The 0.17 build API dropped getPath, so run
 /// steps get their path strings from here; a relative root would silently change the args, so it asserts.
@@ -766,7 +769,9 @@ fn addPathDir(run: *std.Build.Step.Run, dir: []const u8) void {
 }
 
 pub fn build(b: *std.Build) void {
-    sysroot_option = b.option([]const u8, "sysroot", "System root for macOS headers, libraries and frameworks (replaces --sysroot)");
+    system_include_path_option = b.option(std.Build.LazyPath, "system_include_path", "System header search path for macOS cross builds (replaces --sysroot)");
+    system_framework_path_option = b.option(std.Build.LazyPath, "system_framework_path", "System framework search path for macOS cross builds (replaces --sysroot)");
+    library_path_option = b.option(std.Build.LazyPath, "library_path", "Library search path for macOS cross builds (replaces --sysroot)");
     // The default target follows the host CPU on Linux as it already did on
     // macOS. This branch used to hardcode x86_64, so a plain `zig build` on an
     // arm64 Linux host silently cross-compiled for x86_64 and then failed to
@@ -1199,7 +1204,9 @@ pub fn build(b: *std.Build) void {
     const sdl_dynamic_dep = b.dependency("sdl", .{
         .target = dependency_target,
         .optimize = .fast,
-        .sysroot = sysroot_option,
+        .system_include_path = system_include_path_option,
+        .system_framework_path = system_framework_path_option,
+        .library_path = library_path_option,
         .preferred_linkage = .dynamic,
         .install_build_config_h = true,
     });
@@ -1516,7 +1523,9 @@ pub fn build(b: *std.Build) void {
     const sdl3_dep = b.dependency("sdl3", .{
         .target = dependency_target,
         .optimize = optimize,
-        .sdl_sysroot_path = sysroot_option,
+        .sdl_system_include_path = system_include_path_option,
+        .sdl_system_framework_path = system_framework_path_option,
+        .sdl_library_path = library_path_option,
         .c_sdl_preferred_linkage = .dynamic,
         .c_sdl_install_build_config_h = true,
         // Runtime shaders are precompiled into DXIL on Windows.  The
@@ -4835,32 +4844,28 @@ const ToolchainIncludes = struct {
 };
 
 // zig resolves macOS frameworks from the native SDK on its own, but a build
-// driven with an explicit --sysroot (which is how CI invokes every macOS step)
-// searches no framework directory at all, so anything that links SDL fails with
-// "unable to find framework 'Cocoa'". Point the module at the sysroot's own
-// framework and library directories.
+// against an explicit SDK (which is how CI invokes every macOS step) searches no
+// framework directory at all, so anything that links SDL fails with
+// "unable to find framework 'Cocoa'". Point the module at the framework, header
+// and library directories given with -Dsystem_framework_path, -Dsystem_include_path
+// and -Dlibrary_path; with none given nothing is added.
 fn addMacosSysrootPaths(b: *std.Build, module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
     if (target.result.os.tag != .macos) return;
     addMacosSysrootPathsToModule(b, module);
 }
 
 /// The same for a module whose target is the host rather than a resolved one -
-/// the shadercross tool. Split out because --sysroot is global to the build, so
-/// a host tool needs the paths just as much as a cross-compiled one does.
+/// the shadercross tool. Split out because the paths are global to the build, so
+/// a host tool needs them just as much as a cross-compiled one does.
 fn addMacosSysrootPathsToModule(b: *std.Build, module: *std.Build.Module) void {
-    const sysroot = sysroot_option orelse return;
-    module.addFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) });
+    _ = b;
+    if (system_framework_path_option) |path| module.addFrameworkPath(path);
+    if (system_include_path_option) |path| module.addSystemIncludePath(path);
     // libobjc and the rest of the system libraries live there as .tbd stubs.
-    // Without this, linkSystemLibrary("objc") under --sysroot fails with
-    // "unable to find dynamic system library 'objc' ... searched paths: none",
-    // which is what the engine tier hit the first time CI built the game on
-    // macOS - nothing else in CI had ever linked a system library there.
-    //
-    // Sysroot-relative, unlike the framework path above: zig prefixes --sysroot
-    // onto a library path and does not onto a framework path. Measured - an
-    // absolute one comes out as <sysroot>/<sysroot>/usr/lib and warns
-    // "unable to open library directory", then fails to find anything.
-    module.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+    // Without this, linkSystemLibrary("objc") fails with "unable to find dynamic
+    // system library 'objc' ... searched paths: none", which is what the engine
+    // tier hit the first time CI built the game on macOS.
+    if (library_path_option) |path| module.addLibraryPath(path);
 }
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
@@ -10181,7 +10186,7 @@ fn addSdlEventTest(
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
-            // The CI runner links against the SDK sysroot (--sysroot), which
+            // The CI runner links against the SDK (-Dsystem_framework_path and friends), which
             // has to be on the search path for objc and c++ to resolve.
             addMacosSysrootPaths(b, module, target);
             module.linkSystemLibrary("c++", .{});
@@ -10643,6 +10648,11 @@ const SeasonDataInputs = struct {
 // walking Data/Units takes a few milliseconds.
 fn seasonDataInputs(b: *std.Build) !SeasonDataInputs {
     const io = b.graph.io;
+    // Declared before the existence check, so a sparse checkout that later gains Data/Units
+    // reruns the configuration. Declaring a missing directory fails the configuration, so the
+    // always present parent stands in for it; the declaration is not recursive, so Data/Units
+    // and every walked subdirectory are declared too once they exist.
+    b.dependOnDirectoryContents(b.path("Data"));
     var dir = b.root.root_dir.handle.openDir(io, "Data/Units", .{ .iterate = true }) catch |err| switch (err) {
         // CI's sparse checkouts for the jobs that never stage the game (the
         // Linux, MinGW and Intel macOS ones) leave out Data/Units. Staging
@@ -10651,8 +10661,6 @@ fn seasonDataInputs(b: *std.Build) !SeasonDataInputs {
         else => return err,
     };
     defer dir.close(io);
-    // Declared only once the directory is known to exist, so sparse checkouts still configure.
-    // The declaration is not recursive, so every walked subdirectory is declared too.
     b.dependOnDirectoryContents(b.path("Data/Units"));
     var walker = try dir.walk(b.allocator);
     defer walker.deinit();
