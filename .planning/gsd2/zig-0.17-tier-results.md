@@ -65,3 +65,11 @@ The two longest tiers sit at 80% and 57% of the bound; m3-auto is the one to wat
 | resource-editor-auto-wpn | `zig build resource-editor-auto-wpn -Dtest-mode=run` | 0 | 67 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
 | resource-editor-auto-unt | `zig build resource-editor-auto-unt -Dtest-mode=run` | 0 | 65 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
 | resource-editor-auto-spt | `zig build resource-editor-auto-spt -Dtest-mode=run` | 0 | 68 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-msh | `zig build resource-editor-auto-msh -Dtest-mode=run` | 0 | 88 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-obt | `zig build resource-editor-auto-obt -Dtest-mode=run` | 0 | 64 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-fnc | `zig build resource-editor-auto-fnc -Dtest-mode=run` | 0 | 64 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-bld | `zig build resource-editor-auto-bld -Dtest-mode=run` | 0 | 64 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-bdg | `zig build resource-editor-auto-bdg -Dtest-mode=run` | 0 | 66 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-pcp | `zig build resource-editor-auto-pcp -Dtest-mode=run` | 0 | 71 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+
+All 14 tiers pass on Zig 0.17.0; none came near the 480 s bound (longest: game-reads-it at 156 s). The aggregate `resource-editor-auto` and the remaining auto tiers (eff, til, 3rd, 3rv, mip, chc, cgc, mdc, gui) are part 2; the full sweep is left to the maintainer.
