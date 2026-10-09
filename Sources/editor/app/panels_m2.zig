@@ -40,7 +40,7 @@ pub fn drawCameraAnchors(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: i
     const rows = playerRows(state);
     while (player < rows) : (player += 1) {
         var label: [24:0]u8 = undefined;
-        const label_text = std.fmt.bufPrintZ(&label, "Player {d}", .{player}) catch continue;
+        const label_text = std.mem.printSentinel(&label, "Player {d}", .{player}, 0) catch continue;
         drawRow(state, label_text, @intCast(player), state.anchors.slot(player));
     }
     ig.igSeparator();
@@ -57,9 +57,9 @@ fn drawRow(state: *State, label: [:0]const u8, slot: i32, anchor: records.Vec3) 
     const is_set = !anchor.isUnset();
     var line: [64:0]u8 = undefined;
     const line_text = if (is_set)
-        std.fmt.bufPrintZ(&line, "{s}: {d:.0}, {d:.0}", .{ label, anchor.x, anchor.y }) catch label
+        std.mem.printSentinel(&line, "{s}: {d:.0}, {d:.0}", .{ label, anchor.x, anchor.y }, 0) catch label
     else
-        std.fmt.bufPrintZ(&line, "{s}: unset", .{label}) catch label;
+        std.mem.printSentinel(&line, "{s}: unset", .{label}, 0) catch label;
     panels.text(line_text);
     ig.igSameLine();
     ig.igBeginDisabled(!is_set);
@@ -96,7 +96,7 @@ pub fn drawRoadsRivers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.
     } else if (ig.igBeginChild("vso-types", .{ .x = 0, .y = 140 }, ig.ImGuiChildFlags_Borders, 0)) {
         for (state.vso_types, 0..) |*item, index| {
             var name: [core.bridge.vso_name_capacity + 1:0]u8 = undefined;
-            const label = std.fmt.bufPrintZ(&name, "{s}", .{item.nameSlice()}) catch continue;
+            const label = std.mem.printSentinel(&name, "{s}", .{item.nameSlice()}, 0) catch continue;
             const selected = std.mem.eql(u8, item.nameSlice(), tool.desc());
             if (ig.igSelectableEx(label.ptr, selected, 0, .{ .x = 0, .y = 0 })) _ = commands.chooseVsoType(state, index);
         }
@@ -126,7 +126,7 @@ pub fn drawRoadsRivers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.
     if (tool.selectedView(state.editor)) |view| {
         const selected = tool.selected.?;
         var line: [256:0]u8 = undefined;
-        const text = std.fmt.bufPrintZ(&line, "{s} {d}: ID {d}, {d} points", .{ selected.kind.label(), selected.index, view.saved_id, view.control_points.len }) catch "selected";
+        const text = std.mem.printSentinel(&line, "{s} {d}: ID {d}, {d} points", .{ selected.kind.label(), selected.index, view.saved_id, view.control_points.len }, 0) catch "selected";
         panels.text(text);
         ig.igPushTextWrapPos(0);
         panels.text(view.descSlice());
@@ -170,11 +170,11 @@ pub fn drawBridges(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
             panels.drawPaletteRowPicture(state, item.nameSlice());
             ig.igSameLine();
             var line: [core.bridge.name_capacity + 48:0]u8 = undefined;
-            const label = std.fmt.bufPrintZ(&line, "{s}\n{s}{s}", .{
+            const label = std.mem.printSentinel(&line, "{s}\n{s}{s}", .{
                 item.nameSlice(),
                 if (item.direction == .horizontal) "horizontal" else "vertical",
                 if (item.build_during_play_allowed) ", can be built during play" else "",
-            }) catch continue;
+            }, 0) catch continue;
             const selected = std.mem.eql(u8, item.nameSlice(), tool.desc());
             if (ig.igSelectableEx(label.ptr, selected, 0, .{ .x = 0, .y = 48 })) _ = commands.chooseBridgeType(state, item.nameSlice());
         }
@@ -187,7 +187,7 @@ pub fn drawBridges(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
     if (selected != null and selected.? < state.bridge_infos.len) {
         const info = state.bridge_infos[selected.?];
         var line: [core.bridge.name_capacity + 48:0]u8 = undefined;
-        const text = std.fmt.bufPrintZ(&line, "bridge {d}: {s}, {d} spans", .{ selected.?, info.descSlice(), info.span_count }) catch "selected";
+        const text = std.mem.printSentinel(&line, "bridge {d}: {s}, {d} spans", .{ selected.?, info.descSlice(), info.span_count }, 0) catch "selected";
         panels.text(text);
         if (ig.igButton("Rotate")) _ = commands.rotateSelectedBridge(state);
         var built = info.built_during_play;
@@ -231,7 +231,7 @@ pub fn drawFences(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGui
             panels.drawPaletteRowPicture(state, item.nameSlice());
             ig.igSameLine();
             var line: [core.bridge.name_capacity + 8:0]u8 = undefined;
-            const label = std.fmt.bufPrintZ(&line, "{s}", .{item.nameSlice()}) catch continue;
+            const label = std.mem.printSentinel(&line, "{s}", .{item.nameSlice()}, 0) catch continue;
             const selected = std.mem.eql(u8, item.nameSlice(), tool.desc());
             if (ig.igSelectableEx(label.ptr, selected, 0, .{ .x = 0, .y = 48 })) _ = commands.chooseFenceType(state, item.nameSlice());
         }
@@ -280,7 +280,7 @@ pub fn drawEntrenchments(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: i
     ig.igPopTextWrapPos();
     if (tool.drawing()) {
         var line: [64:0]u8 = undefined;
-        const text = std.fmt.bufPrintZ(&line, "{d} points clicked", .{tool.len}) catch "drawing";
+        const text = std.mem.printSentinel(&line, "{d} points clicked", .{tool.len}, 0) catch "drawing";
         panels.text(text);
     }
 
@@ -289,12 +289,12 @@ pub fn drawEntrenchments(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: i
     if (selected != null and selected.? < state.trench_infos.len) {
         const info = state.trench_infos[selected.?];
         var line: [96:0]u8 = undefined;
-        const text = std.fmt.bufPrintZ(&line, "entrenchment {d}, player {d}:\n{d} pieces in {d} sections", .{ selected.?, info.player, info.piece_count, info.section_count }) catch "selected";
+        const text = std.mem.printSentinel(&line, "entrenchment {d}, player {d}:\n{d} pieces in {d} sections", .{ selected.?, info.player, info.piece_count, info.section_count }, 0) catch "selected";
         panels.text(text);
         if (ig.igButton("Delete")) _ = commands.run(state, "trench_delete", "");
     } else {
         var line: [64:0]u8 = undefined;
-        const text = std.fmt.bufPrintZ(&line, "none ({d} entrenchments on the map)", .{state.trench_infos.len}) catch "none";
+        const text = std.mem.printSentinel(&line, "none ({d} entrenchments on the map)", .{state.trench_infos.len}, 0) catch "none";
         panels.text(text);
     }
 }
@@ -357,7 +357,7 @@ pub fn drawGroups(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
             if (ig.igCheckbox("hide", &checked)) action = .{ .hide = .{ .id = row.id, .on = checked } };
             ig.igSameLine();
             var label: [64:0]u8 = undefined;
-            const label_text = std.fmt.bufPrintZ(&label, "Group {d}: {d} script IDs", .{ row.id, row.ids.len }) catch continue;
+            const label_text = std.mem.printSentinel(&label, "Group {d}: {d} script IDs", .{ row.id, row.ids.len }, 0) catch continue;
             const selected = state.group_selected != null and state.group_selected.? == row.id;
             if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) action = .{ .choose = row.id };
         }
@@ -368,7 +368,7 @@ pub fn drawGroups(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     const selected_row = if (state.group_selected) |id| state.findGroup(id) else null;
     if (selected_row) |row| {
         var title: [48:0]u8 = undefined;
-        panels.text(std.fmt.bufPrintZ(&title, "group {d}", .{row.id}) catch "group");
+        panels.text(std.mem.printSentinel(&title, "group {d}", .{row.id}, 0) catch "group");
         if (row.ids.len == 0) {
             panels.text("no script IDs yet");
         } else if (ig.igBeginChild("group-ids", .{ .x = 0, .y = 100 }, ig.ImGuiChildFlags_Borders, 0)) {
@@ -376,7 +376,7 @@ pub fn drawGroups(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
                 ig.igPushIDInt(script_id);
                 defer ig.igPopID();
                 var line: [24:0]u8 = undefined;
-                panels.text(std.fmt.bufPrintZ(&line, "{d}", .{script_id}) catch "?");
+                panels.text(std.mem.printSentinel(&line, "{d}", .{script_id}, 0) catch "?");
                 ig.igSameLine();
                 if (ig.igSmallButton("Remove")) action = .{ .remove_id = script_id };
             }
@@ -443,7 +443,7 @@ pub fn drawScriptDialog(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     const value = commands.readScriptFile(state, &value_buffer);
     var line: [128:0]u8 = undefined;
     if (value) |text| {
-        panels.text(std.fmt.bufPrintZ(&line, "Script: {s}", .{if (text.len == 0) "None" else text}) catch "Script");
+        panels.text(std.mem.printSentinel(&line, "Script: {s}", .{if (text.len == 0) "None" else text}, 0) catch "Script");
         warnIfMissing(state, text);
     } else {
         panels.text("Script: too long for the editor to edit (kept as it is)");
@@ -455,7 +455,7 @@ pub fn drawScriptDialog(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
         if (ig.igSelectableEx("None", none_selected, 0, .{ .x = 0, .y = 0 })) chosen = "";
         for (state.script_names.items) |name| {
             var label: [80:0]u8 = undefined;
-            const label_text = std.fmt.bufPrintZ(&label, "{s}", .{name}) catch continue;
+            const label_text = std.mem.printSentinel(&label, "{s}", .{name}, 0) catch continue;
             const selected = value != null and std.mem.eql(u8, value.?, name);
             if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) chosen = name;
         }
@@ -493,7 +493,7 @@ fn warnIfMissing(state: *State, value: []const u8) void {
     if (files.exists(path)) return;
     var line: [160:0]u8 = undefined;
     ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, .{ .x = 1, .y = 0.7, .z = 0.2, .w = 1 });
-    panels.text(std.fmt.bufPrintZ(&line, "warning: {s}.lua is not beside the map", .{name}) catch "warning: the script is not beside the map");
+    panels.text(std.mem.printSentinel(&line, "warning: {s}.lua is not beside the map", .{name}, 0) catch "warning: the script is not beside the map");
     ig.igPopStyleColor();
 }
 
@@ -509,9 +509,9 @@ pub fn drawScriptModals(state: *State) void {
         var line: [200:0]u8 = undefined;
         const replace = state.script_copy.replace;
         if (replace) {
-            panels.text(std.fmt.bufPrintZ(&line, "A different {s}.lua is already beside the new map. Replace it with the old map's?", .{state.script_copy.name()}) catch "A different script is already beside the new map. Replace it?");
+            panels.text(std.mem.printSentinel(&line, "A different {s}.lua is already beside the new map. Replace it with the old map's?", .{state.script_copy.name()}, 0) catch "A different script is already beside the new map. Replace it?");
         } else {
-            panels.text(std.fmt.bufPrintZ(&line, "Copy {s}.lua beside the new map?", .{state.script_copy.name()}) catch "Copy the script beside the new map?");
+            panels.text(std.mem.printSentinel(&line, "Copy {s}.lua beside the new map?", .{state.script_copy.name()}, 0) catch "Copy the script beside the new map?");
         }
         if (ig.igButton(if (replace) "Replace" else "Yes")) {
             _ = commands.run(state, "script_copy_along_yes", "");
@@ -532,7 +532,7 @@ pub fn drawScriptModals(state: *State) void {
     if (ig.igBeginPopupModal(overwrite_id, null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
         var line: [200:0]u8 = undefined;
         const name = kit.script_file.pickedName(state.script_pick.slice()) orelse "the script";
-        panels.text(std.fmt.bufPrintZ(&line, "{s}.lua is already beside the map. Replace it?", .{name}) catch "Replace the script beside the map?");
+        panels.text(std.mem.printSentinel(&line, "{s}.lua is already beside the map. Replace it?", .{name}, 0) catch "Replace the script beside the map?");
         if (ig.igButton("Replace")) {
             _ = commands.run(state, "script_overwrite_yes", "");
             ig.igCloseCurrentPopup();
@@ -602,7 +602,7 @@ pub fn drawScriptAreas(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.
             ig.igPushIDInt(@intCast(index));
             defer ig.igPopID();
             var label: [96:0]u8 = undefined;
-            const label_text = std.fmt.bufPrintZ(&label, "{s} ({s})", .{ area.nameSlice(), if (area.shape == .rectangle) "rectangle" else "circle" }) catch continue;
+            const label_text = std.mem.printSentinel(&label, "{s} ({s})", .{ area.nameSlice(), if (area.shape == .rectangle) "rectangle" else "circle" }, 0) catch continue;
             const selected = tool.selected != null and tool.selected.? == index;
             if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) action = .{ .choose = index };
         }
@@ -622,9 +622,9 @@ pub fn drawScriptAreas(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.
         }
         var line: [128:0]u8 = undefined;
         const detail = if (area.shape == .rectangle)
-            std.fmt.bufPrintZ(&line, "area {d}: rectangle at {d:.0}, {d:.0}, half size {d:.0} x {d:.0}", .{ index, area.cx, area.cy, area.hx, area.hy })
+            std.mem.printSentinel(&line, "area {d}: rectangle at {d:.0}, {d:.0}, half size {d:.0} x {d:.0}", .{ index, area.cx, area.cy, area.hx, area.hy }, 0)
         else
-            std.fmt.bufPrintZ(&line, "area {d}: circle at {d:.0}, {d:.0}, radius {d:.0}", .{ index, area.cx, area.cy, area.r });
+            std.mem.printSentinel(&line, "area {d}: circle at {d:.0}, {d:.0}, radius {d:.0}", .{ index, area.cx, area.cy, area.r }, 0);
         panels.text(detail catch "selected");
         _ = ig.igInputText("rename", &state.area_rename_field, state.area_rename_field.len + 1, 0);
         if (ig.igButton("Rename")) action = .{ .rename = index };
@@ -677,15 +677,15 @@ pub const start_commands_help = "A start command orders its units when the missi
 /// does not have it (a file's own odd command).
 fn actionName(state: *const State, id: i32, buffer: *[40:0]u8) [:0]const u8 {
     for (state.startcmd_actions) |*item| {
-        if (item.id == id) return std.fmt.bufPrintZ(buffer, "{s}", .{item.nameSlice()}) catch "type";
+        if (item.id == id) return std.mem.printSentinel(buffer, "{s}", .{item.nameSlice()}, 0) catch "type";
     }
-    return std.fmt.bufPrintZ(buffer, "type {d}", .{id}) catch "type";
+    return std.mem.printSentinel(buffer, "type {d}", .{id}, 0) catch "type";
 }
 
 /// The target of a command as words: its object, its point, or none.
 fn targetText(command: records.StartCommand, buffer: *[64:0]u8) [:0]const u8 {
-    if (command.link_id != 0) return std.fmt.bufPrintZ(buffer, "unit {d}", .{command.link_id}) catch "unit";
-    if (command.x != 0 or command.y != 0) return std.fmt.bufPrintZ(buffer, "point {d:.0}, {d:.0}", .{ command.x, command.y }) catch "point";
+    if (command.link_id != 0) return std.mem.printSentinel(buffer, "unit {d}", .{command.link_id}, 0) catch "unit";
+    if (command.x != 0 or command.y != 0) return std.mem.printSentinel(buffer, "point {d:.0}, {d:.0}", .{ command.x, command.y }, 0) catch "point";
     return "no target";
 }
 
@@ -734,7 +734,7 @@ pub fn drawStartCommands(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
             var type_buffer: [40:0]u8 = undefined;
             var target_buffer: [64:0]u8 = undefined;
             var label: [160:0]u8 = undefined;
-            const label_text = std.fmt.bufPrintZ(&label, "{d}: {s}, {d} {s}, {s}", .{ index, actionName(state, command.cmd_type, &type_buffer), command.units.len, if (command.units.len == 1) "unit" else "units", targetText(command, &target_buffer) }) catch continue;
+            const label_text = std.mem.printSentinel(&label, "{d}: {s}, {d} {s}, {s}", .{ index, actionName(state, command.cmd_type, &type_buffer), command.units.len, if (command.units.len == 1) "unit" else "units", targetText(command, &target_buffer) }, 0) catch continue;
             const selected = state.startcmd_selected != null and state.startcmd_selected.? == index;
             if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) action = .{ .choose = index };
         }
@@ -746,14 +746,14 @@ pub fn drawStartCommands(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
         const index = state.startcmd_selected.?;
         const command = rows[index];
         var title: [48:0]u8 = undefined;
-        panels.text(std.fmt.bufPrintZ(&title, "start command {d}", .{index}) catch "start command");
+        panels.text(std.mem.printSentinel(&title, "start command {d}", .{index}, 0) catch "start command");
         var type_buffer: [40:0]u8 = undefined;
         if (ig.igBeginCombo("type", actionName(state, command.cmd_type, &type_buffer).ptr, 0)) {
             for (state.startcmd_actions) |*item| {
                 ig.igPushIDInt(item.id);
                 defer ig.igPopID();
                 var item_label: [80:0]u8 = undefined;
-                const item_text = std.fmt.bufPrintZ(&item_label, "{s}", .{item.nameSlice()}) catch continue;
+                const item_text = std.mem.printSentinel(&item_label, "{s}", .{item.nameSlice()}, 0) catch continue;
                 if (ig.igSelectableEx(item_text.ptr, item.id == command.cmd_type, 0, .{ .x = 0, .y = 0 })) action = .{ .set_type = item.id };
             }
             ig.igEndCombo();
@@ -770,11 +770,11 @@ pub fn drawStartCommands(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
 
         var target_buffer: [64:0]u8 = undefined;
         var target_line: [96:0]u8 = undefined;
-        panels.text(std.fmt.bufPrintZ(&target_line, "target: {s}", .{targetText(command, &target_buffer)}) catch "target");
+        panels.text(std.mem.printSentinel(&target_line, "target: {s}", .{targetText(command, &target_buffer)}, 0) catch "target");
         ig.igSameLine();
         if (ig.igSmallButton("Set target")) action = .set_target;
         var flag_line: [96:0]u8 = undefined;
-        panels.text(std.fmt.bufPrintZ(&flag_line, "from explosion: {s} (kept from the file)", .{if (command.from_explosion) "yes" else "no"}) catch "from explosion");
+        panels.text(std.mem.printSentinel(&flag_line, "from explosion: {s} (kept from the file)", .{if (command.from_explosion) "yes" else "no"}, 0) catch "from explosion");
 
         ig.igSeparatorText("Units");
         if (ig.igBeginChild("startcmd-units", .{ .x = 0, .y = 90 }, ig.ImGuiChildFlags_Borders, 0)) {
@@ -782,7 +782,7 @@ pub fn drawStartCommands(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
                 ig.igPushIDInt(unit);
                 defer ig.igPopID();
                 var line: [128:0]u8 = undefined;
-                panels.text(std.fmt.bufPrintZ(&line, "{d}: {s}", .{ unit, unitName(state, unit) }) catch "unit");
+                panels.text(std.mem.printSentinel(&line, "{d}: {s}", .{ unit, unitName(state, unit) }, 0) catch "unit");
                 ig.igSameLine();
                 if (ig.igSmallButton("Remove")) action = .{ .remove_unit = unit };
             }
@@ -874,13 +874,13 @@ pub fn drawReservePositions(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond
     ig.igSeparatorText("In hand");
     var line: [160:0]u8 = undefined;
     if (tool.gun) |gun| {
-        panels.text(std.fmt.bufPrintZ(&line, "gun: {s} ({d}, {s})", .{ reserveObjectName(state, gun), gun, if (tool.gun_role == .towed) "towed" else "self-propelled" }) catch "gun");
+        panels.text(std.mem.printSentinel(&line, "gun: {s} ({d}, {s})", .{ reserveObjectName(state, gun), gun, if (tool.gun_role == .towed) "towed" else "self-propelled" }, 0) catch "gun");
     } else panels.text("gun: click one");
     if (tool.truck) |truck| {
-        panels.text(std.fmt.bufPrintZ(&line, "truck: {s} ({d})", .{ reserveObjectName(state, truck), truck }) catch "truck");
+        panels.text(std.mem.printSentinel(&line, "truck: {s} ({d})", .{ reserveObjectName(state, truck), truck }, 0) catch "truck");
     } else panels.text(if (tool.gun != null and tool.gun_role == .towed) "truck: click one" else "truck: none");
     if (tool.has_place) {
-        panels.text(std.fmt.bufPrintZ(&line, "place: {d:.0}, {d:.0}", .{ tool.x, tool.y }) catch "place");
+        panels.text(std.mem.printSentinel(&line, "place: {d:.0}, {d:.0}", .{ tool.x, tool.y }, 0) catch "place");
     } else panels.text("place: click the ground");
     ig.igBeginDisabled(tool.pendingRecord() == null);
     if (ig.igButton("Add")) action = .commit;
@@ -899,9 +899,9 @@ pub fn drawReservePositions(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond
             var label: [200:0]u8 = undefined;
             const gun_name = reserveObjectName(state, position.artillery);
             const label_text = if (position.truck != 0)
-                std.fmt.bufPrintZ(&label, "{d}: {s} + {s}, at {d:.0}, {d:.0}", .{ index, gun_name, reserveObjectName(state, position.truck), position.x, position.y })
+                std.mem.printSentinel(&label, "{d}: {s} + {s}, at {d:.0}, {d:.0}", .{ index, gun_name, reserveObjectName(state, position.truck), position.x, position.y }, 0)
             else
-                std.fmt.bufPrintZ(&label, "{d}: {s}, no truck, at {d:.0}, {d:.0}", .{ index, gun_name, position.x, position.y });
+                std.mem.printSentinel(&label, "{d}: {s}, no truck, at {d:.0}, {d:.0}", .{ index, gun_name, position.x, position.y }, 0);
             const selected = tool.selected != null and tool.selected.? == index;
             if (ig.igSelectableEx((label_text catch continue).ptr, selected, 0, .{ .x = 0, .y = 0 })) action = .{ .choose = index };
         }
@@ -986,9 +986,9 @@ pub fn drawAIGeneral(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
         defer ig.igPopID();
         var label: [32:0]u8 = undefined;
         const label_text = if (shown < state.ai_side_count)
-            std.fmt.bufPrintZ(&label, "side {d}", .{shown})
+            std.mem.printSentinel(&label, "side {d}", .{shown}, 0)
         else
-            std.fmt.bufPrintZ(&label, "new side ({d})", .{shown});
+            std.mem.printSentinel(&label, "new side ({d})", .{shown}, 0);
         if (shown != 0) ig.igSameLine();
         if (ig.igRadioButton((label_text catch continue).ptr, tool.side == shown)) action = .{ .side = shown };
     }
@@ -1001,7 +1001,7 @@ pub fn drawAIGeneral(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
             ig.igPushIDInt(script_id);
             defer ig.igPopID();
             var line: [24:0]u8 = undefined;
-            panels.text(std.fmt.bufPrintZ(&line, "{d}", .{script_id}) catch "?");
+            panels.text(std.mem.printSentinel(&line, "{d}", .{script_id}, 0) catch "?");
             ig.igSameLine();
             if (ig.igSmallButton("Remove")) action = .{ .remove_mobile = script_id };
         }
@@ -1022,7 +1022,7 @@ pub fn drawAIGeneral(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
             defer ig.igPopID();
             var label: [200:0]u8 = undefined;
             const degrees = @as(f32, @floatFromInt(parcel.defence_dir)) * 360.0 / 65535.0;
-            const label_text = std.fmt.bufPrintZ(&label, "{d}: {s}, {d:.1} tiles, {d:.0} deg", .{ index, parcelKindName(parcel.kind), parcel.radius / ai_tile, degrees }) catch continue;
+            const label_text = std.mem.printSentinel(&label, "{d}: {s}, {d:.1} tiles, {d:.0} deg", .{ index, parcelKindName(parcel.kind), parcel.radius / ai_tile, degrees }, 0) catch continue;
             const selected = tool.selected_parcel != null and tool.selected_parcel.? == index;
             if (ig.igSelectableEx(label_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) action = .{ .choose = index };
         }
@@ -1039,10 +1039,10 @@ pub fn drawAIGeneral(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
         var line: [160:0]u8 = undefined;
         if (index < side.parcels.len) {
             const parcel = side.parcels[index];
-            panels.text(std.fmt.bufPrintZ(&line, "selected: parcel {d} at {d:.0}, {d:.0}, {d} points", .{ index, parcel.cx, parcel.cy, parcel.points.len }) catch "selected");
+            panels.text(std.mem.printSentinel(&line, "selected: parcel {d} at {d:.0}, {d:.0}, {d} points", .{ index, parcel.cx, parcel.cy, parcel.points.len }, 0) catch "selected");
         }
         if (tool.selected_point) |point| {
-            panels.text(std.fmt.bufPrintZ(&line, "point {d} selected: Delete removes the point", .{point}) catch "point selected");
+            panels.text(std.mem.printSentinel(&line, "point {d} selected: Delete removes the point", .{point}, 0) catch "point selected");
         } else {
             panels.text("Delete removes the parcel");
         }

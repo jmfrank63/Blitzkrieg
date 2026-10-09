@@ -14,7 +14,7 @@ const EditError = bridge.EditError;
 const Document = core.document.Document;
 const History = core.history.History;
 
-pub const kind_count = @typeInfo(Kind).@"enum".fields.len;
+pub const kind_count = @typeInfo(Kind).@"enum".field_names.len;
 
 // The File menu's lifecycle session and resourceeditor.cfg are their own
 // files; test-resource-app-logic is rooted here, so their tests run with it.
@@ -88,8 +88,7 @@ pub fn menuEntry(kind: Kind) ?EditorEntry {
 pub fn kindFromExtension(extension: []const u8) ?Kind {
     const bare = if (extension.len > 0 and extension[0] == '.') extension[1..] else extension;
     if (bare.len == 0) return null;
-    inline for (@typeInfo(Kind).@"enum".fields) |field| {
-        const kind: Kind = @enumFromInt(field.value);
+    inline for (std.enums.values(Kind)) |kind| {
         if (std.ascii.eqlIgnoreCase(bare, kind.extension())) return kind;
     }
     return null;
@@ -507,8 +506,7 @@ test "the Editors menu is MFC's: 20 entries, its order, labels and separators" {
     };
     try testing.expectEqualSlices(usize, &.{ 5, 8, 13, 17 }, separators[0..n]);
     // Every kind but the GUI frame appears exactly once.
-    inline for (@typeInfo(Kind).@"enum".fields) |field| {
-        const kind: Kind = @enumFromInt(field.value);
+    inline for (std.enums.values(Kind)) |kind| {
         var count: usize = 0;
         for (editors_menu) |entry| if (entry.kind == kind) {
             count += 1;
@@ -525,8 +523,7 @@ test "extensions pick the sub-editor for all 21 kinds, in any case" {
     try testing.expect(kindFromPath("a/b/map.bzm") == null);
     try testing.expect(kindFromPath("noextension") == null);
     try testing.expect(kindFromExtension(".") == null);
-    inline for (@typeInfo(Kind).@"enum".fields) |field| {
-        const kind: Kind = @enumFromInt(field.value);
+    inline for (std.enums.values(Kind)) |kind| {
         try testing.expectEqual(kind, kindFromExtension(kind.extension()).?);
     }
 }

@@ -37,14 +37,14 @@ pub const MarkerKind = enum {
 /// View -> Markers starts as; `none()` is what a tool with no markers of its
 /// own carries.
 pub const MarkerSet = struct {
-    kinds: std.EnumSet(MarkerKind) = std.EnumSet(MarkerKind).initFull(),
+    kinds: std.EnumSet(MarkerKind) = std.EnumSet(MarkerKind).full,
 
     pub fn all() MarkerSet {
         return .{};
     }
 
     pub fn none() MarkerSet {
-        return .{ .kinds = std.EnumSet(MarkerKind).initEmpty() };
+        return .{ .kinds = std.EnumSet(MarkerKind).empty };
     }
 
     pub fn only(list: []const MarkerKind) MarkerSet {
@@ -104,8 +104,7 @@ pub fn worldToAi(v: Vec2) Vec2 {
 test "the default marker set has every kind on and none() has none" {
     const all_on = MarkerSet.all();
     const off = MarkerSet.none();
-    inline for (std.meta.fields(MarkerKind)) |field| {
-        const kind: MarkerKind = @enumFromInt(field.value);
+    inline for (std.enums.values(MarkerKind)) |kind| {
         try std.testing.expect(all_on.has(kind));
         try std.testing.expect(!off.has(kind));
     }
@@ -133,8 +132,7 @@ test "AI to world uses fAITileXCoeff and the two conversions invert each other" 
 }
 
 test "every kind has a non-empty label and a positive cap" {
-    inline for (std.meta.fields(MarkerKind)) |field| {
-        const kind: MarkerKind = @enumFromInt(field.value);
+    inline for (std.enums.values(MarkerKind)) |kind| {
         try std.testing.expect(kind.label().len != 0);
         try std.testing.expect(cap(kind) > 0);
     }

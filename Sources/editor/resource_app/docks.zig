@@ -642,7 +642,7 @@ pub const Docks = struct {
             if (ig.igButton("Folder...")) {
                 if (folder_slot.request(.thumbnails)) {
                     var start: [logic.path_capacity + 1]u8 = undefined;
-                    const location = std.fmt.bufPrintZ(&start, "{s}", .{folder}) catch null;
+                    const location = std.mem.printSentinel(&start, "{s}", .{folder}, 0) catch null;
                     sdl3.c.SDL_ShowOpenFolderDialog(folderCallback, &folder_slot, null, if (location) |l| l.ptr else null, false);
                 }
             }
@@ -811,7 +811,7 @@ pub const Docks = struct {
         const end = dl.directionNeedleEnd(self.direction_angle, side, side);
         ig.ImDrawList_AddLineEx(draw_list, .{ .x = top_left.x + @trunc(side / 2), .y = top_left.y + @trunc(side / 2) }, .{ .x = top_left.x + end.x, .y = top_left.y + end.y }, ig.igGetColorU32(ig.ImGuiCol_Text), 2);
         var text: [32]u8 = undefined;
-        const degrees = std.fmt.bufPrintZ(&text, "{d:.2} ", .{dl.directionDegrees(self.direction_angle)}) catch "";
+        const degrees = std.mem.printSentinel(&text, "{d:.2} ", .{dl.directionDegrees(self.direction_angle)}, 0) catch "";
         ig.ImDrawList_AddTextEx(draw_list, .{ .x = top_left.x + 2, .y = top_left.y + 3 }, ig.igGetColorU32(ig.ImGuiCol_Text), degrees.ptr, degrees.ptr + degrees.len);
         ig.igText("Quadrant %d", @as(c_int, dl.directionQuadrant(self.direction_angle)));
     }
@@ -1025,7 +1025,7 @@ pub const Docks = struct {
         if (ig.igBeginCombo("Kind", lifecycle.kindLabel(self.import_form.kind).ptr, 0)) {
             for (std.enums.values(Kind)) |kind| {
                 var label: [64]u8 = undefined;
-                const text = std.fmt.bufPrintZ(&label, "{s} (.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }) catch continue;
+                const text = std.mem.printSentinel(&label, "{s} (.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }, 0) catch continue;
                 if (ig.igSelectableEx(text.ptr, kind == self.import_form.kind, 0, .{ .x = 0, .y = 0 })) self.import_form.kind = kind;
             }
             ig.igEndCombo();
@@ -1035,7 +1035,7 @@ pub const Docks = struct {
         if (ig.igButton("Browse...")) {
             if (folder_slot.request(.import)) {
                 var start: [logic.path_capacity + 1]u8 = undefined;
-                const location = std.fmt.bufPrintZ(&start, "{s}", .{self.import_form.folderSlice()}) catch null;
+                const location = std.mem.printSentinel(&start, "{s}", .{self.import_form.folderSlice()}, 0) catch null;
                 sdl3.c.SDL_ShowOpenFolderDialog(folderCallback, &folder_slot, window, if (location) |l| l.ptr else null, false);
             }
         }

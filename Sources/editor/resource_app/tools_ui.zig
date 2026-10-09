@@ -412,7 +412,7 @@ pub const Tools = struct {
         var mod: ModSettings = .{};
         _ = self.bridge().modSettingsGet(&mod);
         var location_buffer: [field_capacity + 1]u8 = undefined;
-        const location: ?[*:0]const u8 = if (std.fmt.bufPrintZ(&location_buffer, "{s}", .{mod.exportDirSlice()})) |z| (if (z.len != 0) z.ptr else null) else |_| null;
+        const location: ?[*:0]const u8 = if (std.mem.printSentinel(&location_buffer, "{s}", .{mod.exportDirSlice()}, 0)) |z| (if (z.len != 0) z.ptr else null) else |_| null;
         sdl3.c.SDL_ShowSaveFileDialog(dialogCallback, &dialog_slot, self.window, &pak_filters, pak_filters.len, location);
     }
 
@@ -455,7 +455,7 @@ pub const Tools = struct {
     fn askFolder(self: *Tools, target: Target, current: []const u8) void {
         if (!dialog_slot.request(target)) return;
         var location_buffer: [field_capacity + 1]u8 = undefined;
-        const location: ?[*:0]const u8 = if (std.fmt.bufPrintZ(&location_buffer, "{s}", .{current})) |z| (if (z.len != 0) z.ptr else null) else |_| null;
+        const location: ?[*:0]const u8 = if (std.mem.printSentinel(&location_buffer, "{s}", .{current}, 0)) |z| (if (z.len != 0) z.ptr else null) else |_| null;
         sdl3.c.SDL_ShowOpenFolderDialog(dialogCallback, &dialog_slot, self.window, location, false);
     }
 
@@ -560,7 +560,7 @@ pub const Tools = struct {
             if (ig.igSelectableEx("All projects", self.batch_kind == 0, 0, .{ .x = 0, .y = 0 })) self.batch_kind = 0;
             for (kinds, 1..) |kind, i| {
                 var label_buffer: [64]u8 = undefined;
-                const label = std.fmt.bufPrintZ(&label_buffer, "{s} (*.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }) catch continue;
+                const label = std.mem.printSentinel(&label_buffer, "{s} (*.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }, 0) catch continue;
                 if (ig.igSelectableEx(label.ptr, self.batch_kind == i, 0, .{ .x = 0, .y = 0 })) self.batch_kind = i;
             }
             ig.igEndCombo();

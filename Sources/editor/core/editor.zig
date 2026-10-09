@@ -3116,7 +3116,7 @@ pub const Editor = struct {
     /// The field set's season, for the YES/NO confirmation before an apply.
     pub fn fieldSetSeason(self: *Editor, name: []const u8) EditError!i32 {
         var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
-        const name_z = std.fmt.bufPrintZ(&buffer, "{s}", .{name}) catch return error.Refused;
+        const name_z = std.mem.printSentinel(&buffer, "{s}", .{name}, 0) catch return error.Refused;
         var season: i32 = -1;
         try self.noteOutcome(self.bridge.fieldSetSeason(name_z, &season));
         return season;
@@ -3234,7 +3234,7 @@ pub const Editor = struct {
 
     fn nameZ(buffer: *[bridge_mod.field_set_name_capacity:0]u8, name: []const u8) ?[*:0]const u8 {
         if (name.len == 0 or name.len >= bridge_mod.field_set_name_capacity) return null;
-        const text = std.fmt.bufPrintZ(buffer, "{s}", .{name}) catch return null;
+        const text = std.mem.printSentinel(buffer, "{s}", .{name}, 0) catch return null;
         return text.ptr;
     }
 
@@ -3466,7 +3466,7 @@ pub const Editor = struct {
     pub fn importPatch(self: *Editor, source_path: []const u8, apply: bool, out: *bridge_mod.RmgName) EditError!void {
         var buffer: [2048:0]u8 = undefined;
         if (source_path.len == 0 or source_path.len >= buffer.len) return error.Refused;
-        const path_z = std.fmt.bufPrintZ(&buffer, "{s}", .{source_path}) catch return error.Refused;
+        const path_z = std.mem.printSentinel(&buffer, "{s}", .{source_path}, 0) catch return error.Refused;
         out.* = .{};
         try self.noteOutcome(self.bridge.rmgImportPatch(path_z.ptr, apply, out));
     }

@@ -154,7 +154,7 @@ pub const FakeResBridge = struct {
     /// export reads its sources beside the project file, so it needs one.
     has_path: bool = false,
     /// Kinds whose exporter the test declares ported (`setExportable`).
-    exportable: std.EnumSet(Kind) = .initEmpty(),
+    exportable: std.EnumSet(Kind) = .empty,
     /// What the last successful export was asked, and how many there were.
     exports: u32 = 0,
     last_flags: ExportFlags = .{},

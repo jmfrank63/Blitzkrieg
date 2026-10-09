@@ -980,6 +980,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("tools/zig/platform_abi_compile_test.zig"),
         .target = target,
         .optimize = .debug,
+        .imports = &.{.{ .name = "platform_c", .module = addTranslatedHeaders(b, target, .debug, toolchain, &.{"PlatformABI/platform_c.h"}, &.{b.path("Sources/src")}) }},
     });
     platform_abi_compile_module.addIncludePath(b.path("Sources/src"));
     const platform_abi_compile_tests = b.addTest(.{ .root_module = platform_abi_compile_module });
@@ -1552,6 +1553,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("Sources/editor/kit/imgui/imgui.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{.{ .name = "imgui_c", .module = addTranslatedHeaders(b, target, optimize, toolchain, &.{ "cimgui.h", "imgui_backend.h" }, &.{ b.path("vendor/dcimgui/src-docking"), b.path("Sources/editor/kit/imgui") }) }},
     });
     editor_imgui_module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
     editor_imgui_module.addIncludePath(b.path("Sources/editor/kit/imgui"));
@@ -3012,9 +3014,10 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "sdl3", .module = sdl3 },
             .{ .name = "editor_imgui", .module = editor_imgui_module },
+            .{ .name = "bridge_c", .module = editorBridgeC(b, target, .debug, toolchain) },
         },
     });
-    // bridge.h: the engine's C ABI; kit/host.zig @cImports it so any editor
+    // bridge.h: the engine's C ABI; kit/host.zig imports its translation so any editor
     // on the kit (ResourceEditor, future tier editors) shares one wrapper.
     editor_kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
     // The test tiers build for the requested target. Only an MSVC target needs
@@ -3089,10 +3092,15 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("Sources/editor/resource_app/c_bridge.zig"),
         .target = target,
         .optimize = .debug,
-        .imports = &.{.{ .name = "resource_core", .module = resource_core_module }},
+        .imports = &.{
+            .{ .name = "resource_core", .module = resource_core_module },
+            .{ .name = "resource_bridge_c", .module = resourceBridgeC(b, target, .debug, toolchain) },
+        },
     });
     resource_app_c_bridge_module.addIncludePath(b.path("Sources/src/EditorBridge"));
-    const resource_app_c_bridge_object = b.addObject(.{ .name = "resource-app-c-bridge", .root_module = resource_app_c_bridge_module });
+    // A static library, not an object: 0.17 rejects an object that has linked libraries (the
+    // kit pulls in SDL3 and editor-imgui) on COFF, and nothing here is run.
+    const resource_app_c_bridge_object = b.addLibrary(.{ .name = "resource-app-c-bridge", .linkage = .static, .root_module = resource_app_c_bridge_module });
     const resource_app_logic_step = b.step("test-resource-app-logic", "Run the Resource Editor app's pure logic tests against the fake resource bridge and compile its real bridge adapter");
     resource_app_logic_step.dependOn(&resource_app_logic_tests.step);
     resource_app_logic_step.dependOn(&resource_app_c_bridge_object.step);
@@ -8195,6 +8203,48 @@ fn addMapEditor(
     return .{ .exe = exe, .view_test_step = view_test_step };
 }
 
+/// Translates C headers into a Zig module. Zig 0.17 has no `@cImport`, so every
+/// Zig file that used one imports a module made here instead. One module per
+/// header set keeps the types identical for everything that imports it: the
+/// kit's `Host.session` and the map app's `RealBridge.session` must name the
+/// same opaque type. Like `editorAppKit`'s SDL translation, the step may see
+/// libc headers but the module it makes does not link libc.
+fn addTranslatedHeaders(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    headers: []const []const u8,
+    include_paths: []const std.Build.LazyPath,
+) *std.Build.Module {
+    var text: std.ArrayList(u8) = .empty;
+    for (headers) |header| text.appendSlice(b.allocator, b.fmt("#include \"{s}\"\n", .{header})) catch @panic("OOM");
+    const root = b.addWriteFiles().add(b.fmt("{s}.h", .{headers[0]}), text.items);
+    const translate = b.addTranslateC(.{ .root_source_file = root, .target = target, .optimize = optimize });
+    for (include_paths) |path| translate.addIncludePath(path);
+    if (build_target_msvc) {
+        translate.addSystemIncludePath(.{ .cwd_relative = toolchain.msvc_include });
+        translate.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/ucrt", .{toolchain.windows_sdk_include}) });
+        translate.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/shared", .{toolchain.windows_sdk_include}) });
+        translate.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/um", .{toolchain.windows_sdk_include}) });
+        translate.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/winrt", .{toolchain.windows_sdk_include}) });
+    }
+    if (target.result.os.tag == .windows) translate.defineCMacro("SIZE_MAX", "18446744073709551615ULL");
+    const module = translate.createModule();
+    module.link_libc = false;
+    return module;
+}
+
+/// bridge.h, the engine's C ABI, for the editor kit's host.
+fn editorBridgeC(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, toolchain: ToolchainIncludes) *std.Build.Module {
+    return addTranslatedHeaders(b, target, optimize, toolchain, &.{"bridge.h"}, &.{b.path("Sources/src/EditorBridge")});
+}
+
+/// resource_bridge.h (which includes bridge.h), the BkRes* half of the C ABI.
+fn resourceBridgeC(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, toolchain: ToolchainIncludes) *std.Build.Module {
+    return addTranslatedHeaders(b, target, optimize, toolchain, &.{"resource_bridge.h"}, &.{b.path("Sources/src/EditorBridge")});
+}
+
 /// The SDL and editor-kit modules an editor app is built against, for the
 /// app's target: MapEditor and ResourceEditor share them.
 const EditorAppKit = struct {
@@ -8244,9 +8294,10 @@ fn editorAppKit(
         .imports = &.{
             .{ .name = "sdl3", .module = sdl_module },
             .{ .name = "editor_imgui", .module = editor_imgui_module },
+            .{ .name = "bridge_c", .module = editorBridgeC(b, target, optimize, toolchain) },
         },
     });
-    // bridge.h, for kit/host.zig's @cImport.
+    // bridge.h, for kit/host.zig's translation.
     kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
     addMsvcIncludePaths(b, kit_module, toolchain);
     addMsvcLibraryPaths(b, kit_module, toolchain);
@@ -8310,9 +8361,10 @@ fn addResourceEditor(
             .{ .name = "editor_imgui", .module = editor_imgui_module },
             .{ .name = "editor_kit", .module = app_kit.kit },
             .{ .name = "resource_core", .module = resource_core_module },
+            .{ .name = "resource_bridge_c", .module = resourceBridgeC(b, target, optimize, toolchain) },
         },
     });
-    // resource_bridge.h (and the bridge.h it includes), for the app's @cImport.
+    // resource_bridge.h (and the bridge.h it includes), for the app's translation.
     module.addIncludePath(b.path("Sources/src/EditorBridge"));
     linkEditorEngine(b, module, target, optimize, toolchain, engine);
     // The particle and effect exporters read the Scene module's structs, which the

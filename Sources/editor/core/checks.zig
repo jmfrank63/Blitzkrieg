@@ -389,8 +389,7 @@ test "every kind is a finding the fix can name, and the destructive ones ask fir
     try std.testing.expect(!(Finding{ .kind = .invalid_link }).needsConfirmation());
     try std.testing.expect(!(Finding{ .kind = .player_index }).needsConfirmation());
     try std.testing.expect(!(Finding{ .kind = .unknown_party }).needsConfirmation());
-    inline for (std.meta.fields(Kind)) |field| {
-        const kind: Kind = @enumFromInt(field.value);
+    inline for (std.enums.values(Kind)) |kind| {
         try std.testing.expect(kind.heading().len > 0);
     }
 }

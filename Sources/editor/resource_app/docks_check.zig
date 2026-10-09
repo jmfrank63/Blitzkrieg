@@ -136,7 +136,7 @@ pub fn run(gpa: std.mem.Allocator, io: std.Io, host: *host_mod.Host, kind: Kind,
 
     var capture_buffer: [logic.path_capacity]u8 = undefined;
     const stem = if (std.mem.endsWith(u8, output, ".tga")) output[0 .. output.len - 4] else output;
-    const capture = std.fmt.bufPrintZ(&capture_buffer, "{s}-docks.tga", .{stem}) catch return fail("the output path is too long", .{});
+    const capture = std.mem.printSentinel(&capture_buffer, "{s}-docks.tga", .{stem}, 0) catch return fail("the output path is too long", .{});
     if (c.BkEditorCaptureFrame(real.session, capture.ptr) != c.BK_EDITOR_OK) return fail("the docks frame was not captured: {s}", .{b.lastMessage()});
     const bytes = try std.Io.Dir.cwd().readFileAlloc(io, capture, gpa, .limited(64 << 20));
     defer gpa.free(bytes);
@@ -220,7 +220,7 @@ fn runSavedSprite(gpa: std.mem.Allocator, io: std.Io, host: *host_mod.Host, dock
         host.endFrame() catch |err| return failed("sprite frame {d}: {s}: {s}", .{ drawn_frames, @errorName(err), b.lastMessage() });
     }
     var capture_buffer: [logic.path_capacity]u8 = undefined;
-    const capture = std.fmt.bufPrintZ(&capture_buffer, "{s}-sprite.tga", .{stem}) catch return failed("the output path is too long", .{});
+    const capture = std.mem.printSentinel(&capture_buffer, "{s}-sprite.tga", .{stem}, 0) catch return failed("the output path is too long", .{});
     if (c.BkEditorCaptureFrame(docks.real.session, capture.ptr) != c.BK_EDITOR_OK) return failed("the sprite frame was not captured: {s}", .{b.lastMessage()});
     const bytes = try std.Io.Dir.cwd().readFileAlloc(io, capture, gpa, .limited(64 << 20));
     defer gpa.free(bytes);

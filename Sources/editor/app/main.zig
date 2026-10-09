@@ -370,7 +370,7 @@ var layout_ini_path: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
 fn enableLayoutPersistence(io: std.Io, settings_path: ?[]const u8) void {
     const settings = settings_path orelse return;
     const folder = std.fs.path.dirname(settings) orelse return;
-    const path = std.fmt.bufPrintZ(&layout_ini_path, "{s}{c}layout.ini", .{ folder, std.fs.path.sep }) catch return;
+    const path = std.mem.printSentinel(&layout_ini_path, "{s}{c}layout.ini", .{ folder, std.fs.path.sep }, 0) catch return;
     std.Io.Dir.cwd().createDirPath(io, folder) catch return;
     imgui.c.igGetIO().*.IniFilename = path.ptr;
 }
@@ -886,7 +886,7 @@ fn startupStepName(err: host_mod.HostError) []const u8 {
 /// --check, which has no window and keeps failing to stderr (see `fail`).
 fn fatal(step: []const u8, reason: []const u8) noreturn {
     var buffer: [768]u8 = undefined;
-    const message = std.fmt.bufPrintZ(&buffer, "{s} failed: {s}", .{ step, reason }) catch "Map Editor failed to start";
+    const message = std.mem.printSentinel(&buffer, "{s} failed: {s}", .{ step, reason }, 0) catch "Map Editor failed to start";
     _ = sdl3.c.SDL_ShowSimpleMessageBox(sdl3.c.SDL_MESSAGEBOX_ERROR, "Map Editor", message, null);
     std.process.exit(1);
 }
@@ -928,9 +928,9 @@ fn check(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, map: 
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
     var path_buffer: [panels_logic.PathSlot.max_path]u8 = undefined;
     const path = mapArgument(io, &path_buffer, map) orelse return fail("the path {s} is too long", .{map});
-    const map_z = try gpa.dupeZ(u8, path);
+    const map_z = try gpa.dupeSentinel(u8, path, 0);
     defer gpa.free(map_z);
-    const output_z = try gpa.dupeZ(u8, output);
+    const output_z = try gpa.dupeSentinel(u8, output, 0);
     defer gpa.free(output_z);
 
     var host = host_mod.Host.start(.{ .title = "Map Editor", .hidden = true }) catch |err| {
@@ -1117,7 +1117,7 @@ fn panelSmoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     // What the panels look like, beside the probe's capture, for a person
     // to look at; nothing is measured in it.
     var shot_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    const shot = std.fmt.bufPrintZ(&shot_buffer, "{s}{c}map-editor-panels.tga", .{ directory, std.fs.path.sep }) catch
+    const shot = std.mem.printSentinel(&shot_buffer, "{s}{c}map-editor-panels.tga", .{ directory, std.fs.path.sep }, 0) catch
         return fail("panels: the capture path is too long", .{});
     if (c.BkEditorCaptureFrame(host.session, shot.ptr) != c.BK_EDITOR_OK)
         return fail("panels: the frame was not captured: {s}", .{std.mem.span(c.BkEditorLastMessage(host.session))});

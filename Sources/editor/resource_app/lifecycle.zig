@@ -628,8 +628,7 @@ const Harness = struct {
 
 test "File > New offers all 21 kinds with a label each" {
     var seen: usize = 0;
-    inline for (@typeInfo(Kind).@"enum".fields) |field| {
-        const kind: Kind = @enumFromInt(field.value);
+    inline for (std.enums.values(Kind)) |kind| {
         try testing.expect(kindLabel(kind).len != 0);
         seen += 1;
     }
@@ -643,8 +642,7 @@ test "New for every kind opens an empty, clean, untitled project through the ses
     h.init();
     defer h.deinit();
     var ctx = h.ctx();
-    inline for (@typeInfo(Kind).@"enum".fields) |field| {
-        const kind: Kind = @enumFromInt(field.value);
+    inline for (std.enums.values(Kind)) |kind| {
         h.session.request(&ctx, .{ .new_project = kind });
         try testing.expect(h.session.life.is_open);
         try testing.expectEqual(kind, h.session.life.doc.kind);

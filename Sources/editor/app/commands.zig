@@ -3444,7 +3444,7 @@ fn exportList(state: *State, kind: logic.ExportKind) Outcome {
             if (file.len <= ".xml".len) continue;
             // The template's own name, as ListRmg lists it: the file less ".xml".
             var template_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
-            const template = std.fmt.bufPrintZ(&template_buffer, "{s}", .{file[0 .. file.len - ".xml".len]}) catch continue;
+            const template = std.mem.printSentinel(&template_buffer, "{s}", .{file[0 .. file.len - ".xml".len]}, 0) catch continue;
             var graph_total: usize = 0;
             _ = state.editor.bridge.rmgTemplateGraphs(template.ptr, &.{}, &graph_total);
             const graphs = state.allocator.alloc(core.bridge.RmgGraph, graph_total) catch return .refused;

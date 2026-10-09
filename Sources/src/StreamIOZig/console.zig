@@ -50,8 +50,8 @@ pub const Console = struct {
         // Stash an independent COPY (like CConsoleBuffer::szTempString) so the
         // returned pointer stays valid until the next read even after the queue
         // is drained/freed above.
-        const text_copy = self.allocator.dupeZ(u16, line.text) catch return null;
-        const ascii_copy = self.allocator.dupeZ(u8, line.ascii) catch {
+        const text_copy = self.allocator.dupeSentinel(u16, line.text, 0) catch return null;
+        const ascii_copy = self.allocator.dupeSentinel(u8, line.ascii, 0) catch {
             self.allocator.free(text_copy);
             return null;
         };
@@ -65,7 +65,7 @@ pub const Console = struct {
         const command = tokens.next() orelse return false;
         if (std.mem.eql(u8, command, "logfile")) {
             const value = tokens.next() orelse return false;
-            const copy = self.allocator.dupeZ(u8, value) catch return false;
+            const copy = self.allocator.dupeSentinel(u8, value, 0) catch return false;
             if (self.log_path) |old| self.allocator.free(old);
             self.log_path = copy;
             return true;
@@ -96,7 +96,7 @@ pub const Console = struct {
     }
 
     fn append(self: *Console, channel: usize, text: []const u16, color: u32, backup: bool) void {
-        const copy = self.allocator.dupeZ(u16, text) catch return;
+        const copy = self.allocator.dupeSentinel(u16, text, 0) catch return;
         const ascii = self.allocator.allocSentinel(u8, text.len, 0) catch {
             self.allocator.free(copy);
             return;

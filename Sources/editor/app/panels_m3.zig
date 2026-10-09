@@ -42,7 +42,7 @@ pub fn drawHeightsPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     var brush_buffer: [8:0]u8 = undefined;
     var brush: c_int = @intCast(tool.brush);
     if (ig.igSliderInt("brush", &brush, 2, 16)) {
-        _ = commands.run(state, "heights_brush", std.fmt.bufPrintZ(&brush_buffer, "{d}", .{brush}) catch "");
+        _ = commands.run(state, "heights_brush", std.mem.printSentinel(&brush_buffer, "{d}", .{brush}, 0) catch "");
     }
 
     // Commit-on-deactivate fields (the Sounds panel's pattern): the edit
@@ -51,13 +51,13 @@ pub fn drawHeightsPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     _ = ig.igInputFloatEx("height speed", &speed, 0, 0, "%.2f", 0);
     if (ig.igIsItemDeactivatedAfterEdit()) {
         var buffer: [16:0]u8 = undefined;
-        _ = commands.run(state, "heights_speed", std.fmt.bufPrintZ(&buffer, "{d:.2}", .{speed}) catch "");
+        _ = commands.run(state, "heights_speed", std.mem.printSentinel(&buffer, "{d:.2}", .{speed}, 0) catch "");
     }
     var ratio = tool.ratio_percent;
     _ = ig.igInputFloatEx("level ratio %", &ratio, 0, 0, "%.2f", 0);
     if (ig.igIsItemDeactivatedAfterEdit()) {
         var buffer: [16:0]u8 = undefined;
-        _ = commands.run(state, "heights_ratio", std.fmt.bufPrintZ(&buffer, "{d:.2}", .{ratio}) catch "");
+        _ = commands.run(state, "heights_ratio", std.mem.printSentinel(&buffer, "{d:.2}", .{ratio}, 0) catch "");
     }
 
     ig.igSeparatorText("Level to");
@@ -118,12 +118,12 @@ fn drawConfirmPopups(state: *State, gen_names: []const []const u8) void {
         if (ig.igButton("Yes")) {
             ig.igCloseCurrentPopup();
             var buffer: [64:0]u8 = undefined;
-            const text = std.fmt.bufPrintZ(&buffer, "{s}:{d:.2}:{d:.2}:{d:.2}", .{
+            const text = std.mem.printSentinel(&buffer, "{s}:{d:.2}:{d:.2}:{d:.2}", .{
                 gen_names[heightsGenerateIndex(state.heights_generate_type)],
                 state.heights_granularity,
                 state.heights_min_z,
                 state.heights_max_z,
-            }) catch "";
+            }, 0) catch "";
             _ = commands.run(state, "heights_generate", text);
         }
         ig.igSameLine();
@@ -175,7 +175,7 @@ pub fn drawFiltersComposer(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
     for (state.editor.filtersSlice()) |*entry| {
         const name = entry.nameSlice();
         var row: [80:0]u8 = undefined;
-        const row_text = std.fmt.bufPrintZ(&row, "{s}{s}", .{ name, if (entry.user == 1) " *" else "" }) catch continue;
+        const row_text = std.mem.printSentinel(&row, "{s}{s}", .{ name, if (entry.user == 1) " *" else "" }, 0) catch continue;
         if (ig.igSelectableEx(row_text.ptr, std.mem.eql(u8, name, selected), 0, .{ .x = 0, .y = 0 })) {
             selectComposerFilter(state, name);
         }
@@ -215,7 +215,7 @@ pub fn drawFiltersComposer(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
     _ = ig.igInputTextWithHint("##renamefilter", "rename to", &state.filter_rename_edit, state.filter_rename_edit.len + 1, 0);
     ig.igSameLine();
     if (ig.igSmallButton("Rename")) {
-        const arg = std.fmt.bufPrintZ(&rename_buffer, "{s}|{s}", .{ selected, std.mem.sliceTo(&state.filter_rename_edit, 0) }) catch "";
+        const arg = std.mem.printSentinel(&rename_buffer, "{s}|{s}", .{ selected, std.mem.sliceTo(&state.filter_rename_edit, 0) }, 0) catch "";
         _ = commands.run(state, "filter_rename", arg);
         state.filter_rename_edit = @as([64:0]u8, @splat(0));
     }
@@ -237,11 +237,11 @@ pub fn drawFiltersComposer(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
     var li: usize = 0;
     while (li < list_count and li < core.bridge.filter_max_lists) : (li += 1) {
         var label: [16:0]u8 = undefined;
-        const label_z = std.fmt.bufPrintZ(&label, "##cond{d}", .{li}) catch continue;
+        const label_z = std.mem.printSentinel(&label, "##cond{d}", .{li}, 0) catch continue;
         _ = ig.igInputTextWithHint(label_z.ptr, null, &state.filter_words_edit[li], state.filter_words_edit[li].len + 1, 0);
         if (ig.igIsItemDeactivatedAfterEdit()) {
             var arg: [300]u8 = undefined;
-            const arg_text = std.fmt.bufPrintZ(&arg, "{s}|{d}|{s}", .{ selected, li, std.mem.sliceTo(&state.filter_words_edit[li], 0) }) catch continue;
+            const arg_text = std.mem.printSentinel(&arg, "{s}|{d}|{s}", .{ selected, li, std.mem.sliceTo(&state.filter_words_edit[li], 0) }, 0) catch continue;
             _ = commands.run(state, "filter_words", arg_text);
         }
     }
@@ -308,7 +308,7 @@ pub fn drawFieldsPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     // frame the popup opens like the mods list.
     const current = std.mem.sliceTo(&state.fields_set_name, 0);
     var preview: [core.bridge.field_set_name_capacity:0]u8 = undefined;
-    const preview_z = std.fmt.bufPrintZ(&preview, "{s}", .{if (current.len != 0) current else "(no field set)"}) catch "(no field set)";
+    const preview_z = std.mem.printSentinel(&preview, "{s}", .{if (current.len != 0) current else "(no field set)"}, 0) catch "(no field set)";
     if (ig.igBeginCombo("##fieldset", preview_z.ptr, 0)) {
         var names: [64]core.bridge.RmgName = undefined;
         var total: usize = 0;
@@ -316,10 +316,10 @@ pub fn drawFieldsPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
             for (names[0..@min(total, names.len)]) |*entry| {
                 const name = entry.nameSlice();
                 var name_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
-                const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{name}) catch continue;
+                const name_z = std.mem.printSentinel(&name_buffer, "{s}", .{name}, 0) catch continue;
                 if (ig.igSelectableEx(name_z.ptr, std.mem.eql(u8, name, current), 0, .{ .x = 0, .y = 0 })) {
                     var arg: [core.bridge.field_set_name_capacity:0]u8 = undefined;
-                    _ = commands.run(state, "fields_set", std.fmt.bufPrintZ(&arg, "{s}", .{name}) catch "");
+                    _ = commands.run(state, "fields_set", std.mem.printSentinel(&arg, "{s}", .{name}, 0) catch "");
                 }
             }
         }
@@ -342,19 +342,19 @@ pub fn drawFieldsPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
     _ = ig.igInputFloatEx("min length (cells)", &min_length, 0, 0, "%.1f", 0);
     if (ig.igIsItemDeactivatedAfterEdit()) {
         var buffer: [32:0]u8 = undefined;
-        _ = commands.run(state, "fields_randomize", std.fmt.bufPrintZ(&buffer, "{d:.1}:{d:.2}:{d:.2}", .{ min_length, state.fields_width, state.fields_disturbance }) catch "");
+        _ = commands.run(state, "fields_randomize", std.mem.printSentinel(&buffer, "{d:.1}:{d:.2}:{d:.2}", .{ min_length, state.fields_width, state.fields_disturbance }, 0) catch "");
     }
     var width = state.fields_width;
     _ = ig.igInputFloatEx("width (0..0.5)", &width, 0, 0, "%.2f", 0);
     if (ig.igIsItemDeactivatedAfterEdit()) {
         var buffer: [32:0]u8 = undefined;
-        _ = commands.run(state, "fields_randomize", std.fmt.bufPrintZ(&buffer, "{d:.1}:{d:.2}:{d:.2}", .{ state.fields_min_length, width, state.fields_disturbance }) catch "");
+        _ = commands.run(state, "fields_randomize", std.mem.printSentinel(&buffer, "{d:.1}:{d:.2}:{d:.2}", .{ state.fields_min_length, width, state.fields_disturbance }, 0) catch "");
     }
     var disturbance = state.fields_disturbance;
     _ = ig.igInputFloatEx("disturbance (0..1)", &disturbance, 0, 0, "%.2f", 0);
     if (ig.igIsItemDeactivatedAfterEdit()) {
         var buffer: [32:0]u8 = undefined;
-        _ = commands.run(state, "fields_randomize", std.fmt.bufPrintZ(&buffer, "{d:.1}:{d:.2}:{d:.2}", .{ state.fields_min_length, state.fields_width, disturbance }) catch "");
+        _ = commands.run(state, "fields_randomize", std.mem.printSentinel(&buffer, "{d:.1}:{d:.2}:{d:.2}", .{ state.fields_min_length, state.fields_width, disturbance }, 0) catch "");
     }
 
     ig.igSeparator();
@@ -388,7 +388,7 @@ fn checkboxCommand(state: *State, label: [*:0]const u8, what: []const u8, value:
     var checked = value.*;
     if (ig.igCheckbox(label, &checked)) {
         var buffer: [16:0]u8 = undefined;
-        _ = commands.run(state, "fields_toggle", std.fmt.bufPrintZ(&buffer, "{s}", .{what}) catch "");
+        _ = commands.run(state, "fields_toggle", std.mem.printSentinel(&buffer, "{s}", .{what}, 0) catch "");
         checked = value.*;
     }
 }
@@ -419,7 +419,7 @@ pub fn drawDamageTool(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.I
     if (changed) {
         const clamped = std.math.clamp(percent, 0, 100);
         var buffer: [8:0]u8 = undefined;
-        _ = commands.run(state, "damage_percent", std.fmt.bufPrintZ(&buffer, "{d}", .{clamped}) catch "");
+        _ = commands.run(state, "damage_percent", std.mem.printSentinel(&buffer, "{d}", .{clamped}, 0) catch "");
     }
     ig.igPushTextWrapPos(0);
     panels.text(damage_help);
@@ -482,7 +482,7 @@ pub fn drawDirectionWheel(state: *State, input_width: f32) void {
         const angle = logic.wheelAngleDegrees(centre, .{ mouse.x, mouse.y });
         if (angle != logic.wheelDegreesOfDirection(state.view.placer.dir)) {
             var buffer: [16:0]u8 = undefined;
-            _ = commands.run(state, "wheel_turn", std.fmt.bufPrintZ(&buffer, "{d}", .{angle}) catch "");
+            _ = commands.run(state, "wheel_turn", std.mem.printSentinel(&buffer, "{d}", .{angle}, 0) catch "");
         }
     }
     if (!active) state.wheel_gesture = 0;
@@ -563,7 +563,7 @@ pub fn drawPropertiesPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
 
     if (count > 1) {
         var header: [48:0]u8 = undefined;
-        if (std.fmt.bufPrintZ(&header, "{d} objects selected", .{count})) |text| {
+        if (std.mem.printSentinel(&header, "{d} objects selected", .{count}, 0)) |text| {
             ig.igSeparatorText(text.ptr);
         } else |_| {}
         drawMultiFields(state);
@@ -601,7 +601,7 @@ pub fn drawPropertiesPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
         _ = ig.igInputFloatEx("Health %", &health, 0, 0, "%.1f", 0);
         if (ig.igIsItemDeactivatedAfterEdit()) {
             var buffer: [24:0]u8 = undefined;
-            _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "health={d:.2}", .{logic.clampHealthPercent(health)}) catch "");
+            _ = commands.run(state, "props_set", std.mem.printSentinel(&buffer, "health={d:.2}", .{logic.clampHealthPercent(health)}, 0) catch "");
             state.props_reload = true;
         }
     }
@@ -611,7 +611,7 @@ pub fn drawPropertiesPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
         _ = ig.igInputFloatEx("Angle (degrees)", &angle, 0, 0, "%.1f", 0);
         if (ig.igIsItemDeactivatedAfterEdit()) {
             var buffer: [24:0]u8 = undefined;
-            _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "angle={d:.1}", .{angle}) catch "");
+            _ = commands.run(state, "props_set", std.mem.printSentinel(&buffer, "angle={d:.1}", .{angle}, 0) catch "");
             state.props_reload = true;
         }
         // O18: the scenario unit, drawn blue. The MFC's combo is editor
@@ -627,7 +627,7 @@ pub fn drawPropertiesPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
             for (logic.formation_labels, 0..) |name, index| {
                 if (ig.igSelectableEx(name.ptr, index == formation, 0, .{ .x = 0, .y = 0 })) {
                     var buffer: [24:0]u8 = undefined;
-                    _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "formation={d}", .{index}) catch "");
+                    _ = commands.run(state, "props_set", std.mem.printSentinel(&buffer, "formation={d}", .{index}, 0) catch "");
                     state.props_reload = true;
                 }
             }
@@ -648,11 +648,11 @@ fn drawUnitsList(state: *State, link_id: i32) void {
         if (passenger.link_with != link_id or passenger.link_id == link_id) continue;
         shown += 1;
         var row: [96:0]u8 = undefined;
-        const row_text = std.fmt.bufPrintZ(&row, "{s}##u{d}", .{ passenger.nameSlice(), passenger.link_id }) catch continue;
+        const row_text = std.mem.printSentinel(&row, "{s}##u{d}", .{ passenger.nameSlice(), passenger.link_id }, 0) catch continue;
         _ = ig.igSelectableEx(row_text.ptr, false, 0, .{ .x = 0, .y = 0 });
         if (ig.igIsItemHovered(ig.ImGuiHoveredFlags_None) and ig.igIsMouseDoubleClicked(0)) {
             var buffer: [24:0]u8 = undefined;
-            _ = commands.run(state, "link_unlink", std.fmt.bufPrintZ(&buffer, "{d}", .{passenger.link_id}) catch "");
+            _ = commands.run(state, "link_unlink", std.mem.printSentinel(&buffer, "{d}", .{passenger.link_id}, 0) catch "");
             state.props_reload = true;
         }
     }
@@ -664,15 +664,15 @@ fn drawUnitsList(state: *State, link_id: i32) void {
 fn drawPlayerCombo(state: *State, link_id: i32, current_player: i32) void {
     _ = link_id;
     var buffer: [16:0]u8 = undefined;
-    const current_z = std.fmt.bufPrintZ(&buffer, "{d}", .{current_player}) catch "0";
+    const current_z = std.mem.printSentinel(&buffer, "{d}", .{current_player}, 0) catch "0";
     if (ig.igBeginCombo("Player", current_z.ptr, 0)) {
         var player: usize = 0;
         while (player < state.editor.document.diplomacy.items.len) : (player += 1) {
             var label: [16:0]u8 = undefined;
-            const label_z = std.fmt.bufPrintZ(&label, "{d}", .{player}) catch continue;
+            const label_z = std.mem.printSentinel(&label, "{d}", .{player}, 0) catch continue;
             if (ig.igSelectableEx(label_z.ptr, @as(i32, @intCast(player)) == current_player, 0, .{ .x = 0, .y = 0 })) {
                 var arg: [24:0]u8 = undefined;
-                _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&arg, "player={d}", .{player}) catch "");
+                _ = commands.run(state, "props_set", std.mem.printSentinel(&arg, "player={d}", .{player}, 0) catch "");
                 state.props_reload = true;
             }
         }
@@ -691,7 +691,7 @@ fn drawMultiFields(state: *State) void {
     _ = ig.igInputFloatEx("Angle (degrees)", &angle, 0, 0, "%.1f", 0);
     if (ig.igIsItemDeactivatedAfterEdit()) {
         var buffer: [24:0]u8 = undefined;
-        _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&buffer, "angle={d:.1}", .{angle}) catch "");
+        _ = commands.run(state, "props_set", std.mem.printSentinel(&buffer, "angle={d:.1}", .{angle}, 0) catch "");
         state.props_reload = true;
     }
     _ = ig.igInputText("Script ID", &state.props_script_edit, state.props_script_edit.len, 0);
@@ -704,15 +704,15 @@ fn drawMultiFields(state: *State) void {
     const anchor = editor.selection.?;
     const current = editor.document.find(anchor).?.player;
     var buffer: [16:0]u8 = undefined;
-    const current_z = std.fmt.bufPrintZ(&buffer, "{d}", .{current}) catch "0";
+    const current_z = std.mem.printSentinel(&buffer, "{d}", .{current}, 0) catch "0";
     if (ig.igBeginCombo("Player", current_z.ptr, 0)) {
         var player: usize = 0;
         while (player < editor.document.diplomacy.items.len) : (player += 1) {
             var label: [16:0]u8 = undefined;
-            const label_z = std.fmt.bufPrintZ(&label, "{d}", .{player}) catch continue;
+            const label_z = std.mem.printSentinel(&label, "{d}", .{player}, 0) catch continue;
             if (ig.igSelectableEx(label_z.ptr, @as(i32, @intCast(player)) == current, 0, .{ .x = 0, .y = 0 })) {
                 var arg: [24:0]u8 = undefined;
-                _ = commands.run(state, "props_set", std.fmt.bufPrintZ(&arg, "player={d}", .{player}) catch "");
+                _ = commands.run(state, "props_set", std.mem.printSentinel(&arg, "player={d}", .{player}, 0) catch "");
                 state.props_reload = true;
             }
         }
@@ -762,7 +762,7 @@ fn loadUcLists(state: *State) void {
 /// A combo over `list` showing `current`; true with the chosen name written to `chosen`.
 fn drawNameCombo(label: [*:0]const u8, current: []const u8, list: []const core.bridge.UcName, chosen: *[core.records.uc_name_capacity]u8) bool {
     var preview: [core.records.uc_name_capacity + 1:0]u8 = undefined;
-    const shown = std.fmt.bufPrintZ(&preview, "{s}", .{current}) catch "";
+    const shown = std.mem.printSentinel(&preview, "{s}", .{current}, 0) catch "";
     var picked = false;
     if (ig.igBeginCombo(label, shown.ptr, 0)) {
         for (list) |*item| {
@@ -781,7 +781,7 @@ fn drawNameCombo(label: [*:0]const u8, current: []const u8, list: []const core.b
 /// Runs `unit_creation_set` with `<field>=<value>`.
 fn setField(state: *State, field: []const u8, value: []const u8) void {
     var buffer: [128:0]u8 = undefined;
-    _ = commands.run(state, "unit_creation_set", std.fmt.bufPrintZ(&buffer, "{s}={s}", .{ field, value }) catch return);
+    _ = commands.run(state, "unit_creation_set", std.mem.printSentinel(&buffer, "{s}={s}", .{ field, value }, 0) catch return);
 }
 
 /// An integer field committed on deactivation (the Sounds panel's pattern):
@@ -791,7 +791,7 @@ fn drawIntField(state: *State, label: [*:0]const u8, field: []const u8, current:
     _ = ig.igInputIntEx(label, &value, 0, 0, 0);
     if (ig.igIsItemDeactivatedAfterEdit() and value != current) {
         var buffer: [16:0]u8 = undefined;
-        setField(state, field, std.fmt.bufPrintZ(&buffer, "{d}", .{value}) catch return);
+        setField(state, field, std.mem.printSentinel(&buffer, "{d}", .{value}, 0) catch return);
     }
 }
 
@@ -830,12 +830,12 @@ pub fn drawUnitCreationPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) voi
     if (state.uc_player >= players) state.uc_player = players - 1;
 
     var player_label: [16:0]u8 = undefined;
-    const player_text = std.fmt.bufPrintZ(&player_label, "player {d}", .{state.uc_player}) catch "player";
+    const player_text = std.mem.printSentinel(&player_label, "player {d}", .{state.uc_player}, 0) catch "player";
     if (ig.igBeginCombo("Player", player_text.ptr, 0)) {
         var index: usize = 0;
         while (index < players) : (index += 1) {
             var label: [16:0]u8 = undefined;
-            const label_text = std.fmt.bufPrintZ(&label, "player {d}", .{index}) catch continue;
+            const label_text = std.mem.printSentinel(&label, "player {d}", .{index}, 0) catch continue;
             if (ig.igSelectableEx(label_text.ptr, index == state.uc_player, 0, .{ .x = 0, .y = 0 })) state.uc_player = index;
         }
         ig.igEndCombo();
@@ -877,11 +877,11 @@ pub fn drawUnitCreationPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) voi
         ig.igSameLine();
         ig.igSetNextItemWidth(80);
         var formation_field: [28:0]u8 = undefined;
-        drawIntField(state, "formation##f", std.fmt.bufPrintZ(&formation_field, "aircraft{d}_formation", .{index}) catch "", slot.formation_size);
+        drawIntField(state, "formation##f", std.mem.printSentinel(&formation_field, "aircraft{d}_formation", .{index}, 0) catch "", slot.formation_size);
         ig.igSameLine();
         ig.igSetNextItemWidth(80);
         var count_field: [24:0]u8 = undefined;
-        drawIntField(state, "count##c", std.fmt.bufPrintZ(&count_field, "aircraft{d}_count", .{index}) catch "", slot.count);
+        drawIntField(state, "count##c", std.mem.printSentinel(&count_field, "aircraft{d}_count", .{index}, 0) catch "", slot.count);
     }
 
     ig.igSeparatorText("Paratroopers");
@@ -907,14 +907,14 @@ pub fn drawUnitCreationPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) voi
         if (ig.igButton("Remove")) remove = index;
         if (x_done or y_done) {
             var arg: [64:0]u8 = undefined;
-            _ = commands.run(state, "appear_point_set", std.fmt.bufPrintZ(&arg, "{d}/{d:.1}/{d:.1}", .{ index, tile_x * appear_units_per_tile, tile_y * appear_units_per_tile }) catch "");
+            _ = commands.run(state, "appear_point_set", std.mem.printSentinel(&arg, "{d}/{d:.1}/{d:.1}", .{ index, tile_x * appear_units_per_tile, tile_y * appear_units_per_tile }, 0) catch "");
         }
     }
     if (unit.appear_count == 0) panels.text("no appear points");
     if (ig.igButton("Add at view centre")) _ = commands.run(state, "appear_point_here", "");
     if (remove) |index| {
         var arg: [16:0]u8 = undefined;
-        _ = commands.run(state, "appear_point_remove", std.fmt.bufPrintZ(&arg, "{d}", .{index}) catch "");
+        _ = commands.run(state, "appear_point_remove", std.mem.printSentinel(&arg, "{d}", .{index}, 0) catch "");
     }
     ig.igPushTextWrapPos(0);
     ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, ig.igGetStyleColorVec4(ig.ImGuiCol_TextDisabled).*);
@@ -973,8 +973,8 @@ pub fn drawCheckMapPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
         const short = core.checks.count(findings, .short_vso);
         var line: [160:0]u8 = undefined;
         ig.igText("Fix all will also remove:");
-        if (unknown > 0) ig.igText(std.fmt.bufPrintZ(&line, "  {d} object(s) whose type the object database does not know", .{unknown}) catch "  unknown objects");
-        if (short > 0) ig.igText(std.fmt.bufPrintZ(&line, "  {d} road(s) or river(s) with fewer than two control points", .{short}) catch "  short roads");
+        if (unknown > 0) ig.igText(std.mem.printSentinel(&line, "  {d} object(s) whose type the object database does not know", .{unknown}, 0) catch "  unknown objects");
+        if (short > 0) ig.igText(std.mem.printSentinel(&line, "  {d} road(s) or river(s) with fewer than two control points", .{short}, 0) catch "  short roads");
         ig.igText("It is one undo step.");
         if (ig.igButton("Fix all and remove them")) {
             _ = commands.run(state, "check_map_fix_all", "remove");
@@ -995,7 +995,7 @@ pub fn drawCheckMapPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
 
     if (state.check_fix_report) |report| {
         var line: [128:0]u8 = undefined;
-        panels.text(std.fmt.bufPrintZ(&line, "last Fix all: fixed {d}, left {d}, refused {d}", .{ report.fixed, report.left, report.refused }) catch "last Fix all ran");
+        panels.text(std.mem.printSentinel(&line, "last Fix all: fixed {d}, left {d}, refused {d}", .{ report.fixed, report.left, report.refused }, 0) catch "last Fix all ran");
     }
     ig.igSeparator();
     if (findings.len == 0) {
@@ -1010,10 +1010,10 @@ pub fn drawCheckMapPanel(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void {
             ig.igPushIDInt(@intCast(index));
             defer ig.igPopID();
             var label: [core.checks.detail_capacity + 1:0]u8 = undefined;
-            const label_text = std.fmt.bufPrintZ(&label, "{s}", .{finding.text()}) catch continue;
+            const label_text = std.mem.printSentinel(&label, "{s}", .{finding.text()}, 0) catch continue;
             if (ig.igSelectableEx(label_text.ptr, false, 0, .{ .x = 0, .y = 0 })) {
                 var arg: [16:0]u8 = undefined;
-                _ = commands.run(state, "check_jump", std.fmt.bufPrintZ(&arg, "{d}", .{index}) catch "");
+                _ = commands.run(state, "check_jump", std.mem.printSentinel(&arg, "{d}", .{index}, 0) catch "");
             }
         }
     }
@@ -1049,7 +1049,7 @@ pub fn drawLayersMenu(state: *State, map_open: bool) void {
     var title_buffer: [128:0]u8 = undefined;
     const title = logic.fireRangeTitle(&title_buffer, &state.editor.layers);
     var title_z: [160:0]u8 = undefined;
-    const title_text = std.fmt.bufPrintZ(&title_z, "{s}###fire_ranges", .{title}) catch "Unit Fire Ranges###fire_ranges";
+    const title_text = std.mem.printSentinel(&title_z, "{s}###fire_ranges", .{title}, 0) catch "Unit Fire Ranges###fire_ranges";
     if (ig.igBeginMenu(title_text.ptr)) {
         defer ig.igEndMenu();
         const fire_mode = state.editor.layers.fire_mode;
@@ -1064,7 +1064,7 @@ pub fn drawLayersMenu(state: *State, map_open: bool) void {
         for (state.editor.filtersSlice()) |*filter| {
             const name = filter.nameSlice();
             var name_buffer: [96:0]u8 = undefined;
-            const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{name}) catch continue;
+            const name_z = std.mem.printSentinel(&name_buffer, "{s}", .{name}, 0) catch continue;
             const ticked = fire_mode == .filter and std.mem.eql(u8, state.editor.layers.fireFilter(), name);
             if (ig.igMenuItemEx(name_z.ptr, null, ticked, map_open)) _ = commands.fireRangeFilter(state, name);
         }
@@ -1094,13 +1094,13 @@ fn rmgCombo(
     fit: []const panels.RmgSettingFit,
 ) void {
     var preview: [core.bridge.field_set_name_capacity + 16:0]u8 = undefined;
-    const shown = if (field.len == 0) blank_label else std.fmt.bufPrintZ(&preview, "{s}", .{field.slice()}) catch blank_label;
+    const shown = if (field.len == 0) blank_label else std.mem.printSentinel(&preview, "{s}", .{field.slice()}, 0) catch blank_label;
     if (ig.igBeginCombo(label, shown.ptr, 0)) {
         if (which == .setting and ig.igSelectableEx("<any setting>", field.len == 0, 0, .{ .x = 0, .y = 0 })) field.set("");
         for (names, 0..) |*entry, i| {
             const name = entry.nameSlice();
             var name_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
-            const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{name}) catch continue;
+            const name_z = std.mem.printSentinel(&name_buffer, "{s}", .{name}, 0) catch continue;
             const unfit: ?*const panels.RmgSettingFit = if (i < fit.len and !fit[i].fits) &fit[i] else null;
             ig.igBeginDisabled(unfit != null);
             if (ig.igSelectableEx(name_z.ptr, std.mem.eql(u8, name, field.slice()), 0, .{ .x = 0, .y = 0 })) {
@@ -1256,7 +1256,7 @@ pub fn drawRmgProgress(state: *State) void {
     }
     const total: i32 = if (state.rmg_progress.total > 0) state.rmg_progress.total else 19;
     var overlay: [32:0]u8 = undefined;
-    const overlay_z = std.fmt.bufPrintZ(&overlay, "{d} of {d}", .{ state.rmg_progress.steps, total }) catch "";
+    const overlay_z = std.mem.printSentinel(&overlay, "{d} of {d}", .{ state.rmg_progress.steps, total }, 0) catch "";
     ig.igProgressBar(@as(f32, @floatFromInt(state.rmg_progress.steps)) / @as(f32, @floatFromInt(total)), .{ .x = 320, .y = 0 }, overlay_z.ptr);
     switch (state.rmg_phase) {
         .announce => {
@@ -1269,11 +1269,11 @@ pub fn drawRmgProgress(state: *State) void {
             ig.igPushTextWrapPos(520);
             var raw: [256]u8 = undefined;
             var line: [256:0]u8 = undefined;
-            const said = std.fmt.bufPrintZ(&line, "{s}", .{logic.rmgResultLine(&raw, state.rmg_made_name.slice(), &state.rmg_result)}) catch "";
+            const said = std.mem.printSentinel(&line, "{s}", .{logic.rmgResultLine(&raw, state.rmg_made_name.slice(), &state.rmg_result)}, 0) catch "";
             ig.igTextWrapped("%s", said.ptr);
             ig.igText("Seed used: %u", @as(c_uint, state.rmg_result.seed));
             var path_z: [1100:0]u8 = undefined;
-            const shown_path = std.fmt.bufPrintZ(&path_z, "{s}", .{state.rmg_result.mapPathSlice()}) catch "";
+            const shown_path = std.mem.printSentinel(&path_z, "{s}", .{state.rmg_result.mapPathSlice()}, 0) catch "";
             ig.igTextWrapped("%s", shown_path.ptr);
             ig.igPopTextWrapPos();
             ig.igSpacing();
@@ -1313,7 +1313,7 @@ fn caseInsensitiveContains(haystack: []const u8, needle: []const u8) bool {
 
 /// A command the discard prompt will run on YES: `name arg`.
 fn setPending(buffer: *[220:0]u8, name: []const u8, arg: []const u8) void {
-    const text = std.fmt.bufPrintZ(buffer, "{s} {s}", .{ name, arg }) catch {
+    const text = std.mem.printSentinel(buffer, "{s} {s}", .{ name, arg }, 0) catch {
         buffer[0] = 0;
         return;
     };
@@ -1379,14 +1379,14 @@ fn drawFindings(state: *State, report: ?*const core.rmg.Report, fix_command: []c
         if (finding.fix != .none) {
             if (ig.igSmallButton("Fix")) {
                 var buffer: [16:0]u8 = undefined;
-                _ = commands.run(state, fix_command, std.fmt.bufPrintZ(&buffer, "{d}", .{i}) catch "");
+                _ = commands.run(state, fix_command, std.mem.printSentinel(&buffer, "{d}", .{i}, 0) catch "");
             }
             ig.igSameLine();
         }
         const color = if (finding.severity == .@"error") ig.ImVec4{ .x = 1.0, .y = 0.45, .z = 0.4, .w = 1 } else ig.ImVec4{ .x = 1.0, .y = 0.85, .z = 0.4, .w = 1 };
         ig.igPushStyleColorImVec4(ig.ImGuiCol_Text, color);
         var line: [800:0]u8 = undefined;
-        const text = std.fmt.bufPrintZ(&line, "{s}: {s}", .{ if (finding.severity == .@"error") "error" else "warning", finding.text }) catch "?";
+        const text = std.mem.printSentinel(&line, "{s}: {s}", .{ if (finding.severity == .@"error") "error" else "warning", finding.text }, 0) catch "?";
         ig.igTextWrapped("%s", text.ptr);
         ig.igPopStyleColor();
         ig.igPopID();
@@ -1423,10 +1423,10 @@ fn drawFileRow(
             const relative = core.composers.relativeName(folder, full);
             if (!caseInsensitiveContains(relative, filter)) continue;
             var label: [200:0]u8 = undefined;
-            const label_z = std.fmt.bufPrintZ(&label, "{s}", .{relative}) catch continue;
+            const label_z = std.mem.printSentinel(&label, "{s}", .{relative}, 0) catch continue;
             if (ig.igSelectableEx(label_z.ptr, std.ascii.eqlIgnoreCase(full, doc_name), 0, .{ .x = 0, .y = 0 })) {
                 var arg_buffer: [200:0]u8 = undefined;
-                const arg = std.fmt.bufPrintZ(&arg_buffer, "{s}", .{relative}) catch "";
+                const arg = std.mem.printSentinel(&arg_buffer, "{s}", .{relative}, 0) catch "";
                 requestWithDiscard(state, dirty, popup, pending, prefix ++ "_open", arg);
                 ig.igCloseCurrentPopup();
             }
@@ -1457,13 +1457,13 @@ fn drawFileRow(
 }
 
 fn composerTitle(buffer: []u8, title: []const u8, doc_name: []const u8, dirty: bool, shipped: bool) [:0]const u8 {
-    return std.fmt.bufPrintZ(buffer, "{s} - [{s}]{s}{s}###{s}", .{
+    return std.mem.printSentinel(buffer, "{s} - [{s}]{s}{s}###{s}", .{
         title,
         if (doc_name.len == 0) "new" else doc_name,
         if (dirty) " *" else "",
         if (shipped) " (shipped, read-only)" else "",
         title,
-    }) catch "composer";
+    }, 0) catch "composer";
 }
 
 /// How many bytes a bufPrint wrote (none when it did not fit).
@@ -1473,12 +1473,12 @@ fn printedLen(printed: anyerror![]u8) usize {
 }
 
 fn fmtZ(buffer: []u8, comptime format: []const u8, args: anytype) [:0]const u8 {
-    return std.fmt.bufPrintZ(buffer, format, args) catch "";
+    return std.mem.printSentinel(buffer, format, args, 0) catch "";
 }
 
 fn textCell(comptime format: []const u8, args: anytype) void {
     var buffer: [512:0]u8 = undefined;
-    const text = std.fmt.bufPrintZ(&buffer, format, args) catch "?";
+    const text = std.mem.printSentinel(&buffer, format, args, 0) catch "?";
     ig.igTextUnformatted(text.ptr);
 }
 
@@ -1622,7 +1622,7 @@ fn drawPatchTable(state: *State) void {
             _ = ig.igTableSetColumnIndex(0);
             ig.igPushIDInt(@intCast(i));
             var label: [260:0]u8 = undefined;
-            const label_z = std.fmt.bufPrintZ(&label, "{s}", .{patch.name}) catch "?";
+            const label_z = std.mem.printSentinel(&label, "{s}", .{patch.name}, 0) catch "?";
             if (ig.igSelectableEx(label_z.ptr, state.cc_selected[i], ig.ImGuiSelectableFlags_SpanAllColumns | ig.ImGuiSelectableFlags_AllowDoubleClick, .{ .x = 0, .y = 0 })) {
                 if (shift) {
                     const lo = @min(state.cc_anchor, i);
@@ -1705,7 +1705,7 @@ fn drawContainerModals(state: *State) void {
                 const relative = core.composers.relativeName(core.composers.patch_folder, name);
                 if (!caseInsensitiveContains(relative, filter)) continue;
                 var label: [260:0]u8 = undefined;
-                const label_z = std.fmt.bufPrintZ(&label, "{s}", .{relative}) catch continue;
+                const label_z = std.mem.printSentinel(&label, "{s}", .{relative}, 0) catch continue;
                 ig.igPushIDInt(@intCast(i));
                 if (ig.igSelectableEx(label_z.ptr, state.cc_picker_selected.items[i], 0, .{ .x = 0, .y = 0 })) state.cc_picker_selected.items[i] = !state.cc_picker_selected.items[i];
                 ig.igPopID();
@@ -1803,7 +1803,7 @@ fn drawContainerModals(state: *State) void {
                             for (names[0..@min(got, names.len)]) |entry| {
                                 var label: [200:0]u8 = undefined;
                                 const stem = core.composers.relativeName("scenarios\\settings\\", entry.nameSlice());
-                                const label_z = std.fmt.bufPrintZ(&label, "{s}", .{stem}) catch continue;
+                                const label_z = std.mem.printSentinel(&label, "{s}", .{stem}, 0) catch continue;
                                 if (ig.igSelectableEx(label_z.ptr, false, 0, .{ .x = 0, .y = 0 })) {
                                     @memset(&state.cc_place_edit, 0);
                                     const len = @min(stem.len, state.cc_place_edit.len - 1);
@@ -1817,7 +1817,7 @@ fn drawContainerModals(state: *State) void {
             }
             for (0..4) |d| {
                 var label: [32:0]u8 = undefined;
-                const text = std.fmt.bufPrintZ(&label, "{s}", .{core.rmg.direction_names[d]}) catch "?";
+                const text = std.mem.printSentinel(&label, "{s}", .{core.rmg.direction_names[d]}, 0) catch "?";
                 var value: bool = state.cc_flags_edit[d] == .on;
                 // Mixed over a selection (keep) shows unticked and stays unless clicked.
                 if (ig.igCheckbox(text.ptr, &value)) state.cc_flags_edit[d] = if (value) .on else .off;
@@ -1983,7 +1983,7 @@ fn drawGraphCanvas(state: *State, reserve_below: f32) void {
     var patches: c_int = canvas.patches;
     if (ig.igSliderInt("patches across", &patches, core.rmg.min_zoom, core.rmg.max_zoom)) {
         var buffer: [8:0]u8 = undefined;
-        _ = commands.run(state, "rmgg_zoom", std.fmt.bufPrintZ(&buffer, "{d}", .{patches}) catch "");
+        _ = commands.run(state, "rmgg_zoom", std.mem.printSentinel(&buffer, "{d}", .{patches}, 0) catch "");
     }
     const avail = ig.igGetContentRegionAvail();
     const side = @max(@min(avail.x, avail.y - reserve_below - ig.igGetFrameHeightWithSpacing() * 2), 160);
@@ -2049,7 +2049,7 @@ fn drawGraphCanvas(state: *State, reserve_below: f32) void {
         ig.ImDrawList_AddRect(draw_list, .{ .x = outer[0], .y = outer[1] }, .{ .x = outer[2], .y = outer[3] }, abgr(0xFF, 0xFF, 0xFF, 0xFF));
         ig.ImDrawList_AddRect(draw_list, .{ .x = inner[0], .y = inner[1] }, .{ .x = inner[2], .y = inner[3] }, abgr(0xFF, 0xFF, 0xFF, 0xFF));
         var label: [16:0]u8 = undefined;
-        const label_z = std.fmt.bufPrintZ(&label, "{d}", .{i}) catch "";
+        const label_z = std.mem.printSentinel(&label, "{d}", .{i}, 0) catch "";
         ig.ImDrawList_AddText(draw_list, .{ .x = inner[0] + 2, .y = inner[1] + 2 }, if (empty) abgr(0xFF, 0xA0, 0xA0, 0xFF) else abgr(0xA0, 0xFF, 0xA0, 0xFF), label_z.ptr);
     }
     const node_count: i32 = @intCast(graph.nodes.items.len);
@@ -2157,7 +2157,7 @@ fn drawGraphModals(state: *State) void {
             if (ig.igButton("Yes")) {
                 if (state.cg_hit_link_count > 0) {
                     var buffer: [16:0]u8 = undefined;
-                    _ = commands.run(state, "rmgg_link_del", std.fmt.bufPrintZ(&buffer, "{d}", .{state.cg_hit_links[0]}) catch "");
+                    _ = commands.run(state, "rmgg_link_del", std.mem.printSentinel(&buffer, "{d}", .{state.cg_hit_links[0]}, 0) catch "");
                 }
                 state.cg_popup = .none;
                 ig.igCloseCurrentPopup();
@@ -2176,7 +2176,7 @@ fn drawGraphModals(state: *State) void {
             if (ig.igButton("Yes")) {
                 if (state.cg_hit_node >= 0) {
                     var buffer: [16:0]u8 = undefined;
-                    _ = commands.run(state, "rmgg_node_del", std.fmt.bufPrintZ(&buffer, "{d}", .{state.cg_hit_node}) catch "");
+                    _ = commands.run(state, "rmgg_node_del", std.mem.printSentinel(&buffer, "{d}", .{state.cg_hit_node}, 0) catch "");
                 }
                 state.cg_popup = .none;
                 ig.igCloseCurrentPopup();
@@ -2219,7 +2219,7 @@ fn drawNodeProperties(state: *State) void {
             const relative = core.composers.relativeName(core.composers.container_folder, full);
             if (!caseInsensitiveContains(relative, filter)) continue;
             var label: [200:0]u8 = undefined;
-            const label_z = std.fmt.bufPrintZ(&label, "{s}", .{relative}) catch continue;
+            const label_z = std.mem.printSentinel(&label, "{s}", .{relative}, 0) catch continue;
             if (ig.igSelectableEx(label_z.ptr, false, 0, .{ .x = 0, .y = 0 })) {
                 @memset(&state.cg_container_edit, 0);
                 const len = @min(relative.len, state.cg_container_edit.len - 1);
@@ -2268,7 +2268,7 @@ fn drawLinkProperties(state: *State) void {
             if (link_index >= graph.links.items.len) continue;
             const link = graph.links.items[link_index];
             var label: [160:0]u8 = undefined;
-            const label_z = std.fmt.bufPrintZ(&label, "link {d}: node {d} to node {d}  {s}", .{ link_index, link.a, link.b, link.desc }) catch continue;
+            const label_z = std.mem.printSentinel(&label, "link {d}: node {d} to node {d}  {s}", .{ link_index, link.a, link.b, link.desc }, 0) catch continue;
             if (ig.igSelectableEx(label_z.ptr, slot == state.cg_link_index, 0, .{ .x = 0, .y = 0 })) {
                 state.cg_link_index = slot;
                 loadLinkEdits(state);
@@ -2282,18 +2282,18 @@ fn drawLinkProperties(state: *State) void {
     var arg_buffer: [200:0]u8 = undefined;
     var road = link.kind == core.rmg.link_road;
     if (ig.igRadioButton("Road", road)) {
-        _ = commands.run(state, "rmgg_link", std.fmt.bufPrintZ(&arg_buffer, "{d}:kind:0", .{index}) catch "");
+        _ = commands.run(state, "rmgg_link", std.mem.printSentinel(&arg_buffer, "{d}:kind:0", .{index}, 0) catch "");
         road = true;
     }
     ig.igSameLine();
     if (ig.igRadioButton("River", !road)) {
-        _ = commands.run(state, "rmgg_link", std.fmt.bufPrintZ(&arg_buffer, "{d}:kind:1", .{index}) catch "");
+        _ = commands.run(state, "rmgg_link", std.mem.printSentinel(&arg_buffer, "{d}:kind:1", .{index}, 0) catch "");
     }
     // The descriptor: typed, or picked from the storage's own (terrain\sets\...\roads3d or rivers3d).
     _ = ig.igInputTextWithHint("VSO desc", "terrain\\sets\\2\\roads3d\\road_grunt", &state.cg_link_edit[0], state.cg_link_edit[0].len + 1, 0);
     if (ig.igIsItemDeactivatedAfterEdit()) {
         const typed = std.mem.sliceTo(&state.cg_link_edit[0], 0);
-        _ = commands.run(state, "rmgg_link", std.fmt.bufPrintZ(&arg_buffer, "{d}:desc:{s}", .{ index, typed }) catch "");
+        _ = commands.run(state, "rmgg_link", std.mem.printSentinel(&arg_buffer, "{d}:desc:{s}", .{ index, typed }, 0) catch "");
     }
     if (ig.igBeginCombo("##browse_vso", "Browse the storages...", 0)) {
         const folder_word: []const u8 = if (link.kind == core.rmg.link_road) "\\roads3d\\" else "\\rivers3d\\";
@@ -2309,9 +2309,9 @@ fn drawLinkProperties(state: *State) void {
                         if (std.mem.indexOf(u8, full, folder_word) == null) continue;
                         const bare = full[0 .. full.len - ".xml".len];
                         var label: [200:0]u8 = undefined;
-                        const label_z = std.fmt.bufPrintZ(&label, "{s}", .{bare}) catch continue;
+                        const label_z = std.mem.printSentinel(&label, "{s}", .{bare}, 0) catch continue;
                         if (ig.igSelectableEx(label_z.ptr, false, 0, .{ .x = 0, .y = 0 })) {
-                            _ = commands.run(state, "rmgg_link", std.fmt.bufPrintZ(&arg_buffer, "{d}:desc:{s}", .{ index, bare }) catch "");
+                            _ = commands.run(state, "rmgg_link", std.mem.printSentinel(&arg_buffer, "{d}:desc:{s}", .{ index, bare }, 0) catch "");
                             loadLinkEdits(state);
                         }
                     }
@@ -2332,7 +2332,7 @@ fn drawLinkProperties(state: *State) void {
         _ = ig.igInputTextWithHint(entry.label.ptr, null, &state.cg_link_edit[entry.slot], state.cg_link_edit[entry.slot].len + 1, 0);
         if (ig.igIsItemDeactivatedAfterEdit()) {
             const typed = std.mem.sliceTo(&state.cg_link_edit[entry.slot], 0);
-            if (typed.len != 0) _ = commands.run(state, "rmgg_link", std.fmt.bufPrintZ(&arg_buffer, "{d}:{s}:{s}", .{ index, entry.field, typed }) catch "");
+            if (typed.len != 0) _ = commands.run(state, "rmgg_link", std.mem.printSentinel(&arg_buffer, "{d}:{s}:{s}", .{ index, entry.field, typed }, 0) catch "");
             loadLinkEdits(state);
         }
     }

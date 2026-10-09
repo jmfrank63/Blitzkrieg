@@ -129,7 +129,7 @@ pub const RefType = enum(i32) {
     }
 };
 
-pub const ref_type_count = @typeInfo(RefType).@"enum".fields.len;
+pub const ref_type_count = @typeInfo(RefType).@"enum".field_names.len;
 
 /// MFC's ConvertFromDomenTypeToRef (COI/CtrlObjectInspector.cpp): the list a
 /// DT_*_REF property picks from. The two enums are not in the same order
@@ -1006,7 +1006,7 @@ pub fn filterEntries(allocator: std.mem.Allocator, entries: []const ReferenceEnt
     out.clearRetainingCapacity();
     const needle = std.mem.trim(u8, filter, " ");
     for (entries, 0..) |*entry, i| {
-        if (needle.len == 0 or std.ascii.indexOfIgnoreCase(entry.nameSlice(), needle) != null) try out.append(allocator, i);
+        if (needle.len == 0 or std.ascii.findIgnoreCase(entry.nameSlice(), needle) != null) try out.append(allocator, i);
     }
 }
 
@@ -1085,7 +1085,7 @@ test "every DT_* domain gets MFC's widget and every reference domain its list" {
     try testing.expectEqual(Widget.read_only, widgetFor(.custom));
     try testing.expectEqual(Widget.read_only, widgetFor(@enumFromInt(99)));
     // 20 reference domains, each to a different list, all 20 lists reached.
-    var seen = std.EnumSet(RefType).initEmpty();
+    var seen = std.EnumSet(RefType).empty;
     var count: usize = 0;
     var d: i32 = @intFromEnum(Domain.animation_ref);
     while (d < @intFromEnum(Domain.custom)) : (d += 1) {

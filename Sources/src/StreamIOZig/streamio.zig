@@ -760,7 +760,7 @@ fn statFile(storage: *const Storage, name: []const u8) ?std.Io.File.Stat {
 // path component against the directory entry spelling when the exact path is
 // not available, preserving Windows' native fast path.
 fn resolveCaseInsensitivePath(path: []const u8) ?[:0]u8 {
-    if (builtin.os.tag == .windows) return allocator.dupeZ(u8, path) catch null;
+    if (builtin.os.tag == .windows) return allocator.dupeSentinel(u8, path, 0) catch null;
 
     var resolved = std.ArrayList(u8).empty;
     defer resolved.deinit(allocator);
@@ -813,7 +813,7 @@ fn resolveCaseInsensitiveParent(path: []const u8) ?[:0]u8 {
     while (split > 0 and path[split - 1] != '/' and path[split - 1] != '\\') split -= 1;
     const leaf = path[split..];
     if (leaf.len == 0) return null;
-    if (split == 0) return allocator.dupeZ(u8, leaf) catch null;
+    if (split == 0) return allocator.dupeSentinel(u8, leaf, 0) catch null;
     const directory = resolveCaseInsensitivePath(path[0 .. split - 1]) orelse return null;
     defer allocator.free(directory);
     return std.fmt.allocPrintSentinel(allocator, "{s}/{s}", .{ directory, leaf }, 0) catch null;
@@ -833,7 +833,7 @@ fn loadArchives(storage: *Storage) void {
         if (entry.kind != .file or !wildcardMatch("*.pak", entry.name, true)) continue;
         const raw_path = appendHostPath(directory_path, entry.name) orelse continue;
         defer allocator.free(raw_path);
-        const path = allocator.dupeZ(u8, raw_path) catch continue;
+        const path = allocator.dupeSentinel(u8, raw_path, 0) catch continue;
         if (readFileOwned(path.ptr)) |bytes| {
             if (zip.Archive.parse(allocator, bytes)) |archive| {
                 const modified = if (directory.statFile(hostIo(), entry.name, .{})) |metadata| dosTimestamp(metadata.mtime) else |_| 0;
@@ -953,7 +953,7 @@ fn collectFiles(storage: *const Storage, enumerator: *Enumerator, relative: []co
 fn openStream(storage: *Storage, name: []const u8, access: u32, create: bool) ?*Stream {
     const raw_path = makePath(storage, name) orelse return null;
     defer allocator.free(raw_path);
-    var path = allocator.dupeZ(u8, raw_path[0 .. raw_path.len - 1]) catch return null;
+    var path = allocator.dupeSentinel(u8, raw_path[0 .. raw_path.len - 1], 0) catch return null;
     _ = create; // Legacy file storage uses access flags to decide create/truncate behavior.
     const can_read = (access & 0x1) != 0;
     const can_write = (access & 0x2) != 0;
@@ -1004,7 +1004,7 @@ fn openStream(storage: *Storage, name: []const u8, access: u32, create: bool) ?*
         allocator.free(path);
         return null;
     }
-    const name_copy = allocator.dupeZ(u8, name) catch {
+    const name_copy = allocator.dupeSentinel(u8, name, 0) catch {
         allocator.free(bytes);
         allocator.free(path);
         return null;
@@ -1024,11 +1024,11 @@ fn archiveStream(storage: *Storage, name: []const u8, access: u32) ?*Stream {
     if ((access & 0x2) != 0) return null;
     const match = archiveEntry(storage, name) orelse return null;
     const bytes = match.archive.archive.extract(allocator, match.entry) catch return null;
-    const name_copy = allocator.dupeZ(u8, name) catch {
+    const name_copy = allocator.dupeSentinel(u8, name, 0) catch {
         allocator.free(bytes);
         return null;
     };
-    const path = allocator.dupeZ(u8, match.archive.path) catch {
+    const path = allocator.dupeSentinel(u8, match.archive.path, 0) catch {
         allocator.free(name_copy);
         allocator.free(bytes);
         return null;
@@ -1046,7 +1046,7 @@ fn archiveStream(storage: *Storage, name: []const u8, access: u32) ?*Stream {
 pub export fn bk_storage_create(name: [*:0]const u8, access: c_ulong, _: c_ulong) callconv(.c) ?*anyopaque {
     const source = std.mem.span(name);
     const base = pathBase(source);
-    const owned_base = allocator.dupeZ(u8, base) catch return null;
+    const owned_base = allocator.dupeSentinel(u8, base, 0) catch return null;
     const storage = allocator.create(Storage) catch {
         allocator.free(owned_base);
         return null;
@@ -1078,7 +1078,7 @@ pub export fn bk_global_get(key: [*:0]const u8) callconv(.c) ?[*:0]const u8 {
 }
 
 pub export fn bk_global_set(key: [*:0]const u8, value: [*:0]const u8) callconv(.c) void {
-    const copied_value = allocator.dupeZ(u8, std.mem.span(value)) catch return;
+    const copied_value = allocator.dupeSentinel(u8, std.mem.span(value), 0) catch return;
     var buf: [256]u8 = undefined;
     const lk = lowerKey(&buf, std.mem.span(key));
     if (globals.getEntry(lk)) |entry| {
@@ -1141,14 +1141,14 @@ test "global store grows beyond the legacy startup working set" {
     var key_buffer: [64]u8 = undefined;
     var value_buffer: [64]u8 = undefined;
     for (0..700) |index| {
-        const key = try std.fmt.bufPrintZ(&key_buffer, "test.global.{d}", .{index});
-        const value = try std.fmt.bufPrintZ(&value_buffer, "value-{d}", .{index});
+        const key = try std.mem.printSentinel(&key_buffer, "test.global.{d}", .{index}, 0);
+        const value = try std.mem.printSentinel(&value_buffer, "value-{d}", .{index}, 0);
         bk_global_set(key, value);
     }
     bk_global_set("SharedResource.Text.Dialog.Ext", ".txt");
     try std.testing.expectEqualStrings(".txt", std.mem.span(bk_global_get("SharedResource.Text.Dialog.Ext").?));
     for (0..700) |index| {
-        const key = try std.fmt.bufPrintZ(&key_buffer, "test.global.{d}", .{index});
+        const key = try std.mem.printSentinel(&key_buffer, "test.global.{d}", .{index}, 0);
         bk_global_remove(key);
     }
     bk_global_remove("SharedResource.Text.Dialog.Ext");
@@ -1256,7 +1256,7 @@ pub export fn bk_storage_add(handle: ?*anyopaque, child_handle: ?*anyopaque, nam
     const storage = fromHandle(Storage, handle) orelse return false;
     const child = fromHandle(Storage, child_handle) orelse return false;
     if (storage == child) return false;
-    const owned_name = allocator.dupeZ(u8, std.mem.span(name)) catch return false;
+    const owned_name = allocator.dupeSentinel(u8, std.mem.span(name), 0) catch return false;
     storage.overlays.append(allocator, .{ .name = owned_name, .storage = child }) catch {
         allocator.free(owned_name);
         return false;
@@ -1515,8 +1515,8 @@ pub export fn bk_stream_create_memory(src: ?*const anyopaque, len: c_int) callco
         const src_bytes = @as([*]const u8, @ptrCast(src.?))[0..n];
         @memcpy(bytes, src_bytes);
     }
-    const name = allocator.dupeZ(u8, "memory") catch { allocator.free(bytes); return null; };
-    const path = allocator.dupeZ(u8, "") catch { allocator.free(bytes); allocator.free(name); return null; };
+    const name = allocator.dupeSentinel(u8, "memory", 0) catch { allocator.free(bytes); return null; };
+    const path = allocator.dupeSentinel(u8, "", 0) catch { allocator.free(bytes); allocator.free(name); return null; };
     const stream = allocator.create(Stream) catch { allocator.free(bytes); allocator.free(name); allocator.free(path); return null; };
     stream.* = .{ .bytes = bytes, .name = name, .path = path, .access = 1 };
     return stream;
@@ -2024,8 +2024,8 @@ test "storage existence probe resolves legacy casing like open does" {
 test "nested data-tree containers restore the outer item enumerator" {
     const source = "<base><Children><item id=\"1\"><States><item value=\"10\"/></States></item><item id=\"2\"/></Children></base>";
     const bytes = try allocator.dupe(u8, source);
-    const name = try allocator.dupeZ(u8, "fixture.xml");
-    const path = try allocator.dupeZ(u8, "fixture.xml");
+    const name = try allocator.dupeSentinel(u8, "fixture.xml", 0);
+    const path = try allocator.dupeSentinel(u8, "fixture.xml", 0);
     var stream = Stream{ .bytes = bytes, .name = name, .path = path, .access = 1 };
     defer {
         allocator.free(stream.bytes);
@@ -2051,8 +2051,8 @@ test "nested data-tree containers restore the outer item enumerator" {
 test "write-mode tree round-trips through the reader" {
     var stream = Stream{
         .bytes = try allocator.alloc(u8, 0),
-        .name = try allocator.dupeZ(u8, "state.xml"),
-        .path = try allocator.dupeZ(u8, ""),
+        .name = try allocator.dupeSentinel(u8, "state.xml", 0),
+        .path = try allocator.dupeSentinel(u8, "", 0),
         .access = 2,
     };
     defer {
@@ -2116,8 +2116,8 @@ test "real GAZ_61 unit XML decodes Type/Passangers like MSXML" {
     }
     var stream = Stream{
         .bytes = file_bytes,
-        .name = try allocator.dupeZ(u8, "1.xml"),
-        .path = try allocator.dupeZ(u8, "1.xml"),
+        .name = try allocator.dupeSentinel(u8, "1.xml", 0),
+        .path = try allocator.dupeSentinel(u8, "1.xml", 0),
         .access = 1,
     };
     defer {
@@ -2161,8 +2161,8 @@ test "real GAZ_61 unit XML decodes Type/Passangers like MSXML" {
 test "options save/load round-trips through the tree writer" {
     var stream = Stream{
         .bytes = try allocator.alloc(u8, 0),
-        .name = try allocator.dupeZ(u8, "config.cfg"),
-        .path = try allocator.dupeZ(u8, ""),
+        .name = try allocator.dupeSentinel(u8, "config.cfg", 0),
+        .path = try allocator.dupeSentinel(u8, "", 0),
         .access = 2,
     };
     defer {
@@ -2201,8 +2201,8 @@ test "RPG stats bit arrays read like the transport 1.xml shape" {
     // is what makes infantry able to board transports.
     const source = "<RPG><Commands Size=\"128\"><BitArray><item data=\"255\"/><item data=\"7\"/></BitArray></Commands><Exposures Size=\"5\"><BitArray><item data=\"16\"/></BitArray></Exposures></RPG>";
     const bytes = try allocator.dupe(u8, source);
-    const name = try allocator.dupeZ(u8, "1.xml");
-    const path = try allocator.dupeZ(u8, "1.xml");
+    const name = try allocator.dupeSentinel(u8, "1.xml", 0);
+    const path = try allocator.dupeSentinel(u8, "1.xml", 0);
     var stream = Stream{ .bytes = bytes, .name = name, .path = path, .access = 1 };
     defer {
         allocator.free(stream.bytes);
@@ -2245,8 +2245,8 @@ test "duplicate same-named sibling containers concatenate their items" {
     // of them, so the reader must too.
     const source = "<base><CustomCheck><first>7</first><second><item id=\"1\"/></second><second><item id=\"2\"/><item id=\"3\"/></second></CustomCheck></base>";
     const bytes = try allocator.dupe(u8, source);
-    const name = try allocator.dupeZ(u8, "fixture.xml");
-    const path = try allocator.dupeZ(u8, "fixture.xml");
+    const name = try allocator.dupeSentinel(u8, "fixture.xml", 0);
+    const path = try allocator.dupeSentinel(u8, "fixture.xml", 0);
     var stream = Stream{ .bytes = bytes, .name = name, .path = path, .access = 1 };
     defer {
         allocator.free(stream.bytes);
@@ -2271,8 +2271,8 @@ test "duplicate same-named sibling containers concatenate their items" {
 test "data-tree raw rows decode legacy hexadecimal bytes" {
     const source = "<base><Passability><item size_x=\"4\" size_y=\"1\"/><item>010001ff</item></Passability></base>";
     const bytes = try allocator.dupe(u8, source);
-    const name = try allocator.dupeZ(u8, "fixture.xml");
-    const path = try allocator.dupeZ(u8, "fixture.xml");
+    const name = try allocator.dupeSentinel(u8, "fixture.xml", 0);
+    const path = try allocator.dupeSentinel(u8, "fixture.xml", 0);
     var stream = Stream{ .bytes = bytes, .name = name, .path = path, .access = 1 };
     defer {
         allocator.free(stream.bytes);
@@ -2485,8 +2485,8 @@ pub export fn bk_table_get_string(stream_handle: ?*anyopaque, row: [*:0]const u8
 test "table getters read element-text consts like Actions.User.Friendly" {
     const source = "<base><World Speed=\"5\"><Actions><User><Friendly>37, 41, 27, 26, 25, 28, 4, 14, 15, 0</Friendly><Enemy/></User></Actions><MinRotateRadius>30</MinRotateRadius></World></base>";
     const bytes = try allocator.dupe(u8, source);
-    const name = try allocator.dupeZ(u8, "consts.xml");
-    const path = try allocator.dupeZ(u8, "consts.xml");
+    const name = try allocator.dupeSentinel(u8, "consts.xml", 0);
+    const path = try allocator.dupeSentinel(u8, "consts.xml", 0);
     var stream = Stream{ .bytes = bytes, .name = name, .path = path, .access = 1 };
     defer {
         allocator.free(stream.bytes);
@@ -2539,7 +2539,7 @@ test "storage opens an entry from a repository PAK" {
     const storage = fromHandle(Storage, handle).?;
     try std.testing.expect(storage.archives.items.len > 0);
     const first_entry = storage.archives.items[0].archive.entries[0];
-    const entry_name = try allocator.dupeZ(u8, first_entry.name);
+    const entry_name = try allocator.dupeSentinel(u8, first_entry.name, 0);
     defer allocator.free(entry_name);
     const stream_handle = bk_storage_open(handle, entry_name.ptr, 1) orelse return error.TestUnexpectedResult;
     defer bk_stream_destroy(stream_handle);

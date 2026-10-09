@@ -98,7 +98,7 @@ pub fn isPlaceable(game_type: i32) bool {
 /// matches everything.
 pub fn matchesFilter(name: []const u8, filter: []const u8) bool {
     if (filter.len == 0) return true;
-    return std.ascii.indexOfIgnoreCase(name, filter) != null;
+    return std.ascii.findIgnoreCase(name, filter) != null;
 }
 
 /// The most object filters one palette frame can have active: the combo's
@@ -384,12 +384,12 @@ pub fn summarizeUnknown(objects: []const ObjectRecord, out: []UnknownType) usize
 /// saved back over itself.
 pub fn formatTitle(buffer: []u8, path: []const u8, dirty: bool, read_only: bool) [:0]const u8 {
     const plain = "Map Editor";
-    if (path.len == 0) return std.fmt.bufPrintZ(buffer, plain, .{}) catch "";
+    if (path.len == 0) return std.mem.printSentinel(buffer, plain, .{}, 0) catch "";
     const name = baseName(path);
     const star = if (dirty) "*" else "";
     const suffix = if (read_only) " (read-only)" else "";
-    return std.fmt.bufPrintZ(buffer, plain ++ " - {s}{s}{s}", .{ name, star, suffix }) catch
-        std.fmt.bufPrintZ(buffer, plain, .{}) catch "";
+    return std.mem.printSentinel(buffer, plain ++ " - {s}{s}{s}", .{ name, star, suffix }, 0) catch
+        std.mem.printSentinel(buffer, plain, .{}, 0) catch "";
 }
 
 /// The window title's M3 shape (D-34/PARITY F15), the MFC SetWindowTitle's
@@ -409,7 +409,7 @@ pub fn formatTitleM3(
     mod_key: []const u8,
 ) [:0]const u8 {
     const plain = "Map Editor";
-    if (name.len == 0 and size_patches == null) return std.fmt.bufPrintZ(buffer, plain, .{}) catch "";
+    if (name.len == 0 and size_patches == null) return std.mem.printSentinel(buffer, plain, .{}, 0) catch "";
     var tail: [96]u8 = undefined;
     var tail_len: usize = 0;
     const star = if (dirty) "*" else "";
@@ -424,12 +424,12 @@ pub fn formatTitleM3(
     // included: clip the NAME, never the fields after it.
     const budget = if (133 > tail_len + star.len + suffix.len) 133 - tail_len - star.len - suffix.len else 0;
     const shown = if (name.len > budget) name[0..budget] else name;
-    return std.fmt.bufPrintZ(buffer, plain ++ " - {s}{s}{s}{s}", .{ shown, star, suffix, tail[0..tail_len] }) catch
+    return std.mem.printSentinel(buffer, plain ++ " - {s}{s}{s}{s}", .{ shown, star, suffix, tail[0..tail_len] }, 0) catch
         plainZero(buffer);
 }
 
 fn plainZero(buffer: []u8) [:0]const u8 {
-    return std.fmt.bufPrintZ(buffer, "Map Editor", .{}) catch "";
+    return std.mem.printSentinel(buffer, "Map Editor", .{}, 0) catch "";
 }
 
 /// The status bar's VIS/SCRIPT coordinate line (M3, D-34/PARITY V6), the MFC

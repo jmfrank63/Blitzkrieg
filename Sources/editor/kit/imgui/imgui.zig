@@ -1,9 +1,6 @@
 //! Dear ImGui for the Zig editors: the dcimgui C API (`ig*` functions,
 //! docking branch) and the SDL3 / SDL GPU backend shim.
-pub const c = @cImport({
-    @cInclude("cimgui.h");
-    @cInclude("imgui_backend.h");
-});
+pub const c = @import("imgui_c");
 
 /// GFXGPU overlay callback (`Api.set_overlay`): draws the ImGui frame that
 /// the last `igRender` finished onto the renderer's colour target.

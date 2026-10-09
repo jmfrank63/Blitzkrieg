@@ -180,7 +180,7 @@ comptime {
     for (entries, 0..) |item, index| {
         if (@intFromEnum(item.id) != index) @compileError("tool_registry.entries must follow ToolId's order");
     }
-    if (entries.len != std.meta.fields(ToolId).len) @compileError("every ToolId needs one registry entry");
+    if (entries.len != @typeInfo(ToolId).@"enum".field_names.len) @compileError("every ToolId needs one registry entry");
 }
 
 pub fn entry(id: ToolId) *const Entry {
@@ -200,8 +200,8 @@ pub fn byShortcut(key: u32) ?ToolId {
 /// The tool `tool=<label>` names: the lower-case identifier of the tool
 /// (`[a-z_]{1,32}`, the ToolId's own name). Null for an unknown label.
 pub fn byLabel(text: []const u8) ?ToolId {
-    inline for (std.meta.fields(ToolId)) |field| {
-        if (std.mem.eql(u8, text, field.name)) return @enumFromInt(field.value);
+    inline for (std.enums.values(ToolId)) |tag| {
+        if (std.mem.eql(u8, text, @tagName(tag))) return tag;
     }
     return null;
 }
@@ -215,10 +215,9 @@ pub fn shortcutText(item: *const Entry, buffer: *[2:0]u8) [:0]const u8 {
 }
 
 test "every tool has exactly one entry, found by id, label name and shortcut" {
-    inline for (std.meta.fields(ToolId)) |field| {
-        const id: ToolId = @enumFromInt(field.value);
+    inline for (std.enums.values(ToolId)) |id| {
         try std.testing.expectEqual(id, entry(id).id);
-        try std.testing.expectEqual(@as(?ToolId, id), byLabel(field.name));
+        try std.testing.expectEqual(@as(?ToolId, id), byLabel(@tagName(id)));
     }
     try std.testing.expectEqual(@as(?ToolId, .select), byShortcut('1'));
     try std.testing.expectEqual(@as(?ToolId, .brush), byShortcut('2'));
@@ -368,8 +367,8 @@ test "the Heights tool takes the right button, never Ctrl-as-right, with no key"
 }
 
 test "a tool label is a valid tool= word" {
-    inline for (std.meta.fields(ToolId)) |field| {
-        try std.testing.expect(field.name.len >= 1 and field.name.len <= 32);
-        for (field.name) |ch| try std.testing.expect((ch >= 'a' and ch <= 'z') or ch == '_');
+    inline for (std.enums.values(ToolId)) |tag| {
+        try std.testing.expect(@tagName(tag).len >= 1 and @tagName(tag).len <= 32);
+        for (@tagName(tag)) |ch| try std.testing.expect((ch >= 'a' and ch <= 'z') or ch == '_');
     }
 }

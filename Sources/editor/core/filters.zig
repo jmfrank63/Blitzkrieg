@@ -36,7 +36,7 @@ pub const Filter = struct {
         for (self.lists) |list| {
             var all = true;
             for (list) |word| {
-                if (std.ascii.indexOfIgnoreCase(folder_path, word) == null) {
+                if (std.ascii.findIgnoreCase(folder_path, word) == null) {
                     all = false;
                     break;
                 }

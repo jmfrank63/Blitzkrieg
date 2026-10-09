@@ -1,7 +1,10 @@
 const std = @import("std");
-const libc = @cImport({
-    @cInclude("stdlib.h");
-});
+// The two libc calls the renderer state needs, declared here because 0.17 has no
+// @cImport and the C allocator is what the C++ side frees through.
+const libc = struct {
+    extern "c" fn malloc(size: usize) ?*anyopaque;
+    extern "c" fn free(ptr: ?*anyopaque) void;
+};
 const errors = @import("error.zig");
 const formats = @import("formats.zig");
 const effects = @import("effects.zig");

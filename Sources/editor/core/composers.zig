@@ -1231,7 +1231,7 @@ pub const Composers = struct {
         fn exists(ctx: *anyopaque, name: []const u8, extension: []const u8) bool {
             const self: *TemplateFacts = @ptrCast(@alignCast(ctx));
             var buffer: [16:0]u8 = undefined;
-            const extension_z = std.fmt.bufPrintZ(&buffer, "{s}", .{extension}) catch return false;
+            const extension_z = std.mem.printSentinel(&buffer, "{s}", .{extension}, 0) catch return false;
             return self.editor.rmgFileExists(name, extension_z);
         }
         fn source(self: *TemplateFacts) rmg.TemplateSource {

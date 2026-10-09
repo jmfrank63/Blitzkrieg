@@ -244,7 +244,7 @@ pub const Ui = struct {
         if (ig.igBeginMenuEx("New", true)) {
             for (std.enums.values(Kind)) |kind| {
                 var label_buffer: [64]u8 = undefined;
-                const label = std.fmt.bufPrintZ(&label_buffer, "{s} (.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }) catch continue;
+                const label = std.mem.printSentinel(&label_buffer, "{s} (.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }, 0) catch continue;
                 if (ig.igMenuItemEx(label.ptr, null, false, true)) self.session.request(&context, .{ .new_project = kind });
             }
             ig.igEndMenu();
@@ -254,7 +254,7 @@ pub const Ui = struct {
             var i: usize = 0;
             while (i < self.settings.recentCount()) : (i += 1) {
                 var label_buffer: [logic.path_capacity + 1]u8 = undefined;
-                const label = std.fmt.bufPrintZ(&label_buffer, "{s}", .{self.settings.recentAt(i)}) catch continue;
+                const label = std.mem.printSentinel(&label_buffer, "{s}", .{self.settings.recentAt(i)}, 0) catch continue;
                 if (ig.igMenuItemEx(label.ptr, null, false, true)) {
                     if (logic.PathText.fromSlice(self.settings.recentAt(i))) |text| self.session.request(&context, .{ .open_path = text });
                     break;
@@ -445,7 +445,7 @@ pub const Ui = struct {
         var folder_z: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
         var location: ?[*:0]const u8 = null;
         if (self.settings.projectsFolder().len != 0) {
-            if (std.fmt.bufPrintZ(&folder_z, "{s}", .{self.settings.projectsFolder()})) |z| location = z.ptr else |_| {}
+            if (std.mem.printSentinel(&folder_z, "{s}", .{self.settings.projectsFolder()}, 0)) |z| location = z.ptr else |_| {}
         }
         switch (which) {
             .open => sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &dialog_slot, self.window, &open_filters, open_filters.len, location, false),
@@ -466,7 +466,7 @@ pub const Ui = struct {
         self.title_path_len = path_len;
         var buffer: [logic.path_capacity + 64]u8 = undefined;
         const name = if (!life.is_open) "" else if (path.len == 0) "untitled" else std.fs.path.basename(path);
-        const title = std.fmt.bufPrintZ(&buffer, "{s}{s}{s}Resource Editor", .{ name, if (dirty) " *" else "", if (name.len != 0) " - " else "" }) catch return;
+        const title = std.mem.printSentinel(&buffer, "{s}{s}{s}Resource Editor", .{ name, if (dirty) " *" else "", if (name.len != 0) " - " else "" }, 0) catch return;
         _ = sdl3.c.SDL_SetWindowTitle(self.window, title.ptr);
     }
 
@@ -531,7 +531,7 @@ fn enableLayoutPersistence(io: std.Io, settings_path: []const u8) void {
     const path = app_settings.layoutPath(&buffer, settings_path) orelse return;
     const folder = std.fs.path.dirname(path) orelse return;
     std.Io.Dir.cwd().createDirPath(io, folder) catch return;
-    const z = std.fmt.bufPrintZ(&layout_ini_path, "{s}", .{path}) catch return;
+    const z = std.mem.printSentinel(&layout_ini_path, "{s}", .{path}, 0) catch return;
     ig.igGetIO().*.IniFilename = z.ptr;
 }
 

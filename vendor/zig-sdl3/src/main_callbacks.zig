@@ -6,13 +6,6 @@ const root = @import("root");
 const sdl3 = @import("sdl3.zig");
 const std = @import("std");
 
-comptime {
-    _ = @cImport({
-        @cDefine("SDL_MAIN_USE_CALLBACKS", {});
-        @cInclude("SDL3/SDL_main.h");
-    });
-}
-
 const AppState = struct {
     init: *sdl3.Init,
     user_data: *anyopaque,

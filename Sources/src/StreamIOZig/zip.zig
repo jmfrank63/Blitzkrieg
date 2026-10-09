@@ -105,7 +105,7 @@ pub const Archive = struct {
         };
         errdefer allocator.free(output);
         if (output.len != entry.uncompressed_size) return Error.SizeMismatch;
-        if (std.hash.crc.Crc32.hash(output) != entry.crc32) return Error.ChecksumMismatch;
+        if (std.hash.Crc32.hash(output) != entry.crc32) return Error.ChecksumMismatch;
         return output;
     }
 };

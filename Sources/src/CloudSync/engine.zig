@@ -1771,7 +1771,7 @@ pub fn classifyTransport(err: rc.RcError) Outcome {
 }
 
 fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
-    return std.ascii.indexOfIgnoreCase(haystack, needle) != null;
+    return std.ascii.findIgnoreCase(haystack, needle) != null;
 }
 
 // -- Log redaction ------------------------------------------------------------

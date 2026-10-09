@@ -28,7 +28,7 @@ const core = @import("resource_core");
 /// `editor_kit.host.c`, so its BkEditorSession is a different opaque type from
 /// the kit's: `RealResBridge.init` takes the host's session as `*anyopaque` and
 /// casts it, which is sound because both name the same C struct.
-pub const c = @cImport(@cInclude("resource_bridge.h"));
+pub const c = @import("resource_bridge_c");
 
 const rb = core.bridge;
 const Status = rb.Status;
@@ -891,7 +891,7 @@ pub const RealResBridge = struct {
     /// ElementID changes come back as the bridge's three ints each.
     fn guiPaste(ptr: *anyopaque, parent: i32, clipboard: []const u8, dx: i32, dy: i32, unique_ids: bool, out_ids: []i32, total: *usize, changes: []rb.GuiIdChange, changes_total: *usize) Status {
         const self = from(ptr);
-        const z = self.allocator.dupeZ(u8, clipboard) catch return self.fail(.failed, "out of memory pasting the clipboard");
+        const z = self.allocator.dupeSentinel(u8, clipboard, 0) catch return self.fail(.failed, "out of memory pasting the clipboard");
         defer self.allocator.free(z);
         var count: c_int = 0;
         var change_count: c_int = 0;
@@ -919,7 +919,7 @@ pub const RealResBridge = struct {
         const self = from(ptr);
         var name_buffer: [rb.name_capacity]u8 = undefined;
         const z_name = terminated(&name_buffer, name) orelse return self.fail(.bad_argument, "the attribute name is too long or holds a NUL");
-        const z_value = self.allocator.dupeZ(u8, value) catch return self.fail(.failed, "out of memory setting the attribute");
+        const z_value = self.allocator.dupeSentinel(u8, value, 0) catch return self.fail(.failed, "out of memory setting the attribute");
         defer self.allocator.free(z_value);
         return status(c.BkResGuiSetAttr(self.session, id, z_name, z_value.ptr));
     }

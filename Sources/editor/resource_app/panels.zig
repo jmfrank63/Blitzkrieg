@@ -194,8 +194,8 @@ pub const Panels = struct {
     /// main menu bar's View menu, after the docks' own.
     pub fn drawViewMenuItems(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle) void {
         ig.igSeparator();
-        inline for (@typeInfo(view_logic.Part).@"enum".fields) |field| {
-            const part = @field(view_logic.Part, field.name);
+        inline for (std.enums.values(view_logic.Part)) |tag| {
+            const part = @field(view_logic.Part, @tagName(tag));
             if (ig.igMenuItemEx(part.label().ptr, null, self.view.shown(part), true)) self.setView(part, !self.view.shown(part));
         }
         ig.igSeparator();
@@ -335,7 +335,7 @@ pub const Panels = struct {
         ig.igSetNextWindowPos(.{ .x = 8, .y = 28 }, ig.ImGuiCond_FirstUseEver);
         ig.igSetNextWindowSize(.{ .x = 300, .y = @max(200, display.y * 0.55) }, ig.ImGuiCond_FirstUseEver);
         var title_buffer: [96]u8 = undefined;
-        const title = std.fmt.bufPrintZ(&title_buffer, "Project{s}###project_tree", .{if (life.read_only) " (read-only)" else ""}) catch "Project###project_tree";
+        const title = std.mem.printSentinel(&title_buffer, "Project{s}###project_tree", .{if (life.read_only) " (read-only)" else ""}, 0) catch "Project###project_tree";
         defer ig.igEnd();
         if (!ig.igBegin(title.ptr, null, 0)) {
             self.tree_focused = false;
@@ -359,7 +359,7 @@ pub const Panels = struct {
         if (self.selection.contains(id)) flags |= ig.ImGuiTreeNodeFlags_Selected;
         var label_buffer: [bridge.name_capacity + 32]u8 = undefined;
         const name = record.displaySlice();
-        const label = std.fmt.bufPrintZ(&label_buffer, "{s}##node{d}", .{ if (name.len != 0) name else record.classSlice(), id }) catch return;
+        const label = std.mem.printSentinel(&label_buffer, "{s}##node{d}", .{ if (name.len != 0) name else record.classSlice(), id }, 0) catch return;
         if (has_children) ig.igSetNextItemOpen(record.expand, ig.ImGuiCond_Always);
         const open = ig.igTreeNodeEx(label.ptr, flags);
         if (ig.igIsItemToggledOpen() and has_children) {
@@ -387,7 +387,7 @@ pub const Panels = struct {
             const record = edit.findNode(&life.doc, id);
             const name = if (record) |r| r.displaySlice() else "";
             var buffer: [bridge.name_capacity + 1]u8 = undefined;
-            const text = std.fmt.bufPrintZ(&buffer, "{s}", .{name}) catch "";
+            const text = std.mem.printSentinel(&buffer, "{s}", .{name}, 0) catch "";
             ig.igTextUnformatted(text.ptr);
             ig.igEndDragDropSource();
         }
@@ -502,7 +502,7 @@ pub const Panels = struct {
             const at = overlay.view.toScreen(slot);
             ig.ImDrawList_AddCircleFilled(draw_list, .{ .x = at.x, .y = at.y }, 6, marker, 0);
             var number: [8]u8 = undefined;
-            const text = std.fmt.bufPrintZ(&number, "{d}", .{i + 1}) catch continue;
+            const text = std.mem.printSentinel(&number, "{d}", .{i + 1}, 0) catch continue;
             ig.ImDrawList_AddTextEx(draw_list, .{ .x = at.x + 8, .y = at.y - 6 }, ink, text.ptr, text.ptr + text.len);
         }
         const angle = if (overlay.arrowing) overlay.arrow_angle else direction;
@@ -634,12 +634,12 @@ pub const Panels = struct {
         }
         if (editor.tool == .draw_transparency) {
             var label: [4:0]u8 = undefined;
-            _ = std.fmt.bufPrintZ(&label, "{d}", .{editor.transparency_value}) catch {};
+            _ = std.mem.printSentinel(&label, "{d}", .{editor.transparency_value}, 0) catch {};
             if (ig.igBeginCombo("Transparency", &label, 0)) {
                 var value: u8 = 1;
                 while (value <= core.grid_tools.max_transparency_value) : (value += 1) {
                     var item: [4:0]u8 = undefined;
-                    _ = std.fmt.bufPrintZ(&item, "{d}", .{value}) catch {};
+                    _ = std.mem.printSentinel(&item, "{d}", .{value}, 0) catch {};
                     if (ig.igSelectableEx(&item, value == editor.transparency_value, 0, .{ .x = 0, .y = 0 })) editor.setTransparency(value);
                 }
                 ig.igEndCombo();
@@ -678,7 +678,7 @@ pub const Panels = struct {
         _ = self;
         const part_name = if (editor.part) |id| (if (edit.findNode(&life.doc, id)) |n| n.displaySlice() else "") else "(none)";
         var text: [bridge.name_capacity + 96:0]u8 = undefined;
-        const line = std.fmt.bufPrintZ(&text, "Span part: {s} ({s} spans), {s} bridge", .{ part_name, @tagName(editor.span_group), @tagName(editor.bridge_type) }) catch "";
+        const line = std.mem.printSentinel(&text, "Span part: {s} ({s} spans), {s} bridge", .{ part_name, @tagName(editor.span_group), @tagName(editor.bridge_type) }, 0) catch "";
         ig.igTextUnformattedEx(line.ptr, line.ptr + line.len);
         if (editor.tool != .span_marks) return;
         const marks = [_]struct { mark: core.point_tools.SpanMark, label: [:0]const u8 }{
@@ -690,7 +690,7 @@ pub const Panels = struct {
         for (marks, 0..) |entry, i| {
             if (i != 0) ig.igSameLine();
             var label: [24:0]u8 = undefined;
-            const shown = std.fmt.bufPrintZ(&label, "{s}##span_mark", .{entry.label}) catch entry.label;
+            const shown = std.mem.printSentinel(&label, "{s}##span_mark", .{entry.label}, 0) catch entry.label;
             if (ig.igRadioButton(shown.ptr, editor.span_mark == entry.mark)) editor.span_mark = entry.mark;
         }
     }
@@ -703,12 +703,12 @@ pub const Panels = struct {
         const insert = grid.activeInsert(&life.doc, self.selection.primary);
         var current: [bridge.name_capacity + 8:0]u8 = undefined;
         const current_name = if (insert) |id| (if (edit.findNode(&life.doc, id)) |n| n.displaySlice() else "") else "(none)";
-        _ = std.fmt.bufPrintZ(&current, "{s}", .{current_name}) catch {};
+        _ = std.mem.printSentinel(&current, "{s}", .{current_name}, 0) catch {};
         if (ig.igBeginCombo("Insert type", &current, 0)) {
             for (life.doc.tree.nodes.items) |*node| {
                 if (!core.sub_editor_tools.isClass(node, core.sub_editor_tools.item_type.fence_insert)) continue;
                 var label: [bridge.name_capacity + 16:0]u8 = undefined;
-                _ = std.fmt.bufPrintZ(&label, "{s}##insert{d}", .{ node.displaySlice(), node.id }) catch {};
+                _ = std.mem.printSentinel(&label, "{s}##insert{d}", .{ node.displaySlice(), node.id }, 0) catch {};
                 if (ig.igSelectableEx(&label, insert != null and insert.? == node.id, 0, .{ .x = 0, .y = 0 })) self.selection.only(gpa, node.id) catch {};
             }
             ig.igEndCombo();
@@ -718,7 +718,7 @@ pub const Panels = struct {
         for (life.doc.tree.nodes.items) |*node| {
             if (node.parent != active or !core.sub_editor_tools.isClass(node, core.sub_editor_tools.item_type.fence_props)) continue;
             var label: [bridge.name_capacity + 16:0]u8 = undefined;
-            _ = std.fmt.bufPrintZ(&label, "{s}##segment{d}", .{ node.displaySlice(), node.id }) catch {};
+            _ = std.mem.printSentinel(&label, "{s}##segment{d}", .{ node.displaySlice(), node.id }, 0) catch {};
             if (ig.igSelectableEx(&label, chosen != null and chosen.? == node.id, 0, .{ .x = 0, .y = 0 })) self.selection.only(gpa, node.id) catch {};
         }
     }
@@ -952,9 +952,9 @@ pub const Panels = struct {
         var heading: [bridge.name_capacity + 48]u8 = undefined;
         const others = self.selection.ids.items.len -| 1;
         const head = if (others == 0)
-            std.fmt.bufPrintZ(&heading, "{s}", .{node.displaySlice()}) catch ""
+            std.mem.printSentinel(&heading, "{s}", .{node.displaySlice()}, 0) catch ""
         else
-            std.fmt.bufPrintZ(&heading, "{s} (+{d} selected)", .{ node.displaySlice(), others }) catch "";
+            std.mem.printSentinel(&heading, "{s} (+{d} selected)", .{ node.displaySlice(), others }, 0) catch "";
         ig.igSeparatorText(head.ptr);
         if (life.read_only) ig.igBeginDisabled(true);
         defer if (life.read_only) ig.igEndDisabled();
@@ -1014,11 +1014,11 @@ pub const Panels = struct {
                 const options = self.stringsOf(gpa, b, key);
                 const current = edit.comboCurrent(kind, options, prop.valueSlice());
                 var preview_buffer: [bridge.reference_name_capacity + 1]u8 = undefined;
-                const preview = std.fmt.bufPrintZ(&preview_buffer, "{s}", .{if (current) |i| options[i].nameSlice() else prop.valueSlice()}) catch "";
+                const preview = std.mem.printSentinel(&preview_buffer, "{s}", .{if (current) |i| options[i].nameSlice() else prop.valueSlice()}, 0) catch "";
                 if (ig.igBeginCombo("##v", preview.ptr, 0)) {
                     for (options, 0..) |*option, i| {
                         var item_buffer: [bridge.reference_name_capacity + 16]u8 = undefined;
-                        const item = std.fmt.bufPrintZ(&item_buffer, "{s}##{d}", .{ option.nameSlice(), i }) catch continue;
+                        const item = std.mem.printSentinel(&item_buffer, "{s}##{d}", .{ option.nameSlice(), i }, 0) catch continue;
                         if (ig.igSelectableEx(item.ptr, current == i, 0, .{ .x = 0, .y = 0 })) {
                             if (edit.comboText(kind, options, i)) |text| self.write(gpa, b, life, prop.id, text.slice(), 0);
                         }
@@ -1094,7 +1094,7 @@ pub const Panels = struct {
         const location: ?[*:0]const u8 = blk: {
             const dir = if (source.len != 0 and std.fs.path.isAbsolute(source)) source else project_dir;
             if (dir.len == 0) break :blk null;
-            break :blk (std.fmt.bufPrintZ(&location_buffer, "{s}", .{dir}) catch break :blk null).ptr;
+            break :blk (std.mem.printSentinel(&location_buffer, "{s}", .{dir}, 0) catch break :blk null).ptr;
         };
         if (folder) {
             sdl3.c.SDL_ShowOpenFolderDialog(browseCallback, &browse_slot, window, location, false);
@@ -1134,7 +1134,7 @@ pub const Panels = struct {
         }
         const picker = &self.picker.?;
         var title_buffer: [64]u8 = undefined;
-        const title = std.fmt.bufPrintZ(&title_buffer, "{s}", .{picker.ref_type.label()}) catch "";
+        const title = std.mem.printSentinel(&title_buffer, "{s}", .{picker.ref_type.label()}, 0) catch "";
         ig.igSeparatorText(title.ptr);
         const entries = self.refs.get(gpa, b, picker.ref_type) catch |err| {
             self.report(b, "reference list", err);
@@ -1152,7 +1152,7 @@ pub const Panels = struct {
             for (hits.items) |i| {
                 const entry = &entries[i];
                 var item_buffer: [bridge.reference_name_capacity + 16]u8 = undefined;
-                const item = std.fmt.bufPrintZ(&item_buffer, "{s}##{d}", .{ entry.nameSlice(), i }) catch continue;
+                const item = std.mem.printSentinel(&item_buffer, "{s}##{d}", .{ entry.nameSlice(), i }, 0) catch continue;
                 if (picker.multi) {
                     var on = picker.mask & (if (entry.token >= 0 and entry.token < 64) @as(u64, 1) << @intCast(entry.token) else 0) != 0;
                     if (ig.igCheckbox(item.ptr, &on)) picker.mask = edit.toggleAction(picker.mask, entry.token, on);

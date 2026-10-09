@@ -1,6 +1,4 @@
-const c = @cImport({
-    @cInclude("PlatformABI/platform_c.h");
-});
+const c = @import("platform_c");
 
 test "platform C ABI imports as C11-compatible declarations" {
     try @import("std").testing.expect(c.BK_PLATFORM_ABI_VERSION == 1);

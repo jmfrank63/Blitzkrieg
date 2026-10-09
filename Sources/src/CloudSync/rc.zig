@@ -433,7 +433,7 @@ pub const Client = struct {
         // framing rather than from the socket.
         const err = connection.stream_reader.err orelse return error.Transport;
         return switch (err) {
-            error.Timeout => error.Timeout,
+            error.ConnectionTimedOut => error.Timeout,
             else => error.Transport,
         };
     }

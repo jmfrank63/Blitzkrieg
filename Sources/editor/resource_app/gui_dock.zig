@@ -388,12 +388,12 @@ pub const GuiDock = struct {
                 if (open) ig.igTreePop();
                 folder = entry.folder;
                 var folder_buffer: [96]u8 = undefined;
-                const label = std.fmt.bufPrintZ(&folder_buffer, "{s}##folder", .{entry.folder}) catch "?";
+                const label = std.mem.printSentinel(&folder_buffer, "{s}##folder", .{entry.folder}, 0) catch "?";
                 open = ig.igTreeNodeEx(label.ptr, ig.ImGuiTreeNodeFlags_DefaultOpen);
             }
             if (!open) continue;
             var name_buffer: [128]u8 = undefined;
-            const label = std.fmt.bufPrintZ(&name_buffer, "{s}##t{d}", .{ entry.file, index }) catch continue;
+            const label = std.mem.printSentinel(&name_buffer, "{s}##t{d}", .{ entry.file, index }, 0) catch continue;
             const armed = if (overlay.armed) |path| std.mem.eql(u8, path, entry.path) else false;
             if (ig.igSelectableEx(label.ptr, armed, 0, .{ .x = 0, .y = 0 })) overlay.arm(entry.path) catch {};
             if (index < self.entry_rects.items.len) {
@@ -453,7 +453,7 @@ pub const GuiDock = struct {
 
     fn drawAttr(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay, id: i32, name: []const u8, index: usize) void {
         var label_buffer: [64]u8 = undefined;
-        const label = std.fmt.bufPrintZ(&label_buffer, "{s}##attr{d}", .{ name, index }) catch return;
+        const label = std.mem.printSentinel(&label_buffer, "{s}##attr{d}", .{ name, index }, 0) catch return;
         var shown: [256]u8 = @splat(0);
         const typing = self.editing == index;
         if (typing) {

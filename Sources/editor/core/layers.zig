@@ -30,7 +30,7 @@ pub const Layer = enum(u32) {
     fire_ranges,
 };
 
-pub const layer_count = @typeInfo(Layer).@"enum".fields.len;
+pub const layer_count = @typeInfo(Layer).@"enum".field_names.len;
 
 /// Every layer's bit: the mask of a renderer that can draw them all.
 pub const all_bits: u32 = (1 << layer_count) - 1;
@@ -68,8 +68,8 @@ pub fn commandName(layer: Layer) []const u8 {
 }
 
 pub fn fromCommandName(name: []const u8) ?Layer {
-    inline for (@typeInfo(Layer).@"enum".fields) |field| {
-        if (std.mem.eql(u8, name, field.name)) return @enumFromInt(field.value);
+    inline for (std.enums.values(Layer)) |tag| {
+        if (std.mem.eql(u8, name, @tagName(tag))) return tag;
     }
     return null;
 }
