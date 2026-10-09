@@ -28,3 +28,22 @@ Which tier failed without it: **map-editor-smoke** (and map-editor-auto, which r
 - `map-editor: smoke FAIL: another installation's map opens read-only: the document is C:\...\zig-out\local-test\map-editor-smoke-foreign\Data\Maps\Multiplayer\coldwinter.bzm, want C:\...\zig-out/local-test\map-editor-smoke-foreign\Data\Maps\Multiplayer\coldwinter.bzm` (exit 1, 62 s). The editor compares the path it built (backslashes) with the string build.zig passed (mixed separators), so the two equal paths differ.
 - With the fix: `zig build map-editor-smoke -Dtest-mode=run` exit 0, 81 s.
 - map-editor-host-check passes both with and without the fix (78 s and 91 s), it only writes the mixed path into a log line.
+
+## Map Editor (S04 / T03)
+
+- Date: 2026-10-10
+- Zig: 0.17.0, debug, win-home real desktop, commit at start d44cfdf54 (includes the rootPath fix)
+- Bound: 480 s per tier, whole process tree killed on expiry; none expired
+
+| Tier | Command | Exit | Duration | Limit | 0.16 comparison |
+|------|---------|------|----------|-------|-----------------|
+| test-map-editor-view, -panels, -testlaunch, -auto | `zig build test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtest-mode=run` | 0 | 1 s (cache hit, every "run test" step cached; identical inputs already passed under 0.17.0) | 480 s | CI windows-map-editor green at 4d7645fc5 |
+| test-map-editor-engine | `zig build test-map-editor-engine -Dtest-mode=run` | 0 | 98 s | 480 s | CI windows-map-editor green at 4d7645fc5 |
+| map-editor-host-check | `zig build map-editor-host-check -Dtest-mode=run` | 0 | 77 s | 480 s | CI windows-map-editor green at 4d7645fc5 |
+| map-editor-smoke | `zig build map-editor-smoke -Dtest-mode=run` | 0 | 66 s | 480 s | CI windows-map-editor green at 4d7645fc5 (needs the rootPath fix on 0.17, see above) |
+| map-editor-auto | `zig build map-editor-auto -Dtest-mode=run` | 0 | 89 s | 480 s | not in CI; passes on 0.17, no baseline needed |
+| map-editor-auto-m2 | `zig build map-editor-auto-m2 -Dtest-mode=run` | 0 | 123 s | 480 s | not in CI; passes on 0.17, no baseline needed |
+| map-editor-m3-auto | `zig build map-editor-m3-auto -Dtest-mode=run` | 0 | 384 s (668 actions) | 480 s | CI windows-map-editor green at 4d7645fc5 |
+| map-editor-game-reads-it-m3 | `zig build map-editor-game-reads-it-m3 -Dtest-mode=run` | 0 | 274 s | 480 s | CI windows-map-editor green at 4d7645fc5 |
+
+The two longest tiers sit at 80% and 57% of the bound; m3-auto is the one to watch if the machine is loaded.
