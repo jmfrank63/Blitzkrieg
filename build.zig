@@ -745,7 +745,9 @@ var library_path_option: ?std.Build.LazyPath = null;
 fn rootPath(b: *std.Build, sub: []const u8) []const u8 {
     const joined = b.root.joinString(b.allocator, sub) catch @panic("OOM");
     std.debug.assert(std.fs.path.isAbsolute(joined));
-    return joined;
+    // joinString keeps the sub path as written, so a "/" would stay inside a Windows path; the editors
+    // compare these strings with OS paths they build themselves, which carry only the native separator.
+    return b.pathResolve(&.{joined});
 }
 
 /// Like rootPath for a fetched package. Its root is reported relative to the build root, so it is
