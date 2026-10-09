@@ -188,6 +188,6 @@ test "nameValid: 1..63 bytes, no control characters, no pipe" {
     try std.testing.expect(!nameValid(""));
     try std.testing.expect(!nameValid("a|b"));
     try std.testing.expect(!nameValid("a\nb"));
-    try std.testing.expect(nameValid("a" ** 63));
-    try std.testing.expect(!nameValid("a" ** 64));
+    try std.testing.expect(nameValid(&@as([63:0]u8, @splat('a'))));
+    try std.testing.expect(!nameValid(&@as([64:0]u8, @splat('a'))));
 }

@@ -113,7 +113,7 @@ pub const BridgeGhost = struct {
     pub const max_pieces = 128;
     from: [2]f32 = .{ 0, 0 },
     to: [2]f32 = .{ 0, 0 },
-    desc: [core.bridge.name_capacity]u8 = [_]u8{0} ** core.bridge.name_capacity,
+    desc: [core.bridge.name_capacity]u8 = @splat(0),
     valid: bool = false,
     refused: bool = false,
     why: [160]u8 = undefined,
@@ -130,7 +130,7 @@ pub const FenceGhost = struct {
     from: [2]f32 = .{ 0, 0 },
     to: [2]f32 = .{ 0, 0 },
     ctrl: bool = false,
-    desc: [core.bridge.name_capacity]u8 = [_]u8{0} ** core.bridge.name_capacity,
+    desc: [core.bridge.name_capacity]u8 = @splat(0),
     valid: bool = false,
     refused: bool = false,
     why: [160]u8 = undefined,
@@ -257,7 +257,7 @@ pub const State = struct {
     /// default save format; the two fields are edited here and commit on OK),
     /// Help > Keys and tools and Help > About.
     options_open: bool = false,
-    options_params_edit: [core.settings.max_game_parameters:0]u8 = [_:0]u8{0} ** core.settings.max_game_parameters,
+    options_params_edit: [core.settings.max_game_parameters:0]u8 = @splat(0),
     options_format_edit: core.settings.Format = core.settings.default_format,
     help_keys_open: bool = false,
     about_open: bool = false,
@@ -280,7 +280,7 @@ pub const State = struct {
     new_map_name: logic.NameText = .{},
     /// The New Map dialog's name field (a zero-terminated buffer ImGui
     /// edits in place, committed to `new_map_fields.name` on Create).
-    new_map_name_edit: [core.bridge.name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.name_capacity,
+    new_map_name_edit: [core.bridge.name_capacity:0]u8 = @splat(0),
     /// The format a Save As was asked for by name (M3, D-24: File > Save as
     /// XML/BZM and the file_save_xml/bzm commands): while set, a path the
     /// dialog or command delivered without an extension gets this format's
@@ -289,7 +289,7 @@ pub const State = struct {
     /// The Settings window's "Maps folder" field, loaded from `settings`
     /// whenever the window is (re)opened, edited in place, and only copied
     /// back into `settings` once editing is deactivated (not per keystroke).
-    maps_folder_edit: [core.settings.max_path:0]u8 = [_:0]u8{0} ** core.settings.max_path,
+    maps_folder_edit: [core.settings.max_path:0]u8 = @splat(0),
 
     /// Map > Update Map (M3, D-20): whether the report modal is still owed a
     /// frame, and the step count the synchronous command collected (the
@@ -309,8 +309,8 @@ pub const State = struct {
     /// bridge's callback only counts), and the result modal follows (`done`).
     rmg_open: bool = false,
     rmg_fields: logic.RmgFields = .{},
-    rmg_map_edit: [core.bridge.rmg_map_name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.rmg_map_name_capacity,
-    rmg_seed_edit: [16:0]u8 = [_:0]u8{0} ** 16,
+    rmg_map_edit: [core.bridge.rmg_map_name_capacity:0]u8 = @splat(0),
+    rmg_seed_edit: [16:0]u8 = @splat(0),
     rmg_templates: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
     rmg_contexts: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
     rmg_settings: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
@@ -347,7 +347,7 @@ pub const State = struct {
     /// checked once (std.Io.Dir access) the frame the submenu newly opens
     /// and reused every frame it stays open - not once per entry per frame.
     recent_menu_open_prev: bool = false,
-    recent_exists_cache: [core.settings.recent_capacity]bool = [_]bool{true} ** core.settings.recent_capacity,
+    recent_exists_cache: [core.settings.recent_capacity]bool = @splat(true),
 
     /// File > Mod (D-26): the installed mods, refreshed once the frame the
     /// submenu newly opens - the same shape as Open Recent's own cache above.
@@ -394,7 +394,7 @@ pub const State = struct {
     /// check can tell a palette the switch re-read from one merely left over
     /// - the fixture mod adds no objects, so the entries alone look the same.
     catalogue_generation: u32 = 0,
-    filter: [64:0]u8 = [_:0]u8{0} ** 64,
+    filter: [64:0]u8 = @splat(0),
 
     /// The object filters (M3, D-31): the palette's nine quick toggles. The
     /// slots' assigned filter names and the combo's current one live in
@@ -407,26 +407,26 @@ pub const State = struct {
     /// differs from the editor's generation. `filters_composer_open` is the
     /// Filters Composer window (drawn by panels_m3.zig);
     /// `filters_composer_selected` is the filter its word-list editor shows.
-    filter_checked: [core.settings.Settings.filter_slot_count]bool = [_]bool{false} ** core.settings.Settings.filter_slot_count,
+    filter_checked: [core.settings.Settings.filter_slot_count]bool = @splat(false),
     filters_generation_seen: u32 = 0,
     filter_views: [logic.max_active_filters]core.bridge.FilterView = undefined,
     active_filter_values: [logic.max_active_filters]core.filters.Filter = undefined,
     active_filters: []const core.filters.Filter = &.{},
     filters_composer_open: bool = false,
-    filters_composer_selected: [64:0]u8 = [_:0]u8{0} ** 64,
+    filters_composer_selected: [64:0]u8 = @splat(0),
     /// The composer's new-filter and rename name fields, and the words
     /// editors' buffers
     /// (one per condition line, reloaded when the selection or the generation
     /// changes - the commit-on-deactivate rule needs the buffer to outlive
     /// the edit).
-    filter_new_edit: [64:0]u8 = [_:0]u8{0} ** 64,
-    filter_rename_edit: [64:0]u8 = [_:0]u8{0} ** 64,
-    filter_words_edit: [core.bridge.filter_max_lists][256:0]u8 = [_][256:0]u8{[_:0]u8{0} ** 256} ** core.bridge.filter_max_lists,
+    filter_new_edit: [64:0]u8 = @splat(0),
+    filter_rename_edit: [64:0]u8 = @splat(0),
+    filter_words_edit: [core.bridge.filter_max_lists][256:0]u8 = @splat(@splat(0)),
     filters_composer_words_seen: u32 = 0,
     /// Set the frame the palette asks for the New Filter popup or the Delete
     /// confirmation, so the modal opens once and names its filter.
     filter_new_popup: bool = false,
-    filter_delete_popup: [64:0]u8 = [_:0]u8{0} ** 64,
+    filter_delete_popup: [64:0]u8 = @splat(0),
 
     /// The RMG composers (05-09, D-06): the two Tools windows and their shared
     /// working state (core.composers). `cc_*` is the Containers window's own
@@ -436,29 +436,29 @@ pub const State = struct {
     containers_open: bool = false,
     graphs_open: bool = false,
     composers: core.composers.Composers,
-    cc_selected: [core.bridge.rmg_max_patches]bool = [_]bool{false} ** core.bridge.rmg_max_patches,
+    cc_selected: [core.bridge.rmg_max_patches]bool = @splat(false),
     cc_anchor: usize = 0,
-    cc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
-    cc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
-    cc_picker_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    cc_open_filter: [96:0]u8 = @splat(0),
+    cc_save_as_edit: [128:0]u8 = @splat(0),
+    cc_picker_filter: [96:0]u8 = @splat(0),
     cc_picker_selected: std.ArrayListUnmanaged(bool) = .empty,
-    cc_place_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    cc_place_edit: [128:0]u8 = @splat(0),
     cc_flags_edit: [4]core.composers.Tri = .{ .keep, .keep, .keep, .keep },
     cc_popup: ComposerPopup = .none,
     cc_check_seen: u32 = 0,
     /// A New or Open that waits for the answer to "discard the changes?":
     /// the command it runs on YES, as `name arg`.
-    cc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
-    cg_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
-    cg_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
-    cg_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
-    cg_container_edit: [192:0]u8 = [_:0]u8{0} ** 192,
-    cg_link_edit: [6][96:0]u8 = [_][96:0]u8{[_:0]u8{0} ** 96} ** 6,
+    cc_pending_cmd: [220:0]u8 = @splat(0),
+    cg_pending_cmd: [220:0]u8 = @splat(0),
+    cg_open_filter: [96:0]u8 = @splat(0),
+    cg_save_as_edit: [128:0]u8 = @splat(0),
+    cg_container_edit: [192:0]u8 = @splat(0),
+    cg_link_edit: [6][96:0]u8 = @splat(@splat(0)),
     cg_popup: ComposerPopup = .none,
     /// The element the last right-click or double-click found: a node and/or
     /// the links under the point (at most eight).
     cg_hit_node: i32 = -1,
-    cg_hit_links: [8]u32 = [_]u32{0} ** 8,
+    cg_hit_links: [8]u32 = @splat(0),
     cg_hit_link_count: usize = 0,
     cg_link_index: usize = 0,
     cg_dragging: bool = false,
@@ -474,20 +474,20 @@ pub const State = struct {
     fields_composer_open: bool = false,
     fc_tab: FieldTab = .terrain,
     fc_tab_request: bool = false,
-    fc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
-    fc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    fc_open_filter: [96:0]u8 = @splat(0),
+    fc_save_as_edit: [128:0]u8 = @splat(0),
     fc_popup: ComposerPopup = .none,
-    fc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    fc_pending_cmd: [220:0]u8 = @splat(0),
     /// The chosen shell of each kind (0 terrain, 1 objects) and whether one is chosen.
     fc_shell: [2]usize = .{ 0, 0 },
     fc_shell_chosen: [2]bool = .{ false, false },
-    fc_filter: [64:0]u8 = [_:0]u8{0} ** 64,
-    fc_text_filter: [64:0]u8 = [_:0]u8{0} ** 64,
+    fc_filter: [64:0]u8 = @splat(0),
+    fc_text_filter: [64:0]u8 = @splat(0),
     fc_avail: std.ArrayListUnmanaged(usize) = .empty,
     fc_avail_catalogue_seen: u32 = 0,
     fc_filters_seen: u32 = 0,
-    fc_avail_filter_seen: [64]u8 = [_]u8{0} ** 64,
-    fc_avail_text_seen: [64]u8 = [_]u8{0} ** 64,
+    fc_avail_filter_seen: [64]u8 = @splat(0),
+    fc_avail_text_seen: [64]u8 = @splat(0),
     fc_avail_selected: std.ArrayListUnmanaged(bool) = .empty,
     fc_type_selected: std.ArrayListUnmanaged(bool) = .empty,
     fc_shell_selected: [2]std.ArrayListUnmanaged(bool) = .{ .empty, .empty },
@@ -496,11 +496,11 @@ pub const State = struct {
     fc_types_slot: usize = 99,
     fc_types_generation: u32 = 0,
     /// The popups' text fields: width, step, percent / a weight.
-    fc_shell_edit: [3][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 3,
-    fc_weight_edit: [32:0]u8 = [_:0]u8{0} ** 32,
+    fc_shell_edit: [3][32:0]u8 = @splat(@splat(0)),
+    fc_weight_edit: [32:0]u8 = @splat(0),
     /// The Heights tab's fields (height, pattern min, pattern max, percent,
     /// profile) as text, reloaded when the file or an edit moves `generation`.
-    fc_edit: [5][96:0]u8 = [_][96:0]u8{[_:0]u8{0} ** 96} ** 5,
+    fc_edit: [5][96:0]u8 = @splat(@splat(0)),
     fc_edit_seen: u32 = 0,
     fc_profiles: std.ArrayListUnmanaged([]u8) = .empty,
     fc_profiles_read: bool = false,
@@ -511,23 +511,23 @@ pub const State = struct {
     /// popup's working copy and the cached cells of the lists that need a read of
     /// each graph and field set. None of it is data, so none of it is undoable.
     templates_composer_open: bool = false,
-    tc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
-    tc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    tc_open_filter: [96:0]u8 = @splat(0),
+    tc_save_as_edit: [128:0]u8 = @splat(0),
     tc_popup: ComposerPopup = .none,
     /// The popup the last frame had, so a popup opened by a command loads what it needs.
     tc_popup_seen: ComposerPopup = .none,
-    tc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    tc_pending_cmd: [220:0]u8 = @splat(0),
     tc_selected: [3]std.ArrayListUnmanaged(bool) = .{ .empty, .empty, .empty },
     /// Which list the open picker or properties popup is about (0 fields, 1 graphs, 2 vso).
     tc_list: usize = 1,
     tc_picker_names: std.ArrayListUnmanaged([]u8) = .empty,
     tc_picker_selected: std.ArrayListUnmanaged(bool) = .empty,
-    tc_picker_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    tc_picker_filter: [96:0]u8 = @splat(0),
     tc_scripts: std.ArrayListUnmanaged([]u8) = .empty,
     tc_scripts_read: bool = false,
-    tc_edit: [3][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 3,
+    tc_edit: [3][32:0]u8 = @splat(@splat(0)),
     tc_default_edit: bool = false,
-    tc_dipl_sides: [core.rmg.max_diplomacies]u8 = [_]u8{0} ** core.rmg.max_diplomacies,
+    tc_dipl_sides: [core.rmg.max_diplomacies]u8 = @splat(0),
     tc_dipl_count: usize = 0,
     tc_dipl_type: i32 = 0,
     tc_dipl_attacking: i32 = 0,
@@ -535,13 +535,13 @@ pub const State = struct {
     tc_cells_seen: u32 = 0,
     tc_cells_valid: bool = false,
     tc_settings_text: std.ArrayListUnmanaged(u8) = .empty,
-    tc_appear_edit: [2][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 2,
+    tc_appear_edit: [2][32:0]u8 = @splat(@splat(0)),
 
     fields_open: bool = false,
     /// The Fields panel's state (M3, D-21): the chosen field set, the
     /// dialog's checkboxes and the Randomize dialog's three numbers. The
     /// polygon itself lives in the tool (`view.fields_tool`).
-    fields_set_name: [core.bridge.field_set_name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.field_set_name_capacity,
+    fields_set_name: [core.bridge.field_set_name_capacity:0]u8 = @splat(0),
     fields_randomize: bool = false,
     fields_fill_terrain: bool = true,
     fields_place_objects: bool = true,
@@ -591,7 +591,7 @@ pub const State = struct {
     /// Where the picker's combo and each visible tile cell were drawn last
     /// frame (screen centres), for the smoke to click as a hand would.
     tile_combo_centre: ?ig.ImVec2 = null,
-    tile_cell_centres: [256]?ig.ImVec2 = [_]?ig.ImVec2{null} ** 256,
+    tile_cell_centres: [256]?ig.ImVec2 = @splat(null),
     tile_picker_open: bool = false,
 
     /// Every distinct object type the open map has that the object database
@@ -633,7 +633,7 @@ pub const State = struct {
     selected_sound: ?usize = null,
     sound_edit: struct {
         index: usize = 0,
-        name_buffer: [core.bridge.name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.name_capacity,
+        name_buffer: [core.bridge.name_capacity:0]u8 = @splat(0),
         x: f32 = 0,
         y: f32 = 0,
         repeat_seconds: f32 = 0,
@@ -751,7 +751,7 @@ pub const State = struct {
     check_fix_report: ?core.editor.Editor.FixReport = null,
     check_confirm_pending: bool = false,
     props_link_id: i32 = -1,
-    props_script_edit: [16:0]u8 = [_:0]u8{0} ** 16,
+    props_script_edit: [16:0]u8 = @splat(0),
     props_health: f32 = 100,
     props_angle: f32 = 0,
     props_formation: usize = 0,
@@ -812,7 +812,7 @@ pub const State = struct {
     areas: std.ArrayListUnmanaged(core.records.ScriptArea) = .empty,
     areas_generation_seen: ?u32 = null,
     areas_at_open: usize = 0,
-    area_rename_field: [core.records.area_name_capacity:0]u8 = [_:0]u8{0} ** core.records.area_name_capacity,
+    area_rename_field: [core.records.area_name_capacity:0]u8 = @splat(0),
     area_rename_for: ?usize = null,
 
     /// 04-11 (D-17): the Start Commands window (Unit -> Start commands...). The map's
@@ -3745,7 +3745,7 @@ fn drawTilePicker(state: *State) void {
         state.tile_combo_centre = .{ .x = (combo_min.x + combo_max.x) / 2, .y = (combo_min.y + combo_max.y) / 2 };
     }
     state.tile_picker_open = combo_open;
-    state.tile_cell_centres = [_]?ig.ImVec2{null} ** 256;
+    state.tile_cell_centres = @as([256]?ig.ImVec2, @splat(null));
     if (!combo_open) return;
     defer ig.igEndCombo();
     drawTileGrid(state);
@@ -4039,7 +4039,7 @@ fn drawPaletteFilters(state: *State) void {
 fn drawPaletteFilterPopups(state: *State) void {
     if (state.filter_new_popup) {
         state.filter_new_popup = false;
-        state.filter_new_edit = [_:0]u8{0} ** 64;
+        state.filter_new_edit = @as([64:0]u8, @splat(0));
         _ = ig.igOpenPopup("New filter", 0);
     }
     if (ig.igBeginPopupModal("New filter", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {

@@ -497,7 +497,7 @@ pub fn expandFor(t: edit.Target, complex: bool) void {
 /// bridge too, so its refusal (naming the kind) is what the user reads.
 pub const ImportForm = struct {
     kind: Kind = .animation_infantry,
-    folder: [logic.path_capacity]u8 = [_]u8{0} ** logic.path_capacity,
+    folder: [logic.path_capacity]u8 = @splat(0),
 
     pub fn folderSlice(self: *const ImportForm) []const u8 {
         return std.mem.sliceTo(&self.folder, 0);

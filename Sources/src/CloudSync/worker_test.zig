@@ -1006,7 +1006,7 @@ test "a remote root too long for the session name is refused before bisync runs"
     defer gpa.free(link_root);
     const creds_at = try path.join(gpa, &.{ game_dir, creds.default_path });
     defer gpa.free(creds_at);
-    try fixture.write(creds_at, "{\"backend\":\"webdav\",\"remote_root\":\"" ++ ("R" ** 240) ++
+    try fixture.write(creds_at, "{\"backend\":\"webdav\",\"remote_root\":\"" ++ (&@as([240:0]u8, @splat('R'))) ++
         "\",\"fingerprint\":\"webdav:#long\",\"options\":{\"url\":\"http://127.0.0.1:9\"}," ++
         "\"secret_options\":[],\"password_options\":[],\"rclone_path\":null}");
     try engine.savePairingState(gpa, io, game_dir, "hero", .{

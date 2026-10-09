@@ -59,7 +59,7 @@ pub const RoadsRivers = struct {
     kind: VsoKind = .road,
     /// The type a new line is drawn with: a bare descriptor name
     /// (`Editor.vsoDescriptors`), set by the panel.
-    desc_buffer: [bridge_mod.vso_name_capacity]u8 = [_]u8{0} ** bridge_mod.vso_name_capacity,
+    desc_buffer: [bridge_mod.vso_name_capacity]u8 = @splat(0),
     desc_len: usize = 0,
     /// The MFC width spinner, 1..16 (fWidth = w * fWorldCellSize / 2).
     width_tiles: f32 = 3,

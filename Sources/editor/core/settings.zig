@@ -46,7 +46,7 @@ pub const Settings = struct {
     /// D-24 (M3): the default format of a never-saved map's Save As.
     default_format: Format = kit_settings.default_format,
     maps_folder_storage: FixedPath = .{},
-    recent_storage: [recent_capacity]FixedPath = [_]FixedPath{.{}} ** recent_capacity,
+    recent_storage: [recent_capacity]FixedPath = @splat(.{}),
     recent_count: usize = 0,
     /// D-34 (05-11, PARITY T2): Tools > Options' extra game command line for
     /// Test in game (the MFC's `szGameParameters`). Empty means none. It
@@ -78,7 +78,7 @@ pub const Settings = struct {
     /// (Data/Editor/filter.xml keys); a name no filter has any more simply
     /// shows as an empty slot.
     filter_active: FixedPath = .{},
-    filter_slots: [filter_slot_count]FixedPath = [_]FixedPath{.{}} ** filter_slot_count,
+    filter_slots: [filter_slot_count]FixedPath = @splat(.{}),
 
     pub const filter_slot_count = 9;
 
@@ -504,8 +504,8 @@ test "a newline in a recent path, folder or filter name plants no key in the fil
 }
 
 test "a filter name longer than the filter-name limit in the file is skipped (CR-A03)" {
-    const long = "x" ** (layers_mod.max_filter_len + 1);
-    const exact = "y" ** layers_mod.max_filter_len;
+    const long = &@as([layers_mod.max_filter_len + 1:0]u8, @splat('x'));
+    const exact = &@as([layers_mod.max_filter_len:0]u8, @splat('y'));
     const read = parse("filter_active=" ++ long ++ "\nfilter_slot_2=" ++ long ++ "\nfilter_slot_3=" ++ exact ++ "\n");
     try std.testing.expectEqual(@as(usize, 0), read.filter_active.slice().len);
     try std.testing.expectEqual(@as(usize, 0), read.filterSlot(2).len);

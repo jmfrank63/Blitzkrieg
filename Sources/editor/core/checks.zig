@@ -68,7 +68,7 @@ pub const Finding = struct {
     player: i32 = -1,
     vso_kind: u8 = 0,
     vso_index: usize = 0,
-    detail: [detail_capacity]u8 = [_]u8{0} ** detail_capacity,
+    detail: [detail_capacity]u8 = @splat(0),
     detail_len: usize = 0,
 
     pub fn text(self: *const Finding) []const u8 {

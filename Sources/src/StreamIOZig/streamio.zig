@@ -10,7 +10,7 @@ const zip = @import("zip.zig");
 // strongly aligned — a plain u8 list may come back byte-aligned and UBSan
 // traps the misaligned stores. 16 matches what the original got from malloc.
 const TempBuffer = std.ArrayListAlignedUnmanaged(u8, .@"16");
-var buffers: [10]TempBuffer = [_]TempBuffer{.empty} ** 10;
+var buffers: [10]TempBuffer = @splat(.empty);
 
 // The legacy game reaches this implementation through a small C++ vtable
 // adapter.  Storage state itself lives here: the adapter has no file or buffer
@@ -2093,7 +2093,7 @@ test "write-mode tree round-trips through the reader" {
     try std.testing.expectEqual(@as(c_int, 9), id);
     bk_tree_finish_container(reader);
     try std.testing.expectEqual(@as(c_int, 1), bk_tree_start(reader, "Blob"));
-    var decoded = [_]u8{0} ** 3;
+    var decoded: [3]u8 = @splat(0);
     try std.testing.expect(bk_tree_raw(reader, &decoded, decoded.len));
     try std.testing.expectEqualSlices(u8, &raw_bytes, &decoded);
 }
@@ -2285,7 +2285,7 @@ test "data-tree raw rows decode legacy hexadecimal bytes" {
     defer bk_tree_finish_container(handle);
     try std.testing.expect(bk_tree_set_counter(handle, 1));
 
-    var output = [_]u8{0xaa} ** 4;
+    var output: [4]u8 = @splat(0xaa);
     try std.testing.expect(bk_tree_raw(handle, &output, @intCast(output.len)));
     try std.testing.expectEqualSlices(u8, &.{ 0x01, 0x00, 0x01, 0xff }, &output);
 }

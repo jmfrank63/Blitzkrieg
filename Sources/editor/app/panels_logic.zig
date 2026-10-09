@@ -329,7 +329,7 @@ pub fn readOnlyReason(objects: []const ObjectRecord, object: ObjectRecord) ?[]co
 /// One distinct unknown object type, and how many objects of it the map
 /// holds - `summarizeUnknown`'s own rows (spec Errors -> Open).
 pub const UnknownType = struct {
-    name: [core.bridge.name_capacity]u8 = [_]u8{0} ** core.bridge.name_capacity,
+    name: [core.bridge.name_capacity]u8 = @splat(0),
     count: usize = 0,
 
     pub fn nameSlice(self: *const UnknownType) []const u8 {
@@ -1637,7 +1637,7 @@ test "formatTitleM3: the MFC's own fields - name, star, patches, mod (F15)" {
     );
     // A long name is clipped - never the fields after it (the MFC's own
     // 133-character budget).
-    const long_name = "a" ** 200;
+    const long_name = &@as([200:0]u8, @splat('a'));
     const titled = formatTitleM3(&buffer, long_name, false, false, .{ 16, 16 }, "AP2");
     try std.testing.expect(std.mem.indexOf(u8, titled, " 16x16 MOD: AP2") != null);
     try std.testing.expect(titled.len < 160);
@@ -3305,7 +3305,7 @@ test "minimap heights: the first vertex of each tile, lowest black and highest w
     try std.testing.expectEqual(@as(u8, 170), pixels[8]);
     try std.testing.expectEqual(@as(u8, 0xFF), pixels[3]);
     // A flat sheet is black.
-    const flat = [_]f32{5} ** 9;
+    const flat: [9]f32 = @splat(5);
     rasterizeMinimapHeights(&pixels, &flat, 3, 2, 2);
     try std.testing.expectEqual(@as(u8, 0), pixels[0]);
     try std.testing.expectEqual(@as(u8, 0), pixels[12]);
@@ -3314,7 +3314,7 @@ test "minimap heights: the first vertex of each tile, lowest black and highest w
 test "isValidHeight: the engine's rule - gentle slopes are valid, a spike or a cliff either way is not" {
     // A flat sheet, and a gentle bump (the limit for a lone spike is
     // CAMERA_ALPHA * cell / 2 = about 18.5 units).
-    var sheet = [_]f32{0} ** 25;
+    var sheet: [25]f32 = @splat(0);
     for (0..5) |y| for (0..5) |x| try std.testing.expect(isValidHeight(&sheet, 5, 5, x, y));
     sheet[2 * 5 + 2] = 10;
     for (0..5) |y| for (0..5) |x| try std.testing.expect(isValidHeight(&sheet, 5, 5, x, y));
@@ -3337,7 +3337,7 @@ test "isValidHeight: the engine's rule - gentle slopes are valid, a spike or a c
 
 test "minimap heights: a vertex the engine refuses is red, the rest stay grey" {
     // 3 x 3 tiles, 4 x 4 vertices, one spike at vertex (1, 1).
-    var heights = [_]f32{0} ** 16;
+    var heights: [16]f32 = @splat(0);
     heights[1 * 4 + 1] = 60;
     var pixels: [9 * 4]u8 = undefined;
     rasterizeMinimapHeights(&pixels, &heights, 4, 3, 3);

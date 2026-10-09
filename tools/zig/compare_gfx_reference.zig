@@ -108,7 +108,7 @@ pub fn main(init: std.process.Init) !void {
     var max_error: u8 = 0;
     var max_error_x: usize = 0;
     var max_error_y: usize = 0;
-    var error_histogram: [256]u64 = [_]u64{0} ** 256;
+    var error_histogram: [256]u64 = @splat(0);
     var total_error: u64 = 0;
     var rgb_samples: u64 = 0;
     var alpha_mismatches: u64 = 0;

@@ -66,7 +66,7 @@ pub const ScriptAreas = struct {
     shape: records.AreaShape = .rectangle,
     /// The name for the next area, from the panel's field. Empty: the first free
     /// "area_<n>". Cleared once an area takes it.
-    name_buffer: [records.area_name_capacity]u8 = [_]u8{0} ** records.area_name_capacity,
+    name_buffer: [records.area_name_capacity]u8 = @splat(0),
     name_len: usize = 0,
     /// The area the panel's list and the handles work on: an index into the map's
     /// list, the last area drawn or clicked. Follows an undo that removes it.

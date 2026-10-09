@@ -4812,7 +4812,7 @@ test "script file: a name with a folder or .lua is Refused and changes nothing" 
     var editor = try openFixture(&fake);
     defer editor.deinit();
     const generation = editor.record_generations.get(.script_file);
-    for ([_][]const u8{ "..\\x", "a/b", "x.lua", "..", "a b", "x" ** 64 }) |name| {
+    for ([_][]const u8{ "..\\x", "a/b", "x.lua", "..", "a b", &@as([64:0]u8, @splat('x')) }) |name| {
         try std.testing.expectError(error.Refused, editor.setScriptFile(name));
     }
     try std.testing.expectEqualStrings("coldwinter", fake.script_file.nameSlice());
@@ -4909,7 +4909,7 @@ test "script areas: an empty or taken name is Refused with the history unchanged
     try std.testing.expect(try editor.undo());
     try std.testing.expectEqualStrings("ZONE", fake.script_areas.items[1].nameSlice());
     try std.testing.expectError(error.Refused, editor.renameScriptArea(1, ""));
-    try std.testing.expectError(error.Refused, editor.renameScriptArea(1, "n" ** 64));
+    try std.testing.expectError(error.Refused, editor.renameScriptArea(1, &@as([64:0]u8, @splat('n'))));
 }
 
 test "script areas: a move and a resize are one undo step each within a gesture, and back at the start leaves none" {

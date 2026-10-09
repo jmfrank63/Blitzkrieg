@@ -174,7 +174,7 @@ const ImageFrame = struct {
 
 const Thumbnails = struct {
     /// The folder typed or chosen; empty follows the open project's folder.
-    folder: [logic.path_capacity]u8 = [_]u8{0} ** logic.path_capacity,
+    folder: [logic.path_capacity]u8 = @splat(0),
     /// The folder the names were read from (decodes resolve against it).
     scanned: [logic.path_capacity]u8 = undefined,
     scanned_len: usize = 0,
@@ -232,7 +232,7 @@ pub const Docks = struct {
     /// for the first time a project goes complex in this session.
     particle_source: dl.SourceToggle = .{},
     show_source_name: bool = false,
-    source_name: [core.bridge.value_text_capacity]u8 = [_]u8{0} ** core.bridge.value_text_capacity,
+    source_name: [core.bridge.value_text_capacity]u8 = @splat(0),
     /// The Terrain editor's lists: the mode the tree selection chose, and
     /// whether the lists were opened for the current .til yet (they open
     /// themselves once, as MFC's frame showed them in place of its scene).

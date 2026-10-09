@@ -244,7 +244,7 @@ const Fit = struct { c0: u16, c1: u16, indices: [16]u2, err: u32 };
 fn assignIndices(pixels: *const [16][4]u8, used: u16, c0: u16, c1: u16, four: bool) Fit {
     const palette = colorPalette(c0, c1, four);
     const count: usize = if (four) 4 else 3;
-    var fit = Fit{ .c0 = c0, .c1 = c1, .indices = [_]u2{3} ** 16, .err = 0 };
+    var fit = Fit{ .c0 = c0, .c1 = c1, .indices = @as([16]u2, @splat(3)), .err = 0 };
     for (pixels, 0..) |pixel, i| {
         if (used & (@as(u16, 1) << @intCast(i)) == 0) continue;
         var best: u32 = std.math.maxInt(u32);
@@ -375,12 +375,12 @@ fn encodeColorBlock(pixels: *const [16][4]u8, punch_through: bool, out: *[8]u8) 
             if (pixel[3] < 128) used &= ~(@as(u16, 1) << @intCast(i));
         }
     }
-    if (used == 0) return writeColorBlock(0, 0, [_]u2{3} ** 16, out);
+    if (used == 0) return writeColorBlock(0, 0, @as([16]u2, @splat(3)), out);
     const four = used == 0xffff;
     var fit = fitColors(pixels, used, four);
     if (four) {
         if (fit.c0 == fit.c1) {
-            fit.indices = [_]u2{0} ** 16; // one colour: index 0 decodes the same in every mode
+            fit.indices = @as([16]u2, @splat(0)); // one colour: index 0 decodes the same in every mode
         } else if (fit.c0 < fit.c1) {
             std.mem.swap(u16, &fit.c0, &fit.c1);
             for (&fit.indices) |*index| index.* ^= 1; // 0<->1, 2<->3
@@ -1038,7 +1038,7 @@ pub fn main(init: std.process.Init) !void {
 const testing = std.testing;
 
 fn testHeader(width: u32, height: u32, mips: u32, format: Format) [128]u8 {
-    var h = [_]u8{0} ** 128;
+    var h: [128]u8 = @splat(0);
     @memcpy(h[0..4], "DDS ");
     std.mem.writeInt(u32, h[4..8], 124, .little);
     std.mem.writeInt(u32, h[8..12], 0x1007 | (if (mips > 1) DDSD_MIPMAPCOUNT else 0), .little);
@@ -1130,7 +1130,7 @@ test "DXT round trips stay within tolerance and solid blocks are exact" {
         for (pixels, decoded) |p, q| alpha_error = @max(alpha_error, @abs(@as(i32, p[3]) - @as(i32, q[3])));
         try testing.expect(alpha_error <= @as(u32, if (kind == 1) 0 else if (kind == 3) 8 else 6));
 
-        var solid = [_][4]u8{.{ 0x84, 0x82, 0x10, 255 }} ** 16; // 565-representable
+        var solid: [16][4]u8 = @splat(.{ 0x84, 0x82, 0x10, 255 }); // 565-representable
         var block: [16]u8 = undefined;
         encodeLevel(format, &solid, 4, 4, block[0..levelSize(format, 4, 4)]);
         var back: [16][4]u8 = undefined;
@@ -1224,8 +1224,8 @@ test "Africa turns mid tones sand, keeps near-black dark and alpha" {
 
 test "noise follows normalised texture coordinates" {
     // Texel 10 of a 128-wide level sits where texel 20 of a 256-wide one does.
-    var small = [_][4]u8{.{ 120, 120, 120, 255 }} ** (128 * 2);
-    var large = [_][4]u8{.{ 120, 120, 120, 255 }} ** (256 * 2);
+    var small: [128 * 2][4]u8 = @splat(.{ 120, 120, 120, 255 });
+    var large: [256 * 2][4]u8 = @splat(.{ 120, 120, 120, 255 });
     transformImage(.winter, &small, 128, 2);
     transformImage(.winter, &large, 256, 2);
     try testing.expectEqual(large[20], small[10]);

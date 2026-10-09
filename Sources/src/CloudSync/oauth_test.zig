@@ -99,7 +99,7 @@ const Stub = struct {
             .thread = null,
             .stopped = false,
             .bodies_buf = undefined,
-            .bodies_len = .{0} ** max_requests,
+            .bodies_len = @splat(0),
             .count = 0,
         };
         self.port = self.server.socket.address.getPort();

@@ -37,7 +37,7 @@ pub const click_pixels: f32 = 4.0;
 pub const BridgeTool = struct {
     /// The type a new bridge is drawn with: a name from
     /// `Editor.bridgeDescriptors`, set by the Bridges panel.
-    desc_buffer: [bridge_mod.name_capacity]u8 = [_]u8{0} ** bridge_mod.name_capacity,
+    desc_buffer: [bridge_mod.name_capacity]u8 = @splat(0),
     desc_len: usize = 0,
     /// Where the drag began and where it is now, world units; null between
     /// drags. The ghost is planned from these two.
@@ -180,7 +180,7 @@ pub const BridgeTool = struct {
 pub const FenceTool = struct {
     /// The type a run is placed with: a name from `Editor.fenceDescriptors`,
     /// set by the Fences panel.
-    desc_buffer: [bridge_mod.name_capacity]u8 = [_]u8{0} ** bridge_mod.name_capacity,
+    desc_buffer: [bridge_mod.name_capacity]u8 = @splat(0),
     desc_len: usize = 0,
     /// Where the drag began and where it is now, world units; null between
     /// drags.

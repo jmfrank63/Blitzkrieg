@@ -45,7 +45,7 @@ pub const GuiDock = struct {
     note_len: usize = 0,
     /// The inspector's attribute being typed in, and its text.
     editing: ?usize = null,
-    edit_buffer: [256]u8 = [_]u8{0} ** 256,
+    edit_buffer: [256]u8 = @splat(0),
     /// Where the canvas was drawn in the last frame (screen pixels), for the
     /// auto tier to aim its pointer at; null while the window is closed.
     shown: ?Rect = null,
@@ -454,7 +454,7 @@ pub const GuiDock = struct {
     fn drawAttr(self: *GuiDock, b: ResBridge, life: *logic.Lifecycle, overlay: *gl.Overlay, id: i32, name: []const u8, index: usize) void {
         var label_buffer: [64]u8 = undefined;
         const label = std.fmt.bufPrintZ(&label_buffer, "{s}##attr{d}", .{ name, index }) catch return;
-        var shown: [256]u8 = [_]u8{0} ** 256;
+        var shown: [256]u8 = @splat(0);
         const typing = self.editing == index;
         if (typing) {
             shown = self.edit_buffer;

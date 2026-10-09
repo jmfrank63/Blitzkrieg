@@ -2301,7 +2301,7 @@ test "Stream" {
         try std.testing.expectEqual(0, sdl_stream.seek(0, .set));
         try std.testing.expectEqual(7, try sdl_stream.readU8());
         try std.testing.expectEqual(3, try sdl_stream.readU8());
-        try std.testing.expectEqual(62, try sdl_stream.write(&([_]u8{0} ** 62)));
+        try std.testing.expectEqual(62, try sdl_stream.write(&(@as([62]u8, @splat(0)))));
         try std.testing.expectEqual(64, try sdl_stream.getSize());
         try std.testing.expectEqual(50, sdl_stream.seek(50, .set));
         try std.testing.expectEqual(41, sdl_stream.seek(23, .end));

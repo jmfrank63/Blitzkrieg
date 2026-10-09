@@ -1064,7 +1064,7 @@ test "tool: frame tools refuse static items, wrong parents and bad names, leavin
     try testing.expectError(error.Refused, spriteAddFrame(h.allocator, &h.doc, root, "x"));
     try testing.expectError(error.Refused, spriteAddFrame(h.allocator, &h.doc, 9999, "x"));
     try testing.expectError(error.BadArgument, spriteAddFrame(h.allocator, &h.doc, s.sprites, ""));
-    try testing.expectError(error.BadArgument, spriteAddFrame(h.allocator, &h.doc, s.sprites, "n" ** 64));
+    try testing.expectError(error.BadArgument, spriteAddFrame(h.allocator, &h.doc, s.sprites, &@as([64:0]u8, @splat('n'))));
     try testing.expectError(error.Refused, deleteFrame(&h.doc, s.sprites));
     try testing.expectError(error.Refused, deleteFrame(&h.doc, root));
     try testing.expectError(error.Refused, spriteSetDirectory(h.allocator, &h.doc, root, "x"));

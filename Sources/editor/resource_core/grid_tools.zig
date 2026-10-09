@@ -501,7 +501,7 @@ test "a cancelled stroke and a click on a tile that already holds the value leav
     var stroke = try BrushStroke.begin(testing.allocator, rig.bridge(), rig.root, .passability_cells, 1);
     try stroke.press(testing.allocator, rig.bridge(), 2, 2);
     try stroke.move(testing.allocator, rig.bridge(), 4, 2);
-    try rig.expectGrid(.passability_cells, 5, 3, &([_]u8{0} ** 10 ++ [_]u8{ 0, 0, 1, 1, 1 }));
+    try rig.expectGrid(.passability_cells, 5, 3, &(@as([10]u8, @splat(0)) ++ [_]u8{ 0, 0, 1, 1, 1 }));
     stroke.cancel(testing.allocator, rig.bridge());
     try rig.expectGrid(.passability_cells, 0, 0, &.{});
     try testing.expectEqual(@as(usize, 0), rig.history.undo_stack.items.len);

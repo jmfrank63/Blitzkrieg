@@ -91,7 +91,7 @@ test "StatusSlot: a later message from another source takes the slot over" {
 
 test "StatusSlot: an over-long message is cut to the buffer, never overrun" {
     var slot: StatusSlot = .{};
-    const long = [_]u8{'x'} ** 600;
+    const long: [600]u8 = @splat('x');
     slot.set(.general, "failed: ", &long);
     try std.testing.expectEqual(slot.buffer.len, slot.line().len);
     try std.testing.expectEqualStrings("failed: ", slot.line()[0..8]);

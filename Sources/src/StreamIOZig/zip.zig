@@ -215,14 +215,14 @@ fn buildDirectoryOnlyArchive(allocator: std.mem.Allocator, names: []const []cons
     var buffer: std.ArrayList(u8) = .empty;
     errdefer buffer.deinit(allocator);
     for (names) |name| {
-        var header = [_]u8{0} ** 46;
+        var header: [46]u8 = @splat(0);
         std.mem.writeInt(u32, header[0..4], 0x02014b50, .little);
         std.mem.writeInt(u16, header[28..30], @intCast(name.len), .little);
         try buffer.appendSlice(allocator, &header);
         try buffer.appendSlice(allocator, name);
     }
     const central_size: u32 = @intCast(buffer.items.len);
-    var end = [_]u8{0} ** 22;
+    var end: [22]u8 = @splat(0);
     std.mem.writeInt(u32, end[0..4], 0x06054b50, .little);
     std.mem.writeInt(u16, end[8..10], @intCast(names.len), .little);
     std.mem.writeInt(u16, end[10..12], @intCast(names.len), .little);

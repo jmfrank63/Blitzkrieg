@@ -97,11 +97,11 @@ pub const Panels = struct {
     strings_primary: ?i32 = null,
     /// The edit box being typed in; its text lives here until it is committed.
     active: ?PropKey = null,
-    edit_buffer: [edit.value_capacity]u8 = [_]u8{0} ** edit.value_capacity,
+    edit_buffer: [edit.value_capacity]u8 = @splat(0),
     /// The colour drag's gesture: its frames are one undo step.
     color_gesture: u32 = 0,
     rename_node: ?i32 = null,
-    rename_buffer: [bridge.name_capacity]u8 = [_]u8{0} ** bridge.name_capacity,
+    rename_buffer: [bridge.name_capacity]u8 = @splat(0),
     rename_open: bool = false,
     picker: ?Picker = null,
     picker_open: bool = false,
@@ -138,7 +138,7 @@ pub const Panels = struct {
         mask: u64 = 0,
         kind: edit.ValueKind,
         chosen: ?usize = null,
-        filter: [64]u8 = [_]u8{0} ** 64,
+        filter: [64]u8 = @splat(0),
     };
 
     pub fn deinit(self: *Panels, gpa: std.mem.Allocator) void {
@@ -1061,7 +1061,7 @@ pub const Panels = struct {
     /// WM_USER_LOST_FOCUS), or on Enter: one undo step per commit.
     fn editBox(self: *Panels, gpa: std.mem.Allocator, b: ResBridge, life: *logic.Lifecycle, key: PropKey, prop: *const PropRecord, widget: edit.Widget, kind: edit.ValueKind, room_right: f32) void {
         const is_active = if (self.active) |a| a.node == key.node and a.prop_id == key.prop_id else false;
-        var scratch: [edit.value_capacity]u8 = [_]u8{0} ** edit.value_capacity;
+        var scratch: [edit.value_capacity]u8 = @splat(0);
         const buffer: *[edit.value_capacity]u8 = if (is_active) &self.edit_buffer else &scratch;
         if (!is_active) {
             const shown = if (widget == .hex) (edit.hexDisplay(kind, prop.valueSlice()) orelse edit.ValueText{}) else edit.ValueText{};

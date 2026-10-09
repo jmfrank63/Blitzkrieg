@@ -11,8 +11,8 @@ const Channel = struct { lines: std.ArrayListUnmanaged(Line) = .empty, read_inde
 
 pub const Console = struct {
     allocator: std.mem.Allocator,
-    channels: [channel_count]Channel = [_]Channel{.{}} ** channel_count,
-    duplicates: [channel_count]u32 = [_]u32{0} ** channel_count,
+    channels: [channel_count]Channel = @splat(.{}),
+    duplicates: [channel_count]u32 = @splat(0),
     log_path: ?[:0]u8 = null,
     // Like CConsoleBuffer::szTempString: a read POPS its line and the returned
     // pointer is only valid until the next read (callers copy immediately).

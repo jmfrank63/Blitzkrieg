@@ -743,7 +743,7 @@ fn forgeRecord(
         gpa,
         "{{\"pid\":{d},\"process_start_time\":{d}," ++
             "\"nonce\":\"{s}\",\"port\":{d}}}\n",
-        .{ pid, start_time, "f" ** daemon.nonce_len, port },
+        .{ pid, start_time, &@as([daemon.nonce_len:0]u8, @splat('f')), port },
     );
     defer gpa.free(text);
 

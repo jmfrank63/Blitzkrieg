@@ -188,7 +188,7 @@ pub const FakeReservePosition = records.ReservePosition;
 /// (04-11): the role BkEditorReserveRole answers and the number the MFC towing check
 /// reads (a gun's weight, a truck's towing force).
 pub const FakeRole = struct {
-    name: [bridge_mod.name_capacity]u8 = [_]u8{0} ** bridge_mod.name_capacity,
+    name: [bridge_mod.name_capacity]u8 = @splat(0),
     role: bridge_mod.ReserveRole = .none,
     number: f32 = 0,
 
@@ -215,9 +215,9 @@ const ReserveChange = struct { position: usize, before: FakeReservePosition };
 const FakeSquadMember = struct { member: i32, squad: i32 };
 /// One link rule the fake's canLink answers from (M3, D-27): source name,
 /// target name, the type it links as.
-const FakeLinkRule = struct { source: [64]u8 = [_]u8{0} ** 64, target: [64]u8 = [_]u8{0} ** 64, link_type: i32 = 0 };
+const FakeLinkRule = struct { source: [64]u8 = @splat(0), target: [64]u8 = @splat(0), link_type: i32 = 0 };
 /// One flag swap (M3, D-26): re-owning a flag to `player` renames it.
-const FakeFlagSwap = struct { player: i32, to_name: [64]u8 = [_]u8{0} ** 64 };
+const FakeFlagSwap = struct { player: i32, to_name: [64]u8 = @as([64]u8, @splat(0)) };
 const Tombstone = struct {
     record: ObjectRecord,
     index: usize,

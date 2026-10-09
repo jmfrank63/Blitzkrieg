@@ -444,9 +444,9 @@ const Runner = struct {
     particle_status: docks_logic.ParticleStatus = .{},
     /// The Particle source button (do=source_mode) with its remembered name.
     particle_source: docks_logic.SourceToggle = .{},
-    gui_snapshots: [gui_slots]Slot = [_]Slot{.{}} ** gui_slots,
-    gui_marks: [gui_slots]Slot = [_]Slot{.{}} ** gui_slots,
-    game_shots: [gui_slots]Slot = [_]Slot{.{}} ** gui_slots,
+    gui_snapshots: [gui_slots]Slot = @splat(.{}),
+    gui_marks: [gui_slots]Slot = @splat(.{}),
+    game_shots: [gui_slots]Slot = @splat(.{}),
     frame: u32 = 0,
     message: [768]u8 = undefined,
     /// The last text `fail` made, for a helper that reports through its caller.

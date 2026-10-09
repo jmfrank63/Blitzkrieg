@@ -113,32 +113,32 @@ pub const Tools = struct {
     modal: ?Modal = null,
     modal_opened: bool = false,
 
-    mod_export: [260]u8 = [_]u8{0} ** 260,
-    mod_name: [64]u8 = [_]u8{0} ** 64,
-    mod_version: [32]u8 = [_]u8{0} ** 32,
-    mod_desc: [256]u8 = [_]u8{0} ** 256,
+    mod_export: [260]u8 = @splat(0),
+    mod_name: [64]u8 = @splat(0),
+    mod_version: [32]u8 = @splat(0),
+    mod_desc: [256]u8 = @splat(0),
 
-    source_edit: [field_capacity]u8 = [_]u8{0} ** field_capacity,
-    game_folder_edit: [field_capacity]u8 = [_]u8{0} ** field_capacity,
-    arguments_edit: [256]u8 = [_]u8{0} ** 256,
+    source_edit: [field_capacity]u8 = @splat(0),
+    game_folder_edit: [field_capacity]u8 = @splat(0),
+    arguments_edit: [256]u8 = @splat(0),
 
     picture: tools.PictureOptions = .{},
     picture_current_only: bool = false,
-    picture_source: [field_capacity]u8 = [_]u8{0} ** field_capacity,
+    picture_source: [field_capacity]u8 = @splat(0),
 
     /// 0 is every kind; 1 + the kind's integer otherwise.
     batch_kind: usize = 0,
-    batch_src: [field_capacity]u8 = [_]u8{0} ** field_capacity,
-    batch_dst: [field_capacity]u8 = [_]u8{0} ** field_capacity,
+    batch_src: [field_capacity]u8 = @splat(0),
+    batch_dst: [field_capacity]u8 = @splat(0),
     batch_force: bool = false,
     batch_open_save: bool = false,
 
-    report_title: [64]u8 = [_]u8{0} ** 64,
+    report_title: [64]u8 = @splat(0),
     report_text: std.ArrayList(u8) = .empty,
     export_outcome: tools.ExportOutcome = .{},
 
     running: ?testlaunch.Running = null,
-    game_log: [field_capacity]u8 = [_]u8{0} ** field_capacity,
+    game_log: [field_capacity]u8 = @splat(0),
 
     /// On the heap like lifecycle_ui.Ui: the edit buffers and the export
     /// report are tens of kilobytes. Hooks itself into `ui`'s File menu.

@@ -103,12 +103,12 @@ comptime {
 }
 
 test "uniform serialization golden values" {
-    const frame = serializeFrame(.{ .view_proj = [_]f32{1} ** 16, .fog = .{ 0.25, 0.5, 0.75, 0 } });
+    const frame = serializeFrame(.{ .view_proj = @as([16]f32, @splat(1)), .fog = .{ 0.25, 0.5, 0.75, 0 } });
     try std.testing.expectEqual(@as(u8, 0), frame[0]);
     try std.testing.expectEqual(@as(u8, 0x3e), frame[67]);
-    const draw = serializeDraw(.{ .world = [_]f32{0} ** 16, .color = .{ 1, 0.5, 0, 1 } });
+    const draw = serializeDraw(.{ .world = @as([16]f32, @splat(0)), .color = .{ 1, 0.5, 0, 1 } });
     try std.testing.expectEqual(@as(u8, 0x3f), draw[67]);
-    const lights = serializeLights(.{ .light_data = [_][4]f32{.{ 1, 2, 3, 4 }} ** 32 });
+    const lights = serializeLights(.{ .light_data = @as([32][4]f32, @splat(.{ 1, 2, 3, 4 })) });
     try std.testing.expectEqual(@as(u8, 0x3f), lights[3]);
 }
 
@@ -117,7 +117,7 @@ test "uniform pushes are bounded to three slots" {
     try pushUniform(.vertex, 0, &[_]u8{1}, Fake.push);
     try pushUniform(.fragment, 2, &[_]u8{1}, Fake.push);
     try std.testing.expectError(UniformError.InvalidSlot, pushUniform(.vertex, 3, &[_]u8{1}, Fake.push));
-    try std.testing.expectError(UniformError.PayloadTooLarge, pushUniform(.fragment, 0, &([_]u8{0} ** (@sizeOf(LightUniforms) + 1)), Fake.push));
+    try std.testing.expectError(UniformError.PayloadTooLarge, pushUniform(.fragment, 0, &(@as([@sizeOf(LightUniforms) + 1]u8, @splat(0))), Fake.push));
 }
 
 test "light uniform capacity is fixed at eight" {

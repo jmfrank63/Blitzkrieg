@@ -189,7 +189,7 @@ pub fn drawFiltersComposer(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
     ig.igSameLine();
     if (ig.igSmallButton("Add")) {
         _ = commands.run(state, "filter_new", std.mem.sliceTo(&state.filter_new_edit, 0));
-        state.filter_new_edit = [_:0]u8{0} ** 64;
+        state.filter_new_edit = @as([64:0]u8, @splat(0));
     }
     if (ig.igSmallButton("Delete")) {
         if (selected.len != 0) _ = commands.run(state, "filter_delete", selected);
@@ -217,7 +217,7 @@ pub fn drawFiltersComposer(state: *State, pos: ig.ImVec2, size: ig.ImVec2) void 
     if (ig.igSmallButton("Rename")) {
         const arg = std.fmt.bufPrintZ(&rename_buffer, "{s}|{s}", .{ selected, std.mem.sliceTo(&state.filter_rename_edit, 0) }) catch "";
         _ = commands.run(state, "filter_rename", arg);
-        state.filter_rename_edit = [_:0]u8{0} ** 64;
+        state.filter_rename_edit = @as([64:0]u8, @splat(0));
     }
 
     ig.igSeparatorText("Conditions");
@@ -268,7 +268,7 @@ fn selectComposerFilter(state: *State, name: []const u8) void {
 fn reloadComposerWords(state: *State, filter: *core.bridge.ObjectFilter) void {
     const list_count: usize = @intCast(std.math.clamp(filter.list_count, 0, core.bridge.filter_max_lists));
     for (0..core.bridge.filter_max_lists) |li| {
-        state.filter_words_edit[li] = [_:0]u8{0} ** 256;
+        state.filter_words_edit[li] = @as([256:0]u8, @splat(0));
         if (li >= list_count) continue;
         var len: usize = 0;
         const buffer = &state.filter_words_edit[li];
@@ -506,7 +506,7 @@ fn reloadProps(state: *State) void {
     const editor = state.editor;
     const object = if (editor.selection) |link_id| editor.document.find(link_id) else null;
     state.props_link_id = if (object) |o| o.link_id else -1;
-    state.props_script_edit = [_:0]u8{0} ** 16;
+    state.props_script_edit = @as([16:0]u8, @splat(0));
     if (object) |o| {
         var buffer: [16]u8 = undefined;
         const text = std.fmt.bufPrint(&buffer, "{d}", .{o.script_id}) catch "";
@@ -1912,7 +1912,7 @@ fn loadLinkEdits(state: *State) void {
         "",
         "",
     };
-    for (&state.cg_link_edit) |*buffer| buffer.* = [_:0]u8{0} ** 96;
+    for (&state.cg_link_edit) |*buffer| buffer.* = @as([96:0]u8, @splat(0));
     const put = struct {
         fn into(buffer: *[96:0]u8, text: []const u8) void {
             const len = @min(text.len, buffer.len - 1);
@@ -3217,7 +3217,7 @@ fn drawTemplateControls(state: *State) void {
     ig.igSameLine();
     ig.igTextDisabled("(the template's own unit creation: one entry per player)");
     // The script file: a storage name without ".lua".
-    var script_buffer: [192:0]u8 = [_:0]u8{0} ** 192;
+    var script_buffer: [192:0]u8 = @splat(0);
     const current_len = @min(t.script_file.len, script_buffer.len - 1);
     @memcpy(script_buffer[0..current_len], t.script_file[0..current_len]);
     ig.igSetNextItemWidth(360);
