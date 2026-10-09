@@ -737,6 +737,34 @@ const cppflags_game_release = &.{
 /// -Dsysroot instead. Declared once in build(); options may not be declared twice.
 var sysroot_option: ?[]const u8 = null;
 
+/// Absolute path of `sub` under a package's build root. The 0.17 build API dropped getPath, so run
+/// steps get their path strings from here; a relative root would silently change the args, so it asserts.
+fn rootPath(b: *std.Build, sub: []const u8) []const u8 {
+    const joined = b.root.joinString(b.allocator, sub) catch @panic("OOM");
+    std.debug.assert(std.fs.path.isAbsolute(joined));
+    return joined;
+}
+
+/// Like rootPath for a fetched package. Its root is reported relative to the build root, so it is
+/// resolved against ours before the absolute check.
+fn dependencyRootPath(b: *std.Build, dep: *std.Build.Dependency, sub: []const u8) []const u8 {
+    const joined = dep.builder.root.joinString(b.allocator, sub) catch @panic("OOM");
+    const resolved = if (std.fs.path.isAbsolute(joined)) joined else b.pathResolve(&.{ rootPath(b, ""), joined });
+    std.debug.assert(std.fs.path.isAbsolute(resolved));
+    return resolved;
+}
+
+/// Appends `dir` to the run step's PATH like the removed Run.addPathDir did.
+fn addPathDir(run: *std.Build.Step.Run, dir: []const u8) void {
+    const b = run.step.owner;
+    const env = run.getEnvMap();
+    if (env.get("PATH")) |prev| {
+        env.put("PATH", b.fmt("{s}{c}{s}", .{ prev, std.fs.path.delimiter, dir })) catch @panic("OOM");
+    } else {
+        env.put("PATH", b.dupePath(dir)) catch @panic("OOM");
+    }
+}
+
 pub fn build(b: *std.Build) void {
     sysroot_option = b.option([]const u8, "sysroot", "System root for macOS headers, libraries and frameworks (replaces --sysroot)");
     // The default target follows the host CPU on Linux as it already did on
@@ -1601,7 +1629,7 @@ pub fn build(b: *std.Build) void {
         shadercross_cli.root_module.addIncludePath(dxc_binary.path("inc"));
         shadercross_cli.root_module.addObjectFile(dxc_binary.path(b.fmt("lib/{s}/dxcompiler.lib", .{dxc_arch})));
         shadercross_cli.root_module.addObjectFile(dxc_binary.path(b.fmt("lib/{s}/dxil.lib", .{dxc_arch})));
-        dxc_runtime_path = dxc_binary.path(b.fmt("bin/{s}", .{dxc_arch})).getPath(b);
+        dxc_runtime_path = dependencyRootPath(b, dxc_binary, b.fmt("bin/{s}", .{dxc_arch}));
     }
     const shadercross_build_step = b.step("shadercross-build", "Build the pinned host SDL_shadercross tool");
     shadercross_build_step.dependOn(&shadercross_cli.step);
@@ -1617,7 +1645,7 @@ pub fn build(b: *std.Build) void {
     });
     const shadercross_verify_run = b.addRunArtifact(shadercross_verify);
     shadercross_verify_run.addArtifactArg(shadercross_cli);
-    if (dxc_runtime_path) |path| shadercross_verify_run.addPathDir(path);
+    if (dxc_runtime_path) |path| addPathDir(shadercross_verify_run, path);
     shadercross_verify_run.step.dependOn(shadercross_build_step);
     const shadercross_verify_step = b.step("verify-shadercross", "Verify shadercross CLI options and host installation");
     shadercross_verify_step.dependOn(&shadercross_verify_run.step);
@@ -1638,7 +1666,7 @@ pub fn build(b: *std.Build) void {
         else => "dxil",
     };
     shader_driver_run.step.dependOn(shadercross_build_step);
-    if (dxc_runtime_path) |path| shader_driver_run.addPathDir(path);
+    if (dxc_runtime_path) |path| addPathDir(shader_driver_run, path);
     shader_driver_run.addArg("Sources/src/GFXGPU/shaders/manifest.json");
     shader_driver_run.addArtifactArg(shadercross_cli);
     shader_driver_run.addArg("zig-out/shaders");
@@ -1662,14 +1690,14 @@ pub fn build(b: *std.Build) void {
 
     const shader_determinism_a = b.addRunArtifact(shader_driver);
     shader_determinism_a.step.dependOn(shadercross_build_step);
-    if (dxc_runtime_path) |path| shader_determinism_a.addPathDir(path);
+    if (dxc_runtime_path) |path| addPathDir(shader_determinism_a, path);
     shader_determinism_a.addArg("Sources/src/GFXGPU/shaders/manifest.json");
     shader_determinism_a.addArtifactArg(shadercross_cli);
     shader_determinism_a.addArg("zig-out/shaders-determinism-a");
     shader_determinism_a.addArg(shader_formats);
     const shader_determinism_b = b.addRunArtifact(shader_driver);
     shader_determinism_b.step.dependOn(shadercross_build_step);
-    if (dxc_runtime_path) |path| shader_determinism_b.addPathDir(path);
+    if (dxc_runtime_path) |path| addPathDir(shader_determinism_b, path);
     shader_determinism_b.addArg("Sources/src/GFXGPU/shaders/manifest.json");
     shader_determinism_b.addArtifactArg(shadercross_cli);
     shader_determinism_b.addArg("zig-out/shaders-determinism-b");
@@ -2111,8 +2139,8 @@ pub fn build(b: *std.Build) void {
     const net_module_test_run = b.addRunArtifact(net_module_test);
     net_module_test_run.setCwd(b.path("."));
     net_module_test_run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/Net.dll" else "zig-out/lib/libNet.so");
-    net_module_test_run.addPathDir(b.path("zig-out/bin").getPath(b));
-    if (target.result.os.tag != .windows) net_module_test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(net_module_test_run, rootPath(b, "zig-out/bin"));
+    if (target.result.os.tag != .windows) net_module_test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     net_module_test_run.step.dependOn(&b.addInstallArtifact(net, .{}).step);
     net_module_test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     net_module_test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -2226,7 +2254,7 @@ pub fn build(b: *std.Build) void {
     // loader-relative rpaths and need neither.
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
-    gfx_gpu_factory_test_run.addPathDir(b.path("zig-out/bin").getPath(b));
+    addPathDir(gfx_gpu_factory_test_run, rootPath(b, "zig-out/bin"));
     gfx_gpu_factory_test_run.setCwd(b.path("."));
     // The built module is GFXGPU.dll, libGFXGPU.dylib or libGFXGPU.so depending
     // on the host, so hand the test the artifact's own path rather than the
@@ -2430,7 +2458,7 @@ pub fn build(b: *std.Build) void {
         .macos => "DYLD_LIBRARY_PATH",
         .windows => "PATH",
         else => "LD_LIBRARY_PATH",
-    }, b.pathFromRoot(stage_root));
+    }, rootPath(b, stage_root));
     console_bridge_run.step.dependOn(install_game_step);
     // The terrain is built at integer screen coordinates and then scaled by
     // width/1024 against height/768, which is not a whole number on most
@@ -3393,7 +3421,9 @@ fn addLegacyProjectDll(
     platform_runtime: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
-    const contents = std.Io.Dir.cwd().readFileAlloc(b.graph.io, project, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
+    // The configure result is cached, so the project file read here must be declared.
+    b.dependOnFileContents(b.path(project));
+    const contents = b.root.root_dir.handle.readFileAlloc(b.graph.io, project, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
     var files: std.ArrayListUnmanaged([]const u8) = .empty;
     // libtheora/libogg are math-heavy decoders; at -O0 (Debug) clang emits code
     // ~2x slower than MSVC /Od, which breaks realtime video decode (measured
@@ -4004,8 +4034,8 @@ fn addInputModuleTest(
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("zig-out/bin"));
-    run.addPathDir(b.path("zig-out/bin").getPath(b));
-    run.addArg(if (target.result.os.tag == .windows) b.path("zig-out/bin/Input.dll").getPath(b) else if (target.result.os.tag == .macos) b.path("zig-out/lib/libInput.dylib").getPath(b) else b.path("zig-out/lib/libInput.so").getPath(b));
+    addPathDir(run, rootPath(b, "zig-out/bin"));
+    run.addArg(if (target.result.os.tag == .windows) rootPath(b, "zig-out/bin/Input.dll") else if (target.result.os.tag == .macos) rootPath(b, "zig-out/lib/libInput.dylib") else rootPath(b, "zig-out/lib/libInput.so"));
     const step = b.step("test-input-module", "Load and exercise the real Input module factory lifecycle");
     step.dependOn(&b.addInstallArtifact(input, .{}).step);
     step.dependOn(&b.addInstallArtifact(misc, .{}).step);
@@ -4472,12 +4502,12 @@ fn addSfxModuleTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/SFX.dll" else if (target.result.os.tag == .macos) "zig-out/lib/libSFX.dylib" else "zig-out/lib/libSFX.so");
-    run.addPathDir(b.path("zig-out/bin").getPath(b));
-    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(run, rootPath(b, "zig-out/bin"));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     // dyld ignores LD_LIBRARY_PATH: without this the module's own
     // CGlobalsLoader cannot find libStreamIO, the singleton stays null and
     // CSoundEngine::Init crashes reading a global var.
-    if (target.result.os.tag == .macos) run.setEnvironmentVariable("DYLD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    if (target.result.os.tag == .macos) run.setEnvironmentVariable("DYLD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     run.step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
     run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -4886,6 +4916,9 @@ fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
     addMacosCxxIncludePaths(b, module);
     if (build_target_os != .linux or b.graph.host.result.os.tag != .linux) return;
     module.addLibraryPath(.{ .cwd_relative = linuxMultiarchDir(b.graph.host.result.cpu.arch) });
+    // Both scans read system directories outside the cache's view of the project.
+    b.dependOnDirectoryContents(.{ .cwd_relative = "/usr/include/c++" });
+    b.dependOnDirectoryContents(.{ .cwd_relative = b.fmt("/usr/lib/gcc/{s}-linux-gnu", .{linuxArchName(b.graph.host.result.cpu.arch)}) });
     var versions = std.Io.Dir.openDirAbsolute(b.graph.io, "/usr/include/c++", .{ .iterate = true }) catch return;
     defer std.Io.Dir.close(versions, b.graph.io);
     // The newest libstdc++ that Zig's clang can parse, compared as numbers ("9" sorts after "16"
@@ -5065,8 +5098,8 @@ fn addGameFrameTest(
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
-    test_run.addPathDir(b.path(sdl_runtime_dir).getPath(b));
-    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(test_run, rootPath(b, sdl_runtime_dir));
+    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const test_step = b.step("test-game-frame", "Run the portable SDL game-frame contract test");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
@@ -5176,8 +5209,8 @@ fn addGameLoopTest(
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
-    test_run.addPathDir(b.path(sdl_runtime_dir).getPath(b));
-    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(test_run, rootPath(b, sdl_runtime_dir));
+    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const test_step = b.step("test-game-loop", "Run the deterministic game loop policy test");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
@@ -5233,8 +5266,8 @@ fn addSdlApplicationTest(
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
-    test_run.addPathDir(b.path(sdl_runtime_dir).getPath(b));
-    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(test_run, rootPath(b, sdl_runtime_dir));
+    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const test_step = b.step("test-platform-window", "Run SDL application window lifecycle tests");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
@@ -5536,8 +5569,8 @@ fn addPlatformControllerTest(
     run.setCwd(b.path("."));
     run.step.dependOn(&sdl_dynamic.step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
-    run.addPathDir(b.path(if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib").getPath(b));
-    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(run, rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const step = b.step("test-platform-controller", "Run virtual controller name and lifetime tests");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -5902,8 +5935,8 @@ fn addPlatformSocketAbiTest(
     }
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
-    run.addPathDir(b.path("zig-out/bin").getPath(b));
-    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(run, rootPath(b, "zig-out/bin"));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const step = b.step("test-platform-socket-abi", "Run the shared ABI generational socket contract");
     step.dependOn(&platform_runtime.step);
     step.dependOn(&exe.step);
@@ -5945,8 +5978,8 @@ fn addNetworkSystemGateTest(
     run.step.dependOn(&sdl_dynamic.step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const runtimeDir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
-    run.addPathDir(b.path(runtimeDir).getPath(b));
-    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(run, rootPath(b, runtimeDir));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const step = b.step("test-network-system-gate", "Run the portable network and system services gate");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -6060,9 +6093,9 @@ fn addMapFileTest(
     // staged shared library is rather than relying on the loader's search path.
     // Zig installs a .dll next to the executables and a .dylib/.so under lib.
     const module_root = if (target.result.os.tag == .windows)
-        b.path("zig-out/bin").getPath(b)
+        rootPath(b, "zig-out/bin")
     else
-        b.path("zig-out/lib").getPath(b);
+        rootPath(b, "zig-out/lib");
     // Everything this tier writes goes under zig-out/local-test, which a bare
     // checkout does not have. The engine has no portable mkdir, and the Zig
     // StreamIO's CreateStorage does not create the path the way the legacy
@@ -6099,7 +6132,7 @@ fn addMapFileTest(
     // main with exit code 53, which is STATUS_DLL_NOT_FOUND (0xC0000135)
     // truncated the way Zig reports Windows crash codes. ELF and Mach-O carry
     // loader-relative rpaths and do not need it.
-    run.addPathDir(b.path("zig-out/bin").getPath(b));
+    addPathDir(run, rootPath(b, "zig-out/bin"));
     const step = b.step("test-map-files", "Read and rewrite the shipped maps; check they are unchanged");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -6113,7 +6146,7 @@ fn addMapFileTest(
     run_all.step.dependOn(&scratch_install.step);
     run_all.step.dependOn(&platform_install.step);
     run_all.step.dependOn(&options_install.step);
-    run_all.addPathDir(b.path("zig-out/bin").getPath(b));
+    addPathDir(run_all, rootPath(b, "zig-out/bin"));
     const step_all = b.step("test-map-files-all", "Sweep every shipped map, not just the CI sample");
     step_all.dependOn(&exe.step);
     if (test_mode == .run) step_all.dependOn(&run_all.step);
@@ -6130,7 +6163,7 @@ fn addMapFileTest(
     run_m2_sweep.step.dependOn(&scratch_install.step);
     run_m2_sweep.step.dependOn(&platform_install.step);
     run_m2_sweep.step.dependOn(&options_install.step);
-    run_m2_sweep.addPathDir(b.path("zig-out/bin").getPath(b));
+    addPathDir(run_m2_sweep, rootPath(b, "zig-out/bin"));
     const step_m2_sweep = b.step("test-map-files-m2-sweep", "Edit every M2 collection of every Data/Maps map, undo it, and compare the bytes");
     step_m2_sweep.dependOn(&exe.step);
     if (test_mode == .run) step_m2_sweep.dependOn(&run_m2_sweep.step);
@@ -6246,7 +6279,7 @@ fn addEditorBridgeTest(
     run.addArg(".");
     // Where the test may write. Shipped Data is read-only for every tier: a run
     // that is killed halfway must not leave a map behind in the installation.
-    run.addArg(b.pathFromRoot("zig-out/local-test"));
+    run.addArg(rootPath(b, "zig-out/local-test"));
     // It reads the staged Data and engine, neither a file input of this step,
     // so a cached pass would say nothing about the installation now (the
     // same reason map-editor-smoke and test-map-editor-engine set this).
@@ -6264,7 +6297,7 @@ fn addEditorBridgeTest(
     const run_m2_sweep = b.addRunArtifact(exe);
     run_m2_sweep.setCwd(b.path(stage_root));
     run_m2_sweep.addArg(".");
-    run_m2_sweep.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m2_sweep.addArg(rootPath(b, "zig-out/local-test"));
     run_m2_sweep.addArg("--m2-sweep");
     run_m2_sweep.has_side_effects = true;
     run_m2_sweep.step.dependOn(&install_exe.step);
@@ -6278,7 +6311,7 @@ fn addEditorBridgeTest(
     const run_m3_players = b.addRunArtifact(exe);
     run_m3_players.setCwd(b.path(stage_root));
     run_m3_players.addArg(".");
-    run_m3_players.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_players.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_players.addArg("--m3-players-only");
     run_m3_players.has_side_effects = true;
     run_m3_players.step.dependOn(&install_exe.step);
@@ -6291,7 +6324,7 @@ fn addEditorBridgeTest(
     const run_m3_minimap = b.addRunArtifact(exe);
     run_m3_minimap.setCwd(b.path(stage_root));
     run_m3_minimap.addArg(".");
-    run_m3_minimap.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_minimap.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_minimap.addArg("--m3-minimap-only");
     run_m3_minimap.has_side_effects = true;
     run_m3_minimap.step.dependOn(&install_exe.step);
@@ -6305,7 +6338,7 @@ fn addEditorBridgeTest(
     const run_m3_rmg = b.addRunArtifact(exe);
     run_m3_rmg.setCwd(b.path(stage_root));
     run_m3_rmg.addArg(".");
-    run_m3_rmg.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_rmg.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_rmg.addArg("--m3-rmg-only");
     run_m3_rmg.has_side_effects = true;
     run_m3_rmg.step.dependOn(&install_exe.step);
@@ -6319,7 +6352,7 @@ fn addEditorBridgeTest(
     const run_m3_layers = b.addRunArtifact(exe);
     run_m3_layers.setCwd(b.path(stage_root));
     run_m3_layers.addArg(".");
-    run_m3_layers.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_layers.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_layers.addArg("--m3-layers-only");
     run_m3_layers.has_side_effects = true;
     run_m3_layers.step.dependOn(&install_exe.step);
@@ -6341,7 +6374,7 @@ fn addEditorBridgeTest(
         const run_craft = b.addRunArtifact(exe);
         run_craft.setCwd(b.path(stage_root));
         run_craft.addArg(".");
-        run_craft.addArg(b.pathFromRoot("zig-out/local-test"));
+        run_craft.addArg(rootPath(b, "zig-out/local-test"));
         run_craft.addArg("--craft");
         run_craft.addArg(entry[0]);
         run_craft.addArg(entry[1]);
@@ -6502,15 +6535,15 @@ fn addResourceBridge(
         // The tracked mini-mod's data folder, then the scratch root. The real mod, when there
         // is one, reaches the run as BK_MOD_ROOT (the build option -Dmod-root sets it here;
         // an environment variable already set passes through).
-        run.addArg(b.path("tools/zig/fixtures/mod-roundtrip/data").getPath(b));
-        run.addArg(b.path("zig-out/local-test/mod-roundtrip").getPath(b));
+        run.addArg(rootPath(b, "tools/zig/fixtures/mod-roundtrip/data"));
+        run.addArg(rootPath(b, "zig-out/local-test/mod-roundtrip"));
         if (tier.mod_root) |mod_root| run.setEnvironmentVariable("BK_MOD_ROOT", mod_root);
     } else {
         // T02: the Project+Tree sub-step needs the 21 fixture folders. The source
         // dir of the fixture tree is handed as argv[2]; the test writes its
         // temporary round-trip copies under argv[3] (zig-out/local-test/...).
-        run.addArg(b.path("tools/zig/fixtures/resource_editor").getPath(b));
-        run.addArg(b.path("zig-out/local-test/resource_editor/t02").getPath(b));
+        run.addArg(rootPath(b, "tools/zig/fixtures/resource_editor"));
+        run.addArg(rootPath(b, "zig-out/local-test/resource_editor/t02"));
     }
     // Reads the staged Data and modules, neither a file input of this step:
     // a cached pass would say nothing about the installation now.
@@ -6647,7 +6680,7 @@ fn addMapEditor(
     // (03-16-SUMMARY.md) - a build-root-only quirk this check is not about.
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("zig-out"));
-    run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), b.pathFromRoot("zig-out/local-test/map-editor-check.tga") });
+    run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), rootPath(b, "zig-out/local-test/map-editor-check.tga") });
     run.step.dependOn(&install_exe.step);
     const check_step = b.step("map-editor-host-check", "Start MapEditor on a shipped map and check ImGui draws over the engine's frame");
     // Only builds and installs the step in .compile mode, as test-editor-bridge
@@ -6661,7 +6694,7 @@ fn addMapEditor(
     // -mod= run below keeps the launch from inside it covered.
     const absolute_run = b.addRunArtifact(exe);
     absolute_run.setCwd(b.path("zig-out"));
-    absolute_run.addArgs(&.{ "--check", b.pathFromRoot(b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root})), b.pathFromRoot("zig-out/local-test/map-editor-check-absolute.tga") });
+    absolute_run.addArgs(&.{ "--check", rootPath(b, b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root})), rootPath(b, "zig-out/local-test/map-editor-check-absolute.tga") });
     absolute_run.step.dependOn(&install_exe.step);
     // After the relative run, so two engines never start at once.
     absolute_run.step.dependOn(&run.step);
@@ -6670,7 +6703,7 @@ fn addMapEditor(
     // game and the host check's own acceptance criterion greps this line.
     const mod_run = b.addRunArtifact(exe);
     mod_run.setCwd(b.path(stage_root));
-    mod_run.addArgs(&.{ "-mod=EditorTestMod", "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-check-mod.tga") });
+    mod_run.addArgs(&.{ "-mod=EditorTestMod", "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-check-mod.tga") });
     mod_run.step.dependOn(&install_exe.step);
     mod_run.step.dependOn(install_fixture_mod_step);
     // After the absolute-path run, so two engines never start at once.
@@ -6686,7 +6719,7 @@ fn addMapEditor(
     // Save As and reopen.
     const smoke_run = b.addRunArtifact(exe);
     smoke_run.setCwd(b.path(stage_root));
-    smoke_run.addArgs(&.{ "--smoke", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-smoke.bzm") });
+    smoke_run.addArgs(&.{ "--smoke", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-smoke.bzm") });
     // What it reads - the staged Data and engine - is not a file input of the
     // step, so a cached pass would say nothing about the installation now.
     smoke_run.has_side_effects = true;
@@ -6705,7 +6738,7 @@ fn addMapEditor(
     // person watching it. It starts a second engine process end to end, like
     // map-editor-game-reads-it. CI runs it on the two GPU runners (Windows,
     // macos-14) through map-editor-m3-auto, which depends on it (05-REVIEW WR-D05).
-    const auto_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto");
+    const auto_dir = rootPath(b, "zig-out/local-test/map-editor-auto");
     const auto_saveas_path = b.fmt("{s}/auto.bzm", .{auto_dir});
     // Coordinates match smoke.zig's own script exactly (ground_a/
     // ground_between/ground_b, place_at): the same shipped map, the same
@@ -6752,11 +6785,11 @@ fn addMapEditor(
     // frames ascending, one entry per line, so a later plan's segment is a
     // block of lines and never an edit of one long string. No `test` action:
     // the M2 game-reads-it checks belong to the plans that add them.
-    const auto_m2_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto-m2");
+    const auto_m2_dir = rootPath(b, "zig-out/local-test/map-editor-auto-m2");
     // 04-13: the copy-along leg's second folder, and the Lua fixture named
     // relative to the editor's working directory (the stage root): a do=
     // argument is at most 64 characters, which an absolute path is not.
-    const auto_m2_along_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto-m2-along");
+    const auto_m2_along_dir = rootPath(b, "zig-out/local-test/map-editor-auto-m2-along");
     const auto_m2_fixture = fixture: {
         var up: std.ArrayListUnmanaged(u8) = .empty;
         for (0..std.mem.count(u8, stage_root, "/") + 1) |_| up.appendSlice(b.allocator, "../") catch @panic("OOM");
@@ -7193,7 +7226,7 @@ fn addMapEditor(
     // New Map (F1) and Save as BZM (F8). No `test` action and no
     // BK_EDITOR_AUTO_GAME: the game-reads-it checks belong to the plans that
     // add them.
-    const auto_m3_dir = b.pathFromRoot("zig-out/local-test/map-editor-m3-auto");
+    const auto_m3_dir = rootPath(b, "zig-out/local-test/map-editor-m3-auto");
     // The climb from the staged game root (the editor's cwd) up to zig-out/, one "../" per
     // component of stage_root: the save_bzm paths below are relative to that cwd, and a hand-written
     // count of two landed the maps in zig-out/game/<os>/local-test, outside the scratch folder
@@ -7205,10 +7238,10 @@ fn addMapEditor(
     };
     // The Check Map fixture the scenario opens (05-05): crafted by the bridge test's
     // `--craft` before the scenario starts.
-    const auto_m3_check_map = b.pathFromRoot("zig-out/local-test/m3-check-map.bzm");
+    const auto_m3_check_map = rootPath(b, "zig-out/local-test/m3-check-map.bzm");
     // The shipped map the Layers frames open again mid-scenario (05-06): the staged copy's OS path.
-    const auto_m3_coldwinter = b.pathFromRoot(b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root}));
-    const auto_m3_arnheim = b.pathFromRoot(b.fmt("{s}/Data/Maps/Multiplayer/arnheim.bzm", .{stage_root}));
+    const auto_m3_coldwinter = rootPath(b, b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root}));
+    const auto_m3_arnheim = rootPath(b, b.fmt("{s}/Data/Maps/Multiplayer/arnheim.bzm", .{stage_root}));
     const craft_fixtures_step = &(b.top_level_steps.get("editor-craft-fixtures") orelse @panic("editor-craft-fixtures is defined by addEditorBridgeTest")).step;
     const auto_m3_entries = [_][]const u8{
         // The shipped map from the command line is open by now: the title
@@ -8054,8 +8087,8 @@ fn addMapEditor(
     // The user root of this run (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and
     // Linux, BK_USER_ROOT on Windows): the generated random map and the exported lists land
     // here and not in the person's own maps and logs folders.
-    auto_m3_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/map-editor-m3-auto-user"));
-    auto_m3_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/map-editor-m3-auto-user"));
+    auto_m3_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/map-editor-m3-auto-user"));
+    auto_m3_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/map-editor-m3-auto-user"));
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m3_entries) catch @panic("OOM"));
     auto_m3_run.has_side_effects = true;
     auto_m3_run.step.dependOn(&install_exe.step);
@@ -8076,7 +8109,7 @@ fn addMapEditor(
     // D-33's railroad crash has a regression gate (05-REVIEW WR-D05).
     const game_reads_it_run = b.addRunArtifact(exe);
     game_reads_it_run.setCwd(b.path(stage_root));
-    game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it.log") });
+    game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it.log") });
     // What it reads (the staged Data and Game) and the second process it
     // starts are not file inputs of this step, so a cached pass would say
     // nothing about the installation now.
@@ -8093,7 +8126,7 @@ fn addMapEditor(
     // two games never start at once.
     const game_reads_it_m2_run = b.addRunArtifact(exe);
     game_reads_it_m2_run.setCwd(b.path(stage_root));
-    game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m2.log") });
+    game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m2.log") });
     game_reads_it_m2_run.has_side_effects = true;
     game_reads_it_m2_run.step.dependOn(&install_exe.step);
     game_reads_it_m2_run.step.dependOn(&game_reads_it_run.step);
@@ -8112,12 +8145,12 @@ fn addMapEditor(
     // test's `--craft` first. After its siblings, so two games never start at once.
     const game_reads_it_m3_run = b.addRunArtifact(exe);
     game_reads_it_m3_run.setCwd(b.path(stage_root));
-    game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", b.pathFromRoot("zig-out/local-test/m3-short-railroad.bzm"), b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3.log") });
+    game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", rootPath(b, "zig-out/local-test/m3-short-railroad.bzm"), rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3.log") });
     // The authored leg writes its template, graph, container and field set under the
     // user RMG root and generates a map into the user maps folder: a scratch user root
     // (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and Linux and BK_USER_ROOT on Windows).
-    game_reads_it_m3_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3-user"));
-    game_reads_it_m3_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3-user"));
+    game_reads_it_m3_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3-user"));
+    game_reads_it_m3_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3-user"));
     game_reads_it_m3_run.has_side_effects = true;
     game_reads_it_m3_run.step.dependOn(&install_exe.step);
     game_reads_it_m3_run.step.dependOn(&game_reads_it_m2_run.step);
@@ -8298,7 +8331,7 @@ fn addResourceEditor(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("zig-out"));
     // The tracked picture the docks half shows in the thumbnail list.
-    run.addArgs(&.{ "--check", "wpn", b.pathFromRoot("zig-out/local-test/resource_editor/resource-editor-check.tga"), b.pathFromRoot("tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
+    run.addArgs(&.{ "--check", "wpn", rootPath(b, "zig-out/local-test/resource_editor/resource-editor-check.tga"), rootPath(b, "tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
     // Reads the staged installation, not a file input of this step.
     run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
@@ -8312,7 +8345,7 @@ fn addResourceEditor(
     // and the missing gamma.cfg, the shipped Data folder is refused.
     const batch_run = b.addRunArtifact(exe);
     batch_run.setCwd(b.path("zig-out"));
-    batch_run.addArgs(&.{ "--batch-check", b.pathFromRoot("tools/zig/fixtures/resource_editor"), b.pathFromRoot("zig-out/local-test/resource_editor/batch") });
+    batch_run.addArgs(&.{ "--batch-check", rootPath(b, "tools/zig/fixtures/resource_editor"), rootPath(b, "zig-out/local-test/resource_editor/batch") });
     batch_run.has_side_effects = true;
     batch_run.step.dependOn(&install_exe.step);
     const batch_step = b.step("resource-editor-batch", "Run ResourceEditor --batch over copies of the 21 project fixtures and read the results back with the engine's reader");
@@ -8323,7 +8356,7 @@ fn addResourceEditor(
     // edited, saved, undone, saved and compared byte for byte (scenario.zig).
     const smoke_run = b.addRunArtifact(exe);
     smoke_run.setCwd(b.path("zig-out"));
-    smoke_run.addArgs(&.{ "--smoke-edit", b.pathFromRoot("tools/zig/fixtures/resource_editor/unt/project.unt"), b.pathFromRoot("zig-out/local-test/resource_editor/smoke") });
+    smoke_run.addArgs(&.{ "--smoke-edit", rootPath(b, "tools/zig/fixtures/resource_editor/unt/project.unt"), rootPath(b, "zig-out/local-test/resource_editor/smoke") });
     smoke_run.has_side_effects = true;
     smoke_run.step.dependOn(&install_exe.step);
     const smoke_step = b.step("resource-editor-smoke", "Run ResourceEditor's scripted new/save/reopen and edit/undo/save byte-compare on tracked project fixtures");
@@ -8331,7 +8364,7 @@ fn addResourceEditor(
     // The kind-level new/save/reopen first (main.zig --smoke), then the edit one.
     const smoke_kind_run = b.addRunArtifact(exe);
     smoke_kind_run.setCwd(b.path("zig-out"));
-    smoke_kind_run.addArgs(&.{ "--smoke", "unt", b.pathFromRoot("zig-out/local-test/resource_editor/smoke-new/smoke.unt") });
+    smoke_kind_run.addArgs(&.{ "--smoke", "unt", rootPath(b, "zig-out/local-test/resource_editor/smoke-new/smoke.unt") });
     smoke_kind_run.has_side_effects = true;
     smoke_kind_run.step.dependOn(&install_exe.step);
     smoke_run.step.dependOn(&smoke_kind_run.step);
@@ -8368,13 +8401,13 @@ fn addResourceEditor(
     // resource-editor-game-reads-it: the exports of the object-side kinds played by the real Game. After the
     // smoke so two engines never start at once; its own scratch folder holds result.log, one KIND= line per
     // kind, and the user data (profile, settings) lives apart from it so the run never touches the player's own.
-    const game_reads_dir = b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it");
+    const game_reads_dir = rootPath(b, "zig-out/local-test/resource-editor-game-reads-it");
     const game_reads_run = b.addRunArtifact(exe);
     game_reads_run.setCwd(b.path(stage_root));
-    game_reads_run.addArgs(&.{ "--auto", b.pathFromRoot("tools/zig/fixtures/resource_editor"), game_reads_dir });
+    game_reads_run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), game_reads_dir });
     game_reads_run.setEnvironmentVariable("BK_EDITOR_AUTO", resource_game_reads_it ++ std.fmt.comptimePrint("{d}:exit", .{resource_game_reads_it_exit_frame}));
-    game_reads_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it-user"));
-    game_reads_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it-user"));
+    game_reads_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/resource-editor-game-reads-it-user"));
+    game_reads_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/resource-editor-game-reads-it-user"));
     game_reads_run.setEnvironmentVariable("BK_DEBUG_LOG", "1");
     game_reads_run.has_side_effects = true;
     game_reads_run.step.dependOn(&install_exe.step);
@@ -8401,10 +8434,10 @@ fn addResourceAutoRun(
     comptime auto: ResourceAutoStep,
     after: ?*std.Build.Step,
 ) *std.Build.Step {
-    const auto_dir = b.pathFromRoot("zig-out/local-test/resource_editor/auto-" ++ auto.name);
+    const auto_dir = rootPath(b, "zig-out/local-test/resource_editor/auto-" ++ auto.name);
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path(stage_root));
-    run.addArgs(&.{ "--auto", b.pathFromRoot("tools/zig/fixtures/resource_editor"), auto_dir });
+    run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), auto_dir });
     run.setEnvironmentVariable("BK_EDITOR_AUTO", auto.prefix ++ auto.schedule ++ std.fmt.comptimePrint("{d}:exit", .{auto.exit_frame}));
     run.has_side_effects = true;
     run.step.dependOn(install_step);
@@ -9866,7 +9899,7 @@ fn linkEditorEngine(
 }
 
 /// Entry, symbols and rpath of a MapEditor executable, the test included.
-fn configureMapEditorExecutable(exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, subsystem: std.Target.SubSystem) void {
+fn configureMapEditorExecutable(exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, subsystem: std.zig.Subsystem) void {
     if (target.result.os.tag == .windows) {
         // MapEditor ships `.windows` (no console window on a normal
         // double-click); map-editor-engine-test stays `.console` (a CI/local
@@ -10113,7 +10146,7 @@ fn addEngineHostedTool(
     run.addArg(".");
     // Where the test may write. Shipped Data is read-only for every tier: a run
     // that is killed halfway must not leave a map behind in the installation.
-    run.addArg(b.pathFromRoot("zig-out/local-test"));
+    run.addArg(rootPath(b, "zig-out/local-test"));
     for (extra_args) |arg| run.addArg(arg);
     run.step.dependOn(&install_exe.step);
     const step = b.step(step_name, step_description);
@@ -10167,8 +10200,8 @@ fn addSdlEventTest(
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
-    test_run.addPathDir(b.path(sdl_runtime_dir).getPath(b));
-    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(test_run, rootPath(b, sdl_runtime_dir));
+    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const test_step = b.step("test-platform-events", "Run SDL event translation tests");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
@@ -10510,10 +10543,10 @@ fn addResourceModelComparatorTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path(stage_root));
     run.addArg(".");
-    run.addArg(b.pathFromRoot("zig-out/local-test"));
+    run.addArg(rootPath(b, "zig-out/local-test"));
     // The tracked Data and fixtures, read in place and copied before any edit.
-    run.addArg(b.pathFromRoot("Data"));
-    run.addArg(b.pathFromRoot("tools/zig/fixtures/resource_editor"));
+    run.addArg(rootPath(b, "Data"));
+    run.addArg(rootPath(b, "tools/zig/fixtures/resource_editor"));
     run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
     const step = b.step("test-resource-model-comparator", "D-11 comparator: shipped stats read by the engine's own readers equal themselves, planted float/dropped/unknown/byte/DXT changes fail, goldens reported pending");
@@ -10618,11 +10651,18 @@ fn seasonDataInputs(b: *std.Build) !SeasonDataInputs {
         else => return err,
     };
     defer dir.close(io);
+    // Declared only once the directory is known to exist, so sparse checkouts still configure.
+    // The declaration is not recursive, so every walked subdirectory is declared too.
+    b.dependOnDirectoryContents(b.path("Data/Units"));
     var walker = try dir.walk(b.allocator);
     defer walker.deinit();
     var names: std.ArrayList([]const u8) = .empty;
     var sources: std.ArrayList([]const u8) = .empty;
     while (try walker.next(io)) |entry| {
+        if (entry.kind == .directory) {
+            b.dependOnDirectoryContents(b.path(b.fmt("Data/Units/{s}", .{entry.path})));
+            continue;
+        }
         if (entry.kind != .file) continue;
         const lower = try std.ascii.allocLowerString(b.allocator, entry.basename);
         if (!season_textures_plan.isPlanName(lower)) continue;
@@ -10649,7 +10689,9 @@ fn shaderSourceFiles(b: *std.Build) ![]const []const u8 {
     const directory = "Sources/src/GFXGPU/shaders";
     var sources: std.ArrayList([]const u8) = .empty;
     try sources.append(b.allocator, b.fmt("{s}/manifest.json", .{directory}));
-    var dir = try std.Io.Dir.cwd().openDir(b.graph.io, directory, .{ .iterate = true });
+    // A new shader changes this listing, so the configure cache must notice it.
+    b.dependOnDirectoryContents(b.path(directory));
+    var dir = try b.root.root_dir.handle.openDir(b.graph.io, directory, .{ .iterate = true });
     defer dir.close(b.graph.io);
     var iterator = dir.iterate();
     while (try iterator.next(b.graph.io)) |entry| {
