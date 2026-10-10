@@ -2039,7 +2039,7 @@ pub fn build(b: *std.Build) void {
     // installed into the game layout; the packet that gives the game a reason
     // to load it is the packet that adds it to the staged runtime files.
     const cloudsync = addCloudSync(b, target, optimize, toolchain);
-    const bk_mem_allocator = b.option(BkMemAllocator, "bk-mem-allocator", "BkMemory backend: safe (SafeAllocator leak records, the default), smp or crt") orelse .safe;
+    const bk_mem_allocator = b.option(BkMemAllocator, "bk-mem-allocator", "BkMemory backend: safe (SafeAllocator leak records over smp, the default), safe_page, safe_c, smp or crt") orelse .safe;
     bk_memory_artifact = addBkMemory(b, target, optimize, toolchain, bk_mem_allocator);
     // The library itself is exercised through the test steps; a plain
     // `zig build` should not have to relink it, so it is only installed by
@@ -2056,6 +2056,95 @@ pub fn build(b: *std.Build) void {
     const test_bk_memory_zig_step = b.step("test-bk-memory-zig", "Run the BkMemory header, realloc and counter unit tests");
     test_bk_memory_zig_step.dependOn(&bk_memory_zig_tests.step);
     if (test_mode == .run) test_bk_memory_zig_step.dependOn(&run_bk_memory_zig_tests.step);
+    // Compile check for the replacement operator new/delete TU: built with the
+    // zig tier in every test mode; the runtime proof is the cross-module test.
+    const bk_new_delete_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    addLinuxCxxIncludePaths(b, bk_new_delete_module);
+    linkCxxRuntime(bk_new_delete_module, target);
+    if (build_support.usesMsvc(platform)) {
+        addMsvcIncludePaths(b, bk_new_delete_module, toolchain);
+        addMsvcLibraryPaths(b, bk_new_delete_module, toolchain);
+        linkMsvcRuntime(bk_new_delete_module, optimize);
+    }
+    linkBkMemory(b, bk_new_delete_module);
+    const bk_new_delete_check = b.addLibrary(.{ .name = "BkNewDeleteCheck", .linkage = .static, .root_module = bk_new_delete_module });
+    test_bk_memory_zig_step.dependOn(&bk_new_delete_check.step);
+    // Cross-module proof: two DLLs and an exe, each with its own operator
+    // new/delete copy, one allocator instance. Runs of the exe: a clean pass, a
+    // planted leak that only BkMemory's detach report may fail (exit 3 and the
+    // SafeAllocator report on stderr) and the explicit bk_mem_report path.
+    const bk_consumer_a = addBkMemoryTestModule(b, target, platform, toolchain, optimize, .dynamic, "bk-memory-consumer-a", "tools/zig/bk_memory_consumer_a.cpp");
+    const bk_consumer_b = addBkMemoryTestModule(b, target, platform, toolchain, optimize, .dynamic, "bk-memory-consumer-b", "tools/zig/bk_memory_consumer_b.cpp");
+    const bk_cross_test = addBkMemoryTestModule(b, target, platform, toolchain, optimize, null, "bk-memory-cross-module-test", "tools/zig/bk_memory_cross_module_test.cpp");
+    const test_bk_memory_step = b.step("test-bk-memory", "Run the cross-DLL BkMemory allocator test and its planted-leak failure");
+    test_bk_memory_step.dependOn(test_bk_memory_zig_step);
+    test_bk_memory_step.dependOn(&bk_consumer_a.step);
+    test_bk_memory_step.dependOn(&bk_consumer_b.step);
+    test_bk_memory_step.dependOn(&bk_cross_test.step);
+    if (test_mode == .run) {
+        const modes = [_]struct { arg: ?[]const u8, exit: u8, stderr: ?[]const u8 }{
+            .{ .arg = null, .exit = 0, .stderr = null },
+            .{ .arg = "report", .exit = 0, .stderr = null },
+            .{ .arg = "plant-leak", .exit = 3, .stderr = "leaked" },
+        };
+        var previous: ?*std.Build.Step = null;
+        for (modes) |mode| {
+            const run = b.addRunArtifact(bk_cross_test);
+            run.addArtifactArg(bk_consumer_a);
+            run.addArtifactArg(bk_consumer_b);
+            if (mode.arg) |arg| run.addArg(arg);
+            // The report is a debug-build default; pin it so -Doptimize does not change the test.
+            run.setEnvironmentVariable("BK_MEM_REPORT", "1");
+            run.expectExitCode(mode.exit);
+            if (mode.stderr) |text| run.expectStdErrMatch(text);
+            // One at a time: a failing run's report must not interleave with another.
+            if (previous) |prev| run.step.dependOn(prev);
+            previous = &run.step;
+            test_bk_memory_step.dependOn(&run.step);
+        }
+    }
+    // Backend measurement: every backend as its own BkMemory build linked into
+    // its own bench exe, one process per pass so the peak memory is per pass.
+    // Not gated on test-mode; it measures, it asserts nothing. The release
+    // backends are ReleaseFast, plus the safe one in Debug (the default there).
+    const bk_bench_step = b.step("bk-memory-bench", "Measure the BkMemory backends (ns/op and peak memory); prints a table");
+    {
+        const configs = [_]struct { label: []const u8, backend: BkMemAllocator, optimize: std.builtin.OptimizeMode }{
+            .{ .label = "crt", .backend = .crt, .optimize = .ReleaseFast },
+            .{ .label = "smp", .backend = .smp, .optimize = .ReleaseFast },
+            .{ .label = "safe+smp", .backend = .safe, .optimize = .ReleaseFast },
+            .{ .label = "safe+page", .backend = .safe_page, .optimize = .ReleaseFast },
+            .{ .label = "safe+c", .backend = .safe_c, .optimize = .ReleaseFast },
+            .{ .label = "safe+smp debug", .backend = .safe, .optimize = .Debug },
+        };
+        // 10^7 mixed 16-512 B allocations, and 10^6 of 8-64 KiB (the page and
+        // VirtualAlloc granularity cases): a few minutes for the whole table.
+        const passes = [_]struct { name: []const u8, threads: []const u8, allocs: []const u8 }{
+            .{ .name = "small", .threads = "1", .allocs = "10000000" },
+            .{ .name = "small", .threads = "8", .allocs = "10000000" },
+            .{ .name = "large", .threads = "1", .allocs = "1000000" },
+            .{ .name = "large", .threads = "8", .allocs = "1000000" },
+        };
+        var previous: ?*std.Build.Step = null;
+        for (configs) |config| {
+            const library = addBkMemory(b, target, config.optimize, toolchain, config.backend);
+            const bench_module = b.createModule(.{
+                .root_source_file = b.path("tools/zig/bk_memory_bench.zig"),
+                .target = target,
+                .optimize = config.optimize,
+            });
+            bench_module.linkLibrary(library);
+            const bench = b.addExecutable(.{ .name = "bk-memory-bench", .root_module = bench_module });
+            for (passes) |pass| {
+                const run = b.addRunArtifact(bench);
+                run.addArgs(&.{ config.label, pass.name, pass.threads, pass.allocs });
+                // One at a time: concurrent rows would disturb each other's timing.
+                if (previous) |prev| run.step.dependOn(prev);
+                previous = &run.step;
+                bk_bench_step.dependOn(&run.step);
+            }
+        }
+    }
     const bk_memory_build_step = b.step("bk-memory", "Build the BkMemory shared library");
     bk_memory_build_step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout (the default)") orelse true;
@@ -3448,9 +3537,10 @@ fn addCloudSync(
 }
 
 /// Backend of the process-wide allocator in BkMemory: `safe` is SafeAllocator
-/// over the smp allocator (leak records), `smp` the release candidate, `crt`
-/// the CRT baseline for the benchmark.
-const BkMemAllocator = enum { safe, smp, crt };
+/// over the smp allocator (leak records), `safe_page` and `safe_c` the same
+/// over the page and C allocators (measured by bk-memory-bench), `smp` the
+/// release candidate, `crt` the CRT baseline. Same order as Mode in bk_memory.zig.
+const BkMemAllocator = enum { safe, smp, crt, safe_page, safe_c };
 
 /// The BkMemory library, set early in build() so every module that links the
 /// allocator (the later operator new/delete rollout) can reach it.
@@ -3474,7 +3564,10 @@ fn addBkMemory(
         .root_source_file = b.path("Sources/src/BkMemory/bk_memory.zig"),
         .target = target,
         .optimize = optimize,
-        .link_libc = true,
+        // No CRT on Windows unless the baseline backend asks for malloc: the
+        // allocator must not depend on a C runtime that may load after it,
+        // and a libc here leaks into every module that links the import lib.
+        .link_libc = allocator == .crt or allocator == .safe_c or target.result.os.tag != .windows,
     });
     module.addOptions("bk_memory_options", bkMemoryOptions(b, allocator));
     addMsvcIncludePaths(b, module, toolchain);
@@ -3491,6 +3584,82 @@ fn addBkMemory(
         else
             null,
     });
+}
+
+/// Gives a module its own copy of the replacement operator new/delete, all
+/// forwarding to the one BkMemory instance. Every module carries a copy, so the
+/// order in which the loader binds the operators does not matter. Not part of
+/// linkMsvcRuntime: pure-Zig modules (CloudSync) use that and have no C++ new.
+/// The module still needs its C++ runtime/include setup from its own call site.
+fn linkBkMemory(b: *std.Build, module: *std.Build.Module) void {
+    module.addIncludePath(b.path("Sources/src/BkMemory"));
+    module.addCSourceFile(.{
+        .file = b.path("Sources/src/BkMemory/new_delete.cpp"),
+        .flags = &.{ "-std=c++17", "-fsized-deallocation", "-faligned-allocation" },
+    });
+    module.linkLibrary(bk_memory_artifact.?);
+}
+
+/// A BkMemory test module: a DLL when `linkage` is given, otherwise a console
+/// exe. Both link the allocator and carry their own operator new/delete copy.
+fn addBkMemoryTestModule(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    platform: build_support.PlatformTarget,
+    toolchain: ToolchainIncludes,
+    optimize: std.builtin.OptimizeMode,
+    linkage: ?std.builtin.LinkMode,
+    name: []const u8,
+    source: []const u8,
+) *std.Build.Step.Compile {
+    const module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libc = if (build_support.usesMsvc(platform)) null else true,
+        .link_libcpp = build_support.needsBundledLibcpp(platform),
+    });
+    // The replacement operator new/delete object has to come before the CRT
+    // libraries on the link line, or lld pulls the CRT's own copies from them
+    // first and reports every form as a duplicate symbol. The BkMemory import
+    // library goes last, after the CRT: BkMemory exports Zig's own
+    // _DllMainCRTStartup, and if the import came first a DLL's entry point
+    // would resolve to BkMemory's startup and never run its static constructors.
+    module.addIncludePath(b.path("Sources/src/BkMemory"));
+    module.addCSourceFile(.{
+        .file = b.path("Sources/src/BkMemory/new_delete.cpp"),
+        .flags = &.{ "-std=c++17", "-fsized-deallocation", "-faligned-allocation" },
+    });
+    module.addIncludePath(b.path("tools/zig"));
+    addLinuxCxxIncludePaths(b, module);
+    module.addCSourceFile(.{
+        .file = b.path(source),
+        .flags = &.{ "-std=c++17", "-fsized-deallocation", "-faligned-allocation" },
+    });
+    linkCxxRuntime(module, target);
+    if (build_support.usesMsvc(platform)) {
+        addMsvcIncludePaths(b, module, toolchain);
+        addMsvcLibraryPaths(b, module, toolchain);
+        // A DLL with a static destructor gets the CRT's DLL startup
+        // (_DllMainCRTStartup, atexit), whose initialisers live only in the
+        // static vcruntime and ucrt libraries. They go before the import
+        // libraries so only the missing pieces are taken from them; an exe's
+        // startup does not need them at all.
+        if (linkage != null) {
+            module.linkSystemLibrary(if (optimize == .debug) "libvcruntimed" else "libvcruntime", .{});
+            module.linkSystemLibrary(if (optimize == .debug) "libucrtd" else "libucrt", .{});
+        }
+        linkMsvcRuntime(module, optimize);
+    }
+    module.linkLibrary(bk_memory_artifact.?);
+    if (linkage) |link_mode| {
+        return b.addLibrary(.{ .name = name, .linkage = link_mode, .root_module = module });
+    }
+    const exe = b.addExecutable(.{ .name = name, .root_module = module });
+    if (platform == .windows_x64) {
+        exe.subsystem = .console;
+        exe.entry = .{ .symbol_name = "mainCRTStartup" };
+    }
+    return exe;
 }
 
 fn addLegacyProjectDll(
