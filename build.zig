@@ -975,7 +975,10 @@ pub fn build(b: *std.Build) void {
 
     // BkMemory is created before the first C++ module so every module below can link it
     // through linkEngineCxxRuntime, the PlatformRuntime and its test consumers included.
-    const bk_mem_allocator = b.option(BkMemAllocator, "bk-mem-allocator", "BkMemory backend: safe (SafeAllocator leak records over smp, the default), safe_page, safe_c, smp or crt") orelse .safe;
+    // `safe` is the default in every optimize mode: M003 S02 T06 measured it against smp in --release=fast
+    // (random missions repeat=20 heap flat on both, Game frame time within noise; crt does not link with the
+    // dynamic CRT). See .planning/gsd2/safe-allocator-design.md section 5.
+    const bk_mem_allocator = b.option(BkMemAllocator, "bk-mem-allocator", "BkMemory backend: safe (SafeAllocator leak records over smp, the default in every optimize mode), safe_page, safe_c, smp or crt (crt and safe_c do not link on MSVC)") orelse .safe;
     bk_memory_artifact = addBkMemory(b, target, optimize, toolchain, bk_mem_allocator);
 
     const platform_abi_layout_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });

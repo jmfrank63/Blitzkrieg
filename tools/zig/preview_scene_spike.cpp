@@ -21,6 +21,7 @@
 // spike.log into the preview-scene fixture directory.
 #include "StdAfx.h"
 #include <SDL3/SDL.h>
+#include "../../Sources/src/BkMemory/bk_memory_sdl.h"
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -193,6 +194,8 @@ int main( int argc, char **argv )
 	};
 	Log( "preview-scene: harness started" );
 
+	// Hooks first: the first SDL call of the process must already allocate through BkMemory.
+	BkMemoryInstallSdlFunctions();
 	if ( !SDL_Init( SDL_INIT_VIDEO ) )
 	{
 		const char *pszError = SDL_GetError();

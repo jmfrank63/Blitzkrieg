@@ -269,16 +269,37 @@ Decision:
 
 - Debug and test builds: `safe` (SafeAllocator over `smp_allocator`), report on at detach. That is the only
   configuration the cross-module test fails a leak in.
-- Release builds: the header layer without SafeAllocator, keeping the same entry points. Preferred backing is the
-  CRT heap (`crt`): no large-block cliff (251 ns against 5348 ns), the smallest peak in every column, and only
-  25 ns slower than `smp` on small single-threaded blocks. `smp` stays selectable with
-  `-Dbk-mem-allocator=smp` and S02 decides between the two with the engine's own load. This is a preference from
-  synthetic loops, not a measured engine result.
-- Open for S02, deferred on purpose because the engine is not routed through BkMemory yet: random missions
-  `repeat=20` heap and time, and Game frame time on a heavy map. The `crt` backend links libc, which on MSVC
-  collided with the explicit dynamic CRT in the cross-module test (duplicate `_invalid_parameter_noinfo`,
-  `_wctype`, `__pctype_func`); it works as a benchmark and the rollout must make the release BkMemory use the
-  same dynamic CRT as the engine DLLs.
+- Release builds (S02 T06, superseding the S01 preference for `crt`): `safe`, the same backend as Debug.
+  `-Dbk-mem-allocator=smp` stays selectable. See the engine measurement below.
+
+### Engine measurement on win-home (M003 S02 T06)
+
+All `--release=fast`, real dynamic CRT, every C++ module on BkMemory. Random missions is the established gate
+sweep (`-Drandom-missions-sweep=only=summer_ukraine\securearea00 -Drandom-missions-repeat=20`, 6 cases, 20
+rounds; the 4 KiB gate compares the heap after round 10 and round 20). The full `all` sweep x 20 is hours (about
+440 cases in 9.5 min per round-slice), so it was not run. Game frame time: `Game.exe
+-scenarios\scenariomissions\german\kharkov42\1.xml` headless, `BK_AUTO_UI=none BK_PERF=1
+BK_PRESENT_MODE=Immediate BK_MAX_FPS=0`, 75 s, mean and p95 over the 120-frame `BK_AUTO_UI: frame N` windows
+after the first two (about 55 windows each).
+
+| backend | links | random missions repeat=20 heap round 10 / 20 | gate | run time | Game ms/frame mean / p95 |
+| --- | --- | --- | --- | --- | --- |
+| `safe` (SafeAllocator over smp) | yes | 93200887 / 93200887 | pass (0 B) | 120 s | 9.48 / 9.96 and 9.52 / 10.14 (two runs) |
+| `smp` | yes | 93190137 / 93189856 | pass (-281 B) | 127 s | 10.02 / 10.58 (one run) |
+| `crt` | no: duplicate `_cexit`, `_invalid_parameter_noinfo`, `_wctype`, `__pctype_func`, `exit` against the dynamic CRT | n/a | n/a | n/a | n/a |
+| `safe_c` | not tried (also links libc, same collision) | n/a | n/a | n/a | n/a |
+
+- `safe` is at least as fast as `smp` on both measures (the two `safe` runs differ by 0.04 ms, the gap to `smp`
+  is 0.5 ms, SafeAllocator's checksum cost is below the run-to-run noise on this map) and keeps leak records
+  and double-free/foreign-free panics in release. R049's rule picks it.
+- `crt` cannot link against the engine's dynamic CRT: zig's libc brings its own CRT start-up symbols. Only the
+  benchmark build uses it. Making it link would mean an MSVC-libc build of BkMemory; not worth it given the numbers.
+- The 4 KiB gate needed the SDL hook in `random-missions-test`, `rmg-determinism-test`,
+  `preview-scene-spike` and `resource-mod-roundtrip-test`: they called `SDL_Init` before
+  `BkMemoryInstallSdlFunctions`, so SDL freed one of its own early blocks through `bk_mem_free` (bad header
+  magic panic, exit 3). Added in T06.
+- The display is 50 Hz and `Immediate` ran at about 100 fps here, so ms/frame is sim plus render cost, not a
+  vsync figure. Resident memory after the repeat=20 run: 350 MB (`safe`) and 367 MB (`smp`).
 
 ## Resource Editor tiers on BkMemory (M003 S02 T05)
 
@@ -310,14 +331,14 @@ printed and the exit code stays 0). Full per-tier rows, durations and log names 
 | `test-bk-memory` cross-DLL, clean and report runs | pass (Debug, ReleaseSafe, `safe_page`) | not run | not run | not run |
 | planted leak: exit 3 and SafeAllocator report | pass | not run | not run | not run |
 | `BK_MEM_REPORT=0` suppresses it | pass | not run | not run | not run |
-| `-Dbk-mem-allocator=safe_c` / `crt` with the cross test | link fails (duplicate CRT symbols), benchmark only | not run | not run | not run |
+| `-Dbk-mem-allocator=safe_c` / `crt` with the cross test and with the engine (T06) | link fails (duplicate CRT symbols), benchmark only | not run | not run | not run |
 | `bk-memory-bench` table above | measured | not run | not run | not run |
 | symbol names in leak stacks | exe yes, DLL addresses only | not run | not run | not run |
-| every C++ module on the allocator, PE import audit (`bk-memory-import-audit`) | pass: 24 modules, 0 CRT operator imports | not run | not run | not run |
+| every C++ module on the allocator, PE import audit (`bk-memory-import-audit`) | pass: 24 modules (Debug), 25 modules in `--release=fast` (T06), 0 CRT operator imports | not run | not run | not run |
 | `test-platform-foundation`, `test-platform-client`, `test-bk-memory` after the roll-out | pass | not run | not run | not run |
 | `test-input-module`, `test-sfx-module`, `test-net-module`, `test-console-bridge`, `gfxgpu-factory-test`, `verify-x64-runtime` | fail on leak reports only (exit 3), expected until BK_MEM_REPORT=log in T04 | not run | not run | not run |
-| random missions `repeat=20` heap | deferred to S02 | not run | not run | not run |
-| Game frame time on a heavy map | deferred to S02 | not run | not run | not run |
+| random missions `repeat=20` heap (gate sweep, `--release=fast`) | pass: `safe` +0 B, `smp` -281 B | not run | not run | not run |
+| Game frame time on a mission map (kharkov42/1) | `safe` 9.5 ms, `smp` 10.0 ms | not run | not run | not run |
 | `.fini_array` detach hook | compiled for Linux, not exercised | not run | not applicable | not applicable |
 
 ## Hand-off to S02 and S03

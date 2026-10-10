@@ -61,3 +61,10 @@ the file after every two tiers with `docs(planning): safe allocator tier results
 ## Still to run (T04 leftovers)
 
 map-editor-game-reads-it-m3 (rerun, redirect elsewhere), Game headless start. Full sweep (tools/zig/run-resource-sweep.sh) left to the maintainer.
+| test-random-missions (safe, first try) | `zig build test-random-missions --release=fast -Drandom-missions-repeat=20 -Dtest-mode=run` | 1 (exit 3 panic) | 311 s | count | `bk_mem_free ... bad header magic` from SDL_GetDisplayForWindow: the tool called SDL_Init before BkMemoryInstallSdlFunctions. Fixed in four tools |
+| test-random-missions (safe, sweep all) | same, after the SDL fix | cut at 590 s | 591 s | count | 440 cases of the `all` sweep done, heap flat at 101535308 B; the full sweep x 20 is hours, so the gate sweep below is used |
+| test-random-missions backend=safe | `zig build test-random-missions --release=fast -Drandom-missions-repeat=20 -Dtest-mode=run -Dbk-mem-allocator=safe -Drandom-missions-sweep=only=summer_ukraine\securearea00` | 0 | 188 s (120 s run) | count | heap 93200887 after round 10 and 20, gate pass |
+| test-random-missions backend=smp | same with `-Dbk-mem-allocator=smp` | 0 | 221 s (127 s run) | count | heap 93190137 / 93189856, gate pass |
+| test-random-missions backend=crt | same with `-Dbk-mem-allocator=crt` | 1 | 154 s | count | link fails: duplicate `_cexit`, `_invalid_parameter_noinfo`, `_wctype`, `__pctype_func`, `exit` |
+| Game frame time, smp then safe x2 | `powershell zig-out/local-test/t06-frametime.ps1 -Label <x>` (Game.exe -scenarios\scenariomissions\german\kharkov42\1.xml, 75 s) | n/a | 75 s each | count | smp 10.02 / 10.58 ms mean / p95; safe 9.48 / 9.96 and 9.52 / 10.14 |
+| install-game install-map-editor, install-resource-editor, bk-memory-import-audit | `zig build ... --release=fast` | 0 | 114 s / 78 s / 63 s | count | audit: 25 modules, 0 failures. Editors in the layout were stale until reinstalled; the audit step only depends on install-game, so run it after the editor installs |

@@ -46,6 +46,7 @@
 #include <string>
 #include <vector>
 #include <SDL3/SDL.h>
+#include "../../Sources/src/BkMemory/bk_memory_sdl.h"
 #include "resource_bridge.h"
 #include "bridge_session.h"
 #include "../ResourceModel/comparator.h"
@@ -802,6 +803,8 @@ int main( int argc, char **argv )
 	const fs::path scratch = argc > 3 ? argv[3] : ( fs::path( szSelfDir ) / "local-test/mod-roundtrip" );
 	const char *pszModRoot = std::getenv( "BK_MOD_ROOT" );
 
+	// Hooks first: the first SDL call of the process must already allocate through BkMemory.
+	BkMemoryInstallSdlFunctions();
 	if ( !SDL_Init( SDL_INIT_VIDEO ) )
 	{
 		const char *pszError = SDL_GetError();
