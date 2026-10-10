@@ -7235,8 +7235,8 @@ fn addMapEditor(
     }
 
     // The planted-leak proof (D083): the same invocation as `run`, twice, the
-    // second with BK_ZIG_PLANT_LEAK=1; BkMemory's exit count must grow by
-    // exactly one. The tiers run in count mode because of C++ leaks, so a
+    // second with BK_ZIG_PLANT_LEAK=64; BkMemory's exit count must grow by
+    // 64 +/- 8. The tiers run in count mode because of C++ leaks, so a
     // count delta is the only signal a Zig-side leak shows.
     const leak_delta_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/leak_delta_check.zig"),
@@ -7246,11 +7246,14 @@ fn addMapEditor(
     const leak_delta_check = b.addExecutable(.{ .name = "leak-delta-check", .root_module = leak_delta_module });
     const planted_run = b.addRunArtifact(leak_delta_check);
     planted_run.setCwd(b.path("zig-out"));
+    // The count jitters by a block or two between runs, so plant 64 and accept
+    // a delta of 64 +/- 8.
+    planted_run.addArgs(&.{ "--plant", "64", "--slack", "8" });
     planted_run.addArg(rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
     planted_run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), rootPath(b, "zig-out/local-test/map-editor-check-planted.tga") });
     planted_run.has_side_effects = true;
     planted_run.step.dependOn(&install_exe.step);
-    const planted_step = b.step("map-editor-planted-leak", "Prove a planted Zig leak in MapEditor raises BkMemory's exit leak count by exactly one");
+    const planted_step = b.step("map-editor-planted-leak", "Prove a planted Zig leak in MapEditor raises BkMemory's exit leak count by the planted 64 blocks");
     planted_step.dependOn(&planted_run.step);
 
     // The interactive loop itself, hidden and driven by smoke.zig's scripted
@@ -8936,8 +8939,8 @@ fn addResourceEditor(
     if (test_mode == .run) check_step.dependOn(&run.step);
 
     // The planted-leak proof (D083), as map-editor-planted-leak: the host
-    // check twice, the second with BK_ZIG_PLANT_LEAK=1, and BkMemory's exit
-    // count must grow by exactly one.
+    // check twice, the second with BK_ZIG_PLANT_LEAK=64, and BkMemory's exit
+    // count must grow by 64 +/- 8.
     const leak_delta_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/leak_delta_check.zig"),
         .target = b.graph.host,
@@ -8946,11 +8949,14 @@ fn addResourceEditor(
     const leak_delta_check = b.addExecutable(.{ .name = "leak-delta-check", .root_module = leak_delta_module });
     const planted_run = b.addRunArtifact(leak_delta_check);
     planted_run.setCwd(b.path("zig-out"));
+    // The host's engine threads move the clean count by a block or two between
+    // runs, so plant 64 and accept a delta of 64 +/- 8.
+    planted_run.addArgs(&.{ "--plant", "64", "--slack", "8" });
     planted_run.addArg(rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
     planted_run.addArgs(&.{ "--check", "wpn", rootPath(b, "zig-out/local-test/resource_editor/resource-editor-check-planted.tga"), rootPath(b, "tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
     planted_run.has_side_effects = true;
     planted_run.step.dependOn(&install_exe.step);
-    const planted_step = b.step("resource-editor-planted-leak", "Prove a planted Zig leak in ResourceEditor raises BkMemory's exit leak count by exactly one");
+    const planted_step = b.step("resource-editor-planted-leak", "Prove a planted Zig leak in ResourceEditor raises BkMemory's exit leak count by the planted 64 blocks");
     planted_step.dependOn(&planted_run.step);
 
     // The batch mode's command line on the 21 tracked project fixtures,

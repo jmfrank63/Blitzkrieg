@@ -111,24 +111,27 @@ const max_nodes = 512;
 /// pass a tier that never ran.
 var require_engine = false;
 
-/// BK_ZIG_PLANT_LEAK set to anything but empty or "0" asks for one deliberate
-/// leak, so the planted-leak step can prove BkMemory's count sees Zig blocks.
-fn plantZigLeakRequested(gpa: std.mem.Allocator, environ: std.process.Environ) bool {
-    const value = environ.getAlloc(gpa, "BK_ZIG_PLANT_LEAK") catch return false;
+/// BK_ZIG_PLANT_LEAK is the number of deliberate leaks the planted-leak step
+/// asks for: a count, "1" for one, anything non-numeric also one, empty or "0"
+/// none. The engine's own leak count jitters by a block or two between runs of
+/// this host, so the step plants a batch and checks the delta within a slack.
+fn plantZigLeakCount(gpa: std.mem.Allocator, environ: std.process.Environ) usize {
+    const value = environ.getAlloc(gpa, "BK_ZIG_PLANT_LEAK") catch return 0;
     defer gpa.free(value);
-    return value.len != 0 and !std.mem.eql(u8, value, "0");
+    if (value.len == 0) return 0;
+    return std.fmt.parseInt(usize, value, 10) catch 1;
 }
 
-/// Test seam for the planted-leak step only: allocates 4096 bytes from the
-/// shared allocator and drops them, a leak the exit report must count.
-fn plantZigLeak(allocator: std.mem.Allocator) void {
-    _ = allocator.alloc(u8, 4096) catch {};
+/// Test seam for the planted-leak step only: allocates `count` 4096-byte blocks
+/// from the shared allocator and drops them, leaks the exit report must count.
+fn plantZigLeaks(allocator: std.mem.Allocator, count: usize) void {
+    for (0..count) |_| _ = allocator.alloc(u8, 4096) catch {};
 }
 
 pub fn main(minimal: std.process.Init.Minimal) !void {
     crt.routeCrtReportsToStderr();
     const gpa = bk_memory.allocator;
-    if (plantZigLeakRequested(gpa, minimal.environ)) plantZigLeak(gpa);
+    plantZigLeaks(gpa, plantZigLeakCount(gpa, minimal.environ));
     var threaded: std.Io.Threaded = .init(gpa, .{ .environ = minimal.environ });
     defer threaded.deinit();
     const io = threaded.io();
