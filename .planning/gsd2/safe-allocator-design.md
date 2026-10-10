@@ -341,6 +341,38 @@ printed and the exit code stays 0). Full per-tier rows, durations and log names 
 - `test-editor-bridge` (debug) passed with 151745 leaked blocks but took about 49 min against the 1022 s
   baseline; not investigated in T05, flagged for S04.
 - The full sweep `tools/zig/run-resource-sweep.sh` (about 27 min) is left to the maintainer.
+## Zig side on SafeAllocator (M003 S03)
+
+Every Zig host and library allocates through the one BkMemory instance by importing `bk_memory_allocator`
+(`Sources/src/BkMemory/bk_memory_allocator.zig`, a `std.mem.Allocator` over the BkMemory C ABI), added to a module
+with the build helper `linkBkMemoryAllocator`. There is no second SafeAllocator (D083), so a Zig block shows in the
+same exit report as a C++ block, with Zig stack frames.
+
+| Zig code | Allocator | Notes |
+|---|---|---|
+| Map Editor host (`Sources/editor/app/main.zig`, `single_instance.zig`, `c_bridge.zig`) | `bk_memory_allocator` | memory handed to C++ through `c_bridge.zig` comes from the same instance |
+| Resource Editor host (`Sources/editor/resource_app/main.zig`) | `bk_memory_allocator` | replaced `smp_allocator` |
+| StreamIOZig, GFXGPU | `bk_memory_allocator` | `c_allocator` and `libc.malloc` removed |
+| CloudSync module Discovery and job allocator | `bk_memory_allocator` | the concurrent-readers stress test uses a local `SafeAllocator`, so a test-only leak fails that test |
+
+Planted-leak proof. Both hosts read `BK_ZIG_PLANT_LEAK=N` and leak N 4096-byte blocks from the shared allocator at
+startup (a test seam, off by default). `map-editor-planted-leak` and `resource-editor-planted-leak` run the host
+check twice through `tools/zig/leak_delta_check.zig`, with and without the plant, under `BK_MEM_REPORT=count`, and
+require the exit count to grow by N within a slack. The count is a delta because the C++ engine still leaks blocks
+the tiers tolerate and the base count jitters by a block or two between runs (observed 44242 to 44243 for the
+Resource Editor, 56059 to 56060 for the Map Editor), so a plain +1 is unsound: both steps plant 64 and accept
+64 +/- 8. Both steps use the same invocation as the host check.
+
+Audit. `zig build zig-allocator-audit` (`tools/zig/zig_allocator_audit.zig`) scans every `*.zig` under
+`Sources/editor`, `Sources/src/StreamIOZig`, `Sources/src/GFXGPU` and `Sources/src/CloudSync` for `DebugAllocator`,
+`GeneralPurposeAllocator`, `smp_allocator`, `page_allocator` and `c_allocator`, skips comment text, and fails with
+file:line for any hit not in the tool's allowlist (empty today; an entry needs a written reason). The scan rejects a
+missing directory so it cannot pass by scanning nothing. `test-zig-allocator-audit` proves a planted line is
+reported and runs the audit as part of its run.
+
+Platforms. The Zig-side steps were run on win-home only. Linux and macOS behaviour (the ELF and Mach-O exit report
+from the C destructor, D084) is checked by CI, not claimed here.
+
 ## Results matrix
 
 | Check | Windows x64 MSVC (win-home) | Linux x64 | macOS arm64 | macOS x64 |

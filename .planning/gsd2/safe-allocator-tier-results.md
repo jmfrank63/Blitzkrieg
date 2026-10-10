@@ -80,3 +80,18 @@ map-editor-game-reads-it-m3 (rerun, redirect elsewhere), Game headless start. Fu
 | map-editor-smoke | `zig build map-editor-smoke` | 0 | 80 s | count | smoke PASS (52 steps); `bk_mem: 53174` |
 | map-editor-auto | `zig build map-editor-auto` | 0 | 118 s | count | pass; `bk_mem: 53196`, `56435` |
 | map-editor-auto-m2, map-editor-m3-auto, map-editor-game-reads-it-m3 | not run | n/a | n/a | n/a | left to the maintainer |
+
+## M003/S03/T06: Resource Editor host, planted-leak delta and Zig allocator audit (debug, win-home)
+
+| Tier | Command | Exit | Time | Mode | Result |
+|---|---|---|---|---|---|
+| zig-allocator-audit | `zig build zig-allocator-audit` | 0 | 2 s | n/a | 150 files scanned, no forbidden allocator |
+| test-zig-allocator-audit | `zig build test-zig-allocator-audit -Dtest-mode=run` | 0 | 2 s | zig test | planted line reported with file:line; comment/string and allowlist cases pass |
+| resource-editor-planted-leak, first try | `zig build resource-editor-planted-leak` (plant 1, exact +1) | 1 | 96 s | count | clean 44243, planted 44243, then clean 44242, planted 44244: the base count jitters, so exact +1 is unsound |
+| resource-editor-planted-leak | `zig build resource-editor-planted-leak` (`--plant 64 --slack 8`) | 0 | 107 s | count | clean 44242, planted 44307 (+65 within 64 +/- 8) |
+| map-editor-planted-leak, rerun | `zig build map-editor-planted-leak` (T05's exact +1 failed once, clean 56060 = planted 56060, jitter) | 0 | 87 s | count | now `--plant 64 --slack 8`: clean 56059, planted 56124 (+65) |
+| test-resource-core | `zig build test-resource-core -Dtest-mode=run` | 0 | 23 s | zig test | pass |
+| resource-editor-host-check | `zig build resource-editor-host-check -Dtest-mode=run` | 0 | 72 s | count | pass; `bk_mem: 44242` leaked block(s) |
+| resource-editor-smoke | `zig build resource-editor-smoke -Dtest-mode=run` | 0 | 84 s | count | pass |
+| resource-editor-auto-core | `zig build resource-editor-auto-core -Dtest-mode=run` | 0 | 135 s | count | pass |
+| full resource sweep | `tools/zig/run-resource-sweep.sh` | n/a | n/a | n/a | left to the maintainer |
