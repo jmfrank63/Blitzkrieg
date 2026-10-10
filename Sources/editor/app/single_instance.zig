@@ -67,6 +67,7 @@
 //! `zig build test-map-editor-panels` on every target.
 const std = @import("std");
 const builtin = @import("builtin");
+const bk_memory = @import("bk_memory_allocator");
 
 /// A worker thread's stack: these threads only pass a line, so a small one
 /// elsewhere. Not on Linux: glibc carves the static TLS out of each new
@@ -639,7 +640,7 @@ const HandoffJob = struct {
     const abandoned: u8 = 2;
     /// An abandoned job can outlive its caller (and a test's own allocator), so
     /// the job comes from the process-wide allocator.
-    const allocator = std.heap.smp_allocator;
+    const allocator = bk_memory.allocator;
 
     fn run(self: *HandoffJob) void {
         const io = self.io;
@@ -1143,6 +1144,10 @@ test "single instance: a live listener that closes on us is not stale - its sock
     try std.testing.expectEqual(@as(?Io.File.INode, listening), socketFileInode(io, endpoint));
 }
 
+/// Storage for the one test whose accept thread is detached and outlives it.
+var detached_thread_storage: [64 * 1024]u8 = undefined;
+var detached_thread_memory: std.heap.FixedBufferAllocator = .init(&detached_thread_storage);
+
 test "single instance: deinit neither hangs on a replaced socket nor removes the replacement (WR-A02)" {
     const io = std.testing.io;
     const gpa = std.testing.allocator;
@@ -1156,8 +1161,9 @@ test "single instance: deinit neither hangs on a replaced socket nor removes the
     defer removeTestEndpoint(io, moved);
 
     // The first owner. A detached accept thread keeps its memory alive past
-    // this test, so it does not come from the leak-checking allocator.
-    const first = switch (acquireAt(std.heap.smp_allocator, io, endpoint, "\n", .{ .timeout_ms = 1000 })) {
+    // this test, so it does not come from the leak-checking allocator: it
+    // comes from static storage the thread can outlive.
+    const first = switch (acquireAt(detached_thread_memory.threadSafeAllocator(), io, endpoint, "\n", .{ .timeout_ms = 1000 })) {
         .primary => |instance| instance,
         else => return error.TestUnexpectedResult,
     };

@@ -37,6 +37,9 @@ unsigned int bk_cloudsync_available(void);
 int bk_cloudsync_discovery_status(unsigned char *json_out, unsigned int cap);
 int bk_cloudsync_refresh_discovery(void);
 void bk_cloudsync_shutdown(void);
+// CloudSync allocates through BkMemory. The exe has no CRT entry, so the main thread's TLS is gone by
+// the process-detach report; run the report here, on the live thread.
+size_t bk_mem_report(void);
 const char *bk_cloudsync_last_error(void);
 // Sync jobs. States: 0 idle, 1 starting, 2 pairing, 3 syncing, 4 done,
 // 5 failed. Outcomes: 0 none, 1 paired, 2 synced, 3 failed. Both pinned by
@@ -1503,6 +1506,9 @@ int main()
 
     bk_cloudsync_shutdown();
     bk_cloudsync_shutdown(); // twice, deliberately: idempotence is contract
+
+    // Every block CloudSync took from the shared allocator is back by now.
+    if (bk_mem_report() != 0) return 14;
 
     return failures == 0 ? 0 : 1;
 }

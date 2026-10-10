@@ -2566,6 +2566,32 @@ pub fn build(b: *std.Build) void {
     bk_audit_test_step.dependOn(&bk_audit_tests.step);
     if (test_mode == .run) bk_audit_test_step.dependOn(&bk_audit_tests_run.step);
 
+    // D083: the Zig hosts and libraries allocate through the one BkMemory
+    // allocator. The audit fails with file:line for any DebugAllocator,
+    // smp_allocator, page_allocator or c_allocator left in their sources, and
+    // its own unit test proves a planted line is reported.
+    const zig_audit_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/zig_allocator_audit.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    });
+    const zig_audit = b.addExecutable(.{ .name = "zig-allocator-audit", .root_module = zig_audit_module });
+    const zig_audit_run = b.addRunArtifact(zig_audit);
+    zig_audit_run.setCwd(b.path("."));
+    zig_audit_run.addArgs(&.{ "Sources/editor", "Sources/src/StreamIOZig", "Sources/src/GFXGPU", "Sources/src/CloudSync" });
+    // Reads the source tree, which is not a declared input of the step.
+    zig_audit_run.has_side_effects = true;
+    const zig_audit_step = b.step("zig-allocator-audit", "Fail with file:line if a Zig host or library source names DebugAllocator, smp_allocator, page_allocator or c_allocator");
+    zig_audit_step.dependOn(&zig_audit_run.step);
+    const zig_audit_tests = b.addTest(.{ .root_module = zig_audit_module });
+    const zig_audit_tests_run = b.addRunArtifact(zig_audit_tests);
+    const zig_audit_test_step = b.step("test-zig-allocator-audit", "Unit-test the Zig allocator audit on in-memory sources");
+    zig_audit_test_step.dependOn(&zig_audit_tests.step);
+    if (test_mode == .run) {
+        zig_audit_test_step.dependOn(&zig_audit_tests_run.step);
+        zig_audit_test_step.dependOn(&zig_audit_run.step);
+    }
+
     // After install-game, whose step it depends on: the tier's executable is
     // staged into the layout that step creates.
     addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step);
@@ -3026,6 +3052,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
+    linkBkMemoryAllocator(b, cloudsync_abi_test_module, false);
     const cloudsync_abi_unit_tests = b.addTest(.{ .root_module = cloudsync_abi_test_module });
     const run_cloudsync_abi_unit_tests = b.addRunArtifact(cloudsync_abi_unit_tests);
     const cloudsync_abi_consumer_module = b.createModule(.{
@@ -3043,6 +3070,8 @@ pub fn build(b: *std.Build) void {
     addMsvcIncludePaths(b, cloudsync_abi_consumer_module, toolchain);
     addMsvcLibraryPaths(b, cloudsync_abi_consumer_module, toolchain);
     cloudsync_abi_consumer_module.linkLibrary(cloudsync);
+    // Calls bk_mem_report itself, before exit: see the comment at its declaration.
+    cloudsync_abi_consumer_module.linkLibrary(bk_memory_artifact.?);
     linkMsvcRuntime(cloudsync_abi_consumer_module, optimize);
     applyLoaderPath(target, cloudsync_abi_consumer_module);
     const cloudsync_abi_consumer = b.addExecutable(.{
@@ -3300,6 +3329,7 @@ pub fn build(b: *std.Build) void {
     resource_app_logic_step.dependOn(&resource_app_c_bridge_object.step);
     if (test_mode == .run) resource_app_logic_step.dependOn(&resource_app_logic_tests_run.step);
     test_step.dependOn(resource_app_logic_step);
+    test_step.dependOn(zig_audit_test_step);
     // The map view's pure parts (camera scrolling, the button-to-tool-event
     // mapping): plain Zig, no SDL or engine, so this runs without a GPU or a
     // staged installation.
@@ -3329,6 +3359,8 @@ pub fn build(b: *std.Build) void {
             .{ .name = "editor_kit", .module = editor_kit_module },
         },
     });
+    // single_instance.zig's job state allocates through the shared allocator.
+    linkBkMemoryAllocator(b, panels_logic_module, false);
     const panels_logic_tests = b.addTest(.{ .root_module = panels_logic_module });
     const panels_logic_tests_run = b.addRunArtifact(panels_logic_tests);
     const panels_logic_step = b.step("test-map-editor-panels", "Run the panels' pure file-action, palette and properties tests");
@@ -3606,6 +3638,7 @@ fn addCloudSync(
     addMsvcIncludePaths(b, cloudsync_module, toolchain);
     addMsvcLibraryPaths(b, cloudsync_module, toolchain);
     linkMsvcRuntime(cloudsync_module, optimize);
+    linkBkMemoryAllocator(b, cloudsync_module, false);
     // x86 exports carry a leading underscore that does not exist on x86_64,
     // so the def file is per-arch exactly as StreamIO's is.
     const def_path = if (target.result.cpu.arch == .x86)
@@ -3670,14 +3703,14 @@ fn addBkMemory(
         .link_libc = allocator == .crt or allocator == .safe_c or target.result.os.tag != .windows,
     });
     module.addOptions("bk_memory_options", bkMemoryOptions(b, allocator));
-    addMsvcIncludePaths(b, module, toolchain);
-    addMsvcLibraryPaths(b, module, toolchain);
-    linkMsvcRuntime(module, optimize);
-    applyLoaderPath(target, module);
     // The ELF/Mach-O exit report is a C destructor; Zig cannot emit .fini_array in debug.
     if (target.result.os.tag != .windows) {
         module.addCSourceFile(.{ .file = b.path("Sources/src/BkMemory/bk_memory_fini.c") });
     }
+    addMsvcIncludePaths(b, module, toolchain);
+    addMsvcLibraryPaths(b, module, toolchain);
+    linkMsvcRuntime(module, optimize);
+    applyLoaderPath(target, module);
     return b.addLibrary(.{
         .name = "BkMemory",
         .linkage = .dynamic,
@@ -7201,6 +7234,25 @@ fn addMapEditor(
         check_step.dependOn(&mod_run.step);
     }
 
+    // The planted-leak proof (D083): the same invocation as `run`, twice, the
+    // second with BK_ZIG_PLANT_LEAK=1; BkMemory's exit count must grow by
+    // exactly one. The tiers run in count mode because of C++ leaks, so a
+    // count delta is the only signal a Zig-side leak shows.
+    const leak_delta_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/leak_delta_check.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    });
+    const leak_delta_check = b.addExecutable(.{ .name = "leak-delta-check", .root_module = leak_delta_module });
+    const planted_run = b.addRunArtifact(leak_delta_check);
+    planted_run.setCwd(b.path("zig-out"));
+    planted_run.addArg(rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
+    planted_run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), rootPath(b, "zig-out/local-test/map-editor-check-planted.tga") });
+    planted_run.has_side_effects = true;
+    planted_run.step.dependOn(&install_exe.step);
+    const planted_step = b.step("map-editor-planted-leak", "Prove a planted Zig leak in MapEditor raises BkMemory's exit leak count by exactly one");
+    planted_step.dependOn(&planted_run.step);
+
     // The interactive loop itself, hidden and driven by smoke.zig's scripted
     // SDL events: paint, place, select, drag, turn, delete, undo all of it,
     // Save As and reopen.
@@ -8850,6 +8902,9 @@ fn addResourceEditor(
     // resource_bridge.h (and the bridge.h it includes), for the app's translation.
     module.addIncludePath(b.path("Sources/src/EditorBridge"));
     linkEditorEngine(b, module, target, optimize, toolchain, engine);
+    // main.zig allocates through the one BkMemory allocator; linkEditorEngine
+    // already linked the library.
+    linkBkMemoryAllocator(b, module, true);
     // The particle and effect exporters read the Scene module's structs, which the
     // data-only comparator library compiles in.
     module.linkLibrary(comparator_lib);
@@ -8879,6 +8934,24 @@ fn addResourceEditor(
     const check_step = b.step("resource-editor-host-check", "Start ResourceEditor hidden on a new project and check ImGui draws over the engine's frame");
     check_step.dependOn(&install_exe.step);
     if (test_mode == .run) check_step.dependOn(&run.step);
+
+    // The planted-leak proof (D083), as map-editor-planted-leak: the host
+    // check twice, the second with BK_ZIG_PLANT_LEAK=1, and BkMemory's exit
+    // count must grow by exactly one.
+    const leak_delta_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/leak_delta_check.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    });
+    const leak_delta_check = b.addExecutable(.{ .name = "leak-delta-check", .root_module = leak_delta_module });
+    const planted_run = b.addRunArtifact(leak_delta_check);
+    planted_run.setCwd(b.path("zig-out"));
+    planted_run.addArg(rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename })));
+    planted_run.addArgs(&.{ "--check", "wpn", rootPath(b, "zig-out/local-test/resource_editor/resource-editor-check-planted.tga"), rootPath(b, "tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
+    planted_run.has_side_effects = true;
+    planted_run.step.dependOn(&install_exe.step);
+    const planted_step = b.step("resource-editor-planted-leak", "Prove a planted Zig leak in ResourceEditor raises BkMemory's exit leak count by exactly one");
+    planted_step.dependOn(&planted_run.step);
 
     // The batch mode's command line on the 21 tracked project fixtures,
     // copied under zig-out/local-test: -os re-saves each byte for byte and
@@ -10397,6 +10470,9 @@ fn mapEditorModule(
     // needs no path to the source tree at run time.
     module.addAnonymousImport("m2_script_lua", .{ .root_source_file = b.path("tools/zig/fixtures/m2_script.lua") });
     linkEditorEngine(b, module, target, optimize, toolchain, engine);
+    // main.zig, single_instance.zig and c_bridge.zig allocate through the one
+    // BkMemory allocator; linkEditorEngine already linked the library.
+    linkBkMemoryAllocator(b, module, true);
     return module;
 }
 

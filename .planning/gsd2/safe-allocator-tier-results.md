@@ -68,3 +68,15 @@ map-editor-game-reads-it-m3 (rerun, redirect elsewhere), Game headless start. Fu
 | test-random-missions backend=crt | same with `-Dbk-mem-allocator=crt` | 1 | 154 s | count | link fails: duplicate `_cexit`, `_invalid_parameter_noinfo`, `_wctype`, `__pctype_func`, `exit` |
 | Game frame time, smp then safe x2 | `powershell zig-out/local-test/t06-frametime.ps1 -Label <x>` (Game.exe -scenarios\scenariomissions\german\kharkov42\1.xml, 75 s) | n/a | 75 s each | count | smp 10.02 / 10.58 ms mean / p95; safe 9.48 / 9.96 and 9.52 / 10.14 |
 | install-game install-map-editor, install-resource-editor, bk-memory-import-audit | `zig build ... --release=fast` | 0 | 114 s / 78 s / 63 s | count | audit: 25 modules, 0 failures. Editors in the layout were stale until reinstalled; the audit step only depends on install-game, so run it after the editor installs |
+
+## M003/S03/T05: Map Editor host on BkMemory (debug, win-home)
+
+| Tier | Command | Exit | Time | Mode | Result |
+|---|---|---|---|---|---|
+| map-editor-planted-leak | `zig build map-editor-planted-leak` | 0 | about 110 s | count | clean 56059 leaked blocks, planted 56060 (+1, BK_ZIG_PLANT_LEAK=1), both exit 0 |
+| test-editor-core, -view, -panels, -testlaunch, -auto | `zig build test-editor-core test-map-editor-view test-map-editor-panels test-map-editor-testlaunch test-map-editor-auto -Dtest-mode=run` | 0 | 15 s | zig test | all pass; the WR-A02 single-instance test takes its detached accept thread's memory from static storage, not the leak-checked allocator |
+| test-map-editor-engine | `zig build test-map-editor-engine` | 0 | 180 s | count | pass; `bk_mem: 73568 leaked block(s)` |
+| map-editor-host-check | `zig build map-editor-host-check` | 0 | 111 s | count | pass; `bk_mem: 56059`, `56059`, `45924` leaked block(s) |
+| map-editor-smoke | `zig build map-editor-smoke` | 0 | 80 s | count | smoke PASS (52 steps); `bk_mem: 53174` |
+| map-editor-auto | `zig build map-editor-auto` | 0 | 118 s | count | pass; `bk_mem: 53196`, `56435` |
+| map-editor-auto-m2, map-editor-m3-auto, map-editor-game-reads-it-m3 | not run | n/a | n/a | n/a | left to the maintainer |

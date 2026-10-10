@@ -75,6 +75,7 @@ const daemon = @import("daemon.zig");
 const engine = @import("engine.zig");
 const form = @import("form.zig");
 const worker = @import("worker.zig");
+const bk_memory = @import("bk_memory_allocator");
 
 const Allocator = std.mem.Allocator;
 
@@ -272,12 +273,13 @@ fn writeAvailability(json: *std.json.Stringify, current: daemon.Availability) st
 // Module state behind the C ABI
 // ---------------------------------------------------------------------------
 
-/// `smp_allocator` rather than a page allocator because every export can be
-/// called from any thread, and rather than a debug allocator because the
-/// shipping module must not pay for leak tracking. The tests below build their
-/// own `Discovery` values over `std.testing.allocator`, so this instance is
-/// only ever exercised through the C++ smoke consumer.
-var module: Discovery = .{ .gpa = std.heap.smp_allocator };
+/// The shared BkMemory allocator, so this module's blocks land in the same
+/// per-process leak report as the engine's (D083) and the release cost is
+/// whatever backend BkMemory chose (D082). It is thread safe, which matters
+/// because every export can be called from any thread. The tests below build
+/// their own `Discovery` values over `std.testing.allocator`, so this instance
+/// is only ever exercised through the C++ smoke consumer.
+var module: Discovery = .{ .gpa = bk_memory.allocator };
 
 var error_mutex: std.Io.Mutex = .init;
 /// Module-owned, valid until the next call, as the conventions above promise.
@@ -1111,7 +1113,7 @@ comptime {
     std.debug.assert(@intFromEnum(worker.Outcome.catalogue_ready) == 8);
 }
 
-const module_gpa = std.heap.smp_allocator;
+const module_gpa = bk_memory.allocator;
 const max_job_slots = 8;
 
 const JobSlot = struct {
@@ -2083,15 +2085,15 @@ fn stressRefresher(state: *StressState) void {
 test "concurrent readers survive a refresher freeing the value underneath them" {
     if (builtin.single_threaded) return;
 
-    // The debug allocator turns a freed-while-read into a failure rather than
+    // The safe allocator turns a freed-while-read into a failure rather than
     // into a flake: it poisons freed memory and reports a leak or a double
     // free outright, where a general-purpose allocator would usually hand the
-    // same bytes back and let the bug pass.
-    var debug: std.heap.DebugAllocator(.{ .safety = true, .thread_safe = true }) = .init;
-    defer testing.expect(debug.deinit() == .ok) catch @panic("cloudsync discovery cache leaked");
+    // same bytes back and let the bug pass. It is local, not the shared one,
+    // so the leak count is this test's alone; deinit must run after every
+    // thread has been joined.
+    var safe: std.heap.SafeAllocator = .init(bk_memory.allocator, .{});
 
-    var discovery: Discovery = .{ .gpa = debug.allocator(), .resolver = fixedResolve };
-    defer discovery.clear();
+    var discovery: Discovery = .{ .gpa = safe.allocator(), .resolver = fixedResolve };
     try discovery.ensure();
 
     var state: StressState = .{ .discovery = &discovery };
@@ -2103,4 +2105,6 @@ test "concurrent readers survive a refresher freeing the value underneath them" 
     state.stop.store(true, .release);
     for (readers) |reader| reader.join();
     try testing.expectEqual(@as(u32, 0), state.failures.load(.acquire));
+    discovery.clear();
+    try testing.expectEqual(@as(usize, 0), safe.deinit());
 }

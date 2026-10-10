@@ -58,6 +58,7 @@ const view_math = @import("view_math.zig");
 const panels = @import("panels.zig");
 const panels_logic = @import("panels_logic.zig");
 const crt = kit.crt;
+const bk_memory = @import("bk_memory_allocator");
 const smoke = @import("smoke.zig");
 const auto_mod = @import("auto.zig");
 const testlaunch = kit.testlaunch;
@@ -125,9 +126,24 @@ const world_cell_size: f32 = view_mod.world_cell_size;
 /// answer through `unexpectedErrno`, which would dump a stack trace in Debug.
 pub const std_options: std.Options = .{ .unexpected_error_tracing = false };
 
+/// BK_ZIG_PLANT_LEAK set to anything but empty or "0" asks for one deliberate
+/// leak, so the planted-leak step can prove BkMemory's count sees Zig blocks.
+fn plantZigLeakRequested(gpa: std.mem.Allocator, environ: std.process.Environ) bool {
+    const value = environ.getAlloc(gpa, "BK_ZIG_PLANT_LEAK") catch return false;
+    defer gpa.free(value);
+    return value.len != 0 and !std.mem.eql(u8, value, "0");
+}
+
+/// Test seam for the planted-leak step only: allocates 4096 bytes from the
+/// shared allocator and drops them, a leak the exit report must count.
+fn plantZigLeak(allocator: std.mem.Allocator) void {
+    _ = allocator.alloc(u8, 4096) catch {};
+}
+
 pub fn main(minimal: std.process.Init.Minimal) !void {
     crt.routeCrtReportsToStderr();
-    const gpa = std.heap.smp_allocator;
+    const gpa = bk_memory.allocator;
+    if (plantZigLeakRequested(gpa, minimal.environ)) plantZigLeak(gpa);
     // Not global_single_threaded: its allocator is .failing by design (a
     // minimal, no-concurrency fallback), which every spawnPosix/spawnWindows
     // allocation under Test in game's std.process.spawn would then fail with

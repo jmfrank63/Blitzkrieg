@@ -6,6 +6,7 @@
 //! its next call.
 const std = @import("std");
 const core = @import("editor_core");
+const bk_memory = @import("bk_memory_allocator");
 /// bridge.h, translated once (build.zig's `editorBridgeC`) and taken through
 /// `editor_kit.host`, so the kit's `Host.session` and this file's
 /// `RealBridge.session` share one opaque type. Two translations of the same
@@ -370,11 +371,10 @@ pub const RealBridge = struct {
         if (total.* == 0) return .ok;
         // BkEditorObjects has no offset, so the whole list is read into C
         // records once and converted. The core has already sized `out`; this
-        // buffer lives only for the call. Not the C allocator: the app links
-        // no libc on Windows (the engine's CRT is linked by the build), and
-        // std.heap.c_allocator needs it.
-        const records = std.heap.page_allocator.alloc(c.BkEditorObjectRecord, total.*) catch return .failed;
-        defer std.heap.page_allocator.free(records);
+        // buffer lives only for the call. It comes from the shared BkMemory
+        // allocator, so a block C++ fills is accounted with the engine's own.
+        const records = bk_memory.allocator.alloc(c.BkEditorObjectRecord, total.*) catch return .failed;
+        defer bk_memory.allocator.free(records);
         var got: c_int = 0;
         const read = status(c.BkEditorObjects(self.session, records.ptr, count, &got));
         if (read != .ok) return read;
@@ -598,8 +598,8 @@ pub const RealBridge = struct {
         total.* = @intCast(count);
         if (out.len < total.*) return .refused;
         if (total.* == 0) return .ok;
-        const records = std.heap.page_allocator.alloc(c.BkEditorSoundRecord, total.*) catch return .failed;
-        defer std.heap.page_allocator.free(records);
+        const records = bk_memory.allocator.alloc(c.BkEditorSoundRecord, total.*) catch return .failed;
+        defer bk_memory.allocator.free(records);
         var got: c_int = 0;
         const read = status(c.BkEditorSounds(self.session, records.ptr, count, &got));
         if (read != .ok) return read;
@@ -865,8 +865,8 @@ pub const RealBridge = struct {
         }
         total.* = @intCast(count);
         if (out.len < total.*) return .refused;
-        const all = std.heap.page_allocator.alloc(c.BkEditorRmgTerrainType, @intCast(count)) catch return .failed;
-        defer std.heap.page_allocator.free(all);
+        const all = bk_memory.allocator.alloc(c.BkEditorRmgTerrainType, @intCast(count)) catch return .failed;
+        defer bk_memory.allocator.free(all);
         var got: c_int = 0;
         const read = status(c.BkEditorRmgTileset(self.session, season, all.ptr, count, &got));
         if (read != .ok) return read;
@@ -897,8 +897,8 @@ pub const RealBridge = struct {
         // listing is refused WITH a count above 0).
         if (count <= 0) return sizing;
         if (out.len < total.*) return .refused;
-        const all = std.heap.page_allocator.alloc(c.BkEditorRmgName, @intCast(count)) catch return .failed;
-        defer std.heap.page_allocator.free(all);
+        const all = bk_memory.allocator.alloc(c.BkEditorRmgName, @intCast(count)) catch return .failed;
+        defer bk_memory.allocator.free(all);
         var got: c_int = 0;
         const read = status(c.BkEditorListStorageFiles(self.session, folder, extension, all.ptr, count, &got));
         if (read != .ok) return read;
@@ -925,8 +925,8 @@ pub const RealBridge = struct {
         total.* = @intCast(@max(count, 0));
         if (count <= 0) return sizing;
         if (out.len < total.*) return .refused;
-        const all = std.heap.page_allocator.alloc(c.BkEditorRmgGraph, @intCast(count)) catch return .failed;
-        defer std.heap.page_allocator.free(all);
+        const all = bk_memory.allocator.alloc(c.BkEditorRmgGraph, @intCast(count)) catch return .failed;
+        defer bk_memory.allocator.free(all);
         var got: c_int = 0;
         const read = status(c.BkEditorRmgTemplateGraphs(self.session, template, all.ptr, count, &got));
         if (read != .ok) return read;
@@ -948,8 +948,8 @@ pub const RealBridge = struct {
         total.* = @intCast(@max(count, 0));
         if (count <= 0) return .ok;
         if (out.len < total.*) return .refused;
-        const all = std.heap.page_allocator.alloc(c.BkEditorRmgName, @intCast(count)) catch return .failed;
-        defer std.heap.page_allocator.free(all);
+        const all = bk_memory.allocator.alloc(c.BkEditorRmgName, @intCast(count)) catch return .failed;
+        defer bk_memory.allocator.free(all);
         var got: c_int = 0;
         const read = status(c.BkEditorListRmg(self.session, @intFromEnum(kind), all.ptr, count, &got));
         if (read != .ok) return read;
@@ -1071,8 +1071,8 @@ pub const RealBridge = struct {
         total.* = @intCast(@max(count, 0));
         if (count <= 0) return .ok;
         if (out.len < total.*) return .refused;
-        const all = std.heap.page_allocator.alloc(c.BkEditorUcName, @intCast(count)) catch return .failed;
-        defer std.heap.page_allocator.free(all);
+        const all = bk_memory.allocator.alloc(c.BkEditorUcName, @intCast(count)) catch return .failed;
+        defer bk_memory.allocator.free(all);
         var got: c_int = 0;
         const read = status(c.BkEditorUnitCreationChoices(self.session, @intFromEnum(kind), all.ptr, count, &got));
         if (read != .ok) return read;
@@ -1210,10 +1210,10 @@ pub const RealBridge = struct {
         // free what is not handed over on every non-OK exit.
         var handed_over = false;
         defer if (!handed_over) allocator.free(mobile);
-        const c_parcels = std.heap.page_allocator.alloc(c.BkEditorAIParcel, @intCast(counted.parcel_count)) catch return .failed;
-        defer std.heap.page_allocator.free(c_parcels);
-        const c_points = std.heap.page_allocator.alloc(c.BkEditorAIPoint, @intCast(counted.point_count)) catch return .failed;
-        defer std.heap.page_allocator.free(c_points);
+        const c_parcels = bk_memory.allocator.alloc(c.BkEditorAIParcel, @intCast(counted.parcel_count)) catch return .failed;
+        defer bk_memory.allocator.free(c_parcels);
+        const c_points = bk_memory.allocator.alloc(c.BkEditorAIPoint, @intCast(counted.point_count)) catch return .failed;
+        defer bk_memory.allocator.free(c_points);
         if (mobile.len != 0 or c_parcels.len != 0 or c_points.len != 0) {
             const read = status(c.BkEditorAIGeneralSide(
                 self.session,
@@ -1270,10 +1270,10 @@ pub const RealBridge = struct {
     fn putAiSide(self: *RealBridge, key: i32, side: record_types.AiSide) Status {
         if (side.side != key or side.side_count > record_types.max_ai_sides) return .bad_argument;
         const total_points = side.pointCount();
-        const c_parcels = std.heap.page_allocator.alloc(c.BkEditorAIParcel, side.parcels.len) catch return .failed;
-        defer std.heap.page_allocator.free(c_parcels);
-        const c_points = std.heap.page_allocator.alloc(c.BkEditorAIPoint, total_points) catch return .failed;
-        defer std.heap.page_allocator.free(c_points);
+        const c_parcels = bk_memory.allocator.alloc(c.BkEditorAIParcel, side.parcels.len) catch return .failed;
+        defer bk_memory.allocator.free(c_parcels);
+        const c_points = bk_memory.allocator.alloc(c.BkEditorAIPoint, total_points) catch return .failed;
+        defer bk_memory.allocator.free(c_points);
         var first: usize = 0;
         for (side.parcels, c_parcels) |parcel, *target| {
             target.* = .{
@@ -1706,8 +1706,8 @@ pub const RealBridge = struct {
         total.* = @intCast(count);
         if (out.len < total.*) return .refused;
         if (total.* == 0) return .ok;
-        const names = std.heap.page_allocator.alloc(c.BkEditorVsoDescriptor, total.*) catch return .failed;
-        defer std.heap.page_allocator.free(names);
+        const names = bk_memory.allocator.alloc(c.BkEditorVsoDescriptor, total.*) catch return .failed;
+        defer bk_memory.allocator.free(names);
         var got: c_int = 0;
         const read = status(c.BkEditorVsoDescriptors(self.session, kindInt(kind), names.ptr, count, &got));
         if (read != .ok) return read;
@@ -1733,10 +1733,10 @@ pub const RealBridge = struct {
         if (info.control_count < 0 or info.key_count < 0) return .failed;
         const control_count: usize = @intCast(info.control_count);
         const key_count: usize = @intCast(info.key_count);
-        const c_controls = std.heap.page_allocator.alloc(c.BkEditorVec3, @max(control_count, 1)) catch return .failed;
-        defer std.heap.page_allocator.free(c_controls);
-        const c_keys = std.heap.page_allocator.alloc(c.BkEditorVsoKeyPoint, @max(key_count, 1)) catch return .failed;
-        defer std.heap.page_allocator.free(c_keys);
+        const c_controls = bk_memory.allocator.alloc(c.BkEditorVec3, @max(control_count, 1)) catch return .failed;
+        defer bk_memory.allocator.free(c_controls);
+        const c_keys = bk_memory.allocator.alloc(c.BkEditorVsoKeyPoint, @max(key_count, 1)) catch return .failed;
+        defer bk_memory.allocator.free(c_keys);
         const read = status(c.BkEditorVso(self.session, kindInt(kind), index, &info, c_controls.ptr, @intCast(c_controls.len), c_keys.ptr, @intCast(c_keys.len)));
         if (read != .ok) return read;
         if (info.control_count != control_count or info.key_count != key_count) return .failed;
@@ -1767,8 +1767,8 @@ pub const RealBridge = struct {
         var desc_buffer: [core.bridge.vso_name_capacity]u8 = undefined;
         const desc_z = terminated(&desc_buffer, desc) orelse return .bad_argument;
         const count = std.math.cast(c_int, points.len) orelse return .bad_argument;
-        const c_points = std.heap.page_allocator.alloc(c.BkEditorVec3, @max(points.len, 1)) catch return .failed;
-        defer std.heap.page_allocator.free(c_points);
+        const c_points = bk_memory.allocator.alloc(c.BkEditorVec3, @max(points.len, 1)) catch return .failed;
+        defer bk_memory.allocator.free(c_points);
         for (points, c_points[0..points.len]) |point, *c_point| c_point.* = toCVec3(point);
         return status(c.BkEditorAddVso(self.session, kindInt(kind), desc_z, c_points.ptr, count, width_tiles, opacity, token, index));
     }
@@ -1780,8 +1780,8 @@ pub const RealBridge = struct {
     fn vtableMoveVsoPoints(ptr: *anyopaque, kind: VsoKind, index: i32, points: []const record_types.Vec3, token: *i32) Status {
         const self = from(ptr);
         const count = std.math.cast(c_int, points.len) orelse return .bad_argument;
-        const c_points = std.heap.page_allocator.alloc(c.BkEditorVec3, @max(points.len, 1)) catch return .failed;
-        defer std.heap.page_allocator.free(c_points);
+        const c_points = bk_memory.allocator.alloc(c.BkEditorVec3, @max(points.len, 1)) catch return .failed;
+        defer bk_memory.allocator.free(c_points);
         for (points, c_points[0..points.len]) |point, *c_point| c_point.* = toCVec3(point);
         return status(c.BkEditorMoveVsoPoints(self.session, kindInt(kind), index, c_points.ptr, count, token));
     }
@@ -1819,8 +1819,8 @@ pub const RealBridge = struct {
         total.* = @intCast(count);
         if (out.len < total.*) return .refused;
         if (total.* == 0) return .ok;
-        const raw = std.heap.page_allocator.alloc(c.BkEditorBridgeDescriptor, total.*) catch return .failed;
-        defer std.heap.page_allocator.free(raw);
+        const raw = bk_memory.allocator.alloc(c.BkEditorBridgeDescriptor, total.*) catch return .failed;
+        defer bk_memory.allocator.free(raw);
         var got: c_int = 0;
         const read = status(c.BkEditorBridgeDescriptors(self.session, raw.ptr, count, &got));
         if (read != .ok) return read;
@@ -1871,8 +1871,8 @@ pub const RealBridge = struct {
         total.* = @intCast(count);
         if (out.len < total.*) return .refused;
         if (total.* == 0) return .ok;
-        const raw = std.heap.page_allocator.alloc(c.BkEditorBridgeInfo, total.*) catch return .failed;
-        defer std.heap.page_allocator.free(raw);
+        const raw = bk_memory.allocator.alloc(c.BkEditorBridgeInfo, total.*) catch return .failed;
+        defer bk_memory.allocator.free(raw);
         var got: c_int = 0;
         const read = status(c.BkEditorBridges(self.session, raw.ptr, count, &got));
         if (read != .ok) return read;
@@ -1920,8 +1920,8 @@ pub const RealBridge = struct {
         total.* = @intCast(count);
         if (out.len < total.*) return .refused;
         if (total.* == 0) return .ok;
-        const raw = std.heap.page_allocator.alloc(c.BkEditorFenceDescriptor, total.*) catch return .failed;
-        defer std.heap.page_allocator.free(raw);
+        const raw = bk_memory.allocator.alloc(c.BkEditorFenceDescriptor, total.*) catch return .failed;
+        defer bk_memory.allocator.free(raw);
         var got: c_int = 0;
         const read = status(c.BkEditorFenceDescriptors(self.session, raw.ptr, count, &got));
         if (read != .ok) return read;
@@ -1947,8 +1947,8 @@ pub const RealBridge = struct {
         if (sizing == .ok) return .ok;
         if (sizing != .refused or count <= 0) return sizing;
         if (out.len < total.*) return .refused;
-        const raw = std.heap.page_allocator.alloc(c.BkEditorPlannedPiece, total.*) catch return .failed;
-        defer std.heap.page_allocator.free(raw);
+        const raw = bk_memory.allocator.alloc(c.BkEditorPlannedPiece, total.*) catch return .failed;
+        defer bk_memory.allocator.free(raw);
         var got: c_int = 0;
         const read = status(c.BkEditorPlanFences(self.session, desc_z, wx0, wy0, wx1, wy1, flag, raw.ptr, count, &got));
         if (read != .ok) return read;
@@ -1986,8 +1986,8 @@ pub const RealBridge = struct {
         if (sizing == .ok) return .ok;
         if (sizing != .refused or count <= 0) return sizing;
         if (out.len < total.*) return .refused;
-        const raw = std.heap.page_allocator.alloc(c.BkEditorPlannedPiece, total.*) catch return .failed;
-        defer std.heap.page_allocator.free(raw);
+        const raw = bk_memory.allocator.alloc(c.BkEditorPlannedPiece, total.*) catch return .failed;
+        defer bk_memory.allocator.free(raw);
         var got: c_int = 0;
         const read = status(c.BkEditorPlanEntrenchment(self.session, points_ptr, @intCast(c_points.len), raw.ptr, count, &got));
         if (read != .ok) return read;
@@ -2018,8 +2018,8 @@ pub const RealBridge = struct {
         total.* = @intCast(count);
         if (out.len < total.*) return .refused;
         if (total.* == 0) return .ok;
-        const raw = std.heap.page_allocator.alloc(c.BkEditorEntrenchmentInfo, total.*) catch return .failed;
-        defer std.heap.page_allocator.free(raw);
+        const raw = bk_memory.allocator.alloc(c.BkEditorEntrenchmentInfo, total.*) catch return .failed;
+        defer bk_memory.allocator.free(raw);
         var got: c_int = 0;
         const read = status(c.BkEditorEntrenchments(self.session, raw.ptr, count, &got));
         if (read != .ok) return read;

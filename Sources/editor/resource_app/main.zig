@@ -57,6 +57,7 @@ const kit = @import("editor_kit");
 const resource_core = @import("resource_core");
 const host_mod = kit.host;
 const crt = kit.crt;
+const bk_memory = @import("bk_memory_allocator");
 const Kind = resource_core.bridge.Kind;
 const lifecycle_ui = @import("lifecycle_ui.zig");
 const panels_logic = @import("panels_logic.zig");
@@ -110,9 +111,24 @@ const max_nodes = 512;
 /// pass a tier that never ran.
 var require_engine = false;
 
+/// BK_ZIG_PLANT_LEAK set to anything but empty or "0" asks for one deliberate
+/// leak, so the planted-leak step can prove BkMemory's count sees Zig blocks.
+fn plantZigLeakRequested(gpa: std.mem.Allocator, environ: std.process.Environ) bool {
+    const value = environ.getAlloc(gpa, "BK_ZIG_PLANT_LEAK") catch return false;
+    defer gpa.free(value);
+    return value.len != 0 and !std.mem.eql(u8, value, "0");
+}
+
+/// Test seam for the planted-leak step only: allocates 4096 bytes from the
+/// shared allocator and drops them, a leak the exit report must count.
+fn plantZigLeak(allocator: std.mem.Allocator) void {
+    _ = allocator.alloc(u8, 4096) catch {};
+}
+
 pub fn main(minimal: std.process.Init.Minimal) !void {
     crt.routeCrtReportsToStderr();
-    const gpa = std.heap.smp_allocator;
+    const gpa = bk_memory.allocator;
+    if (plantZigLeakRequested(gpa, minimal.environ)) plantZigLeak(gpa);
     var threaded: std.Io.Threaded = .init(gpa, .{ .environ = minimal.environ });
     defer threaded.deinit();
     const io = threaded.io();
