@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <SDL3/SDL.h>
+#include "../../Sources/src/BkMemory/bk_memory_sdl.h"
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -430,6 +431,8 @@ int main( int argc, char **argv )
 	_CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_FILE );
 	_CrtSetReportFile( _CRT_ERROR, _CRTDBG_FILE_STDERR );
 #endif
+	// Hooks first: the first SDL call of the process must already allocate through BkMemory.
+	BkMemoryInstallSdlFunctions();
 	if ( !SDL_Init( SDL_INIT_VIDEO ) )
 	{
 		const char *pszError = SDL_GetError();

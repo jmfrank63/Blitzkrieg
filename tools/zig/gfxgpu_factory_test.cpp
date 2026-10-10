@@ -30,6 +30,7 @@ void ToLower( std::string &value ) {
 #endif
 
 #include <SDL3/SDL.h>
+#include "../../Sources/src/BkMemory/bk_memory_sdl.h"
 
 #include <csignal>
 #include <cstdio>
@@ -237,6 +238,8 @@ namespace
     bool EnsureBorrowedWindow()
     {
         if ( borrowed_window != nullptr ) return true;
+        // Hooks first: the first SDL call of the process must already allocate through BkMemory.
+        BkMemoryInstallSdlFunctions();
         SDL_SetHint( SDL_HINT_VIDEO_DRIVER, "dummy" );
         if ( !SDL_InitSubSystem( SDL_INIT_VIDEO ) )
         {

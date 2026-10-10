@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <SDL3/SDL.h>
+#include "../../Sources/src/BkMemory/bk_memory_sdl.h"
 #include <map>
 #include <set>
 #include "../../Sources/src/EditorBridge/bridge.h"
@@ -11758,6 +11759,8 @@ int main( int argc, char **argv )
 	// A real hidden window, never a null handle: passing 0 would take the
 	// no-device path on every machine and the tier would skip itself into
 	// always-green.
+	// Hooks first: the first SDL call of the process must already allocate through BkMemory.
+	BkMemoryInstallSdlFunctions();
 	if ( !SDL_Init( SDL_INIT_VIDEO ) )
 	{
 		const char *pszError = SDL_GetError();

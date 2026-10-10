@@ -1,6 +1,7 @@
 #include "Paths.h"
 #if !defined(BLITZKRIEG_PATHS_TEST)
 #include <SDL3/SDL.h>
+#include "../BkMemory/bk_memory_sdl.h"
 #endif
 #include <cstdlib>
 #if !defined(_WIN32)
@@ -62,6 +63,13 @@ std::string preferenceRoot() {
 
 namespace NPlatform::Paths {
 bool Initialize() {
+#if !defined(BLITZKRIEG_PATHS_TEST)
+    // This is the first SDL call of a module that is not an SDL application: StreamIO's
+    // option bridge reads the install root from a static initializer, ahead of the exe's own
+    // hooks. SDL caches what GetBasePath returns until SDL_Quit, and a block cached before the
+    // hooks would be freed through BkMemory. Repeating the call is harmless.
+    BkMemoryInstallSdlFunctions();
+#endif
     if (gInitialized && !gBase.empty() && !gUser.empty()) return true;
     if (gInitialized) {
         gBase.clear();

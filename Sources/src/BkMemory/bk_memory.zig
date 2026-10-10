@@ -245,10 +245,16 @@ export fn bk_mem_live_bytes() callconv(.c) usize {
 /// count (the live-block count when the backend keeps no leak records). Later
 /// calls return the same count.
 export fn bk_mem_report() callconv(.c) usize {
+    return reportImpl(true);
+}
+
+/// `print` false counts the leaks without logging them: a tier that leaks
+/// hundreds of thousands of blocks spends minutes symbolizing their stacks.
+fn reportImpl(print: bool) usize {
     if (@cmpxchgStrong(bool, &closed, false, true, .acq_rel, .acquire) != null) {
         return @atomicLoad(usize, &report_leaks, .acquire);
     }
-    const leaks: usize = if (use_safe) instance.deinit() else @atomicLoad(usize, &live_count, .monotonic);
+    const leaks: usize = if (use_safe) instance.deinitLog(print) else @atomicLoad(usize, &live_count, .monotonic);
     @atomicStore(usize, &report_leaks, leaks, .release);
     return leaks;
 }
@@ -269,10 +275,11 @@ const exit_in_use: u32 = 4;
 
 /// What the detach report does. `fail` is the strict form (leaks exit 3),
 /// `log` reports the same way but never fails on leaks, so a tier stays green
-/// while the leaks it names are still being fixed.
-const ReportPolicy = enum { off, fail, log };
+/// while the leaks it names are still being fixed. `count` is `log` without the
+/// per-block stacks, for tiers whose leak report would run to megabytes.
+const ReportPolicy = enum { off, fail, log, count };
 
-/// BK_MEM_REPORT=0|1|log overrides the build default for diagnosis. Any value
+/// BK_MEM_REPORT=0|1|log|count overrides the build default for diagnosis. Any value
 /// needs a backend with leak records; without one the policy is always `off`.
 fn reportPolicy() ReportPolicy {
     if (!use_safe) return .off;
@@ -290,6 +297,7 @@ fn reportPolicy() ReportPolicy {
     }
     if (std.mem.eql(u8, value, "1")) return .fail;
     if (std.mem.eql(u8, value, "log")) return .log;
+    if (std.mem.eql(u8, value, "count")) return .count;
     if (std.mem.eql(u8, value, "0")) return .off;
     return default;
 }
@@ -318,9 +326,9 @@ fn detachHook() void {
             }
         }
     }
-    const leaks = bk_mem_report();
-    if (policy == .log) {
-        // The full report with stacks came from bk_mem_report; this is the
+    const leaks = reportImpl(policy != .count);
+    if (policy == .log or policy == .count) {
+        // For `log` the full report with stacks came from reportImpl; this is the
         // one line a script can count, printed for a clean run too.
         log.warn("bk_mem: {d} leaked block(s)", .{leaks});
         return;

@@ -62,7 +62,10 @@ BK_MEMORY_API size_t bk_mem_live_bytes(void);
  *   log  the same report plus a line "bk_mem: N leaked block(s)" on stderr
  *        (also when N is 0), but the exit code is not changed. For tiers that
  *        must stay green while known leaks are fixed.
- * A backend without leak records ignores all three. */
+ *   count  as log, but the report is the summary line only, without the
+ *        per-block stacks. For tiers whose leaks number in the hundreds of
+ *        thousands, where symbolizing the stacks takes minutes.
+ * A backend without leak records ignores all of them. */
 BK_MEMORY_API size_t bk_mem_report(void);
 BK_MEMORY_API size_t bk_mem_closed_free_count(void);
 
