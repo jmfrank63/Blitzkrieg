@@ -84,6 +84,61 @@ What S02 must check per module:
   `BkMemory.x64.def`, so it carries only the `bk_mem_*` imports; with it after the CRT libraries the DLL entry
   point is the CRT's `_DllMainCRTStartup`.
 
+### Roll-out and import audit (M003 S02 T02)
+
+Every C++ module that is a DLL or an exe in the Game, Map Editor, Resource Editor and engine-hosted test graphs
+gets `new_delete.cpp`, the dynamic CRT and `BkMemory.lib` through one of three helpers in `build.zig`, all calling
+the same `linkEngineCxxRuntimeFlags`:
+
+- `linkEngineCxxRuntimeEngine`: the module's sources use the engine's cppflags. `new_delete.cpp` is compiled with the
+  same flags, because the debug STL records `_ITERATOR_DEBUG_LEVEL` in each object and lld-link refuses a level 2
+  object next to a level 0 one (measured: `/failifmismatch` on every engine DLL when `new_delete.cpp` was built with
+  plain `-std=c++17`).
+- `linkEngineCxxRuntimeFlags(b, module, optimize, flags)`: the platform tests whose sources use `cppflags_debug` or
+  `cppflags_release` directly.
+- `linkEngineCxxRuntime`: plain `-std=c++17` modules (the BkMemory test modules, PlatformRuntime and its consumers).
+
+The call goes immediately after `createModule`, before any of the module's own C++ sources: with the sources
+first, lld resolves their `operator new` references to the lazily loaded `msvcrtd.lib` members and then reports the
+operators again from `new_delete.obj` (measured on PlatformRuntime and every engine DLL).
+
+Modules with the helper: PlatformRuntime, StreamIOOptionsAbi (options bridge), StreamIO (legacy bridge), Scene,
+AILogic, GameTT, Game, Image, Net, Input, Anim, UI, SFX, GFX, GFXGPU, BuildVersion, BetaKeyGen, FontGen,
+map-file-test, editor-bridge-test, resource-bridge tiers, `linkEditorEngine` (MapEditor, ResourceEditor and the Zig
+editor tiers, which gained `addMsvcIncludePaths` because `new_delete.cpp` is the only C++ in them),
+random-missions-test, rmg-determinism-test, composer-roundtrip-test, preview-scene-spike, resource-mod-roundtrip,
+input-module-test, sfx-module-test, and the platform-foundation and platform-client tests (runtime lifecycle, client,
+clock, sync, debug, dynamic library, module, storage gate, consumers A and B), plus gfxgpu-abi-test, options-bridge-test,
+net-module-test, gfxgpu-factory-test and console-bridge-test.
+
+Left out on purpose: the static libraries (zlib, libpng, LuaLib, Misc, Formats, RandomMapGen, MapFile, Common,
+Main, the editor bridge archive), which resolve the operators through the DLL or exe that links them; the pure Zig
+modules (CloudSync, BkMemory itself, GfxGpuZig, StreamIO's Zig core); `platform-abi-layout-test` (header layout
+only, never allocates) and the ImGui static module; the Input/Resource model test modules built without engine DLLs.
+
+`BkMemory.dll` (`libBkMemory.so`/`.dylib`) is a load-time import, so it is staged beside the Game and both editors
+(`stage_runtime_files`, the debug-file list and `verify-x64-runtime`'s required list).
+
+Executables that enter at `main` instead of `mainCRTStartup` (gfxgpu-factory-test, the abi and bridge tests) have no
+CRT startup. Returning from such a `main` ends the process's last thread before BkMemory's detach report, and the
+report reads thread-local storage (the smp allocator's thread index, `std.debug.lockStderr`'s Io state), so a
+report that has anything to print faults with exit code 5 (0xC0000005) instead of reporting. gfxgpu-factory-test now
+leaves through `std::exit`, which runs the report on the live thread. Any other `main`-entry harness that gets
+leak reports on must do the same.
+
+`zig build bk-memory-import-audit` (`tools/zig/bk_memory_import_audit.zig`, unit-tested by
+`test-bk-memory-import-audit` on in-memory PE images) parses the import tables of the staged shipped modules
+(`stage_runtime_files`, the two editors if installed) and of each built engine-hosted tool (passed as an artifact, so a
+stale test exe left in the layout cannot decide the result). It fails, naming the module and symbol, when a module
+imports `??2@`, `??3@`, `??_U@` or `??_V@` from `msvcp*`/`vcruntime*`/`ucrtbase*`/`api-ms-win-crt*`, or imports
+`msvcp*` without importing `BkMemory.dll`. A `vcruntime`-only import does not mark a module as C++: pure Zig
+CloudSync.dll imports it for `memcpy`. Allowlist: `SDL3.dll`, `rclone.exe` (third party) and `BkMemory.dll` itself.
+
+Result on win-home (Windows x64 MSVC, Debug): 24 modules audited, 0 failures; every engine DLL, Game.exe,
+MapEditor.exe, ResourceEditor.exe and the six engine-hosted tools import `BkMemory.dll` and no CRT operator.
+CloudSync.dll imports neither the C++ standard library nor BkMemory. Linux and macOS: not run (the step prints
+"not run on <os>"; the layouts are ELF and Mach-O).
+
 ELF and Mach-O: the spec asked to check interposition and `-Bsymbolic`. Not run in S01; on those platforms the
 per-module copies and the `.fini_array` hook are compiled for Linux but unexercised.
 
@@ -228,6 +283,9 @@ Decision:
 | `-Dbk-mem-allocator=safe_c` / `crt` with the cross test | link fails (duplicate CRT symbols), benchmark only | not run | not run | not run |
 | `bk-memory-bench` table above | measured | not run | not run | not run |
 | symbol names in leak stacks | exe yes, DLL addresses only | not run | not run | not run |
+| every C++ module on the allocator, PE import audit (`bk-memory-import-audit`) | pass: 24 modules, 0 CRT operator imports | not run | not run | not run |
+| `test-platform-foundation`, `test-platform-client`, `test-bk-memory` after the roll-out | pass | not run | not run | not run |
+| `test-input-module`, `test-sfx-module`, `test-net-module`, `test-console-bridge`, `gfxgpu-factory-test`, `verify-x64-runtime` | fail on leak reports only (exit 3), expected until BK_MEM_REPORT=log in T04 | not run | not run | not run |
 | random missions `repeat=20` heap | deferred to S02 | not run | not run | not run |
 | Game frame time on a heavy map | deferred to S02 | not run | not run | not run |
 | `.fini_array` detach hook | compiled for Linux, not exercised | not run | not applicable | not applicable |

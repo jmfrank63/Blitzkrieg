@@ -963,6 +963,11 @@ pub fn build(b: *std.Build) void {
         @panic("Windows target on a non-Windows host requires explicit MSVC/Windows SDK paths: pass -Dmsvc-include, -Dwindows-sdk-include, -Dmsvc-lib, and -Dwindows-sdk-lib.");
     }
 
+    // BkMemory is created before the first C++ module so every module below can link it
+    // through linkEngineCxxRuntime, the PlatformRuntime and its test consumers included.
+    const bk_mem_allocator = b.option(BkMemAllocator, "bk-mem-allocator", "BkMemory backend: safe (SafeAllocator leak records over smp, the default), safe_page, safe_c, smp or crt") orelse .safe;
+    bk_memory_artifact = addBkMemory(b, target, optimize, toolchain, bk_mem_allocator);
+
     const platform_abi_layout_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     platform_abi_layout_module.addIncludePath(b.path("Sources/src"));
     platform_abi_layout_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_abi_layout_test.cpp"), .flags = &.{"-std=c++17"} });
@@ -1001,6 +1006,7 @@ pub fn build(b: *std.Build) void {
     // -- and on Windows it also pinned the CRT, so a release build there would
     // have mixed debug and release CRTs across the DLL boundary.
     const platform_runtime_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    linkEngineCxxRuntime(b, platform_runtime_module, optimize);
     platform_runtime_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, platform_runtime_module);
     platform_runtime_module.addCMacro("BK_PLATFORM_RUNTIME_BUILD", "1");
@@ -1008,11 +1014,9 @@ pub fn build(b: *std.Build) void {
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/Clock.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/SocketWin32.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_module.addCSourceFile(.{ .file = b.path("Sources/src/Platform/SocketPosix.cpp"), .flags = &.{"-std=c++17"} });
-    linkCxxRuntime(platform_runtime_module, target);
     if (build_support.usesMsvc(platform)) {
         addMsvcIncludePaths(b, platform_runtime_module, toolchain);
         addMsvcLibraryPaths(b, platform_runtime_module, toolchain);
-        linkMsvcRuntime(platform_runtime_module, optimize);
     }
     // Winsock is a property of the OS, not of the toolchain: MinGW needs it just
     // as much as MSVC does, and bundling the two together left the GNU ABI
@@ -1027,15 +1031,14 @@ pub fn build(b: *std.Build) void {
         .win32_module_definition = if (platform == .windows_x64) b.path("Sources/src/PlatformABI/PlatformRuntime.def") else null,
     });
     const platform_runtime_test_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    linkEngineCxxRuntime(b, platform_runtime_test_module, .debug);
     platform_runtime_test_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, platform_runtime_test_module);
     platform_runtime_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_runtime_lifecycle_test.cpp"), .flags = &.{"-std=c++17"} });
     platform_runtime_test_module.linkLibrary(platform_runtime);
-    linkCxxRuntime(platform_runtime_test_module, target);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_runtime_test_module, toolchain);
         addMsvcLibraryPaths(b, platform_runtime_test_module, toolchain);
-        linkMsvcRuntime(platform_runtime_test_module, .debug);
     }
     const platform_runtime_test = b.addExecutable(.{ .name = "platform-runtime-lifecycle-test", .root_module = platform_runtime_test_module });
     if (platform == .windows_x64) {
@@ -1049,25 +1052,25 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) platform_runtime_step.dependOn(&platform_runtime_run.step);
 
     const consumer_a_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    linkEngineCxxRuntime(b, consumer_a_module, .debug);
     consumer_a_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, consumer_a_module);
     consumer_a_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_a.cpp" }, .flags = &.{"-std=c++17"} });
     consumer_a_module.linkLibrary(platform_runtime);
-    linkCxxRuntime(consumer_a_module, target);
     const consumer_a = b.addLibrary(.{ .name = "platform-consumer-a", .linkage = .dynamic, .root_module = consumer_a_module });
     const consumer_b_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    linkEngineCxxRuntime(b, consumer_b_module, .debug);
     consumer_b_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, consumer_b_module);
     consumer_b_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_b.cpp" }, .flags = &.{"-std=c++17"} });
     consumer_b_module.linkLibrary(platform_runtime);
-    linkCxxRuntime(consumer_b_module, target);
     const consumer_b = b.addLibrary(.{ .name = "platform-consumer-b", .linkage = .dynamic, .root_module = consumer_b_module });
     const client_test_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    linkEngineCxxRuntime(b, client_test_module, .debug);
     client_test_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, client_test_module);
     client_test_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_client_test.cpp" }, .flags = &.{"-std=c++17"} });
     client_test_module.linkLibrary(platform_runtime);
-    linkCxxRuntime(client_test_module, target);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, consumer_a_module, toolchain);
         addMsvcLibraryPaths(b, consumer_a_module, toolchain);
@@ -1075,9 +1078,6 @@ pub fn build(b: *std.Build) void {
         addMsvcLibraryPaths(b, consumer_b_module, toolchain);
         addMsvcIncludePaths(b, client_test_module, toolchain);
         addMsvcLibraryPaths(b, client_test_module, toolchain);
-        linkMsvcRuntime(consumer_a_module, .debug);
-        linkMsvcRuntime(consumer_b_module, .debug);
-        linkMsvcRuntime(client_test_module, .debug);
     }
     const client_test = b.addExecutable(.{ .name = "platform-client-test", .root_module = client_test_module });
     if (platform == .windows_x64) {
@@ -1122,11 +1122,11 @@ pub fn build(b: *std.Build) void {
     }
 
     const platform_clock_module = b.createModule(.{ .target = target, .optimize = .debug });
+    linkEngineCxxRuntime(b, platform_clock_module, .debug);
     addProjectIncludePaths(b, platform_clock_module);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_clock_module, toolchain);
         addMsvcLibraryPaths(b, platform_clock_module, toolchain);
-        linkMsvcRuntime(platform_clock_module, .debug);
     }
     platform_clock_module.addIncludePath(b.path("Sources/src/Misc"));
     platform_clock_module.addCSourceFiles(.{
@@ -1146,11 +1146,11 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) platform_clock_step.dependOn(&platform_clock_run.step);
 
     const platform_sync_module = b.createModule(.{ .target = target, .optimize = .debug });
+    linkEngineCxxRuntimeFlags(b, platform_sync_module, .debug, if (platform == .windows_x64) cppflags_debug else &.{});
     addProjectIncludePaths(b, platform_sync_module);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_sync_module, toolchain);
         addMsvcLibraryPaths(b, platform_sync_module, toolchain);
-        linkMsvcRuntime(platform_sync_module, .debug);
     }
     platform_sync_module.addIncludePath(b.path("Sources/src/Misc"));
     platform_sync_module.addCSourceFiles(.{
@@ -1171,11 +1171,11 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) platform_sync_step.dependOn(&platform_sync_run.step);
 
     const platform_debug_module = b.createModule(.{ .target = target, .optimize = .debug });
+    linkEngineCxxRuntimeFlags(b, platform_debug_module, .debug, if (platform == .windows_x64) cppflags_debug else &.{});
     addProjectIncludePaths(b, platform_debug_module);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_debug_module, toolchain);
         addMsvcLibraryPaths(b, platform_debug_module, toolchain);
-        linkMsvcRuntime(platform_debug_module, .debug);
     }
     platform_debug_module.addCSourceFiles(.{
         .files = &.{
@@ -1186,7 +1186,6 @@ pub fn build(b: *std.Build) void {
         .flags = if (platform == .windows_x64) cppflags_debug else &.{},
     });
     platform_debug_module.linkLibrary(platform_runtime);
-    linkCxxRuntime(platform_debug_module, target);
     const platform_debug_test = b.addExecutable(.{ .name = "platform-debug-test", .root_module = platform_debug_module });
     platform_debug_test.subsystem = .console;
     if (platform == .windows_x64) platform_debug_test.entry = .{ .symbol_name = "mainCRTStartup" };
@@ -1197,11 +1196,11 @@ pub fn build(b: *std.Build) void {
     if (test_mode == .run) platform_debug_step.dependOn(&platform_debug_run.step);
 
     const platform_test_module_module = b.createModule(.{ .target = target, .optimize = .fast });
+    linkEngineCxxRuntimeFlags(b, platform_test_module_module, .fast, if (platform == .windows_x64) cppflags_debug else &.{});
     platform_test_module_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_test_module.cpp"), .flags = if (platform == .windows_x64) cppflags_release else &.{} });
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_test_module_module, toolchain);
         addMsvcLibraryPaths(b, platform_test_module_module, toolchain);
-        linkMsvcRuntime(platform_test_module_module, .fast);
     }
     const platform_test_module = b.addLibrary(.{ .name = "platform-test-module", .linkage = .dynamic, .root_module = platform_test_module_module });
     const sdl_dynamic_dep = b.dependency("sdl", .{
@@ -1215,11 +1214,11 @@ pub fn build(b: *std.Build) void {
     });
     const sdl_dynamic = sdl_dynamic_dep.artifact("SDL3");
     const platform_dynamic_module = b.createModule(.{ .target = target, .optimize = .fast });
+    linkEngineCxxRuntimeFlags(b, platform_dynamic_module, .fast, if (platform == .windows_x64) cppflags_release else &.{});
     addProjectIncludePaths(b, platform_dynamic_module);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_dynamic_module, toolchain);
         addMsvcLibraryPaths(b, platform_dynamic_module, toolchain);
-        linkMsvcRuntime(platform_dynamic_module, .fast);
         platform_dynamic_module.linkSystemLibrary("kernel32", .{});
     }
     platform_dynamic_module.addCSourceFiles(.{
@@ -1231,7 +1230,6 @@ pub fn build(b: *std.Build) void {
         .flags = if (platform == .windows_x64) cppflags_release else &.{},
     });
     platform_dynamic_module.linkLibrary(platform_runtime);
-    linkCxxRuntime(platform_dynamic_module, target);
     const platform_dynamic_test = b.addExecutable(.{ .name = "platform-dynamic-library-test", .root_module = platform_dynamic_module });
     platform_dynamic_test.subsystem = .console;
     if (platform == .windows_x64) platform_dynamic_test.entry = .{ .symbol_name = "mainCRTStartup" };
@@ -1758,9 +1756,9 @@ pub fn build(b: *std.Build) void {
     const rclone_bundle = build_support.bundledRclone(platform);
     const stage_runtime_files = stage_files: {
         const engine_files: []const []const u8 = switch (target.result.os.tag) {
-            .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "CloudSync.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
-            .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libCloudSync.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
-            .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libCloudSync.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
+            .windows => &[_][]const u8{ "Game.exe", "PlatformRuntime.dll", "BkMemory.dll", "StreamIO.dll", "StreamIOOptionsAbi.dll", "CloudSync.dll", "Anim.dll", "GFXGPU.dll", "SDL3.dll", "Image.dll", "Input.dll", "Net.dll", "SFX.dll", "UI.dll", "Scene.dll", "AILogic.dll", "GameTT.dll" },
+            .linux => &[_][]const u8{ "Game", "libPlatformRuntime.so", "libBkMemory.so", "libStreamIO.so", "libStreamIOOptionsAbi.so", "libCloudSync.so", "libAnim.so", "libGFXGPU.so", "libGfxGpuZig.so", "libSDL3.so.0", "libImage.so", "libInput.so", "libNet.so", "libSFX.so", "libUI.so", "libScene.so", "libAILogic.so", "libGameTT.so" },
+            .macos => &[_][]const u8{ "Game", "libPlatformRuntime.dylib", "libBkMemory.dylib", "libStreamIO.dylib", "libStreamIOOptionsAbi.dylib", "libCloudSync.dylib", "libAnim.dylib", "libGFXGPU.dylib", "libSDL3.dylib", "libImage.dylib", "libInput.dylib", "libNet.dylib", "libSFX.dylib", "libUI.dylib", "libScene.dylib", "libAILogic.dylib", "libGameTT.dylib" },
             else => &[_][]const u8{stage_game_name},
         };
         const files = b.allocator.alloc([]const u8, engine_files.len + 1) catch @panic("OOM");
@@ -1769,7 +1767,7 @@ pub fn build(b: *std.Build) void {
         break :stage_files files;
     };
     const stage_debug_files = if (target.result.os.tag == .windows)
-        &[_][]const u8{ "Game.pdb", "StreamIO.pdb", "StreamIOOptionsAbi.pdb", "Anim.pdb", "GFXGPU.pdb", "Image.pdb", "Input.pdb", "Net.pdb", "SFX.pdb", "UI.pdb", "Scene.pdb", "AILogic.pdb", "GameTT.pdb" }
+        &[_][]const u8{ "Game.pdb", "BkMemory.pdb", "StreamIO.pdb", "StreamIOOptionsAbi.pdb", "Anim.pdb", "GFXGPU.pdb", "Image.pdb", "Input.pdb", "Net.pdb", "SFX.pdb", "UI.pdb", "Scene.pdb", "AILogic.pdb", "GameTT.pdb" }
     else
         &[_][]const u8{};
     const gfx_gpu_abi_test_module = b.createModule(.{
@@ -1778,6 +1776,7 @@ pub fn build(b: *std.Build) void {
         .target = dependency_target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, gfx_gpu_abi_test_module, optimize);
     gfx_gpu_abi_test_module.addCSourceFiles(.{
         .files = &.{"tools/zig/gfxgpu_abi_test.cpp"},
         .flags = cppflagsForTarget(target, optimize),
@@ -1787,7 +1786,6 @@ pub fn build(b: *std.Build) void {
     addLinuxCxxIncludePaths(b, gfx_gpu_abi_test_module);
     addMsvcLibraryPaths(b, gfx_gpu_abi_test_module, toolchain);
     gfx_gpu_abi_test_module.linkLibrary(gfx_gpu_zig);
-    linkMsvcRuntime(gfx_gpu_abi_test_module, optimize);
     const gfx_gpu_abi_test = b.addExecutable(.{
         .name = "gfxgpu-abi-test",
         .root_module = gfx_gpu_abi_test_module,
@@ -1958,6 +1956,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, options_bridge_test_module, optimize);
     options_bridge_test_module.addCSourceFile(.{
         .file = b.path("tools/zig/options_bridge_test.cpp"),
         .flags = cppflagsForOptimize(optimize),
@@ -1965,7 +1964,6 @@ pub fn build(b: *std.Build) void {
     addProjectIncludePaths(b, options_bridge_test_module);
     addMsvcIncludePaths(b, options_bridge_test_module, toolchain);
     addMsvcLibraryPaths(b, options_bridge_test_module, toolchain);
-    linkMsvcRuntime(options_bridge_test_module, optimize);
     if (target.result.os.tag == .windows) {
         options_bridge_test_module.linkSystemLibrary("oleaut32", .{});
         options_bridge_test_module.linkSystemLibrary("comsuppw", .{});
@@ -1992,11 +1990,11 @@ pub fn build(b: *std.Build) void {
         .link_libc = !build_support.usesMsvc(platform),
         .link_libcpp = build_support.needsBundledLibcpp(platform),
     });
+    linkEngineCxxRuntimeEngine(b, platform_module_test_module, .debug);
     const platform_module_test_flags: []const []const u8 = if (platform == .windows_x64) cppflagsForOptimize(.debug) else &.{"-std=c++17"};
     platform_module_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_module_test.cpp"), .flags = platform_module_test_flags });
     addMsvcIncludePaths(b, platform_module_test_module, toolchain);
     addMsvcLibraryPaths(b, platform_module_test_module, toolchain);
-    linkMsvcRuntime(platform_module_test_module, .debug);
     const platform_module_test = b.addExecutable(.{ .name = "platform-module-test", .root_module = platform_module_test_module });
     if (platform == .windows_x64) {
         platform_module_test.subsystem = .console;
@@ -2011,16 +2009,16 @@ pub fn build(b: *std.Build) void {
     platform_module_test_step.dependOn(&platform_module_test.step);
     if (test_mode == .run) platform_module_test_step.dependOn(&platform_module_test_run.step);
     const platform_storage_gate_module = b.createModule(.{ .target = target, .optimize = .debug });
+    linkEngineCxxRuntimeEngine(b, platform_storage_gate_module, .debug);
     var storage_gate_flags: std.ArrayListUnmanaged([]const u8) = .empty;
     storage_gate_flags.appendSlice(b.allocator, cppflagsForOptimize(.debug)) catch @panic("OOM");
     storage_gate_flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
     platform_storage_gate_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_storage_gate.cpp"), .flags = storage_gate_flags.items });
     addMsvcIncludePaths(b, platform_storage_gate_module, toolchain);
     addMsvcLibraryPaths(b, platform_storage_gate_module, toolchain);
-    linkMsvcRuntime(platform_storage_gate_module, .debug);
     const platform_storage_gate = b.addExecutable(.{ .name = "platform-storage-gate", .root_module = platform_storage_gate_module });
     platform_storage_gate.subsystem = .console;
-    platform_storage_gate.entry = .{ .symbol_name = "main" };
+    platform_storage_gate.entry = .{ .symbol_name = "mainCRTStartup" };
     const platform_storage_gate_run = b.addRunArtifact(platform_storage_gate);
     platform_storage_gate_run.setCwd(b.path("."));
     const platform_storage_gate_step = b.step("test-platform-storage", "Run config/save/package storage gate");
@@ -2038,8 +2036,6 @@ pub fn build(b: *std.Build) void {
     // installed into the game layout; the packet that gives the game a reason
     // to load it is the packet that adds it to the staged runtime files.
     const cloudsync = addCloudSync(b, target, optimize, toolchain);
-    const bk_mem_allocator = b.option(BkMemAllocator, "bk-mem-allocator", "BkMemory backend: safe (SafeAllocator leak records over smp, the default), safe_page, safe_c, smp or crt") orelse .safe;
-    bk_memory_artifact = addBkMemory(b, target, optimize, toolchain, bk_mem_allocator);
     // The library itself is exercised through the test steps; a plain
     // `zig build` should not have to relink it, so it is only installed by
     // the steps that need it.
@@ -2058,12 +2054,12 @@ pub fn build(b: *std.Build) void {
     // Compile check for the replacement operator new/delete TU: built with the
     // zig tier in every test mode; the runtime proof is the cross-module test.
     const bk_new_delete_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    linkEngineCxxRuntime(b, bk_new_delete_module, optimize);
     addLinuxCxxIncludePaths(b, bk_new_delete_module);
     if (build_support.usesMsvc(platform)) {
         addMsvcIncludePaths(b, bk_new_delete_module, toolchain);
         addMsvcLibraryPaths(b, bk_new_delete_module, toolchain);
     }
-    linkEngineCxxRuntime(b, bk_new_delete_module, optimize);
     const bk_new_delete_check = b.addLibrary(.{ .name = "BkNewDeleteCheck", .linkage = .static, .root_module = bk_new_delete_module });
     test_bk_memory_zig_step.dependOn(&bk_new_delete_check.step);
     // Cross-module proof: two DLLs and an exe, each with its own operator
@@ -2223,6 +2219,9 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(gamett);
     b.installArtifact(streamio_zig);
     b.installArtifact(cloudsync);
+    // Every C++ module imports BkMemory at load time, so it is staged beside the
+    // game and both editors; the installs below find it in the same layout.
+    b.installArtifact(bk_memory_artifact.?);
     b.installArtifact(game);
     b.installArtifact(gfx_gpu_zig);
 
@@ -2245,12 +2244,12 @@ pub fn build(b: *std.Build) void {
     net_step.dependOn(&b.addInstallArtifact(net, .{}).step);
 
     const net_module_test_module = b.createModule(.{ .target = target, .optimize = .debug });
+    linkEngineCxxRuntimeEngine(b, net_module_test_module, .debug);
     net_module_test_module.addCSourceFile(.{ .file = b.path("tools/zig/net_module_test.cpp"), .flags = cppflagsForTarget(target, .debug) });
     addProjectIncludePaths(b, net_module_test_module);
     net_module_test_module.addIncludePath(b.path("Sources/src/Net"));
     addMsvcIncludePaths(b, net_module_test_module, toolchain);
     addMsvcLibraryPaths(b, net_module_test_module, toolchain);
-    linkMsvcRuntime(net_module_test_module, .debug);
     net_module_test_module.linkLibrary(misc);
     net_module_test_module.linkLibrary(platform_runtime);
     const net_module_test = b.addExecutable(.{ .name = "net-module-test", .root_module = net_module_test_module });
@@ -2319,6 +2318,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, gfx_gpu_factory_test_module, optimize);
     gfx_gpu_factory_test_module.addCSourceFiles(.{
         .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp" },
         // These are the real engine sources, so they need the portable CRT
@@ -2334,7 +2334,6 @@ pub fn build(b: *std.Build) void {
     addLinuxCxxIncludePaths(b, gfx_gpu_factory_test_module);
     addMsvcLibraryPaths(b, gfx_gpu_factory_test_module, toolchain);
     addMacosSysrootPaths(b, gfx_gpu_factory_test_module, target);
-    linkMsvcRuntime(gfx_gpu_factory_test_module, optimize);
     gfx_gpu_factory_test_module.linkLibrary(gfx_gpu_zig);
     // gfx_gpu_zig already brings the dynamic SDL3 in, the same copy the GFXGPU
     // module this harness dlopens was linked against. Linking the static SDL3
@@ -2435,6 +2434,7 @@ pub fn build(b: *std.Build) void {
     game_all_step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(ui, .{}).step);
     game_all_step.dependOn(&b.addInstallArtifact(cloudsync, .{}).step);
+    game_all_step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
 
     // Only the archive matching -Dtarget is ever asked for, and it is lazy, so
     // the ~31 MB download is not part of the eager dependency set.
@@ -2493,6 +2493,37 @@ pub fn build(b: *std.Build) void {
         .install_subdir = "mods/EditorTestMod",
     });
 
+    // R045/R046: every C++ module in the staged layout allocates through BkMemory.
+    // The audit reads the PE import tables of what install-game (and, if they were
+    // installed, the editors) put in the layout; it does not install the editors
+    // itself. Off Windows it reports "not run" and succeeds.
+    const bk_audit_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_memory_import_audit.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    });
+    const bk_audit = b.addExecutable(.{ .name = "bk-memory-import-audit", .root_module = bk_audit_module });
+    const bk_audit_run_step = b.addRunArtifact(bk_audit);
+    bk_audit_run = bk_audit_run_step;
+    bk_audit_run_step.setCwd(b.path("."));
+    bk_audit_run_step.addArgs(&.{ "--os", @tagName(target.result.os.tag), "--dir", stage_root });
+    if (target.result.os.tag == .windows) {
+        // The shipped set, by name: a stale file left in the layout by an earlier
+        // build must not decide the result. The editors are optional because the
+        // caller may not have installed them; their imports are audited when they
+        // are there.
+        for (stage_runtime_files) |name| bk_audit_run_step.addArgs(&.{ "--module", name });
+        bk_audit_run_step.addArgs(&.{ "--optional", "MapEditor.exe", "--optional", "ResourceEditor.exe" });
+    }
+    bk_audit_run_step.step.dependOn(install_game_step);
+    const bk_audit_step = b.step("bk-memory-import-audit", "Fail if a staged C++ module binds a CRT operator new/delete or lacks the BkMemory.dll import");
+    bk_audit_step.dependOn(&bk_audit_run_step.step);
+    const bk_audit_tests = b.addTest(.{ .root_module = bk_audit_module });
+    const bk_audit_tests_run = b.addRunArtifact(bk_audit_tests);
+    const bk_audit_test_step = b.step("test-bk-memory-import-audit", "Unit-test the PE import-table audit on in-memory images");
+    bk_audit_test_step.dependOn(&bk_audit_tests.step);
+    if (test_mode == .run) bk_audit_test_step.dependOn(&bk_audit_tests_run.step);
+
     // After install-game, whose step it depends on: the tier's executable is
     // staged into the layout that step creates.
     addEditorBridgeTest(b, target, optimize, toolchain, editor_bridge, map_file, formats, randommapgen, misc, main, lualib, zlib, platform_runtime, sdl_dynamic, sdl_dynamic_dep.path("include"), stage_root, install_game_step, test_mode, &install_fixture_mod.step);
@@ -2547,6 +2578,7 @@ pub fn build(b: *std.Build) void {
     // slots match either way, so only an actual round trip catches a width
     // mismatch at that boundary.
     const console_bridge_test_module = b.createModule(.{ .target = target, .optimize = optimize });
+    linkEngineCxxRuntimeEngine(b, console_bridge_test_module, optimize);
     if (platform != .windows_x64) {
         console_bridge_test_module.link_libc = true;
         console_bridge_test_module.link_libcpp = true;
@@ -2558,7 +2590,6 @@ pub fn build(b: *std.Build) void {
     addProjectIncludePaths(b, console_bridge_test_module);
     addMsvcIncludePaths(b, console_bridge_test_module, toolchain);
     addMsvcLibraryPaths(b, console_bridge_test_module, toolchain);
-    linkMsvcRuntime(console_bridge_test_module, optimize);
     const console_bridge_test = b.addExecutable(.{
         .name = "console-bridge-test",
         .root_module = console_bridge_test_module,
@@ -3421,6 +3452,7 @@ fn addOptionsBridge(
     sdl: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
+    linkEngineCxxRuntimeEngine(b, module, optimize);
     var flags: std.ArrayListUnmanaged([]const u8) = .empty;
     flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
     flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
@@ -3436,7 +3468,6 @@ fn addOptionsBridge(
     addProjectIncludePaths(b, module);
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
-    linkMsvcRuntime(module, optimize);
     module.linkLibrary(platform_runtime);
     module.linkLibrary(sdl);
     if (target.result.os.tag == .windows) module.linkSystemLibrary("comsuppw", .{});
@@ -3465,6 +3496,7 @@ fn addStreamIOZig(
         .optimize = zig_optimize,
         .link_libc = true,
     });
+    linkEngineCxxRuntimeEngine(b, streamio_module, optimize);
     var flags: std.ArrayListUnmanaged([]const u8) = .empty;
     flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
     flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
@@ -3487,7 +3519,6 @@ fn addStreamIOZig(
     addMsvcLibraryPaths(b, streamio_module, toolchain);
     streamio_module.linkLibrary(options_bridge);
     streamio_module.linkLibrary(platform_runtime);
-    linkMsvcRuntime(streamio_module, optimize);
     // x86 exports carry stdcall decorations (_name@N) that do not exist on
     // x86_64, so the def file is per-arch.
     const def_path = if (target.result.cpu.arch == .x86)
@@ -3545,6 +3576,21 @@ const BkMemAllocator = enum { safe, smp, crt, safe_page, safe_c };
 /// The BkMemory library, set early in build() so every module that links the
 /// allocator (the later operator new/delete rollout) can reach it.
 var bk_memory_artifact: ?*std.Build.Step.Compile = null;
+
+/// The bk-memory-import-audit run step, created in build() before the modules
+/// that register themselves with it. Engine-hosted test tools are only
+/// installed by their run steps, so the audit reads the freshly built binary
+/// instead of whatever an earlier run left in the layout.
+var bk_audit_run: ?*std.Build.Step.Run = null;
+
+/// Adds a built C++ executable to the import audit.
+fn auditBkMemoryImports(exe: *std.Build.Step.Compile) void {
+    const run = bk_audit_run orelse return;
+    // The audit reads PE import tables; there is nothing to read off Windows.
+    if (exe.rootModuleTarget().os.tag != .windows) return;
+    run.addArg("--file");
+    run.addArtifactArg(exe);
+}
 
 fn bkMemoryOptions(b: *std.Build, allocator: BkMemAllocator) *std.Build.Step.Options {
     const options = b.addOptions();
@@ -3604,10 +3650,28 @@ fn addBkMemory(
 /// (CloudSync) use that and have no C++ new. The caller keeps the Windows
 /// include and library paths (addMsvcIncludePaths/addMsvcLibraryPaths).
 fn linkEngineCxxRuntime(b: *std.Build, module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
+    linkEngineCxxRuntimeFlags(b, module, optimize, &.{});
+}
+
+/// linkEngineCxxRuntime for a module whose sources use the engine's cppflags:
+/// new_delete.cpp is compiled with the same flags, because the debug STL
+/// records _ITERATOR_DEBUG_LEVEL in every object and lld-link refuses to link
+/// a level 2 object with a level 0 one.
+fn linkEngineCxxRuntimeEngine(b: *std.Build, module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
+    linkEngineCxxRuntimeFlags(b, module, optimize, cppflagsForTarget(module.resolved_target.?, optimize));
+}
+
+/// The flags are the module's own C++ flags (minus -std), see
+/// linkEngineCxxRuntimeEngine. Pure-Zig modules (CloudSync, BkMemory itself)
+/// do not call any of these: they have no C++ new to replace.
+fn linkEngineCxxRuntimeFlags(b: *std.Build, module: *std.Build.Module, optimize: std.builtin.OptimizeMode, module_flags: []const []const u8) void {
+    var flags: std.ArrayListUnmanaged([]const u8) = .empty;
+    flags.appendSlice(b.allocator, module_flags) catch @panic("OOM");
+    flags.appendSlice(b.allocator, &.{ "-std=c++17", "-fsized-deallocation", "-faligned-allocation" }) catch @panic("OOM");
     module.addIncludePath(b.path("Sources/src/BkMemory"));
     module.addCSourceFile(.{
         .file = b.path("Sources/src/BkMemory/new_delete.cpp"),
-        .flags = &.{ "-std=c++17", "-fsized-deallocation", "-faligned-allocation" },
+        .flags = flags.items,
     });
     linkMsvcRuntime(module, optimize);
     module.linkLibrary(bk_memory_artifact.?);
@@ -3631,10 +3695,10 @@ fn addBkMemoryTestModule(
         .link_libc = if (build_support.usesMsvc(platform)) null else true,
         .link_libcpp = build_support.needsBundledLibcpp(platform),
     });
+    linkEngineCxxRuntime(b, module, optimize);
     // The same dynamic CRT and link order as the engine DLLs, through the one
     // helper; the test DLLs no longer carry a static UCRT of their own. It goes
     // before the test source so new_delete.cpp is the first object on the link.
-    linkEngineCxxRuntime(b, module, optimize);
     module.addIncludePath(b.path("tools/zig"));
     addLinuxCxxIncludePaths(b, module);
     module.addCSourceFile(.{
@@ -3708,6 +3772,7 @@ fn addLegacyProjectDll(
         offset = path_end + 1;
     }
     const module = b.createModule(.{ .target = target, .optimize = optimize });
+    linkEngineCxxRuntimeEngine(b, module, optimize);
     addProjectIncludePaths(b, module);
     addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
@@ -3742,7 +3807,6 @@ fn addLegacyProjectDll(
     for (libraries) |library| module.linkLibrary(library);
     module.linkLibrary(platform_runtime);
     linkSdlImport(module, target, sdl_dynamic);
-    linkMsvcRuntime(module, optimize);
     if (target.result.os.tag == .windows) {
         module.linkSystemLibrary("version", .{});
         module.linkSystemLibrary("winmm", .{});
@@ -3825,6 +3889,7 @@ fn addGame(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, game_module, optimize);
     addProjectIncludePaths(b, game_module);
     addLinuxCxxIncludePaths(b, game_module);
     addMsvcIncludePaths(b, game_module, toolchain);
@@ -3847,7 +3912,6 @@ fn addGame(
     game_module.linkLibrary(randommapgen);
     game_module.linkLibrary(formats);
     game_module.linkLibrary(blitz64);
-    linkMsvcRuntime(game_module, optimize);
     if (target.result.os.tag == .windows) {
         game_module.linkSystemLibrary("version", .{});
         game_module.linkSystemLibrary("winmm", .{});
@@ -4023,6 +4087,7 @@ fn addImage(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, image_module, optimize);
     addProjectIncludePaths(b, image_module);
     addMsvcIncludePaths(b, image_module, toolchain);
     addMsvcLibraryPaths(b, image_module, toolchain);
@@ -4038,7 +4103,6 @@ fn addImage(
     linkSdlImport(image_module, target, sdl_dynamic);
     image_module.linkLibrary(libpng);
     image_module.linkLibrary(zlib);
-    linkMsvcRuntime(image_module, optimize);
     if (target.result.os.tag == .windows) image_module.linkSystemLibrary("user32", .{});
 
     applyLoaderPath(target, image_module);
@@ -4094,6 +4158,7 @@ fn addNet(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, net_module, optimize);
     addProjectIncludePaths(b, net_module);
     addMsvcIncludePaths(b, net_module, toolchain);
     addMsvcLibraryPaths(b, net_module, toolchain);
@@ -4106,7 +4171,6 @@ fn addNet(
     net_module.linkLibrary(misc);
     net_module.linkLibrary(platform_runtime);
     linkSdlImport(net_module, target, sdl_dynamic);
-    linkMsvcRuntime(net_module, optimize);
     if (target.result.os.tag == .windows) {
         net_module.linkSystemLibrary("ws2_32", .{});
         net_module.linkSystemLibrary("odbc32", .{});
@@ -4136,6 +4200,7 @@ fn addBuildVersion(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, buildversion_module, optimize);
     addProjectIncludePaths(b, buildversion_module);
     addMsvcIncludePaths(b, buildversion_module, toolchain);
     addMsvcLibraryPaths(b, buildversion_module, toolchain);
@@ -4147,7 +4212,6 @@ fn addBuildVersion(
     buildversion_module.linkLibrary(misc);
     buildversion_module.linkLibrary(platform_runtime);
     linkSdlImport(buildversion_module, target, sdl_dynamic);
-    linkMsvcRuntime(buildversion_module, optimize);
     if (target.result.os.tag == .windows) {
         buildversion_module.linkSystemLibrary("odbc32", .{});
         buildversion_module.linkSystemLibrary("odbccp32", .{});
@@ -4176,6 +4240,7 @@ fn addBetaKeyGen(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, betakeygen_module, optimize);
     addProjectIncludePaths(b, betakeygen_module);
     addMsvcIncludePaths(b, betakeygen_module, toolchain);
     addMsvcLibraryPaths(b, betakeygen_module, toolchain);
@@ -4189,7 +4254,6 @@ fn addBetaKeyGen(
     betakeygen_module.linkLibrary(platform_runtime);
     linkSdlImport(betakeygen_module, target, sdl_dynamic);
     betakeygen_module.linkLibrary(zlib);
-    linkMsvcRuntime(betakeygen_module, optimize);
     if (target.result.os.tag == .windows) {
         betakeygen_module.linkSystemLibrary("odbc32", .{});
         betakeygen_module.linkSystemLibrary("odbccp32", .{});
@@ -4217,6 +4281,7 @@ fn addInput(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, input_module, optimize);
     addProjectIncludePaths(b, input_module);
     addMsvcIncludePaths(b, input_module, toolchain);
     addMsvcLibraryPaths(b, input_module, toolchain);
@@ -4229,7 +4294,6 @@ fn addInput(
     input_module.linkLibrary(misc);
     input_module.linkLibrary(platform_runtime);
     linkSdlImport(input_module, target, sdl_dynamic);
-    linkMsvcRuntime(input_module, optimize);
     if (target.result.os.tag == .windows) {
         input_module.linkSystemLibrary("winmm", .{});
         input_module.linkSystemLibrary("dinput8", .{});
@@ -4262,6 +4326,7 @@ fn addInputModuleTest(
     sdl_dynamic: *std.Build.Step.Compile,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
+    linkEngineCxxRuntimeEngine(b, module, optimize);
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/Input"));
     module.addCSourceFiles(.{ .files = &.{ "tools/zig/input_module_test.cpp" }, .flags = if (target.result.os.tag == .windows) cppflagsForOptimize(optimize) else &.{"-std=c++17"} });
@@ -4269,7 +4334,6 @@ fn addInputModuleTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, optimize);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -4495,6 +4559,7 @@ fn addAnim(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, anim_module, optimize);
     addProjectIncludePaths(b, anim_module);
     addMsvcIncludePaths(b, anim_module, toolchain);
     addMsvcLibraryPaths(b, anim_module, toolchain);
@@ -4508,7 +4573,6 @@ fn addAnim(
     anim_module.linkLibrary(platform_runtime);
     linkSdlImport(anim_module, target, sdl_dynamic);
     anim_module.linkLibrary(formats);
-    linkMsvcRuntime(anim_module, optimize);
     if (target.result.os.tag == .windows) {
         anim_module.linkSystemLibrary("odbc32", .{});
         anim_module.linkSystemLibrary("odbccp32", .{});
@@ -4576,6 +4640,7 @@ fn addUI(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, ui_module, optimize);
     addProjectIncludePaths(b, ui_module);
     addMsvcIncludePaths(b, ui_module, toolchain);
     addMsvcLibraryPaths(b, ui_module, toolchain);
@@ -4598,7 +4663,6 @@ fn addUI(
     linkSdlImport(ui_module, target, sdl_dynamic);
     ui_module.linkLibrary(common);
     ui_module.linkLibrary(lualib);
-    linkMsvcRuntime(ui_module, optimize);
     if (target.result.os.tag == .windows) {
         ui_module.linkSystemLibrary("odbc32", .{});
         ui_module.linkSystemLibrary("odbccp32", .{});
@@ -4631,6 +4695,7 @@ fn addFontGen(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, fontgen_module, optimize);
     addProjectIncludePaths(b, fontgen_module);
     addMsvcIncludePaths(b, fontgen_module, toolchain);
     addMsvcLibraryPaths(b, fontgen_module, toolchain);
@@ -4648,7 +4713,6 @@ fn addFontGen(
     fontgen_module.linkLibrary(misc);
     fontgen_module.linkLibrary(platform_runtime);
     linkSdlImport(fontgen_module, target, sdl_dynamic);
-    linkMsvcRuntime(fontgen_module, optimize);
     if (target.result.os.tag == .windows) {
         fontgen_module.linkSystemLibrary("user32", .{});
         fontgen_module.linkSystemLibrary("gdi32", .{});
@@ -4679,6 +4743,7 @@ fn addSFX(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, sfx_module, optimize);
     addProjectIncludePaths(b, sfx_module);
     addMsvcIncludePaths(b, sfx_module, toolchain);
     addMsvcLibraryPaths(b, sfx_module, toolchain);
@@ -4702,7 +4767,6 @@ fn addSFX(
     sfx_module.linkLibrary(platform_runtime);
     linkSdlImport(sfx_module, target, sdl_dynamic);
     sfx_module.linkLibrary(common);
-    linkMsvcRuntime(sfx_module, optimize);
     if (target.result.os.tag == .windows) {
         sfx_module.linkSystemLibrary("winmm", .{});
         sfx_module.linkSystemLibrary("odbc32", .{});
@@ -4732,6 +4796,7 @@ fn addSfxModuleTest(
     streamio_zig: *std.Build.Step.Compile,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .debug });
+    linkEngineCxxRuntimeEngine(b, module, .debug);
     module.addCSourceFile(.{ .file = b.path("tools/zig/sfx_module_test.cpp"), .flags = cppflagsForTarget(target, .debug) });
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/SFX"));
@@ -4741,7 +4806,6 @@ fn addSfxModuleTest(
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
     }
-    linkMsvcRuntime(module, .debug);
     const exe = b.addExecutable(.{ .name = "sfx-module-test", .root_module = module });
     if (target.result.os.tag == .windows) {
         exe.subsystem = .console;
@@ -4779,6 +4843,7 @@ fn addGFX(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, gfx_module, optimize);
     addProjectIncludePaths(b, gfx_module);
     addMsvcIncludePaths(b, gfx_module, toolchain);
     addMsvcLibraryPaths(b, gfx_module, toolchain);
@@ -4793,7 +4858,6 @@ fn addGFX(
     gfx_module.linkLibrary(platform_runtime);
     linkSdlImport(gfx_module, target, sdl_dynamic);
     gfx_module.linkLibrary(formats);
-    linkMsvcRuntime(gfx_module, optimize);
     if (target.result.os.tag == .windows) {
         gfx_module.linkSystemLibrary("d3d9", .{});
         gfx_module.linkSystemLibrary("dxguid", .{});
@@ -4830,6 +4894,7 @@ fn addGFXGPU(
         .target = target,
         .optimize = optimize,
     });
+    linkEngineCxxRuntimeEngine(b, gfx_gpu_module, optimize);
     addProjectIncludePaths(b, gfx_gpu_module);
     addMsvcIncludePaths(b, gfx_gpu_module, toolchain);
     addMsvcLibraryPaths(b, gfx_gpu_module, toolchain);
@@ -4852,7 +4917,6 @@ fn addGFXGPU(
     } else {
         linkSdlRuntime(gfx_gpu_module, target, sdl_dynamic, sdl_include);
     }
-    linkMsvcRuntime(gfx_gpu_module, optimize);
     if (target.result.os.tag == .windows) {
         gfx_gpu_module.linkSystemLibrary("user32", .{});
         gfx_gpu_module.linkSystemLibrary("gdi32", .{});
@@ -6291,6 +6355,7 @@ fn addMapFileTest(
     // Linux (ambiguous std::integral_constant) - the same trap plan 1 hit with
     // the overlay spike.
     const module = b.createModule(.{ .target = target, .optimize = optimize });
+    linkEngineCxxRuntimeEngine(b, module, optimize);
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/Formats"));
     module.addIncludePath(b.path("Sources/src/RandomMapGen"));
@@ -6320,7 +6385,6 @@ fn addMapFileTest(
     addLinuxCxxIncludePaths(b, module);
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
-    linkMsvcRuntime(module, optimize);
     module.linkLibrary(map_file);
     module.linkLibrary(randommapgen);
     module.linkLibrary(formats);
@@ -6444,6 +6508,7 @@ fn addEditorBridgeTest(
     // The recipe of gfxgpu-factory-test, which is the C++ executable this
     // repository already runs on Linux CI. See the note in addMapFileTest.
     const module = b.createModule(.{ .target = target, .optimize = optimize });
+    linkEngineCxxRuntimeEngine(b, module, optimize);
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/Formats"));
     module.addIncludePath(b.path("Sources/src/RandomMapGen"));
@@ -6460,7 +6525,6 @@ fn addEditorBridgeTest(
     addLinuxCxxIncludePaths(b, module);
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
-    linkMsvcRuntime(module, optimize);
     // This executable hosts the same engine the game does, so on Windows it
     // needs the same imports the game executable links. Discovering them one
     // missing symbol at a time costs a CI round each: COM through _com_util and
@@ -6494,6 +6558,7 @@ fn addEditorBridgeTest(
     linkSdlImport(module, target, sdl_dynamic);
 
     const exe = b.addExecutable(.{ .name = "editor-bridge-test", .root_module = module });
+    auditBkMemoryImports(exe);
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     // Engine modules resolve RTTI and the host globals from the executable,
@@ -6713,6 +6778,7 @@ fn addResourceBridge(
     tier: ResourceBridgeTier,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
+    linkEngineCxxRuntimeEngine(b, module, optimize);
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/Formats"));
     module.addIncludePath(b.path("Sources/src/RandomMapGen"));
@@ -6730,7 +6796,6 @@ fn addResourceBridge(
     addLinuxCxxIncludePaths(b, module);
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
-    linkMsvcRuntime(module, optimize);
     if (target.result.os.tag == .windows) {
         linkComSupport(module, optimize);
         module.linkSystemLibrary("version", .{});
@@ -6756,6 +6821,7 @@ fn addResourceBridge(
     linkSdlImport(module, target, sdl_dynamic);
 
     const exe = b.addExecutable(.{ .name = tier.exe_name, .root_module = module });
+    auditBkMemoryImports(exe);
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     // Linux loader pitfalls the Map Editor already solved (AGENTS.md):
@@ -10154,12 +10220,13 @@ fn linkEditorEngine(
     toolchain: ToolchainIncludes,
     engine: MapEditorEngine,
 ) void {
+    addMsvcIncludePaths(b, module, toolchain);
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
     // The engine's statics are built against the debug CRT in Debug, so the
     // executable links the one they want, as editor-bridge-test does; no
     // link_libc, which would have Zig bring a second CRT.
-    linkMsvcRuntime(module, optimize);
+    linkEngineCxxRuntimeEngine(b, module, optimize);
     if (target.result.os.tag == .windows) {
         // addEditorBridgeTest's import list: the engine the game hosts.
         linkComSupport(module, optimize);
@@ -10356,6 +10423,7 @@ fn addEngineHostedTool(
     // The recipe of gfxgpu-factory-test, which is the C++ executable this
     // repository already runs on Linux CI. See the note in addMapFileTest.
     const module = b.createModule(.{ .target = target, .optimize = optimize });
+    linkEngineCxxRuntimeEngine(b, module, optimize);
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/Formats"));
     module.addIncludePath(b.path("Sources/src/RandomMapGen"));
@@ -10372,7 +10440,6 @@ fn addEngineHostedTool(
     addLinuxCxxIncludePaths(b, module);
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
-    linkMsvcRuntime(module, optimize);
     // This executable hosts the same engine the game does, so on Windows it
     // needs the same imports the game executable links. Discovering them one
     // missing symbol at a time costs a CI round each: COM through _com_util and
@@ -10406,6 +10473,7 @@ fn addEngineHostedTool(
     linkSdlImport(module, target, sdl_dynamic);
 
     const exe = b.addExecutable(.{ .name = tool, .root_module = module });
+    auditBkMemoryImports(exe);
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     // Engine modules resolve RTTI and the host globals from the executable,

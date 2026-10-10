@@ -394,7 +394,7 @@ static int RunRecordingTest()
     return 0;
 }
 
-int main( int argc, char **argv )
+static int HarnessMain( int argc, char **argv )
 {
     InstallCrashHandler();
     const int recording = RunRecordingTest();
@@ -446,4 +446,14 @@ int main( int argc, char **argv )
     CloseModule( module );
     std::puts( "GFXGPU factory export and GFX_GFX object verified" );
     return 0;
+}
+
+int main( int argc, char **argv )
+{
+    const int result = HarnessMain( argc, argv );
+    // On Windows this executable enters at main without the CRT's startup, so
+    // returning ends the last thread before BkMemory's exit-time leak report
+    // runs, and the report needs that thread's storage. exit() runs the report
+    // on this thread instead.
+    std::exit( result );
 }
