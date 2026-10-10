@@ -32,7 +32,13 @@ the file after every two tiers with `docs(planning): safe allocator tier results
 | test-map-editor-testlaunch | `zig build test-map-editor-testlaunch -Dtest-mode=run` | 0 | 1 s (cache hit) | count | cached pass, empty log |
 | test-map-editor-auto | `zig build test-map-editor-auto -Dtest-mode=run` | 0 | 1 s (cache hit) | count | cached pass, empty log |
 | test-map-editor-engine | `zig build test-map-editor-engine -Dtest-mode=run` | 0 | 173 s | count | PASS (260 objects), `bk_mem: 73051 leaked block(s)`. First attempt (18 s) failed `stage: could not replace locked PlatformRuntime.dll: FileBusy`: a `map-editor-m3-auto` build (maker.exe PID 41156, started 00:31, not started by this session) was still running its MapEditor.exe. Not killed (D080); waited 210 s until it exited, then reran clean |
+| test-editor-bridge | `zig build test-editor-bridge` (debug) | 0 | about 49 min (01:00:13 to 01:49:10), against the 1022 s baseline | count | editor-bridge PASS; `bk_mem: 151745 leaked block(s)`. Run started by the T04 attempt; T05 only waited for its maker.exe (PID 22372) to exit, it blocked `install-game` with RuntimeReplacementDenied meanwhile. Debug time is far over 1022 s: recorded for S04, not investigated here |
+| install-game install-map-editor | `zig build install-game install-map-editor` | 0 | not timed | count | first attempt failed `RuntimeReplacementDenied` (bridge tier above held editor-bridge-test.exe); passes once it exited |
+| resource-editor-host-check | `zig build resource-editor-host-check` | 0 | 87 s | count | host check PASS, docks PASS; `bk_mem: 43750 leaked block(s)` |
+| resource-editor-smoke | `zig build resource-editor-smoke` | 0 | 83 s | count | smoke PASS, smoke-edit PASS; `bk_mem: 43703 leaked block(s)` (last run in log) |
+| resource-editor-batch | `zig build resource-editor-batch` | 0 | 172 s | count | batch check PASS (21 projects); `bk_mem: 43588 leaked block(s)` |
+| resource-editor-game-reads-it | `zig build resource-editor-game-reads-it` | 0 | 288 s | count | auto PASS (154 actions); `bk_mem: 43709 leaked block(s)` |
 
 ## Still to run (T04 verify line and Do list)
 
-map-editor-game-reads-it-m3 (rerun, redirect elsewhere), test-editor-bridge (debug, against 1022 s), Game headless start.
+map-editor-game-reads-it-m3 (rerun, redirect elsewhere), Game headless start, resource-editor-auto-<editor> for core, wpn, unt, spt, msh, obt, fnc, bld, bdg, pcp, eff, til, 3rd, 3rv, mip, chc, cgc, mdc, gui.
