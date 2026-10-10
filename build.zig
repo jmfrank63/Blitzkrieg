@@ -322,7 +322,6 @@ const misc_sources = &.{
     "Sources/src/Misc/StdAfx.cpp",
     "Sources/src/Misc/BasicObjectFactory.cpp",
     "Sources/src/Misc/Manipulator.cpp",
-    "Sources/src/Misc/MemorySystem.cpp",
     "Sources/src/Misc/Thread.cpp",
 };
 

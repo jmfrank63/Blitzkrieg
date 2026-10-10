@@ -1,0 +1,14 @@
+LIBRARY "BkMemory"
+EXPORTS
+    bk_mem_alloc @1
+    bk_mem_alloc_aligned @2
+    bk_mem_calloc @3
+    bk_mem_realloc @4
+    bk_mem_realloc_aligned @5
+    bk_mem_free @6
+    bk_mem_free_sized @7
+    bk_mem_size @8
+    bk_mem_live_count @9
+    bk_mem_live_bytes @10
+    bk_mem_report @11
+    bk_mem_closed_free_count @12
