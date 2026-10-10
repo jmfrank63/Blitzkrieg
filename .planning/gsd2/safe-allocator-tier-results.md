@@ -26,9 +26,13 @@ the file after every two tiers with `docs(planning): safe allocator tier results
 | map-editor-game-reads-it | `zig build map-editor-game-reads-it` | 0 (inferred) | <= 3 min (23:05 to 23:08) | count | game log shows the Game ran the placed unit; `bk_mem: 136137 leaked block(s)`; baseline/edited game logs present |
 | map-editor-game-reads-it-m2 | `zig build map-editor-game-reads-it-m2` | 0 (inferred) | <= 1 min (23:08 to 23:09) | count | log holds only game trace lines (BK_MAP_TRACE); the M2 PASS line is in the m3 log below |
 | map-editor-game-reads-it-m3 | `zig build map-editor-game-reads-it-m3` | 1 | <= 4 min (23:09 to 23:13) | count | FAIL, harness artifact: `game reads it M3 FAIL: the report zig-out/local-test/map-editor-game-reads-it-m3.log would not write: FileBusy`. The run's stdout was redirected into the very file the tier writes its report to. M2 PASS and editor-bridge PASS (twice) are in that log. NOT a code failure: rerun with stdout/stderr redirected under tier-logs |
+| test-editor-core | `zig build test-editor-core -Dtest-mode=run` | 0 | 1 s (cache hit, no source change since the last pass) | count | log zig-out/local-test/tier-logs/test-editor-core.log is empty: no inputs changed, so the cached pass stands |
+| test-map-editor-view | `zig build test-map-editor-view -Dtest-mode=run` | 0 | 1 s (cache hit) | count | cached pass, empty log |
+| test-map-editor-panels | `zig build test-map-editor-panels -Dtest-mode=run` | 0 | 1 s (cache hit) | count | cached pass, empty log |
+| test-map-editor-testlaunch | `zig build test-map-editor-testlaunch -Dtest-mode=run` | 0 | 1 s (cache hit) | count | cached pass, empty log |
+| test-map-editor-auto | `zig build test-map-editor-auto -Dtest-mode=run` | 0 | 1 s (cache hit) | count | cached pass, empty log |
+| test-map-editor-engine | `zig build test-map-editor-engine -Dtest-mode=run` | 0 | 173 s | count | PASS (260 objects), `bk_mem: 73051 leaked block(s)`. First attempt (18 s) failed `stage: could not replace locked PlatformRuntime.dll: FileBusy`: a `map-editor-m3-auto` build (maker.exe PID 41156, started 00:31, not started by this session) was still running its MapEditor.exe. Not killed (D080); waited 210 s until it exited, then reran clean |
 
 ## Still to run (T04 verify line and Do list)
 
-test-editor-core, test-map-editor-view, -panels, -testlaunch, -auto, test-map-editor-engine,
-map-editor-game-reads-it-m3 (rerun, redirect elsewhere), test-editor-bridge (debug, against 1022 s),
-Game headless start.
+map-editor-game-reads-it-m3 (rerun, redirect elsewhere), test-editor-bridge (debug, against 1022 s), Game headless start.
