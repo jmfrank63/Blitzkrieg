@@ -105,3 +105,19 @@ All nine tiers pass on Zig 0.17.0; the longest is gui at 111 s. The aggregate `r
 - Leak gate (T02): passed. `test-random-missions --release=fast` on `only=summer_ukraine\securearea00`, repeat 20, exit 0, 6 cases 0 failed; heap flat at 112469994 bytes after round 10 and 112470154 after round 20 (+160 bytes).
 - Linux and macOS are not covered here; they are left to CI in S05.
 
+## CI (S05)
+
+Run 38020065143 on `2adb90a10` (workflow_dispatch on `chore/zig-0.17`) is green: all 12 jobs that run passed
+(Windows x64 MSVC Game, Resource Editor and Map Editor; Windows x64 MinGW platform; macOS arm64 Game, Resource Editor
+and Map Editor; macOS x64 Intel platform; Linux x64 Game, Resource Editor and Map Editor; Linux arm64 platform). The
+untested combinations are skipped as before. That covers the two local-only timeouts above (`test-editor-bridge`,
+`test-random-missions` in debug): the Windows, macOS and Linux Game jobs run both and pass.
+
+The earlier runs found four Zig 0.17 problems that the Windows tiers could not show, all fixed:
+
+| Run | Failure | Fix |
+| --- | --- | --- |
+| 38009019663 | macOS and Linux: dxc's LLVM `config.h` sets `HAVE_LINK_EXPORT_DYNAMIC`, which its template does not use; 0.17's ConfigHeader rejects unused values | dxc fork `bdf91da3` (Gota7/dxc-build#2), repinned in `977dae4f6` |
+| 38009019663 | MinGW: configuration failed with FileSystemFailure: its sparse checkout has no `Data`, which `seasonDataInputs` declared to the configuration cache | `93561ba58`: the build root stands in when `Data` is missing |
+| 38012783214 | Linux: the stager looked for `libSDL3.so.0.4.0`; SDL 3.4.18 builds `libSDL3.so.0.4.18` | `d17dfe25b` |
+| 38012783214 | macOS arm64 release: `random-missions-test` crashed at load: the static `theCheats` read a global variable before AILogic's GlobalsLoader set `g_pGlobalSingleton` (static constructor order; 0.17's Mach-O linker runs Cheats.cpp first) | `2adb90a10`; reproduced and verified on macbook-pro-johannes (12 cases, 0 failed) |
