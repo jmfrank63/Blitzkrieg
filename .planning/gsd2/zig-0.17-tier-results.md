@@ -121,3 +121,17 @@ The earlier runs found four Zig 0.17 problems that the Windows tiers could not s
 | 38009019663 | MinGW: configuration failed with FileSystemFailure: its sparse checkout has no `Data`, which `seasonDataInputs` declared to the configuration cache | `93561ba58`: the build root stands in when `Data` is missing |
 | 38012783214 | Linux: the stager looked for `libSDL3.so.0.4.0`; SDL 3.4.18 builds `libSDL3.so.0.4.18` | `d17dfe25b` |
 | 38012783214 | macOS arm64 release: `random-missions-test` crashed at load: the static `theCheats` read a global variable before AILogic's GlobalsLoader set `g_pGlobalSingleton` (static constructor order; 0.17's Mach-O linker runs Cheats.cpp first) | `2adb90a10`; reproduced and verified on macbook-pro-johannes (12 cases, 0 failed) |
+
+## test-editor-bridge re-checked (2026-10-10, after the merge)
+
+The local "failure" was not one. On `main` (Zig 0.17.0, debug, win-home) the tier passes: the executable run directly
+passed in 951 s, and `zig build test-editor-bridge -Dtest-mode=run` exited 0 after 1022 s (recompile included).
+The tier simply needs about 16 minutes in debug here, more than the 900 s bound it was given; CI's Windows Game job
+takes about as long. The log only seemed stuck at `adding game type 100`: stdout sent to a file is flushed in 4 KB
+blocks, so the last line written was minutes behind the run. Stack samples every 3 minutes showed it working through
+the random map tests, paint undo, map opens and the M2 bridge tests. The executable now sets stdout unbuffered.
+
+The two 0.16 runs that exited 255 (D070) both ran while this PC's audio was broken: only "Primary Sound Driver" was
+listed, it would not open, and sound was off. A run with every device made to fail (`BK_AUDIO_FAIL_DEFAULT=all`, new)
+still passed in 927 s, so sound being off is not the cause. Zig keeps only the low byte of a Windows exit code, so 255
+is a code ending in `FF`. That machine state did not come back, and the exit is not reproduced.
