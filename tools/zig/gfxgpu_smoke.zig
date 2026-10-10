@@ -139,7 +139,7 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
             try std.testing.expectEqual(gpu.error_codes.ok, api.bind_vertex_buffer(renderer, buffer));
             try std.testing.expectEqual(gpu.error_codes.ok, api.draw_indexed(renderer, index_buffer, 4, 0, 3, 0));
         } else {
-            var temporary = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&vertices), .byte_length = @sizeOf(@TypeOf(vertices)), .stride = 32 };
+            var temporary = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&vertices), .byte_length = @sizeOf(@TypeOf(vertices)), .stride = 32, .format = 0 };
             try std.testing.expectEqual(gpu.error_codes.ok, api.draw_temporary(renderer, &temporary, 1));
         }
         try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
@@ -247,7 +247,7 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expectEqual(gpu.error_codes.ok, api.set_texture(renderer, 0));
     var depth_clear = gpu.abi.ClearInfo{ .struct_size = @sizeOf(gpu.abi.ClearInfo), .mask = 1, .color_rgba8 = 0x102030ff, .depth = 1.0, .stencil = 0 };
     try std.testing.expectEqual(gpu.error_codes.ok, api.clear(renderer, &depth_clear));
-    var depth_geometry = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&depth_vertices), .byte_length = @sizeOf(@TypeOf(depth_vertices)), .stride = 16 };
+    var depth_geometry = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&depth_vertices), .byte_length = @sizeOf(@TypeOf(depth_vertices)), .stride = 16, .format = 0 };
     try std.testing.expectEqual(gpu.error_codes.ok, api.draw_temporary(renderer, &depth_geometry, 2));
     try std.testing.expectEqual(gpu.error_codes.ok, api.end_frame(renderer));
     try std.testing.expectEqual(gpu.error_codes.ok, api.present(renderer));
@@ -275,7 +275,7 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     try std.testing.expectEqual(gpu.error_codes.ok, api.set_texture(renderer, texture));
     try std.testing.expectEqual(gpu.error_codes.ok, api.draw(renderer, @intCast(textured_buffer), 2));
     try std.testing.expectEqual(gpu.error_codes.ok, api.set_texture(renderer, 0));
-    var specular_geometry = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&depth_vertices), .byte_length = @sizeOf(@TypeOf(depth_vertices)), .stride = 16 };
+    var specular_geometry = gpu.abi.TemporaryGeometryInfo{ .struct_size = @sizeOf(gpu.abi.TemporaryGeometryInfo), .data = @ptrCast(&depth_vertices), .byte_length = @sizeOf(@TypeOf(depth_vertices)), .stride = 16, .format = 0 };
     try std.testing.expectEqual(gpu.error_codes.ok, api.draw_temporary(renderer, &specular_geometry, 2));
     // Render state only takes while a frame is recording, as it does in the game.
     try std.testing.expectEqual(gpu.error_codes.ok, api.set_state(renderer, &specular_off));

@@ -1,4 +1,5 @@
 #include "../../Sources/src/GFXGPU/gfxgpu_c.h"
+#include "bk_memory.h"
 
 #include <cstddef>
 #include <cstdio>
@@ -58,6 +59,11 @@ int main()
     if ( counts.textures != 0 || counts.buffers != 0 || counts.samplers != 0 || counts.render_targets != 0 ) return 8;
 
     api.destroy( renderer );
+    // The renderer state is allocated by the Zig side through BkMemory, so the
+    // report must come back clean. It is called here, on a live thread: this exe
+    // has no CRT startup (entry is main), so the detach report would run after
+    // the main thread's TLS is gone and the allocator's per-thread state with it.
+    if ( bk_mem_report() != 0 ) return 14;
     std::printf( "GfxGpu ABI v%u, table %u bytes, live resources 0\n", api.abi_version, api.struct_size );
     return 0;
 }

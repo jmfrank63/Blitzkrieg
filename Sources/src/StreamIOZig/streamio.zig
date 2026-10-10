@@ -4,6 +4,7 @@ const xml = @import("xml.zig");
 const options = @import("options.zig");
 const console = @import("console.zig");
 const zip = @import("zip.zig");
+const bk_memory = @import("bk_memory_allocator");
 
 // Callers store pointer and struct arrays in these scratch buffers
 // (Singleton::GetAllObjects, updater notify batches...), so the memory must be
@@ -29,11 +30,13 @@ extern fn fflush(file: *File) c_int;
 // loaded lazily all through a mission), each temp-buffer growth stayed
 // resident forever and the game grew by gigabytes over a long session.
 // The code already frees what it allocates, so a real allocator is the fix.
-const allocator = std.heap.c_allocator;
+// It is the shared BkMemory allocator, so blocks handed to C++ are freed by it
+// and every leak lands in the one detach report.
+const allocator = bk_memory.allocator;
 var host_io_service: ?std.Io.Threaded = null;
 
 fn hostIo() std.Io {
-    if (host_io_service == null) host_io_service = std.Io.Threaded.init(std.heap.c_allocator, .{});
+    if (host_io_service == null) host_io_service = std.Io.Threaded.init(allocator, .{});
     return host_io_service.?.io();
 }
 
@@ -1134,7 +1137,9 @@ pub export fn bk_global_clear() callconv(.c) void {
         allocator.free(entry.key_ptr.*);
         allocator.free(entry.value_ptr.*);
     }
-    globals.clearRetainingCapacity();
+    // Release the table too: a retained table is a block that never returns to
+    // the shared allocator, and BkMemory reports it as a leak at detach.
+    globals.clearAndFree(allocator);
 }
 
 test "global store grows beyond the legacy startup working set" {
@@ -1152,6 +1157,8 @@ test "global store grows beyond the legacy startup working set" {
         bk_global_remove(key);
     }
     bk_global_remove("SharedResource.Text.Dialog.Ext");
+    // The emptied table is still a live block; the store has no other owner in a test.
+    bk_global_clear();
 }
 
 // Called once at startup (GameMain). The original's ISAAC seeded itself from
@@ -1203,7 +1210,7 @@ test "fixrandom keeps the constant start, for -reference-scene" {
     const saved = bk_random_get_state();
     defer bk_random_set_state(saved);
     bk_global_set("fixrandom", "1");
-    defer bk_global_remove("fixrandom");
+    defer bk_global_clear();
     bk_random_init();
     const first = bk_random_get();
     bk_random_init();

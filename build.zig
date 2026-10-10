@@ -2112,6 +2112,34 @@ pub fn build(b: *std.Build) void {
             test_bk_memory_step.dependOn(&run.step);
         }
     }
+    // A Zig host on the shared allocator: allocations, reallocs and frees across
+    // the C boundary must leave the live count where it started, and a block
+    // leaked from Zig must fail the process through BkMemory's detach report.
+    const bk_zig_host_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_memory_zig_host_test.zig"),
+        .target = target,
+        .optimize = optimize,
+        // The detach report runs from libc's exit on ELF/Mach-O; Windows has none.
+        .link_libc = target.result.os.tag != .windows,
+    });
+    linkBkMemoryAllocator(b, bk_zig_host_module, false);
+    applyLoaderPath(target, bk_zig_host_module);
+    const bk_zig_host_test = b.addExecutable(.{ .name = "bk-memory-zig-host-test", .root_module = bk_zig_host_module });
+    const test_bk_memory_zig_host_step = b.step("test-bk-memory-zig-host", "Run a Zig host on the shared BkMemory allocator, clean and with a planted Zig leak");
+    test_bk_memory_zig_host_step.dependOn(&bk_zig_host_test.step);
+    if (test_mode == .run) {
+        const clean = b.addRunArtifact(bk_zig_host_test);
+        clean.setEnvironmentVariable("BK_MEM_REPORT", "1");
+        clean.expectExitCode(0);
+        const planted = b.addRunArtifact(bk_zig_host_test);
+        planted.setEnvironmentVariable("BK_MEM_REPORT", "1");
+        planted.setEnvironmentVariable("BK_ZIG_PLANT_LEAK", "1");
+        planted.expectExitCode(3);
+        planted.expectStdErrMatch("leaked");
+        // One at a time: the planted report must not interleave with the clean run.
+        planted.step.dependOn(&clean.step);
+        test_bk_memory_zig_host_step.dependOn(&planted.step);
+    }
     // Backend measurement: every backend as its own BkMemory build linked into
     // its own bench exe, one process per pass so the peak memory is per pass.
     // Not gated on test-mode; it measures, it asserts nothing. The release
@@ -2848,6 +2876,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
+    linkBkMemoryAllocator(b, streamio_test_module, false);
     const streamio_unit_tests = b.addTest(.{ .root_module = streamio_test_module });
     const run_streamio_unit_tests = b.addRunArtifact(streamio_unit_tests);
     const test_streamio_step = b.step("test-streamio", "Run Zig StreamIO unit tests");
@@ -3144,6 +3173,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .imports = &.{.{ .name = "sdl3", .module = sdl3 }},
     });
+    linkBkMemoryAllocator(b, gfx_gpu_test_module, false);
     const gfx_gpu_unit_tests = b.addTest(.{ .root_module = gfx_gpu_test_module });
     const run_gfx_gpu_unit_tests = b.addRunArtifact(gfx_gpu_unit_tests);
     const gfx_gpu_test_step = b.step("test-gfxgpu-core", "Run the Zig GPU renderer core tests");
@@ -3520,6 +3550,7 @@ fn addStreamIOZig(
         .link_libc = true,
     });
     linkEngineCxxRuntimeEngine(b, streamio_module, optimize);
+    linkBkMemoryAllocator(b, streamio_module, true);
     var flags: std.ArrayListUnmanaged([]const u8) = .empty;
     flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
     flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
@@ -3698,6 +3729,27 @@ fn linkEngineCxxRuntimeFlags(b: *std.Build, module: *std.Build.Module, optimize:
     });
     linkMsvcRuntime(module, optimize);
     module.linkLibrary(bk_memory_artifact.?);
+}
+
+var bk_memory_allocator_module: ?*std.Build.Module = null;
+
+/// The one way a Zig module reaches the shared allocator: the named import
+/// `bk_memory_allocator` (a std.mem.Allocator over the BkMemory C ABI) and the
+/// BkMemory library it calls. The process has exactly one allocator instance,
+/// so every Zig host, test and library allocates through this instead of its
+/// own DebugAllocator or page allocator (D071, D083). C++ modules already link
+/// BkMemory through linkEngineCxxRuntime*; they pass `already_linked` so only
+/// the import is added and the library is not linked twice.
+fn linkBkMemoryAllocator(b: *std.Build, module: *std.Build.Module, already_linked: bool) void {
+    const allocator_module = bk_memory_allocator_module orelse blk: {
+        const created = b.createModule(.{
+            .root_source_file = b.path("Sources/src/BkMemory/bk_memory_allocator.zig"),
+        });
+        bk_memory_allocator_module = created;
+        break :blk created;
+    };
+    module.addImport("bk_memory_allocator", allocator_module);
+    if (!already_linked) module.linkLibrary(bk_memory_artifact.?);
 }
 
 /// A BkMemory test module: a DLL when `linkage` is given, otherwise a console
@@ -5019,6 +5071,9 @@ fn addGfxGpuZig(
         .imports = &.{.{ .name = "sdl3", .module = sdl3 }},
     });
     applyLoaderPath(target, gfx_gpu_module);
+    // libGfxGpuZig.so links BkMemory itself on Linux; elsewhere the static
+    // library's consumers get the link through the module.
+    linkBkMemoryAllocator(b, gfx_gpu_module, false);
 
     return b.addLibrary(.{
         .name = "GfxGpuZig",
@@ -5362,6 +5417,7 @@ fn addPortableStreamioFilesTest(
         .optimize = optimize,
         .link_libc = true,
     });
+    linkBkMemoryAllocator(b, streamio_test_module, false);
     const streamio_platform_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/streamio_platform_test.zig"),
         .target = target,
