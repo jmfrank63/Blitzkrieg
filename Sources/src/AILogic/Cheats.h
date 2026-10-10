@@ -17,6 +17,8 @@ private:
 	std::vector<BYTE> firstShoot;
 
 	bool bPasswordOK;
+
+	void ResetFlags();
 public:
 	SCheats();
 
