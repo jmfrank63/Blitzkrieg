@@ -17,7 +17,7 @@ test "stale images are never accepted as runtime inputs" {
 }
 
 test "Linux SDL staging resolves the versioned shared object" {
-    try std.testing.expectEqualStrings("libSDL3.so.0.4.0", stage.runtimeSourceName("libSDL3.so.0"));
+    try std.testing.expectEqualStrings("libSDL3.so.0.4.18", stage.runtimeSourceName("libSDL3.so.0"));
     try std.testing.expectEqualStrings("libPlatformRuntime.so", stage.runtimeSourceName("libPlatformRuntime.so"));
 }
 
