@@ -10,6 +10,10 @@ map editor milestones (`2026-09-19-portable-map-editor-design.md`).
 GSD phase: `.planning/phases/06-resource-editor-portable-port` (decisions in
 `06-CONTEXT.md`, the feature-by-feature checklist in `06-PARITY.md`).
 
+Toolchain: this spec was written against Zig 0.16; the build now requires Zig 0.17.0
+(`build.zig.zon`, `AGENTS.md`, `cross-platform.yml`). Mentions of Zig 0.16 below record the
+version a result was first proved on.
+
 ## Why a port, and why this shape
 
 The MFC editor is 64,028 lines (135 `.cpp`, 125 `.h`, `editor.rc` 1,128
