@@ -1,0 +1,34 @@
+# Safe allocator tier results (M003 / S02 and later)
+
+Durable record of every tier run on the BkMemory allocator, so a restarted session reads it and skips
+what already has a row (override 2026-10-10T17:19, D081). Append one row at once after each tier; commit
+the file after every two tiers with `docs(planning): safe allocator tier results, <tiers>`.
+
+- Machine: win-home (Windows 11 x64), Zig 0.17.0, debug build
+- Branch: fix/memory-leaks, code state ead1721dd (build.zig and Sources/src/BkMemory last changed 20:16, committed 20:55 +0700; nothing in the tree changed after)
+- Each tier runs one at a time, bounded, under tier-logs, and is stopped by its own PID only (D080)
+
+## How to read a row
+
+- Exit: `0`, `1`, ... or `TIMEOUT`. `0 (inferred)` means the log was read after the fact and holds no `error:` and no `Build Summary:` line (zig prints those only on failure), so the build command exited 0.
+- Duration: wall time. `<= N min` is an upper bound taken from the gap between the previous log's last write and this log's last write (the start time was not recorded).
+- BK_MEM_REPORT: the mode on the run step. `setLeakReportLog` in build.zig sets `count` (D079 as refined); the leak summary line in each log confirms a report ran.
+
+## Rows
+
+| Tier | Command | Exit | Duration | BK_MEM_REPORT | Notes |
+|------|---------|------|----------|---------------|-------|
+| map-editor-host-check | `zig build map-editor-host-check` | 0 (inferred) | not recorded (log finished 22:46) | count | log zig-out/local-test/map-editor-host-check.log; host check, unknown-object, panel smoke and mod switch all PASS; `bk_mem: 45395 leaked block(s)` |
+| map-editor-smoke | `zig build map-editor-smoke` | 0 (inferred) | <= 2 min (22:46 to 22:48) | count | smoke PASS (52 steps, 260 objects, saved and reopened); `bk_mem: 52655 leaked block(s)` |
+| map-editor-auto | `zig build map-editor-auto` | 0 (inferred) | <= 2 min (22:48 to 22:50) | count | BK_EDITOR_AUTO done (13 actions); `bk_mem: 55913 leaked block(s)` |
+| map-editor-auto-m2 | `zig build map-editor-auto-m2` | 0 (inferred) | <= 3 min (22:50 to 22:53) | count | BK_EDITOR_AUTO done (298 actions); `bk_mem: 59799 leaked block(s)` |
+| map-editor-m3-auto | `zig build map-editor-m3-auto` | 0 (inferred) | <= 12 min (22:53 to 23:05) | count | BK_EDITOR_AUTO done (668 actions); editor-bridge PASS; `bk_mem: 171090 leaked block(s)`; the interval includes any idle time, real duration likely shorter |
+| map-editor-game-reads-it | `zig build map-editor-game-reads-it` | 0 (inferred) | <= 3 min (23:05 to 23:08) | count | game log shows the Game ran the placed unit; `bk_mem: 136137 leaked block(s)`; baseline/edited game logs present |
+| map-editor-game-reads-it-m2 | `zig build map-editor-game-reads-it-m2` | 0 (inferred) | <= 1 min (23:08 to 23:09) | count | log holds only game trace lines (BK_MAP_TRACE); the M2 PASS line is in the m3 log below |
+| map-editor-game-reads-it-m3 | `zig build map-editor-game-reads-it-m3` | 1 | <= 4 min (23:09 to 23:13) | count | FAIL, harness artifact: `game reads it M3 FAIL: the report zig-out/local-test/map-editor-game-reads-it-m3.log would not write: FileBusy`. The run's stdout was redirected into the very file the tier writes its report to. M2 PASS and editor-bridge PASS (twice) are in that log. NOT a code failure: rerun with stdout/stderr redirected under tier-logs |
+
+## Still to run (T04 verify line and Do list)
+
+test-editor-core, test-map-editor-view, -panels, -testlaunch, -auto, test-map-editor-engine,
+map-editor-game-reads-it-m3 (rerun, redirect elsewhere), test-editor-bridge (debug, against 1022 s),
+Game headless start.
