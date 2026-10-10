@@ -21,8 +21,8 @@
             .lazy = true,
         },
         .dxc = .{
-            .url = "git+https://github.com/jmfrank63/dxc-build?ref=zig-0.17#c3736c65dfe8e28a3e3e0f5bec6905710b45b5ab",
-            .hash = "dxc-1.8.2505-siU2nxj6FQL41nA-6CuCVRSkKgv5gOTi5dzhELP2PGQz",
+            .url = "git+https://github.com/jmfrank63/dxc-build?ref=zig-0.17#bdf91da322b821c3f7eb3f6e7059a89e3133a863",
+            .hash = "dxc-1.8.2505-siU2n8L5FQJxfpe7gI3su9FqqcIm85AMIr3J1HmFLj9E",
             .lazy = true,
         },
         .spirv_cross = .{
