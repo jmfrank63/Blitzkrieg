@@ -354,15 +354,18 @@ pub fn DllMain(
     return .TRUE;
 }
 
-fn finiHook() callconv(.c) void {
+/// The exit-time report on ELF and Mach-O. Zig's debug backend does not
+/// implement `ExportOptions.section`, so there is no `.fini_array` entry from
+/// here; `bk_memory_fini.c` in the same library is that entry
+/// (`__attribute__((destructor))`) and calls this. Exported only from the
+/// shared library: the test binary has no destructor and reports nothing.
+fn finiEntry() callconv(.c) void {
     detachHook();
 }
 
-const fini_entry: *const fn () callconv(.c) void = &finiHook;
-
 comptime {
-    if (builtin.output_mode == .Lib and builtin.os.tag == .linux) {
-        @export(&fini_entry, .{ .name = "bk_mem_fini_entry", .section = ".fini_array" });
+    if (builtin.output_mode == .Lib and builtin.os.tag != .windows) {
+        @export(&finiEntry, .{ .name = "bk_mem_fini_entry" });
     }
 }
 

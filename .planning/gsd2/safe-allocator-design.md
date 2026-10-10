@@ -140,7 +140,8 @@ CloudSync.dll imports neither the C++ standard library nor BkMemory. Linux and m
 "not run on <os>"; the layouts are ELF and Mach-O).
 
 ELF and Mach-O: the spec asked to check interposition and `-Bsymbolic`. Not run in S01; on those platforms the
-per-module copies and the `.fini_array` hook are compiled for Linux but unexercised.
+per-module copies and the exit hook (see the exit-time report note in section 3) are compiled for Linux and macOS
+but unexercised.
 
 ## 3. Lifetime and report placement (D075)
 
@@ -150,8 +151,8 @@ per-module copies and the `.fini_array` hook are compiled for Linux but unexerci
 - The report runs at library detach, not in the exe's `main`. On Windows `BkMemory` exports a `DllMain` that Zig's
   `_DllMainCRTStartup` calls; on `process detach` it runs `detachHook`. BkMemory is loaded first and detached
   last, so every static destructor of the importing modules has run and the report sees real leaks, not memory
-  owned by objects torn down later. On Linux a `.fini_array` entry (`bk_mem_fini_entry`) does the same; compiled,
-  not run on win-home.
+  owned by objects torn down later. On ELF and Mach-O a C destructor in the BkMemory library (`bk_memory_fini.c`, `__attribute__((destructor))`,
+  calling the exported `bk_mem_fini_entry`) does the same; see the note below.
 - Mutex check: before reporting, every SafeAllocator shard mutex is inspected. A held mutex means a thread was
   killed mid-allocation (`ExitProcess`), so the records are not trusted: it logs `allocator in use at exit` and
   exits with code 4.
@@ -180,6 +181,23 @@ Measured with the planted leak (`test-bk-memory`, mode `plant-leak`):
 - `BK_MEM_REPORT=0` gave exit 0 for the same planted leak.
 - The default run (every form crossing exe, A and B) and the `report` run exit 0. Everything above passed in
   Debug and with `-Doptimize=ReleaseSafe`, and with the `safe_page` backend.
+
+Exit-time report on ELF and Mach-O (M003 S03 T04, replaces S01's `.fini_array` claim):
+
+- S01 exported `bk_mem_fini_entry` with `ExportOptions.section = ".fini_array"` and recorded it as compiled for
+  Linux. That was wrong: Zig's debug self-hosted backend does not implement `ExportOptions.section` for
+  x86_64-linux-gnu, so every Linux job in CI run 38084559223 (commit 075704734) failed to compile BkMemory.
+- The hook is now a C destructor in the BkMemory shared library: `bk_memory_fini.c` defines an
+  `__attribute__((destructor))` function that calls `bk_mem_fini_entry`, which `bk_memory.zig` exports as a plain
+  function for every non-Windows library build. One source covers ELF `.fini_array` and Mach-O `__mod_term_func`;
+  `addBkMemory` in `build.zig` compiles it only for non-Windows targets. Windows keeps `DllMain`.
+- Checked on win-home by cross-compiling `bk-memory` and `test-bk-memory` for x86_64-linux-gnu, aarch64-linux-gnu
+  and aarch64-macos, each in debug and with `--release=fast` (six builds, all succeeded). The macOS builds need the
+  `-Dsystem_include_path`, `-Dsystem_framework_path` and `-Dlibrary_path` options only to pass the SDL configure
+  check; empty directories were given, since the BkMemory steps do not use SDL. The Windows tiers
+  `test-bk-memory-zig`, `test-bk-memory` and `test-bk-memory-zig-host` with `-Dtest-mode=run` still pass.
+- Not checked on win-home: Linux and macOS runtime behaviour, that is the report printing and the non-zero exit
+  on a planted leak. That is left to CI.
 
 Not covered: `NRefCount::LeakObjectsOnExit` (`GameMain.cpp`, `AILogicInternal.cpp`, `ArmAllModulesLeakOnExit`)
 stays armed until S04 replaces it with a safe shutdown order. Until then the Game deliberately skips deleting
@@ -339,7 +357,7 @@ printed and the exit code stays 0). Full per-tier rows, durations and log names 
 | `test-input-module`, `test-sfx-module`, `test-net-module`, `test-console-bridge`, `gfxgpu-factory-test`, `verify-x64-runtime` | fail on leak reports only (exit 3), expected until BK_MEM_REPORT=log in T04 | not run | not run | not run |
 | random missions `repeat=20` heap (gate sweep, `--release=fast`) | pass: `safe` +0 B, `smp` -281 B | not run | not run | not run |
 | Game frame time on a mission map (kharkov42/1) | `safe` 9.5 ms, `smp` 10.0 ms | not run | not run | not run |
-| `.fini_array` detach hook | compiled for Linux, not exercised | not run | not applicable | not applicable |
+| ELF/Mach-O exit hook (C destructor, T04) | compiled for x86_64-linux, aarch64-linux and aarch64-macos on win-home, debug and `--release=fast`; runtime not exercised | not run | not applicable | not applicable |
 
 ## Hand-off to S02 and S03
 
@@ -348,5 +366,5 @@ printed and the exit code stays 0). Full per-tier rows, durations and log names 
   armed and the report policy explicit until S04; measure random missions and frame time and pick `crt` or `smp`
   for release.
 - S03: use `bk_memory_allocator.zig` in the editors and Zig engine modules; do not create a second SafeAllocator.
-- Known, not fixed in S01: the test DLLs carry a static UCRT, DLL frames are not symbolised, the `.fini_array`
-  hook is unrun, a backend without leak records (`smp`, `crt`) cannot fail the planted-leak run.
+- Known, not fixed in S01: the test DLLs carry a static UCRT, DLL frames are not symbolised, the ELF/Mach-O
+  exit hook is unrun, a backend without leak records (`smp`, `crt`) cannot fail the planted-leak run.

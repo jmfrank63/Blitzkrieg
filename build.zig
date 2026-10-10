@@ -3674,6 +3674,10 @@ fn addBkMemory(
     addMsvcLibraryPaths(b, module, toolchain);
     linkMsvcRuntime(module, optimize);
     applyLoaderPath(target, module);
+    // The ELF/Mach-O exit report is a C destructor; Zig cannot emit .fini_array in debug.
+    if (target.result.os.tag != .windows) {
+        module.addCSourceFile(.{ .file = b.path("Sources/src/BkMemory/bk_memory_fini.c") });
+    }
     return b.addLibrary(.{
         .name = "BkMemory",
         .linkage = .dynamic,
