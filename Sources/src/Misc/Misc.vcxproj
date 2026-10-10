@@ -295,7 +295,6 @@
     <ClInclude Include="BasicShare.h" />
     <ClInclude Include="HashFuncs.h" />
     <ClInclude Include="Manipulator.h" />
-    <ClInclude Include="MemorySystem.h" />
     <ClInclude Include="Thread.h" />
   </ItemGroup>
   <ItemGroup>
@@ -320,7 +319,6 @@
     </ClCompile>
     <ClCompile Include="BasicObjectFactory.cpp" />
     <ClCompile Include="Manipulator.cpp" />
-    <ClCompile Include="MemorySystem.cpp" />
     <ClCompile Include="Thread.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
