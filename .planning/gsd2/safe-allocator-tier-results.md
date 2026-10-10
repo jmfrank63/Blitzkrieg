@@ -95,3 +95,15 @@ map-editor-game-reads-it-m3 (rerun, redirect elsewhere), Game headless start. Fu
 | resource-editor-smoke | `zig build resource-editor-smoke -Dtest-mode=run` | 0 | 84 s | count | pass |
 | resource-editor-auto-core | `zig build resource-editor-auto-core -Dtest-mode=run` | 0 | 135 s | count | pass |
 | full resource sweep | `tools/zig/run-resource-sweep.sh` | n/a | n/a | n/a | left to the maintainer |
+
+## M003/S03/T07: SDL hook in resource_bridge_test, BkMemory in the comparator (win-home)
+
+| Tier | Command | Exit | Time | Mode | Result |
+|---|---|---|---|---|---|
+| test-resource-bridge, debug | `zig build test-resource-bridge -Dtest-mode=run` | n/a | over 30 min | count | no verdict: debug run still at 100% CPU after 33 min and was stopped; a stale resource-bridge-test from the interrupted session also held PlatformRuntime.dll (FileBusy) and was killed first |
+| test-resource-bridge | `zig build test-resource-bridge -Dtest-mode=run -Dbuild-variant=release` | 0 | 327 s | count | pass: all BATCH lines, `resource-bridge: Project+Tree OK (21 fixtures)`, no bad-header-magic panic |
+| test-resource-model-comparator, debug | `zig build test-resource-model-comparator -Dtest-mode=run` | n/a | over 10 min | count | linked (the undefined `_bk_mem_*` fix is for macOS); debug run stopped, too slow for one command |
+| test-resource-model-comparator | `zig build test-resource-model-comparator -Dtest-mode=run -Dbuild-variant=release` | 0 | under 10 min | count | `VERDICT=PASS` |
+| cross compile x86_64-linux-gnu | `zig build test-resource-bridge test-resource-model-comparator -Dtarget=x86_64-linux-gnu -Dtest-mode=compile` | 1 | n/a | compile | win-home has no Linux libc headers: `'stdio.h' file not found` from PortableCrt.h in MapFile and zlib (not code this task touched), plus a libSDL3.so symlink PermissionDenied. CI (Linux job) checks it |
+| cross compile aarch64-macos | `zig build test-resource-bridge test-resource-model-comparator -Dtarget=aarch64-macos -Dtest-mode=compile` | 1 | n/a | compile | needs `-Dsystem_include_path`, `-Dsystem_framework_path`, `-Dlibrary_path` (macOS SDK sysroot) that win-home lacks; configure stops before compiling. CI macOS arm64 checks the link |
+| cross compile x86_64-macos | `zig build test-resource-bridge test-resource-model-comparator -Dtarget=x86_64-macos -Dtest-mode=compile` | 1 | n/a | compile | same sysroot requirement; CI macOS x64 checks the `_bk_mem_*` link |

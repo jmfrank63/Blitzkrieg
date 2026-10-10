@@ -11106,6 +11106,9 @@ fn addResourceModelComparatorTest(
     test_mode: build_support.TestMode,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = optimize });
+    // Misc and zlib route their allocations through bk_mem_*, so the exe links
+    // BkMemory and its operator new/delete like every engine-hosted tool.
+    linkEngineCxxRuntimeEngine(b, module, optimize);
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/Common"));
     module.addIncludePath(b.path("Sources/src/Main"));
@@ -11137,7 +11140,6 @@ fn addResourceModelComparatorTest(
     addLinuxCxxIncludePaths(b, module);
     addMsvcLibraryPaths(b, module, toolchain);
     addMacosSysrootPaths(b, module, target);
-    linkMsvcRuntime(module, optimize);
     if (target.result.os.tag == .windows) {
         linkComSupport(module, optimize);
         module.linkSystemLibrary("version", .{});

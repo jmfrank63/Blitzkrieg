@@ -41,6 +41,7 @@
 #include <string>
 #include <vector>
 #include <SDL3/SDL.h>
+#include "../BkMemory/bk_memory_sdl.h"
 #include "resource_bridge.h"
 #include "bridge_session.h"
 #include "map_tools.h"
@@ -9277,6 +9278,10 @@ int main( int argc, char **argv )
 	_set_error_mode( _OUT_TO_STDERR );
 	_set_abort_behavior( 0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT );
 #endif
+
+	// Hooks first: the first SDL call of the process must already allocate
+	// through BkMemory, or a block SDL took from the CRT is freed by bk_mem_free.
+	BkMemoryInstallSdlFunctions();
 
 	// A real hidden window, never a null handle. SDL_WINDOW_NOT_FOCUSABLE
 	// keeps a Linux compositor from stealing focus to a window the user
