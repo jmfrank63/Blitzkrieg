@@ -8270,11 +8270,12 @@ fn editorAppKit(
     // ucrtd.lib). The app takes the headers and library of the SDL the engine
     // links instead.
     //
-    // Translated as vendor/zig-sdl3 translates it, not by @cImport: an
-    // @cImport in a compilation without libc has no libc headers on MSVC
-    // ("libc headers not available"), and Zig 0.16's translate-c rejects the
-    // `ui64` suffix of MSVC's SIZE_MAX, which SDL_stdinc.h uses. The
-    // translation step may use libc headers; the module it makes must not
+    // Translated as vendor/zig-sdl3 translates it, in a translate-c step of
+    // its own: a compilation without libc has no libc headers on MSVC ("libc
+    // headers not available"), and Zig 0.16's translate-c rejected the `ui64`
+    // suffix of MSVC's SIZE_MAX, which SDL_stdinc.h uses, so SIZE_MAX is
+    // defined plainly.
+    // The translation step may use libc headers; the module it makes must not
     // link libc, or the collision above comes back.
     const sdl_header = b.addWriteFiles().add("sdl3.h", "#include <SDL3/SDL.h>\n");
     const sdl_translate = b.addTranslateC(.{ .root_source_file = sdl_header, .target = target, .optimize = optimize });

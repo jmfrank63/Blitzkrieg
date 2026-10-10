@@ -6,10 +6,11 @@
 //! its next call.
 const std = @import("std");
 const core = @import("editor_core");
-/// bridge.h, @cImport'd exactly once in `editor_kit.host` so the kit's
-/// `Host.session` and this file's `RealBridge.session` share one opaque type.
-/// `@cImport` of the same header from two files produces incompatible opaque
-/// types (observed when S02/T04 moved host.zig into the kit).
+/// bridge.h, translated once (build.zig's `editorBridgeC`) and taken through
+/// `editor_kit.host`, so the kit's `Host.session` and this file's
+/// `RealBridge.session` share one opaque type. Two translations of the same
+/// header produce incompatible opaque types (observed when S02/T04 moved
+/// host.zig into the kit).
 pub const c = @import("editor_kit").host.c;
 
 const Status = core.bridge.Status;

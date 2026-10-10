@@ -24,8 +24,9 @@
 const std = @import("std");
 const core = @import("resource_core");
 
-/// resource_bridge.h (which includes bridge.h). This @cImport is separate from
-/// `editor_kit.host.c`, so its BkEditorSession is a different opaque type from
+/// resource_bridge.h (which includes bridge.h), translated by build.zig's
+/// `resourceBridgeC`. That translation is separate from `editor_kit.host.c`,
+/// so its BkEditorSession is a different opaque type from
 /// the kit's: `RealResBridge.init` takes the host's session as `*anyopaque` and
 /// casts it, which is sound because both name the same C struct.
 pub const c = @import("resource_bridge_c");
