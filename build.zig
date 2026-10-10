@@ -751,10 +751,11 @@ fn rootPath(b: *std.Build, sub: []const u8) []const u8 {
 }
 
 /// Like rootPath for a fetched package. Its root is reported relative to the build root, so it is
-/// resolved against ours before the absolute check.
+/// resolved against ours before the absolute check. An already absolute root is resolved too: joinString
+/// keeps `sub` as written, so "bin/x64" would otherwise leave a "/" in the Windows PATH entry.
 fn dependencyRootPath(b: *std.Build, dep: *std.Build.Dependency, sub: []const u8) []const u8 {
     const joined = dep.builder.root.joinString(b.allocator, sub) catch @panic("OOM");
-    const resolved = if (std.fs.path.isAbsolute(joined)) joined else b.pathResolve(&.{ rootPath(b, ""), joined });
+    const resolved = if (std.fs.path.isAbsolute(joined)) b.pathResolve(&.{joined}) else b.pathResolve(&.{ rootPath(b, ""), joined });
     std.debug.assert(std.fs.path.isAbsolute(resolved));
     return resolved;
 }
