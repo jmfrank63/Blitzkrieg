@@ -4,13 +4,13 @@
 - Machine: win-home (Windows 11 x64)
 - Zig: 0.17.0
 - Commit at start: 0a474bea4 (branch chore/zig-0.17)
-- Bound: 480 s per tier from the 2026-10-09T22:19 steer (D068; the first two rows ran under the earlier 900 s bound), whole process tree killed on expiry
+- Bound: 480 s per tier from the 2026-10-09T22:19 steer (D069; the first two rows ran under the earlier 900 s bound), whole process tree killed on expiry
 
 | Tier | Command | Exit | Duration | Limit | 0.16 comparison |
 |------|---------|------|----------|-------|-----------------|
 | test-editor-core | `zig build test-editor-core -Dtest-mode=run` | 0 | 1 s (cache hit: "run test cached"; identical inputs already passed under 0.17.0) | 900 s | CI green at 4d7645fc5 (windows-map-editor / windows-game) |
 | test-platform-foundation | `zig build test-platform-foundation -Dtest-mode=run` | 0 | 1 s (cache hit: every "run test" step cached; identical inputs already passed under 0.17.0) | 900 s | CI green at 4d7645fc5 (windows-game) |
-| test-editor-bridge | `zig build test-editor-bridge -Dtest-mode=run` (debug) | TIMEOUT (no result; wrapper printed "exit 1" at 899 s under the earlier 900 s bound) | 899 s | 900 s (earlier bound) | Fails locally on 0.16.0 at 4d7645fc5 too, in ..\Blitzkrieg-zig016: my run TIMEOUT at 901 s; maintainer's runs (D069) exited 255 after 1.7 min and after 14.8 min. All stop at `adding game type 100 (4385 in the catalogue) as 20mm_aviacannon`. CI windows-game passes this tier at 4d7645fc5. Pre-existing local failure on win-home, not a 0.17 regression; CI is the proof, re-checked in S05. |
+| test-editor-bridge | `zig build test-editor-bridge -Dtest-mode=run` (debug) | TIMEOUT (no result; wrapper printed "exit 1" at 899 s under the earlier 900 s bound) | 899 s | 900 s (earlier bound) | Fails locally on 0.16.0 at 4d7645fc5 too, in ..\Blitzkrieg-zig016: my run TIMEOUT at 901 s; maintainer's runs (D070) exited 255 after 1.7 min and after 14.8 min. All stop at `adding game type 100 (4385 in the catalogue) as 20mm_aviacannon`. CI windows-game passes this tier at 4d7645fc5. Pre-existing local failure on win-home, not a 0.17 regression; CI is the proof, re-checked in S05. |
 | test-editor-kit | `zig build test-editor-kit -Dtest-mode=run` | 0 | 1 s (cache hit, "run test cached"; identical inputs already passed under 0.17.0) | 480 s | CI green at 4d7645fc5 (windows-map-editor / windows-resource-editor) |
 | test-map-files | `zig build test-map-files -Dtest-mode=run` | 0 | 45 s | 480 s | CI green at 4d7645fc5 (windows-game) |
 | test-random-missions only=kharkov42 | `zig build test-random-missions -Dtest-mode=run -Drandom-missions-sweep=only=kharkov42` | TIMEOUT | 481 s (22 missions done) | 480 s | 0.16.0 at 4d7645fc5 in ..\Blitzkrieg-zig016, same command: TIMEOUT at 481 s (21 missions done, includes cold compile). Same pace, so the debug sweep is simply longer than 480 s locally; pre-existing, not a 0.17 regression. CI windows-game runs it as a full sweep at 4d7645fc5 and is green. |
@@ -99,7 +99,7 @@ All nine tiers pass on Zig 0.17.0; the longest is gui at 111 s. The aggregate `r
 
 - Tiers run on Zig 0.17.0 on win-home: 38 rows (T02: 7, T03: 8, T04: 14, T05: 9). 36 pass with exit 0, 2 carry a local-only pre-existing result that is identical on 0.16.0 (below). None is a 0.17 regression.
 - Exceptions, both with 0.16 evidence from the same commit in ..\Blitzkrieg-zig016:
-  - test-editor-bridge: TIMEOUT at 899 s on 0.17.0 and TIMEOUT at 901 s on 0.16.0; the maintainer's 0.16 runs (D069) exited 255 after 1.7 min and after 14.8 min. Every run stops at `adding game type 100 (4385 in the catalogue) as 20mm_aviacannon`. Pre-existing local failure on win-home, not fixed in S04; CI windows-game passes it at 4d7645fc5 and S05 re-checks it there.
+  - test-editor-bridge: TIMEOUT at 899 s on 0.17.0 and TIMEOUT at 901 s on 0.16.0; the maintainer's 0.16 runs (D070) exited 255 after 1.7 min and after 14.8 min. Every run stops at `adding game type 100 (4385 in the catalogue) as 20mm_aviacannon`. Pre-existing local failure on win-home, not fixed in S04; CI windows-game passes it at 4d7645fc5 and S05 re-checks it there.
   - test-random-missions only=kharkov42 (debug): TIMEOUT at 481 s with 22 missions done on 0.17.0 against 21 on 0.16.0, the same pace. The debug subset is simply longer than 480 s locally; the leak gate below covers the random-missions run on this machine.
 - Fixes made: the `rootPath` fix in build.zig (`b.pathResolve`, native separators only), in `0a474bea4`. It was required by map-editor-smoke and map-editor-auto on 0.17; evidence in the rootPath section above. No other code fix was needed.
 - Leak gate (T02): passed. `test-random-missions --release=fast` on `only=summer_ukraine\securearea00`, repeat 20, exit 0, 6 cases 0 failed; heap flat at 112469994 bytes after round 10 and 112470154 after round 20 (+160 bytes).
