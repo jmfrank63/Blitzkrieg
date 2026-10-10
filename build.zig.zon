@@ -1,7 +1,7 @@
 .{
     .name = .blitzkrieg,
     .version = "2.0.0",
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     .dependencies = .{
         .sdl = .{
             .url = "git+https://github.com/castholm/SDL.git?ref=v0.6.0%2B3.4.18#dbcb19aa3583c318556ecae3ecbeb29b102d37c5",
