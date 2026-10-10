@@ -2059,13 +2059,11 @@ pub fn build(b: *std.Build) void {
     // zig tier in every test mode; the runtime proof is the cross-module test.
     const bk_new_delete_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     addLinuxCxxIncludePaths(b, bk_new_delete_module);
-    linkCxxRuntime(bk_new_delete_module, target);
     if (build_support.usesMsvc(platform)) {
         addMsvcIncludePaths(b, bk_new_delete_module, toolchain);
         addMsvcLibraryPaths(b, bk_new_delete_module, toolchain);
-        linkMsvcRuntime(bk_new_delete_module, optimize);
     }
-    linkBkMemory(b, bk_new_delete_module);
+    linkEngineCxxRuntime(b, bk_new_delete_module, optimize);
     const bk_new_delete_check = b.addLibrary(.{ .name = "BkNewDeleteCheck", .linkage = .static, .root_module = bk_new_delete_module });
     test_bk_memory_zig_step.dependOn(&bk_new_delete_check.step);
     // Cross-module proof: two DLLs and an exe, each with its own operator
@@ -2081,10 +2079,13 @@ pub fn build(b: *std.Build) void {
     test_bk_memory_step.dependOn(&bk_consumer_b.step);
     test_bk_memory_step.dependOn(&bk_cross_test.step);
     if (test_mode == .run) {
-        const modes = [_]struct { arg: ?[]const u8, exit: u8, stderr: ?[]const u8 }{
+        // report_mode is the BK_MEM_REPORT value. The log run plants the same
+        // leak as the strict one and must still exit 0, with the summary line.
+        const modes = [_]struct { arg: ?[]const u8, report_mode: []const u8 = "1", exit: u8, stderr: ?[]const u8 }{
             .{ .arg = null, .exit = 0, .stderr = null },
             .{ .arg = "report", .exit = 0, .stderr = null },
             .{ .arg = "plant-leak", .exit = 3, .stderr = "leaked" },
+            .{ .arg = "plant-leak", .report_mode = "log", .exit = 0, .stderr = "bk_mem: 1 leaked block(s)" },
         };
         var previous: ?*std.Build.Step = null;
         for (modes) |mode| {
@@ -2093,7 +2094,7 @@ pub fn build(b: *std.Build) void {
             run.addArtifactArg(bk_consumer_b);
             if (mode.arg) |arg| run.addArg(arg);
             // The report is a debug-build default; pin it so -Doptimize does not change the test.
-            run.setEnvironmentVariable("BK_MEM_REPORT", "1");
+            run.setEnvironmentVariable("BK_MEM_REPORT", mode.report_mode);
             run.expectExitCode(mode.exit);
             if (mode.stderr) |text| run.expectStdErrMatch(text);
             // One at a time: a failing run's report must not interleave with another.
@@ -3585,17 +3586,30 @@ fn addBkMemory(
     });
 }
 
-/// Gives a module its own copy of the replacement operator new/delete, all
-/// forwarding to the one BkMemory instance. Every module carries a copy, so the
-/// order in which the loader binds the operators does not matter. Not part of
-/// linkMsvcRuntime: pure-Zig modules (CloudSync) use that and have no C++ new.
-/// The module still needs its C++ runtime/include setup from its own call site.
-fn linkBkMemory(b: *std.Build, module: *std.Build.Module) void {
+/// The one way a C++ module gets BkMemory: its own copy of the replacement
+/// operator new/delete (all forwarding to the one BkMemory instance, so the
+/// order in which the loader binds the operators does not matter), the dynamic
+/// CRT through linkMsvcRuntime, and the BkMemory import library.
+///
+/// The order is the contract and is why this is one function. new_delete.cpp
+/// goes before the CRT libraries, or lld pulls the CRT's own operator copies
+/// from them first and reports every form as a duplicate symbol. BkMemory.lib
+/// goes after them, so a DLL's entry point (`_DllMainCRTStartup`) is the CRT's
+/// and its static constructors and destructors run. BkMemory.lib is built from
+/// BkMemory.x64.def and carries only the bk_mem_* imports, so the order is
+/// belt and braces for the entry point, but the operator order is a hard rule.
+///
+/// Call it after the module's own sources are added and in place of a bare
+/// linkMsvcRuntime. Not part of linkMsvcRuntime itself: pure-Zig modules
+/// (CloudSync) use that and have no C++ new. The caller keeps the Windows
+/// include and library paths (addMsvcIncludePaths/addMsvcLibraryPaths).
+fn linkEngineCxxRuntime(b: *std.Build, module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
     module.addIncludePath(b.path("Sources/src/BkMemory"));
     module.addCSourceFile(.{
         .file = b.path("Sources/src/BkMemory/new_delete.cpp"),
         .flags = &.{ "-std=c++17", "-fsized-deallocation", "-faligned-allocation" },
     });
+    linkMsvcRuntime(module, optimize);
     module.linkLibrary(bk_memory_artifact.?);
 }
 
@@ -3617,39 +3631,20 @@ fn addBkMemoryTestModule(
         .link_libc = if (build_support.usesMsvc(platform)) null else true,
         .link_libcpp = build_support.needsBundledLibcpp(platform),
     });
-    // The replacement operator new/delete object has to come before the CRT
-    // libraries on the link line, or lld pulls the CRT's own copies from them
-    // first and reports every form as a duplicate symbol. The BkMemory import
-    // library goes last, after the CRT: BkMemory exports Zig's own
-    // _DllMainCRTStartup, and if the import came first a DLL's entry point
-    // would resolve to BkMemory's startup and never run its static constructors.
-    module.addIncludePath(b.path("Sources/src/BkMemory"));
-    module.addCSourceFile(.{
-        .file = b.path("Sources/src/BkMemory/new_delete.cpp"),
-        .flags = &.{ "-std=c++17", "-fsized-deallocation", "-faligned-allocation" },
-    });
+    // The same dynamic CRT and link order as the engine DLLs, through the one
+    // helper; the test DLLs no longer carry a static UCRT of their own. It goes
+    // before the test source so new_delete.cpp is the first object on the link.
+    linkEngineCxxRuntime(b, module, optimize);
     module.addIncludePath(b.path("tools/zig"));
     addLinuxCxxIncludePaths(b, module);
     module.addCSourceFile(.{
         .file = b.path(source),
         .flags = &.{ "-std=c++17", "-fsized-deallocation", "-faligned-allocation" },
     });
-    linkCxxRuntime(module, target);
     if (build_support.usesMsvc(platform)) {
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
-        // A DLL with a static destructor gets the CRT's DLL startup
-        // (_DllMainCRTStartup, atexit), whose initialisers live only in the
-        // static vcruntime and ucrt libraries. They go before the import
-        // libraries so only the missing pieces are taken from them; an exe's
-        // startup does not need them at all.
-        if (linkage != null) {
-            module.linkSystemLibrary(if (optimize == .debug) "libvcruntimed" else "libvcruntime", .{});
-            module.linkSystemLibrary(if (optimize == .debug) "libucrtd" else "libucrt", .{});
-        }
-        linkMsvcRuntime(module, optimize);
     }
-    module.linkLibrary(bk_memory_artifact.?);
     if (linkage) |link_mode| {
         return b.addLibrary(.{ .name = name, .linkage = link_mode, .root_module = module });
     }

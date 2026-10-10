@@ -53,7 +53,16 @@ BK_MEMORY_API size_t bk_mem_live_count(void);
 BK_MEMORY_API size_t bk_mem_live_bytes(void);
 
 /* Runs the final leak check now and returns the leak count. Afterwards a
- * free is a counted no-op and an alloc is a bug (panic). */
+ * free is a counted no-op and an alloc is a bug (panic).
+ *
+ * The same check runs at library detach, steered by the BK_MEM_REPORT
+ * environment variable (the default is on in Debug builds, off otherwise):
+ *   0    no report.
+ *   1    report with stacks, exit code 3 when blocks leaked.
+ *   log  the same report plus a line "bk_mem: N leaked block(s)" on stderr
+ *        (also when N is 0), but the exit code is not changed. For tiers that
+ *        must stay green while known leaks are fixed.
+ * A backend without leak records ignores all three. */
 BK_MEMORY_API size_t bk_mem_report(void);
 BK_MEMORY_API size_t bk_mem_closed_free_count(void);
 

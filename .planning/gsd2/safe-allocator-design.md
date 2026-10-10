@@ -65,19 +65,24 @@ no CRT `operator new`/`delete`/`malloc` (llvm-readobj).
 
 What S02 must check per module:
 
-- `-std=c++17` and `-fsized-deallocation -faligned-allocation` (the `linkBkMemory` helper in `build.zig` sets them
+- `-std=c++17` and `-fsized-deallocation -faligned-allocation` (the `linkEngineCxxRuntime` helper in `build.zig` sets them
   for `new_delete.cpp` itself). A module compiled without them still links, but calls the unsized/unaligned
   forms; those work, they only skip the Debug cross-check.
 - Link order, measured in T03: `new_delete.cpp` must come before the CRT libraries, or lld reports duplicate
   operator symbols from `msvcrtd.lib`; `BkMemory.lib` must come after the CRT libraries, because `BkMemory.dll`
   exports Zig's `_DllMainCRTStartup` and a consumer DLL whose entry resolves to it never runs its static
-  constructors. `linkBkMemory(b, module)` adds the include path, the source and the library; it is deliberately not
-  part of `linkMsvcRuntime` yet.
+  constructors. `linkEngineCxxRuntime(b, module, optimize)` (M003 S02 T01, replacing `linkBkMemory`) does the three
+  steps in that order: include path and `new_delete.cpp`, then `linkMsvcRuntime`, then `BkMemory.lib`. It is the
+  only way a C++ module gets BkMemory and is deliberately not part of `linkMsvcRuntime` (pure-Zig CloudSync uses
+  that). Call it before the module's own C++ sources so `new_delete.cpp` is the first object on the link line.
 - `BkMemory` is libc-free on Windows (libc only for the `crt` and `safe_c` backends and on non-Windows), because
   linking libc propagated `-lc` into importing modules and produced duplicate ucrt symbols in the exe.
-- The test DLLs that have static destructors needed `libvcruntimed`/`libucrtd` statically listed before the import
-  CRT libraries, so they carry a static UCRT (they import no `ucrtbased`/`vcruntime` DLL). That is a hack of the
-  test DLLs. The rollout of the real engine DLLs must settle the CRT arrangement; this is the open risk of S02.
+- CRT arrangement, settled in S02 T01: the S01 hack (statically listing `libvcruntimed`/`libucrtd` in the test DLLs)
+  is gone. The test DLLs now link the same dynamic CRT as the engine DLLs through `linkEngineCxxRuntime`; the
+  consumer DLL imports `MSVCP140D.dll` and BkMemory like an engine DLL, carries no static UCRT, and its static
+  constructor and destructor still run (the cross-module test asserts both). `BkMemory.lib` is generated from
+  `BkMemory.x64.def`, so it carries only the `bk_mem_*` imports; with it after the CRT libraries the DLL entry
+  point is the CRT's `_DllMainCRTStartup`.
 
 ELF and Mach-O: the spec asked to check interposition and `-Bsymbolic`. Not run in S01; on those platforms the
 per-module copies and the `.fini_array` hook are compiled for Linux but unexercised.
@@ -103,6 +108,9 @@ per-module copies and the `.fini_array` hook are compiled for Linux but unexerci
 - Release policy: the report runs when the backend is a SafeAllocator one and the build is Debug. Release builds
   with the `smp` or `crt` backend keep no leak records and do not report. `BK_MEM_REPORT=0|1` overrides the build
   default for diagnosis (`1` has no effect on a backend without records).
+- `BK_MEM_REPORT=log` (D079) runs the same report with stacks and then prints `bk_mem: N leaked block(s)` on
+  stderr (also for N = 0) but keeps the exit code, so a tier stays green while its leaks are being fixed. A held
+  shard mutex still exits 4. The cross-module test has a fourth run for it: planted leak, exit 0, summary line.
 - Output goes through `std.log` scope `BkMemory` and SafeAllocator's own log to stderr as plain text (no colour
   escapes), so a test can match on it.
 

@@ -267,17 +267,31 @@ const kernel32 = struct {
 const exit_leaks: u32 = 3;
 const exit_in_use: u32 = 4;
 
-/// BK_MEM_REPORT=0|1 overrides the build default for diagnosis.
-fn reportPolicy() bool {
-    const default = use_safe and builtin.mode == .debug;
+/// What the detach report does. `fail` is the strict form (leaks exit 3),
+/// `log` reports the same way but never fails on leaks, so a tier stays green
+/// while the leaks it names are still being fixed.
+const ReportPolicy = enum { off, fail, log };
+
+/// BK_MEM_REPORT=0|1|log overrides the build default for diagnosis. Any value
+/// needs a backend with leak records; without one the policy is always `off`.
+fn reportPolicy() ReportPolicy {
+    if (!use_safe) return .off;
+    const default: ReportPolicy = if (builtin.mode == .debug) .fail else .off;
+    var buf: [8]u8 = undefined;
+    var value: []const u8 = undefined;
     if (builtin.os.tag == .windows) {
-        var buf: [4]u8 = undefined;
         const n = kernel32.GetEnvironmentVariableA("BK_MEM_REPORT", &buf, buf.len);
-        if (n == 1) return buf[0] == '1' and use_safe;
-        return default;
+        // 0 is unset, and a result above the buffer is a value too long to be one of ours.
+        if (n == 0 or n >= buf.len) return default;
+        value = buf[0..n];
+    } else {
+        const raw = std.c.getenv("BK_MEM_REPORT") orelse return default;
+        value = std.mem.span(raw);
     }
-    const value = std.c.getenv("BK_MEM_REPORT") orelse return default;
-    return value[0] == '1' and value[1] == 0 and use_safe;
+    if (std.mem.eql(u8, value, "1")) return .fail;
+    if (std.mem.eql(u8, value, "log")) return .log;
+    if (std.mem.eql(u8, value, "0")) return .off;
+    return default;
 }
 
 fn exitNow(code: u32) noreturn {
@@ -293,7 +307,8 @@ fn exitNow(code: u32) noreturn {
 /// was killed mid-allocation (ExitProcess), and the records are not trusted.
 fn detachHook() void {
     if (@atomicLoad(bool, &closed, .acquire)) return;
-    if (!reportPolicy()) return;
+    const policy = reportPolicy();
+    if (policy == .off) return;
     const log = std.log.scoped(.BkMemory);
     if (use_safe) {
         for (&instance.threads) |*t| {
@@ -304,6 +319,12 @@ fn detachHook() void {
         }
     }
     const leaks = bk_mem_report();
+    if (policy == .log) {
+        // The full report with stacks came from bk_mem_report; this is the
+        // one line a script can count, printed for a clean run too.
+        log.warn("bk_mem: {d} leaked block(s)", .{leaks});
+        return;
+    }
     if (leaks > 0) {
         log.err("{d} leaked block(s) at exit", .{leaks});
         exitNow(exit_leaks);
