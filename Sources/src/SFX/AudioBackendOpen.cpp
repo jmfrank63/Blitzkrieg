@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #if defined(SFX_USE_OPEN_AUDIO_BACKEND)
 
@@ -311,10 +312,18 @@ namespace
 	// BK_AUDIO_FAIL_DEFAULT=1 makes every attempt on the system default device
 	// fail as the device open would, so the retry and fallback path can be
 	// exercised without an AirPlay link that is actually waking up.
+	// BK_AUDIO_FAIL_DEFAULT=all fails the fallback devices too: a machine whose
+	// audio service lists no device that opens, so sound is off for the session.
 	bool ShouldFailDefaultDevice()
 	{
 		const char *pszValue = getenv( "BK_AUDIO_FAIL_DEFAULT" );
 		return pszValue && pszValue[0] && !( pszValue[0] == '0' && pszValue[1] == 0 );
+	}
+
+	bool ShouldFailEveryDevice()
+	{
+		const char *pszValue = getenv( "BK_AUDIO_FAIL_DEFAULT" );
+		return pszValue && strcmp( pszValue, "all" ) == 0;
 	}
 
 	// Opens g_engine on one playback device (0 = the system default) and starts
@@ -322,7 +331,7 @@ namespace
 	ma_result OpenEngineOnDevice( ma_engine_config engineConfig, ma_device_id *pDeviceID, const char *pszLabel )
 	{
 		char szAction[MA_MAX_DEVICE_NAME_LENGTH + 64];
-		if ( !pDeviceID && ShouldFailDefaultDevice() )
+		if ( ( !pDeviceID && ShouldFailDefaultDevice() ) || ShouldFailEveryDevice() )
 		{
 			snprintf( szAction, sizeof( szAction ), "engine init failed on %s (BK_AUDIO_FAIL_DEFAULT)", pszLabel );
 			TraceOpenAudioResult( szAction, MA_FAILED_TO_OPEN_BACKEND_DEVICE );

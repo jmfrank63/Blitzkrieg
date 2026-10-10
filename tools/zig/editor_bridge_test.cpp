@@ -11748,6 +11748,12 @@ int main( int argc, char **argv )
 	_CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_FILE );
 	_CrtSetReportFile( _CRT_ERROR, _CRTDBG_FILE_STDERR );
 #endif
+	// Unbuffered, so a log cut off by a time limit ends where the run was. Sent
+	// to a file or a pipe, stdout is otherwise flushed in 4 KB blocks, and a
+	// debug run killed at its bound looked stuck at the last flushed line
+	// ("adding game type 100") while it was minutes further on. MSVC has no
+	// line buffering: _IOLBF is full buffering there.
+	setvbuf( stdout, 0, _IONBF, 0 );
 
 	// A real hidden window, never a null handle: passing 0 would take the
 	// no-device path on every machine and the tier would skip itself into
