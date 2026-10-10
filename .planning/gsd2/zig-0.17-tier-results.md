@@ -73,3 +73,35 @@ The two longest tiers sit at 80% and 57% of the bound; m3-auto is the one to wat
 | resource-editor-auto-pcp | `zig build resource-editor-auto-pcp -Dtest-mode=run` | 0 | 71 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
 
 All 14 tiers pass on Zig 0.17.0; none came near the 480 s bound (longest: game-reads-it at 156 s). The aggregate `resource-editor-auto` and the remaining auto tiers (eff, til, 3rd, 3rv, mip, chc, cgc, mdc, gui) are part 2; the full sweep is left to the maintainer.
+
+## Resource Editor (part 2) (S04 / T05)
+
+- Date: 2026-10-10
+- Zig: 0.17.0, debug, win-home real desktop, commit at start 6a53ffe37
+- Bound: 480 s per tier (run-bounded.ps1), whole process tree killed on expiry; none expired
+- 0.16 comparison: every step below is listed in the windows-resource-editor job of .github/workflows/cross-platform.yml, green at 4d7645fc5
+
+| Tier | Command | Exit | Duration | Limit | 0.16 comparison |
+|------|---------|------|----------|-------|-----------------|
+| resource-editor-auto-eff | `zig build resource-editor-auto-eff -Dtest-mode=run` | 0 | 65 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-til | `zig build resource-editor-auto-til -Dtest-mode=run` | 0 | 64 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-3rd | `zig build resource-editor-auto-3rd -Dtest-mode=run` | 0 | 64 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-3rv | `zig build resource-editor-auto-3rv -Dtest-mode=run` | 0 | 66 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-mip | `zig build resource-editor-auto-mip -Dtest-mode=run` | 0 | 65 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-chc | `zig build resource-editor-auto-chc -Dtest-mode=run` | 0 | 63 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-cgc | `zig build resource-editor-auto-cgc -Dtest-mode=run` | 0 | 63 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-mdc | `zig build resource-editor-auto-mdc -Dtest-mode=run` | 0 | 62 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+| resource-editor-auto-gui | `zig build resource-editor-auto-gui -Dtest-mode=run` | 0 | 111 s | 480 s | CI windows-resource-editor green at 4d7645fc5 |
+
+All nine tiers pass on Zig 0.17.0; the longest is gui at 111 s. The aggregate `resource-editor-auto` is not run here (too long for one foreground command); the full sweep is left to the maintainer.
+
+## Verdict (S04)
+
+- Tiers run on Zig 0.17.0 on win-home: 38 rows (T02: 7, T03: 8, T04: 14, T05: 9). 36 pass with exit 0, 2 carry a local-only pre-existing result that is identical on 0.16.0 (below). None is a 0.17 regression.
+- Exceptions, both with 0.16 evidence from the same commit in ..\Blitzkrieg-zig016:
+  - test-editor-bridge: TIMEOUT at 899 s on 0.17.0 and TIMEOUT at 901 s on 0.16.0; the maintainer's 0.16 runs (D069) exited 255 after 1.7 min and after 14.8 min. Every run stops at `adding game type 100 (4385 in the catalogue) as 20mm_aviacannon`. Pre-existing local failure on win-home, not fixed in S04; CI windows-game passes it at 4d7645fc5 and S05 re-checks it there.
+  - test-random-missions only=kharkov42 (debug): TIMEOUT at 481 s with 22 missions done on 0.17.0 against 21 on 0.16.0, the same pace. The debug subset is simply longer than 480 s locally; the leak gate below covers the random-missions run on this machine.
+- Fixes made: the `rootPath` fix in build.zig (`b.pathResolve`, native separators only), in `0a474bea4`. It was required by map-editor-smoke and map-editor-auto on 0.17; evidence in the rootPath section above. No other code fix was needed.
+- Leak gate (T02): passed. `test-random-missions --release=fast` on `only=summer_ukraine\securearea00`, repeat 20, exit 0, 6 cases 0 failed; heap flat at 112469994 bytes after round 10 and 112470154 after round 20 (+160 bytes).
+- Linux and macOS are not covered here; they are left to CI in S05.
+
