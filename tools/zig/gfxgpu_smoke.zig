@@ -263,8 +263,8 @@ fn runReferenceSmoke(preferred_driver: [:0]const u8) !void {
     // indexed past the end, and a release build handed Metal a garbage vertex
     // function and died inside setVertexFunction:. Nothing here inspects pixels;
     // the point is that the pipeline builds and the draw survives.
-    var specular_on = gpu.abi.StateInfo{ .struct_size = @sizeOf(gpu.abi.StateInfo), .kind = 5, .index = 0, .value = 1, .values = .{0} ** 16 };
-    var specular_off = gpu.abi.StateInfo{ .struct_size = @sizeOf(gpu.abi.StateInfo), .kind = 5, .index = 0, .value = 0, .values = .{0} ** 16 };
+    var specular_on = gpu.abi.StateInfo{ .struct_size = @sizeOf(gpu.abi.StateInfo), .kind = 5, .index = 0, .value = 1, .values = @splat(0) };
+    var specular_off = gpu.abi.StateInfo{ .struct_size = @sizeOf(gpu.abi.StateInfo), .kind = 5, .index = 0, .value = 0, .values = @splat(0) };
     try std.testing.expectEqual(gpu.error_codes.ok, api.begin_frame(renderer));
     try std.testing.expectEqual(gpu.error_codes.ok, api.set_viewport(renderer, &screen_viewport));
     try std.testing.expectEqual(gpu.error_codes.ok, api.set_transform(renderer, &pixel_world, &pixel_view_proj));

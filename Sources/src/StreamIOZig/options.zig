@@ -50,22 +50,22 @@ pub const System = struct {
 
     pub fn set(self: *System, name: []const u8, value: []const u8, value_type: u16) !void {
         if (self.findIndex(name)) |index| {
-            const replacement = try self.allocator.dupeZ(u8, value);
+            const replacement = try self.allocator.dupeSentinel(u8, value, 0);
             self.allocator.free(self.entries.items[index].value);
             self.entries.items[index].value = replacement;
             self.entries.items[index].value_type = value_type;
         } else {
             try self.entries.append(self.allocator, .{
-                .name = try self.allocator.dupeZ(u8, name),
-                .value = try self.allocator.dupeZ(u8, value),
-                .default_value = try self.allocator.dupeZ(u8, value),
+                .name = try self.allocator.dupeSentinel(u8, name, 0),
+                .value = try self.allocator.dupeSentinel(u8, value, 0),
+                .default_value = try self.allocator.dupeSentinel(u8, value, 0),
                 .value_type = value_type,
                 .editor_type = 4,
                 .flags = 0,
                 .order = @intCast(self.entries.items.len),
                 .instant_apply = false,
-                .action = try self.allocator.dupeZ(u8, ""),
-                .action_fill = try self.allocator.dupeZ(u8, ""),
+                .action = try self.allocator.dupeSentinel(u8, "", 0),
+                .action_fill = try self.allocator.dupeSentinel(u8, "", 0),
             });
         }
         self.changed = true;
@@ -115,16 +115,16 @@ pub const System = struct {
             const default_node = xml.child(item, "Default");
             const default_value = if (default_node) |node| (xml.attribute(node, "Var") orelse if (xml.child(node, "Var")) |value_node| value_node.text else value) else value;
             var replacement = Option{
-                .name = try self.allocator.dupeZ(u8, name),
-                .value = try self.allocator.dupeZ(u8, value),
-                .default_value = try self.allocator.dupeZ(u8, default_value),
+                .name = try self.allocator.dupeSentinel(u8, name, 0),
+                .value = try self.allocator.dupeSentinel(u8, value, 0),
+                .default_value = try self.allocator.dupeSentinel(u8, default_value, 0),
                 .value_type = value_type,
                 .editor_type = parseI32(xml.attribute(item, "EditorType"), 4),
                 .flags = parseU32Compat(xml.attribute(item, "Flags"), 0),
                 .order = parseI32(xml.attribute(item, "Order"), 0),
                 .instant_apply = parseI32(xml.attribute(item, "InstantApply"), 0) != 0,
-                .action = try self.allocator.dupeZ(u8, if (xml.child(item, "Action")) |node| node.text else ""),
-                .action_fill = try self.allocator.dupeZ(u8, if (xml.child(item, "ActionFill")) |node| node.text else ""),
+                .action = try self.allocator.dupeSentinel(u8, if (xml.child(item, "Action")) |node| node.text else "", 0),
+                .action_fill = try self.allocator.dupeSentinel(u8, if (xml.child(item, "ActionFill")) |node| node.text else "", 0),
             };
             if (self.findIndex(name)) |index| {
                 if (only_missing) {
@@ -132,7 +132,7 @@ pub const System = struct {
                     self.allocator.free(replacement.value);
                     replacement.value = existing.value;
                     replacement.value_type = existing.value_type;
-                    existing.value = try self.allocator.dupeZ(u8, "");
+                    existing.value = try self.allocator.dupeSentinel(u8, "", 0);
                 }
                 self.freeOption(self.entries.items[index]);
                 self.entries.items[index] = replacement;

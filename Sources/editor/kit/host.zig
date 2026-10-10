@@ -10,7 +10,7 @@ const imgui = @import("editor_imgui");
 /// independent of MapEditor's app code - any editor on the kit (ResourceEditor
 /// included) imports this same session/overlay plumbing without pulling the
 /// map-editor-only bridge adapter.
-pub const c = @cImport(@cInclude("bridge.h"));
+pub const c = @import("bridge_c");
 
 pub const HostError = error{ SdlInitFailed, WindowFailed, EngineFailed, NoDevice, ImguiFailed, FrameFailed };
 

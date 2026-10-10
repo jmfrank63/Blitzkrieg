@@ -83,7 +83,7 @@ pub fn sourcePath(buffer: []u8, doc: *const Document, kind: Kind, project_folder
     };
     if (name.len == 0) return null;
     const sep: []const u8 = if (project_folder.len == 0 or project_folder[project_folder.len - 1] == '/' or project_folder[project_folder.len - 1] == '\\') "" else "/";
-    const text = std.fmt.bufPrintZ(buffer, "{s}{s}{s}.xml", .{ project_folder, sep, name }) catch return null;
+    const text = std.mem.printSentinel(buffer, "{s}{s}{s}.xml", .{ project_folder, sep, name }, 0) catch return null;
     for (text) |*ch| if (ch.* == '\\') {
         ch.* = '/';
     };
@@ -122,7 +122,7 @@ pub fn missionPicture(buffer: []u8, doc: *const Document, project_folder: []cons
     const final_map = if (common) |node| tools.propValue(doc, node, mission_final_map_id) orelse "" else "";
     if (final_map.len == 0) return .{ .action = .no_final_map, .path = null };
     const sep: []const u8 = if (project_folder.len == 0 or project_folder[project_folder.len - 1] == '/' or project_folder[project_folder.len - 1] == '\\') "" else "/";
-    const text = std.fmt.bufPrintZ(buffer, "{s}{s}map_h.dds", .{ project_folder, sep }) catch return .{ .action = .no_final_map, .path = null };
+    const text = std.mem.printSentinel(buffer, "{s}{s}map_h.dds", .{ project_folder, sep }, 0) catch return .{ .action = .no_final_map, .path = null };
     for (text) |*ch| if (ch.* == '\\') {
         ch.* = '/';
     };

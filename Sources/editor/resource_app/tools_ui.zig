@@ -113,32 +113,32 @@ pub const Tools = struct {
     modal: ?Modal = null,
     modal_opened: bool = false,
 
-    mod_export: [260]u8 = [_]u8{0} ** 260,
-    mod_name: [64]u8 = [_]u8{0} ** 64,
-    mod_version: [32]u8 = [_]u8{0} ** 32,
-    mod_desc: [256]u8 = [_]u8{0} ** 256,
+    mod_export: [260]u8 = @splat(0),
+    mod_name: [64]u8 = @splat(0),
+    mod_version: [32]u8 = @splat(0),
+    mod_desc: [256]u8 = @splat(0),
 
-    source_edit: [field_capacity]u8 = [_]u8{0} ** field_capacity,
-    game_folder_edit: [field_capacity]u8 = [_]u8{0} ** field_capacity,
-    arguments_edit: [256]u8 = [_]u8{0} ** 256,
+    source_edit: [field_capacity]u8 = @splat(0),
+    game_folder_edit: [field_capacity]u8 = @splat(0),
+    arguments_edit: [256]u8 = @splat(0),
 
     picture: tools.PictureOptions = .{},
     picture_current_only: bool = false,
-    picture_source: [field_capacity]u8 = [_]u8{0} ** field_capacity,
+    picture_source: [field_capacity]u8 = @splat(0),
 
     /// 0 is every kind; 1 + the kind's integer otherwise.
     batch_kind: usize = 0,
-    batch_src: [field_capacity]u8 = [_]u8{0} ** field_capacity,
-    batch_dst: [field_capacity]u8 = [_]u8{0} ** field_capacity,
+    batch_src: [field_capacity]u8 = @splat(0),
+    batch_dst: [field_capacity]u8 = @splat(0),
     batch_force: bool = false,
     batch_open_save: bool = false,
 
-    report_title: [64]u8 = [_]u8{0} ** 64,
+    report_title: [64]u8 = @splat(0),
     report_text: std.ArrayList(u8) = .empty,
     export_outcome: tools.ExportOutcome = .{},
 
     running: ?testlaunch.Running = null,
-    game_log: [field_capacity]u8 = [_]u8{0} ** field_capacity,
+    game_log: [field_capacity]u8 = @splat(0),
 
     /// On the heap like lifecycle_ui.Ui: the edit buffers and the export
     /// report are tens of kilobytes. Hooks itself into `ui`'s File menu.
@@ -412,7 +412,7 @@ pub const Tools = struct {
         var mod: ModSettings = .{};
         _ = self.bridge().modSettingsGet(&mod);
         var location_buffer: [field_capacity + 1]u8 = undefined;
-        const location: ?[*:0]const u8 = if (std.fmt.bufPrintZ(&location_buffer, "{s}", .{mod.exportDirSlice()})) |z| (if (z.len != 0) z.ptr else null) else |_| null;
+        const location: ?[*:0]const u8 = if (std.mem.printSentinel(&location_buffer, "{s}", .{mod.exportDirSlice()}, 0)) |z| (if (z.len != 0) z.ptr else null) else |_| null;
         sdl3.c.SDL_ShowSaveFileDialog(dialogCallback, &dialog_slot, self.window, &pak_filters, pak_filters.len, location);
     }
 
@@ -455,7 +455,7 @@ pub const Tools = struct {
     fn askFolder(self: *Tools, target: Target, current: []const u8) void {
         if (!dialog_slot.request(target)) return;
         var location_buffer: [field_capacity + 1]u8 = undefined;
-        const location: ?[*:0]const u8 = if (std.fmt.bufPrintZ(&location_buffer, "{s}", .{current})) |z| (if (z.len != 0) z.ptr else null) else |_| null;
+        const location: ?[*:0]const u8 = if (std.mem.printSentinel(&location_buffer, "{s}", .{current}, 0)) |z| (if (z.len != 0) z.ptr else null) else |_| null;
         sdl3.c.SDL_ShowOpenFolderDialog(dialogCallback, &dialog_slot, self.window, location, false);
     }
 
@@ -560,7 +560,7 @@ pub const Tools = struct {
             if (ig.igSelectableEx("All projects", self.batch_kind == 0, 0, .{ .x = 0, .y = 0 })) self.batch_kind = 0;
             for (kinds, 1..) |kind, i| {
                 var label_buffer: [64]u8 = undefined;
-                const label = std.fmt.bufPrintZ(&label_buffer, "{s} (*.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }) catch continue;
+                const label = std.mem.printSentinel(&label_buffer, "{s} (*.{s})", .{ lifecycle.kindLabel(kind), kind.extension() }, 0) catch continue;
                 if (ig.igSelectableEx(label.ptr, self.batch_kind == i, 0, .{ .x = 0, .y = 0 })) self.batch_kind = i;
             }
             ig.igEndCombo();

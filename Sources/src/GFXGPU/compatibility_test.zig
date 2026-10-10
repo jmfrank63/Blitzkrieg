@@ -52,7 +52,7 @@ test "every catalog effect ID is represented by a shader family and policy" {
 }
 
 test "all compatibility matrix evidence kinds are populated" {
-    var seen = [_]bool{false} ** 6;
+    var seen: [6]bool = @splat(false);
     for (rows) |row| seen[@intFromEnum(row.evidence)] = true;
     for (seen) |value| try std.testing.expect(value);
 }

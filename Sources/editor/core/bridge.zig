@@ -43,7 +43,7 @@ pub const name_capacity = 64;
 /// BkEditorObjectRecord.
 pub const ObjectRecord = struct {
     link_id: i32 = -1,
-    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    name: [name_capacity]u8 = @splat(0),
     x: f32 = 0,
     y: f32 = 0,
     dir: i32 = 0,
@@ -91,7 +91,7 @@ pub const ReserveRole = enum(i32) { none = 0, self_propelled = 1, towed = 2, tru
 /// One action type of Data/Editor/actions.ini as BkEditorActionCommands lists
 /// it (04-11, D-17): its name and the id a start command stores.
 pub const ActionCommand = struct {
-    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    name: [name_capacity]u8 = @splat(0),
     id: i32 = 0,
 
     pub fn nameSlice(self: *const ActionCommand) []const u8 {
@@ -115,7 +115,7 @@ pub const filter_max_words = 8;
 pub const filter_word_capacity = 32;
 pub const ObjectFilterWords = extern struct {
     word_count: c_int = 0,
-    words: [filter_max_words][filter_word_capacity]u8 = [_][filter_word_capacity]u8{[_]u8{0} ** filter_word_capacity} ** filter_max_words,
+    words: [filter_max_words][filter_word_capacity]u8 = @splat(@splat(0)),
 };
 
 /// BkEditorObjectFilter (M3, D-31), layout included: one named object filter
@@ -124,10 +124,10 @@ pub const ObjectFilterWords = extern struct {
 /// entry came from (or is overridden by) the user file and so belongs in the
 /// next `saveObjectFilters` - a shipped name the user has not touched is 0.
 pub const ObjectFilter = extern struct {
-    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    name: [name_capacity]u8 = @splat(0),
     list_count: c_int = 0,
     user: c_int = 0,
-    lists: [filter_max_lists]ObjectFilterWords = [_]ObjectFilterWords{.{}} ** filter_max_lists,
+    lists: [filter_max_lists]ObjectFilterWords = @splat(.{}),
 
     pub fn nameSlice(self: *const ObjectFilter) []const u8 {
         return std.mem.sliceTo(&self.name, 0);
@@ -173,7 +173,7 @@ pub const FieldVec3 = extern struct { x: f32 = 0, y: f32 = 0, z: f32 = 0 };
 /// caller's array for the duration of the call.
 pub const field_set_name_capacity = 192;
 pub const FieldApplyParams = extern struct {
-    field_set: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    field_set: [field_set_name_capacity]u8 = @splat(0),
     point_count: c_int = 0,
     points: ?[*]const FieldVec3 = null,
     randomize: c_int = 0,
@@ -186,7 +186,7 @@ pub const FieldApplyParams = extern struct {
     update_map_after: c_int = 0,
     check_passability_only: c_int = 0,
     can_add_object_filter: c_int = 0,
-    object_filter: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    object_filter: [name_capacity]u8 = @splat(0),
 
     pub fn fieldSetSlice(self: *const FieldApplyParams) []const u8 {
         return std.mem.sliceTo(&self.field_set, 0);
@@ -208,7 +208,7 @@ pub const FieldApplyParams = extern struct {
 /// BkEditorFieldObjectReport: one object the object shells produced and
 /// whether it was placed. x, y are AI (map) units.
 pub const FieldObjectReport = extern struct {
-    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    name: [name_capacity]u8 = @splat(0),
     x: f32 = 0,
     y: f32 = 0,
     placed: c_int = 0,
@@ -220,7 +220,7 @@ pub const FieldObjectReport = extern struct {
 
 /// BkEditorRmgName: one storage-relative RMG name.
 pub const RmgName = extern struct {
-    name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    name: [field_set_name_capacity]u8 = @splat(0),
 
     pub fn nameSlice(self: *const RmgName) []const u8 {
         return std.mem.sliceTo(&self.name, 0);
@@ -229,7 +229,7 @@ pub const RmgName = extern struct {
 
 /// One name of a unit-creation combo (BkEditorUcName, 05-05, D-30).
 pub const UcName = extern struct {
-    name: [64]u8 = [_]u8{0} ** 64,
+    name: [64]u8 = @splat(0),
 
     pub fn nameSlice(self: *const UcName) []const u8 {
         return std.mem.sliceTo(&self.name, 0);
@@ -245,7 +245,7 @@ pub const RmgKind = enum(c_int) { field_sets = 0, templates = 1, graphs = 2, con
 
 /// BkEditorRmgGraph (05-08, D-13): one graph of a template with its weight.
 pub const RmgGraph = extern struct {
-    name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    name: [field_set_name_capacity]u8 = @splat(0),
     weight: c_int = 0,
 
     pub fn nameSlice(self: *const RmgGraph) []const u8 {
@@ -269,10 +269,10 @@ pub const RmgScripts = extern struct {
 /// BkEditorRmgPatch: one patch of a container (a storage name without
 /// extension, its size in patches, its setting - empty is any).
 pub const RmgPatch = extern struct {
-    name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    name: [field_set_name_capacity]u8 = @splat(0),
     size_x: c_int = 0,
     size_y: c_int = 0,
-    place: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    place: [field_set_name_capacity]u8 = @splat(0),
 };
 
 /// BkEditorRmgContainerRecord, layout included: SRMContainer through the
@@ -283,7 +283,7 @@ pub const RmgContainerRecord = extern struct {
     size_x: c_int = 0,
     size_y: c_int = 0,
     season: c_int = 0,
-    season_folder: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    season_folder: [field_set_name_capacity]u8 = @splat(0),
     patches: ?[*]RmgPatch = null,
     patch_capacity: c_int = 0,
     patch_count: c_int = 0,
@@ -302,14 +302,14 @@ pub const RmgNode = extern struct {
     y1: c_int = 0,
     x2: c_int = 0,
     y2: c_int = 0,
-    container: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    container: [field_set_name_capacity]u8 = @splat(0),
 };
 
 pub const RmgLink = extern struct {
     a: c_int = 0,
     b: c_int = 0,
     kind: c_int = 0,
-    desc: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    desc: [field_set_name_capacity]u8 = @splat(0),
     radius: f32 = 0,
     parts: c_int = 0,
     min_length: f32 = 0,
@@ -321,7 +321,7 @@ pub const RmgGraphRecord = extern struct {
     size_x: c_int = 0,
     size_y: c_int = 0,
     season: c_int = 0,
-    season_folder: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    season_folder: [field_set_name_capacity]u8 = @splat(0),
     nodes: ?[*]RmgNode = null,
     node_capacity: c_int = 0,
     node_count: c_int = 0,
@@ -336,7 +336,7 @@ pub const RmgPatchInfo = extern struct {
     size_x: c_int = 0,
     size_y: c_int = 0,
     season: c_int = 0,
-    season_folder: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    season_folder: [field_set_name_capacity]u8 = @splat(0),
     scripts: RmgScripts = .{},
 };
 
@@ -347,7 +347,7 @@ pub const RmgPatchInfo = extern struct {
 /// TOTAL and a short array is filled as far as it fits (two-pass, like the
 /// container record).
 pub const RmgWeightedName = extern struct {
-    name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    name: [field_set_name_capacity]u8 = @splat(0),
     weight: c_int = 0,
 };
 pub const RmgWeightedTile = extern struct { tile: c_int = 0, weight: c_int = 0 };
@@ -355,8 +355,8 @@ pub const RmgTileShell = extern struct { width: f32 = 0, tile_count: c_int = 0 }
 pub const RmgObjectShell = extern struct { width: f32 = 0, step: c_int = 0, ratio: f32 = 0, object_count: c_int = 0 };
 pub const RmgFieldSetRecord = extern struct {
     season: c_int = 0,
-    season_folder: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
-    profile: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    season_folder: [field_set_name_capacity]u8 = @splat(0),
+    profile: [field_set_name_capacity]u8 = @splat(0),
     height: f32 = 0,
     pattern_min: c_int = 0,
     pattern_max: c_int = 0,
@@ -378,27 +378,27 @@ pub const RmgFieldSetRecord = extern struct {
 /// BkEditorUnitCreationRecord's layout (05-05): one player's unit creation as the
 /// C side hands it over - the template record carries one per player.
 pub const RmgUnitAircraft = extern struct {
-    name: [64]u8 = [_]u8{0} ** 64,
+    name: [64]u8 = @splat(0),
     formation_size: c_int = 0,
     count: c_int = 0,
 };
 pub const RmgVec3 = extern struct { x: f32 = 0, y: f32 = 0, z: f32 = 0 };
 pub const RmgUnit = extern struct {
     slot_count: c_int = 0,
-    party: [64]u8 = [_]u8{0} ** 64,
-    aircraft: [5]RmgUnitAircraft = [_]RmgUnitAircraft{.{}} ** 5,
-    paratroop_name: [64]u8 = [_]u8{0} ** 64,
+    party: [64]u8 = @splat(0),
+    aircraft: [5]RmgUnitAircraft = @splat(.{}),
+    paratroop_name: [64]u8 = @splat(0),
     paratroop_count: c_int = 0,
     relax_time: c_int = 0,
     appear_count: c_int = 0,
-    appear: [32]RmgVec3 = [_]RmgVec3{.{}} ** 32,
+    appear: [32]RmgVec3 = @splat(.{}),
 };
 
 /// BkEditorRmgVso: a template's road or river descriptor with its weight; the
 /// width is in WORLD units (the dialog shows it divided by the 32-unit cell),
 /// the opacity 0..1.
 pub const RmgVso = extern struct {
-    name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    name: [field_set_name_capacity]u8 = @splat(0),
     weight: c_int = 0,
     width: f32 = 0,
     opacity: f32 = 0,
@@ -410,19 +410,19 @@ pub const RmgTemplateRecord = extern struct {
     size_x: c_int = 0,
     size_y: c_int = 0,
     season: c_int = 0,
-    season_folder: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
-    place: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    season_folder: [field_set_name_capacity]u8 = @splat(0),
+    place: [field_set_name_capacity]u8 = @splat(0),
     default_field: c_int = -1,
     mission_index: c_int = 0,
     game_type: c_int = 0,
     attacking_side: c_int = 0,
     camera: [3]f32 = .{ 0, 0, 0 },
-    script_file: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
-    chapter_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
-    forest_circle_sounds: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
-    forest_ambient_sounds: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
-    mod_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
-    mod_version: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
+    script_file: [field_set_name_capacity]u8 = @splat(0),
+    chapter_name: [field_set_name_capacity]u8 = @splat(0),
+    forest_circle_sounds: [field_set_name_capacity]u8 = @splat(0),
+    forest_ambient_sounds: [field_set_name_capacity]u8 = @splat(0),
+    mod_name: [field_set_name_capacity]u8 = @splat(0),
+    mod_version: [field_set_name_capacity]u8 = @splat(0),
     fields: ?[*]RmgWeightedName = null,
     field_capacity: c_int = 0,
     field_count: c_int = 0,
@@ -443,7 +443,7 @@ pub const RmgTemplateRecord = extern struct {
 
 /// BkEditorRmgTerrainType: one terrain type of a season's tileset.
 pub const RmgTerrainType = extern struct {
-    name: [64]u8 = [_]u8{0} ** 64,
+    name: [64]u8 = @splat(0),
     variant_count: c_int = 0,
 
     pub fn nameSlice(self: *const RmgTerrainType) []const u8 {
@@ -483,10 +483,10 @@ pub const rmg_max_units = 16;
 pub const rmg_map_name_capacity = 96;
 pub const rmg_any_setting = "<any setting>";
 pub const RmgGenerateParams = extern struct {
-    template_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
-    context_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
-    setting_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
-    map_name: [rmg_map_name_capacity]u8 = [_]u8{0} ** rmg_map_name_capacity,
+    template_name: [field_set_name_capacity]u8 = @splat(0),
+    context_name: [field_set_name_capacity]u8 = @splat(0),
+    setting_name: [field_set_name_capacity]u8 = @splat(0),
+    map_name: [rmg_map_name_capacity]u8 = @splat(0),
     level: c_int = 0,
     graph: c_int = -1,
     angle: c_int = -1,
@@ -536,8 +536,8 @@ pub const RmgGenerateResult = extern struct {
     seed: c_uint = 0,
     graph: c_int = -1,
     angle: c_int = -1,
-    graph_name: [field_set_name_capacity]u8 = [_]u8{0} ** field_set_name_capacity,
-    map_path: [1024]u8 = [_]u8{0} ** 1024,
+    graph_name: [field_set_name_capacity]u8 = @splat(0),
+    map_path: [1024]u8 = @splat(0),
 
     pub fn graphNameSlice(self: *const RmgGenerateResult) []const u8 {
         return std.mem.sliceTo(&self.graph_name, 0);
@@ -619,8 +619,8 @@ pub const NewMapParams = extern struct {
     size_x: c_int = 8,
     size_y: c_int = 8,
     season: c_int = 0,
-    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
-    mod_folder: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    name: [name_capacity]u8 = @splat(0),
+    mod_folder: [name_capacity]u8 = @splat(0),
 
     pub fn nameSlice(self: *const NewMapParams) []const u8 {
         return std.mem.sliceTo(&self.name, 0);
@@ -647,7 +647,7 @@ pub const NewMapParams = extern struct {
 /// (bridge.h's own comment on BkEditorSounds); radii are vis tiles; times
 /// are milliseconds.
 pub const SoundRecord = struct {
-    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    name: [name_capacity]u8 = @splat(0),
     x: f32 = 0,
     y: f32 = 0,
     z: f32 = 0,
@@ -695,7 +695,7 @@ pub const vso_name_capacity = 128;
 /// A road or river type: the bare descriptor name (no folder, no extension)
 /// as BkEditorVsoDescriptors lists it.
 pub const VsoDescriptor = struct {
-    name: [vso_name_capacity]u8 = [_]u8{0} ** vso_name_capacity,
+    name: [vso_name_capacity]u8 = @splat(0),
 
     pub fn nameSlice(self: *const VsoDescriptor) []const u8 {
         return std.mem.sliceTo(&self.name, 0);
@@ -728,7 +728,7 @@ pub const VsoKeyPoint = struct {
 /// key points (world units). `deinit` with the allocator `readVso` was given.
 pub const VsoView = struct {
     saved_id: i32 = 0,
-    desc: [vso_name_capacity]u8 = [_]u8{0} ** vso_name_capacity,
+    desc: [vso_name_capacity]u8 = @splat(0),
     control_points: []records.Vec3 = &.{},
     key_points: []VsoKeyPoint = &.{},
 
@@ -750,7 +750,7 @@ pub const VsoView = struct {
 pub const BridgeDirection = enum(u8) { vertical = 0, horizontal = 1 };
 
 pub const BridgeDescriptor = struct {
-    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    name: [name_capacity]u8 = @splat(0),
     direction: BridgeDirection = .horizontal,
     has_partner: bool = false,
     build_during_play_allowed: bool = false,
@@ -774,7 +774,7 @@ pub const PlannedPiece = struct { x: f32 = 0, y: f32 = 0, type: i32 = 0, dir: i3
 /// how many spans it names, the box of their positions (MAP units) and
 /// whether it is built during play.
 pub const BridgeInfo = struct {
-    desc: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    desc: [name_capacity]u8 = @splat(0),
     span_count: i32 = 0,
     min_x: f32 = 0,
     min_y: f32 = 0,
@@ -795,7 +795,7 @@ pub const BridgeInfo = struct {
 
 /// A fence type as BkEditorFenceDescriptors lists it (04-07, D-14): its name.
 pub const FenceDescriptor = struct {
-    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    name: [name_capacity]u8 = @splat(0),
 
     pub fn nameSlice(self: *const FenceDescriptor) []const u8 {
         return std.mem.sliceTo(&self.name, 0);

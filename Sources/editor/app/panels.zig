@@ -113,7 +113,7 @@ pub const BridgeGhost = struct {
     pub const max_pieces = 128;
     from: [2]f32 = .{ 0, 0 },
     to: [2]f32 = .{ 0, 0 },
-    desc: [core.bridge.name_capacity]u8 = [_]u8{0} ** core.bridge.name_capacity,
+    desc: [core.bridge.name_capacity]u8 = @splat(0),
     valid: bool = false,
     refused: bool = false,
     why: [160]u8 = undefined,
@@ -130,7 +130,7 @@ pub const FenceGhost = struct {
     from: [2]f32 = .{ 0, 0 },
     to: [2]f32 = .{ 0, 0 },
     ctrl: bool = false,
-    desc: [core.bridge.name_capacity]u8 = [_]u8{0} ** core.bridge.name_capacity,
+    desc: [core.bridge.name_capacity]u8 = @splat(0),
     valid: bool = false,
     refused: bool = false,
     why: [160]u8 = undefined,
@@ -257,7 +257,7 @@ pub const State = struct {
     /// default save format; the two fields are edited here and commit on OK),
     /// Help > Keys and tools and Help > About.
     options_open: bool = false,
-    options_params_edit: [core.settings.max_game_parameters:0]u8 = [_:0]u8{0} ** core.settings.max_game_parameters,
+    options_params_edit: [core.settings.max_game_parameters:0]u8 = @splat(0),
     options_format_edit: core.settings.Format = core.settings.default_format,
     help_keys_open: bool = false,
     about_open: bool = false,
@@ -280,7 +280,7 @@ pub const State = struct {
     new_map_name: logic.NameText = .{},
     /// The New Map dialog's name field (a zero-terminated buffer ImGui
     /// edits in place, committed to `new_map_fields.name` on Create).
-    new_map_name_edit: [core.bridge.name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.name_capacity,
+    new_map_name_edit: [core.bridge.name_capacity:0]u8 = @splat(0),
     /// The format a Save As was asked for by name (M3, D-24: File > Save as
     /// XML/BZM and the file_save_xml/bzm commands): while set, a path the
     /// dialog or command delivered without an extension gets this format's
@@ -289,7 +289,7 @@ pub const State = struct {
     /// The Settings window's "Maps folder" field, loaded from `settings`
     /// whenever the window is (re)opened, edited in place, and only copied
     /// back into `settings` once editing is deactivated (not per keystroke).
-    maps_folder_edit: [core.settings.max_path:0]u8 = [_:0]u8{0} ** core.settings.max_path,
+    maps_folder_edit: [core.settings.max_path:0]u8 = @splat(0),
 
     /// Map > Update Map (M3, D-20): whether the report modal is still owed a
     /// frame, and the step count the synchronous command collected (the
@@ -309,8 +309,8 @@ pub const State = struct {
     /// bridge's callback only counts), and the result modal follows (`done`).
     rmg_open: bool = false,
     rmg_fields: logic.RmgFields = .{},
-    rmg_map_edit: [core.bridge.rmg_map_name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.rmg_map_name_capacity,
-    rmg_seed_edit: [16:0]u8 = [_:0]u8{0} ** 16,
+    rmg_map_edit: [core.bridge.rmg_map_name_capacity:0]u8 = @splat(0),
+    rmg_seed_edit: [16:0]u8 = @splat(0),
     rmg_templates: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
     rmg_contexts: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
     rmg_settings: std.ArrayListUnmanaged(core.bridge.RmgName) = .empty,
@@ -347,7 +347,7 @@ pub const State = struct {
     /// checked once (std.Io.Dir access) the frame the submenu newly opens
     /// and reused every frame it stays open - not once per entry per frame.
     recent_menu_open_prev: bool = false,
-    recent_exists_cache: [core.settings.recent_capacity]bool = [_]bool{true} ** core.settings.recent_capacity,
+    recent_exists_cache: [core.settings.recent_capacity]bool = @splat(true),
 
     /// File > Mod (D-26): the installed mods, refreshed once the frame the
     /// submenu newly opens - the same shape as Open Recent's own cache above.
@@ -394,7 +394,7 @@ pub const State = struct {
     /// check can tell a palette the switch re-read from one merely left over
     /// - the fixture mod adds no objects, so the entries alone look the same.
     catalogue_generation: u32 = 0,
-    filter: [64:0]u8 = [_:0]u8{0} ** 64,
+    filter: [64:0]u8 = @splat(0),
 
     /// The object filters (M3, D-31): the palette's nine quick toggles. The
     /// slots' assigned filter names and the combo's current one live in
@@ -407,26 +407,26 @@ pub const State = struct {
     /// differs from the editor's generation. `filters_composer_open` is the
     /// Filters Composer window (drawn by panels_m3.zig);
     /// `filters_composer_selected` is the filter its word-list editor shows.
-    filter_checked: [core.settings.Settings.filter_slot_count]bool = [_]bool{false} ** core.settings.Settings.filter_slot_count,
+    filter_checked: [core.settings.Settings.filter_slot_count]bool = @splat(false),
     filters_generation_seen: u32 = 0,
     filter_views: [logic.max_active_filters]core.bridge.FilterView = undefined,
     active_filter_values: [logic.max_active_filters]core.filters.Filter = undefined,
     active_filters: []const core.filters.Filter = &.{},
     filters_composer_open: bool = false,
-    filters_composer_selected: [64:0]u8 = [_:0]u8{0} ** 64,
+    filters_composer_selected: [64:0]u8 = @splat(0),
     /// The composer's new-filter and rename name fields, and the words
     /// editors' buffers
     /// (one per condition line, reloaded when the selection or the generation
     /// changes - the commit-on-deactivate rule needs the buffer to outlive
     /// the edit).
-    filter_new_edit: [64:0]u8 = [_:0]u8{0} ** 64,
-    filter_rename_edit: [64:0]u8 = [_:0]u8{0} ** 64,
-    filter_words_edit: [core.bridge.filter_max_lists][256:0]u8 = [_][256:0]u8{[_:0]u8{0} ** 256} ** core.bridge.filter_max_lists,
+    filter_new_edit: [64:0]u8 = @splat(0),
+    filter_rename_edit: [64:0]u8 = @splat(0),
+    filter_words_edit: [core.bridge.filter_max_lists][256:0]u8 = @splat(@splat(0)),
     filters_composer_words_seen: u32 = 0,
     /// Set the frame the palette asks for the New Filter popup or the Delete
     /// confirmation, so the modal opens once and names its filter.
     filter_new_popup: bool = false,
-    filter_delete_popup: [64:0]u8 = [_:0]u8{0} ** 64,
+    filter_delete_popup: [64:0]u8 = @splat(0),
 
     /// The RMG composers (05-09, D-06): the two Tools windows and their shared
     /// working state (core.composers). `cc_*` is the Containers window's own
@@ -436,29 +436,29 @@ pub const State = struct {
     containers_open: bool = false,
     graphs_open: bool = false,
     composers: core.composers.Composers,
-    cc_selected: [core.bridge.rmg_max_patches]bool = [_]bool{false} ** core.bridge.rmg_max_patches,
+    cc_selected: [core.bridge.rmg_max_patches]bool = @splat(false),
     cc_anchor: usize = 0,
-    cc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
-    cc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
-    cc_picker_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    cc_open_filter: [96:0]u8 = @splat(0),
+    cc_save_as_edit: [128:0]u8 = @splat(0),
+    cc_picker_filter: [96:0]u8 = @splat(0),
     cc_picker_selected: std.ArrayListUnmanaged(bool) = .empty,
-    cc_place_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    cc_place_edit: [128:0]u8 = @splat(0),
     cc_flags_edit: [4]core.composers.Tri = .{ .keep, .keep, .keep, .keep },
     cc_popup: ComposerPopup = .none,
     cc_check_seen: u32 = 0,
     /// A New or Open that waits for the answer to "discard the changes?":
     /// the command it runs on YES, as `name arg`.
-    cc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
-    cg_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
-    cg_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
-    cg_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
-    cg_container_edit: [192:0]u8 = [_:0]u8{0} ** 192,
-    cg_link_edit: [6][96:0]u8 = [_][96:0]u8{[_:0]u8{0} ** 96} ** 6,
+    cc_pending_cmd: [220:0]u8 = @splat(0),
+    cg_pending_cmd: [220:0]u8 = @splat(0),
+    cg_open_filter: [96:0]u8 = @splat(0),
+    cg_save_as_edit: [128:0]u8 = @splat(0),
+    cg_container_edit: [192:0]u8 = @splat(0),
+    cg_link_edit: [6][96:0]u8 = @splat(@splat(0)),
     cg_popup: ComposerPopup = .none,
     /// The element the last right-click or double-click found: a node and/or
     /// the links under the point (at most eight).
     cg_hit_node: i32 = -1,
-    cg_hit_links: [8]u32 = [_]u32{0} ** 8,
+    cg_hit_links: [8]u32 = @splat(0),
     cg_hit_link_count: usize = 0,
     cg_link_index: usize = 0,
     cg_dragging: bool = false,
@@ -474,20 +474,20 @@ pub const State = struct {
     fields_composer_open: bool = false,
     fc_tab: FieldTab = .terrain,
     fc_tab_request: bool = false,
-    fc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
-    fc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    fc_open_filter: [96:0]u8 = @splat(0),
+    fc_save_as_edit: [128:0]u8 = @splat(0),
     fc_popup: ComposerPopup = .none,
-    fc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    fc_pending_cmd: [220:0]u8 = @splat(0),
     /// The chosen shell of each kind (0 terrain, 1 objects) and whether one is chosen.
     fc_shell: [2]usize = .{ 0, 0 },
     fc_shell_chosen: [2]bool = .{ false, false },
-    fc_filter: [64:0]u8 = [_:0]u8{0} ** 64,
-    fc_text_filter: [64:0]u8 = [_:0]u8{0} ** 64,
+    fc_filter: [64:0]u8 = @splat(0),
+    fc_text_filter: [64:0]u8 = @splat(0),
     fc_avail: std.ArrayListUnmanaged(usize) = .empty,
     fc_avail_catalogue_seen: u32 = 0,
     fc_filters_seen: u32 = 0,
-    fc_avail_filter_seen: [64]u8 = [_]u8{0} ** 64,
-    fc_avail_text_seen: [64]u8 = [_]u8{0} ** 64,
+    fc_avail_filter_seen: [64]u8 = @splat(0),
+    fc_avail_text_seen: [64]u8 = @splat(0),
     fc_avail_selected: std.ArrayListUnmanaged(bool) = .empty,
     fc_type_selected: std.ArrayListUnmanaged(bool) = .empty,
     fc_shell_selected: [2]std.ArrayListUnmanaged(bool) = .{ .empty, .empty },
@@ -496,11 +496,11 @@ pub const State = struct {
     fc_types_slot: usize = 99,
     fc_types_generation: u32 = 0,
     /// The popups' text fields: width, step, percent / a weight.
-    fc_shell_edit: [3][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 3,
-    fc_weight_edit: [32:0]u8 = [_:0]u8{0} ** 32,
+    fc_shell_edit: [3][32:0]u8 = @splat(@splat(0)),
+    fc_weight_edit: [32:0]u8 = @splat(0),
     /// The Heights tab's fields (height, pattern min, pattern max, percent,
     /// profile) as text, reloaded when the file or an edit moves `generation`.
-    fc_edit: [5][96:0]u8 = [_][96:0]u8{[_:0]u8{0} ** 96} ** 5,
+    fc_edit: [5][96:0]u8 = @splat(@splat(0)),
     fc_edit_seen: u32 = 0,
     fc_profiles: std.ArrayListUnmanaged([]u8) = .empty,
     fc_profiles_read: bool = false,
@@ -511,23 +511,23 @@ pub const State = struct {
     /// popup's working copy and the cached cells of the lists that need a read of
     /// each graph and field set. None of it is data, so none of it is undoable.
     templates_composer_open: bool = false,
-    tc_open_filter: [96:0]u8 = [_:0]u8{0} ** 96,
-    tc_save_as_edit: [128:0]u8 = [_:0]u8{0} ** 128,
+    tc_open_filter: [96:0]u8 = @splat(0),
+    tc_save_as_edit: [128:0]u8 = @splat(0),
     tc_popup: ComposerPopup = .none,
     /// The popup the last frame had, so a popup opened by a command loads what it needs.
     tc_popup_seen: ComposerPopup = .none,
-    tc_pending_cmd: [220:0]u8 = [_:0]u8{0} ** 220,
+    tc_pending_cmd: [220:0]u8 = @splat(0),
     tc_selected: [3]std.ArrayListUnmanaged(bool) = .{ .empty, .empty, .empty },
     /// Which list the open picker or properties popup is about (0 fields, 1 graphs, 2 vso).
     tc_list: usize = 1,
     tc_picker_names: std.ArrayListUnmanaged([]u8) = .empty,
     tc_picker_selected: std.ArrayListUnmanaged(bool) = .empty,
-    tc_picker_filter: [96:0]u8 = [_:0]u8{0} ** 96,
+    tc_picker_filter: [96:0]u8 = @splat(0),
     tc_scripts: std.ArrayListUnmanaged([]u8) = .empty,
     tc_scripts_read: bool = false,
-    tc_edit: [3][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 3,
+    tc_edit: [3][32:0]u8 = @splat(@splat(0)),
     tc_default_edit: bool = false,
-    tc_dipl_sides: [core.rmg.max_diplomacies]u8 = [_]u8{0} ** core.rmg.max_diplomacies,
+    tc_dipl_sides: [core.rmg.max_diplomacies]u8 = @splat(0),
     tc_dipl_count: usize = 0,
     tc_dipl_type: i32 = 0,
     tc_dipl_attacking: i32 = 0,
@@ -535,13 +535,13 @@ pub const State = struct {
     tc_cells_seen: u32 = 0,
     tc_cells_valid: bool = false,
     tc_settings_text: std.ArrayListUnmanaged(u8) = .empty,
-    tc_appear_edit: [2][32:0]u8 = [_][32:0]u8{[_:0]u8{0} ** 32} ** 2,
+    tc_appear_edit: [2][32:0]u8 = @splat(@splat(0)),
 
     fields_open: bool = false,
     /// The Fields panel's state (M3, D-21): the chosen field set, the
     /// dialog's checkboxes and the Randomize dialog's three numbers. The
     /// polygon itself lives in the tool (`view.fields_tool`).
-    fields_set_name: [core.bridge.field_set_name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.field_set_name_capacity,
+    fields_set_name: [core.bridge.field_set_name_capacity:0]u8 = @splat(0),
     fields_randomize: bool = false,
     fields_fill_terrain: bool = true,
     fields_place_objects: bool = true,
@@ -591,7 +591,7 @@ pub const State = struct {
     /// Where the picker's combo and each visible tile cell were drawn last
     /// frame (screen centres), for the smoke to click as a hand would.
     tile_combo_centre: ?ig.ImVec2 = null,
-    tile_cell_centres: [256]?ig.ImVec2 = [_]?ig.ImVec2{null} ** 256,
+    tile_cell_centres: [256]?ig.ImVec2 = @splat(null),
     tile_picker_open: bool = false,
 
     /// Every distinct object type the open map has that the object database
@@ -633,7 +633,7 @@ pub const State = struct {
     selected_sound: ?usize = null,
     sound_edit: struct {
         index: usize = 0,
-        name_buffer: [core.bridge.name_capacity:0]u8 = [_:0]u8{0} ** core.bridge.name_capacity,
+        name_buffer: [core.bridge.name_capacity:0]u8 = @splat(0),
         x: f32 = 0,
         y: f32 = 0,
         repeat_seconds: f32 = 0,
@@ -751,7 +751,7 @@ pub const State = struct {
     check_fix_report: ?core.editor.Editor.FixReport = null,
     check_confirm_pending: bool = false,
     props_link_id: i32 = -1,
-    props_script_edit: [16:0]u8 = [_:0]u8{0} ** 16,
+    props_script_edit: [16:0]u8 = @splat(0),
     props_health: f32 = 100,
     props_angle: f32 = 0,
     props_formation: usize = 0,
@@ -812,7 +812,7 @@ pub const State = struct {
     areas: std.ArrayListUnmanaged(core.records.ScriptArea) = .empty,
     areas_generation_seen: ?u32 = null,
     areas_at_open: usize = 0,
-    area_rename_field: [core.records.area_name_capacity:0]u8 = [_:0]u8{0} ** core.records.area_name_capacity,
+    area_rename_field: [core.records.area_name_capacity:0]u8 = @splat(0),
     area_rename_for: ?usize = null,
 
     /// 04-11 (D-17): the Start Commands window (Unit -> Start commands...). The map's
@@ -1970,7 +1970,7 @@ pub fn openScript(state: *State) bool {
         return false;
     };
     var z_buffer: [kit.files.max_path + 65]u8 = undefined;
-    const url_z = std.fmt.bufPrintZ(&z_buffer, "{s}", .{url}) catch return false;
+    const url_z = std.mem.printSentinel(&z_buffer, "{s}", .{url}, 0) catch return false;
     if (!state.os_dialogs) return true; // the scripted runs check the URL, not the desktop
     if (panels_m2.openUrlWithSystem(url_z)) |reason| {
         state.view.setStatus("script: ", reason);
@@ -1995,7 +1995,7 @@ pub fn chooseOtherScript(state: *State) void {
     var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
     var default_location: ?[*:0]const u8 = null;
     if (dialogFolder(state, &folder_buffer)) |folder| {
-        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
+        if (std.mem.printSentinel(&folder_z_buffer, "{s}", .{folder}, 0)) |z| default_location = z.ptr else |_| {}
     }
     state.os_dialogs_opened += 1;
     sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &script_slot, state.window, &script_filters, script_filters.len, default_location, false);
@@ -2455,7 +2455,7 @@ fn drawSettingsWindow(state: *State) void {
     var plain_folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     var hint_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
     const default_folder = logic.defaultMapsFolder(&plain_folder_buffer, userRoot(state), state.modFolder()) orelse "";
-    const hint_z = std.fmt.bufPrintZ(&hint_buffer, "{s}", .{default_folder}) catch "";
+    const hint_z = std.mem.printSentinel(&hint_buffer, "{s}", .{default_folder}, 0) catch "";
     _ = ig.igInputTextWithHint("Maps folder", hint_z.ptr, &state.maps_folder_edit, state.maps_folder_edit.len + 1, 0);
     if (ig.igIsItemDeactivatedAfterEdit()) {
         state.settings.setMapsFolder(std.mem.sliceTo(&state.maps_folder_edit, 0));
@@ -2493,7 +2493,7 @@ fn showDialog(state: *State, kind: logic.DialogKind) void {
     const folder = dialogFolder(state, &folder_buffer);
     if (folder) |f| {
         std.Io.Dir.cwd().createDirPath(state.io, f) catch {};
-        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{f})) |z| default_location = z.ptr else |_| {}
+        if (std.mem.printSentinel(&folder_z_buffer, "{s}", .{f}, 0)) |z| default_location = z.ptr else |_| {}
     }
     if (!state.os_dialogs) return;
     state.os_dialogs_opened += 1;
@@ -3003,7 +3003,7 @@ fn drawMapMenu(state: *State, map_open: bool) void {
     if (ig.igBeginMenu("Player camera")) {
         const player: i32 = @max(state.view.placer.player, 0);
         var label: [48:0]u8 = undefined;
-        const label_text = std.fmt.bufPrintZ(&label, "Set camera for player {d}", .{player}) catch "Set camera for player";
+        const label_text = std.mem.printSentinel(&label, "Set camera for player {d}", .{player}, 0) catch "Set camera for player";
         if (ig.igMenuItemEx(label_text, null, false, map_open)) _ = commands.setAnchorAtViewCentre(state, player);
         if (ig.igMenuItemEx("Set neutral camera", null, false, map_open)) _ = commands.setAnchorAtViewCentre(state, commands.neutral_slot);
         ig.igEndMenu();
@@ -3064,7 +3064,7 @@ fn drawOpenRecentItems(state: *State) void {
         const exists = state.recent_exists_cache[index];
         ig.igPushIDInt(@intCast(index));
         var name_buffer: [300:0]u8 = undefined;
-        const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{logic.baseName(path)}) catch "?";
+        const name_z = std.mem.printSentinel(&name_buffer, "{s}", .{logic.baseName(path)}, 0) catch "?";
         var removed = false;
         if (ig.igMenuItemEx(name_z, null, false, exists)) state.actions.requestOpenPath(path);
         if (ig.igIsItemHovered(0) and ig.igBeginTooltip()) {
@@ -3119,7 +3119,7 @@ fn drawModItems(state: *State) void {
         const folder = std.mem.sliceTo(&mod.folder, 0);
         const checked = if (active) |a| std.mem.eql(u8, a, folder) else false;
         var label_buffer: [130:0]u8 = undefined;
-        const label = std.fmt.bufPrintZ(&label_buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch "?";
+        const label = std.mem.printSentinel(&label_buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }, 0) catch "?";
         if (ig.igMenuItemEx(label, null, checked, true)) state.actions.requestSwitchMod(folder, active);
         if (ig.igIsItemHovered(0) and ig.igBeginTooltip()) {
             text(folder);
@@ -3356,7 +3356,7 @@ fn readRmgNames(state: *State, kind: core.bridge.RmgKind, list: *std.ArrayListUn
 pub fn refreshRmgGraphCount(state: *State) void {
     state.rmg_graph_count = -1;
     var buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
-    const template = std.fmt.bufPrintZ(&buffer, "{s}", .{state.rmg_fields.template.slice()}) catch return;
+    const template = std.mem.printSentinel(&buffer, "{s}", .{state.rmg_fields.template.slice()}, 0) catch return;
     if (template.len == 0) return;
     var total: usize = 0;
     const status = state.editor.bridge.rmgTemplateGraphs(template.ptr, &.{}, &total);
@@ -3393,11 +3393,11 @@ pub fn refreshRmgSettingFit(state: *State) void {
     state.rmg_setting_fit.clearRetainingCapacity();
     state.rmg_setting_fit.ensureTotalCapacity(state.allocator, state.rmg_settings.items.len) catch return;
     var template_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
-    const template = std.fmt.bufPrintZ(&template_buffer, "{s}", .{fields.template.slice()}) catch "";
+    const template = std.mem.printSentinel(&template_buffer, "{s}", .{fields.template.slice()}, 0) catch "";
     for (state.rmg_settings.items) |*entry| {
         var fit: RmgSettingFit = .{};
         var setting_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
-        const setting = std.fmt.bufPrintZ(&setting_buffer, "{s}", .{entry.nameSlice()}) catch "";
+        const setting = std.mem.printSentinel(&setting_buffer, "{s}", .{entry.nameSlice()}, 0) catch "";
         if (template.len != 0 and setting.len != 0 and
             state.editor.bridge.rmgCheckSetting(template.ptr, fields.graph, fields.angle, setting.ptr) == .refused)
         {
@@ -3434,7 +3434,7 @@ pub fn browseRmg(state: *State, target: u8) void {
     var default_location: ?[*:0]const u8 = null;
     const sub: []const u8 = if (target == 1) "Scenarios" ++ std.fs.path.sep_str ++ "Templates" else "Scenarios" ++ std.fs.path.sep_str ++ "Chapters";
     if (std.fmt.bufPrint(&folder_buffer, "{s}Data{c}{s}", .{ baseRoot(state), std.fs.path.sep, sub })) |folder| {
-        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
+        if (std.mem.printSentinel(&folder_z_buffer, "{s}", .{folder}, 0)) |z| default_location = z.ptr else |_| {}
     } else |_| {}
     state.os_dialogs_opened += 1;
     sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &rmg_slot, state.window, &rmg_filters, rmg_filters.len, default_location, false);
@@ -3451,7 +3451,7 @@ pub fn browsePatch(state: *State) void {
     var folder_z_buffer: [std.Io.Dir.max_path_bytes + 1]u8 = undefined;
     var default_location: ?[*:0]const u8 = null;
     if (std.fmt.bufPrint(&folder_buffer, "{s}Data{c}Scenarios{c}Patches", .{ baseRoot(state), std.fs.path.sep, std.fs.path.sep })) |folder| {
-        if (std.fmt.bufPrintZ(&folder_z_buffer, "{s}", .{folder})) |z| default_location = z.ptr else |_| {}
+        if (std.mem.printSentinel(&folder_z_buffer, "{s}", .{folder}, 0)) |z| default_location = z.ptr else |_| {}
     } else |_| {}
     state.os_dialogs_opened += 1;
     sdl3.c.SDL_ShowOpenFileDialog(dialogCallback, &patch_slot, state.window, &map_filters, map_filters.len, default_location, false);
@@ -3563,7 +3563,7 @@ fn drawNewMapDialog(state: *State) void {
         while (index < state.mod_list_count) : (index += 1) {
             const mod = state.mod_list_buffer[index];
             var label_buffer: [128:0]u8 = undefined;
-            const label = std.fmt.bufPrintZ(&label_buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch continue;
+            const label = std.mem.printSentinel(&label_buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }, 0) catch continue;
             if (ig.igSelectableEx(label.ptr, mod_choice == @as(c_int, @intCast(index + 2)), 0, .{ .x = 0, .y = 0 }))
                 state.new_map_fields.mod_folder.set(std.mem.sliceTo(&mod.folder, 0));
         }
@@ -3591,7 +3591,7 @@ fn modPreview(buffer: *[128:0]u8, state: *State, choice: c_int) [*:0]const u8 {
     if (choice == 0) return "current mod";
     if (choice == 1) return "none";
     const mod = state.mod_list_buffer[@intCast(choice - 2)];
-    const shown = std.fmt.bufPrintZ(buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }) catch return "current mod";
+    const shown = std.mem.printSentinel(buffer, "{s} {s}", .{ std.mem.sliceTo(&mod.name, 0), std.mem.sliceTo(&mod.version, 0) }, 0) catch return "current mod";
     return shown.ptr;
 }
 
@@ -3670,12 +3670,12 @@ fn drawToolPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGu
     // M3, D-22/PARITY V4: the MFC toolbar's own combo - 1x1..16x16, even
     // sizes included, 2x2 the default - in place of M1's 0..4 radius slider.
     var brush_label: [10:0]u8 = undefined;
-    const label = std.fmt.bufPrintZ(&brush_label, "{d}x{d}", .{ view.brush.size, view.brush.size }) catch "2x2";
+    const label = std.mem.printSentinel(&brush_label, "{d}x{d}", .{ view.brush.size, view.brush.size }, 0) catch "2x2";
     if (ig.igBeginCombo("brush", label.ptr, 0)) {
         var brush_choice: i32 = 1;
         while (brush_choice <= 16) : (brush_choice += 1) {
             var entry_buffer: [10:0]u8 = undefined;
-            const entry = std.fmt.bufPrintZ(&entry_buffer, "{d}x{d}", .{ brush_choice, brush_choice }) catch continue;
+            const entry = std.mem.printSentinel(&entry_buffer, "{d}x{d}", .{ brush_choice, brush_choice }, 0) catch continue;
             if (ig.igSelectableEx(entry.ptr, view.brush.size == brush_choice, 0, .{ .x = 0, .y = 0 })) {
                 view.brush.size = brush_choice;
                 state.view.clearStatus();
@@ -3745,7 +3745,7 @@ fn drawTilePicker(state: *State) void {
         state.tile_combo_centre = .{ .x = (combo_min.x + combo_max.x) / 2, .y = (combo_min.y + combo_max.y) / 2 };
     }
     state.tile_picker_open = combo_open;
-    state.tile_cell_centres = [_]?ig.ImVec2{null} ** 256;
+    state.tile_cell_centres = @as([256]?ig.ImVec2, @splat(null));
     if (!combo_open) return;
     defer ig.igEndCombo();
     drawTileGrid(state);
@@ -3762,7 +3762,7 @@ fn drawTileGrid(state: *State) void {
         defer start = group.end;
         var header: [300]u8 = undefined;
         const terrain = entries[group.start].terrain.slice();
-        const header_text = std.fmt.bufPrintZ(&header, "{s} ({d})", .{ if (terrain.len != 0) terrain else "other tiles", group.end - group.start }) catch "tiles";
+        const header_text = std.mem.printSentinel(&header, "{s} ({d})", .{ if (terrain.len != 0) terrain else "other tiles", group.end - group.start }, 0) catch "tiles";
         ig.igSeparatorText(header_text.ptr);
         for (entries[group.start..group.end], 0..) |entry, i| {
             if (i % columns != 0) ig.igSameLine();
@@ -3878,7 +3878,7 @@ pub fn refreshAvailableObjects(state: *State) void {
         if (entry.placeable == 0) continue;
         const path = std.mem.sliceTo(&entry.path, 0);
         if (!filter.matches(path)) continue;
-        if (text_filter.len != 0 and std.ascii.indexOfIgnoreCase(std.mem.sliceTo(&entry.name, 0), text_filter) == null) continue;
+        if (text_filter.len != 0 and std.ascii.findIgnoreCase(std.mem.sliceTo(&entry.name, 0), text_filter) == null) continue;
         state.fc_avail.append(state.allocator, index) catch return;
     }
     const order = struct {
@@ -3922,7 +3922,7 @@ fn drawObjectPalette(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.Im
         var header: [96:0]u8 = undefined;
         // "###" keeps the header's ID the type alone, so its open state
         // survives the count changing as the filter does.
-        const header_text = std.fmt.bufPrintZ(&header, "{s} ({d})###type{d}", .{ logic.gameTypeName(game_type), matches, game_type }) catch continue;
+        const header_text = std.mem.printSentinel(&header, "{s} ({d})###type{d}", .{ logic.gameTypeName(game_type), matches, game_type }, 0) catch continue;
         if (filter.len != 0) ig.igSetNextItemOpen(true, ig.ImGuiCond_Always);
         if (!ig.igCollapsingHeader(header_text.ptr, 0)) continue;
         for (state.order[start..end]) |index| {
@@ -3979,12 +3979,12 @@ fn drawPaletteFilters(state: *State) void {
     var i: usize = 0;
     while (i < slot_count) : (i += 1) {
         var id_buffer: [32:0]u8 = undefined;
-        const label = std.fmt.bufPrintZ(&id_buffer, "##filterslot{d}", .{i}) catch continue;
+        const label = std.mem.printSentinel(&id_buffer, "##filterslot{d}", .{i}, 0) catch continue;
         const was = state.filter_checked[i];
         var now = was;
         if (ig.igCheckbox(label.ptr, &now)) {
             var arg: [8:0]u8 = undefined;
-            const slot_arg = std.fmt.bufPrintZ(&arg, "{d}", .{i}) catch "";
+            const slot_arg = std.mem.printSentinel(&arg, "{d}", .{i}, 0) catch "";
             const io = ig.igGetIO();
             if (io.*.KeyCtrl or io.*.KeySuper) {
                 // The click was an assignment, not a toggle: the check is
@@ -4003,7 +4003,7 @@ fn drawPaletteFilters(state: *State) void {
 
     const combo_name = state.settings.filter_active.slice();
     var preview_buffer: [65:0]u8 = undefined;
-    const shown: [:0]const u8 = std.fmt.bufPrintZ(&preview_buffer, "{s}", .{if (combo_name.len != 0) combo_name else "(no filter)"}) catch "(no filter)";
+    const shown: [:0]const u8 = std.mem.printSentinel(&preview_buffer, "{s}", .{if (combo_name.len != 0) combo_name else "(no filter)"}, 0) catch "(no filter)";
     if (ig.igBeginCombo("##filtercombo", shown.ptr, 0)) {
         if (ig.igSelectableEx("(no filter)", combo_name.len == 0, 0, .{ .x = 0, .y = 0 })) {
             _ = commands.run(state, "filter_select", "");
@@ -4011,7 +4011,7 @@ fn drawPaletteFilters(state: *State) void {
         for (state.editor.filtersSlice()) |*entry| {
             const name = entry.nameSlice();
             var name_buffer: [65:0]u8 = undefined;
-            const name_z = std.fmt.bufPrintZ(&name_buffer, "{s}", .{name}) catch continue;
+            const name_z = std.mem.printSentinel(&name_buffer, "{s}", .{name}, 0) catch continue;
             if (ig.igSelectableEx(name_z.ptr, std.mem.eql(u8, name, combo_name), 0, .{ .x = 0, .y = 0 })) {
                 _ = commands.run(state, "filter_select", name);
             }
@@ -4039,7 +4039,7 @@ fn drawPaletteFilters(state: *State) void {
 fn drawPaletteFilterPopups(state: *State) void {
     if (state.filter_new_popup) {
         state.filter_new_popup = false;
-        state.filter_new_edit = [_:0]u8{0} ** 64;
+        state.filter_new_edit = @as([64:0]u8, @splat(0));
         _ = ig.igOpenPopup("New filter", 0);
     }
     if (ig.igBeginPopupModal("New filter", null, ig.ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -4247,7 +4247,7 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCon
     var map_type: c_int = info.map_type;
     var preview: [32:0]u8 = undefined;
     const known_type = map_type >= 0 and map_type < map_type_names.len;
-    const preview_text = if (known_type) map_type_names[@intCast(map_type)] else std.fmt.bufPrintZ(&preview, "type {d}", .{map_type}) catch "type ?";
+    const preview_text = if (known_type) map_type_names[@intCast(map_type)] else std.mem.printSentinel(&preview, "type {d}", .{map_type}, 0) catch "type ?";
     if (ig.igBeginCombo("map type", preview_text.ptr, 0)) {
         for (map_type_names, 0..) |name, index| {
             const selected = index == map_type;
@@ -4285,7 +4285,7 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCon
         defer ig.igPopID();
         const neutral = player + 1 == entries;
         var label: [32:0]u8 = undefined;
-        const label_text = (if (neutral) std.fmt.bufPrintZ(&label, "{d} (neutral)", .{player}) else std.fmt.bufPrintZ(&label, "{d}", .{player})) catch continue;
+        const label_text = (if (neutral) std.mem.printSentinel(&label, "{d} (neutral)", .{player}, 0) else std.mem.printSentinel(&label, "{d}", .{player}, 0)) catch continue;
         // The row: the player's number selects it (the MFC list's selection); the
         // neutral entry is listed but never selected - it cannot be deleted or re-sided.
         const selected = state.selected_player != null and state.selected_player.? == player;
@@ -4308,11 +4308,11 @@ fn drawPlayers(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCon
         .add => _ = commands.run(state, "player_add", "0"),
         .delete => if (state.selected_player) |player| {
             var buffer: [16:0]u8 = undefined;
-            _ = commands.run(state, "player_delete", std.fmt.bufPrintZ(&buffer, "{d}", .{player}) catch "");
+            _ = commands.run(state, "player_delete", std.mem.printSentinel(&buffer, "{d}", .{player}, 0) catch "");
         },
         .side0, .side1 => if (state.selected_player) |player| {
             var buffer: [24:0]u8 = undefined;
-            _ = commands.run(state, "player_side", std.fmt.bufPrintZ(&buffer, "{d}={d}", .{ player, @intFromBool(action == .side1) }) catch "");
+            _ = commands.run(state, "player_side", std.mem.printSentinel(&buffer, "{d}={d}", .{ player, @intFromBool(action == .side1) }, 0) catch "");
         },
     }
 }
@@ -4350,7 +4350,7 @@ fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond
             defer ig.igPopID();
             const name = std.mem.sliceTo(&sound.name, 0);
             var line: [96:0]u8 = undefined;
-            const line_text = std.fmt.bufPrintZ(&line, "{s}  ({d:.0}, {d:.0})", .{ name, sound.x, sound.y }) catch continue;
+            const line_text = std.mem.printSentinel(&line, "{s}  ({d:.0}, {d:.0})", .{ name, sound.x, sound.y }, 0) catch continue;
             const selected = state.selected_sound != null and state.selected_sound.? == index;
             if (ig.igSelectableEx(line_text.ptr, selected, 0, .{ .x = 0, .y = 0 })) state.selected_sound = index;
         }
@@ -4410,7 +4410,7 @@ fn drawSounds(state: *State, pos: ig.ImVec2, size: ig.ImVec2, cond: ig.ImGuiCond
             ig.igPushIDPtr(candidate.ptr);
             defer ig.igPopID();
             var row: [core.bridge.name_capacity + 1:0]u8 = undefined;
-            const row_text = std.fmt.bufPrintZ(&row, "{s}", .{candidate}) catch continue;
+            const row_text = std.mem.printSentinel(&row, "{s}", .{candidate}, 0) catch continue;
             const row_selected = std.mem.eql(u8, candidate, std.mem.sliceTo(&edit.name_buffer, 0));
             if (ig.igSelectableEx(row_text.ptr, row_selected, 0, .{ .x = 0, .y = 0 })) {
                 setSoundName(&edit.name_buffer, candidate);

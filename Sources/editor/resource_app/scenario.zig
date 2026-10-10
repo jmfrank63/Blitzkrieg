@@ -223,7 +223,7 @@ fn drawFrameWithDocks(host: *host_mod.Host, panels: *panels_mod.Panels, gpa: std
 }
 
 fn capture(real: *c_bridge.RealResBridge, gpa: std.mem.Allocator, path: []const u8) bool {
-    const z = gpa.dupeZ(u8, path) catch return false;
+    const z = gpa.dupeSentinel(u8, path, 0) catch return false;
     defer gpa.free(z);
     return c.BkEditorCaptureFrame(real.session, z.ptr) == c.BK_EDITOR_OK;
 }
@@ -444,9 +444,9 @@ const Runner = struct {
     particle_status: docks_logic.ParticleStatus = .{},
     /// The Particle source button (do=source_mode) with its remembered name.
     particle_source: docks_logic.SourceToggle = .{},
-    gui_snapshots: [gui_slots]Slot = [_]Slot{.{}} ** gui_slots,
-    gui_marks: [gui_slots]Slot = [_]Slot{.{}} ** gui_slots,
-    game_shots: [gui_slots]Slot = [_]Slot{.{}} ** gui_slots,
+    gui_snapshots: [gui_slots]Slot = @splat(.{}),
+    gui_marks: [gui_slots]Slot = @splat(.{}),
+    game_shots: [gui_slots]Slot = @splat(.{}),
     frame: u32 = 0,
     message: [768]u8 = undefined,
     /// The last text `fail` made, for a helper that reports through its caller.
@@ -1788,11 +1788,11 @@ const Runner = struct {
         var tga_h: c_int = 0;
         const session = self.real.session;
         var dds_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
-        const dds = std.fmt.bufPrintZ(&dds_buffer, "{s}", .{loaded_path}) catch return self.fail("shot_minimap: the path is too long", .{});
+        const dds = std.mem.printSentinel(&dds_buffer, "{s}", .{loaded_path}, 0) catch return self.fail("shot_minimap: the path is too long", .{});
         if (c.BkEditorMinimapImage(session, dds.ptr, hd.ptr, @intCast(hd.len), il.max_side, &hd_w, &hd_h) != c.BK_EDITOR_OK) return self.fail("shot_minimap: map_h.dds does not decode: {s}", .{self.bridge().lastMessage()});
         var xml_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const stem = loaded_path[0 .. loaded_path.len - "_h.dds".len];
-        const xml = std.fmt.bufPrintZ(&xml_buffer, "{s}.xml", .{stem}) catch return self.fail("shot_minimap: the path is too long", .{});
+        const xml = std.mem.printSentinel(&xml_buffer, "{s}.xml", .{stem}, 0) catch return self.fail("shot_minimap: the path is too long", .{});
         if (c.BkEditorMinimapImage(session, xml.ptr, tga.ptr, @intCast(tga.len), il.max_side, &tga_w, &tga_h) != c.BK_EDITOR_OK) return self.fail("shot_minimap: map.tga does not decode: {s}", .{self.bridge().lastMessage()});
         if (hd_w != tga_w or hd_h != tga_h) std.debug.print("resource-editor: auto: {s}: map_h.dds is {d}x{d}, map.tga is {d}x{d}\n", .{ arg, hd_w, hd_h, tga_w, tga_h });
         var diff_hd: u64 = 0;

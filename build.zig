@@ -733,7 +733,48 @@ const cppflags_game_release = &.{
     "-Wno-unused-command-line-argument",
 };
 
+/// Zig 0.17 no longer exposes --sysroot to build.zig, so a macOS build against an explicit SDK passes
+/// these three paths instead; they are also forwarded to the sdl package, which has the same options.
+/// Declared once in build(); options may not be declared twice.
+var system_include_path_option: ?std.Build.LazyPath = null;
+var system_framework_path_option: ?std.Build.LazyPath = null;
+var library_path_option: ?std.Build.LazyPath = null;
+
+/// Absolute path of `sub` under a package's build root. The 0.17 build API dropped getPath, so run
+/// steps get their path strings from here; a relative root would silently change the args, so it asserts.
+fn rootPath(b: *std.Build, sub: []const u8) []const u8 {
+    const joined = b.root.joinString(b.allocator, sub) catch @panic("OOM");
+    std.debug.assert(std.fs.path.isAbsolute(joined));
+    // joinString keeps the sub path as written, so a "/" would stay inside a Windows path; the editors
+    // compare these strings with OS paths they build themselves, which carry only the native separator.
+    return b.pathResolve(&.{joined});
+}
+
+/// Like rootPath for a fetched package. Its root is reported relative to the build root, so it is
+/// resolved against ours before the absolute check. An already absolute root is resolved too: joinString
+/// keeps `sub` as written, so "bin/x64" would otherwise leave a "/" in the Windows PATH entry.
+fn dependencyRootPath(b: *std.Build, dep: *std.Build.Dependency, sub: []const u8) []const u8 {
+    const joined = dep.builder.root.joinString(b.allocator, sub) catch @panic("OOM");
+    const resolved = if (std.fs.path.isAbsolute(joined)) b.pathResolve(&.{joined}) else b.pathResolve(&.{ rootPath(b, ""), joined });
+    std.debug.assert(std.fs.path.isAbsolute(resolved));
+    return resolved;
+}
+
+/// Appends `dir` to the run step's PATH like the removed Run.addPathDir did.
+fn addPathDir(run: *std.Build.Step.Run, dir: []const u8) void {
+    const b = run.step.owner;
+    const env = run.getEnvMap();
+    if (env.get("PATH")) |prev| {
+        env.put("PATH", b.fmt("{s}{c}{s}", .{ prev, std.fs.path.delimiter, dir })) catch @panic("OOM");
+    } else {
+        env.put("PATH", b.dupePath(dir)) catch @panic("OOM");
+    }
+}
+
 pub fn build(b: *std.Build) void {
+    system_include_path_option = b.option(std.Build.LazyPath, "system_include_path", "System header search path for macOS cross builds (replaces --sysroot)");
+    system_framework_path_option = b.option(std.Build.LazyPath, "system_framework_path", "System framework search path for macOS cross builds (replaces --sysroot)");
+    library_path_option = b.option(std.Build.LazyPath, "library_path", "Library search path for macOS cross builds (replaces --sysroot)");
     // The default target follows the host CPU on Linux as it already did on
     // macOS. This branch used to hardcode x86_64, so a plain `zig build` on an
     // arm64 Linux host silently cross-compiled for x86_64 and then failed to
@@ -843,7 +884,7 @@ pub fn build(b: *std.Build) void {
     const build_support_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/build_support.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const build_support_tests = b.addTest(.{ .root_module = build_support_module });
     const build_support_tests_run = b.addRunArtifact(build_support_tests);
@@ -854,7 +895,7 @@ pub fn build(b: *std.Build) void {
     const runtime_platform_audit_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/runtime_platform_audit_test.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const runtime_platform_audit_tests = b.addTest(.{ .root_module = runtime_platform_audit_module });
     const runtime_platform_audit_run = b.addRunArtifact(runtime_platform_audit_tests);
@@ -868,7 +909,7 @@ pub fn build(b: *std.Build) void {
     const mission_data_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/mission_data_test.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const mission_data_tests = b.addTest(.{ .root_module = mission_data_module });
     const mission_data_run = b.addRunArtifact(mission_data_tests);
@@ -880,7 +921,7 @@ pub fn build(b: *std.Build) void {
     const platform_linkage_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_linkage_test.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const platform_linkage_tests = b.addTest(.{ .root_module = platform_linkage_module });
     const platform_linkage_step = b.step("test-platform-linkage", "Validate one target-correct PlatformRuntime and staged linkage policy");
@@ -901,9 +942,9 @@ pub fn build(b: *std.Build) void {
     const optimize = if (b.user_input_options.contains("optimize"))
         standard_optimize
     else if (std.mem.eql(u8, build_variant, "release"))
-        std.builtin.OptimizeMode.ReleaseFast
+        std.builtin.OptimizeMode.fast
     else if (std.mem.eql(u8, build_variant, "debug"))
-        std.builtin.OptimizeMode.Debug
+        std.builtin.OptimizeMode.debug
     else
         standard_optimize;
     const library_arch = build_support.libraryArch(platform);
@@ -923,13 +964,13 @@ pub fn build(b: *std.Build) void {
         @panic("Windows target on a non-Windows host requires explicit MSVC/Windows SDK paths: pass -Dmsvc-include, -Dwindows-sdk-include, -Dmsvc-lib, and -Dwindows-sdk-lib.");
     }
 
-    const platform_abi_layout_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    const platform_abi_layout_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     platform_abi_layout_module.addIncludePath(b.path("Sources/src"));
     platform_abi_layout_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_abi_layout_test.cpp"), .flags = &.{"-std=c++17"} });
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_abi_layout_module, toolchain);
         addMsvcLibraryPaths(b, platform_abi_layout_module, toolchain);
-        linkMsvcRuntime(platform_abi_layout_module, .Debug);
+        linkMsvcRuntime(platform_abi_layout_module, .debug);
     }
     const platform_abi_layout_test = b.addExecutable(.{ .name = "platform-abi-layout-test", .root_module = platform_abi_layout_module });
     if (platform == .windows_x64) {
@@ -941,7 +982,8 @@ pub fn build(b: *std.Build) void {
     const platform_abi_compile_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_abi_compile_test.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "platform_c", .module = addTranslatedHeaders(b, target, .debug, toolchain, &.{"PlatformABI/platform_c.h"}, &.{b.path("Sources/src")}) }},
     });
     platform_abi_compile_module.addIncludePath(b.path("Sources/src"));
     const platform_abi_compile_tests = b.addTest(.{ .root_module = platform_abi_compile_module });
@@ -985,7 +1027,7 @@ pub fn build(b: *std.Build) void {
         .root_module = platform_runtime_module,
         .win32_module_definition = if (platform == .windows_x64) b.path("Sources/src/PlatformABI/PlatformRuntime.def") else null,
     });
-    const platform_runtime_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    const platform_runtime_test_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     platform_runtime_test_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, platform_runtime_test_module);
     platform_runtime_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_runtime_lifecycle_test.cpp"), .flags = &.{"-std=c++17"} });
@@ -994,7 +1036,7 @@ pub fn build(b: *std.Build) void {
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_runtime_test_module, toolchain);
         addMsvcLibraryPaths(b, platform_runtime_test_module, toolchain);
-        linkMsvcRuntime(platform_runtime_test_module, .Debug);
+        linkMsvcRuntime(platform_runtime_test_module, .debug);
     }
     const platform_runtime_test = b.addExecutable(.{ .name = "platform-runtime-lifecycle-test", .root_module = platform_runtime_test_module });
     if (platform == .windows_x64) {
@@ -1007,21 +1049,21 @@ pub fn build(b: *std.Build) void {
     platform_runtime_step.dependOn(&platform_runtime_test.step);
     if (test_mode == .run) platform_runtime_step.dependOn(&platform_runtime_run.step);
 
-    const consumer_a_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    const consumer_a_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     consumer_a_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, consumer_a_module);
     consumer_a_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_a.cpp" }, .flags = &.{"-std=c++17"} });
     consumer_a_module.linkLibrary(platform_runtime);
     linkCxxRuntime(consumer_a_module, target);
     const consumer_a = b.addLibrary(.{ .name = "platform-consumer-a", .linkage = .dynamic, .root_module = consumer_a_module });
-    const consumer_b_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    const consumer_b_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     consumer_b_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, consumer_b_module);
     consumer_b_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_test_consumer_b.cpp" }, .flags = &.{"-std=c++17"} });
     consumer_b_module.linkLibrary(platform_runtime);
     linkCxxRuntime(consumer_b_module, target);
     const consumer_b = b.addLibrary(.{ .name = "platform-consumer-b", .linkage = .dynamic, .root_module = consumer_b_module });
-    const client_test_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    const client_test_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     client_test_module.addIncludePath(b.path("Sources/src"));
     addLinuxCxxIncludePaths(b, client_test_module);
     client_test_module.addCSourceFiles(.{ .files = &.{ "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/platform_client_test.cpp" }, .flags = &.{"-std=c++17"} });
@@ -1034,9 +1076,9 @@ pub fn build(b: *std.Build) void {
         addMsvcLibraryPaths(b, consumer_b_module, toolchain);
         addMsvcIncludePaths(b, client_test_module, toolchain);
         addMsvcLibraryPaths(b, client_test_module, toolchain);
-        linkMsvcRuntime(consumer_a_module, .Debug);
-        linkMsvcRuntime(consumer_b_module, .Debug);
-        linkMsvcRuntime(client_test_module, .Debug);
+        linkMsvcRuntime(consumer_a_module, .debug);
+        linkMsvcRuntime(consumer_b_module, .debug);
+        linkMsvcRuntime(client_test_module, .debug);
     }
     const client_test = b.addExecutable(.{ .name = "platform-client-test", .root_module = client_test_module });
     if (platform == .windows_x64) {
@@ -1055,7 +1097,7 @@ pub fn build(b: *std.Build) void {
 
     const platform_headers_step = b.step("test-platform-headers", "Validate portable compiler and legacy value types");
     if (test_mode == .run) {
-        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
         platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
         platform_headers_module.addIncludePath(b.path("Sources/src"));
         addLinuxCxxIncludePaths(b, platform_headers_module);
@@ -1070,7 +1112,7 @@ pub fn build(b: *std.Build) void {
         const platform_headers_run = b.addRunArtifact(platform_headers_test);
         platform_headers_step.dependOn(&platform_headers_run.step);
     } else {
-        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+        const platform_headers_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
         platform_headers_module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_headers_test.cpp"}, .flags = &.{} });
         platform_headers_module.addIncludePath(b.path("Sources/src"));
         addLinuxCxxIncludePaths(b, platform_headers_module);
@@ -1080,12 +1122,12 @@ pub fn build(b: *std.Build) void {
         platform_headers_step.dependOn(&platform_headers_object.step);
     }
 
-    const platform_clock_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const platform_clock_module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, platform_clock_module);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_clock_module, toolchain);
         addMsvcLibraryPaths(b, platform_clock_module, toolchain);
-        linkMsvcRuntime(platform_clock_module, .Debug);
+        linkMsvcRuntime(platform_clock_module, .debug);
     }
     platform_clock_module.addIncludePath(b.path("Sources/src/Misc"));
     platform_clock_module.addCSourceFiles(.{
@@ -1104,12 +1146,12 @@ pub fn build(b: *std.Build) void {
     platform_clock_step.dependOn(&platform_clock_test.step);
     if (test_mode == .run) platform_clock_step.dependOn(&platform_clock_run.step);
 
-    const platform_sync_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const platform_sync_module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, platform_sync_module);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_sync_module, toolchain);
         addMsvcLibraryPaths(b, platform_sync_module, toolchain);
-        linkMsvcRuntime(platform_sync_module, .Debug);
+        linkMsvcRuntime(platform_sync_module, .debug);
     }
     platform_sync_module.addIncludePath(b.path("Sources/src/Misc"));
     platform_sync_module.addCSourceFiles(.{
@@ -1129,12 +1171,12 @@ pub fn build(b: *std.Build) void {
     platform_sync_step.dependOn(&platform_sync_test.step);
     if (test_mode == .run) platform_sync_step.dependOn(&platform_sync_run.step);
 
-    const platform_debug_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const platform_debug_module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, platform_debug_module);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_debug_module, toolchain);
         addMsvcLibraryPaths(b, platform_debug_module, toolchain);
-        linkMsvcRuntime(platform_debug_module, .Debug);
+        linkMsvcRuntime(platform_debug_module, .debug);
     }
     platform_debug_module.addCSourceFiles(.{
         .files = &.{
@@ -1155,27 +1197,30 @@ pub fn build(b: *std.Build) void {
     platform_debug_step.dependOn(&platform_runtime.step);
     if (test_mode == .run) platform_debug_step.dependOn(&platform_debug_run.step);
 
-    const platform_test_module_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });
+    const platform_test_module_module = b.createModule(.{ .target = target, .optimize = .fast });
     platform_test_module_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_test_module.cpp"), .flags = if (platform == .windows_x64) cppflags_release else &.{} });
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_test_module_module, toolchain);
         addMsvcLibraryPaths(b, platform_test_module_module, toolchain);
-        linkMsvcRuntime(platform_test_module_module, .ReleaseFast);
+        linkMsvcRuntime(platform_test_module_module, .fast);
     }
     const platform_test_module = b.addLibrary(.{ .name = "platform-test-module", .linkage = .dynamic, .root_module = platform_test_module_module });
     const sdl_dynamic_dep = b.dependency("sdl", .{
         .target = dependency_target,
-        .optimize = .ReleaseFast,
+        .optimize = .fast,
+        .system_include_path = system_include_path_option,
+        .system_framework_path = system_framework_path_option,
+        .library_path = library_path_option,
         .preferred_linkage = .dynamic,
         .install_build_config_h = true,
     });
     const sdl_dynamic = sdl_dynamic_dep.artifact("SDL3");
-    const platform_dynamic_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });
+    const platform_dynamic_module = b.createModule(.{ .target = target, .optimize = .fast });
     addProjectIncludePaths(b, platform_dynamic_module);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_dynamic_module, toolchain);
         addMsvcLibraryPaths(b, platform_dynamic_module, toolchain);
-        linkMsvcRuntime(platform_dynamic_module, .ReleaseFast);
+        linkMsvcRuntime(platform_dynamic_module, .fast);
         platform_dynamic_module.linkSystemLibrary("kernel32", .{});
     }
     platform_dynamic_module.addCSourceFiles(.{
@@ -1199,7 +1244,7 @@ pub fn build(b: *std.Build) void {
     platform_dynamic_step.dependOn(&platform_runtime.step);
     if (test_mode == .run) platform_dynamic_step.dependOn(&platform_dynamic_run.step);
 
-    const platform_system_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });
+    const platform_system_module = b.createModule(.{ .target = target, .optimize = .fast });
     addProjectIncludePaths(b, platform_system_module);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_system_module, toolchain);
@@ -1221,15 +1266,15 @@ pub fn build(b: *std.Build) void {
     platform_system_step.dependOn(&platform_system_test.step);
     if (test_mode == .run) platform_system_step.dependOn(&platform_system_run.step);
 
-    const legacy_variant_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const legacy_variant_module = b.createModule(.{ .target = target, .optimize = .debug });
     legacy_variant_module.link_libc = !build_support.usesMsvc(platform);
     legacy_variant_module.link_libcpp = build_support.needsBundledLibcpp(platform);
     legacy_variant_module.addIncludePath(b.path("Sources/src"));
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, legacy_variant_module, toolchain);
         addMsvcLibraryPaths(b, legacy_variant_module, toolchain);
-        linkMsvcRuntime(legacy_variant_module, .Debug);
-        linkComSupport(legacy_variant_module, .Debug);
+        linkMsvcRuntime(legacy_variant_module, .debug);
+        linkComSupport(legacy_variant_module, .debug);
     }
     legacy_variant_module.addCSourceFiles(.{
         .files = &.{
@@ -1250,7 +1295,7 @@ pub fn build(b: *std.Build) void {
     // the $ORIGIN rpath keeps the AGENTS.md Linux pattern.
     const resource_xml_roundtrip_module = b.createModule(.{
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     resource_xml_roundtrip_module.link_libc = !build_support.usesMsvc(platform);
     resource_xml_roundtrip_module.link_libcpp = !build_support.usesMsvc(platform);
@@ -1258,7 +1303,7 @@ pub fn build(b: *std.Build) void {
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, resource_xml_roundtrip_module, toolchain);
         addMsvcLibraryPaths(b, resource_xml_roundtrip_module, toolchain);
-        linkMsvcRuntime(resource_xml_roundtrip_module, .Debug);
+        linkMsvcRuntime(resource_xml_roundtrip_module, .debug);
     }
     resource_xml_roundtrip_module.addCSourceFiles(.{
         .files = &.{
@@ -1287,7 +1332,7 @@ pub fn build(b: *std.Build) void {
     // measures again and fails unless the committed JSON is unchanged.
     const dxt_tolerance_module = b.createModule(.{
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     dxt_tolerance_module.link_libc = !build_support.usesMsvc(platform);
     dxt_tolerance_module.link_libcpp = !build_support.usesMsvc(platform);
@@ -1295,7 +1340,7 @@ pub fn build(b: *std.Build) void {
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, dxt_tolerance_module, toolchain);
         addMsvcLibraryPaths(b, dxt_tolerance_module, toolchain);
-        linkMsvcRuntime(dxt_tolerance_module, .Debug);
+        linkMsvcRuntime(dxt_tolerance_module, .debug);
     }
     dxt_tolerance_module.addCSourceFiles(.{
         .files = &.{
@@ -1330,7 +1375,7 @@ pub fn build(b: *std.Build) void {
     const foundation_matrix_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/platform_build_matrix_test.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const foundation_matrix_tests = b.addTest(.{ .root_module = foundation_matrix_module });
     const foundation_matrix_run = b.addRunArtifact(foundation_matrix_tests);
@@ -1338,7 +1383,7 @@ pub fn build(b: *std.Build) void {
     const stage_tests_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/stage_test.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const stage_tests = b.addTest(.{ .root_module = stage_tests_module });
     const stage_tests_run = b.addRunArtifact(stage_tests);
@@ -1353,7 +1398,7 @@ pub fn build(b: *std.Build) void {
     const package_tests_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package_test.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const package_tests = b.addTest(.{ .root_module = package_tests_module });
     const package_tests_run = b.addRunArtifact(package_tests);
@@ -1364,7 +1409,7 @@ pub fn build(b: *std.Build) void {
     const present_fit_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/GFXGPU/present_fit.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const present_fit_tests = b.addTest(.{ .root_module = present_fit_module });
     const present_fit_tests_run = b.addRunArtifact(present_fit_tests);
@@ -1375,7 +1420,7 @@ pub fn build(b: *std.Build) void {
     const runtime_verify_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_runtime.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const runtime_verify_tests = b.addTest(.{ .root_module = runtime_verify_module });
     const runtime_verify_run = b.addRunArtifact(runtime_verify_tests);
@@ -1386,7 +1431,7 @@ pub fn build(b: *std.Build) void {
     const shader_parser_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const shader_parser_tests = b.addTest(.{ .root_module = shader_parser_module });
     const shader_parser_tests_run = b.addRunArtifact(shader_parser_tests);
@@ -1397,7 +1442,7 @@ pub fn build(b: *std.Build) void {
     const hermeticity_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/build_hermeticity_test.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const hermeticity_test = b.addTest(.{ .root_module = hermeticity_module });
     const hermeticity_run = b.addRunArtifact(hermeticity_test);
@@ -1410,7 +1455,7 @@ pub fn build(b: *std.Build) void {
     const minmax_lint_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/windows_minmax_lint.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const minmax_lint_test = b.addTest(.{ .root_module = minmax_lint_module });
     const minmax_lint_run = b.addRunArtifact(minmax_lint_test);
@@ -1482,6 +1527,9 @@ pub fn build(b: *std.Build) void {
     const sdl3_dep = b.dependency("sdl3", .{
         .target = dependency_target,
         .optimize = optimize,
+        .sdl_system_include_path = system_include_path_option,
+        .sdl_system_framework_path = system_framework_path_option,
+        .sdl_library_path = library_path_option,
         .c_sdl_preferred_linkage = .dynamic,
         .c_sdl_install_build_config_h = true,
         // Runtime shaders are precompiled into DXIL on Windows.  The
@@ -1508,6 +1556,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("Sources/editor/kit/imgui/imgui.zig"),
         .target = target,
         .optimize = optimize,
+        .imports = &.{.{ .name = "imgui_c", .module = addTranslatedHeaders(b, target, optimize, toolchain, &.{ "cimgui.h", "imgui_backend.h" }, &.{ b.path("vendor/dcimgui/src-docking"), b.path("Sources/editor/kit/imgui") }) }},
     });
     editor_imgui_module.addIncludePath(b.path("vendor/dcimgui/src-docking"));
     editor_imgui_module.addIncludePath(b.path("Sources/editor/kit/imgui"));
@@ -1594,7 +1643,7 @@ pub fn build(b: *std.Build) void {
         shadercross_cli.root_module.addIncludePath(dxc_binary.path("inc"));
         shadercross_cli.root_module.addObjectFile(dxc_binary.path(b.fmt("lib/{s}/dxcompiler.lib", .{dxc_arch})));
         shadercross_cli.root_module.addObjectFile(dxc_binary.path(b.fmt("lib/{s}/dxil.lib", .{dxc_arch})));
-        dxc_runtime_path = dxc_binary.path(b.fmt("bin/{s}", .{dxc_arch})).getPath(b);
+        dxc_runtime_path = dependencyRootPath(b, dxc_binary, b.fmt("bin/{s}", .{dxc_arch}));
     }
     const shadercross_build_step = b.step("shadercross-build", "Build the pinned host SDL_shadercross tool");
     shadercross_build_step.dependOn(&shadercross_cli.step);
@@ -1602,7 +1651,7 @@ pub fn build(b: *std.Build) void {
     const shadercross_verify_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_shadercross.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const shadercross_verify = b.addExecutable(.{
         .name = "verify-shadercross",
@@ -1610,7 +1659,7 @@ pub fn build(b: *std.Build) void {
     });
     const shadercross_verify_run = b.addRunArtifact(shadercross_verify);
     shadercross_verify_run.addArtifactArg(shadercross_cli);
-    if (dxc_runtime_path) |path| shadercross_verify_run.addPathDir(path);
+    if (dxc_runtime_path) |path| addPathDir(shadercross_verify_run, path);
     shadercross_verify_run.step.dependOn(shadercross_build_step);
     const shadercross_verify_step = b.step("verify-shadercross", "Verify shadercross CLI options and host installation");
     shadercross_verify_step.dependOn(&shadercross_verify_run.step);
@@ -1618,7 +1667,7 @@ pub fn build(b: *std.Build) void {
     const shader_driver_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/compile_gfxgpu_shaders.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const shader_driver = b.addExecutable(.{
         .name = "compile-gfxgpu-shaders",
@@ -1631,7 +1680,7 @@ pub fn build(b: *std.Build) void {
         else => "dxil",
     };
     shader_driver_run.step.dependOn(shadercross_build_step);
-    if (dxc_runtime_path) |path| shader_driver_run.addPathDir(path);
+    if (dxc_runtime_path) |path| addPathDir(shader_driver_run, path);
     shader_driver_run.addArg("Sources/src/GFXGPU/shaders/manifest.json");
     shader_driver_run.addArtifactArg(shadercross_cli);
     shader_driver_run.addArg("zig-out/shaders");
@@ -1655,14 +1704,14 @@ pub fn build(b: *std.Build) void {
 
     const shader_determinism_a = b.addRunArtifact(shader_driver);
     shader_determinism_a.step.dependOn(shadercross_build_step);
-    if (dxc_runtime_path) |path| shader_determinism_a.addPathDir(path);
+    if (dxc_runtime_path) |path| addPathDir(shader_determinism_a, path);
     shader_determinism_a.addArg("Sources/src/GFXGPU/shaders/manifest.json");
     shader_determinism_a.addArtifactArg(shadercross_cli);
     shader_determinism_a.addArg("zig-out/shaders-determinism-a");
     shader_determinism_a.addArg(shader_formats);
     const shader_determinism_b = b.addRunArtifact(shader_driver);
     shader_determinism_b.step.dependOn(shadercross_build_step);
-    if (dxc_runtime_path) |path| shader_determinism_b.addPathDir(path);
+    if (dxc_runtime_path) |path| addPathDir(shader_determinism_b, path);
     shader_determinism_b.addArg("Sources/src/GFXGPU/shaders/manifest.json");
     shader_determinism_b.addArtifactArg(shadercross_cli);
     shader_determinism_b.addArg("zig-out/shaders-determinism-b");
@@ -1671,7 +1720,7 @@ pub fn build(b: *std.Build) void {
     const shader_compare_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/compare_trees.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const shader_compare = b.addExecutable(.{
         .name = "compare-shader-trees",
@@ -1696,7 +1745,7 @@ pub fn build(b: *std.Build) void {
     // so a debug build and a release build staged over each other and the tree
     // said nothing about which one was in it. Deriving it from the mode also
     // means the name can never disagree with the contents.
-    const variant_suffix = b.fmt("/{s}", .{if (optimize == .Debug) "debug" else "release"});
+    const variant_suffix = b.fmt("/{s}", .{if (optimize == .debug) "debug" else "release"});
     const platform_root = b.fmt("{s}/{s}", .{ platform_policy.os_dir, platform_policy.arch_dir });
     const stage_root = b.fmt("zig-out/game/{s}{s}", .{ platform_root, variant_suffix });
     const package_root = b.fmt("zig-out/packages/{s}{s}", .{ platform_root, variant_suffix });
@@ -1812,7 +1861,7 @@ pub fn build(b: *std.Build) void {
     editor_overlay_spike_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{ .dest_dir = .{ .override = .bin } }).step);
     editor_overlay_spike_run.setCwd(b.path("."));
     if (target.result.os.tag == .linux) editor_overlay_spike_run.setEnvironmentVariable("LD_LIBRARY_PATH", "zig-out/bin:zig-out/lib");
-    if (b.args) |args| editor_overlay_spike_run.addArgs(args);
+    editor_overlay_spike_run.addPassthruArgs();
     const editor_overlay_spike_step = b.step("editor-overlay-spike", "Run the Map Editor ImGui overlay spike");
     editor_overlay_spike_step.dependOn(&editor_overlay_spike_run.step);
 
@@ -1826,7 +1875,7 @@ pub fn build(b: *std.Build) void {
         .root_module = gfx_reference_compare_module,
     });
     const gfx_reference_compare_run = b.addRunArtifact(gfx_reference_compare);
-    if (b.args) |args| gfx_reference_compare_run.addArgs(args);
+    gfx_reference_compare_run.addPassthruArgs();
     const gfx_reference_compare_step = b.step("compare-gfx-reference", "Compare two RGBA8 renderer reference captures");
     gfx_reference_compare_step.dependOn(&gfx_reference_compare_run.step);
 
@@ -1837,7 +1886,7 @@ pub fn build(b: *std.Build) void {
     const season_textures_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/season_textures.zig"),
         .target = b.graph.host,
-        .optimize = .ReleaseFast,
+        .optimize = .fast,
     });
     const season_textures = b.addExecutable(.{
         .name = "season-textures",
@@ -1845,13 +1894,13 @@ pub fn build(b: *std.Build) void {
     });
     const season_textures_run = b.addRunArtifact(season_textures);
     season_textures_run.setCwd(b.path("."));
-    if (b.args) |args| season_textures_run.addArgs(args);
+    season_textures_run.addPassthruArgs();
     const season_textures_step = b.step("season-textures", "Generate the missing winter/Africa unit textures in a Data tree");
     season_textures_step.dependOn(&season_textures_run.step);
     const season_textures_test_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/season_textures.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const season_textures_tests = b.addTest(.{ .root_module = season_textures_test_module });
     const season_textures_test_step = b.step("test-season-textures", "Run the season texture tool's codec and transform tests");
@@ -1868,7 +1917,7 @@ pub fn build(b: *std.Build) void {
     const resource_editor_fixtures_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/resource_editor_fixtures.zig"),
         .target = b.graph.host,
-        .optimize = .ReleaseFast,
+        .optimize = .fast,
     });
     const resource_editor_fixtures_exe = b.addExecutable(.{
         .name = "resource-editor-fixtures",
@@ -1888,7 +1937,7 @@ pub fn build(b: *std.Build) void {
     const resource_editor_fixtures_test_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/resource_editor_fixtures.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const resource_editor_fixtures_tests = b.addTest(.{ .root_module = resource_editor_fixtures_test_module });
     const resource_editor_fixtures_test_step = b.step(
@@ -1940,15 +1989,15 @@ pub fn build(b: *std.Build) void {
     // its CRT from linkMsvcRuntime and must not have one forced here.
     const platform_module_test_module = b.createModule(.{
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
         .link_libc = !build_support.usesMsvc(platform),
         .link_libcpp = build_support.needsBundledLibcpp(platform),
     });
-    const platform_module_test_flags: []const []const u8 = if (platform == .windows_x64) cppflagsForOptimize(.Debug) else &.{"-std=c++17"};
+    const platform_module_test_flags: []const []const u8 = if (platform == .windows_x64) cppflagsForOptimize(.debug) else &.{"-std=c++17"};
     platform_module_test_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_module_test.cpp"), .flags = platform_module_test_flags });
     addMsvcIncludePaths(b, platform_module_test_module, toolchain);
     addMsvcLibraryPaths(b, platform_module_test_module, toolchain);
-    linkMsvcRuntime(platform_module_test_module, .Debug);
+    linkMsvcRuntime(platform_module_test_module, .debug);
     const platform_module_test = b.addExecutable(.{ .name = "platform-module-test", .root_module = platform_module_test_module });
     if (platform == .windows_x64) {
         platform_module_test.subsystem = .console;
@@ -1962,14 +2011,14 @@ pub fn build(b: *std.Build) void {
     // failed -Dtest-mode=compile outright.
     platform_module_test_step.dependOn(&platform_module_test.step);
     if (test_mode == .run) platform_module_test_step.dependOn(&platform_module_test_run.step);
-    const platform_storage_gate_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const platform_storage_gate_module = b.createModule(.{ .target = target, .optimize = .debug });
     var storage_gate_flags: std.ArrayListUnmanaged([]const u8) = .empty;
-    storage_gate_flags.appendSlice(b.allocator, cppflagsForOptimize(.Debug)) catch @panic("OOM");
+    storage_gate_flags.appendSlice(b.allocator, cppflagsForOptimize(.debug)) catch @panic("OOM");
     storage_gate_flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
     platform_storage_gate_module.addCSourceFile(.{ .file = b.path("tools/zig/platform_storage_gate.cpp"), .flags = storage_gate_flags.items });
     addMsvcIncludePaths(b, platform_storage_gate_module, toolchain);
     addMsvcLibraryPaths(b, platform_storage_gate_module, toolchain);
-    linkMsvcRuntime(platform_storage_gate_module, .Debug);
+    linkMsvcRuntime(platform_storage_gate_module, .debug);
     const platform_storage_gate = b.addExecutable(.{ .name = "platform-storage-gate", .root_module = platform_storage_gate_module });
     platform_storage_gate.subsystem = .console;
     platform_storage_gate.entry = .{ .symbol_name = "main" };
@@ -2035,12 +2084,12 @@ pub fn build(b: *std.Build) void {
     const package_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/package.zig"),
         .target = b.graph.host,
-        .optimize = .ReleaseFast,
+        .optimize = .fast,
     });
     const stage_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/stage.zig"),
         .target = b.graph.host,
-        .optimize = .ReleaseFast,
+        .optimize = .fast,
     });
     b.installArtifact(zlib);
     b.installArtifact(libpng);
@@ -2087,13 +2136,13 @@ pub fn build(b: *std.Build) void {
     const net_step = b.step("net", "Build the Net dynamic library");
     net_step.dependOn(&b.addInstallArtifact(net, .{}).step);
 
-    const net_module_test_module = b.createModule(.{ .target = target, .optimize = .Debug });
-    net_module_test_module.addCSourceFile(.{ .file = b.path("tools/zig/net_module_test.cpp"), .flags = cppflagsForTarget(target, .Debug) });
+    const net_module_test_module = b.createModule(.{ .target = target, .optimize = .debug });
+    net_module_test_module.addCSourceFile(.{ .file = b.path("tools/zig/net_module_test.cpp"), .flags = cppflagsForTarget(target, .debug) });
     addProjectIncludePaths(b, net_module_test_module);
     net_module_test_module.addIncludePath(b.path("Sources/src/Net"));
     addMsvcIncludePaths(b, net_module_test_module, toolchain);
     addMsvcLibraryPaths(b, net_module_test_module, toolchain);
-    linkMsvcRuntime(net_module_test_module, .Debug);
+    linkMsvcRuntime(net_module_test_module, .debug);
     net_module_test_module.linkLibrary(misc);
     net_module_test_module.linkLibrary(platform_runtime);
     const net_module_test = b.addExecutable(.{ .name = "net-module-test", .root_module = net_module_test_module });
@@ -2104,8 +2153,8 @@ pub fn build(b: *std.Build) void {
     const net_module_test_run = b.addRunArtifact(net_module_test);
     net_module_test_run.setCwd(b.path("."));
     net_module_test_run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/Net.dll" else "zig-out/lib/libNet.so");
-    net_module_test_run.addPathDir(b.path("zig-out/bin").getPath(b));
-    if (target.result.os.tag != .windows) net_module_test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(net_module_test_run, rootPath(b, "zig-out/bin"));
+    if (target.result.os.tag != .windows) net_module_test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     net_module_test_run.step.dependOn(&b.addInstallArtifact(net, .{}).step);
     net_module_test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     net_module_test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -2219,7 +2268,7 @@ pub fn build(b: *std.Build) void {
     // loader-relative rpaths and need neither.
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
-    gfx_gpu_factory_test_run.addPathDir(b.path("zig-out/bin").getPath(b));
+    addPathDir(gfx_gpu_factory_test_run, rootPath(b, "zig-out/bin"));
     gfx_gpu_factory_test_run.setCwd(b.path("."));
     // The built module is GFXGPU.dll, libGFXGPU.dylib or libGFXGPU.so depending
     // on the host, so hand the test the artifact's own path rather than the
@@ -2423,61 +2472,61 @@ pub fn build(b: *std.Build) void {
         .macos => "DYLD_LIBRARY_PATH",
         .windows => "PATH",
         else => "LD_LIBRARY_PATH",
-    }, b.pathFromRoot(stage_root));
+    }, rootPath(b, stage_root));
     console_bridge_run.step.dependOn(install_game_step);
     // The terrain is built at integer screen coordinates and then scaled by
     // width/1024 against height/768, which is not a whole number on most
     // windows. Scaled vertices have to land on whole pixels or a point sampled
     // tile edge reads its neighbour out of the tileset.
-    const scene_scale_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const scene_scale_module = b.createModule(.{ .target = target, .optimize = .debug });
     if (platform != .windows_x64) {
         scene_scale_module.link_libc = true;
         scene_scale_module.link_libcpp = true;
     }
     scene_scale_module.addCSourceFile(.{
         .file = b.path("tools/zig/scene_screen_scale_test.cpp"),
-        .flags = if (platform == .windows_x64) cppflagsForOptimize(.Debug) else &.{"-std=c++17"},
+        .flags = if (platform == .windows_x64) cppflagsForOptimize(.debug) else &.{"-std=c++17"},
     });
     scene_scale_module.addIncludePath(b.path("Sources/src"));
     addMsvcIncludePaths(b, scene_scale_module, toolchain);
     addMsvcLibraryPaths(b, scene_scale_module, toolchain);
-    linkMsvcRuntime(scene_scale_module, .Debug);
+    linkMsvcRuntime(scene_scale_module, .debug);
     const scene_scale_test = b.addExecutable(.{ .name = "scene-screen-scale-test", .root_module = scene_scale_module });
     scene_scale_test.subsystem = .console;
     if (platform == .windows_x64) scene_scale_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const scene_scale_run = b.addRunArtifact(scene_scale_test);
     // The noise texture is addressed in world tile units; neighbouring map
     // tiles must get adjacent coordinates or the pattern jumps at the seam.
-    const noise_seam_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const noise_seam_module = b.createModule(.{ .target = target, .optimize = .debug });
     if (platform != .windows_x64) {
         noise_seam_module.link_libc = true;
         noise_seam_module.link_libcpp = true;
     }
     noise_seam_module.addCSourceFile(.{
         .file = b.path("tools/zig/terrain_noise_seam_test.cpp"),
-        .flags = if (platform == .windows_x64) cppflagsForOptimize(.Debug) else &.{"-std=c++17"},
+        .flags = if (platform == .windows_x64) cppflagsForOptimize(.debug) else &.{"-std=c++17"},
     });
     addMsvcIncludePaths(b, noise_seam_module, toolchain);
     addMsvcLibraryPaths(b, noise_seam_module, toolchain);
-    linkMsvcRuntime(noise_seam_module, .Debug);
+    linkMsvcRuntime(noise_seam_module, .debug);
     const noise_seam_test = b.addExecutable(.{ .name = "terrain-noise-seam-test", .root_module = noise_seam_module });
     noise_seam_test.subsystem = .console;
     if (platform == .windows_x64) noise_seam_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const noise_seam_run = b.addRunArtifact(noise_seam_test);
     // A layout's text shadow is a second draw of the same glyph. It reads as a
     // shadow only under light text; under dark text it doubles the letters.
-    const text_shadow_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const text_shadow_module = b.createModule(.{ .target = target, .optimize = .debug });
     if (platform != .windows_x64) {
         text_shadow_module.link_libc = true;
         text_shadow_module.link_libcpp = true;
     }
     text_shadow_module.addCSourceFile(.{
         .file = b.path("tools/zig/ui_text_shadow_test.cpp"),
-        .flags = if (platform == .windows_x64) cppflagsForOptimize(.Debug) else &.{"-std=c++17"},
+        .flags = if (platform == .windows_x64) cppflagsForOptimize(.debug) else &.{"-std=c++17"},
     });
     addMsvcIncludePaths(b, text_shadow_module, toolchain);
     addMsvcLibraryPaths(b, text_shadow_module, toolchain);
-    linkMsvcRuntime(text_shadow_module, .Debug);
+    linkMsvcRuntime(text_shadow_module, .debug);
     const text_shadow_test = b.addExecutable(.{ .name = "ui-text-shadow-test", .root_module = text_shadow_module });
     text_shadow_test.subsystem = .console;
     if (platform == .windows_x64) text_shadow_test.entry = .{ .symbol_name = "mainCRTStartup" };
@@ -2501,9 +2550,7 @@ pub fn build(b: *std.Build) void {
     const run_game_cmd = b.addSystemCommand(&.{stage_game_name});
     run_game_cmd.setCwd(b.path(stage_root));
     run_game_cmd.step.dependOn(install_game_step);
-    if (b.args) |args| {
-        run_game_cmd.addArgs(args);
-    }
+    run_game_cmd.addPassthruArgs();
 
     const run_step = b.step("run", "Build, install, and run Game.exe from install layout");
     run_step.dependOn(install_game_step);
@@ -2512,7 +2559,7 @@ pub fn build(b: *std.Build) void {
     const verify_x64_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_x64_runtime.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const verify_x64_tool = b.addExecutable(.{
         .name = "verify-x64-runtime",
@@ -2527,7 +2574,7 @@ pub fn build(b: *std.Build) void {
     const endurance_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/verify_gfxgpu_endurance.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const endurance_tool = b.addExecutable(.{
         .name = "verify-gfxgpu-endurance",
@@ -2881,13 +2928,13 @@ pub fn build(b: *std.Build) void {
     streamio_platform_step.dependOn(&streamio_platform_tests.step);
     if (test_mode == .run) streamio_platform_step.dependOn(&run_streamio_platform_tests.step);
 
-    const file_utils_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const file_utils_module = b.createModule(.{ .target = target, .optimize = .debug });
     file_utils_module.addIncludePath(b.path("Sources/src"));
     file_utils_module.addIncludePath(b.path("Sources/src/Misc"));
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, file_utils_module, toolchain);
         addMsvcLibraryPaths(b, file_utils_module, toolchain);
-        linkMsvcRuntime(file_utils_module, .Debug);
+        linkMsvcRuntime(file_utils_module, .debug);
     } else {
         // FileUtils.cpp is C++ (std::filesystem), so the host build needs the
         // C++ runtime as well; without it the target never compiled off Windows.
@@ -2906,7 +2953,7 @@ pub fn build(b: *std.Build) void {
     file_utils_step.dependOn(&file_utils_test.step);
     if (test_mode == .run) file_utils_step.dependOn(&file_utils_run.step);
 
-    const paths_module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const paths_module = b.createModule(.{ .target = target, .optimize = .debug });
     paths_module.addIncludePath(b.path("Sources/src"));
     paths_module.addCSourceFiles(.{
         .files = &.{ "tools/zig/platform_paths_test.cpp", "Sources/src/Platform/Paths.cpp" },
@@ -2915,7 +2962,7 @@ pub fn build(b: *std.Build) void {
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, paths_module, toolchain);
         addMsvcLibraryPaths(b, paths_module, toolchain);
-        linkMsvcRuntime(paths_module, .Debug);
+        linkMsvcRuntime(paths_module, .debug);
     } else {
         paths_module.link_libc = true;
         // Paths.h includes <string> and Paths.cpp uses <filesystem>, so this
@@ -2966,13 +3013,14 @@ pub fn build(b: *std.Build) void {
     const editor_kit_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/kit/root.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
         .imports = &.{
             .{ .name = "sdl3", .module = sdl3 },
             .{ .name = "editor_imgui", .module = editor_imgui_module },
+            .{ .name = "bridge_c", .module = editorBridgeC(b, target, .debug, toolchain) },
         },
     });
-    // bridge.h: the engine's C ABI; kit/host.zig @cImports it so any editor
+    // bridge.h: the engine's C ABI; kit/host.zig imports its translation so any editor
     // on the kit (ResourceEditor, future tier editors) shares one wrapper.
     editor_kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
     // The test tiers build for the requested target. Only an MSVC target needs
@@ -2993,7 +3041,7 @@ pub fn build(b: *std.Build) void {
     const editor_core_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/core/root.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
         .imports = &.{.{ .name = "editor_kit", .module = editor_kit_module }},
     });
     if (target.result.abi == .msvc) {
@@ -3012,7 +3060,7 @@ pub fn build(b: *std.Build) void {
     const resource_core_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/resource_core/root.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
         .imports = &.{.{ .name = "editor_kit", .module = editor_kit_module }},
     });
     if (target.result.abi == .msvc) {
@@ -3033,7 +3081,7 @@ pub fn build(b: *std.Build) void {
     const resource_app_logic_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/resource_app/panels_logic.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
         // editor_kit for lifecycle.zig and settings.zig (S05 T09): autosave,
         // shipped, files and the shared settings keys.
         .imports = &.{
@@ -3046,11 +3094,16 @@ pub fn build(b: *std.Build) void {
     const resource_app_c_bridge_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/resource_app/c_bridge.zig"),
         .target = target,
-        .optimize = .Debug,
-        .imports = &.{.{ .name = "resource_core", .module = resource_core_module }},
+        .optimize = .debug,
+        .imports = &.{
+            .{ .name = "resource_core", .module = resource_core_module },
+            .{ .name = "resource_bridge_c", .module = resourceBridgeC(b, target, .debug, toolchain) },
+        },
     });
     resource_app_c_bridge_module.addIncludePath(b.path("Sources/src/EditorBridge"));
-    const resource_app_c_bridge_object = b.addObject(.{ .name = "resource-app-c-bridge", .root_module = resource_app_c_bridge_module });
+    // A static library, not an object: 0.17 rejects an object that has linked libraries (the
+    // kit pulls in SDL3 and editor-imgui) on COFF, and nothing here is run.
+    const resource_app_c_bridge_object = b.addLibrary(.{ .name = "resource-app-c-bridge", .linkage = .static, .root_module = resource_app_c_bridge_module });
     const resource_app_logic_step = b.step("test-resource-app-logic", "Run the Resource Editor app's pure logic tests against the fake resource bridge and compile its real bridge adapter");
     resource_app_logic_step.dependOn(&resource_app_logic_tests.step);
     resource_app_logic_step.dependOn(&resource_app_c_bridge_object.step);
@@ -3062,7 +3115,7 @@ pub fn build(b: *std.Build) void {
     const view_math_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/view_math.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const view_math_tests = b.addTest(.{ .root_module = view_math_module });
     const view_math_tests_run = b.addRunArtifact(view_math_tests);
@@ -3079,7 +3132,7 @@ pub fn build(b: *std.Build) void {
     const panels_logic_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/panels_logic.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
         .imports = &.{
             .{ .name = "editor_core", .module = editor_core_module },
             .{ .name = "editor_kit", .module = editor_kit_module },
@@ -3097,7 +3150,7 @@ pub fn build(b: *std.Build) void {
     const testlaunch_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/kit/testlaunch.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const testlaunch_tests = b.addTest(.{ .root_module = testlaunch_module });
     const testlaunch_tests_run = b.addRunArtifact(testlaunch_tests);
@@ -3111,7 +3164,7 @@ pub fn build(b: *std.Build) void {
     const auto_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/kit/auto_schedule.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const auto_tests = b.addTest(.{ .root_module = auto_module });
     const auto_tests_run = b.addRunArtifact(auto_tests);
@@ -3297,7 +3350,7 @@ fn addStreamIOZig(
     // bridge below is compiled with cppflagsForOptimize(optimize) and the CRT
     // link stays keyed on the game's optimize mode, so a Debug game still
     // gets ucrtbased and a debuggable bridge.
-    const zig_optimize = if (streamio_fast and optimize == .Debug) std.builtin.OptimizeMode.ReleaseFast else optimize;
+    const zig_optimize = if (streamio_fast and optimize == .debug) std.builtin.OptimizeMode.fast else optimize;
     const streamio_module = b.createModule(.{
         .root_source_file = b.path("Sources/src/StreamIOZig/streamio.zig"),
         .target = target,
@@ -3307,7 +3360,7 @@ fn addStreamIOZig(
     var flags: std.ArrayListUnmanaged([]const u8) = .empty;
     flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
     flags.append(b.allocator, "-std=c++17") catch @panic("OOM");
-    if (streamio_fast and optimize == .Debug) {
+    if (streamio_fast and optimize == .debug) {
         // Optimize the bridge itself while keeping the _DEBUG/debug-STL
         // defines above (they must match the ucrtbased link); optimization
         // level does not affect that ABI.
@@ -3388,7 +3441,9 @@ fn addLegacyProjectDll(
     platform_runtime: *std.Build.Step.Compile,
     sdl_dynamic: *std.Build.Step.Compile,
 ) *std.Build.Step.Compile {
-    const contents = std.Io.Dir.cwd().readFileAlloc(b.graph.io, project, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
+    // The configure result is cached, so the project file read here must be declared.
+    b.dependOnFileContents(b.path(project));
+    const contents = b.root.root_dir.handle.readFileAlloc(b.graph.io, project, b.allocator, .limited(8 * 1024 * 1024)) catch |err| @panic(@errorName(err));
     var files: std.ArrayListUnmanaged([]const u8) = .empty;
     // libtheora/libogg are math-heavy decoders; at -O0 (Debug) clang emits code
     // ~2x slower than MSVC /Od, which breaks realtime video decode (measured
@@ -3439,7 +3494,7 @@ fn addLegacyProjectDll(
     if (audio_files.items.len > 0) {
         var audio_flags: std.ArrayListUnmanaged([]const u8) = .empty;
         audio_flags.appendSlice(b.allocator, cppflagsForOptimize(optimize)) catch @panic("OOM");
-        if (optimize == .Debug) {
+        if (optimize == .debug) {
             audio_flags.appendSlice(b.allocator, &.{ "-O2", "-fno-sanitize=undefined" }) catch @panic("OOM");
         }
         module.addCSourceFiles(.{ .files = audio_files.items, .flags = audio_flags.items });
@@ -3448,11 +3503,11 @@ fn addLegacyProjectDll(
         // Static lib of just the decoder objects; it does NOT link a CRT itself
         // (no linkMsvcRuntime) — its CRT symbols resolve when Scene.dll links
         // against the game's CRT (ucrtbased in Debug), avoiding any mismatch.
-        const xiph_module = b.createModule(.{ .target = target, .optimize = .ReleaseFast });
+        const xiph_module = b.createModule(.{ .target = target, .optimize = .fast });
         addProjectIncludePaths(b, xiph_module);
         addMsvcIncludePaths(b, xiph_module, toolchain);
         for (includes) |include| xiph_module.addIncludePath(b.path(include));
-        xiph_module.addCSourceFiles(.{ .files = xiph_files.items, .flags = cflagsForOptimize(.ReleaseFast) });
+        xiph_module.addCSourceFiles(.{ .files = xiph_files.items, .flags = cflagsForOptimize(.fast) });
         const xiph_lib = b.addLibrary(.{ .name = b.fmt("{s}_xiph", .{name}), .linkage = .static, .root_module = xiph_module });
         module.linkLibrary(xiph_lib);
     }
@@ -3999,8 +4054,8 @@ fn addInputModuleTest(
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("zig-out/bin"));
-    run.addPathDir(b.path("zig-out/bin").getPath(b));
-    run.addArg(if (target.result.os.tag == .windows) b.path("zig-out/bin/Input.dll").getPath(b) else if (target.result.os.tag == .macos) b.path("zig-out/lib/libInput.dylib").getPath(b) else b.path("zig-out/lib/libInput.so").getPath(b));
+    addPathDir(run, rootPath(b, "zig-out/bin"));
+    run.addArg(if (target.result.os.tag == .windows) rootPath(b, "zig-out/bin/Input.dll") else if (target.result.os.tag == .macos) rootPath(b, "zig-out/lib/libInput.dylib") else rootPath(b, "zig-out/lib/libInput.so"));
     const step = b.step("test-input-module", "Load and exercise the real Input module factory lifecycle");
     step.dependOn(&b.addInstallArtifact(input, .{}).step);
     step.dependOn(&b.addInstallArtifact(misc, .{}).step);
@@ -4448,8 +4503,8 @@ fn addSfxModuleTest(
     options_bridge: *std.Build.Step.Compile,
     streamio_zig: *std.Build.Step.Compile,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
-    module.addCSourceFile(.{ .file = b.path("tools/zig/sfx_module_test.cpp"), .flags = cppflagsForTarget(target, .Debug) });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
+    module.addCSourceFile(.{ .file = b.path("tools/zig/sfx_module_test.cpp"), .flags = cppflagsForTarget(target, .debug) });
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/SFX"));
     module.linkLibrary(misc);
@@ -4458,7 +4513,7 @@ fn addSfxModuleTest(
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
     }
-    linkMsvcRuntime(module, .Debug);
+    linkMsvcRuntime(module, .debug);
     const exe = b.addExecutable(.{ .name = "sfx-module-test", .root_module = module });
     if (target.result.os.tag == .windows) {
         exe.subsystem = .console;
@@ -4467,12 +4522,12 @@ fn addSfxModuleTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
     run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/SFX.dll" else if (target.result.os.tag == .macos) "zig-out/lib/libSFX.dylib" else "zig-out/lib/libSFX.so");
-    run.addPathDir(b.path("zig-out/bin").getPath(b));
-    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(run, rootPath(b, "zig-out/bin"));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     // dyld ignores LD_LIBRARY_PATH: without this the module's own
     // CGlobalsLoader cannot find libStreamIO, the singleton stays null and
     // CSoundEngine::Init crashes reading a global var.
-    if (target.result.os.tag == .macos) run.setEnvironmentVariable("DYLD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    if (target.result.os.tag == .macos) run.setEnvironmentVariable("DYLD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     run.step.dependOn(&b.addInstallArtifact(sfx, .{}).step);
     run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
@@ -4619,7 +4674,7 @@ fn addEditorImgui(
     // Zig links the release CRT for an MSVC target even in Debug, so the C++
     // objects are built against the release CRT too: a debug build here
     // references the debug CRT and the two cannot be linked together.
-    const cxx_optimize = if (target.result.abi == .msvc) .ReleaseFast else optimize;
+    const cxx_optimize = if (target.result.abi == .msvc) .fast else optimize;
     const module = b.createModule(.{
         .target = target,
         .optimize = cxx_optimize,
@@ -4670,23 +4725,23 @@ fn addEditorImgui(
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     if (build_target_os != .windows) return switch (optimize) {
-        .Debug => portable_cflags,
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => &portable_cflags_release,
+        .debug => portable_cflags,
+        .safe, .fast, .small => &portable_cflags_release,
     };
     return switch (optimize) {
-        .Debug => cflags_debug,
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cflags_release,
+        .debug => cflags_debug,
+        .safe, .fast, .small => cflags_release,
     };
 }
 
 fn cppflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     if (build_target_os != .windows) return switch (optimize) {
-        .Debug => &portable_cppflags,
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => &portable_cppflags_release,
+        .debug => &portable_cppflags,
+        .safe, .fast, .small => &portable_cppflags_release,
     };
     return switch (optimize) {
-        .Debug => if (ubsan_trap) cppflags_debug_trap else cppflags_debug,
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_release,
+        .debug => if (ubsan_trap) cppflags_debug_trap else cppflags_debug,
+        .safe, .fast, .small => cppflags_release,
     };
 }
 
@@ -4749,38 +4804,38 @@ fn linkCxxRuntime(module: *std.Build.Module, target: std.Build.ResolvedTarget) v
 fn cppflagsBetaForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     if (build_target_os != .windows) return &portable_cppflags;
     return switch (optimize) {
-        .Debug => cppflags_beta_debug,
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_beta_release,
+        .debug => cppflags_beta_debug,
+        .safe, .fast, .small => cppflags_beta_release,
     };
 }
 
 fn cflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     if (build_target_os != .windows) return portable_cflags;
     return switch (optimize) {
-        .Debug => cflags_sfx_debug,
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cflags_sfx_release,
+        .debug => cflags_sfx_debug,
+        .safe, .fast, .small => cflags_sfx_release,
     };
 }
 
 fn cppflagsSfxForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     if (build_target_os != .windows) return switch (optimize) {
-        .Debug => &portable_cppflags,
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => &portable_cppflags_release,
+        .debug => &portable_cppflags,
+        .safe, .fast, .small => &portable_cppflags_release,
     };
     return switch (optimize) {
-        .Debug => cppflags_sfx_debug,
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_sfx_release,
+        .debug => cppflags_sfx_debug,
+        .safe, .fast, .small => cppflags_sfx_release,
     };
 }
 
 fn cppflagsGameForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
     if (build_target_os != .windows) return switch (optimize) {
-        .Debug => &portable_cppflags,
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => &portable_cppflags_release,
+        .debug => &portable_cppflags,
+        .safe, .fast, .small => &portable_cppflags_release,
     };
     return switch (optimize) {
-        .Debug => cppflags_game_debug,
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => cppflags_game_release,
+        .debug => cppflags_game_debug,
+        .safe, .fast, .small => cppflags_game_release,
     };
 }
 
@@ -4800,32 +4855,28 @@ const ToolchainIncludes = struct {
 };
 
 // zig resolves macOS frameworks from the native SDK on its own, but a build
-// driven with an explicit --sysroot (which is how CI invokes every macOS step)
-// searches no framework directory at all, so anything that links SDL fails with
-// "unable to find framework 'Cocoa'". Point the module at the sysroot's own
-// framework and library directories.
+// against an explicit SDK (which is how CI invokes every macOS step) searches no
+// framework directory at all, so anything that links SDL fails with
+// "unable to find framework 'Cocoa'". Point the module at the framework, header
+// and library directories given with -Dsystem_framework_path, -Dsystem_include_path
+// and -Dlibrary_path; with none given nothing is added.
 fn addMacosSysrootPaths(b: *std.Build, module: *std.Build.Module, target: std.Build.ResolvedTarget) void {
     if (target.result.os.tag != .macos) return;
     addMacosSysrootPathsToModule(b, module);
 }
 
 /// The same for a module whose target is the host rather than a resolved one -
-/// the shadercross tool. Split out because --sysroot is global to the build, so
-/// a host tool needs the paths just as much as a cross-compiled one does.
+/// the shadercross tool. Split out because the paths are global to the build, so
+/// a host tool needs them just as much as a cross-compiled one does.
 fn addMacosSysrootPathsToModule(b: *std.Build, module: *std.Build.Module) void {
-    const sysroot = b.sysroot orelse return;
-    module.addFrameworkPath(.{ .cwd_relative = b.pathJoin(&.{ sysroot, "System/Library/Frameworks" }) });
+    _ = b;
+    if (system_framework_path_option) |path| module.addFrameworkPath(path);
+    if (system_include_path_option) |path| module.addSystemIncludePath(path);
     // libobjc and the rest of the system libraries live there as .tbd stubs.
-    // Without this, linkSystemLibrary("objc") under --sysroot fails with
-    // "unable to find dynamic system library 'objc' ... searched paths: none",
-    // which is what the engine tier hit the first time CI built the game on
-    // macOS - nothing else in CI had ever linked a system library there.
-    //
-    // Sysroot-relative, unlike the framework path above: zig prefixes --sysroot
-    // onto a library path and does not onto a framework path. Measured - an
-    // absolute one comes out as <sysroot>/<sysroot>/usr/lib and warns
-    // "unable to open library directory", then fails to find anything.
-    module.addLibraryPath(.{ .cwd_relative = "/usr/lib" });
+    // Without this, linkSystemLibrary("objc") fails with "unable to find dynamic
+    // system library 'objc' ... searched paths: none", which is what the engine
+    // tier hit the first time CI built the game on macOS.
+    if (library_path_option) |path| module.addLibraryPath(path);
 }
 
 fn addMsvcIncludePaths(b: *std.Build, module: *std.Build.Module, toolchain: ToolchainIncludes) void {
@@ -4881,6 +4932,9 @@ fn addLinuxCxxIncludePaths(b: *std.Build, module: *std.Build.Module) void {
     addMacosCxxIncludePaths(b, module);
     if (build_target_os != .linux or b.graph.host.result.os.tag != .linux) return;
     module.addLibraryPath(.{ .cwd_relative = linuxMultiarchDir(b.graph.host.result.cpu.arch) });
+    // Both scans read system directories outside the cache's view of the project.
+    b.dependOnDirectoryContents(.{ .cwd_relative = "/usr/include/c++" });
+    b.dependOnDirectoryContents(.{ .cwd_relative = b.fmt("/usr/lib/gcc/{s}-linux-gnu", .{linuxArchName(b.graph.host.result.cpu.arch)}) });
     var versions = std.Io.Dir.openDirAbsolute(b.graph.io, "/usr/include/c++", .{ .iterate = true }) catch return;
     defer std.Io.Dir.close(versions, b.graph.io);
     // The newest libstdc++ that Zig's clang can parse, compared as numbers ("9" sorts after "16"
@@ -4963,7 +5017,7 @@ fn addPortableModuleTest(
 ) void {
     const module = b.createModule(.{
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
         .link_libc = true,
     });
     module.addCSourceFile(.{
@@ -4986,7 +5040,7 @@ fn addGameCommandLineTest(
 ) void {
     const module = b.createModule(.{
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
         .link_libc = true,
     });
     module.addCSourceFiles(.{
@@ -5001,7 +5055,7 @@ fn addGameCommandLineTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5026,7 +5080,7 @@ fn addGameFrameTest(
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/Game"));
     // Debug.cpp reaches PlatformABI/platform_c.h by its path from Sources/src,
@@ -5041,7 +5095,7 @@ fn addGameFrameTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
@@ -5060,8 +5114,8 @@ fn addGameFrameTest(
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
-    test_run.addPathDir(b.path(sdl_runtime_dir).getPath(b));
-    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(test_run, rootPath(b, sdl_runtime_dir));
+    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const test_step = b.step("test-game-frame", "Run the portable SDL game-frame contract test");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
@@ -5073,7 +5127,7 @@ fn addGameSystemKeysTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addIncludePath(b.path("Sources/src/Game"));
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Game/SysKeys.cpp", "tools/zig/game_system_keys_test.cpp" }, .flags = &.{ "-std=c++17" } });
@@ -5081,7 +5135,7 @@ fn addGameSystemKeysTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5103,14 +5157,14 @@ fn addGameMouseCaptureTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addIncludePath(b.path("Sources/src/Game"));
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Game/MouseCapture.cpp", "tools/zig/game_mouse_capture_test.cpp" }, .flags = &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5135,7 +5189,7 @@ fn addGameLoopTest(
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/Game"));
     module.addIncludePath(b.path("Sources/src/Platform"));
@@ -5152,7 +5206,7 @@ fn addGameLoopTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
@@ -5171,8 +5225,8 @@ fn addGameLoopTest(
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
-    test_run.addPathDir(b.path(sdl_runtime_dir).getPath(b));
-    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(test_run, rootPath(b, sdl_runtime_dir));
+    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const test_step = b.step("test-game-loop", "Run the deterministic game loop policy test");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
@@ -5189,7 +5243,7 @@ fn addSdlApplicationTest(
 ) void {
     const module = b.createModule(.{
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
         .link_libc = false,
     });
     module.addIncludePath(sdl_include);
@@ -5209,7 +5263,7 @@ fn addSdlApplicationTest(
     if (target.result.os.tag == .windows) {
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
-        linkMsvcRuntime(module, .Debug);
+        linkMsvcRuntime(module, .debug);
     } else if (target.result.os.tag == .linux) {
         module.linkSystemLibrary("stdc++", .{});
     } else if (target.result.os.tag == .macos) {
@@ -5228,8 +5282,8 @@ fn addSdlApplicationTest(
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
-    test_run.addPathDir(b.path(sdl_runtime_dir).getPath(b));
-    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(test_run, rootPath(b, sdl_runtime_dir));
+    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const test_step = b.step("test-platform-window", "Run SDL application window lifecycle tests");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
@@ -5241,14 +5295,14 @@ fn addInputCodesTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addIncludePath(b.path("Sources/src/Input"));
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/input_codes_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5270,14 +5324,14 @@ fn addPlatformInputTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addIncludePath(b.path("Sources/src/Input"));
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/platform_input_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5299,12 +5353,12 @@ fn addInputStateFixtureTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addIncludePath(b.path("Sources/src/Input"));
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/input_state_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
-        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .Debug); },
+        .windows => { addMsvcIncludePaths(b, module, toolchain); addMsvcLibraryPaths(b, module, toolchain); linkMsvcRuntime(module, .debug); },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
@@ -5332,14 +5386,14 @@ fn addWheelScrollTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) *std.Build.Step {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
+    const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     addLinuxCxxIncludePaths(b, module);
     module.addCSourceFiles(.{ .files = &.{"tools/zig/wheel_scroll_test.cpp"}, .flags = &.{"-std=c++17"} });
     linkCxxRuntime(module, target);
     if (build_support.usesMsvc(platform)) {
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
-        linkMsvcRuntime(module, .Debug);
+        linkMsvcRuntime(module, .debug);
     }
     const exe = b.addExecutable(.{ .name = "wheel-scroll-test", .root_module = module });
     if (build_support.usesMsvc(platform)) {
@@ -5360,7 +5414,7 @@ fn addInputHeaderAuditTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/Input"));
     module.addCMacro("BK_INPUT_EVENT_ONLY", "1");
@@ -5369,7 +5423,7 @@ fn addInputHeaderAuditTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5391,13 +5445,13 @@ fn addInputTextRepeatTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Input/InputCodes.cpp", "tools/zig/input_text_repeat_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5419,13 +5473,13 @@ fn addInputControllerTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addCSourceFiles(.{ .files = &.{ "tools/zig/input_controller_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5447,13 +5501,13 @@ fn addInputBindingsTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addCSourceFiles(.{ .files = &.{ "tools/zig/input_bindings_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5475,14 +5529,14 @@ fn addPlatformClipboardTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_clipboard_test.cpp"}, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5506,7 +5560,7 @@ fn addPlatformControllerTest(
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = false });
+    const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = false });
     module.addIncludePath(sdl_include);
     module.addCSourceFiles(.{ .files = &.{
         "Sources/src/Platform/SDLApplication.cpp",
@@ -5518,7 +5572,7 @@ fn addPlatformControllerTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5531,8 +5585,8 @@ fn addPlatformControllerTest(
     run.setCwd(b.path("."));
     run.step.dependOn(&sdl_dynamic.step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
-    run.addPathDir(b.path(if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib").getPath(b));
-    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(run, rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const step = b.step("test-platform-controller", "Run virtual controller name and lifetime tests");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -5544,13 +5598,13 @@ fn addPlatformAudioTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_audio_test.cpp"}, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5572,13 +5626,13 @@ fn addAudioLifecycleFixtureTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addCSourceFiles(.{ .files = &.{"tools/zig/audio_lifecycle_fixture.cpp"}, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5600,7 +5654,7 @@ fn addAudioWorkerTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, module);
     module.addCSourceFiles(.{ .files = &.{
         "Sources/src/Platform/Clock.cpp",
@@ -5612,7 +5666,7 @@ fn addAudioWorkerTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5634,7 +5688,7 @@ fn addAudioStreamTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, module);
     module.addCSourceFiles(.{ .files = &.{
         "Sources/src/Platform/Clock.cpp",
@@ -5645,7 +5699,7 @@ fn addAudioStreamTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5667,14 +5721,14 @@ fn addInputAudioGateTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{ .files = &.{"tools/zig/input_audio_gate.cpp"}, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5703,7 +5757,7 @@ fn addRuntimeHeadersTest(
     const step = b.step("test-runtime-headers", "Compile each playable runtime StdAfx header independently");
     for (header_names, 0..) |header_name, index| {
         _ = header_name;
-        const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = true });
+        const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = true });
         module.addIncludePath(b.path("Sources/src"));
         module.addIncludePath(b.path("Sources/src/Misc"));
         module.addIncludePath(b.path("Sources/src/StreamIO"));
@@ -5730,14 +5784,14 @@ fn addPlatformSocketTypesTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{ .files = &.{"tools/zig/platform_socket_types_test.cpp"}, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
@@ -5759,14 +5813,14 @@ fn addPlatformNetworkTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SocketWin32.cpp", "Sources/src/Platform/SocketPosix.cpp", "tools/zig/platform_network_test.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
             module.linkSystemLibrary("ws2_32", .{});
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
@@ -5789,7 +5843,7 @@ fn addNetLowestTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/Net"));
     module.addIncludePath(b.path("Sources/src/Platform"));
@@ -5808,7 +5862,7 @@ fn addNetLowestTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
             module.linkSystemLibrary("ws2_32", .{});
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
@@ -5831,7 +5885,7 @@ fn addNetworkWorkersTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     addProjectIncludePaths(b, module);
     module.addIncludePath(b.path("Sources/src/Net"));
     module.addIncludePath(b.path("Sources/src/Platform"));
@@ -5853,7 +5907,7 @@ fn addNetworkWorkersTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
             module.linkSystemLibrary("ws2_32", .{});
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
@@ -5877,14 +5931,14 @@ fn addPlatformSocketAbiTest(
     toolchain: ToolchainIncludes,
     platform_runtime: *std.Build.Step.Compile,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = target.result.os.tag != .windows });
+    const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = target.result.os.tag != .windows });
     module.addIncludePath(b.path("Sources/src"));
     module.addCSourceFile(.{ .file = b.path("tools/zig/platform_socket_abi_test.cpp"), .flags = &.{"-std=c++17"} });
     module.linkLibrary(platform_runtime);
     if (target.result.os.tag == .windows) {
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
-        linkMsvcRuntime(module, .Debug);
+        linkMsvcRuntime(module, .debug);
     } else if (target.result.os.tag == .linux) {
         module.linkSystemLibrary("stdc++", .{});
     } else if (target.result.os.tag == .macos) {
@@ -5897,8 +5951,8 @@ fn addPlatformSocketAbiTest(
     }
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
-    run.addPathDir(b.path("zig-out/bin").getPath(b));
-    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(run, rootPath(b, "zig-out/bin"));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const step = b.step("test-platform-socket-abi", "Run the shared ABI generational socket contract");
     step.dependOn(&platform_runtime.step);
     step.dependOn(&exe.step);
@@ -5916,7 +5970,7 @@ fn addNetworkSystemGateTest(
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = false });
+    const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = false });
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{ .files = &.{ "tools/zig/network_system_gate.cpp", "Sources/src/Platform/SocketWin32.cpp", "Sources/src/Platform/SocketPosix.cpp", "Sources/src/Platform/System.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
@@ -5925,7 +5979,7 @@ fn addNetworkSystemGateTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
             module.linkSystemLibrary("ws2_32", .{});
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
@@ -5940,8 +5994,8 @@ fn addNetworkSystemGateTest(
     run.step.dependOn(&sdl_dynamic.step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const runtimeDir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
-    run.addPathDir(b.path(runtimeDir).getPath(b));
-    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(run, rootPath(b, runtimeDir));
+    if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const step = b.step("test-network-system-gate", "Run the portable network and system services gate");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -6055,9 +6109,9 @@ fn addMapFileTest(
     // staged shared library is rather than relying on the loader's search path.
     // Zig installs a .dll next to the executables and a .dylib/.so under lib.
     const module_root = if (target.result.os.tag == .windows)
-        b.path("zig-out/bin").getPath(b)
+        rootPath(b, "zig-out/bin")
     else
-        b.path("zig-out/lib").getPath(b);
+        rootPath(b, "zig-out/lib");
     // Everything this tier writes goes under zig-out/local-test, which a bare
     // checkout does not have. The engine has no portable mkdir, and the Zig
     // StreamIO's CreateStorage does not create the path the way the legacy
@@ -6094,7 +6148,7 @@ fn addMapFileTest(
     // main with exit code 53, which is STATUS_DLL_NOT_FOUND (0xC0000135)
     // truncated the way Zig reports Windows crash codes. ELF and Mach-O carry
     // loader-relative rpaths and do not need it.
-    run.addPathDir(b.path("zig-out/bin").getPath(b));
+    addPathDir(run, rootPath(b, "zig-out/bin"));
     const step = b.step("test-map-files", "Read and rewrite the shipped maps; check they are unchanged");
     step.dependOn(&exe.step);
     if (test_mode == .run) step.dependOn(&run.step);
@@ -6108,7 +6162,7 @@ fn addMapFileTest(
     run_all.step.dependOn(&scratch_install.step);
     run_all.step.dependOn(&platform_install.step);
     run_all.step.dependOn(&options_install.step);
-    run_all.addPathDir(b.path("zig-out/bin").getPath(b));
+    addPathDir(run_all, rootPath(b, "zig-out/bin"));
     const step_all = b.step("test-map-files-all", "Sweep every shipped map, not just the CI sample");
     step_all.dependOn(&exe.step);
     if (test_mode == .run) step_all.dependOn(&run_all.step);
@@ -6125,7 +6179,7 @@ fn addMapFileTest(
     run_m2_sweep.step.dependOn(&scratch_install.step);
     run_m2_sweep.step.dependOn(&platform_install.step);
     run_m2_sweep.step.dependOn(&options_install.step);
-    run_m2_sweep.addPathDir(b.path("zig-out/bin").getPath(b));
+    addPathDir(run_m2_sweep, rootPath(b, "zig-out/bin"));
     const step_m2_sweep = b.step("test-map-files-m2-sweep", "Edit every M2 collection of every Data/Maps map, undo it, and compare the bytes");
     step_m2_sweep.dependOn(&exe.step);
     if (test_mode == .run) step_m2_sweep.dependOn(&run_m2_sweep.step);
@@ -6241,7 +6295,7 @@ fn addEditorBridgeTest(
     run.addArg(".");
     // Where the test may write. Shipped Data is read-only for every tier: a run
     // that is killed halfway must not leave a map behind in the installation.
-    run.addArg(b.pathFromRoot("zig-out/local-test"));
+    run.addArg(rootPath(b, "zig-out/local-test"));
     // It reads the staged Data and engine, neither a file input of this step,
     // so a cached pass would say nothing about the installation now (the
     // same reason map-editor-smoke and test-map-editor-engine set this).
@@ -6259,7 +6313,7 @@ fn addEditorBridgeTest(
     const run_m2_sweep = b.addRunArtifact(exe);
     run_m2_sweep.setCwd(b.path(stage_root));
     run_m2_sweep.addArg(".");
-    run_m2_sweep.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m2_sweep.addArg(rootPath(b, "zig-out/local-test"));
     run_m2_sweep.addArg("--m2-sweep");
     run_m2_sweep.has_side_effects = true;
     run_m2_sweep.step.dependOn(&install_exe.step);
@@ -6273,7 +6327,7 @@ fn addEditorBridgeTest(
     const run_m3_players = b.addRunArtifact(exe);
     run_m3_players.setCwd(b.path(stage_root));
     run_m3_players.addArg(".");
-    run_m3_players.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_players.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_players.addArg("--m3-players-only");
     run_m3_players.has_side_effects = true;
     run_m3_players.step.dependOn(&install_exe.step);
@@ -6286,7 +6340,7 @@ fn addEditorBridgeTest(
     const run_m3_minimap = b.addRunArtifact(exe);
     run_m3_minimap.setCwd(b.path(stage_root));
     run_m3_minimap.addArg(".");
-    run_m3_minimap.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_minimap.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_minimap.addArg("--m3-minimap-only");
     run_m3_minimap.has_side_effects = true;
     run_m3_minimap.step.dependOn(&install_exe.step);
@@ -6300,7 +6354,7 @@ fn addEditorBridgeTest(
     const run_m3_rmg = b.addRunArtifact(exe);
     run_m3_rmg.setCwd(b.path(stage_root));
     run_m3_rmg.addArg(".");
-    run_m3_rmg.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_rmg.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_rmg.addArg("--m3-rmg-only");
     run_m3_rmg.has_side_effects = true;
     run_m3_rmg.step.dependOn(&install_exe.step);
@@ -6314,7 +6368,7 @@ fn addEditorBridgeTest(
     const run_m3_layers = b.addRunArtifact(exe);
     run_m3_layers.setCwd(b.path(stage_root));
     run_m3_layers.addArg(".");
-    run_m3_layers.addArg(b.pathFromRoot("zig-out/local-test"));
+    run_m3_layers.addArg(rootPath(b, "zig-out/local-test"));
     run_m3_layers.addArg("--m3-layers-only");
     run_m3_layers.has_side_effects = true;
     run_m3_layers.step.dependOn(&install_exe.step);
@@ -6336,7 +6390,7 @@ fn addEditorBridgeTest(
         const run_craft = b.addRunArtifact(exe);
         run_craft.setCwd(b.path(stage_root));
         run_craft.addArg(".");
-        run_craft.addArg(b.pathFromRoot("zig-out/local-test"));
+        run_craft.addArg(rootPath(b, "zig-out/local-test"));
         run_craft.addArg("--craft");
         run_craft.addArg(entry[0]);
         run_craft.addArg(entry[1]);
@@ -6497,15 +6551,15 @@ fn addResourceBridge(
         // The tracked mini-mod's data folder, then the scratch root. The real mod, when there
         // is one, reaches the run as BK_MOD_ROOT (the build option -Dmod-root sets it here;
         // an environment variable already set passes through).
-        run.addArg(b.path("tools/zig/fixtures/mod-roundtrip/data").getPath(b));
-        run.addArg(b.path("zig-out/local-test/mod-roundtrip").getPath(b));
+        run.addArg(rootPath(b, "tools/zig/fixtures/mod-roundtrip/data"));
+        run.addArg(rootPath(b, "zig-out/local-test/mod-roundtrip"));
         if (tier.mod_root) |mod_root| run.setEnvironmentVariable("BK_MOD_ROOT", mod_root);
     } else {
         // T02: the Project+Tree sub-step needs the 21 fixture folders. The source
         // dir of the fixture tree is handed as argv[2]; the test writes its
         // temporary round-trip copies under argv[3] (zig-out/local-test/...).
-        run.addArg(b.path("tools/zig/fixtures/resource_editor").getPath(b));
-        run.addArg(b.path("zig-out/local-test/resource_editor/t02").getPath(b));
+        run.addArg(rootPath(b, "tools/zig/fixtures/resource_editor"));
+        run.addArg(rootPath(b, "zig-out/local-test/resource_editor/t02"));
     }
     // Reads the staged Data and modules, neither a file input of this step:
     // a cached pass would say nothing about the installation now.
@@ -6598,12 +6652,12 @@ fn addMapEditor(
     const view_imgui_stub = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/testing/imgui_stub.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const view_test_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/app/view.zig"),
         .target = target,
-        .optimize = .Debug,
+        .optimize = .debug,
         .imports = &.{
             .{ .name = "sdl3", .module = sdl_module },
             .{ .name = "editor_core", .module = core_module },
@@ -6642,7 +6696,7 @@ fn addMapEditor(
     // (03-16-SUMMARY.md) - a build-root-only quirk this check is not about.
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("zig-out"));
-    run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), b.pathFromRoot("zig-out/local-test/map-editor-check.tga") });
+    run.addArgs(&.{ "--check", b.fmt("{s}\\Data\\Maps\\Multiplayer\\coldwinter.bzm", .{stage_suffix}), rootPath(b, "zig-out/local-test/map-editor-check.tga") });
     run.step.dependOn(&install_exe.step);
     const check_step = b.step("map-editor-host-check", "Start MapEditor on a shipped map and check ImGui draws over the engine's frame");
     // Only builds and installs the step in .compile mode, as test-editor-bridge
@@ -6656,7 +6710,7 @@ fn addMapEditor(
     // -mod= run below keeps the launch from inside it covered.
     const absolute_run = b.addRunArtifact(exe);
     absolute_run.setCwd(b.path("zig-out"));
-    absolute_run.addArgs(&.{ "--check", b.pathFromRoot(b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root})), b.pathFromRoot("zig-out/local-test/map-editor-check-absolute.tga") });
+    absolute_run.addArgs(&.{ "--check", rootPath(b, b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root})), rootPath(b, "zig-out/local-test/map-editor-check-absolute.tga") });
     absolute_run.step.dependOn(&install_exe.step);
     // After the relative run, so two engines never start at once.
     absolute_run.step.dependOn(&run.step);
@@ -6665,7 +6719,7 @@ fn addMapEditor(
     // game and the host check's own acceptance criterion greps this line.
     const mod_run = b.addRunArtifact(exe);
     mod_run.setCwd(b.path(stage_root));
-    mod_run.addArgs(&.{ "-mod=EditorTestMod", "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-check-mod.tga") });
+    mod_run.addArgs(&.{ "-mod=EditorTestMod", "--check", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-check-mod.tga") });
     mod_run.step.dependOn(&install_exe.step);
     mod_run.step.dependOn(install_fixture_mod_step);
     // After the absolute-path run, so two engines never start at once.
@@ -6681,7 +6735,7 @@ fn addMapEditor(
     // Save As and reopen.
     const smoke_run = b.addRunArtifact(exe);
     smoke_run.setCwd(b.path(stage_root));
-    smoke_run.addArgs(&.{ "--smoke", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-smoke.bzm") });
+    smoke_run.addArgs(&.{ "--smoke", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-smoke.bzm") });
     // What it reads - the staged Data and engine - is not a file input of the
     // step, so a cached pass would say nothing about the installation now.
     smoke_run.has_side_effects = true;
@@ -6700,7 +6754,7 @@ fn addMapEditor(
     // person watching it. It starts a second engine process end to end, like
     // map-editor-game-reads-it. CI runs it on the two GPU runners (Windows,
     // macos-14) through map-editor-m3-auto, which depends on it (05-REVIEW WR-D05).
-    const auto_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto");
+    const auto_dir = rootPath(b, "zig-out/local-test/map-editor-auto");
     const auto_saveas_path = b.fmt("{s}/auto.bzm", .{auto_dir});
     // Coordinates match smoke.zig's own script exactly (ground_a/
     // ground_between/ground_b, place_at): the same shipped map, the same
@@ -6731,7 +6785,7 @@ fn addMapEditor(
     const delete_matching_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/delete_matching_files.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const delete_matching = b.addExecutable(.{ .name = "delete-matching-files", .root_module = delete_matching_module });
     const cleanup_autoshots = b.addRunArtifact(delete_matching);
@@ -6747,11 +6801,11 @@ fn addMapEditor(
     // frames ascending, one entry per line, so a later plan's segment is a
     // block of lines and never an edit of one long string. No `test` action:
     // the M2 game-reads-it checks belong to the plans that add them.
-    const auto_m2_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto-m2");
+    const auto_m2_dir = rootPath(b, "zig-out/local-test/map-editor-auto-m2");
     // 04-13: the copy-along leg's second folder, and the Lua fixture named
     // relative to the editor's working directory (the stage root): a do=
     // argument is at most 64 characters, which an absolute path is not.
-    const auto_m2_along_dir = b.pathFromRoot("zig-out/local-test/map-editor-auto-m2-along");
+    const auto_m2_along_dir = rootPath(b, "zig-out/local-test/map-editor-auto-m2-along");
     const auto_m2_fixture = fixture: {
         var up: std.ArrayListUnmanaged(u8) = .empty;
         for (0..std.mem.count(u8, stage_root, "/") + 1) |_| up.appendSlice(b.allocator, "../") catch @panic("OOM");
@@ -7188,7 +7242,7 @@ fn addMapEditor(
     // New Map (F1) and Save as BZM (F8). No `test` action and no
     // BK_EDITOR_AUTO_GAME: the game-reads-it checks belong to the plans that
     // add them.
-    const auto_m3_dir = b.pathFromRoot("zig-out/local-test/map-editor-m3-auto");
+    const auto_m3_dir = rootPath(b, "zig-out/local-test/map-editor-m3-auto");
     // The climb from the staged game root (the editor's cwd) up to zig-out/, one "../" per
     // component of stage_root: the save_bzm paths below are relative to that cwd, and a hand-written
     // count of two landed the maps in zig-out/game/<os>/local-test, outside the scratch folder
@@ -7200,10 +7254,10 @@ fn addMapEditor(
     };
     // The Check Map fixture the scenario opens (05-05): crafted by the bridge test's
     // `--craft` before the scenario starts.
-    const auto_m3_check_map = b.pathFromRoot("zig-out/local-test/m3-check-map.bzm");
+    const auto_m3_check_map = rootPath(b, "zig-out/local-test/m3-check-map.bzm");
     // The shipped map the Layers frames open again mid-scenario (05-06): the staged copy's OS path.
-    const auto_m3_coldwinter = b.pathFromRoot(b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root}));
-    const auto_m3_arnheim = b.pathFromRoot(b.fmt("{s}/Data/Maps/Multiplayer/arnheim.bzm", .{stage_root}));
+    const auto_m3_coldwinter = rootPath(b, b.fmt("{s}/Data/Maps/Multiplayer/coldwinter.bzm", .{stage_root}));
+    const auto_m3_arnheim = rootPath(b, b.fmt("{s}/Data/Maps/Multiplayer/arnheim.bzm", .{stage_root}));
     const craft_fixtures_step = &(b.top_level_steps.get("editor-craft-fixtures") orelse @panic("editor-craft-fixtures is defined by addEditorBridgeTest")).step;
     const auto_m3_entries = [_][]const u8{
         // The shipped map from the command line is open by now: the title
@@ -8049,8 +8103,8 @@ fn addMapEditor(
     // The user root of this run (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and
     // Linux, BK_USER_ROOT on Windows): the generated random map and the exported lists land
     // here and not in the person's own maps and logs folders.
-    auto_m3_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/map-editor-m3-auto-user"));
-    auto_m3_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/map-editor-m3-auto-user"));
+    auto_m3_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/map-editor-m3-auto-user"));
+    auto_m3_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/map-editor-m3-auto-user"));
     auto_m3_run.setEnvironmentVariable("BK_EDITOR_AUTO", std.mem.join(b.allocator, ",", &auto_m3_entries) catch @panic("OOM"));
     auto_m3_run.has_side_effects = true;
     auto_m3_run.step.dependOn(&install_exe.step);
@@ -8071,7 +8125,7 @@ fn addMapEditor(
     // D-33's railroad crash has a regression gate (05-REVIEW WR-D05).
     const game_reads_it_run = b.addRunArtifact(exe);
     game_reads_it_run.setCwd(b.path(stage_root));
-    game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it.log") });
+    game_reads_it_run.addArgs(&.{ "--game-reads-it", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it.log") });
     // What it reads (the staged Data and Game) and the second process it
     // starts are not file inputs of this step, so a cached pass would say
     // nothing about the installation now.
@@ -8088,7 +8142,7 @@ fn addMapEditor(
     // two games never start at once.
     const game_reads_it_m2_run = b.addRunArtifact(exe);
     game_reads_it_m2_run.setCwd(b.path(stage_root));
-    game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m2.log") });
+    game_reads_it_m2_run.addArgs(&.{ "--game-reads-it-m2", "Data\\Maps\\Multiplayer\\coldwinter.bzm", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m2.log") });
     game_reads_it_m2_run.has_side_effects = true;
     game_reads_it_m2_run.step.dependOn(&install_exe.step);
     game_reads_it_m2_run.step.dependOn(&game_reads_it_run.step);
@@ -8107,12 +8161,12 @@ fn addMapEditor(
     // test's `--craft` first. After its siblings, so two games never start at once.
     const game_reads_it_m3_run = b.addRunArtifact(exe);
     game_reads_it_m3_run.setCwd(b.path(stage_root));
-    game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", b.pathFromRoot("zig-out/local-test/m3-short-railroad.bzm"), b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3.log") });
+    game_reads_it_m3_run.addArgs(&.{ "--game-reads-it-m3", rootPath(b, "zig-out/local-test/m3-short-railroad.bzm"), rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3.log") });
     // The authored leg writes its template, graph, container and field set under the
     // user RMG root and generates a map into the user maps folder: a scratch user root
     // (Platform/Paths.cpp honours XDG_DATA_HOME on macOS and Linux and BK_USER_ROOT on Windows).
-    game_reads_it_m3_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3-user"));
-    game_reads_it_m3_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/map-editor-game-reads-it-m3-user"));
+    game_reads_it_m3_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3-user"));
+    game_reads_it_m3_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/map-editor-game-reads-it-m3-user"));
     game_reads_it_m3_run.has_side_effects = true;
     game_reads_it_m3_run.step.dependOn(&install_exe.step);
     game_reads_it_m3_run.step.dependOn(&game_reads_it_m2_run.step);
@@ -8150,6 +8204,48 @@ fn addMapEditor(
     // command dependent on this build, not on whatever happened to be on disk
     // from a previous run.
     return .{ .exe = exe, .view_test_step = view_test_step };
+}
+
+/// Translates C headers into a Zig module. Zig 0.17 has no `@cImport`, so every
+/// Zig file that used one imports a module made here instead. One module per
+/// header set keeps the types identical for everything that imports it: the
+/// kit's `Host.session` and the map app's `RealBridge.session` must name the
+/// same opaque type. Like `editorAppKit`'s SDL translation, the step may see
+/// libc headers but the module it makes does not link libc.
+fn addTranslatedHeaders(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    headers: []const []const u8,
+    include_paths: []const std.Build.LazyPath,
+) *std.Build.Module {
+    var text: std.ArrayList(u8) = .empty;
+    for (headers) |header| text.appendSlice(b.allocator, b.fmt("#include \"{s}\"\n", .{header})) catch @panic("OOM");
+    const root = b.addWriteFiles().add(b.fmt("{s}.h", .{headers[0]}), text.items);
+    const translate = b.addTranslateC(.{ .root_source_file = root, .target = target, .optimize = optimize });
+    for (include_paths) |path| translate.addIncludePath(path);
+    if (build_target_msvc) {
+        translate.addSystemIncludePath(.{ .cwd_relative = toolchain.msvc_include });
+        translate.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/ucrt", .{toolchain.windows_sdk_include}) });
+        translate.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/shared", .{toolchain.windows_sdk_include}) });
+        translate.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/um", .{toolchain.windows_sdk_include}) });
+        translate.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/winrt", .{toolchain.windows_sdk_include}) });
+    }
+    if (target.result.os.tag == .windows) translate.defineCMacro("SIZE_MAX", "18446744073709551615ULL");
+    const module = translate.createModule();
+    module.link_libc = false;
+    return module;
+}
+
+/// bridge.h, the engine's C ABI, for the editor kit's host.
+fn editorBridgeC(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, toolchain: ToolchainIncludes) *std.Build.Module {
+    return addTranslatedHeaders(b, target, optimize, toolchain, &.{"bridge.h"}, &.{b.path("Sources/src/EditorBridge")});
+}
+
+/// resource_bridge.h (which includes bridge.h), the BkRes* half of the C ABI.
+fn resourceBridgeC(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, toolchain: ToolchainIncludes) *std.Build.Module {
+    return addTranslatedHeaders(b, target, optimize, toolchain, &.{"resource_bridge.h"}, &.{b.path("Sources/src/EditorBridge")});
 }
 
 /// The SDL and editor-kit modules an editor app is built against, for the
@@ -8201,9 +8297,10 @@ fn editorAppKit(
         .imports = &.{
             .{ .name = "sdl3", .module = sdl_module },
             .{ .name = "editor_imgui", .module = editor_imgui_module },
+            .{ .name = "bridge_c", .module = editorBridgeC(b, target, optimize, toolchain) },
         },
     });
-    // bridge.h, for kit/host.zig's @cImport.
+    // bridge.h, for kit/host.zig's translation.
     kit_module.addIncludePath(b.path("Sources/src/EditorBridge"));
     addMsvcIncludePaths(b, kit_module, toolchain);
     addMsvcLibraryPaths(b, kit_module, toolchain);
@@ -8267,9 +8364,10 @@ fn addResourceEditor(
             .{ .name = "editor_imgui", .module = editor_imgui_module },
             .{ .name = "editor_kit", .module = app_kit.kit },
             .{ .name = "resource_core", .module = resource_core_module },
+            .{ .name = "resource_bridge_c", .module = resourceBridgeC(b, target, optimize, toolchain) },
         },
     });
-    // resource_bridge.h (and the bridge.h it includes), for the app's @cImport.
+    // resource_bridge.h (and the bridge.h it includes), for the app's translation.
     module.addIncludePath(b.path("Sources/src/EditorBridge"));
     linkEditorEngine(b, module, target, optimize, toolchain, engine);
     // The particle and effect exporters read the Scene module's structs, which the
@@ -8293,7 +8391,7 @@ fn addResourceEditor(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("zig-out"));
     // The tracked picture the docks half shows in the thumbnail list.
-    run.addArgs(&.{ "--check", "wpn", b.pathFromRoot("zig-out/local-test/resource_editor/resource-editor-check.tga"), b.pathFromRoot("tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
+    run.addArgs(&.{ "--check", "wpn", rootPath(b, "zig-out/local-test/resource_editor/resource-editor-check.tga"), rootPath(b, "tools/zig/fixtures/resource_editor/spt/sprite-1frame.tga") });
     // Reads the staged installation, not a file input of this step.
     run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
@@ -8307,7 +8405,7 @@ fn addResourceEditor(
     // and the missing gamma.cfg, the shipped Data folder is refused.
     const batch_run = b.addRunArtifact(exe);
     batch_run.setCwd(b.path("zig-out"));
-    batch_run.addArgs(&.{ "--batch-check", b.pathFromRoot("tools/zig/fixtures/resource_editor"), b.pathFromRoot("zig-out/local-test/resource_editor/batch") });
+    batch_run.addArgs(&.{ "--batch-check", rootPath(b, "tools/zig/fixtures/resource_editor"), rootPath(b, "zig-out/local-test/resource_editor/batch") });
     batch_run.has_side_effects = true;
     batch_run.step.dependOn(&install_exe.step);
     const batch_step = b.step("resource-editor-batch", "Run ResourceEditor --batch over copies of the 21 project fixtures and read the results back with the engine's reader");
@@ -8318,7 +8416,7 @@ fn addResourceEditor(
     // edited, saved, undone, saved and compared byte for byte (scenario.zig).
     const smoke_run = b.addRunArtifact(exe);
     smoke_run.setCwd(b.path("zig-out"));
-    smoke_run.addArgs(&.{ "--smoke-edit", b.pathFromRoot("tools/zig/fixtures/resource_editor/unt/project.unt"), b.pathFromRoot("zig-out/local-test/resource_editor/smoke") });
+    smoke_run.addArgs(&.{ "--smoke-edit", rootPath(b, "tools/zig/fixtures/resource_editor/unt/project.unt"), rootPath(b, "zig-out/local-test/resource_editor/smoke") });
     smoke_run.has_side_effects = true;
     smoke_run.step.dependOn(&install_exe.step);
     const smoke_step = b.step("resource-editor-smoke", "Run ResourceEditor's scripted new/save/reopen and edit/undo/save byte-compare on tracked project fixtures");
@@ -8326,7 +8424,7 @@ fn addResourceEditor(
     // The kind-level new/save/reopen first (main.zig --smoke), then the edit one.
     const smoke_kind_run = b.addRunArtifact(exe);
     smoke_kind_run.setCwd(b.path("zig-out"));
-    smoke_kind_run.addArgs(&.{ "--smoke", "unt", b.pathFromRoot("zig-out/local-test/resource_editor/smoke-new/smoke.unt") });
+    smoke_kind_run.addArgs(&.{ "--smoke", "unt", rootPath(b, "zig-out/local-test/resource_editor/smoke-new/smoke.unt") });
     smoke_kind_run.has_side_effects = true;
     smoke_kind_run.step.dependOn(&install_exe.step);
     smoke_run.step.dependOn(&smoke_kind_run.step);
@@ -8340,7 +8438,7 @@ fn addResourceEditor(
     const delete_matching_module = b.createModule(.{
         .root_source_file = b.path("tools/zig/delete_matching_files.zig"),
         .target = b.graph.host,
-        .optimize = .Debug,
+        .optimize = .debug,
     });
     const delete_matching = b.addExecutable(.{ .name = "delete-matching-files", .root_module = delete_matching_module });
     const auto_step = b.step("resource-editor-auto", "Run BK_EDITOR_AUTO's ResourceEditor scenario over the resource command registry: every per-editor resource-editor-auto-* step, in order");
@@ -8363,13 +8461,13 @@ fn addResourceEditor(
     // resource-editor-game-reads-it: the exports of the object-side kinds played by the real Game. After the
     // smoke so two engines never start at once; its own scratch folder holds result.log, one KIND= line per
     // kind, and the user data (profile, settings) lives apart from it so the run never touches the player's own.
-    const game_reads_dir = b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it");
+    const game_reads_dir = rootPath(b, "zig-out/local-test/resource-editor-game-reads-it");
     const game_reads_run = b.addRunArtifact(exe);
     game_reads_run.setCwd(b.path(stage_root));
-    game_reads_run.addArgs(&.{ "--auto", b.pathFromRoot("tools/zig/fixtures/resource_editor"), game_reads_dir });
+    game_reads_run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), game_reads_dir });
     game_reads_run.setEnvironmentVariable("BK_EDITOR_AUTO", resource_game_reads_it ++ std.fmt.comptimePrint("{d}:exit", .{resource_game_reads_it_exit_frame}));
-    game_reads_run.setEnvironmentVariable("XDG_DATA_HOME", b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it-user"));
-    game_reads_run.setEnvironmentVariable("BK_USER_ROOT", b.pathFromRoot("zig-out/local-test/resource-editor-game-reads-it-user"));
+    game_reads_run.setEnvironmentVariable("XDG_DATA_HOME", rootPath(b, "zig-out/local-test/resource-editor-game-reads-it-user"));
+    game_reads_run.setEnvironmentVariable("BK_USER_ROOT", rootPath(b, "zig-out/local-test/resource-editor-game-reads-it-user"));
     game_reads_run.setEnvironmentVariable("BK_DEBUG_LOG", "1");
     game_reads_run.has_side_effects = true;
     game_reads_run.step.dependOn(&install_exe.step);
@@ -8396,10 +8494,10 @@ fn addResourceAutoRun(
     comptime auto: ResourceAutoStep,
     after: ?*std.Build.Step,
 ) *std.Build.Step {
-    const auto_dir = b.pathFromRoot("zig-out/local-test/resource_editor/auto-" ++ auto.name);
+    const auto_dir = rootPath(b, "zig-out/local-test/resource_editor/auto-" ++ auto.name);
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path(stage_root));
-    run.addArgs(&.{ "--auto", b.pathFromRoot("tools/zig/fixtures/resource_editor"), auto_dir });
+    run.addArgs(&.{ "--auto", rootPath(b, "tools/zig/fixtures/resource_editor"), auto_dir });
     run.setEnvironmentVariable("BK_EDITOR_AUTO", auto.prefix ++ auto.schedule ++ std.fmt.comptimePrint("{d}:exit", .{auto.exit_frame}));
     run.has_side_effects = true;
     run.step.dependOn(install_step);
@@ -9861,7 +9959,7 @@ fn linkEditorEngine(
 }
 
 /// Entry, symbols and rpath of a MapEditor executable, the test included.
-fn configureMapEditorExecutable(exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, subsystem: std.Target.SubSystem) void {
+fn configureMapEditorExecutable(exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, subsystem: std.zig.Subsystem) void {
     if (target.result.os.tag == .windows) {
         // MapEditor ships `.windows` (no console window on a normal
         // double-click); map-editor-engine-test stays `.console` (a CI/local
@@ -10108,7 +10206,7 @@ fn addEngineHostedTool(
     run.addArg(".");
     // Where the test may write. Shipped Data is read-only for every tier: a run
     // that is killed halfway must not leave a map behind in the installation.
-    run.addArg(b.pathFromRoot("zig-out/local-test"));
+    run.addArg(rootPath(b, "zig-out/local-test"));
     for (extra_args) |arg| run.addArg(arg);
     run.step.dependOn(&install_exe.step);
     const step = b.step(step_name, step_description);
@@ -10125,7 +10223,7 @@ fn addSdlEventTest(
     sdl_include: std.Build.LazyPath,
     platform_runtime: *std.Build.Step.Compile,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug, .link_libc = false });
+    const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = false });
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src"));
     module.addCSourceFiles(.{
@@ -10139,11 +10237,11 @@ fn addSdlEventTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
-            // The CI runner links against the SDK sysroot (--sysroot), which
+            // The CI runner links against the SDK (-Dsystem_framework_path and friends), which
             // has to be on the search path for objc and c++ to resolve.
             addMacosSysrootPaths(b, module, target);
             module.linkSystemLibrary("c++", .{});
@@ -10162,8 +10260,8 @@ fn addSdlEventTest(
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
-    test_run.addPathDir(b.path(sdl_runtime_dir).getPath(b));
-    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", b.path("zig-out/lib").getPath(b));
+    addPathDir(test_run, rootPath(b, sdl_runtime_dir));
+    if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const test_step = b.step("test-platform-events", "Run SDL event translation tests");
     test_step.dependOn(&test_exe.step);
     if (test_mode == .run) test_step.dependOn(&test_run.step);
@@ -10222,7 +10320,7 @@ fn addResourceModelScaffoldTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     const flags: []const []const u8 = if (target.result.os.tag == .windows)
         &(cppflags_debug.* ++ .{"-std=c++17"})
     else
@@ -10235,7 +10333,7 @@ fn addResourceModelScaffoldTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
@@ -10271,7 +10369,7 @@ fn addResourceModelFidelityTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     const flags: []const []const u8 = if (target.result.os.tag == .windows)
         &(cppflags_debug.* ++ .{"-std=c++17"})
     else
@@ -10284,7 +10382,7 @@ fn addResourceModelFidelityTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
@@ -10314,7 +10412,7 @@ fn addResourceModelReferencesTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     const flags: []const []const u8 = if (target.result.os.tag == .windows)
         &(cppflags_debug.* ++ .{"-std=c++17"})
     else
@@ -10333,7 +10431,7 @@ fn addResourceModelReferencesTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
@@ -10365,7 +10463,7 @@ fn addResourceModelGridProjectionTest(
     test_mode: build_support.TestMode,
     toolchain: ToolchainIncludes,
 ) void {
-    const module = b.createModule(.{ .target = target, .optimize = .Debug });
+    const module = b.createModule(.{ .target = target, .optimize = .debug });
     const flags: []const []const u8 = if (target.result.os.tag == .windows)
         &(cppflags_debug.* ++ .{"-std=c++17"})
     else
@@ -10385,7 +10483,7 @@ fn addResourceModelGridProjectionTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .Debug);
+            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
@@ -10505,10 +10603,10 @@ fn addResourceModelComparatorTest(
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path(stage_root));
     run.addArg(".");
-    run.addArg(b.pathFromRoot("zig-out/local-test"));
+    run.addArg(rootPath(b, "zig-out/local-test"));
     // The tracked Data and fixtures, read in place and copied before any edit.
-    run.addArg(b.pathFromRoot("Data"));
-    run.addArg(b.pathFromRoot("tools/zig/fixtures/resource_editor"));
+    run.addArg(rootPath(b, "Data"));
+    run.addArg(rootPath(b, "tools/zig/fixtures/resource_editor"));
     run.has_side_effects = true;
     run.step.dependOn(&install_exe.step);
     const step = b.step("test-resource-model-comparator", "D-11 comparator: shipped stats read by the engine's own readers equal themselves, planted float/dropped/unknown/byte/DXT changes fail, goldens reported pending");
@@ -10605,7 +10703,14 @@ const SeasonDataInputs = struct {
 // walking Data/Units takes a few milliseconds.
 fn seasonDataInputs(b: *std.Build) !SeasonDataInputs {
     const io = b.graph.io;
-    var dir = b.build_root.handle.openDir(io, "Data/Units", .{ .iterate = true }) catch |err| switch (err) {
+    // Declared before the existence check, so a sparse checkout that later gains Data/Units
+    // reruns the configuration. Declaring a missing directory fails the configuration, so the
+    // nearest existing parent stands in for it: Data, or the build root when the checkout has no
+    // Data at all (the MinGW job's). The declaration is not recursive, so Data/Units and every
+    // walked subdirectory are declared too once they exist.
+    const has_data = if (b.root.root_dir.handle.access(io, "Data", .{})) true else |_| false;
+    b.dependOnDirectoryContents(b.path(if (has_data) "Data" else "."));
+    var dir = b.root.root_dir.handle.openDir(io, "Data/Units", .{ .iterate = true }) catch |err| switch (err) {
         // CI's sparse checkouts for the jobs that never stage the game (the
         // Linux, MinGW and Intel macOS ones) leave out Data/Units. Staging
         // without it fails in the generation step itself, which reads it.
@@ -10613,11 +10718,16 @@ fn seasonDataInputs(b: *std.Build) !SeasonDataInputs {
         else => return err,
     };
     defer dir.close(io);
+    b.dependOnDirectoryContents(b.path("Data/Units"));
     var walker = try dir.walk(b.allocator);
     defer walker.deinit();
     var names: std.ArrayList([]const u8) = .empty;
     var sources: std.ArrayList([]const u8) = .empty;
     while (try walker.next(io)) |entry| {
+        if (entry.kind == .directory) {
+            b.dependOnDirectoryContents(b.path(b.fmt("Data/Units/{s}", .{entry.path})));
+            continue;
+        }
         if (entry.kind != .file) continue;
         const lower = try std.ascii.allocLowerString(b.allocator, entry.basename);
         if (!season_textures_plan.isPlanName(lower)) continue;
@@ -10644,7 +10754,9 @@ fn shaderSourceFiles(b: *std.Build) ![]const []const u8 {
     const directory = "Sources/src/GFXGPU/shaders";
     var sources: std.ArrayList([]const u8) = .empty;
     try sources.append(b.allocator, b.fmt("{s}/manifest.json", .{directory}));
-    var dir = try std.Io.Dir.cwd().openDir(b.graph.io, directory, .{ .iterate = true });
+    // A new shader changes this listing, so the configure cache must notice it.
+    b.dependOnDirectoryContents(b.path(directory));
+    var dir = try b.root.root_dir.handle.openDir(b.graph.io, directory, .{ .iterate = true });
     defer dir.close(b.graph.io);
     var iterator = dir.iterate();
     while (try iterator.next(b.graph.io)) |entry| {
@@ -10675,13 +10787,13 @@ fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode
         return;
     }
     switch (optimize) {
-        .Debug => {
+        .debug => {
             module.linkSystemLibrary("ucrtd", .{});
             module.linkSystemLibrary("msvcrtd", .{});
             module.linkSystemLibrary("msvcprtd", .{});
             module.linkSystemLibrary("vcruntimed", .{});
         },
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => {
+        .safe, .fast, .small => {
             module.linkSystemLibrary("ucrt", .{});
             module.linkSystemLibrary("msvcrt", .{});
             module.linkSystemLibrary("msvcprt", .{});
@@ -10695,8 +10807,8 @@ fn linkMsvcRuntime(module: *std.Build.Module, optimize: std.builtin.OptimizeMode
 
 fn linkComSupport(module: *std.Build.Module, optimize: std.builtin.OptimizeMode) void {
     switch (optimize) {
-        .Debug => module.linkSystemLibrary("comsuppwd", .{}),
-        .ReleaseSafe, .ReleaseFast, .ReleaseSmall => module.linkSystemLibrary("comsuppw", .{}),
+        .debug => module.linkSystemLibrary("comsuppwd", .{}),
+        .safe, .fast, .small => module.linkSystemLibrary("comsuppw", .{}),
     }
     module.linkSystemLibrary("oleaut32", .{});
     module.linkSystemLibrary("ole32", .{});

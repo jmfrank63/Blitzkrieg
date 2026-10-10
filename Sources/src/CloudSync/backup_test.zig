@@ -375,7 +375,7 @@ fn buildStage(
         gpa,
         "{{\"mode\":\"{s}\",\"entry_id\":\"HostA/x.cfg\",\"sha256\":\"{s}\"," ++
             "\"nonce\":\"{s}\",\"created_unix\":1000}}",
-        .{ mode_text, if (corrupt_hash) "0" ** 64 else hex, nonce },
+        .{ mode_text, if (corrupt_hash) &@as([64:0]u8, @splat('0')) else hex, nonce },
     );
     defer gpa.free(meta);
     const meta_path = try path.join(gpa, &.{ stage, backup.meta_name });

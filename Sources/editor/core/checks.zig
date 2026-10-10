@@ -68,7 +68,7 @@ pub const Finding = struct {
     player: i32 = -1,
     vso_kind: u8 = 0,
     vso_index: usize = 0,
-    detail: [detail_capacity]u8 = [_]u8{0} ** detail_capacity,
+    detail: [detail_capacity]u8 = @splat(0),
     detail_len: usize = 0,
 
     pub fn text(self: *const Finding) []const u8 {
@@ -389,8 +389,7 @@ test "every kind is a finding the fix can name, and the destructive ones ask fir
     try std.testing.expect(!(Finding{ .kind = .invalid_link }).needsConfirmation());
     try std.testing.expect(!(Finding{ .kind = .player_index }).needsConfirmation());
     try std.testing.expect(!(Finding{ .kind = .unknown_party }).needsConfirmation());
-    inline for (std.meta.fields(Kind)) |field| {
-        const kind: Kind = @enumFromInt(field.value);
+    inline for (std.enums.values(Kind)) |kind| {
         try std.testing.expect(kind.heading().len > 0);
     }
 }

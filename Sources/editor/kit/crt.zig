@@ -28,7 +28,7 @@ pub fn routeCrtReportsToStderr() void {
     // _CrtSetReportMode/_CrtSetReportFile exist only in the debug CRT, which
     // the build links exactly in Debug (linkMsvcRuntime); in a release CRT they
     // are macros that do nothing.
-    if (builtin.mode != .Debug) return;
+    if (builtin.mode != .debug) return;
     const CRT_ERROR = 1; // crtdbg.h _CRT_ERROR
     const CRT_ASSERT = 2; // crtdbg.h _CRT_ASSERT
     const CRTDBG_MODE_FILE = 0x1; // crtdbg.h _CRTDBG_MODE_FILE

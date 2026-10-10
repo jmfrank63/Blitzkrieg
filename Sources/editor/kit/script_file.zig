@@ -350,9 +350,9 @@ pub fn folderUrl(files: Files, buffer: []u8, map_path: []const u8, value: []cons
 
 test "isBareName holds the rule NMapRecords::IsBareScriptName holds" {
     // The same cases map_file_test.cpp and editor_bridge_test.cpp give the C++ rule.
-    const good = [_][]const u8{ "", "m2_script", "coldwinter", "a", "A-b_c.d", "script1", "x" ** 63, "console", "com10", "lpt" };
+    const good = [_][]const u8{ "", "m2_script", "coldwinter", "a", "A-b_c.d", "script1", &@as([63:0]u8, @splat('x')), "console", "com10", "lpt" };
     for (good) |name| try std.testing.expect(isBareName(name));
-    const bad = [_][]const u8{ "..\\x", "a/b", "x.lua", "x.LUA", "x.Lua", "..", ".hidden", "a b", "a:b", "dir\\name", "x" ** 64, "a..b", ".lua", "C:x", "na\u{e9}me", "a\x00b", "CON", "nul", "Aux.x", "com1", "LPT9" };
+    const bad = [_][]const u8{ "..\\x", "a/b", "x.lua", "x.LUA", "x.Lua", "..", ".hidden", "a b", "a:b", "dir\\name", &@as([64:0]u8, @splat('x')), "a..b", ".lua", "C:x", "na\u{e9}me", "a\x00b", "CON", "nul", "Aux.x", "com1", "LPT9" };
     for (bad) |name| try std.testing.expect(!isBareName(name));
 }
 

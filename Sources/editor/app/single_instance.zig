@@ -915,7 +915,7 @@ test "framing: a mod travels before the path, and the separator is the only cont
     try std.testing.expect(parseLine("m\x1b\x1f/maps/a.bzm") == null);
     try std.testing.expect(parseLine("m\x1f/maps/a\x1b.bzm") == null);
     try std.testing.expect(parseLine("m\x1f") == null);
-    try std.testing.expect(frameOpenInMod(&buffer, "x" ** (max_mod_len + 1), "/maps/a.bzm") == null);
+    try std.testing.expect(frameOpenInMod(&buffer, &@as([max_mod_len + 1:0]u8, @splat('x')), "/maps/a.bzm") == null);
     try std.testing.expect(frameOpenInMod(&buffer, "m", "") == null);
     try std.testing.expect(frameLine(&buffer, "m\x1f/maps/a.bzm") == null);
 }
@@ -1226,7 +1226,7 @@ test "single instance: the fallback endpoint's folder is made private, and one l
 
 test "single instance: a path longer than a socket address holds is unavailable, not a panic (WR-A04)" {
     if (builtin.os.tag == .windows) return error.SkipZigTest;
-    const long = "/tmp/bk-test-too-long-for-sun-path/" ++ "x" ** 80 ++ ".sock";
+    const long = "/tmp/bk-test-too-long-for-sun-path/" ++ &@as([80:0]u8, @splat('x')) ++ ".sock";
     try std.testing.expect(long.len > posix_path_limit and long.len < path_capacity);
     switch (acquireAt(std.testing.allocator, std.testing.io, long, "\n", .{ .timeout_ms = 100 })) {
         .unavailable => {},

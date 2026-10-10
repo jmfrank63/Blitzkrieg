@@ -1156,7 +1156,7 @@ pub const Script = struct {
                 if (self.view.brush.tile != self.tile_before) return self.stepFail(step, "opening the picker changed the tile to {d}", .{self.view.brush.tile});
                 var path_buffer: [std.Io.Dir.max_path_bytes:0]u8 = undefined;
                 const dir = std.fs.path.dirname(self.save_path) orelse ".";
-                const path = std.fmt.bufPrintZ(&path_buffer, "{s}{c}{s}", .{ dir, std.fs.path.sep, tile_picker_capture }) catch
+                const path = std.mem.printSentinel(&path_buffer, "{s}{c}{s}", .{ dir, std.fs.path.sep, tile_picker_capture }, 0) catch
                     return self.stepFail(step, "the capture path is too long", .{});
                 if (c.BkEditorCaptureFrame(self.real.session, path.ptr) != c.BK_EDITOR_OK)
                     return self.stepFail(step, "the frame was not captured: {s}", .{std.mem.span(c.BkEditorLastMessage(self.real.session))});
@@ -1851,7 +1851,7 @@ pub const AutoRunner = struct {
 
     fn runShot(self: *AutoRunner, name: []const u8) bool {
         var path_buffer: [std.Io.Dir.max_path_bytes:0]u8 = undefined;
-        const path = std.fmt.bufPrintZ(&path_buffer, "{s}{c}{s}.tga", .{ self.dir, std.fs.path.sep, name }) catch
+        const path = std.mem.printSentinel(&path_buffer, "{s}{c}{s}.tga", .{ self.dir, std.fs.path.sep, name }, 0) catch
             return self.fail("shot={s}: the path is too long", .{name});
         if (c.BkEditorCaptureFrame(self.real.session, path.ptr) != c.BK_EDITOR_OK)
             return self.fail("shot={s}: the frame was not captured: {s}", .{ name, std.mem.span(c.BkEditorLastMessage(self.real.session)) });

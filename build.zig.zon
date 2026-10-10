@@ -1,11 +1,11 @@
 .{
     .name = .blitzkrieg,
     .version = "2.0.0",
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     .dependencies = .{
         .sdl = .{
-            .url = "git+https://github.com/castholm/SDL.git?ref=v0.4.0%2B3.4.0#ae5deb068787bd71d9aadbc054ff1af54f5d058c",
-            .hash = "sdl-0.4.0+3.4.0-SDL--u6yowGyvoiJ5qkFm_T1-MpmvnHShh2q2mTZf1fo",
+            .url = "git+https://github.com/castholm/SDL.git?ref=v0.6.0%2B3.4.18#dbcb19aa3583c318556ecae3ecbeb29b102d37c5",
+            .hash = "sdl-0.6.0+3.4.18-SDL--p-gqAGWpnfTLlhs0dgjDtc4P4_CHeNLGY_SX_Fv",
         },
         .sdl3 = .{
             .path = "vendor/zig-sdl3",
@@ -21,8 +21,8 @@
             .lazy = true,
         },
         .dxc = .{
-            .url = "git+https://github.com/Gota7/dxc-build?ref=zig-sdl3#a60f9fae53dac7a792f6407f8b0352e8b1f1a22e",
-            .hash = "dxc-1.8.2505-siU2n6P4FQJNhZ0or2qPUx0C72_CdWUU15vI1h54sQC5",
+            .url = "git+https://github.com/jmfrank63/dxc-build?ref=zig-0.17#bdf91da322b821c3f7eb3f6e7059a89e3133a863",
+            .hash = "dxc-1.8.2505-siU2n8L5FQJxfpe7gI3su9FqqcIm85AMIr3J1HmFLj9E",
             .lazy = true,
         },
         .spirv_cross = .{

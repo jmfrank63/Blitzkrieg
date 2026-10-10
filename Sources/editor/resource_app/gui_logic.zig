@@ -1206,7 +1206,7 @@ test "a canvas rect lands in the Game's centred, uniformly scaled screen" {
 }
 
 test "differing pixels are counted inside a box and outside the holes" {
-    var a = [_]u8{0} ** (4 * 4 * 4);
+    var a: [4 * 4 * 4]u8 = @splat(0);
     var b = a;
     // Pixels (1,1) and (3,3) change, the second by less than the tolerance.
     b[(1 * 4 + 1) * 4] = 100;

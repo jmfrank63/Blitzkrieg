@@ -895,7 +895,7 @@ const Rig = struct {
         const explosions = try rig.addNode(rig.node, item.building_dir_explosions);
         var n: usize = 0;
         while (n < 5) : (n += 1) _ = try rig.addNode(explosions, item.building_dir_explosion_props);
-        const five = [_]AimedPoint{.{}} ** 5;
+        const five: [5]AimedPoint = @splat(.{});
         try bridge_mod.check(rig.res().geometryWrite(rig.node, .directed_explosion_points, &.{ .aimed = @constCast(&five) }));
         return rig;
     }
@@ -917,7 +917,7 @@ const Rig = struct {
         const explosions = try rig.addNode(rig.node, item.bridge_dir_explosions);
         var n: usize = 0;
         while (n < 5) : (n += 1) _ = try rig.addNode(explosions, item.bridge_dir_explosion_props);
-        const five = [_]AimedPoint{.{}} ** 5;
+        const five: [5]AimedPoint = @splat(.{});
         try bridge_mod.check(rig.res().geometryWrite(rig.node, .directed_explosion_points, &.{ .aimed = @constCast(&five) }));
         return rig;
     }

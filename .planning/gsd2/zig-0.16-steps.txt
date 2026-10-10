@@ -1,0 +1,211 @@
+  install                      Copy build artifacts to prefix path
+  uninstall                    Remove build artifacts from prefix path
+  test-build-support           Validate the supported cross-platform target policy
+  test-runtime-platform-audit  Audit playable source platform dependencies
+  test-mission-data            Check Data/Scenarios against GOG 1.2 and the chapter rules
+  test-platform-linkage        Validate one target-correct PlatformRuntime and staged linkage policy
+  test-platform-abi-layout     Validate the versioned platform C ABI layout and C import
+  test-platform-runtime        Run shared platform runtime lifecycle tests
+  test-platform-client         Run checked C++ platform client tests
+  test-platform-headers        Validate portable compiler and legacy value types
+  test-platform-clock          Run monotonic clock and high-resolution timer tests
+  test-platform-sync           Run synchronization and worker thread stress tests
+  test-platform-debug          Run portable diagnostic and debugger facade tests
+  test-platform-dynamic-library Run portable dynamic library ownership tests
+  test-platform-system         Run portable system facade tests
+  test-legacy-variant          Run portable legacy variant ownership and conversion tests
+  test-resource-xml-roundtrip  Round-trip the 21 ResourceEditor project XML fixtures and check unknown-node preservation
+  test-dxt-tolerance           Re-measure the DXT tolerance on shipped _c.dds (DXT1/3/5, colour and alpha) and require dxt-tolerance.json unchanged
+  measure-dxt-tolerance        Measure the DXT tolerance on shipped _c.dds textures and write tools/zig/fixtures/resource_editor/dxt-tolerance.json
+  test-stage                   Run shell-free runtime staging tests
+  test-package                 Run release zip writer tests
+  test-present-fit             Run the shrink-only present fit rect tests
+  verify-runtime               Run the staged runtime layout verifier tests
+  test-gfxgpu-shaders          Run shader manifest parser tests
+  audit-build-hermeticity      Reject shell-dependent shader/build-tool steps
+  audit-windows-minmax         Reject bare std::min/std::max in ResourceModel and EditorBridge, which windows.h macros break on MSVC
+  test-platform-foundation     Run the portable foundation test matrix
+  test-platform-core           Run the Phase 01 portable runtime core tests
+  platform-foundation          Build the supported portable foundation matrix
+  test-game-command-line       Run portable game command-line tests
+  test-game-frame              Run the portable SDL game-frame contract test
+  test-game-system-keys        Run the portable game system-key policy test
+  test-game-mouse-capture      Run the portable mouse-confinement policy test
+  test-game-loop               Run the deterministic game loop policy test
+  test-platform-window         Run SDL application window lifecycle tests
+  test-platform-events         Run SDL event translation tests
+  test-input-codes             Run portable legacy input code mapping tests
+  test-platform-input          Run portable keyboard and text event contract tests
+  test-input-state             Run event-fed keyboard and mouse state contract tests
+  test-wheel-scroll            Run the mouse wheel and trackpad swipe translation tests
+  test-input-headers           Compile the portable Input header boundary audit
+  test-input-text-repeat       Run deterministic Input text, repeat, and focus tests
+  test-input-controller        Run deterministic Input controller mapping tests
+  test-input-bindings          Run deterministic Input binding and emulation tests
+  test-platform-clipboard      Run controller and clipboard contract tests
+  test-platform-controller     Run virtual controller name and lifetime tests
+  test-platform-audio          Run portable audio initialization contract tests
+  test-audio-lifecycle         Run the miniaudio allocator and null-device lifecycle fixture
+  test-audio-worker            Run portable audio completion worker tests
+  test-audio-stream            Run portable audio stream lifetime tests
+  test-input-audio-gate        Run the portable input and audio lifecycle gate
+  test-platform-socket-types   Run portable socket ABI contract tests
+  test-platform-network        Run portable TCP and UDP socket tests
+  test-platform-socket-abi     Run the shared ABI generational socket contract
+  test-netlowest               Run NetLowest loopback UDP fixture
+  test-network-workers         Run network worker cancellation and restart cycles
+  test-network-system-gate     Run the portable network and system services gate
+  test-runtime-headers         Compile each playable runtime StdAfx header independently
+  resource-model-scaffold-test Load and save the wpn fixture through Sources/src/ResourceModel and prove the bytes round-trip
+  test-resource-model-references Enumerate every EReferenceType list, the AI-class and player-sides combos and the localization read over the tracked references_root fixture
+  test-resource-grid-projection S09 T01: GridProjection tile and screen math, tile-list and grid helpers and one-way line tiles, headless
+  test-resource-model-fidelity Port item classes vs the generated MFC inventory, load/save of every TestProjects and fixture project, insert of every item type
+  editor-imgui                 Build Dear ImGui with its SDL3 backends for the editor
+  editor-overlay-spike-build   Build the Map Editor ImGui overlay spike
+  test-game-bootstrap          Run the SDL and GfxGpu game bootstrap smoke test
+  sdl3                         Build and verify the zig-sdl3 dependency
+  shadercross-build            Build the pinned host SDL_shadercross tool
+  verify-shadercross           Verify shadercross CLI options and host installation
+  gfxgpu-shaders               Compile deterministic GfxGpu shader blobs and manifest
+  test-gfxgpu-shader-determinism Compare two clean shader compiler output directories
+  gfxgpu-abi-test              Run the C++ GfxGpu ABI test
+  gfxgpu-smoke-build           Build the Zig SDL3 GPU shader smoke test
+  gfxgpu-smoke                 Run the Zig SDL3 GPU shader smoke test
+  gpu-device-probe             Report whether this machine has a GPU device SDL can use
+  editor-overlay-spike         Run the Map Editor ImGui overlay spike
+  compare-gfx-reference        Compare two RGBA8 renderer reference captures
+  season-textures              Generate the missing winter/Africa unit textures in a Data tree
+  test-season-textures         Run the season texture tool's codec and transform tests
+  make-resource-fixtures       Regenerate repo-owned ResourceEditor fixtures (21 extensions, project.<ext> + source art, deterministic)
+  test-resource-editor-fixtures Run the ResourceEditor fixture generator's in-memory tests
+  options-bridge-test          Build portable options bridge contract tests
+  test-platform-modules        Run portable runtime module tests
+  test-platform-storage        Run config/save/package storage gate
+  test-input-module            Load and exercise the real Input module factory lifecycle
+  test-sfx-module              Load the real SFX module and verify its lifecycle contract
+  test-map-files               Read and rewrite the shipped maps; check they are unchanged
+  test-map-files-all           Sweep every shipped map, not just the CI sample
+  test-map-files-m2-sweep      Edit every M2 collection of every Data/Maps map, undo it, and compare the bytes
+  zlib                         Build the zlib static library
+  libpng                       Build the libpng static library
+  misc                         Build the Misc static library
+  image                        Build the Image dynamic library
+  lualib                       Build the LuaLib static library
+  net                          Build the Net dynamic library
+  test-net-module              Load the real Net module and verify its factory contract
+  buildversion                 Build the BuildVersion console utility
+  betakeygen                   Build the BetaKeyGen console utility
+  input                        Build the Input dynamic library
+  formats                      Build the Formats static library
+  anim                         Build the Anim dynamic library
+  common                       Build the Common static library
+  ui                           Build the UI dynamic library
+  fontgen                      Build the FontGen console utility
+  sfx                          Build the SFX dynamic library
+  gfx                          Build the GFX dynamic library
+  gfx-legacy                   Build the legacy DirectX GFX dynamic library
+  gfx-sdl-gpu                  Build the SDL GPU GFX adapter dynamic library
+  gfxgpu-factory-test          Load the SDL GPU GFX DLL and create its IGFX object
+  randommapgen                 Build the RandomMapGen static library
+  main                         Build the Main static library
+  streamio                     Build the Zig StreamIO dynamic library
+  scene                        Build the Scene x64 dynamic library
+  ailogic                      Build the AILogic x64 dynamic library
+  gamett                       Build the GameTT x64 dynamic library
+  game                         Build the Game executable
+  GfxGpuZig                    Build the Zig GPU renderer static library
+  game-all (default)           Build and install the playable game runtime set
+  install-game                 Create runnable game install layout with binaries and Data
+  test-editor-bridge           Open maps through the engine and check what it saves
+  test-editor-bridge-m2-sweep  Draw, delete and undo bridges, fences, entrenchments and cascades on every Data/Maps map through the engine and compare the bytes
+  test-editor-bridge-m3-players Add and delete players, edit the unit creation and apply Check Map's fixes through the engine and compare the bytes
+  test-editor-bridge-m3-minimap Read the minimap's tiles, colours and markers and create its pictures through the engine and check them
+  test-editor-bridge-m3-rmg    Generate random maps through the engine with seeds and check the files, the refusals and the mod stamp
+  test-editor-bridge-m3-layers Measure what each Layers menu toggle does in the renderer and drive them through the engine
+  editor-craft-fixtures        Craft the Check Map and short-railroad fixture maps under zig-out/local-test
+  test-resource-bridge         Drive the resource bridge through the engine: every fixture, geometry, export, references and the preview captures
+  test-resource-mod-roundtrip  Import every resource of a third-party mod (-Dmod-root or BK_MOD_ROOT), export it again and compare field by field; always runs the tracked mini-mod first
+  test-resource-model-comparator D-11 comparator: shipped stats read by the engine's own readers equal themselves, planted float/dropped/unknown/byte/DXT changes fail, goldens reported pending
+  test-resource-model          Aggregate ResourceModel sweep: scaffold round trip, references/combos/localization lists, MFC fidelity, and the D-11 comparator over exported game data
+  test-resources-all           Aggregate every resource-side tier that needs no window or GPU: test-resource-model, test-resource-xml-roundtrip, test-dxt-tolerance and test-resource-editor-fixtures
+  test-map-editor-view-events  Run view.zig's SDL event-wiring tests against fake bridges
+  install-map-editor           Install MapEditor into the game installation
+  map-editor-host-check        Start MapEditor on a shipped map and check ImGui draws over the engine's frame
+  map-editor-smoke             Run MapEditor's interactive loop hidden under a scripted smoke on a shipped map
+  map-editor-auto              Run BK_EDITOR_AUTO's editor-app scenario on a shipped map
+  map-editor-auto-m2           Run BK_EDITOR_AUTO's M2 scenario (named commands and predicates) on a shipped map
+  map-editor-m3-auto           Run BK_EDITOR_AUTO's M3 scenario (named commands and predicates) on a shipped map
+  map-editor-game-reads-it     Test-launch a unit the editor placed and prove the real Game plays it (D-01..D-09)
+  map-editor-game-reads-it-m2  Test-launch M2 edits and prove from the game's own BK_MAP_TRACE report that it read them (D-22, D-25)
+  map-editor-game-reads-it-m3  Load a map whose railroads hold fewer than two control points in the real Game and prove it exits cleanly (05-05, D-33)
+  test-map-editor-engine       Drive the real engine through the editor core's commands and check it agrees
+  install-resource-editor      Install ResourceEditor into the game installation
+  resource-editor-host-check   Start ResourceEditor hidden on a new project and check ImGui draws over the engine's frame
+  resource-editor-batch        Run ResourceEditor --batch over copies of the 21 project fixtures and read the results back with the engine's reader
+  resource-editor-smoke        Run ResourceEditor's scripted new/save/reopen and edit/undo/save byte-compare on tracked project fixtures
+  resource-editor-auto         Run BK_EDITOR_AUTO's ResourceEditor scenario over the resource command registry: every per-editor resource-editor-auto-* step, in order
+  resource-editor-auto-core    Run BK_EDITOR_AUTO's core frames: new, open, edit, undo, save, export, pack, import and the exported mod in the Game
+  resource-editor-auto-wpn     Run BK_EDITOR_AUTO's S06 stats sub-editors: Weapon, Mine, Trench and Squad (one step, each is short)
+  resource-editor-auto-spt     Run BK_EDITOR_AUTO's Sprite (.spt) scenario
+  resource-editor-auto-unt     Run BK_EDITOR_AUTO's Infantry (.unt) scenario
+  resource-editor-auto-msh     Run BK_EDITOR_AUTO's Unit (.msh) scenario
+  resource-editor-auto-obt     Run BK_EDITOR_AUTO's Object (.obt) scenario
+  resource-editor-auto-fnc     Run BK_EDITOR_AUTO's Fence (.fnc) scenario
+  resource-editor-auto-bld     Run BK_EDITOR_AUTO's Building (.bld) scenario
+  resource-editor-auto-bdg     Run BK_EDITOR_AUTO's Bridge (.bdg) scenario
+  resource-editor-auto-pcp     Run BK_EDITOR_AUTO's Particle (.pcp) scenario, the Function window's pointer path included
+  resource-editor-auto-eff     Run BK_EDITOR_AUTO's Effect (.eff) scenario
+  resource-editor-auto-til     Run BK_EDITOR_AUTO's Terrain (.til) scenario
+  resource-editor-auto-3rd     Run BK_EDITOR_AUTO's 3D Road (.3rd) scenario
+  resource-editor-auto-3rv     Run BK_EDITOR_AUTO's 3D River (.3rv) scenario
+  resource-editor-auto-mip     Run BK_EDITOR_AUTO's Mission (.mip) scenario: the generated map image, a click-placed objective, undo and redo, export with the .bzm
+  resource-editor-auto-chc     Run BK_EDITOR_AUTO's Chapter (.chc) scenario: a click-placed mission, Show crosses drag, undo and redo, export
+  resource-editor-auto-cgc     Run BK_EDITOR_AUTO's Campaign (.cgc) scenario: a click-placed chapter, Show crosses drag, undo and redo, export
+  resource-editor-auto-mdc     Run BK_EDITOR_AUTO's Medal (.mdc) scenario: the picture shown and measured, export
+  resource-editor-auto-gui     Run BK_EDITOR_AUTO's GUI screen (.gui) scenario: a template dragged onto MainMenu, moved, resized, aligned, undone, redone, saved, exported and shown by the Game, with its frame measured
+  resource-editor-game-reads-it Export one resource per object-side kind into a mod, play shipped maps with it in the real Game and prove from BK_MOD_TRACE that it read each exported file (result.log)
+  test-random-missions         Generate every random mission a chapter can offer and open it in the engine
+  test-rmg-determinism         Generate a random map twice from a fixed seed through the editor and compare the files byte for byte
+  test-rmg-composer-roundtrip  Read, write and re-read every shipped RMG container and graph through the composers' records and compare them and their bytes
+  preview-scene-spike          ResourceEditor preview-scene spike: capture mesh/sprite/particle frames and measure non-black-non-magenta pixels (skips with exit 0 on a GPU-less runner)
+  game-install                 Create runnable game install layout with binaries and Data
+  test-ui-text-shadow          Check a text shadow is drawn only where it reads as a shadow
+  test-terrain-noise           Check terrain noise coordinates are continuous across patches
+  test-scene-scale             Check scaled terrain vertices land on whole pixels
+  test-console-bridge          Round-trip a wide string through the console bridge
+  run                          Build, install, and run Game.exe from install layout
+  verify-x64-runtime           Validate the staged Windows x64 runtime
+  verify-gfxgpu-endurance      Run SDL GPU resize, restart, and endurance validation
+  package-game                 Create game-only installation zip package
+  package-game-editors         Create installation zip package with editor tools
+  package                      Create both game-only and with-editors installation zip packages
+  blitz64-abi-test             Run the Blitz64 C++ ABI smoke test
+  test-streamio                Run Zig StreamIO unit tests
+  test-cloudsync-rc            Run Zig CloudSync rc client unit tests
+  test-cloudsync-daemon        Run Zig CloudSync rclone discovery unit tests
+  test-cloudsync-plan          Run Zig CloudSync sync planning unit tests
+  test-cloudsync-engine        Run Zig CloudSync sync engine tests
+  test-cloudsync-creds         Run Zig CloudSync credentials tests
+  test-cloudsync-backend       Run Zig CloudSync backend integration tests
+  test-cloudsync-backup        Run Zig CloudSync config backup tests
+  test-cloudsync-catalogue     Run Zig CloudSync provider catalogue tests
+  test-cloudsync-form          Run Zig CloudSync form model tests
+  test-cloudsync-worker        Run Zig CloudSync worker thread tests
+  test-cloudsync-oauth         Run Zig CloudSync config state machine tests
+  test-cloudsync-abi           Run the CloudSync C ABI tests and C++ smoke consumer
+  test-cloudsync-facade        Run the CloudSync C++ facade tests
+  test-platform-files          Run portable StreamIO host filesystem tests
+  test-file-utils              Run portable legacy file utility tests
+  test-platform-paths          Run portable data and writable root tests
+  test-gfxgpu-core             Run the Zig GPU renderer core tests
+  test-gfxgpu-compatibility    Run the Phase 8 compatibility matrix
+  test-gfxgpu                  Run the GfxGpu core, C ABI, and SDL smoke tests
+  test                         Run Zig unit tests and the Blitz64 ABI smoke test
+  test-editor-kit              Run the editor kit tests (reusable editor plumbing shared by the Zig editors)
+  test-editor-core             Run the Map Editor core tests against the fake bridge
+  test-resource-core           Run the Resource Editor core tests against the fake resource bridge
+  test-resource-app-logic      Run the Resource Editor app's pure logic tests against the fake resource bridge and compile its real bridge adapter
+  test-map-editor-view         Run the map view's pure camera and input-mapping tests
+  test-map-editor-panels       Run the panels' pure file-action, palette and properties tests
+  test-map-editor-testlaunch   Run Test in game's argv-construction and exit-classification tests
+  test-map-editor-auto         Run BK_EDITOR_AUTO's schedule parser and TGA comparison tests

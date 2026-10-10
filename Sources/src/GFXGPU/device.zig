@@ -89,7 +89,7 @@ pub const Device = struct {
     allocator: std.mem.Allocator,
     api: DeviceApi,
     handle: ?*anyopaque = null,
-    driver: [64]u8 = [_]u8{0} ** 64,
+    driver: [64]u8 = @splat(0),
     driver_length: u8 = 0,
     shader_formats: u32 = 0,
 

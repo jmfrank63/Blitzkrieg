@@ -621,7 +621,7 @@ test "parse: bad tokens are rejected, naming the entry" {
     try expectBad("3:shot=bad$name", error.BadName); // '$' is not allowed
     try expectBad("3:shot=", error.BadName); // empty name
     try expectBad("3:compare=painted@soon", error.BadNumber); // percent not a number
-    try expectBad("3:shot=" ++ ("a" ** 65), error.BadName); // over max_name_len
+    try expectBad("3:shot=" ++ (&@as([65:0]u8, @splat('a'))), error.BadName); // over max_name_len
     try expectBad("3:differ", error.BadAction); // differ needs two names
     try expectBad("3:differ=one", error.BadName); // no '/'
     try expectBad("3:differ=a/", error.BadName); // an empty second name
@@ -638,10 +638,10 @@ test "parse: bad tokens are rejected, naming the entry" {
     try expectBad("3:tool=", error.BadName); // empty label
     try expectBad("3:tool=Select", error.BadName); // upper case
     try expectBad("3:tool=roads-rivers", error.BadName); // '-'
-    try expectBad("3:tool=" ++ ("a" ** 33), error.BadName); // over 32
+    try expectBad("3:tool=" ++ (&@as([33:0]u8, @splat('a'))), error.BadName); // over 32
     try expectBad("3:text", error.BadAction); // text needs a value
     try expectBad("3:text=", error.BadArgument); // empty
-    try expectBad("3:text=" ++ ("a" ** 65), error.BadArgument); // over 64
+    try expectBad("3:text=" ++ (&@as([65:0]u8, @splat('a'))), error.BadArgument); // over 64
     try expectBad("3:text=tab\there", error.BadArgument); // control character
     try expectBad("3:text=caf\xc3\xa9", error.BadArgument); // non-ASCII
     try expectBad("3:do", error.BadAction); // do needs a name
@@ -650,8 +650,8 @@ test "parse: bad tokens are rejected, naming the entry" {
     try expectBad("3:do=:5", error.BadName); // empty name before the argument
     try expectBad("3:do=bad-name:1", error.BadName); // '-' is not allowed in a command name
     try expectBad("3:expect=bad$name", error.BadName);
-    try expectBad("3:do=" ++ ("a" ** 33), error.BadName); // over max_named_len
-    try expectBad("3:do=camera_player:" ++ ("9" ** 65), error.BadArgument); // argument over 64
+    try expectBad("3:do=" ++ (&@as([33:0]u8, @splat('a'))), error.BadName); // over max_named_len
+    try expectBad("3:do=camera_player:" ++ (&@as([65:0]u8, @splat('9'))), error.BadArgument); // argument over 64
     try expectBad("3:do=camera_player:a b", error.BadArgument); // a space in the argument
     try expectBad("3:expect=anchor_set:caf\xc3\xa9", error.BadArgument); // non-ASCII
     try expectBad("3:do=camera_player:tab\there", error.BadArgument); // a control character

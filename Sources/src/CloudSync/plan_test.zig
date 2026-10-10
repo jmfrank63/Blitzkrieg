@@ -594,8 +594,8 @@ test "the measured overlong pair is refused with the number" {
 
     // 120 + ".." + 127 = 249 bytes, the measured failure: bisync would die
     // writing `<249 bytes>.path1.lst-new`, a 263-byte filename.
-    const p1: plan.Endpoint = .{ .path = "/" ++ ("a" ** 120), .kind = .local };
-    const p2: plan.Endpoint = .{ .path = "/" ++ ("b" ** 127), .kind = .local };
+    const p1: plan.Endpoint = .{ .path = "/" ++ (&@as([120:0]u8, @splat('a'))), .kind = .local };
+    const p2: plan.Endpoint = .{ .path = "/" ++ (&@as([127:0]u8, @splat('b'))), .kind = .local };
 
     const name = try plan.sessionName(gpa, p1, p2);
     defer gpa.free(name);
@@ -620,13 +620,13 @@ test "the budget boundary sits at exactly 241 bytes" {
     try std.testing.expectEqual(@as(usize, 14), plan.session_suffix_max);
     try std.testing.expectEqual(@as(usize, 241), plan.session_budget);
 
-    const p1: plan.Endpoint = .{ .path = "/" ++ ("a" ** 120), .kind = .local };
+    const p1: plan.Endpoint = .{ .path = "/" ++ (&@as([120:0]u8, @splat('a'))), .kind = .local };
     var projected: usize = 0;
 
     try plan.checkSessionBudget(
         gpa,
         p1,
-        .{ .path = "/" ++ ("b" ** 119), .kind = .local },
+        .{ .path = "/" ++ (&@as([119:0]u8, @splat('b'))), .kind = .local },
         &projected,
     );
     try std.testing.expectEqual(@as(usize, 241), projected);
@@ -637,7 +637,7 @@ test "the budget boundary sits at exactly 241 bytes" {
         plan.checkSessionBudget(
             gpa,
             p1,
-            .{ .path = "/" ++ ("b" ** 120), .kind = .local },
+            .{ .path = "/" ++ (&@as([120:0]u8, @splat('b'))), .kind = .local },
             &projected,
         ),
     );
@@ -1026,10 +1026,10 @@ test "a long remote root the alias name hid is refused before rclone would fail"
     // root long enough that the resolved session passes 241 while the
     // alias-named one stays far below it.
     const slot_link = if (builtin.os.tag == .windows)
-        "C:\\" ++ ("d" ** 106) // `C__` + 106
+        "C:\\" ++ (&@as([106:0]u8, @splat('d'))) // `C__` + 106
     else
-        "/" ++ ("d" ** 109);
-    const root = "R" ** 120;
+        "/" ++ (&@as([109:0]u8, @splat('d')));
+    const root = &@as([120:0]u8, @splat('R'));
     var ctx = resolvedContext(slot_link, "bkraw:" ++ root, "Johannes");
     ctx.mode = .steady;
 
@@ -1197,7 +1197,7 @@ test "the session budget is enforced on every build" {
     // A profile rename can push a fitting pair over the limit between runs,
     // so the check lives in the builder, not in setup.
     var ctx = testContext(.steady);
-    ctx.path1 = "/" ++ ("a" ** 240);
+    ctx.path1 = "/" ++ (&@as([240:0]u8, @splat('a')));
     try std.testing.expectError(error.SessionNameTooLong, plan.bisyncParams(gpa, ctx));
 }
 

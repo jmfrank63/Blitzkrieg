@@ -113,7 +113,7 @@ pub const Settings = struct {
     /// D-24 (M3): the default format of a never-saved document's Save As.
     default_format: Format = default_format,
     maps_folder_storage: FixedPath = .{},
-    recent_storage: [recent_capacity]FixedPath = [_]FixedPath{.{}} ** recent_capacity,
+    recent_storage: [recent_capacity]FixedPath = @splat(.{}),
     recent_count: usize = 0,
     /// D-34 (05-11, PARITY T2): Tools > Options' extra game command line for
     /// Test in game (the MFC's `szGameParameters`). Empty means none. It

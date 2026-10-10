@@ -15,8 +15,8 @@ pub const Part = enum {
     inspector,
 
     pub fn parse(name: []const u8) ?Part {
-        inline for (@typeInfo(Part).@"enum".fields) |field| {
-            if (std.mem.eql(u8, name, field.name)) return @field(Part, field.name);
+        inline for (std.enums.values(Part)) |tag| {
+            if (std.mem.eql(u8, name, @tagName(tag))) return @field(Part, @tagName(tag));
         }
         return null;
     }

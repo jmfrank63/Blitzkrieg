@@ -642,7 +642,7 @@ const Rig = struct {
             var id: i32 = -1;
             try bridge_mod.check(rig.fake.bridge().insertNode(explosions, child, n, &id));
         }
-        const five = [_]AimedPoint{.{}} ** 5;
+        const five: [5]AimedPoint = @splat(.{});
         try bridge_mod.check(rig.fake.bridge().geometryWrite(rig.root, .directed_explosion_points, &.{ .aimed = @constCast(&five) }));
         try rig.doc.reload(allocator, rig.fake.bridge());
         return rig;
@@ -670,7 +670,7 @@ const Rig = struct {
             var id: i32 = -1;
             try bridge_mod.check(rig.fake.bridge().insertNode(explosions, child, n, &id));
         }
-        const five = [_]AimedPoint{.{}} ** 5;
+        const five: [5]AimedPoint = @splat(.{});
         try bridge_mod.check(rig.fake.bridge().geometryWrite(rig.root, .directed_explosion_points, &.{ .aimed = @constCast(&five) }));
         try rig.doc.reload(allocator, rig.fake.bridge());
         return rig;
@@ -869,12 +869,12 @@ test "a one-shot edit of the direction is one undo step" {
     defer rig.deinit();
     const t = rig.target(.dir_explosion);
     try rig.commitCommand((try editPoint(testing.allocator, rig.bridge(), t, 2, .direction, .{ .angle = 45 })).?);
-    var want = [_]AimedPoint{.{}} ** 5;
+    var want: [5]AimedPoint = @splat(.{});
     want[2].angle = 45;
     try rig.expectPoints(t, &want);
     try testing.expectEqualStrings("45", try rig.childProp(t, 2, "Direction"));
     try rig.undo();
-    try rig.expectPoints(t, &([_]AimedPoint{.{}} ** 5));
+    try rig.expectPoints(t, &(@as([5]AimedPoint, @splat(.{}))));
     try rig.redo();
     try rig.expectPoints(t, &want);
 }
@@ -895,7 +895,7 @@ test "set entrance undoes and redoes with the point before and after" {
 
 test "generate smoke points on a 4x2 footprint gives MFC's edge points" {
     // Tiles x 0..3, y 0..1: two points on each long edge, one on each short one.
-    const cells = [_]u8{1} ** 8;
+    const cells: [8]u8 = @splat(1);
     const box = Footprint.of(&cells, 4, 2).?;
     const points = try generateSmoke(testing.allocator, box, .{});
     defer testing.allocator.free(points);
@@ -917,7 +917,7 @@ test "generate smoke points on a 4x2 footprint gives MFC's edge points" {
 }
 
 test "generate directed explosions puts five points with MFC's directions and keeps the cones" {
-    const cells = [_]u8{1} ** 9;
+    const cells: [9]u8 = @splat(1);
     const box = Footprint.of(&cells, 3, 3).?;
     const points = generateDirExp(box, .{}, .{ 10, 20, 30, 40, 50 });
     const angles = [5]i32{ 180, 270, 0, 90, 225 };
@@ -936,7 +936,7 @@ test "generate directed explosions puts five points with MFC's directions and ke
 test "generate commands change list and children in one step and undo it" {
     var rig = try Rig.init(testing.allocator);
     defer rig.deinit();
-    const cells = [_]u8{1} ** 8;
+    const cells: [8]u8 = @splat(1);
     try rig.setPassability(&cells, 4, 2);
 
     const smoke = rig.target(.smoke);
@@ -961,7 +961,7 @@ test "generate commands change list and children in one step and undo it" {
     try testing.expectEqual(@as(i32, 225), after.aimed[4].angle);
     try rig.expectChildren(blasts, 5);
     try rig.undo();
-    try rig.expectPoints(blasts, &([_]AimedPoint{.{}} ** 5));
+    try rig.expectPoints(blasts, &(@as([5]AimedPoint, @splat(.{}))));
     try rig.redo();
     // Generating again changes nothing.
     try testing.expect((try generateDirExpPoints(testing.allocator, rig.bridge(), blasts, .{})) == null);
@@ -1027,12 +1027,12 @@ test "a bridge's directed explosion turns in one undo step" {
     defer rig.deinit();
     const t = rig.target(.dir_explosion);
     try rig.commitCommand((try editPoint(testing.allocator, rig.bridge(), t, 1, .direction, .{ .angle = 135 })).?);
-    var want = [_]AimedPoint{.{}} ** 5;
+    var want: [5]AimedPoint = @splat(.{});
     want[1].angle = 135;
     try rig.expectPoints(t, &want);
     try testing.expectEqualStrings("135", try rig.childProp(t, 1, "Direction"));
     try rig.undo();
-    try rig.expectPoints(t, &([_]AimedPoint{.{}} ** 5));
+    try rig.expectPoints(t, &(@as([5]AimedPoint, @splat(.{}))));
     try rig.redo();
     try rig.expectPoints(t, &want);
 }
@@ -1046,7 +1046,7 @@ test "bridge generate commands walk the span part's locked tiles and undo in one
     try testing.expectError(error.Refused, generateSmokePoints(testing.allocator, &rig.doc, rig.bridge(), smoke, .{}));
     try testing.expectError(error.Refused, generateDirExpPoints(testing.allocator, rig.bridge(), blasts, .{}));
 
-    const cells = [_]u8{1} ** 8;
+    const cells: [8]u8 = @splat(1);
     try bridge_mod.check(rig.bridge().geometryWrite(rig.part, .locked_tiles, &.{ .bytes_grid = .{ .bytes = @constCast(&cells), .width = 4, .height = 2 } }));
     try rig.commitCommand(try generateSmokePoints(testing.allocator, &rig.doc, rig.bridge(), smoke, .{}));
     var read = try tools.readGeometry(rig.bridge(), smoke.node, smoke.channel);
@@ -1065,7 +1065,7 @@ test "bridge generate commands walk the span part's locked tiles and undo in one
     defer after.deinit(testing.allocator);
     try testing.expectEqual(@as(i32, 225), after.aimed[4].angle);
     try rig.undo();
-    try rig.expectPoints(blasts, &([_]AimedPoint{.{}} ** 5));
+    try rig.expectPoints(blasts, &(@as([5]AimedPoint, @splat(.{}))));
     try rig.redo();
     try rig.expectChildren(blasts, 5);
 }

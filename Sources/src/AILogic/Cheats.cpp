@@ -5,7 +5,7 @@
 #include "../zlib/zlib.h"
 SCheats theCheats;
 extern CDiplomacy theDipl;
-void SCheats::Init()
+void SCheats::ResetFlags()
 {
 	immortals.clear();
 	immortals.resize( SAIConsts::MAX_NUM_OF_PLAYERS + 1, 0 );
@@ -18,12 +18,19 @@ void SCheats::Init()
 	bTurnOffWarFog = false;
 
 	bPasswordOK = false;
-	
+}
+void SCheats::Init()
+{
+	ResetFlags();
 	bPasswordOK = ( GetGlobalVar( "EnableCheats", 0 ) == 1 );
 }
+// theCheats is built while the module loads, before its GlobalsLoader has necessarily set
+// g_pGlobalSingleton: static constructors in different files run in no fixed order, and Zig
+// 0.17's Mach-O linker runs this one first. So the constructor reads no global variables;
+// CAILogic::CommonInit calls Init() before every map, which reads EnableCheats.
 SCheats::SCheats()
 {
-	Init();
+	ResetFlags();
 }
 void SCheats::SetWarFog( bool _bWarFog )
 {

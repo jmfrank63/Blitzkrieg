@@ -3116,7 +3116,7 @@ pub const Editor = struct {
     /// The field set's season, for the YES/NO confirmation before an apply.
     pub fn fieldSetSeason(self: *Editor, name: []const u8) EditError!i32 {
         var buffer: [bridge_mod.field_set_name_capacity:0]u8 = undefined;
-        const name_z = std.fmt.bufPrintZ(&buffer, "{s}", .{name}) catch return error.Refused;
+        const name_z = std.mem.printSentinel(&buffer, "{s}", .{name}, 0) catch return error.Refused;
         var season: i32 = -1;
         try self.noteOutcome(self.bridge.fieldSetSeason(name_z, &season));
         return season;
@@ -3234,7 +3234,7 @@ pub const Editor = struct {
 
     fn nameZ(buffer: *[bridge_mod.field_set_name_capacity:0]u8, name: []const u8) ?[*:0]const u8 {
         if (name.len == 0 or name.len >= bridge_mod.field_set_name_capacity) return null;
-        const text = std.fmt.bufPrintZ(buffer, "{s}", .{name}) catch return null;
+        const text = std.mem.printSentinel(buffer, "{s}", .{name}, 0) catch return null;
         return text.ptr;
     }
 
@@ -3466,7 +3466,7 @@ pub const Editor = struct {
     pub fn importPatch(self: *Editor, source_path: []const u8, apply: bool, out: *bridge_mod.RmgName) EditError!void {
         var buffer: [2048:0]u8 = undefined;
         if (source_path.len == 0 or source_path.len >= buffer.len) return error.Refused;
-        const path_z = std.fmt.bufPrintZ(&buffer, "{s}", .{source_path}) catch return error.Refused;
+        const path_z = std.mem.printSentinel(&buffer, "{s}", .{source_path}, 0) catch return error.Refused;
         out.* = .{};
         try self.noteOutcome(self.bridge.rmgImportPatch(path_z.ptr, apply, out));
     }
@@ -4812,7 +4812,7 @@ test "script file: a name with a folder or .lua is Refused and changes nothing" 
     var editor = try openFixture(&fake);
     defer editor.deinit();
     const generation = editor.record_generations.get(.script_file);
-    for ([_][]const u8{ "..\\x", "a/b", "x.lua", "..", "a b", "x" ** 64 }) |name| {
+    for ([_][]const u8{ "..\\x", "a/b", "x.lua", "..", "a b", &@as([64:0]u8, @splat('x')) }) |name| {
         try std.testing.expectError(error.Refused, editor.setScriptFile(name));
     }
     try std.testing.expectEqualStrings("coldwinter", fake.script_file.nameSlice());
@@ -4909,7 +4909,7 @@ test "script areas: an empty or taken name is Refused with the history unchanged
     try std.testing.expect(try editor.undo());
     try std.testing.expectEqualStrings("ZONE", fake.script_areas.items[1].nameSlice());
     try std.testing.expectError(error.Refused, editor.renameScriptArea(1, ""));
-    try std.testing.expectError(error.Refused, editor.renameScriptArea(1, "n" ** 64));
+    try std.testing.expectError(error.Refused, editor.renameScriptArea(1, &@as([64:0]u8, @splat('n'))));
 }
 
 test "script areas: a move and a resize are one undo step each within a gesture, and back at the start leaves none" {

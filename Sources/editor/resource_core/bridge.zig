@@ -94,8 +94,8 @@ pub const lock_message_capacity: usize = 256;
 pub const NodeRecord = struct {
     id: i32 = 0,
     parent: i32 = -1,
-    class_name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
-    display_name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    class_name: [name_capacity]u8 = @splat(0),
+    display_name: [name_capacity]u8 = @splat(0),
     expand: bool = true,
     child_count: i32 = 0,
 
@@ -123,9 +123,9 @@ pub const PropRecord = struct {
     domain_type: i32 = 0,
     value_kind: i32 = 0,
     combo_count: i32 = 0,
-    default_name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
-    display_name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
-    value_text: [value_text_capacity]u8 = [_]u8{0} ** value_text_capacity,
+    default_name: [name_capacity]u8 = @splat(0),
+    display_name: [name_capacity]u8 = @splat(0),
+    value_text: [value_text_capacity]u8 = @splat(0),
 
     pub fn defaultSlice(self: *const PropRecord) []const u8 {
         return std.mem.sliceTo(&self.default_name, 0);
@@ -159,7 +159,7 @@ pub const PropRecord = struct {
 /// own transform, in the viewport's pixels.
 pub const MeshLocator = struct {
     node_id: i32 = 0,
-    name: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    name: [name_capacity]u8 = @splat(0),
     wx: f32 = 0,
     wy: f32 = 0,
     wz: f32 = 0,
@@ -199,7 +199,7 @@ pub const ParticleInfo = struct {
 pub const reference_name_capacity: usize = 128;
 pub const ReferenceEntry = struct {
     token: i32 = 0,
-    name: [reference_name_capacity]u8 = [_]u8{0} ** reference_name_capacity,
+    name: [reference_name_capacity]u8 = @splat(0),
 
     pub fn nameSlice(self: *const ReferenceEntry) []const u8 {
         return std.mem.sliceTo(&self.name, 0);
@@ -223,7 +223,7 @@ pub const ExportFlags = struct {
 
 /// One warning line of an export (BkResWarning).
 pub const Warning = struct {
-    text: [warning_text_capacity]u8 = [_]u8{0} ** warning_text_capacity,
+    text: [warning_text_capacity]u8 = @splat(0),
 
     pub fn textSlice(self: *const Warning) []const u8 {
         return std.mem.sliceTo(&self.text, 0);
@@ -250,10 +250,10 @@ pub const ExportReport = struct {
 /// BkResModSettings: MFC's MOD Settings dialog. The export dir is the mod's
 /// own folder; exports and mod.xml go into its data/ folder.
 pub const ModSettings = struct {
-    export_dir: [260]u8 = [_]u8{0} ** 260,
-    name: [64]u8 = [_]u8{0} ** 64,
-    version: [32]u8 = [_]u8{0} ** 32,
-    desc: [256]u8 = [_]u8{0} ** 256,
+    export_dir: [260]u8 = @splat(0),
+    name: [64]u8 = @splat(0),
+    version: [32]u8 = @splat(0),
+    desc: [256]u8 = @splat(0),
 
     pub fn exportDirSlice(self: *const ModSettings) []const u8 {
         return std.mem.sliceTo(&self.export_dir, 0);
@@ -821,7 +821,7 @@ test "Warning.setText truncates and stays terminated" {
 }
 
 test "putName refuses to truncate" {
-    var buffer: [name_capacity]u8 = [_]u8{0xAA} ** name_capacity;
+    var buffer: [name_capacity]u8 = @splat(0xAA);
     try std.testing.expect(putName(&buffer, "ok"));
     try std.testing.expectEqualStrings("ok", std.mem.sliceTo(&buffer, 0));
     var too_long: [name_capacity]u8 = undefined;

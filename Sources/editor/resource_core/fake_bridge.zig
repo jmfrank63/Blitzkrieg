@@ -78,8 +78,8 @@ const message_capacity: usize = 256;
 pub const FakeNode = struct {
     id: i32,
     parent: i32,
-    class: [name_capacity]u8 = [_]u8{0} ** name_capacity,
-    display: [name_capacity]u8 = [_]u8{0} ** name_capacity,
+    class: [name_capacity]u8 = @splat(0),
+    display: [name_capacity]u8 = @splat(0),
     expand: bool = true,
     props: std.ArrayListUnmanaged(PropRecord) = .empty,
 
@@ -97,7 +97,7 @@ const GeometryEntry = struct {
 
 pub const FakeResBridge = struct {
     allocator: std.mem.Allocator,
-    message_buffer: [message_capacity]u8 = [_]u8{0} ** message_capacity,
+    message_buffer: [message_capacity]u8 = @splat(0),
     message_len: usize = 0,
     /// How many times missionMinimap was asked for.
     minimap_requests: u32 = 0,
@@ -154,7 +154,7 @@ pub const FakeResBridge = struct {
     /// export reads its sources beside the project file, so it needs one.
     has_path: bool = false,
     /// Kinds whose exporter the test declares ported (`setExportable`).
-    exportable: std.EnumSet(Kind) = .initEmpty(),
+    exportable: std.EnumSet(Kind) = .empty,
     /// What the last successful export was asked, and how many there were.
     exports: u32 = 0,
     last_flags: ExportFlags = .{},

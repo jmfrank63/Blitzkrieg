@@ -72,7 +72,7 @@ const scenario = @import("scenario.zig");
 /// resource_bridge.h, which includes bridge.h: the BkRes* half of the engine's
 /// C ABI. A second translation beside kit.host's own bridge.h one, so the
 /// session handle crosses between the two by pointer cast (`resSession`).
-const c = @cImport(@cInclude("resource_bridge.h"));
+const c = @import("resource_bridge_c");
 
 const default_kind: Kind = .weapon;
 const default_output = "zig-out/local-test/resource_editor/resource-editor-check.tga";
@@ -209,7 +209,7 @@ fn applyMod(host: *const host_mod.Host, mod: ModRequest) ?[]const u8 {
     const folder: ?[*:0]const u8 = switch (mod) {
         .unchanged => return null,
         .none => null,
-        .folder => |name| (std.fmt.bufPrintZ(&buffer, "{s}", .{name}) catch return "the mod folder's name is too long").ptr,
+        .folder => |name| (std.mem.printSentinel(&buffer, "{s}", .{name}, 0) catch return "the mod folder's name is too long").ptr,
     };
     if (c.BkEditorSetMod(resSession(host), folder) != c.BK_EDITOR_OK) return lastMessage(host);
     return null;
@@ -266,11 +266,11 @@ fn drawTree(tree: *const Tree, kind: Kind) void {
     imgui.c.igSetNextWindowPos(.{ .x = io.*.DisplaySize.x - tree_window.w - tree_window.margin, .y = tree_window.margin + 20 }, imgui.c.ImGuiCond_Always);
     imgui.c.igSetNextWindowSize(.{ .x = tree_window.w, .y = tree_window.h }, imgui.c.ImGuiCond_Always);
     var title_buffer: [64]u8 = undefined;
-    const title = std.fmt.bufPrintZ(&title_buffer, "Project ({s})###project", .{kind.extension()}) catch "Project###project";
+    const title = std.mem.printSentinel(&title_buffer, "Project ({s})###project", .{kind.extension()}, 0) catch "Project###project";
     if (imgui.c.igBegin(title.ptr, null, imgui.c.ImGuiWindowFlags_NoSavedSettings)) {
         if (tree.count == 0 and tree.total != 0) {
             var line_buffer: [64]u8 = undefined;
-            const line = std.fmt.bufPrintZ(&line_buffer, "{d} nodes", .{tree.total}) catch "";
+            const line = std.mem.printSentinel(&line_buffer, "{d} nodes", .{tree.total}, 0) catch "";
             imgui.c.igTextUnformattedEx(line.ptr, line.ptr + line.len);
         }
         for (tree.nodes[0..tree.count], 0..) |*node, i| {
@@ -294,7 +294,7 @@ fn drawMenu(quit: *bool) ?Kind {
         if (imgui.c.igBeginMenuEx("New", true)) {
             for (std.enums.values(Kind)) |kind| {
                 var label_buffer: [16]u8 = undefined;
-                const label = std.fmt.bufPrintZ(&label_buffer, "{s}", .{kind.extension()}) catch unreachable;
+                const label = std.mem.printSentinel(&label_buffer, "{s}", .{kind.extension()}, 0) catch unreachable;
                 if (imgui.c.igMenuItemEx(label.ptr, null, false, true)) chosen = kind;
             }
             imgui.c.igEndMenu();
@@ -472,7 +472,7 @@ fn batchMode(gpa: std.mem.Allocator, io: std.Io, args: []const []const u8, mod: 
 fn check(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, picture: ?[]const u8, mod: ModRequest) !bool {
     crt.attachParentConsole();
     if (std.fs.path.dirname(output)) |directory| try std.Io.Dir.cwd().createDirPath(io, directory);
-    const output_z = try gpa.dupeZ(u8, output);
+    const output_z = try gpa.dupeSentinel(u8, output, 0);
     defer gpa.free(output_z);
 
     var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
@@ -572,7 +572,7 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, kind: Kind, output: []const u8, mod
         error.FileNotFound => {},
         else => return smokeFail("{s} could not be deleted first: {s}", .{ output, @errorName(err) }),
     };
-    const output_z = try gpa.dupeZ(u8, output);
+    const output_z = try gpa.dupeSentinel(u8, output, 0);
     defer gpa.free(output_z);
 
     var host = host_mod.Host.start(.{ .title = "Resource Editor", .hidden = true }) catch |err| {
@@ -638,7 +638,7 @@ fn startupStepName(err: host_mod.HostError) []const u8 {
 /// exits; the automated modes print to stderr instead (`fail`).
 fn fatal(step: []const u8, reason: []const u8) noreturn {
     var buffer: [768]u8 = undefined;
-    const message = std.fmt.bufPrintZ(&buffer, "{s} failed: {s}", .{ step, reason }) catch "Resource Editor failed to start";
+    const message = std.mem.printSentinel(&buffer, "{s} failed: {s}", .{ step, reason }, 0) catch "Resource Editor failed to start";
     std.debug.print("resource-editor: {s}\n", .{message});
     _ = sdl3.c.SDL_ShowSimpleMessageBox(sdl3.c.SDL_MESSAGEBOX_ERROR, "Resource Editor", message, null);
     std.process.exit(1);

@@ -2626,7 +2626,7 @@ fn filterWords(state: *State, arg: []const u8) Outcome {
 /// `do=fields_set:<storage-relative name>` - the field-set combo's choice.
 fn fieldsSet(state: *State, arg: []const u8) Outcome {
     if (arg.len == 0 or arg.len >= core.bridge.field_set_name_capacity) return .bad_arg;
-    state.fields_set_name = [_:0]u8{0} ** core.bridge.field_set_name_capacity;
+    state.fields_set_name = @as([core.bridge.field_set_name_capacity:0]u8, @splat(0));
     @memcpy(state.fields_set_name[0..arg.len], arg[0..arg.len]);
     return .ok;
 }
@@ -3444,7 +3444,7 @@ fn exportList(state: *State, kind: logic.ExportKind) Outcome {
             if (file.len <= ".xml".len) continue;
             // The template's own name, as ListRmg lists it: the file less ".xml".
             var template_buffer: [core.bridge.field_set_name_capacity:0]u8 = undefined;
-            const template = std.fmt.bufPrintZ(&template_buffer, "{s}", .{file[0 .. file.len - ".xml".len]}) catch continue;
+            const template = std.mem.printSentinel(&template_buffer, "{s}", .{file[0 .. file.len - ".xml".len]}, 0) catch continue;
             var graph_total: usize = 0;
             _ = state.editor.bridge.rmgTemplateGraphs(template.ptr, &.{}, &graph_total);
             const graphs = state.allocator.alloc(core.bridge.RmgGraph, graph_total) catch return .refused;

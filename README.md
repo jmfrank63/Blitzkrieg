@@ -77,7 +77,7 @@ Each target is exercised by the `Cross-platform validation` workflow on a runner
 
 1. Clone the repository with submodules, or run `git submodule update --init --recursive` in an existing checkout.
 
-2. Install Zig (0.16 or later). For `x86_64-windows-msvc` you also need the MSVC toolchain and a Windows SDK (paths are configurable via `-Dmsvc-include`/`-Dwindows-sdk-include` and their `lib` counterparts if yours differ from the defaults in `build.zig`). No other target requires them.
+2. Install Zig (0.17 or later). For `x86_64-windows-msvc` you also need the MSVC toolchain and a Windows SDK (paths are configurable via `-Dmsvc-include`/`-Dwindows-sdk-include` and their `lib` counterparts if yours differ from the defaults in `build.zig`). No other target requires them.
 
 3. Run `zig build install-game -Dtarget=<triple> --release=fast` to play, or drop `--release=fast` for a debug build. Omit `-Dtarget` to build for the host.
 

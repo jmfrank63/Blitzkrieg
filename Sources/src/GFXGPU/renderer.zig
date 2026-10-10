@@ -11,13 +11,21 @@ const effects = @import("effects.zig");
 const formats = @import("formats.zig");
 const vertex_layout = @import("vertex_layout.zig");
 
-const io_c = @cImport({
-    @cInclude("stdio.h");
-});
+// The stdio calls shader loading needs, declared here because 0.17 has no @cImport.
+const io_c = struct {
+    const FILE = opaque {};
+    const SEEK_SET: c_int = 0;
+    const SEEK_END: c_int = 2;
+    extern "c" fn fopen(path: [*:0]const u8, mode: [*:0]const u8) ?*FILE;
+    extern "c" fn fclose(file: *FILE) c_int;
+    extern "c" fn fseek(file: *FILE, offset: c_long, origin: c_int) c_int;
+    extern "c" fn ftell(file: *FILE) c_long;
+    extern "c" fn fread(buffer: [*]u8, size: usize, count: usize, file: *FILE) usize;
+};
 
 // One shader slot per Renderer.ShaderVariant. Declared here so the caches below
 // cannot fall behind the enum.
-const shader_variant_count = @typeInfo(Renderer.ShaderVariant).@"enum".fields.len;
+const shader_variant_count = @typeInfo(Renderer.ShaderVariant).@"enum".field_names.len;
 
 // Called once per presented frame, after the scene has been drawn onto the
 // frame's colour target and before the command buffer is submitted. The
@@ -1813,10 +1821,9 @@ test "every shader variant has a slot and a name" {
     // so adding the specular variants wrote past the end of the Renderer -- and
     // a release build has no bounds check, so it handed Metal a garbage vertex
     // function and crashed inside setVertexFunction:.
-    const fields = @typeInfo(Renderer.ShaderVariant).@"enum".fields;
-    try std.testing.expectEqual(fields.len, shader_variant_count);
-    inline for (fields) |field| {
-        const variant: Renderer.ShaderVariant = @enumFromInt(field.value);
+    const variants = std.enums.values(Renderer.ShaderVariant);
+    try std.testing.expectEqual(variants.len, shader_variant_count);
+    inline for (variants) |variant| {
         try std.testing.expect(@intFromEnum(variant) < shader_variant_count);
         try std.testing.expect(Renderer.variantEffect(variant).len > 0);
         try std.testing.expect(Renderer.variantVertexEntry(variant).len > 0);

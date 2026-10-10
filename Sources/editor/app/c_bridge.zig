@@ -25,6 +25,14 @@ const VsoDescriptor = core.bridge.VsoDescriptor;
 const VsoKeyPoint = core.bridge.VsoKeyPoint;
 const VsoView = core.bridge.VsoView;
 
+/// Hands an extern struct to the C side (or back) as the struct of the same layout
+/// that the comptime asserts below pin. `@bitCast` accepts only packed types in
+/// 0.17, so the bytes are copied across instead.
+fn reinterpret(comptime To: type, value: anytype) To {
+    comptime std.debug.assert(@sizeOf(To) == @sizeOf(@TypeOf(value)));
+    return std.mem.bytesToValue(To, std.mem.asBytes(&value));
+}
+
 comptime {
     // The core's PaintCell is handed to BkEditorPaint as it is.
     std.debug.assert(@sizeOf(PaintCell) == @sizeOf(c.BkEditorPaintCell));
@@ -756,7 +764,7 @@ pub const RealBridge = struct {
         if (read != .ok) return read;
         if (got != count) return .failed;
         const list = allocator.alloc(core.bridge.ObjectFilter, @intCast(count)) catch return .failed;
-        for (all, list) |item, *entry| entry.* = @bitCast(item);
+        for (all, list) |item, *entry| entry.* = reinterpret(@TypeOf(entry.*), item);
         out.* = list;
         return .ok;
     }
@@ -774,7 +782,7 @@ pub const RealBridge = struct {
     /// always the full count.
     fn vtableApplyField(ptr: *anyopaque, params: core.bridge.FieldApplyParams, report: []core.bridge.FieldObjectReport, total: *usize, token: *i32) Status {
         const self = from(ptr);
-        var c_params: c.BkEditorFieldApplyParams = @bitCast(params);
+        var c_params: c.BkEditorFieldApplyParams = reinterpret(c.BkEditorFieldApplyParams, params);
         var count: c_int = 0;
         const c_report: [*c]c.BkEditorFieldObjectReport = if (report.len == 0) null else @ptrCast(report.ptr);
         const result = status(c.BkEditorApplyField(self.session, &c_params, c_report, @intCast(report.len), &count, token));
@@ -796,7 +804,7 @@ pub const RealBridge = struct {
     /// ABI on both sides and runs inside the call.
     fn vtableCreateRandomMap(ptr: *anyopaque, params: core.bridge.RmgGenerateParams, result: *core.bridge.RmgGenerateResult) Status {
         const self = from(ptr);
-        var c_params: c.BkEditorRmgGenerateParams = @bitCast(params);
+        var c_params: c.BkEditorRmgGenerateParams = reinterpret(c.BkEditorRmgGenerateParams, params);
         const c_result: *c.BkEditorRmgGenerateResult = @ptrCast(result);
         return status(c.BkEditorCreateRandomMap(self.session, &c_params, c_result));
     }
@@ -864,7 +872,7 @@ pub const RealBridge = struct {
         if (got != count) return .failed;
         for (all, 0..) |item, i| {
             if (i >= out.len) break;
-            out[i] = @bitCast(item);
+            out[i] = reinterpret(@TypeOf(out[i]), item);
         }
         return .ok;
     }
@@ -896,7 +904,7 @@ pub const RealBridge = struct {
         if (got != count) return .failed;
         for (all, 0..) |item, i| {
             if (i >= out.len) break;
-            out[i] = @bitCast(item);
+            out[i] = reinterpret(@TypeOf(out[i]), item);
         }
         return .ok;
     }
@@ -924,7 +932,7 @@ pub const RealBridge = struct {
         if (got != count) return .failed;
         for (all, 0..) |item, i| {
             if (i >= out.len) break;
-            out[i] = @bitCast(item);
+            out[i] = reinterpret(@TypeOf(out[i]), item);
         }
         return .ok;
     }
@@ -947,7 +955,7 @@ pub const RealBridge = struct {
         if (got != count) return .failed;
         for (all, 0..) |item, i| {
             if (i >= out.len) break;
-            out[i] = @bitCast(item);
+            out[i] = reinterpret(@TypeOf(out[i]), item);
         }
         return .ok;
     }
@@ -957,7 +965,7 @@ pub const RealBridge = struct {
     fn vtableTiles(ptr: *anyopaque, region: core.bridge.TileRegion, out: []u8, total: *usize) Status {
         const self = from(ptr);
         total.* = 0;
-        const c_region: c.BkEditorTileRegion = @bitCast(region);
+        const c_region: c.BkEditorTileRegion = reinterpret(c.BkEditorTileRegion, region);
         var count: c_int = 0;
         const sizing = status(c.BkEditorTiles(self.session, &c_region, null, 0, &count));
         if (sizing != .ok and sizing != .refused) return sizing;
@@ -1070,7 +1078,7 @@ pub const RealBridge = struct {
         if (got != count) return .failed;
         for (all, 0..) |item, i| {
             if (i >= out.len) break;
-            out[i] = @bitCast(item);
+            out[i] = reinterpret(@TypeOf(out[i]), item);
         }
         return .ok;
     }

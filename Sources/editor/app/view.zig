@@ -1180,7 +1180,7 @@ const FakeInput = struct {
     var mouse_x: f32 = -1;
     var mouse_y: f32 = -1;
     var buttons: u32 = 0;
-    var keys: [512]bool = [_]bool{false} ** 512;
+    var keys: [512]bool = @splat(false);
     var focus: bool = true;
     var capture_flags: view_math.Capture = .{};
 
@@ -1189,7 +1189,7 @@ const FakeInput = struct {
         mouse_x = -1;
         mouse_y = -1;
         buttons = 0;
-        keys = [_]bool{false} ** 512;
+        keys = @as([512]bool, @splat(false));
         focus = true;
         capture_flags = .{};
     }

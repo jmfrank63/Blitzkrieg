@@ -1,7 +1,7 @@
 # Agent instructions for Blitzkrieg Reloaded
 
 A port of the 2003 Blitzkrieg game and its authoring tools to a portable stack: the game and engine stay C++,
-built by `zig build` (Zig 0.16) for Windows x64 (MSVC), macOS (arm64 and x64) and Linux x64; the new editors are Zig
+built by `zig build` (Zig 0.17) for Windows x64 (MSVC), macOS (arm64 and x64) and Linux x64; the new editors are Zig
 apps with Dear ImGui (`Sources/editor`) talking to the engine through the C ABI `Sources/src/EditorBridge`.
 
 ## Machine and commands

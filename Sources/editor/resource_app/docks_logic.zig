@@ -118,7 +118,7 @@ pub fn thumbnailDecodePath(buffer: []u8, folder: []const u8, name: []const u8) ?
     if (!std.mem.endsWith(u8, name, ".tga") or name.len == ".tga".len) return null;
     const stem = name[0 .. name.len - ".tga".len];
     const sep: []const u8 = if (folder.len == 0 or folder[folder.len - 1] == '/' or folder[folder.len - 1] == '\\') "" else "/";
-    return std.fmt.bufPrintZ(buffer, "{s}{s}{s}.xml", .{ folder, sep, stem }) catch null;
+    return std.mem.printSentinel(buffer, "{s}{s}{s}.xml", .{ folder, sep, stem }, 0) catch null;
 }
 
 /// The name a frame item takes from a listed picture (CThumbList's item
@@ -497,7 +497,7 @@ pub fn expandFor(t: edit.Target, complex: bool) void {
 /// bridge too, so its refusal (naming the kind) is what the user reads.
 pub const ImportForm = struct {
     kind: Kind = .animation_infantry,
-    folder: [logic.path_capacity]u8 = [_]u8{0} ** logic.path_capacity,
+    folder: [logic.path_capacity]u8 = @splat(0),
 
     pub fn folderSlice(self: *const ImportForm) []const u8 {
         return std.mem.sliceTo(&self.folder, 0);

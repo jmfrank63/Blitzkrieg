@@ -64,7 +64,7 @@ pub const max_camera_players = 32;
 pub const CameraAnchors = struct {
     neutral: Vec3 = .{},
     player_count: u32 = 0,
-    players: [max_camera_players]Vec3 = [_]Vec3{.{}} ** max_camera_players,
+    players: [max_camera_players]Vec3 = @splat(.{}),
 
     /// The slot as the game would read it: unset past the end.
     pub fn slot(self: CameraAnchors, index: usize) Vec3 {
@@ -131,7 +131,7 @@ pub const script_file_capacity = 64;
 /// changes it, so it may hold a folder or ".lua" - the bridge refuses such a
 /// value only when it is NEW.
 pub const ScriptFile = struct {
-    name: [script_file_capacity]u8 = [_]u8{0} ** script_file_capacity,
+    name: [script_file_capacity]u8 = @splat(0),
 
     pub fn nameSlice(self: *const ScriptFile) []const u8 {
         return std.mem.sliceTo(&self.name, 0);
@@ -162,7 +162,7 @@ pub const AreaShape = enum(i32) { rectangle = 0, circle = 1 };
 /// truncation, once); the core only carries the result. `name` is non-empty and
 /// unique among the map's areas, case-sensitive, which the bridge enforces.
 pub const ScriptArea = struct {
-    name: [area_name_capacity]u8 = [_]u8{0} ** area_name_capacity,
+    name: [area_name_capacity]u8 = @splat(0),
     shape: AreaShape = .rectangle,
     cx: f32 = 0,
     cy: f32 = 0,
@@ -453,7 +453,7 @@ pub const uc_aircraft_labels = [uc_aircraft_slots][]const u8{ "Scouts", "Fighter
 
 /// One aviation slot: an aircraft name with a formation size and a count.
 pub const UcAircraft = struct {
-    name: [uc_name_capacity]u8 = [_]u8{0} ** uc_name_capacity,
+    name: [uc_name_capacity]u8 = @splat(0),
     formation_size: i32 = 1,
     count: i32 = 1,
 
@@ -482,13 +482,13 @@ pub const UcAircraft = struct {
 /// hold reads as (the game's own Validate defaults).
 pub const UnitCreation = struct {
     slot_count: u32 = 0,
-    party: [uc_name_capacity]u8 = [_]u8{0} ** uc_name_capacity,
-    aircraft: [uc_aircraft_slots]UcAircraft = [_]UcAircraft{.{}} ** uc_aircraft_slots,
-    paratroop_name: [uc_name_capacity]u8 = [_]u8{0} ** uc_name_capacity,
+    party: [uc_name_capacity]u8 = @splat(0),
+    aircraft: [uc_aircraft_slots]UcAircraft = @splat(.{}),
+    paratroop_name: [uc_name_capacity]u8 = @splat(0),
     paratroop_count: i32 = 1,
     relax_time: i32 = 30,
     appear_count: u32 = 0,
-    appear: [max_appear_points]Vec3 = [_]Vec3{.{}} ** max_appear_points,
+    appear: [max_appear_points]Vec3 = @splat(.{}),
 
     /// What the bridge answers for a player the vector does not hold, and what
     /// the fake answers likewise (Validate's names, relax 30).
@@ -712,7 +712,7 @@ test "a script file value compares by its text and never by the padding" {
     second.setName("other");
     try std.testing.expect(!first.eql(second));
     var long: ScriptFile = .{};
-    long.setName("x" ** 100);
+    long.setName(&@as([100:0]u8, @splat('x')));
     try std.testing.expectEqual(@as(usize, script_file_capacity - 1), long.nameSlice().len);
     const a: Value = .{ .script_file = first };
     var b = try a.clone(std.testing.allocator);
@@ -737,7 +737,7 @@ test "a script area value compares by its name and numbers, and never by the pad
     second.setName("M2_AREA"); // names are case-sensitive
     try std.testing.expect(!first.eql(second));
     var long: ScriptArea = .{};
-    long.setName("n" ** 100);
+    long.setName(&@as([100:0]u8, @splat('n')));
     try std.testing.expectEqual(@as(usize, area_name_capacity - 1), long.nameSlice().len);
     const a: Value = .{ .script_area = first };
     var b = try a.clone(std.testing.allocator);

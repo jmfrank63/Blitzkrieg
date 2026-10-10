@@ -264,9 +264,11 @@ pub fn shouldReplaceRuntime(name: []const u8) bool {
 
 /// SDL's Linux shared object is emitted with a versioned filename and a
 /// symlink chain. Stage the SONAME file as a regular file so the package does
-/// not depend on symlink preservation by the host filesystem.
+/// not depend on symlink preservation by the host filesystem. The version is
+/// SDL's own (castholm/SDL v0.6.0+3.4.18 names it 0.<minor>.<patch>); a new SDL
+/// pin in build.zig.zon changes it.
 pub fn runtimeSourceName(name: []const u8) []const u8 {
-    if (std.mem.eql(u8, name, "libSDL3.so.0")) return "libSDL3.so.0.4.0";
+    if (std.mem.eql(u8, name, "libSDL3.so.0")) return "libSDL3.so.0.4.18";
     return name;
 }
 

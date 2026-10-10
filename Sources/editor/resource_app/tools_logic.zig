@@ -651,8 +651,7 @@ test "every kind has its MFC folder; the GUI frame none" {
     try testing.expectEqualStrings("units/humans/", kindFolder(.animation_infantry));
     try testing.expectEqualStrings("terrain/sets/", kindFolder(.river_3d));
     try testing.expectEqualStrings("", kindFolder(.gui_frame));
-    inline for (@typeInfo(Kind).@"enum".fields) |field| {
-        const kind: Kind = @enumFromInt(field.value);
+    inline for (std.enums.values(Kind)) |kind| {
         const folder = kindFolder(kind);
         if (kind != .gui_frame) try testing.expect(std.mem.endsWith(u8, folder, "/"));
     }

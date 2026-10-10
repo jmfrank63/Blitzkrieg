@@ -175,7 +175,7 @@ fn writeProjectXml(buf: *Buf, composer_save_name: []const u8) !void {
 fn writeSolidTga(buf: *Buf, seed: []const u8) !void {
     const w: u16 = 16;
     const h: u16 = 16;
-    var header = [_]u8{0} ** 18;
+    var header: [18]u8 = @splat(0);
     header[2] = 2;
     std.mem.writeInt(u16, header[12..14], w, .little);
     std.mem.writeInt(u16, header[14..16], h, .little);
@@ -206,7 +206,7 @@ fn writeSolidTga(buf: *Buf, seed: []const u8) !void {
 fn writeSolidTga32(buf: *Buf, seed: []const u8) !void {
     const width = 64;
     const height = 32;
-    var header = [_]u8{0} ** 18;
+    var header: [18]u8 = @splat(0);
     header[2] = 2;
     std.mem.writeInt(u16, header[12..14], width, .little);
     std.mem.writeInt(u16, header[14..16], height, .little);
@@ -232,7 +232,7 @@ fn writeSolidTga32(buf: *Buf, seed: []const u8) !void {
 /// exporter's DDS can be held to the gate of shipped textures (whose p99 is
 /// 2) rather than to the worst case of an arbitrary colour.
 fn writeExactSolidTga(buf: *Buf, seed: []const u8) !void {
-    var header = [_]u8{0} ** 18;
+    var header: [18]u8 = @splat(0);
     header[2] = 2;
     std.mem.writeInt(u16, header[12..14], 16, .little);
     std.mem.writeInt(u16, header[14..16], 16, .little);
@@ -321,7 +321,7 @@ const mission_final_map_texts = [_][]const u8{ "header.txt", "subheader.txt", "d
 fn writeImageFramePicture(buf: *Buf, seed: []const u8) !void {
     const w = 20;
     const h = 12;
-    var header = [_]u8{0} ** 18;
+    var header: [18]u8 = @splat(0);
     header[2] = 2;
     std.mem.writeInt(u16, header[12..14], w, .little);
     std.mem.writeInt(u16, header[14..16], h, .little);
@@ -379,7 +379,7 @@ const bdg_parts = [_][]const u8{ "back", "front", "slab" };
 const fnc_items = [_][]const u8{ "art-16x16", "ne-left", "nw", "sw", "se" };
 
 fn writeAlphaTga(buf: *Buf, seed: []const u8, shadow: bool) !void {
-    var header = [_]u8{0} ** 18;
+    var header: [18]u8 = @splat(0);
     header[2] = 2;
     std.mem.writeInt(u16, header[12..14], 16, .little);
     std.mem.writeInt(u16, header[14..16], 16, .little);
@@ -412,7 +412,7 @@ fn writeAlphaTga(buf: *Buf, seed: []const u8, shadow: bool) !void {
 fn writeImportAtlas(buf: *Buf) !void {
     const width = 256;
     const height = 48;
-    var header = [_]u8{0} ** 18;
+    var header: [18]u8 = @splat(0);
     header[2] = 2;
     std.mem.writeInt(u16, header[12..14], width, .little);
     std.mem.writeInt(u16, header[14..16], height, .little);
