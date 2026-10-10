@@ -3,6 +3,7 @@
 #include "ImagePNG.h"
 
 #include "../libpng/png.h"
+#include "bk_memory.h"
 enum EBMMTypes
 {
 	BMM_NO_TYPE,
@@ -51,12 +52,12 @@ CImage* NImage::LoadImagePNG( IDataStream *pStream )
 		  for ( png_uint_32 i=0; i<info->height; i++ )
 			{
     		if ( row_pointers[i] )
-					free( row_pointers[i] );
+					bk_mem_free( row_pointers[i] );
 			}
 		}
 		if ( row_pointers )
 		{
-			free( row_pointers );
+			bk_mem_free( row_pointers );
 			row_pointers = 0;
 		}
 	}
@@ -122,9 +123,9 @@ CImage* NImage::LoadImagePNG( IDataStream *pStream )
     png_destroy_read_struct( &png, &info, 0 );
 		return nullptr;
 	}
-	row_pointers = (png_bytep*)malloc( info->height * sizeof(png_bytep) );
+	row_pointers = (png_bytep*)bk_mem_alloc( info->height * sizeof(png_bytep) );
 	for ( png_uint_32 i=0; i<info->height; i++ )
-		row_pointers[i] = (png_bytep)malloc( info->rowbytes );
+		row_pointers[i] = (png_bytep)bk_mem_alloc( info->rowbytes );
 	png_read_image( png, row_pointers );
 	switch( bmtype )
 	{
@@ -181,8 +182,8 @@ CImage* NImage::LoadImagePNG( IDataStream *pStream )
 	png_read_end( png, info );
 
 	for ( png_uint_32 i=0; i<info->height; i++ )
-		free( row_pointers[i] );
-	free( row_pointers );
+		bk_mem_free( row_pointers[i] );
+	bk_mem_free( row_pointers );
   png_destroy_read_struct( &png, &info, 0 );
 
 	return new CImage( dwWidth, dwHeight, image );
@@ -202,11 +203,11 @@ bool NImage::SaveImageAsPNG( IDataStream *pStream, const IImage *pImage )
 		{
 			for ( png_uint_32 i=0; i<info->height; i++ )
 				if ( row_pointers[i] ) 
-					free( row_pointers[i] );
+					bk_mem_free( row_pointers[i] );
 		}
 		if ( row_pointers ) 
 		{
-			free( row_pointers );
+			bk_mem_free( row_pointers );
 			row_pointers = 0;
 		}
 
@@ -228,9 +229,9 @@ bool NImage::SaveImageAsPNG( IDataStream *pStream, const IImage *pImage )
 
 	info->rowbytes = info->width * info->channels * info->bit_depth / 8;
 
-	row_pointers = (png_bytep*)malloc( info->height * sizeof(png_bytep) );
+	row_pointers = (png_bytep*)bk_mem_alloc( info->height * sizeof(png_bytep) );
 	for ( png_uint_32 i=0; i<info->height; i++ )
-		row_pointers[i] = (png_bytep)malloc( info->rowbytes );
+		row_pointers[i] = (png_bytep)bk_mem_alloc( info->rowbytes );
 	const SColor *pColors = pImage->GetLFB();
 	for ( int iy=0; iy<info->height; ++iy )
 	{
@@ -253,8 +254,8 @@ bool NImage::SaveImageAsPNG( IDataStream *pStream, const IImage *pImage )
 	png_write_end( png, info );
 
  	for ( png_uint_32 i=0; i<info->height; ++i )
-		free(row_pointers[i]);
-	free( row_pointers );
+		bk_mem_free(row_pointers[i]);
+	bk_mem_free( row_pointers );
 
   png_destroy_write_struct( &png, &info );
 

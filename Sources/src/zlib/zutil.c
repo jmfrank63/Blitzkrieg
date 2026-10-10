@@ -6,6 +6,7 @@
 /* @(#) $Id$ */
 
 #include "zutil.h"
+#include "bk_memory.h"
 
 struct internal_state      {int dummy;}; /* for buggy compilers */
 
@@ -200,10 +201,9 @@ void  zcfree (voidpf opaque, voidpf ptr)
 
 #ifndef MY_ZCALLOC /* Any system without a special alloc function */
 
-#ifndef STDC
-extern voidp  calloc OF((uInt items, uInt size));
-extern void   free   OF((voidpf ptr));
-#endif
+/* The default allocators are routed to BkMemory (bk_mem_calloc/bk_mem_free), so
+   every stream whose zalloc/zfree are 0 allocates there and the call sites in
+   the engine stay unchanged. */
 
 voidpf zcalloc (opaque, items, size)
     voidpf opaque;
@@ -211,14 +211,14 @@ voidpf zcalloc (opaque, items, size)
     unsigned size;
 {
     if (opaque) items += size - size; /* make compiler happy */
-    return (voidpf)calloc(items, size);
+    return (voidpf)bk_mem_calloc(items, size);
 }
 
 void  zcfree (opaque, ptr)
     voidpf opaque;
     voidpf ptr;
 {
-    free(ptr);
+    bk_mem_free(ptr);
     if (opaque) return; /* make compiler happy */
 }
 

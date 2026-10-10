@@ -14,10 +14,24 @@
 #endif
 
 #include "Debug.h"
+#include "../BkMemory/bk_memory_sdl.h"
 
 namespace
 {
 bool fail_initialization_for_tests = false;
+
+// SDL allocates through BkMemory like the rest of the process. The hooks have
+// to be in before the first SDL call of any kind (SDL_GetBasePath and
+// SDL_GetError allocate too), so a static initializer installs them when this
+// module loads, ahead of every caller of the module, and the entry points
+// below repeat the call, which is harmless with the same functions.
+bool RouteSdlMemory()
+{
+	static const bool routed = BkMemoryInstallSdlFunctions();
+	return routed;
+}
+
+[[maybe_unused]] const bool g_sdlMemoryRouted = RouteSdlMemory();
 
 // Before the video subsystem starts (Cocoa reads it in Cocoa_VideoInit): the
 // fingers on a MacBook trackpad then arrive as SDL_EVENT_FINGER_* with their
@@ -94,6 +108,7 @@ bool SDLApplication::ShowSplash( const char *bmpPath, int width, int height )
 {
 	if ( !OnMainThread() ) { SetError( "ShowSplash called off main thread" ); return false; }
 	if ( splash_window_ ) return true;
+	RouteSdlMemory();
 	// The splash comes up before Initialize() has run SDL_Init, so open the
 	// video subsystem here. SDL3 refcounts it: HideSplash closes this
 	// reference and Initialize()'s own stays live for the game.
@@ -180,6 +195,7 @@ bool SDLApplication::Initialize(const char *title, int width, int height)
 	if ( !OnMainThread() ) { SetError( "Initialize called off main thread" ); return false; }
 	if ( initialized_ ) return true;
 	if ( fail_initialization_for_tests ) { SetError( "SDL initialization failure injected" ); return false; }
+	RouteSdlMemory();
 	if ( !SDL_SetAppMetadata( "Blitzkrieg", "2.0.0", "org.blitzkrieg.game" ) ) { SetError( "SDL_SetAppMetadata" ); return false; }
 	SetInputHints();
 	if ( !SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS | SDL_INIT_GAMEPAD ) ) { SetError( "SDL_Init" ); return false; }

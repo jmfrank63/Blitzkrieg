@@ -12,6 +12,12 @@ const imgui = @import("editor_imgui");
 /// map-editor-only bridge adapter.
 pub const c = @import("bridge_c");
 
+// BkMemory's entries (Sources/src/BkMemory/bk_memory.h), the process-wide allocator.
+extern fn bk_mem_alloc(size: usize) ?*anyopaque;
+extern fn bk_mem_calloc(n: usize, size: usize) ?*anyopaque;
+extern fn bk_mem_realloc(p: ?*anyopaque, size: usize) ?*anyopaque;
+extern fn bk_mem_free(p: ?*anyopaque) void;
+
 pub const HostError = error{ SdlInitFailed, WindowFailed, EngineFailed, NoDevice, ImguiFailed, FrameFailed };
 
 pub const Options = struct {
@@ -34,6 +40,9 @@ pub const Host = struct {
     /// the bridge refused, SDL's when SDL did.
     pub fn start(options: Options) HostError!Host {
         failure_len = 0;
+        // The first SDL call of the process: a block SDL allocated earlier would be freed
+        // through BkMemory and panic. Repeating it with the same functions is harmless.
+        _ = sdl3.c.SDL_SetMemoryFunctions(bk_mem_alloc, bk_mem_calloc, bk_mem_realloc, bk_mem_free);
         if (!sdl3.c.SDL_Init(sdl3.c.SDL_INIT_VIDEO)) return failWith(error.SdlInitFailed, sdlError());
         errdefer sdl3.c.SDL_Quit();
         freeCommandW();

@@ -5,6 +5,8 @@
 
 #include <vorbis/vorbisfile.h>
 
+#include "../BkMemory/bk_memory.h"
+
 typedef struct SXiphMemoryStream
 {
 	const unsigned char *pData;
@@ -93,7 +95,7 @@ static int AppendPcm( SXiphDecodedVorbis *pDecoded, const char *pBuffer, long nB
 	if ( nBytes <= 0 )
 		return 1;
 
-	pNewData = (char*)realloc( pDecoded->pPcmData, pDecoded->nPcmBytes + nBytes );
+	pNewData = (char*)bk_mem_realloc( pDecoded->pPcmData, pDecoded->nPcmBytes + nBytes );
 	if ( !pNewData )
 		return 0;
 
@@ -156,7 +158,7 @@ void FreeXiphDecodedVorbis( SXiphDecodedVorbis *pDecoded )
 {
 	if ( pDecoded )
 	{
-		free( pDecoded->pPcmData );
+		bk_mem_free( pDecoded->pPcmData );
 		memset( pDecoded, 0, sizeof( *pDecoded ) );
 	}
 }
@@ -172,7 +174,7 @@ int OpenXiphVorbisStreamMemory( const char *pData, int nDataSize, SXiphVorbisStr
 		return 0;
 
 	*ppStream = 0;
-	pStream = (SXiphVorbisStream*)calloc( 1, sizeof( *pStream ) );
+	pStream = (SXiphVorbisStream*)bk_mem_calloc( 1, sizeof( *pStream ) );
 	if ( !pStream )
 		return 0;
 
@@ -186,7 +188,7 @@ int OpenXiphVorbisStreamMemory( const char *pData, int nDataSize, SXiphVorbisStr
 
 	if ( ov_open_callbacks( &pStream->memoryStream, &pStream->vorbisFile, 0, 0, callbacks ) < 0 )
 	{
-		free( pStream );
+		bk_mem_free( pStream );
 		return 0;
 	}
 	pStream->bOpen = 1;
@@ -213,7 +215,7 @@ void CloseXiphVorbisStream( SXiphVorbisStream *pStream )
 	{
 		if ( pStream->bOpen )
 			ov_clear( &pStream->vorbisFile );
-		free( pStream );
+		bk_mem_free( pStream );
 	}
 }
 

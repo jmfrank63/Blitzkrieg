@@ -2168,6 +2168,7 @@ pub fn build(b: *std.Build) void {
     const fontgen = if (platform == .windows_x64) addFontGen(b, target, optimize, toolchain, image, common, formats, misc, platform_runtime, sdl_dynamic) else null;
     const sfx = addSFX(b, target, optimize, toolchain, misc, platform_runtime, common, sdl_dynamic);
     addSfxModuleTest(b, target, toolchain, platform_runtime, sfx, misc, sdl_dynamic, options_bridge, streamio_zig);
+    addBkMemoryCSourcesTest(b, target, platform, toolchain, optimize, test_mode, zlib, libpng, lualib, sdl_dynamic, sdl_dynamic_dep.path("include"));
     const gfx_legacy = if (platform == .windows_x64) addGFX(b, target, optimize, toolchain, misc, platform_runtime, formats, sdl_dynamic) else null;
     const gfx_gpu = addGFXGPU(b, target, optimize, toolchain, misc, platform_runtime, formats, gfx_gpu_zig, sdl_dynamic, sdl_dynamic_dep.path("include"));
     if (!std.mem.eql(u8, renderer, "sdl_gpu") and platform != .windows_x64) @panic("legacy renderer is Windows-only; use -Drenderer=sdl_gpu");
@@ -3032,7 +3033,8 @@ pub fn build(b: *std.Build) void {
     });
     addMsvcIncludePaths(b, cloudsync_facade_test_module, toolchain);
     addMsvcLibraryPaths(b, cloudsync_facade_test_module, toolchain);
-    linkMsvcRuntime(cloudsync_facade_test_module, optimize);
+    // CloudSyncFacade.cpp allocates its strings through bk_mem_*.
+    linkEngineCxxRuntimeFlags(b, cloudsync_facade_test_module, optimize, &.{});
     applyLoaderPath(target, cloudsync_facade_test_module);
     const cloudsync_facade_test = b.addExecutable(.{
         .name = "cloudsync-facade-test",
@@ -3040,14 +3042,21 @@ pub fn build(b: *std.Build) void {
     });
     if (target.result.os.tag == .windows) {
         cloudsync_facade_test.subsystem = .console;
-        cloudsync_facade_test.entry = .{ .symbol_name = "main" };
+        // The CRT's own entry: the facade allocates through BkMemory now, and the allocator and the
+        // operator new copy expect an initialised C runtime (entry `main` faulted at startup).
+        cloudsync_facade_test.entry = .{ .symbol_name = "mainCRTStartup" };
     }
-    // -fentry=main skips the CRT's argv setup, so the mode travels by env.
+    auditBkMemoryImports(cloudsync_facade_test);
+    // The mode still travels by env, which keeps the two run steps identical but for it.
     const run_facade_absent = b.addRunArtifact(cloudsync_facade_test);
     run_facade_absent.setEnvironmentVariable("BK_FACADE_MODE", "absent");
     const run_facade_present = b.addRunArtifact(cloudsync_facade_test);
     run_facade_present.setEnvironmentVariable("BK_FACADE_MODE", "present");
     run_facade_present.setCwd(cloudsync.getEmittedBin().dirname());
+    // The build's PATH entry for BkMemory.dll is relative to the build root and the cwd above is
+    // elsewhere, so the loader would not find it: give the run the installed copy by absolute path.
+    addPathDir(run_facade_present, rootPath(b, "zig-out/bin"));
+    run_facade_present.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     const test_cloudsync_facade_step = b.step("test-cloudsync-facade", "Run the CloudSync C++ facade tests");
     test_cloudsync_facade_step.dependOn(&cloudsync_facade_test.step);
     if (test_mode == .run) {
@@ -4000,6 +4009,8 @@ fn addZlib(
     addLinuxCxxIncludePaths(b, zlib_module);
     addMsvcIncludePaths(b, zlib_module, toolchain);
     zlib_module.addIncludePath(b.path("Sources/src/zlib"));
+    // zutil.c routes zcalloc/zcfree to bk_mem_*; the consumers link BkMemory.
+    zlib_module.addIncludePath(b.path("Sources/src/BkMemory"));
     zlib_module.addCSourceFiles(.{
         .files = zlib_sources,
         .flags = cflagsForOptimize(optimize),
@@ -4029,6 +4040,8 @@ fn addLibpng(
     addMsvcIncludePaths(b, libpng_module, toolchain);
     libpng_module.addIncludePath(b.path("Sources/src/libpng"));
     libpng_module.addIncludePath(b.path("Sources/src/zlib"));
+    // pngmem.c routes png_malloc_default/png_free_default to bk_mem_*.
+    libpng_module.addIncludePath(b.path("Sources/src/BkMemory"));
     libpng_module.addCSourceFiles(.{
         .files = libpng_sources,
         .flags = cflagsForOptimize(optimize),
@@ -4129,6 +4142,8 @@ fn addLuaLib(
     addMsvcIncludePaths(b, lualib_module, toolchain);
     lualib_module.addIncludePath(b.path("Sources/src/LuaLib"));
     lualib_module.addIncludePath(b.path("Sources/src/LuaLib/LuaSrc"));
+    // lmem.c routes luaM_realloc to bk_mem_*; every copy of the file forwards to the one allocator.
+    lualib_module.addIncludePath(b.path("Sources/src/BkMemory"));
     lualib_module.addCSourceFiles(.{
         .files = lualib_c_sources,
         .flags = cflagsForOptimize(optimize),
@@ -4784,6 +4799,47 @@ fn addSFX(
     });
 }
 
+/// Proves the hooked C libraries (zlib, libpng, Lua, SDL) allocate through
+/// BkMemory: the exe takes live count and bytes before, during and after each
+/// library operation and fails by library name. It links the same static
+/// libraries the engine does, so a library still on the CRT shows no delta.
+fn addBkMemoryCSourcesTest(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    platform: build_support.PlatformTarget,
+    toolchain: ToolchainIncludes,
+    optimize: std.builtin.OptimizeMode,
+    test_mode: build_support.TestMode,
+    zlib: *std.Build.Step.Compile,
+    libpng: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    sdl_include: std.Build.LazyPath,
+) void {
+    const exe = addBkMemoryTestModule(b, target, platform, toolchain, optimize, null, "bk-memory-c-sources-test", "tools/zig/bk_memory_c_sources_test.cpp");
+    const module = exe.root_module;
+    module.addIncludePath(b.path("Sources/src/zlib"));
+    module.addIncludePath(b.path("Sources/src/libpng"));
+    module.addIncludePath(b.path("Sources/src/LuaLib/LuaSrc"));
+    module.addIncludePath(sdl_include);
+    module.linkLibrary(libpng);
+    module.linkLibrary(zlib);
+    module.linkLibrary(lualib);
+    linkSdlImport(module, target, sdl_dynamic);
+    const step = b.step("test-bk-memory-c-sources", "Prove zlib, libpng, Lua and SDL allocate through BkMemory (live count and bytes per library)");
+    step.dependOn(&exe.step);
+    if (test_mode == .run) {
+        const run = b.addRunArtifact(exe);
+        // BK_MEM_REPORT=1 so a block the test itself leaks fails the run too.
+        run.setEnvironmentVariable("BK_MEM_REPORT", "1");
+        addPathDir(run, rootPath(b, "zig-out/bin"));
+        run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+        run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
+        run.expectExitCode(0);
+        step.dependOn(&run.step);
+    }
+}
+
 fn addSfxModuleTest(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
@@ -4813,6 +4869,9 @@ fn addSfxModuleTest(
     }
     const run = b.addRunArtifact(exe);
     run.setCwd(b.path("."));
+    // The module test hosts StreamIOOptionsAbi, whose leaks predate the shared allocator; the
+    // report stays visible but does not decide this tier (D079).
+    run.setEnvironmentVariable("BK_MEM_REPORT", "log");
     run.addArg(if (target.result.os.tag == .windows) "zig-out/bin/SFX.dll" else if (target.result.os.tag == .macos) "zig-out/lib/libSFX.dylib" else "zig-out/lib/libSFX.so");
     addPathDir(run, rootPath(b, "zig-out/bin"));
     if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));

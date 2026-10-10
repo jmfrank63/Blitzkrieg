@@ -17,6 +17,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "../BkMemory/bk_memory.h"
+
 namespace
 {
 	// -- The raw ABI, resolved at runtime -----------------------------------
@@ -221,7 +223,7 @@ namespace
 		// bound only cuts off a fingerprint racing its own credentials save.
 		for ( int nTry = 0; nTry < 4 && library.bLoaded; ++nTry )
 		{
-			char *pszOut = static_cast<char *>( std::malloc( nCap ) );
+			char *pszOut = static_cast<char *>( bk_mem_alloc( nCap ) );
 			if ( pszOut == 0 )
 				return 0;
 			pszOut[0] = 0;
@@ -230,10 +232,10 @@ namespace
 				return pszOut; // no credentials saved: empty is the honest identity
 			if ( static_cast<unsigned int>( nLength ) < nCap )
 				return pszOut;
-			std::free( pszOut );
+			bk_mem_free( pszOut );
 			nCap = static_cast<unsigned int>( nLength ) + 1;
 		}
-		return static_cast<char *>( std::calloc( 1, 1 ) );
+		return static_cast<char *>( bk_mem_calloc( 1, 1 ) );
 	}
 
 	// -- Facade handles ------------------------------------------------------
@@ -280,25 +282,25 @@ namespace
 			return -1;
 		}
 		const size_t nEscapedCap = std::strlen( pszFingerprint ) * 2 + 8;
-		char *pszFingerprintEscaped = static_cast<char *>( std::malloc( nEscapedCap ) );
+		char *pszFingerprintEscaped = static_cast<char *>( bk_mem_alloc( nEscapedCap ) );
 		if ( pszFingerprintEscaped == 0 )
 		{
-			std::free( pszFingerprint );
+			bk_mem_free( pszFingerprint );
 			SetLastError2( "cloud sync: out of memory reading the pairing fingerprint" );
 			return -1;
 		}
 		JsonEscape( pszFingerprint, pszFingerprintEscaped, static_cast<unsigned int>( nEscapedCap ) );
-		std::free( pszFingerprint );
+		bk_mem_free( pszFingerprint );
 
 		// Paths are the game's own conventions: the profile directory under
 		// the working directory, the state root beside it. Everything but
 		// the fingerprint is bounded, so its length plus fixed headroom
 		// bounds the document.
 		const size_t nDocCap = std::strlen( pszFingerprintEscaped ) + 4096;
-		char *pszDoc = static_cast<char *>( std::malloc( nDocCap ) );
+		char *pszDoc = static_cast<char *>( bk_mem_alloc( nDocCap ) );
 		if ( pszDoc == 0 )
 		{
-			std::free( pszFingerprintEscaped );
+			bk_mem_free( pszFingerprintEscaped );
 			SetLastError2( "cloud sync: out of memory building the job document" );
 			return -1;
 		}
@@ -310,8 +312,8 @@ namespace
 			pszFingerprintEscaped, bBackupConfig ? "true" : "false", szHostEscaped );
 
 		const int nHandle = library.pfnBegin( pszDoc );
-		std::free( pszDoc );
-		std::free( pszFingerprintEscaped );
+		bk_mem_free( pszDoc );
+		bk_mem_free( pszFingerprintEscaped );
 		// Every failure path out of this function owns its error text: the
 		// local ones set theirs above without touching the DLL, so a caller
 		// re-reading pfnLastError() here would replace a precise message

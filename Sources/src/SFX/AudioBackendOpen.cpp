@@ -4,6 +4,7 @@
 #include "AudioBackendXiphVorbis.h"
 #include "../Platform/Clock.h"
 #include "../Platform/Debug.h"
+#include "../BkMemory/bk_memory.h"
 
 #include <atomic>
 #include <cstdio>
@@ -26,19 +27,19 @@ namespace
 	void* AudioAllocMalloc( size_t sz, void *pUserData )
 	{
 		(void)pUserData;
-		return std::malloc( sz == 0 ? 1 : sz );
+		return bk_mem_alloc( sz == 0 ? 1 : sz );
 	}
 
 	void* AudioAllocRealloc( void *p, size_t sz, void *pUserData )
 	{
 		(void)pUserData;
-		return std::realloc( p, sz == 0 ? 1 : sz );
+		return bk_mem_realloc( p, sz == 0 ? 1 : sz );
 	}
 
 	void AudioAllocFree( void *p, void *pUserData )
 	{
 		(void)pUserData;
-		std::free( p );
+		bk_mem_free( p );
 	}
 
 	ma_context g_context;

@@ -16,6 +16,7 @@
 
 #define PNG_INTERNAL
 #include "png.h"
+#include "bk_memory.h"
 
 /* Borland DOS special memory handler */
 #if defined(__TURBOC__) && !defined(_Windows) && !defined(__FLAT__)
@@ -316,7 +317,7 @@ png_create_struct_2(int type, png_malloc_ptr malloc_fn)
 # if defined(_MSC_VER) && defined(MAXSEG_64K)
    if ((struct_ptr = (png_voidp)halloc(size,1)) != NULL)
 # else
-   if ((struct_ptr = (png_voidp)malloc(size)) != NULL)
+   if ((struct_ptr = (png_voidp)bk_mem_alloc(size)) != NULL)
 # endif
 #endif
    {
@@ -357,7 +358,7 @@ png_destroy_struct_2(png_voidp struct_ptr, png_free_ptr free_fn)
 # if defined(_MSC_VER) && defined(MAXSEG_64K)
       hfree(struct_ptr);
 # else
-      free(struct_ptr);
+      bk_mem_free(struct_ptr);
 # endif
 #endif
    }
@@ -402,7 +403,7 @@ png_malloc_default(png_structp png_ptr, png_uint_32 size)
 # if defined(_MSC_VER) && defined(MAXSEG_64K)
    ret = halloc(size, 1);
 # else
-   ret = malloc((size_t)size);
+   ret = bk_mem_alloc((size_t)size);
 # endif
 #endif
 
@@ -444,7 +445,7 @@ png_free_default(png_structp png_ptr, png_voidp ptr)
 # if defined(_MSC_VER) && defined(MAXSEG_64K)
    hfree(ptr);
 # else
-   free(ptr);
+   bk_mem_free(ptr);
 # endif
 #endif
 }

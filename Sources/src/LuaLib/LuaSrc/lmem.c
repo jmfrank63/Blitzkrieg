@@ -7,6 +7,8 @@
 
 #include <stdlib.h>
 
+#include "bk_memory.h"
+
 #include "lua.h"
 
 #include "ldo.h"
@@ -81,7 +83,7 @@ static void freeblock (void *block) {
     size_t size = *blocksize(block);
     block = checkblock(block);
     memset(block, -1, size+HEADER+MARKSIZE);  /* erase block */
-    (free)(block);  /* free original block */
+    bk_mem_free(block);  /* free original block */
   }
 }
 
@@ -95,7 +97,7 @@ static void *debug_realloc (void *block, size_t size) {
     return NULL;  /* to test memory allocation errors */
   else {
     size_t realsize = HEADER+size+MARKSIZE;
-    char *newblock = (char *)(malloc)(realsize);  /* alloc a new block */
+    char *newblock = (char *)bk_mem_alloc(realsize);  /* alloc a new block */
     int i;
     if (realsize < size) return NULL;  /* overflow! */
     if (newblock == NULL) return NULL;
