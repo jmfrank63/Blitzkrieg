@@ -2039,6 +2039,25 @@ pub fn build(b: *std.Build) void {
     // installed into the game layout; the packet that gives the game a reason
     // to load it is the packet that adds it to the staged runtime files.
     const cloudsync = addCloudSync(b, target, optimize, toolchain);
+    const bk_mem_allocator = b.option(BkMemAllocator, "bk-mem-allocator", "BkMemory backend: safe (SafeAllocator leak records, the default), smp or crt") orelse .safe;
+    bk_memory_artifact = addBkMemory(b, target, optimize, toolchain, bk_mem_allocator);
+    // The library itself is exercised through the test steps; a plain
+    // `zig build` should not have to relink it, so it is only installed by
+    // the steps that need it.
+    const test_bk_memory_zig_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/BkMemory/bk_memory.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    test_bk_memory_zig_module.addOptions("bk_memory_options", bkMemoryOptions(b, bk_mem_allocator));
+    const bk_memory_zig_tests = b.addTest(.{ .root_module = test_bk_memory_zig_module });
+    const run_bk_memory_zig_tests = b.addRunArtifact(bk_memory_zig_tests);
+    const test_bk_memory_zig_step = b.step("test-bk-memory-zig", "Run the BkMemory header, realloc and counter unit tests");
+    test_bk_memory_zig_step.dependOn(&bk_memory_zig_tests.step);
+    if (test_mode == .run) test_bk_memory_zig_step.dependOn(&run_bk_memory_zig_tests.step);
+    const bk_memory_build_step = b.step("bk-memory", "Build the BkMemory shared library");
+    bk_memory_build_step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     const copy_data = b.option(bool, "copy-data", "Copy Data into install layout (the default)") orelse true;
     const use_prebuilt_shaders = b.option(bool, "use-prebuilt-shaders", "Skip gfxgpu-shaders and reuse existing zig-out/shaders outputs") orelse false;
     const startup_trace = b.option(bool, "startup-trace", "Emit Windows startup checkpoint markers to the debugger") orelse false;
@@ -3425,6 +3444,52 @@ fn addCloudSync(
         .linkage = .dynamic,
         .root_module = cloudsync_module,
         .win32_module_definition = b.path(def_path),
+    });
+}
+
+/// Backend of the process-wide allocator in BkMemory: `safe` is SafeAllocator
+/// over the smp allocator (leak records), `smp` the release candidate, `crt`
+/// the CRT baseline for the benchmark.
+const BkMemAllocator = enum { safe, smp, crt };
+
+/// The BkMemory library, set early in build() so every module that links the
+/// allocator (the later operator new/delete rollout) can reach it.
+var bk_memory_artifact: ?*std.Build.Step.Compile = null;
+
+fn bkMemoryOptions(b: *std.Build, allocator: BkMemAllocator) *std.Build.Step.Options {
+    const options = b.addOptions();
+    options.addOption(u8, "allocator_mode", @intFromEnum(allocator));
+    return options;
+}
+
+fn addBkMemory(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    allocator: BkMemAllocator,
+) *std.Build.Step.Compile {
+    // Pure zig like CloudSync: the C ABI in bk_memory.h is the whole surface.
+    const module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/BkMemory/bk_memory.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    module.addOptions("bk_memory_options", bkMemoryOptions(b, allocator));
+    addMsvcIncludePaths(b, module, toolchain);
+    addMsvcLibraryPaths(b, module, toolchain);
+    linkMsvcRuntime(module, optimize);
+    applyLoaderPath(target, module);
+    return b.addLibrary(.{
+        .name = "BkMemory",
+        .linkage = .dynamic,
+        .root_module = module,
+        // Only x86_64 has a def file; exports are explicit elsewhere.
+        .win32_module_definition = if (target.result.os.tag == .windows and target.result.cpu.arch != .x86)
+            b.path("Sources/src/BkMemory/BkMemory.x64.def")
+        else
+            null,
     });
 }
 
