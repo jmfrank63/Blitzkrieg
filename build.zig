@@ -10705,9 +10705,11 @@ fn seasonDataInputs(b: *std.Build) !SeasonDataInputs {
     const io = b.graph.io;
     // Declared before the existence check, so a sparse checkout that later gains Data/Units
     // reruns the configuration. Declaring a missing directory fails the configuration, so the
-    // always present parent stands in for it; the declaration is not recursive, so Data/Units
-    // and every walked subdirectory are declared too once they exist.
-    b.dependOnDirectoryContents(b.path("Data"));
+    // nearest existing parent stands in for it: Data, or the build root when the checkout has no
+    // Data at all (the MinGW job's). The declaration is not recursive, so Data/Units and every
+    // walked subdirectory are declared too once they exist.
+    const has_data = if (b.root.root_dir.handle.access(io, "Data", .{})) true else |_| false;
+    b.dependOnDirectoryContents(b.path(if (has_data) "Data" else "."));
     var dir = b.root.root_dir.handle.openDir(io, "Data/Units", .{ .iterate = true }) catch |err| switch (err) {
         // CI's sparse checkouts for the jobs that never stage the game (the
         // Linux, MinGW and Intel macOS ones) leave out Data/Units. Staging
