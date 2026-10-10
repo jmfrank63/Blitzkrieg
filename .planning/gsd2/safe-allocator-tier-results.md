@@ -38,7 +38,26 @@ the file after every two tiers with `docs(planning): safe allocator tier results
 | resource-editor-smoke | `zig build resource-editor-smoke` | 0 | 83 s | count | smoke PASS, smoke-edit PASS; `bk_mem: 43703 leaked block(s)` (last run in log) |
 | resource-editor-batch | `zig build resource-editor-batch` | 0 | 172 s | count | batch check PASS (21 projects); `bk_mem: 43588 leaked block(s)` |
 | resource-editor-game-reads-it | `zig build resource-editor-game-reads-it` | 0 | 288 s | count | auto PASS (154 actions); `bk_mem: 43709 leaked block(s)` |
+| resource-editor-auto-core | `zig build resource-editor-auto-core` | 0 | 140 s | count | auto PASS; `bk_mem: 43713 leaked block(s)` (last report in log) |
+| resource-editor-auto-wpn | `zig build resource-editor-auto-wpn` | 0 | 94 s | count | auto PASS; `bk_mem: 43713 leaked block(s)` (last report in log) |
+| resource-editor-auto-unt | `zig build resource-editor-auto-unt` | 0 | 107 s | count | auto PASS; `bk_mem: 43773 leaked block(s)` (last report in log) |
+| resource-editor-auto-spt | `zig build resource-editor-auto-spt` | 0 | 95 s | count | auto PASS; `bk_mem: 43734 leaked block(s)` (last report in log) |
+| resource-editor-auto-msh | `zig build resource-editor-auto-msh` | 0 | 149 s | count | auto PASS; `bk_mem: 44151 leaked block(s)` (last report in log) |
+| resource-editor-auto-obt | `zig build resource-editor-auto-obt` | 0 | 93 s | count | auto PASS; `bk_mem: 43717 leaked block(s)` (last report in log) |
+| resource-editor-auto-fnc | `zig build resource-editor-auto-fnc` | 0 | 94 s | count | auto PASS; `bk_mem: 43711 leaked block(s)` (last report in log) |
+| resource-editor-auto-bld | `zig build resource-editor-auto-bld` | 0 | 100 s | count | auto PASS; `bk_mem: 43717 leaked block(s)` (last report in log) |
+| resource-editor-auto-bdg | `zig build resource-editor-auto-bdg` | 0 | 107 s | count | auto PASS; `bk_mem: 43711 leaked block(s)` (last report in log) |
+| resource-editor-auto-pcp | `zig build resource-editor-auto-pcp` | 0 | 122 s | count | auto PASS; `bk_mem: 43769 leaked block(s)` (last report in log) |
+| resource-editor-auto-eff | `zig build resource-editor-auto-eff` | 0 | 105 s | count | auto PASS; `bk_mem: 43705 leaked block(s)` (last report in log) |
+| resource-editor-auto-til | `zig build resource-editor-auto-til` | 0 | 89 s | count | auto PASS; `bk_mem: 43704 leaked block(s)` (last report in log) |
+| resource-editor-auto-3rd | `zig build resource-editor-auto-3rd` | 0 | 88 s | count | auto PASS; `bk_mem: 43226 leaked block(s)` (last report in log) |
+| resource-editor-auto-3rv | `zig build resource-editor-auto-3rv` | 0 | 90 s | count | auto PASS; `bk_mem: 43472 leaked block(s)` (last report in log) |
+| resource-editor-auto-mip | `zig build resource-editor-auto-mip` | 0 | 88 s | count | auto PASS; `bk_mem: 43714 leaked block(s)` (last report in log) |
+| resource-editor-auto-chc | `zig build resource-editor-auto-chc` | 0 | 88 s | count | auto PASS; `bk_mem: 43721 leaked block(s)` (last report in log) |
+| resource-editor-auto-cgc | `zig build resource-editor-auto-cgc` | 0 | 87 s | count | auto PASS; `bk_mem: 43721 leaked block(s)` (last report in log) |
+| resource-editor-auto-mdc | `zig build resource-editor-auto-mdc` | 0 | 85 s | count | auto PASS; `bk_mem: 43703 leaked block(s)` (last report in log) |
+| resource-editor-auto-gui | `zig build resource-editor-auto-gui` | 0 | 339 s | count | auto PASS; `bk_mem: 43420 leaked block(s)` (last report in log) |
 
-## Still to run (T04 verify line and Do list)
+## Still to run (T04 leftovers)
 
-map-editor-game-reads-it-m3 (rerun, redirect elsewhere), Game headless start, resource-editor-auto-<editor> for core, wpn, unt, spt, msh, obt, fnc, bld, bdg, pcp, eff, til, 3rd, 3rv, mip, chc, cgc, mdc, gui.
+map-editor-game-reads-it-m3 (rerun, redirect elsewhere), Game headless start. Full sweep (tools/zig/run-resource-sweep.sh) left to the maintainer.

@@ -280,6 +280,28 @@ Decision:
   `_wctype`, `__pctype_func`); it works as a benchmark and the rollout must make the release BkMemory use the
   same dynamic CRT as the engine DLLs.
 
+## Resource Editor tiers on BkMemory (M003 S02 T05)
+
+All run in debug on win-home, one foreground command each, with `BK_MEM_REPORT=count` (the leak summary line is
+printed and the exit code stays 0). Full per-tier rows, durations and log names are in
+`.planning/gsd2/safe-allocator-tier-results.md`.
+
+| Tier | Result | Leaked blocks at exit |
+| --- | --- | --- |
+| `resource-editor-host-check` | pass | 43750 |
+| `resource-editor-smoke` | pass | 43703 |
+| `resource-editor-batch` | pass | 43588 |
+| `resource-editor-game-reads-it` | pass | 43709 |
+| `resource-editor-auto-<editor>`, 19 editors (core, wpn, unt, spt, msh, obt, fnc, bld, bdg, pcp, eff, til, 3rd, 3rv, mip, chc, cgc, mdc, gui) | all pass | 43226 to 44151 (msh highest, 3rd lowest) |
+
+- The count is the same order in every editor, so it is a fixed start-up residue (engine singletons kept for the
+  process lifetime), not per-editor growth. S04 owns driving it to zero.
+- No editor needed an engine fix: the allocator rollout caused no cross-allocator free, exit 4 or preview-scene
+  failure in any Resource Editor tier.
+- Every resource-editor run step prints the `bk_mem:` summary line, so T04's helper already covers them.
+- `test-editor-bridge` (debug) passed with 151745 leaked blocks but took about 49 min against the 1022 s
+  baseline; not investigated in T05, flagged for S04.
+- The full sweep `tools/zig/run-resource-sweep.sh` (about 27 min) is left to the maintainer.
 ## Results matrix
 
 | Check | Windows x64 MSVC (win-home) | Linux x64 | macOS arm64 | macOS x64 |
