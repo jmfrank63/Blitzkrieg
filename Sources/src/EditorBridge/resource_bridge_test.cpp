@@ -2708,10 +2708,24 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		Check( nShow == BK_EDITOR_OK, ( "preview: Show " + szLabel + ": " + BkEditorLastMessage( pSession ) ).c_str() );
 		Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, ( "preview: Run " + szLabel ).c_str() );
 		// About a second of frames, so the effect's particles (which start
-		// 200-800 ms in) and the sprite's animation have run.
+		// 200-800 ms in) and the sprite's animation have run. A refused frame
+		// is counted and its message kept: the CI runner's software Vulkan has
+		// lost frames here, and identical captures after that point were the
+		// only symptom.
 		const auto start = std::chrono::steady_clock::now();
+		int nFrames = 0, nRefused = 0;
+		std::string szFirstRefusal;
 		while ( std::chrono::steady_clock::now() - start < std::chrono::milliseconds( 1000 ) )
-			BkEditorFrame( pSession );
+		{
+			const BkEditorStatus nFrame = BkEditorFrame( pSession );
+			++nFrames;
+			if ( nFrame != BK_EDITOR_OK )
+			{
+				++nRefused;
+				if ( szFirstRefusal.empty() )
+					szFirstRefusal = BkEditorLastMessage( pSession );
+			}
+		}
 		const fs::path tga = scratch / ( szLabel + ".tga" );
 		const BkEditorStatus nCapture = BkEditorCaptureFrame( pSession, tga.string().c_str() );
 		const long long nMs = (long long)std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now() - start ).count();
@@ -2732,6 +2746,9 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		   + " fixture=tools/zig/fixtures/resource_editor/" + capture.pszExt + "/project." + capture.pszExt
 		   + " show_status=" + std::to_string( int( nShow ) )
 		   + " capture_status=" + std::to_string( int( nCapture ) )
+		   + " frames=" + std::to_string( nFrames )
+		   + " refused=" + std::to_string( nRefused )
+		   + " first_refusal=\"" + szFirstRefusal + "\""
 		   + " non-black-non-magenta=" + std::to_string( fShare )
 		   + " changed-vs-empty=" + std::to_string( fChanged )
 		   + " changed-vs-reference=" + std::to_string( fVsReference )
