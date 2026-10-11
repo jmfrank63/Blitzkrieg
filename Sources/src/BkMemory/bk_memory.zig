@@ -36,8 +36,12 @@ const backing: std.mem.Allocator = switch (mode) {
     .safe_c, .crt => std.heap.c_allocator,
 };
 
+/// The debug instance's trace covers 24 frames (7 is the SafeAllocator
+/// default) because on Windows every allocation already spends
+/// operator new plus the MSVC STL allocator inlines on plumbing, which left
+/// no captured frame for the engine call site the leak reports name.
 var instance: if (use_safe) std.heap.SafeAllocator else void =
-    if (use_safe) std.heap.SafeAllocator.init(backing, .{ .canary = canary }) else {};
+    if (use_safe) std.heap.SafeAllocator.init(backing, .{ .canary = canary, .stack_trace_frames = 24 }) else {};
 
 const Header = extern struct {
     size: u64,
