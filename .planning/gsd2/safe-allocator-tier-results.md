@@ -107,3 +107,59 @@ map-editor-game-reads-it-m3 (rerun, redirect elsewhere), Game headless start. Fu
 | cross compile x86_64-linux-gnu | `zig build test-resource-bridge test-resource-model-comparator -Dtarget=x86_64-linux-gnu -Dtest-mode=compile` | 1 | n/a | compile | win-home has no Linux libc headers: `'stdio.h' file not found` from PortableCrt.h in MapFile and zlib (not code this task touched), plus a libSDL3.so symlink PermissionDenied. CI (Linux job) checks it |
 | cross compile aarch64-macos | `zig build test-resource-bridge test-resource-model-comparator -Dtarget=aarch64-macos -Dtest-mode=compile` | 1 | n/a | compile | needs `-Dsystem_include_path`, `-Dsystem_framework_path`, `-Dlibrary_path` (macOS SDK sysroot) that win-home lacks; configure stops before compiling. CI macOS arm64 checks the link |
 | cross compile x86_64-macos | `zig build test-resource-bridge test-resource-model-comparator -Dtarget=x86_64-macos -Dtest-mode=compile` | 1 | n/a | compile | same sysroot requirement; CI macOS x64 checks the `_bk_mem_*` link |
+
+## Engine-linking executables (T08)
+
+The audit asked for by D085/R053: every `addExecutable` in build.zig whose module links an engine
+library, zlib, libpng, Lua or SDL, with its BkMemory link and SDL hook. The hook is one of:
+`static` - SDLApplication.cpp's `g_sdlMemoryRouted` static initializer (Sources/src/Platform/SDLApplication.cpp:34),
+before `main`; `main` - an explicit `BkMemoryInstallSdlFunctions()` first thing in the tool's `main`;
+`zig` - `bk_memory.installSdlMemoryFunctions(sdl3.c)` before `SDL_Init`, or kit/host.zig's
+`SDL_SetMemoryFunctions` for the editors. Audit made 2026-10-11 on win-home.
+
+| Executable (step) | Engine link | BkMemory | SDL hook | CI jobs |
+|---|---|---|---|---|
+| Game.exe (install-game) | full engine | linkEngineCxxRuntimeEngine | static | windows-game, mingw-game, windows-arm-game, macos-game, macos-intel-game, linux-game, linux-arm-game |
+| MapEditor.exe (install-map-editor and every map-editor-* tier) | full engine + editor bridge | linkBkMemoryAllocator + bridge | zig (kit/host.zig:45) | windows-map-editor, mingw-map-editor, macos-map-editor, macos-intel-map-editor, linux-map-editor, linux-arm-map-editor |
+| ResourceEditor.exe (install-resource-editor and every resource-editor-* tier) | full engine + editor bridge | linkBkMemoryAllocator (resource_app/main.zig:133) | zig (kit/host.zig:45) | windows-resource-editor, mingw-resource-editor, macos-resource-editor, macos-intel-resource-editor, linux-resource-editor, linux-arm-resource-editor |
+| editor-bridge-test (test-editor-bridge) | full engine | linkEngineCxxRuntimeEngine + audit | main (editor_bridge_test.cpp:11763) | windows-game, macos-game, linux-game |
+| resource-bridge-test and the D-11 comparator test (test-resource-bridge, test-resource-model, test-resource-model-comparator, test-resource-mod-roundtrip) | full engine | linkEngineCxxRuntimeEngine + audit | main (resource_bridge_test.cpp:9284, resource_mod_roundtrip_test.cpp:807) | windows-game/-resource-editor, macos-*, linux-* |
+| random-missions-test, rmg-determinism-test, composer-roundtrip-test, preview-scene-spike (test-random-missions, test-rmg-*) | full engine | linkEngineCxxRuntimeEngine + audit | main (random_missions_test.cpp:423, rmg_determinism_test.cpp:229, composer_roundtrip_test.cpp:435, preview_scene_spike.cpp:198) | windows-game (random missions all/only), macos-game, linux-game |
+| platform-runtime test family (test-platform-foundation, test-platform-system, test-platform-modules, test-platform-debug, test-platform-socket-abi, test-platform-events, test-platform-controller, test-platform-clipboard, test-platform-network, test-network-*, test-game-frame, test-game-loop, test-game-bootstrap, test-game-command-line, game system keys/mouse capture, platform window test) | Platform/System, SDLApplication, sockets | linkEngineCxxRuntimeFlags (T08) + audit for the SDL ones | static (SDLApplication.cpp:34) or main (platform_system_test.cpp:27, network_system_gate.cpp:22) | windows-game (foundation matrix), mingw-platform, macos-intel-platform, linux-arm-platform; the rest build per game/map job |
+| gfxgpu-factory-test (gfxgpu-factory-test) | engine + SDL GPU | linkEngineCxxRuntimeEngine + audit | main (gfxgpu_factory_test.cpp:242) | windows-game, linux-game, macos-game |
+| gfxgpu-abi-test, gfxgpu core/compatibility tests | GfxGpuZig + engine | linkEngineCxxRuntimeEngine / linkBkMemoryAllocator | static or none (no SDL window) | windows-game, macos-game, linux-game |
+| editor-overlay-spike, gfxgpu-smoke, gpu-device-probe (Zig SDL hosts) | GfxGpuZig + sdl3 | linkBkMemoryAllocator | zig (T08: editor_overlay_spike.zig:52, gfxgpu_smoke.zig:297, gpu_device_probe.zig:17) | gpu-device-probe all platform jobs; overlay spike build-only (editor-overlay-spike-build) on windows-map-editor, mingw-map-editor, linux-map-editor |
+| bk-memory-zig-host-test, bk-memory cross-module test, platform clock/sync/dynamic/storage gates, cloudsync and streamio tests, input/sfx/ui/anim/font/gfx module tests | engine libraries per module | linkEngineCxxRuntime* (S02) | not SDL users (or static via SDLApplication) | platform/game jobs per tier |
+
+Guard: `bk-memory-import-audit` now also audits the T08 test executables. Registrations made before
+the audit run step exists are queued and drained after it (build.zig `bk_audit_pending`), which is
+what let platform-system-test (created earlier in build()) join. Game-bootstrap-smoke is the one
+C++ exe that cannot take `linkEngineCxxRuntime` whole: it links GfxGpuZig, and on MSVC that static
+library already brings Zig's libc, so the helper's linkMsvcRuntime names a second CRT (duplicate
+`_cexit`/`_wctype`, measured twice). It gets new_delete.cpp and the BkMemory import directly
+(build.zig addGameBootstrapSmoke) without the MSVC CRT, which the audit accepts.
+
+| Tier | Command | Exit | Time | Mode | Result |
+|---|---|---|---|---|---|
+| test-platform-system | `zig build test-platform-system -Dtest-mode=run` | 0 | minutes | count | pass; parent `bk_mem: 0 leaked block(s)`, child 1 |
+| test-network-system-gate | `zig build test-network-system-gate -Dtest-mode=run` | 0 | minutes | count | `network/system gate passed: fixture=c70d495e tcp=4 child=23`; `bk_mem: 0` |
+| test-platform-controller | `zig build test-platform-controller -Dtest-mode=run` | 0 | minutes | count | `platform controller passed`; `bk_mem: 0` |
+| test-platform-socket-abi | `zig build test-platform-socket-abi -Dtest-mode=run` | 0 | minutes | count | `platform socket ABI passed`; `bk_mem: 0` |
+| test-platform-events | `zig build test-platform-events -Dtest-mode=run` | 0 | minutes | count | pass (SDL event translation); `bk_mem: 0` |
+| test-game-frame | `zig build test-game-frame -Dtest-mode=run` | 0 | minutes | count | `game frame contract compiled`; `bk_mem: 229 leaked block(s)` (S04's ledger, not this task's) |
+| test-game-loop | `zig build test-game-loop -Dtest-mode=run` | 0 | minutes | count | `game loop policy passed`; `bk_mem: 0` |
+| test-game-bootstrap | `zig build test-game-bootstrap -Dtest-mode=run` | 0 | minutes | count | after the new_delete/BkMemory change: `game bootstrap: SDL window, event/controller services, 3 GfxGpu restart cycles, clean shutdown`; `bk_mem: 0` |
+| gpu-device-probe | `zig build gpu-device-probe` | 0 | seconds | n/a | `video=yes device=yes driver=direct3d12 window=yes claim=yes` with the T08 hook |
+| gfxgpu-smoke | `zig build gfxgpu-smoke` | 0 | minutes | n/a | direct3d12, 25 shader pairs created and released with the T08 hook |
+| editor-overlay-spike | `zig build editor-overlay-spike -- --hidden` | 0 | minutes | n/a | `overlay-spike: PASS driver=direct3d12 ... hidden=true` with the T08 hook |
+| test-resource-bridge | `zig build test-resource-bridge -Dtest-mode=run -Doptimize=ReleaseFast` | 0 | minutes | count | `resource-bridge: Project+Tree OK (21 fixtures)`, no bad-header-magic panic |
+| test-resource-model-comparator | `zig build test-resource-model-comparator -Dtest-mode=run -Doptimize=ReleaseFast` | 0 | minutes | count | `VERDICT=PASS` |
+| test-resource-model | `zig build test-resource-model -Dtest-mode=run -Doptimize=ReleaseFast` | 0 | minutes | count | `VERDICT=PASS` (aggregate sweep over shipped data) |
+| test-resource-bridge, debug | `zig build test-resource-bridge -Dtest-mode=run` | TIMEOUT | stopped at 10 min | count | same shape as T07's 33+ min debug record: SafeAllocator stack recording, S04's topic |
+| bk-memory-import-audit | `zig build bk-memory-import-audit` | 0 | minutes | n/a | `33 module(s) audited, 0 failure(s)` including the T08 registrations |
+| cross compile x86_64-linux-gnu | `zig build test-resource-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=compile` | 1 | n/a | compile | environment-blocked as in T07: no Linux libc headers on win-home (`'stdio.h' file not found` from PortableCrt.h) plus libSDL3.so symlink PermissionDenied; CI Linux checks it |
+| cross compile aarch64-macos | `zig build test-resource-bridge -Dtarget=aarch64-macos -Dtest-mode=compile` | 1 | n/a | compile | environment-blocked: macOS SDK sysroot options required, win-home lacks them; CI macOS arm64 checks it |
+| cross compile x86_64-macos | `zig build test-resource-bridge -Dtarget=x86_64-macos -Dtest-mode=compile` | 1 | n/a | compile | same sysroot requirement; CI macOS x64 checks it |
+
+Debug runs of the touched tiers were each stopped by the one-command bound, not by a failure; the
+release runs above and CI's debug jobs are the proof for them.
