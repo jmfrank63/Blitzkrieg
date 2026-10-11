@@ -5014,6 +5014,16 @@ void PreviewBeforeDraw( SEditorSession *pBase )
 {
 	ResourceState &state = StateOf( static_cast<BkEditorSession *>( pBase ) );
 	const NTimer::STime time = UpdateGameTimer();
+	// The CI runner's preview animations have stalled between shots while the
+	// same code passed locally: this traces the game time's own trajectory, so
+	// a stalled run shows whether the timer was called at all, and with which
+	// deltas, instead of the symptom (two identical captures).
+	static NTimer::STime traced = 0;
+	if ( time - traced >= 200 || time < traced )
+	{
+		NPlatform::DebugWriteFormat( "preview timer: time=%u dt=%u\n", unsigned( time ), unsigned( time - traced ) );
+		traced = time;
+	}
 	if ( state.pPreviewObj != nullptr )
 		state.pPreviewObj->Update( time );
 	for ( IVisObj *pMember : state.previewMembers )
