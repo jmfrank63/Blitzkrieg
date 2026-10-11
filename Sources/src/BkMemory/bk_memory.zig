@@ -365,14 +365,32 @@ fn exitNow(code: u32) noreturn {
 
 /// The final leak check at library detach, so a program that never calls
 /// `bk_mem_report` still gets its report. A held shard mutex means a thread
-/// was killed mid-allocation (ExitProcess), and the records are not trusted.
+/// was mid-allocation: Windows' ExitProcess kills the other threads without
+/// unwinding, so there the hold is permanent and the records are not trusted;
+/// POSIX exit() runs this destructor while the other threads still run (the
+/// single-instance helper's detached accept and connection threads (WR-A02)
+/// outlive main), so there a hold is one allocation in flight and the walk
+/// waits it out before declaring the records untrusted.
 fn detachHook() void {
     if (@atomicLoad(bool, &closed, .acquire)) return;
     const policy = reportPolicy();
     if (policy == .off) return;
     const log = std.log.scoped(.BkMemory);
     if (use_safe) {
+        const hold_is_permanent = builtin.os.tag == .windows;
         for (&instance.threads) |*t| {
+            if (t.mutex == .unlocked) continue;
+            if (!hold_is_permanent) {
+                // The holder unlocks within the allocation it is inside -
+                // microseconds, not the 100 ms this waits - so a hold that
+                // survives the wait is a genuinely stuck thread, and only
+                // that reaches the exit below.
+                var waits: usize = 0;
+                const nap: std.c.timespec = .{ .sec = 0, .nsec = 1_000_000 };
+                while (t.mutex != .unlocked and waits < 100) : (waits += 1) {
+                    _ = std.c.nanosleep(&nap, null);
+                }
+            }
             if (t.mutex != .unlocked) {
                 log.err("allocator in use at exit", .{});
                 exitNow(exit_in_use);
