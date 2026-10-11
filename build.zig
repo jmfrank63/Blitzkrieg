@@ -1871,6 +1871,11 @@ pub fn build(b: *std.Build) void {
     linkBkMemoryAllocator(b, gpu_device_probe_module, true);
     const gpu_device_probe = b.addExecutable(.{ .name = "gpu-device-probe", .root_module = gpu_device_probe_module });
     const gpu_device_probe_run = b.addRunArtifact(gpu_device_probe);
+    // The probe initialises the GPU stack (the Vulkan loader and its driver,
+    // through SDL's hooked allocator) and never tears it down, so its blocks
+    // would read as leaks at exit; the report stays informational, like the
+    // factory test's.
+    setLeakReportLog(gpu_device_probe_run);
     gpu_device_probe_run.step.dependOn(&b.addInstallArtifact(gpu_device_probe, .{}).step);
     gpu_device_probe_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{ .dest_dir = .{ .override = .bin } }).step);
     gpu_device_probe_run.setCwd(b.path("."));
@@ -2422,6 +2427,11 @@ pub fn build(b: *std.Build) void {
     // (gfxgpu_factory_test.cpp, ModulePathFromCommandLine).
     if (target.result.os.tag == .windows) gfx_gpu_factory_test.entry = .{ .symbol_name = "main" };
     const gfx_gpu_factory_test_run = b.addRunArtifact(gfx_gpu_factory_test);
+    // The GPU stack the factory loads (the Vulkan loader and its driver, through
+    // SDL's hooked allocator) leaks by design at process exit - the same
+    // third-party leak the Game's detach report stays off for - so the report
+    // is informational only and must not turn into the leak-gate exit 3.
+    setLeakReportLog(gfx_gpu_factory_test_run);
     gfx_gpu_factory_test_run.step.dependOn(&b.addInstallArtifact(gfx_gpu, .{}).step);
     // The module's own dependencies: on Windows a DLL's imports resolve from
     // the executable's directory and PATH, not from the DLL's, so the runtime
