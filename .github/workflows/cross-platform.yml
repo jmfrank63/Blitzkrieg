@@ -313,8 +313,12 @@ jobs:
     # The Resource Editor's engine-hosted steps, split from windows-game
     # (run 37691999377: 25 minutes of them on top of the shared engine build,
     # about 23 cold). This job restores the caches windows-game saves and
-    # does not save its own.
-    timeout-minutes: 90
+    # does not save its own. Under the debug SafeAllocator the drawn preview
+    # frames take seconds each on the hosted runners (the M003 timer trace
+    # measured 1.3-14 s per frame), which pushed this job past 90 minutes
+    # (run 38127992252: cancelled at 91); S04's allocator decision owns the
+    # slowdown, the budget here is sized for it.
+    timeout-minutes: 150
 
 
     steps:
@@ -607,7 +611,9 @@ jobs:
     # The Map Editor's steps, split from windows-game (run 37691999377: 18
     # minutes of them on top of the shared engine build, about 23 cold). This
     # job restores the caches windows-game saves and does not save its own.
-    timeout-minutes: 75
+    # The debug SafeAllocator's per-frame cost (M003) measured 76 minutes here,
+    # inside the old 75-minute budget by one minute.
+    timeout-minutes: 120
 
 
     steps:
@@ -1065,7 +1071,9 @@ jobs:
     # tool on top of everything else. Measured on run 35639094606 - the tier
     # step alone took 38 minutes on macos-14 and the job finished in 43 of its
     # 45; windows-latest was still building when it hit 60 and was cancelled.
-    timeout-minutes: 90
+    # The debug SafeAllocator's seconds-per-frame previews measured 91 minutes
+    # here on run 38119220988, inside the old 90 by seconds.
+    timeout-minutes: 150
 
 
     steps:
@@ -1265,8 +1273,10 @@ jobs:
     name: "macOS arm64 - Resource Editor"
     runs-on: macos-14
     # Split from macos-game (2026-10-08) so each product shows its own result. It restores
-    # the caches macos-game saves and does not save its own.
-    timeout-minutes: 90
+    # the caches macos-game saves and does not save its own. The debug
+    # SafeAllocator's seconds-per-frame previews measured 91 minutes here on
+    # run 38119220988, past the old 90 (cancelled).
+    timeout-minutes: 150
 
     steps:
       - name: Check out source
@@ -1494,8 +1504,10 @@ jobs:
     name: "macOS arm64 - Map Editor"
     runs-on: macos-14
     # Split from macos-game (2026-10-08) so each product shows its own result. It restores
-    # the caches macos-game saves and does not save its own.
-    timeout-minutes: 90
+    # the caches macos-game saves and does not save its own. The debug
+    # SafeAllocator's seconds-per-frame previews measured 91 minutes here on
+    # run 38119220988, past the old 90.
+    timeout-minutes: 120
 
     steps:
       - name: Check out source
