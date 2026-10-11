@@ -36,12 +36,32 @@ const backing: std.mem.Allocator = switch (mode) {
     .safe_c, .crt => std.heap.c_allocator,
 };
 
-/// The debug instance's trace covers 24 frames (7 is the SafeAllocator
-/// default) because on Windows every allocation already spends
-/// operator new plus the MSVC STL allocator inlines on plumbing, which left
-/// no captured frame for the engine call site the leak reports name.
+/// The depth the platform's capture cost allows without `-Dbk-mem-stack-frames`.
+/// Windows keeps 24 because every allocation there already spends operator new
+/// plus the MSVC STL allocator inlines on plumbing, which left no captured
+/// frame for the engine call site the leak reports name, and its
+/// RtlCaptureStackBackTrace makes a deeper stack a fixed small cost. macOS
+/// arm64 keeps 24 because its captures walk frame pointers (debug.SelfInfo
+/// below). Linux goes back to the SafeAllocator default of 7: there every
+/// captured frame is unwound from the images' DWARF tables, and perf over the
+/// leak-recorded resource bridge tier showed about 70 % of the CPU in that
+/// unwind, which ran the tier past its CI timeout.
+const default_stack_frames: usize = if (builtin.os.tag == .windows or
+    (builtin.os.tag.isDarwin() and builtin.cpu.arch == .aarch64))
+    24
+else
+    7;
+
+/// Frames recorded per allocation, from -Dbk-mem-stack-frames. 0 keeps the
+/// platform default; a Linux or macOS leak investigation passes 24 explicitly
+/// for that run to get the full stacks back.
+const stack_frames: usize = if (build_options.stack_frames != 0)
+    build_options.stack_frames
+else
+    default_stack_frames;
+
 var instance: if (use_safe) std.heap.SafeAllocator else void =
-    if (use_safe) std.heap.SafeAllocator.init(backing, .{ .canary = canary, .stack_trace_frames = 24 }) else {};
+    if (use_safe) std.heap.SafeAllocator.init(backing, .{ .canary = canary, .stack_trace_frames = stack_frames }) else {};
 
 /// Every allocation of a debug build records a stack, and std.debug unwinds
 /// it from the images' unwind tables before it tries frame pointers. On macOS
@@ -546,4 +566,12 @@ test "leak count through deinitLog on a local instance" {
     a.free(freed);
     _ = kept;
     try testing.expectEqual(@as(usize, 1), local.deinitLog(false));
+}
+
+test "default stack depth follows the platform" {
+    // An explicit -Dbk-mem-stack-frames is the caller's call, not the rule.
+    if (build_options.stack_frames != 0) return;
+    const expected: usize = if (builtin.os.tag == .windows or
+        (builtin.os.tag.isDarwin() and builtin.cpu.arch == .aarch64)) 24 else 7;
+    try testing.expectEqual(expected, stack_frames);
 }

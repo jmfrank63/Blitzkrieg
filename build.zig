@@ -979,7 +979,10 @@ pub fn build(b: *std.Build) void {
     // (random missions repeat=20 heap flat on both, Game frame time within noise; crt does not link with the
     // dynamic CRT). See .planning/gsd2/safe-allocator-design.md section 5.
     const bk_mem_allocator = b.option(BkMemAllocator, "bk-mem-allocator", "BkMemory backend: safe (SafeAllocator leak records over smp, the default in every optimize mode), safe_page, safe_c, smp or crt (crt and safe_c do not link on MSVC)") orelse .safe;
-    bk_memory_artifact = addBkMemory(b, target, optimize, toolchain, bk_mem_allocator);
+    // 0 keeps the platform default from bk_memory.zig; a Linux or macOS leak
+    // investigation passes -Dbk-mem-stack-frames=24 explicitly for that run.
+    const bk_mem_stack_frames = b.option(usize, "bk-mem-stack-frames", "Frames recorded per allocation for the leak reports (0 = platform default, 24 for a leak investigation)") orelse 0;
+    bk_memory_artifact = addBkMemory(b, target, optimize, toolchain, bk_mem_allocator, bk_mem_stack_frames);
 
     const platform_abi_layout_module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = !build_support.usesMsvc(platform), .link_libcpp = build_support.needsBundledLibcpp(platform) });
     platform_abi_layout_module.addIncludePath(b.path("Sources/src"));
@@ -2083,7 +2086,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
-    test_bk_memory_zig_module.addOptions("bk_memory_options", bkMemoryOptions(b, bk_mem_allocator));
+    test_bk_memory_zig_module.addOptions("bk_memory_options", bkMemoryOptions(b, bk_mem_allocator, bk_mem_stack_frames));
     const bk_memory_zig_tests = b.addTest(.{ .root_module = test_bk_memory_zig_module });
     const run_bk_memory_zig_tests = b.addRunArtifact(bk_memory_zig_tests);
     const test_bk_memory_zig_step = b.step("test-bk-memory-zig", "Run the BkMemory header, realloc and counter unit tests");
@@ -2189,7 +2192,7 @@ pub fn build(b: *std.Build) void {
         };
         var previous: ?*std.Build.Step = null;
         for (configs) |config| {
-            const library = addBkMemory(b, target, config.optimize, toolchain, config.backend);
+            const library = addBkMemory(b, target, config.optimize, toolchain, config.backend, bk_mem_stack_frames);
             const bench_module = b.createModule(.{
                 .root_source_file = b.path("tools/zig/bk_memory_bench.zig"),
                 .target = target,
@@ -3736,9 +3739,10 @@ fn drainBkMemoryAuditPending(run: *std.Build.Step.Run) void {
     bk_audit_pending.clearRetainingCapacity();
 }
 
-fn bkMemoryOptions(b: *std.Build, allocator: BkMemAllocator) *std.Build.Step.Options {
+fn bkMemoryOptions(b: *std.Build, allocator: BkMemAllocator, stack_frames: usize) *std.Build.Step.Options {
     const options = b.addOptions();
     options.addOption(u8, "allocator_mode", @intFromEnum(allocator));
+    options.addOption(usize, "stack_frames", stack_frames);
     return options;
 }
 
@@ -3748,6 +3752,7 @@ fn addBkMemory(
     optimize: std.builtin.OptimizeMode,
     toolchain: ToolchainIncludes,
     allocator: BkMemAllocator,
+    stack_frames: usize,
 ) *std.Build.Step.Compile {
     // Pure zig like CloudSync: the C ABI in bk_memory.h is the whole surface.
     const module = b.createModule(.{
@@ -3763,7 +3768,7 @@ fn addBkMemory(
         // when this library keeps its own.
         .omit_frame_pointer = false,
     });
-    module.addOptions("bk_memory_options", bkMemoryOptions(b, allocator));
+    module.addOptions("bk_memory_options", bkMemoryOptions(b, allocator, stack_frames));
     // The ELF/Mach-O exit report is a C destructor; Zig cannot emit .fini_array in debug.
     if (target.result.os.tag != .windows) {
         module.addCSourceFile(.{ .file = b.path("Sources/src/BkMemory/bk_memory_fini.c") });
