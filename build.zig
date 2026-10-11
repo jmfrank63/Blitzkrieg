@@ -1799,7 +1799,14 @@ pub fn build(b: *std.Build) void {
         .target = dependency_target,
         .optimize = optimize,
     });
-    linkEngineCxxRuntimeEngine(b, gfx_gpu_abi_test_module, optimize);
+    if (target.result.os.tag == .macos) {
+        // The same duplicate BkMemory link as the factory test above: gfx_gpu_zig
+        // is static here and brings the library, so a direct link is a second
+        // LC_LOAD_DYLIB that dyld on macOS 26 rejects.
+        addEngineCxxNewDelete(b, gfx_gpu_abi_test_module, optimize, cppflagsForTarget(target, optimize));
+    } else {
+        linkEngineCxxRuntimeEngine(b, gfx_gpu_abi_test_module, optimize);
+    }
     gfx_gpu_abi_test_module.addCSourceFiles(.{
         .files = &.{"tools/zig/gfxgpu_abi_test.cpp"},
         .flags = cppflagsForTarget(target, optimize),
@@ -2378,7 +2385,16 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    linkEngineCxxRuntimeEngine(b, gfx_gpu_factory_test_module, optimize);
+    if (target.result.os.tag == .macos) {
+        // gfx_gpu_zig is a static library here and already carries the BkMemory
+        // link to this executable (addGfxGpuZig): linking it again put a second
+        // LC_LOAD_DYLIB for @rpath/libBkMemory.dylib into the test, which dyld
+        // on macOS 26 rejects ("duplicate linked dylib"), the same as the SDL3
+        // note below. Take only new/delete, as addGFXGPU does.
+        addEngineCxxNewDelete(b, gfx_gpu_factory_test_module, optimize, cppflagsForTarget(target, optimize));
+    } else {
+        linkEngineCxxRuntimeEngine(b, gfx_gpu_factory_test_module, optimize);
+    }
     gfx_gpu_factory_test_module.addCSourceFiles(.{
         .files = &.{ "tools/zig/gfxgpu_factory_test.cpp", "Sources/src/GFXGPU/GraphicsEngineGpu.cpp", "Sources/src/GFXGPU/TextureGpu.cpp", "Sources/src/GFXGPU/GeometryBufferGpu.cpp", "Sources/src/GFXGPU/MeshGpu.cpp" },
         // These are the real engine sources, so they need the portable CRT
