@@ -3742,6 +3742,10 @@ fn addBkMemory(
         // allocator must not depend on a C runtime that may load after it,
         // and a libc here leaks into every module that links the import lib.
         .link_libc = allocator == .crt or allocator == .safe_c or target.result.os.tag != .windows,
+        // The leak records' stacks walk frame pointers on macOS arm64
+        // (bk_memory.zig, FramePointerSelfInfo), which std.debug only does
+        // when this library keeps its own.
+        .omit_frame_pointer = false,
     });
     module.addOptions("bk_memory_options", bkMemoryOptions(b, allocator));
     // The ELF/Mach-O exit report is a C destructor; Zig cannot emit .fini_array in debug.

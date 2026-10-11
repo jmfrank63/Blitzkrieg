@@ -43,6 +43,55 @@ const backing: std.mem.Allocator = switch (mode) {
 var instance: if (use_safe) std.heap.SafeAllocator else void =
     if (use_safe) std.heap.SafeAllocator.init(backing, .{ .canary = canary, .stack_trace_frames = 24 }) else {};
 
+/// Every allocation of a debug build records a stack, and std.debug unwinds
+/// it from the images' unwind tables before it tries frame pointers. On macOS
+/// arm64 that table walk cost more than the rest of the allocation many times
+/// over: the debug editor-bridge tier ran about 15 times longer than before
+/// BkMemory and CI killed the macOS jobs. Apple's arm64 ABI keeps a frame
+/// pointer in every frame, so there the frame chain is walked instead; the
+/// leak reports still get their file and line from the default lookup.
+pub const debug = struct {
+    pub const SelfInfo = if (builtin.os.tag.isDarwin() and builtin.cpu.arch == .aarch64)
+        FramePointerSelfInfo
+    else
+        std.debug.TargetInfo(builtin.os.tag, builtin.cpu.arch);
+};
+
+/// The default SelfInfo with `can_unwind` off, so std.debug takes the frame
+/// pointer path for every capture.
+const FramePointerSelfInfo = struct {
+    const Inner = std.debug.TargetInfo(builtin.os.tag, builtin.cpu.arch);
+
+    inner: Inner,
+
+    pub const init: FramePointerSelfInfo = .{ .inner = .init };
+    pub const can_unwind = false;
+
+    pub fn deinit(si: *FramePointerSelfInfo, io: std.Io) void {
+        si.inner.deinit(io);
+    }
+
+    pub fn getSymbols(
+        si: *FramePointerSelfInfo,
+        io: std.Io,
+        symbol_allocator: std.mem.Allocator,
+        text_arena: std.mem.Allocator,
+        address: usize,
+        resolve_inline_callers: bool,
+        symbols: *std.ArrayList(std.debug.Symbol),
+    ) std.debug.SelfInfoError!void {
+        return si.inner.getSymbols(io, symbol_allocator, text_arena, address, resolve_inline_callers, symbols);
+    }
+
+    pub fn getModuleName(si: *FramePointerSelfInfo, io: std.Io, address: usize) std.debug.SelfInfoError![]const u8 {
+        return si.inner.getModuleName(io, address);
+    }
+
+    pub fn getModuleSlide(si: *FramePointerSelfInfo, io: std.Io, address: usize) std.debug.SelfInfoError!usize {
+        return si.inner.getModuleSlide(io, address);
+    }
+};
+
 const Header = extern struct {
     size: u64,
     align_log2: u8,
