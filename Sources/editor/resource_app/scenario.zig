@@ -579,7 +579,22 @@ const Runner = struct {
     fn differ(self: *Runner, d: schedule.Differ) ?[]const u8 {
         var diff: schedule.Diff = undefined;
         if (self.compareShots(d.a, d.b, d.channel_tolerance, &diff)) |reason| return reason;
-        const percent = @as(f64, diff.fraction()) * 100.0;
+        var percent = @as(f64, diff.fraction()) * 100.0;
+        // The runner's drawn frames can take seconds each on a software
+        // renderer (the CI runner measured 1.3-14 s per drawn frame), so the
+        // window between two shots often holds no fresh frame and both
+        // captures show the same pose. Draw and re-capture the second shot
+        // until the two differ, within a window no measured frame interval
+        // exceeds.
+        const deadline = std.Io.Clock.Timestamp.now(self.io, .awake).addDuration(.{ .raw = .fromMilliseconds(20_000), .clock = .awake });
+        while (percent <= d.percent and std.Io.Clock.Timestamp.now(self.io, .awake).compare(.lt, deadline)) {
+            self.drawFrame() catch |err| return self.fail("differ: frame: {s}", .{@errorName(err)});
+            var b_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+            const b_path = self.shotPath(&b_buffer, d.b) orelse return self.fail("the shot path is too long", .{});
+            if (!capture(&self.real, self.gpa, b_path)) return self.fail("the frame was not captured: {s}", .{self.bridge().lastMessage()});
+            if (self.compareShots(d.a, d.b, d.channel_tolerance, &diff)) |reason| return reason;
+            percent = @as(f64, diff.fraction()) * 100.0;
+        }
         if (percent <= d.percent) return self.fail("{s} and {s} differ in {d:.3}% of their pixels, not more than {d:.3}%", .{ d.a, d.b, percent, d.percent });
         std.debug.print("resource-editor: auto: {s} and {s} differ in {d:.2}% of their pixels\n", .{ d.a, d.b, percent });
         return null;
