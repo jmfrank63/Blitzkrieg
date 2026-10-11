@@ -5054,14 +5054,21 @@ void ApplyEffectDirection( ResourceState &state )
 }
 
 // Restarts the object's own animation: an effect from the current game time,
-// a sprite or mesh from its first animation.
+// a sprite or mesh from its first animation. SetAnimation alone does not
+// rewind a sprite: its scale timer keeps the session's whole game time, and a
+// non-cycled animation 375 ms past its start holds its last frame forever, so
+// Run showed nothing moving. SetStartTime rewinds the timer to the current
+// game time, which is what MFC's Run did.
 void RestartPreviewObject( ResourceState &state )
 {
 	const NTimer::STime time = UpdateGameTimer();
 	for ( IVisObj *pMember : state.previewMembers )
 	{
 		if ( IAnimation *pAnimation = static_cast<IObjVisObj *>( pMember )->GetAnimation() )
+		{
 			pAnimation->SetAnimation( 0 );
+			pAnimation->SetStartTime( time );
+		}
 		pMember->Update( time );
 	}
 	if ( state.pPreviewObj == nullptr )
@@ -5069,7 +5076,10 @@ void RestartPreviewObject( ResourceState &state )
 	if ( state.bPreviewEffect )
 		static_cast<IEffectVisObj *>( state.pPreviewObj )->SetStartTime( time );
 	else if ( IAnimation *pAnimation = static_cast<IObjVisObj *>( state.pPreviewObj )->GetAnimation() )
+	{
 		pAnimation->SetAnimation( 0 );
+		pAnimation->SetStartTime( time );
+	}
 	state.pPreviewObj->Update( time );
 }
 
