@@ -52,6 +52,15 @@ bool CSpriteVisObj::Update( const NTimer::STime &time, bool bForced )
 		pAnim->SetTime( time );
 		RetrieveSpriteInfo();
 		dwLastUpdateTime = time;
+		// The CI runner's sprite preview froze its pose although the game time
+		// advanced 200 ms a frame (bridge sprite check, runs 38119220988 and
+		// 38141837456). Trace the animation's own clock, which the pose math
+		// (nTime / nFrameTime) reads: a frozen animtime against an advancing
+		// time names the scale, a moving animtime with a stuck pose names the
+		// animation data.
+		static int s_probe = 0;
+		if ( ( ++s_probe & 15 ) == 0 )
+			NStr::DebugTrace( "sprite anim probe: time=%u animtime=%d anim=%d\n", unsigned( time ), int( pAnim->GetScaleTimer().Get() ), pAnim->GetAnimation() );
 		if ( pAnim->GetAnimation() == 0 && nNextIdle <= time )
 		{
 			pAnim->SetStartTime( time );
