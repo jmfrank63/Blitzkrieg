@@ -657,10 +657,18 @@ const HandoffJob = struct {
         // the peer closing on us, not an absent or hung owner.
         var result: Handoff = .dropped;
         exchange: {
-            var write_buffer: [max_line + 2]u8 = undefined;
-            var writer = stream.writer(io, &write_buffer);
-            writer.interface.writeAll(self.line_storage[0..self.line_len]) catch break :exchange;
-            writer.interface.flush() catch break :exchange;
+            // The write can lose a race with the answer: an owner at its
+            // connection limit answers `busy` without reading the line and
+            // closes at once (WR-A01), so on a loaded machine our line can be
+            // written to a socket the owner has already closed. Its answer is
+            // queued in our receive buffer all the same, so a failed write
+            // does not decide this hand-off - the read below does.
+            send: {
+                var write_buffer: [max_line + 2]u8 = undefined;
+                var writer = stream.writer(io, &write_buffer);
+                writer.interface.writeAll(self.line_storage[0..self.line_len]) catch break :send;
+                writer.interface.flush() catch break :send;
+            }
             var read_buffer: [16]u8 = undefined;
             var reader = stream.reader(io, &read_buffer);
             const answer = reader.interface.takeDelimiterExclusive('\n') catch break :exchange;
