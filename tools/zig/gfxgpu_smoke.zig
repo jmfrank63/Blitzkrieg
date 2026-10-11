@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const sdl3 = @import("sdl3");
 const gpu = @import("gfxgpu");
+const bk_memory = @import("bk_memory_allocator");
 
 const EffectProbe = struct {
     name: []const u8,
@@ -293,6 +294,7 @@ pub fn main(init: std.process.Init) !void {
     if (!std.mem.eql(u8, driver_option, "--driver")) return error.InvalidDriverArgument;
     const driver_arg = args.next() orelse return error.MissingDriverArgument;
     if (args.next() != null) return error.UnexpectedArgument;
+    _ = bk_memory.installSdlMemoryFunctions(sdl3.c);
     if (!sdl3.c.SDL_Init(sdl3.c.SDL_INIT_VIDEO)) return error.SdlInitFailed;
     defer sdl3.c.SDL_Quit();
 

@@ -7,6 +7,7 @@ const std = @import("std");
 const sdl3 = @import("sdl3");
 const gpu = @import("gfxgpu");
 const imgui = @import("editor_imgui");
+const bk_memory = @import("bk_memory_allocator");
 
 const window_width = 320;
 const window_height = 240;
@@ -48,6 +49,7 @@ pub fn main(init: std.process.Init) !void {
         } else return error.UnexpectedArgument;
     }
 
+    _ = bk_memory.installSdlMemoryFunctions(sdl3.c);
     if (!sdl3.c.SDL_Init(sdl3.c.SDL_INIT_VIDEO)) return error.SdlInitFailed;
     defer sdl3.c.SDL_Quit();
     const flags: sdl3.c.SDL_WindowFlags = if (hidden) sdl3.c.SDL_WINDOW_HIDDEN else 0;

@@ -10,8 +10,10 @@
 const std = @import("std");
 const sdl3 = @import("sdl3");
 const sdl = @import("gfxgpu").sdl;
+const bk_memory = @import("bk_memory_allocator");
 
 pub fn main() !void {
+    _ = bk_memory.installSdlMemoryFunctions(sdl3.c);
     if (!sdl3.c.SDL_Init(sdl3.c.SDL_INIT_VIDEO)) {
         std.debug.print("gpu-probe: video=no ({s})\n", .{sdl.getError()});
         return;

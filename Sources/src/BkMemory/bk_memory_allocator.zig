@@ -10,6 +10,18 @@ const Alignment = std.mem.Alignment;
 extern fn bk_mem_alloc_aligned(size: usize, alignment: usize) callconv(.c) ?*anyopaque;
 extern fn bk_mem_realloc_aligned(p: ?*anyopaque, size: usize, alignment: usize) callconv(.c) ?*anyopaque;
 extern fn bk_mem_free(p: ?*anyopaque) callconv(.c) void;
+extern fn bk_mem_alloc(size: usize) callconv(.c) ?*anyopaque;
+extern fn bk_mem_calloc(n: usize, size: usize) callconv(.c) ?*anyopaque;
+extern fn bk_mem_realloc(p: ?*anyopaque, size: usize) callconv(.c) ?*anyopaque;
+
+/// Routes SDL's allocator to BkMemory. `sdl_c` is the translated SDL3 C
+/// namespace (`sdl3.c`). It has to be the first SDL call of the process, as
+/// bk_memory_sdl.h explains for C++: a block SDL allocated before it would be
+/// released through bk_mem_free and panic on its header magic. Repeating it
+/// with the same functions is harmless.
+pub fn installSdlMemoryFunctions(comptime sdl_c: type) bool {
+    return sdl_c.SDL_SetMemoryFunctions(bk_mem_alloc, bk_mem_calloc, bk_mem_realloc, bk_mem_free);
+}
 
 pub const allocator: std.mem.Allocator = .{ .ptr = undefined, .vtable = &vtable };
 

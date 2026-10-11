@@ -1,5 +1,6 @@
 #include "Socket.h"
 #include "System.h"
+#include "bk_memory_sdl.h"
 
 #include <cstdio>
 #include <cstring>
@@ -17,6 +18,8 @@ static bool Check(bool value, const char *message) { if (!value) std::fprintf(st
 
 int main(int argc, char **argv)
 {
+	// Before System.cpp's first SDL call, in the child run as well.
+	BkMemoryInstallSdlFunctions();
 	if (argc > 1 && std::strcmp(argv[1], "--child") == 0) return 23;
 	using namespace NPlatform;
 	if (!Check(FixtureHash("BK-NET-FIXTURE-v1") == 0xc70d495eu, "fixture hash")) return 1;

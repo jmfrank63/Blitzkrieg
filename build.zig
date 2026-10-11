@@ -1254,7 +1254,9 @@ pub fn build(b: *std.Build) void {
     platform_dynamic_step.dependOn(&platform_runtime.step);
     if (test_mode == .run) platform_dynamic_step.dependOn(&platform_dynamic_run.step);
 
-    const platform_system_module = b.createModule(.{ .target = target, .optimize = .fast });
+    const platform_system_module = b.createModule(.{ .target = target, .optimize = .fast, .link_libc = if (build_support.usesMsvc(platform)) false else null });
+    // BkMemory and its operator new/delete first: the test hooks SDL onto bk_mem_* before System.cpp's first SDL call.
+    linkEngineCxxRuntimeFlags(b, platform_system_module, .fast, if (platform == .windows_x64) cppflags_release else &.{});
     addProjectIncludePaths(b, platform_system_module);
     if (platform == .windows_x64) {
         addMsvcIncludePaths(b, platform_system_module, toolchain);
@@ -1267,11 +1269,18 @@ pub fn build(b: *std.Build) void {
         },
         .flags = if (platform == .windows_x64) cppflags_release else &.{},
     });
-    platform_system_module.linkLibrary(sdl_dynamic);
+    platform_system_module.addIncludePath(sdl_dynamic_dep.path("include"));
+    linkSdlImport(platform_system_module, target, sdl_dynamic);
     const platform_system_test = b.addExecutable(.{ .name = "platform-system-test", .root_module = platform_system_module });
+    auditBkMemoryImports(platform_system_test);
     platform_system_test.subsystem = .console;
     if (platform == .windows_x64) platform_system_test.entry = .{ .symbol_name = "mainCRTStartup" };
     const platform_system_run = b.addRunArtifact(platform_system_test);
+    setLeakReportLog(platform_system_run);
+    platform_system_run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
+    platform_system_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    addPathDir(platform_system_run, rootPath(b, if (platform == .windows_x64) "zig-out/bin" else "zig-out/lib"));
+    if (platform != .windows_x64) platform_system_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const platform_system_step = b.step("test-platform-system", "Run portable system facade tests");
     platform_system_step.dependOn(&platform_system_test.step);
     if (test_mode == .run) platform_system_step.dependOn(&platform_system_run.step);
@@ -1516,7 +1525,7 @@ pub fn build(b: *std.Build) void {
     addInputControllerTest(b, target, test_mode, toolchain);
     addInputBindingsTest(b, target, test_mode, toolchain);
     addPlatformClipboardTest(b, target, test_mode, toolchain);
-    addPlatformControllerTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"));
+    addPlatformControllerTest(b, target, test_mode, toolchain, sdl_dynamic, sdl_dynamic_dep.path("include"), platform_runtime);
     addPlatformAudioTest(b, target, test_mode, toolchain);
     addAudioLifecycleFixtureTest(b, target, test_mode, toolchain);
     addAudioWorkerTest(b, target, test_mode, toolchain);
@@ -1605,6 +1614,7 @@ pub fn build(b: *std.Build) void {
     } else {
         linkMsvcRuntime(editor_overlay_spike_module, optimize);
     }
+    linkBkMemoryAllocator(b, editor_overlay_spike_module, true);
     const editor_overlay_spike = b.addExecutable(.{ .name = "editor-overlay-spike", .root_module = editor_overlay_spike_module });
     if (target.result.os.tag == .windows) editor_overlay_spike.subsystem = .console;
     const editor_overlay_spike_install = b.addInstallArtifact(editor_overlay_spike, .{});
@@ -1817,6 +1827,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .imports = &.{ .{ .name = "sdl3", .module = sdl3 }, .{ .name = "gfxgpu", .module = gfx_gpu_zig.root_module } },
     });
+    // The smoke hooks SDL onto BkMemory before its first SDL call; the library comes with gfxgpu.
+    linkBkMemoryAllocator(b, gfx_gpu_smoke_module, true);
     const gfx_gpu_smoke = b.addExecutable(.{
         .name = "gfxgpu-smoke",
         .root_module = gfx_gpu_smoke_module,
@@ -1856,6 +1868,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .imports = &.{ .{ .name = "sdl3", .module = sdl3 }, .{ .name = "gfxgpu", .module = gfx_gpu_zig.root_module } },
     });
+    linkBkMemoryAllocator(b, gpu_device_probe_module, true);
     const gpu_device_probe = b.addExecutable(.{ .name = "gpu-device-probe", .root_module = gpu_device_probe_module });
     const gpu_device_probe_run = b.addRunArtifact(gpu_device_probe);
     gpu_device_probe_run.step.dependOn(&b.addInstallArtifact(gpu_device_probe, .{}).step);
@@ -2547,6 +2560,7 @@ pub fn build(b: *std.Build) void {
     const bk_audit = b.addExecutable(.{ .name = "bk-memory-import-audit", .root_module = bk_audit_module });
     const bk_audit_run_step = b.addRunArtifact(bk_audit);
     bk_audit_run = bk_audit_run_step;
+    drainBkMemoryAuditPending(bk_audit_run_step);
     bk_audit_run_step.setCwd(b.path("."));
     bk_audit_run_step.addArgs(&.{ "--os", @tagName(target.result.os.tag), "--dir", stage_root });
     if (target.result.os.tag == .windows) {
@@ -3670,13 +3684,30 @@ var bk_memory_artifact: ?*std.Build.Step.Compile = null;
 /// instead of whatever an earlier run left in the layout.
 var bk_audit_run: ?*std.Build.Step.Run = null;
 
+/// Executables registered before the audit run step exists (the platform tests
+/// come earlier in build()). auditBkMemoryImports queues them and the drain
+/// after the run step's creation passes them on.
+var bk_audit_pending: std.ArrayListUnmanaged(*std.Build.Step.Compile) = .empty;
+
 /// Adds a built C++ executable to the import audit.
 fn auditBkMemoryImports(exe: *std.Build.Step.Compile) void {
-    const run = bk_audit_run orelse return;
     // The audit reads PE import tables; there is nothing to read off Windows.
     if (exe.rootModuleTarget().os.tag != .windows) return;
-    run.addArg("--file");
-    run.addArtifactArg(exe);
+    if (bk_audit_run) |run| {
+        run.addArg("--file");
+        run.addArtifactArg(exe);
+    } else {
+        bk_audit_pending.append(exe.step.owner.allocator, exe) catch @panic("OOM");
+    }
+}
+
+/// Passes the queued registrations to the freshly created audit run step.
+fn drainBkMemoryAuditPending(run: *std.Build.Step.Run) void {
+    for (bk_audit_pending.items) |exe| {
+        run.addArg("--file");
+        run.addArtifactArg(exe);
+    }
+    bk_audit_pending.clearRetainingCapacity();
 }
 
 fn bkMemoryOptions(b: *std.Build, allocator: BkMemAllocator) *std.Build.Step.Options {
@@ -5542,6 +5573,8 @@ fn addGameFrameTest(
     sdl_include: std.Build.LazyPath,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .debug });
+    // BkMemory and its operator new/delete first: SDLApplication.cpp routes SDL through bk_mem_*.
+    linkEngineCxxRuntime(b, module, .debug);
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/Game"));
     // Debug.cpp reaches PlatformABI/platform_c.h by its path from Sources/src,
@@ -5556,7 +5589,6 @@ fn addGameFrameTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
@@ -5568,13 +5600,15 @@ fn addGameFrameTest(
         else => {},
     }
     const test_exe = b.addExecutable(.{ .name = "game-frame-test", .root_module = module });
+    auditBkMemoryImports(test_exe);
     test_exe.subsystem = .console;
-    if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "main" };
+    if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
     setLeakReportLog(test_run);
     test_run.setCwd(b.path("."));
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    test_run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
     addPathDir(test_run, rootPath(b, sdl_runtime_dir));
     if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
@@ -5654,6 +5688,7 @@ fn addGameLoopTest(
     sdl_include: std.Build.LazyPath,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .debug });
+    linkEngineCxxRuntime(b, module, .debug);
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/Game"));
     module.addIncludePath(b.path("Sources/src/Platform"));
@@ -5670,7 +5705,6 @@ fn addGameLoopTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
@@ -5682,6 +5716,7 @@ fn addGameLoopTest(
         else => {},
     }
     const test_exe = b.addExecutable(.{ .name = "game-loop-test", .root_module = module });
+    auditBkMemoryImports(test_exe);
     test_exe.subsystem = .console;
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
@@ -5689,6 +5724,7 @@ fn addGameLoopTest(
     test_run.setCwd(b.path("."));
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    test_run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
     addPathDir(test_run, rootPath(b, sdl_runtime_dir));
     if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
@@ -5711,6 +5747,7 @@ fn addSdlApplicationTest(
         .optimize = .debug,
         .link_libc = false,
     });
+    linkEngineCxxRuntime(b, module, .debug);
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src"));
     module.addCSourceFiles(.{
@@ -5728,7 +5765,6 @@ fn addSdlApplicationTest(
     if (target.result.os.tag == .windows) {
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
-        linkMsvcRuntime(module, .debug);
     } else if (target.result.os.tag == .linux) {
         module.linkSystemLibrary("stdc++", .{});
     } else if (target.result.os.tag == .macos) {
@@ -5747,6 +5783,7 @@ fn addSdlApplicationTest(
     test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    test_run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
     addPathDir(test_run, rootPath(b, sdl_runtime_dir));
     if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
@@ -6034,26 +6071,34 @@ fn addPlatformControllerTest(
     toolchain: ToolchainIncludes,
     sdl_dynamic: *std.Build.Step.Compile,
     sdl_include: std.Build.LazyPath,
+    platform_runtime: *std.Build.Step.Compile,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = false });
+    linkEngineCxxRuntime(b, module, .debug);
+    module.addIncludePath(b.path("Sources/src"));
     module.addIncludePath(sdl_include);
     module.addCSourceFiles(.{ .files = &.{
         "Sources/src/Platform/SDLApplication.cpp",
         "Sources/src/Platform/Debug.cpp",
+        // Debug.cpp speaks through the platform client in the shared runtime, and
+        // SDLApplication forwards clipboard calls to System.cpp.
+        "Sources/src/PlatformABI/PlatformClient.cpp",
+        "Sources/src/Platform/System.cpp",
         "tools/zig/platform_controller_test.cpp",
     }, .flags = &.{"-std=c++17"} });
+    module.linkLibrary(platform_runtime);
     linkSdlImport(module, target, sdl_dynamic);
     switch (target.result.os.tag) {
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => module.linkSystemLibrary("c++", .{}),
         else => {},
     }
     const exe = b.addExecutable(.{ .name = "platform-controller-test", .root_module = module });
+    auditBkMemoryImports(exe);
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
@@ -6061,6 +6106,9 @@ fn addPlatformControllerTest(
     run.setCwd(b.path("."));
     run.step.dependOn(&sdl_dynamic.step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    run.step.dependOn(&platform_runtime.step);
+    run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
+    run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     addPathDir(run, rootPath(b, if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib"));
     if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
     const step = b.step("test-platform-controller", "Run virtual controller name and lifetime tests");
@@ -6417,19 +6465,20 @@ fn addPlatformSocketAbiTest(
     platform_runtime: *std.Build.Step.Compile,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = target.result.os.tag != .windows });
+    linkEngineCxxRuntime(b, module, .debug);
     module.addIncludePath(b.path("Sources/src"));
     module.addCSourceFile(.{ .file = b.path("tools/zig/platform_socket_abi_test.cpp"), .flags = &.{"-std=c++17"} });
     module.linkLibrary(platform_runtime);
     if (target.result.os.tag == .windows) {
         addMsvcIncludePaths(b, module, toolchain);
         addMsvcLibraryPaths(b, module, toolchain);
-        linkMsvcRuntime(module, .debug);
     } else if (target.result.os.tag == .linux) {
         module.linkSystemLibrary("stdc++", .{});
     } else if (target.result.os.tag == .macos) {
         module.linkSystemLibrary("c++", .{});
     }
     const exe = b.addExecutable(.{ .name = "platform-socket-abi-test", .root_module = module });
+    auditBkMemoryImports(exe);
     if (target.result.os.tag == .windows) {
         exe.subsystem = .console;
         exe.entry = .{ .symbol_name = "mainCRTStartup" };
@@ -6457,6 +6506,7 @@ fn addNetworkSystemGateTest(
     sdl_include: std.Build.LazyPath,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = false });
+    linkEngineCxxRuntimeFlags(b, module, .debug, if (target.result.os.tag == .windows) cppflags_debug else &.{});
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src/Platform"));
     module.addCSourceFiles(.{ .files = &.{ "tools/zig/network_system_gate.cpp", "Sources/src/Platform/SocketWin32.cpp", "Sources/src/Platform/SocketPosix.cpp", "Sources/src/Platform/System.cpp" }, .flags = if (target.result.os.tag == .windows) &(cppflags_debug.* ++ .{"-std=c++17"}) else &.{"-std=c++17"} });
@@ -6465,7 +6515,6 @@ fn addNetworkSystemGateTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .debug);
             module.linkSystemLibrary("ws2_32", .{});
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
@@ -6473,6 +6522,7 @@ fn addNetworkSystemGateTest(
         else => {},
     }
     const exe = b.addExecutable(.{ .name = "network-system-gate", .root_module = module });
+    auditBkMemoryImports(exe);
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
@@ -6480,6 +6530,7 @@ fn addNetworkSystemGateTest(
     run.setCwd(b.path("."));
     run.step.dependOn(&sdl_dynamic.step);
     run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     const runtimeDir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
     addPathDir(run, rootPath(b, runtimeDir));
     if (target.result.os.tag != .windows) run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));
@@ -6499,11 +6550,19 @@ fn addGameBootstrapSmoke(
     sdl_include: std.Build.LazyPath,
     test_mode: build_support.TestMode,
 ) void {
+    // The smoke links GfxGpu, a Zig static library: on MSVC that library
+    // already brings Zig's libc, and linkEngineCxxRuntime's linkMsvcRuntime
+    // would name a second CRT (duplicate _cexit, measured). new_delete.cpp and
+    // the BkMemory import are added directly instead, without the MSVC CRT, so
+    // the smoke's own allocations still go through the shared allocator.
     const module = b.createModule(.{ .target = dependency_target, .optimize = optimize, .link_libc = true });
+    module.addIncludePath(b.path("Sources/src/BkMemory"));
+    module.addCSourceFile(.{ .file = b.path("Sources/src/BkMemory/new_delete.cpp"), .flags = &.{ "-std=c++17", "-fsized-deallocation", "-faligned-allocation" } });
+    module.linkLibrary(bk_memory_artifact.?);
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src"));
     module.addIncludePath(b.path("Sources/src/GFXGPU"));
-    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/PlatformABI/PlatformClient.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{"-std=c++17"} });
+    module.addCSourceFiles(.{ .files = &.{ "Sources/src/Platform/SDLApplication.cpp", "Sources/src/Platform/Debug.cpp", "Sources/src/PlatformABI/PlatformClient.cpp", "Sources/src/Platform/System.cpp", "tools/zig/game_bootstrap_smoke.cpp" }, .flags = &.{"-std=c++17"} });
     module.linkLibrary(gfx_gpu_zig);
     module.linkLibrary(platform_runtime);
     switch (target.result.os.tag) {
@@ -6516,6 +6575,7 @@ fn addGameBootstrapSmoke(
         else => {},
     }
     const exe = b.addExecutable(.{ .name = "game-bootstrap-smoke", .root_module = module });
+    auditBkMemoryImports(exe);
     exe.subsystem = .console;
     if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const run = b.addRunArtifact(exe);
@@ -10795,6 +10855,8 @@ fn addSdlEventTest(
     platform_runtime: *std.Build.Step.Compile,
 ) void {
     const module = b.createModule(.{ .target = target, .optimize = .debug, .link_libc = false });
+    // BkMemory and its operator new/delete first: SDLApplication.cpp routes SDL through bk_mem_*.
+    linkEngineCxxRuntime(b, module, .debug);
     module.addIncludePath(sdl_include);
     module.addIncludePath(b.path("Sources/src"));
     module.addCSourceFiles(.{
@@ -10808,7 +10870,6 @@ fn addSdlEventTest(
         .windows => {
             addMsvcIncludePaths(b, module, toolchain);
             addMsvcLibraryPaths(b, module, toolchain);
-            linkMsvcRuntime(module, .debug);
         },
         .linux => module.linkSystemLibrary("stdc++", .{}),
         .macos => {
@@ -10822,6 +10883,7 @@ fn addSdlEventTest(
         else => {},
     }
     const test_exe = b.addExecutable(.{ .name = "platform-event-test", .root_module = module });
+    auditBkMemoryImports(test_exe);
     test_exe.subsystem = .console;
     if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
     const test_run = b.addRunArtifact(test_exe);
@@ -10831,6 +10893,7 @@ fn addSdlEventTest(
     test_run.step.dependOn(&b.addInstallArtifact(platform_runtime, .{}).step);
     test_run.step.dependOn(&sdl_dynamic.step);
     test_run.step.dependOn(&b.addInstallArtifact(sdl_dynamic, .{}).step);
+    test_run.step.dependOn(&b.addInstallArtifact(bk_memory_artifact.?, .{}).step);
     const sdl_runtime_dir = if (target.result.os.tag == .windows) "zig-out/bin" else "zig-out/lib";
     addPathDir(test_run, rootPath(b, sdl_runtime_dir));
     if (target.result.os.tag != .windows) test_run.setEnvironmentVariable("LD_LIBRARY_PATH", rootPath(b, "zig-out/lib"));

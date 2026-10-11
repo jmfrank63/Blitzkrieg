@@ -1,4 +1,5 @@
 #include "Platform/System.h"
+#include "bk_memory_sdl.h"
 
 #include <string>
 #include <vector>
@@ -22,6 +23,8 @@ static bool CaptureOpen( const char *url, const char * )
 
 int main( int argc, char **argv )
 {
+	// Before System.cpp's first SDL call, in the child run as well.
+	BkMemoryInstallSdlFunctions();
 	if ( argc > 1 && std::string( argv[1] ) == "--child" ) return 17;
 	if ( NPlatform::ExecutablePath().empty() ) return 1;
 	if ( !NPlatform::SetEnvironment( "BK_PLATFORM_SYSTEM_TEST", "ok" ) || NPlatform::GetEnvironment( "BK_PLATFORM_SYSTEM_TEST" ) != "ok" ) return 2;
