@@ -5397,18 +5397,19 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		int nW = 0, nH = 0;
 		const bool bEmpty = T11::ReadCapture( empty.string(), emptyRgb, nW, nH );
 		Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, "sprite preview: Run" );
-		Pump( 20 );
+		// Run rewinds the animation clock to zero (3 frames x 125 ms, not
+		// cycled: the whole animation is 375 ms). A runner whose drawn frames
+		// take seconds each burns that lifetime in one frame, so wall-time
+		// pumping lands every capture on the held last frame. Capture the
+		// first presented frame immediately (frame 0), then step one frame at
+		// a time until the pose advances: each step adds the frame's own game
+		// time, which crosses the 125 ms frame boundary on any runner.
 		const bool bA = Shot( "run-a.tga", runA );
-		// The runner's frames can take seconds each (the CI job's llvmpipe plus
-		// the debug allocator measured 1.3-14 s per drawn frame), so a fixed
-		// 140 ms window often lands both captures on the same presented frame.
-		// Keep sampling until the pose visibly advances, within a window no
-		// measured runner frame interval exceeds.
 		const auto runStart = std::chrono::steady_clock::now();
 		bool bB = false;
 		while ( true )
 		{
-			Pump( 140 );
+			BkEditorFrame( pSession );
 			bB = Shot( "run-b.tga", runB );
 			if ( bB && T11::ChangedShare( runA, runB ) >= 0.0005 )
 				break;
@@ -5427,7 +5428,7 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		const double fStop = bRead ? T11::ChangedShare( stopA, stopB ) : -1.0;
 		std::printf( "SPRITE preview: drew-vs-empty=%f run-a-vs-b=%f stop-a-vs-b=%f\n", fDrew, fRun, fStop );
 		Check( fDrew >= 0.0005, "sprite preview: the sprite drew (>= 0.05% of the frame changed)" );
-		Check( fRun >= 0.0005, "sprite preview: Run plays, the pose advanced within 20 s of sampling" );
+		Check( fRun >= 0.0005, "sprite preview: Run plays, the pose advanced within 20 s of single-frame steps" );
 		Check( fStop == 0.0, "sprite preview: Stop holds, two frames 200 ms apart are equal" );
 		Check( BkResPreviewStop( pSession ) == BK_EDITOR_OK, "sprite preview: Stop preview" );
 		BkResClose( pSession );
