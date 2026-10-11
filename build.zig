@@ -3797,6 +3797,14 @@ fn linkEngineCxxRuntimeEngine(b: *std.Build, module: *std.Build.Module, optimize
 /// linkEngineCxxRuntimeEngine. Pure-Zig modules (CloudSync, BkMemory itself)
 /// do not call any of these: they have no C++ new to replace.
 fn linkEngineCxxRuntimeFlags(b: *std.Build, module: *std.Build.Module, optimize: std.builtin.OptimizeMode, module_flags: []const []const u8) void {
+    addEngineCxxNewDelete(b, module, optimize, module_flags);
+    module.linkLibrary(bk_memory_artifact.?);
+}
+
+/// linkEngineCxxRuntimeFlags without the BkMemory link, for a module that
+/// already gets the library through a static library it links (addGFXGPU on
+/// macOS, through GfxGpuZig).
+fn addEngineCxxNewDelete(b: *std.Build, module: *std.Build.Module, optimize: std.builtin.OptimizeMode, module_flags: []const []const u8) void {
     var flags: std.ArrayListUnmanaged([]const u8) = .empty;
     flags.appendSlice(b.allocator, module_flags) catch @panic("OOM");
     flags.appendSlice(b.allocator, &.{ "-std=c++17", "-fsized-deallocation", "-faligned-allocation" }) catch @panic("OOM");
@@ -3810,7 +3818,6 @@ fn linkEngineCxxRuntimeFlags(b: *std.Build, module: *std.Build.Module, optimize:
     // before BkMemory added theirs per module, the new ones did not know to.
     addLinuxCxxIncludePaths(b, module);
     linkMsvcRuntime(module, optimize);
-    module.linkLibrary(bk_memory_artifact.?);
 }
 
 var bk_memory_allocator_module: ?*std.Build.Module = null;
@@ -5102,7 +5109,15 @@ fn addGFXGPU(
         .target = target,
         .optimize = optimize,
     });
-    linkEngineCxxRuntimeEngine(b, gfx_gpu_module, optimize);
+    if (target.result.os.tag == .macos) {
+        // gfx_gpu_zig links BkMemory too, and on macOS the second link is a
+        // second LC_LOAD_DYLIB for @rpath/libBkMemory.dylib, which dyld on
+        // macOS 26 rejects ("duplicate linked dylib", the same as SDL3 below):
+        // the game then runs without a renderer. Take only new/delete here.
+        addEngineCxxNewDelete(b, gfx_gpu_module, optimize, cppflagsForTarget(target, optimize));
+    } else {
+        linkEngineCxxRuntimeEngine(b, gfx_gpu_module, optimize);
+    }
     addProjectIncludePaths(b, gfx_gpu_module);
     addMsvcIncludePaths(b, gfx_gpu_module, toolchain);
     addMsvcLibraryPaths(b, gfx_gpu_module, toolchain);
