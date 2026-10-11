@@ -156,6 +156,11 @@ but unexercised.
 - Mutex check: before reporting, every SafeAllocator shard mutex is inspected. A held mutex means a thread was
   killed mid-allocation (`ExitProcess`), so the records are not trusted: it logs `allocator in use at exit` and
   exits with code 4.
+- Live threads: the bucket walk itself is not safe against a thread that is still allocating at exit (the
+  single-instance helper's detached accept and connection threads, WR-A02, can outlive `main`); it tripped
+  SafeAllocator's `assert(leaks == expected.n)` on Linux CI. `fail` and `count` at detach therefore report the
+  atomic live count without walking the buckets; only the explicit `BK_MEM_REPORT=log` walks, because its caller
+  asked for the per-block stacks.
 - Leaks: it logs `N leaked block(s) at exit` after SafeAllocator's own report and terminates the process with
   exit code 3 (`TerminateProcess` on Windows, `_exit` elsewhere), so a leak is a test failure even if `main`
   returned 0.

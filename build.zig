@@ -3795,6 +3795,10 @@ fn linkEngineCxxRuntimeFlags(b: *std.Build, module: *std.Build.Module, optimize:
         .file = b.path("Sources/src/BkMemory/new_delete.cpp"),
         .flags = flags.items,
     });
+    // new_delete.cpp includes <cstddef>, so every one of these modules needs
+    // the C++ standard headers on Linux and macOS; the callers that compiled
+    // before BkMemory added theirs per module, the new ones did not know to.
+    addLinuxCxxIncludePaths(b, module);
     linkMsvcRuntime(module, optimize);
     module.linkLibrary(bk_memory_artifact.?);
 }

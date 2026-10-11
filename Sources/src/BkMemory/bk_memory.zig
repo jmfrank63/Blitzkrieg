@@ -326,7 +326,20 @@ fn detachHook() void {
             }
         }
     }
-    const leaks = reportImpl(policy != .count);
+    // The bucket walk races a thread that is still allocating at exit - the
+    // single-instance helper's detached accept and connection threads
+    // (WR-A02) can outlive main - and trips SafeAllocator's own leak-count
+    // assertion mid-walk. The atomic live count is the same number without
+    // touching the buckets; only the explicit BK_MEM_REPORT=log walks them,
+    // and whoever set it asked for the per-block stacks.
+    const leaks = if (policy == .log)
+        reportImpl(true)
+    else blk: {
+        const n = @atomicLoad(usize, &live_count, .monotonic);
+        @atomicStore(usize, &report_leaks, n, .release);
+        @atomicStore(bool, &closed, true, .release);
+        break :blk n;
+    };
     if (policy == .log or policy == .count) {
         // For `log` the full report with stacks came from reportImpl; this is the
         // one line a script can count, printed for a clean run too.
