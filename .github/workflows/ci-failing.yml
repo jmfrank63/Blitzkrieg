@@ -181,9 +181,17 @@ jobs:
       - name: Random missions tier
         env:
           BK_REQUIRE_ENGINE: "1"
+        # ulimit -c unlimited so the startup SEGV (which struck before the
+        # first case line in runs 37891155952, 38216827886 and 38277218163,
+        # and never reproduces under a gdb re-run) leaves a core in the
+        # installation the failure step below can post-mortem.
         run: |
           ( while sleep 20; do echo "memory: $(free -m | awk '/Mem:/ {print $3 " MiB used, " $7 " MiB available"}'), largest: $(ps -eo rss=,comm= --sort=-rss | head -1)"; done ) &
-          zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
+          ulimit -c unlimited
+          cat /proc/sys/kernel/core_pattern
+          zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run -Drandom-missions-sweep=all || code=$?
+          for f in core core.*; do [ -f "$f" ] && gzip -1 "$f" && echo "core kept: $f.gz"; done
+          exit ${code:-0}
 
       # The leak gate: one template generated and opened 20 times over, the same maps every round;
       # the test fails if the heap grows over the last 10 rounds (tools/zig/random_missions_test.cpp).
@@ -203,9 +211,17 @@ jobs:
         run: |
           sudo apt-get install -y --no-install-recommends gdb
           cd zig-out/game/linux/x86_64/release
-          timeout 1800 gdb -batch -ex 'set pagination off' -ex 'set confirm off' -ex run -ex 'thread apply all bt' --args ./random-missions-test . /home/runner/work/Blitzkrieg/Blitzkrieg/zig-out/local-test all 2>&1 | tee gdb-random-missions.log || true
+          CORE=$(ls -t core*.gz core 2>/dev/null | head -1)
+          if [ -n "$CORE" ]; then
+            case "$CORE" in *.gz) gunzip -kf "$CORE"; CORE="${CORE%.gz}";; esac
+            echo "=== post-mortem of the true crash core: $CORE"
+            timeout 900 gdb -batch -ex 'set pagination off' -ex 'set confirm off' -ex 'thread apply all bt' -ex 'info threads' --exec=./random-missions-test --core="$CORE" 2>&1 | tee gdb-random-missions.log | tail -120 || true
+          else
+            echo "=== no core survived; re-running under gdb (the race hides there)"
+            timeout 1800 gdb -batch -ex 'set pagination off' -ex 'set confirm off' -ex run -ex 'thread apply all bt' --args ./random-missions-test . /home/runner/work/Blitzkrieg/Blitzkrieg/zig-out/local-test all 2>&1 | tee gdb-random-missions.log || true
+          fi
           echo "=== last frames"
-          tail -80 gdb-random-missions.log || true
+          tail -120 gdb-random-missions.log || true
 
       # Same rationale as the Resource Editor job's saves: the fast run's own
       # build (release-fast random missions here) is what the next push needs

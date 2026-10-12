@@ -2066,7 +2066,11 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: |
           ( while sleep 20; do echo "memory: $(free -m | awk '/Mem:/ {print $3 " MiB used, " $7 " MiB available"}'), largest: $(ps -eo rss=,comm= --sort=-rss | head -1)"; done ) &
-          zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run -Drandom-missions-sweep=all
+          ulimit -c unlimited
+          cat /proc/sys/kernel/core_pattern
+          zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run -Drandom-missions-sweep=all || code=$?
+          for f in core core.*; do [ -f "$f" ] && gzip -1 "$f" && echo "core kept: $f.gz"; done
+          exit ${code:-0}
 
       # The leak gate: one template generated and opened 20 times over, the same maps every round;
       # the test fails if the heap grows over the last 10 rounds (tools/zig/random_missions_test.cpp).
@@ -2077,18 +2081,27 @@ jobs:
 
       # The random-missions SEGV (runs 37891155952, 38216827886) died within
       # its first minutes, in a --release=fast binary, before the first case
-      # line printed. A failure-only step re-runs the same executable under
-      # gdb, bounded, so the next SEGV names its faulting frame instead of
-      # dying silently; while the tier is green it costs nothing. Kept and
+      # line printed. The tier step now saves a core (ulimit -c unlimited) and
+      # this step post-mortems the true crash core when one survived - a gdb
+      # re-run never reproduced it (run 38277218163: gdb ran 15 minutes clean
+      # past case 620). While the tier is green it costs nothing. Kept and
       # updated in verbatim mirror with ci-failing.yml's linux-game job.
       - name: Backtrace the random missions SEGV
         if: failure()
         run: |
           sudo apt-get install -y --no-install-recommends gdb
           cd zig-out/game/linux/x86_64/release
-          timeout 1800 gdb -batch -ex 'set pagination off' -ex 'set confirm off' -ex run -ex 'thread apply all bt' --args ./random-missions-test . /home/runner/work/Blitzkrieg/Blitzkrieg/zig-out/local-test all 2>&1 | tee gdb-random-missions.log || true
+          CORE=$(ls -t core*.gz core 2>/dev/null | head -1)
+          if [ -n "$CORE" ]; then
+            case "$CORE" in *.gz) gunzip -kf "$CORE"; CORE="${CORE%.gz}";; esac
+            echo "=== post-mortem of the true crash core: $CORE"
+            timeout 900 gdb -batch -ex 'set pagination off' -ex 'set confirm off' -ex 'thread apply all bt' -ex 'info threads' --exec=./random-missions-test --core="$CORE" 2>&1 | tee gdb-random-missions.log | tail -120 || true
+          else
+            echo "=== no core survived; re-running under gdb (the race hides there)"
+            timeout 1800 gdb -batch -ex 'set pagination off' -ex 'set confirm off' -ex run -ex 'thread apply all bt' --args ./random-missions-test . /home/runner/work/Blitzkrieg/Blitzkrieg/zig-out/local-test all 2>&1 | tee gdb-random-missions.log || true
+          fi
           echo "=== last frames"
-          tail -80 gdb-random-missions.log || true
+          tail -120 gdb-random-missions.log || true
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
