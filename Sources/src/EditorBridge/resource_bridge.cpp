@@ -250,6 +250,18 @@ struct ResourceState
 	std::vector<IVisObj *> previewMembers;
 	bool bPreviewEffect = false;
 	bool bPreviewRunning = false;
+	// The preview's bounded virtual clock: the real games timers advance by
+	// the whole wall gap between drawn frames, and a runner whose frames take
+	// seconds each would push an effect's particles through their entire
+	// lifetime between two captures (measured 1.3-14 s gaps on CI). The
+	// preview's objects advance their simulation by at most 100 ms of game
+	// time per drawn frame instead. nPreviewClockReal is the last real game
+	// time the clock saw; nPreviewClockVirtual starts at the anchor
+	// RestartPreviewObject set and grows by the clamped steps. Terrain
+	// previews (bPreviewTerrain) keep the real game time: their parity was
+	// measured against screenshots on real runners (B-18..B-20).
+	NTimer::STime nPreviewClockReal = 0;
+	NTimer::STime nPreviewClockVirtual = 0;
 	// A road or river preview (kinds 14 and 15) draws the terrain of
 	// maps\road3d / maps\river3d, not an object: the scene's terrain is the
 	// preview and Stop takes it out again.
@@ -5008,26 +5020,36 @@ NTimer::STime UpdateGameTimer()
 	return pTimer->GetGameTime();
 }
 
-// DrawSessionFrame's hook while the playback runs: one timer step and one
-// update of the preview object per drawn frame.
+// DrawSessionFrame's hook while the playback runs: one bounded clock step and
+// one update of the preview object per drawn frame.
 void PreviewBeforeDraw( SEditorSession *pBase )
 {
 	ResourceState &state = StateOf( static_cast<BkEditorSession *>( pBase ) );
 	const NTimer::STime time = UpdateGameTimer();
-	// The CI runner's preview animations have stalled between shots while the
-	// same code passed locally: this traces the game time's own trajectory, so
-	// a stalled run shows whether the timer was called at all, and with which
-	// deltas, instead of the symptom (two identical captures).
+	// The preview's own trace, kept from the CI stall investigation: the
+	// game time trajectory shows whether the timer was called at all, and
+	// with which deltas, instead of the symptom (two identical captures).
 	static NTimer::STime traced = 0;
 	if ( time - traced >= 200 || time < traced )
 	{
 		NPlatform::DebugWriteFormat( "preview timer: time=%u dt=%u\n", unsigned( time ), unsigned( time - traced ) );
 		traced = time;
 	}
+	NTimer::STime virtualTime = time;
+	if ( state.pPreviewObj != nullptr || !state.previewMembers.empty() )
+	{
+		// Object previews advance on the bounded clock. The terrain
+		// previews keep the real game time (their parity was measured
+		// against screenshots by code).
+		const NTimer::STime dt = state.nPreviewClockReal != 0 ? time - state.nPreviewClockReal : 0;
+		state.nPreviewClockReal = time;
+		state.nPreviewClockVirtual += dt > 100 ? 100 : dt;
+		virtualTime = state.nPreviewClockVirtual;
+	}
 	if ( state.pPreviewObj != nullptr )
-		state.pPreviewObj->Update( time );
+		state.pPreviewObj->Update( virtualTime );
 	for ( IVisObj *pMember : state.previewMembers )
-		pMember->Update( time );
+		pMember->Update( virtualTime );
 }
 
 // CEffectFrame::UpdateEffectAngle's matrix: the quarter turn the dock's 45
@@ -5062,6 +5084,10 @@ void ApplyEffectDirection( ResourceState &state )
 void RestartPreviewObject( ResourceState &state )
 {
 	const NTimer::STime time = UpdateGameTimer();
+	// The bounded virtual clock anchors here: the first preview frame
+	// advances from the same game time the objects were rewound to.
+	state.nPreviewClockReal = time;
+	state.nPreviewClockVirtual = time;
 	for ( IVisObj *pMember : state.previewMembers )
 	{
 		if ( IAnimation *pAnimation = static_cast<IObjVisObj *>( pMember )->GetAnimation() )
