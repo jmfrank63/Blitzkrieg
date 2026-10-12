@@ -408,6 +408,50 @@ static int SkipOrFail( const char *pszTool, const std::string &szWhy )
 	return 0;
 }
 
+#if defined(__linux__)
+// The startup SEGV (runs 37891155952/38216827886/38277218163/38286700953:
+// within the engine's start, before the first case line) never reproduces
+// under a gdb re-run, and the runner's core_pattern pipes to
+// systemd-coredump, whose journal dump the failure step has to fetch. This
+// handler prints the crashing thread's frames into the step's own log at the
+// moment of the crash instead: backtrace_symbols_fd is async-signal-safe, the
+// executable is built with rdynamic so its static frames resolve by name, and
+// engine-library frames carry lib+offset for the failure step's addr2line.
+#include <execinfo.h>
+#include <signal.h>
+static void RandomMissionsCrashHandler( int nSig, siginfo_t *pInfo, void * )
+{
+	void *pFrames[32];
+	const int nFrames = backtrace( pFrames, 32 );
+	const char *pszName = "signal";
+	switch ( nSig )
+	{
+		case SIGSEGV: pszName = "SIGSEGV"; break;
+		case SIGABRT: pszName = "SIGABRT"; break;
+		case SIGBUS:  pszName = "SIGBUS"; break;
+		case SIGFPE:  pszName = "SIGFPE"; break;
+		case SIGILL:  pszName = "SIGILL"; break;
+	}
+	std::fprintf( stderr, "\nFATAL %s (code %d address %p), %d frames:\n", pszName, nSig,
+		pInfo != 0 ? pInfo->si_addr : 0, nFrames );
+	backtrace_symbols_fd( pFrames, nFrames, STDERR_FILENO );
+	_exit( 128 + 15 );
+}
+static void InstallCrashHandler()
+{
+	struct sigaction sa;
+	memset( &sa, 0, sizeof sa );
+	sa.sa_sigaction = RandomMissionsCrashHandler;
+	sa.sa_flags = SA_SIGINFO;
+	sigemptyset( &sa.sa_mask );
+	sigaction( SIGSEGV, &sa, 0 );
+	sigaction( SIGABRT, &sa, 0 );
+	sigaction( SIGBUS, &sa, 0 );
+	sigaction( SIGFPE, &sa, 0 );
+	sigaction( SIGILL, &sa, 0 );
+}
+#endif
+
 int main( int argc, char **argv )
 {
 	// See the engine tier: a Windows debug assert must not wait behind a dialog.
@@ -418,6 +462,11 @@ int main( int argc, char **argv )
 	_CrtSetReportFile( _CRT_ASSERT, _CRTDBG_FILE_STDERR );
 	_CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_FILE );
 	_CrtSetReportFile( _CRT_ERROR, _CRTDBG_FILE_STDERR );
+#endif
+#if defined(__linux__)
+	// At the true crash the stack is printed into this log; the failure step's
+	// gdb/coredumpctl work stands besides this, not in its way.
+	InstallCrashHandler();
 #endif
 	// Hooks first: the first SDL call of the process must already allocate through BkMemory.
 	BkMemoryInstallSdlFunctions();

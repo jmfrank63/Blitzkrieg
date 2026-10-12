@@ -2089,19 +2089,26 @@ jobs:
       - name: Backtrace the random missions SEGV
         if: failure()
         run: |
-          sudo apt-get install -y --no-install-recommends gdb
+          sudo apt-get install -y --no-install-recommends gdb systemd-coredump
           cd zig-out/game/linux/x86_64/release
-          CORE=$(ls -t core*.gz core 2>/dev/null | head -1)
-          if [ -n "$CORE" ]; then
-            case "$CORE" in *.gz) gunzip -kf "$CORE"; CORE="${CORE%.gz}";; esac
-            echo "=== post-mortem of the true crash core: $CORE"
-            timeout 900 gdb -batch -ex 'set pagination off' -ex 'set confirm off' -ex 'thread apply all bt' -ex 'info threads' --exec=./random-missions-test --core="$CORE" 2>&1 | tee gdb-random-missions.log | tail -120 || true
-          else
-            echo "=== no core survived; re-running under gdb (the race hides there)"
+          if coredumpctl list random-missions-test 2>/dev/null | tail -3; then
+            if coredumpctl dump random-missions-test /tmp/bk-core; then
+              # The true crash's core, fetched from the coredump journal.
+              cd /tmp && timeout 900 gdb -batch -ex 'set pagination off' -ex 'set confirm off' -ex 'thread apply all bt' -ex 'info threads' --exec=/home/runner/work/Blitzkrieg/Blitzkrieg/zig-out/game/linux/x86_64/release/random-missions-test --core=/tmp/bk-core 2>&1 | tee gdb-random-missions.log || true
+            fi
+          fi
+          cd zig-out/game/linux/x86_64/release
+          GZ=$(ls -t core*.gz core 2>/dev/null | head -1)
+          if [ -n "$GZ" ]; then
+            case "$GZ" in *.gz) gunzip -kf "$GZ"; G="${GZ%.gz}";; *) G="$GZ";; esac
+            echo "=== post-mortem of the step-kept core: $G"
+            timeout 900 gdb -batch -ex 'set pagination off' -ex 'set confirm off' -ex 'thread apply all bt' -ex 'info threads' --exec=./random-missions-test --core="$G" 2>&1 | tee -a gdb-random-missions.log || true
+          elif [ ! -s gdb-random-missions.log ]; then
+            echo "=== no core survived and nothing was printed; re-running under gdb (the race hides there)"
             timeout 1800 gdb -batch -ex 'set pagination off' -ex 'set confirm off' -ex run -ex 'thread apply all bt' --args ./random-missions-test . /home/runner/work/Blitzkrieg/Blitzkrieg/zig-out/local-test all 2>&1 | tee gdb-random-missions.log || true
           fi
           echo "=== last frames"
-          tail -120 gdb-random-missions.log || true
+          tail -160 gdb-random-missions.log || true
 
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
