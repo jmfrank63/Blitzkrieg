@@ -2707,20 +2707,22 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		const BkEditorStatus nShow = BkResPreviewShow( pSession );
 		Check( nShow == BK_EDITOR_OK, ( "preview: Show " + szLabel + ": " + BkEditorLastMessage( pSession ) ).c_str() );
 		Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, ( "preview: Run " + szLabel ).c_str() );
-		// Rounds of ~250 ms of the preview's own clock (each drawn frame
+		// Rounds of ~100 ms of the preview's own clock (each drawn frame
 		// contributes min(100, its real interval) as the clock's proxy),
 		// capturing at every round end, stopping the playback the moment the
-		// object is actually visible: the effect's sprite anim fades out
-		// within roughly a second of game time (measured on the CI runner:
-		// visible non-black 0.293 at frames=2, run 38239088215; a 1200 ms
-		// pump landed on a fully faded 0.248 plate with the camera deltas at
-		// 0.000000, run 38260557564 - the earlier wall-time pumps crossed
-		// whatever phase the runner reached), so a fixed time target loses;
-		// an alive pose is found by capture and then frozen, which also gives
-		// the stopped camera captures below the same visible state. A refused
-		// frame or capture is counted and its message kept: the CI runner's
-		// software Vulkan has lost frames here, and identical captures after
-		// that point were the only symptom.
+		// object is actually visible. The round size follows the measured
+		// visibility of the effect fixture's shipped sprite (bomb1 renamed
+		// Animation): visible while the preview clock stands inside the first
+		// ~200 ms of the effect's run - non-black 0.293 at virtual 200 with
+		// two slow frames (run 38239088215) and 0.286 at virtual ~100 under
+		// the local 40-frame pump - and an invisible held last frame after
+		// it (0.248 plate at every capture from 250 on, run 38277218163
+		// rounds=10, and every marginal CI failure before it). A living pose
+		// is found by capture and frozen, which also gives the stopped camera
+		// captures below the same visible state. A refused frame or capture
+		// is counted and its message kept: the CI runner's software Vulkan
+		// has lost frames here, and identical captures after that point were
+		// the only symptom.
 		const auto start = std::chrono::steady_clock::now();
 		const fs::path tga = scratch / ( szLabel + ".tga" );
 		std::vector<unsigned char> emptyRgb;
@@ -2732,9 +2734,9 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		bool bVisible = false;
 		std::vector<unsigned char> rgb;
 		BkEditorStatus nCapture = BK_EDITOR_FAILED;
-		while ( nRounds < 10 && std::chrono::steady_clock::now() - start < std::chrono::minutes( 5 ) )
+		while ( nRounds < 12 && std::chrono::steady_clock::now() - start < std::chrono::minutes( 5 ) )
 		{
-			const long long nTarget = nVirtual + 250;
+			const long long nTarget = nVirtual + 100;
 			auto last = std::chrono::steady_clock::now();
 			while ( nVirtual < nTarget && nFrames < 400 && std::chrono::steady_clock::now() - start < std::chrono::minutes( 5 ) )
 			{
@@ -2805,6 +2807,25 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		Check( fShare >= 0.01, ( "preview: the " + szLabel + " capture is >= 1% non-black-non-magenta" ).c_str() );
 		Check( fChanged >= 0.001, ( "preview: the " + szLabel + " object drew (>= 0.1% of the frame changed)" ).c_str() );
 
+		// The Clock proxy helper for every pump below: min(100, wall) per
+		// drawn frame, bounded, so no pump outruns the burst's visible phase.
+		auto Pump = [&]( int nMs )
+		{
+			const auto begin = std::chrono::steady_clock::now();
+			auto last = begin;
+			long long nPumped = 0;
+			while ( nPumped < nMs && nPumped >= 0 && nPumped < 1200 && std::chrono::steady_clock::now() - begin < std::chrono::minutes( 2 ) )
+			{
+				BkEditorFrame( pSession );
+				const auto now = std::chrono::steady_clock::now();
+				nPumped += (std::min<long long>)( 100, std::chrono::duration_cast<std::chrono::milliseconds>( now - last ).count() );
+				last = now;
+			}
+		};
+		// Whether the camera flip has anything to answer for, decided before
+		// the pose below is chosen: the sprite's billboards turn with the
+		// camera, not against it.
+		const bool bCameraMatters = szLabel != "sprite";
 		// The Camera button: the horizontal camera draws another frame than the
 		// default one, and the default placement draws the first one back. The
 		// pose is frozen for the three captures (Stop): a running effect's own
@@ -2812,12 +2833,24 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		// billboards turn with the camera rather than against it (measured
 		// 0.000430 against the 0.001 threshold on the CI runner, run
 		// 38239088215; the sprite check's Stop-holds case proves a stopped
-		// preview draws two equal frames). The direction test below starts the
-		// playback again itself.
+		// preview draws two equal frames). The particle and effect spreads
+		// stay tiny through the first ~100 ms of their clock - a frozen burst
+		// that early barely shifts on the plate (measured camera deltas
+		// 0.000000 against the passing 0.007751 at the later phase) and the
+		// effect's plate is at its visible edge - so the restart lands their
+		// frozen pose at 200 ms, where the spread covers the flip's answer;
+		// the mesh and sprite poses are phase-uniform and keep the one the
+		// drew loop froze. The direction test below restarts the effect
+		// itself.
 		if ( bRead )
 		{
 			std::vector<unsigned char> horizontalRgb, defaultRgb, backRgb;
 			int nHW = 0, nHH = 0;
+			if ( bCameraMatters )
+			{
+				Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, ( "preview: Run for the camera pose (" + szLabel + ")" ).c_str() );
+				Pump( 200 );
+			}
 			Check( BkResPreviewPlayback( pSession, 0 ) == BK_EDITOR_OK, ( "preview: Stop for the camera captures (" + szLabel + ")" ).c_str() );
 			const fs::path stopped = scratch / ( szLabel + "-default.tga" );
 			const bool bStopped = BkEditorCaptureFrame( pSession, stopped.string().c_str() ) == BK_EDITOR_OK && ReadCapture( stopped.string(), defaultRgb, nHW, nHH );
@@ -2829,7 +2862,6 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			Check( bHorizontal, ( "preview: the horizontal " + szLabel + " frame captures" ).c_str() );
 			const double fMode = bStopped && bHorizontal ? ChangedShare( horizontalRgb, defaultRgb ) : -1.0;
 			Log( "preview-scene: " + szLabel + " camera-horizontal-vs-default changed=" + std::to_string( fMode ) + " threshold=0.001" );
-			const bool bCameraMatters = szLabel != "sprite";
 			Check( !bCameraMatters || fMode >= 0.001, ( "preview: the horizontal camera changes the " + szLabel + " frame (>= 0.1%)" ).c_str() );
 			Check( BkResPreviewCameraMode( pSession, 0 ) == BK_EDITOR_OK, ( "preview: default camera " + szLabel ).c_str() );
 			BkEditorFrame( pSession );
@@ -2852,32 +2884,12 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			Check( BkResEffectSetDirection( pSession, std::nanf( "" ) ) == BK_EDITOR_BAD_ARGUMENT, "preview: a non-finite direction is a bad argument" );
 			Check( BkResEffectGetDirection( pSession, nullptr ) == BK_EDITOR_BAD_ARGUMENT, "preview: no out pointer for the direction is a bad argument" );
 			Check( BkResEffectSetDirection( pSession, 0.78539816f ) == BK_EDITOR_OK && BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, "preview: the effect runs again at 45 degrees" );
-		// The effect's direction turn is sampled inside one live burst: the
-		// restart at the Run re-anchors the effect, 400 ms of the clock's
-		// proxy lands the "before" and "same" captures mid-burst, and each
-		// 200 ms sample stays inside it; the 1000/300 ms pumps used before
-		// pushed every capture past the burst's fade (runs 38260557564:
-		// same-angle-changed and turned-changed both 0.000000).
-			auto Pump = [&]( int nMs )
-			{
-				// The clock's proxy again: min(100, wall) per drawn frame,
-				// bounded so no pump can run away (40 frames per call, 2
-				// minutes of wall). Steps inside the burst stay small: the
-				// effect's sprite anim fades within roughly a second.
-				const auto begin = std::chrono::steady_clock::now();
-				auto last = begin;
-				long long nVirtual = 0;
-				int nPumped = 0;
-				while ( nVirtual < nMs && nPumped < 40 && std::chrono::steady_clock::now() - begin < std::chrono::minutes( 2 ) )
-				{
-					BkEditorFrame( pSession );
-					++nPumped;
-					const auto now = std::chrono::steady_clock::now();
-					const long long nDt = std::chrono::duration_cast<std::chrono::milliseconds>( now - last ).count();
-					last = now;
-					nVirtual += nDt < 100 ? nDt : 100;
-				}
-			};
+		// The direction turn is sampled inside one live burst at the phases the
+		// drew loop and the camera block pinned (the effect's sprite is
+		// visible only in the burst's first ~200 ms): 100 ms to the "before"
+		// and "same" captures, 100 ms between samples, and a restart at the
+		// reference's own phase (200 ms) when a burst fades without the turn
+		// registering.
 			auto Shoot = [&]( const char *pszName, std::vector<unsigned char> &out )
 			{
 				const fs::path path = scratch / ( std::string( "effect-direction-" ) + pszName + ".tga" );
@@ -2886,9 +2898,9 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			};
 			std::vector<unsigned char> before, same, turned;
 			BkResPreviewPlayback( pSession, 1 );
-			Pump( 400 );
+			Pump( 100 );
 			const bool bBefore = Shoot( "before", before );
-			Pump( 250 );
+			Pump( 100 );
 			const bool bSame = Shoot( "same", same );
 			Check( BkResEffectSetDirection( pSession, -2.0f ) == BK_EDITOR_OK, "preview: a running effect takes a new direction" );
 			// The turn's visible effect grows as the particles advance, and a
@@ -2896,31 +2908,31 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			// capture almost no rotation (measured 0.0765% against the 0.1%
 			// threshold on the CI runner). Keep sampling until the turned frame
 			// differs from the same-angle frame by the threshold, within a
-			// window no measured frame interval exceeds - with 200 ms steps
-			// that stay inside the burst; when the burst fades without the
-			// turn registering, the Run restarts it and sampling resumes on a
-			// fresh 400 ms so the reference stays comparable in phase.
+			// window no measured frame interval exceeds - with 100 ms steps
+			// that stay inside the burst's visible first ~200 ms; when it
+			// fades without the turn registering, the Run restarts it and
+			// sampling resumes on a fresh burst at the reference's own phase.
 			const auto turnStart = std::chrono::steady_clock::now();
 			double fTurn = -1.0;
 			bool bTurned = false;
 			int nBursts = 1;
 			while ( true )
 			{
-				Pump( 200 );
+				Pump( 100 );
 				bTurned = Shoot( "turned", turned );
 				fTurn = bSame && bTurned ? ChangedShare( turned, same ) : -1.0;
 				if ( bTurned && fTurn >= 0.001 )
 					break;
 				if ( std::chrono::steady_clock::now() - turnStart > std::chrono::seconds( 20 ) )
 					break;
-				if ( ( nBursts++ % 3 ) == 0 )
+				if ( ( nBursts++ % 4 ) == 0 )
 				{
-					// The restart lands on the "same" reference's phase (400
-					// ms pump + the 250 ms that passed to it), so a fresh
+					// The restart lands on the "same" reference's phase (100
+					// ms pump + the 100 ms that passed to it), so a fresh
 					// burst's turned capture differs from that reference by
 					// the direction alone, not by animation phase.
 					BkResPreviewPlayback( pSession, 1 );
-					Pump( 650 );
+					Pump( 200 );
 				}
 			}
 			Check( bBefore && bSame && bTurned, "preview: the direction frames capture" );
