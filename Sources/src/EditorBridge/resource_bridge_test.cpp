@@ -2811,13 +2811,29 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			Pump( 300 );
 			const bool bSame = Shoot( "same", same );
 			Check( BkResEffectSetDirection( pSession, -2.0f ) == BK_EDITOR_OK, "preview: a running effect takes a new direction" );
-			Pump( 300 );
-			const bool bTurned = Shoot( "turned", turned );
+			// The turn's visible effect grows as the particles advance, and a
+			// loaded runner's frames take seconds each: one 300 ms pump can
+			// capture almost no rotation (measured 0.0765% against the 0.1%
+			// threshold on the CI runner). Keep sampling until the turned frame
+			// differs from the same-angle frame by the threshold, within a
+			// window no measured frame interval exceeds.
+			const auto turnStart = std::chrono::steady_clock::now();
+			double fTurn = -1.0;
+			bool bTurned = false;
+			while ( true )
+			{
+				Pump( 300 );
+				bTurned = Shoot( "turned", turned );
+				fTurn = bSame && bTurned ? ChangedShare( turned, same ) : -1.0;
+				if ( bTurned && fTurn >= 0.001 )
+					break;
+				if ( std::chrono::steady_clock::now() - turnStart > std::chrono::seconds( 20 ) )
+					break;
+			}
 			Check( bBefore && bSame && bTurned, "preview: the direction frames capture" );
 			const double fNoise = bBefore && bSame ? ChangedShare( same, before ) : -1.0;
-			const double fTurn = bSame && bTurned ? ChangedShare( turned, same ) : -1.0;
 			Log( "preview-scene: effect direction angle=0.785398->-2.0 same-angle-changed=" + std::to_string( fNoise ) + " turned-changed=" + std::to_string( fTurn ) + " threshold=0.001" );
-			Check( fTurn >= 0.001, "preview: turning the running effect changes the frame (>= 0.1%)" );
+			Check( fTurn >= 0.001, "preview: turning the running effect changes the frame (>= 0.1% within 20 s of sampling)" );
 			Check( BkResPreviewPlayback( pSession, 0 ) == BK_EDITOR_OK, "preview: the effect stops again" );
 		}
 
