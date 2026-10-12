@@ -32,6 +32,16 @@ class CSpriteAnimation : public ISpriteAnimation
 			else
 			{
 				timer.SetScale( timescales[nCurrAnim] );
+				// The CI runner froze a sprite's scale timer at one step while
+				// the same fixture animated locally: the scale comes from
+				// timescales, which the format's load fills. A wrong count, a
+				// zero entry or the frame's own time names the broken link
+				// without another cycle of guessing.
+				static int s_fingerprint = 0;
+				if ( ( ++s_fingerprint & 31 ) == 0 )
+					NStr::DebugTrace( "sprite reaquire: anim=%d scales=%d scale=%.4f frameTime=%d cycled=%d\n",
+						nCurrAnim, int( timescales.size() ), float( timescales[nCurrAnim] ),
+						pAnimation->nFrameTime, int( pAnimation->bCycled ) );
 				return true;
 			}
 		}
