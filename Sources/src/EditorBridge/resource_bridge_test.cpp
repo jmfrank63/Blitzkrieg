@@ -2707,18 +2707,31 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		const BkEditorStatus nShow = BkResPreviewShow( pSession );
 		Check( nShow == BK_EDITOR_OK, ( "preview: Show " + szLabel + ": " + BkEditorLastMessage( pSession ) ).c_str() );
 		Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, ( "preview: Run " + szLabel ).c_str() );
-		// About a second of frames, so the effect's particles (which start
-		// 200-800 ms in) and the sprite's animation have run. A refused frame
-		// is counted and its message kept: the CI runner's software Vulkan has
-		// lost frames here, and identical captures after that point were the
-		// only symptom.
+		// The pump's target is the effect's own clock, not the wall clock: the
+		// particles start 200-800 ms into the effect, and on the CI runner one
+		// drawn frame takes 200-500 ms while the bounded preview clock adds at
+		// most 100 ms of game time per frame, so a 1 s wall window reached only
+		// 2-5 frames (measured frames=2, changed-vs-empty 0.0049%, run
+		// 38233329747) and the capture landed before anything had spawned. A
+		// drawn frame's real interval is the clock's own input, so every frame
+		// contributes min(100, dt) as the clock's proxy; pump until the proxy
+		// crosses 1.2 s of game time, bounded by 40 drawn frames and 5 minutes.
+		// A refused frame is counted and its message kept: the CI runner's
+		// software Vulkan has lost frames here, and identical captures after
+		// that point were the only symptom.
 		const auto start = std::chrono::steady_clock::now();
+		auto last = start;
+		long long nVirtual = 0;
 		int nFrames = 0, nRefused = 0;
 		std::string szFirstRefusal;
-		while ( std::chrono::steady_clock::now() - start < std::chrono::milliseconds( 1000 ) )
+		while ( nVirtual < 1200 && nFrames < 40 && std::chrono::steady_clock::now() - start < std::chrono::minutes( 5 ) )
 		{
 			const BkEditorStatus nFrame = BkEditorFrame( pSession );
 			++nFrames;
+			const auto now = std::chrono::steady_clock::now();
+			const long long nDt = std::chrono::duration_cast<std::chrono::milliseconds>( now - last ).count();
+			last = now;
+			nVirtual += nDt < 100 ? nDt : 100;
 			if ( nFrame != BK_EDITOR_OK )
 			{
 				++nRefused;
@@ -2758,25 +2771,36 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		Check( fChanged >= 0.001, ( "preview: the " + szLabel + " object drew (>= 0.1% of the frame changed)" ).c_str() );
 
 		// The Camera button: the horizontal camera draws another frame than the
-		// default one, and the default placement draws the first one back.
+		// default one, and the default placement draws the first one back. The
+		// pose is frozen for the three captures (Stop): a running effect's own
+		// motion between the captures drowns the camera's answer, and its
+		// billboards turn with the camera rather than against it (measured
+		// 0.000430 against the 0.001 threshold on the CI runner, run
+		// 38239088215; the sprite check's Stop-holds case proves a stopped
+		// preview draws two equal frames). The direction test below starts the
+		// playback again itself.
 		if ( bRead )
 		{
-			std::vector<unsigned char> horizontalRgb, defaultRgb;
+			std::vector<unsigned char> horizontalRgb, defaultRgb, backRgb;
 			int nHW = 0, nHH = 0;
+			Check( BkResPreviewPlayback( pSession, 0 ) == BK_EDITOR_OK, ( "preview: Stop for the camera captures (" + szLabel + ")" ).c_str() );
+			const fs::path stopped = scratch / ( szLabel + "-default.tga" );
+			const bool bStopped = BkEditorCaptureFrame( pSession, stopped.string().c_str() ) == BK_EDITOR_OK && ReadCapture( stopped.string(), defaultRgb, nHW, nHH );
+			Check( bStopped, ( "preview: the stopped " + szLabel + " frame captures" ).c_str() );
 			Check( BkResPreviewCameraMode( pSession, 1 ) == BK_EDITOR_OK, ( "preview: horizontal camera " + szLabel ).c_str() );
 			BkEditorFrame( pSession );
 			const fs::path horizontal = scratch / ( szLabel + "-horizontal.tga" );
 			const bool bHorizontal = BkEditorCaptureFrame( pSession, horizontal.string().c_str() ) == BK_EDITOR_OK && ReadCapture( horizontal.string(), horizontalRgb, nHW, nHH );
 			Check( bHorizontal, ( "preview: the horizontal " + szLabel + " frame captures" ).c_str() );
-			const double fMode = bHorizontal ? ChangedShare( horizontalRgb, rgb ) : -1.0;
+			const double fMode = bStopped && bHorizontal ? ChangedShare( horizontalRgb, defaultRgb ) : -1.0;
 			Log( "preview-scene: " + szLabel + " camera-horizontal-vs-default changed=" + std::to_string( fMode ) + " threshold=0.001" );
 			const bool bCameraMatters = szLabel != "sprite";
 			Check( !bCameraMatters || fMode >= 0.001, ( "preview: the horizontal camera changes the " + szLabel + " frame (>= 0.1%)" ).c_str() );
 			Check( BkResPreviewCameraMode( pSession, 0 ) == BK_EDITOR_OK, ( "preview: default camera " + szLabel ).c_str() );
 			BkEditorFrame( pSession );
-			const fs::path back = scratch / ( szLabel + "-default.tga" );
-			const bool bBack = BkEditorCaptureFrame( pSession, back.string().c_str() ) == BK_EDITOR_OK && ReadCapture( back.string(), defaultRgb, nHW, nHH );
-			const double fBack = bBack ? ChangedShare( defaultRgb, horizontalRgb ) : -1.0;
+			const fs::path back = scratch / ( szLabel + "-back.tga" );
+			const bool bBack = BkEditorCaptureFrame( pSession, back.string().c_str() ) == BK_EDITOR_OK && ReadCapture( back.string(), backRgb, nHW, nHH );
+			const double fBack = bBack ? ChangedShare( backRgb, horizontalRgb ) : -1.0;
 			Log( "preview-scene: " + szLabel + " camera-default-vs-horizontal changed=" + std::to_string( fBack ) + " threshold=0.001" );
 			Check( !bCameraMatters || fBack >= 0.001, ( "preview: the default camera draws the " + szLabel + " frame back (>= 0.1% from the horizontal one)" ).c_str() );
 		}
@@ -2795,9 +2819,25 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			Check( BkResEffectSetDirection( pSession, 0.78539816f ) == BK_EDITOR_OK && BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, "preview: the effect runs again at 45 degrees" );
 			auto Pump = [&]( int nMs )
 			{
+				// The same virtual-clock pump the drew capture uses: on the CI
+				// runner 300 ms of wall time is one drawn frame (the bounded
+				// clock adds at most 100 ms per frame), so the sampling loop's
+				// 20 s window would be spent on the capture interval instead
+				// of the effect's rotation. Pump until nMs of the clock's
+				// proxy passes, bounded by 40 drawn frames and 2 minutes.
 				const auto begin = std::chrono::steady_clock::now();
-				while ( std::chrono::steady_clock::now() - begin < std::chrono::milliseconds( nMs ) )
+				auto last = begin;
+				long long nVirtual = 0;
+				int nPumped = 0;
+				while ( nVirtual < nMs && nPumped < 40 && std::chrono::steady_clock::now() - begin < std::chrono::minutes( 2 ) )
+				{
 					BkEditorFrame( pSession );
+					++nPumped;
+					const auto now = std::chrono::steady_clock::now();
+					const long long nDt = std::chrono::duration_cast<std::chrono::milliseconds>( now - last ).count();
+					last = now;
+					nVirtual += nDt < 100 ? nDt : 100;
+				}
 			};
 			auto Shoot = [&]( const char *pszName, std::vector<unsigned char> &out )
 			{
