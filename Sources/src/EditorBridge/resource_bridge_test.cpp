@@ -2707,46 +2707,79 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		const BkEditorStatus nShow = BkResPreviewShow( pSession );
 		Check( nShow == BK_EDITOR_OK, ( "preview: Show " + szLabel + ": " + BkEditorLastMessage( pSession ) ).c_str() );
 		Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, ( "preview: Run " + szLabel ).c_str() );
-		// The pump's target is the effect's own clock, not the wall clock: the
-		// particles start 200-800 ms into the effect, and on the CI runner one
-		// drawn frame takes 200-500 ms while the bounded preview clock adds at
-		// most 100 ms of game time per frame, so a 1 s wall window reached only
-		// 2-5 frames (measured frames=2, changed-vs-empty 0.0049%, run
-		// 38233329747) and the capture landed before anything had spawned. A
-		// drawn frame's real interval is the clock's own input, so every frame
-		// contributes min(100, dt) as the clock's proxy; pump until the proxy
-		// crosses 1.2 s of game time, bounded by 40 drawn frames and 5 minutes.
-		// A refused frame is counted and its message kept: the CI runner's
+		// Rounds of ~250 ms of the preview's own clock (each drawn frame
+		// contributes min(100, its real interval) as the clock's proxy),
+		// capturing at every round end, stopping the playback the moment the
+		// object is actually visible: the effect's sprite anim fades out
+		// within roughly a second of game time (measured on the CI runner:
+		// visible non-black 0.293 at frames=2, run 38239088215; a 1200 ms
+		// pump landed on a fully faded 0.248 plate with the camera deltas at
+		// 0.000000, run 38260557564 - the earlier wall-time pumps crossed
+		// whatever phase the runner reached), so a fixed time target loses;
+		// an alive pose is found by capture and then frozen, which also gives
+		// the stopped camera captures below the same visible state. A refused
+		// frame or capture is counted and its message kept: the CI runner's
 		// software Vulkan has lost frames here, and identical captures after
 		// that point were the only symptom.
 		const auto start = std::chrono::steady_clock::now();
-		auto last = start;
+		const fs::path tga = scratch / ( szLabel + ".tga" );
+		std::vector<unsigned char> emptyRgb;
+		int nW = 0, nH = 0, nRefW = 0, nRefH = 0;
+		ReadCapture( empty.string(), emptyRgb, nW, nH );
 		long long nVirtual = 0;
-		int nFrames = 0, nRefused = 0;
+		int nFrames = 0, nRefused = 0, nRounds = 0;
 		std::string szFirstRefusal;
-		while ( nVirtual < 1200 && nFrames < 40 && std::chrono::steady_clock::now() - start < std::chrono::minutes( 5 ) )
+		bool bVisible = false;
+		std::vector<unsigned char> rgb;
+		BkEditorStatus nCapture = BK_EDITOR_FAILED;
+		while ( nRounds < 10 && std::chrono::steady_clock::now() - start < std::chrono::minutes( 5 ) )
 		{
-			const BkEditorStatus nFrame = BkEditorFrame( pSession );
-			++nFrames;
-			const auto now = std::chrono::steady_clock::now();
-			const long long nDt = std::chrono::duration_cast<std::chrono::milliseconds>( now - last ).count();
-			last = now;
-			nVirtual += nDt < 100 ? nDt : 100;
-			if ( nFrame != BK_EDITOR_OK )
+			const long long nTarget = nVirtual + 250;
+			auto last = std::chrono::steady_clock::now();
+			while ( nVirtual < nTarget && nFrames < 400 && std::chrono::steady_clock::now() - start < std::chrono::minutes( 5 ) )
+			{
+				const BkEditorStatus nFrame = BkEditorFrame( pSession );
+				++nFrames;
+				const auto now = std::chrono::steady_clock::now();
+				const long long nDt = std::chrono::duration_cast<std::chrono::milliseconds>( now - last ).count();
+				last = now;
+				nVirtual += nDt < 100 ? nDt : 100;
+				if ( nFrame != BK_EDITOR_OK )
+				{
+					++nRefused;
+					if ( szFirstRefusal.empty() )
+						szFirstRefusal = BkEditorLastMessage( pSession );
+				}
+			}
+			++nRounds;
+			nCapture = BkEditorCaptureFrame( pSession, tga.string().c_str() );
+			if ( nCapture != BK_EDITOR_OK )
 			{
 				++nRefused;
 				if ( szFirstRefusal.empty() )
 					szFirstRefusal = BkEditorLastMessage( pSession );
+				continue;
 			}
+			std::vector<unsigned char> nowRgb;
+			int nNowW = 0, nNowH = 0;
+			if ( !ReadCapture( tga.string(), nowRgb, nNowW, nNowH ) )
+				continue;
+			if ( !bVisible && !emptyRgb.empty() && ChangedShare( nowRgb, emptyRgb ) >= 0.005 )
+			{
+				// The object is on the plate: freeze the pose here, so every
+				// capture below compares the same visible state.
+				bVisible = true;
+				BkResPreviewPlayback( pSession, 0 );
+			}
+			rgb = nowRgb;
+			nW = nNowW;
+			nH = nNowH;
+			if ( bVisible )
+				break;
 		}
-		const fs::path tga = scratch / ( szLabel + ".tga" );
-		const BkEditorStatus nCapture = BkEditorCaptureFrame( pSession, tga.string().c_str() );
 		const long long nMs = (long long)std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now() - start ).count();
-		Check( BkResPreviewPlayback( pSession, 0 ) == BK_EDITOR_OK, ( "preview: Stop playback " + szLabel ).c_str() );
-
-		std::vector<unsigned char> emptyRgb, rgb, refRgb;
-		int nW = 0, nH = 0, nRefW = 0, nRefH = 0;
-		const bool bRead = nCapture == BK_EDITOR_OK && ReadCapture( tga.string(), rgb, nW, nH ) && ReadCapture( empty.string(), emptyRgb, nW, nH );
+		std::vector<unsigned char> refRgb;
+		const bool bRead = nCapture == BK_EDITOR_OK && !rgb.empty() && !emptyRgb.empty();
 		Check( bRead, ( "preview: the " + szLabel + " capture reads back" ).c_str() );
 		const double fShare = bRead ? NonBlackNonMagentaShare( rgb ) : -1.0;
 		const double fChanged = bRead ? ChangedShare( rgb, emptyRgb ) : -1.0;
@@ -2760,6 +2793,8 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		   + " show_status=" + std::to_string( int( nShow ) )
 		   + " capture_status=" + std::to_string( int( nCapture ) )
 		   + " frames=" + std::to_string( nFrames )
+		   + " rounds=" + std::to_string( nRounds )
+		   + " visible=" + std::to_string( int( bVisible ) )
 		   + " refused=" + std::to_string( nRefused )
 		   + " first_refusal=\"" + szFirstRefusal + "\""
 		   + " non-black-non-magenta=" + std::to_string( fShare )
@@ -2817,14 +2852,18 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			Check( BkResEffectSetDirection( pSession, std::nanf( "" ) ) == BK_EDITOR_BAD_ARGUMENT, "preview: a non-finite direction is a bad argument" );
 			Check( BkResEffectGetDirection( pSession, nullptr ) == BK_EDITOR_BAD_ARGUMENT, "preview: no out pointer for the direction is a bad argument" );
 			Check( BkResEffectSetDirection( pSession, 0.78539816f ) == BK_EDITOR_OK && BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, "preview: the effect runs again at 45 degrees" );
+		// The effect's direction turn is sampled inside one live burst: the
+		// restart at the Run re-anchors the effect, 400 ms of the clock's
+		// proxy lands the "before" and "same" captures mid-burst, and each
+		// 200 ms sample stays inside it; the 1000/300 ms pumps used before
+		// pushed every capture past the burst's fade (runs 38260557564:
+		// same-angle-changed and turned-changed both 0.000000).
 			auto Pump = [&]( int nMs )
 			{
-				// The same virtual-clock pump the drew capture uses: on the CI
-				// runner 300 ms of wall time is one drawn frame (the bounded
-				// clock adds at most 100 ms per frame), so the sampling loop's
-				// 20 s window would be spent on the capture interval instead
-				// of the effect's rotation. Pump until nMs of the clock's
-				// proxy passes, bounded by 40 drawn frames and 2 minutes.
+				// The clock's proxy again: min(100, wall) per drawn frame,
+				// bounded so no pump can run away (40 frames per call, 2
+				// minutes of wall). Steps inside the burst stay small: the
+				// effect's sprite anim fades within roughly a second.
 				const auto begin = std::chrono::steady_clock::now();
 				auto last = begin;
 				long long nVirtual = 0;
@@ -2846,9 +2885,10 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 				return BkEditorCaptureFrame( pSession, path.string().c_str() ) == BK_EDITOR_OK && ReadCapture( path.string(), out, nShotW, nShotH );
 			};
 			std::vector<unsigned char> before, same, turned;
-			Pump( 1000 );
+			BkResPreviewPlayback( pSession, 1 );
+			Pump( 400 );
 			const bool bBefore = Shoot( "before", before );
-			Pump( 300 );
+			Pump( 250 );
 			const bool bSame = Shoot( "same", same );
 			Check( BkResEffectSetDirection( pSession, -2.0f ) == BK_EDITOR_OK, "preview: a running effect takes a new direction" );
 			// The turn's visible effect grows as the particles advance, and a
@@ -2856,19 +2896,32 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 			// capture almost no rotation (measured 0.0765% against the 0.1%
 			// threshold on the CI runner). Keep sampling until the turned frame
 			// differs from the same-angle frame by the threshold, within a
-			// window no measured frame interval exceeds.
+			// window no measured frame interval exceeds - with 200 ms steps
+			// that stay inside the burst; when the burst fades without the
+			// turn registering, the Run restarts it and sampling resumes on a
+			// fresh 400 ms so the reference stays comparable in phase.
 			const auto turnStart = std::chrono::steady_clock::now();
 			double fTurn = -1.0;
 			bool bTurned = false;
+			int nBursts = 1;
 			while ( true )
 			{
-				Pump( 300 );
+				Pump( 200 );
 				bTurned = Shoot( "turned", turned );
 				fTurn = bSame && bTurned ? ChangedShare( turned, same ) : -1.0;
 				if ( bTurned && fTurn >= 0.001 )
 					break;
 				if ( std::chrono::steady_clock::now() - turnStart > std::chrono::seconds( 20 ) )
 					break;
+				if ( ( nBursts++ % 3 ) == 0 )
+				{
+					// The restart lands on the "same" reference's phase (400
+					// ms pump + the 250 ms that passed to it), so a fresh
+					// burst's turned capture differs from that reference by
+					// the direction alone, not by animation phase.
+					BkResPreviewPlayback( pSession, 1 );
+					Pump( 650 );
+				}
 			}
 			Check( bBefore && bSame && bTurned, "preview: the direction frames capture" );
 			const double fNoise = bBefore && bSame ? ChangedShare( same, before ) : -1.0;
