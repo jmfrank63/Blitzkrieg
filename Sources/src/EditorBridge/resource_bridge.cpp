@@ -5120,6 +5120,17 @@ void ApplyEffectDirection( ResourceState &state )
 void RestartPreviewObject( ResourceState &state )
 {
 	const NTimer::STime time = UpdateGameTimer();
+	if ( time == 0 )
+	{
+		// UpdateGameTimer's 0 means the game timer's singleton is momentarily
+		// gone (the islands the frozen-pose repros printed between projects).
+		// Anchoring the bounded clock at 0 would freeze it forever - its step
+		// is 0 while nPreviewClockReal is 0 - and SetStartTime(0) would pin
+		// every anchor at an unreachable epoch. Leave the preview's clocks as
+		// they are; the next Run click, or the next DrawSessionFrame, sees a
+		// real game time again.
+		return;
+	}
 	// The bounded virtual clock anchors here: the first preview frame
 	// advances from the same game time the objects were rewound to.
 	state.nPreviewClockReal = time;

@@ -28,6 +28,22 @@ public:
 	void Reset( const NTimer::STime &time ) { prevTime = time; currTime = 0; fError = 0; }
 	void Update( const NTimer::STime &time )
 	{
+		// A backward step is clock mixing (the bridge feeds one sprite both
+		// the bounded preview clock and the scene's real game clock) or an
+		// epoch jump across an engine restart - never real elapsed time.
+		// DWORD subtraction would read it as a positive ~2^32 delta whose
+		// float->int conversion overflows (lrintf past INT32_MAX), poisons
+		// fError with a 2^32 multiple and pins currTime in a +/-%u wrap from
+		// then on: the measured CI signature behind the frozen sprite pose
+		// (err=2x2^32 growing by 2x2^32 a frame with animtime stuck at one
+		// value, local repros sc5-sc7 of the bridge tier). Re-anchor instead:
+		// the pose holds and the timer resumes from the new origin.
+		if ( prevTime != 0 && time < prevTime )
+		{
+			prevTime = time;
+			fError = 0;
+			return;
+		}
 		NTimer::STime dT = prevTime == 0 ? 0 : time - prevTime;
 		prevTime = time;
 		const float fdt = float( dT*fScale ) + fError;
