@@ -2,8 +2,12 @@ name: Failing-tier focus
 
 # Temporary companion to cross-platform.yml (2026-10-12): with every job green
 # except "Linux x64 - Game" and "Linux x64 - Resource Editor", branch pushes run
-# only those two so fixes iterate on the failing part. The full suite stays on
-# pull_request to main and workflow_dispatch of cross-platform.yml. These two
+# only those two so fixes iterate on the failing part. Every step those two jobs
+# pass consistently is skipped (if: inputs.full == true), so a push or a
+# workflow_dispatch runs setup plus the failing tiers: the Resource Editor's
+# bridge tier and the Game's random missions tier with its backtrace step.
+# dispatch full=true runs everything these two jobs would. The full suite stays
+# on pull_request to main and workflow_dispatch of cross-platform.yml. These two
 # jobs mirror cross-platform.yml verbatim; delete this file once both are green
 # on push and restore push triggers in cross-platform.yml.
 
@@ -11,6 +15,11 @@ on:
   push:
     branches: ['feat/**', 'fix/**']
   workflow_dispatch:
+    inputs:
+      full:
+        description: 'Run every step, not only the currently failing tiers'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -124,34 +133,44 @@ jobs:
             ${{ runner.os }}-x86_64-linux-gnu-zig-global-0.17.0-
 
       - name: Audit playable native residue
+        if: inputs.full == true
         run: zig test tools/zig/runtime_platform_audit_test.zig
 
       - name: Run StreamIO filesystem tests
+        if: inputs.full == true
         run: zig build test-platform-files -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Run runtime module contract tests
+        if: inputs.full == true
         run: zig build test-platform-modules -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Run platform foundation matrix
+        if: inputs.full == true
         run: zig build test-platform-foundation -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Verify native runtime layout
+        if: inputs.full == true
         run: zig build verify-runtime -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Run native staging tests
+        if: inputs.full == true
         run: zig build test-stage -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Run diagnostics facade tests
+        if: inputs.full == true
         run: zig build test-platform-debug -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Run GFX GPU effect table tests
+        if: inputs.full == true
         run: zig build test-gfxgpu-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Mission data tier
+        if: inputs.full == true
         run: zig build test-mission-data -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       # New on Linux (2026-10-08): the Game's own tiers on lavapipe, as on Windows and macOS.
       - name: Engine tier
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-editor-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run
@@ -169,6 +188,7 @@ jobs:
       # The leak gate: one template generated and opened 20 times over, the same maps every round;
       # the test fails if the heap grows over the last 10 rounds (tools/zig/random_missions_test.cpp).
       - name: Random missions leak gate
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run "-Drandom-missions-sweep=only=summer_ukraine\securearea00" -Drandom-missions-repeat=20
@@ -188,10 +208,12 @@ jobs:
           tail -80 gdb-random-missions.log || true
 
       - name: GPU device probe
+        if: inputs.full == true
         continue-on-error: true
         run: zig build gpu-device-probe -Dtarget=x86_64-linux-gnu
 
       - name: Run GFX GPU factory test
+        if: inputs.full == true
         id: gfxgpu-factory-test
         run: zig build gfxgpu-factory-test -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
@@ -316,12 +338,14 @@ jobs:
         run: zig test tools/zig/runtime_platform_audit_test.zig
 
       - name: Resource editor core tier
+        if: inputs.full == true
         run: zig build test-resource-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       # S03 slice gate: Sources/src/ResourceModel scaffold round-trip over every
       # project extension, references/combos/localization lists and the
       # per-stats-type comparator with its planted-unknown abort path.
       - name: Resource model tier
+        if: inputs.full == true
         run: zig build test-resource-model -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       # S04 slice gate: the resource bridge through the engine (Project+Tree,
@@ -338,125 +362,150 @@ jobs:
 
       # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
       - name: Resource mod round-trip tier
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-resource-mod-roundtrip -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       # The Resource Editor's own tiers, the engine hidden on the virtual display, as on Windows and macOS.
       - name: Resource editor install
+        if: inputs.full == true
         run: zig build install-resource-editor -Dtarget=x86_64-linux-gnu
 
       - name: Resource editor host
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-host-check -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor smoke
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-smoke -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor batch
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-batch -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto core
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-core -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto wpn
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-wpn -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto unt
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-unt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto spt
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-spt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto msh
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-msh -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto obt
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-obt -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto fnc
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-fnc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto bld
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-bld -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto bdg
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-bdg -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto pcp
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-pcp -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto eff
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-eff -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto til
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-til -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto 3rd
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-3rd -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto 3rv
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-3rv -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto mip
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-mip -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto chc
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-chc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto cgc
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-cgc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto mdc
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-mdc -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Resource editor auto gui
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-auto-gui -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       - name: Game reads the Resource Editor's exports
+        if: inputs.full == true
         env:
           BK_REQUIRE_ENGINE: "1"
         run: zig build resource-editor-game-reads-it -Dtarget=x86_64-linux-gnu -Dtest-mode=run
