@@ -42,15 +42,21 @@ const backing: std.mem.Allocator = switch (mode) {
 /// frame for the engine call site the leak reports name, and its
 /// RtlCaptureStackBackTrace makes a deeper stack a fixed small cost. macOS
 /// arm64 keeps 24 because its captures walk frame pointers (debug.SelfInfo
-/// below). Linux goes back to the SafeAllocator default of 7: there every
-/// captured frame is unwound from the images' DWARF tables, and perf over the
-/// leak-recorded resource bridge tier showed about 70 % of the CPU in that
-/// unwind, which ran the tier past its CI timeout.
+/// below). 0 on Linux and on macOS x64: there every captured frame is unwound
+/// from the images' DWARF tables through std.debug's shared unwind state, and
+/// the engine's crash handler caught that machinery SEGV under the CI runners
+/// (38307115498: the counts still worked while a driver's own thread - the
+/// runner image's gfxstream ICD assigning through the hooked operator new -
+/// unwound the same shared state concurrently; both threads met in
+/// SelfInfo's module reader). The counts never unwind, so the CI gates
+/// (BK_MEM_REPORT=count) are unaffected; a Linux or macOS leak investigation
+/// passes -Dbk-mem-stack-frames=24 explicitly for that run, alone in the
+/// process, on a foreign-ICD-free loader (VK_DRIVER_FILES=lvp).
 const default_stack_frames: usize = if (builtin.os.tag == .windows or
     (builtin.os.tag.isDarwin() and builtin.cpu.arch == .aarch64))
     24
 else
-    7;
+    0;
 
 /// Frames recorded per allocation, from -Dbk-mem-stack-frames. 0 keeps the
 /// platform default; a Linux or macOS leak investigation passes 24 explicitly
@@ -572,6 +578,13 @@ test "default stack depth follows the platform" {
     // An explicit -Dbk-mem-stack-frames is the caller's call, not the rule.
     if (build_options.stack_frames != 0) return;
     const expected: usize = if (builtin.os.tag == .windows or
-        (builtin.os.tag.isDarwin() and builtin.cpu.arch == .aarch64)) 24 else 7;
+        (builtin.os.tag.isDarwin() and builtin.cpu.arch == .aarch64))
+        24
+    else
+        // The DWARF-unwind platforms capture nothing by default: std.debug's
+        // shared unwind state raced two threads' captures on the CI runner
+        // (the SEGV inside SelfInfo's module reader, run 38307115498) and the
+        // counts the CI gates read never unwind anyway.
+        0;
     try testing.expectEqual(expected, stack_frames);
 }
