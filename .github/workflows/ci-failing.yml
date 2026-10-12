@@ -92,13 +92,18 @@ jobs:
 
       # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
       # the engine-hosted resource tiers below then run for real, and BK_REQUIRE_ENGINE makes a
-      # "skipped: no GPU device" fail instead of pass.
+      # "skipped: no GPU device" fail instead of pass. VK_DRIVER_FILES pins the loader to
+      # lavapipe: the image also carries the gfxstream ICD (the /dev/dxg host-GPU driver), whose
+      # enumeration ran vkCreateInstance's ICD code whose allocations route through BkMemory's
+      # hooked operator new from a foreign thread - the measured startup SEGV of the random
+      # missions tier (38307115498's crash backtrace: gfxstream new -> bk_mem_alloc).
       - name: Virtual display and software Vulkan
         run: |
           Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
           sleep 3
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
           echo "SDL_VIDEO_DRIVER=x11" >> "$GITHUB_ENV"
+          echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json" >> "$GITHUB_ENV"
           ls /usr/share/vulkan/icd.d/
 
       - name: Install Zig 0.17.0
@@ -336,13 +341,18 @@ jobs:
 
       # No GPU here, so a virtual X display and Mesa's software Vulkan (lavapipe) give SDL a device:
       # the engine-hosted resource tiers below then run for real, and BK_REQUIRE_ENGINE makes a
-      # "skipped: no GPU device" fail instead of pass.
+      # "skipped: no GPU device" fail instead of pass. VK_DRIVER_FILES pins the loader to
+      # lavapipe: the image also carries the gfxstream ICD (the /dev/dxg host-GPU driver), whose
+      # enumeration ran vkCreateInstance's ICD code whose allocations route through BkMemory's
+      # hooked operator new from a foreign thread - the measured startup SEGV of the random
+      # missions tier (38307115498's crash backtrace: gfxstream new -> bk_mem_alloc).
       - name: Virtual display and software Vulkan
         run: |
           Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
           sleep 3
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
           echo "SDL_VIDEO_DRIVER=x11" >> "$GITHUB_ENV"
+          echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json" >> "$GITHUB_ENV"
           ls /usr/share/vulkan/icd.d/
 
       - name: Install Zig 0.17.0
