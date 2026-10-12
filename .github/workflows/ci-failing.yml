@@ -353,12 +353,14 @@ jobs:
       - name: Resource bridge tier
         env:
           BK_REQUIRE_ENGINE: "1"
-        # This step boots the editors in-process with GPU readbacks; it has
-        # burned a whole runner in a silent in-process stall (the 24-frame
-        # stack-capture era). A bounded step turns that into a failure with
-        # the log preserved: 45 minutes covers the coldest legit run measured
-        # (34 minutes for the model tier on this job).
-        run: timeout 2700 zig build test-resource-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run
+        # The step compiles the whole engine-hosted tree as debug before it
+        # runs; the full job's earlier tiers warm the cache on the host, but a
+        # fast run (the default here) pays the cold build itself - measured
+        # 37+ minutes on the 2026-10-12 runners while the same step ran in
+        # under 15 warm (run 38254519207: the 2700 s bound killed it with
+        # zero output). 6000 s keeps the silent in-process stall bounded
+        # while leaving headroom for a cold build like that one.
+        run: timeout 6000 zig build test-resource-bridge -Dtarget=x86_64-linux-gnu -Dtest-mode=run
 
       # S17 (D053): the third-party mod round trip. Over the tracked mini-mod here; a real mod needs -Dmod-root.
       - name: Resource mod round-trip tier
