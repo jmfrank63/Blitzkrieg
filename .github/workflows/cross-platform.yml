@@ -1,11 +1,14 @@
 name: Cross-platform validation
 
-# Branch pushes to feat/fix run only the currently failing Linux x64 jobs via
-# ci-failing.yml while its two failures are open; this full suite validates
-# pull requests to main and any workflow_dispatch.
+# The full matrix runs on every push and PR again (2026-10-12): the
+# ci-failing.yml companion that scoped branch pushes to the open Linux x64
+# failures is deleted, both of them green (38286700953's Resource Editor and
+# 38313539472's Game), and the SEGV behind the Game's flakiness is addressed
+# at the loader (VK_DRIVER_FILES=lvp) and the allocator (no stack capture on
+# the DWARF platforms).
 on:
   push:
-    branches: [main]
+    branches: [main, 'feat/**', 'fix/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
