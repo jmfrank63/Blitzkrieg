@@ -7161,6 +7161,11 @@ fn addResourceBridge(
     const run = b.addRunArtifact(exe);
     setLeakReportLog(run);
     run.setCwd(b.path(stage_root));
+    // The bridge's diagnostics (the preview-clock stall detector, the preview
+    // timer trace) are BK_DEBUG_LOG-gated in a release build; a tier built
+    // with --release must still print them when it stalls, as
+    // resource-editor-game-reads-it does.
+    run.setEnvironmentVariable("BK_DEBUG_LOG", "1");
     run.addArg(".");
     if (tier.mod_roundtrip) {
         // The tracked mini-mod's data folder, then the scratch root. The real mod, when there

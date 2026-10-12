@@ -5047,7 +5047,43 @@ void PreviewBeforeDraw( SEditorSession *pBase )
 		virtualTime = state.nPreviewClockVirtual;
 	}
 	if ( state.pPreviewObj != nullptr )
+	{
 		state.pPreviewObj->Update( virtualTime );
+		// The stall detector: costs one compare per drawn frame, so the race
+		// it hunts (the CI preview whose pose froze while frames kept being
+		// captured - runs 38208324921/38216827886) is not perturbed away the
+		// way the per-call traces were. It prints only after 16 consecutive
+		// calls in which the bounded clock has not moved at all - no healthy
+		// run reaches that even with two calls inside the same millisecond -
+		// and again on recovery, and every 512 further stalled calls (the
+		// effect checks pump only a few frames; 16 fits inside them).
+		static NTimer::STime trackedVirtual = 0;
+		static int nStalled = 0;
+		if ( virtualTime == trackedVirtual && trackedVirtual != 0 )
+		{
+			++nStalled;
+			if ( nStalled == 16 || ( nStalled - 16 ) % 512 == 0 )
+			{
+				int nAnimTime = -1, nAnim = -1;
+				if ( !state.bPreviewEffect )
+					if ( ISpriteAnimation *pAnimation = dynamic_cast<ISpriteAnimation *>( static_cast<IObjVisObj *>( state.pPreviewObj )->GetAnimation() ) )
+					{
+						nAnimTime = int( pAnimation->GetScaleTimer().Get() );
+						nAnim = int( pAnimation->GetAnimation() );
+					}
+				IGameTimer *pTimer = GetSingleton<IGameTimer>();
+				NPlatform::DebugWriteFormat( "preview clock: stalled %d calls: virtual=%u real=%u animtime=%d anim=%d pause=%d\n",
+					nStalled, unsigned( virtualTime ), unsigned( time ), nAnimTime, nAnim, pTimer ? int( pTimer->GetPauseReason() ) : -2 );
+			}
+		}
+		else
+		{
+			if ( nStalled >= 16 )
+				NPlatform::DebugWriteFormat( "preview clock: resumed after %d stalled calls, virtual=%u\n", nStalled, unsigned( virtualTime ) );
+			nStalled = 0;
+			trackedVirtual = virtualTime;
+		}
+	}
 	for ( IVisObj *pMember : state.previewMembers )
 		pMember->Update( virtualTime );
 }
