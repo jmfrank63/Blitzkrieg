@@ -419,6 +419,7 @@ static int SkipOrFail( const char *pszTool, const std::string &szWhy )
 // engine-library frames carry lib+offset for the failure step's addr2line.
 #include <execinfo.h>
 #include <signal.h>
+#include <unistd.h>
 static void RandomMissionsCrashHandler( int nSig, siginfo_t *pInfo, void * )
 {
 	void *pFrames[32];
