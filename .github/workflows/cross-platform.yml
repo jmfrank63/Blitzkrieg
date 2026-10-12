@@ -1,8 +1,11 @@
 name: Cross-platform validation
 
+# Branch pushes to feat/fix run only the currently failing Linux x64 jobs via
+# ci-failing.yml while its two failures are open; this full suite validates
+# pull requests to main and any workflow_dispatch.
 on:
   push:
-    branches: [main, 'feat/**', 'fix/**']
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
