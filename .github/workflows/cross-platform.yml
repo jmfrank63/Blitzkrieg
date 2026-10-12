@@ -2075,6 +2075,21 @@ jobs:
           BK_REQUIRE_ENGINE: "1"
         run: zig build test-random-missions -Dtarget=x86_64-linux-gnu --release=fast -Dtest-mode=run "-Drandom-missions-sweep=only=summer_ukraine\securearea00" -Drandom-missions-repeat=20
 
+      # The random-missions SEGV (runs 37891155952, 38216827886) died within
+      # its first minutes, in a --release=fast binary, before the first case
+      # line printed. A failure-only step re-runs the same executable under
+      # gdb, bounded, so the next SEGV names its faulting frame instead of
+      # dying silently; while the tier is green it costs nothing. Kept and
+      # updated in verbatim mirror with ci-failing.yml's linux-game job.
+      - name: Backtrace the random missions SEGV
+        if: failure()
+        run: |
+          sudo apt-get install -y --no-install-recommends gdb
+          cd zig-out/game/linux/x86_64/release
+          timeout 1800 gdb -batch -ex 'set pagination off' -ex 'set confirm off' -ex run -ex 'thread apply all bt' --args ./random-missions-test . /home/runner/work/Blitzkrieg/Blitzkrieg/zig-out/local-test all 2>&1 | tee gdb-random-missions.log || true
+          echo "=== last frames"
+          tail -80 gdb-random-missions.log || true
+
       # Saved from main only, as in windows-game, and before the slow tail of the job.
       - name: Save Zig build cache
         if: always() && github.ref == 'refs/heads/main' && steps.zig-build-cache.outputs.cache-hit != 'true'
