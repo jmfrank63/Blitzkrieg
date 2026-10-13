@@ -9,6 +9,29 @@ clustering script's numbers below taken 2026-10-11.
 
 ## Families (by share of the parsed sample)
 
+**Windows capture (2026-10-13, T02's final tables: direct staged runs with BK_MEM_REPORT=log on
+win-home, debug build; logs zig-out/local-test/tier-logs/s04-t02-{resource-editor,map-editor,game}.err.log):**
+
+| Process | Blocks | Bytes | The mass |
+|---|---|---|---|
+| ResourceEditor --check wpn | 44,232 | 74.6 MB | 21.9k×32 B + 10.5k×48 B + 6.4k×80 B + 5.1k×64 B: **the string/map-node family (DataTree AddStringData + the std containers)**; the bk backing FixedBufferAllocator 487 blocks = 70.2 MB (the engine's big buffers, 95% of the byte mass); SDL3 third-party 213 blocks; WorldBase.cpp:203 1,042 blocks (190 KB); Initialization.cpp 2,459 blocks (startup singletons); StructureSaver.h:82 346 blocks |
+| MapEditor --check coldwinter | 56,059 | 77.9 MB | the same shape: the strings/nodes mass + the backing buffers 493×70.2 MB + SDL3 1,399 blocks + Lua lmem.c:100 31 blocks |
+| Game (60 s at its menu, graceful close) | 1,224 | 127 KB | 1,221× the same small-alloc family + 3 backing blocks |
+
+The count-mode baselines (S02 rows of the tier-results: 45,395 host-check / 52,655 smoke / 136k-171k
+the game-bearing tiers) agree with these numbers - the direct runs replicate the tiers' counts, so
+the log mode parses the same population.
+
+**Walk caveat (recorded, not blocking):** the Windows stacks come out one-frame for the large
+majority of blocks (38307115498's SEGV cousin: std.debug's shared SelfInfo unwind state bails via
+switch_to_fp, gated by allow_unsafe_unwind=false; the record mutex in bk_memory prevents the worst
+(shared-state SEGV) but the walk depth stays short). The family attribution stands on: the WSL
+capture's DTHelper.h:91 AddStringData name (3,758 blocks) + its no-frame sibling (3,442), the same
+37-72 B sizes; and the size histograms here. T02's owners: the DataTree's character data + the
+engine's std container nodes (T03's fix target), the World's per-scene state, the startup
+singletons (Initialization.cpp), the saver's records, SDL3's own caches.
+
+
 | Family | Allocs | Bytes | Shape |
 |---|---|---|---|
 | `StreamIO/DTHelper.h:91 AddStringData<char>` | 3,758 | 199,168 B | Small strings, 37-72 B each; the DataTree's character data from project load and export |

@@ -163,3 +163,7 @@ library already brings Zig's libc, so the helper's linkMsvcRuntime names a secon
 
 Debug runs of the touched tiers were each stopped by the one-command bound, not by a failure; the
 release runs above and CI's debug jobs are the proof for them.
+
+| resource-editor (T02 direct, BK_MEM_REPORT=log) | ResourceEditor.exe --check wpn <tga> <fixture> | 0 | ~13 min (600 s wait + capture) | log | logs s04-t02-resource-editor.out/err.log; 44,232 blocks / 74.6 MB; the small-alloc string family + the 70.2 MB backing; matches count baseline |
+| map-editor (T02 direct) | MapEditor.exe --check coldwinter <tga> | 0 | ~30 min incl. capture | log | s04-t02-map-editor.out/err.log; 56,059 blocks / 77.9 MB; same shape |
+| game (T02 direct, 60 s menu, graceful close) | Game.exe | 0 | ~75 s | log | s04-t02-game.out/err.log; 1,224 blocks / 127 KB; 1,221 the same family |
