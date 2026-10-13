@@ -9459,6 +9459,10 @@ int main( int argc, char **argv )
 	// keeps a Linux compositor from stealing focus to a window the user
 	// never asked for; SDL_WINDOW_HIDDEN keeps it off the taskbar. Both are
 	// what the Map Editor's hidden tiers use (AGENTS.md: Linux pitfalls).
+	// This window is never shown, so it never needs decorations: libdecor
+	// stays unloaded - its fallback dlopens GTK, which cost the WSL/lvp
+	// runs startup time and a leak trace (S04/T06).
+	SDL_SetHint( SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, "0" );
 	if ( !SDL_Init( SDL_INIT_VIDEO ) )
 	{
 		const char *pszError = SDL_GetError();

@@ -118,9 +118,16 @@ bool SDLApplication::ShowSplash( const char *bmpPath, int width, int height )
 	// NOT_FOCUSABLE is the SWP_NOACTIVATE of the Win32 splash: the picture
 	// must not take the keyboard from whatever launched the game, and must
 	// not steal it back when the game window comes up underneath.
+	// The splash is borderless - it never wants decorations, and creating
+	// it with libdecor disallowed keeps libdecor's GTK fallback out of the
+	// process on Wayland (S04/T06). The game window's own decoration
+	// negotiation happens later, with the caller's value restored here.
+	const bool bLibdecorWasAllowed = SDL_GetHintBoolean( SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, true );
+	SDL_SetHint( SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, "0" );
 	SDL_Window *window = SDL_CreateWindow( "",
 		width, height,
 		SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_NOT_FOCUSABLE | SDL_WINDOW_HIDDEN );
+	SDL_SetHint( SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, bLibdecorWasAllowed ? "1" : "0" );
 	if ( !window )
 	{
 		SetError( "SDL_CreateWindow" );

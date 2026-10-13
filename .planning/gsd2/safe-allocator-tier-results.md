@@ -167,3 +167,26 @@ release runs above and CI's debug jobs are the proof for them.
 | resource-editor (T02 direct, BK_MEM_REPORT=log) | ResourceEditor.exe --check wpn <tga> <fixture> | 0 | ~13 min (600 s wait + capture) | log | logs s04-t02-resource-editor.out/err.log; 44,232 blocks / 74.6 MB; the small-alloc string family + the 70.2 MB backing; matches count baseline |
 | map-editor (T02 direct) | MapEditor.exe --check coldwinter <tga> | 0 | ~30 min incl. capture | log | s04-t02-map-editor.out/err.log; 56,059 blocks / 77.9 MB; same shape |
 | game (T02 direct, 60 s menu, graceful close) | Game.exe | 0 | ~75 s | log | s04-t02-game.out/err.log; 1,224 blocks / 127 KB; 1,221 the same family |
+## M003/S04/T06: hidden test windows do not load libdecor/GTK (win-home build, WSL clone run)
+
+The change: SDL_SetHint(SDL_HINT_VIDEO_WAYLAND_ALLOW_LIBDECOR, "0") before the resource-bridge
+test's hidden window (Sources/src/EditorBridge/resource_bridge_test.cpp) and around the borderless
+splash's creation, restored after (Sources/src/Platform/SDLApplication.cpp). The main window keeps
+the caller's value: Wayland negotiates decorations at window creation, so a window that will be
+shown on a desktop must still be allowed libdecor or it loses its title bar there.
+
+| Tier | Command | Exit | Time | Mode | Result |
+| --- | --- | --- | --- | --- | --- |
+| resource-editor-host-check (WSL clone, patch applied) | zig build resource-editor-host-check (~/zig-0.17.0/zig) | 0 | about 9 min incl. rebuild | log | host check PASS, docks PASS; k_mem: 3108 leaked block(s); zero libdecor|gtk lines in the whole tier log |
+| the same, patch stashed (A/B) | same | 0 | about 9 min | log | identical output, also zero libdecor|gtk lines - see the blocker below |
+| libdecor presence | ldconfig -p \| grep -c libdecor (WSL distro) | 0 matches | - | - | libdecor is not installed in the WSL distro at all |
+
+Environment-blocked, as the task anticipated: this WSL distro ships no libdecor, its non-GUI shells
+export neither WAYLAND_DISPLAY nor DISPLAY (WSLg's Weston socket exists at
+/mnt/wslg/runtime-dir/wayland-0 but the distro has nothing to load against it), and the Linux CI jobs
+are X11 (xvfb) only. Weston answers xdg-decoration server-side, so even a Wayland run here would not
+dlopen libdecor's GTK fallback - the GTK traces in the original dzn/lvp leak reports came from the
+maintainer's interactive desktop. The negative cannot be exercised outside that desktop; the hint is
+SDL's documented switch (SDL_VIDEO_WAYLAND_ALLOW_LIBDECOR=0 never loads the library), the never-shown
+windows are the ones covered, and the tier's exit-0 half of the verify is met on the WSL clone.
+
