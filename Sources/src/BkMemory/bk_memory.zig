@@ -69,6 +69,30 @@ else
 var instance: if (use_safe) std.heap.SafeAllocator else void =
     if (use_safe) std.heap.SafeAllocator.init(backing, .{ .canary = canary, .stack_trace_frames = stack_frames }) else {};
 
+/// The record path's serialization. std.debug's SelfInfo - which every stack
+/// capture walks - is a process-global built lazily on first use and guarded
+/// nowhere on the unwind path itself; two threads capturing at once met
+/// inside its ELF module reader on the CI runner and SEGV'd (the
+/// random-missions crash backtrace: Io.Reader.peekByte under getUnwindSections;
+/// on Windows the same race bailed 37310 of 43197 allocation stacks out at
+/// their first frame instead). While captures are armed (a non-zero
+/// -Dbk-mem-stack-frames) the capture-holding backend calls hold this mutex,
+/// so an unwind never runs beside another one. With captures off - the CI
+/// gates' default on the counted tiers - the mutex is skipped entirely: the
+/// backend calls are already free of shared state without it.
+var record_mutex: std.atomic.Mutex = .unlocked;
+
+/// tryLock with a yield loop: std.atomic.Mutex has no blocking lock on its
+/// own (the engine's threads must not fail an allocation because the record
+/// path was busy, so a try is repeated rather than abandoned; the record
+/// itself is short). Not re-entrant: alloc/free/realloc hold no caller lock.
+inline fn lockRecordSpin() void {
+    while (!record_mutex.tryLock()) {
+        std.atomic.spinLoopHint();
+        std.Thread.yield() catch {};
+    }
+}
+
 /// Every allocation of a debug build records a stack, and std.debug unwinds
 /// it from the images' unwind tables before it tries frame pointers. On macOS
 /// arm64 that table walk cost more than the rest of the allocation many times
@@ -193,7 +217,12 @@ fn allocImpl(size: usize, alignment: usize, ra: usize) ?[*]u8 {
     const a = normalizeAlign(alignment) orelse return null;
     const pad = padFor(a.toByteUnits());
     const total = std.math.add(usize, pad, size) catch return null;
-    const base = backend().rawAlloc(total, a, ra) orelse return null;
+    if (comptime stack_frames != 0) lockRecordSpin();
+    const base = backend().rawAlloc(total, a, ra) orelse {
+        if (comptime stack_frames != 0) record_mutex.unlock();
+        return null;
+    };
+    if (comptime stack_frames != 0) record_mutex.unlock();
     const user = base + pad;
     headerOf(user).* = .{
         .size = size,
@@ -219,6 +248,8 @@ fn freeImpl(user: [*]u8, ra: usize) void {
     h.magic = freed_magic;
     _ = @atomicRmw(usize, &live_count, .Sub, 1, .monotonic);
     _ = @atomicRmw(usize, &live_bytes, .Sub, size, .monotonic);
+    if (comptime stack_frames != 0) lockRecordSpin();
+    defer if (comptime stack_frames != 0) record_mutex.unlock();
     backend().rawFree(base[0 .. pad + size], alignment, ra);
 }
 
@@ -240,7 +271,10 @@ fn reallocImpl(user: ?[*]u8, new_size: usize, want_align: usize, ra: usize) ?[*]
     const base = p - pad;
     const total = std.math.add(usize, pad, new_size) catch return null;
     const mem = base[0 .. pad + old_size];
-    if (backend().rawRemap(mem, old_align, total, ra)) |new_base| {
+    if (comptime stack_frames != 0) lockRecordSpin();
+    const remapped = backend().rawRemap(mem, old_align, total, ra);
+    if (comptime stack_frames != 0) record_mutex.unlock();
+    if (remapped) |new_base| {
         const new_user = new_base + pad;
         headerOf(new_user).size = new_size;
         if (new_size >= old_size) {
