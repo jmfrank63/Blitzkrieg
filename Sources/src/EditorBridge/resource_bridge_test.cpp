@@ -2846,11 +2846,13 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		{
 			std::vector<unsigned char> horizontalRgb, defaultRgb, backRgb;
 			int nHW = 0, nHH = 0;
-			if ( bCameraMatters )
-			{
-				Check( BkResPreviewPlayback( pSession, 1 ) == BK_EDITOR_OK, ( "preview: Run for the camera pose (" + szLabel + ")" ).c_str() );
-				Pump( 200 );
-			}
+			// The pose is the drew loop's found-visible freeze, not a restart:
+			// restarting at 200 ms of the clock proxy left the particle's
+			// burst empty on a loaded software-rendering runner (a frame there
+			// costs hundreds of ms, so 200 ms is 1-2 engine frames and nothing
+			// has spawned) - both cameras then rendered the same emptiness and
+			// the flip measured exactly 0.000000, run 38400305376. The drew
+			// loop's pose is already proven visible; the flip answers on it.
 			Check( BkResPreviewPlayback( pSession, 0 ) == BK_EDITOR_OK, ( "preview: Stop for the camera captures (" + szLabel + ")" ).c_str() );
 			const fs::path stopped = scratch / ( szLabel + "-default.tga" );
 			const bool bStopped = BkEditorCaptureFrame( pSession, stopped.string().c_str() ) == BK_EDITOR_OK && ReadCapture( stopped.string(), defaultRgb, nHW, nHH );
