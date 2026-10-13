@@ -64,3 +64,18 @@ CLinkObject registries) plus data freed by neither.
   note in single_instance.zig (hand-off jobs from the process allocator can outlive the caller) is one
   known block that a late exit cannot attribute deterministically; its fix belongs with the sampling
   (accept or re-home) decision in the design doc.
+
+## The string family's owner mechanism (T03/T04 decoded, 2026-10-13)
+
+- DTHelper.h:91 AddStringData is the tree's read path: `pData->resize(n)` in the objects' own
+  std::string/std::map-node allocations. The tree itself (CDataTreeXML, MSXML DOM) stores nothing -
+  **the owner of the string mass is what was loaded from the tree**: the object DB and the interfaces'
+  loaded state, held by process-lifetime singletons and the CLinkObject registries.
+- The old hack: NRefCount::LeakObjectsOnExit (Misc/Basic.h:31). CTRefCount::Release stops deleting
+  (if LeakObjectsOnExit: return) once the flag is set at teardown (set in Main/MainLoopCommands.cpp;
+  the shutdown paths in SceneInternal/UIInternal/GameMain/iMissionInternal/AILogicInternal consult it) -
+  from that point objects are deliberately leaked because the registries outlive the destructors.
+- The fix shape (per the design doc's safe shutdown order): free the CLinkObject registries and the
+  interface singletons in owner order before the allocator detaches, then remove
+  LeakObjectsOnExit from Release. That also drops the string family and the World/UI/DB residues
+  together, which is why T03 folds into T04.
