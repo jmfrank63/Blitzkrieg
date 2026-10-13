@@ -405,3 +405,27 @@ from the C destructor, D084) is checked by CI, not claimed here.
 - S03: use `bk_memory_allocator.zig` in the editors and Zig engine modules; do not create a second SafeAllocator.
 - Known, not fixed in S01: the test DLLs carry a static UCRT, DLL frames are not symbolised, the ELF/Mach-O
   exit hook is unrun, a backend without leak records (`smp`, `crt`) cannot fail the planted-leak run.
+
+## Leak-report policy at the S04/S05 boundary (M003 S04 T07)
+
+D079's count mode stays wherever the residue is the engine's accepted process-lifetime state; it goes
+where the count is zero. The verdict per process, after the safe shutdown order (S04/T04) and the residue
+fold (S04/T05, .planning/gsd2/s04-known-leaks.md):
+
+| Process | Report at detach | Verdict |
+| --- | --- | --- |
+| Game | count | stays - 15,574 blocks of engine-lifetime state (input binds, fonts, scene/link registries, the saver type registry), owners named in the known-leaks record |
+| Map Editor | count | stays - 3,541 blocks, same shape at smaller scale |
+| Resource Editor | count | stays - 1,692 blocks (win-home), same shape |
+| engine tiers (smokes, host checks, auto chains, random missions) | count | stay - they host the engine, so the engine's accepted residue reports there |
+| test-bk-memory, test-bk-memory-zig-host | strict | already - their planted-leak runs prove exit 3 on a planted leak and exit 0 clean |
+| Zig test runners | strict | already - no overrides exist for them |
+| platform-system-test | count (stays, for now) | the one candidate: the only reported block was SDL_GetBasePath's buffer (114 B, SDL3.dll via Platform/System.cpp:65), and SDL3's contract makes the caller free it. The fix (copy, SDL_free, return) was built and measured: the tier then reported 3 blocks instead of 1 - the return object of ExecutablePath itself plus the test's own static strings (capturedUrl, childName), which the unfixed build freed normally in their destructors before the detach report. Same binary layout, reproducible via the step, not understood; it smells like a hook/report-ordering interaction (an operator new block surviving a normal unwind), and it must not gate a strict tier. The fix and the anomaly are recorded here; the investigation lands before the call site at uild.zig (setLeakReportLog(platform_system_run)) can be removed |
+| gpu-device-probe | count | stays - it never tears the GPU stack down, by design (comment at the call site) |
+| gfxgpu-factory-test | count | stays - SDL's hooked allocator leaks by design at exit (comment at the call site) |
+
+S05's gates formalize from this table: the strict set (the bk-memory tiers, the Zig runners) fails on any
+leak; the count set prints its floor, and the floor per process is the number above. setLeakReportLog's
+comment in uild.zig keeps its removal instruction; the first call site eligible for removal is
+platform_system_run's, blocked only by the anomaly above.
+

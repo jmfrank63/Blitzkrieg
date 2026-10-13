@@ -190,3 +190,19 @@ maintainer's interactive desktop. The negative cannot be exercised outside that 
 SDL's documented switch (SDL_VIDEO_WAYLAND_ALLOW_LIBDECOR=0 never loads the library), the never-shown
 windows are the ones covered, and the tier's exit-0 half of the verify is met on the WSL clone.
 
+
+## M003/S04/T07: the policy verdict's verification runs (win-home, debug)
+
+| Tier | Command | Exit | Time | Mode | Result |
+| --- | --- | --- | --- | --- | --- |
+| test-platform-system | zig build test-platform-system | 0 | about 40 s | count | the tier passes in its current mode; its 1-block residue (SDL_GetBasePath, 114 B) and the fix's 3-block report anomaly are recorded in safe-allocator-design.md's policy table |
+| test-bk-memory | zig build test-bk-memory | 0 | about 20 s | strict + planted | clean run passes; the planted-leak run asserts exit 3 with leaked on stderr - the strict proof |
+| test-bk-memory-zig-host | zig build test-bk-memory-zig-host | 0 | about 15 s | strict + planted | clean run passes; the planted Zig leak fails as designed |
+| map-editor-smoke | zig build map-editor-smoke | 0 | about 100 s | count | smoke PASS (52 steps, 260 objects); 1,897 blocks - the engine's accepted floor for that tier |
+
+The A/B that decided platform-system-test's verdict: the fixed ExecutablePath (copy, SDL_free, return)
+reported 3 blocks (the return object at System.cpp:69 via main:42, capturedUrl at platform_system_
+	est.cpp:20, childName at :36) against the unfixed build's 1 (the SDL base path) - the fixed build's
+extras are blocks its destructors demonstrably free (the unfixed run shows them gone), so the report, not
+the engine, is in question. Exe hashes: new 8552073d, old 8c34b33a in .zig-cache/o/.
+
