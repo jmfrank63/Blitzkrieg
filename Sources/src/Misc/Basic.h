@@ -3,6 +3,20 @@
 #pragma ONCE
 #include "../Platform/Compiler.h"
 #include <stdint.h>
+#include <typeinfo>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#if defined( _MSC_VER )
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <dbghelp.h>
+#endif
 #include "../Platform/LegacyTypes.h"
 #include "../Platform/LegacyVariant.h"
 #include "../zlib/zlib.h"
@@ -32,6 +46,100 @@ namespace NRefCount
 	// allocator detaches (NMain::Finalize / the bridge teardown), and the
 	// per-map clears break the refcount cycles the flag existed to cover, so
 	// refcounts carry their objects to zero again.
+
+	// S04/T08a: BK_REF_TRACE=<substring> logs every AddRef/Release of types
+	// whose RTTI name contains the substring, with the immediate caller
+	// resolved through dbghelp (loaded dynamically, so no import lib in any
+	// linking target). Nothing runs when the variable is unset: the filter is
+	// read once and every call after it is one predictable branch.
+#if defined( _MSC_VER )
+	struct SRefSymbolInfo
+	{
+		unsigned long SizeOfStruct;
+		unsigned long MaxNameLen;
+		unsigned long TypeIndex;
+		unsigned long long Reserved[2];
+		unsigned long long Index;
+		unsigned long Size;
+		unsigned long long ModBase;
+		unsigned long Flags;
+		unsigned long long Value;
+		unsigned long long Address;
+		unsigned long Register;
+		unsigned long Scope;
+		unsigned long Tag;
+		unsigned long NameLen;
+		char Name[220];
+	};
+	typedef int (__stdcall *SymInitializeFunc)( void *, const char *, int );
+	typedef int (__stdcall *SymFromAddrFunc)( void *, unsigned long long, unsigned long long *, SRefSymbolInfo * );
+	struct RefTraceState
+	{
+		const char *pszFilter;
+		bool bSymReady;
+		SymFromAddrFunc pFromAddr;
+		RefTraceState()
+			: pszFilter( getenv( "BK_REF_TRACE" ) ), bSymReady( false ), pFromAddr( 0 )
+		{
+			if ( pszFilter == 0 || *pszFilter == 0 )
+				return;
+			HMODULE hDbgHelp = LoadLibraryA( "dbghelp.dll" );
+			if ( hDbgHelp == 0 )
+				return;
+			SymInitializeFunc pInitialize = reinterpret_cast<SymInitializeFunc>( GetProcAddress( hDbgHelp, "SymInitialize" ) );
+			pFromAddr = reinterpret_cast<SymFromAddrFunc>( GetProcAddress( hDbgHelp, "SymFromAddr" ) );
+			if ( pInitialize == 0 || pFromAddr == 0 || pInitialize( GetCurrentProcess(), 0, 1 ) == 0 )
+				pFromAddr = 0;
+			else
+				bSymReady = true;
+		}
+	};
+	inline RefTraceState &RefTrace()
+	{
+		static RefTraceState state;
+		return state;
+	}
+#endif
+	inline void TraceRef( IRefCount *pObj, int nRefs, bool bAdd )
+	{
+		static const char *pszFilter = 0;
+		static bool bFilterInit = false;
+		if ( !bFilterInit )
+		{
+			bFilterInit = true;
+			pszFilter = getenv( "BK_REF_TRACE" );
+		}
+		if ( pszFilter == 0 || *pszFilter == 0 || pObj == 0 )
+			return;
+		const char *pszType = typeid( *pObj ).name();
+		if ( strstr( pszType, pszFilter ) == 0 )
+			return;
+		// The print is unconditional; only the caller capture is per compiler
+		// (a module compiled by neither of the two below still traces, just
+		// without a caller - the empty-body trap this replaced cost a day).
+		void *pCaller = 0;
+#if defined( _MSC_VER )
+		pCaller = _ReturnAddress();
+		char szSymbol[256] = "(no symbol)";
+		RefTraceState &state = RefTrace();
+		if ( state.bSymReady )
+		{
+			SRefSymbolInfo info;
+			ZeroMemory( &info, sizeof( info ) );
+			info.SizeOfStruct = sizeof( SRefSymbolInfo ) - sizeof( info.Name );
+			info.MaxNameLen = sizeof( info.Name ) - 1;
+			unsigned long long nDisplacement = 0;
+			if ( state.pFromAddr( GetCurrentProcess(), reinterpret_cast<unsigned long long>( pCaller ), &nDisplacement, &info ) != 0 )
+				_snprintf( szSymbol, sizeof( szSymbol ), "%s+%lu", info.Name, (unsigned long)nDisplacement );
+		}
+		fprintf( stderr, "ref-trace: %s this=%p refs=%d %s caller=%s\n", pszType, pObj, nRefs, bAdd ? "Add" : "Rel", szSymbol );
+#elif defined( __GNUC__ )
+		pCaller = __builtin_return_address( 0 );
+		fprintf( stderr, "ref-trace: %s this=%p refs=%d %s caller=%p\n", pszType, pObj, nRefs, bAdd ? "Add" : "Rel", pCaller );
+#else
+		fprintf( stderr, "ref-trace: %s this=%p refs=%d %s caller=(unknown compiler)\n", pszType, pObj, nRefs, bAdd ? "Add" : "Rel" );
+#endif
+	}
 }
 #ifdef _DO_ASSERT_SLOW
 #define ADD_REF_PREGUARD( ref ) const int __nOldRef = ref
@@ -51,15 +159,17 @@ protected:
 	CTRefCount() : nRefData( 0 ) {  }
 	virtual ~CTRefCount() {  }
 public:
-	virtual void STDCALL AddRef( int nRef = 1, int nMask = 0x7fffffff ) 
-	{ 
+	virtual void STDCALL AddRef( int nRef = 1, int nMask = 0x7fffffff )
+	{
 		ADD_REF_PREGUARD( nRefData );
-		nRefData += nRef; 
+		nRefData += nRef;
 		ADD_REF_POSTGUARD( nRefData );
+		NRefCount::TraceRef( this, nRefData, true );
 	}
 	virtual void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff )
 	{
 		DecRef( nRef );
+		NRefCount::TraceRef( this, nRefData & 0x7fffffff, false );
 		if ( (nRefData & 0x7fffffff) == 0 )
 			delete this;
 		else if ( (nRefData & nMask) == 0 )

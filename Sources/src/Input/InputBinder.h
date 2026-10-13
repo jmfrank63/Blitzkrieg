@@ -2,6 +2,11 @@
 #define __INPUTBINDER_H__
 #pragma ONCE
 #include "InputAPI.h"
+#include <cstdio>
+#include <cstdlib>
+#if defined( _MSC_VER )
+#include <intrin.h>
+#endif
 class CBind;
 struct SBindsConfig
 {
@@ -226,6 +231,59 @@ struct SCommand
 class CInputBinder : public CInputAPI
 {
 	OBJECT_SERVICE_METHODS( CInputBinder );
+	// S04/T08a: BK_REF_TRACE names every reference transition of this object
+	// with its immediate caller - the audit at registry release counted 8
+	// surviving references here, the engine's largest second-owner family,
+	// and the header-level hook in CTRefCount does not reach this module's
+	// emission (Input.dll compiles its CTRefCount instantiation without it,
+	// reason under investigation), so the override lives on the class.
+	virtual void STDCALL AddRef( int nRef = 1, int nMask = 0x7fffffff )
+	{
+		static const bool bTrace = []() { const char *psz = getenv( "BK_REF_TRACE" ); return psz != 0 && *psz != 0; }();
+		int nAfter = 0;
+		{
+			ADD_REF_PREGUARD( nRefData );
+			nRefData += nRef;
+			nAfter = nRefData;
+		}
+		if ( bTrace )
+		{
+#if defined( _MSC_VER )
+			void *pCaller = _ReturnAddress();
+#elif defined( __GNUC__ )
+			void *pCaller = __builtin_return_address( 0 );
+#else
+			void *pCaller = 0;
+#endif
+			fprintf( stderr, "binder-ref: refs=%d Add caller=%p\n", nAfter & 0x7fffffff, pCaller );
+		}
+	}
+	virtual void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff )
+	{
+		static const bool bTrace = []() { const char *psz = getenv( "BK_REF_TRACE" ); return psz != 0 && *psz != 0; }();
+		DecRef( nRef );
+		int nAfter = nRefData & 0x7fffffff;
+		if ( bTrace )
+		{
+#if defined( _MSC_VER )
+			void *pCaller = _ReturnAddress();
+#elif defined( __GNUC__ )
+			void *pCaller = __builtin_return_address( 0 );
+#else
+			void *pCaller = 0;
+#endif
+			fprintf( stderr, "binder-ref: refs=%d Rel caller=%p\n", nAfter, pCaller );
+		}
+		if ( (nRefData & 0x7fffffff) == 0 )
+			delete this;
+		else if ( (nRefData & nMask) == 0 )
+		{
+			AddRef();
+			DestroyContents();
+			nRefData |= 0x80000000;
+			Release();
+		}
+	}
 	typedef std::unordered_map<std::string, SCommand> CCommandsMap;
 	CCommandsMap commands;
 	SBindsConfig config;									// binds config (for serialization)

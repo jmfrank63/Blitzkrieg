@@ -4482,6 +4482,11 @@ fn addInput(
     addMsvcLibraryPaths(b, input_module, toolchain);
     input_module.addIncludePath(b.path("Sources/src/Input"));
     input_module.addCMacro("BK_INPUT_EVENT_ONLY", "1");
+    // Cache-buster (S04/T08a): the input module's header dependency on
+    // Misc/Basic.h was not invalidating its compile, leaving a stale
+    // CInputBinder in the staged DLL. Bump this macro when a header-only
+    // edit fails to reach this module's binary.
+    input_module.addCMacro("BK_INPUT_BUILD_INCREMENT", "1");
     input_module.addCSourceFiles(.{
         .files = input_sources,
         .flags = cppflagsForOptimize(optimize),

@@ -1,5 +1,7 @@
 #include "StdAfx.h"
 
+// S04/T08a: the reference-transition trace for this class (the AddRef/
+// Release overrides) lives in InputBinder.h, gated by BK_REF_TRACE.
 #include "InputBinder.h"
 
 #include "InputSlider.h"
