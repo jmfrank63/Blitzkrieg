@@ -55,6 +55,7 @@ extern "C" bool bk_structure_enter_object(void *saver, int index);
 extern "C" bool bk_structure_read_raw(void *saver, void *output, int size);
 extern "C" const char *bk_global_get(const char *key);
 extern "C" void bk_global_set(const char *key, const char *value);
+extern "C" void bk_global_clear(void);
 extern "C" void bk_global_remove(const char *key);
 extern "C" int bk_global_count();
 extern "C" int bk_global_key_at(int index, char *buffer, int capacity);
@@ -475,10 +476,21 @@ public:
         return n;
     }
     void BK_STDCALL Done() override {
-        for (auto &entry : entries) if (entry.object) {
-            entry.object->Release();
-            entry.object = 0;
+        // The reverse of the registration order (S04/T04): the engine's own
+        // teardown rule - leaf feature objects die first, the providers they
+        // were created from last. Forward order made dependents' destructors
+        // meet already-released providers and cut their own teardowns short,
+        // which is where the Game's menu-era leaks were held. Holes (a
+        // mid-array UnRegister) release like the rest.
+        for (int i = 511; i >= 0; --i) if (entries[i].object) {
+            entries[i].object->Release();
+            entries[i].object = 0;
         }
+        // The core services' own storage dies with the registry: the Zig
+        // global-variable map outlived every C++ owner (it is the one thing
+        // whose storage no registry entry held), so the engine teardown ends
+        // by clearing it (S04/T05).
+        bk_global_clear();
     }
 };
 
