@@ -47,6 +47,14 @@ jobs:
 
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
@@ -328,6 +336,14 @@ jobs:
 
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
@@ -623,6 +639,14 @@ jobs:
 
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
@@ -916,6 +940,14 @@ jobs:
 
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
@@ -1083,6 +1115,14 @@ jobs:
 
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
@@ -1285,6 +1325,14 @@ jobs:
     timeout-minutes: 150
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
@@ -1516,6 +1564,14 @@ jobs:
     timeout-minutes: 120
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
@@ -1708,6 +1764,14 @@ jobs:
 
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
@@ -1928,6 +1992,14 @@ jobs:
 
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
@@ -2189,6 +2261,14 @@ jobs:
     timeout-minutes: 120
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
@@ -2460,6 +2540,14 @@ jobs:
     timeout-minutes: 120
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
@@ -2654,6 +2742,14 @@ jobs:
 
 
     steps:
+      # The partial clone fetches blobs lazily and has died mid-fetch on the
+      # runners (curl 56 / RPC failed, run 38397700311's Intel job): HTTP/1.1
+      # and a larger post buffer are the documented mitigations for that
+      # flake, applied before any checkout in every job.
+      - name: Harden git HTTP
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global http.postBuffer 157286400
       - name: Check out source
         uses: actions/checkout@v6
         with:
