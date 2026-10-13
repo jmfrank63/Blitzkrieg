@@ -482,7 +482,24 @@ public:
         // meet already-released providers and cut their own teardowns short,
         // which is where the Game's menu-era leaks were held. Holes (a
         // mid-array UnRegister) release like the rest.
+        // BK_REF_AUDIT=1 (S04/T08a): an entry whose refcount is above one
+        // here is held by a second owner - a file-scope CPtr, an emergency
+        // command, a cycle - and will survive this release. Naming those
+        // owners is how the residue gets to zero. The count is peeked at
+        // offset 8: single-inheritance engine objects are [vptr][int
+        // nRefData] (Misc/Basic.h CTRefCount), so a bridge shim with a
+        // different layout reads a garbage number next to its own typeid
+        // name and identifies itself that way. Debug captures only.
+        static const bool bAudit = std::getenv( "BK_REF_AUDIT" ) != nullptr;
+        int nLogged = 0;
         for (int i = 511; i >= 0; --i) if (entries[i].object) {
+            if ( bAudit && nLogged < 200 ) {
+                const int nRefs = *reinterpret_cast<const int *>( reinterpret_cast<const char *>( entries[i].object ) + sizeof( void * ) );
+                if ( nRefs > 1 && nRefs < 1000 ) {
+                    ++nLogged;
+                    std::fprintf( stderr, "ref-audit: tid=%d refs=%d type=%s\n", i, nRefs, typeid( *entries[i].object ).name() );
+                }
+            }
             entries[i].object->Release();
             entries[i].object = 0;
         }

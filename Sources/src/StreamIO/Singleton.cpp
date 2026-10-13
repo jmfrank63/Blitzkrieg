@@ -1,4 +1,7 @@
 #include "StdAfx.h"
+#include <cstdio>
+#include <cstdlib>
+#include <typeinfo>
 
 #ifndef __REDUCED_SINGLETON__
 #include "OptionSystemInternal.h"
@@ -55,12 +58,31 @@ private:
 		// away. UnRegister removes the entry from `objects` (its CPtr releases
 		// there) without touching `registrationOrder`; the reverse walk then
 		// erases the tid itself so the order vector ends empty.
+		// BK_REF_AUDIT=1 (S04/T08a): an entry still referenced above one
+		// survives this release - name it (type + count) so the second owners
+		// become breakable. The count is peeked at offset 8, the
+		// single-inheritance CTRefCount layout ([vptr][int nRefData],
+		// Misc/Basic.h); a multiple-inheritance object reads a wrong number
+		// and identifies itself by its typeid either way. Debug captures only.
+		const bool bAudit = std::getenv( "BK_REF_AUDIT" ) != nullptr;
+		int nLogged = 0;
 		while ( !registrationOrder.empty() )
 		{
 			const int nID = registrationOrder.back();
 			IRefCount *pObj = Get( nID );
 			if ( pObj != 0 )
+			{
+				if ( bAudit && nLogged < 200 )
+				{
+					const int nRefs = *reinterpret_cast<const int *>( reinterpret_cast<const char *>( pObj ) + sizeof( void * ) );
+					if ( nRefs > 1 && nRefs < 1000 )
+					{
+						++nLogged;
+						std::fprintf( stderr, "ref-audit: tid=%d refs=%d type=%s\n", nID, nRefs, typeid( *pObj ).name() );
+					}
+				}
 				UnRegister( nID );
+			}
 			registrationOrder.pop_back();
 		}
 		objects.clear();
