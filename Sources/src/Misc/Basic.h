@@ -23,12 +23,15 @@ interface IRefCount
 };
 namespace NRefCount
 {
-	// Set (once per module) when process-exit teardown begins. Static destructors
-	// run in undefined order across translation units, so a Release cascade can
-	// re-enter a destructor already on the stack or free an object another static
-	// still references. From that point on Release only decrements: objects are
-	// deliberately leaked, the OS reclaims everything at process exit.
-	inline bool& LeakObjectsOnExit() { static bool bLeakObjectsOnExit = false; return bLeakObjectsOnExit; }
+	// Retired (S04/T04): the leak-on-exit flag used to be set once per module
+	// when process-exit teardown began, making CTRefCount::Release only
+	// decrement - objects deliberately leaked because static destructor order
+	// across translation units was undefined and a Release cascade could
+	// re-enter a destructor or free an object another static still
+	// referenced. The registry release now runs in owner order before the
+	// allocator detaches (NMain::Finalize / the bridge teardown), and the
+	// per-map clears break the refcount cycles the flag existed to cover, so
+	// refcounts carry their objects to zero again.
 }
 #ifdef _DO_ASSERT_SLOW
 #define ADD_REF_PREGUARD( ref ) const int __nOldRef = ref
@@ -57,8 +60,6 @@ public:
 	virtual void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff )
 	{
 		DecRef( nRef );
-		if ( NRefCount::LeakObjectsOnExit() )
-			return;
 		if ( (nRefData & 0x7fffffff) == 0 )
 			delete this;
 		else if ( (nRefData & nMask) == 0 )
@@ -236,8 +237,6 @@ public:                                                                         
 	virtual void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff )							\
 	{																																									\
 		nRefData.a -= nRef;																															\
-		if ( NRefCount::LeakObjectsOnExit() )																						\
-			return;																																				\
 		if ( (nRefData.a & 0x7fffffff) == 0 )																						\
 			delete this;																																	\
 		else if ( (nRefData.a & nMask) == 0 )																						\
@@ -259,8 +258,6 @@ public:                                                                         
 	virtual void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff )							\
 	{																																									\
 		nRefData.a -= nRef;																															\
-		if ( NRefCount::LeakObjectsOnExit() )																						\
-			return;																																				\
 		if ( (nRefData.a & 0x7fffffff) == 0 )																						\
 			delete this;																																	\
 		else if ( (nRefData.a & nMask) == 0 )																						\

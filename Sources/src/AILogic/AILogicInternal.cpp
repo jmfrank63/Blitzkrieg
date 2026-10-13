@@ -3,22 +3,13 @@
 #include <float.h>
 #include <typeinfo>
 
-BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
-{
-	// lpvReserved != 0 means process termination (not FreeLibrary). Static
-	// destructors are about to run in undefined order across translation units;
-	// releasing refcounted objects past this point re-enters destructors and
-	// double-frees, so leak instead — the OS reclaims everything anyway.
-	if ( fdwReason == DLL_PROCESS_DETACH && lpvReserved != 0 )
-		NRefCount::LeakObjectsOnExit() = true;
-	return TRUE;
-}
-// Called by Game.exe's atexit hook BEFORE any module destroys statics: modules
-// detach one after another, so another DLL's static teardown can release this
-// module's objects while this module's DllMain(DETACH) hasn't run yet.
+// The arm export stays as an empty stub for compatibility (Game.exe and
+// tooling once looked it up by name); the leak-on-exit behaviour is retired
+// by S04/T04 - the registries release in owner order at teardown, and the
+// per-map clears (CAILogic::Clear) break the refcount cycles that once made
+// static teardown re-enter destructors.
 extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 {
-	NRefCount::LeakObjectsOnExit() = true;
 }
 
 #include "AILogicInternal.h"

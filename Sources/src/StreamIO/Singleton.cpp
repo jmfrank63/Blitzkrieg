@@ -30,6 +30,11 @@ class CSingleton : public ISingleton
 {
 	typedef std::unordered_map< int, CPtr<IRefCount> > CObjectIDs;
 	CObjectIDs objects;
+	// The registration order, so the teardown can release in the reverse of
+	// the order things were created (leaf feature objects first, the option
+	// system and its static-backed companions last). An unordered_map cannot
+	// answer that, so Register/UnRegister maintain this vector.
+	std::vector<int> registrationOrder;
 public:
 	CSingleton();
 	virtual bool STDCALL Register( int nID, IRefCount *pObj );
@@ -37,7 +42,30 @@ public:
 	virtual bool STDCALL UnRegister( IRefCount *pObj );
 	virtual IRefCount* STDCALL Get( int nID );
 	virtual int STDCALL GetAllObjects( IRefCount ***pBuffer, int *pnBufferSize );
-	virtual void STDCALL Done() { objects.clear(); }
+	// Releases every registered object in the reverse of its registration
+	// order (S04/T04's owner ordering). Each CPtr's Release runs as the map
+	// entry is erased, so objects held only here are destroyed now, and
+	// objects that another owner still holds CPtrs to survive until those
+	// owners release. UnRegister/SafeRelease keeps the order vector in sync.
+	virtual void STDCALL Done() { SafeReleaseReverse(); }
+private:
+	void SafeReleaseReverse()
+	{
+		// Release each object and let the container's own refcounts carry it
+		// away. UnRegister removes the entry from `objects` (its CPtr releases
+		// there) without touching `registrationOrder`; the reverse walk then
+		// erases the tid itself so the order vector ends empty.
+		while ( !registrationOrder.empty() )
+		{
+			const int nID = registrationOrder.back();
+			IRefCount *pObj = Get( nID );
+			if ( pObj != 0 )
+				UnRegister( nID );
+			registrationOrder.pop_back();
+		}
+		objects.clear();
+		NI_ASSERT_TF( registrationOrder.empty(), "the registration order vector ended non-empty", return );
+	}
 };
 CSingleton::CSingleton()
 {
@@ -65,6 +93,7 @@ bool CSingleton::Register( int nID, IRefCount *pObj )
 	CObjectIDs::const_iterator pos = objects.find( nID );
 	NI_ASSERT_TF( pos == objects.end(), NStr::Format("object 0x%x already registered", nID), return false );
 	objects[nID] = pObj;
+	registrationOrder.push_back( nID );
 	return true;
 }
 bool CSingleton::UnRegister( int nID )

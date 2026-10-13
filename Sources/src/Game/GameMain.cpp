@@ -219,28 +219,6 @@ struct SCmdParams
 
 	SCmdParams() : nGameSpyHostPort( 0 ), bGameSpyPasswordRequired( false ), bStartupSmoke( false ), bReferenceScene( false ), nReferenceWidth( 0 ), nReferenceHeight( 0 ), bNoMod( false ), bEditorTest( false ) { }
 };
-static void ArmAllModulesLeakOnExit()
-{
-	NRefCount::LeakObjectsOnExit() = true;
-#if defined(_WIN32) || defined(_WIN64)
-	const char *const modules[] = { "AILogic.dll", "GameTT.dll", "UI.dll", "Scene.dll" };
-#elif defined(__APPLE__)
-	const char *const modules[] = { "libAILogic.dylib", "libGameTT.dylib", "libUI.dylib", "libScene.dylib" };
-#else
-	const char *const modules[] = { "libAILogic.so", "libGameTT.so", "libUI.so", "libScene.so" };
-#endif
-	const std::string root = NPlatform::Paths::ModuleRoot();
-	for ( const char *module : modules )
-	{
-		std::string path = root;
-		if ( !path.empty() && path.back() != '/' && path.back() != '\\' ) path += '/';
-		path += module;
-		NPlatform::DynamicLibrary library( path.c_str() );
-		if ( !library.IsLoaded() ) continue;
-		typedef void (*ArmFunc)();
-		if ( ArmFunc arm = reinterpret_cast<ArmFunc>( library.GetFunction( "ArmRefCountLeakOnExit" ) ) ) arm();
-	}
-}
 void ProcessCommandLine( const char *lpCmdLine, SCmdParams *pCmdParams );
 void ReadAndSetSunlight( CTableAccessor &table, const std::string &szSeason );
 static std::string szLaunchDirectory;
@@ -441,17 +419,18 @@ int RunGame( const BkGameLaunchInfo &launch )
 		return 0xDEAD;
 	}
 	BK_STARTUP_MARKER("after LoadAllModules");
-	// NOT armed here. LeakObjectsOnExit makes every Release() skip delete and
-	// DestroyContents from that moment on; arming it at startup (44c802b47, to
-	// beat Finalize() unloading the modules) silently turned the whole run into
-	// a leak: no CSound/CSubstSound was ever destroyed (a downed plane's siren
-	// played on after the explosion), no unit map object, path or collision was
-	// ever freed, and IsValid() never went false. It is armed once the main
-	// loop is over instead - see the end of the loop - still before Finalize().
+	// NOT armed here, and no longer armed anywhere: LeakObjectsOnExit made
+	// every Release() skip delete and DestroyContents from that moment on -
+	// arming it at startup (44c802b47, to beat Finalize() unloading the
+	// modules) silently turned the whole run into a leak: no CSound/CSubstSound
+	// was ever destroyed (a downed plane's siren played on after the
+	// explosion), no unit map object, path or collision was ever freed. With
+	// the safe shutdown order (S04/T04) NMain::Finalize releases the singleton
+	// registry in reverse-registration order instead, and the refcounted
+	// objects die through their own refcounts.
 	NWinFrame::ShowSplashScreen( NWinFrame::GetHInstance(), true );
-	// no _CRTDBG_LEAK_CHECK_DF: refcounted objects still alive when process
-	// teardown begins are leaked on purpose (see NRefCount::LeakObjectsOnExit),
-	// so an exit-time leak dump would only flood the debugger output
+	// _CRTDBG_LEAK_CHECK_DF stays off: any residual third-party allocations at
+	// exit are recorded by BkMemory's own detach report, not the CRT dump.
 	#if defined(_WIN32) || defined(_WIN64)
 	_CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF );
 	_CrtSetReportMode( _CRT_ERROR, _CRTDBG_MODE_DEBUG );
@@ -1864,10 +1843,10 @@ int RunGame( const BkGameLaunchInfo &launch )
 			}
 		}
 		// Catch-all: any exit path that bypassed CICExitGame (e.g. smoke-test
-		// break) still tears the world down here. Leak refcounted objects from
-		// now on - in this module and in every loaded one; they are all still
-		// loaded here, Finalize() below is what unloads them.
-		ArmAllModulesLeakOnExit();
+		// break) still tears the world down here. Nothing needs to arm a leak
+		// flag any more: the registries release in owner order at Finalize();
+		// refcount cycles are broken by the per-map clears (CAILogic::Clear)
+		// the map unloads have already run.
 		pMainLoop->ResetStack();
 		UnRegisterSingleton( IMainLoop::tidTypeID );
 		SerializeConfig( false, SERIALIZE_CONFIG_OPTIONS | SERIALIZE_CONFIG_BINDS | SERIALIZE_CONFIG_HELPCALLS );

@@ -19,17 +19,13 @@ BOOL WINAPI DllMain(
 {
 	if ( fdwReason == DLL_PROCESS_ATTACH )
 		hDLLInstance = hinstDLL;
-	// process termination: stop destroying refcounted objects, static destructor
-	// order across translation units is undefined and cascades double-free
-	if ( fdwReason == DLL_PROCESS_DETACH && lpvReserved != 0 )
-		NRefCount::LeakObjectsOnExit() = true;
 	return true;
 }
-// Called by Game.exe's atexit hook BEFORE any module destroys statics — see
-// AILogicInternal.cpp for the unload-order rationale.
+// The arm export stays as an empty stub for compatibility (Game.exe and
+// tooling once looked it up by name); the leak-on-exit behaviour is retired
+// by S04/T04 - the registries release in owner order at teardown.
 extern "C" BK_EXPORT void ArmRefCountLeakOnExit()
 {
-	NRefCount::LeakObjectsOnExit() = true;
 }
 void SToolTip::Init()
 {

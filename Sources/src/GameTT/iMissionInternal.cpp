@@ -24,20 +24,11 @@
 #include "../Formats/fmtMapScriptPath.h"
 #include "../Main/TextSystem.h"
 
-BOOL WINAPI DllMain( HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved )
-{
-	// process termination (lpvReserved != 0): stop destroying refcounted objects,
-	// static destructor order across translation units is undefined and release
-	// cascades re-enter destructors / double-free
-	if ( fdwReason == DLL_PROCESS_DETACH && lpvReserved != 0 )
-		NRefCount::LeakObjectsOnExit() = true;
-	return TRUE;
-}
-// Called by Game.exe's atexit hook BEFORE any module destroys statics — see
-// AILogicInternal.cpp for the unload-order rationale.
+// The arm export stays as an empty stub for compatibility (Game.exe and
+// tooling once looked it up by name); the leak-on-exit behaviour is retired
+// by S04/T04 - the registries release in owner order at teardown.
 extern "C" __declspec(dllexport) void ArmRefCountLeakOnExit()
 {
-	NRefCount::LeakObjectsOnExit() = true;
 }
 
 void SetChildWindowText( IUIElement *pParent, const int nID, const wchar_t *pszText );

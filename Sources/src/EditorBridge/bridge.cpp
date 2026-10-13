@@ -61,6 +61,13 @@ ISaveLoadSystem *g_pGlobalSaveLoadSystem = 0;
 ISingleton *g_pGlobalSingleton = 0;
 GETTEMPRAWBUFFER_HOOK g_pfnGlobalGetTempRawBuffer = 0;
 
+// The live editor sessions. The app hosting the bridge is single-session per
+// process today, but the Start/Stop pair is refcounted anyway so that a
+// future multi-session host releases the engine's registry exactly once -
+// when the last session stops (BkEditorStop, S04/T04's owner-ordered
+// release).
+int s_nBkEditorSessions = 0;
+
 // BkEditorSession's struct body moved to bridge_session.h so resource_bridge.cpp
 // can accept the same pointer and the shared Guarded template (guarded.h) sees
 // the inheritance from SEditorSession. The window the session was started on,
@@ -489,6 +496,7 @@ BkEditorStatus BkEditorStart( void *pWindow, const char *pszDataRoot, BkEditorSe
 		pSession->pWorld = new CEditorWorld;
 		pSession->pWorld->Init( GetSingletonGlobal() );
 		pSession->bEngineStarted = true;
+		++s_nBkEditorSessions;
 		return BK_EDITOR_OK;
 	} );
 }
@@ -4933,13 +4941,26 @@ BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 				pSFX->Done();
 		}
 		delete pSession;
+		--s_nBkEditorSessions;
+		// The last session out releases the engine's singleton registry in the
+		// reverse of its registration order - the same owner-ordered release
+		// NMain::Finalize does for the game before it unloads the modules. The
+		// editors keep every module and the registry loaded to process exit, so
+		// nothing released the ~44k/56k blocks of loaded data before S04 did
+		// this: the object DB's string mass (CObjectsDB's dtor), the interface
+		// state and the managers die here, before BkMemory's detach report. A
+		// session-less Start re-registers what it needs, so an open/stop/open
+		// host cycle still works; only the singletons that BkEditorStart does
+		// NOT re-register (IGFX, IScene, the managers) would not survive a
+		// reopen after this release, and no host does that today.
+		if ( s_nBkEditorSessions == 0 && GetSingletonGlobal() != 0 )
+			GetSingletonGlobal()->Done();
 	}
 	catch ( ... )
 	{
 		return BK_EDITOR_FAILED;
 	}
 	return BK_EDITOR_OK;
-}
 }
 
 // ---------------------------------------------------------------------------
@@ -5471,3 +5492,4 @@ BkEditorStatus BkEditorRmgFileExists( BkEditorSession *pSession, const char *psz
 		return BK_EDITOR_OK;
 	} );
 }
+} // extern "C"

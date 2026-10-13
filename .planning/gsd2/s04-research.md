@@ -65,7 +65,29 @@ CLinkObject registries) plus data freed by neither.
   known block that a late exit cannot attribute deterministically; its fix belongs with the sampling
   (accept or re-home) decision in the design doc.
 
-## The string family's owner mechanism (T03/T04 decoded, 2026-10-13)
+## The safe shutdown order landed (T04, 2026-10-13, commit 96c4a0ba5 onward)
+
+- CSingleton now keeps the registration order and its Done() releases in the reverse of it; the
+  Game's NMain::Finalize reaches `GetSingletonGlobal()->Done()` through UnloadAllModules as before;
+  the editors release the registry at BkEditorStop when the last session stops (a session counter
+  in bridge.cpp), because their host keeps the modules loaded to process exit.
+- LeakObjectsOnExit is retired: the Basic.h flag and its Release guards are gone, the four per-module
+  DllMain detach arms (UI/Scene/AILogic/GameTT) and both ArmAllModulesLeakOnExit sites
+  (MainLoopCommands.cpp, GameMain.cpp) are deleted; the ArmRefCountLeakOnExit exports stay as empty
+  stubs for tooling compatibility.
+- Before/after on win-home (debug build, the same direct runs as T02):
+
+| Process | Before | After | Dropped |
+|---|---|---|---|
+| ResourceEditor --check wpn | 44,232 blocks / 73.9 MB (log run 267 MB) / tier 45,395 | 1,692 blocks / 886 KB (log 9 MB); tier 1,692 | -96% |
+| MapEditor --check coldwinter | 56,059 blocks / 77.9 MB (log 333 MB) / tier 45,395 | 3,541 blocks / 3.1 MB (log 19 MB); tier 2,125 | -94% |
+| Game (graceful close at ~60 s) | 136k-171k in the game-bearing tiers | 16,119 blocks / 2.0 MB (log 29 MB) | ~-90% |
+
+- The T04 verification tiers all PASS: resource-editor-host-check (1,692), map-editor-host-check
+  (2,125), map-editor-smoke (2,374), resource-editor-smoke (1,679).
+- The residue: the same small-alloc shapes remain (32-80 B), now held by process-lifetime statics
+  outside the registry (GameDB's static caches in Main.dll etc.) or genuinely referenced to exit -
+  T05's fold pass. The Game's 16k at a 60 s close includes the menu's not-yet-closed subsystems.
 
 - DTHelper.h:91 AddStringData is the tree's read path: `pData->resize(n)` in the objects' own
   std::string/std::map-node allocations. The tree itself (CDataTreeXML, MSXML DOM) stores nothing -
