@@ -126,11 +126,57 @@ this zig version. Naming the Linux families (are they the same engine-side
 families as Windows, or Linux platform layers?) needs this fixed first -
 it is the gate for T08c on Linux. Provisional answer until then: the
 editors' residue is the same engine-side families measured on Windows
-(the BkEditorStop path lacks the Game's Finalize ordering - the managers'*r
+(the BkEditorStop path lacks the Game's Finalize ordering - the managers'
 Clear and engine-font release), plus a Linux platform delta (SDL's Linux
 backends allocate more than Windows') that the Windows captures cannot
 see. The direct-run capture recipe that works otherwise: run the staged
 ResourceEditor directly with --check wpn <tga> <fixture> (the argument
 order matters), BK_MEM_REPORT=log; the tier step overrides the report
 mode to count, so the direct run is required for stacks.
+
+## T08c on Linux, resolved in two steps (2026-10-14)
+
+1. **The stack capture works.** The blocker above was recorded before
+   `3056d5055` gave the BkMemory module frame pointers on every platform and
+   before the Linux default went back to 7 frames (`e02f7d5e7`); on the tree
+   since then, the Linux report prints every block's frames - BkMemory's own
+   frames resolve to file:line, engine `.so` frames print their module and
+   address (resolvable offline). A capture that races another capture source
+   can still record nothing (one block in a flaked unit-tier run printed
+   "(empty stack trace)"); the record mutex covers BkMemory's own calls, so
+   the other source is a second allocator's capture - rare, and only hides
+   one block's stack, not the count.
+2. **The Game's Finalize ordering moved to `BkEditorStop`.** The last
+   session's stop now runs `SetFont(0)` and the font, texture and mesh
+   managers' `Clear` before the registry `Done()`, as `NMain::Finalize` does
+   for the Game. Measured on Linux (MapEditor --check, real GPU, one run):
+   **35,507 blocks / 76.7 MB before, 8,549 after** (-76%); the tier prints
+   8,549 per host-check run and stays green. The Linux families before the
+   fix (owner-cluster rule, first non-plumbing frame):
+
+   | blocks | bytes | owner |
+   | --- | --- | --- |
+   | ~5,034 | ~766 KB | SDL's own storage (`SDL_malloc.c`) |
+   | 1,326 | 34 KB | the engine's `2Darray.h` (map/terrain tiles) |
+   | ~680 | ~48 KB | `RPGStats.h` (the objects DB read) |
+   | ~608 | ~57 KB | `Initialization.cpp` (the config/input read path) |
+   | 477 | 31 KB | `Globals.h` (global variables) |
+   | 204 | 45 KB | `EditorBridge/session.cpp:88` |
+   | ~148 | ~53 KB | `fmtSprite.h` (sprite formats) |
+   | ~78 | 45 KB | `GameDB.cpp` (the object DB) |
+
+   The managers' Clear released most of the first four engine-side families
+   with the font's; what remains is SDL plus the registries whose release is
+   the cross-DLL cache work out of S04's original scope.
+
+## The unit-tier single-block leak, found and fixed (2026-10-14)
+
+CI's Linux "Map editor unit tier" failed with `1 leaked block(s) at exit`
+(149/149 tests passed, exit 3): the hung-owner test's hand-off times out and
+abandons its `HandoffJob`, whose worker destroys the job only when the peer's
+listener closes - a scheduling race with BkMemory's report, so about one run
+in twenty exited 3 (reproduced locally at that rate). The job now counts
+itself in `HandoffJob.outstanding`, and the test drains it after its own
+cleanup, asserting zero. The panels tier itself is green on Linux with 0
+leaked blocks.
 
