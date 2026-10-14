@@ -143,20 +143,17 @@ bool SerializeConfig( const bool bRead, const DWORD dwSerialize )
 }
 IMainLoop* STDCALL CreateMainLoop()
 {
-	IBaseCommand *pCommand = new CSaveCommandsHistoryCommand( GetSingleton<ICommandsHistory>() );
-	NBugSlayer::AddEmergencyCommand( pCommand );
-	
+	// The emergency-save commands used to be constructed here and handed to
+	// NBugSlayer::AddEmergencyCommand, which is a no-op in this port
+	// (Misc/ModernAssert.h): the command objects were dropped on the floor
+	// with their CPtrs still holding ICommandsHistory and - through
+	// CEmergencySave's CPtr<IMainLoop> - CMainLoop itself, whose CPtr<IInput>
+	// members then kept the input binder and its loaded binds alive past
+	// every teardown (the engine's largest leak family, S04/T08b). The
+	// commands come back with real ownership if the emergency machinery ever
+	// becomes functional; until then nothing is constructed, and the
+	// emergency.sav stream is not opened just to be abandoned.
 	IMainLoop *pML = new CMainLoop();
-	CPtr<IDataStream> pStream = CreateFileStream( ( NPlatform::Paths::SaveRoot() + "\\emergency.sav" ).c_str(), STREAM_ACCESS_WRITE );
-	if ( pStream )
-	{
-		CPtr<IStructureSaver> pSS = CreateStructureSaver( pStream, IStructureSaver::WRITE );
-		if ( pSS )
-		{
-			IBaseCommand *pCommand = new CEmergencySave( pML, pSS );
-			NBugSlayer::AddEmergencyCommand( pCommand );
-		}
-	}
 	return pML;
 }
 CMainLoop::CMainLoop()
