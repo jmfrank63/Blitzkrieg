@@ -425,6 +425,10 @@ public:
     }
 };
 
+// S04/T08a: tears down the bridge's own core services at registry Done;
+// defined next to the statics it resets (S04/T08b).
+void BridgeCoreServicesTeardown();
+
 class Singleton final : public ISingleton {
     struct Entry { int id; IRefCount *object; } entries[512] = {};
 public:
@@ -508,6 +512,9 @@ public:
         // whose storage no registry entry held), so the engine teardown ends
         // by clearing it (S04/T05).
         bk_global_clear();
+        // The bridge's own core services die here too (S04/T08b) - defined
+        // below, next to the statics it tears down.
+        BridgeCoreServicesTeardown();
     }
 };
 
@@ -1755,6 +1762,23 @@ static GlobalVars *global_vars = 0;
 static IRefCount *console_buffer = 0;
 static RandomGen *random_gen = 0;
 static IRefCount *option_system = 0;
+
+// S04/T08b: the bridge's own core services die with the registry. The entry
+// loop in Singleton::Done dropped the REGISTER references, but
+// console_buffer and option_system still carry the bridge-owned reference
+// taken at creation, and save_load_system - whose factory database was the
+// Game's largest single reported block at 532 KB - is not registered
+// anywhere at all. Nulling the statics also makes a post-Done call fail
+// fast instead of touching freed objects. Declared before the Singleton
+// class; defined here where the statics live.
+void BridgeCoreServicesTeardown()
+{
+    if ( console_buffer ) { console_buffer->Release(); console_buffer = 0; }
+    if ( option_system ) { option_system->Release(); option_system = 0; }
+    delete save_load_system; save_load_system = 0;
+    global_vars = 0;
+    random_gen = 0;
+}
 void *BK_STDCALL SaveLoadSystem::OpenStorage(const char *name, unsigned long access, unsigned long type) { void *storage = bk_storage_create(name, access, type); return storage ? new DataStorage(storage) : 0; }
 void *BK_STDCALL SaveLoadSystem::CreateStorage(const char *name, unsigned long access, unsigned long type) { void *storage = bk_storage_create(name, access, type); return storage ? new DataStorage(storage) : 0; }
 
