@@ -255,7 +255,9 @@ class CInputBinder : public CInputAPI
 #else
 			void *pCaller = 0;
 #endif
-			fprintf( stderr, "binder-ref: refs=%d Add caller=%p\n", nAfter & 0x7fffffff, pCaller );
+			char szWhere[320];
+			TraceWhere( pCaller, szWhere, sizeof( szWhere ) );
+			fprintf( stderr, "binder-ref: refs=%d Add caller=%s\n", nAfter & 0x7fffffff, szWhere );
 		}
 	}
 	virtual void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff )
@@ -272,7 +274,9 @@ class CInputBinder : public CInputAPI
 #else
 			void *pCaller = 0;
 #endif
-			fprintf( stderr, "binder-ref: refs=%d Rel caller=%p\n", nAfter, pCaller );
+			char szWhere[320];
+			TraceWhere( pCaller, szWhere, sizeof( szWhere ) );
+			fprintf( stderr, "binder-ref: refs=%d Rel caller=%s\n", nAfter, szWhere );
 		}
 		if ( (nRefData & 0x7fffffff) == 0 )
 			delete this;
@@ -285,6 +289,29 @@ class CInputBinder : public CInputAPI
 		}
 	}
 	typedef std::unordered_map<std::string, SCommand> CCommandsMap;
+	// S04/T08a: resolves a return address to "<module>+0x<offset>" so the
+	// holder sites symbolize offline against the debug PDBs (llvm-symbolizer
+	// or dbghelp at analysis time; the process does not depend on dbghelp).
+	static void TraceWhere( void *pCaller, char *szOut, int nOut )
+	{
+#if defined( _MSC_VER )
+		HMODULE hMod = 0;
+		if ( pCaller != 0 && GetModuleHandleExW( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, reinterpret_cast<LPCWSTR>( pCaller ), &hMod ) != 0 )
+		{
+			char szMod[MAX_PATH] = "";
+			GetModuleFileNameA( hMod, szMod, MAX_PATH );
+			const char *pszName = szMod;
+			for ( const char *p = szMod; *p != 0; ++p )
+				if ( *p == '\\' || *p == '/' )
+					pszName = p + 1;
+			_snprintf( szOut, nOut, "%s+0x%llx", pszName, (unsigned long long)pCaller - reinterpret_cast<unsigned long long>( hMod ) );
+			return;
+		}
+		_snprintf( szOut, nOut, "addr=%p", pCaller );
+#else
+		_snprintf( szOut, nOut, "addr=%p", pCaller );
+#endif
+	}
 	CCommandsMap commands;
 	SBindsConfig config;									// binds config (for serialization)
 	std::string szCurrentMapping;					// current mapping section
