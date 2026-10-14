@@ -112,3 +112,25 @@ header edit fails to reach Input.dll. The masked refcount planes
 (REF_ADD_OBJ = 0x1000, Basic.h:462) mean raw refcount numbers above
 the plain plane are internal claims, not holders.
 
+
+## T08c blocker: the Linux stack capture records nothing
+
+The Linux Resource Editor's ~3,472-block floor (CI band 3,472-4,184; the WSL
+clone reproduces 3,101 with host check PASS) has no family table: every
+attempt to capture stacks on Linux printed (empty stack trace) for every
+block - with the platform default and with -Dbk-mem-stack-frames=24 
+explicitly (the option's plumbing in bk_memory.zig:55-70 is correct; the
+SafeAllocator receives 24). D086 set the Linux default to 0 for CI cost
+after the unwind burned ~70% CPU; the capture path itself appears dead on
+this zig version. Naming the Linux families (are they the same engine-side
+families as Windows, or Linux platform layers?) needs this fixed first -
+it is the gate for T08c on Linux. Provisional answer until then: the
+editors' residue is the same engine-side families measured on Windows
+(the BkEditorStop path lacks the Game's Finalize ordering - the managers'*r
+Clear and engine-font release), plus a Linux platform delta (SDL's Linux
+backends allocate more than Windows') that the Windows captures cannot
+see. The direct-run capture recipe that works otherwise: run the staged
+ResourceEditor directly with --check wpn <tga> <fixture> (the argument
+order matters), BK_MEM_REPORT=log; the tier step overrides the report
+mode to count, so the direct run is required for stacks.
+
