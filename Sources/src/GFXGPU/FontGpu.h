@@ -49,7 +49,18 @@ public:
             return;
         }
 #endif
-        _snprintf( szOut, nOut, "addr=%p", pCaller );
+        snprintf( szOut, nOut, "addr=%p", pCaller );
+    }
+    // The immediate caller, per compiler (S04/T08a's guarded pattern).
+    static void *TraceCaller()
+    {
+#if defined( _MSC_VER )
+        return _ReturnAddress();
+#elif defined( __GNUC__ )
+        return __builtin_return_address( 0 );
+#else
+        return 0;
+#endif
     }
     void STDCALL AddRef( int nRef = 1, int nMask = 0x7fffffff ) override
     {
@@ -59,7 +70,7 @@ public:
         if ( bTrace )
         {
             char szWhere[320];
-            TraceWhere( _ReturnAddress(), szWhere, sizeof( szWhere ) );
+            TraceWhere( TraceCaller(), szWhere, sizeof( szWhere ) );
             fprintf( stderr, "font-ref: refs=%d Add caller=%s\n", ref_count_, szWhere );
         }
     }
@@ -71,7 +82,7 @@ public:
         if ( bTrace )
         {
             char szWhere[320];
-            TraceWhere( _ReturnAddress(), szWhere, sizeof( szWhere ) );
+            TraceWhere( TraceCaller(), szWhere, sizeof( szWhere ) );
             fprintf( stderr, "font-ref: refs=%d Rel caller=%s\n", ref_count_, szWhere );
         }
         if ( ref_count_ == 0 ) delete this;
