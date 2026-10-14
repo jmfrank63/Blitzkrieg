@@ -83,3 +83,32 @@ means the same cross-DLL cache work as above.
   every local Windows capture parsed as `<no frame>` until fixed).
 - The A/B Game capture pair: `zig-out/local-test/tier-logs/s04-t04-game.err.log`
   (pre-`c697a5199` build) and `s04-t05-game.err.log` (post). Identical reports.
+
+## T08: the residue eliminated at the root
+
+The BK_REF_AUDIT census (BK_REF_AUDIT=1 at registry Done) and the
+BK_REF_TRACE transition trace named the second owners; fixing them collapsed
+the Game's detach report from **15,574 blocks / 1.92 MB to 227 blocks /
+~210 KB** (98.5% blocks):
+
+| fix | what it released |
+| --- | --- |
+| the two emergency commands are no longer constructed into the no-op NBugSlayer::AddEmergencyCommand sink (iMainInternal.cpp) | the dropped commands pinned CMainLoop, whose CPtr<IInput> members held the input binder and its 9.5k bind-string blocks; the audit's 15 surviving singletons all fell to zero |
+| the bridge's core services die at registry Done (legacy_bridge.cpp, BridgeCoreServicesTeardown) | console_buffer/option_system bridge-owned references, and the unregistered save_load_system - its factory database was the largest single block at 532 KB |
+| GlobalVars, ConsoleBuffer, RandomGen get real refcounting | the no-op AddRef/Release pairs made the 532,632-byte wide-variable table (and the other two) survive every release |
+| NMain::Finalize releases the engine's current font, clears the shared managers, and shuts SDL down through the NMain::SetApplicationShutdown slot | the 564-block glyph family (the engine's current_font_ and the managers' maps pinned the font past the report) and SDL's own allocations (206 KB; SDL_Quit used to run at static destruction, after the report) |
+
+The remaining 227 blocks: ~220 SDL-internal allocations that survive
+SDL_Quit by SDL's own design (the shutdown provably runs), plus seven
+named transients on the config read path (Initialization.cpp:102,
+GameMain.cpp:859, iMainInternal.cpp:965) and six plumbing-only
+unresolved-frame blocks. The editors keep their own floors (1,206 /
+1,614 on the refreshed build).
+
+Method notes for the next session: header-only edits do not invalidate
+every module's compile - run game-all and then install-game, in that
+order, and bump the input module's BK_INPUT_BUILD_INCREMENT if a
+header edit fails to reach Input.dll. The masked refcount planes
+(REF_ADD_OBJ = 0x1000, Basic.h:462) mean raw refcount numbers above
+the plain plane are internal claims, not holders.
+
