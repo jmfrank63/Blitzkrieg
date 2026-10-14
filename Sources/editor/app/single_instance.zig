@@ -642,6 +642,17 @@ const HandoffJob = struct {
     /// the job comes from the process-wide allocator.
     const allocator = bk_memory.allocator;
 
+    /// Jobs created but not yet destroyed. A waiter that abandons its job
+    /// leaves the destroy to the worker, which stays blocked on the peer until
+    /// the peer goes; the tests drain this so an abandoned block never lands
+    /// in BkMemory's strict report when the test binary exits.
+    var outstanding: std.atomic.Value(usize) = .init(0);
+
+    fn release(job: *HandoffJob) void {
+        _ = outstanding.fetchSub(1, .acq_rel);
+        allocator.destroy(job);
+    }
+
     fn run(self: *HandoffJob) void {
         const io = self.io;
         const address = net.UnixAddress.init(self.path_storage[0..self.path_len]) catch {
@@ -689,14 +700,15 @@ const HandoffJob = struct {
     fn finish(self: *HandoffJob, result: Handoff) void {
         self.result = result;
         // Abandoned while it worked: nobody is waiting for this.
-        if (self.state.cmpxchgStrong(running, done, .acq_rel, .acquire) != null) allocator.destroy(self);
+        if (self.state.cmpxchgStrong(running, done, .acq_rel, .acquire) != null) release(self);
     }
 };
 
 fn handoffOnce(io: Io, address: *const net.UnixAddress, line: []const u8, timeout_ms: u32) Handoff {
     const job = HandoffJob.allocator.create(HandoffJob) catch return .no_listener;
+    _ = HandoffJob.outstanding.fetchAdd(1, .acq_rel);
     if (address.path.len > job.path_storage.len or line.len > job.line_storage.len) {
-        HandoffJob.allocator.destroy(job);
+        HandoffJob.release(job);
         return .no_listener;
     }
     job.* = .{ .io = io };
@@ -705,7 +717,7 @@ fn handoffOnce(io: Io, address: *const net.UnixAddress, line: []const u8, timeou
     @memcpy(job.line_storage[0..line.len], line);
     job.line_len = line.len;
     const thread = std.Thread.spawn(workerStack(256 * 1024), HandoffJob.run, .{job}) catch {
-        HandoffJob.allocator.destroy(job);
+        HandoffJob.release(job);
         return .no_listener;
     };
     thread.detach();
@@ -715,8 +727,18 @@ fn handoffOnce(io: Io, address: *const net.UnixAddress, line: []const u8, timeou
     }
     if (job.state.cmpxchgStrong(HandoffJob.running, HandoffJob.abandoned, .acq_rel, .acquire) == null) return .no_reply;
     const result = job.result;
-    HandoffJob.allocator.destroy(job);
+    HandoffJob.release(job);
     return result;
+}
+
+/// Bounded wait for the abandoned jobs' workers to reclaim them: the worker
+/// unblocks when its peer closes and destroys the job itself, but the test
+/// process can reach BkMemory's report before that thread runs, and the
+/// strict report exits 3 on the block.
+fn drainAbandonedJobs(io: Io, timeout_ms: u32) void {
+    const deadline: Deadline = .in(io, timeout_ms);
+    while (HandoffJob.outstanding.load(.acquire) != 0 and !deadline.passed(io))
+        io.sleep(.fromMilliseconds(5), .awake) catch return;
 }
 
 fn handoffWithRetry(io: Io, address: *const net.UnixAddress, line: []const u8, options: Options) Handoff {
@@ -1293,24 +1315,31 @@ test "single instance: a stale socket file never blocks a start - the next launc
 test "single instance: a hung owner - one that accepts and never answers - is timed out and replaced" {
     const io = std.testing.io;
     const gpa = std.testing.allocator;
-    var endpoint_buffer: [path_capacity]u8 = undefined;
-    const endpoint = testEndpoint(io, &endpoint_buffer, "hung");
-    removeTestEndpoint(io, endpoint);
-    defer removeTestEndpoint(io, endpoint);
+    {
+        var endpoint_buffer: [path_capacity]u8 = undefined;
+        const endpoint = testEndpoint(io, &endpoint_buffer, "hung");
+        removeTestEndpoint(io, endpoint);
+        defer removeTestEndpoint(io, endpoint);
 
-    // The hung owner: listening, its kernel queue takes the connection, nobody
-    // ever accepts it.
-    const address = try net.UnixAddress.init(endpoint);
-    var hung = try address.listen(io, .{});
-    defer hung.deinit(io);
+        // The hung owner: listening, its kernel queue takes the connection, nobody
+        // ever accepts it.
+        const address = try net.UnixAddress.init(endpoint);
+        var hung = try address.listen(io, .{});
+        defer hung.deinit(io);
 
-    const started = Io.Clock.Timestamp.now(io, .awake);
-    const result = acquireAt(gpa, io, endpoint, "/maps/a.bzm\n", .{ .timeout_ms = 200, .stale_retries = 0 });
-    const elapsed_ms = @divTrunc(started.durationTo(Io.Clock.Timestamp.now(io, .awake)).raw.nanoseconds, std.time.ns_per_ms);
-    switch (result) {
-        .primary => |instance| instance.deinit(),
-        else => return error.TestUnexpectedResult,
+        const started = Io.Clock.Timestamp.now(io, .awake);
+        const result = acquireAt(gpa, io, endpoint, "/maps/a.bzm\n", .{ .timeout_ms = 200, .stale_retries = 0 });
+        const elapsed_ms = @divTrunc(started.durationTo(Io.Clock.Timestamp.now(io, .awake)).raw.nanoseconds, std.time.ns_per_ms);
+        switch (result) {
+            .primary => |instance| instance.deinit(),
+            else => return error.TestUnexpectedResult,
+        }
+        // Not a silent hang: it gave up after about the timeout.
+        try std.testing.expect(elapsed_ms < 3000);
     }
-    // Not a silent hang: it gave up after about the timeout.
-    try std.testing.expect(elapsed_ms < 3000);
+    // The abandoned hand-off job's worker wakes when the listener above closes
+    // and destroys the job itself. Wait for it, or the block can land in
+    // BkMemory's report when this binary exits (the strict tiers exit 3).
+    drainAbandonedJobs(io, 2000);
+    try std.testing.expectEqual(@as(usize, 0), HandoffJob.outstanding.load(.acquire));
 }
