@@ -2918,58 +2918,73 @@ static void Run( BkResSession *pSession, const std::string &szRoot, const std::s
 		// The direction turn is sampled inside one live burst at the phases the
 		// drew loop and the camera block pinned (the effect's sprite is
 		// visible only in the burst's first ~200 ms): 100 ms to the "before"
-		// and "same" captures, 100 ms between samples, and a restart at the
-		// reference's own phase (200 ms) when a burst fades without the turn
-		// registering.
+		// and "same" captures, 100 ms between samples, and a fresh burst
+		// replayed to the reference's own phase when one fades without the
+		// turn registering.
 			auto Shoot = [&]( const char *pszName, std::vector<unsigned char> &out )
 			{
 				const fs::path path = scratch / ( std::string( "effect-direction-" ) + pszName + ".tga" );
 				int nShotW = 0, nShotH = 0;
 				return BkEditorCaptureFrame( pSession, path.string().c_str() ) == BK_EDITOR_OK && ReadCapture( path.string(), out, nShotW, nShotH );
 			};
+			// Run restarts the burst only from a stopped preview (MFC's Run
+			// button; a Run on a running one changes nothing), so a restart is
+			// Stop then Run. The burst re-reads the stored direction.
+			auto Restart = [&]()
+			{
+				BkResPreviewPlayback( pSession, 0 );
+				BkResPreviewPlayback( pSession, 1 );
+			};
 			std::vector<unsigned char> before, same, turned;
-			BkResPreviewPlayback( pSession, 1 );
+			Restart();
 			Pump( 100 );
 			const bool bBefore = Shoot( "before", before );
 			Pump( 100 );
 			const bool bSame = Shoot( "same", same );
 			Check( BkResEffectSetDirection( pSession, -2.0f ) == BK_EDITOR_OK, "preview: a running effect takes a new direction" );
-			// The turn's visible effect grows as the particles advance, and a
-			// loaded runner's frames take seconds each: one 300 ms pump can
-			// capture almost no rotation (measured 0.0765% against the 0.1%
-			// threshold on the CI runner). Keep sampling until the turned frame
-			// differs from the same-angle frame by the threshold, within a
-			// window no measured frame interval exceeds - with 100 ms steps
-			// that stay inside the burst's visible first ~200 ms; when it
-			// fades without the turn registering, the Run restarts it and
-			// sampling resumes on a fresh burst at the reference's own phase.
+			// The turn's visible effect grows as the particles advance: one
+			// 300 ms pump can capture almost no rotation (measured 0.0765%
+			// against the 0.1% threshold on the CI runner), so up to four
+			// samples 100 ms apart are taken in a burst, first difference
+			// wins. The preview clock advances at most 100 ms per drawn frame,
+			// so on a loaded runner whose lavapipe frames take seconds each
+			// every frame - the captures' own included - is a full 100 ms of
+			// the burst, and four samples outlive its visible phase whatever
+			// the wall clock says. The restart used to be a Run on the
+			// running effect, which changes nothing: every later sample drew
+			// the faded plate (0.000042, run 38597855146). A fresh burst
+			// now replays the reference's frames (Run, 100 ms, a capture in
+			// the "before" frame's place, 100 ms) so its first sample lands on
+			// the "same" capture's phase and differs from it by the direction
+			// alone. The loop is bounded by bursts; the wall ceiling only
+			// keeps a hung renderer from stalling the tier.
 			const auto turnStart = std::chrono::steady_clock::now();
 			double fTurn = -1.0;
 			bool bTurned = false;
-			int nBursts = 1;
-			while ( true )
+			bool bDone = false;
+			int nBurstsSampled = 0;
+			for ( int nBurst = 0; nBurst < 4 && !bDone; ++nBurst )
 			{
-				Pump( 100 );
-				bTurned = Shoot( "turned", turned );
-				fTurn = bSame && bTurned ? ChangedShare( turned, same ) : -1.0;
-				if ( bTurned && fTurn >= 0.001 )
-					break;
-				if ( std::chrono::steady_clock::now() - turnStart > std::chrono::seconds( 20 ) )
-					break;
-				if ( ( nBursts++ % 4 ) == 0 )
+				++nBurstsSampled;
+				if ( nBurst > 0 )
 				{
-					// The restart lands on the "same" reference's phase (100
-					// ms pump + the 100 ms that passed to it), so a fresh
-					// burst's turned capture differs from that reference by
-					// the direction alone, not by animation phase.
-					BkResPreviewPlayback( pSession, 1 );
-					Pump( 200 );
+					std::vector<unsigned char> replayed;
+					Restart();
+					Pump( 100 );
+					Shoot( "replayed", replayed );
+				}
+				for ( int nSample = 0; nSample < 4 && !bDone; ++nSample )
+				{
+					Pump( 100 );
+					bTurned = Shoot( "turned", turned );
+					fTurn = bSame && bTurned ? ChangedShare( turned, same ) : -1.0;
+					bDone = ( bTurned && fTurn >= 0.001 ) || std::chrono::steady_clock::now() - turnStart > std::chrono::minutes( 3 );
 				}
 			}
 			Check( bBefore && bSame && bTurned, "preview: the direction frames capture" );
 			const double fNoise = bBefore && bSame ? ChangedShare( same, before ) : -1.0;
-			Log( "preview-scene: effect direction angle=0.785398->-2.0 same-angle-changed=" + std::to_string( fNoise ) + " turned-changed=" + std::to_string( fTurn ) + " threshold=0.001" );
-			Check( fTurn >= 0.001, "preview: turning the running effect changes the frame (>= 0.1% within 20 s of sampling)" );
+			Log( "preview-scene: effect direction angle=0.785398->-2.0 same-angle-changed=" + std::to_string( fNoise ) + " turned-changed=" + std::to_string( fTurn ) + " bursts=" + std::to_string( nBurstsSampled ) + " threshold=0.001" );
+			Check( fTurn >= 0.001, "preview: turning the running effect changes the frame (>= 0.1% within four bursts of sampling)" );
 			Check( BkResPreviewPlayback( pSession, 0 ) == BK_EDITOR_OK, "preview: the effect stops again" );
 		}
 
