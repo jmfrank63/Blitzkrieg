@@ -1493,6 +1493,7 @@ class GlobalVars final : public IGlobalVars {
         unsigned short value[MAX_WVALUE];
     };
     WVarEntry wvalues_[MAX_WVARS];
+    int refs_ = 0;
 
     static bool SameKey(const char *left, const char *right) {
         if (!left || !right) return false;
@@ -1578,8 +1579,10 @@ class GlobalVars final : public IGlobalVars {
     }
 
 public:
-    void BK_STDCALL AddRef(int, int) override {}
-    void BK_STDCALL Release(int, int) override {}
+    // Real refcounting (S04/T08b): the no-ops made this 532 KB object - the
+    // largest single reported block - survive every registry release.
+    void BK_STDCALL AddRef(int count, int) override { refs_ += count; }
+    void BK_STDCALL Release(int count, int) override { refs_ -= count; if ( refs_ <= 0 ) delete this; }
     bool BK_STDCALL IsValid() const override { return true; }
     const char *BK_STDCALL GetVar(const char *key) const override { return key ? bk_global_get(key) : 0; }
     void BK_STDCALL SetVar(const char *key, const char *value) override { if (key && value) bk_global_set(key, value); }
@@ -1719,8 +1722,10 @@ public:
 class ConsoleBuffer final : public IConsoleBuffer {
     void *console_ = bk_console_create();
 public:
-    void BK_STDCALL AddRef(int, int) override {}
-    void BK_STDCALL Release(int, int) override {}
+    // Real refcounting (S04/T08b): the registry's Done release deletes this
+    // only if the no-op pair does not swallow it.
+    void BK_STDCALL AddRef(int count, int) override { refs_ += count; }
+    void BK_STDCALL Release(int count, int) override { refs_ -= count; if ( refs_ <= 0 ) delete this; }
     bool BK_STDCALL IsValid() const override { return console_ != 0; }
     bool BK_STDCALL Configure(const char *config) override { return config && bk_console_configure(console_, config); }
     void BK_STDCALL Write(int channel, const wchar_t *text, unsigned long color, bool backup) override { if (text) bk_console_write_wide(console_, channel, text, color, backup); }
@@ -1732,9 +1737,10 @@ public:
 #endif
 
 class RandomGen final : public IRandomGen {
+    int refs_ = 0;
 public:
-    void BK_STDCALL AddRef(int, int) override {}
-    void BK_STDCALL Release(int, int) override {}
+    void BK_STDCALL AddRef(int count, int) override { refs_ += count; }
+    void BK_STDCALL Release(int count, int) override { refs_ -= count; if ( refs_ <= 0 ) delete this; }
     bool BK_STDCALL IsValid() const override { return true; }
     void BK_STDCALL Init() override { bk_random_init(); }
     // Were no-ops, and GetSeed returned null: generating a template mission's
