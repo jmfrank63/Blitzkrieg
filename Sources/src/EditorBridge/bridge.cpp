@@ -4954,7 +4954,23 @@ BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 		// NOT re-register (IGFX, IScene, the managers) would not survive a
 		// reopen after this release, and no host does that today.
 		if ( s_nBkEditorSessions == 0 && GetSingletonGlobal() != 0 )
+		{
+			// The same cache release NMain::Finalize runs for the game
+			// before its registry release: the engine's current-font
+			// reference pins the fonts, and the managers' maps pin the
+			// glyphs, the atlas and the meshes past the leak report
+			// (S04/T08b). The providers are still alive here, as they are
+			// at Finalize.
+			if ( IGFX *pGFX = GetSingleton<IGFX>() )
+				pGFX->SetFont( 0 );
+			if ( IFontManager *pFonts = GetSingleton<IFontManager>() )
+				pFonts->Clear( ISharedManager::CLEAR_ALL );
+			if ( ITextureManager *pTextures = GetSingleton<ITextureManager>() )
+				pTextures->Clear( ISharedManager::CLEAR_ALL );
+			if ( IMeshManager *pMeshes = GetSingleton<IMeshManager>() )
+				pMeshes->Clear( ISharedManager::CLEAR_ALL );
 			GetSingletonGlobal()->Done();
+		}
 	}
 	catch ( ... )
 	{
