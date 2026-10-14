@@ -2,8 +2,19 @@
 #define BLITZKRIEG_FONT_GPU_H
 
 #include "..//GFX//GFX.H"
+#include <cstdio>
+#include <cstdlib>
 #include <utility>
 #include <vector>
+#if defined( _MSC_VER )
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 #include "..//Formats//fmtFont.h"
 #include "..//GFX//GFXHelper.h"
 
@@ -18,8 +29,53 @@ public:
     // shared map then supplies the name and calls Load().
     static IRefCount * STDCALL CreateNewClassInstanceInternal() { return new FontGpu(); }
     int STDCALL operator&( IStructureSaver &ss ) override;
-    void STDCALL AddRef( int nRef = 1, int nMask = 0x7fffffff ) override { (void)nMask; ref_count_ += nRef; }
-    void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff ) override { (void)nMask; ref_count_ -= nRef; if ( ref_count_ == 0 ) delete this; }
+    // S04/T08a: BK_REF_TRACE=<substring> names every reference transition
+    // with the holder's module+offset (the same instrumentation as the
+    // CInputBinder override; FontGpu's glyph storage was the Game's largest
+    // remaining family at 564 blocks).
+    static void TraceWhere( void *pCaller, char *szOut, int nOut )
+    {
+#if defined( _MSC_VER )
+        HMODULE hMod = 0;
+        if ( pCaller != 0 && GetModuleHandleExW( GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, reinterpret_cast<LPCWSTR>( pCaller ), &hMod ) != 0 )
+        {
+            char szMod[MAX_PATH] = "";
+            GetModuleFileNameA( hMod, szMod, MAX_PATH );
+            const char *pszName = szMod;
+            for ( const char *p = szMod; *p != 0; ++p )
+                if ( *p == '\\' || *p == '/' )
+                    pszName = p + 1;
+            _snprintf( szOut, nOut, "%s+0x%llx", pszName, (unsigned long long)pCaller - reinterpret_cast<unsigned long long>( hMod ) );
+            return;
+        }
+#endif
+        _snprintf( szOut, nOut, "addr=%p", pCaller );
+    }
+    void STDCALL AddRef( int nRef = 1, int nMask = 0x7fffffff ) override
+    {
+        (void)nMask;
+        static const bool bTrace = []() { const char *psz = getenv( "BK_REF_TRACE" ); return psz != 0 && *psz != 0; }();
+        ref_count_ += nRef;
+        if ( bTrace )
+        {
+            char szWhere[320];
+            TraceWhere( _ReturnAddress(), szWhere, sizeof( szWhere ) );
+            fprintf( stderr, "font-ref: refs=%d Add caller=%s\n", ref_count_, szWhere );
+        }
+    }
+    void STDCALL Release( int nRef = 1, int nMask = 0x7fffffff ) override
+    {
+        (void)nMask;
+        static const bool bTrace = []() { const char *psz = getenv( "BK_REF_TRACE" ); return psz != 0 && *psz != 0; }();
+        ref_count_ -= nRef;
+        if ( bTrace )
+        {
+            char szWhere[320];
+            TraceWhere( _ReturnAddress(), szWhere, sizeof( szWhere ) );
+            fprintf( stderr, "font-ref: refs=%d Rel caller=%s\n", ref_count_, szWhere );
+        }
+        if ( ref_count_ == 0 ) delete this;
+    }
     bool STDCALL IsValid() const override { return ref_count_ >= 0 && texture_ != nullptr; }
     void STDCALL SwapData( ISharedResource *resource ) override;
     int STDCALL GetRefCounter() const override { return ref_count_; }

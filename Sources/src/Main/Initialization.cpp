@@ -2,6 +2,7 @@
 #include "../Platform/Paths.h"
 
 #include "iMain.h"
+#include "../Game/WinFrame.h"
 
 #include "../StreamIO/OptionSystem.h"
 #include "../GFX/GFX.H"
@@ -241,6 +242,14 @@ bool STDCALL NMain::IsInitialized()
 {
 	return NMain::bInitialized;
 }
+// S04/T08b: the shell's shutdown slot - set by the Game, empty for the
+// editors, which link Main without WinFrame.
+static void (STDCALL *pfnApplicationShutdown)() = 0;
+void STDCALL NMain::SetApplicationShutdown( void (STDCALL *pfnShutdown)() )
+{
+	pfnApplicationShutdown = pfnShutdown;
+}
+
 bool STDCALL NMain::Finalize()
 {
 	ISingleton *pSingleton = GetSingletonGlobal();
@@ -250,9 +259,29 @@ bool STDCALL NMain::Finalize()
 			pSFX->Done();
 		if ( ITransceiver *pTransceiver = GetSingleton<ITransceiver>( pSingleton ) )
 			pTransceiver->Done();
+		// The shared managers' caches release here, while every provider
+		// they reference is still alive: the fonts' glyph nodes (the Game's
+		// largest remaining family - the engine's SetFont copy and the
+		// managers' maps otherwise pin them past the report), the texture
+		// atlas and the meshes (S04/T08b). The engine holds its own
+		// reference to the current font; releasing it first lets the Clear
+		// actually free the fonts and their glyph nodes.
+		if ( IGFX *pGfx = GetSingleton<IGFX>( pSingleton ) )
+			pGfx->SetFont( 0 );
+		if ( IFontManager *pFonts = GetSingleton<IFontManager>( pSingleton ) )
+			pFonts->Clear( ISharedManager::CLEAR_ALL );
+		if ( ITextureManager *pTextures = GetSingleton<ITextureManager>( pSingleton ) )
+			pTextures->Clear( ISharedManager::CLEAR_ALL );
+		if ( IMeshManager *pMeshes = GetSingleton<IMeshManager>( pSingleton ) )
+			pMeshes->Clear( ISharedManager::CLEAR_ALL );
 	}
 
 	UnloadAllModules();
+	// The shell's shutdown (SDL_Quit and friends) through the slot set at
+	// startup: SDL_Quit then runs inside the teardown, not at static
+	// destruction after the leak report (S04/T08b).
+	if ( pfnApplicationShutdown != 0 )
+		pfnApplicationShutdown();
 	return false;
 }
 bool STDCALL NMain::CanLaunch()

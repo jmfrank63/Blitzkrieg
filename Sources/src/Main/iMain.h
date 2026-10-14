@@ -78,6 +78,10 @@ namespace NMain
 	bool STDCALL InitializeWithWindow( GFXNativeWindow window );
 	bool STDCALL Initialize( HWND hWnd3D, HWND hWndInput, HWND hWndSound, bool bGame );
 	bool STDCALL Finalize();
+	// S04/T08b: the application shell's own shutdown (SDL_Quit and friends)
+	// runs inside Finalize through this slot - Main cannot link the shell
+	// (the editors link Main without WinFrame), so the shell registers it.
+	void STDCALL SetApplicationShutdown( void (STDCALL *pfnShutdown)() );
 	bool STDCALL IsInitialized();
 	bool STDCALL CanLaunch();
 	void SetupGlobalVarConsts( class CTableAccessor &table );

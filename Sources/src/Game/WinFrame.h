@@ -29,6 +29,7 @@ namespace NWinFrame
 	void *GetSDLWindow();
 	HINSTANCE GetHInstance();
 	bool InitApplication( HINSTANCE hInstance, const char *pszAppName, const char *pszWndName, int nWidth, int nHeight );
+	void ShutdownApplication();
 	void ShowAppWindow( bool bShow );
 	void ShowSplashScreen( HINSTANCE hInstance, bool bShow );
 	void PumpMessages();

@@ -604,6 +604,10 @@ int RunGame( const BkGameLaunchInfo &launch )
 	BK_STARTUP_MARKER("before InitApplication");
 	if ( !NWinFrame::InitApplication( NWinFrame::GetHInstance(), " Blitzkrieg Game", "A7_ENGINE", cmdp.nScreenSizeX, cmdp.nScreenSizeY ) )
 		return 0xDEAD;
+	// The shell shutdown (SDL_Quit and friends) runs inside NMain::Finalize
+	// through this slot - SDL_Quit then frees SDL's allocations before the
+	// leak report instead of at static destruction (S04/T08b).
+	NMain::SetApplicationShutdown( &NWinFrame::ShutdownApplication );
 	if ( cmdp.bStartupSmoke ) SetGlobalVar( "X64.StartupSmoke.MainMenu", 1 );
 	BK_STARTUP_MARKER("after InitApplication");
 	timeMeter.Reset();

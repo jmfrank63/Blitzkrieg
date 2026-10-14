@@ -352,8 +352,7 @@ bool InitApplication( HINSTANCE hInstance, const char *pszAppName, const char *p
 	szAppTitleName = pszAppName ? pszAppName : " Blitzkrieg Game";
 	szWndClassName = pszWndName ? pszWndName : "NIVAL_RTS_ENGINE";
 	if ( !sdlApplication.Initialize( szAppTitleName.c_str(), nWidth, nHeight ) )
-		return false;
-	hWnd = static_cast<HWND>( sdlApplication.GetWindowsNativeHandle() );
+		return false;	hWnd = static_cast<HWND>( sdlApplication.GetWindowsNativeHandle() );
 	bActive = true;
 	bExit = false;
 	// The system pointer is hidden and the mouse grabbed by
@@ -373,6 +372,15 @@ bool InitApplication( HINSTANCE hInstance, const char *pszAppName, const char *p
 
 	return true;
 	#endif
+}
+void ShutdownApplication()
+{
+	// Called from NMain::Finalize so SDL_Quit runs inside the engine's
+	// teardown, while every module that may still hold SDL allocations is
+	// unloaded in order - leaving it to the file-static's destructor put it
+	// after the BkMemory detach report, and SDL's own blocks (206 KB in the
+	// Game) read as leaks (S04/T08b).
+	sdlApplication.Shutdown();
 }
 static void PreRegisterClass( WNDCLASSEX& wcex )
 {
