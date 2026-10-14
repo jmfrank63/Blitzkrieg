@@ -304,12 +304,12 @@ class CInputBinder : public CInputAPI
 			for ( const char *p = szMod; *p != 0; ++p )
 				if ( *p == '\\' || *p == '/' )
 					pszName = p + 1;
-			_snprintf( szOut, nOut, "%s+0x%llx", pszName, (unsigned long long)pCaller - reinterpret_cast<unsigned long long>( hMod ) );
+			snprintf( szOut, nOut, "%s+0x%llx", pszName, (unsigned long long)pCaller - reinterpret_cast<unsigned long long>( hMod ) );
 			return;
 		}
-		_snprintf( szOut, nOut, "addr=%p", pCaller );
+		snprintf( szOut, nOut, "addr=%p", pCaller );
 #else
-		_snprintf( szOut, nOut, "addr=%p", pCaller );
+		snprintf( szOut, nOut, "addr=%p", pCaller );
 #endif
 	}
 	CCommandsMap commands;

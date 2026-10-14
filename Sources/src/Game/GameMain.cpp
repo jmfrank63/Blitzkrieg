@@ -81,6 +81,10 @@ bool InitApplication( HINSTANCE, const char *pszAppName, const char *, int nWidt
 	return true;
 }
 void ShowAppWindow( bool bShow ) { if ( bShow ) game_frame.Show(); else game_frame.Hide(); }
+// S04/T08b: the shell shutdown slot the Game registers with NMain - the
+// cross-platform frame's Shutdown releases the SDL application inside the
+// engine teardown instead of at static destruction.
+void ShutdownApplication() { game_frame.Shutdown(); }
 void ShowSplashScreen( HINSTANCE, bool bShow )
 {
 	// The Windows build shows the Blitzkrieg logo between launch and the
@@ -606,7 +610,8 @@ int RunGame( const BkGameLaunchInfo &launch )
 		return 0xDEAD;
 	// The shell shutdown (SDL_Quit and friends) runs inside NMain::Finalize
 	// through this slot - SDL_Quit then frees SDL's allocations before the
-	// leak report instead of at static destruction (S04/T08b).
+	// leak report instead of at static destruction (S04/T08b). Each shell
+	// defines its own NWinFrame::ShutdownApplication.
 	NMain::SetApplicationShutdown( &NWinFrame::ShutdownApplication );
 	if ( cmdp.bStartupSmoke ) SetGlobalVar( "X64.StartupSmoke.MainMenu", 1 );
 	BK_STARTUP_MARKER("after InitApplication");
