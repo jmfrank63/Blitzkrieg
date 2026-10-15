@@ -105,6 +105,20 @@ GameMain.cpp:859, iMainInternal.cpp:965) and six plumbing-only
 unresolved-frame blocks. The editors keep their own floors (1,206 /
 1,614 on the refreshed build).
 
+**The Game's renderer teardown (Linux, 2026-10-15).** `NMain::Finalize`
+now runs `IGFX::Done` after the managers' Clear, as `BkEditorStop` does
+since `d5c3573d2`. Linux debug, RADV, `-startup-smoke -windowed` (main
+menu, graceful close), `BK_MEM_REPORT=count`, three runs each, all exit 0:
+**3,251 -> 2,674 blocks** (-577, the GPU device). A 24-frame `log` capture
+of the after tree (RADV 2,674; lavapipe 2,680) puts all but five blocks in
+`libLLVM.so.21.1`: the Mesa driver's LLVM process-lifetime state, allocated
+through the Game's exported `operator new`, freed by LLVM's own static
+destructors after the report. The Game's own five: two `Platform/Paths.cpp`
+root strings and three bridge core-service blocks the `CGlobalsLoader`
+static initializer creates (`legacy_bridge.cpp:1800`, `options_bridge.cpp:105`,
+`DynamicLibrary.cpp:42`). The Windows/D3D12 227 above has no LLVM in it;
+it is not re-measured here.
+
 Method notes for the next session: header-only edits do not invalidate
 every module's compile - run game-all and then install-game, in that
 order, and bump the input module's BK_INPUT_BUILD_INCREMENT if a
@@ -302,10 +316,10 @@ Open observations, not chased:
 
 - Under lavapipe (`VK_DRIVER_FILES=lvp`) the same run reports 723 blocks
   both before and after the GPU-device and temp-buffer fixes.
-- The Game has the same two gaps: `NMain::Finalize` never calls
-  `IGFX::Done`, and the temp buffers are freed only by the shared registry
-  Done that now does so. The Game's 227 were measured at the menu on
-  Windows/D3D12, which never grew the AI temp buffer. Its device
-  destruction is not in this slice.
+- The Game had the same two gaps: `NMain::Finalize` now calls
+  `IGFX::Done` (see the Game's renderer teardown above), and the temp
+  buffers are freed only by the shared registry Done that now does so.
+  The Game's 227 were measured at the menu on Windows/D3D12, which never
+  grew the AI temp buffer.
 - The host check passes when an engine module fails to load (see the
   dropped fix above), and nothing in the tier asserts the AI is present.

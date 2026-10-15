@@ -274,6 +274,14 @@ bool STDCALL NMain::Finalize()
 			pTextures->Clear( ISharedManager::CLEAR_ALL );
 		if ( IMeshManager *pMeshes = GetSingleton<IMeshManager>( pSingleton ) )
 			pMeshes->Clear( ISharedManager::CLEAR_ALL );
+		// The renderer and its SDL GPU device, after the managers' Clear as
+		// in the editors' last stop (BkEditorStop): nothing else destroys
+		// them (GraphicsEngineGpu's destructor does not), so the device's
+		// command buffers, memory regions and caches reached the report. A
+		// texture or buffer released after this finds no renderer and does
+		// nothing.
+		if ( IGFX *pGFX = GetSingleton<IGFX>( pSingleton ) )
+			pGFX->Done();
 	}
 
 	UnloadAllModules();
