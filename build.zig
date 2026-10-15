@@ -2355,6 +2355,12 @@ pub fn build(b: *std.Build) void {
     // API (which Zig's resinator does not produce correctly for runtime reads).
     gamett.root_module.addCMacro("BLITZKRIEG_VERSION", b.fmt("\"{d}.{d}.{d}\"", .{ game_version.major, game_version.minor, game_version.patch }));
     const main = addMain(b, target, optimize, toolchain);
+    // bk-map, like bk-font, is in the convention test as the installed
+    // executable, its binary a file input of that run.
+    const bk_map = addBkMap(b, target, optimize, toolchain, map_file, main, randommapgen, formats, misc, lualib, zlib, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    bk_tools_options.addOption([]const u8, "bk_map", if (target.result.os.tag == .windows) "zig-out/bin/bk-map.exe" else "zig-out/bin/bk-map");
+    bk_tools_tests_run.step.dependOn(bk_map.install);
+    bk_tools_tests_run.addFileInput(bk_map.tool.getEmittedBin());
     const editor_bridge = addEditorBridge(b, target, optimize, toolchain, common, sdl_dynamic_dep.path("include"));
     if (startup_trace) main.root_module.addCMacro("BK_STARTUP_TRACE", "1");
     const game = addGame(b, target, optimize, toolchain, main, misc, platform_runtime, lualib, zlib, randommapgen, formats, blitz64, startup_trace, renderer, platform, sdl_dynamic, sdl_dynamic_dep.path("include"));
@@ -2650,6 +2656,10 @@ pub fn build(b: *std.Build) void {
         .root_module = stage_module,
     });
 
+    // bk-map links the engine libraries and finds them, from Tools/, by its
+    // loader-relative path to the game folder. A Windows executable has no
+    // such path and would not start there, so on Windows it stays in zig-out/bin.
+    const staged_tools: []const *std.Build.Step.Compile = if (target.result.os.tag == .windows) &.{ bk_pak, bk_table } else &.{ bk_pak, bk_table, bk_map.tool };
     const stage_game_inputs: StageGameInputs = .{
         .tool = stage_tool,
         .game_all_step = game_all_step,
@@ -2660,7 +2670,7 @@ pub fn build(b: *std.Build) void {
         .debug_files = stage_debug_files,
         .metadata_files = stage_metadata_files,
         .editors_supported = target.result.os.tag == .windows,
-        .tools = b.allocator.dupe(*std.Build.Step.Compile, &.{ bk_pak, bk_table }) catch @panic("OOM"),
+        .tools = b.allocator.dupe(*std.Build.Step.Compile, staged_tools) catch @panic("OOM"),
     };
     const install_game_cmd = addStageGameRun(b, stage_game_inputs, stage_root);
     if (!copy_data) install_game_cmd.addArg("--link-data");
@@ -6942,7 +6952,7 @@ fn addBkFont(
     // library. A C++ console program on the engine libraries (D-03), built
     // with map-file-test's recipe; the SFontFormat and TGA writers are the
     // engine's own, loaded at run time from StreamIO and Image.
-    const font_atlas_files = &.{ "Sources/src/FontAtlas/FontAtlas.cpp", "tools/zig/data_only_startup.cpp" };
+    const font_atlas_files = &.{ "Sources/src/FontAtlas/FontAtlas.cpp", "tools/zig/data_only_startup.cpp", "tools/zig/tool_host.cpp" };
     const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
     const test_module = b.createModule(.{ .target = target, .optimize = optimize });
     for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const u8{ "tools/zig/bk_font.cpp", "tools/zig/bk_font_test.cpp" }) |module, main_file| {
@@ -7014,6 +7024,208 @@ fn addBkFont(
     step.dependOn(install);
     if (test_mode == .run) step.dependOn(&check.step);
     return .{ .install = install, .tool = tool };
+}
+
+const BkMap = struct {
+    /// Installs bk-map and every engine library it loads at run time.
+    install: *std.Build.Step,
+    tool: *std.Build.Step.Compile,
+};
+
+fn addBkMap(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    map_file: *std.Build.Step.Compile,
+    main_lib: *std.Build.Step.Compile,
+    randommapgen: *std.Build.Step.Compile,
+    formats: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    lualib: *std.Build.Step.Compile,
+    zlib: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    image: *std.Build.Step.Compile,
+    streamio_zig: *std.Build.Step.Compile,
+    options_bridge: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    test_mode: build_support.TestMode,
+) BkMap {
+    // bk-map (Phase 8, D-16..D-19): bzmconvertor's to-bzm/to-xml and obj2mod
+    // legs and imagedefrag's minimap creator, a C++ console program on the
+    // engine libraries (D-03) built with bk-font's recipe. Maps go through
+    // MapFile (the Map Editor's reader and writer), the minimap through
+    // RandomMapGen's CreateMiniMapImage with Main's object database.
+    const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
+    const test_module = b.createModule(.{ .target = target, .optimize = optimize });
+    const tool_files = &.{ "tools/zig/bk_map.cpp", "tools/zig/bk_map_obj2mod.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    const test_files = &.{ "tools/zig/bk_map_test.cpp", "tools/zig/tool_host.cpp", "tools/zig/data_only_startup.cpp" };
+    for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const []const u8{ tool_files, test_files }) |module, files| {
+        linkEngineCxxRuntimeEngine(b, module, optimize);
+        addProjectIncludePaths(b, module);
+        module.addIncludePath(b.path("Sources/src/Formats"));
+        module.addIncludePath(b.path("Sources/src/RandomMapGen"));
+        module.addIncludePath(b.path("Sources/src/Common"));
+        module.addIncludePath(b.path("Sources/src/Main"));
+        module.addIncludePath(b.path("Sources/src/Image"));
+        module.addCSourceFiles(.{ .files = files, .flags = cppflagsForOptimize(optimize) });
+        addMsvcIncludePaths(b, module, toolchain);
+        addLinuxCxxIncludePaths(b, module);
+        addMsvcLibraryPaths(b, module, toolchain);
+        addMacosSysrootPaths(b, module, target);
+        // The object database is Main's; Main brings Lua and zlib with it and,
+        // on Windows, the system imports addEngineHostedTool lists.
+        if (target.result.os.tag == .windows) {
+            linkComSupport(module, optimize);
+            for ([_][]const u8{ "version", "winmm", "odbc32", "odbccp32", "shlwapi", "advapi32", "user32", "gdi32", "shell32" }) |name| {
+                module.linkSystemLibrary(name, .{});
+            }
+        }
+        module.linkLibrary(map_file);
+        module.linkLibrary(main_lib);
+        module.linkLibrary(randommapgen);
+        module.linkLibrary(formats);
+        module.linkLibrary(misc);
+        module.linkLibrary(lualib);
+        module.linkLibrary(zlib);
+        module.linkLibrary(platform_runtime);
+        // Misc's System.cpp reaches SDL; nothing here opens a window.
+        linkSdlImport(module, target, sdl_dynamic);
+    }
+    // Loader-relative library paths, as bk-font: beside the libraries, in
+    // zig-out/bin with them in zig-out/lib, or in the game's Tools/ folder.
+    for ([_][]const u8{ "", "/../lib", "/.." }) |suffix| {
+        switch (target.result.os.tag) {
+            .linux => tool_module.addRPathSpecial(b.fmt("$ORIGIN{s}", .{suffix})),
+            .macos => tool_module.addRPathSpecial(b.fmt("@loader_path{s}", .{suffix})),
+            else => {},
+        }
+    }
+    const tool = b.addExecutable(.{ .name = "bk-map", .root_module = tool_module });
+    const test_exe = b.addExecutable(.{ .name = "bk-map-test", .root_module = test_module });
+    for ([_]*std.Build.Step.Compile{ tool, test_exe }) |exe| {
+        exe.subsystem = .console;
+        if (target.result.os.tag == .windows) exe.entry = .{ .symbol_name = "mainCRTStartup" };
+        // The engine modules it loads resolve RTTI and the host globals from
+        // the executable, as they do from Game.
+        if (target.result.os.tag == .linux) exe.rdynamic = true;
+    }
+    const install = b.step("bk-map", "Build and install the bk-map map converter and the engine libraries it loads");
+    for ([_]*std.Build.Step.Compile{ tool, bk_memory_artifact.?, streamio_zig, image, options_bridge, platform_runtime, sdl_dynamic }) |artifact| {
+        install.dependOn(&b.addInstallArtifact(artifact, .{}).step);
+    }
+
+    // The tracked maps through the installed tool into zig-out/local-test:
+    // Data/Maps/Allies (eight maps in nested folders, the directory mirror
+    // included) and Data/Maps/Tutorial (six, four of them with reinforcement
+    // groups whose saved order the formats leave open) to .xml and back to
+    // .bzm, the two shipped .xml maps to .bzm (directory mode) and one back
+    // to .xml (one file), a minimap, and the obj2mod fixture. bk-map-test then
+    // judges what they wrote with MapEquivalence, byte comparisons and the
+    // engine's own readers.
+    const module_root = if (target.result.os.tag == .windows)
+        rootPath(b, "zig-out/bin")
+    else
+        rootPath(b, "zig-out/lib");
+    const work = "zig-out/local-test/bk-map";
+    const fixtures = "tools/zig/fixtures/small-tools/obj2mod";
+    const BkMapRun = struct {
+        args: []const []const u8,
+        after: ?usize = null,
+        stdout: ?[]const u8 = null,
+        stderr: ?[]const u8 = null,
+    };
+    const runs = [_]BkMapRun{
+        .{ .args = &.{ "to-xml", "Data/Maps/Allies", "--out", work ++ "/Allies/xml", "--force" } },
+        .{ .args = &.{ "to-bzm", work ++ "/Allies/xml", "--out", work ++ "/Allies/bzm", "--force" }, .after = 0 },
+        .{ .args = &.{ "to-xml", "Data/Maps/Tutorial", "--out", work ++ "/Tutorial/xml", "--force" } },
+        .{ .args = &.{ "to-bzm", work ++ "/Tutorial/xml", "--out", work ++ "/Tutorial/bzm", "--force" }, .after = 2 },
+        .{ .args = &.{ "to-bzm", "Data/Maps", "--out", work ++ "/shipped-xml", "--force" } },
+        .{ .args = &.{ "to-xml", work ++ "/shipped-xml/river3d.bzm", "--out", work ++ "/shipped-xml/back", "--force" }, .after = 4 },
+        .{ .args = &.{ "minimap", "Data/Maps/Multiplayer/coldwinter.bzm", "--size", "128", "--out", work ++ "/minimap", "--data", "Data", "--force" } },
+        .{ .args = &.{ "obj2mod", fixtures ++ "/tank.obj", work ++ "/obj/tank.mod", fixtures ++ "/tank.skeleton.txt", fixtures ++ "/tank.anim.txt" }, .stdout = b.fmt("Converted OBJ to MOD: {s} -> {s}\n", .{ hostPath(b, fixtures ++ "/tank.obj"), hostPath(b, work ++ "/obj/tank.mod") }) },
+        .{ .args = &.{ "validate-obj2mod", fixtures ++ "/tank.obj", fixtures ++ "/tank.skeleton.txt", fixtures ++ "/tank.anim.txt" }, .stdout = "Validation passed: mesh=4 verts, skeleton=2 nodes, animations=1\n" },
+        .{ .args = &.{ "validate-obj2mod", fixtures ++ "/tank.obj", fixtures ++ "/two-roots.skeleton.txt" }, .stderr = "bk-map: Validation error: skeleton graph must have exactly 1 root, found 2\n" },
+        .{ .args = &.{ "validate-obj2mod", fixtures ++ "/tank.obj", fixtures ++ "/tank.skeleton.txt", fixtures ++ "/bad-action.anim.txt" }, .stderr = "bk-map: Validation error: animation 'Idle' action key 5 is out of range [0, 2)\n" },
+        .{ .args = &.{ "validate-obj2mod", fixtures ++ "/bad-face.obj" }, .stderr = b.fmt("bk-map: OBJ face references vertex 9, out of range [1, 4]: {s}\n", .{hostPath(b, fixtures ++ "/bad-face.obj")}) },
+    };
+    var run_steps: [runs.len]*std.Build.Step.Run = undefined;
+    const check = b.addRunArtifact(test_exe);
+    setLeakReportLog(check);
+    setUserRootsForTest(check, "bk-map-user");
+    check.setCwd(b.path("."));
+    check.addArgs(&.{ module_root, "Data", work, "Data/Maps/Allies", "Data/Maps/Tutorial" });
+    addPathDir(check, rootPath(b, "zig-out/bin"));
+    for (runs, 0..) |spec, i| {
+        const run = b.addRunArtifact(tool);
+        setUserRootsForTest(run, "bk-map-user");
+        run.setCwd(b.path("."));
+        run.addArgs(spec.args);
+        run.addArgs(if (std.mem.eql(u8, spec.args[0], "validate-obj2mod")) &.{} else &.{ "--modules", module_root });
+        run.step.dependOn(install);
+        addPathDir(run, rootPath(b, "zig-out/bin"));
+        if (spec.after) |index| run.step.dependOn(&run_steps[index].step);
+        if (spec.stdout != null or spec.stderr != null) {
+            // Judged by its streams, so without the debug leak count's line.
+            run.setEnvironmentVariable("BK_MEM_REPORT", "0");
+            run.expectExitCode(if (spec.stderr != null) 1 else 0);
+            run.expectStdOutEqual(spec.stdout orelse "");
+            run.expectStdErrEqual(spec.stderr orelse "");
+        } else {
+            setLeakReportLog(run);
+        }
+        // The tool reads Data and the fixtures by plain path; a changed map
+        // or fixture is a changed run.
+        run.has_side_effects = true;
+        run_steps[i] = run;
+        check.step.dependOn(&run.step);
+    }
+    const step = b.step("test-bk-map", "Convert the tracked maps with bk-map and judge them with MapEquivalence and the engine's readers");
+    step.dependOn(&test_exe.step);
+    step.dependOn(install);
+    if (test_mode == .run) step.dependOn(&check.step);
+
+    // D-29's opt-in tier: every map of Data/Maps to .xml and back, judged by
+    // MapEquivalence. The .xml leg parses about 120 MB of maps, over three
+    // minutes in a debug build, so it is a step of its own like
+    // test-map-files-all, and leaves the byte cycles (another parse of every
+    // map) to the default tier.
+    const all_work = work ++ "/all";
+    const all_check = b.addRunArtifact(test_exe);
+    setLeakReportLog(all_check);
+    setUserRootsForTest(all_check, "bk-map-user");
+    all_check.setCwd(b.path("."));
+    all_check.addArgs(&.{ module_root, "Data", all_work, "Data/Maps", "--maps-only" });
+    addPathDir(all_check, rootPath(b, "zig-out/bin"));
+    var previous: ?*std.Build.Step = null;
+    for ([_][]const []const u8{
+        &.{ "to-xml", "Data/Maps", "--out", all_work ++ "/Maps/xml", "--force" },
+        &.{ "to-bzm", all_work ++ "/Maps/xml", "--out", all_work ++ "/Maps/bzm", "--force" },
+    }) |args| {
+        const run = b.addRunArtifact(tool);
+        setLeakReportLog(run);
+        setUserRootsForTest(run, "bk-map-user");
+        run.setCwd(b.path("."));
+        run.addArgs(args);
+        run.addArgs(&.{ "--modules", module_root });
+        run.step.dependOn(install);
+        addPathDir(run, rootPath(b, "zig-out/bin"));
+        if (previous) |step_before| run.step.dependOn(step_before);
+        run.has_side_effects = true;
+        previous = &run.step;
+    }
+    all_check.step.dependOn(previous.?);
+    const step_all = b.step("test-bk-map-all", "Convert every Data/Maps map with bk-map to .xml and back and judge it with MapEquivalence");
+    step_all.dependOn(&test_exe.step);
+    if (test_mode == .run) step_all.dependOn(&all_check.step);
+    return .{ .install = install, .tool = tool };
+}
+
+/// A build-root-relative path with the host's separators, as a tool prints it.
+fn hostPath(b: *std.Build, path: []const u8) []const u8 {
+    const copy = b.dupe(path);
+    if (std.fs.path.sep == '\\') std.mem.replaceScalar(u8, copy, '/', '\\');
+    return copy;
 }
 
 fn addEditorBridgeTest(

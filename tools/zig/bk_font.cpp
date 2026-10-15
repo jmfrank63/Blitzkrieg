@@ -20,14 +20,9 @@
 #include <vector>
 
 #include "data_only_startup.h"
+#include "tool_host.h"
 #include "../../Sources/src/FontAtlas/FontAtlas.h"
 #include "../../Sources/src/Image/Image.h"
-
-#if defined(__APPLE__)
-#include <mach-o/dyld.h>
-#elif !defined(_WIN32)
-#include <unistd.h>
-#endif
 
 namespace fs = std::filesystem;
 
@@ -68,17 +63,6 @@ static int Fail( const std::string &szReason )
 	return 1;
 }
 
-// A path from the command line: / and \ both separate on every host.
-static fs::path InputPath( std::string szArg )
-{
-#if !defined(_WIN32)
-	for ( size_t i = 0; i < szArg.size(); ++i )
-		if ( szArg[i] == '\\' )
-			szArg[i] = '/';
-#endif
-	return fs::path( szArg );
-}
-
 static bool ParseInt( const char *pszText, int *pValue )
 {
 	char *pszEnd = 0;
@@ -107,47 +91,6 @@ static bool ReadFile( const fs::path &path, std::vector<BYTE> *pData )
 		return false;
 	pData->assign( std::istreambuf_iterator<char>( in ), std::istreambuf_iterator<char>() );
 	return true;
-}
-
-static fs::path ExecutableDirectory()
-{
-#if defined(_WIN32)
-	wchar_t szPath[4096];
-	const DWORD nLength = GetModuleFileNameW( 0, szPath, 4096 );
-	return nLength > 0 && nLength < 4096 ? fs::path( std::wstring( szPath, nLength ) ).parent_path() : fs::path();
-#elif defined(__APPLE__)
-	char szPath[4096];
-	uint32_t nSize = sizeof( szPath );
-	return _NSGetExecutablePath( szPath, &nSize ) == 0 ? fs::path( szPath ).parent_path() : fs::path();
-#else
-	char szPath[4096];
-	const ssize_t nLength = readlink( "/proc/self/exe", szPath, sizeof( szPath ) - 1 );
-	return nLength > 0 ? fs::path( std::string( szPath, nLength ) ).parent_path() : fs::path();
-#endif
-}
-
-static fs::path ModuleRoot( const std::string &szModules )
-{
-	if ( !szModules.empty() )
-		return InputPath( szModules );
-#if defined(_WIN32)
-	const char szStreamIO[] = "StreamIO.dll";
-#elif defined(__APPLE__)
-	const char szStreamIO[] = "libStreamIO.dylib";
-#else
-	const char szStreamIO[] = "libStreamIO.so";
-#endif
-	// Beside the tool (a game install), in ../lib (zig build's zig-out/bin
-	// and zig-out/lib), or one level up (a Tools/ folder inside the game).
-	const fs::path exe = ExecutableDirectory();
-	const fs::path candidates[3] = { exe, exe.parent_path() / "lib", exe.parent_path() };
-	for ( int i = 0; i < 3; ++i )
-	{
-		std::error_code ec;
-		if ( fs::exists( candidates[i] / szStreamIO, ec ) )
-			return candidates[i];
-	}
-	return exe;
 }
 
 // The OS font folders a face name is looked up in, best effort.
@@ -286,7 +229,7 @@ int main( int argc, char *argv[] )
 	if ( szFont.empty() || szOut.empty() )
 		return Usage();
 
-	fs::path font = InputPath( szFont );
+	fs::path font = NToolHost::InputPath( szFont );
 	std::vector<BYTE> data;
 	std::error_code ec;
 	if ( fs::is_regular_file( font, ec ) )
@@ -313,7 +256,7 @@ int main( int argc, char *argv[] )
 	if ( !FontAtlas::Build( request, &atlas, &szError ) )
 		return Fail( font.make_preferred().string() + ": " + szError );
 
-	const fs::path out = InputPath( szOut );
+	const fs::path out = NToolHost::InputPath( szOut );
 	const fs::path tfd = out / "1.tfd";
 	const fs::path tga = out / "1.tga";
 	const fs::path dds = out / "1_h.dds";
@@ -324,7 +267,7 @@ int main( int argc, char *argv[] )
 		return Fail( "cannot create " + fs::path( out ).make_preferred().string() + ": " + ec.message() );
 
 	// The startup reports its own reason on stderr before this one.
-	const std::string szModuleRoot = ModuleRoot( szModules ).string();
+	const std::string szModuleRoot = NToolHost::ModuleRoot( szModules ).string();
 	if ( !NDataOnly::StartStreamIO( szModuleRoot.c_str() ) || !NDataOnly::StartImage( szModuleRoot.c_str() ) )
 		return Fail( "the engine libraries did not load from " + szModuleRoot + " (see --modules)" );
 	const std::string szWriteError = WriteFont( atlas, tfd, tga, dds );

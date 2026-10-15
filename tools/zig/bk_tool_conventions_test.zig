@@ -76,6 +76,25 @@ const tools = [_]Tool{
         .succeeding = &.{ "export", "*.xml", "mod\\stats", "mod\\out\\sheet.tsv" },
         .setup = setupTable,
     },
+    .{
+        .name = "bk-map",
+        .path = bk_tools.bk_map,
+        .bad_usage = &.{
+            &.{},
+            &.{"frobnicate"},
+            &.{"to-bzm"},
+            &.{ "to-bzm", "a.xml", "b.xml" },
+            &.{ "to-xml", "a.bzm", "--size", "64" },
+            &.{ "minimap", "a.bzm" },
+            &.{ "minimap", "a.bzm", "--size", "0" },
+            &.{ "obj2mod", "a.obj" },
+            &.{ "validate-obj2mod", "a.obj", "--modules", "lib" },
+        },
+        .failing = &.{ "to-bzm", "missing.xml" },
+        // Backslashes on input, and an output folder that is not there yet.
+        .succeeding = &.{ "obj2mod", "mod\\tank.obj", "mod\\out\\tank.mod" },
+        .setup = setupMap,
+    },
 };
 
 /// The committed fixture font (D-15), copied from the build root, which is
@@ -83,6 +102,12 @@ const tools = [_]Tool{
 fn setupFont(io: std.Io, dir: std.Io.Dir) !void {
     try dir.createDirPath(io, "fonts");
     try std.Io.Dir.copyFile(std.Io.Dir.cwd(), "tools/zig/fixtures/fonts/ProggyClean.ttf", dir, "fonts/ProggyClean.ttf", io, .{});
+}
+
+/// The obj2mod fixture's OBJ (tools/zig/fixtures/small-tools/obj2mod).
+fn setupMap(io: std.Io, dir: std.Io.Dir) !void {
+    try dir.createDirPath(io, "mod");
+    try std.Io.Dir.copyFile(std.Io.Dir.cwd(), "tools/zig/fixtures/small-tools/obj2mod/tank.obj", dir, "mod/tank.obj", io, .{});
 }
 
 fn setupTable(io: std.Io, dir: std.Io.Dir) !void {

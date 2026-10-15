@@ -46,9 +46,9 @@ The Maya40 replacement pipeline is documented in `docs/blender-replacement.md`.
 
 Quick commands:
 
-- Convert: `BZMConvertor.exe -obj2mod <input.obj> <output.mod> [skeleton.txt] [animation.txt]`
+- Convert: `bk-map obj2mod <input.obj> <output.mod> [skeleton.txt] [animation.txt]`
 
-- Validate only: `BZMConvertor.exe -validateobj2mod <input.obj> [skeleton.txt] [animation.txt]`
+- Validate only: `bk-map validate-obj2mod <input.obj> [skeleton.txt] [animation.txt]`
 
 
 
