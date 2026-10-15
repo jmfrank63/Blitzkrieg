@@ -1,12 +1,14 @@
 //! ELK, the Blitzkrieg localisation kit (D-01): its own executable, no engine.
 //!
-//!   ELK [elk.xml] [--developer | --short | -short]
+//!   ELK [elk.xml] [--developer | -developer]
+//!   ELK --short | -short
 //!   ELK --smoke <database folder> <scratch folder>
 //!   ELK --auto <elk.xml>            (the schedule in BK_ELK_AUTO)
 //!
-//! Without a path ELK reopens the most recent database from `elk.cfg`. This
-//! slice is the extended layout (D-04's default); `--short` is accepted and
-//! starts the extended layout until the translator layout exists.
+//! Without a path ELK reopens the most recent database from `elk.cfg`, in
+//! the extended layout (D-04's default; `--developer` names it). `--short`
+//! is the translator layout: the `elk.xml` beside the executable, brought up
+//! to date with the newest `.upd` there first (ui.zig).
 //! `--smoke` copies the database's `elk.xml` and `<element>_data_base/`
 //! folders into the scratch folder, opens the copy in a hidden window and
 //! replays a fixed schedule over the tree, the edit boxes and every save
@@ -48,6 +50,12 @@
 //! and refusing `.xls`; Import from spreadsheet setting an edited
 //! translation back from the earlier export, importing it again and the
 //! `.csv` changing nothing, and the legacy `desc.xls` reading all its rows.
+//! A ninth copy, with `game_1.upd` beside it and the same bytes as
+//! `game_2.upd`, proves the short layout: it opens in the translator layout
+//! with its one toolbar and the five fixed filters, game_2 applied (the
+//! copy's elk.xml then records it), Help opens by F1 with the whole
+//! embedded text drawn; a second run on the same elk.cfg starts at All
+//! again, applies nothing and opens Help from the menu.
 //! `--auto` replays `BK_ELK_AUTO` on the database given.
 const std = @import("std");
 const builtin = @import("builtin");
@@ -291,6 +299,19 @@ const sheet_schedule =
     "31:do=sheet_import,31:do=answer:desc.xls,33:expect=imported:153/0/0/153/0,33:expect=notice_has:desc.xls," ++
     "34:exit";
 
+/// The short layout pass. The copy's folder stands in for ELK's own; it
+/// holds game_1.upd, which Data/ELK records, and the same bytes as
+/// game_2.upd, the newest. The filter chosen is not kept, and Collapse Item
+/// is on whatever elk.cfg says.
+const short_schedule =
+    "2:expect=open,2:expect=layout:short,2:expect=title:elk.xml,2:expect=texts:2852,2:expect=notice_has:1/2," ++
+    "3:expect=toolbar:short,3:expect=filter_count:5,3:expect=filter_at:4=Approved,3:expect=filter:All,3:expect=collapse_item:1," ++
+    "3:do=filter:Translated,4:expect=filter:Translated,4:do=select_key:" ++ tree_name ++ ",5:key=n+ctrl,7:expect=selected:" ++ walk[0] ++ "," ++
+    "8:expect=help:0,8:key=f1,10:expect=help:1,10:expect=help_has:--short,10:expect=help_has:Language,11:do=help_close,13:expect=help:0,14:exit";
+const short_reopen_schedule =
+    "2:expect=open,2:expect=layout:short,2:expect=notice_has:0/2,3:expect=toolbar:short,3:expect=filter:All," ++
+    "4:do=help,6:expect=help:1,7:exit";
+
 /// Linux and macOS get a stand-in Game, a shell script that writes the
 /// arguments it was started with; Windows has none, and its Run Game fails
 /// to start after recording the same command line.
@@ -337,14 +358,16 @@ fn run(minimal: std.process.Init.Minimal) !u8 {
         return autoMode(gpa, io, minimal.environ, items[1]);
     }
     if (items.len > 1 or (items.len == 1 and std.mem.startsWith(u8, items[0], "-"))) usage();
-    if (short) std.debug.print("elk: the short translator layout comes in a later slice; starting the extended layout\n", .{});
-    return interactive(gpa, io, minimal.environ, if (items.len == 1) items[0] else null);
+    // The short layout opens only the database beside ELK.
+    if (short and items.len != 0) usage();
+    return interactive(gpa, io, minimal.environ, if (items.len == 1) items[0] else null, short);
 }
 
 fn usage() noreturn {
     crt.attachParentConsole();
     std.debug.print(
-        \\usage: ELK [elk.xml] [--developer | --short]
+        \\usage: ELK [elk.xml] [--developer]
+        \\       ELK --short           (the elk.xml beside ELK, updated from its .upd files)
         \\       ELK --smoke <database folder> <scratch folder>
         \\       ELK --auto <elk.xml>    (the schedule in BK_ELK_AUTO)
         \\
@@ -352,7 +375,7 @@ fn usage() noreturn {
     std.process.exit(2);
 }
 
-fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, first: ?[]const u8) u8 {
+fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, first: ?[]const u8, short: bool) u8 {
     var window = window_mod.Window.start(.{ .title = ui_mod.app_title }) catch |err| {
         crt.attachParentConsole();
         std.debug.print("elk: the window did not start ({s}: {s})\n", .{ @errorName(err), window_mod.failureReason() });
@@ -381,7 +404,15 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     var ui: ui_mod.Ui = .{ .gpa = gpa, .io = io, .session = &session, .settings = &settings, .settings_path = settings_path, .environ = environ };
     defer ui.deinit();
     var recent_copy: [settings_mod.max_path]u8 = undefined;
-    if (first) |path| {
+    if (short) {
+        var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const len = std.process.executableDirPath(io, &folder_buffer) catch |err| {
+            crt.attachParentConsole();
+            std.debug.print("elk: the folder ELK runs from is not known: {s}\n", .{@errorName(err)});
+            return 1;
+        };
+        ui.startShort(folder_buffer[0..len]);
+    } else if (first) |path| {
         ui.openDatabase(path);
     } else if (settings.recentCount() != 0) {
         const recent = settings.recentAt(0);
@@ -470,7 +501,9 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     if (spelt.code != 0) return spelt.code;
     const sheets = smokeSheet(gpa, io, environ, source, scratch);
     if (sheets.code != 0) return sheets.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod and into the game and Run Game, spell check with Add to dictionary kept over a restart, the spreadsheet export and import on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, sheets.frames, result.fonts, elk_path });
+    const shorts = smokeShort(gpa, io, environ, source, scratch);
+    if (shorts.code != 0) return shorts.code;
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod and into the game and Run Game, spell check with Add to dictionary kept over a restart, the spreadsheet export and import, the short layout with its update and Help on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, sheets.frames, shorts.frames, result.fonts, elk_path });
     return 0;
 }
 
@@ -616,6 +649,57 @@ fn smokeSheet(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, 
     return scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = sheet_schedule, .dialog_folder = folder, .frame_limit = smoke_frame_limit, .tier = "smoke (spreadsheet export and import)" });
 }
 
+/// The smoke's short layout pass on a ninth copy, `<scratch>-short`, with
+/// its own `<scratch>-short.cfg`: after the first run the copy's elk.xml
+/// records game_2.upd, read back by the core.
+fn smokeShort(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = std.fmt.bufPrint(&folder_buffer, "{s}-short", .{scratch}) catch return .{ .code = 1 };
+    var cfg_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const cfg_path = std.fmt.bufPrint(&cfg_buffer, "{s}.cfg", .{folder}) catch return .{ .code = 1 };
+    _ = copyDatabase(gpa, io, source, folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not copy {s} to {s}: {s}\n", .{ source, folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    const cwd = std.Io.Dir.cwd();
+    cwd.deleteFile(io, cfg_path) catch {};
+    {
+        var from = cwd.openDir(io, source, .{}) catch return .{ .code = 1 };
+        defer from.close(io);
+        var to = cwd.openDir(io, folder, .{}) catch return .{ .code = 1 };
+        defer to.close(io);
+        const bytes = from.readFileAlloc(io, "game_1.upd", gpa, .limited(16 << 20)) catch |err| {
+            std.debug.print("elk: smoke FAIL: could not read {s}{c}game_1.upd: {s}\n", .{ source, std.fs.path.sep, @errorName(err) });
+            return .{ .code = 1 };
+        };
+        defer gpa.free(bytes);
+        for ([_][]const u8{ "game_1.upd", "game_2.upd" }) |name| to.writeFile(io, .{ .sub_path = name, .data = bytes }) catch |err| {
+            std.debug.print("elk: smoke FAIL: could not write {s} into {s}: {s}\n", .{ name, folder, @errorName(err) });
+            return .{ .code = 1 };
+        };
+    }
+    const first = scripted(gpa, io, environ, .{ .elk_path = null, .short_folder = folder, .text = short_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (short layout, Help)" });
+    if (first.code != 0) return first;
+
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
+    {
+        var database = elk.database.Database.open(gpa, io, elk_path) catch |err| {
+            std.debug.print("elk: smoke FAIL: the short copy did not reopen: {s}\n", .{@errorName(err)});
+            return .{ .code = 1 };
+        };
+        defer database.deinit();
+        const element = database.project.elements[0];
+        if (element.last_update_number != 2 or !std.mem.startsWith(u8, element.version, "game_2.upd, [")) {
+            std.debug.print("elk: smoke FAIL: after the short start elk.xml records update {d}, \"{s}\", wanted game_2.upd\n", .{ element.last_update_number, element.version });
+            return .{ .code = 1 };
+        }
+    }
+    const again = scripted(gpa, io, environ, .{ .elk_path = null, .short_folder = folder, .text = short_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (short layout after a restart)" });
+    if (again.code != 0) return again;
+    return .{ .code = 0, .frames = first.frames + again.frames };
+}
+
 /// The smoke's pak export pass on a sixth copy, `<scratch>-export`, with
 /// `<scratch>-game` as the game folder: one loose text, and on Linux and
 /// macOS the stand-in Game, whose recorded arguments are checked after.
@@ -735,6 +819,8 @@ const Scripted = struct { code: u8, frames: u32 = 0, fonts: usize = 0 };
 const Script = struct {
     /// Opened before the first frame; null starts with nothing open.
     elk_path: ?[]const u8,
+    /// Starts the short layout with this folder as ELK's own instead.
+    short_folder: []const u8 = "",
     text: []const u8,
     /// The database the smoke copied and how many files, for its expectations.
     source: []const u8 = "",
@@ -791,7 +877,9 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         .os_dialogs = false,
     };
     defer ui.deinit();
-    if (script.elk_path) |path| ui.openDatabase(path);
+    if (script.short_folder.len != 0) {
+        ui.startShort(script.short_folder);
+    } else if (script.elk_path) |path| ui.openDatabase(path);
     var runner: auto.Runner = .{
         .entries = entries,
         .source_folder = script.source,

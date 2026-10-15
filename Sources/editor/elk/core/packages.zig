@@ -257,6 +257,78 @@ pub fn importPackage(gpa: std.mem.Allocator, io: std.Io, elk_path: []const u8, p
     return report;
 }
 
+/// What `applyUpdates` found and did.
+pub const Applied = struct {
+    /// `.upd` files beside the database.
+    found: usize = 0,
+    /// The ones imported: the newest of each element, when newer than its
+    /// `LastUpdateNumber`.
+    imported: usize = 0,
+};
+
+/// `CELK::UpdateELK` without a file, as the short layout ran it at start:
+/// of the `.upd` files beside `elk_path`, the one with the highest number
+/// per element (`game_22.upd` before `game_3.upd` and `game.upd`, whose -1
+/// loses to any number), imported when its element is new or recorded an
+/// older update. The database is created when it does not exist. The MFC
+/// ELK also dropped the elements no `.upd` named from `elk.xml`; this keeps
+/// them, since dropping one loses its translations from the project.
+pub fn applyUpdates(gpa: std.mem.Allocator, io: std.Io, elk_path: []const u8) !Applied {
+    const folder_path = std.fs.path.dirname(elk_path) orelse ".";
+    var arena_state = std.heap.ArenaAllocator.init(gpa);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+
+    const Newest = struct { name: []const u8, update: UpdateName };
+    var newest: std.ArrayList(Newest) = .empty;
+    var applied: Applied = .{};
+    {
+        var folder = try std.Io.Dir.cwd().openDir(io, folder_path, .{ .iterate = true });
+        defer folder.close(io);
+        var entries = folder.iterate();
+        while (try entries.next(io)) |entry| {
+            if (entry.kind != .file or !std.ascii.endsWithIgnoreCase(entry.name, ".upd")) continue;
+            applied.found += 1;
+            const name = try arena.dupe(u8, entry.name);
+            const update = parseUpdateName(name);
+            for (newest.items) |*kept| {
+                if (!std.ascii.eqlIgnoreCase(kept.update.title, update.title)) continue;
+                if (kept.update.number < update.number) kept.* = .{ .name = name, .update = update };
+                break;
+            } else try newest.append(arena, .{ .name = name, .update = update });
+        }
+    }
+    // The file system's order is not the same everywhere; the elements are
+    // added to a new database in their names' order.
+    std.mem.sort(Newest, newest.items, {}, struct {
+        fn lessThan(_: void, a: Newest, b: Newest) bool {
+            return std.ascii.lessThanIgnoreCase(a.update.title, b.update.title);
+        }
+    }.lessThan);
+
+    for (newest.items) |file| {
+        const recorded: ?i32 = recorded: {
+            const bytes = std.Io.Dir.cwd().readFileAlloc(io, elk_path, arena, .limited(16 << 20)) catch |err| switch (err) {
+                error.FileNotFound => break :recorded null,
+                else => return err,
+            };
+            var project = try project_file.parse(gpa, bytes);
+            defer project.deinit();
+            for (project.elements) |element| {
+                if (std.ascii.eqlIgnoreCase(element.name, file.update.title)) break :recorded element.last_update_number;
+            }
+            break :recorded null;
+        };
+        if (recorded) |number| if (number >= file.update.number) continue;
+        const path = try std.fs.path.join(arena, &.{ folder_path, file.name });
+        var package = try readArchive(gpa, io, path);
+        defer package.deinit();
+        _ = try importPackage(gpa, io, elk_path, &package, path);
+        applied.imported += 1;
+    }
+    return applied;
+}
+
 /// `CELK::ImportFromPAK` into the element's texts folder `base`.
 fn importElement(gpa: std.mem.Allocator, io: std.Io, base: []const u8, package: *const Package, complete: bool) !Report {
     var report: Report = .{};
@@ -724,6 +796,36 @@ test "importing game_1.upd into a copy of Data/ELK, which it built, changes no d
     var after = try Snapshot.take(io, root);
     defer after.deinit();
     try before.expectEqual(after);
+}
+
+test "applying the updates beside a database imports only the newest, and only once" {
+    // Data/ELK records game_1.upd. Beside a copy lie it, the same bytes as
+    // game_2.upd and as the unnumbered game.upd: game_2 is the newest.
+    const io = testing.io;
+    const root = try database.freshScratch(io, "apply-updates");
+    defer testing.allocator.free(root);
+    const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk.xml" });
+    defer testing.allocator.free(elk_path);
+    try testing.expectEqual(Applied{}, try applyUpdates(testing.allocator, io, elk_path));
+
+    const copy = try std.fs.path.join(testing.allocator, &.{ root, "game_data_base" });
+    defer testing.allocator.free(copy);
+    try database.copyTree(io, "Data/ELK/game_data_base", copy);
+    const tracked_xml = try database.readFixture(io, "Data/ELK", "elk.xml");
+    defer testing.allocator.free(tracked_xml);
+    try database.writeFixture(io, root, "elk.xml", tracked_xml);
+    const upd = try std.Io.Dir.cwd().readFileAlloc(io, "Data/ELK/game_1.upd", testing.allocator, .limited(16 << 20));
+    defer testing.allocator.free(upd);
+    for ([_][]const u8{ "game_1.upd", "game_2.upd", "game.upd" }) |name| try database.writeFixture(io, root, name, upd);
+
+    try testing.expectEqual(Applied{ .found = 3, .imported = 1 }, try applyUpdates(testing.allocator, io, elk_path));
+    var opened = try database.Database.open(testing.allocator, io, elk_path);
+    defer opened.deinit();
+    try testing.expectEqual(@as(i32, 2), opened.project.elements[0].last_update_number);
+    try testing.expect(std.mem.startsWith(u8, opened.project.elements[0].version, "game_2.upd, ["));
+    try testing.expectEqual(@as(usize, 2_852), opened.bases[0].keys.len);
+
+    try testing.expectEqual(Applied{ .found = 3, .imported = 0 }, try applyUpdates(testing.allocator, io, elk_path));
 }
 
 test "a new database from the game's language folder: lower-case keys, imported once" {

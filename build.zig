@@ -3389,14 +3389,21 @@ pub fn build(b: *std.Build) void {
         },
     });
     elk_app_logic_module.linkLibrary(addHunspell(b, target, .debug, toolchain));
+    // The help text embedded in ELK (D-02): its own module, since the
+    // Markdown lives in Sources/editor/elk/help, outside the app's folder.
+    const elk_help_module = b.createModule(.{ .root_source_file = b.path("Sources/editor/elk/help/help.zig"), .target = target, .optimize = .debug });
+    const elk_help_tests = b.addTest(.{ .root_module = elk_help_module });
+    const elk_help_tests_run = b.addRunArtifact(elk_help_tests);
     addMsvcLibraryPaths(b, elk_app_logic_module, toolchain);
     if (target.result.abi == .msvc) elk_app_logic_module.link_libc = true else linkMsvcRuntime(elk_app_logic_module, .debug);
     const elk_app_logic_tests = b.addTest(.{ .root_module = elk_app_logic_module });
     const elk_app_logic_tests_run = b.addRunArtifact(elk_app_logic_tests);
     elk_app_logic_tests_run.setCwd(b.path("."));
-    const elk_app_logic_step = b.step("test-elk-app", "Run the ELK app's pure logic tests (session model and save points, elk.cfg) against the tracked Data/ELK");
+    const elk_app_logic_step = b.step("test-elk-app", "Run the ELK app's pure logic tests (session model and save points, elk.cfg, the embedded help) against the tracked Data/ELK");
     elk_app_logic_step.dependOn(&elk_app_logic_tests.step);
     if (test_mode == .run) elk_app_logic_step.dependOn(&elk_app_logic_tests_run.step);
+    elk_app_logic_step.dependOn(&elk_help_tests.step);
+    if (test_mode == .run) elk_app_logic_step.dependOn(&elk_help_tests_run.step);
     test_step.dependOn(elk_app_logic_step);
     // E-06 on the real Game: the tracked Data/ELK exported to mods/ELKTest of
     // the install, the Game's own main-menu capture before and after a marker
@@ -9134,6 +9141,7 @@ fn addElk(
             .{ .name = "editor_imgui", .module = editor_imgui_module },
             .{ .name = "editor_kit", .module = app_kit.kit },
             .{ .name = "elk_core", .module = core_module },
+            .{ .name = "elk_help", .module = b.createModule(.{ .root_source_file = b.path("Sources/editor/elk/help/help.zig"), .target = target, .optimize = optimize }) },
         },
     });
     // The editor-overlay-spike's recipe, the other engine-less ImGui program:
@@ -9173,7 +9181,7 @@ fn addElk(
     // Reads Data/ELK and writes its scratch copy, neither a declared input.
     smoke_run.has_side_effects = true;
     smoke_run.step.dependOn(&install_exe.step);
-    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, the pak export to a mod and into a scratch game folder with Run Game, spell check with a generated dictionary, and the spreadsheet export and import (xlsx, csv, the legacy desc.xls)");
+    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, the pak export to a mod and into a scratch game folder with Run Game, spell check with a generated dictionary, the spreadsheet export and import (xlsx, csv, the legacy desc.xls), and the short layout started from its .upd files with Help");
     smoke_step.dependOn(&install_exe.step);
     if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
 }

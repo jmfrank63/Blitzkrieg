@@ -28,6 +28,12 @@
 //! texts with a translator's sheet through the core (D-10): `.xlsx` (the
 //! default when the name has no extension), `.csv`, and legacy `.xls` read
 //! only; the status line sums up what was read, written and skipped.
+//! The short layout (D-04, `--short`) is the MFC translator frame: it opens
+//! the `elk.xml` beside ELK after applying the newest `.upd` updates there,
+//! has the reduced menu, one toolbar and the five fixed filters, and starts
+//! the same way each launch: its filter choice is not written to elk.cfg
+//! and Collapse Item is always on. Help > Contents (F1) shows the help
+//! embedded in ELK (`Sources/editor/elk/help`) in both layouts.
 const std = @import("std");
 const builtin = @import("builtin");
 const imgui = @import("editor_imgui");
@@ -38,6 +44,7 @@ const settings_mod = @import("settings.zig");
 const window_mod = @import("editor_kit").window;
 const FilterDialog = @import("filter_dialog.zig").FilterDialog;
 const spelling_mod = @import("spelling.zig");
+const help = @import("elk_help");
 
 const ig = imgui.c;
 pub const Session = session_mod.Session;
@@ -199,6 +206,21 @@ pub const Ui = struct {
     /// scripted runs.
     launched: [2048]u8 = undefined,
     launched_len: usize = 0,
+    /// The short translator layout (D-04); extended when false.
+    short: bool = false,
+    /// The short layout's filter, an index into the five fixed ones; it
+    /// starts at All each launch.
+    short_filter: usize = 0,
+    /// The toolbar the last frame drew, for the scripted runs.
+    toolbar_drawn: Toolbar = .none,
+    help_open: bool = false,
+    help_drawn: bool = false,
+    /// The help's blocks the last frame drew, all of them when it is open.
+    help_blocks_drawn: usize = 0,
+    /// The heading the contents list was clicked on, scrolled to next frame.
+    help_jump: ?usize = null,
+
+    pub const Toolbar = enum { none, filter_bar, short };
 
     pub const Imported = struct { rows: usize, changed: usize, outdated: usize, empty: usize, missing: usize };
 
@@ -302,14 +324,17 @@ pub const Ui = struct {
     /// The named filters the bar offers: the settings file's, or the five
     /// built-in ones when it has none.
     pub fn filterCount(self: *const Ui) usize {
+        if (self.short) return elk_core.filter.built_in.len;
         return self.settings.filterCount();
     }
 
     pub fn filterAt(self: *const Ui, index: usize) Filter {
+        if (self.short) return elk_core.filter.built_in[index];
         return self.settings.filterAt(index);
     }
 
     pub fn currentFilterName(self: *const Ui) []const u8 {
+        if (self.short) return elk_core.filter.built_in[self.short_filter].name;
         return self.settings.currentFilter();
     }
 
@@ -327,13 +352,19 @@ pub const Ui = struct {
     /// The filter bar's choice, kept in elk.cfg at once. The selection stays
     /// where it is, as `OnChangeFilter` left it.
     pub fn chooseFilter(self: *Ui, name: []const u8) void {
+        if (self.short) {
+            for (elk_core.filter.built_in, 0..) |filter, index| {
+                if (std.mem.eql(u8, filter.name, name)) self.short_filter = index;
+            }
+            return;
+        }
         self.settings.setCurrentFilter(name);
         self.saveSettings();
     }
 
     /// Browse > Create Filter...: the dialog opens on a copy of the filters.
     pub fn openFilterDialog(self: *Ui) void {
-        if (self.filter_dialog != null) return;
+        if (self.filter_dialog != null or self.short) return;
         const dialog = self.gpa.create(FilterDialog) catch return;
         dialog.* = .start(self.settings);
         self.filter_dialog = dialog;
@@ -352,8 +383,35 @@ pub const Ui = struct {
 
     /// Browse > Collapse Item, kept in elk.cfg at once.
     pub fn toggleCollapseItem(self: *Ui) void {
+        if (self.short) return;
         self.settings.collapse_item = !self.settings.collapse_item;
         self.saveSettings();
+    }
+
+    /// Whether a Browse step or Find closes the element it leaves: always
+    /// in the short layout, which forced the mode on.
+    pub fn collapseItem(self: *const Ui) bool {
+        return self.short or self.settings.collapse_item;
+    }
+
+    /// The short layout's start, `OpenDefaultELK`: the newest `.upd` per
+    /// element in `folder` (ELK's own) applied to the `elk.xml` there, which
+    /// it creates when missing, and that database opened. With no `.upd`
+    /// there it opens nothing and says so, as the MFC ELK refused.
+    pub fn startShort(self: *Ui, folder: []const u8) void {
+        self.short = true;
+        var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return self.session.fail("the path of ELK's folder is too long", .{});
+        const applied = elk_core.packages.applyUpdates(self.gpa, self.io, elk_path) catch |err|
+            return self.session.fail("could not apply the updates beside {s}: {s}", .{ elk_path, @errorName(err) });
+        if (applied.found == 0) return self.session.fail("no .upd update file beside ELK in {s}", .{folder});
+        self.openDatabase(elk_path);
+        if (self.session.isOpen()) self.notify("{d}/{d} updates beside elk.xml applied", .{ applied.imported, applied.found });
+    }
+
+    /// Help > Contents (F1).
+    pub fn openHelp(self: *Ui) void {
+        self.help_open = true;
     }
 
     /// A Browse command: the text the step reaches through the current
@@ -364,7 +422,7 @@ pub const Ui = struct {
         const left: ?u32 = if (self.session.selected) |text| self.session.tree.?.node_of_text[text] else null;
         const moved = self.session.browse(step, self.currentFilter()) catch return false;
         if (!moved) return false;
-        if (self.settings.collapse_item) if (left) |node| self.collapseElement(node);
+        if (self.collapseItem()) if (left) |node| self.collapseElement(node);
         self.reveal(self.session.tree.?.node_of_text[self.session.selected.?]);
         self.focus_translation = true;
         return true;
@@ -430,7 +488,7 @@ pub const Ui = struct {
         };
         self.find_missed = false;
         const reached = self.session.tree.?.node_of_text[hit.text];
-        if (self.settings.collapse_item) if (left) |node| if (node != reached) self.collapseElement(node);
+        if (self.collapseItem()) if (left) |node| if (node != reached) self.collapseElement(node);
         self.reveal(reached);
         return hit;
     }
@@ -934,9 +992,10 @@ pub const Ui = struct {
         self.pollGame();
         window.setTitle(self.title().ptr);
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_S, ig.ImGuiInputFlags_RouteGlobal)) self.session.save() catch {};
-        if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_O, ig.ImGuiInputFlags_RouteGlobal)) self.requestOpen(window);
+        if (!self.short and ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_O, ig.ImGuiInputFlags_RouteGlobal)) self.requestOpen(window);
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_F, ig.ImGuiInputFlags_RouteGlobal)) self.openFind();
         if (ig.igShortcut(ig.ImGuiKey_F7, ig.ImGuiInputFlags_RouteGlobal)) self.openSpelling();
+        if (ig.igShortcut(ig.ImGuiKey_F1, ig.ImGuiInputFlags_RouteGlobal)) self.openHelp();
         // IDR_MAINFRAME's accelerators: Ctrl or Alt with N and P. ImGui does
         // not route Alt with a letter while the translation box is active
         // (AltGr and macOS's Option type characters with it), so there the
@@ -964,16 +1023,21 @@ pub const Ui = struct {
         defer self.drawFindWindow();
         defer self.drawSpellingWindow();
         defer self.drawSpellOptions();
-        self.drawMenu(window);
+        defer self.drawHelpWindow();
+        if (self.short) self.drawShortMenu(window) else self.drawMenu(window);
         self.rows_drawn = 0;
         self.drawn.clearRetainingCapacity();
         self.state_buttons_drawn = false;
+        self.toolbar_drawn = .none;
         if (!self.session.isOpen()) {
-            ig.igTextUnformatted("No database is open. Open an elk.xml under File > Open, or pick one under File > Recent.");
+            ig.igTextUnformatted(if (self.short)
+                "No database is open. The short layout opens the elk.xml beside ELK, built from the .upd update files there."
+            else
+                "No database is open. Open an elk.xml under File > Open, or pick one under File > Recent.");
             self.drawFailure();
             return;
         }
-        self.drawFilterBar();
+        if (self.short) self.drawShortToolbar(window) else self.drawFilterBar();
         const avail = ig.igGetContentRegionAvail();
         const body_height = avail.y - ig.igGetFrameHeightWithSpacing();
         if (ig.igBeginChild("texts", .{ .x = avail.x * 0.35, .y = body_height }, ig.ImGuiChildFlags_Borders, 0)) self.drawTree();
@@ -1109,6 +1173,153 @@ pub const Ui = struct {
         self.drawBrowseMenu();
         self.drawViewMenu();
         self.drawToolsMenu();
+        self.drawHelpMenu();
+    }
+
+    fn drawHelpMenu(self: *Ui) void {
+        if (!ig.igBeginMenu("Help")) return;
+        defer ig.igEndMenu();
+        if (ig.igMenuItemEx("Contents", "F1", false, true)) self.openHelp();
+    }
+
+    /// `IDR_SHORT_MAINFRAME`'s menu: Exit; Next and Previous; the statistic;
+    /// Find, spell check, the export to a mod, Run Game and the spreadsheets
+    /// under Tools; the help.
+    fn drawShortMenu(self: *Ui, window: *window_mod.Window) void {
+        if (!ig.igBeginMenuBar()) return;
+        defer ig.igEndMenuBar();
+        if (ig.igBeginMenu("File")) {
+            defer ig.igEndMenu();
+            if (ig.igMenuItem("Exit")) self.requestExit();
+        }
+        if (ig.igBeginMenu("Browse")) {
+            defer ig.igEndMenu();
+            if (ig.igMenuItemEx("Next", "Ctrl+N", false, self.canBrowse(.next))) _ = self.browse(.next);
+            if (ig.igMenuItemEx("Previous", "Ctrl+P", false, self.canBrowse(.previous))) _ = self.browse(.previous);
+        }
+        self.drawViewMenu();
+        if (ig.igBeginMenu("Tools")) {
+            defer ig.igEndMenu();
+            if (ig.igMenuItemEx("Find...", "Ctrl+F", false, self.session.isOpen())) self.openFind();
+            if (ig.igMenuItemEx("Spelling", "F7", false, self.canSpell())) self.openSpelling();
+            if (ig.igMenuItem("Spelling Options...")) self.openSpellOptions();
+            ig.igSeparator();
+            if (ig.igMenuItemEx("Export to language mod...", null, false, self.canExport())) self.requestExportMod(false);
+            if (ig.igMenuItemEx("Run Game", null, false, self.canRunGame())) self.requestRunGame();
+            ig.igSeparator();
+            const sheet_free = self.canExport() and !sheet_slot.waiting();
+            if (ig.igMenuItemEx("Export to spreadsheet...", null, false, sheet_free)) self.requestSheet(window, .@"export");
+            if (ig.igMenuItemEx("Import from spreadsheet...", null, false, sheet_free)) self.requestSheet(window, .import);
+        }
+        self.drawHelpMenu();
+    }
+
+    /// The short layout's one toolbar, `SHORT_BUTTONS` in its order: Run
+    /// Game and the export; the filter and Back and Next; the spreadsheets;
+    /// Find and Spelling; the statistic; Exit.
+    fn drawShortToolbar(self: *Ui, window: *window_mod.Window) void {
+        self.toolbar_drawn = .short;
+        const Button = struct { label: [*:0]const u8, enabled: bool };
+        const sheet_free = self.canExport() and !sheet_slot.waiting();
+        const first = [_]Button{
+            .{ .label = "Run Game", .enabled = self.canRunGame() },
+            .{ .label = "Export to mod", .enabled = self.canExport() },
+        };
+        for (first, 0..) |button, index| {
+            if (index != 0) ig.igSameLine();
+            ig.igBeginDisabled(!button.enabled);
+            if (ig.igButton(button.label)) switch (index) {
+                0 => self.requestRunGame(),
+                else => self.requestExportMod(false),
+            };
+            ig.igEndDisabled();
+        }
+        ig.igSameLine();
+        self.drawFilterCombo();
+        const rest = [_]Button{
+            .{ .label = "Back", .enabled = self.canBrowse(.previous) },
+            .{ .label = "Next", .enabled = self.canBrowse(.next) },
+            .{ .label = "Export to spreadsheet", .enabled = sheet_free },
+            .{ .label = "Import from spreadsheet", .enabled = sheet_free },
+            .{ .label = "Find", .enabled = true },
+            .{ .label = "Spelling", .enabled = self.canSpell() },
+            .{ .label = "Statistic", .enabled = true },
+            .{ .label = "Exit", .enabled = true },
+        };
+        for (rest, 0..) |button, index| {
+            ig.igSameLine();
+            ig.igBeginDisabled(!button.enabled);
+            if (ig.igButton(button.label)) switch (index) {
+                0 => _ = self.browse(.previous),
+                1 => _ = self.browse(.next),
+                2 => self.requestSheet(window, .@"export"),
+                3 => self.requestSheet(window, .import),
+                4 => self.openFind(),
+                5 => self.openSpelling(),
+                6 => self.openStatistics(),
+                else => self.requestExit(),
+            };
+            ig.igEndDisabled();
+        }
+    }
+
+    /// Help > Contents: the embedded help, its headings listed on the left
+    /// as a table of contents that scrolls the text to the one clicked.
+    fn drawHelpWindow(self: *Ui) void {
+        self.help_drawn = false;
+        self.help_blocks_drawn = 0;
+        if (!self.help_open) return;
+        const font = ig.igGetFontSize();
+        ig.igSetNextWindowSize(.{ .x = font * 50, .y = font * 32 }, ig.ImGuiCond_Appearing);
+        var open = true;
+        if (ig.igBegin("ELK Help", &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
+            self.help_drawn = true;
+            var line: [1024:0]u8 = undefined;
+            if (ig.igBeginChild("contents", .{ .x = font * 14, .y = 0 }, ig.ImGuiChildFlags_Borders, 0)) {
+                var blocks = help.Blocks.init(help.text);
+                var heading: usize = 0;
+                while (blocks.next()) |block| {
+                    if (block.kind != .heading) continue;
+                    const label = std.mem.printSentinel(&line, "{s}", .{block.text}, 0) catch continue;
+                    ig.igPushIDInt(@intCast(heading));
+                    if (ig.igSelectableEx(label.ptr, false, 0, .{ .x = 0, .y = 0 })) self.help_jump = heading;
+                    ig.igPopID();
+                    heading += 1;
+                }
+            }
+            ig.igEndChild();
+            ig.igSameLine();
+            if (ig.igBeginChild("help", .{ .x = 0, .y = 0 }, 0, 0)) {
+                ig.igPushTextWrapPos(0);
+                defer ig.igPopTextWrapPos();
+                var blocks = help.Blocks.init(help.text);
+                var heading: usize = 0;
+                while (blocks.next()) |block| {
+                    const text = std.mem.printSentinel(&line, "{s}", .{block.text}, 0) catch continue;
+                    switch (block.kind) {
+                        .title => ig.igSeparatorText(text.ptr),
+                        .heading => {
+                            ig.igSpacing();
+                            ig.igSeparatorText(text.ptr);
+                            if (self.help_jump == heading) {
+                                ig.igSetScrollHereY(0);
+                                self.help_jump = null;
+                            }
+                            heading += 1;
+                        },
+                        .bullet => {
+                            ig.igBullet();
+                            ig.igTextUnformatted(text.ptr);
+                        },
+                        .paragraph => ig.igTextUnformatted(text.ptr),
+                    }
+                    self.help_blocks_drawn += 1;
+                }
+            }
+            ig.igEndChild();
+        }
+        ig.igEnd();
+        if (!open) self.help_open = false;
     }
 
     /// The MFC Tools menu's Spelling, enabled as it was (a text and a
@@ -1377,6 +1588,29 @@ pub const Ui = struct {
     /// The extended layout's filter bar (the MFC browse toolbar): the named
     /// filters' combo and the four Browse buttons.
     fn drawFilterBar(self: *Ui) void {
+        self.toolbar_drawn = .filter_bar;
+        self.drawFilterCombo();
+        const buttons = [_]struct { label: [*:0]const u8, step: Step }{
+            .{ .label = "|<", .step = .first },
+            .{ .label = "<", .step = .previous },
+            .{ .label = ">", .step = .next },
+            .{ .label = ">|", .step = .last },
+        };
+        for (buttons) |button| {
+            ig.igSameLine();
+            ig.igBeginDisabled(!self.canBrowse(button.step));
+            if (ig.igButton(button.label)) _ = self.browse(button.step);
+            ig.igEndDisabled();
+        }
+        ig.igSameLine();
+        var collapse = self.settings.collapse_item;
+        if (ig.igCheckbox("Collapse Item", &collapse)) self.toggleCollapseItem();
+        ig.igSameLine();
+        if (ig.igButton("Create Filter...")) self.openFilterDialog();
+    }
+
+    /// The filter combo of either layout's toolbar.
+    fn drawFilterCombo(self: *Ui) void {
         var name_buffer: [settings_mod.max_path:0]u8 = undefined;
         const current = std.mem.printSentinel(&name_buffer, "{s}", .{self.currentFilterName()}, 0) catch "";
         ig.igTextUnformatted("Filter:");
@@ -1396,23 +1630,6 @@ pub const Ui = struct {
                 }
             }
         }
-        const buttons = [_]struct { label: [*:0]const u8, step: Step }{
-            .{ .label = "|<", .step = .first },
-            .{ .label = "<", .step = .previous },
-            .{ .label = ">", .step = .next },
-            .{ .label = ">|", .step = .last },
-        };
-        for (buttons) |button| {
-            ig.igSameLine();
-            ig.igBeginDisabled(!self.canBrowse(button.step));
-            if (ig.igButton(button.label)) _ = self.browse(button.step);
-            ig.igEndDisabled();
-        }
-        ig.igSameLine();
-        var collapse = self.settings.collapse_item;
-        if (ig.igCheckbox("Collapse Item", &collapse)) self.toggleCollapseItem();
-        ig.igSameLine();
-        if (ig.igButton("Create Filter...")) self.openFilterDialog();
     }
 
     fn drawFileMenu(self: *Ui, window: *window_mod.Window) void {

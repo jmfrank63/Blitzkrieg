@@ -41,6 +41,8 @@
 //!   do=find_close            Cancel
 //!   do=statistics            View > ELK Statistic
 //!   do=statistics_close      the statistic window's OK
+//!   do=help                  Help > Contents (the hot key is `key=f1`)
+//!   do=help_close            the help window's close button
 //!   do=spell                 Tools > Spelling (the hot key is `key=f7`)
 //!   do=spell_add:<word>      the Spelling window's Add to dictionary on the
 //!                            word's first row (the window drawn last frame)
@@ -96,6 +98,11 @@
 //!   expect=found:none          the last Find Next found nothing
 //!   expect=find_text:<text>  expect=find_option:<option>=<0|1>  as elk.cfg keeps them
 //!   expect=statistics:<0|1>    whether the last frame drew the statistic window
+//!   expect=help:<0|1>          whether the last frame drew the help window,
+//!                            every block of the embedded help in it
+//!   expect=help_has:<text>     the embedded help holds the text
+//!   expect=layout:<short|extended>  the layout ELK started in
+//!   expect=toolbar:<short|filter_bar|none>  the one toolbar the last frame drew
 //!   expect=statistic:<half>/<row>=<items>/<words>/<word symbols>/<symbols>
 //!                            a row of that window: half original or
 //!                            translation; row total, a state (summed over
@@ -134,6 +141,7 @@ const sdl3 = @import("sdl3");
 const elk = @import("elk_core");
 const ui_mod = @import("ui.zig");
 const fonts = @import("fonts.zig");
+const help = @import("elk_help");
 const window_mod = kit.window;
 
 const schedule = kit.auto_schedule;
@@ -283,6 +291,11 @@ pub const Runner = struct {
         } else if (is(named, "statistics_close")) {
             if (!ui.statistics_drawn) return self.fail("do=statistics_close: the statistic window is not shown", .{});
             ui.closeStatistics();
+        } else if (is(named, "help")) {
+            ui.openHelp();
+        } else if (is(named, "help_close")) {
+            if (!ui.help_drawn) return self.fail("do=help_close: the help window is not shown", .{});
+            ui.help_open = false;
         } else if (is(named, "spell")) {
             if (!ui.canSpell()) return self.fail("do=spell: Tools > Spelling is disabled ({s})", .{ui.spelling().reason()});
             ui.openSpelling();
@@ -477,7 +490,7 @@ pub const Runner = struct {
             if (row.dimmed != wanted) return self.fail("expect=dimmed: {s} dimmed is {}, wanted {}", .{ path, row.dimmed, wanted });
         } else if (is(named, "collapse_item")) {
             const wanted = std.mem.eql(u8, named.arg, "1");
-            if (ui.settings.collapse_item != wanted) return self.fail("expect=collapse_item: it is {}, wanted {}", .{ !wanted, wanted });
+            if (ui.collapseItem() != wanted) return self.fail("expect=collapse_item: it is {}, wanted {}", .{ !wanted, wanted });
         } else if (is(named, "expanded")) {
             const eq = std.mem.lastIndexOfScalar(u8, named.arg, '=') orelse return self.fail("expanded needs <folder>=<0|1>", .{});
             const node = folderNode(session, named.arg[0..eq]) orelse return self.fail("expect=expanded: no folder {s}", .{named.arg[0..eq]});
@@ -516,6 +529,22 @@ pub const Runner = struct {
             if (ui.statistics_drawn != wanted) return self.fail("expect=statistics: drawn is {}, wanted {}", .{ !wanted, wanted });
         } else if (is(named, "statistic")) {
             try self.statistic(ui, named.arg);
+        } else if (is(named, "help")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            if (ui.help_drawn != wanted) return self.fail("expect=help: drawn is {}, wanted {}", .{ !wanted, wanted });
+            if (wanted) {
+                var blocks = help.Blocks.init(help.text);
+                var total: usize = 0;
+                while (blocks.next()) |_| total += 1;
+                if (ui.help_blocks_drawn != total) return self.fail("expect=help: {d} of the help's {d} blocks drawn", .{ ui.help_blocks_drawn, total });
+            }
+        } else if (is(named, "help_has")) {
+            if (std.mem.indexOf(u8, help.text, named.arg) == null) return self.fail("expect=help_has: the help does not say \"{s}\"", .{named.arg});
+        } else if (is(named, "layout")) {
+            const shown = if (ui.short) "short" else "extended";
+            if (!std.mem.eql(u8, shown, named.arg)) return self.fail("expect=layout: it is {s}, wanted {s}", .{ shown, named.arg });
+        } else if (is(named, "toolbar")) {
+            if (!std.mem.eql(u8, @tagName(ui.toolbar_drawn), named.arg)) return self.fail("expect=toolbar: the last frame drew {s}, wanted {s}", .{ @tagName(ui.toolbar_drawn), named.arg });
         } else if (is(named, "can_spell")) {
             const wanted = std.mem.eql(u8, named.arg, "1");
             if (ui.canSpell() != wanted) return self.fail("expect=can_spell: enabled is {}, wanted {} ({s})", .{ !wanted, wanted, ui.spelling().reason() });

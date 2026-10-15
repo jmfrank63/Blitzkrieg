@@ -576,6 +576,42 @@ std-only, headless, no UI. Modules:
   generated pair in the options, types a translation, lists its
   misspellings by F7, adds one, finds it in `custom.dic`, and a second run
   on the same elk.cfg still accepts it in the saved translation.
+  *Short layout and help slice (2026-10-16):* the core's
+  `packages.applyUpdates` is `UpdateELK` without a file: of the `.upd`
+  files beside `elk.xml`, the highest number per element (`game.upd`'s -1
+  loses to any number), imported when the element is new or records an
+  older `LastUpdateNumber`, the database created when missing. `--short`
+  (or `-short`) runs it on the `elk.xml` beside the executable and opens
+  that database; with no `.upd` there it opens nothing and says so, as
+  `OpenDefaultELK` refused; a path given with `--short` is a usage error.
+  The layout is `IDR_SHORT_MAINFRAME`'s menu (File: Exit; Browse: Next,
+  Previous; View: ELK Statistic; Tools: Find, Spelling, Spelling Options,
+  Export to language mod, Run Game, the two spreadsheet commands; Help) and
+  one toolbar in `SHORT_BUTTONS`' order; its filter is one of the five
+  fixed ones, starts at All each launch and is not written to elk.cfg;
+  Collapse Item is always on; Ctrl+O and Create Filter are absent. ImGui's
+  ini is off in both layouts, so the layout is the same each launch.
+  `--developer` stays the extended layout. Help > Contents (F1), in both
+  layouts, shows `Sources/editor/elk/help/elk.md`, embedded in the binary,
+  with its headings as a contents list that scrolls to the one clicked;
+  the text is written new for this ELK, plainly, for translators: what it
+  does, both layouts, opening and the save points, the tree, the states,
+  filters and browsing, Find, the statistic, spell check, the spreadsheets,
+  the export to a mod, the game's Language option, Install to game, Run
+  Game, the keys. *Changes from the MFC short layout:* its Export to PAK is
+  the export to a mod (D-09); the elements no `.upd` names stay in
+  `elk.xml` instead of being dropped with their translations. *Not yet:*
+  the per-project pak of D7, the View > ELK Tree toggle, Set Font Name and
+  Size, About, the Russian help and the conversion of the old `.doc`
+  help's remaining detail (D-18). `test-elk-core` applies the updates to a
+  copy of Data/ELK with `game_1.upd`, `game_2.upd` and `game.upd` beside it
+  (game_2 only, then nothing); `test-elk-app` parses the help and checks
+  every topic is there in the Markdown the window draws; `elk-smoke`'s ninth
+  pass starts `--short` on a copy with `game_1.upd` and `game_2.upd`,
+  sees the short toolbar, five filters and Collapse Item on, browses
+  through Translated, opens Help by F1 with every block drawn, then reads
+  game_2 in the copy's elk.xml through the core; a second run starts at All
+  again, applies nothing and opens Help from the menu.
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,
