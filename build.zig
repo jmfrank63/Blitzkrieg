@@ -2068,6 +2068,41 @@ pub fn build(b: *std.Build) void {
     bk_image_test_step.dependOn(&bk_image_tests.step);
     bk_image_test_step.dependOn(bk_tools_test_step);
     if (test_mode == .run) bk_image_test_step.dependOn(&bk_image_tests_run.step);
+    // `bk-video` (D-22): convert_bik_to_ogv.ps1 as a std-only Zig wrapper over
+    // ffmpeg/ffprobe on PATH, built and staged like bk-image. Its tests convert
+    // tracked Bink movies; the ones that need ffmpeg skip, saying so, without it.
+    const bk_video = b.addExecutable(.{
+        .name = "bk-video",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_video.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const bk_video_step = b.step("bk-video", "Build and install the bk-video Bink to Ogg Theora converter");
+    bk_video_step.dependOn(&b.addInstallArtifact(bk_video, .{}).step);
+    const bk_video_host = b.addExecutable(.{
+        .name = "bk-video",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_video.zig"),
+            .target = b.graph.host,
+            .optimize = .debug,
+        }),
+    });
+    bk_tools_options.addOptionPath("bk_video", bk_video_host.getEmittedBin());
+    const bk_video_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_video_test.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    });
+    bk_video_test_module.addOptions("bk_tools", bk_tools_options);
+    const bk_video_tests = b.addTest(.{ .root_module = bk_video_test_module });
+    const bk_video_tests_run = b.addRunArtifact(bk_video_tests);
+    bk_video_tests_run.setCwd(b.path("."));
+    const bk_video_test_step = b.step("test-bk-video", "Run the bk-video conversion tests (ffmpeg ones skip without ffmpeg) and the bk-* convention test");
+    bk_video_test_step.dependOn(&bk_video_tests.step);
+    bk_video_test_step.dependOn(bk_tools_test_step);
+    if (test_mode == .run) bk_video_test_step.dependOn(&bk_video_tests_run.step);
     // The same tool, run by every staging (install-game, and so
     // install-map-editor and every tier staged on it, package-game and
     // package-game-editors, with or without -Dcopy-data): see addSeasonData.
@@ -2700,7 +2735,7 @@ pub fn build(b: *std.Build) void {
     // Tools/, by their loader-relative path to the game folder. A Windows
     // executable has no such path and would not start there, so on Windows
     // they stay in zig-out/bin.
-    const staged_tools: []const *std.Build.Step.Compile = if (target.result.os.tag == .windows) &.{ bk_pak, bk_table, bk_image } else &.{ bk_pak, bk_table, bk_image, bk_map.tool, bk_sprite.tool };
+    const staged_tools: []const *std.Build.Step.Compile = if (target.result.os.tag == .windows) &.{ bk_pak, bk_table, bk_image, bk_video } else &.{ bk_pak, bk_table, bk_image, bk_video, bk_map.tool, bk_sprite.tool };
     const stage_game_inputs: StageGameInputs = .{
         .tool = stage_tool,
         .game_all_step = game_all_step,

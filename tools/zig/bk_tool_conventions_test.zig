@@ -127,6 +127,23 @@ const tools = [_]Tool{
         .succeeding = &.{ "offset-romb", "mod\\tile.tga", "--out", "mod\\out\\tile.tga" },
         .setup = setupImage,
     },
+    .{
+        .name = "bk-video",
+        .path = bk_tools.bk_video,
+        .bad_usage = &.{
+            &.{},
+            &.{"frobnicate"},
+            &.{ "convert", "stray" },
+            &.{ "convert", "--input-root" },
+            &.{ "convert", "--key-frame-interval", "often" },
+            &.{ "convert", "--out", "x" },
+        },
+        .failing = &.{ "convert", "--input-root", "missing" },
+        // A folder without movies succeeds without ffmpeg, so the row runs
+        // everywhere; bk_video_test.zig converts real ones.
+        .succeeding = &.{ "convert", "--input-root", "mod\\movies" },
+        .setup = setupVideo,
+    },
 };
 
 /// The committed fixture font (D-15), copied from the build root, which is
@@ -153,6 +170,11 @@ fn setupSprite(io: std.Io, dir: std.Io.Dir) !void {
 fn setupImage(io: std.Io, dir: std.Io.Dir) !void {
     try dir.createDirPath(io, "mod");
     try std.Io.Dir.copyFile(std.Io.Dir.cwd(), "tools/zig/fixtures/small-tools/offset-romb/tile16.tga", dir, "mod/tile.tga", io, .{});
+}
+
+/// An empty movie folder.
+fn setupVideo(io: std.Io, dir: std.Io.Dir) !void {
+    try dir.createDirPath(io, "mod/movies");
 }
 
 /// The obj2mod fixture's OBJ (tools/zig/fixtures/small-tools/obj2mod).
