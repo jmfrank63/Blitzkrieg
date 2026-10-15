@@ -337,6 +337,13 @@ std-only, headless, no UI. Modules:
 ### 3. ELK app (Zig, `Sources/editor/elk/app`)
 
 - SDL3 window and ImGui host from the kit; one window, docked panels.
+  *App shell slice (2026-10-15):* the kit's `host` starts the engine
+  (`BkEditorStart` owns the GPU device and the frame), which ELK does not
+  load, so `elk/app/window.zig` is the engine-less counterpart with the same
+  start / frame / stop shape; it moves into the kit when a second engine-less
+  editor needs it. `PathSlot` and the file dialogs are not in the kit either
+  (the map and resource apps each keep their own), so ELK opens a database
+  from the command line or File > Recent until they move there.
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,
