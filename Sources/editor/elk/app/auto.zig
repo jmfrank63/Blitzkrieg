@@ -22,6 +22,17 @@
 //!   do=browse:<step>         Browse > First, Previous, Next or Last
 //!                            (first, previous, next, last); the hot keys
 //!                            are `key=n+ctrl` and `key=p+ctrl`
+//!   do=collapse_item         Browse > Collapse Item, turned over
+//!   do=filter_dialog         Browse > Create Filter...; the commands below
+//!                            need the dialog drawn in the last frame
+//!   do=filter_pick:<name>    click the filter in the dialog's list
+//!   do=filter_add:<name>     type the name into the Name box, press Add
+//!   do=filter_rename:<name>  the same, press Rename
+//!   do=filter_delete         press Delete
+//!   do=filter_states:<4 0/1> the four state boxes, in state order
+//!   do=filter_changed:<0|1>  the Changed only box
+//!   do=filter_condition:<a&b>  type the condition, press Add Condition
+//!   do=filter_ok  do=filter_cancel
 //!   do=wait:<seconds>        the autosave clock moves on that far
 //!   do=kill                  the frame loop stops at once, no save point
 //!   do=focus:translation     the translation box takes the keyboard
@@ -42,6 +53,11 @@
 //!   expect=browsable:<step>=<0|1>   whether that Browse command is enabled
 //!   expect=dimmed:<path>=<0|1>  the last frame drew the text's (or, with no
 //!                            such text, the folder's) row dimmed or not
+//!   expect=collapse_item:<0|1>  the Collapse Item mode
+//!   expect=expanded:<folder>=<0|1>  whether the folder's row is open
+//!   expect=filter_dialog:<0|1> whether the dialog is open
+//!   expect=filter_count:<n>    how many filters the bar offers
+//!   expect=filter_at:<index>=<name>  the bar's filter at that place
 //!   expect=untouched:<index>   the row's text files are byte-identical to
 //!                              the source the smoke copied (smoke only)
 //!   expect=identical           every file of the opened copy is byte-identical
@@ -173,6 +189,14 @@ pub const Runner = struct {
             const browse_step = std.meta.stringToEnum(ui_mod.Step, named.arg) orelse return self.fail("do=browse: no step {s}", .{named.arg});
             if (!ui.canBrowse(browse_step)) return self.fail("do=browse: Browse > {s} is disabled", .{named.arg});
             if (!ui.browse(browse_step)) return self.fail("do=browse: {s} reached no text ({s})", .{ named.arg, session.failureText() });
+        } else if (is(named, "collapse_item")) {
+            ui.toggleCollapseItem();
+        } else if (is(named, "filter_dialog")) {
+            if (!session.isOpen()) return self.fail("do=filter_dialog: Create Filter... is disabled with no database", .{});
+            ui.openFilterDialog();
+            if (ui.filter_dialog == null) return self.fail("do=filter_dialog: the dialog did not open", .{});
+        } else if (std.mem.startsWith(u8, named.name, "filter_")) {
+            try self.dialogCommand(ui, named);
         } else if (is(named, "wait")) {
             const seconds = std.fmt.parseInt(u64, named.arg, 10) catch return self.fail("wait needs seconds, got {s}", .{named.arg});
             ui.clock_offset_ms += seconds * std.time.ms_per_s;
@@ -197,6 +221,36 @@ pub const Runner = struct {
             try session.open(copy[0..last.len]);
         } else return self.fail("unknown command do={s}", .{named.name});
         self.remember(session.openPath());
+    }
+
+    /// The Create Filter dialog's controls, each pressed as its button is.
+    fn dialogCommand(self: *Runner, ui: *ui_mod.Ui, named: schedule.Named) !void {
+        const dialog = ui.filter_dialog orelse return self.fail("do={s}: the Create Filter dialog is not open", .{named.name});
+        if (!dialog.drawn) return self.fail("do={s}: the Create Filter dialog is not shown", .{named.name});
+        const accepted = if (is(named, "filter_pick")) picked: {
+            dialog.pick(dialog.find(named.arg) orelse return self.fail("do=filter_pick: the dialog lists no {s}", .{named.arg}));
+            break :picked true;
+        } else if (is(named, "filter_add") or is(named, "filter_rename")) typed: {
+            _ = std.mem.printSentinel(&dialog.name, "{s}", .{named.arg}, 0) catch return self.fail("do={s}: the name is too long", .{named.name});
+            break :typed if (is(named, "filter_add")) dialog.add() else dialog.rename();
+        } else if (is(named, "filter_delete"))
+            dialog.delete()
+        else if (is(named, "filter_states")) states: {
+            if (named.arg.len != 4) return self.fail("do=filter_states needs four 0/1, got {s}", .{named.arg});
+            var states: [4]bool = undefined;
+            for (named.arg, &states) |digit, *keep| keep.* = digit == '1';
+            const filter = dialog.selectedFilter() orelse return self.fail("do=filter_states: no filter is selected", .{});
+            break :states dialog.setCriteria(states, filter.changed);
+        } else if (is(named, "filter_changed")) changed: {
+            const filter = dialog.selectedFilter() orelse return self.fail("do=filter_changed: no filter is selected", .{});
+            break :changed dialog.setCriteria(filter.states, std.mem.eql(u8, named.arg, "1"));
+        } else if (is(named, "filter_condition"))
+            dialog.addCondition(named.arg)
+        else if (is(named, "filter_ok") or is(named, "filter_cancel")) closed: {
+            dialog.pending = if (is(named, "filter_ok")) .ok else .cancel;
+            break :closed true;
+        } else return self.fail("unknown command do={s}", .{named.name});
+        if (!accepted) return self.fail("do={s}:{s} was refused", .{ named.name, named.arg });
     }
 
     pub fn remember(self: *Runner, opened: []const u8) void {
@@ -282,6 +336,26 @@ pub const Runner = struct {
             const wanted = std.mem.eql(u8, named.arg[eq + 1 ..], "1");
             const row = drawnRow(ui, node) orelse return self.fail("expect=dimmed: the tree does not show {s}", .{path});
             if (row.dimmed != wanted) return self.fail("expect=dimmed: {s} dimmed is {}, wanted {}", .{ path, row.dimmed, wanted });
+        } else if (is(named, "collapse_item")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            if (ui.settings.collapse_item != wanted) return self.fail("expect=collapse_item: it is {}, wanted {}", .{ !wanted, wanted });
+        } else if (is(named, "expanded")) {
+            const eq = std.mem.lastIndexOfScalar(u8, named.arg, '=') orelse return self.fail("expanded needs <folder>=<0|1>", .{});
+            const node = folderNode(session, named.arg[0..eq]) orelse return self.fail("expect=expanded: no folder {s}", .{named.arg[0..eq]});
+            const wanted = std.mem.eql(u8, named.arg[eq + 1 ..], "1");
+            if (ui.expanded.items[node] != wanted) return self.fail("expect=expanded: {s} open is {}, wanted {}", .{ named.arg[0..eq], !wanted, wanted });
+        } else if (is(named, "filter_dialog")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            if ((ui.filter_dialog != null) != wanted) return self.fail("expect=filter_dialog: open is {}, wanted {}", .{ !wanted, wanted });
+        } else if (is(named, "filter_count")) {
+            const wanted = std.fmt.parseInt(usize, named.arg, 10) catch return self.fail("filter_count needs a number", .{});
+            if (ui.filterCount() != wanted) return self.fail("expect=filter_count: the bar offers {d}, wanted {d}", .{ ui.filterCount(), wanted });
+        } else if (is(named, "filter_at")) {
+            const eq = std.mem.indexOfScalar(u8, named.arg, '=') orelse return self.fail("filter_at needs <index>=<name>", .{});
+            const index = std.fmt.parseInt(usize, named.arg[0..eq], 10) catch return self.fail("filter_at needs a number", .{});
+            if (index >= ui.filterCount()) return self.fail("expect=filter_at: the bar offers only {d}", .{ui.filterCount()});
+            const shown = ui.filterAt(index).name;
+            if (!std.mem.eql(u8, shown, named.arg[eq + 1 ..])) return self.fail("expect=filter_at: {d} is {s}, wanted {s}", .{ index, shown, named.arg[eq + 1 ..] });
         } else if (is(named, "untouched")) {
             try self.untouched(ui, named.arg);
         } else if (is(named, "identical")) {

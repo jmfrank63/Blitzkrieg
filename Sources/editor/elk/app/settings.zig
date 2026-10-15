@@ -5,7 +5,10 @@
 //! ELK's own keys it keeps the named filters (`filter=`, one line each in
 //! the core's `Filter` form; none in the file means the five built-in ones,
 //! as the MFC ELK made them when its registry held none) and the current
-//! one (`current_filter=`). The rest of D-16 (last PAK, XLS and game
+//! one (`current_filter=`), which the Create Filter dialog edits through
+//! `addFilter`, `renameFilter`, `deleteFilter` and `setFilter`, and the
+//! collapse-item mode (`collapse_item=`, on unless the file says `0`, the
+//! MFC registry's default). The rest of D-16 (last PAK, XLS and game
 //! folders, find options, fonts, toolbars, spell checking) joins with the
 //! features that use it.
 //!
@@ -30,6 +33,8 @@ pub const file_name = "elk.cfg";
 pub const max_path = ks.max_path;
 /// The most named filters the file keeps; later lines are dropped.
 pub const filter_capacity = 32;
+/// The longest filter name the dialog takes.
+pub const max_filter_name = 128;
 
 /// The kit's shared fields, under the names its helpers expect.
 pub const Settings = struct {
@@ -44,6 +49,8 @@ pub const Settings = struct {
     filter_storage: [filter_capacity]FixedPath = @splat(.{}),
     filter_count: usize = 0,
     current_filter_storage: FixedPath = .{},
+    /// Browse collapses the branch it leaves (`bCollapseItem`, B5).
+    collapse_item: bool = true,
 
     pub fn gameParameters(self: *const Settings) []const u8 {
         return self.game_parameters.slice();
@@ -82,6 +89,105 @@ pub const Settings = struct {
         self.current_filter_storage.set(name);
     }
 
+    /// Appends a filter keeping every text (a new `SSimpleFilter`), named
+    /// `wanted` made unique; its index, or null when the name is empty or
+    /// the list is full.
+    pub fn addFilter(self: *Settings, wanted: []const u8) ?usize {
+        self.ownFilters();
+        if (self.filter_count == filter_capacity) return null;
+        var name_buffer: [max_filter_name + 16]u8 = undefined;
+        const name = self.uniqueFilterName(wanted, null, &name_buffer) orelse return null;
+        if (!self.writeFilter(self.filter_count, .{ .name = name })) return null;
+        self.filter_count += 1;
+        return self.filter_count - 1;
+    }
+
+    /// Renames the filter at `index` in place, its criteria kept; the
+    /// current filter follows its new name. False when the name is empty.
+    pub fn renameFilter(self: *Settings, index: usize, wanted: []const u8) bool {
+        self.ownFilters();
+        var name_buffer: [max_filter_name + 16]u8 = undefined;
+        const name = self.uniqueFilterName(wanted, index, &name_buffer) orelse return false;
+        var renamed = self.filterAt(index);
+        const was_current = std.mem.eql(u8, renamed.name, self.currentFilter());
+        renamed.name = name;
+        if (!self.writeFilter(index, renamed)) return false;
+        if (was_current) self.setCurrentFilter(name);
+        return true;
+    }
+
+    /// Removes the filter at `index`; the current filter falls back to
+    /// "All" when it was this one. The last filter stays: a file with none
+    /// would bring the five built-in ones back, and the MFC dialog's OK
+    /// was disabled with an empty list.
+    pub fn deleteFilter(self: *Settings, index: usize) bool {
+        self.ownFilters();
+        if (self.filter_count <= 1 or index >= self.filter_count) return false;
+        if (std.mem.eql(u8, self.filterAt(index).name, self.currentFilter())) self.setCurrentFilter(elk.filter.default_name);
+        for (index..self.filter_count - 1) |at| self.filter_storage[at] = self.filter_storage[at + 1];
+        self.filter_count -= 1;
+        return true;
+    }
+
+    /// The filter at `index` gets `filter`'s states, changed flag and
+    /// conditions (its name is the dialog's to change). False when the line
+    /// would not fit.
+    pub fn setFilter(self: *Settings, index: usize, filter: Filter) bool {
+        self.ownFilters();
+        var edited = filter;
+        edited.name = self.filterAt(index).name;
+        return self.writeFilter(index, edited);
+    }
+
+    /// The editor writes lines, so the five built-in filters become the
+    /// file's own before the first edit.
+    fn ownFilters(self: *Settings) void {
+        if (self.filter_count != 0) return;
+        for (elk.filter.built_in, 0..) |filter, index| _ = self.writeFilter(index, filter);
+        self.filter_count = elk.filter.built_in.len;
+    }
+
+    /// `filter`'s line into the slot, formatted aside first because its
+    /// name may borrow the slot itself.
+    fn writeFilter(self: *Settings, index: usize, filter: Filter) bool {
+        var buffer: [max_path]u8 = undefined;
+        var writer: std.Io.Writer = .fixed(&buffer);
+        filter.format(&writer) catch return false;
+        self.filter_storage[index].set(writer.buffered());
+        return true;
+    }
+
+    /// `wanted` cleaned of what would break its line (the `|` separator,
+    /// control characters, outer spaces), then made unique as
+    /// `GetUniqueFilterName` did: `name`, else `name_0`, `name_1`, ...
+    /// The filter at `skip` (the one being renamed) does not count.
+    fn uniqueFilterName(self: *const Settings, wanted: []const u8, skip: ?usize, buffer: []u8) ?[]const u8 {
+        var clean_buffer: [max_filter_name]u8 = undefined;
+        var len: usize = 0;
+        for (std.mem.trim(u8, wanted, " \t")) |byte| {
+            if (byte == '|' or ks.isControl(byte)) continue;
+            if (len == clean_buffer.len) break;
+            clean_buffer[len] = byte;
+            len += 1;
+        }
+        const clean = std.mem.trim(u8, clean_buffer[0..len], " ");
+        if (clean.len == 0) return null;
+        var name: []const u8 = std.fmt.bufPrint(buffer, "{s}", .{clean}) catch return null;
+        var suffix: usize = 0;
+        while (self.hasFilter(name, skip)) : (suffix += 1) {
+            name = std.fmt.bufPrint(buffer, "{s}_{d}", .{ clean, suffix }) catch return null;
+        }
+        return name;
+    }
+
+    fn hasFilter(self: *const Settings, name: []const u8, skip: ?usize) bool {
+        for (0..self.filterCount()) |index| {
+            if (skip == index) continue;
+            if (std.mem.eql(u8, self.filterAt(index).name, name)) return true;
+        }
+        return false;
+    }
+
     /// Removes `os_path` from the list if it is there (a recent database
     /// that no longer opens).
     pub fn forgetRecent(self: *Settings, os_path: []const u8) void {
@@ -110,6 +216,8 @@ pub fn parse(text: []const u8) Settings {
             }
         } else if (std.mem.eql(u8, key, "current_filter")) {
             settings.current_filter_storage.set(value);
+        } else if (std.mem.eql(u8, key, "collapse_item")) {
+            settings.collapse_item = !std.mem.eql(u8, value, "0");
         } else _ = ks.applySharedKey(&settings, key, value);
     }
     return settings;
@@ -125,6 +233,7 @@ pub fn format(settings: *const Settings, writer: *std.Io.Writer) std.Io.Writer.E
         try writer.writeAll("\n");
     }
     try writer.print("current_filter={s}\n", .{settings.currentFilter()});
+    try writer.print("collapse_item={d}\n", .{@intFromBool(settings.collapse_item)});
 }
 
 /// The settings file: the override when one is given, else
@@ -188,6 +297,61 @@ test "the named filters and the current one round-trip through the file" {
     try testing.expectEqualStrings("units,tanks;medals", own.filterAt(0).conditions);
     try testing.expect(own.filterAt(0).changed);
     try testing.expectEqualStrings("Tanks", own.currentFilter());
+}
+
+test "the dialog's edits: add, rename in place, delete with the fall back to All" {
+    var settings: Settings = .{};
+    settings.setCurrentFilter("Outdated");
+    // The first edit makes the five built-in filters the file's own.
+    const tanks = settings.addFilter("  Tanks|done ").?;
+    try testing.expectEqual(@as(usize, 5), tanks);
+    try testing.expectEqual(@as(usize, 6), settings.filter_count);
+    try testing.expectEqualStrings("Tanksdone", settings.filterAt(tanks).name);
+    try testing.expectEqual(@as([4]bool, @splat(true)), settings.filterAt(tanks).states);
+    // Names stay unique the MFC way.
+    try testing.expectEqualStrings("Tanksdone_0", settings.filterAt(settings.addFilter("Tanksdone").?).name);
+    try testing.expectEqualStrings("Tanksdone_1", settings.filterAt(settings.addFilter("Tanksdone").?).name);
+    try testing.expectEqual(@as(?usize, null), settings.addFilter(" | "));
+
+    try testing.expect(settings.setFilter(tanks, .{ .name = "ignored", .states = .{ false, false, true, true }, .changed = true, .conditions = "units,tanks" }));
+    try testing.expectEqualStrings("Tanksdone|0011|1|units,tanks", settings.filter_storage[tanks].slice());
+
+    // A rename keeps the position and the criteria; the current filter follows.
+    try testing.expect(settings.renameFilter(2, "Old texts"));
+    try testing.expectEqualStrings("Old texts", settings.filterAt(2).name);
+    try testing.expectEqualStrings("Old texts", settings.currentFilter());
+    try testing.expectEqual(elk.filter.built_in[2].states, settings.filterAt(2).states);
+    try testing.expect(settings.renameFilter(2, "Old texts"));
+    try testing.expectEqualStrings("Old texts", settings.filterAt(2).name);
+    try testing.expect(settings.renameFilter(tanks, "Approved"));
+    try testing.expectEqualStrings("Approved_0", settings.filterAt(tanks).name);
+    try testing.expectEqualStrings("units,tanks", settings.filterAt(tanks).conditions);
+
+    // Deleting the current filter falls back to All; others leave it alone.
+    try testing.expect(settings.deleteFilter(3));
+    try testing.expectEqualStrings("Old texts", settings.currentFilter());
+    try testing.expect(settings.deleteFilter(2));
+    try testing.expectEqualStrings("All", settings.currentFilter());
+    try testing.expectEqualStrings("Approved", settings.filterAt(2).name);
+
+    // Through the file and back; the last filter is never deleted.
+    var buffer: [4096]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    var again = parse(writer.buffered());
+    try testing.expectEqual(settings.filter_count, again.filter_count);
+    try testing.expectEqualStrings("Approved_0", again.filterAt(3).name);
+    while (again.filter_count > 1) try testing.expect(again.deleteFilter(0));
+    try testing.expect(!again.deleteFilter(0));
+}
+
+test "collapse-item is on unless the file turns it off" {
+    try testing.expect(parse("").collapse_item);
+    try testing.expect(!parse("collapse_item=0\n").collapse_item);
+    var buffer: [2048]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&.{ .collapse_item = false }, &writer);
+    try testing.expect(!parse(writer.buffered()).collapse_item);
 }
 
 test "the file lives in the game's user root unless the seam names one" {

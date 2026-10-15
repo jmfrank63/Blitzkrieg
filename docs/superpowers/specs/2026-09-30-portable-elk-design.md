@@ -385,8 +385,42 @@ std-only, headless, no UI. Modules:
   smoke's fourth pass chooses Translated, sees the medal rows dimmed, walks
   Data/ELK's four Translated texts by Alt+N, Ctrl+N, Ctrl+P and the menu,
   stops at both ends, and a second run on the same elk.cfg starts with the
-  filter and walks it again. The filter editor (07-07) and the short
-  layout's single toolbar remain for their own slices.
+  filter and walks it again. The short layout's single toolbar remains for
+  its own slice.
+  *Filter editor and collapse-item slice (2026-10-16):* the filter editor
+  moved from 07-07 into 07-06, which completes the browse side.
+  Browse > Create Filter... (also on the filter bar) is
+  `CCreateFilterDialog`: the named filters with their condition counts,
+  Add, Rename, Delete, the four state boxes, "Changed only" and the folder
+  conditions with Add / Remove Condition. It edits a copy of the settings;
+  OK writes elk.cfg, Cancel drops the edit. Names are made unique as
+  `GetUniqueFilterName` did (`name`, `name_0`, `name_1`, ...) and lose `|`
+  and control characters; Add appends, Rename keeps the position and the
+  current filter follows the new name; deleting the current filter falls
+  back to All. The first edit writes the five built-in filters into the
+  file, and the last filter cannot be deleted, since a file with none would
+  bring the five back. *Adaptations:* the name is typed in the dialog's own
+  Name box rather than a second dialog, and a condition is typed as folder
+  substrings joined by `&` (or `,`), lower-cased with `/` turned into `\`,
+  rather than ticked in a list of the database's folders: the check is the
+  same substring test, and the list showed exactly those lower-case
+  folder paths. *Collapse Item (B5),* read from
+  `CELKTreeWindow::DeselectItem`: with the mode on, each Browse step first
+  collapses the element (the tree root) holding the text it leaves, every
+  folder in it, and then opens the way to the text it reaches, so only
+  that path stays open. A click in the tree does not collapse anything, as
+  in the MFC tree, where only the Browse steps and Find called
+  `DeselectItem`. The mode is the Browse menu's first, checkable item, as
+  in the MFC menu, plus a check box on the filter bar (the MFC toolbar's
+  check button). It is on by default, as the MFC registry default was, and
+  is kept as `collapse_item=0|1`. Forcing it on in the short layout joins
+  that layout. While the dialog is open the translation box does not take
+  the keyboard, because its focus would close the modal. The smoke's
+  filter pass gains two runs: the expanded set with Collapse Item on and
+  off; a filter created through the dialog (Outdated, `medals&krest`),
+  applied and walked, renamed in place, a delete cancelled, then deleted
+  while current (the bar shows All); and a restart that finds the mode and
+  a kept filter in elk.cfg.
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,
@@ -449,8 +483,8 @@ database (E-01) are each measured first and recorded in the plan summary.
 | 07-03 | Spreadsheet exchange: csv, xlsx, xls reader | 07-01 |
 | 07-04 | FontKit and font generation, font enumeration | 07-01 |
 | 07-05 | Spell check: Hunspell vendored, dictionaries, user dictionary | 07-01 |
-| 07-06 | ELK app shell: window, panels, tree, translation editing, navigation, filters UI, find, statistics window, recents, short mode, help, about, Customize, progress | 07-01, kit |
-| 07-07 | ELK app workflows: import/export dialogs, filter editor, fonts dialog, spell UI, run game, delete project, `BK_ELK_AUTO` | 07-02 to 07-06 |
+| 07-06 | ELK app shell: window, panels, tree, translation editing, navigation, filters UI and filter editor, find, statistics window, recents, short mode, help, about, Customize, progress | 07-01, kit |
+| 07-07 | ELK app workflows: import/export dialogs, fonts dialog, spell UI, run game, delete project, `BK_ELK_AUTO` | 07-02 to 07-06 |
 | 07-08 | Parity closure: CI on macOS and Windows, packaging, win-home run, delete the MFC ELK and binaries, docs | all |
 
 Waves: 07-01; then 07-02, 07-03, 07-04, 07-05 in parallel (independent

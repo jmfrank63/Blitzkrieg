@@ -21,6 +21,11 @@
 //! the Translated filter chosen in the bar, the tree dimming what it
 //! rejects, the Browse commands and hot keys walking only its four texts,
 //! and a second run on the same elk.cfg starting with that filter again.
+//! A third run there proves Collapse Item and the Create Filter dialog: a
+//! step closes the folders it leaves only while the mode is on, a filter is
+//! created, applied, renamed in place and deleted while current (the bar
+//! falls back to All), Cancel keeps what it would have dropped, and a
+//! fourth run finds the dialog's result and the mode in elk.cfg.
 //! `--auto` replays `BK_ELK_AUTO` on the database given.
 const std = @import("std");
 const builtin = @import("builtin");
@@ -127,6 +132,43 @@ const filter_schedule =
 const filter_reopen_schedule =
     "2:expect=open,2:expect=filter:Translated,3:do=browse:first,5:expect=selected:" ++ walk[0] ++ "," ++
     "6:do=browse:next,8:expect=selected:" ++ walk[1] ++ ",9:exit";
+
+/// The Collapse Item and Create Filter pass, a third run on the filter
+/// pass's copy and elk.cfg. Collapse Item is on as the MFC ELK started:
+/// stepping from defend_area00 to escort00 closes the first; turned off,
+/// the way back leaves escort00 open. The created filter keeps the
+/// Outdated texts below medals/german/krest1 to krest5: each desc, and
+/// krest4's name, the other names being Approved in Data/ELK.
+const krest_first = "medals/german/krest1/desc";
+const krest_second = "medals/german/krest2/desc";
+const krest_last = "medals/german/krest5/desc";
+const defend = "scenarios/descriptions/defend_area00";
+const escort = "scenarios/descriptions/escort00";
+const filter_edit_schedule =
+    "2:expect=open,2:expect=filter:Translated,2:expect=collapse_item:1," ++
+    "3:do=browse:first,5:expect=selected:" ++ walk[0] ++ ",5:expect=expanded:" ++ defend ++ "=1," ++
+    "6:do=browse:next,8:do=browse:next,10:expect=selected:" ++ walk[2] ++ "," ++
+    "10:expect=expanded:" ++ defend ++ "=0,10:expect=expanded:" ++ escort ++ "=1," ++
+    "11:do=collapse_item,12:expect=collapse_item:0,12:do=browse:previous,14:expect=selected:" ++ walk[1] ++ "," ++
+    "14:expect=expanded:" ++ escort ++ "=1,14:expect=expanded:" ++ defend ++ "=1," ++
+    // Create, then apply.
+    "15:do=filter_dialog,17:expect=filter_dialog:1,17:do=filter_add:Krest,18:do=filter_states:0100," ++
+    "18:do=filter_condition:medals&krest,18:do=filter_ok,20:expect=filter_dialog:0,20:expect=filter_count:6," ++
+    "20:expect=filter_at:5=Krest,20:expect=filter:Translated," ++
+    "21:do=filter:Krest,22:do=browse:first,24:expect=selected:" ++ krest_first ++ ",24:do=browse:next,26:expect=selected:" ++ krest_second ++ "," ++
+    "26:do=browse:last,26:expect=selected:" ++ krest_last ++ "," ++
+    "26:expect=dimmed:medals/german=0,26:expect=dimmed:medals/german/kuban=1," ++
+    // Rename in place: the current filter follows the name.
+    "27:do=filter_dialog,29:do=filter_rename:Iron_crosses,29:do=filter_ok,31:expect=filter_at:5=Iron_crosses," ++
+    "31:expect=filter:Iron_crosses,31:expect=filter_count:6," ++
+    // Cancel drops a delete; OK on a delete of the current one falls back to All.
+    "32:do=filter_dialog,34:do=filter_delete,34:do=filter_cancel,36:expect=filter_dialog:0,36:expect=filter_count:6," ++
+    "37:do=filter_dialog,39:do=filter_pick:Iron_crosses,39:do=filter_delete,39:do=filter_ok,41:expect=filter:All," ++
+    "41:expect=filter_count:5,41:expect=browsable:next=1," ++
+    // One filter for the restart to find.
+    "42:do=filter_dialog,44:do=filter_add:Kept,44:do=filter_ok,46:expect=filter_at:5=Kept,47:exit";
+const filter_edit_reopen_schedule =
+    "2:expect=open,2:expect=filter:All,2:expect=collapse_item:0,2:expect=filter_count:6,2:expect=filter_at:5=Kept,3:exit";
 
 /// A scripted run that has not exited by then has hung.
 const smoke_frame_limit = 200;
@@ -293,7 +335,7 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     if (crashed.code != 0) return crashed.code;
     const filtered = smokeFilter(gpa, io, environ, source, scratch);
     if (filtered.code != 0) return filtered.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, and browsing through a filter kept over a restart on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, result.fonts, elk_path });
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item and the Create Filter dialog on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, result.fonts, elk_path });
     return 0;
 }
 
@@ -334,7 +376,8 @@ fn smokeTree(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, s
 
 /// The smoke's filter and browsing pass on a fourth copy,
 /// `<scratch>-filter`, with its own `<scratch>-filter.cfg`: the filter
-/// chosen in the first run is in the file and the second run starts with it.
+/// chosen in the first run is in the file and the second run starts with it;
+/// the third and fourth runs edit the filters and find the edit kept.
 fn smokeFilter(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
     var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const folder = std.fmt.bufPrint(&folder_buffer, "{s}-filter", .{scratch}) catch return .{ .code = 1 };
@@ -351,7 +394,11 @@ fn smokeFilter(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     if (first.code != 0) return first;
     const again = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = filter_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (filter after a restart)" });
     if (again.code != 0) return again;
-    return .{ .code = 0, .frames = first.frames + again.frames };
+    const edited = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = filter_edit_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (collapse item, Create Filter)" });
+    if (edited.code != 0) return edited;
+    const kept = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = filter_edit_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (Create Filter after a restart)" });
+    if (kept.code != 0) return kept;
+    return .{ .code = 0, .frames = first.frames + again.frames + edited.frames + kept.frames };
 }
 
 /// The smoke's File > Open pass on a second copy, `<scratch>-open`, with
@@ -418,8 +465,8 @@ const Script = struct {
     /// Where `do=answer` answers File > Open (Runner.dialog_folder).
     dialog_folder: []const u8 = "",
     /// The run's own elk.cfg, read when it is there (a later run of the same
-    /// pass) and written as ELK writes it; "" runs without settings. The
-    /// user's own file is never touched.
+    /// pass) and written as ELK writes it; "" keeps the settings in memory.
+    /// The user's own file is never touched.
     settings_path: []const u8 = "",
     frame_limit: u32,
     tier: []const u8,
@@ -458,7 +505,7 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         .gpa = gpa,
         .io = io,
         .session = &session,
-        .settings = if (script.settings_path.len != 0) &settings else null,
+        .settings = &settings,
         .settings_path = script.settings_path,
         .os_dialogs = false,
     };

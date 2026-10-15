@@ -79,6 +79,62 @@ pub const Filter = struct {
     }
 };
 
+/// How many AND-lists `conditions` holds.
+pub fn conditionCount(conditions: []const u8) usize {
+    return if (conditions.len == 0) 0 else std.mem.count(u8, conditions, ";") + 1;
+}
+
+/// The `index`th AND-list of `conditions`.
+pub fn conditionAt(conditions: []const u8, index: usize) []const u8 {
+    var any = std.mem.splitScalar(u8, conditions, ';');
+    for (0..index) |_| _ = any.next();
+    return any.next() orelse "";
+}
+
+/// `conditions` with one more AND-list, typed as substrings joined by `&`
+/// (the MFC dialog showed a condition as `"a" & "b"`) or `,`. Each is made
+/// the way the folder path is matched, lower case with `\` between folders
+/// (the MFC dialog offered the database's own folders in that form), and
+/// loses the line's separators and outer spaces. Null when nothing is left
+/// of the typed text or `buffer` is too small.
+pub fn withCondition(conditions: []const u8, typed: []const u8, buffer: []u8) ?[]const u8 {
+    var writer: std.Io.Writer = .fixed(buffer);
+    writer.writeAll(conditions) catch return null;
+    var parts = std.mem.tokenizeAny(u8, typed, "&,");
+    var count: usize = 0;
+    while (parts.next()) |raw| {
+        const part = std.mem.trim(u8, raw, " \t");
+        if (part.len == 0) continue;
+        const separator = if (count != 0) "," else if (conditions.len != 0) ";" else "";
+        writer.writeAll(separator) catch return null;
+        for (part) |byte| {
+            if (byte == ';' or byte == '|' or byte < 0x20 or byte == 0x7f) continue;
+            writer.writeByte(if (byte == '/') '\\' else std.ascii.toLower(byte)) catch return null;
+        }
+        count += 1;
+    }
+    if (count == 0) return null;
+    return writer.buffered();
+}
+
+/// `conditions` without its `index`th AND-list; `buffer` must hold
+/// `conditions`.
+pub fn withoutCondition(conditions: []const u8, index: usize, buffer: []u8) []const u8 {
+    var len: usize = 0;
+    var any = std.mem.splitScalar(u8, conditions, ';');
+    var at: usize = 0;
+    while (any.next()) |condition| : (at += 1) {
+        if (at == index) continue;
+        if (len != 0) {
+            buffer[len] = ';';
+            len += 1;
+        }
+        @memcpy(buffer[len..][0..condition.len], condition);
+        len += condition.len;
+    }
+    return buffer[0..len];
+}
+
 /// The five filters the MFC ELK made when the settings held none
 /// (`SMainFrameParams::LoadFromRegistry`), in the order the combo lists them.
 pub const built_in = [_]Filter{
@@ -114,6 +170,23 @@ test "Check: the states mask, the changed flag and the OR of AND-lists of folder
     try testing.expect(!folders.matches("units/tanks", plain));
     const upper: Filter = .{ .name = "u", .conditions = "Medals" };
     try testing.expect(!upper.matches("medals/1/name", plain));
+}
+
+test "the dialog adds and removes AND-lists in the line's form" {
+    var buffer: [64]u8 = undefined;
+    var other: [64]u8 = undefined;
+    try testing.expectEqual(@as(usize, 0), conditionCount(""));
+    const one = withCondition("", " Medals & German/Krest ", &buffer).?;
+    try testing.expectEqualStrings("medals,german\\krest", one);
+    try testing.expect((Filter{ .name = "k", .conditions = one }).matches("medals/german/krest1/desc", .{}));
+    const two = withCondition(one, "units;|,tanks", &other).?;
+    try testing.expectEqualStrings("medals,german\\krest;units,tanks", two);
+    try testing.expectEqual(@as(usize, 2), conditionCount(two));
+    try testing.expectEqualStrings("units,tanks", conditionAt(two, 1));
+    try testing.expectEqual(@as(?[]const u8, null), withCondition(two, " & , ", &buffer));
+    try testing.expectEqualStrings("units,tanks", withoutCondition(two, 0, &buffer));
+    try testing.expectEqualStrings("medals,german\\krest", withoutCondition(two, 1, &buffer));
+    try testing.expectEqualStrings("", withoutCondition("a", 0, &buffer));
 }
 
 test "a filter round-trips through its settings line" {

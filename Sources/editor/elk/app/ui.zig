@@ -6,7 +6,11 @@
 //! Previous (Ctrl+P, Alt+P), Next (Ctrl+N, Alt+N) and Last walk the texts
 //! through the filter chosen in the bar; the tree dims the texts the filter
 //! rejects and the folders that hold none it keeps, so the walk's path
-//! stays visible in the whole tree.
+//! stays visible in the whole tree. With Collapse Item on (B5, the MFC
+//! default) a step first closes the whole element it leaves, as
+//! `CELKTreeWindow::DeselectItem` collapsed the item's root, so only the
+//! way to the new text stays open. Browse > Create Filter... edits the
+//! named filters (filter_dialog.zig).
 const std = @import("std");
 const imgui = @import("editor_imgui");
 const sdl3 = @import("sdl3");
@@ -14,13 +18,13 @@ const kit = @import("editor_kit");
 const session_mod = @import("session.zig");
 const settings_mod = @import("settings.zig");
 const window_mod = @import("editor_kit").window;
+const FilterDialog = @import("filter_dialog.zig").FilterDialog;
 
 const ig = imgui.c;
 pub const Session = session_mod.Session;
 const State = session_mod.State;
 const Filter = session_mod.Filter;
 pub const Step = session_mod.Step;
-const built_in_filters = @import("elk_core").filter.built_in;
 
 pub const app_title = "Blitzkrieg ELK";
 
@@ -36,8 +40,10 @@ pub const Ui = struct {
     gpa: std.mem.Allocator,
     io: std.Io,
     session: *Session,
-    /// Null for scripted runs, which never read or write the user's settings.
-    settings: ?*settings_mod.Settings,
+    /// A scripted run without a settings file keeps its settings in memory
+    /// only; no run reads or writes the user's own.
+    settings: *settings_mod.Settings,
+    /// "" writes no file.
     settings_path: []const u8 = "",
     /// Set by `do=focus:translation`: the translation box takes the keyboard
     /// at the next frame.
@@ -71,9 +77,8 @@ pub const Ui = struct {
     /// False in scripted runs: File > Open requests the slot but shows no OS
     /// dialog, and the schedule answers it (`do=answer:<path>`).
     os_dialogs: bool = true,
-    /// The current filter's name when there is no settings file to keep it
-    /// (scripted runs without one); "" is "All".
-    filter_name: kit.settings.FixedPath = .{},
+    /// Browse > Create Filter... while it is open.
+    filter_dialog: ?*FilterDialog = null,
     /// Per tree node, whether the current filter keeps it (`markMatches`),
     /// worked out each frame the tree is drawn.
     marks: std.ArrayListUnmanaged(bool) = .empty,
@@ -82,6 +87,7 @@ pub const Ui = struct {
     pub const Drawn = struct { node: u32, colour: u32, dimmed: bool };
 
     pub fn deinit(self: *Ui) void {
+        if (self.filter_dialog) |dialog| self.gpa.destroy(dialog);
         self.marks.deinit(self.gpa);
         self.expanded.deinit(self.gpa);
         self.visible.deinit(self.gpa);
@@ -91,11 +97,11 @@ pub const Ui = struct {
     /// Opens `elk_path` and records it as the most recent database.
     pub fn openDatabase(self: *Ui, elk_path: []const u8) void {
         self.session.open(elk_path) catch {
-            if (self.settings) |settings| settings.forgetRecent(elk_path);
+            self.settings.forgetRecent(elk_path);
             self.saveSettings();
             return;
         };
-        if (self.settings) |settings| settings.pushRecent(elk_path);
+        self.settings.pushRecent(elk_path);
         self.saveSettings();
     }
 
@@ -117,7 +123,7 @@ pub const Ui = struct {
     pub fn requestOpen(self: *Ui, window: *window_mod.Window) void {
         if (!open_slot.request({})) return;
         if (!self.os_dialogs) return;
-        const near = if (self.session.isOpen()) self.session.openPath() else if (self.settings) |settings| (if (settings.recentCount() != 0) settings.recentAt(0) else "") else "";
+        const near = if (self.session.isOpen()) self.session.openPath() else if (self.settings.recentCount() != 0) self.settings.recentAt(0) else "";
         var folder_buffer: [settings_mod.max_path + 1]u8 = undefined;
         const folder = std.fs.path.dirname(near) orelse "";
         const location: ?[*:0]const u8 = if (folder.len == 0) null else if (std.mem.printSentinel(&folder_buffer, "{s}", .{folder}, 0)) |z| z.ptr else |_| null;
@@ -166,19 +172,17 @@ pub const Ui = struct {
     }
 
     /// The named filters the bar offers: the settings file's, or the five
-    /// built-in ones without one.
+    /// built-in ones when it has none.
     pub fn filterCount(self: *const Ui) usize {
-        return if (self.settings) |settings| settings.filterCount() else built_in_filters.len;
+        return self.settings.filterCount();
     }
 
     pub fn filterAt(self: *const Ui, index: usize) Filter {
-        return if (self.settings) |settings| settings.filterAt(index) else built_in_filters[index];
+        return self.settings.filterAt(index);
     }
 
     pub fn currentFilterName(self: *const Ui) []const u8 {
-        if (self.settings) |settings| return settings.currentFilter();
-        const name = self.filter_name.slice();
-        return if (name.len == 0) @import("elk_core").filter.default_name else name;
+        return self.settings.currentFilter();
     }
 
     /// The current filter; null (every text passes) when its name is not
@@ -195,10 +199,33 @@ pub const Ui = struct {
     /// The filter bar's choice, kept in elk.cfg at once. The selection stays
     /// where it is, as `OnChangeFilter` left it.
     pub fn chooseFilter(self: *Ui, name: []const u8) void {
-        if (self.settings) |settings| {
-            settings.setCurrentFilter(name);
+        self.settings.setCurrentFilter(name);
+        self.saveSettings();
+    }
+
+    /// Browse > Create Filter...: the dialog opens on a copy of the filters.
+    pub fn openFilterDialog(self: *Ui) void {
+        if (self.filter_dialog != null) return;
+        const dialog = self.gpa.create(FilterDialog) catch return;
+        dialog.* = .start(self.settings);
+        self.filter_dialog = dialog;
+    }
+
+    /// The dialog's OK (`keep`) or Cancel; OK writes elk.cfg at once.
+    pub fn closeFilterDialog(self: *Ui, keep: bool) void {
+        const dialog = self.filter_dialog orelse return;
+        if (keep) {
+            dialog.keep(self.settings);
             self.saveSettings();
-        } else self.filter_name.set(name);
+        }
+        self.gpa.destroy(dialog);
+        self.filter_dialog = null;
+    }
+
+    /// Browse > Collapse Item, kept in elk.cfg at once.
+    pub fn toggleCollapseItem(self: *Ui) void {
+        self.settings.collapse_item = !self.settings.collapse_item;
+        self.saveSettings();
     }
 
     /// A Browse command: the text the step reaches through the current
@@ -206,8 +233,10 @@ pub const Ui = struct {
     /// keyboard as the MFC input view took the focus. False when no text is
     /// reached or the text being left could not be saved.
     pub fn browse(self: *Ui, step: Step) bool {
+        const left: ?u32 = if (self.session.selected) |text| self.session.tree.?.node_of_text[text] else null;
         const moved = self.session.browse(step, self.currentFilter()) catch return false;
         if (!moved) return false;
+        if (self.settings.collapse_item) if (left) |node| self.collapseElement(node);
         self.reveal(self.session.tree.?.node_of_text[self.session.selected.?]);
         self.focus_translation = true;
         return true;
@@ -220,6 +249,16 @@ pub const Ui = struct {
     /// A state button: the selected text's state, written at once.
     pub fn pressState(self: *Ui, state: State) void {
         self.session.setState(state) catch {};
+    }
+
+    /// Closes every folder of the element `node` is in, the element's own
+    /// row included, as `CollapseCompletely` on the item's root did.
+    fn collapseElement(self: *Ui, node: u32) void {
+        const tree = &self.session.tree.?;
+        self.syncExpanded() catch return;
+        var root = node;
+        while (tree.nodes[root].parent) |parent| root = parent;
+        @memset(self.expanded.items[root..tree.nodes[root].end], false);
     }
 
     /// The autosave clock: SDL's milliseconds plus the scripted offset.
@@ -239,7 +278,7 @@ pub const Ui = struct {
     }
 
     pub fn saveSettings(self: *Ui) void {
-        const settings = self.settings orelse return;
+        const settings = self.settings;
         if (self.settings_path.len == 0) return;
         var buffer: [16 * 1024]u8 = undefined;
         var writer: std.Io.Writer = .fixed(&buffer);
@@ -283,6 +322,9 @@ pub const Ui = struct {
             ig.ImGuiWindowFlags_MenuBar | ig.ImGuiWindowFlags_NoBringToFrontOnFocus;
         _ = ig.igBegin("ELK", null, flags);
         defer ig.igEnd();
+        // Last in the frame: a translation box activated in this frame
+        // focuses the main window, which would close a modal opened before.
+        defer self.drawFilterDialog();
         self.drawMenu(window);
         self.rows_drawn = 0;
         self.drawn.clearRetainingCapacity();
@@ -303,6 +345,15 @@ pub const Ui = struct {
         self.drawStatus();
     }
 
+    fn drawFilterDialog(self: *Ui) void {
+        const dialog = self.filter_dialog orelse return;
+        switch (dialog.draw()) {
+            .open => {},
+            .ok => self.closeFilterDialog(true),
+            .cancel => self.closeFilterDialog(false),
+        }
+    }
+
     fn drawMenu(self: *Ui, window: *window_mod.Window) void {
         if (!ig.igBeginMenuBar()) return;
         defer ig.igEndMenuBar();
@@ -310,11 +361,13 @@ pub const Ui = struct {
         self.drawBrowseMenu();
     }
 
-    /// The MFC Browse menu's commands, in its order; each is enabled when
-    /// its step reaches a text.
+    /// The MFC Browse menu's commands, in its order; each step is enabled
+    /// when it reaches a text.
     fn drawBrowseMenu(self: *Ui) void {
         if (!ig.igBeginMenu("Browse")) return;
         defer ig.igEndMenu();
+        if (ig.igMenuItemEx("Collapse Item", null, self.settings.collapse_item, true)) self.toggleCollapseItem();
+        ig.igSeparator();
         const items = [_]struct { label: [*:0]const u8, keys: ?[*:0]const u8, step: Step }{
             .{ .label = "Last", .keys = null, .step = .last },
             .{ .label = "Next", .keys = "Ctrl+N", .step = .next },
@@ -324,6 +377,8 @@ pub const Ui = struct {
         for (items) |item| {
             if (ig.igMenuItemEx(item.label, item.keys, false, self.canBrowse(item.step))) _ = self.browse(item.step);
         }
+        ig.igSeparator();
+        if (ig.igMenuItemEx("Create Filter...", null, false, self.session.isOpen())) self.openFilterDialog();
     }
 
     /// The extended layout's filter bar (the MFC browse toolbar): the named
@@ -360,19 +415,24 @@ pub const Ui = struct {
             if (ig.igButton(button.label)) _ = self.browse(button.step);
             ig.igEndDisabled();
         }
+        ig.igSameLine();
+        var collapse = self.settings.collapse_item;
+        if (ig.igCheckbox("Collapse Item", &collapse)) self.toggleCollapseItem();
+        ig.igSameLine();
+        if (ig.igButton("Create Filter...")) self.openFilterDialog();
     }
 
     fn drawFileMenu(self: *Ui, window: *window_mod.Window) void {
         if (!ig.igBeginMenu("File")) return;
         defer ig.igEndMenu();
         if (ig.igMenuItemEx("Open...", "Ctrl+O", false, !open_slot.waiting())) self.requestOpen(window);
-        const settings_count = if (self.settings) |settings| settings.recentCount() else 0;
+        const settings_count = self.settings.recentCount();
         if (ig.igBeginMenuEx("Recent", settings_count != 0)) {
             defer ig.igEndMenu();
             var path_buffer: [settings_mod.max_path:0]u8 = undefined;
             var index: usize = 0;
             while (index < settings_count) : (index += 1) {
-                const recent = self.settings.?.recentAt(index);
+                const recent = self.settings.recentAt(index);
                 const label = std.mem.printSentinel(&path_buffer, "{s}", .{recent}, 0) catch continue;
                 if (ig.igMenuItem(label.ptr)) {
                     // The list changes as it opens; open a copy.
@@ -463,7 +523,8 @@ pub const Ui = struct {
         } else |_| {}
         self.drawStateButtons();
         ig.igTextUnformatted("Translation");
-        if (self.focus_translation) {
+        // Held while the dialog is open, whose modal the focus would close.
+        if (self.focus_translation and self.filter_dialog == null) {
             ig.igSetKeyboardFocusHere();
             self.focus_translation = false;
         }

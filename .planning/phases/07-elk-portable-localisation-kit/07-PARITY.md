@@ -17,21 +17,21 @@ Legend for "Kind": **same** = identical behaviour, **adapted** = intended change
 | A5 | Four states plus `Changed` flag, state file read/write, Outdated set only by update (`SELKTextProperty`, `SetState`) | same | 07-01 | Table test of every transition, `SetState` return value | Planned |
 | A6 | Original/translation/description getters, description lookup (`<key>.dsc`, else folder `_folder.dsc`) | same | 07-01 | Test on `Data/ELK` folders with and without `.dsc` | Planned |
 | A7 | Code page setting and ANSI conversion (`nCodePage`, `ToText`, `FromText`) | adapted: dropped, Unicode native (D-07) | 07-01 | Old value read and ignored; no ANSI paths remain | Planned |
-| A8 | Recent ELK list (10), last ELK/PAK/XLS/game paths, current element, `SMainFrameParams` | adapted: `elk.cfg` replaces registry (D-16) | 07-01 (format), 07-06 (UI) | Save/reload test; recent limit 10; missing files greyed | Planned |
+| A8 | Recent ELK list (10), last ELK/PAK/XLS/game paths, current element, `SMainFrameParams` | adapted: `elk.cfg` replaces registry (D-16) | 07-01 (format), 07-06 (UI) | Save/reload test; recent limit 10; missing files greyed | Partial (07-06): recent ten and current filter in `elk.cfg`, restart-tested by `elk-smoke`; last PAK/XLS/game paths and greyed missing files open |
 | A9 | `_DATA_BASE_RESERVE` folder helpers | dropped: never used by any code path | 07-01 | Documented: grep of the MFC source shows no caller | Planned |
 
 ## B. Tree, browsing, filters, find, statistics
 
 | # | Feature | Kind | Plan | Verification | Status |
 |---|---|---|---|---|---|
-| B1 | Text tree from folder structure; folders vs texts; state colour = lowest state of children (red, yellow, green, blue) (`CELKTreeWindow::FillTree`, `UpdateFolderState`) | same | 07-01 (model), 07-06 (view) | Tree model test on `Data/ELK`; shot of the tree | Planned |
+| B1 | Text tree from folder structure; folders vs texts; state colour = lowest state of children (red, yellow, green, blue) (`CELKTreeWindow::FillTree`, `UpdateFolderState`) | same | 07-01 (model), 07-06 (view) | Tree model test on `Data/ELK`; shot of the tree | Open: tree model test (`test-elk-core`) and the harness's drawn-colour checks (`elk-smoke`) pass; the shot of the tree is still missing |
 | B2 | Tree context menu: set Translated/Approved on a text or, recursively, a folder (`UpdateSelectedText`, `UpdateSelectedFolder`) | same | 07-01, 07-06 | Folder bulk-set test with propagated parent colours | Planned |
-| B3 | Select item shows original, description, translation, state; saves previous text (`OnETNTextSelected`, `OnETNFolderSelected`) | same | 07-06 | `BK_ELK_AUTO` script; file bytes after navigation | Planned |
-| B4 | Browse First/Previous/Next/Last through the active filter, enable/disable by availability; Ctrl+N, Ctrl+P (`GetNextItem` ...) | same | 07-01 (logic), 07-06 (UI) | Filter walk test; hot keys in the harness | Planned |
-| B5 | Collapse-item mode (tree collapses other branches while browsing); always on in short mode | same | 07-06 | Harness check of expanded set | Planned |
-| B6 | Five built-in filters (All, Not translated, Outdated, Translated, Approved) | same | 07-01, 07-06 | Filter Check table test | Planned |
-| B7 | Filter editor: named filters, conditions = OR of AND-lists of folder substrings, state mask, "translated" flag, add/rename/delete, unique-name rule (`CCreateFilterDialog`, `SSimpleFilter::Check`) | same | 07-01 (logic), 07-07 (dialog) | Logic tests; dialog driven by the harness; persisted in `elk.cfg` | Planned |
-| B8 | Filter combo in the browse toolbar; current filter saved | same | 07-06 | Restart test | Planned |
+| B3 | Select item shows original, description, translation, state; saves previous text (`OnETNTextSelected`, `OnETNFolderSelected`) | same | 07-06 | `BK_ELK_AUTO` script; file bytes after navigation | Partial (07-06): original, translation and state shown, the left text saved and visits byte-checked (`elk-smoke`); the description view open (C1) |
+| B4 | Browse First/Previous/Next/Last through the active filter, enable/disable by availability; Ctrl+N, Ctrl+P (`GetNextItem` ...) | same | 07-01 (logic), 07-06 (UI) | Filter walk test; hot keys in the harness | Verified (07-06): `tree`/`session` filter walk tests; `elk-smoke` walks by menu, Ctrl+N/P and Alt+N/P |
+| B5 | Collapse-item mode (tree collapses other branches while browsing); always on in short mode | same | 07-06 | Harness check of expanded set | Partial (07-06): Collapse Item (Browse menu and filter bar, on by default, kept in `elk.cfg`) closes the element a step leaves; `elk-smoke` checks the expanded set with it on and off and over a restart. "Always on in short mode" joins the short layout (G2) |
+| B6 | Five built-in filters (All, Not translated, Outdated, Translated, Approved) | same | 07-01, 07-06 | Filter Check table test | Verified (07-06): `filter` Check table test; the five are the bar's filters with none in `elk.cfg` |
+| B7 | Filter editor: named filters, conditions = OR of AND-lists of folder substrings, state mask, "translated" flag, add/rename/delete, unique-name rule (`CCreateFilterDialog`, `SSimpleFilter::Check`) | same | 07-01 (logic), 07-06 (dialog) | Logic tests; dialog driven by the harness; persisted in `elk.cfg` | Verified (07-06): `settings`/`filter` tests (add, unique `_N` names, rename in place, delete falling back to All, conditions); `elk-smoke` drives the dialog (create, apply, rename, Cancel, delete) and a restart finds it in `elk.cfg`. Adapted: the name and the folder substrings are typed in the dialog, not chosen in a second dialog and a folder list; the last filter cannot be deleted |
+| B8 | Filter combo in the browse toolbar; current filter saved | same | 07-06 | Restart test | Verified (07-06): `elk-smoke` chooses a filter and a second run starts with it |
 | B9 | Find: text over original, description, translation, direction, match case, whole word, resume position, cancel, selects tree node and text range (`FindItem`, `SSearchParam`) | same | 07-01 (logic), 07-06 (dialog) | Search tests incl. whole word, wrap; cancel test | Planned |
 | B10 | Statistics window: tree of items/words/word symbols/symbols per state, original and translation separately, sums nest, previous snapshot (`CStatisticDialog`, `CreateStatistic`, `GetTextCounts`) | same | 07-01 (logic), 07-06 (window) | Counts equal the values stored in `Data/ELK/elk.xml` for the same database | Planned |
 | B11 | Progress dialog with message, range, position (`CProgressDialog`) | same | 07-06 | Worker test; cancel leaves files whole | Planned |
@@ -40,12 +40,12 @@ Legend for "Kind": **same** = identical behaviour, **adapted** = intended change
 
 | # | Feature | Kind | Plan | Verification | Status |
 |---|---|---|---|---|---|
-| C1 | Read-only original and description views with select/copy | same | 07-06 | Harness | Planned |
+| C1 | Read-only original and description views with select/copy | same | 07-06 | Harness | Partial (07-06): read-only original with select/copy; the description view open |
 | C2 | Editable translation box: Undo, Cut, Copy, Paste, Delete, Select All, context menu, Unicode input | same (ImGui multiline undo) | 07-06 | Harness clipboard round trip | Planned |
-| C3 | State radio buttons Not translated / Translated / Approved; automatic Translated on first edit, back to the initial state when the text returns to the original; manual state wins (`OnChangeTranslateEdit`, `bManualState`) | same | 07-06 | State machine test in core; harness | Planned |
+| C3 | State radio buttons Not translated / Translated / Approved; automatic Translated on first edit, back to the initial state when the text returns to the original; manual state wins (`OnChangeTranslateEdit`, `bManualState`) | same | 07-06 | State machine test in core; harness | Partial (07-06): radio buttons, automatic Translated on the first edit and the manual state winning, tested in `session` and `elk-smoke`; the return to the initial state when the text is back to the original open |
 | C4 | Grey/disabled translation for folders; description of a folder shown | same | 07-06 | Shot | Planned |
 | C5 | Image next to the description: `icon.tga` of the text's game folder if present (`LoadGameImage`) | superset: also reads from `.pak` archives, not only unpacked data | 07-06 | Shot on a `Data/Units` text; missing image hides the panel | Planned |
-| C6 | Save on navigation, Save, Close, Exit (`OnFileSave`, `CloseELK`) | superset: plus 30 s while dirty, atomic writes (D-15) | 07-06 | Kill test: no half-written file | Planned |
+| C6 | Save on navigation, Save, Close, Exit (`OnFileSave`, `CloseELK`) | superset: plus 30 s while dirty, atomic writes (D-15) | 07-06 | Kill test: no half-written file | Verified (07-06): `session` save-point tests; `elk-smoke` proves leave, Ctrl+S, Close, Exit and the 30 s autosave on disk, and a killed frame loop leaves the autosaved file whole |
 | C7 | Status bar with tooltips of the hovered action | same | 07-06 | Shot | Planned |
 | C8 | Window title with the selected text path | same | 07-06 | Harness | Planned |
 
