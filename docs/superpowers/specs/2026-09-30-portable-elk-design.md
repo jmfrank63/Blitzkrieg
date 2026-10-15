@@ -455,6 +455,24 @@ core modules); then 07-06; then 07-07; then 07-08.
 - **E-06** The game started with `-mod=<Name>` on an ELK-exported mod shows an
   edited string from the export (verified by the game's own text lookup and a
   capture), on macOS arm64 and on win-home.
+  Recorded on Linux x64 (`zig build elk-game-reads-it`,
+  `tools/zig/elk_game_reads_it.zig`): a copy of `Data/ELK` is exported to
+  `mods/ELKTest/data/texts.pak` of the install and the real Game run with
+  `-mod=ELKTest -profile=ELKTest`, its working directory, `XDG_DATA_HOME` and
+  `BK_USER_ROOT` in a scratch folder, to its own `-reference-scene` capture
+  of the main menu at 1024x768; then `textes/strings/imheader-gbutton-exitgame`
+  (Exit Game) gets the translation `ELK E-06 MARKER`, the database is
+  exported again and the Game captured the same way. Both runs exit 0;
+  BK_MOD_TRACE shows the label opened from the MOD and BK_UI_TRACE the
+  main menu at scale 1, so the button is at (650,527)-(970,577) as
+  `MainMenu.xml` places it; 1,795 pixels differ between the frames, all in
+  (732,543)-(890,563), inside the button. This found a Linux bug in the
+  game, fixed with it: `CICChangeMOD` lower-cases the mod's name and
+  StreamIO looked the `*.pak` folder up by that exact spelling, so a mod
+  folder `ELKTest` mounted its `mod.xml` (loose files resolve without regard
+  to case) but none of its paks; `loadArchives` now resolves the folder the
+  same way (`test-streamio`). macOS and Windows are left to CI and the
+  maintainer.
 - **E-07** `BK_ELK_AUTO` drives every menu command in both layouts on macOS
   and Windows without an error, with shot comparison.
 - **E-08** Spell check flags a known misspelling in an English text with

@@ -827,9 +827,18 @@ fn storageNameLessThan(_: void, left: [:0]u8, right: [:0]u8) bool {
 }
 
 fn loadArchives(storage: *Storage) void {
-    const directory_path = hostPathAlloc(storage.base) orelse return;
+    var directory_path = hostPathAlloc(storage.base) orelse return;
     defer allocator.free(directory_path);
-    var directory = std.Io.Dir.cwd().openDir(hostIo(), directory_path, .{ .iterate = true }) catch return;
+    // The folder resolves like a loose file does: CICChangeMOD lower-cases a
+    // mod's name, and a Mods/ELKTest on a POSIX disk otherwise mounted its
+    // mod.xml but none of its PAKs.
+    var directory = std.Io.Dir.cwd().openDir(hostIo(), directory_path, .{ .iterate = true }) catch reopen: {
+        if (builtin.os.tag == .windows) return;
+        const resolved = resolveCaseInsensitivePath(directory_path) orelse return;
+        allocator.free(directory_path);
+        directory_path = resolved;
+        break :reopen std.Io.Dir.cwd().openDir(hostIo(), directory_path, .{ .iterate = true }) catch return;
+    };
     defer directory.close(hostIo());
     var iterator = directory.iterate();
     while (iterator.next(hostIo()) catch null) |entry| {
@@ -2551,6 +2560,28 @@ test "storage opens an entry from a repository PAK" {
     const stream_handle = bk_storage_open(handle, entry_name.ptr, 1) orelse return error.TestUnexpectedResult;
     defer bk_stream_destroy(stream_handle);
     try std.testing.expectEqual(@as(c_int, @intCast(first_entry.uncompressed_size)), bk_stream_size(stream_handle));
+}
+
+test "storage finds the PAKs of a folder spelled in another case" {
+    // CICChangeMOD lower-cases the mod's name, so -mod=ELKTest asks for
+    // mods\elktest\data\*.pak while the folder on disk is Mods/ELKTest.
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const io = hostIo();
+    try tmp.dir.createDirPath(io, "Mods/ELKTest/data");
+    const pak = try std.Io.Dir.cwd().readFileAlloc(io, "Data/ELK/texts.pak", allocator, .limited(16 << 20));
+    defer allocator.free(pak);
+    try tmp.dir.writeFile(io, .{ .sub_path = "Mods/ELKTest/data/texts.pak", .data = pak });
+
+    var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const root = buffer[0..try tmp.dir.realPath(io, &buffer)];
+    const mask = try std.fmt.allocPrintSentinel(allocator, "{s}\\mods\\elktest\\data\\*.pak", .{root}, 0);
+    defer allocator.free(mask);
+    const handle = bk_storage_create(mask.ptr, 1, 0) orelse return error.TestUnexpectedResult;
+    defer bk_storage_destroy(handle);
+    const stream_handle = bk_storage_open(handle, "textes\\strings\\imheader-gbutton-exitgame.txt", 1) orelse return error.TestUnexpectedResult;
+    defer bk_stream_destroy(stream_handle);
+    try std.testing.expect(bk_stream_size(stream_handle) > 2);
 }
 
 test "storage overlay exposes child archive entries" {

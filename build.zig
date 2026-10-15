@@ -3371,6 +3371,29 @@ pub fn build(b: *std.Build) void {
     elk_core_step.dependOn(&elk_core_tests.step);
     if (test_mode == .run) elk_core_step.dependOn(&elk_core_tests_run.step);
     test_step.dependOn(elk_core_step);
+    // E-06 on the real Game: the tracked Data/ELK exported to mods/ELKTest of
+    // the install, the Game's own main-menu capture before and after a marker
+    // translation of one label, and the frames measured
+    // (tools/zig/elk_game_reads_it.zig). It needs a desktop and a GPU, so it
+    // is not part of `test`.
+    const elk_game_reads_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/elk_game_reads_it.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "elk", .module = elk_core_module }},
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, elk_game_reads_module, toolchain);
+    }
+    const elk_game_reads_tests = b.addTest(.{ .root_module = elk_game_reads_module });
+    const elk_game_reads_run = b.addRunArtifact(elk_game_reads_tests);
+    elk_game_reads_run.setCwd(b.path("."));
+    elk_game_reads_run.setEnvironmentVariable("BK_ELK_GAME", rootPath(b, b.fmt("{s}/{s}", .{ stage_root, stage_game_name })));
+    elk_game_reads_run.has_side_effects = true;
+    elk_game_reads_run.step.dependOn(install_game_step);
+    const elk_game_reads_step = b.step("elk-game-reads-it", "Export the tracked Data/ELK to mods/ELKTest, capture the real Game's main menu before and after a marker translation of one label and prove from the frames that it shows the marker there (E-06)");
+    elk_game_reads_step.dependOn(&elk_game_reads_tests.step);
+    if (test_mode == .run) elk_game_reads_step.dependOn(&elk_game_reads_run.step);
     // The resource app's pure logic tier (S05 T08): panels_logic.zig against
     // the fake resource bridge, built on every target like test-resource-core.
     // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled
