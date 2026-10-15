@@ -1,0 +1,151 @@
+//! The common test of the `bk-*` command-line conventions (Phase 8, D-04),
+//! run against the built executables rather than their `run` functions, so it
+//! checks what a modder's shell sees: exit codes and which stream says what.
+//! The rules themselves are documented in `bk_tool.zig`.
+//!
+//! Each tool contributes one row to `tools`: arguments that are bad usage, an
+//! operation that fails, and one that succeeds, all run in a fresh temporary
+//! directory its `setup` fills. build.zig passes each executable's path in the
+//! `bk_tools` options module; adding a tool is a row here and an option there.
+
+const std = @import("std");
+const bk_tools = @import("bk_tools");
+
+const Tool = struct {
+    name: []const u8,
+    path: []const u8,
+    /// Invocations that must exit 2 with the usage on stderr.
+    bad_usage: []const []const []const u8,
+    /// An invocation that must exit 1 with one `<name>: ` line on stderr.
+    failing: []const []const u8,
+    /// An invocation that must exit 0 and print a one-line summary last.
+    succeeding: []const []const u8,
+    /// Lines the success may print before its summary (a listing).
+    success_lines: usize = 1,
+    setup: *const fn (io: std.Io, dir: std.Io.Dir) anyerror!void,
+};
+
+const tools = [_]Tool{
+    .{
+        .name = "bk-pak",
+        .path = bk_tools.bk_pak,
+        .bad_usage = &.{
+            &.{},
+            &.{"frobnicate"},
+            &.{"pack"},
+            &.{ "list", "a.pak", "extra" },
+            &.{ "verify", "a.pak", "--force" },
+            &.{ "pack", "tree", "out.pak", "--level=9" },
+        },
+        .failing = &.{ "verify", "missing.pak" },
+        // Backslashes on input, whatever the host.
+        .succeeding = &.{ "pack", "mod\\tree", "mod\\out.pak" },
+        .setup = setupPak,
+    },
+};
+
+fn setupPak(io: std.Io, dir: std.Io.Dir) !void {
+    try dir.createDirPath(io, "mod/tree/units");
+    var file = try dir.createFile(io, "mod/tree/units/1.xml", .{});
+    defer file.close(io);
+    try file.writeStreamingAll(io, "<RPG/>\n");
+}
+
+const Result = struct {
+    code: u8,
+    stdout: []u8,
+    stderr: []u8,
+
+    fn deinit(result: Result, gpa: std.mem.Allocator) void {
+        gpa.free(result.stdout);
+        gpa.free(result.stderr);
+    }
+};
+
+fn runTool(gpa: std.mem.Allocator, io: std.Io, exe: []const u8, cwd: std.Io.Dir, args: []const []const u8) !Result {
+    var argv = std.ArrayList([]const u8).empty;
+    defer argv.deinit(gpa);
+    try argv.append(gpa, exe);
+    try argv.appendSlice(gpa, args);
+    const result = try std.process.run(gpa, io, .{
+        .argv = argv.items,
+        .cwd = .{ .dir = cwd },
+        .stdout_limit = .limited(1024 * 1024),
+        .stderr_limit = .limited(1024 * 1024),
+    });
+    const code: u8 = switch (result.term) {
+        .exited => |code| code,
+        else => 255,
+    };
+    return .{ .code = code, .stdout = result.stdout, .stderr = result.stderr };
+}
+
+fn lineCount(text: []const u8) usize {
+    return std.mem.count(u8, text, "\n");
+}
+
+fn checkTool(tool: Tool) !void {
+    const io = std.testing.io;
+    const gpa = std.testing.allocator;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tool.setup(io, tmp.dir);
+    // The build hands over a path relative to the build root (the test's cwd),
+    // and the tool runs inside the temporary directory.
+    const exe = try std.Io.Dir.cwd().realPathFileAlloc(io, tool.path, gpa);
+    defer gpa.free(exe);
+    const usage_prefix = try std.fmt.allocPrint(gpa, "usage: {s} ", .{tool.name});
+    defer gpa.free(usage_prefix);
+
+    for ([_][]const []const u8{ &.{"--help"}, &.{"-h"}, &.{ tool.succeeding[0], "--help" } }) |args| {
+        const result = try runTool(gpa, io, exe, tmp.dir, args);
+        defer result.deinit(gpa);
+        try std.testing.expectEqual(@as(u8, 0), result.code);
+        try std.testing.expect(std.mem.startsWith(u8, result.stdout, usage_prefix));
+        try std.testing.expectEqualStrings("", result.stderr);
+    }
+
+    for (tool.bad_usage) |args| {
+        const result = try runTool(gpa, io, exe, tmp.dir, args);
+        defer result.deinit(gpa);
+        std.testing.expectEqual(@as(u8, 2), result.code) catch |err| {
+            std.debug.print("{s}: bad usage {any} exited {d}\n", .{ tool.name, args, result.code });
+            return err;
+        };
+        try std.testing.expectEqualStrings("", result.stdout);
+        try std.testing.expect(std.mem.startsWith(u8, result.stderr, usage_prefix));
+    }
+
+    {
+        const result = try runTool(gpa, io, exe, tmp.dir, tool.failing);
+        defer result.deinit(gpa);
+        try std.testing.expectEqual(@as(u8, 1), result.code);
+        try std.testing.expectEqualStrings("", result.stdout);
+        try std.testing.expect(std.mem.startsWith(u8, result.stderr, tool.name));
+        try std.testing.expect(std.mem.startsWith(u8, result.stderr[tool.name.len..], ": "));
+        try std.testing.expectEqual(@as(usize, 1), lineCount(result.stderr));
+    }
+
+    {
+        const result = try runTool(gpa, io, exe, tmp.dir, tool.succeeding);
+        defer result.deinit(gpa);
+        std.testing.expectEqual(@as(u8, 0), result.code) catch |err| {
+            std.debug.print("{s}: success case failed: {s}\n", .{ tool.name, result.stderr });
+            return err;
+        };
+        try std.testing.expectEqualStrings("", result.stderr);
+        try std.testing.expectEqual(tool.success_lines, lineCount(result.stdout));
+        // A path the tool prints uses the host's separator.
+        const other_sep: u8 = if (std.fs.path.sep == '/') '\\' else '/';
+        try std.testing.expect(std.mem.indexOfScalar(u8, result.stdout, other_sep) == null);
+    }
+}
+
+test "every bk tool follows the shared command-line conventions" {
+    for (tools) |tool| {
+        checkTool(tool) catch |err| {
+            std.debug.print("convention broken by {s}\n", .{tool.name});
+            return err;
+        };
+    }
+}

@@ -1944,6 +1944,64 @@ pub fn build(b: *std.Build) void {
     const season_textures_test_step = b.step("test-season-textures", "Run the season texture tool's codec and transform tests");
     season_textures_test_step.dependOn(&season_textures_tests.step);
     if (test_mode == .run) season_textures_test_step.dependOn(&b.addRunArtifact(season_textures_tests).step);
+
+    // The bk-* modding tools (Phase 8). `bk-pak` makes, unpacks, lists and
+    // verifies `.pak` archives with the release packager's own writer. It is
+    // std-only Zig, so it is built for the selected target and installed to
+    // zig-out/bin; its tests run a host build. `test-bk-tools` is the shared
+    // command-line convention test every bk-* tool is registered in.
+    const bk_pak = b.addExecutable(.{
+        .name = "bk-pak",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_pak.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    const bk_pak_step = b.step("bk-pak", "Build and install the bk-pak .pak archive tool");
+    bk_pak_step.dependOn(&b.addInstallArtifact(bk_pak, .{}).step);
+    const bk_pak_host = b.addExecutable(.{
+        .name = "bk-pak",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/zig/bk_pak.zig"),
+            .target = b.graph.host,
+            .optimize = .debug,
+        }),
+    });
+    const bk_tools_options = b.addOptions();
+    bk_tools_options.addOptionPath("bk_pak", bk_pak_host.getEmittedBin());
+    const bk_tools_test_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_tool_conventions_test.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    });
+    bk_tools_test_module.addOptions("bk_tools", bk_tools_options);
+    const bk_tools_tests = b.addTest(.{ .root_module = bk_tools_test_module });
+    const bk_tools_tests_run = b.addRunArtifact(bk_tools_tests);
+    // The options hold build-root-relative paths; the test resolves them
+    // from its cwd.
+    bk_tools_tests_run.setCwd(b.path("."));
+    const bk_tools_test_step = b.step("test-bk-tools", "Run the bk-* tools' shared command-line convention test");
+    bk_tools_test_step.dependOn(&bk_tools_tests.step);
+    if (test_mode == .run) bk_tools_test_step.dependOn(&bk_tools_tests_run.step);
+    const bk_tool_tests = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_tool.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    }) });
+    const bk_pak_tests = b.addTest(.{ .root_module = b.createModule(.{
+        .root_source_file = b.path("tools/zig/bk_pak_test.zig"),
+        .target = b.graph.host,
+        .optimize = .debug,
+    }) });
+    const bk_pak_test_step = b.step("test-bk-pak", "Run the bk-pak archive tests and the bk-* convention test");
+    bk_pak_test_step.dependOn(&bk_tool_tests.step);
+    bk_pak_test_step.dependOn(&bk_pak_tests.step);
+    bk_pak_test_step.dependOn(bk_tools_test_step);
+    if (test_mode == .run) {
+        bk_pak_test_step.dependOn(&b.addRunArtifact(bk_tool_tests).step);
+        bk_pak_test_step.dependOn(&b.addRunArtifact(bk_pak_tests).step);
+    }
     // The same tool, run by every staging (install-game, and so
     // install-map-editor and every tier staged on it, package-game and
     // package-game-editors, with or without -Dcopy-data): see addSeasonData.
