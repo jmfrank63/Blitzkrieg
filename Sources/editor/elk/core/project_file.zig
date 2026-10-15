@@ -59,6 +59,14 @@ pub const Project = struct {
     previous_statistic: Statistic = .{},
     statistic: Statistic = .{},
 
+    /// A new project, as a default-constructed `CELK`: no elements, both
+    /// statistics invalid and empty. The MFC ELK had no "New" command; an
+    /// import into an `elk.xml` that does not exist yet started from this
+    /// and saved it with the element the import added.
+    pub fn empty(gpa: std.mem.Allocator) Project {
+        return .{ .arena = std.heap.ArenaAllocator.init(gpa) };
+    }
+
     pub fn deinit(self: *Project) void {
         self.arena.deinit();
     }
@@ -86,7 +94,7 @@ pub fn parse(gpa: std.mem.Allocator, bytes: []const u8) ParseError!Project {
                 .version = value(item, "Version") orelse "",
                 .last_update_number = intValue(item, "LastUpdateNumber") orelse -2,
             };
-            if (xml.child(item, "Description")) |node| element.description = parseDescriptionNode(node);
+            if (xml.child(item, "Description")) |node| element.description = parseDescriptionNode(node, .{});
             try elements.append(arena, element);
         }
     }
@@ -97,10 +105,13 @@ pub fn parse(gpa: std.mem.Allocator, bytes: []const u8) ParseError!Project {
 }
 
 /// The element description in `<element>_data_base/resource.description`,
-/// slices into `bytes`; null when it does not parse.
-pub fn parseResourceDescription(arena: std.mem.Allocator, bytes: []const u8) ?Description {
+/// read over `current` as the engine's data tree read it: a field the file
+/// lacks keeps its value (`game_1.upd`'s copy has no `Fonts`, and the
+/// tracked `elk.xml` the MFC ELK wrote after importing it kept `Fonts=1`).
+/// Slices into `bytes`; null when it does not parse.
+pub fn parseResourceDescription(arena: std.mem.Allocator, bytes: []const u8, current: Description) ?Description {
     const document = xml.parse(arena, bytes) catch return null;
-    return parseDescriptionNode(document.root);
+    return parseDescriptionNode(document.root, current);
 }
 
 /// The part of a stored path after its last separator: the MFC ELK split at
@@ -139,12 +150,12 @@ pub fn write(gpa: std.mem.Allocator, project: *const Project, file_name: []const
     return out.toOwnedSlice(gpa);
 }
 
-fn parseDescriptionNode(node: *const xml.Node) Description {
+fn parseDescriptionNode(node: *const xml.Node, current: Description) Description {
     return .{
-        .name = value(node, "Name") orelse "",
-        .pak = value(node, "PAK") orelse "",
-        .upd = value(node, "UPD") orelse "",
-        .fonts = if (value(node, "Fonts")) |text| state.parseBool(text) else false,
+        .name = value(node, "Name") orelse current.name,
+        .pak = value(node, "PAK") orelse current.pak,
+        .upd = value(node, "UPD") orelse current.upd,
+        .fonts = if (value(node, "Fonts")) |text| state.parseBool(text) else current.fonts,
     };
 }
 
@@ -305,6 +316,19 @@ test "a written project reads back equal, escapes included" {
     try testing.expect(!back.statistic.valid);
 }
 
+test "a new project writes the elements and statistics of a default CELK" {
+    var project = Project.empty(testing.allocator);
+    defer project.deinit();
+    const written = try write(testing.allocator, &project, "elk.xml");
+    defer testing.allocator.free(written);
+    try testing.expectEqualStrings("<?xml version=\"1.0\"?>\r\n<base><Elements/><Path>elk.xml</Path>" ++
+        "<PreviousStatistic Valid=\"0\"><Orininal/><Translation/></PreviousStatistic>" ++
+        "<Statistic Valid=\"0\"><Orininal/><Translation/></Statistic></base>\r\n", written);
+    var back = try parse(testing.allocator, written);
+    defer back.deinit();
+    try testing.expectEqual(@as(usize, 0), back.elements.len);
+}
+
 test "Path values keep only the bare name, from either separator" {
     try testing.expectEqualStrings("game", bareName("C:\\Users\\x\\Data\\ELK\\game"));
     try testing.expectEqualStrings("game", bareName("/home/x/Data/ELK/game"));
@@ -320,9 +344,15 @@ test "resource.description reads the element description" {
     defer testing.allocator.free(bytes);
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
-    const description = parseResourceDescription(arena.allocator(), bytes).?;
+    const description = parseResourceDescription(arena.allocator(), bytes, .{}).?;
     try testing.expectEqualStrings("Game Resources", description.name);
     try testing.expectEqualStrings("texts.pak", description.pak);
     try testing.expectEqualStrings("elk", description.upd);
     try testing.expect(description.fonts);
+
+    // A field the file lacks keeps the element's value.
+    const kept = parseResourceDescription(arena.allocator(), "<base><Name>Game Resources</Name></base>", .{ .pak = "texts.pak", .fonts = true }).?;
+    try testing.expectEqualStrings("Game Resources", kept.name);
+    try testing.expectEqualStrings("texts.pak", kept.pak);
+    try testing.expect(kept.fonts);
 }

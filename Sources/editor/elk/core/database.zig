@@ -238,7 +238,7 @@ fn osPath(gpa: std.mem.Allocator, base: []const u8, relative: []const u8) ![]u8 
     return path;
 }
 
-const Resolved = struct {
+pub const Resolved = struct {
     /// Owned by the caller.
     path: []u8,
     exists: bool,
@@ -248,7 +248,7 @@ const Resolved = struct {
 /// matched without regard to case when its exact spelling is missing: the
 /// folders, then the file. From the first component that is missing at all,
 /// the rest is taken as spelled and `exists` is false.
-fn resolve(gpa: std.mem.Allocator, io: std.Io, base: []const u8, relative: []const u8) !Resolved {
+pub fn resolve(gpa: std.mem.Allocator, io: std.Io, base: []const u8, relative: []const u8) !Resolved {
     const cwd = std.Io.Dir.cwd();
     const exact = try osPath(gpa, base, relative);
     if (cwd.statFile(io, exact, .{})) |stat| {
@@ -275,7 +275,7 @@ fn resolve(gpa: std.mem.Allocator, io: std.Io, base: []const u8, relative: []con
 
 /// The path of the entry of `kind` named `name` (without regard to case) in
 /// the folder `parent`, or null.
-fn findEntry(gpa: std.mem.Allocator, io: std.Io, parent: []const u8, name: []const u8, kind: std.Io.File.Kind) !?[]u8 {
+pub fn findEntry(gpa: std.mem.Allocator, io: std.Io, parent: []const u8, name: []const u8, kind: std.Io.File.Kind) !?[]u8 {
     var dir = std.Io.Dir.cwd().openDir(io, parent, .{ .iterate = true }) catch return null;
     defer dir.close(io);
     var it = dir.iterate();
@@ -316,9 +316,11 @@ fn lessThan(_: void, a: []const u8, b: []const u8) bool {
 }
 
 const testing = std.testing;
+/// Scratch for the core tests; the fixture helpers below are shared with
+/// the package tests.
 const scratch = "zig-out/local-test/elk/core";
 
-fn copyTree(io: std.Io, from: []const u8, to: []const u8) !void {
+pub fn copyTree(io: std.Io, from: []const u8, to: []const u8) !void {
     const cwd = std.Io.Dir.cwd();
     var dir = try cwd.openDir(io, from, .{ .iterate = true });
     defer dir.close(io);
@@ -336,34 +338,34 @@ fn copyTree(io: std.Io, from: []const u8, to: []const u8) !void {
 }
 
 /// A clean scratch folder for one test.
-fn freshScratch(io: std.Io, name: []const u8) ![]u8 {
+pub fn freshScratch(io: std.Io, name: []const u8) ![]u8 {
     const path = try std.fs.path.join(testing.allocator, &.{ scratch, name });
     std.Io.Dir.cwd().deleteTree(io, path) catch {};
     try std.Io.Dir.cwd().createDirPath(io, path);
     return path;
 }
 
-fn writeFixture(io: std.Io, root: []const u8, relative: []const u8, bytes: []const u8) !void {
+pub fn writeFixture(io: std.Io, root: []const u8, relative: []const u8, bytes: []const u8) !void {
     const path = try std.fs.path.join(testing.allocator, &.{ root, relative });
     defer testing.allocator.free(path);
     if (std.fs.path.dirname(path)) |parent| try std.Io.Dir.cwd().createDirPath(io, parent);
     try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = path, .data = bytes });
 }
 
-fn readFixture(io: std.Io, root: []const u8, relative: []const u8) ![]u8 {
+pub fn readFixture(io: std.Io, root: []const u8, relative: []const u8) ![]u8 {
     const path = try std.fs.path.join(testing.allocator, &.{ root, relative });
     defer testing.allocator.free(path);
     return std.Io.Dir.cwd().readFileAlloc(io, path, testing.allocator, .limited(1 << 20));
 }
 
-fn fixtureExists(io: std.Io, root: []const u8, relative: []const u8) bool {
+pub fn fixtureExists(io: std.Io, root: []const u8, relative: []const u8) bool {
     const path = std.fs.path.join(testing.allocator, &.{ root, relative }) catch return false;
     defer testing.allocator.free(path);
     _ = std.Io.Dir.cwd().statFile(io, path, .{}) catch return false;
     return true;
 }
 
-fn utf16(comptime text: []const u8) []const u8 {
+pub fn utf16(comptime text: []const u8) []const u8 {
     comptime var out: []const u8 = &text_codec.bom_le;
     inline for (text) |byte| out = out ++ [_]u8{ byte, 0 };
     return out;

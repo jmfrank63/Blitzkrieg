@@ -128,6 +128,25 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   keeps the MFC order (`<key>.dsc`, then `_folder.dsc` from the text's
   parent folder upward, skipping its own folder) but stops at the database
   folder instead of climbing on to the drive root.
+  Recorded in 07-02 (imports): an import is `UpdateELK` given one file,
+  whose name picks the element (`<title>_<n>`, cut at the last underscore
+  even when no number follows), `LastUpdateNumber` and the kind (`.upd`
+  complete, anything else partial); a missing element is added and a
+  missing `elk.xml` created, which is how the MFC ELK made a new database
+  (it had no New command). The MFC state rule is kept as written: a changed
+  original makes a Translated or Approved text Outdated and any other text
+  Not translated, so an Outdated text whose original changes again drops to
+  Not translated. A complete update deletes only the `.elk` of texts it
+  lacks. `resource.description` is read over the element's description as
+  the data tree did: a field it lacks keeps its value (`game_1.upd`'s copy
+  has no `Fonts`; the tracked `elk.xml` kept `Fonts="1"`). Element names
+  match the file title without regard to case; a file whose bytes would not
+  change is not rewritten, so a repeated import writes nothing; the Version
+  names the bare package file and its time is UTC at two-second steps. Import
+  from game reads the loose `.txt`/`.dsc`/`.description` files of a data
+  folder straight into the database (no intermediate `.pak`), its Version
+  time being the newest file's. Re-importing `game_1.upd`, from which
+  `Data/ELK` was built, leaves every database file byte-identical.
 - **D-06 Text codec.** Files are UTF-16LE with `FF FE`; reads also tolerate a
   missing BOM and a big-endian BOM; writes always use `FF FE`, CRLF, and strip
   trailing CR/LF/NUL exactly like `CELK::FromWideText`. An untouched text
