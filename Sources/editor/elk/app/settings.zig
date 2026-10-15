@@ -16,8 +16,11 @@
 //! The game folder (`game_folder=`) is where File > Export to language mod,
 //! Install to game and Run Game write and start the game; empty means the
 //! folder ELK runs from, which is the game's when ELK is installed beside it.
-//! The rest of D-16 (last PAK and XLS folders, fonts, toolbars, spell
-//! checking) joins with the features that use it.
+//! Spell check keeps its dictionary folder (`spell_folder=`, empty meaning
+//! `dictionaries` beside ELK) and language (`spell_language=`, a dictionary's
+//! name such as `en_US`; empty or missing takes the folder's first). The rest
+//! of D-16 (last PAK and XLS folders, fonts, toolbars) joins with the
+//! features that use it.
 //!
 //! Where the file lives: `<UserRoot>elk/elk.cfg`, the user root being the
 //! game's own (Platform/Paths.cpp: `$XDG_DATA_HOME/Nival/Blitzkrieg/` or
@@ -65,6 +68,17 @@ pub const Settings = struct {
     find_whole_word: bool = false,
     /// The game installation exports and Run Game use; empty is ELK's own folder.
     game_folder_storage: FixedPath = .{},
+    /// Spell check's dictionary folder; empty is `dictionaries` beside ELK.
+    spell_folder_storage: FixedPath = .{},
+    spell_language_storage: FixedPath = .{},
+
+    pub fn spellFolder(self: *const Settings) []const u8 {
+        return self.spell_folder_storage.slice();
+    }
+
+    pub fn spellLanguage(self: *const Settings) []const u8 {
+        return self.spell_language_storage.slice();
+    }
 
     pub fn gameFolder(self: *const Settings) []const u8 {
         return self.game_folder_storage.slice();
@@ -259,6 +273,10 @@ pub fn parse(text: []const u8) Settings {
             settings.find_whole_word = std.mem.eql(u8, value, "1");
         } else if (std.mem.eql(u8, key, "game_folder")) {
             settings.game_folder_storage.set(value);
+        } else if (std.mem.eql(u8, key, "spell_folder")) {
+            settings.spell_folder_storage.set(value);
+        } else if (std.mem.eql(u8, key, "spell_language")) {
+            settings.spell_language_storage.set(value);
         } else _ = ks.applySharedKey(&settings, key, value);
     }
     return settings;
@@ -280,6 +298,8 @@ pub fn format(settings: *const Settings, writer: *std.Io.Writer) std.Io.Writer.E
     try writer.print("find_match_case={d}\n", .{@intFromBool(settings.find_match_case)});
     try writer.print("find_whole_word={d}\n", .{@intFromBool(settings.find_whole_word)});
     try writer.print("game_folder={s}\n", .{settings.gameFolder()});
+    try writer.print("spell_folder={s}\n", .{settings.spellFolder()});
+    try writer.print("spell_language={s}\n", .{settings.spellLanguage()});
 }
 
 /// The settings file: the override when one is given, else
@@ -424,6 +444,21 @@ test "the game folder round-trips; none is ELK's own" {
     var writer: std.Io.Writer = .fixed(&buffer);
     try format(&settings, &writer);
     try testing.expectEqualStrings("/games/Blitzkrieg", parse(writer.buffered()).gameFolder());
+}
+
+test "the spell folder and language round-trip; none is ELK's own folder and its first" {
+    const defaults = parse("");
+    try testing.expectEqualStrings("", defaults.spellFolder());
+    try testing.expectEqualStrings("", defaults.spellLanguage());
+    var settings: Settings = .{};
+    settings.spell_folder_storage.set("/dictionaries");
+    settings.spell_language_storage.set("en_US");
+    var buffer: [2048]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    const again = parse(writer.buffered());
+    try testing.expectEqualStrings("/dictionaries", again.spellFolder());
+    try testing.expectEqualStrings("en_US", again.spellLanguage());
 }
 
 test "the file lives in the game's user root unless the seam names one" {

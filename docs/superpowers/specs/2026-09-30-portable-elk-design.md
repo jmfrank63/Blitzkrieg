@@ -232,6 +232,21 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   the platform spell checkers (two code paths, not testable headless,
   no user-chosen dictionaries), Word automation (Windows only, needs Office),
   and dropping spell check.
+  Recorded in 07-05 and 07-07 (spell check, 2026-10-16): Hunspell 1.7.2 is
+  vendored as source (`vendor/hunspell`, MPL 1.1 of its tri-licence) and
+  built as a static library that ELK and `test-elk-app` link; ELK calls its
+  C API. Only UTF-8 dictionaries are loaded: Hunspell compares bytes in the
+  dictionary's own encoding and ELK's texts are UTF-8, so a dictionary in
+  another `SET` (KOI8-R, ISO8859-x) leaves spell check off with a reason
+  that names the encoding. `custom.dic` lives beside `elk.cfg` (the legacy
+  `CUSTOM.DIC` there is found under either name); its lines that are not
+  UTF-8 are skipped, and an added word is also given to Hunspell, so its
+  capitalised form passes too. The wanted language missing from the folder,
+  the first one found is loaded, as `DEFAULT_LANGUAGE_INDEX` chose. No
+  dictionary is committed yet: the tests and the smoke generate a small
+  UTF-8 pair (`spelling.zig`, `en_TEST`), so the default folder
+  `<ELK dir>/dictionaries` is empty in an install and spell check starts off
+  there with its reason.
 - **D-12 Fonts: stb_truetype + FontKit.** Rasterise with `imstb_truetype.h`
   (already vendored under `vendor/dcimgui`), lay out the atlas with the same
   packing rule as `CFontGen::MeasureFont` (texture 64..4096 wide, 2:1 or 1:1,
@@ -510,6 +525,41 @@ std-only, headless, no UI. Modules:
   argument by argument and, on Linux and macOS, a stand-in `Game` script
   records the arguments it was started with; after Close the commands are
   disabled.
+  *Spell check slice (2026-10-16):* the core's `spell` module holds
+  `CSpellChecker`'s three tables (`stats` takes them from it), `GetWord`
+  over UTF-8 (the tables' ASCII bytes only, so a multi-byte character is
+  never cut), the pass listing every word neither `custom.dic` nor the
+  speller accepts, `custom.dic` read and appended through a temporary file,
+  and the dictionary folder's languages (each `<name>.aff` and
+  `<name>.dic` pair); the speller is an `Engine` seam, so the core's tests
+  run without a dictionary. The app's `hunspell.zig` is the vendored
+  Hunspell behind that seam and `spelling.zig` the state: the folder and
+  language from elk.cfg (`spell_folder=`, `spell_language=`), the Hunspell
+  loaded or the reason spell check is off (no folder set, the folder does
+  not open, it holds no pair, the dictionary is not UTF-8). Tools > Spelling
+  (F7) is enabled with a selected text and a loaded dictionary, its
+  tooltip giving the reason otherwise; its window lists each misspelt word
+  of the translation with its place, Hunspell's suggestions and Add to
+  dictionary, which writes `custom.dic` and checks again; an edit since
+  the check is noted with Check Again. Tools > Spelling Options... is the
+  Dictionary folder box (empty is `dictionaries` beside ELK), the language
+  combo of the pairs found there, and the reason. *Changes from the MFC
+  check:* every misspelt word is listed at once instead of one per F7 from
+  the last position, and the list names the offset instead of selecting
+  the word in the edit box. *Not yet:* Ignore, Ignore All, Change and
+  Change All (F1's superset), the misspelt words marked inside the edit box,
+  a Browse... for the folder, a redistributable dictionary committed with
+  its licence. `test-elk-app` runs Hunspell on the generated pair: a known
+  word, a plural from the affix rule, Cyrillic and numbers pass, "redy"
+  and "teh" are flagged with "ready" and "the" first, Add to dictionary
+  clears the flag, appends to a legacy `CUSTOM.DIC` (header and CRLF kept)
+  and holds for a new run, and each off reason is shown; `test-elk-core`
+  holds the delimiter tables character for character against
+  `SpellChecker.cpp`. `elk-smoke`'s seventh pass starts with spell check
+  off (the install has no `dictionaries`), chooses the copy's folder of the
+  generated pair in the options, types a translation, lists its
+  misspellings by F7, adds one, finds it in `custom.dic`, and a second run
+  on the same elk.cfg still accepts it in the saved translation.
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,

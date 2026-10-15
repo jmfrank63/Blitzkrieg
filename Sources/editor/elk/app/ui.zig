@@ -19,7 +19,11 @@
 //! route is the default, since the game reads a mod before its loose files;
 //! Install to game warns when a loose folder would hide its `Data/Texts.pak`
 //! and offers the mod instead; Run Game plays the mod exported this session
-//! in ELK's own test profile.
+//! in ELK's own test profile. Tools > Spelling (F7) lists the misspelt words
+//! of the selected text's translation with Hunspell's suggestions and an Add
+//! to dictionary button for each; Tools > Spelling Options... picks the
+//! dictionary folder and the language. Without a dictionary both say why
+//! spell check is off, and Spelling is disabled (spelling.zig).
 const std = @import("std");
 const builtin = @import("builtin");
 const imgui = @import("editor_imgui");
@@ -29,6 +33,7 @@ const session_mod = @import("session.zig");
 const settings_mod = @import("settings.zig");
 const window_mod = @import("editor_kit").window;
 const FilterDialog = @import("filter_dialog.zig").FilterDialog;
+const spelling_mod = @import("spelling.zig");
 
 const ig = imgui.c;
 pub const Session = session_mod.Session;
@@ -119,6 +124,20 @@ pub const Ui = struct {
     statistics: ?Statistic = null,
     statistics_arena: ?std.heap.ArenaAllocator = null,
     statistics_drawn: bool = false,
+    /// Spell check, configured from elk.cfg at its first use.
+    spelling_state: ?spelling_mod.Spelling = null,
+    /// Tools > Spelling's window: the last check's words, in `spell_arena`
+    /// with the text they were found in, which tells when they are stale.
+    spell_open: bool = false,
+    spell_drawn: bool = false,
+    spell_results: []const SpellResult = &.{},
+    spell_arena: ?std.heap.ArenaAllocator = null,
+    spell_text: ?usize = null,
+    spell_checked: []const u8 = "",
+    /// Tools > Spelling Options...: the Dictionary folder box.
+    spell_options_open: bool = false,
+    spell_options_drawn: bool = false,
+    spell_folder_buffer: [settings_mod.max_path:0]u8 = @splat(0),
     /// Run Game's environment for the Game it starts.
     environ: std.process.Environ,
     /// File > Export to language mod... is open; its popup opens in the
@@ -168,6 +187,8 @@ pub const Ui = struct {
         if (self.filter_dialog) |dialog| self.gpa.destroy(dialog);
         self.closeInstallWarning();
         self.closeStatistics();
+        self.closeSpelling();
+        if (self.spelling_state) |*state| state.deinit();
         self.marks.deinit(self.gpa);
         self.expanded.deinit(self.gpa);
         self.visible.deinit(self.gpa);
@@ -440,6 +461,137 @@ pub const Ui = struct {
         return total;
     }
 
+    /// A misspelt word of the checked translation, with its suggestions.
+    pub const SpellResult = struct { word: spelling_mod.Word, text: []const u8, suggestions: []const []const u8 };
+
+    /// Spell check's state, loading the dictionary elk.cfg names the first
+    /// time it is asked for.
+    pub fn spelling(self: *Ui) *spelling_mod.Spelling {
+        if (self.spelling_state == null) {
+            self.spelling_state = spelling_mod.Spelling.init(self.gpa, self.io);
+            self.configureSpelling();
+        }
+        return &self.spelling_state.?;
+    }
+
+    /// Loads the dictionary folder and language elk.cfg names, and the user
+    /// dictionary beside elk.cfg (none for a run without the file).
+    fn configureSpelling(self: *Ui) void {
+        var buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const user_folder: ?[]const u8 = if (self.settings_path.len == 0) null else std.fs.path.dirname(self.settings_path) orelse ".";
+        self.spelling_state.?.configure(self.spellFolder(&buffer), self.settings.spellLanguage(), user_folder);
+        if (self.spell_open) self.checkSpelling();
+    }
+
+    /// elk.cfg's dictionary folder, else `dictionaries` beside ELK; "" when
+    /// neither is known.
+    pub fn spellFolder(self: *const Ui, buffer: *[std.Io.Dir.max_path_bytes]u8) []const u8 {
+        const chosen = self.settings.spellFolder();
+        if (chosen.len != 0) return chosen;
+        const len = std.process.executableDirPath(self.io, buffer) catch return "";
+        const suffix = std.fs.path.sep_str ++ spelling_mod.default_folder_name;
+        if (len + suffix.len > buffer.len) return "";
+        @memcpy(buffer[len..][0..suffix.len], suffix);
+        return buffer[0 .. len + suffix.len];
+    }
+
+    /// Tools > Spelling wants a text's translation and a dictionary, as
+    /// `OnUpdateToolsSpelling` wanted the edit box and the speller.
+    pub fn canSpell(self: *Ui) bool {
+        return self.session.selected != null and self.spelling().available();
+    }
+
+    /// Tools > Spelling (F7): checks the selected text's translation and
+    /// shows its misspelt words.
+    pub fn openSpelling(self: *Ui) void {
+        if (!self.canSpell()) return;
+        self.spell_open = true;
+        self.checkSpelling();
+    }
+
+    pub fn closeSpelling(self: *Ui) void {
+        self.spell_open = false;
+        self.dropSpellResults();
+    }
+
+    fn dropSpellResults(self: *Ui) void {
+        if (self.spell_arena) |*arena| arena.deinit();
+        self.spell_arena = null;
+        self.spell_results = &.{};
+        self.spell_text = null;
+        self.spell_checked = "";
+    }
+
+    /// The pass over the translation as the edit box holds it now.
+    fn checkSpelling(self: *Ui) void {
+        self.dropSpellResults();
+        const index = self.session.selected orelse return;
+        var arena = std.heap.ArenaAllocator.init(self.gpa);
+        const allocator = arena.allocator();
+        const state = self.spelling();
+        const results = collect: {
+            const text = allocator.dupe(u8, self.session.translation.text()) catch break :collect null;
+            const words = state.check(allocator, text) catch break :collect null;
+            const results = allocator.alloc(SpellResult, words.len) catch break :collect null;
+            for (words, results) |word, *result| result.* = .{
+                .word = word,
+                .text = word.of(text),
+                .suggestions = state.suggest(allocator, word.of(text)) catch break :collect null,
+            };
+            self.spell_checked = text;
+            break :collect results;
+        } orelse {
+            arena.deinit();
+            self.session.fail("spell check ran out of memory", .{});
+            return;
+        };
+        self.spell_arena = arena;
+        self.spell_results = results;
+        self.spell_text = index;
+    }
+
+    /// The list no longer matches the text: another one is selected or
+    /// this one was edited since the check.
+    pub fn spellStale(self: *const Ui) bool {
+        return self.spell_text != self.session.selected or !std.mem.eql(u8, self.spell_checked, self.session.translation.text());
+    }
+
+    /// The window's Add to dictionary for the result at `index`: the word
+    /// goes to custom.dic and the text is checked again.
+    pub fn addToDictionary(self: *Ui, index: usize) void {
+        if (index >= self.spell_results.len) return;
+        self.spelling().addWord(self.spell_results[index].text) catch |err| {
+            self.session.fail("the user dictionary could not be written ({s})", .{@errorName(err)});
+            return;
+        };
+        self.checkSpelling();
+    }
+
+    /// Spelling Options...: another dictionary folder ("" is the default),
+    /// kept in elk.cfg and loaded at once.
+    pub fn setSpellFolder(self: *Ui, folder: []const u8) void {
+        self.settings.spell_folder_storage.set(folder);
+        self.saveSettings();
+        _ = self.spelling();
+        self.configureSpelling();
+    }
+
+    /// The language combo's choice, kept in elk.cfg and loaded at once.
+    pub fn setSpellLanguage(self: *Ui, language: []const u8) void {
+        self.settings.spell_language_storage.set(language);
+        self.saveSettings();
+        _ = self.spelling();
+        self.configureSpelling();
+    }
+
+    pub fn openSpellOptions(self: *Ui) void {
+        const kept = self.settings.spellFolder();
+        const len = @min(kept.len, self.spell_folder_buffer.len);
+        @memcpy(self.spell_folder_buffer[0..len], kept[0..len]);
+        self.spell_folder_buffer[len] = 0;
+        self.spell_options_open = true;
+    }
+
     /// The game installation the exports and Run Game use: elk.cfg's, else
     /// the folder ELK runs from, ELK being installed beside Game. Null when
     /// neither is known.
@@ -708,6 +860,7 @@ pub const Ui = struct {
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_S, ig.ImGuiInputFlags_RouteGlobal)) self.session.save() catch {};
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_O, ig.ImGuiInputFlags_RouteGlobal)) self.requestOpen(window);
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_F, ig.ImGuiInputFlags_RouteGlobal)) self.openFind();
+        if (ig.igShortcut(ig.ImGuiKey_F7, ig.ImGuiInputFlags_RouteGlobal)) self.openSpelling();
         // IDR_MAINFRAME's accelerators: Ctrl or Alt with N and P. ImGui does
         // not route Alt with a letter while the translation box is active
         // (AltGr and macOS's Option type characters with it), so there the
@@ -733,6 +886,8 @@ pub const Ui = struct {
         defer self.drawInstallWarning();
         defer self.drawStatisticsWindow();
         defer self.drawFindWindow();
+        defer self.drawSpellingWindow();
+        defer self.drawSpellOptions();
         self.drawMenu(window);
         self.rows_drawn = 0;
         self.drawn.clearRetainingCapacity();
@@ -877,6 +1032,140 @@ pub const Ui = struct {
         self.drawEditMenu();
         self.drawBrowseMenu();
         self.drawViewMenu();
+        self.drawToolsMenu();
+    }
+
+    /// The MFC Tools menu's Spelling, enabled as it was (a text and a
+    /// speller; its tooltip says why not), and the options it had in the
+    /// registry.
+    fn drawToolsMenu(self: *Ui) void {
+        if (!ig.igBeginMenu("Tools")) return;
+        defer ig.igEndMenu();
+        if (ig.igMenuItemEx("Spelling", "F7", false, self.canSpell())) self.openSpelling();
+        const reason = self.spelling().reason();
+        if (reason.len != 0 and ig.igIsItemHovered(ig.ImGuiHoveredFlags_AllowWhenDisabled)) {
+            var buffer: [1024:0]u8 = undefined;
+            const text = std.mem.printSentinel(&buffer, "{s}", .{reason}, 0) catch "";
+            if (ig.igBeginTooltip()) {
+                ig.igTextUnformatted(text.ptr);
+                ig.igEndTooltip();
+            }
+        }
+        if (ig.igMenuItem("Spelling Options...")) self.openSpellOptions();
+    }
+
+    /// Tools > Spelling's window: each misspelt word of the translation, its
+    /// place and suggestions, and Add to dictionary. The MFC ELK stopped at
+    /// each word in turn and asked to add it; this lists them all at once.
+    fn drawSpellingWindow(self: *Ui) void {
+        self.spell_drawn = false;
+        if (!self.spell_open) return;
+        if (!self.session.isOpen()) return self.closeSpelling();
+        const font = ig.igGetFontSize();
+        ig.igSetNextWindowSize(.{ .x = font * 36, .y = font * 18 }, ig.ImGuiCond_Appearing);
+        var open = true;
+        if (ig.igBegin("Spelling", &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
+            self.spell_drawn = true;
+            var line: [1024:0]u8 = undefined;
+            const state = self.spelling();
+            const heading = if (state.available())
+                std.mem.printSentinel(&line, "Language: {s}", .{state.languageName()}, 0) catch ""
+            else
+                std.mem.printSentinel(&line, "{s}", .{state.reason()}, 0) catch "";
+            ig.igTextUnformatted(heading.ptr);
+            if (self.spellStale()) ig.igTextUnformatted("The translation changed since the check; press Check Again.");
+            if (self.spell_results.len == 0) {
+                ig.igTextUnformatted("No misspelt words in this translation.");
+            } else if (ig.igBeginTableEx("words", 4, ig.ImGuiTableFlags_Borders | ig.ImGuiTableFlags_RowBg | ig.ImGuiTableFlags_ScrollY, .{ .x = 0, .y = -ig.igGetFrameHeightWithSpacing() }, 0)) {
+                ig.igTableSetupScrollFreeze(0, 1);
+                ig.igTableSetupColumnEx("Word", ig.ImGuiTableColumnFlags_WidthFixed, font * 8, 0);
+                ig.igTableSetupColumnEx("At", ig.ImGuiTableColumnFlags_WidthFixed, font * 3, 0);
+                ig.igTableSetupColumnEx("Suggestions", ig.ImGuiTableColumnFlags_WidthStretch, 0, 0);
+                ig.igTableSetupColumnEx("", ig.ImGuiTableColumnFlags_WidthFixed, font * 9, 0);
+                ig.igTableHeadersRow();
+                var added: ?usize = null;
+                for (self.spell_results, 0..) |result, index| {
+                    ig.igPushIDInt(@intCast(index));
+                    defer ig.igPopID();
+                    ig.igTableNextRow();
+                    _ = ig.igTableNextColumn();
+                    printText(&line, "{s}", .{result.text});
+                    _ = ig.igTableNextColumn();
+                    printText(&line, "{d}", .{result.word.offset});
+                    _ = ig.igTableNextColumn();
+                    var writer: std.Io.Writer = .fixed(line[0 .. line.len - 1]);
+                    for (result.suggestions, 0..) |suggestion, at| writer.print("{s}{s}", .{ if (at == 0) "" else ", ", suggestion }) catch break;
+                    line[writer.end] = 0;
+                    ig.igTextUnformatted(&line);
+                    _ = ig.igTableNextColumn();
+                    if (ig.igButton("Add to dictionary")) added = index;
+                }
+                ig.igEndTable();
+                // After the table: adding checks again, which frees the rows.
+                if (added) |index| self.addToDictionary(index);
+            }
+            ig.igBeginDisabled(!self.canSpell());
+            if (ig.igButton("Check Again")) self.checkSpelling();
+            ig.igEndDisabled();
+            ig.igSameLine();
+            if (ig.igButton("Close")) open = false;
+        }
+        ig.igEnd();
+        if (!open) self.closeSpelling();
+    }
+
+    /// Tools > Spelling Options...: the dictionary folder (Enter or Use
+    /// takes it; empty is `dictionaries` beside ELK), the language combo
+    /// of the dictionaries found there, and why spell check is off.
+    fn drawSpellOptions(self: *Ui) void {
+        self.spell_options_drawn = false;
+        if (!self.spell_options_open) return;
+        const font = ig.igGetFontSize();
+        ig.igSetNextWindowSize(.{ .x = font * 36, .y = 0 }, ig.ImGuiCond_Appearing);
+        var open = true;
+        if (ig.igBegin("Spelling Options", &open, ig.ImGuiWindowFlags_NoCollapse | ig.ImGuiWindowFlags_NoSavedSettings)) {
+            self.spell_options_drawn = true;
+            const state = self.spelling();
+            var line: [std.Io.Dir.max_path_bytes + 64:0]u8 = undefined;
+            ig.igTextUnformatted("Dictionary folder (empty: the dictionaries folder beside ELK):");
+            ig.igSetNextItemWidth(font * 26);
+            const entered = ig.igInputText("##folder", &self.spell_folder_buffer, self.spell_folder_buffer.len, ig.ImGuiInputTextFlags_EnterReturnsTrue);
+            ig.igSameLine();
+            if (ig.igButton("Use") or entered) self.setSpellFolder(std.mem.sliceTo(&self.spell_folder_buffer, 0));
+            var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+            printText(&line, "Reading {s}", .{self.spellFolder(&folder_buffer)});
+            ig.igTextUnformatted("Language:");
+            ig.igSameLine();
+            ig.igSetNextItemWidth(font * 12);
+            const current = std.mem.printSentinel(&line, "{s}", .{state.languageName()}, 0) catch "";
+            ig.igBeginDisabled(state.languages.len == 0);
+            if (ig.igBeginCombo("##language", current.ptr, 0)) {
+                var chosen: ?usize = null;
+                for (state.languages, 0..) |name, index| {
+                    var label: [256:0]u8 = undefined;
+                    const text = std.mem.printSentinel(&label, "{s}", .{name}, 0) catch continue;
+                    if (ig.igSelectableEx(text.ptr, state.language == index, 0, .{ .x = 0, .y = 0 })) chosen = index;
+                }
+                ig.igEndCombo();
+                // Copied out: loading the language frees the list.
+                if (chosen) |index| if (state.languages[index].len <= settings_mod.max_path) {
+                    var name: [settings_mod.max_path]u8 = undefined;
+                    const picked = state.languages[index];
+                    @memcpy(name[0..picked.len], picked);
+                    self.setSpellLanguage(name[0..picked.len]);
+                };
+            }
+            ig.igEndDisabled();
+            const reason = state.reason();
+            if (reason.len != 0) {
+                ig.igPushTextWrapPos(0);
+                printText(&line, "{s}", .{reason});
+                ig.igPopTextWrapPos();
+            }
+            if (ig.igButton("Close")) open = false;
+        }
+        ig.igEnd();
+        if (!open) self.spell_options_open = false;
     }
 
     /// The MFC Edit menu's Find; Undo and the clipboard commands are the
@@ -1263,6 +1552,12 @@ fn tableRow(label: []const u8, flags: ig.ImGuiTreeNodeFlags, colour: ?u32, count
         ig.igTextUnformatted(&number_buffer);
     }
     return open and !leaf;
+}
+
+/// One line of formatted text; an empty line when it does not fit.
+fn printText(buffer: anytype, comptime format: []const u8, args: anytype) void {
+    const text: [:0]const u8 = std.mem.printSentinel(buffer, format, args, 0) catch "";
+    ig.igTextUnformatted(text.ptr);
 }
 
 fn rgb(r: u32, g: u32, b: u32) u32 {

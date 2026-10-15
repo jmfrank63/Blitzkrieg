@@ -14,6 +14,7 @@ const database_mod = @import("database.zig");
 const tree_mod = @import("tree.zig");
 const project_file = @import("project_file.zig");
 const text_codec = @import("text_codec.zig");
+const spell = @import("spell.zig");
 
 const Database = database_mod.Database;
 const Tree = tree_mod.Tree;
@@ -21,10 +22,9 @@ pub const Counts = project_file.Counts;
 pub const Statistic = project_file.Statistic;
 pub const ElementStatistic = project_file.ElementStatistic;
 
-/// `CSpellChecker::SPELLING_WORD_DELIMITERS`.
-pub const spelling_delimiters = " \t\n\r`~!@#$%^&*()-_=+\\|[{]};:'\",<.>/?";
-/// `CSpellChecker::WORD_DELIMITERS`.
-const word_delimiters = " \t\n\r";
+/// `CSpellChecker`'s tables, kept with its word rules in spell.zig.
+pub const spelling_delimiters = spell.spelling_delimiters;
+const word_delimiters = spell.word_delimiters;
 
 pub const TextCounts = struct { words: i32 = 0, word_symbols: i32 = 0, symbols: i32 = 0 };
 

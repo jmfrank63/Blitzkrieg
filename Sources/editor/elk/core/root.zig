@@ -12,6 +12,7 @@ pub const tree = @import("tree.zig");
 pub const filter = @import("filter.zig");
 pub const stats = @import("stats.zig");
 pub const search = @import("search.zig");
+pub const spell = @import("spell.zig");
 pub const packages = @import("packages.zig");
 pub const zip_writer = @import("zip_writer.zig");
 

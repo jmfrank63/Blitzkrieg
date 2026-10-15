@@ -37,7 +37,12 @@
 //! about the scratch game's loose Data/Textes, Enter taking the mod route,
 //! then Install anyway writing Data/Texts.pak; Run Game's command line, and
 //! on Linux and macOS a stand-in Game script recording the arguments it got;
-//! the commands disabled once the database is closed.
+//! the commands disabled once the database is closed. A seventh copy proves
+//! spell check (E-08): off with the reason while ELK's own dictionaries
+//! folder is missing, on with a generated test dictionary chosen in Spelling
+//! Options, F7 listing a typed misspelling with its suggestion, Add to
+//! dictionary writing custom.dic beside the run's elk.cfg and clearing the
+//! flag, and a second run still accepting the word.
 //! `--auto` replays `BK_ELK_AUTO` on the database given.
 const std = @import("std");
 const builtin = @import("builtin");
@@ -50,6 +55,7 @@ const fonts = @import("fonts.zig");
 const session_mod = @import("session.zig");
 const settings_mod = @import("settings.zig");
 const ui_mod = @import("ui.zig");
+const spelling_mod = @import("spelling.zig");
 const auto = @import("auto.zig");
 
 const crt = kit.crt;
@@ -241,6 +247,24 @@ const export_schedule =
     "33:expect=launched:3=-mod=" ++ folder_mod ++ ",33:expect=launched:4=-windowed," ++
     (if (stand_in_game) "34:do=wait_game,36:expect=can_run_game:1," else "34:expect=failure_has:Game.exe,") ++
     "37:do=close,39:expect=can_export:0,39:expect=can_run_game:0,40:exit";
+/// The spell check pass. The install has no `dictionaries` folder beside
+/// ELK, so spell check starts off; the copy's own folder then gets the
+/// generated test dictionary (spelling.zig), chosen through the options.
+const spell_typed = "The tanks are redy and teh medals";
+const spell_schedule =
+    "2:expect=open,2:do=select_key:" ++ smoke_key ++ ",3:expect=can_spell:0,3:expect=spell_reason_has:dictionaries," ++
+    "4:do=spell_options,5:do=spell_folder:dictionaries,6:expect=spell_language:" ++ spelling_mod.test_language ++ ",6:expect=can_spell:1," ++
+    "7:do=focus:translation,9:key=a+ctrl,10:text=" ++ spell_typed ++ "," ++
+    "13:key=f7,15:expect=spelling:1,15:expect=misspelt:redy=1,15:expect=misspelt:teh=1,15:expect=misspelt:tanks=0," ++
+    "15:expect=suggestion:redy=ready,15:expect=suggestion:teh=the,16:do=spell_add:redy,18:expect=misspelt:redy=0," ++
+    "18:expect=misspelt:teh=1,18:expect=user_word:redy,19:do=spell_close,21:expect=spelling:0,22:exit";
+/// The second run on the same elk.cfg: the folder and language are kept,
+/// and in the saved translation (its other misspelling still listed) the
+/// added word is still accepted.
+const spell_reopen_schedule =
+    "2:expect=open,2:expect=spell_language:" ++ spelling_mod.test_language ++ ",2:do=select_key:" ++ smoke_key ++ "," ++
+    "3:do=spell,5:expect=spelling:1,5:expect=misspelt:redy=0,5:expect=misspelt:teh=1,6:exit";
+
 /// Linux and macOS get a stand-in Game, a shell script that writes the
 /// arguments it was started with; Windows has none, and its Run Game fails
 /// to start after recording the same command line.
@@ -416,7 +440,9 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     if (found.code != 0) return found.code;
     const exported = smokeExport(gpa, io, environ, source, scratch);
     if (exported.code != 0) return exported.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod and into the game and Run Game on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, result.fonts, elk_path });
+    const spelt = smokeSpell(gpa, io, environ, source, scratch);
+    if (spelt.code != 0) return spelt.code;
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic, Find, the export to a mod and into the game and Run Game, spell check with Add to dictionary kept over a restart on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, exported.frames, spelt.frames, result.fonts, elk_path });
     return 0;
 }
 
@@ -499,6 +525,39 @@ fn smokeFind(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, s
     const first = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = find_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (ELK Statistic, Find)" });
     if (first.code != 0) return first;
     const again = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = find_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (Find after a restart)" });
+    if (again.code != 0) return again;
+    return .{ .code = 0, .frames = first.frames + again.frames };
+}
+
+/// The smoke's spell check pass on a seventh copy, `<scratch>-spell`, with
+/// its own `<scratch>-spell.cfg` and so `custom.dic` beside it; the test
+/// dictionary is written into the copy's `dictionaries` folder.
+fn smokeSpell(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = std.fmt.bufPrint(&folder_buffer, "{s}-spell", .{scratch}) catch return .{ .code = 1 };
+    var cfg_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const cfg_path = std.fmt.bufPrint(&cfg_buffer, "{s}.cfg", .{folder}) catch return .{ .code = 1 };
+    _ = copyDatabase(gpa, io, source, folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not copy {s} to {s}: {s}\n", .{ source, folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    var dictionaries_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const dictionaries = std.fmt.bufPrint(&dictionaries_buffer, "{s}{c}dictionaries", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
+    const cwd = std.Io.Dir.cwd();
+    cwd.deleteTree(io, dictionaries) catch {};
+    spelling_mod.writeTestDictionary(io, dictionaries) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not write the test dictionary into {s}: {s}\n", .{ dictionaries, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    cwd.deleteFile(io, cfg_path) catch {};
+    var user_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const user_path = std.fmt.bufPrint(&user_buffer, "{s}{c}{s}", .{ std.fs.path.dirname(cfg_path) orelse ".", std.fs.path.sep, elk.spell.user_dictionary_name }) catch return .{ .code = 1 };
+    cwd.deleteFile(io, user_path) catch {};
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
+    const first = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = spell_schedule, .dialog_folder = folder, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (spell check)" });
+    if (first.code != 0) return first;
+    const again = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = spell_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (spell check after a restart)" });
     if (again.code != 0) return again;
     return .{ .code = 0, .frames = first.frames + again.frames };
 }

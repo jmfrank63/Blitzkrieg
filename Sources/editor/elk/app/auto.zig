@@ -41,6 +41,14 @@
 //!   do=find_close            Cancel
 //!   do=statistics            View > ELK Statistic
 //!   do=statistics_close      the statistic window's OK
+//!   do=spell                 Tools > Spelling (the hot key is `key=f7`)
+//!   do=spell_add:<word>      the Spelling window's Add to dictionary on the
+//!                            word's first row (the window drawn last frame)
+//!   do=spell_close           the Spelling window's Close
+//!   do=spell_options         Tools > Spelling Options...
+//!   do=spell_folder:<path>   the options' Dictionary folder, relative to the
+//!                            runner's dialog folder if set; `-` is empty
+//!   do=spell_language:<name> the options' language combo
 //!   do=export_mod            File > Export to language mod...; the commands
 //!                            below need the dialog drawn in the last frame
 //!   do=export_name:<text>    type a mod's name or folder into the Mod box
@@ -90,6 +98,13 @@
 //!                            translation; row total, a state (summed over
 //!                            the elements), an element's number, or
 //!                            <number>.<state>
+//!   expect=can_spell:<0|1>   whether Tools > Spelling is enabled
+//!   expect=spell_reason_has:<text>  why spell check is off
+//!   expect=spell_language:<name>  the language loaded
+//!   expect=spelling:<0|1>    whether the last frame drew the Spelling window
+//!   expect=misspelt:<word>=<0|1>  whether the last check listed the word
+//!   expect=suggestion:<word>=<suggestion>  the word's first suggestion
+//!   expect=user_word:<word>  the word is a line of custom.dic on disk
 //!   expect=can_export:<0|1>  expect=can_run_game:<0|1>  whether the File
 //!                            menu's export commands and Run Game are enabled
 //!   expect=export_dialog:<0|1>  expect=install_warning:<0|1>  whether open
@@ -260,6 +275,30 @@ pub const Runner = struct {
         } else if (is(named, "statistics_close")) {
             if (!ui.statistics_drawn) return self.fail("do=statistics_close: the statistic window is not shown", .{});
             ui.closeStatistics();
+        } else if (is(named, "spell")) {
+            if (!ui.canSpell()) return self.fail("do=spell: Tools > Spelling is disabled ({s})", .{ui.spelling().reason()});
+            ui.openSpelling();
+        } else if (is(named, "spell_add") or is(named, "spell_close")) {
+            if (!ui.spell_drawn) return self.fail("do={s}: the Spelling window is not shown", .{named.name});
+            if (is(named, "spell_close")) {
+                ui.closeSpelling();
+            } else {
+                const index = spellRow(ui, named.arg) orelse return self.fail("do=spell_add: the window lists no {s}", .{named.arg});
+                ui.addToDictionary(index);
+            }
+        } else if (is(named, "spell_options")) {
+            ui.openSpellOptions();
+        } else if (is(named, "spell_folder")) {
+            var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+            const path = if (std.mem.eql(u8, named.arg, "-"))
+                ""
+            else if (self.dialog_folder.len == 0)
+                named.arg
+            else
+                try std.fmt.bufPrint(&path_buffer, "{s}{c}{s}", .{ self.dialog_folder, std.fs.path.sep, named.arg });
+            ui.setSpellFolder(path);
+        } else if (is(named, "spell_language")) {
+            ui.setSpellLanguage(named.arg);
         } else if (is(named, "export_mod")) {
             if (!ui.canExport()) return self.fail("do=export_mod: Export to language mod... is disabled", .{});
             ui.requestExportMod(false);
@@ -466,6 +505,30 @@ pub const Runner = struct {
             if (ui.statistics_drawn != wanted) return self.fail("expect=statistics: drawn is {}, wanted {}", .{ !wanted, wanted });
         } else if (is(named, "statistic")) {
             try self.statistic(ui, named.arg);
+        } else if (is(named, "can_spell")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            if (ui.canSpell() != wanted) return self.fail("expect=can_spell: enabled is {}, wanted {} ({s})", .{ !wanted, wanted, ui.spelling().reason() });
+        } else if (is(named, "spell_reason_has")) {
+            const reason = ui.spelling().reason();
+            if (std.mem.indexOf(u8, reason, named.arg) == null) return self.fail("expect=spell_reason_has: the reason \"{s}\" lacks \"{s}\"", .{ reason, named.arg });
+        } else if (is(named, "spell_language")) {
+            const loaded = ui.spelling().languageName();
+            if (!std.mem.eql(u8, loaded, named.arg)) return self.fail("expect=spell_language: {s} is loaded, wanted {s}", .{ loaded, named.arg });
+        } else if (is(named, "spelling")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            if (ui.spell_drawn != wanted) return self.fail("expect=spelling: drawn is {}, wanted {}", .{ !wanted, wanted });
+        } else if (is(named, "misspelt")) {
+            const eq = std.mem.indexOfScalar(u8, named.arg, '=') orelse return self.fail("misspelt needs <word>=<0|1>", .{});
+            const listed = spellRow(ui, named.arg[0..eq]) != null;
+            if (listed != std.mem.eql(u8, named.arg[eq + 1 ..], "1")) return self.fail("expect=misspelt: {s} listed is {}", .{ named.arg[0..eq], listed });
+        } else if (is(named, "suggestion")) {
+            const eq = std.mem.indexOfScalar(u8, named.arg, '=') orelse return self.fail("suggestion needs <word>=<suggestion>", .{});
+            const index = spellRow(ui, named.arg[0..eq]) orelse return self.fail("expect=suggestion: {s} is not listed", .{named.arg[0..eq]});
+            const suggestions = ui.spell_results[index].suggestions;
+            if (suggestions.len == 0 or !std.mem.eql(u8, suggestions[0], named.arg[eq + 1 ..]))
+                return self.fail("expect=suggestion: {s} has {d} suggestions, wanted {s} first", .{ named.arg[0..eq], suggestions.len, named.arg[eq + 1 ..] });
+        } else if (is(named, "user_word")) {
+            try self.userWord(ui, named.arg);
         } else if (is(named, "can_export") or is(named, "can_run_game")) {
             const wanted = std.mem.eql(u8, named.arg, "1");
             const enabled = if (is(named, "can_export")) ui.canExport() else ui.canRunGame();
@@ -620,10 +683,24 @@ pub const Runner = struct {
         if (count != self.source_files) return self.fail("expect=identical: {d} files, the smoke copied {d}", .{ count, self.source_files });
     }
 
+    /// The word read back from custom.dic by the core, as a restart reads it.
+    fn userWord(self: *Runner, ui: *ui_mod.Ui, word: []const u8) !void {
+        const path = ui.spelling().user_path orelse return self.fail("expect=user_word: this run keeps no custom.dic", .{});
+        var user = try elk.spell.UserDictionary.load(ui.gpa, ui.io, path);
+        defer user.deinit(ui.gpa);
+        if (!user.contains(word)) return self.fail("expect=user_word: {s} does not hold {s}", .{ path, word });
+    }
+
     fn fail(self: *Runner, comptime format: []const u8, args: anytype) void {
         self.failure = std.fmt.bufPrint(&self.failure_storage, format, args) catch self.failure_storage[0..];
     }
 };
+
+/// The Spelling window's first row for `word`.
+fn spellRow(ui: *const ui_mod.Ui, word: []const u8) ?usize {
+    for (ui.spell_results, 0..) |result, index| if (std.mem.eql(u8, result.text, word)) return index;
+    return null;
+}
 
 /// The tree row of the text `key`, in the first element that has it.
 fn textNode(session: *const ui_mod.Session, key: []const u8) ?u32 {

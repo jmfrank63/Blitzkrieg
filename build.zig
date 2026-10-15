@@ -3374,10 +3374,11 @@ pub fn build(b: *std.Build) void {
     elk_core_step.dependOn(&elk_core_tests.step);
     if (test_mode == .run) elk_core_step.dependOn(&elk_core_tests_run.step);
     test_step.dependOn(elk_core_step);
-    // The ELK app's pure parts (session model, elk.cfg): plain Zig over the
-    // core and the kit's settings helpers, no SDL, ImGui or window, so it runs
-    // everywhere the core tier does, from the repository root for the same
-    // tracked Data/ELK.
+    // The ELK app's pure parts (session model, elk.cfg, spell check): plain
+    // Zig over the core and the kit's settings helpers, no SDL, ImGui or
+    // window, so it runs everywhere the core tier does, from the repository
+    // root for the same tracked Data/ELK. The spell check's tests run the
+    // vendored Hunspell itself on the tracked test dictionary.
     const elk_app_logic_module = b.createModule(.{
         .root_source_file = b.path("Sources/editor/elk/app/logic.zig"),
         .target = target,
@@ -3387,6 +3388,9 @@ pub fn build(b: *std.Build) void {
             .{ .name = "editor_kit", .module = editor_kit_module },
         },
     });
+    elk_app_logic_module.linkLibrary(addHunspell(b, target, .debug, toolchain));
+    addMsvcLibraryPaths(b, elk_app_logic_module, toolchain);
+    if (target.result.abi == .msvc) elk_app_logic_module.link_libc = true else linkMsvcRuntime(elk_app_logic_module, .debug);
     const elk_app_logic_tests = b.addTest(.{ .root_module = elk_app_logic_module });
     const elk_app_logic_tests_run = b.addRunArtifact(elk_app_logic_tests);
     elk_app_logic_tests_run.setCwd(b.path("."));
@@ -5352,6 +5356,50 @@ fn addEditorImgui(
     });
     if (target.result.abi == .msvc) module.addCSourceFile(.{ .file = b.path("Sources/editor/kit/imgui/msvc_fltused.c") });
     return b.addLibrary(.{ .name = "editor-imgui", .linkage = .static, .root_module = module });
+}
+
+/// Hunspell (vendor/hunspell, D-11), ELK's spell checker, as a static
+/// library: the C API in `hunspell.h` is all ELK calls. The CRT rules are
+/// editor-imgui's: the release CRT on MSVC, libc only on Linux (the
+/// consumer links libstdc++), the C++ runtime named on macOS.
+fn addHunspell(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+) *std.Build.Step.Compile {
+    const cxx_optimize = if (target.result.abi == .msvc) .fast else optimize;
+    const module = b.createModule(.{
+        .target = target,
+        .optimize = cxx_optimize,
+    });
+    module.addIncludePath(b.path("vendor/hunspell/src/hunspell"));
+    addMsvcIncludePaths(b, module, toolchain);
+    addLinuxCxxIncludePaths(b, module);
+    addMsvcLibraryPaths(b, module, toolchain);
+    if (target.result.os.tag == .linux) {
+        module.link_libc = true;
+    } else if (target.result.abi != .msvc) linkMsvcRuntime(module, optimize);
+    // Hunspell uses the standard library's streams and strings, whose MSVC
+    // half is the C++ runtime's import library, not part of the C CRT.
+    if (target.result.abi == .msvc) module.linkSystemLibrary(if (cxx_optimize == .debug) "msvcprtd" else "msvcprt", .{});
+    module.addCSourceFiles(.{
+        .root = b.path("vendor/hunspell/src/hunspell"),
+        .files = &.{
+            "affentry.cxx",
+            "affixmgr.cxx",
+            "csutil.cxx",
+            "filemgr.cxx",
+            "hashmgr.cxx",
+            "hunspell.cxx",
+            "hunzip.cxx",
+            "phonet.cxx",
+            "replist.cxx",
+            "suggestmgr.cxx",
+        },
+        .flags = &.{ "-std=c++17", "-DHUNSPELL_STATIC", "-Wno-deprecated-declarations" },
+    });
+    return b.addLibrary(.{ .name = "hunspell", .linkage = .static, .root_module = module });
 }
 
 fn cflagsForOptimize(optimize: std.builtin.OptimizeMode) []const []const u8 {
@@ -9096,6 +9144,7 @@ fn addElk(
     if (target.result.os.tag == .windows) module.linkSystemLibrary("imm32", .{});
     linkSdlImport(module, target, sdl_dynamic);
     linkBkMemoryAllocator(b, module, false);
+    module.linkLibrary(addHunspell(b, target, optimize, toolchain));
     const exe = b.addExecutable(.{ .name = "ELK", .root_module = module });
     switch (target.result.os.tag) {
         // No console on a double-click; the scripted modes attach to the
@@ -9124,7 +9173,7 @@ fn addElk(
     // Reads Data/ELK and writes its scratch copy, neither a declared input.
     smoke_run.has_side_effects = true;
     smoke_run.step.dependOn(&install_exe.step);
-    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, and the pak export to a mod and into a scratch game folder with Run Game");
+    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find, ELK Statistic, the pak export to a mod and into a scratch game folder with Run Game, and spell check with a generated dictionary");
     smoke_step.dependOn(&install_exe.step);
     if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
 }
