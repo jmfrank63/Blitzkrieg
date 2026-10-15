@@ -14,6 +14,7 @@
 #include <vector>
 
 extern "C" void *bk_streamio_temp_buffer(int size, int index);
+extern "C" void bk_streamio_temp_buffers_free();
 extern "C" void *bk_storage_create(const char *name, unsigned long access, unsigned long type);
 extern "C" void bk_storage_destroy(void *storage);
 extern "C" bool bk_storage_add(void *storage, void *child, const char *name);
@@ -515,6 +516,9 @@ public:
         // The bridge's own core services die here too (S04/T08b) - defined
         // below, next to the statics it tears down.
         BridgeCoreServicesTeardown();
+        // The temp buffers last: GetAllObjects and the teardowns above may
+        // still ask for one.
+        bk_streamio_temp_buffers_free();
     }
 };
 

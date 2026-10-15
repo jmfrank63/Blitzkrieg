@@ -2695,3 +2695,11 @@ pub export fn bk_streamio_temp_buffer(size: c_int, index: c_int) callconv(.c) ?*
     buffer.items.len = requested;
     return @ptrCast(buffer.items.ptr);
 }
+
+// The temp buffers only grow, so the largest request of the run stays held:
+// the AI's new-objects list on a map open is a 1.5 MB block that reached
+// BkMemory's report. The registry's Done frees them last (S04); a later
+// request starts again from an empty buffer.
+pub export fn bk_streamio_temp_buffers_free() callconv(.c) void {
+    for (&buffers) |*buffer| buffer.clearAndFree(allocator);
+}
