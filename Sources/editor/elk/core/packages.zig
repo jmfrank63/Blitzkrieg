@@ -704,12 +704,12 @@ test "a new database from the game's language folder: lower-case keys, imported 
     for (package.entries) |entry| {
         if (kindOf(entry.name).? == .original) originals += 1;
     }
-    try testing.expectEqual(@as(usize, 1_706), originals);
+    try testing.expectEqual(@as(usize, 1_710), originals);
 
     const elk_path = try std.fs.path.join(testing.allocator, &.{ root, "elk", "elk.xml" });
     defer testing.allocator.free(elk_path);
     const report = try importPackage(testing.allocator, io, elk_path, &package, "game.upd");
-    try testing.expectEqual(Report{ .originals = 1_706, .states = 1_706, .descriptions = 1, .project = true }, report);
+    try testing.expectEqual(Report{ .originals = 1_710, .states = 1_710, .descriptions = 1, .project = true }, report);
 
     var opened = try database.Database.open(testing.allocator, io, elk_path);
     defer opened.deinit();
@@ -719,7 +719,7 @@ test "a new database from the game's language folder: lower-case keys, imported 
     try testing.expectEqual(@as(i32, -1), element.last_update_number);
     try testing.expectEqualStrings("Game Resources", element.description.name);
     try testing.expect(element.description.fonts);
-    try testing.expectEqual(@as(usize, 1_706), opened.bases[0].keys.len);
+    try testing.expectEqual(@as(usize, 1_710), opened.bases[0].keys.len);
     const base = opened.bases[0].path.?;
     for (opened.bases[0].keys) |key| {
         for (key) |byte| try testing.expect(!std.ascii.isUpper(byte));
