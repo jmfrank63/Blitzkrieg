@@ -3335,6 +3335,32 @@ pub fn build(b: *std.Build) void {
     resource_core_step.dependOn(&resource_core_tests.step);
     if (test_mode == .run) resource_core_step.dependOn(&resource_core_tests_run.step);
     test_step.dependOn(resource_core_step);
+    // The ELK core tier (Phase 7, D-02): std-only Zig, no kit, no engine, so
+    // it runs on every target. It reads the database through the engine's
+    // own std-only XML reader and runs from the repository root, because its
+    // byte-identity tests read the tracked Data/ELK and Data/AmericanELK and
+    // write their scratch copies under zig-out/local-test/elk.
+    const elk_xml_module = b.createModule(.{
+        .root_source_file = b.path("Sources/src/StreamIOZig/xml.zig"),
+        .target = target,
+        .optimize = .debug,
+    });
+    const elk_core_module = b.createModule(.{
+        .root_source_file = b.path("Sources/editor/elk/core/root.zig"),
+        .target = target,
+        .optimize = .debug,
+        .imports = &.{.{ .name = "xml", .module = elk_xml_module }},
+    });
+    if (target.result.abi == .msvc) {
+        addMsvcLibraryPaths(b, elk_core_module, toolchain);
+    }
+    const elk_core_tests = b.addTest(.{ .root_module = elk_core_module });
+    const elk_core_tests_run = b.addRunArtifact(elk_core_tests);
+    elk_core_tests_run.setCwd(b.path("."));
+    const elk_core_step = b.step("test-elk-core", "Run the ELK core tests (text database, codec, elk.xml) against the tracked Data/ELK");
+    elk_core_step.dependOn(&elk_core_tests.step);
+    if (test_mode == .run) elk_core_step.dependOn(&elk_core_tests_run.step);
+    test_step.dependOn(elk_core_step);
     // The resource app's pure logic tier (S05 T08): panels_logic.zig against
     // the fake resource bridge, built on every target like test-resource-core.
     // c_bridge.zig, the real ResBridge over resource_bridge.h, is compiled

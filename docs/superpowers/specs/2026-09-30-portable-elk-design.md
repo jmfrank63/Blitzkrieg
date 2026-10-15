@@ -119,11 +119,25 @@ Numbered as in `.planning/phases/07-elk-portable-localisation-kit/07-CONTEXT.md`
   as the bare element name (`game`), which the MFC ELK also accepts (it keeps
   only the part after the last backslash), so no host path leaks into the
   file and it is portable.
+  Recorded in 07-01: the project's own `Path` (which the MFC ELK replaced on
+  open with where it opened the file) is written as the bare file name
+  (`elk.xml`) for the same reason. The texts are the `.elk` files, as the MFC
+  tree was filled from them; a state file without an original (the tracked
+  database has 3,777) is left alone. A state outside 0..3 reads as "Not
+  translated", the clamp the MFC import applied. The description lookup
+  keeps the MFC order (`<key>.dsc`, then `_folder.dsc` from the text's
+  parent folder upward, skipping its own folder) but stops at the database
+  folder instead of climbing on to the drive root.
 - **D-06 Text codec.** Files are UTF-16LE with `FF FE`; reads also tolerate a
   missing BOM and a big-endian BOM; writes always use `FF FE`, CRLF, and strip
   trailing CR/LF/NUL exactly like `CELK::FromWideText`. An untouched text
   written back is byte-identical to what the MFC ELK wrote. The UI works in
   UTF-8 with LF.
+  Recorded in 07-01: a file without a BOM reads as UTF-16LE; the editor side
+  is WTF-8 so a lone surrogate survives; "untouched" means the text encodes
+  to what the file already reads as, and then the file is not rewritten,
+  which also keeps the 1,361 tracked originals and 3 translations that end in
+  a CR/LF/NUL run (never written by `FromWideText`) byte-identical.
 - **D-07 No code page.** The MFC ELK converted to an ANSI code page for its
   edit control and for the font's character table. The portable ELK is
   Unicode throughout and the setting is dropped (an old value is read and
