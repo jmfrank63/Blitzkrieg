@@ -2303,6 +2303,20 @@ pub fn build(b: *std.Build) void {
     const randommapgen = addRandomMapGen(b, target, optimize, toolchain);
     const map_file = addMapFile(b, target, optimize, toolchain);
     addMapFileTest(b, target, optimize, toolchain, map_file, formats, randommapgen, misc, platform_runtime, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    const bk_font = addBkFont(b, target, optimize, toolchain, formats, misc, platform_runtime, image, streamio_zig, options_bridge, sdl_dynamic, test_mode);
+    // bk-font is in the shared convention test too. It runs the installed
+    // executable, which finds the engine libraries beside it or in ../lib.
+    bk_tools_options.addOption([]const u8, "bk_font", if (target.result.os.tag == .windows) "zig-out/bin/bk-font.exe" else "zig-out/bin/bk-font");
+    bk_tools_tests_run.step.dependOn(bk_font.install);
+    // The option is a plain path string, so the binary is named as an input:
+    // a changed bk-font runs the test again instead of reusing a cached pass.
+    bk_tools_tests_run.addFileInput(bk_font.tool.getEmittedBin());
+    setUserRootsForTest(bk_tools_tests_run, "bk-tools-user");
+    // That test judges stdout, stderr and exit codes. A debug bk-font carries
+    // BkMemory's exit-time leak check, which in its default mode turns the
+    // engine's process-lifetime statics into exit 3 and in count mode adds a
+    // stderr line; test-bk-font runs the tool with the count, this test without.
+    bk_tools_tests_run.setEnvironmentVariable("BK_MEM_REPORT", "0");
     const ailogic = addLegacyProjectDll(b, target, optimize, toolchain, "AILogic", "Sources/src/AILogic/AILogic.vcxproj", "Sources/src/AILogic/AILogic.def", &.{ "Sources/src/AILogic", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/GameTT", "Sources/sdk/xiph/ogg-1.3.5/include", "Sources/sdk/xiph/vorbis-1.3.7/include" }, &.{ misc, lualib, formats, randommapgen, zlib }, platform_runtime, sdl_dynamic);
     const gamett = addLegacyProjectDll(b, target, optimize, toolchain, "GameTT", "Sources/src/GameTT/GameTT.vcxproj", "Sources/src/GameTT/GameTT.def", &.{ "Sources/src/GameTT", "Sources/src/Common", "Sources/src/StreamIO", "Sources/src/GFX", "Sources/src/Input", "Sources/src/Anim", "Sources/src/Image", "Sources/src/SFX", "Sources/src/UI", "Sources/src/Main", "Sources/src/AILogic" }, &.{ misc, formats, common, randommapgen }, platform_runtime, sdl_dynamic);
     // Compile the game version directly into GameTT.dll so the title screen
@@ -6861,6 +6875,114 @@ fn addMapFileTest(
     const step_m2_sweep = b.step("test-map-files-m2-sweep", "Edit every M2 collection of every Data/Maps map, undo it, and compare the bytes");
     step_m2_sweep.dependOn(&exe.step);
     if (test_mode == .run) step_m2_sweep.dependOn(&run_m2_sweep.step);
+}
+
+const BkFont = struct {
+    /// Installs bk-font and every engine library it loads at run time.
+    install: *std.Build.Step,
+    tool: *std.Build.Step.Compile,
+};
+
+/// Points a test run's user root (Platform/Paths.cpp: XDG_DATA_HOME on macOS
+/// and Linux, BK_USER_ROOT on Windows) under zig-out/local-test, so loading
+/// StreamIO never creates folders in the user's own profile.
+fn setUserRootsForTest(run: *std.Build.Step.Run, name: []const u8) void {
+    const b = run.step.owner;
+    const root = rootPath(b, b.fmt("zig-out/local-test/{s}", .{name}));
+    run.setEnvironmentVariable("XDG_DATA_HOME", root);
+    run.setEnvironmentVariable("BK_USER_ROOT", root);
+}
+
+fn addBkFont(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    toolchain: ToolchainIncludes,
+    formats: *std.Build.Step.Compile,
+    misc: *std.Build.Step.Compile,
+    platform_runtime: *std.Build.Step.Compile,
+    image: *std.Build.Step.Compile,
+    streamio_zig: *std.Build.Step.Compile,
+    options_bridge: *std.Build.Step.Compile,
+    sdl_dynamic: *std.Build.Step.Compile,
+    test_mode: build_support.TestMode,
+) BkFont {
+    // bk-font (Phase 8, D-12..D-15): FontGen.exe's job on the FontAtlas
+    // library. A C++ console program on the engine libraries (D-03), built
+    // with map-file-test's recipe; the SFontFormat and TGA writers are the
+    // engine's own, loaded at run time from StreamIO and Image.
+    const font_atlas_files = &.{ "Sources/src/FontAtlas/FontAtlas.cpp", "tools/zig/data_only_startup.cpp" };
+    const tool_module = b.createModule(.{ .target = target, .optimize = optimize });
+    const test_module = b.createModule(.{ .target = target, .optimize = optimize });
+    for ([_]*std.Build.Module{ tool_module, test_module }, [_][]const u8{ "tools/zig/bk_font.cpp", "tools/zig/bk_font_test.cpp" }) |module, main_file| {
+        linkEngineCxxRuntimeEngine(b, module, optimize);
+        addProjectIncludePaths(b, module);
+        module.addIncludePath(b.path("Sources/src/Image"));
+        module.addCSourceFiles(.{ .files = font_atlas_files, .flags = cppflagsForOptimize(optimize) });
+        module.addCSourceFiles(.{ .files = &.{main_file}, .flags = cppflagsForOptimize(optimize) });
+        addMsvcIncludePaths(b, module, toolchain);
+        addLinuxCxxIncludePaths(b, module);
+        addMsvcLibraryPaths(b, module, toolchain);
+        addMacosSysrootPaths(b, module, target);
+        module.linkLibrary(formats);
+        module.linkLibrary(misc);
+        module.linkLibrary(platform_runtime);
+        // Misc's System.cpp reaches SDL; nothing here opens a window.
+        linkSdlImport(module, target, sdl_dynamic);
+    }
+    // Loader-relative library paths, so the installed tool runs from any
+    // directory: beside the libraries (a game install), zig-out/bin with them
+    // in zig-out/lib, or one level below them (a Tools/ folder in the game).
+    for ([_][]const u8{ "", "/../lib", "/.." }) |suffix| {
+        switch (target.result.os.tag) {
+            .linux => tool_module.addRPathSpecial(b.fmt("$ORIGIN{s}", .{suffix})),
+            .macos => tool_module.addRPathSpecial(b.fmt("@loader_path{s}", .{suffix})),
+            else => {},
+        }
+    }
+    const tool = b.addExecutable(.{ .name = "bk-font", .root_module = tool_module });
+    tool.subsystem = .console;
+    if (target.result.os.tag == .windows) tool.entry = .{ .symbol_name = "mainCRTStartup" };
+    const test_exe = b.addExecutable(.{ .name = "bk-font-test", .root_module = test_module });
+    test_exe.subsystem = .console;
+    if (target.result.os.tag == .windows) test_exe.entry = .{ .symbol_name = "mainCRTStartup" };
+
+    // The tool imports BkMemory and PlatformRuntime, StreamIO imports
+    // StreamIOOptionsAbi and Image takes SDL: all of them are installed with
+    // the tool (see addMapFileTest).
+    const install = b.step("bk-font", "Build and install the bk-font font generator and the engine libraries it loads");
+    for ([_]*std.Build.Step.Compile{ tool, bk_memory_artifact.?, streamio_zig, image, options_bridge, platform_runtime, sdl_dynamic }) |artifact| {
+        install.dependOn(&b.addInstallArtifact(artifact, .{}).step);
+    }
+
+    // The fixture font through the installed tool into zig-out/local-test,
+    // then the test reads that back with the engine's readers and checks it
+    // and a set of in-process builds against D-14.
+    const module_root = if (target.result.os.tag == .windows)
+        rootPath(b, "zig-out/bin")
+    else
+        rootPath(b, "zig-out/lib");
+    const fixture = rootPath(b, "tools/zig/fixtures/fonts/ProggyClean.ttf");
+    const output = rootPath(b, "zig-out/local-test/bk-font/proggyclean-13");
+    const generate = b.addRunArtifact(tool);
+    setLeakReportLog(generate);
+    setUserRootsForTest(generate, "bk-font-user");
+    generate.setCwd(b.path("."));
+    generate.addArgs(&.{ "--ttf", fixture, "--height", "13", "--charset", "ansi", "--out", output, "--force", "--modules", module_root });
+    generate.step.dependOn(install);
+    addPathDir(generate, rootPath(b, "zig-out/bin"));
+    const check = b.addRunArtifact(test_exe);
+    setLeakReportLog(check);
+    setUserRootsForTest(check, "bk-font-user");
+    check.setCwd(b.path("."));
+    check.addArgs(&.{ module_root, fixture, output });
+    check.step.dependOn(&generate.step);
+    addPathDir(check, rootPath(b, "zig-out/bin"));
+    const step = b.step("test-bk-font", "Generate a font with bk-font and check it with the engine's readers (D-14)");
+    step.dependOn(&test_exe.step);
+    step.dependOn(install);
+    if (test_mode == .run) step.dependOn(&check.step);
+    return .{ .install = install, .tool = tool };
 }
 
 fn addEditorBridgeTest(

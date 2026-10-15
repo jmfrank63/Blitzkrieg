@@ -42,7 +42,29 @@ const tools = [_]Tool{
         .succeeding = &.{ "pack", "mod\\tree", "mod\\out.pak" },
         .setup = setupPak,
     },
+    .{
+        .name = "bk-font",
+        .path = bk_tools.bk_font,
+        .bad_usage = &.{
+            &.{},
+            &.{"--frobnicate"},
+            &.{"--ttf"},
+            &.{ "--ttf", "font.ttf", "stray" },
+            &.{ "--ttf", "font.ttf", "--height", "tall" },
+            &.{ "--ttf", "font.ttf", "--charset", "klingon" },
+        },
+        .failing = &.{ "--ttf", "missing.ttf", "--out", "out" },
+        .succeeding = &.{ "--ttf", "fonts\\ProggyClean.ttf", "--height", "13", "--out", "mod\\font" },
+        .setup = setupFont,
+    },
 };
+
+/// The committed fixture font (D-15), copied from the build root, which is
+/// the test's working directory.
+fn setupFont(io: std.Io, dir: std.Io.Dir) !void {
+    try dir.createDirPath(io, "fonts");
+    try std.Io.Dir.copyFile(std.Io.Dir.cwd(), "tools/zig/fixtures/fonts/ProggyClean.ttf", dir, "fonts/ProggyClean.ttf", io, .{});
+}
 
 fn setupPak(io: std.Io, dir: std.Io.Dir) !void {
     try dir.createDirPath(io, "mod/tree/units");

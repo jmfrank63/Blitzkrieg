@@ -63,3 +63,40 @@
 | `bk-video` | Zig, std only wrapper | `convert_bik_to_ogv.ps1` | `test-bk-video` |
 
 Everything else in sections A-C is dropped, left alone, or not a tool, with the reasons above.
+
+## E. The FontAtlas API (08-02), for Phase 7's font plan
+
+D-13 makes ELK's font page call this library instead of its GDI `CFontGen`. Shipped in 08-02 as `Sources/src/FontAtlas/FontAtlas.{h,cpp}`: plain C++ on the engine headers (include after the module's `StdAfx.h`), no HDC, no dialog, no globals, no file IO, rasteriser `imstb_truetype.h` compiled `static` inside `FontAtlas.cpp` (so it can sit beside Dear ImGui's copy). A consumer compiles `FontAtlas.cpp` and links `Formats` (for `SFontFormat::operator&`) and `Misc` (`NStr`).
+
+```cpp
+namespace FontAtlas
+{
+const int FIRST_CHAR = 32, LAST_CHAR = 255;   // FontGen's range, bytes of the code page
+const BYTE DEFAULT_CHAR = 0x1F;               // GDI's tmDefaultChar for TrueType: the .notdef box
+
+struct SFontRequest
+{
+	const BYTE *pFontData; int nFontDataSize; // a .ttf/.otf/.ttc in memory, read only during Build
+	int nFaceIndex;                           // face in a collection (0)
+	std::string szFaceName;                   // stored lower-cased; empty = the face's family name
+	int nHeight;                              // cell height in px, ascent + descent (FontGen -h; 20)
+	int nWeight;                              // 0..1000 (400); >= 600 emboldens a face that is not bold
+	bool bItalic;                             // slants a face that is not italic
+	bool bAntialias;                          // false = every pixel 0 or 255 (true)
+	int nCodePage;                            // 1250, 1251 or 1252 (1252)
+};
+struct SFontImage { int nSizeX, nSizeY; std::vector<DWORD> pixels; };  // top row first, 0xAARRGGBB, white, alpha = coverage
+struct SFontAtlas { SFontFormat format; SFontImage image; };
+
+bool GetCharSet( int nCodePage, BYTE *pCharSet );       // the cCharSet byte (0, 204, 238)
+WORD ToUnicode( int nCodePage, BYTE c );                // the code page byte's character
+int FindFace( const BYTE *pFontData, int nFontDataSize, const std::string &szName, bool bBold, bool bItalic );  // face index or -1
+bool Build( const SFontRequest &request, SFontAtlas *pAtlas, std::string *pszError );
+}
+```
+
+`Build` is D-13's `FontAtlas::Build(SFontRequest) -> {SFontFormat, image}`: false with the reason for an unreadable font, an unknown code page, a height outside 4..256 or an atlas above 4096x4096. The layout is FontGen's (`FontGen.cpp` `MeasureFont`/`DrawFont`/`CreateFontFormat`): characters 32..255 plus 0x1F, sorted, translated to Unicode through the code page; texture size from the same 2:1/1:1 power-of-two estimate, growing until everything fits; cells in rows of `nHeight` pixels, 2 pixels apart, `B + |C|` wide; UVs with FontGen's half-texel offset; kerning pairs rounded to whole pixels, zero pairs left out. Kerning comes from the face's `kern` table or the GPOS pair lookups `imstb_truetype.h` reads (GDI's `GetKerningPairs` read only `kern`). The image becomes files through the engine's image processor (`IImageProcessor::CreateImage`, `SaveImageAsTGA`, `Compress(GFXPF_ARGB8888)` + `SaveImageAsDDS`) and the format through the structure saver, chunk 1, which is what `bk-font` (`tools/zig/bk_font.cpp`) does and what ELK's font page needs to do.
+
+Output contract, changed in 08-02: `1.tfd` and `1.tga` as FontGen wrote them, plus `1_h.dds`. The game's texture manager reads only DDS (`GfxGpuObjectFactory.cpp`, `ResolveStreamName`: the quality suffix, then `_h`, `_c`, `_l`); FontGen's `1.tga` reached it through the old resource pipeline, which nothing in the tree now has a font path for. `1_h.dds` is the lossless 32-bit level every quality setting falls back to, the same layout as the shipped `Data/Fonts/*/1_h.dds`.
+
+Acceptance as built (`zig build test-bk-font`): the D-14 structural checks on ProggyClean (`tools/zig/fixtures/fonts/`, MIT, D-15) at 8, 13, 16, 20, 24 and 48 pixels in all three code pages, bold, italic and `--no-aa`; the same checker passes the four GDI-made shipped fonts; the files `bk-font` wrote are read back by the engine's structure saver, TGA reader and DDS reader and equal an in-process build. The in-game `-mod` capture with F9 measured from the TGA (D-14's one look) is the maintainer's step and has not been taken.

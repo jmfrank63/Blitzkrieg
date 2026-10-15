@@ -44,6 +44,7 @@ tools/zig/fixtures/resource_editor/references_root/** -text -eol
 *.jpg binary
 *.jpeg binary
 *.tga binary
+*.ttf binary
 *.dds binary
 *.bik binary -eol
 *.chm binary
