@@ -25,7 +25,12 @@
 //! step closes the folders it leaves only while the mode is on, a filter is
 //! created, applied, renamed in place and deleted while current (the bar
 //! falls back to All), Cancel keeps what it would have dropped, and a
-//! fourth run finds the dialog's result and the mode in elk.cfg.
+//! fourth run finds the dialog's result and the mode in elk.cfg. A fifth
+//! copy proves View > ELK Statistic, its counts asserted against the
+//! numbers of the tracked database, and Edit > Find...: hits in the
+//! translation and the original, the resume within a field, the wrap, Match
+//! case and Whole word missing, Up reaching the text above, and a second
+//! run finding the text and options in elk.cfg.
 //! `--auto` replays `BK_ELK_AUTO` on the database given.
 const std = @import("std");
 const builtin = @import("builtin");
@@ -169,6 +174,40 @@ const filter_edit_schedule =
     "42:do=filter_dialog,44:do=filter_add:Kept,44:do=filter_ok,46:expect=filter_at:5=Kept,47:exit";
 const filter_edit_reopen_schedule =
     "2:expect=open,2:expect=filter:All,2:expect=collapse_item:0,2:expect=filter_count:6,2:expect=filter_at:5=Kept,3:exit";
+
+/// The find and statistics pass. Data/ELK's counts (stats.zig's test has
+/// the same numbers). "kuban" is in medals/german/kuban/desc's translation
+/// twice and in the name's original once, nowhere else; the Russian
+/// original of the desc says "Кубанском", which Whole word "Kuba" misses.
+/// "Rommel" is in Tunis's original and translation, Tobruk (above it) and
+/// Africa (below it).
+const kuban_desc = "medals/german/kuban/desc";
+const kuban_name = "medals/german/kuban/name";
+const tunis = "scenarios/chapters/allies/tunis/description";
+const tobruk = "scenarios/chapters/allies/tobruk/description";
+const find_schedule =
+    "2:expect=open,2:do=statistics,4:expect=statistics:1," ++
+    "4:expect=statistic:original/total=2852/42146/223983/279715,4:expect=statistic:original/0=2852/42146/223983/279715," ++
+    "4:expect=statistic:original/not_translated=885/19166/100693/122903,4:expect=statistic:translation/translated=4/55/263/316," ++
+    "4:expect=statistic:translation/0.approved=593/183/1059/1180,5:do=statistics_close,7:expect=statistics:0," ++
+    // From nothing selected: the three hits in the tree's order, then round.
+    "8:do=find_dialog,10:expect=find_dialog:1,10:do=find_next:kuban,12:expect=found:" ++ kuban_desc ++ "=translation:4," ++
+    "12:expect=expanded:medals/german/kuban=1,13:do=find_next:kuban,15:expect=found:" ++ kuban_desc ++ "=translation:68," ++
+    "16:do=find_next:kuban,18:expect=found:" ++ kuban_name ++ "=original:0," ++
+    "19:do=find_next:kuban,21:expect=found:" ++ kuban_desc ++ "=translation:4," ++
+    // Match case and Whole word: nothing, the selection kept.
+    "22:do=find_option:match_case=1,23:do=find_next:kuban,25:expect=found:none,25:expect=selected:" ++ kuban_desc ++ "," ++
+    "26:do=find_option:match_case=0,26:do=find_option:whole_word=1,27:do=find_next:Kuba,29:expect=found:none," ++
+    // Up from Tunis: its own two hits, then Tobruk above it.
+    "30:do=find_option:whole_word=0,30:do=find_option:down=0,30:do=select_key:" ++ tunis ++ "," ++
+    "31:do=find_next:Rommel,33:expect=found:" ++ tunis ++ "=original:617,34:do=find_next:Rommel,36:expect=found:" ++ tunis ++ "=translation:618," ++
+    "37:do=find_next:Rommel,39:expect=found:" ++ tobruk ++ "=original:858,40:do=find_close,42:expect=find_dialog:0,43:exit";
+/// The second run on the same elk.cfg: the text and Up are kept; Down from
+/// nothing selected finds Tobruk, the first text that has it.
+const find_reopen_schedule =
+    "2:expect=open,2:expect=find_text:Rommel,2:expect=find_option:down=0,2:expect=find_option:match_case=0," ++
+    "2:expect=find_option:whole_word=0,3:key=f+ctrl,5:expect=find_dialog:1,5:do=find_option:down=1," ++
+    "6:do=find_next:Rommel,8:expect=found:" ++ tobruk ++ "=original:858,9:exit";
 
 /// A scripted run that has not exited by then has hung.
 const smoke_frame_limit = 200;
@@ -335,7 +374,9 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     if (crashed.code != 0) return crashed.code;
     const filtered = smokeFilter(gpa, io, environ, source, scratch);
     if (filtered.code != 0) return filtered.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item and the Create Filter dialog on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, result.fonts, elk_path });
+    const found = smokeFind(gpa, io, environ, source, scratch);
+    if (found.code != 0) return found.code;
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons, the autosave through a kill, browsing through a filter kept over a restart, Collapse Item, the Create Filter dialog, ELK Statistic and Find on {s}\n", .{ result.frames, opened.frames, crashed.frames, filtered.frames, found.frames, result.fonts, elk_path });
     return 0;
 }
 
@@ -399,6 +440,27 @@ fn smokeFilter(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     const kept = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = filter_edit_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (Create Filter after a restart)" });
     if (kept.code != 0) return kept;
     return .{ .code = 0, .frames = first.frames + again.frames + edited.frames + kept.frames };
+}
+
+/// The smoke's statistics and find pass on a fifth copy, `<scratch>-find`,
+/// with its own `<scratch>-find.cfg`, which the second run reads back.
+fn smokeFind(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = std.fmt.bufPrint(&folder_buffer, "{s}-find", .{scratch}) catch return .{ .code = 1 };
+    var cfg_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const cfg_path = std.fmt.bufPrint(&cfg_buffer, "{s}.cfg", .{folder}) catch return .{ .code = 1 };
+    _ = copyDatabase(gpa, io, source, folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not copy {s} to {s}: {s}\n", .{ source, folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    std.Io.Dir.cwd().deleteFile(io, cfg_path) catch {};
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
+    const first = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = find_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (ELK Statistic, Find)" });
+    if (first.code != 0) return first;
+    const again = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = find_reopen_schedule, .settings_path = cfg_path, .frame_limit = smoke_frame_limit, .tier = "smoke (Find after a restart)" });
+    if (again.code != 0) return again;
+    return .{ .code = 0, .frames = first.frames + again.frames };
 }
 
 /// The smoke's File > Open pass on a second copy, `<scratch>-open`, with

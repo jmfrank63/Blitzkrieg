@@ -10,6 +10,8 @@ pub const project_file = @import("project_file.zig");
 pub const database = @import("database.zig");
 pub const tree = @import("tree.zig");
 pub const filter = @import("filter.zig");
+pub const stats = @import("stats.zig");
+pub const search = @import("search.zig");
 pub const packages = @import("packages.zig");
 pub const zip_writer = @import("zip_writer.zig");
 

@@ -421,6 +421,56 @@ std-only, headless, no UI. Modules:
   applied and walked, renamed in place, a delete cancelled, then deleted
   while current (the bar shows All); and a restart that finds the mode and
   a kept filter in elk.cfg.
+  *Find and statistics slice (2026-10-16):* the core's `search` module is
+  `FindItem`: from where the last hit stopped (the text, the field, one past
+  the hit), each text's original, description and translation in that
+  order, then the next text in the tree's order (the previous one with Up;
+  within a text the fields are still read forwards), the filter playing no
+  part; Match case off lower-cases both sides (ASCII, Latin-1 and the basic
+  Cyrillic capitals, which keep their byte length, so a hit's offset is one
+  into the edit box's text), Whole word wants a spelling delimiter or the
+  text's end on either side. *Changes from the MFC search:* it wraps round
+  the tree and stops when it is back where it started (the MFC one stopped
+  at the end); a hit Whole word rejects no longer ends the field's search
+  (the MFC loop moved to the next field, so "cat" in "concatenate the cat"
+  was never found); with nothing selected it starts at the first text (the
+  MFC one did nothing); a text chosen by hand is searched from its start,
+  not from the last hit's field and position. Edit > Find... (Ctrl+F) is the
+  Windows Find dialog's layout, modeless as it was: Find what, Find Next
+  (Enter), Match whole word only, Match case, Up / Down, Cancel, which sends
+  the next search back to the start. The edit is saved before a search, the
+  hit's text is selected like a Browse step (Collapse Item included), and
+  elk.cfg keeps `find_text=`, `find_down=`, `find_match_case=` and
+  `find_whole_word=` (the registry's FindText, FindDown, FindMatchCase,
+  FindWholeWord; FindWindow and FindPosition were reset by closing the
+  dialog and are not kept). *Adaptation:* the MFC ELK selected the hit's
+  characters in its edit box; the status line names the field and offset
+  instead, and a description hit has no description view to show it until
+  C1. The core's `stats` module is `CreateStatistic` with
+  `GetTextCounts` and its quirk (a word starts after a run of spelling
+  delimiters but ends only at a blank, a trailing delimiter run counts an
+  empty word), counting UTF-16 code units where the MBCS build counted the
+  code page's bytes; each text counts under the state the tree shows, in
+  both halves. View > ELK Statistic counts the database each time and shows
+  `CStatisticDialog`'s tree as a table: Original Text and Translation, each
+  with the four states summed over the elements and each element
+  (`<name>, VERSION: <version>`) with its four states, columns Items, Words,
+  Word Symbols and Symbols with the thousands set apart. *Measured:*
+  `Data/ELK/elk.xml`'s snapshot is of an older database (2,968 texts in other
+  states, the tracked one has 2,852), so equality is proved on
+  `Data/AmericanELK`: with the six files this project edited after the
+  snapshot (the credits, four option names) restored from
+  `tools/zig/fixtures/elk/american_snapshot`, every count of both halves
+  equals the stored `Statistic`. Not yet: storing the counts as the
+  snapshot (`Close` moved `statistic` to `previousStatistic` and saved
+  `elk.xml`), and D-14's worker thread with progress and Cancel for both
+  (a full find that misses reads every text's three files, about a second
+  on a Linux debug build). The smoke's fifth pass opens the statistic
+  window and asserts Data/ELK's counts, then finds "kuban" in the desc's
+  translation twice, the name's original, round to the desc again, misses
+  with Match case and with Whole word "Kuba", and goes Up from Tunis to
+  Tobruk; a second run finds the text and options in elk.cfg and opens
+  Find by Ctrl+F.
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,

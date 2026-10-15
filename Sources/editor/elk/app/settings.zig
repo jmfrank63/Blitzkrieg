@@ -8,9 +8,13 @@
 //! one (`current_filter=`), which the Create Filter dialog edits through
 //! `addFilter`, `renameFilter`, `deleteFilter` and `setFilter`, and the
 //! collapse-item mode (`collapse_item=`, on unless the file says `0`, the
-//! MFC registry's default). The rest of D-16 (last PAK, XLS and game
-//! folders, find options, fonts, toolbars, spell checking) joins with the
-//! features that use it.
+//! MFC registry's default), and the find options of Edit > Find...
+//! (`find_text=`, `find_down=`, `find_match_case=`, `find_whole_word=`, the
+//! registry's FindText, FindDown, FindMatchCase and FindWholeWord, with
+//! their defaults: down, neither box ticked). The registry's FindWindow and
+//! FindPosition are not kept: closing the dialog reset them to the start.
+//! The rest of D-16 (last PAK, XLS and game folders, fonts, toolbars, spell
+//! checking) joins with the features that use it.
 //!
 //! Where the file lives: `<UserRoot>elk/elk.cfg`, the user root being the
 //! game's own (Platform/Paths.cpp: `$XDG_DATA_HOME/Nival/Blitzkrieg/` or
@@ -51,6 +55,11 @@ pub const Settings = struct {
     current_filter_storage: FixedPath = .{},
     /// Browse collapses the branch it leaves (`bCollapseItem`, B5).
     collapse_item: bool = true,
+    /// Edit > Find...'s text and options (`SSearchParam`).
+    find_text_storage: FixedPath = .{},
+    find_down: bool = true,
+    find_match_case: bool = false,
+    find_whole_word: bool = false,
 
     pub fn gameParameters(self: *const Settings) []const u8 {
         return self.game_parameters.slice();
@@ -87,6 +96,18 @@ pub const Settings = struct {
 
     pub fn setCurrentFilter(self: *Settings, name: []const u8) void {
         self.current_filter_storage.set(name);
+    }
+
+    pub fn findText(self: *const Settings) []const u8 {
+        return self.find_text_storage.slice();
+    }
+
+    /// The typed text, kept on one line of the file: a line end or other
+    /// control character ends it.
+    pub fn setFindText(self: *Settings, text: []const u8) void {
+        var end: usize = 0;
+        while (end < text.len and !ks.isControl(text[end])) end += 1;
+        self.find_text_storage.set(text[0..end]);
     }
 
     /// Appends a filter keeping every text (a new `SSimpleFilter`), named
@@ -218,6 +239,15 @@ pub fn parse(text: []const u8) Settings {
             settings.current_filter_storage.set(value);
         } else if (std.mem.eql(u8, key, "collapse_item")) {
             settings.collapse_item = !std.mem.eql(u8, value, "0");
+        } else if (std.mem.eql(u8, key, "find_text")) {
+            // Untrimmed: a search may start or end with a space.
+            settings.setFindText(std.mem.trimEnd(u8, raw_line, "\r")[std.mem.indexOfScalar(u8, raw_line, '=').? + 1 ..]);
+        } else if (std.mem.eql(u8, key, "find_down")) {
+            settings.find_down = !std.mem.eql(u8, value, "0");
+        } else if (std.mem.eql(u8, key, "find_match_case")) {
+            settings.find_match_case = std.mem.eql(u8, value, "1");
+        } else if (std.mem.eql(u8, key, "find_whole_word")) {
+            settings.find_whole_word = std.mem.eql(u8, value, "1");
         } else _ = ks.applySharedKey(&settings, key, value);
     }
     return settings;
@@ -234,6 +264,10 @@ pub fn format(settings: *const Settings, writer: *std.Io.Writer) std.Io.Writer.E
     }
     try writer.print("current_filter={s}\n", .{settings.currentFilter()});
     try writer.print("collapse_item={d}\n", .{@intFromBool(settings.collapse_item)});
+    try writer.print("find_text={s}\n", .{settings.findText()});
+    try writer.print("find_down={d}\n", .{@intFromBool(settings.find_down)});
+    try writer.print("find_match_case={d}\n", .{@intFromBool(settings.find_match_case)});
+    try writer.print("find_whole_word={d}\n", .{@intFromBool(settings.find_whole_word)});
 }
 
 /// The settings file: the override when one is given, else
@@ -352,6 +386,22 @@ test "collapse-item is on unless the file turns it off" {
     var writer: std.Io.Writer = .fixed(&buffer);
     try format(&.{ .collapse_item = false }, &writer);
     try testing.expect(!parse(writer.buffered()).collapse_item);
+}
+
+test "the find options round-trip, the text with its spaces" {
+    const defaults = parse("");
+    try testing.expect(defaults.find_down and !defaults.find_match_case and !defaults.find_whole_word);
+    try testing.expectEqualStrings("", defaults.findText());
+    var settings: Settings = .{ .find_down = false, .find_match_case = true, .find_whole_word = true };
+    settings.setFindText(" Kuban Shield \nrest");
+    try testing.expectEqualStrings(" Kuban Shield ", settings.findText());
+    var buffer: [2048]u8 = undefined;
+    var writer: std.Io.Writer = .fixed(&buffer);
+    try format(&settings, &writer);
+    const again = parse(writer.buffered());
+    try testing.expectEqualStrings(" Kuban Shield ", again.findText());
+    try testing.expect(!again.find_down and again.find_match_case and again.find_whole_word);
+    try testing.expectEqualStrings("Kuban", parse("find_text=Kuban\r\n").findText());
 }
 
 test "the file lives in the game's user root unless the seam names one" {

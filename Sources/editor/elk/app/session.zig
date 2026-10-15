@@ -6,6 +6,9 @@
 //! both go through the same commit. Browsing (First, Previous, Next, Last)
 //! asks the core's tree for the text a step reaches through the current
 //! filter and selects it, which is a save point like any other selection.
+//! Find Next asks the core's search for the next hit from where the last
+//! one stopped and selects its text the same way; the statistics are the
+//! core's, counted over the tree.
 const std = @import("std");
 const elk = @import("elk_core");
 
@@ -15,6 +18,9 @@ pub const Text = elk.tree.Text;
 pub const State = elk.state.State;
 pub const Filter = elk.filter.Filter;
 pub const Step = elk.tree.Step;
+pub const FindOptions = elk.search.Options;
+pub const Hit = elk.search.Hit;
+pub const Statistic = elk.stats.Statistic;
 
 /// D-15: a dirty edit is written this long after it became dirty.
 pub const autosave_ms: u64 = 30_000;
@@ -82,6 +88,11 @@ pub const Session = struct {
     /// A state button set the selected text's state, so an edit no longer
     /// turns it Translated (the MFC input view's `bManualState`).
     manual_state: bool = false,
+    /// Where Find Next goes on from, on the text the last hit selected; a
+    /// search from any other selected text starts at its beginning.
+    find_cursor: ?elk.search.Cursor = null,
+    /// The last Find Next's hit; null after a miss.
+    last_hit: ?Hit = null,
     /// When the edit became dirty, on the caller's clock; null while clean.
     dirty_since_ms: ?u64 = null,
     /// The last save point's failure, for the status bar; "" when it worked.
@@ -207,6 +218,47 @@ pub const Session = struct {
         return null;
     }
 
+    /// Edit > Find...'s Find Next: the edit is saved first, so the search
+    /// reads what the box holds, then the hit's text is selected (a save
+    /// point like any other). Null when nothing is found; the selection and
+    /// the cursor then stay.
+    pub fn findNext(self: *Session, options: FindOptions) !?Hit {
+        const tree = &(self.tree orelse return null);
+        try self.save();
+        var from: ?elk.search.Cursor = null;
+        if (self.selected) |index| {
+            from = .{ .text = @intCast(index) };
+            if (self.find_cursor) |cursor| if (cursor.text == index) {
+                from = cursor;
+            };
+        }
+        const hit = try elk.search.findNext(self.gpa, &self.database.?, tree, options, from) orelse {
+            self.last_hit = null;
+            return null;
+        };
+        try self.select(hit.text);
+        self.find_cursor = hit.next();
+        self.last_hit = hit;
+        return hit;
+    }
+
+    /// Closing the Find dialog sends the next search back to the start of
+    /// the selected text, as `FR_DIALOGTERM` reset the search position.
+    pub fn resetFind(self: *Session) void {
+        self.find_cursor = null;
+        self.last_hit = null;
+    }
+
+    /// View > ELK Statistic: the counts of every text under the state the
+    /// tree shows, its slices in `allocator`.
+    pub fn statistics(self: *Session, allocator: std.mem.Allocator) !Statistic {
+        const tree = &(self.tree orelse return error.NoDatabaseOpen);
+        return elk.stats.compute(allocator, self.gpa, &self.database.?, tree) catch |err| {
+            self.fail("could not count the texts: {s}", .{@errorName(err)});
+            return err;
+        };
+    }
+
     /// Every save point: writes the selected text's translation when it was
     /// edited. An edited translation turns the text Translated, as the MFC
     /// input view did when its translation changed, unless a state button
@@ -280,6 +332,7 @@ pub const Session = struct {
         self.state = .not_translated;
         self.manual_state = false;
         self.dirty_since_ms = null;
+        self.resetFind();
     }
 
     /// Keeps a failure for the status line; ELK's own (a failed file
@@ -487,6 +540,34 @@ test "browsing through a filter saves the text it leaves and skips the rest" {
     const written = try database.readTranslation(testing.allocator, 0, "medals/1/desc");
     defer testing.allocator.free(written);
     try testing.expectEqualStrings("Beschreibung", written);
+}
+
+test "Find Next goes on from the last hit and starts over on another text" {
+    const io = testing.io;
+    var session = Session.init(testing.allocator, io);
+    defer session.deinit();
+    try session.open("Data/ELK/elk.xml");
+    const desc = session.find("medals/german/kuban/desc").?;
+    const name = session.find("medals/german/kuban/name").?;
+    const kuban: FindOptions = .{ .text = "Kuban" };
+    try testing.expectEqual(@as(usize, 4), (try session.findNext(kuban)).?.offset);
+    try testing.expectEqual(desc, session.selected.?);
+    try testing.expectEqual(@as(usize, 68), (try session.findNext(kuban)).?.offset);
+    try testing.expectEqual(elk.search.Field.original, (try session.findNext(kuban)).?.field);
+    try testing.expectEqual(name, session.selected.?);
+    // Chosen by hand, the desc is searched from its start again.
+    try session.select(desc);
+    try testing.expectEqual(@as(usize, 4), (try session.findNext(kuban)).?.offset);
+    // A miss keeps the selection.
+    try testing.expectEqual(@as(?Hit, null), try session.findNext(.{ .text = "kuban", .match_case = true }));
+    try testing.expectEqual(desc, session.selected.?);
+    try testing.expectEqual(@as(?Hit, null), session.last_hit);
+
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const statistic = try session.statistics(arena.allocator());
+    try testing.expectEqual(@as(i32, 2852), elk.stats.elementTotal(statistic.original[0]).texts);
+    try session.close();
 }
 
 test "the text buffer grows for ImGui and settles at the terminator" {

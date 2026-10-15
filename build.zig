@@ -9124,7 +9124,7 @@ fn addElk(
     // Reads Data/ELK and writes its scratch copy, neither a declared input.
     smoke_run.has_side_effects = true;
     smoke_run.step.dependOn(&install_exe.step);
-    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included");
+    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included, the filters, Find and ELK Statistic");
     smoke_step.dependOn(&install_exe.step);
     if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
 }

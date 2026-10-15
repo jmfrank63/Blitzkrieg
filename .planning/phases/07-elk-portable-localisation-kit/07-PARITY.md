@@ -32,8 +32,8 @@ Legend for "Kind": **same** = identical behaviour, **adapted** = intended change
 | B6 | Five built-in filters (All, Not translated, Outdated, Translated, Approved) | same | 07-01, 07-06 | Filter Check table test | Verified (07-06): `filter` Check table test; the five are the bar's filters with none in `elk.cfg` |
 | B7 | Filter editor: named filters, conditions = OR of AND-lists of folder substrings, state mask, "translated" flag, add/rename/delete, unique-name rule (`CCreateFilterDialog`, `SSimpleFilter::Check`) | same | 07-01 (logic), 07-06 (dialog) | Logic tests; dialog driven by the harness; persisted in `elk.cfg` | Verified (07-06): `settings`/`filter` tests (add, unique `_N` names, rename in place, delete falling back to All, conditions); `elk-smoke` drives the dialog (create, apply, rename, Cancel, delete) and a restart finds it in `elk.cfg`. Adapted: the name and the folder substrings are typed in the dialog, not chosen in a second dialog and a folder list; the last filter cannot be deleted |
 | B8 | Filter combo in the browse toolbar; current filter saved | same | 07-06 | Restart test | Verified (07-06): `elk-smoke` chooses a filter and a second run starts with it |
-| B9 | Find: text over original, description, translation, direction, match case, whole word, resume position, cancel, selects tree node and text range (`FindItem`, `SSearchParam`) | same | 07-01 (logic), 07-06 (dialog) | Search tests incl. whole word, wrap; cancel test | Planned |
-| B10 | Statistics window: tree of items/words/word symbols/symbols per state, original and translation separately, sums nest, previous snapshot (`CStatisticDialog`, `CreateStatistic`, `GetTextCounts`) | same | 07-01 (logic), 07-06 (window) | Counts equal the values stored in `Data/ELK/elk.xml` for the same database | Planned |
+| B9 | Find: text over original, description, translation, direction, match case, whole word, resume position, cancel, selects tree node and text range (`FindItem`, `SSearchParam`) | same | 07-01 (logic), 07-06 (dialog) | Search tests incl. whole word, wrap; cancel test | Partial (07-06): `search` tests (fields in order, resume, wrap, match case, whole word, Up, Cyrillic case) and `elk-smoke` (Edit > Find..., hits asserted, options kept in `elk.cfg` over a restart). Adapted: wraps; whole word keeps searching the field; the status line names the hit's field and offset instead of selecting its characters. Open: Cancel of a long search (D-14 worker, with B11) |
+| B10 | Statistics window: tree of items/words/word symbols/symbols per state, original and translation separately, sums nest, previous snapshot (`CStatisticDialog`, `CreateStatistic`, `GetTextCounts`) | same | 07-01 (logic), 07-06 (window) | Counts equal the values stored in `Data/ELK/elk.xml` for the same database | Partial (07-06): `stats` test: every count equals the `Statistic` stored in `Data/AmericanELK/elk.xml` (with the six files edited since restored from `tools/zig/fixtures/elk/american_snapshot`; `Data/ELK`'s snapshot is of an older database); `elk-smoke` asserts the window's rows for `Data/ELK`. Open: storing the counts as the previous snapshot on Close |
 | B11 | Progress dialog with message, range, position (`CProgressDialog`) | same | 07-06 | Worker test; cancel leaves files whole | Planned |
 
 ## C. Editing view
@@ -86,7 +86,7 @@ Legend for "Kind": **same** = identical behaviour, **adapted** = intended change
 | F2 | Word splitting and delimiters, ignore symbols (`SPELLING_WORD_DELIMITERS`, `WORD_DELIMITERS`, `IGNORE_SYMBOLS`, `GetWord`) | same | 07-05 | Table test against the constants | Planned |
 | F3 | User dictionary (`CUSTOM.DIC`, `#LID`) | adapted: `custom.dic` plain text, legacy file readable | 07-05 | Add word, restart, still accepted | Planned |
 | F4 | Language selection (Russian, US, British) and "unavailable" state disabling the command | adapted: dictionary folder and combo; disabled with a reason without a dictionary | 07-05, 07-07 | E-08 | Planned |
-| F5 | Word/character counts used by statistics (`GetTextCounts`) | same | 07-01 | With B10 | Planned |
+| F5 | Word/character counts used by statistics (`GetTextCounts`) | same | 07-01 | With B10 | Verified (07-06): `GetTextCounts` ported with its quirk; equality with the stored snapshot (B10) |
 
 ## G. Application shell
 
@@ -97,7 +97,7 @@ Legend for "Kind": **same** = identical behaviour, **adapted** = intended change
 | G3 | Launch flags `-short` / `-developer` | same; both `--x` and `-x` accepted | 07-06 | Flag parse test | Planned |
 | G4 | Toolbars: Project (File), Text (Edit), Browse, Interface (View), with tooltips | same | 07-06 | Shot | Planned |
 | G5 | Customize: show/hide toolbars and buttons, reset; saved on exit in extended mode | adapted: window plus docking (D-20) | 07-06 | Persist test | Planned |
-| G6 | View menu: ELK Tree on/off, ELK Statistic, Status Bar on/off | same | 07-06 | Harness | Planned |
+| G6 | View menu: ELK Tree on/off, ELK Statistic, Status Bar on/off | same | 07-06 | Harness | Partial (07-06): View > ELK Statistic (`elk-smoke`); ELK Tree and Status Bar on/off open |
 | G7 | Hot keys: Ctrl+O, Ctrl+S, Ctrl+N, Ctrl+P, Ctrl+F, F1, F7, Ctrl+Z/X/C/V, Del, Alt+F4 (Cmd equivalents on macOS) | same | 07-06 | Harness | Planned |
 | G8 | Full-screen and window rectangle remembered (`bFullScreen`, `rect`) | same via ImGui ini and settings | 07-06 | Restart test | Planned |
 | G9 | Help window (F1) with the full help text, English and Russian | adapted: Markdown in-app, `elk.chm` dropped (D-18) | 07-06, 07-08 | Every help section present; hot-key list matches G7 | Planned |

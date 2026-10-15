@@ -33,6 +33,14 @@
 //!   do=filter_changed:<0|1>  the Changed only box
 //!   do=filter_condition:<a&b>  type the condition, press Add Condition
 //!   do=filter_ok  do=filter_cancel
+//!   do=find_dialog           Edit > Find...; the commands below need the
+//!                            Find window drawn in the last frame
+//!   do=find_next:<text>      type the text into Find what, press Find Next
+//!   do=find_option:<option>=<0|1>  tick a box or pick the direction:
+//!                            match_case, whole_word, down (0 is Up)
+//!   do=find_close            Cancel
+//!   do=statistics            View > ELK Statistic
+//!   do=statistics_close      the statistic window's OK
 //!   do=wait:<seconds>        the autosave clock moves on that far
 //!   do=kill                  the frame loop stops at once, no save point
 //!   do=focus:translation     the translation box takes the keyboard
@@ -58,6 +66,18 @@
 //!   expect=filter_dialog:<0|1> whether the dialog is open
 //!   expect=filter_count:<n>    how many filters the bar offers
 //!   expect=filter_at:<index>=<name>  the bar's filter at that place
+//!   expect=find_dialog:<0|1>   whether the Find window is open
+//!   expect=found:<key>=<field>:<offset>  the last Find Next's hit (field
+//!                            original, description or translation, the
+//!                            byte offset in it), its text selected
+//!   expect=found:none          the last Find Next found nothing
+//!   expect=find_text:<text>  expect=find_option:<option>=<0|1>  as elk.cfg keeps them
+//!   expect=statistics:<0|1>    whether the last frame drew the statistic window
+//!   expect=statistic:<half>/<row>=<items>/<words>/<word symbols>/<symbols>
+//!                            a row of that window: half original or
+//!                            translation; row total, a state (summed over
+//!                            the elements), an element's number, or
+//!                            <number>.<state>
 //!   expect=untouched:<index>   the row's text files are byte-identical to
 //!                              the source the smoke copied (smoke only)
 //!   expect=identical           every file of the opened copy is byte-identical
@@ -197,6 +217,26 @@ pub const Runner = struct {
             if (ui.filter_dialog == null) return self.fail("do=filter_dialog: the dialog did not open", .{});
         } else if (std.mem.startsWith(u8, named.name, "filter_")) {
             try self.dialogCommand(ui, named);
+        } else if (is(named, "find_dialog")) {
+            if (!session.isOpen()) return self.fail("do=find_dialog: Find... is disabled with no database", .{});
+            ui.openFind();
+        } else if (is(named, "find_next") or is(named, "find_option") or is(named, "find_close")) {
+            if (!ui.find_drawn) return self.fail("do={s}: the Find window is not shown", .{named.name});
+            if (is(named, "find_next")) {
+                _ = std.mem.printSentinel(&ui.find_buffer, "{s}", .{named.arg}, 0) catch return self.fail("do=find_next: the text is too long", .{});
+                _ = ui.findNext();
+            } else if (is(named, "find_option")) {
+                const eq = std.mem.indexOfScalar(u8, named.arg, '=') orelse return self.fail("find_option needs <option>=<0|1>", .{});
+                const option = std.meta.stringToEnum(ui_mod.Ui.FindOption, named.arg[0..eq]) orelse return self.fail("do=find_option: no option {s}", .{named.arg[0..eq]});
+                ui.setFindOption(option, std.mem.eql(u8, named.arg[eq + 1 ..], "1"));
+            } else ui.closeFind();
+        } else if (is(named, "statistics")) {
+            if (!session.isOpen()) return self.fail("do=statistics: ELK Statistic is disabled with no database", .{});
+            ui.openStatistics();
+            if (ui.statistics == null) return self.fail("do=statistics: nothing was counted ({s})", .{session.failureText()});
+        } else if (is(named, "statistics_close")) {
+            if (!ui.statistics_drawn) return self.fail("do=statistics_close: the statistic window is not shown", .{});
+            ui.closeStatistics();
         } else if (is(named, "wait")) {
             const seconds = std.fmt.parseInt(u64, named.arg, 10) catch return self.fail("wait needs seconds, got {s}", .{named.arg});
             ui.clock_offset_ms += seconds * std.time.ms_per_s;
@@ -356,11 +396,78 @@ pub const Runner = struct {
             if (index >= ui.filterCount()) return self.fail("expect=filter_at: the bar offers only {d}", .{ui.filterCount()});
             const shown = ui.filterAt(index).name;
             if (!std.mem.eql(u8, shown, named.arg[eq + 1 ..])) return self.fail("expect=filter_at: {d} is {s}, wanted {s}", .{ index, shown, named.arg[eq + 1 ..] });
+        } else if (is(named, "find_dialog")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            if (ui.find_open != wanted) return self.fail("expect=find_dialog: open is {}, wanted {}", .{ !wanted, wanted });
+        } else if (is(named, "found")) {
+            try self.found(ui, named.arg);
+        } else if (is(named, "find_text")) {
+            if (!std.mem.eql(u8, ui.settings.findText(), named.arg)) return self.fail("expect=find_text: elk.cfg keeps \"{s}\", wanted \"{s}\"", .{ ui.settings.findText(), named.arg });
+        } else if (is(named, "find_option")) {
+            const eq = std.mem.indexOfScalar(u8, named.arg, '=') orelse return self.fail("find_option needs <option>=<0|1>", .{});
+            const option = std.meta.stringToEnum(ui_mod.Ui.FindOption, named.arg[0..eq]) orelse return self.fail("expect=find_option: no option {s}", .{named.arg[0..eq]});
+            const on = switch (option) {
+                .down => ui.settings.find_down,
+                .match_case => ui.settings.find_match_case,
+                .whole_word => ui.settings.find_whole_word,
+            };
+            if (on != std.mem.eql(u8, named.arg[eq + 1 ..], "1")) return self.fail("expect=find_option: {s} is {}", .{ named.arg[0..eq], on });
+        } else if (is(named, "statistics")) {
+            const wanted = std.mem.eql(u8, named.arg, "1");
+            if (ui.statistics_drawn != wanted) return self.fail("expect=statistics: drawn is {}, wanted {}", .{ !wanted, wanted });
+        } else if (is(named, "statistic")) {
+            try self.statistic(ui, named.arg);
         } else if (is(named, "untouched")) {
             try self.untouched(ui, named.arg);
         } else if (is(named, "identical")) {
             try self.identical(ui);
         } else return self.fail("unknown expectation expect={s}", .{named.name});
+    }
+
+    /// `<key>=<field>:<offset>` or `none` against the last Find Next.
+    fn found(self: *Runner, ui: *ui_mod.Ui, arg: []const u8) !void {
+        const session = ui.session;
+        const last = session.last_hit;
+        if (std.mem.eql(u8, arg, "none")) {
+            if (last) |hit| return self.fail("expect=found: the last Find Next found {s}", .{session.textAt(hit.text).key});
+            if (!ui.find_missed) return self.fail("expect=found: no Find Next missed", .{});
+            return;
+        }
+        const eq = std.mem.lastIndexOfScalar(u8, arg, '=') orelse return self.fail("found needs <key>=<field>:<offset>", .{});
+        const colon = std.mem.indexOfScalarPos(u8, arg, eq, ':') orelse return self.fail("found needs <key>=<field>:<offset>", .{});
+        const hit = last orelse return self.fail("expect=found: the last Find Next found nothing", .{});
+        const key = session.textAt(hit.text).key;
+        const offset = std.fmt.parseInt(usize, arg[colon + 1 ..], 10) catch return self.fail("found needs a byte offset", .{});
+        if (!std.mem.eql(u8, key, arg[0..eq]) or !std.mem.eql(u8, @tagName(hit.field), arg[eq + 1 .. colon]) or hit.offset != offset)
+            return self.fail("expect=found: the hit is {s}={s}:{d}, wanted {s}", .{ key, @tagName(hit.field), hit.offset, arg });
+        if (session.selected != hit.text) return self.fail("expect=found: {s} is not selected", .{key});
+    }
+
+    /// `<half>/<row>=<items>/<words>/<word symbols>/<symbols>` against the
+    /// counts the statistic window draws.
+    fn statistic(self: *Runner, ui: *ui_mod.Ui, arg: []const u8) !void {
+        if (!ui.statistics_drawn) return self.fail("expect=statistic: the statistic window is not shown", .{});
+        const eq = std.mem.indexOfScalar(u8, arg, '=') orelse return self.fail("statistic needs <half>/<row>=<counts>", .{});
+        const slash = std.mem.indexOfScalar(u8, arg[0..eq], '/') orelse return self.fail("statistic needs <half>/<row>", .{});
+        const half = arg[0..slash];
+        if (!std.mem.eql(u8, half, "original") and !std.mem.eql(u8, half, "translation")) return self.fail("expect=statistic: no half {s}", .{half});
+        const row = arg[slash + 1 .. eq];
+        var element: ?usize = null;
+        var state: ?elk.state.State = null;
+        if (!std.mem.eql(u8, row, "total")) {
+            const dot = std.mem.indexOfScalar(u8, row, '.');
+            const head = row[0 .. dot orelse row.len];
+            if (std.fmt.parseInt(usize, head, 10)) |number| {
+                element = number;
+                if (dot) |at| state = std.meta.stringToEnum(elk.state.State, row[at + 1 ..]) orelse return self.fail("expect=statistic: no state {s}", .{row[at + 1 ..]});
+            } else |_| {
+                state = std.meta.stringToEnum(elk.state.State, row) orelse return self.fail("expect=statistic: no row {s}", .{row});
+            }
+        }
+        const counts = ui.statisticRow(std.mem.eql(u8, half, "translation"), element, state) orelse return self.fail("expect=statistic: no row {s}", .{row});
+        var buffer: [64]u8 = undefined;
+        const shown = try std.fmt.bufPrint(&buffer, "{d}/{d}/{d}/{d}", .{ counts.texts, counts.words, counts.word_symbols, counts.symbols });
+        if (!std.mem.eql(u8, shown, arg[eq + 1 ..])) return self.fail("expect=statistic: {s} is {s}, wanted {s}", .{ arg[0..eq], shown, arg[eq + 1 ..] });
     }
 
     /// The row's translation and state files compare byte for byte with
