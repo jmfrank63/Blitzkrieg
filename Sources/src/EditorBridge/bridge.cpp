@@ -4955,6 +4955,13 @@ BkEditorStatus BkEditorStop( BkEditorSession *pSession )
 		// reopen after this release, and no host does that today.
 		if ( s_nBkEditorSessions == 0 && GetSingletonGlobal() != 0 )
 		{
+			// The AI's per-map state (its global objects, the link-object
+			// and command registries) outlives the world deleted above: no
+			// stop path cleared it, so ~1,000 blocks reached BkMemory's
+			// report (S04). The AI's own Clear frees it, as closing a map
+			// does (CloseSessionMap).
+			if ( IAIEditor *pAIEditor = GetSingleton<IAIEditor>() )
+				pAIEditor->Clear();
 			// The same cache release NMain::Finalize runs for the game
 			// before its registry release: the engine's current-font
 			// reference pins the fonts, and the managers' maps pin the
