@@ -9112,9 +9112,10 @@ fn addElk(
     const install_step = b.step("install-elk", "Install ELK, the localisation kit, into the game installation");
     install_step.dependOn(&install_exe.step);
 
-    // The installed ELK on a scratch copy of the tracked Data/ELK, in a
-    // hidden window: the list, the edit boxes and the four save points of
-    // D-15, each proved on disk. Launched from zig-out like the editors'
+    // The installed ELK on scratch copies of the tracked Data/ELK, in a
+    // hidden window: the tree, the edit boxes, the state buttons and the
+    // save points of D-15, the autosave through a killed frame loop
+    // included, each proved on disk. Launched from zig-out like the editors'
     // host checks; it needs a GPU device, so it is not part of `test`.
     const smoke_run = b.addSystemCommand(&.{rootPath(b, b.fmt("{s}/{s}", .{ stage_root, exe.out_filename }))});
     setLeakReportLog(smoke_run);
@@ -9123,7 +9124,7 @@ fn addElk(
     // Reads Data/ELK and writes its scratch copy, neither a declared input.
     smoke_run.has_side_effects = true;
     smoke_run.step.dependOn(&install_exe.step);
-    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on a scratch copy of Data/ELK and drive the list, the edit boxes and every save point");
+    const smoke_step = b.step("elk-smoke", "Start the installed ELK hidden on scratch copies of Data/ELK and drive the tree, the edit boxes, the state buttons and every save point, the 30-second autosave through a killed frame loop included");
     smoke_step.dependOn(&install_exe.step);
     if (test_mode == .run) smoke_step.dependOn(&smoke_run.step);
 }

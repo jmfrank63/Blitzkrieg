@@ -8,6 +8,7 @@ pub const text_codec = @import("text_codec.zig");
 pub const state = @import("state.zig");
 pub const project_file = @import("project_file.zig");
 pub const database = @import("database.zig");
+pub const tree = @import("tree.zig");
 pub const packages = @import("packages.zig");
 pub const zip_writer = @import("zip_writer.zig");
 

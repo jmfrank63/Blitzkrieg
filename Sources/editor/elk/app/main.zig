@@ -9,11 +9,15 @@
 //! starts the extended layout until the translator layout exists.
 //! `--smoke` copies the database's `elk.xml` and `<element>_data_base/`
 //! folders into the scratch folder, opens the copy in a hidden window and
-//! replays a fixed schedule over the list, the edit boxes and every save
+//! replays a fixed schedule over the tree, the edit boxes and every save
 //! point, then copies it again beside the first and opens that one through
 //! File > Open, answering the dialog itself: an untouched Save leaves every
 //! file byte-identical, an edit reaches the disk, and the path lands first
-//! in the run's own elk.cfg. `--auto` replays `BK_ELK_AUTO` on the database
+//! in the run's own elk.cfg. A third copy proves the tree, the state buttons
+//! and the autosave: the tree is opened down to a text, its state set by the
+//! buttons and seen in the folders' colours, an edit autosaved, the frame
+//! loop killed with a later edit unsaved, and the copy reopened with the
+//! autosaved text in it. `--auto` replays `BK_ELK_AUTO` on the database
 //! given.
 const std = @import("std");
 const builtin = @import("builtin");
@@ -62,6 +66,34 @@ const open_schedule =
     "7:do=select_key:" ++ smoke_key ++ ",9:do=select:0,10:do=save,11:expect=identical," ++
     "12:do=select_key:" ++ smoke_key ++ ",13:do=focus:translation,16:text=" ++ open_final ++ ",18:expect=dirty:1," ++
     "19:do=save,20:expect=disk:" ++ smoke_key ++ "=" ++ open_final ++ ",20:expect=dirty:0,21:exit";
+
+/// The tree, state and autosave pass. medals/1 holds two texts, both Not
+/// translated in Data/ELK: approving one leaves the folder red (the lowest
+/// state below it), approving both turns it blue. The autosave clock is
+/// moved 29 s (no write), then 2 s more (the write); the kill then drops a
+/// later edit, which no save point may have written.
+const tree_name = "medals/1/name";
+const tree_desc = "medals/1/desc";
+const autosaved = "ELK-AUTO";
+const tree_schedule =
+    "2:expect=open,3:expect=rows,3:expect=folder:medals=not_translated,3:expect=row:" ++ tree_name ++ "=hidden," ++
+    "3:do=expand:medals/1,5:expect=folder:medals/1=not_translated,5:expect=row:" ++ tree_name ++ "=not_translated," ++
+    "5:do=click:" ++ tree_name ++ ",7:expect=original_has:Medal,7:do=state:approved," ++
+    "9:expect=state:" ++ tree_name ++ "=approved,9:expect=row:" ++ tree_name ++ "=approved,9:expect=folder:medals/1=not_translated," ++
+    "9:do=click:" ++ tree_desc ++ ",11:do=state:approved,13:expect=row:" ++ tree_desc ++ "=approved,13:expect=folder:medals/1=approved," ++
+    "13:do=state:not_translated,15:expect=folder:medals/1=not_translated,15:expect=state:" ++ tree_desc ++ "=not_translated," ++
+    // The autosave, on the approved name selected again: the button chose
+    // the state of the earlier visit only, so the edit turns it Translated
+    // (InputViewWindow cleared bManualState on each text it loaded).
+    "16:do=click:" ++ tree_name ++ ",18:do=focus:translation,21:text=" ++ autosaved ++ ",23:expect=dirty:1," ++
+    "24:do=wait:29,26:expect=dirty:1,26:expect=disk:" ++ tree_name ++ "=," ++
+    "27:do=wait:2,29:expect=dirty:0,29:expect=disk:" ++ tree_name ++ "=" ++ autosaved ++ ",29:expect=state:" ++ tree_name ++ "=translated," ++
+    "30:key=end+ctrl,32:text=LOST,34:expect=dirty:1,35:do=kill";
+/// The reopen after the kill: the autosaved text is in the edit box and
+/// the tree shows the text where it was left.
+const reopen_schedule =
+    "2:expect=open,2:do=select_key:" ++ tree_name ++ ",5:expect=translation:" ++ autosaved ++ "," ++
+    "5:expect=row:" ++ tree_name ++ "=translated,5:expect=dirty:0,6:exit";
 
 /// A scripted run that has not exited by then has hung.
 const smoke_frame_limit = 200;
@@ -145,6 +177,7 @@ fn interactive(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ,
     var session = session_mod.Session.init(gpa, io);
     defer session.deinit();
     var ui: ui_mod.Ui = .{ .gpa = gpa, .io = io, .session = &session, .settings = &settings, .settings_path = settings_path };
+    defer ui.deinit();
     var recent_copy: [settings_mod.max_path]u8 = undefined;
     if (first) |path| {
         ui.openDatabase(path);
@@ -172,7 +205,7 @@ fn loop(window: *window_mod.Window, ui: *ui_mod.Ui, runner: ?*auto.Runner, frame
         }
         if (runner) |r| {
             if (!r.step(frame, window, ui)) return false;
-            if (ui.quit) break;
+            if (ui.quit or ui.killed) break;
         }
         if (frame >= frame_limit) {
             if (runner) |r| r.failure = "the schedule did not exit in time";
@@ -223,8 +256,45 @@ fn smoke(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sourc
     }
     const opened = smokeOpen(gpa, io, environ, source, scratch);
     if (opened.code != 0) return opened.code;
-    std.debug.print("elk: smoke PASS: {d} + {d} frames, {d} fonts, list, edit, the four save points and File > Open on {s}\n", .{ result.frames, opened.frames, result.fonts, elk_path });
+    const crashed = smokeTree(gpa, io, environ, source, scratch);
+    if (crashed.code != 0) return crashed.code;
+    std.debug.print("elk: smoke PASS: {d} + {d} + {d} frames, {d} fonts, tree, edit, the four save points, File > Open, the state buttons and the autosave through a kill on {s}\n", .{ result.frames, opened.frames, crashed.frames, result.fonts, elk_path });
     return 0;
+}
+
+/// The smoke's tree, state button and autosave pass on a third copy,
+/// `<scratch>-tree`: the run is killed mid-edit, the disk then holds the
+/// autosaved text and not the later one, and a second run on the same copy
+/// shows it.
+fn smokeTree(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, source: []const u8, scratch: []const u8) Scripted {
+    var folder_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const folder = std.fmt.bufPrint(&folder_buffer, "{s}-tree", .{scratch}) catch return .{ .code = 1 };
+    _ = copyDatabase(gpa, io, source, folder) catch |err| {
+        std.debug.print("elk: smoke FAIL: could not copy {s} to {s}: {s}\n", .{ source, folder, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    var path_buffer: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const elk_path = std.fmt.bufPrint(&path_buffer, "{s}{c}elk.xml", .{ folder, std.fs.path.sep }) catch return .{ .code = 1 };
+    const killed = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = tree_schedule, .frame_limit = smoke_frame_limit, .tier = "smoke (tree, autosave)" });
+    if (killed.code != 0) return killed;
+
+    var database = elk.database.Database.open(gpa, io, elk_path) catch |err| {
+        std.debug.print("elk: smoke FAIL: the killed copy did not reopen: {s}\n", .{@errorName(err)});
+        return .{ .code = 1 };
+    };
+    defer database.deinit();
+    const saved = database.readTranslation(gpa, 0, tree_name) catch |err| {
+        std.debug.print("elk: smoke FAIL: {s} did not read back: {s}\n", .{ tree_name, @errorName(err) });
+        return .{ .code = 1 };
+    };
+    defer gpa.free(saved);
+    if (!std.mem.eql(u8, saved, autosaved)) {
+        std.debug.print("elk: smoke FAIL: after the kill {s} holds \"{s}\", wanted the autosaved \"{s}\"\n", .{ tree_name, saved, autosaved });
+        return .{ .code = 1 };
+    }
+    const reopened = scripted(gpa, io, environ, .{ .elk_path = elk_path, .text = reopen_schedule, .frame_limit = smoke_frame_limit, .tier = "smoke (reopen after the kill)" });
+    if (reopened.code != 0) return reopened;
+    return .{ .code = 0, .frames = killed.frames + reopened.frames };
 }
 
 /// The smoke's File > Open pass on a second copy, `<scratch>-open`, with
@@ -328,6 +398,7 @@ fn scripted(gpa: std.mem.Allocator, io: std.Io, environ: std.process.Environ, sc
         .settings_path = script.settings_path,
         .os_dialogs = false,
     };
+    defer ui.deinit();
     if (script.elk_path) |path| ui.openDatabase(path);
     var runner: auto.Runner = .{
         .entries = entries,

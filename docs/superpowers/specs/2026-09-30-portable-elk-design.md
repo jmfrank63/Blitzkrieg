@@ -346,6 +346,21 @@ std-only, headless, no UI. Modules:
   callback, moved from the map editor's `panels_logic` with the resource
   editor's four hand-rolled slots rebased on it. ELK's File > Open (Ctrl+O)
   uses it; the opened database goes first in elk.cfg's recent list.
+  *Tree, states and autosave slice (2026-10-16):* the core's `tree` module
+  is the key tree (one root per element, titled `<name>, VERSION: <version>`,
+  folders and texts of a folder ordered together without regard to case,
+  each folder the lowest state below it, a text's change carried up to the
+  root); the app draws it clipped, coloured red / yellow / green / blue, and
+  selecting a text opens its folders and scrolls to it. The edit view's
+  state buttons write the selected text's state at once; Outdated shows but
+  cannot be chosen. A button press is kept over a later edit of that visit
+  only: `InputViewWindow` cleared `bManualState` on each text it loaded, so
+  an Approved text edited on a later visit is saved Translated. The 30 s
+  autosave counts from the moment the edit became dirty, on the session's
+  clock (the scripted runs move it with `do=wait`); the smoke kills the frame
+  loop (`do=kill`, no save point) with a later edit unsaved and reopens the
+  copy with the autosaved text in it. Folder bulk-set, the tree context menu
+  and navigation through a filter remain for their own slices.
 - Panels: menu bar (extended or short), toolbars, tree, original,
   description, image, translation with state selector, status bar (tooltips).
 - Windows and dialogs: Open ELK, Recent, Import from Game, Import from PAK,

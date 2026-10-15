@@ -8,8 +8,18 @@
 //! The pointer actions, `open=`/`save`/`saveas=`, test-in-game and the
 //! screenshot actions fail the run as not driven yet.
 //!
-//!   do=select:<index>        select the list's row, leaving the current text
+//!   do=select:<index>        select the <index>th text, leaving the current
+//!                            one; the tree opens its folders and scrolls to it
 //!   do=select_key:<key>      the same, by the text's key
+//!   do=expand:<folder>       open the folder (slash-separated, below the
+//!                            element's root) and those above it, as their
+//!                            arrows would
+//!   do=click:<key>           click the text's tree row; the last frame must
+//!                            have drawn it
+//!   do=state:<state>         press a state button (the last frame must have
+//!                            drawn them): not_translated, translated, approved
+//!   do=wait:<seconds>        the autosave clock moves on that far
+//!   do=kill                  the frame loop stops at once, no save point
 //!   do=focus:translation     the translation box takes the keyboard
 //!   do=save  do=close  do=reopen  (File > Save, File > Close, open again)
 //!   do=open                  File > Open; the run shows no OS dialog
@@ -20,6 +30,9 @@
 //!   expect=original_has:<text>  expect=translation:<text>
 //!   expect=disk:<key>=<text>   the translation file as the core reads it
 //!   expect=state:<key>=<not_translated|outdated|translated|approved>
+//!   expect=row:<key>=<state|hidden>  the last frame drew the text's tree
+//!                            row in that state's colour, or did not draw it
+//!   expect=folder:<folder>=<state>   the same for a folder's row
 //!   expect=untouched:<index>   the row's text files are byte-identical to
 //!                              the source the smoke copied (smoke only)
 //!   expect=identical           every file of the opened copy is byte-identical
@@ -123,10 +136,29 @@ pub const Runner = struct {
         const session = ui.session;
         if (is(named, "select")) {
             const index = std.fmt.parseInt(usize, named.arg, 10) catch return self.fail("select needs a row number, got {s}", .{named.arg});
-            try session.select(index);
+            try ui.select(index);
         } else if (is(named, "select_key")) {
             const index = session.find(named.arg) orelse return self.fail("no text {s}", .{named.arg});
-            try session.select(index);
+            try ui.select(index);
+        } else if (is(named, "expand")) {
+            const node = folderNode(session, named.arg) orelse return self.fail("do=expand: no folder {s}", .{named.arg});
+            ui.reveal(node);
+            ui.expanded.items[node] = true;
+        } else if (is(named, "click")) {
+            const node = textNode(session, named.arg) orelse return self.fail("do=click: no text {s}", .{named.arg});
+            if (drawnColour(ui, node) == null) return self.fail("do=click: the tree does not show {s}", .{named.arg});
+            ui.clickRow(node);
+            if (session.selected != session.tree.?.nodes[node].text.?) return self.fail("do=click: {s} was not selected ({s})", .{ named.arg, session.failureText() });
+        } else if (is(named, "state")) {
+            const state = std.meta.stringToEnum(elk.state.State, named.arg) orelse return self.fail("do=state: no state {s}", .{named.arg});
+            if (!ui.state_buttons_drawn) return self.fail("do=state: the state buttons are not shown", .{});
+            ui.pressState(state);
+            if (session.state != state) return self.fail("do=state: the text is {s}, wanted {s} ({s})", .{ @tagName(session.state), named.arg, session.failureText() });
+        } else if (is(named, "wait")) {
+            const seconds = std.fmt.parseInt(u64, named.arg, 10) catch return self.fail("wait needs seconds, got {s}", .{named.arg});
+            ui.clock_offset_ms += seconds * std.time.ms_per_s;
+        } else if (is(named, "kill")) {
+            ui.killed = true;
         } else if (is(named, "focus") and std.mem.eql(u8, named.arg, "translation")) {
             ui.focus_translation = true;
         } else if (is(named, "save")) {
@@ -162,14 +194,14 @@ pub const Runner = struct {
         } else if (is(named, "closed")) {
             if (session.isOpen()) return self.fail("expect=closed: {s} is still open", .{session.openPath()});
         } else if (is(named, "rows")) {
-            if (ui.rows_drawn == 0) return self.fail("expect=rows: the list drew no rows", .{});
+            if (ui.rows_drawn == 0) return self.fail("expect=rows: the tree drew no rows", .{});
         } else if (is(named, "glyphs")) {
             for (fonts.samples) |codepoint| {
                 if (!fonts.covers(codepoint)) return self.fail("expect=glyphs: the font stack has no glyph for U+{X:0>4}", .{codepoint});
             }
         } else if (is(named, "texts")) {
             const wanted = std.fmt.parseInt(usize, named.arg, 10) catch return self.fail("texts needs a number", .{});
-            if (session.entries.items.len != wanted) return self.fail("expect=texts: {d} texts, wanted {d}", .{ session.entries.items.len, wanted });
+            if (session.textCount() != wanted) return self.fail("expect=texts: {d} texts, wanted {d}", .{ session.textCount(), wanted });
         } else if (is(named, "title")) {
             const shown = std.mem.span(c.SDL_GetWindowTitle(window.window));
             var buffer: [512]u8 = undefined;
@@ -197,6 +229,22 @@ pub const Runner = struct {
                 const property = try database.readState(element, text_key);
                 if (!std.mem.eql(u8, @tagName(property.state), wanted)) return self.fail("expect=state: {s} is {s} on disk, wanted {s}", .{ text_key, @tagName(property.state), wanted });
             }
+        } else if (is(named, "row") or is(named, "folder")) {
+            const eq = std.mem.lastIndexOfScalar(u8, named.arg, '=') orelse return self.fail("{s} needs <path>=<state>", .{named.name});
+            const path = named.arg[0..eq];
+            const wanted = named.arg[eq + 1 ..];
+            const node = (if (is(named, "row")) textNode(session, path) else folderNode(session, path)) orelse
+                return self.fail("expect={s}: no {s} in the tree", .{ named.name, path });
+            const drawn = drawnColour(ui, node);
+            if (std.mem.eql(u8, wanted, "hidden")) {
+                if (drawn != null) return self.fail("expect={s}: the tree shows {s}", .{ named.name, path });
+                return;
+            }
+            const state = std.meta.stringToEnum(elk.state.State, wanted) orelse return self.fail("expect={s}: no state {s}", .{ named.name, wanted });
+            const colour = drawn orelse return self.fail("expect={s}: the tree does not show {s}", .{ named.name, path });
+            const shown = session.tree.?.nodes[node].state;
+            if (shown != state) return self.fail("expect={s}: {s} is {s} in the tree, wanted {s}", .{ named.name, path, @tagName(shown), wanted });
+            if (colour != ui_mod.stateColour(state)) return self.fail("expect={s}: {s} was drawn in {X:0>8}, {s} is {X:0>8}", .{ named.name, path, colour, wanted, ui_mod.stateColour(state) });
         } else if (is(named, "untouched")) {
             try self.untouched(ui, named.arg);
         } else if (is(named, "identical")) {
@@ -210,7 +258,7 @@ pub const Runner = struct {
         if (self.source_folder.len == 0) return self.fail("expect=untouched needs the smoke's source", .{});
         const index = std.fmt.parseInt(usize, arg, 10) catch return self.fail("untouched needs a row number", .{});
         const session = ui.session;
-        const text = session.entryAt(index);
+        const text = session.textAt(index);
         const database = &session.database.?;
         const base = database.bases[text.element].path.?;
         const relative_base = base[database.folder.len + 1 ..];
@@ -260,6 +308,28 @@ pub const Runner = struct {
         self.failure = std.fmt.bufPrint(&self.failure_storage, format, args) catch self.failure_storage[0..];
     }
 };
+
+/// The tree row of the text `key`, in the first element that has it.
+fn textNode(session: *const ui_mod.Session, key: []const u8) ?u32 {
+    const index = session.find(key) orelse return null;
+    return session.tree.?.node_of_text[index];
+}
+
+/// The tree row of the folder `path`, in the first element that has it.
+fn folderNode(session: *const ui_mod.Session, path: []const u8) ?u32 {
+    const tree = &(session.tree orelse return null);
+    const database = &session.database.?;
+    for (0..database.bases.len) |element| {
+        if (tree.findFolder(element, path)) |node| return node;
+    }
+    return null;
+}
+
+/// The colour the last frame drew `node`'s row in; null when it drew none.
+fn drawnColour(ui: *const ui_mod.Ui, node: u32) ?u32 {
+    for (ui.drawn.items) |row| if (row.node == node) return row.colour;
+    return null;
+}
 
 /// The first element whose texts include `key`.
 fn elementOf(database: *const elk.database.Database, key: []const u8) ?usize {

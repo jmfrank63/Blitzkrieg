@@ -1,7 +1,8 @@
-//! The extended layout's minimum for a translator: File menu, the list of
-//! texts (the tree comes later), the selected text's original and its
-//! translation, and a status line. Every save point goes through the
-//! session (D-15): leaving a text, Save (Ctrl+S), Close and Exit.
+//! The extended layout's minimum for a translator: File menu, the text tree
+//! coloured by state, the selected text's original, its translation and the
+//! state buttons, and a status line. Every save point goes through the
+//! session (D-15): leaving a text, Save (Ctrl+S), Close, Exit and the
+//! 30-second autosave.
 const std = @import("std");
 const imgui = @import("editor_imgui");
 const sdl3 = @import("sdl3");
@@ -11,7 +12,8 @@ const settings_mod = @import("settings.zig");
 const window_mod = @import("editor_kit").window;
 
 const ig = imgui.c;
-const Session = session_mod.Session;
+pub const Session = session_mod.Session;
+const State = session_mod.State;
 
 pub const app_title = "Blitzkrieg ELK";
 
@@ -33,9 +35,28 @@ pub const Ui = struct {
     /// Set by `do=focus:translation`: the translation box takes the keyboard
     /// at the next frame.
     focus_translation: bool = false,
-    /// How many list rows the last frame drew (the smoke's proof the list
+    /// How many tree rows the last frame drew (the smoke's proof the tree
     /// was laid out).
     rows_drawn: usize = 0,
+    /// Which folders are open, one flag per tree node; laid out again for
+    /// each database opened (`expanded_for`).
+    expanded: std.ArrayListUnmanaged(bool) = .empty,
+    expanded_for: ?[*]const @import("elk_core").tree.Node = null,
+    /// The nodes the tree shows, every node whose folders are open.
+    visible: std.ArrayListUnmanaged(u32) = .empty,
+    /// The rows the last frame drew and the colour each was drawn in, for
+    /// the scripted runs' tree expectations.
+    drawn: std.ArrayListUnmanaged(Drawn) = .empty,
+    /// The node the tree scrolls to in the next frame.
+    scroll_to: ?u32 = null,
+    /// The last frame drew the state buttons (a scripted press needs them).
+    state_buttons_drawn: bool = false,
+    /// Added to the autosave clock: the scripted runs' `do=wait`, so 30
+    /// seconds pass without waiting them out.
+    clock_offset_ms: u64 = 0,
+    /// A scripted run's `do=kill`: the frame loop stops at once, without
+    /// a save point, as a crash would.
+    killed: bool = false,
     quit: bool = false,
     /// The last Exit could not save; the next one quits anyway.
     exit_refused: bool = false,
@@ -43,6 +64,14 @@ pub const Ui = struct {
     /// False in scripted runs: File > Open requests the slot but shows no OS
     /// dialog, and the schedule answers it (`do=answer:<path>`).
     os_dialogs: bool = true,
+
+    pub const Drawn = struct { node: u32, colour: u32 };
+
+    pub fn deinit(self: *Ui) void {
+        self.expanded.deinit(self.gpa);
+        self.visible.deinit(self.gpa);
+        self.drawn.deinit(self.gpa);
+    }
 
     /// Opens `elk_path` and records it as the most recent database.
     pub fn openDatabase(self: *Ui, elk_path: []const u8) void {
@@ -97,8 +126,49 @@ pub const Ui = struct {
         }
     }
 
-    pub fn select(self: *Ui, index: usize) void {
-        self.session.select(index) catch {};
+    /// Selects the text, saving the one being left, and shows it in the
+    /// tree: its folders open and the tree scrolled to it, as the MFC tree
+    /// selected its item.
+    pub fn select(self: *Ui, index: usize) !void {
+        try self.session.select(index);
+        self.reveal(self.session.tree.?.node_of_text[index]);
+    }
+
+    /// A click on a tree row: a text is selected, a folder is left to its
+    /// arrow.
+    pub fn clickRow(self: *Ui, node: u32) void {
+        const text = self.session.tree.?.nodes[node].text orelse return;
+        self.select(text) catch {};
+    }
+
+    /// Opens every folder above `node` and scrolls the tree to it.
+    pub fn reveal(self: *Ui, node: u32) void {
+        const tree = &self.session.tree.?;
+        self.syncExpanded() catch return;
+        var parent = tree.nodes[node].parent;
+        while (parent) |folder| : (parent = tree.nodes[folder].parent) self.expanded.items[folder] = true;
+        self.scroll_to = node;
+    }
+
+    /// A state button: the selected text's state, written at once.
+    pub fn pressState(self: *Ui, state: State) void {
+        self.session.setState(state) catch {};
+    }
+
+    /// The autosave clock: SDL's milliseconds plus the scripted offset.
+    pub fn now(self: *const Ui) u64 {
+        return sdl3.c.SDL_GetTicks() + self.clock_offset_ms;
+    }
+
+    /// The expanded flags for the open tree: all closed but the roots, as
+    /// the MFC tree started, whenever another database was opened.
+    fn syncExpanded(self: *Ui) !void {
+        const tree = &self.session.tree.?;
+        if (self.expanded_for == tree.nodes.ptr and self.expanded.items.len == tree.nodes.len) return;
+        try self.expanded.resize(self.gpa, tree.nodes.len);
+        for (tree.nodes, self.expanded.items) |node, *open| open.* = node.parent == null;
+        self.expanded_for = tree.nodes.ptr;
+        self.scroll_to = null;
     }
 
     pub fn saveSettings(self: *Ui) void {
@@ -128,6 +198,7 @@ pub const Ui = struct {
         window.setTitle(self.title().ptr);
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_S, ig.ImGuiInputFlags_RouteGlobal)) self.session.save() catch {};
         if (ig.igShortcut(ig.ImGuiMod_Ctrl | ig.ImGuiKey_O, ig.ImGuiInputFlags_RouteGlobal)) self.requestOpen(window);
+        _ = self.session.tick(self.now());
 
         const viewport = ig.igGetMainViewport();
         ig.igSetNextWindowPos(viewport.*.WorkPos, 0);
@@ -138,6 +209,8 @@ pub const Ui = struct {
         defer ig.igEnd();
         self.drawMenu(window);
         self.rows_drawn = 0;
+        self.drawn.clearRetainingCapacity();
+        self.state_buttons_drawn = false;
         if (!self.session.isOpen()) {
             ig.igTextUnformatted("No database is open. Open an elk.xml under File > Open, or pick one under File > Recent.");
             self.drawFailure();
@@ -145,7 +218,7 @@ pub const Ui = struct {
         }
         const avail = ig.igGetContentRegionAvail();
         const body_height = avail.y - ig.igGetFrameHeightWithSpacing();
-        if (ig.igBeginChild("texts", .{ .x = avail.x * 0.35, .y = body_height }, ig.ImGuiChildFlags_Borders, 0)) self.drawList();
+        if (ig.igBeginChild("texts", .{ .x = avail.x * 0.35, .y = body_height }, ig.ImGuiChildFlags_Borders, 0)) self.drawTree();
         ig.igEndChild();
         ig.igSameLine();
         if (ig.igBeginChild("text", .{ .x = 0, .y = body_height }, 0, 0)) self.drawText();
@@ -183,19 +256,55 @@ pub const Ui = struct {
         if (ig.igMenuItem("Exit")) self.requestExit();
     }
 
-    fn drawList(self: *Ui) void {
+    /// The tree as rows: the open part of it, clipped to what the child
+    /// window shows, each row in its node's state colour.
+    fn drawTree(self: *Ui) void {
+        self.syncExpanded() catch return;
+        const tree = &self.session.tree.?;
+        self.visible.clearRetainingCapacity();
+        var scroll_row: ?usize = null;
+        var index: u32 = 0;
+        while (index < tree.nodes.len) {
+            if (self.scroll_to == index) scroll_row = self.visible.items.len;
+            self.visible.append(self.gpa, index) catch return;
+            index = if (!tree.nodes[index].isText() and self.expanded.items[index]) index + 1 else tree.nodes[index].end;
+        }
+        const selected_node: ?u32 = if (self.session.selected) |text| tree.node_of_text[text] else null;
+        const indent = ig.igGetTreeNodeToLabelSpacing();
+
         var clipper = std.mem.zeroes(ig.ImGuiListClipper);
-        ig.ImGuiListClipper_Begin(&clipper, @intCast(self.session.entries.items.len), -1.0);
+        ig.ImGuiListClipper_Begin(&clipper, @intCast(self.visible.items.len), -1.0);
         defer ig.ImGuiListClipper_End(&clipper);
+        if (scroll_row) |row| ig.ImGuiListClipper_IncludeItemByIndex(&clipper, @intCast(row));
         var label: [512:0]u8 = undefined;
         while (ig.ImGuiListClipper_Step(&clipper)) {
             var row: usize = @intCast(clipper.DisplayStart);
             while (row < clipper.DisplayEnd) : (row += 1) {
-                const key = self.session.entryAt(row).key;
-                const text = std.mem.printSentinel(&label, "{s}", .{key}, 0) catch continue;
-                ig.igPushIDInt(@intCast(row));
+                const at = self.visible.items[row];
+                const node = tree.nodes[at];
+                const text = std.mem.printSentinel(&label, "{s}", .{node.name}, 0) catch continue;
+                ig.igPushIDInt(@intCast(at));
                 defer ig.igPopID();
-                if (ig.igSelectableEx(text.ptr, self.session.selected == row, 0, .{ .x = 0, .y = 0 })) self.select(row);
+                const offset = indent * @as(f32, @floatFromInt(node.depth));
+                if (offset > 0) ig.igIndentEx(offset);
+                const colour = stateColour(node.state);
+                ig.igPushStyleColor(ig.ImGuiCol_Text, colour);
+                var flags: ig.ImGuiTreeNodeFlags = ig.ImGuiTreeNodeFlags_NoTreePushOnOpen | ig.ImGuiTreeNodeFlags_SpanAvailWidth;
+                if (selected_node == at) flags |= ig.ImGuiTreeNodeFlags_Selected;
+                if (node.isText()) {
+                    _ = ig.igTreeNodeEx(text.ptr, flags | ig.ImGuiTreeNodeFlags_Leaf);
+                    if (ig.igIsItemClicked()) self.clickRow(at);
+                } else {
+                    ig.igSetNextItemOpen(self.expanded.items[at], ig.ImGuiCond_Always);
+                    self.expanded.items[at] = ig.igTreeNodeEx(text.ptr, flags | ig.ImGuiTreeNodeFlags_OpenOnArrow | ig.ImGuiTreeNodeFlags_OpenOnDoubleClick);
+                }
+                ig.igPopStyleColor();
+                if (offset > 0) ig.igUnindentEx(offset);
+                if (self.scroll_to == at) {
+                    ig.igSetScrollHereY(0.5);
+                    self.scroll_to = null;
+                }
+                self.drawn.append(self.gpa, .{ .node = at, .colour = colour }) catch {};
                 self.rows_drawn += 1;
             }
         }
@@ -206,7 +315,7 @@ pub const Ui = struct {
             ig.igTextUnformatted("Select a text in the list.");
             return;
         };
-        const half = (ig.igGetContentRegionAvail().y - 2 * ig.igGetTextLineHeightWithSpacing()) / 2;
+        const half = (ig.igGetContentRegionAvail().y - 2 * ig.igGetTextLineHeightWithSpacing() - ig.igGetFrameHeightWithSpacing()) / 2;
         // The text's own ID, so an edit box active on the previous text does
         // not carry its buffer over to this one.
         ig.igPushIDInt(@intCast(index));
@@ -215,6 +324,7 @@ pub const Ui = struct {
         if (self.session.original.storage(self.gpa)) |storage| {
             _ = ig.igInputTextMultilineEx("##original", storage.ptr, storage.len, .{ .x = -1, .y = half }, ig.ImGuiInputTextFlags_ReadOnly, null, null);
         } else |_| {}
+        self.drawStateButtons();
         ig.igTextUnformatted("Translation");
         if (self.focus_translation) {
             ig.igSetKeyboardFocusHere();
@@ -226,6 +336,23 @@ pub const Ui = struct {
         } else |_| {}
     }
 
+    /// The edit view's state radio buttons. Outdated shows when an update
+    /// set it but cannot be chosen.
+    fn drawStateButtons(self: *Ui) void {
+        ig.igTextUnformatted("State:");
+        for ([_]State{ .not_translated, .outdated, .translated, .approved }) |state| {
+            var name: [32:0]u8 = undefined;
+            const label = std.mem.printSentinel(&name, "{s}", .{stateName(state)}, 0) catch continue;
+            ig.igSameLine();
+            ig.igBeginDisabled(state == .outdated);
+            ig.igPushStyleColor(ig.ImGuiCol_Text, stateColour(state));
+            if (ig.igRadioButton(label.ptr, self.session.state == state)) self.pressState(state);
+            ig.igPopStyleColor();
+            ig.igEndDisabled();
+        }
+        self.state_buttons_drawn = true;
+    }
+
     fn drawStatus(self: *Ui) void {
         var buffer: [768:0]u8 = undefined;
         const failure = self.session.failureText();
@@ -233,13 +360,13 @@ pub const Ui = struct {
             std.mem.printSentinel(&buffer, "{s}{s}", .{ failure, if (self.exit_refused) " | Exit again to quit without saving" else "" }, 0)
         else if (self.session.selected) |index|
             std.mem.printSentinel(&buffer, "{d} texts | {s} | {s}{s}", .{
-                self.session.entries.items.len,
-                self.session.entryAt(index).key,
+                self.session.textCount(),
+                self.session.textAt(index).key,
                 stateName(self.session.state),
                 if (self.session.dirty()) " | unsaved" else "",
             }, 0)
         else
-            std.mem.printSentinel(&buffer, "{d} texts", .{self.session.entries.items.len}, 0);
+            std.mem.printSentinel(&buffer, "{d} texts", .{self.session.textCount()}, 0);
         ig.igTextUnformatted((text catch return).ptr);
     }
 
@@ -259,6 +386,21 @@ pub fn stateName(state: session_mod.State) []const u8 {
         .translated => "Translated",
         .approved => "Approved",
     };
+}
+
+/// The four states' colours (07-CONTEXT: red, yellow, green, blue), light
+/// enough to read on the dark theme, as ImGui's packed ABGR.
+pub fn stateColour(state: State) u32 {
+    return switch (state) {
+        .not_translated => rgb(235, 80, 80),
+        .outdated => rgb(230, 200, 60),
+        .translated => rgb(90, 200, 90),
+        .approved => rgb(100, 155, 245),
+    };
+}
+
+fn rgb(r: u32, g: u32, b: u32) u32 {
+    return 0xFF00_0000 | (b << 16) | (g << 8) | r;
 }
 
 /// ImGui grows the translation buffer through this when an edit needs more
