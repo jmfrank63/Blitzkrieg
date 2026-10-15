@@ -1,9 +1,0 @@
-bRetVal == 1
-Can't translate charset info
-
-C:\home\A7\FontGen\FontGen.cpp(164): LoadFont
-C:\home\A7\FontGen\FontGen.cpp(479): main
-<UNKNOWN>(0): mainCRTStartup
-<UNKNOWN>(0): <UNKNOWN>
-
-
