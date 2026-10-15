@@ -339,6 +339,49 @@ test "a missing resource editor binary fails the stage naming the path" {
     try std.testing.expectError(error.MissingResourceEditor, stage.stage(io, allocator, options));
 }
 
+test "--tool stages each bk-* tool under Tools and prunes one no longer passed" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.repo_name, "zig-out/bin/bk-pak" }),
+        .data = "bk-pak fixture",
+    });
+    // An earlier stage's tool that this build no longer ships.
+    try tmp.dir.createDirPath(io, try std.fs.path.join(allocator, &.{ fixture.install_name, "Tools" }));
+    try tmp.dir.writeFile(io, .{
+        .sub_path = try std.fs.path.join(allocator, &.{ fixture.install_name, "Tools/bk-retired" }),
+        .data = "retired tool",
+    });
+    var options = fixture.options;
+    options.tools = &.{"zig-out/bin/bk-pak"};
+    try stage.stage(io, allocator, options);
+
+    const destination = try std.Io.Dir.cwd().openDir(io, fixture.install_path, .{ .iterate = true, .access_sub_paths = true });
+    defer destination.close(io);
+    try expectStagedFile(destination, io, allocator, "Tools/bk-pak", "bk-pak fixture");
+    try expectStagedPathAbsent(destination, io, "Tools/bk-retired");
+}
+
+test "a missing bk-* tool binary fails the stage naming the path" {
+    const io = std.testing.io;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const fixture = try writeRepositoryFixture(io, allocator, &tmp);
+    var options = fixture.options;
+    options.tools = &.{"zig-out/bin/bk-nosuch"};
+    try std.testing.expectError(error.MissingTool, stage.stage(io, allocator, options));
+}
+
 test "a mods directory in the repository is never staged" {
     const io = std.testing.io;
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);

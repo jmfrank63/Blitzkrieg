@@ -2615,6 +2615,7 @@ pub fn build(b: *std.Build) void {
         .debug_files = stage_debug_files,
         .metadata_files = stage_metadata_files,
         .editors_supported = target.result.os.tag == .windows,
+        .tools = b.allocator.dupe(*std.Build.Step.Compile, &.{bk_pak}) catch @panic("OOM"),
     };
     const install_game_cmd = addStageGameRun(b, stage_game_inputs, stage_root);
     if (!copy_data) install_game_cmd.addArg("--link-data");
@@ -3516,6 +3517,9 @@ const StageGameInputs = struct {
     debug_files: []const []const u8,
     metadata_files: []const []const u8,
     editors_supported: bool,
+    /// The bk-* modding tools, staged into <install>/Tools on every platform
+    /// (Phase 8, D-27), so the release zip carries them.
+    tools: []const *std.Build.Step.Compile,
 };
 
 /// The one way to create a stage-game run (install-game, package-game,
@@ -3537,6 +3541,12 @@ fn addStageGameRun(b: *std.Build, inputs: StageGameInputs, install_dir: []const 
     run.addArg(install_dir);
     addStageLayoutArgs(run, inputs.game_name, inputs.runtime_files, inputs.debug_files, inputs.metadata_files, inputs.editors_supported);
     run.step.dependOn(inputs.game_all_step);
+    // addFileArg both names the exact binary this build produced and orders
+    // the run after its compile, as --map-editor does.
+    for (inputs.tools) |tool| {
+        run.addArg("--tool");
+        run.addFileArg(tool.getEmittedBin());
+    }
     // Staging copies the third-party notice out of a plain path, the way it
     // copies the shader blobs, so an edited licence text has to be part of the
     // cache key or the staged and packaged copies keep the superseded notice.

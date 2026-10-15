@@ -33,6 +33,11 @@ pub const Options = struct {
     // Data, so it is staged the same way under --link-data, where Data is a
     // link into the repository and must not be written.
     season_data: ?[]const u8 = null,
+    // D-27 (Phase 8): the built bk-* modding tools (paths absolute, or
+    // relative to repo_root), staged into <install>/Tools under their own base
+    // names on every platform, so a modder holding only the release zip has
+    // them where the legacy zip.exe/unzip.exe used to ship.
+    tools: []const []const u8 = &.{},
     layout: RuntimeLayout = .{
         .game_name = "Game.exe",
         .runtime_files = &.{},
@@ -55,11 +60,13 @@ const ParsedOptions = struct {
     runtime_files: std.ArrayList([]const u8),
     debug_files: std.ArrayList([]const u8),
     metadata_files: std.ArrayList([]const u8),
+    tools: std.ArrayList([]const u8),
 
     fn deinit(self: *ParsedOptions, allocator: std.mem.Allocator) void {
         self.runtime_files.deinit(allocator);
         self.debug_files.deinit(allocator);
         self.metadata_files.deinit(allocator);
+        self.tools.deinit(allocator);
     }
 };
 
@@ -70,6 +77,8 @@ fn parseArgs(args: *std.process.Args.Iterator, allocator: std.mem.Allocator) !Pa
     errdefer debug_files.deinit(allocator);
     var metadata_files = std.ArrayList([]const u8).empty;
     errdefer metadata_files.deinit(allocator);
+    var tools = std.ArrayList([]const u8).empty;
+    errdefer tools.deinit(allocator);
 
     var options = Options{
         .repo_root = args.next() orelse return error.InvalidArguments,
@@ -102,6 +111,8 @@ fn parseArgs(args: *std.process.Args.Iterator, allocator: std.mem.Allocator) !Pa
             options.resource_editor = args.next() orelse return error.InvalidArguments;
         } else if (std.mem.eql(u8, arg, "--season-data")) {
             options.season_data = args.next() orelse return error.InvalidArguments;
+        } else if (std.mem.eql(u8, arg, "--tool")) {
+            try tools.append(allocator, args.next() orelse return error.InvalidArguments);
         } else {
             return error.InvalidArguments;
         }
@@ -114,7 +125,8 @@ fn parseArgs(args: *std.process.Args.Iterator, allocator: std.mem.Allocator) !Pa
         .metadata_files = selected_metadata_files,
         .editors_supported = editors_supported,
     };
-    return .{ .value = options, .runtime_files = runtime_files, .debug_files = debug_files, .metadata_files = metadata_files };
+    options.tools = tools.items;
+    return .{ .value = options, .runtime_files = runtime_files, .debug_files = debug_files, .metadata_files = metadata_files, .tools = tools };
 }
 
 pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
@@ -141,6 +153,7 @@ pub fn stage(io: std.Io, allocator: std.mem.Allocator, options: Options) !void {
         if (options.resource_editor) |resource_editor_path| {
             copyResourceEditor(io, repo, resource_editor_path, destination) catch |err| return failStep("copyResourceEditor", err);
         }
+        copyTools(io, repo, options.tools, destination) catch |err| return failStep("copyTools", err);
         copyShaderAssets(io, allocator, repo, destination) catch |err| return failStep("copyShaderAssets", err);
         seedConfigIfMissing(io, repo, destination) catch |err| return failStep("seed config.cfg", err);
         copyFile(io, repo, "Data/Configs/defconf.cfg", destination, "defconf.cfg") catch |err| return failStep("copy defconf.cfg", err);
@@ -198,6 +211,33 @@ fn verifyStagedPayload(io: std.Io, destination: std.Io.Dir, options: Options) !v
         try requireStagedFile(io, destination, std.fs.path.basename(resource_editor_path));
     }
     if (options.season_data != null) try requireStagedFile(io, destination, season_data_dir);
+    for (options.tools) |tool_path| {
+        var name_buf: [std.fs.max_path_bytes]u8 = undefined;
+        try requireStagedFile(io, destination, try toolStagedPath(&name_buf, tool_path));
+    }
+}
+
+/// Where the staged layout keeps the bk-* modding tools (D-27).
+pub const tools_dir = "Tools";
+
+fn toolStagedPath(buf: []u8, tool_path: []const u8) ![]const u8 {
+    return std.fmt.bufPrint(buf, tools_dir ++ "/{s}", .{std.fs.path.basename(tool_path)});
+}
+
+/// Rebuilds <install>/Tools from the given binaries. The directory is
+/// replaced rather than merged, the way Editors is, so a tool a later build
+/// drops does not linger in an upgraded install; a missing source fails
+/// naming the path rather than shipping a package without it.
+fn copyTools(io: std.Io, repo: std.Io.Dir, tool_paths: []const []const u8, destination: std.Io.Dir) !void {
+    try removeTreeIfPresent(io, destination, tools_dir);
+    for (tool_paths) |tool_path| {
+        var name_buf: [std.fs.max_path_bytes]u8 = undefined;
+        const source_dir = if (std.fs.path.isAbsolute(tool_path)) std.Io.Dir.cwd() else repo;
+        copyFile(io, source_dir, tool_path, destination, try toolStagedPath(&name_buf, tool_path)) catch |err| {
+            std.debug.print("stage: tool '{s}' could not be staged: {s}\n", .{ tool_path, @errorName(err) });
+            return error.MissingTool;
+        };
+    }
 }
 
 /// Where the staged layout keeps the generated season textures, beside Data.
